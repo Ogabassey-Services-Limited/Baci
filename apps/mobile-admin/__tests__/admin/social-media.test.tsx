@@ -21,7 +21,7 @@ vi.mock('@/lib/invalidate-store-readiness', () => ({
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
   onMutate?: () => unknown | Promise<unknown>;
-  onError?: (error: unknown) => void;
+  onError?: (error: unknown, variables?: unknown, context?: unknown) => void;
   onSuccess?: (
     data: unknown,
     variables?: unknown,
@@ -85,7 +85,7 @@ vi.mock('@tanstack/react-query', () => ({
             const data = await options.mutationFn();
             await options.onSuccess?.(data, undefined, context);
           } catch (error) {
-            options.onError?.(error);
+            options.onError?.(error, undefined, context);
           }
         })();
         mocks.lastMutation = mutation;
@@ -414,6 +414,73 @@ describe('SocialMediaScreen', () => {
 
     expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
     expect(mocks.back).not.toHaveBeenCalled();
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
+
+  it('does not navigate after the merchant switches during readiness invalidation', async () => {
+    let releaseReadiness!: () => void;
+    const readiness = new Promise<void>((resolve) => {
+      releaseReadiness = resolve;
+    });
+    mocks.invalidateStoreReadiness.mockReturnValueOnce(readiness);
+    mocks.routeParams = { from: 'setup' };
+    mocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-1', social_media: { instagram: 'old_insta' } },
+      isLoading: false,
+    });
+    mocks.updateMerchantSettings.mockResolvedValueOnce({});
+
+    const rendered = render(<SocialMediaScreen />);
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'new_insta' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => {
+      expect(mocks.invalidateStoreReadiness).toHaveBeenCalledTimes(1);
+    });
+
+    mocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-2', social_media: {} },
+      isLoading: false,
+    });
+    rendered.rerender(<SocialMediaScreen />);
+    releaseReadiness();
+    await mocks.lastMutation;
+
+    expect(mocks.back).not.toHaveBeenCalled();
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
+
+  it('does not show a save error after the merchant switches during an in-flight save', async () => {
+    let rejectSave!: (error: Error) => void;
+    mocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-1', social_media: { instagram: 'old_insta' } },
+      isLoading: false,
+    });
+    mocks.updateMerchantSettings.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectSave = reject;
+        })
+    );
+
+    const rendered = render(<SocialMediaScreen />);
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'new_insta' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => {
+      expect(mocks.updateMerchantSettings).toHaveBeenCalledTimes(1);
+    });
+
+    mocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-2', social_media: {} },
+      isLoading: false,
+    });
+    rendered.rerender(<SocialMediaScreen />);
+    rejectSave(new Error('Save failed'));
+    await mocks.lastMutation;
+
     expect(mocks.alert).not.toHaveBeenCalled();
   });
 

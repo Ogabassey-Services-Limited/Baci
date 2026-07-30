@@ -29,7 +29,8 @@ describe('invalidateAnalyticsSaveReadiness', () => {
     let completed = false;
     const invalidation = invalidateAnalyticsSaveReadiness(
       queryClient,
-      'merchant-1'
+      'merchant-1',
+      'user-1'
     ).then(() => {
       completed = true;
     });
@@ -56,7 +57,7 @@ describe('invalidateAnalyticsSaveReadiness', () => {
     );
 
     await expect(
-      invalidateAnalyticsSaveReadiness(queryClient, 'merchant-1')
+      invalidateAnalyticsSaveReadiness(queryClient, 'merchant-1', 'user-1')
     ).resolves.toBeUndefined();
   });
 
@@ -67,7 +68,7 @@ describe('invalidateAnalyticsSaveReadiness', () => {
       .mockRejectedValueOnce(new Error('Analytics refresh failed'));
 
     await expect(
-      invalidateAnalyticsSaveReadiness(queryClient, 'merchant-1')
+      invalidateAnalyticsSaveReadiness(queryClient, 'merchant-1', 'user-1')
     ).resolves.toBeUndefined();
     expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
       queryClient,

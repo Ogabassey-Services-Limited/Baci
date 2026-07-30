@@ -208,6 +208,10 @@ export default function AnalyticsConfigScreen() {
   const router = useRouter();
   const { from } = useLocalSearchParams<{ from?: string }>();
   const queryClient = useQueryClient();
+  const activeMerchantIdRef = useRef(merchantId);
+  const activeUserIdRef = useRef(user?.id);
+  activeMerchantIdRef.current = merchantId;
+  activeUserIdRef.current = user?.id;
   const hasGrowthIntegrations = baciFeatureGates.hasFeature(
     merchantContext,
     'growth_integrations'
@@ -240,7 +244,7 @@ export default function AnalyticsConfigScreen() {
     isError,
     refetch,
   } = useQuery({
-    queryKey: ['merchant-analytics-full', user?.id],
+    queryKey: ['merchant-analytics-full', user?.id, merchantId],
     queryFn: fetchAnalyticsConfigContext,
     enabled: Boolean(user?.id && hasGrowthIntegrations),
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -300,20 +304,44 @@ export default function AnalyticsConfigScreen() {
       if (error) throw error;
       return savedAnalytics;
     },
-    onSuccess: async (savedAnalytics = analyticsRef.current) => {
-      const readinessMerchantId = merchantId;
-      if (!readinessMerchantId) throw new Error('No merchant found');
+    onMutate: () => ({ merchantId, userId: user?.id }),
+    onSuccess: async (savedAnalytics, _variables, context) => {
+      const readinessMerchantId = context?.merchantId ?? merchantId;
+      const savedUserId = context?.userId ?? user?.id;
+      const completedAnalytics = savedAnalytics ?? analyticsRef.current;
+      if (!readinessMerchantId || !savedUserId) {
+        throw new Error('No merchant found');
+      }
+      if (
+        activeMerchantIdRef.current !== readinessMerchantId ||
+        activeUserIdRef.current !== savedUserId
+      ) {
+        return;
+      }
+      await invalidateAnalyticsSaveReadiness(
+        queryClient,
+        readinessMerchantId,
+        savedUserId
+      );
+      if (
+        activeMerchantIdRef.current !== readinessMerchantId ||
+        activeUserIdRef.current !== savedUserId
+      ) {
+        return;
+      }
       const hasPendingEdits = !analyticsStatesEqual(
         analyticsRef.current,
-        savedAnalytics
+        completedAnalytics
       );
-      setSeededSnapshot(savedAnalytics);
+      setSeededSnapshot(completedAnalytics);
       setIsDirty(hasPendingEdits);
-      queryClient.setQueryData(['merchant-analytics-full', user?.id], {
-        analytics: savedAnalytics,
-        isOwner: true,
-      });
-      await invalidateAnalyticsSaveReadiness(queryClient, readinessMerchantId);
+      queryClient.setQueryData(
+        ['merchant-analytics-full', savedUserId, readinessMerchantId],
+        {
+          analytics: completedAnalytics,
+          isOwner: true,
+        }
+      );
       if (isStoreReadinessSetupOrigin(from)) {
         router.back();
         return;
@@ -322,7 +350,17 @@ export default function AnalyticsConfigScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      const errorMerchantId = context?.merchantId ?? merchantId;
+      const errorUserId = context?.userId ?? user?.id;
+      if (
+        errorMerchantId &&
+        errorUserId &&
+        (activeMerchantIdRef.current !== errorMerchantId ||
+          activeUserIdRef.current !== errorUserId)
+      ) {
+        return;
+      }
       Alert.alert('Error', error.message);
     },
   });

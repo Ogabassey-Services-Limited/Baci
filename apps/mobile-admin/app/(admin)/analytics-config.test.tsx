@@ -51,7 +51,12 @@ const supabaseMocks = vi.hoisted(() => {
 const mutationMocks = vi.hoisted(() => {
   type MutationOptions = {
     mutationFn: (variables?: unknown) => Promise<unknown>;
-    onSuccess?: (data?: unknown) => Promise<void> | void;
+    onMutate?: () => unknown | Promise<unknown>;
+    onSuccess?: (
+      data?: unknown,
+      variables?: unknown,
+      context?: unknown
+    ) => Promise<void> | void;
   };
   const state: { options: MutationOptions | null } = { options: null };
   return {
@@ -61,9 +66,11 @@ const mutationMocks = vi.hoisted(() => {
       return {
         isPending: false,
         mutate: (variables?: unknown) => {
-          void options.mutationFn(variables).then(async (data) => {
-            await options.onSuccess?.(data);
-          });
+          void (async () => {
+            const context = await options.onMutate?.();
+            const data = await options.mutationFn(variables);
+            await options.onSuccess?.(data, variables, context);
+          })();
         },
       };
     },
@@ -577,7 +584,7 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
       await Promise.resolve();
     });
     expect(queryClientMocks.setQueryData).toHaveBeenCalledWith(
-      ['merchant-analytics-full', 'user-1'],
+      ['merchant-analytics-full', 'user-1', 'merchant-1'],
       expect.objectContaining({
         analytics: expect.objectContaining({
           facebook_pixel_id: 'EDITED-PIXEL-123',
@@ -688,7 +695,7 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
       expect.any(Array)
     );
     expect(queryClientMocks.setQueryData).toHaveBeenCalledWith(
-      ['merchant-analytics-full', 'user-1'],
+      ['merchant-analytics-full', 'user-1', 'merchant-1'],
       expect.objectContaining({
         analytics: expect.objectContaining({
           facebook_pixel_id: 'EDITED-PIXEL-123',
@@ -780,6 +787,37 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
       expect.any(String),
       expect.any(Array)
     );
+  });
+
+  it('does not update analytics cache or navigate after the merchant switches during readiness refresh', async () => {
+    let releaseReadiness!: () => void;
+    const readiness = new Promise<void>((resolve) => {
+      releaseReadiness = resolve;
+    });
+    readinessMocks.invalidateStoreReadiness.mockReturnValueOnce(readiness);
+    routeMocks.params = { from: 'setup' };
+    render(<AnalyticsConfigScreen />);
+    const originOptions = mutationMocks.state.options;
+    const saveContext = await originOptions?.onMutate?.();
+
+    accessMocks.useMerchant.mockReturnValue({
+      isLoading: false,
+      merchant: { id: 'merchant-2', plan_tier: 'pro', premium_features: [] },
+    });
+    render(<AnalyticsConfigScreen />);
+
+    const completion = mutationMocks.state.options?.onSuccess?.(
+      { ...merchantAnalytics },
+      undefined,
+      saveContext
+    );
+    await Promise.resolve();
+    releaseReadiness();
+    await completion;
+
+    expect(queryClientMocks.setQueryData).not.toHaveBeenCalled();
+    expect(routeMocks.back).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 });
 

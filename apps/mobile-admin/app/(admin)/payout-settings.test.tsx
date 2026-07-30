@@ -365,4 +365,33 @@ describe('PayoutSettingsScreen', () => {
       expect.any(Array)
     );
   });
+
+  it('ignores payout completion callbacks after the merchant switches', () => {
+    mocks.accountName = 'Baci Store';
+    mocks.routeParams = { from: 'setup' };
+    const rendered = render(<PayoutSettingsScreen />);
+    fireEvent.change(screen.getByPlaceholderText('0123456789'), {
+      target: { value: '0123456789' },
+    });
+    fireEvent.click(screen.getByLabelText('Select bank'));
+    fireEvent.click(screen.getByText('GTBank'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const callbacks = mocks.savePayoutSettings.mutate.mock.calls[0]?.[1] as
+      | { onError?: (error: Error) => void; onSuccess?: () => void }
+      | undefined;
+    mocks.merchantData = {
+      id: 'merchant-2',
+      bank_account_number: null,
+      bank_code: null,
+      bank_name: null,
+      business_name: 'Second Store',
+    };
+    rendered.rerender(<PayoutSettingsScreen />);
+    callbacks?.onSuccess?.();
+    callbacks?.onError?.(new Error('Save failed'));
+
+    expect(mocks.routerBack).not.toHaveBeenCalled();
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
 });

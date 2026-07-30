@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -63,6 +63,8 @@ export default function PayoutSettingsScreen() {
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
+  const activeMerchantIdRef = useRef(merchant?.id);
+  activeMerchantIdRef.current = merchant?.id;
 
   // Account verification — fires once per settled (accountnumber, bank) pair
   const { accountName, isVerifying, verifyError } =
@@ -78,6 +80,7 @@ export default function PayoutSettingsScreen() {
   const [prevSeedKey, setPrevSeedKey] = useState<string | null>(null);
   if (merchant) {
     const seedKey = [
+      merchant.id,
       merchant.bank_account_number ?? '',
       merchant.bank_code ?? '',
       merchant.bank_name ?? '',
@@ -126,6 +129,7 @@ export default function PayoutSettingsScreen() {
       Alert.alert('Error', 'Please wait for account verification');
       return;
     }
+    const savedMerchantId = merchant?.id;
     savePayoutSettings.mutate(
       {
         bankCode: selectedBank.code,
@@ -134,6 +138,12 @@ export default function PayoutSettingsScreen() {
       },
       {
         onSuccess: () => {
+          if (
+            savedMerchantId &&
+            activeMerchantIdRef.current !== savedMerchantId
+          ) {
+            return;
+          }
           if (isStoreReadinessSetupOrigin(from)) {
             router.back();
             return;
@@ -143,6 +153,12 @@ export default function PayoutSettingsScreen() {
           ]);
         },
         onError: (error) => {
+          if (
+            savedMerchantId &&
+            activeMerchantIdRef.current !== savedMerchantId
+          ) {
+            return;
+          }
           Alert.alert('Error', error.message || 'Failed to update details');
         },
       }

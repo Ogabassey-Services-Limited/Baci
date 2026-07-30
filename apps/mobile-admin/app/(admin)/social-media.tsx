@@ -122,6 +122,9 @@ export default function SocialMediaScreen() {
         );
       }
       await Promise.allSettled(invalidations);
+      if (savedMerchantId && activeMerchantIdRef.current !== savedMerchantId) {
+        return;
+      }
       if (isStoreReadinessSetupOrigin(from)) {
         router.back();
         return;
@@ -130,7 +133,10 @@ export default function SocialMediaScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, _variables, savedMerchantId) => {
+      if (savedMerchantId && activeMerchantIdRef.current !== savedMerchantId) {
+        return;
+      }
       Alert.alert('Error', (error as Error).message);
     },
   });
