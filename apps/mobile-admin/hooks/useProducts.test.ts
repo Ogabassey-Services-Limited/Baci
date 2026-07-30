@@ -13,12 +13,18 @@ const mocks = vi.hoisted(() => ({
   }>,
   mutationConfigs: [] as Array<{
     mutationFn?: (variables: unknown) => unknown;
+    onMutate?: (variables: unknown) => unknown;
     onSettled?: (
       data: unknown,
       error: unknown,
-      variables: { productId: string; stock: number }
+      variables: { productId: string; stock: number },
+      context?: unknown
     ) => void;
-    onSuccess?: (data: unknown, variables: Record<string, unknown>) => unknown;
+    onSuccess?: (
+      data: unknown,
+      variables: Record<string, unknown>,
+      context?: unknown
+    ) => unknown;
   }>,
   updateProductStatus: vi.fn(),
   updateProductRecord: vi.fn(),
@@ -89,14 +95,35 @@ vi.mock('@tanstack/react-query', () => ({
   },
   useMutation: (config: {
     mutationFn?: (variables: unknown) => unknown;
+    onMutate?: (variables: unknown) => unknown;
     onSettled?: (
       data: unknown,
       error: unknown,
-      variables: { productId: string; stock: number }
+      variables: { productId: string; stock: number },
+      context?: unknown
     ) => void;
-    onSuccess?: (data: unknown, variables: Record<string, unknown>) => unknown;
+    onSuccess?: (
+      data: unknown,
+      variables: Record<string, unknown>,
+      context?: unknown
+    ) => unknown;
   }) => {
-    mocks.mutationConfigs.push(config);
+    const mutationConfig = {
+      ...config,
+      onSuccess: config.onSuccess
+        ? (
+            data: unknown,
+            variables: Record<string, unknown>,
+            context?: unknown
+          ) =>
+            config.onSuccess?.(
+              data,
+              variables,
+              context ?? config.onMutate?.(variables)
+            )
+        : undefined,
+    };
+    mocks.mutationConfigs.push(mutationConfig);
     return {};
   },
   useQuery: (config: {
@@ -230,13 +257,19 @@ describe('useProducts branch semantics', () => {
     });
   });
 
-  it('invalidates the product list and changed product after stock updates settle', () => {
+  it('invalidates the product list and changed product after stock updates settle', async () => {
     useUpdateProductStock();
 
-    mocks.mutationConfigs[0]?.onSettled?.(undefined, undefined, {
+    const context = await mocks.mutationConfigs[0]?.onMutate?.({
       productId: 'product-1',
       stock: 7,
     });
+    await mocks.mutationConfigs[0]?.onSettled?.(
+      undefined,
+      undefined,
+      { productId: 'product-1', stock: 7 },
+      context
+    );
 
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['products', 'merchant-1'],
@@ -261,6 +294,28 @@ describe('useProducts branch semantics', () => {
     });
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['product'],
+    });
+  });
+
+  it('keeps a pending stock mutation scoped to its originating merchant after a merchant switch', async () => {
+    const variables = { productId: 'product-1', stock: 7 };
+    useUpdateProductStock();
+    const context = await mocks.mutationConfigs[0]?.onMutate?.(variables);
+
+    mocks.merchant = { id: 'merchant-2' };
+    useUpdateProductStock();
+    await mocks.mutationConfigs[1]?.onSettled?.(
+      undefined,
+      undefined,
+      variables,
+      context
+    );
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product', 'merchant-1', 'product-1'],
     });
   });
 
