@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
+  chmod,
+  link,
   lstat,
+  mkdir,
   mkdtemp,
   readdir,
   readFile,
@@ -22,11 +25,16 @@ test('generation C retires only an authenticated generation B watchdog render', 
   const root = await mkdtemp(join(tmpdir(), 'baci-watchdog-bound-residue-'));
   context.after(() => rm(root, { recursive: true, force: true }));
   const destination = join(root, 'baci-cwv-campaign-watchdog@.service');
-  const bytes = {
-    a: Buffer.from('watchdog generation a\n'),
-    b: Buffer.from('watchdog generation b\n'),
-    c: Buffer.from('watchdog generation c\n'),
-  };
+  const token = '@BACI_CWV_SOURCE_SHA@';
+  const templates = Object.fromEntries(
+    ['a', 'b', 'c'].map((key) => [key, `watchdog ${key} ${token}\n`])
+  );
+  const bytes = Object.fromEntries(
+    Object.entries(templates).map(([key, value]) => [
+      key,
+      Buffer.from(value.replace(token, source(key))),
+    ])
+  );
   const states = Object.fromEntries(
     Object.entries(bytes).map(([key, value], index) => [
       key,
@@ -62,6 +70,12 @@ test('generation C retires only an authenticated generation B watchdog render', 
   const stateByDirectory = new Map(
     Object.keys(states).map((key) => [basename(directory(key)), states[key]])
   );
+  const sourceRoot = join(root, 'source');
+  for (const key of Object.keys(states)) {
+    const generation = join(sourceRoot, states[key].sourceSha);
+    await mkdir(generation, { recursive: true });
+    await writeFile(join(generation, basename(destination)), templates[key]);
+  }
   const pinned = async (path) => {
     const details = await lstat(path);
     if (!details.isFile() || details.isSymbolicLink())
@@ -81,21 +95,34 @@ test('generation C retires only an authenticated generation B watchdog render', 
     `.baci-cwv-watchdog-v1-${sha256(destination)}-${digest}-${attempt}`;
   const interrupted = join(root, '.baci-cwv-watchdog.A1b2C3');
   const boundInterrupted = join(root, name(sha256(bytes.b), 'B2c3D4'));
-  await writeFile(interrupted, bytes.b, { mode: 0o644 });
+  await writeFile(interrupted, bytes.a.subarray(0, 11), { mode: 0o600 });
+  await chmod(interrupted, 0o600);
   await writeFile(boundInterrupted, bytes.b, { mode: 0o644 });
 
   await reconcileBootstrapWatchdogResidue(
-    { currentDirectory: directory('c'), destination },
+    { currentDirectory: directory('c'), destination, sourceRoot },
     dependencies
   );
 
-  assert.deepEqual(await readdir(root), []);
+  assert.deepEqual(
+    (await readdir(root)).filter((entry) => entry.startsWith('.baci-cwv')),
+    []
+  );
 
-  const foreign = join(root, name(sha256(bytes.a), 'D4e5F6'));
-  await writeFile(foreign, Buffer.from('foreign\n'), { mode: 0o644 });
+  const installedPrior = destination;
+  await writeFile(interrupted, bytes.a, { mode: 0o644 });
+  await link(interrupted, installedPrior);
+  await reconcileBootstrapWatchdogResidue(
+    { currentDirectory: directory('c'), destination, sourceRoot },
+    dependencies
+  );
+  assert.ok((await readdir(root)).includes(basename(destination)));
+
+  const foreign = join(root, '.baci-cwv-watchdog.D4e5F6');
+  await writeFile(foreign, Buffer.from('foreign\n'), { mode: 0o600 });
   await assert.rejects(
     reconcileBootstrapWatchdogResidue(
-      { currentDirectory: directory('c'), destination },
+      { currentDirectory: directory('c'), destination, sourceRoot },
       dependencies
     ),
     /watchdog render temporary drift/
@@ -108,7 +135,7 @@ test('generation C retires only an authenticated generation B watchdog render', 
   await writeFile(unbound, unboundBytes, { mode: 0o644 });
   await assert.rejects(
     reconcileBootstrapWatchdogResidue(
-      { currentDirectory: directory('c'), destination },
+      { currentDirectory: directory('c'), destination, sourceRoot },
       dependencies
     ),
     /watchdog render temporary drift/
@@ -120,7 +147,7 @@ test('generation C retires only an authenticated generation B watchdog render', 
   await symlink(destination, unsafe);
   await assert.rejects(
     reconcileBootstrapWatchdogResidue(
-      { currentDirectory: directory('c'), destination },
+      { currentDirectory: directory('c'), destination, sourceRoot },
       dependencies
     ),
     /unsafe bootstrap source path/

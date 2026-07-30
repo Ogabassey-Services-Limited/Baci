@@ -25,9 +25,7 @@ const functionSource = (name, next) => {
   return source.slice(start, end);
 };
 const watchdogResidues = async (units) =>
-  (await readdir(units)).filter((name) =>
-    name.startsWith('.baci-cwv-watchdog')
-  );
+  (await readdir(units)).filter((name) => name.startsWith('.'));
 
 test('routes a changed watchdog render through receipt-bound replacement', async (context) => {
   const root = await mkdtemp(join(tmpdir(), 'baci-watchdog-recovery-'));
@@ -61,15 +59,18 @@ test('routes a changed watchdog render through receipt-bound replacement', async
   );
   const expectedPrior = join(root, 'expected-prior.service');
   const initialPrior = template.replace('@BACI_CWV_SOURCE_SHA@', oldSha);
-  await writeFile(target, initialPrior, {
-    mode: 0o644,
-  });
+  const interrupted = join(units, '.baci-cwv-watchdog.A1b2C3');
+  await writeFile(target, initialPrior, { mode: 0o644 });
   await writeFile(expectedPrior, initialPrior);
   const node = join(root, 'node');
   await writeFile(
     node,
     `#!/bin/sh
 case "$1" in
+  *install-bootstrap-watchdog-residue.mjs)
+    for residue in ${JSON.stringify(units)}/.baci-cwv-watchdog.* ${JSON.stringify(units)}/.baci-cwv-watchdog-v1-*; do [ -e "$residue" ] || [ -L "$residue" ] || continue
+      case "\${residue##*/}" in .baci-cwv-watchdog.A1b2C3|.baci-cwv-watchdog.R3t4Y5|.baci-cwv-watchdog.E6m7P8|.baci-cwv-watchdog.F7n8Q9|.baci-cwv-watchdog.H8i9J0|*-K1l2M3) /bin/rm -f -- "$residue";; *) exit 65;; esac; done
+    ;;
   *install-bootstrap-replacement-file.mjs)
     [ "$2" = source ] || exit 64
     [ ! -e "$4" ] || /usr/bin/cmp -s "$4" ${JSON.stringify(expectedPrior)} || exit 65
@@ -144,8 +145,7 @@ render_watchdog ${nextSha}`;
   const digest = (value) => createHash('sha256').update(value).digest('hex');
   const boundName = (attempt, bytes = expectedNext) =>
     `.baci-cwv-watchdog-v1-${digest(target)}-${digest(bytes)}-${attempt}`;
-  const interrupted = join(units, '.baci-cwv-watchdog.A1b2C3');
-  await writeFile(interrupted, expectedNext, { mode: 0o644 });
+  await writeFile(interrupted, initialPrior, { mode: 0o644 });
   const result = runRender();
 
   assert.equal(result.status, 0, result.stderr);

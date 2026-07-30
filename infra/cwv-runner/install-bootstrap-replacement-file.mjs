@@ -89,12 +89,18 @@ async function atomicReplace(
       created = false;
       await dependencies.syncDirectory(directory);
     } else {
+      const priorIdentity = await dependencies.readIdentity(destination);
       await dependencies.exchangeFile(temporary, destination);
       created = false;
+      const displacedIdentity = await dependencies.readIdentity(temporary);
       const published = await dependencies.readProjection({
         [temporary]: prior,
         [destination]: expected,
       });
+      const confirmedDisplacedIdentity =
+        await dependencies.readIdentity(temporary);
+      if (!sameIdentity(displacedIdentity, confirmedDisplacedIdentity))
+        throw new TypeError('installed bootstrap replacement drift');
       if (
         !same(published[temporary], prior) ||
         !same(published[destination], expected)
@@ -107,6 +113,30 @@ async function atomicReplace(
         if (!sameIdentity(destinationIdentity, preparedIdentity))
           throw new TypeError('installed bootstrap replacement drift');
         if (!same(destinationProjection, expected))
+          throw new TypeError('installed bootstrap replacement drift');
+        const rollbackTemporaryIdentity =
+          await dependencies.readIdentity(temporary);
+        const rollbackTemporaryExpected = sameIdentity(
+          displacedIdentity,
+          priorIdentity
+        )
+          ? prior
+          : published[temporary];
+        const rollbackTemporaryProjection = (
+          await dependencies.readProjection({
+            [temporary]: rollbackTemporaryExpected,
+          })
+        )[temporary];
+        const confirmedRollbackTemporaryIdentity =
+          await dependencies.readIdentity(temporary);
+        if (
+          !sameIdentity(rollbackTemporaryIdentity, displacedIdentity) ||
+          !sameIdentity(
+            confirmedRollbackTemporaryIdentity,
+            displacedIdentity
+          ) ||
+          !same(rollbackTemporaryProjection, rollbackTemporaryExpected)
+        )
           throw new TypeError('installed bootstrap replacement drift');
         try {
           await dependencies.exchangeFile(temporary, destination);

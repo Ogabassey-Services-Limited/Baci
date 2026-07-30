@@ -90,3 +90,18 @@ test('refuses an unbound authenticated captured no-op', () => {
     /replacement authority chain/
   );
 });
+
+test('refuses an unbound authenticated completed no-op', () => {
+  const original = completed(captured('1', 'a', absent, file('1')), 'f');
+  const unboundNoop = completed(captured('2', 'b', file('8'), file('8')), 'd');
+  const changed = captured('3', 'c', file('1'), file('3'));
+
+  assert.throws(
+    () =>
+      resolveBootstrapReplacementChain(
+        [changed, unboundNoop, original],
+        changed
+      ),
+    /replacement authority chain/
+  );
+});

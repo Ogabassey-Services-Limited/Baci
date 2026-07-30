@@ -97,6 +97,17 @@ const isBoundCapturedNoop = (state, chain) =>
       .some((next) => canFollow(previous, state) && canFollow(state, next))
   );
 
+const isBoundCompletedNoop = (state, chain) =>
+  chain.some((previous, index) =>
+    chain
+      .slice(index + 1)
+      .some(
+        (next) =>
+          canFollow(previous, { ...state, phase: 'captured' }) &&
+          canFollow(state, next)
+      )
+  );
+
 function hasUniqueBoundHistory(states, baseline) {
   const count = (next, remaining) => {
     if (!remaining.length) return isAuthorityRoot(next) ? 1 : 0;
@@ -114,6 +125,9 @@ function hasUniqueBoundHistory(states, baseline) {
 export function resolveBootstrapReplacementChain(states, current) {
   if (!Array.isArray(states) || current?.phase !== 'captured')
     throw new TypeError('invalid bootstrap replacement authority chain');
+  const completedNoops = states.filter(
+    (state) => state !== current && isCompletedNoop(state)
+  );
   const capturedNoops = states.filter(
     (state) => state !== current && isAuthenticatedCapturedNoop(state)
   );
@@ -145,7 +159,9 @@ export function resolveBootstrapReplacementChain(states, current) {
       hasUniqueBoundHistory(
         effectiveStates.filter((state) => !chain.includes(state)),
         chain[0]
-      ) && capturedNoops.every((state) => isBoundCapturedNoop(state, chain))
+      ) &&
+      completedNoops.every((state) => isBoundCompletedNoop(state, chain)) &&
+      capturedNoops.every((state) => isBoundCapturedNoop(state, chain))
   );
   if (chains.length !== 1)
     throw new TypeError('invalid bootstrap replacement authority chain');
