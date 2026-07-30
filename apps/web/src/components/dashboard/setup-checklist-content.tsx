@@ -70,7 +70,7 @@ export function SetupChecklistContent({
           <SetupItemRow
             key={item.id}
             item={item}
-            isNext={index === 0 && !item.completed && !compact && showAll}
+            isNext={index === 0 && !item.completed && !compact}
           />
         ))}
       </div>

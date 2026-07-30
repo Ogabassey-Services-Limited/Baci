@@ -64,6 +64,7 @@ describe('SetupChecklistContent', () => {
     expect(
       screen.getByRole('link', { name: /add payment method/i })
     ).toHaveAttribute('href', '/dashboard/settings/payments?onboarding=true');
+    expect(screen.getByText('Next Step')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /show 1 more/i }));
     expect(setShowAll).toHaveBeenCalledWith(true);
   });
