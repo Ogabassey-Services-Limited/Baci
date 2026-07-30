@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   chmod,
   lstat,
@@ -129,6 +130,9 @@ render_watchdog ${nextSha}`;
   const runRender = () =>
     spawnSync('/bin/sh', ['-c', command], { encoding: 'utf8' });
   const expectedNext = template.replace('@BACI_CWV_SOURCE_SHA@', nextSha);
+  const digest = (value) => createHash('sha256').update(value).digest('hex');
+  const boundName = (attempt, bytes = expectedNext) =>
+    `.baci-cwv-watchdog-v1-${digest(target)}-${digest(bytes)}-${attempt}`;
   const interrupted = join(units, '.baci-cwv-watchdog.A1b2C3');
   await writeFile(interrupted, expectedNext, { mode: 0o644 });
   const result = runRender();
@@ -176,6 +180,27 @@ render_watchdog ${nextSha}`;
 
   await retryFromPreMetadataResidue('E6m7P8', '');
   await retryFromPreMetadataResidue('F7n8Q9', expectedNext.slice(0, 29));
+
+  for (const [name, bytes] of [
+    ['H8i9J0', expectedNext.slice(0, 37)],
+    [boundName('K1l2M3'), expectedNext.slice(0, 41)],
+  ]) {
+    await writeFile(target, initialPrior, { mode: 0o644 });
+    const residue = join(
+      units,
+      name.startsWith('.') ? name : `.baci-cwv-watchdog.${name}`
+    );
+    await writeFile(residue, bytes, { mode: 0o644 });
+    const retry = runRender();
+    assert.equal(retry.status, 0, retry.stderr);
+    assert.equal(await readFile(target, 'utf8'), expectedNext);
+    assert.deepEqual(
+      (await readdir(units)).filter((entry) =>
+        entry.startsWith('.baci-cwv-watchdog')
+      ),
+      []
+    );
+  }
 
   await rm(target);
   const absent = runRender();
@@ -229,6 +254,14 @@ render_watchdog ${nextSha}`;
   assert.equal(await readFile(foreign, 'utf8'), 'foreign\n');
 
   await rm(foreign);
+  const boundForeign = join(units, boundName('N4o5P6'));
+  await writeFile(boundForeign, 'foreign\n', { mode: 0o644 });
+  const boundForeignResult = runRender();
+  assert.equal(boundForeignResult.status, 65);
+  assert.match(boundForeignResult.stderr, /watchdog render temporary drift/);
+  assert.equal(await readFile(boundForeign, 'utf8'), 'foreign\n');
+
+  await rm(boundForeign);
   const unsafe = join(units, '.baci-cwv-watchdog.G7h8I9');
   await symlink(target, unsafe);
   const unsafeResult = runRender();
