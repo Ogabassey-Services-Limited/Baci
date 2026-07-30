@@ -58,6 +58,9 @@ export default function KYCScreen() {
   const { user } = useAuth();
   const { merchant } = useMerchant();
   const lastMerchantIdRef = useRef<string | null>(null);
+  const activeMerchantIdRef = useRef<string | null>(null);
+  const merchantId = merchant?.id ?? null;
+  activeMerchantIdRef.current = merchantId;
   const [identityDraft, setIdentityDraft] = useState<VerificationIdentityDraft>(
     {
       dateOfBirth: '',
@@ -95,9 +98,11 @@ export default function KYCScreen() {
     staleTime: 1000 * 60 * 5,
   });
   const { refreshAfterVerification } = useKycVerificationRefresh({
-    merchantId: merchant?.id,
+    merchantId,
     refetchVerificationStatus: refetch,
   });
+  const isVerificationSessionActive = () =>
+    activeMerchantIdRef.current === merchantId;
 
   useEffect(() => {
     const merchantId = merchant?.id ?? null;
@@ -219,7 +224,7 @@ export default function KYCScreen() {
               </View>
             </View>
           ) : (
-            <View style={styles.cards}>
+            <View key={merchant?.id ?? 'no-merchant'} style={styles.cards}>
               <NinVerificationCard
                 bvnVerified={status?.bvn_verified ?? false}
                 verified={status?.nin_verified ?? false}
@@ -230,12 +235,14 @@ export default function KYCScreen() {
                 dateOfBirth={identityDraft.dateOfBirth}
                 mobileNo={identityDraft.mobileNo}
                 onIdentityChange={setIdentityDraft}
+                isActive={isVerificationSessionActive}
                 onVerified={refreshAfterVerification}
               />
               <CacVerificationCard
                 verified={status?.cac_verified ?? false}
                 prefillRcNumber={merchant?.cac_rc_number}
                 cacApprovedName={status?.cac_approved_name}
+                isActive={isVerificationSessionActive}
                 onVerified={refreshAfterVerification}
               />
             </View>

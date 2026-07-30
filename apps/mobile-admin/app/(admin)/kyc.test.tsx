@@ -1,10 +1,18 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Text } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  merchant: {
+    bvn: null,
+    cac_rc_number: null,
+    id: 'merchant-1',
+    nin: null,
+    phone: '+2348012345678',
+    user_id: 'user-1',
+  },
   refetch: vi.fn().mockResolvedValue(undefined),
   refreshAfterVerification: vi.fn().mockResolvedValue(undefined),
   useKycVerificationRefresh: vi.fn(),
@@ -34,11 +42,22 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('@/components/kyc/NinVerificationCard', () => ({
-  default: ({ bvnVerified, onVerified }: VerificationCardProps) => (
-    <button onClick={() => void onVerified?.()} type="button">
-      <Text>{bvnVerified ? 'Identity verified' : 'Verify identity'}</Text>
-    </button>
-  ),
+  default: ({ bvnVerified, onVerified }: VerificationCardProps) => {
+    const [nin, setNin] = useState('');
+
+    return (
+      <>
+        <input
+          aria-label="Merchant-scoped NIN draft"
+          onChange={(event) => setNin(event.target.value)}
+          value={nin}
+        />
+        <button onClick={() => void onVerified?.()} type="button">
+          <Text>{bvnVerified ? 'Identity verified' : 'Verify identity'}</Text>
+        </button>
+      </>
+    );
+  },
 }));
 
 vi.mock('@/components/kyc/BvnVerificationCard', () => ({
@@ -65,14 +84,7 @@ vi.mock('@/hooks/useAuth', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
-    merchant: {
-      bvn: null,
-      cac_rc_number: null,
-      id: 'merchant-1',
-      nin: null,
-      phone: '+2348012345678',
-      user_id: 'user-1',
-    },
+    merchant: mocks.merchant,
   }),
 }));
 
@@ -167,6 +179,14 @@ import KYCScreen from './kyc';
 describe('KYCScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.merchant = {
+      bvn: null,
+      cac_rc_number: null,
+      id: 'merchant-1',
+      nin: null,
+      phone: '+2348012345678',
+      user_id: 'user-1',
+    };
     mocks.useQuery.mockReturnValue({
       data: {
         bvn_verified: false,
@@ -201,6 +221,26 @@ describe('KYCScreen', () => {
       screen.queryByRole('button', { name: /verify bvn/i })
     ).not.toBeInTheDocument();
     expect(mocks.refreshAfterVerification).toHaveBeenCalledTimes(2);
+  });
+
+  it('resets KYC card drafts when merchants switch with identical prefills', () => {
+    const { rerender } = render(<KYCScreen />);
+    const draft = screen.getByRole('textbox', {
+      name: 'Merchant-scoped NIN draft',
+    });
+
+    fireEvent.change(draft, { target: { value: '12520824805' } });
+    expect(draft).toHaveValue('12520824805');
+
+    mocks.merchant = {
+      ...mocks.merchant,
+      id: 'merchant-2',
+    };
+    rerender(<KYCScreen />);
+
+    expect(
+      screen.getByRole('textbox', { name: 'Merchant-scoped NIN draft' })
+    ).toHaveValue('');
   });
 
   it('keeps BVN fields scrollable above the iOS keyboard', () => {

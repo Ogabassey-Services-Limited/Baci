@@ -31,14 +31,13 @@ interface NinVerificationCardProps {
     React.SetStateAction<VerificationIdentityDraft>
   >;
   onVerified: () => Promise<unknown>;
+  isActive?: () => boolean;
   prefillBvn?: string | null;
   prefillNin?: string | null;
   verified: boolean;
 }
 
-interface VerifyNinResponse {
-  verified: boolean;
-}
+type VerifyNinResponse = { verified: boolean };
 
 export default function NinVerificationCard({
   bvnVerified,
@@ -51,16 +50,15 @@ export default function NinVerificationCard({
   mobileNo,
   onIdentityChange,
   onVerified,
+  isActive = () => true,
 }: NinVerificationCardProps) {
   const { colors, shadows } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [nin, setNin] = useState(prefillNin ?? '');
   const isFullyVerified = verified && bvnVerified;
-
   useEffect(() => {
     if (isFullyVerified) setExpanded(false);
   }, [isFullyVerified]);
-
   const [prevPrefillNin, setPrevPrefillNin] = useState(prefillNin);
   const [prevVerified, setPrevVerified] = useState(verified);
   if (prefillNin !== prevPrefillNin || verified !== prevVerified) {
@@ -68,7 +66,6 @@ export default function NinVerificationCard({
     setPrevVerified(verified);
     if (!verified) setNin(prefillNin ?? '');
   }
-
   const mutation = useMutation({
     mutationFn: () =>
       apiClient<VerifyNinResponse>('/api/merchant/verify-nin', {
@@ -81,15 +78,16 @@ export default function NinVerificationCard({
         }),
       }),
     onSuccess: async (data) => {
-      if (data.verified) {
+      if (data.verified && isActive()) {
         const readinessRefreshed = await tryRefreshStoreReadiness(onVerified);
+        if (!isActive()) return;
         Alert.alert(
           'Success',
           readinessRefreshed
             ? 'Your NIN has been verified successfully.'
             : 'Your NIN has been verified successfully. Your setup status will refresh shortly.'
         );
-      } else {
+      } else if (!data.verified && isActive()) {
         Alert.alert(
           'Verification Failed',
           "The details you provided don't match NIN records."
@@ -97,6 +95,7 @@ export default function NinVerificationCard({
       }
     },
     onError: (error: unknown) => {
+      if (!isActive()) return;
       if (error instanceof NetworkError && error.statusCode === 429) {
         Alert.alert(
           'Rate Limited',
@@ -288,6 +287,7 @@ export default function NinVerificationCard({
                   mobileNo: value.replace(/\D/g, '').slice(0, 11),
                 }))
               }
+              isActive={isActive}
               onVerified={onVerified}
             />
           )}

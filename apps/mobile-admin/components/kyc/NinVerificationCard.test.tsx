@@ -279,4 +279,28 @@ describe('NinVerificationCard readiness handoff', () => {
       expect.any(String)
     );
   });
+
+  it('ignores a NIN completion after its merchant session is no longer active', async () => {
+    const onVerified = vi.fn().mockResolvedValue(undefined);
+    render(
+      <NinVerificationCard
+        bvnVerified={false}
+        dateOfBirth="2000-01-01"
+        firstName="A"
+        lastName="B"
+        mobileNo="08012345678"
+        isActive={() => false}
+        onIdentityChange={vi.fn()}
+        onVerified={onVerified}
+        verified={false}
+      />
+    );
+    const completion = mocks.options[0];
+    if (!completion) throw new Error('Expected verification mutation options');
+
+    await completion.onSuccess({ verified: true });
+
+    expect(onVerified).not.toHaveBeenCalled();
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
 });

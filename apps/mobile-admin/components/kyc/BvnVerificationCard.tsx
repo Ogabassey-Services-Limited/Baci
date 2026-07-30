@@ -25,6 +25,7 @@ interface BvnVerificationCardProps {
   mobileNo: string;
   onMobileNumberChange: (value: string) => void;
   onVerified: () => Promise<unknown>;
+  isActive?: () => boolean;
   verified: boolean;
   prefillBvn?: string | null;
 }
@@ -63,6 +64,7 @@ export default function BvnVerificationCard({
   mobileNo,
   onMobileNumberChange,
   onVerified,
+  isActive = () => true,
 }: BvnVerificationCardProps) {
   const { colors } = useTheme();
   const [bvn, setBvn] = useState(prefillBvn ?? '');
@@ -99,22 +101,26 @@ export default function BvnVerificationCard({
         }),
       }),
     onSuccess: async (data) => {
-      if (data.verified) {
+      if (data.verified && isActive()) {
         const readinessRefreshed = await tryRefreshStoreReadiness(onVerified);
+        if (!isActive()) return;
+
         Alert.alert(
           'Success',
           readinessRefreshed
             ? 'Your BVN has been verified successfully.'
             : 'Your BVN has been verified successfully. Your setup status will refresh shortly.'
         );
-      } else {
+      } else if (!data.verified && isActive()) {
         Alert.alert(
           'Verification Failed',
           getMismatchMessage(data.mismatchFields)
         );
       }
     },
-    onError: showBvnVerificationError,
+    onError: (error: unknown) => {
+      if (isActive()) showBvnVerificationError(error);
+    },
   });
 
   const handleSubmit = () => {

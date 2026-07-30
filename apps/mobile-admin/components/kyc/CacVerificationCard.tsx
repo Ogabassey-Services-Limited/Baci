@@ -29,6 +29,7 @@ import VerificationStatusBadge from './VerificationStatusBadge';
 interface CacVerificationCardProps {
   cacApprovedName?: string | null;
   onVerified: () => Promise<unknown>;
+  isActive?: () => boolean;
   prefillRcNumber?: string | null;
   verified: boolean;
 }
@@ -38,6 +39,7 @@ export default function CacVerificationCard({
   prefillRcNumber,
   cacApprovedName,
   onVerified,
+  isActive = () => true,
 }: CacVerificationCardProps) {
   const { colors, shadows } = useTheme();
   const [expanded, setExpanded] = useState(false);
@@ -96,15 +98,15 @@ export default function CacVerificationCard({
       return { companies };
     },
     onSuccess: ({ companies }) => {
-      if (companies.length === 1) {
+      if (companies.length === 1 && isActive()) {
         setSelectedCompany(companies[0]);
         setCacStep('upload');
-      } else {
+      } else if (isActive()) {
         setSelectedCompany(null);
         setCacStep('search');
       }
     },
-    onError: (error: unknown) => showCacVerificationError(error),
+    onError: (error: unknown) => isActive() && showCacVerificationError(error),
   });
 
   const uploadMutation = useMutation({
@@ -134,19 +136,22 @@ export default function CacVerificationCard({
       );
     },
     onSuccess: async (data) => {
+      if (!isActive()) return;
+
       setVerifyResult(data);
       setCacStep('result');
       const readinessRefreshed = data.verified
         ? await tryRefreshStoreReadiness(onVerified)
         : true;
-      if (data.verified && !readinessRefreshed) {
+
+      if (data.verified && !readinessRefreshed && isActive()) {
         Alert.alert(
           'Verified',
           'Your CAC has been verified. Your setup status will refresh shortly.'
         );
       }
     },
-    onError: (error: unknown) => showCacVerificationError(error),
+    onError: (error: unknown) => isActive() && showCacVerificationError(error),
   });
 
   function handleSearch() {
