@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmod, link, lstat, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  link,
+  lstat,
+  mkdtemp,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -141,6 +149,54 @@ test('retires authenticated post-link receipt staging hard links after a crash',
     assert.equal((await lstat(join(directory, name))).nlink, 1);
   }
   assert.equal((await readBootstrapState(directory)).phase, 'complete');
+});
+
+test('retires complete-phase publication remnants from interrupted processes', async (context) => {
+  const root = await stateRoot(context, 'baci-bootstrap-retry-phase-');
+  const captured = capture('bootstrap-retry-phase');
+  const complete = completeBootstrap(captured, files, disabledUnits);
+  const directory = await persistBootstrapCapture(root, captured);
+  const remnants = [
+    join(directory, `.phase-${process.pid}`),
+    join(directory, '.phase-999999'),
+  ];
+  await writeFile(remnants[0], 'complete\n', { mode: 0o600 });
+  await writeFile(remnants[1], 'comple', { mode: 0o600 });
+
+  await persistBootstrapReceipt(directory, complete);
+  for (const remnant of remnants)
+    await assert.rejects(lstat(remnant), { code: 'ENOENT' });
+  assert.equal((await readBootstrapState(directory)).phase, 'complete');
+});
+
+test('refuses unauthenticated completion-phase remnants', async (context) => {
+  const root = await stateRoot(context, 'baci-bootstrap-retry-phase-refuse-');
+  for (const [label, name, bytes, mode] of [
+    ['foreign', '.phase-foreign', 'complete\n', 0o600],
+    ['bytes', '.phase-999997', 'foreign', 0o600],
+    ['mode', '.phase-999996', 'complete\n', 0o644],
+  ]) {
+    const captured = capture(`bootstrap-retry-phase-${label}`);
+    const complete = completeBootstrap(captured, files, disabledUnits);
+    const directory = await persistBootstrapCapture(root, captured);
+    await writeFile(join(directory, name), bytes, { mode });
+    await assert.rejects(
+      persistBootstrapReceipt(directory, complete),
+      /receipt residue mismatch/
+    );
+    assert.equal((await readBootstrapState(directory)).phase, 'captured');
+  }
+  const captured = capture('bootstrap-retry-phase-symlink');
+  const complete = completeBootstrap(captured, files, disabledUnits);
+  const directory = await persistBootstrapCapture(root, captured);
+  await writeFile(join(directory, 'phase-target'), 'complete\n', {
+    mode: 0o600,
+  });
+  await symlink('phase-target', join(directory, '.phase-999995'));
+  await assert.rejects(
+    persistBootstrapReceipt(directory, complete),
+    /receipt residue mismatch/
+  );
 });
 
 test('refuses matching post-link names that are not the same hard link', async (context) => {

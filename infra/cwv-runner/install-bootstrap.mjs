@@ -6,7 +6,6 @@ import { join } from 'node:path';
 import { readRecoverableBootstrapJournal } from './install-bootstrap-journal.mjs';
 
 export { persistBootstrapCapture } from './install-bootstrap-capture-persistence.mjs';
-
 const HEX = /^[0-9a-f]{64}$/;
 const SOURCE = /^[0-9a-f]{40}$/;
 const TRANSACTION = /^bootstrap-[a-z0-9][a-z0-9-]{0,50}$/;
@@ -197,6 +196,18 @@ async function fsyncDirectory(path) {
   }
 }
 async function atomicPhase(directory, phase) {
+  if (phase === 'complete') {
+    let pruned = false;
+    for (const entry of await readdir(directory)) {
+      if (!entry.startsWith('.phase-')) continue;
+      // biome-ignore format: bounded source file keeps completion phase authentication compact
+      if (!/^\.phase-[1-9][0-9]*$/.test(entry)) fail('receipt residue mismatch');
+      await receiptResidue(join(directory, entry), 'complete\n', true);
+      await unlink(join(directory, entry));
+      pruned = true;
+    }
+    if (pruned) await fsyncDirectory(directory);
+  }
   const temporary = join(directory, `.phase-${process.pid}`);
   await writeExclusive(temporary, `${phase}\n`);
   await rename(temporary, join(directory, 'phase'));
@@ -281,16 +292,7 @@ export async function readBootstrapState(directory) {
       fail('receipt digest mismatch');
     const receipt = JSON.parse(receiptBytes);
     // biome-ignore format: fixed receipt binding is deliberately compact
-    if (
-      canonical(receipt) !== receiptBytes ||
-      receipt.captureSha256 !== captureSha256 ||
-      receipt.sourceSha !== capture.sourceSha ||
-      receipt.sourceManifestSha256 !== capture.sourceManifestSha256 ||
-      receipt.policyFileSha256 !== capture.policyFileSha256 ||
-      canonical(unitStates(receipt.unitStates)) !== canonical(receipt.unitStates) ||
-      canonical(receipt.files) !== canonical(capture.files)
-    )
-      fail('receipt binding mismatch');
+    if (canonical(receipt) !== receiptBytes || receipt.captureSha256 !== captureSha256 || receipt.sourceSha !== capture.sourceSha || receipt.sourceManifestSha256 !== capture.sourceManifestSha256 || receipt.policyFileSha256 !== capture.policyFileSha256 || canonical(unitStates(receipt.unitStates)) !== canonical(receipt.unitStates) || canonical(receipt.files) !== canonical(capture.files)) fail('receipt binding mismatch');
     // biome-ignore format: bounded source file keeps receipt return compact
     return { ...capture, captureSha256, phase, journal, receipt, receiptSha256 };
   }
