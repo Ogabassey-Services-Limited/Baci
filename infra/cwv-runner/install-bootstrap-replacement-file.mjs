@@ -11,6 +11,7 @@ import {
   readPinnedBootstrapFile,
 } from './install-bootstrap-installed.mjs';
 import { readBootstrapReplacementIntent } from './install-bootstrap-replacement-controller.mjs';
+import { retireObsolete } from './install-bootstrap-replacement-temp-authority.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const same = (left, right) => canonicalJson(left) === canonicalJson(right);
@@ -30,10 +31,6 @@ const renameExchangeHelper = fileURLToPath(
 );
 
 const destinationIdentity = (destination) => sha256(destination);
-const safeObsoleteTemporary = (actual, expectedSha256) =>
-  actual.sha256 === expectedSha256 &&
-  actual.mode === '0600' &&
-  Object.hasOwn(owners, actual.owner);
 const temporaryProjections = (expected) => [
   expected,
   { ...expected, mode: '0600', owner: expected.owner },
@@ -196,10 +193,13 @@ async function reconcileTemporaries(
     }
     if (bound && bound[1] !== destinationIdentity(destination)) continue;
     if (bound && bound[2] !== expected.sha256) {
-      if (!safeObsoleteTemporary(actual, bound[2]))
-        throw new TypeError('bootstrap replacement temporary drift');
-      await dependencies.removeFile(temporary);
-      await dependencies.syncDirectory(directory);
+      await retireObsolete(
+        actual,
+        bound,
+        authorizedState,
+        temporary,
+        dependencies
+      );
       continue;
     }
     const permitted = [expected, prior]
@@ -253,7 +253,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     destination,
     state.prior[destination],
     expected,
-    state,
+    { ...state, currentDirectory, destination, intent },
     dependencies
   );
   const actual = (

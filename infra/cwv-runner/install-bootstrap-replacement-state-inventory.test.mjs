@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import {
+  link,
   lstat,
   mkdir,
   mkdtemp,
+  readdir,
   rm,
   symlink,
   writeFile,
@@ -15,6 +17,7 @@ import {
   beginBootstrap,
   persistBootstrapCapture,
 } from './install-bootstrap.mjs';
+import { publishBootstrapPlan } from './install-bootstrap-plan-publication.mjs';
 import { readBootstrapReplacementStateInventory } from './install-bootstrap-replacement-state-inventory.mjs';
 
 const sourceSha = 'b'.repeat(40);
@@ -36,6 +39,55 @@ const details = {
   nlink: 1,
   uid: process.getuid(),
 };
+
+test('reconciles the exact hard-linked plan pair left by a crash before staging unlink', async (context) => {
+  const parent = await mkdtemp(join(tmpdir(), 'baci-legacy-plan-'));
+  const stateRoot = join(parent, 'bootstrap');
+  await mkdir(stateRoot, { mode: 0o700 });
+  context.after(() => rm(parent, { recursive: true, force: true }));
+
+  await assert.rejects(
+    publishBootstrapPlan(parent, Buffer.from(`${JSON.stringify(input)}\n`), {
+      removeFile: () => {
+        throw new Error('simulated crash before staging unlink');
+      },
+    }),
+    /simulated crash/
+  );
+  const interrupted = await readdir(parent);
+  assert.equal(
+    interrupted.some((name) => name.startsWith('.plan.')),
+    true
+  );
+  assert.equal(
+    interrupted.some((name) => name.startsWith('.bootstrap-plan-stage.')),
+    true
+  );
+
+  assert.deepEqual(await readBootstrapReplacementStateInventory(stateRoot), []);
+  assert.deepEqual(await readdir(parent), ['bootstrap']);
+});
+
+test('refuses matching plan and staging bytes unless they are the same hard-linked inode', async (context) => {
+  const parent = await mkdtemp(join(tmpdir(), 'baci-legacy-plan-'));
+  const stateRoot = join(parent, 'bootstrap');
+  const token = 'a'.repeat(32);
+  const plan = join(parent, `.plan.${token}`);
+  const stage = join(parent, `.bootstrap-plan-stage.${token}`);
+  await mkdir(stateRoot, { mode: 0o700 });
+  context.after(() => rm(parent, { recursive: true, force: true }));
+  await writeFile(plan, `${JSON.stringify(input)}\n`, { mode: 0o600 });
+  await link(plan, join(parent, '.unrelated-plan-link'));
+  await writeFile(stage, `${JSON.stringify(input)}\n`, { mode: 0o600 });
+  await link(stage, join(parent, '.unrelated-stage-link'));
+
+  await assert.rejects(
+    readBootstrapReplacementStateInventory(stateRoot),
+    /invalid legacy bootstrap plan/
+  );
+  assert.equal((await lstat(plan)).nlink, 2);
+  assert.equal((await lstat(stage)).nlink, 2);
+});
 
 test('removes a parent legacy plan only when its exact bytes bind to a captured transaction', async (context) => {
   const parent = await mkdtemp(join(tmpdir(), 'baci-legacy-plan-'));
