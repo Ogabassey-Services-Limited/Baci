@@ -15,6 +15,10 @@ const mocks = vi.hoisted(() => {
     routeParams: {} as { from?: string },
     invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
     invalidateQueries: vi.fn(),
+    mutationOptions: null as {
+      onError?: (error: Error) => void;
+      onSuccess?: (data: unknown) => Promise<void> | void;
+    } | null,
     updateMerchantIdentitySettings: vi.fn().mockResolvedValue(undefined),
     useMerchant: vi.fn(),
   };
@@ -24,7 +28,6 @@ function createMutationMock<TData>() {
   return ({
     mutationFn,
     onError,
-    onSuccess,
   }: {
     mutationFn: () => Promise<TData>;
     onError?: (error: Error) => void;
@@ -34,7 +37,7 @@ function createMutationMock<TData>() {
     mutate: async () => {
       try {
         const data = await mutationFn();
-        await onSuccess?.(data);
+        await mocks.mutationOptions?.onSuccess?.(data);
       } catch (error) {
         onError?.(error as Error);
       }
@@ -52,6 +55,7 @@ vi.mock('@tanstack/react-query', () => ({
     onError?: (error: Error) => void;
     onSuccess?: (data: TData) => Promise<void> | void;
   }) => {
+    mocks.mutationOptions = options as unknown as typeof mocks.mutationOptions;
     return createMutationMock<TData>()(options);
   },
   useQueryClient: () => ({
@@ -552,6 +556,51 @@ describe('StoreSettingsScreen', () => {
     expect(mocks.back).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Business Name')).toHaveValue(
       'Unsaved setup name'
+    );
+  });
+
+  it('invalidates readiness for the merchant that started a save after switching merchants', async () => {
+    let completeSave!: () => void;
+    mocks.updateMerchantIdentitySettings.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          completeSave = resolve;
+        })
+    );
+    const rendered = render(<StoreSettingsScreen />);
+    const firstMerchant = mocks.useMerchant.mock.results.at(-1)?.value.merchant;
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'First merchant saved name' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+    await waitFor(() => {
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
+    });
+
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        ...firstMerchant,
+        business_name: 'Second Merchant Store',
+        id: 'merchant-2',
+        updated_at: '2026-06-17T08:01:00.000Z',
+      },
+      isLoading: false,
+    });
+    rendered.rerender(<StoreSettingsScreen />);
+    completeSave();
+
+    await waitFor(() => {
+      expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+        expect.anything(),
+        'merchant-1'
+      );
+    });
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-2'
     );
   });
 

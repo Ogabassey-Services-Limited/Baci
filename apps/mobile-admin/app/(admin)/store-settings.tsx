@@ -172,7 +172,10 @@ export default function StoreSettingsScreen() {
       return saveToken;
     },
     onSuccess: async (saveToken) => {
-      await invalidateStoreSettingsAfterSave(queryClient, merchant?.id);
+      await invalidateStoreSettingsAfterSave(
+        queryClient,
+        saveToken?.merchantId
+      );
       const isCurrentSave = Boolean(
         saveToken &&
           merchantIdRef.current === saveToken.merchantId &&
