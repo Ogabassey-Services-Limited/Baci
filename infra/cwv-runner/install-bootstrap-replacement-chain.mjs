@@ -13,6 +13,17 @@ const same = (left, right) =>
   JSON.stringify(stable(left)) === JSON.stringify(stable(right));
 const absent = { absent: true };
 
+const isCompletedNoop = (state) =>
+  state?.phase === 'complete' &&
+  state.prior &&
+  typeof state.prior === 'object' &&
+  !Array.isArray(state.prior) &&
+  state.files &&
+  typeof state.files === 'object' &&
+  !Array.isArray(state.files) &&
+  same(state.prior, state.files) &&
+  same(state.receipt?.files, state.files);
+
 function canFollow(previous, next) {
   if (
     next?.phase !== 'captured' ||
@@ -80,10 +91,13 @@ function hasUniqueBoundHistory(states, baseline) {
 export function resolveBootstrapReplacementChain(states, current) {
   if (!Array.isArray(states) || current?.phase !== 'captured')
     throw new TypeError('invalid bootstrap replacement authority chain');
+  const effectiveStates = states.filter(
+    (state) => state === current || !isCompletedNoop(state)
+  );
   const walk = (next, visited) => {
     if (isAuthorityRoot(next)) return [[next]];
     const output = [];
-    for (const previous of states) {
+    for (const previous of effectiveStates) {
       if (
         previous === next ||
         visited.has(previous.sourceSha) ||
@@ -100,7 +114,7 @@ export function resolveBootstrapReplacementChain(states, current) {
   };
   const chains = walk(current, new Set([current.sourceSha])).filter((chain) =>
     hasUniqueBoundHistory(
-      states.filter((state) => !chain.includes(state)),
+      effectiveStates.filter((state) => !chain.includes(state)),
       chain[0]
     )
   );

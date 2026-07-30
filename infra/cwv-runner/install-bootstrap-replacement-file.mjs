@@ -29,14 +29,12 @@ const executeFile = promisify(execFile);
 const renameExchangeHelper = fileURLToPath(
   new URL('./install-bootstrap-rename-exchange.pl', import.meta.url)
 );
-
 const destinationIdentity = (destination) => sha256(destination);
 const temporaryProjections = (expected) => [
   expected,
   { ...expected, mode: '0600', owner: expected.owner },
   { ...expected, mode: '0600', owner: 'root:root' },
 ];
-
 function temporaryName(destination, expectedSha256, attempt) {
   if (!/^[0-9a-f]{64}$/.test(expectedSha256))
     throw new TypeError('invalid replacement expected digest');
@@ -51,7 +49,6 @@ async function syncPath(path) {
     await handle.close();
   }
 }
-
 async function exchangePaths(left, right, descriptor) {
   const platform = descriptor.exchangePlatform ?? process.platform;
   const architecture = descriptor.exchangeArchitecture ?? process.arch;
@@ -63,7 +60,6 @@ async function exchangePaths(left, right, descriptor) {
     timeout: 5000,
   });
 }
-
 async function atomicReplace(
   destination,
   bytes,
@@ -114,7 +110,12 @@ async function atomicReplace(
       ) {
         const destinationIdentity =
           await dependencies.readIdentity(destination);
+        const destinationProjection = (
+          await dependencies.readProjection({ [destination]: expected })
+        )[destination];
         if (!sameIdentity(destinationIdentity, preparedIdentity))
+          throw new TypeError('installed bootstrap replacement drift');
+        if (!same(destinationProjection, expected))
           throw new TypeError('installed bootstrap replacement drift');
         try {
           await dependencies.exchangeFile(temporary, destination);
@@ -151,7 +152,6 @@ async function atomicReplace(
     throw error;
   }
 }
-
 async function reconcileTemporaries(
   destination,
   prior,

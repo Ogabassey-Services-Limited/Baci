@@ -98,9 +98,11 @@ export function planBootstrapReplacement({
   const replace = [];
   const alreadyCurrent = [];
   const transitionPaths = [];
+  let hasTransition = false;
   for (const path of Object.keys(nextState.files).sort()) {
+    transitionPaths.push(path);
     if (!same(nextState.prior[path], nextState.files[path]))
-      transitionPaths.push(path);
+      hasTransition = true;
     if (same(installedProjection[path], nextState.files[path])) {
       alreadyCurrent.push(path);
       continue;
@@ -113,7 +115,7 @@ export function planBootstrapReplacement({
       `installed bootstrap path is neither prior nor current: ${path}`
     );
   }
-  if (!transitionPaths.length)
+  if (!hasTransition)
     throw new TypeError('bootstrap replacement transition required');
   return {
     baselineKind: pristine ? 'pristine' : 'complete',

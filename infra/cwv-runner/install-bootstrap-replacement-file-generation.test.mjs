@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-
+import { planBootstrapReplacement } from './install-bootstrap-replacement.mjs';
 import { replaceBootstrapFile } from './install-bootstrap-replacement-file.mjs';
 import { exchangeTestPaths } from './install-bootstrap-replacement-file.test-helper.mjs';
 
@@ -108,6 +108,106 @@ test('recovers generation C without claiming an interrupted generation B tempora
   assert.deepEqual(await readFile(destination), cBytes);
   await assert.rejects(readFile(join(root, bTemporary)), { code: 'ENOENT' });
   assert.deepEqual(await readFile(unrelatedTemporary), bBytes);
+});
+
+test('reconciles a generation B temporary when generation C restores that path unchanged', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-bootstrap-reverted-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const destination = join(root, 'bootstrap.sha256');
+  const changedPath = join(root, 'watchdog.service');
+  const paths = [destination, changedPath].sort();
+  const aBytes = Buffer.from('generation-a\n');
+  const bBytes = Buffer.from('generation-b\n');
+  const cBytes = Buffer.from('generation-c\n');
+  await writeFile(destination, aBytes, { mode: 0o600 });
+  await writeFile(changedPath, aBytes, { mode: 0o600 });
+  const filesA = {
+    [destination]: metadata(aBytes),
+    [changedPath]: metadata(aBytes),
+  };
+  const baseline = {
+    phase: 'complete',
+    sourceSha: 'a'.repeat(40),
+    sourceManifestSha256: '1'.repeat(64),
+    policyFileSha256: '5'.repeat(64),
+    receiptSha256: '2'.repeat(64),
+    receipt: {
+      sourceSha: 'a'.repeat(40),
+      sourceManifestSha256: '1'.repeat(64),
+      policyFileSha256: '5'.repeat(64),
+      files: filesA,
+    },
+  };
+  const interrupted = {
+    phase: 'captured',
+    sourceSha: 'b'.repeat(40),
+    captureSha256: '3'.repeat(64),
+    policyFileSha256: '5'.repeat(64),
+    prior: filesA,
+    files: { ...filesA, [destination]: metadata(bBytes) },
+  };
+  const current = {
+    phase: 'captured',
+    sourceSha: 'c'.repeat(40),
+    captureSha256: '4'.repeat(64),
+    policyFileSha256: '5'.repeat(64),
+    prior: filesA,
+    files: { ...filesA, [changedPath]: metadata(cBytes) },
+  };
+  const plan = planBootstrapReplacement({
+    authorityChain: [baseline, interrupted, current],
+    nextState: current,
+    installedProjection: filesA,
+    downstreamState: {
+      acceptedImageFiles: 0,
+      activeDedicatedUnits: 0,
+      prepareTransactions: 0,
+      registrationArtifacts: 0,
+      runnerConfigurationFiles: 0,
+      unsafeUnitStates: 0,
+      watchdogInstances: 0,
+    },
+  });
+  const temporary = join(
+    root,
+    `.baci-bootstrap-replacement-v2-${sha256(destination)}-${sha256(bBytes)}-attempt-b`
+  );
+  await writeFile(temporary, bBytes, { mode: 0o600 });
+  const projection = async (files) => {
+    const result = {};
+    for (const path of Object.keys(files)) {
+      const details = await stat(path);
+      result[path] = {
+        sha256: sha256(await readFile(path)),
+        mode: (details.mode & 0o777).toString(8).padStart(4, '0'),
+        owner: 'root:root',
+      };
+    }
+    return result;
+  };
+
+  assert.equal(
+    await replaceBootstrapFile(
+      {
+        currentDirectory: '/state/bootstrap-cccccccccccc',
+        destination,
+        bytes: aBytes,
+      },
+      {
+        readState: async () => current,
+        readIntent: async () => ({
+          sourceSha: current.sourceSha,
+          captureSha256: current.captureSha256,
+          policyFileSha256: current.policyFileSha256,
+          pathSetSha256: sha256(JSON.stringify(paths)),
+          transitionPaths: plan.transitionPaths,
+        }),
+        readProjection: projection,
+      }
+    ),
+    'current'
+  );
+  await assert.rejects(readFile(temporary), { code: 'ENOENT' });
 });
 
 test('refuses obsolete same-destination residue with inconsistent content or metadata', async () => {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
+  lstat,
   mkdtemp,
   readdir,
   readFile,
@@ -82,4 +83,64 @@ test('preserves a concurrent writer that replaces the destination after exchange
     entry.startsWith('.baci-bootstrap-replacement-')
   );
   assert.deepEqual(await readFile(join(root, temporary)), priorBytes);
+});
+
+test('preserves a concurrent in-place write before rollback', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-bootstrap-rollback-write-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const destination = join(root, 'bootstrap.sha256');
+  const priorBytes = Buffer.from('prior\n');
+  const expectedBytes = Buffer.from('expected\n');
+  const attackerBytes = Buffer.from('same inode concurrent writer\n');
+  await writeFile(destination, priorBytes, { mode: 0o600 });
+  const state = {
+    phase: 'captured',
+    sourceSha: 'b'.repeat(40),
+    captureSha256: '3'.repeat(64),
+    policyFileSha256: '5'.repeat(64),
+    prior: { [destination]: metadata(priorBytes) },
+    files: { [destination]: metadata(expectedBytes) },
+  };
+  const intent = {
+    sourceSha: state.sourceSha,
+    captureSha256: state.captureSha256,
+    policyFileSha256: state.policyFileSha256,
+    pathSetSha256: sha256(JSON.stringify([destination])),
+    transitionPaths: [destination],
+  };
+  let exchangeCalls = 0;
+  let identityCalls = 0;
+  await assert.rejects(
+    replaceBootstrapFile(
+      {
+        currentDirectory: '/state/current',
+        destination,
+        bytes: expectedBytes,
+      },
+      {
+        readState: async () => state,
+        readIntent: async () => intent,
+        chownFile: async () => undefined,
+        readProjection: async (files) => {
+          const result = {};
+          for (const path of Object.keys(files))
+            result[path] = metadata(await readFile(path));
+          return result;
+        },
+        exchangeFile: async (left, right) => {
+          exchangeCalls += 1;
+          await exchangeTestPaths(left, right);
+          if (exchangeCalls === 1) await writeFile(left, 'damaged prior\n');
+        },
+        readIdentity: async (path) => {
+          identityCalls += 1;
+          if (identityCalls === 1) await writeFile(path, attackerBytes);
+          return lstat(path);
+        },
+      }
+    ),
+    /installed bootstrap replacement drift/
+  );
+  assert.equal(exchangeCalls, 1);
+  assert.deepEqual(await readFile(destination), attackerBytes);
 });
