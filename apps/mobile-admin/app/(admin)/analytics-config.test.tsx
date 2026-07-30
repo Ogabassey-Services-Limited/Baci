@@ -789,12 +789,7 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     );
   });
 
-  it('does not update analytics cache or navigate after the merchant switches during readiness refresh', async () => {
-    let releaseReadiness!: () => void;
-    const readiness = new Promise<void>((resolve) => {
-      releaseReadiness = resolve;
-    });
-    readinessMocks.invalidateStoreReadiness.mockReturnValueOnce(readiness);
+  it('refreshes the saved merchant cache when the user returns after switching away', async () => {
     routeMocks.params = { from: 'setup' };
     render(<AnalyticsConfigScreen />);
     const originOptions = mutationMocks.state.options;
@@ -806,15 +801,25 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     });
     render(<AnalyticsConfigScreen />);
 
-    const completion = mutationMocks.state.options?.onSuccess?.(
+    await mutationMocks.state.options?.onSuccess?.(
       { ...merchantAnalytics },
       undefined,
       saveContext
     );
-    await Promise.resolve();
-    releaseReadiness();
-    await completion;
 
+    accessMocks.useMerchant.mockReturnValue({
+      isLoading: false,
+      merchant: { id: 'merchant-1', plan_tier: 'pro', premium_features: [] },
+    });
+    render(<AnalyticsConfigScreen />);
+
+    expect(queryClientMocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant-analytics-full', 'user-1', 'merchant-1'],
+    });
+    expect(readinessMocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      queryClientMocks,
+      'merchant-1'
+    );
     expect(queryClientMocks.setQueryData).not.toHaveBeenCalled();
     expect(routeMocks.back).not.toHaveBeenCalled();
     expect(Alert.alert).not.toHaveBeenCalled();

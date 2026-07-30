@@ -375,7 +375,7 @@ describe('SocialMediaScreen', () => {
     );
   });
 
-  it('does not navigate or refresh readiness for a replacement merchant after an in-flight checklist save', async () => {
+  it('refreshes the saved merchant cache when the user returns after switching away', async () => {
     let resolveSave!: () => void;
     mocks.routeParams = { from: 'setup' };
     mocks.useMerchant.mockReturnValue({
@@ -412,7 +412,22 @@ describe('SocialMediaScreen', () => {
     resolveSave();
     await mocks.lastMutation;
 
-    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        social_media: { instagram: 'new_insta' },
+      },
+      isLoading: false,
+    });
+    rendered.rerender(<SocialMediaScreen />);
+
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant'],
+    });
+    expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1'
+    );
     expect(mocks.back).not.toHaveBeenCalled();
     expect(mocks.alert).not.toHaveBeenCalled();
   });

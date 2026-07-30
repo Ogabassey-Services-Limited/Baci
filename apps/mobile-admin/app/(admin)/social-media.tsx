@@ -108,9 +108,6 @@ export default function SocialMediaScreen() {
       }),
     onMutate: () => merchant?.id,
     onSuccess: async (_data, _variables, savedMerchantId) => {
-      if (savedMerchantId && activeMerchantIdRef.current !== savedMerchantId) {
-        return;
-      }
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
       ];

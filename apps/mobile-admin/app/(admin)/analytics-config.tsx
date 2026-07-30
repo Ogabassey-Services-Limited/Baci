@@ -312,12 +312,6 @@ export default function AnalyticsConfigScreen() {
       if (!readinessMerchantId || !savedUserId) {
         throw new Error('No merchant found');
       }
-      if (
-        activeMerchantIdRef.current !== readinessMerchantId ||
-        activeUserIdRef.current !== savedUserId
-      ) {
-        return;
-      }
       await invalidateAnalyticsSaveReadiness(
         queryClient,
         readinessMerchantId,
