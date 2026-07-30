@@ -83,7 +83,12 @@ exit 0
   const render = rawRender
     .replaceAll('/etc/systemd/system', units)
     .replaceAll('/usr/bin/node', node)
-    .replaceAll('/usr/bin/stat -c %h', '/usr/bin/stat -f %l')
+    .replaceAll(
+      '/usr/bin/stat -c %h',
+      process.platform === 'darwin'
+        ? '/usr/bin/stat -f %l'
+        : '/usr/bin/stat -c %h'
+    )
     .replaceAll('/usr/bin/sync -f', '/usr/bin/true')
     .replace('/bin/chown root:root "$temporary"', ':');
   const command = `set -eu
