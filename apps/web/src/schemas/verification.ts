@@ -25,6 +25,7 @@ export const cacVerifyFormSchema = z.object({
 });
 
 export const taxIdVerifySchema = z.object({
+  merchantId: merchantIdParamSchema,
   taxIdentificationNumber: z
     .string()
     .transform((value) => normalizeTaxIdentificationNumber(value))

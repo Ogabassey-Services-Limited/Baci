@@ -1,12 +1,8 @@
 'use client';
 
-import { NIGERIAN_STATES, type RegisteredAddress } from '@baci/shared';
-import { Building2, CheckCircle2, Info, Loader2, MapPin } from 'lucide-react';
+import type { RegisteredAddress } from '@baci/shared';
+import { Building2, CheckCircle2, Info, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import {
-  AddressAutocomplete,
-  type PlaceDetails,
-} from '@/components/address-autocomplete';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +22,7 @@ import {
   normalizeTaxIdentificationNumber,
   TAX_IDENTIFICATION_NUMBER_MAX_LENGTH,
 } from '@/lib/tax-identification';
+import { TaxSettingsAddressCard } from './tax-settings-address-card';
 
 interface TaxSettingsFormProps {
   merchantId: string;
@@ -59,14 +56,8 @@ export function TaxSettingsForm({
   const [legalEntityName, setLegalEntityName] = useState(
     initialLegalEntityName
   );
-  const [address, setAddress] = useState<RegisteredAddress>({
-    ...initialRegisteredAddress,
-    country: initialRegisteredAddress.country ?? 'Nigeria',
-  });
-  const [stateCode, setStateCode] = useState(initialStateCode);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingEntity, setIsSavingEntity] = useState(false);
-  const [isSavingAddress, setIsSavingAddress] = useState(false);
 
   const saveSettings = async (payload: Record<string, unknown>) => {
     await apiPatch('/api/merchant/settings', { merchantId, ...payload });
@@ -126,6 +117,7 @@ export function TaxSettingsForm({
         const verification = await apiPost<VerifyTaxIdResponse>(
           '/api/merchant/verify-tax-id',
           {
+            merchantId,
             taxIdentificationNumber: normalizedTaxId,
             legalEntityName: legalEntityName.trim() || undefined,
           }
@@ -173,67 +165,8 @@ export function TaxSettingsForm({
     setIsSavingEntity(false);
   };
 
-  const handleStreetChange = (
-    e: React.ChangeEvent<HTMLInputElement> | string
-  ) => {
-    const value = typeof e === 'string' ? e : e.target.value;
-    setAddress((prev) => ({ ...prev, street: value }));
-  };
-
-  const handleAddressSelect = (place: PlaceDetails) => {
-    const street = [place.streetNumber, place.route].filter(Boolean).join(' ');
-    setAddress((prev) => ({
-      ...prev,
-      street: street || prev.street,
-      city: place.city || prev.city,
-      postal_code: place.zip || prev.postal_code,
-      state: place.state || prev.state,
-    }));
-
-    // Auto-match state name to Nigerian state code
-    if (place.state) {
-      const matchedState = NIGERIAN_STATES.find(
-        (s) => s.name.toLowerCase() === place.state.toLowerCase()
-      );
-      if (matchedState) {
-        setStateCode(matchedState.code);
-      }
-    }
-  };
-
-  const handleSaveAddress = async () => {
-    setIsSavingAddress(true);
-    try {
-      const selectedState = NIGERIAN_STATES.find((s) => s.code === stateCode);
-      await saveSettings({
-        registered_address: {
-          street: address.street || null,
-          city: address.city || null,
-          state: selectedState?.name || null,
-          postal_code: address.postal_code || null,
-          country: 'Nigeria',
-        },
-        state_code: stateCode || null,
-      });
-
-      toast({
-        title: 'Address Saved',
-        description: 'Your registered business address has been updated.',
-      });
-    } catch (_error) {
-      toast({
-        title: 'Update Failed',
-        description: 'Could not save address. Please try again.',
-        variant: 'destructive',
-      });
-    }
-
-    setIsSavingAddress(false);
-  };
-
   return (
     <div className="grid gap-6">
-      {/* VAT Toggle Card */}
       <Card className="glass">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -272,7 +205,6 @@ export function TaxSettingsForm({
         </CardContent>
       </Card>
 
-      {/* Tax ID Card */}
       <Card className="glass">
         <CardHeader>
           <CardTitle>Tax Identification</CardTitle>
@@ -311,7 +243,6 @@ export function TaxSettingsForm({
         </CardContent>
       </Card>
 
-      {/* Legal Entity Name Card */}
       <Card className="glass">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -348,90 +279,11 @@ export function TaxSettingsForm({
         </CardContent>
       </Card>
 
-      {/* Registered Address Card */}
-      <Card className="glass">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="size-5" />
-            Registered Business Address
-          </CardTitle>
-          <CardDescription>
-            Your official business address for tax invoices and FIRS compliance
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="address-street">Street Address</Label>
-            <AddressAutocomplete
-              id="address-street"
-              placeholder="Start typing your address..."
-              value={address.street ?? ''}
-              onChange={handleStreetChange}
-              onSelect={handleAddressSelect}
-              country="ng"
-            />
-            <p className="text-xs text-muted-foreground">
-              Type to search with Google Places or enter manually
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="address-city">City</Label>
-              <Input
-                id="address-city"
-                placeholder="e.g. Lagos"
-                value={address.city ?? ''}
-                onChange={(e) =>
-                  setAddress((prev) => ({ ...prev, city: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address-postal">Postal Code</Label>
-              <Input
-                id="address-postal"
-                placeholder="e.g. 100001"
-                value={address.postal_code ?? ''}
-                onChange={(e) =>
-                  setAddress((prev) => ({
-                    ...prev,
-                    postal_code: e.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address-state">State</Label>
-            <select
-              id="address-state"
-              value={stateCode}
-              onChange={(e) => setStateCode(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">Select state…</option>
-              {NIGERIAN_STATES.map((state) => (
-                <option key={state.code} value={state.code}>
-                  {state.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <Button
-            onClick={handleSaveAddress}
-            disabled={isSavingAddress}
-            className="w-full"
-          >
-            {isSavingAddress && (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            )}
-            Save Address
-          </Button>
-        </CardContent>
-      </Card>
+      <TaxSettingsAddressCard
+        initialRegisteredAddress={initialRegisteredAddress}
+        initialStateCode={initialStateCode}
+        onSaveAddress={saveSettings}
+      />
 
       {/* Info Alert */}
       <Alert>

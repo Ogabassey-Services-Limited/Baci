@@ -134,6 +134,7 @@ describe('TaxSettingsForm', () => {
 
     await waitFor(() => {
       expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/verify-tax-id', {
+        merchantId: 'merchant-1',
         taxIdentificationNumber: '2522599781276',
         legalEntityName: 'OGABASSEY SERVICES LIMITED',
       });

@@ -91,6 +91,7 @@ export default async function TaxSettingsPage() {
       </div>
 
       <TaxSettingsForm
+        key={merchant.id}
         merchantId={merchant.id}
         initialVatEnabled={vatEnabled}
         initialVatRate={vatRate}

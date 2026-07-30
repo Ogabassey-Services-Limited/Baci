@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
-const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
 const mockCheckRateLimit = vi.fn();
 const mockFetchCacCompanies = vi.fn();
 const mockFindMatchingCacCompany = vi.fn();
@@ -33,8 +33,15 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
-  getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
+  toUserAccess: (context: { merchantId: string }) => ({
+    merchantId: context.merchantId,
+  }),
 }));
 
 vi.mock('@/lib/rate-limiter', () => ({
@@ -84,12 +91,14 @@ describe('POST /api/merchant/verify-tax-id', () => {
       user: { id: 'user-1' },
       supabase: { from: mockFrom },
     });
-    mockGetUserAccess.mockResolvedValue({
+    mockGetMerchantForApiRequest.mockResolvedValue({
       merchantId: 'merchant-1',
-      isOwner: true,
-      isStaff: false,
-      permissions: {},
-      role: 'owner',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: {},
+        role: null,
+      },
     });
     mockHasPermission.mockReturnValue(true);
     mockCheckRateLimit.mockResolvedValue(true);
@@ -111,7 +120,10 @@ describe('POST /api/merchant/verify-tax-id', () => {
     });
 
     const response = await POST(
-      createPostRequest({ taxIdentificationNumber: '2522599781276' })
+      createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        taxIdentificationNumber: '2522599781276',
+      })
     );
 
     expect(response.status).toBe(401);
@@ -128,7 +140,10 @@ describe('POST /api/merchant/verify-tax-id', () => {
     });
 
     const response = await POST(
-      createPostRequest({ taxIdentificationNumber: '2522599781276' })
+      createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        taxIdentificationNumber: '2522599781276',
+      })
     );
 
     expect(response.status).toBe(403);
@@ -139,7 +154,10 @@ describe('POST /api/merchant/verify-tax-id', () => {
     mockHasPermission.mockReturnValue(false);
 
     const response = await POST(
-      createPostRequest({ taxIdentificationNumber: '2522599781276' })
+      createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        taxIdentificationNumber: '2522599781276',
+      })
     );
 
     expect(response.status).toBe(403);
@@ -148,7 +166,10 @@ describe('POST /api/merchant/verify-tax-id', () => {
 
   it('rejects invalid tax id values before calling CAC', async () => {
     const response = await POST(
-      createPostRequest({ taxIdentificationNumber: '123456789' })
+      createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        taxIdentificationNumber: '123456789',
+      })
     );
 
     expect(response.status).toBe(400);
@@ -158,6 +179,7 @@ describe('POST /api/merchant/verify-tax-id', () => {
   it('matches CAC tax_id and saves the normalized merchant tax id', async () => {
     const response = await POST(
       createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
         taxIdentificationNumber: ' 252-259-9781276 ',
         legalEntityName: 'OGABASSEY SERVICES LIMITED',
       })
@@ -193,7 +215,10 @@ describe('POST /api/merchant/verify-tax-id', () => {
     });
 
     const response = await POST(
-      createPostRequest({ taxIdentificationNumber: '2522599781276' })
+      createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        taxIdentificationNumber: '2522599781276',
+      })
     );
 
     expect(response.status).toBe(200);
@@ -212,7 +237,10 @@ describe('POST /api/merchant/verify-tax-id', () => {
     mockFetchCacTaxId.mockResolvedValue('0000000000000');
 
     const response = await POST(
-      createPostRequest({ taxIdentificationNumber: '2522599781276' })
+      createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        taxIdentificationNumber: '2522599781276',
+      })
     );
 
     expect(response.status).toBe(422);
@@ -226,7 +254,10 @@ describe('POST /api/merchant/verify-tax-id', () => {
     mockFindMatchingCacCompany.mockReturnValue(null);
 
     const response = await POST(
-      createPostRequest({ taxIdentificationNumber: '2522599781276' })
+      createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        taxIdentificationNumber: '2522599781276',
+      })
     );
 
     expect(response.status).toBe(404);

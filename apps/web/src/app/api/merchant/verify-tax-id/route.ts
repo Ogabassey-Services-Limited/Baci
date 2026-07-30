@@ -3,11 +3,7 @@ import {
   normalizeCacSearchTerm,
 } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   type CacPublicRecordsError,
   fetchCacCompanies,
@@ -15,6 +11,10 @@ import {
   findMatchingCacCompany,
 } from '@/lib/cac-public-records';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { taxIdVerifySchema } from '@/schemas/verification';
 
@@ -62,15 +62,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!hasPermission(access, 'settings', 'edit')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
   const allowed = await checkRateLimit(
     auth.supabase,
     auth.user.id,
@@ -103,10 +94,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: parsed.data.merchantId }
+  );
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!hasPermission(toUserAccess(merchantContext), 'settings', 'edit')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const { data: merchant, error: merchantError } = await auth.supabase
     .from('merchants')
     .select(MERCHANT_TAX_IDENTITY_COLUMNS)
-    .eq('id', access.merchantId)
+    .eq('id', merchantContext.merchantId)
     .single();
 
   if (merchantError || !merchant) {
@@ -183,7 +186,7 @@ export async function POST(request: NextRequest) {
         tax_identification_number: parsed.data.taxIdentificationNumber,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', access.merchantId)
+      .eq('id', merchantContext.merchantId)
       .select(MERCHANT_SETTINGS_COLUMNS)
       .single();
 
