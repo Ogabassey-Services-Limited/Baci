@@ -11,6 +11,7 @@ const stable = (value) =>
 
 const same = (left, right) =>
   JSON.stringify(stable(left)) === JSON.stringify(stable(right));
+const absent = { absent: true };
 
 function canFollow(previous, next) {
   if (
@@ -23,16 +24,20 @@ function canFollow(previous, next) {
   if (!same(paths, Object.keys(next.prior ?? {}).sort())) return false;
   if (previous.phase === 'complete')
     return same(previous.receipt?.files, next.prior);
+  if (previous.phase !== 'captured') return false;
+  const previousPaths = Object.keys(previous.files ?? {}).sort();
+  const previousPathSet = new Set(previousPaths);
   if (
-    previous.phase !== 'captured' ||
-    !same(paths, Object.keys(previous.files ?? {}).sort()) ||
-    !same(paths, Object.keys(previous.prior ?? {}).sort())
+    !same(previousPaths, Object.keys(previous.prior ?? {}).sort()) ||
+    previousPaths.some((path) => !paths.includes(path))
   )
     return false;
   return paths.every(
     (path) =>
-      same(next.prior[path], previous.prior[path]) ||
-      same(next.prior[path], previous.files[path])
+      (previousPathSet.has(path) &&
+        (same(next.prior[path], previous.prior[path]) ||
+          same(next.prior[path], previous.files[path]))) ||
+      (!previousPathSet.has(path) && same(next.prior[path], absent))
   );
 }
 

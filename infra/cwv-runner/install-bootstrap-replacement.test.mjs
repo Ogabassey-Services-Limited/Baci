@@ -143,3 +143,37 @@ test('refuses an unbound prior generation or downstream provisioning', () => {
     /downstream provisioning exists/
   );
 });
+
+test('plans a proven-absent path added after a captured generation', () => {
+  const baseline = {
+    ...previousState,
+    receipt: {
+      ...previousState.receipt,
+      files: { [bootstrapPath]: oldBootstrap },
+    },
+  };
+  const interrupted = {
+    ...nextState,
+    sourceSha: 'f'.repeat(40),
+    captureSha256: '8'.repeat(64),
+    prior: baseline.receipt.files,
+    files: { [bootstrapPath]: newBootstrap },
+  };
+  const current = {
+    ...nextState,
+    prior: {
+      [bootstrapPath]: newBootstrap,
+      [watchdogPath]: { absent: true },
+    },
+  };
+
+  const plan = planBootstrapReplacement({
+    authorityChain: [baseline, interrupted, current],
+    nextState: current,
+    installedProjection: current.prior,
+    downstreamState: inertHost,
+  });
+
+  assert.deepEqual(plan.replace, [watchdogPath]);
+  assert.deepEqual(plan.alreadyCurrent, [bootstrapPath]);
+});

@@ -1,5 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { chmod, chown, open, readdir, rename, rm } from 'node:fs/promises';
+import {
+  chmod,
+  chown,
+  lstat,
+  open,
+  readdir,
+  rename,
+  rm,
+} from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { canonicalJson } from './canonical-json.mjs';
 import { readBootstrapState } from './install-bootstrap.mjs';
@@ -21,12 +29,22 @@ const temporaryPrefix = '.baci-bootstrap-replacement-';
 const temporaryPattern =
   /^\.baci-bootstrap-replacement-v2-([0-9a-f]{64})-([0-9a-f]{64})-([a-z0-9-]+)$/;
 const legacyTemporaryPattern = /^\.baci-bootstrap-replacement-[a-z0-9-]+$/;
+const historicalTemporaryPattern = /^\.tmp\.[A-Za-z0-9]{6}$/;
 
 const destinationIdentity = (destination) => sha256(destination);
 const safeObsoleteTemporary = (actual, expectedSha256) =>
   actual.sha256 === expectedSha256 &&
   actual.mode === '0600' &&
   Object.hasOwn(owners, actual.owner);
+const sameIdentity = (left, right) =>
+  ['dev', 'ino', 'size', 'mode', 'uid', 'gid', 'mtimeMs', 'ctimeMs'].every(
+    (key) => left[key] === right[key]
+  );
+const temporaryProjections = (expected) => [
+  expected,
+  { ...expected, mode: '0600', owner: expected.owner },
+  { ...expected, mode: '0600', owner: 'root:root' },
+];
 
 function temporaryName(destination, expectedSha256, attempt) {
   if (!/^[0-9a-f]{64}$/.test(expectedSha256))
@@ -43,7 +61,13 @@ async function syncPath(path) {
   }
 }
 
-async function atomicReplace(destination, bytes, expected, dependencies) {
+async function atomicReplace(
+  destination,
+  bytes,
+  expected,
+  priorIdentity,
+  dependencies
+) {
   const directory = dirname(destination);
   const attempt = dependencies.temporaryId();
   if (!/^[a-z0-9-]+$/.test(attempt))
@@ -66,6 +90,8 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
     await dependencies.chownFile(temporary, uid, gid);
     await chmod(temporary, Number.parseInt(expected.mode, 8));
     await dependencies.syncMetadata(temporary);
+    if (!sameIdentity(priorIdentity, await dependencies.lstatFile(destination)))
+      throw new TypeError('installed bootstrap replacement drift');
     await dependencies.renameFile(temporary, destination);
     await dependencies.syncDirectory(directory);
   } catch (error) {
@@ -92,14 +118,21 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
   }
 }
 
-async function reconcileTemporaries(destination, expected, dependencies) {
+async function reconcileTemporaries(
+  destination,
+  prior,
+  expected,
+  dependencies
+) {
   const directory = dirname(destination);
   const entries = (await dependencies.readDirectory(directory)).sort();
   for (const entry of entries) {
-    if (!entry.startsWith('.baci-bootstrap-replacement')) continue;
+    const historical = historicalTemporaryPattern.test(entry);
+    if (!entry.startsWith('.baci-bootstrap-replacement') && !historical)
+      continue;
     const bound = temporaryPattern.exec(entry);
     const legacy = legacyTemporaryPattern.test(entry);
-    if (!bound && !legacy)
+    if (!bound && !legacy && !historical)
       throw new TypeError('unexpected bootstrap replacement residue');
     const temporary = join(directory, entry);
     const actual = (
@@ -107,6 +140,16 @@ async function reconcileTemporaries(destination, expected, dependencies) {
         [temporary]: expected,
       })
     )[temporary];
+    if (historical) {
+      const permitted = [prior, expected]
+        .flatMap(temporaryProjections)
+        .some((projection) => same(actual, projection));
+      if (!permitted)
+        throw new TypeError('bootstrap replacement temporary drift');
+      await dependencies.removeFile(temporary);
+      await dependencies.syncDirectory(directory);
+      continue;
+    }
     if (bound && bound[1] !== destinationIdentity(destination)) continue;
     if (bound && bound[2] !== expected.sha256) {
       if (!safeObsoleteTemporary(actual, bound[2]))
@@ -115,11 +158,7 @@ async function reconcileTemporaries(destination, expected, dependencies) {
       await dependencies.syncDirectory(directory);
       continue;
     }
-    const permitted = [
-      expected,
-      { ...expected, mode: '0600', owner: expected.owner },
-      { ...expected, mode: '0600', owner: 'root:root' },
-    ];
+    const permitted = temporaryProjections(expected);
     if (!permitted.some((projection) => same(actual, projection)))
       throw new TypeError('bootstrap replacement temporary drift');
     await dependencies.removeFile(temporary);
@@ -133,6 +172,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     openFile: descriptor.openFile ?? open,
     readIntent: descriptor.readIntent ?? readBootstrapReplacementIntent,
     readDirectory: descriptor.readDirectory ?? readdir,
+    lstatFile: descriptor.lstatFile ?? lstat,
     readProjection: descriptor.readProjection ?? readInstalledProjection,
     readState: descriptor.readState ?? readBootstrapState,
     renameFile: descriptor.renameFile ?? rename,
@@ -160,16 +200,31 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
   const expected = state.files[destination];
   if (sha256(bytes) !== expected.sha256)
     throw new TypeError('bootstrap replacement bytes mismatch');
-  await reconcileTemporaries(destination, expected, dependencies);
+  await reconcileTemporaries(
+    destination,
+    state.prior[destination],
+    expected,
+    dependencies
+  );
+  const identityBefore = await dependencies.lstatFile(destination);
   const actual = (
     await dependencies.readProjection({
       [destination]: expected,
     })
   )[destination];
+  const priorIdentity = await dependencies.lstatFile(destination);
+  if (!sameIdentity(identityBefore, priorIdentity))
+    throw new TypeError('installed bootstrap replacement drift');
   if (same(actual, expected)) return 'current';
   if (!same(actual, state.prior[destination]))
     throw new TypeError('installed bootstrap replacement drift');
-  await atomicReplace(destination, bytes, expected, dependencies);
+  await atomicReplace(
+    destination,
+    bytes,
+    expected,
+    priorIdentity,
+    dependencies
+  );
   const replaced = (
     await dependencies.readProjection({
       [destination]: expected,
