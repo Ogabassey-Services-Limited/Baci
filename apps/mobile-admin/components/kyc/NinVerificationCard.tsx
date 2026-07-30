@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation } from '@tanstack/react-query';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -55,6 +55,11 @@ export default function NinVerificationCard({
   const { colors, shadows } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [nin, setNin] = useState(prefillNin ?? '');
+  const isFullyVerified = verified && bvnVerified;
+
+  useEffect(() => {
+    if (isFullyVerified) setExpanded(false);
+  }, [isFullyVerified]);
 
   const [prevPrefillNin, setPrevPrefillNin] = useState(prefillNin);
   const [prevVerified, setPrevVerified] = useState(verified);
