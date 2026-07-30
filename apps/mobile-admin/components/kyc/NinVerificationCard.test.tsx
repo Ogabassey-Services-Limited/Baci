@@ -197,6 +197,31 @@ describe('NinVerificationCard readiness handoff', () => {
     expect(screen.queryByLabelText('Not Started')).not.toBeInTheDocument();
   });
 
+  it('shows legacy BVN-only verification as complete and keeps its status accessible', () => {
+    render(
+      <NinVerificationCard
+        bvnVerified
+        dateOfBirth="2000-01-01"
+        firstName="Ada"
+        lastName="Lovelace"
+        mobileNo="08012345678"
+        onIdentityChange={vi.fn()}
+        onVerified={vi.fn().mockResolvedValue(undefined)}
+        verified={false}
+      />
+    );
+
+    expect(screen.getByLabelText('Verified')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Not Started')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /toggle identity verification/i })
+    );
+
+    expect(screen.getByText('BVN Verification')).toBeInTheDocument();
+    expect(screen.queryByLabelText('BVN input')).not.toBeInTheDocument();
+  });
+
   it('auto-folds after BVN verification completes', () => {
     const props = {
       dateOfBirth: '2000-01-01',

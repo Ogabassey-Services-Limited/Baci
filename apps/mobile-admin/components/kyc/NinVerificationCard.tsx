@@ -163,11 +163,7 @@ export default function NinVerificationCard({
           <VerificationStatusBadge
             label={verified && !bvnVerified ? 'BVN Pending' : undefined}
             status={
-              verified && bvnVerified
-                ? 'verified'
-                : verified
-                  ? 'pending'
-                  : 'not-started'
+              bvnVerified ? 'verified' : verified ? 'pending' : 'not-started'
             }
           />
           <Ionicons
@@ -273,7 +269,7 @@ export default function NinVerificationCard({
             </Pressable>
           )}
 
-          {verified && (
+          {(verified || bvnVerified) && (
             <BvnVerificationCard
               verified={bvnVerified}
               prefillBvn={prefillBvn}
