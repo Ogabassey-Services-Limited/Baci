@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
+  link,
   lstat,
   mkdtemp,
   readFile,
@@ -76,4 +77,48 @@ test('refuses to publish over a destination inode swapped after prior projection
   );
   assert.deepEqual(await readFile(destination), attackerBytes);
   assert.deepEqual(await readFile(displaced), oldBytes);
+});
+
+test('does not clobber a concurrent creator during an authorized absent install', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-bootstrap-absent-publish-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const destination = join(root, 'watchdog.service');
+  const newBytes = Buffer.from('new watchdog\n');
+  const attackerBytes = Buffer.from('attacker\n');
+  const expected = {
+    sha256: sha256(newBytes),
+    mode: '0600',
+    owner: 'root:root',
+  };
+  const state = {
+    phase: 'captured',
+    sourceSha: 'b'.repeat(40),
+    captureSha256: '3'.repeat(64),
+    policyFileSha256: '5'.repeat(64),
+    prior: { [destination]: { absent: true } },
+    files: { [destination]: expected },
+  };
+  const intent = {
+    sourceSha: state.sourceSha,
+    captureSha256: state.captureSha256,
+    policyFileSha256: state.policyFileSha256,
+    pathSetSha256: sha256(JSON.stringify([destination])),
+    transitionPaths: [destination],
+  };
+  await assert.rejects(
+    replaceBootstrapFile(
+      { currentDirectory: '/state/current', destination, bytes: newBytes },
+      {
+        readState: async () => state,
+        readIntent: async () => intent,
+        chownFile: async () => undefined,
+        linkFile: async (temporary, target) => {
+          await writeFile(target, attackerBytes, { mode: 0o600 });
+          await link(temporary, target);
+        },
+      }
+    ),
+    { code: 'EEXIST' }
+  );
+  assert.deepEqual(await readFile(destination), attackerBytes);
 });

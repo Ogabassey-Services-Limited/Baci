@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import {
   chmod,
   chown,
+  link,
   lstat,
   open,
   readdir,
@@ -37,9 +38,11 @@ const safeObsoleteTemporary = (actual, expectedSha256) =>
   actual.mode === '0600' &&
   Object.hasOwn(owners, actual.owner);
 const sameIdentity = (left, right) =>
-  ['dev', 'ino', 'size', 'mode', 'uid', 'gid', 'mtimeMs', 'ctimeMs'].every(
-    (key) => left[key] === right[key]
-  );
+  left.absent || right.absent
+    ? left.absent === true && right.absent === true
+    : ['dev', 'ino', 'size', 'mode', 'uid', 'gid', 'mtimeMs', 'ctimeMs'].every(
+        (key) => left[key] === right[key]
+      );
 const temporaryProjections = (expected) => [
   expected,
   { ...expected, mode: '0600', owner: expected.owner },
@@ -58,6 +61,15 @@ async function syncPath(path) {
     await handle.sync();
   } finally {
     await handle.close();
+  }
+}
+
+async function readIdentity(path, dependencies) {
+  try {
+    return await dependencies.lstatFile(path);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    return { absent: true };
   }
 }
 
@@ -90,10 +102,23 @@ async function atomicReplace(
     await dependencies.chownFile(temporary, uid, gid);
     await chmod(temporary, Number.parseInt(expected.mode, 8));
     await dependencies.syncMetadata(temporary);
-    if (!sameIdentity(priorIdentity, await dependencies.lstatFile(destination)))
+    if (
+      !sameIdentity(
+        priorIdentity,
+        await readIdentity(destination, dependencies)
+      )
+    )
       throw new TypeError('installed bootstrap replacement drift');
-    await dependencies.renameFile(temporary, destination);
-    await dependencies.syncDirectory(directory);
+    if (priorIdentity.absent) {
+      await dependencies.linkFile(temporary, destination);
+      await dependencies.syncDirectory(directory);
+      await dependencies.removeFile(temporary);
+      created = false;
+      await dependencies.syncDirectory(directory);
+    } else {
+      await dependencies.renameFile(temporary, destination);
+      await dependencies.syncDirectory(directory);
+    }
   } catch (error) {
     if (handle) {
       try {
@@ -142,6 +167,7 @@ async function reconcileTemporaries(
     )[temporary];
     if (historical) {
       const permitted = [prior, expected]
+        .filter((projection) => !projection.absent)
         .flatMap(temporaryProjections)
         .some((projection) => same(actual, projection));
       if (!permitted)
@@ -173,6 +199,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     readIntent: descriptor.readIntent ?? readBootstrapReplacementIntent,
     readDirectory: descriptor.readDirectory ?? readdir,
     lstatFile: descriptor.lstatFile ?? lstat,
+    linkFile: descriptor.linkFile ?? link,
     readProjection: descriptor.readProjection ?? readInstalledProjection,
     readState: descriptor.readState ?? readBootstrapState,
     renameFile: descriptor.renameFile ?? rename,
@@ -206,13 +233,13 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     expected,
     dependencies
   );
-  const identityBefore = await dependencies.lstatFile(destination);
+  const identityBefore = await readIdentity(destination, dependencies);
   const actual = (
     await dependencies.readProjection({
       [destination]: expected,
     })
   )[destination];
-  const priorIdentity = await dependencies.lstatFile(destination);
+  const priorIdentity = await readIdentity(destination, dependencies);
   if (!sameIdentity(identityBefore, priorIdentity))
     throw new TypeError('installed bootstrap replacement drift');
   if (same(actual, expected)) return 'current';

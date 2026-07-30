@@ -74,14 +74,17 @@ export async function readBootstrapReplacementStateInventory(
     }
     if (
       !TRANSACTION.test(input?.transactionId) ||
-      !names.includes(input.transactionId) ||
       !bytes.equals(Buffer.from(`${JSON.stringify(input)}\n`))
     )
       throw new TypeError('invalid legacy bootstrap plan');
     const capture = beginBootstrap(input);
-    const state = await readState(join(stateRoot, input.transactionId));
-    if (state.captureSha256 !== capture.captureSha256)
+    if (input.transactionId !== `bootstrap-${capture.sourceSha.slice(0, 12)}`)
       throw new TypeError('invalid legacy bootstrap plan');
+    if (names.includes(input.transactionId)) {
+      const state = await readState(join(stateRoot, input.transactionId));
+      if (state.captureSha256 !== capture.captureSha256)
+        throw new TypeError('invalid legacy bootstrap plan');
+    }
   }
   for (const { name, root } of legacyPlans) await removeFile(join(root, name));
   for (const root of new Set(legacyPlans.map(({ root }) => root)))

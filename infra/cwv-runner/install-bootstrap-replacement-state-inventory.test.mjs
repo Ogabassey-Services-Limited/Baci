@@ -52,6 +52,76 @@ test('removes a parent legacy plan only when its exact bytes bind to a captured 
   await assert.rejects(lstat(legacy), { code: 'ENOENT' });
 });
 
+test('discards a canonical parent plan orphaned before capture when a later generation exists', async () => {
+  const removed = [];
+  const synced = [];
+
+  assert.deepEqual(
+    await readBootstrapReplacementStateInventory('/state', {
+      listStateDirectories: async () => ['bootstrap-aaaaaaaaaaaa'],
+      listPlanDirectories: async () => ['.plan.A1b2C3'],
+      readPinnedFile: async () => ({
+        bytes: Buffer.from(`${JSON.stringify(input)}\n`),
+        details,
+      }),
+      readState: () => {
+        throw new Error('an orphan plan has no state to read');
+      },
+      removeFile: async (file) => removed.push(file),
+      syncDirectory: async (directory) => synced.push(directory),
+    }),
+    ['bootstrap-aaaaaaaaaaaa']
+  );
+  assert.deepEqual(removed, ['/.plan.A1b2C3']);
+  assert.deepEqual(synced, ['/']);
+});
+
+test('refuses an orphan plan whose transaction is not derived from its source', async () => {
+  const mismatched = { ...input, transactionId: 'bootstrap-aaaaaaaaaaaa' };
+  let removed = false;
+
+  await assert.rejects(
+    readBootstrapReplacementStateInventory('/state', {
+      listStateDirectories: async () => ['bootstrap-cccccccccccc'],
+      listPlanDirectories: async () => ['.plan.A1b2C3'],
+      readPinnedFile: async () => ({
+        bytes: Buffer.from(`${JSON.stringify(mismatched)}\n`),
+        details,
+      }),
+      removeFile: () => {
+        removed = true;
+      },
+    }),
+    /invalid legacy bootstrap plan/
+  );
+  assert.equal(removed, false);
+});
+
+test('refuses a plan whose inventoried transaction state is missing', async () => {
+  let removed = false;
+
+  await assert.rejects(
+    readBootstrapReplacementStateInventory('/state', {
+      listStateDirectories: async () => [input.transactionId],
+      listPlanDirectories: async () => ['.plan.A1b2C3'],
+      readPinnedFile: async () => ({
+        bytes: Buffer.from(`${JSON.stringify(input)}\n`),
+        details,
+      }),
+      readState: () => {
+        const error = new Error('missing transaction');
+        error.code = 'ENOENT';
+        throw error;
+      },
+      removeFile: () => {
+        removed = true;
+      },
+    }),
+    { code: 'ENOENT' }
+  );
+  assert.equal(removed, false);
+});
+
 test('removes an original in-root legacy plan only when its exact bytes bind to a captured transaction', async (context) => {
   const parent = await mkdtemp(join(tmpdir(), 'baci-legacy-plan-'));
   const stateRoot = join(parent, 'bootstrap');

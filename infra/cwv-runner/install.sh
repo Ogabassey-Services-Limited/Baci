@@ -26,7 +26,7 @@ root_mode() {
 }
 policy() { /usr/bin/node "$SCRIPT_DIR/policy.schema.mjs" get "$1"; }
 atomic_line() (
-  destination=$1 value=$2 mode=$3 owner=$4 directory=${1%/*}
+  destination=$1 value=$2 mode=$3 owner=$4 directory=${1%/*}; if { [ ! -e "$destination" ] || [ -L "$destination" ]; } && [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" = 1 ] && regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" line "$BOOTSTRAP_DIRECTORY" "$destination" "$value" >/dev/null || die 'installed line drift'; return 0; fi
   if [ -e "$destination" ]; then
     regular "$destination" || die 'installed line drift'; if root_mode "$destination" "$owner:$mode" && [ "$(/bin/cat -- "$destination")" = "$value" ]; then return 0; fi
     if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" = 1 ] && regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" line "$BOOTSTRAP_DIRECTORY" "$destination" "$value" >/dev/null || die 'installed line drift'; return 0; fi
@@ -47,7 +47,7 @@ atomic_line() (
 }; ensure_file() {
   source=$1 destination=$2 mode=$3 owner=${4:-root:root}
   case "$destination" in "$ROOT/sealed/"*token*|"$ROOT/sealed/"*credential*|"$ROOT/sealed/"*secret*) case "$owner:$mode" in root:root:0400|root:root:0500|root:root:0600) ;; *) die 'sealed credential must be root-only';; esac;; esac
-  regular "$source" || die 'source file must be a regular nonsymlink'
+  regular "$source" || die 'source file must be a regular nonsymlink'; if { [ ! -e "$destination" ] || [ -L "$destination" ]; } && [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" = 1 ] && regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" source "$BOOTSTRAP_DIRECTORY" "$destination" "$source" >/dev/null || die 'installed file drift'; return 0; fi
   if [ -e "$destination" ]; then
     regular "$destination" || die 'installed file drift'; if root_mode "$destination" "$owner:$mode" && /usr/bin/cmp -s "$source" "$destination"; then return 0; fi
     if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" = 1 ] && regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" source "$BOOTSTRAP_DIRECTORY" "$destination" "$source" >/dev/null || die 'installed file drift'; return 0; fi

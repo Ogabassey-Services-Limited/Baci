@@ -45,7 +45,14 @@ async function fixture(context) {
   const projection = async (files) => {
     const result = {};
     for (const path of Object.keys(files)) {
-      const details = await stat(path);
+      let details;
+      try {
+        details = await stat(path);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        result[path] = { absent: true };
+        continue;
+      }
       result[path] = {
         sha256: sha256(await readFile(path)),
         mode: (details.mode & 0o777).toString(8).padStart(4, '0'),
@@ -139,4 +146,29 @@ test('retains and rejects historical residue with byte or mode drift', async (co
     assert.deepEqual(await readFile(residue), bytes);
     await rm(residue);
   }
+});
+
+test('reconciles historical residue before a receipt-bound absent install', async (context) => {
+  const value = await fixture(context);
+  value.state.prior[value.destination] = { absent: true };
+  const residue = join(value.root, '.tmp.A1b2C3');
+  await writeFile(residue, value.newBytes, { mode: 0o600 });
+  assert.equal(
+    await replaceBootstrapFile(
+      {
+        currentDirectory: '/state/current',
+        destination: value.destination,
+        bytes: value.newBytes,
+      },
+      {
+        readState: async () => value.state,
+        readIntent: async () => value.intent,
+        readProjection: value.projection,
+        chownFile: async () => undefined,
+      }
+    ),
+    'replaced'
+  );
+  assert.deepEqual(await readFile(value.destination), value.newBytes);
+  await assert.rejects(readFile(residue), { code: 'ENOENT' });
 });

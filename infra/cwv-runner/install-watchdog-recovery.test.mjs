@@ -14,8 +14,8 @@ import test from 'node:test';
 
 const source = await readFile(new URL('./install.sh', import.meta.url), 'utf8');
 const functionSource = (name, next) => {
-  const start = source.indexOf(`${name}() {`);
-  const end = source.indexOf(`\n${next}() {`, start);
+  const start = source.indexOf(`${name}()`);
+  const end = source.indexOf(`${next}()`, start);
   assert.ok(start >= 0 && end > start, `${name} source`);
   return source.slice(start, end);
 };
@@ -60,7 +60,7 @@ test('routes a changed watchdog render through receipt-bound replacement', async
 case "$1" in
   *install-bootstrap-replacement-file.mjs)
     [ "$2" = source ] || exit 64
-    /usr/bin/cmp -s "$4" ${JSON.stringify(expectedPrior)} || exit 65
+    [ ! -e "$4" ] || /usr/bin/cmp -s "$4" ${JSON.stringify(expectedPrior)} || exit 65
     /bin/cp -- "$5" "$4"
     ;;
 esac
@@ -100,6 +100,13 @@ render_watchdog ${nextSha}`;
     await readFile(target, 'utf8'),
     template.replace('@BACI_CWV_SOURCE_SHA@', nextSha)
   );
+  await rm(target);
+  const absent = runRender();
+  assert.equal(absent.status, 0, absent.stderr);
+  assert.equal(
+    await readFile(target, 'utf8'),
+    template.replace('@BACI_CWV_SOURCE_SHA@', nextSha)
+  );
 
   const differentPrior = template.replace(
     'Description=Baci CWV campaign watchdog %i',
@@ -135,4 +142,17 @@ render_watchdog ${nextSha}`;
   const drift = runRender();
   assert.equal(drift.status, 65);
   assert.match(drift.stderr, /watchdog unit drift/);
+});
+
+test('routes receipt-bound absent file and line installs through the helper', () => {
+  for (const [name, next] of [
+    ['atomic_line', 'ensure_directory'],
+    ['ensure_file', 'assert_sealed_source'],
+  ]) {
+    const body = functionSource(name, next);
+    assert.ok(
+      body.indexOf('install-bootstrap-replacement-file.mjs') <
+        body.indexOf('if [ -e "$destination" ]')
+    );
+  }
 });
