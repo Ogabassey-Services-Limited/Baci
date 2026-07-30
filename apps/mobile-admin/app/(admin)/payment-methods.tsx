@@ -26,6 +26,7 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { supabase } from '@/lib/supabase';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import type { PaymentSettings } from '@/schemas/payment-settings';
 
 function handleManagePayments(): void {
@@ -118,8 +119,11 @@ export default function PaymentMethodsScreen() {
       };
     },
     onSuccess: async (_data, _variables, context) => {
-      if (context?.merchantId) {
-        await invalidateStoreReadiness(queryClient, context.merchantId);
+      const merchantId = context?.merchantId;
+      if (merchantId) {
+        await tryRefreshStoreReadiness(() =>
+          invalidateStoreReadiness(queryClient, merchantId)
+        );
       }
     },
     onError: (error, _variables, context) => {

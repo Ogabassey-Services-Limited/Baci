@@ -163,6 +163,25 @@ describe('PaymentMethodsScreen', () => {
     );
   });
 
+  it('does not reject a committed toggle when readiness refresh fails', async () => {
+    render(<PaymentMethodsScreen />);
+    const context = await mocks.mutationConfig?.onMutate?.({
+      field: 'klump_enabled',
+      value: false,
+    });
+    mocks.invalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+
+    await expect(
+      mocks.mutationConfig?.onSuccess?.(
+        undefined,
+        { field: 'klump_enabled', value: false },
+        context
+      )
+    ).resolves.toBeUndefined();
+  });
+
   it('retries payment settings fetch when PostgREST reports missing columns', async () => {
     let capturedQueryFn: (() => Promise<unknown>) | undefined;
 
