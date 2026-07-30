@@ -234,6 +234,7 @@ export async function buildBootstrapInput(options, descriptor = {}) {
     policyFileSha256,
     bootstrapFileSha256,
     transactionId,
+    fileSpecs = bootstrapFileSpecs(sourceSha),
   } = options;
   if (
     ![sourceManifestSha256, policyFileSha256, bootstrapFileSha256].every(
@@ -245,7 +246,7 @@ export async function buildBootstrapInput(options, descriptor = {}) {
   const prior = {};
   const readPinned = (path) =>
     readPinnedBootstrapFile(path, { lstatFile: lstat, ...descriptor });
-  for (const spec of bootstrapFileSpecs(sourceSha)) {
+  for (const spec of fileSpecs) {
     let bytes;
     if (spec.source) {
       const path = `${sourceRoot}/${spec.source}`;

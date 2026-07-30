@@ -56,6 +56,7 @@ function dependencies(overrides = {}) {
   ]);
   return {
     buildInput: async () => ({ files: state.files }),
+    resolveFileSpecs: () => [],
     listSourcePaths: async () => ['install.sh'],
     readPinned: async (path) => ({
       bytes: receipts.has(path.split('/').at(-1))

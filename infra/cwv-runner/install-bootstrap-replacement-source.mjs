@@ -3,6 +3,7 @@ import { lstat, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { canonicalJson } from './canonical-json.mjs';
+import { resolveBootstrapGenerationFileSpecs } from './install-bootstrap-generation-specs.mjs';
 import { readPinnedBootstrapFile } from './install-bootstrap-installed.mjs';
 import { buildBootstrapInput } from './install-bootstrap-plan.mjs';
 
@@ -70,6 +71,8 @@ export async function validateBootstrapReplacementSourceState(
   const readPinned = descriptor.readPinned ?? readPinnedBootstrapFile;
   const listSourcePaths = descriptor.listSourcePaths ?? defaultListSourcePaths;
   const buildInput = descriptor.buildInput ?? buildBootstrapInput;
+  const resolveFileSpecs =
+    descriptor.resolveFileSpecs ?? resolveBootstrapGenerationFileSpecs;
   if (
     !SOURCE.test(state?.sourceSha ?? '') ||
     state.transactionId !== `bootstrap-${state.sourceSha.slice(0, 12)}` ||
@@ -173,6 +176,11 @@ export async function validateBootstrapReplacementSourceState(
       (await readPinned(join(source, 'install.sh'))).bytes
     ),
     transactionId: state.transactionId,
+    fileSpecs: resolveFileSpecs({
+      sourceSha: state.sourceSha,
+      manifestRelativePaths: relativePaths,
+      files: state.files,
+    }),
   });
   if (
     !same(derived.files, state.files) ||

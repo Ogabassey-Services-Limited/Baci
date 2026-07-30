@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { chmod, chown, link, open, readdir, rm } from 'node:fs/promises';
+import { chmod, chown, link, lstat, open, readdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -14,6 +14,8 @@ import { readBootstrapReplacementIntent } from './install-bootstrap-replacement-
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const same = (left, right) => canonicalJson(left) === canonicalJson(right);
+const sameIdentity = (left, right) =>
+  left.dev === right.dev && left.ino === right.ino;
 const stable = (value) =>
   JSON.stringify(Array.isArray(value) ? [...value].sort() : value);
 const owners = {
@@ -85,11 +87,13 @@ async function atomicReplace(
   );
   let created = false;
   let handle;
+  let preparedIdentity;
   try {
     handle = await dependencies.openFile(temporary, 'wx', 0o600);
     created = true;
     await handle.writeFile(bytes);
     await handle.sync();
+    preparedIdentity = await handle.stat();
     await handle.close();
     handle = undefined;
     const [uid, gid] = owners[expected.owner] ?? [];
@@ -114,6 +118,10 @@ async function atomicReplace(
         !same(published[temporary], prior) ||
         !same(published[destination], expected)
       ) {
+        const destinationIdentity =
+          await dependencies.readIdentity(destination);
+        if (!sameIdentity(destinationIdentity, preparedIdentity))
+          throw new TypeError('installed bootstrap replacement drift');
         try {
           await dependencies.exchangeFile(temporary, destination);
           await dependencies.syncDirectory(directory);
@@ -209,6 +217,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
       ((left, right) => exchangePaths(left, right, descriptor)),
     openFile: descriptor.openFile ?? open,
     readIntent: descriptor.readIntent ?? readBootstrapReplacementIntent,
+    readIdentity: descriptor.readIdentity ?? lstat,
     readDirectory: descriptor.readDirectory ?? readdir,
     linkFile: descriptor.linkFile ?? link,
     readProjection: descriptor.readProjection ?? readInstalledProjection,

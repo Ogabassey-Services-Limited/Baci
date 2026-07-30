@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
   mkdtemp,
+  readdir,
   readFile,
   rename,
   rm,
-  stat,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -16,36 +16,29 @@ import { replaceBootstrapFile } from './install-bootstrap-replacement-file.mjs';
 import { exchangeTestPaths } from './install-bootstrap-replacement-file.test-helper.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const metadata = (bytes) => ({
+  sha256: sha256(bytes),
+  mode: '0600',
+  owner: 'root:root',
+});
 
-test('does not roll back over a substituted destination inode', async (context) => {
-  const root = await mkdtemp(join(tmpdir(), 'baci-bootstrap-temp-race-'));
+test('preserves a concurrent writer that replaces the destination after exchange', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-bootstrap-rollback-race-'));
   context.after(() => rm(root, { recursive: true, force: true }));
   const destination = join(root, 'bootstrap.sha256');
   const attacker = join(root, 'attacker');
-  const prepared = join(root, 'prepared');
-  const oldBytes = Buffer.from('old\n');
-  const newBytes = Buffer.from('new\n');
-  const attackerBytes = Buffer.from('attacker\n');
-  await writeFile(destination, oldBytes, { mode: 0o600 });
+  const priorBytes = Buffer.from('prior\n');
+  const expectedBytes = Buffer.from('expected\n');
+  const attackerBytes = Buffer.from('concurrent writer\n');
+  await writeFile(destination, priorBytes, { mode: 0o600 });
   await writeFile(attacker, attackerBytes, { mode: 0o600 });
-  const metadata = async (path) => ({
-    sha256: sha256(await readFile(path)),
-    mode: (await stat(path)).mode.toString(8).slice(-3).padStart(4, '0'),
-    owner: 'root:root',
-  });
   const state = {
     phase: 'captured',
     sourceSha: 'b'.repeat(40),
     captureSha256: '3'.repeat(64),
     policyFileSha256: '5'.repeat(64),
-    prior: { [destination]: await metadata(destination) },
-    files: {
-      [destination]: {
-        sha256: sha256(newBytes),
-        mode: '0600',
-        owner: 'root:root',
-      },
-    },
+    prior: { [destination]: metadata(priorBytes) },
+    files: { [destination]: metadata(expectedBytes) },
   };
   const intent = {
     sourceSha: state.sourceSha,
@@ -54,37 +47,39 @@ test('does not roll back over a substituted destination inode', async (context) 
     pathSetSha256: sha256(JSON.stringify([destination])),
     transitionPaths: [destination],
   };
-  let exchanges = 0;
-
+  let projectionCalls = 0;
+  let exchangeCalls = 0;
   await assert.rejects(
     replaceBootstrapFile(
-      { currentDirectory: '/state/current', destination, bytes: newBytes },
+      {
+        currentDirectory: '/state/current',
+        destination,
+        bytes: expectedBytes,
+      },
       {
         readState: async () => state,
         readIntent: async () => intent,
-        readProjection: async (files) =>
-          Object.fromEntries(
-            await Promise.all(
-              Object.keys(files).map(async (path) => [
-                path,
-                await metadata(path),
-              ])
-            )
-          ),
+        chownFile: async () => undefined,
         exchangeFile: async (left, right) => {
-          exchanges += 1;
-          if (exchanges === 1) {
-            await rename(left, prepared);
-            await rename(attacker, left);
-          }
+          exchangeCalls += 1;
           await exchangeTestPaths(left, right);
         },
-        chownFile: async () => undefined,
+        readProjection: async (files) => {
+          projectionCalls += 1;
+          if (projectionCalls === 2) await rename(attacker, destination);
+          const result = {};
+          for (const path of Object.keys(files))
+            result[path] = metadata(await readFile(path));
+          return result;
+        },
       }
     ),
     /installed bootstrap replacement drift/
   );
-  assert.equal(exchanges, 1);
+  assert.equal(exchangeCalls, 1);
   assert.deepEqual(await readFile(destination), attackerBytes);
-  assert.deepEqual(await readFile(prepared), newBytes);
+  const [temporary] = (await readdir(root)).filter((entry) =>
+    entry.startsWith('.baci-bootstrap-replacement-')
+  );
+  assert.deepEqual(await readFile(join(root, temporary)), priorBytes);
 });
