@@ -1,29 +1,17 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient, NetworkError } from '@/lib/api-client';
-import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { useBuilderConfig } from './useBuilderConfig';
-
-const merchantMocks = vi.hoisted(() => ({
-  merchant: { id: 'merchant-1' } as { id: string } | null,
-}));
+import {
+  baseConfig,
+  createBuilderConfigWrapper,
+} from './useBuilderConfig.test-utils';
 
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     session: { access_token: 'token-1' },
     isLoading: false,
   }),
-}));
-
-vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: merchantMocks.merchant }),
-}));
-
-vi.mock('@/lib/invalidate-store-readiness', () => ({
-  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('expo-constants', () => ({
@@ -52,30 +40,6 @@ vi.mock('@/lib/api-client', async () => {
 });
 
 const mockApiClient = vi.mocked(apiClient);
-const mockInvalidateStoreReadiness = vi.mocked(invalidateStoreReadiness);
-
-const baseConfig = {
-  content: [{ type: 'Hero', props: { id: 'hero', title: 'Current' } }],
-  root: { title: 'Home' },
-  zones: {},
-};
-
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-
-  function Wrapper({ children }: { children: ReactNode }) {
-    return React.createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      children
-    );
-  }
-
-  return { queryClient, Wrapper };
-}
-
 describe('useBuilderConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,12 +47,10 @@ describe('useBuilderConfig', () => {
       config: baseConfig,
       isPublished: false,
     });
-    mockInvalidateStoreReadiness.mockResolvedValue(undefined);
-    merchantMocks.merchant = { id: 'merchant-1' };
   });
 
   it('loads builder config through the centralized mobile API client', async () => {
-    const { Wrapper } = createWrapper();
+    const { Wrapper } = createBuilderConfigWrapper();
     const { result } = renderHook(() => useBuilderConfig('home'), {
       wrapper: Wrapper,
     });
@@ -113,7 +75,7 @@ describe('useBuilderConfig', () => {
         })
       );
 
-    const { Wrapper } = createWrapper();
+    const { Wrapper } = createBuilderConfigWrapper();
     const { result } = renderHook(() => useBuilderConfig('home'), {
       wrapper: Wrapper,
     });
@@ -161,245 +123,5 @@ describe('useBuilderConfig', () => {
         currentConfig: baseConfig,
       }),
     });
-  });
-
-  it('does not refresh readiness when saving a draft or applying an AI draft edit', async () => {
-    mockApiClient
-      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({
-        config: {
-          ...baseConfig,
-          root: { title: 'AI draft' },
-        },
-      });
-    const { Wrapper } = createWrapper();
-    const { result } = renderHook(() => useBuilderConfig('home'), {
-      wrapper: Wrapper,
-    });
-
-    await waitFor(() => {
-      expect(result.current.config).toEqual(baseConfig);
-    });
-
-    act(() => {
-      result.current.saveDraft();
-    });
-    await waitFor(() => {
-      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
-        method: 'POST',
-        body: JSON.stringify({
-          slug: 'home',
-          config: baseConfig,
-          name: 'Home',
-        }),
-      });
-    });
-
-    await act(async () => {
-      await result.current.sendMessage('Give the hero a brighter title');
-    });
-
-    expect(mockApiClient).toHaveBeenCalledWith('/api/builder/gemini', {
-      method: 'POST',
-      timeout: 30_000,
-      body: JSON.stringify({
-        prompt: 'Give the hero a brighter title',
-        currentConfig: {
-          ...baseConfig,
-          root: { title: 'AI draft' },
-        },
-      }),
-    });
-    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
-  });
-
-  it('keeps publish pending until builder and readiness invalidations finish', async () => {
-    let releaseBuilder!: () => void;
-    let releaseReadiness!: () => void;
-    const builder = new Promise<void>((resolve) => {
-      releaseBuilder = resolve;
-    });
-    const readiness = new Promise<void>((resolve) => {
-      releaseReadiness = resolve;
-    });
-    mockInvalidateStoreReadiness.mockReturnValueOnce(readiness);
-    mockApiClient
-      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined);
-    const { queryClient, Wrapper } = createWrapper();
-    const { result } = renderHook(() => useBuilderConfig('home'), {
-      wrapper: Wrapper,
-    });
-
-    await waitFor(() => {
-      expect(result.current.config).toEqual(baseConfig);
-    });
-    vi.spyOn(queryClient, 'invalidateQueries').mockReturnValue(builder);
-    act(() => {
-      result.current.publish();
-    });
-
-    await waitFor(() => {
-      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
-        method: 'PUT',
-        body: JSON.stringify({ slug: 'home' }),
-      });
-      expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
-        expect.anything(),
-        'merchant-1'
-      );
-      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['builderConfig', 'home'],
-      });
-      expect(result.current.isPublishing).toBe(true);
-    });
-
-    releaseBuilder();
-    releaseReadiness();
-
-    await waitFor(() => {
-      expect(result.current.isPublishing).toBe(false);
-    });
-  });
-
-  it('does not refresh readiness when publishing fails before the publish request succeeds', async () => {
-    mockApiClient
-      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
-      .mockRejectedValueOnce(new Error('Publish failed'));
-    const { Wrapper } = createWrapper();
-    const { result } = renderHook(() => useBuilderConfig('home'), {
-      wrapper: Wrapper,
-    });
-
-    await waitFor(() => {
-      expect(result.current.config).toEqual(baseConfig);
-    });
-    act(() => {
-      result.current.publish();
-    });
-
-    await waitFor(() => {
-      expect(result.current.publishError).toEqual(new Error('Publish failed'));
-    });
-    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
-  });
-
-  it('preserves a successful builder publish when only readiness refresh fails', async () => {
-    mockApiClient
-      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined);
-    mockInvalidateStoreReadiness.mockRejectedValueOnce(
-      new Error('Readiness refresh failed')
-    );
-    const { Wrapper } = createWrapper();
-    const { result } = renderHook(() => useBuilderConfig('home'), {
-      wrapper: Wrapper,
-    });
-
-    await waitFor(() => {
-      expect(result.current.config).toEqual(baseConfig);
-    });
-    act(() => {
-      result.current.publish();
-    });
-
-    await waitFor(() => {
-      expect(result.current.isPublishing).toBe(false);
-      expect(result.current.publishError).toBeNull();
-    });
-  });
-
-  it('keeps a successful publish successful when merchant context is temporarily unavailable', async () => {
-    merchantMocks.merchant = null;
-    let releasePublish!: () => void;
-    const publishRequest = new Promise<void>((resolve) => {
-      releasePublish = resolve;
-    });
-    mockApiClient.mockImplementation((url, options) => {
-      if (url === '/api/builder?slug=home') {
-        return Promise.resolve({ config: baseConfig, isPublished: false });
-      }
-      if (options?.method === 'PUT') return publishRequest;
-      return Promise.resolve(undefined);
-    });
-    const { queryClient, Wrapper } = createWrapper();
-    const { result } = renderHook(() => useBuilderConfig('home'), {
-      wrapper: Wrapper,
-    });
-
-    await waitFor(() => {
-      expect(result.current.config).toEqual(baseConfig);
-    });
-    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
-
-    act(() => {
-      result.current.publish();
-    });
-
-    await waitFor(() => {
-      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
-        method: 'PUT',
-        body: JSON.stringify({ slug: 'home' }),
-      });
-      expect(result.current.isPublishing).toBe(true);
-    });
-    releasePublish();
-    await waitFor(() => {
-      expect(result.current.isPublishing).toBe(false);
-      expect(result.current.publishError).toBeNull();
-    });
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['builderConfig', 'home'],
-    });
-    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
-  });
-
-  it('refreshes the merchant that started publishing after the active merchant changes', async () => {
-    let releasePublish!: () => void;
-    const publishRequest = new Promise<void>((resolve) => {
-      releasePublish = resolve;
-    });
-    mockApiClient.mockImplementation((url, options) => {
-      if (url === '/api/builder?slug=home') {
-        return Promise.resolve({ config: baseConfig, isPublished: false });
-      }
-      if (options?.method === 'PUT') return publishRequest;
-      return Promise.resolve(undefined);
-    });
-    const { Wrapper } = createWrapper();
-    const { result, rerender } = renderHook(() => useBuilderConfig('home'), {
-      wrapper: Wrapper,
-    });
-
-    await waitFor(() => {
-      expect(result.current.config).toEqual(baseConfig);
-    });
-    act(() => {
-      result.current.publish();
-    });
-    await waitFor(() => {
-      expect(result.current.isPublishing).toBe(true);
-    });
-
-    merchantMocks.merchant = { id: 'merchant-2' };
-    rerender();
-    releasePublish();
-
-    await waitFor(() => {
-      expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
-        expect.anything(),
-        'merchant-1'
-      );
-      expect(result.current.isPublishing).toBe(false);
-    });
-    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalledWith(
-      expect.anything(),
-      'merchant-2'
-    );
   });
 });
