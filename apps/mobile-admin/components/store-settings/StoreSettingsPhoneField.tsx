@@ -5,6 +5,7 @@ import type { CountryCode } from 'react-native-country-picker-modal';
 import PhoneInput from 'react-native-phone-number-input';
 import { countryFlag } from '@/components/ui/country-flag';
 import type { ThemeColors } from '@/constants/theme';
+import { getNationalPhoneNumber } from '@/lib/phone-country';
 import { storeSettingsDetailsStyles as styles } from './StoreSettingsDetailsCard.styles';
 
 interface StoreSettingsPhoneFieldProps {
@@ -55,7 +56,7 @@ export function StoreSettingsPhoneField({
         }}
         countryPickerButtonStyle={styles.phoneCountryPicker}
         defaultCode={countryCode}
-        defaultValue={value}
+        defaultValue={getNationalPhoneNumber(value)}
         layout="first"
         onChangeFormattedText={onChange}
         renderDropdownImage={

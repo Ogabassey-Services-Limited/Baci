@@ -6,52 +6,31 @@ import { ProductCategorySheet } from './ProductCategorySheet';
 
 const nativeState = vi.hoisted(() => ({
   addNewStyle: null as unknown,
-  closeSheet: vi.fn(),
-  sheetProps: null as Record<string, unknown> | null,
+  appPageSheetProps: null as Record<string, unknown> | null,
 }));
 
-vi.mock('@gorhom/bottom-sheet', async () => {
+vi.mock('@/components/ui/AppPageSheet', async () => {
   const React = await import('react');
   return {
-    default: React.forwardRef(
-      ({ children, ...props }: Record<string, unknown>, ref) => {
-        React.useImperativeHandle(ref, () => ({
-          close: nativeState.closeSheet,
-        }));
-        nativeState.sheetProps = props;
-        return React.createElement(
-          'section',
-          { 'aria-label': 'Product category drawer' },
-          children as React.ReactNode
-        );
-      }
-    ),
-    BottomSheetBackdrop: () => null,
-    BottomSheetScrollView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-    BottomSheetTextInput: ({
-      accessibilityLabel,
-      onChangeText,
-      value,
-    }: {
-      accessibilityLabel?: string;
-      onChangeText?: (value: string) => void;
-      value?: string;
-    }) =>
-      React.createElement('input', {
-        'aria-label': accessibilityLabel,
-        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-          onChangeText?.(event.target.value),
-        value,
-      }),
-  };
-});
-
-vi.mock('react-native-gesture-handler', async () => {
-  const React = await import('react');
-  return {
-    GestureHandlerRootView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    AppPageSheet: ({ children, ...props }: Record<string, unknown>) => {
+      nativeState.appPageSheetProps = props;
+      if (!props.visible) return null;
+      return React.createElement(
+        'section',
+        { 'aria-label': 'Product category drawer' },
+        React.createElement('h2', null, String(props.title)),
+        React.createElement(
+          'button',
+          {
+            'aria-label': String(props.closeLabel),
+            onClick: props.onClose as () => void,
+            type: 'button',
+          },
+          'Close'
+        ),
+        children as React.ReactNode
+      );
+    },
   };
 });
 
@@ -139,8 +118,7 @@ describe('ProductCategorySheet', () => {
 
   beforeEach(() => {
     nativeState.addNewStyle = null;
-    nativeState.closeSheet.mockReset();
-    nativeState.sheetProps = null;
+    nativeState.appPageSheetProps = null;
   });
 
   it('uses a bottom drawer with a full-width Add New action', () => {
@@ -165,10 +143,11 @@ describe('ProductCategorySheet', () => {
       screen.getByRole('region', { name: 'Product category drawer' })
     ).toBeInTheDocument();
     expect(screen.getByText('Select Category')).toBeInTheDocument();
-    expect(nativeState.sheetProps).toMatchObject({
-      enablePanDownToClose: true,
-      index: 0,
-      snapPoints: ['72%'],
+    expect(nativeState.appPageSheetProps).toMatchObject({
+      closeLabel: 'Close category sheet',
+      scrollEnabled: true,
+      title: 'Select Category',
+      visible: true,
     });
     expect(nativeState.addNewStyle).toEqual(
       expect.arrayContaining([
@@ -177,7 +156,7 @@ describe('ProductCategorySheet', () => {
     );
   });
 
-  it('waits for the drawer close animation before unmounting', () => {
+  it('routes close behavior through the shared sheet', () => {
     const onClose = vi.fn();
     render(
       <ProductCategorySheet
@@ -200,12 +179,6 @@ describe('ProductCategorySheet', () => {
       screen.getByRole('button', { name: 'Close category sheet' })
     );
 
-    expect(nativeState.closeSheet).toHaveBeenCalledOnce();
-    expect(onClose).not.toHaveBeenCalled();
-
-    const onSheetClosed = nativeState.sheetProps?.onClose;
-    expect(onSheetClosed).toBeTypeOf('function');
-    (onSheetClosed as () => void)();
     expect(onClose).toHaveBeenCalledOnce();
   });
 

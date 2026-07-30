@@ -2,31 +2,7 @@ import { StyleSheet } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export const productCategorySheetStyles = StyleSheet.create({
-  gestureRoot: { flex: 1 },
-  sheetBackground: {
-    borderTopLeftRadius: RADIUS['2xl'],
-    borderTopRightRadius: RADIUS['2xl'],
-    borderWidth: 1,
-  },
-  drawerContent: { flex: 1 },
-  sheetHeader: {
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-  },
-  sheetTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size.xl,
-  },
-  closeButton: {
-    alignItems: 'center',
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
+  sheetContainer: { height: '72%' },
   scrollContent: {
     paddingBottom: SPACING['2xl'],
     paddingHorizontal: SPACING.lg,

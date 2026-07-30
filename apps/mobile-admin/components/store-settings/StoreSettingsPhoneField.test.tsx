@@ -76,7 +76,7 @@ describe('StoreSettingsPhoneField', () => {
     expect(screen.getByText('chevron-down')).toBeInTheDocument();
     expect(phoneState.props).toMatchObject({
       defaultCode: 'NG',
-      defaultValue: '+2347000000000',
+      defaultValue: '7000000000',
       withDarkTheme: true,
     });
     expect(phoneState.props?.containerStyle).toEqual(
