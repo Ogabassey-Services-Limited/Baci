@@ -10,7 +10,7 @@ const {
   mockGetMerchantForApiRequest,
   mockHasPermission,
   mockResolveAccountNumber,
-  mockRevalidateFeatures,
+  mockRevalidateTag,
   mockToUserAccess,
   mockUpdateSubaccount,
 } = vi.hoisted(() => ({
@@ -21,7 +21,7 @@ const {
   mockGetMerchantForApiRequest: vi.fn(),
   mockHasPermission: vi.fn(),
   mockResolveAccountNumber: vi.fn(),
-  mockRevalidateFeatures: vi.fn(),
+  mockRevalidateTag: vi.fn(),
   mockToUserAccess: vi.fn(),
   mockUpdateSubaccount: vi.fn(),
 }));
@@ -32,8 +32,8 @@ vi.mock('@/lib/api-auth', () => ({
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
-vi.mock('@/lib/cache-revalidation', () => ({
-  revalidateFeatures: (...args: unknown[]) => mockRevalidateFeatures(...args),
+vi.mock('next/cache', () => ({
+  revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -288,7 +288,10 @@ describe('POST /api/paystack/subaccount', () => {
     );
     expect(mockMerchantSelectEq).toHaveBeenCalledWith('id', merchantId);
     expect(mockMerchantUpdateEq).toHaveBeenCalledWith('id', merchantId);
-    expect(mockRevalidateFeatures).toHaveBeenCalledWith(merchantId);
+    expect(mockRevalidateTag).toHaveBeenCalledWith(
+      `features-${merchantId}`,
+      'merchant'
+    );
   });
 
   it('returns 403 when the caller lacks integrations permission', async () => {
@@ -415,7 +418,10 @@ describe('POST /api/paystack/subaccount', () => {
     });
     // Busts the cached storefront-features Paystack lookup so checkout picks up
     // the newly configured subaccount without waiting for the cache TTL.
-    expect(mockRevalidateFeatures).toHaveBeenCalledWith(DEFAULT_MERCHANT_ID);
+    expect(mockRevalidateTag).toHaveBeenCalledWith(
+      `features-${DEFAULT_MERCHANT_ID}`,
+      'merchant'
+    );
   });
 
   it('reads non-secret merchant fields on the authenticated client and the revoked paystack_subaccount_code via the bounded RPC helper', async () => {
@@ -470,7 +476,7 @@ describe('POST /api/paystack/subaccount', () => {
 
   it('returns the saved subaccount when feature cache invalidation fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    mockRevalidateFeatures.mockImplementationOnce(() => {
+    mockRevalidateTag.mockImplementationOnce(() => {
       throw new Error('cache unavailable');
     });
 
@@ -531,12 +537,15 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockWalletUpdate).not.toHaveBeenCalled();
     // Clearing the subaccount must also bust the cached features lookup so
     // checkout stops advertising Paystack.
-    expect(mockRevalidateFeatures).toHaveBeenCalledWith(DEFAULT_MERCHANT_ID);
+    expect(mockRevalidateTag).toHaveBeenCalledWith(
+      `features-${DEFAULT_MERCHANT_ID}`,
+      'merchant'
+    );
   });
 
   it('returns saved manual bank details when feature cache invalidation fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    mockRevalidateFeatures.mockImplementationOnce(() => {
+    mockRevalidateTag.mockImplementationOnce(() => {
       throw new Error('cache unavailable');
     });
     mockMerchantSingle.mockResolvedValueOnce({

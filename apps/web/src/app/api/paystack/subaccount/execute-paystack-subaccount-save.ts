@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { revalidateFeatures } from '@/lib/cache-revalidation';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import {
   createSubaccount,
@@ -11,6 +10,7 @@ import {
   getPaystackFailureStatus,
 } from '@/lib/paystack-route-errors';
 import { resolvePaystackAccountSchema } from '@/schemas/paystack-resolve';
+import { revalidatePaystackSubaccountFeatures } from './revalidate-paystack-subaccount-features';
 
 const PLATFORM_COMMISSION_PERCENTAGE = 0;
 const PLACEHOLDER_MANUAL_BANK_NAMES = new Set([
@@ -53,7 +53,7 @@ function isPlaceholderManualBankName(bankName: string): boolean {
 
 function revalidateFeaturesAfterSubaccountMutation(merchantId: string): void {
   try {
-    revalidateFeatures(merchantId);
+    revalidatePaystackSubaccountFeatures(merchantId);
   } catch (error) {
     console.error('Failed to revalidate storefront payment features', {
       error,
