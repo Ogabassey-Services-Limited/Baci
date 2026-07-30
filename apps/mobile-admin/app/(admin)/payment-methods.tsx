@@ -124,20 +124,22 @@ export default function PaymentMethodsScreen() {
     },
     onError: (error, _variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
-      if (context?.previousSettings) {
+      if (context?.merchantId && context.previousSettings) {
         queryClient.setQueryData(
-          ['payment-settings', merchant?.id],
+          ['payment-settings', context.merchantId],
           context.previousSettings
         );
       }
       const msg = (error as Error)?.message || 'Failed to update setting';
       Alert.alert('Error', msg);
     },
-    onSettled: () => {
+    onSettled: async (_data, _error, _variables, context) => {
       // Always refetch after error or success:
-      queryClient.invalidateQueries({
-        queryKey: ['payment-settings', merchant?.id],
-      });
+      if (context?.merchantId) {
+        await queryClient.invalidateQueries({
+          queryKey: ['payment-settings', context.merchantId],
+        });
+      }
     },
   });
 

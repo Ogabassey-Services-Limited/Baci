@@ -21,6 +21,12 @@ type MutationConfig = {
     variables: unknown,
     context?: { merchantId?: string; previousSettings?: unknown }
   ) => Promise<void>;
+  onSettled?: (
+    data: unknown,
+    error: Error | null,
+    variables: unknown,
+    context?: { merchantId?: string; previousSettings?: unknown }
+  ) => Promise<void> | void;
 };
 
 interface MockUseMerchantResult {
@@ -32,6 +38,7 @@ interface MockUseMerchantResult {
 const hoistedMocks = vi.hoisted(() => ({
   alert: vi.fn(),
   eq: vi.fn(),
+  getQueryData: vi.fn(),
   invalidateQueries: vi.fn(),
   invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
   mutate: vi.fn(),
@@ -71,7 +78,7 @@ vi.mock('@tanstack/react-query', () => ({
   useQuery: (config: QueryConfig) => mocks.useQuery(config),
   useQueryClient: () => ({
     cancelQueries: vi.fn(),
-    getQueryData: vi.fn(),
+    getQueryData: mocks.getQueryData,
     invalidateQueries: mocks.invalidateQueries,
     setQueryData: mocks.setQueryData,
   }),
@@ -197,6 +204,8 @@ export const paymentSettings = {
 export function resetPaymentMethodsScreenMocks() {
   mocks.alert.mockReset();
   mocks.eq.mockReset();
+  mocks.getQueryData.mockReset();
+  mocks.getQueryData.mockReturnValue(paymentSettings);
   mocks.invalidateQueries.mockReset();
   mocks.invalidateStoreReadiness.mockReset();
   mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
