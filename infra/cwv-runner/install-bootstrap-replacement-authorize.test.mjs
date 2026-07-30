@@ -1,6 +1,22 @@
 import assert from 'node:assert/strict';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  open,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
-
+import {
+  beginBootstrap,
+  persistBootstrapCapture,
+  readBootstrapState,
+} from './install-bootstrap.mjs';
 import { authorizeBootstrapReplacement } from './install-bootstrap-replacement-authorize.mjs';
 
 const oldSource = 'a'.repeat(40);
@@ -146,4 +162,106 @@ test('refuses an orphan captured transaction outside the complete chain', async 
     }),
     /replacement authority chain/
   );
+});
+
+test('reconciles a transaction directory left before capture publication', async (context) => {
+  const stateRoot = await mkdtemp(join(tmpdir(), 'baci-pre-capture-'));
+  context.after(() => rm(stateRoot, { recursive: true, force: true }));
+  await chmod(stateRoot, 0o700);
+  const interruptedSource = 'c'.repeat(40);
+  const interrupted = beginBootstrap({
+    transactionId: `bootstrap-${interruptedSource.slice(0, 12)}`,
+    sourceSha: interruptedSource,
+    sourceManifestSha256: '7'.repeat(64),
+    policyFileSha256: policy,
+    prior: { [path]: oldFile },
+    files: { [path]: newFile },
+  });
+  const probe = await open(join(stateRoot, 'probe'), 'w');
+  const prototype = Object.getPrototypeOf(probe);
+  const originalSync = prototype.sync;
+  await probe.close();
+  prototype.sync = () => Promise.reject(new Error('crash after mkdir'));
+  try {
+    await assert.rejects(
+      persistBootstrapCapture(stateRoot, interrupted),
+      /crash after mkdir/
+    );
+  } finally {
+    prototype.sync = originalSync;
+  }
+  await rm(join(stateRoot, 'probe'));
+  const interruptedDirectory = join(stateRoot, interrupted.transactionId);
+  assert.deepEqual(await readdir(interruptedDirectory), []);
+
+  const result = await authorizeBootstrapReplacement(
+    {
+      ...options,
+      stateRoot,
+      currentDirectory: join(
+        stateRoot,
+        current.transactionId ?? 'bootstrap-bbbbbbbbbbbb'
+      ),
+    },
+    {
+      listDirectories: async () => [
+        'bootstrap-aaaaaaaaaaaa',
+        'bootstrap-bbbbbbbbbbbb',
+        interrupted.transactionId,
+      ],
+      readState: async (directory) =>
+        directory === interruptedDirectory
+          ? readBootstrapState(directory)
+          : directory.endsWith('aaaaaaaaaaaa')
+            ? previous
+            : current,
+      readProjection: async () => ({ [path]: oldFile }),
+      readIntent: () => {
+        const error = new Error('missing');
+        error.code = 'ENOENT';
+        throw error;
+      },
+      validateSourceState: async ({ state }) => validated(state),
+      persistIntent: async () => undefined,
+    }
+  );
+
+  assert.deepEqual(result.replace, [path]);
+  await assert.rejects(lstat(interruptedDirectory), { code: 'ENOENT' });
+});
+
+test('refuses to remove an unrecognized incomplete transaction directory', async (context) => {
+  const stateRoot = await mkdtemp(join(tmpdir(), 'baci-pre-capture-drift-'));
+  context.after(() => rm(stateRoot, { recursive: true, force: true }));
+  await chmod(stateRoot, 0o700);
+  const directory = join(stateRoot, 'bootstrap-cccccccccccc');
+  await mkdir(directory, { mode: 0o700 });
+  await writeFile(join(directory, 'foreign'), 'owned elsewhere', {
+    mode: 0o600,
+  });
+
+  await assert.rejects(
+    authorizeBootstrapReplacement(
+      {
+        ...options,
+        stateRoot,
+        currentDirectory: join(stateRoot, 'bootstrap-bbbbbbbbbbbb'),
+      },
+      {
+        listDirectories: async () => [
+          'bootstrap-aaaaaaaaaaaa',
+          'bootstrap-bbbbbbbbbbbb',
+          'bootstrap-cccccccccccc',
+        ],
+        readState: async (candidate) =>
+          candidate === directory
+            ? readBootstrapState(candidate)
+            : candidate.endsWith('aaaaaaaaaaaa')
+              ? previous
+              : current,
+      }
+    ),
+    /invalid pre-capture bootstrap transaction/
+  );
+  assert.equal((await lstat(join(directory, 'foreign'))).isFile(), true);
 });
