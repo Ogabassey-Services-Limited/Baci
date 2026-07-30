@@ -58,7 +58,7 @@ const helpers = [
   'install-prepare-content-safety.mjs',
   'install-prepare-synthetic.mjs',
   'install-prepare-runtime-receipt.mjs',
-  ...'install-bootstrap.mjs install-bootstrap-atomic-state-file.mjs install-bootstrap-capture-persistence.mjs install-bootstrap-installed.mjs install-bootstrap-journal.mjs install-bootstrap-plan-publication.mjs install-account-identity.sh'.split(
+  ...'install-bootstrap.mjs install-bootstrap-atomic-state-file.mjs install-bootstrap-capture-persistence.mjs install-bootstrap-installed.mjs install-bootstrap-journal.mjs install-bootstrap-plan-publication.mjs install-bootstrap-watchdog-residue.mjs install-account-identity.sh'.split(
     ' '
   ),
   'install-bootstrap-rename-exchange.pl',

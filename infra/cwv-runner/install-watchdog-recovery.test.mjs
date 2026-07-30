@@ -89,13 +89,20 @@ exit 0
         ? '/usr/bin/stat -f %l'
         : '/usr/bin/stat -c %h'
     )
+    .replaceAll(
+      '/usr/bin/sha256sum',
+      process.platform === 'darwin'
+        ? '/usr/bin/shasum -a 256'
+        : '/usr/bin/sha256sum'
+    )
     .replaceAll('/usr/bin/sync -f', '/usr/bin/true')
     .replace('/bin/chown root:root "$temporary"', ':');
   const command = `set -eu
 die() { printf '%s\n' "$*" >&2; exit 65; }
 regular() { [ -f "$1" ] && [ ! -L "$1" ]; }
 root_mode() { return 0; }
-sha256() { printf '%064d\n' 0; }
+sha256() { ${process.platform === 'darwin' ? '/usr/bin/shasum -a 256' : '/usr/bin/sha256sum'} -- "$1" | /usr/bin/awk '{print $1}'; }
+is_sha() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{64}$'; }
 git_sha() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{40}$'; }
 SOURCE_ROOT=${JSON.stringify(sourceRoot)}
 SCRIPT_DIR=${JSON.stringify(current)}
