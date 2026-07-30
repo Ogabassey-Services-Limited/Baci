@@ -29,6 +29,35 @@ $$;
 
 DO $$
 DECLARE
+  v_legacy_trigger_count integer;
+  v_strict_trigger_count integer;
+BEGIN
+  SELECT count(*)
+    INTO v_legacy_trigger_count
+    FROM pg_catalog.pg_trigger AS trigger
+   WHERE trigger.tgrelid = 'public.merchants'::pg_catalog.regclass
+     AND NOT trigger.tgisinternal
+     AND trigger.tgname = 'update_merchants_updated_at';
+
+  SELECT count(*)
+    INTO v_strict_trigger_count
+    FROM pg_catalog.pg_trigger AS trigger
+   WHERE trigger.tgrelid = 'public.merchants'::pg_catalog.regclass
+     AND NOT trigger.tgisinternal
+     AND trigger.tgname = 'merchants_set_updated_at'
+     AND trigger.tgfoid = 'private.set_merchants_updated_at()'::pg_catalog.regprocedure;
+
+  IF v_legacy_trigger_count <> 0 OR v_strict_trigger_count <> 1 THEN
+    RAISE EXCEPTION
+      'merchant updated_at trigger ownership invalid: legacy=%, strict=%',
+      v_legacy_trigger_count,
+      v_strict_trigger_count;
+  END IF;
+END;
+$$;
+
+DO $$
+DECLARE
   v_merchant_id uuid := 'a3200000-0000-4000-8000-000000000002';
   v_updated_at timestamptz;
 BEGIN
@@ -78,12 +107,37 @@ SET LOCAL ROLE authenticated;
 DO $$
 DECLARE
   v_result jsonb;
+  v_before_direct_write timestamptz;
   v_updated_at timestamptz;
 BEGIN
   SELECT updated_at
-    INTO v_updated_at
+    INTO v_before_direct_write
     FROM public.merchants
    WHERE id = 'a3200000-0000-4000-8000-000000000002';
+
+  UPDATE public.merchants
+     SET business_name = 'Directly Updated Store'
+   WHERE id = 'a3200000-0000-4000-8000-000000000002'
+   RETURNING updated_at
+    INTO v_updated_at;
+
+  IF v_updated_at IS NULL OR v_updated_at <= v_before_direct_write THEN
+    RAISE EXCEPTION
+      'direct merchant update did not advance the OCC token: before=%, after=%',
+      v_before_direct_write,
+      v_updated_at;
+  END IF;
+
+  BEGIN
+    PERFORM public.update_merchant_identity_settings(
+      'a3200000-0000-4000-8000-000000000002',
+      '{"business_name":"Stale Store"}'::jsonb,
+      v_before_direct_write
+    );
+    RAISE EXCEPTION 'stale OCC token unexpectedly succeeded';
+  EXCEPTION
+    WHEN SQLSTATE '40001' THEN NULL;
+  END;
 
   v_result := public.update_merchant_identity_settings(
     'a3200000-0000-4000-8000-000000000002',
@@ -92,7 +146,8 @@ BEGIN
   );
 
   IF v_result ->> 'business_name' IS DISTINCT FROM 'Updated Store'
-    OR v_result ->> 'updated_at' IS NULL THEN
+    OR v_result ->> 'updated_at' IS NULL
+    OR (v_result ->> 'updated_at')::timestamptz <= v_updated_at THEN
     RAISE EXCEPTION 'guarded OCC update did not return a fresh token: %', v_result;
   END IF;
 END;

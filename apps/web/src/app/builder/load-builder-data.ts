@@ -20,18 +20,20 @@ interface LoadBuilderDataParams
   extends BuilderSessionSetters,
     BuilderDataSetters {
   router: BuilderRouter;
+  merchantId: string;
   signal?: AbortSignal;
   toast: BuilderToast;
   setPageLoading: Dispatch<SetStateAction<boolean>>;
 }
 
-function getBuilderBootstrapUrl() {
+function getBuilderBootstrapUrl(merchantId: string) {
   if (typeof window === 'undefined') {
-    return '/api/builder?slug=home';
+    return `/api/builder?slug=home&merchantId=${encodeURIComponent(merchantId)}`;
   }
 
   const url = new URL('/api/builder', window.location.origin);
   url.searchParams.set('slug', 'home');
+  url.searchParams.set('merchantId', merchantId);
 
   const aiDraftJobId = new URLSearchParams(window.location.search).get(
     'aiDraftJobId'
@@ -153,6 +155,7 @@ function getBuilderBootstrapSignal(signal?: AbortSignal) {
 export async function loadBuilderData(params: LoadBuilderDataParams) {
   const {
     router,
+    merchantId,
     signal,
     toast,
     setData,
@@ -169,7 +172,7 @@ export async function loadBuilderData(params: LoadBuilderDataParams) {
   } = params;
 
   try {
-    const res = await fetch(getBuilderBootstrapUrl(), {
+    const res = await fetch(getBuilderBootstrapUrl(merchantId), {
       signal: getBuilderBootstrapSignal(signal),
     });
 

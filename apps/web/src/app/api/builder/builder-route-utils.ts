@@ -85,6 +85,13 @@ type BuilderContextResult =
   | { context: BuilderRequestContext; response?: never }
   | { response: NextResponse; context?: never };
 
+type BuilderAuthenticationResult =
+  | {
+      auth: NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>;
+      response?: never;
+    }
+  | { response: NextResponse; auth?: never };
+
 type MutationResult =
   | { response: NextResponse; data?: never; lastUpdated?: never }
   | {
@@ -207,7 +214,8 @@ function isConflict(
 
 export async function getBuilderRequestContext(
   request: NextRequest,
-  action: 'view' | 'edit'
+  action: 'view' | 'edit',
+  requestedMerchantId?: string
 ): Promise<BuilderContextResult> {
   const auth = await getAuthenticatedUser(request);
   if (!auth) {
@@ -217,7 +225,9 @@ export async function getBuilderRequestContext(
   }
 
   const { user, supabase } = auth;
-  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+    requestedMerchantId,
+  });
   if (!merchantContext) {
     return {
       response: NextResponse.json(
@@ -241,6 +251,19 @@ export async function getBuilderRequestContext(
       canEdit: hasPermission(access, 'builder', 'edit'),
     },
   };
+}
+
+export async function getBuilderAuthentication(
+  request: NextRequest
+): Promise<BuilderAuthenticationResult> {
+  const auth = await getAuthenticatedUser(request);
+  if (!auth) {
+    return {
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    };
+  }
+
+  return { auth };
 }
 
 export async function loadBuilderPayload(
@@ -325,7 +348,7 @@ export async function loadBuilderPayload(
 export async function saveBuilderDraft(
   supabase: SupabaseClient,
   merchantId: string,
-  input: BuilderCreateInput
+  input: Omit<BuilderCreateInput, 'merchantId'>
 ): Promise<MutationResult> {
   const {
     slug,
@@ -434,7 +457,7 @@ export async function saveBuilderDraft(
 export async function publishBuilderDraft(
   supabase: SupabaseClient,
   merchantId: string,
-  input: BuilderPublishInput
+  input: Omit<BuilderPublishInput, 'merchantId'>
 ): Promise<MutationResult> {
   const { slug, expectedLastUpdated } = input;
   const publishedAt = new Date().toISOString();

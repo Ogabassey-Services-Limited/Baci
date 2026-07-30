@@ -5,6 +5,7 @@ import type { BuilderToast } from './builder-client-types';
 import { getBuilderMutationErrorMessage } from './builder-descriptions';
 
 interface PublishBuilderDraftParams {
+  merchantId: string;
   expectedLastUpdated: string;
   setLastUpdated: Dispatch<SetStateAction<string | null>>;
   setPublishing: Dispatch<SetStateAction<boolean>>;
@@ -12,10 +13,17 @@ interface PublishBuilderDraftParams {
 }
 
 export async function publishBuilderDraft(params: PublishBuilderDraftParams) {
-  const { expectedLastUpdated, setLastUpdated, setPublishing, toast } = params;
+  const {
+    merchantId,
+    expectedLastUpdated,
+    setLastUpdated,
+    setPublishing,
+    toast,
+  } = params;
 
   try {
     const result = await apiPut<BuilderMutationResponse>('/api/builder', {
+      merchantId,
       slug: 'home',
       expectedLastUpdated,
     });

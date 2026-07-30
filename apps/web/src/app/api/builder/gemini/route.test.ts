@@ -6,6 +6,7 @@ const mockCheckCsrfProtection = vi.fn();
 const mockGetAuthenticatedUser = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
+const merchantId = '11111111-1111-4111-8111-111111111111';
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mockCheckCsrfProtection,
@@ -94,7 +95,11 @@ describe('/api/builder/gemini route', () => {
     const request = new NextRequest('http://localhost/api/builder/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: 'Make it blue', currentConfig: {} }),
+      body: JSON.stringify({
+        merchantId,
+        prompt: 'Make it blue',
+        currentConfig: { content: [], root: { title: 'Home' }, zones: {} },
+      }),
     });
 
     const { POST } = await import('./route');
@@ -145,6 +150,20 @@ describe('/api/builder/gemini route', () => {
     expect(body).toEqual({ error: 'Invalid JSON body' });
   });
 
+  it('returns 401 for an unauthenticated malformed body before validating it', async () => {
+    const request = new NextRequest('http://localhost/api/builder/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{invalid-json',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+
+    expect(response.status).toBe(401);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
   it('returns generated config for a valid request', async () => {
     mockGetAuthenticatedUser.mockResolvedValue({
       user: { id: 'user-1' },
@@ -163,6 +182,7 @@ describe('/api/builder/gemini route', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId,
         prompt: 'Update the hero title',
         currentConfig: {
           content: [{ type: 'Hero', props: { title: 'Home' } }],
@@ -177,6 +197,9 @@ describe('/api/builder/gemini route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith({}, 'user-1', {
+      requestedMerchantId: merchantId,
+    });
     expect(body).toEqual({
       config: {
         content: [
@@ -231,6 +254,7 @@ describe('/api/builder/gemini route', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId,
         prompt: 'Refresh the visual design',
         currentConfig: {
           content: [{ type: 'Hero', props: { title: 'Home' } }],
@@ -306,6 +330,7 @@ describe('/api/builder/gemini route', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId,
         prompt: 'Update the hero title',
         currentConfig: {
           content: [{ type: 'Hero', props: { title: 'Home' } }],

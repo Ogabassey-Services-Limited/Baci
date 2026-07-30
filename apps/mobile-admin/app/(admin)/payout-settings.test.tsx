@@ -26,6 +26,13 @@ const mocks = vi.hoisted(() => ({
     bank_name: null as string | null,
     business_name: 'Baci Store',
   },
+  activeMerchantData: {
+    id: 'merchant-1',
+    bank_account_number: null as string | null,
+    bank_code: null as string | null,
+    bank_name: null as string | null,
+    business_name: 'Baci Store',
+  },
   verifyError: null as string | null,
 }));
 
@@ -64,6 +71,13 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     session: { access_token: 'token' },
     user: { id: 'user-1' },
+  }),
+}));
+
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({
+    merchant: mocks.activeMerchantData,
+    isLoading: false,
   }),
 }));
 
@@ -233,6 +247,13 @@ describe('PayoutSettingsScreen', () => {
       bank_name: null,
       business_name: 'Baci Store',
     };
+    mocks.activeMerchantData = {
+      id: 'merchant-1',
+      bank_account_number: null,
+      bank_code: null,
+      bank_name: null,
+      business_name: 'Baci Store',
+    };
     mocks.savePayoutSettings.mutate.mockReset();
     mocks.routeParams = {};
     mocks.routerBack.mockReset();
@@ -245,6 +266,64 @@ describe('PayoutSettingsScreen', () => {
     expect(screen.getByText('Bank Details')).toBeInTheDocument();
     expect(screen.getByLabelText('Select bank')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('0123456789')).toBeInTheDocument();
+  });
+
+  it('seeds bank details and the payout business name from the active accessible merchant', () => {
+    mocks.merchantData = {
+      id: 'owner-merchant',
+      bank_account_number: '1111111111',
+      bank_code: '002',
+      bank_name: 'Access Bank',
+      business_name: 'Owner Store',
+    };
+    mocks.activeMerchantData = {
+      id: 'accessible-merchant',
+      bank_account_number: '2222222222',
+      bank_code: '001',
+      bank_name: 'GTBank',
+      business_name: 'Accessible Store',
+    };
+    mocks.accountName = 'Accessible Store Ltd';
+
+    render(<PayoutSettingsScreen />);
+
+    expect(screen.getByPlaceholderText('0123456789')).toHaveValue('2222222222');
+    expect(screen.getByText('GTBank')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(mocks.savePayoutSettings.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountNumber: '2222222222',
+        bankCode: '001',
+        businessName: 'Accessible Store',
+      }),
+      expect.any(Object)
+    );
+  });
+
+  it('clears a prior merchant bank selection when the active merchant has no saved bank', () => {
+    mocks.activeMerchantData = {
+      id: 'merchant-a',
+      bank_account_number: '1111111111',
+      bank_code: '001',
+      bank_name: 'GTBank',
+      business_name: 'First Store',
+    };
+    const rendered = render(<PayoutSettingsScreen />);
+
+    expect(screen.getByText('GTBank')).toBeInTheDocument();
+
+    mocks.activeMerchantData = {
+      id: 'merchant-b',
+      bank_account_number: null,
+      bank_code: null,
+      bank_name: null,
+      business_name: 'Second Store',
+    };
+    rendered.rerender(<PayoutSettingsScreen />);
+
+    expect(screen.getByText('Select your bank')).toBeInTheDocument();
   });
 
   it('uses the shared keyboard container in the bank picker modal', () => {
@@ -274,7 +353,7 @@ describe('PayoutSettingsScreen', () => {
   });
 
   it('blocks save when account verification has not produced an account name', () => {
-    mocks.merchantData = {
+    mocks.activeMerchantData = {
       id: 'merchant-1',
       bank_account_number: '0123456789',
       bank_code: null,
@@ -297,7 +376,7 @@ describe('PayoutSettingsScreen', () => {
 
   it('blocks save when account verification is still in progress', () => {
     mocks.isVerifying = true;
-    mocks.merchantData = {
+    mocks.activeMerchantData = {
       id: 'merchant-1',
       bank_account_number: '0123456789',
       bank_code: null,
@@ -320,7 +399,7 @@ describe('PayoutSettingsScreen', () => {
 
   it('blocks save when account verification reports an error', () => {
     mocks.verifyError = 'Unable to verify account';
-    mocks.merchantData = {
+    mocks.activeMerchantData = {
       id: 'merchant-1',
       bank_account_number: '0123456789',
       bank_code: null,
@@ -380,7 +459,7 @@ describe('PayoutSettingsScreen', () => {
     const callbacks = mocks.savePayoutSettings.mutate.mock.calls[0]?.[1] as
       | { onError?: (error: Error) => void; onSuccess?: () => void }
       | undefined;
-    mocks.merchantData = {
+    mocks.activeMerchantData = {
       id: 'merchant-2',
       bank_account_number: null,
       bank_code: null,

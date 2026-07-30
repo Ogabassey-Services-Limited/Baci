@@ -194,4 +194,75 @@ describe('SecurityScreen factor selection', () => {
       });
     });
   });
+
+  it('refreshes the assurance level after verifying an existing factor', async () => {
+    mocks.listFactors.mockResolvedValue({
+      data: {
+        all: [
+          {
+            id: 'existing-factor',
+            factor_type: 'totp',
+            status: 'verified',
+          },
+        ],
+        totp: [{ id: 'existing-factor', status: 'verified' }],
+      },
+      error: null,
+    });
+    mocks.getAuthenticatorAssuranceLevel
+      .mockResolvedValueOnce({ data: { currentLevel: 'aal1' }, error: null })
+      .mockResolvedValueOnce({ data: { currentLevel: 'aal2' }, error: null });
+
+    render(<SecurityScreen />);
+
+    fireEvent.change(await screen.findByLabelText('Authenticator code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
+
+    await waitFor(() => {
+      expect(mocks.getAuthenticatorAssuranceLevel).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('2FA enabled and verified')).toBeInTheDocument();
+    });
+  });
+
+  it('does not report successful verification when the assurance refresh fails', async () => {
+    mocks.listFactors.mockResolvedValue({
+      data: {
+        all: [
+          {
+            id: 'existing-factor',
+            factor_type: 'totp',
+            status: 'verified',
+          },
+        ],
+        totp: [{ id: 'existing-factor', status: 'verified' }],
+      },
+      error: null,
+    });
+    mocks.getAuthenticatorAssuranceLevel
+      .mockResolvedValueOnce({ data: { currentLevel: 'aal1' }, error: null })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'assurance refresh failed' },
+      });
+
+    render(<SecurityScreen />);
+
+    fireEvent.change(await screen.findByLabelText('Authenticator code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Verification incomplete',
+        'assurance refresh failed'
+      );
+    });
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Two-factor authentication enabled',
+      'Your session is verified.'
+    );
+  });
 });

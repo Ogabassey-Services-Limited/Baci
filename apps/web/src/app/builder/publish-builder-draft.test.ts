@@ -16,6 +16,7 @@ const mockApiPut = vi.mocked(apiPut);
 
 function createParams() {
   return {
+    merchantId: 'merchant-1',
     expectedLastUpdated: 'old-date',
     setLastUpdated: vi.fn(),
     setPublishing: vi.fn(),
@@ -35,6 +36,7 @@ describe('publishBuilderDraft', () => {
     await publishBuilderDraft(params);
 
     expect(mockApiPut).toHaveBeenCalledWith('/api/builder', {
+      merchantId: params.merchantId,
       slug: 'home',
       expectedLastUpdated: params.expectedLastUpdated,
     });

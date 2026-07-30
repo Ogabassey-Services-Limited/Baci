@@ -6,6 +6,7 @@ import {
   builderPublishSchema,
 } from '@/schemas/builder';
 import {
+  getBuilderAuthentication,
   getBuilderRequestContext,
   loadBuilderPayload,
   publishBuilderDraft,
@@ -13,13 +14,12 @@ import {
 } from './builder-route-utils';
 
 export async function GET(request: NextRequest) {
-  const contextResult = await getBuilderRequestContext(request, 'view');
-  if (contextResult.response) {
-    return contextResult.response;
-  }
+  const authentication = await getBuilderAuthentication(request);
+  if (authentication.response) return authentication.response;
 
   const { searchParams } = new URL(request.url);
   const parsedQuery = builderLoadQuerySchema.safeParse({
+    merchantId: searchParams.get('merchantId') ?? undefined,
     slug: searchParams.get('slug') ?? undefined,
     aiDraftJobId: searchParams.get('aiDraftJobId') ?? undefined,
   });
@@ -32,6 +32,15 @@ export async function GET(request: NextRequest) {
       },
       { status: 400 }
     );
+  }
+
+  const contextResult = await getBuilderRequestContext(
+    request,
+    'view',
+    parsedQuery.data.merchantId
+  );
+  if (contextResult.response) {
+    return contextResult.response;
   }
 
   const builderPayload = await loadBuilderPayload(
@@ -52,10 +61,8 @@ export async function POST(request: NextRequest) {
   const { valid, response } = await checkCsrfProtection(request);
   if (!valid) return response as NextResponse;
 
-  const contextResult = await getBuilderRequestContext(request, 'edit');
-  if (contextResult.response) {
-    return contextResult.response;
-  }
+  const authentication = await getBuilderAuthentication(request);
+  if (authentication.response) return authentication.response;
 
   let body: unknown;
 
@@ -74,6 +81,15 @@ export async function POST(request: NextRequest) {
       },
       { status: 400 }
     );
+  }
+
+  const contextResult = await getBuilderRequestContext(
+    request,
+    'edit',
+    parsed.data.merchantId
+  );
+  if (contextResult.response) {
+    return contextResult.response;
   }
 
   const saveResult = await saveBuilderDraft(
@@ -97,10 +113,8 @@ export async function PUT(request: NextRequest) {
   const { valid, response } = await checkCsrfProtection(request);
   if (!valid) return response as NextResponse;
 
-  const contextResult = await getBuilderRequestContext(request, 'edit');
-  if (contextResult.response) {
-    return contextResult.response;
-  }
+  const authentication = await getBuilderAuthentication(request);
+  if (authentication.response) return authentication.response;
 
   let body: unknown;
 
@@ -119,6 +133,15 @@ export async function PUT(request: NextRequest) {
       },
       { status: 400 }
     );
+  }
+
+  const contextResult = await getBuilderRequestContext(
+    request,
+    'edit',
+    parsed.data.merchantId
+  );
+  if (contextResult.response) {
+    return contextResult.response;
   }
 
   const publishResult = await publishBuilderDraft(

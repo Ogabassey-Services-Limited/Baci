@@ -50,6 +50,7 @@ function createRequest() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      merchantId: '11111111-1111-4111-8111-111111111111',
       prompt: 'Make the storefront blue',
       currentConfig: {
         content: [{ type: 'Hero', props: { title: 'Home' } }],

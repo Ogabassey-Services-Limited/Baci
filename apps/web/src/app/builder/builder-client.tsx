@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BuilderSidebar } from '@/components/builder/builder-sidebar';
 import { builderConfig } from '@/components/builder/config';
 import { GeminiCommandBar } from '@/components/builder/gemini-command-bar';
@@ -196,6 +196,10 @@ export default function BuilderClient() {
   const { merchant, loading: merchantLoading } = useMerchant();
   const userId = user?.id ?? null;
   const merchantId = merchant?.id ?? null;
+  const merchantIdRef = useRef(merchantId);
+  merchantIdRef.current = merchantId;
+  const aiMerchantIdRef = useRef(merchantId);
+  const aiRequestSequenceRef = useRef(0);
 
   // Register CopilotKit actions for AI-driven component manipulation
   useCopilotBuilderActions({ data, setData });
@@ -254,6 +258,7 @@ export default function BuilderClient() {
     const controller = new AbortController();
 
     void loadBuilderData({
+      merchantId,
       router,
       signal: controller.signal,
       toast,
@@ -275,8 +280,15 @@ export default function BuilderClient() {
     };
   }, [userId, merchantId, authLoading, merchantLoading, router, toast]);
 
+  useEffect(() => {
+    if (aiMerchantIdRef.current === merchantId) return;
+    aiMerchantIdRef.current = merchantId;
+    aiRequestSequenceRef.current += 1;
+    setIsAiLoading(false);
+  }, [merchantId]);
+
   const handleSave = async (newData: Data): Promise<string | null> => {
-    if (!canEdit) {
+    if (!merchantId || !canEdit) {
       toast({
         title: 'Builder is read-only',
         description: getReadOnlyBuilderDescription(previewMode, degradedReason),
@@ -286,6 +298,7 @@ export default function BuilderClient() {
     }
 
     return await saveBuilderDraft({
+      merchantId,
       newData,
       seoData,
       storeSettings,
@@ -298,7 +311,7 @@ export default function BuilderClient() {
   };
 
   const handlePublish = async () => {
-    if (!data || !canEdit) {
+    if (!data || !merchantId || !canEdit) {
       if (!canEdit) {
         toast({
           title: 'Builder is read-only',
@@ -320,6 +333,7 @@ export default function BuilderClient() {
     }
 
     await publishBuilderDraft({
+      merchantId,
       expectedLastUpdated: savedLastUpdated,
       setLastUpdated,
       setPublishing,
@@ -328,7 +342,7 @@ export default function BuilderClient() {
   };
 
   const handleAiCommand = async (command: string) => {
-    if (!canEdit) {
+    if (!merchantId || !canEdit) {
       toast({
         title: 'Builder is read-only',
         description: getReadOnlyBuilderDescription(previewMode, degradedReason),
@@ -337,7 +351,12 @@ export default function BuilderClient() {
       return;
     }
 
+    const requestSequence = ++aiRequestSequenceRef.current;
     await runBuilderAiCommand({
+      merchantId,
+      isCurrentRequest: () =>
+        aiRequestSequenceRef.current === requestSequence &&
+        merchantIdRef.current === merchantId,
       command,
       currentConfig: data,
       setData,

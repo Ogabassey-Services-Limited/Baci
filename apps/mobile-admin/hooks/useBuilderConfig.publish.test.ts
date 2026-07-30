@@ -83,6 +83,7 @@ describe('useBuilderConfig publishing', () => {
         method: 'POST',
         body: JSON.stringify({
           slug: 'home',
+          merchantId: 'merchant-1',
           config: baseConfig,
           name: 'Home',
         }),
@@ -97,6 +98,7 @@ describe('useBuilderConfig publishing', () => {
       method: 'POST',
       timeout: 30_000,
       body: JSON.stringify({
+        merchantId: 'merchant-1',
         prompt: 'Give the hero a brighter title',
         currentConfig: {
           ...baseConfig,
@@ -133,14 +135,14 @@ describe('useBuilderConfig publishing', () => {
     await waitFor(() => {
       expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
         method: 'PUT',
-        body: JSON.stringify({ slug: 'home' }),
+        body: JSON.stringify({ slug: 'home', merchantId: 'merchant-1' }),
       });
       expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
         expect.anything(),
         'merchant-1'
       );
       expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['builderConfig', 'home'],
+        queryKey: ['builderConfig', 'merchant-1', 'home'],
       });
       expect(result.current.isPublishing).toBe(true);
     });
@@ -190,36 +192,20 @@ describe('useBuilderConfig publishing', () => {
     });
   });
 
-  it('keeps a successful publish successful without merchant context', async () => {
+  it('fails before saving or publishing without merchant context', async () => {
     merchantMocks.merchant = null;
-    let releasePublish!: () => void;
-    const publishRequest = new Promise<void>((resolve) => {
-      releasePublish = resolve;
-    });
-    mockApiClient.mockImplementation((url, options) => {
-      if (url === '/api/builder?slug=home') {
-        return Promise.resolve({ config: baseConfig, isPublished: false });
-      }
-      if (options?.method === 'PUT') return publishRequest;
-      return Promise.resolve(undefined);
-    });
-    const { queryClient, Wrapper } = createBuilderConfigWrapper();
+    const { Wrapper } = createBuilderConfigWrapper();
     const { result } = renderHook(() => useBuilderConfig('home'), {
       wrapper: Wrapper,
     });
 
-    await waitFor(() => expect(result.current.config).toEqual(baseConfig));
-    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     act(() => result.current.publish());
-    await waitFor(() => expect(result.current.isPublishing).toBe(true));
-    releasePublish();
     await waitFor(() => {
-      expect(result.current.isPublishing).toBe(false);
-      expect(result.current.publishError).toBeNull();
+      expect(result.current.publishError).toEqual(
+        new Error('Merchant not loaded. Please try again.')
+      );
     });
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['builderConfig', 'home'],
-    });
+    expect(mockApiClient).not.toHaveBeenCalled();
     expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
@@ -229,7 +215,7 @@ describe('useBuilderConfig publishing', () => {
       releasePublish = resolve;
     });
     mockApiClient.mockImplementation((url, options) => {
-      if (url === '/api/builder?slug=home') {
+      if (url === '/api/builder?slug=home&merchantId=merchant-1') {
         return Promise.resolve({ config: baseConfig, isPublished: false });
       }
       if (options?.method === 'PUT') return publishRequest;
@@ -248,6 +234,10 @@ describe('useBuilderConfig publishing', () => {
     releasePublish();
 
     await waitFor(() => {
+      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
+        method: 'PUT',
+        body: JSON.stringify({ slug: 'home', merchantId: 'merchant-1' }),
+      });
       expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
         expect.anything(),
         'merchant-1'
@@ -258,5 +248,73 @@ describe('useBuilderConfig publishing', () => {
       expect.anything(),
       'merchant-2'
     );
+  });
+
+  it('keeps merchant B local draft when a deferred merchant A save completes', async () => {
+    let resolveMerchantASave!: () => void;
+    const merchantASave = new Promise<void>((resolve) => {
+      resolveMerchantASave = resolve;
+    });
+    const merchantBConfig = {
+      ...baseConfig,
+      root: { title: 'Merchant B' },
+    };
+    const merchantBDraft = {
+      ...baseConfig,
+      root: { title: 'Merchant B AI draft' },
+    };
+    mockApiClient.mockImplementation((url, options) => {
+      if (url === '/api/builder?slug=home&merchantId=merchant-1') {
+        return Promise.resolve({ config: baseConfig, isPublished: false });
+      }
+      if (url === '/api/builder?slug=home&merchantId=merchant-2') {
+        return Promise.resolve({ config: merchantBConfig, isPublished: false });
+      }
+      if (url === '/api/builder' && options?.method === 'POST') {
+        const body = JSON.parse(String(options.body)) as { merchantId: string };
+        return body.merchantId === 'merchant-1'
+          ? merchantASave
+          : Promise.resolve(undefined);
+      }
+      if (url === '/api/builder/gemini' && options?.method === 'POST') {
+        return Promise.resolve({ config: merchantBDraft });
+      }
+      return Promise.resolve(undefined);
+    });
+    const { queryClient, Wrapper } = createBuilderConfigWrapper();
+    vi.spyOn(queryClient, 'invalidateQueries');
+    const { result, rerender } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => expect(result.current.config).toEqual(baseConfig));
+    act(() => result.current.saveDraft());
+    await waitFor(() =>
+      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
+        method: 'POST',
+        body: JSON.stringify({
+          slug: 'home',
+          merchantId: 'merchant-1',
+          config: baseConfig,
+          name: 'Home',
+        }),
+      })
+    );
+
+    merchantMocks.merchant = { id: 'merchant-2' };
+    rerender();
+    await waitFor(() => expect(result.current.config).toEqual(merchantBConfig));
+    await act(async () => {
+      await result.current.sendMessage('Make merchant B premium');
+    });
+    expect(result.current.config).toEqual(merchantBDraft);
+
+    resolveMerchantASave();
+    await waitFor(() =>
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['builderConfig', 'merchant-1', 'home'],
+      })
+    );
+    expect(result.current.config).toEqual(merchantBDraft);
   });
 });

@@ -17,6 +17,7 @@ const mockApiPost = vi.mocked(apiPost);
 
 function createParams() {
   return {
+    merchantId: 'merchant-1',
     newData: { content: [], root: {}, zones: {} } as Data,
     seoData: {
       description: 'Description',
@@ -46,6 +47,7 @@ describe('saveBuilderDraft', () => {
 
     expect(params.setSaving).toHaveBeenNthCalledWith(1, true);
     expect(mockApiPost).toHaveBeenCalledWith('/api/builder', {
+      merchantId: params.merchantId,
       slug: 'home',
       name: 'Home',
       config: params.newData,

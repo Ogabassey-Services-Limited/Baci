@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCheckCsrfProtection = vi.fn();
+const mockGetBuilderAuthentication = vi.fn();
 const mockGetBuilderRequestContext = vi.fn();
 const mockLoadBuilderPayload = vi.fn();
 const mockSaveBuilderDraft = vi.fn();
@@ -12,6 +13,7 @@ vi.mock('@/lib/csrf', () => ({
 }));
 
 vi.mock('./builder-route-utils', () => ({
+  getBuilderAuthentication: mockGetBuilderAuthentication,
   getBuilderRequestContext: mockGetBuilderRequestContext,
   loadBuilderPayload: mockLoadBuilderPayload,
   saveBuilderDraft: mockSaveBuilderDraft,
@@ -22,6 +24,9 @@ describe('/api/builder route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckCsrfProtection.mockResolvedValue({ valid: true });
+    mockGetBuilderAuthentication.mockResolvedValue({
+      auth: { user: { id: 'user-1' }, supabase: {} },
+    });
     mockGetBuilderRequestContext.mockResolvedValue({
       context: {
         merchantId: 'merchant-1',
@@ -51,7 +56,9 @@ describe('/api/builder route', () => {
       },
     });
 
-    const request = new NextRequest('http://localhost/api/builder?slug=home');
+    const request = new NextRequest(
+      'http://localhost/api/builder?slug=home&merchantId=11111111-1111-4111-8111-111111111111'
+    );
 
     const { GET } = await import('./route');
     const response = await GET(request);
@@ -60,7 +67,11 @@ describe('/api/builder route', () => {
     expect(response.status).toBe(200);
     expect(body.canEdit).toBe(true);
     expect(body.degraded).toBe(false);
-    expect(mockGetBuilderRequestContext).toHaveBeenCalledWith(request, 'view');
+    expect(mockGetBuilderRequestContext).toHaveBeenCalledWith(
+      request,
+      'view',
+      '11111111-1111-4111-8111-111111111111'
+    );
     expect(mockLoadBuilderPayload).toHaveBeenCalledWith(
       {},
       'merchant-1',
@@ -92,7 +103,7 @@ describe('/api/builder route', () => {
     });
 
     const request = new NextRequest(
-      `http://localhost/api/builder?slug=home&aiDraftJobId=${aiDraftJobId}`
+      `http://localhost/api/builder?slug=home&merchantId=11111111-1111-4111-8111-111111111111&aiDraftJobId=${aiDraftJobId}`
     );
 
     const { GET } = await import('./route');
@@ -110,9 +121,9 @@ describe('/api/builder route', () => {
     );
   });
 
-  it('authenticates before rejecting malformed AI draft preview job ids', async () => {
+  it('rejects malformed AI draft preview job ids without loading a merchant config', async () => {
     const request = new NextRequest(
-      'http://localhost/api/builder?slug=home&aiDraftJobId=not-a-uuid'
+      'http://localhost/api/builder?slug=home&merchantId=11111111-1111-4111-8111-111111111111&aiDraftJobId=not-a-uuid'
     );
 
     const { GET } = await import('./route');
@@ -121,8 +132,23 @@ describe('/api/builder route', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid request query');
-    expect(mockGetBuilderRequestContext).toHaveBeenCalledWith(request, 'view');
+    expect(mockGetBuilderRequestContext).not.toHaveBeenCalled();
     expect(mockLoadBuilderPayload).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 for an unauthenticated malformed GET before validating its query', async () => {
+    mockGetBuilderAuthentication.mockResolvedValue({
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    });
+    const request = new NextRequest(
+      'http://localhost/api/builder?merchantId=not-a-uuid'
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET(request);
+
+    expect(response.status).toBe(401);
+    expect(mockGetBuilderRequestContext).not.toHaveBeenCalled();
   });
 
   it('returns the helper response when builder context fails', async () => {
@@ -130,7 +156,9 @@ describe('/api/builder route', () => {
       response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
     });
 
-    const request = new NextRequest('http://localhost/api/builder?slug=home');
+    const request = new NextRequest(
+      'http://localhost/api/builder?slug=home&merchantId=11111111-1111-4111-8111-111111111111'
+    );
 
     const { GET } = await import('./route');
     const response = await GET(request);
@@ -149,7 +177,9 @@ describe('/api/builder route', () => {
       ),
     });
 
-    const request = new NextRequest('http://localhost/api/builder?slug=home');
+    const request = new NextRequest(
+      'http://localhost/api/builder?slug=home&merchantId=11111111-1111-4111-8111-111111111111'
+    );
 
     const { GET } = await import('./route');
     const response = await GET(request);
@@ -198,6 +228,23 @@ describe('/api/builder route', () => {
     expect(mockSaveBuilderDraft).not.toHaveBeenCalled();
   });
 
+  it('returns 401 for an unauthenticated malformed POST before validating its body', async () => {
+    mockGetBuilderAuthentication.mockResolvedValue({
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    });
+    const request = new NextRequest('http://localhost/api/builder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{invalid-json',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+
+    expect(response.status).toBe(401);
+    expect(mockGetBuilderRequestContext).not.toHaveBeenCalled();
+  });
+
   it('returns the saved draft payload from the helper', async () => {
     mockSaveBuilderDraft.mockResolvedValue({
       data: {
@@ -212,6 +259,7 @@ describe('/api/builder route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         slug: 'home',
+        merchantId: '11111111-1111-4111-8111-111111111111',
         config: { content: [], root: { title: 'Home' }, zones: {} },
         expectedLastUpdated: null,
       }),
@@ -222,6 +270,11 @@ describe('/api/builder route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockGetBuilderRequestContext).toHaveBeenCalledWith(
+      request,
+      'edit',
+      '11111111-1111-4111-8111-111111111111'
+    );
     expect(body).toEqual({
       success: true,
       data: {
@@ -248,6 +301,7 @@ describe('/api/builder route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         slug: 'home',
+        merchantId: '11111111-1111-4111-8111-111111111111',
         config: { content: [], root: { title: 'Home' }, zones: {} },
         expectedLastUpdated: '2026-03-20T18:00:00.000Z',
       }),
@@ -274,6 +328,23 @@ describe('/api/builder route', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: 'Invalid JSON body' });
+  });
+
+  it('returns 401 for an unauthenticated malformed PUT before validating its body', async () => {
+    mockGetBuilderAuthentication.mockResolvedValue({
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    });
+    const request = new NextRequest('http://localhost/api/builder', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{invalid-json',
+    });
+
+    const { PUT } = await import('./route');
+    const response = await PUT(request);
+
+    expect(response.status).toBe(401);
+    expect(mockGetBuilderRequestContext).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the PUT payload fails validation', async () => {
@@ -303,6 +374,7 @@ describe('/api/builder route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         slug: 'home',
+        merchantId: '11111111-1111-4111-8111-111111111111',
         expectedLastUpdated: '2026-03-20T18:00:00.000Z',
       }),
     });
@@ -312,6 +384,11 @@ describe('/api/builder route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockGetBuilderRequestContext).toHaveBeenCalledWith(
+      request,
+      'edit',
+      '11111111-1111-4111-8111-111111111111'
+    );
     expect(body).toEqual({
       success: true,
       lastUpdated: '2026-03-20T18:05:00.000Z',

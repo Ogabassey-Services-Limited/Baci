@@ -30,6 +30,8 @@ function jsonResponse(body: unknown, ok = true): Response {
 
 function createParams() {
   return {
+    merchantId: 'merchant-1',
+    isCurrentRequest: () => true,
     command: 'make it premium',
     currentConfig: { content: [], root: {}, zones: {} } as Data,
     setData: vi.fn(),
@@ -41,6 +43,106 @@ function createParams() {
 describe('runBuilderAiCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('does not apply a deferred original merchant A success after A to B to A switches', async () => {
+    let resolveRequest!: (value: Response) => void;
+    const pendingResponse = new Promise<Response>((resolve) => {
+      resolveRequest = resolve;
+    });
+    let activeRequest = 1;
+    mockFetchWithCsrf.mockReturnValue(pendingResponse);
+    const params = {
+      ...createParams(),
+      isCurrentRequest: () => activeRequest === 1,
+    };
+    const command = runBuilderAiCommand(params);
+
+    activeRequest = 2;
+    activeRequest = 3;
+    resolveRequest(
+      jsonResponse({
+        config: { content: [], root: { title: 'Merchant A' }, zones: {} },
+      })
+    );
+    await command;
+
+    expect(params.setData).not.toHaveBeenCalled();
+    expect(mockApplyTheme).not.toHaveBeenCalled();
+    expect(params.toast).not.toHaveBeenCalled();
+  });
+
+  it('does not show a deferred merchant A error after the active merchant switches to B', async () => {
+    let rejectRequest!: (error: Error) => void;
+    const pendingRequest = new Promise<Response>((_resolve, reject) => {
+      rejectRequest = reject;
+    });
+    let activeRequest = 1;
+    mockFetchWithCsrf.mockReturnValue(pendingRequest);
+    const params = {
+      ...createParams(),
+      isCurrentRequest: () => activeRequest === 1,
+    };
+    const command = runBuilderAiCommand(params);
+
+    activeRequest = 2;
+    rejectRequest(new Error('Merchant A request failed'));
+    await command;
+
+    expect(params.setData).not.toHaveBeenCalled();
+    expect(mockApplyTheme).not.toHaveBeenCalled();
+    expect(params.toast).not.toHaveBeenCalled();
+  });
+
+  it('lets only the latest same-merchant AI request control updates and loading', async () => {
+    let resolveFirst!: (value: Response) => void;
+    let resolveSecond!: (value: Response) => void;
+    const firstResponse = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondResponse = new Promise<Response>((resolve) => {
+      resolveSecond = resolve;
+    });
+    let activeRequest = 1;
+    mockFetchWithCsrf
+      .mockReturnValueOnce(firstResponse)
+      .mockReturnValueOnce(secondResponse);
+    const firstParams = {
+      ...createParams(),
+      isCurrentRequest: () => activeRequest === 1,
+    };
+    const secondParams = {
+      ...createParams(),
+      isCurrentRequest: () => activeRequest === 2,
+    };
+    const first = runBuilderAiCommand(firstParams);
+    activeRequest = 2;
+    const second = runBuilderAiCommand(secondParams);
+
+    resolveFirst(
+      jsonResponse({
+        config: { content: [], root: { title: 'Older' }, zones: {} },
+      })
+    );
+    await first;
+    expect(firstParams.setData).not.toHaveBeenCalled();
+    expect(firstParams.setIsAiLoading).toHaveBeenCalledWith(true);
+    expect(firstParams.setIsAiLoading).not.toHaveBeenCalledWith(false);
+    expect(firstParams.toast).not.toHaveBeenCalled();
+
+    resolveSecond(
+      jsonResponse({
+        config: { content: [], root: { title: 'Latest' }, zones: {} },
+      })
+    );
+    await second;
+    expect(secondParams.setData).toHaveBeenCalledWith({
+      content: [],
+      root: { title: 'Latest' },
+      zones: {},
+    });
+    expect(secondParams.setIsAiLoading).toHaveBeenLastCalledWith(false);
+    expect(secondParams.toast).toHaveBeenCalledTimes(1);
   });
 
   it('applies successful AI config updates and theme changes', async () => {
@@ -60,6 +162,7 @@ describe('runBuilderAiCommand', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId: params.merchantId,
         prompt: params.command,
         currentConfig: params.currentConfig,
       }),

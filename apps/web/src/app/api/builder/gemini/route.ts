@@ -13,6 +13,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
+import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 import {
   type AiBuilderConfig,
   aiBuilderConfigSchema,
@@ -27,6 +28,7 @@ import {
 import { runBuilderProviderChain } from './run-builder-provider-chain';
 
 const builderGeminiRequestSchema = z.object({
+  merchantId: merchantIdParamSchema,
   prompt: z.string().trim().min(1, 'Prompt is required'),
   currentConfig: aiBuilderConfigSchema,
 });
@@ -66,7 +68,29 @@ export async function POST(req: NextRequest) {
 
     const { user, supabase } = auth;
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsed = builderGeminiRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { merchantId, prompt, currentConfig } = parsed.data;
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -101,26 +125,6 @@ export async function POST(req: NextRequest) {
         }
       );
     }
-
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    const parsed = builderGeminiRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid request body',
-          details: parsed.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-
-    const { prompt, currentConfig } = parsed.data;
 
     // Sanitize the user prompt
     const sanitizedPrompt = sanitizePromptInput(prompt, 1000).value;

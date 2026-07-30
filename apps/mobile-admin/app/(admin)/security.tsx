@@ -100,13 +100,26 @@ export default function SecurityScreen() {
       code,
       factorId,
     });
-    setIsBusy(false);
 
     if (error) {
+      setIsBusy(false);
       Alert.alert('Verification failed', error.message);
       return;
     }
 
+    const { data: assurance, error: assuranceError } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (assuranceError || assurance?.currentLevel !== 'aal2') {
+      setIsBusy(false);
+      Alert.alert(
+        'Verification incomplete',
+        assuranceError?.message ?? 'Could not confirm your verified session.'
+      );
+      return;
+    }
+
+    setIsAal2(true);
+    setIsBusy(false);
     setCode('');
     setSetup(null);
     Alert.alert(

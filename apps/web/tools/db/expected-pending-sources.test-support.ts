@@ -317,4 +317,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260730132000_add_scoped_merchant_analytics_config.sql',
     sha256: '883a1207a4aba986f59e4135dcdb932abc0965611eed016a331bf684cd68b47b',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730144747_add_merchants_updated_at_trigger.sql',
+    sha256: '621055c391934618eb5d45706bcc07894f772207507841cba0c22b45b2f97bf5',
+  },
 ];

@@ -1,5 +1,4 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
@@ -20,22 +19,16 @@ import { getVirtualizedListProps } from '@/components/ui/virtualized-list-props'
 import { isStoreReadinessSetupOrigin } from '@/constants/store-readiness-routes';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { usePayoutAccountVerification } from '@/hooks/usePayoutAccountVerification';
 import { usePayouts } from '@/hooks/usePayouts';
 import { type PaystackBank, usePaystackBanks } from '@/hooks/usePaystackBanks';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
-
-interface MerchantBankSettings {
-  business_name: string | null;
-  bank_name: string | null;
-  bank_account_number: string | null;
-  bank_code: string | null;
-}
 
 export default function PayoutSettingsScreen() {
   const { colors, shadows } = useTheme();
-  const { user, session } = useAuth();
+  const { session } = useAuth();
+  const { merchant, isLoading: isLoadingMerchant } = useMerchant();
   const { savePayoutSettings } = usePayouts();
   const router = useRouter();
   const { from } = useLocalSearchParams<{ from?: string }>();
@@ -48,21 +41,6 @@ export default function PayoutSettingsScreen() {
   // Banks from backend (canonical source, deduplicated)
   const { data: banks, isLoading: isLoadingBanks } = usePaystackBanks();
 
-  // Fetch current merchant settings
-  const { data: merchant, isLoading: isLoadingMerchant } = useQuery({
-    queryKey: ['merchant-payout', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('id, business_name, bank_name, bank_account_number, bank_code')
-        .eq('user_id', user?.id)
-        .single();
-      if (error) throw error;
-      return data as MerchantBankSettings & { id: string };
-    },
-    enabled: !!user?.id,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
   const activeMerchantIdRef = useRef(merchant?.id);
   activeMerchantIdRef.current = merchant?.id;
 
@@ -89,6 +67,7 @@ export default function PayoutSettingsScreen() {
     if (seedKey !== prevSeedKey) {
       setPrevSeedKey(seedKey);
       setAccountNumber(merchant.bank_account_number || '');
+      setSelectedBank(null);
       if (merchant.bank_code && banks) {
         const bank = banks.find((b) => b.code === merchant.bank_code);
         if (bank) setSelectedBank(bank);

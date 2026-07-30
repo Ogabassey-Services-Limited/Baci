@@ -6,6 +6,8 @@ import type { BuilderToast } from './builder-client-types';
 import { getBuilderMutationErrorMessage } from './builder-descriptions';
 
 interface RunBuilderAiCommandParams {
+  merchantId: string;
+  isCurrentRequest: () => boolean;
   command: string;
   currentConfig: Data;
   setData: Dispatch<SetStateAction<Data>>;
@@ -14,7 +16,15 @@ interface RunBuilderAiCommandParams {
 }
 
 export async function runBuilderAiCommand(params: RunBuilderAiCommandParams) {
-  const { command, currentConfig, setData, setIsAiLoading, toast } = params;
+  const {
+    merchantId,
+    isCurrentRequest,
+    command,
+    currentConfig,
+    setData,
+    setIsAiLoading,
+    toast,
+  } = params;
 
   setIsAiLoading(true);
   try {
@@ -22,6 +32,7 @@ export async function runBuilderAiCommand(params: RunBuilderAiCommandParams) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId,
         prompt: command,
         currentConfig,
       }),
@@ -35,6 +46,10 @@ export async function runBuilderAiCommand(params: RunBuilderAiCommandParams) {
     }
 
     const result = await response.json();
+
+    if (!isCurrentRequest()) {
+      return;
+    }
 
     if (result.config) {
       setData(result.config);
@@ -53,6 +68,10 @@ export async function runBuilderAiCommand(params: RunBuilderAiCommandParams) {
       });
     }
   } catch (error) {
+    if (!isCurrentRequest()) {
+      return;
+    }
+
     console.error('Gemini AI Command Error:', error);
     toast({
       title: 'Error',
@@ -63,6 +82,8 @@ export async function runBuilderAiCommand(params: RunBuilderAiCommandParams) {
       variant: 'destructive',
     });
   } finally {
-    setIsAiLoading(false);
+    if (isCurrentRequest()) {
+      setIsAiLoading(false);
+    }
   }
 }
