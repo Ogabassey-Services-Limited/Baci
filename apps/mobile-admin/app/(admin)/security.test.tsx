@@ -59,15 +59,22 @@ vi.mock('react-native', () => ({
   ActivityIndicator: () => <output aria-label="loading" />,
   Alert: { alert: mocks.alert },
   Pressable: ({
+    accessibilityLabel,
     children,
     disabled,
     onPress,
   }: {
+    accessibilityLabel?: string;
     children?: ReactNode;
     disabled?: boolean;
     onPress?: () => void;
   }) => (
-    <button disabled={disabled} onClick={onPress} type="button">
+    <button
+      aria-label={accessibilityLabel}
+      disabled={disabled}
+      onClick={onPress}
+      type="button"
+    >
       {children}
     </button>
   ),
@@ -156,6 +163,59 @@ describe('SecurityScreen', () => {
     fireEvent.click(backupButton);
 
     await waitFor(() => expect(mocks.enroll).toHaveBeenCalledTimes(1));
+  });
+
+  it('verifies a session with the selected backup authenticator', async () => {
+    mocks.listFactors.mockResolvedValue({
+      data: {
+        all: [
+          {
+            id: 'primary-factor',
+            factor_type: 'totp',
+            friendly_name: 'Primary authenticator',
+            status: 'verified',
+          },
+          {
+            id: 'backup-factor',
+            factor_type: 'totp',
+            friendly_name: 'Backup authenticator',
+            status: 'verified',
+          },
+        ],
+        totp: [
+          {
+            id: 'primary-factor',
+            friendly_name: 'Primary authenticator',
+            status: 'verified',
+          },
+          {
+            id: 'backup-factor',
+            friendly_name: 'Backup authenticator',
+            status: 'verified',
+          },
+        ],
+      },
+      error: null,
+    });
+
+    render(<SecurityScreen />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Use Backup authenticator',
+      })
+    );
+    fireEvent.change(screen.getByLabelText('Authenticator code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
+
+    await waitFor(() => {
+      expect(mocks.challengeAndVerify).toHaveBeenCalledWith({
+        code: '123456',
+        factorId: 'backup-factor',
+      });
+    });
   });
 
   it('resumes or restarts an unverified factor after reload', async () => {

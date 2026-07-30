@@ -14,10 +14,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { securityStyles as styles } from './security-styles';
 
-interface TotpSetup {
-  factorId: string;
-  secret: string;
-}
+type TotpSetup = { factorId: string; secret: string };
+type VerifiedTotpFactor = { id: string; name: string };
 
 export default function SecurityScreen() {
   const { colors } = useTheme();
@@ -27,36 +25,15 @@ export default function SecurityScreen() {
   const [isAal2, setIsAal2] = useState(false);
   const [isBusy, setIsBusy] = useState(true);
   const [setup, setSetup] = useState<TotpSetup | null>(null);
-
-  const loadSecurityState = async () => {
-    setIsBusy(true);
-    const [{ data: factors, error: factorsError }, { data: assurance }] =
-      await Promise.all([
-        supabase.auth.mfa.listFactors(),
-        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-      ]);
-
-    if (factorsError) {
-      Alert.alert('Security Error', factorsError.message);
-      setIsBusy(false);
-      return;
-    }
-
-    const verifiedFactor = factors.totp.find(
-      (factor) => factor.status === 'verified'
-    );
-    const pendingFactor = factors.all.find(
-      (factor) =>
-        factor.factor_type === 'totp' && factor.status === 'unverified'
-    );
-    setFactorId(verifiedFactor?.id ?? pendingFactor?.id ?? null);
-    setHasVerifiedFactor(Boolean(verifiedFactor));
-    setIsAal2(assurance?.currentLevel === 'aal2');
-    setIsBusy(false);
-  };
+  const [verifiedFactors, setVerifiedFactors] = useState<VerifiedTotpFactor[]>(
+    []
+  );
 
   useEffect(() => {
+    if (setup) return;
+
     let isActive = true;
+    setIsBusy(true);
 
     void Promise.all([
       supabase.auth.mfa.listFactors(),
@@ -69,9 +46,11 @@ export default function SecurityScreen() {
         return;
       }
 
-      const verifiedFactor = factors.totp.find(
-        (factor) => factor.status === 'verified'
-      );
+      const verifiedFactors = factors.totp.map((factor, index) => ({
+        id: factor.id,
+        name: factor.friendly_name ?? `Authenticator ${index + 1}`,
+      }));
+      const verifiedFactor = verifiedFactors[0];
       const pendingFactor = factors.all.find(
         (factor) =>
           factor.factor_type === 'totp' && factor.status === 'unverified'
@@ -79,13 +58,14 @@ export default function SecurityScreen() {
       setFactorId(verifiedFactor?.id ?? pendingFactor?.id ?? null);
       setHasVerifiedFactor(Boolean(verifiedFactor));
       setIsAal2(assurance?.currentLevel === 'aal2');
+      setVerifiedFactors(verifiedFactors);
       setIsBusy(false);
     });
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [setup]);
 
   const startEnrollment = async () => {
     setIsBusy(true);
@@ -124,7 +104,6 @@ export default function SecurityScreen() {
 
     setCode('');
     setSetup(null);
-    await loadSecurityState();
     Alert.alert(
       'Two-factor authentication enabled',
       'Your session is verified.'
@@ -210,6 +189,34 @@ export default function SecurityScreen() {
                 Restart authenticator setup
               </Text>
             </Pressable>
+          ) : null}
+
+          {verifiedFactors.length > 1 && !setup ? (
+            <View accessibilityRole="radiogroup">
+              <Text style={[styles.label, { color: colors.text }]}>
+                Choose an authenticator
+              </Text>
+              {verifiedFactors.map((factor) => (
+                <Pressable
+                  accessibilityLabel={`Use ${factor.name}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: factor.id === factorId }}
+                  key={factor.id}
+                  onPress={() => setFactorId(factor.id)}
+                  style={[
+                    styles.secondaryButton,
+                    {
+                      borderColor:
+                        factor.id === factorId ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.link, { color: colors.text }]}>
+                    {factor.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           ) : null}
 
           {setup ? (
