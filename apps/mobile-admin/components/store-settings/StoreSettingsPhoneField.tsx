@@ -1,4 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Text, View } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
@@ -34,9 +35,19 @@ export function StoreSettingsPhoneField({
   shadowStyle,
   value,
 }: StoreSettingsPhoneFieldProps) {
+  const [valueSync, setValueSync] = useState({ revision: 0, value });
+  if (valueSync.value !== value) {
+    setValueSync({ revision: valueSync.revision + 1, value });
+  }
+
   const resolvedCountryCode = value.trim().startsWith('+')
     ? (getPhoneCountryFromValue(value).code as CountryCode)
     : countryCode;
+
+  const handleChange = (phone: string) => {
+    setValueSync((current) => ({ ...current, value: phone }));
+    onChange(phone);
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}>
@@ -44,7 +55,7 @@ export function StoreSettingsPhoneField({
         {label}
       </Text>
       <PhoneInput
-        key={`${accessibilityLabel}-${resolvedCountryCode}`}
+        key={`${accessibilityLabel}-${resolvedCountryCode}-${valueSync.revision}`}
         codeTextStyle={[styles.phoneCodeText, { color: colors.text }]}
         containerStyle={[
           styles.phoneContainer,
@@ -67,7 +78,7 @@ export function StoreSettingsPhoneField({
         defaultCode={resolvedCountryCode}
         defaultValue={getNationalPhoneNumber(value)}
         layout="first"
-        onChangeFormattedText={onChange}
+        onChangeFormattedText={handleChange}
         renderDropdownImage={
           <Ionicons
             color={colors.textSecondary}

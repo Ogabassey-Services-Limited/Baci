@@ -12,6 +12,9 @@ vi.mock('react-native-phone-number-input', async () => {
   const React = await import('react');
   return {
     default: (props: Record<string, unknown>) => {
+      const [mountedDefaultValue] = React.useState(
+        String(props.defaultValue ?? '')
+      );
       phoneState.props = props;
       const countryPickerProps = props.countryPickerProps as {
         renderFlagButton?: (flagProps: {
@@ -29,6 +32,8 @@ vi.mock('react-native-phone-number-input', async () => {
           'aria-label': (
             props.textInputProps as { accessibilityLabel?: string }
           ).accessibilityLabel,
+          value: mountedDefaultValue,
+          readOnly: true,
         })
       );
     },
@@ -111,5 +116,33 @@ describe('StoreSettingsPhoneField', () => {
       defaultCode: 'GB',
       defaultValue: '7700900123',
     });
+  });
+
+  it('remounts the native input when a same-country merchant phone changes', () => {
+    const commonProps = {
+      accessibilityLabel: 'Phone Number',
+      colors: DARK_COLORS,
+      countryCode: 'NG' as const,
+      isDark: true,
+      label: 'Phone Number',
+      onChange: vi.fn(),
+      placeholder: 'Enter phone number',
+      shadowStyle: SHADOWS.sm,
+    };
+    const { rerender } = render(
+      <StoreSettingsPhoneField {...commonProps} value="+2347000000001" />
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Phone Number' })).toHaveValue(
+      '7000000001'
+    );
+
+    rerender(
+      <StoreSettingsPhoneField {...commonProps} value="+2348000000002" />
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Phone Number' })).toHaveValue(
+      '8000000002'
+    );
   });
 });
