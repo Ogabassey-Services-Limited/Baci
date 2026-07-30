@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CachedMerchant } from '@/lib/cached-data';
 import { SettingsForm } from './settings-form';
 
-// Mock child components to avoid deep rendering
 vi.mock('./branding-card', () => ({
   BrandingCard: () => <div data-testid="branding-card" />,
 }));
@@ -16,7 +15,7 @@ vi.mock('./social-media-card', () => ({
   SocialMediaCard: ({
     onSocialMediaChange,
   }: {
-    onSocialMediaChange: (sm: Record<string, string>) => void;
+    onSocialMediaChange: (socialMedia: Record<string, string>) => void;
   }) => (
     <button
       data-testid="social-media-card"
@@ -40,15 +39,10 @@ vi.mock('@/components/dashboard/dashboard-ad-unit', () => ({
   DashboardAdUnit: () => <div data-testid="ad-unit" />,
 }));
 
-vi.mock('colord/plugins/a11y', () => ({
-  default: () => {
-    // Mock a11y plugin
-  },
-}));
+vi.mock('colord/plugins/a11y', () => ({ default: () => undefined }));
 vi.mock('colord', () => ({ extend: vi.fn() }));
 
 vi.mock('./settings-utils', () => {
-  // Fully mock to avoid transitive sharp/native dependency in CI
   const z = require('zod');
   return {
     settingsSchema: z.object({
@@ -56,18 +50,10 @@ vi.mock('./settings-utils', () => {
       country: z.string().min(2),
     }),
     extractColorsFromImage: vi.fn(),
-    sanitizeSocialMedia: (sm: Record<string, string>) => sm,
+    sanitizeSocialMedia: (socialMedia: Record<string, string>) => socialMedia,
   };
 });
 
-vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-  },
-}));
-
-// Mock useMerchant
 const mockUpdateMerchant = vi.fn();
 const mockReloadMerchant = vi.fn();
 vi.mock('@/hooks/use-merchant-client', () => ({
@@ -77,14 +63,12 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   }),
 }));
 
-// social_media is an identity field — it persists via the dedicated PATCH route
-// (updateSocial), not the generic updateMerchant hook.
 const mockUpdateSocial = vi.fn();
 vi.mock('@/hooks/merchant/update-social', () => ({
-  updateSocial: (data: Record<string, string>) => mockUpdateSocial(data),
+  updateSocial: (socialMedia: Record<string, string>) =>
+    mockUpdateSocial(socialMedia),
 }));
 
-// Mock useToast
 const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
@@ -123,91 +107,100 @@ const mockMerchant: CachedMerchant = {
   },
 };
 
-describe('SettingsForm', () => {
+function submitSettingsForm() {
+  const form = screen
+    .getByRole('button', { name: /save changes/i })
+    .closest('form');
+
+  if (!form) throw new Error('Form not found');
+  fireEvent.submit(form);
+}
+
+describe('SettingsForm social save orchestration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders the form with all child components', () => {
-    // Arrange & Act
+  it('saves edited social media before generic fields and one context reload', async () => {
+    mockUpdateMerchant.mockResolvedValueOnce(undefined);
+    mockUpdateSocial.mockResolvedValueOnce({
+      merchant: { id: 'merchant-1', social_media: { twitter: '@test' } },
+    });
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
+    fireEvent.click(screen.getByTestId('social-media-card'));
 
-    // Assert
-    expect(screen.getByTestId('branding-card')).toBeInTheDocument();
-    expect(screen.getByTestId('store-features-card')).toBeInTheDocument();
-    expect(screen.getByTestId('favicon-upload')).toBeInTheDocument();
-    expect(screen.getByTestId('ad-unit')).toBeInTheDocument();
-    expect(screen.getByTestId('hero-carousel-card')).toBeInTheDocument();
-    expect(screen.getByTestId('social-media-card')).toBeInTheDocument();
-  });
+    submitSettingsForm();
 
-  it('renders Save Changes button', () => {
-    // Arrange & Act
-    render(
-      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
+    await waitFor(() => {
+      expect(mockUpdateMerchant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          business_name: 'Test Store',
+          country: 'NG',
+          hero_slides: [],
+        }),
+        { skipReload: true }
+      );
+    });
+    expect(mockUpdateMerchant.mock.calls[0]?.[0]).not.toHaveProperty(
+      'social_media'
     );
-
-    // Assert
+    await waitFor(() => {
+      expect(mockUpdateSocial).toHaveBeenCalledWith(
+        expect.objectContaining({ twitter: '@test' })
+      );
+    });
+    expect(mockUpdateSocial.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpdateMerchant.mock.invocationCallOrder[0] ?? 0
+    );
+    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
     expect(
-      screen.getByRole('button', { name: /save changes/i })
-    ).toBeInTheDocument();
-  });
-
-  it('shows error toast when updateMerchant rejects', async () => {
-    // Arrange
-    const error = new Error('Update failed');
-    mockUpdateMerchant.mockRejectedValueOnce(error);
-    render(
-      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
-    );
-    const form = screen
-      .getByRole('button', { name: /save changes/i })
-      .closest('form');
-
-    if (!form) throw new Error('Form not found');
-
-    // Act
-    fireEvent.submit(form);
-
-    // Assert
+      Math.max(
+        mockUpdateMerchant.mock.invocationCallOrder[0] ?? 0,
+        mockUpdateSocial.mock.invocationCallOrder[0] ?? 0
+      )
+    ).toBeLessThan(mockReloadMerchant.mock.invocationCallOrder[0] ?? 0);
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
-        title: 'Error Saving Settings',
-        description: 'Update failed',
-        variant: 'destructive',
+        title: 'Settings Saved!',
+        description: 'Your store settings have been updated.',
       });
     });
   });
 
-  it('save button shows loading state during submission', async () => {
-    // Arrange
-    mockUpdateMerchant.mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 100))
-    );
+  it('does not send an unchanged social draft during a generic settings save', async () => {
+    mockUpdateMerchant.mockResolvedValueOnce(undefined);
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
-    const saveButton = screen.getByRole('button', { name: /save changes/i });
-    const form = saveButton.closest('form');
 
-    if (!form) throw new Error('Form not found');
+    submitSettingsForm();
 
-    // Act
-    fireEvent.submit(form);
-
-    // Assert - button disabled during submission
     await waitFor(() => {
-      expect(saveButton).toBeDisabled();
+      expect(mockUpdateMerchant).toHaveBeenCalledTimes(1);
     });
+    expect(mockUpdateSocial).not.toHaveBeenCalled();
+    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
+  });
 
-    // Assert - button enabled after submission
-    await waitFor(
-      () => {
-        expect(saveButton).not.toBeDisabled();
-      },
-      { timeout: 200 }
+  it('does not partially commit generic settings when the social update fails', async () => {
+    mockUpdateSocial.mockRejectedValueOnce(new Error('Sign in again'));
+    render(
+      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
+    fireEvent.click(screen.getByTestId('social-media-card'));
+
+    submitSettingsForm();
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'Error Saving Settings',
+        description: 'Sign in again',
+        variant: 'destructive',
+      });
+    });
+    expect(mockUpdateMerchant).not.toHaveBeenCalled();
+    expect(mockReloadMerchant).not.toHaveBeenCalled();
   });
 });

@@ -1,13 +1,11 @@
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -22,44 +20,12 @@ import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { isStoreReadinessSetupOrigin } from '@/constants/store-readiness-routes';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useAnalyticsConfigForm } from '@/hooks/useAnalyticsConfigForm';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
-import { fetchAnalyticsConfigContext } from '@/lib/analytics-config-context';
-import {
-  type AnalyticsState,
-  analyticsStatesEqual,
-  buildAnalyticsDiff,
-} from '@/lib/analytics-config-diff';
-import { invalidateAnalyticsSaveReadiness } from '@/lib/analytics-save-readiness';
+import type { AnalyticsState } from '@/lib/analytics-config-diff';
 import { baciFeatureGates } from '@/lib/feature-gates';
-import { supabase } from '@/lib/supabase';
-
-const INITIAL_STATE: AnalyticsState = {
-  google_analytics_id: '',
-  ga4_api_secret: '',
-  facebook_pixel_id: '',
-  facebook_capi_token: '',
-  tiktok_pixel_id: '',
-  tiktok_access_token: '',
-  snapchat_pixel_id: '',
-  snapchat_capi_token: '',
-  offline_conversions_enabled: true,
-};
-
-function toAnalyticsState(merchant: Partial<AnalyticsState>): AnalyticsState {
-  return {
-    google_analytics_id: merchant.google_analytics_id || '',
-    ga4_api_secret: merchant.ga4_api_secret || '',
-    facebook_pixel_id: merchant.facebook_pixel_id || '',
-    facebook_capi_token: merchant.facebook_capi_token || '',
-    tiktok_pixel_id: merchant.tiktok_pixel_id || '',
-    tiktok_access_token: merchant.tiktok_access_token || '',
-    snapchat_pixel_id: merchant.snapchat_pixel_id || '',
-    snapchat_capi_token: merchant.snapchat_capi_token || '',
-    offline_conversions_enabled: merchant.offline_conversions_enabled !== false,
-  };
-}
 
 // Help links for each platform
 const HELP_LINKS = {
@@ -207,173 +173,28 @@ export default function AnalyticsConfigScreen() {
   const merchantId = merchantContext?.id;
   const router = useRouter();
   const { from } = useLocalSearchParams<{ from?: string }>();
-  const queryClient = useQueryClient();
-  const activeMerchantIdRef = useRef(merchantId);
-  const activeUserIdRef = useRef(user?.id);
-  activeMerchantIdRef.current = merchantId;
-  activeUserIdRef.current = user?.id;
   const hasGrowthIntegrations = baciFeatureGates.hasFeature(
     merchantContext,
     'growth_integrations'
   );
-
-  const [analytics, setAnalytics] = useState<AnalyticsState>(INITIAL_STATE);
-  const analyticsRef = useRef<AnalyticsState>(INITIAL_STATE);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
-  const [seededSnapshot, setSeededSnapshot] = useState<AnalyticsState | null>(
-    null
-  );
-  // Recovery guard: background refetches are suppressed ONLY once the buffer has
-  // been seeded AND the user has edited it. If the initial query errors and the
-  // user starts typing before reconnect, `isDirty` is true while `seededSnapshot`
-  // is still null — gating on `!isDirty` alone would disable the reconnect
-  // refetch and leave Save stuck on "still loading" forever. Keeping recovery
-  // enabled until the first successful seed lets a reconnect refetch seed the
-  // buffer so Save can succeed.
-  const hasSeeded = seededSnapshot !== null;
-  const shouldBackgroundRefetch = !(hasSeeded && isDirty);
-
-  // Fetch merchant data with all analytics fields. Background revalidation stays
-  // enabled until the merchant edits the form, so cached query data can be
-  // replaced by fresher server data before the buffer becomes dirty. Once dirty,
-  // refetches stop repainting the editable buffer.
   const {
-    data: trackingConfig,
-    isLoading,
+    analytics,
+    canManageAnalytics,
+    handleSave,
     isError,
+    isLoading,
+    isSavePending,
     refetch,
-  } = useQuery({
-    queryKey: ['merchant-analytics-full', user?.id, merchantId],
-    queryFn: fetchAnalyticsConfigContext,
-    enabled: Boolean(user?.id && hasGrowthIntegrations),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: shouldBackgroundRefetch,
-    refetchOnReconnect: shouldBackgroundRefetch,
+    trackingConfig,
+    updateField,
+  } = useAnalyticsConfigForm({
+    hasGrowthIntegrations,
+    isSetupOrigin: isStoreReadinessSetupOrigin(from),
+    merchantId,
+    onBack: () => router.back(),
+    userId: user?.id,
   });
-
-  // Seed/reseed the editable buffer from fetched merchant data until the user
-  // edits the form. This lets cached data be replaced by a fresher refetch while
-  // the form is clean, but prevents background refetches from clobbering typed
-  // edits once dirty.
-  // Staff get redacted tokens from the context RPC and the owner-filtered
-  // save UPDATE would match zero rows for them, so only owners may edit.
-  const canManageAnalytics = trackingConfig?.isOwner === true;
-
-  if (trackingConfig && !isDirty) {
-    const seeded = toAnalyticsState(trackingConfig.analytics);
-    if (!analyticsStatesEqual(seededSnapshot, seeded)) {
-      setSeededSnapshot(seeded);
-      analyticsRef.current = seeded;
-      setAnalytics(seeded);
-    }
-  }
-
-  // Save Mutation — writes only the fields the user actually changed (per-field
-  // dirty diff vs the seeded snapshot). A no-op save (no diff) skips the write
-  // entirely so unchanged analytics fields are never rewritten.
-  const saveMutation = useMutation({
-    mutationFn: async (submittedAnalytics?: AnalyticsState) => {
-      if (!merchantId) {
-        throw new Error('No merchant found');
-      }
-      if (!seededSnapshot) {
-        throw new Error(
-          'Analytics settings are still loading. Please try again.'
-        );
-      }
-
-      if (!canManageAnalytics) {
-        throw new Error(
-          'Only the store owner can manage analytics credentials.'
-        );
-      }
-
-      const savedAnalytics = submittedAnalytics ?? analyticsRef.current;
-      const update = buildAnalyticsDiff(savedAnalytics, seededSnapshot);
-
-      if (Object.keys(update).length === 0) {
-        return savedAnalytics;
-      }
-
-      const { error } = await supabase
-        .from('merchants')
-        .update(update)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-      return savedAnalytics;
-    },
-    onMutate: () => ({ merchantId, userId: user?.id }),
-    onSuccess: async (savedAnalytics, _variables, context) => {
-      const readinessMerchantId = context?.merchantId ?? merchantId;
-      const savedUserId = context?.userId ?? user?.id;
-      const completedAnalytics = savedAnalytics ?? analyticsRef.current;
-      if (!readinessMerchantId || !savedUserId) {
-        throw new Error('No merchant found');
-      }
-      await invalidateAnalyticsSaveReadiness(
-        queryClient,
-        readinessMerchantId,
-        savedUserId
-      );
-      if (
-        activeMerchantIdRef.current !== readinessMerchantId ||
-        activeUserIdRef.current !== savedUserId
-      ) {
-        return;
-      }
-      const hasPendingEdits = !analyticsStatesEqual(
-        analyticsRef.current,
-        completedAnalytics
-      );
-      setSeededSnapshot(completedAnalytics);
-      setIsDirty(hasPendingEdits);
-      queryClient.setQueryData(
-        ['merchant-analytics-full', savedUserId, readinessMerchantId],
-        {
-          analytics: completedAnalytics,
-          isOwner: true,
-        }
-      );
-      if (isStoreReadinessSetupOrigin(from)) {
-        router.back();
-        return;
-      }
-      Alert.alert('Success', 'Analytics settings saved!', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-    },
-    onError: (error: Error, _variables, context) => {
-      const errorMerchantId = context?.merchantId ?? merchantId;
-      const errorUserId = context?.userId ?? user?.id;
-      if (
-        errorMerchantId &&
-        errorUserId &&
-        (activeMerchantIdRef.current !== errorMerchantId ||
-          activeUserIdRef.current !== errorUserId)
-      ) {
-        return;
-      }
-      Alert.alert('Error', error.message);
-    },
-  });
-
-  const handleSave = () => {
-    saveMutation.mutate({ ...analyticsRef.current });
-  };
-
-  const updateField = (
-    field: keyof AnalyticsState,
-    value: string | boolean
-  ) => {
-    setIsDirty(true);
-    setAnalytics((prev) => {
-      const next = { ...prev, [field]: value };
-      analyticsRef.current = next;
-      return next;
-    });
-  };
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -440,10 +261,10 @@ export default function AnalyticsConfigScreen() {
               ? () => (
                   <Pressable
                     onPress={handleSave}
-                    disabled={saveMutation.isPending}
+                    disabled={isSavePending}
                     style={styles.saveButton}
                   >
-                    {saveMutation.isPending ? (
+                    {isSavePending ? (
                       <ActivityIndicator size="small" color={colors.primary} />
                     ) : (
                       <Text

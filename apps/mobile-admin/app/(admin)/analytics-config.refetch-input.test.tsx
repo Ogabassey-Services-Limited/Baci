@@ -41,6 +41,7 @@ describe('AnalyticsConfigScreen — dirty buffer and refetching', () => {
     expect(supabaseMocks.update).toHaveBeenCalledWith({
       facebook_pixel_id: 'EDITED-PIXEL-123',
     });
+    expect(supabaseMocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
   });
 
   it('reseeds from fresher analytics data while the form is still clean', () => {

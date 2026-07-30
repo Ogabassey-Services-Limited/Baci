@@ -13,7 +13,7 @@ interface MerchantContextPayload {
 
 /**
  * Loads the analytics/tracking credential fields for the signed-in user's
- * merchant.
+ * active merchant.
  *
  * The CAPI/API token columns are revoked from direct authenticated table
  * reads (S1 merchants containment), so selecting them from `merchants` fails
@@ -21,8 +21,12 @@ interface MerchantContextPayload {
  * it returns tokens for owners and redacts them for staff, which is why
  * callers must gate editing on `isOwner`.
  */
-export async function fetchAnalyticsConfigContext(): Promise<AnalyticsConfigContext> {
-  const { data, error } = await supabase.rpc('get_user_merchant_context');
+export async function fetchAnalyticsConfigContext(
+  merchantId: string
+): Promise<AnalyticsConfigContext> {
+  const { data, error } = await supabase.rpc('get_merchant_analytics_config', {
+    p_merchant_id: merchantId,
+  });
   if (error) throw error;
 
   const payload = data as MerchantContextPayload | null;

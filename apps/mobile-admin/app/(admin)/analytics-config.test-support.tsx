@@ -22,7 +22,8 @@ const routeMocks = vi.hoisted(() => ({
 }));
 const alertMocks = vi.hoisted(() => ({ alert: vi.fn() }));
 const supabaseMocks = vi.hoisted(() => {
-  const update = vi.fn(() => ({ eq: () => ({ error: null }) }));
+  const eq = vi.fn(() => ({ error: null }));
+  const update = vi.fn(() => ({ eq }));
   const from = vi.fn(() => ({ update }));
   const rpc = vi.fn(
     async (): Promise<{ data: unknown; error: Error | null }> => ({
@@ -30,7 +31,7 @@ const supabaseMocks = vi.hoisted(() => {
       error: null,
     })
   );
-  return { from, rpc, update };
+  return { eq, from, rpc, update };
 });
 const mutationMocks = vi.hoisted(() => {
   type MutationOptions = {
@@ -202,8 +203,9 @@ export const merchantAnalytics = {
 };
 export function resetAnalyticsConfigMocks() {
   vi.clearAllMocks();
+  supabaseMocks.eq.mockImplementation(() => ({ error: null }));
   supabaseMocks.update.mockImplementation(() => ({
-    eq: () => ({ error: null }),
+    eq: supabaseMocks.eq,
   }));
   supabaseMocks.from.mockImplementation(() => ({
     update: supabaseMocks.update,

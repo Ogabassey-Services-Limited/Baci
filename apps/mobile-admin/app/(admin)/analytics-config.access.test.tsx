@@ -10,7 +10,7 @@ import {
   supabaseMocks,
 } from './analytics-config.test-support';
 
-describe('bugfix: tracking credentials load via get_user_merchant_context (revoked-column 42501)', () => {
+describe('bugfix: tracking credentials load through the active merchant RPC (revoked-column 42501)', () => {
   beforeEach(resetAnalyticsConfigMocks);
 
   function captureQueryFn() {
@@ -34,7 +34,10 @@ describe('bugfix: tracking credentials load via get_user_merchant_context (revok
       analytics: { ga4_api_secret: 'owner-secret' },
       isOwner: true,
     });
-    expect(supabaseMocks.rpc).toHaveBeenCalledWith('get_user_merchant_context');
+    expect(supabaseMocks.rpc).toHaveBeenCalledWith(
+      'get_merchant_analytics_config',
+      { p_merchant_id: 'merchant-1' }
+    );
     expect(supabaseMocks.from).not.toHaveBeenCalled();
   });
 
