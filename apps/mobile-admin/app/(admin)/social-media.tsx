@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -33,6 +33,8 @@ export default function SocialMediaScreen() {
   const router = useRouter();
   const { from } = useLocalSearchParams<{ from?: string }>();
   const queryClient = useQueryClient();
+  const activeMerchantIdRef = useRef(merchant?.id);
+  activeMerchantIdRef.current = merchant?.id;
   const screenOptions = {
     title: 'Social Media',
     headerStyle: { backgroundColor: colors.background },
@@ -103,14 +105,18 @@ export default function SocialMediaScreen() {
       updateMerchantSettings({
         social_media: socialMedia,
       }),
-    onSuccess: async () => {
+    onMutate: () => merchant?.id,
+    onSuccess: async (_data, _variables, savedMerchantId) => {
+      if (savedMerchantId && activeMerchantIdRef.current !== savedMerchantId) {
+        return;
+      }
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
       ];
-      if (merchant?.id) {
+      if (savedMerchantId) {
         invalidations.push(
           tryRefreshStoreReadiness(() =>
-            invalidateStoreReadiness(queryClient, merchant.id)
+            invalidateStoreReadiness(queryClient, savedMerchantId)
           )
         );
       }
