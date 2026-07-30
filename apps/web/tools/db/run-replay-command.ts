@@ -108,6 +108,7 @@ function createReplayCommand(
         let stdoutBytes = 0;
         let stderrBytes = 0;
         let failure: FailureClass | undefined;
+        let stdinFailed = false;
         let settled = false;
         let executionTimer: NodeJS.Timeout | undefined;
         let terminationTimer: NodeJS.Timeout | undefined;
@@ -166,7 +167,7 @@ function createReplayCommand(
             reject(commandFailure(command, failure));
             return;
           }
-          if (code !== 0) {
+          if (code !== 0 || stdinFailed) {
             reject(commandFailure(command, 'non-zero-exit', stderr));
             return;
           }
@@ -176,7 +177,7 @@ function createReplayCommand(
           });
         };
         const onStdinError = () => {
-          if (!settled && !failure) fail('non-zero-exit');
+          if (!settled) stdinFailed = true;
         };
         child.stdout.on('data', onStdout);
         child.stderr.on('data', onStderr);

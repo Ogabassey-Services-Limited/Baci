@@ -123,6 +123,30 @@ describe('createReplayCommand', () => {
     );
   });
 
+  it('preserves psql diagnostics when stdin closes before stderr is drained', async () => {
+    const root = await temporaryRoot();
+    const child = Object.assign(new EventEmitter(), {
+      stderr: new PassThrough(),
+      stdin: new PassThrough(),
+      stdout: new PassThrough(),
+      kill: vi.fn(() => true),
+    });
+    const runCommand = replayCommandRuntime.create(root, {
+      spawnProcess: vi.fn(() => child) as never,
+    });
+    const failure = runCommand('/usr/bin/psql', [], { input: 'select 1;' });
+
+    child.stdin.emit('error', new Error('write EPIPE'));
+    child.stderr.write(
+      'psql:/owned/replay/secret.sql:42: ERROR:  42501: permission denied\n'
+    );
+    child.emit('close', 1);
+
+    await expect(failure).rejects.toThrow(
+      /^psql failed: non-zero-exit \(line=42,sqlstate=42501\)$/
+    );
+  });
+
   it('reports timeout after the child exits on SIGTERM', async () => {
     const root = await temporaryRoot();
     const runCommand = replayCommandRuntime.create(root, {
