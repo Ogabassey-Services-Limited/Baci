@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_KEYBOARD_CONTAINER_LABEL } from '../auth/app-keyboard-container.mock';
 
@@ -502,6 +508,50 @@ describe('StoreSettingsScreen', () => {
 
     expect(screen.getByLabelText('Business Name')).toHaveValue(
       'Typed while saving'
+    );
+  });
+
+  it('stays on the setup form when another edit is made during its save', async () => {
+    let completeSave!: () => void;
+    let releaseInvalidation!: () => void;
+    const invalidation = new Promise<void>((resolve) => {
+      releaseInvalidation = resolve;
+    });
+    mocks.routeParams = { from: 'setup' };
+    mocks.invalidateQueries.mockReturnValue(invalidation);
+    mocks.updateMerchantIdentitySettings.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          completeSave = resolve;
+        })
+    );
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Saved setup name' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+    await waitFor(() => {
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Unsaved setup name' },
+    });
+    completeSave();
+
+    await waitFor(() => {
+      expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2);
+    });
+    await act(async () => {
+      releaseInvalidation();
+    });
+
+    expect(mocks.back).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Business Name')).toHaveValue(
+      'Unsaved setup name'
     );
   });
 

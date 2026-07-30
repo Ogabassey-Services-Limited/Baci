@@ -22,6 +22,11 @@ interface MockUseMerchantResult {
   merchant: MockMerchant | null;
 }
 
+type StoreSettingsSaveToken = {
+  merchantId: string;
+  revision: number;
+};
+
 const mocks = vi.hoisted(() => ({
   routerBack: vi.fn(),
   routeParams: {} as { from?: string },
@@ -82,7 +87,9 @@ vi.mock('expo-router', async () => {
 });
 
 vi.mock('@tanstack/react-query', () => ({
-  useMutation: (options: { onSuccess?: () => Promise<void> | void }) => {
+  useMutation: (options: {
+    onSuccess?: (saveToken?: StoreSettingsSaveToken) => Promise<void> | void;
+  }) => {
     mocks.useMutation(options);
     return {
       isPending: false,
@@ -412,7 +419,11 @@ describe('StoreSettingsScreen', () => {
 
     render(<StoreSettingsScreen />);
     const mutationOptions = mocks.useMutation.mock.calls.at(-1)?.[0] as
-      | { onSuccess?: () => Promise<void> | void }
+      | {
+          onSuccess?: (
+            saveToken?: StoreSettingsSaveToken
+          ) => Promise<void> | void;
+        }
       | undefined;
 
     await act(async () => {
@@ -428,7 +439,11 @@ describe('StoreSettingsScreen', () => {
     );
     render(<StoreSettingsScreen />);
     const mutationOptions = mocks.useMutation.mock.calls.at(-1)?.[0] as
-      | { onSuccess?: () => Promise<void> | void }
+      | {
+          onSuccess?: (
+            saveToken?: StoreSettingsSaveToken
+          ) => Promise<void> | void;
+        }
       | undefined;
 
     await act(async () => {
@@ -444,11 +459,17 @@ describe('StoreSettingsScreen', () => {
     mocks.routeParams = { from: 'setup' };
     render(<StoreSettingsScreen />);
     const mutationOptions = mocks.useMutation.mock.calls.at(-1)?.[0] as
-      | { onSuccess?: () => Promise<void> | void }
+      | {
+          onSuccess?: (
+            saveToken?: StoreSettingsSaveToken
+          ) => Promise<void> | void;
+        }
       | undefined;
 
     await act(async () => {
-      await expect(mutationOptions?.onSuccess?.()).resolves.toBeUndefined();
+      await expect(
+        mutationOptions?.onSuccess?.({ merchantId: 'merchant-1', revision: 0 })
+      ).resolves.toBeUndefined();
     });
 
     expect(mocks.routerBack).toHaveBeenCalledTimes(1);

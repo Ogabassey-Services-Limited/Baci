@@ -173,15 +173,16 @@ export default function StoreSettingsScreen() {
     },
     onSuccess: async (saveToken) => {
       await invalidateStoreSettingsAfterSave(queryClient, merchant?.id);
-      if (
+      const isCurrentSave = Boolean(
         saveToken &&
-        merchantIdRef.current === saveToken.merchantId &&
-        getFormRevision() === saveToken.revision
-      ) {
+          merchantIdRef.current === saveToken.merchantId &&
+          getFormRevision() === saveToken.revision
+      );
+      if (isCurrentSave) {
         resetFormDirty();
       }
       if (from === 'setup') {
-        router.back();
+        if (isCurrentSave) router.back();
         return;
       }
       setStatusModal({
