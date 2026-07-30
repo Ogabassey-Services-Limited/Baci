@@ -1,10 +1,31 @@
 import assert from 'node:assert/strict';
-import { link, readFile, stat, symlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import {
+  chmod,
+  link,
+  readFile,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 
 import { persistBoundReplacement } from './install-bootstrap-replacement-bound-writer.mjs';
 import fixture from './install-bootstrap-replacement-receipt.test-fixture.mjs';
+
+const stable = (value) =>
+  Array.isArray(value)
+    ? value.map(stable)
+    : value && typeof value === 'object'
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((key) => [key, stable(value[key])])
+        )
+      : value;
+const canonical = (value) => JSON.stringify(stable(value));
+const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
 test('an interrupted value write cannot publish a partial intent or receipt', async (context) => {
   const directory = await fixture.temporary(context, 'baci-bootstrap-atomic-');
@@ -84,4 +105,70 @@ test('retry retires only the exact published bound-value temporary hard link', a
       await readFile(destination, 'utf8')
     );
   }
+});
+
+test('retry retires a partially written bound-value temporary after process death before its first link', async (context) => {
+  const directory = await fixture.temporary(
+    context,
+    'baci-bootstrap-bound-prelink-'
+  );
+
+  for (const [name, value] of [
+    ['replacement-intent', fixture.intent],
+    ['replacement-receipt', fixture.receipt],
+  ]) {
+    const residue = join(
+      directory,
+      `.${name}.json.4100.11111111-1111-4111-8111-111111111111.${sha256(canonical(value))}.tmp`
+    );
+    await writeFile(residue, canonical(value).slice(0, 17), { mode: 0o600 });
+
+    await persistBoundReplacement(directory, name, value, `${name} drift`);
+
+    await assert.rejects(stat(residue), /ENOENT/);
+    assert.equal(
+      await readFile(join(directory, `${name}.json`), 'utf8'),
+      canonical(value)
+    );
+  }
+});
+
+test('refuses a digest-bound pre-link temporary with unsafe metadata', async (context) => {
+  const directory = await fixture.temporary(
+    context,
+    'baci-bootstrap-bound-prelink-unsafe-'
+  );
+  const name = 'replacement-intent';
+  const residue = join(
+    directory,
+    `.${name}.json.4100.11111111-1111-4111-8111-111111111111.${sha256(canonical(fixture.intent))}.tmp`
+  );
+  await writeFile(residue, canonical(fixture.intent), { mode: 0o600 });
+  await chmod(residue, 0o644);
+
+  await assert.rejects(
+    persistBoundReplacement(directory, name, fixture.intent, `${name} drift`),
+    /replacement-intent drift/
+  );
+  assert.equal(await readFile(residue, 'utf8'), canonical(fixture.intent));
+});
+
+test('refuses a digest-bound pre-link temporary with another hard link', async (context) => {
+  const directory = await fixture.temporary(
+    context,
+    'baci-bootstrap-bound-prelink-linked-'
+  );
+  const name = 'replacement-intent';
+  const residue = join(
+    directory,
+    `.${name}.json.4100.11111111-1111-4111-8111-111111111111.${sha256(canonical(fixture.intent))}.tmp`
+  );
+  await writeFile(residue, canonical(fixture.intent), { mode: 0o600 });
+  await link(residue, join(directory, 'unexpected-hard-link'));
+
+  await assert.rejects(
+    persistBoundReplacement(directory, name, fixture.intent, `${name} drift`),
+    /replacement-intent drift/
+  );
+  assert.equal(await readFile(residue, 'utf8'), canonical(fixture.intent));
 });

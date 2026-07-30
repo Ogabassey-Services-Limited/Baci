@@ -51,16 +51,62 @@ async function assertExactRegularFile(path, bytes, drift) {
 const escapeRegularExpression = (value) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const legacyTemporaryNameExpression = (filename) =>
+  new RegExp(
+    `^\\.${escapeRegularExpression(filename)}\\.[1-9][0-9]*\\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.tmp$`
+  );
+
+const boundTemporaryNameExpression = (filename, digest) =>
+  new RegExp(
+    `^\\.${escapeRegularExpression(filename)}\\.[1-9][0-9]*\\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.${digest}\\.tmp$`
+  );
+
+async function reconcileUnpublishedTemporaries(
+  directory,
+  filename,
+  digest,
+  drift
+) {
+  const generatedName = boundTemporaryNameExpression(filename, digest);
+  let removed = false;
+  for (const entry of (await readdir(directory)).sort()) {
+    if (!generatedName.test(entry)) continue;
+    const candidate = join(directory, entry);
+    let handle;
+    try {
+      handle = await open(candidate, constants.O_RDONLY | constants.O_NOFOLLOW);
+    } catch (error) {
+      if (error.code === 'ELOOP') throw new TypeError(drift);
+      throw error;
+    }
+    let details;
+    try {
+      details = await handle.stat();
+    } finally {
+      await handle.close();
+    }
+    if (
+      !details.isFile() ||
+      details.uid !== process.getuid() ||
+      (details.mode & 0o777) !== 0o600
+    )
+      throw new TypeError(drift);
+    if (details.nlink !== 1) throw new TypeError(drift);
+    await unlink(candidate);
+    removed = true;
+  }
+  if (removed) await syncDirectory(directory);
+}
+
 async function reconcilePublishedTemporaries(path, bytes, drift) {
   const destination = await assertExactRegularFile(path, bytes, drift);
   const directory = dirname(path);
   const filename = basename(path);
-  const generatedName = new RegExp(
-    `^\\.${escapeRegularExpression(filename)}\\.[1-9][0-9]*\\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.tmp$`
-  );
+  const legacyName = legacyTemporaryNameExpression(filename);
+  const boundName = boundTemporaryNameExpression(filename, '[0-9a-f]{64}');
   let removed = false;
   for (const entry of (await readdir(directory)).sort()) {
-    if (!generatedName.test(entry)) continue;
+    if (!legacyName.test(entry) && !boundName.test(entry)) continue;
     const candidate = join(directory, entry);
     let handle;
     try {
@@ -96,7 +142,13 @@ async function writeExclusiveOrExact(path, bytes, drift, dependencies = {}) {
   const directory = dirname(path);
   const temporaryPath = join(
     directory,
-    `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`
+    `.${basename(path)}.${process.pid}.${randomUUID()}.${sha256(bytes)}.tmp`
+  );
+  await reconcileUnpublishedTemporaries(
+    directory,
+    basename(path),
+    sha256(bytes),
+    drift
   );
   let handle;
   let created = true;
