@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -71,6 +77,7 @@ describe('MerchantBankForm', () => {
 
     render(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         initialData={{
           accountNumber: '1234567890',
           bankCode: '044',
@@ -109,8 +116,165 @@ describe('MerchantBankForm', () => {
       accountNumber: '1234567890',
       bankCode: '044',
       businessName: 'Baci Store',
+      merchantId: '22222222-2222-4222-8222-222222222222',
     });
     expect(submitPayload).not.toHaveProperty('autoPayoutEnabled');
+  });
+
+  it('does not submit prior merchant bank details after the merchant changes', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
+        initialData={{
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Merchant A',
+        }}
+      />
+    );
+
+    await screen.findByText('Account Verified');
+
+    rerender(
+      <MerchantBankForm
+        merchantId="33333333-3333-4333-8333-333333333333"
+        initialData={{
+          accountNumber: '0987654321',
+          bankCode: '044',
+          businessName: 'Merchant B',
+        }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Account Number')).toHaveValue('0987654321');
+    });
+    await screen.findByText('Account Verified');
+    await user.click(
+      screen.getByRole('button', { name: /save bank details/i })
+    );
+
+    await waitFor(() => {
+      expect(apiPostMock).toHaveBeenCalledWith('/api/paystack/subaccount', {
+        merchantId: '33333333-3333-4333-8333-333333333333',
+        accountNumber: '0987654321',
+        bankCode: '044',
+        businessName: 'Merchant B',
+      });
+    });
+  });
+
+  it('immediately scopes a payout save to the new merchant after a merchant change', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
+        initialData={{
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Merchant A',
+        }}
+      />
+    );
+
+    rerender(
+      <MerchantBankForm
+        merchantId="33333333-3333-4333-8333-333333333333"
+        initialData={{
+          accountNumber: '0987654321',
+          bankCode: '044',
+          businessName: 'Merchant B',
+        }}
+      />
+    );
+
+    expect(screen.getByLabelText('Account Number')).toHaveValue('0987654321');
+    await user.click(
+      screen.getByRole('button', { name: /save bank details/i })
+    );
+
+    await waitFor(() => {
+      expect(apiPostMock).toHaveBeenCalledWith('/api/paystack/subaccount', {
+        merchantId: '33333333-3333-4333-8333-333333333333',
+        accountNumber: '0987654321',
+        bankCode: '044',
+        businessName: 'Merchant B',
+      });
+    });
+  });
+
+  it('suppresses a prior merchant save completion after the merchant changes', async () => {
+    const user = userEvent.setup();
+    const onMerchantASuccess = vi.fn();
+    let resolveMerchantASave!: () => void;
+    apiPostMock.mockImplementation((endpoint: string) => {
+      if (endpoint === '/api/paystack/resolve') {
+        return Promise.resolve({
+          account_name: 'Jane Doe',
+          account_number: '1234567890',
+          bank_id: 1,
+        });
+      }
+
+      if (endpoint === '/api/paystack/subaccount') {
+        return new Promise((resolve) => {
+          resolveMerchantASave = () =>
+            resolve({
+              success: true,
+              accountName: 'Jane Doe',
+              subaccountCode: 'ACCT_TESTMOCK1234567',
+            });
+        });
+      }
+
+      throw new Error(`Unexpected endpoint: ${endpoint}`);
+    });
+
+    const { rerender } = render(
+      <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
+        initialData={{
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Merchant A',
+        }}
+        onSuccess={onMerchantASuccess}
+      />
+    );
+
+    await screen.findByText('Account Verified');
+    await user.click(
+      screen.getByRole('button', { name: /save bank details/i })
+    );
+
+    rerender(
+      <MerchantBankForm
+        merchantId="33333333-3333-4333-8333-333333333333"
+        countryCode="IN"
+        initialData={{
+          accountNumber: 'IN-123456789012',
+          accountName: 'Merchant B',
+          bankName: 'HDFC Bank',
+          businessName: 'Merchant B',
+        }}
+      />
+    );
+
+    const saveButton = screen.getByRole('button', {
+      name: /save bank details/i,
+    });
+    expect(saveButton).toBeEnabled();
+    expect(saveButton).not.toHaveTextContent('Saving...');
+
+    await act(async () => {
+      resolveMerchantASave();
+    });
+
+    expect(onMerchantASuccess).not.toHaveBeenCalled();
+    expect(toastSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Bank Details Saved' })
+    );
   });
 
   it('omits hydrated auto payout settings when the toggle was not changed', async () => {
@@ -118,6 +282,7 @@ describe('MerchantBankForm', () => {
 
     render(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         initialData={{
           accountNumber: '1234567890',
           bankCode: '044',
@@ -156,6 +321,7 @@ describe('MerchantBankForm', () => {
 
     render(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         initialData={{
           accountNumber: '1234567890',
           bankCode: '044',
@@ -191,6 +357,7 @@ describe('MerchantBankForm', () => {
 
     render(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         countryCode="IN"
         initialData={{
           accountNumber: 'IN-123456789012',
@@ -222,6 +389,7 @@ describe('MerchantBankForm', () => {
 
     await waitFor(() => {
       expect(apiPostMock).toHaveBeenCalledWith('/api/paystack/subaccount', {
+        merchantId: '22222222-2222-4222-8222-222222222222',
         accountNumber: 'IN-123456789012',
         account_name: 'Yodha Shopping',
         bank_name: 'HDFC Bank',
@@ -245,6 +413,7 @@ describe('MerchantBankForm', () => {
   it('limits manual account numbers by normalized length', () => {
     render(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         countryCode="IN"
         initialData={{ businessName: 'Yodha Shopping' }}
       />
@@ -279,6 +448,7 @@ describe('MerchantBankForm', () => {
 
     render(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         countryCode="IN"
         initialData={{
           accountNumber: 'IN-123456789012',
@@ -310,6 +480,7 @@ describe('MerchantBankForm', () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         countryCode="NG"
         initialData={{ businessName: 'Yodha Shopping' }}
       />
@@ -317,6 +488,7 @@ describe('MerchantBankForm', () => {
 
     rerender(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         countryCode="IN"
         initialData={{ businessName: 'Yodha Shopping' }}
       />
@@ -332,6 +504,7 @@ describe('MerchantBankForm', () => {
 
     await waitFor(() => {
       expect(apiPostMock).toHaveBeenCalledWith('/api/paystack/subaccount', {
+        merchantId: '22222222-2222-4222-8222-222222222222',
         accountNumber: 'IN-123456789012',
         account_name: 'Yodha Shopping',
         bank_name: 'HDFC Bank',
@@ -344,7 +517,12 @@ describe('MerchantBankForm', () => {
     vi.useFakeTimers();
 
     try {
-      const { unmount } = render(<MerchantBankForm countryCode="NG" />);
+      const { unmount } = render(
+        <MerchantBankForm
+          merchantId="22222222-2222-4222-8222-222222222222"
+          countryCode="NG"
+        />
+      );
 
       fireEvent.blur(
         screen.getByPlaceholderText(
@@ -372,7 +550,12 @@ describe('MerchantBankForm', () => {
       throw new Error(`Unexpected endpoint: ${endpoint}`);
     });
 
-    render(<MerchantBankForm countryCode="NG" />);
+    render(
+      <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
+        countryCode="NG"
+      />
+    );
 
     const accountInput = screen.getByLabelText('Account Number');
     const submitButton = screen.getByRole('button', {
@@ -439,6 +622,7 @@ describe('MerchantBankForm', () => {
 
     render(
       <MerchantBankForm
+        merchantId="22222222-2222-4222-8222-222222222222"
         initialData={{
           accountNumber: '1234567890',
           bankCode: '044',

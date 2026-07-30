@@ -167,7 +167,7 @@ export interface MerchantContextType {
   loading: boolean;
   updateMerchant: (
     data: Partial<MerchantData>,
-    options?: { skipReload?: boolean }
+    options?: { merchantId?: string; skipReload?: boolean }
   ) => Promise<void>;
   reloadMerchant: () => void;
   staffAccess: StaffAccess;

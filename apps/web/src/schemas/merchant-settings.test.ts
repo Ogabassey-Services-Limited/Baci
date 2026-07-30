@@ -2,10 +2,42 @@ import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 import {
   formatMerchantSettingsErrors,
+  merchantSettingsRequestSchema,
   updateMerchantSettingsSchema,
 } from '@/schemas/merchant-settings';
 
 describe('updateMerchantSettingsSchema', () => {
+  it('requires the asserted merchant ID for every settings mutation', () => {
+    const result = merchantSettingsRequestSchema.safeParse({
+      social_media: { instagram: '@baci' },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a merchant ID without a settings mutation', () => {
+    const result = merchantSettingsRequestSchema.safeParse({
+      merchantId: '11111111-1111-4111-8111-111111111111',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a valid asserted merchant ID with social media', () => {
+    const result = merchantSettingsRequestSchema.safeParse({
+      merchantId: '11111111-1111-4111-8111-111111111111',
+      social_media: { instagram: '@baci' },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        social_media: { instagram: '@baci' },
+      });
+    }
+  });
+
   it('rejects an empty object (refine requires at least one field)', () => {
     const result = updateMerchantSettingsSchema.safeParse({});
     expect(result.success).toBe(false);

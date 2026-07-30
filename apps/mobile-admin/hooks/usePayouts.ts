@@ -31,7 +31,7 @@ interface CreateSubaccountResponse {
 export function usePayouts() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
-  const merchantId = merchant?.id;
+  const merchantId = merchant?.id.trim();
 
   // Resolve Bank Account
   const resolveAccountMutation = useMutation({
@@ -44,13 +44,18 @@ export function usePayouts() {
 
   // Create Subaccount (Save Payout Settings)
   const savePayoutSettingsMutation = useMutation({
-    mutationFn: (data: CreateSubaccountPayload) =>
-      apiClient<CreateSubaccountResponse>('/api/paystack/subaccount', {
+    mutationFn: (data: CreateSubaccountPayload) => {
+      if (!merchantId) {
+        throw new Error('Merchant not loaded. Please try again.');
+      }
+
+      return apiClient<CreateSubaccountResponse>('/api/paystack/subaccount', {
         method: 'POST',
-        body: JSON.stringify(data),
-      }),
+        body: JSON.stringify({ ...data, merchantId }),
+      });
+    },
     onMutate: () => {
-      return { merchantId: merchantId?.trim() };
+      return { merchantId };
     },
     onSuccess: async (_data, _variables, context) => {
       const invalidations: Promise<unknown>[] = [

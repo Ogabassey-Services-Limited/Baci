@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { updateMerchantIdentitySettings } from './merchant-settings';
+import {
+  updateMerchantIdentitySettings,
+  updateMerchantSettings,
+} from './merchant-settings';
 
 const mocks = vi.hoisted(() => ({
+  apiClient: vi.fn(),
   rpc: vi.fn(),
 }));
 
@@ -10,13 +14,57 @@ vi.mock('./supabase', () => ({
 }));
 
 vi.mock('./api-client', () => ({
-  apiClient: vi.fn(),
+  apiClient: mocks.apiClient,
 }));
 
-describe('updateMerchantIdentitySettings', () => {
+describe('merchant settings mutation clients', () => {
   beforeEach(() => {
+    mocks.apiClient.mockReset();
     mocks.rpc.mockReset();
     mocks.rpc.mockResolvedValue({ data: { id: 'merchant-1' }, error: null });
+  });
+
+  it('sends the active merchant ID with the settings payload', async () => {
+    mocks.apiClient.mockResolvedValueOnce({
+      merchant: { id: 'merchant-2' },
+    });
+
+    await updateMerchantSettings('merchant-2', {
+      social_media: { instagram: '@second-store' },
+    });
+
+    expect(mocks.apiClient).toHaveBeenCalledWith(
+      '/api/merchant/settings',
+      expect.objectContaining({ method: 'PATCH' })
+    );
+    const request = mocks.apiClient.mock.calls[0]?.[1] as { body: string };
+    expect(JSON.parse(request.body)).toEqual({
+      social_media: { instagram: '@second-store' },
+      merchantId: 'merchant-2',
+    });
+  });
+
+  it('does not let a payload override the asserted merchant ID', async () => {
+    mocks.apiClient.mockResolvedValueOnce({
+      merchant: { id: 'merchant-2' },
+    });
+
+    await updateMerchantSettings('merchant-2', {
+      merchantId: 'merchant-1',
+      social_media: { instagram: '@second-store' },
+    } as Parameters<typeof updateMerchantSettings>[1] & {
+      merchantId: string;
+    });
+
+    expect(mocks.apiClient).toHaveBeenCalledWith(
+      '/api/merchant/settings',
+      expect.objectContaining({ method: 'PATCH' })
+    );
+    const request = mocks.apiClient.mock.calls[0]?.[1] as { body: string };
+    expect(JSON.parse(request.body)).toEqual({
+      social_media: { instagram: '@second-store' },
+      merchantId: 'merchant-2',
+    });
   });
 
   it('uses the guarded RPC instead of a direct merchants update', async () => {

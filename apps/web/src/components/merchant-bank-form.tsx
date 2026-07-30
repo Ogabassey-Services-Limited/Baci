@@ -33,6 +33,30 @@ import {
 export type BankFormInput = MerchantBankFormInput;
 type BankFormValues = MerchantBankFormValues;
 
+type MerchantBankFormInitialData = {
+  accountName?: string;
+  bankName?: string;
+  accountNumber?: string;
+  bankCode?: string;
+  businessName?: string;
+  autoPayoutEnabled?: boolean;
+};
+
+function getBankFormDefaultValues(
+  initialData: MerchantBankFormInitialData | undefined,
+  isManualBankDetails: boolean
+): BankFormInput {
+  return {
+    accountNumber: initialData?.accountNumber || '',
+    bankCode: initialData?.bankCode || '',
+    bankName: isManualBankDetails ? initialData?.bankName || '' : '',
+    accountName: initialData?.accountName || initialData?.businessName || '',
+    businessName: initialData?.businessName || '',
+    autoPayoutEnabled: initialData?.autoPayoutEnabled,
+    manualBankDetails: isManualBankDetails,
+  };
+}
+
 type AccountVerificationResult =
   | { status: 'verified'; accountName: string }
   | { status: 'empty' }
@@ -99,6 +123,7 @@ type SaveBankResult =
   | { status: 'error'; message: string };
 
 interface SaveBankPayload {
+  merchantId: string;
   accountNumber: string;
   bankCode?: string;
   bank_name?: string;
@@ -130,19 +155,14 @@ async function saveBankSubaccount(
 }
 
 interface MerchantBankFormProps {
+  merchantId: string;
   countryCode?: string | null;
-  initialData?: {
-    accountName?: string;
-    bankName?: string;
-    accountNumber?: string;
-    bankCode?: string;
-    businessName?: string;
-    autoPayoutEnabled?: boolean;
-  };
+  initialData?: MerchantBankFormInitialData;
   onSuccess?: () => void;
 }
 
-export function MerchantBankForm({
+function MerchantBankFormContent({
+  merchantId,
   countryCode,
   initialData,
   onSuccess,
@@ -163,6 +183,7 @@ export function MerchantBankForm({
     null
   );
   const verifyRequestIdRef = useRef(0);
+  const saveRequestIdRef = useRef(0);
   const hideBankSuggestionsTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -177,15 +198,7 @@ export function MerchantBankForm({
 
   const form = useForm<BankFormInput, unknown, BankFormValues>({
     resolver,
-    defaultValues: {
-      accountNumber: initialData?.accountNumber || '',
-      bankCode: initialData?.bankCode || '',
-      bankName: isManualBankDetails ? initialData?.bankName || '' : '',
-      accountName: initialData?.accountName || initialData?.businessName || '',
-      businessName: initialData?.businessName || '',
-      autoPayoutEnabled: initialData?.autoPayoutEnabled,
-      manualBankDetails: isManualBankDetails,
-    },
+    defaultValues: getBankFormDefaultValues(initialData, isManualBankDetails),
   });
 
   useEffect(() => {
@@ -232,6 +245,7 @@ export function MerchantBankForm({
 
   useEffect(() => {
     return () => {
+      saveRequestIdRef.current += 1;
       if (hideBankSuggestionsTimeoutRef.current) {
         clearTimeout(hideBankSuggestionsTimeoutRef.current);
       }
@@ -364,15 +378,19 @@ export function MerchantBankForm({
     }
 
     setIsSubmitting(true);
+    const saveRequestId = saveRequestIdRef.current + 1;
+    saveRequestIdRef.current = saveRequestId;
 
     const payload: SaveBankPayload = isManualBankDetails
       ? {
+          merchantId,
           accountNumber: data.accountNumber,
           account_name: data.accountName || data.businessName,
           bank_name: data.bankName,
           businessName: data.businessName,
         }
       : {
+          merchantId,
           accountNumber: data.accountNumber,
           businessName: data.businessName,
           bankCode: data.bankCode,
@@ -388,6 +406,10 @@ export function MerchantBankForm({
 
     return saveBankSubaccount(payload)
       .then((result) => {
+        if (saveRequestId !== saveRequestIdRef.current) {
+          return;
+        }
+
         if (result.status === 'ok') {
           toast({
             title: 'Bank Details Saved',
@@ -406,8 +428,10 @@ export function MerchantBankForm({
           });
         }
       })
-      .then(() => {
-        setIsSubmitting(false);
+      .finally(() => {
+        if (saveRequestId === saveRequestIdRef.current) {
+          setIsSubmitting(false);
+        }
       });
   };
 
@@ -817,4 +841,13 @@ export function MerchantBankForm({
       </form>
     </Form>
   );
+}
+
+/**
+ * A merchant change is a tenancy boundary. Keying the stateful content forces
+ * React Hook Form and verification state to mount with the new merchant's
+ * values before that merchant's first committed render can accept a save.
+ */
+export function MerchantBankForm(props: MerchantBankFormProps) {
+  return <MerchantBankFormContent key={props.merchantId} {...props} />;
 }

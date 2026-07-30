@@ -69,6 +69,9 @@ describe('TaxSettingsPage', () => {
     expect(mocks.ensurePermission).toHaveBeenCalledWith('settings', 'view');
     expect(mocks.ensurePermission).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('tax-settings-form')).toHaveTextContent('TIN-1');
+    expect(screen.getByTestId('tax-settings-form')).toHaveTextContent(
+      'merchant-1'
+    );
   });
 
   it('accepts settings edit access when view is denied', async () => {

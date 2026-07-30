@@ -3,7 +3,7 @@ import { saveSettings } from './save-settings';
 
 const mockUpdateSocial = vi.fn();
 vi.mock('@/hooks/merchant/update-social', () => ({
-  updateSocial: (data: Record<string, string>) => mockUpdateSocial(data),
+  updateSocial: (...args: unknown[]) => mockUpdateSocial(...args),
 }));
 
 describe('saveSettings', () => {
@@ -21,15 +21,25 @@ describe('saveSettings', () => {
     await saveSettings({
       data: { business_name: 'Test Store', country: 'NG' },
       heroSlides: [],
+      merchantId: '11111111-1111-4111-8111-111111111111',
       socialMedia: { twitter: '@test' },
       updateMerchant,
       reloadMerchant,
+      isCurrentSave: () => true,
       toast,
       setIsSaving,
     });
 
     expect(mockUpdateSocial.mock.invocationCallOrder[0]).toBeLessThan(
       updateMerchant.mock.invocationCallOrder[0] ?? 0
+    );
+    expect(updateMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business_name: 'Test Store',
+        country: 'NG',
+        hero_slides: [],
+      }),
+      { merchantId: '11111111-1111-4111-8111-111111111111', skipReload: true }
     );
     expect(reloadMerchant).toHaveBeenCalledTimes(1);
   });
@@ -44,9 +54,11 @@ describe('saveSettings', () => {
     await saveSettings({
       data: { business_name: 'Test Store', country: 'NG' },
       heroSlides: [],
+      merchantId: '11111111-1111-4111-8111-111111111111',
       socialMedia: { twitter: '@test' },
       updateMerchant,
       reloadMerchant,
+      isCurrentSave: () => true,
       toast,
       setIsSaving,
     });

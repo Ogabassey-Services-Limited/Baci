@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     const {
+      merchant_id,
       account_name,
       account_number,
       bank_code,
@@ -112,6 +113,10 @@ export async function POST(request: NextRequest) {
       business_name,
       auto_payout_enabled,
     } = parseResult.data;
+
+    if (!merchant_id) {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+    }
     const shouldPersistAutoPayoutEnabled =
       hasRequestField(body, 'autoPayoutEnabled') ||
       hasRequestField(body, 'auto_payout_enabled');
@@ -132,7 +137,8 @@ export async function POST(request: NextRequest) {
     // 1. Get Merchant Context (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(
       auth.supabase,
-      auth.user.id
+      auth.user.id,
+      { requestedMerchantId: merchant_id }
     );
     if (!merchantContext) {
       return NextResponse.json(

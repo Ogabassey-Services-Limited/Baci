@@ -78,7 +78,7 @@ describe('usePayouts', () => {
     });
   });
 
-  it('invalidates only the active merchant readiness after a successful payout save', async () => {
+  it('sends and invalidates only the merchant captured when the payout save starts', async () => {
     mockApiClient.mockResolvedValueOnce({ subaccount_code: 'SUB_123' });
 
     const { result } = renderHook(() => usePayouts(), {
@@ -91,6 +91,16 @@ describe('usePayouts', () => {
         bankCode: '044',
         businessName: 'Baci Store',
       });
+    });
+
+    expect(mockApiClient).toHaveBeenCalledWith('/api/paystack/subaccount', {
+      method: 'POST',
+      body: JSON.stringify({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+        merchantId: 'merchant-1',
+      }),
     });
 
     expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
@@ -146,9 +156,8 @@ describe('usePayouts', () => {
     expect(completed).toBe(true);
   });
 
-  it('saves payout settings when merchant context is temporarily unavailable', async () => {
+  it('does not save payout settings when merchant context is unavailable', async () => {
     currentMerchant = null;
-    mockApiClient.mockResolvedValueOnce({ subaccount_code: 'SUB_123' });
     const { queryClient, Wrapper } = createWrapper();
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderHook(() => usePayouts(), { wrapper: Wrapper });
@@ -159,11 +168,9 @@ describe('usePayouts', () => {
         bankCode: '044',
         businessName: 'Baci Store',
       })
-    ).resolves.toEqual({ subaccount_code: 'SUB_123' });
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['merchant-payout'],
-    });
+    ).rejects.toThrow('Merchant not loaded. Please try again.');
+    expect(mockApiClient).not.toHaveBeenCalled();
+    expect(invalidateQueries).not.toHaveBeenCalled();
     expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
   });
 

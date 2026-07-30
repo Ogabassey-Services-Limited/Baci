@@ -79,9 +79,12 @@ describe('SocialMediaScreen core behaviour', () => {
     fireEvent.click(screen.getByText('Save'));
 
     await waitFor(() =>
-      expect(harness.mocks.updateMerchantSettings).toHaveBeenCalledWith({
-        social_media: expect.objectContaining({ instagram: 'new_insta' }),
-      })
+      expect(harness.mocks.updateMerchantSettings).toHaveBeenCalledWith(
+        'merchant-1',
+        {
+          social_media: expect.objectContaining({ instagram: 'new_insta' }),
+        }
+      )
     );
     await waitFor(() =>
       expect(harness.mocks.alert).toHaveBeenCalledWith(

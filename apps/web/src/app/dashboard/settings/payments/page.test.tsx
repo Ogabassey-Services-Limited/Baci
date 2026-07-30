@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type MockMerchantBankFormProps = {
+  merchantId: string;
   countryCode?: string | null;
   initialData?: {
     accountNumber?: string;
@@ -133,6 +134,24 @@ describe('PaymentSettingsPage', () => {
         preferred_international_gateway: 'korapay',
       })
     );
+  });
+
+  it('withholds payout forms when no merchant context is established', async () => {
+    useMerchantMock.mockReturnValue({
+      merchant: null,
+      loading: false,
+      reloadMerchant: reloadMerchantMock,
+    });
+
+    render(<PaymentSettingsPage />);
+
+    expect(
+      await screen.findByText(/merchant context is unavailable/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /mock bank form/i })
+    ).not.toBeInTheDocument();
+    expect(merchantBankFormProps).toHaveLength(0);
   });
 
   it('re-enables the save button when onboarding payment settings save fails', async () => {

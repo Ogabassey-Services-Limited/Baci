@@ -8,6 +8,8 @@ import {
   type Dispatch,
   type SetStateAction,
   type TransitionStartFunction,
+  useEffect,
+  useRef,
   useState,
   useTransition,
 } from 'react';
@@ -144,12 +146,26 @@ export function SettingsForm({
   initialMerchant,
   initialBlogEnabled,
 }: SettingsFormProps) {
+  return (
+    <SettingsFormContents
+      key={initialMerchant.id}
+      initialMerchant={initialMerchant}
+      initialBlogEnabled={initialBlogEnabled}
+    />
+  );
+}
+
+function SettingsFormContents({
+  initialMerchant,
+  initialBlogEnabled,
+}: SettingsFormProps) {
   const { toast } = useToast();
   const { reloadMerchant, updateMerchant } = useMerchant();
 
   const [merchantState, setMerchantState] = useState(initialMerchant);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const saveGenerationRef = useRef(0);
   const [isUploading, setIsUploading] = useState(false);
   const [, startTransition] = useTransition();
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(
@@ -178,6 +194,12 @@ export function SettingsForm({
     },
   });
 
+  useEffect(() => {
+    return () => {
+      saveGenerationRef.current += 1;
+    };
+  }, []);
+
   // Sync every prop-derived draft if the prop changes significantly — but
   // only when NO draft source holds unsaved edits (color mutations, RHF form
   // fields, hero slides, social media), so a background prop refresh can
@@ -191,13 +213,15 @@ export function SettingsForm({
     heroSlidesEdited;
   const [prevInitialMerchant, setPrevInitialMerchant] =
     useState(initialMerchant);
+  const selectedMerchantChanged = initialMerchant.id !== prevInitialMerchant.id;
   if (
     initialMerchant &&
     initialMerchant !== prevInitialMerchant &&
-    !hasUnsavedDraftEdits
+    (selectedMerchantChanged || !hasUnsavedDraftEdits)
   ) {
     setPrevInitialMerchant(initialMerchant);
     setMerchantState(initialMerchant);
+    setIsDirty(false);
     setHeroSlides(initialMerchant.hero_slides || []);
     setHeroSlidesEdited(false);
     setSocialMediaEdits(null);
@@ -292,12 +316,15 @@ export function SettingsForm({
   };
 
   async function _onSubmit(data: SettingsFormValues) {
+    const saveGeneration = ++saveGenerationRef.current;
     await saveSettings({
       data,
       heroSlides,
+      merchantId: initialMerchant.id,
       socialMedia: socialMediaEdits,
       updateMerchant,
       reloadMerchant,
+      isCurrentSave: () => saveGeneration === saveGenerationRef.current,
       toast,
       setIsSaving,
     });
@@ -352,6 +379,7 @@ export function SettingsForm({
 
         <SocialMediaCard
           initialSocialMedia={buildSocialMediaDraft(initialMerchant)}
+          merchantId={initialMerchant.id}
           onSocialMediaChange={setSocialMediaEdits}
         />
 

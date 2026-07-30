@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
-const mockGetUserAccess = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
 const mockRpc = vi.fn();
+const DEFAULT_MERCHANT_ID = '11111111-1111-4111-8111-111111111111';
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
@@ -15,16 +16,28 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
-  getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
+  toUserAccess: (context: { merchantId: string; staffAccess: object }) => ({
+    merchantId: context.merchantId,
+    ...context.staffAccess,
+  }),
 }));
 
 const { PATCH } = await import('./route');
 
 function createPatchRequest(body: BodyInit): NextRequest {
+  const bodyWithMerchantId =
+    typeof body === 'string' && body !== '{'
+      ? JSON.stringify({ merchantId: DEFAULT_MERCHANT_ID, ...JSON.parse(body) })
+      : body;
   return new Request('http://localhost/api/merchant/settings', {
     method: 'PATCH',
-    body,
+    body: bodyWithMerchantId,
     headers: {
       'Content-Type': 'application/json',
     },
@@ -40,16 +53,18 @@ describe('PATCH /api/merchant/settings', () => {
       user: { id: 'user-1' },
       supabase: { rpc: mockRpc },
     });
-    mockGetUserAccess.mockResolvedValue({
-      merchantId: 'merchant-1',
-      isOwner: true,
-      isStaff: false,
-      permissions: {},
-      role: 'owner',
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: DEFAULT_MERCHANT_ID,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: {},
+        role: 'owner',
+      },
     });
     mockHasPermission.mockReturnValue(true);
     mockRpc.mockResolvedValue({
-      data: { id: 'merchant-1', social_media: null },
+      data: { id: DEFAULT_MERCHANT_ID, social_media: null },
       error: null,
     });
   });
@@ -71,15 +86,50 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
       p_settings: { tax_identification_number: '1234567890' },
       p_social_media: { instagram: '@baci', twitter: '' },
     });
     expect(payload).toEqual({
       merchant: {
-        id: 'merchant-1',
+        id: DEFAULT_MERCHANT_ID,
         social_media: null,
       },
+    });
+  });
+
+  it('writes social media to the merchant asserted by a multi-merchant caller', async () => {
+    const requestedMerchantId = '22222222-2222-4222-8222-222222222222';
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: requestedMerchantId,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: {},
+        role: 'owner',
+      },
+    });
+
+    const response = await PATCH(
+      createPatchRequest(
+        JSON.stringify({
+          merchantId: requestedMerchantId,
+          social_media: { instagram: '@second-store' },
+        })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      'user-1',
+      { requestedMerchantId }
+    );
+    expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
+      p_clear: false,
+      p_merchant_id: requestedMerchantId,
+      p_settings: {},
+      p_social_media: { instagram: '@second-store' },
     });
   });
 
@@ -96,7 +146,7 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
       p_settings: {
         legal_entity_name: 'Baci Ltd',
         state_code: 'NG-LA',
@@ -237,7 +287,7 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
       p_settings: {},
       p_social_media: { instagram: '@newinsta' },
     });
@@ -273,7 +323,7 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: true,
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
       p_settings: {},
       p_social_media: {},
     });
@@ -291,7 +341,7 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: true,
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
       p_settings: {},
       p_social_media: {},
     });
@@ -320,7 +370,7 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: true,
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
       p_settings: {},
       p_social_media: social_media,
     });
@@ -342,7 +392,7 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
       p_settings: {},
       p_social_media: {
         twitter: '',
@@ -367,7 +417,7 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
       p_clear: false,
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
       p_settings: {},
       p_social_media: {
         twitter: '@baci',

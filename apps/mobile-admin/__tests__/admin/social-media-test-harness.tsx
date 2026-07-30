@@ -16,8 +16,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 type MutationOptions = {
-  mutationFn: () => Promise<unknown>;
-  onMutate?: () => unknown | Promise<unknown>;
+  mutationFn: (variables?: unknown) => Promise<unknown>;
+  onMutate?: (variables?: unknown) => unknown | Promise<unknown>;
   onError?: (error: unknown, variables?: unknown, context?: unknown) => void;
   onSuccess?: (
     data: unknown,
@@ -75,14 +75,14 @@ vi.mock('@tanstack/react-query', () => ({
   useMutation: (options: MutationOptions) => {
     mocks.useMutation(options);
     return {
-      mutate: () => {
+      mutate: (variables?: unknown) => {
         const mutation = (async () => {
-          const context = await options.onMutate?.();
+          const context = await options.onMutate?.(variables);
           try {
-            const data = await options.mutationFn();
-            await options.onSuccess?.(data, undefined, context);
+            const data = await options.mutationFn(variables);
+            await options.onSuccess?.(data, variables, context);
           } catch (error) {
-            options.onError?.(error, undefined, context);
+            options.onError?.(error, variables, context);
           }
         })();
         mocks.lastMutation = mutation;

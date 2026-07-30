@@ -1,6 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { StoreLogoSection } from '@/components/store-settings/StoreLogoSection';
 import { StoreSettingsBackButton } from '@/components/store-settings/StoreSettingsBackButton';
@@ -12,7 +12,6 @@ import { storeSettingsStyles as styles } from '@/components/store-settings/store
 import {
   buildBaselineFromMerchant,
   buildInitialFormValues,
-  buildMerchantUpdatePayload,
   hasNonEmptyTrimmedValue,
   type StoreSettingsFormValues,
 } from '@/components/store-settings/store-settings-payload';
@@ -27,16 +26,10 @@ import { COUNTRIES } from '@/constants/countries';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useStoreSettingsFormDirty } from '@/hooks/useStoreSettingsFormDirty';
+import { useStoreSettingsSaveLifecycle } from '@/hooks/useStoreSettingsSaveLifecycle';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
-import { updateMerchantIdentitySettings } from '@/lib/merchant-settings';
-import { invalidateStoreSettingsAfterSave } from '@/lib/store-settings-save-readiness';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
-
-type StoreSettingsSaveToken = {
-  merchantId: string;
-  revision: number;
-};
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -72,18 +65,6 @@ export default function StoreSettingsScreen() {
   const { handleManageSubscription } = useSubscriptionManagement({
     setStatusModal,
   });
-  const merchantIdRef = useRef<string | null>(merchant?.id ?? null);
-  const activeSaveTokenRef = useRef<StoreSettingsSaveToken | null>(null);
-  merchantIdRef.current = merchant?.id ?? null;
-
-  const isCurrentSaveToken = (
-    saveToken: StoreSettingsSaveToken | null | undefined
-  ) =>
-    Boolean(
-      saveToken &&
-        merchantIdRef.current === saveToken.merchantId &&
-        getFormRevision() === saveToken.revision
-    );
 
   const hasMerchantChanged = merchant?.id !== syncedMerchant?.id;
 
@@ -149,17 +130,10 @@ export default function StoreSettingsScreen() {
     setter(value);
   };
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!merchant?.id || !baseline) throw new Error('No merchant found');
-
-      const saveToken = {
-        merchantId: merchant.id,
-        revision: getFormRevision(),
-      };
-      activeSaveTokenRef.current = saveToken;
-
-      const payload = buildMerchantUpdatePayload(baseline, {
+  const { handleCloseStatusModal, saveMutation } =
+    useStoreSettingsSaveLifecycle({
+      baseline,
+      formValues: {
         business_name: businessName,
         phone,
         support_phone: supportPhone,
@@ -168,70 +142,16 @@ export default function StoreSettingsScreen() {
         country,
         payout_currency: currency,
         slug,
-      });
-
-      if (Object.keys(payload).length === 0) {
-        return saveToken;
-      }
-
-      const loadedUpdatedAt = syncedMerchant?.updated_at;
-      if (!loadedUpdatedAt) {
-        throw new Error(
-          'These settings need to be reloaded before they can be saved.'
-        );
-      }
-      await updateMerchantIdentitySettings({
-        expectedUpdatedAt: loadedUpdatedAt,
-        merchantId: merchant.id,
-        settings: payload,
-      });
-      return saveToken;
-    },
-    onSuccess: async (saveToken) => {
-      await invalidateStoreSettingsAfterSave(
-        queryClient,
-        saveToken?.merchantId
-      );
-      const isCurrentSave = isCurrentSaveToken(saveToken);
-      if (!isCurrentSave) {
-        activeSaveTokenRef.current = null;
-        return;
-      }
-      resetFormDirty();
-      if (from === 'setup') {
-        router.back();
-        return;
-      }
-      setStatusModal({
-        visible: true,
-        type: 'success',
-        title: 'Success!',
-        message: 'Store settings updated successfully.',
-      });
-    },
-    onError: (error: unknown) => {
-      const isCurrentSave = isCurrentSaveToken(activeSaveTokenRef.current);
-      activeSaveTokenRef.current = null;
-      if (!isCurrentSave) return;
-      console.error('Update error:', error);
-      setStatusModal({
-        visible: true,
-        type: 'error',
-        title: 'Update Failed',
-        message: (error as Error).message || 'Failed to update store settings',
-      });
-    },
-  });
-
-  const handleCloseStatusModal = () => {
-    if (statusModal.type === 'success' && statusModal.title === 'Success!') {
-      setStatusModal((prev) => ({ ...prev, visible: false }));
-      if (isCurrentSaveToken(activeSaveTokenRef.current)) router.back();
-      activeSaveTokenRef.current = null;
-    } else {
-      setStatusModal((prev) => ({ ...prev, visible: false }));
-    }
-  };
+      },
+      from,
+      getFormRevision,
+      merchant,
+      queryClient,
+      resetFormDirty,
+      router,
+      setStatusModal,
+      syncedMerchantUpdatedAt: syncedMerchant?.updated_at,
+    });
 
   if (isLoading) {
     return (
@@ -341,7 +261,10 @@ export default function StoreSettingsScreen() {
           onClose={() => setShowCountryModal(false)}
         />
 
-        <StatusModal status={statusModal} onClose={handleCloseStatusModal} />
+        <StatusModal
+          status={statusModal}
+          onClose={() => handleCloseStatusModal(statusModal)}
+        />
       </AppFormScreen>
     </>
   );

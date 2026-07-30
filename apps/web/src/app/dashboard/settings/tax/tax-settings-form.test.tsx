@@ -28,6 +28,7 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 const defaultProps = {
+  merchantId: 'merchant-1',
   initialVatEnabled: false,
   initialVatRate: 7.5,
   initialTaxId: '',
@@ -82,6 +83,7 @@ describe('TaxSettingsForm', () => {
 
     await waitFor(() => {
       expect(mockApiPatch).toHaveBeenCalledWith('/api/merchant/settings', {
+        merchantId: 'merchant-1',
         vat_registration_status: 'registered',
       });
     });

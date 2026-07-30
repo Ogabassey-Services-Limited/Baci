@@ -314,4 +314,34 @@ describe('useMerchant', () => {
     // Assert
     expect(mockFrom).not.toHaveBeenCalled();
   });
+
+  it('limits an owner generic update to the captured merchant and user IDs', async () => {
+    const updateQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+    };
+    updateQuery.update.mockReturnValue(updateQuery);
+    updateQuery.eq
+      .mockReturnValueOnce(updateQuery)
+      .mockResolvedValueOnce({ error: null });
+    mockFrom.mockReturnValue(updateQuery);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <MerchantProvider
+        initialMerchant={testMerchant}
+        initialStaffAccess={staffAccessOwner}
+      >
+        {children}
+      </MerchantProvider>
+    );
+    const { result } = renderHook(() => useMerchant(), { wrapper });
+
+    await result.current.updateMerchant(
+      { hero_slides: [] },
+      { merchantId: 'merchant-1', skipReload: true }
+    );
+
+    expect(mockFrom).toHaveBeenCalledWith('merchants');
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(1, 'id', 'merchant-1');
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(2, 'user_id', 'user-123');
+  });
 });

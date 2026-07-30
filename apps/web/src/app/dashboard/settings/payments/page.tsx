@@ -200,6 +200,30 @@ export default function PaymentSettingsPage() {
     );
   }
 
+  if (!merchant) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Payment Settings
+          </h1>
+          <p className="text-muted-foreground">
+            Configure payment gateways, delivery payments, and settlement
+            details
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              Merchant context is unavailable. Refresh and try again.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -236,6 +260,7 @@ export default function PaymentSettingsPage() {
                   </div>
                 </div>
                 <MerchantBankForm
+                  merchantId={merchant.id}
                   countryCode={countryCode}
                   initialData={{
                     bankCode: merchantData?.bank_code as string,
@@ -260,6 +285,7 @@ export default function PaymentSettingsPage() {
                   </div>
                 </div>
                 <MerchantBankForm
+                  merchantId={merchant.id}
                   countryCode={countryCode}
                   initialData={{
                     businessName: merchant?.business_name,
@@ -285,6 +311,7 @@ export default function PaymentSettingsPage() {
           </CardHeader>
           <CardContent>
             <MerchantBankForm
+              merchantId={merchant.id}
               countryCode={countryCode}
               initialData={{
                 bankName: merchantData?.bank_name as string,

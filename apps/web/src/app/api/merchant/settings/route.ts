@@ -1,14 +1,14 @@
 import { normalizeRegisteredAddress, SOCIAL_MEDIA_KEYS } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
+import {
   formatMerchantSettingsErrors,
-  updateMerchantSettingsSchema,
+  merchantSettingsRequestSchema,
 } from '@/schemas/merchant-settings';
 
 function isFullBlankSocialMediaPayload(
@@ -63,18 +63,9 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!hasPermission(access, 'settings', 'edit')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
   try {
     const rawBody = await request.json();
-    const parseResult = updateMerchantSettingsSchema.safeParse(rawBody);
+    const parseResult = merchantSettingsRequestSchema.safeParse(rawBody);
 
     if (!parseResult.success) {
       return NextResponse.json(
@@ -87,6 +78,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = parseResult.data;
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id,
+      { requestedMerchantId: body.merchantId }
+    );
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const settingsPatch: Record<string, unknown> = {};
     const hasSocialMediaUpdate =
       body.social_media !== undefined || body.clear_social_media === true;
@@ -134,7 +141,7 @@ export async function PATCH(request: NextRequest) {
       'update_merchant_social_media',
       {
         p_clear: shouldClearSocialMedia,
-        p_merchant_id: access.merchantId,
+        p_merchant_id: merchantContext.merchantId,
         p_settings: settingsPatch,
         p_social_media: hasSocialMediaUpdate ? incomingSocialMedia : {},
       }

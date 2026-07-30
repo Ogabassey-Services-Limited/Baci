@@ -60,14 +60,26 @@ vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
 
 import { POST } from './route';
 
+const DEFAULT_MERCHANT_ID = '22222222-2222-4222-8222-222222222222';
+
 function makeRequest(
   body: string | Record<string, unknown>,
   headers?: Record<string, string>
 ): NextRequest {
+  const requestBody =
+    typeof body === 'string'
+      ? body
+      : {
+          merchantId: DEFAULT_MERCHANT_ID,
+          ...body,
+        };
   return new Request('http://localhost/api/paystack/subaccount', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
-    body: typeof body === 'string' ? body : JSON.stringify(body),
+    body:
+      typeof requestBody === 'string'
+        ? requestBody
+        : JSON.stringify(requestBody),
   }) as unknown as NextRequest;
 }
 
@@ -137,11 +149,11 @@ describe('POST /api/paystack/subaccount', () => {
     });
     mockCheckCsrfProtection.mockResolvedValue({ valid: true });
     mockGetMerchantForApiRequest.mockResolvedValue({
-      merchantId: 'merchant-456',
+      merchantId: DEFAULT_MERCHANT_ID,
       staffAccess: { role: 'owner', isOwner: true, isStaff: false },
     });
     mockToUserAccess.mockReturnValue({
-      merchantId: 'merchant-456',
+      merchantId: DEFAULT_MERCHANT_ID,
       role: 'owner',
       isOwner: true,
       isStaff: false,
@@ -245,6 +257,40 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockResolveAccountNumber).not.toHaveBeenCalled();
   });
 
+  it('authorizes and writes only the merchant explicitly selected by the request', async () => {
+    const merchantId = '33333333-3333-4333-8333-333333333333';
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId,
+      staffAccess: { role: 'owner', isOwner: true, isStaff: false },
+    });
+    mockToUserAccess.mockReturnValueOnce({
+      merchantId,
+      role: 'owner',
+      isOwner: true,
+      isStaff: false,
+      permissions: {},
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+        merchantId,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      mockSupabase,
+      'user-123',
+      { requestedMerchantId: merchantId }
+    );
+    expect(mockMerchantSelectEq).toHaveBeenCalledWith('id', merchantId);
+    expect(mockMerchantUpdateEq).toHaveBeenCalledWith('id', merchantId);
+    expect(mockRevalidateFeatures).toHaveBeenCalledWith(merchantId);
+  });
+
   it('returns 403 when the caller lacks integrations permission', async () => {
     mockHasPermission.mockReturnValueOnce(false);
 
@@ -278,6 +324,24 @@ describe('POST /api/paystack/subaccount', () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error).toBe('Invalid input');
+  });
+
+  it('rejects an unscoped payout mutation before merchant lookup', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/paystack/subaccount', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Baci Store',
+        }),
+      }) as unknown as NextRequest
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid input' });
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
   });
 
   it('uses the merchant record business name when the payload omits it', async () => {
@@ -344,14 +408,14 @@ describe('POST /api/paystack/subaccount', () => {
       bank_name: 'Unknown Bank',
     });
     expect(mockRpc).toHaveBeenCalledWith('get_or_create_merchant_wallet', {
-      p_merchant_id: 'merchant-456',
+      p_merchant_id: DEFAULT_MERCHANT_ID,
     });
     expect(mockWalletUpdate).toHaveBeenCalledWith({
       auto_payout_enabled: true,
     });
     // Busts the cached storefront-features Paystack lookup so checkout picks up
     // the newly configured subaccount without waiting for the cache TTL.
-    expect(mockRevalidateFeatures).toHaveBeenCalledWith('merchant-456');
+    expect(mockRevalidateFeatures).toHaveBeenCalledWith(DEFAULT_MERCHANT_ID);
   });
 
   it('reads non-secret merchant fields on the authenticated client and the revoked paystack_subaccount_code via the bounded RPC helper', async () => {
@@ -367,7 +431,8 @@ describe('POST /api/paystack/subaccount', () => {
     // Auth/permission gates ran on the authenticated client first.
     expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
       mockSupabase,
-      'user-123'
+      'user-123',
+      { requestedMerchantId: DEFAULT_MERCHANT_ID }
     );
     expect(mockHasPermission).toHaveBeenCalled();
     // Non-secret columns are read on the authenticated client, scoped to the
@@ -375,12 +440,15 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockMerchantSelect).toHaveBeenCalledWith(
       'business_name, country, email, phone'
     );
-    expect(mockMerchantSelectEq).toHaveBeenCalledWith('id', 'merchant-456');
+    expect(mockMerchantSelectEq).toHaveBeenCalledWith(
+      'id',
+      DEFAULT_MERCHANT_ID
+    );
     // The revoked secret column is read through the SECURITY DEFINER RPC helper
     // on the same authenticated client, never a service-role admin client.
     expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
       mockSupabase,
-      'merchant-456'
+      DEFAULT_MERCHANT_ID
     );
   });
 
@@ -463,7 +531,7 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockWalletUpdate).not.toHaveBeenCalled();
     // Clearing the subaccount must also bust the cached features lookup so
     // checkout stops advertising Paystack.
-    expect(mockRevalidateFeatures).toHaveBeenCalledWith('merchant-456');
+    expect(mockRevalidateFeatures).toHaveBeenCalledWith(DEFAULT_MERCHANT_ID);
   });
 
   it('returns saved manual bank details when feature cache invalidation fails', async () => {
@@ -649,11 +717,11 @@ describe('POST /api/paystack/subaccount', () => {
 
   it('returns 403 when a staff member tries to update auto payout settings', async () => {
     mockGetMerchantForApiRequest.mockResolvedValueOnce({
-      merchantId: 'merchant-456',
+      merchantId: DEFAULT_MERCHANT_ID,
       staffAccess: { role: 'admin', isOwner: false, isStaff: true },
     });
     mockToUserAccess.mockReturnValueOnce({
-      merchantId: 'merchant-456',
+      merchantId: DEFAULT_MERCHANT_ID,
       role: 'admin',
       isOwner: false,
       isStaff: true,

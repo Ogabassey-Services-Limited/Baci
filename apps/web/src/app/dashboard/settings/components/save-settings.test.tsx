@@ -18,7 +18,6 @@ vi.mock('./social-media-card', () => ({
     onSocialMediaChange: (socialMedia: Record<string, string>) => void;
   }) => (
     <button
-      data-testid="social-media-card"
       type="button"
       onClick={() => onSocialMediaChange({ twitter: '@test' })}
     >
@@ -65,8 +64,7 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 
 const mockUpdateSocial = vi.fn();
 vi.mock('@/hooks/merchant/update-social', () => ({
-  updateSocial: (socialMedia: Record<string, string>) =>
-    mockUpdateSocial(socialMedia),
+  updateSocial: (...args: unknown[]) => mockUpdateSocial(...args),
 }));
 
 const mockToast = vi.fn();
@@ -129,7 +127,7 @@ describe('SettingsForm social save orchestration', () => {
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
-    fireEvent.click(screen.getByTestId('social-media-card'));
+    fireEvent.click(screen.getByRole('button', { name: 'Social media' }));
 
     submitSettingsForm();
 
@@ -140,7 +138,7 @@ describe('SettingsForm social save orchestration', () => {
           country: 'NG',
           hero_slides: [],
         }),
-        { skipReload: true }
+        { merchantId: 'merchant-1', skipReload: true }
       );
     });
     expect(mockUpdateMerchant.mock.calls[0]?.[0]).not.toHaveProperty(
@@ -148,6 +146,7 @@ describe('SettingsForm social save orchestration', () => {
     );
     await waitFor(() => {
       expect(mockUpdateSocial).toHaveBeenCalledWith(
+        'merchant-1',
         expect.objectContaining({ twitter: '@test' })
       );
     });
@@ -184,12 +183,94 @@ describe('SettingsForm social save orchestration', () => {
     expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
   });
 
+  it('drops an unsaved social draft before submitting after the merchant changes', async () => {
+    const merchantB = {
+      ...mockMerchant,
+      id: 'merchant-2',
+      business_name: 'Second Store',
+      slug: 'second-store',
+    };
+    mockUpdateMerchant.mockResolvedValueOnce(undefined);
+    const rendered = render(
+      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Social media' }));
+    rendered.rerender(
+      <SettingsForm initialMerchant={merchantB} initialBlogEnabled={false} />
+    );
+    submitSettingsForm();
+
+    await waitFor(() => expect(mockUpdateMerchant).toHaveBeenCalledTimes(1));
+    expect(mockUpdateSocial).not.toHaveBeenCalled();
+  });
+
+  it('does not finish a first merchant save after switching stores', async () => {
+    let resolveSocial: (() => void) | undefined;
+    mockUpdateSocial.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveSocial = resolve;
+      })
+    );
+    const merchantB = {
+      ...mockMerchant,
+      id: 'merchant-2',
+      business_name: 'Second Store',
+      slug: 'second-store',
+    };
+    const rendered = render(
+      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Social media' }));
+    submitSettingsForm();
+    await waitFor(() => expect(mockUpdateSocial).toHaveBeenCalledTimes(1));
+
+    rendered.rerender(
+      <SettingsForm initialMerchant={merchantB} initialBlogEnabled={false} />
+    );
+    resolveSocial?.();
+
+    await waitFor(() => expect(mockUpdateMerchant).not.toHaveBeenCalled());
+    expect(mockReloadMerchant).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('does not surface a first merchant save failure after switching stores', async () => {
+    let rejectSocial: ((error: Error) => void) | undefined;
+    mockUpdateSocial.mockReturnValueOnce(
+      new Promise<void>((_resolve, reject) => {
+        rejectSocial = reject;
+      })
+    );
+    const merchantB = {
+      ...mockMerchant,
+      id: 'merchant-2',
+      business_name: 'Second Store',
+      slug: 'second-store',
+    };
+    const rendered = render(
+      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Social media' }));
+    submitSettingsForm();
+    await waitFor(() => expect(mockUpdateSocial).toHaveBeenCalledTimes(1));
+
+    rendered.rerender(
+      <SettingsForm initialMerchant={merchantB} initialBlogEnabled={false} />
+    );
+    rejectSocial?.(new Error('first-store failure'));
+
+    await waitFor(() => expect(mockUpdateMerchant).not.toHaveBeenCalled());
+    expect(mockReloadMerchant).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
   it('does not partially commit generic settings when the social update fails', async () => {
     mockUpdateSocial.mockRejectedValueOnce(new Error('Sign in again'));
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
-    fireEvent.click(screen.getByTestId('social-media-card'));
+    fireEvent.click(screen.getByRole('button', { name: 'Social media' }));
 
     submitSettingsForm();
 

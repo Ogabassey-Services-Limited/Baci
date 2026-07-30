@@ -274,7 +274,7 @@ export const MerchantProvider = ({
 
   const updateMerchant = async (
     data: Partial<MerchantData>,
-    options?: { skipReload?: boolean }
+    options?: { merchantId?: string; skipReload?: boolean }
   ) => {
     if (!user) {
       const errorMsg = 'Cannot update merchant data, no user logged in.';
@@ -307,6 +307,16 @@ export const MerchantProvider = ({
       return;
     }
 
+    // The caller may capture its selected merchant before awaiting a related
+    // identity request. Bind the generic write to that captured ID rather than
+    // whichever store happens to be current when the request resumes.
+    const merchantId = options?.merchantId ?? merchant?.id;
+    if (!merchantId) {
+      throw new Error(
+        'Cannot update merchant data without a selected merchant.'
+      );
+    }
+
     logger.info({
       message: 'Updating merchant data in Supabase...',
       data: writableData,
@@ -316,11 +326,12 @@ export const MerchantProvider = ({
       ? supabaseRef.current
           .from('merchants')
           .update(writableData)
+          .eq('id', merchantId)
           .eq('user_id', user.id)
       : supabaseRef.current
           .from('merchants')
           .update(writableData)
-          .eq('id', merchant?.id);
+          .eq('id', merchantId);
 
     const { error } = await query;
 
@@ -333,7 +344,9 @@ export const MerchantProvider = ({
     }
 
     if (options?.skipReload) {
-      setMerchant((prev) => (prev ? { ...prev, ...writableData } : prev));
+      setMerchant((prev) =>
+        prev?.id === merchantId ? { ...prev, ...writableData } : prev
+      );
       logger.info({ message: 'Merchant data updated optimistically.' });
     } else {
       logger.info({ message: 'Merchant data updated, reloading.' });

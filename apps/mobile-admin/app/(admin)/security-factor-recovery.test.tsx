@@ -98,73 +98,25 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-describe('SecurityScreen', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.listFactors.mockResolvedValue({
-      data: { all: [], totp: [] },
-      error: null,
-    });
-    mocks.getAuthenticatorAssuranceLevel.mockResolvedValue({
-      data: { currentLevel: 'aal1' },
-      error: null,
-    });
-    mocks.enroll.mockResolvedValue({
-      data: { id: 'factor-1', totp: { secret: 'SECRET123' } },
-      error: null,
-    });
-    mocks.challengeAndVerify.mockResolvedValue({ data: {}, error: null });
-    mocks.unenroll.mockResolvedValue({ data: {}, error: null });
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.listFactors.mockResolvedValue({
+    data: { all: [], totp: [] },
+    error: null,
   });
-
-  it('enrolls and verifies a TOTP factor before sensitive settings changes', async () => {
-    render(<SecurityScreen />);
-
-    const setupButton = await screen.findByRole('button', {
-      name: 'Set up authenticator',
-    });
-    fireEvent.click(setupButton);
-
-    expect(await screen.findByText('SECRET123')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Authenticator code'), {
-      target: { value: '123456' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
-
-    await waitFor(() => {
-      expect(mocks.challengeAndVerify).toHaveBeenCalledWith({
-        code: '123456',
-        factorId: 'factor-1',
-      });
-    });
+  mocks.getAuthenticatorAssuranceLevel.mockResolvedValue({
+    data: { currentLevel: 'aal1' },
+    error: null,
   });
-
-  it('offers backup enrollment when a verified factor exists', async () => {
-    mocks.listFactors.mockResolvedValue({
-      data: {
-        all: [{ id: 'factor-2', factor_type: 'totp', status: 'verified' }],
-        totp: [{ id: 'factor-2', status: 'verified' }],
-      },
-      error: null,
-    });
-    mocks.getAuthenticatorAssuranceLevel.mockResolvedValue({
-      data: { currentLevel: 'aal2' },
-      error: null,
-    });
-
-    render(<SecurityScreen />);
-
-    expect(
-      await screen.findByText('2FA enabled and verified')
-    ).toBeInTheDocument();
-    const backupButton = screen.getByRole('button', {
-      name: 'Add backup authenticator',
-    });
-    fireEvent.click(backupButton);
-
-    await waitFor(() => expect(mocks.enroll).toHaveBeenCalledTimes(1));
+  mocks.enroll.mockResolvedValue({
+    data: { id: 'factor-1', totp: { secret: 'SECRET123' } },
+    error: null,
   });
+  mocks.challengeAndVerify.mockResolvedValue({ data: {}, error: null });
+  mocks.unenroll.mockResolvedValue({ data: {}, error: null });
+});
 
+describe('SecurityScreen factor recovery', () => {
   it('restarts an interrupted backup before allowing another enrollment', async () => {
     mocks.listFactors.mockResolvedValue({
       data: {
@@ -200,59 +152,6 @@ describe('SecurityScreen', () => {
         factorId: 'interrupted-backup',
       });
       expect(mocks.enroll).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  it('verifies a session with the selected backup authenticator', async () => {
-    mocks.listFactors.mockResolvedValue({
-      data: {
-        all: [
-          {
-            id: 'primary-factor',
-            factor_type: 'totp',
-            friendly_name: 'Primary authenticator',
-            status: 'verified',
-          },
-          {
-            id: 'backup-factor',
-            factor_type: 'totp',
-            friendly_name: 'Backup authenticator',
-            status: 'verified',
-          },
-        ],
-        totp: [
-          {
-            id: 'primary-factor',
-            friendly_name: 'Primary authenticator',
-            status: 'verified',
-          },
-          {
-            id: 'backup-factor',
-            friendly_name: 'Backup authenticator',
-            status: 'verified',
-          },
-        ],
-      },
-      error: null,
-    });
-
-    render(<SecurityScreen />);
-
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'Use Backup authenticator',
-      })
-    );
-    fireEvent.change(screen.getByLabelText('Authenticator code'), {
-      target: { value: '123456' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
-
-    await waitFor(() => {
-      expect(mocks.challengeAndVerify).toHaveBeenCalledWith({
-        code: '123456',
-        factorId: 'backup-factor',
-      });
     });
   });
 
@@ -304,53 +203,5 @@ describe('SecurityScreen', () => {
       'Security Error',
       'factor lookup failed'
     );
-  });
-
-  it('keeps enrollment retryable when enrollment fails', async () => {
-    mocks.enroll.mockResolvedValue({
-      data: null,
-      error: { message: 'enrollment failed' },
-    });
-    render(<SecurityScreen />);
-
-    const setupButton = await screen.findByRole('button', {
-      name: 'Set up authenticator',
-    });
-    fireEvent.click(setupButton);
-
-    await waitFor(() => {
-      expect(mocks.alert).toHaveBeenCalledWith(
-        'Could not enable 2FA',
-        'enrollment failed'
-      );
-    });
-    expect(
-      screen.getByRole('button', { name: 'Set up authenticator' })
-    ).toBeInTheDocument();
-  });
-
-  it('keeps verification retryable when challenge verification fails', async () => {
-    mocks.challengeAndVerify.mockResolvedValue({
-      data: null,
-      error: { message: 'invalid code' },
-    });
-    render(<SecurityScreen />);
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Set up authenticator' })
-    );
-    fireEvent.change(await screen.findByLabelText('Authenticator code'), {
-      target: { value: '123456' },
-    });
-    const verifyButton = screen.getByRole('button', { name: 'Verify code' });
-    fireEvent.click(verifyButton);
-
-    await waitFor(() => {
-      expect(mocks.alert).toHaveBeenCalledWith(
-        'Verification failed',
-        'invalid code'
-      );
-    });
-    expect(verifyButton).toBeInTheDocument();
   });
 });

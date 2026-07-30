@@ -13,9 +13,11 @@ type ToastFn = (
 interface SaveSettingsContext {
   data: SettingsFormValues;
   heroSlides: HeroSlide[];
+  merchantId: string;
   socialMedia: Record<string, string> | null;
   updateMerchant: UpdateMerchantFn;
   reloadMerchant: () => void;
+  isCurrentSave: () => boolean;
   toast: ToastFn;
   setIsSaving: Dispatch<SetStateAction<boolean>>;
 }
@@ -23,9 +25,11 @@ interface SaveSettingsContext {
 export async function saveSettings({
   data,
   heroSlides,
+  merchantId,
   socialMedia,
   updateMerchant,
   reloadMerchant,
+  isCurrentSave,
   toast,
   setIsSaving,
 }: SaveSettingsContext) {
@@ -36,7 +40,8 @@ export async function saveSettings({
     // A null draft means the user did not edit social links, so no identity
     // request is needed at all.
     if (socialMedia !== null) {
-      await updateSocial(sanitizeSocialMedia(socialMedia));
+      await updateSocial(merchantId, sanitizeSocialMedia(socialMedia));
+      if (!isCurrentSave()) return;
     }
 
     // Generic (non-identity) settings go through the generic hook. Suppress
@@ -47,20 +52,22 @@ export async function saveSettings({
         ...data,
         hero_slides: heroSlides,
       } as Parameters<UpdateMerchantFn>[0],
-      { skipReload: true }
+      { merchantId, skipReload: true }
     );
+    if (!isCurrentSave()) return;
     reloadMerchant();
     toast({
       title: 'Settings Saved!',
       description: 'Your store settings have been updated.',
     });
   } catch (error) {
+    if (!isCurrentSave()) return;
     toast({
       title: 'Error Saving Settings',
       description: (error as Error).message,
       variant: 'destructive',
     });
   } finally {
-    setIsSaving(false);
+    if (isCurrentSave()) setIsSaving(false);
   }
 }

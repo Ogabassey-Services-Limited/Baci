@@ -54,6 +54,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: '',
+          merchantId: 'merchant-1',
           postalCode: '',
           setVatEnabled,
           stateCode: 'NG-LA',
@@ -67,7 +68,7 @@ describe('useTaxMutations', () => {
     });
 
     expect(setVatEnabled).toHaveBeenCalledWith(true);
-    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith({
+    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith('merchant-1', {
       vat_registration_status: 'registered',
     });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
@@ -89,6 +90,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: '',
+          merchantId: 'merchant-1',
           postalCode: '',
           setVatEnabled,
           stateCode: 'NG-LA',
@@ -127,6 +129,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: 'Lagos',
+          merchantId: 'merchant-1',
           postalCode: '100001',
           setVatEnabled: vi.fn(),
           stateCode: 'NG-LA',
@@ -139,7 +142,7 @@ describe('useTaxMutations', () => {
       await result.current.saveAddressMutation.mutateAsync();
     });
 
-    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith({
+    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith('merchant-1', {
       registered_address: {
         street: '12 Allen Avenue',
         city: 'Lagos',
@@ -167,6 +170,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: 'Lagos',
+          merchantId: 'merchant-1',
           postalCode: '100001',
           setVatEnabled: vi.fn(),
           stateCode: 'NG-LA',
@@ -201,6 +205,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: '',
+          merchantId: 'merchant-1',
           postalCode: '',
           setVatEnabled: vi.fn(),
           stateCode: 'NG-LA',

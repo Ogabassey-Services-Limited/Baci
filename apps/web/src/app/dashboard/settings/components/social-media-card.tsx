@@ -62,11 +62,13 @@ const SOCIAL_FIELDS = [
 
 interface SocialMediaCardProps {
   initialSocialMedia: Record<string, string>;
+  merchantId: string;
   onSocialMediaChange: (socialMedia: Record<string, string>) => void;
 }
 
 export function SocialMediaCard({
   initialSocialMedia,
+  merchantId,
   onSocialMediaChange,
 }: SocialMediaCardProps) {
   const { toast } = useToast();
@@ -80,9 +82,32 @@ export function SocialMediaCard({
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resetStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestDataRef = useRef<Record<string, string>>(initialSocialMedia);
+  const saveGenerationRef = useRef(0);
+  const [previousMerchantId, setPreviousMerchantId] = useState(merchantId);
+
+  // A merchant switch is a security boundary, not a background refresh: clear
+  // the former merchant's pending debounce and replace its local draft during
+  // the same render. This prevents an A-store draft from being sent with B's
+  // selected merchant ID.
+  if (merchantId !== previousMerchantId) {
+    saveGenerationRef.current += 1;
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+    if (resetStatusTimeoutRef.current) {
+      clearTimeout(resetStatusTimeoutRef.current);
+      resetStatusTimeoutRef.current = null;
+    }
+    setPreviousMerchantId(merchantId);
+    setSocialMedia(initialSocialMedia);
+    setSaveStatus('idle');
+    latestDataRef.current = initialSocialMedia;
+  }
 
   useEffect(() => {
     return () => {
+      saveGenerationRef.current += 1;
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
@@ -97,6 +122,7 @@ export function SocialMediaCard({
       clearTimeout(autoSaveTimeoutRef.current);
     }
 
+    const saveGeneration = ++saveGenerationRef.current;
     autoSaveTimeoutRef.current = setTimeout(async () => {
       const dataToSave = latestDataRef.current;
 
@@ -105,7 +131,8 @@ export function SocialMediaCard({
         // social_media is an IDENTITY field — it must NOT flow through the
         // generic updateMerchant hook (which now throws on it). Persist via the
         // dedicated, server-allowlisted /api/merchant/settings PATCH route.
-        await updateSocial(dataToSave);
+        await updateSocial(merchantId, dataToSave);
+        if (saveGeneration !== saveGenerationRef.current) return;
         reloadMerchant();
         setSaveStatus('saved');
         if (resetStatusTimeoutRef.current) {
@@ -116,6 +143,7 @@ export function SocialMediaCard({
           2000
         );
       } catch (e) {
+        if (saveGeneration !== saveGenerationRef.current) return;
         logger.error({
           error: e instanceof Error ? e : new Error(String(e)),
           message: 'Autosave failed',

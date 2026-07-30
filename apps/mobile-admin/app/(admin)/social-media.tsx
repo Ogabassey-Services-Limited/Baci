@@ -100,13 +100,15 @@ export default function SocialMediaScreen() {
       (socialMedia[platform] ?? '') !== (merchantSocialMedia[platform] ?? '')
   );
 
-  // Save Mutation
   const saveMutation = useMutation({
-    mutationFn: async () =>
-      updateMerchantSettings({
-        social_media: socialMedia,
-      }),
-    onMutate: () => merchant?.id,
+    mutationFn: async ({
+      merchantId,
+      values,
+    }: {
+      merchantId: string;
+      values: MerchantSocialMedia;
+    }) => updateMerchantSettings(merchantId, { social_media: values }),
+    onMutate: ({ merchantId }) => merchantId,
     onSuccess: async (_data, _variables, savedMerchantId) => {
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
@@ -140,7 +142,7 @@ export default function SocialMediaScreen() {
 
   const handleSave = () => {
     if (!merchant || !isDirty) return;
-    saveMutation.mutate();
+    saveMutation.mutate({ merchantId: merchant.id, values: socialMedia });
   };
 
   const handleSocialMediaChange = (

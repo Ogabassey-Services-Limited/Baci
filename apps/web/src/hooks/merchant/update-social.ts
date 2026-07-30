@@ -23,9 +23,11 @@ export interface UpdateSocialResponse {
  * message is surfaced from the route's JSON body by `apiPatch`).
  */
 export function updateSocial(
+  merchantId: string,
   socialMedia: SocialMediaValues
 ): Promise<UpdateSocialResponse> {
   return apiPatch<UpdateSocialResponse>('/api/merchant/settings', {
+    merchantId,
     social_media: socialMedia,
   });
 }

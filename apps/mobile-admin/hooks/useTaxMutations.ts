@@ -6,6 +6,7 @@ import { updateMerchantSettings } from '@/lib/merchant-settings';
 
 interface UseTaxMutationsOptions {
   city: string;
+  merchantId?: string | null;
   postalCode: string;
   setVatEnabled: Dispatch<SetStateAction<boolean>>;
   stateCode: string;
@@ -14,6 +15,7 @@ interface UseTaxMutationsOptions {
 
 export function useTaxMutations({
   city,
+  merchantId,
   postalCode,
   setVatEnabled,
   stateCode,
@@ -21,9 +23,16 @@ export function useTaxMutations({
 }: UseTaxMutationsOptions) {
   const queryClient = useQueryClient();
 
+  const updateSettings = (
+    payload: Parameters<typeof updateMerchantSettings>[1]
+  ) => {
+    if (!merchantId) throw new Error('No merchant found');
+    return updateMerchantSettings(merchantId, payload);
+  };
+
   const updateVatMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      await updateMerchantSettings({
+      await updateSettings({
         vat_registration_status: enabled ? 'registered' : 'not_registered',
       });
       return enabled;
@@ -52,7 +61,7 @@ export function useTaxMutations({
         throw new Error('Nigerian TIN must be exactly 10 digits');
       }
 
-      await updateMerchantSettings({
+      await updateSettings({
         tax_identification_number: tin || null,
       });
     },
@@ -67,7 +76,7 @@ export function useTaxMutations({
 
   const saveLegalEntityMutation = useMutation({
     mutationFn: async (name: string) => {
-      await updateMerchantSettings({
+      await updateSettings({
         legal_entity_name: name || null,
       });
     },
@@ -86,7 +95,7 @@ export function useTaxMutations({
         (state) => state.code === stateCode
       );
 
-      await updateMerchantSettings({
+      await updateSettings({
         registered_address: {
           street: street || null,
           city: city || null,

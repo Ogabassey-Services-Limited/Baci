@@ -9,10 +9,17 @@ interface MerchantSettingsResponse {
   merchant: MerchantSettingsRecord;
 }
 
-export function updateMerchantSettings(payload: MerchantSettingsUpdatePayload) {
+/**
+ * Updates the explicitly selected merchant. The server authorizes this ID
+ * against the authenticated user; it is an assertion, never authority.
+ */
+export function updateMerchantSettings(
+  merchantId: string,
+  payload: MerchantSettingsUpdatePayload
+) {
   return apiClient<MerchantSettingsResponse>('/api/merchant/settings', {
     method: 'PATCH',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, merchantId }),
   });
 }
 

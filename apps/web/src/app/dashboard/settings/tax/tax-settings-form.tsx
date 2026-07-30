@@ -28,6 +28,7 @@ import {
 } from '@/lib/tax-identification';
 
 interface TaxSettingsFormProps {
+  merchantId: string;
   initialVatEnabled: boolean;
   initialVatRate: number;
   initialTaxId: string;
@@ -42,6 +43,7 @@ interface VerifyTaxIdResponse {
 }
 
 export function TaxSettingsForm({
+  merchantId,
   initialVatEnabled,
   initialVatRate,
   initialTaxId,
@@ -67,7 +69,7 @@ export function TaxSettingsForm({
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
   const saveSettings = async (payload: Record<string, unknown>) => {
-    await apiPatch('/api/merchant/settings', payload);
+    await apiPatch('/api/merchant/settings', { merchantId, ...payload });
   };
 
   const handleVatToggle = async (enabled: boolean) => {
