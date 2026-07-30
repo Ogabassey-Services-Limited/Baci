@@ -24,7 +24,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
-import { updateSocial } from '@/hooks/merchant/update-social';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import type { CachedMerchant, HeroSlide } from '@/lib/cached-data';
@@ -32,10 +31,10 @@ import { logger } from '@/lib/logger';
 import type { BrandColors } from '@/types';
 import { BrandingCard } from './branding-card';
 import { HeroCarouselCard } from './hero-carousel-card';
+import { saveSettings } from './save-settings';
 import {
   extractColorsFromImage,
   type SettingsFormValues,
-  sanitizeSocialMedia,
   settingsSchema,
 } from './settings-utils';
 import { SocialMediaCard } from './social-media-card';
@@ -138,60 +137,6 @@ async function uploadLogoWithColors({
     });
   } finally {
     setIsUploading(false);
-  }
-}
-
-interface SaveSettingsContext {
-  data: SettingsFormValues;
-  heroSlides: HeroSlide[];
-  socialMedia: Record<string, string>;
-  updateMerchant: UpdateMerchantFn;
-  reloadMerchant: () => void;
-  toast: ToastFn;
-  setIsSaving: Dispatch<SetStateAction<boolean>>;
-}
-
-// Module-scope helper: keeps the try/finally out of the component body.
-async function saveSettings({
-  data,
-  heroSlides,
-  socialMedia,
-  updateMerchant,
-  reloadMerchant,
-  toast,
-  setIsSaving,
-}: SaveSettingsContext) {
-  setIsSaving(true);
-  try {
-    await Promise.all([
-      // Generic (non-identity) settings go through the generic hook. Suppress
-      // its implicit reload so the context refresh happens once, after the
-      // dedicated social_media write also commits.
-      updateMerchant(
-        {
-          ...data,
-          hero_slides: heroSlides,
-        } as Parameters<UpdateMerchantFn>[0],
-        { skipReload: true }
-      ),
-      // social_media is an IDENTITY field — persist it via the dedicated,
-      // server-allowlisted /api/merchant/settings PATCH route (the generic hook
-      // now throws on identity keys).
-      updateSocial(sanitizeSocialMedia(socialMedia)),
-    ]);
-    reloadMerchant();
-    toast({
-      title: 'Settings Saved!',
-      description: 'Your store settings have been updated.',
-    });
-  } catch (e) {
-    toast({
-      title: 'Error Saving Settings',
-      description: (e as Error).message,
-      variant: 'destructive',
-    });
-  } finally {
-    setIsSaving(false);
   }
 }
 
@@ -350,7 +295,7 @@ export function SettingsForm({
     await saveSettings({
       data,
       heroSlides,
-      socialMedia: socialMediaEdits ?? buildSocialMediaDraft(initialMerchant),
+      socialMedia: socialMediaEdits,
       updateMerchant,
       reloadMerchant,
       toast,

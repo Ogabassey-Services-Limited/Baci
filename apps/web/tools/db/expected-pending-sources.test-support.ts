@@ -307,4 +307,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260730103000_enforce_merchant_updated_at_occ.sql',
     sha256: '3f6ca1a9570f072d934f7bcb8b7887371ccb3541b4e46d5c252e49102fedf1b5',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730110031_skip_unchanged_guarded_social_updates.sql',
+    sha256: '9be059cba5547494ce4f0db9220d8852d1bbe55a33f4ff327fa1dc7980d6b77e',
+  },
 ];

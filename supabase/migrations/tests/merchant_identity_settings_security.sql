@@ -229,6 +229,69 @@ SELECT public.update_merchant_social_media(
   '{}'::jsonb
 );
 RESET ROLE;
+-- A settings form can submit a full social draft whose normalized value is
+-- unchanged. That no-op must not require recent authentication, write the row,
+-- or create a misleading audit event.
+SELECT set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'sub', 'a3100000-0000-4000-8000-000000000001',
+    'role', 'authenticated',
+    'session_id', 'a3100000-0000-4000-8000-000000000003',
+    'aal', 'aal1',
+    'amr', jsonb_build_array(
+      jsonb_build_object(
+        'method', 'password',
+        'timestamp', extract(epoch from now() - interval '1 hour')::bigint
+      )
+    )
+  )::text,
+  true
+);
+SET LOCAL ROLE authenticated;
+DO $$
+DECLARE
+  v_updated_at timestamptz;
+  v_social_audits integer;
+BEGIN
+  SELECT updated_at,
+         (
+           SELECT count(*)
+             FROM public.audit_logs
+            WHERE merchant_id = 'a3100000-0000-4000-8000-000000000002'
+              AND action = 'merchant_social_media_updated'
+         )
+    INTO v_updated_at, v_social_audits
+    FROM public.merchants
+   WHERE id = 'a3100000-0000-4000-8000-000000000002';
+
+  PERFORM public.update_merchant_social_media(
+    'a3100000-0000-4000-8000-000000000002',
+    '{"twitter":"","facebook":"https://facebook.com/secure","instagram":"@old","tiktok":"","youtube":"","pinterest":"","linkedin":"https://linkedin.com/company/secure","snapchat":""}'::jsonb,
+    false,
+    '{}'::jsonb
+  );
+
+  IF EXISTS (
+    SELECT 1
+      FROM public.merchants
+     WHERE id = 'a3100000-0000-4000-8000-000000000002'
+       AND updated_at IS DISTINCT FROM v_updated_at
+  ) THEN
+    RAISE EXCEPTION 'unchanged social payload updated the merchant row';
+  END IF;
+
+  IF (
+    SELECT count(*)
+      FROM public.audit_logs
+     WHERE merchant_id = 'a3100000-0000-4000-8000-000000000002'
+       AND action = 'merchant_social_media_updated'
+  ) <> v_social_audits THEN
+    RAISE EXCEPTION 'unchanged social payload created an audit row';
+  END IF;
+END;
+$$;
+RESET ROLE;
 SELECT set_config(
   'request.jwt.claims',
   jsonb_build_object(

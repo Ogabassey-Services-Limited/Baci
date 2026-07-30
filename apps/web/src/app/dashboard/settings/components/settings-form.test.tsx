@@ -155,7 +155,7 @@ describe('SettingsForm', () => {
     ).toBeInTheDocument();
   });
 
-  it('submit saves generic fields and social_media before one context reload', async () => {
+  it('submit saves edited social_media before generic fields and one context reload', async () => {
     // Arrange
     mockUpdateMerchant.mockResolvedValueOnce(undefined);
     mockUpdateSocial.mockResolvedValueOnce({
@@ -196,6 +196,10 @@ describe('SettingsForm', () => {
       );
     });
 
+    expect(mockUpdateSocial.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpdateMerchant.mock.invocationCallOrder[0] ?? 0
+    );
+
     expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
     expect(
       Math.max(
@@ -210,6 +214,57 @@ describe('SettingsForm', () => {
         description: 'Your store settings have been updated.',
       });
     });
+  });
+
+  it('does not send an unchanged social draft during a generic settings save', async () => {
+    // Arrange
+    mockUpdateMerchant.mockResolvedValueOnce(undefined);
+    render(
+      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
+    );
+    const form = screen
+      .getByRole('button', { name: /save changes/i })
+      .closest('form');
+
+    if (!form) throw new Error('Form not found');
+
+    // Act
+    fireEvent.submit(form);
+
+    // Assert
+    await waitFor(() => {
+      expect(mockUpdateMerchant).toHaveBeenCalledTimes(1);
+    });
+    expect(mockUpdateSocial).not.toHaveBeenCalled();
+    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not partially commit generic settings when the social update fails', async () => {
+    // Arrange
+    mockUpdateSocial.mockRejectedValueOnce(new Error('Sign in again'));
+    render(
+      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
+    );
+    fireEvent.click(screen.getByTestId('social-media-card'));
+    const form = screen
+      .getByRole('button', { name: /save changes/i })
+      .closest('form');
+
+    if (!form) throw new Error('Form not found');
+
+    // Act
+    fireEvent.submit(form);
+
+    // Assert
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'Error Saving Settings',
+        description: 'Sign in again',
+        variant: 'destructive',
+      });
+    });
+    expect(mockUpdateMerchant).not.toHaveBeenCalled();
+    expect(mockReloadMerchant).not.toHaveBeenCalled();
   });
 
   it('shows error toast when updateMerchant rejects', async () => {

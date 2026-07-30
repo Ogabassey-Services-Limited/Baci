@@ -80,6 +80,24 @@ BEGIN
     RAISE EXCEPTION 'placeholder business_address was accepted';
   EXCEPTION WHEN check_violation THEN NULL; END;
 
+  -- Direct sensitive identity writes must still fail without the narrow RPC
+  -- capability, independently of the legacy placeholder constraints below.
+  BEGIN
+    UPDATE public.merchants SET phone = '+2348146978999' WHERE id = v_mid;
+    RAISE EXCEPTION 'unauthorized direct phone update bypassed identity guard';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      IF SQLERRM <> 'merchant_sensitive_update_not_authorized' THEN
+        RAISE;
+      END IF;
+  END;
+
+  PERFORM pg_catalog.set_config(
+    'app.merchant_sensitive_update_authorized',
+    'true',
+    true
+  );
+
   -- The seeded dummy phone must be rejected.
   BEGIN
     UPDATE public.merchants SET phone = '1234567890' WHERE id = v_mid;
@@ -122,6 +140,12 @@ BEGIN
          support_phone = '+2348146978922',
          registered_address = jsonb_build_object('street', '19 Adeola Odeku Street', 'city', 'Victoria Island')
    WHERE id = v_mid;
+
+  PERFORM pg_catalog.set_config(
+    'app.merchant_sensitive_update_authorized',
+    'false',
+    true
+  );
 
   -- ---------- CAC idempotency guard present ----------
   v_def := pg_get_functiondef('public.record_cac_verification(uuid,text,text,text)'::regprocedure);
