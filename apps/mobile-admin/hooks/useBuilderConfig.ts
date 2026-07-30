@@ -1,70 +1,22 @@
-/**
- * useBuilderConfig Hook
- * Manages the page builder configuration for the AI Copilot.
- * Communicates with the Web API to fetch, modify via AI, save, and publish configs.
- */
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
+import {
+  type BuilderApiResponse,
+  type BuilderConfig,
+  type BuilderMutationVariables,
+  type ChatMessage,
+  type GeminiResponse,
+  isCurrentBuilderAiRequest,
+  type MerchantBuilderDraft,
+} from './builder-ai-request';
 import { formatAiCopilotError } from './format-ai-copilot-error';
 import { useMerchant } from './useMerchant';
 
-export interface BuilderConfig {
-  content: Array<{
-    type: string;
-    props: Record<string, unknown>;
-  }>;
-  root: {
-    title?: string;
-    [key: string]: unknown;
-  };
-  zones?: Record<string, unknown>;
-  theme?: {
-    colors?: {
-      primary?: string;
-      accent?: string;
-      header?: Record<string, string>;
-      footer?: Record<string, string>;
-    };
-    [key: string]: unknown;
-  };
-}
-
-interface BuilderApiResponse {
-  config: BuilderConfig;
-  seo?: Record<string, unknown>;
-  storeSettings?: Record<string, unknown>;
-  setupSettings?: Record<string, unknown>;
-  publishedConfig?: BuilderConfig | null;
-  isPublished?: boolean;
-  isDefault?: boolean;
-  lastUpdated?: string;
-}
-
-interface GeminiResponse {
-  config: BuilderConfig;
-  error?: string;
-}
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: Date;
-}
-
-interface BuilderMutationVariables {
-  merchantId: string | null;
-}
-
-interface MerchantBuilderDraft {
-  merchantId: string;
-  config: BuilderConfig;
-}
+export type { BuilderConfig } from './builder-ai-request';
 
 export function useBuilderConfig(pageSlug: string = 'home') {
   const queryClient = useQueryClient();
@@ -89,7 +41,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     );
   }, [merchantId]);
 
-  // Fetch current configuration
   const {
     data: configData,
     isLoading: isLoadingConfig,
@@ -120,13 +71,11 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Derive effective config: local override (from AI mutation) or query cache
   const effectiveConfig =
     currentConfig?.merchantId === merchantId
       ? currentConfig.config
       : (configData?.config ?? null);
 
-  // Update config with AI (Gemini)
   const aiMutation = useMutation({
     mutationFn: async (prompt: string): Promise<BuilderConfig> => {
       const token = session?.access_token;
@@ -146,7 +95,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       const requestSequence = ++aiRequestSequenceRef.current;
       setActiveAiRequestSequence(requestSequence);
 
-      // Add user message to chat
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'user',
@@ -166,7 +114,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
           }),
         });
 
-        if (aiRequestSequenceRef.current !== requestSequence) {
+        if (!isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
           return data.config;
         }
 
@@ -188,7 +136,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
 
         return data.config;
       } catch (error) {
-        if (aiRequestSequenceRef.current !== requestSequence) {
+        if (!isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
           return requestConfig;
         }
 
@@ -207,7 +155,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
           requestId: formattedError.requestId,
         });
       } finally {
-        if (aiRequestSequenceRef.current === requestSequence) {
+        if (isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
           setActiveAiRequestSequence(null);
         }
       }
