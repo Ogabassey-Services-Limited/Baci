@@ -118,4 +118,104 @@ describe('useBuilderConfig deferred save', () => {
     );
     expect(result.current.config).toEqual(merchantBDraft);
   });
+
+  it('does not invoke a merchant A publish success callback after switching to B', async () => {
+    let resolvePublish!: () => void;
+    const publishRequest = new Promise<void>((resolve) => {
+      resolvePublish = resolve;
+    });
+    const onSuccess = vi.fn();
+    const merchantBConfig = {
+      ...baseConfig,
+      root: { title: 'Merchant B' },
+    };
+    mockApiClient.mockImplementation((url, options) => {
+      if (url === '/api/builder?slug=home&merchantId=merchant-1') {
+        return Promise.resolve({ config: baseConfig, isPublished: false });
+      }
+      if (url === '/api/builder?slug=home&merchantId=merchant-2') {
+        return Promise.resolve({ config: merchantBConfig, isPublished: false });
+      }
+      if (url === '/api/builder' && options?.method === 'POST') {
+        return Promise.resolve(undefined);
+      }
+      if (url === '/api/builder' && options?.method === 'PUT') {
+        return publishRequest;
+      }
+      return Promise.resolve(undefined);
+    });
+    const { Wrapper } = createBuilderConfigWrapper();
+    const { result, rerender } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => expect(result.current.config).toEqual(baseConfig));
+    act(() => result.current.publish(undefined, { onSuccess }));
+    await waitFor(() =>
+      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
+        body: JSON.stringify({ slug: 'home', merchantId: 'merchant-1' }),
+        method: 'PUT',
+      })
+    );
+
+    merchantMocks.merchant = { id: 'merchant-2' };
+    rerender();
+    await waitFor(() => expect(result.current.config).toEqual(merchantBConfig));
+
+    await act(async () => resolvePublish());
+
+    await waitFor(() => expect(result.current.isPublishing).toBe(false));
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('does not invoke a merchant A save error callback after switching to B', async () => {
+    let rejectSave!: (error: Error) => void;
+    const saveRequest = new Promise<void>((_resolve, reject) => {
+      rejectSave = reject;
+    });
+    const onError = vi.fn();
+    const merchantBConfig = {
+      ...baseConfig,
+      root: { title: 'Merchant B' },
+    };
+    mockApiClient.mockImplementation((url, options) => {
+      if (url === '/api/builder?slug=home&merchantId=merchant-1') {
+        return Promise.resolve({ config: baseConfig, isPublished: false });
+      }
+      if (url === '/api/builder?slug=home&merchantId=merchant-2') {
+        return Promise.resolve({ config: merchantBConfig, isPublished: false });
+      }
+      if (url === '/api/builder' && options?.method === 'POST') {
+        return saveRequest;
+      }
+      return Promise.resolve(undefined);
+    });
+    const { Wrapper } = createBuilderConfigWrapper();
+    const { result, rerender } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => expect(result.current.config).toEqual(baseConfig));
+    act(() => result.current.saveDraft(undefined, { onError }));
+    await waitFor(() =>
+      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
+        body: JSON.stringify({
+          slug: 'home',
+          merchantId: 'merchant-1',
+          config: baseConfig,
+          name: 'Home',
+        }),
+        method: 'POST',
+      })
+    );
+
+    merchantMocks.merchant = { id: 'merchant-2' };
+    rerender();
+    await waitFor(() => expect(result.current.config).toEqual(merchantBConfig));
+
+    await act(async () => rejectSave(new Error('Merchant A save failed')));
+
+    await waitFor(() => expect(result.current.isSavingDraft).toBe(false));
+    expect(onError).not.toHaveBeenCalled();
+  });
 });

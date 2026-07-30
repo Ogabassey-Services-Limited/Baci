@@ -13,6 +13,10 @@ import {
   isCurrentBuilderAiRequest,
   type MerchantBuilderDraft,
 } from './builder-ai-request';
+import {
+  type BuilderMerchantRequest,
+  guardBuilderMutationCallbacks,
+} from './builder-mutation-callbacks';
 import { formatAiCopilotError } from './format-ai-copilot-error';
 import { useMerchant } from './useMerchant';
 
@@ -23,8 +27,16 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   const { session, isLoading } = useAuth();
   const { merchant } = useMerchant();
   const merchantId = merchant?.id ?? null;
-  const merchantIdRef = useRef(merchantId);
-  merchantIdRef.current = merchantId;
+  const merchantRequestRef = useRef<BuilderMerchantRequest>({
+    merchantId,
+    revision: 0,
+  });
+  if (merchantRequestRef.current.merchantId !== merchantId) {
+    merchantRequestRef.current = {
+      merchantId,
+      revision: merchantRequestRef.current.revision + 1,
+    };
+  }
   const aiRequestSequenceRef = useRef(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentConfig, setCurrentConfig] =
@@ -119,7 +131,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
           return data.config;
         }
 
-        // Add success message to chat
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -129,7 +140,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         };
         setMessages((prev) => [...prev, assistantMessage]);
 
-        // Update local config
         setCurrentConfig({
           merchantId: requestMerchantId,
           config: data.config,
@@ -142,7 +152,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         }
 
         const formattedError = formatAiCopilotError(error);
-        // Add error message to chat
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'system',
@@ -163,7 +172,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     },
   });
 
-  // Save draft
   const saveDraftMutation = useMutation({
     mutationFn: async ({
       merchantId,
@@ -192,7 +200,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       });
     },
     onSuccess: (_data, variables) => {
-      // Clear local override so query cache becomes source of truth again
       setCurrentConfig((draft) =>
         draft?.merchantId === variables.merchantId ? null : draft
       );
@@ -202,14 +209,12 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     },
   });
 
-  // Publish
   const publishMutation = useMutation({
     mutationFn: async (variables: BuilderMutationVariables): Promise<void> => {
       if (!variables.merchantId) {
         throw new Error('Merchant not loaded. Please try again.');
       }
 
-      // First save the current config as draft
       await saveDraftMutation.mutateAsync(variables);
 
       const token = session?.access_token;
@@ -243,50 +248,49 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     },
   });
 
-  // Send a message to the AI
   function sendMessage(prompt: string) {
     return aiMutation.mutateAsync(prompt);
   }
 
-  // Clear chat history
   function clearChat() {
     setMessages([]);
   }
 
   return {
-    // Config state
     config: effectiveConfig,
     configData,
     isLoadingConfig,
     configError,
     refetchConfig,
-
-    // Chat state
     messages,
     clearChat,
-
-    // AI actions
     sendMessage,
     isProcessingAI: activeAiRequestSequence !== null,
     aiError: aiMutation.error,
-
-    // Save/Publish actions
     saveDraft: (
       _variables?: undefined,
       options?: Parameters<typeof saveDraftMutation.mutate>[1]
-    ) =>
-      saveDraftMutation.mutate({ merchantId: merchant?.id ?? null }, options),
+    ) => {
+      const request = merchantRequestRef.current;
+      return saveDraftMutation.mutate(
+        { merchantId: request.merchantId },
+        guardBuilderMutationCallbacks(options, request, merchantRequestRef)
+      );
+    },
     isSavingDraft: saveDraftMutation.isPending,
     saveDraftError: saveDraftMutation.error,
-
     publish: (
       _variables?: undefined,
       options?: Parameters<typeof publishMutation.mutate>[1]
-    ) => publishMutation.mutate({ merchantId: merchant?.id ?? null }, options),
+    ) => {
+      const request = merchantRequestRef.current;
+      return publishMutation.mutate(
+        { merchantId: request.merchantId },
+        guardBuilderMutationCallbacks(options, request, merchantRequestRef)
+      );
+    },
     isPublishing: publishMutation.isPending,
     publishError: publishMutation.error,
-
-    // Convenience
     hasUnsavedChanges:
       currentConfig?.merchantId === merchantId &&
       JSON.stringify(effectiveConfig) !== JSON.stringify(configData?.config),

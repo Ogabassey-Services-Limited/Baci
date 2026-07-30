@@ -81,9 +81,8 @@ import {
   getReadOnlyBuilderDescription,
 } from './builder-descriptions';
 import { loadBuilderData } from './load-builder-data';
-import { publishBuilderDraft } from './publish-builder-draft';
 import { runBuilderAiCommand } from './run-builder-ai-command';
-import { saveBuilderDraft } from './save-builder-draft';
+import { useBuilderMutationActions } from './use-builder-mutation-actions';
 
 // Component icon mapping - using component functions for dynamic sizing
 const componentIcons: Record<
@@ -287,59 +286,21 @@ export default function BuilderClient() {
     setIsAiLoading(false);
   }, [merchantId]);
 
-  const handleSave = async (newData: Data): Promise<string | null> => {
-    if (!merchantId || !canEdit) {
-      toast({
-        title: 'Builder is read-only',
-        description: getReadOnlyBuilderDescription(previewMode, degradedReason),
-        variant: 'destructive',
-      });
-      return null;
-    }
-
-    return await saveBuilderDraft({
-      merchantId,
-      newData,
-      seoData,
-      storeSettings,
-      setupSettings,
-      expectedLastUpdated: lastUpdated,
-      setLastUpdated,
-      setSaving,
-      toast,
-    });
-  };
-
-  const handlePublish = async () => {
-    if (!data || !merchantId || !canEdit) {
-      if (!canEdit) {
-        toast({
-          title: 'Builder is read-only',
-          description: getReadOnlyBuilderDescription(
-            previewMode,
-            degradedReason
-          ),
-          variant: 'destructive',
-        });
-      }
-      return;
-    }
-
-    setPublishing(true);
-    const savedLastUpdated = await handleSave(data);
-    if (!savedLastUpdated) {
-      setPublishing(false);
-      return;
-    }
-
-    await publishBuilderDraft({
-      merchantId,
-      expectedLastUpdated: savedLastUpdated,
-      setLastUpdated,
-      setPublishing,
-      toast,
-    });
-  };
+  const { handlePublish, handleSave } = useBuilderMutationActions({
+    canEdit,
+    data,
+    degradedReason,
+    expectedLastUpdated: lastUpdated,
+    merchantId,
+    previewMode,
+    seoData,
+    setLastUpdated,
+    setPublishing,
+    setSaving,
+    setupSettings,
+    storeSettings,
+    toast,
+  });
 
   const handleAiCommand = async (command: string) => {
     if (!merchantId || !canEdit) {
@@ -711,7 +672,7 @@ export default function BuilderClient() {
                     variant="outline"
                     size="sm"
                     onClick={() => data && handleSave(data)}
-                    disabled={saving || !canEdit}
+                    disabled={saving || publishing || !canEdit}
                     className="h-9"
                   >
                     {saving ? (
@@ -724,7 +685,7 @@ export default function BuilderClient() {
                   <Button
                     size="sm"
                     onClick={handlePublish}
-                    disabled={publishing || !canEdit}
+                    disabled={saving || publishing || !canEdit}
                     className="h-9"
                   >
                     {publishing ? (

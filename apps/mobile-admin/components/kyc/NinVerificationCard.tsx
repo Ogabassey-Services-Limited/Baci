@@ -223,7 +223,7 @@ export default function NinVerificationCard({
 
           <IdentityNameFields
             colors={colors}
-            disabled={verified}
+            disabled={bvnVerified}
             firstName={firstName}
             lastName={lastName}
             onIdentityChange={onIdentityChange}
@@ -241,7 +241,7 @@ export default function NinVerificationCard({
               }))
             }
             colors={colors}
-            disabled={verified}
+            disabled={bvnVerified}
           />
 
           {!verified && (

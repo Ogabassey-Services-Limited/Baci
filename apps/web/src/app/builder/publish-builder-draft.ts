@@ -6,6 +6,7 @@ import { getBuilderMutationErrorMessage } from './builder-descriptions';
 
 interface PublishBuilderDraftParams {
   merchantId: string;
+  isCurrentRequest: () => boolean;
   expectedLastUpdated: string;
   setLastUpdated: Dispatch<SetStateAction<string | null>>;
   setPublishing: Dispatch<SetStateAction<boolean>>;
@@ -15,6 +16,7 @@ interface PublishBuilderDraftParams {
 export async function publishBuilderDraft(params: PublishBuilderDraftParams) {
   const {
     merchantId,
+    isCurrentRequest,
     expectedLastUpdated,
     setLastUpdated,
     setPublishing,
@@ -27,6 +29,9 @@ export async function publishBuilderDraft(params: PublishBuilderDraftParams) {
       slug: 'home',
       expectedLastUpdated,
     });
+    if (!isCurrentRequest()) {
+      return;
+    }
     setLastUpdated(result.lastUpdated);
 
     toast({
@@ -34,6 +39,9 @@ export async function publishBuilderDraft(params: PublishBuilderDraftParams) {
       description: 'Your changes are now live on your storefront.',
     });
   } catch (error) {
+    if (!isCurrentRequest()) {
+      return;
+    }
     console.error('Failed to publish:', error);
     toast({
       title: 'Error',
@@ -44,6 +52,8 @@ export async function publishBuilderDraft(params: PublishBuilderDraftParams) {
       variant: 'destructive',
     });
   } finally {
-    setPublishing(false);
+    if (isCurrentRequest()) {
+      setPublishing(false);
+    }
   }
 }
