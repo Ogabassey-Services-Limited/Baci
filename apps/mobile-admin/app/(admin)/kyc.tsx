@@ -232,6 +232,7 @@ export default function KYCScreen() {
                 prefillNin={merchant?.nin}
                 firstName={identityDraft.firstName}
                 lastName={identityDraft.lastName}
+                merchantId={merchantId}
                 dateOfBirth={identityDraft.dateOfBirth}
                 mobileNo={identityDraft.mobileNo}
                 onIdentityChange={setIdentityDraft}
@@ -242,6 +243,7 @@ export default function KYCScreen() {
                 verified={status?.cac_verified ?? false}
                 prefillRcNumber={merchant?.cac_rc_number}
                 cacApprovedName={status?.cac_approved_name}
+                merchantId={merchantId}
                 isActive={isVerificationSessionActive}
                 onVerified={refreshAfterVerification}
               />

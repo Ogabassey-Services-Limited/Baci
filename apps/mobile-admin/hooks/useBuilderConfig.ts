@@ -36,6 +36,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   useEffect(() => {
     aiRequestSequenceRef.current += 1;
     setActiveAiRequestSequence(null);
+    setMessages([]);
     setCurrentConfig((draft) =>
       draft?.merchantId === merchantId ? draft : null
     );

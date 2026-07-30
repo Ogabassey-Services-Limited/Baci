@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SecurityScreen from './security';
@@ -101,121 +101,99 @@ vi.mock('react-native', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.listFactors.mockResolvedValue({
-    data: { all: [], totp: [] },
+    data: {
+      all: [{ id: 'factor-1', factor_type: 'totp', status: 'verified' }],
+      totp: [{ id: 'factor-1', status: 'verified' }],
+    },
     error: null,
   });
   mocks.getAuthenticatorAssuranceLevel.mockResolvedValue({
     data: { currentLevel: 'aal1' },
     error: null,
   });
-  mocks.enroll.mockResolvedValue({
-    data: { id: 'factor-1', totp: { secret: 'SECRET123' } },
-    error: null,
-  });
-  mocks.challengeAndVerify.mockResolvedValue({ data: {}, error: null });
-  mocks.unenroll.mockResolvedValue({ data: {}, error: null });
 });
 
-describe('SecurityScreen factor recovery', () => {
-  it('restarts an interrupted backup before allowing another enrollment', async () => {
-    mocks.listFactors.mockResolvedValue({
-      data: {
-        all: [
-          {
-            id: 'primary-factor',
-            factor_type: 'totp',
-            status: 'verified',
-          },
-          {
-            id: 'interrupted-backup',
-            factor_type: 'totp',
-            status: 'unverified',
-          },
-        ],
-        totp: [{ id: 'primary-factor', status: 'verified' }],
-      },
-      error: null,
+describe('SecurityScreen unmount safety', () => {
+  it('does not alert after an enrollment error resolves off-screen', async () => {
+    let resolveEnrollment: (value: unknown) => void = () => undefined;
+    mocks.enroll.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveEnrollment = resolve;
+        })
+    );
+    const { unmount } = render(<SecurityScreen />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Add backup authenticator' })
+    );
+    unmount();
+    await act(async () => {
+      resolveEnrollment({ data: null, error: { message: 'enroll failed' } });
     });
 
-    render(<SecurityScreen />);
-
-    const restartButton = await screen.findByRole('button', {
-      name: 'Restart backup authenticator setup',
-    });
-    expect(
-      screen.queryByRole('button', { name: 'Add backup authenticator' })
-    ).not.toBeInTheDocument();
-    fireEvent.click(restartButton);
-
-    await waitFor(() => {
-      expect(mocks.unenroll).toHaveBeenCalledWith({
-        factorId: 'interrupted-backup',
-      });
-      expect(mocks.enroll).toHaveBeenCalledTimes(1);
-    });
+    expect(mocks.alert).not.toHaveBeenCalled();
   });
 
-  it('resumes or restarts an unverified factor after reload', async () => {
+  it('does not alert after a restart error resolves off-screen', async () => {
     mocks.listFactors.mockResolvedValue({
       data: {
         all: [
+          { id: 'factor-1', factor_type: 'totp', status: 'verified' },
           {
             id: 'pending-factor',
             factor_type: 'totp',
             status: 'unverified',
           },
         ],
-        totp: [],
+        totp: [{ id: 'factor-1', status: 'verified' }],
       },
       error: null,
     });
+    let resolveUnenroll: (value: unknown) => void = () => undefined;
+    mocks.unenroll.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUnenroll = resolve;
+        })
+    );
+    const { unmount } = render(<SecurityScreen />);
 
-    render(<SecurityScreen />);
-
-    const restartButton = await screen.findByRole('button', {
-      name: 'Restart authenticator setup',
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Restart backup authenticator setup',
+      })
+    );
+    unmount();
+    await act(async () => {
+      resolveUnenroll({ data: null, error: { message: 'restart failed' } });
     });
-    expect(
-      screen.getByText('Enter a code to verify this session')
-    ).toBeInTheDocument();
-    fireEvent.click(restartButton);
 
-    await waitFor(() => {
-      expect(mocks.unenroll).toHaveBeenCalledWith({
-        factorId: 'pending-factor',
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
+
+  it('does not alert after a verification error resolves off-screen', async () => {
+    let resolveVerification: (value: unknown) => void = () => undefined;
+    mocks.challengeAndVerify.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveVerification = resolve;
+        })
+    );
+    const { unmount } = render(<SecurityScreen />);
+
+    fireEvent.change(await screen.findByLabelText('Authenticator code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
+    unmount();
+    await act(async () => {
+      resolveVerification({
+        data: null,
+        error: { message: 'verification failed' },
       });
-      expect(mocks.enroll).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  it('shows a recoverable error when factor loading fails', async () => {
-    mocks.listFactors.mockResolvedValue({
-      data: { all: [], totp: [] },
-      error: { message: 'factor lookup failed' },
     });
 
-    render(<SecurityScreen />);
-
-    expect(
-      await screen.findByRole('button', { name: 'Set up authenticator' })
-    ).toBeInTheDocument();
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Security Error',
-      'factor lookup failed'
-    );
-  });
-
-  it('recovers when initial factor loading rejects', async () => {
-    mocks.listFactors.mockRejectedValue(new Error('factor loading rejected'));
-
-    render(<SecurityScreen />);
-
-    expect(
-      await screen.findByRole('button', { name: 'Set up authenticator' })
-    ).toBeInTheDocument();
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Security Error',
-      'factor loading rejected'
-    );
+    expect(mocks.alert).not.toHaveBeenCalled();
   });
 });

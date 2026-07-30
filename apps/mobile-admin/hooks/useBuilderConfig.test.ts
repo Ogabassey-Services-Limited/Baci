@@ -185,6 +185,7 @@ describe('useBuilderConfig', () => {
     merchantMocks.merchant = { id: 'merchant-2' };
     rerender();
     await waitFor(() => expect(result.current.config).toEqual(merchantBConfig));
+    expect(result.current.messages).toEqual([]);
 
     merchantMocks.merchant = { id: 'merchant-1' };
     rerender();

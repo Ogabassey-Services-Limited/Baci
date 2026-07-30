@@ -22,6 +22,7 @@ interface BvnVerificationCardProps {
   dateOfBirth: string;
   firstName: string;
   lastName: string;
+  merchantId?: string | null;
   mobileNo: string;
   onMobileNumberChange: (value: string) => void;
   onVerified: () => Promise<unknown>;
@@ -60,6 +61,7 @@ export default function BvnVerificationCard({
   prefillBvn,
   firstName,
   lastName,
+  merchantId,
   dateOfBirth,
   mobileNo,
   onMobileNumberChange,
@@ -93,6 +95,7 @@ export default function BvnVerificationCard({
       apiClient<BvnVerificationResponse>('/api/merchant/verify-bvn', {
         method: 'POST',
         body: JSON.stringify({
+          merchantId,
           bvn,
           firstName: firstName.trim(),
           lastName: lastName.trim(),

@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
-  getUserAccess: vi.fn(),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: vi.fn(),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -18,26 +21,12 @@ vi.mock('@/lib/monnify', () => ({
   getMonnifyToken: vi.fn(),
 }));
 
-import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { getMonnifyToken } from '@/lib/monnify';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { POST } from './route';
-
-const mockOwnerAccess = {
-  merchantId: 'merchant-1',
-  role: 'owner',
-  isOwner: true,
-  isStaff: false,
-  permissions: {},
-};
-
-const mockStaffAccess = {
-  ...mockOwnerAccess,
-  role: 'staff',
-  isOwner: false,
-  isStaff: true,
-};
 
 const validBvnBody = {
   bvn: '12345678901',
@@ -45,6 +34,7 @@ const validBvnBody = {
   lastName: 'Doe',
   dateOfBirth: '1990-01-15',
   mobileNo: '08012345678',
+  merchantId: '11111111-1111-4111-8111-111111111111',
 };
 
 function makeRpcMock(error: unknown = null) {
@@ -127,7 +117,15 @@ describe('POST /api/merchant/verify-bvn', () => {
       error: null,
       supabase: makeSupabaseMock(),
     } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
-    vi.mocked(getUserAccess).mockResolvedValue(mockOwnerAccess);
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: validBvnBody.merchantId,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -154,23 +152,53 @@ describe('POST /api/merchant/verify-bvn', () => {
   });
 
   it('returns 403 when user is not merchant owner', async () => {
-    vi.mocked(getUserAccess).mockResolvedValue(mockStaffAccess);
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: validBvnBody.merchantId,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: {},
+        role: 'manager',
+      },
+    });
 
     const res = await POST(makeRequest(validBvnBody));
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      expect.anything(),
+      'user-1',
+      'verify-bvn',
+      3,
+      1
+    );
   });
 
   it('returns 429 when rate limit is exceeded', async () => {
     vi.mocked(checkRateLimit).mockResolvedValue(false);
 
-    const res = await POST(makeRequest(validBvnBody));
+    const req = makeRequest(validBvnBody);
+    const res = await POST(req);
 
     expect(res.status).toBe(429);
+    expect(req.json).not.toHaveBeenCalled();
+    expect(getMerchantForApiRequest).not.toHaveBeenCalled();
   });
 
-  it('rejects India merchants before rate limiting or provider calls', async () => {
+  it('rate limits before parsing a malformed BVN request body', async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue(false);
+    const req = makeRequest(validBvnBody);
+    req.json = vi.fn().mockRejectedValue(new Error('malformed JSON'));
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(429);
+    expect(req.json).not.toHaveBeenCalled();
+    expect(getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('rejects India merchants before provider calls after the authenticated-user rate limit', async () => {
     const supabaseMock = makeSupabaseMock(null, '08012345678', 'IN');
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
@@ -184,7 +212,13 @@ describe('POST /api/merchant/verify-bvn', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'BVN verification is only available for Nigerian merchants',
     });
-    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      supabaseMock,
+      'user-1',
+      'verify-bvn',
+      3,
+      1
+    );
     expect(getMonnifyToken).not.toHaveBeenCalled();
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
@@ -229,6 +263,7 @@ describe('POST /api/merchant/verify-bvn', () => {
         firstName: validBvnBody.firstName,
         lastName: validBvnBody.lastName,
         dateOfBirth: validBvnBody.dateOfBirth,
+        merchantId: validBvnBody.merchantId,
       })
     );
 
@@ -355,6 +390,7 @@ describe('POST /api/merchant/verify-bvn', () => {
         firstName: validBvnBody.firstName,
         lastName: validBvnBody.lastName,
         dateOfBirth: validBvnBody.dateOfBirth,
+        merchantId: validBvnBody.merchantId,
       })
     );
 
@@ -398,9 +434,47 @@ describe('POST /api/merchant/verify-bvn', () => {
     expect(supabaseMock.rpc).toHaveBeenCalledWith(
       'record_bvn_verification',
       expect.objectContaining({
-        p_merchant_id: 'merchant-1',
+        p_merchant_id: validBvnBody.merchantId,
         p_bvn: '12345678901',
       })
+    );
+  });
+
+  it('records a verified BVN for the exact merchant selected by a multi-merchant owner', async () => {
+    const supabaseMock = makeSupabaseMock();
+    const selectedMerchantId = '22222222-2222-4222-8222-222222222222';
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: selectedMerchantId,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => fullMatchResponse,
+    } as Response);
+
+    const res = await POST(
+      makeRequest({ ...validBvnBody, merchantId: selectedMerchantId })
+    );
+
+    expect(res.status).toBe(200);
+    expect(getMerchantForApiRequest).toHaveBeenCalledWith(
+      supabaseMock,
+      'user-1',
+      { requestedMerchantId: selectedMerchantId }
+    );
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'record_bvn_verification',
+      expect.objectContaining({ p_merchant_id: selectedMerchantId })
     );
   });
 

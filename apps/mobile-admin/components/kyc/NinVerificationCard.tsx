@@ -26,6 +26,7 @@ interface NinVerificationCardProps {
   dateOfBirth: string;
   firstName: string;
   lastName: string;
+  merchantId?: string | null;
   mobileNo: string;
   onIdentityChange: React.Dispatch<
     React.SetStateAction<VerificationIdentityDraft>
@@ -46,6 +47,7 @@ export default function NinVerificationCard({
   prefillNin,
   firstName,
   lastName,
+  merchantId,
   dateOfBirth,
   mobileNo,
   onIdentityChange,
@@ -71,6 +73,7 @@ export default function NinVerificationCard({
       apiClient<VerifyNinResponse>('/api/merchant/verify-nin', {
         method: 'POST',
         body: JSON.stringify({
+          merchantId,
           nin,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -277,6 +280,7 @@ export default function NinVerificationCard({
               lastName={lastName}
               dateOfBirth={dateOfBirth}
               mobileNo={mobileNo}
+              merchantId={merchantId}
               onMobileNumberChange={(value) =>
                 onIdentityChange((current) => ({
                   ...current,

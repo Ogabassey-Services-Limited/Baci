@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SecurityScreen from './security';
@@ -101,121 +107,141 @@ vi.mock('react-native', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.listFactors.mockResolvedValue({
-    data: { all: [], totp: [] },
+    data: {
+      all: [{ id: 'factor-1', factor_type: 'totp', status: 'verified' }],
+      totp: [{ id: 'factor-1', status: 'verified' }],
+    },
     error: null,
   });
   mocks.getAuthenticatorAssuranceLevel.mockResolvedValue({
-    data: { currentLevel: 'aal1' },
+    data: { currentLevel: 'aal2' },
     error: null,
   });
   mocks.enroll.mockResolvedValue({
-    data: { id: 'factor-1', totp: { secret: 'SECRET123' } },
+    data: { id: 'backup-factor', totp: { secret: 'SECRET123' } },
     error: null,
   });
   mocks.challengeAndVerify.mockResolvedValue({ data: {}, error: null });
   mocks.unenroll.mockResolvedValue({ data: {}, error: null });
 });
 
-describe('SecurityScreen factor recovery', () => {
-  it('restarts an interrupted backup before allowing another enrollment', async () => {
+describe('SecurityScreen enrollment controls', () => {
+  it('disables and ignores rapid repeated backup enrollment taps', async () => {
+    let resolveEnrollment: (value: unknown) => void = () => undefined;
+    mocks.enroll.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveEnrollment = resolve;
+        })
+    );
+
+    render(<SecurityScreen />);
+
+    const backupButton = await screen.findByRole('button', {
+      name: 'Add backup authenticator',
+    });
+    fireEvent.click(backupButton);
+    fireEvent.click(backupButton);
+
+    expect(mocks.enroll).toHaveBeenCalledTimes(1);
+    expect(backupButton).toBeDisabled();
+
+    await act(async () => {
+      resolveEnrollment({
+        data: { id: 'backup-factor', totp: { secret: 'SECRET123' } },
+        error: null,
+      });
+    });
+  });
+
+  it('disables and ignores rapid repeated restart enrollment taps', async () => {
     mocks.listFactors.mockResolvedValue({
       data: {
         all: [
-          {
-            id: 'primary-factor',
-            factor_type: 'totp',
-            status: 'verified',
-          },
+          { id: 'factor-1', factor_type: 'totp', status: 'verified' },
           {
             id: 'interrupted-backup',
             factor_type: 'totp',
             status: 'unverified',
           },
         ],
-        totp: [{ id: 'primary-factor', status: 'verified' }],
+        totp: [{ id: 'factor-1', status: 'verified' }],
       },
       error: null,
     });
+    let resolveUnenroll: (value: unknown) => void = () => undefined;
+    mocks.unenroll.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUnenroll = resolve;
+        })
+    );
 
     render(<SecurityScreen />);
 
     const restartButton = await screen.findByRole('button', {
       name: 'Restart backup authenticator setup',
     });
-    expect(
-      screen.queryByRole('button', { name: 'Add backup authenticator' })
-    ).not.toBeInTheDocument();
+    fireEvent.click(restartButton);
     fireEvent.click(restartButton);
 
-    await waitFor(() => {
-      expect(mocks.unenroll).toHaveBeenCalledWith({
-        factorId: 'interrupted-backup',
-      });
-      expect(mocks.enroll).toHaveBeenCalledTimes(1);
+    expect(mocks.unenroll).toHaveBeenCalledTimes(1);
+    expect(restartButton).toBeDisabled();
+
+    await act(async () => {
+      resolveUnenroll({ data: {}, error: null });
     });
   });
 
-  it('resumes or restarts an unverified factor after reload', async () => {
+  it('releases enrollment controls when enrollment rejects', async () => {
+    mocks.enroll.mockRejectedValue(new Error('enrollment rejected'));
+
+    render(<SecurityScreen />);
+
+    const backupButton = await screen.findByRole('button', {
+      name: 'Add backup authenticator',
+    });
+    fireEvent.click(backupButton);
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Security Error',
+        'enrollment rejected'
+      );
+    });
+    expect(backupButton).not.toBeDisabled();
+  });
+
+  it('releases restart controls when unenrollment rejects', async () => {
     mocks.listFactors.mockResolvedValue({
       data: {
         all: [
+          { id: 'factor-1', factor_type: 'totp', status: 'verified' },
           {
-            id: 'pending-factor',
+            id: 'interrupted-backup',
             factor_type: 'totp',
             status: 'unverified',
           },
         ],
-        totp: [],
+        totp: [{ id: 'factor-1', status: 'verified' }],
       },
       error: null,
     });
+    mocks.unenroll.mockRejectedValue(new Error('unenrollment rejected'));
 
     render(<SecurityScreen />);
 
     const restartButton = await screen.findByRole('button', {
-      name: 'Restart authenticator setup',
+      name: 'Restart backup authenticator setup',
     });
-    expect(
-      screen.getByText('Enter a code to verify this session')
-    ).toBeInTheDocument();
     fireEvent.click(restartButton);
 
     await waitFor(() => {
-      expect(mocks.unenroll).toHaveBeenCalledWith({
-        factorId: 'pending-factor',
-      });
-      expect(mocks.enroll).toHaveBeenCalledTimes(1);
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Security Error',
+        'unenrollment rejected'
+      );
     });
-  });
-
-  it('shows a recoverable error when factor loading fails', async () => {
-    mocks.listFactors.mockResolvedValue({
-      data: { all: [], totp: [] },
-      error: { message: 'factor lookup failed' },
-    });
-
-    render(<SecurityScreen />);
-
-    expect(
-      await screen.findByRole('button', { name: 'Set up authenticator' })
-    ).toBeInTheDocument();
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Security Error',
-      'factor lookup failed'
-    );
-  });
-
-  it('recovers when initial factor loading rejects', async () => {
-    mocks.listFactors.mockRejectedValue(new Error('factor loading rejected'));
-
-    render(<SecurityScreen />);
-
-    expect(
-      await screen.findByRole('button', { name: 'Set up authenticator' })
-    ).toBeInTheDocument();
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Security Error',
-      'factor loading rejected'
-    );
+    expect(restartButton).not.toBeDisabled();
   });
 });

@@ -47,6 +47,7 @@ describe('cacVerifyFormSchema', () => {
     const result = cacVerifyFormSchema.safeParse({
       rcNumber: 'RC123456',
       approvedName: 'Baci Technologies Ltd',
+      merchantId: '11111111-1111-4111-8111-111111111111',
     });
     expect(result.success).toBe(true);
   });
@@ -91,11 +92,18 @@ describe('bvnVerifySchema', () => {
     lastName: 'Doe',
     dateOfBirth: '1990-01-01',
     mobileNo: '08012345678',
+    merchantId: '11111111-1111-4111-8111-111111111111',
   };
 
   it('parses valid BVN data', () => {
     const result = bvnVerifySchema.safeParse(validBVN);
     expect(result.success).toBe(true);
+  });
+
+  it('requires an explicit merchant selection for BVN verification', () => {
+    const { merchantId: _merchantId, ...withoutMerchantId } = validBVN;
+
+    expect(bvnVerifySchema.safeParse(withoutMerchantId).success).toBe(false);
   });
 
   it('rejects BVN with fewer than 11 digits', () => {
@@ -211,11 +219,18 @@ describe('ninVerifySchema', () => {
     firstName: 'Jane',
     lastName: 'Doe',
     dateOfBirth: '1992-05-15',
+    merchantId: '11111111-1111-4111-8111-111111111111',
   };
 
   it('parses valid NIN data', () => {
     const result = ninVerifySchema.safeParse(validNIN);
     expect(result.success).toBe(true);
+  });
+
+  it('requires an explicit merchant selection for NIN verification', () => {
+    const { merchantId: _merchantId, ...withoutMerchantId } = validNIN;
+
+    expect(ninVerifySchema.safeParse(withoutMerchantId).success).toBe(false);
   });
 
   it('rejects NIN with fewer than 11 digits', () => {

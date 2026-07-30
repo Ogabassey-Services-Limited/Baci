@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
-  getUserAccess: vi.fn(),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: vi.fn(),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -19,29 +22,15 @@ vi.mock('@/lib/verify-cac-certificate', () => ({
   compareCACData: vi.fn(),
 }));
 
-import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import {
   compareCACData,
   extractCACCertificateData,
 } from '@/lib/verify-cac-certificate';
 import { POST } from './route';
-
-const mockOwnerAccess = {
-  merchantId: 'merchant-1',
-  role: 'owner',
-  isOwner: true,
-  isStaff: false,
-  permissions: {},
-};
-
-const mockStaffAccess = {
-  ...mockOwnerAccess,
-  role: 'staff',
-  isOwner: false,
-  isStaff: true,
-};
 
 function makeRpcMock(error: unknown = null) {
   return vi.fn().mockResolvedValue({ error });
@@ -80,6 +69,7 @@ function makeFormDataRequest(
   fields: Record<string, string | File | null>
 ): NextRequest {
   const formData = new FormData();
+  formData.set('merchantId', '11111111-1111-4111-8111-111111111111');
   for (const [key, value] of Object.entries(fields)) {
     if (value !== null) formData.set(key, value);
   }
@@ -126,7 +116,15 @@ describe('POST /api/merchant/verify-cac', () => {
       error: null,
       supabase: makeSupabaseMock(),
     } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
-    vi.mocked(getUserAccess).mockResolvedValue(mockOwnerAccess);
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: '11111111-1111-4111-8111-111111111111',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
     vi.mocked(extractCACCertificateData).mockResolvedValue({
       documentType: 'Certificate of Incorporation',
       rcNumber: 'RC123456',
@@ -169,7 +167,15 @@ describe('POST /api/merchant/verify-cac', () => {
   });
 
   it('returns 403 when user is not merchant owner', async () => {
-    vi.mocked(getUserAccess).mockResolvedValue(mockStaffAccess);
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: '11111111-1111-4111-8111-111111111111',
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: {},
+        role: 'manager',
+      },
+    });
 
     const req = makeFormDataRequest({
       file: makeValidFile(),
@@ -193,9 +199,49 @@ describe('POST /api/merchant/verify-cac', () => {
     const res = await POST(req);
 
     expect(res.status).toBe(429);
+    expect(req.formData).not.toHaveBeenCalled();
+    expect(getMerchantForApiRequest).not.toHaveBeenCalled();
   });
 
-  it('rejects India merchants before rate limiting or document upload', async () => {
+  it('rejects an oversized multipart Content-Length before parsing or calling providers', async () => {
+    const req = makeFormDataRequest({
+      file: makeValidFile(),
+      rcNumber: 'RC123456',
+      approvedName: 'Baci Technologies',
+    });
+    req.headers.set('Content-Length', String(5 * 1024 * 1024 + 65_537));
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(413);
+    expect(req.formData).not.toHaveBeenCalled();
+    expect(getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(extractCACCertificateData).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-owner before certificate extraction or verification writes', async () => {
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: '11111111-1111-4111-8111-111111111111',
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: {},
+        role: 'manager',
+      },
+    });
+    const req = makeFormDataRequest({
+      file: makeValidFile(),
+      rcNumber: 'RC123456',
+      approvedName: 'Baci Technologies',
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(403);
+    expect(extractCACCertificateData).not.toHaveBeenCalled();
+  });
+
+  it('rejects India merchants before document upload after the authenticated-user rate limit', async () => {
     const supabaseMock = makeSupabaseMock(null, null, 'IN');
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
@@ -214,7 +260,13 @@ describe('POST /api/merchant/verify-cac', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'CAC verification is only available for Nigerian merchants',
     });
-    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      supabaseMock,
+      'user-1',
+      'verify-cac',
+      3,
+      1
+    );
     expect(supabaseMock.storage.from).not.toHaveBeenCalled();
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
@@ -311,10 +363,49 @@ describe('POST /api/merchant/verify-cac', () => {
     expect(supabaseMock.rpc).toHaveBeenCalledWith(
       'record_cac_verification',
       expect.objectContaining({
-        p_merchant_id: 'merchant-1',
+        p_merchant_id: '11111111-1111-4111-8111-111111111111',
         p_rc_number: 'RC123456',
         p_cac_approved_name: 'Baci Technologies Ltd',
       })
+    );
+  });
+
+  it('records CAC verification for the exact merchant selected by a multi-merchant owner', async () => {
+    const supabaseMock = makeSupabaseMock();
+    const selectedMerchantId = '22222222-2222-4222-8222-222222222222';
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: selectedMerchantId,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
+
+    const res = await POST(
+      makeFormDataRequest({
+        approvedName: 'Baci Technologies Ltd',
+        file: makeValidFile(),
+        merchantId: selectedMerchantId,
+        rcNumber: 'RC123456',
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(getMerchantForApiRequest).toHaveBeenCalledWith(
+      supabaseMock,
+      'user-1',
+      { requestedMerchantId: selectedMerchantId }
+    );
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'record_cac_verification',
+      expect.objectContaining({ p_merchant_id: selectedMerchantId })
     );
   });
 

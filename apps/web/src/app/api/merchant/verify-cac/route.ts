@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import {
   compareCACData,
@@ -17,6 +18,7 @@ const ALLOWED_MIME_TYPES = [
 ] as const;
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_MULTIPART_CONTENT_LENGTH = MAX_FILE_SIZE + 64 * 1024;
 const CAC_IDENTITY_CONFLICT_SQLSTATE = 'PT409';
 
 // Magic byte signatures for allowed MIME types — guards against spoofed file.type
@@ -59,6 +61,17 @@ function getExtension(mimeType: string): string {
   }
 }
 
+function hasOversizedContentLength(request: NextRequest): boolean {
+  const rawContentLength = request.headers.get('content-length');
+  if (!rawContentLength) return false;
+
+  const contentLength = Number(rawContentLength);
+  return (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_MULTIPART_CONTENT_LENGTH
+  );
+}
+
 async function removeStorageFile(
   supabase: NonNullable<
     Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
@@ -88,40 +101,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!access.isOwner) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const { data: merchantRecord, error: merchantError } = await auth.supabase
-    .from('merchants')
-    .select('country')
-    .eq('id', access.merchantId)
-    .maybeSingle();
-
-  if (merchantError) {
-    console.error('verify-cac: failed to load merchant country', merchantError);
-    return NextResponse.json(
-      { error: 'Unable to load merchant verification details' },
-      { status: 500 }
-    );
-  }
-
-  if (!merchantRecord) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
-    return NextResponse.json(
-      { error: 'CAC verification is only available for Nigerian merchants' },
-      { status: 400 }
-    );
-  }
-
   const allowed = await checkRateLimit(
     auth.supabase,
     auth.user.id,
@@ -133,6 +112,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'Rate limit exceeded', code: 'rate_limited' },
       { status: 429 }
+    );
+  }
+
+  if (hasOversizedContentLength(request)) {
+    return NextResponse.json(
+      { error: 'File exceeds maximum size of 5MB' },
+      { status: 413 }
     );
   }
 
@@ -168,10 +154,49 @@ export async function POST(request: NextRequest) {
   const rcNumber = formData.get('rcNumber');
   const approvedName = formData.get('approvedName');
 
-  const parsed = cacVerifyFormSchema.safeParse({ rcNumber, approvedName });
+  const merchantId = formData.get('merchantId');
+  const parsed = cacVerifyFormSchema.safeParse({
+    rcNumber,
+    approvedName,
+    merchantId,
+  });
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Validation failed', code: 'validation_error' },
+      { status: 400 }
+    );
+  }
+
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: parsed.data.merchantId }
+  );
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!merchantContext.staffAccess.isOwner) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { data: merchantRecord, error: merchantError } = await auth.supabase
+    .from('merchants')
+    .select('country')
+    .eq('id', merchantContext.merchantId)
+    .maybeSingle();
+  if (merchantError) {
+    console.error('verify-cac: failed to load merchant country', merchantError);
+    return NextResponse.json(
+      { error: 'Unable to load merchant verification details' },
+      { status: 500 }
+    );
+  }
+  if (!merchantRecord) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
+    return NextResponse.json(
+      { error: 'CAC verification is only available for Nigerian merchants' },
       { status: 400 }
     );
   }
@@ -189,7 +214,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ext = getExtension(mimeType);
-    storagePath = `${access.merchantId}/cac-${Date.now()}.${ext}`;
+    storagePath = `${merchantContext.merchantId}/cac-${Date.now()}.${ext}`;
 
     const { error: uploadError } = await auth.supabase.storage
       .from('kyc-documents')
@@ -225,7 +250,7 @@ export async function POST(request: NextRequest) {
       const { error: rpcError } = await auth.supabase.rpc(
         'record_cac_verification',
         {
-          p_merchant_id: access.merchantId,
+          p_merchant_id: merchantContext.merchantId,
           p_cac_certificate_path: storagePath,
           p_cac_approved_name: parsed.data.approvedName,
           p_rc_number: parsed.data.rcNumber,

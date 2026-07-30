@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getMonnifyBaseUrl } from '@/env';
-import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { getMonnifyToken } from '@/lib/monnify';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { bvnVerifySchema } from '@/schemas/verification';
@@ -54,43 +55,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!access.isOwner) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const { data: merchantRecord, error: merchantError } = await auth.supabase
-    .from('merchants')
-    .select('country, phone')
-    .eq('id', access.merchantId)
-    .maybeSingle();
-
-  if (merchantError) {
-    console.error(
-      'verify-bvn: failed to load merchant verification details',
-      merchantError
-    );
-    return NextResponse.json(
-      { error: 'Unable to load merchant verification details' },
-      { status: 500 }
-    );
-  }
-
-  if (!merchantRecord) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
-    return NextResponse.json(
-      { error: 'BVN verification is only available for Nigerian merchants' },
-      { status: 400 }
-    );
-  }
-
   const allowed = await checkRateLimit(
     auth.supabase,
     auth.user.id,
@@ -123,7 +87,45 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { bvn, firstName, lastName, dateOfBirth, mobileNo } = parsed.data;
+  const { bvn, firstName, lastName, dateOfBirth, mobileNo, merchantId } =
+    parsed.data;
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: merchantId }
+  );
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!merchantContext.staffAccess.isOwner) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { data: merchantRecord, error: merchantError } = await auth.supabase
+    .from('merchants')
+    .select('country, phone')
+    .eq('id', merchantContext.merchantId)
+    .maybeSingle();
+  if (merchantError) {
+    console.error(
+      'verify-bvn: failed to load merchant verification details',
+      merchantError
+    );
+    return NextResponse.json(
+      { error: 'Unable to load merchant verification details' },
+      { status: 500 }
+    );
+  }
+  if (!merchantRecord) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
+    return NextResponse.json(
+      { error: 'BVN verification is only available for Nigerian merchants' },
+      { status: 400 }
+    );
+  }
+
   const monnifyDateOfBirth = formatDateOfBirthForMonnify(dateOfBirth);
 
   try {
@@ -245,7 +247,7 @@ export async function POST(request: NextRequest) {
       const { error: rpcError } = await auth.supabase.rpc(
         'record_bvn_verification',
         {
-          p_merchant_id: access.merchantId,
+          p_merchant_id: merchantContext.merchantId,
           p_bvn: bvn,
           p_first_name: firstName,
           p_last_name: lastName,

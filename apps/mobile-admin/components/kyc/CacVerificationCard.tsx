@@ -28,6 +28,7 @@ import VerificationStatusBadge from './VerificationStatusBadge';
 
 interface CacVerificationCardProps {
   cacApprovedName?: string | null;
+  merchantId?: string | null;
   onVerified: () => Promise<unknown>;
   isActive?: () => boolean;
   prefillRcNumber?: string | null;
@@ -38,6 +39,7 @@ export default function CacVerificationCard({
   verified,
   prefillRcNumber,
   cacApprovedName,
+  merchantId,
   onVerified,
   isActive = () => true,
 }: CacVerificationCardProps) {
@@ -57,8 +59,6 @@ export default function CacVerificationCard({
     reason?: string;
   } | null>(null);
 
-  // Sync the registration fields from the prefill prop during render (instead
-  // of in an effect) so the first frame already shows the prefilled values.
   const [prevPrefillRcNumber, setPrevPrefillRcNumber] = useState<
     string | null | undefined
   >(undefined);
@@ -130,6 +130,7 @@ export default function CacVerificationCard({
       );
       formData.append('rcNumber', selectedCompany.rcNumber);
       formData.append('approvedName', selectedCompany.approvedName);
+      formData.append('merchantId', merchantId ?? '');
       return apiFormData<{ verified: boolean; reason?: string }>(
         '/api/merchant/verify-cac',
         formData
