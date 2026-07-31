@@ -76,6 +76,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+    requestedMerchantId: parsedRequest.data.merchantId,
+  });
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'builder', 'edit')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const isAllowed = await checkRateLimit(
     supabase,
     user.id,
@@ -88,18 +100,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       { error: 'Rate limit exceeded', code: 'rate_limited' },
       { status: 429 }
     );
-  }
-
-  const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
-    requestedMerchantId: parsedRequest.data.merchantId,
-  });
-  if (!merchantContext) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  const access = toUserAccess(merchantContext);
-  if (!hasPermission(access, 'builder', 'edit')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { id } = await context.params;

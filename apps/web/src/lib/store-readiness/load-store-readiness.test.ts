@@ -268,42 +268,6 @@ describe('loadStoreReadiness', () => {
     );
   });
 
-  it('does not complete content checklist items from JSON arrays', async () => {
-    const pages = Object.assign(['about page'], { about: 'injected value' });
-    const socialMedia = Object.assign(['instagram'], {
-      instagram: '@injected',
-    });
-    const authenticatedClient = client({
-      pages,
-      socialMedia,
-    });
-
-    const result = await load(authenticatedClient);
-
-    expect(result.items).toContainEqual(
-      expect.objectContaining({ id: 'about_page', completed: false })
-    );
-    expect(result.items).toContainEqual(
-      expect.objectContaining({ id: 'social_media', completed: false })
-    );
-  });
-
-  it('completes About Us from populated structured content without legacy pages', async () => {
-    const authenticatedClient = client({
-      aboutPage: { story: 'We help merchants sell online.' },
-      pages: null,
-    });
-
-    const result = await load(authenticatedClient);
-
-    expect(result.items).toContainEqual(
-      expect.objectContaining({ id: 'about_page', completed: true })
-    );
-    expect(authenticatedClient.optionalMerchant.select).toHaveBeenCalledWith(
-      'is_published, pages, about_page, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id, template_id, business_type'
-    );
-  });
-
   it.each([
     ['home page config', { homeError: { message: 'page config unavailable' } }],
     ['storefront job', { jobError: { message: 'job unavailable' } }],

@@ -48,6 +48,7 @@ describe('POST /api/ai-jobs/[id]/apply request guards', () => {
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
     expect(mocks.checkCsrfProtection).not.toHaveBeenCalled();
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
   });
 
   it('authorizes and applies a fresh AI draft for the selected merchant', async () => {
@@ -74,6 +75,53 @@ describe('POST /api/ai-jobs/[id]/apply request guards', () => {
         p_force: false,
       })
     );
+    expect(
+      mocks.getMerchantForApiRequest.mock.invocationCallOrder[0]
+    ).toBeLessThan(mocks.checkRateLimit.mock.invocationCallOrder[0]);
+    expect(mocks.checkRateLimit.mock.invocationCallOrder[0]).toBeLessThan(
+      supabase.rpc.mock.invocationCallOrder[0]
+    );
+  });
+
+  it.each([
+    ['unowned', '22222222-2222-4222-8222-222222222222'],
+    ['deleted', '33333333-3333-4333-8333-333333333333'],
+    ['stale', '44444444-4444-4444-8444-444444444444'],
+  ])('returns 404 without consuming quota for a %s requested merchant', async (_merchantState, requestedMerchantId) => {
+    const supabase = createApplySupabaseMock();
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.getMerchantForApiRequest.mockResolvedValue(null);
+
+    const response = await POST(
+      createApplyRequest(JSON.stringify({ merchantId: requestedMerchantId })),
+      routeContext()
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: 'Merchant not found' });
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 without consuming quota when the selected merchant denies builder edits', async () => {
+    const supabase = createApplySupabaseMock();
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.getMerchantForApiRequest.mockResolvedValue({
+      merchantId,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        role: 'staff',
+        permissions: {},
+      },
+    });
+
+    const response = await POST(createApplyRequest(), routeContext());
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: 'Forbidden' });
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   it('returns the CSRF rejection response before merchant or draft lookups', async () => {

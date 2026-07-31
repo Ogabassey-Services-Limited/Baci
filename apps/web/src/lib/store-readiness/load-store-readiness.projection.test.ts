@@ -50,14 +50,24 @@ function query(data: unknown) {
   return builder;
 }
 
-function client() {
+function client({
+  aboutPage = null,
+  pages = null,
+  socialMedia = null,
+}: {
+  aboutPage?: unknown;
+  pages?: unknown;
+  socialMedia?: unknown;
+} = {}) {
   const merchant = query({
+    about_page: aboutPage,
     business_address: null,
     facebook_pixel_id: null,
     google_analytics_id: null,
     is_published: false,
+    pages,
     snapchat_pixel_id: null,
-    social_media: null,
+    social_media: socialMedia,
     tiktok_pixel_id: null,
     twitter_pixel_id: null,
   });
@@ -77,20 +87,23 @@ function client() {
   };
 }
 
-async function load(surface: 'mobile' | 'web') {
-  const readinessClient = client();
-  await loadStoreReadiness({
+async function load(
+  surface: 'mobile' | 'web',
+  merchantDetails: Parameters<typeof client>[0] = {}
+) {
+  const readinessClient = client(merchantDetails);
+  const result = await loadStoreReadiness({
     access,
     merchantId: 'merchant-1',
     surface,
     supabase: readinessClient.supabase,
   });
-  return readinessClient.merchant;
+  return { merchant: readinessClient.merchant, result };
 }
 
 describe('loadStoreReadiness readiness projection', () => {
   it('excludes web-only legal pages for mobile readiness', async () => {
-    const merchant = await load('mobile');
+    const { merchant } = await load('mobile');
 
     expect(merchant.select).toHaveBeenCalledWith(
       expect.not.stringContaining('pages')
@@ -98,10 +111,38 @@ describe('loadStoreReadiness readiness projection', () => {
   });
 
   it('retains the legal-page projection for web readiness', async () => {
-    const merchant = await load('web');
+    const { merchant } = await load('web');
 
     expect(merchant.select).toHaveBeenCalledWith(
       expect.stringContaining('pages')
+    );
+  });
+
+  it('does not complete content checklist items from JSON arrays', async () => {
+    const pages = Object.assign(['about page'], { about: 'injected value' });
+    const socialMedia = Object.assign(['instagram'], {
+      instagram: '@injected',
+    });
+    const { result } = await load('web', { pages, socialMedia });
+
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: 'about_page', completed: false })
+    );
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: 'social_media', completed: false })
+    );
+  });
+
+  it('completes About Us from populated structured content without legacy pages', async () => {
+    const { merchant, result } = await load('web', {
+      aboutPage: { story: 'We help merchants sell online.' },
+    });
+
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: 'about_page', completed: true })
+    );
+    expect(merchant.select).toHaveBeenCalledWith(
+      'is_published, pages, about_page, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id, template_id, business_type'
     );
   });
 });
