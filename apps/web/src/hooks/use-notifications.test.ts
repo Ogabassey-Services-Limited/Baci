@@ -552,7 +552,7 @@ describe('useNotifications', () => {
         await result.current.markAsRead('notif-1');
 
         // Assert
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(mockFetchWithCsrf).toHaveBeenCalledWith(
           '/api/notifications/notif-1',
           expect.objectContaining({
             method: 'PATCH',
@@ -587,6 +587,13 @@ describe('useNotifications', () => {
         // Act & Assert
         await expect(result.current.markAsRead('notif-1')).rejects.toThrow(
           'Failed to mark as read'
+        );
+        expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+          '/api/notifications/notif-1',
+          expect.objectContaining({
+            method: 'PATCH',
+            body: JSON.stringify({ read: true }),
+          })
         );
       });
     });
@@ -826,7 +833,7 @@ describe('useNotifications', () => {
         await result.current.dismiss('notif-1');
 
         // Assert
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(mockFetchWithCsrf).toHaveBeenCalledWith(
           '/api/notifications/notif-1',
           expect.objectContaining({
             method: 'PATCH',
@@ -861,6 +868,13 @@ describe('useNotifications', () => {
         // Act & Assert
         await expect(result.current.dismiss('notif-1')).rejects.toThrow(
           'Failed to dismiss notification'
+        );
+        expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+          '/api/notifications/notif-1',
+          expect.objectContaining({
+            method: 'PATCH',
+            body: JSON.stringify({ dismissed: true }),
+          })
         );
       });
     });
@@ -913,7 +927,7 @@ describe('useNotifications', () => {
         await result.current.dismissBanner('banner-1');
 
         // Assert
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(mockFetchWithCsrf).toHaveBeenCalledWith(
           '/api/notifications/banner-1',
           expect.objectContaining({
             method: 'PATCH',
@@ -945,6 +959,13 @@ describe('useNotifications', () => {
         // Act & Assert
         await expect(result.current.dismissBanner('banner-1')).rejects.toThrow(
           'Failed to dismiss banner'
+        );
+        expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+          '/api/notifications/banner-1',
+          expect.objectContaining({
+            method: 'PATCH',
+            body: JSON.stringify({ banner_dismissed: true }),
+          })
         );
       });
     });
