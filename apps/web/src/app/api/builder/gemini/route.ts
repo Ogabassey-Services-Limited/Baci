@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import { getCopilotTextProviderChain } from '@/ai/copilot-provider-chain';
 import {
   AI_RATE_LIMITS,
@@ -13,11 +12,8 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
-import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
-import {
-  type AiBuilderConfig,
-  aiBuilderConfigSchema,
-} from './builder-config-shape';
+import { builderGeminiRequestSchema } from '@/schemas/builder-gemini-request';
+import type { AiBuilderConfig } from './builder-config-shape';
 import {
   BUILDER_GEMINI_TIMEOUT_MS,
   type BuilderGeminiLogContext,
@@ -26,12 +22,6 @@ import {
   runBuilderGeminiWithTimeout,
 } from './route-provider-errors';
 import { runBuilderProviderChain } from './run-builder-provider-chain';
-
-const builderGeminiRequestSchema = z.object({
-  merchantId: merchantIdParamSchema,
-  prompt: z.string().trim().min(1, 'Prompt is required'),
-  currentConfig: aiBuilderConfigSchema,
-});
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
