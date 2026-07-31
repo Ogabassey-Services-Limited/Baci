@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { socialMediaTestHarness as harness } from './social-media-test-harness';
+import { socialMediaTestHarness as harness } from '../../app/(admin)/social-media.test-harness';
 
 describe('SocialMediaScreen merchant-switch save lifecycle', () => {
   beforeEach(() => harness.reset());
@@ -34,9 +34,10 @@ describe('SocialMediaScreen merchant-switch save lifecycle', () => {
         expect.anything()
       )
     );
+    expect(screen.getByRole('button', { name: 'Loading...' })).toBeDisabled();
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
 
     await act(async () => {
-      harness.mocks.isMutationPending = true;
       activeMerchantId = 'merchant-b';
       rendered.rerender(<harness.Component />);
     });
