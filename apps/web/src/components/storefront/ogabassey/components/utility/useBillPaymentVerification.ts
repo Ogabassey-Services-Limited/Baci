@@ -82,6 +82,7 @@ async function requestVerification(
   try {
     const res = await fetchWithCsrf('/api/vtu/verify', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       signal,
     });

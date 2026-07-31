@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: mockFetchWithCsrf,
+}));
+
 import { BillPaymentForm } from './BillPaymentForm';
 
 vi.mock('@/env', () => ({
@@ -38,6 +45,8 @@ describe('BillPaymentForm', () => {
   beforeEach(() => {
     mockOnSubmit.mockClear();
     mockFetch.mockReset();
+    mockFetchWithCsrf.mockReset();
+    mockFetchWithCsrf.mockImplementation(mockFetch);
   });
 
   it('shows loading state initially ("Loading providers…")', async () => {

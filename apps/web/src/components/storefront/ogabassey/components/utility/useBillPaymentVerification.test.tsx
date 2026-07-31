@@ -55,6 +55,7 @@ describe('useBillPaymentVerification', () => {
 
     expect(mockFetchWithCsrf).toHaveBeenCalledWith('/api/vtu/verify', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         provider: 'kuda',
         billItemIdentifier: 'IKEDC-PREPAID',
