@@ -12,6 +12,7 @@ import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storef
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { JsonLd } from '@/components/seo/json-ld';
+import { buildOgabasseyProductVisibleSummary } from '@/components/storefront/ogabassey/pdp/build-product-visible-summary';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
@@ -56,7 +57,6 @@ import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductCondition } from '@/lib/products';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
-import { stripHtmlTags } from '@/lib/sanitize-core';
 import {
   buildStorefrontAcceptedPaymentMethods,
   generateBreadcrumbSchema,
@@ -1239,16 +1239,6 @@ async function CategoryProductPageContent({
   const currencyConfig = resolveMerchantCurrencyConfig(merchant);
   // SEO copy / JSON-LD / payment methods all take the bare ISO code.
   const currency = currencyConfig.code;
-  const priceSeoCopy = buildProductPriceSeoCopy({
-    product: renderableProduct,
-    merchantDisplayName: merchant?.business_name || DEFAULT_STORE_NAME,
-    categoryName: renderableProduct.category || 'All Products',
-    currency,
-    country: merchant.country,
-  });
-  const plainProductDescription = stripHtmlTags(renderableProduct.description)
-    .replace(/\s+/g, ' ')
-    .trim();
   const semanticSections = (
     // The async server component catches strict SEO-data cold-cache failures
     // before SSR can bubble to the route error boundary. This client boundary is
@@ -1323,7 +1313,6 @@ async function CategoryProductPageContent({
     renderMode,
     serverPrimaryDetails: (
       <OgabasseyPdpServerPrimaryDetails
-        description={renderableProduct.description}
         detailedSpecs={derivedSpecData.detailedSpecs}
         productName={renderableProduct.name}
       />
@@ -1337,24 +1326,7 @@ async function CategoryProductPageContent({
     <>
       <JsonLd data={productSchema} />
       <JsonLd data={breadcrumbSchema} />
-      {/* Hidden crawlable summary without a second page-level heading */}
-      <article
-        className="sr-only"
-        aria-label={`${renderableProduct.name} summary`}
-      >
-        <p>{priceSeoCopy.answer}</p>
-        {plainProductDescription ? <p>{plainProductDescription}</p> : null}
-        <dl>
-          <dt>Brand</dt>
-          <dd>{renderableProduct.brand || 'OgaBassey'}</dd>
-          <dt>Category</dt>
-          <dd>{renderableProduct.category || 'Electronics'}</dd>
-          <dt>Condition</dt>
-          <dd>{renderableProduct.condition || 'New'}</dd>
-          <dt>Price</dt>
-          <dd>{priceSeoCopy.priceText || 'Contact for price'}</dd>
-        </dl>
-      </article>
+
       {productPage}
     </>
   );
@@ -1444,6 +1416,15 @@ export default async function CategoryProductPage({
   const criticalCurrency = criticalProduct
     ? resolveMerchantCurrencyConfig(merchant)
     : null;
+  const visibleSummary = criticalProduct
+    ? buildOgabasseyProductVisibleSummary({
+        brand: product.brand,
+        condition: product.condition,
+        name: product.name,
+        offers: product.offers,
+        variants: product.variants,
+      })
+    : null;
   const resolvedSearchParams = await searchParams;
   const commerceProduct = buildCriticalCommerceRouteProduct(product);
   const criticalInitialVariantSelection = criticalProduct
@@ -1509,6 +1490,7 @@ export default async function CategoryProductPage({
           product: {
             ...criticalProduct,
             variantCount,
+            visibleSummary,
           },
           variantAxes: getFirstViewportVariantAxes(
             commerceProduct.variants,

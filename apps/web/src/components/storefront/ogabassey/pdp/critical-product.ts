@@ -45,6 +45,7 @@ export interface OgabasseyPdpCriticalProduct {
   reviewCount: number;
   slug: string;
   stockQuantity: number | null;
+  visibleSummary?: string | null;
 }
 
 function parseNumber(value: unknown): number {

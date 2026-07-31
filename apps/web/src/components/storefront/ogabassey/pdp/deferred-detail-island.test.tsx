@@ -1,4 +1,6 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyPdpDeferredDetailIsland } from './deferred-detail-island';
@@ -7,9 +9,15 @@ const mockDeferredDetailClient = vi.hoisted(() => vi.fn());
 const mockDeferredRailsIsland = vi.hoisted(() => vi.fn());
 
 vi.mock('./deferred-detail-island.client', () => ({
-  OgabasseyPdpDeferredDetailClient: (props: unknown) => {
+  OgabasseyPdpDeferredDetailClient: (props: {
+    descriptionSlot?: ReactNode;
+  }) => {
     mockDeferredDetailClient(props);
-    return <section aria-label="Deferred product detail client" />;
+    return (
+      <section aria-label="Deferred product detail client">
+        {props.descriptionSlot}
+      </section>
+    );
   },
 }));
 
@@ -86,6 +94,21 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
     expect(
       screen.getByRole('region', { name: 'Product details' })
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText('Creator laptop with RTX graphics.')
+    ).toHaveLength(1);
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland
+        product={product}
+        semanticSections={<section aria-label="Buying guidance" />}
+        serverPrimaryDetails={<section aria-label="Server product details" />}
+        storeSlug="ogabassey"
+      />
+    );
+    expect(sourceHtml).toContain('Creator laptop with RTX graphics.');
+    expect(sourceHtml.match(/Creator laptop with RTX graphics\./g)).toHaveLength(
+      1
+    );
     expect(screen.getByLabelText('Buying guidance')).toBeInTheDocument();
     expect(
       container.querySelector('[data-ogabassey-pdp-semantics]')
