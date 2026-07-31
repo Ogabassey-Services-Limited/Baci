@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCallback } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp } from 'node:fs/promises';
+import { chmod, lstat, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -14,6 +14,7 @@ import {
   resumeBootstrap,
   verifyBootstrapTransaction,
 } from './install-bootstrap-controller.mjs';
+import { publishBootstrapPlan } from './install-bootstrap-plan-publication.mjs';
 
 const execFile = promisify(execFileCallback);
 
@@ -124,6 +125,39 @@ test('refuses a resume input from another bootstrap transaction', async (context
       resumeBootstrap(directory, { ...input, transactionId: 'bootstrap-b' }),
     /bootstrap resume authority mismatch/
   );
+});
+
+test('inventory command reconciles a receipt-bound published plan without replacement authorization', async (context) => {
+  const parent = await mkdtemp(join(tmpdir(), 'baci-bootstrap-inventory-cli-'));
+  context.after(() =>
+    import('node:fs/promises').then(({ rm }) =>
+      rm(parent, { recursive: true, force: true })
+    )
+  );
+  const stateRoot = join(parent, 'bootstrap');
+  await import('node:fs/promises').then(({ mkdir }) =>
+    mkdir(stateRoot, { mode: 0o700 })
+  );
+  const exactInput = {
+    ...input,
+    transactionId: `bootstrap-${input.sourceSha.slice(0, 12)}`,
+  };
+  await captureBootstrap(stateRoot, exactInput);
+  const plan = await publishBootstrapPlan(
+    parent,
+    Buffer.from(`${JSON.stringify(exactInput)}\n`)
+  );
+
+  const result = await execFile(process.execPath, [
+    fileURLToPath(
+      new URL('./install-bootstrap-controller.mjs', import.meta.url)
+    ),
+    'replacement-inventory',
+    stateRoot,
+  ]);
+
+  assert.deepEqual(JSON.parse(result.stdout), [exactInput.transactionId]);
+  await assert.rejects(lstat(plan), { code: 'ENOENT' });
 });
 
 test('reports the supplied unsupported controller command', async () => {

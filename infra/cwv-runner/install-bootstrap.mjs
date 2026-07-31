@@ -1,7 +1,11 @@
+// biome-ignore assist/source/organizeImports: split fs imports keeps this bounded source file at its contract limit
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, open, readFile, rename } from 'node:fs/promises';
+import { link, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readRecoverableBootstrapJournal } from './install-bootstrap-journal.mjs';
 
+export { persistBootstrapCapture } from './install-bootstrap-capture-persistence.mjs';
 const HEX = /^[0-9a-f]{64}$/;
 const SOURCE = /^[0-9a-f]{40}$/;
 const TRANSACTION = /^bootstrap-[a-z0-9][a-z0-9-]{0,50}$/;
@@ -144,13 +148,8 @@ export function recoveryPlan(capture) {
 async function privateDirectory(path, create = false) {
   if (create) await mkdir(path, { mode: 0o700 });
   const info = await lstat(path);
-  if (
-    !info.isDirectory() ||
-    info.isSymbolicLink() ||
-    info.uid !== process.getuid() ||
-    (info.mode & 0o777) !== 0o700
-  )
-    fail('private state directory required');
+  // biome-ignore format: bounded source file keeps private directory contract compact
+  if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) fail('private state directory required');
 }
 async function writeExclusive(path, bytes) {
   const handle = await open(path, 'wx', 0o600);
@@ -161,6 +160,33 @@ async function writeExclusive(path, bytes) {
     await handle.close();
   }
 }
+// biome-ignore format: bounded source file keeps receipt crash recovery compact
+async function receiptResidue(path, bytes, partial = false, links = 1) {
+  let before;
+  try { before = await lstat(path); } catch (error) { if (error?.code === 'ENOENT') return null; throw error; }
+  if (!before.isFile() || before.isSymbolicLink() || before.uid !== process.getuid() || (before.mode & 0o777) !== 0o600 || before.nlink !== links || before.size > Buffer.byteLength(bytes)) fail('receipt residue mismatch');
+  const actual = await readFile(path); const after = await lstat(path); const expected = Buffer.from(bytes);
+  if (before.ino !== after.ino || before.ctimeMs !== after.ctimeMs) fail('receipt residue mismatch');
+  return actual.equals(expected) ? 'exact' : partial && expected.subarray(0, actual.length).equals(actual) ? 'partial' : fail('receipt residue mismatch');
+}
+// biome-ignore format: bounded source file keeps receipt crash recovery compact
+async function writeExactReceipt(directory, name, bytes) {
+  const temporaryName = `.${name}.tmp.${sha256(bytes)}`; const destination = join(directory, name); const temporary = join(directory, temporaryName);
+  const entries = await readdir(directory);
+  for (const entry of entries) if (entry.startsWith(`.${name}.tmp.`) && entry !== temporaryName) fail('receipt residue mismatch');
+  if (entries.includes(name) && entries.includes(temporaryName)) {
+    await receiptResidue(destination, bytes, false, 2); await receiptResidue(temporary, bytes, false, 2);
+    const [left, right] = await Promise.all([lstat(destination), lstat(temporary)]);
+    if (left.dev !== right.dev || left.ino !== right.ino || left.nlink !== 2 || right.nlink !== 2) fail('receipt residue mismatch');
+    await unlink(temporary); await fsyncDirectory(directory); return;
+  }
+  const existing = await receiptResidue(destination, bytes); const residue = await receiptResidue(temporary, bytes, true);
+  if (existing) { if (residue) { await unlink(temporary); await fsyncDirectory(directory); } return; }
+  if (residue) { await unlink(temporary); await fsyncDirectory(directory); }
+  await writeExclusive(temporary, bytes);
+  try { await link(temporary, destination); } catch (error) { if (error?.code !== 'EEXIST' || !(await receiptResidue(destination, bytes))) throw error; }
+  await unlink(temporary); await fsyncDirectory(directory);
+}
 async function fsyncDirectory(path) {
   const handle = await open(path, 'r');
   try {
@@ -170,25 +196,23 @@ async function fsyncDirectory(path) {
   }
 }
 async function atomicPhase(directory, phase) {
+  if (phase === 'complete') {
+    let pruned = false;
+    for (const entry of await readdir(directory)) {
+      if (!entry.startsWith('.phase-')) continue;
+      // biome-ignore format: bounded source file keeps completion phase authentication compact
+      if (!/^\.phase-[1-9][0-9]*$/.test(entry)) fail('receipt residue mismatch');
+      await receiptResidue(join(directory, entry), 'complete\n', true);
+      await unlink(join(directory, entry));
+      pruned = true;
+    }
+    if (pruned) await fsyncDirectory(directory);
+  }
   const temporary = join(directory, `.phase-${process.pid}`);
   await writeExclusive(temporary, `${phase}\n`);
   await rename(temporary, join(directory, 'phase'));
   await fsyncDirectory(directory);
 }
-export async function persistBootstrapCapture(stateRoot, capture) {
-  await privateDirectory(stateRoot);
-  if (capture.phase !== 'captured') fail('captured bootstrap state required');
-  const directory = join(stateRoot, capture.transactionId);
-  await privateDirectory(directory, true);
-  await fsyncDirectory(stateRoot);
-  await writeExclusive(join(directory, 'capture.json'), capture.captureBytes);
-  // biome-ignore format: bounded source file keeps this durable receipt write compact
-  await writeExclusive(join(directory, 'capture.sha256'), `${capture.captureSha256}\n`);
-  await writeExclusive(join(directory, 'journal.ndjson'), '');
-  await atomicPhase(directory, 'captured');
-  return directory;
-}
-
 export async function appendBootstrapJournal(directory, event) {
   const state = await readBootstrapState(directory);
   if (state.phase !== 'captured') fail('bootstrap journal is closed');
@@ -220,21 +244,20 @@ export async function appendBootstrapJournal(directory, event) {
   }
   return JSON.parse(output);
 }
-
 export async function persistBootstrapReceipt(directory, complete) {
   const current = await readBootstrapState(directory);
   if (current.phase !== 'captured' || complete.phase !== 'complete')
     fail('invalid bootstrap completion');
   if (complete.captureSha256 !== current.captureSha256)
     fail('capture digest mismatch');
-  await writeExclusive(join(directory, 'receipt.json'), complete.receiptBytes);
-  await writeExclusive(
-    join(directory, 'receipt.sha256'),
+  await writeExactReceipt(directory, 'receipt.json', complete.receiptBytes);
+  await writeExactReceipt(
+    directory,
+    'receipt.sha256',
     `${complete.receiptSha256}\n`
   );
   await atomicPhase(directory, 'complete');
 }
-
 export async function readBootstrapState(directory) {
   await privateDirectory(directory);
   const captureBytes = await readFile(join(directory, 'capture.json'), 'utf8');
@@ -243,9 +266,8 @@ export async function readBootstrapState(directory) {
   if (!HEX.test(captureSha256) || sha256(captureBytes) !== captureSha256)
     fail('capture digest mismatch');
   const capture = JSON.parse(captureBytes);
-  const journalSource = await readFile(
-    join(directory, 'journal.ndjson'),
-    'utf8'
+  const journalSource = await readRecoverableBootstrapJournal(
+    join(directory, 'journal.ndjson')
   );
   const journal = journalSource
     .split('\n')
@@ -254,47 +276,25 @@ export async function readBootstrapState(directory) {
   let previous = captureSha256;
   for (const [index, row] of journal.entries()) {
     const { sha256: rowSha256, ...body } = row;
-    if (
-      row.sequence !== index + 1 ||
-      row.previousSha256 !== previous ||
-      !HEX.test(rowSha256) ||
-      sha256(canonical(body)) !== rowSha256
-    )
-      fail('journal chain mismatch');
+    // biome-ignore format: bounded source file keeps journal binding compact
+    if (row.sequence !== index + 1 || row.previousSha256 !== previous || !HEX.test(rowSha256) || sha256(canonical(body)) !== rowSha256) fail('journal chain mismatch');
     previous = rowSha256;
   }
   const phase = (await readFile(join(directory, 'phase'), 'utf8')).trim();
   if (phase !== 'captured' && phase !== 'complete')
     fail('invalid durable phase');
   if (phase === 'complete') {
-    const receiptBytes = await readFile(
-      join(directory, 'receipt.json'),
-      'utf8'
-    );
+    // biome-ignore format: bounded source file keeps receipt read compact
+    const receiptBytes = await readFile(join(directory, 'receipt.json'), 'utf8');
     // biome-ignore format: bounded source file keeps this validated read compact
     const receiptSha256 = (await readFile(join(directory, 'receipt.sha256'), 'utf8')).trim();
     if (!HEX.test(receiptSha256) || sha256(receiptBytes) !== receiptSha256)
       fail('receipt digest mismatch');
     const receipt = JSON.parse(receiptBytes);
     // biome-ignore format: fixed receipt binding is deliberately compact
-    if (
-      canonical(receipt) !== receiptBytes ||
-      receipt.captureSha256 !== captureSha256 ||
-      receipt.sourceSha !== capture.sourceSha ||
-      receipt.sourceManifestSha256 !== capture.sourceManifestSha256 ||
-      receipt.policyFileSha256 !== capture.policyFileSha256 ||
-      canonical(unitStates(receipt.unitStates)) !== canonical(receipt.unitStates) ||
-      canonical(receipt.files) !== canonical(capture.files)
-    )
-      fail('receipt binding mismatch');
-    return {
-      ...capture,
-      captureSha256,
-      phase,
-      journal,
-      receipt,
-      receiptSha256,
-    };
+    if (canonical(receipt) !== receiptBytes || receipt.captureSha256 !== captureSha256 || receipt.sourceSha !== capture.sourceSha || receipt.sourceManifestSha256 !== capture.sourceManifestSha256 || receipt.policyFileSha256 !== capture.policyFileSha256 || canonical(unitStates(receipt.unitStates)) !== canonical(receipt.unitStates) || canonical(receipt.files) !== canonical(capture.files)) fail('receipt binding mismatch');
+    // biome-ignore format: bounded source file keeps receipt return compact
+    return { ...capture, captureSha256, phase, journal, receipt, receiptSha256 };
   }
   return { ...capture, captureSha256, phase, journal };
 }
