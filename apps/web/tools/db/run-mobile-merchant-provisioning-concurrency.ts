@@ -203,12 +203,19 @@ SELECT
       psqlBin,
       environment,
       `
+BEGIN;
+SELECT pg_catalog.set_config(
+  'app.audit_actor_user_id',
+  ${sqlLiteral(userId)},
+  true
+);
 DELETE FROM public.domains USING public.merchants
 WHERE domains.merchant_id = merchants.id AND merchants.user_id = ${sqlLiteral(userId)};
 DELETE FROM public.staff_members USING public.merchants
 WHERE staff_members.merchant_id = merchants.id AND merchants.user_id = ${sqlLiteral(userId)};
 DELETE FROM public.merchants WHERE user_id = ${sqlLiteral(userId)};
 DELETE FROM auth.users WHERE id = ${sqlLiteral(userId)};
+COMMIT;
 `,
       spawnProcess
     ).catch(() => undefined);

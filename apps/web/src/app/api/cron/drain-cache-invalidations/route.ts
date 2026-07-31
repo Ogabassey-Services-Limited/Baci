@@ -51,12 +51,12 @@ export async function GET(request: Request): Promise<NextResponse> {
       }
       const finish = await supabase.rpc('finish_cache_invalidation', {
         p_claim_token: claim.claim_token,
-        p_error_code: result.ok ? null : result.errorCode,
+        p_error_code: result.ok ? undefined : result.errorCode,
         p_generation: claim.generation,
         p_merchant_id: claim.merchant_id,
         p_retry_after_seconds:
           result.ok || result.retryAfterSeconds === undefined
-            ? null
+            ? undefined
             : result.retryAfterSeconds,
         p_succeeded: result.ok,
         p_target_id: claim.target_id,

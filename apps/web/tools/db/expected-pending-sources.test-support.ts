@@ -1,6 +1,8 @@
 // Expected PENDING replay sources, extracted from the manifest test (Codex #3171)
 // so the binding test stays under the 300-line modularity gate. Independently
 // hand-verified against supabase-history-replay-sources.ts PENDING_SOURCES.
+import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
+
 export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
@@ -277,4 +279,5 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260728091958_provision_mobile_merchant_v2.sql',
     sha256: '9e4df9812810ef2c7e0659a238390d6c97222b2891454ba00740ddbff6cc6104',
   },
+  ...AUDIT_PENDING_SOURCES,
 ];
