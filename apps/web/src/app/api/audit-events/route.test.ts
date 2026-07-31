@@ -225,7 +225,7 @@ describe('GET /api/audit-events', () => {
   it('uses the last returned row as the deterministic cursor when one extra row exists', async () => {
     // Arrange
     const first = createAuditEvent(1);
-    const second = createAuditEvent(2);
+    const second = createAuditEvent(10);
     const extra = createAuditEvent(3);
     rpcMock.mockResolvedValue({ data: [first, second, extra], error: null });
     // Act
@@ -235,7 +235,7 @@ describe('GET /api/audit-events', () => {
       events: [{ id: first.id }, { id: second.id }],
       nextCursor: {
         cursorId: second.id,
-        cursorOccurredAt: second.occurred_at,
+        cursorOccurredAt: '2026-07-29T12:00:10.000Z',
       },
     });
     expect(rpcMock).toHaveBeenCalledWith('list_merchant_audit_events_v1', {

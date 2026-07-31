@@ -83,8 +83,7 @@ BEGIN
     AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
-     OR v_event.after_values ->> 'logo_url' <> 'https://cdn.example/large-logo.svg'
-     OR v_event.after_values -> 'logo_url' ->> 'reason' = 'oversized_legacy_payload' THEN
+     OR v_event.after_values ->> 'logo_url' <> 'https://cdn.example/large-logo.svg' THEN
     RAISE EXCEPTION 'large private asset query used the oversized cleanup writer';
   END IF;
 END;

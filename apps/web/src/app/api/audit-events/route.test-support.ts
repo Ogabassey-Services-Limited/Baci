@@ -16,7 +16,7 @@ export function createAuditEvent(
     merchant_id: '550e8400-e29b-41d4-a716-446655440000',
     merchant_label: 'Example Store',
     metadata: { category: 'payment' },
-    occurred_at: `2026-07-29T12:00:0${index}.000Z`,
+    occurred_at: `2026-07-29T12:00:${String(index).padStart(2, '0')}.000Z`,
     request_id: 'd0d0d0d0-2222-4333-8444-555555555555',
     resource_id: 'f0f0f0f0-2222-4333-8444-555555555555',
     resource_type: 'merchant_feature_settings',
