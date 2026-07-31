@@ -17,9 +17,9 @@ describe('canonical audit events migration contract', () => {
       (fileName) => fileName.startsWith('20260730000000_')
     );
 
-    expect(matchingMigrationFiles).toEqual([
-      '20260730000000_create_canonical_audit_events.sql',
-    ]);
+    expect(new Set(matchingMigrationFiles)).toEqual(
+      new Set(['20260730000000_create_canonical_audit_events.sql'])
+    );
   });
 
   it('creates an immutable, force-RLS ledger with database-controlled identity', () => {
@@ -62,7 +62,9 @@ describe('canonical audit events migration contract', () => {
   it('bounds payloads and gives tenant pagination a deterministic order', () => {
     const migrationSql = readFileSync(migrationPath, 'utf8');
 
-    expect(migrationSql).toMatch(/array_length\(p_fields, 1\).*<= 64/);
+    expect(migrationSql).toMatch(
+      /COALESCE\(\s*array_length\(p_fields,\s*1\),\s*0\s*\)\s*<=\s*64/
+    );
     expect(migrationSql).toContain('octet_length(array_to_string(p_fields');
     expect(migrationSql).toContain('private.audit_event_json_object_valid_v1');
     expect(migrationSql).toContain('idx_audit_events_merchant_occurred_id');

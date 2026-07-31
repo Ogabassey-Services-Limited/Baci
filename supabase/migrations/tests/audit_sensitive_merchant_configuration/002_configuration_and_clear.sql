@@ -209,7 +209,7 @@ BEGIN
   SELECT string_agg(pg_catalog.to_jsonb(audit_event)::text, E'\n')
     INTO v_audit_text
   FROM public.audit_events AS audit_event
-  WHERE audit_event.id = v_event.id;
+  WHERE audit_event.merchant_id = '7e3f2e40-0000-4000-8000-000000000002';
   IF v_after_count <> v_before_count + 1
      OR v_event.after_values -> 'ga4_api_secret' IS DISTINCT FROM
        '{"present":false,"state":"cleared"}'::jsonb THEN

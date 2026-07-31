@@ -11,6 +11,11 @@ export const AUDIT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260730000002_harden_canonical_audit_actor_inputs.sql',
+    sha256: 'd140c09323d6ca9a84dbbb661cc8811613fcad05f2d8df64f48cefe553c15a4e',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260730000100_audit_merchant_identity_changes.sql',
     sha256: 'e5e417d37454d20d3ce60e48d53ace5cb541464bfd62e6dda9ed2396dddfa9d9',
   },
@@ -46,8 +51,33 @@ export const AUDIT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260730000107_audit_merchant_identity_asset_url_projection.sql',
+    sha256: '8140d2fc49e8a2f635306b54bec1939bca4ac44d1c9e492e111d87f5042596ce',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000108_audit_merchant_identity_projected_writers.sql',
+    sha256: 'c361f9baa9932cfece343663ea7365dac46dceec933bde7d158a517b2a94785c',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000109_reject_merchant_identity_primary_key_reassignment.sql',
+    sha256: '1fe1c1f484d4bbb6504851e904f577fe072f67f841ce5c76152edac42759401d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000110_route_merchant_identity_projected_payloads.sql',
+    sha256: 'b34c1481e7c57fcbb0833d9835d898be17bd5a5e22cf3c294ec224c9c1e8818d',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260730000200_audit_staff_access_changes.sql',
     sha256: 'e54641d40c6f50feaea2348e9ce45188326f932d5f2aea3803f7499e2aaeb4d1',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000201_bound_staff_access_audit_permission_projection.sql',
+    sha256: 'be1a63c2c530a773fb6c4305d9c6c6253cef0c492575f569b371394a408d1c00',
   },
   {
     repositoryPath:

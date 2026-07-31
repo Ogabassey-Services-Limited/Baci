@@ -84,13 +84,22 @@ vi.mock('@/components/shipping/ProvidersList', () => ({
   }: {
     onToggleProvider: (providerId: 'topship', enabled: boolean) => void;
   }) => (
-    <button
-      aria-label="Enable Topship"
-      onClick={() => onToggleProvider('topship', true)}
-      type="button"
-    >
-      Enable Topship
-    </button>
+    <>
+      <button
+        aria-label="Enable Topship"
+        onClick={() => onToggleProvider('topship', true)}
+        type="button"
+      >
+        Enable Topship
+      </button>
+      <button
+        aria-label="Disable Topship"
+        onClick={() => onToggleProvider('topship', false)}
+        type="button"
+      >
+        Disable Topship
+      </button>
+    </>
   ),
 }));
 
@@ -110,6 +119,12 @@ vi.mock('@/components/shipping/ShippingForm', () => ({
       </button>
       <button onClick={() => onThresholdChange('12,500')} type="button">
         Set threshold to 12500
+      </button>
+      <button onClick={() => onThresholdChange('')} type="button">
+        Clear threshold
+      </button>
+      <button onClick={() => onThresholdChange('-1')} type="button">
+        Set threshold to negative one
       </button>
       <button onClick={onSaveThreshold} type="button">
         Save threshold
@@ -223,5 +238,52 @@ describe('ShippingScreen audited settings mutations', () => {
         'Failed to update free shipping threshold'
       );
     });
+  });
+
+  it('persists disabling a provider and clearing the free shipping threshold', async () => {
+    // Arrange
+    render(<ShippingScreen />);
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: 'Disable Topship' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit free shipping threshold' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Clear threshold' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save threshold' }));
+
+    // Assert
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledWith({
+        shipping_providers: ['gigl'],
+      });
+      expect(mocks.update).toHaveBeenCalledWith({
+        free_shipping_threshold: null,
+      });
+    });
+  });
+
+  it('rejects a negative free shipping threshold from the rendered control', async () => {
+    // Arrange
+    render(<ShippingScreen />);
+
+    // Act
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit free shipping threshold' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Set threshold to negative one' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save threshold' }));
+
+    // Assert
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Invalid threshold',
+        'Enter a valid non-negative amount for free shipping.'
+      );
+    });
+    await Promise.resolve();
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });

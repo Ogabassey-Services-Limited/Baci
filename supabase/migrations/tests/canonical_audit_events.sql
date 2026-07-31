@@ -7,6 +7,7 @@ BEGIN;
 \ir canonical_audit_events_setup.sql
 \ir canonical_audit_events_foundation.sql
 \ir canonical_audit_events_capability.sql
+\ir canonical_audit_events_actor_inputs.sql
 \ir canonical_audit_events_validation.sql
 \ir canonical_audit_events_reader.sql
 \ir canonical_audit_events_retention.sql

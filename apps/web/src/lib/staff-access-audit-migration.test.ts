@@ -7,10 +7,34 @@ const migrationPath = resolve(
   migrationDirectory,
   '20260730000200_audit_staff_access_changes.sql'
 );
+const boundedProjectionRepairPath = resolve(
+  migrationDirectory,
+  '20260730000201_bound_staff_access_audit_permission_projection.sql'
+);
 const sqlRegressionPath = resolve(
   migrationDirectory,
   'tests/audit_staff_access_changes.sql'
 );
+const sqlRegressionPartsDirectory = resolve(
+  migrationDirectory,
+  'tests/audit_staff_access_changes'
+);
+
+function readStaffAccessSqlRegression() {
+  const orderedPartSql = readdirSync(sqlRegressionPartsDirectory, {
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
+    .map((entry) => entry.name)
+    .sort()
+    .map((fileName) =>
+      readFileSync(resolve(sqlRegressionPartsDirectory, fileName), 'utf8')
+    );
+
+  return [readFileSync(sqlRegressionPath, 'utf8'), ...orderedPartSql].join(
+    '\n'
+  );
+}
 
 const classifiedStaffMemberFields = [
   'accepted_at',
@@ -129,9 +153,35 @@ describe('staff access audit migration contract', () => {
     expect(migrationSql).not.toMatch(/to_jsonb\(\s*(?:OLD|NEW)\s*\)/);
   });
 
-  it('ships executable lifecycle, attribution, and redaction regressions', () => {
-    const sqlRegression = readFileSync(sqlRegressionPath, 'utf8');
+  it('redacts oversized legacy permission documents before they can block cleanup', () => {
+    const repairSql = readFileSync(boundedProjectionRepairPath, 'utf8');
 
+    expect(repairSql).toContain(
+      'CREATE OR REPLACE FUNCTION private.project_staff_effective_permissions_for_audit_v1('
+    );
+    expect(repairSql).toContain('__audit_projection_redacted__');
+    expect(repairSql).toContain('> 4096');
+    expect(repairSql).toContain('octet_length(COALESCE(p_custom_permissions');
+    expect(repairSql).toContain('octet_length(v_projected_permissions::text)');
+    expect(repairSql).not.toContain('to_jsonb(OLD)');
+    expect(repairSql).not.toContain('to_jsonb(NEW)');
+  });
+
+  it('ships executable lifecycle, attribution, and redaction regressions', () => {
+    const regressionDriverSql = readFileSync(sqlRegressionPath, 'utf8');
+    const partFileNames = readdirSync(sqlRegressionPartsDirectory, {
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
+      .map((entry) => entry.name)
+      .sort();
+    const sqlRegression = readStaffAccessSqlRegression();
+
+    for (const partFileName of partFileNames) {
+      expect(regressionDriverSql).toContain(
+        `\\ir audit_staff_access_changes/${partFileName}`
+      );
+    }
     expect(sqlRegression).toContain('information_schema.columns');
     expect(sqlRegression).toContain('staff-audit-token-first');
     expect(sqlRegression).toContain('staff-audit-token-rotated');
@@ -172,5 +222,9 @@ describe('staff access audit migration contract', () => {
     expect(sqlRegression).toContain('target_user_id');
     expect(sqlRegression).toContain('invitation_token');
     expect(sqlRegression).toContain('normalized permission identifier');
+    expect(sqlRegression).toContain('oversized staff cleanup');
+    expect(sqlRegression).toContain('oversized staff physical delete');
+    expect(sqlRegression).toContain('oversized staff merchant cascade');
+    expect(sqlRegression).toContain('__audit_projection_redacted__');
   });
 });

@@ -28,37 +28,10 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 import { GET } from './route';
+import { createAuditEvent } from './route.test-support';
 
 const MERCHANT_ID = '550e8400-e29b-41d4-a716-446655440000';
 const OTHER_MERCHANT_ID = '4d1d1d1d-1111-4222-8333-444444444444';
-
-function createAuditEvent(
-  index: number,
-  overrides: Record<string, unknown> = {}
-) {
-  return {
-    action: 'merchant.feature.update',
-    actor_label: 'authenticated_user',
-    actor_type: 'user',
-    actor_user_id: 'b0b0b0b0-2222-4333-8444-555555555555',
-    after_values: { paystack_enabled: true },
-    before_values: { paystack_enabled: false },
-    changed_fields: ['paystack_enabled'],
-    correlation_id: 'c0c0c0c0-2222-4333-8444-555555555555',
-    database_transaction_id: `tx-${index}`,
-    id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
-    merchant_id: MERCHANT_ID,
-    merchant_label: 'Example Store',
-    metadata: { category: 'payment' },
-    occurred_at: `2026-07-29T12:00:0${index}.000Z`,
-    request_id: 'd0d0d0d0-2222-4333-8444-555555555555',
-    resource_id: 'f0f0f0f0-2222-4333-8444-555555555555',
-    resource_type: 'merchant_feature_settings',
-    schema_version: 1,
-    source: 'api',
-    ...overrides,
-  };
-}
 
 function request(query: string) {
   return new NextRequest(`http://localhost/api/audit-events?${query}`);
@@ -141,6 +114,24 @@ describe('GET /api/audit-events', () => {
       { requestedMerchantId: MERCHANT_ID }
     );
     expect(rpcMock).not.toHaveBeenCalled();
+    expectNoStore(response);
+  });
+  it('accepts an uppercase UUID for the selected owner merchant', async () => {
+    // Arrange
+    const uppercaseMerchantId = MERCHANT_ID.toUpperCase();
+    getMerchantForApiRequestMock.mockResolvedValue(ownerContext(MERCHANT_ID));
+    // Act
+    const response = await GET(request(`merchantId=${uppercaseMerchantId}`));
+    // Assert
+    expect(response.status).toBe(200);
+    expect(rpcMock).toHaveBeenCalledWith('list_merchant_audit_events_v1', {
+      p_action: undefined,
+      p_before_id: undefined,
+      p_before_occurred_at: undefined,
+      p_limit: 51,
+      p_merchant_id: uppercaseMerchantId,
+      p_resource_type: undefined,
+    });
     expectNoStore(response);
   });
   it('returns 400 for a duplicate query parameter without querying data', async () => {

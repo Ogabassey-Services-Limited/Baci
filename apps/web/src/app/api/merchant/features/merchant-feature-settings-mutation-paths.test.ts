@@ -9,6 +9,9 @@ const routeMocks = vi.hoisted(() => ({
   update: vi.fn(),
   updateEq: vi.fn(),
   upsert: vi.fn(),
+  revalidateFeatures: vi.fn(),
+  revalidateMerchant: vi.fn(),
+  revalidateRepairsCatalog: vi.fn(),
   writeSelect: vi.fn(),
   writeSingle: vi.fn(),
 }));
@@ -25,9 +28,9 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 
 vi.mock('@/lib/cache-revalidation', () => ({
-  revalidateFeatures: vi.fn(),
-  revalidateMerchant: vi.fn(),
-  revalidateRepairsCatalog: vi.fn(),
+  revalidateFeatures: routeMocks.revalidateFeatures,
+  revalidateMerchant: routeMocks.revalidateMerchant,
+  revalidateRepairsCatalog: routeMocks.revalidateRepairsCatalog,
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -145,5 +148,49 @@ describe('merchant feature settings audited mutation paths', () => {
       { onConflict: 'merchant_id' }
     );
     expect(routeMocks.update).not.toHaveBeenCalled();
+  });
+
+  it('does not revalidate when PATCH update persistence fails', async () => {
+    // Arrange
+    const { PATCH } = await import('./route');
+    routeMocks.writeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST001', message: 'update failed' },
+    });
+
+    // Act
+    const response = await PATCH(
+      makeRequest('PATCH', { paystack_enabled: false })
+    );
+
+    // Assert
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to update settings',
+    });
+    expect(routeMocks.revalidateFeatures).not.toHaveBeenCalled();
+    expect(routeMocks.revalidateMerchant).not.toHaveBeenCalled();
+    expect(routeMocks.revalidateRepairsCatalog).not.toHaveBeenCalled();
+  });
+
+  it('does not revalidate when PUT upsert persistence fails', async () => {
+    // Arrange
+    const { PUT } = await import('./route');
+    routeMocks.writeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST001', message: 'upsert failed' },
+    });
+
+    // Act
+    const response = await PUT(makeRequest('PUT', { paystack_enabled: false }));
+
+    // Assert
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to save settings',
+    });
+    expect(routeMocks.revalidateFeatures).not.toHaveBeenCalled();
+    expect(routeMocks.revalidateMerchant).not.toHaveBeenCalled();
+    expect(routeMocks.revalidateRepairsCatalog).not.toHaveBeenCalled();
   });
 });

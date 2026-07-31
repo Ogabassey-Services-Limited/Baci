@@ -101,7 +101,8 @@ export async function GET(request: NextRequest) {
     });
     const isSelectedMerchantOwner =
       merchantContext?.staffAccess.isOwner &&
-      merchantContext.merchantId === query.data.merchantId;
+      merchantContext.merchantId.toLowerCase() ===
+        query.data.merchantId.toLowerCase();
     if (!isSelectedMerchantOwner) {
       return jsonNoStore({ error: 'Forbidden' }, { status: 403 });
     }

@@ -108,7 +108,9 @@ BEGIN
      OR v_event.after_values ->> 'legal_entity_name' <> 'Ogabassey Trading Ltd'
      OR v_event.after_values -> 'registered_address' <> '{"present":true}'::jsonb
      OR v_event.after_values -> 'business_address' <> '{"present":true}'::jsonb THEN
-    RAISE EXCEPTION 'social/settings RPC did not emit one safe identity event';
+    RAISE EXCEPTION
+      'social/settings RPC did not emit one safe identity event: before=%, after=%, fields=%, values=%',
+      v_before_count, v_after_count, v_event.changed_fields, v_event.after_values;
   END IF;
 END;
 $test$;
