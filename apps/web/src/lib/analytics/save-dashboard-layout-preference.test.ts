@@ -21,4 +21,12 @@ describe('saveDashboardLayoutPreference', () => {
       })
     );
   });
+
+  it('rejects when the dashboard preference mutation fails', async () => {
+    mockFetchWithCsrf.mockResolvedValue({ ok: false });
+
+    await expect(
+      saveDashboardLayoutPreference([{ i: 'sales', x: 0, y: 0, w: 2, h: 2 }])
+    ).rejects.toThrow('Failed to save dashboard layout preference');
+  });
 });
