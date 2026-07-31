@@ -30,7 +30,13 @@ export function SetupChecklistItem({
 
   return (
     <Pressable
-      accessibilityLabel={item.label}
+      accessibilityHint={
+        item.completed
+          ? 'Completed. Opens this setup item.'
+          : 'Incomplete. Opens this setup item.'
+      }
+      accessibilityLabel={`${item.label}, ${item.completed ? 'completed' : 'incomplete'}`}
+      accessibilityRole="button"
       onPress={onPress}
       style={[
         styles.itemCard,

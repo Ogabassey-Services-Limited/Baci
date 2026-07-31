@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { useToast } from '@/hooks/use-toast';
 import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 
@@ -12,6 +12,7 @@ interface UseDashboardPublishToggleOptions {
   isPublished: boolean | undefined | null;
   merchantId: string | undefined;
   refresh: () => void;
+  /** Deliberately not invoked: this callback reloads the implicit merchant. */
   reloadMerchant: () => void;
   toast: ToastFn;
 }
@@ -20,14 +21,15 @@ export function useDashboardPublishToggle({
   isPublished,
   merchantId,
   refresh,
-  reloadMerchant,
   toast,
 }: UseDashboardPublishToggleOptions) {
   const [publishingMerchantRequests, setPublishingMerchantRequests] = useState<
     Record<string, number>
   >({});
   const activeMerchantId = useRef(merchantId);
-  activeMerchantId.current = merchantId;
+  useLayoutEffect(() => {
+    activeMerchantId.current = merchantId;
+  }, [merchantId]);
 
   const togglePublish = async () => {
     if (!merchantId) {
@@ -69,7 +71,6 @@ export function useDashboardPublishToggle({
           : 'Your store is now live and accessible to customers.',
         title: isPublished ? 'Store Unpublished' : 'Store Published!',
       });
-      reloadMerchant();
       refresh();
     } catch (_error) {
       if (activeMerchantId.current !== submittedMerchantId) return;

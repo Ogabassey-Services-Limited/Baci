@@ -41,7 +41,7 @@ describe('saveSettings', () => {
       }),
       { merchantId: '11111111-1111-4111-8111-111111111111', skipReload: true }
     );
-    expect(reloadMerchant).toHaveBeenCalledTimes(1);
+    expect(reloadMerchant).not.toHaveBeenCalled();
   });
 
   it('stops before generic settings when the guarded social write fails', async () => {

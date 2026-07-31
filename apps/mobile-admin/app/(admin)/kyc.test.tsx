@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   merchant: {
     bvn: null,
     cac_rc_number: null,
+    country: 'NG',
     id: 'merchant-1',
     nin: null,
     phone: '+2348012345678',
@@ -182,6 +183,7 @@ describe('KYCScreen', () => {
     mocks.merchant = {
       bvn: null,
       cac_rc_number: null,
+      country: 'NG',
       id: 'merchant-1',
       nin: null,
       phone: '+2348012345678',

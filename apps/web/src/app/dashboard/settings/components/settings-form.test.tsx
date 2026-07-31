@@ -5,7 +5,22 @@ import { SettingsForm } from './settings-form';
 
 // Mock child components to avoid deep rendering
 vi.mock('./branding-card', () => ({
-  BrandingCard: () => <div data-testid="branding-card" />,
+  BrandingCard: ({
+    onColorChange,
+    onShuffleColors,
+  }: {
+    onColorChange: (role: 'primary', color: string) => void;
+    onShuffleColors: () => void;
+  }) => (
+    <div data-testid="branding-card">
+      <button type="button" onClick={() => onColorChange('primary', '#123456')}>
+        Change primary color
+      </button>
+      <button type="button" onClick={onShuffleColors}>
+        Shuffle colors
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('./hero-carousel-card', () => ({
@@ -209,5 +224,45 @@ describe('SettingsForm', () => {
       },
       { timeout: 200 }
     );
+  });
+
+  it('writes branding changes to the selected merchant after switching stores', async () => {
+    const merchantB = {
+      ...mockMerchant,
+      id: 'merchant-2',
+      business_name: 'Second Store',
+      brand_colors: { primary: '#111', background: '#222', accent: '#333' },
+    };
+    mockUpdateMerchant.mockResolvedValue(undefined);
+    const rendered = render(
+      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
+    );
+
+    rendered.rerender(
+      <SettingsForm initialMerchant={merchantB} initialBlogEnabled={false} />
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change primary color' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle colors' }));
+
+    await waitFor(() => {
+      expect(mockUpdateMerchant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brand_colors: expect.objectContaining({ primary: '#123456' }),
+        }),
+        { merchantId: 'merchant-2', skipReload: true }
+      );
+      expect(mockUpdateMerchant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brand_colors: {
+            primary: '#333',
+            background: '#123456',
+            accent: '#222',
+          },
+        }),
+        { merchantId: 'merchant-2', skipReload: true }
+      );
+    });
   });
 });

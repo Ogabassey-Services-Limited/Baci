@@ -2,7 +2,7 @@
 
 import type { WebStoreReadiness } from '@baci/shared';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -42,7 +42,10 @@ export function SetupChecklist({
   const [showAll, setShowAll] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const activeMerchantId = useRef(merchantId);
-  activeMerchantId.current = merchantId;
+
+  useLayoutEffect(() => {
+    activeMerchantId.current = merchantId;
+  }, [merchantId]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

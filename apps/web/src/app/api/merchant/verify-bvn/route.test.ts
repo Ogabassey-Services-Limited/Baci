@@ -78,11 +78,19 @@ describe('POST /api/merchant/verify-bvn access and validation', () => {
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
-    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      'user-1',
+      'verify-bvn-preflight',
+      30,
+      1
+    );
   });
 
-  it('returns 429 when rate limit is exceeded', async () => {
-    vi.mocked(checkRateLimit).mockResolvedValue(false);
+  it('returns 429 when the provider quota is exceeded after authorization', async () => {
+    vi.mocked(checkRateLimit)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
     const req = makeRequest(validBvnBody);
 
     expect((await POST(req)).status).toBe(429);
@@ -94,7 +102,7 @@ describe('POST /api/merchant/verify-bvn access and validation', () => {
     );
   });
 
-  it('rate limits before parsing a malformed BVN request body', async () => {
+  it('does not rate limit a malformed BVN request body', async () => {
     vi.mocked(checkRateLimit).mockResolvedValue(false);
     const req = makeRequest(validBvnBody);
     req.json = vi.fn().mockRejectedValue(new Error('malformed JSON'));

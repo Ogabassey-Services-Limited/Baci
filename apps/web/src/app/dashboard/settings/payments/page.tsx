@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useMerchant } from '@/hooks/use-merchant-client';
@@ -18,6 +18,8 @@ import {
   DEFAULT_PAYMENT_SETTINGS,
   type PaymentGatewaySettings,
 } from './payment-settings';
+import { PaymentSettingsHeading } from './payment-settings-heading';
+import { usePaymentBankCompletion } from './use-payment-bank-completion';
 
 async function savePaymentSettings(
   settings: PaymentGatewaySettings,
@@ -52,17 +54,6 @@ async function savePaymentSettings(
   return 'saved';
 }
 
-function PaymentSettingsHeading() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold tracking-tight">Payment Settings</h1>
-      <p className="text-muted-foreground">
-        Configure payment gateways, delivery payments, and settlement details
-      </p>
-    </div>
-  );
-}
-
 export default function PaymentSettingsPage() {
   const { toast } = useToast();
   const { merchant, loading: merchantLoading, reloadMerchant } = useMerchant();
@@ -76,11 +67,22 @@ export default function PaymentSettingsPage() {
   const [savingMerchantId, setSavingMerchantId] = useState<string | null>(null);
   const saveEpochRef = useRef(0);
   const currentMerchantIdRef = useRef<string | null>(null);
-  currentMerchantIdRef.current = merchant?.id ?? null;
+  const { handleBankSaved, merchantRevision, savedBank } =
+    usePaymentBankCompletion(merchant?.id, reloadMerchant);
+
+  // Keep async callbacks bound to the last committed merchant. Updating this
+  // during render leaks a speculative identity from an abandoned render.
+  useLayoutEffect(() => {
+    currentMerchantIdRef.current = merchant?.id ?? null;
+  }, [merchant?.id]);
 
   const countryCode = merchant?.country ?? null;
   const isPaystackSupported = isBaciPaystackSettlementCountry(countryCode);
-  const hasPaystackSubaccount = Boolean(merchant?.paystack_subaccount_code);
+  const hasPaystackSubaccount = Boolean(
+    merchant?.paystack_subaccount_code ||
+      merchant?.paystack_subaccount_configured === true ||
+      savedBank
+  );
   const merchantCurrencyCode = getCurrencyCode(countryCode);
   const platformFeeCap = isPaystackSupported
     ? formatCurrencyCompact(2050, 'NG')
@@ -235,18 +237,24 @@ export default function PaymentSettingsPage() {
     <div className="space-y-6">
       <PaymentSettingsHeading />
       <MerchantSettlementCard
+        hasPaystackSubaccount={hasPaystackSubaccount}
         isPaystackSupported={isPaystackSupported}
         merchant={{
-          accountName: merchant.bank_account_name ?? null,
-          accountNumber: merchant.bank_account_number ?? null,
-          bankCode: merchant.bank_code ?? null,
-          bankName: merchant.bank_name ?? null,
-          businessName: merchant.business_name ?? null,
+          accountName:
+            savedBank?.accountName ?? merchant.bank_account_name ?? null,
+          accountNumber:
+            savedBank?.accountNumber ?? merchant.bank_account_number ?? null,
+          bankCode: savedBank?.bankCode ?? merchant.bank_code ?? null,
+          bankName: savedBank?.bankName ?? merchant.bank_name ?? null,
+          businessName:
+            savedBank?.businessName ?? merchant.business_name ?? null,
           countryCode,
           id: merchant.id,
           paystackSubaccountCode: merchant.paystack_subaccount_code ?? null,
         }}
-        onBankSaved={reloadMerchant}
+        onBankSaved={(bank) =>
+          handleBankSaved(merchant.id, merchantRevision, bank)
+        }
       />
       <PaymentGatewayCards
         hasPaystackSubaccount={hasPaystackSubaccount}

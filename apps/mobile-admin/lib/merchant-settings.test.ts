@@ -162,6 +162,24 @@ describe('merchant settings mutation clients', () => {
     ).rejects.toThrow('Invalid store settings update response');
   });
 
+  it.each([
+    ['an invalid update timestamp', { updated_at: 'not-a-timestamp' }],
+    ['a non-string identity field', { support_phone: 2348012345678 }],
+  ])('rejects a committed receipt with %s', async (_caseName, override) => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: { ...committedIdentitySettings, ...override },
+      error: null,
+    });
+
+    await expect(
+      updateMerchantIdentitySettings({
+        expectedUpdatedAt: '2026-07-29T10:00:00Z',
+        merchantId: 'merchant-1',
+        settings: { business_name: 'Baci Store' },
+      })
+    ).rejects.toThrow('Invalid store settings update response');
+  });
+
   it('requires a fresh login when the server rejects a stale session', async () => {
     mocks.rpc.mockResolvedValue({
       data: null,

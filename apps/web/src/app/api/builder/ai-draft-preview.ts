@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import type { BuilderConfigInput } from '@/schemas/builder';
 import { parseBuilderConfigForAiDraft } from '@/schemas/builder';
-import type { BuilderLoadResult } from './builder-route-utils';
+import type { BuilderLoadResult } from './builder-load-payload';
 
 interface AiStorefrontDraftJobRecord {
   id: string;

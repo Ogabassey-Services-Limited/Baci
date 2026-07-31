@@ -10,22 +10,24 @@ import {
   fetchCacTaxId,
   findMatchingCacCompany,
 } from '@/lib/cac-public-records';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { checkRateLimit } from '@/lib/rate-limiter';
 import { taxIdVerifySchema } from '@/schemas/verification';
+import { getVerificationRateLimitError } from '../verification-rate-limit';
 
 const MERCHANT_TAX_IDENTITY_COLUMNS =
-  'id, business_name, legal_entity_name, cac_rc_number';
+  'id, business_name, legal_entity_name, cac_rc_number, country';
 
 interface MerchantTaxIdentity {
   id: string;
   business_name: string | null;
   legal_entity_name: string | null;
   cac_rc_number: string | null;
+  country: string | null;
 }
 
 function isCacPublicRecordsError(
@@ -80,6 +82,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-tax-id-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
+
   const merchantContext = await getMerchantForApiRequest(
     auth.supabase,
     auth.user.id,
@@ -90,20 +100,6 @@ export async function POST(request: NextRequest) {
   }
   if (!hasPermission(toUserAccess(merchantContext), 'settings', 'edit')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const allowed = await checkRateLimit(
-    auth.supabase,
-    auth.user.id,
-    'verify-tax-id',
-    10,
-    1
-  );
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', code: 'rate_limited' },
-      { status: 429 }
-    );
   }
 
   const { data: merchant, error: merchantError } = await auth.supabase
@@ -121,6 +117,12 @@ export async function POST(request: NextRequest) {
   }
 
   const merchantTaxIdentity = merchant as MerchantTaxIdentity;
+  if (!isBaciPaystackSettlementCountry(merchantTaxIdentity.country)) {
+    return NextResponse.json(
+      { error: 'Tax ID verification is only available for Nigerian merchants' },
+      { status: 400 }
+    );
+  }
   const legalEntityName =
     valueOrUndefined(parsed.data.legalEntityName) ??
     valueOrUndefined(merchantTaxIdentity.legal_entity_name) ??
@@ -142,6 +144,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const providerRateLimitError = await getVerificationRateLimitError(
+      auth.supabase,
+      auth.user.id,
+      'verify-tax-id',
+      10
+    );
+    if (providerRateLimitError) return providerRateLimitError;
+
     const companies = await fetchCacCompanies(searchTerm);
     const matchingCompany = findMatchingCacCompany(companies, {
       legalEntityName,

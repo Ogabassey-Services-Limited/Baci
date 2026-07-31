@@ -10,6 +10,28 @@ vi.mock('@/components/merchant-bank-form', () => ({
 import { MerchantSettlementCard } from './merchant-settlement-card';
 
 describe('MerchantSettlementCard', () => {
+  it('shows a session-saved Paystack account without waiting for a merchant refetch', () => {
+    render(
+      <MerchantSettlementCard
+        hasPaystackSubaccount
+        isPaystackSupported
+        merchant={{
+          accountName: null,
+          accountNumber: null,
+          bankCode: null,
+          bankName: null,
+          businessName: 'Baci Store',
+          countryCode: 'NG',
+          id: 'merchant-1',
+          paystackSubaccountCode: null,
+        }}
+        onBankSaved={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Bank Account Connected')).toBeInTheDocument();
+  });
+
   it('renders manual invoice bank details for a non-Paystack country', () => {
     render(
       <MerchantSettlementCard

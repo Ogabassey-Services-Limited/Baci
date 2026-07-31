@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -36,14 +36,15 @@ export default function SocialMediaScreen() {
   const queryClient = useQueryClient();
   const savePending = useMerchantScopedPending();
   const activeMerchantIdRef = useRef(merchant?.id);
-  activeMerchantIdRef.current = merchant?.id;
+  useLayoutEffect(() => {
+    activeMerchantIdRef.current = merchant?.id;
+  }, [merchant?.id]);
   const screenOptions = {
     title: 'Social Media',
     headerStyle: { backgroundColor: colors.background },
     headerShadowVisible: false,
     headerTintColor: colors.text,
   };
-  // Clear headerRight in non-edit states so React Navigation cannot retain a stale Save action.
   const guardedScreenOptions = {
     ...screenOptions,
     headerRight: () => null,
@@ -90,7 +91,8 @@ export default function SocialMediaScreen() {
     setSocialMedia(merchantSocialMedia);
   }
 
-  // A save must change saved handles; no merchant can produce a blank write. (V4)
+  // Save is disabled until at least one social-media value differs from the
+  // merchant's persisted values, preventing a no-op settings write.
   const isDirty = (
     Object.keys(EMPTY_SOCIAL_MEDIA) as (keyof MerchantSocialMedia)[]
   ).some(
@@ -172,8 +174,6 @@ export default function SocialMediaScreen() {
     );
   }
 
-  // Show retry when no cached merchant exists, but keep cached data editable during refetch errors. (V4)
-  // This prevents blank writes without blocking safe edits from cached handles.
   if (!merchant) {
     return (
       <>
@@ -197,7 +197,6 @@ export default function SocialMediaScreen() {
       <Stack.Screen
         options={{
           ...screenOptions,
-          /* Native back button */
           headerRight: () => (
             <Pressable
               onPress={handleSave}

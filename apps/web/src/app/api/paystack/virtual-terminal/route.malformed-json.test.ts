@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  authenticateApiRequest: vi.fn(),
   checkCsrfProtection: vi.fn(),
   createClient: vi.fn(),
   createVirtualTerminal: vi.fn(),
@@ -13,7 +14,7 @@ const supabase = { auth: { getUser: mocks.getUser } };
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(() => ({})) }));
 vi.mock('@/lib/api-auth', () => ({
-  authenticateApiRequest: vi.fn(),
+  authenticateApiRequest: mocks.authenticateApiRequest,
   hasPermission: vi.fn(),
 }));
 vi.mock('@/lib/csrf', () => ({
@@ -26,7 +27,6 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 vi.mock('@/lib/paystack', () => ({
   createVirtualTerminal: mocks.createVirtualTerminal,
 }));
-vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
 
 import { POST } from './route';
@@ -34,6 +34,11 @@ import { POST } from './route';
 describe('POST /api/paystack/virtual-terminal malformed JSON', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase,
+      user: { id: 'user-1' },
+    });
     mocks.checkCsrfProtection.mockResolvedValue({
       valid: true,
       response: null,

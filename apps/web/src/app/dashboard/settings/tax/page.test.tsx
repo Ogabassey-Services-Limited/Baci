@@ -54,6 +54,7 @@ vi.mock('./tax-settings-form', async () => {
 import TaxSettingsPage from './page';
 
 const merchantData = {
+  country: 'NG',
   vat_registration_status: 'registered',
   vat_rate: 7.5,
   tax_identification_number: 'TIN-1',
@@ -88,6 +89,19 @@ describe('TaxSettingsPage', () => {
     expect(screen.getByTestId('tax-settings-form')).toHaveTextContent(
       'merchant-1'
     );
+  });
+
+  it('hides Nigerian tax settings for a non-Nigerian merchant', async () => {
+    mocks.ensurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-1', ...merchantData, country: 'IN' },
+    });
+
+    render(await TaxSettingsPage());
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Tax settings are only available for Nigerian merchants.'
+    );
+    expect(screen.queryByTestId('tax-settings-form')).not.toBeInTheDocument();
   });
 
   it('accepts settings edit access when view is denied', async () => {

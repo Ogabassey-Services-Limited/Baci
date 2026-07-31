@@ -7,7 +7,7 @@ import {
   makeSupabaseMock,
   makeValidFile,
   resetVerifyCacMocks,
-} from '../../../../test-support/verify-cac-route.test-support';
+} from '@/test-support/verify-cac-route.test-support';
 
 async function loadVerifyCacPost() {
   return (await import('./route')).POST;

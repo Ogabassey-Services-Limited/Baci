@@ -46,7 +46,7 @@ export async function loadStoreLaunchReadiness({
     supabase
       .from('merchants')
       .select(
-        'slug, country, email, phone, support_email, support_phone, bank_code, bank_account_number'
+        'slug, country, payout_currency, email, phone, support_email, support_phone, bank_code, bank_account_number'
       )
       .eq('id', merchantId)
       .maybeSingle(),

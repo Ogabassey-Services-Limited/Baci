@@ -5,9 +5,9 @@ import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { getMonnifyToken } from '@/lib/monnify';
-import { checkRateLimit } from '@/lib/rate-limiter';
 import { ninVerifySchema } from '@/schemas/verification';
 import type { MonnifyNINResponse } from '@/types/monnify';
+import { getVerificationRateLimitError } from '../verification-rate-limit';
 
 function normalizeNameParts(name: string): string[] {
   return name.trim().toUpperCase().split(/\s+/).filter(Boolean).sort();
@@ -67,6 +67,14 @@ export async function POST(request: NextRequest) {
   }
 
   const { nin, firstName, lastName, dateOfBirth, merchantId } = parsed.data;
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-nin-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
+
   const merchantContext = await getMerchantForApiRequest(
     auth.supabase,
     auth.user.id,
@@ -77,20 +85,6 @@ export async function POST(request: NextRequest) {
   }
   if (!merchantContext.staffAccess.isOwner) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const allowed = await checkRateLimit(
-    auth.supabase,
-    auth.user.id,
-    'verify-nin',
-    3,
-    1
-  );
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', code: 'rate_limited' },
-      { status: 429 }
-    );
   }
 
   const { data: merchantRecord, error: merchantError } = await auth.supabase
@@ -116,6 +110,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const providerRateLimitError = await getVerificationRateLimitError(
+      auth.supabase,
+      auth.user.id,
+      'verify-nin',
+      3
+    );
+    if (providerRateLimitError) return providerRateLimitError;
+
     const token = await getMonnifyToken();
 
     const controller = new AbortController();

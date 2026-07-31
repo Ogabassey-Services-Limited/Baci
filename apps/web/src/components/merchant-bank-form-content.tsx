@@ -70,7 +70,6 @@ export function MerchantBankFormContent({
       shouldTouch: false,
       shouldValidate: false,
     };
-
     form.setValue(
       'manualBankDetails',
       isManualBankDetails,
@@ -87,7 +86,6 @@ export function MerchantBankFormContent({
       setIsVerifying(false);
       return;
     }
-
     form.setValue('bankName', '', setModeValueOptions);
   }, [form, isManualBankDetails]);
   const accountNumber = useWatch({
@@ -117,12 +115,10 @@ export function MerchantBankFormContent({
     setBanks([]);
     setIsLoadingBanks(isPaystackSupported);
   }
-
   useEffect(() => {
     if (!isPaystackSupported) {
       return;
     }
-
     let active = true;
     loadPaystackBanks().then((result) => {
       if (!active) return;
@@ -138,7 +134,6 @@ export function MerchantBankFormContent({
       }
       setIsLoadingBanks(false);
     });
-
     return () => {
       active = false;
     };
@@ -156,7 +151,6 @@ export function MerchantBankFormContent({
       setBankSearchTerm(resolvedBankName);
     }
   }
-
   const canVerify =
     isPaystackSupported &&
     Boolean(selectedBankCode) &&
@@ -172,12 +166,10 @@ export function MerchantBankFormContent({
     setVerificationError(null);
     setIsVerifying(canVerify);
   }
-
   useEffect(() => {
     if (!canVerify || !selectedBankCode) {
       return;
     }
-
     const requestId = verifyRequestIdRef.current + 1;
     verifyRequestIdRef.current = requestId;
 
@@ -208,7 +200,6 @@ export function MerchantBankFormContent({
       });
       return;
     }
-
     setIsSubmitting(true);
     const saveRequestId = saveRequestIdRef.current + 1;
     saveRequestIdRef.current = saveRequestId;
@@ -249,7 +240,16 @@ export function MerchantBankFormContent({
               ? 'Manual bank details will appear on unpaid invoices.'
               : `Verified: ${result.accountName}`,
           });
-          onSuccess?.();
+          onSuccess?.({
+            accountName: isManualBankDetails
+              ? data.accountName || data.businessName
+              : result.accountName,
+            accountNumber: data.accountNumber,
+            bankCode: data.bankCode || undefined,
+            bankName: isManualBankDetails ? data.bankName : resolvedBankName,
+            businessName: data.businessName,
+            merchantId,
+          });
           return;
         }
         if (result.status === 'error') {

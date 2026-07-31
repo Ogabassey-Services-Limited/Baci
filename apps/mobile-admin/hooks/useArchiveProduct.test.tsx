@@ -59,6 +59,14 @@ describe('archiveProductById', () => {
       'archive failed'
     );
   });
+
+  it('rejects whitespace-only merchant ids before making an archive request', async () => {
+    expect(() => archiveProductById('product-1', '   ')).toThrow(
+      'Merchant id is required'
+    );
+
+    expect(mocks.apiClient).not.toHaveBeenCalled();
+  });
 });
 
 describe('useArchiveProduct', () => {
@@ -139,19 +147,23 @@ describe('useArchiveProduct', () => {
     });
 
     let completed = false;
-    const archive = result.current
-      .mutateAsync({ productId: 'product-1' })
-      .then(() => {
-        completed = true;
+    let archive!: Promise<void>;
+    await act(async () => {
+      archive = result.current
+        .mutateAsync({ productId: 'product-1' })
+        .then(() => {
+          completed = true;
+        });
+      await vi.waitFor(() => {
+        expect(releases).toHaveLength(4);
       });
-
-    await vi.waitFor(() => {
-      expect(releases).toHaveLength(4);
     });
     expect(completed).toBe(false);
 
-    for (const release of releases) release();
-    await archive;
+    await act(async () => {
+      for (const release of releases) release();
+      await archive;
+    });
     expect(completed).toBe(true);
   });
 
@@ -211,8 +223,11 @@ describe('useArchiveProduct', () => {
       wrapper: createWrapper(queryClient),
     });
 
-    const archive = result.current.mutateAsync({ productId: 'product-1' });
-    await vi.waitFor(() => expect(releaseArchive).toBeTypeOf('function'));
+    let archive!: Promise<unknown>;
+    await act(async () => {
+      archive = result.current.mutateAsync({ productId: 'product-1' });
+      await vi.waitFor(() => expect(releaseArchive).toBeTypeOf('function'));
+    });
     const release = releaseArchive;
     if (!release) {
       throw new Error('Archive request did not start');
@@ -228,13 +243,14 @@ describe('useArchiveProduct', () => {
       mocks.merchant = { id: 'merchant-2' };
       rerender();
     } finally {
-      release();
+      await act(async () => {
+        release();
+        await expect(archive).resolves.toEqual({
+          product: { id: 'product-1', status: 'archived' },
+          success: true,
+        });
+      });
     }
-
-    await expect(archive).resolves.toEqual({
-      product: { id: 'product-1', status: 'archived' },
-      success: true,
-    });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['products', 'merchant-1'],
     });

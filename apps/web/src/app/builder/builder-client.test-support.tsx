@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 const hoistedBuilderClientTestMocks = vi.hoisted(() => ({
   apiPost: vi.fn(),
   apiPut: vi.fn(),
+  defaultSettingsFactory: vi.fn(),
   fetchWithCsrf: vi.fn(),
   merchant: { id: 'merchant-1', slug: 'test-store' },
   push: vi.fn(),
@@ -141,6 +142,18 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('@/lib/theme-manager', () => ({
   applyTheme: vi.fn(),
 }));
+
+vi.mock('./builder-default-settings', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('./builder-default-settings')>();
+  return {
+    ...actual,
+    createDefaultBuilderSettings: () => {
+      builderClientTestMocks.defaultSettingsFactory();
+      return actual.createDefaultBuilderSettings();
+    },
+  };
+});
 
 export function createBuilderPayload(
   overrides: Partial<{

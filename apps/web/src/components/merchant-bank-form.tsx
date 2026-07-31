@@ -7,6 +7,7 @@ export type {
   BankFormInput,
   MerchantBankFormInitialData,
   MerchantBankFormProps,
+  MerchantBankFormSavedValues,
 } from './merchant-bank-form-types';
 
 /**

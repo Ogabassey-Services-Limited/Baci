@@ -16,10 +16,21 @@ function parseBranchResponse(response: unknown): Branch {
   return BranchSchema.parse(response.branch);
 }
 
-export async function createBranch(input: CreateBranchInput): Promise<Branch> {
+export async function createBranch(
+  input: CreateBranchInput,
+  merchantId: string
+): Promise<Branch> {
+  const trimmedMerchantId = merchantId?.trim();
+  if (!trimmedMerchantId) {
+    throw new Error('merchantId is required');
+  }
+
   const payload = CreateBranchSchema.parse(input);
   const response = await apiClient('/api/branches', {
     method: 'POST',
+    headers: {
+      'x-baci-merchant-id': trimmedMerchantId,
+    },
     body: JSON.stringify(payload),
   });
 

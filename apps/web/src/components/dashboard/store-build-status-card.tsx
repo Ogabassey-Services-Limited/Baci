@@ -1,16 +1,8 @@
 'use client';
 import type { StoreBuildStatus } from '@baci/shared';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  Pencil,
-  RefreshCw,
-  Sparkles,
-  Wand2,
-} from 'lucide-react';
+import { CheckCircle2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +16,6 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -36,27 +27,35 @@ import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { isWebStoreReadiness } from './is-web-store-readiness';
 import {
+  addPendingMerchant,
+  buildReadinessUrl,
   getFallbackProgress,
   getStatusAccent,
   getStatusLabel,
   readApplyResponse,
+  removePendingMerchant,
 } from './store-build-status-card-helpers';
+import { StoreBuildStatusCardLoadingState } from './store-build-status-card-loading-state';
 
 type Props = { merchantId?: string; onApplied?: () => void };
 type ScopedStatus = { merchantId: string; value: StoreBuildStatus };
 export function StoreBuildStatusCard({ merchantId, onApplied }: Props) {
   const [loadedStatus, setLoadedStatus] = useState<ScopedStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(merchantId));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [applyingFor, setApplyingFor] = useState<string | null>(null);
+  const [applyingMerchantIds, setApplyingMerchantIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [staleDialogFor, setStaleDialogFor] = useState<string | null>(null);
   const activeMerchantId = useRef(merchantId);
-  activeMerchantId.current = merchantId;
+  useLayoutEffect(() => {
+    activeMerchantId.current = merchantId;
+  }, [merchantId]);
   const { toast } = useToast();
-  const statusMatches = loadedStatus?.merchantId === merchantId;
-  const status = statusMatches ? (loadedStatus?.value ?? null) : null;
-  const applying = applyingFor === merchantId;
+  const status =
+    loadedStatus?.merchantId === merchantId ? loadedStatus?.value : null;
+  const applying = merchantId ? applyingMerchantIds.has(merchantId) : false;
   useEffect(() => {
     setLoadedStatus(null);
     setLoadError(null);
@@ -64,7 +63,7 @@ export function StoreBuildStatusCard({ merchantId, onApplied }: Props) {
     setLoading(Boolean(merchantId));
     if (!merchantId) return;
     let active = true;
-    fetch(`/api/merchant/readiness?merchantId=${merchantId}`, {
+    fetch(buildReadinessUrl(merchantId), {
       credentials: 'include',
       ...(reloadToken > 0 ? { cache: 'no-store' } : {}),
     })
@@ -116,7 +115,9 @@ export function StoreBuildStatusCard({ merchantId, onApplied }: Props) {
       return;
     }
     const submittedMerchantId = merchantId;
-    setApplyingFor(submittedMerchantId);
+    setApplyingMerchantIds((current) =>
+      addPendingMerchant(current, submittedMerchantId)
+    );
     fetchWithCsrf(`/api/ai-jobs/${status.latestJobId}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -169,50 +170,26 @@ export function StoreBuildStatusCard({ merchantId, onApplied }: Props) {
         });
       })
       .finally(() => {
-        setApplyingFor((current) =>
-          current === submittedMerchantId ? null : current
+        setApplyingMerchantIds((current) =>
+          removePendingMerchant(current, submittedMerchantId)
         );
       });
   };
-  if (loading) {
+  if (loading || loadError) {
     return (
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-          Checking store build status…
-        </CardContent>
-      </Card>
-    );
-  }
-  if (loadError) {
-    return (
-      <Card className="border-destructive">
-        <CardContent className="pt-6">
-          <p className="text-sm text-destructive flex items-center gap-2">
-            <AlertTriangle className="size-4" />
-            {loadError}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={retryLoad}
-          >
-            <RefreshCw className="size-4 mr-1.5" />
-            Retry
-          </Button>
-        </CardContent>
-      </Card>
+      <StoreBuildStatusCardLoadingState
+        loadError={loadError}
+        loading={loading}
+        onRetry={retryLoad}
+      />
     );
   }
   if (!status || status.aiStatus === 'not_started') {
     return null;
   }
   const progress = getFallbackProgress(status.aiStatus);
-  const canPreview = Boolean(
-    status.latestJobId &&
-      (status.aiStatus === 'ready' || status.aiStatus === 'applied')
-  );
+  const canPreview =
+    status.latestJobId && ['ready', 'applied'].includes(status.aiStatus);
   return (
     <>
       <Card className={cn('overflow-hidden', getStatusAccent(status.aiStatus))}>

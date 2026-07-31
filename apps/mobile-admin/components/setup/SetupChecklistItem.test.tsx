@@ -13,13 +13,25 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 
 vi.mock('react-native', () => ({
   Pressable: ({
+    accessibilityHint,
+    accessibilityLabel,
+    accessibilityRole,
     children,
     onPress,
   }: {
+    accessibilityHint?: string;
+    accessibilityLabel?: string;
+    accessibilityRole?: string;
     children?: ReactNode;
     onPress?: () => void;
   }) => (
-    <button onClick={() => onPress?.()} type="button">
+    <button
+      aria-description={accessibilityHint}
+      aria-label={accessibilityLabel}
+      onClick={() => onPress?.()}
+      role={accessibilityRole}
+      type="button"
+    >
       {children}
     </button>
   ),
@@ -52,7 +64,14 @@ describe('SetupChecklistItem', () => {
 
     expect(screen.getByText('Add bank account')).toBeInTheDocument();
     expect(screen.getByText('NEXT STEP')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button'));
+    const action = screen.getByRole('button', {
+      name: 'Add bank account, incomplete',
+    });
+    expect(action).toHaveAttribute(
+      'aria-description',
+      'Incomplete. Opens this setup item.'
+    );
+    fireEvent.click(action);
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
@@ -67,5 +86,28 @@ describe('SetupChecklistItem', () => {
     );
 
     expect(screen.getByText('Required')).toBeInTheDocument();
+  });
+
+  it('announces completion while keeping completed setup items actionable', () => {
+    const onPress = vi.fn();
+
+    render(
+      <SetupChecklistItem
+        colors={DARK_COLORS}
+        isNext={false}
+        item={{ ...item, completed: true }}
+        onPress={onPress}
+      />
+    );
+
+    const action = screen.getByRole('button', {
+      name: 'Add bank account, completed',
+    });
+    expect(action).toHaveAttribute(
+      'aria-description',
+      'Completed. Opens this setup item.'
+    );
+    fireEvent.click(action);
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

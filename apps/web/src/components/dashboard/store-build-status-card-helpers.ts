@@ -7,6 +7,27 @@ export interface ApplyResponsePayload {
   lastUpdated?: string | null;
 }
 
+export function buildReadinessUrl(merchantId: string) {
+  return `/api/merchant/readiness?${new URLSearchParams({ merchantId })}`;
+}
+
+export function addPendingMerchant(
+  current: ReadonlySet<string>,
+  merchantId: string
+) {
+  return new Set(current).add(merchantId);
+}
+
+export function removePendingMerchant(
+  current: ReadonlySet<string>,
+  merchantId: string
+) {
+  if (!current.has(merchantId)) return current;
+  const next = new Set(current);
+  next.delete(merchantId);
+  return next;
+}
+
 export function isApplyResponsePayload(
   value: unknown
 ): value is ApplyResponsePayload {

@@ -15,11 +15,20 @@ export interface MerchantBankFormInitialData {
   autoPayoutEnabled?: boolean;
 }
 
+export interface MerchantBankFormSavedValues {
+  accountName?: string;
+  accountNumber: string;
+  bankCode?: string;
+  bankName?: string;
+  businessName: string;
+  merchantId: string;
+}
+
 export interface MerchantBankFormProps {
   merchantId: string;
   countryCode?: string | null;
   initialData?: MerchantBankFormInitialData;
-  onSuccess?: () => void;
+  onSuccess?: (savedBank: MerchantBankFormSavedValues) => void;
 }
 
 export interface SaveBankPayload {

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -18,6 +19,8 @@ interface AiDraftOutput {
   generatedConfig?: unknown;
   generatedAgainstUpdatedAt?: unknown;
 }
+
+const aiDraftIdParamsSchema = z.strictObject({ id: z.uuid() });
 
 type RequestBodyResult =
   | { body: unknown; response?: never }
@@ -65,13 +68,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { valid, response } = await checkCsrfProtection(request);
   if (!valid) return response as NextResponse;
 
+  const parsedParams = aiDraftIdParamsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
+    return NextResponse.json(
+      { error: 'Invalid AI draft id', code: 'invalid_ai_draft_id' },
+      { status: 400 }
+    );
+  }
+
   const bodyResult = await readOptionalJsonBody(request);
   if (bodyResult.response) return bodyResult.response;
 
   const parsedRequest = applyAiDraftSchema.safeParse(bodyResult.body);
   if (!parsedRequest.success) {
     return NextResponse.json(
-      { error: 'Invalid request body', details: parsedRequest.error.flatten() },
+      { error: 'Invalid request body', code: 'invalid_request_body' },
       { status: 400 }
     );
   }
@@ -102,11 +113,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const { id } = await context.params;
   const { data: job, error: jobError } = await supabase
     .from('ai_jobs')
     .select('id, merchant_id, type, status, output')
-    .eq('id', id)
+    .eq('id', parsedParams.data.id)
     .eq('merchant_id', merchantContext.merchantId)
     .maybeSingle();
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import {
   createVirtualTerminalAccount,
@@ -24,7 +24,6 @@ export function useVirtualTerminalSettings(options: {
   const { toast } = useToast();
   const requestSequence = useRef(0);
   const currentMerchantId = useRef(merchantId);
-  currentMerchantId.current = merchantId;
   const [loadedMerchantId, setLoadedMerchantId] = useState<string | null>(null);
   const [creatingMerchantId, setCreatingMerchantId] = useState<string | null>(
     null
@@ -35,6 +34,10 @@ export function useVirtualTerminalSettings(options: {
   const [branchDialogOpen, setBranchDialogOpen] = useState(false);
   const [newAccount, setNewAccount] = useState(EMPTY_ACCOUNT);
   const [newBranch, setNewBranch] = useState(EMPTY_BRANCH);
+
+  useLayoutEffect(() => {
+    currentMerchantId.current = merchantId;
+  }, [merchantId]);
 
   const refresh = async () => {
     const sequence = ++requestSequence.current;

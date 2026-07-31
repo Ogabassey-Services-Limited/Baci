@@ -2,6 +2,7 @@ export interface CheckoutPaymentMerchant {
   bank_account_number?: string | null;
   bank_code?: string | null;
   country?: string | null;
+  payout_currency?: string | null;
   paystack_subaccount_code?: string | null;
   /**
    * Derived capability hint from the public merchant snapshot. The raw
@@ -134,11 +135,22 @@ function hasPaystackSettlementDetails(
   );
 }
 
+function hasKorapayLaunchCheckout(
+  merchant: CheckoutPaymentMerchant | null | undefined
+): boolean {
+  const currency = merchant?.payout_currency;
+  return Boolean(
+    isKorapayCheckoutAvailable(merchant, currency) &&
+      isKorapayCheckoutCurrencySupported(currency)
+  );
+}
+
 export function hasLaunchablePaymentMethod(
   merchant: CheckoutPaymentMerchant | null | undefined
 ): boolean {
   return (
     hasPaystackSettlementDetails(merchant) ||
+    hasKorapayLaunchCheckout(merchant) ||
     isPayOnDeliveryCheckoutAvailable(merchant)
   );
 }
@@ -168,6 +180,15 @@ export function getLaunchPaymentRequirement(
       id: 'payment_method',
       label: 'Enable a payment method',
       description: 'Pay on Delivery is enabled for customer checkout',
+      completed: true,
+    };
+  }
+
+  if (hasKorapayLaunchCheckout(merchant)) {
+    return {
+      id: 'payment_method',
+      label: 'Enable a payment method',
+      description: 'Korapay is enabled for customer checkout',
       completed: true,
     };
   }

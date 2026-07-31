@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const toastSpy = vi.fn();
 const apiPostMock = vi.fn();
@@ -19,11 +19,17 @@ const merchantAId = '22222222-2222-4222-8222-222222222222';
 const merchantBId = '33333333-3333-4333-8333-333333333333';
 
 describe('MerchantBankForm merchant switching', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ json: async () => ({ banks: [] }) })
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ banks: [] }),
+      })
     );
     apiPostMock.mockImplementation((endpoint: string) => {
       if (endpoint === '/api/paystack/resolve') {

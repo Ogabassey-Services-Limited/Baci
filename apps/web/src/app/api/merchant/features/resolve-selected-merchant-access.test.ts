@@ -47,19 +47,16 @@ describe('resolveSelectedMerchantAccess', () => {
     expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
-  it('falls back to the authenticated users access only when no merchant is selected', async () => {
-    const access = { merchantId: 'merchant-123', role: 'owner' };
-    mocks.getUserAccess.mockResolvedValue(access);
-
+  it('rejects a missing selected merchant before any access lookup', async () => {
     const result = await resolveSelectedMerchantAccess({
       requestedMerchantId: undefined,
       supabase,
       userId: 'user-1',
     });
 
-    expect(result).toEqual({ access, invalidMerchantId: false });
+    expect(result).toEqual({ access: null, invalidMerchantId: true });
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.getUserAccess).toHaveBeenCalledWith(supabase);
+    expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
   it('rejects an explicitly null selected merchant before any access lookup', async () => {

@@ -96,11 +96,19 @@ describe('POST /api/merchant/verify-nin', () => {
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
-    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      'user-1',
+      'verify-nin-preflight',
+      30,
+      1
+    );
   });
 
-  it('returns 429 when rate limit is exceeded', async () => {
-    vi.mocked(checkRateLimit).mockResolvedValue(false);
+  it('returns 429 when the provider quota is exceeded after authorization', async () => {
+    vi.mocked(checkRateLimit)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
 
     const req = makeRequest(validNinBody);
     const res = await POST(req);
@@ -110,7 +118,7 @@ describe('POST /api/merchant/verify-nin', () => {
     expect(getMerchantForApiRequest).toHaveBeenCalledOnce();
     expect(
       vi.mocked(getMerchantForApiRequest).mock.invocationCallOrder[0]
-    ).toBeLessThan(vi.mocked(checkRateLimit).mock.invocationCallOrder[0]);
+    ).toBeLessThan(vi.mocked(checkRateLimit).mock.invocationCallOrder[1]);
   });
 
   it('does not consume quota for a malformed NIN request body', async () => {
@@ -126,7 +134,7 @@ describe('POST /api/merchant/verify-nin', () => {
     expect(checkRateLimit).not.toHaveBeenCalled();
   });
 
-  it('rejects India merchants before provider calls after the authenticated-user rate limit', async () => {
+  it('rejects India merchants before consuming provider quota or making provider calls', async () => {
     const supabaseMock = makeSupabaseMock(null, 'IN');
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
@@ -140,11 +148,11 @@ describe('POST /api/merchant/verify-nin', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'NIN verification is only available for Nigerian merchants',
     });
-    expect(checkRateLimit).toHaveBeenCalledWith(
+    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
       supabaseMock,
       'user-1',
-      'verify-nin',
-      3,
+      'verify-nin-preflight',
+      30,
       1
     );
     expect(getMonnifyToken).not.toHaveBeenCalled();

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { fetchAnalyticsConfigContext } from '@/lib/analytics-config-context';
 import {
@@ -63,11 +63,16 @@ export function useAnalyticsConfigForm({
   const savePending = useMerchantScopedPending();
   const activeMerchantIdRef = useRef(merchantId);
   const activeUserIdRef = useRef(userId);
-  activeMerchantIdRef.current = merchantId;
-  activeUserIdRef.current = userId;
+  useLayoutEffect(() => {
+    activeMerchantIdRef.current = merchantId;
+    activeUserIdRef.current = userId;
+  }, [merchantId, userId]);
 
   const [analytics, setAnalytics] = useState<AnalyticsState>(INITIAL_STATE);
   const analyticsRef = useRef<AnalyticsState>(INITIAL_STATE);
+  useLayoutEffect(() => {
+    analyticsRef.current = analytics;
+  }, [analytics]);
   const [isDirty, setIsDirty] = useState(false);
   const [seededSnapshot, setSeededSnapshot] = useState<AnalyticsState | null>(
     null
@@ -83,7 +88,6 @@ export function useAnalyticsConfigForm({
   if (formScope !== scope) {
     setFormScope(scope);
     setAnalytics(INITIAL_STATE);
-    analyticsRef.current = INITIAL_STATE;
     setIsDirty(false);
     setSeededSnapshot(null);
   }
@@ -112,7 +116,6 @@ export function useAnalyticsConfigForm({
     const seeded = toAnalyticsState(trackingConfig.analytics);
     if (!analyticsStatesEqual(seededSnapshot, seeded)) {
       setSeededSnapshot(seeded);
-      analyticsRef.current = seeded;
       setAnalytics(seeded);
     }
   }
@@ -207,17 +210,13 @@ export function useAnalyticsConfigForm({
     value: string | boolean
   ) => {
     setIsDirty(true);
-    setAnalytics((previous) => {
-      const next = { ...previous, [field]: value };
-      analyticsRef.current = next;
-      return next;
-    });
+    setAnalytics((previous) => ({ ...previous, [field]: value }));
   };
 
   return {
     analytics,
     canManageAnalytics,
-    handleSave: () => saveMutation.mutate({ ...analyticsRef.current }),
+    handleSave: () => saveMutation.mutate({ ...analytics }),
     isError,
     isLoading,
     isSavePending: savePending.isPending(saveScope),

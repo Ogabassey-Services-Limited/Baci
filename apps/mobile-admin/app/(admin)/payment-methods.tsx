@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import {
   Alert,
   Linking,
@@ -44,7 +44,9 @@ export default function PaymentMethodsScreen() {
   } = useMerchant();
   const queryClient = useQueryClient();
   const activeMerchantIdRef = useRef(merchant?.id ?? null);
-  activeMerchantIdRef.current = merchant?.id ?? null;
+  useLayoutEffect(() => {
+    activeMerchantIdRef.current = merchant?.id ?? null;
+  }, [merchant?.id]);
   const togglePending = useMerchantScopedPending();
   const screenOptions = {
     title: 'Payment Methods',

@@ -40,6 +40,7 @@ vi.mock(
 );
 
 const baseProps = {
+  merchantId: '22222222-2222-4222-8222-222222222222',
   agentControls: {
     customSettings: {
       agentic_agent_allowlist: ['openai-agent'],
@@ -156,6 +157,12 @@ describe('AgenticDashboardClientPage', () => {
     expect(controlsCard).not.toBeNull();
     expect(controlsCard?.parentElement).toContainElement(pausedTitle);
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+  });
+
+  it('does not render agent controls when the merchant identity is unavailable', () => {
+    render(<AgenticDashboardClientPage {...baseProps} merchantId={null} />);
+
+    expect(screen.queryByText(/Controls card content/)).not.toBeInTheDocument();
   });
 
   it('shows unauthorized state before the unpublished pause state', () => {

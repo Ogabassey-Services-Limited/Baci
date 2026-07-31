@@ -1,12 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardMetrics, MonthlyChartData } from './actions';
 import DashboardClientPage from './client-page';
 
-const { mockSetupChecklist, mockStoreBuildStatusCard } = vi.hoisted(() => ({
-  mockSetupChecklist: vi.fn(),
-  mockStoreBuildStatusCard: vi.fn(),
-}));
+const { mockSetupChecklist, mockStoreBuildStatusCard, mockUseMerchant } =
+  vi.hoisted(() => ({
+    mockSetupChecklist: vi.fn(),
+    mockStoreBuildStatusCard: vi.fn(),
+    mockUseMerchant: vi.fn(),
+  }));
 
 vi.mock('next/dynamic', () => ({
   default: () =>
@@ -34,16 +36,7 @@ vi.mock('@/components/dashboard/store-build-status-card', () => ({
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: () => ({
-    merchant: {
-      business_name: 'Demo Store',
-      country: 'NG',
-      id: 'merchant-1',
-      is_published: true,
-      slug: 'demo-store',
-    },
-    reloadMerchant: vi.fn(),
-  }),
+  useMerchant: mockUseMerchant,
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -64,6 +57,43 @@ const chartData: MonthlyChartData[] = [
 ];
 
 describe('DashboardClientPage', () => {
+  beforeEach(() => {
+    mockSetupChecklist.mockClear();
+    mockStoreBuildStatusCard.mockClear();
+    mockUseMerchant.mockReturnValue({
+      merchant: {
+        business_name: 'Demo Store',
+        country: 'NG',
+        id: 'merchant-1',
+        is_published: true,
+        slug: 'demo-store',
+      },
+      reloadMerchant: vi.fn(),
+    });
+  });
+
+  it('does not mount merchant-scoped readiness cards before merchant resolution', async () => {
+    mockUseMerchant.mockReturnValue({
+      merchant: undefined,
+      reloadMerchant: vi.fn(),
+    });
+
+    render(
+      <DashboardClientPage
+        initialChartData={chartData}
+        initialMetrics={metrics}
+        initialRecentSales={[]}
+      />
+    );
+
+    await screen.findByRole('heading', { name: 'Dashboard' });
+
+    expect(screen.queryByTestId('setup-checklist')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('store-build-status-card')
+    ).not.toBeInTheDocument();
+  });
+
   it('passes the selected merchant ID to the setup checklist', async () => {
     render(
       <DashboardClientPage

@@ -139,20 +139,25 @@ describe('usePayouts', () => {
     mockInvalidateStoreReadiness.mockImplementation(deferred);
     const { result } = renderHook(() => usePayouts(), { wrapper: Wrapper });
     let completed = false;
-    const save = result.current.savePayoutSettings
-      .mutateAsync({
-        accountNumber: '1234567890',
-        bankCode: '044',
-        businessName: 'Baci Store',
-      })
-      .then(() => {
-        completed = true;
-      });
+    let save!: Promise<void>;
+    await act(async () => {
+      save = result.current.savePayoutSettings
+        .mutateAsync({
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Baci Store',
+        })
+        .then(() => {
+          completed = true;
+        });
+      await vi.waitFor(() => expect(releases).toHaveLength(3));
+    });
 
-    await vi.waitFor(() => expect(releases).toHaveLength(3));
     expect(completed).toBe(false);
-    for (const release of releases) release();
-    await save;
+    await act(async () => {
+      for (const release of releases) release();
+      await save;
+    });
     expect(completed).toBe(true);
   });
 
@@ -186,18 +191,22 @@ describe('usePayouts', () => {
     const { result, rerender } = renderHook(() => usePayouts(), {
       wrapper: Wrapper,
     });
-    const save = result.current.savePayoutSettings.mutateAsync({
-      accountNumber: '1234567890',
-      bankCode: '044',
-      businessName: 'Baci Store',
+    let save!: Promise<unknown>;
+    await act(async () => {
+      save = result.current.savePayoutSettings.mutateAsync({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      });
+      await vi.waitFor(() => expect(mockApiClient).toHaveBeenCalled());
     });
-    await vi.waitFor(() => expect(mockApiClient).toHaveBeenCalled());
 
-    currentMerchant = null;
-    rerender();
-    releaseSave();
-
-    await expect(save).resolves.toEqual({ subaccount_code: 'SUB_123' });
+    await act(async () => {
+      currentMerchant = null;
+      rerender();
+      releaseSave();
+      await expect(save).resolves.toEqual({ subaccount_code: 'SUB_123' });
+    });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['merchant-payout'],
@@ -220,14 +229,14 @@ describe('usePayouts', () => {
     });
 
     let save!: Promise<unknown>;
-    act(() => {
+    await act(async () => {
       save = result.current.savePayoutSettings.mutateAsync({
         accountNumber: '1234567890',
         bankCode: '044',
         businessName: 'Merchant A Store',
       });
+      await vi.waitFor(() => expect(mockApiClient).toHaveBeenCalled());
     });
-    await vi.waitFor(() => expect(mockApiClient).toHaveBeenCalled());
     expect(result.current.savePayoutSettings.isPending).toBe(true);
 
     currentMerchant = { id: 'merchant-2' };
@@ -241,6 +250,19 @@ describe('usePayouts', () => {
     });
   });
 
+  it('does not expose internal mutation variables from the payout save API', () => {
+    const { result } = renderHook(() => usePayouts(), {
+      wrapper: createWrapper().Wrapper,
+    });
+
+    expect('variables' in result.current.savePayoutSettings).toBe(false);
+    expect(Object.keys(result.current.savePayoutSettings).sort()).toEqual([
+      'isPending',
+      'mutate',
+      'mutateAsync',
+    ]);
+  });
+
   it('preserves a successful save when only readiness invalidation fails', async () => {
     mockApiClient.mockResolvedValueOnce({ subaccount_code: 'SUB_123' });
     mockInvalidateStoreReadiness.mockRejectedValueOnce(
@@ -250,12 +272,14 @@ describe('usePayouts', () => {
       wrapper: createWrapper().Wrapper,
     });
 
-    await expect(
-      result.current.savePayoutSettings.mutateAsync({
-        accountNumber: '1234567890',
-        bankCode: '044',
-        businessName: 'Baci Store',
-      })
-    ).resolves.toEqual({ subaccount_code: 'SUB_123' });
+    await act(async () => {
+      await expect(
+        result.current.savePayoutSettings.mutateAsync({
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Baci Store',
+        })
+      ).resolves.toEqual({ subaccount_code: 'SUB_123' });
+    });
   });
 });

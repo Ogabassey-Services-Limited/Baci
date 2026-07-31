@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -9,7 +8,6 @@ import {
 import { logger } from '@/lib/logger';
 import { createVirtualTerminal } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 import {
   createVirtualTerminalSchema,
   virtualTerminalListQuerySchema,
@@ -26,7 +24,15 @@ import { validateTerminalAssignments } from './validate-terminal-assignments';
  */
 export async function POST(request: NextRequest) {
   try {
-    // CSRF protection
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    const { supabase, user } = auth;
+
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
     if (!csrfValid) {
@@ -34,16 +40,6 @@ export async function POST(request: NextRequest) {
         csrfResponse ??
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
       );
-    }
-
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Parse and validate request body
@@ -109,7 +105,6 @@ export async function POST(request: NextRequest) {
       (m) => m.type === 'dedicated_nuban'
     );
 
-    // Save terminal to virtual_terminals table
     const { data: savedTerminal, error: insertError } = await adminSupabase
       .from('virtual_terminals')
       .insert({

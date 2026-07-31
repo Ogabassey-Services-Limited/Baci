@@ -119,7 +119,7 @@ describe('SettingsForm social save orchestration', () => {
     vi.clearAllMocks();
   });
 
-  it('saves edited social media before generic fields and one context reload', async () => {
+  it('saves edited social media before generic fields without an implicit context reload', async () => {
     mockUpdateMerchant.mockResolvedValueOnce(undefined);
     mockUpdateSocial.mockResolvedValueOnce({
       merchant: { id: 'merchant-1', social_media: { twitter: '@test' } },
@@ -153,13 +153,7 @@ describe('SettingsForm social save orchestration', () => {
     expect(mockUpdateSocial.mock.invocationCallOrder[0]).toBeLessThan(
       mockUpdateMerchant.mock.invocationCallOrder[0] ?? 0
     );
-    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
-    expect(
-      Math.max(
-        mockUpdateMerchant.mock.invocationCallOrder[0] ?? 0,
-        mockUpdateSocial.mock.invocationCallOrder[0] ?? 0
-      )
-    ).toBeLessThan(mockReloadMerchant.mock.invocationCallOrder[0] ?? 0);
+    expect(mockReloadMerchant).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Settings Saved!',
@@ -180,7 +174,7 @@ describe('SettingsForm social save orchestration', () => {
       expect(mockUpdateMerchant).toHaveBeenCalledTimes(1);
     });
     expect(mockUpdateSocial).not.toHaveBeenCalled();
-    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
+    expect(mockReloadMerchant).not.toHaveBeenCalled();
   });
 
   it('drops an unsaved social draft before submitting after the merchant changes', async () => {

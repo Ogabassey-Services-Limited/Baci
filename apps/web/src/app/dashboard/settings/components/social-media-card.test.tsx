@@ -20,11 +20,6 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-const mockReloadMerchant = vi.fn();
-vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: () => ({ reloadMerchant: mockReloadMerchant }),
-}));
-
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn() },
 }));
@@ -65,7 +60,6 @@ describe('SocialMediaCard', () => {
       '11111111-1111-4111-8111-111111111111',
       expect.objectContaining({ twitter: '@oga' })
     );
-    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
   });
 
   it('shows a destructive toast when the dedicated save fails', async () => {
@@ -181,7 +175,6 @@ describe('SocialMediaCard', () => {
       resolveSave?.();
     });
 
-    expect(mockReloadMerchant).not.toHaveBeenCalled();
     expect(screen.queryByText('Saved')).not.toBeInTheDocument();
     vi.useRealTimers();
   });

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineArchiveRouteAuthorizationSuite } from './archive-route-authorization.test-suite';
 import { defineArchiveRoutePurgeSuite } from './archive-route-purge.test-suite';
+import { defineArchiveRouteValidationSuite } from './archive-route-validation.test-suite';
 
 const MERCHANT_ONE_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_TWO_ID = '22222222-2222-4222-8222-222222222222';
@@ -54,7 +55,21 @@ vi.mock('@/lib/csrf', () => ({
 }));
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: mocks.getMerchantForApiRequest,
-  toUserAccess: (context: unknown) => context,
+  toUserAccess: (context: {
+    merchantId: string;
+    staffAccess: {
+      isOwner: boolean;
+      isStaff: boolean;
+      permissions: Record<string, Record<string, boolean>>;
+      role: string | null;
+    };
+  }) => ({
+    merchantId: context.merchantId,
+    isOwner: context.staffAccess.isOwner,
+    isStaff: context.staffAccess.isStaff,
+    permissions: context.staffAccess.permissions,
+    role: context.staffAccess.role ?? 'owner',
+  }),
 }));
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
@@ -124,10 +139,17 @@ function createSupabase() {
 
 import { PATCH } from './route';
 
-function makeRequest(body = { merchantId: MERCHANT_ONE_ID }) {
+function makeRequest(body: unknown = { merchantId: MERCHANT_ONE_ID }) {
   return new NextRequest(
     'https://usebaci.com/api/products/123e4567-e89b-42d3-a456-426614174000/archive',
     { method: 'PATCH', body: JSON.stringify(body) }
+  );
+}
+
+function makeMalformedRequest() {
+  return new NextRequest(
+    'https://usebaci.com/api/products/123e4567-e89b-42d3-a456-426614174000/archive',
+    { method: 'PATCH', body: '{' }
   );
 }
 
@@ -253,6 +275,13 @@ describe('PATCH /api/products/[id]/archive', () => {
   defineArchiveRouteAuthorizationSuite({
     PATCH,
     makeContext,
+    makeRequest,
+    mocks,
+  });
+  defineArchiveRouteValidationSuite({
+    PATCH,
+    makeContext,
+    makeMalformedRequest,
     makeRequest,
     mocks,
   });

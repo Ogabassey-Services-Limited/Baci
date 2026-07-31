@@ -6,7 +6,7 @@ export type BuilderMerchantRequest = {
   revision: number;
 };
 
-type BuilderMutationCallbacks = MutateOptions<
+export type BuilderMutationCallbacks = MutateOptions<
   void,
   Error,
   BuilderMutationVariables,

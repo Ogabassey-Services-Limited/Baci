@@ -10,7 +10,7 @@ const virtualTerminalProps = vi.hoisted(
 );
 
 vi.mock('@/components/merchant-bank-form', () => ({
-  MerchantBankForm: () => <div data-testid="merchant-bank-form" />,
+  MerchantBankForm: () => null,
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({

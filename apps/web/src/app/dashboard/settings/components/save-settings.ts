@@ -16,6 +16,7 @@ interface SaveSettingsContext {
   merchantId: string;
   socialMedia: Record<string, string> | null;
   updateMerchant: UpdateMerchantFn;
+  /** Deliberately not invoked: this callback reloads the implicit merchant. */
   reloadMerchant: () => void;
   isCurrentSave: () => boolean;
   toast: ToastFn;
@@ -28,7 +29,6 @@ export async function saveSettings({
   merchantId,
   socialMedia,
   updateMerchant,
-  reloadMerchant,
   isCurrentSave,
   toast,
   setIsSaving,
@@ -44,9 +44,9 @@ export async function saveSettings({
       if (!isCurrentSave()) return;
     }
 
-    // Generic (non-identity) settings go through the generic hook. Suppress
-    // its implicit reload so the context refresh happens once after both
-    // ordered writes have committed.
+    // Generic settings use the captured merchant target. The explicit update
+    // patches only a matching context, so selected merchant B can never be
+    // replaced by the implicit owner's merchant A after the save completes.
     await updateMerchant(
       {
         ...data,
@@ -55,7 +55,6 @@ export async function saveSettings({
       { merchantId, skipReload: true }
     );
     if (!isCurrentSave()) return;
-    reloadMerchant();
     toast({
       title: 'Settings Saved!',
       description: 'Your store settings have been updated.',

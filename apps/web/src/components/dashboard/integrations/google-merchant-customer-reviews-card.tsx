@@ -2,7 +2,7 @@
 
 import { AlertCircle, Loader2, Save } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   GOOGLE_MERCHANT_CENTER_ID_CUSTOM_SETTING,
   getRecordValue,
@@ -27,6 +27,7 @@ const FEATURES_ENDPOINT = '/api/merchant/features';
 
 interface GoogleMerchantCustomerReviewsCardProps {
   initialCustomSettings?: Record<string, unknown>;
+  merchantId: string;
 }
 
 function resolveInitialMerchantCenterId(
@@ -41,7 +42,23 @@ function resolveInitialMerchantCenterId(
 
 export function GoogleMerchantCustomerReviewsCard({
   initialCustomSettings = {},
+  merchantId,
 }: GoogleMerchantCustomerReviewsCardProps) {
+  return (
+    <GoogleMerchantCustomerReviewsForm
+      key={merchantId}
+      initialCustomSettings={initialCustomSettings}
+      merchantId={merchantId}
+    />
+  );
+}
+
+function GoogleMerchantCustomerReviewsForm({
+  initialCustomSettings,
+  merchantId,
+}: GoogleMerchantCustomerReviewsCardProps & {
+  initialCustomSettings: Record<string, unknown>;
+}) {
   const { toast } = useToast();
   const [customSettings, setCustomSettings] = useState(initialCustomSettings);
   const [merchantCenterId, setMerchantCenterId] = useState(
@@ -49,6 +66,14 @@ export function GoogleMerchantCustomerReviewsCard({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isActive = useRef(true);
+
+  useLayoutEffect(() => {
+    isActive.current = true;
+    return () => {
+      isActive.current = false;
+    };
+  }, []);
 
   const saveMerchantCenterId = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -79,9 +104,14 @@ export function GoogleMerchantCustomerReviewsCard({
     try {
       const updated = await apiPatch<
         Partial<Pick<MerchantFeatureSettingsInput, 'custom_settings'>>
-      >(FEATURES_ENDPOINT, { custom_settings: nextCustomSettings });
+      >(FEATURES_ENDPOINT, {
+        custom_settings: nextCustomSettings,
+        merchantId,
+      });
       const updatedCustomSettings =
         getRecordValue(updated.custom_settings) ?? nextCustomSettings;
+
+      if (!isActive.current) return;
 
       setCustomSettings(updatedCustomSettings);
       setMerchantCenterId(
@@ -94,6 +124,8 @@ export function GoogleMerchantCustomerReviewsCard({
           : 'Google Customer Reviews opt-in is disabled until an ID is saved.',
       });
     } catch {
+      if (!isActive.current) return;
+
       setError('Failed to save Merchant Center ID.');
       toast({
         title: 'Error',
@@ -103,7 +135,7 @@ export function GoogleMerchantCustomerReviewsCard({
     }
     // Runs on both success and failure (the catch never rethrows) — kept out
     // of a `finally` clause because React Compiler cannot lower try/finally.
-    setIsSaving(false);
+    if (isActive.current) setIsSaving(false);
   };
 
   return (

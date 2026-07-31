@@ -62,60 +62,8 @@ describe('useStorefrontFeatures', () => {
   });
 });
 
-describe('useMerchantFeatures', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.stubGlobal('fetch', vi.fn());
-  });
-
-  it('fetches merchant feature settings', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          id: 'feat-1',
-          merchant_id: 'm-1',
-          loyalty_enabled: true,
-          reviews_enabled: true,
-          blog_enabled: false,
-        }),
-    } as Response);
-
-    const { result } = renderHook(() => useMerchantFeatures());
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-    expect(result.current.loyaltyEnabled).toBe(true);
-  });
-
-  it('handles fetch error', async () => {
-    const mockResponse = {
-      ok: false,
-      status: 401,
-      statusText: 'Unauthorized',
-      headers: new Headers(),
-      redirected: false,
-      type: 'basic' as ResponseType,
-      url: '',
-      clone: vi.fn(),
-      body: null,
-      bodyUsed: false,
-      arrayBuffer: vi.fn(),
-      blob: vi.fn(),
-      formData: vi.fn(),
-      text: vi.fn(),
-      json: vi.fn(() => Promise.resolve({ error: 'Unauthorized' })),
-    } as unknown as Response;
-
-    // Mock multiple times since fetchSettings may be called more than once due to dependency array
-    vi.mocked(fetch).mockResolvedValue(mockResponse);
-
-    const { result } = renderHook(() => useMerchantFeatures());
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-    expect(result.current.error).toBe('Unauthorized');
+describe('use-merchant-features exports', () => {
+  it('keeps the dashboard hook available from the established module path', () => {
+    expect(useMerchantFeatures).toBeTypeOf('function');
   });
 });

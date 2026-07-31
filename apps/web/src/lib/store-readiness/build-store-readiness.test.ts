@@ -1,4 +1,4 @@
-import type { StoreReadinessItemId } from '@baci/shared';
+import { SOCIAL_MEDIA_KEYS, type StoreReadinessItemId } from '@baci/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildStoreLaunchReadiness } from './build-store-launch-readiness';
 import {
@@ -99,12 +99,6 @@ describe('buildStoreReadiness', () => {
       false,
     ],
     [
-      'requires a supported social handle',
-      { socialMedia: { linkedin: '@ready-store' } },
-      'social_media',
-      false,
-    ],
-    [
       'requires a supported analytics or pixel ID',
       { analyticsIds: [' '] },
       'analytics',
@@ -120,6 +114,20 @@ describe('buildStoreReadiness', () => {
     expect(completion({ ...BASE_FACTS, ...changes }, itemId)).toBe(
       expectedCompleted
     );
+  });
+
+  it.each(
+    SOCIAL_MEDIA_KEYS
+  )('completes social readiness from a non-empty %s profile', (socialKey) => {
+    expect(
+      completion(
+        {
+          ...BASE_FACTS,
+          socialMedia: { [socialKey]: '@ready-store' },
+        },
+        'social_media'
+      )
+    ).toBe(true);
   });
 
   it.each([

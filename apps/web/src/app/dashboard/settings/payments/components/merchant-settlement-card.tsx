@@ -1,4 +1,5 @@
 import { AlertCircle, Building2, Check } from 'lucide-react';
+import type { MerchantBankFormSavedValues } from '@/components/merchant-bank-form';
 import { MerchantBankForm } from '@/components/merchant-bank-form';
 import {
   Card,
@@ -20,13 +21,15 @@ type MerchantSettlementDetails = {
 };
 
 type MerchantSettlementCardProps = {
+  hasPaystackSubaccount?: boolean;
   isPaystackSupported: boolean;
   merchant: MerchantSettlementDetails;
-  onBankSaved: () => void;
+  onBankSaved: (savedBank: MerchantBankFormSavedValues) => void;
 };
 
 /** Shows the country-appropriate bank details form and settlement status. */
 export function MerchantSettlementCard({
+  hasPaystackSubaccount: savedPaystackSubaccount,
   isPaystackSupported,
   merchant,
   onBankSaved,
@@ -65,7 +68,8 @@ export function MerchantSettlementCard({
     );
   }
 
-  const hasPaystackSubaccount = Boolean(merchant.paystackSubaccountCode);
+  const hasPaystackSubaccount =
+    savedPaystackSubaccount ?? Boolean(merchant.paystackSubaccountCode);
   return (
     <Card>
       <CardHeader>

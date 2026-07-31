@@ -87,8 +87,8 @@ export function createApplySupabaseMock(options?: {
   };
 }
 
-export function routeContext() {
-  return { params: Promise.resolve({ id: 'job-1' }) };
+export function routeContext(id = '44444444-4444-4444-8444-444444444444') {
+  return { params: Promise.resolve({ id }) };
 }
 
 export function createApplyRequest(

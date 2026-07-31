@@ -9,6 +9,7 @@ import {
 } from '../../../__tests__/admin/product/[id].test-support';
 
 const mocks = getProductEditScreenMocks();
+const ProductEditScreen = await loadProductEditScreen();
 
 describe('ProductEditScreen', () => {
   beforeEach(() => {
@@ -16,8 +17,6 @@ describe('ProductEditScreen', () => {
   });
 
   it('hides the color field in basic information when the loaded product uses variants', async () => {
-    const ProductEditScreen = await loadProductEditScreen();
-
     render(<ProductEditScreen />);
 
     await waitFor(() => {
@@ -35,8 +34,6 @@ describe('ProductEditScreen', () => {
       },
       error: null,
     });
-    const ProductEditScreen = await loadProductEditScreen();
-
     render(<ProductEditScreen />);
 
     await waitFor(() => {
@@ -55,8 +52,6 @@ describe('ProductEditScreen', () => {
       },
       error: null,
     });
-    const ProductEditScreen = await loadProductEditScreen();
-
     render(<ProductEditScreen />);
 
     expect(screen.queryByText('product-restock-sheet')).not.toBeInTheDocument();

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getLaunchPaymentRequirement,
   hasLaunchablePaymentMethod,
   isBankTransferCheckoutAvailable,
   isKorapayCheckoutAvailable,
@@ -236,5 +237,26 @@ describe('payment-gateway-availability', () => {
         },
       })
     ).toBe(false);
+  });
+
+  it.each([
+    ['GHS', true],
+    ['INR', false],
+  ])('treats enabled Korapay as launchable only for supported payout currency %s', (payoutCurrency, completed) => {
+    const merchant = {
+      country: 'GH',
+      payout_currency: payoutCurrency,
+      feature_settings: {
+        korapay_enabled: true,
+        pay_on_delivery_enabled: false,
+        paystack_enabled: false,
+      },
+    };
+
+    expect(hasLaunchablePaymentMethod(merchant)).toBe(completed);
+    expect(getLaunchPaymentRequirement(merchant)).toMatchObject({
+      id: 'payment_method',
+      completed,
+    });
   });
 });

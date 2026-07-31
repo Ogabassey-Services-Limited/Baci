@@ -12,8 +12,7 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mockCheckCsrfProtection,
 }));
 
-vi.mock('./builder-route-utils', () => ({
-  loadBuilderPayload: vi.fn(),
+vi.mock('./builder-draft-mutations', () => ({
   saveBuilderDraft: mockSaveBuilderDraft,
   publishBuilderDraft: mockPublishBuilderDraft,
 }));

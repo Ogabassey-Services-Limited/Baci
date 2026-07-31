@@ -117,6 +117,17 @@ describe('createAiJobSchema', () => {
 });
 
 describe('applyAiDraftSchema', () => {
+  it('defaults force to false for a scoped draft application', () => {
+    expect(
+      applyAiDraftSchema.parse({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+      })
+    ).toEqual({
+      force: false,
+      merchantId: '11111111-1111-4111-8111-111111111111',
+    });
+  });
+
   it('requires the merchant ID that scopes the draft application', () => {
     expect(applyAiDraftSchema.safeParse({})).toMatchObject({ success: false });
   });

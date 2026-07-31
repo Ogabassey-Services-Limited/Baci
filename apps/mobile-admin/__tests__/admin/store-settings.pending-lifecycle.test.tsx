@@ -26,11 +26,11 @@ describe('StoreSettingsScreen merchant-scoped save lifecycle', () => {
       expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1)
     );
 
-    mocks.savePending = true;
-    rendered.rerender(<StoreSettingsScreen />);
-    expect(
-      screen.getByRole('button', { name: 'Save store settings' })
-    ).toBeDisabled();
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Save store settings' })
+      ).toBeDisabled()
+    );
     expect(screen.getByLabelText('loading')).toBeInTheDocument();
 
     mocks.useMerchant.mockReturnValue({

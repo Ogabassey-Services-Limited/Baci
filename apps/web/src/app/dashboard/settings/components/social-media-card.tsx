@@ -21,7 +21,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { updateSocial } from '@/hooks/merchant/update-social';
-import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -67,12 +66,24 @@ interface SocialMediaCardProps {
 }
 
 export function SocialMediaCard({
+  merchantId,
+  ...props
+}: SocialMediaCardProps) {
+  return (
+    <SocialMediaCardContents
+      key={merchantId}
+      merchantId={merchantId}
+      {...props}
+    />
+  );
+}
+
+function SocialMediaCardContents({
   initialSocialMedia,
   merchantId,
   onSocialMediaChange,
 }: SocialMediaCardProps) {
   const { toast } = useToast();
-  const { reloadMerchant } = useMerchant();
   const [socialMedia, setSocialMedia] =
     useState<Record<string, string>>(initialSocialMedia);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
@@ -83,28 +94,6 @@ export function SocialMediaCard({
   const resetStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestDataRef = useRef<Record<string, string>>(initialSocialMedia);
   const saveGenerationRef = useRef(0);
-  const [previousMerchantId, setPreviousMerchantId] = useState(merchantId);
-
-  // A merchant switch is a security boundary, not a background refresh: clear
-  // the former merchant's pending debounce and replace its local draft during
-  // the same render. This prevents an A-store draft from being sent with B's
-  // selected merchant ID.
-  if (merchantId !== previousMerchantId) {
-    saveGenerationRef.current += 1;
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-      autoSaveTimeoutRef.current = null;
-    }
-    if (resetStatusTimeoutRef.current) {
-      clearTimeout(resetStatusTimeoutRef.current);
-      resetStatusTimeoutRef.current = null;
-    }
-    setPreviousMerchantId(merchantId);
-    setSocialMedia(initialSocialMedia);
-    setSaveStatus('idle');
-    latestDataRef.current = initialSocialMedia;
-  }
-
   useEffect(() => {
     return () => {
       saveGenerationRef.current += 1;
@@ -133,7 +122,6 @@ export function SocialMediaCard({
         // dedicated, server-allowlisted /api/merchant/settings PATCH route.
         await updateSocial(merchantId, dataToSave);
         if (saveGeneration !== saveGenerationRef.current) return;
-        reloadMerchant();
         setSaveStatus('saved');
         if (resetStatusTimeoutRef.current) {
           clearTimeout(resetStatusTimeoutRef.current);

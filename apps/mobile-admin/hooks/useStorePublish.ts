@@ -1,5 +1,5 @@
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { apiClient, NetworkError } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
@@ -10,6 +10,11 @@ interface PublishStoreResponse {
 }
 
 export type StorePublishResult = { status: 'published' } | { status: 'stale' };
+
+interface MerchantScope {
+  merchantId: string | null;
+  revision: number;
+}
 
 interface UseStorePublishOptions {
   merchantId?: string | null;
@@ -43,22 +48,25 @@ function buildPublishErrorMessage(error: NetworkError): string {
 
 interface ExecutePublishOptions {
   merchantId: string;
-  isActiveMerchant: (merchantId: string) => boolean;
+  merchantRevision: number;
+  isActiveMerchant: (merchantId: string, merchantRevision: number) => boolean;
   onPublished?: () => Promise<unknown>;
   queryClient: QueryClient;
-  setPublishingMerchantId: (merchantId: string | null) => void;
+  setPublishingScope: (scope: MerchantScope | null) => void;
 }
 
 // Module-scope helper: the try/finally (and throws inside try/catch) cannot
 // live in the hook body because React Compiler does not lower that syntax yet.
 async function executePublish({
   merchantId,
+  merchantRevision,
   isActiveMerchant,
   onPublished,
   queryClient,
-  setPublishingMerchantId,
+  setPublishingScope,
 }: ExecutePublishOptions): Promise<StorePublishResult> {
-  setPublishingMerchantId(merchantId);
+  const submittedScope = { merchantId, revision: merchantRevision };
+  setPublishingScope(submittedScope);
 
   try {
     try {
@@ -85,19 +93,24 @@ async function executePublish({
       queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
     ]);
 
-    if (!isActiveMerchant(merchantId)) {
+    if (!isActiveMerchant(merchantId, merchantRevision)) {
       return { status: 'stale' };
     }
 
     await onPublished?.();
-    return { status: isActiveMerchant(merchantId) ? 'published' : 'stale' };
+    return {
+      status: isActiveMerchant(merchantId, merchantRevision)
+        ? 'published'
+        : 'stale',
+    };
   } catch (error) {
-    if (!isActiveMerchant(merchantId)) {
+    if (!isActiveMerchant(merchantId, merchantRevision)) {
+      console.error('[StorePublish] Stale publish failed', error);
       return { status: 'stale' };
     }
     throw error;
   } finally {
-    setPublishingMerchantId(null);
+    setPublishingScope(null);
   }
 }
 
@@ -106,15 +119,36 @@ export function useStorePublish({
   onPublished,
 }: UseStorePublishOptions) {
   const queryClient = useQueryClient();
-  const activeMerchantIdRef = useRef(merchantId ?? null);
-  const [publishingMerchantId, setPublishingMerchantId] = useState<
-    string | null
-  >(null);
-  activeMerchantIdRef.current = merchantId ?? null;
+  const activeMerchantScopeRef = useRef<MerchantScope>({
+    merchantId: merchantId ?? null,
+    revision: 0,
+  });
+  const [publishingScope, setPublishingScope] = useState<MerchantScope | null>(
+    null
+  );
+  const inFlightPublishesRef = useRef(
+    new Map<MerchantScope, Promise<StorePublishResult>>()
+  );
 
-  const clearPublishingMerchant = (submittedMerchantId: string | null) => {
-    setPublishingMerchantId((currentMerchantId) =>
-      currentMerchantId === submittedMerchantId ? null : currentMerchantId
+  // A ref written during render leaks an abandoned concurrent render into an
+  // already-committed screen. Only commit the active merchant once React has
+  // committed that render, so an in-flight publish still belongs to the UI the
+  // merchant can see.
+  useLayoutEffect(() => {
+    const activeMerchantId = merchantId ?? null;
+    if (activeMerchantScopeRef.current.merchantId === activeMerchantId) return;
+    activeMerchantScopeRef.current = {
+      merchantId: activeMerchantId,
+      revision: activeMerchantScopeRef.current.revision + 1,
+    };
+  }, [merchantId]);
+
+  const clearPublishingScope = (submittedScope: MerchantScope) => {
+    setPublishingScope((currentScope) =>
+      currentScope?.merchantId === submittedScope.merchantId &&
+      currentScope?.revision === submittedScope.revision
+        ? null
+        : currentScope
     );
   };
 
@@ -125,23 +159,37 @@ export function useStorePublish({
       );
     }
 
-    return executePublish({
+    const submittedScope = activeMerchantScopeRef.current;
+    if (inFlightPublishesRef.current.has(submittedScope)) {
+      return Promise.reject(new Error('A publish is already in progress.'));
+    }
+
+    const publish = executePublish({
       merchantId,
-      isActiveMerchant: (submittedMerchantId) =>
-        activeMerchantIdRef.current === submittedMerchantId,
+      merchantRevision: submittedScope.revision,
+      isActiveMerchant: (submittedMerchantId, submittedMerchantRevision) =>
+        activeMerchantScopeRef.current.merchantId === submittedMerchantId &&
+        activeMerchantScopeRef.current.revision === submittedMerchantRevision,
       onPublished,
       queryClient,
-      setPublishingMerchantId: (submittedMerchantId) =>
-        submittedMerchantId
-          ? setPublishingMerchantId(submittedMerchantId)
-          : clearPublishingMerchant(merchantId),
+      setPublishingScope: (scope) =>
+        scope
+          ? setPublishingScope(scope)
+          : clearPublishingScope(submittedScope),
     });
+    const trackedPublish = publish.finally(() => {
+      if (inFlightPublishesRef.current.get(submittedScope) === trackedPublish) {
+        inFlightPublishesRef.current.delete(submittedScope);
+      }
+    });
+    inFlightPublishesRef.current.set(submittedScope, trackedPublish);
+    return trackedPublish;
   }
 
   return {
     isPublishing:
-      publishingMerchantId !== null &&
-      publishingMerchantId === (merchantId ?? null),
+      publishingScope?.merchantId === (merchantId ?? null) &&
+      publishingScope?.revision === activeMerchantScopeRef.current.revision,
     publishStore,
   };
 }

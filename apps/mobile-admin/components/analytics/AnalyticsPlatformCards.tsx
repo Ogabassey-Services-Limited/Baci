@@ -42,7 +42,13 @@ function AnalyticsPlatformCard({
 }: AnalyticsPlatformCardProps) {
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
-      <Pressable style={styles.cardHeader} onPress={onToggle}>
+      <Pressable
+        accessibilityLabel={`${title} analytics credentials, ${isConfigured ? 'configured' : 'not configured'}`}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isExpanded }}
+        onPress={onToggle}
+        style={styles.cardHeader}
+      >
         <View style={styles.cardTitleRow}>
           <View
             style={[styles.iconBadge, { backgroundColor: `${iconColor}15` }]}
@@ -82,6 +88,8 @@ function AnalyticsPlatformCard({
       {isExpanded && (
         <View style={styles.cardContent}>
           <Pressable
+            accessibilityLabel={`How to get your ${title} credentials`}
+            accessibilityRole="button"
             style={styles.helpLink}
             onPress={() => Linking.openURL(helpLink)}
           >
@@ -135,6 +143,7 @@ function AnalyticsCredentialInput({
       >
         <Ionicons name={icon} size={20} color={colors.textMuted} />
         <TextInput
+          accessibilityLabel={label}
           style={[styles.input, { color: colors.text }]}
           value={value}
           onChangeText={(nextValue) => onUpdateField(field, nextValue)}

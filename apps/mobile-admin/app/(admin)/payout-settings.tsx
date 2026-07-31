@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -37,7 +37,9 @@ export default function PayoutSettingsScreen() {
   const { data: banks, isLoading: isLoadingBanks } = usePaystackBanks();
 
   const activeMerchantIdRef = useRef(merchant?.id);
-  activeMerchantIdRef.current = merchant?.id;
+  useLayoutEffect(() => {
+    activeMerchantIdRef.current = merchant?.id;
+  }, [merchant?.id]);
 
   // Account verification — fires once per settled (accountnumber, bank) pair
   const { accountName, isVerifying, verifyError } =

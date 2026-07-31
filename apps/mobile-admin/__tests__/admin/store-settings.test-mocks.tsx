@@ -1,6 +1,8 @@
 import { vi } from 'vitest';
 
 type MutationOptions = {
+  mutationFn: (variables: unknown) => Promise<unknown>;
+  onError?: (error: unknown, variables: unknown) => void;
   onSuccess?: (data: unknown) => Promise<void> | void;
 };
 
@@ -10,7 +12,6 @@ export const mocks = {
   invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
   mutationOptions: null as MutationOptions | null,
   routeParams: {} as { from?: string },
-  savePending: false,
   updateMerchantIdentitySettings: vi.fn().mockResolvedValue(undefined),
   useMerchant: vi.fn(),
 };
@@ -21,9 +22,8 @@ vi.mock('@tanstack/react-query', () => ({
     onError?: (error: Error, variables: TVariables) => void;
     onSuccess?: (data: TData) => Promise<void> | void;
   }) => {
-    mocks.mutationOptions = options as unknown as MutationOptions;
+    mocks.mutationOptions = options as MutationOptions;
     return {
-      isPending: mocks.savePending,
       mutate: async (variables: TVariables) => {
         try {
           const data = await options.mutationFn(variables);

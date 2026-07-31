@@ -1,5 +1,6 @@
 import {
   MOBILE_STORE_READINESS_ITEM_IDS,
+  SOCIAL_MEDIA_KEYS,
   type StoreBuildStatus,
   type StoreReadiness,
   type StoreReadinessItem,
@@ -123,7 +124,7 @@ export function buildStoreReadiness(
       id: 'social_media',
       label: 'Connect social media',
       description: 'Link your social profiles for better engagement',
-      completed: ['instagram', 'facebook', 'twitter', 'tiktok'].some((key) =>
+      completed: SOCIAL_MEDIA_KEYS.some((key) =>
         hasText(facts.socialMedia?.[key])
       ),
       priority: 'optional',

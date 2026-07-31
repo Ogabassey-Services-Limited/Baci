@@ -1,13 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const { mockCreateAdminClient } = vi.hoisted(() => ({
-  mockCreateAdminClient: vi.fn(),
-}));
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
-}));
-
 import {
   clearLegacyTerminalCode,
   syncTerminalRecord,
@@ -89,7 +81,7 @@ describe('virtual terminal local sync helpers', () => {
       data: 'terminal-1',
       error: null,
     });
-    const supabase = {
+    const adminSupabase = {
       rpc,
     };
 
@@ -103,60 +95,66 @@ describe('virtual terminal local sync helpers', () => {
           bank: 'Test Bank',
           name: 'Sales Terminal',
         },
-        supabase as never
+        adminSupabase as never
       )
     ).resolves.toBeNull();
 
-    expect(rpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
-      p_account_name: 'Test Store',
-      p_account_number: '1234567890',
-      p_active: null,
-      p_bank: 'Test Bank',
-      p_code: 'VT_123',
-      p_merchant_id: 'merchant-1',
-      p_name: 'Sales Terminal',
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'sync_virtual_terminal_local',
+      {
+        p_account_name: 'Test Store',
+        p_account_number: '1234567890',
+        p_active: null,
+        p_bank: 'Test Bank',
+        p_code: 'VT_123',
+        p_merchant_id: 'merchant-1',
+        p_name: 'Sales Terminal',
+      }
+    );
   });
 
-  it('uses the constrained RPC for terminal deactivation', async () => {
+  it('uses the server-only RPC for terminal deactivation', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: 'terminal-1',
       error: null,
     });
-    const supabase = { rpc };
+    const adminSupabase = { rpc };
 
     await expect(
       syncTerminalRecord(
         'merchant-1',
         'VT_123',
         { active: false },
-        supabase as never
+        adminSupabase as never
       )
     ).resolves.toBeNull();
 
-    expect(rpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
-      p_account_name: null,
-      p_account_number: null,
-      p_active: false,
-      p_bank: null,
-      p_code: 'VT_123',
-      p_merchant_id: 'merchant-1',
-      p_name: null,
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'sync_virtual_terminal_local',
+      {
+        p_account_name: null,
+        p_account_number: null,
+        p_active: false,
+        p_bank: null,
+        p_code: 'VT_123',
+        p_merchant_id: 'merchant-1',
+        p_name: null,
+      }
+    );
   });
 
-  it('returns a 500 response when the constrained sync RPC fails', async () => {
+  it('returns a 500 response when the server-only sync RPC fails', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: null,
       error: { message: 'sync failed' },
     });
-    const supabase = { rpc };
+    const adminSupabase = { rpc };
 
     const response = await syncTerminalRecord(
       'merchant-1',
       'VT_123',
       { name: 'Sales Terminal' },
-      supabase as never
+      adminSupabase as never
     );
 
     expect(response?.status).toBe(500);
@@ -170,13 +168,13 @@ describe('virtual terminal local sync helpers', () => {
       data: null,
       error: null,
     });
-    const supabase = { rpc };
+    const adminSupabase = { rpc };
 
     const response = await syncTerminalRecord(
       'merchant-1',
       'VT_123',
       { active: false },
-      supabase as never
+      adminSupabase as never
     );
 
     expect(response?.status).toBe(500);
@@ -201,8 +199,6 @@ describe('virtual terminal local sync helpers', () => {
       p_code: 'VT_123',
       p_merchant_id: 'merchant-1',
     });
-    // The secret column is never touched through a service-role client.
-    expect(mockCreateAdminClient).not.toHaveBeenCalled();
   });
 
   it('returns a warning when clearing the legacy code fails', async () => {

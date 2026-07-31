@@ -33,6 +33,11 @@ export function makeSupabaseMock(
     error: null,
   });
 
+  const storageBucket = {
+    upload: vi.fn().mockResolvedValue({ error: uploadError }),
+    remove: vi.fn().mockResolvedValue({ error: null }),
+  };
+
   return {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
@@ -41,11 +46,9 @@ export function makeSupabaseMock(
     })),
     merchantMaybeSingle,
     storage: {
-      from: vi.fn(() => ({
-        upload: vi.fn().mockResolvedValue({ error: uploadError }),
-        remove: vi.fn().mockResolvedValue({ error: null }),
-      })),
+      from: vi.fn(() => storageBucket),
     },
+    storageBucket,
     rpc: makeRpcMock(rpcError),
   };
 }

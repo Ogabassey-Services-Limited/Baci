@@ -14,6 +14,14 @@ describe('BuilderClient', () => {
   beforeEach(resetBuilderClientTest);
   afterEach(cleanupBuilderClientTest);
 
+  it('creates the initial store and setup defaults in one factory call', () => {
+    render(<BuilderClient />);
+
+    expect(builderClientTestMocks.defaultSettingsFactory).toHaveBeenCalledTimes(
+      1
+    );
+  });
+
   it('renders the builder in read-only recovery mode when the payload is degraded', async () => {
     render(<BuilderClient />);
 

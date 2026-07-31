@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: vi.fn() }),
@@ -8,10 +8,16 @@ vi.mock('@/hooks/use-toast', () => ({
 import { MerchantBankForm } from './merchant-bank-form';
 
 describe('MerchantBankForm', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it('renders the merchant bank details form with its supplied initial data', () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ json: async () => ({ banks: [] }) })
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ banks: [] }),
+      })
     );
 
     render(

@@ -126,11 +126,14 @@ describe('useCreateBranch', () => {
       });
     });
 
-    expect(mocks.createBranch).toHaveBeenCalledWith({
-      name: 'Lagos main',
-      city: 'Lagos',
-      isDefault: true,
-    });
+    expect(mocks.createBranch).toHaveBeenCalledWith(
+      {
+        name: 'Lagos main',
+        city: 'Lagos',
+        isDefault: true,
+      },
+      'merchant-1'
+    );
     expect(mocks.directInsert).not.toHaveBeenCalled();
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['branches'] });
     expect(invalidateQueries).toHaveBeenCalledWith({
@@ -140,6 +143,28 @@ describe('useCreateBranch', () => {
 
   it('fails fast when merchant context is missing', async () => {
     mocks.merchant = null;
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useCreateBranch(), {
+      wrapper: Wrapper,
+    });
+    let thrownError: unknown = null;
+
+    await act(async () => {
+      try {
+        await result.current.mutateAsync({ name: 'Lagos main' });
+      } catch (error) {
+        thrownError = error;
+      }
+    });
+
+    expect(thrownError).toBeInstanceOf(Error);
+    expect((thrownError as Error).message).toBe('No merchant');
+    expect(mocks.createBranch).not.toHaveBeenCalled();
+    expect(mocks.directInsert).not.toHaveBeenCalled();
+  });
+
+  it('fails fast when the selected merchant context is whitespace', async () => {
+    mocks.merchant = { id: '  ' };
     const { Wrapper } = createWrapper();
     const { result } = renderHook(() => useCreateBranch(), {
       wrapper: Wrapper,

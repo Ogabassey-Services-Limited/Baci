@@ -188,4 +188,55 @@ describe('useTaxMutations merchant-switch lifecycle', () => {
     expect(invalidateQueries).not.toHaveBeenCalled();
     expect(mockAlert).not.toHaveBeenCalled();
   });
+
+  it('does not treat an A completion as current after an A-to-B-to-A switch', async () => {
+    const deferredWrite = createDeferred();
+    mockUpdateMerchantSettings.mockReturnValueOnce(deferredWrite.promise);
+    const setVatEnabled = vi.fn();
+    const { queryClient, rerender, result } = renderTaxMutations(setVatEnabled);
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const completion = result.current.updateVatMutation.mutateAsync(true);
+    await waitFor(() =>
+      expect(mockUpdateMerchantSettings).toHaveBeenCalledOnce()
+    );
+    rerender({ merchantId: 'merchant-b' });
+    rerender({ merchantId: 'merchant-a' });
+    await act(async () => {
+      deferredWrite.resolve();
+      await completion;
+    });
+
+    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith('merchant-a', {
+      vat_registration_status: 'registered',
+    });
+    expect(setVatEnabled).toHaveBeenCalledOnce();
+    expect(setVatEnabled).toHaveBeenCalledWith(true);
+    expect(invalidateQueries).not.toHaveBeenCalled();
+    expect(mockAlert).not.toHaveBeenCalled();
+  });
+
+  it('does not roll back an A toggle after an A-to-B-to-A switch', async () => {
+    const deferredWrite = createDeferred();
+    mockUpdateMerchantSettings.mockReturnValueOnce(deferredWrite.promise);
+    const setVatEnabled = vi.fn();
+    const { rerender, result } = renderTaxMutations(setVatEnabled);
+
+    const completion = result.current.updateVatMutation
+      .mutateAsync(true)
+      .catch((error: unknown) => error);
+    await waitFor(() =>
+      expect(mockUpdateMerchantSettings).toHaveBeenCalledOnce()
+    );
+    rerender({ merchantId: 'merchant-b' });
+    rerender({ merchantId: 'merchant-a' });
+    await act(async () => {
+      deferredWrite.reject(new Error('merchant A write failed'));
+      await completion;
+    });
+
+    expect(setVatEnabled).toHaveBeenCalledOnce();
+    expect(setVatEnabled).toHaveBeenCalledWith(true);
+    expect(mockAlert).not.toHaveBeenCalled();
+  });
 });

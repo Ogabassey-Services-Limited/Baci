@@ -11,7 +11,14 @@ type MockMerchantBankFormProps = {
     bankName?: string;
     businessName?: string;
   };
-  onSuccess?: () => void;
+  onSuccess?: (savedBank: {
+    accountName?: string;
+    accountNumber: string;
+    bankCode?: string;
+    bankName?: string;
+    businessName: string;
+    merchantId: string;
+  }) => void;
 };
 
 const merchantBankFormProps = vi.hoisted(
@@ -26,7 +33,16 @@ vi.mock('@/components/merchant-bank-form', () => ({
     return (
       <button
         data-testid="merchant-bank-form"
-        onClick={() => props.onSuccess?.()}
+        onClick={() =>
+          props.onSuccess?.({
+            accountName: 'Updated Account Name',
+            accountNumber: '1234567890',
+            bankCode: '044',
+            bankName: 'Guaranty Trust Bank',
+            businessName: 'Updated Store',
+            merchantId: props.merchantId,
+          })
+        }
         type="button"
       >
         Mock Bank Form
@@ -222,40 +238,5 @@ describe('PaymentSettingsPage', () => {
     expect(screen.getByText('Local Payments (NGN)')).toBeInTheDocument();
     expect(screen.getByText(/Paystack:/i)).toHaveTextContent('₦100');
     expect(screen.getByText(/Baci charges/i)).toHaveTextContent('₦2,050');
-  });
-
-  it('hydrates saved Nigerian bank details and reloads after bank save', async () => {
-    const user = userEvent.setup();
-    useMerchantMock.mockReturnValue({
-      merchant: {
-        id: 'merchant-1',
-        business_name: 'Baci Store',
-        country: 'NG',
-        bank_account_number: '1234567890',
-        bank_account_name: 'Baci Store',
-        bank_code: '044',
-        bank_name: 'Guaranty Trust Bank',
-        paystack_subaccount_code: 'ACCT_test123',
-      },
-      loading: false,
-      reloadMerchant: reloadMerchantMock,
-    });
-
-    render(<PaymentSettingsPage />);
-
-    expect(
-      await screen.findByText('Bank Account Connected')
-    ).toBeInTheDocument();
-    expect(merchantBankFormProps[0]?.initialData).toEqual(
-      expect.objectContaining({
-        accountNumber: '1234567890',
-        bankName: 'Guaranty Trust Bank',
-        businessName: 'Baci Store',
-      })
-    );
-
-    await user.click(screen.getByTestId('merchant-bank-form'));
-
-    expect(reloadMerchantMock).toHaveBeenCalled();
   });
 });

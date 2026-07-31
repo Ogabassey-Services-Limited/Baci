@@ -35,6 +35,8 @@ function client(
     paystackError?: { message: string } | null;
     identityError?: { message: string } | null;
     country?: string;
+    korapayEnabled?: boolean;
+    payoutCurrency?: string;
     activeProductCount?: number;
     totalProductCount?: number;
     paystackEnabled?: boolean;
@@ -47,6 +49,7 @@ function client(
       bank_code: '044',
       country: options.country ?? 'NG',
       email: 'owner@example.com',
+      payout_currency: options.payoutCurrency ?? 'NGN',
       phone: null,
       slug: 'merchant-one',
       support_email: null,
@@ -56,7 +59,7 @@ function client(
   });
   const settings = query({
     data: {
-      korapay_enabled: false,
+      korapay_enabled: options.korapayEnabled ?? false,
       pay_on_delivery_enabled:
         options.payOnDeliveryEnabled === undefined
           ? false
@@ -205,6 +208,42 @@ describe('loadStoreLaunchReadiness', () => {
     expect(result.items).toContainEqual(
       expect.objectContaining({ id: 'payment_method', completed: false })
     );
+  });
+
+  it('treats enabled Korapay as a completed payment method only in a supported payout currency', async () => {
+    const supportedClient = client({
+      country: 'GH',
+      korapayEnabled: true,
+      paystackEnabled: false,
+      payoutCurrency: 'GHS',
+    });
+    const unsupportedClient = client({
+      country: 'IN',
+      korapayEnabled: true,
+      paystackEnabled: false,
+      payoutCurrency: 'INR',
+    });
+
+    await expect(
+      loadStoreLaunchReadiness({
+        supabase: supportedClient.supabase,
+        merchantId: 'merchant-1',
+      })
+    ).resolves.toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: 'payment_method', completed: true }),
+      ]),
+    });
+    await expect(
+      loadStoreLaunchReadiness({
+        supabase: unsupportedClient.supabase,
+        merchantId: 'merchant-1',
+      })
+    ).resolves.toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: 'payment_method', completed: false }),
+      ]),
+    });
   });
 
   it.each([

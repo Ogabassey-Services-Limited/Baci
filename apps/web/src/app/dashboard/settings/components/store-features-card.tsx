@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 
 interface StoreFeaturesCardProps {
   initialBlogEnabled: boolean;
+  merchantId: string;
 }
 
 type ToastFn = ReturnType<typeof useToast>['toast'];
@@ -24,17 +25,26 @@ type ToastFn = ReturnType<typeof useToast>['toast'];
 // (React Compiler cannot lower try/finally inside components yet).
 async function persistBlogEnabled({
   enabled,
+  merchantId,
   toast,
   setBlogEnabled,
   setFeaturesLoading,
+  isRequestCurrent,
 }: {
   enabled: boolean;
+  merchantId: string;
   toast: ToastFn;
   setBlogEnabled: (enabled: boolean) => void;
   setFeaturesLoading: (loading: boolean) => void;
+  isRequestCurrent: () => boolean;
 }): Promise<void> {
   try {
-    await apiPatch('/api/merchant/features', { blog_enabled: enabled });
+    await apiPatch('/api/merchant/features', {
+      blog_enabled: enabled,
+      merchantId,
+    });
+
+    if (!isRequestCurrent()) return;
 
     toast({
       title: enabled ? 'Blog Enabled' : 'Blog Disabled',
@@ -43,6 +53,8 @@ async function persistBlogEnabled({
         : 'Your blog is now hidden from the storefront.',
     });
   } catch (error) {
+    if (!isRequestCurrent()) return;
+
     setBlogEnabled(!enabled);
     logger.error({
       error: error instanceof Error ? error : new Error(String(error)),
@@ -54,26 +66,50 @@ async function persistBlogEnabled({
       variant: 'destructive',
     });
   } finally {
-    setFeaturesLoading(false);
+    if (isRequestCurrent()) setFeaturesLoading(false);
   }
 }
 
 export function StoreFeaturesCard({
   initialBlogEnabled,
+  merchantId,
 }: StoreFeaturesCardProps) {
   const { toast } = useToast();
   const [blogEnabled, setBlogEnabled] = useState(initialBlogEnabled);
   const [featuresLoading, setFeaturesLoading] = useState(false);
+  const activeMerchantIdRef = useRef(merchantId);
+  const merchantGenerationRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  useLayoutEffect(() => {
+    isMountedRef.current = true;
+    if (activeMerchantIdRef.current !== merchantId) {
+      merchantGenerationRef.current += 1;
+    }
+    activeMerchantIdRef.current = merchantId;
+    setBlogEnabled(initialBlogEnabled);
+    setFeaturesLoading(false);
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [initialBlogEnabled, merchantId]);
 
   const handleBlogToggle = (enabled: boolean) => {
+    const requestMerchantId = merchantId;
+    const requestMerchantGeneration = merchantGenerationRef.current;
     setBlogEnabled(enabled);
     setFeaturesLoading(true);
 
     return persistBlogEnabled({
       enabled,
+      merchantId,
       toast,
       setBlogEnabled,
       setFeaturesLoading,
+      isRequestCurrent: () =>
+        isMountedRef.current &&
+        activeMerchantIdRef.current === requestMerchantId &&
+        merchantGenerationRef.current === requestMerchantGeneration,
     });
   };
 

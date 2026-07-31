@@ -237,4 +237,64 @@ describe('useStoreSettingsSaveLifecycle', () => {
 
     expect(onRefreshedLocalSave).not.toHaveBeenCalled();
   });
+
+  it('keeps a persisted save successful when cache invalidation rejects', async () => {
+    const receipt = {
+      merchantId: 'merchant-1',
+      savedValues: formValues,
+      updatedAt: '2026-07-30T20:00:00.000Z',
+    };
+    const onRefreshedLocalSave = vi.fn();
+    const resetFormDirty = vi.fn();
+    mocks.updateMerchant.mockResolvedValueOnce(receipt);
+    mocks.invalidateAfterSave.mockRejectedValueOnce(
+      new Error('cache refresh failed')
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+    const { result } = renderHook(
+      () => {
+        const [statusModal, setStatusModal] = useState<StatusModalState>({
+          visible: false,
+          type: 'success',
+          title: '',
+          message: '',
+        });
+        const lifecycle = useStoreSettingsSaveLifecycle({
+          baseline,
+          formValues,
+          getFormRevision: () => 0,
+          merchant: { id: 'merchant-1', updated_at: '2026-07-30T12:00:00Z' },
+          onRefreshedLocalSave,
+          queryClient,
+          resetFormDirty,
+          router: { back: vi.fn() },
+          setStatusModal,
+          syncedMerchantUpdatedAt: '2026-07-30T12:00:00Z',
+        });
+        return { ...lifecycle, statusModal };
+      },
+      { wrapper }
+    );
+
+    act(result.current.startSave);
+    await waitFor(() =>
+      expect(onRefreshedLocalSave).toHaveBeenCalledWith(receipt)
+    );
+    expect(resetFormDirty).toHaveBeenCalledOnce();
+    expect(result.current.statusModal).toMatchObject({
+      visible: true,
+      type: 'success',
+    });
+    expect(consoleError).not.toHaveBeenCalledWith(
+      'Update error:',
+      expect.any(Error)
+    );
+    consoleError.mockRestore();
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
@@ -39,9 +39,12 @@ function extractKeys<T extends object>(
 // request is not ok. Kept at module scope so the try/catch (with throws)
 // doesn't trigger a React Compiler bailout in the hook body.
 async function fetchIntegrationSettings<T extends object>(
+  merchantId: string,
   keys: (keyof T)[]
 ): Promise<T | null> {
-  const response = await fetch('/api/merchant/features');
+  const response = await fetch(
+    `/api/merchant/features?${new URLSearchParams({ merchantId })}`
+  );
   if (!response.ok) {
     return null;
   }
@@ -52,13 +55,14 @@ async function fetchIntegrationSettings<T extends object>(
 // Save settings to the features API and return the persisted subset.
 // Throws on a non-ok response so the caller can surface an error toast.
 async function persistIntegrationSettings<T extends object>(
+  merchantId: string,
   updates: Partial<T>,
   keys: (keyof T)[]
 ): Promise<T> {
   const response = await fetchWithCsrf('/api/merchant/features', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
+    body: JSON.stringify({ ...updates, merchantId }),
   });
 
   if (!response.ok) {
@@ -94,6 +98,10 @@ export function useIntegrationSettings<T extends object>({
   const { toast } = useToast();
   const [settings, setSettings] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(!!merchant);
+  const activeMerchantScopeRef = useRef({
+    generation: 0,
+    merchantId: merchant?.id ?? null,
+  });
 
   // Adjust loading/settings during render when the merchant changes, instead of
   // re-arming the loading flag inside the fetch effect. Re-arming a loading flag
@@ -108,6 +116,16 @@ export function useIntegrationSettings<T extends object>({
     setIsLoading(!!merchant);
   }
 
+  useLayoutEffect(() => {
+    const nextMerchantId = merchant?.id ?? null;
+    if (activeMerchantScopeRef.current.merchantId !== nextMerchantId) {
+      activeMerchantScopeRef.current = {
+        generation: activeMerchantScopeRef.current.generation + 1,
+        merchantId: nextMerchantId,
+      };
+    }
+  }, [merchant?.id]);
+
   // Fetch current settings from the features API once a merchant is present.
   // Loading is armed during render (above / initial state); the effect only
   // resolves it, so it never re-arms a loading flag keyed on object identities.
@@ -118,7 +136,7 @@ export function useIntegrationSettings<T extends object>({
 
     let active = true;
 
-    fetchIntegrationSettings<T>(keys)
+    fetchIntegrationSettings<T>(merchant.id, keys)
       .then((loaded) => {
         if (active) {
           setSettings(loaded);
@@ -141,9 +159,19 @@ export function useIntegrationSettings<T extends object>({
 
   // Save settings to the features API. Uses a promise chain (no try/catch with
   // a re-throw in the hook body) so React Compiler can lower the hook.
-  const saveSettings = (updates: Partial<T>): Promise<void> =>
-    persistIntegrationSettings<T>(updates, keys)
+  const saveSettings = (updates: Partial<T>): Promise<void> => {
+    const submittedMerchantId = merchant?.id ?? null;
+    const submittedGeneration = activeMerchantScopeRef.current.generation;
+    const isSubmittedMerchantCurrent = () =>
+      activeMerchantScopeRef.current.merchantId === submittedMerchantId &&
+      activeMerchantScopeRef.current.generation === submittedGeneration;
+    return (
+      submittedMerchantId
+        ? persistIntegrationSettings<T>(submittedMerchantId, updates, keys)
+        : Promise.reject<T>(new Error('Merchant unavailable'))
+    )
       .then((persisted) => {
+        if (!isSubmittedMerchantCurrent()) return;
         setSettings(persisted);
         toast({
           title: 'Settings saved',
@@ -151,6 +179,7 @@ export function useIntegrationSettings<T extends object>({
         });
       })
       .catch((error) => {
+        if (!isSubmittedMerchantCurrent()) return;
         console.error('Failed to save settings for', platformName, ':', error);
         toast({
           variant: 'destructive',
@@ -159,6 +188,7 @@ export function useIntegrationSettings<T extends object>({
         });
         return Promise.reject(error);
       });
+  };
 
   return {
     settings,

@@ -33,6 +33,9 @@ export function OfflineConversionsCard({
           </Text>
         </View>
         <Pressable
+          accessibilityLabel="Auto-upload conversions"
+          accessibilityRole="switch"
+          accessibilityState={{ checked: enabled }}
           style={[
             styles.toggle,
             { backgroundColor: enabled ? colors.primary : colors.border },

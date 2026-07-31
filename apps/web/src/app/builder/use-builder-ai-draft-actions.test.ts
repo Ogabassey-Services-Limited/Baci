@@ -1,4 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import {
+  createElement,
+  Suspense,
+  startTransition,
+  useLayoutEffect,
+} from 'react';
+import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { applyAiDraftRequest } from './apply-ai-draft-request';
@@ -68,7 +75,7 @@ describe('useBuilderAiDraftActions', () => {
     vi.clearAllMocks();
   });
 
-  it('shows a destructive toast without applying when no merchant is selected', async () => {
+  it('explains that a merchant must be selected before applying an AI draft', async () => {
     const toast = vi.fn<BuilderToast>();
     const { result } = renderHook(() =>
       useBuilderAiDraftActions(
@@ -84,12 +91,34 @@ describe('useBuilderAiDraftActions', () => {
     });
 
     expect(toast).toHaveBeenCalledWith({
-      title: 'Cannot apply this draft',
-      description:
-        'You need builder edit access before this AI design can replace the starter draft.',
+      title: 'No merchant selected',
+      description: 'Select a merchant before using the AI builder.',
       variant: 'destructive',
     });
     expect(mockApplyAiDraftRequest).not.toHaveBeenCalled();
+  });
+
+  it('explains that a merchant must be selected before running an AI command', async () => {
+    const toast = vi.fn<BuilderToast>();
+    const { result } = renderHook(() =>
+      useBuilderAiDraftActions(
+        createParams({
+          merchantId: null,
+          toast,
+        })
+      )
+    );
+
+    await act(async () => {
+      await result.current.handleAiCommand('Make the hero blue');
+    });
+
+    expect(toast).toHaveBeenCalledWith({
+      title: 'No merchant selected',
+      description: 'Select a merchant before using the AI builder.',
+      variant: 'destructive',
+    });
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
   });
 
   it('passes the selected merchant to the AI draft apply request', async () => {
@@ -160,5 +189,80 @@ describe('useBuilderAiDraftActions', () => {
     expect(setLastUpdated).not.toHaveBeenCalled();
     expect(setPreviewMode).not.toHaveBeenCalled();
     expect(setApplyingAiDraft).toHaveBeenLastCalledWith(false);
+  });
+
+  it('keeps merchant A current when a speculative merchant B render is abandoned', async () => {
+    let resolveResponse!: (response: Response) => void;
+    mockFetchWithCsrf.mockReturnValue(
+      new Promise((resolve) => {
+        resolveResponse = resolve;
+      })
+    );
+    const params = createParams();
+    let committedApply: (() => Promise<void>) | undefined;
+    const never = new Promise<void>(() => undefined);
+
+    function Harness({ merchantId }: { merchantId: string }) {
+      const actions = useBuilderAiDraftActions({ ...params, merchantId });
+      useLayoutEffect(() => {
+        committedApply = actions.applyAiDraft;
+      });
+      return null;
+    }
+
+    function SuspendAbandonedRender({ suspend }: { suspend: boolean }) {
+      if (suspend) throw never;
+      return null;
+    }
+
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        createElement(
+          Suspense,
+          { fallback: null },
+          createElement(Harness, { merchantId: 'merchant-a' }),
+          createElement(SuspendAbandonedRender, { suspend: false })
+        )
+      );
+    });
+
+    let apply: Promise<void> | undefined;
+    act(() => {
+      apply = committedApply?.();
+    });
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledOnce());
+
+    act(() => {
+      startTransition(() => {
+        root.render(
+          createElement(
+            Suspense,
+            { fallback: null },
+            createElement(Harness, { merchantId: 'merchant-b' }),
+            createElement(SuspendAbandonedRender, { suspend: true })
+          )
+        );
+      });
+    });
+
+    await act(async () => {
+      resolveResponse({
+        ok: true,
+        status: 200,
+        json: async () => ({ lastUpdated: '2026-07-31T10:00:00.000Z' }),
+      } as Response);
+      await apply;
+    });
+
+    expect(params.setLastUpdated).toHaveBeenCalledWith(
+      '2026-07-31T10:00:00.000Z'
+    );
+    expect(params.toast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'AI design applied' })
+    );
+
+    await act(async () => root.unmount());
   });
 });

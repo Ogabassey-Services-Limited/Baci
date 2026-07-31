@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
@@ -13,10 +13,8 @@ import {
   isCurrentBuilderAiRequest,
   type MerchantBuilderDraft,
 } from './builder-ai-request';
-import {
-  type BuilderMerchantRequest,
-  guardBuilderMutationCallbacks,
-} from './builder-mutation-callbacks';
+import type { BuilderMerchantRequest } from './builder-mutation-callbacks';
+import { createBuilderMerchantMutationAction } from './createBuilderMerchantMutationAction';
 import { formatAiCopilotError } from './format-ai-copilot-error';
 import { useMerchant } from './useMerchant';
 import { useMerchantScopedPending } from './useMerchantScopedPending';
@@ -33,22 +31,29 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     merchantId,
     revision: 0,
   });
-  if (merchantRequestRef.current.merchantId !== merchantId) {
-    merchantRequestRef.current = {
-      merchantId,
-      revision: merchantRequestRef.current.revision + 1,
-    };
-  }
   const aiRequestSequenceRef = useRef(0);
   const messagesMerchantIdRef = useRef(merchantId);
+  const errorMerchantIdRef = useRef(merchantId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentConfig, setCurrentConfig] =
     useState<MerchantBuilderDraft | null>(null);
   const [activeAiRequestSequence, setActiveAiRequestSequence] = useState<
     number | null
   >(null);
-  useEffect(() => {
+
+  useLayoutEffect(() => {
+    if (merchantRequestRef.current.merchantId !== merchantId) {
+      merchantRequestRef.current = {
+        merchantId,
+        revision: merchantRequestRef.current.revision + 1,
+      };
+    }
+    // A completion from the prior committed merchant must never become active
+    // if the user returns to that merchant later.
     aiRequestSequenceRef.current += 1;
+  }, [merchantId]);
+
+  useEffect(() => {
     setActiveAiRequestSequence(null);
     messagesMerchantIdRef.current = merchantId;
     setMessages([]);
@@ -122,7 +127,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
             currentConfig: requestConfig,
           }),
         });
-
         if (!isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
           return data.config;
         }
@@ -134,7 +138,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
-
         setCurrentConfig({
           merchantId: requestMerchantId,
           config: data.config,
@@ -163,7 +166,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       }
     },
   });
-
   const saveDraftMutation = useMutation({
     mutationFn: async ({
       merchantId,
@@ -203,20 +205,16 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       savePending.end(variables.merchantId);
     },
   });
-
   const publishMutation = useMutation({
     mutationFn: async (variables: BuilderMutationVariables): Promise<void> => {
       if (!variables.merchantId) {
         throw new Error('Merchant not loaded. Please try again.');
       }
-
       await saveDraftMutation.mutateAsync(variables);
-
       const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
       }
-
       await apiClient('/api/builder', {
         method: 'PUT',
         body: JSON.stringify({
@@ -248,15 +246,24 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       publishPending.end(variables.merchantId);
     },
   });
-
+  useLayoutEffect(() => {
+    if (errorMerchantIdRef.current === merchantId) return;
+    errorMerchantIdRef.current = merchantId;
+    aiMutation.reset();
+    saveDraftMutation.reset();
+    publishMutation.reset();
+  }, [
+    merchantId,
+    aiMutation.reset,
+    publishMutation.reset,
+    saveDraftMutation.reset,
+  ]);
   function sendMessage(prompt: string) {
     return aiMutation.mutateAsync(prompt);
   }
-
   function clearChat() {
     setMessages([]);
   }
-
   return {
     config: effectiveConfig,
     configData,
@@ -268,28 +275,16 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     sendMessage,
     isProcessingAI: activeAiRequestSequence !== null,
     aiError: aiMutation.error,
-    saveDraft: (
-      _variables?: undefined,
-      options?: Parameters<typeof saveDraftMutation.mutate>[1]
-    ) => {
-      const request = merchantRequestRef.current;
-      return saveDraftMutation.mutate(
-        { merchantId: request.merchantId },
-        guardBuilderMutationCallbacks(options, request, merchantRequestRef)
-      );
-    },
+    saveDraft: createBuilderMerchantMutationAction(
+      saveDraftMutation,
+      merchantRequestRef
+    ),
     isSavingDraft: savePending.isPending(merchantId),
     saveDraftError: saveDraftMutation.error,
-    publish: (
-      _variables?: undefined,
-      options?: Parameters<typeof publishMutation.mutate>[1]
-    ) => {
-      const request = merchantRequestRef.current;
-      return publishMutation.mutate(
-        { merchantId: request.merchantId },
-        guardBuilderMutationCallbacks(options, request, merchantRequestRef)
-      );
-    },
+    publish: createBuilderMerchantMutationAction(
+      publishMutation,
+      merchantRequestRef
+    ),
     isPublishing: publishPending.isPending(merchantId),
     publishError: publishMutation.error,
     hasUnsavedChanges:

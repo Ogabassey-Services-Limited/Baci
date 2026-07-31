@@ -1,5 +1,11 @@
 import { type QueryClient, useMutation } from '@tanstack/react-query';
-import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   buildMerchantUpdatePayload,
   type StoreSettingsFormValues,
@@ -68,7 +74,12 @@ export function useStoreSettingsSaveLifecycle({
   const [pendingMerchantIds, setPendingMerchantIds] = useState(
     () => new Map<number, string>()
   );
-  merchantIdRef.current = merchant?.id ?? null;
+
+  // Do not write this ref during render. An interrupted merchant switch must
+  // not make the still-visible merchant's save result look stale.
+  useLayoutEffect(() => {
+    merchantIdRef.current = merchant?.id ?? null;
+  }, [merchant?.id]);
 
   const markSavePending = (saveToken: StoreSettingsSaveToken) => {
     setPendingMerchantIds((previous) => {
@@ -123,10 +134,14 @@ export function useStoreSettingsSaveLifecycle({
     },
     onSuccess: async (saveToken) => {
       try {
-        await invalidateStoreSettingsAfterSave(
-          queryClient,
-          saveToken.merchantId
-        );
+        try {
+          await invalidateStoreSettingsAfterSave(
+            queryClient,
+            saveToken.merchantId
+          );
+        } catch (error) {
+          console.warn('Store settings saved but cache refresh failed:', error);
+        }
         if (
           saveToken.receipt &&
           merchantIdRef.current === saveToken.receipt.merchantId

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: vi.fn() }),
@@ -8,6 +8,8 @@ vi.mock('@/hooks/use-toast', () => ({
 import { MerchantBankFormContent } from './merchant-bank-form-content';
 
 describe('MerchantBankFormContent', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it('composes the manual payout experience without fetching Paystack banks', () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);

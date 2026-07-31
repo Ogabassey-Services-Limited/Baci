@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getUserAccess, type UserAccess } from '@/lib/api-auth';
+import type { UserAccess } from '@/lib/api-auth';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -20,18 +20,9 @@ export async function resolveSelectedMerchantAccess({
   access: UserAccess | null;
   invalidMerchantId: boolean;
 }> {
-  const parsedMerchantId = merchantIdParamSchema
-    .optional()
-    .safeParse(requestedMerchantId);
+  const parsedMerchantId = merchantIdParamSchema.safeParse(requestedMerchantId);
   if (!parsedMerchantId.success) {
     return { access: null, invalidMerchantId: true };
-  }
-
-  if (!parsedMerchantId.data) {
-    return {
-      access: await getUserAccess(supabase),
-      invalidMerchantId: false,
-    };
   }
 
   const merchantContext = await getMerchantForApiRequest(supabase, userId, {

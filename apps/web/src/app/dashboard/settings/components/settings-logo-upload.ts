@@ -1,12 +1,10 @@
 import type { Dispatch, SetStateAction, TransitionStartFunction } from 'react';
+import type { useMerchant } from '@/hooks/use-merchant-client';
 import type { CachedMerchant } from '@/lib/cached-data';
 import { logger } from '@/lib/logger';
 import { extractColorsFromImage } from './settings-utils';
 
-type UpdateMerchant = (data: {
-  logo_url: string;
-  brand_colors: NonNullable<CachedMerchant['brand_colors']>;
-}) => Promise<unknown>;
+type UpdateMerchant = ReturnType<typeof useMerchant>['updateMerchant'];
 
 type Toast = (options: {
   title: string;
@@ -16,6 +14,7 @@ type Toast = (options: {
 
 interface LogoUploadContext {
   dataUri: string;
+  merchantId: string;
   previousState: CachedMerchant;
   updateMerchant: UpdateMerchant;
   toast: Toast;
@@ -26,6 +25,7 @@ interface LogoUploadContext {
 
 export async function uploadLogoWithColors({
   dataUri,
+  merchantId,
   previousState,
   updateMerchant,
   toast,
@@ -48,10 +48,13 @@ export async function uploadLogoWithColors({
 
     if (!uploadedUrl) throw new Error('Failed to upload logo to storage.');
 
-    await updateMerchant({
-      logo_url: uploadedUrl,
-      brand_colors: newColors,
-    });
+    await updateMerchant(
+      {
+        logo_url: uploadedUrl,
+        brand_colors: newColors,
+      },
+      { merchantId, skipReload: true }
+    );
 
     startTransition(() => {
       setMerchantState((previousMerchant) => ({

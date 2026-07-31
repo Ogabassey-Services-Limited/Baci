@@ -36,7 +36,7 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({ from: vi.fn() })),
+  createAdminClient: vi.fn(() => supabase),
 }));
 vi.mock('@/lib/paystack', () => ({
   createVirtualTerminal: vi.fn(() =>
@@ -101,6 +101,34 @@ describe('virtual terminal selected merchant context', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+      supabase,
+      'user-a',
+      { requestedMerchantId: merchantB }
+    );
+  });
+
+  it('creates a terminal for a selected merchant with mobile bearer auth', async () => {
+    const request = new NextRequest(
+      'https://usebaci.com/api/paystack/virtual-terminal',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer mobile-access-token',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          merchantId: merchantB,
+          name: 'Merchant B Till',
+        }),
+      }
+    );
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    expect(mocks.authenticateApiRequest).toHaveBeenCalledWith(request);
+    expect(mocks.createClient).not.toHaveBeenCalled();
     expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
       supabase,
       'user-a',

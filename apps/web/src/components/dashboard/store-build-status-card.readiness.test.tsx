@@ -1,5 +1,6 @@
 import { isStoreReadiness } from '@baci/shared';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -175,10 +176,12 @@ describe('StoreBuildStatusCard readiness loading', () => {
       ).not.toBeInTheDocument();
     });
 
-    resolveMerchantB?.({
-      ok: true,
-      json: async () => createReadinessPayload(),
-    } as Response);
+    await act(async () => {
+      resolveMerchantB?.({
+        ok: true,
+        json: async () => createReadinessPayload(),
+      } as Response);
+    });
   });
 
   it('ignores an apply completion after the selected merchant changes', async () => {
@@ -203,11 +206,13 @@ describe('StoreBuildStatusCard readiness loading', () => {
     rerender(
       <StoreBuildStatusCard merchantId={merchantB} onApplied={onApplied} />
     );
-    resolveApply?.({
-      ok: true,
-      status: 200,
-      json: async () => ({ success: true }),
-    } as Response);
+    await act(async () => {
+      resolveApply?.({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      } as Response);
+    });
 
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
     expect(mockToast).not.toHaveBeenCalled();

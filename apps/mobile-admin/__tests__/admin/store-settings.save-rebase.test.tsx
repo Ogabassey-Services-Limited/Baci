@@ -9,6 +9,7 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   defaultMerchant,
+  defaultStoreSettingsSaveReceipt,
   resetStoreSettingsMocks,
 } from './store-settings.test-helpers';
 import { mocks } from './store-settings.test-mocks';
@@ -16,6 +17,34 @@ import StoreSettingsScreen from './store-settings.test-subject';
 
 describe('StoreSettingsScreen save receipt lifecycle', () => {
   beforeEach(resetStoreSettingsMocks);
+
+  it('uses the default save receipt token for a second consecutive save', async () => {
+    render(<StoreSettingsScreen />);
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Baci Foods Ltd' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+    await waitFor(() =>
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1)
+    );
+
+    fireEvent.change(screen.getByLabelText('Phone Number'), {
+      target: { value: '+2348099999999' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() =>
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenLastCalledWith({
+        expectedUpdatedAt: defaultStoreSettingsSaveReceipt.updatedAt,
+        merchantId: 'merchant-1',
+        settings: { phone: '+2348099999999' },
+      })
+    );
+  });
 
   it('uses the refreshed token and saved baseline when saving an edit made during the prior save', async () => {
     let completeFirstSave!: () => void;

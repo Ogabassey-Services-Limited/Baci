@@ -1,6 +1,6 @@
 import type { Data } from '@puckeditor/core';
 import type { Dispatch, SetStateAction } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { BuilderDegradedReason } from '@/schemas/builder';
 import { applyAiDraftRequest } from './apply-ai-draft-request';
 import type {
@@ -53,12 +53,14 @@ export function useBuilderAiDraftActions({
   const requestMerchantIdRef = useRef(merchantId);
   const requestSequenceRef = useRef(0);
   const stateMerchantIdRef = useRef(merchantId);
-  merchantIdRef.current = merchantId;
 
-  if (requestMerchantIdRef.current !== merchantId) {
-    requestMerchantIdRef.current = merchantId;
-    requestSequenceRef.current += 1;
-  }
+  useLayoutEffect(() => {
+    merchantIdRef.current = merchantId;
+    if (requestMerchantIdRef.current !== merchantId) {
+      requestMerchantIdRef.current = merchantId;
+      requestSequenceRef.current += 1;
+    }
+  }, [merchantId]);
 
   useEffect(() => {
     if (stateMerchantIdRef.current === merchantId) return;
@@ -74,7 +76,16 @@ export function useBuilderAiDraftActions({
   ]);
 
   async function handleAiCommand(command: string) {
-    if (!merchantId || !canEdit) {
+    if (!merchantId) {
+      toast({
+        title: 'No merchant selected',
+        description: 'Select a merchant before using the AI builder.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!canEdit) {
       toast({
         title: 'Builder is read-only',
         description: getReadOnlyBuilderDescription(previewMode, degradedReason),
@@ -99,7 +110,16 @@ export function useBuilderAiDraftActions({
 
   async function applyAiDraft(force = false) {
     const selectedMerchantId = merchantId;
-    if (!aiDraftJobId || !canApplyAiDraft || !selectedMerchantId) {
+    if (!selectedMerchantId) {
+      toast({
+        title: 'No merchant selected',
+        description: 'Select a merchant before using the AI builder.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!aiDraftJobId || !canApplyAiDraft) {
       toast({
         title: 'Cannot apply this draft',
         description:

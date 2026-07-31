@@ -32,14 +32,20 @@ describe('branch-api', () => {
   it('creates branches through the web API using camelCase fields', async () => {
     mocks.apiClient.mockResolvedValueOnce({ success: true, branch });
 
-    const result = await createBranch({
-      name: 'Lagos main',
-      city: 'Lagos',
-      isDefault: true,
-    });
+    const result = await createBranch(
+      {
+        name: 'Lagos main',
+        city: 'Lagos',
+        isDefault: true,
+      },
+      '123e4567-e89b-42d3-a456-426614174001'
+    );
 
     expect(mocks.apiClient).toHaveBeenCalledWith('/api/branches', {
       method: 'POST',
+      headers: {
+        'x-baci-merchant-id': '123e4567-e89b-42d3-a456-426614174001',
+      },
       body: JSON.stringify({
         name: 'Lagos main',
         city: 'Lagos',
@@ -78,9 +84,9 @@ describe('branch-api', () => {
   it('propagates network errors from createBranch', async () => {
     mocks.apiClient.mockRejectedValueOnce(new Error('Network error'));
 
-    await expect(createBranch({ name: 'Lagos main' })).rejects.toThrow(
-      'Network error'
-    );
+    await expect(
+      createBranch({ name: 'Lagos main' }, branch.merchant_id)
+    ).rejects.toThrow('Network error');
   });
 
   it('rejects unsuccessful createBranch payloads without a branch', async () => {
@@ -89,13 +95,30 @@ describe('branch-api', () => {
       error: 'Create failed',
     });
 
-    await expect(createBranch({ name: 'Lagos main' })).rejects.toThrow(
-      'Branch response missing branch payload'
-    );
+    await expect(
+      createBranch({ name: 'Lagos main' }, branch.merchant_id)
+    ).rejects.toThrow('Branch response missing branch payload');
     expect(mocks.apiClient).toHaveBeenCalledWith('/api/branches', {
       method: 'POST',
+      headers: { 'x-baci-merchant-id': branch.merchant_id },
       body: JSON.stringify({ name: 'Lagos main', isDefault: false }),
     });
+  });
+
+  it('rejects whitespace merchant IDs before creating a branch request', async () => {
+    await expect(createBranch({ name: 'Lagos main' }, '  ')).rejects.toThrow(
+      'merchantId is required'
+    );
+
+    expect(mocks.apiClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing merchant IDs before creating a branch request', async () => {
+    await expect(
+      createBranch({ name: 'Lagos main' }, undefined as unknown as string)
+    ).rejects.toThrow('merchantId is required');
+
+    expect(mocks.apiClient).not.toHaveBeenCalled();
   });
 
   it('propagates network errors from updateBranch', async () => {

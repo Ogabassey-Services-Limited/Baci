@@ -7,15 +7,23 @@ import { OfflineConversionsCard } from './OfflineConversionsCard';
 
 vi.mock('react-native', () => ({
   Pressable: ({
-    children,
+    accessibilityLabel,
+    accessibilityRole,
+    accessibilityState,
     onPress,
   }: {
-    children?: ReactNode;
+    accessibilityLabel?: string;
+    accessibilityRole?: string;
+    accessibilityState?: { checked?: boolean };
     onPress?: () => void;
   }) => (
-    <button onClick={onPress} type="button">
-      {children}
-    </button>
+    <input
+      aria-label={accessibilityLabel}
+      checked={accessibilityState?.checked}
+      onChange={onPress}
+      role={accessibilityRole}
+      type="checkbox"
+    />
   ),
   StyleSheet: { create: <T,>(styles: T) => styles },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
@@ -35,7 +43,12 @@ describe('OfflineConversionsCard', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(
+      screen.getByRole('switch', {
+        checked: false,
+        name: 'Auto-upload conversions',
+      })
+    );
 
     expect(onChange).toHaveBeenCalledWith('offline_conversions_enabled', true);
   });
@@ -52,7 +65,12 @@ describe('OfflineConversionsCard', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(
+      screen.getByRole('switch', {
+        checked: true,
+        name: 'Auto-upload conversions',
+      })
+    );
 
     expect(onChange).toHaveBeenCalledWith('offline_conversions_enabled', false);
   });

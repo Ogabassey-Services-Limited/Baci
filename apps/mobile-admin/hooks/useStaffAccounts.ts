@@ -12,6 +12,7 @@ import { BASE_URL } from '@/lib/api-client';
 import { createBranch as createBranchViaApi } from '@/lib/branch-api';
 import { supabase } from '@/lib/supabase';
 import { CreateBranchSchema } from '@/schemas/branch';
+import { useStaffMutationLifecycle } from './useStaffMutationLifecycle';
 
 // 2026 Best Practice: Dynamic imports for native modules
 let Clipboard: typeof import('expo-clipboard') | null = null;
@@ -55,6 +56,8 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     error: merchantError,
   } = useMerchant();
   const queryClient = useQueryClient();
+  const merchantId = merchant?.id?.trim() || null;
+  const lifecycle = useStaffMutationLifecycle(merchantId);
 
   const {
     data: accounts,
@@ -62,14 +65,14 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     isError: accountsError,
     refetch: refetchAccounts,
   } = useQuery({
-    queryKey: ['staff-accounts', merchant?.id],
+    queryKey: ['staff-accounts', merchantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('virtual_terminals')
         .select(
           'id, code, name, account_number, account_name, bank, payment_link, active, branch_id, staff_id'
         )
-        .eq('merchant_id', merchant?.id)
+        .eq('merchant_id', merchantId)
         .order('created_at', { ascending: false });
       if (error) {
         console.error('[StaffAccounts] Failed to load staff accounts', error);
@@ -77,7 +80,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
       }
       return (data || []) as StaffAccount[];
     },
-    enabled: !!merchant?.id,
+    enabled: !!merchantId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
@@ -87,12 +90,12 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     isError: branchesError,
     refetch: refetchBranches,
   } = useQuery({
-    queryKey: ['branches', merchant?.id],
+    queryKey: ['branches', merchantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('branches')
         .select('id, name, address, city, is_default, active')
-        .eq('merchant_id', merchant?.id)
+        .eq('merchant_id', merchantId)
         .eq('active', true)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: true });
@@ -102,7 +105,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
       }
       return (data || []) as Branch[];
     },
-    enabled: !!merchant?.id,
+    enabled: !!merchantId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
@@ -116,6 +119,9 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
       staffId?: string | null;
       branchId?: string | null;
     }) => {
+      if (!merchantId) {
+        throw new Error('Merchant not found');
+      }
       const schema = z.object({
         name: z.string().min(2, 'Account name must be at least 2 characters'),
       });
@@ -147,6 +153,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
+            merchantId,
             name,
             staffId: staffId || undefined,
             branchId: branchId || undefined,
@@ -166,18 +173,27 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff-accounts'] });
+    onMutate: () => lifecycle.captureScope(),
+    onSuccess: (_data, _variables, scope) => {
+      if (!lifecycle.isCurrentScope(scope)) return;
+      queryClient.invalidateQueries({
+        queryKey: ['staff-accounts', scope.merchantId],
+      });
       callbacks.onAccountCreated();
       Alert.alert('Success', 'Staff account created successfully!');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, scope) => {
+      if (!lifecycle.isCurrentScope(scope)) return;
       Alert.alert('Error', error.message);
     },
   });
 
   const createBranchMutation = useMutation({
     mutationFn: ({ name, city }: { name: string; city?: string }) => {
+      if (!merchantId) {
+        throw new Error('Merchant not found');
+      }
+
       const normalizedCity = city?.trim() || undefined;
       const validation = CreateBranchSchema.safeParse({
         name,
@@ -187,15 +203,20 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         throw new Error(validation.error.issues[0].message);
       }
 
-      return createBranchViaApi(validation.data);
+      return createBranchViaApi(validation.data, merchantId);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
+    onMutate: () => lifecycle.captureScope(),
+    onSuccess: (_data, _variables, scope) => {
+      if (!lifecycle.isCurrentScope(scope)) return;
+      queryClient.invalidateQueries({
+        queryKey: ['branches', scope.merchantId],
+      });
       queryClient.invalidateQueries({ queryKey: ['branch-scope'] });
       callbacks.onBranchCreated?.();
       Alert.alert('Success', 'Branch created successfully!');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, scope) => {
+      if (!lifecycle.isCurrentScope(scope)) return;
       Alert.alert('Error', error.message);
     },
   });

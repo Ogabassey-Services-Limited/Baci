@@ -1,6 +1,15 @@
 import { NIGERIAN_STATES } from '@baci/shared';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type Dispatch, type SetStateAction, useRef } from 'react';
+import {
+  type UseMutationResult,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import { Alert } from 'react-native';
 import { updateMerchantSettings } from '@/lib/merchant-settings';
 
@@ -15,6 +24,7 @@ interface UseTaxMutationsOptions {
 
 interface MerchantMutationContext {
   submittedMerchantId: string | null;
+  submittedMerchantRevision: number;
 }
 
 interface MerchantMutationSnapshot<T> extends MerchantMutationContext {
@@ -26,7 +36,18 @@ interface PendingMerchantMutation {
   variables?: MerchantMutationContext;
 }
 
+interface MerchantScope {
+  merchantId: string | null;
+  revision: number;
+}
+
 type MerchantSettingsPayload = Parameters<typeof updateMerchantSettings>[1];
+
+interface PublicMerchantMutation<TData, TValue> {
+  isPending: boolean;
+  mutate: (value: TValue) => void;
+  mutateAsync: (value: TValue) => Promise<TData>;
+}
 
 export function useTaxMutations({
   city,
@@ -37,20 +58,39 @@ export function useTaxMutations({
   street,
 }: UseTaxMutationsOptions) {
   const queryClient = useQueryClient();
-  const activeMerchantIdRef = useRef(merchantId ?? null);
-  activeMerchantIdRef.current = merchantId ?? null;
+  const activeMerchantId = merchantId?.trim() || null;
+  const activeMerchantScopeRef = useRef<MerchantScope>({
+    merchantId: activeMerchantId,
+    revision: 0,
+  });
+
+  // Keep the ref aligned with the committed tenant. Mutating it while React is
+  // rendering would let a suspended/abandoned merchant switch suppress the
+  // completion UI for the merchant that remains on screen.
+  useLayoutEffect(() => {
+    if (activeMerchantScopeRef.current.merchantId === activeMerchantId) return;
+    activeMerchantScopeRef.current = {
+      merchantId: activeMerchantId,
+      revision: activeMerchantScopeRef.current.revision + 1,
+    };
+  }, [activeMerchantId]);
 
   const isCurrentMerchant = (
     context: MerchantMutationContext | undefined
   ): boolean =>
     context !== undefined &&
-    context.submittedMerchantId === activeMerchantIdRef.current;
+    context.submittedMerchantId === activeMerchantScopeRef.current.merchantId &&
+    context.submittedMerchantRevision ===
+      activeMerchantScopeRef.current.revision;
 
   const isPendingForCurrentMerchant = ({
     isPending,
     variables,
   }: PendingMerchantMutation): boolean =>
-    isPending && variables?.submittedMerchantId === activeMerchantIdRef.current;
+    isPending &&
+    variables?.submittedMerchantId === activeMerchantId &&
+    variables?.submittedMerchantRevision ===
+      activeMerchantScopeRef.current.revision;
 
   const updateSettings = (
     submittedMerchantId: string | null,
@@ -70,9 +110,13 @@ export function useTaxMutations({
       });
       return enabled;
     },
-    onMutate: ({ submittedMerchantId, value: enabled }) => {
+    onMutate: ({
+      submittedMerchantId,
+      submittedMerchantRevision,
+      value: enabled,
+    }) => {
       setVatEnabled(enabled);
-      return { submittedMerchantId };
+      return { submittedMerchantId, submittedMerchantRevision };
     },
     onSuccess: (enabled, _variables, context) => {
       if (!isCurrentMerchant(context)) return;
@@ -104,7 +148,10 @@ export function useTaxMutations({
         tax_identification_number: tin || null,
       });
     },
-    onMutate: ({ submittedMerchantId }) => ({ submittedMerchantId }),
+    onMutate: ({ submittedMerchantId, submittedMerchantRevision }) => ({
+      submittedMerchantId,
+      submittedMerchantRevision,
+    }),
     onSuccess: (_data, _variables, context) => {
       if (!isCurrentMerchant(context)) return;
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
@@ -125,7 +172,10 @@ export function useTaxMutations({
         legal_entity_name: name || null,
       });
     },
-    onMutate: ({ submittedMerchantId }) => ({ submittedMerchantId }),
+    onMutate: ({ submittedMerchantId, submittedMerchantRevision }) => ({
+      submittedMerchantId,
+      submittedMerchantRevision,
+    }),
     onSuccess: (_data, _variables, context) => {
       if (!isCurrentMerchant(context)) return;
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
@@ -144,7 +194,10 @@ export function useTaxMutations({
     }: MerchantMutationSnapshot<MerchantSettingsPayload>) => {
       await updateSettings(submittedMerchantId, payload);
     },
-    onMutate: ({ submittedMerchantId }) => ({ submittedMerchantId }),
+    onMutate: ({ submittedMerchantId, submittedMerchantRevision }) => ({
+      submittedMerchantId,
+      submittedMerchantRevision,
+    }),
     onSuccess: (_data, _variables, context) => {
       if (!isCurrentMerchant(context)) return;
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
@@ -156,10 +209,14 @@ export function useTaxMutations({
     },
   });
 
-  const captureSnapshot = <T>(value: T): MerchantMutationSnapshot<T> => ({
-    submittedMerchantId: activeMerchantIdRef.current,
-    value,
-  });
+  const captureSnapshot = <T>(value: T): MerchantMutationSnapshot<T> => {
+    const scope = activeMerchantScopeRef.current;
+    return {
+      submittedMerchantId: scope.merchantId,
+      submittedMerchantRevision: scope.revision,
+      value,
+    };
+  };
   const captureAddressSnapshot = () => {
     const selectedState = NIGERIAN_STATES.find(
       (state) => state.code === stateCode
@@ -176,37 +233,53 @@ export function useTaxMutations({
     });
   };
 
-  const updateVatMutation = {
-    ...updateVatMutationInternal,
-    isPending: isPendingForCurrentMerchant(updateVatMutationInternal),
-    mutate: (enabled: boolean) =>
-      updateVatMutationInternal.mutate(captureSnapshot(enabled)),
-    mutateAsync: (enabled: boolean) =>
-      updateVatMutationInternal.mutateAsync(captureSnapshot(enabled)),
-  };
-  const saveTinMutation = {
-    ...saveTinMutationInternal,
-    isPending: isPendingForCurrentMerchant(saveTinMutationInternal),
-    mutate: (tin: string) =>
-      saveTinMutationInternal.mutate(captureSnapshot(tin)),
-    mutateAsync: (tin: string) =>
-      saveTinMutationInternal.mutateAsync(captureSnapshot(tin)),
-  };
-  const saveLegalEntityMutation = {
-    ...saveLegalEntityMutationInternal,
-    isPending: isPendingForCurrentMerchant(saveLegalEntityMutationInternal),
-    mutate: (name: string) =>
-      saveLegalEntityMutationInternal.mutate(captureSnapshot(name)),
-    mutateAsync: (name: string) =>
-      saveLegalEntityMutationInternal.mutateAsync(captureSnapshot(name)),
-  };
-  const saveAddressMutation = {
-    ...saveAddressMutationInternal,
-    isPending: isPendingForCurrentMerchant(saveAddressMutationInternal),
-    mutate: () => saveAddressMutationInternal.mutate(captureAddressSnapshot()),
-    mutateAsync: () =>
-      saveAddressMutationInternal.mutateAsync(captureAddressSnapshot()),
-  };
+  function createPublicMutation<TValue, TMutationValue, TData>(
+    mutation: UseMutationResult<
+      TData,
+      Error,
+      MerchantMutationSnapshot<TMutationValue>,
+      MerchantMutationContext
+    >,
+    createSnapshot: (value: TValue) => MerchantMutationSnapshot<TMutationValue>
+  ): PublicMerchantMutation<TData, TValue> {
+    const captureActiveSnapshot = (value: TValue) => {
+      const snapshot = createSnapshot(value);
+      if (!snapshot.submittedMerchantId) return null;
+      return snapshot;
+    };
+
+    return {
+      isPending: isPendingForCurrentMerchant(mutation),
+      mutate: (value: TValue) => {
+        const snapshot = captureActiveSnapshot(value);
+        if (!snapshot) return;
+        mutation.mutate(snapshot);
+      },
+      mutateAsync: (value: TValue) => {
+        const snapshot = captureActiveSnapshot(value);
+        if (!snapshot) return Promise.reject(new Error('No merchant found'));
+        return mutation.mutateAsync(snapshot);
+      },
+    };
+  }
+
+  const updateVatMutation = createPublicMutation<boolean, boolean, boolean>(
+    updateVatMutationInternal,
+    captureSnapshot
+  );
+  const saveTinMutation = createPublicMutation<string, string, void>(
+    saveTinMutationInternal,
+    captureSnapshot
+  );
+  const saveLegalEntityMutation = createPublicMutation<string, string, void>(
+    saveLegalEntityMutationInternal,
+    captureSnapshot
+  );
+  const saveAddressMutation = createPublicMutation<
+    void,
+    MerchantSettingsPayload,
+    void
+  >(saveAddressMutationInternal, () => captureAddressSnapshot());
 
   return {
     saveAddressMutation,

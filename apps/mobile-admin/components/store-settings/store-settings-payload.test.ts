@@ -185,12 +185,16 @@ describe('store settings payload helpers', () => {
     );
 
     expect(
-      rebaseStoreSettingsBaseline(
+      rebaseStoreSettingsBaseline({
+        authEmailPrefill: 'owner@usebaci.com',
         baseline,
-        { ...baseline, business_name: 'Baci Foods Ltd', support_email: '' },
-        'owner@usebaci.com',
-        'owner@usebaci.com'
-      )
+        displayedSupportEmail: 'owner@usebaci.com',
+        savedValues: {
+          ...baseline,
+          business_name: 'Baci Foods Ltd',
+          support_email: '',
+        },
+      })
     ).toMatchObject({
       business_name: 'Baci Foods Ltd',
       support_email: 'owner@usebaci.com',
@@ -203,12 +207,12 @@ describe('store settings payload helpers', () => {
     );
 
     expect(
-      rebaseStoreSettingsBaseline(
+      rebaseStoreSettingsBaseline({
+        authEmailPrefill: 'owner@usebaci.com',
         baseline,
-        { ...baseline, support_email: '' },
-        'owner@usebaci.com',
-        ''
-      ).support_email
+        displayedSupportEmail: '',
+        savedValues: { ...baseline, support_email: '' },
+      }).support_email
     ).toBe('');
   });
 
@@ -222,12 +226,12 @@ describe('store settings payload helpers', () => {
     };
 
     expect(
-      rebaseStoreSettingsBaseline(
-        baselineForm,
+      rebaseStoreSettingsBaseline({
+        authEmailPrefill: 'owner@usebaci.com',
+        baseline: baselineForm,
+        displayedSupportEmail: 'help@usebaci.com',
         savedValues,
-        'owner@usebaci.com',
-        'help@usebaci.com'
-      )
+      })
     ).toEqual(savedValues);
   });
 

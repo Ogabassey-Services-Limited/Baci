@@ -26,6 +26,7 @@ interface AgenticDashboardClientPageProps {
   crawlerCenterState: AgenticCenterState;
   crawlerSummary: CrawlerLogSummary | null;
   isPublished: boolean;
+  merchantId: string | null;
   trustCenterState: AgenticCenterState;
   trustReadiness: AgentCommerceTrustReadinessSummary | null;
   universalCartReadiness: UniversalCartReadinessResult | null;
@@ -38,6 +39,7 @@ export default function AgenticDashboardClientPage({
   crawlerCenterState,
   crawlerSummary,
   isPublished,
+  merchantId,
   trustCenterState,
   trustReadiness,
   universalCartReadiness,
@@ -96,10 +98,11 @@ export default function AgenticDashboardClientPage({
               </CardDescription>
             </CardHeader>
           </Card>
-          {agentControls ? (
+          {agentControls && merchantId ? (
             <AgentCommerceControlsCard
               initialCustomSettings={agentControls.customSettings}
               initialEnabled={agentControls.enabled}
+              merchantId={merchantId}
             />
           ) : null}
         </div>
@@ -138,10 +141,11 @@ export default function AgenticDashboardClientPage({
                 payload={actionHealth}
                 state={actionCenterState}
               />
-              {agentControls ? (
+              {agentControls && merchantId ? (
                 <AgentCommerceControlsCard
                   initialCustomSettings={agentControls.customSettings}
                   initialEnabled={agentControls.enabled}
+                  merchantId={merchantId}
                 />
               ) : null}
             </TabsContent>

@@ -15,28 +15,43 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 vi.mock('react-native', () => ({
   Linking: { openURL },
   Pressable: ({
+    accessibilityLabel,
+    accessibilityRole,
+    accessibilityState,
     children,
     onPress,
   }: {
+    accessibilityLabel?: string;
+    accessibilityRole?: string;
+    accessibilityState?: { expanded?: boolean };
     children?: ReactNode;
     onPress?: () => void;
   }) => (
-    <button onClick={onPress} type="button">
+    <button
+      aria-expanded={accessibilityState?.expanded}
+      aria-label={accessibilityLabel}
+      onClick={onPress}
+      role={accessibilityRole}
+      type="button"
+    >
       {children}
     </button>
   ),
   StyleSheet: { create: <T,>(styles: T) => styles },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   TextInput: ({
+    accessibilityLabel,
     onChangeText,
     placeholder,
     value,
   }: {
+    accessibilityLabel?: string;
     onChangeText?: (value: string) => void;
     placeholder?: string;
     value?: string;
   }) => (
     <input
+      aria-label={accessibilityLabel}
       onChange={(event) => onChangeText?.(event.target.value)}
       placeholder={placeholder}
       value={value}
@@ -88,11 +103,40 @@ describe('AnalyticsPlatformCards', () => {
     const updateField = vi.fn();
     renderCards({ expandedSection: 'facebook', updateField });
 
-    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
+    fireEvent.change(screen.getByLabelText('Pixel ID'), {
       target: { value: '1234567890' },
     });
 
     expect(updateField).toHaveBeenCalledWith('facebook_pixel_id', '1234567890');
+  });
+
+  it('exposes each collapsed credential section as an expandable button', () => {
+    renderCards();
+
+    expect(
+      screen.getByRole('button', {
+        expanded: false,
+        name: 'Meta (Facebook/Instagram) analytics credentials, not configured',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('exposes expanded credentials and help controls with programmatic names', () => {
+    renderCards({ expandedSection: 'facebook' });
+
+    expect(
+      screen.getByRole('button', {
+        expanded: true,
+        name: 'Meta (Facebook/Instagram) analytics credentials, not configured',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Pixel ID')).toBeInTheDocument();
+    expect(screen.getByLabelText('Conversions API Token')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'How to get your Meta (Facebook/Instagram) credentials',
+      })
+    ).toBeInTheDocument();
   });
 
   it('requests a section toggle and opens the selected provider help link', () => {

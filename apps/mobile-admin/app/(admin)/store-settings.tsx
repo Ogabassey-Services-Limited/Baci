@@ -145,12 +145,12 @@ export default function StoreSettingsScreen() {
     setSyncedMerchantUpdatedAt(save.updatedAt);
     setBaseline((previous) =>
       previous
-        ? rebaseStoreSettingsBaseline(
-            previous,
-            save.savedValues,
+        ? rebaseStoreSettingsBaseline({
             authEmailPrefill,
-            email
-          )
+            baseline: previous,
+            displayedSupportEmail: email,
+            savedValues: save.savedValues,
+          })
         : previous
     );
   };

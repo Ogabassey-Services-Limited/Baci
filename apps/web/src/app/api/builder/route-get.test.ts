@@ -6,10 +6,8 @@ const mockGetBuilderRequestContext = vi.fn();
 const mockLoadBuilderPayload = vi.fn();
 const authenticatedBuilderUser = { user: { id: 'user-1' }, supabase: {} };
 
-vi.mock('./builder-route-utils', () => ({
+vi.mock('./builder-load-payload', () => ({
   loadBuilderPayload: mockLoadBuilderPayload,
-  saveBuilderDraft: vi.fn(),
-  publishBuilderDraft: vi.fn(),
 }));
 
 vi.mock('./builder-request-context', () => ({

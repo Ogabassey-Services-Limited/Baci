@@ -176,6 +176,34 @@ describe('POST /api/merchant/verify-tax-id', () => {
     expect(mockFetchCacCompanies).not.toHaveBeenCalled();
   });
 
+  it('rejects non-Nigerian merchants before consuming provider quota or calling CAC', async () => {
+    mockLoadMerchantSingle.mockResolvedValue({
+      data: { ...merchant, country: 'IN' },
+      error: null,
+    });
+
+    const response = await POST(
+      createPostRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        taxIdentificationNumber: '2522599781276',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Tax ID verification is only available for Nigerian merchants',
+    });
+    expect(mockCheckRateLimit).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      'user-1',
+      'verify-tax-id-preflight',
+      30,
+      1
+    );
+    expect(mockFetchCacCompanies).not.toHaveBeenCalled();
+    expect(mockFetchCacTaxId).not.toHaveBeenCalled();
+  });
+
   it('matches CAC tax_id and saves the normalized merchant tax id', async () => {
     const response = await POST(
       createPostRequest({

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const toastSpy = vi.fn();
 const apiPostMock = vi.fn();
@@ -20,11 +20,17 @@ const bankListResponse = {
 };
 
 describe('MerchantBankForm lifecycle feedback', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ json: async () => bankListResponse })
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => bankListResponse,
+      })
     );
     apiPostMock.mockImplementation((endpoint: string) => {
       if (endpoint === '/api/paystack/resolve') {

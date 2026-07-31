@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertCircle, Power, Save } from 'lucide-react';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,10 +23,12 @@ import { apiPatch } from '@/lib/api-client';
 import type { MerchantFeatureSettingsInput } from '@/schemas/merchant-features';
 
 const FEATURES_ENDPOINT = '/api/merchant/features';
+const EMPTY_CUSTOM_SETTINGS: Record<string, unknown> = {};
 
 type AgentCommerceControlsCardProps = {
   initialCustomSettings?: Record<string, unknown>;
   initialEnabled: boolean;
+  merchantId: string;
 };
 
 function getStatusLabel(enabled: boolean) {
@@ -54,23 +56,49 @@ function getRecordValue(value: unknown): Record<string, unknown> | null {
 }
 
 export function AgentCommerceControlsCard({
-  initialCustomSettings = {},
+  initialCustomSettings = EMPTY_CUSTOM_SETTINGS,
   initialEnabled,
+  merchantId,
 }: AgentCommerceControlsCardProps) {
   const initialControls = readAgenticRequestControls(initialCustomSettings);
+  const initialAllowlistInput = formatPatterns(initialControls.allowlist);
+  const initialDenylistInput = formatPatterns(initialControls.denylist);
   const [enabled, setEnabled] = useState(initialEnabled);
   const [customSettings, setCustomSettings] = useState(initialCustomSettings);
-  const [allowlistInput, setAllowlistInput] = useState(
-    formatPatterns(initialControls.allowlist)
-  );
-  const [denylistInput, setDenylistInput] = useState(
-    formatPatterns(initialControls.denylist)
-  );
+  const [allowlistInput, setAllowlistInput] = useState(initialAllowlistInput);
+  const [denylistInput, setDenylistInput] = useState(initialDenylistInput);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const activeMerchantIdRef = useRef(merchantId);
+  const merchantGenerationRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (activeMerchantIdRef.current !== merchantId) {
+      merchantGenerationRef.current += 1;
+    }
+    activeMerchantIdRef.current = merchantId;
+    setEnabled(initialEnabled);
+    setCustomSettings(initialCustomSettings);
+    setAllowlistInput(initialAllowlistInput);
+    setDenylistInput(initialDenylistInput);
+    setIsSaving(false);
+    setError(null);
+    setSuccessMessage(null);
+  }, [
+    initialAllowlistInput,
+    initialDenylistInput,
+    initialCustomSettings,
+    initialEnabled,
+    merchantId,
+  ]);
 
   const handleToggle = (nextEnabled: boolean) => {
+    const requestMerchantId = merchantId;
+    const requestMerchantGeneration = merchantGenerationRef.current;
+    const isRequestCurrent = () =>
+      activeMerchantIdRef.current === requestMerchantId &&
+      merchantGenerationRef.current === requestMerchantGeneration;
     const previousEnabled = enabled;
     setEnabled(nextEnabled);
     setIsSaving(true);
@@ -79,12 +107,19 @@ export function AgentCommerceControlsCard({
 
     apiPatch<
       Partial<Pick<MerchantFeatureSettingsInput, 'agentic_checkout_enabled'>>
-    >(FEATURES_ENDPOINT, { agentic_checkout_enabled: nextEnabled })
+    >(FEATURES_ENDPOINT, {
+      agentic_checkout_enabled: nextEnabled,
+      merchantId,
+    })
       .then((updated) => {
+        if (!isRequestCurrent()) return;
+
         // Preserve the user's intended value when the response omits the flag.
         setEnabled(updated.agentic_checkout_enabled ?? nextEnabled);
       })
       .catch((saveError: unknown) => {
+        if (!isRequestCurrent()) return;
+
         setEnabled(previousEnabled);
         setError(
           saveError instanceof Error
@@ -93,11 +128,18 @@ export function AgentCommerceControlsCard({
         );
       })
       .finally(() => {
-        setIsSaving(false);
+        if (isRequestCurrent()) {
+          setIsSaving(false);
+        }
       });
   };
 
   const handleSaveAgentAccessControls = () => {
+    const requestMerchantId = merchantId;
+    const requestMerchantGeneration = merchantGenerationRef.current;
+    const isRequestCurrent = () =>
+      activeMerchantIdRef.current === requestMerchantId &&
+      merchantGenerationRef.current === requestMerchantGeneration;
     setIsSaving(true);
     setError(null);
     setSuccessMessage(null);
@@ -110,9 +152,11 @@ export function AgentCommerceControlsCard({
 
     apiPatch<Partial<Pick<MerchantFeatureSettingsInput, 'custom_settings'>>>(
       FEATURES_ENDPOINT,
-      { custom_settings: nextCustomSettings }
+      { custom_settings: nextCustomSettings, merchantId }
     )
       .then((updated) => {
+        if (!isRequestCurrent()) return;
+
         const updatedCustomSettings =
           getRecordValue(updated.custom_settings) ?? nextCustomSettings;
         const updatedControls = readAgenticRequestControls(
@@ -124,6 +168,8 @@ export function AgentCommerceControlsCard({
         setSuccessMessage('Agent access controls saved');
       })
       .catch((saveError: unknown) => {
+        if (!isRequestCurrent()) return;
+
         setError(
           saveError instanceof Error
             ? saveError.message
@@ -131,7 +177,9 @@ export function AgentCommerceControlsCard({
         );
       })
       .finally(() => {
-        setIsSaving(false);
+        if (isRequestCurrent()) {
+          setIsSaving(false);
+        }
       });
   };
 

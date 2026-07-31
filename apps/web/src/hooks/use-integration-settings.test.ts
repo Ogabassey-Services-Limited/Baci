@@ -1,10 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockMerchant = vi.hoisted(() => ({ id: 'merchant-1' }));
+const merchantState = vi.hoisted(() => ({
+  current: { id: 'merchant-1' } as { id: string } | null,
+}));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: vi.fn(() => ({ merchant: mockMerchant })),
+  useMerchant: vi.fn(() => ({ merchant: merchantState.current })),
 }));
 
 const mockToast = vi.hoisted(() => vi.fn());
@@ -14,6 +16,14 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
 
 vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: mockFetchWithCsrf,
@@ -25,6 +35,7 @@ describe('useIntegrationSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal('fetch', vi.fn());
+    merchantState.current = { id: 'merchant-1' };
   });
 
   it('fetches settings on mount when merchant is available', async () => {
@@ -43,6 +54,9 @@ describe('useIntegrationSettings', () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/merchant/features?merchantId=merchant-1'
+    );
     expect(result.current.settings?.facebook_pixel_id).toBe('px-123');
   });
 
@@ -104,7 +118,10 @@ describe('useIntegrationSettings', () => {
     expect(mockFetchWithCsrf).toHaveBeenCalledWith('/api/merchant/features', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ facebook_pixel_id: 'new-px' }),
+      body: JSON.stringify({
+        facebook_pixel_id: 'new-px',
+        merchantId: 'merchant-1',
+      }),
     });
     await waitFor(() => {
       expect(result.current.settings?.facebook_pixel_id).toBe('new-px');
@@ -143,12 +160,93 @@ describe('useIntegrationSettings', () => {
     expect(mockFetchWithCsrf).toHaveBeenCalledWith('/api/merchant/features', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ facebook_pixel_id: 'new-px' }),
+      body: JSON.stringify({
+        facebook_pixel_id: 'new-px',
+        merchantId: 'merchant-1',
+      }),
     });
     expect(mockToast).toHaveBeenCalledWith({
       variant: 'destructive',
       title: 'Save failed',
       description: 'Could not save your settings. Please try again.',
     });
+  });
+
+  it('ignores a stale save completion after the merchant changes', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ facebook_pixel_id: 'current-px' }),
+    } as Response);
+    const saveResponse = deferred<Response>();
+    mockFetchWithCsrf.mockReturnValueOnce(saveResponse.promise);
+    const keys: (keyof { facebook_pixel_id: string | null })[] = [
+      'facebook_pixel_id',
+    ];
+    const { result, rerender } = renderHook(() =>
+      useIntegrationSettings<{ facebook_pixel_id: string | null }>({
+        keys,
+        platformName: 'Facebook',
+      })
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let savePromise: Promise<void>;
+    act(() => {
+      savePromise = result.current.saveSettings({ facebook_pixel_id: 'a-px' });
+    });
+    merchantState.current = { id: 'merchant-2' };
+    rerender();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      saveResponse.resolve({
+        ok: true,
+        json: () => Promise.resolve({ facebook_pixel_id: 'stale-a-px' }),
+      } as Response);
+      await savePromise;
+    });
+
+    expect(result.current.settings?.facebook_pixel_id).toBe('current-px');
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('ignores merchant A save completion after switching A to B and back to A', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ facebook_pixel_id: 'loaded-px' }),
+    } as Response);
+    const saveResponse = deferred<Response>();
+    mockFetchWithCsrf.mockReturnValueOnce(saveResponse.promise);
+    const keys: (keyof { facebook_pixel_id: string | null })[] = [
+      'facebook_pixel_id',
+    ];
+    const { result, rerender } = renderHook(() =>
+      useIntegrationSettings<{ facebook_pixel_id: string | null }>({
+        keys,
+        platformName: 'Facebook',
+      })
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let savePromise: Promise<void>;
+    act(() => {
+      savePromise = result.current.saveSettings({ facebook_pixel_id: 'a-px' });
+    });
+    merchantState.current = { id: 'merchant-2' };
+    rerender();
+    merchantState.current = { id: 'merchant-1' };
+    rerender();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      saveResponse.resolve({
+        ok: true,
+        json: () => Promise.resolve({ facebook_pixel_id: 'stale-a-px' }),
+      } as Response);
+      await savePromise;
+    });
+
+    expect(result.current.settings?.facebook_pixel_id).toBe('loaded-px');
+    expect(mockToast).not.toHaveBeenCalled();
   });
 });

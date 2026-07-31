@@ -45,7 +45,7 @@ describe('POST /api/merchant/verify-bvn country and phone resolution', () => {
     });
   });
 
-  it('rejects India merchants before provider calls after the authenticated-user rate limit', async () => {
+  it('rejects India merchants before consuming provider quota or making provider calls', async () => {
     const supabaseMock = makeSupabaseMock(null, '08012345678', 'IN');
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
@@ -59,11 +59,11 @@ describe('POST /api/merchant/verify-bvn country and phone resolution', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'BVN verification is only available for Nigerian merchants',
     });
-    expect(checkRateLimit).toHaveBeenCalledWith(
+    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
       supabaseMock,
       'user-1',
-      'verify-bvn',
-      3,
+      'verify-bvn-preflight',
+      30,
       1
     );
     expect(getMonnifyToken).not.toHaveBeenCalled();

@@ -1,4 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { Suspense, startTransition, useLayoutEffect } from 'react';
+import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import { useDashboardPublishToggle } from './use-dashboard-publish-toggle';
@@ -47,7 +49,7 @@ describe('useDashboardPublishToggle', () => {
 
     expect(requestMerchantPublish).toHaveBeenCalledWith('merchant-1', true);
     expect(result.current.isPublishing).toBe(false);
-    expect(mockReloadMerchant).toHaveBeenCalledOnce();
+    expect(mockReloadMerchant).not.toHaveBeenCalled();
     expect(mockRefresh).toHaveBeenCalledOnce();
   });
 
@@ -96,5 +98,73 @@ describe('useDashboardPublishToggle', () => {
     await waitFor(() => {
       expect(result.current.isPublishing).toBe(true);
     });
+  });
+
+  it('accepts merchant A completion after a merchant B render is abandoned', async () => {
+    let resolveRequest: ((response: Response) => void) | undefined;
+    vi.mocked(requestMerchantPublish).mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveRequest = resolve;
+      })
+    );
+    let committedToggle: (() => Promise<void>) | undefined;
+    const never = new Promise<void>(() => undefined);
+
+    function Harness({ merchantId }: { merchantId: string }) {
+      const actions = useDashboardPublishToggle({
+        isPublished: false,
+        merchantId,
+        refresh: mockRefresh,
+        reloadMerchant: mockReloadMerchant,
+        toast: mockToast,
+      });
+      useLayoutEffect(() => {
+        committedToggle = actions.togglePublish;
+      });
+      return null;
+    }
+
+    function SuspendAbandonedRender({ suspend }: { suspend: boolean }) {
+      if (suspend) throw never;
+      return null;
+    }
+
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <Suspense fallback={null}>
+          <Harness merchantId="merchant-a" />
+          <SuspendAbandonedRender suspend={false} />
+        </Suspense>
+      );
+    });
+
+    let publish: Promise<void> | undefined;
+    act(() => {
+      publish = committedToggle?.();
+    });
+    await waitFor(() => expect(requestMerchantPublish).toHaveBeenCalledOnce());
+
+    act(() => {
+      startTransition(() => {
+        root.render(
+          <Suspense fallback={null}>
+            <Harness merchantId="merchant-b" />
+            <SuspendAbandonedRender suspend />
+          </Suspense>
+        );
+      });
+    });
+    await act(async () => {
+      resolveRequest?.(new Response('{}'));
+      await publish;
+    });
+
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Store Published!' })
+    );
+    expect(mockRefresh).toHaveBeenCalledOnce();
+    await act(async () => root.unmount());
   });
 });

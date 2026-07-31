@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   merchant: {
     bvn: null,
     cac_rc_number: null,
+    country: 'NG',
     id: 'merchant-a',
     nin: null,
     phone: '+2348012345678',
@@ -115,6 +116,7 @@ describe('KYCScreen identity draft ownership', () => {
     mocks.merchant = {
       bvn: null,
       cac_rc_number: null,
+      country: 'NG',
       id: 'merchant-a',
       nin: null,
       phone: '+2348012345678',

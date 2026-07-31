@@ -6,7 +6,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVirtualTerminalSettings } from './use-virtual-terminal-settings';
@@ -29,9 +28,14 @@ export function VirtualTerminalSettings({
 
   if (settings.loading) {
     return (
-      <Card>
+      <Card aria-busy="true">
         <CardContent className="p-8 flex items-center justify-center">
-          <Loader2 className="size-8 animate-spin text-primary" />
+          <div role="status" aria-label="Loading payment accounts">
+            <Loader2
+              className="size-8 animate-spin text-primary"
+              aria-hidden="true"
+            />
+          </div>
         </CardContent>
       </Card>
     );
@@ -40,10 +44,10 @@ export function VirtualTerminalSettings({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <h2 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
           <Wallet className="size-5" />
           Payment Accounts
-        </CardTitle>
+        </h2>
         <CardDescription>
           Create accounts for staff and branches. All payments reconcile to your
           wallet.

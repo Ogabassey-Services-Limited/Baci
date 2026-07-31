@@ -3,12 +3,13 @@ import { authenticateApiRequest } from '@/lib/api-auth';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
-import { checkRateLimit } from '@/lib/rate-limiter';
 import {
   compareCACData,
   extractCACCertificateData,
 } from '@/lib/verify-cac-certificate';
 import { cacVerifyFormSchema } from '@/schemas/verification';
+import { hasCacFileSignature } from '../cac-file-signature';
+import { getVerificationRateLimitError } from '../verification-rate-limit';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -20,20 +21,6 @@ const ALLOWED_MIME_TYPES = [
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_MULTIPART_CONTENT_LENGTH = MAX_FILE_SIZE + 64 * 1024;
 const CAC_IDENTITY_CONFLICT_SQLSTATE = 'PT409';
-
-// Magic byte signatures for allowed MIME types — guards against spoofed file.type
-const FILE_SIGNATURES: Record<string, number[][]> = {
-  'image/jpeg': [[0xff, 0xd8, 0xff]],
-  'image/png': [[0x89, 0x50, 0x4e, 0x47]],
-  'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF header
-  'application/pdf': [[0x25, 0x50, 0x44, 0x46]], // %PDF
-};
-
-function validateFileMagicBytes(buffer: Uint8Array, mimeType: string): boolean {
-  const signatures = FILE_SIGNATURES[mimeType];
-  if (!signatures) return false;
-  return signatures.some((sig) => sig.every((byte, i) => buffer[i] === byte));
-}
 
 function isCacIdentityConflictError(
   error: unknown
@@ -101,6 +88,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-cac-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
+
   if (hasOversizedContentLength(request)) {
     return NextResponse.json(
       { error: 'File exceeds maximum size of 5MB' },
@@ -153,6 +148,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const fileBuffer = await file
+    .arrayBuffer()
+    .then((buffer) => new Uint8Array(buffer))
+    .catch(() => null);
+  if (!fileBuffer) {
+    return NextResponse.json({ error: 'Invalid file data' }, { status: 400 });
+  }
+  if (!hasCacFileSignature(fileBuffer, mimeType)) {
+    return NextResponse.json(
+      { error: 'File content does not match declared type' },
+      { status: 400 }
+    );
+  }
+
   const merchantContext = await getMerchantForApiRequest(
     auth.supabase,
     auth.user.id,
@@ -163,20 +172,6 @@ export async function POST(request: NextRequest) {
   }
   if (!merchantContext.staffAccess.isOwner) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const allowed = await checkRateLimit(
-    auth.supabase,
-    auth.user.id,
-    'verify-cac',
-    3,
-    1
-  );
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', code: 'rate_limited' },
-      { status: 429 }
-    );
   }
 
   const { data: merchantRecord, error: merchantError } = await auth.supabase
@@ -203,15 +198,13 @@ export async function POST(request: NextRequest) {
 
   let storagePath: string | undefined;
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    const fileBuffer = new Uint8Array(arrayBuffer);
-
-    if (!validateFileMagicBytes(fileBuffer, mimeType)) {
-      return NextResponse.json(
-        { error: 'File content does not match declared type' },
-        { status: 400 }
-      );
-    }
+    const providerRateLimitError = await getVerificationRateLimitError(
+      auth.supabase,
+      auth.user.id,
+      'verify-cac',
+      3
+    );
+    if (providerRateLimitError) return providerRateLimitError;
 
     const ext = getExtension(mimeType);
     storagePath = `${merchantContext.merchantId}/cac-${Date.now()}.${ext}`;

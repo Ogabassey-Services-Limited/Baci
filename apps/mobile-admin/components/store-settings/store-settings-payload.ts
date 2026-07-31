@@ -148,12 +148,17 @@ export function buildMerchantUpdatePayload(
  * Keep that unchanged prefill in the comparison baseline so the next unrelated
  * save does not convert it into a support-email write.
  */
-export function rebaseStoreSettingsBaseline(
-  baseline: StoreSettingsFormValues,
-  savedValues: StoreSettingsFormValues,
-  authEmailPrefill: string,
-  displayedSupportEmail: string
-): StoreSettingsFormValues {
+export function rebaseStoreSettingsBaseline({
+  authEmailPrefill,
+  baseline,
+  displayedSupportEmail,
+  savedValues,
+}: {
+  authEmailPrefill: string;
+  baseline: StoreSettingsFormValues;
+  displayedSupportEmail: string;
+  savedValues: StoreSettingsFormValues;
+}): StoreSettingsFormValues {
   return {
     ...baseline,
     ...savedValues,

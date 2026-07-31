@@ -55,6 +55,11 @@ export async function PATCH(
     return csrf.response ?? jsonError('CSRF validation failed', 403);
   }
 
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
+    return jsonError('Invalid product id', 400);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -63,7 +68,7 @@ export async function PATCH(
   }
   const parsedBody = archiveProductRequestSchema.safeParse(body);
   if (!parsedBody.success) {
-    return jsonError('Invalid merchant id', 400);
+    return jsonError('Invalid request body', 400);
   }
 
   const merchantContext = await getMerchantForApiRequest(
@@ -78,11 +83,6 @@ export async function PATCH(
   const access = toUserAccess(merchantContext);
   if (!access || !hasPermission(access, 'products', 'edit')) {
     return jsonError('Permission denied', 403);
-  }
-
-  const parsedParams = paramsSchema.safeParse(await context.params);
-  if (!parsedParams.success) {
-    return jsonError('Invalid product id', 400);
   }
 
   const { data: product, error } = await auth.supabase

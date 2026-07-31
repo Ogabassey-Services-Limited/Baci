@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   getSubaccountRouteMocks,
@@ -111,7 +111,7 @@ describe('POST /api/paystack/subaccount: request validation', () => {
           bankCode: '044',
           businessName: 'Baci Store',
         }),
-      }) as unknown as Parameters<typeof POST>[0]
+      }) as unknown as NextRequest
     );
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'Invalid input' });

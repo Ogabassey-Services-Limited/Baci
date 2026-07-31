@@ -64,6 +64,7 @@ export default function GoogleMerchantPage() {
 
       <GoogleMerchantCustomerReviewsCard
         initialCustomSettings={customSettings}
+        merchantId={merchant.id}
       />
 
       <Card className="glass">

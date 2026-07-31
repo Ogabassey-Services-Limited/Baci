@@ -83,17 +83,17 @@ describe('POST /api/ai-jobs/[id]/apply request guards', () => {
     );
   });
 
-  it.each([
-    ['unowned', '22222222-2222-4222-8222-222222222222'],
-    ['deleted', '33333333-3333-4333-8333-333333333333'],
-    ['stale', '44444444-4444-4444-8444-444444444444'],
-  ])('returns 404 without consuming quota for a %s requested merchant', async (_merchantState, requestedMerchantId) => {
+  it('returns 404 without consuming quota for an unavailable requested merchant', async () => {
     const supabase = createApplySupabaseMock();
     mocks.createClient.mockResolvedValue(supabase);
     mocks.getMerchantForApiRequest.mockResolvedValue(null);
 
     const response = await POST(
-      createApplyRequest(JSON.stringify({ merchantId: requestedMerchantId })),
+      createApplyRequest(
+        JSON.stringify({
+          merchantId: '22222222-2222-4222-8222-222222222222',
+        })
+      ),
       routeContext()
     );
 
@@ -163,8 +163,31 @@ describe('POST /api/ai-jobs/[id]/apply request guards', () => {
     const response = await POST(createApplyRequest('{}'), routeContext());
 
     expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Invalid request body',
+      code: 'invalid_request_body',
+    });
     expect(mocks.checkRateLimit).not.toHaveBeenCalled();
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed draft ID before merchant lookup or the apply rate limit', async () => {
+    const supabase = createApplySupabaseMock();
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await POST(
+      createApplyRequest(),
+      routeContext('not-a-uuid')
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Invalid AI draft id',
+      code: 'invalid_ai_draft_id',
+    });
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 
   it('returns 400 for malformed JSON bodies', async () => {

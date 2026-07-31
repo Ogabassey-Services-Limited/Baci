@@ -13,7 +13,6 @@ interface SubmitFaviconContext {
   file: File;
   merchantId: string;
   toast: ReturnType<typeof useToast>['toast'];
-  reloadMerchant: ReturnType<typeof useMerchant>['reloadMerchant'];
   setPreview: (preview: string | null) => void;
   setUploading: (uploading: boolean) => void;
 }
@@ -24,7 +23,6 @@ async function submitFavicon({
   file,
   merchantId,
   toast,
-  reloadMerchant,
   setPreview,
   setUploading,
 }: SubmitFaviconContext) {
@@ -45,9 +43,6 @@ async function submitFavicon({
     });
 
     setPreview(response.result.png_32_url);
-
-    // Refresh merchant data
-    reloadMerchant();
   } catch (error) {
     console.error('Favicon upload failed:', error);
     toast({
@@ -63,11 +58,15 @@ async function submitFavicon({
   }
 }
 
-export function FaviconUpload() {
+interface FaviconUploadProps {
+  merchantId: string;
+}
+
+export function FaviconUpload({ merchantId }: FaviconUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const { toast } = useToast();
-  const { merchant, reloadMerchant } = useMerchant();
+  const { merchant } = useMerchant();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,20 +93,10 @@ export function FaviconUpload() {
       return;
     }
 
-    if (!merchant) {
-      toast({
-        title: 'Error',
-        description: 'Merchant information not available',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     await submitFavicon({
       file,
-      merchantId: merchant.id,
+      merchantId,
       toast,
-      reloadMerchant,
       setPreview,
       setUploading,
     });

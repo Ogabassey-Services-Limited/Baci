@@ -28,4 +28,11 @@ describe('Paystack virtual terminal request schemas', () => {
       }).success
     ).toBe(false);
   });
+
+  it('requires an explicit merchant for terminal creation', () => {
+    expect(virtualTerminalListQuerySchema.safeParse({}).success).toBe(false);
+    expect(
+      createVirtualTerminalSchema.safeParse({ name: 'Merchant B Till' }).success
+    ).toBe(false);
+  });
 });

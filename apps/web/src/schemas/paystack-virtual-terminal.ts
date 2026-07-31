@@ -2,11 +2,11 @@ import { z } from 'zod';
 import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 
 export const virtualTerminalListQuerySchema = z.object({
-  merchantId: merchantIdParamSchema.optional(),
+  merchantId: merchantIdParamSchema,
 });
 
 export const createVirtualTerminalSchema = z.object({
-  merchantId: merchantIdParamSchema.optional(),
+  merchantId: merchantIdParamSchema,
   name: z.string().min(2, 'Account name must be at least 2 characters'),
   staffId: z.uuid().optional(),
   branchId: z.uuid().optional(),

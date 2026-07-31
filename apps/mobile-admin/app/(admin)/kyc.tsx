@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -67,7 +67,9 @@ export default function KYCScreen() {
   const lastMerchantIdRef = useRef<string | null>(null);
   const activeMerchantIdRef = useRef<string | null>(null);
   const merchantId = merchant?.id ?? null;
-  activeMerchantIdRef.current = merchantId;
+  useLayoutEffect(() => {
+    activeMerchantIdRef.current = merchantId;
+  }, [merchantId]);
   const [identityDraft, setIdentityDraft] =
     useState<VerificationIdentityDraft>(EMPTY_IDENTITY_DRAFT);
   const [identityDraftMerchantId, setIdentityDraftMerchantId] = useState<
@@ -80,6 +82,8 @@ export default function KYCScreen() {
 
   const isOwner =
     !!user?.id && !!merchant?.user_id && user.id === merchant.user_id;
+  const supportsNigerianVerification =
+    merchant?.country?.trim().toUpperCase() === 'NG';
 
   const {
     data: status,
@@ -102,7 +106,7 @@ export default function KYCScreen() {
       }
       return data;
     },
-    enabled: isOwner && !!merchant?.id,
+    enabled: isOwner && supportsNigerianVerification && !!merchant?.id,
     staleTime: 1000 * 60 * 5,
   });
   const { refreshAfterVerification } = useKycVerificationRefresh({
@@ -197,6 +201,21 @@ export default function KYCScreen() {
               >
                 Only the store owner can verify identity. Contact your store
                 owner to complete verification.
+              </Text>
+            </View>
+          ) : !supportsNigerianVerification ? (
+            <View
+              style={[styles.ownerOnlyBanner, { backgroundColor: colors.card }]}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={24}
+                color={colors.textMuted}
+              />
+              <Text
+                style={[styles.ownerOnlyText, { color: colors.textSecondary }]}
+              >
+                Identity verification is only available for Nigerian merchants.
               </Text>
             </View>
           ) : isLoading ? (

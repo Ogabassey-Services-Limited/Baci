@@ -48,6 +48,7 @@ describe('uploadLogoWithColors', () => {
 
     await uploadLogoWithColors({
       dataUri: 'data:image/png;base64,new',
+      merchantId: 'merchant-1',
       previousState: merchant,
       updateMerchant,
       toast,
@@ -56,10 +57,13 @@ describe('uploadLogoWithColors', () => {
       startTransition,
     });
 
-    expect(updateMerchant).toHaveBeenCalledWith({
-      logo_url: 'https://cdn.example/new.png',
-      brand_colors: colors,
-    });
+    expect(updateMerchant).toHaveBeenCalledWith(
+      {
+        logo_url: 'https://cdn.example/new.png',
+        brand_colors: colors,
+      },
+      { merchantId: 'merchant-1', skipReload: true }
+    );
     expect(toast).toHaveBeenCalledWith({
       title: 'Logo and Colors Updated!',
       description: 'Your new brand identity is saved.',
@@ -79,6 +83,7 @@ describe('uploadLogoWithColors', () => {
 
     await uploadLogoWithColors({
       dataUri: 'data:image/png;base64,new',
+      merchantId: 'merchant-1',
       previousState: merchant,
       updateMerchant,
       toast,

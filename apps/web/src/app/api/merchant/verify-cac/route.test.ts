@@ -9,7 +9,7 @@ import {
   makeSupabaseMock,
   makeValidFile,
   resetVerifyCacMocks,
-} from '../../../../test-support/verify-cac-route.test-support';
+} from '@/test-support/verify-cac-route.test-support';
 
 async function loadVerifyCacPost() {
   return (await import('./route')).POST;
@@ -77,8 +77,10 @@ describe('POST /api/merchant/verify-cac request validation', () => {
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
   });
 
-  it('returns 429 when rate limit is exceeded after request validation', async () => {
-    vi.mocked(checkRateLimit).mockResolvedValue(false);
+  it('returns 429 when the provider quota is exceeded after authorization', async () => {
+    vi.mocked(checkRateLimit)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
     const req = makeFormDataRequest({
       file: makeValidFile(),
       rcNumber: 'RC123456',
@@ -125,7 +127,7 @@ describe('POST /api/merchant/verify-cac request validation', () => {
     expect(extractCACCertificateData).not.toHaveBeenCalled();
   });
 
-  it('rejects India merchants before document upload after the authenticated-user rate limit', async () => {
+  it('rejects India merchants before consuming provider quota or uploading a document', async () => {
     const supabaseMock = makeSupabaseMock(null, null, 'IN');
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
@@ -143,11 +145,11 @@ describe('POST /api/merchant/verify-cac request validation', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'CAC verification is only available for Nigerian merchants',
     });
-    expect(checkRateLimit).toHaveBeenCalledWith(
+    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
       supabaseMock,
       'user-1',
-      'verify-cac',
-      3,
+      'verify-cac-preflight',
+      30,
       1
     );
     expect(supabaseMock.storage.from).not.toHaveBeenCalled();

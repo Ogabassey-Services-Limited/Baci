@@ -1,6 +1,5 @@
 import 'server-only';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
 import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import type { MerchantData, StaffAccess } from '@/hooks/merchant';
@@ -9,11 +8,7 @@ import {
   checkAgentCommerceUniversalCartReadiness,
   type UniversalCartReadinessResult,
 } from '@/lib/agentic/agent-commerce-health-monitor';
-import {
-  type CrawlerLogSummary,
-  type CrawlerLogSummaryRow,
-  createCrawlerLogSummaryAccumulator,
-} from '@/lib/agentic/crawler-observability';
+import type { CrawlerLogSummary } from '@/lib/agentic/crawler-observability';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { sanitizeErrorMessage } from '@/lib/sanitize-error-message';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -27,6 +22,7 @@ import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-mer
 import type { MerchantTrustProfileSource } from '@/lib/storefront-trust/merchant-trust-profile-types';
 import { createClient } from '@/lib/supabase/server';
 import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health';
+import { loadAgenticCrawlerVisibility } from './crawler-visibility-loader';
 
 export type AgenticCenterState = 'ready' | 'error' | 'unauthorized';
 
@@ -42,23 +38,10 @@ export interface AgenticCentersData {
   crawlerCenterState: AgenticCenterState;
   crawlerSummary: CrawlerLogSummary | null;
   isPublished: boolean;
+  merchantId: string | null;
   trustCenterState: AgenticCenterState;
   trustReadiness: AgentCommerceTrustReadinessSummary | null;
   universalCartReadiness: UniversalCartReadinessResult | null;
-}
-
-const CRAWLER_VISIBILITY_WINDOW_DAYS = 14;
-const CRAWLER_LOG_PAGE_SIZE = 1000;
-const CRAWLER_LOG_MAX_PAGES = 10;
-const CRAWLER_RECENT_ACTIVITY_LIMIT = 3;
-const CRAWLER_LOG_SELECT_COLUMNS =
-  'id, agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent';
-
-type CrawlerLogQueryRow = CrawlerLogSummaryRow & { id: string };
-
-interface CrawlerLogCursor {
-  crawledAt: string;
-  id: string;
 }
 
 function isPermissionDeniedError(reason: unknown): boolean {
@@ -103,53 +86,6 @@ function buildAgenticControlsState(
   };
 }
 
-function toCrawlerLogSummaryRow(row: CrawlerLogQueryRow): CrawlerLogSummaryRow {
-  return {
-    agent_family: row.agent_family,
-    bot_name: row.bot_name,
-    cache_outcome: row.cache_outcome,
-    crawled_at: row.crawled_at,
-    host: row.host,
-    response_time_ms: row.response_time_ms,
-    status_code: row.status_code,
-    url_path: row.url_path,
-    user_agent: row.user_agent,
-  };
-}
-
-function buildCrawlerLogCursorFilter(cursor: CrawlerLogCursor) {
-  return `crawled_at.lt.${cursor.crawledAt},and(crawled_at.eq.${cursor.crawledAt},id.lt.${cursor.id})`;
-}
-
-async function hasCrawlerRowsAfterCursor({
-  crawledSince,
-  crawledUntil,
-  cursor,
-  merchantId,
-  supabase,
-}: {
-  crawledSince: string;
-  crawledUntil: string;
-  cursor: CrawlerLogCursor;
-  merchantId: string;
-  supabase: SupabaseClient;
-}): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('crawler_logs')
-    .select('id')
-    .eq('merchant_id', merchantId)
-    .gte('crawled_at', crawledSince)
-    .lte('crawled_at', crawledUntil)
-    .order('crawled_at', { ascending: false })
-    .order('id', { ascending: false })
-    .or(buildCrawlerLogCursorFilter(cursor))
-    .limit(1);
-
-  if (error) throw error;
-
-  return (data ?? []).length > 0;
-}
-
 async function loadAgenticTrustReadiness(
   merchant: {
     business_name: string;
@@ -188,65 +124,6 @@ async function loadAgenticTrustReadiness(
   );
 }
 
-async function loadAgenticCrawlerVisibility(
-  supabase: SupabaseClient,
-  merchantId: string
-): Promise<CrawlerLogSummary> {
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - CRAWLER_VISIBILITY_WINDOW_DAYS);
-  const crawledSince = startDate.toISOString();
-  const crawledUntil = new Date().toISOString();
-  const accumulator = createCrawlerLogSummaryAccumulator(
-    CRAWLER_VISIBILITY_WINDOW_DAYS,
-    { recentLimit: CRAWLER_RECENT_ACTIVITY_LIMIT }
-  );
-  let cursor: CrawlerLogCursor | null = null;
-  let isPartial = false;
-
-  for (let page = 0; page < CRAWLER_LOG_MAX_PAGES; page += 1) {
-    const query = supabase
-      .from('crawler_logs')
-      .select(CRAWLER_LOG_SELECT_COLUMNS)
-      .eq('merchant_id', merchantId)
-      .gte('crawled_at', crawledSince)
-      .lte('crawled_at', crawledUntil)
-      .order('crawled_at', { ascending: false })
-      .order('id', { ascending: false });
-
-    const pagedQuery = cursor
-      ? query.or(buildCrawlerLogCursorFilter(cursor))
-      : query;
-    const { data, error } = await pagedQuery.limit(CRAWLER_LOG_PAGE_SIZE);
-
-    if (error) throw error;
-
-    const pageRows = (data ?? []) as CrawlerLogQueryRow[];
-    accumulator.addRows(pageRows.map(toCrawlerLogSummaryRow));
-
-    if (pageRows.length < CRAWLER_LOG_PAGE_SIZE) {
-      break;
-    }
-
-    const lastRow = pageRows.at(-1);
-    if (!lastRow) {
-      break;
-    }
-
-    cursor = { crawledAt: lastRow.crawled_at, id: lastRow.id };
-    if (page === CRAWLER_LOG_MAX_PAGES - 1) {
-      isPartial = await hasCrawlerRowsAfterCursor({
-        crawledSince,
-        crawledUntil,
-        cursor,
-        merchantId,
-        supabase,
-      });
-    }
-  }
-
-  return { ...accumulator.toSummary(), isPartial };
-}
-
 export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
   const { merchant, staffAccess } = await getMerchantForUser();
   const canViewAgentic = canViewAgenticCenters(staffAccess);
@@ -260,6 +137,7 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
       crawlerCenterState: 'unauthorized',
       crawlerSummary: null,
       isPublished: Boolean(merchant?.is_published),
+      merchantId: merchant?.id ?? null,
       trustCenterState: 'unauthorized',
       trustReadiness: null,
       universalCartReadiness: null,
@@ -277,6 +155,7 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
       crawlerCenterState: canViewCrawler ? 'ready' : 'unauthorized',
       crawlerSummary: null,
       isPublished,
+      merchantId: merchant.id,
       trustCenterState: canViewAgentic ? 'ready' : 'unauthorized',
       trustReadiness: null,
       universalCartReadiness: null,
@@ -375,6 +254,7 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
           : 'error',
     crawlerSummary,
     isPublished,
+    merchantId: merchant.id,
     trustCenterState: !canViewAgentic
       ? 'unauthorized'
       : trustReadiness
