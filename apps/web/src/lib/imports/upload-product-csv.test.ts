@@ -6,6 +6,16 @@ vi.mock('@/lib/api-client', () => ({ fetchWithCsrf: mockFetchWithCsrf }));
 
 import { uploadProductCsv } from './upload-product-csv';
 
+function getRequestOptions(callIndex: number): RequestInit {
+  const options = mockFetchWithCsrf.mock.calls[callIndex]?.[1];
+
+  if (!options || typeof options !== 'object') {
+    throw new Error('Expected fetchWithCsrf request options');
+  }
+
+  return options;
+}
+
 describe('uploadProductCsv', () => {
   beforeEach(() => mockFetchWithCsrf.mockReset());
 
@@ -26,7 +36,7 @@ describe('uploadProductCsv', () => {
       data: { success: 1, failed: 0, errors: [] },
     });
 
-    const request = mockFetchWithCsrf.mock.calls[0]?.[1] as RequestInit;
+    const request = getRequestOptions(0);
     expect(request).toMatchObject({
       method: 'POST',
       signal: expect.any(AbortSignal),
@@ -45,13 +55,21 @@ describe('uploadProductCsv', () => {
   it('aborts an in-flight upload when the timeout expires', async () => {
     vi.useFakeTimers();
     mockFetchWithCsrf.mockImplementation((...args: unknown[]) => {
-      const options = args[1] as RequestInit | undefined;
-      if (!options?.signal) {
+      const options = args[1];
+      if (
+        !options ||
+        typeof options !== 'object' ||
+        !('signal' in options)
+      ) {
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      }
+      const signal = options.signal;
+      if (!(signal instanceof AbortSignal)) {
         return Promise.resolve({ ok: true, json: async () => ({}) });
       }
 
       return new Promise((_, reject) => {
-        options.signal?.addEventListener('abort', () => {
+        signal.addEventListener('abort', () => {
           reject(new DOMException('Aborted', 'AbortError'));
         });
       });
@@ -63,7 +81,7 @@ describe('uploadProductCsv', () => {
     await vi.advanceTimersByTimeAsync(30_000);
 
     await expect(result).resolves.toMatchObject({ status: 'error' });
-    const request = mockFetchWithCsrf.mock.calls.at(-1)?.[1] as RequestInit;
+    const request = getRequestOptions(mockFetchWithCsrf.mock.calls.length - 1);
     expect(request.signal?.aborted).toBe(true);
   });
 });

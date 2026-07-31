@@ -57,4 +57,25 @@ describe('OgabasseyV2Swap', () => {
     const request = mocks.fetchWithCsrf.mock.calls[0]?.[1] as RequestInit;
     expect((request.body as FormData).get('video')).toBe(video);
   });
+
+  it('shows the grading API error and returns to upload when analysis is rejected', async () => {
+    mocks.fetchWithCsrf.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: 'The video is too blurry' }),
+    });
+
+    render(<OgabasseyV2Swap />);
+
+    fireEvent.click(screen.getByRole('button', { name: /start ai trade-in/i }));
+    const video = new File(['video'], 'device.mp4', { type: 'video/mp4' });
+    fireEvent.change(screen.getByLabelText(/upload a video/i), {
+      target: { files: [video] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /analyze device/i }));
+
+    expect(
+      await screen.findByText('The video is too blurry')
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/upload a video/i)).toBeInTheDocument();
+  });
 });

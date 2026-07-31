@@ -148,6 +148,7 @@ describe('fetchWithCsrf', () => {
   });
 
   it('retries once after an invalid CSRF response', async () => {
+    const controller = new AbortController();
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockImplementation((input, init) => {
@@ -180,7 +181,10 @@ describe('fetchWithCsrf', () => {
       .mockReturnValueOnce('stale-token')
       .mockReturnValueOnce('fresh-token');
 
-    const response = await fetchWithCsrf('/api/example', { method: 'PATCH' });
+    const response = await fetchWithCsrf('/api/example', {
+      method: 'PATCH',
+      signal: controller.signal,
+    });
 
     expect(response.status).toBe(200);
     expect(fetchSpy).toHaveBeenCalledTimes(3);
@@ -194,6 +198,11 @@ describe('fetchWithCsrf', () => {
       fetchSpy.mock.calls[2]?.[1]?.headers
     );
     expect(secondRequestHeaders.get(csrf.CSRF_HEADER_NAME)).toBe('fresh-token');
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
+      '/api/csrf',
+      expect.objectContaining({ signal: controller.signal })
+    );
   });
 });
 
