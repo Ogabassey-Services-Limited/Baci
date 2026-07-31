@@ -4,15 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
 import { Loader2 } from 'lucide-react';
-import {
-  type Dispatch,
-  type SetStateAction,
-  type TransitionStartFunction,
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-} from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { FaviconUpload } from '@/app/dashboard/settings/favicon-upload';
@@ -34,11 +26,9 @@ import type { BrandColors } from '@/types';
 import { BrandingCard } from './branding-card';
 import { HeroCarouselCard } from './hero-carousel-card';
 import { saveSettings } from './save-settings';
-import {
-  extractColorsFromImage,
-  type SettingsFormValues,
-  settingsSchema,
-} from './settings-utils';
+import { uploadLogoWithColors } from './settings-logo-upload';
+import { buildSocialMediaDraft } from './settings-social-media-draft';
+import { type SettingsFormValues, settingsSchema } from './settings-utils';
 import { SocialMediaCard } from './social-media-card';
 import { StoreFeaturesCard } from './store-features-card';
 
@@ -47,99 +37,6 @@ extend([a11yPlugin]);
 interface SettingsFormProps {
   initialMerchant: CachedMerchant;
   initialBlogEnabled: boolean;
-}
-
-function buildSocialMediaDraft(
-  merchant: CachedMerchant | null | undefined
-): Record<string, string> {
-  return {
-    twitter: merchant?.social_media?.twitter || '',
-    facebook: merchant?.social_media?.facebook || '',
-    instagram: merchant?.social_media?.instagram || '',
-    tiktok: merchant?.social_media?.tiktok || '',
-    youtube: merchant?.social_media?.youtube || '',
-    pinterest: merchant?.social_media?.pinterest || '',
-    linkedin: merchant?.social_media?.linkedin || '',
-    snapchat: merchant?.social_media?.snapchat || '',
-  };
-}
-
-type UpdateMerchantFn = ReturnType<typeof useMerchant>['updateMerchant'];
-type ToastFn = ReturnType<typeof useToast>['toast'];
-
-interface LogoUploadContext {
-  dataUri: string;
-  previousState: CachedMerchant;
-  updateMerchant: UpdateMerchantFn;
-  toast: ToastFn;
-  setMerchantState: Dispatch<SetStateAction<CachedMerchant>>;
-  setIsUploading: Dispatch<SetStateAction<boolean>>;
-  startTransition: TransitionStartFunction;
-}
-
-// Module-scope helper: try/finally and dynamic import() bail React Compiler out
-// when they live inside the component body.
-async function uploadLogoWithColors({
-  dataUri,
-  previousState,
-  updateMerchant,
-  toast,
-  setMerchantState,
-  setIsUploading,
-  startTransition,
-}: LogoUploadContext) {
-  setIsUploading(true);
-  try {
-    startTransition(() => {
-      setMerchantState((prev) =>
-        prev ? { ...prev, logo_url: dataUri } : prev
-      );
-    });
-
-    const newColors = await extractColorsFromImage(dataUri);
-
-    // Upload to storage instead of storing data URI in DB
-    const { uploadImage } = await import('@/lib/storage');
-    const uploadedUrl = await uploadImage(dataUri);
-
-    if (!uploadedUrl) throw new Error('Failed to upload logo to storage.');
-
-    await updateMerchant({
-      logo_url: uploadedUrl,
-      brand_colors: newColors,
-    });
-
-    // Update local state with the final public URL
-    startTransition(() => {
-      setMerchantState((prev) =>
-        prev
-          ? {
-              ...prev,
-              logo_url: uploadedUrl,
-              brand_colors: newColors,
-            }
-          : prev
-      );
-    });
-
-    toast({
-      title: 'Logo and Colors Updated!',
-      description: 'Your new brand identity is saved.',
-    });
-  } catch (e) {
-    setMerchantState(previousState);
-    logger.error({
-      error: e as Error,
-      message: 'Logo upload and color extraction failed.',
-    });
-    toast({
-      title: 'Update Failed',
-      description: (e as Error).message,
-      variant: 'destructive',
-    });
-  } finally {
-    setIsUploading(false);
-  }
 }
 
 export function SettingsForm({

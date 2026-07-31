@@ -16,27 +16,34 @@ describe('PayoutSettingsScreen bank picker', () => {
     PayoutSettingsScreen = await loadPayoutSettingsScreen();
   });
 
-  it('uses the shared keyboard container in the bank picker modal', () => {
+  it('uses the shared page sheet in the bank picker modal', () => {
     render(<PayoutSettingsScreen />);
     fireEvent.click(screen.getByLabelText('Select bank'));
 
     expect(screen.getByText('Select Bank')).toBeInTheDocument();
-    expect(screen.getByLabelText('bank-modal-keyboard')).toBeInTheDocument();
     expect(
-      payoutSettingsMocks.keyboardContainerProps.some(
-        (entry) => entry.align === 'start' && entry.scrollEnabled === false
+      screen.getByLabelText('shared-bank-picker-sheet')
+    ).toBeInTheDocument();
+    expect(
+      payoutSettingsMocks.pageSheetProps.some(
+        (entry) =>
+          entry.closeLabel === 'Close bank picker' &&
+          entry.scrollEnabled === false &&
+          entry.title === 'Select Bank'
       )
     ).toBe(true);
   });
 
-  it('paints the bank picker keyboard container through the bottom safe area', () => {
+  it('uses the shared page sheet to own the picker safe-area surface', () => {
     render(<PayoutSettingsScreen />);
     fireEvent.click(screen.getByLabelText('Select bank'));
 
-    expect(payoutSettingsMocks.keyboardContainerProps.at(-1)?.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ backgroundColor: '#0b0b1a' }),
-      ])
+    expect(payoutSettingsMocks.pageSheetProps.at(-1)).toEqual(
+      expect.objectContaining({
+        closeLabel: 'Close bank picker',
+        scrollEnabled: false,
+        title: 'Select Bank',
+      })
     );
   });
 });

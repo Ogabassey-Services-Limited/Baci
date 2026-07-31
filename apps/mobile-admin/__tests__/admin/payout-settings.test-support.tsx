@@ -12,10 +12,10 @@ export const payoutSettingsMocks = {
   },
   alert: vi.fn(),
   isVerifying: false,
-  keyboardContainerProps: [] as Array<{
-    align?: 'start' | 'center' | 'end';
+  pageSheetProps: [] as Array<{
+    closeLabel?: string;
     scrollEnabled?: boolean;
-    style?: unknown;
+    title: string;
   }>,
   routeParams: {} as { from?: string },
   routerBack: vi.fn(),
@@ -105,24 +105,36 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@/components/ui/AppKeyboardContainer', () => ({
-  AppKeyboardContainer: ({
-    align,
+vi.mock('@/components/ui/AppPageSheet', () => ({
+  AppPageSheet: ({
     children,
+    closeLabel,
+    onClose,
     scrollEnabled,
-    style,
+    title,
+    visible,
   }: {
-    align?: 'start' | 'center' | 'end';
     children?: ReactNode;
+    closeLabel?: string;
+    onClose: () => void;
     scrollEnabled?: boolean;
-    style?: unknown;
+    title: string;
+    visible: boolean;
   }) => {
-    payoutSettingsMocks.keyboardContainerProps.push({
-      align,
+    payoutSettingsMocks.pageSheetProps.push({
+      closeLabel,
       scrollEnabled,
-      style,
+      title,
     });
-    return <section aria-label="bank-modal-keyboard">{children}</section>;
+    return visible ? (
+      <section aria-label="shared-bank-picker-sheet">
+        <button aria-label={closeLabel} onClick={onClose} type="button">
+          close
+        </button>
+        <h1>{title}</h1>
+        {children}
+      </section>
+    ) : null;
   },
 }));
 
@@ -212,7 +224,7 @@ export function resetPayoutSettingsMocks() {
   };
   payoutSettingsMocks.alert.mockReset();
   payoutSettingsMocks.isVerifying = false;
-  payoutSettingsMocks.keyboardContainerProps = [];
+  payoutSettingsMocks.pageSheetProps = [];
   payoutSettingsMocks.routeParams = {};
   payoutSettingsMocks.routerBack.mockReset();
   payoutSettingsMocks.savePayoutSettings.mutate.mockReset();

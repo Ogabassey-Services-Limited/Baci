@@ -12,10 +12,13 @@ import {
   buildStoreLaunchReadiness,
   type StoreLaunchFacts,
 } from './build-store-launch-readiness';
+import { hasMeaningfulAboutPage } from './has-meaningful-about-page';
 
 export interface StoreReadinessFacts extends StoreLaunchFacts {
   isPublished: boolean;
   businessAddress: string | null;
+  aboutPage?: unknown;
+  templateId?: string | null;
   pages: Record<string, unknown> | null;
   socialMedia: Record<string, unknown> | null;
   analyticsIds: readonly (string | null)[];
@@ -78,7 +81,9 @@ export function buildStoreReadiness(
       id: 'about_page',
       label: 'Fill in About Us page',
       description: 'Tell your story and build trust with customers',
-      completed: hasNonEmptyValue(facts.pages?.about),
+      completed:
+        hasNonEmptyValue(facts.pages?.about) ||
+        hasMeaningfulAboutPage(facts.aboutPage, facts.templateId),
       priority: 'recommended',
       category: 'legal',
     },

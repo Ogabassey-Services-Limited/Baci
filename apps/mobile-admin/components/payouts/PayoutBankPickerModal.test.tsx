@@ -14,6 +14,36 @@ vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   ),
 }));
 
+vi.mock('@/components/ui/AppPageSheet', () => ({
+  AppPageSheet: ({
+    children,
+    closeLabel,
+    onClose,
+    scrollEnabled,
+    title,
+    visible,
+  }: {
+    children?: ReactNode;
+    closeLabel?: string;
+    onClose: () => void;
+    scrollEnabled?: boolean;
+    title: string;
+    visible: boolean;
+  }) =>
+    visible ? (
+      <section
+        aria-label="shared-bank-picker-sheet"
+        data-scroll-enabled={String(scrollEnabled)}
+      >
+        <button aria-label={closeLabel} onClick={onClose} type="button">
+          close
+        </button>
+        <h1>{title}</h1>
+        {children}
+      </section>
+    ) : null,
+}));
+
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
   FlatList: ({
@@ -79,6 +109,31 @@ const colors = {
 };
 
 describe('PayoutBankPickerModal', () => {
+  it('uses the shared page sheet for the dark safe-area picker shell', () => {
+    render(
+      <PayoutBankPickerModal
+        banks={[]}
+        colors={colors}
+        isLoading={false}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        selectedBank={null}
+        visible
+      />
+    );
+
+    expect(screen.getByLabelText('shared-bank-picker-sheet')).toHaveAttribute(
+      'data-scroll-enabled',
+      'false'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Close bank picker' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Select Bank' })
+    ).toBeInTheDocument();
+  });
+
   it('filters banks and closes after selecting the filtered bank', () => {
     const onClose = vi.fn();
     const onSelect = vi.fn();

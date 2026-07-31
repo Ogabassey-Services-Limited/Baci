@@ -22,7 +22,7 @@ export interface LoadStoreReadinessInput {
 }
 
 const WEB_OPTIONAL_MERCHANT_READINESS_COLUMNS =
-  'is_published, pages, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id, template_id, business_type';
+  'is_published, pages, about_page, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id, template_id, business_type';
 
 const MOBILE_OPTIONAL_MERCHANT_READINESS_COLUMNS =
   'is_published, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id, template_id, business_type';
@@ -31,6 +31,7 @@ type ReadinessOptionalMerchant = Pick<
   Database['public']['Tables']['merchants']['Row'],
   | 'business_address'
   | 'business_type'
+  | 'about_page'
   | 'facebook_pixel_id'
   | 'google_analytics_id'
   | 'is_published'
@@ -163,6 +164,9 @@ export async function loadStoreReadiness({
       ...launchReadiness.facts,
       isPublished: optionalMerchant.is_published === true,
       businessAddress: optionalMerchant.business_address,
+      aboutPage:
+        surface === 'web' ? (optionalMerchant.about_page ?? null) : null,
+      templateId: optionalMerchant.template_id,
       pages:
         surface === 'web' && unknownValueGuards.isRecord(optionalMerchant.pages)
           ? optionalMerchant.pages

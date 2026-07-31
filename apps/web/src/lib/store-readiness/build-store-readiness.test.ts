@@ -122,6 +122,18 @@ describe('buildStoreReadiness', () => {
     );
   });
 
+  it.each([
+    ['an empty object', {}],
+    ['blank story text', { story: '   ' }],
+    ['empty values', { values: [] }],
+    ['empty team members', { team: [] }],
+    ['an empty social proof object', { social_proof: {} }],
+  ])('does not complete About Us from %s', (_name, aboutPage) => {
+    expect(
+      completion({ ...BASE_FACTS, pages: null, aboutPage }, 'about_page')
+    ).toBe(false);
+  });
+
   it('composes the launch builder required items without adding an href', () => {
     const readiness = buildStoreReadiness(BASE_FACTS, 'web');
     const launch = buildStoreLaunchReadiness(BASE_FACTS);

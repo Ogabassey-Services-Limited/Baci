@@ -43,6 +43,7 @@ function client(
     homeError?: { message: string } | null;
     jobError?: { message: string } | null;
     optionalMerchantError?: { message: string } | null;
+    aboutPage?: unknown;
     pages?: unknown;
     socialMedia?: unknown;
     activeProductCount?: number;
@@ -64,6 +65,7 @@ function client(
   const optionalMerchant = query({
     data: {
       business_address: null,
+      about_page: options.aboutPage ?? null,
       business_type: 'ELECTRONICS',
       facebook_pixel_id: null,
       google_analytics_id: null,
@@ -283,6 +285,22 @@ describe('loadStoreReadiness', () => {
     );
     expect(result.items).toContainEqual(
       expect.objectContaining({ id: 'social_media', completed: false })
+    );
+  });
+
+  it('completes About Us from populated structured content without legacy pages', async () => {
+    const authenticatedClient = client({
+      aboutPage: { story: 'We help merchants sell online.' },
+      pages: null,
+    });
+
+    const result = await load(authenticatedClient);
+
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: 'about_page', completed: true })
+    );
+    expect(authenticatedClient.optionalMerchant.select).toHaveBeenCalledWith(
+      'is_published, pages, about_page, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id, template_id, business_type'
     );
   });
 
