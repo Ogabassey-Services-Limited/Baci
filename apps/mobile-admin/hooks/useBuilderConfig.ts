@@ -38,6 +38,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     };
   }
   const aiRequestSequenceRef = useRef(0);
+  const messagesMerchantIdRef = useRef(merchantId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentConfig, setCurrentConfig] =
     useState<MerchantBuilderDraft | null>(null);
@@ -48,6 +49,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   useEffect(() => {
     aiRequestSequenceRef.current += 1;
     setActiveAiRequestSequence(null);
+    messagesMerchantIdRef.current = merchantId;
     setMessages([]);
     setCurrentConfig((draft) =>
       draft?.merchantId === merchantId ? draft : null
@@ -95,14 +97,12 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       if (!token) {
         throw new Error('Not authenticated');
       }
-
       if (!effectiveConfig) {
         throw new Error('No configuration loaded');
       }
       if (!merchantId) {
         throw new Error('Merchant not loaded. Please try again.');
       }
-
       const requestMerchantId = merchantId;
       const requestConfig = effectiveConfig;
       const requestSequence = ++aiRequestSequenceRef.current;
@@ -114,6 +114,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         content: prompt,
         timestamp: new Date(),
       };
+      messagesMerchantIdRef.current = requestMerchantId;
       setMessages((prev) => [...prev, userMessage]);
 
       try {
@@ -262,7 +263,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     isLoadingConfig,
     configError,
     refetchConfig,
-    messages,
+    messages: messagesMerchantIdRef.current === merchantId ? messages : [],
     clearChat,
     sendMessage,
     isProcessingAI: activeAiRequestSequence !== null,

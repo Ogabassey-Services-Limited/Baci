@@ -1,4 +1,3 @@
-import { isStoreReadiness } from '@baci/shared';
 import {
   cleanup,
   fireEvent,
@@ -9,6 +8,7 @@ import {
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StoreBuildStatusCard } from './store-build-status-card';
+import { createReadinessPayload } from './store-build-status-card.test-helpers';
 
 const mockToast = vi.fn();
 const { mockFetchWithCsrf } = vi.hoisted(() => ({
@@ -29,44 +29,6 @@ vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: mockFetchWithCsrf,
 }));
 
-function createReadinessPayload(canApplyAiDraft = false) {
-  return {
-    merchantId: '11111111-1111-4111-8111-111111111111',
-    surface: 'web' as const,
-    isReady: false,
-    isPublished: false,
-    completedRequired: 0,
-    totalRequired: 1,
-    completedRecommended: 0,
-    totalRecommended: 0,
-    overallProgress: 0,
-    items: [
-      {
-        id: 'first_product' as const,
-        label: 'Publish your first product',
-        description: 'You need at least one published product to start selling',
-        completed: false,
-        priority: 'required' as const,
-        category: 'products' as const,
-      },
-    ],
-    storeBuild: {
-      starterStoreReady: true,
-      aiStatus: 'ready' as const,
-      latestJobId: '5c0a0676-bd3f-495e-9f98-589f208c0d79',
-      canApplyAiDraft,
-      message: 'Your AI storefront is ready to preview and apply.',
-    },
-  };
-}
-
-function createMobileReadinessPayload() {
-  return {
-    ...createReadinessPayload(),
-    surface: 'mobile' as const,
-  };
-}
-
 describe('StoreBuildStatusCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,7 +45,7 @@ describe('StoreBuildStatusCard', () => {
   });
 
   it('hides apply controls for view-only staff while keeping preview available', async () => {
-    render(<StoreBuildStatusCard />);
+    render(<StoreBuildStatusCard merchantId="merchant-1" />);
 
     expect(await screen.findByText('AI design ready')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /preview/i })).toHaveAttribute(
@@ -112,7 +74,7 @@ describe('StoreBuildStatusCard', () => {
       }),
     } as Response);
 
-    render(<StoreBuildStatusCard />);
+    render(<StoreBuildStatusCard merchantId="merchant-1" />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: /apply ai design/i })
@@ -123,44 +85,13 @@ describe('StoreBuildStatusCard', () => {
         '/api/ai-jobs/5c0a0676-bd3f-495e-9f98-589f208c0d79/apply',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({}),
+          body: JSON.stringify({ merchantId: 'merchant-1' }),
         })
       );
     });
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'AI design applied' })
     );
-  });
-
-  it('renders an error state with retry when the readiness fetch fails', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({}),
-    } as Response);
-
-    render(<StoreBuildStatusCard />);
-
-    expect(
-      await screen.findByText('Failed to load store build status.')
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
-  });
-
-  it('reloads the readiness payload when retry is clicked after a failure', async () => {
-    // First load fails; the beforeEach mock serves the retry successfully.
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({}),
-    } as Response);
-
-    render(<StoreBuildStatusCard />);
-
-    fireEvent.click(await screen.findByRole('button', { name: /retry/i }));
-
-    expect(await screen.findByText('AI design ready')).toBeInTheDocument();
-    expect(
-      screen.queryByText('Failed to load store build status.')
-    ).not.toBeInTheDocument();
   });
 
   it.each([
@@ -181,7 +112,7 @@ describe('StoreBuildStatusCard', () => {
     } as Response);
     mockFetchWithCsrf.mockImplementationOnce(applyResult);
 
-    render(<StoreBuildStatusCard />);
+    render(<StoreBuildStatusCard merchantId="merchant-1" />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: /apply ai design/i })
@@ -214,7 +145,7 @@ describe('StoreBuildStatusCard', () => {
         }),
       } as Response);
 
-    render(<StoreBuildStatusCard />);
+    render(<StoreBuildStatusCard merchantId="merchant-1" />);
 
     const applyButton = await screen.findByRole('button', {
       name: /apply ai design/i,
@@ -235,7 +166,7 @@ describe('StoreBuildStatusCard', () => {
       '/api/ai-jobs/5c0a0676-bd3f-495e-9f98-589f208c0d79/apply',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ force: true }),
+        body: JSON.stringify({ merchantId: 'merchant-1', force: true }),
       })
     );
     expect(mockToast).toHaveBeenCalledWith(
@@ -254,7 +185,7 @@ describe('StoreBuildStatusCard', () => {
       json: async () => ({ code: 'ai_draft_stale' }),
     } as Response);
 
-    render(<StoreBuildStatusCard />);
+    render(<StoreBuildStatusCard merchantId="merchant-1" />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: /apply ai design/i })
@@ -272,33 +203,21 @@ describe('StoreBuildStatusCard', () => {
     expect(mockToast).not.toHaveBeenCalled();
   });
 
-  it('shows the existing retry state when readiness only contains store build data', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+  it('does not load or apply an AI draft without the selected merchant ID', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ storeBuild: createReadinessPayload().storeBuild }),
+      json: async () => createReadinessPayload(true),
     } as Response);
 
     render(<StoreBuildStatusCard />);
 
-    expect(
-      await screen.findByText('Failed to load store build status.')
-    ).toBeInTheDocument();
-  });
-
-  it('shows the existing retry state for an otherwise valid mobile readiness payload', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const payload = createMobileReadinessPayload();
-    expect(isStoreReadiness(payload)).toBe(true);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => payload,
-    } as Response);
-
-    render(<StoreBuildStatusCard />);
-
-    expect(
-      await screen.findByText('Failed to load store build status.')
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /apply ai design/i })).toBe(
+        null
+      );
+    });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
   });
 });

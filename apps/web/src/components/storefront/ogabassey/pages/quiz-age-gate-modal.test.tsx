@@ -128,7 +128,8 @@ describe('QuizAgeGateModal', () => {
   it('does not offer today or a future date in the picker (max is yesterday)', () => {
     setup();
     const input = screen.getByLabelText('Date of birth') as HTMLInputElement;
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     expect(input.max).toBeTruthy();
     expect(input.max < today).toBe(true);
   });

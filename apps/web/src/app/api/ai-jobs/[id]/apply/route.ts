@@ -65,6 +65,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { valid, response } = await checkCsrfProtection(request);
   if (!valid) return response as NextResponse;
 
+  const bodyResult = await readOptionalJsonBody(request);
+  if (bodyResult.response) return bodyResult.response;
+
+  const parsedRequest = applyAiDraftSchema.safeParse(bodyResult.body);
+  if (!parsedRequest.success) {
+    return NextResponse.json(
+      { error: 'Invalid request body', details: parsedRequest.error.flatten() },
+      { status: 400 }
+    );
+  }
+
   const isAllowed = await checkRateLimit(
     supabase,
     user.id,
@@ -79,7 +90,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+    requestedMerchantId: parsedRequest.data.merchantId,
+  });
   if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
@@ -87,17 +100,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const access = toUserAccess(merchantContext);
   if (!hasPermission(access, 'builder', 'edit')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const bodyResult = await readOptionalJsonBody(request);
-  if (bodyResult.response) return bodyResult.response;
-
-  const parsedRequest = applyAiDraftSchema.safeParse(bodyResult.body);
-  if (!parsedRequest.success) {
-    return NextResponse.json(
-      { error: 'Invalid request body', details: parsedRequest.error.flatten() },
-      { status: 400 }
-    );
   }
 
   const { id } = await context.params;

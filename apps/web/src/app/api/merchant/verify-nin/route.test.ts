@@ -1,4 +1,3 @@
-import type { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api-auth', () => ({
@@ -27,62 +26,11 @@ import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { getMonnifyToken } from '@/lib/monnify';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { POST } from './route';
-
-const validNinBody = {
-  nin: '12345678901',
-  firstName: 'John',
-  lastName: 'Doe',
-  dateOfBirth: '1990-01-15',
-  merchantId: '11111111-1111-4111-8111-111111111111',
-};
-
-function makeRpcMock(error: unknown = null) {
-  return vi.fn().mockResolvedValue({ error });
-}
-
-function makeSupabaseMock(rpcError: unknown = null, country = 'NG') {
-  const merchantMaybeSingle = vi.fn().mockResolvedValue({
-    data: { country },
-    error: null,
-  });
-
-  return {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          maybeSingle: merchantMaybeSingle,
-        })),
-      })),
-    })),
-    merchantMaybeSingle,
-    rpc: makeRpcMock(rpcError),
-  };
-}
-
-function makeRequest(body: unknown): NextRequest {
-  return {
-    method: 'POST',
-    headers: new Headers({ 'Content-Type': 'application/json' }),
-    nextUrl: new URL('http://localhost/api/merchant/verify-nin'),
-    json: vi.fn().mockResolvedValue(body),
-    cookies: { get: vi.fn() },
-  } as unknown as NextRequest;
-}
-
-function makeNinResponse(firstName: string, lastName: string) {
-  return {
-    requestSuccessful: true,
-    responseBody: {
-      nin: '12345678901',
-      firstName,
-      lastName,
-      middleName: '',
-      dateOfBirth: '1990-01-15',
-      gender: 'M',
-      mobileNumber: '08012345678',
-    },
-  };
-}
+import {
+  makeRequest,
+  makeSupabaseMock,
+  validNinBody,
+} from './route.test-helpers';
 
 describe('POST /api/merchant/verify-nin', () => {
   afterEach(() => {
@@ -217,88 +165,5 @@ describe('POST /api/merchant/verify-nin', () => {
     );
 
     expect(res.status).toBe(400);
-  });
-
-  it('returns 200 with verified: true when names match', async () => {
-    const supabaseMock = makeSupabaseMock();
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: supabaseMock,
-    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => makeNinResponse('John', 'Doe'),
-    } as Response);
-
-    const res = await POST(makeRequest(validNinBody));
-
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({ verified: true });
-    expect(supabaseMock.rpc).toHaveBeenCalledWith(
-      'record_nin_verification',
-      expect.objectContaining({
-        p_merchant_id: validNinBody.merchantId,
-        p_nin: '12345678901',
-      })
-    );
-  });
-
-  it('records a verified NIN for the exact merchant selected by a multi-merchant owner', async () => {
-    const supabaseMock = makeSupabaseMock();
-    const selectedMerchantId = '22222222-2222-4222-8222-222222222222';
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: supabaseMock,
-    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
-    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
-      merchantId: selectedMerchantId,
-      staffAccess: {
-        isOwner: true,
-        isStaff: false,
-        permissions: { full_access: { all: true } },
-        role: null,
-      },
-    });
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => makeNinResponse('John', 'Doe'),
-    } as Response);
-
-    const res = await POST(
-      makeRequest({ ...validNinBody, merchantId: selectedMerchantId })
-    );
-
-    expect(res.status).toBe(200);
-    expect(getMerchantForApiRequest).toHaveBeenCalledWith(
-      supabaseMock,
-      'user-1',
-      { requestedMerchantId: selectedMerchantId }
-    );
-    expect(supabaseMock.rpc).toHaveBeenCalledWith(
-      'record_nin_verification',
-      expect.objectContaining({ p_merchant_id: selectedMerchantId })
-    );
-  });
-
-  it('returns 200 with verified: false when names do not match', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => makeNinResponse('Jane', 'Smith'),
-    } as Response);
-
-    const res = await POST(makeRequest(validNinBody));
-
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({ verified: false });
-  });
-
-  it('returns 500 when Monnify API fails', async () => {
-    vi.mocked(getMonnifyToken).mockRejectedValueOnce(new Error('Auth failed'));
-
-    const res = await POST(makeRequest(validNinBody));
-
-    expect(res.status).toBe(500);
   });
 });

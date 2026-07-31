@@ -11,7 +11,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,38 +44,45 @@ import {
 } from './store-build-status-card-helpers';
 
 interface StoreBuildStatusCardProps {
+  merchantId?: string;
   onApplied?: () => void;
 }
 
-export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
+export function StoreBuildStatusCard({
+  merchantId,
+  onApplied,
+}: StoreBuildStatusCardProps) {
   const [status, setStatus] = useState<StoreBuildStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [applying, setApplying] = useState(false);
   const [showStaleDialog, setShowStaleDialog] = useState(false);
+  const activeMerchantId = useRef(merchantId);
+  activeMerchantId.current = merchantId;
   const { toast } = useToast();
-
   useEffect(() => {
-    // The retry button increments reloadToken to intentionally re-run this effect.
-    void reloadToken;
+    setStatus(null);
+    setLoadError(null);
+    setApplying(false);
+    setShowStaleDialog(false);
+    setLoading(Boolean(merchantId));
+    if (!merchantId) return;
     let active = true;
-
-    fetch('/api/merchant/readiness', {
+    fetch(`/api/merchant/readiness?merchantId=${merchantId}`, {
       credentials: 'include',
+      ...(reloadToken > 0 ? { cache: 'no-store' } : {}),
     })
       .then((response) => {
         if (!response.ok) {
           throw new Error('Failed to load store build status');
         }
-
         return response.json() as Promise<unknown>;
       })
       .then((payload) => {
         if (!isWebStoreReadiness(payload)) {
           throw new Error('Invalid readiness payload');
         }
-
         if (active) {
           setStatus(payload.storeBuild);
           setLoadError(null);
@@ -92,20 +99,17 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
           setLoading(false);
         }
       });
-
     return () => {
       active = false;
     };
-  }, [reloadToken]);
-
+  }, [merchantId, reloadToken]);
   const retryLoad = () => {
     setLoading(true);
     setLoadError(null);
     setReloadToken((token) => token + 1);
   };
-
   const applyDraft = (force = false) => {
-    if (!status?.latestJobId || !status.canApplyAiDraft) {
+    if (!merchantId || !status?.latestJobId || !status.canApplyAiDraft) {
       toast({
         title: 'Cannot apply this AI design',
         description: 'You need builder edit access to replace the store draft.',
@@ -113,16 +117,18 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
       });
       return;
     }
-
+    const submittedMerchantId = merchantId;
     setApplying(true);
     fetchWithCsrf(`/api/ai-jobs/${status.latestJobId}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(force ? { force: true } : {}),
+      body: JSON.stringify(
+        force ? { merchantId, force: true } : { merchantId }
+      ),
     })
       .then(async (response) => {
         const payload = await readApplyResponse(response);
-
+        if (activeMerchantId.current !== submittedMerchantId) return;
         if (
           !force &&
           response.status === 409 &&
@@ -131,13 +137,11 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
           setShowStaleDialog(true);
           return;
         }
-
         if (!response.ok) {
           throw new Error(
             payload.error || payload.message || 'Failed to apply AI design'
           );
         }
-
         setStatus((current) =>
           current
             ? {
@@ -154,6 +158,7 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
         onApplied?.();
       })
       .catch((error: unknown) => {
+        if (activeMerchantId.current !== submittedMerchantId) return;
         console.error('Failed to apply AI storefront draft:', error);
         toast({
           title: 'Failed to apply AI design',
@@ -163,7 +168,9 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
         });
       })
       .finally(() => {
-        setApplying(false);
+        if (activeMerchantId.current === submittedMerchantId) {
+          setApplying(false);
+        }
       });
   };
 

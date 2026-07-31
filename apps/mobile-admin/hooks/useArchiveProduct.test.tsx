@@ -43,19 +43,19 @@ describe('archiveProductById', () => {
     });
   });
 
-  it('calls the permission-checked archive endpoint', async () => {
-    await archiveProductById('product 1');
+  it('calls the merchant-scoped archive endpoint', async () => {
+    await archiveProductById('product 1', 'merchant-1');
 
     expect(mocks.apiClient).toHaveBeenCalledWith(
       '/api/products/product%201/archive',
-      { method: 'PATCH' }
+      { method: 'PATCH', body: JSON.stringify({ merchantId: 'merchant-1' }) }
     );
   });
 
   it('propagates archive endpoint failures', async () => {
     mocks.apiClient.mockRejectedValueOnce(new Error('archive failed'));
 
-    await expect(archiveProductById('product-1')).rejects.toThrow(
+    await expect(archiveProductById('product-1', 'merchant-1')).rejects.toThrow(
       'archive failed'
     );
   });
@@ -101,7 +101,7 @@ describe('useArchiveProduct', () => {
     });
   });
 
-  it('uses unscoped query prefixes after archiving without merchant context', async () => {
+  it('does not submit an archive without a merchant context', async () => {
     mocks.merchant = null;
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -111,19 +111,12 @@ describe('useArchiveProduct', () => {
       wrapper: createWrapper(queryClient),
     });
 
-    await act(async () => {
-      await result.current.mutateAsync({ productId: 'product-1' });
-    });
+    await expect(
+      result.current.mutateAsync({ productId: 'product-1' })
+    ).rejects.toThrow('Merchant id is required');
 
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['products'],
-    });
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['product'],
-    });
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['inventory-stats'],
-    });
+    expect(mocks.apiClient).not.toHaveBeenCalled();
+    expect(invalidateQueries).not.toHaveBeenCalled();
     expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
@@ -195,7 +188,7 @@ describe('useArchiveProduct', () => {
     });
   });
 
-  it('uses the merchant present when archive starts after the context disappears before settlement', async () => {
+  it('keeps the merchant selected at archive submission when the context switches before settlement', async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -220,12 +213,23 @@ describe('useArchiveProduct', () => {
 
     const archive = result.current.mutateAsync({ productId: 'product-1' });
     await vi.waitFor(() => expect(releaseArchive).toBeTypeOf('function'));
-    mocks.merchant = null;
-    rerender();
-    if (!releaseArchive) {
+    const release = releaseArchive;
+    if (!release) {
       throw new Error('Archive request did not start');
     }
-    releaseArchive();
+    try {
+      expect(mocks.apiClient).toHaveBeenCalledWith(
+        '/api/products/product-1/archive',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ merchantId: 'merchant-1' }),
+        }
+      );
+      mocks.merchant = { id: 'merchant-2' };
+      rerender();
+    } finally {
+      release();
+    }
 
     await expect(archive).resolves.toEqual({
       product: { id: 'product-1', status: 'archived' },
@@ -243,6 +247,10 @@ describe('useArchiveProduct', () => {
     expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
       queryClient,
       'merchant-1'
+    );
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalledWith(
+      queryClient,
+      'merchant-2'
     );
   });
 

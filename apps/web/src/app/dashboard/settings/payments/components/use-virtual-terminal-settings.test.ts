@@ -4,13 +4,19 @@ import { useVirtualTerminalSettings } from './use-virtual-terminal-settings';
 import {
   createVirtualTerminalAccount,
   fetchVirtualTerminalData,
+  VirtualTerminalRequestError,
 } from './virtual-terminal-requests';
 
-vi.mock('./virtual-terminal-requests', () => ({
-  createVirtualTerminalAccount: vi.fn(),
-  createVirtualTerminalBranch: vi.fn(),
-  fetchVirtualTerminalData: vi.fn(),
-}));
+vi.mock('./virtual-terminal-requests', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('./virtual-terminal-requests')>();
+  return {
+    ...actual,
+    createVirtualTerminalAccount: vi.fn(),
+    createVirtualTerminalBranch: vi.fn(),
+    fetchVirtualTerminalData: vi.fn(),
+  };
+});
 vi.mock('@/hooks/use-toast', () => ({
   useToast: vi.fn(() => ({ toast: toastMock })),
 }));
@@ -35,8 +41,8 @@ describe('useVirtualTerminalSettings', () => {
           })
       )
       .mockResolvedValueOnce({
-        accounts: [{ id: 'terminal-b' } as never],
-        branches: [],
+        accounts: { data: [{ id: 'terminal-b' } as never], error: null },
+        branches: { data: [], error: null },
       });
 
     const { result, rerender } = renderHook(
@@ -52,7 +58,10 @@ describe('useVirtualTerminalSettings', () => {
     });
 
     await act(async () => {
-      resolveA?.({ accounts: [{ id: 'terminal-a' } as never], branches: [] });
+      resolveA?.({
+        accounts: { data: [{ id: 'terminal-a' } as never], error: null },
+        branches: { data: [], error: null },
+      });
     });
 
     expect(result.current.accounts).toEqual([{ id: 'terminal-b' }]);
@@ -61,8 +70,8 @@ describe('useVirtualTerminalSettings', () => {
   it('suppresses a late merchant A create completion after switching to B', async () => {
     let resolveCreate: (() => void) | undefined;
     vi.mocked(fetchVirtualTerminalData).mockResolvedValue({
-      accounts: [],
-      branches: [],
+      accounts: { data: [], error: null },
+      branches: { data: [], error: null },
     } as never);
     vi.mocked(createVirtualTerminalAccount).mockImplementationOnce(
       () =>
@@ -93,5 +102,91 @@ describe('useVirtualTerminalSettings', () => {
 
     expect(result.current.creating).toBe(false);
     expect(toastMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps prior branches while applying refreshed accounts after branch loading fails', async () => {
+    vi.mocked(fetchVirtualTerminalData)
+      .mockResolvedValueOnce({
+        accounts: { data: [{ id: 'terminal-before' } as never], error: null },
+        branches: { data: [{ id: 'branch-before' } as never], error: null },
+      } as never)
+      .mockResolvedValueOnce({
+        accounts: { data: [{ id: 'terminal-after' } as never], error: null },
+        branches: {
+          data: null,
+          error: new VirtualTerminalRequestError(
+            'Unable to fetch branch data. Please refresh the page.',
+            'branches'
+          ),
+        },
+      } as never);
+    vi.mocked(createVirtualTerminalAccount).mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useVirtualTerminalSettings({
+        businessName: 'Store',
+        merchantId: merchantA,
+      })
+    );
+    await waitFor(() =>
+      expect(result.current.branches).toEqual([{ id: 'branch-before' }])
+    );
+    act(() =>
+      result.current.setNewAccount((value) => ({ ...value, name: 'Till' }))
+    );
+
+    await act(async () => {
+      await result.current.handleCreateAccount();
+    });
+
+    expect(result.current.accounts).toEqual([{ id: 'terminal-after' }]);
+    expect(result.current.branches).toEqual([{ id: 'branch-before' }]);
+    expect(toastMock).toHaveBeenCalledWith({
+      variant: 'destructive',
+      title: 'Failed to load branches',
+      description: 'Unable to fetch branch data. Please refresh the page.',
+    });
+  });
+
+  it('keeps prior accounts while applying refreshed branches after account loading fails', async () => {
+    vi.mocked(fetchVirtualTerminalData)
+      .mockResolvedValueOnce({
+        accounts: { data: [{ id: 'terminal-before' } as never], error: null },
+        branches: { data: [{ id: 'branch-before' } as never], error: null },
+      } as never)
+      .mockResolvedValueOnce({
+        accounts: {
+          data: null,
+          error: new VirtualTerminalRequestError(
+            'Unable to fetch staff accounts. Please refresh the page.',
+            'accounts'
+          ),
+        },
+        branches: { data: [{ id: 'branch-after' } as never], error: null },
+      } as never);
+    vi.mocked(createVirtualTerminalAccount).mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useVirtualTerminalSettings({
+        businessName: 'Store',
+        merchantId: merchantA,
+      })
+    );
+    await waitFor(() =>
+      expect(result.current.accounts).toEqual([{ id: 'terminal-before' }])
+    );
+    act(() =>
+      result.current.setNewAccount((value) => ({ ...value, name: 'Till' }))
+    );
+
+    await act(async () => {
+      await result.current.handleCreateAccount();
+    });
+
+    expect(result.current.accounts).toEqual([{ id: 'terminal-before' }]);
+    expect(result.current.branches).toEqual([{ id: 'branch-after' }]);
+    expect(toastMock).toHaveBeenCalledWith({
+      variant: 'destructive',
+      title: 'Failed to load accounts',
+      description: 'Unable to fetch staff accounts. Please refresh the page.',
+    });
   });
 });

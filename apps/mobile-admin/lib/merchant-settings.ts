@@ -68,10 +68,10 @@ function parseMerchantIdentitySettingsReceipt(
     throw new Error('Invalid store settings update response');
   }
   const record = value as Record<string, unknown>;
-  const recordKeys = Object.keys(record);
   if (
-    recordKeys.length !== merchantIdentityReceiptKeys.size ||
-    recordKeys.some((key) => !merchantIdentityReceiptKeys.has(key)) ||
+    Array.from(merchantIdentityReceiptKeys).some(
+      (key) => !Object.hasOwn(record, key)
+    ) ||
     record.id !== expectedMerchantId ||
     typeof record.updated_at !== 'string' ||
     Number.isNaN(Date.parse(record.updated_at))

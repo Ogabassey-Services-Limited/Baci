@@ -26,6 +26,7 @@ function createParams(force = false) {
   return {
     aiDraftJobId: 'job-123',
     force,
+    merchantId: '11111111-1111-4111-8111-111111111111',
     isCurrentRequest: () => true,
     router: { push: vi.fn() } as unknown as ApplyAiDraftRequestParams['router'],
     toast: createToastMock<ApplyAiDraftRequestParams>(),
@@ -59,7 +60,9 @@ describe('applyAiDraftRequest', () => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          merchantId: '11111111-1111-4111-8111-111111111111',
+        }),
       }
     );
     expect(params.setLastUpdated).toHaveBeenCalledWith('updated-at');
@@ -89,7 +92,10 @@ describe('applyAiDraftRequest', () => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force: true }),
+        body: JSON.stringify({
+          merchantId: '11111111-1111-4111-8111-111111111111',
+          force: true,
+        }),
       }
     );
   });

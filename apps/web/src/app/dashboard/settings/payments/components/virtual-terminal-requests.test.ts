@@ -4,6 +4,7 @@ import {
   createVirtualTerminalAccount,
   createVirtualTerminalBranch,
   fetchVirtualTerminalData,
+  VirtualTerminalRequestError,
 } from './virtual-terminal-requests';
 
 vi.mock('@/lib/api-client', () => ({ fetchWithCsrf: vi.fn() }));
@@ -39,8 +40,83 @@ describe('virtual terminal requests', () => {
     expect(fetch).toHaveBeenNthCalledWith(2, '/api/branches', {
       headers: { 'x-baci-merchant-id': merchantId },
     });
-    expect(result.accounts).toEqual([{ id: 'terminal-b' }]);
-    expect(result.branches).toEqual([{ id: 'branch-b' }]);
+    expect(result.accounts).toEqual({
+      data: [{ id: 'terminal-b' }],
+      error: null,
+    });
+    expect(result.branches).toEqual({
+      data: [{ id: 'branch-b' }],
+      error: null,
+    });
+  });
+
+  it('keeps successful terminal data when branch loading fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ terminals: [{ id: 'terminal-b' }] }),
+        })
+        .mockResolvedValueOnce({ ok: false })
+    );
+
+    const result = await fetchVirtualTerminalData(merchantId);
+
+    expect(result.accounts).toEqual({
+      data: [{ id: 'terminal-b' }],
+      error: null,
+    });
+    expect(result.branches).toEqual({
+      data: null,
+      error: expect.objectContaining({ resource: 'branches' }),
+    });
+  });
+
+  it('keeps successful branch data when terminal loading fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ branches: [{ id: 'branch-b' }] }),
+        })
+    );
+
+    const result = await fetchVirtualTerminalData(merchantId);
+
+    expect(result.accounts).toEqual({
+      data: null,
+      error: expect.objectContaining({ resource: 'accounts' }),
+    });
+    expect(result.branches).toEqual({
+      data: [{ id: 'branch-b' }],
+      error: null,
+    });
+  });
+
+  it('retains scoped errors when both selected-merchant resources fail', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false })
+        .mockResolvedValueOnce({ ok: false })
+    );
+
+    const result = await fetchVirtualTerminalData(merchantId);
+
+    expect(result.accounts).toEqual({
+      data: null,
+      error: expect.any(VirtualTerminalRequestError),
+    });
+    expect(result.branches).toEqual({
+      data: null,
+      error: expect.any(VirtualTerminalRequestError),
+    });
   });
 
   it('creates a terminal and branch for the selected merchant', async () => {
@@ -70,22 +146,12 @@ describe('virtual terminal requests', () => {
     );
   });
 
-  it('surfaces failed selected-merchant loads and mutations', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce({ ok: false })
-        .mockResolvedValueOnce({ ok: true })
-    );
+  it('surfaces failed selected-merchant mutations', async () => {
     vi.mocked(fetchWithCsrf).mockResolvedValue({
       ok: false,
       json: async () => ({ error: 'Merchant B create failed' }),
     } as Response);
 
-    await expect(fetchVirtualTerminalData(merchantId)).rejects.toMatchObject({
-      resource: 'accounts',
-    });
     await expect(
       createVirtualTerminalAccount(merchantId, {
         name: 'Merchant B Till',

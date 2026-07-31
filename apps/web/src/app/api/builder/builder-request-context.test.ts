@@ -19,7 +19,10 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 }));
 vi.mock('@/lib/api-auth', () => ({ hasPermission: mocks.hasPermission }));
 
-import { getBuilderRequestContext } from './builder-route-utils';
+import {
+  getBuilderAuthentication,
+  getBuilderRequestContext,
+} from './builder-request-context';
 
 describe('getBuilderRequestContext', () => {
   const supabase = { scope: 'caller' };
@@ -63,5 +66,29 @@ describe('getBuilderRequestContext', () => {
         canEdit: true,
       },
     });
+  });
+
+  it('reuses the initial authentication when authorizing the builder request context', async () => {
+    const request = new NextRequest('http://localhost/api/builder');
+    const authentication = await getBuilderAuthentication(request);
+
+    if (authentication.response) {
+      throw new Error('Expected the test authentication to succeed');
+    }
+
+    const result = await getBuilderRequestContext(
+      request,
+      'edit',
+      '22222222-2222-4222-8222-222222222222',
+      authentication.auth
+    );
+
+    expect(result).toMatchObject({
+      context: {
+        merchantId: '22222222-2222-4222-8222-222222222222',
+        supabase,
+      },
+    });
+    expect(mocks.getAuthenticatedUser).toHaveBeenCalledTimes(1);
   });
 });

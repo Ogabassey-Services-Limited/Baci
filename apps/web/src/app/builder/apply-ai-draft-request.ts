@@ -10,6 +10,7 @@ import { getBuilderMutationErrorMessage } from './builder-descriptions';
 interface ApplyAiDraftRequestParams extends BuilderSessionSetters {
   aiDraftJobId: string;
   force: boolean;
+  merchantId: string;
   isCurrentRequest: () => boolean;
   router: BuilderRouter;
   toast: BuilderToast;
@@ -34,6 +35,7 @@ export async function applyAiDraftRequest(params: ApplyAiDraftRequestParams) {
   const {
     aiDraftJobId,
     force,
+    merchantId,
     isCurrentRequest,
     router,
     toast,
@@ -53,7 +55,7 @@ export async function applyAiDraftRequest(params: ApplyAiDraftRequestParams) {
     const response = await fetchWithCsrf(`/api/ai-jobs/${aiDraftJobId}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(force ? { force } : {}),
+      body: JSON.stringify({ merchantId, ...(force ? { force } : {}) }),
     });
     if (!isCurrentRequest()) return;
     const payload = await readApplyAiDraftResponse(response);

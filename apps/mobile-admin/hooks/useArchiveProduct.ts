@@ -17,31 +17,41 @@ interface ArchiveProductMutationContext {
 }
 
 export function archiveProductById(
-  productId: string
+  productId: string,
+  merchantId: string | undefined
 ): Promise<ArchiveProductResponse> {
   if (!productId) {
     throw new Error('Product id is required');
   }
+  const normalizedMerchantId = merchantId?.trim();
+  if (!normalizedMerchantId) {
+    throw new Error('Merchant id is required');
+  }
 
   return apiClient<ArchiveProductResponse>(
     `/api/products/${encodeURIComponent(productId)}/archive`,
-    { method: 'PATCH' }
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ merchantId: normalizedMerchantId }),
+    }
   );
 }
 
 export function useArchiveProduct() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
+  const merchantId = merchant?.id?.trim() || undefined;
 
   return useMutation({
     mutationFn: ({ productId }: { productId: string }) =>
-      archiveProductById(productId),
+      archiveProductById(productId, merchantId),
     mutationKey: ['archiveProduct'],
     onMutate: (): ArchiveProductMutationContext => ({
-      merchantId: merchant?.id?.trim() || undefined,
+      merchantId,
     }),
     onSettled: async (_data, error, { productId }, context) => {
       const merchantId = context?.merchantId;
+      if (!merchantId) return;
       const productsQueryKey = merchantId
         ? ['products', merchantId]
         : ['products'];

@@ -176,4 +176,65 @@ describe('useStoreSettingsSaveLifecycle', () => {
       updatedAt: '2026-07-30T20:00:00.000Z',
     });
   });
+
+  it('does not apply a merchant A receipt after switching to merchant B during invalidation', async () => {
+    let releaseInvalidation!: () => void;
+    mocks.invalidateAfterSave.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        releaseInvalidation = resolve;
+      })
+    );
+    mocks.updateMerchant.mockResolvedValueOnce({
+      merchantId: 'merchant-1',
+      savedValues: formValues,
+      updatedAt: '2026-07-30T20:00:00.000Z',
+    });
+    const onRefreshedLocalSave = vi.fn();
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    let merchant = {
+      id: 'merchant-1',
+      updated_at: '2026-07-30T12:00:00Z',
+    };
+    const { result, rerender } = renderHook(
+      () => {
+        const [, setStatusModal] = useState<StatusModalState>({
+          visible: false,
+          type: 'success',
+          title: '',
+          message: '',
+        });
+        return useStoreSettingsSaveLifecycle({
+          baseline,
+          formValues,
+          from: undefined,
+          getFormRevision: () => 0,
+          merchant,
+          onRefreshedLocalSave,
+          queryClient,
+          resetFormDirty: vi.fn(),
+          router: { back: vi.fn() },
+          setStatusModal,
+          syncedMerchantUpdatedAt: '2026-07-30T12:00:00Z',
+        });
+      },
+      { wrapper }
+    );
+
+    act(() => result.current.saveMutation.mutate());
+    await waitFor(() => expect(mocks.invalidateAfterSave).toHaveBeenCalled());
+
+    merchant = {
+      id: 'merchant-2',
+      updated_at: '2026-07-30T20:01:00.000Z',
+    };
+    rerender();
+    await act(async () => releaseInvalidation());
+
+    expect(onRefreshedLocalSave).not.toHaveBeenCalled();
+  });
 });

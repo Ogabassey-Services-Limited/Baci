@@ -47,8 +47,25 @@ export function useVirtualTerminalSettings(options: {
       ) {
         return;
       }
-      setAccounts(data.accounts);
-      setBranches(data.branches);
+      if (!data.accounts.error) {
+        setAccounts(data.accounts.data);
+      }
+      if (!data.branches.error) {
+        setBranches(data.branches.data);
+      }
+      const requestError = data.accounts.error || data.branches.error;
+      if (requestError) {
+        toast({
+          variant: 'destructive',
+          title:
+            requestError.resource === 'accounts'
+              ? 'Failed to load accounts'
+              : requestError.resource === 'branches'
+                ? 'Failed to load branches'
+                : 'Connection error',
+          description: requestError.message,
+        });
+      }
       setLoadedMerchantId(merchantId);
     } catch (error) {
       if (

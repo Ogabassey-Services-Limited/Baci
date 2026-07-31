@@ -8,6 +8,8 @@ import {
 import {
   getBuilderAuthentication,
   getBuilderRequestContext,
+} from './builder-request-context';
+import {
   loadBuilderPayload,
   publishBuilderDraft,
   saveBuilderDraft,
@@ -37,7 +39,8 @@ export async function GET(request: NextRequest) {
   const contextResult = await getBuilderRequestContext(
     request,
     'view',
-    parsedQuery.data.merchantId
+    parsedQuery.data.merchantId,
+    authentication.auth
   );
   if (contextResult.response) {
     return contextResult.response;
@@ -86,7 +89,8 @@ export async function POST(request: NextRequest) {
   const contextResult = await getBuilderRequestContext(
     request,
     'edit',
-    parsed.data.merchantId
+    parsed.data.merchantId,
+    authentication.auth
   );
   if (contextResult.response) {
     return contextResult.response;
@@ -138,7 +142,8 @@ export async function PUT(request: NextRequest) {
   const contextResult = await getBuilderRequestContext(
     request,
     'edit',
-    parsed.data.merchantId
+    parsed.data.merchantId,
+    authentication.auth
   );
   if (contextResult.response) {
     return contextResult.response;

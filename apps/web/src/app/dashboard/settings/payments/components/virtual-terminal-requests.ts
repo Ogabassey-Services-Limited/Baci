@@ -10,47 +10,77 @@ export class VirtualTerminalRequestError extends Error {
   }
 }
 
-export async function fetchVirtualTerminalData(
-  merchantId: string
-): Promise<{ accounts: StaffAccount[]; branches: Branch[] }> {
-  let accountsResponse: Response;
-  let branchesResponse: Response;
-  try {
-    [accountsResponse, branchesResponse] = await Promise.all([
-      fetch(
-        `/api/paystack/virtual-terminal?${new URLSearchParams({ merchantId })}`
-      ),
-      fetch('/api/branches', {
-        headers: { 'x-baci-merchant-id': merchantId },
-      }),
-    ]);
-  } catch {
+type VirtualTerminalResourceResult<T> =
+  | { data: T[]; error: null }
+  | { data: null; error: VirtualTerminalRequestError };
+
+async function fetchVirtualTerminalResource<T>(options: {
+  dataKey: string;
+  errorMessage: string;
+  request: () => Promise<Response>;
+  resource: 'accounts' | 'branches';
+}): Promise<T[]> {
+  const response = await options.request();
+  if (!response.ok) {
     throw new VirtualTerminalRequestError(
-      'Unable to connect to the server. Please check your connection.',
-      'connection'
+      options.errorMessage,
+      options.resource
     );
   }
 
-  if (!accountsResponse.ok) {
-    throw new VirtualTerminalRequestError(
-      'Unable to fetch staff accounts. Please refresh the page.',
-      'accounts'
-    );
-  }
-  if (!branchesResponse.ok) {
-    throw new VirtualTerminalRequestError(
-      'Unable to fetch branch data. Please refresh the page.',
-      'branches'
-    );
+  const data = (await response.json()) as Record<string, T[] | undefined>;
+  return data[options.dataKey] || [];
+}
+
+function toVirtualTerminalResourceResult<T>(
+  result: PromiseSettledResult<T[]>,
+  resource: 'accounts' | 'branches'
+): VirtualTerminalResourceResult<T> {
+  if (result.status === 'fulfilled') {
+    return { data: result.value, error: null };
   }
 
-  const [accountsData, branchesData] = await Promise.all([
-    accountsResponse.json(),
-    branchesResponse.json(),
-  ]);
+  if (result.reason instanceof VirtualTerminalRequestError) {
+    return { data: null, error: result.reason };
+  }
+
   return {
-    accounts: accountsData.terminals || [],
-    branches: branchesData.branches || [],
+    data: null,
+    error: new VirtualTerminalRequestError(
+      'Unable to connect to the server. Please check your connection.',
+      resource
+    ),
+  };
+}
+
+export async function fetchVirtualTerminalData(merchantId: string): Promise<{
+  accounts: VirtualTerminalResourceResult<StaffAccount>;
+  branches: VirtualTerminalResourceResult<Branch>;
+}> {
+  const [accountsResult, branchesResult] = await Promise.allSettled([
+    fetchVirtualTerminalResource<StaffAccount>({
+      dataKey: 'terminals',
+      errorMessage: 'Unable to fetch staff accounts. Please refresh the page.',
+      request: () =>
+        fetch(
+          `/api/paystack/virtual-terminal?${new URLSearchParams({ merchantId })}`
+        ),
+      resource: 'accounts',
+    }),
+    fetchVirtualTerminalResource<Branch>({
+      dataKey: 'branches',
+      errorMessage: 'Unable to fetch branch data. Please refresh the page.',
+      request: () =>
+        fetch('/api/branches', {
+          headers: { 'x-baci-merchant-id': merchantId },
+        }),
+      resource: 'branches',
+    }),
+  ]);
+
+  return {
+    accounts: toVirtualTerminalResourceResult(accountsResult, 'accounts'),
+    branches: toVirtualTerminalResourceResult(branchesResult, 'branches'),
   };
 }
 

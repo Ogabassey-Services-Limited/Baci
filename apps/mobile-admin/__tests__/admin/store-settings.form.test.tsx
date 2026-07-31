@@ -136,7 +136,7 @@ describe('StoreSettingsScreen form', () => {
     expect(settings).not.toHaveProperty('phone');
   });
 
-  it('saves the prefilled merchant email as public support contact', async () => {
+  it('does not save the prefilled merchant email with an unrelated phone edit', async () => {
     mocks.useMerchant.mockReturnValue({
       merchant: {
         ...defaultMerchant,
@@ -160,7 +160,7 @@ describe('StoreSettingsScreen form', () => {
     expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith({
       expectedUpdatedAt: defaultMerchant.updated_at,
       merchantId: defaultMerchant.id,
-      settings: { phone: '+2348011111111', support_email: 'owner@usebaci.com' },
+      settings: { phone: '+2348011111111' },
     });
   });
 

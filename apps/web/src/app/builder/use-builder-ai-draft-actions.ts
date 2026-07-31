@@ -98,7 +98,8 @@ export function useBuilderAiDraftActions({
   }
 
   async function applyAiDraft(force = false) {
-    if (!aiDraftJobId || !canApplyAiDraft) {
+    const selectedMerchantId = merchantId;
+    if (!aiDraftJobId || !canApplyAiDraft || !selectedMerchantId) {
       toast({
         title: 'Cannot apply this draft',
         description:
@@ -112,9 +113,10 @@ export function useBuilderAiDraftActions({
     await applyAiDraftRequest({
       aiDraftJobId,
       force,
+      merchantId: selectedMerchantId,
       isCurrentRequest: () =>
         requestSequenceRef.current === requestSequence &&
-        merchantIdRef.current === merchantId,
+        merchantIdRef.current === selectedMerchantId,
       router,
       toast,
       setShowStaleAiDraftDialog,

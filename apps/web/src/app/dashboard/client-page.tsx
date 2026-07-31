@@ -383,7 +383,7 @@ export default function DashboardClientPage({
         className="animate-in fade-in slide-in-from-bottom-4 duration-500"
         style={{ animationFillMode: 'both' }}
       >
-        <StoreBuildStatusCard />
+        <StoreBuildStatusCard merchantId={merchant?.id} />
         <SetupChecklist dismissible />
       </div>
 

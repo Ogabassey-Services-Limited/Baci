@@ -130,9 +130,26 @@ describe('merchant settings mutation clients', () => {
     expect(Object.isFrozen(receipt.savedValues)).toBe(true);
   });
 
-  it('rejects a non-exact committed receipt from the RPC', async () => {
+  it('accepts a committed receipt with extra response columns', async () => {
     mocks.rpc.mockResolvedValueOnce({
       data: { ...committedIdentitySettings, unexpected: 'unsafe' },
+      error: null,
+    });
+
+    await expect(
+      updateMerchantIdentitySettings({
+        expectedUpdatedAt: '2026-07-29T10:00:00Z',
+        merchantId: 'merchant-1',
+        settings: { business_name: 'Baci Store' },
+      })
+    ).resolves.toMatchObject({ merchantId: 'merchant-1' });
+  });
+
+  it('rejects a committed receipt missing an expected identity key', async () => {
+    const { country: _country, ...receiptWithoutCountry } =
+      committedIdentitySettings;
+    mocks.rpc.mockResolvedValueOnce({
+      data: receiptWithoutCountry,
       error: null,
     });
 

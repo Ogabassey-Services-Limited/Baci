@@ -4,6 +4,10 @@ import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import type { DashboardMetrics, MonthlyChartData } from './actions';
 import DashboardClientPage from './client-page';
 
+const { mockStoreBuildStatusCard } = vi.hoisted(() => ({
+  mockStoreBuildStatusCard: vi.fn(),
+}));
+
 vi.mock('next/dynamic', () => ({
   default: () =>
     function DynamicChartStub() {
@@ -20,7 +24,10 @@ vi.mock('@/components/dashboard/setup-checklist', () => ({
 }));
 
 vi.mock('@/components/dashboard/store-build-status-card', () => ({
-  StoreBuildStatusCard: () => <div data-testid="store-build-status-card" />,
+  StoreBuildStatusCard: (props: { merchantId?: string }) => {
+    mockStoreBuildStatusCard(props);
+    return <div data-testid="store-build-status-card" />;
+  },
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
@@ -58,6 +65,22 @@ const chartData: MonthlyChartData[] = [
 ];
 
 describe('DashboardClientPage', () => {
+  it('passes the selected merchant ID to store build status actions', async () => {
+    render(
+      <DashboardClientPage
+        initialChartData={chartData}
+        initialMetrics={metrics}
+        initialRecentSales={[]}
+      />
+    );
+
+    await screen.findByTestId('store-build-status-card');
+
+    expect(mockStoreBuildStatusCard).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+    });
+  });
+
   it('labels paid 30-day dashboard metrics as period-scoped values', async () => {
     render(
       <DashboardClientPage

@@ -13,6 +13,7 @@ import {
   buildBaselineFromMerchant,
   buildInitialFormValues,
   hasNonEmptyTrimmedValue,
+  rebaseStoreSettingsBaseline,
   type StoreSettingsFormValues,
 } from '@/components/store-settings/store-settings-payload';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
@@ -96,6 +97,9 @@ export default function StoreSettingsScreen() {
   }
 
   const hasEstablishedMerchantSlug = hasNonEmptyTrimmedValue(baseline?.slug);
+  const authEmailPrefill = syncedMerchant?.support_email
+    ? ''
+    : syncedMerchant?.email || '';
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
     markFormDirty();
@@ -140,7 +144,14 @@ export default function StoreSettingsScreen() {
   const adoptRefreshedLocalSave = (save: RefreshedLocalStoreSettingsSave) => {
     setSyncedMerchantUpdatedAt(save.updatedAt);
     setBaseline((previous) =>
-      previous ? { ...previous, ...save.savedValues } : previous
+      previous
+        ? rebaseStoreSettingsBaseline(
+            previous,
+            save.savedValues,
+            authEmailPrefill,
+            email
+          )
+        : previous
     );
   };
 

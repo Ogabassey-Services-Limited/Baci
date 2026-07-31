@@ -1,58 +1,18 @@
 import { execFile } from 'node:child_process';
-import {
-  cp,
-  mkdtemp,
-  readFile,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createReplayManifestTestWorkspace } from './replay-manifest-test-workspace.test-support';
 import { supabaseHistoryReplayManifest } from './supabase-history-replay-manifest';
 import { verifySupabaseHistoryReplayManifest } from './verify-supabase-history-replay-manifest';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../../..');
-const temporaryRoots: string[] = [];
 const execFileAsync = promisify(execFile);
+const replayManifestWorkspace = createReplayManifestTestWorkspace();
+const WORKSPACE_ROOT = replayManifestWorkspace.workspaceRoot;
+const copyWorkspace = replayManifestWorkspace.copyWorkspace;
 
-async function copyWorkspace(prefix = 'baci-replay-verifier-') {
-  const root = await mkdtemp(path.join(tmpdir(), prefix));
-  temporaryRoots.push(root);
-  await execFileAsync('git', [
-    'clone',
-    '--shared',
-    '--no-checkout',
-    WORKSPACE_ROOT,
-    root,
-  ]);
-  await cp(
-    path.join(WORKSPACE_ROOT, 'supabase/migrations'),
-    path.join(root, 'supabase/migrations'),
-    { recursive: true }
-  );
-  await cp(
-    path.join(WORKSPACE_ROOT, 'supabase/tests/migration_history_overlays'),
-    path.join(root, 'supabase/tests/migration_history_overlays'),
-    { recursive: true }
-  );
-  await cp(
-    path.join(WORKSPACE_ROOT, 'apps/web/tools/db/fixtures'),
-    path.join(root, 'apps/web/tools/db/fixtures'),
-    { recursive: true }
-  );
-  return root;
-}
-
-afterEach(async () => {
-  await Promise.all(
-    temporaryRoots
-      .splice(0)
-      .map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
+afterEach(replayManifestWorkspace.cleanUp);
 
 describe('verifySupabaseHistoryReplayManifest', () => {
   it('keeps the historical quiz migration immutable and replay-transformable', async () => {
