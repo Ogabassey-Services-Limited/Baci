@@ -114,5 +114,5 @@ export function resetVerifyCacMocks() {
 }
 
 export async function loadVerifyCacPost() {
-  return (await import('./route')).POST;
+  return (await import('../../../src/app/api/merchant/verify-cac/route')).POST;
 }

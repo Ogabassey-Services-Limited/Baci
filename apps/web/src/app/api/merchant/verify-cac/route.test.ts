@@ -10,7 +10,7 @@ import {
   makeSupabaseMock,
   makeValidFile,
   resetVerifyCacMocks,
-} from './route.test-support';
+} from '../../../../../tools/events/fixtures/verify-cac-route-test-support';
 
 describe('POST /api/merchant/verify-cac request validation', () => {
   let POST: typeof import('./route').POST;
