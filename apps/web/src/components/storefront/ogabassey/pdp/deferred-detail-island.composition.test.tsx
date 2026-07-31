@@ -50,7 +50,7 @@ describe('OgabasseyPdpDeferredDetailClient description composition', () => {
       isActive: false,
       ref: { current: null },
     });
-    const { rerender } = render(
+    const { container, rerender } = render(
       <OgabasseyPdpDeferredDetailClient
         descriptionSlot={descriptionSlot}
         loadDetailsComponent={() =>
@@ -69,6 +69,9 @@ describe('OgabasseyPdpDeferredDetailClient description composition', () => {
     expect(
       screen.getByRole('status', { name: /loading product details/i })
     ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-ogabassey-pdp-deferred-description-panel]')
+    ).not.toBeNull();
 
     mockUseViewportActivation.mockReturnValue({
       isActive: true,
@@ -91,5 +94,55 @@ describe('OgabasseyPdpDeferredDetailClient description composition', () => {
       await screen.findByRole('tabpanel', { name: 'Description' })
     ).toHaveTextContent('Creator laptop with RTX graphics.');
     expect(screen.getAllByText('Creator laptop with RTX graphics.')).toHaveLength(1);
+    expect(
+      container.querySelector('[data-ogabassey-pdp-deferred-description-panel]')
+    ).toBeNull();
   });
+
+  it('keeps one server description in the stable panel when the real deferred loader rejects', async () => {
+    mockUseViewportActivation.mockReturnValue({
+      isActive: false,
+      ref: { current: null },
+    });
+    const rejectingLoader = () => Promise.reject(new Error('chunk failed'));
+    const { container, rerender } = render(
+      <OgabasseyPdpDeferredDetailClient
+        descriptionSlot={descriptionSlot}
+        loadDetailsComponent={rejectingLoader}
+        productData={productData}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(screen.getAllByText('Creator laptop with RTX graphics.')).toHaveLength(1);
+    expect(
+      container.querySelector('[data-ogabassey-pdp-deferred-description-container]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-ogabassey-pdp-deferred-description-panel]')
+    ).not.toBeNull();
+
+    mockUseViewportActivation.mockReturnValue({
+      isActive: true,
+      ref: { current: null },
+    });
+    rerender(
+      <OgabasseyPdpDeferredDetailClient
+        descriptionSlot={descriptionSlot}
+        loadDetailsComponent={rejectingLoader}
+        productData={productData}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /product details could not be loaded/i
+    );
+    expect(screen.getAllByText('Creator laptop with RTX graphics.')).toHaveLength(1);
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-ogabassey-pdp-deferred-description-panel]')
+    ).not.toBeNull();
+  });
+
 });

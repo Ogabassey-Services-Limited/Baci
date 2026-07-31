@@ -76,6 +76,7 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
 
     render(
       <OgabasseyPdpDeferredDetailClient
+        descriptionSlot={<p>Persistent server description.</p>}
         loadDetailsComponent={() => Promise.reject(new Error('chunk failed'))}
         productData={productData}
         storeSlug="ogabassey"
@@ -84,6 +85,7 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/product details could not be loaded/i);
+    expect(screen.getAllByText('Persistent server description.')).toHaveLength(1);
     expect(mockDeferredTabsClient).not.toHaveBeenCalled();
   });
 
