@@ -22,47 +22,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-
-interface ImportResultData {
-  success: number;
-  failed: number;
-  errors: string[];
-}
-
-type BulkImportResult =
-  | { status: 'ok'; data: ImportResultData }
-  | { status: 'error'; error: unknown };
-
-const BULK_IMPORT_TIMEOUT_MS = 30_000;
-
-// Module-scope so the try/catch stays out of the component body — the React
-// Compiler cannot lower try/finally clauses inside a component.
-async function uploadProductCsv(file: File): Promise<BulkImportResult> {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(
-    () => controller.abort(),
-    BULK_IMPORT_TIMEOUT_MS
-  );
-
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await fetch('/api/products/bulk-import', {
-      method: 'POST',
-      body: formData,
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error('Upload failed');
-    }
-    const data = (await response.json()) as ImportResultData;
-    return { status: 'ok', data };
-  } catch (error) {
-    return { status: 'error', error };
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
+import {
+  type ProductCsvImportResultData,
+  uploadProductCsv,
+} from '@/lib/imports/upload-product-csv';
 
 interface CSVBulkImportDialogProps {
   open: boolean;
@@ -78,7 +41,7 @@ export function CSVBulkImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [result, setResult] = useState<ImportResultData | null>(null);
+  const [result, setResult] = useState<ProductCsvImportResultData | null>(null);
   const { toast } = useToast();
 
   const downloadTemplate = () => {
