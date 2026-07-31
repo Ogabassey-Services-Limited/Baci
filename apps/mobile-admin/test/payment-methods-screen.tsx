@@ -6,12 +6,20 @@ type QueryConfig = {
   queryFn: () => Promise<unknown>;
 };
 
+type MutationVariables = { field: string; value: boolean };
+type MutationContext = { previousSettings?: unknown };
+
 type MutationConfig = {
+  mutationFn: (variables: MutationVariables) => Promise<void>;
+  onMutate?: (
+    variables: MutationVariables
+  ) => Promise<MutationContext | undefined>;
   onError?: (
     error: Error,
     variables: unknown,
-    context?: { previousSettings?: unknown }
+    context?: MutationContext
   ) => void;
+  onSettled?: () => void;
 };
 
 interface MockUseMerchantResult {
@@ -23,12 +31,12 @@ interface MockUseMerchantResult {
 const hoistedMocks = vi.hoisted(() => ({
   alert: vi.fn(),
   eq: vi.fn(),
+  from: vi.fn(),
   invalidateQueries: vi.fn(),
-  mutate: vi.fn(),
-  mutationConfig: undefined as MutationConfig | undefined,
   openURL: vi.fn(),
   refetch: vi.fn(),
   select: vi.fn(),
+  update: vi.fn(),
   setQueryData: vi.fn(),
   single: vi.fn(),
   useMerchantResult: {
@@ -52,16 +60,26 @@ vi.mock('expo-router', async () => {
 
 vi.mock('@tanstack/react-query', () => ({
   useMutation: (config: MutationConfig) => {
-    mocks.mutationConfig = config;
     return {
       isPending: false,
-      mutate: mocks.mutate,
+      mutate: (variables: MutationVariables) => {
+        void (async () => {
+          const context = await config.onMutate?.(variables);
+          try {
+            await config.mutationFn(variables);
+          } catch (error) {
+            config.onError?.(error as Error, variables, context);
+          } finally {
+            config.onSettled?.();
+          }
+        })();
+      },
     };
   },
   useQuery: (config: QueryConfig) => mocks.useQuery(config),
   useQueryClient: () => ({
     cancelQueries: vi.fn(),
-    getQueryData: vi.fn(),
+    getQueryData: vi.fn(() => paymentSettings),
     invalidateQueries: mocks.invalidateQueries,
     setQueryData: mocks.setQueryData,
   }),
@@ -102,11 +120,16 @@ vi.mock('@/components/ui/ScreenSkeleton', async () => {
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({
-      select: mocks.select,
-    }),
+    from: mocks.from,
   },
 }));
+
+function createMerchantFeatureSettingsQuery() {
+  return {
+    select: mocks.select,
+    update: mocks.update,
+  };
+}
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
@@ -151,6 +174,8 @@ vi.mock('react-native', () => ({
       checked={!!value}
       disabled={disabled}
       onChange={(event) => onValueChange?.(event.currentTarget.checked)}
+      aria-checked={!!value}
+      role="switch"
       type="checkbox"
     />
   ),
@@ -183,12 +208,12 @@ export const paymentSettings = {
 export function resetPaymentMethodsScreenMocks() {
   mocks.alert.mockReset();
   mocks.eq.mockReset();
+  mocks.from.mockReset();
   mocks.invalidateQueries.mockReset();
-  mocks.mutate.mockReset();
-  mocks.mutationConfig = undefined;
   mocks.openURL.mockReset();
   mocks.refetch.mockReset();
   mocks.select.mockReset();
+  mocks.update.mockReset();
   mocks.setQueryData.mockReset();
   mocks.single.mockReset();
   mocks.useMerchantResult = {
@@ -200,6 +225,8 @@ export function resetPaymentMethodsScreenMocks() {
   mocks.single.mockResolvedValue({ data: paymentSettings, error: null });
   mocks.eq.mockReturnValue({ single: mocks.single });
   mocks.select.mockReturnValue({ eq: mocks.eq });
+  mocks.update.mockReturnValue({ eq: mocks.eq });
+  mocks.from.mockReturnValue(createMerchantFeatureSettingsQuery());
   mocks.useQuery.mockReturnValue({
     data: paymentSettings,
     error: null,

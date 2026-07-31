@@ -17,6 +17,17 @@ INSERT INTO auth.users (id, email) VALUES
   ('9b2a0000-0000-4000-8000-000000000010', 'collision-tester@example.test'),
   ('9b2a0000-0000-4000-8000-000000000011', 'pending-owner@example.test');
 
+-- These seed rows are database-side setup, not authenticated product writes.
+-- Clear any inherited test JWT and use a bounded owner actor only while they
+-- are inserted, then clear it before each authenticated RPC assertion.
+SELECT pg_catalog.set_config('request.jwt.claim.role', '', true);
+SELECT pg_catalog.set_config('request.jwt.claim.sub', '', true);
+SELECT pg_catalog.set_config('request.jwt.claims', '{}'::jsonb::text, true);
+SELECT pg_catalog.set_config(
+  'app.audit_actor_user_id',
+  '9b2a0000-0000-4000-8000-000000000002',
+  true
+);
 INSERT INTO public.merchants (
   id, user_id, email, business_name, business_type, country,
   payout_currency, slug, signup_source
@@ -38,6 +49,8 @@ INSERT INTO public.domains (
   'domain-mobile-clash.usebaci.com', '.usebaci.com',
   'subdomain', 'active', true
 );
+SELECT pg_catalog.set_config('app.audit_actor_user_id', '', true);
+\ir provision_mobile_merchant_v2/000_seed_audit_attribution.sql
 
 SELECT set_config(
   'request.jwt.claim.sub',
@@ -240,6 +253,14 @@ END
 $test$;
 
 RESET ROLE;
+SELECT pg_catalog.set_config('request.jwt.claim.role', '', true);
+SELECT pg_catalog.set_config('request.jwt.claim.sub', '', true);
+SELECT pg_catalog.set_config('request.jwt.claims', '{}'::jsonb::text, true);
+SELECT pg_catalog.set_config(
+  'app.audit_actor_user_id',
+  '9b2a0000-0000-4000-8000-000000000004',
+  true
+);
 INSERT INTO public.merchants (
   id, user_id, email, business_name, business_type, country,
   payout_currency, slug, signup_source
@@ -255,6 +276,7 @@ INSERT INTO public.domains (
   '9b2a1000-0000-4000-8000-000000000004',
   'repair-store.example', '.example', 'custom', 'active', true
 );
+SELECT pg_catalog.set_config('app.audit_actor_user_id', '', true);
 SELECT set_config(
   'request.jwt.claim.sub',
   '9b2a0000-0000-4000-8000-000000000004',
@@ -296,6 +318,14 @@ $test$;
 
 -- A foreign owner-staff identity fails closed and rolls profile changes back.
 RESET ROLE;
+SELECT pg_catalog.set_config('request.jwt.claim.role', '', true);
+SELECT pg_catalog.set_config('request.jwt.claim.sub', '', true);
+SELECT pg_catalog.set_config('request.jwt.claims', '{}'::jsonb::text, true);
+SELECT pg_catalog.set_config(
+  'app.audit_actor_user_id',
+  '9b2a0000-0000-4000-8000-000000000006',
+  true
+);
 INSERT INTO public.merchants (
   id, user_id, email, business_name, business_type, country,
   payout_currency, slug, signup_source
@@ -312,6 +342,7 @@ INSERT INTO public.staff_members (
   '9b2a1000-0000-4000-8000-000000000006',
   'staff-owner@example.test', 'Foreign Identity', 'manager', 'active'
 );
+SELECT pg_catalog.set_config('app.audit_actor_user_id', '', true);
 SELECT set_config(
   'request.jwt.claim.sub',
   '9b2a0000-0000-4000-8000-000000000006',
@@ -345,6 +376,14 @@ $test$;
 
 -- An unowned pending same-email staff row is claimed, cleared, and activated.
 RESET ROLE;
+SELECT pg_catalog.set_config('request.jwt.claim.role', '', true);
+SELECT pg_catalog.set_config('request.jwt.claim.sub', '', true);
+SELECT pg_catalog.set_config('request.jwt.claims', '{}'::jsonb::text, true);
+SELECT pg_catalog.set_config(
+  'app.audit_actor_user_id',
+  '9b2a0000-0000-4000-8000-000000000011',
+  true
+);
 INSERT INTO public.merchants (
   id, user_id, email, business_name, business_type, country,
   payout_currency, slug, signup_source
@@ -362,6 +401,7 @@ INSERT INTO public.staff_members (
   'pending-owner@example.test', 'Pending Owner', 'manager', 'pending',
   'mobile-pending-owner-token', pg_catalog.now() + interval '1 day'
 );
+SELECT pg_catalog.set_config('app.audit_actor_user_id', '', true);
 SELECT set_config(
   'request.jwt.claim.sub',
   '9b2a0000-0000-4000-8000-000000000011',
