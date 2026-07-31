@@ -5,7 +5,6 @@ import {
   readdir,
   readFile,
   rename,
-  unlink,
 } from 'node:fs/promises';
 import { basename, isAbsolute, join } from 'node:path';
 
@@ -34,7 +33,15 @@ export type CloudflareEvidenceRunJournal = {
   readBackEvidence: readonly string[];
   writeTokenRevokedAt?: string;
   readTokenRevokedAt?: string;
+  writeTokenRevocationReceipt?: TokenRevocationReceipt;
+  readTokenRevocationReceipt?: TokenRevocationReceipt;
 };
+export type TokenRevocationReceipt = Readonly<{
+  tokenId: string;
+  status: 'revoked';
+  providerReceiptSha256: string;
+  observedAt: string;
+}>;
 export type EvidenceRunInput = Omit<
   CloudflareEvidenceRunJournal,
   | 'mutations'
@@ -82,6 +89,7 @@ async function writeJournal(
   }
 }
 async function readJournal(stateDir: string, runId: string) {
+  await verifyDirectory(stateDir);
   const target = journalPath(stateDir, runId);
   const stat = await lstat(target);
   if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o077) !== 0)
@@ -148,6 +156,10 @@ export async function recordEvidencePhase(
   > = {}
 ) {
   const journal = await readJournal(stateDir, runId);
+  if (phase === 'write_token_revoked' || phase === 'read_token_revoked')
+    throw new Error('token revocation requires an authenticated receipt');
+  if ('writeTokenRevokedAt' in details || 'readTokenRevokedAt' in details)
+    throw new Error('caller timestamps cannot prove token revocation');
   Object.assign(journal, details);
   if (
     terminal.has(phase) &&
@@ -160,11 +172,45 @@ export async function recordEvidencePhase(
   await writeJournal(stateDir, journal);
   return journal;
 }
+function validateRevocationReceipt(
+  expectedTokenId: string,
+  receipt: TokenRevocationReceipt
+) {
+  if (
+    receipt.tokenId !== expectedTokenId ||
+    receipt.status !== 'revoked' ||
+    !/^[a-f0-9]{64}$/.test(receipt.providerReceiptSha256) ||
+    Number.isNaN(new Date(receipt.observedAt).valueOf())
+  )
+    throw new Error('token revocation receipt does not match the journal');
+}
+
+/** Records only a provider-read-back revocation receipt for the journaled token ID. */
+export async function recordTokenRevocation(
+  stateDir: string,
+  runId: string,
+  kind: 'write' | 'read',
+  receipt: TokenRevocationReceipt
+) {
+  const journal = await readJournal(stateDir, runId);
+  validateRevocationReceipt(
+    kind === 'write' ? journal.writeTokenId : journal.readTokenId,
+    receipt
+  );
+  if (kind === 'write') {
+    journal.writeTokenRevocationReceipt = receipt;
+    journal.writeTokenRevokedAt = receipt.observedAt;
+    journal.phase = 'write_token_revoked';
+  } else {
+    if (!journal.writeTokenRevocationReceipt)
+      throw new Error('write token revocation must be verified first');
+    journal.readTokenRevocationReceipt = receipt;
+    journal.readTokenRevokedAt = receipt.observedAt;
+    journal.phase = 'read_token_revoked';
+  }
+  await writeJournal(stateDir, journal);
+  return journal;
+}
 export function loadEvidenceRunForCleanup(stateDir: string, runId: string) {
   return readJournal(stateDir, runId);
-}
-export async function discardEvidenceRunTempFile(path: string) {
-  if (!path.endsWith('.tmp'))
-    throw new Error('only journal temp files may be discarded');
-  await unlink(path);
 }

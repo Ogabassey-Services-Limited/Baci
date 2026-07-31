@@ -10,13 +10,18 @@ export type VerifiedEvidenceReadCapability = Readonly<
     readonly providerNegativeScopeUnverified: true;
   }
 >;
+export type ReviewedCloudflarePermissionMetadata = Readonly<{
+  id: string;
+  capability: 'read' | 'write' | 'admin';
+}>;
 
 /** Verifies a distinct read-only token; it cannot be used where mutation capability is required. */
 export async function verifyCloudflareEvidenceReadTokenPolicy(
   liveToken: string,
   ownerExport: unknown,
   reviewedPolicy: unknown,
-  client: CloudflareTokenVerificationClient
+  client: CloudflareTokenVerificationClient,
+  permissionMetadata: readonly ReviewedCloudflarePermissionMetadata[] = []
 ): Promise<VerifiedEvidenceReadCapability> {
   const verified = await verifyCloudflareEvidenceTokenPolicy(
     liveToken,
@@ -24,11 +29,18 @@ export async function verifyCloudflareEvidenceReadTokenPolicy(
     reviewedPolicy,
     client
   );
-  if (
-    verified.permissionGroupIds.some((permission) =>
-      /(?:write|edit|delete|purge|create)/i.test(permission)
-    )
-  )
-    throw new Error('Cloudflare read token contains a write permission');
+  for (const permissionId of verified.permissionGroupIds) {
+    const metadata = permissionMetadata.find(
+      (entry) => entry.id === permissionId
+    );
+    if (!metadata)
+      throw new Error(
+        'Cloudflare read token permission is not in the reviewed allowlist'
+      );
+    if (metadata.capability !== 'read')
+      throw new Error(
+        'Cloudflare read token contains a write or non-read-only permission'
+      );
+  }
   return Object.freeze({ ...verified, kind: 'read' as const });
 }

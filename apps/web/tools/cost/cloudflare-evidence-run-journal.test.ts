@@ -1,4 +1,4 @@
-import { chmod, lstat, mkdtemp, readFile } from 'node:fs/promises';
+import { chmod, lstat, mkdtemp, readFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -7,6 +7,7 @@ import {
   openEvidenceRun,
   recordEvidenceMutation,
   recordEvidencePhase,
+  recordTokenRevocation,
 } from './cloudflare-evidence-run-journal';
 
 const input = {
@@ -50,5 +51,35 @@ describe('CloudflareEvidenceRunJournal', () => {
     await expect(
       recordEvidencePhase(dir, input.runId, 'proof_complete')
     ).rejects.toThrow('revocation');
+  });
+  it('never follows traversal or symlink journal paths', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await expect(
+      openEvidenceRun(dir, { ...input, runId: '../outside' })
+    ).rejects.toThrow('invalid');
+    await symlink('/tmp', join(dir, 'run-123.json'));
+    await expect(loadEvidenceRunForCleanup(dir, input.runId)).rejects.toThrow(
+      'regular'
+    );
+  });
+  it('only records authenticated token-revocation receipts, never caller timestamps', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, input);
+    await expect(
+      recordEvidencePhase(dir, input.runId, 'write_token_revoked', {
+        writeTokenRevokedAt: new Date().toISOString(),
+      })
+    ).rejects.toThrow('receipt');
+    await recordTokenRevocation(dir, input.runId, 'write', {
+      tokenId: 'write',
+      status: 'revoked',
+      providerReceiptSha256: 'd'.repeat(64),
+      observedAt: '2026-07-31T00:00:00.000Z',
+    });
+    expect(
+      (await loadEvidenceRunForCleanup(dir, input.runId)).writeTokenRevokedAt
+    ).toBe('2026-07-31T00:00:00.000Z');
   });
 });

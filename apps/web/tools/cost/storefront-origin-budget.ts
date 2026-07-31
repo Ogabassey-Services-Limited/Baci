@@ -1,3 +1,5 @@
+import { lstat, readFile } from 'node:fs/promises';
+import { isAbsolute, resolve } from 'node:path';
 import {
   type StorefrontDeliveryEvidenceManifest,
   validateStorefrontDeliveryManifest,
@@ -26,8 +28,7 @@ export function summarizeStorefrontDelivery(
   value: unknown
 ): StorefrontDeliverySummary {
   const validation = validateStorefrontDeliveryManifest(value);
-  const manifest = value as StorefrontDeliveryEvidenceManifest;
-  const days = Array.isArray(manifest?.days) ? manifest.days : [];
+  const days = validation.ok ? validation.manifest.days : [];
   const canonicalEligibleRequests = sum(
     days.map((day) => day.canonicalEligibleRequestCount ?? 0)
   );
@@ -62,7 +63,14 @@ export function summarizeStorefrontDelivery(
         day.maxSampleInterval === 1 &&
         day.invocationCountExact &&
         day.totalDecisionCount === day.workerInvocationCount &&
-        day.aliasEligibleRequestCount === day.aliasEdgeRedirectCount
+        day.aliasEligibleRequestCount === day.aliasEdgeRedirectCount &&
+        Object.values(day.sourceEvidence).every(
+          (source) =>
+            source.complete &&
+            source.exact &&
+            !source.providerSamplingApplied &&
+            source.maxSampleInterval === 1
+        )
     );
   const evidenceMode = evidenceComplete ? 'census' : 'sampled';
   const hardFailure =
@@ -90,11 +98,51 @@ export function summarizeStorefrontDelivery(
   };
 }
 
+export async function readSealedStorefrontDeliveryManifest(
+  path: string,
+  options: {
+    environment: 'production' | 'comparison';
+    thresholdOverride?: number;
+  } = {
+    environment: 'production',
+  }
+): Promise<StorefrontDeliveryEvidenceManifest> {
+  if (!isAbsolute(path) || resolve(path) !== path)
+    throw new Error('manifest path must be an absolute canonical path');
+  if (
+    options.environment === 'production' &&
+    options.thresholdOverride !== undefined
+  )
+    throw new Error('production cost gate rejects threshold overrides');
+  if ((await lstat(path)).isSymbolicLink())
+    throw new Error('manifest path must not traverse a symlink');
+  const validation = validateStorefrontDeliveryManifest(
+    JSON.parse(await readFile(path, 'utf8'))
+  );
+  if (!validation.ok)
+    throw new Error(
+      `sealed manifest is invalid: ${validation.reasonCodes.join(',')}`
+    );
+  return validation.manifest;
+}
+
+export function parseStorefrontOriginBudgetArguments(args: readonly string[]) {
+  if (args.length !== 2 || args[0] !== '--manifest' || !args[1])
+    throw new Error(
+      'cost gate accepts only --manifest <absolute-sealed-manifest>'
+    );
+  return { manifestPath: args[1] };
+}
+
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href
 ) {
-  throw new Error(
-    'Pass a sealed manifest through the audited cost tooling; this gate never reads raw request rows.'
+  const { manifestPath } = parseStorefrontOriginBudgetArguments(
+    process.argv.slice(2)
+  );
+  const manifest = await readSealedStorefrontDeliveryManifest(manifestPath);
+  process.stdout.write(
+    `${JSON.stringify(summarizeStorefrontDelivery(manifest))}\n`
   );
 }

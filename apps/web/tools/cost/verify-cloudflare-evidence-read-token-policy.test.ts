@@ -13,17 +13,49 @@ const policy = {
 describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
   it('brands a separate read capability and rejects every write permission', async () => {
     await expect(
-      verifyCloudflareEvidenceReadTokenPolicy('token', policy, policy, {
-        verify: async () => ({ id: 'read-id', status: 'active' }),
-      })
+      verifyCloudflareEvidenceReadTokenPolicy(
+        'token',
+        policy,
+        policy,
+        {
+          verify: async () => ({ id: 'read-id', status: 'active' }),
+        },
+        [{ id: 'analytics.read', capability: 'read' }]
+      )
     ).resolves.toBeDefined();
     await expect(
       verifyCloudflareEvidenceReadTokenPolicy(
         'token',
         { ...policy, permissionGroupIds: ['workers.write'] },
         { ...policy, permissionGroupIds: ['workers.write'] },
-        { verify: async () => ({ id: 'read-id', status: 'active' }) }
+        { verify: async () => ({ id: 'read-id', status: 'active' }) },
+        [{ id: 'workers.write', capability: 'write' }]
       )
     ).rejects.toThrow('write');
+  });
+  it('rejects opaque permission IDs unless reviewed metadata proves read-only capability', async () => {
+    const opaque = { ...policy, permissionGroupIds: ['018f-opaque-write-id'] };
+    const client = {
+      verify: async () => ({ id: 'read-id', status: 'active' }),
+    };
+    await expect(
+      verifyCloudflareEvidenceReadTokenPolicy(
+        'token',
+        opaque,
+        opaque,
+        client,
+        []
+      )
+    ).rejects.toThrow('allowlist');
+    await expect(
+      verifyCloudflareEvidenceReadTokenPolicy('token', opaque, opaque, client, [
+        { id: '018f-opaque-write-id', capability: 'write' },
+      ])
+    ).rejects.toThrow('read-only');
+    await expect(
+      verifyCloudflareEvidenceReadTokenPolicy('token', opaque, opaque, client, [
+        { id: '018f-opaque-write-id', capability: 'read' },
+      ])
+    ).resolves.toMatchObject({ kind: 'read' });
   });
 });

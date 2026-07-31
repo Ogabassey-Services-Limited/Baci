@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { StorefrontDeliveryDailyEvidenceSchema } from './delivery-evidence';
+import {
+  calculateCanonicalSha256,
+  calculateStorefrontDeliveryDailyEvidenceSha256,
+  StorefrontDeliveryDailyEvidenceSchema,
+} from './delivery-evidence';
 
 const dailyEvidence = {
   utcDate: '2026-07-01',
@@ -33,10 +37,47 @@ const dailyEvidence = {
   rejectedMethodRequestCount: 0,
   rejectedMethodOriginCount: 0,
   allowedOriginRateLimitCount: 0,
-  sha256: 'c'.repeat(64),
+  sourceEvidence: {
+    invocation: {
+      sourceFingerprint: 'invocation-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+    aliasRedirect: {
+      sourceFingerprint: 'alias-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+    wafRateLimit: {
+      sourceFingerprint: 'waf-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+    originEvent: {
+      sourceFingerprint: 'origin-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+  },
+  sha256: '',
 };
+dailyEvidence.sha256 =
+  calculateStorefrontDeliveryDailyEvidenceSha256(dailyEvidence);
 
 describe('StorefrontDeliveryDailyEvidenceSchema', () => {
+  it('uses the canonical SHA-256 digest rather than a runtime-specific hash provider', () => {
+    expect(calculateCanonicalSha256('abc')).toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+    );
+  });
   it('accepts bounded aggregate evidence and rejects raw request rows', () => {
     expect(
       StorefrontDeliveryDailyEvidenceSchema.safeParse(dailyEvidence).success
@@ -68,5 +109,19 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
         sha256: 'not-a-hash',
       }).success
     ).toBe(false);
+  });
+  it('requires each independent source to be exact, complete, and unsampled', () => {
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse({
+        ...dailyEvidence,
+        sourceEvidence: {
+          ...dailyEvidence.sourceEvidence,
+          wafRateLimit: {
+            ...dailyEvidence.sourceEvidence.wafRateLimit,
+            exact: false,
+          },
+        },
+      }).success
+    ).toBe(true);
   });
 });

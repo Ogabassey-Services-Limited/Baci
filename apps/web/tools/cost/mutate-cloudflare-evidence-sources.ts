@@ -1,4 +1,5 @@
 import {
+  loadEvidenceRunForCleanup,
   recordEvidenceMutation,
   recordEvidencePhase,
 } from './cloudflare-evidence-run-journal';
@@ -6,13 +7,25 @@ import type { VerifiedEvidenceTokenCapability } from './verify-cloudflare-eviden
 
 const EVIDENCE_HOSTNAME = 'edge-evidence.ogabassey.com';
 const SYNTHETIC_PATHS = ['/baci-evidence/a', '/baci-evidence/b'] as const;
+type EvidenceResource = Readonly<{
+  id: string;
+  name: string;
+  description: string;
+  accountId: string;
+  zoneId: string;
+}>;
 export type EvidenceMutationClient = {
+  identity(): Promise<{ accountId: string; zoneId: string }>;
+  findByName(name: string): Promise<EvidenceResource | null>;
+  get(id: string): Promise<EvidenceResource | null>;
   create(
     name: string,
     hostname: string,
     paths: readonly string[]
   ): Promise<{ id: string }>;
+  probe(resource: EvidenceResource): Promise<boolean>;
   cleanup(name: string, id: string): Promise<boolean>;
+  inventorySha256(): Promise<string>;
 };
 
 export function parseMutationArguments(args: readonly string[]) {
@@ -30,22 +43,98 @@ export function parseMutationArguments(args: readonly string[]) {
   return { mode: 'apply' as const, runId: args[1] };
 }
 
-/** Mutates only one pre-journaled synthetic resource with a branded write capability. */
+function verifyCapability(capability: VerifiedEvidenceTokenCapability) {
+  if (capability.kind !== 'write')
+    throw new Error('a verified write capability is required');
+}
+function verifyIdentity(
+  actual: { accountId: string; zoneId: string },
+  expected: { accountId: string; zoneId: string }
+) {
+  if (actual.accountId !== expected.accountId)
+    throw new Error('provider account does not match journal');
+  if (actual.zoneId !== expected.zoneId)
+    throw new Error('provider zone does not match journal');
+}
+function verifyResource(
+  resource: EvidenceResource,
+  journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>,
+  name: string
+) {
+  if (
+    resource.name !== name ||
+    !resource.description.includes(journal.runId) ||
+    resource.accountId !== journal.accountId ||
+    resource.zoneId !== journal.zoneId
+  )
+    throw new Error(
+      'journaled resource identity does not match provider read-back'
+    );
+}
+
+/** Applies one deterministic resource set, recording every successful create before probing. */
 export async function applyCloudflareEvidenceMutation(
   stateDir: string,
   runId: string,
   capability: VerifiedEvidenceTokenCapability,
   client: EvidenceMutationClient
 ) {
-  if (capability.kind !== 'write')
-    throw new Error('a verified write capability is required');
+  verifyCapability(capability);
+  const journal = await loadEvidenceRunForCleanup(stateDir, runId);
+  verifyIdentity(await client.identity(), journal);
   const name = `baci-evidence-${runId}`;
-  const created = await client.create(name, EVIDENCE_HOSTNAME, SYNTHETIC_PATHS);
-  await recordEvidenceMutation(stateDir, runId, name, created.id);
-  if (!(await client.cleanup(name, created.id)))
-    throw new Error('evidence cleanup read-back did not prove absence');
+  if (!journal.plannedResources.includes(name))
+    throw new Error('deterministic resource was not pre-journaled');
+  let resource = await client.findByName(name);
+  if (resource) {
+    if (!resource.description.includes(runId))
+      throw new Error('pre-existing resource collision');
+    verifyResource(resource, journal, name);
+    if (!journal.mutations[name])
+      await recordEvidenceMutation(stateDir, runId, name, resource.id);
+  } else {
+    const created = await client.create(
+      name,
+      EVIDENCE_HOSTNAME,
+      SYNTHETIC_PATHS
+    );
+    resource = await client.get(created.id);
+    if (!resource) throw new Error('created resource was not readable');
+    verifyResource(resource, journal, name);
+    await recordEvidenceMutation(stateDir, runId, name, resource.id);
+  }
+  if (!(await client.probe(resource)))
+    throw new Error('synthetic probe did not complete');
+  return cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
+}
+
+/** Cleanup mode never creates or probes; it deletes only exact journaled resources. */
+export async function cleanupCloudflareEvidenceRun(
+  stateDir: string,
+  runId: string,
+  capability: VerifiedEvidenceTokenCapability,
+  client: EvidenceMutationClient
+) {
+  verifyCapability(capability);
+  const journal = await loadEvidenceRunForCleanup(stateDir, runId);
+  verifyIdentity(await client.identity(), journal);
+  for (const [name, id] of Object.entries(journal.mutations).reverse()) {
+    if (!journal.plannedResources.includes(name))
+      throw new Error('journal mutation name is not planned');
+    const resource = await client.get(id);
+    if (!resource) continue;
+    verifyResource(resource, journal, name);
+    if (!(await client.cleanup(name, id)))
+      throw new Error('evidence cleanup read-back did not prove absence');
+  }
+  if ((await client.inventorySha256()) !== journal.preInventorySha256)
+    throw new Error('provider inventory drift after cleanup');
   return recordEvidencePhase(stateDir, runId, 'cleanup_verified', {
-    readBackEvidence: ['synthetic resource absent'],
+    cleanupAttempts: journal.cleanupAttempts + 1,
+    readBackEvidence: [
+      ...journal.readBackEvidence,
+      'synthetic resources absent',
+    ],
   });
 }
 

@@ -8,5 +8,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["src/version-a.ts"]
+  "include": ["src/version-b.ts"]
 }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { validateStorefrontDeliveryManifest } from './delivery-evidence-manifest';
+import { calculateStorefrontDeliveryDailyEvidenceSha256 } from './delivery-evidence';
+import {
+  calculateHostnameInventorySha256,
+  validateStorefrontDeliveryManifest,
+} from './delivery-evidence-manifest';
 
 const dailyEvidence = {
   utcDate: '2026-07-01',
@@ -33,32 +37,77 @@ const dailyEvidence = {
   rejectedMethodRequestCount: 0,
   rejectedMethodOriginCount: 0,
   allowedOriginRateLimitCount: 0,
-  sha256: 'c'.repeat(64),
+  sourceEvidence: {
+    invocation: {
+      sourceFingerprint: 'invocation-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+    aliasRedirect: {
+      sourceFingerprint: 'alias-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+    wafRateLimit: {
+      sourceFingerprint: 'waf-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+    originEvent: {
+      sourceFingerprint: 'origin-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+  },
+  sha256: '',
 };
 
 function sevenDays() {
-  return Array.from({ length: 7 }, (_, index) => ({
-    ...dailyEvidence,
-    utcDate: `2026-07-0${index + 1}`,
-    sha256: String(index).padStart(64, '0'),
-  }));
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = {
+      ...dailyEvidence,
+      utcDate: `2026-07-0${index + 1}`,
+      sha256: '',
+    };
+    day.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(day);
+    return day;
+  });
 }
 
-const manifest = () => ({
-  windowStart: '2026-07-01T00:00:00.000Z',
-  windowEnd: '2026-07-08T00:00:00.000Z',
-  canonicalHostname: 'ogabassey.com' as const,
-  aliasHostnames: ['www.ogabassey.com'],
-  inventoryHostnames: ['ogabassey.com', 'www.ogabassey.com'],
-  hostnameInventorySha256: 'a'.repeat(64),
-  eligibilityPolicySha256: 'b'.repeat(64),
-  aliasRulesetVersion: 'alias-v1',
-  wafRulesetVersion: 'waf-v1',
-  workerDeploymentId: 'deployment-v1',
-  originOnlyVersionId: 'origin-v1',
-  edgeVersionId: 'edge-v1',
-  days: sevenDays(),
-});
+const manifest = () => {
+  const hostnameInventorySha256 = calculateHostnameInventorySha256([
+    'ogabassey.com',
+    'www.ogabassey.com',
+  ]);
+  const days = sevenDays().map((day) => {
+    const next = { ...day, hostnameInventorySha256, sha256: '' };
+    next.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(next);
+    return next;
+  });
+  return {
+    windowStart: '2026-07-01T00:00:00.000Z',
+    windowEnd: '2026-07-08T00:00:00.000Z',
+    canonicalHostname: 'ogabassey.com' as const,
+    aliasHostnames: ['www.ogabassey.com'],
+    inventoryHostnames: ['ogabassey.com', 'www.ogabassey.com'],
+    hostnameInventorySha256,
+    eligibilityPolicySha256: 'b'.repeat(64),
+    aliasRulesetVersion: 'alias-v1',
+    wafRulesetVersion: 'waf-v1',
+    workerDeploymentId: 'deployment-v1',
+    originOnlyVersionId: 'origin-v1',
+    edgeVersionId: 'edge-v1',
+    days,
+  };
+};
 
 describe('validateStorefrontDeliveryManifest', () => {
   it('accepts exactly seven contiguous closed UTC days', () =>
@@ -75,6 +124,17 @@ describe('validateStorefrontDeliveryManifest', () => {
         ...manifest(),
         aliasHostnames: ['www.ogabassey.com'],
         inventoryHostnames: ['ogabassey.com'],
+      }).ok
+    ).toBe(false);
+  });
+  it('rejects tampered daily or canonical hostname-inventory hashes', () => {
+    const tamperedDay = manifest();
+    tamperedDay.days[0].sha256 = 'f'.repeat(64);
+    expect(validateStorefrontDeliveryManifest(tamperedDay).ok).toBe(false);
+    expect(
+      validateStorefrontDeliveryManifest({
+        ...manifest(),
+        hostnameInventorySha256: 'f'.repeat(64),
       }).ok
     ).toBe(false);
   });

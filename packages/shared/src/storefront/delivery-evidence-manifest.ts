@@ -1,92 +1,87 @@
+import { z } from 'zod';
 import {
+  calculateCanonicalSha256,
+  calculateStorefrontDeliveryDailyEvidenceSha256,
   type StorefrontDeliveryDailyEvidence,
   StorefrontDeliveryDailyEvidenceSchema,
 } from './delivery-evidence';
 
-export type StorefrontDeliveryEvidenceManifest = {
-  windowStart: string;
-  windowEnd: string;
-  canonicalHostname: 'ogabassey.com';
-  aliasHostnames: readonly string[];
-  /** Hostnames from the separately canonicalized and hashed inventory artifact. */
-  inventoryHostnames: readonly string[];
-  hostnameInventorySha256: string;
-  eligibilityPolicySha256: string;
-  aliasRulesetVersion: string;
-  wafRulesetVersion: string;
-  workerDeploymentId: string;
-  originOnlyVersionId: string;
-  edgeVersionId: string;
-  days: readonly StorefrontDeliveryDailyEvidence[];
-};
-
+const Hash = z.string().regex(/^[a-f0-9]{64}$/);
+const ClosedUtc = z.string().regex(/^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/);
+export const StorefrontDeliveryEvidenceManifestSchema = z
+  .object({
+    windowStart: ClosedUtc,
+    windowEnd: ClosedUtc,
+    canonicalHostname: z.literal('ogabassey.com'),
+    aliasHostnames: z.array(z.string().min(1)).min(1),
+    inventoryHostnames: z.array(z.string().min(1)).min(2),
+    hostnameInventorySha256: Hash,
+    eligibilityPolicySha256: Hash,
+    aliasRulesetVersion: z.string().min(1),
+    wafRulesetVersion: z.string().min(1),
+    workerDeploymentId: z.string().min(1),
+    originOnlyVersionId: z.string().min(1),
+    edgeVersionId: z.string().min(1),
+    days: z.array(StorefrontDeliveryDailyEvidenceSchema).length(7),
+  })
+  .strict();
+export type StorefrontDeliveryEvidenceManifest = z.infer<
+  typeof StorefrontDeliveryEvidenceManifestSchema
+>;
 export type StorefrontDeliveryManifestValidation =
   | { ok: true; manifest: StorefrontDeliveryEvidenceManifest }
   | { ok: false; reasonCodes: readonly string[] };
 
-const SHA256 = /^[a-f0-9]{64}$/;
-const UTC_MIDNIGHT = /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/;
-
-function utcDates(windowStart: string): readonly string[] {
+export function calculateHostnameInventorySha256(hostnames: readonly string[]) {
+  return calculateCanonicalSha256(JSON.stringify([...hostnames]));
+}
+function expectedDates(windowStart: string) {
   const start = new Date(windowStart);
   return Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(start);
-    day.setUTCDate(day.getUTCDate() + index);
-    return day.toISOString().slice(0, 10);
+    const date = new Date(start);
+    date.setUTCDate(date.getUTCDate() + index);
+    return date.toISOString().slice(0, 10);
   });
 }
+function matchesDailyHash(day: StorefrontDeliveryDailyEvidence) {
+  const { sha256, ...withoutHash } = day;
+  return sha256 === calculateStorefrontDeliveryDailyEvidenceSha256(withoutHash);
+}
 
-/** Validates the sealed seven-day aggregate manifest before a cost decision. */
+/** Parses, canonicalizes, and seals the exact seven-day manifest without casts. */
 export function validateStorefrontDeliveryManifest(
   value: unknown
 ): StorefrontDeliveryManifestValidation {
-  if (!value || typeof value !== 'object')
-    return { ok: false, reasonCodes: ['manifest_invalid'] };
-  const manifest = value as StorefrontDeliveryEvidenceManifest;
-  const reasonCodes: string[] = [];
-  if (manifest.canonicalHostname !== 'ogabassey.com')
-    reasonCodes.push('canonical_hostname_invalid');
-  if (
-    !UTC_MIDNIGHT.test(manifest.windowStart) ||
-    !UTC_MIDNIGHT.test(manifest.windowEnd)
-  )
-    reasonCodes.push('window_not_closed_utc');
+  const parsed = StorefrontDeliveryEvidenceManifestSchema.safeParse(value);
+  if (!parsed.success) return { ok: false, reasonCodes: ['manifest_invalid'] };
+  const manifest = parsed.data;
+  const reasons: string[] = [];
   const start = new Date(manifest.windowStart);
   const end = new Date(manifest.windowEnd);
+  if (end.valueOf() - start.valueOf() !== 7 * 86_400_000)
+    reasons.push('window_not_seven_days');
   if (
-    Number.isNaN(start.valueOf()) ||
-    Number.isNaN(end.valueOf()) ||
-    end.valueOf() - start.valueOf() !== 7 * 86_400_000
-  )
-    reasonCodes.push('window_not_seven_days');
-  if (!Array.isArray(manifest.days) || manifest.days.length !== 7)
-    reasonCodes.push('day_count_invalid');
-  const expectedDays = utcDates(manifest.windowStart);
-  if (manifest.days?.some((day, index) => day.utcDate !== expectedDays[index]))
-    reasonCodes.push('days_not_contiguous');
-  const aliases = [...(manifest.aliasHostnames ?? [])];
-  if (
-    !aliases.length ||
-    aliases.includes(manifest.canonicalHostname) ||
-    aliases.some((alias, index) => index > 0 && aliases[index - 1] >= alias) ||
-    new Set(aliases).size !== aliases.length
-  )
-    reasonCodes.push('alias_partition_invalid');
-  const inventory = [...(manifest.inventoryHostnames ?? [])];
-  const expectedHosts = new Set([manifest.canonicalHostname, ...aliases]);
-  if (
-    inventory.length !== expectedHosts.size ||
-    inventory.some((host) => !expectedHosts.has(host)) ||
-    [...expectedHosts].some((host) => !inventory.includes(host))
-  )
-    reasonCodes.push('inventory_partition_invalid');
-  if (
-    ![manifest.hostnameInventorySha256, manifest.eligibilityPolicySha256].every(
-      (hash) => SHA256.test(hash)
+    manifest.days.some(
+      (day, index) => day.utcDate !== expectedDates(manifest.windowStart)[index]
     )
   )
-    reasonCodes.push('artifact_hash_invalid');
-  const fingerprints = [
+    reasons.push('days_not_contiguous');
+  const aliases = manifest.aliasHostnames;
+  if (
+    new Set(aliases).size !== aliases.length ||
+    aliases.includes(manifest.canonicalHostname) ||
+    aliases.some((host, index) => index > 0 && aliases[index - 1] >= host)
+  )
+    reasons.push('alias_partition_invalid');
+  const inventory = manifest.inventoryHostnames;
+  const expectedInventory = [manifest.canonicalHostname, ...aliases];
+  if (
+    inventory.join('\n') !== expectedInventory.join('\n') ||
+    manifest.hostnameInventorySha256 !==
+      calculateHostnameInventorySha256(inventory)
+  )
+    reasons.push('inventory_partition_invalid');
+  const keys = [
     'hostnameInventorySha256',
     'eligibilityPolicySha256',
     'aliasRulesetVersion',
@@ -95,17 +90,13 @@ export function validateStorefrontDeliveryManifest(
     'originOnlyVersionId',
     'edgeVersionId',
   ] as const;
-  for (const day of manifest.days ?? []) {
-    if (!StorefrontDeliveryDailyEvidenceSchema.safeParse(day).success) {
-      reasonCodes.push('daily_evidence_invalid');
-      break;
-    }
-    if (fingerprints.some((key) => day[key] !== manifest[key])) {
-      reasonCodes.push('fingerprint_drift');
-      break;
-    }
-  }
-  return reasonCodes.length
-    ? { ok: false, reasonCodes }
+  if (
+    manifest.days.some((day) => keys.some((key) => day[key] !== manifest[key]))
+  )
+    reasons.push('fingerprint_drift');
+  if (manifest.days.some((day) => !matchesDailyHash(day)))
+    reasons.push('daily_hash_invalid');
+  return reasons.length
+    ? { ok: false, reasonCodes: reasons }
     : { ok: true, manifest };
 }
