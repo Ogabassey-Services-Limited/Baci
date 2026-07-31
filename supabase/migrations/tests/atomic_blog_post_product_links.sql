@@ -21,8 +21,12 @@ BEGIN
       'SELECT id FROM public.mutate_merchant_blog_post_with_product_links($1, $2, $3, $4)'
       USING p_post_id, p_merchant_id, p_payload, p_product_ids;
   EXCEPTION WHEN OTHERS THEN
-    IF SQLSTATE = p_expected_state THEN RETURN; END IF;
-    RAISE;
+    IF SQLSTATE = p_expected_state AND SQLERRM = p_expected_message THEN
+      RETURN;
+    END IF;
+    RAISE EXCEPTION
+      'unexpected atomic blog error: expected [%] %, received [%] %',
+      p_expected_state, p_expected_message, SQLSTATE, SQLERRM;
   END;
   RAISE EXCEPTION 'atomic blog product-link RPC unexpectedly succeeded: %', p_expected_message;
 END;
