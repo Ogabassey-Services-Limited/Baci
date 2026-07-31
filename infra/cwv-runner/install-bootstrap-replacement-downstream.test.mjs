@@ -29,7 +29,7 @@ test('reads the fixed downstream boundary and detects accepted-image residue', a
   const dependencies = {
     unitIsActive: async () => false,
     readUnitState: async () => 'loaded\ninactive\nstatic\n',
-    templateIsDisabled: async () => true,
+    templateIsDisabledOrAbsent: async () => true,
     listWatchdogInstances: async () => 0,
   };
   const inert = await readBootstrapReplacementDownstream(
@@ -131,12 +131,32 @@ test('refuses malformed disabled output for the watchdog template', async (conte
   );
 });
 
+test('accepts a proven-absent watchdog template on pristine bootstrap', async (context) => {
+  const root = await temporary(context, 'baci-bootstrap-template-absent-');
+  const runSystemctl = (_command, arguments_) => {
+    if (arguments_[0] === 'is-active')
+      throw Object.assign(new Error('inactive unit'), { code: 3 });
+    if (arguments_[0] === 'show') return { stdout: 'not-found\ninactive\n\n' };
+    throw Object.assign(new Error('absent template'), {
+      code: 4,
+      stdout: 'not-found\n',
+    });
+  };
+
+  const downstream = await readBootstrapReplacementDownstream(
+    { root, prepareRoot: join(root, 'prepare') },
+    { runSystemctl, listWatchdogInstances: async () => 0 }
+  );
+
+  assert.equal(downstream.unsafeUnitStates, 0);
+});
+
 test('treats absent downstream directories as empty before layout creation', async (context) => {
   const root = await temporary(context, 'baci-bootstrap-empty-downstream-');
   const dependencies = {
     unitIsActive: async () => false,
     readUnitState: async () => 'loaded\ninactive\nstatic\n',
-    templateIsDisabled: async () => true,
+    templateIsDisabledOrAbsent: async () => true,
     listWatchdogInstances: async () => 0,
   };
 
@@ -170,7 +190,7 @@ test('accepts only proven-absent never-installed dedicated units', async (contex
     { root, prepareRoot: join(root, 'prepare') },
     {
       runSystemctl,
-      templateIsDisabled: async () => true,
+      templateIsDisabledOrAbsent: async () => true,
       listWatchdogInstances: async () => 0,
     }
   );
@@ -185,7 +205,7 @@ test('accepts only proven-absent never-installed dedicated units', async (contex
         if (arguments_[0] === 'is-active') return { stdout: '' };
         return { stdout: 'loaded\nactive\nenabled\n' };
       },
-      templateIsDisabled: async () => false,
+      templateIsDisabledOrAbsent: async () => false,
       listWatchdogInstances: async () => 0,
     }
   );
@@ -218,7 +238,7 @@ test('inventories both measurement slices for activity and exact static state', 
         stateQueries.push(name);
         return 'loaded\ninactive\nstatic\n';
       },
-      templateIsDisabled: () => {
+      templateIsDisabledOrAbsent: () => {
         templateQueries += 1;
         return true;
       },
@@ -258,7 +278,7 @@ test('inventories validated persistent and runtime watchdog wants links', async 
   const dependencies = {
     unitIsActive: async () => false,
     readUnitState: async () => 'loaded\ninactive\nstatic\n',
-    templateIsDisabled: async () => true,
+    templateIsDisabledOrAbsent: async () => true,
     runSystemctl: async () => ({ stdout: '' }),
     systemdRoots: [persistent, runtime],
   };
