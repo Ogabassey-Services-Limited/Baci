@@ -16,7 +16,7 @@ export async function uploadProductCsv(
   file: File
 ): Promise<ProductCsvUploadResult> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(
+  const timeoutId = setTimeout(
     () => controller.abort(),
     BULK_IMPORT_TIMEOUT_MS
   );
@@ -37,6 +37,6 @@ export async function uploadProductCsv(
   } catch (error) {
     return { status: 'error', error };
   } finally {
-    window.clearTimeout(timeoutId);
+    clearTimeout(timeoutId);
   }
 }

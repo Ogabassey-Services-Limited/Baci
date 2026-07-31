@@ -67,7 +67,7 @@ export async function fetchWithCsrf(
       console.warn(
         `[CSRF] Missing csrfToken; attempting to initialize it before sending ${method} ${url}.`
       );
-      csrfToken = await initializeCsrfToken(options.signal ?? undefined);
+      csrfToken = await initializeCsrfToken(options?.signal ?? undefined);
     }
 
     if (csrfToken) {
@@ -101,7 +101,7 @@ export async function fetchWithCsrf(
 
   if (needsCsrf && (await isInvalidCsrfResponse(response))) {
     const refreshedToken = await initializeCsrfToken(
-      options.signal ?? undefined
+      options?.signal ?? undefined
     );
 
     if (refreshedToken) {
