@@ -56,11 +56,7 @@ describe('uploadProductCsv', () => {
     vi.useFakeTimers();
     mockFetchWithCsrf.mockImplementation((...args: unknown[]) => {
       const options = args[1];
-      if (
-        !options ||
-        typeof options !== 'object' ||
-        !('signal' in options)
-      ) {
+      if (!options || typeof options !== 'object' || !('signal' in options)) {
         return Promise.resolve({ ok: true, json: async () => ({}) });
       }
       const signal = options.signal;
