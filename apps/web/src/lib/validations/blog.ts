@@ -18,6 +18,7 @@ const featuredImageDimensionSchema = z
 
 const embeddedProductIdsSchema = z
   .array(z.uuid('Embedded product IDs must be valid UUIDs'))
+  .max(20, 'A post can embed at most 20 products')
   .superRefine((productIds, context) => {
     if (new Set(productIds).size !== productIds.length) {
       context.addIssue({

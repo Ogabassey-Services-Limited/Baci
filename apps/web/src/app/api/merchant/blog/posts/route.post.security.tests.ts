@@ -62,7 +62,7 @@ describe('POST /api/merchant/blog/posts', () => {
       expect(json.error).toBe('Merchant not found');
     });
 
-    it('returns 403 when user lacks marketing edit permission', async () => {
+    it('requires marketing create permission when creating a post', async () => {
       mockHasPermission.mockReturnValue(false);
 
       const res = await POST(
@@ -75,7 +75,7 @@ describe('POST /api/merchant/blog/posts', () => {
       expect(mockHasPermission).toHaveBeenCalledWith(
         { merchantId: MERCHANT_ID, role: 'owner' },
         'marketing',
-        'edit'
+        'create'
       );
     });
   });

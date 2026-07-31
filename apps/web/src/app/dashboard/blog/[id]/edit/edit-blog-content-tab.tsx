@@ -20,6 +20,7 @@ import type { PostFormData, Product } from './edit-blog-types';
 
 export function EditBlogContentTab({
   formData,
+  contentResetKey,
   merchantId,
   handleChange,
   merchantSlug,
@@ -31,6 +32,7 @@ export function EditBlogContentTab({
   isUploading,
 }: {
   formData: PostFormData;
+  contentResetKey: number;
   merchantId?: string;
   handleChange: (field: keyof PostFormData, value: string) => void;
   merchantSlug?: string;
@@ -84,6 +86,7 @@ export function EditBlogContentTab({
             <BlogEditor
               merchantId={merchantId}
               content={formData.content}
+              contentResetKey={contentResetKey}
               onChange={(content) => handleChange('content', content)}
               onImageUpload={onImageUpload}
               onProductsChange={setEmbeddedProducts}

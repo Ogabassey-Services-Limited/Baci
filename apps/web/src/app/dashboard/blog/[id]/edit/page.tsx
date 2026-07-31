@@ -17,10 +17,8 @@ import { EditBlogContentTab } from './edit-blog-content-tab';
 import {
   INITIAL_FORM_DATA,
   normalizePostFormData,
-  withFeaturedImageDefaults,
 } from './edit-blog-form-data';
 import { EditBlogHeader } from './edit-blog-header';
-import { EditBlogRecoveryDialog } from './edit-blog-recovery-dialog';
 import {
   type LoadBlogPostResult,
   loadBlogPost,
@@ -40,10 +38,12 @@ export default function EditBlogPostPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
+  const [hasHydratedEmbeddedProducts, setHasHydratedEmbeddedProducts] =
+    useState(false);
   const [originalPost, setOriginalPost] = useState<BlogPost | null>(null);
   const [formData, setFormData] = useState<PostFormData>(INITIAL_FORM_DATA);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>();
-  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [contentResetKey, setContentResetKey] = useState(0);
   const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
     storageKey: `blog-draft-edit-${postId}`,
     data: formData,
@@ -57,6 +57,7 @@ export default function EditBlogPostPage() {
   });
   const recoverSavedDraft = useEditBlogDraftRecovery({
     persistence: { clearSavedData, hasSavedData, getSavedData },
+    setEditorResetKey: setContentResetKey,
     setFormData,
     toast,
   });
@@ -78,6 +79,7 @@ export default function EditBlogPostPage() {
       if (result.post.published_at)
         setScheduledDate(new Date(result.post.published_at));
       if (result.embeddedProducts) setEmbeddedProducts(result.embeddedProducts);
+      setHasHydratedEmbeddedProducts(!result.productsLoadFailed);
       if (result.productsLoadFailed)
         toast({
           title: 'Error',
@@ -94,6 +96,7 @@ export default function EditBlogPostPage() {
     let isStale = false;
     setIsLoading(true);
     setEmbeddedProducts([]);
+    setHasHydratedEmbeddedProducts(false);
     loadBlogPost(postId, merchant.id).then((result) => {
       if (!isStale) onPostLoaded(result);
     });
@@ -155,7 +158,9 @@ export default function EditBlogPostPage() {
         originalSlug: originalPost?.slug,
         newStatus,
         scheduledDate,
-        embeddedProductIds: embeddedProducts.map((product) => product.id),
+        embeddedProductIds: hasHydratedEmbeddedProducts
+          ? embeddedProducts.map((product) => product.id)
+          : undefined,
       });
       setOriginalPost(updatedPost);
       setFormData((previous) => ({
@@ -253,6 +258,7 @@ export default function EditBlogPostPage() {
         <TabsContent value="content" className="space-y-6">
           <EditBlogContentTab
             formData={formData}
+            contentResetKey={contentResetKey}
             merchantId={merchant?.id}
             handleChange={handleChange}
             merchantSlug={merchant?.slug}
@@ -276,25 +282,6 @@ export default function EditBlogPostPage() {
           <EditBlogAuthorTab formData={formData} handleChange={handleChange} />
         </TabsContent>
       </Tabs>
-      <EditBlogRecoveryDialog
-        open={showRecoveryDialog}
-        setOpen={setShowRecoveryDialog}
-        onDiscard={() => {
-          clearSavedData();
-          setShowRecoveryDialog(false);
-        }}
-        onRecover={() => {
-          const saved = getSavedData();
-          if (saved) {
-            setFormData(withFeaturedImageDefaults(saved.data));
-            toast({
-              title: 'Draft Recovered',
-              description: 'Your unsaved changes have been restored.',
-            });
-          }
-          setShowRecoveryDialog(false);
-        }}
-      />
     </div>
   );
 }

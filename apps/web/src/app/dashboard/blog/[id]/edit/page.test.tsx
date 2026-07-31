@@ -1,10 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EditBlogPostPage,
   existingPost,
   jsonResponse,
+  mockAutoSave,
+  mockBlogEditor,
   mockFeaturedImageUploader,
   mockFetch,
   mockFetchWithCsrf,
@@ -15,10 +18,36 @@ import {
 describe('EditBlogPostPage Discover image upload metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAutoSave.hasSavedData.mockReturnValue(false);
+    mockAutoSave.getSavedData.mockReturnValue(null);
+    mockBlogEditor.contentResetKey = undefined;
     mockFeaturedImageUploader.onFilesSelected = undefined;
     window.open = mockWindowOpen;
     global.fetch = mockFetch;
     mockFetch.mockResolvedValue(jsonResponse(existingPost));
+  });
+
+  it('remounts the editor after recovering and undoing an edit draft', async () => {
+    mockAutoSave.hasSavedData.mockReturnValue(true);
+    mockAutoSave.getSavedData.mockReturnValue({
+      data: { ...existingPost, content: 'Recovered draft content' },
+    });
+    render(<EditBlogPostPage />);
+
+    await screen.findByRole('heading', { name: /edit post/i });
+    expect(mockBlogEditor.contentResetKey).toBe(1);
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Draft Recovered' })
+    );
+
+    const recoveredToast = mockToast.mock.calls.find(
+      ([options]) =>
+        (options as { title?: string } | undefined)?.title === 'Draft Recovered'
+    )?.[0] as { action: ReactNode };
+    render(recoveredToast.action);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Undo' }));
+
+    await waitFor(() => expect(mockBlogEditor.contentResetKey).toBe(2));
   });
 
   it('hydrates image metadata and persists it on save', async () => {
@@ -155,5 +184,31 @@ describe('EditBlogPostPage Discover image upload metadata', () => {
         landscape_16x9: 'merchant-1/blog/first/landscape_16x9.webp',
       },
     });
+  });
+
+  it('preserves linked products when their edit-form hydration is incomplete', async () => {
+    const user = userEvent.setup();
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...existingPost,
+          embedded_products: [
+            'd5bc84b7-35c2-4e09-a5e7-6ebdd0fd1145',
+            '7c78af2f-75b8-4a30-9bb4-7abf51490fe9',
+          ],
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ products: [] }));
+    mockFetchWithCsrf.mockResolvedValueOnce(jsonResponse(existingPost));
+
+    render(<EditBlogPostPage />);
+    await screen.findByRole('heading', { name: /edit post/i });
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledTimes(1));
+    const payload = JSON.parse(
+      (mockFetchWithCsrf.mock.calls[0]?.[1] as { body: string }).body
+    ) as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('embedded_products');
   });
 });

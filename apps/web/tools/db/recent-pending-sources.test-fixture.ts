@@ -31,4 +31,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260730144747_add_merchants_updated_at_trigger.sql',
     sha256: '621055c391934618eb5d45706bcc07894f772207507841cba0c22b45b2f97bf5',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260731190000_atomic_blog_post_product_links.sql',
+    sha256: 'c0985aea612ecbd611213f7177b042c066c59cdac455f75ff162d3c32701a275',
+  },
 ];

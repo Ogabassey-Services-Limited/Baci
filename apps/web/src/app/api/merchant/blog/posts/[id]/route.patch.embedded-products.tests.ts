@@ -81,4 +81,75 @@ describe('PATCH /api/merchant/blog/posts/[id] embedded products', () => {
     expect(mockSupabase.update).not.toHaveBeenCalled();
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
+
+  it('returns post not found when the atomic update loses a concurrently deleted post', async () => {
+    mockSupabase.in.mockResolvedValue({
+      data: [{ id: PRODUCT_ID }],
+      error: null,
+    });
+    mockSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { code: 'P0002', message: 'blog_post_not_found' },
+    });
+
+    const response = await PATCH(
+      makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+        title: 'Updated Title',
+        embedded_products: [PRODUCT_ID],
+      }),
+      makeParams(POST_ID)
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: 'Post not found' });
+  });
+
+  it('returns forbidden when the atomic update loses marketing edit permission', async () => {
+    mockSupabase.in.mockResolvedValue({
+      data: [{ id: PRODUCT_ID }],
+      error: null,
+    });
+    mockSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: '42501',
+        message: 'merchant_marketing_edit_permission_required',
+      },
+    });
+
+    const response = await PATCH(
+      makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+        title: 'Updated Title',
+        embedded_products: [PRODUCT_ID],
+      }),
+      makeParams(POST_ID)
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: 'Permission denied' });
+  });
+
+  it('returns a conflict when the atomic update races a duplicate slug', async () => {
+    mockSupabase.in.mockResolvedValue({
+      data: [{ id: PRODUCT_ID }],
+      error: null,
+    });
+    mockSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value' },
+    });
+
+    const response = await PATCH(
+      makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+        title: 'Updated Title',
+        embedded_products: [PRODUCT_ID],
+      }),
+      makeParams(POST_ID)
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'A post with this slug already exists',
+    });
+  });
 });

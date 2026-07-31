@@ -24,7 +24,7 @@ type PersistBlogPostMutationInput = {
 
 type PersistBlogPostMutationResult =
   | { error: null; post: BlogPostMutationRecord; status: null }
-  | { error: string; post: null; status: 400 | 500 };
+  | { error: string; post: null; status: 400 | 403 | 404 | 409 | 500 };
 
 function readString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -32,6 +32,37 @@ function readString(value: unknown, fallback = ''): string {
 
 function readNullableString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
+}
+
+function readRpcMutationError(
+  error: {
+    code?: string;
+    message?: string;
+  } | null
+): { error: string; status: 400 | 403 | 404 | 409 | 500 } {
+  if (
+    error?.code === 'P0002' &&
+    error.message === 'embedded_product_not_found_or_not_owned'
+  ) {
+    return {
+      error: 'One or more embedded products do not belong to this merchant',
+      status: 400,
+    };
+  }
+  if (error?.code === 'P0002' && error.message === 'blog_post_not_found') {
+    return { error: 'Post not found', status: 404 };
+  }
+  if (
+    error?.code === '42501' &&
+    (error.message === 'merchant_marketing_create_permission_required' ||
+      error.message === 'merchant_marketing_edit_permission_required')
+  ) {
+    return { error: 'Permission denied', status: 403 };
+  }
+  if (error?.code === '23505') {
+    return { error: 'A post with this slug already exists', status: 409 };
+  }
+  return { error: 'Failed to persist post', status: 500 };
 }
 
 function readMutationPost({
@@ -159,22 +190,21 @@ export async function persistBlogPostMutation({
     value: data,
   });
   if (error || !post) {
-    const invalidProduct =
-      error?.code === 'P0002' ||
-      error?.message === 'embedded_product_not_found_or_not_owned';
+    const mappedError = readRpcMutationError(error);
     console.error('Failed to persist embedded blog products:', {
       merchantId,
       postId,
       error,
     });
     return {
-      error: invalidProduct
-        ? 'One or more embedded products do not belong to this merchant'
-        : postId
-          ? 'Failed to update post'
-          : 'Failed to create post',
+      error:
+        error === null
+          ? postId
+            ? 'Failed to update post'
+            : 'Failed to create post'
+          : mappedError.error,
       post: null,
-      status: invalidProduct ? 400 : 500,
+      status: error === null ? 500 : mappedError.status,
     };
   }
 

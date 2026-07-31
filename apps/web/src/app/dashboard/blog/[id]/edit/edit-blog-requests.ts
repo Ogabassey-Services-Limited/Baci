@@ -20,6 +20,25 @@ export type LoadBlogPostResult =
       productsLoadFailed: boolean;
     };
 
+function hasCompleteEmbeddedProductHydration(
+  requestedProductIds: string[],
+  products: Product[]
+) {
+  if (new Set(requestedProductIds).size !== requestedProductIds.length)
+    return false;
+  const returnedProductIds = new Set(products.map((product) => product.id));
+  return (
+    returnedProductIds.size === products.length &&
+    requestedProductIds.every((productId) => returnedProductIds.has(productId))
+  );
+}
+
+function toEmbeddedProductIds(value: unknown): string[] | null {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+    ? value
+    : null;
+}
+
 function toFormData(post: FetchedBlogPost): PostFormData {
   return {
     title: post.title || '',
@@ -61,19 +80,29 @@ export async function loadBlogPost(
         : { status: 'error' };
     const post = (await response.json()) as FetchedBlogPost;
     let embeddedProducts: Product[] | null = null;
-    let productsLoadFailed = false;
+    const embeddedProductIds = toEmbeddedProductIds(post.embedded_products);
+    let productsLoadFailed = embeddedProductIds === null;
     try {
-      if (
-        Array.isArray(post.embedded_products) &&
-        post.embedded_products.length > 0
-      ) {
+      if (embeddedProductIds?.length === 0) embeddedProducts = [];
+      else if (embeddedProductIds?.length) {
         const productsResponse = await fetch(
-          `/api/products?ids=${post.embedded_products.join(',')}&merchantId=${encodeURIComponent(merchantId)}`
+          `/api/products?ids=${embeddedProductIds.join(',')}&merchantId=${encodeURIComponent(merchantId)}`
         );
-        if (productsResponse.ok)
-          embeddedProducts =
-            ((await productsResponse.json()) as { products?: Product[] })
-              .products || [];
+        if (!productsResponse.ok) {
+          productsLoadFailed = true;
+        } else {
+          const products = (
+            (await productsResponse.json()) as {
+              products?: unknown;
+            }
+          ).products;
+          if (
+            Array.isArray(products) &&
+            hasCompleteEmbeddedProductHydration(embeddedProductIds, products)
+          )
+            embeddedProducts = products;
+          else productsLoadFailed = true;
+        }
       }
     } catch (error) {
       console.error('Error fetching post:', error);
@@ -99,7 +128,7 @@ interface SubmitBlogPostUpdateArgs {
   originalSlug?: string;
   newStatus?: PostFormData['status'];
   scheduledDate?: Date;
-  embeddedProductIds: string[];
+  embeddedProductIds?: string[];
 }
 
 export async function submitBlogPostUpdate({
@@ -146,7 +175,7 @@ export async function submitBlogPostUpdate({
         : newStatus === 'published'
           ? new Date().toISOString()
           : formData.published_at,
-    embedded_products: embeddedProductIds,
+    ...(embeddedProductIds ? { embedded_products: embeddedProductIds } : {}),
   });
   const response = await fetchWithCsrf(
     `/api/merchant/blog/posts/${postId}?merchantId=${encodeURIComponent(merchantId)}`,

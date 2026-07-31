@@ -292,6 +292,7 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260729195914_update_merchant_identity_settings.sql',
     sha256: '6e63f92629949491d21c2a5ca2e47367d91e398c061fa3d1419e2a7a0c3ff61b',
   },
-  ...RECENT_PENDING_SOURCES,
+  ...RECENT_PENDING_SOURCES.slice(0, 1),
   ...AUDIT_PENDING_SOURCES,
+  ...RECENT_PENDING_SOURCES.slice(1),
 ];

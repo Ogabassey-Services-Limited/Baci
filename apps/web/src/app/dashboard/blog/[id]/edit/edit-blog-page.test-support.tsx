@@ -7,6 +7,16 @@ const mocks = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockToast: vi.fn(),
   mockWindowOpen: vi.fn(),
+  mockAutoSave: {
+    clearSavedData: vi.fn(),
+    getSavedData: vi.fn<() => { data: Record<string, unknown> } | null>(
+      () => null
+    ),
+    hasSavedData: vi.fn(() => false),
+  },
+  mockBlogEditor: {
+    contentResetKey: undefined as number | undefined,
+  },
   mockFeaturedImageUploader: {
     onFilesSelected: undefined as
       | ((files: File[]) => void | Promise<void>)
@@ -19,6 +29,8 @@ export const mockFetchWithCsrf = mocks.mockFetchWithCsrf;
 export const mockPush = mocks.mockPush;
 export const mockToast = mocks.mockToast;
 export const mockWindowOpen = mocks.mockWindowOpen;
+export const mockAutoSave = mocks.mockAutoSave;
+export const mockBlogEditor = mocks.mockBlogEditor;
 export const mockFeaturedImageUploader = mocks.mockFeaturedImageUploader;
 
 vi.mock('next/navigation', () => ({
@@ -33,32 +45,37 @@ vi.mock('next/link', () => ({
 vi.mock('@/components/blog/blog-editor', () => ({
   BlogEditor: ({
     content,
+    contentResetKey,
     onChange,
     onImageUpload,
   }: {
     content: string;
+    contentResetKey?: number;
     onChange: (content: string) => void;
     onImageUpload: (file: File) => Promise<string>;
-  }) => (
-    <div>
-      <label htmlFor="mock-content">Content editor</label>
-      <textarea
-        id="mock-content"
-        value={content}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <button
-        type="button"
-        onClick={() =>
-          onImageUpload(
-            new File(['inline-bytes'], 'inline.png', { type: 'image/png' })
-          )
-        }
-      >
-        Upload inline image
-      </button>
-    </div>
-  ),
+  }) => {
+    mockBlogEditor.contentResetKey = contentResetKey;
+    return (
+      <div>
+        <label htmlFor="mock-content">Content editor</label>
+        <textarea
+          id="mock-content"
+          value={content}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          type="button"
+          onClick={() =>
+            onImageUpload(
+              new File(['inline-bytes'], 'inline.png', { type: 'image/png' })
+            )
+          }
+        >
+          Upload inline image
+        </button>
+      </div>
+    );
+  },
 }));
 vi.mock('@/components/blog/product-embed-grid', () => ({
   ProductGrid: () => <div>Embedded products</div>,
@@ -89,11 +106,7 @@ vi.mock('@/components/ui/file-uploader', () => ({
 }));
 vi.mock('@/env', () => ({ getRootDomain: () => 'usebaci.com' }));
 vi.mock('@/hooks/use-blog-auto-save', () => ({
-  useBlogAutoSave: () => ({
-    clearSavedData: vi.fn(),
-    hasSavedData: vi.fn(() => false),
-    getSavedData: vi.fn(() => null),
-  }),
+  useBlogAutoSave: () => mocks.mockAutoSave,
 }));
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({

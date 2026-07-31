@@ -50,4 +50,57 @@ describe('loadBlogPost', () => {
       '/api/products?ids=product-b&merchantId=merchant-b'
     );
   });
+
+  it('does not treat a partial linked-product response as a successful hydration', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ...embeddedProductPost,
+          embedded_products: ['product-a', 'product-b'],
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          products: [
+            {
+              id: 'product-a',
+              name: 'Product A',
+              price: 100,
+              images: [],
+              slug: 'product-a',
+              status: 'active',
+            },
+          ],
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await loadBlogPost('post-1', 'merchant-b');
+
+    expect(result).toMatchObject({
+      status: 'success',
+      embeddedProducts: null,
+      productsLoadFailed: true,
+    });
+  });
+
+  it.each([
+    ['returns an error status', false, { products: [] }],
+    ['returns malformed data', true, { products: 'not-an-array' }],
+  ])('fails closed when the linked-product endpoint %s', async (_, ok, body) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(embeddedProductPost))
+      .mockResolvedValueOnce({ ok, json: async () => body });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await loadBlogPost('post-1', 'merchant-b');
+
+    expect(result).toMatchObject({
+      status: 'success',
+      embeddedProducts: null,
+      productsLoadFailed: true,
+    });
+  });
 });

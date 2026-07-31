@@ -5,6 +5,7 @@ import {
   MERCHANT_ID,
   makeParams,
   makeRequest,
+  mockAuthenticateApiRequest,
   mockDispatchZohoBlogCampaign,
   mockGetMerchantForApiRequest,
   mockHasPermission,
@@ -32,6 +33,24 @@ describe('GET /api/merchant/blog/posts/[id]', () => {
   });
 
   describe('authentication', () => {
+    it('authenticates before awaiting route params', async () => {
+      let resolveParams: ((value: { id: string }) => void) | undefined;
+      const response = GET(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'GET'),
+        {
+          params: new Promise<{ id: string }>((resolve) => {
+            resolveParams = resolve;
+          }),
+        }
+      );
+
+      await vi.waitFor(() =>
+        expect(mockAuthenticateApiRequest).toHaveBeenCalledOnce()
+      );
+      resolveParams?.({ id: POST_ID });
+      await response;
+    });
+
     it('returns 401 when user is not authenticated', async () => {
       setupAuth(false, false);
 

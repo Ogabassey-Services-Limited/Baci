@@ -57,7 +57,7 @@ export async function createBlogPost(request: NextRequest) {
       );
     }
     const access = selectedMerchant.access;
-    if (!hasPermission(access, 'marketing', 'edit')) {
+    if (!hasPermission(access, 'marketing', 'create')) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 

@@ -15,10 +15,12 @@ type DraftPersistence = Pick<
 
 export function useEditBlogDraftRecovery({
   persistence,
+  setEditorResetKey,
   setFormData,
   toast,
 }: {
   persistence: DraftPersistence;
+  setEditorResetKey: Dispatch<SetStateAction<number>>;
   setFormData: Dispatch<SetStateAction<PostFormData>>;
   toast: ReturnType<typeof useToast>['toast'];
 }) {
@@ -33,6 +35,7 @@ export function useEditBlogDraftRecovery({
     if (!saved) return;
     const previousData = loadedFormData ?? { ...INITIAL_FORM_DATA };
     setFormData(withFeaturedImageDefaults(saved.data as PostFormData));
+    setEditorResetKey((key) => key + 1);
     toast({
       title: 'Draft Recovered',
       description: 'Your unsaved changes have been restored.',
@@ -41,6 +44,7 @@ export function useEditBlogDraftRecovery({
           type="button"
           onClick={() => {
             setFormData(previousData);
+            setEditorResetKey((key) => key + 1);
             persistence.clearSavedData();
             toast({
               title: 'Recovery Undone',

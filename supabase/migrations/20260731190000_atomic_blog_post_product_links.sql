@@ -36,9 +36,10 @@ BEGIN
     RAISE EXCEPTION 'post_data_must_be_an_object' USING ERRCODE = '22023';
   END IF;
 
-  IF auth.uid() IS NULL OR NOT public.check_staff_permission(
-    auth.uid(), p_merchant_id, 'marketing', 'edit'
-  ) THEN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'merchant_marketing_permission_required' USING ERRCODE = '42501'; END IF;
+  IF p_post_id IS NULL AND public.check_staff_permission(auth.uid(), p_merchant_id, 'marketing', 'create') IS NOT TRUE THEN
+    RAISE EXCEPTION 'merchant_marketing_create_permission_required' USING ERRCODE = '42501';
+  ELSIF p_post_id IS NOT NULL AND public.check_staff_permission(auth.uid(), p_merchant_id, 'marketing', 'edit') IS NOT TRUE THEN
     RAISE EXCEPTION 'merchant_marketing_edit_permission_required' USING ERRCODE = '42501';
   END IF;
 
@@ -70,7 +71,14 @@ BEGIN
     FROM pg_catalog.jsonb_array_elements_text(p_post_data -> 'keywords') AS keyword(value);
   END IF;
 
+  IF p_post_id IS NOT NULL THEN
+    SELECT * INTO v_post FROM public.blog_posts AS blog_post WHERE blog_post.id = p_post_id AND blog_post.merchant_id = p_merchant_id FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'blog_post_not_found' USING ERRCODE = 'P0002'; END IF;
+  END IF;
+
   IF p_product_ids IS NOT NULL THEN
+    IF pg_catalog.cardinality(p_product_ids) > 20 THEN RAISE EXCEPTION 'too_many_embedded_product_ids' USING ERRCODE = '22023'; END IF;
+
     IF pg_catalog.cardinality(p_product_ids) <> (
       SELECT pg_catalog.count(DISTINCT incoming.product_id)
       FROM pg_catalog.unnest(p_product_ids) AS incoming(product_id)
@@ -145,17 +153,6 @@ BEGIN
     )
     RETURNING * INTO v_post;
   ELSE
-    SELECT *
-    INTO v_post
-    FROM public.blog_posts AS blog_post
-    WHERE blog_post.id = p_post_id
-      AND blog_post.merchant_id = p_merchant_id
-    FOR UPDATE;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'blog_post_not_found' USING ERRCODE = 'P0002';
-    END IF;
-
     UPDATE public.blog_posts AS blog_post
     SET
       title = CASE

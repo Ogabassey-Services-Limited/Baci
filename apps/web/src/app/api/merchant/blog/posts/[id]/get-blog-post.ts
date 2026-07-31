@@ -8,7 +8,6 @@ export async function getBlogPost(
   { params }: RouteParams
 ) {
   try {
-    const { id } = await params;
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
@@ -16,6 +15,7 @@ export async function getBlogPost(
         { status: 401 }
       );
     }
+    const { id } = await params;
     const selectedMerchant = await resolveSelectedMerchantAccess({
       requestedMerchantId: request.nextUrl.searchParams.get('merchantId'),
       supabase: auth.supabase,
