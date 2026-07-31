@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
@@ -28,10 +29,19 @@ interface CreateSubaccountResponse {
   account_number?: string;
 }
 
+interface PendingPayoutSave {
+  id: number;
+  merchantId: string;
+}
+
 export function usePayouts() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
   const merchantId = merchant?.id.trim();
+  const nextPendingSaveId = useRef(0);
+  const [pendingPayoutSaves, setPendingPayoutSaves] = useState<
+    PendingPayoutSave[]
+  >([]);
 
   // Resolve Bank Account
   const resolveAccountMutation = useMutation({
@@ -55,7 +65,16 @@ export function usePayouts() {
       });
     },
     onMutate: () => {
-      return { merchantId };
+      if (!merchantId) return { merchantId };
+
+      const pendingSaveId = nextPendingSaveId.current;
+      nextPendingSaveId.current += 1;
+      setPendingPayoutSaves((pendingSaves) => [
+        ...pendingSaves,
+        { id: pendingSaveId, merchantId },
+      ]);
+
+      return { merchantId, pendingSaveId };
     },
     onSuccess: async (_data, _variables, context) => {
       const invalidations: Promise<unknown>[] = [
@@ -72,10 +91,24 @@ export function usePayouts() {
       }
       await Promise.all(invalidations);
     },
+    onSettled: (_data, _error, _variables, context) => {
+      if (context?.pendingSaveId === undefined) return;
+
+      setPendingPayoutSaves((pendingSaves) =>
+        pendingSaves.filter((save) => save.id !== context.pendingSaveId)
+      );
+    },
   });
+
+  const isSavingPayoutSettings = merchantId
+    ? pendingPayoutSaves.some((save) => save.merchantId === merchantId)
+    : false;
 
   return {
     resolveAccount: resolveAccountMutation,
-    savePayoutSettings: savePayoutSettingsMutation,
+    savePayoutSettings: {
+      ...savePayoutSettingsMutation,
+      isPending: isSavingPayoutSettings,
+    },
   };
 }

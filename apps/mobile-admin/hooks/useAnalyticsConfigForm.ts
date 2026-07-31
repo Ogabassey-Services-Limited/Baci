@@ -9,6 +9,7 @@ import {
 } from '@/lib/analytics-config-diff';
 import { invalidateAnalyticsSaveReadiness } from '@/lib/analytics-save-readiness';
 import { supabase } from '@/lib/supabase';
+import { useMerchantScopedPending } from './useMerchantScopedPending';
 
 const INITIAL_STATE: AnalyticsState = {
   google_analytics_id: '',
@@ -36,6 +37,13 @@ function toAnalyticsState(merchant: Partial<AnalyticsState>): AnalyticsState {
   };
 }
 
+function analyticsSaveScope(
+  merchantId: string | undefined,
+  userId: string | undefined
+) {
+  return merchantId && userId ? `${userId}:${merchantId}` : null;
+}
+
 interface UseAnalyticsConfigFormParams {
   hasGrowthIntegrations: boolean;
   isSetupOrigin: boolean;
@@ -52,6 +60,7 @@ export function useAnalyticsConfigForm({
   userId,
 }: UseAnalyticsConfigFormParams) {
   const queryClient = useQueryClient();
+  const savePending = useMerchantScopedPending();
   const activeMerchantIdRef = useRef(merchantId);
   const activeUserIdRef = useRef(userId);
   activeMerchantIdRef.current = merchantId;
@@ -64,6 +73,7 @@ export function useAnalyticsConfigForm({
     null
   );
   const scope = `${userId ?? ''}:${merchantId ?? ''}`;
+  const saveScope = analyticsSaveScope(merchantId, userId);
   const [formScope, setFormScope] = useState(scope);
 
   // State is scoped to the active merchant and user. Reset during render so
@@ -132,7 +142,11 @@ export function useAnalyticsConfigForm({
       if (error) throw error;
       return savedAnalytics;
     },
-    onMutate: () => ({ merchantId, userId }),
+    onMutate: () => {
+      const context = { merchantId, userId };
+      savePending.begin(analyticsSaveScope(context.merchantId, context.userId));
+      return context;
+    },
     onSuccess: async (savedAnalytics, _variables, context) => {
       const readinessMerchantId = context?.merchantId ?? merchantId;
       const savedUserId = context?.userId ?? userId;
@@ -183,6 +197,9 @@ export function useAnalyticsConfigForm({
       }
       Alert.alert('Error', error.message);
     },
+    onSettled: (_data, _error, _variables, context) => {
+      savePending.end(analyticsSaveScope(context?.merchantId, context?.userId));
+    },
   });
 
   const updateField = (
@@ -203,7 +220,7 @@ export function useAnalyticsConfigForm({
     handleSave: () => saveMutation.mutate({ ...analyticsRef.current }),
     isError,
     isLoading,
-    isSavePending: saveMutation.isPending,
+    isSavePending: savePending.isPending(saveScope),
     refetch,
     trackingConfig,
     updateField,

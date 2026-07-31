@@ -208,6 +208,39 @@ describe('usePayouts', () => {
     );
   });
 
+  it('does not expose merchant A payout saving as pending after switching to merchant B', async () => {
+    let releaseSave!: () => void;
+    const response = new Promise<{ subaccount_code: string }>((resolve) => {
+      releaseSave = () => resolve({ subaccount_code: 'SUB_123' });
+    });
+    mockApiClient.mockReturnValueOnce(response);
+    const { Wrapper } = createWrapper();
+    const { result, rerender } = renderHook(() => usePayouts(), {
+      wrapper: Wrapper,
+    });
+
+    let save!: Promise<unknown>;
+    act(() => {
+      save = result.current.savePayoutSettings.mutateAsync({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Merchant A Store',
+      });
+    });
+    await vi.waitFor(() => expect(mockApiClient).toHaveBeenCalled());
+    expect(result.current.savePayoutSettings.isPending).toBe(true);
+
+    currentMerchant = { id: 'merchant-2' };
+    rerender();
+
+    expect(result.current.savePayoutSettings.isPending).toBe(false);
+
+    await act(async () => {
+      releaseSave();
+      await save;
+    });
+  });
+
   it('preserves a successful save when only readiness invalidation fails', async () => {
     mockApiClient.mockResolvedValueOnce({ subaccount_code: 'SUB_123' });
     mockInvalidateStoreReadiness.mockRejectedValueOnce(

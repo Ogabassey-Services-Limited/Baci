@@ -20,6 +20,7 @@ import {
   type Dispatch,
   type SetStateAction,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
@@ -106,23 +107,27 @@ function useIsMounted() {
 }
 
 interface PublishToggleContext {
+  activeMerchantId: { current: string | undefined };
   isPublished: boolean | undefined | null;
   merchantId: string | undefined;
   toast: ReturnType<typeof useToast>['toast'];
   reloadMerchant: ReturnType<typeof useMerchant>['reloadMerchant'];
   router: ReturnType<typeof useRouter>;
-  setIsPublishing: Dispatch<SetStateAction<boolean>>;
+  setPublishingMerchantRequests: Dispatch<
+    SetStateAction<Record<string, number>>
+  >;
 }
 
 // Module-scope helper: try/finally inside the component body bails React
 // Compiler out of memoizing the whole page.
 async function togglePublishState({
+  activeMerchantId,
   isPublished,
   merchantId,
   toast,
   reloadMerchant,
   router,
-  setIsPublishing,
+  setPublishingMerchantRequests,
 }: PublishToggleContext) {
   if (!merchantId) {
     toast({
@@ -133,10 +138,19 @@ async function togglePublishState({
     return;
   }
 
-  setIsPublishing(true);
+  const submittedMerchantId = merchantId;
+  setPublishingMerchantRequests((current) => ({
+    ...current,
+    [submittedMerchantId]: (current[submittedMerchantId] ?? 0) + 1,
+  }));
   try {
-    const response = await requestMerchantPublish(merchantId, isPublished);
+    const response = await requestMerchantPublish(
+      submittedMerchantId,
+      isPublished
+    );
     const data = await response.json();
+
+    if (activeMerchantId.current !== submittedMerchantId) return;
 
     if (!response.ok) {
       toast({
@@ -156,13 +170,25 @@ async function togglePublishState({
     reloadMerchant();
     router.refresh();
   } catch (_error) {
+    if (activeMerchantId.current !== submittedMerchantId) return;
     toast({
       title: 'Error',
       description: 'Failed to update store status. Please try again.',
       variant: 'destructive',
     });
   } finally {
-    setIsPublishing(false);
+    setPublishingMerchantRequests((current) => {
+      const pendingRequestCount = current[submittedMerchantId] ?? 0;
+      if (pendingRequestCount > 1) {
+        return {
+          ...current,
+          [submittedMerchantId]: pendingRequestCount - 1,
+        };
+      }
+      const next = { ...current };
+      delete next[submittedMerchantId];
+      return next;
+    });
   }
 }
 
@@ -177,7 +203,14 @@ export default function DashboardClientPage({
   // React hydration requires the first browser render to match the server.
   // Render the mounted-only dashboard content on the second client pass.
   const mounted = useIsMounted();
-  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishingMerchantRequests, setPublishingMerchantRequests] = useState<
+    Record<string, number>
+  >({});
+  const activeMerchantId = useRef(merchant?.id);
+  activeMerchantId.current = merchant?.id;
+  const isPublishing = Boolean(
+    merchant?.id && publishingMerchantRequests[merchant.id]
+  );
   // TODO: These will be used for metric selector dropdown
   // const [heroMetric, setHeroMetric] = useState<'revenue' | 'orders' | 'visitors'>('revenue');
   // const [timePeriod, setTimePeriod] = useState('This Week');
@@ -224,12 +257,13 @@ export default function DashboardClientPage({
 
   const handlePublishToggle = () =>
     togglePublishState({
+      activeMerchantId,
       isPublished: merchant?.is_published,
       merchantId: merchant?.id,
       toast,
       reloadMerchant,
       router,
-      setIsPublishing,
+      setPublishingMerchantRequests,
     });
 
   if (!mounted) return null;

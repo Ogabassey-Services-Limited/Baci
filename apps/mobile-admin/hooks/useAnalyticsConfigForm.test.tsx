@@ -146,4 +146,68 @@ describe('useAnalyticsConfigForm', () => {
     );
     expect(supabaseMocks.update).not.toHaveBeenCalled();
   });
+
+  it('does not expose merchant A save pending state after switching to merchant B', () => {
+    let mutationPending = false;
+    mutationMocks.useMutation.mockImplementation((options) => ({
+      isPending: mutationPending,
+      mutate: vi.fn(),
+      options,
+    }));
+    const { result, rerender } = renderHook(
+      ({ merchantId }) =>
+        useAnalyticsConfigForm({
+          hasGrowthIntegrations: true,
+          isSetupOrigin: false,
+          merchantId,
+          onBack: vi.fn(),
+          userId: 'user-1',
+        }),
+      { initialProps: { merchantId: 'merchant-a' } }
+    );
+    const merchantAMutation = mutationMocks.useMutation.mock.calls.at(-1)?.[0];
+
+    mutationPending = true;
+    act(() => {
+      merchantAMutation.onMutate();
+      rerender({ merchantId: 'merchant-a' });
+    });
+    expect(result.current.isSavePending).toBe(true);
+
+    rerender({ merchantId: 'merchant-b' });
+
+    expect(result.current.isSavePending).toBe(false);
+  });
+
+  it("does not expose another user's save pending state for the same merchant", () => {
+    let mutationPending = false;
+    mutationMocks.useMutation.mockImplementation((options) => ({
+      isPending: mutationPending,
+      mutate: vi.fn(),
+      options,
+    }));
+    const { result, rerender } = renderHook(
+      ({ userId }) =>
+        useAnalyticsConfigForm({
+          hasGrowthIntegrations: true,
+          isSetupOrigin: false,
+          merchantId: 'merchant-a',
+          onBack: vi.fn(),
+          userId,
+        }),
+      { initialProps: { userId: 'user-1' } }
+    );
+    const firstUserMutation = mutationMocks.useMutation.mock.calls.at(-1)?.[0];
+
+    mutationPending = true;
+    act(() => {
+      firstUserMutation.onMutate();
+      rerender({ userId: 'user-1' });
+    });
+    expect(result.current.isSavePending).toBe(true);
+
+    rerender({ userId: 'user-2' });
+
+    expect(result.current.isSavePending).toBe(false);
+  });
 });

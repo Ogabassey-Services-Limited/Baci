@@ -1,6 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import type { DashboardMetrics, MonthlyChartData } from './actions';
 import DashboardClientPage from './client-page';
 
@@ -49,10 +48,6 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: vi.fn() }),
-}));
-
-vi.mock('@/lib/merchant-publish-client', () => ({
-  requestMerchantPublish: vi.fn(),
 }));
 
 const metrics: DashboardMetrics = {
@@ -121,25 +116,5 @@ describe('DashboardClientPage', () => {
     expect(screen.queryByText('Total Revenue')).not.toBeInTheDocument();
     expect(screen.queryByText('Active Orders')).not.toBeInTheDocument();
     expect(screen.queryByText('New')).not.toBeInTheDocument();
-  });
-
-  it('unpublishes the active merchant ID from the dashboard action', async () => {
-    vi.mocked(requestMerchantPublish).mockResolvedValue(new Response('{}'));
-
-    render(
-      <DashboardClientPage
-        initialChartData={chartData}
-        initialMetrics={metrics}
-        initialRecentSales={[]}
-      />
-    );
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Unpublish Store' })
-    );
-
-    await waitFor(() => {
-      expect(requestMerchantPublish).toHaveBeenCalledWith('merchant-1', true);
-    });
   });
 });

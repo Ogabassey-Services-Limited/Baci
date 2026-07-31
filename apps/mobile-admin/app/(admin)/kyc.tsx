@@ -31,6 +31,13 @@ interface VerificationStatus {
   date_of_birth: string | null;
 }
 
+const EMPTY_IDENTITY_DRAFT: VerificationIdentityDraft = {
+  dateOfBirth: '',
+  firstName: '',
+  lastName: '',
+  mobileNo: '',
+};
+
 function isVerificationStatus(value: unknown): value is VerificationStatus {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
@@ -61,14 +68,15 @@ export default function KYCScreen() {
   const activeMerchantIdRef = useRef<string | null>(null);
   const merchantId = merchant?.id ?? null;
   activeMerchantIdRef.current = merchantId;
-  const [identityDraft, setIdentityDraft] = useState<VerificationIdentityDraft>(
-    {
-      dateOfBirth: '',
-      firstName: '',
-      lastName: '',
-      mobileNo: '',
-    }
-  );
+  const [identityDraft, setIdentityDraft] =
+    useState<VerificationIdentityDraft>(EMPTY_IDENTITY_DRAFT);
+  const [identityDraftMerchantId, setIdentityDraftMerchantId] = useState<
+    string | null
+  >(null);
+  const visibleIdentityDraft =
+    identityDraftMerchantId === merchantId
+      ? identityDraft
+      : EMPTY_IDENTITY_DRAFT;
 
   const isOwner =
     !!user?.id && !!merchant?.user_id && user.id === merchant.user_id;
@@ -123,6 +131,7 @@ export default function KYCScreen() {
         : current.mobileNo || normalizeBvnMobileNumber(merchant?.phone) || '',
     }));
     lastMerchantIdRef.current = merchantId;
+    setIdentityDraftMerchantId(merchantId);
   }, [
     merchant?.id,
     merchant?.phone,
@@ -230,11 +239,11 @@ export default function KYCScreen() {
                 verified={status?.nin_verified ?? false}
                 prefillBvn={merchant?.bvn}
                 prefillNin={merchant?.nin}
-                firstName={identityDraft.firstName}
-                lastName={identityDraft.lastName}
+                firstName={visibleIdentityDraft.firstName}
+                lastName={visibleIdentityDraft.lastName}
                 merchantId={merchantId}
-                dateOfBirth={identityDraft.dateOfBirth}
-                mobileNo={identityDraft.mobileNo}
+                dateOfBirth={visibleIdentityDraft.dateOfBirth}
+                mobileNo={visibleIdentityDraft.mobileNo}
                 onIdentityChange={setIdentityDraft}
                 isActive={isVerificationSessionActive}
                 onVerified={refreshAfterVerification}

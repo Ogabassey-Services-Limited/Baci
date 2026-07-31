@@ -119,6 +119,8 @@ export function useSecurityMfaLifecycle() {
   const restartEnrollment = () => {
     const factorToReplace = pendingFactorId ?? factorId;
     if (!factorToReplace) return;
+    const preservesVerifiedFactor =
+      hasVerifiedFactor && pendingFactorId === factorToReplace;
 
     runSingleFlight(async () => {
       const { error } = await supabase.auth.mfa.unenroll({
@@ -132,7 +134,9 @@ export function useSecurityMfaLifecycle() {
       }
 
       if (!isMountedRef.current) return;
-      setFactorId(null);
+      if (!preservesVerifiedFactor) {
+        setFactorId(null);
+      }
       setPendingFactorId(null);
       await enroll();
     });

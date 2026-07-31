@@ -22,6 +22,7 @@ import {
 import { isStoreReadinessSetupOrigin } from '@/constants/store-readiness-routes';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
+import { useMerchantScopedPending } from '@/hooks/useMerchantScopedPending';
 import { useTheme } from '@/hooks/useTheme';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { updateMerchantSettings } from '@/lib/merchant-settings';
@@ -33,6 +34,7 @@ export default function SocialMediaScreen() {
   const router = useRouter();
   const { from } = useLocalSearchParams<{ from?: string }>();
   const queryClient = useQueryClient();
+  const savePending = useMerchantScopedPending();
   const activeMerchantIdRef = useRef(merchant?.id);
   activeMerchantIdRef.current = merchant?.id;
   const screenOptions = {
@@ -41,9 +43,7 @@ export default function SocialMediaScreen() {
     headerShadowVisible: false,
     headerTintColor: colors.text,
   };
-  // Non-edit states (loading / retry) must explicitly clear headerRight. React
-  // Navigation merges Stack.Screen options, so omitting it would leave a stale
-  // Save action from a previously-rendered form. (V4 drift guard)
+  // Clear headerRight in non-edit states so React Navigation cannot retain a stale Save action.
   const guardedScreenOptions = {
     ...screenOptions,
     headerRight: () => null,
@@ -90,9 +90,7 @@ export default function SocialMediaScreen() {
     setSocialMedia(merchantSocialMedia);
   }
 
-  // Only allow saving when the form actually changed, so a no-op save can't churn the row
-  // and (with the no-merchant guard below) a load that produced no merchant data can never
-  // blank saved handles. (V4)
+  // A save must change saved handles; no merchant can produce a blank write. (V4)
   const isDirty = (
     Object.keys(EMPTY_SOCIAL_MEDIA) as (keyof MerchantSocialMedia)[]
   ).some(
@@ -108,7 +106,10 @@ export default function SocialMediaScreen() {
       merchantId: string;
       values: MerchantSocialMedia;
     }) => updateMerchantSettings(merchantId, { social_media: values }),
-    onMutate: ({ merchantId }) => merchantId,
+    onMutate: ({ merchantId }) => {
+      savePending.begin(merchantId);
+      return merchantId;
+    },
     onSuccess: async (_data, _variables, savedMerchantId) => {
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
@@ -137,6 +138,9 @@ export default function SocialMediaScreen() {
         return;
       }
       Alert.alert('Error', (error as Error).message);
+    },
+    onSettled: (_data, _error, _variables, savedMerchantId) => {
+      savePending.end(savedMerchantId ?? null);
     },
   });
 
@@ -168,11 +172,8 @@ export default function SocialMediaScreen() {
     );
   }
 
-  // No merchant data to edit (settled with null, or a hard load error that left no
-  // cached data): show a retry state instead of an empty form, so Save can never write
-  // blank handles over the merchant's saved social_media. A cached merchant with a
-  // background-refetch error keeps the form editable (TanStack keeps `data` + `error`),
-  // because saving from cached handles is safe. (V4 drift guard)
+  // Show retry when no cached merchant exists, but keep cached data editable during refetch errors. (V4)
+  // This prevents blank writes without blocking safe edits from cached handles.
   if (!merchant) {
     return (
       <>
@@ -200,10 +201,10 @@ export default function SocialMediaScreen() {
           headerRight: () => (
             <Pressable
               onPress={handleSave}
-              disabled={saveMutation.isPending || !isDirty}
+              disabled={savePending.isPending(merchant.id) || !isDirty}
               style={styles.saveButton}
             >
-              {saveMutation.isPending ? (
+              {savePending.isPending(merchant.id) ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={[styles.saveText, { color: colors.primary }]}>
@@ -212,7 +213,6 @@ export default function SocialMediaScreen() {
               )}
             </Pressable>
           ),
-          // headerBackTitleVisible: false,
         }}
       />
       <SafeAreaView

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   back: vi.fn(),
   invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
   invalidateQueries: vi.fn(),
+  isMutationPending: false,
   lastMutation: null as Promise<void> | null,
   routeParams: {} as { from?: string },
   updateMerchantSettings: vi.fn(),
@@ -21,6 +22,12 @@ type MutationOptions = {
   onError?: (error: unknown, variables?: unknown, context?: unknown) => void;
   onSuccess?: (
     data: unknown,
+    variables?: unknown,
+    context?: unknown
+  ) => Promise<void> | void;
+  onSettled?: (
+    data: unknown,
+    error: unknown,
     variables?: unknown,
     context?: unknown
   ) => Promise<void> | void;
@@ -81,14 +88,16 @@ vi.mock('@tanstack/react-query', () => ({
           try {
             const data = await options.mutationFn(variables);
             await options.onSuccess?.(data, variables, context);
+            await options.onSettled?.(data, null, variables, context);
           } catch (error) {
             options.onError?.(error, variables, context);
+            await options.onSettled?.(null, error, variables, context);
           }
         })();
         mocks.lastMutation = mutation;
         return mutation;
       },
-      isPending: false,
+      isPending: mocks.isMutationPending,
     };
   },
 }));
@@ -167,6 +176,7 @@ export const socialMediaTestHarness = {
     vi.clearAllMocks();
     mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
     mocks.invalidateQueries.mockResolvedValue(undefined);
+    mocks.isMutationPending = false;
     mocks.lastMutation = null;
     mocks.routeParams = {};
     mocks.useMerchant.mockReturnValue({

@@ -155,6 +155,58 @@ describe('SecurityScreen factor recovery', () => {
     });
   });
 
+  it('keeps the verified authenticator challengeable when backup replacement enrollment fails', async () => {
+    mocks.listFactors.mockResolvedValue({
+      data: {
+        all: [
+          {
+            id: 'primary-factor',
+            factor_type: 'totp',
+            status: 'verified',
+          },
+          {
+            id: 'interrupted-backup',
+            factor_type: 'totp',
+            status: 'unverified',
+          },
+        ],
+        totp: [{ id: 'primary-factor', status: 'verified' }],
+      },
+      error: null,
+    });
+    mocks.enroll.mockResolvedValue({
+      data: null,
+      error: { message: 'replacement enrollment failed' },
+    });
+
+    render(<SecurityScreen />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Restart backup authenticator setup',
+      })
+    );
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Could not enable 2FA',
+        'replacement enrollment failed'
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText('Authenticator code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
+
+    await waitFor(() => {
+      expect(mocks.challengeAndVerify).toHaveBeenCalledWith({
+        code: '123456',
+        factorId: 'primary-factor',
+      });
+    });
+  });
+
   it('resumes or restarts an unverified factor after reload', async () => {
     mocks.listFactors.mockResolvedValue({
       data: {
