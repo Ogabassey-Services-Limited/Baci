@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchWithCsrf } from '@/lib/api-client';
 import {
   BLOG_FEATURED_VARIANT_KEYS,
@@ -109,16 +109,70 @@ export function useFeaturedImageActions({
 }) {
   const [isUploading, setIsUploading] = useState(false);
   const uploadedImage = useRef<UploadedFeaturedImage | null>(null);
+  const activeMerchantId = useRef(merchantId);
+  const previousMerchantId = useRef(merchantId);
+  activeMerchantId.current = merchantId;
+
+  useEffect(() => {
+    const previousId = previousMerchantId.current;
+    if (previousId !== merchantId && previousId && uploadedImage.current) {
+      const image = uploadedImage.current;
+      uploadedImage.current = null;
+      void deleteImage(image, previousId).catch((error) =>
+        console.error('Error deleting tenant-switched featured image:', error)
+      );
+    }
+    previousMerchantId.current = merchantId;
+    setIsUploading(false);
+  }, [merchantId]);
+
+  const requireMerchantId = () => {
+    if (!merchantId)
+      throw new Error('Select a merchant before uploading media');
+    return merchantId;
+  };
+
+  const rejectStaleCompletion = async (
+    image: UploadedFeaturedImage | null,
+    uploadMerchantId: string
+  ) => {
+    if (activeMerchantId.current !== uploadMerchantId) {
+      if (image) {
+        await deleteImage(image, uploadMerchantId).catch((error) =>
+          console.error('Error deleting stale uploaded image:', error)
+        );
+      }
+      throw new Error(
+        'Merchant changed while uploading media. Please try again.'
+      );
+    }
+  };
 
   const handleFeaturedImageUpload = async (files: File[]) => {
     const file = files[0];
     if (!file) return;
+    let uploadMerchantId: string;
+    try {
+      uploadMerchantId = requireMerchantId();
+    } catch (error) {
+      toast({
+        title: 'Merchant unavailable',
+        description: error instanceof Error ? error.message : undefined,
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsUploading(true);
     try {
-      const data = await uploadImage(file, 'featured', merchantId);
+      const data = await uploadImage(file, 'featured', uploadMerchantId);
+      const image = {
+        path: data.path,
+        variantPaths: normalizeFeaturedImageVariantPaths(data.variantPaths),
+      };
+      await rejectStaleCompletion(image, uploadMerchantId);
       if (uploadedImage.current) {
         try {
-          await deleteImage(uploadedImage.current, merchantId);
+          await deleteImage(uploadedImage.current, uploadMerchantId);
         } catch (error) {
           console.error(
             'Error deleting previously uploaded featured image:',
@@ -135,10 +189,7 @@ export function useFeaturedImageActions({
           data.variants
         ),
       }));
-      uploadedImage.current = {
-        path: data.path,
-        variantPaths: normalizeFeaturedImageVariantPaths(data.variantPaths),
-      };
+      uploadedImage.current = image;
       toast({
         title: 'Success',
         description: 'Featured image uploaded successfully.',
@@ -152,33 +203,56 @@ export function useFeaturedImageActions({
         variant: 'destructive',
       });
     } finally {
-      setIsUploading(false);
+      if (activeMerchantId.current === uploadMerchantId) setIsUploading(false);
     }
   };
 
-  const handleInlineImageUpload = async (file: File) =>
-    (await uploadImage(file, 'inline', merchantId)).url;
+  const handleInlineImageUpload = async (file: File) => {
+    const uploadMerchantId = requireMerchantId();
+    const data = await uploadImage(file, 'inline', uploadMerchantId);
+    await rejectStaleCompletion(
+      data.path
+        ? {
+            path: data.path,
+            variantPaths: normalizeFeaturedImageVariantPaths(data.variantPaths),
+          }
+        : null,
+      uploadMerchantId
+    );
+    return data.url;
+  };
 
   const handleRemoveFeaturedImage = async () => {
+    let selectedMerchantId: string;
+    try {
+      selectedMerchantId = requireMerchantId();
+    } catch (error) {
+      toast({
+        title: 'Merchant unavailable',
+        description: error instanceof Error ? error.message : undefined,
+        variant: 'destructive',
+      });
+      return;
+    }
     let image = uploadedImage.current;
-    if (!image && merchantId && formData.featured_image_url) {
+    if (!image && formData.featured_image_url) {
       const path = extractManagedBlogStoragePath(
         formData.featured_image_url,
-        merchantId
+        selectedMerchantId
       );
       if (path) {
         const variantPaths: FeaturedImageVariantPaths = {};
         for (const key of BLOG_FEATURED_VARIANT_KEYS) {
           const url = formData.featured_image_variants[key];
           const variantPath =
-            url && extractManagedBlogStoragePath(url, merchantId);
+            url && extractManagedBlogStoragePath(url, selectedMerchantId);
           if (variantPath) variantPaths[key] = variantPath;
         }
         image = { path, variantPaths };
       }
     }
     try {
-      if (image) await deleteImage(image, merchantId);
+      if (image) await deleteImage(image, selectedMerchantId);
       setFormData((previous) => ({
         ...previous,
         featured_image_url: '',

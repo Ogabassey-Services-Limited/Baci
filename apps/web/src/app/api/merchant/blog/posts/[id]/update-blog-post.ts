@@ -96,12 +96,13 @@ export async function updateBlogPost(
       .eq('merchant_id', access.merchantId)
       .maybeSingle();
     if (featureSettings.error) {
-      console.warn(
-        'Failed to load blog feature settings for discover enforcement',
-        {
-          merchantId: access.merchantId,
-          error: featureSettings.error.message,
-        }
+      console.error('Failed to load blog feature settings:', {
+        merchantId: access.merchantId,
+        error: featureSettings.error,
+      });
+      return NextResponse.json(
+        { error: 'Failed to load blog settings' },
+        { status: 500 }
       );
     }
     const variantIntegrity = validateBlogImageVariantIntegrity(

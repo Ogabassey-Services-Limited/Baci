@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { registerPostTestSetup, validPostData } from './post.test-support';
+import {
+  mockPostCreationSelectSequence,
+  registerPostTestSetup,
+  validPostData,
+} from './post.test-support';
 import {
   makeRequest,
   managedFeaturedImageUrl,
@@ -14,39 +18,16 @@ registerPostTestSetup();
 describe('POST /api/merchant/blog/posts', () => {
   describe('CDN image-transform prewarm', () => {
     it('schedules a blog image prewarm when the created post is published', async () => {
-      mockSupabase.maybeSingle.mockResolvedValue({
-        data: null,
-        error: null,
-      });
-      mockSupabase.select.mockImplementation((fields: string) => {
-        if (fields === 'business_name, slug') {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: { business_name: 'Test Store', slug: 'test-store' },
-            error: null,
-          });
-        } else if (
-          fields === 'blog_enabled' ||
-          fields === 'blog_enabled, blog_discover_image_validation_enabled'
-        ) {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              blog_enabled: true,
-              blog_discover_image_validation_enabled: false,
-            },
-            error: null,
-          });
-        } else {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              id: '1',
-              slug: 'new-blog-post',
-              status: 'published',
-              featured_image_url: managedFeaturedImageUrl,
-            },
-            error: null,
-          });
-        }
-        return mockSupabase;
+      mockPostCreationSelectSequence({
+        createdPost: {
+          data: {
+            id: '1',
+            slug: 'new-blog-post',
+            status: 'published',
+            featured_image_url: managedFeaturedImageUrl,
+          },
+          error: null,
+        },
       });
 
       const res = await POST(

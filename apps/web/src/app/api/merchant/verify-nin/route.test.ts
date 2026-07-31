@@ -96,13 +96,7 @@ describe('POST /api/merchant/verify-nin', () => {
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
-    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      expect.anything(),
-      'user-1',
-      'verify-nin-preflight',
-      30,
-      1
-    );
+    expect(checkRateLimit).not.toHaveBeenCalled();
   });
 
   it('returns 429 when the provider quota is exceeded after authorization', async () => {
@@ -111,10 +105,11 @@ describe('POST /api/merchant/verify-nin', () => {
       .mockResolvedValueOnce(false);
 
     const req = makeRequest(validNinBody);
+    const json = vi.spyOn(req, 'json');
     const res = await POST(req);
 
     expect(res.status).toBe(429);
-    expect(req.json).toHaveBeenCalledOnce();
+    expect(json).toHaveBeenCalledOnce();
     expect(getMerchantForApiRequest).toHaveBeenCalledOnce();
     expect(
       vi.mocked(getMerchantForApiRequest).mock.invocationCallOrder[0]
@@ -124,12 +119,14 @@ describe('POST /api/merchant/verify-nin', () => {
   it('does not consume quota for a malformed NIN request body', async () => {
     vi.mocked(checkRateLimit).mockResolvedValue(false);
     const req = makeRequest(validNinBody);
-    req.json = vi.fn().mockRejectedValue(new Error('malformed JSON'));
+    const json = vi
+      .spyOn(req, 'json')
+      .mockRejectedValue(new Error('malformed JSON'));
 
     const res = await POST(req);
 
     expect(res.status).toBe(400);
-    expect(req.json).toHaveBeenCalledOnce();
+    expect(json).toHaveBeenCalledOnce();
     expect(getMerchantForApiRequest).not.toHaveBeenCalled();
     expect(checkRateLimit).not.toHaveBeenCalled();
   });
@@ -148,13 +145,7 @@ describe('POST /api/merchant/verify-nin', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'NIN verification is only available for Nigerian merchants',
     });
-    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      supabaseMock,
-      'user-1',
-      'verify-nin-preflight',
-      30,
-      1
-    );
+    expect(checkRateLimit).not.toHaveBeenCalled();
     expect(getMonnifyToken).not.toHaveBeenCalled();
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });

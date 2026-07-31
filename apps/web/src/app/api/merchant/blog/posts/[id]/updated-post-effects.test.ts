@@ -6,9 +6,7 @@ const { mockDispatchZohoBlogCampaign } = vi.hoisted(() => ({
 }));
 
 vi.mock('next/server', () => ({
-  after: (callback: () => void | Promise<void>) => {
-    void callback();
-  },
+  after: (callback: () => void | Promise<void>) => callback(),
 }));
 
 vi.mock('@/lib/indexnow', () => ({

@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => ({
   evictStorefrontPublicationCaches: vi.fn(),
   getStorefrontPublicationCacheIdentity: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
-  getUserAccess: vi.fn(),
   hasPermission: vi.fn(),
   loadStoreLaunchReadiness: vi.fn(),
   merchantUpdate: vi.fn(),
@@ -17,7 +16,6 @@ const mocks = vi.hoisted(() => ({
 export const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 export const mockAuthenticateApiRequest = mocks.authenticateApiRequest;
 export const mockGetMerchantForApiRequest = mocks.getMerchantForApiRequest;
-export const mockGetUserAccess = mocks.getUserAccess;
 export const mockHasPermission = mocks.hasPermission;
 export const mockCheckCsrfProtection = mocks.checkCsrfProtection;
 export const mockLoadStoreLaunchReadiness = mocks.loadStoreLaunchReadiness;
@@ -29,7 +27,6 @@ export const mockMerchantUpdate = mocks.merchantUpdate;
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mocks.authenticateApiRequest,
-  getUserAccess: mocks.getUserAccess,
   hasPermission: mocks.hasPermission,
 }));
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
@@ -156,10 +153,6 @@ export function setupAuthenticatedRequest(supabase = createMockSupabase()) {
     user: { id: 'user-123' },
     supabase,
     error: null,
-  });
-  mockGetUserAccess.mockResolvedValue({
-    merchantId: MERCHANT_ID,
-    role: 'owner',
   });
   mockGetMerchantForApiRequest.mockResolvedValue({
     merchantId: MERCHANT_ID,

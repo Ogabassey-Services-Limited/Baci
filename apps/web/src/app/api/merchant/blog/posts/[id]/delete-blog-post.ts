@@ -63,6 +63,9 @@ export async function deleteBlogPost(
         { status: 500 }
       );
     }
+    if (!existingPost) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
     const blogRevalidation = await getMerchantBlogRevalidationContext(
       auth.supabase,
       access.merchantId
@@ -83,8 +86,8 @@ export async function deleteBlogPost(
       merchantId: access.merchantId,
       identifiers: blogRevalidation.identifiers,
       canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
-      listingCategories: existingPost?.category ? [existingPost.category] : [],
-      postSlugs: existingPost?.slug ? [existingPost.slug] : [],
+      listingCategories: existingPost.category ? [existingPost.category] : [],
+      postSlugs: existingPost.slug ? [existingPost.slug] : [],
     });
     return NextResponse.json({ success: true });
   } catch (error) {

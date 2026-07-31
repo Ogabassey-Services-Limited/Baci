@@ -88,14 +88,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const preflightRateLimitError = await getVerificationRateLimitError(
-    auth.supabase,
-    auth.user.id,
-    'verify-cac-preflight',
-    30
-  );
-  if (preflightRateLimitError) return preflightRateLimitError;
-
   if (hasOversizedContentLength(request)) {
     return NextResponse.json(
       { error: 'File exceeds maximum size of 5MB' },
@@ -195,6 +187,14 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-cac-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
 
   let storagePath: string | undefined;
   try {

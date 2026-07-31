@@ -45,6 +45,19 @@ describe('normalizeBvnMatchResult', () => {
     ).toBeNull();
   });
 
+  it.each([
+    '0',
+    0,
+  ])('accepts a successful numeric or string response code (%s)', (responseCode) => {
+    expect(
+      normalizeBvnMatchResult({
+        requestSuccessful: true,
+        responseCode,
+        responseBody: { bvnInformationMatch: true },
+      })
+    ).toEqual({ verified: true });
+  });
+
   it('reports only the name field for an explicit name mismatch', () => {
     expect(
       normalizeBvnMatchResult({

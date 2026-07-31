@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, vi } from 'vitest';
+import { defineVerificationRateLimitOrderTests } from '@/test-support/verification-rate-limit-order.test-support';
 
 const mocks = vi.hoisted(() => ({
   authenticateApiRequest: vi.fn(),
@@ -45,6 +46,40 @@ function createValidFile(): File {
   });
 }
 
+function createValidRequest(): NextRequest {
+  return createRequest({
+    merchantId,
+    file: createValidFile(),
+    rcNumber: 'RC123456',
+    approvedName: 'Baci',
+  });
+}
+
+function setAuthorizedMerchantAndSupabase() {
+  const supabase = {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { country: 'NG' },
+            error: null,
+          }),
+        })),
+      })),
+    })),
+  };
+  mocks.authenticateApiRequest.mockResolvedValue({
+    error: null,
+    user: { id: 'user-1' },
+    supabase,
+  });
+  mocks.getMerchantForApiRequest.mockResolvedValue({
+    merchantId,
+    staffAccess: { isOwner: true },
+  });
+  return supabase;
+}
+
 describe('POST /api/merchant/verify-cac rate-limit ordering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -57,123 +92,23 @@ describe('POST /api/merchant/verify-cac rate-limit ordering', () => {
     mocks.checkRateLimit.mockResolvedValue(true);
   });
 
-  it('consumes the authenticated-user preflight quota before parsing a malformed form', async () => {
-    const request = createRequest({
-      merchantId,
-      rcNumber: 'RC123456',
-      approvedName: 'Baci',
-    });
-
-    const response = await POST(request);
-
-    expect(response.status).toBe(400);
-    expect(mocks.checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      {},
-      'user-1',
-      'verify-cac-preflight',
-      30,
-      1
-    );
-    expect(request.formData).toHaveBeenCalledOnce();
-    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-  });
-
-  it('uses only the preflight quota for an inaccessible requested merchant', async () => {
-    mocks.getMerchantForApiRequest.mockResolvedValue(null);
-
-    const response = await POST(
-      createRequest({
-        merchantId,
-        file: createValidFile(),
-        rcNumber: 'RC123456',
-        approvedName: 'Baci',
-      })
-    );
-
-    expect(response.status).toBe(404);
-    expect(mocks.checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      {},
-      'user-1',
-      'verify-cac-preflight',
-      30,
-      1
-    );
-  });
-
-  it('rejects exhausted preflight quota before multipart parsing or merchant lookup', async () => {
-    mocks.checkRateLimit.mockResolvedValue(false);
-    const request = createRequest({
-      merchantId,
-      file: createValidFile(),
-      rcNumber: 'RC123456',
-      approvedName: 'Baci',
-    });
-
-    const response = await POST(request);
-
-    expect(response.status).toBe(429);
-    expect(request.formData).not.toHaveBeenCalled();
-    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      {},
-      'user-1',
-      'verify-cac-preflight',
-      30,
-      1
-    );
-  });
-
-  it('checks the provider quota after authorized merchant access', async () => {
-    const supabase = {
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: { country: 'NG' },
-              error: null,
-            }),
-          })),
-        })),
-      })),
-    };
-    mocks.authenticateApiRequest.mockResolvedValue({
-      error: null,
-      user: { id: 'user-1' },
-      supabase,
-    });
-    mocks.getMerchantForApiRequest.mockResolvedValue({
-      merchantId,
-      staffAccess: { isOwner: true },
-    });
-    mocks.checkRateLimit
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
-
-    const response = await POST(
-      createRequest({
-        merchantId,
-        file: createValidFile(),
-        rcNumber: 'RC123456',
-        approvedName: 'Baci',
-      })
-    );
-
-    expect(response.status).toBe(429);
-    expect(mocks.checkRateLimit).toHaveBeenNthCalledWith(
-      1,
-      supabase,
-      'user-1',
-      'verify-cac-preflight',
-      30,
-      1
-    );
-    expect(mocks.checkRateLimit).toHaveBeenNthCalledWith(
-      2,
-      supabase,
-      'user-1',
-      'verify-cac',
-      3,
-      1
-    );
+  defineVerificationRateLimitOrderTests({
+    checkRateLimit: mocks.checkRateLimit,
+    createMalformedRequest: () =>
+      createRequest({ merchantId, rcNumber: 'RC123456', approvedName: 'Baci' }),
+    createValidRequest,
+    getMerchantForApiRequest: mocks.getMerchantForApiRequest,
+    post: POST,
+    preflightEndpoint: 'verify-cac-preflight',
+    providerEndpoint: 'verify-cac',
+    providerMaxRequests: 3,
+    setAuthorizedMerchantAndSupabase,
+    userId: 'user-1',
+    assertMalformedRequest: (request) => {
+      expect(request.formData).toHaveBeenCalledOnce();
+    },
+    assertPreflightRequest: (request) => {
+      expect(request.formData).toHaveBeenCalledOnce();
+    },
   });
 });

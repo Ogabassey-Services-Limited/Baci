@@ -31,7 +31,12 @@ export async function createBlogPost(request: NextRequest) {
       );
     }
     const { valid, response } = await checkCsrfProtection(request);
-    if (!valid && response) return response;
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
     const selectedMerchant = await resolveSelectedMerchantAccess({
       requestedMerchantId: request.nextUrl.searchParams.get('merchantId'),
       supabase: auth.supabase,
@@ -82,11 +87,21 @@ export async function createBlogPost(request: NextRequest) {
       id: access.merchantId,
       business_name: merchantData?.business_name || 'Store Owner',
     };
-    const { data: features } = await auth.supabase
+    const { data: features, error: featuresError } = await auth.supabase
       .from('merchant_feature_settings')
       .select('blog_enabled, blog_discover_image_validation_enabled')
       .eq('merchant_id', merchant.id)
-      .single();
+      .maybeSingle();
+    if (featuresError) {
+      console.error('Failed to fetch blog feature settings:', {
+        merchantId: merchant.id,
+        error: featuresError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to load blog settings' },
+        { status: 500 }
+      );
+    }
     if (!features?.blog_enabled) {
       return NextResponse.json(
         {
@@ -139,12 +154,23 @@ export async function createBlogPost(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { data: existingPost } = await auth.supabase
+    const { data: existingPost, error: existingPostError } = await auth.supabase
       .from('blog_posts')
       .select('id')
       .eq('merchant_id', merchant.id)
       .eq('slug', postData.slug)
       .maybeSingle();
+    if (existingPostError) {
+      console.error('Failed to validate blog post slug:', {
+        merchantId: merchant.id,
+        slug: postData.slug,
+        error: existingPostError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to validate post slug' },
+        { status: 500 }
+      );
+    }
     if (existingPost) {
       return NextResponse.json(
         { error: 'A post with this slug already exists' },

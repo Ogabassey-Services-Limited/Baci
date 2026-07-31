@@ -26,9 +26,11 @@ export default function normalizeBvnMatchResult(
 
   // Older Monnify responses omitted this envelope. Preserve that compatibility,
   // but never trust a body when the envelope explicitly reports a failure.
+  const responseCode = payload.responseCode;
+  const isSuccessfulResponseCode = responseCode === '0' || responseCode === 0;
   if (
     payload.requestSuccessful === false ||
-    (Object.hasOwn(payload, 'responseCode') && payload.responseCode !== '0')
+    (Object.hasOwn(payload, 'responseCode') && !isSuccessfulResponseCode)
   ) {
     return null;
   }

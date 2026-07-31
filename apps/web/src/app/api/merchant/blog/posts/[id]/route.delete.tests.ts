@@ -13,6 +13,13 @@ import {
   setupAuth,
 } from './route.test-support';
 
+function mockDeleteResult(result: { error: { message: string } | null }) {
+  const deleteQuery = { eq: vi.fn() };
+  deleteQuery.eq.mockReturnValueOnce(deleteQuery).mockResolvedValueOnce(result);
+  mockSupabase.delete.mockReturnValue(deleteQuery);
+  return deleteQuery;
+}
+
 describe('DELETE /api/merchant/blog/posts/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,13 +90,7 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
 
   describe('successful deletion', () => {
     it('deletes post and returns success', async () => {
-      // eq() call order: fetch existing post id -> fetch existing post merchant_id
-      // -> delete post id -> delete post merchant_id
-      mockSupabase.eq
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() => Promise.resolve({ error: null }));
+      const deleteQuery = mockDeleteResult({ error: null });
 
       const res = await DELETE(
         makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),
@@ -100,16 +101,16 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       expect(mockSupabase.delete).toHaveBeenCalled();
-      expect(mockSupabase.eq).toHaveBeenCalledWith('id', POST_ID);
-      expect(mockSupabase.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+      expect(deleteQuery.eq).toHaveBeenNthCalledWith(1, 'id', POST_ID);
+      expect(deleteQuery.eq).toHaveBeenNthCalledWith(
+        2,
+        'merchant_id',
+        MERCHANT_ID
+      );
     });
 
     it('revalidates blog cache after deletion', async () => {
-      mockSupabase.eq
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() => Promise.resolve({ error: null }));
+      mockDeleteResult({ error: null });
 
       await DELETE(
         makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),
@@ -143,6 +144,19 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
   });
 
   describe('error handling', () => {
+    it('returns 404 rather than reporting deletion success for a missing tenant post', async () => {
+      mockSupabase.maybeSingle.mockResolvedValue({ data: null, error: null });
+
+      const res = await DELETE(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: 'Post not found' });
+      expect(mockSupabase.delete).not.toHaveBeenCalled();
+    });
+
     it('returns 500 when the pre-delete lookup fails', async () => {
       mockSupabase.maybeSingle.mockResolvedValue({
         data: null,
@@ -161,13 +175,7 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
     });
 
     it('returns 500 when database delete fails', async () => {
-      mockSupabase.eq
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() => mockSupabase)
-        .mockImplementationOnce(() =>
-          Promise.resolve({ error: { message: 'Delete failed' } })
-        );
+      mockDeleteResult({ error: { message: 'Delete failed' } });
 
       const res = await DELETE(
         makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),

@@ -127,14 +127,17 @@ vi.mock('./product-embed', () => ({
     open,
     onClose,
     onSelect,
+    merchantId,
   }: {
     open: boolean;
     onClose: () => void;
     onSelect: (products: { id: string; [key: string]: unknown }[]) => void;
     selectedIds: string[];
+    merchantId?: string;
   }) =>
     open ? (
       <div data-testid="product-picker">
+        <output data-testid="product-picker-merchant">{merchantId}</output>
         <button type="button" data-testid="picker-close" onClick={onClose}>
           Close
         </button>
@@ -167,20 +170,17 @@ describe('NovelEditor', () => {
 
   it('renders the editor root and content', () => {
     render(<NovelEditor {...defaultProps} />);
-
     expect(screen.getByTestId('editor-root')).toBeInTheDocument();
     expect(screen.getByTestId('editor-content')).toBeInTheDocument();
   });
 
   it('renders the toolbar', () => {
     render(<NovelEditor {...defaultProps} />);
-
     expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
   });
 
   it('renders the bubble menu with selectors', () => {
     render(<NovelEditor {...defaultProps} />);
-
     expect(screen.getByTestId('editor-bubble')).toBeInTheDocument();
     expect(screen.getByTestId('node-selector')).toBeInTheDocument();
     expect(screen.getByTestId('link-selector')).toBeInTheDocument();
@@ -190,7 +190,6 @@ describe('NovelEditor', () => {
 
   it('renders slash command suggestion items', () => {
     render(<NovelEditor {...defaultProps} />);
-
     expect(screen.getByText('Heading 1')).toBeInTheDocument();
     expect(screen.getByText('Bullet List')).toBeInTheDocument();
     expect(screen.getByText('Big heading')).toBeInTheDocument();
@@ -199,13 +198,11 @@ describe('NovelEditor', () => {
 
   it('does not show product picker when onProductsChange is not provided', () => {
     render(<NovelEditor {...defaultProps} />);
-
     expect(screen.queryByTestId('product-picker')).not.toBeInTheDocument();
   });
 
   it('does not show products toolbar button when onProductsChange is not provided', () => {
     render(<NovelEditor {...defaultProps} />);
-
     expect(
       screen.queryByTestId('products-toolbar-btn')
     ).not.toBeInTheDocument();
@@ -213,19 +210,34 @@ describe('NovelEditor', () => {
 
   it('shows products toolbar button when onProductsChange is provided', () => {
     render(<NovelEditor {...defaultProps} onProductsChange={vi.fn()} />);
-
     expect(screen.getByTestId('products-toolbar-btn')).toBeInTheDocument();
   });
 
   it('opens product picker when toolbar products button is clicked', async () => {
     const user = userEvent.setup();
     render(<NovelEditor {...defaultProps} onProductsChange={vi.fn()} />);
-
     expect(screen.queryByTestId('product-picker')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('products-toolbar-btn'));
 
     expect(screen.getByTestId('product-picker')).toBeInTheDocument();
+  });
+
+  it('passes the selected merchant to the product picker', async () => {
+    const user = userEvent.setup();
+    render(
+      <NovelEditor
+        {...defaultProps}
+        merchantId="merchant-selected"
+        onProductsChange={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('products-toolbar-btn'));
+
+    expect(screen.getByTestId('product-picker-merchant')).toHaveTextContent(
+      'merchant-selected'
+    );
   });
 
   it('closes product picker when close is clicked', async () => {

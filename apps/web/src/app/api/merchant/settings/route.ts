@@ -46,6 +46,16 @@ function merchantSettingsAuthError(message: string) {
   return null;
 }
 
+function merchantSettingsUpdateFailureResponse() {
+  return NextResponse.json(
+    {
+      code: 'MERCHANT_SETTINGS_UPDATE_FAILED',
+      error: 'Failed to update merchant settings',
+    },
+    { status: 500 }
+  );
+}
+
 export async function PATCH(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
@@ -63,20 +73,30 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  let rawBody: unknown;
   try {
-    const rawBody = await request.json();
-    const parseResult = merchantSettingsRequestSchema.safeParse(rawBody);
+    rawBody = await request.json();
+  } catch (error) {
+    console.error('Invalid merchant settings payload:', error);
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 }
+    );
+  }
 
-    if (!parseResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: formatMerchantSettingsErrors(parseResult.error),
-        },
-        { status: 400 }
-      );
-    }
+  const parseResult = merchantSettingsRequestSchema.safeParse(rawBody);
 
+  if (!parseResult.success) {
+    return NextResponse.json(
+      {
+        error: 'Validation failed',
+        details: formatMerchantSettingsErrors(parseResult.error),
+      },
+      { status: 400 }
+    );
+  }
+
+  try {
     const body = parseResult.data;
     const merchantContext = await getMerchantForApiRequest(
       auth.supabase,
@@ -152,18 +172,12 @@ export async function PATCH(request: NextRequest) {
       if (authErrorResponse) return authErrorResponse;
 
       console.error('Merchant settings update failed:', error);
-      return NextResponse.json(
-        { error: 'Failed to update merchant settings' },
-        { status: 500 }
-      );
+      return merchantSettingsUpdateFailureResponse();
     }
 
     return NextResponse.json({ merchant });
   } catch (error) {
-    console.error('Invalid merchant settings payload:', error);
-    return NextResponse.json(
-      { error: 'Invalid request body' },
-      { status: 400 }
-    );
+    console.error('Merchant settings update failed:', error);
+    return merchantSettingsUpdateFailureResponse();
   }
 }

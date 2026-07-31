@@ -98,6 +98,10 @@ describe('PATCH /api/merchant/features persistence', () => {
         },
       },
     });
+    expect(testState.selectFilter).toEqual({
+      column: 'merchant_id',
+      value: MERCHANT_ID,
+    });
     expect(json.custom_settings).toEqual({
       zohoCampaigns: {
         enabled: false,
@@ -185,7 +189,7 @@ describe('PATCH /api/merchant/features persistence', () => {
     });
   });
 
-  it('returns 500 when upsert fails', async () => {
+  it('returns 500 when PATCH persistence fails', async () => {
     const { PATCH } = await import('./route');
     testState.upsertError = { message: 'DB error' };
     testState.updateError = { message: 'DB error' };

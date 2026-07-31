@@ -75,14 +75,6 @@ export async function POST(request: NextRequest) {
 
   const { bvn, firstName, lastName, dateOfBirth, mobileNo, merchantId } =
     parsed.data;
-  const preflightRateLimitError = await getVerificationRateLimitError(
-    auth.supabase,
-    auth.user.id,
-    'verify-bvn-preflight',
-    30
-  );
-  if (preflightRateLimitError) return preflightRateLimitError;
-
   const merchantContext = await getMerchantForApiRequest(
     auth.supabase,
     auth.user.id,
@@ -119,6 +111,14 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-bvn-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
 
   const monnifyDateOfBirth = formatDateOfBirthForMonnify(dateOfBirth);
   let effectiveMobileNo = mobileNo?.trim() ?? '';

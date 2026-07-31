@@ -21,10 +21,10 @@ describe('parseMerchantFeatureSettingsPatchBody', () => {
     });
   });
 
-  it.each([
-    null,
-    'loyalty_enabled=true',
-    ['loyalty_enabled'],
+  it.each<readonly [unknown]>([
+    [null],
+    ['loyalty_enabled=true'],
+    [['loyalty_enabled']],
   ])('rejects a non-object request body: %j', (body) => {
     expect(parseMerchantFeatureSettingsPatchBody(body)).toBeNull();
   });

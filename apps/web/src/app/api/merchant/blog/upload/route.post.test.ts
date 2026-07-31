@@ -75,6 +75,7 @@ describe('POST /api/merchant/blog/upload', () => {
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(upload).toHaveBeenCalledTimes(1);
+    expect(supabase.storage.from).toHaveBeenCalledWith('media');
     expect(mockGenerateFeaturedImageVariants).not.toHaveBeenCalled();
     expect(body.path).toContain(`${ownerAccess.merchantId}/blog/`);
     expect(body.url).toContain(

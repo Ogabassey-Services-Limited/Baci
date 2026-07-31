@@ -59,13 +59,7 @@ describe('POST /api/merchant/verify-bvn country and phone resolution', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'BVN verification is only available for Nigerian merchants',
     });
-    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      supabaseMock,
-      'user-1',
-      'verify-bvn-preflight',
-      30,
-      1
-    );
+    expect(checkRateLimit).not.toHaveBeenCalled();
     expect(getMonnifyToken).not.toHaveBeenCalled();
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
@@ -107,8 +101,8 @@ describe('POST /api/merchant/verify-bvn country and phone resolution', () => {
     expect(supabaseMock.merchantMaybeSingle).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the supplied mobileNo after loading merchant country', async () => {
-    const supabaseMock = makeSupabaseMock();
+  it('uses the supplied mobileNo when it differs from the merchant profile phone', async () => {
+    const supabaseMock = makeSupabaseMock(null, '08099999999');
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
       error: null,
@@ -121,6 +115,12 @@ describe('POST /api/merchant/verify-bvn country and phone resolution', () => {
 
     expect((await POST(makeRequest(validBvnBody))).status).toBe(200);
     expect(supabaseMock.merchantMaybeSingle).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/vas/bvn-details-match'),
+      expect.objectContaining({
+        body: expect.stringContaining('08012345678'),
+      })
+    );
   });
 
   it('returns 400 when neither request nor merchant profile has a phone number', async () => {

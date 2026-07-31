@@ -4,12 +4,7 @@ import { resolveSelectedMerchantAccess } from './resolve-selected-merchant-acces
 
 const mocks = vi.hoisted(() => ({
   getMerchantForApiRequest: vi.fn(),
-  getUserAccess: vi.fn(),
   toUserAccess: vi.fn(),
-}));
-
-vi.mock('@/lib/api-auth', () => ({
-  getUserAccess: (...args: unknown[]) => mocks.getUserAccess(...args),
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
@@ -27,7 +22,10 @@ describe('resolveSelectedMerchantAccess', () => {
   });
 
   it('resolves only an explicitly selected merchant through the scoped access lookup', async () => {
-    const merchantContext = { merchantId, staffAccess: { role: 'owner' } };
+    const merchantContext = {
+      merchantId,
+      staffAccess: { isOwner: true, isStaff: false, permissions: {} },
+    };
     const access = { merchantId, role: 'owner' };
     mocks.getMerchantForApiRequest.mockResolvedValue(merchantContext);
     mocks.toUserAccess.mockReturnValue(access);
@@ -44,7 +42,29 @@ describe('resolveSelectedMerchantAccess', () => {
       'user-1',
       { requestedMerchantId: merchantId }
     );
-    expect(mocks.getUserAccess).not.toHaveBeenCalled();
+  });
+
+  it('trims a selected merchant ID before authorizing it', async () => {
+    const merchantContext = {
+      merchantId,
+      staffAccess: { isOwner: true, isStaff: false, permissions: {} },
+    };
+    const access = { merchantId, role: 'owner' };
+    mocks.getMerchantForApiRequest.mockResolvedValue(merchantContext);
+    mocks.toUserAccess.mockReturnValue(access);
+
+    const result = await resolveSelectedMerchantAccess({
+      requestedMerchantId: ` ${merchantId} `,
+      supabase,
+      userId: 'user-1',
+    });
+
+    expect(result).toEqual({ access, invalidMerchantId: false });
+    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+      supabase,
+      'user-1',
+      { requestedMerchantId: merchantId }
+    );
   });
 
   it('rejects a missing selected merchant before any access lookup', async () => {
@@ -56,7 +76,6 @@ describe('resolveSelectedMerchantAccess', () => {
 
     expect(result).toEqual({ access: null, invalidMerchantId: true });
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
   it('rejects an explicitly null selected merchant before any access lookup', async () => {
@@ -68,7 +87,6 @@ describe('resolveSelectedMerchantAccess', () => {
 
     expect(result).toEqual({ access: null, invalidMerchantId: true });
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
   it('rejects an invalid selected merchant before any access lookup', async () => {
@@ -80,6 +98,5 @@ describe('resolveSelectedMerchantAccess', () => {
 
     expect(result).toEqual({ access: null, invalidMerchantId: true });
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 });

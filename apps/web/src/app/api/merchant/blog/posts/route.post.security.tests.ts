@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
-import { registerPostTestSetup, validPostData } from './post.test-support';
+import { describe, expect, it } from 'vitest';
+import {
+  mockPostCreationSelectSequence,
+  registerPostTestSetup,
+  validPostData,
+} from './post.test-support';
 import {
   MERCHANT_ID,
   makeRequest,
@@ -98,32 +102,14 @@ describe('POST /api/merchant/blog/posts', () => {
 
   describe('feature flags', () => {
     it('returns 403 when blog feature is not enabled', async () => {
-      vi.spyOn(mockSupabase, 'select').mockImplementation((fields: string) => {
-        if (
-          fields === 'blog_enabled' ||
-          fields === 'blog_enabled, blog_discover_image_validation_enabled'
-        ) {
-          return {
-            eq: vi.fn().mockReturnThis(),
-            single: vi.fn().mockResolvedValue({
-              data: {
-                blog_enabled: false,
-                blog_discover_image_validation_enabled: false,
-              },
-              error: null,
-            }),
-          } as never;
-        }
-        if (fields === 'business_name, slug') {
-          return {
-            eq: vi.fn().mockReturnThis(),
-            single: vi.fn().mockResolvedValue({
-              data: { business_name: 'Test Store', slug: 'test-store' },
-              error: null,
-            }),
-          } as never;
-        }
-        return mockSupabase;
+      mockPostCreationSelectSequence({
+        featureSettings: {
+          data: {
+            blog_enabled: false,
+            blog_discover_image_validation_enabled: false,
+          },
+          error: null,
+        },
       });
 
       const res = await POST(
@@ -228,29 +214,14 @@ describe('POST /api/merchant/blog/posts', () => {
     });
 
     it('blocks publishing without Discover-ready metadata when validation is enabled', async () => {
-      mockSupabase.select.mockImplementation((fields: string) => {
-        if (fields === 'business_name, slug') {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: { business_name: 'Test Store', slug: 'test-store' },
-            error: null,
-          });
-        } else if (
-          fields === 'blog_enabled, blog_discover_image_validation_enabled'
-        ) {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              blog_enabled: true,
-              blog_discover_image_validation_enabled: true,
-            },
-            error: null,
-          });
-        } else {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: { id: '1', slug: 'new-blog-post' },
-            error: null,
-          });
-        }
-        return mockSupabase;
+      mockPostCreationSelectSequence({
+        featureSettings: {
+          data: {
+            blog_enabled: true,
+            blog_discover_image_validation_enabled: true,
+          },
+          error: null,
+        },
       });
 
       const res = await POST(

@@ -194,21 +194,14 @@ describe('GET /api/merchant/blog/posts', () => {
       );
     });
 
-    it('truncates search input to 100 characters', async () => {
-      mockSupabase.range.mockResolvedValue({
-        data: [],
-        error: null,
-        count: 0,
-      });
-
+    it('rejects search input longer than 100 characters', async () => {
       const longSearch = 'a'.repeat(150);
-      await GET(makeRequest(`/api/merchant/blog/posts?search=${longSearch}`));
-
-      expect(mockSupabase.textSearch).toHaveBeenCalledWith(
-        'search_vector',
-        'a'.repeat(100),
-        { type: 'websearch', config: 'english' }
+      const response = await GET(
+        makeRequest(`/api/merchant/blog/posts?search=${longSearch}`)
       );
+
+      expect(response.status).toBe(400);
+      expect(mockSupabase.textSearch).not.toHaveBeenCalled();
     });
 
     it('applies pagination with limit and offset', async () => {

@@ -1,8 +1,6 @@
 import { z } from 'zod';
 
-const merchantFeatureSettingsPatchRequestBodySchema = z
-  .object({})
-  .passthrough();
+const merchantFeatureSettingsPatchRequestBodySchema = z.looseObject({});
 
 export type MerchantFeatureSettingsPatchRequestBody = {
   featureUpdates: Record<string, unknown>;

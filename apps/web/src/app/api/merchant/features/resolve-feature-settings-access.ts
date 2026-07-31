@@ -4,10 +4,10 @@ import { resolveSelectedMerchantAccess } from './resolve-selected-merchant-acces
 
 type FeatureSettingsPermission = 'edit' | 'read';
 
-type FeatureSettingsAccessError = {
-  message: 'Invalid merchant ID' | 'Merchant not found' | 'Permission denied';
-  status: 400 | 403 | 404;
-};
+type FeatureSettingsAccessError =
+  | { message: 'Invalid merchant ID'; status: 400 }
+  | { message: 'Permission denied'; status: 403 }
+  | { message: 'Merchant not found'; status: 404 };
 
 type ResolveFeatureSettingsAccessInput = {
   permission: FeatureSettingsPermission;

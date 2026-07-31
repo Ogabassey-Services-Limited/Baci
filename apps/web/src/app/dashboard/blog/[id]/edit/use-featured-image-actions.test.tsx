@@ -94,4 +94,75 @@ describe('useFeaturedImageActions merchant context', () => {
       })
     );
   });
+
+  it('fails closed before an inline upload when no merchant is selected', async () => {
+    const { result } = renderHook(() =>
+      useFeaturedImageActions({
+        merchantId: undefined,
+        formData,
+        setFormData: vi.fn(),
+        toast: vi.fn(),
+      })
+    );
+
+    await expect(
+      result.current.handleInlineImageUpload(
+        new File(['image'], 'inline.png', { type: 'image/png' })
+      )
+    ).rejects.toThrow('Select a merchant before uploading media');
+
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
+  });
+
+  it('deletes and rejects an inline upload that completes after a merchant switch', async () => {
+    const pendingUpload: {
+      resolve?: (value: ReturnType<typeof response>) => void;
+    } = {};
+    mockFetchWithCsrf
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            pendingUpload.resolve = resolve as (
+              value: ReturnType<typeof response>
+            ) => void;
+          })
+      )
+      .mockResolvedValueOnce(response({ deleted: true }));
+    const { result, rerender } = renderHook(
+      ({ merchantId }) =>
+        useFeaturedImageActions({
+          merchantId,
+          formData,
+          setFormData: vi.fn(),
+          toast: vi.fn(),
+        }),
+      { initialProps: { merchantId: 'merchant-selected' } }
+    );
+    const upload = result.current.handleInlineImageUpload(
+      new File(['image'], 'inline.png', { type: 'image/png' })
+    );
+
+    rerender({ merchantId: 'merchant-other' });
+    if (!pendingUpload.resolve) throw new Error('Upload did not start');
+    pendingUpload.resolve({
+      ok: true,
+      json: async () => ({
+        path: 'merchant-selected/blog/inline.png',
+        url: 'https://cdn.example.com/inline.png',
+      }),
+    });
+
+    await expect(upload).rejects.toThrow(
+      'Merchant changed while uploading media'
+    );
+    expect(mockFetchWithCsrf).toHaveBeenLastCalledWith(
+      '/api/merchant/blog/upload',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-baci-merchant-id': 'merchant-selected',
+        }),
+        method: 'DELETE',
+      })
+    );
+  });
 });

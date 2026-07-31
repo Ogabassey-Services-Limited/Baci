@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -50,8 +50,27 @@ vi.mock('./new-blog-post-header', () => ({
 }));
 
 vi.mock('./new-blog-post-content-tab', () => ({
-  NewBlogPostContentTab: ({ formData }: { formData: { title: string } }) => (
-    <output>{formData.title}</output>
+  NewBlogPostContentTab: ({
+    formData,
+    embeddedProducts,
+    setEmbeddedProducts,
+  }: {
+    formData: { title: string };
+    embeddedProducts: { id: string }[];
+    setEmbeddedProducts: (products: { id: string }[]) => void;
+  }) => (
+    <>
+      <output>{formData.title}</output>
+      <output aria-label="embedded-product-count">
+        {embeddedProducts.length}
+      </output>
+      <button
+        type="button"
+        onClick={() => setEmbeddedProducts([{ id: 'product-1' }])}
+      >
+        Embed product
+      </button>
+    </>
   ),
 }));
 
@@ -116,5 +135,26 @@ describe('NewBlogPostPage tenant draft recovery', () => {
       expect.objectContaining({ storageKey: 'blog-draft-new-merchant-2' })
     );
     expect(screen.queryByText('Merchant One Draft')).not.toBeInTheDocument();
+  });
+
+  it('clears embedded products when the selected merchant changes', async () => {
+    const { rerender } = render(<NewBlogPostPage />);
+
+    await screen.findByRole('button', { name: 'Embed product' });
+    fireEvent.click(screen.getByRole('button', { name: 'Embed product' }));
+    expect(screen.getByLabelText('embedded-product-count')).toHaveTextContent(
+      '1'
+    );
+
+    mockMerchant.business_name = 'Merchant Two';
+    mockMerchant.id = 'merchant-2';
+    mockMerchant.slug = 'merchant-two';
+    rerender(<NewBlogPostPage />);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('embedded-product-count')).toHaveTextContent(
+        '0'
+      )
+    );
   });
 });

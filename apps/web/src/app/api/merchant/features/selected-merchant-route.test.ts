@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   authenticateApiRequest: vi.fn(),
   checkCsrfProtection: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
-  getUserAccess: vi.fn(),
   hasPermission: vi.fn(),
   revalidateFeatures: vi.fn(),
   revalidateMerchant: vi.fn(),
@@ -16,7 +15,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mocks.authenticateApiRequest(...args),
-  getUserAccess: (...args: unknown[]) => mocks.getUserAccess(...args),
   hasPermission: (...args: unknown[]) => mocks.hasPermission(...args),
 }));
 
@@ -144,7 +142,7 @@ describe('selected merchant feature settings routes', () => {
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.getMerchantForApiRequest.mockResolvedValue({
       merchantId: selectedMerchantId,
-      staffAccess: { role: 'owner' },
+      staffAccess: { isOwner: true, isStaff: false, permissions: {} },
     });
     mocks.toUserAccess.mockReturnValue({
       merchantId: selectedMerchantId,
@@ -181,7 +179,6 @@ describe('selected merchant feature settings routes', () => {
     });
     expect(merchantIdFilter).toBeNull();
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
   it('strips merchantId and writes and revalidates only the selected merchant', async () => {
@@ -207,13 +204,6 @@ describe('selected merchant feature settings routes', () => {
   });
 
   it('replaces settings for the explicitly selected merchant', async () => {
-    const implicitMerchantId = '11111111-1111-4111-8111-111111111111';
-    mocks.getUserAccess.mockResolvedValue({
-      merchantId: implicitMerchantId,
-      permissions: {},
-      role: 'owner',
-    });
-
     const response = await PUT(
       new NextRequest('http://localhost/api/merchant/features', {
         body: JSON.stringify({
@@ -256,10 +246,9 @@ describe('selected merchant feature settings routes', () => {
     });
     expect(updatePayload).toBeNull();
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
-  it.each([
+  it.each<readonly [unknown]>([
     [null],
     ['loyalty_enabled=true'],
     [['loyalty_enabled']],
@@ -278,7 +267,6 @@ describe('selected merchant feature settings routes', () => {
     });
     expect(updatePayload).toBeNull();
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
   it('rejects an unauthorized selected merchant without querying settings', async () => {

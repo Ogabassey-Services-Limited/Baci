@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { DELETE } = await import('./route');
-
 import {
   createMockSupabase,
   MERCHANT_ID,
@@ -17,6 +15,8 @@ import {
   resetPublishRouteMocks,
   setupAuthenticatedRequest,
 } from './route.test-support';
+
+const { DELETE } = await import('./route');
 
 beforeEach(resetPublishRouteMocks);
 

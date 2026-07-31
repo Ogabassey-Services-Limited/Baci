@@ -1,4 +1,4 @@
-import type { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 import { vi } from 'vitest';
 
 export const validNinBody = {
@@ -33,13 +33,11 @@ export function makeSupabaseMock(rpcError: unknown = null, country = 'NG') {
 }
 
 export function makeRequest(body: unknown): NextRequest {
-  return {
+  return new NextRequest('http://localhost/api/merchant/verify-nin', {
     method: 'POST',
-    headers: new Headers({ 'Content-Type': 'application/json' }),
-    nextUrl: new URL('http://localhost/api/merchant/verify-nin'),
-    json: vi.fn().mockResolvedValue(body),
-    cookies: { get: vi.fn() },
-  } as unknown as NextRequest;
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 export function makeNinResponse(firstName: string, lastName: string) {

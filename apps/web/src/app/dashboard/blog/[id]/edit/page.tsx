@@ -60,7 +60,6 @@ export default function EditBlogPostPage() {
     setFormData,
     toast,
   });
-
   const onPostLoaded = useEffectEvent((result: LoadBlogPostResult) => {
     let loadedFormData: PostFormData | null = null;
     if (result.status === 'not-found') {
@@ -93,6 +92,8 @@ export default function EditBlogPostPage() {
   useEffect(() => {
     if (!postId || !merchant?.id) return;
     let isStale = false;
+    setIsLoading(true);
+    setEmbeddedProducts([]);
     loadBlogPost(postId, merchant.id).then((result) => {
       if (!isStale) onPostLoaded(result);
     });
@@ -252,6 +253,7 @@ export default function EditBlogPostPage() {
         <TabsContent value="content" className="space-y-6">
           <EditBlogContentTab
             formData={formData}
+            merchantId={merchant?.id}
             handleChange={handleChange}
             merchantSlug={merchant?.slug}
             embeddedProducts={embeddedProducts}

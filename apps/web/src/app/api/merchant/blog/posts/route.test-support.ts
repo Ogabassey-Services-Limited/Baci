@@ -16,9 +16,7 @@ vi.mock('next/server', async () => {
 
   return {
     ...actual,
-    after: (callback: () => void | Promise<void>) => {
-      void callback();
-    },
+    after: (callback: () => void | Promise<void>) => callback(),
   };
 });
 

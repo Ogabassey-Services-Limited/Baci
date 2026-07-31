@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { POST } = await import('./route');
-
 import {
   createMockSupabase,
   incompleteLaunchReadiness,
@@ -12,7 +10,6 @@ import {
   mockEvictStorefrontPublicationCaches,
   mockGetMerchantForApiRequest,
   mockGetStorefrontPublicationCacheIdentity,
-  mockGetUserAccess,
   mockHasPermission,
   mockLoadStoreLaunchReadiness,
   mockMerchantUpdate,
@@ -20,6 +17,8 @@ import {
   resetPublishRouteMocks,
   setupAuthenticatedRequest,
 } from './route.test-support';
+
+const { POST } = await import('./route');
 
 beforeEach(resetPublishRouteMocks);
 
@@ -41,7 +40,7 @@ describe('POST /api/merchant/publish', () => {
     setupAuthenticatedRequest();
     mockCheckCsrfProtection.mockResolvedValue({ valid: false, response: null });
     expect((await POST(makeRequest('POST'))).status).toBe(403);
-    expect(mockGetUserAccess).not.toHaveBeenCalled();
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -67,14 +67,6 @@ export async function POST(request: NextRequest) {
   }
 
   const { nin, firstName, lastName, dateOfBirth, merchantId } = parsed.data;
-  const preflightRateLimitError = await getVerificationRateLimitError(
-    auth.supabase,
-    auth.user.id,
-    'verify-nin-preflight',
-    30
-  );
-  if (preflightRateLimitError) return preflightRateLimitError;
-
   const merchantContext = await getMerchantForApiRequest(
     auth.supabase,
     auth.user.id,
@@ -108,6 +100,14 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-nin-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
 
   try {
     const providerRateLimitError = await getVerificationRateLimitError(

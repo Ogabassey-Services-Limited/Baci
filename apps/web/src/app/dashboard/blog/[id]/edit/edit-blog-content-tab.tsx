@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import Image from 'next/image';
 import { BlogEditor } from '@/components/blog/blog-editor';
-import { ProductGrid } from '@/components/blog/product-embed';
+import { ProductGrid } from '@/components/blog/product-embed-grid';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +20,7 @@ import type { PostFormData, Product } from './edit-blog-types';
 
 export function EditBlogContentTab({
   formData,
+  merchantId,
   handleChange,
   merchantSlug,
   embeddedProducts,
@@ -30,6 +31,7 @@ export function EditBlogContentTab({
   isUploading,
 }: {
   formData: PostFormData;
+  merchantId?: string;
   handleChange: (field: keyof PostFormData, value: string) => void;
   merchantSlug?: string;
   embeddedProducts: Product[];
@@ -80,6 +82,7 @@ export function EditBlogContentTab({
           <div className="space-y-2">
             <Label htmlFor="content">Content *</Label>
             <BlogEditor
+              merchantId={merchantId}
               content={formData.content}
               onChange={(content) => handleChange('content', content)}
               onImageUpload={onImageUpload}

@@ -1,7 +1,7 @@
 import { Loader2, X } from 'lucide-react';
 import Image from 'next/image';
 import { BlogEditor } from '@/components/blog/blog-editor';
-import { ProductGrid } from '@/components/blog/product-embed';
+import { ProductGrid } from '@/components/blog/product-embed-grid';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,6 +22,7 @@ import type {
 
 export function NewBlogPostContentTab({
   formData,
+  merchantId,
   merchantSlug,
   embeddedProducts,
   setEmbeddedProducts,
@@ -33,6 +34,7 @@ export function NewBlogPostContentTab({
   isUploading,
 }: {
   formData: NewBlogPostFormData;
+  merchantId?: string;
   merchantSlug?: string;
   embeddedProducts: NewBlogProduct[];
   setEmbeddedProducts: (products: NewBlogProduct[]) => void;
@@ -86,6 +88,7 @@ export function NewBlogPostContentTab({
           <div className="space-y-2">
             <Label>Content *</Label>
             <BlogEditor
+              merchantId={merchantId}
               content={formData.content}
               onChange={(content) => handleChange('content', content)}
               onImageUpload={onImageUpload}

@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
-const mockHasPermission = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockCheckRateLimit = vi.fn();
 const mockFetchCacCompanies = vi.fn();
@@ -33,15 +32,11 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
-  hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: (...args: unknown[]) =>
     mockGetMerchantForApiRequest(...args),
-  toUserAccess: (context: { merchantId: string }) => ({
-    merchantId: context.merchantId,
-  }),
 }));
 
 vi.mock('@/lib/rate-limiter', () => ({
@@ -100,7 +95,6 @@ describe('POST /api/merchant/verify-tax-id', () => {
         role: null,
       },
     });
-    mockHasPermission.mockReturnValue(true);
     mockCheckRateLimit.mockResolvedValue(true);
     mockLoadMerchantSingle.mockResolvedValue({ data: merchant, error: null });
     mockFetchCacCompanies.mockResolvedValue([cacCompany]);
@@ -150,8 +144,16 @@ describe('POST /api/merchant/verify-tax-id', () => {
     expect(mockUpdateMerchant).not.toHaveBeenCalled();
   });
 
-  it('returns 403 when the user cannot edit settings', async () => {
-    mockHasPermission.mockReturnValue(false);
+  it('returns 403 when the user is not the merchant owner', async () => {
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-1',
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: { settings: { edit: true } },
+        role: 'manager',
+      },
+    });
 
     const response = await POST(
       createPostRequest({
@@ -161,6 +163,7 @@ describe('POST /api/merchant/verify-tax-id', () => {
     );
 
     expect(response.status).toBe(403);
+    expect(mockCheckRateLimit).not.toHaveBeenCalled();
     expect(mockUpdateMerchant).not.toHaveBeenCalled();
   });
 
@@ -193,13 +196,7 @@ describe('POST /api/merchant/verify-tax-id', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Tax ID verification is only available for Nigerian merchants',
     });
-    expect(mockCheckRateLimit).toHaveBeenCalledExactlyOnceWith(
-      expect.anything(),
-      'user-1',
-      'verify-tax-id-preflight',
-      30,
-      1
-    );
+    expect(mockCheckRateLimit).not.toHaveBeenCalled();
     expect(mockFetchCacCompanies).not.toHaveBeenCalled();
     expect(mockFetchCacTaxId).not.toHaveBeenCalled();
   });

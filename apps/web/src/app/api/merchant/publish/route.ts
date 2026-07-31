@@ -1,15 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
-import { checkCsrfProtection } from '@/lib/csrf';
-import {
-  getMerchantForApiRequest,
-  toUserAccess,
-} from '@/lib/get-merchant-for-api-request';
 import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
 import { loadStoreLaunchReadiness } from '@/lib/store-readiness/load-store-launch-readiness';
 import { getStorePublicationMissingItems } from '@/lib/store-readiness/store-publication-missing-items';
 import { evictStorefrontPublicationCaches } from '@/lib/storefront-publication-cache-eviction';
-import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
+import { resolvePublishMerchantAccess } from './resolve-publish-merchant-access';
 
 function storefrontCacheEvictionFailureResponse(): NextResponse {
   return NextResponse.json(
@@ -32,61 +26,10 @@ function storefrontCacheEvictionFailureResponse(): NextResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const merchantAccess = await resolvePublishMerchantAccess(request);
+    if (!merchantAccess.ok) return merchantAccess.response;
 
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
-    }
-
-    const parsedMerchantId = merchantIdParamSchema.safeParse(
-      typeof body === 'object' && body !== null && 'merchantId' in body
-        ? body.merchantId
-        : undefined
-    );
-    if (!parsedMerchantId.success) {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
-    }
-
-    const merchantContext = await getMerchantForApiRequest(
-      auth.supabase,
-      auth.user.id,
-      { requestedMerchantId: parsedMerchantId.data }
-    );
-    if (!merchantContext) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    const access = toUserAccess(merchantContext);
-    if (!hasPermission(access, 'settings', 'edit')) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    const supabase = auth.supabase;
-    const merchantId = merchantContext.merchantId;
+    const { merchantId, supabase } = merchantAccess;
     const launchReadiness = await loadStoreLaunchReadiness({
       supabase,
       merchantId,
@@ -154,63 +97,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const merchantAccess = await resolvePublishMerchantAccess(request);
+    if (!merchantAccess.ok) return merchantAccess.response;
 
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
-    }
-
-    const parsedMerchantId = merchantIdParamSchema.safeParse(
-      typeof body === 'object' && body !== null && 'merchantId' in body
-        ? body.merchantId
-        : undefined
-    );
-    if (!parsedMerchantId.success) {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
-    }
-
-    const merchantContext = await getMerchantForApiRequest(
-      auth.supabase,
-      auth.user.id,
-      { requestedMerchantId: parsedMerchantId.data }
-    );
-    if (!merchantContext) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    const access = toUserAccess(merchantContext);
-    if (!hasPermission(access, 'settings', 'edit')) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    // Use the auth-scoped client from authenticateApiRequest so mobile
-    // (Bearer token) requests satisfy RLS. See POST handler for context.
-    const supabase = auth.supabase;
-    const merchantId = merchantContext.merchantId;
+    // The resolver returns the auth-scoped client, so mobile Bearer-token
+    // requests satisfy RLS. See POST handler for the matching publish flow.
+    const { merchantId, supabase } = merchantAccess;
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase

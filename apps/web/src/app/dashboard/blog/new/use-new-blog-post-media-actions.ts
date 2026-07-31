@@ -1,13 +1,14 @@
-import { type Dispatch, type SetStateAction, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { fetchWithCsrf } from '@/lib/api-client';
-import {
-  normalizeFeaturedImageVariantMap,
-  normalizeFeaturedImageVariantPaths,
-} from './new-blog-post-form-data';
+import { newBlogPostMediaUtils } from './new-blog-post-media-utils';
 import type {
-  FeaturedImageVariantPaths,
-  FeaturedImageVariants,
   NewBlogPostFormData,
   UploadedFeaturedImage,
 } from './new-blog-post-types';
@@ -17,72 +18,6 @@ type Toast = (message: {
   description?: string;
   variant?: 'destructive';
 }) => void;
-
-interface FeaturedImageUploadResponse {
-  url: string;
-  path: string;
-  width: number;
-  height: number;
-  variants?: FeaturedImageVariants;
-  variantPaths?: FeaturedImageVariantPaths;
-}
-
-function parseFeaturedImageUploadResponse(
-  value: unknown
-): FeaturedImageUploadResponse {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Invalid upload response payload');
-  }
-  const payload = value as Record<string, unknown>;
-  const { url, path, width, height } = payload;
-  if (
-    typeof url !== 'string' ||
-    !url.trim() ||
-    typeof path !== 'string' ||
-    !path.trim()
-  ) {
-    throw new Error('Upload response is missing required image paths');
-  }
-  if (
-    typeof width !== 'number' ||
-    !Number.isFinite(width) ||
-    width <= 0 ||
-    typeof height !== 'number' ||
-    !Number.isFinite(height) ||
-    height <= 0
-  ) {
-    throw new Error('Upload response is missing valid image dimensions');
-  }
-  return {
-    url,
-    path,
-    width,
-    height,
-    variants: normalizeFeaturedImageVariantMap(payload.variants),
-    variantPaths: normalizeFeaturedImageVariantPaths(payload.variantPaths),
-  };
-}
-
-async function deleteUploadedFeaturedImage(
-  image: UploadedFeaturedImage,
-  merchantId?: string
-): Promise<void> {
-  const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(merchantId ? { 'x-baci-merchant-id': merchantId } : {}),
-    },
-    method: 'DELETE',
-    body: JSON.stringify({
-      path: image.path,
-      variantPaths: image.variantPaths,
-    }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to delete image');
-  }
-}
 
 export function useNewBlogPostMediaActions({
   uploadedFeaturedImage,
@@ -100,17 +35,78 @@ export function useNewBlogPostMediaActions({
   const [isUploading, setIsUploading] = useState(false);
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
+  const activeMerchantId = useRef(merchantId);
+  const previousMerchantId = useRef(merchantId);
+  const uploadedFeaturedImageRef = useRef(uploadedFeaturedImage);
+  activeMerchantId.current = merchantId;
+  if (uploadedFeaturedImage)
+    uploadedFeaturedImageRef.current = uploadedFeaturedImage;
+
+  useEffect(() => {
+    const previousId = previousMerchantId.current;
+    if (
+      previousId !== merchantId &&
+      previousId &&
+      uploadedFeaturedImageRef.current
+    ) {
+      const image = uploadedFeaturedImageRef.current;
+      uploadedFeaturedImageRef.current = null;
+      void newBlogPostMediaUtils
+        .deleteUploadedFeaturedImage(image, previousId)
+        .catch((error) =>
+          console.error('Error deleting tenant-switched featured image:', error)
+        );
+    }
+    previousMerchantId.current = merchantId;
+    activeMerchantId.current = merchantId;
+    setIsUploading(false);
+  }, [merchantId]);
+
+  const requireMerchantId = () => {
+    if (!merchantId)
+      throw new Error('Select a merchant before uploading media');
+    return merchantId;
+  };
+
+  const discardStaleUpload = async (
+    image: UploadedFeaturedImage | null,
+    uploadMerchantId: string
+  ) => {
+    if (activeMerchantId.current !== uploadMerchantId) {
+      if (image) {
+        await newBlogPostMediaUtils
+          .deleteUploadedFeaturedImage(image, uploadMerchantId)
+          .catch((error) =>
+            console.error('Error deleting stale uploaded image:', error)
+          );
+      }
+      throw new Error(
+        'Merchant changed while uploading media. Please try again.'
+      );
+    }
+  };
 
   const handleFeaturedImageUpload = async (files: File[]) => {
     const file = files[0];
     if (!file) return;
+    let uploadMerchantId: string;
+    try {
+      uploadMerchantId = requireMerchantId();
+    } catch (error) {
+      toast({
+        title: 'Merchant unavailable',
+        description: error instanceof Error ? error.message : undefined,
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsUploading(true);
     const body = new FormData();
     body.append('file', file);
     body.append('purpose', 'featured');
     try {
       const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
+        headers: { 'x-baci-merchant-id': uploadMerchantId },
         method: 'POST',
         body,
       });
@@ -118,10 +114,19 @@ export function useNewBlogPostMediaActions({
         const error = await response.json();
         throw new Error(error.error || 'Failed to upload image');
       }
-      const data = parseFeaturedImageUploadResponse(await response.json());
+      const data = newBlogPostMediaUtils.parseFeaturedImageUploadResponse(
+        await response.json()
+      );
+      await discardStaleUpload(
+        { path: data.path, variantPaths: data.variantPaths || {} },
+        uploadMerchantId
+      );
       if (uploadedFeaturedImage) {
         try {
-          await deleteUploadedFeaturedImage(uploadedFeaturedImage, merchantId);
+          await newBlogPostMediaUtils.deleteUploadedFeaturedImage(
+            uploadedFeaturedImage,
+            uploadMerchantId
+          );
         } catch (error) {
           console.error(
             'Error deleting previously uploaded featured image:',
@@ -136,10 +141,12 @@ export function useNewBlogPostMediaActions({
         featured_image_height: data.height,
         featured_image_variants: data.variants || {},
       }));
-      setUploadedFeaturedImage({
+      const nextUploadedFeaturedImage = {
         path: data.path,
         variantPaths: data.variantPaths || {},
-      });
+      };
+      uploadedFeaturedImageRef.current = nextUploadedFeaturedImage;
+      setUploadedFeaturedImage(nextUploadedFeaturedImage);
       toast({
         title: 'Success',
         description: 'Featured image uploaded successfully.',
@@ -153,16 +160,17 @@ export function useNewBlogPostMediaActions({
         variant: 'destructive',
       });
     } finally {
-      setIsUploading(false);
+      if (activeMerchantId.current === uploadMerchantId) setIsUploading(false);
     }
   };
 
   const handleImageUpload = async (file: File): Promise<string> => {
+    const uploadMerchantId = requireMerchantId();
     const body = new FormData();
     body.append('file', file);
     body.append('purpose', 'inline');
     const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-      headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
+      headers: { 'x-baci-merchant-id': uploadMerchantId },
       method: 'POST',
       body,
     });
@@ -170,11 +178,31 @@ export function useNewBlogPostMediaActions({
       const error = await response.json();
       throw new Error(error.error || 'Failed to upload image');
     }
-    const data = await response.json();
+    const data = (await response.json()) as { url?: unknown; path?: unknown };
+    if (typeof data.url !== 'string' || !data.url.trim()) {
+      throw new Error('Upload response is missing an image URL');
+    }
+    await discardStaleUpload(
+      typeof data.path === 'string' && data.path.trim()
+        ? { path: data.path, variantPaths: {} }
+        : null,
+      uploadMerchantId
+    );
     return data.url;
   };
 
   const handleRemoveFeaturedImage = async () => {
+    let selectedMerchantId: string;
+    try {
+      selectedMerchantId = requireMerchantId();
+    } catch (error) {
+      toast({
+        title: 'Merchant unavailable',
+        description: error instanceof Error ? error.message : undefined,
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!uploadedFeaturedImage) {
       setFormData((previous) => ({
         ...previous,
@@ -183,11 +211,15 @@ export function useNewBlogPostMediaActions({
         featured_image_height: null,
         featured_image_variants: {},
       }));
+      uploadedFeaturedImageRef.current = null;
       setUploadedFeaturedImage(null);
       return;
     }
     try {
-      await deleteUploadedFeaturedImage(uploadedFeaturedImage, merchantId);
+      await newBlogPostMediaUtils.deleteUploadedFeaturedImage(
+        uploadedFeaturedImage,
+        selectedMerchantId
+      );
       setFormData((previous) => ({
         ...previous,
         featured_image_url: '',
@@ -195,6 +227,7 @@ export function useNewBlogPostMediaActions({
         featured_image_height: null,
         featured_image_variants: {},
       }));
+      uploadedFeaturedImageRef.current = null;
       setUploadedFeaturedImage(null);
     } catch (error) {
       console.error('Error deleting uploaded image:', error);

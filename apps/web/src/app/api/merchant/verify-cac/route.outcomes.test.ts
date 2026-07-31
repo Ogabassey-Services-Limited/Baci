@@ -134,7 +134,8 @@ describe('POST /api/merchant/verify-cac verification outcomes', () => {
   });
 
   it('returns 500 when RPC throws', async () => {
-    const supabaseMock = makeSupabaseMock(null, { message: 'DB error' });
+    const supabaseMock = makeSupabaseMock();
+    supabaseMock.rpc.mockRejectedValue(new Error('DB error'));
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
       error: null,
@@ -148,5 +149,6 @@ describe('POST /api/merchant/verify-cac verification outcomes', () => {
       })
     );
     expect(res.status).toBe(500);
+    expect(supabaseMock.storageBucket.remove).toHaveBeenCalledOnce();
   });
 });

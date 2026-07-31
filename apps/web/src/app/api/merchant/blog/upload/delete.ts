@@ -13,6 +13,15 @@ export async function DELETE(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   const merchantAccess = await resolveMerchantAccess({
     headers: request.headers,
     supabase: auth.supabase,
@@ -25,15 +34,18 @@ export async function DELETE(request: NextRequest) {
     );
   }
   const access = merchantAccess.access;
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
 
   try {
+    let requestBody: unknown;
+    try {
+      requestBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 });
+    }
+    const parsed = deleteBodySchema.safeParse(requestBody);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'No path provided' }, { status: 400 });
+    }
     const isAllowed = await checkRateLimit(
       auth.supabase,
       auth.user.id,
@@ -46,16 +58,6 @@ export async function DELETE(request: NextRequest) {
         { error: 'Rate limit exceeded', code: 'rate_limited' },
         { status: 429 }
       );
-    }
-    let requestBody: unknown;
-    try {
-      requestBody = await request.json();
-    } catch {
-      return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 });
-    }
-    const parsed = deleteBodySchema.safeParse(requestBody);
-    if (!parsed.success) {
-      return NextResponse.json({ error: 'No path provided' }, { status: 400 });
     }
     const variantPaths = Array.isArray(parsed.data.variantPaths)
       ? parsed.data.variantPaths

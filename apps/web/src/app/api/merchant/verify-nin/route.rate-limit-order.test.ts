@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, vi } from 'vitest';
+import { defineVerificationRateLimitOrderTests } from '@/test-support/verification-rate-limit-order.test-support';
 
 const mocks = vi.hoisted(() => ({
   authenticateApiRequest: vi.fn(),
@@ -42,6 +43,31 @@ function createRequest(body: unknown): NextRequest {
   }) as NextRequest;
 }
 
+function setAuthorizedMerchantAndSupabase() {
+  const supabase = {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { country: 'NG' },
+            error: null,
+          }),
+        })),
+      })),
+    })),
+  };
+  mocks.authenticateApiRequest.mockResolvedValue({
+    error: null,
+    user: { id: 'user-1' },
+    supabase,
+  });
+  mocks.getMerchantForApiRequest.mockResolvedValue({
+    merchantId: validBody.merchantId,
+    staffAccess: { isOwner: true },
+  });
+  return supabase;
+}
+
 describe('POST /api/merchant/verify-nin rate-limit ordering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -54,89 +80,16 @@ describe('POST /api/merchant/verify-nin rate-limit ordering', () => {
     mocks.checkRateLimit.mockResolvedValue(true);
   });
 
-  it('does not consume quota for a malformed request', async () => {
-    const response = await POST(createRequest({ ...validBody, nin: '123' }));
-
-    expect(response.status).toBe(400);
-    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
-    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-  });
-
-  it('uses only the preflight quota for an inaccessible requested merchant', async () => {
-    mocks.getMerchantForApiRequest.mockResolvedValue(null);
-
-    const response = await POST(createRequest(validBody));
-
-    expect(response.status).toBe(404);
-    expect(mocks.checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      {},
-      'user-1',
-      'verify-nin-preflight',
-      30,
-      1
-    );
-  });
-
-  it('skips merchant lookup when the preflight quota is exhausted', async () => {
-    mocks.checkRateLimit.mockResolvedValue(false);
-
-    const response = await POST(createRequest(validBody));
-
-    expect(response.status).toBe(429);
-    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(mocks.checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      {},
-      'user-1',
-      'verify-nin-preflight',
-      30,
-      1
-    );
-  });
-
-  it('checks the provider quota after authorized merchant access', async () => {
-    const supabase = {
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: { country: 'NG' },
-              error: null,
-            }),
-          })),
-        })),
-      })),
-    };
-    mocks.authenticateApiRequest.mockResolvedValue({
-      error: null,
-      user: { id: 'user-1' },
-      supabase,
-    });
-    mocks.getMerchantForApiRequest.mockResolvedValue({
-      merchantId: validBody.merchantId,
-      staffAccess: { isOwner: true },
-    });
-    mocks.checkRateLimit
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
-
-    const response = await POST(createRequest(validBody));
-
-    expect(response.status).toBe(429);
-    expect(mocks.checkRateLimit).toHaveBeenNthCalledWith(
-      1,
-      supabase,
-      'user-1',
-      'verify-nin-preflight',
-      30,
-      1
-    );
-    expect(mocks.checkRateLimit).toHaveBeenNthCalledWith(
-      2,
-      supabase,
-      'user-1',
-      'verify-nin',
-      3,
-      1
-    );
+  defineVerificationRateLimitOrderTests({
+    checkRateLimit: mocks.checkRateLimit,
+    createMalformedRequest: () => createRequest({ ...validBody, nin: '123' }),
+    createValidRequest: () => createRequest(validBody),
+    getMerchantForApiRequest: mocks.getMerchantForApiRequest,
+    post: POST,
+    preflightEndpoint: 'verify-nin-preflight',
+    providerEndpoint: 'verify-nin',
+    providerMaxRequests: 3,
+    setAuthorizedMerchantAndSupabase,
+    userId: 'user-1',
   });
 });

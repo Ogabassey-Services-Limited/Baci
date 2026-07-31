@@ -35,6 +35,7 @@ import { ProductEmbedPicker } from './product-embed';
 // const extensions = [...defaultExtensions, slashCommand];
 
 interface NovelEditorProps {
+  merchantId?: string;
   initialValue?: JSONContent | string;
   onChange: (value: string) => void;
   onImageUpload?: (file: File) => Promise<string>;
@@ -53,6 +54,7 @@ interface Product {
 }
 
 export default function NovelEditor({
+  merchantId,
   initialValue,
   onChange,
   onImageUpload,
@@ -192,6 +194,7 @@ export default function NovelEditor({
 
       {onProductsChange && (
         <ProductEmbedPicker
+          merchantId={merchantId}
           open={openProducts}
           onClose={() => setOpenProducts(false)}
           onSelect={(products) => {

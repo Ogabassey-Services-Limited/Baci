@@ -145,13 +145,7 @@ describe('POST /api/merchant/verify-cac request validation', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'CAC verification is only available for Nigerian merchants',
     });
-    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      supabaseMock,
-      'user-1',
-      'verify-cac-preflight',
-      30,
-      1
-    );
+    expect(checkRateLimit).not.toHaveBeenCalled();
     expect(supabaseMock.storage.from).not.toHaveBeenCalled();
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });

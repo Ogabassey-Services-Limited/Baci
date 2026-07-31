@@ -30,17 +30,21 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 
 const { PATCH } = await import('./route');
 
-function createPatchRequest(body: BodyInit): NextRequest {
-  const bodyWithMerchantId =
-    typeof body === 'string' && body !== '{'
-      ? JSON.stringify({ merchantId: DEFAULT_MERCHANT_ID, ...JSON.parse(body) })
-      : body;
+function createPatchRequest(body: Record<string, unknown> = {}): NextRequest {
   return new Request('http://localhost/api/merchant/settings', {
     method: 'PATCH',
-    body: bodyWithMerchantId,
+    body: JSON.stringify({ merchantId: DEFAULT_MERCHANT_ID, ...body }),
     headers: {
       'Content-Type': 'application/json',
     },
+  }) as unknown as NextRequest;
+}
+
+function createMalformedPatchRequest(): NextRequest {
+  return new Request('http://localhost/api/merchant/settings', {
+    method: 'PATCH',
+    body: '{',
+    headers: { 'Content-Type': 'application/json' },
   }) as unknown as NextRequest;
 }
 
@@ -71,15 +75,10 @@ describe('PATCH /api/merchant/settings', () => {
 
   it('updates normalized merchant settings atomically through one RPC', async () => {
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          social_media: {
-            instagram: ' @baci ',
-            twitter: ' ',
-          },
-          tax_identification_number: ' 1234567890 ',
-        })
-      )
+      createPatchRequest({
+        social_media: { instagram: ' @baci ', twitter: ' ' },
+        tax_identification_number: ' 1234567890 ',
+      })
     );
     const payload = await response.json();
 
@@ -111,12 +110,10 @@ describe('PATCH /api/merchant/settings', () => {
     });
 
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          merchantId: requestedMerchantId,
-          social_media: { instagram: '@second-store' },
-        })
-      )
+      createPatchRequest({
+        merchantId: requestedMerchantId,
+        social_media: { instagram: '@second-store' },
+      })
     );
 
     expect(response.status).toBe(200);
@@ -135,12 +132,10 @@ describe('PATCH /api/merchant/settings', () => {
 
   it('updates ordinary merchant settings through the same atomic RPC', async () => {
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          legal_entity_name: ' Baci Ltd ',
-          state_code: ' NG-LA ',
-        })
-      )
+      createPatchRequest({
+        legal_entity_name: ' Baci Ltd ',
+        state_code: ' NG-LA ',
+      })
     );
 
     expect(response.status).toBe(200);
@@ -159,11 +154,7 @@ describe('PATCH /api/merchant/settings', () => {
     mockHasPermission.mockReturnValue(false);
 
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          legal_entity_name: 'Baci Ltd',
-        })
-      )
+      createPatchRequest({ legal_entity_name: 'Baci Ltd' })
     );
 
     expect(response.status).toBe(403);
@@ -178,7 +169,7 @@ describe('PATCH /api/merchant/settings', () => {
     });
 
     const response = await PATCH(
-      createPatchRequest(JSON.stringify({ legal_entity_name: 'Baci Ltd' }))
+      createPatchRequest({ legal_entity_name: 'Baci Ltd' })
     );
 
     expect(response.status).toBe(401);
@@ -196,7 +187,7 @@ describe('PATCH /api/merchant/settings', () => {
     });
 
     const response = await PATCH(
-      createPatchRequest(JSON.stringify({ legal_entity_name: 'Baci Ltd' }))
+      createPatchRequest({ legal_entity_name: 'Baci Ltd' })
     );
 
     expect(response.status).toBe(403);
@@ -205,14 +196,14 @@ describe('PATCH /api/merchant/settings', () => {
   });
 
   it('returns 400 when validation fails', async () => {
-    const response = await PATCH(createPatchRequest(JSON.stringify({})));
+    const response = await PATCH(createPatchRequest());
 
     expect(response.status).toBe(400);
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the request body is invalid json', async () => {
-    const response = await PATCH(createPatchRequest('{'));
+    const response = await PATCH(createMalformedPatchRequest());
 
     expect(response.status).toBe(400);
     expect(mockRpc).not.toHaveBeenCalled();
@@ -220,7 +211,7 @@ describe('PATCH /api/merchant/settings', () => {
 
   it('returns 400 when the only provided change is a false clear flag', async () => {
     const response = await PATCH(
-      createPatchRequest(JSON.stringify({ clear_social_media: false }))
+      createPatchRequest({ clear_social_media: false })
     );
 
     expect(response.status).toBe(400);
@@ -234,10 +225,32 @@ describe('PATCH /api/merchant/settings', () => {
     });
 
     const response = await PATCH(
-      createPatchRequest(JSON.stringify({ legal_entity_name: 'Baci Ltd' }))
+      createPatchRequest({ legal_entity_name: 'Baci Ltd' })
     );
 
     expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      code: 'MERCHANT_SETTINGS_UPDATE_FAILED',
+      error: 'Failed to update merchant settings',
+    });
+  });
+
+  it('returns the stable server failure envelope when merchant resolution fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetMerchantForApiRequest.mockRejectedValueOnce(
+      new Error('merchant lookup unavailable')
+    );
+
+    const response = await PATCH(
+      createPatchRequest({ legal_entity_name: 'Baci Ltd' })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      code: 'MERCHANT_SETTINGS_UPDATE_FAILED',
+      error: 'Failed to update merchant settings',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns a reauthentication challenge for a stale identity-settings session', async () => {
@@ -247,7 +260,7 @@ describe('PATCH /api/merchant/settings', () => {
     });
 
     const response = await PATCH(
-      createPatchRequest(JSON.stringify({ legal_entity_name: 'Baci Limited' }))
+      createPatchRequest({ legal_entity_name: 'Baci Limited' })
     );
 
     expect(response.status).toBe(403);
@@ -264,7 +277,7 @@ describe('PATCH /api/merchant/settings', () => {
     });
 
     const response = await PATCH(
-      createPatchRequest(JSON.stringify({ legal_entity_name: 'Baci Limited' }))
+      createPatchRequest({ legal_entity_name: 'Baci Limited' })
     );
 
     expect(response.status).toBe(403);

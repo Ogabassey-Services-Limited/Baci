@@ -3,7 +3,7 @@ import {
   normalizeCacSearchTerm,
 } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import {
   type CacPublicRecordsError,
   fetchCacCompanies,
@@ -12,10 +12,7 @@ import {
 } from '@/lib/cac-public-records';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
-import {
-  getMerchantForApiRequest,
-  toUserAccess,
-} from '@/lib/get-merchant-for-api-request';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { taxIdVerifySchema } from '@/schemas/verification';
 import { getVerificationRateLimitError } from '../verification-rate-limit';
 
@@ -82,14 +79,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const preflightRateLimitError = await getVerificationRateLimitError(
-    auth.supabase,
-    auth.user.id,
-    'verify-tax-id-preflight',
-    30
-  );
-  if (preflightRateLimitError) return preflightRateLimitError;
-
   const merchantContext = await getMerchantForApiRequest(
     auth.supabase,
     auth.user.id,
@@ -98,7 +87,7 @@ export async function POST(request: NextRequest) {
   if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
-  if (!hasPermission(toUserAccess(merchantContext), 'settings', 'edit')) {
+  if (!merchantContext.staffAccess.isOwner) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -142,6 +131,14 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-tax-id-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
 
   try {
     const providerRateLimitError = await getVerificationRateLimitError(

@@ -35,25 +35,16 @@ vi.mock('@/lib/api-auth', () => ({
     mockAuthenticateApiRequest(...args),
 }));
 
-vi.mock('@/lib/get-merchant-for-api-request', () => ({
-  getMerchantForApiRequest: (...args: unknown[]) =>
-    mockGetMerchantForApiRequest(...args),
-  toUserAccess: (context: {
-    merchantId: string;
-    staffAccess: {
-      isOwner: boolean;
-      isStaff: boolean;
-      permissions: Record<string, Record<string, boolean>>;
-      role: string | null;
-    };
-  }) => ({
-    merchantId: context.merchantId,
-    isOwner: context.staffAccess.isOwner,
-    isStaff: context.staffAccess.isStaff,
-    permissions: context.staffAccess.permissions,
-    role: context.staffAccess.role ?? 'owner',
-  }),
-}));
+vi.mock('@/lib/get-merchant-for-api-request', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/get-merchant-for-api-request')>();
+
+  return {
+    ...actual,
+    getMerchantForApiRequest: (...args: unknown[]) =>
+      mockGetMerchantForApiRequest(...args),
+  };
+});
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateMerchant: (...args: unknown[]) => mockRevalidateMerchant(...args),

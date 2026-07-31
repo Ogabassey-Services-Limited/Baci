@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveSelectedMerchantAccess } from '@/app/api/merchant/features/resolve-selected-merchant-access';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { merchantBlogPostsListQuerySchema } from '@/schemas/merchant-blog-posts-list-query';
 
 export async function listBlogPosts(request: NextRequest) {
   try {
@@ -33,14 +34,17 @@ export async function listBlogPosts(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const category = searchParams.get('category');
-    const search = searchParams.get('search');
-    const limit = Number.parseInt(searchParams.get('limit') || '20', 10);
-    const offset = Number.parseInt(searchParams.get('offset') || '0', 10);
-    const sortBy = searchParams.get('sortBy') || 'created_at';
-    const sortOrder = searchParams.get('sortOrder') === 'asc';
+    const parsedQuery = merchantBlogPostsListQuerySchema.safeParse(
+      Object.fromEntries(request.nextUrl.searchParams)
+    );
+    if (!parsedQuery.success) {
+      return NextResponse.json(
+        { error: 'Validation error', details: parsedQuery.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { category, limit, offset, search, sortBy, sortOrder, status } =
+      parsedQuery.data;
     const blogPostColumns =
       'id, title, slug, excerpt, featured_image_url, featured_image_width, featured_image_height, featured_image_variants, category, status, author_name, view_count, reading_time_minutes, created_at, updated_at, published_at';
     let query = auth.supabase
@@ -60,15 +64,15 @@ export async function listBlogPosts(request: NextRequest) {
       }
     }
     query = query
-      .order(sortBy, { ascending: sortOrder })
+      .order(sortBy, { ascending: sortOrder === 'asc' })
       .range(offset, offset + limit - 1);
 
     const [
       { data: posts, error: postsError, count },
-      { count: totalCount },
-      { count: publishedCount },
-      { count: draftCount },
-      { count: archivedCount },
+      { count: totalCount, error: totalCountError },
+      { count: publishedCount, error: publishedCountError },
+      { count: draftCount, error: draftCountError },
+      { count: archivedCount, error: archivedCountError },
     ] = await Promise.all([
       query,
       auth.supabase
@@ -94,6 +98,24 @@ export async function listBlogPosts(request: NextRequest) {
     if (postsError) {
       console.error('Error fetching blog posts:', postsError);
       return NextResponse.json({ error: postsError.message }, { status: 500 });
+    }
+    if (
+      totalCountError ||
+      publishedCountError ||
+      draftCountError ||
+      archivedCountError
+    ) {
+      console.error('Error fetching blog post counts:', {
+        merchantId: access.merchantId,
+        totalCountError,
+        publishedCountError,
+        draftCountError,
+        archivedCountError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch post counts' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

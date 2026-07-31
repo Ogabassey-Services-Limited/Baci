@@ -44,6 +44,7 @@ describe('DELETE /api/merchant/blog/upload', () => {
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
+    expect(supabase.storage.from).toHaveBeenCalledWith('media');
     expect(remove).toHaveBeenCalledWith([
       `${ownerAccess.merchantId}/blog/abc123.png`,
     ]);
@@ -104,6 +105,7 @@ describe('DELETE /api/merchant/blog/upload', () => {
     } as unknown as NextRequest);
     expect(response.status).toBe(400);
     expect(remove).not.toHaveBeenCalled();
+    expect(mockCheckRateLimit).not.toHaveBeenCalled();
   });
 
   it('returns 400 when delete body is missing both path and variantPaths', async () => {

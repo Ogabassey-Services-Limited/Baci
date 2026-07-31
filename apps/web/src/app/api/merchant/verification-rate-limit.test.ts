@@ -27,6 +27,7 @@ describe('getVerificationRateLimitError', () => {
       1
     );
     expect(response?.status).toBe(429);
+    expect(response?.headers.get('Cache-Control')).toBe('no-store');
     await expect(response?.json()).resolves.toEqual({
       error: 'Rate limit exceeded',
       code: 'rate_limited',
@@ -54,6 +55,7 @@ describe('getVerificationRateLimitError', () => {
     );
 
     expect(response?.status).toBe(503);
+    expect(response?.headers.get('Cache-Control')).toBe('no-store');
     await expect(response?.json()).resolves.toEqual({
       error: 'Verification is temporarily unavailable',
       code: 'verification_rate_limit_unavailable',

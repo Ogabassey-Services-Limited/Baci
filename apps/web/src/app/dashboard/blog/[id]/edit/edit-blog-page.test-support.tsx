@@ -60,7 +60,7 @@ vi.mock('@/components/blog/blog-editor', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/blog/product-embed', () => ({
+vi.mock('@/components/blog/product-embed-grid', () => ({
   ProductGrid: () => <div>Embedded products</div>,
 }));
 vi.mock('@/components/ui/calendar', () => ({

@@ -1,5 +1,9 @@
 import { describe, expect, it, type vi } from 'vitest';
-import { registerPostTestSetup, validPostData } from './post.test-support';
+import {
+  mockPostCreationSelectSequence,
+  registerPostTestSetup,
+  validPostData,
+} from './post.test-support';
 import { makeRequest, mockSupabase, POST } from './route.test-support';
 
 registerPostTestSetup();
@@ -26,8 +30,27 @@ describe('POST /api/merchant/blog/posts', () => {
       expect(json.error).toBe('Internal server error');
     });
 
+    it('returns the Supabase insert error when the mutation resolves with an error object', async () => {
+      mockPostCreationSelectSequence({
+        createdPost: {
+          data: null,
+          error: { message: 'Insert failed' },
+        },
+      });
+
+      const res = await POST(
+        makeRequest('/api/merchant/blog/posts', { body: validPostData })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Insert failed');
+    });
+
     it('returns 500 when unexpected error occurs', async () => {
-      mockSupabase.maybeSingle.mockRejectedValue(new Error('Unexpected error'));
+      mockSupabase.from.mockImplementationOnce(() => {
+        throw new Error('Unexpected error');
+      });
 
       const res = await POST(
         makeRequest('/api/merchant/blog/posts', { body: validPostData })

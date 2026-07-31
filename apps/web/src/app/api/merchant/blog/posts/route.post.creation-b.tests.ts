@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  mockPostCreationSelectSequence,
   registerPostTestSetup,
   validPostData,
   validPostDataWithCategory,
@@ -126,39 +127,15 @@ describe('POST /api/merchant/blog/posts', () => {
     });
 
     it('forwards the created post category into blog cache revalidation', async () => {
-      mockSupabase.maybeSingle.mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
-      mockSupabase.select.mockImplementation((fields: string) => {
-        if (fields === 'business_name, slug') {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: { business_name: 'Test Store', slug: 'test-store' },
-            error: null,
-          });
-        } else if (
-          fields === 'blog_enabled' ||
-          fields === 'blog_enabled, blog_discover_image_validation_enabled'
-        ) {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              blog_enabled: true,
-              blog_discover_image_validation_enabled: false,
-            },
-            error: null,
-          });
-        } else {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              id: '1',
-              slug: 'new-blog-post',
-              category: 'the-category-slug',
-            },
-            error: null,
-          });
-        }
-        return mockSupabase;
+      mockPostCreationSelectSequence({
+        createdPost: {
+          data: {
+            id: '1',
+            slug: 'new-blog-post',
+            category: 'the-category-slug',
+          },
+          error: null,
+        },
       });
 
       await POST(
@@ -181,31 +158,11 @@ describe('POST /api/merchant/blog/posts', () => {
         .spyOn(console, 'warn')
         .mockImplementation(() => undefined);
 
-      mockSupabase.select.mockImplementation((fields: string) => {
-        if (fields === 'business_name, slug') {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: { business_name: 'Test Store', slug: null },
-            error: null,
-          });
-        } else if (
-          fields === 'blog_enabled' ||
-          fields === 'blog_enabled, blog_discover_image_validation_enabled'
-        ) {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              blog_enabled: true,
-              blog_discover_image_validation_enabled: false,
-            },
-            error: null,
-          });
-        } else {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: { id: '1', slug: 'new-blog-post' },
-            error: null,
-          });
-        }
-
-        return mockSupabase;
+      mockPostCreationSelectSequence({
+        merchant: {
+          data: { business_name: 'Test Store', slug: null },
+          error: null,
+        },
       });
 
       await POST(
@@ -237,15 +194,11 @@ describe('POST /api/merchant/blog/posts', () => {
         .spyOn(console, 'error')
         .mockImplementation(() => undefined);
 
-      mockSupabase.select.mockImplementation((fields: string) => {
-        if (fields === 'business_name, slug') {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: null,
-            error: { message: 'merchant lookup failed' },
-          });
-        }
-
-        return mockSupabase;
+      mockPostCreationSelectSequence({
+        merchant: {
+          data: null,
+          error: { message: 'merchant lookup failed' },
+        },
       });
 
       const res = await POST(

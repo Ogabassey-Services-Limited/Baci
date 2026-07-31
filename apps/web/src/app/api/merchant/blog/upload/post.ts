@@ -1,12 +1,9 @@
 import { nanoid } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
-import {
-  BlogFeaturedImageError,
-  generateFeaturedImageVariants,
-} from '@/lib/blog-featured-image-variants';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import { uploadFeaturedBlogImage } from './featured-image-upload';
 import {
   cleanupUploadedPaths,
   getAllowedTypesForPurpose,
@@ -15,7 +12,6 @@ import {
   mimeToExt,
   resolveMerchantAccess,
   resolveUploadPurpose,
-  toFeaturedUploadErrorResponse,
 } from './upload-route-utils';
 
 export async function POST(request: NextRequest) {
@@ -26,6 +22,15 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   const merchantAccess = await resolveMerchantAccess({
     headers: request.headers,
     supabase: auth.supabase,
@@ -38,14 +43,7 @@ export async function POST(request: NextRequest) {
     );
   }
   const access = merchantAccess.access;
-
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
+  const uploadedPaths: string[] = [];
 
   try {
     const isAllowed = await checkRateLimit(
@@ -92,7 +90,6 @@ export async function POST(request: NextRequest) {
     const filename = `${fileToken}.${extension}`;
     const filePath = `${access.merchantId}/blog/${filename}`;
     const sourceBuffer = Buffer.from(await file.arrayBuffer());
-    const uploadedPaths: string[] = [];
     if (purpose === 'inline') {
       const { error: uploadError } = await auth.supabase.storage
         .from('media')
@@ -114,6 +111,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      uploadedPaths.push(filePath);
       return NextResponse.json({
         url: getCanonicalBlogMediaUrl(filePath, access.merchantId),
         path: filePath,
@@ -123,117 +121,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    let generated: Awaited<ReturnType<typeof generateFeaturedImageVariants>>;
-    try {
-      generated = await generateFeaturedImageVariants(sourceBuffer, {
-        mimeType: file.type,
-      });
-    } catch (error) {
-      if (error instanceof BlogFeaturedImageError) {
-        return toFeaturedUploadErrorResponse(error);
-      }
-      throw error;
-    }
-    const { error: originalUploadError } = await auth.supabase.storage
-      .from('media')
-      .upload(filePath, sourceBuffer, {
-        contentType: file.type,
-        cacheControl: '31536000',
-        upsert: false,
-      });
-    if (originalUploadError) {
-      console.error('Featured original upload failed', {
-        merchantId: access.merchantId,
-        error: originalUploadError,
-        purpose,
-        type: file.type,
-        size: file.size,
-      });
-      return NextResponse.json(
-        { error: 'Failed to upload file', code: 'UPLOAD_FAILED' },
-        { status: 500 }
-      );
-    }
-    uploadedPaths.push(filePath);
-
-    const featuredImageVariants: Record<
-      string,
-      {
-        url: string;
-        path: string;
-        width: number;
-        height: number;
-        contentType: string;
-      }
-    > = {};
-    try {
-      for (const variant of Object.values(generated.variants)) {
-        const variantPath = `${access.merchantId}/blog/${fileToken}/${variant.key}.webp`;
-        const { error: variantUploadError } = await auth.supabase.storage
-          .from('media')
-          .upload(variantPath, variant.buffer, {
-            contentType: variant.contentType,
-            cacheControl: '31536000',
-            upsert: false,
-          });
-        if (variantUploadError) throw variantUploadError;
-        uploadedPaths.push(variantPath);
-        featuredImageVariants[variant.key] = {
-          url: getCanonicalBlogMediaUrl(variantPath, access.merchantId),
-          path: variantPath,
-          width: variant.width,
-          height: variant.height,
-          contentType: variant.contentType,
-        };
-      }
-    } catch (error) {
-      await cleanupUploadedPaths(auth.supabase, uploadedPaths);
-      console.error('Featured variant upload failed; cleaned partial uploads', {
-        merchantId: access.merchantId,
-        error,
-        uploadedPaths,
-      });
-      return NextResponse.json(
-        { error: 'Failed to upload file', code: 'UPLOAD_FAILED' },
-        { status: 500 }
-      );
-    }
-
-    console.info('Processed featured blog media upload', {
+    return await uploadFeaturedBlogImage({
+      supabase: auth.supabase,
       merchantId: access.merchantId,
-      purpose,
-      sourceWidth: generated.source.width,
-      sourceHeight: generated.source.height,
-      sourceTotalPixels: generated.source.totalPixels,
-      variantKeys: Object.keys(featuredImageVariants),
-      size: file.size,
-      type: file.type,
-    });
-    const variants = Object.fromEntries(
-      Object.entries(featuredImageVariants).map(([key, value]) => [
-        key,
-        value.url,
-      ])
-    );
-    const variantPaths = Object.fromEntries(
-      Object.entries(featuredImageVariants).map(([key, value]) => [
-        key,
-        value.path,
-      ])
-    );
-    return NextResponse.json({
-      url: getCanonicalBlogMediaUrl(filePath, access.merchantId),
-      path: filePath,
+      file,
+      sourceBuffer,
+      fileToken,
       filename,
-      size: file.size,
-      type: file.type,
-      width: generated.source.width,
-      height: generated.source.height,
-      variants,
-      variantPaths,
-      featuredImageVariants,
+      filePath,
+      uploadedPaths,
     });
   } catch (error) {
+    await cleanupUploadedPaths(auth.supabase, uploadedPaths);
     console.error('Error uploading blog image:', error);
     return NextResponse.json(
       { error: 'Failed to upload image', code: 'UPLOAD_EXCEPTION' },

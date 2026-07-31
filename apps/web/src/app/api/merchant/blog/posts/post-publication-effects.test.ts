@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockDispatchZohoBlogCampaign } = vi.hoisted(() => ({
-  mockDispatchZohoBlogCampaign: vi.fn(),
-}));
+const { mockDispatchZohoBlogCampaign, mockSchedulePrewarmBlogImageTransforms } =
+  vi.hoisted(() => ({
+    mockDispatchZohoBlogCampaign: vi.fn(),
+    mockSchedulePrewarmBlogImageTransforms: vi.fn(),
+  }));
 
 vi.mock('next/server', () => ({
-  after: (callback: () => void | Promise<void>) => {
-    void callback();
-  },
+  after: (callback: () => void | Promise<void>) => callback(),
 }));
 
 vi.mock('@/lib/indexnow', () => ({
@@ -18,7 +18,7 @@ vi.mock('@/lib/indexnow', () => ({
 }));
 
 vi.mock('@/lib/ogabassey-blog-image-prewarm', () => ({
-  schedulePrewarmBlogImageTransforms: vi.fn(),
+  schedulePrewarmBlogImageTransforms: mockSchedulePrewarmBlogImageTransforms,
 }));
 
 vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
@@ -62,5 +62,21 @@ describe('scheduleCreatedPostPublicationEffects', () => {
         supabase: requestSupabase,
       })
     );
+  });
+
+  it('does not schedule image prewarming when the created post has no featured image', () => {
+    scheduleCreatedPostPublicationEffects({
+      blogRevalidation: undefined,
+      post: {
+        featured_image_url: null,
+        id: 'post-1',
+        merchant_id: 'merchant-1',
+        slug: 'new-arrivals',
+        title: 'New arrivals',
+      },
+      supabase: requestSupabase,
+    });
+
+    expect(mockSchedulePrewarmBlogImageTransforms).not.toHaveBeenCalled();
   });
 });

@@ -36,6 +36,14 @@ export const deleteBodySchema = z
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
+type MediaStorageCleanupClient = {
+  storage: {
+    from(bucket: string): {
+      remove(paths: string[]): Promise<{ error: unknown | null }>;
+    };
+  };
+};
+
 const inlineAllowedTypes = [
   'image/jpeg',
   'image/png',
@@ -120,12 +128,20 @@ export async function resolveMerchantAccess(input: {
 }
 
 export async function cleanupUploadedPaths(
-  supabase: SupabaseClient,
+  supabase: MediaStorageCleanupClient,
   uploadedPaths: string[]
 ) {
   if (uploadedPaths.length === 0) return;
-  const { error } = await supabase.storage.from('media').remove(uploadedPaths);
-  if (error) {
+  try {
+    const { error } = await supabase.storage
+      .from('media')
+      .remove(uploadedPaths);
+    if (!error) return;
+    console.error('Failed to clean up partially uploaded blog media paths', {
+      error,
+      uploadedPaths,
+    });
+  } catch (error) {
     console.error('Failed to clean up partially uploaded blog media paths', {
       error,
       uploadedPaths,

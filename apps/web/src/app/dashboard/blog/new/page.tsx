@@ -54,6 +54,7 @@ export default function NewBlogPostPage() {
   if (merchant?.id !== draftMerchantId) {
     setDraftMerchantId(merchant?.id);
     setFormData(createEmptyPostFormData(businessName));
+    setEmbeddedProducts([]);
     setUploadedFeaturedImage(null);
   }
   const {
@@ -191,6 +192,7 @@ export default function NewBlogPostPage() {
         <TabsContent value="content" className="space-y-6">
           <NewBlogPostContentTab
             formData={formData}
+            merchantId={merchant?.id}
             merchantSlug={merchant?.slug}
             embeddedProducts={embeddedProducts}
             setEmbeddedProducts={setEmbeddedProducts}

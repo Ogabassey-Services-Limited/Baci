@@ -1,8 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, vi } from 'vitest';
 
-// ---- Mocks ----
-
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://test.supabase.co',
   getSupabaseAnonKey: () => 'test-anon-key',
@@ -52,6 +50,7 @@ interface TestState {
   insertError: unknown;
   insertPayload: unknown;
   selectColumns: string | null;
+  selectFilter: { column: string; value: unknown } | null;
   settingsData: unknown;
   settingsError: unknown;
   throwOnInsert: boolean;
@@ -63,32 +62,37 @@ interface TestState {
   upsertPayload: unknown;
 }
 
-const testState: TestState = {
-  accessResult: null,
-  authResult: {},
-  csrfValid: true,
-  hasDashboardView: true,
-  hasMarketingView: true,
-  hasSettingsEdit: true,
-  hasSettingsView: true,
-  insertData: null,
-  insertError: null,
-  insertPayload: null,
-  selectColumns: null,
-  settingsData: {
-    id: 'settings-1',
-    merchant_id: MERCHANT_ID,
-    loyalty_enabled: false,
-  },
-  settingsError: null,
-  throwOnInsert: false,
-  updateData: null,
-  updateError: null,
-  updatePayload: null,
-  upsertData: null,
-  upsertError: null,
-  upsertPayload: null,
-};
+function createInitialTestState(): TestState {
+  return {
+    accessResult: null,
+    authResult: {},
+    csrfValid: true,
+    hasDashboardView: true,
+    hasMarketingView: true,
+    hasSettingsEdit: true,
+    hasSettingsView: true,
+    insertData: null,
+    insertError: null,
+    insertPayload: null,
+    selectColumns: null,
+    selectFilter: null,
+    settingsData: {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      loyalty_enabled: false,
+    },
+    settingsError: null,
+    throwOnInsert: false,
+    updateData: null,
+    updateError: null,
+    updatePayload: null,
+    upsertData: null,
+    upsertError: null,
+    upsertPayload: null,
+  };
+}
+
+const testState: TestState = createInitialTestState();
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(() =>
@@ -140,7 +144,6 @@ vi.mock('@/schemas/merchant-features', () => ({
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(() => Promise.resolve(testState.authResult)),
-  getUserAccess: vi.fn(() => Promise.resolve(testState.accessResult)),
   hasPermission: vi.fn((_access: unknown, resource: string, action: string) => {
     if (resource === 'settings' && action === 'view')
       return testState.hasSettingsView;
@@ -176,19 +179,22 @@ function createMockSupabase() {
           select: vi.fn((columns: string) => {
             testState.selectColumns = columns;
             return {
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn(() =>
-                  Promise.resolve({
-                    data: testState.settingsData,
-                    error: testState.settingsError,
-                  })
-                ),
-                maybeSingle: vi.fn(() =>
-                  Promise.resolve({
-                    data: testState.settingsData,
-                    error: testState.settingsError,
-                  })
-                ),
+              eq: vi.fn((column: string, value: unknown) => {
+                testState.selectFilter = { column, value };
+                return {
+                  single: vi.fn(() =>
+                    Promise.resolve({
+                      data: testState.settingsData,
+                      error: testState.settingsError,
+                    })
+                  ),
+                  maybeSingle: vi.fn(() =>
+                    Promise.resolve({
+                      data: testState.settingsData,
+                      error: testState.settingsError,
+                    })
+                  ),
+                };
               }),
             };
           }),
@@ -252,8 +258,6 @@ function createMockSupabase() {
   };
 }
 
-// ---- Helpers ----
-
 function makeRequest(
   method: string,
   body?: Record<string, unknown>
@@ -270,9 +274,8 @@ function makeRequest(
   });
 }
 
-// ---- Tests ----
-
 beforeEach(() => {
+  Object.assign(testState, createInitialTestState());
   resetMerchantFeatureSchemaMocks();
   mockGetMerchantFeatureAccess.mockReset();
   mockGetMerchantFeatureAccess.mockResolvedValue({

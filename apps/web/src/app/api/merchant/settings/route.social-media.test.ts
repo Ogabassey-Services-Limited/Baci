@@ -29,12 +29,12 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 
 const { PATCH } = await import('./route');
 
-function createPatchRequest(body: BodyInit): NextRequest {
+function createPatchRequest(body: Record<string, unknown>): NextRequest {
   return new Request('http://localhost/api/merchant/settings', {
     method: 'PATCH',
     body: JSON.stringify({
       merchantId: DEFAULT_MERCHANT_ID,
-      ...JSON.parse(String(body)),
+      ...body,
     }),
     headers: {
       'Content-Type': 'application/json',
@@ -69,12 +69,10 @@ describe('PATCH /api/merchant/settings social media', () => {
 
   it('merges a partial social payload over existing handles so untouched ones survive', async () => {
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          // Only Instagram is being changed in this partial payload.
-          social_media: { instagram: '@newinsta' },
-        })
-      )
+      createPatchRequest({
+        // Only Instagram is being changed in this partial payload.
+        social_media: { instagram: '@newinsta' },
+      })
     );
 
     expect(response.status).toBe(200);
@@ -93,11 +91,7 @@ describe('PATCH /api/merchant/settings social media', () => {
     });
 
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          social_media: { instagram: '@newinsta' },
-        })
-      )
+      createPatchRequest({ social_media: { instagram: '@newinsta' } })
     );
 
     expect(response.status).toBe(500);
@@ -105,12 +99,7 @@ describe('PATCH /api/merchant/settings social media', () => {
 
   it('clears all social handles when clear_social_media is true', async () => {
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          social_media: {},
-          clear_social_media: true,
-        })
-      )
+      createPatchRequest({ social_media: {}, clear_social_media: true })
     );
 
     expect(response.status).toBe(200);
@@ -124,11 +113,7 @@ describe('PATCH /api/merchant/settings social media', () => {
 
   it('honors clear_social_media even when social_media is omitted', async () => {
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          clear_social_media: true,
-        })
-      )
+      createPatchRequest({ clear_social_media: true })
     );
 
     expect(response.status).toBe(200);
@@ -152,13 +137,7 @@ describe('PATCH /api/merchant/settings social media', () => {
       snapchat: '',
     };
 
-    const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          social_media,
-        })
-      )
-    );
+    const response = await PATCH(createPatchRequest({ social_media }));
 
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('update_merchant_social_media', {
@@ -171,15 +150,10 @@ describe('PATCH /api/merchant/settings social media', () => {
 
   it('sends partial blank handles to the atomic merge without the clear flag', async () => {
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          // Errored/partial client sent all-blank handles, no clear intent.
-          social_media: {
-            twitter: '',
-            instagram: '',
-          },
-        })
-      )
+      createPatchRequest({
+        // Errored/partial client sent all-blank handles, no clear intent.
+        social_media: { twitter: '', instagram: '' },
+      })
     );
 
     expect(response.status).toBe(200);
@@ -196,15 +170,13 @@ describe('PATCH /api/merchant/settings social media', () => {
 
   it('replaces with a full social object while preserving merge semantics', async () => {
     const response = await PATCH(
-      createPatchRequest(
-        JSON.stringify({
-          social_media: {
-            twitter: '@baci',
-            facebook: 'fb.com/baci',
-            instagram: ' ',
-          },
-        })
-      )
+      createPatchRequest({
+        social_media: {
+          twitter: '@baci',
+          facebook: 'fb.com/baci',
+          instagram: ' ',
+        },
+      })
     );
 
     expect(response.status).toBe(200);

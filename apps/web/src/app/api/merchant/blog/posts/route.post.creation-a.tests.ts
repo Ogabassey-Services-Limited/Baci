@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { registerPostTestSetup, validPostData } from './post.test-support';
+import {
+  mockPostCreationSelectSequence,
+  registerPostTestSetup,
+  validPostData,
+} from './post.test-support';
 import {
   makeRequest,
   mockDispatchZohoBlogCampaign,
@@ -14,9 +18,11 @@ registerPostTestSetup();
 describe('POST /api/merchant/blog/posts', () => {
   describe('duplicate slug detection', () => {
     it('returns 409 when slug already exists', async () => {
-      mockSupabase.maybeSingle.mockResolvedValue({
-        data: { id: 'existing-post-id' },
-        error: null,
+      mockPostCreationSelectSequence({
+        existingPost: {
+          data: { id: 'existing-post-id' },
+          error: null,
+        },
       });
 
       const res = await POST(
@@ -48,27 +54,24 @@ describe('POST /api/merchant/blog/posts', () => {
     });
 
     it('sets published_at when status is published', async () => {
-      mockSupabase.maybeSingle.mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
-      mockSupabase.single.mockResolvedValue({
-        data: { id: '1', published_at: expect.any(String) },
-        error: null,
-      });
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-07-31T18:30:00.000Z'));
 
       const publishedData = { ...validPostData, status: 'published' };
 
-      await POST(
-        makeRequest('/api/merchant/blog/posts', { body: publishedData })
-      );
+      try {
+        await POST(
+          makeRequest('/api/merchant/blog/posts', { body: publishedData })
+        );
 
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          published_at: expect.any(String),
-        })
-      );
+        expect(mockSupabase.insert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            published_at: '2026-07-31T18:30:00.000Z',
+          })
+        );
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('lets Zoho dispatch recompute storefront context when revalidation lookup fails', async () => {
@@ -78,38 +81,11 @@ describe('POST /api/merchant/blog/posts', () => {
       mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
         new Error('context lookup failed')
       );
-      mockSupabase.maybeSingle.mockResolvedValue({
-        data: null,
-        error: null,
-      });
-      mockSupabase.select.mockImplementation((fields: string) => {
-        if (fields === 'business_name, slug') {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: { business_name: 'Test Store', slug: 'test-store' },
-            error: null,
-          });
-        } else if (
-          fields === 'blog_enabled' ||
-          fields === 'blog_enabled, blog_discover_image_validation_enabled'
-        ) {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              blog_enabled: true,
-              blog_discover_image_validation_enabled: false,
-            },
-            error: null,
-          });
-        } else {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              id: '1',
-              slug: 'new-blog-post',
-              status: 'published',
-            },
-            error: null,
-          });
-        }
-        return mockSupabase;
+      mockPostCreationSelectSequence({
+        createdPost: {
+          data: { id: '1', slug: 'new-blog-post', status: 'published' },
+          error: null,
+        },
       });
 
       await POST(
@@ -127,38 +103,11 @@ describe('POST /api/merchant/blog/posts', () => {
     });
 
     it('triggers post-publication side effects for published posts', async () => {
-      mockSupabase.maybeSingle.mockResolvedValue({
-        data: null,
-        error: null,
-      });
-      mockSupabase.select.mockImplementation((fields: string) => {
-        if (fields === 'business_name, slug') {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: { business_name: 'Test Store', slug: 'test-store' },
-            error: null,
-          });
-        } else if (
-          fields === 'blog_enabled' ||
-          fields === 'blog_enabled, blog_discover_image_validation_enabled'
-        ) {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              blog_enabled: true,
-              blog_discover_image_validation_enabled: false,
-            },
-            error: null,
-          });
-        } else {
-          mockSupabase.single.mockResolvedValueOnce({
-            data: {
-              id: '1',
-              slug: 'new-blog-post',
-              status: 'published',
-            },
-            error: null,
-          });
-        }
-        return mockSupabase;
+      mockPostCreationSelectSequence({
+        createdPost: {
+          data: { id: '1', slug: 'new-blog-post', status: 'published' },
+          error: null,
+        },
       });
 
       await POST(

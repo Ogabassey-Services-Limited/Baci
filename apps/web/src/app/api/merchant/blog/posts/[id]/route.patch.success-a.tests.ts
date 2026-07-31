@@ -190,14 +190,13 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
         }),
         makeParams(POST_ID)
       );
-      await Promise.resolve();
-      await Promise.resolve();
-
       expect(res.status).toBe(200);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'IndexNow blog submit failed',
-        indexNowError
-      );
+      await vi.waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          'IndexNow blog submit failed',
+          indexNowError
+        );
+      });
       consoleErrorSpy.mockRestore();
     });
   });

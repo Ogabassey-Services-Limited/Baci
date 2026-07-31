@@ -78,13 +78,7 @@ describe('POST /api/merchant/verify-bvn access and validation', () => {
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
-    expect(checkRateLimit).toHaveBeenCalledExactlyOnceWith(
-      expect.anything(),
-      'user-1',
-      'verify-bvn-preflight',
-      30,
-      1
-    );
+    expect(checkRateLimit).not.toHaveBeenCalled();
   });
 
   it('returns 429 when the provider quota is exceeded after authorization', async () => {
@@ -110,6 +104,7 @@ describe('POST /api/merchant/verify-bvn access and validation', () => {
     expect((await POST(req)).status).toBe(400);
     expect(req.json).toHaveBeenCalledOnce();
     expect(getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(checkRateLimit).not.toHaveBeenCalled();
   });
 
   it('returns 400 when BVN validation fails (10 digits)', async () => {
