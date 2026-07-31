@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { REPLAY_SOURCE_DATA } from './supabase-history-replay-sources';
 
@@ -60,6 +62,37 @@ describe('supabase-history-replay sources', () => {
         .some((row) => row.trim().length === 0);
       expect(hasInternalBlank, `${name} has a blank row`).toBe(false);
     }
+  });
+
+  it('binds, rather than universally requires, full_replacement in C1 grants', () => {
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        '../../supabase/migrations/20260731090000_add_product_description_provenance.sql'
+      ),
+      'utf8'
+    );
+
+    expect(source).not.toContain('p_full_replacement IS NOT TRUE');
+  });
+
+  it('rejects null required binding members before the grant insert', () => {
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        '../../supabase/migrations/20260731090000_add_product_description_provenance.sql'
+      ),
+      'utf8'
+    );
+
+    expect(source).toContain('p_proposed_description_sha256 IS NULL');
+    expect(source).toContain('p_purpose IS NULL');
+  });
+
+  it('registers the additive C1 provenance migration in pending replay sources', () => {
+    expect(PENDING_SOURCES).toContain(
+      '20260731090000_add_product_description_provenance.sql'
+    );
   });
 
   it('registers each source filename at most once across all blocks', () => {
