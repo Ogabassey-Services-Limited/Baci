@@ -42,7 +42,9 @@ test('sealed parser accepts every tracked CWV source path', () => {
   )
     .trim()
     .split('\n');
-  assert(paths.includes('infra/cwv-runner/baci-cwv-campaign-watchdog@.service'));
+  assert(
+    paths.includes('infra/cwv-runner/baci-cwv-campaign-watchdog@.service')
+  );
   const source = paths.map((path) => {
     const bytes = Buffer.alloc(0);
     return { bytes, mode: '100644', path, sha256: sha256(bytes) };
