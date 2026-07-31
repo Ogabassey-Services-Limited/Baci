@@ -1,8 +1,6 @@
+import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
 import { RECENT_PENDING_SOURCES } from './recent-pending-sources.test-fixture';
-
-// Expected PENDING replay sources, extracted from the manifest test (Codex #3171)
-// so the binding test stays under the 300-line modularity gate. Independently
-// hand-verified against supabase-history-replay-sources.ts PENDING_SOURCES.
+// Expected PENDING sources, split into focused fixtures to stay within the 300-line cap.
 export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
@@ -295,4 +293,5 @@ export const EXPECTED_PENDING_SOURCES = [
     sha256: '6e63f92629949491d21c2a5ca2e47367d91e398c061fa3d1419e2a7a0c3ff61b',
   },
   ...RECENT_PENDING_SOURCES,
+  ...AUDIT_PENDING_SOURCES,
 ];

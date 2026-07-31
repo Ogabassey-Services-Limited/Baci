@@ -64,6 +64,22 @@ async function systemUnitState(name, runSystemctl = execFile) {
   return stdout;
 }
 
+async function systemWatchdogTemplateIsDisabledOrAbsent(
+  runSystemctl = execFile
+) {
+  try {
+    await runSystemctl('/bin/systemctl', ['is-enabled', WATCHDOG_TEMPLATE]);
+    return false;
+  } catch (error) {
+    if (
+      (error.code === 1 && error.stdout === 'disabled\n') ||
+      (error.code === 4 && error.stdout === 'not-found\n')
+    )
+      return true;
+    throw error;
+  }
+}
+
 async function watchdogWantsLinks(systemdRoots) {
   const [persistentRoot] = systemdRoots;
   let count = 0;
@@ -146,6 +162,9 @@ export async function readBootstrapReplacementDownstream(
   const readUnitState =
     dependencies.readUnitState ??
     ((name) => systemUnitState(name, runSystemctl));
+  const templateIsDisabledOrAbsent =
+    dependencies.templateIsDisabledOrAbsent ??
+    (() => systemWatchdogTemplateIsDisabledOrAbsent(runSystemctl));
   const listWatchdogInstances =
     dependencies.listWatchdogInstances ??
     (() =>
@@ -155,9 +174,7 @@ export async function readBootstrapReplacementDownstream(
       ));
   const active = await Promise.all(UNITS.map(unitIsActive));
   const states = await Promise.all(UNITS.map((name) => readUnitState(name)));
-  const templateState = await readUnitState(
-    'baci-cwv-campaign-watchdog@.service'
-  );
+  const templateDisabledOrAbsent = await templateIsDisabledOrAbsent();
   const acceptedImageFiles = await Promise.all(
     [
       'image-id',
@@ -183,11 +200,7 @@ export async function readBootstrapReplacementDownstream(
       states.filter(
         (state) =>
           state !== 'loaded\ninactive\nstatic\n' && state !== ABSENT_UNIT_STATE
-      ).length +
-      (templateState === 'loaded\ninactive\ndisabled\n' ||
-      templateState === ABSENT_UNIT_STATE
-        ? 0
-        : 1),
+      ).length + (templateDisabledOrAbsent ? 0 : 1),
     watchdogInstances: await listWatchdogInstances(),
   };
 }

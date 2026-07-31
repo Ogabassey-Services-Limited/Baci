@@ -66,9 +66,8 @@ describe('GET /api/cron/drain-cache-invalidations', () => {
     mocks.drain.mockResolvedValue({ ok: true });
   });
 
-  it('authenticates before claiming and omits optional details after successful delivery', async () => {
+  it('authenticates before claiming, uses optional finish defaults, and completes after ordered delivery', async () => {
     const response = await GET(request());
-
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       claimed: 1,
@@ -87,14 +86,12 @@ describe('GET /api/cron/drain-cache-invalidations', () => {
       rpc.mock.invocationCallOrder[1]
     );
   });
-
   it('rejects an invalid secret before constructing privileged authority', async () => {
     const response = await GET(request('wrong'));
 
     expect(response.status).toBe(401);
     expect(mocks.createServiceClient).not.toHaveBeenCalled();
   });
-
   it('records a retry when an outer stage is not confirmed', async () => {
     mocks.drain.mockResolvedValue({
       errorCode: 'cloudflare_request_failed',

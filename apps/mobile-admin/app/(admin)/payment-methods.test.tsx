@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   mocks,
@@ -21,16 +21,20 @@ describe('PaymentMethodsScreen', () => {
     expect(screen.getByLabelText('Toggle Klump')).toBeChecked();
   });
 
-  it('toggles the klump_enabled setting from rendered payment settings', () => {
+  it('persists a Paystack toggle through its rendered accessible control', async () => {
+    // Arrange
     render(<PaymentMethodsScreen />);
 
-    fireEvent.click(screen.getByLabelText('Toggle Klump'));
-    expect(mocks.mutate).toHaveBeenCalledWith({
-      field: 'klump_enabled',
-      merchantId: 'merchant-1',
-      settingsId: 'settings-1',
-      value: false,
+    // Act
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Paystack' }));
+
+    // Assert
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledWith({ paystack_enabled: false });
     });
+    expect(mocks.from).toHaveBeenCalledWith('merchant_feature_settings');
+    expect(mocks.eq).toHaveBeenCalledWith('id', 'settings-1');
+    expect(mocks.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
   });
 
   it('hides payment methods whose backing settings columns are unavailable', () => {
@@ -86,19 +90,24 @@ describe('PaymentMethodsScreen', () => {
     expect(screen.getByText('Merchant not found')).toBeInTheDocument();
   });
 
-  it('alerts and rolls back when a payment method toggle fails', () => {
+  it('alerts and rolls back when a rendered payment method toggle fails', async () => {
+    // Arrange
+    const persistenceError = new Error('Failed to update payment method');
+    mocks.eq
+      .mockReturnValueOnce({ eq: mocks.eq })
+      .mockReturnValueOnce({ error: persistenceError });
     render(<PaymentMethodsScreen />);
 
-    mocks.mutationConfig?.onError?.(
-      new Error('Failed to update payment method'),
-      { field: 'klump_enabled', value: false },
-      { merchantId: 'merchant-1', previousSettings: paymentSettings }
-    );
+    // Act
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Klump' }));
 
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Error',
-      'Failed to update payment method'
-    );
+    // Assert
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Failed to update payment method'
+      );
+    });
     expect(mocks.setQueryData).toHaveBeenCalledWith(
       ['payment-settings', 'merchant-1'],
       paymentSettings

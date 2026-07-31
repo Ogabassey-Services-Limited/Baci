@@ -476,6 +476,72 @@ export type Database = {
           },
         ];
       };
+      audit_events: {
+        Row: {
+          action: string;
+          actor_label: string | null;
+          actor_type: string;
+          actor_user_id: string | null;
+          after_values: Json | null;
+          before_values: Json | null;
+          changed_fields: string[];
+          correlation_id: string | null;
+          database_transaction_id: string;
+          id: string;
+          merchant_id: string;
+          merchant_label: string | null;
+          metadata: Json;
+          occurred_at: string;
+          request_id: string | null;
+          resource_id: string;
+          resource_type: string;
+          schema_version: number;
+          source: string;
+        };
+        Insert: {
+          action: string;
+          actor_label?: string | null;
+          actor_type: string;
+          actor_user_id?: string | null;
+          after_values?: Json | null;
+          before_values?: Json | null;
+          changed_fields?: string[];
+          correlation_id?: string | null;
+          database_transaction_id: string;
+          id?: string;
+          merchant_id: string;
+          merchant_label?: string | null;
+          metadata?: Json;
+          occurred_at?: string;
+          request_id?: string | null;
+          resource_id: string;
+          resource_type: string;
+          schema_version?: number;
+          source: string;
+        };
+        Update: {
+          action?: string;
+          actor_label?: string | null;
+          actor_type?: string;
+          actor_user_id?: string | null;
+          after_values?: Json | null;
+          before_values?: Json | null;
+          changed_fields?: string[];
+          correlation_id?: string | null;
+          database_transaction_id?: string;
+          id?: string;
+          merchant_id?: string;
+          merchant_label?: string | null;
+          metadata?: Json;
+          occurred_at?: string;
+          request_id?: string | null;
+          resource_id?: string;
+          resource_type?: string;
+          schema_version?: number;
+          source?: string;
+        };
+        Relationships: [];
+      };
       audit_logs: {
         Row: {
           action: string;
@@ -17223,6 +17289,37 @@ export type Database = {
           p_to?: string;
         };
         Returns: Json;
+      };
+      list_merchant_audit_events_v1: {
+        Args: {
+          p_action?: string;
+          p_before_id?: string;
+          p_before_occurred_at?: string;
+          p_limit: number;
+          p_merchant_id: string;
+          p_resource_type?: string;
+        };
+        Returns: {
+          action: string;
+          actor_label: string;
+          actor_type: string;
+          actor_user_id: string;
+          after_values: Json;
+          before_values: Json;
+          changed_fields: string[];
+          correlation_id: string;
+          database_transaction_id: string;
+          id: string;
+          merchant_id: string;
+          merchant_label: string;
+          metadata: Json;
+          occurred_at: string;
+          request_id: string;
+          resource_id: string;
+          resource_type: string;
+          schema_version: number;
+          source: string;
+        }[];
       };
       list_variant_inventory_units: {
         Args: {
