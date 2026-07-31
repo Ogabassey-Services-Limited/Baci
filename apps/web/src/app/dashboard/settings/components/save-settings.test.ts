@@ -71,4 +71,34 @@ describe('saveSettings', () => {
       variant: 'destructive',
     });
   });
+
+  it('continues the captured merchant save after a store switch during social save', async () => {
+    const updateMerchant = vi.fn().mockResolvedValue(undefined);
+    const toast = vi.fn();
+    const setIsSaving = vi.fn();
+    let current = true;
+    mockUpdateSocial.mockImplementationOnce(async () => {
+      current = false;
+    });
+
+    await saveSettings({
+      data: { business_name: 'First Store', country: 'NG' },
+      heroSlides: [],
+      merchantId: '11111111-1111-4111-8111-111111111111',
+      socialMedia: { twitter: '@first-store' },
+      updateMerchant,
+      reloadMerchant: vi.fn(),
+      isCurrentSave: () => current,
+      toast,
+      setIsSaving,
+    });
+
+    expect(updateMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ business_name: 'First Store' }),
+      { merchantId: '11111111-1111-4111-8111-111111111111', skipReload: true }
+    );
+    expect(toast).not.toHaveBeenCalled();
+    expect(setIsSaving).toHaveBeenCalledWith(true);
+    expect(setIsSaving).not.toHaveBeenCalledWith(false);
+  });
 });

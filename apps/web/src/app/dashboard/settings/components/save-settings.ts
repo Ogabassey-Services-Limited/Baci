@@ -41,7 +41,6 @@ export async function saveSettings({
     // request is needed at all.
     if (socialMedia !== null) {
       await updateSocial(merchantId, sanitizeSocialMedia(socialMedia));
-      if (!isCurrentSave()) return;
     }
 
     // Generic settings use the captured merchant target. The explicit update
@@ -54,18 +53,20 @@ export async function saveSettings({
       } as Parameters<UpdateMerchantFn>[0],
       { merchantId, skipReload: true }
     );
-    if (!isCurrentSave()) return;
-    toast({
-      title: 'Settings Saved!',
-      description: 'Your store settings have been updated.',
-    });
+    if (isCurrentSave()) {
+      toast({
+        title: 'Settings Saved!',
+        description: 'Your store settings have been updated.',
+      });
+    }
   } catch (error) {
-    if (!isCurrentSave()) return;
-    toast({
-      title: 'Error Saving Settings',
-      description: (error as Error).message,
-      variant: 'destructive',
-    });
+    if (isCurrentSave()) {
+      toast({
+        title: 'Error Saving Settings',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
   } finally {
     if (isCurrentSave()) setIsSaving(false);
   }

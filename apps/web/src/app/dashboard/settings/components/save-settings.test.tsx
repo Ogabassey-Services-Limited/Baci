@@ -199,7 +199,7 @@ describe('SettingsForm social save orchestration', () => {
     expect(mockUpdateSocial).not.toHaveBeenCalled();
   });
 
-  it('does not finish a first merchant save after switching stores', async () => {
+  it('finishes a first merchant write without updating the switched store UI', async () => {
     let resolveSocial: (() => void) | undefined;
     mockUpdateSocial.mockReturnValueOnce(
       new Promise<void>((resolve) => {
@@ -224,7 +224,12 @@ describe('SettingsForm social save orchestration', () => {
     );
     resolveSocial?.();
 
-    await waitFor(() => expect(mockUpdateMerchant).not.toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockUpdateMerchant).toHaveBeenCalledWith(
+        expect.objectContaining({ business_name: 'Test Store' }),
+        { merchantId: 'merchant-1', skipReload: true }
+      )
+    );
     expect(mockReloadMerchant).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalled();
   });
