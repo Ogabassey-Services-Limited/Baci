@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
 import { parseUstar } from './task9-bootstrap.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const repository = fileURLToPath(new URL('../..', import.meta.url));
 
 function entries(count, size = 0) {
   return Array.from({ length: count }, (_, index) => {
@@ -30,6 +33,36 @@ function rechecksum(archive) {
   header[154] = 0;
   header[155] = 0x20;
 }
+
+test('sealed parser accepts every tracked CWV source path', () => {
+  const paths = execFileSync(
+    'git',
+    ['ls-tree', '-r', '--name-only', 'HEAD', 'infra/cwv-runner'],
+    { cwd: repository, encoding: 'utf8' }
+  )
+    .trim()
+    .split('\n');
+  assert(paths.includes('infra/cwv-runner/baci-cwv-campaign-watchdog@.service'));
+  const source = paths.map((path) => {
+    const bytes = Buffer.alloc(0);
+    return { bytes, mode: '100644', path, sha256: sha256(bytes) };
+  });
+  const archive = createSourceArchive(
+    source.map(({ bytes, mode, path, sha256: blobSha256 }) => ({
+      blobSha256,
+      bytes,
+      mode,
+      path,
+    }))
+  );
+  assert.equal(
+    parseUstar(
+      archive,
+      source.map(({ mode, path, sha256 }) => ({ mode, path, sha256 }))
+    ).length,
+    source.length
+  );
+});
 
 test('producer and sealed parser accept the 1024-member hard ceiling', () => {
   const source = entries(1024);
