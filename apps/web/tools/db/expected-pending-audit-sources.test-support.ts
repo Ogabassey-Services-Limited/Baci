@@ -6,8 +6,43 @@ export const AUDIT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260730000001_add_canonical_audit_event_reader_indexes.sql',
+    sha256: '2e17e2bd408ce79b96a64ead8b7befd9a474ccec5fbdb6f94d727fc0128005bc',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260730000100_audit_merchant_identity_changes.sql',
     sha256: 'e5e417d37454d20d3ce60e48d53ace5cb541464bfd62e6dda9ed2396dddfa9d9',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000101_audit_merchant_identity_schema_guard.sql',
+    sha256: '23794a01f29bd616d43f4667a8d7ebd652be0381e2a5161048c554d81c2f3a2e',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000102_audit_merchant_identity_bounded_payload_router.sql',
+    sha256: '2c0e4b105a43dc1cadd756d32d763c4b8ca63d3ef259599a505a8657f7c48637',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000103_audit_merchant_identity_oversized_cleanup.sql',
+    sha256: '767c34cdc92fbf88d8125d198eb4b7347e2556f2f6ca9042093f009ceab35bcf',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000104_audit_merchant_identity_oversized_cleanup_triggers.sql',
+    sha256: 'be1ec36ab6d6cdf1d9b4f66e1853e0caaa812cdbf60e09014175f0246d343ec7',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000105_audit_merchant_identity_raw_social_change.sql',
+    sha256: 'ed7cc4d560e23c6126e46523c6e94ad4b3dd21171c47b0141e4124f81d94ece4',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000106_audit_merchant_identity_trigger_predicate_permissions.sql',
+    sha256: '03be4b6070ad42346b8cf4d332753b2c87c3c86a462df3eb8ffbe5b3826c10d6',
   },
   {
     repositoryPath:
@@ -18,6 +53,11 @@ export const AUDIT_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260730000300_audit_sensitive_merchant_configuration.sql',
     sha256: '882460e6bb4230c1060398d3e86020d0d0d386f95caa6b126716b0538c08911a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730000301_audit_sensitive_merchant_configuration_all_column_trigger.sql',
+    sha256: 'acde275656d227d1ae314d4ef9903ab0b21a927a6463eccffa1743a90653a627',
   },
   {
     repositoryPath:

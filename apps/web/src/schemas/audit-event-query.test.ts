@@ -4,6 +4,7 @@ import { auditEventQuerySchema } from './audit-event-query';
 const MERCHANT_ID = '550e8400-e29b-41d4-a716-446655440000';
 const CURSOR_ID = '7b82d5d9-1aa3-4f2d-a8d4-0b0d9f830001';
 const CURSOR_OCCURRED_AT = '2026-07-29T12:34:56.789Z';
+const CURSOR_OCCURRED_AT_WITH_UTC_OFFSET = '2026-07-29T12:34:56.789+00:00';
 
 describe('auditEventQuerySchema', () => {
   it('requires a valid merchant id', () => {
@@ -79,12 +80,26 @@ describe('auditEventQuerySchema', () => {
       cursorOccurredAt: CURSOR_OCCURRED_AT,
       cursorId: 'not-a-uuid',
     });
+    const cursorWithUtcOffset = auditEventQuerySchema.safeParse({
+      ...baseQuery,
+      cursorOccurredAt: CURSOR_OCCURRED_AT_WITH_UTC_OFFSET,
+      cursorId: CURSOR_ID,
+    });
 
     // Assert
     expect(timestampOnly.success).toBe(false);
     expect(idOnly.success).toBe(false);
     expect(malformedTimestamp.success).toBe(false);
     expect(malformedId.success).toBe(false);
+    expect(cursorWithUtcOffset).toMatchObject({
+      success: true,
+      data: {
+        ...baseQuery,
+        cursorOccurredAt: CURSOR_OCCURRED_AT_WITH_UTC_OFFSET,
+        cursorId: CURSOR_ID,
+        limit: 50,
+      },
+    });
   });
 
   it('normalizes empty optional fields and accepts valid combined filters', () => {

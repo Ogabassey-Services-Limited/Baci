@@ -6,13 +6,20 @@ type QueryConfig = {
   queryFn: () => Promise<unknown>;
 };
 
+type MutationVariables = { field: string; value: boolean };
+type MutationContext = { previousSettings?: unknown };
+
 type MutationConfig = {
-  mutationFn: (variables: { field: string; value: boolean }) => Promise<void>;
+  mutationFn: (variables: MutationVariables) => Promise<void>;
+  onMutate?: (
+    variables: MutationVariables
+  ) => Promise<MutationContext | undefined>;
   onError?: (
     error: Error,
     variables: unknown,
-    context?: { previousSettings?: unknown }
+    context?: MutationContext
   ) => void;
+  onSettled?: () => void;
 };
 
 interface MockUseMerchantResult {
@@ -26,8 +33,6 @@ const hoistedMocks = vi.hoisted(() => ({
   eq: vi.fn(),
   from: vi.fn(),
   invalidateQueries: vi.fn(),
-  mutate: vi.fn(),
-  mutationConfig: undefined as MutationConfig | undefined,
   openURL: vi.fn(),
   refetch: vi.fn(),
   select: vi.fn(),
@@ -55,16 +60,26 @@ vi.mock('expo-router', async () => {
 
 vi.mock('@tanstack/react-query', () => ({
   useMutation: (config: MutationConfig) => {
-    mocks.mutationConfig = config;
     return {
       isPending: false,
-      mutate: mocks.mutate,
+      mutate: (variables: MutationVariables) => {
+        void (async () => {
+          const context = await config.onMutate?.(variables);
+          try {
+            await config.mutationFn(variables);
+          } catch (error) {
+            config.onError?.(error as Error, variables, context);
+          } finally {
+            config.onSettled?.();
+          }
+        })();
+      },
     };
   },
   useQuery: (config: QueryConfig) => mocks.useQuery(config),
   useQueryClient: () => ({
     cancelQueries: vi.fn(),
-    getQueryData: vi.fn(),
+    getQueryData: vi.fn(() => paymentSettings),
     invalidateQueries: mocks.invalidateQueries,
     setQueryData: mocks.setQueryData,
   }),
@@ -159,6 +174,8 @@ vi.mock('react-native', () => ({
       checked={!!value}
       disabled={disabled}
       onChange={(event) => onValueChange?.(event.currentTarget.checked)}
+      aria-checked={!!value}
+      role="switch"
       type="checkbox"
     />
   ),
@@ -193,8 +210,6 @@ export function resetPaymentMethodsScreenMocks() {
   mocks.eq.mockReset();
   mocks.from.mockReset();
   mocks.invalidateQueries.mockReset();
-  mocks.mutate.mockReset();
-  mocks.mutationConfig = undefined;
   mocks.openURL.mockReset();
   mocks.refetch.mockReset();
   mocks.select.mockReset();

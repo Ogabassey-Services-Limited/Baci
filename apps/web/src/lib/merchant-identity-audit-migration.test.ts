@@ -7,10 +7,28 @@ const migrationPath = resolve(
   migrationDirectory,
   '20260730000100_audit_merchant_identity_changes.sql'
 );
+const extensionMigrationNames = [
+  '20260730000101_audit_merchant_identity_schema_guard.sql',
+  '20260730000102_audit_merchant_identity_bounded_payload_router.sql',
+  '20260730000103_audit_merchant_identity_oversized_cleanup.sql',
+  '20260730000104_audit_merchant_identity_oversized_cleanup_triggers.sql',
+  '20260730000105_audit_merchant_identity_raw_social_change.sql',
+  '20260730000106_audit_merchant_identity_trigger_predicate_permissions.sql',
+] as const;
+const extensionMigrationPaths = extensionMigrationNames.map((fileName) =>
+  resolve(migrationDirectory, fileName)
+);
 const sqlRegressionPath = resolve(
   migrationDirectory,
   'tests/audit_merchant_identity_changes.sql'
 );
+const sqlRegressionPartPaths = [
+  'tests/audit_merchant_identity_changes/000_trigger_predicate_permissions.sql',
+  'tests/audit_merchant_identity_changes/001_setup_and_guard.sql',
+  'tests/audit_merchant_identity_changes/002_update_and_safe_social.sql',
+  'tests/audit_merchant_identity_changes/003_raw_social_and_lifecycle.sql',
+  'tests/audit_merchant_identity_changes/004_lifecycle_and_delete.sql',
+].map((fileName) => resolve(migrationDirectory, fileName));
 
 const exactFields = [
   'business_name',
@@ -45,54 +63,136 @@ const presenceOnlyFields = [
 const governedFields = [...exactFields, ...presenceOnlyFields];
 
 describe('merchant identity audit migration contract', () => {
-  it('uses the reserved migration version exactly once', () => {
+  it('preserves the original migration and appends ordered remediation versions', () => {
     const matchingMigrationFiles = readdirSync(migrationDirectory).filter(
       (fileName) => fileName.startsWith('20260730000100_')
     );
+    const appendedMigrationFiles = readdirSync(migrationDirectory)
+      .filter((fileName) =>
+        extensionMigrationNames.includes(
+          fileName as (typeof extensionMigrationNames)[number]
+        )
+      )
+      .sort();
 
     expect(matchingMigrationFiles).toEqual([
       '20260730000100_audit_merchant_identity_changes.sql',
     ]);
+    expect(appendedMigrationFiles).toEqual(extensionMigrationNames);
   });
 
-  it('installs an owner-confined AFTER trigger that uses Task 1’s opaque writer capability', () => {
-    const migrationSql = readFileSync(migrationPath, 'utf8');
+  it('installs an owner-confined bounded legacy writer behind a catch-all schema guard', () => {
+    const originalMigrationSql = readFileSync(migrationPath, 'utf8');
+    const [
+      guardSql,
+      routerSql,
+      cleanupSql,
+      cleanupTriggerSql,
+      rawSocialSql,
+      predicatePermissionSql,
+    ] = extensionMigrationPaths.map((path) => readFileSync(path, 'utf8'));
 
-    expect(migrationSql).toContain(
+    expect(originalMigrationSql).toContain(
       'CREATE OR REPLACE FUNCTION private.audit_merchant_identity_change_v1()'
     );
-    expect(migrationSql).toContain('SECURITY DEFINER');
-    expect(migrationSql).toContain("SET search_path = ''");
-    expect(migrationSql).toContain(
-      'FROM private.audit_event_writer_capabilities AS capability'
+    expect(originalMigrationSql).toContain(
+      'AFTER INSERT OR DELETE OR UPDATE OF'
     );
-    expect(migrationSql).toContain(
-      "capability.capability_name = 'canonical_audit_event_writer_v1'"
+    expect(originalMigrationSql).toContain('private.write_audit_event_v1(');
+
+    expect(guardSql).toContain(
+      'CREATE OR REPLACE FUNCTION private.assert_merchant_identity_schema_classified_v2()'
     );
-    expect(migrationSql).toContain('private.write_audit_event_v1(');
-    expect(migrationSql).toContain(
-      'REVOKE ALL ON FUNCTION private.audit_merchant_identity_change_v1()'
+    expect(guardSql).toContain(
+      'BEFORE INSERT OR DELETE OR UPDATE ON public.merchants'
     );
-    expect(migrationSql).toContain('AFTER INSERT OR DELETE OR UPDATE OF');
-    expect(migrationSql).toContain('ON public.merchants');
-    expect(migrationSql).toContain(
-      'EXECUTE FUNCTION private.audit_merchant_identity_change_v1()'
-    );
-    expect(migrationSql).not.toContain(
-      'GRANT EXECUTE ON FUNCTION private.audit_merchant_identity_change_v1()'
+    expect(guardSql).toContain('audit_merchant_identity_unclassified_column');
+    expect(guardSql).toContain("SET search_path = ''");
+    expect(guardSql).toContain('SECURITY DEFINER');
+    expect(guardSql).toContain('OWNER TO postgres');
+    expect(guardSql).toContain(
+      'REVOKE ALL ON FUNCTION private.assert_merchant_identity_schema_classified_v2()'
     );
 
-    const triggerSql =
-      migrationSql.match(
-        /CREATE TRIGGER audit_merchant_identity_change_v1[\s\S]*?;/
-      )?.[0] ?? '';
-    expect(triggerSql).toContain('AFTER INSERT OR DELETE OR UPDATE OF');
+    expect(routerSql).toContain(
+      'DROP TRIGGER IF EXISTS audit_merchant_identity_change_v1 ON public.merchants'
+    );
+    expect(routerSql).toContain(
+      'CREATE TRIGGER audit_merchant_identity_legacy_update_v2'
+    );
+    expect(routerSql).toContain('WHEN (');
     for (const field of governedFields) {
-      expect(triggerSql).toContain(field);
+      expect(routerSql).toContain(field);
     }
+    expect(routerSql).toContain(
+      'private.merchant_identity_audit_row_is_bounded_v2(OLD)'
+    );
+    expect(routerSql).toContain(
+      'OLD.social_media IS DISTINCT FROM NEW.social_media'
+    );
+    expect(routerSql).toContain(
+      'IS NOT DISTINCT FROM private.project_merchant_social_media_for_audit_v1(NEW.social_media)'
+    );
+    expect(routerSql).toContain('SECURITY DEFINER');
+    expect(routerSql).toContain("SET search_path = ''");
+    expect(routerSql).toContain('OWNER TO postgres');
+    expect(routerSql).toContain(
+      'REVOKE ALL ON FUNCTION private.merchant_identity_audit_row_is_bounded_v2(public.merchants)'
+    );
+
+    expect(cleanupSql).toContain(
+      'CREATE OR REPLACE FUNCTION private.audit_merchant_identity_oversized_cleanup_v2()'
+    );
+    expect(cleanupSql).toContain(
+      "'state', 'redacted', 'reason', 'oversized_legacy_payload'"
+    );
+    expect(cleanupSql).toContain('SECURITY DEFINER');
+    expect(cleanupSql).toContain("SET search_path = ''");
+    expect(cleanupSql).toContain('OWNER TO postgres');
+    expect(cleanupSql).toContain(
+      'REVOKE ALL ON FUNCTION private.audit_merchant_identity_oversized_cleanup_v2()'
+    );
+    expect(cleanupTriggerSql).toContain(
+      'CREATE TRIGGER audit_merchant_identity_cleanup_update_v2'
+    );
+    expect(cleanupTriggerSql).not.toContain(
+      'CREATE TRIGGER audit_merchant_identity_cleanup_insert_v2'
+    );
+    expect(cleanupTriggerSql).toContain(
+      'NOT private.merchant_identity_audit_row_is_bounded_v2(OLD)'
+    );
+
+    expect(rawSocialSql).toContain(
+      'CREATE OR REPLACE FUNCTION private.audit_merchant_identity_raw_social_change_v2()'
+    );
+    expect(rawSocialSql).toContain(
+      'OLD.social_media IS DISTINCT FROM NEW.social_media'
+    );
+    expect(rawSocialSql).toContain(
+      'IS NOT DISTINCT FROM private.project_merchant_social_media_for_audit_v1'
+    );
+    expect(rawSocialSql).toContain('v_old_row := pg_catalog.to_jsonb(OLD)');
+    expect(rawSocialSql).toContain('v_new_row := pg_catalog.to_jsonb(NEW)');
+    expect(rawSocialSql).toContain("IF v_field = 'social_media' THEN");
+    expect(rawSocialSql).toContain('v_presence_fields text[]');
+    expect(rawSocialSql).toContain('audit_merchant_identity_payload_too_large');
+    expect(rawSocialSql).toContain('SECURITY DEFINER');
+    expect(rawSocialSql).toContain("SET search_path = ''");
+    expect(rawSocialSql).toContain('OWNER TO postgres');
+    expect(rawSocialSql).toContain(
+      'REVOKE ALL ON FUNCTION private.audit_merchant_identity_raw_social_change_v2()'
+    );
+    expect(predicatePermissionSql).toContain(
+      'private.merchant_identity_audit_row_is_bounded_v2(public.merchants)'
+    );
+    expect(predicatePermissionSql).toContain(
+      'private.project_merchant_social_media_for_audit_v1(jsonb)'
+    );
+    expect(predicatePermissionSql).toContain('FROM PUBLIC, anon');
+    expect(predicatePermissionSql).toContain('TO authenticated, service_role');
   });
 
-  it('uses explicit public projections, presence-only private values, and an exhaustive classification', () => {
+  it('uses explicit projections and an exhaustive immutable classification', () => {
     const migrationSql = readFileSync(migrationPath, 'utf8');
 
     for (const field of exactFields) {
@@ -122,24 +222,46 @@ describe('merchant identity audit migration contract', () => {
     expect(migrationSql).not.toMatch(/(?:left|substring)\s*\(/i);
   });
 
-  it('ships the executable SQL regression for redaction, attribution, and replay-schema coverage', () => {
-    const sqlRegression = readFileSync(sqlRegressionPath, 'utf8');
+  it('ships split executable regressions for guard, raw social, and oversized cleanup paths', () => {
+    const wrapperSql = readFileSync(sqlRegressionPath, 'utf8');
+    const sqlRegression = sqlRegressionPartPaths
+      .map((path) => readFileSync(path, 'utf8'))
+      .join('\n');
 
+    expect(wrapperSql).toContain(
+      '\\ir audit_merchant_identity_changes/000_trigger_predicate_permissions.sql'
+    );
+    expect(wrapperSql).toContain(
+      '\\ir audit_merchant_identity_changes/001_setup_and_guard.sql'
+    );
+    expect(wrapperSql).toContain(
+      '\\ir audit_merchant_identity_changes/004_lifecycle_and_delete.sql'
+    );
     expect(sqlRegression).toContain('information_schema.columns');
+    expect(sqlRegression).toContain(
+      "has_schema_privilege('authenticated', 'private', 'USAGE')"
+    );
+    expect(sqlRegression).toContain("'service_role', v_helper, 'EXECUTE'");
     expect(sqlRegression).toContain('pqthhi');
     expect(sqlRegression).toContain('merchant.identity.update');
     expect(sqlRegression).toContain('audit_merchant_identity_change_v1');
     expect(sqlRegression).toContain('ROLLBACK TO SAVEPOINT');
-    expect(sqlRegression).toContain('audit_identity_unclassified_probe');
+    expect(sqlRegression).toContain('SET audit_identity_unclassified_probe =');
     expect(sqlRegression).toContain('update_merchant_social_media');
     expect(sqlRegression).toContain('service_role');
     expect(sqlRegression).toContain('facebook-capi-secret');
-    expect(sqlRegression).toContain('unsafe-social-before');
-    expect(sqlRegression).toContain('linkedin.evil.example');
-    expect(sqlRegression).toContain('audit_safe_handle');
+    expect(sqlRegression).toContain('raw-social-equal-before');
+    expect(sqlRegression).toContain('Raw social combined title');
+    expect(sqlRegression).toContain('another-social-secret');
     expect(sqlRegression).toContain('untrusted-social-scalar');
     expect(sqlRegression).toContain('untrusted-social-array');
-    expect(sqlRegression).toContain('normalized social handle');
+    expect(sqlRegression).toContain('oversized_legacy_payload');
+    expect(sqlRegression).toContain('oversized identity cleanup');
+    expect(sqlRegression).toContain('oversized identity deletion');
+    expect(sqlRegression).toContain('oversized-new-sentinel-');
+    expect(sqlRegression).toContain(
+      'DISABLE TRIGGER audit_merchant_identity_legacy_update_v2'
+    );
     expect(sqlRegression).toContain('updated_at-only');
   });
 });

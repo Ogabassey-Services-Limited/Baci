@@ -1,26 +1,40 @@
 import '@testing-library/jest-dom/vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ShippingScreen from '@/app/(admin)/shipping';
 
 type MutationConfig = {
   mutationFn: (variables: unknown) => Promise<void>;
-  onError?: (error: unknown) => void;
+  onError?: (error: unknown, variables: unknown, context?: unknown) => void;
+  onMutate?: (variables: unknown) => Promise<unknown>;
+  onSettled?: () => void;
 };
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   eq: vi.fn(),
   from: vi.fn(),
-  mutationConfigs: [] as MutationConfig[],
   update: vi.fn(),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
   useMutation: (config: MutationConfig) => {
-    mocks.mutationConfigs.push(config);
-    return { isPending: false, mutate: vi.fn() };
+    return {
+      isPending: false,
+      mutate: (variables: unknown) => {
+        void (async () => {
+          const context = await config.onMutate?.(variables);
+          try {
+            await config.mutationFn(variables);
+          } catch (error) {
+            config.onError?.(error, variables, context);
+          } finally {
+            config.onSettled?.();
+          }
+        })();
+      },
+    };
   },
   useQuery: () => ({
     data: {
@@ -65,11 +79,43 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/components/shipping/ProvidersList', () => ({
-  ProvidersList: () => null,
+  ProvidersList: ({
+    onToggleProvider,
+  }: {
+    onToggleProvider: (providerId: 'topship', enabled: boolean) => void;
+  }) => (
+    <button
+      aria-label="Enable Topship"
+      onClick={() => onToggleProvider('topship', true)}
+      type="button"
+    >
+      Enable Topship
+    </button>
+  ),
 }));
 
 vi.mock('@/components/shipping/ShippingForm', () => ({
-  ShippingForm: () => null,
+  ShippingForm: ({
+    onSaveThreshold,
+    onStartEditing,
+    onThresholdChange,
+  }: {
+    onSaveThreshold: () => void;
+    onStartEditing: () => void;
+    onThresholdChange: (value: string) => void;
+  }) => (
+    <>
+      <button onClick={onStartEditing} type="button">
+        Edit free shipping threshold
+      </button>
+      <button onClick={() => onThresholdChange('12,500')} type="button">
+        Set threshold to 12500
+      </button>
+      <button onClick={onSaveThreshold} type="button">
+        Save threshold
+      </button>
+    </>
+  ),
 }));
 
 vi.mock('@/components/shipping/shipping-styles', () => ({ styles: {} }));
@@ -102,86 +148,80 @@ describe('ShippingScreen audited settings mutations', () => {
     mocks.alert.mockReset();
     mocks.eq.mockReset();
     mocks.from.mockReset();
-    mocks.mutationConfigs.length = 0;
     mocks.update.mockReset();
     mocks.eq.mockReturnValue({ error: null });
     mocks.update.mockReturnValue({ eq: mocks.eq });
     mocks.from.mockReturnValue({ update: mocks.update });
   });
 
-  it('writes exact provider and threshold fields through captured mutations', async () => {
+  it('persists provider and threshold changes through rendered child controls', async () => {
     // Arrange
     render(<ShippingScreen />);
-    const [providerMutation, thresholdMutation] = mocks.mutationConfigs;
-    if (!providerMutation || !thresholdMutation) {
-      throw new Error('Expected both shipping mutations to be captured');
-    }
 
     // Act
-    await providerMutation.mutationFn({ providerId: 'topship', enabled: true });
-    await thresholdMutation.mutationFn(12500);
+    fireEvent.click(screen.getByRole('button', { name: 'Enable Topship' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit free shipping threshold' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Set threshold to 12500' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save threshold' }));
 
     // Assert
-    expect(mocks.from).toHaveBeenNthCalledWith(1, 'merchant_feature_settings');
-    expect(mocks.from).toHaveBeenNthCalledWith(2, 'merchant_feature_settings');
-    expect(mocks.update).toHaveBeenNthCalledWith(1, {
-      shipping_providers: ['gigl', 'topship'],
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledWith({
+        shipping_providers: ['gigl', 'topship'],
+      });
+      expect(mocks.update).toHaveBeenCalledWith({
+        free_shipping_threshold: 12500,
+      });
     });
-    expect(mocks.update).toHaveBeenNthCalledWith(2, {
-      free_shipping_threshold: 12500,
-    });
-    expect(mocks.eq).toHaveBeenNthCalledWith(1, 'merchant_id', 'merchant-1');
-    expect(mocks.eq).toHaveBeenNthCalledWith(2, 'merchant_id', 'merchant-1');
+    expect(mocks.from).toHaveBeenCalledWith('merchant_feature_settings');
+    expect(mocks.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
   });
 
   it('rejects and alerts when persisting a shipping provider fails', async () => {
     // Arrange
     render(<ShippingScreen />);
-    const [providerMutation] = mocks.mutationConfigs;
     const persistenceError = new Error('Failed to persist shipping provider');
     mocks.eq.mockReturnValueOnce({ error: persistenceError });
-    if (!providerMutation) {
-      throw new Error('Expected the shipping provider mutation to be captured');
-    }
 
     // Act
-    const mutation = providerMutation.mutationFn({
-      providerId: 'topship',
-      enabled: true,
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Enable Topship' }));
 
     // Assert
-    await expect(mutation).rejects.toBe(persistenceError);
-    providerMutation.onError?.(persistenceError);
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Error',
-      'Failed to update shipping provider'
-    );
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Failed to update shipping provider'
+      );
+    });
   });
 
   it('rejects and alerts when persisting the free shipping threshold fails', async () => {
     // Arrange
     render(<ShippingScreen />);
-    const [, thresholdMutation] = mocks.mutationConfigs;
     const persistenceError = new Error(
       'Failed to persist free shipping threshold'
     );
     mocks.eq.mockReturnValueOnce({ error: persistenceError });
-    if (!thresholdMutation) {
-      throw new Error(
-        'Expected the free shipping threshold mutation to be captured'
-      );
-    }
 
     // Act
-    const mutation = thresholdMutation.mutationFn(12500);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit free shipping threshold' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Set threshold to 12500' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save threshold' }));
 
     // Assert
-    await expect(mutation).rejects.toBe(persistenceError);
-    thresholdMutation.onError?.(persistenceError);
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Error',
-      'Failed to update free shipping threshold'
-    );
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Failed to update free shipping threshold'
+      );
+    });
   });
 });

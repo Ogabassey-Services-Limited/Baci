@@ -7,10 +7,20 @@ const migrationPath = resolve(
   migrationDirectory,
   '20260730000500_audit_payment_credential_lifecycle.sql'
 );
-const sqlRegressionPath = resolve(
-  migrationDirectory,
-  'tests/audit_payment_credential_lifecycle.sql'
-);
+const sqlRegressionIncludes = [
+  'audit_payment_credential_lifecycle/01_setup_and_create.sql',
+  'audit_payment_credential_lifecycle/02_schema_and_disable.sql',
+  'audit_payment_credential_lifecycle/03_reactivation_and_pair_create.sql',
+  'audit_payment_credential_lifecycle/04_pair_update_and_role_delete.sql',
+  'audit_payment_credential_lifecycle/05_cascade_and_noop.sql',
+  'audit_payment_credential_lifecycle/06_writer_rollback.sql',
+] as const;
+const sqlRegressionPaths = [
+  resolve(migrationDirectory, 'tests/audit_payment_credential_lifecycle.sql'),
+  ...sqlRegressionIncludes.map((includePath) =>
+    resolve(migrationDirectory, 'tests', includePath)
+  ),
+];
 
 const exactFields = [
   'credential_role',
@@ -152,8 +162,26 @@ describe('payment credential audit migration contract', () => {
     expect(triggerFunctionSql).not.toMatch(/to_jsonb\(\s*(?:OLD|NEW)\s*\)/);
   });
 
+  it('keeps the psql fixture wrapper and every included section under the file gate', () => {
+    const fixtureWrapper = readFileSync(sqlRegressionPaths[0], 'utf8');
+
+    expect(fixtureWrapper.match(/^\\ir .+$/gm)).toEqual(
+      sqlRegressionIncludes.map((includePath) => `\\ir ${includePath}`)
+    );
+    expect(fixtureWrapper).toContain('Execute with `psql -f`');
+    for (const regressionPath of sqlRegressionPaths) {
+      const sourceLineCount = readFileSync(regressionPath, 'utf8')
+        .trimEnd()
+        .split('\n').length;
+
+      expect(sourceLineCount).toBeLessThanOrEqual(300);
+    }
+  });
+
   it('ships executable redaction, slot-cardinality, cascade, and rollback regressions', () => {
-    const sqlRegression = readFileSync(sqlRegressionPath, 'utf8');
+    const sqlRegression = sqlRegressionPaths
+      .map((regressionPath) => readFileSync(regressionPath, 'utf8'))
+      .join('\n');
 
     expect(sqlRegression).toContain('information_schema.columns');
     expect(sqlRegression).toContain('task6-ciphertext-sentinel-QWZX');

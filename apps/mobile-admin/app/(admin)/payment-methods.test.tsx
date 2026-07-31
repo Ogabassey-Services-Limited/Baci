@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   mocks,
@@ -21,33 +21,18 @@ describe('PaymentMethodsScreen', () => {
     expect(screen.getByLabelText('Toggle Klump')).toBeChecked();
   });
 
-  it('toggles the klump_enabled setting from rendered payment settings', () => {
-    render(<PaymentMethodsScreen />);
-
-    fireEvent.click(screen.getByLabelText('Toggle Klump'));
-    expect(mocks.mutate).toHaveBeenCalledWith({
-      field: 'klump_enabled',
-      value: false,
-    });
-  });
-
-  it('writes the exact Paystack field through the captured gateway mutation', async () => {
+  it('persists a Paystack toggle through its rendered accessible control', async () => {
     // Arrange
     render(<PaymentMethodsScreen />);
-    const mutationFn = mocks.mutationConfig?.mutationFn;
-    if (!mutationFn) {
-      throw new Error('Expected the payment gateway mutation function');
-    }
 
     // Act
-    await mutationFn({
-      field: 'paystack_enabled',
-      value: false,
-    });
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Paystack' }));
 
     // Assert
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledWith({ paystack_enabled: false });
+    });
     expect(mocks.from).toHaveBeenCalledWith('merchant_feature_settings');
-    expect(mocks.update).toHaveBeenCalledWith({ paystack_enabled: false });
     expect(mocks.eq).toHaveBeenCalledWith('id', 'settings-1');
   });
 
@@ -104,19 +89,22 @@ describe('PaymentMethodsScreen', () => {
     expect(screen.getByText('Merchant not found')).toBeInTheDocument();
   });
 
-  it('alerts and rolls back when a payment method toggle fails', () => {
+  it('alerts and rolls back when a rendered payment method toggle fails', async () => {
+    // Arrange
+    const persistenceError = new Error('Failed to update payment method');
+    mocks.eq.mockReturnValueOnce({ error: persistenceError });
     render(<PaymentMethodsScreen />);
 
-    mocks.mutationConfig?.onError?.(
-      new Error('Failed to update payment method'),
-      { field: 'klump_enabled', value: false },
-      { previousSettings: paymentSettings }
-    );
+    // Act
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Klump' }));
 
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Error',
-      'Failed to update payment method'
-    );
+    // Assert
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Failed to update payment method'
+      );
+    });
     expect(mocks.setQueryData).toHaveBeenCalledWith(
       ['payment-settings', 'merchant-1'],
       paymentSettings

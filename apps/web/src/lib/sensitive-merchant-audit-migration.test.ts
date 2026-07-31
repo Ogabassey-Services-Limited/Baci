@@ -7,10 +7,20 @@ const migrationPath = resolve(
   migrationDirectory,
   '20260730000300_audit_sensitive_merchant_configuration.sql'
 );
+const triggerRemediationPath = resolve(
+  migrationDirectory,
+  '20260730000301_audit_sensitive_merchant_configuration_all_column_trigger.sql'
+);
 const sqlRegressionPath = resolve(
   migrationDirectory,
   'tests/audit_sensitive_merchant_configuration.sql'
 );
+const sqlRegressionPartPaths = [
+  'tests/audit_sensitive_merchant_configuration/001_setup_and_guard.sql',
+  'tests/audit_sensitive_merchant_configuration/002_configuration_and_clear.sql',
+  'tests/audit_sensitive_merchant_configuration/003_kyc_and_grouping.sql',
+  'tests/audit_sensitive_merchant_configuration/004_create_delete_and_rollback.sql',
+].map((fileName) => resolve(migrationDirectory, fileName));
 
 const exactFields = [
   'email_domain_verified',
@@ -127,8 +137,9 @@ describe('sensitive merchant configuration audit migration contract', () => {
     ]);
   });
 
-  it('installs an owner-confined, disjoint merchant trigger through Task 1’s writer capability', () => {
+  it('supersedes the limited trigger with an all-column fail-closed trigger', () => {
     const migrationSql = readFileSync(migrationPath, 'utf8');
+    const remediationSql = readFileSync(triggerRemediationPath, 'utf8');
 
     expect(migrationSql).toContain(
       'CREATE OR REPLACE FUNCTION private.audit_sensitive_merchant_configuration_change_v1()'
@@ -149,23 +160,19 @@ describe('sensitive merchant configuration audit migration contract', () => {
       'GRANT EXECUTE ON FUNCTION private.audit_sensitive_merchant_configuration_change_v1()'
     );
 
-    const triggerSql =
-      migrationSql.match(
-        /CREATE TRIGGER audit_sensitive_merchant_configuration_change_v1[\s\S]*?;/
-      )?.[0] ?? '';
-    expect(triggerSql).toContain('AFTER INSERT OR DELETE OR UPDATE OF');
-    expect(triggerSql).toContain('ON public.merchants');
-    expect(triggerSql).toContain(
+    expect(remediationSql).toContain(
+      'DROP TRIGGER IF EXISTS audit_sensitive_merchant_configuration_change_v1 ON public.merchants'
+    );
+    expect(remediationSql).toContain(
+      'CREATE TRIGGER audit_sensitive_merchant_configuration_change_v1'
+    );
+    expect(remediationSql).toContain(
+      'AFTER INSERT OR DELETE OR UPDATE ON public.merchants'
+    );
+    expect(remediationSql).not.toContain('UPDATE OF');
+    expect(remediationSql).toContain(
       'EXECUTE FUNCTION private.audit_sensitive_merchant_configuration_change_v1()'
     );
-    for (const field of [...exactFields, ...presenceOnlyFields]) {
-      expect(triggerSql).toContain(field);
-    }
-    for (const field of task2OwnedFields) {
-      expect(triggerSql).not.toMatch(
-        new RegExp(`UPDATE OF[\\s\\S]*?\\b${field}\\b`)
-      );
-    }
   });
 
   it('uses a closed, disjoint classification and never serializes a merchant row', () => {
@@ -195,8 +202,17 @@ describe('sensitive merchant configuration audit migration contract', () => {
   });
 
   it('ships executable redaction, transaction-grouping, and current-schema regressions', () => {
-    const sqlRegression = readFileSync(sqlRegressionPath, 'utf8');
+    const wrapperSql = readFileSync(sqlRegressionPath, 'utf8');
+    const sqlRegression = sqlRegressionPartPaths
+      .map((path) => readFileSync(path, 'utf8'))
+      .join('\n');
 
+    expect(wrapperSql).toContain(
+      '\\ir audit_sensitive_merchant_configuration/001_setup_and_guard.sql'
+    );
+    expect(wrapperSql).toContain(
+      '\\ir audit_sensitive_merchant_configuration/004_create_delete_and_rollback.sql'
+    );
     expect(sqlRegression).toContain('information_schema.columns');
     expect(sqlRegression).toContain('task4-bank-number-sentinel');
     expect(sqlRegression).toContain('task4-nin-sentinel');
@@ -218,6 +234,14 @@ describe('sensitive merchant configuration audit migration contract', () => {
     expect(sqlRegression).toContain('payout_currency');
     expect(sqlRegression).toContain('updated_at = updated_at + interval');
     expect(sqlRegression).toContain('ROLLBACK TO SAVEPOINT');
+    expect(sqlRegression).toContain(
+      'COALESCE(pg_catalog.cardinality(p_sentinels), 0) = 0'
+    );
+    expect(sqlRegression).toContain('NULL::text[]');
+    expect(sqlRegression).toContain('ARRAY[]::text[]');
+    expect(sqlRegression).toContain(
+      'SET audit_sensitive_merchant_configuration_unclassified_probe ='
+    );
     expect(sqlRegression).toContain(
       'audit_sensitive_merchant_configuration_unclassified_column'
     );

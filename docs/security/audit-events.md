@@ -184,6 +184,13 @@ merchant.configuration.*; changes to public identity use
 merchant.identity.*. A source-row deletion retains the merchant UUID. A label
 may be null after cascade deletion rather than inventing a replacement value.
 
+For cleanup or deletion of a legacy merchant row whose existing identity
+projection already exceeds the payload bound, each affected exact identity
+value is recorded as `{ "state": "redacted", "reason":
+"oversized_legacy_payload" }` instead of its normal exact projection. This
+exception applies only to an already-oversized old row; new oversized identity
+inserts and updates remain rejected by the normal payload guard.
+
 ### public.staff_members
 
 | Classification | Columns | Ledger representation |

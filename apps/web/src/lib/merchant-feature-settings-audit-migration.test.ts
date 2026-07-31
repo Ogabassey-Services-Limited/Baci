@@ -7,10 +7,17 @@ const migrationPath = resolve(
   migrationDirectory,
   '20260730000400_audit_merchant_feature_settings.sql'
 );
-const sqlRegressionPath = resolve(
-  migrationDirectory,
-  'tests/audit_merchant_feature_settings.sql'
-);
+const sqlRegression = [
+  'audit_merchant_feature_settings.sql',
+  'audit_merchant_feature_settings_setup.sql',
+  'audit_merchant_feature_settings_primary_mutations.sql',
+  'audit_merchant_feature_settings_snapshot_updates.sql',
+  'audit_merchant_feature_settings_lifecycle.sql',
+]
+  .map((fileName) =>
+    readFileSync(resolve(migrationDirectory, 'tests', fileName), 'utf8')
+  )
+  .join('\n');
 
 const exactFields = [
   'about_page_enabled',
@@ -94,11 +101,7 @@ const presenceOnlyFields = [
   'twitter_pixel_id',
 ] as const;
 
-const ignoredFields = [
-  'created_at',
-  'custom_robots_txt',
-  'updated_at',
-] as const;
+const ignoredFields = 'created_at,custom_robots_txt,updated_at'.split(',');
 
 const forbiddenFields = ['id', 'merchant_id'] as const;
 
@@ -255,8 +258,6 @@ describe('merchant feature settings audit migration contract', () => {
   });
 
   it('ships executable redaction, lifecycle, and current-schema regressions', () => {
-    const sqlRegression = readFileSync(sqlRegressionPath, 'utf8');
-
     expect(sqlRegression).toContain('information_schema.columns');
     expect(sqlRegression).toContain('task5-credit-direct-public-key-sentinel');
     expect(sqlRegression).toContain('task5-facebook-capi-sentinel');
