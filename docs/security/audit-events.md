@@ -15,13 +15,11 @@ The covered sources are:
 - private.merchant_payment_credentials
 
 Every source-table trigger invocation uses an exhaustive, closed-world column
-classification. A newly added live source column makes a mutation that invokes
-the relevant trigger fail closed until a reviewed migration classifies it. The
-current merchants triggers use `UPDATE OF` lists, so a mutation that changes
-only a newly added, unlisted column does not invoke either trigger; that gap is
-not governed by the classification guard and must be closed before treating all
-merchant-column changes as audited. An implementation must not work around a
-classification guard by adding a raw whole-row snapshot.
+classification. The merchant identity guard and sensitive configuration
+trigger run for every `INSERT`, `DELETE`, and all-column `UPDATE`, so a newly
+added live source column fails closed until a reviewed migration classifies it.
+An implementation must not work around a classification guard by adding a raw
+whole-row snapshot.
 
 ## Ledger boundary
 
