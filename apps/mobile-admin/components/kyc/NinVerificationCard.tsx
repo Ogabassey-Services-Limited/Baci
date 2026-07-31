@@ -272,25 +272,23 @@ export default function NinVerificationCard({
             </Pressable>
           )}
 
-          {(verified || bvnVerified) && (
-            <BvnVerificationCard
-              verified={bvnVerified}
-              prefillBvn={prefillBvn}
-              firstName={firstName}
-              lastName={lastName}
-              dateOfBirth={dateOfBirth}
-              mobileNo={mobileNo}
-              merchantId={merchantId}
-              onMobileNumberChange={(value) =>
-                onIdentityChange((current) => ({
-                  ...current,
-                  mobileNo: value.replace(/\D/g, '').slice(0, 11),
-                }))
-              }
-              isActive={isActive}
-              onVerified={onVerified}
-            />
-          )}
+          <BvnVerificationCard
+            verified={bvnVerified}
+            prefillBvn={prefillBvn}
+            firstName={firstName}
+            lastName={lastName}
+            dateOfBirth={dateOfBirth}
+            mobileNo={mobileNo}
+            merchantId={merchantId}
+            onMobileNumberChange={(value) =>
+              onIdentityChange((current) => ({
+                ...current,
+                mobileNo: value.replace(/\D/g, '').slice(0, 11),
+              }))
+            }
+            isActive={isActive}
+            onVerified={onVerified}
+          />
         </View>
       )}
     </View>

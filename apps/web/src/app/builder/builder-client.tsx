@@ -75,6 +75,7 @@ import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 import { applyTheme } from '@/lib/theme-manager';
 import type { BuilderDegradedReason } from '@/schemas/builder';
 import type { BuilderPreviewMode } from './builder-client-types';
+import { createDefaultBuilderSettings } from './builder-default-settings';
 import { getDegradedBuilderDescription } from './builder-descriptions';
 import { loadBuilderData } from './load-builder-data';
 import { useBuilderAiDraftActions } from './use-builder-ai-draft-actions';
@@ -124,54 +125,12 @@ export default function BuilderClient() {
     keywords: '',
     twitterCard: 'summary_large_image',
   });
-  const [storeSettings, setStoreSettings] = useState<StoreSettings>({
-    productPage: {
-      layout: 'standard',
-      showRelatedProducts: true,
-      showReviews: true,
-      showShareButtons: true,
-      imageGalleryStyle: 'thumbnails',
-      enableZoom: true,
-      showInventory: true,
-    },
-    cart: {
-      enableCartDrawer: true,
-      showShippingEstimate: true,
-      showProgressBar: false,
-      enableGiftMessage: false,
-      enableDiscountCodes: true,
-    },
-    checkout: {
-      enableGuestCheckout: true,
-      requirePhoneNumber: false,
-      showOrderNotes: true,
-      showNewsletterSignup: true,
-      enableExpressCheckout: true,
-    },
-    shipping: {
-      showEstimatedDelivery: true,
-      defaultShippingMessage: 'Free shipping on orders over $50',
-      internationalShipping: false,
-    },
-    policies: {
-      returnPolicy: '',
-      shippingPolicy: '',
-      privacyPolicy: '',
-    },
-  });
-  const [setupSettings, setSetupSettings] = useState<SetupSettings>({
-    site: {
-      title: 'My Store',
-      tagline: 'Premium products at affordable prices',
-      currency: 'USD',
-      timezone: 'America/New_York',
-      language: 'en',
-      units: 'imperial',
-    },
-    social: {},
-    analytics: {},
-    customCode: {},
-  });
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(
+    () => createDefaultBuilderSettings().storeSettings
+  );
+  const [setupSettings, setSetupSettings] = useState<SetupSettings>(
+    () => createDefaultBuilderSettings().setupSettings
+  );
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);

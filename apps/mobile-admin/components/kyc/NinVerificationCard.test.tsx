@@ -127,7 +127,7 @@ describe('NinVerificationCard readiness handoff', () => {
     mocks.options = [];
   });
 
-  it('keeps first and last name on one row and hides BVN fields until NIN is verified', () => {
+  it('keeps first and last name on one row and exposes the BVN flow before NIN verification', () => {
     const props = {
       bvnVerified: false,
       dateOfBirth: '2000-01-01',
@@ -153,10 +153,8 @@ describe('NinVerificationCard readiness handoff', () => {
     expect(
       within(nameRow).getByRole('textbox', { name: 'Last name input' })
     ).toBeInTheDocument();
-    expect(screen.queryByLabelText('BVN input')).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText('Mobile number input')
-    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText('BVN input')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mobile number input')).toBeInTheDocument();
 
     rerender(<NinVerificationCard {...props} verified />);
 
