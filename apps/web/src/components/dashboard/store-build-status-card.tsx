@@ -1,5 +1,4 @@
 'use client';
-
 import type { StoreBuildStatus } from '@baci/shared';
 import {
   AlertTriangle,
@@ -43,29 +42,25 @@ import {
   readApplyResponse,
 } from './store-build-status-card-helpers';
 
-interface StoreBuildStatusCardProps {
-  merchantId?: string;
-  onApplied?: () => void;
-}
-
-export function StoreBuildStatusCard({
-  merchantId,
-  onApplied,
-}: StoreBuildStatusCardProps) {
-  const [status, setStatus] = useState<StoreBuildStatus | null>(null);
+type Props = { merchantId?: string; onApplied?: () => void };
+type ScopedStatus = { merchantId: string; value: StoreBuildStatus };
+export function StoreBuildStatusCard({ merchantId, onApplied }: Props) {
+  const [loadedStatus, setLoadedStatus] = useState<ScopedStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [applying, setApplying] = useState(false);
-  const [showStaleDialog, setShowStaleDialog] = useState(false);
+  const [applyingFor, setApplyingFor] = useState<string | null>(null);
+  const [staleDialogFor, setStaleDialogFor] = useState<string | null>(null);
   const activeMerchantId = useRef(merchantId);
   activeMerchantId.current = merchantId;
   const { toast } = useToast();
+  const statusMatches = loadedStatus?.merchantId === merchantId;
+  const status = statusMatches ? (loadedStatus?.value ?? null) : null;
+  const applying = applyingFor === merchantId;
   useEffect(() => {
-    setStatus(null);
+    setLoadedStatus(null);
     setLoadError(null);
-    setApplying(false);
-    setShowStaleDialog(false);
+    setStaleDialogFor((current) => (current === merchantId ? current : null));
     setLoading(Boolean(merchantId));
     if (!merchantId) return;
     let active = true;
@@ -80,11 +75,14 @@ export function StoreBuildStatusCard({
         return response.json() as Promise<unknown>;
       })
       .then((payload) => {
-        if (!isWebStoreReadiness(payload)) {
+        if (
+          !isWebStoreReadiness(payload) ||
+          payload.merchantId !== merchantId
+        ) {
           throw new Error('Invalid readiness payload');
         }
         if (active) {
-          setStatus(payload.storeBuild);
+          setLoadedStatus({ merchantId, value: payload.storeBuild });
           setLoadError(null);
         }
       })
@@ -118,7 +116,7 @@ export function StoreBuildStatusCard({
       return;
     }
     const submittedMerchantId = merchantId;
-    setApplying(true);
+    setApplyingFor(submittedMerchantId);
     fetchWithCsrf(`/api/ai-jobs/${status.latestJobId}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -134,7 +132,7 @@ export function StoreBuildStatusCard({
           response.status === 409 &&
           payload.code === 'ai_draft_stale'
         ) {
-          setShowStaleDialog(true);
+          setStaleDialogFor(submittedMerchantId);
           return;
         }
         if (!response.ok) {
@@ -142,12 +140,15 @@ export function StoreBuildStatusCard({
             payload.error || payload.message || 'Failed to apply AI design'
           );
         }
-        setStatus((current) =>
-          current
+        setLoadedStatus((current) =>
+          current?.merchantId === submittedMerchantId
             ? {
                 ...current,
-                aiStatus: 'applied',
-                message: 'Your generated storefront is now editable.',
+                value: {
+                  ...current.value,
+                  aiStatus: 'applied',
+                  message: 'Your generated storefront is now editable.',
+                },
               }
             : current
         );
@@ -168,12 +169,11 @@ export function StoreBuildStatusCard({
         });
       })
       .finally(() => {
-        if (activeMerchantId.current === submittedMerchantId) {
-          setApplying(false);
-        }
+        setApplyingFor((current) =>
+          current === submittedMerchantId ? null : current
+        );
       });
   };
-
   if (loading) {
     return (
       <Card className="border-primary/20 bg-primary/5">
@@ -184,7 +184,6 @@ export function StoreBuildStatusCard({
       </Card>
     );
   }
-
   if (loadError) {
     return (
       <Card className="border-destructive">
@@ -206,17 +205,14 @@ export function StoreBuildStatusCard({
       </Card>
     );
   }
-
   if (!status || status.aiStatus === 'not_started') {
     return null;
   }
-
   const progress = getFallbackProgress(status.aiStatus);
   const canPreview = Boolean(
     status.latestJobId &&
       (status.aiStatus === 'ready' || status.aiStatus === 'applied')
   );
-
   return (
     <>
       <Card className={cn('overflow-hidden', getStatusAccent(status.aiStatus))}>
@@ -275,7 +271,12 @@ export function StoreBuildStatusCard({
           </Button>
         </CardFooter>
       </Card>
-      <AlertDialog open={showStaleDialog} onOpenChange={setShowStaleDialog}>
+      <AlertDialog
+        open={staleDialogFor === merchantId}
+        onOpenChange={(open) =>
+          setStaleDialogFor(open ? (merchantId ?? null) : null)
+        }
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Replace your current draft?</AlertDialogTitle>

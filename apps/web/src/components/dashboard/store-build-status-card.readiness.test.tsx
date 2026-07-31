@@ -109,6 +109,24 @@ describe('StoreBuildStatusCard readiness loading', () => {
     ).toBeInTheDocument();
   });
 
+  it('rejects a valid readiness payload for a different merchant', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...createReadinessPayload(),
+        merchantId: merchantB,
+      }),
+    } as Response);
+
+    render(<StoreBuildStatusCard merchantId={merchantA} />);
+
+    expect(
+      await screen.findByText('Failed to load store build status.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('AI design ready')).not.toBeInTheDocument();
+  });
+
   it('clears merchant A status before loading scoped readiness for merchant B', async () => {
     let resolveMerchantB: ((response: Response) => void) | undefined;
     const merchantBResponse = new Promise<Response>((resolve) => {
@@ -140,6 +158,11 @@ describe('StoreBuildStatusCard readiness loading', () => {
     expect(await screen.findByText('AI design ready')).toBeInTheDocument();
 
     rerender(<StoreBuildStatusCard merchantId={merchantB} />);
+
+    expect(screen.queryByText('AI design ready')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /apply ai design/i })
+    ).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenLastCalledWith(
@@ -189,6 +212,13 @@ describe('StoreBuildStatusCard readiness loading', () => {
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
     expect(mockToast).not.toHaveBeenCalled();
     expect(onApplied).not.toHaveBeenCalled();
+
+    rerender(
+      <StoreBuildStatusCard merchantId={merchantA} onApplied={onApplied} />
+    );
+    expect(
+      await screen.findByRole('button', { name: /apply ai design/i })
+    ).not.toBeDisabled();
   });
 
   it('closes stale-draft confirmation when the selected merchant changes', async () => {
@@ -212,8 +242,14 @@ describe('StoreBuildStatusCard readiness loading', () => {
 
     rerender(<StoreBuildStatusCard merchantId={merchantB} />);
 
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
     await waitFor(() => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
+
+    rerender(<StoreBuildStatusCard merchantId={merchantA} />);
+    await screen.findByText('AI design ready');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });

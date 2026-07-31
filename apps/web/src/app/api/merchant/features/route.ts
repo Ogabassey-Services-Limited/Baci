@@ -1,9 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   revalidateFeatures,
   revalidateMerchant,
@@ -586,20 +582,32 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const access = await getUserAccess(auth.supabase);
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonNoStore({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const requestBody = parseMerchantFeatureSettingsPatchBody(body);
+    if (!requestBody) {
+      return jsonNoStore({ error: 'Invalid input' }, { status: 400 });
+    }
+
+    const { featureUpdates: newSettings, requestedMerchantId } = requestBody;
+    const { access, invalidMerchantId } = await resolveSelectedMerchantAccess({
+      requestedMerchantId,
+      supabase: auth.supabase,
+      userId: auth.user.id,
+    });
+    if (invalidMerchantId) {
+      return jsonNoStore({ error: 'Invalid merchant ID' }, { status: 400 });
+    }
     if (!access) {
       return jsonNoStore({ error: 'Merchant not found' }, { status: 404 });
     }
-
     if (!hasPermission(access, 'settings', 'edit')) {
       return jsonNoStore({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    let newSettings: Record<string, unknown>;
-    try {
-      newSettings = await request.json();
-    } catch {
-      return jsonNoStore({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
     const parsedSettings =

@@ -11,6 +11,7 @@ import { StoreBuildStatusCard } from './store-build-status-card';
 import { createReadinessPayload } from './store-build-status-card.test-helpers';
 
 const mockToast = vi.fn();
+const merchantId = '11111111-1111-4111-8111-111111111111';
 const { mockFetchWithCsrf } = vi.hoisted(() => ({
   mockFetchWithCsrf: vi.fn(),
 }));
@@ -45,7 +46,7 @@ describe('StoreBuildStatusCard', () => {
   });
 
   it('hides apply controls for view-only staff while keeping preview available', async () => {
-    render(<StoreBuildStatusCard merchantId="merchant-1" />);
+    render(<StoreBuildStatusCard merchantId={merchantId} />);
 
     expect(await screen.findByText('AI design ready')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /preview/i })).toHaveAttribute(
@@ -74,7 +75,7 @@ describe('StoreBuildStatusCard', () => {
       }),
     } as Response);
 
-    render(<StoreBuildStatusCard merchantId="merchant-1" />);
+    render(<StoreBuildStatusCard merchantId={merchantId} />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: /apply ai design/i })
@@ -85,7 +86,7 @@ describe('StoreBuildStatusCard', () => {
         '/api/ai-jobs/5c0a0676-bd3f-495e-9f98-589f208c0d79/apply',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ merchantId: 'merchant-1' }),
+          body: JSON.stringify({ merchantId }),
         })
       );
     });
@@ -112,7 +113,7 @@ describe('StoreBuildStatusCard', () => {
     } as Response);
     mockFetchWithCsrf.mockImplementationOnce(applyResult);
 
-    render(<StoreBuildStatusCard merchantId="merchant-1" />);
+    render(<StoreBuildStatusCard merchantId={merchantId} />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: /apply ai design/i })
@@ -145,7 +146,7 @@ describe('StoreBuildStatusCard', () => {
         }),
       } as Response);
 
-    render(<StoreBuildStatusCard merchantId="merchant-1" />);
+    render(<StoreBuildStatusCard merchantId={merchantId} />);
 
     const applyButton = await screen.findByRole('button', {
       name: /apply ai design/i,
@@ -166,7 +167,7 @@ describe('StoreBuildStatusCard', () => {
       '/api/ai-jobs/5c0a0676-bd3f-495e-9f98-589f208c0d79/apply',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ merchantId: 'merchant-1', force: true }),
+        body: JSON.stringify({ merchantId, force: true }),
       })
     );
     expect(mockToast).toHaveBeenCalledWith(
@@ -185,7 +186,7 @@ describe('StoreBuildStatusCard', () => {
       json: async () => ({ code: 'ai_draft_stale' }),
     } as Response);
 
-    render(<StoreBuildStatusCard merchantId="merchant-1" />);
+    render(<StoreBuildStatusCard merchantId={merchantId} />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: /apply ai design/i })

@@ -61,11 +61,12 @@ vi.mock('@/schemas/merchant-features', () => ({
   },
 }));
 
-import { GET, PATCH } from './route';
+import { GET, PATCH, PUT } from './route';
 
 const selectedMerchantId = '22222222-2222-4222-8222-222222222222';
 let merchantIdFilter: string | null;
 let updatePayload: Record<string, unknown> | null;
+let upsertPayload: Record<string, unknown> | null;
 
 function createSupabase() {
   const updateEq = vi.fn(() => ({
@@ -106,6 +107,23 @@ function createSupabase() {
         updatePayload = payload;
         return { eq: updateEq };
       }),
+      upsert: vi.fn((payload: Record<string, unknown>) => {
+        upsertPayload = payload;
+        return {
+          select: vi.fn(() => ({
+            single: vi.fn(() =>
+              Promise.resolve({
+                data: {
+                  custom_settings: {},
+                  id: 'settings-b',
+                  merchant_id: selectedMerchantId,
+                },
+                error: null,
+              })
+            ),
+          })),
+        };
+      }),
     })),
   };
 }
@@ -115,6 +133,7 @@ describe('selected merchant feature settings routes', () => {
     vi.clearAllMocks();
     merchantIdFilter = null;
     updatePayload = null;
+    upsertPayload = null;
 
     const supabase = createSupabase();
     mocks.authenticateApiRequest.mockResolvedValue({
@@ -187,6 +206,41 @@ describe('selected merchant feature settings routes', () => {
     expect(updatePayload).not.toHaveProperty('merchantId');
     expect(mocks.revalidateFeatures).toHaveBeenCalledWith(selectedMerchantId);
     expect(mocks.revalidateMerchant).toHaveBeenCalledWith(selectedMerchantId);
+  });
+
+  it('replaces settings for the explicitly selected merchant', async () => {
+    const implicitMerchantId = '11111111-1111-4111-8111-111111111111';
+    mocks.getUserAccess.mockResolvedValue({
+      merchantId: implicitMerchantId,
+      permissions: {},
+      role: 'owner',
+    });
+
+    const response = await PUT(
+      new NextRequest('http://localhost/api/merchant/features', {
+        body: JSON.stringify({
+          loyalty_enabled: true,
+          merchantId: selectedMerchantId,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(merchantIdFilter).toBe(selectedMerchantId);
+    expect(upsertPayload).toMatchObject({
+      loyalty_enabled: true,
+      merchant_id: selectedMerchantId,
+    });
+    expect(upsertPayload).not.toHaveProperty('merchantId');
+    expect(mocks.revalidateFeatures).toHaveBeenCalledWith(selectedMerchantId);
+    expect(mocks.revalidateMerchant).toHaveBeenCalledWith(selectedMerchantId);
+    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      'user-1',
+      { requestedMerchantId: selectedMerchantId }
+    );
   });
 
   it('rejects an explicitly null PATCH merchantId before writing settings', async () => {
