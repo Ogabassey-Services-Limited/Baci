@@ -1,11 +1,11 @@
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import versionA from './version-a';
-import versionB from './version-b';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildQualificationArtifactReceipt,
   validateQualificationWorkerConfig,
 } from './qualification-artifact-receipt';
+import versionA from './version-a';
+import versionB from './version-b';
 
 const root = resolve(import.meta.dirname, '..');
 describe('cloudflare evidence qualification worker fixture', () => {
@@ -55,6 +55,19 @@ describe('cloudflare evidence qualification worker fixture', () => {
     expect(receiptA.soleVersionMetadataBinding).toBe('CF_VERSION_METADATA');
     expect(receiptA.wranglerVersion).toBe('4.115.0');
   });
+  it('parses JSONC comments, trailing commas, and double slashes inside strings', () => {
+    const config = `{
+      // The qualification fixture has no provider route.
+      "name": "baci-evidence-qualification",
+      "main": "src/version-a.ts//literal",
+      /* Wrangler accepts trailing commas in JSONC. */
+      "compatibility_date": "2026-07-31",
+      "version_metadata": { "binding": "CF_VERSION_METADATA", },
+    }`;
+    expect(validateQualificationWorkerConfig(config)).toMatchObject({
+      binding: 'CF_VERSION_METADATA',
+    });
+  });
   it('accepts only the exact single generated version-metadata config binding', () => {
     const config = JSON.stringify({
       name: 'baci-evidence-qualification',
@@ -67,6 +80,7 @@ describe('cloudflare evidence qualification worker fixture', () => {
     });
     for (const extra of [
       { route: 'edge-evidence.ogabassey.com/*' },
+      { routes: ['edge-evidence.ogabassey.com/*'] },
       { vars: { OTHER: 'value' } },
       { r2_buckets: [] },
       { secrets: ['SECRET'] },
@@ -76,5 +90,38 @@ describe('cloudflare evidence qualification worker fixture', () => {
           JSON.stringify({ ...JSON.parse(config), ...extra })
         )
       ).toThrow('forbidden');
+    expect(() =>
+      validateQualificationWorkerConfig(
+        JSON.stringify({
+          ...JSON.parse(config),
+          version_metadata: {
+            binding: 'CF_VERSION_METADATA',
+            extra_binding: 'NOT_ALLOWED',
+          },
+        })
+      )
+    ).toThrow('exactly one');
+  });
+  it('hashes canonical config with locale-independent Unicode code-unit ordering', () => {
+    const first = `{
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      "main": "src/version-a.ts",
+      "name": "baci-evidence-qualification-\u00e9",
+      "compatibility_date": "2026-07-31"
+    }`;
+    const reordered = `{
+      "compatibility_date": "2026-07-31",
+      "name": "baci-evidence-qualification-\u00e9",
+      "main": "src/version-a.ts",
+      "version_metadata": { "binding": "CF_VERSION_METADATA" }
+    }`;
+    const expected = validateQualificationWorkerConfig(first).canonicalSha256;
+    const localeCompare = vi
+      .spyOn(String.prototype, 'localeCompare')
+      .mockReturnValue(1);
+    expect(validateQualificationWorkerConfig(reordered).canonicalSha256).toBe(
+      expected
+    );
+    localeCompare.mockRestore();
   });
 });

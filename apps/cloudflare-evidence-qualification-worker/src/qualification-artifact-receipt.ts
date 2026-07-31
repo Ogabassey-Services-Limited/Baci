@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { parse } from 'comment-json';
 
 type ArtifactBuild = Readonly<{
   bundle: Uint8Array;
@@ -40,17 +41,14 @@ const canonicalConfigJson = (value: unknown): string => {
   if (Array.isArray(value))
     return `[${value.map(canonicalConfigJson).join(',')}]`;
   return `{${Object.entries(value as Record<string, unknown>)
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
     .map(([key, item]) => `${JSON.stringify(key)}:${canonicalConfigJson(item)}`)
     .join(',')}}`;
 };
 
 /** Parses the Wrangler JSONC authority surface; no source code implies bindings. */
 export function validateQualificationWorkerConfig(configText: string) {
-  const parsed = JSON.parse(configText.replace(/\/\/.*$/gm, '')) as Record<
-    string,
-    unknown
-  >;
+  const parsed = parse<Record<string, unknown>>(configText, null, true);
   const keys = Object.keys(parsed);
   if (keys.some((key) => forbiddenConfigKeys.has(key)))
     throw new Error('forbidden Worker config authority');

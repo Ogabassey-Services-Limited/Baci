@@ -8,6 +8,7 @@
     "typecheck": "mkdir -p .qualification-dist/types && wrangler types .qualification-dist/types/version-a.d.ts --config wrangler.version-a.jsonc && wrangler types .qualification-dist/types/version-b.d.ts --config wrangler.version-b.jsonc && tsc -p tsconfig.json && tsc -p tsconfig.version-b.json"
   },
   "devDependencies": {
+    "comment-json": "4.6.2",
     "vitest": "^4.1.9",
     "wrangler": "4.115.0"
   }

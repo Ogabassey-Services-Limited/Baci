@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import {
-  type EvidenceRunInput,
-  openEvidenceRun,
-} from './cloudflare-evidence-run-journal';
+import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 const PointerCacheSchema = z
@@ -107,8 +104,8 @@ export type ExpectedQualificationArtifact = Readonly<{
 }>;
 
 export function parseQualificationArguments(args: readonly string[]) {
-  if (args.length === 1 && args[0] === '--prepare')
-    return { mode: 'prepare' as const };
+  if (args[0] === '--prepare')
+    throw new Error('prepare options require the functional prepare parser');
   if (
     args.length === 2 &&
     args[0] === '--validate-readback' &&
@@ -251,18 +248,19 @@ export function buildClosedEvidenceProcessEnvironment(
   return environment;
 }
 
-/** Creates the journal only; this command never receives a Cloudflare credential. */
-export async function prepareCloudflareEvidenceRun(
-  stateDir: string,
-  input: EvidenceRunInput
-) {
-  const journal = await openEvidenceRun(stateDir, input);
-  return { runId: journal.runId, nextPhase: 'mutate' as const };
-}
-
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href
 ) {
-  parseQualificationArguments(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  if (args[0] === '--prepare') {
+    cloudflareEvidencePrepare
+      .run(args, process.env, (value) => process.stdout.write(value))
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${error instanceof Error ? error.message : 'prepare failed'}\n`
+        );
+        process.exitCode = 1;
+      });
+  } else parseQualificationArguments(args);
 }

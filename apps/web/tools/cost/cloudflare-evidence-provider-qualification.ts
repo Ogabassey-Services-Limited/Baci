@@ -3,6 +3,11 @@ export type TopologyFamily =
   | 'r2-cors'
   | 'r2-custom-domain';
 type TopologyTuple = Readonly<{ state: string; fingerprint: string }>;
+type TopologyReadback = Readonly<{
+  tuple: TopologyTuple;
+  pendingOperation: boolean;
+  elapsedSeconds: number;
+}>;
 type TopologyPlan = Readonly<{
   family: TopologyFamily;
   action: 'detach' | 'write';
@@ -32,18 +37,66 @@ export type DeepQualificationClient = Readonly<{
     endpoint: string,
     requestSchemaSha256: string
   ): Promise<Readonly<{ operationId?: string; lostResponse?: boolean }>>;
-  topologyConverged(
-    family: TopologyFamily,
-    expected: TopologyTuple,
-    maximumVisibilitySeconds: number
-  ): Promise<boolean>;
-  topologyControlNoEffect(
+  topologyPoll(
     family: TopologyFamily,
     maximumVisibilitySeconds: number
-  ): Promise<boolean>;
+  ): Promise<readonly TopologyReadback[]>;
+  topologyControlReadback(
+    family: TopologyFamily,
+    maximumVisibilitySeconds: number
+  ): Promise<readonly TopologyReadback[]>;
 }>;
 const sameTuple = (left: TopologyTuple, right: TopologyTuple) =>
   left.state === right.state && left.fingerprint === right.fingerprint;
+
+function verifyMutationConvergence(
+  readbacks: readonly TopologyReadback[],
+  topology: TopologyPlan
+) {
+  if (readbacks.length < 2)
+    throw new Error('topology polling did not prove bounded convergence');
+  let reachedAfter = false;
+  let previousElapsed = -1;
+  for (const readback of readbacks) {
+    if (
+      !Number.isFinite(readback.elapsedSeconds) ||
+      readback.elapsedSeconds < previousElapsed ||
+      readback.elapsedSeconds > topology.maximumVisibilitySeconds
+    )
+      throw new Error('topology convergence exceeded the visibility bound');
+    previousElapsed = readback.elapsedSeconds;
+    if (sameTuple(readback.tuple, topology.after)) reachedAfter = true;
+    else if (reachedAfter || !sameTuple(readback.tuple, topology.intermediate))
+      throw new Error('topology polling returned a mixed or unknown tuple');
+  }
+  const final = readbacks.at(-1);
+  if (!final || !sameTuple(final.tuple, topology.after))
+    throw new Error('topology did not converge to the exact after tuple');
+  if (final.pendingOperation)
+    throw new Error('topology after tuple still has a pending operation');
+}
+
+function verifyControlNoEffect(
+  readbacks: readonly TopologyReadback[],
+  topology: TopologyPlan
+) {
+  if (readbacks.some((readback) => readback.pendingOperation))
+    throw new Error('topology control has a pending provider operation');
+  if (
+    readbacks.length < 2 ||
+    readbacks.some(
+      (readback) =>
+        !sameTuple(readback.tuple, topology.before) ||
+        !Number.isFinite(readback.elapsedSeconds) ||
+        readback.elapsedSeconds < 0 ||
+        readback.elapsedSeconds > topology.maximumVisibilitySeconds
+    ) ||
+    readbacks.at(-1)?.elapsedSeconds !== topology.maximumVisibilitySeconds
+  )
+    throw new Error(
+      'topology control did not prove the exact unchanged before tuple through the visibility bound'
+    );
+}
 
 /** Executes only injected reads/writes against the bounded qualification topology contract. */
 export async function executeDeepCloudflareEvidenceQualification(
@@ -80,36 +133,25 @@ export async function executeDeepCloudflareEvidenceQualification(
   for (const topology of input.topologies) {
     if (!sameTuple(await client.topologyRead(topology.family), topology.before))
       throw new Error('topology before tuple does not match');
-    const operation = await client.topologyMutate(
+    await client.topologyMutate(
       topology.family,
       topology.endpoint,
       topology.requestSchemaSha256
     );
-    if (
-      !sameTuple(
-        await client.topologyRead(topology.family),
-        topology.intermediate
-      )
-    )
-      throw new Error('topology intermediate tuple does not match');
-    if (
-      operation.lostResponse &&
-      !(await client.topologyConverged(
-        topology.family,
-        topology.after,
-        topology.maximumVisibilitySeconds
-      ))
-    )
-      throw new Error('lost-response topology did not converge');
-    if (!sameTuple(await client.topologyRead(topology.family), topology.after))
-      throw new Error('topology after tuple does not match');
-    if (
-      !(await client.topologyControlNoEffect(
+    verifyMutationConvergence(
+      await client.topologyPoll(
         topology.family,
         topology.maximumVisibilitySeconds
-      ))
-    )
-      throw new Error('topology control no-effect bound was not proven');
+      ),
+      topology
+    );
+    verifyControlNoEffect(
+      await client.topologyControlReadback(
+        topology.family,
+        topology.maximumVisibilitySeconds
+      ),
+      topology
+    );
   }
   return { qualified: true as const };
 }

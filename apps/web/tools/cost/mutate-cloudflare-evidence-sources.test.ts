@@ -6,6 +6,8 @@ import {
   loadEvidenceRunForCleanup,
   openEvidenceRun,
   recordEvidenceMutation,
+  recordEvidencePhase,
+  revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 import {
   applyCloudflareEvidenceMutation,
@@ -28,6 +30,7 @@ const input = {
   runId: 'run-123',
   approvalId: 'approval',
   policyId: 'policy',
+  toolingMergeSha: '1'.repeat(40),
   writeTokenId: 'write',
   readTokenId: 'read',
   accountId: 'account',
@@ -161,18 +164,79 @@ describe('Cloudflare evidence mutation lifecycle', () => {
     await recordEvidenceMutation(dir, input.runId, resource.name, resource.id);
     const create = vi.fn();
     const probe = vi.fn();
+    let resourcePresent = true;
     await expect(
       cleanupCloudflareEvidenceRun(dir, input.runId, capability, {
         identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
         findByName: async () => null,
-        get: async () => resource,
+        get: async () => (resourcePresent ? resource : null),
         create,
         probe,
-        cleanup: async () => true,
+        cleanup: async () => {
+          resourcePresent = false;
+          return true;
+        },
         inventorySha256: async () => 'a'.repeat(64),
       })
     ).resolves.toMatchObject({ phase: 'cleanup_incomplete_stop' });
+    expect(resourcePresent).toBe(false);
     expect(create).not.toHaveBeenCalled();
     expect(probe).not.toHaveBeenCalled();
+    await expect(
+      openEvidenceRun(dir, { ...input, runId: 'run-456' })
+    ).rejects.toThrow('active');
+    await expect(
+      recordEvidencePhase(dir, input.runId, 'closed_stop')
+    ).rejects.toThrow('revocation');
+
+    const revoke = async (tokenId: string) => ({
+      tokenId,
+      auditReceiptSha256: 'c'.repeat(64),
+    });
+    await revokeEvidenceRunToken(dir, input.runId, 'write', {
+      revoke,
+      readBack: async (tokenId) => ({
+        tokenId,
+        status: 'inactive',
+        auditReceiptSha256: 'd'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
+    });
+    await expect(
+      recordEvidencePhase(dir, input.runId, 'closed_stop')
+    ).rejects.toThrow('revocation');
+    await expect(
+      revokeEvidenceRunToken(dir, input.runId, 'read', {
+        revoke,
+        readBack: async () => ({
+          tokenId: 'wrong',
+          status: 'inactive',
+          auditReceiptSha256: 'e'.repeat(64),
+          observedAt: '2026-07-31T00:00:01.000Z',
+        }),
+      })
+    ).rejects.toThrow('readback');
+    await expect(
+      openEvidenceRun(dir, { ...input, runId: 'run-456' })
+    ).rejects.toThrow('active');
+
+    await expect(
+      revokeEvidenceRunToken(dir, input.runId, 'read', {
+        revoke,
+        readBack: async (tokenId) => ({
+          tokenId,
+          status: 'absent',
+          auditReceiptSha256: 'f'.repeat(64),
+          observedAt: '2026-07-31T00:00:02.000Z',
+        }),
+      })
+    ).resolves.toMatchObject({ phase: 'closed_stop' });
+    await expect(
+      openEvidenceRun(dir, {
+        ...input,
+        runId: 'run-456',
+        plannedResources: ['baci-evidence-run-456'],
+      })
+    ).resolves.toMatchObject({ runId: 'run-456', phase: 'prepared' });
   });
 });

@@ -21,6 +21,7 @@ export type CloudflareEvidenceRunJournal = {
   runId: string;
   approvalId: string;
   policyId: string;
+  toolingMergeSha: string;
   writeTokenId: string;
   readTokenId: string;
   accountId: string;
@@ -122,17 +123,12 @@ async function readJournal(stateDir: string, runId: string) {
     await readFile(target, 'utf8')
   ) as CloudflareEvidenceRunJournal;
 }
-const terminal = new Set<EvidencePhase>([
-  'proof_complete',
-  'closed_stop',
-  'cleanup_incomplete_stop',
-]);
+const terminal = new Set<EvidencePhase>(['proof_complete', 'closed_stop']);
 const revocationTerminal = new Set<EvidencePhase>([
   'proof_complete',
   'closed_stop',
 ]);
 
-/** Opens the one private, journal-fenced evidence run permitted in a state directory. */
 export async function openEvidenceRun(
   stateDir: string,
   input: EvidenceRunInput
@@ -175,7 +171,6 @@ export async function recordEvidenceMutation(
   await writeJournal(stateDir, journal);
   return journal;
 }
-/** Persists the exact bounded synthetic-probe receipt set before cleanup begins. */
 export async function recordEvidenceProbeResults(
   stateDir: string,
   runId: string,
@@ -237,7 +232,6 @@ function validateRevocationReceipt(
     throw new Error('token revocation receipt does not match the journal');
 }
 
-/** Records only a provider-read-back revocation receipt for the journaled token ID. */
 export async function recordTokenRevocation(
   stateDir: string,
   runId: string,
@@ -260,12 +254,13 @@ export async function recordTokenRevocation(
       throw new Error('write token revocation must be verified first');
     journal.readTokenRevocationReceipt = receipt;
     journal.readTokenRevokedAt = receipt.observedAt;
-    journal.phase = 'read_token_revoked';
+    journal.phase = journal.cleanupIncomplete
+      ? 'closed_stop'
+      : 'read_token_revoked';
   }
   await writeJournal(stateDir, journal);
   return journal;
 }
-/** Revokes the exact journaled token and reads it back before minting authority. */
 export async function revokeEvidenceRunToken(
   stateDir: string,
   runId: string,

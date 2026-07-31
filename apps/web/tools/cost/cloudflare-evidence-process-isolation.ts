@@ -1,4 +1,6 @@
 import { isAbsolute, resolve } from 'node:path';
+import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
+import type { EvidenceRunInput } from './cloudflare-evidence-run-journal';
 import { buildClosedEvidenceProcessEnvironment } from './qualify-cloudflare-evidence-sources';
 
 export type EvidenceChildCommand = 'prepare' | 'mutate' | 'cleanup' | 'measure';
@@ -14,8 +16,15 @@ type Credential = Readonly<{
   value: string;
 }>;
 
-const argumentsFor = (command: EvidenceChildCommand, runId: string) => {
-  if (command === 'prepare') return ['--prepare'];
+const argumentsFor = (
+  command: EvidenceChildCommand,
+  runId: string,
+  prepareInput?: EvidenceRunInput
+) => {
+  if (command === 'prepare') {
+    if (!prepareInput) throw new Error('prepare input is required');
+    return cloudflareEvidencePrepare.argumentsFor(prepareInput);
+  }
   if (command === 'cleanup') return ['--cleanup-run', runId];
   if (command === 'mutate') return ['--run', runId, '--apply'];
   return ['--run', runId];
@@ -40,10 +49,14 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
   runId: string,
   inherited: Readonly<Record<string, string | undefined>>,
   credential: Credential | undefined,
-  workspaceRoot: string
+  workspaceRoot: string,
+  stateDir: string,
+  prepareInput?: EvidenceRunInput
 ) {
-  if (!isAbsolute(workspaceRoot))
-    throw new Error('workspace root must be absolute');
+  if (!isAbsolute(workspaceRoot) || !isAbsolute(stateDir))
+    throw new Error(
+      'workspace root and evidence state directory must be absolute'
+    );
   const needsCredential = command !== 'prepare';
   if (needsCredential !== Boolean(credential))
     throw new Error('command credential responsibility is invalid');
@@ -65,9 +78,13 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
           .filter((name) => inherited[name])
           .map((name) => [name, inherited[name] as string])
       );
+  env.EVIDENCE_RUN_STATE_DIR = stateDir;
   return await spawner.spawn(
     pinnedTsx(workspaceRoot),
-    [absoluteToolPath(workspaceRoot, command), ...argumentsFor(command, runId)],
+    [
+      absoluteToolPath(workspaceRoot, command),
+      ...argumentsFor(command, runId, prepareInput),
+    ],
     {
       cwd: workspaceRoot,
       env,

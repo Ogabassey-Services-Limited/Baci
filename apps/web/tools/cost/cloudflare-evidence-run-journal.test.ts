@@ -15,6 +15,7 @@ const input = {
   runId: 'run-123',
   approvalId: 'approval',
   policyId: 'policy',
+  toolingMergeSha: '1'.repeat(40),
   writeTokenId: 'write',
   readTokenId: 'read',
   accountId: 'account',
