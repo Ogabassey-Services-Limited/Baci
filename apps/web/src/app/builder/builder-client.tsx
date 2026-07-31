@@ -78,6 +78,7 @@ import type { BuilderPreviewMode } from './builder-client-types';
 import { getDegradedBuilderDescription } from './builder-descriptions';
 import { loadBuilderData } from './load-builder-data';
 import { useBuilderAiDraftActions } from './use-builder-ai-draft-actions';
+import { useBuilderLoadMerchantId } from './use-builder-load-merchant-id';
 import { useBuilderMutationActions } from './use-builder-mutation-actions';
 
 // Component icon mapping - using component functions for dynamic sizing
@@ -191,6 +192,12 @@ export default function BuilderClient() {
   const { merchant, loading: merchantLoading } = useMerchant();
   const userId = user?.id ?? null;
   const merchantId = merchant?.id ?? null;
+  const builderLoadMerchantId = useBuilderLoadMerchantId({
+    authLoading,
+    merchantId,
+    merchantLoading,
+    userId,
+  });
   // Register CopilotKit actions for AI-driven component manipulation
   useCopilotBuilderActions({ data, setData });
 
@@ -242,13 +249,14 @@ export default function BuilderClient() {
   // the module-scope `loadBuilderData` helper so the React Compiler can memoize
   // this component.
   useEffect(() => {
-    if (authLoading || merchantLoading) return;
-    if (!userId || !merchantId) return;
+    if (authLoading || merchantLoading || !userId || !builderLoadMerchantId) {
+      return;
+    }
 
     const controller = new AbortController();
 
     void loadBuilderData({
-      merchantId,
+      merchantId: builderLoadMerchantId,
       router,
       signal: controller.signal,
       toast,
@@ -268,7 +276,14 @@ export default function BuilderClient() {
     return () => {
       controller.abort();
     };
-  }, [userId, merchantId, authLoading, merchantLoading, router, toast]);
+  }, [
+    userId,
+    builderLoadMerchantId,
+    authLoading,
+    merchantLoading,
+    router,
+    toast,
+  ]);
 
   const { handlePublish, handleSave } = useBuilderMutationActions({
     canEdit,

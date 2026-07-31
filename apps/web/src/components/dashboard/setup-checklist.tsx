@@ -2,7 +2,7 @@
 
 import type { WebStoreReadiness } from '@baci/shared';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -13,12 +13,14 @@ import { SetupChecklistDesktopCard } from './setup-checklist-desktop-card';
 import { SetupChecklistMobileDrawer } from './setup-checklist-mobile-drawer';
 
 interface SetupChecklistProps {
+  merchantId?: string;
   onPublish?: () => void;
   compact?: boolean;
   dismissible?: boolean;
 }
 
 export function SetupChecklist({
+  merchantId,
   onPublish,
   compact = false,
   dismissible = false,
@@ -32,6 +34,8 @@ export function SetupChecklist({
   const [dismissed, setDismissed] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const activeMerchantId = useRef(merchantId);
+  activeMerchantId.current = merchantId;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -53,14 +57,26 @@ export function SetupChecklist({
   }, [toast]);
 
   useEffect(() => {
-    void reloadToken;
-    let active = true;
+    setReadiness(null);
+    setLoadError(null);
+    setPublishing(false);
+    setDismissed(false);
+    setShowAll(false);
+    setIsSheetOpen(false);
+    setLoading(Boolean(merchantId));
+    if (!merchantId) return;
 
-    fetch('/api/merchant/readiness')
+    let active = true;
+    const cache: RequestCache = reloadToken > 0 ? 'reload' : 'no-store';
+
+    fetch(
+      `/api/merchant/readiness?merchantId=${encodeURIComponent(merchantId)}`,
+      { cache }
+    )
       .then(async (response) => {
         if (!response.ok) throw new Error('Failed to fetch readiness');
         const data: unknown = await response.json();
-        if (!isWebStoreReadiness(data)) {
+        if (!isWebStoreReadiness(data) || data.merchantId !== merchantId) {
           throw new Error('Invalid readiness payload');
         }
         if (active) {
@@ -79,7 +95,7 @@ export function SetupChecklist({
     return () => {
       active = false;
     };
-  }, [reloadToken]);
+  }, [merchantId, reloadToken]);
 
   const retryLoad = () => {
     setLoading(true);
@@ -88,7 +104,11 @@ export function SetupChecklist({
   };
 
   const handlePublish = () => {
-    if (!readiness?.isReady) {
+    if (
+      !merchantId ||
+      readiness?.merchantId !== merchantId ||
+      !readiness.isReady
+    ) {
       toast({
         variant: 'destructive',
         title: 'Cannot publish store',
@@ -98,27 +118,36 @@ export function SetupChecklist({
     }
 
     setPublishing(true);
-    requestMerchantPublish(readiness.merchantId, false)
+    const submittedMerchantId = merchantId;
+    requestMerchantPublish(submittedMerchantId, false)
       .then((response) => {
         if (!response.ok) throw new Error('Failed to publish');
+        if (activeMerchantId.current !== submittedMerchantId) return;
         toast({
           title: 'Store published!',
           description: 'Your store is now live and accepting orders.',
         });
         setReadiness((previous) =>
-          previous ? { ...previous, isPublished: true } : null
+          previous?.merchantId === submittedMerchantId
+            ? { ...previous, isPublished: true }
+            : previous
         );
         onPublish?.();
         setIsSheetOpen(false);
       })
       .catch(() => {
+        if (activeMerchantId.current !== submittedMerchantId) return;
         toast({
           variant: 'destructive',
           title: 'Failed to publish',
           description: 'Please try again later.',
         });
       })
-      .finally(() => setPublishing(false));
+      .finally(() => {
+        if (activeMerchantId.current === submittedMerchantId) {
+          setPublishing(false);
+        }
+      });
   };
 
   if (loading) return <SetupChecklistLoading compact={compact} />;
@@ -211,6 +240,6 @@ function SetupChecklistLoadError({
   );
 }
 
-export function SetupChecklistCompact() {
-  return <SetupChecklist compact dismissible />;
+export function SetupChecklistCompact({ merchantId }: { merchantId?: string }) {
+  return <SetupChecklist merchantId={merchantId} compact dismissible />;
 }

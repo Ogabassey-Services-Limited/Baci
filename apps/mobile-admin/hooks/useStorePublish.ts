@@ -1,5 +1,5 @@
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { apiClient, NetworkError } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
@@ -8,6 +8,8 @@ interface PublishStoreResponse {
   message?: string;
   success: boolean;
 }
+
+export type StorePublishResult = { status: 'published' } | { status: 'stale' };
 
 interface UseStorePublishOptions {
   merchantId?: string | null;
@@ -41,20 +43,22 @@ function buildPublishErrorMessage(error: NetworkError): string {
 
 interface ExecutePublishOptions {
   merchantId: string;
+  isActiveMerchant: (merchantId: string) => boolean;
   onPublished?: () => Promise<unknown>;
   queryClient: QueryClient;
-  setIsPublishing: (publishing: boolean) => void;
+  setPublishingMerchantId: (merchantId: string | null) => void;
 }
 
 // Module-scope helper: the try/finally (and throws inside try/catch) cannot
 // live in the hook body because React Compiler does not lower that syntax yet.
 async function executePublish({
   merchantId,
+  isActiveMerchant,
   onPublished,
   queryClient,
-  setIsPublishing,
-}: ExecutePublishOptions): Promise<void> {
-  setIsPublishing(true);
+  setPublishingMerchantId,
+}: ExecutePublishOptions): Promise<StorePublishResult> {
+  setPublishingMerchantId(merchantId);
 
   try {
     try {
@@ -81,9 +85,19 @@ async function executePublish({
       queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
     ]);
 
+    if (!isActiveMerchant(merchantId)) {
+      return { status: 'stale' };
+    }
+
     await onPublished?.();
+    return { status: isActiveMerchant(merchantId) ? 'published' : 'stale' };
+  } catch (error) {
+    if (!isActiveMerchant(merchantId)) {
+      return { status: 'stale' };
+    }
+    throw error;
   } finally {
-    setIsPublishing(false);
+    setPublishingMerchantId(null);
   }
 }
 
@@ -92,23 +106,42 @@ export function useStorePublish({
   onPublished,
 }: UseStorePublishOptions) {
   const queryClient = useQueryClient();
-  const [isPublishing, setIsPublishing] = useState(false);
+  const activeMerchantIdRef = useRef(merchantId ?? null);
+  const [publishingMerchantId, setPublishingMerchantId] = useState<
+    string | null
+  >(null);
+  activeMerchantIdRef.current = merchantId ?? null;
 
-  async function publishStore() {
+  const clearPublishingMerchant = (submittedMerchantId: string | null) => {
+    setPublishingMerchantId((currentMerchantId) =>
+      currentMerchantId === submittedMerchantId ? null : currentMerchantId
+    );
+  };
+
+  function publishStore(): Promise<StorePublishResult> {
     if (!merchantId) {
-      throw new Error('Merchant not loaded. Please try again.');
+      return Promise.reject(
+        new Error('Merchant not loaded. Please try again.')
+      );
     }
 
-    await executePublish({
+    return executePublish({
       merchantId,
+      isActiveMerchant: (submittedMerchantId) =>
+        activeMerchantIdRef.current === submittedMerchantId,
       onPublished,
       queryClient,
-      setIsPublishing,
+      setPublishingMerchantId: (submittedMerchantId) =>
+        submittedMerchantId
+          ? setPublishingMerchantId(submittedMerchantId)
+          : clearPublishingMerchant(merchantId),
     });
   }
 
   return {
-    isPublishing,
+    isPublishing:
+      publishingMerchantId !== null &&
+      publishingMerchantId === (merchantId ?? null),
     publishStore,
   };
 }

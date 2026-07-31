@@ -5,6 +5,7 @@ const hoistedBuilderClientTestMocks = vi.hoisted(() => ({
   apiPost: vi.fn(),
   apiPut: vi.fn(),
   fetchWithCsrf: vi.fn(),
+  merchant: { id: 'merchant-1', slug: 'test-store' },
   push: vi.fn(),
   toast: vi.fn(),
 }));
@@ -114,7 +115,7 @@ vi.mock('@/contexts/auth-context', () => ({
 
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({
-    merchant: { id: 'merchant-1', slug: 'test-store' },
+    merchant: builderClientTestMocks.merchant,
     loading: false,
   }),
 }));
@@ -182,8 +183,13 @@ export function mockBuilderBootstrap(payload = createBuilderPayload()) {
 
 export function resetBuilderClientTest() {
   vi.clearAllMocks();
+  builderClientTestMocks.merchant = { id: 'merchant-1', slug: 'test-store' };
   window.history.pushState({}, '', '/builder');
   mockBuilderBootstrap();
+}
+
+export function setBuilderClientMerchant(id: string, slug = 'test-store') {
+  builderClientTestMocks.merchant = { id, slug };
 }
 
 export function cleanupBuilderClientTest() {

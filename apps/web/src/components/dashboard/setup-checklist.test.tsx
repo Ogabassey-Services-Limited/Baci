@@ -135,7 +135,7 @@ describe('SetupChecklist', () => {
   });
 
   it('announces the collapsed and expanded state of the setup item toggle', async () => {
-    render(<SetupChecklist compact />);
+    render(<SetupChecklist compact merchantId={readiness.merchantId} />);
 
     const toggle = await screen.findByRole('button', {
       name: 'Show 2 more setup items',
@@ -161,7 +161,7 @@ describe('SetupChecklist', () => {
       json: async () => ({ isReady: false }),
     } as Response);
 
-    render(<SetupChecklist compact />);
+    render(<SetupChecklist compact merchantId={readiness.merchantId} />);
 
     expect(
       await screen.findByText('Failed to load your setup checklist.')
@@ -176,7 +176,7 @@ describe('SetupChecklist', () => {
       json: async () => mobileReadiness,
     } as Response);
 
-    render(<SetupChecklist compact />);
+    render(<SetupChecklist compact merchantId={readiness.merchantId} />);
 
     expect(
       await screen.findByText('Failed to load your setup checklist.')
@@ -184,7 +184,7 @@ describe('SetupChecklist', () => {
   });
 
   it('resolves checklist item navigation in the web adapter', async () => {
-    render(<SetupChecklist compact />);
+    render(<SetupChecklist compact merchantId={readiness.merchantId} />);
 
     expect(
       await screen.findByRole('link', { name: /add payment method/i })
@@ -208,7 +208,7 @@ describe('SetupChecklist', () => {
     } as Response);
     vi.mocked(requestMerchantPublish).mockResolvedValue(new Response('{}'));
 
-    render(<SetupChecklist compact />);
+    render(<SetupChecklist compact merchantId={readiness.merchantId} />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Publish Store' })

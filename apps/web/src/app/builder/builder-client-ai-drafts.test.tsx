@@ -8,6 +8,7 @@ import {
   createBuilderPayload,
   mockBuilderBootstrap,
   resetBuilderClientTest,
+  setBuilderClientMerchant,
 } from './builder-client.test-support';
 
 describe('BuilderClient AI drafts', () => {
@@ -38,6 +39,31 @@ describe('BuilderClient AI drafts', () => {
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
+  });
+
+  it('clears an AI draft URL parameter before loading after the active merchant changes', async () => {
+    const aiDraftJobId = '5c0a0676-bd3f-495e-9f98-589f208c0d79';
+    window.history.pushState({}, '', `/builder?aiDraftJobId=${aiDraftJobId}`);
+    mockBuilderBootstrap(createBuilderPayload());
+
+    const view = render(<BuilderClient />);
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    setBuilderClientMerchant('merchant-2', 'second-store');
+    view.rerender(<BuilderClient />);
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    const [requestUrl] = vi.mocked(globalThis.fetch).mock.calls[1];
+    const url = new URL(String(requestUrl));
+    expect(url.searchParams.get('merchantId')).toBe('merchant-2');
+    expect(url.searchParams.get('aiDraftJobId')).toBeNull();
+    expect(window.location.search).toBe('');
   });
 
   it('renders AI draft previews without apply controls for view-only staff', async () => {

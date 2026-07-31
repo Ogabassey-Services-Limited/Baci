@@ -4,7 +4,8 @@ import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import type { DashboardMetrics, MonthlyChartData } from './actions';
 import DashboardClientPage from './client-page';
 
-const { mockStoreBuildStatusCard } = vi.hoisted(() => ({
+const { mockSetupChecklist, mockStoreBuildStatusCard } = vi.hoisted(() => ({
+  mockSetupChecklist: vi.fn(),
   mockStoreBuildStatusCard: vi.fn(),
 }));
 
@@ -20,7 +21,10 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/components/dashboard/setup-checklist', () => ({
-  SetupChecklist: () => <div data-testid="setup-checklist" />,
+  SetupChecklist: (props: { dismissible?: boolean; merchantId?: string }) => {
+    mockSetupChecklist(props);
+    return <div data-testid="setup-checklist" />;
+  },
 }));
 
 vi.mock('@/components/dashboard/store-build-status-card', () => ({
@@ -65,6 +69,23 @@ const chartData: MonthlyChartData[] = [
 ];
 
 describe('DashboardClientPage', () => {
+  it('passes the selected merchant ID to the setup checklist', async () => {
+    render(
+      <DashboardClientPage
+        initialChartData={chartData}
+        initialMetrics={metrics}
+        initialRecentSales={[]}
+      />
+    );
+
+    await screen.findByTestId('setup-checklist');
+
+    expect(mockSetupChecklist).toHaveBeenCalledWith({
+      dismissible: true,
+      merchantId: 'merchant-1',
+    });
+  });
+
   it('passes the selected merchant ID to store build status actions', async () => {
     render(
       <DashboardClientPage

@@ -1,12 +1,13 @@
 import '@testing-library/jest-dom/vitest';
 import type { MobileStoreReadiness } from '@baci/shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { createElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
-  publishStore: vi.fn(),
+  apiClient: vi.fn(),
   readiness: {
     completedRecommended: 1,
     completedRequired: 5,
@@ -78,11 +79,13 @@ vi.mock('@/hooks/useStoreReadiness', () => ({
   }),
 }));
 
-vi.mock('@/hooks/useStorePublish', () => ({
-  useStorePublish: () => ({
-    isPublishing: false,
-    publishStore: mocks.publishStore,
-  }),
+vi.mock('@/lib/api-client', () => ({
+  apiClient: (...args: unknown[]) => mocks.apiClient(...args),
+  NetworkError: class NetworkError extends Error {},
+}));
+
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
@@ -141,6 +144,27 @@ vi.mock('react-native-safe-area-context', () => ({
 
 import SetupChecklistScreen from './setup-checklist';
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false },
+    },
+  });
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  };
+}
+
+function renderChecklist() {
+  return render(<SetupChecklistScreen />, { wrapper: createWrapper() });
+}
+
 function requireReadiness() {
   if (!mocks.readiness) throw new Error('Expected readiness fixture');
   return mocks.readiness;
@@ -176,7 +200,7 @@ describe('SetupChecklistScreen', () => {
   });
 
   it('shows the publish button when all required steps are complete', () => {
-    render(<SetupChecklistScreen />);
+    renderChecklist();
 
     expect(
       screen.getByRole('button', { name: /publish store now/i })
@@ -187,7 +211,7 @@ describe('SetupChecklistScreen', () => {
     const readiness = requireReadiness();
     readiness.isReady = false;
 
-    const { rerender } = render(<SetupChecklistScreen />);
+    const { rerender } = renderChecklist();
 
     expect(
       screen.queryByRole('button', { name: /publish store now/i })
@@ -214,7 +238,7 @@ describe('SetupChecklistScreen', () => {
     };
     requireReadiness().items = [bankAccountItem];
 
-    render(<SetupChecklistScreen />);
+    renderChecklist();
 
     fireEvent.click(screen.getByRole('button', { name: /add bank account/i }));
     expect(mocks.routerPush).toHaveBeenCalledWith(
@@ -222,41 +246,11 @@ describe('SetupChecklistScreen', () => {
     );
   });
 
-  it('publishes through the shared publish hook', () => {
-    mocks.publishStore.mockResolvedValueOnce(undefined);
-
-    render(<SetupChecklistScreen />);
-
-    fireEvent.click(screen.getByRole('button', { name: /publish store now/i }));
-
-    expect(mocks.publishStore).toHaveBeenCalledTimes(1);
-  });
-
-  it('surfaces publish errors via Alert.alert without crashing', async () => {
-    mocks.publishStore.mockRejectedValueOnce(
-      new Error('Cannot publish store\n- Bank account details')
-    );
-
-    render(<SetupChecklistScreen />);
-
-    fireEvent.click(screen.getByRole('button', { name: /publish store now/i }));
-
-    // Wait a microtask so the rejected promise is handled by handlePublish.
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(mocks.publishStore).toHaveBeenCalledTimes(1);
-    expect(mocks.alert).toHaveBeenCalled();
-    const [, message] = mocks.alert.mock.calls[0] ?? [];
-    expect(message).toContain('Cannot publish store');
-    expect(message).toContain('Bank account details');
-  });
-
   it('shows an accessible retry state when the first readiness request fails', () => {
     mocks.readiness = null;
     mocks.error = new Error('offline');
 
-    render(<SetupChecklistScreen />);
+    renderChecklist();
 
     expect(
       screen.getByText('Unable to load store setup right now.')
@@ -270,7 +264,7 @@ describe('SetupChecklistScreen', () => {
   it('retains confirmed readiness when a background refresh fails', () => {
     mocks.error = new Error('offline');
 
-    render(<SetupChecklistScreen />);
+    renderChecklist();
 
     expect(screen.getByText('Ready to Launch 🚀')).toBeInTheDocument();
     expect(

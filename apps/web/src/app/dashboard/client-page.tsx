@@ -384,7 +384,7 @@ export default function DashboardClientPage({
         style={{ animationFillMode: 'both' }}
       >
         <StoreBuildStatusCard merchantId={merchant?.id} />
-        <SetupChecklist dismissible />
+        <SetupChecklist dismissible merchantId={merchant?.id} />
       </div>
 
       {/* AI Insight Hero - Desktop only */}

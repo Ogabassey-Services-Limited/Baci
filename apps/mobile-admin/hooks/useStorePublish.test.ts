@@ -145,13 +145,18 @@ describe('useStorePublish', () => {
     );
 
     let completed = false;
-    const publish = result.current.publishStore().then(() => {
-      completed = true;
+    let publish!: Promise<void>;
+    act(() => {
+      publish = result.current.publishStore().then(() => {
+        completed = true;
+      });
     });
     await vi.waitFor(() => expect(releases).toHaveLength(3));
     expect(completed).toBe(false);
-    for (const release of releases) release();
-    await publish;
+    await act(async () => {
+      for (const release of releases) release();
+      await publish;
+    });
     expect(completed).toBe(true);
   });
 
@@ -168,7 +173,11 @@ describe('useStorePublish', () => {
       { wrapper: Wrapper }
     );
 
-    await expect(result.current.publishStore()).resolves.toBeUndefined();
+    await act(async () => {
+      await expect(result.current.publishStore()).resolves.toEqual({
+        status: 'published',
+      });
+    });
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
     expect(invalidateQueries).toHaveBeenCalledWith({

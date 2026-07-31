@@ -40,7 +40,8 @@ export default function SetupChecklistScreen() {
     }
 
     try {
-      await publishStore();
+      const result = await publishStore();
+      if (result.status === 'stale') return;
       Alert.alert('Success', 'Your store is now LIVE!');
     } catch (error) {
       console.error('Publish error:', error);
