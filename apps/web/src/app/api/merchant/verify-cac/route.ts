@@ -101,20 +101,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const allowed = await checkRateLimit(
-    auth.supabase,
-    auth.user.id,
-    'verify-cac',
-    3,
-    1
-  );
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', code: 'rate_limited' },
-      { status: 429 }
-    );
-  }
-
   if (hasOversizedContentLength(request)) {
     return NextResponse.json(
       { error: 'File exceeds maximum size of 5MB' },
@@ -177,6 +163,20 @@ export async function POST(request: NextRequest) {
   }
   if (!merchantContext.staffAccess.isOwner) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const allowed = await checkRateLimit(
+    auth.supabase,
+    auth.user.id,
+    'verify-cac',
+    3,
+    1
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', code: 'rate_limited' },
+      { status: 429 }
+    );
   }
 
   const { data: merchantRecord, error: merchantError } = await auth.supabase

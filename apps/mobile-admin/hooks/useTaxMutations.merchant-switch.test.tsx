@@ -126,6 +126,37 @@ describe('useTaxMutations merchant-switch lifecycle', () => {
     expect(mockAlert).not.toHaveBeenCalled();
   });
 
+  it('does not expose merchant A tax saves as pending after switching to B', async () => {
+    const deferredWrites = Array.from({ length: 4 }, createDeferred);
+    deferredWrites.forEach(({ promise }) => {
+      mockUpdateMerchantSettings.mockReturnValueOnce(promise);
+    });
+    const { rerender, result } = renderTaxMutations(vi.fn());
+
+    const completions = startAllMutations(result.current);
+    await waitFor(() =>
+      expect(mockUpdateMerchantSettings).toHaveBeenCalledTimes(4)
+    );
+    expect(result.current.updateVatMutation.isPending).toBe(true);
+    expect(result.current.saveTinMutation.isPending).toBe(true);
+    expect(result.current.saveLegalEntityMutation.isPending).toBe(true);
+    expect(result.current.saveAddressMutation.isPending).toBe(true);
+
+    rerender({ merchantId: 'merchant-b' });
+
+    expect(result.current.updateVatMutation.isPending).toBe(false);
+    expect(result.current.saveTinMutation.isPending).toBe(false);
+    expect(result.current.saveLegalEntityMutation.isPending).toBe(false);
+    expect(result.current.saveAddressMutation.isPending).toBe(false);
+
+    await act(async () => {
+      deferredWrites.forEach(({ resolve }) => {
+        resolve();
+      });
+      await Promise.all(completions);
+    });
+  });
+
   it('suppresses stale error alerts and VAT rollback after switching to B', async () => {
     const deferredWrites = Array.from({ length: 4 }, createDeferred);
     deferredWrites.forEach(({ promise }) => {

@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   createVirtualTerminalSchema,
   virtualTerminalListQuerySchema,
-} from './virtual-terminal-request-schemas';
+} from './paystack-virtual-terminal';
 
 const merchantId = '22222222-2222-4222-8222-222222222222';
 
-describe('virtual terminal request schemas', () => {
+describe('Paystack virtual terminal request schemas', () => {
   it('accepts a selected merchant for list and create requests', () => {
     expect(virtualTerminalListQuerySchema.parse({ merchantId })).toEqual({
       merchantId,

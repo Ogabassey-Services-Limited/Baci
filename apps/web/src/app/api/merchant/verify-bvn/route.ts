@@ -55,20 +55,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const allowed = await checkRateLimit(
-    auth.supabase,
-    auth.user.id,
-    'verify-bvn',
-    3,
-    1
-  );
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', code: 'rate_limited' },
-      { status: 429 }
-    );
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -99,6 +85,20 @@ export async function POST(request: NextRequest) {
   }
   if (!merchantContext.staffAccess.isOwner) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const allowed = await checkRateLimit(
+    auth.supabase,
+    auth.user.id,
+    'verify-bvn',
+    3,
+    1
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', code: 'rate_limited' },
+      { status: 429 }
+    );
   }
 
   const { data: merchantRecord, error: merchantError } = await auth.supabase

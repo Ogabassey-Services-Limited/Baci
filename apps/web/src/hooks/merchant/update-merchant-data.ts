@@ -95,11 +95,16 @@ export function createMerchantUpdate({
       throw error;
     }
 
-    if (options?.skipReload) {
+    const hasExplicitMerchantTarget = options?.merchantId !== undefined;
+    if (options?.skipReload || hasExplicitMerchantTarget) {
       setMerchant((current) =>
         current?.id === merchantId ? { ...current, ...writableData } : current
       );
-      logger.info({ message: 'Merchant data updated optimistically.' });
+      logger.info({
+        message: hasExplicitMerchantTarget
+          ? 'Selected merchant data updated in its matching context.'
+          : 'Merchant data updated optimistically.',
+      });
       return;
     }
 

@@ -96,13 +96,7 @@ describe('POST /api/merchant/verify-nin', () => {
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
-    expect(checkRateLimit).toHaveBeenCalledWith(
-      expect.anything(),
-      'user-1',
-      'verify-nin',
-      3,
-      1
-    );
+    expect(checkRateLimit).not.toHaveBeenCalled();
   });
 
   it('returns 429 when rate limit is exceeded', async () => {
@@ -112,20 +106,24 @@ describe('POST /api/merchant/verify-nin', () => {
     const res = await POST(req);
 
     expect(res.status).toBe(429);
-    expect(req.json).not.toHaveBeenCalled();
-    expect(getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(req.json).toHaveBeenCalledOnce();
+    expect(getMerchantForApiRequest).toHaveBeenCalledOnce();
+    expect(
+      vi.mocked(getMerchantForApiRequest).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(checkRateLimit).mock.invocationCallOrder[0]);
   });
 
-  it('rate limits before parsing a malformed NIN request body', async () => {
+  it('does not consume quota for a malformed NIN request body', async () => {
     vi.mocked(checkRateLimit).mockResolvedValue(false);
     const req = makeRequest(validNinBody);
     req.json = vi.fn().mockRejectedValue(new Error('malformed JSON'));
 
     const res = await POST(req);
 
-    expect(res.status).toBe(429);
-    expect(req.json).not.toHaveBeenCalled();
+    expect(res.status).toBe(400);
+    expect(req.json).toHaveBeenCalledOnce();
     expect(getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(checkRateLimit).not.toHaveBeenCalled();
   });
 
   it('rejects India merchants before provider calls after the authenticated-user rate limit', async () => {

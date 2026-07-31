@@ -21,6 +21,11 @@ interface MerchantMutationSnapshot<T> extends MerchantMutationContext {
   value: T;
 }
 
+interface PendingMerchantMutation {
+  isPending: boolean;
+  variables?: MerchantMutationContext;
+}
+
 type MerchantSettingsPayload = Parameters<typeof updateMerchantSettings>[1];
 
 export function useTaxMutations({
@@ -40,6 +45,12 @@ export function useTaxMutations({
   ): boolean =>
     context !== undefined &&
     context.submittedMerchantId === activeMerchantIdRef.current;
+
+  const isPendingForCurrentMerchant = ({
+    isPending,
+    variables,
+  }: PendingMerchantMutation): boolean =>
+    isPending && variables?.submittedMerchantId === activeMerchantIdRef.current;
 
   const updateSettings = (
     submittedMerchantId: string | null,
@@ -167,6 +178,7 @@ export function useTaxMutations({
 
   const updateVatMutation = {
     ...updateVatMutationInternal,
+    isPending: isPendingForCurrentMerchant(updateVatMutationInternal),
     mutate: (enabled: boolean) =>
       updateVatMutationInternal.mutate(captureSnapshot(enabled)),
     mutateAsync: (enabled: boolean) =>
@@ -174,6 +186,7 @@ export function useTaxMutations({
   };
   const saveTinMutation = {
     ...saveTinMutationInternal,
+    isPending: isPendingForCurrentMerchant(saveTinMutationInternal),
     mutate: (tin: string) =>
       saveTinMutationInternal.mutate(captureSnapshot(tin)),
     mutateAsync: (tin: string) =>
@@ -181,6 +194,7 @@ export function useTaxMutations({
   };
   const saveLegalEntityMutation = {
     ...saveLegalEntityMutationInternal,
+    isPending: isPendingForCurrentMerchant(saveLegalEntityMutationInternal),
     mutate: (name: string) =>
       saveLegalEntityMutationInternal.mutate(captureSnapshot(name)),
     mutateAsync: (name: string) =>
@@ -188,6 +202,7 @@ export function useTaxMutations({
   };
   const saveAddressMutation = {
     ...saveAddressMutationInternal,
+    isPending: isPendingForCurrentMerchant(saveAddressMutationInternal),
     mutate: () => saveAddressMutationInternal.mutate(captureAddressSnapshot()),
     mutateAsync: () =>
       saveAddressMutationInternal.mutateAsync(captureAddressSnapshot()),

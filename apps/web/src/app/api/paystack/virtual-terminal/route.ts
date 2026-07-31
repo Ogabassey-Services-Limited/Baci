@@ -10,11 +10,11 @@ import { logger } from '@/lib/logger';
 import { createVirtualTerminal } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { validateTerminalAssignments } from './validate-terminal-assignments';
 import {
   createVirtualTerminalSchema,
   virtualTerminalListQuerySchema,
-} from './virtual-terminal-request-schemas';
+} from '@/schemas/paystack-virtual-terminal';
+import { validateTerminalAssignments } from './validate-terminal-assignments';
 
 // =============================================================================
 // Route Handlers

@@ -85,4 +85,42 @@ describe('createMerchantUpdate', () => {
     );
     expect(supabase.from).not.toHaveBeenCalled();
   });
+
+  it('updates a selected merchant without reloading the implicit dashboard merchant', async () => {
+    // Arrange — the dashboard context displays selected merchant B, while its
+    // no-argument reload boundary resolves the signed-in owner's merchant A.
+    const supabase = createSupabaseStub();
+    const setMerchant = vi.fn();
+    const reloadMerchant = vi.fn();
+    const updateMerchant = createMerchantUpdate({
+      supabase: supabase.client,
+      userId: 'owner-1',
+      staffAccess: ownerAccess,
+      activeMerchantId: merchant.id,
+      setMerchant,
+      reloadMerchant,
+    });
+
+    // Act
+    await updateMerchant(
+      { business_name: 'Updated Baci B' },
+      { merchantId: merchant.id }
+    );
+
+    // Assert — keep the update inside B's context instead of allowing the
+    // implicit reload to replace it with A.
+    expect(reloadMerchant).not.toHaveBeenCalled();
+    expect(setMerchant).toHaveBeenCalledWith(expect.any(Function));
+
+    const selectedMerchantUpdater = setMerchant.mock.calls[0][0] as (
+      current: MerchantData | null
+    ) => MerchantData | null;
+    expect(selectedMerchantUpdater(merchant)).toEqual({
+      ...merchant,
+      business_name: 'Updated Baci B',
+    });
+
+    const implicitMerchant = { ...merchant, id: 'merchant-a' };
+    expect(selectedMerchantUpdater(implicitMerchant)).toBe(implicitMerchant);
+  });
 });
