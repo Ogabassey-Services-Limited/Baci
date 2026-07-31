@@ -59,6 +59,33 @@ describe('fetchWithCsrf', () => {
     expect(warnSpy).toHaveBeenCalledOnce();
   });
 
+  it('uses the caller abort signal while initializing a missing CSRF token', async () => {
+    const controller = new AbortController();
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((input) => {
+        if (input === '/api/csrf') {
+          return Promise.resolve(new Response('{}', { status: 200 }));
+        }
+        return Promise.resolve(new Response('{}'));
+      });
+    vi.spyOn(csrf, 'getClientCsrfToken')
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce('fresh-token');
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await fetchWithCsrf('/api/upload', {
+      method: 'POST',
+      signal: controller.signal,
+    });
+
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      1,
+      '/api/csrf',
+      expect.objectContaining({ signal: controller.signal })
+    );
+  });
+
   it('never adds CSRF header for GET requests', async () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')

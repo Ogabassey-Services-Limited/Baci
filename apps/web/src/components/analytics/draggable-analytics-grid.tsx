@@ -37,7 +37,7 @@ import { formatMetricChange } from '@/components/analytics/format-metric-change'
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import type { MerchantData } from '@/hooks/merchant/types';
-import { fetchWithCsrf } from '@/lib/api-client';
+import { saveDashboardLayoutPreference } from '@/lib/analytics/save-dashboard-layout-preference';
 import { getCountryByCode } from '@/lib/countries';
 import { cn } from '@/lib/utils';
 
@@ -506,11 +506,7 @@ export function DraggableAnalyticsGrid({
     if (!isEditMode) return; // Only save if in edit mode (optional, but good for performance)
 
     // Fire-and-forget pattern for saving layout preferences
-    void fetchWithCsrf('/api/dashboard/preferences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layout_config: currentLayout }),
-    }).catch((error) => {
+    void saveDashboardLayoutPreference(currentLayout).catch((error) => {
       console.error('Failed to save layout:', error);
     });
   };
