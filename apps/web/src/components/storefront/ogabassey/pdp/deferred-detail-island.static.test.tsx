@@ -1,0 +1,28 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import type { Product } from '@/components/storefront/ogabassey/types';
+import { OgabasseyPdpDeferredDetailIsland } from './deferred-detail-island';
+
+const product = {
+  brand: 'Lenovo',
+  category: 'Laptops',
+  description: '<p>Creator laptop with RTX graphics.</p>',
+  id: 'product-1',
+  image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
+  name: 'Lenovo Legion Pro 9',
+  price: 'NGN 5,985,000',
+  rawPrice: 5_985_000,
+  slug: 'lenovo-legion-pro-9',
+} as unknown as Product;
+
+describe('OgabasseyPdpDeferredDetailIsland source HTML', () => {
+  it('includes the sole sanitized description before the real client activates', () => {
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland product={product} storeSlug="ogabassey" />
+    );
+
+    expect(sourceHtml).toContain('Creator laptop with RTX graphics.');
+    expect(sourceHtml.match(/Creator laptop with RTX graphics\./g)).toHaveLength(1);
+    expect(sourceHtml).toContain('data-testid="deferred-product-details-placeholder"');
+  });
+});

@@ -109,24 +109,33 @@ function getAttributeAxisValue(
   return normalizedValues.length === 1 ? normalizedValues[0] : null;
 }
 
-function getOfferFacts(offer: OgabasseyProductVisibleSummaryOffer): SummaryFact {
-  const attributeCondition = getAttributeAxisValue(offer.attributes, 'colour');
-  const condition = normalizeCondition(offer.condition);
-  const conditionAttribute = normalizeCondition(
-    Object.entries(offer.attributes || {}).find(([key]) =>
-      key.trim().toLowerCase().replace(/[\s-]+/g, '_') === 'condition'
-    )?.[1]
+function hasConflictingConditionAliases(
+  attributes: Record<string, unknown> | null | undefined
+) {
+  const aliases = Object.entries(attributes || {}).flatMap(([key, value]) =>
+    key.trim().toLowerCase().replace(/[\s-]+/g, '_') === 'condition'
+      ? [normalizeCondition(value)]
+      : []
   );
 
+  return (
+    aliases.some((value) => !value) ||
+    new Set(aliases.filter((value): value is string => Boolean(value))).size > 1
+  );
+}
+
+function getOfferFacts(
+  offer: OgabasseyProductVisibleSummaryOffer,
+  parentCondition: string | null
+): SummaryFact {
   return {
     storage: getAttributeAxisValue(offer.attributes, 'storage'),
     ram: getAttributeAxisValue(offer.attributes, 'ram'),
     connectivity: getAttributeAxisValue(offer.attributes, 'connectivity'),
-    colour: attributeCondition,
-    condition:
-      condition && conditionAttribute && condition !== conditionAttribute
-        ? null
-        : (condition || conditionAttribute),
+    colour: getAttributeAxisValue(offer.attributes, 'colour'),
+    condition: hasConflictingConditionAliases(offer.attributes)
+      ? null
+      : (normalizeCondition(offer.condition) || parentCondition),
   };
 }
 
@@ -175,7 +184,8 @@ export function buildOgabasseyProductVisibleSummary({
     selectableOffers.length > 0 ? [parentOffer, ...selectableOffers] : [parentOffer];
   const selectable =
     selectableVariants.length > 0 ? selectableVariants : selectableOffersOrParent;
-  const facts = selectable.map(getOfferFacts);
+  const parentCondition = normalizeCondition(condition);
+  const facts = selectable.map((offer) => getOfferFacts(offer, parentCondition));
   const sharedFacts: string[] = [];
   const choiceFacts: string[] = [];
 

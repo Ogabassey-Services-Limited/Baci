@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/components/storefront/ogabassey/types';
@@ -9,15 +8,9 @@ const mockDeferredDetailClient = vi.hoisted(() => vi.fn());
 const mockDeferredRailsIsland = vi.hoisted(() => vi.fn());
 
 vi.mock('./deferred-detail-island.client', () => ({
-  OgabasseyPdpDeferredDetailClient: (props: {
-    descriptionSlot?: ReactNode;
-  }) => {
+  OgabasseyPdpDeferredDetailClient: (props: unknown) => {
     mockDeferredDetailClient(props);
-    return (
-      <section aria-label="Deferred product detail client">
-        {props.descriptionSlot}
-      </section>
-    );
+    return <section aria-label="Deferred product detail client" />;
   },
 }));
 
@@ -131,19 +124,11 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
       (mockDeferredDetailClient.mock.calls[0]?.[0] as { productData?: unknown })
         ?.productData
     ).not.toHaveProperty('description');
-    // The description is sanitized on the server here (SafeHtml element) and
-    // passed down as a slot, so `sanitize-html` never enters the client tabs
-    // chunk. `headingLevelOffset: 1` is the SEO heading demotion that used to
-    // live inside the client tabs component.
-    const detailProps = mockDeferredDetailClient.mock.calls[0]?.[0] as {
-      descriptionSlot?: {
-        props?: { html?: string; headingLevelOffset?: number };
-      };
-    };
-    expect(detailProps.descriptionSlot?.props?.html).toBe(
-      'Creator laptop with RTX graphics.'
+    // The description is sanitized by the server owner above the deferred
+    // client boundary, so `sanitize-html` never enters the client tabs chunk.
+    expect(mockDeferredDetailClient.mock.calls[0]?.[0]).not.toHaveProperty(
+      'descriptionSlot'
     );
-    expect(detailProps.descriptionSlot?.props?.headingLevelOffset).toBe(1);
     expect(mockDeferredRailsIsland).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({
@@ -168,8 +153,8 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
     );
     expect(clientPayload).not.toContain('verbose offer notes');
     expect(clientPayload).not.toContain('verbose generated alt payload');
-    // The description HTML lives only in the server-rendered slot, never in the
-    // serialized client payload.
+    // The description HTML lives only in the server-rendered description owner,
+    // never in the serialized client payload.
     expect(clientPayload).not.toContain('Creator laptop with RTX graphics.');
   });
 

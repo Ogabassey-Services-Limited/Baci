@@ -157,4 +157,49 @@ describe('buildOgabasseyProductVisibleSummary', () => {
       })
     ).toBeNull();
   });
+  it('uses the parent condition when selectable variants omit their own condition', () => {
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Dell',
+        condition: 'new',
+        name: 'XPS 13',
+        variants: [
+          { attributes: { storage: '512 GB' } },
+          { attributes: { storage: '512GB' } },
+        ],
+      })
+    ).toBe('Dell XPS 13. Storage: 512 GB. Condition: New.');
+  });
+
+  it('does not replace the selector condition fallback with a variant attribute', () => {
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Dell',
+        condition: 'new',
+        name: 'XPS 13',
+        variants: [
+          {
+            attributes: { condition: 'used', storage: '512 GB' },
+            condition: null,
+          },
+        ],
+      })
+    ).toBe('Dell XPS 13. Storage: 512 GB. Condition: New.');
+  });
+
+  it('rejects condition facts when normalized condition aliases conflict', () => {
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Dell',
+        name: 'XPS 13',
+        variants: [
+          {
+            attributes: { Condition: 'new', condition: 'used' },
+            condition: 'new',
+          },
+        ],
+      })
+    ).toBeNull();
+  });
+
 });

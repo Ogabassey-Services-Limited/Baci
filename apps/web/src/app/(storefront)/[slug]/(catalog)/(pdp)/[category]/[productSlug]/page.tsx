@@ -57,6 +57,7 @@ import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductCondition } from '@/lib/products';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import {
   buildStorefrontAcceptedPaymentMethods,
   generateBreadcrumbSchema,
@@ -407,6 +408,7 @@ interface LcpRouteProduct {
   color?: string;
   condition?: ProductCondition;
   compare_at_price?: number;
+  conditionOffers?: NonNullable<LcpRouteProduct['offers']>;
   default_variant_id?: string;
   description: string;
   gtin: string;
@@ -604,6 +606,48 @@ function getCachedProductRoutePrimaryImage(
   );
 }
 
+interface CachedLcpConditionOffer {
+  condition: string;
+  id: string;
+  price: number | string | null;
+  status?: string | null;
+  stock_quantity?: number | string | null;
+}
+
+function getCachedLcpActiveConditionOffers(
+  cachedProduct: CachedProductLcpHint
+) {
+  const offerSource = cachedProduct as CachedProductLcpHint & {
+    offers?: CachedLcpConditionOffer[] | null;
+    product_offers?: CachedLcpConditionOffer[] | null;
+  };
+  const parentCondition = normalizeProductCondition(cachedProduct.condition);
+  const offers = offerSource.product_offers ?? offerSource.offers ?? [];
+
+  return offers.flatMap((offer) => {
+    const condition = normalizeProductCondition(offer.condition);
+    const price = parseRouteProductNumber(offer.price);
+    if (
+      offer.status !== 'active' ||
+      !condition ||
+      condition === parentCondition ||
+      price === null
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        condition,
+        id: offer.id,
+        price,
+        status: offer.status,
+        stock_quantity: parseRouteProductNumber(offer.stock_quantity) ?? 0,
+      },
+    ];
+  });
+}
+
 function mapCachedProductLcpHintToRouteProduct(
   cachedProduct: CachedProductLcpHint
 ): LcpRouteProduct {
@@ -662,6 +706,7 @@ function mapCachedProductLcpHintToRouteProduct(
       : undefined,
     mpn: '',
     name: cachedProduct.name,
+    conditionOffers: getCachedLcpActiveConditionOffers(cachedProduct),
     price: legacyPrices.price,
     sale_price: legacyPrices.salePrice,
     schema_markup: cachedProduct.schema_markup as Product['schema_markup'],
@@ -676,12 +721,15 @@ function mapCachedProductLcpHintToRouteProduct(
 }
 
 function buildCriticalCommerceRouteProduct(product: LcpRouteProduct): Product {
+  const { conditionOffers, ...routeProduct } = product;
+
   return {
-    ...product,
+    ...routeProduct,
     compare_at_price: product.compare_at_price ?? undefined,
     description: stripVolatileProductPriceSentences(product.description),
     max_variant_price: product.max_variant_price ?? undefined,
     min_variant_price: product.min_variant_price ?? undefined,
+    offers: conditionOffers ?? product.offers,
     price: product.price ?? 0,
   };
 }
@@ -1239,6 +1287,23 @@ async function CategoryProductPageContent({
   const currencyConfig = resolveMerchantCurrencyConfig(merchant);
   // SEO copy / JSON-LD / payment methods all take the bare ISO code.
   const currency = currencyConfig.code;
+  const genericRouteSummary =
+    merchant.template_id !== OGABASSEY_TEMPLATE_ID
+      ? (() => {
+          const priceSeoCopy = buildProductPriceSeoCopy({
+            product: renderableProduct,
+            merchantDisplayName: merchant.business_name || DEFAULT_STORE_NAME,
+            categoryName: renderableProduct.category || 'All Products',
+            currency,
+            country: merchant.country,
+          });
+          const plainDescription = stripHtmlTags(renderableProduct.description)
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          return { plainDescription, priceSeoCopy };
+        })()
+      : null;
   const semanticSections = (
     // The async server component catches strict SEO-data cold-cache failures
     // before SSR can bubble to the route error boundary. This client boundary is
@@ -1326,6 +1391,30 @@ async function CategoryProductPageContent({
     <>
       <JsonLd data={productSchema} />
       <JsonLd data={breadcrumbSchema} />
+      {genericRouteSummary ? (
+        <article
+          className="sr-only"
+          aria-label={`${renderableProduct.name} summary`}
+        >
+          <p>{genericRouteSummary.priceSeoCopy.answer}</p>
+          {genericRouteSummary.plainDescription ? (
+            <p>{genericRouteSummary.plainDescription}</p>
+          ) : null}
+          <dl>
+            <dt>Brand</dt>
+            <dd>{renderableProduct.brand || 'OgaBassey'}</dd>
+            <dt>Category</dt>
+            <dd>{renderableProduct.category || 'Electronics'}</dd>
+            <dt>Condition</dt>
+            <dd>{renderableProduct.condition || 'New'}</dd>
+            <dt>Price</dt>
+            <dd>
+              {genericRouteSummary.priceSeoCopy.priceText ||
+                'Contact for price'}
+            </dd>
+          </dl>
+        </article>
+      ) : null}
 
       {productPage}
     </>
@@ -1421,7 +1510,7 @@ export default async function CategoryProductPage({
         brand: product.brand,
         condition: product.condition,
         name: product.name,
-        offers: product.offers,
+        offers: product.conditionOffers ?? product.offers,
         variants: product.variants,
       })
     : null;
