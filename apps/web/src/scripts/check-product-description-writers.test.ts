@@ -222,3 +222,30 @@ $writer$;`),
     );
   });
 });
+
+  it('fails closed for generic AI and RPC callers plus MCP and temporary web scripts', async () => {
+    const { root, rows } = await createFixture();
+    const paths = [
+      'apps/web/mcp-server/unlisted-writer.ts',
+      'apps/web/scripts-tmp/unlisted-writer.ts',
+      'apps/mobile-storefront/hooks/submit-generated-product.ts',
+      'packages/shared/src/save-product-rpc.ts',
+    ];
+    await Promise.all([
+      writeFixture(root, paths[0], "await client.from('products').insert({ description: value });"),
+      writeFixture(root, paths[1], "await client.from('products').update({ description: value });"),
+      writeFixture(root, paths[2], "const generated = await createCatalogCopy(); await submitProduct({ description: generated.description });"),
+      writeFixture(root, paths[3], "await db.rpc('persist_product_copy', { product_description: description });"),
+    ]);
+
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
+      repositoryRoot: root,
+    });
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining(
+        paths.map((path) => `Discovered description writer is not inventoried: ${path}`)
+      )
+    );
+  });

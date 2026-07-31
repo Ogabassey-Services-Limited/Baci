@@ -16,7 +16,7 @@ type CheckResult = { errors: string[]; ok: boolean };
 type FunctionDefinition = { body: string; end: number; name: string; start: number };
 
 const COLUMNS = PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER.split(',') as Column[];
-const TS_ROOTS = ['apps/web/src', 'apps/mobile-admin', 'apps/mobile-storefront', 'packages', 'supabase/functions'];
+const TS_ROOTS = ['apps/web/src', 'apps/web/mcp-server', 'apps/web/scripts-tmp', 'apps/mobile-admin', 'apps/mobile-storefront', 'packages', 'supabase/functions'];
 const TS_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts']);
 const UNATTESTED = 'unattested_pending_C2b';
 const GUARD = 'C3 prepared guard not installed; stable error mapping pending';
@@ -32,7 +32,7 @@ const CURRENT_INVENTORY_ROWS = [
   row('apps/web/src/app/dashboard/products/add/add-product-form.tsx', 'add/edit form; AI result -> submitted product', 'AI persistence caller', 'form description including generated text', 'apps/web/src/app/dashboard/products/add/add-product-form.test.tsx'),
   row('apps/web/src/app/api/products/route.ts', 'add form -> POST /api/products', 'insert public.products.description', 'createProductSchema description', 'apps/web/src/app/api/products/route.test.ts'),
   row('apps/web/src/app/api/products/[id]/route.ts', 'edit form -> PUT /api/products/[id]', 'update public.products.description', 'updateProductSchema description', 'apps/web/src/app/api/products/[id]/route.test.ts'),
-  row('apps/web/src/components/products/csv-bulk-import-dialog.tsx', 'CSV dialog -> multipart import route', 'CSV persistence caller', 'CSV description column', 'apps/web/src/app/api/products/bulk-import/route.test.ts'),
+  row('apps/web/src/components/products/csv-bulk-import-dialog.tsx', 'CSV dialog -> multipart import route', 'CSV persistence caller', 'CSV description column', 'apps/web/src/components/products/csv-bulk-import-dialog.test.tsx'),
   row('apps/web/src/app/api/products/bulk-import/route.ts', 'CSV dialog -> bulk import route', 'insert public.products.description', 'optional CSV description', 'apps/web/src/app/api/products/bulk-import/route.test.ts'),
   row('apps/web/src/components/products/review-changes.tsx', 'review UI -> product context', 'bulk-update persistence caller', 'BulkUpdateChange description', 'apps/web/src/components/products/review-changes.test.tsx'),
   row('apps/web/src/contexts/product-context.tsx', 'review UI -> bulk-update route', 'bulk-update persistence caller', 'product change description', 'apps/web/src/contexts/product-context.test.tsx'),
@@ -40,7 +40,7 @@ const CURRENT_INVENTORY_ROWS = [
   row('apps/web/src/app/api/products/bulk-update/bulk-update-change-processing.ts', 'bulk-update route -> processor', 'insert public.products.description', 'new change details.description', 'apps/web/src/app/api/products/bulk-update/bulk-update-change-processing.test.ts'),
   row('apps/web/src/lib/import-jobs/run-claimed-import-job.ts', 'claimed Bumpa job -> commit helper', 'Bumpa persistence caller', 'normalized product description', 'apps/web/src/lib/import-jobs/run-claimed-import-job.test.ts'),
   row('apps/web/src/lib/import-commit/commit-bumpa-products.ts', 'Bumpa commit helper', 'insert/update public.products.description', 'NormalizedImportedProduct.description', 'apps/web/src/lib/import-commit/commit-bumpa-products.test.ts'),
-  row('apps/web/src/app/dashboard/products/use-products-page-actions.ts', 'dashboard action -> Jumia import', 'Jumia persistence caller', 'Jumia imported description', 'apps/web/src/app/api/marketplace/jumia/products/import/route.test.ts'),
+  row('apps/web/src/app/dashboard/products/use-products-page-actions.ts', 'dashboard action -> Jumia import', 'Jumia persistence caller', 'Jumia imported description', 'apps/web/src/app/dashboard/products/use-products-page-actions.test.ts'),
   row('apps/web/src/app/api/marketplace/jumia/products/import/route.ts', 'dashboard action -> Jumia import', 'upsert public.products.description', 'sanitized Jumia description', 'apps/web/src/app/api/marketplace/jumia/products/import/route.test.ts'),
   row('apps/mobile-admin/hooks/product-save.ts', 'mobile create/update -> public RPC', 'RPC persistence caller', 'ProductDbSchema payload description', 'apps/mobile-admin/hooks/product-save.test.ts'),
   row('supabase/migrations/20260615181534_serialized_variant_inventory.sql', 'legacy private mobile product-save RPC', 'insert/update public.products.description', 'p_product_payload.description', 'apps/mobile-admin/hooks/product-save.test.ts'),
@@ -84,11 +84,13 @@ async function listFiles(root: string): Promise<string[]> {
 }
 function writesDescription(source: string): boolean { return /\bdescription\b/.test(source); }
 function directProductsMutation(source: string): boolean {
-  return /\.from\(\s*['"]products['"]\s*\)(?:(?!;)[\s\S])*?\.(?:insert|update|upsert)\s*\(/.test(source) && writesDescription(source);
+  return /\.from\(\s*['"]products['"]\s*\)(?:(?![;{}])[\s\S])*?\.(?:insert|update|upsert)\s*\(/.test(source) && writesDescription(source);
 }
 function persistenceCaller(path: string, source: string): boolean {
-  return (/\.rpc\(\s*['"]save_mobile_admin_product_with_variants['"]/.test(source)
-    || (/generateProductDescription|autofillProductDetails/.test(source) && /onProductAdded\(/.test(source))) && writesDescription(source) && !path.includes('.test.');
+  const productRpc = /\.rpc\(\s*['"](?=[^'"]*(?:product|catalog))(?=[^'"]*(?:save|create|update|upsert|persist|write))[^'"]+['"]\s*,[\s\S]*?\b(?:description|product_description)\b/i.test(source);
+  const generatedCopy = /await\s+\w*(?:generate|autofill|compose|draft|create)\w*(?:description|details|copy)\w*\s*\(/i.test(source);
+  const productSubmit = /(?:submit|create|update|save|on)\w*(?:product|catalog|listing|item)\w*\s*\([\s\S]*?\bdescription\b/i.test(source);
+  return (productRpc || (generatedCopy && productSubmit)) && writesDescription(source) && !path.includes('.test.') && !path.endsWith('check-product-description-writers.ts');
 }
 function aiProducer(path: string, source: string): boolean {
   return path.includes('/ai/flows/') && /product/i.test(path) && /generate(?:Text|Object)WithChain/.test(source) && writesDescription(source);

@@ -1,8 +1,8 @@
 # Ogabassey SEO provenance cutover checklist
 
-- Preparation evidence UTC: 20260731T133711Z
+- Preparation evidence UTC: 20260731T144752Z
 - Task base: `36d42e72052ecd71d0aebf44c25be96c2e759342`
-- Writer inventory: `docs/seo/product-description-writer-inventory-20260731T133711Z-36d42e7.csv`
+- Writer inventory: `docs/seo/product-description-writer-inventory-20260731T144752Z-36d42e7.csv`
 - Scope: preparation-only; no network, database, product, feed, schema, migration, or writer-behaviour change.
 
 ## Ordered, separately reviewable cutover
