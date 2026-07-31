@@ -165,4 +165,89 @@ describe('useFeaturedImageActions merchant context', () => {
       })
     );
   });
+
+  it('keeps the latest featured upload active and cleans a superseded upload for the same merchant', async () => {
+    const firstUpload: {
+      resolve?: (value: ReturnType<typeof response>) => void;
+    } = {};
+    const secondUpload: {
+      resolve?: (value: ReturnType<typeof response>) => void;
+    } = {};
+    const setFormData = vi.fn();
+    mockFetchWithCsrf
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            firstUpload.resolve = resolve as (
+              value: ReturnType<typeof response>
+            ) => void;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            secondUpload.resolve = resolve as (
+              value: ReturnType<typeof response>
+            ) => void;
+          })
+      )
+      .mockResolvedValueOnce(response({ deleted: true }));
+    const { result } = renderHook(() =>
+      useFeaturedImageActions({
+        merchantId: 'merchant-selected',
+        formData,
+        setFormData,
+        toast: vi.fn(),
+      })
+    );
+
+    let first: Promise<void>;
+    let second: Promise<void>;
+    act(() => {
+      first = result.current.handleFeaturedImageUpload([
+        new File(['first'], 'first.png', { type: 'image/png' }),
+      ]);
+      second = result.current.handleFeaturedImageUpload([
+        new File(['second'], 'second.png', { type: 'image/png' }),
+      ]);
+    });
+
+    if (!firstUpload.resolve || !secondUpload.resolve)
+      throw new Error('Uploads did not start');
+    firstUpload.resolve(
+      response({
+        path: 'merchant-selected/blog/first.png',
+        url: 'https://cdn.example.com/first.png',
+        width: 100,
+        height: 100,
+      })
+    );
+    await act(async () => first);
+
+    expect(result.current.isUploading).toBe(true);
+    expect(setFormData).not.toHaveBeenCalled();
+    expect(mockFetchWithCsrf).toHaveBeenLastCalledWith(
+      '/api/merchant/blog/upload',
+      expect.objectContaining({
+        body: expect.stringContaining('merchant-selected/blog/first.png'),
+        headers: expect.objectContaining({
+          'x-baci-merchant-id': 'merchant-selected',
+        }),
+        method: 'DELETE',
+      })
+    );
+
+    secondUpload.resolve(
+      response({
+        path: 'merchant-selected/blog/second.png',
+        url: 'https://cdn.example.com/second.png',
+        width: 100,
+        height: 100,
+      })
+    );
+    await act(async () => second);
+
+    expect(result.current.isUploading).toBe(false);
+    expect(setFormData).toHaveBeenCalledTimes(1);
+  });
 });

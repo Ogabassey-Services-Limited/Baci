@@ -18,7 +18,9 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
-import { BLOG_POST_MUTATION_PROJECTION } from './blog-post-mutation-projection';
+import { parseBlogPostMutationBody } from './blog-post-mutation-body';
+import { loadBlogPostMerchant } from './load-blog-post-merchant';
+import { persistBlogPostMutation } from './persist-blog-post-mutation';
 import { scheduleCreatedPostPublicationEffects } from './post-publication-effects';
 
 export async function createBlogPost(request: NextRequest) {
@@ -59,25 +61,23 @@ export async function createBlogPost(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const { data: merchantData, error: merchantError } = await auth.supabase
-      .from('merchants')
-      .select('business_name, slug')
-      .eq('id', access.merchantId)
-      .single();
-    if (merchantError) {
-      console.error(
-        'Failed to fetch merchant details for blog post creation:',
-        {
-          merchantId: access.merchantId,
-          error: merchantError,
-        }
+    const merchantLookup = await loadBlogPostMerchant({
+      merchantId: access.merchantId,
+      supabase: auth.supabase,
+    });
+    if (merchantLookup.kind === 'not-found') {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
       );
+    }
+    if (merchantLookup.kind === 'error') {
       return NextResponse.json(
         { error: 'Failed to load merchant details' },
         { status: 500 }
       );
     }
-    if (!merchantData?.slug) {
+    if (!merchantLookup.slug) {
       console.warn(
         'Merchant slug missing during blog post revalidation; falling back to available blog identifiers only',
         { merchantId: access.merchantId }
@@ -85,7 +85,7 @@ export async function createBlogPost(request: NextRequest) {
     }
     const merchant = {
       id: access.merchantId,
-      business_name: merchantData?.business_name || 'Store Owner',
+      business_name: merchantLookup.businessName || 'Store Owner',
     };
     const { data: features, error: featuresError } = await auth.supabase
       .from('merchant_feature_settings')
@@ -112,7 +112,11 @@ export async function createBlogPost(request: NextRequest) {
       );
     }
 
-    const body = sanitizeBlogPostData(await request.json());
+    const parsedBody = await parseBlogPostMutationBody(request);
+    if (parsedBody.error) {
+      return NextResponse.json({ error: parsedBody.error }, { status: 400 });
+    }
+    const body = sanitizeBlogPostData(parsedBody.body);
     if (!body.slug && body.title) body.slug = generateSlug(String(body.title));
     if (!body.author_name) body.author_name = merchant.business_name;
     const validated = createPostSchema.safeParse(body);
@@ -122,7 +126,8 @@ export async function createBlogPost(request: NextRequest) {
         { status: 400 }
       );
     }
-    const postData = validated.data;
+    const { embedded_products: embeddedProductIds, ...postData } =
+      validated.data;
     const variantIntegrity = validateBlogImageVariantIntegrity(
       postData,
       merchant.id
@@ -211,15 +216,20 @@ export async function createBlogPost(request: NextRequest) {
       published_at:
         postData.status === 'published' ? new Date().toISOString() : null,
     };
-    const { data: newPost, error: insertError } = await auth.supabase
-      .from('blog_posts')
-      .insert(insertData)
-      .select(BLOG_POST_MUTATION_PROJECTION)
-      .single();
-    if (insertError) {
-      console.error('Error creating blog post:', insertError);
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    const persistence = await persistBlogPostMutation({
+      embeddedProductIds,
+      merchantId: merchant.id,
+      postData: insertData,
+      postId: null,
+      supabase: auth.supabase,
+    });
+    if (persistence.error) {
+      return NextResponse.json(
+        { error: persistence.error },
+        { status: persistence.status }
+      );
     }
+    const newPost = persistence.post;
     if (newPost?.id) {
       const embeddingText = getBlogEmbeddingText({
         title: postData.title,

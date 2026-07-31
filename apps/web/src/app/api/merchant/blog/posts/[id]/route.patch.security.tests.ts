@@ -82,7 +82,7 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
     it('returns 404 when post does not exist', async () => {
       mockSupabase.single.mockResolvedValue({
         data: null,
-        error: { message: 'Not found' },
+        error: { code: 'PGRST116', message: 'Not found' },
       });
 
       const res = await PATCH(
@@ -97,6 +97,27 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
 
       expect(res.status).toBe(404);
       expect(json.error).toBe('Post not found');
+    });
+
+    it('returns 500 when loading the post fails for a reason other than not found', async () => {
+      mockSupabase.single.mockResolvedValue({
+        data: null,
+        error: { code: 'XX000', message: 'database unavailable' },
+      });
+
+      const res = await PATCH(
+        makeRequest(
+          `/api/merchant/blog/posts/${POST_ID}`,
+          'PATCH',
+          validUpdateData
+        ),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({
+        error: 'Failed to load post',
+      });
     });
   });
 

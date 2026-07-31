@@ -47,6 +47,7 @@ export default function NewBlogPostPage() {
   const [embeddedProducts, setEmbeddedProducts] = useState<NewBlogProduct[]>(
     []
   );
+  const [contentResetKey, setContentResetKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
   const [uploadedFeaturedImage, setUploadedFeaturedImage] =
@@ -67,6 +68,7 @@ export default function NewBlogPostPage() {
     businessName,
     formData,
     merchantId: merchant?.id,
+    setEditorResetKey: setContentResetKey,
     setFormData,
     setUploadedFeaturedImage,
     toast,
@@ -192,6 +194,7 @@ export default function NewBlogPostPage() {
         <TabsContent value="content" className="space-y-6">
           <NewBlogPostContentTab
             formData={formData}
+            contentResetKey={contentResetKey}
             merchantId={merchant?.id}
             merchantSlug={merchant?.slug}
             embeddedProducts={embeddedProducts}

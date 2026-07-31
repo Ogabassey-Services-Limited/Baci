@@ -6,4 +6,5 @@ import './route.patch.success-b.tests';
 import './route.patch.success-c.tests';
 import './route.patch.prewarm.tests';
 import './route.patch.errors.tests';
+import './route.patch.embedded-products.tests';
 import './route.delete.tests';

@@ -22,6 +22,7 @@ import type {
 
 export function NewBlogPostContentTab({
   formData,
+  contentResetKey,
   merchantId,
   merchantSlug,
   embeddedProducts,
@@ -34,6 +35,7 @@ export function NewBlogPostContentTab({
   isUploading,
 }: {
   formData: NewBlogPostFormData;
+  contentResetKey: number;
   merchantId?: string;
   merchantSlug?: string;
   embeddedProducts: NewBlogProduct[];
@@ -90,6 +92,7 @@ export function NewBlogPostContentTab({
             <BlogEditor
               merchantId={merchantId}
               content={formData.content}
+              contentResetKey={contentResetKey}
               onChange={(content) => handleChange('content', content)}
               onImageUpload={onImageUpload}
               onProductsChange={setEmbeddedProducts}

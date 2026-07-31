@@ -20,6 +20,7 @@ interface Product {
 interface BlogEditorProps {
   merchantId?: string;
   content: string; // Used for content storage
+  contentResetKey?: number;
   onChange: (content: string) => void;
   placeholder?: string;
   onImageUpload?: (file: File) => Promise<string>;
@@ -30,6 +31,7 @@ interface BlogEditorProps {
 
 export function BlogEditor({
   content,
+  contentResetKey = 0,
   merchantId,
   onChange,
   onImageUpload,
@@ -65,7 +67,7 @@ export function BlogEditor({
   return (
     <div className="min-h-[500px] w-full">
       <NovelEditor
-        key={merchantId ?? 'no-merchant'}
+        key={`${merchantId ?? 'no-merchant'}-${contentResetKey}`}
         merchantId={merchantId}
         initialValue={initialContent}
         onChange={handleContentChange}

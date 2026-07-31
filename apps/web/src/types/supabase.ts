@@ -17423,6 +17423,26 @@ export type Database = {
           title: string;
         }[];
       };
+      mutate_merchant_blog_post_with_product_links: {
+        Args: {
+          p_merchant_id: string;
+          p_post_data: Json;
+          p_post_id: string | null;
+          p_product_ids?: string[] | null;
+        };
+        Returns: {
+          category: string | null;
+          content: string;
+          excerpt: string | null;
+          featured_image_url: string | null;
+          id: string;
+          merchant_id: string;
+          published_at: string | null;
+          slug: string;
+          status: string;
+          title: string;
+        }[];
+      };
       merchant_feature_settings_public_cache_projection: {
         Args: {
           p_settings: Database['public']['Tables']['merchant_feature_settings']['Row'];

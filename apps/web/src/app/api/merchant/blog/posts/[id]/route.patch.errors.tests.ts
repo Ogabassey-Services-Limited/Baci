@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { describe, expect, it, type vi } from 'vitest';
 import {
   existingPost,
@@ -16,6 +17,23 @@ registerPatchTestSetup();
 
 describe('PATCH /api/merchant/blog/posts/[id]', () => {
   describe('error handling', () => {
+    it('returns 400 for malformed JSON instead of treating it as an internal error', async () => {
+      const request = new NextRequest(
+        `http://localhost:3000/api/merchant/blog/posts/${POST_ID}?merchantId=6b5cb8a4-5575-456c-b936-8cdfae30db74`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{',
+        }
+      );
+
+      const response = await PATCH(request, makeParams(POST_ID));
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: 'Invalid JSON body' });
+      expect(mockSupabase.update).not.toHaveBeenCalled();
+    });
+
     it('returns 500 when database update fails', async () => {
       mockSupabase.single
         .mockResolvedValueOnce({

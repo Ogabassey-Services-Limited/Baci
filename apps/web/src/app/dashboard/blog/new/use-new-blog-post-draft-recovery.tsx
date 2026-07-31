@@ -22,6 +22,7 @@ export function useNewBlogPostDraftRecovery({
   businessName,
   formData,
   merchantId,
+  setEditorResetKey,
   setFormData,
   setUploadedFeaturedImage,
   toast,
@@ -29,6 +30,7 @@ export function useNewBlogPostDraftRecovery({
   businessName: string;
   formData: NewBlogPostFormData;
   merchantId: string | undefined;
+  setEditorResetKey: Dispatch<SetStateAction<number>>;
   setFormData: Dispatch<SetStateAction<NewBlogPostFormData>>;
   setUploadedFeaturedImage: Dispatch<
     SetStateAction<UploadedFeaturedImage | null>
@@ -60,6 +62,7 @@ export function useNewBlogPostDraftRecovery({
       if (!saved) return;
       const recoveredData = withFeaturedImageDefaults(saved.data);
       setFormData(recoveredData);
+      setEditorResetKey((previous) => previous + 1);
       setUploadedFeaturedImage(
         reconstructUploadedFeaturedImage(recoveredData, recoveredMerchantId)
       );
@@ -73,6 +76,7 @@ export function useNewBlogPostDraftRecovery({
             onClick={() => {
               if (activeMerchantIdRef.current !== recoveredMerchantId) return;
               setFormData(createEmptyPostFormData(businessName));
+              setEditorResetKey((previous) => previous + 1);
               setUploadedFeaturedImage(null);
               clearSavedData();
               toast({
@@ -96,6 +100,7 @@ export function useNewBlogPostDraftRecovery({
     hasAutoRecovered,
     hasSavedData,
     merchantId,
+    setEditorResetKey,
     setFormData,
     setUploadedFeaturedImage,
     storageKey,
@@ -108,6 +113,7 @@ export function useNewBlogPostDraftRecovery({
     if (saved) {
       const recoveredData = withFeaturedImageDefaults(saved.data);
       setFormData(recoveredData);
+      setEditorResetKey((previous) => previous + 1);
       setUploadedFeaturedImage(
         reconstructUploadedFeaturedImage(recoveredData, merchantId)
       );

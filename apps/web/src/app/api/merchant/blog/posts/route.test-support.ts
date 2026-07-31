@@ -122,6 +122,8 @@ const createChainableMock = () => {
     textSearch: vi.fn(),
     order: vi.fn(),
     range: vi.fn(),
+    in: vi.fn(),
+    rpc: vi.fn(),
     single: vi.fn(),
     maybeSingle: vi.fn(),
     functions: { invoke: mockInvokeEmbedding },
@@ -139,6 +141,8 @@ const createChainableMock = () => {
   mock.textSearch.mockReturnValue(mock);
   mock.order.mockReturnValue(mock);
   mock.range.mockReturnValue(mock);
+  mock.in.mockReturnValue(mock);
+  mock.rpc.mockReturnValue(mock);
 
   return mock;
 };

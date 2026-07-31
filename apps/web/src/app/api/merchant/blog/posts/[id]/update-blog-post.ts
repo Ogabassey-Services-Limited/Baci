@@ -11,11 +11,17 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
-import { BLOG_POST_MUTATION_PROJECTION } from '../blog-post-mutation-projection';
+import { parseBlogPostMutationBody } from '../blog-post-mutation-body';
+import { persistBlogPostMutation } from '../persist-blog-post-mutation';
 import { featuredImageVariantsEqual } from './featured-image-variants';
+import { loadBlogPostForUpdate } from './load-blog-post-for-update';
 import type { RouteParams } from './route-params';
 import { scheduleUpdatedPostEffects } from './updated-post-effects';
+import { validateUpdatedBlogPostSlug } from './validate-updated-blog-post-slug';
 
+function blogPostError(error: string, status: number) {
+  return NextResponse.json({ error }, { status });
+}
 export async function updateBlogPost(
   request: NextRequest,
   { params }: RouteParams
@@ -42,35 +48,33 @@ export async function updateBlogPost(
       userId: auth.user.id,
     });
     if (selectedMerchant.invalidMerchantId) {
-      return NextResponse.json(
-        { error: 'Invalid merchant ID' },
-        { status: 400 }
-      );
+      return blogPostError('Invalid merchant ID', 400);
     }
     if (!selectedMerchant.access) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
+      return blogPostError('Merchant not found', 404);
     }
     const access = selectedMerchant.access;
     if (!hasPermission(access, 'marketing', 'edit')) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
-    const { data: existingPost, error: fetchError } = await auth.supabase
-      .from('blog_posts')
-      .select(
-        'id, slug, status, content, title, excerpt, category, published_at, featured_image_url, featured_image_width, featured_image_height, featured_image_variants'
-      )
-      .eq('id', id)
-      .eq('merchant_id', access.merchantId)
-      .single();
-    if (fetchError || !existingPost) {
+    const existingPostResult = await loadBlogPostForUpdate({
+      merchantId: access.merchantId,
+      postId: id,
+      supabase: auth.supabase,
+    });
+    if (existingPostResult.kind === 'not-found') {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
-
+    if (existingPostResult.kind === 'error') {
+      return blogPostError('Failed to load post', 500);
+    }
+    const existingPost = existingPostResult.post;
+    const parsedBody = await parseBlogPostMutationBody(request);
+    if (parsedBody.error) {
+      return NextResponse.json({ error: parsedBody.error }, { status: 400 });
+    }
     const validated = blogPostSchema.safeParse(
-      sanitizeBlogPostData(await request.json())
+      sanitizeBlogPostData(parsedBody.body)
     );
     if (!validated.success) {
       return NextResponse.json(
@@ -78,7 +82,9 @@ export async function updateBlogPost(
         { status: 400 }
       );
     }
-    const updateData: Record<string, unknown> = { ...validated.data };
+    const { embedded_products: embeddedProductIds, ...validatedPostData } =
+      validated.data;
+    const updateData: Record<string, unknown> = { ...validatedPostData };
     const featuredImageUrlChanged =
       Object.hasOwn(updateData, 'featured_image_url') &&
       updateData.featured_image_url !== existingPost.featured_image_url;
@@ -176,20 +182,24 @@ export async function updateBlogPost(
         { status: 400 }
       );
     }
-    if (updateData.slug && updateData.slug !== existingPost.slug) {
-      const { data: slugExists } = await auth.supabase
-        .from('blog_posts')
-        .select('id')
-        .eq('merchant_id', access.merchantId)
-        .eq('slug', updateData.slug)
-        .neq('id', id)
-        .maybeSingle();
-      if (slugExists) {
-        return NextResponse.json(
-          { error: 'A post with this slug already exists' },
-          { status: 409 }
-        );
-      }
+    const slugValidation = await validateUpdatedBlogPostSlug({
+      currentSlug: existingPost.slug,
+      merchantId: access.merchantId,
+      postId: id,
+      slug: updateData.slug,
+      supabase: auth.supabase,
+    });
+    if (slugValidation === 'error') {
+      return NextResponse.json(
+        { error: 'Failed to validate post slug' },
+        { status: 500 }
+      );
+    }
+    if (slugValidation === 'conflict') {
+      return NextResponse.json(
+        { error: 'A post with this slug already exists' },
+        { status: 409 }
+      );
     }
     if (updateData.content) {
       updateData.word_count = calculateWordCount(updateData.content as string);
@@ -204,20 +214,20 @@ export async function updateBlogPost(
     ) {
       updateData.published_at = new Date().toISOString();
     }
-    const { data: updatedPost, error: updateError } = await auth.supabase
-      .from('blog_posts')
-      .update(updateData)
-      .eq('id', id)
-      .eq('merchant_id', access.merchantId)
-      .select(BLOG_POST_MUTATION_PROJECTION)
-      .single();
-    if (updateError) {
-      console.error('Error updating blog post:', updateError);
+    const persistence = await persistBlogPostMutation({
+      embeddedProductIds,
+      merchantId: access.merchantId,
+      postData: updateData,
+      postId: id,
+      supabase: auth.supabase,
+    });
+    if (persistence.post === null) {
       return NextResponse.json(
-        { error: 'Failed to update post' },
-        { status: 500 }
+        { error: persistence.error ?? 'Failed to update post' },
+        { status: persistence.status ?? 500 }
       );
     }
+    const updatedPost = persistence.post;
     if (
       updatedPost &&
       (updateData.content || updateData.title || updateData.excerpt)

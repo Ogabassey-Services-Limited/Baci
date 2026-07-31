@@ -102,5 +102,28 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
 
       expect(res.status).toBe(200);
     });
+
+    it('fails closed when the tenant-scoped slug check fails', async () => {
+      mockSupabase.maybeSingle
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'slug query failed' },
+        });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          slug: 'unique-new-slug',
+          title: 'Updated Title',
+        }),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({
+        error: 'Failed to validate post slug',
+      });
+      expect(mockSupabase.update).not.toHaveBeenCalled();
+    });
   });
 });

@@ -37,6 +37,7 @@ export function useNewBlogPostMediaActions({
   const merchantId = merchant?.id;
   const activeMerchantId = useRef(merchantId);
   const previousMerchantId = useRef(merchantId);
+  const featuredUploadGeneration = useRef(0);
   const uploadedFeaturedImageRef = useRef(uploadedFeaturedImage);
   activeMerchantId.current = merchantId;
   if (uploadedFeaturedImage)
@@ -59,6 +60,7 @@ export function useNewBlogPostMediaActions({
     }
     previousMerchantId.current = merchantId;
     activeMerchantId.current = merchantId;
+    featuredUploadGeneration.current += 1;
     setIsUploading(false);
   }, [merchantId]);
 
@@ -70,9 +72,14 @@ export function useNewBlogPostMediaActions({
 
   const discardStaleUpload = async (
     image: UploadedFeaturedImage | null,
-    uploadMerchantId: string
+    uploadMerchantId: string,
+    uploadGeneration?: number
   ) => {
-    if (activeMerchantId.current !== uploadMerchantId) {
+    const merchantChanged = activeMerchantId.current !== uploadMerchantId;
+    const superseded =
+      uploadGeneration !== undefined &&
+      uploadGeneration !== featuredUploadGeneration.current;
+    if (merchantChanged || superseded) {
       if (image) {
         await newBlogPostMediaUtils
           .deleteUploadedFeaturedImage(image, uploadMerchantId)
@@ -80,10 +87,13 @@ export function useNewBlogPostMediaActions({
             console.error('Error deleting stale uploaded image:', error)
           );
       }
-      throw new Error(
-        'Merchant changed while uploading media. Please try again.'
-      );
+      if (merchantChanged)
+        throw new Error(
+          'Merchant changed while uploading media. Please try again.'
+        );
+      return true;
     }
+    return false;
   };
 
   const handleFeaturedImageUpload = async (files: File[]) => {
@@ -100,6 +110,7 @@ export function useNewBlogPostMediaActions({
       });
       return;
     }
+    const uploadGeneration = ++featuredUploadGeneration.current;
     setIsUploading(true);
     const body = new FormData();
     body.append('file', file);
@@ -117,10 +128,14 @@ export function useNewBlogPostMediaActions({
       const data = newBlogPostMediaUtils.parseFeaturedImageUploadResponse(
         await response.json()
       );
-      await discardStaleUpload(
-        { path: data.path, variantPaths: data.variantPaths || {} },
-        uploadMerchantId
-      );
+      if (
+        await discardStaleUpload(
+          { path: data.path, variantPaths: data.variantPaths || {} },
+          uploadMerchantId,
+          uploadGeneration
+        )
+      )
+        return;
       if (uploadedFeaturedImage) {
         try {
           await newBlogPostMediaUtils.deleteUploadedFeaturedImage(
@@ -160,7 +175,11 @@ export function useNewBlogPostMediaActions({
         variant: 'destructive',
       });
     } finally {
-      if (activeMerchantId.current === uploadMerchantId) setIsUploading(false);
+      if (
+        activeMerchantId.current === uploadMerchantId &&
+        uploadGeneration === featuredUploadGeneration.current
+      )
+        setIsUploading(false);
     }
   };
 

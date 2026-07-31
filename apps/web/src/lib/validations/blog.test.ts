@@ -7,6 +7,28 @@ vi.mock('@/lib/sanitize', () => ({
 }));
 
 describe('blogPostSchema', () => {
+  it('accepts embedded product UUIDs', () => {
+    const productId = 'd5bc84b7-35c2-4e09-a5e7-6ebdd0fd1145';
+
+    expect(
+      blogPostSchema.safeParse({
+        title: 'Post with products',
+        embedded_products: [productId],
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects duplicate embedded product UUIDs', () => {
+    const productId = 'd5bc84b7-35c2-4e09-a5e7-6ebdd0fd1145';
+
+    expect(
+      blogPostSchema.safeParse({
+        title: 'Post with duplicate products',
+        embedded_products: [productId, productId],
+      }).success
+    ).toBe(false);
+  });
+
   describe('title', () => {
     it('requires title to be non-empty', () => {
       const result = blogPostSchema.safeParse({ title: '' });

@@ -25,8 +25,6 @@ import { buildProductImagesInput } from './build-product-images-input';
 import { scheduleNewProductCaches } from './schedule-new-product-caches';
 
 export async function createProduct(request: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid && response) return response;
   try {
     const supabase = createClient(await cookies());
     const {
@@ -36,6 +34,19 @@ export async function createProduct(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+    const parseResult = createProductSchema.safeParse(await request.json());
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatZodErrors(parseResult.error),
+        },
+        { status: 400 }
+      );
+    }
+    const body = parseResult.data;
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
       return NextResponse.json(
@@ -50,17 +61,6 @@ export async function createProduct(request: NextRequest) {
       .select('country')
       .eq('id', merchantId)
       .single();
-    const parseResult = createProductSchema.safeParse(await request.json());
-    if (!parseResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: formatZodErrors(parseResult.error),
-        },
-        { status: 400 }
-      );
-    }
-    const body = parseResult.data;
     const variantModel = inferProductVariantModel({
       variantModel: body.variant_model,
       variants: body.variants,

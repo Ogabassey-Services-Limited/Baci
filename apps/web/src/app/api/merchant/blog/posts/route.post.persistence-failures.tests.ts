@@ -1,6 +1,8 @@
+import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
 import { registerPostTestSetup, validPostData } from './post.test-support';
 import {
+  MERCHANT_ID,
   makeRequest,
   mockCheckCsrfProtection,
   mockSupabase,
@@ -38,6 +40,23 @@ describe('POST /api/merchant/blog/posts persistence failures', () => {
     expect(mockSupabase.insert).not.toHaveBeenCalled();
   });
 
+  it('returns 500 instead of masking an initial merchant lookup failure as not found', async () => {
+    mockSupabase.single.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'XX000', message: 'merchant lookup failed' },
+    });
+
+    const response = await POST(
+      makeRequest('/api/merchant/blog/posts', { body: validPostData })
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'Failed to load merchant details',
+    });
+    expect(mockSupabase.insert).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when the tenant-scoped slug lookup fails', async () => {
     mockSupabase.maybeSingle
       .mockResolvedValueOnce({
@@ -60,6 +79,23 @@ describe('POST /api/merchant/blog/posts persistence failures', () => {
     expect(await response.json()).toEqual({
       error: 'Failed to validate post slug',
     });
+    expect(mockSupabase.insert).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for malformed JSON instead of treating it as an internal error', async () => {
+    const request = new NextRequest(
+      `http://localhost:3000/api/merchant/blog/posts?merchantId=${MERCHANT_ID}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{',
+      }
+    );
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid JSON body' });
     expect(mockSupabase.insert).not.toHaveBeenCalled();
   });
 });

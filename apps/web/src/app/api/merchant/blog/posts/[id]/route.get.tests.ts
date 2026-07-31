@@ -114,9 +114,59 @@ describe('GET /api/merchant/blog/posts/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(200);
-      expect(json).toEqual(mockPost);
+      expect(json).toEqual({ ...mockPost, embedded_products: [] });
       expect(mockSupabase.eq).toHaveBeenCalledWith('id', POST_ID);
       expect(mockSupabase.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    });
+
+    it('returns tenant-scoped embedded product IDs so reopening the editor hydrates its selection', async () => {
+      const productIds = ['product-a', 'product-b'];
+      mockSupabase.single.mockResolvedValue({
+        data: { id: POST_ID, title: 'Test Post', slug: 'test-post' },
+        error: null,
+      });
+      mockSupabase.order.mockResolvedValue({
+        data: productIds.map((product_id) => ({ product_id })),
+        error: null,
+      });
+
+      const response = await GET(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'GET'),
+        makeParams(POST_ID)
+      );
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        id: POST_ID,
+        title: 'Test Post',
+        slug: 'test-post',
+        embedded_products: productIds,
+      });
+      expect(mockSupabase.from).toHaveBeenCalledWith('blog_post_products');
+      expect(mockSupabase.select).toHaveBeenCalledWith('product_id');
+      expect(mockSupabase.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+      expect(mockSupabase.eq).toHaveBeenCalledWith('blog_post_id', POST_ID);
+    });
+
+    it('fails closed when loading embedded product links fails', async () => {
+      mockSupabase.single.mockResolvedValue({
+        data: { id: POST_ID, title: 'Test Post', slug: 'test-post' },
+        error: null,
+      });
+      mockSupabase.order.mockResolvedValue({
+        data: null,
+        error: { message: 'link lookup failed' },
+      });
+
+      const response = await GET(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'GET'),
+        makeParams(POST_ID)
+      );
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({
+        error: 'Internal server error',
+      });
     });
 
     it('selects featured image metadata for edit form hydration', async () => {

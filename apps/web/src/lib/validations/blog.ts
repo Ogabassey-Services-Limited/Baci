@@ -16,6 +16,17 @@ const featuredImageDimensionSchema = z
   .nullable()
   .optional();
 
+const embeddedProductIdsSchema = z
+  .array(z.uuid('Embedded product IDs must be valid UUIDs'))
+  .superRefine((productIds, context) => {
+    if (new Set(productIds).size !== productIds.length) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Embedded products must not contain duplicate IDs',
+      });
+    }
+  });
+
 export const blogPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   slug: z
@@ -64,6 +75,7 @@ export const blogPostSchema = z.object({
     .max(50, 'Focus keyword must be 50 characters or less')
     .optional()
     .nullable(),
+  embedded_products: embeddedProductIdsSchema.optional(),
 });
 
 /**
@@ -95,6 +107,7 @@ export const createPostSchema = z.object({
   seo_title: z.string().max(70).optional(),
   seo_description: z.string().max(160).optional(),
   focus_keyword: z.string().max(50).optional(),
+  embedded_products: embeddedProductIdsSchema.optional(),
 });
 
 export type BlogPostInput = z.infer<typeof blogPostSchema>;

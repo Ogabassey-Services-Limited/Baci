@@ -19,7 +19,6 @@ type Toast = (message: {
   description?: string;
   variant?: 'destructive';
 }) => void;
-
 async function errorMessage(
   response: Response,
   fallback: string
@@ -41,7 +40,6 @@ async function errorMessage(
     return fallback;
   }
 }
-
 async function deleteImage(
   image: UploadedFeaturedImage,
   merchantId?: string
@@ -67,7 +65,6 @@ async function deleteImage(
     );
   }
 }
-
 async function uploadImage(
   file: File,
   purpose: 'featured' | 'inline',
@@ -95,7 +92,6 @@ async function uploadImage(
     variantPaths?: unknown;
   };
 }
-
 export function useFeaturedImageActions({
   merchantId,
   formData,
@@ -111,6 +107,7 @@ export function useFeaturedImageActions({
   const uploadedImage = useRef<UploadedFeaturedImage | null>(null);
   const activeMerchantId = useRef(merchantId);
   const previousMerchantId = useRef(merchantId);
+  const featuredUploadGeneration = useRef(0);
   activeMerchantId.current = merchantId;
 
   useEffect(() => {
@@ -123,6 +120,7 @@ export function useFeaturedImageActions({
       );
     }
     previousMerchantId.current = merchantId;
+    featuredUploadGeneration.current += 1;
     setIsUploading(false);
   }, [merchantId]);
 
@@ -134,18 +132,26 @@ export function useFeaturedImageActions({
 
   const rejectStaleCompletion = async (
     image: UploadedFeaturedImage | null,
-    uploadMerchantId: string
+    uploadMerchantId: string,
+    uploadGeneration?: number
   ) => {
-    if (activeMerchantId.current !== uploadMerchantId) {
+    const merchantChanged = activeMerchantId.current !== uploadMerchantId;
+    const superseded =
+      uploadGeneration !== undefined &&
+      uploadGeneration !== featuredUploadGeneration.current;
+    if (merchantChanged || superseded) {
       if (image) {
         await deleteImage(image, uploadMerchantId).catch((error) =>
           console.error('Error deleting stale uploaded image:', error)
         );
       }
-      throw new Error(
-        'Merchant changed while uploading media. Please try again.'
-      );
+      if (merchantChanged)
+        throw new Error(
+          'Merchant changed while uploading media. Please try again.'
+        );
+      return true;
     }
+    return false;
   };
 
   const handleFeaturedImageUpload = async (files: File[]) => {
@@ -162,6 +168,7 @@ export function useFeaturedImageActions({
       });
       return;
     }
+    const uploadGeneration = ++featuredUploadGeneration.current;
     setIsUploading(true);
     try {
       const data = await uploadImage(file, 'featured', uploadMerchantId);
@@ -169,7 +176,10 @@ export function useFeaturedImageActions({
         path: data.path,
         variantPaths: normalizeFeaturedImageVariantPaths(data.variantPaths),
       };
-      await rejectStaleCompletion(image, uploadMerchantId);
+      if (
+        await rejectStaleCompletion(image, uploadMerchantId, uploadGeneration)
+      )
+        return;
       if (uploadedImage.current) {
         try {
           await deleteImage(uploadedImage.current, uploadMerchantId);
@@ -203,7 +213,11 @@ export function useFeaturedImageActions({
         variant: 'destructive',
       });
     } finally {
-      if (activeMerchantId.current === uploadMerchantId) setIsUploading(false);
+      if (
+        activeMerchantId.current === uploadMerchantId &&
+        uploadGeneration === featuredUploadGeneration.current
+      )
+        setIsUploading(false);
     }
   };
 

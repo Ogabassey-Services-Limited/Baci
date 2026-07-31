@@ -6,4 +6,5 @@ import './route.post.creation-a.tests';
 import './route.post.creation-b.tests';
 import './route.post.prewarm.tests';
 import './route.post.errors.tests';
+import './route.post.embedded-products.tests';
 import './route.post.persistence-failures.tests';

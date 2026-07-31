@@ -55,7 +55,27 @@ export async function getBlogPost(
         { status: 500 }
       );
     }
-    return NextResponse.json(post);
+    const { data: productLinks, error: productLinksError } = await auth.supabase
+      .from('blog_post_products')
+      .select('product_id')
+      .eq('merchant_id', access.merchantId)
+      .eq('blog_post_id', id)
+      .order('created_at', { ascending: true });
+    if (productLinksError) {
+      console.error('Error fetching blog post product links:', {
+        merchantId: access.merchantId,
+        postId: id,
+        error: productLinksError,
+      });
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
+    const embeddedProducts = (productLinks ?? []).flatMap((link) =>
+      typeof link.product_id === 'string' ? [link.product_id] : []
+    );
+    return NextResponse.json({ ...post, embedded_products: embeddedProducts });
   } catch (error) {
     console.error('Blog post GET error:', error);
     return NextResponse.json(
