@@ -16,14 +16,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import {
-  type Dispatch,
-  type SetStateAction,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { StoreBuildStatusCard } from '@/components/dashboard/store-build-status-card';
 import { BentoCard } from '@/components/ui/bento-card';
@@ -33,7 +26,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency-utils';
-import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import { cn } from '@/lib/utils';
 import {
   type DashboardMetrics,
@@ -43,6 +35,7 @@ import {
   type MonthlyChartData,
   type RecentSale,
 } from './actions';
+import { useDashboardPublishToggle } from './use-dashboard-publish-toggle';
 
 // Dynamically import chart wrapper components (correct pattern)
 const RevenueSparkline = dynamic(
@@ -106,92 +99,6 @@ function useIsMounted() {
   );
 }
 
-interface PublishToggleContext {
-  activeMerchantId: { current: string | undefined };
-  isPublished: boolean | undefined | null;
-  merchantId: string | undefined;
-  toast: ReturnType<typeof useToast>['toast'];
-  reloadMerchant: ReturnType<typeof useMerchant>['reloadMerchant'];
-  router: ReturnType<typeof useRouter>;
-  setPublishingMerchantRequests: Dispatch<
-    SetStateAction<Record<string, number>>
-  >;
-}
-
-// Module-scope helper: try/finally inside the component body bails React
-// Compiler out of memoizing the whole page.
-async function togglePublishState({
-  activeMerchantId,
-  isPublished,
-  merchantId,
-  toast,
-  reloadMerchant,
-  router,
-  setPublishingMerchantRequests,
-}: PublishToggleContext) {
-  if (!merchantId) {
-    toast({
-      title: 'Store unavailable',
-      description: 'Reload the dashboard and try again.',
-      variant: 'destructive',
-    });
-    return;
-  }
-
-  const submittedMerchantId = merchantId;
-  setPublishingMerchantRequests((current) => ({
-    ...current,
-    [submittedMerchantId]: (current[submittedMerchantId] ?? 0) + 1,
-  }));
-  try {
-    const response = await requestMerchantPublish(
-      submittedMerchantId,
-      isPublished
-    );
-    const data = await response.json();
-
-    if (activeMerchantId.current !== submittedMerchantId) return;
-
-    if (!response.ok) {
-      toast({
-        title: data.error || 'Failed to update store status',
-        description: data.missingItems?.join(', ') || data.message,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    toast({
-      title: isPublished ? 'Store Unpublished' : 'Store Published!',
-      description: isPublished
-        ? 'Your store is now offline.'
-        : 'Your store is now live and accessible to customers.',
-    });
-    reloadMerchant();
-    router.refresh();
-  } catch (_error) {
-    if (activeMerchantId.current !== submittedMerchantId) return;
-    toast({
-      title: 'Error',
-      description: 'Failed to update store status. Please try again.',
-      variant: 'destructive',
-    });
-  } finally {
-    setPublishingMerchantRequests((current) => {
-      const pendingRequestCount = current[submittedMerchantId] ?? 0;
-      if (pendingRequestCount > 1) {
-        return {
-          ...current,
-          [submittedMerchantId]: pendingRequestCount - 1,
-        };
-      }
-      const next = { ...current };
-      delete next[submittedMerchantId];
-      return next;
-    });
-  }
-}
-
 export default function DashboardClientPage({
   initialMetrics,
   initialRecentSales,
@@ -203,14 +110,14 @@ export default function DashboardClientPage({
   // React hydration requires the first browser render to match the server.
   // Render the mounted-only dashboard content on the second client pass.
   const mounted = useIsMounted();
-  const [publishingMerchantRequests, setPublishingMerchantRequests] = useState<
-    Record<string, number>
-  >({});
-  const activeMerchantId = useRef(merchant?.id);
-  activeMerchantId.current = merchant?.id;
-  const isPublishing = Boolean(
-    merchant?.id && publishingMerchantRequests[merchant.id]
-  );
+  const { isPublishing, togglePublish: handlePublishToggle } =
+    useDashboardPublishToggle({
+      isPublished: merchant?.is_published,
+      merchantId: merchant?.id,
+      refresh: router.refresh,
+      reloadMerchant,
+      toast,
+    });
   // TODO: These will be used for metric selector dropdown
   // const [heroMetric, setHeroMetric] = useState<'revenue' | 'orders' | 'visitors'>('revenue');
   // const [timePeriod, setTimePeriod] = useState('This Week');
@@ -254,17 +161,6 @@ export default function DashboardClientPage({
         });
     }
   }, [merchant?.id, initialMetrics, initialRecentSales, initialChartData]);
-
-  const handlePublishToggle = () =>
-    togglePublishState({
-      activeMerchantId,
-      isPublished: merchant?.is_published,
-      merchantId: merchant?.id,
-      toast,
-      reloadMerchant,
-      router,
-      setPublishingMerchantRequests,
-    });
 
   if (!mounted) return null;
 

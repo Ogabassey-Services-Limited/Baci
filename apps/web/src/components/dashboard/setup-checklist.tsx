@@ -27,11 +27,18 @@ export function SetupChecklist({
 }: SetupChecklistProps) {
   const { toast } = useToast();
   const [readiness, setReadiness] = useState<WebStoreReadiness | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingMerchantId, setLoadingMerchantId] = useState(merchantId);
+  const [loadError, setLoadError] = useState<{
+    merchantId: string;
+    message: string;
+  } | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [publishing, setPublishing] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [publishingMerchantIds, setPublishingMerchantIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const [dismissedMerchantId, setDismissedMerchantId] = useState<
+    string | undefined
+  >();
   const [showAll, setShowAll] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const activeMerchantId = useRef(merchantId);
@@ -59,24 +66,26 @@ export function SetupChecklist({
   useEffect(() => {
     setReadiness(null);
     setLoadError(null);
-    setPublishing(false);
-    setDismissed(false);
     setShowAll(false);
     setIsSheetOpen(false);
-    setLoading(Boolean(merchantId));
+    setLoadingMerchantId(merchantId);
     if (!merchantId) return;
 
     let active = true;
+    const requestedMerchantId = merchantId;
     const cache: RequestCache = reloadToken > 0 ? 'reload' : 'no-store';
 
     fetch(
-      `/api/merchant/readiness?merchantId=${encodeURIComponent(merchantId)}`,
+      `/api/merchant/readiness?merchantId=${encodeURIComponent(requestedMerchantId)}`,
       { cache }
     )
       .then(async (response) => {
         if (!response.ok) throw new Error('Failed to fetch readiness');
         const data: unknown = await response.json();
-        if (!isWebStoreReadiness(data) || data.merchantId !== merchantId) {
+        if (
+          !isWebStoreReadiness(data) ||
+          data.merchantId !== requestedMerchantId
+        ) {
           throw new Error('Invalid readiness payload');
         }
         if (active) {
@@ -86,10 +95,19 @@ export function SetupChecklist({
       })
       .catch((error: unknown) => {
         console.error('Failed to fetch readiness:', error);
-        if (active) setLoadError('Failed to load your setup checklist.');
+        if (active) {
+          setLoadError({
+            merchantId: requestedMerchantId,
+            message: 'Failed to load your setup checklist.',
+          });
+        }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) {
+          setLoadingMerchantId((current) =>
+            current === requestedMerchantId ? undefined : current
+          );
+        }
       });
 
     return () => {
@@ -97,18 +115,22 @@ export function SetupChecklist({
     };
   }, [merchantId, reloadToken]);
 
+  const currentReadiness =
+    readiness?.merchantId === merchantId ? readiness : null;
+  const isLoading = Boolean(merchantId) && loadingMerchantId === merchantId;
+  const currentLoadError =
+    loadError && loadError.merchantId === merchantId ? loadError.message : null;
+  const publishing = merchantId ? publishingMerchantIds.has(merchantId) : false;
+  const dismissed = dismissedMerchantId === merchantId;
+
   const retryLoad = () => {
-    setLoading(true);
+    setLoadingMerchantId(merchantId);
     setLoadError(null);
     setReloadToken((token) => token + 1);
   };
 
   const handlePublish = () => {
-    if (
-      !merchantId ||
-      readiness?.merchantId !== merchantId ||
-      !readiness.isReady
-    ) {
+    if (!merchantId || !currentReadiness?.isReady) {
       toast({
         variant: 'destructive',
         title: 'Cannot publish store',
@@ -117,8 +139,10 @@ export function SetupChecklist({
       return;
     }
 
-    setPublishing(true);
     const submittedMerchantId = merchantId;
+    setPublishingMerchantIds((current) =>
+      new Set(current).add(submittedMerchantId)
+    );
     requestMerchantPublish(submittedMerchantId, false)
       .then((response) => {
         if (!response.ok) throw new Error('Failed to publish');
@@ -144,29 +168,38 @@ export function SetupChecklist({
         });
       })
       .finally(() => {
-        if (activeMerchantId.current === submittedMerchantId) {
-          setPublishing(false);
-        }
+        setPublishingMerchantIds((current) => {
+          const next = new Set(current);
+          next.delete(submittedMerchantId);
+          return next;
+        });
       });
   };
 
-  if (loading) return <SetupChecklistLoading compact={compact} />;
-  if (loadError)
+  if (isLoading) return <SetupChecklistLoading compact={compact} />;
+  if (currentLoadError)
     return (
       <SetupChecklistLoadError
         compact={compact}
-        error={loadError}
+        error={currentLoadError}
         onRetry={retryLoad}
       />
     );
-  if (!readiness) return null;
-  if (readiness.isPublished && readiness.isReady && dismissible && dismissed) {
+  if (!currentReadiness) return null;
+  if (
+    currentReadiness.isPublished &&
+    currentReadiness.isReady &&
+    dismissible &&
+    dismissed
+  ) {
     return null;
   }
 
-  const incompleteItems = readiness.items.filter((item) => !item.completed);
+  const incompleteItems = currentReadiness.items.filter(
+    (item) => !item.completed
+  );
   const displayItems = showAll
-    ? readiness.items
+    ? currentReadiness.items
     : compact
       ? incompleteItems.slice(0, 3)
       : incompleteItems;
@@ -177,7 +210,7 @@ export function SetupChecklist({
     compact,
     displayItems,
     incompleteItems,
-    readiness,
+    readiness: currentReadiness,
     requiredIncomplete,
     setShowAll,
     showAll,
@@ -195,7 +228,7 @@ export function SetupChecklist({
       <SetupChecklistDesktopCard
         {...checklistProps}
         dismissible={dismissible}
-        onDismiss={() => setDismissed(true)}
+        onDismiss={() => setDismissedMerchantId(merchantId)}
         onPublish={handlePublish}
         publishing={publishing}
       />
