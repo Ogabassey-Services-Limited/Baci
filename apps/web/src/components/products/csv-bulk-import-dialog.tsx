@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface ImportResultData {
   success: number;
@@ -47,7 +48,7 @@ async function uploadProductCsv(file: File): Promise<BulkImportResult> {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await fetch('/api/products/bulk-import', {
+    const response = await fetchWithCsrf('/api/products/bulk-import', {
       method: 'POST',
       body: formData,
       signal: controller.signal,

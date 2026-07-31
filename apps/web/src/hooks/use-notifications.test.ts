@@ -1,6 +1,12 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: mockFetchWithCsrf,
+}));
+
 // Create mock instances before mocking modules
 const mockChannel = {
   on: vi.fn().mockReturnThis(),
@@ -73,6 +79,9 @@ beforeEach(() => {
       cursor: null,
     }),
   });
+  mockFetchWithCsrf.mockImplementation((...args: Parameters<typeof fetch>) =>
+    global.fetch(...args)
+  );
 });
 
 describe('useNotifications', () => {
@@ -636,6 +645,10 @@ describe('useNotifications', () => {
         await result.current.markAllAsRead();
 
         // Assert
+        expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+          '/api/notifications/mark-all-read',
+          expect.objectContaining({ method: 'PATCH' })
+        );
         expect(global.fetch).toHaveBeenNthCalledWith(
           2,
           '/api/notifications/mark-all-read',

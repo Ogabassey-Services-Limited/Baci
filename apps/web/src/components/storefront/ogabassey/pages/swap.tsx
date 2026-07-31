@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface AIAnalysisResult {
   model: string;
@@ -33,7 +34,7 @@ async function requestDeviceGrading(videoFile: File): Promise<AIAnalysisResult> 
   const formData = new FormData();
   formData.append('video', videoFile);
 
-  const res = await fetch('/api/ai/grade-device', {
+  const res = await fetchWithCsrf('/api/ai/grade-device', {
     method: 'POST',
     body: formData,
   });
