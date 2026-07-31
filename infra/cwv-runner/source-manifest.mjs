@@ -17,7 +17,7 @@ import { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
 export { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
 
 const PREFIX = 'infra/cwv-runner/';
-const LIMITS = { archive: 16_777_216, members: 512, member: 1_048_576 };
+const LIMITS = { archive: 16_777_216, members: 1024, member: 1_048_576 };
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const fail = (message) => {

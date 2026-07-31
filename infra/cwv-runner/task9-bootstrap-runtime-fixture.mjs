@@ -40,13 +40,22 @@ function checksum(header) {
 function tarEntry(path, bytes, mode) {
   const header = Buffer.alloc(512);
   const slash = path.lastIndexOf('/');
-  header.write(path.slice(slash + 1), 0);
-  header.write(path.slice(0, slash), 345);
+  const [prefix, name] =
+    Buffer.byteLength(path) <= 100
+      ? ['', path]
+      : [path.slice(0, slash), path.slice(slash + 1)];
+  header.write(name, 0);
+  header.write(prefix, 345);
   octal(header, 100, 8, Number.parseInt(mode.slice(3), 8));
+  octal(header, 108, 8, 0);
+  octal(header, 116, 8, 0);
   octal(header, 124, 12, bytes.length);
+  octal(header, 136, 12, 0);
   header.write('ustar\0', 257);
   header.write('00', 263);
-  header.write('0', 156);
+  octal(header, 329, 8, 0);
+  octal(header, 337, 8, 0);
+  header[156] = 0;
   checksum(header);
   return Buffer.concat([
     header,

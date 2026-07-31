@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { canonicalJson } from './canonical-json.mjs';
 
-const LIMITS = { archive: 16_777_216, member: 1_048_576, members: 512 };
+const LIMITS = { archive: 16_777_216, member: 1_048_576, members: 1024 };
 const fail = (message) => {
   throw new TypeError(message);
 };
@@ -89,6 +89,15 @@ export function createSourceArchive(entries) {
     )
   )
     fail('invalid archive members');
+  const archiveBytes = members.reduce(
+    (total, entry) =>
+      total +
+      512 +
+      entry.bytes.length +
+      ((512 - (entry.bytes.length % 512)) % 512),
+    1024
+  );
+  if (archiveBytes > LIMITS.archive) fail('archive exceeds size limit');
   const archive = Buffer.concat([
     ...members.flatMap((entry) => [
       header(entry),
@@ -97,7 +106,7 @@ export function createSourceArchive(entries) {
     ]),
     Buffer.alloc(1024),
   ]);
-  if (archive.length > LIMITS.archive) fail('archive exceeds size limit');
+  if (archive.length !== archiveBytes) fail('archive size mismatch');
   return archive;
 }
 const zeros = (value) => value.every((byte) => byte === 0);
@@ -168,15 +177,23 @@ export function verifySourceArchive(archive, expectedEntries) {
     const padded = start + Math.ceil(size / 512) * 512;
     if (padded > archive.length || !zeros(archive.subarray(end, padded)))
       fail('invalid tar padding');
+    const memberMode =
+      parsedMode === 0o644
+        ? '100644'
+        : parsedMode === 0o755
+          ? '100755'
+          : fail('invalid tar mode');
+    const memberBytes = archive.subarray(start, end);
+    if (
+      !head.equals(
+        header({ path: memberPath, mode: memberMode, bytes: memberBytes })
+      )
+    )
+      fail('noncanonical tar header');
     actual.push({
       path: memberPath,
-      mode:
-        parsedMode === 0o644
-          ? '100644'
-          : parsedMode === 0o755
-            ? '100755'
-            : fail('invalid tar mode'),
-      blobSha256: sha256(archive.subarray(start, end)),
+      mode: memberMode,
+      blobSha256: sha256(memberBytes),
     });
     offset = padded;
   }
