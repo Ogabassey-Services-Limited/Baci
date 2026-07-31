@@ -1,0 +1,13 @@
+{
+  "name": "@baci/cloudflare-evidence-qualification-worker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --config ../../packages/shared/vitest.config.ts"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9",
+    "wrangler": "4.115.0"
+  }
+}

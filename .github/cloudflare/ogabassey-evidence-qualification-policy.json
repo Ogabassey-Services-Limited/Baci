@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "operationalGate": "B",
+  "mode": "read_only_until_owner_approved_isolated_fixture",
+  "officialDocumentation": {
+    "workersLogs": "https://developers.cloudflare.com/workers/observability/logs/workers-logs/",
+    "versionMetadata": "https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/",
+    "versionDetail": "https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/get/"
+  },
+  "expectedWorkersLogsContract": {
+    "freeEventsPerUtcDay": "200000",
+    "paidIncludedEventsPerBillingMonth": "20000000",
+    "paidOverageUsdPerMillion": "0.60",
+    "forcedSamplingDailyThreshold": "5000000000",
+    "forcedSamplingRate": "0.01"
+  },
+  "driftDisposition": "STOP",
+  "requiresAuthenticatedEntitlementReceipt": true
+}
