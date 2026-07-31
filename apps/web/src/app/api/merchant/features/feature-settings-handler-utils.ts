@@ -1,9 +1,9 @@
-import {
-  revalidateFeatures,
-  revalidateMerchant,
-  revalidateRepairsCatalog,
-} from '@/lib/cache-revalidation';
 import type { MerchantFeatureSettings } from './merchant-feature-settings-contract';
+
+export type MerchantFeatureCacheRevalidator = (
+  merchantId: string,
+  updates: Record<string, unknown>
+) => void;
 
 const growthIntegrationSettingsFields = new Set<keyof MerchantFeatureSettings>([
   'google_analytics_id',
@@ -36,15 +36,4 @@ export function isUniqueViolation(error: unknown): boolean {
     'code' in error &&
     error.code === '23505'
   );
-}
-
-export function revalidateMerchantFeatureCaches(
-  merchantId: string,
-  updates: Record<string, unknown>
-) {
-  revalidateFeatures(merchantId);
-  revalidateMerchant(merchantId);
-  if ('repairs_catalog_enabled' in updates) {
-    revalidateRepairsCatalog(merchantId);
-  }
 }

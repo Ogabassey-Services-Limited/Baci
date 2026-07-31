@@ -15,7 +15,7 @@ vi.mock('@/lib/csrf', () => ({
     mocks.checkCsrfProtection(...args),
 }));
 
-import { putFeatureSettings } from './put-feature-settings';
+import { createPutFeatureSettings } from './put-feature-settings';
 
 describe('putFeatureSettings', () => {
   beforeEach(() => {
@@ -28,6 +28,7 @@ describe('putFeatureSettings', () => {
   });
 
   it('rejects unauthenticated replacements before invoking CSRF validation', async () => {
+    const putFeatureSettings = createPutFeatureSettings(vi.fn());
     const response = await putFeatureSettings(
       new NextRequest('http://localhost/api/merchant/features', {
         body: JSON.stringify({ loyalty_enabled: true }),

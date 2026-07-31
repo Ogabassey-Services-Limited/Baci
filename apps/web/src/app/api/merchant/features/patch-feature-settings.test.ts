@@ -15,7 +15,7 @@ vi.mock('@/lib/csrf', () => ({
     mocks.checkCsrfProtection(...args),
 }));
 
-import { patchFeatureSettings } from './patch-feature-settings';
+import { createPatchFeatureSettings } from './patch-feature-settings';
 
 describe('patchFeatureSettings', () => {
   beforeEach(() => {
@@ -28,6 +28,7 @@ describe('patchFeatureSettings', () => {
   });
 
   it('rejects unauthenticated updates before invoking CSRF validation', async () => {
+    const patchFeatureSettings = createPatchFeatureSettings(vi.fn());
     const response = await patchFeatureSettings(
       new NextRequest('http://localhost/api/merchant/features', {
         body: JSON.stringify({ loyalty_enabled: true }),
