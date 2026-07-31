@@ -11,6 +11,12 @@ INSERT INTO auth.users (
   ('00000000-0000-4000-a100-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'c1-auth-inactive@example.test', 'not-used', now(), '{}'::jsonb, '{}'::jsonb, now(), now()),
   ('00000000-0000-4000-a100-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'c1-auth-dual@example.test', 'not-used', now(), '{}'::jsonb, '{}'::jsonb, now(), now());
 
+SELECT set_config(
+  'app.audit_actor_user_id',
+  '00000000-0000-4000-a100-000000000001',
+  true
+);
+
 INSERT INTO public.merchants (id, user_id, email, business_name, slug, is_platform_admin) VALUES
   ('00000000-0000-4000-b100-000000000001', '00000000-0000-4000-a100-000000000001', 'c1-auth-owner-merchant@example.test', 'C1 Auth Owner', 'c1-auth-owner', false),
   ('00000000-0000-4000-b100-000000000002', '00000000-0000-4000-a100-000000000002', 'c1-auth-platform-merchant@example.test', 'C1 Auth Platform', 'c1-auth-platform', true),

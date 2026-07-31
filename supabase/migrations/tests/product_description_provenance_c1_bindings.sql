@@ -8,6 +8,12 @@ INSERT INTO auth.users (
   ('00000000-0000-4000-a200-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'c1-binding-owner@example.test', 'not-used', now(), '{}'::jsonb, '{}'::jsonb, now(), now()),
   ('00000000-0000-4000-a200-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'c1-binding-staff@example.test', 'not-used', now(), '{}'::jsonb, '{}'::jsonb, now(), now());
 
+SELECT set_config(
+  'app.audit_actor_user_id',
+  '00000000-0000-4000-a200-000000000001',
+  true
+);
+
 INSERT INTO public.merchants (id, user_id, email, business_name, slug) VALUES
   ('00000000-0000-4000-b200-000000000001', '00000000-0000-4000-a200-000000000001', 'c1-binding-one@example.test', 'C1 Binding One', 'c1-binding-one'),
   ('00000000-0000-4000-b200-000000000002', '00000000-0000-4000-a200-000000000002', 'c1-binding-two@example.test', 'C1 Binding Two', 'c1-binding-two');

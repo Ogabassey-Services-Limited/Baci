@@ -182,12 +182,15 @@ export async function runProductDescriptionAttestationGrantConcurrency(
       environment,
       psqlBin,
       `
+BEGIN;
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 VALUES (${literal(userId)}::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${literal(`c1-concurrency-${userId}@example.test`)}, 'not-used', now(), '{}'::jsonb, '{}'::jsonb, now(), now());
+SELECT set_config('app.audit_actor_user_id', ${literal(userId)}, true);
 INSERT INTO public.merchants (id, user_id, email, business_name, slug)
 VALUES (${literal(merchantId)}::uuid, ${literal(userId)}::uuid, ${literal(`c1-concurrency-${userId}@example.test`)}, ${literal(`C1 Concurrency ${userId}`)}, ${literal(`c1-concurrency-${userId}`)});
 INSERT INTO public.products (id, merchant_id, name, price, description, status, description_digital_source_type, description_provenance_sha256)
 VALUES (${literal(productId)}::uuid, ${literal(merchantId)}::uuid, 'C1 concurrency product', 100, 'C1 concurrency old bytes', 'draft', 'default', repeat('0', 64));
+COMMIT;
 `
     );
     await runScenario({
@@ -211,6 +214,7 @@ VALUES (${literal(productId)}::uuid, ${literal(merchantId)}::uuid, 'C1 concurren
       environment,
       psqlBin,
       `
+SELECT set_config('app.audit_actor_user_id', ${literal(userId)}, false);
 DELETE FROM private.product_description_attestation_grants WHERE merchant_id = ${literal(merchantId)}::uuid;
 DELETE FROM public.products WHERE id = ${literal(productId)}::uuid;
 DELETE FROM public.merchants WHERE id = ${literal(merchantId)}::uuid;
