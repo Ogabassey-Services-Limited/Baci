@@ -1,6 +1,6 @@
 # Ogabassey Product SEO and AI Visibility Optimization Implementation Plan
 
-> **Revision 37 — current-main PDP ownership, pre-guard legacy reconciliation, grant-valid compensation, complete writer closure, and corrected provider measurement on 2026-07-31.**
+> **Revision 38 — verified domain-property provider identity, current-main PDP ownership, pre-guard legacy reconciliation, grant-valid compensation, and complete writer closure on 2026-07-31.**
 >
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -136,7 +136,7 @@ Complete this evidence-only step before creating the Task 0 writer-checker prepa
 
 The receipt is descriptive and cannot select final treatment/control members. Final eligibility, research, matching, and owner approval still occur in Tasks 2, 7, and 8.
 
-**Google Generative AI report:** open the dedicated report for the exact `https://ogabassey.com/` Search Console property and record one access state: `available`, `unavailable_reason_provider_undisclosed`, or `indeterminate_error`. Google documents rollout and insufficient impressions as possible reasons for absence but does not provide a reliable UI discriminator; use a more specific reason only when explicit provider/account evidence proves it. When available, export the unfiltered property chart and Pages table for a fixed recent 28-day non-preliminary access sample and its immediately preceding 28-day comparator, excluding dotted/preliminary dates. These Task 0 files prove access and reveal suppression/volume; they are not the treatment baseline, which is refreshed immediately before execution in Task 8. Record property, PT dates, selected dimension, UI export UTC, report help-page accessed UTC, chart/table file hashes, row count, whether the 1,000-row table limit may have truncated page evidence, and a screenshot hash of the configured report. Provider exports remain immutable ticket attachments.
+**Google Generative AI report:** open the dedicated report for the exact verified Search Console domain property `sc-domain:ogabassey.com` and record one access state: `available`, `unavailable_reason_provider_undisclosed`, or `indeterminate_error`. `https://ogabassey.com/` remains the canonical storefront base URL, not the API property identifier. Google documents rollout and insufficient impressions as possible reasons for absence but does not provide a reliable UI discriminator; use a more specific reason only when explicit provider/account evidence proves it. When available, export the unfiltered property chart and Pages table for a fixed recent 28-day non-preliminary access sample and its immediately preceding 28-day comparator, excluding dotted/preliminary dates. These Task 0 files prove access and reveal suppression/volume; they are not the treatment baseline, which is refreshed immediately before execution in Task 8. Record property, PT dates, selected dimension, UI export UTC, report help-page accessed UTC, chart/table file hashes, row count, whether the 1,000-row table limit may have truncated page evidence, and a screenshot hash of the configured report. Provider exports remain immutable ticket attachments.
 
 The report measures impressions from supported Google Search generative-AI features, currently including AI Overviews and AI Mode. Those impressions are included within the regular Performance report's Web search type, so `type=web` is not an AI-excluded lane and the two outputs are neither independent nor additive. The dedicated report does not expose CTR/click evidence and cannot replace Search Analytics. If unavailable, record `google_generative_ai_visibility=unmeasured`; Search results performance must not be relabelled as AI visibility. Lack of access does not block the SEO pilot.
 
@@ -258,7 +258,7 @@ Production gate: no-JavaScript source HTML and normal-browser verification on re
 
 All opportunity, control-preperiod, day-28, and day-56 extraction uses:
 
-- property `https://ogabassey.com/`;
+- property `sc-domain:ogabassey.com`, as returned by the authenticated Search Console Sites resource; canonical page URLs remain under `https://ogabassey.com/`;
 - endpoint `POST https://www.googleapis.com/webmasters/v3/sites/{siteUrl}/searchAnalytics/query`;
 - OAuth scope `webmasters.readonly`;
 - `type=web`;
@@ -439,7 +439,7 @@ pnpm --filter @baci/web exec vitest run \
   src/scripts/ogabassey-gsc-evidence.test.ts \
   src/scripts/ogabassey-pilot-artifacts.test.ts
 pnpm --filter @baci/web exec tsx src/scripts/ogabassey-gsc-evidence.ts opportunity \
-  --property https://ogabassey.com/ \
+  --property sc-domain:ogabassey.com \
   --oauth-token-env GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN \
   --output-dir ../../docs/seo
 OPPORTUNITY_PATH="${OPPORTUNITY_PATH:?set exact reviewed opportunity path}"
@@ -1228,7 +1228,7 @@ MANIFEST_PATH="${MANIFEST_PATH:?set approved manifest path}"
 MANIFEST_SHA256="${MANIFEST_SHA256:?set approved manifest SHA-256}"
 GSC_TOKEN="${GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN:?set readonly Search Console token}"
 pnpm --filter @baci/web exec tsx src/scripts/ogabassey-gsc-evidence.ts controls \
-  --property https://ogabassey.com/ \
+  --property sc-domain:ogabassey.com \
   --oauth-token-env GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN \
   --manifest "$MANIFEST_PATH" \
   --manifest-sha256 "$MANIFEST_SHA256" \
@@ -1478,7 +1478,7 @@ pnpm --filter @baci/web exec vitest run \
   src/scripts/ogabassey-gsc-evidence.test.ts \
   src/scripts/ogabassey-pilot-analysis.test.ts
 pnpm --filter @baci/web exec tsx src/scripts/ogabassey-gsc-evidence.ts day28 \
-  --property https://ogabassey.com/ \
+  --property sc-domain:ogabassey.com \
   --oauth-token-env GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN \
   --cohort "$COHORT_PATH" \
   --cohort-sha256 "$COHORT_SHA256" \
@@ -1537,7 +1537,7 @@ PRE_EXTRACTION_INTEGRITY_PATH="${PRE_EXTRACTION_INTEGRITY_PATH:?set sealed day56
 PRE_EXTRACTION_INTEGRITY_SHA256="${PRE_EXTRACTION_INTEGRITY_SHA256:?set expected day56-pre-extraction SHA-256}"
 GSC_TOKEN="${GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN:?set readonly Search Console token}"
 pnpm --filter @baci/web exec tsx src/scripts/ogabassey-gsc-evidence.ts extend56 \
-  --property https://ogabassey.com/ \
+  --property sc-domain:ogabassey.com \
   --oauth-token-env GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN \
   --day28-analysis "$DAY28_ANALYSIS_PATH" \
   --expected-day28-sha256 "$DAY28_ANALYSIS_SHA256" \
@@ -1847,8 +1847,9 @@ Before implementation authorization, re-run this checklist against current main:
 - **Revision 35:** Added a fail-fast GSC volume gate; made the dedicated Search Console Generative AI report the only Google AI-visibility outcome source; separated its impression-only, suppression/truncation-aware exports from ordinary Web Search CTR DiD; replaced assumed OpenAI compatibility with conditional official Stable flat-file, variant-row, SFTP, and provider-receipt requirements; labelled existing OpenAI routes legacy/internal; and required receipted first-party Ogabassey observations instead of invented local expertise.
 - **Revision 36:** Replaced the deployment-incompatible timed freeze with a normal prepared-guard migration, live CAS reconciliation, classified deployment, and one state-only `SERIALIZABLE` C3 transaction; added the mobile-admin/RPC writer, DB-enforced exact-byte default attestations, and generated Supabase type/replay obligations; made generative provenance non-launderable; corrected Search Analytics/Generative AI overlap, aggregation, suppression, Merchant diagnostics, and OpenAI eligibility claims; added server-HTML/CWV regression gates, rejected commodity rewrites, refreshed volatile evidence, isolated Boundary A from the full 56-day pilot baseline, revalidated treatment eligibility before manifest approval, and completed the focused feed-test map.
 - **Revision 37:** Rebased Boundary A onto the current `pdp/critical-shell` and server-details ownership, made strict RED-before-GREEN tests explicit, moved historical legacy CAS reconciliation ahead of the prepared guard, removed the impossible pilot `default` branch, and required a fresh incident-approved one-use grant for any compensation that restores `default` bytes.
-- **Current status:** **Sol preflight blockers addressed in Revision 37; scoped Sol re-review required before production implementation.** This remains implementation-authorized but gate-controlled: no production code, migration, deploy, or product mutation begins until that preflight is clean, and later deployment/data-write gates still require their exact owner approvals.
+- **Revision 38:** Replaced the assumed URL-prefix Search Console property with the authenticated Sites-resource identity `sc-domain:ogabassey.com` while preserving `https://ogabassey.com/` as the canonical page base URL.
+- **Current status:** **Sol preflight blockers are resolved; Revision 38 needs only a scoped provider-identity re-review before Task 0 implementation.** This remains implementation-authorized but gate-controlled: no production code, migration, deploy, or product mutation begins until that check is clean, and later deployment/data-write gates still require their exact owner approvals.
 
 ## Execution Handoff
 
-Revision 37 carries the owner's implementation authorization, but not migration/deployment/catalog-write authorization. Continue Task 0 from the refreshed `origin/main` isolated worktree only after scoped Sol preflight approval; preserve the dirty root. Treat every later owner approval and provider receipt as specific to the exact hashes named in the reviewed PR/ticket. Stop on any path drift, source ambiguity, missing variant evidence, GSC request gap/cap, infeasible measurement volume, mistaken Google AI-report identity, OpenAI provider/country/onboarding ambiguity, unexpected default-feed loss, unsafe rollback identity, prepared-guard mismatch, fixture mismatch, cohort fingerprint drift, CAS failure, or provider-result ambiguity. Do not recreate any machinery explicitly removed by the scope correction without a separate owner-approved scope change.
+Revision 38 carries the owner's implementation authorization, but not migration/deployment/catalog-write authorization. Continue Task 0 from the refreshed `origin/main` isolated worktree only after scoped Sol preflight approval; preserve the dirty root. Treat every later owner approval and provider receipt as specific to the exact hashes named in the reviewed PR/ticket. Stop on any path drift, source ambiguity, missing variant evidence, GSC request gap/cap, infeasible measurement volume, mistaken Google AI-report identity, OpenAI provider/country/onboarding ambiguity, unexpected default-feed loss, unsafe rollback identity, prepared-guard mismatch, fixture mismatch, cohort fingerprint drift, CAS failure, or provider-result ambiguity. Do not recreate any machinery explicitly removed by the scope correction without a separate owner-approved scope change.
