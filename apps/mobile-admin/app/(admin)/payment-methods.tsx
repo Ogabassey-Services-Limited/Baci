@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
+import { useRef } from 'react';
 import {
   Alert,
   Linking,
@@ -23,6 +24,7 @@ import { styles } from '@/components/payment-methods/payment-methods.styles';
 import { fetchPaymentSettings } from '@/components/payment-methods/payment-settings-query';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useMerchantScopedPending } from '@/hooks/useMerchantScopedPending';
 import { useTheme } from '@/hooks/useTheme';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { supabase } from '@/lib/supabase';
@@ -41,6 +43,9 @@ export default function PaymentMethodsScreen() {
     error: merchantError,
   } = useMerchant();
   const queryClient = useQueryClient();
+  const activeMerchantIdRef = useRef(merchant?.id ?? null);
+  activeMerchantIdRef.current = merchant?.id ?? null;
+  const togglePending = useMerchantScopedPending();
   const screenOptions = {
     title: 'Payment Methods',
     headerStyle: { backgroundColor: colors.background },
@@ -76,33 +81,37 @@ export default function PaymentMethodsScreen() {
   const toggleMutation = useMutation({
     mutationFn: async ({
       field,
+      merchantId,
+      settingsId,
       value,
     }: {
       field: PaymentMethodField;
+      merchantId: string;
+      settingsId: string;
       value: boolean;
     }) => {
-      if (!settings?.id) throw new Error('No settings found');
       const { error } = await supabase
         .from('merchant_feature_settings')
         .update({ [field]: value })
-        .eq('id', settings.id);
+        .eq('id', settingsId)
+        .eq('merchant_id', merchantId);
       if (error) throw error;
     },
-    onMutate: async ({ field, value }) => {
+    onMutate: async ({ field, merchantId, value }) => {
       // Cancel any outgoing refetches so they don't overwrite our optimistic update
       await queryClient.cancelQueries({
-        queryKey: ['payment-settings', merchant?.id],
+        queryKey: ['payment-settings', merchantId],
       });
 
       // Snapshot the previous value
       const previousSettings = queryClient.getQueryData([
         'payment-settings',
-        merchant?.id,
+        merchantId,
       ]);
 
       // Optimistically update to the new value
       queryClient.setQueryData(
-        ['payment-settings', merchant?.id],
+        ['payment-settings', merchantId],
         (old: PaymentSettings | undefined) => {
           if (!old) return old;
           return {
@@ -113,8 +122,9 @@ export default function PaymentMethodsScreen() {
       );
 
       // Return a context object with the snapshotted value
+      togglePending.begin(merchantId);
       return {
-        merchantId: merchant?.id.trim(),
+        merchantId,
         previousSettings,
       };
     },
@@ -134,12 +144,14 @@ export default function PaymentMethodsScreen() {
           context.previousSettings
         );
       }
+      if (context?.merchantId !== activeMerchantIdRef.current) return;
       const msg = (error as Error)?.message || 'Failed to update setting';
       Alert.alert('Error', msg);
     },
     onSettled: async (_data, _error, _variables, context) => {
       // Always refetch after error or success:
       if (context?.merchantId) {
+        togglePending.end(context.merchantId);
         await queryClient.invalidateQueries({
           queryKey: ['payment-settings', context.merchantId],
         });
@@ -151,7 +163,13 @@ export default function PaymentMethodsScreen() {
     field: PaymentMethodField,
     value: boolean
   ) => {
-    toggleMutation.mutate({ field, value });
+    if (!merchant?.id || !settings?.id) return;
+    toggleMutation.mutate({
+      field,
+      merchantId: merchant.id,
+      settingsId: settings.id,
+      value,
+    });
   };
 
   const loadError = merchantError ?? (isError ? error : null);
@@ -240,7 +258,7 @@ export default function PaymentMethodsScreen() {
               settings={settings}
               colors={colors}
               shadowStyle={shadows.sm}
-              isPending={toggleMutation.isPending}
+              isPending={togglePending.isPending(merchant?.id ?? null)}
               onToggle={handleTogglePaymentMethod}
             />
           ))}

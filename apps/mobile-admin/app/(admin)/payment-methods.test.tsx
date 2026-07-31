@@ -27,6 +27,8 @@ describe('PaymentMethodsScreen', () => {
     fireEvent.click(screen.getByLabelText('Toggle Klump'));
     expect(mocks.mutate).toHaveBeenCalledWith({
       field: 'klump_enabled',
+      merchantId: 'merchant-1',
+      settingsId: 'settings-1',
       value: false,
     });
   });
@@ -119,6 +121,8 @@ describe('PaymentMethodsScreen', () => {
     const originMutation = mocks.mutationConfig;
     const context = await originMutation?.onMutate?.({
       field: 'klump_enabled',
+      merchantId: 'merchant-1',
+      settingsId: 'settings-1',
       value: false,
     });
 
@@ -142,6 +146,8 @@ describe('PaymentMethodsScreen', () => {
 
     const context = await mocks.mutationConfig?.onMutate?.({
       field: 'klump_enabled',
+      merchantId: 'merchant-1',
+      settingsId: 'settings-1',
       value: false,
     });
 
@@ -167,6 +173,8 @@ describe('PaymentMethodsScreen', () => {
     render(<PaymentMethodsScreen />);
     const context = await mocks.mutationConfig?.onMutate?.({
       field: 'klump_enabled',
+      merchantId: 'merchant-1',
+      settingsId: 'settings-1',
       value: false,
     });
     mocks.invalidateStoreReadiness.mockRejectedValueOnce(

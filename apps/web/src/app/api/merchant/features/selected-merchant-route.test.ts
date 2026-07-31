@@ -207,6 +207,28 @@ describe('selected merchant feature settings routes', () => {
     expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
+  it.each([
+    null,
+    'loyalty_enabled=true',
+    ['loyalty_enabled'],
+  ])('rejects a non-object PATCH body before resolving or writing settings: %j', async (body) => {
+    const response = await PATCH(
+      new NextRequest('http://localhost/api/merchant/features', {
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid input',
+    });
+    expect(updatePayload).toBeNull();
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.getUserAccess).not.toHaveBeenCalled();
+  });
+
   it('rejects an unauthorized selected merchant without querying settings', async () => {
     mocks.getMerchantForApiRequest.mockResolvedValueOnce(null);
 

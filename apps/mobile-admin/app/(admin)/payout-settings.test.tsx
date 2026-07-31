@@ -182,7 +182,13 @@ vi.mock('react-native', () => {
       renderItem: (props: {
         item: { code: string; name: string };
       }) => ReactNode;
-    }) => <div>{data.map((item) => renderItem({ item }))}</div>,
+    }) => (
+      <div>
+        {data.map((item) => (
+          <div key={item.code}>{renderItem({ item })}</div>
+        ))}
+      </div>
+    ),
     Modal: ({
       children,
       visible,

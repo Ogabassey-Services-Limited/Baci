@@ -7,9 +7,17 @@ type QueryConfig = {
 };
 
 type MutationConfig = {
+  mutationFn?: (variables: {
+    field: string;
+    value: boolean;
+    merchantId: string;
+    settingsId: string;
+  }) => Promise<void>;
   onMutate?: (variables: {
     field: string;
     value: boolean;
+    merchantId?: string;
+    settingsId?: string;
   }) => Promise<{ merchantId?: string; previousSettings?: unknown }>;
   onError?: (
     error: Error,
@@ -41,6 +49,7 @@ const hoistedMocks = vi.hoisted(() => ({
   getQueryData: vi.fn(),
   invalidateQueries: vi.fn(),
   invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+  isPending: false,
   mutate: vi.fn(),
   mutationConfig: undefined as MutationConfig | undefined,
   openURL: vi.fn(),
@@ -54,6 +63,7 @@ const hoistedMocks = vi.hoisted(() => ({
     error: null,
   } as MockUseMerchantResult,
   useQuery: vi.fn(),
+  update: vi.fn(),
 }));
 
 export const mocks = hoistedMocks;
@@ -71,7 +81,7 @@ vi.mock('@tanstack/react-query', () => ({
   useMutation: (config: MutationConfig) => {
     mocks.mutationConfig = config;
     return {
-      isPending: false,
+      isPending: mocks.isPending,
       mutate: mocks.mutate,
     };
   },
@@ -125,6 +135,7 @@ vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: () => ({
       select: mocks.select,
+      update: mocks.update,
     }),
   },
 }));
@@ -209,6 +220,7 @@ export function resetPaymentMethodsScreenMocks() {
   mocks.invalidateQueries.mockReset();
   mocks.invalidateStoreReadiness.mockReset();
   mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
+  mocks.isPending = false;
   mocks.mutate.mockReset();
   mocks.mutationConfig = undefined;
   mocks.openURL.mockReset();
@@ -222,9 +234,13 @@ export function resetPaymentMethodsScreenMocks() {
     error: null,
   };
   mocks.useQuery.mockReset();
+  mocks.update.mockReset();
   mocks.single.mockResolvedValue({ data: paymentSettings, error: null });
-  mocks.eq.mockReturnValue({ single: mocks.single });
+  mocks.eq.mockImplementation((column: string) =>
+    column === 'id' ? { eq: mocks.eq } : { error: null, single: mocks.single }
+  );
   mocks.select.mockReturnValue({ eq: mocks.eq });
+  mocks.update.mockReturnValue({ eq: mocks.eq });
   mocks.useQuery.mockReturnValue({
     data: paymentSettings,
     error: null,

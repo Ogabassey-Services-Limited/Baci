@@ -20,6 +20,7 @@ import {
   redactMerchantFeatureSettingsResponse,
 } from '@/lib/merchant-feature-settings-redaction';
 import { merchantFeatureSettingsPatchSchema } from '@/schemas/merchant-features';
+import { parseMerchantFeatureSettingsPatchBody } from './parse-feature-settings-patch-body';
 import { resolveSelectedMerchantAccess } from './resolve-selected-merchant-access';
 
 /**
@@ -421,14 +422,19 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    let updates: Record<string, unknown>;
+    let body: unknown;
     try {
-      updates = await request.json();
+      body = await request.json();
     } catch {
       return jsonNoStore({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const { merchantId: requestedMerchantId, ...featureUpdates } = updates;
+    const patchBody = parseMerchantFeatureSettingsPatchBody(body);
+    if (!patchBody) {
+      return jsonNoStore({ error: 'Invalid input' }, { status: 400 });
+    }
+
+    const { featureUpdates, requestedMerchantId } = patchBody;
     const { access: selectedAccess, invalidMerchantId } =
       await resolveSelectedMerchantAccess({
         requestedMerchantId,
