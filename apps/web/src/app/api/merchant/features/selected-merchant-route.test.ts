@@ -151,6 +151,22 @@ describe('selected merchant feature settings routes', () => {
     );
   });
 
+  it('uses the implicit merchant when GET omits merchantId', async () => {
+    mocks.getUserAccess.mockResolvedValue({
+      merchantId: selectedMerchantId,
+      permissions: {},
+      role: 'owner',
+    });
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/merchant/features')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.getUserAccess).toHaveBeenCalledOnce();
+  });
+
   it('strips merchantId and writes and revalidates only the selected merchant', async () => {
     const response = await PATCH(
       new NextRequest('http://localhost/api/merchant/features', {
@@ -171,6 +187,24 @@ describe('selected merchant feature settings routes', () => {
     expect(updatePayload).not.toHaveProperty('merchantId');
     expect(mocks.revalidateFeatures).toHaveBeenCalledWith(selectedMerchantId);
     expect(mocks.revalidateMerchant).toHaveBeenCalledWith(selectedMerchantId);
+  });
+
+  it('rejects an explicitly null PATCH merchantId before writing settings', async () => {
+    const response = await PATCH(
+      new NextRequest('http://localhost/api/merchant/features', {
+        body: JSON.stringify({ loyalty_enabled: true, merchantId: null }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid merchant ID',
+    });
+    expect(updatePayload).toBeNull();
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.getUserAccess).not.toHaveBeenCalled();
   });
 
   it('rejects an unauthorized selected merchant without querying settings', async () => {

@@ -349,7 +349,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const requestedMerchantId = request.nextUrl.searchParams.get('merchantId');
+    const requestedMerchantId = request.nextUrl.searchParams.has('merchantId')
+      ? request.nextUrl.searchParams.get('merchantId')
+      : undefined;
     const { access, invalidMerchantId } = await resolveSelectedMerchantAccess({
       requestedMerchantId,
       supabase: auth.supabase,

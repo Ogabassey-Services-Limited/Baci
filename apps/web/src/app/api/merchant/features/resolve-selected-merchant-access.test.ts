@@ -62,6 +62,18 @@ describe('resolveSelectedMerchantAccess', () => {
     expect(mocks.getUserAccess).toHaveBeenCalledWith(supabase);
   });
 
+  it('rejects an explicitly null selected merchant before any access lookup', async () => {
+    const result = await resolveSelectedMerchantAccess({
+      requestedMerchantId: null,
+      supabase,
+      userId: 'user-1',
+    });
+
+    expect(result).toEqual({ access: null, invalidMerchantId: true });
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.getUserAccess).not.toHaveBeenCalled();
+  });
+
   it('rejects an invalid selected merchant before any access lookup', async () => {
     const result = await resolveSelectedMerchantAccess({
       requestedMerchantId: 'not-a-uuid',

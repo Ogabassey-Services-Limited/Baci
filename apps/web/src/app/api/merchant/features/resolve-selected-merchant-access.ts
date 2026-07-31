@@ -22,7 +22,7 @@ export async function resolveSelectedMerchantAccess({
 }> {
   const parsedMerchantId = merchantIdParamSchema
     .optional()
-    .safeParse(requestedMerchantId ?? undefined);
+    .safeParse(requestedMerchantId);
   if (!parsedMerchantId.success) {
     return { access: null, invalidMerchantId: true };
   }

@@ -9,7 +9,8 @@ export type BuilderMerchantRequest = {
 type BuilderMutationCallbacks = MutateOptions<
   void,
   Error,
-  BuilderMutationVariables
+  BuilderMutationVariables,
+  void
 >;
 
 type BuilderMerchantRequestRef = { current: BuilderMerchantRequest };

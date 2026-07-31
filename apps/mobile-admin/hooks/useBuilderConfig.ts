@@ -19,14 +19,16 @@ import {
 } from './builder-mutation-callbacks';
 import { formatAiCopilotError } from './format-ai-copilot-error';
 import { useMerchant } from './useMerchant';
+import { useMerchantScopedPending } from './useMerchantScopedPending';
 
 export type { BuilderConfig } from './builder-ai-request';
-
 export function useBuilderConfig(pageSlug: string = 'home') {
   const queryClient = useQueryClient();
   const { session, isLoading } = useAuth();
   const { merchant } = useMerchant();
   const merchantId = merchant?.id ?? null;
+  const savePending = useMerchantScopedPending();
+  const publishPending = useMerchantScopedPending();
   const merchantRequestRef = useRef<BuilderMerchantRequest>({
     merchantId,
     revision: 0,
@@ -45,7 +47,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   const [activeAiRequestSequence, setActiveAiRequestSequence] = useState<
     number | null
   >(null);
-
   useEffect(() => {
     aiRequestSequenceRef.current += 1;
     setActiveAiRequestSequence(null);
@@ -55,7 +56,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       draft?.merchantId === merchantId ? draft : null
     );
   }, [merchantId]);
-
   const {
     data: configData,
     isLoading: isLoadingConfig,
@@ -78,19 +78,16 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       if (!merchantId) {
         throw new Error('Merchant not loaded. Please try again.');
       }
-
       return apiClient<BuilderApiResponse>(
         `/api/builder?slug=${encodeURIComponent(pageSlug)}&merchantId=${encodeURIComponent(merchantId)}`
       );
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
-
   const effectiveConfig =
     currentConfig?.merchantId === merchantId
       ? currentConfig.config
       : (configData?.config ?? null);
-
   const aiMutation = useMutation({
     mutationFn: async (prompt: string): Promise<BuilderConfig> => {
       const token = session?.access_token;
@@ -107,7 +104,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       const requestConfig = effectiveConfig;
       const requestSequence = ++aiRequestSequenceRef.current;
       setActiveAiRequestSequence(requestSequence);
-
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'user',
@@ -116,7 +112,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       };
       messagesMerchantIdRef.current = requestMerchantId;
       setMessages((prev) => [...prev, userMessage]);
-
       try {
         const data = await apiClient<GeminiResponse>('/api/builder/gemini', {
           method: 'POST',
@@ -131,7 +126,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         if (!isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
           return data.config;
         }
-
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -145,13 +139,11 @@ export function useBuilderConfig(pageSlug: string = 'home') {
           merchantId: requestMerchantId,
           config: data.config,
         });
-
         return data.config;
       } catch (error) {
         if (!isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
           return requestConfig;
         }
-
         const formattedError = formatAiCopilotError(error);
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -160,7 +152,6 @@ export function useBuilderConfig(pageSlug: string = 'home') {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMessage]);
-
         throw Object.assign(new Error(formattedError.message), {
           code: formattedError.code,
           requestId: formattedError.requestId,
@@ -181,15 +172,12 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       if (!token) {
         throw new Error('Not authenticated');
       }
-
       if (!merchantId) {
         throw new Error('Merchant not loaded. Please try again.');
       }
-
       if (!effectiveConfig) {
         throw new Error('No configuration to save');
       }
-
       await apiClient('/api/builder', {
         method: 'POST',
         body: JSON.stringify({
@@ -200,6 +188,9 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         }),
       });
     },
+    onMutate: (variables) => {
+      savePending.begin(variables.merchantId);
+    },
     onSuccess: (_data, variables) => {
       setCurrentConfig((draft) =>
         draft?.merchantId === variables.merchantId ? null : draft
@@ -207,6 +198,9 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       queryClient.invalidateQueries({
         queryKey: ['builderConfig', variables.merchantId, pageSlug],
       });
+    },
+    onSettled: (_data, _error, variables) => {
+      savePending.end(variables.merchantId);
     },
   });
 
@@ -231,6 +225,9 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         }),
       });
     },
+    onMutate: (variables) => {
+      publishPending.begin(variables.merchantId);
+    },
     onSuccess: async (_data, variables) => {
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({
@@ -246,6 +243,9 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         );
       }
       await Promise.all(invalidations);
+    },
+    onSettled: (_data, _error, variables) => {
+      publishPending.end(variables.merchantId);
     },
   });
 
@@ -278,7 +278,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         guardBuilderMutationCallbacks(options, request, merchantRequestRef)
       );
     },
-    isSavingDraft: saveDraftMutation.isPending,
+    isSavingDraft: savePending.isPending(merchantId),
     saveDraftError: saveDraftMutation.error,
     publish: (
       _variables?: undefined,
@@ -290,7 +290,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         guardBuilderMutationCallbacks(options, request, merchantRequestRef)
       );
     },
-    isPublishing: publishMutation.isPending,
+    isPublishing: publishPending.isPending(merchantId),
     publishError: publishMutation.error,
     hasUnsavedChanges:
       currentConfig?.merchantId === merchantId &&
