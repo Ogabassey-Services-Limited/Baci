@@ -206,7 +206,8 @@ $$ LANGUAGE plpgsql;
 
 RESET ROLE;
 UPDATE private.product_description_attestation_grants
-SET expires_at = pg_catalog.clock_timestamp() - interval '1 second'
+SET created_at = pg_catalog.clock_timestamp() - interval '3 minutes',
+    expires_at = pg_catalog.clock_timestamp() - interval '2 minutes'
 WHERE operation_id = '00000000-0000-4000-d000-000000000101';
 
 SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-a000-000000000101","role":"authenticated"}', true);

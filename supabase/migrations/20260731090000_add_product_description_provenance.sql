@@ -169,8 +169,8 @@ BEGIN
 
   SELECT *
   INTO v_existing
-  FROM private.product_description_attestation_grants AS grant
-  WHERE grant.operation_id = p_operation_id;
+  FROM private.product_description_attestation_grants AS attestation
+  WHERE attestation.operation_id = p_operation_id;
 
   IF FOUND THEN
     IF v_existing.merchant_id IS DISTINCT FROM p_merchant_id
