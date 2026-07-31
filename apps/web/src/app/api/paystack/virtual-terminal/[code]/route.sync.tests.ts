@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  DELETE,
-  MERCHANT_ID,
-  PUT,
-  TERMINAL_CODE,
   createMerchantLookup,
   createParams,
   createRequest,
+  DELETE,
+  MERCHANT_ID,
   mockAdminRpc,
   mockDeactivateVirtualTerminal,
   mockFrom,
   mockGetMerchantForApiRequest,
   mockRpc,
   mockUpdateVirtualTerminal,
+  PUT,
   setupDetailRouteTest,
+  TERMINAL_CODE,
 } from './route.test-support';
 
 describe('/api/paystack/virtual-terminal/[code] provider sync', () => {

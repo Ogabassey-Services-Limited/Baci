@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  POST,
   createPostRequest,
   mockAuthenticateApiRequest,
   mockGetMerchantForApiRequest,
   mockGetUser,
+  POST,
   selectedMerchantId,
   setupPostRouteTest,
 } from './route.post.test-support';

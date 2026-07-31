@@ -87,7 +87,6 @@ function setupPostRouteTest() {
 }
 
 export {
-  POST,
   createPostRequest,
   createVirtualTerminal,
   mockAdminFrom,
@@ -96,6 +95,7 @@ export {
   mockGetMerchantForApiRequest,
   mockGetUser,
   mockRpc,
+  POST,
   selectedMerchantId,
   setupPostRouteTest,
 };

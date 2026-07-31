@@ -99,18 +99,15 @@ describe('virtual terminal local sync helpers', () => {
       )
     ).resolves.toBeNull();
 
-    expect(rpc).toHaveBeenCalledWith(
-      'sync_virtual_terminal_local',
-      {
-        p_account_name: 'Test Store',
-        p_account_number: '1234567890',
-        p_active: null,
-        p_bank: 'Test Bank',
-        p_code: 'VT_123',
-        p_merchant_id: 'merchant-1',
-        p_name: 'Sales Terminal',
-      }
-    );
+    expect(rpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: 'Test Store',
+      p_account_number: '1234567890',
+      p_active: null,
+      p_bank: 'Test Bank',
+      p_code: 'VT_123',
+      p_merchant_id: 'merchant-1',
+      p_name: 'Sales Terminal',
+    });
   });
 
   it('uses the server-only RPC for terminal deactivation', async () => {
@@ -129,18 +126,15 @@ describe('virtual terminal local sync helpers', () => {
       )
     ).resolves.toBeNull();
 
-    expect(rpc).toHaveBeenCalledWith(
-      'sync_virtual_terminal_local',
-      {
-        p_account_name: null,
-        p_account_number: null,
-        p_active: false,
-        p_bank: null,
-        p_code: 'VT_123',
-        p_merchant_id: 'merchant-1',
-        p_name: null,
-      }
-    );
+    expect(rpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: null,
+      p_account_number: null,
+      p_active: false,
+      p_bank: null,
+      p_code: 'VT_123',
+      p_merchant_id: 'merchant-1',
+      p_name: null,
+    });
   });
 
   it('returns a 500 response when the server-only sync RPC fails', async () => {

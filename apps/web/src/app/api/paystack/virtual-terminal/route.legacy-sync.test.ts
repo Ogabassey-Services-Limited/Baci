@@ -104,9 +104,9 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
 
   it('returns success with a warning when the post-create legacy lookup fails', async () => {
     mockRpc.mockResolvedValue({
-        data: null,
-        error: { message: 'legacy lookup failed' },
-      });
+      data: null,
+      error: { message: 'legacy lookup failed' },
+    });
 
     const response = await POST(createRequest());
 

@@ -128,14 +128,12 @@ function setupDetailRouteTest() {
 }
 
 export {
-  DELETE,
-  GET,
-  MERCHANT_ID,
-  PUT,
-  TERMINAL_CODE,
   createMerchantLookup,
   createParams,
   createRequest,
+  DELETE,
+  GET,
+  MERCHANT_ID,
   mockAdminRpc,
   mockCheckCsrfProtection,
   mockDeactivateVirtualTerminal,
@@ -145,5 +143,7 @@ export {
   mockGetUser,
   mockRpc,
   mockUpdateVirtualTerminal,
+  PUT,
   setupDetailRouteTest,
+  TERMINAL_CODE,
 };

@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  DELETE,
-  GET,
-  PUT,
   createParams,
   createRequest,
+  DELETE,
+  GET,
   mockCheckCsrfProtection,
   mockDeactivateVirtualTerminal,
   mockFetchVirtualTerminal,
   mockGetUser,
   mockUpdateVirtualTerminal,
+  PUT,
   setupDetailRouteTest,
 } from './route.test-support';
 
