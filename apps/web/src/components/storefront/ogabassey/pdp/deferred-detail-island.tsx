@@ -41,9 +41,9 @@ export function OgabasseyPdpDeferredDetailIsland({
       data-ogabassey-pdp-semantics
     >
       {serverPrimaryDetails}
-      <div data-ogabassey-pdp-description>{descriptionSlot}</div>
       {/* Deferred client island #1: tabs / ad / video (rails excluded). */}
       <OgabasseyPdpDeferredDetailClient
+        descriptionSlot={descriptionSlot}
         productData={tabProduct}
         storeSlug={storeSlug}
       />

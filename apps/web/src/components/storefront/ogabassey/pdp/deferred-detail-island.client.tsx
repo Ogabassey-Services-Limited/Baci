@@ -87,7 +87,10 @@ export function OgabasseyPdpDeferredDetailClient({
           storeSlug={storeSlug}
         />
       ) : (
-        <DeferredDetailsSkeleton />
+        <>
+          {descriptionSlot}
+          <DeferredDetailsSkeleton />
+        </>
       )}
     </div>
   );

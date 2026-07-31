@@ -126,20 +126,34 @@ describe('buildOgabasseyProductVisibleSummary', () => {
     expect(afterSelectionSummary).toBe(firstSummary);
   });
 
-  it('uses the active parent and condition offers when no variants are selectable', () => {
+  it('uses only the active parent when no selectable variants exist', () => {
     expect(
       buildOgabasseyProductVisibleSummary({
         brand: 'Dell',
         condition: 'used',
         name: 'Latitude 7440',
-        offers: [
-          { condition: 'new', status: 'active' },
-          { condition: 'refurbished', status: 'inactive' },
+        ...( {
+          offers: [
+            { condition: 'new', status: 'active' },
+            { condition: 'refurbished', status: 'inactive' },
+          ],
+        } as object),
+      })
+    ).toBe('Dell Latitude 7440. Condition: Used.');
+  });
+
+  it('falls back to the active parent when every supplied variant is not selectable', () => {
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Dell',
+        condition: 'new',
+        name: 'Latitude 7450',
+        variants: [
+          { condition: 'used', status: 'inactive' },
+          { condition: 'refurbished', deleted_at: '2026-01-01' },
         ],
       })
-    ).toBe(
-      'Dell Latitude 7440. Available choices: Condition New or Used.'
-    );
+    ).toBe('Dell Latitude 7450. Condition: New.');
   });
 
   it('omits the summary when identity or all safe facts are absent', () => {

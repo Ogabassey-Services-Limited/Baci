@@ -11,7 +11,6 @@ export interface OgabasseyProductVisibleSummaryInput {
   brand?: string | null;
   condition?: string | null;
   name?: string | null;
-  offers?: OgabasseyProductVisibleSummaryOffer[] | null;
   variants?: OgabasseyProductVisibleSummaryOffer[] | null;
 }
 
@@ -166,24 +165,15 @@ export function buildOgabasseyProductVisibleSummary({
   brand,
   condition,
   name,
-  offers,
   variants,
 }: OgabasseyProductVisibleSummaryInput) {
   const identity = buildIdentity(brand, name);
   if (!identity) return null;
 
-  const suppliedVariants = variants || [];
-  const selectableVariants = suppliedVariants.filter(isSelectable);
-  if (suppliedVariants.length > 0 && selectableVariants.length === 0) {
-    return null;
-  }
-
-  const selectableOffers = (offers || []).filter(isSelectable);
+  const selectableVariants = (variants || []).filter(isSelectable);
   const parentOffer: OgabasseyProductVisibleSummaryOffer = { condition };
-  const selectableOffersOrParent =
-    selectableOffers.length > 0 ? [parentOffer, ...selectableOffers] : [parentOffer];
   const selectable =
-    selectableVariants.length > 0 ? selectableVariants : selectableOffersOrParent;
+    selectableVariants.length > 0 ? selectableVariants : [parentOffer];
   const parentCondition = normalizeCondition(condition);
   const facts = selectable.map((offer) => getOfferFacts(offer, parentCondition));
   const sharedFacts: string[] = [];

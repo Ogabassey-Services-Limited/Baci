@@ -4322,7 +4322,7 @@ describe('[category]/[productSlug] page render', () => {
     ).toHaveTextContent('A laptop');
   });
 
-  it('keeps the cached route condition summary exhaustive across active offers', async () => {
+  it('does not claim cached condition offers without selectable variants', async () => {
     const activeOffers = [
       {
         condition: 'used',
@@ -4366,9 +4366,7 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(
-      screen.getByText(
-        'HP Laptop 14-ep0063nia. Available choices: Condition New or Open Box or Used.'
-      )
+      screen.getByText('HP Laptop 14-ep0063nia. Condition: New.')
     ).toBeInTheDocument();
   });
 
