@@ -42,9 +42,15 @@ async function errorMessage(
   }
 }
 
-async function deleteImage(image: UploadedFeaturedImage): Promise<void> {
+async function deleteImage(
+  image: UploadedFeaturedImage,
+  merchantId?: string
+): Promise<void> {
   const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(merchantId ? { 'x-baci-merchant-id': merchantId } : {}),
+    },
     method: 'DELETE',
     body: JSON.stringify({
       path: image.path,
@@ -62,11 +68,16 @@ async function deleteImage(image: UploadedFeaturedImage): Promise<void> {
   }
 }
 
-async function uploadImage(file: File, purpose: 'featured' | 'inline') {
+async function uploadImage(
+  file: File,
+  purpose: 'featured' | 'inline',
+  merchantId?: string
+) {
   const body = new FormData();
   body.append('file', file);
   body.append('purpose', purpose);
   const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+    headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
     method: 'POST',
     body,
   });
@@ -104,10 +115,10 @@ export function useFeaturedImageActions({
     if (!file) return;
     setIsUploading(true);
     try {
-      const data = await uploadImage(file, 'featured');
+      const data = await uploadImage(file, 'featured', merchantId);
       if (uploadedImage.current) {
         try {
-          await deleteImage(uploadedImage.current);
+          await deleteImage(uploadedImage.current, merchantId);
         } catch (error) {
           console.error(
             'Error deleting previously uploaded featured image:',
@@ -146,7 +157,7 @@ export function useFeaturedImageActions({
   };
 
   const handleInlineImageUpload = async (file: File) =>
-    (await uploadImage(file, 'inline')).url;
+    (await uploadImage(file, 'inline', merchantId)).url;
 
   const handleRemoveFeaturedImage = async () => {
     let image = uploadedImage.current;
@@ -167,7 +178,7 @@ export function useFeaturedImageActions({
       }
     }
     try {
-      if (image) await deleteImage(image);
+      if (image) await deleteImage(image, merchantId);
       setFormData((previous) => ({
         ...previous,
         featured_image_url: '',

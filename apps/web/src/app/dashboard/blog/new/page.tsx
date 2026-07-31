@@ -1,9 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
@@ -11,11 +10,7 @@ import { getPreviewUrl } from '../actions';
 import { NewBlogPostAuthorTab } from './new-blog-post-author-tab';
 import { getNewBlogPostContentStats } from './new-blog-post-content-stats';
 import { NewBlogPostContentTab } from './new-blog-post-content-tab';
-import {
-  createEmptyPostFormData,
-  reconstructUploadedFeaturedImage,
-  withFeaturedImageDefaults,
-} from './new-blog-post-form-data';
+import { createEmptyPostFormData } from './new-blog-post-form-data';
 import { NewBlogPostHeader } from './new-blog-post-header';
 import { NewBlogPostRecoveryDialog } from './new-blog-post-recovery-dialog';
 import { createBlogPost } from './new-blog-post-requests';
@@ -25,6 +20,7 @@ import type {
   NewBlogProduct,
   UploadedFeaturedImage,
 } from './new-blog-post-types';
+import { useNewBlogPostDraftRecovery } from './use-new-blog-post-draft-recovery';
 import { useNewBlogPostMediaActions } from './use-new-blog-post-media-actions';
 
 export default function NewBlogPostPage() {
@@ -34,6 +30,7 @@ export default function NewBlogPostPage() {
   const [formData, setFormData] = useState<NewBlogPostFormData>(() =>
     createEmptyPostFormData(merchant?.business_name || '')
   );
+  const [draftMerchantId, setDraftMerchantId] = useState(merchant?.id);
   const businessName = merchant?.business_name || '';
   const [prevBusinessName, setPrevBusinessName] = useState(businessName);
   if (businessName !== prevBusinessName) {
@@ -52,81 +49,27 @@ export default function NewBlogPostPage() {
   );
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
-  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
-  const [hasAutoRecovered, setHasAutoRecovered] = useState(false);
   const [uploadedFeaturedImage, setUploadedFeaturedImage] =
     useState<UploadedFeaturedImage | null>(null);
-  const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
-    storageKey: 'blog-draft-new',
-    data: formData,
-  });
-
-  useEffect(() => {
-    if (hasAutoRecovered || !hasSavedData()) return;
-    const saved = getSavedData();
-    if (!saved) return;
-    const timer = window.setTimeout(() => {
-      const recoveredData = withFeaturedImageDefaults(saved.data);
-      setFormData(recoveredData);
-      setUploadedFeaturedImage(
-        reconstructUploadedFeaturedImage(recoveredData, merchant?.id)
-      );
-      setHasAutoRecovered(true);
-      toast({
-        title: 'Draft Recovered',
-        description: 'Your previous work has been restored.',
-        action: (
-          <button
-            type="button"
-            onClick={() => {
-              setFormData(
-                createEmptyPostFormData(merchant?.business_name || '')
-              );
-              setUploadedFeaturedImage(null);
-              clearSavedData();
-              toast({
-                title: 'Recovery Undone',
-                description: 'Started with a fresh post.',
-              });
-            }}
-            className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
-          >
-            Undo
-          </button>
-        ),
-        duration: 8000,
-      });
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [
-    hasAutoRecovered,
-    hasSavedData,
-    getSavedData,
-    toast,
-    merchant?.business_name,
-    merchant?.id,
+  if (merchant?.id !== draftMerchantId) {
+    setDraftMerchantId(merchant?.id);
+    setFormData(createEmptyPostFormData(businessName));
+    setUploadedFeaturedImage(null);
+  }
+  const {
     clearSavedData,
-  ]);
-
-  const recoverDraft = () => {
-    const saved = getSavedData();
-    if (saved) {
-      const recoveredData = withFeaturedImageDefaults(saved.data);
-      setFormData(recoveredData);
-      setUploadedFeaturedImage(
-        reconstructUploadedFeaturedImage(recoveredData, merchant?.id)
-      );
-      toast({
-        title: 'Draft Recovered',
-        description: 'Your previous work has been restored.',
-      });
-    }
-    setShowRecoveryDialog(false);
-  };
-  const discardRecoveredDraft = () => {
-    clearSavedData();
-    setShowRecoveryDialog(false);
-  };
+    discardRecoveredDraft,
+    recoverDraft,
+    setShowRecoveryDialog,
+    showRecoveryDialog,
+  } = useNewBlogPostDraftRecovery({
+    businessName,
+    formData,
+    merchantId: merchant?.id,
+    setFormData,
+    setUploadedFeaturedImage,
+    toast,
+  });
   const handleTitleChange = (title: string) => {
     setFormData((previous) => ({
       ...previous,

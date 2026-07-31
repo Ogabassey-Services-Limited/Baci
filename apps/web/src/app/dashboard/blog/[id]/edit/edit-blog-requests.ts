@@ -68,7 +68,7 @@ export async function loadBlogPost(
         post.embedded_products.length > 0
       ) {
         const productsResponse = await fetch(
-          `/api/products?ids=${post.embedded_products.join(',')}`
+          `/api/products?ids=${post.embedded_products.join(',')}&merchantId=${encodeURIComponent(merchantId)}`
         );
         if (productsResponse.ok)
           embeddedProducts =

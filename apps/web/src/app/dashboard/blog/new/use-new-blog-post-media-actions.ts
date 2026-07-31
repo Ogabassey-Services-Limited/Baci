@@ -1,4 +1,5 @@
 import { type Dispatch, type SetStateAction, useState } from 'react';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { fetchWithCsrf } from '@/lib/api-client';
 import {
   normalizeFeaturedImageVariantMap,
@@ -63,10 +64,14 @@ function parseFeaturedImageUploadResponse(
 }
 
 async function deleteUploadedFeaturedImage(
-  image: UploadedFeaturedImage
+  image: UploadedFeaturedImage,
+  merchantId?: string
 ): Promise<void> {
   const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(merchantId ? { 'x-baci-merchant-id': merchantId } : {}),
+    },
     method: 'DELETE',
     body: JSON.stringify({
       path: image.path,
@@ -93,6 +98,8 @@ export function useNewBlogPostMediaActions({
   toast: Toast;
 }) {
   const [isUploading, setIsUploading] = useState(false);
+  const { merchant } = useMerchant();
+  const merchantId = merchant?.id;
 
   const handleFeaturedImageUpload = async (files: File[]) => {
     const file = files[0];
@@ -103,6 +110,7 @@ export function useNewBlogPostMediaActions({
     body.append('purpose', 'featured');
     try {
       const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
         method: 'POST',
         body,
       });
@@ -113,7 +121,7 @@ export function useNewBlogPostMediaActions({
       const data = parseFeaturedImageUploadResponse(await response.json());
       if (uploadedFeaturedImage) {
         try {
-          await deleteUploadedFeaturedImage(uploadedFeaturedImage);
+          await deleteUploadedFeaturedImage(uploadedFeaturedImage, merchantId);
         } catch (error) {
           console.error(
             'Error deleting previously uploaded featured image:',
@@ -154,6 +162,7 @@ export function useNewBlogPostMediaActions({
     body.append('file', file);
     body.append('purpose', 'inline');
     const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+      headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
       method: 'POST',
       body,
     });
@@ -178,7 +187,7 @@ export function useNewBlogPostMediaActions({
       return;
     }
     try {
-      await deleteUploadedFeaturedImage(uploadedFeaturedImage);
+      await deleteUploadedFeaturedImage(uploadedFeaturedImage, merchantId);
       setFormData((previous) => ({
         ...previous,
         featured_image_url: '',
