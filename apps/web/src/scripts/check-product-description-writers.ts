@@ -7,256 +7,128 @@ import process from 'node:process';
 export const PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER =
   'inventory_version,path,caller_or_route,operation,description_input_contract,can_attest_source,unattested_source,guard_error_contract,test_path,file_sha256';
 
-export type ProductDescriptionWriterInventoryRow = Record<
-  | 'inventory_version'
-  | 'path'
-  | 'caller_or_route'
-  | 'operation'
-  | 'description_input_contract'
-  | 'can_attest_source'
-  | 'unattested_source'
-  | 'guard_error_contract'
-  | 'test_path'
-  | 'file_sha256',
-  string
->;
-
+type Column =
+  | 'inventory_version' | 'path' | 'caller_or_route' | 'operation'
+  | 'description_input_contract' | 'can_attest_source' | 'unattested_source'
+  | 'guard_error_contract' | 'test_path' | 'file_sha256';
+export type ProductDescriptionWriterInventoryRow = Record<Column, string>;
 type CheckResult = { errors: string[]; ok: boolean };
+type FunctionDefinition = { body: string; end: number; name: string; start: number };
 
-const INVENTORY_COLUMNS = PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER.split(',') as Array<
-  keyof ProductDescriptionWriterInventoryRow
->;
-const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx']);
-const CURRENT_INVENTORY_ROWS: ProductDescriptionWriterInventoryRow[] = [
-  {
-    inventory_version: '1',
-    path: 'apps/web/src/app/api/products/route.ts',
-    caller_or_route: 'add-product form -> POST /api/products',
-    operation: 'insert public.products.description',
-    description_input_contract: 'createProductSchema.description optional string; sanitizeHtml; empty string fallback',
-    can_attest_source: 'no',
-    unattested_source: 'merchant_unattested',
-    guard_error_contract: 'C3 prepared guard not installed; no stable provenance error yet',
-    test_path: 'apps/web/src/app/api/products/route.test.ts',
-    file_sha256: 'd72a7b81ce7a0333d8c5c37b6e9bfc5e12a0c7e420b26444e406348a12033a92',
-  },
-  {
-    inventory_version: '1',
-    path: 'apps/web/src/app/api/products/[id]/route.ts',
-    caller_or_route: 'edit-product form -> PUT /api/products/[id]',
-    operation: 'update public.products.description',
-    description_input_contract: 'updateProductSchema.description optional string or null; sanitizeHtml',
-    can_attest_source: 'no',
-    unattested_source: 'merchant_unattested',
-    guard_error_contract: 'C3 prepared guard not installed; no stable provenance error yet',
-    test_path: 'apps/web/src/app/api/products/[id]/route.test.ts',
-    file_sha256: 'bbf6b4b564e4d9bf1c085d8139450ed7340fa94f008b5d6a00f9f08502d71e83',
-  },
-  {
-    inventory_version: '1',
-    path: 'apps/web/src/app/api/products/bulk-import/route.ts',
-    caller_or_route: 'csv-bulk-import-dialog -> multipart POST /api/products/bulk-import',
-    operation: 'insert public.products.description',
-    description_input_contract: 'CSV description optional string; empty string fallback',
-    can_attest_source: 'no',
-    unattested_source: 'csv_import_unattested',
-    guard_error_contract: 'C3 prepared guard not installed; no stable provenance error yet',
-    test_path: 'apps/web/src/app/api/products/bulk-import/route.test.ts',
-    file_sha256: '15d0d8675b95a5292cbf49df78311c96ab9f6423a5102fea9cca23ba0ff2274f',
-  },
-  {
-    inventory_version: '1',
-    path: 'apps/web/src/app/api/products/bulk-update/bulk-update-change-processing.ts',
-    caller_or_route: 'review-changes -> product-context -> bulk-update route -> processor',
-    operation: 'insert public.products.description for new bulk-update rows',
-    description_input_contract: 'BulkUpdateChange.details.description optional string; empty string fallback',
-    can_attest_source: 'no',
-    unattested_source: 'bulk_update_unattested',
-    guard_error_contract: 'C3 prepared guard not installed; no stable provenance error yet',
-    test_path: 'apps/web/src/app/api/products/bulk-update/bulk-update-change-processing.test.ts',
-    file_sha256: '2c2ee0dc3e64187880ef5f707ba0c6eac4343e9bd192671628191fb0b3d0482f',
-  },
-  {
-    inventory_version: '1',
-    path: 'apps/web/src/lib/import-commit/commit-bumpa-products.ts',
-    caller_or_route: 'run-claimed-import-job -> commitBumpaProducts',
-    operation: 'insert or update public.products.description',
-    description_input_contract: 'NormalizedImportedProduct.description from Bumpa import payload',
-    can_attest_source: 'no',
-    unattested_source: 'bumpa_import_unattested',
-    guard_error_contract: 'C3 prepared guard not installed; no stable provenance error yet',
-    test_path: 'apps/web/src/lib/import-commit/commit-bumpa-products.test.ts',
-    file_sha256: 'c3f98397d19843877418fe91a1162d8372079b56acf81ebdd68fd657fed1a541',
-  },
-  {
-    inventory_version: '1',
-    path: 'apps/web/src/app/api/marketplace/jumia/products/import/route.ts',
-    caller_or_route: 'use-products-page-actions -> POST /api/marketplace/jumia/products/import',
-    operation: 'upsert public.products.description',
-    description_input_contract: 'Jumia product description; stripHtmlTags then sanitizeText; empty string fallback',
-    can_attest_source: 'no',
-    unattested_source: 'jumia_import_unattested',
-    guard_error_contract: 'C3 prepared guard not installed; no stable provenance error yet',
-    test_path: 'apps/web/src/app/api/marketplace/jumia/products/import/route.test.ts',
-    file_sha256: '813253bdbd7ebfe974b5fc227a03a004fb542312e0a6e11beda1ced99878f4b2',
-  },
-  {
-    inventory_version: '1',
-    path: 'apps/web/src/ai/flows/generate-product-descriptions.ts',
-    caller_or_route: 'product create UI server action; returned text is saved only by a later writer',
-    operation: 'generate only; no public.products write',
-    description_input_contract: 'GenerateProductDescriptionInput -> provider text',
-    can_attest_source: 'no',
-    unattested_source: 'not_persisted',
-    guard_error_contract: 'not applicable until a writer persists output',
-    test_path: 'apps/web/src/ai/flows/generate-product-descriptions.test.ts',
-    file_sha256: '2d75d5427336ed5db57afe4f174ec1db18e09ce5a36edfde08e23eed380d1fc7',
-  },
-  {
-    inventory_version: '1',
-    path: 'apps/web/src/ai/flows/autofill-product-details.ts',
-    caller_or_route: 'product create UI server action; returned details are saved only by a later writer',
-    operation: 'generate only; no public.products write',
-    description_input_contract: 'AutofillProductDetailsInput -> generated details.description',
-    can_attest_source: 'no',
-    unattested_source: 'not_persisted',
-    guard_error_contract: 'not applicable until a writer persists output',
-    test_path: 'apps/web/src/ai/flows/autofill-product-details.test.ts',
-    file_sha256: 'c2e08bc974fd4e485c4ce75af674831204f3712d4a0351dfabc655911731f771',
-  },
-  {
-    inventory_version: '1',
-    path: 'supabase/migrations/20260615181534_serialized_variant_inventory.sql',
-    caller_or_route: 'legacy private.save_mobile_admin_product_with_variants RPC implementation',
-    operation: 'insert or update public.products.description',
-    description_input_contract: 'p_product_payload.description JSON text',
-    can_attest_source: 'no',
-    unattested_source: 'mobile_admin_unattested',
-    guard_error_contract: 'C3 prepared guard not installed; PostgreSQL error mapping not yet defined',
-    test_path: 'apps/mobile-admin/hooks/product-save.test.ts',
-    file_sha256: 'd0f34aeab2a0622c0cae17dbd260c671cc6c96db31f85d414fb19beabb11fce8',
-  },
-  {
-    inventory_version: '1',
-    path: 'supabase/migrations/20260702063638_restore_mobile_admin_product_rpc_contract.sql',
-    caller_or_route: 'apps/mobile-admin/hooks/product-save.ts -> public.save_mobile_admin_product_with_variants',
-    operation: 'insert or update public.products.description',
-    description_input_contract: 'p_product_payload.description JSON text',
-    can_attest_source: 'no',
-    unattested_source: 'mobile_admin_unattested',
-    guard_error_contract: 'C3 prepared guard not installed; PostgreSQL error mapping not yet defined',
-    test_path: 'apps/mobile-admin/hooks/product-save.test.ts',
-    file_sha256: 'a04858072ce04f37af2269bb14bd4a936df612b6243fdb0099e8b417ba9c3ba4',
-  },
+const COLUMNS = PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER.split(',') as Column[];
+const TS_ROOTS = ['apps/web/src', 'apps/mobile-admin', 'apps/mobile-storefront', 'packages', 'supabase/functions'];
+const TS_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts']);
+const UNATTESTED = 'unattested_pending_C2b';
+const GUARD = 'C3 prepared guard not installed; stable error mapping pending';
+const HASHES: Record<string, string> = {
+  'apps/web/src/schemas/products.ts': 'ce02c458edf20d90f7ea395df926473542406addca46e917912ef7ae66f17b5f', 'apps/web/src/app/dashboard/products/add/add-product-form.tsx': '1742d39c6f45ffb1db3051252a1348018e9de681ea02d831e1ad79ff920bdd7f', 'apps/web/src/app/api/products/route.ts': 'd72a7b81ce7a0333d8c5c37b6e9bfc5e12a0c7e420b26444e406348a12033a92', 'apps/web/src/app/api/products/[id]/route.ts': 'bbf6b4b564e4d9bf1c085d8139450ed7340fa94f008b5d6a00f9f08502d71e83', 'apps/web/src/components/products/csv-bulk-import-dialog.tsx': 'ebcf3dfa786f49243b6fa7a64caa451ebaea4097529b26394e26cf05da48fe4d', 'apps/web/src/app/api/products/bulk-import/route.ts': '15d0d8675b95a5292cbf49df78311c96ab9f6423a5102fea9cca23ba0ff2274f', 'apps/web/src/components/products/review-changes.tsx': 'c6e4a42e07025b9b65a3ff33eb2e0c4732e5814270b0597051ab25573428b93b', 'apps/web/src/contexts/product-context.tsx': '3e47398edc8a6109058d847bef93392f3950f25fd446e3c95601d1ff7dcb5743', 'apps/web/src/app/api/products/bulk-update/route.ts': '0e71cbf869330b065bfe2909e7b0d213d9af247495a810e8f6fae4b4080ca1ef', 'apps/web/src/app/api/products/bulk-update/bulk-update-change-processing.ts': '2c2ee0dc3e64187880ef5f707ba0c6eac4343e9bd192671628191fb0b3d0482f', 'apps/web/src/lib/import-jobs/run-claimed-import-job.ts': '8652502134b8c7912dd28c870a708c1290b51702fac6a3de171ae4c4e2a0483c', 'apps/web/src/lib/import-commit/commit-bumpa-products.ts': 'c3f98397d19843877418fe91a1162d8372079b56acf81ebdd68fd657fed1a541', 'apps/web/src/app/dashboard/products/use-products-page-actions.ts': '38f752fb0e755715a1b5202148fa5f95a22a40b6380244d90db6406fff145a49', 'apps/web/src/app/api/marketplace/jumia/products/import/route.ts': '813253bdbd7ebfe974b5fc227a03a004fb542312e0a6e11beda1ced99878f4b2', 'apps/mobile-admin/hooks/product-save.ts': 'b30f9431b0c7968880e3ce4d7b55db74a72afaa07e09ab2cab72c275994b4558', 'supabase/migrations/20260615181534_serialized_variant_inventory.sql': 'd0f34aeab2a0622c0cae17dbd260c671cc6c96db31f85d414fb19beabb11fce8', 'supabase/migrations/20260702063638_restore_mobile_admin_product_rpc_contract.sql': 'a04858072ce04f37af2269bb14bd4a936df612b6243fdb0099e8b417ba9c3ba4', 'apps/web/src/ai/flows/generate-product-descriptions.ts': '2d75d5427336ed5db57afe4f174ec1db18e09ce5a36edfde08e23eed380d1fc7', 'apps/web/src/ai/flows/autofill-product-details.ts': 'c2e08bc974fd4e485c4ce75af674831204f3712d4a0351dfabc655911731f771',
+};
+const row = (path: string, caller: string, operation: string, contract: string, test: string): ProductDescriptionWriterInventoryRow => ({
+  inventory_version: '1', path, caller_or_route: caller, operation, description_input_contract: contract,
+  can_attest_source: 'no', unattested_source: UNATTESTED, guard_error_contract: GUARD, test_path: test, file_sha256: HASHES[path] ?? '',
+});
+const CURRENT_INVENTORY_ROWS = [
+  row('apps/web/src/schemas/products.ts', 'web create/update route schemas', 'description contract', 'create/update description schema', 'apps/web/src/schemas/products.test.ts'),
+  row('apps/web/src/app/dashboard/products/add/add-product-form.tsx', 'add/edit form; AI result -> submitted product', 'AI persistence caller', 'form description including generated text', 'apps/web/src/app/dashboard/products/add/add-product-form.test.tsx'),
+  row('apps/web/src/app/api/products/route.ts', 'add form -> POST /api/products', 'insert public.products.description', 'createProductSchema description', 'apps/web/src/app/api/products/route.test.ts'),
+  row('apps/web/src/app/api/products/[id]/route.ts', 'edit form -> PUT /api/products/[id]', 'update public.products.description', 'updateProductSchema description', 'apps/web/src/app/api/products/[id]/route.test.ts'),
+  row('apps/web/src/components/products/csv-bulk-import-dialog.tsx', 'CSV dialog -> multipart import route', 'CSV persistence caller', 'CSV description column', 'apps/web/src/app/api/products/bulk-import/route.test.ts'),
+  row('apps/web/src/app/api/products/bulk-import/route.ts', 'CSV dialog -> bulk import route', 'insert public.products.description', 'optional CSV description', 'apps/web/src/app/api/products/bulk-import/route.test.ts'),
+  row('apps/web/src/components/products/review-changes.tsx', 'review UI -> product context', 'bulk-update persistence caller', 'BulkUpdateChange description', 'apps/web/src/components/products/review-changes.test.tsx'),
+  row('apps/web/src/contexts/product-context.tsx', 'review UI -> bulk-update route', 'bulk-update persistence caller', 'product change description', 'apps/web/src/contexts/product-context.test.tsx'),
+  row('apps/web/src/app/api/products/bulk-update/route.ts', 'product context -> bulk processor', 'bulk-update route caller', 'validated change description', 'apps/web/src/app/api/products/bulk-update/route.test.ts'),
+  row('apps/web/src/app/api/products/bulk-update/bulk-update-change-processing.ts', 'bulk-update route -> processor', 'insert public.products.description', 'new change details.description', 'apps/web/src/app/api/products/bulk-update/bulk-update-change-processing.test.ts'),
+  row('apps/web/src/lib/import-jobs/run-claimed-import-job.ts', 'claimed Bumpa job -> commit helper', 'Bumpa persistence caller', 'normalized product description', 'apps/web/src/lib/import-jobs/run-claimed-import-job.test.ts'),
+  row('apps/web/src/lib/import-commit/commit-bumpa-products.ts', 'Bumpa commit helper', 'insert/update public.products.description', 'NormalizedImportedProduct.description', 'apps/web/src/lib/import-commit/commit-bumpa-products.test.ts'),
+  row('apps/web/src/app/dashboard/products/use-products-page-actions.ts', 'dashboard action -> Jumia import', 'Jumia persistence caller', 'Jumia imported description', 'apps/web/src/app/api/marketplace/jumia/products/import/route.test.ts'),
+  row('apps/web/src/app/api/marketplace/jumia/products/import/route.ts', 'dashboard action -> Jumia import', 'upsert public.products.description', 'sanitized Jumia description', 'apps/web/src/app/api/marketplace/jumia/products/import/route.test.ts'),
+  row('apps/mobile-admin/hooks/product-save.ts', 'mobile create/update -> public RPC', 'RPC persistence caller', 'ProductDbSchema payload description', 'apps/mobile-admin/hooks/product-save.test.ts'),
+  row('supabase/migrations/20260615181534_serialized_variant_inventory.sql', 'legacy private mobile product-save RPC', 'insert/update public.products.description', 'p_product_payload.description', 'apps/mobile-admin/hooks/product-save.test.ts'),
+  row('supabase/migrations/20260702063638_restore_mobile_admin_product_rpc_contract.sql', 'mobile hook -> current public RPC', 'insert/update public.products.description', 'p_product_payload.description', 'apps/mobile-admin/hooks/product-save.test.ts'),
+  row('apps/web/src/ai/flows/generate-product-descriptions.ts', 'add/edit form server action', 'generate only; persisted by add form', 'GenerateProductDescriptionInput -> text', 'apps/web/src/ai/flows/generate-product-descriptions.test.ts'),
+  row('apps/web/src/ai/flows/autofill-product-details.ts', 'add/edit form server action', 'generate only; persisted by add form', 'Autofill input -> details.description', 'apps/web/src/ai/flows/autofill-product-details.test.ts'),
 ];
 
-function escapeCsv(value: string): string {
-  return /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+function escapeCsv(value: string): string { return /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value; }
+export function buildProductDescriptionWriterInventoryCsv(rows: ProductDescriptionWriterInventoryRow[]): string {
+  return `${PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER}\n${rows.map((entry) => COLUMNS.map((column) => escapeCsv(entry[column])).join(',')).join('\n')}\n`;
 }
-
-export function buildProductDescriptionWriterInventoryCsv(
-  rows: ProductDescriptionWriterInventoryRow[]
-): string {
-  return `${PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER}\n${rows
-    .map((row) => INVENTORY_COLUMNS.map((column) => escapeCsv(row[column])).join(','))
-    .join('\n')}\n`;
-}
-
 function parseCsv(csv: string): { errors: string[]; rows: ProductDescriptionWriterInventoryRow[] } {
-  const lines = csv.trimEnd().split(/\r?\n/);
-  if (lines[0] !== PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER) {
-    return { errors: ['Inventory CSV header does not match the required schema'], rows: [] };
-  }
-  const rows: ProductDescriptionWriterInventoryRow[] = [];
-  for (const [index, line] of lines.slice(1).entries()) {
-    const fields = line.split(',');
-    if (fields.length !== INVENTORY_COLUMNS.length) {
-      return { errors: [`Inventory CSV row ${index + 2} does not match the required schema`], rows: [] };
+  const fields: string[][] = [[]]; let field = ''; let quoted = false;
+  for (let index = 0; index < csv.length; index += 1) {
+    const char = csv[index]; const next = csv[index + 1];
+    if (quoted && char === '"' && next === '"') { field += '"'; index += 1; continue; }
+    if (char === '"') { if (!quoted && field) return { errors: ['Inventory CSV contains an invalid quote'], rows: [] }; quoted = !quoted; continue; }
+    if (!quoted && char === ',') { fields.at(-1)?.push(field); field = ''; continue; }
+    if (!quoted && (char === '\n' || char === '\r')) {
+      if (char === '\r' && next === '\n') index += 1;
+      fields.at(-1)?.push(field); field = ''; fields.push([]); continue;
     }
-    rows.push(Object.fromEntries(INVENTORY_COLUMNS.map((column, fieldIndex) => [column, fields[fieldIndex]])) as ProductDescriptionWriterInventoryRow);
+    field += char;
   }
-  return { errors: [], rows };
+  if (quoted) return { errors: ['Inventory CSV contains an unterminated quoted field'], rows: [] };
+  fields.at(-1)?.push(field);
+  if (fields.at(-1)?.length === 1 && fields.at(-1)?.[0] === '') fields.pop();
+  if (fields[0]?.join(',') !== PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER) return { errors: ['Inventory CSV header does not match the required schema'], rows: [] };
+  const rows = fields.slice(1).map((values, index) => {
+    if (values.length !== COLUMNS.length) throw new Error(`Inventory CSV row ${index + 2} does not match the required schema`);
+    return Object.fromEntries(COLUMNS.map((column, valueIndex) => [column, values[valueIndex]])) as ProductDescriptionWriterInventoryRow;
+  });
+  try { return { errors: [], rows }; } catch { return { errors: ['Inventory CSV does not match the required schema'], rows: [] }; }
 }
 
 async function listFiles(root: string): Promise<string[]> {
   if (!existsSync(root)) return [];
   const entries = await readdir(root, { withFileTypes: true });
-  const files = await Promise.all(entries.map(async (entry) => {
-    const path = join(root, entry.name);
-    return entry.isDirectory() ? listFiles(path) : [path];
-  }));
-  return files.flat();
+  return (await Promise.all(entries.map((entry) => { const path = join(root, entry.name); return entry.isDirectory() ? listFiles(path) : [path]; }))).flat();
 }
-
-function isDirectDescriptionWriter(source: string): boolean {
-  return /\.from\(\s*['"]products['"]\s*\)(?:(?!;)[\s\S]){0,2500}?\.(?:insert|update|upsert)\s*\(/.test(source)
-    && /(?:[,{]\s*description\s*:|\.description\b|\bdescription\s*=)/.test(source);
+function writesDescription(source: string): boolean { return /\bdescription\b/.test(source); }
+function directProductsMutation(source: string): boolean {
+  return /\.from\(\s*['"]products['"]\s*\)(?:(?!;)[\s\S])*?\.(?:insert|update|upsert)\s*\(/.test(source) && writesDescription(source);
 }
-
-function isAiDescriptionProducer(path: string, source: string): boolean {
-  return path.includes('/ai/flows/')
-    && /product/i.test(path)
-    && /generate(?:Text|Object)WithChain/.test(source)
-    && /\bdescription\b/.test(source);
+function persistenceCaller(path: string, source: string): boolean {
+  return (/\.rpc\(\s*['"]save_mobile_admin_product_with_variants['"]/.test(source)
+    || (/generateProductDescription|autofillProductDetails/.test(source) && /onProductAdded\(/.test(source))) && writesDescription(source) && !path.includes('.test.');
 }
-
-async function discoverSqlDescriptionWriters(root: string): Promise<string[]> {
-  const migrations = (await listFiles(join(root, 'supabase/migrations'))).filter((path) => path.endsWith('.sql')).sort();
-  const latestDefinitions = new Map<string, { path: string; source: string }>();
-  for (const path of migrations) {
-    const source = await readFile(path, 'utf8');
-    for (const match of source.matchAll(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+((?:public|private)\.[a-zA-Z0-9_]+)[\s\S]*?\$\$[\s\S]*?\$\$;/gi)) {
-      latestDefinitions.set(match[1], { path, source: match[0] });
-    }
+function aiProducer(path: string, source: string): boolean {
+  return path.includes('/ai/flows/') && /product/i.test(path) && /generate(?:Text|Object)WithChain/.test(source) && writesDescription(source);
+}
+function functionDefinitions(source: string): FunctionDefinition[] {
+  const definitions: FunctionDefinition[] = []; const startPattern = /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+((?:public|private)\.[\w]+)[\s\S]*?\bAS\s+(\$[\w]*\$)/gi;
+  for (const match of source.matchAll(startPattern)) { const start = match.index ?? 0; const tag = match[2]; const bodyStart = start + match[0].length; const bodyEnd = source.indexOf(tag, bodyStart); if (bodyEnd >= 0) definitions.push({ name: match[1], start, end: bodyEnd + tag.length, body: source.slice(bodyStart, bodyEnd) }); }
+  return definitions;
+}
+function sqlWritesDescription(source: string): boolean {
+  return /INSERT\s+INTO\s+public\.products\s*\([\s\S]*?\bdescription\b[\s\S]*?\)\s*VALUES|UPDATE\s+public\.products\b[\s\S]*?\bSET\b[\s\S]*?\bdescription\s*=/i.test(source);
+}
+async function discoverSql(root: string): Promise<string[]> {
+  const files = (await listFiles(join(root, 'supabase/migrations'))).filter((path) => path.endsWith('.sql') && !path.includes('/migrations/tests/')).sort();
+  const latest = new Map<string, { path: string; body: string }>(); const discovered = new Set<string>();
+  for (const path of files) { const source = await readFile(path, 'utf8'); const definitions = functionDefinitions(source); let topLevel = source;
+    for (const definition of definitions) { latest.set(definition.name, { path, body: definition.body }); topLevel = `${topLevel.slice(0, definition.start)}${' '.repeat(definition.end - definition.start)}${topLevel.slice(definition.end)}`; }
+    if (sqlWritesDescription(topLevel)) discovered.add(relative(root, path));
   }
-  return [...latestDefinitions.values()]
-    .filter(({ source }) => /INSERT\s+INTO\s+public\.products\s*\([\s\S]{0,2000}\bdescription\b|UPDATE\s+public\.products[\s\S]{0,1200}\bdescription\s*=/i.test(source))
-    .map(({ path }) => relative(root, path));
+  for (const { path, body } of latest.values()) if (sqlWritesDescription(body)) discovered.add(relative(root, path));
+  return [...discovered];
 }
-
 async function discoverWriterPaths(root: string): Promise<string[]> {
-  const webFiles = (await listFiles(join(root, 'apps/web/src'))).filter((path) => SOURCE_EXTENSIONS.has(path.slice(path.lastIndexOf('.'))) && !path.includes('.test.'));
-  const discovered = await Promise.all(webFiles.map(async (path) => {
-    const source = await readFile(path, 'utf8');
-    const relativePath = relative(root, path);
-    return isDirectDescriptionWriter(source) || isAiDescriptionProducer(relativePath, source) ? [relativePath] : [];
-  }));
-  return [...new Set([...discovered.flat(), ...(await discoverSqlDescriptionWriters(root))])].sort();
+  const files = (await Promise.all(TS_ROOTS.map((path) => listFiles(join(root, path))))).flat().filter((path) => TS_EXTENSIONS.has(path.slice(path.lastIndexOf('.'))) && !path.includes('.test.'));
+  const paths = await Promise.all(files.map(async (path) => { const source = await readFile(path, 'utf8'); const rel = relative(root, path); return directProductsMutation(source) || persistenceCaller(rel, source) || aiProducer(rel, source) ? [rel] : []; }));
+  return [...new Set([...paths.flat(), ...(await discoverSql(root))])].sort();
 }
 
 export async function checkProductDescriptionWriterInventory({ inventoryCsv, repositoryRoot }: { inventoryCsv: string; repositoryRoot: string }): Promise<CheckResult> {
-  const parsed = parseCsv(inventoryCsv);
-  if (parsed.errors.length > 0) return { errors: parsed.errors, ok: false };
-  const errors: string[] = [];
-  const paths = new Set<string>();
-  for (const row of parsed.rows) {
-    if (paths.has(row.path)) errors.push(`Duplicate inventory path: ${row.path}`);
-    paths.add(row.path);
-    const writerPath = join(repositoryRoot, row.path);
-    if (!existsSync(writerPath)) {
-      errors.push(`Inventoried writer path is missing: ${row.path}`);
-    } else if (createHash('sha256').update(await readFile(writerPath)).digest('hex') !== row.file_sha256) {
-      errors.push(`File SHA-256 drift for ${row.path}`);
-    }
-    if (!existsSync(join(repositoryRoot, row.test_path))) errors.push(`Inventoried test path is missing: ${row.test_path}`);
+  let parsed: { errors: string[]; rows: ProductDescriptionWriterInventoryRow[] };
+  try { parsed = parseCsv(inventoryCsv); } catch (error) { return { errors: [error instanceof Error ? error.message : 'Inventory CSV does not match the required schema'], ok: false }; }
+  if (parsed.errors.length) return { errors: parsed.errors, ok: false };
+  const errors: string[] = []; const inventoryPaths = new Set<string>();
+  for (const entry of parsed.rows) { if (inventoryPaths.has(entry.path)) errors.push(`Duplicate inventory path: ${entry.path}`); inventoryPaths.add(entry.path); const source = join(repositoryRoot, entry.path);
+    if (!existsSync(source)) errors.push(`Inventoried writer path is missing: ${entry.path}`);
+    else if (createHash('sha256').update(await readFile(source)).digest('hex') !== entry.file_sha256) errors.push(`File SHA-256 drift for ${entry.path}`);
+    if (!existsSync(join(repositoryRoot, entry.test_path))) errors.push(`Inventoried test path is missing: ${entry.test_path}`);
   }
-  for (const path of await discoverWriterPaths(repositoryRoot)) {
-    if (!paths.has(path)) errors.push(`Discovered description writer is not inventoried: ${path}`);
-  }
+  for (const path of await discoverWriterPaths(repositoryRoot)) if (!inventoryPaths.has(path)) errors.push(`Discovered description writer is not inventoried: ${path}`);
   return { errors, ok: errors.length === 0 };
 }
-
-async function main() {
-  const outputIndex = process.argv.indexOf('--output');
-  const output = outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined;
-  if (!output) throw new Error('Usage: tsx check-product-description-writers.ts --output <csv-path>');
-  const repositoryRoot = join(process.cwd(), '..', '..');
-  const inventoryCsv = existsSync(output) ? await readFile(output, 'utf8') : buildProductDescriptionWriterInventoryCsv(CURRENT_INVENTORY_ROWS);
-  const result = await checkProductDescriptionWriterInventory({ inventoryCsv, repositoryRoot });
-  if (!result.ok) throw new Error(result.errors.join('\n'));
-  await mkdir(dirname(output), { recursive: true });
-  await writeFile(output, inventoryCsv, 'utf8');
-  process.stdout.write(`Product description writer inventory verified: ${output}\n`);
-}
-
+async function main() { const index = process.argv.indexOf('--output'); const output = index >= 0 ? process.argv[index + 1] : undefined; if (!output) throw new Error('Usage: tsx check-product-description-writers.ts --output <csv-path>'); const root = join(process.cwd(), '..', '..'); const csv = existsSync(output) ? await readFile(output, 'utf8') : buildProductDescriptionWriterInventoryCsv(CURRENT_INVENTORY_ROWS); const result = await checkProductDescriptionWriterInventory({ inventoryCsv: csv, repositoryRoot: root }); if (!result.ok) throw new Error(result.errors.join('\n')); await mkdir(dirname(output), { recursive: true }); await writeFile(output, csv, 'utf8'); process.stdout.write(`Product description writer inventory verified: ${output}\n`); }
 if (import.meta.url === `file://${process.argv[1]}`) void main();

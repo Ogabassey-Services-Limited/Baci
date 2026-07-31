@@ -115,6 +115,56 @@ describe('checkProductDescriptionWriterInventory', () => {
     expect(result).toEqual({ errors: [], ok: true });
   });
 
+  it('fails closed across mobile, packages, SQL, and persistence-caller surfaces', async () => {
+    const { root, rows } = await createFixture();
+    const unlistedPaths = [
+      'apps/mobile-admin/hooks/unlisted-product-writer.ts',
+      'packages/shared/src/unlisted-product-writer.ts',
+      'supabase/migrations/20260703000000_top_level_description.sql',
+      'supabase/migrations/20260704000000_tagged_function_description.sql',
+      'apps/mobile-admin/hooks/unlisted-product-persistence.ts',
+    ];
+    await Promise.all([
+      writeFixture(root, unlistedPaths[0], "await supabase.from('products').upsert({ description: input.description });"),
+      writeFixture(root, unlistedPaths[1], "await client.from('products').update({ description: payload.description });"),
+      writeFixture(root, unlistedPaths[2], "UPDATE public.products SET description = 'top-level';"),
+      writeFixture(root, unlistedPaths[3], `CREATE OR REPLACE FUNCTION public.tagged_writer()
+RETURNS void LANGUAGE plpgsql AS $writer$
+BEGIN
+  UPDATE public.products SET description = 'tagged';
+END;
+$writer$;`),
+      writeFixture(root, unlistedPaths[4], "await supabase.rpc('save_mobile_admin_product_with_variants', { p_product_payload: { description } });"),
+    ]);
+
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
+      repositoryRoot: root,
+    });
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining(
+        unlistedPaths.map((path) => `Discovered description writer is not inventoried: ${path}`)
+      )
+    );
+  });
+
+  it('round-trips CSV values containing a comma, quote, and newline', async () => {
+    const { root, rows } = await createFixture();
+    const rowsWithCsvCharacters = rows.map((row, index) =>
+      index === 0
+        ? { ...row, caller_or_route: 'caller, says "quoted"\nnext line' }
+        : row
+    );
+
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(rowsWithCsvCharacters),
+      repositoryRoot: root,
+    });
+
+    expect(result).toEqual({ errors: [], ok: true });
+  });
+
   it('fails closed when a discovered writer is not inventoried', async () => {
     const { root, rows } = await createFixture();
     const unlistedPath = 'apps/web/src/app/api/products/unlisted-writer.ts';
