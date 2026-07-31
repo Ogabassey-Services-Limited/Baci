@@ -15,7 +15,8 @@ type EvidencePhase =
   | 'write_token_revoked'
   | 'read_token_revoked'
   | 'proof_complete'
-  | 'closed_stop';
+  | 'closed_stop'
+  | 'cleanup_incomplete_stop';
 export type CloudflareEvidenceRunJournal = {
   runId: string;
   approvalId: string;
@@ -32,6 +33,7 @@ export type CloudflareEvidenceRunJournal = {
   cleanupAttempts: number;
   readBackEvidence: readonly string[];
   probeResults: readonly string[];
+  cleanupIncomplete: boolean;
   writeTokenRevokedAt?: string;
   readTokenRevokedAt?: string;
   writeTokenRevocationReceipt?: TokenRevocationReceipt;
@@ -67,6 +69,7 @@ export type EvidenceRunInput = Omit<
   | 'cleanupAttempts'
   | 'readBackEvidence'
   | 'probeResults'
+  | 'cleanupIncomplete'
   | 'writeTokenRevokedAt'
   | 'readTokenRevokedAt'
   | 'writeTokenRevocationReceipt'
@@ -119,7 +122,15 @@ async function readJournal(stateDir: string, runId: string) {
     await readFile(target, 'utf8')
   ) as CloudflareEvidenceRunJournal;
 }
-const terminal = new Set<EvidencePhase>(['proof_complete', 'closed_stop']);
+const terminal = new Set<EvidencePhase>([
+  'proof_complete',
+  'closed_stop',
+  'cleanup_incomplete_stop',
+]);
+const revocationTerminal = new Set<EvidencePhase>([
+  'proof_complete',
+  'closed_stop',
+]);
 
 /** Opens the one private, journal-fenced evidence run permitted in a state directory. */
 export async function openEvidenceRun(
@@ -145,6 +156,7 @@ export async function openEvidenceRun(
     cleanupAttempts: 0,
     readBackEvidence: [],
     probeResults: [],
+    cleanupIncomplete: false,
   };
   await writeJournal(stateDir, journal);
   return journal;
@@ -189,6 +201,7 @@ export async function recordEvidencePhase(
       CloudflareEvidenceRunJournal,
       | 'cleanupAttempts'
       | 'readBackEvidence'
+      | 'cleanupIncomplete'
       | 'writeTokenRevokedAt'
       | 'readTokenRevokedAt'
     >
@@ -201,7 +214,7 @@ export async function recordEvidencePhase(
     throw new Error('caller timestamps cannot prove token revocation');
   Object.assign(journal, details);
   if (
-    terminal.has(phase) &&
+    revocationTerminal.has(phase) &&
     (!journal.writeTokenRevokedAt || !journal.readTokenRevokedAt)
   )
     throw new Error(

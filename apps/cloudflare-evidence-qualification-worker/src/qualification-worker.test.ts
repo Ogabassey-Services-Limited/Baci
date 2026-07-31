@@ -2,7 +2,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import versionA from './version-a';
 import versionB from './version-b';
-import { buildQualificationArtifactReceipt } from './qualification-artifact-receipt';
+import {
+  buildQualificationArtifactReceipt,
+  validateQualificationWorkerConfig,
+} from './qualification-artifact-receipt';
 
 const root = resolve(import.meta.dirname, '..');
 describe('cloudflare evidence qualification worker fixture', () => {
@@ -51,5 +54,27 @@ describe('cloudflare evidence qualification worker fixture', () => {
     );
     expect(receiptA.soleVersionMetadataBinding).toBe('CF_VERSION_METADATA');
     expect(receiptA.wranglerVersion).toBe('4.115.0');
+  });
+  it('accepts only the exact single generated version-metadata config binding', () => {
+    const config = JSON.stringify({
+      name: 'baci-evidence-qualification',
+      main: 'src/version-a.ts',
+      compatibility_date: '2026-07-31',
+      version_metadata: { binding: 'CF_VERSION_METADATA' },
+    });
+    expect(validateQualificationWorkerConfig(config)).toMatchObject({
+      binding: 'CF_VERSION_METADATA',
+    });
+    for (const extra of [
+      { route: 'edge-evidence.ogabassey.com/*' },
+      { vars: { OTHER: 'value' } },
+      { r2_buckets: [] },
+      { secrets: ['SECRET'] },
+    ])
+      expect(() =>
+        validateQualificationWorkerConfig(
+          JSON.stringify({ ...JSON.parse(config), ...extra })
+        )
+      ).toThrow('forbidden');
   });
 });

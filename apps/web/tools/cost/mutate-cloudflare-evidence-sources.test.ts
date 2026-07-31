@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   loadEvidenceRunForCleanup,
   openEvidenceRun,
+  recordEvidenceMutation,
 } from './cloudflare-evidence-run-journal';
 import {
   applyCloudflareEvidenceMutation,
@@ -152,5 +153,26 @@ describe('Cloudflare evidence mutation lifecycle', () => {
       if (entry.error === 'before mutation')
         expect(create).not.toHaveBeenCalled();
     }
+  });
+  it('cleanup-only stops incomplete crash recovery without create, probe, or measurement', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, input);
+    await recordEvidenceMutation(dir, input.runId, resource.name, resource.id);
+    const create = vi.fn();
+    const probe = vi.fn();
+    await expect(
+      cleanupCloudflareEvidenceRun(dir, input.runId, capability, {
+        identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
+        findByName: async () => null,
+        get: async () => resource,
+        create,
+        probe,
+        cleanup: async () => true,
+        inventorySha256: async () => 'a'.repeat(64),
+      })
+    ).resolves.toMatchObject({ phase: 'cleanup_incomplete_stop' });
+    expect(create).not.toHaveBeenCalled();
+    expect(probe).not.toHaveBeenCalled();
   });
 });

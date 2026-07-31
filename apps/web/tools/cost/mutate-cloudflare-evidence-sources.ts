@@ -61,9 +61,11 @@ function verifyIdentity(
 function verifyResource(
   resource: EvidenceResource,
   journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>,
-  name: string
+  name: string,
+  expectedId?: string
 ) {
   if (
+    (expectedId && resource.id !== expectedId) ||
     resource.name !== name ||
     !resource.description.includes(journal.runId) ||
     resource.accountId !== journal.accountId ||
@@ -131,28 +133,34 @@ export async function cleanupCloudflareEvidenceRun(
   verifyCapability(capability);
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
   verifyIdentity(await client.identity(), journal);
-  if (journal.probeResults.length !== journal.expectedProbeCount)
-    throw new Error(
-      'cleanup requires exactly the journaled bounded probe results'
-    );
+  const incomplete = journal.probeResults.length !== journal.expectedProbeCount;
   for (const [name, id] of Object.entries(journal.mutations).reverse()) {
     if (!journal.plannedResources.includes(name))
       throw new Error('journal mutation name is not planned');
     const resource = await client.get(id);
     if (!resource) continue;
-    verifyResource(resource, journal, name);
+    verifyResource(resource, journal, name, id);
+    if ((await client.inventorySha256(resource)) !== journal.preInventorySha256)
+      throw new Error('provider inventory drift before cleanup');
     if (!(await client.cleanup(name, id)))
       throw new Error('evidence cleanup read-back did not prove absence');
   }
   if ((await client.inventorySha256()) !== journal.preInventorySha256)
     throw new Error('provider inventory drift after cleanup');
-  return recordEvidencePhase(stateDir, runId, 'cleanup_verified', {
-    cleanupAttempts: journal.cleanupAttempts + 1,
-    readBackEvidence: [
-      ...journal.readBackEvidence,
-      'synthetic resources absent',
-    ],
-  });
+  return recordEvidencePhase(
+    stateDir,
+    runId,
+    incomplete ? 'cleanup_incomplete_stop' : 'cleanup_verified',
+    {
+      cleanupAttempts: journal.cleanupAttempts + 1,
+      cleanupIncomplete: incomplete,
+      readBackEvidence: [
+        ...journal.readBackEvidence,
+        'synthetic resources absent',
+        ...(incomplete ? ['synthetic probe evidence incomplete; STOP'] : []),
+      ],
+    }
+  );
 }
 
 if (

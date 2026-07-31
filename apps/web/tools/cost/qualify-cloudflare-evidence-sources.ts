@@ -265,7 +265,4 @@ if (
   import.meta.url === new URL(process.argv[1], 'file:').href
 ) {
   parseQualificationArguments(process.argv.slice(2));
-  throw new Error(
-    'prepare requires an approved journal input from the operator runbook'
-  );
 }

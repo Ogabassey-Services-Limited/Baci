@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { executeDeepCloudflareEvidenceQualification } from './cloudflare-evidence-provider-qualification';
 import {
   buildClosedEvidenceProcessEnvironment,
   executeCloudflareEvidenceQualification,
@@ -236,5 +237,84 @@ describe('Cloudflare read-only qualification contracts', () => {
         }
       )
     ).rejects.toThrow('cacheable');
+  });
+  it('requires repeated GET/HEAD and independent converged tuples for all topology families', async () => {
+    const topologies = [
+      'worker-custom-domain',
+      'r2-cors',
+      'r2-custom-domain',
+    ] as const;
+    const reads = new Map(topologies.map((family) => [family, 0]));
+    const calls: string[] = [];
+    const client = {
+      trace: async () => ({
+        cacheRuleId: 'rule',
+        rulesetVersion: 'v1',
+        expressionSha256: 'a'.repeat(64),
+        matched: true,
+      }),
+      pointerProbe: async (method: 'GET' | 'HEAD') => {
+        calls.push(method);
+        return { cfCacheStatus: 'DYNAMIC' };
+      },
+      topologyRead: async (family: (typeof topologies)[number]) => {
+        const index = reads.get(family) ?? 0;
+        reads.set(family, index + 1);
+        return {
+          state: ['before', 'intermediate', 'after'][index],
+          fingerprint: `${family}-${index}`,
+        };
+      },
+      topologyMutate: async (family: string) => {
+        calls.push(`mutate:${family}`);
+        return { lostResponse: true };
+      },
+      topologyConverged: async () => true,
+      topologyControlNoEffect: async () => true,
+    };
+    const input = {
+      pointerUrl: 'https://edge-evidence.ogabassey.com/',
+      pointerProbeCount: 2,
+      trace: {
+        cacheRuleId: 'rule',
+        rulesetVersion: 'v1',
+        expressionSha256: 'a'.repeat(64),
+      },
+      topologies: topologies.map((family) => ({
+        family,
+        action: family === 'r2-cors' ? 'write' : 'detach',
+        endpoint: `/accounts/account/${family}`,
+        requestSchemaSha256: 'b'.repeat(64),
+        maximumVisibilitySeconds: 60,
+        before: { state: 'before', fingerprint: `${family}-0` },
+        intermediate: { state: 'intermediate', fingerprint: `${family}-1` },
+        after: { state: 'after', fingerprint: `${family}-2` },
+      })) as never,
+    };
+    await expect(
+      executeDeepCloudflareEvidenceQualification(client, input)
+    ).resolves.toEqual({ qualified: true });
+    expect(calls.filter((call) => call === 'GET')).toHaveLength(2);
+    expect(calls.filter((call) => call === 'HEAD')).toHaveLength(2);
+    await expect(
+      executeDeepCloudflareEvidenceQualification(client, {
+        ...input,
+        pointerProbeCount: 1,
+      })
+    ).rejects.toThrow('repeated');
+    await expect(
+      executeDeepCloudflareEvidenceQualification(
+        {
+          ...client,
+          trace: async () => ({
+            cacheRuleId: 'wrong',
+            rulesetVersion: 'v1',
+            expressionSha256: 'a'.repeat(64),
+            matched: true,
+          }),
+        },
+        input
+      )
+    ).rejects.toThrow('Trace');
   });
 });

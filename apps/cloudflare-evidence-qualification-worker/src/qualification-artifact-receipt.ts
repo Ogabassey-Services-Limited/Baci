@@ -23,6 +23,59 @@ export type QualificationArtifactReceipt = Readonly<{
 }>;
 const sha256 = (value: string | Uint8Array) =>
   createHash('sha256').update(value).digest('hex');
+const forbiddenConfigKeys = new Set([
+  'route',
+  'routes',
+  'custom_domains',
+  'vars',
+  'secrets',
+  'r2_buckets',
+  'services',
+  'durable_objects',
+  'queues',
+  'analytics_engine_datasets',
+]);
+const canonicalConfigJson = (value: unknown): string => {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value))
+    return `[${value.map(canonicalConfigJson).join(',')}]`;
+  return `{${Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, item]) => `${JSON.stringify(key)}:${canonicalConfigJson(item)}`)
+    .join(',')}}`;
+};
+
+/** Parses the Wrangler JSONC authority surface; no source code implies bindings. */
+export function validateQualificationWorkerConfig(configText: string) {
+  const parsed = JSON.parse(configText.replace(/\/\/.*$/gm, '')) as Record<
+    string,
+    unknown
+  >;
+  const keys = Object.keys(parsed);
+  if (keys.some((key) => forbiddenConfigKeys.has(key)))
+    throw new Error('forbidden Worker config authority');
+  if (
+    keys.length !== 4 ||
+    !['name', 'main', 'compatibility_date', 'version_metadata'].every((key) =>
+      keys.includes(key)
+    ) ||
+    !parsed.version_metadata ||
+    typeof parsed.version_metadata !== 'object' ||
+    Array.isArray(parsed.version_metadata) ||
+    Object.keys(parsed.version_metadata as Record<string, unknown>).join(
+      ','
+    ) !== 'binding' ||
+    (parsed.version_metadata as { binding?: unknown }).binding !==
+      'CF_VERSION_METADATA'
+  )
+    throw new Error(
+      'Worker config must contain exactly one version_metadata binding'
+    );
+  return Object.freeze({
+    binding: 'CF_VERSION_METADATA' as const,
+    canonicalSha256: sha256(canonicalConfigJson(parsed)),
+  });
+}
 
 /** Produces a receipt only from an injected dry-run build and canonical local inputs. */
 export async function buildQualificationArtifactReceipt(
@@ -41,17 +94,15 @@ export async function buildQualificationArtifactReceipt(
   );
   if (!/^4\.115\.0$/.test(build.wranglerVersion))
     throw new Error('dry-run did not use the pinned Wrangler version');
-  const bindings = source.match(/env\.([A-Z0-9_]+)/g) ?? [];
-  if (bindings.length !== 1 || bindings[0] !== 'env.CF_VERSION_METADATA')
-    throw new Error('worker has an invalid version-metadata binding');
+  const qualificationConfig = validateQualificationWorkerConfig(config);
   return Object.freeze({
     canonicalSourceSha256: sha256(source),
-    configSha256: sha256(config),
+    configSha256: qualificationConfig.canonicalSha256,
     dependencyLockSha256: sha256(lock),
     wranglerVersion: build.wranglerVersion,
     generatedTypeSha256: sha256(build.generatedTypeDeclaration),
     moduleListSha256: sha256(JSON.stringify([...build.moduleList].sort())),
     bundleSha256: sha256(build.bundle),
-    soleVersionMetadataBinding: 'CF_VERSION_METADATA',
+    soleVersionMetadataBinding: qualificationConfig.binding,
   });
 }

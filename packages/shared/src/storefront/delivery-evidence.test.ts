@@ -90,6 +90,12 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
     expect(() => canonicalizeJson({ value: Number.NaN })).toThrow(
       'unsupported'
     );
+    const sparse = [1, , 3];
+    expect(() => canonicalizeJson(sparse)).toThrow('sparse');
+    expect(() => canonicalizeJson({ [Symbol('hidden')]: 'value' })).toThrow(
+      'symbol'
+    );
+    expect(canonicalizeJson([1, null, 3])).not.toBe(canonicalizeJson([1, 3]));
   });
   it('accepts bounded aggregate evidence and rejects raw request rows', () => {
     expect(

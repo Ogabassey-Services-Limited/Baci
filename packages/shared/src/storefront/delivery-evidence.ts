@@ -83,6 +83,8 @@ export function canonicalizeJson(value: unknown): string {
       return JSON.stringify(current);
     }
     if (Array.isArray(current)) {
+      if (Object.keys(current).length !== current.length)
+        throw new Error('canonical JSON contains a sparse array');
       if (parents.has(current))
         throw new Error('canonical JSON contains a cycle');
       parents.add(current);
@@ -99,6 +101,8 @@ export function canonicalizeJson(value: unknown): string {
       throw new Error('canonical JSON contains an unsupported value');
     if (parents.has(current))
       throw new Error('canonical JSON contains a cycle');
+    if (Object.getOwnPropertySymbols(current).length)
+      throw new Error('canonical JSON contains a symbol key');
     parents.add(current);
     const record = current as Record<string, unknown>;
     const result = `{${Object.keys(record)

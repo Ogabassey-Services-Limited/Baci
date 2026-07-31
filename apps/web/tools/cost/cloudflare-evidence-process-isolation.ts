@@ -1,3 +1,4 @@
+import { isAbsolute, resolve } from 'node:path';
 import { buildClosedEvidenceProcessEnvironment } from './qualify-cloudflare-evidence-sources';
 
 export type EvidenceChildCommand = 'prepare' | 'mutate' | 'cleanup' | 'measure';
@@ -5,7 +6,7 @@ export type EvidenceProcessSpawner = Readonly<{
   spawn(
     executable: string,
     argv: readonly string[],
-    options: Readonly<{ env: Record<string, string> }>
+    options: Readonly<{ cwd: string; env: Record<string, string> }>
   ): Promise<void>;
 }>;
 type Credential = Readonly<{
@@ -25,6 +26,12 @@ const scriptFor = (command: EvidenceChildCommand) =>
     : command === 'measure'
       ? 'measure-cloudflare-evidence-sources.ts'
       : 'mutate-cloudflare-evidence-sources.ts';
+const pinnedTsx = (workspaceRoot: string) =>
+  resolve(workspaceRoot, 'node_modules/.bin/tsx');
+const absoluteToolPath = (
+  workspaceRoot: string,
+  command: EvidenceChildCommand
+) => resolve(workspaceRoot, 'apps/web/tools/cost', scriptFor(command));
 
 /** Spawns exactly one purpose-bound command with a closed environment and one credential. */
 export async function spawnIsolatedCloudflareEvidenceProcess(
@@ -32,8 +39,11 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
   command: EvidenceChildCommand,
   runId: string,
   inherited: Readonly<Record<string, string | undefined>>,
-  credential?: Credential
+  credential: Credential | undefined,
+  workspaceRoot: string
 ) {
+  if (!isAbsolute(workspaceRoot))
+    throw new Error('workspace root must be absolute');
   const needsCredential = command !== 'prepare';
   if (needsCredential !== Boolean(credential))
     throw new Error('command credential responsibility is invalid');
@@ -56,9 +66,10 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
           .map((name) => [name, inherited[name] as string])
       );
   return await spawner.spawn(
-    process.execPath,
-    [scriptFor(command), ...argumentsFor(command, runId)],
+    pinnedTsx(workspaceRoot),
+    [absoluteToolPath(workspaceRoot, command), ...argumentsFor(command, runId)],
     {
+      cwd: workspaceRoot,
       env,
     }
   );
