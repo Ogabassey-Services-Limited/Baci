@@ -40,6 +40,8 @@ export default function EditBlogPostPage() {
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
   const [hasHydratedEmbeddedProducts, setHasHydratedEmbeddedProducts] =
     useState(false);
+  const [hasUserChangedEmbeddedProducts, setHasUserChangedEmbeddedProducts] =
+    useState(false);
   const [originalPost, setOriginalPost] = useState<BlogPost | null>(null);
   const [formData, setFormData] = useState<PostFormData>(INITIAL_FORM_DATA);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>();
@@ -97,6 +99,7 @@ export default function EditBlogPostPage() {
     setIsLoading(true);
     setEmbeddedProducts([]);
     setHasHydratedEmbeddedProducts(false);
+    setHasUserChangedEmbeddedProducts(false);
     loadBlogPost(postId, merchant.id).then((result) => {
       if (!isStale) onPostLoaded(result);
     });
@@ -107,6 +110,10 @@ export default function EditBlogPostPage() {
 
   const handleChange = (field: keyof PostFormData, value: string) =>
     setFormData((previous) => ({ ...previous, [field]: value }));
+  const handleEmbeddedProductsChange = (products: Product[]) => {
+    setEmbeddedProducts(products);
+    setHasUserChangedEmbeddedProducts(true);
+  };
   const optimizeSEO = (field: 'seo_title' | 'seo_description') => {
     const value =
       formData[field] ||
@@ -158,9 +165,10 @@ export default function EditBlogPostPage() {
         originalSlug: originalPost?.slug,
         newStatus,
         scheduledDate,
-        embeddedProductIds: hasHydratedEmbeddedProducts
-          ? embeddedProducts.map((product) => product.id)
-          : undefined,
+        embeddedProductIds:
+          hasHydratedEmbeddedProducts || hasUserChangedEmbeddedProducts
+            ? embeddedProducts.map((product) => product.id)
+            : undefined,
       });
       setOriginalPost(updatedPost);
       setFormData((previous) => ({
@@ -263,7 +271,7 @@ export default function EditBlogPostPage() {
             handleChange={handleChange}
             merchantSlug={merchant?.slug}
             embeddedProducts={embeddedProducts}
-            setEmbeddedProducts={setEmbeddedProducts}
+            setEmbeddedProducts={handleEmbeddedProductsChange}
             onImageUpload={imageActions.handleInlineImageUpload}
             onFeaturedImageUpload={imageActions.handleFeaturedImageUpload}
             onRemoveFeaturedImage={imageActions.handleRemoveFeaturedImage}

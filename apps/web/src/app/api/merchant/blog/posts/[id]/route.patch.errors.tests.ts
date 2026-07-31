@@ -34,16 +34,11 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       expect(mockSupabase.update).not.toHaveBeenCalled();
     });
 
-    it('returns 500 when database update fails', async () => {
-      mockSupabase.single
-        .mockResolvedValueOnce({
-          data: existingPost,
-          error: null,
-        })
-        .mockResolvedValueOnce({
-          data: null,
-          error: { message: 'Update failed' },
-        });
+    it('returns 500 when the atomic update mutation fails', async () => {
+      mockSupabase.rpc.mockResolvedValue({
+        data: null,
+        error: { code: 'XX000', message: 'Update failed' },
+      });
 
       const res = await PATCH(
         makeRequest(
@@ -56,7 +51,7 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to update post');
+      expect(json.error).toBe('Failed to persist post');
     });
 
     it('returns 500 when unexpected error occurs', async () => {

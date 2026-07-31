@@ -85,6 +85,38 @@ describe('loadBlogPost', () => {
     });
   });
 
+  it('does not accept unrelated products alongside every requested product', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ...embeddedProductPost,
+          embedded_products: ['product-a', 'product-b'],
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          products: ['product-a', 'product-b', 'product-c'].map((id) => ({
+            id,
+            name: `Product ${id}`,
+            price: 100,
+            images: [],
+            slug: id,
+            status: 'active',
+          })),
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await loadBlogPost('post-1', 'merchant-b');
+
+    expect(result).toMatchObject({
+      status: 'success',
+      embeddedProducts: null,
+      productsLoadFailed: true,
+    });
+  });
+
   it.each([
     ['returns an error status', false, { products: [] }],
     ['returns malformed data', true, { products: 'not-an-array' }],

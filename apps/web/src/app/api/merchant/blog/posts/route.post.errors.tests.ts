@@ -1,9 +1,5 @@
 import { describe, expect, it, type vi } from 'vitest';
-import {
-  mockPostCreationSelectSequence,
-  registerPostTestSetup,
-  validPostData,
-} from './post.test-support';
+import { registerPostTestSetup, validPostData } from './post.test-support';
 import { makeRequest, mockSupabase, POST } from './route.test-support';
 
 registerPostTestSetup();
@@ -30,12 +26,10 @@ describe('POST /api/merchant/blog/posts', () => {
       expect(json.error).toBe('Internal server error');
     });
 
-    it('returns the Supabase insert error when the mutation resolves with an error object', async () => {
-      mockPostCreationSelectSequence({
-        createdPost: {
-          data: null,
-          error: { message: 'Insert failed' },
-        },
+    it('returns a stable error when the atomic create mutation fails', async () => {
+      mockSupabase.rpc.mockResolvedValue({
+        data: null,
+        error: { code: 'XX000', message: 'Insert failed' },
       });
 
       const res = await POST(
@@ -44,7 +38,7 @@ describe('POST /api/merchant/blog/posts', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Insert failed');
+      expect(json.error).toBe('Failed to persist post');
     });
 
     it('returns 500 when unexpected error occurs', async () => {

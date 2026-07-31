@@ -21,15 +21,14 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
         featured_image_url: managedFeaturedImageUrl,
       };
 
-      mockSupabase.single
-        .mockResolvedValueOnce({
-          data: draftWithImage,
-          error: null,
-        })
-        .mockResolvedValueOnce({
-          data: { ...draftWithImage, status: 'published' },
-          error: null,
-        });
+      mockSupabase.single.mockResolvedValueOnce({
+        data: draftWithImage,
+        error: null,
+      });
+      mockSupabase.rpc.mockResolvedValue({
+        data: [{ ...draftWithImage, status: 'published' }],
+        error: null,
+      });
 
       const res = await PATCH(
         makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
@@ -54,18 +53,19 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
         featured_image_url: managedFeaturedImageUrl,
       };
 
-      mockSupabase.single
-        .mockResolvedValueOnce({
-          data: publishedPost,
-          error: null,
-        })
-        .mockResolvedValueOnce({
-          data: {
+      mockSupabase.single.mockResolvedValueOnce({
+        data: publishedPost,
+        error: null,
+      });
+      mockSupabase.rpc.mockResolvedValue({
+        data: [
+          {
             ...publishedPost,
             featured_image_url: replacementManagedFeaturedImageUrl,
           },
-          error: null,
-        });
+        ],
+        error: null,
+      });
 
       const res = await PATCH(
         makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {

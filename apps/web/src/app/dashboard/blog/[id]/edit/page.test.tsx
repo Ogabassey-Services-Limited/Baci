@@ -13,15 +13,13 @@ import {
   mockFetchWithCsrf,
   mockToast,
   mockWindowOpen,
+  resetEditBlogPageTestSupport,
 } from './edit-blog-page.test-support';
 
 describe('EditBlogPostPage Discover image upload metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAutoSave.hasSavedData.mockReturnValue(false);
-    mockAutoSave.getSavedData.mockReturnValue(null);
-    mockBlogEditor.contentResetKey = undefined;
-    mockFeaturedImageUploader.onFilesSelected = undefined;
+    resetEditBlogPageTestSupport();
     window.open = mockWindowOpen;
     global.fetch = mockFetch;
     mockFetch.mockResolvedValue(jsonResponse(existingPost));
@@ -210,5 +208,36 @@ describe('EditBlogPostPage Discover image upload metadata', () => {
       (mockFetchWithCsrf.mock.calls[0]?.[1] as { body: string }).body
     ) as Record<string, unknown>;
     expect(payload).not.toHaveProperty('embedded_products');
+  });
+
+  it('persists an explicit replacement after linked-product hydration fails', async () => {
+    const user = userEvent.setup();
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...existingPost,
+          embedded_products: [
+            'd5bc84b7-35c2-4e09-a5e7-6ebdd0fd1145',
+            '7c78af2f-75b8-4a30-9bb4-7abf51490fe9',
+          ],
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ products: [] }));
+    mockFetchWithCsrf.mockResolvedValueOnce(jsonResponse(existingPost));
+
+    render(<EditBlogPostPage />);
+    await screen.findByRole('heading', { name: /edit post/i });
+    await user.click(
+      screen.getByRole('button', { name: /replace embedded products/i })
+    );
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledTimes(1));
+    const payload = JSON.parse(
+      (mockFetchWithCsrf.mock.calls[0]?.[1] as { body: string }).body
+    ) as Record<string, unknown>;
+    expect(payload.embedded_products).toEqual([
+      'd5bc84b7-35c2-4e09-a5e7-6ebdd0fd1145',
+    ]);
   });
 });

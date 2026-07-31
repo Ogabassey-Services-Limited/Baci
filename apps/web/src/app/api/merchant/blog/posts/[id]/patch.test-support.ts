@@ -1,4 +1,5 @@
 import { beforeEach, vi } from 'vitest';
+import { BLOG_POST_MUTATION_PROJECTION } from '../blog-post-mutation-projection';
 import {
   createChainableMock,
   MERCHANT_ID,
@@ -67,6 +68,19 @@ function registerPatchTestSetup() {
       data: existingPost,
       error: null,
     });
+    mockSupabase.rpc.mockImplementation(
+      (
+        _functionName: string,
+        arguments_: { p_post_data: Record<string, unknown> }
+      ) => {
+        mockSupabase.update(arguments_.p_post_data);
+        mockSupabase.select(BLOG_POST_MUTATION_PROJECTION);
+        return Promise.resolve({
+          data: [{ ...existingPost, ...arguments_.p_post_data }],
+          error: null,
+        });
+      }
+    );
 
     // Mock maybeSingle for slug check (default: no conflict)
     mockSupabase.maybeSingle.mockResolvedValue({

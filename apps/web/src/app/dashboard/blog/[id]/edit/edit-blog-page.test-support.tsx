@@ -1,6 +1,15 @@
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  images: string[];
+  slug: string;
+  status: string;
+}
+
 const mocks = vi.hoisted(() => ({
   mockFetch: vi.fn(),
   mockFetchWithCsrf: vi.fn(),
@@ -33,6 +42,14 @@ export const mockAutoSave = mocks.mockAutoSave;
 export const mockBlogEditor = mocks.mockBlogEditor;
 export const mockFeaturedImageUploader = mocks.mockFeaturedImageUploader;
 
+export function resetEditBlogPageTestSupport() {
+  mockAutoSave.clearSavedData.mockReset();
+  mockAutoSave.getSavedData.mockReset().mockReturnValue(null);
+  mockAutoSave.hasSavedData.mockReset().mockReturnValue(false);
+  mockBlogEditor.contentResetKey = undefined;
+  mockFeaturedImageUploader.onFilesSelected = undefined;
+}
+
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'post-1' }),
   useRouter: () => ({ push: mockPush }),
@@ -48,11 +65,13 @@ vi.mock('@/components/blog/blog-editor', () => ({
     contentResetKey,
     onChange,
     onImageUpload,
+    onProductsChange,
   }: {
     content: string;
     contentResetKey?: number;
     onChange: (content: string) => void;
     onImageUpload: (file: File) => Promise<string>;
+    onProductsChange: (products: Product[]) => void;
   }) => {
     mockBlogEditor.contentResetKey = contentResetKey;
     return (
@@ -72,6 +91,23 @@ vi.mock('@/components/blog/blog-editor', () => ({
           }
         >
           Upload inline image
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onProductsChange([
+              {
+                id: 'd5bc84b7-35c2-4e09-a5e7-6ebdd0fd1145',
+                name: 'Replacement product',
+                price: 100,
+                images: [],
+                slug: 'replacement-product',
+                status: 'active',
+              },
+            ])
+          }
+        >
+          Replace embedded products
         </button>
       </div>
     );

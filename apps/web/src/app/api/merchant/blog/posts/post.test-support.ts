@@ -93,6 +93,25 @@ function registerPostTestSetup() {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true });
     mockPostCreationSelectSequence();
     mockSupabase.maybeSingle.mockResolvedValue({ data: null, error: null });
+    mockSupabase.rpc.mockImplementation(
+      (
+        _functionName: string,
+        arguments_: { p_post_data: Record<string, unknown> }
+      ) => {
+        mockSupabase.insert(arguments_.p_post_data);
+        mockSupabase.select(BLOG_POST_MUTATION_PROJECTION);
+        return Promise.resolve({
+          data: [
+            {
+              id: '1',
+              merchant_id: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+              ...arguments_.p_post_data,
+            },
+          ],
+          error: null,
+        });
+      }
+    );
   });
 }
 

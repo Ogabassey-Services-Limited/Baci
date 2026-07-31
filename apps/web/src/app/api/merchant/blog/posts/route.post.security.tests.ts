@@ -78,6 +78,23 @@ describe('POST /api/merchant/blog/posts', () => {
         'create'
       );
     });
+
+    it('returns forbidden when the atomic write loses marketing create permission', async () => {
+      mockSupabase.rpc.mockResolvedValue({
+        data: null,
+        error: {
+          code: '42501',
+          message: 'merchant_marketing_create_permission_required',
+        },
+      });
+
+      const res = await POST(
+        makeRequest('/api/merchant/blog/posts', { body: validPostData })
+      );
+
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: 'Permission denied' });
+    });
   });
 
   describe('CSRF protection', () => {

@@ -28,7 +28,7 @@ function hasCompleteEmbeddedProductHydration(
     return false;
   const returnedProductIds = new Set(products.map((product) => product.id));
   return (
-    returnedProductIds.size === products.length &&
+    returnedProductIds.size === requestedProductIds.length &&
     requestedProductIds.every((productId) => returnedProductIds.has(productId))
   );
 }

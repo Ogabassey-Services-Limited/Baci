@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { BLOG_POST_MUTATION_PROJECTION } from './blog-post-mutation-projection';
 
 type BlogPostMutationRecord = {
   category: string | null;
@@ -37,6 +36,7 @@ function readNullableString(value: unknown): string | null {
 function readRpcMutationError(
   error: {
     code?: string;
+    details?: string;
     message?: string;
   } | null
 ): { error: string; status: 400 | 403 | 404 | 409 | 500 } {
@@ -59,7 +59,11 @@ function readRpcMutationError(
   ) {
     return { error: 'Permission denied', status: 403 };
   }
-  if (error?.code === '23505') {
+  if (
+    error?.code === '23505' &&
+    (error.message?.includes('blog_posts_merchant_id_slug_key') ||
+      error.details?.includes('(merchant_id, slug)'))
+  ) {
     return { error: 'A post with this slug already exists', status: 409 };
   }
   return { error: 'Failed to persist post', status: 500 };
@@ -113,37 +117,7 @@ export async function persistBlogPostMutation({
   postId,
   supabase,
 }: PersistBlogPostMutationInput): Promise<PersistBlogPostMutationResult> {
-  if (embeddedProductIds === undefined) {
-    const mutation = postId
-      ? supabase
-          .from('blog_posts')
-          .update(postData)
-          .eq('id', postId)
-          .eq('merchant_id', merchantId)
-      : supabase.from('blog_posts').insert(postData);
-    const { data, error } = await mutation
-      .select(BLOG_POST_MUTATION_PROJECTION)
-      .single();
-
-    const post = readMutationPost({
-      fallback: postData,
-      merchantId,
-      value: data,
-    });
-    if (error || !post) {
-      return {
-        error: postId
-          ? 'Failed to update post'
-          : (error?.message ?? 'Failed to create post'),
-        post: null,
-        status: 500,
-      };
-    }
-
-    return { error: null, post, status: null };
-  }
-
-  if (embeddedProductIds.length > 0) {
+  if (embeddedProductIds && embeddedProductIds.length > 0) {
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select('id')
@@ -181,7 +155,7 @@ export async function persistBlogPostMutation({
       p_merchant_id: merchantId,
       p_post_data: postData,
       p_post_id: postId,
-      p_product_ids: embeddedProductIds,
+      p_product_ids: embeddedProductIds ?? null,
     }
   );
   const post = readMutationPost({

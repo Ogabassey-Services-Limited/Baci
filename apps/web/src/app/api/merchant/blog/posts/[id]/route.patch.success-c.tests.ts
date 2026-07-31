@@ -141,15 +141,10 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
     });
 
     it('revalidates blog cache after update', async () => {
-      mockSupabase.single
-        .mockResolvedValueOnce({
-          data: existingPost,
-          error: null,
-        })
-        .mockResolvedValueOnce({
-          data: { ...existingPost, slug: 'updated-slug' },
-          error: null,
-        });
+      mockSupabase.rpc.mockResolvedValue({
+        data: [{ ...existingPost, slug: 'updated-slug' }],
+        error: null,
+      });
 
       await PATCH(
         makeRequest(

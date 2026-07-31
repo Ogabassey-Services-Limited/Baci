@@ -24,9 +24,14 @@ describe('embedded blog products validation', () => {
       embedded_products: embeddedProducts.slice(0, 20),
     };
 
-    expect(blogPostSchema.safeParse(atLimitPayload).success).toBe(true);
-    expect(createPostSchema.safeParse(atLimitPayload).success).toBe(true);
-    expect(blogPostSchema.safeParse(createPayload).success).toBe(false);
-    expect(createPostSchema.safeParse(createPayload).success).toBe(false);
+    const updateAtLimit = blogPostSchema.safeParse(atLimitPayload);
+    const createAtLimit = createPostSchema.safeParse(atLimitPayload);
+    const updateOverLimit = blogPostSchema.safeParse(createPayload);
+    const createOverLimit = createPostSchema.safeParse(createPayload);
+
+    expect(updateAtLimit.success).toBe(true);
+    expect(createAtLimit.success).toBe(true);
+    expect(updateOverLimit.success).toBe(false);
+    expect(createOverLimit.success).toBe(false);
   });
 });
