@@ -112,7 +112,3 @@ export function resetVerifyCacMocks() {
   });
   vi.mocked(compareCACData).mockReturnValue({ match: true });
 }
-
-export async function loadVerifyCacPost() {
-  return (await import('../app/api/merchant/verify-cac/route')).POST;
-}

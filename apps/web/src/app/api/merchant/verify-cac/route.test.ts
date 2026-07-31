@@ -5,12 +5,15 @@ import {
   checkRateLimit,
   extractCACCertificateData,
   getMerchantForApiRequest,
-  loadVerifyCacPost,
   makeFormDataRequest,
   makeSupabaseMock,
   makeValidFile,
   resetVerifyCacMocks,
 } from '../../../../test-support/verify-cac-route.test-support';
+
+async function loadVerifyCacPost() {
+  return (await import('./route')).POST;
+}
 
 describe('POST /api/merchant/verify-cac request validation', () => {
   let POST: typeof import('./route').POST;
