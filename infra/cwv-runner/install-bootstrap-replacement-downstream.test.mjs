@@ -28,10 +28,8 @@ test('reads the fixed downstream boundary and detects accepted-image residue', a
     await mkdir(path, { recursive: true });
   const dependencies = {
     unitIsActive: async () => false,
-    readUnitState: async (name) =>
-      name.includes('@')
-        ? 'loaded\ninactive\ndisabled\n'
-        : 'loaded\ninactive\nstatic\n',
+    readUnitState: async () => 'loaded\ninactive\nstatic\n',
+    templateIsDisabled: async () => true,
     listWatchdogInstances: async () => 0,
   };
   const inert = await readBootstrapReplacementDownstream(
@@ -59,14 +57,86 @@ test('reads the fixed downstream boundary and detects accepted-image residue', a
   );
 });
 
+test('checks the watchdog template file state without loading an empty template instance', async (context) => {
+  const root = await temporary(context, 'baci-bootstrap-template-state-');
+  const calls = [];
+  const runSystemctl = (_command, arguments_) => {
+    calls.push(arguments_);
+    if (arguments_[0] === 'is-active')
+      throw Object.assign(new Error('inactive unit'), { code: 3 });
+    if (arguments_[0] === 'show') {
+      if (arguments_[1] === 'baci-cwv-campaign-watchdog@.service')
+        throw Object.assign(
+          new Error(
+            'Unit name baci-cwv-campaign-watchdog@.service is neither a valid invocation ID nor unit name.'
+          ),
+          { code: 1 }
+        );
+      return { stdout: 'loaded\ninactive\nstatic\n' };
+    }
+    if (
+      arguments_[0] === 'is-enabled' &&
+      arguments_[1] === 'baci-cwv-campaign-watchdog@.service'
+    )
+      throw Object.assign(new Error('disabled template'), {
+        code: 1,
+        stdout: 'disabled\n',
+      });
+    throw new Error(`unexpected systemctl arguments: ${arguments_.join(' ')}`);
+  };
+
+  const downstream = await readBootstrapReplacementDownstream(
+    { root, prepareRoot: join(root, 'prepare') },
+    { runSystemctl, listWatchdogInstances: async () => 0 }
+  );
+
+  assert.equal(downstream.unsafeUnitStates, 0);
+  assert.equal(
+    calls.some(
+      (arguments_) =>
+        arguments_[0] === 'show' &&
+        arguments_[1] === 'baci-cwv-campaign-watchdog@.service'
+    ),
+    false
+  );
+  assert.equal(
+    calls.filter(
+      (arguments_) =>
+        arguments_[0] === 'is-enabled' &&
+        arguments_[1] === 'baci-cwv-campaign-watchdog@.service'
+    ).length,
+    1
+  );
+});
+
+test('refuses malformed disabled output for the watchdog template', async (context) => {
+  const root = await temporary(context, 'baci-bootstrap-template-refusal-');
+  const runSystemctl = (_command, arguments_) => {
+    if (arguments_[0] === 'is-active')
+      throw Object.assign(new Error('inactive unit'), { code: 3 });
+    if (arguments_[0] === 'show')
+      return { stdout: 'loaded\ninactive\nstatic\n' };
+    throw Object.assign(new Error('malformed template state'), {
+      code: 1,
+      stdout: 'disabled',
+    });
+  };
+
+  await assert.rejects(
+    readBootstrapReplacementDownstream(
+      { root, prepareRoot: join(root, 'prepare') },
+      { runSystemctl, listWatchdogInstances: async () => 0 }
+    ),
+    /malformed template state/
+  );
+});
+
 test('treats absent downstream directories as empty before layout creation', async (context) => {
   const root = await temporary(context, 'baci-bootstrap-empty-downstream-');
   const dependencies = {
     unitIsActive: async () => false,
-    readUnitState: async (name) =>
-      name.includes('@')
-        ? 'loaded\ninactive\ndisabled\n'
-        : 'loaded\ninactive\nstatic\n',
+    readUnitState: async () => 'loaded\ninactive\nstatic\n',
+    templateIsDisabled: async () => true,
     listWatchdogInstances: async () => 0,
   };
 
@@ -98,7 +168,11 @@ test('accepts only proven-absent never-installed dedicated units', async (contex
   };
   const downstream = await readBootstrapReplacementDownstream(
     { root, prepareRoot: join(root, 'prepare') },
-    { runSystemctl, listWatchdogInstances: async () => 0 }
+    {
+      runSystemctl,
+      templateIsDisabled: async () => true,
+      listWatchdogInstances: async () => 0,
+    }
   );
 
   assert.equal(downstream.activeDedicatedUnits, 0);
@@ -111,6 +185,7 @@ test('accepts only proven-absent never-installed dedicated units', async (contex
         if (arguments_[0] === 'is-active') return { stdout: '' };
         return { stdout: 'loaded\nactive\nenabled\n' };
       },
+      templateIsDisabled: async () => false,
       listWatchdogInstances: async () => 0,
     }
   );
@@ -122,6 +197,7 @@ test('inventories both measurement slices for activity and exact static state', 
   const root = await temporary(context, 'baci-bootstrap-slice-units-');
   const activeQueries = [];
   const stateQueries = [];
+  let templateQueries = 0;
   const dedicatedUnits = [
     'baci-cwv-containerd.service',
     'baci-cwv-docker.service',
@@ -140,19 +216,19 @@ test('inventories both measurement slices for activity and exact static state', 
       },
       readUnitState: (name) => {
         stateQueries.push(name);
-        return name.includes('@')
-          ? 'loaded\ninactive\ndisabled\n'
-          : 'loaded\ninactive\nstatic\n';
+        return 'loaded\ninactive\nstatic\n';
+      },
+      templateIsDisabled: () => {
+        templateQueries += 1;
+        return true;
       },
       listWatchdogInstances: async () => 0,
     }
   );
 
   assert.deepEqual(activeQueries.sort(), dedicatedUnits.sort());
-  assert.deepEqual(
-    stateQueries.sort(),
-    [...dedicatedUnits, 'baci-cwv-campaign-watchdog@.service'].sort()
-  );
+  assert.deepEqual(stateQueries.sort(), dedicatedUnits.sort());
+  assert.equal(templateQueries, 1);
   assert.equal(downstream.activeDedicatedUnits, 0);
   assert.equal(downstream.unsafeUnitStates, 0);
 });
@@ -181,10 +257,8 @@ test('inventories validated persistent and runtime watchdog wants links', async 
   ]);
   const dependencies = {
     unitIsActive: async () => false,
-    readUnitState: async (name) =>
-      name.includes('@')
-        ? 'loaded\ninactive\ndisabled\n'
-        : 'loaded\ninactive\nstatic\n',
+    readUnitState: async () => 'loaded\ninactive\nstatic\n',
+    templateIsDisabled: async () => true,
     runSystemctl: async () => ({ stdout: '' }),
     systemdRoots: [persistent, runtime],
   };
