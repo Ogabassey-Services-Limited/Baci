@@ -1,17 +1,16 @@
 import {
   loadEvidenceRunForCleanup,
-  recordTokenRevocation,
-  type TokenRevocationReceipt,
+  revokeEvidenceRunToken,
+  type TokenRevocationClient,
 } from './cloudflare-evidence-run-journal';
 import type { VerifiedEvidenceReadCapability } from './verify-cloudflare-evidence-read-token-policy';
 
-export type EvidenceMeasurementClient = {
+export type EvidenceMeasurementClient = TokenRevocationClient & {
   measure(runId: string): Promise<{
     complete: boolean;
     expectedProbeCount: number;
     observedProbeCount: number;
   }>;
-  verifyReadTokenRevocation(tokenId: string): Promise<TokenRevocationReceipt>;
 };
 export function parseMeasurementArguments(args: readonly string[]) {
   if (args.length !== 2 || args[0] !== '--run' || !args[1])
@@ -43,8 +42,7 @@ export async function measureCloudflareEvidenceSources(
     result.expectedProbeCount !== result.observedProbeCount
   )
     throw new Error('Cloudflare evidence export is incomplete');
-  const receipt = await client.verifyReadTokenRevocation(journal.readTokenId);
-  return recordTokenRevocation(stateDir, runId, 'read', receipt);
+  return revokeEvidenceRunToken(stateDir, runId, 'read', client);
 }
 
 if (

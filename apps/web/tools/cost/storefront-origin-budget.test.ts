@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { calculateStorefrontDeliveryDailyEvidenceSha256 } from '../../../../packages/shared/src/storefront/delivery-evidence';
-import { calculateHostnameInventorySha256 } from '../../../../packages/shared/src/storefront/delivery-evidence-manifest';
+import {
+  calculateHostnameInventorySha256,
+  calculateStorefrontDeliveryWindowFingerprintSha256,
+} from '../../../../packages/shared/src/storefront/delivery-evidence-manifest';
 import {
   readSealedStorefrontDeliveryManifest,
   summarizeStorefrontDelivery,
@@ -83,7 +86,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     day.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(day);
     return day;
   });
-  return {
+  const base = {
     windowStart: '2026-07-01T00:00:00.000Z',
     windowEnd: '2026-07-08T00:00:00.000Z',
     canonicalHostname: 'ogabassey.com' as const,
@@ -96,13 +99,26 @@ function manifest(overrides: Record<string, unknown> = {}) {
     workerDeploymentId: 'deployment-v1',
     originOnlyVersionId: 'origin-v1',
     edgeVersionId: 'edge-v1',
+    sourceFingerprints: {
+      invocation: 'invocation-v1',
+      aliasRedirect: 'alias-v1',
+      wafRateLimit: 'waf-v1',
+      originEvent: 'origin-v1',
+    },
     days,
     ...overrides,
+  };
+  return {
+    ...base,
+    windowFingerprintSha256:
+      calculateStorefrontDeliveryWindowFingerprintSha256(base),
   };
 }
 function seal<T extends ReturnType<typeof manifest>>(evidence: T) {
   for (const day of evidence.days)
     day.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(day);
+  evidence.windowFingerprintSha256 =
+    calculateStorefrontDeliveryWindowFingerprintSha256(evidence);
   return evidence;
 }
 

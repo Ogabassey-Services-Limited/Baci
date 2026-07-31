@@ -66,6 +66,45 @@ const TopologyEndpointSchema = z
 export type CloudflareWorkerArtifactReadbackQualification = z.infer<
   typeof ArtifactReadbackSchema
 >;
+export type CloudflareQualificationClient = Readonly<{
+  listVersions(
+    accountId: string,
+    scriptName: string
+  ): Promise<readonly string[]>;
+  readVersion(
+    accountId: string,
+    scriptName: string,
+    versionId: string
+  ): Promise<
+    Readonly<{
+      versionId: string;
+      scriptEtag: string;
+      moduleSha256: string;
+      settingsSha256: string;
+    }>
+  >;
+  readDeployments(
+    accountId: string,
+    scriptName: string
+  ): Promise<readonly string[]>;
+  trace(url: string): Promise<Readonly<{ matched: boolean }>>;
+  pointerProbe(
+    method: 'GET' | 'HEAD',
+    url: string
+  ): Promise<Readonly<{ cfCacheStatus: string; age?: string }>>;
+  temporaryPurge(
+    endpoint: string,
+    requestSchemaSha256: string
+  ): Promise<Readonly<{ operationId: string }>>;
+  readPurge(operationId: string): Promise<'complete' | 'lost_response'>;
+  topologyConverged(maximumVisibilitySeconds: number): Promise<boolean>;
+}>;
+export type ExpectedQualificationArtifact = Readonly<{
+  versionId: string;
+  scriptEtag: string;
+  moduleSha256: string;
+  settingsSha256: string;
+}>;
 
 export function parseQualificationArguments(args: readonly string[]) {
   if (args.length === 1 && args[0] === '--prepare')
@@ -127,14 +166,84 @@ export function qualifyCloudflareTopologyEndpoints(value: unknown) {
     : { ok: false as const, reason: 'topology_contract_invalid' };
 }
 
+/** Executes the bounded, injectable provider readback/pointer/purge qualification. */
+export async function executeCloudflareEvidenceQualification(
+  client: CloudflareQualificationClient,
+  input: Readonly<{
+    accountId: string;
+    scriptName: string;
+    artifacts: readonly [
+      ExpectedQualificationArtifact,
+      ExpectedQualificationArtifact,
+    ];
+    pointerUrl: string;
+    purge: z.infer<typeof PurgeContractSchema>;
+    topology: z.infer<typeof TopologyEndpointSchema>;
+  }>
+) {
+  const listed = await client.listVersions(input.accountId, input.scriptName);
+  if (
+    new Set(listed).size !== 2 ||
+    input.artifacts.some(({ versionId }) => !listed.includes(versionId))
+  )
+    throw new Error(
+      'Scripts Versions list does not bind both expected artifacts'
+    );
+  for (const artifact of input.artifacts) {
+    const actual = await client.readVersion(
+      input.accountId,
+      input.scriptName,
+      artifact.versionId
+    );
+    if (
+      actual.versionId !== artifact.versionId ||
+      actual.scriptEtag !== artifact.scriptEtag ||
+      actual.moduleSha256 !== artifact.moduleSha256 ||
+      actual.settingsSha256 !== artifact.settingsSha256
+    )
+      throw new Error(
+        'Scripts Versions artifact readback does not match local artifact'
+      );
+  }
+  const deployments = await client.readDeployments(
+    input.accountId,
+    input.scriptName
+  );
+  if (input.artifacts.some(({ versionId }) => !deployments.includes(versionId)))
+    throw new Error('Deployments does not bind both expected versions');
+  if (!(await client.trace(input.pointerUrl)).matched)
+    throw new Error('Trace did not bind the pointer cache rule');
+  for (const method of ['GET', 'HEAD'] as const) {
+    const result = await client.pointerProbe(method, input.pointerUrl);
+    if (
+      !['DYNAMIC', 'BYPASS'].includes(result.cfCacheStatus) ||
+      result.age !== undefined
+    )
+      throw new Error('pointer cache probe observed a cacheable response');
+  }
+  const operation = await client.temporaryPurge(
+    input.purge.endpoint,
+    input.purge.requestSchemaSha256
+  );
+  const purgeStatus = await client.readPurge(operation.operationId);
+  if (
+    purgeStatus === 'lost_response' &&
+    !(await client.topologyConverged(input.topology.maximumVisibilitySeconds))
+  )
+    throw new Error('temporary purge lost-response topology did not converge');
+  if (purgeStatus !== 'complete' && purgeStatus !== 'lost_response')
+    throw new Error('temporary purge outcome is ambiguous');
+  return { purgeStatus, qualified: true as const };
+}
+
 /** Builds the environment for one isolated child process; no parent retains both credentials. */
 export function buildClosedEvidenceProcessEnvironment(
   credentialName: 'CLOUDFLARE_WRITE_TOKEN' | 'CLOUDFLARE_READ_TOKEN',
   credential: string,
   inherited: Readonly<Record<string, string | undefined>>
 ) {
-  if (inherited.CLOUDFLARE_WRITE_TOKEN && inherited.CLOUDFLARE_READ_TOKEN)
-    throw new Error('evidence process inherited both credentials');
+  if (inherited.CLOUDFLARE_WRITE_TOKEN || inherited.CLOUDFLARE_READ_TOKEN)
+    throw new Error('evidence process inherited a credential');
   const environment: Record<string, string> = {};
   for (const name of ['PATH', 'HOME', 'TMPDIR'] as const)
     if (inherited[name]) environment[name] = inherited[name];

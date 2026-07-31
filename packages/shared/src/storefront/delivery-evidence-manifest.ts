@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  canonicalizeJson,
   calculateCanonicalSha256,
   calculateStorefrontDeliveryDailyEvidenceSha256,
   type StorefrontDeliveryDailyEvidence,
@@ -8,6 +9,14 @@ import {
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 const ClosedUtc = z.string().regex(/^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/);
+const SourceFingerprintsSchema = z
+  .object({
+    invocation: z.string().min(1),
+    aliasRedirect: z.string().min(1),
+    wafRateLimit: z.string().min(1),
+    originEvent: z.string().min(1),
+  })
+  .strict();
 export const StorefrontDeliveryEvidenceManifestSchema = z
   .object({
     windowStart: ClosedUtc,
@@ -22,6 +31,8 @@ export const StorefrontDeliveryEvidenceManifestSchema = z
     workerDeploymentId: z.string().min(1),
     originOnlyVersionId: z.string().min(1),
     edgeVersionId: z.string().min(1),
+    sourceFingerprints: SourceFingerprintsSchema,
+    windowFingerprintSha256: Hash,
     days: z.array(StorefrontDeliveryDailyEvidenceSchema).length(7),
   })
   .strict();
@@ -33,7 +44,14 @@ export type StorefrontDeliveryManifestValidation =
   | { ok: false; reasonCodes: readonly string[] };
 
 export function calculateHostnameInventorySha256(hostnames: readonly string[]) {
-  return calculateCanonicalSha256(JSON.stringify([...hostnames]));
+  return calculateCanonicalSha256(canonicalizeJson([...hostnames]));
+}
+/** Binds the complete seven-day contract, including all independent source fingerprints. */
+export function calculateStorefrontDeliveryWindowFingerprintSha256(
+  value: Record<string, unknown>
+) {
+  const { windowFingerprintSha256: _ignored, ...canonical } = value;
+  return calculateCanonicalSha256(canonicalizeJson(canonical));
 }
 function expectedDates(windowStart: string) {
   const start = new Date(windowStart);
@@ -94,6 +112,21 @@ export function validateStorefrontDeliveryManifest(
     manifest.days.some((day) => keys.some((key) => day[key] !== manifest[key]))
   )
     reasons.push('fingerprint_drift');
+  if (
+    manifest.days.some((day) =>
+      Object.entries(manifest.sourceFingerprints).some(
+        ([source, fingerprint]) =>
+          day.sourceEvidence[source as keyof typeof day.sourceEvidence]
+            .sourceFingerprint !== fingerprint
+      )
+    )
+  )
+    reasons.push('source_fingerprint_drift');
+  if (
+    manifest.windowFingerprintSha256 !==
+    calculateStorefrontDeliveryWindowFingerprintSha256(manifest)
+  )
+    reasons.push('window_fingerprint_invalid');
   if (manifest.days.some((day) => !matchesDailyHash(day)))
     reasons.push('daily_hash_invalid');
   return reasons.length

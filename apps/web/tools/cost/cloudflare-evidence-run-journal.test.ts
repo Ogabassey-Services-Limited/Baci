@@ -8,6 +8,7 @@ import {
   recordEvidenceMutation,
   recordEvidencePhase,
   recordTokenRevocation,
+  revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 
 const input = {
@@ -63,7 +64,7 @@ describe('CloudflareEvidenceRunJournal', () => {
       'regular'
     );
   });
-  it('only records authenticated token-revocation receipts, never caller timestamps', async () => {
+  it('rejects fabricated revocation receipts and accepts only provider revoke/readback authority', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
     await openEvidenceRun(dir, input);
@@ -72,14 +73,75 @@ describe('CloudflareEvidenceRunJournal', () => {
         writeTokenRevokedAt: new Date().toISOString(),
       })
     ).rejects.toThrow('receipt');
-    await recordTokenRevocation(dir, input.runId, 'write', {
-      tokenId: 'write',
-      status: 'revoked',
-      providerReceiptSha256: 'd'.repeat(64),
-      observedAt: '2026-07-31T00:00:00.000Z',
+    await expect(
+      recordTokenRevocation(dir, input.runId, 'write', {
+        tokenId: 'write',
+        status: 'revoked',
+        providerReceiptSha256: 'd'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      } as never)
+    ).rejects.toThrow('provider operation');
+    await revokeEvidenceRunToken(dir, input.runId, 'write', {
+      revoke: async (tokenId) => ({
+        tokenId,
+        auditReceiptSha256: 'c'.repeat(64),
+      }),
+      readBack: async (tokenId) => ({
+        tokenId,
+        status: 'inactive',
+        auditReceiptSha256: 'd'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
     });
     expect(
       (await loadEvidenceRunForCleanup(dir, input.runId)).writeTokenRevokedAt
     ).toBe('2026-07-31T00:00:00.000Z');
+  });
+  it('rejects provider responses for the wrong token, a failed revoke, or an active readback', async () => {
+    const cases = [
+      {
+        revoke: async () => ({
+          tokenId: 'wrong',
+          auditReceiptSha256: 'a'.repeat(64),
+        }),
+        readBack: async () => ({
+          tokenId: 'write',
+          status: 'inactive' as const,
+          auditReceiptSha256: 'b'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        }),
+      },
+      {
+        revoke: async () => {
+          throw new Error('provider revoke failed');
+        },
+        readBack: async () => ({
+          tokenId: 'write',
+          status: 'inactive' as const,
+          auditReceiptSha256: 'b'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        }),
+      },
+      {
+        revoke: async () => ({
+          tokenId: 'write',
+          auditReceiptSha256: 'a'.repeat(64),
+        }),
+        readBack: async () => ({
+          tokenId: 'write',
+          status: 'active' as const,
+          auditReceiptSha256: 'b'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        }),
+      },
+    ];
+    for (const client of cases) {
+      const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+      await chmod(dir, 0o700);
+      await openEvidenceRun(dir, input);
+      await expect(
+        revokeEvidenceRunToken(dir, input.runId, 'write', client)
+      ).rejects.toThrow();
+    }
   });
 });

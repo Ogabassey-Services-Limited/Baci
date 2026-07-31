@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calculateStorefrontDeliveryDailyEvidenceSha256 } from './delivery-evidence';
 import {
+  calculateStorefrontDeliveryWindowFingerprintSha256,
   calculateHostnameInventorySha256,
   validateStorefrontDeliveryManifest,
 } from './delivery-evidence-manifest';
@@ -92,7 +93,7 @@ const manifest = () => {
     next.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(next);
     return next;
   });
-  return {
+  const base = {
     windowStart: '2026-07-01T00:00:00.000Z',
     windowEnd: '2026-07-08T00:00:00.000Z',
     canonicalHostname: 'ogabassey.com' as const,
@@ -105,7 +106,18 @@ const manifest = () => {
     workerDeploymentId: 'deployment-v1',
     originOnlyVersionId: 'origin-v1',
     edgeVersionId: 'edge-v1',
+    sourceFingerprints: {
+      invocation: 'invocation-v1',
+      aliasRedirect: 'alias-v1',
+      wafRateLimit: 'waf-v1',
+      originEvent: 'origin-v1',
+    },
     days,
+  };
+  return {
+    ...base,
+    windowFingerprintSha256:
+      calculateStorefrontDeliveryWindowFingerprintSha256(base),
   };
 };
 
@@ -137,5 +149,26 @@ describe('validateStorefrontDeliveryManifest', () => {
         hostnameInventorySha256: 'f'.repeat(64),
       }).ok
     ).toBe(false);
+  });
+  it('rejects a daily drift from each independent evidence source even with a resealed daily hash', () => {
+    for (const source of [
+      'invocation',
+      'aliasRedirect',
+      'wafRateLimit',
+      'originEvent',
+    ] as const) {
+      const candidate = manifest();
+      candidate.days[3].sourceEvidence[source] = {
+        ...candidate.days[3].sourceEvidence[source],
+        sourceFingerprint: `${source}-drift`,
+      };
+      candidate.days[3].sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(
+        candidate.days[3]
+      );
+      expect(validateStorefrontDeliveryManifest(candidate)).toMatchObject({
+        ok: false,
+        reasonCodes: expect.arrayContaining(['source_fingerprint_drift']),
+      });
+    }
   });
 });

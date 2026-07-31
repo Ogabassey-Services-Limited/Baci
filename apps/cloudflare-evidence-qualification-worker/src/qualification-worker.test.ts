@@ -1,13 +1,10 @@
-import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import versionA from './version-a';
 import versionB from './version-b';
+import { buildQualificationArtifactReceipt } from './qualification-artifact-receipt';
 
 const root = resolve(import.meta.dirname, '..');
-const digest = (value: string) =>
-  createHash('sha256').update(value).digest('hex');
 describe('cloudflare evidence qualification worker fixture', () => {
   it('produces distinct deterministic 204 artifact receipts and metadata headers', async () => {
     const [responseA, responseB] = await Promise.all([
@@ -29,44 +26,30 @@ describe('cloudflare evidence qualification worker fixture', () => {
     expect(responseA.headers.get('X-Baci-Evidence-Version')).toBe('provider-a');
     expect(responseB.headers.get('X-Baci-Evidence-Version')).toBe('provider-b');
   });
-  it('seals unequal config-specific artifacts with the sole generated binding', async () => {
-    const [pkg, configA, configB, sourceA, sourceB] = await Promise.all(
-      [
-        'package.json',
-        'wrangler.version-a.jsonc',
-        'wrangler.version-b.jsonc',
-        'src/version-a.ts',
-        'src/version-b.ts',
-      ].map((file) => readFile(resolve(root, file), 'utf8'))
-    );
-    const parsedA = JSON.parse(configA) as {
-      version_metadata: { binding: string };
-      [key: string]: unknown;
+  it('runs both injected dry-run artifacts and seals deterministic unequal receipts', async () => {
+    const calls: string[] = [];
+    const runner = {
+      dryRun: async (configPath: string, outputDirectory: string) => {
+        calls.push(`${configPath}:${outputDirectory}`);
+        const version = configPath.includes('version-a') ? 'a' : 'b';
+        return {
+          bundle: new TextEncoder().encode(`bundle-${version}`),
+          moduleList: [`version-${version}.js`],
+          generatedTypeDeclaration: `declare const ${version}: string`,
+          wranglerVersion: '4.115.0',
+        };
+      },
     };
-    const parsedB = JSON.parse(configB) as {
-      version_metadata: { binding: string };
-      [key: string]: unknown;
-    };
-    expect(pkg).toContain('"wrangler": "4.115.0"');
-    expect(Object.keys(parsedA)).toEqual([
-      'name',
-      'main',
-      'compatibility_date',
-      'version_metadata',
+    const [receiptA, receiptB] = await Promise.all([
+      buildQualificationArtifactReceipt(root, 'a', runner),
+      buildQualificationArtifactReceipt(root, 'b', runner),
     ]);
-    expect(Object.keys(parsedB)).toEqual([
-      'name',
-      'main',
-      'compatibility_date',
-      'version_metadata',
-    ]);
-    expect(parsedA.version_metadata.binding).toBe('CF_VERSION_METADATA');
-    expect(parsedB.version_metadata.binding).toBe('CF_VERSION_METADATA');
-    expect(digest(`${configA}\n${sourceA}`)).not.toBe(
-      digest(`${configB}\n${sourceB}`)
+    expect(calls).toHaveLength(2);
+    expect(receiptA.bundleSha256).not.toBe(receiptB.bundleSha256);
+    expect(receiptA.canonicalSourceSha256).not.toBe(
+      receiptB.canonicalSourceSha256
     );
-    expect(`${configA}${configB}${sourceA}${sourceB}`).not.toMatch(
-      /route|secret|await\s+fetch\(|globalThis\.fetch\(|storefront-edge|@baci\//i
-    );
+    expect(receiptA.soleVersionMetadataBinding).toBe('CF_VERSION_METADATA');
+    expect(receiptA.wranglerVersion).toBe('4.115.0');
   });
 });

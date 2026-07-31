@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canonicalizeJson,
   calculateCanonicalSha256,
   calculateStorefrontDeliveryDailyEvidenceSha256,
   StorefrontDeliveryDailyEvidenceSchema,
@@ -76,6 +77,18 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
   it('uses the canonical SHA-256 digest rather than a runtime-specific hash provider', () => {
     expect(calculateCanonicalSha256('abc')).toBe(
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+    );
+  });
+  it('sorts object keys recursively, preserves arrays, and rejects ambiguous values', () => {
+    expect(canonicalizeJson({ b: { z: 1, a: 2 }, a: [2, 1] })).toBe(
+      canonicalizeJson({ a: [2, 1], b: { a: 2, z: 1 } })
+    );
+    expect(canonicalizeJson({ a: [2, 1] })).not.toBe(
+      canonicalizeJson({ a: [1, 2] })
+    );
+    expect(() => canonicalizeJson({ value: undefined })).toThrow('unsupported');
+    expect(() => canonicalizeJson({ value: Number.NaN })).toThrow(
+      'unsupported'
     );
   });
   it('accepts bounded aggregate evidence and rejects raw request rows', () => {

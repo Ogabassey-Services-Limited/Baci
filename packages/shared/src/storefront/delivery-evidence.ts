@@ -67,8 +67,48 @@ export type StorefrontDeliveryDailyEvidenceWithoutHash = Omit<
   'sha256'
 >;
 
-function canonicalJson(value: unknown) {
-  return JSON.stringify(value);
+/** Canonical JSON has sorted plain-object keys and rejects non-JSON ambiguity. */
+export function canonicalizeJson(value: unknown): string {
+  const parents = new WeakSet<object>();
+  const visit = (current: unknown): string => {
+    if (
+      current === null ||
+      typeof current === 'string' ||
+      typeof current === 'boolean'
+    )
+      return JSON.stringify(current);
+    if (typeof current === 'number') {
+      if (!Number.isFinite(current) || Object.is(current, -0))
+        throw new Error('canonical JSON contains an unsupported number');
+      return JSON.stringify(current);
+    }
+    if (Array.isArray(current)) {
+      if (parents.has(current))
+        throw new Error('canonical JSON contains a cycle');
+      parents.add(current);
+      const result = `[${current.map(visit).join(',')}]`;
+      parents.delete(current);
+      return result;
+    }
+    if (
+      !current ||
+      typeof current !== 'object' ||
+      (Object.getPrototypeOf(current) !== Object.prototype &&
+        Object.getPrototypeOf(current) !== null)
+    )
+      throw new Error('canonical JSON contains an unsupported value');
+    if (parents.has(current))
+      throw new Error('canonical JSON contains a cycle');
+    parents.add(current);
+    const record = current as Record<string, unknown>;
+    const result = `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${visit(record[key])}`)
+      .join(',')}}`;
+    parents.delete(current);
+    return result;
+  };
+  return visit(value);
 }
 const SHA256_CONSTANTS = [
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
@@ -150,5 +190,5 @@ export function calculateStorefrontDeliveryDailyEvidenceSha256(
   value: Record<string, unknown>
 ) {
   const { sha256: _ignored, ...canonical } = value;
-  return calculateCanonicalSha256(canonicalJson(canonical));
+  return calculateCanonicalSha256(canonicalizeJson(canonical));
 }

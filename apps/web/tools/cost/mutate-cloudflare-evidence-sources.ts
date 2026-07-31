@@ -2,6 +2,7 @@ import {
   loadEvidenceRunForCleanup,
   recordEvidenceMutation,
   recordEvidencePhase,
+  recordEvidenceProbeResults,
 } from './cloudflare-evidence-run-journal';
 import type { VerifiedEvidenceTokenCapability } from './verify-cloudflare-evidence-token-policy';
 
@@ -14,6 +15,7 @@ type EvidenceResource = Readonly<{
   accountId: string;
   zoneId: string;
 }>;
+type EvidenceProbeResult = Readonly<{ id: string; succeeded: boolean }>;
 export type EvidenceMutationClient = {
   identity(): Promise<{ accountId: string; zoneId: string }>;
   findByName(name: string): Promise<EvidenceResource | null>;
@@ -23,9 +25,9 @@ export type EvidenceMutationClient = {
     hostname: string,
     paths: readonly string[]
   ): Promise<{ id: string }>;
-  probe(resource: EvidenceResource): Promise<boolean>;
+  probe(resource: EvidenceResource): Promise<readonly EvidenceProbeResult[]>;
   cleanup(name: string, id: string): Promise<boolean>;
-  inventorySha256(): Promise<string>;
+  inventorySha256(excluding?: EvidenceResource): Promise<string>;
 };
 
 export function parseMutationArguments(args: readonly string[]) {
@@ -86,6 +88,11 @@ export async function applyCloudflareEvidenceMutation(
   if (!journal.plannedResources.includes(name))
     throw new Error('deterministic resource was not pre-journaled');
   let resource = await client.findByName(name);
+  if (
+    (await client.inventorySha256(resource ?? undefined)) !==
+    journal.preInventorySha256
+  )
+    throw new Error('provider inventory drift before mutation');
   if (resource) {
     if (!resource.description.includes(runId))
       throw new Error('pre-existing resource collision');
@@ -103,8 +110,14 @@ export async function applyCloudflareEvidenceMutation(
     verifyResource(resource, journal, name);
     await recordEvidenceMutation(stateDir, runId, name, resource.id);
   }
-  if (!(await client.probe(resource)))
+  const probes = await client.probe(resource);
+  if (probes.some((probe) => !probe.succeeded))
     throw new Error('synthetic probe did not complete');
+  await recordEvidenceProbeResults(
+    stateDir,
+    runId,
+    probes.map((probe) => probe.id)
+  );
   return cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
 }
 
@@ -118,6 +131,10 @@ export async function cleanupCloudflareEvidenceRun(
   verifyCapability(capability);
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
   verifyIdentity(await client.identity(), journal);
+  if (journal.probeResults.length !== journal.expectedProbeCount)
+    throw new Error(
+      'cleanup requires exactly the journaled bounded probe results'
+    );
   for (const [name, id] of Object.entries(journal.mutations).reverse()) {
     if (!journal.plannedResources.includes(name))
       throw new Error('journal mutation name is not planned');

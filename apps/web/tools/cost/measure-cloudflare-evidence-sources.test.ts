@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   openEvidenceRun,
-  recordTokenRevocation,
+  revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 import {
   measureCloudflareEvidenceSources,
@@ -56,32 +56,42 @@ describe('measureCloudflareEvidenceSources', () => {
         expectedProbeCount: 2,
         observedProbeCount: 2,
       }),
-      verifyReadTokenRevocation: async () => ({
+      revoke: async (tokenId: string) => ({
+        tokenId,
+        auditReceiptSha256: 'c'.repeat(64),
+      }),
+      readBack: async () => ({
         tokenId: 'wrong',
-        status: 'revoked' as const,
-        providerReceiptSha256: 'c'.repeat(64),
+        status: 'inactive' as const,
+        auditReceiptSha256: 'c'.repeat(64),
         observedAt: '2026-07-31T00:00:00.000Z',
       }),
     };
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
     ).rejects.toThrow('write');
-    await recordTokenRevocation(dir, input.runId, 'write', {
-      tokenId: 'write',
-      status: 'revoked',
-      providerReceiptSha256: 'd'.repeat(64),
-      observedAt: '2026-07-31T00:00:00.000Z',
+    await revokeEvidenceRunToken(dir, input.runId, 'write', {
+      revoke: async (tokenId) => ({
+        tokenId,
+        auditReceiptSha256: 'd'.repeat(64),
+      }),
+      readBack: async (tokenId) => ({
+        tokenId,
+        status: 'inactive',
+        auditReceiptSha256: 'd'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
     });
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
-    ).rejects.toThrow('does not match');
+    ).rejects.toThrow('readback');
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, {
         ...client,
-        verifyReadTokenRevocation: async () => ({
+        readBack: async () => ({
           tokenId: 'read',
-          status: 'revoked' as const,
-          providerReceiptSha256: 'e'.repeat(64),
+          status: 'inactive' as const,
+          auditReceiptSha256: 'e'.repeat(64),
           observedAt: '2026-07-31T00:00:00.000Z',
         }),
       })

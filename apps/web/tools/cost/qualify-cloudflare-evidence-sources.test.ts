@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildClosedEvidenceProcessEnvironment,
+  executeCloudflareEvidenceQualification,
   parseQualificationArguments,
   qualifyCloudflareEvidenceReadback,
   qualifyCloudflareReleasePurgeContract,
@@ -79,11 +80,10 @@ describe('Cloudflare read-only qualification contracts', () => {
       }).ok
     ).toBe(false);
   });
-  it('constructs a closed one-token environment and rejects inherited dual credentials', () => {
+  it('constructs a closed one-token environment and rejects inherited credentials', () => {
     expect(
       buildClosedEvidenceProcessEnvironment('CLOUDFLARE_READ_TOKEN', 'read', {
         PATH: '/bin',
-        CLOUDFLARE_WRITE_TOKEN: 'write',
       })
     ).toEqual({ PATH: '/bin', CLOUDFLARE_READ_TOKEN: 'read' });
     expect(() =>
@@ -91,7 +91,7 @@ describe('Cloudflare read-only qualification contracts', () => {
         CLOUDFLARE_READ_TOKEN: 'read',
         CLOUDFLARE_WRITE_TOKEN: 'write',
       })
-    ).toThrow('both credentials');
+    ).toThrow('inherited');
   });
   it('fails closed for malformed purge and topology endpoint schemas', () => {
     expect(
@@ -125,5 +125,116 @@ describe('Cloudflare read-only qualification contracts', () => {
         ],
       }).ok
     ).toBe(true);
+  });
+  it('executes Scripts Versions, Deployments, Trace, repeated pointers, and bounded purge through an injected client', async () => {
+    const calls: string[] = [];
+    const artifactA = readback.versions[0];
+    const artifactB = readback.versions[1];
+    const client = {
+      listVersions: async () => {
+        calls.push('list');
+        return ['a', 'b'];
+      },
+      readVersion: async (
+        _account: string,
+        _script: string,
+        versionId: string
+      ) => {
+        calls.push(`version:${versionId}`);
+        const version = versionId === 'a' ? artifactA : artifactB;
+        return {
+          versionId,
+          scriptEtag: version.scriptEtag,
+          moduleSha256: version.moduleSha256,
+          settingsSha256: version.settingsSha256,
+        };
+      },
+      readDeployments: async () => {
+        calls.push('deployments');
+        return ['a', 'b'];
+      },
+      trace: async () => {
+        calls.push('trace');
+        return { matched: true };
+      },
+      pointerProbe: async (method: 'GET' | 'HEAD') => {
+        calls.push(method);
+        return { cfCacheStatus: 'DYNAMIC' };
+      },
+      temporaryPurge: async (endpoint: string) => {
+        calls.push(endpoint);
+        return { operationId: 'purge' };
+      },
+      readPurge: async () => {
+        calls.push('purge-read');
+        return 'lost_response' as const;
+      },
+      topologyConverged: async (seconds: number) => {
+        calls.push(`topology:${seconds}`);
+        return true;
+      },
+    };
+    await expect(
+      executeCloudflareEvidenceQualification(client, {
+        accountId: 'account',
+        scriptName: readback.scriptName,
+        artifacts: [artifactA, artifactB],
+        pointerUrl: 'https://edge-evidence.ogabassey.com/',
+        purge: {
+          endpoint: '/zones/zone/purge_cache',
+          requestSchemaSha256: 'a'.repeat(64),
+          rateLimitFingerprint: 'b'.repeat(64),
+          policySha256: 'c'.repeat(64),
+          productionResourceState: 'present_verified',
+        },
+        topology: {
+          family: 'r2-custom-domain',
+          endpoint: '/accounts/account/r2/buckets/bucket/domains',
+          requestSchemaSha256: 'a'.repeat(64),
+          responseSchemaSha256: 'b'.repeat(64),
+          maximumVisibilitySeconds: 60,
+        },
+      })
+    ).resolves.toMatchObject({ qualified: true, purgeStatus: 'lost_response' });
+    expect(calls).toEqual([
+      'list',
+      'version:a',
+      'version:b',
+      'deployments',
+      'trace',
+      'GET',
+      'HEAD',
+      '/zones/zone/purge_cache',
+      'purge-read',
+      'topology:60',
+    ]);
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...client,
+          pointerProbe: async () => ({ cfCacheStatus: 'HIT', age: '1' }),
+        },
+        {
+          accountId: 'account',
+          scriptName: readback.scriptName,
+          artifacts: [artifactA, artifactB],
+          pointerUrl: 'https://edge-evidence.ogabassey.com/',
+          purge: {
+            endpoint: '/zones/zone/purge_cache',
+            requestSchemaSha256: 'a'.repeat(64),
+            rateLimitFingerprint: 'b'.repeat(64),
+            policySha256: 'c'.repeat(64),
+            productionResourceState: 'present_verified',
+          },
+          topology: {
+            family: 'r2-custom-domain',
+            endpoint: '/accounts/account/r2/buckets/bucket/domains',
+            requestSchemaSha256: 'a'.repeat(64),
+            responseSchemaSha256: 'b'.repeat(64),
+            maximumVisibilitySeconds: 60,
+          },
+        }
+      )
+    ).rejects.toThrow('cacheable');
   });
 });

@@ -409,7 +409,7 @@ jobs:
         run: >-
           pnpm --filter @baci/shared test -- src/storefront/delivery-evidence.test.ts src/storefront/delivery-evidence-manifest.test.ts &&
           pnpm --filter @baci/cloudflare-evidence-qualification-worker test &&
-          pnpm --filter @baci/web exec vitest run tools/cost/storefront-origin-budget.test.ts tools/cost/ogabassey-current-origin-baseline.test.ts tools/cost/qualify-cloudflare-evidence-sources.test.ts tools/cost/mutate-cloudflare-evidence-sources.test.ts tools/cost/measure-cloudflare-evidence-sources.test.ts tools/cost/verify-cloudflare-evidence-token-policy.test.ts tools/cost/verify-cloudflare-evidence-read-token-policy.test.ts tools/cost/cloudflare-evidence-run-journal.test.ts
+          pnpm --filter @baci/web exec vitest run tools/cost/storefront-origin-budget.test.ts tools/cost/ogabassey-current-origin-baseline.test.ts tools/cost/qualify-cloudflare-evidence-sources.test.ts tools/cost/cloudflare-evidence-process-isolation.test.ts tools/cost/mutate-cloudflare-evidence-sources.test.ts tools/cost/measure-cloudflare-evidence-sources.test.ts tools/cost/verify-cloudflare-evidence-token-policy.test.ts tools/cost/verify-cloudflare-evidence-read-token-policy.test.ts tools/cost/cloudflare-evidence-run-journal.test.ts
       - name: Test Deployment and VPS Worker Scripts
         if: needs.changes.outputs.deploy_scripts == 'true'
         run: >-

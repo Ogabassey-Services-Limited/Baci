@@ -31,6 +31,7 @@ export type CloudflareEvidenceRunJournal = {
   phase: EvidencePhase;
   cleanupAttempts: number;
   readBackEvidence: readonly string[];
+  probeResults: readonly string[];
   writeTokenRevokedAt?: string;
   readTokenRevokedAt?: string;
   writeTokenRevocationReceipt?: TokenRevocationReceipt;
@@ -42,14 +43,34 @@ export type TokenRevocationReceipt = Readonly<{
   providerReceiptSha256: string;
   observedAt: string;
 }>;
+const verifiedRevocations = new WeakSet<object>();
+declare const verifiedTokenRevocation: unique symbol;
+export type VerifiedTokenRevocation = TokenRevocationReceipt &
+  Readonly<{ [verifiedTokenRevocation]: true }>;
+export type TokenRevocationClient = Readonly<{
+  revoke(
+    tokenId: string
+  ): Promise<Readonly<{ tokenId: string; auditReceiptSha256: string }>>;
+  readBack(tokenId: string): Promise<
+    Readonly<{
+      tokenId: string;
+      status: 'inactive' | 'absent' | 'active';
+      auditReceiptSha256: string;
+      observedAt: string;
+    }>
+  >;
+}>;
 export type EvidenceRunInput = Omit<
   CloudflareEvidenceRunJournal,
   | 'mutations'
   | 'phase'
   | 'cleanupAttempts'
   | 'readBackEvidence'
+  | 'probeResults'
   | 'writeTokenRevokedAt'
   | 'readTokenRevokedAt'
+  | 'writeTokenRevocationReceipt'
+  | 'readTokenRevocationReceipt'
 >;
 
 function journalPath(stateDir: string, runId: string) {
@@ -123,6 +144,7 @@ export async function openEvidenceRun(
     phase: 'prepared',
     cleanupAttempts: 0,
     readBackEvidence: [],
+    probeResults: [],
   };
   await writeJournal(stateDir, journal);
   return journal;
@@ -138,6 +160,23 @@ export async function recordEvidenceMutation(
     throw new Error('resource name was not pre-journaled');
   journal.mutations[resourceName] = providerId;
   journal.phase = 'mutated';
+  await writeJournal(stateDir, journal);
+  return journal;
+}
+/** Persists the exact bounded synthetic-probe receipt set before cleanup begins. */
+export async function recordEvidenceProbeResults(
+  stateDir: string,
+  runId: string,
+  probeResults: readonly string[]
+) {
+  const journal = await readJournal(stateDir, runId);
+  if (
+    probeResults.length !== journal.expectedProbeCount ||
+    new Set(probeResults).size !== probeResults.length ||
+    probeResults.some((result) => !result)
+  )
+    throw new Error('probe results do not match the expected bounded count');
+  journal.probeResults = [...probeResults];
   await writeJournal(stateDir, journal);
   return journal;
 }
@@ -190,8 +229,10 @@ export async function recordTokenRevocation(
   stateDir: string,
   runId: string,
   kind: 'write' | 'read',
-  receipt: TokenRevocationReceipt
+  receipt: VerifiedTokenRevocation
 ) {
+  if (!verifiedRevocations.has(receipt))
+    throw new Error('token revocation must come from a provider operation');
   const journal = await readJournal(stateDir, runId);
   validateRevocationReceipt(
     kind === 'write' ? journal.writeTokenId : journal.readTokenId,
@@ -210,6 +251,37 @@ export async function recordTokenRevocation(
   }
   await writeJournal(stateDir, journal);
   return journal;
+}
+/** Revokes the exact journaled token and reads it back before minting authority. */
+export async function revokeEvidenceRunToken(
+  stateDir: string,
+  runId: string,
+  kind: 'write' | 'read',
+  client: TokenRevocationClient
+) {
+  const journal = await readJournal(stateDir, runId);
+  const tokenId = kind === 'write' ? journal.writeTokenId : journal.readTokenId;
+  const revoked = await client.revoke(tokenId);
+  if (
+    revoked.tokenId !== tokenId ||
+    !/^[a-f0-9]{64}$/.test(revoked.auditReceiptSha256)
+  )
+    throw new Error('provider revoked the wrong token');
+  const readBack = await client.readBack(tokenId);
+  if (
+    readBack.tokenId !== tokenId ||
+    !['inactive', 'absent'].includes(readBack.status) ||
+    !/^[a-f0-9]{64}$/.test(readBack.auditReceiptSha256)
+  )
+    throw new Error('provider readback did not verify token revocation');
+  const receipt = Object.freeze({
+    tokenId,
+    status: 'revoked' as const,
+    providerReceiptSha256: readBack.auditReceiptSha256,
+    observedAt: readBack.observedAt,
+  }) as VerifiedTokenRevocation;
+  verifiedRevocations.add(receipt);
+  return recordTokenRevocation(stateDir, runId, kind, receipt);
 }
 export function loadEvidenceRunForCleanup(stateDir: string, runId: string) {
   return readJournal(stateDir, runId);

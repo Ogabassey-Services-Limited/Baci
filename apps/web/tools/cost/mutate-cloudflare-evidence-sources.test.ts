@@ -2,7 +2,10 @@ import { chmod, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { openEvidenceRun } from './cloudflare-evidence-run-journal';
+import {
+  loadEvidenceRunForCleanup,
+  openEvidenceRun,
+} from './cloudflare-evidence-run-journal';
 import {
   applyCloudflareEvidenceMutation,
   cleanupCloudflareEvidenceRun,
@@ -61,7 +64,10 @@ describe('Cloudflare evidence mutation lifecycle', () => {
       findByName: async () => resource,
       get: async () => resource,
       create,
-      probe: async () => true,
+      probe: async () => [
+        { id: 'probe-a', succeeded: true },
+        { id: 'probe-b', succeeded: true },
+      ],
       cleanup: async () => true,
       inventorySha256: async () => 'a'.repeat(64),
     };
@@ -69,6 +75,9 @@ describe('Cloudflare evidence mutation lifecycle', () => {
       applyCloudflareEvidenceMutation(dir, input.runId, capability, client)
     ).resolves.toMatchObject({ phase: 'cleanup_verified' });
     expect(create).not.toHaveBeenCalled();
+    expect(
+      (await loadEvidenceRunForCleanup(dir, input.runId)).probeResults
+    ).toEqual(['probe-a', 'probe-b']);
   });
   it('rejects collisions and cleanup refuses wrong identity without creating or probing', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
@@ -81,7 +90,10 @@ describe('Cloudflare evidence mutation lifecycle', () => {
         findByName: async () => ({ ...resource, description: 'collision' }),
         get: async () => resource,
         create,
-        probe: async () => true,
+        probe: async () => [
+          { id: 'probe-a', succeeded: true },
+          { id: 'probe-b', succeeded: true },
+        ],
         cleanup: async () => true,
         inventorySha256: async () => 'a'.repeat(64),
       })
@@ -95,5 +107,50 @@ describe('Cloudflare evidence mutation lifecycle', () => {
         inventorySha256: async () => 'a'.repeat(64),
       })
     ).rejects.toThrow('account');
+  });
+  it('blocks inventory drift before create and requires exactly the journaled probe count', async () => {
+    const cases = [
+      {
+        inventorySha256: async () => 'b'.repeat(64),
+        probe: async () => [
+          { id: 'probe-a', succeeded: true },
+          { id: 'probe-b', succeeded: true },
+        ],
+        error: 'before mutation',
+      },
+      {
+        inventorySha256: async () => 'a'.repeat(64),
+        probe: async () => [{ id: 'probe-a', succeeded: true }],
+        error: 'expected',
+      },
+      {
+        inventorySha256: async () => 'a'.repeat(64),
+        probe: async () => [
+          { id: 'probe-a', succeeded: true },
+          { id: 'probe-b', succeeded: true },
+          { id: 'probe-c', succeeded: true },
+        ],
+        error: 'expected',
+      },
+    ];
+    for (const entry of cases) {
+      const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+      await chmod(dir, 0o700);
+      await openEvidenceRun(dir, input);
+      const create = vi.fn(async () => ({ id: resource.id }));
+      await expect(
+        applyCloudflareEvidenceMutation(dir, input.runId, capability, {
+          identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
+          findByName: async () => null,
+          get: async () => resource,
+          create,
+          probe: entry.probe,
+          cleanup: async () => true,
+          inventorySha256: entry.inventorySha256,
+        })
+      ).rejects.toThrow(entry.error);
+      if (entry.error === 'before mutation')
+        expect(create).not.toHaveBeenCalled();
+    }
   });
 });
