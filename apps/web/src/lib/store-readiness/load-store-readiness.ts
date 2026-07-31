@@ -10,6 +10,7 @@ import {
 import { unknownValueGuards } from '@/lib/unknown-value-guards';
 import type { Database } from '@/types/supabase';
 import { buildStoreReadiness } from './build-store-readiness';
+import { hasActiveTemplateHero } from './has-active-template-hero';
 import { hasPublishedHero } from './has-published-hero';
 import { loadStoreLaunchReadiness } from './load-store-launch-readiness';
 
@@ -21,14 +22,15 @@ export interface LoadStoreReadinessInput {
 }
 
 const WEB_OPTIONAL_MERCHANT_READINESS_COLUMNS =
-  'is_published, pages, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id';
+  'is_published, pages, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id, template_id, business_type';
 
 const MOBILE_OPTIONAL_MERCHANT_READINESS_COLUMNS =
-  'is_published, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id';
+  'is_published, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id, template_id, business_type';
 
 type ReadinessOptionalMerchant = Pick<
   Database['public']['Tables']['merchants']['Row'],
   | 'business_address'
+  | 'business_type'
   | 'facebook_pixel_id'
   | 'google_analytics_id'
   | 'is_published'
@@ -36,6 +38,7 @@ type ReadinessOptionalMerchant = Pick<
   | 'snapchat_pixel_id'
   | 'social_media'
   | 'tiktok_pixel_id'
+  | 'template_id'
   | 'twitter_pixel_id'
 >;
 
@@ -147,8 +150,13 @@ export async function loadStoreReadiness({
   ]);
 
   const hasPublishedHomeConfig = homePageConfig?.is_published === true;
-  const hasPublishedHomeHero =
-    hasPublishedHomeConfig && hasPublishedHero(homePageConfig.published_config);
+  const hasPublishedHomeHero = hasActiveTemplateHero(
+    optionalMerchant.template_id,
+    optionalMerchant.business_type
+  )
+    ? true
+    : hasPublishedHomeConfig &&
+      hasPublishedHero(homePageConfig?.published_config);
 
   return buildStoreReadiness(
     {

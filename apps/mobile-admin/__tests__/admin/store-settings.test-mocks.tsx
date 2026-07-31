@@ -10,25 +10,26 @@ export const mocks = {
   invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
   mutationOptions: null as MutationOptions | null,
   routeParams: {} as { from?: string },
+  savePending: false,
   updateMerchantIdentitySettings: vi.fn().mockResolvedValue(undefined),
   useMerchant: vi.fn(),
 };
 
 vi.mock('@tanstack/react-query', () => ({
-  useMutation: <TData,>(options: {
-    mutationFn: () => Promise<TData>;
-    onError?: (error: Error) => void;
+  useMutation: <TData, TVariables>(options: {
+    mutationFn: (variables: TVariables) => Promise<TData>;
+    onError?: (error: Error, variables: TVariables) => void;
     onSuccess?: (data: TData) => Promise<void> | void;
   }) => {
     mocks.mutationOptions = options as unknown as MutationOptions;
     return {
-      isPending: false,
-      mutate: async () => {
+      isPending: mocks.savePending,
+      mutate: async (variables: TVariables) => {
         try {
-          const data = await options.mutationFn();
+          const data = await options.mutationFn(variables);
           await mocks.mutationOptions?.onSuccess?.(data);
         } catch (error) {
-          options.onError?.(error as Error);
+          options.onError?.(error as Error, variables);
         }
       },
     };

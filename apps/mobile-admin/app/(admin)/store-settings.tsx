@@ -155,7 +155,7 @@ export default function StoreSettingsScreen() {
     );
   };
 
-  const { handleCloseStatusModal, saveMutation } =
+  const { handleCloseStatusModal, isSaving, startSave } =
     useStoreSettingsSaveLifecycle({
       baseline,
       formValues: {
@@ -221,8 +221,8 @@ export default function StoreSettingsScreen() {
           headerRight: () => (
             <StoreSettingsSaveButton
               colors={colors}
-              isSaving={saveMutation.isPending}
-              onPress={() => saveMutation.mutate()}
+              isSaving={isSaving}
+              onPress={startSave}
             />
           ),
         }}

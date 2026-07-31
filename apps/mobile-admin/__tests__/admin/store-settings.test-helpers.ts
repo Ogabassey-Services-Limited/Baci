@@ -19,6 +19,7 @@ export const defaultMerchant = {
 export function resetStoreSettingsMocks() {
   vi.clearAllMocks();
   mocks.routeParams = {};
+  mocks.savePending = false;
   mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
   mocks.updateMerchantIdentitySettings.mockResolvedValue(undefined);
   mocks.useMerchant.mockReturnValue({

@@ -64,6 +64,7 @@ function client(
   const optionalMerchant = query({
     data: {
       business_address: null,
+      business_type: 'ELECTRONICS',
       facebook_pixel_id: null,
       google_analytics_id: null,
       is_published: false,
@@ -71,6 +72,7 @@ function client(
       snapchat_pixel_id: null,
       social_media: options.socialMedia ?? null,
       tiktok_pixel_id: null,
+      template_id: 'puck',
       twitter_pixel_id: null,
     },
     error: options.optionalMerchantError ?? null,

@@ -87,7 +87,7 @@ describe('useStoreSettingsSaveLifecycle', () => {
       { wrapper }
     );
 
-    act(() => result.current.saveMutation.mutate());
+    act(result.current.startSave);
     await waitFor(() => expect(mocks.updateMerchant).toHaveBeenCalledTimes(1));
 
     revision = 1;
@@ -156,7 +156,7 @@ describe('useStoreSettingsSaveLifecycle', () => {
       { wrapper }
     );
 
-    act(() => result.current.saveMutation.mutate());
+    act(result.current.startSave);
     await waitFor(() => expect(mocks.invalidateAfterSave).toHaveBeenCalled());
 
     merchant = {
@@ -225,7 +225,7 @@ describe('useStoreSettingsSaveLifecycle', () => {
       { wrapper }
     );
 
-    act(() => result.current.saveMutation.mutate());
+    act(result.current.startSave);
     await waitFor(() => expect(mocks.invalidateAfterSave).toHaveBeenCalled());
 
     merchant = {
