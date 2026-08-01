@@ -76,6 +76,7 @@ function sevenDays() {
     const day = {
       ...dailyEvidence,
       utcDate: `2026-07-0${index + 1}`,
+      exportedAt: `2026-07-${String(index + 2).padStart(2, '0')}T00:00:00.000Z`,
       sha256: '',
     };
     day.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(day);

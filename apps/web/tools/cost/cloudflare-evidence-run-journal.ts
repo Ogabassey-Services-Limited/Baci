@@ -5,9 +5,12 @@ import {
   readdir,
   readFile,
   rename,
-  rm,
 } from 'node:fs/promises';
 import { basename, isAbsolute, join } from 'node:path';
+import {
+  acquireActiveRunLock,
+  releaseActiveRunLock,
+} from './cloudflare-evidence-run-lock';
 
 type EvidencePhase =
   | 'prepared'
@@ -85,57 +88,6 @@ export type EvidenceRunInput = Omit<
   | 'readTokenRevocationReceipt'
 >;
 
-const activeRunLockPath = (stateDir: string) =>
-  join(stateDir, '.active-run.lock');
-
-async function releaseActiveRunLock(stateDir: string, runId: string) {
-  try {
-    const owner = (await readFile(activeRunLockPath(stateDir), 'utf8')).trim();
-    if (owner === runId) await rm(activeRunLockPath(stateDir));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-  }
-}
-
-async function acquireActiveRunLock(stateDir: string, runId: string) {
-  try {
-    const lock = await open(activeRunLockPath(stateDir), 'wx', 0o600);
-    try {
-      await lock.writeFile(`${runId}\n`);
-      await lock.sync();
-    } finally {
-      await lock.close();
-    }
-    return;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-  }
-  let owner = '';
-  try {
-    owner = (await readFile(activeRunLockPath(stateDir), 'utf8')).trim();
-  } catch {
-    throw new Error('an evidence run is already active');
-  }
-  if (owner) {
-    try {
-      const existing = await readJournal(stateDir, owner);
-      if (terminal.has(existing.phase)) {
-        await releaseActiveRunLock(stateDir, owner);
-        return acquireActiveRunLock(stateDir, runId);
-      }
-    } catch (error) {
-      // A lock may be observed before its journal is durably visible. Treat
-      // that state as active instead of deleting the lock and admitting a
-      // concurrent run. Unknown/corrupt journal state also fails closed.
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        throw new Error('an evidence run is already active');
-      }
-      throw error;
-    }
-  }
-  throw new Error('an evidence run is already active');
-}
-
 function journalPath(stateDir: string, runId: string) {
   if (basename(runId) !== runId || !/^[a-zA-Z0-9_-]+$/.test(runId))
     throw new Error('journal run ID is invalid');
@@ -195,7 +147,10 @@ export async function openEvidenceRun(
   input: EvidenceRunInput
 ): Promise<CloudflareEvidenceRunJournal> {
   await verifyDirectory(stateDir);
-  await acquireActiveRunLock(stateDir, input.runId);
+  await acquireActiveRunLock(stateDir, input.runId, {
+    readJournal,
+    isTerminal: (phase) => terminal.has(phase as EvidencePhase),
+  });
   try {
     const active = await readdir(stateDir);
     for (const name of active.filter((entry) => entry.endsWith('.json'))) {
