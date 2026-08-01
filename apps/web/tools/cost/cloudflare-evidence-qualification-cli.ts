@@ -8,7 +8,15 @@ import {
   qualifyCloudflareEvidenceReadback,
   ReviewedQualificationArtifactSchema,
 } from './cloudflare-evidence-qualification-schemas';
-import type { CloudflareOwnerAcceptanceAuthorityResolver } from './cloudflare-evidence-qualification-traffic';
+import {
+  type CloudflareOwnerAcceptanceAuthorityResolver,
+  OwnerAcceptanceSchema,
+} from './cloudflare-evidence-qualification-traffic';
+import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
+import {
+  type EvidenceRunnerModuleDescriptor,
+  verifyReviewedEvidenceRunnerModule,
+} from './cloudflare-evidence-runner-modules';
 
 const MAXIMUM_APPROVAL_ID_LENGTH = 128;
 
@@ -94,6 +102,54 @@ async function readReviewedArtifact(path: string, label: string) {
   }
 }
 
+type OwnerAcceptanceAuthorityModule = Readonly<{
+  resolveOwnerAcceptanceAuthority: () => unknown | Promise<unknown>;
+}>;
+
+async function loadOwnerAcceptanceAuthority(
+  environment: Readonly<Record<string, string | undefined>>
+): Promise<CloudflareOwnerAcceptanceAuthorityResolver> {
+  const workspaceRoot = environment.EVIDENCE_WORKSPACE_ROOT;
+  const toolingMergeSha = environment.EVIDENCE_TOOLING_MERGE_SHA;
+  const path = environment.EVIDENCE_OWNER_ACCEPTANCE_AUTHORITY_MODULE;
+  const sha256 = environment.EVIDENCE_OWNER_ACCEPTANCE_AUTHORITY_MODULE_SHA256;
+  if (!workspaceRoot || !toolingMergeSha || !path || !sha256)
+    throw new Error(
+      'independently authenticated owner acceptance readback is required'
+    );
+  const descriptor: EvidenceRunnerModuleDescriptor = { path, sha256 };
+  const verified = await verifyReviewedEvidenceRunnerModule(
+    workspaceRoot,
+    toolingMergeSha,
+    descriptor
+  );
+  const authoritative = await importReviewedEvidenceModule(
+    workspaceRoot,
+    verified.path,
+    verified.files,
+    async (loaded) => {
+      if (
+        !loaded ||
+        typeof loaded !== 'object' ||
+        !('resolveOwnerAcceptanceAuthority' in loaded) ||
+        typeof (loaded as Partial<OwnerAcceptanceAuthorityModule>)
+          .resolveOwnerAcceptanceAuthority !== 'function'
+      )
+        throw new Error('owner acceptance authority module is invalid');
+      const value = await (
+        loaded as OwnerAcceptanceAuthorityModule
+      ).resolveOwnerAcceptanceAuthority();
+      const parsed = OwnerAcceptanceSchema.safeParse(value);
+      if (!parsed.success)
+        throw new Error(
+          'owner acceptance authority module returned invalid data'
+        );
+      return parsed.data;
+    }
+  );
+  return () => authoritative;
+}
+
 export async function runQualificationCli(
   args: readonly string[],
   environment: Readonly<Record<string, string | undefined>>,
@@ -112,10 +168,9 @@ export async function runQualificationCli(
         scriptName,
         expectedOwnerApprovalId,
       } = parseQualificationArguments(args);
-      if (!ownerAcceptanceAuthority)
-        throw new Error(
-          'independently authenticated owner acceptance readback is required'
-        );
+      const authority =
+        ownerAcceptanceAuthority ??
+        (await loadOwnerAcceptanceAuthority(environment));
       const [value, ...artifactValues] = await Promise.all([
         readReviewedArtifact(receiptPath, 'readback'),
         ...expectedArtifactPaths.map((path, index) =>
@@ -141,7 +196,7 @@ export async function runQualificationCli(
         expectedArtifacts,
         expectedScriptName: scriptName,
         expectedOwnerApprovalId,
-        ownerAcceptanceAuthority,
+        ownerAcceptanceAuthority: authority,
       });
       if (!result.ok) throw new Error(result.reason);
       io.stdout(`${JSON.stringify(result.qualification)}\n`);
