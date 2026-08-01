@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
+vi.mock('./zoho-blog-content-signature-server', () => {
+  throw new Error(
+    'Zoho content URL builder must not load the combined signature capability'
+  );
+});
 
 import { buildZohoBlogContentUrl } from './zoho-blog-content-url-server';
 

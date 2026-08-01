@@ -33,6 +33,12 @@ vi.mock('@/lib/zoho-blog-campaign-dispatch', () => {
   );
 });
 
+vi.mock('@/lib/zoho-blog-content-signature-server', () => {
+  throw new Error(
+    'Zoho blog-content route must not load the combined signature capability'
+  );
+});
+
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogRevalidationContext: vi.fn(async () => ({
     canonicalMerchantSlug: 'ogabassey',
@@ -54,7 +60,7 @@ vi.mock('@/lib/merchant-zoho-campaign-settings', async () => {
   };
 });
 
-import { buildZohoBlogContentSignature } from '@/lib/zoho-blog-content-signature-server';
+import { buildZohoBlogContentSignature } from '@/lib/zoho-blog-content-signing-server';
 import { GET } from './route';
 
 const postId = '4db63f48-3577-4ef3-9e09-e3ec6af7a5a2';

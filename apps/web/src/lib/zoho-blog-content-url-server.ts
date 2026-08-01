@@ -1,6 +1,6 @@
 import 'server-only';
 import { trimTrailingSlash } from '@/lib/zoho-campaigns-http';
-import { buildZohoBlogContentSignature } from './zoho-blog-content-signature-server';
+import { buildZohoBlogContentSignature } from './zoho-blog-content-signing-server';
 
 export function buildZohoBlogContentUrl({
   contentSecret,

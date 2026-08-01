@@ -4,7 +4,7 @@ import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cach
 import { getMerchantZohoEmailBrand } from '@/lib/merchant-zoho-campaign-settings';
 import { createClient } from '@/lib/supabase/server';
 import { getConfiguredZohoBlogContentConfig } from '@/lib/zoho-blog-content-config-server';
-import { isValidZohoBlogContentSignature } from '@/lib/zoho-blog-content-signature-server';
+import { isValidZohoBlogContentSignature } from '@/lib/zoho-blog-content-signature-validation-server';
 import { buildZohoBlogEmailHtml } from '@/lib/zoho-blog-email-content';
 import { buildStorefrontBlogPostUrl } from '@/lib/zoho-blog-storefront-url-server';
 

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-import { isValidZohoBlogContentSignature } from './zoho-blog-content-signature-server';
+import { isValidZohoBlogContentSignature } from './zoho-blog-content-signature-validation-server';
 
 describe('isValidZohoBlogContentSignature', () => {
   it('accepts the HMAC produced for the requested blog post', () => {
