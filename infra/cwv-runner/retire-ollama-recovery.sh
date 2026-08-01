@@ -16,10 +16,10 @@ recovery_safe_int() { case "$1" in ''|*[!0-9]*) return 1;; esac; [ "$1" -gt 0 ] 
 recovery_source_identity() { /usr/bin/printf '%s' "$1" | /usr/bin/grep -Eq '^[0-9a-f]{40}$' || return 1; [ "$(id -u)" -ne 0 ] || [ "$SCRIPT_DIR" = "$RECOVERY_SOURCE_ROOT/$1" ]; }
 recovery_package_snapshot() {
   if package=$(recovery_dpkg_query -W "-f=\${db:Status-Abbrev} \${Version}" ollama 2>/dev/null); then
-    status=${package%%  *}; version=${package#*  }
-    case "$status" in [a-z][a-z]) :;; *) die 'invalid Ollama package status';; esac
+    status=$(printf '%.3s' "$package"); remainder=${package#???}; case "$remainder" in ' '*) version=${remainder# };; *) die 'invalid Ollama package status';; esac
+    case "$status" in [uirph][nicUFhHWt]' '|[uirph][nicUFhHWt]R) :;; *) die 'invalid Ollama package status';; esac
     case "$version" in ''|*[[:space:]]*) die 'invalid Ollama package version';; esac
-    case "$status" in ?i) :;; *) /usr/bin/jq -cn '{name:"ollama",state:"absent",version:null}'; return;; esac
+    case "$status" in ?i' ') :;; ?[nc]' ') /usr/bin/jq -cn '{name:"ollama",state:"absent",version:null}'; return;; *) /usr/bin/jq -cn --arg status "$status" --arg version "$version" '{name:"ollama",state:"partial",statusAbbrev:$status,version:$version}'; return;; esac
     [ -n "$version" ] || die 'empty Ollama package version'; /usr/bin/jq -cn --arg version "$version" '{name:"ollama",state:"present",version:$version}'
   else
     status=$?; [ "$status" -eq 1 ] || die "Ollama package query failed ($status)"
@@ -105,15 +105,14 @@ EOF
 recovery_process_executable() {
   pid=$1; expected=$2; kind=$3; exe="$RECOVERY_PROC_ROOT/$pid/exe"; [ -L "$exe" ] || review_required 'process executable link missing'
   observed=$(readlink -- "$exe") || review_required 'process executable target unavailable'; observed=${observed% (deleted)}
-  real=$(readlink -f -- "$exe") || review_required 'process executable resolution failed'
-  case "$kind:$real" in
-    ollama:*)
+  case "$kind" in
+    ollama)
       expected_path="$RECOVERY_PROC_ROOT/$pid/root$expected"
       expected_real=$(readlink -f -- "$expected_path") || review_required 'process executable expectation unresolved'
       expected_identity=$(stat -Lc '%d:%i:%u:%g:%a' "$expected_path") || review_required 'process executable expectation identity failed'
       observed_identity=$(stat -Lc '%d:%i:%u:%g:%a' "$exe") || review_required 'process executable identity failed'; [ "$expected_identity" = "$observed_identity" ] || review_required 'process executable mismatch'
-      [ -n "$expected_real" ] || review_required 'process executable expectation unresolved';;
-    docker-proxy:/usr/bin/docker-proxy|docker-proxy:/usr/libexec/docker/docker-proxy) :;;
+      [ -n "$expected_real" ] || review_required 'process executable expectation unresolved'; real=$expected_real;;
+    docker-proxy) real=$(readlink -f -- "$exe") || review_required 'process executable resolution failed'; case "$real" in /usr/bin/docker-proxy|/usr/libexec/docker/docker-proxy) :;; *) review_required 'unreviewed process executable path';; esac;;
     *) review_required 'unreviewed process executable path';;
   esac
   stat_value=$(stat -Lc '%d:%i:%u:%g:%a' "$exe") || review_required 'process executable identity failed'
@@ -261,7 +260,7 @@ recovery_collect_systemd() {
   for name in "$UNIT" "$TIMER"; do for property in FragmentPath DropInPaths EnvironmentFiles; do
       out=$(temp_path); if recovery_systemd_properties "$name" "$property" "$out"; then status=0; else status=$?; fi
       value=$(sha "$out")
-      RECOVERY_RECORDS=$(/usr/bin/jq -cn --argjson old "$RECOVERY_RECORDS" --arg class "systemd-$property" --arg name "$name" --argjson status "$status" --arg value "$value" '$old + [{class:$class,unit:$name,exitStatus:$status,sha256:$value}]')
+      RECOVERY_RECORDS=$(/usr/bin/jq -cn --argjson old "$RECOVERY_RECORDS" --arg class "systemd-$property" --arg name "$name" --argjson status "$status" --arg value "$value" '$old + [{class:$class,unit:$name,exitStatus:$status,sha256:$value}]') || die "recovery systemd property serialization failed $name $property"
       if [ "$status" -eq 0 ]; then
         case "$property" in
           FragmentPath) path=$(cat "$out"); [ -z "$path" ] || recovery_record_path systemd-fragment "$path" 0;;

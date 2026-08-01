@@ -48,6 +48,20 @@ test('classifies residual and held dpkg package states', async () => {
   assert.equal(JSON.parse(held.stdout).state, 'present');
 });
 
+test('records valid partial and reinst-required dpkg states explicitly', async () => {
+  for (const packageOutput of ['iU  0.1', 'iHR 0.1', 'iiR 0.1']) {
+    const { stdout } = await shell(
+      `recovery_dpkg_query() { printf '${packageOutput}\\n'; }; init_temp_root; trap cleanup_temp EXIT; recovery_package_snapshot`
+    );
+    assert.deepEqual(JSON.parse(stdout), {
+      name: 'ollama',
+      state: 'partial',
+      statusAbbrev: packageOutput.slice(0, 3),
+      version: '0.1',
+    });
+  }
+});
+
 test('uses one saved process surface instead of invoking ps twice', async () => {
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-recovery-process-surface-')

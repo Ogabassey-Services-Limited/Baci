@@ -285,12 +285,15 @@ test('detects uppercase Ollama hosts in Compose definitions', async () => {
     );
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      '. "$1"; init_temp_root; trap cleanup_temp EXIT; COMPOSE_ROOTS="$2"; scan_compose_definitions',
+      'stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; readlink() { for path do :; done; printf "%s\\n" "$path"; }; . "$1"; init_temp_root; trap cleanup_temp EXIT; COMPOSE_ROOTS="$2"; scan_compose_definitions',
       'retire-ollama-compose-test',
       script.pathname,
       directory,
     ]);
-    assert.equal(stdout.trim(), compose);
+    const [path, contentSha256, identitySha256] = stdout.trim().split('|');
+    assert.equal(path, compose);
+    assert.match(contentSha256, /^[0-9a-f]{64}$/);
+    assert.match(identitySha256, /^[0-9a-f]{64}$/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

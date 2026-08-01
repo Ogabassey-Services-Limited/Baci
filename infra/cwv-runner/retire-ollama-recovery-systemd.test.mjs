@@ -31,13 +31,24 @@ function shell(command, env = {}, args = []) {
 }
 
 test('rejects a root recovery helper outside the sealed source root', async () => {
-  if (process.getuid?.() !== 0) return;
   const sourceSha = 'a'.repeat(40);
   await assert.rejects(
     shell(
-      `SCRIPT_DIR="/tmp/${sourceSha}"; recovery_source_identity "${sourceSha}"`
+      `id() { printf "0\\n"; }; SCRIPT_DIR="/tmp/${sourceSha}"; recovery_source_identity "${sourceSha}"`
     ),
     (error) => error.code === 1
+  );
+});
+
+test('refuses a systemd scan when its record accumulator is malformed', async () => {
+  await assert.rejects(
+    shell(
+      'recovery_surface() { :; }; recovery_systemd_properties() { : >"$3"; return 4; }; RECOVERY_RECORDS="{malformed"; UNIT=ollama.service; TIMER=ollama-watchdog.timer; init_temp_root; trap cleanup_temp EXIT; recovery_collect_systemd'
+    ),
+    (error) =>
+      /recovery systemd property serialization failed/.test(
+        String(error.stderr)
+      )
   );
 });
 

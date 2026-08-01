@@ -68,7 +68,8 @@ recovery_pair_digest() {
   recovery_safe_receipt_file "$pair_json" || return 1; recovery_safe_receipt_file "$pair_digest" || return 1
   recovery_validate_json "$pair_json" || return 1
   pair_digest_value=$(recovery_read_digest "$pair_digest") || return 1
-  [ "$pair_digest_value" = "$(recovery_json_digest "$pair_json")" ]
+  pair_json_value=$(recovery_json_digest "$pair_json") || return 1
+  [ -n "$pair_digest_value" ] && [ -n "$pair_json_value" ] && [ "$pair_digest_value" = "$pair_json_value" ]
 }
 
 recovery_publish_link() {
@@ -85,8 +86,10 @@ recovery_reconcile_duplicate_link() {
   pending=$1; target=$2
   recovery_safe_receipt_file "$pending" || return 1
   recovery_safe_receipt_file "$target" || return 1
-  [ "$(stat -c '%d:%i' "$pending")" = "$(stat -c '%d:%i' "$target")" ] || return 1
-  [ "$(recovery_json_digest "$pending")" = "$(recovery_json_digest "$target")" ] || return 1
+  pending_identity=$(stat -c '%d:%i' "$pending") || return 1; target_identity=$(stat -c '%d:%i' "$target") || return 1
+  [ -n "$pending_identity" ] && [ -n "$target_identity" ] && [ "$pending_identity" = "$target_identity" ] || return 1
+  pending_digest=$(recovery_json_digest "$pending") || return 1; target_digest=$(recovery_json_digest "$target") || return 1
+  [ -n "$pending_digest" ] && [ -n "$target_digest" ] && [ "$pending_digest" = "$target_digest" ] || return 1
   /bin/rm -f -- "$pending"; fsync_dir "${target%/*}"
 }
 
@@ -94,8 +97,10 @@ recovery_reconcile_digest_link() {
   pending=$1; target=$2
   recovery_safe_receipt_file "$pending" || return 1
   recovery_safe_receipt_file "$target" || return 1
-  [ "$(stat -c '%d:%i' "$pending")" = "$(stat -c '%d:%i' "$target")" ] || return 1
-  [ "$(recovery_read_digest "$pending")" = "$(recovery_read_digest "$target")" ] || return 1
+  pending_identity=$(stat -c '%d:%i' "$pending") || return 1; target_identity=$(stat -c '%d:%i' "$target") || return 1
+  [ -n "$pending_identity" ] && [ -n "$target_identity" ] && [ "$pending_identity" = "$target_identity" ] || return 1
+  pending_digest=$(recovery_read_digest "$pending") || return 1; target_digest=$(recovery_read_digest "$target") || return 1
+  [ -n "$pending_digest" ] && [ -n "$target_digest" ] && [ "$pending_digest" = "$target_digest" ] || return 1
   /bin/rm -f -- "$pending"; fsync_dir "${target%/*}"
 }
 
@@ -168,13 +173,11 @@ recovery_reconcile_publish_temporaries() {
   for temporary in "$directory"/.recovery-publish.*; do
     [ -e "$temporary" ] || [ -L "$temporary" ] || continue
     recovery_safe_receipt_file "$temporary" || return 1
-    if [ -e "$json" ] && [ "$(stat -c '%d:%i' "$temporary")" = "$(stat -c '%d:%i' "$json")" ]; then
-      recovery_reconcile_duplicate_link "$temporary" "$json" || return 1
-    elif [ -e "$digest" ] && [ "$(stat -c '%d:%i' "$temporary")" = "$(stat -c '%d:%i' "$digest")" ]; then
-      recovery_reconcile_digest_link "$temporary" "$digest" || return 1
-    else
-      /bin/rm -f -- "$temporary" || return 1; fsync_dir "$directory"
-    fi
+    temporary_identity=$(stat -c '%d:%i' "$temporary") || return 1
+    [ -n "$temporary_identity" ] || return 1
+    if [ -e "$json" ]; then json_identity=$(stat -c '%d:%i' "$json") || return 1; [ -n "$json_identity" ] || return 1; if [ "$temporary_identity" = "$json_identity" ]; then recovery_reconcile_duplicate_link "$temporary" "$json" || return 1; continue; fi; fi
+    if [ -e "$digest" ]; then digest_identity=$(stat -c '%d:%i' "$digest") || return 1; [ -n "$digest_identity" ] || return 1; if [ "$temporary_identity" = "$digest_identity" ]; then recovery_reconcile_digest_link "$temporary" "$digest" || return 1; continue; fi; fi
+    /bin/rm -f -- "$temporary" || return 1; fsync_dir "$directory"
   done
 }
 
@@ -195,17 +198,17 @@ recovery_reconcile_pair() {
   if [ "$json_exists" -eq 1 ] && [ "$digest_exists" -eq 1 ]; then
     recovery_pair_digest "$json" "$digest" || review_required 'recovery receipt pair drift'
     if [ "$json_pending_exists" -eq 1 ]; then if [ "$digest_pending_exists" -eq 1 ]; then recovery_pair_digest "$json_pending" "$digest_pending" || review_required 'recovery pending JSON pair drift'; fi; recovery_reconcile_duplicate_link "$json_pending" "$json" || review_required 'recovery pending JSON residue'; fi
-    if [ "$digest_pending_exists" -eq 1 ]; then [ "$(recovery_read_digest "$digest_pending")" = "$(recovery_read_digest "$digest")" ] || review_required 'recovery pending digest drift'; /bin/rm -f -- "$digest_pending"; fi
+    if [ "$digest_pending_exists" -eq 1 ]; then pending_digest=$(recovery_read_digest "$digest_pending") || review_required 'recovery pending digest drift'; digest_value=$(recovery_read_digest "$digest") || review_required 'recovery pending digest drift'; [ -n "$pending_digest" ] && [ -n "$digest_value" ] && [ "$pending_digest" = "$digest_value" ] || review_required 'recovery pending digest drift'; /bin/rm -f -- "$digest_pending"; fi
     recovery_no_pending "$directory" || review_required 'recovery receipt pending residue'; return 0
   fi
   if [ "$json_exists" -eq 1 ]; then
-    if [ "$digest_pending_exists" -eq 1 ]; then [ "$(recovery_read_digest "$digest_pending")" = "$(recovery_json_digest "$json")" ] || review_required 'recovery digest pending drift'; recovery_publish_link "$digest_pending" "$digest" || review_required 'recovery digest publication race'; else recovery_make_digest_file "$json" "$digest" || review_required 'recovery digest publication failed'; fi
+    if [ "$digest_pending_exists" -eq 1 ]; then pending_digest=$(recovery_read_digest "$digest_pending") || review_required 'recovery digest pending drift'; json_digest=$(recovery_json_digest "$json") || review_required 'recovery digest pending drift'; [ -n "$pending_digest" ] && [ -n "$json_digest" ] && [ "$pending_digest" = "$json_digest" ] || review_required 'recovery digest pending drift'; recovery_publish_link "$digest_pending" "$digest" || review_required 'recovery digest publication race'; else recovery_make_digest_file "$json" "$digest" || review_required 'recovery digest publication failed'; fi
     if [ "$json_pending_exists" -eq 1 ]; then recovery_reconcile_duplicate_link "$json_pending" "$json" || review_required 'recovery pending JSON residue'; fi
     recovery_pair_digest "$json" "$digest" || review_required 'recovery receipt pair drift'; recovery_no_pending "$directory" || review_required 'recovery receipt pending residue'; return 0
   fi
   if [ "$digest_exists" -eq 1 ]; then
     [ "$json_pending_exists" -eq 1 ] || review_required 'recovery receipt JSON missing'
-    recovery_validate_json "$json_pending" || review_required 'recovery JSON pending unsafe'; [ "$(recovery_json_digest "$json_pending")" = "$(recovery_read_digest "$digest")" ] || review_required 'recovery JSON pending drift'
+    recovery_validate_json "$json_pending" || review_required 'recovery JSON pending unsafe'; pending_json_digest=$(recovery_json_digest "$json_pending") || review_required 'recovery JSON pending drift'; digest_value=$(recovery_read_digest "$digest") || review_required 'recovery JSON pending drift'; [ -n "$pending_json_digest" ] && [ -n "$digest_value" ] && [ "$pending_json_digest" = "$digest_value" ] || review_required 'recovery JSON pending drift'
     recovery_publish_link "$json_pending" "$json" || review_required 'recovery JSON publication race'; recovery_pair_digest "$json" "$digest" || review_required 'recovery receipt pair drift'; recovery_no_pending "$directory" || review_required 'recovery receipt pending residue'; return 0
   fi
   if [ "$json_pending_exists" -eq 0 ]; then [ "$digest_pending_exists" -eq 0 ] && return 1; review_required 'recovery receipt JSON pending missing'; fi
