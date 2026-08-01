@@ -154,6 +154,26 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['pro m2']);
   });
 
+  it('removes standalone VRAM labels from MacBook identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Apple'],
+      productSlugs: ['15-macbook-pro-2016-16gb-512gb-2gb-vram-i7-touchbar'],
+    });
+
+    expect(identifiers).toEqual(['pro 2016']);
+  });
+
+  it('removes NFID condition markers from iPhone identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: ['iphone-x-3gb-64gb-nfid'],
+    });
+
+    expect(identifiers).toEqual(['x']);
+  });
+
   it('ignores region suffixes before selecting a single-character model', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

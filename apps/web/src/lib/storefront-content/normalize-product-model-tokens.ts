@@ -17,6 +17,7 @@ const MERCHANDISING_SUFFIX_TOKENS = new Set([
   'midnight',
   'mint',
   'new',
+  'nfid',
   'open',
   'orange',
   'pink',
@@ -138,7 +139,8 @@ function stripDecimalDisplaySuffix(tokens: string[]) {
 
 function stripOptionalFeatureSuffix(tokens: string[]) {
   const touchBarIndex = tokens.findIndex(
-    (token, index) => token === 'touch' && tokens[index + 1] === 'bar'
+    (token, index) =>
+      token === 'touchbar' || (token === 'touch' && tokens[index + 1] === 'bar')
   );
 
   return touchBarIndex >= 0 ? tokens.slice(0, touchBarIndex) : tokens;

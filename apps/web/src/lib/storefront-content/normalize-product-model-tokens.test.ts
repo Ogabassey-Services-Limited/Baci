@@ -140,4 +140,28 @@ describe('normalizeProductModelTokens', () => {
 
     expect(tokens).toEqual(['macbook', 'pro', '2022', 'm2']);
   });
+
+  it('removes the compact Touch Bar spelling', () => {
+    const tokens = normalizeProductModelTokens([
+      'macbook',
+      'pro',
+      '2016',
+      'i7',
+      'touchbar',
+    ]);
+
+    expect(tokens).toEqual(['macbook', 'pro', '2016', 'i7']);
+  });
+
+  it('removes NFID condition metadata', () => {
+    const tokens = normalizeProductModelTokens([
+      'iphone',
+      'x',
+      '3gb',
+      '64gb',
+      'nfid',
+    ]);
+
+    expect(tokens).toEqual(['iphone', 'x', '3gb', '64gb']);
+  });
 });

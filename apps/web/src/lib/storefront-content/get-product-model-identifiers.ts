@@ -14,7 +14,7 @@ function tokenize(value: string) {
 }
 
 const SPECIFICATION_TOKEN_PATTERN =
-  /^(?:ram|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg))$/u;
+  /^(?:ram|vram|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg))$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
