@@ -120,7 +120,6 @@ function stripFirstMatchingSuffix(
   const suffixIndex = tokens.findIndex(predicate);
   return suffixIndex >= 0 ? tokens.slice(0, suffixIndex) : tokens;
 }
-
 function isTerminalColorSuffix(tokens: string[], index: number) {
   return tokens
     .slice(index + 1)
@@ -128,7 +127,6 @@ function isTerminalColorSuffix(tokens: string[], index: number) {
       (token) => MERCHANDISING_SUFFIX_TOKENS.has(token) || /^\d/u.test(token)
     );
 }
-
 function stripOptionalConnectivitySuffix(tokens: string[]) {
   const suffixIndex = tokens.findIndex(
     (token, index) =>
@@ -154,7 +152,6 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
   }
   return tokens.slice(0, markerIndex + 1);
 }
-
 function stripDecimalDisplaySuffix(
   tokens: string[],
   stripTerminalDisplay = false
@@ -177,13 +174,18 @@ function stripDecimalDisplaySuffix(
       (isTerminalDisplay ||
         tokens
           .slice(index + 2)
-          .some((suffixToken) => DISPLAY_SUFFIX_MARKER_TOKENS.has(suffixToken)))
+          .some((suffixToken) =>
+            DISPLAY_SUFFIX_MARKER_TOKENS.has(suffixToken)
+          ) ||
+        (tokens.length > index + 2 &&
+          tokens
+            .slice(index + 2)
+            .every((suffixToken) => /^\d+(?:gb|tb|mb)$/u.test(suffixToken))))
     );
   });
 
   return decimalIndex >= 0 ? tokens.slice(0, decimalIndex) : tokens;
 }
-
 function stripOptionalFeatureSuffix(tokens: string[]) {
   const touchBarIndex = tokens.findIndex(
     (token, index) =>
@@ -198,10 +200,8 @@ function stripOptionalFeatureSuffix(tokens: string[]) {
   const suffixIndex = [touchBarIndex, allInOneIndex].find(
     (index) => index >= 0
   );
-
   return suffixIndex !== undefined ? tokens.slice(0, suffixIndex) : tokens;
 }
-
 function stripOptionalOrdinalGenerationConnectorSuffix(tokens: string[]) {
   const ordinalPattern = /^(\d+)(?:st|nd|rd|th)$/u;
   const generationIndex = tokens.findIndex(

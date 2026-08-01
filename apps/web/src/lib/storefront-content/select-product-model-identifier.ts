@@ -54,6 +54,16 @@ function isSeriesPhraseToken(tokens: string[], index: number) {
   return isSeriesMarker || followsSeriesMarker;
 }
 
+function isGenerationYearToken(tokens: string[], index: number) {
+  return (
+    YEAR_TOKEN_PATTERN.test(tokens[index] ?? '') &&
+    ['gen', 'generation'].includes(tokens[index - 1] ?? '') &&
+    tokens
+      .slice(index + 1)
+      .some((token) => /[a-z]/u.test(token) && /\d/u.test(token))
+  );
+}
+
 function reorderGenerationModelTokens(tokens: string[]) {
   const generationIndex = tokens.findIndex(
     (token, index) =>
@@ -90,11 +100,12 @@ export function selectProductModelIdentifier(
       /\d/u.test(token)
   );
   const numericIndex = tokens.findLastIndex(
-    (token) =>
+    (token, index) =>
       /^\d+$/u.test(token) &&
       (preserveYearTokens ||
         !YEAR_TOKEN_PATTERN.test(token) ||
-        !hasNonYearAlphanumericModel)
+        !hasNonYearAlphanumericModel ||
+        isGenerationYearToken(tokens, index))
   );
   if (numericIndex >= 0) {
     const hasConvertibleModel = tokens.some((_, index) =>

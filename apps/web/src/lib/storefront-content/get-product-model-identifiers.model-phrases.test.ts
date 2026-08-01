@@ -197,24 +197,24 @@ describe('getProductModelIdentifiers model phrases', () => {
     expect(identifiers).toEqual(['fold 5']);
   });
 
-  it('strips a leading tablet display size from the model phrase', () => {
+  it('keeps a tablet generation year after its leading display size', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'tablets',
       brands: ['Apple'],
       productSlugs: ['11-ipad-air-6th-generation-2024-m2-wifi-only-256gb'],
     });
 
-    expect(identifiers).toEqual(['air 6th generation m2']);
+    expect(identifiers).toEqual(['air 6th generation 2024 m2']);
   });
 
-  it('strips both tokens from a decimal tablet display prefix', () => {
+  it('keeps a tablet generation year after a decimal display prefix', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'tablets',
       brands: ['Apple'],
       productSlugs: ['10-9-ipad-air-5th-generation-2021-m1-wifi-64gb'],
     });
 
-    expect(identifiers).toEqual(['air 5th generation m1']);
+    expect(identifiers).toEqual(['air 5th generation 2021 m1']);
   });
 
   it('removes split capacity metadata from a tablet model phrase', () => {

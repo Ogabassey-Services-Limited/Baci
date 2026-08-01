@@ -96,4 +96,26 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
 
     expect(identifiers).toEqual(['color laserjet pro 3203dw']);
   });
+
+  it('keeps a tablet generation year before an alphanumeric chip marker', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Apple'],
+      productNames: ['11" iPad Pro 5th Generation 2024 M4'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['pro 5th generation 2024 m4']);
+  });
+
+  it('removes an embedded quote-only tablet dimension before capacities', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Samsung'],
+      productNames: ['Samsung Tab S9 Plus 5G 12.4" 12GB 256GB'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['tab s9 plus']);
+  });
 });
