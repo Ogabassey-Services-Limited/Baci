@@ -89,12 +89,25 @@ async function readOwnerRecords(path: string) {
   for (const entry of entries) {
     if (!entry.name.startsWith(ownerPrefix(path))) continue;
     const recordPath = `${directory}/${entry.name}`;
-    const stat = await lstat(recordPath);
+    let stat: Awaited<ReturnType<typeof lstat>>;
+    try {
+      stat = await lstat(recordPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+      throw error;
+    }
     if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o077) !== 0)
       throw new Error('evidence lock guard owner metadata is not private');
+    let contents: string;
+    try {
+      contents = await readFile(recordPath, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+      throw error;
+    }
     records.push({
       path: recordPath,
-      record: parseRecord(await readFile(recordPath, 'utf8')),
+      record: parseRecord(contents),
     });
   }
   return records;

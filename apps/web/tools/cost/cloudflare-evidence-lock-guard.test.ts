@@ -92,4 +92,22 @@ describe('cloudflare evidence lock guard', () => {
     expect(ownerRecord).toContain('processStartTime');
     await rm(stateDir, { recursive: true, force: true });
   });
+
+  it('tolerates owner metadata disappearing during concurrent acquisition', async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-guard-'));
+    await chmod(stateDir, 0o700);
+    const lockPath = join(stateDir, '.active-run.lock');
+
+    for (let round = 0; round < 2; round++) {
+      const acquisitions = Array.from({ length: 4 }, () =>
+        withEvidenceLockPathGuard(lockPath, async () => {
+          await new Promise<void>((resolve) => setImmediate(resolve));
+        })
+      );
+      await expect(Promise.all(acquisitions)).resolves.toHaveLength(4);
+    }
+
+    await expect(readdir(stateDir)).resolves.toEqual([]);
+    await rm(stateDir, { recursive: true, force: true });
+  });
 });
