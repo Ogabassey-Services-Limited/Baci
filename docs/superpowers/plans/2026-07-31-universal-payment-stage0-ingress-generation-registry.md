@@ -168,6 +168,12 @@ After migration bytes are final:
 
 Run:
 
+The replay verifier keeps `manifest.pendingSources` separate from the
+historical `verifiedSources` materialized by the chronological runner. The
+pending foundation migration is therefore intentionally supplied once as an
+SQL check; removing that check would run only its fixture against a database
+where the foundation objects do not exist.
+
 ```bash
   bash .github/scripts/check-migration-versions.test.sh
   bash .github/scripts/check-migration-versions.sh

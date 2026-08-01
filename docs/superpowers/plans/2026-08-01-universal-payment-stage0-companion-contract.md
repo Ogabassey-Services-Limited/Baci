@@ -189,6 +189,12 @@
 
 - [ ] **Step 6: Run replay and repository gates**
 
+The replay verifier keeps `manifest.pendingSources` separate from the
+historical `verifiedSources` materialized by the chronological runner. The two
+pending migrations are therefore intentionally supplied once as SQL checks;
+removing them would run only the fixture against a database where the
+companion objects do not exist.
+
   ```bash
   bash .github/scripts/check-migration-versions.test.sh
   bash .github/scripts/check-migration-versions.sh
