@@ -219,9 +219,7 @@ function getModelTokens(
     GAME_CATEGORY_PATTERN.test(categorySlug),
     DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)
   );
-  const platformGeneration = categorySlug.match(
-    /^(?:playstation|nintendo-switch)-(\d+)$/u
-  )?.[1];
+  const platformGeneration = categorySlug.match(/^playstation-(\d+)$/u)?.[1];
   const platformStrippedTokens =
     platformGeneration && rawTokens[0] === platformGeneration
       ? rawTokens.slice(1)
@@ -248,9 +246,10 @@ function getModelTokens(
 export function getProductModelIdentifiers(
   context: Omit<BuildCommercialGuideLinksContext, 'pageKind'>
 ) {
-  const protectedFamilyTokens = new Set(
-    tokenize(context.modelFamilySlug ?? '')
-  );
+  const protectedFamilyTokens = new Set([
+    ...tokenize(context.modelFamilySlug ?? ''),
+    ...(context.categorySlug === 'nintendo-switch-2' ? ['switch'] : []),
+  ]);
   const isGameCategory = GAME_CATEGORY_PATTERN.test(context.categorySlug);
   const baseExcludedTokens = new Set(
     [
@@ -265,6 +264,7 @@ export function getProductModelIdentifiers(
           ])
       ),
       'pc',
+      ...(context.categorySlug === 'nintendo-switch-2' ? ['console'] : []),
     ].filter(
       (token) =>
         Boolean(token) &&

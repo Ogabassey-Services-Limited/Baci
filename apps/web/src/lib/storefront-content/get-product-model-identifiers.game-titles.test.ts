@@ -83,6 +83,16 @@ describe('getProductModelIdentifiers game titles', () => {
     expect(identifiers).toEqual(['1 2']);
   });
 
+  it('preserves the Switch 2 family for console catalog entries', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'nintendo-switch-2',
+      productNames: ['Nintendo Switch 2 Console'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['switch 2']);
+  });
+
   it('preserves a sub-10-inch tablet display prefix as metadata', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'tablets',
