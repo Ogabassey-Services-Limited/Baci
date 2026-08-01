@@ -129,11 +129,11 @@ export async function withEvidenceLockPathGuard<T>(
       if (Date.now() >= deadline)
         throw new Error('evidence lock guard wait timed out');
       const records = await readOwnerRecords(path);
-      const liveOther = records.some(
-        ({ path: recordPath, record }) =>
-          recordPath !== metadataPath && isProcessLive(record)
-      );
-      if (liveOther) {
+      const liveRecords = records.filter(({ record }) => isProcessLive(record));
+      const firstLiveRecord = [...liveRecords].sort((left, right) =>
+        left.path.localeCompare(right.path)
+      )[0];
+      if (firstLiveRecord?.path !== metadataPath) {
         await waitForGuard();
         continue;
       }
