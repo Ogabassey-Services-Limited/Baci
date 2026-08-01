@@ -60,6 +60,22 @@ const MERCHANDISING_SUFFIX_TOKENS = new Set([
   'white',
   'yellow',
 ]);
+const REGION_OR_VARIANT_SUFFIX_TOKENS = new Set([
+  'ca',
+  'cn',
+  'eu',
+  'gb',
+  'global',
+  'in',
+  'international',
+  'jp',
+  'ng',
+  'nigeria',
+  'uae',
+  'uk',
+  'us',
+]);
+const MODEL_FAMILY_ALIAS_TOKENS = new Set(['legion']);
 
 interface BrandAliasGroup {
   brandTokens: string[];
@@ -132,7 +148,13 @@ function getExcludedTokensForSlug(
         );
       });
 
-      if (aliasTokens.length === 1 || leavesModelToken) {
+      const isModelFamilyAlias = aliasTokens.some((token) =>
+        MODEL_FAMILY_ALIAS_TOKENS.has(token)
+      );
+      if (
+        !isModelFamilyAlias &&
+        (aliasTokens.length === 1 || leavesModelToken)
+      ) {
         for (const token of aliasTokens) {
           excludedTokens.add(token);
         }
@@ -164,7 +186,8 @@ function stripMerchandisingSuffix(tokens: string[]) {
 
 function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
   const rawTokens = stripMerchandisingSuffix(tokenize(slug)).filter(
-    (token) => !excludedTokens.has(token)
+    (token) =>
+      !excludedTokens.has(token) && !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token)
   );
   const tokens =
     rawTokens.length > 1 &&

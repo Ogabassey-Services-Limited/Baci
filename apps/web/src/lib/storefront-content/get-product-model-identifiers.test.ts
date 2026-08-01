@@ -124,6 +124,26 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['13 pro']);
   });
 
+  it('retains model-family aliases in compound laptop identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Lenovo'],
+      productSlugs: ['lenovo-legion-pro-9'],
+    });
+
+    expect(identifiers).toEqual(['legion pro 9']);
+  });
+
+  it('ignores region suffixes before selecting a single-character model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: ['iphone-x-64gb-uk-used'],
+    });
+
+    expect(identifiers).toEqual(['x']);
+  });
+
   it('preserves configured model-family markers that overlap brand aliases', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',
