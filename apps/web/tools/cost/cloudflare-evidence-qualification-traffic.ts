@@ -166,9 +166,9 @@ export function validateCloudflareZeroWeightProof(
       reason: 'protected_override_version_metadata_mismatch',
     };
   if (
-    proof.ordinaryTraffic.visibilityBoundSeconds >
+    proof.ordinaryTraffic.visibilityBoundSeconds !==
       proof.visibilityBoundSeconds ||
-    proof.protectedOverride.visibilityBoundSeconds >
+    proof.protectedOverride.visibilityBoundSeconds !==
       proof.visibilityBoundSeconds
   )
     return {

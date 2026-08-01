@@ -82,6 +82,35 @@ describe('Cloudflare zero-weight qualification proof', () => {
     });
   });
 
+  it('requires ordinary and protected observations to span the full visibility bound', () => {
+    expect(
+      validateCloudflareZeroWeightProof(
+        {
+          ...proof,
+          ordinaryTraffic: {
+            ...proof.ordinaryTraffic,
+            visibilityBoundSeconds: 1,
+          },
+          protectedOverride: {
+            ...proof.protectedOverride,
+            visibilityBoundSeconds: 1,
+          },
+        },
+        {
+          deployment,
+          stableVersionId: 'a',
+          candidateVersionId: 'b',
+          expectedOwnerApprovalId: 'owner-approval',
+          ownerAcceptanceAuthority,
+          now: qualificationNow,
+        }
+      )
+    ).toEqual({
+      ok: false,
+      reason: 'zero_weight_visibility_bound_invalid',
+    });
+  });
+
   it('rejects an override that lacks candidate Version Metadata', () => {
     expect(
       validateCloudflareZeroWeightProof(
