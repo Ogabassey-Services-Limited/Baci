@@ -141,7 +141,10 @@ describe('payment ingress control-plane companion migration', () => {
 
     expect(migrationSql).toContain("current_setting('role', true)");
     expect(migrationSql).toContain("'payment_control_plane'");
-    expect(migrationSql).toContain('pg_catalog.pg_auth_members');
+    expect(migrationSql).toContain(
+      'payment_control_plane must not pre-exist; this migration owns its exact privilege surface'
+    );
+    expect(migrationSql).not.toMatch(/SELECT\s+\*\s+FROM\s+private\./i);
     expect(migrationSql).toContain("ERRCODE = '42501'");
     expect(migrationSql).toContain("ERRCODE = 'PT409'");
     expect(migrationSql).toContain('pg_catalog.pg_advisory_xact_lock');

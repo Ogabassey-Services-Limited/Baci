@@ -130,9 +130,11 @@
   Add the timeout-guarded migration in this order:
 
   1. Create the `payment_control_plane` role with the exact no-login/no-create
-     flags if absent; create the dedicated `private_payment_control_plane`
-     schema, revoke generic schema access, and do not grant the role table
-     privileges or `USAGE` on `private`.
+     flags; abort if any pre-existing role with that name is found so residual
+     ownership, ACLs, or memberships cannot enter the executor surface. Create
+     the dedicated `private_payment_control_plane` schema, revoke generic
+     schema access, and do not grant the role table privileges or `USAGE` on
+     `private`.
   2. Create the identity catalog, deployment-attestation root, and deployment-
      binding tables, then add the deferrable same-scope and identity-revision
      FKs from the existing generation registry/binding.

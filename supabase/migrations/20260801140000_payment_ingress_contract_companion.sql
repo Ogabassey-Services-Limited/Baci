@@ -5,41 +5,20 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 
 DO $$
-DECLARE
-  v_role_oid oid;
-  v_can_login boolean;
-  v_is_superuser boolean;
-  v_can_create_db boolean;
-  v_can_create_role boolean;
-  v_inherit boolean;
-  v_replication boolean;
-  v_bypass_rls boolean;
 BEGIN
-  SELECT role_row.oid, role_row.rolcanlogin, role_row.rolsuper,
-    role_row.rolcreatedb, role_row.rolcreaterole, role_row.rolinherit,
-    role_row.rolreplication, role_row.rolbypassrls
-  INTO v_role_oid, v_can_login, v_is_superuser, v_can_create_db,
-    v_can_create_role, v_inherit, v_replication, v_bypass_rls
-  FROM pg_catalog.pg_roles AS role_row
-  WHERE role_row.rolname = 'payment_control_plane';
-
-  IF NOT FOUND THEN
-    CREATE ROLE payment_control_plane
-      NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION
-      NOBYPASSRLS;
-  ELSIF v_can_login OR v_is_superuser OR v_can_create_db OR v_can_create_role
-    OR v_inherit OR v_replication OR v_bypass_rls
-    OR EXISTS (
-      SELECT 1
-      FROM pg_catalog.pg_auth_members AS membership
-      WHERE membership.roleid = v_role_oid
-        OR membership.member = v_role_oid
-    )
-  THEN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_roles AS role_row
+    WHERE role_row.rolname = 'payment_control_plane'
+  ) THEN
     RAISE EXCEPTION
-      'payment_control_plane must be an unprivileged role with no memberships'
+      'payment_control_plane must not pre-exist; this migration owns its exact privilege surface'
       USING ERRCODE = '42501';
   END IF;
+
+  CREATE ROLE payment_control_plane
+    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION
+    NOBYPASSRLS;
 END;
 $$;
 
@@ -1668,7 +1647,9 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT * FROM private.create_payment_ingress_contract_generation($1, $2);
+  SELECT result.operation_id, result.generation_id, result.generation,
+    result.control_version, result.replayed, result.result_code
+  FROM private.create_payment_ingress_contract_generation($1, $2) AS result;
 $$;
 
 CREATE OR REPLACE FUNCTION private_payment_control_plane.activate_payment_ingress_contract_generation(
@@ -1689,7 +1670,9 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT * FROM private.activate_payment_ingress_contract_generation($1, $2, $3, $4);
+  SELECT result.operation_id, result.generation_id, result.generation,
+    result.control_version, result.replayed, result.result_code
+  FROM private.activate_payment_ingress_contract_generation($1, $2, $3, $4) AS result;
 $$;
 
 CREATE OR REPLACE FUNCTION private_payment_control_plane.roll_forward_payment_ingress_contract_generation(
@@ -1711,7 +1694,9 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT * FROM private.roll_forward_payment_ingress_contract_generation($1, $2, $3, $4, $5);
+  SELECT result.operation_id, result.generation_id, result.generation,
+    result.control_version, result.replayed, result.result_code
+  FROM private.roll_forward_payment_ingress_contract_generation($1, $2, $3, $4, $5) AS result;
 $$;
 
 CREATE OR REPLACE FUNCTION private_payment_control_plane.rollback_payment_ingress_contract_generation(
@@ -1733,7 +1718,9 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT * FROM private.rollback_payment_ingress_contract_generation($1, $2, $3, $4, $5);
+  SELECT result.operation_id, result.generation_id, result.generation,
+    result.control_version, result.replayed, result.result_code
+  FROM private.rollback_payment_ingress_contract_generation($1, $2, $3, $4, $5) AS result;
 $$;
 
 CREATE OR REPLACE FUNCTION private_payment_control_plane.retire_payment_ingress_contract_generation(
@@ -1754,7 +1741,9 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT * FROM private.retire_payment_ingress_contract_generation($1, $2, $3, $4);
+  SELECT result.operation_id, result.generation_id, result.generation,
+    result.control_version, result.replayed, result.result_code
+  FROM private.retire_payment_ingress_contract_generation($1, $2, $3, $4) AS result;
 $$;
 
 ALTER FUNCTION private.create_payment_ingress_contract_generation(uuid, uuid)

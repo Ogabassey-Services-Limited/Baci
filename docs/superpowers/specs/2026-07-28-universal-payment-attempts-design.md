@@ -1080,9 +1080,11 @@ writers; this later companion may add dormant private control-plane functions,
 but no production caller, active generation, provider route, webhook response,
 acknowledgement, parser, money path, or deployment activation may use them.
 
-The companion uses a dedicated `payment_control_plane` `NOLOGIN` database role,
-created with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION`, as
-the only executable role for its guarded functions. Its `USAGE` is limited to
+The companion creates a dedicated `payment_control_plane` `NOLOGIN` database
+role with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION` and
+aborts if that role already exists, so residual ownership, ACLs, or memberships
+cannot enter the executor surface. It is the only executable role for its
+guarded functions. Its `USAGE` is limited to
 the dedicated `private_payment_control_plane` schema, whose wrappers are the
 only role-executable entry points; the role has no `USAGE` on `private`. A later reviewed deployment
 credential may be granted membership in that role; the generic `service_role`
