@@ -93,6 +93,34 @@ describe('getProductModelIdentifiers game titles', () => {
     expect(identifiers).toEqual(['switch 2']);
   });
 
+  it('preserves VR in PlayStation VR hardware identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'vr-headsets',
+      brands: ['Sony'],
+      productSlugs: ['playstation-vr-2'],
+    });
+
+    expect(identifiers).toEqual(['playstation vr 2']);
+  });
+
+  it('strips console descriptors from PlayStation hardware identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'playstation-4',
+      productSlugs: ['ps4-console-slim'],
+    });
+
+    expect(identifiers).toEqual(['slim']);
+  });
+
+  it('strips console descriptors from Nintendo Switch hardware identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'nintendo-switch',
+      productSlugs: ['nintendo-switch-console-lite'],
+    });
+
+    expect(identifiers).toEqual(['lite']);
+  });
+
   it('preserves a sub-10-inch tablet display prefix as metadata', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'tablets',

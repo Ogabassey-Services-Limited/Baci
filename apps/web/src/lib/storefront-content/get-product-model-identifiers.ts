@@ -249,6 +249,7 @@ export function getProductModelIdentifiers(
   const protectedFamilyTokens = new Set([
     ...tokenize(context.modelFamilySlug ?? ''),
     ...(context.categorySlug === 'nintendo-switch-2' ? ['switch'] : []),
+    ...(context.categorySlug === 'vr-headsets' ? ['vr'] : []),
   ]);
   const isGameCategory = GAME_CATEGORY_PATTERN.test(context.categorySlug);
   const baseExcludedTokens = new Set(
@@ -264,7 +265,7 @@ export function getProductModelIdentifiers(
           ])
       ),
       'pc',
-      ...(context.categorySlug === 'nintendo-switch-2' ? ['console'] : []),
+      ...(isGameCategory ? ['console'] : []),
     ].filter(
       (token) =>
         Boolean(token) &&
