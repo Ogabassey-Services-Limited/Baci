@@ -74,6 +74,8 @@ describe('mutation dependency loader', () => {
         'record_write_revocation'
       );
       expect(dependencies.revocationReceipt).toEqual(receipt);
+      if (typeof dependencies.client.readBack !== 'function')
+        throw new Error('readback client was not loaded');
       await expect(
         dependencies.client.readBack(input.writeTokenId)
       ).rejects.toThrow('independent authenticated provider readback');
