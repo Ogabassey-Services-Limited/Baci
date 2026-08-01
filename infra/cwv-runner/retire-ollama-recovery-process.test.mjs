@@ -170,3 +170,53 @@ test('parses authentic installed dpkg status bytes without a leading version spa
     version: '0.1',
   });
 });
+
+test('rejects foreign scanner substrings, mismatched proxy tuples, and proxy-only evidence', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-ollama-recovery-process-hardening-')
+  );
+  const processes = join(directory, 'processes');
+  const ports = join(directory, 'ports.json');
+  const identity =
+    'recovery_process_identity() { printf "cgroup namespace\\n"; }; recovery_process_executable() { printf "{\\"path\\":\\"/usr/bin/%s\\",\\"sha256\\":\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\",\\"identitySha256\\":\\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\",\\"uid\\":\\"0\\",\\"startTime\\":\\"1\\",\\"expected\\":\\"%s\\"}\\n" "$2" "$2"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 40 cgroup namespace "$2" "$3"';
+  try {
+    await writeFile(
+      ports,
+      '{"NetworkSettings":{"Ports":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]},"Networks":{"bridge":{"IPAddress":"172.17.0.2"}}}}\n'
+    );
+    await writeFile(processes, '41 1 /usr/bin/ollama serve\n');
+    await assert.rejects(
+      shell(identity, [ports, processes]),
+      (error) =>
+        error.code === 78 &&
+        /inspected container process missing/.test(error.stderr)
+    );
+    await writeFile(
+      processes,
+      '41 1 /bin/sh /sealed/retire-ollama.sh --recovery-scan\n'
+    );
+    await assert.rejects(
+      shell(`RECOVERY_SELF_PID=99; ${identity}`, [ports, processes]),
+      (error) =>
+        error.code === 78 && /foreign Ollama process/.test(error.stderr)
+    );
+    await writeFile(
+      processes,
+      '41 1 /usr/bin/ollama serve\n42 1 /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 11434 -container-ip 172.17.0.3 -container-port 11434\n'
+    );
+    await assert.rejects(
+      shell(identity, [ports, processes]),
+      (error) => error.code === 78 && /Docker proxy/.test(error.stderr)
+    );
+    await writeFile(
+      processes,
+      '42 1 /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 11434 -container-ip 172.17.0.2 -container-port 11434\n'
+    );
+    await assert.rejects(
+      shell(identity, [ports, processes]),
+      (error) => error.code === 78 && /incomplete reviewed/.test(error.stderr)
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

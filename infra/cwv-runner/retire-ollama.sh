@@ -79,7 +79,12 @@ recovery_listener_executable() {
 }
 recovery_socket_snapshot() {
   container_pid=$1; container_cgroup=$2; container_namespace=$3; ports=$4; processes=$5; listeners='[]'; seen=''
-  [ -d "$RECOVERY_PROC_ROOT/net" ] && [ ! -L "$RECOVERY_PROC_ROOT/net" ] || review_required 'recovery socket directory unavailable'
+  socket_directory="$RECOVERY_PROC_ROOT/net"
+  if [ -L "$socket_directory" ]; then
+    [ "$RECOVERY_PROC_ROOT" = /proc ] && [ "$(readlink -- "$socket_directory")" = self/net ] || review_required 'unsafe recovery socket directory'
+  else
+    [ -d "$socket_directory" ] || review_required 'recovery socket directory unavailable'
+  fi
   for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do [ -f "$table" ] && [ ! -L "$table" ] || review_required 'unsafe recovery socket table'; done
   raw=$(temp_path)
   for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,a,":"); if ($4 == "0A" && a[2] == "2CAA") print family "|" a[1] "|" a[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
