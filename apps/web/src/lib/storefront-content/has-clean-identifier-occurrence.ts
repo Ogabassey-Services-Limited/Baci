@@ -35,6 +35,7 @@ function tokenizeText(value: string | null | undefined) {
 interface IdentifierOccurrenceOptions {
   brand?: string | null;
   knownBrands?: string[];
+  brandAliases?: Record<string, readonly string[]>;
   discriminatorTokens?: string[];
 }
 
@@ -69,11 +70,16 @@ function isBrandQualifiedOccurrence(
   identifierStart: number,
   identifierEnd: number,
   requestedBrand: string,
-  knownBrands: string[]
+  knownBrands: string[],
+  brandAliases: Record<string, readonly string[]>
 ) {
-  const brandCandidates = Array.from(new Set([requestedBrand, ...knownBrands]))
-    .map((brand) => ({ brand, tokens: tokenizeText(brand) }))
-    .filter(({ tokens: brandTokens }) => brandTokens.length > 0);
+  const brandCandidates = Array.from(
+    new Set([requestedBrand, ...knownBrands])
+  ).flatMap((brand) =>
+    [brand, ...(brandAliases[brand] ?? [])]
+      .map((candidate) => ({ brand, tokens: tokenizeText(candidate) }))
+      .filter(({ tokens: brandTokens }) => brandTokens.length > 0)
+  );
   let nearestBrand: string | null = null;
   let nearestDistance = Number.POSITIVE_INFINITY;
 
@@ -145,7 +151,8 @@ export function hasCleanIdentifierOccurrence(
             startIndex,
             startIndex + identifierTokens.length,
             options.brand,
-            options.knownBrands ?? []
+            options.knownBrands ?? [],
+            options.brandAliases ?? {}
           )
         : true;
     })

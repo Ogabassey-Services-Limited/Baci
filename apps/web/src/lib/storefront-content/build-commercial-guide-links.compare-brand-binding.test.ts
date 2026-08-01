@@ -42,4 +42,45 @@ describe('buildCommercialGuideLinks compare brand binding', () => {
       'https://ogabassey.com/blog/apple-and-samsung-watch-ultra-guide',
     ]);
   });
+
+  it('qualifies a canonical brand through its configured alias', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'samsung-galaxy-watch-ultra-guide',
+          title: 'Samsung Galaxy Watch Ultra Buyer Guide',
+          excerpt: 'A guide to Samsung smartwatch features.',
+          category: 'Smartwatches',
+          tags: ['smartwatches', 'samsung'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'galaxy-watch-ultra-vs-apple-watch-ultra',
+          title: 'Galaxy Watch Ultra vs Apple Watch Ultra Buyer Guide',
+          excerpt: 'Compare Galaxy Watch Ultra and Apple Watch Ultra.',
+          category: 'Smartwatches',
+          tags: ['smartwatches', 'apple', 'galaxy'],
+          keywords: ['comparison'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'compare',
+        categorySlug: 'smartwatches',
+        brands: ['Apple', 'Samsung'],
+        productSlugs: ['apple-watch-ultra-49mm', 'samsung-watch-ultra'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/galaxy-watch-ultra-vs-apple-watch-ultra',
+      'https://ogabassey.com/blog/samsung-galaxy-watch-ultra-guide',
+    ]);
+  });
 });

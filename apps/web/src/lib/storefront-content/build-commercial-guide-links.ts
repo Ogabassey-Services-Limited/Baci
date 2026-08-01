@@ -1,4 +1,7 @@
-import { CONTENT_CLUSTER_SCORE } from '@/config/storefront-content-clusters';
+import {
+  CONTENT_CLUSTER_SCORE,
+  CONTENT_CLUSTER_SUPPORT,
+} from '@/config/storefront-content-clusters';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildCommercialGuideDescription } from './build-commercial-guide-description';
 import type {
@@ -125,6 +128,8 @@ export function buildCommercialGuideLinks(
   input: BuildCommercialGuideLinksInput
 ): InformationalGuideLink[] {
   const preferredKinds = KIND_PREFERENCE[input.context.pageKind];
+  const brandAliases =
+    CONTENT_CLUSTER_SUPPORT[input.context.categorySlug].brandTokens;
   const productModelIdentifiers = getProductModelIdentifiers(input.context);
   const compareProductMatchRequirements =
     input.context.pageKind === 'compare'
@@ -203,6 +208,7 @@ export function buildCommercialGuideLinks(
               {
                 brand,
                 knownBrands: inferred.brands,
+                brandAliases,
                 discriminatorTokens,
               }
             )
