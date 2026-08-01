@@ -2,7 +2,10 @@
 // so the binding test stays under the 300-line modularity gate. Independently
 // hand-verified against supabase-history-replay-sources.ts PENDING_SOURCES.
 import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
-import { PRODUCT_PROVENANCE_PENDING_SOURCES } from './expected-pending-product-provenance-sources.test-support';
+import {
+  PRODUCT_PROVENANCE_FOLLOWUP_PENDING_SOURCES,
+  PRODUCT_PROVENANCE_FOUNDATION_PENDING_SOURCES,
+} from './expected-pending-product-provenance-sources.test-support';
 
 export const EXPECTED_PENDING_SOURCES = [
   {
@@ -281,20 +284,16 @@ export const EXPECTED_PENDING_SOURCES = [
     sha256: '9e4df9812810ef2c7e0659a238390d6c97222b2891454ba00740ddbff6cc6104',
   },
   ...AUDIT_PENDING_SOURCES,
+  ...PRODUCT_PROVENANCE_FOUNDATION_PENDING_SOURCES,
   {
     repositoryPath:
-      'supabase/migrations/20260731090000_add_product_description_provenance.sql',
-    sha256: 'c403c8bd47d7fbfa6eb3ef80a3f6e11f7455350d37cf12b40c34f345012d9d9b',
+      'supabase/migrations/20260731140000_payment_ingress_contract_generation_foundation.sql',
+    sha256: '1a390474d12890e9f641c72f743b35669798eee56a887a87720f4bd8b53a1705',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260731100000_harden_product_description_attestation_grants.sql',
-    sha256: '1247e7e4969a371ff266a773dbc882f778cfb20d155bf0201b3d04e223140d7e',
+      'supabase/migrations/20260801140000_payment_ingress_contract_companion.sql',
+    sha256: '55c1efce71726e1f1e0f9fa2b035cd52f040bae5ab1693ee6442e0e2e25ff70f',
   },
-  {
-    repositoryPath:
-      'supabase/migrations/20260801090000_harden_product_description_provenance_retention.sql',
-    sha256: '9bc6d7703a7e8c32248ce024d651a157965365f4fcffc0f6eb43e3fa07b3babd',
-  },
-  ...PRODUCT_PROVENANCE_PENDING_SOURCES,
+  ...PRODUCT_PROVENANCE_FOLLOWUP_PENDING_SOURCES,
 ];
