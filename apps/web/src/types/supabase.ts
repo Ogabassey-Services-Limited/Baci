@@ -15365,10 +15365,6 @@ export type Database = {
         Args: { p_id: string; p_worker_id: string };
         Returns: boolean;
       };
-      reset_shipment_tracking_notification_dispatch: {
-        Args: { p_id: string; p_worker_id: string };
-        Returns: boolean;
-      };
       complete_shipment_tracking_notification: {
         Args: {
           p_error?: string | null;
