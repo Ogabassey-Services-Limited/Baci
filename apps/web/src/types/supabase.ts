@@ -10541,6 +10541,8 @@ export type Database = {
           created_at: string | null;
           default_variant_id: string | null;
           description: string | null;
+          description_digital_source_type: string | null;
+          description_provenance_sha256: string | null;
           dimensions: Json | null;
           external_id: string | null;
           external_source: string | null;
@@ -10620,6 +10622,8 @@ export type Database = {
           created_at?: string | null;
           default_variant_id?: string | null;
           description?: string | null;
+          description_digital_source_type?: string | null;
+          description_provenance_sha256?: string | null;
           dimensions?: Json | null;
           external_id?: string | null;
           external_source?: string | null;
@@ -10699,6 +10703,8 @@ export type Database = {
           created_at?: string | null;
           default_variant_id?: string | null;
           description?: string | null;
+          description_digital_source_type?: string | null;
+          description_provenance_sha256?: string | null;
           dimensions?: Json | null;
           external_id?: string | null;
           external_source?: string | null;
@@ -18317,6 +18323,23 @@ export type Database = {
           p_replayed_by: string;
         };
         Returns: number;
+      };
+      request_product_description_attestation_grant: {
+        Args: {
+          p_expected_old_description: string | null;
+          p_expected_old_sha256: string | null;
+          p_expected_old_source_type: string | null;
+          p_full_replacement: boolean;
+          p_merchant_id: string;
+          p_operation_id: string;
+          p_product_id: string;
+          p_proposed_description_sha256: string;
+          p_purpose: string;
+        };
+        Returns: {
+          expires_at: string;
+          grant_id: string;
+        }[];
       };
       reschedule_petrock_imei_lookup_poll: {
         Args: {

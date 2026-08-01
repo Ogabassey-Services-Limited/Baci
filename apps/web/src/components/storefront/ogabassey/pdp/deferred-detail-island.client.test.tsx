@@ -68,6 +68,27 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
     ).toBeInTheDocument();
   });
 
+  it('does not render an empty description panel before deferred tabs activate', () => {
+    mockUseViewportActivation.mockReturnValue({
+      ref: { current: null },
+      isActive: false,
+    });
+
+    const { container } = render(
+      <OgabasseyPdpDeferredDetailClient
+        productData={productData}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(
+      container.querySelector('[data-ogabassey-pdp-deferred-description-container]')
+    ).toBeNull();
+    expect(
+      screen.getByRole('status', { name: /loading product details/i })
+    ).toBeInTheDocument();
+  });
+
   it('renders a recoverable error state when the details chunk fails to load', async () => {
     mockUseViewportActivation.mockReturnValue({
       ref: { current: null },
@@ -76,6 +97,7 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
 
     render(
       <OgabasseyPdpDeferredDetailClient
+        descriptionSlot={<p>Persistent server description.</p>}
         loadDetailsComponent={() => Promise.reject(new Error('chunk failed'))}
         productData={productData}
         storeSlug="ogabassey"
@@ -84,6 +106,7 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/product details could not be loaded/i);
+    expect(screen.getAllByText('Persistent server description.')).toHaveLength(1);
     expect(mockDeferredTabsClient).not.toHaveBeenCalled();
   });
 

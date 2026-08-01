@@ -1,11 +1,24 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SafeHtml } from './safe-html';
+import { sanitizeForSafeHtml } from './sanitized-html';
 
 describe('SafeHtml', () => {
   it('renders sanitized HTML content', () => {
     render(<SafeHtml html="<p>Hello <strong>world</strong></p>" />);
     expect(screen.getByText('world')).toBeInTheDocument();
+  });
+
+  it('renders a branded sanitized string without applying options again', () => {
+    const sanitizedHtml = sanitizeForSafeHtml('<h1>Already normalized</h1>', {
+      headingLevelOffset: 1,
+    });
+
+    render(<SafeHtml sanitizedHtml={sanitizedHtml} headingLevelOffset={1} />);
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Already normalized' })
+    ).toBeInTheDocument();
   });
 
   it('strips script tags', () => {

@@ -1,7 +1,7 @@
 import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
+import { PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES } from './expected-pending-payment-ingress-sources.test-support';
 import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
 import { RECENT_PENDING_SOURCES } from './recent-pending-sources.test-fixture';
-// Expected PENDING sources, split into focused fixtures to stay within the 300-line cap.
 export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
@@ -292,7 +292,8 @@ export const EXPECTED_PENDING_SOURCES = [
   ...RECENT_PENDING_SOURCES.slice(0, 1),
   ...AUDIT_PENDING_SOURCES,
   ...RECENT_PENDING_SOURCES.slice(1, 6),
+  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(0, 2),
   ...EXPECTED_PENDING_TAIL_SOURCES.paymentIngressFoundation,
   ...RECENT_PENDING_SOURCES.slice(6),
-  ...EXPECTED_PENDING_TAIL_SOURCES.paymentIngressCompanion,
+  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3),
 ];

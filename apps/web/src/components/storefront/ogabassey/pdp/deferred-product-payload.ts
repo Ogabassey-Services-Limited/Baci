@@ -31,7 +31,7 @@ export type OgabasseyPdpDeferredTabProduct = Omit<Product, 'description'> &
 
 export interface OgabasseyPdpDeferredProductPayload {
   /**
-   * The normalized product description, returned OUT-OF-BAND from `tabProduct`
+   * The stored product description, returned OUT-OF-BAND from `tabProduct`
    * so the server can render it into the `descriptionSlot` (`<SafeHtml>`)
    * without serializing the multi-KB HTML into the client island props.
    */
@@ -90,7 +90,7 @@ export function buildOgabasseyPdpDeferredProductPayload(
   }
 
   return {
-    description: normalized.description,
+    description: product.description?.trim() ? product.description : '',
     relatedProduct: toRelatedProductsProduct(product),
     tabProduct,
   };

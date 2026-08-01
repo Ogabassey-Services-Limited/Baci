@@ -19,15 +19,20 @@ function normalizeStorefrontCondition(condition: string | null | undefined) {
 }
 
 interface StorefrontVariantRecord {
+  archived_at?: string | null;
   attributes?: Record<string, unknown> | null;
   condition?: string | null;
+  deleted_at?: string | null;
   id: string;
   images?: unknown;
+  is_active?: boolean | null;
+  is_inventory_anchor?: boolean | null;
   merchant_id?: string | null;
   price_override?: number | string | null;
   primary_image?: string | null;
   product_id?: string | null;
   sku?: string | null;
+  status?: string | null;
   stock_quantity?: number | null;
 }
 
@@ -77,6 +82,20 @@ function normalizeVariantImages(images: unknown) {
   return normalizedImages.length > 0 ? normalizedImages : undefined;
 }
 
+function isSelectableVariant(variant: StorefrontVariantRecord) {
+  if (
+    variant.is_active === false ||
+    variant.is_inventory_anchor === true ||
+    variant.deleted_at != null ||
+    variant.archived_at != null ||
+    (variant.status != null && variant.status !== 'active')
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export function normalizeStorefrontProductVariants(
   variants: StorefrontVariantRecord[] | null | undefined,
   options: {
@@ -84,7 +103,7 @@ export function normalizeStorefrontProductVariants(
     productId: string;
   }
 ): ProductVariant[] {
-  return (variants || []).map((variant) => ({
+  return (variants || []).filter(isSelectableVariant).map((variant) => ({
     id: variant.id,
     product_id: variant.product_id || options.productId,
     merchant_id: variant.merchant_id || options.merchantId,

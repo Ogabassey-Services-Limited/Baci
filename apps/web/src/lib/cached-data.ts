@@ -1129,6 +1129,7 @@ export interface CachedProductLcpHint {
         }>
       | null;
   }> | null;
+  product_offers?: CachedStorefrontProductOffer[];
   product_variants?: PublicStorefrontProductVariant[] | null;
   sale_price?: number | null;
   schema_markup?: unknown;

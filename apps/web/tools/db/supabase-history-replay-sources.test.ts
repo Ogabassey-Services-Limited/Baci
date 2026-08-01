@@ -20,6 +20,28 @@ const {
 const FROZEN_ROW = /^[0-9a-f]{64} 202\d{11}_[a-z0-9_]+\.sql$/;
 const MAPPING_ROW =
   /^202\d{11}\t202\d{11}_[a-z0-9_]+\.sql\t[0-9a-f]{64}\t[a-z-]+$/;
+const ADDITIVE_PROVENANCE_MIGRATION =
+  '20260731090000_add_product_description_provenance.sql';
+const CORRECTIVE_ATTESTATION_MIGRATION =
+  '20260731100000_harden_product_description_attestation_grants.sql';
+const RETENTION_PROVENANCE_MIGRATION =
+  '20260801090000_harden_product_description_provenance_retention.sql';
+const OPERATION_ID_BINDING_MIGRATION =
+  '20260801100000_preserve_product_description_attestation_operation_ids.sql';
+const ATTESTATION_PRIVACY_MIGRATION =
+  '20260801110000_harden_product_description_attestation_privacy.sql';
+const ATTESTATION_ISSUANCE_MIGRATION =
+  '20260801130000_bound_product_description_attestation_issuance.sql';
+const OPERATION_ID_SCOPE_MIGRATION =
+  '20260801160000_scope_product_description_attestation_operation_ids.sql';
+const ATTESTATION_GRANT_FUNCTION_MIGRATION =
+  '20260801170000_redefine_product_description_attestation_grant.sql';
+const ATTESTATION_INDEX_MIGRATION =
+  '20260801180000_harden_product_description_attestation_indexes.sql';
+const ATTESTATION_INDEX_RECOVERY_MIGRATION =
+  '20260801190000_recover_product_description_attestation_indexes.sql';
+const ATTESTATION_PERMISSION_MIGRATION =
+  '20260801210000_require_product_permission_for_attestation_grant.sql';
 
 function rows(block: string): string[] {
   return block
@@ -60,6 +82,24 @@ describe('supabase-history-replay sources', () => {
         .some((row) => row.trim().length === 0);
       expect(hasInternalBlank, `${name} has a blank row`).toBe(false);
     }
+  });
+
+  it('registers the provenance migrations in execution order', () => {
+    const migrationOrder = [
+      ADDITIVE_PROVENANCE_MIGRATION,
+      CORRECTIVE_ATTESTATION_MIGRATION,
+      RETENTION_PROVENANCE_MIGRATION,
+      OPERATION_ID_BINDING_MIGRATION,
+      ATTESTATION_PRIVACY_MIGRATION,
+      ATTESTATION_ISSUANCE_MIGRATION,
+      OPERATION_ID_SCOPE_MIGRATION,
+      ATTESTATION_GRANT_FUNCTION_MIGRATION,
+      ATTESTATION_INDEX_MIGRATION,
+      ATTESTATION_INDEX_RECOVERY_MIGRATION,
+      ATTESTATION_PERMISSION_MIGRATION,
+    ].map((migration) => PENDING_SOURCES.indexOf(migration));
+    expect(migrationOrder.every((index) => index >= 0)).toBe(true);
+    expect(migrationOrder).toEqual([...migrationOrder].sort((a, b) => a - b));
   });
 
   it('registers each source filename at most once across all blocks', () => {

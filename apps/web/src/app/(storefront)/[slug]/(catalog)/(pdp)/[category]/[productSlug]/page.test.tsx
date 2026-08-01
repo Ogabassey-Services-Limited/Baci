@@ -2572,7 +2572,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('keeps JSON-LD and hidden summary outside the critical commerce slot', async () => {
+  it('renders one visible all-offer summary in the critical shell', async () => {
     const { container } = render(
       await resolveRsc(
         await CategoryProductPage({
@@ -2595,15 +2595,10 @@ describe('[category]/[productSlug] page render', () => {
       commerceSlot?.querySelector('script[type="application/ld+json"]')
     ).toBeNull();
     expect(
-      commerceSlot?.querySelector(
-        'article[aria-label="HP Laptop 14-ep0063nia summary"]'
-      )
-    ).toBeNull();
-    expect(
       container.querySelector('script[type="application/ld+json"]')
     ).not.toBeNull();
     expect(
-      screen.getByLabelText('HP Laptop 14-ep0063nia summary')
+      screen.getByText('HP Laptop 14-ep0063nia. Condition: New.')
     ).toBeInTheDocument();
   });
 
@@ -2852,7 +2847,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('strips HTML tags from crawlable summary and visible overview text', async () => {
+  it('keeps marketing description out of the critical summary and routes it to deferred details', async () => {
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
       description:
@@ -2872,13 +2867,19 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
+    const deferredDetailProps = mockOgabasseyPdpDeferredDetailIsland.mock.calls
+      .at(-1)
+      ?.at(0) as { product?: { description?: string } } | undefined;
+
+    expect(deferredDetailProps?.product?.description).toBe(
+      '<p>A <strong>premium</strong> laptop built for creators.</p>'
+    );
     expect(
-      screen.getAllByText('A premium laptop built for creators.')
-    ).not.toHaveLength(0);
-    expect(screen.queryByText(/<strong>/)).not.toBeInTheDocument();
+      screen.queryByText('premium laptop built for creators')
+    ).not.toBeInTheDocument();
   });
 
-  it('removes stale absolute listed-price sentences from crawlable and visible PDP copy', async () => {
+  it('removes stale absolute listed-price sentences before deferred PDP detail rendering', async () => {
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
       description:
@@ -2921,7 +2922,6 @@ describe('[category]/[productSlug] page render', () => {
           }
         | undefined;
 
-    expect(screen.getAllByText(expectedDescription).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Current listed price/i)).not.toBeInTheDocument();
     expect(ogabasseyProps?.product?.description).toBe(expectedDescription);
     expect(criticalCommerceProviderProps?.cartProduct?.description).toBe(

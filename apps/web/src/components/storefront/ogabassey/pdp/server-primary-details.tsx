@@ -1,7 +1,6 @@
 import type { ProductSpecSection } from '@/components/storefront/ogabassey/types';
 
 interface OgabasseyPdpServerPrimaryDetailsProps {
-  description: string;
   detailedSpecs: ProductSpecSection[];
   productName: string;
 }
@@ -34,16 +33,6 @@ function getRenderableSpecSections(detailedSpecs: ProductSpecSection[]) {
   });
 }
 
-function getPlainOverviewText(description: string) {
-  return description
-    .replace(/<\s*br\s*\/?\s*>/gi, ' ')
-    .replace(/<\/\s*(p|div|li|h[1-6]|section|article)\s*>/gi, ' ')
-    .replace(/<[^>]{0,1000}>/g, '')
-    .replace(/\u0000/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 function getSpecHeadingId(category: string, index: number) {
   const normalizedCategory = category
     .toLowerCase()
@@ -54,15 +43,11 @@ function getSpecHeadingId(category: string, index: number) {
 }
 
 export function OgabasseyPdpServerPrimaryDetails({
-  description,
   detailedSpecs,
   productName,
 }: OgabasseyPdpServerPrimaryDetailsProps) {
   const specSections = getRenderableSpecSections(detailedSpecs);
-  const overviewText = getPlainOverviewText(description);
-  const hasDescription = overviewText.length > 0;
-
-  if (!hasDescription && specSections.length === 0) {
+  if (specSections.length === 0) {
     return null;
   }
 
@@ -71,19 +56,6 @@ export function OgabasseyPdpServerPrimaryDetails({
       aria-label={`${productName} overview and specifications`}
       data-ogabassey-pdp-server-details
     >
-      {hasDescription ? (
-        <div data-ogabassey-pdp-server-details-card>
-          <p data-ogabassey-pdp-server-details-eyebrow>
-            Product information
-          </p>
-          <h2 data-ogabassey-pdp-server-details-title>
-            {productName} product overview
-          </h2>
-          <p className="ogabassey-pdp-server-details__rich-text">
-            {overviewText}
-          </p>
-        </div>
-      ) : null}
 
       {specSections.length > 0 ? (
         <div data-ogabassey-pdp-server-details-card>
