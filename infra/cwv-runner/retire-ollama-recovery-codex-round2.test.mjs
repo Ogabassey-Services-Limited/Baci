@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -84,6 +91,25 @@ test('completes an absent-container recovery scan without a ports temp', async (
     }
   );
   assert.equal(stdout, 'complete');
+});
+
+test('ignores the recovery scanner ancestry in absent-container evidence', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-recovery-absent-scanner-')
+  );
+  const processes = join(directory, 'processes');
+  try {
+    const { stdout } = await shell(
+      'recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh /srv/retire-ollama.sh --recovery-scan\\n" "$$" >"$2"; recovery_absent_process_snapshot "$2"',
+      [processes]
+    );
+    assert.deepEqual(JSON.parse(stdout), {
+      state: 'absent',
+      matchingProcesses: [],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test('reconciles a JSON link left by an interrupted publication', async () => {
@@ -206,6 +232,37 @@ test('ignores scanner volatility but rejects stable recovery snapshot drift', as
       ),
       (error) => error.code === 78 && /snapshot drift/.test(error.stderr)
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+    await rm(bin, { recursive: true, force: true });
+  }
+});
+
+test('keeps receipt publication temporaries on the receipt filesystem', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-recovery-receipt-fs-'));
+  const receiptRoot = join(directory, 'receipts');
+  const externalTmp = join(directory, 'external-tmp');
+  const bin = await testBin();
+  const snapshot = await snapshotFile(directory, {
+    surfaces: [],
+    dependencies: [],
+    consumerCounts: [],
+    consumerEvidence: [],
+  });
+  await Promise.all([
+    mkdir(receiptRoot, { mode: 0o700 }),
+    mkdir(externalTmp, { mode: 0o700 }),
+  ]);
+  try {
+    const { stdout } = await shell(
+      'ln() { source="$2"; target="$3"; [ "$(dirname "$source")" = "$(dirname "$target")" ] || { printf "cross-filesystem receipt publication\\n" >&2; return 91; }; /bin/ln -- "$source" "$target"; }; fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$5"; RETIRE_OLLAMA_TMPDIR="$4"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$2"',
+      [snapshot, receiptRoot, externalTmp, sourceSha],
+      {
+        RETIRE_OLLAMA_TEST_BIN: bin,
+        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot,
+      }
+    );
+    assert.match(stdout, /^[0-9a-f]{64}\n$/);
   } finally {
     await rm(directory, { recursive: true, force: true });
     await rm(bin, { recursive: true, force: true });

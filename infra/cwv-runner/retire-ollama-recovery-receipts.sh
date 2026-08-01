@@ -94,6 +94,14 @@ recovery_safe_receipt_ancestry() {
   recovery_safe_receipt_parent "$root_parent" && recovery_safe_dir "$root_directory" && recovery_safe_dir "$generation"
 }
 
+recovery_receipt_temp_path() {
+  directory=$1; recovery_safe_receipt_ancestry "$directory" || return 1
+  temporary=$(mktemp "$directory/.recovery-publish.XXXXXX") || return 1
+  chmod 0600 "$temporary" || { /bin/rm -f -- "$temporary"; return 1; }
+  recovery_safe_receipt_file "$temporary" || { /bin/rm -f -- "$temporary"; return 1; }
+  printf '%s\n' "$temporary"
+}
+
 recovery_safe_dir() {
   directory=$1; [ -d "$directory" ] && [ ! -L "$directory" ] || return 1
   [ "$(stat -c '%a' "$directory")" = 700 ] || return 1
@@ -129,7 +137,7 @@ recovery_prepare_dir() {
 recovery_make_digest_file() {
   source=$1; target=$2; [ ! -e "$target" ] && [ ! -L "$target" ] || return 1
   value=$(recovery_json_digest "$source") || return 1
-  temporary=$(temp_path); printf '%s\n' "$value" >"$temporary"; chmod 0600 "$temporary"; fsync_file "$temporary"
+  temporary=$(recovery_receipt_temp_path "${target%/*}") || return 1; printf '%s\n' "$value" >"$temporary"; fsync_file "$temporary"
   recovery_publish_link "$temporary" "$target" || { /bin/rm -f -- "$temporary"; return 1; }
 }
 
@@ -186,7 +194,7 @@ recovery_write_receipt() {
   RECOVERY_SCRIPT_SHA=${RECOVERY_SCRIPT_SHA:-$(sha "$SCRIPT_DIR/retire-ollama.sh")}; RECOVERY_HELPER_SHA=${RECOVERY_HELPER_SHA:-$(sha "$RECOVERY_HELPER")}; RECOVERY_RECEIPTS_SHA=${RECOVERY_RECEIPTS_SHA:-$(sha "$RECOVERY_RECEIPTS_HELPER")}
   json="$directory/recovery-scan.json"; digest="$json.sha256"; json_pending="$json.pending"; digest_pending="$digest.pending"
   [ ! -e "$json" ] && [ ! -L "$json" ] && [ ! -e "$digest" ] && [ ! -L "$digest" ] && [ ! -e "$json_pending" ] && [ ! -L "$json_pending" ] && [ ! -e "$digest_pending" ] && [ ! -L "$digest_pending" ] || review_required 'recovery receipt publication race'
-  pending=$(temp_path); /usr/bin/jq -S -c -n --slurpfile scan "$snapshot" --arg source "$RECOVERY_SOURCE_SHA" --arg script "$RECOVERY_SCRIPT_SHA" --arg helper "$RECOVERY_HELPER_SHA" --arg receipts "$RECOVERY_RECEIPTS_SHA" '{schemaVersion:2,mode:"recovery-scan",destructiveAuthority:false,inventoryBinding:{requiresSeparateReview:true},sourceBinding:{sourceSha:$source,scriptSha256:$script,helperSha256:$helper,receiptsSha256:$receipts},scan:$scan[0]}' >"$pending" || { /bin/rm -f -- "$pending"; die 'recovery receipt serialization failed'; }
+  pending=$(recovery_receipt_temp_path "$directory") || review_required 'recovery receipt temporary failed'; /usr/bin/jq -S -c -n --slurpfile scan "$snapshot" --arg source "$RECOVERY_SOURCE_SHA" --arg script "$RECOVERY_SCRIPT_SHA" --arg helper "$RECOVERY_HELPER_SHA" --arg receipts "$RECOVERY_RECEIPTS_SHA" '{schemaVersion:2,mode:"recovery-scan",destructiveAuthority:false,inventoryBinding:{requiresSeparateReview:true},sourceBinding:{sourceSha:$source,scriptSha256:$script,helperSha256:$helper,receiptsSha256:$receipts},scan:$scan[0]}' >"$pending" || { /bin/rm -f -- "$pending"; die 'recovery receipt serialization failed'; }
   chmod 0600 "$pending"; fsync_file "$pending"; ln -- "$pending" "$json_pending" || { /bin/rm -f -- "$pending"; review_required 'recovery receipt JSON pending race'; }; /bin/rm -f -- "$pending"; fsync_dir "$directory"
   recovery_make_digest_file "$json_pending" "$digest_pending" || review_required 'recovery receipt digest pending race'; recovery_reconcile_pair "$directory" || review_required 'recovery receipt publication failed'; cat "$directory/recovery-scan.json.sha256"
 }
