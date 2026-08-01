@@ -17,133 +17,16 @@ import {
   measureCloudflareEvidenceSources,
   runMeasurementEntrypoint,
 } from './measure-cloudflare-evidence-sources';
+import {
+  measurementCapability as capability,
+  measurementInput as input,
+} from './measure-cloudflare-evidence-sources.test-fixtures';
 
-const input = {
-  runId: '0123456789abcdef0123456789abcdef',
-  approvalId: 'approval',
-  policyId: 'policy',
-  policySha256: 'b'.repeat(64),
-  toolingMergeSha: '1'.repeat(40),
-  writeTokenId: 'write',
-  readTokenId: 'read',
-  readPolicySha256: 'c'.repeat(64),
-  accountId: 'account',
-  zoneId: 'zone',
-  plannedResources: ['baci-evidence-0123456789abcdef0123456789abcdef'],
-  preInventorySha256: 'a'.repeat(64),
-  expectedProbeCount: 2,
-};
-const capability = {
-  ...input,
-  tokenId: 'read',
-  permissionGroupIds: ['analytics.read'],
-  resources: ['account'],
-  expiresAt: '2026-08-01T00:00:00.000Z',
-  policySha256: input.readPolicySha256,
-  kind: 'read' as const,
-  providerNegativeScopeUnverified: true as const,
-};
 describe('measureCloudflareEvidenceSources', () => {
   beforeEach(() =>
     vi.useFakeTimers({ now: new Date('2026-07-31T00:05:00.000Z') })
   );
   afterEach(() => vi.useRealTimers());
-  it('requires verified matching write and read revocation receipts', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
-    await openEvidenceRun(dir, input);
-    await recordEvidenceMutation(
-      dir,
-      input.runId,
-      input.plannedResources[0],
-      'resource-id'
-    );
-    await recordEvidenceProbeResults(dir, input.runId, ['probe-a', 'probe-b']);
-    await recordCleanupVerified(dir, input.runId, {
-      verifyCleanup: async () => ({
-        status: 'absent',
-        inventorySha256: input.preInventorySha256,
-        providerReceiptSha256: 'f'.repeat(64),
-        observedAt: '2026-07-31T00:00:00.000Z',
-      }),
-    });
-    const client = {
-      measure: async () => ({
-        complete: true,
-        expectedProbeCount: 2,
-        observedProbeCount: 2,
-        probeResults: ['probe-a', 'probe-b'],
-        providerReceiptSha256: 'a'.repeat(64),
-        observedAt: '2026-07-31T00:00:00.000Z',
-      }),
-      revoke: async (tokenId: string) => ({
-        tokenId,
-        auditReceiptSha256: 'c'.repeat(64),
-      }),
-      readBack: async () => ({
-        tokenId: 'wrong',
-        status: 'inactive' as const,
-        auditReceiptSha256: 'c'.repeat(64),
-        observedAt: '2026-07-31T00:00:00.000Z',
-      }),
-    };
-    await expect(
-      measureCloudflareEvidenceSources(dir, input.runId, capability, client)
-    ).rejects.toThrow('write');
-    await revokeEvidenceRunToken(dir, input.runId, 'write', {
-      revoke: async (tokenId) => ({
-        tokenId,
-        auditReceiptSha256: 'd'.repeat(64),
-      }),
-      readBack: async (tokenId) => ({
-        tokenId,
-        status: 'inactive',
-        auditReceiptSha256: 'd'.repeat(64),
-        observedAt: '2026-07-31T00:00:00.000Z',
-      }),
-    });
-    await expect(
-      measureCloudflareEvidenceSources(dir, input.runId, capability, {
-        ...client,
-        measure: async () => ({
-          complete: true,
-          expectedProbeCount: 2,
-          observedProbeCount: 2,
-          probeResults: ['probe-a', 'unrelated-probe'],
-          providerReceiptSha256: 'a'.repeat(64),
-          observedAt: '2026-07-31T00:00:00.000Z',
-        }),
-        revoke: async (tokenId: string) => ({
-          tokenId,
-          auditReceiptSha256: 'e'.repeat(64),
-        }),
-        readBack: async (tokenId: string) => ({
-          tokenId,
-          status: 'inactive' as const,
-          auditReceiptSha256: 'e'.repeat(64),
-          observedAt: '2026-07-31T00:00:00.000Z',
-        }),
-      })
-    ).rejects.toThrow('incomplete');
-    await expect(
-      measureCloudflareEvidenceSources(dir, input.runId, capability, client)
-    ).rejects.toThrow('readback');
-    await expect(
-      measureCloudflareEvidenceSources(dir, input.runId, capability, {
-        ...client,
-        revoke: async (tokenId: string) => ({
-          tokenId,
-          auditReceiptSha256: 'e'.repeat(64),
-        }),
-        readBack: async () => ({
-          tokenId: 'read',
-          status: 'inactive' as const,
-          auditReceiptSha256: 'e'.repeat(64),
-          observedAt: '2026-07-31T00:00:00.000Z',
-        }),
-      })
-    ).resolves.toMatchObject({ phase: 'proof_complete' });
-  });
   it('rejects a measurement that reports a client-controlled probe count', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
