@@ -2,7 +2,7 @@
 RECOVERY_PROC_ROOT=${RETIRE_OLLAMA_PROC_ROOT:-/proc}
 RECOVERY_CONTAINER_COMMAND_PATH=${RECOVERY_CONTAINER_COMMAND_PATH:-}
 RECOVERY_CONTAINER_PORTS_FILE=${RECOVERY_CONTAINER_PORTS_FILE:-}
-RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}
+RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}; RECOVERY_SOURCE_ROOT=/srv/baci-cwv/source
 # shellcheck disable=SC2034 # Consumed by the sourced receipt publication helper.
 RECOVERY_RECEIPT_ROOT=/srv/baci-cwv/retired-ollama/recovery-scan
 RECOVERY_RECEIPTS_HELPER="$SCRIPT_DIR/retire-ollama-recovery-receipts.sh"
@@ -14,7 +14,7 @@ recovery_systemctl() { systemctl "$@"; }
 recovery_docker() { docker --host "unix://$CANONICAL_DOCKER_SOCKET" "$@"; }
 recovery_ps() { ps -eo pid=,ppid=,args=; }
 recovery_safe_int() { case "$1" in ''|*[!0-9]*) return 1;; esac; [ "$1" -gt 0 ] 2>/dev/null; }; recovery_nonnegative_int() { case "$1" in ''|*[!0-9]*) return 1;; esac; [ "$1" -ge 0 ] 2>/dev/null; }
-recovery_source_identity() { /usr/bin/printf '%s' "$1" | /usr/bin/grep -Eq '^[0-9a-f]{40}$'; }
+recovery_source_identity() { /usr/bin/printf '%s' "$1" | /usr/bin/grep -Eq '^[0-9a-f]{40}$' || return 1; [ "$(id -u)" -ne 0 ] || [ "$SCRIPT_DIR" = "$RECOVERY_SOURCE_ROOT/$1" ]; }
 recovery_package_snapshot() {
   if package=$(recovery_dpkg_query -W "-f=\${db:Status-Abbrev} \${Version}" ollama 2>/dev/null); then
     status=${package%%  *}; version=${package#*  }
@@ -46,7 +46,7 @@ recovery_surface() {
   RECOVERY_RECORDS=$(/usr/bin/jq -cn --argjson old "$RECOVERY_RECORDS" --arg class "$class" --argjson status "$status" --arg value "$value" --arg error "$error" '$old + [{class:$class,exitStatus:$status,sha256:$value,stderrSha256:$error}]') || die "recovery surface serialization failed $class"
   case "$class" in
     systemd-consumers|reverse-proxy|compose-definitions|running-containers|container-definitions) record_consumers "$class" "$out" all || die "recovery consumer evidence failed $class";;
-    running-processes) record_consumers "$class" "$out" || die "recovery consumer evidence failed $class";;
+    current-crontab|running-processes) mode=matched; [ "$class" = current-crontab ] && mode=cron; record_consumers "$class" "$out" "$mode" || die "recovery consumer evidence failed $class";;
   esac
   /bin/rm -f -- "$out" "$err"
 }
@@ -164,7 +164,7 @@ recovery_process_snapshot() {
     if ! recovery_safe_int "$pid" || ! recovery_nonnegative_int "$ppid"; then review_required 'invalid process pid binding'; fi
     command=${args%% *}; rest=${args#"$command"}; base=${command##*/}; class=''
     case "$base" in
-      ollama) case "$rest" in ' serve'*) class=ollama-process;; ' runner'*) class=ollama-process;; *) review_required 'unsupported Ollama process';; esac;;
+      ollama) case "$rest" in ' serve'|' serve '*) class=ollama-process;; ' runner'|' runner '*) class=ollama-process;; *) review_required 'unsupported Ollama process';; esac;;
       docker-proxy) class=docker-proxy;;
       *)
         case "$args" in *ollama*|*11434*) recovery_is_scanner_ancestor "$pid" || review_required 'foreign Ollama process refused';; esac
@@ -282,7 +282,7 @@ recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'r
 recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; recovery_is_scanner_ancestor "$pid" && continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) review_required 'foreign Ollama process remains after container removal';; esac; done <"$processes"; /usr/bin/jq -cn '{state:"absent",matchingProcesses:[]}'; }
 recovery_scan() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$; RECOVERY_CONTAINER_PORTS_FILE=''
-  if [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi
+  if [ "$(id -u)" -ne 0 ] && [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi
   recovery_source_identity "$RECOVERY_SOURCE_SHA" || die 'invalid recovery source identity'
   RECOVERY_RECORDS='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'
   snapshot=$(temp_path); cron=$(temp_path); processes=$(temp_path); container=$(temp_path)

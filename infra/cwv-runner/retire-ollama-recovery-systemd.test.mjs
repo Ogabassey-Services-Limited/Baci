@@ -9,7 +9,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
 
-function shell(command, env = {}) {
+function shell(command, env = {}, args = []) {
   return execFileAsync(
     'sh',
     [
@@ -17,10 +17,53 @@ function shell(command, env = {}) {
       `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; [ -z "\${RETIRE_OLLAMA_RECOVERY_TEST_ROOT:-}" ] || RECOVERY_RECEIPT_ROOT="\${RETIRE_OLLAMA_RECOVERY_TEST_ROOT:-}"; ${command}`,
       'recovery-systemd-test',
       script.pathname,
+      ...args,
     ],
     { env: { ...process.env, ...env } }
   );
 }
+
+test('rejects a root recovery helper outside the sealed source root', async () => {
+  if (process.getuid?.() !== 0) return;
+  const sourceSha = 'a'.repeat(40);
+  await assert.rejects(
+    shell(
+      `SCRIPT_DIR="/tmp/${sourceSha}"; recovery_source_identity "${sourceSha}"`
+    ),
+    (error) => error.code === 1
+  );
+});
+
+test('classifies Ollama crontab consumers in recovery evidence', async () => {
+  const { stdout } = await shell(
+    'RECOVERY_RECORDS="[]"; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; init_temp_root; trap cleanup_temp EXIT; cron=$(temp_path); printf "%s\\n%s\\n" "0 * * * * /usr/bin/ollama serve" "0 * * * * /usr/bin/other" >"$cron"; recovery_surface current-crontab cat "$cron"; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"'
+  );
+  const [counts, evidence] = stdout.trim().split('\n').map(JSON.parse);
+  assert.deepEqual(counts, [{ surface: 'current-crontab', matchCount: 1 }]);
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].surface, 'current-crontab');
+});
+
+test('rejects Ollama subcommand prefixes without a token boundary', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-ollama-recovery-argv-'));
+  const processes = join(directory, 'processes');
+  const ports = join(directory, 'ports.json');
+  const command =
+    'recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"path\\":\\"/usr/bin/ollama\\",\\"sha256\\":\\"%064d\\",\\"identitySha256\\":\\"%064d\\",\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\",\\"expected\\":\\"/bin/ollama\\"}\\n" 0 0; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$2" "$3"';
+  try {
+    await writeFile(ports, '{}\n');
+    for (const subcommand of ['serve-malicious', 'runner-malicious']) {
+      await writeFile(processes, `41 1 /usr/bin/ollama ${subcommand}\n`);
+      await assert.rejects(
+        shell(command, {}, [ports, processes]),
+        (error) =>
+          error.code === 78 && /unsupported Ollama process/.test(error.stderr)
+      );
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 async function testBin() {
   const directory = await mkdtemp(

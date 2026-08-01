@@ -234,7 +234,7 @@ test('refuses unmodeled surface failures and rejects malformed source identities
     (error) => error.code === 65 && /recovery surface failed/.test(error.stderr)
   );
   const { stdout } = await shell(
-    'for value in "$2" "$3" "$4"; do if recovery_source_identity "$value"; then printf "1\\n"; else printf "0\\n"; fi; done',
+    'for value in "$2" "$3" "$4"; do SCRIPT_DIR="/srv/baci-cwv/source/$value"; if recovery_source_identity "$value"; then printf "1\\n"; else printf "0\\n"; fi; done',
     [sourceSha, sourceSha.slice(0, -1), 'g'.repeat(40)]
   );
   assert.deepEqual(stdout.trim().split('\n'), ['1', '0', '0']);

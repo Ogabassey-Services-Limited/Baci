@@ -83,14 +83,14 @@ test('rejects wrapped Ollama processes in absent-container evidence', async () =
 
 test('completes an absent-container recovery scan without a ports temp', async () => {
   const { stdout } = await shell(
-    `root() { :; }; assert_docker_socket() { CANONICAL_DOCKER_SOCKET=/run/docker.sock; }; recovery_collect_systemd() { :; }; recovery_surface() { :; }; recovery_container_snapshot() { RECOVERY_CONTAINER_STATE=absent; printf '%s\\n' '{"name":"ollama-loopback","state":"absent"}'; }; recovery_collect_processes() { : >"$1"; }; recovery_collect_crontab() { : >"$1"; }; recovery_package_snapshot() { printf '%s\\n' '{"name":"ollama","state":"absent","version":null}'; }; recovery_unit_snapshot() { printf '{"name":"%s","state":"absent"}\\n' "$1"; }; recovery_model_snapshot() { printf '%s\\n' '{"state":"absent"}'; }; recovery_cron_snapshot() { printf '%s\\n' '{"wholeSha256":"0000000000000000000000000000000000000000000000000000000000000000","lineCount":0,"lines":[]}'; }; record_docker_socket() { :; }; recovery_write_receipt() { [ -s "$1" ] || return 65; printf complete; }; recovery_scan`,
+    `root() { :; }; SCRIPT_DIR="/srv/baci-cwv/source/${sourceSha}"; RECOVERY_SOURCE_SHA="${sourceSha}"; assert_docker_socket() { CANONICAL_DOCKER_SOCKET=/run/docker.sock; }; recovery_collect_systemd() { :; }; recovery_surface() { :; }; recovery_container_snapshot() { RECOVERY_CONTAINER_STATE=absent; printf '%s\\n' '{"name":"ollama-loopback","state":"absent"}'; }; recovery_collect_processes() { : >"$1"; }; recovery_collect_crontab() { : >"$1"; }; recovery_package_snapshot() { printf '%s\\n' '{"name":"ollama","state":"absent","version":null}'; }; recovery_unit_snapshot() { printf '{"name":"%s","state":"absent"}\\n' "$1"; }; recovery_model_snapshot() { printf '%s\\n' '{"state":"absent"}'; }; recovery_cron_snapshot() { printf '%s\\n' '{"wholeSha256":"0000000000000000000000000000000000000000000000000000000000000000","lineCount":0,"lines":[]}'; }; record_docker_socket() { :; }; recovery_write_receipt() { [ -s "$1" ] || return 65; printf '%s' "$RECOVERY_SOURCE_SHA"; }; recovery_scan`,
     [],
     {
       RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
-      RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA: sourceSha,
+      RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA: 'd'.repeat(40),
     }
   );
-  assert.equal(stdout, 'complete');
+  assert.equal(stdout, process.getuid?.() === 0 ? sourceSha : 'd'.repeat(40));
 });
 
 test('ignores the recovery scanner ancestry in absent-container evidence', async () => {

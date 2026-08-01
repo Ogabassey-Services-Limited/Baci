@@ -61,7 +61,7 @@ records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'
 record_consumers() {
   class=$1 file=$2 mode=${3:-matched}; count=0; unknown_sha=$(hash_text unknown)
   while IFS= read -r line || [ -n "$line" ]; do
-    case "$mode:$line" in none:*) matched=0;; all:*) matched=1;; *:*'/ollama serve'*|*:*' ollama serve'*) matched=0;; *:*11434*|*:*'/ollama '*|*:*' ollama '*|*:ollama|*:/ollama) matched=1;; *) matched=0;; esac
+    case "$mode:$line" in none:*) matched=0;; all:*) matched=1;; cron:*11434*|cron:*'/ollama '*|cron:*' ollama '*|cron:ollama|cron:/ollama) matched=1;; *:*'/ollama serve'*|*:*' ollama serve'*) matched=0;; *:*11434*|*:*'/ollama '*|*:*' ollama '*|*:ollama|*:/ollama) matched=1;; *) matched=0;; esac
     [ "$matched" = 1 ] || continue; count=$((count + 1)); evidence=$(hash_text "$line")
     deps=$(jq -cn --argjson old "$deps" --arg key "$class:$count" --arg value "$unknown_sha" --arg source "$evidence" '$old + [{"key-name":$key,"endpoint-class":"unknown","normalized-value-sha256":$value,"source-path-sha256":$source,disposition:"consumer"}]') || die 'consumer dependency record failed'
     consumer_evidence=$(jq -cn --argjson old "$consumer_evidence" --arg surface "$class" --arg sha "$evidence" '$old + [{surface:$surface,classifiedPathSha256:$sha}]') || die 'consumer evidence record failed'
