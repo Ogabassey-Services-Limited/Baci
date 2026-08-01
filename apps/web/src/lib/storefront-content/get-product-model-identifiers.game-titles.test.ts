@@ -83,6 +83,15 @@ describe('getProductModelIdentifiers game titles', () => {
     expect(identifiers).toEqual(['1 2']);
   });
 
+  it('normalizes joined Donkey Kong catalog titles', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'nintendo-switch',
+      productSlugs: ['nintendo-switch-donkeykong-country-returns-hd'],
+    });
+
+    expect(identifiers).toEqual(['donkey kong country returns hd']);
+  });
+
   it('preserves the Switch 2 family for console catalog entries', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'nintendo-switch-2',

@@ -1,11 +1,13 @@
 import { CONTENT_CLUSTER_SCORE } from '@/config/storefront-content-clusters';
 import { generateSlug } from '@/lib/seo-utils';
+import { buildCommercialGuideDescription } from './build-commercial-guide-description';
 import type {
   BuildCommercialGuideLinksInput,
   CommercialGuidePageKind,
   ContentClusterKind,
   InformationalGuideLink,
 } from './content-cluster-types';
+import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { inferContentClusterContext } from './infer-content-cluster-context';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
@@ -159,26 +161,15 @@ function buildGuideHref(storeUrl: string, slug: string) {
   return `${storeUrl}/blog/${slug}`;
 }
 
-function buildGuideDescription(post: {
-  excerpt: string | null;
-  reading_time_minutes: number | null;
-}) {
-  const excerpt = post.excerpt?.trim();
-
-  if (excerpt) {
-    return excerpt;
-  }
-
-  return post.reading_time_minutes
-    ? `${post.reading_time_minutes} minute guide`
-    : 'Read the full guide';
-}
-
 export function buildCommercialGuideLinks(
   input: BuildCommercialGuideLinksInput
 ): InformationalGuideLink[] {
   const preferredKinds = KIND_PREFERENCE[input.context.pageKind];
   const productModelIdentifiers = getProductModelIdentifiers(input.context);
+  const compareProductMatchRequirements =
+    input.context.pageKind === 'compare'
+      ? getCompareProductMatchRequirements(input.context)
+      : [];
   const modelFamilyTokens = tokenizeModelIdentifier(
     input.context.modelFamilySlug ?? ''
   );
@@ -238,13 +229,15 @@ export function buildCommercialGuideLinks(
           : hasContiguousTokenSequence(post, modelFamilyTokens));
       const hasRequiredCompareModelMatch =
         input.context.pageKind === 'compare' &&
-        productModelIdentifiers.length > 0 &&
-        productModelIdentifiers.every((identifier) =>
-          matchesProductIdentifier(
-            post,
-            inferred.tokens,
-            tokenizeModelIdentifier(identifier)
-          )
+        compareProductMatchRequirements.length > 0 &&
+        compareProductMatchRequirements.every(
+          ({ identifier, brand }) =>
+            (!brand || inferred.brands.includes(brand)) &&
+            matchesProductIdentifier(
+              post,
+              inferred.tokens,
+              tokenizeModelIdentifier(identifier)
+            )
         );
       const qualifiesForProductTokenMatch =
         input.context.pageKind === 'compare'
@@ -279,7 +272,7 @@ export function buildCommercialGuideLinks(
         guide: {
           href: buildGuideHref(input.storeUrl, post.slug),
           title: post.title,
-          description: buildGuideDescription(post),
+          description: buildCommercialGuideDescription(post),
           kind: inferred.kind,
         } satisfies InformationalGuideLink,
       };

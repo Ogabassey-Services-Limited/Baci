@@ -25,6 +25,7 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
   'buds',
   'legion',
+  'laserjet',
   'pavilion',
   'quest',
   'redmi',
@@ -169,6 +170,11 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
       )
     : tokens;
 }
+function isModelMetadataToken(token: string, categorySlug: string) {
+  return (
+    categorySlug !== 'printers' && MODEL_METADATA_TOKEN_PATTERN.test(token)
+  );
+}
 function stripGeneratedCollisionSuffix(tokens: string[]) {
   const lastToken = tokens.at(-1) ?? '';
   if (tokens.length < 2 || !/^\d$/u.test(lastToken)) {
@@ -193,9 +199,10 @@ function getModelTokens(
   excludedTokens: ReadonlySet<string>,
   categorySlug: string
 ) {
+  const canonicalSlug = slug.replace(/\bdonkeykong\b/gu, 'donkey kong');
   const rawTokens = normalizeProductModelTokens(
     tokenize(
-      slug
+      canonicalSlug
         .replace(/\bplay[\s-]+station\b/gu, 'playstation')
         .replace(/([a-z]{3,})-s-(?=[a-z])/gu, '$1-')
     ).filter((token) => !excludedTokens.has(token)),
@@ -214,7 +221,7 @@ function getModelTokens(
       );
   const modelTokens = tokens.filter(
     (token, index) =>
-      !MODEL_METADATA_TOKEN_PATTERN.test(token) &&
+      !isModelMetadataToken(token, categorySlug) &&
       token !== 'inch' &&
       (token !== 'in' ||
         GAME_CATEGORY_PATTERN.test(categorySlug) ||

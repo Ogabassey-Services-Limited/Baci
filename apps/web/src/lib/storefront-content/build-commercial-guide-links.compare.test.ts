@@ -43,6 +43,47 @@ describe('buildCommercialGuideLinks compare context', () => {
     ]);
   });
 
+  it('keeps compared brands distinct when model identifiers collide', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'apple-watch-ultra-buyer-guide',
+          title: 'Apple Watch Ultra Buyer Guide',
+          excerpt: 'What to know before buying Apple Watch Ultra.',
+          category: 'Smartwatches',
+          tags: ['smartwatches', 'apple', 'watch ultra'],
+          keywords: ['battery'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'apple-watch-ultra-vs-samsung-watch-ultra',
+          title: 'Apple Watch Ultra vs Samsung Watch Ultra Buyer Guide',
+          excerpt: 'Compare Apple Watch Ultra and Samsung Watch Ultra.',
+          category: 'Smartwatches',
+          tags: ['smartwatches', 'apple', 'samsung', 'watch ultra'],
+          keywords: ['comparison', 'battery'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'compare',
+        categorySlug: 'smartwatches',
+        brands: ['Apple', 'Samsung'],
+        productSlugs: ['apple-watch-ultra-49mm', 'samsung-watch-ultra'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/apple-watch-ultra-vs-samsung-watch-ultra',
+      'https://ogabassey.com/blog/apple-watch-ultra-buyer-guide',
+    ]);
+  });
+
   it('does not boost an iPhone 15 Pro guide for the base iPhone 15 product', () => {
     const links = buildCommercialGuideLinks({
       storeUrl: 'https://ogabassey.com',

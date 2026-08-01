@@ -86,4 +86,14 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
 
     expect(identifiers).toEqual(['gbp 50', 'usd 50', 'eur 50']);
   });
+
+  it('preserves LaserJet as a printer model-family marker', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'printers',
+      brands: ['HP'],
+      productSlugs: ['hp-color-laserjet-pro-3203dw'],
+    });
+
+    expect(identifiers).toEqual(['color laserjet pro 3203dw']);
+  });
 });
