@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { lstat, open, readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
@@ -6,12 +7,10 @@ import { RUN_ID_PATTERN } from './cloudflare-evidence-run-journal-state';
 
 type LockJournal = Readonly<{ phase: string }>;
 const TRANSITION_LOCK_TIMEOUT_MS = 60_000;
-
 export type EvidenceRunLockOptions = Readonly<{
   readJournal: (stateDir: string, runId: string) => Promise<LockJournal>;
   isTerminal: (phase: string) => boolean;
 }>;
-
 const activeRunLockPath = (stateDir: string) =>
   join(stateDir, '.active-run.lock');
 const transitionLockPath = (stateDir: string, runId: string) => {
@@ -19,15 +18,34 @@ const transitionLockPath = (stateDir: string, runId: string) => {
     throw new Error('journal run ID is invalid');
   return join(stateDir, `.journal-${runId}.lock`);
 };
-
 type LockRecord = Readonly<{
   runId: string;
   pid: number;
   token: string;
+  processStartTime: string;
 }>;
-
-const encodeLockRecord = (runId: string, token: string) =>
-  `${JSON.stringify({ runId, pid: process.pid, token } satisfies LockRecord)}\n`;
+function processStartTime(pid: number) {
+  try {
+    const value = execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf8',
+    }).trim();
+    return value || undefined;
+  } catch {
+    return undefined;
+  }
+}
+const currentProcessStartTime = () => {
+  const value = processStartTime(process.pid);
+  if (!value) throw new Error('evidence lock owner identity is unavailable');
+  return value;
+};
+const encodeLockRecord = (runId: string, token: string, startTime: string) =>
+  `${JSON.stringify({
+    runId,
+    pid: process.pid,
+    token,
+    processStartTime: startTime,
+  } satisfies LockRecord)}\n`;
 
 function parseLockRecord(value: string): Partial<LockRecord> {
   try {
@@ -40,6 +58,10 @@ function parseLockRecord(value: string): Partial<LockRecord> {
         pid: typeof candidate.pid === 'number' ? candidate.pid : undefined,
         token:
           typeof candidate.token === 'string' ? candidate.token : undefined,
+        processStartTime:
+          typeof candidate.processStartTime === 'string'
+            ? candidate.processStartTime
+            : undefined,
       };
     }
   } catch {
@@ -58,6 +80,11 @@ function processIsAlive(pid: number | undefined) {
     return (error as NodeJS.ErrnoException).code === 'EPERM';
   }
 }
+function hasDifferentProcessIdentity(owner: Partial<LockRecord>) {
+  if (!owner.pid || !owner.processStartTime) return false;
+  const observed = processStartTime(owner.pid);
+  return observed !== undefined && observed !== owner.processStartTime;
+}
 
 async function readLockRecord(path: string) {
   const lockStat = await lstat(path);
@@ -75,6 +102,7 @@ const localTransitionQueues = new Map<string, Promise<void>>();
 async function acquireTransitionLock(stateDir: string, runId: string) {
   const path = transitionLockPath(stateDir, runId);
   const token = randomUUID();
+  const startTime = currentProcessStartTime();
   const deadline = Date.now() + TRANSITION_LOCK_TIMEOUT_MS;
   for (;;) {
     if (Date.now() > deadline)
@@ -82,7 +110,7 @@ async function acquireTransitionLock(stateDir: string, runId: string) {
     try {
       const handle = await open(path, 'wx', 0o600);
       try {
-        await handle.writeFile(encodeLockRecord(runId, token));
+        await handle.writeFile(encodeLockRecord(runId, token, startTime));
         await handle.sync();
       } finally {
         await handle.close();
@@ -122,6 +150,10 @@ async function acquireTransitionLock(stateDir: string, runId: string) {
       continue;
     }
     if (!processIsAlive(owner.pid)) {
+      await reclaimLockIfOwner(path, ownerText);
+      continue;
+    }
+    if (hasDifferentProcessIdentity(owner)) {
       await reclaimLockIfOwner(path, ownerText);
       continue;
     }
@@ -208,9 +240,10 @@ export async function acquireActiveRunLock(
   try {
     const path = activeRunLockPath(stateDir);
     const token = randomUUID();
+    const startTime = currentProcessStartTime();
     const lock = await open(path, 'wx', 0o600);
     try {
-      await lock.writeFile(encodeLockRecord(runId, token));
+      await lock.writeFile(encodeLockRecord(runId, token, startTime));
       await lock.sync();
     } finally {
       await lock.close();
@@ -249,7 +282,11 @@ export async function acquireActiveRunLock(
         // A structured owner that has exited before persisting its journal is
         // an orphaned preparation lock. Plain legacy records are also safe to
         // reclaim because new owners always persist a PID-bearing record.
-        if (!owner.pid || !processIsAlive(owner.pid)) {
+        if (
+          !owner.pid ||
+          !processIsAlive(owner.pid) ||
+          hasDifferentProcessIdentity(owner)
+        ) {
           await reclaimLockIfOwner(activeRunLockPath(stateDir), ownerText);
           return acquireActiveRunLock(stateDir, runId, options);
         }

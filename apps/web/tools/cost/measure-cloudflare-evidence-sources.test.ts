@@ -72,6 +72,7 @@ describe('measureCloudflareEvidenceSources', () => {
         complete: true,
         expectedProbeCount: 2,
         observedProbeCount: 2,
+        probeResults: ['probe-a', 'probe-b'],
         providerReceiptSha256: 'a'.repeat(64),
         observedAt: '2026-07-31T00:00:00.000Z',
       }),
@@ -101,6 +102,29 @@ describe('measureCloudflareEvidenceSources', () => {
         observedAt: '2026-07-31T00:00:00.000Z',
       }),
     });
+    await expect(
+      measureCloudflareEvidenceSources(dir, input.runId, capability, {
+        ...client,
+        measure: async () => ({
+          complete: true,
+          expectedProbeCount: 2,
+          observedProbeCount: 2,
+          probeResults: ['probe-a', 'unrelated-probe'],
+          providerReceiptSha256: 'a'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        }),
+        revoke: async (tokenId: string) => ({
+          tokenId,
+          auditReceiptSha256: 'e'.repeat(64),
+        }),
+        readBack: async (tokenId: string) => ({
+          tokenId,
+          status: 'inactive' as const,
+          auditReceiptSha256: 'e'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        }),
+      })
+    ).rejects.toThrow('incomplete');
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
     ).rejects.toThrow('readback');
@@ -158,6 +182,7 @@ describe('measureCloudflareEvidenceSources', () => {
           complete: true,
           expectedProbeCount: 1,
           observedProbeCount: 1,
+          probeResults: ['probe-a', 'probe-b'],
           providerReceiptSha256: 'a'.repeat(64),
           observedAt: '2026-07-31T00:00:00.000Z',
         }),
@@ -206,6 +231,7 @@ describe('measureCloudflareEvidenceSources', () => {
       complete: true,
       expectedProbeCount: input.expectedProbeCount,
       observedProbeCount: input.expectedProbeCount,
+      probeResults: ['probe-a', 'probe-b'],
       observedAt: '2026-07-31T00:00:00.000Z',
     } as unknown as Awaited<ReturnType<EvidenceMeasurementClient['measure']>>;
     await expect(
@@ -259,6 +285,7 @@ describe('measureCloudflareEvidenceSources', () => {
       complete: true,
       expectedProbeCount: 2,
       observedProbeCount: 2,
+      probeResults: ['probe-a', 'probe-b'],
       providerReceiptSha256: 'a'.repeat(64),
       observedAt: '2026-07-31T00:00:00.000Z',
     }));

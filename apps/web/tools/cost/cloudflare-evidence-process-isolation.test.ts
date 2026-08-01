@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import { calculateReviewedPolicySha256 } from './cloudflare-evidence-prepare';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
+import { writeProtectedMergeIdentity } from './cloudflare-evidence-process-isolation.test-fixtures';
 import { openEvidenceRun } from './cloudflare-evidence-run-journal';
 
 type Spawn = (
@@ -93,8 +94,16 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     };
     const approvalPath = join(authorityDir, 'approval.json');
     const policyPath = join(authorityDir, 'policy.json');
+    const protectedMergeIdentityPath = join(
+      authorityDir,
+      'protected-merge-identity.json'
+    );
     await writeFile(approvalPath, JSON.stringify(authority), { mode: 0o600 });
     await writeFile(policyPath, JSON.stringify(policy), { mode: 0o600 });
+    await writeProtectedMergeIdentity(
+      protectedMergeIdentityPath,
+      reviewedPrepareInput.toolingMergeSha
+    );
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-prepare-child-'));
     await chmod(stateDir, 0o700);
     let stdout = '';
@@ -124,6 +133,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
         CLOUDFLARE_WRITE_TOKEN: 'credential-must-not-escape',
         EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
         EVIDENCE_POLICY_ARTIFACT: policyPath,
+        EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT: protectedMergeIdentityPath,
         EVIDENCE_MUTATION_RUNNER_MODULE: runnerModulePath,
         EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: runnerModuleSha256,
         EVIDENCE_MEASUREMENT_RUNNER_MODULE: runnerModulePath,
@@ -163,6 +173,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
           PATH: process.env.PATH ?? '',
           EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
           EVIDENCE_POLICY_ARTIFACT: policyPath,
+          EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT:
+            protectedMergeIdentityPath,
           EVIDENCE_MUTATION_RUNNER_MODULE: runnerModulePath,
           EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: runnerModuleSha256,
           EVIDENCE_MEASUREMENT_RUNNER_MODULE: runnerModulePath,

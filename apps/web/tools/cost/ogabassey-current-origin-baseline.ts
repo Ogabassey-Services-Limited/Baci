@@ -21,6 +21,13 @@ export {
 const DEFAULT_MAXIMUM_BASELINE_AGE_DAYS = 7;
 const FORCED_SAMPLING_HEADROOM_MULTIPLIER = 4n;
 
+export type OgabasseyOriginCostProjection = Readonly<{
+  /** Current origin spend from policy-allowed dynamic traffic this work cannot reduce. */
+  irreducibleDynamicOriginCostUsd: string;
+  /** Current origin spend attributable to static traffic this work could reduce. */
+  reducibleStaticOriginCostUsd: string;
+}>;
+
 export type OgabasseyOriginBusinessCaseInput = {
   windowDays: number;
   windowStart?: string;
@@ -32,6 +39,7 @@ export type OgabasseyOriginBusinessCaseInput = {
   completeHostEvidence: boolean;
   currentVercelAttributionUsd?: string;
   projectedEdgeCostUsd?: string;
+  originCostProjection?: OgabasseyOriginCostProjection;
   ownerApprovedPaybackMonths?: number;
   paybackMonths?: number;
   /** Raw receipt is deliberately unknown so callers cannot bypass validation. */
@@ -55,6 +63,35 @@ function nonNegativeInteger(value: unknown): bigint | null {
     return Number.isSafeInteger(value) && value >= 0 ? BigInt(value) : null;
   if (typeof value === 'string' && /^\d+$/.test(value)) return BigInt(value);
   return null;
+}
+
+function validateOriginCostProjection(input: OgabasseyOriginBusinessCaseInput) {
+  const dynamic = decimalToMinorUnits(
+    input.originCostProjection?.irreducibleDynamicOriginCostUsd ?? ''
+  );
+  const reducibleStatic = decimalToMinorUnits(
+    input.originCostProjection?.reducibleStaticOriginCostUsd ?? ''
+  );
+  if (dynamic === null || reducibleStatic === null)
+    return {
+      ok: false as const,
+      verdict: 'NOT_PROVEN' as const,
+      reason: 'origin_cost_projection_invalid',
+    };
+  const current = decimalToMinorUnits(input.currentVercelAttributionUsd ?? '');
+  if (current !== null && dynamic + reducibleStatic !== current)
+    return {
+      ok: false as const,
+      verdict: 'NOT_PROVEN' as const,
+      reason: 'origin_cost_projection_mismatch',
+    };
+  if (dynamic >= reducibleStatic)
+    return {
+      ok: false as const,
+      verdict: 'STOP' as const,
+      reason: 'dynamic_origin_cost_dominant',
+    };
+  return { ok: true as const };
 }
 
 function validateWorkersLogsEvidence(
@@ -207,6 +244,12 @@ export function evaluateOgabasseyOriginBusinessCase(
     return {
       verdict: 'STOP',
       reasonCodes: ['origin_avoidance_target_met'],
+    };
+  const originCostProjection = validateOriginCostProjection(input);
+  if (!originCostProjection.ok)
+    return {
+      verdict: originCostProjection.verdict,
+      reasonCodes: [originCostProjection.reason],
     };
   const workersLogsEvidence = validateWorkersLogsEvidence(input, now);
   if (!workersLogsEvidence.ok)

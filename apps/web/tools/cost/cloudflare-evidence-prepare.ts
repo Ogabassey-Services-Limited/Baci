@@ -2,8 +2,10 @@ import { execFile } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
+import { verifyProtectedMergeIdentity } from './cloudflare-evidence-merge-identity';
 import {
   calculateReviewedPolicySha256,
+  readAuthorityArtifact,
   verifyPrepareAuthority,
 } from './cloudflare-evidence-prepare-authority';
 import {
@@ -140,6 +142,21 @@ const runnerFields = Object.freeze({
   },
 } as const);
 
+async function verifyProtectedMergeReceipt(
+  environment: Readonly<Record<string, string | undefined>>,
+  toolingMergeSha: string
+) {
+  const path = environment.EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT;
+  if (!path || !isAbsolute(path))
+    throw new Error(
+      'a private protected merge identity artifact is required before prepare'
+    );
+  return verifyProtectedMergeIdentity(
+    await readAuthorityArtifact(path, 'protected merge identity'),
+    toolingMergeSha
+  );
+}
+
 async function run(
   args: readonly string[],
   environment: Readonly<Record<string, string | undefined>>,
@@ -151,6 +168,7 @@ async function run(
   if (!stateDir || !isAbsolute(stateDir))
     throw new Error('absolute EVIDENCE_RUN_STATE_DIR is required');
   const input = parseArguments(args);
+  await verifyProtectedMergeReceipt(environment, input.toolingMergeSha);
   const workspaceRoot = environment.EVIDENCE_WORKSPACE_ROOT ?? process.cwd();
   if (!isAbsolute(workspaceRoot))
     throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');

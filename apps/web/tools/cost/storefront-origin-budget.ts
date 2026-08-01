@@ -143,7 +143,6 @@ export function summarizeStorefrontDelivery(
     validation.ok &&
     originEventReconciled &&
     hostPartitionReconciled &&
-    unaccountedOriginAttempts === 0 &&
     days.every(
       (day) =>
         day.exportComplete &&

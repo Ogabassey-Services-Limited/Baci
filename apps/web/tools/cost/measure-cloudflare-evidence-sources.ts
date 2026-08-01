@@ -22,6 +22,7 @@ export type EvidenceMeasurementClient = TokenRevocationClient & {
     complete: boolean;
     expectedProbeCount: number;
     observedProbeCount: number;
+    probeResults: readonly string[];
     providerReceiptSha256: string;
     observedAt: string;
   }>;
@@ -207,7 +208,11 @@ export async function measureCloudflareEvidenceSources(
     !result.complete ||
     result.expectedProbeCount !== journal.expectedProbeCount ||
     result.observedProbeCount !== journal.expectedProbeCount ||
-    result.expectedProbeCount !== result.observedProbeCount
+    result.expectedProbeCount !== result.observedProbeCount ||
+    !Array.isArray(result.probeResults) ||
+    result.probeResults.length !== journal.probeResults.length ||
+    new Set(result.probeResults).size !== result.probeResults.length ||
+    result.probeResults.some((probe) => !journal.probeResults.includes(probe))
   )
     throw new Error('Cloudflare evidence export is incomplete');
   if (

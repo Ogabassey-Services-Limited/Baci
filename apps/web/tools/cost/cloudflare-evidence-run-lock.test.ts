@@ -117,6 +117,24 @@ describe('cloudflare evidence run lock', () => {
     ).resolves.toBe('recovered');
   });
 
+  it('reclaims a live PID when its recorded process start identity differs', async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-lock-'));
+    await chmod(stateDir, 0o700);
+    await writeFile(
+      join(stateDir, `.journal-${runA}.lock`),
+      JSON.stringify({
+        runId: runA,
+        pid: process.pid,
+        token: 'reused-pid',
+        processStartTime: 'previous-process-start',
+      }),
+      { mode: 0o600 }
+    );
+    await expect(
+      withEvidenceRunTransitionLock(stateDir, runA, async () => 'recovered')
+    ).resolves.toBe('recovered');
+  });
+
   it('times out when a live transition owner never releases its lock', async () => {
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-lock-'));
     await chmod(stateDir, 0o700);

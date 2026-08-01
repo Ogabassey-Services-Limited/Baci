@@ -168,6 +168,7 @@ const prepareEnvironment = (
     'TMPDIR',
     'EVIDENCE_APPROVAL_ARTIFACT',
     'EVIDENCE_POLICY_ARTIFACT',
+    'EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT',
     evidenceRunnerModuleEnvironmentNames('mutation').path,
     evidenceRunnerModuleEnvironmentNames('mutation').sha256,
     evidenceRunnerModuleEnvironmentNames('measurement').path,

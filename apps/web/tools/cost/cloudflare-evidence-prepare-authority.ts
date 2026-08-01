@@ -77,7 +77,7 @@ export function calculateReviewedPolicySha256(
   return calculateCloudflareEvidenceTokenPolicySha256(value);
 }
 
-async function readAuthorityArtifact(path: string, label: string) {
+export async function readAuthorityArtifact(path: string, label: string) {
   if (!isAbsolute(path))
     throw new Error(`${label} artifact path must be absolute`);
   const scope = resolve(dirname(path));

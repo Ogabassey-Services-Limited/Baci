@@ -1,48 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateOgabasseyOriginBusinessCase } from './ogabassey-current-origin-baseline';
+import { current } from './ogabassey-current-origin-baseline.test-fixtures';
 
-const current = {
-  windowDays: 7,
-  windowStart: '2026-07-25T00:00:00.000Z',
-  windowEnd: '2026-08-01T00:00:00.000Z',
-  observedAt: '2026-08-01T11:00:00.000Z',
-  allIngressRequests: 1000,
-  allIngressOriginAttempts: 20,
-  discoveredHostnames: [
-    'ogabassey.com',
-    'ogabassey.usebaci.com',
-    'www.ogabassey.com',
-  ],
-  completeHostEvidence: true,
-  currentVercelAttributionUsd: '12.00',
-  projectedEdgeCostUsd: '2.00',
-  ownerApprovedPaybackMonths: 12,
-  paybackMonths: 2,
-  workersLogsContract: {
-    plan: 'free' as const,
-    allowanceEvents: 200_000n,
-    allowancePeriod: 'utc_day' as const,
-    allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
-    allowancePeriodEndsAt: '2026-08-02T00:00:00.000Z',
-    currentAllowancePeriodAllAccountEvents: 1_234n,
-    allowanceUsageSourceFingerprint: '1'.repeat(64),
-    allowanceMaximumObservationLagSeconds: 3_600,
-    allowanceObservedAt: '2026-08-01T11:30:00.000Z',
-    utcDayStartsAt: '2026-08-01T00:00:00.000Z',
-    utcDayEndsAt: '2026-08-02T00:00:00.000Z',
-    currentUtcDayAllAccountEvents: 2_345n,
-    utcDayUsageSourceFingerprint: '2'.repeat(64),
-    utcDayMaximumObservationLagSeconds: 3_600,
-    utcDayObservedAt: '2026-08-01T11:30:00.000Z',
-    overageAllowed: false,
-    overageUsdPerMillion: null,
-    forcedSamplingDailyThreshold: 5_000_000_000n,
-    forcedSamplingRate: '0.01',
-    officialDocsSha256: '3'.repeat(64),
-    authenticatedEntitlementSha256: '4'.repeat(64),
-  },
-  projectedAccountLogEventsPerDay: 10_000n,
-};
 describe('evaluateOgabasseyOriginBusinessCase', () => {
   it('proceeds only on a current complete all-ingress seven-day baseline with positive savings', () =>
     expect(
@@ -249,7 +208,14 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
   it('stops when projected edge cost does not produce positive savings', () =>
     expect(
       evaluateOgabasseyOriginBusinessCase(
-        { ...current, currentVercelAttributionUsd: '2.00' },
+        {
+          ...current,
+          currentVercelAttributionUsd: '2.00',
+          originCostProjection: {
+            irreducibleDynamicOriginCostUsd: '0.50',
+            reducibleStaticOriginCostUsd: '1.50',
+          },
+        },
         { now: new Date('2026-08-01T12:00:00.000Z') }
       )
     ).toEqual({

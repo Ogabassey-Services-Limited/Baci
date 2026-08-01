@@ -114,6 +114,7 @@ function measurementClient(observedAt: string): EvidenceMeasurementClient {
       complete: true,
       expectedProbeCount: input.expectedProbeCount,
       observedProbeCount: input.expectedProbeCount,
+      probeResults: ['probe-a', 'probe-b'],
       providerReceiptSha256: 'a'.repeat(64),
       observedAt,
     })),
@@ -215,6 +216,7 @@ describe('incomplete-run read-token revocation', () => {
       complete: true,
       expectedProbeCount: input.expectedProbeCount,
       observedProbeCount: input.expectedProbeCount,
+      probeResults: ['probe-a', 'probe-b'],
       providerReceiptSha256: 'a'.repeat(64),
       observedAt: '2026-07-31T00:00:00.000Z',
     }));
