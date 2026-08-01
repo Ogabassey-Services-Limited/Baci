@@ -138,7 +138,7 @@ describe('GET /api/merchant/blog/posts/[id]', () => {
       expect(mockSupabase.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     });
 
-    it('returns tenant-scoped embedded product IDs so reopening the editor hydrates its selection', async () => {
+    it('returns tenant-scoped embedded product IDs in the author-selected position order', async () => {
       const productIds = ['product-a', 'product-b'];
       mockSupabase.single.mockResolvedValue({
         data: { id: POST_ID, title: 'Test Post', slug: 'test-post' },
@@ -165,6 +165,9 @@ describe('GET /api/merchant/blog/posts/[id]', () => {
       expect(mockSupabase.select).toHaveBeenCalledWith('product_id');
       expect(mockSupabase.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
       expect(mockSupabase.eq).toHaveBeenCalledWith('blog_post_id', POST_ID);
+      expect(mockSupabase.order).toHaveBeenCalledWith('position', {
+        ascending: true,
+      });
     });
 
     it('fails closed when loading embedded product links fails', async () => {

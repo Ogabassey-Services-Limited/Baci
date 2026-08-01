@@ -60,7 +60,7 @@ export async function getBlogPost(
       .select('product_id')
       .eq('merchant_id', access.merchantId)
       .eq('blog_post_id', id)
-      .order('created_at', { ascending: true });
+      .order('position', { ascending: true });
     if (productLinksError) {
       console.error('Error fetching blog post product links:', {
         merchantId: access.merchantId,

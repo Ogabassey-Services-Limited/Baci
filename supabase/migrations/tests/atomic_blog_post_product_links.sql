@@ -66,6 +66,13 @@ SELECT product_id::text AS first_product_id
 FROM pg_temp.atomic_blog_product_ids
 ORDER BY product_id
 LIMIT 1 \gset
+SELECT array_agg(product_id ORDER BY product_id DESC) AS ordered_product_ids
+FROM (
+  SELECT product_id
+  FROM pg_temp.atomic_blog_product_ids
+  ORDER BY product_id
+  LIMIT 2
+) AS ordered_product_ids \gset
 
 ALTER TABLE public.merchants DISABLE TRIGGER USER;
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -146,6 +153,21 @@ SELECT id FROM public.mutate_merchant_blog_post_with_product_links(
 RESET ROLE;
 SELECT pg_temp.assert_true((SELECT count(*) = 1 FROM public.blog_post_products
   WHERE blog_post_id = :'post_id'::uuid), 'null embedded products did not preserve links');
+
+SET LOCAL ROLE authenticated;
+SELECT id FROM public.mutate_merchant_blog_post_with_product_links(
+  :'post_id'::uuid, '01ac0000-0000-4000-8000-000000000001',
+  '{"title":"Ordered links"}'::jsonb, :'ordered_product_ids'::uuid[]);
+RESET ROLE;
+SELECT pg_temp.assert_true(
+  (SELECT array_agg(link.product_id ORDER BY link.position) = :'ordered_product_ids'::uuid[]
+   FROM public.blog_post_products AS link
+   WHERE link.blog_post_id = :'post_id'::uuid)
+  AND (SELECT array_agg(link.position ORDER BY link.position) = ARRAY[1, 2]::integer[]
+       FROM public.blog_post_products AS link
+       WHERE link.blog_post_id = :'post_id'::uuid),
+  'embedded product links did not preserve the RPC product ID order'
+);
 
 SET LOCAL ROLE authenticated;
 SELECT id FROM public.mutate_merchant_blog_post_with_product_links(

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,15 @@ export default function NewBlogPostPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { merchant } = useMerchant();
+  const merchantSessionRef = useRef({ generation: 0, id: merchant?.id });
+  useLayoutEffect(() => {
+    if (merchantSessionRef.current.id !== merchant?.id) {
+      merchantSessionRef.current = {
+        generation: merchantSessionRef.current.generation + 1,
+        id: merchant?.id,
+      };
+    }
+  }, [merchant?.id]);
   const [formData, setFormData] = useState<NewBlogPostFormData>(() =>
     createEmptyPostFormData(merchant?.business_name || '')
   );
@@ -57,6 +66,7 @@ export default function NewBlogPostPage() {
     setFormData(createEmptyPostFormData(businessName));
     setEmbeddedProducts([]);
     setUploadedFeaturedImage(null);
+    setIsSaving(false);
   }
   const {
     clearSavedData,
@@ -103,6 +113,16 @@ export default function NewBlogPostPage() {
     }
     return null;
   };
+  const isActiveMerchantSession = (
+    merchantId: string | undefined,
+    merchantSessionGeneration: number
+  ) => {
+    const activeSession = merchantSessionRef.current;
+    return (
+      activeSession.id === merchantId &&
+      activeSession.generation === merchantSessionGeneration
+    );
+  };
   const savePost = async (
     status: 'draft' | 'published',
     shouldRedirect = true
@@ -116,14 +136,24 @@ export default function NewBlogPostPage() {
       });
       return null;
     }
+    const savedMerchantId = merchant?.id;
+    const savedMerchantSessionGeneration =
+      merchantSessionRef.current.generation;
     setIsSaving(true);
     try {
       const savedPost = await createBlogPost({
         status,
         formData,
         embeddedProducts,
-        merchantId: merchant?.id,
+        merchantId: savedMerchantId,
       });
+      if (
+        !isActiveMerchantSession(
+          savedMerchantId,
+          savedMerchantSessionGeneration
+        )
+      )
+        return null;
       toast({
         title: status === 'published' ? 'Post Published!' : 'Draft Saved',
         description:
@@ -135,6 +165,13 @@ export default function NewBlogPostPage() {
       if (shouldRedirect) router.push(asRoute('/dashboard/blog'));
       return savedPost;
     } catch (error) {
+      if (
+        !isActiveMerchantSession(
+          savedMerchantId,
+          savedMerchantSessionGeneration
+        )
+      )
+        return null;
       console.error('Error saving post:', error);
       toast({
         title: 'Error',
@@ -144,11 +181,18 @@ export default function NewBlogPostPage() {
       });
       return null;
     } finally {
-      setIsSaving(false);
+      if (
+        isActiveMerchantSession(savedMerchantId, savedMerchantSessionGeneration)
+      )
+        setIsSaving(false);
     }
   };
   const handlePreview = async () => {
-    if (!merchant?.slug) {
+    const previewMerchantId = merchant?.id;
+    const previewMerchantSlug = merchant?.slug;
+    const previewMerchantSessionGeneration =
+      merchantSessionRef.current.generation;
+    if (!previewMerchantSlug) {
       toast({
         title: 'Error',
         description: 'Merchant slug not found.',
@@ -159,10 +203,27 @@ export default function NewBlogPostPage() {
     const savedPost = await savePost('draft', false);
     if (!savedPost) return;
     try {
-      const previewUrl = await getPreviewUrl(merchant.slug, savedPost.slug);
+      const previewUrl = await getPreviewUrl(
+        previewMerchantSlug,
+        savedPost.slug
+      );
+      if (
+        !isActiveMerchantSession(
+          previewMerchantId,
+          previewMerchantSessionGeneration
+        )
+      )
+        return;
       window.open(previewUrl, '_blank');
       router.push(asRoute(`/dashboard/blog/${savedPost.id}/edit`));
     } catch (error) {
+      if (
+        !isActiveMerchantSession(
+          previewMerchantId,
+          previewMerchantSessionGeneration
+        )
+      )
+        return;
       console.error('Error getting preview URL:', error);
       toast({
         title: 'Error',

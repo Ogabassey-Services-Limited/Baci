@@ -688,11 +688,13 @@ BEGIN
   INSERT INTO public.blog_post_products (
     merchant_id,
     blog_post_id,
-    product_id
+    product_id,
+    position
   ) VALUES (
     v_merchant_id,
     v_linked_post_id,
-    v_simple_product_id
+    v_simple_product_id,
+    1
   );
 END;
 $setup$;

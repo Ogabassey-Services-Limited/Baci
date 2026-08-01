@@ -676,6 +676,7 @@ export type Database = {
           created_at: string;
           id: string;
           merchant_id: string;
+          position: number;
           product_id: string;
           relationship: string;
         };
@@ -684,6 +685,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           merchant_id: string;
+          position: number;
           product_id: string;
           relationship?: string;
         };
@@ -692,6 +694,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           merchant_id?: string;
+          position?: number;
           product_id?: string;
           relationship?: string;
         };
