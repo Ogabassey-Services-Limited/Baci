@@ -1,132 +1,59 @@
-import {
-  lstat,
-  mkdir,
-  open,
-  readdir,
-  readFile,
-  rename,
-} from 'node:fs/promises';
-import { basename, isAbsolute, join } from 'node:path';
+import { lstat, readdir, readFile } from 'node:fs/promises';
+import { createEvidenceJournalTransitionOperations } from './cloudflare-evidence-run-journal-transitions';
 import {
   acquireActiveRunLock,
   releaseActiveRunLock,
+  withEvidenceRunTransitionLock,
 } from './cloudflare-evidence-run-lock';
 import { createTokenRevocationOperations } from './cloudflare-evidence-run-token-revocation';
 
-type EvidencePhase =
-  | 'prepared'
-  | 'mutated'
-  | 'cleanup_verified'
-  | 'write_token_revoked'
-  | 'read_token_revoked'
-  | 'proof_complete'
-  | 'closed_stop'
-  | 'cleanup_incomplete_stop';
-export type CloudflareEvidenceRunJournal = {
-  runId: string;
-  approvalId: string;
-  policyId: string;
-  toolingMergeSha: string;
-  writeTokenId: string;
-  readTokenId: string;
-  accountId: string;
-  zoneId: string;
-  plannedResources: readonly string[];
-  preInventorySha256: string;
-  expectedProbeCount: number;
-  mutations: Record<string, string>;
-  phase: EvidencePhase;
-  cleanupAttempts: number;
-  readBackEvidence: readonly string[];
-  probeResults: readonly string[];
-  cleanupIncomplete: boolean;
-  cleanupVerifiedAt?: string;
-  cleanupVerificationReceiptSha256?: string;
-  writeTokenRevokedAt?: string;
-  readTokenRevokedAt?: string;
-  writeTokenRevocationReceipt?: TokenRevocationReceipt;
-  readTokenRevocationReceipt?: TokenRevocationReceipt;
-};
-export type TokenRevocationReceipt = Readonly<{
-  tokenId: string;
-  status: 'revoked';
-  providerReceiptSha256: string;
-  observedAt: string;
-}>;
-const verifiedCleanupVerification = Symbol('verifiedCleanupVerification');
-export type VerifiedCleanupVerification = Readonly<{
-  status: 'absent';
-  inventorySha256: string;
-  observedAt: string;
-  [verifiedCleanupVerification]: true;
-}>;
-export type TokenRevocationClient = Readonly<{
-  revoke(
-    tokenId: string
-  ): Promise<Readonly<{ tokenId: string; auditReceiptSha256: string }>>;
-  readBack(tokenId: string): Promise<
-    Readonly<{
-      tokenId: string;
-      status: 'inactive' | 'absent' | 'active';
-      auditReceiptSha256: string;
-      observedAt: string;
-    }>
-  >;
-}>;
-export type EvidenceRunInput = Omit<
+export type {
+  CleanupVerificationClient,
+  CleanupVerificationProviderReceipt,
   CloudflareEvidenceRunJournal,
-  | 'mutations'
-  | 'phase'
-  | 'cleanupAttempts'
-  | 'readBackEvidence'
-  | 'probeResults'
-  | 'cleanupIncomplete'
-  | 'cleanupVerifiedAt'
-  | 'cleanupVerificationReceiptSha256'
-  | 'writeTokenRevokedAt'
-  | 'readTokenRevokedAt'
-  | 'writeTokenRevocationReceipt'
-  | 'readTokenRevocationReceipt'
->;
+  EvidencePhase,
+  EvidenceRunInput,
+  MeasurementReceipt,
+  TokenRevocationReceipt,
+} from './cloudflare-evidence-run-journal-state';
+export {
+  assertTerminalPrerequisites,
+  assertTransition,
+  createCleanupVerificationReceipt,
+  hasReceipt,
+  journalPath,
+  REVIEWED_PROBE_COUNT,
+  RUN_ID_PATTERN,
+  terminal,
+  validDate,
+  verifyDirectory,
+  writeJournalUnlocked,
+} from './cloudflare-evidence-run-journal-state';
+export type { TokenRevocationClient } from './cloudflare-evidence-run-token-revocation';
 
-function journalPath(stateDir: string, runId: string) {
-  if (basename(runId) !== runId || !/^[a-zA-Z0-9_-]+$/.test(runId))
-    throw new Error('journal run ID is invalid');
-  return join(stateDir, `${runId}.json`);
-}
-async function verifyDirectory(stateDir: string) {
-  if (!isAbsolute(stateDir))
-    throw new Error('EVIDENCE_RUN_STATE_DIR must be absolute');
-  await mkdir(stateDir, { recursive: true, mode: 0o700 });
-  const stat = await lstat(stateDir);
-  if (stat.isSymbolicLink() || !stat.isDirectory() || (stat.mode & 0o077) !== 0)
-    throw new Error(
-      'EVIDENCE_RUN_STATE_DIR is not private durable operator storage'
-    );
-}
+import type {
+  CloudflareEvidenceRunJournal,
+  EvidencePhase,
+  EvidenceRunInput,
+} from './cloudflare-evidence-run-journal-state';
+import {
+  journalPath,
+  REVIEWED_PROBE_COUNT,
+  terminal,
+  verifyDirectory,
+  writeJournalUnlocked,
+} from './cloudflare-evidence-run-journal-state';
+
 export async function writeJournal(
   stateDir: string,
   journal: CloudflareEvidenceRunJournal
 ) {
-  const target = journalPath(stateDir, journal.runId);
-  const temp = `${target}.${process.pid}.tmp`;
-  const handle = await open(temp, 'wx', 0o600);
-  try {
-    await handle.writeFile(`${JSON.stringify(journal)}\n`);
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
-  await rename(temp, target);
-  const directory = await open(stateDir, 'r');
-  try {
-    await directory.sync();
-  } finally {
-    await directory.close();
-  }
-  if (terminal.has(journal.phase))
-    await releaseActiveRunLock(stateDir, journal.runId);
+  await verifyDirectory(stateDir);
+  await withEvidenceRunTransitionLock(stateDir, journal.runId, () =>
+    writeJournalUnlocked(stateDir, journal)
+  );
 }
+
 export async function readJournal(stateDir: string, runId: string) {
   await verifyDirectory(stateDir);
   const target = journalPath(stateDir, runId);
@@ -137,18 +64,21 @@ export async function readJournal(stateDir: string, runId: string) {
     await readFile(target, 'utf8')
   ) as CloudflareEvidenceRunJournal;
 }
-const terminal = new Set<EvidencePhase>(['proof_complete', 'closed_stop']);
-const revocationTerminal = new Set<EvidencePhase>([
-  'proof_complete',
-  'closed_stop',
-]);
-const tokenRevocationOperations = createTokenRevocationOperations(
-  readJournal,
-  writeJournal
-);
-export const { recordTokenRevocation, revokeEvidenceRunToken } =
-  tokenRevocationOperations;
 
+const transitionJournal = <T>(
+  stateDir: string,
+  runId: string,
+  transition: (journal: CloudflareEvidenceRunJournal) => Promise<T> | T
+) => {
+  return withEvidenceRunTransitionLock(stateDir, runId, async () => {
+    const journal = await readJournal(stateDir, runId);
+    const result = await transition(journal);
+    await writeJournalUnlocked(stateDir, journal);
+    return result;
+  });
+};
+
+/** Opens the one private, journal-fenced evidence run permitted in a state directory. */
 export async function openEvidenceRun(
   stateDir: string,
   input: EvidenceRunInput
@@ -161,15 +91,16 @@ export async function openEvidenceRun(
   try {
     const active = await readdir(stateDir);
     for (const name of active.filter((entry) => entry.endsWith('.json'))) {
+      if (name === `${input.runId}.json`)
+        throw new Error('journal run ID already exists');
       const existing = await readJournal(stateDir, name.slice(0, -5));
       if (!terminal.has(existing.phase))
         throw new Error('an evidence run is already active');
     }
-    if (
-      !Number.isInteger(input.expectedProbeCount) ||
-      input.expectedProbeCount < 1
-    )
-      throw new Error('expected probe count is invalid');
+    if (input.expectedProbeCount !== REVIEWED_PROBE_COUNT)
+      throw new Error('expected probe count is not the reviewed probe matrix');
+    if (input.writeTokenId === input.readTokenId)
+      throw new Error('write and read tokens must be distinct');
     const journal: CloudflareEvidenceRunJournal = {
       ...input,
       mutations: {},
@@ -186,108 +117,25 @@ export async function openEvidenceRun(
     throw error;
   }
 }
-export async function recordEvidenceMutation(
-  stateDir: string,
-  runId: string,
-  resourceName: string,
-  providerId: string
-) {
-  const journal = await readJournal(stateDir, runId);
-  if (!journal.plannedResources.includes(resourceName))
-    throw new Error('resource name was not pre-journaled');
-  journal.mutations[resourceName] = providerId;
-  journal.phase = 'mutated';
-  await writeJournal(stateDir, journal);
-  return journal;
-}
-export async function recordEvidenceProbeResults(
-  stateDir: string,
-  runId: string,
-  probeResults: readonly string[]
-) {
-  const journal = await readJournal(stateDir, runId);
-  if (
-    probeResults.length !== journal.expectedProbeCount ||
-    new Set(probeResults).size !== probeResults.length ||
-    probeResults.some((result) => !result)
-  )
-    throw new Error('probe results do not match the expected bounded count');
-  journal.probeResults = [...probeResults];
-  await writeJournal(stateDir, journal);
-  return journal;
-}
-export async function recordEvidencePhase(
-  stateDir: string,
-  runId: string,
-  phase: EvidencePhase,
-  details: Partial<
-    Pick<
-      CloudflareEvidenceRunJournal,
-      | 'cleanupAttempts'
-      | 'readBackEvidence'
-      | 'cleanupIncomplete'
-      | 'writeTokenRevokedAt'
-      | 'readTokenRevokedAt'
-    >
-  > = {}
-) {
-  const journal = await readJournal(stateDir, runId);
-  if (phase === 'write_token_revoked' || phase === 'read_token_revoked')
-    throw new Error('token revocation requires an authenticated receipt');
-  if (phase === 'cleanup_verified')
-    throw new Error('cleanup verification requires an authenticated receipt');
-  if ('writeTokenRevokedAt' in details || 'readTokenRevokedAt' in details)
-    throw new Error('caller timestamps cannot prove token revocation');
-  Object.assign(journal, details);
-  if (
-    revocationTerminal.has(phase) &&
-    (!journal.writeTokenRevokedAt || !journal.readTokenRevokedAt)
-  )
-    throw new Error(
-      'terminal evidence phase requires verified token revocation'
-    );
-  journal.phase = phase;
-  await writeJournal(stateDir, journal);
-  return journal;
-}
 
-export function createCleanupVerificationReceipt(
-  inventorySha256: string,
-  observedAt: string
-): VerifiedCleanupVerification {
-  if (
-    !/^[a-f0-9]{64}$/.test(inventorySha256) ||
-    Number.isNaN(new Date(observedAt).valueOf())
-  )
-    throw new Error('cleanup verification receipt is invalid');
-  return Object.freeze({
-    status: 'absent' as const,
-    inventorySha256,
-    observedAt,
-    [verifiedCleanupVerification]: true as const,
-  });
-}
+const transitionOperations =
+  createEvidenceJournalTransitionOperations(transitionJournal);
+export const {
+  recordCleanupVerified,
+  recordCleanupWriteToken,
+  recordEvidenceMeasurement,
+  recordEvidenceMutation,
+  recordEvidencePhase,
+  recordEvidenceProbeResults,
+} = transitionOperations;
 
-export async function recordCleanupVerified(
-  stateDir: string,
-  runId: string,
-  receipt: VerifiedCleanupVerification
-) {
-  if (receipt[verifiedCleanupVerification] !== true)
-    throw new Error('cleanup verification must come from provider readback');
-  const journal = await readJournal(stateDir, runId);
-  if (journal.phase !== 'mutated')
-    throw new Error('cleanup verification requires a mutated run');
-  if (journal.cleanupIncomplete || journal.phase === 'cleanup_incomplete_stop')
-    throw new Error('incomplete cleanup cannot be marked verified');
-  if (receipt.inventorySha256 !== journal.preInventorySha256)
-    throw new Error('cleanup inventory receipt does not match the journal');
-  journal.cleanupVerifiedAt = receipt.observedAt;
-  journal.cleanupVerificationReceiptSha256 = receipt.inventorySha256;
-  journal.phase = 'cleanup_verified';
-  await writeJournal(stateDir, journal);
-  return journal;
-}
+const tokenRevocationOperations = createTokenRevocationOperations(
+  readJournal,
+  writeJournal,
+  transitionJournal
+);
+export const { recordTokenRevocation, revokeEvidenceRunToken } =
+  tokenRevocationOperations;
 
 export function loadEvidenceRunForCleanup(stateDir: string, runId: string) {
   return readJournal(stateDir, runId);

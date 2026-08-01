@@ -96,7 +96,9 @@ describe('cloudflare evidence qualification worker fixture', () => {
       compatibility_date: '2026-07-31',
       version_metadata: { binding: 'CF_VERSION_METADATA' },
     });
-    expect(validateQualificationWorkerConfig(config)).toMatchObject({
+    expect(
+      validateQualificationWorkerConfig(config, 'src/version-a.ts')
+    ).toMatchObject({
       binding: 'CF_VERSION_METADATA',
     });
     expect(() =>
@@ -114,7 +116,8 @@ describe('cloudflare evidence qualification worker fixture', () => {
     ])
       expect(() =>
         validateQualificationWorkerConfig(
-          JSON.stringify({ ...JSON.parse(config), ...extra })
+          JSON.stringify({ ...JSON.parse(config), ...extra }),
+          'src/version-a.ts'
         )
       ).toThrow('forbidden');
     expect(() =>
@@ -125,20 +128,21 @@ describe('cloudflare evidence qualification worker fixture', () => {
             binding: 'CF_VERSION_METADATA',
             extra_binding: 'NOT_ALLOWED',
           },
-        })
+        }),
+        'src/version-a.ts'
       )
     ).toThrow('exactly one');
   });
-  it('hashes canonical config with locale-independent Unicode code-unit ordering', () => {
+  it('hashes canonical config with locale-independent code-unit ordering', () => {
     const first = `{
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "main": "src/version-a.ts",
-      "name": "baci-evidence-qualification-\u00e9",
+      "name": "baci-evidence-qualification",
       "compatibility_date": "2026-07-31"
     }`;
     const reordered = `{
       "compatibility_date": "2026-07-31",
-      "name": "baci-evidence-qualification-\u00e9",
+      "name": "baci-evidence-qualification",
       "main": "src/version-a.ts",
       "version_metadata": { "binding": "CF_VERSION_METADATA" }
     }`;
@@ -154,5 +158,28 @@ describe('cloudflare evidence qualification worker fixture', () => {
         .canonicalSha256
     ).toBe(expected);
     localeCompare.mockRestore();
+  });
+  it('rejects a Worker name or compatibility date outside the reviewed fixture', () => {
+    const config = JSON.stringify({
+      name: 'baci-evidence-qualification',
+      main: 'src/version-a.ts',
+      compatibility_date: '2026-07-31',
+      version_metadata: { binding: 'CF_VERSION_METADATA' },
+    });
+    expect(() =>
+      validateQualificationWorkerConfig(
+        JSON.stringify({ ...JSON.parse(config), name: 'other-worker' }),
+        'src/version-a.ts'
+      )
+    ).toThrow('name');
+    expect(() =>
+      validateQualificationWorkerConfig(
+        JSON.stringify({
+          ...JSON.parse(config),
+          compatibility_date: '2026-08-01',
+        }),
+        'src/version-a.ts'
+      )
+    ).toThrow('compatibility date');
   });
 });

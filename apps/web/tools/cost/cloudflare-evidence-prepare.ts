@@ -1,30 +1,44 @@
 import { execFile } from 'node:child_process';
+import { isAbsolute } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import {
+  calculateReviewedPolicySha256,
+  verifyPrepareAuthority,
+} from './cloudflare-evidence-prepare-authority';
+import {
   type EvidenceRunInput,
   openEvidenceRun,
+  REVIEWED_PROBE_COUNT,
 } from './cloudflare-evidence-run-journal';
+import {
+  readEvidenceRunnerModuleDescriptor,
+  verifyReviewedEvidenceRunnerModule,
+} from './cloudflare-evidence-runner-modules';
+
+export type {
+  PrepareAuthorityInput,
+  VerifiedPrepareAuthority,
+} from './cloudflare-evidence-prepare-authority';
+export { calculateReviewedPolicySha256, verifyPrepareAuthority };
 
 const boundedId = z.string().min(1).max(128).regex(/^\S+$/);
+const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
+const toolingSha = z.string().regex(/^[a-f0-9]{40}$/);
 const execFileAsync = promisify(execFile);
 const prepareInputSchema = z
   .object({
-    runId: z
-      .string()
-      .min(1)
-      .max(64)
-      .regex(/^[a-zA-Z0-9_-]+$/),
+    runId: z.string().regex(/^[a-f0-9]{32}$/),
     approvalId: boundedId,
     policyId: boundedId,
-    toolingMergeSha: z.string().regex(/^[a-f0-9]{40}$/),
+    toolingMergeSha: toolingSha,
     writeTokenId: boundedId,
     readTokenId: boundedId,
     accountId: boundedId,
     zoneId: boundedId,
-    plannedResources: z.array(boundedId).min(1).max(32),
-    preInventorySha256: z.string().regex(/^[a-f0-9]{64}$/),
-    expectedProbeCount: z.number().int().min(1).max(100),
+    plannedResources: z.array(boundedId).length(1),
+    preInventorySha256: sha256,
+    expectedProbeCount: z.literal(REVIEWED_PROBE_COUNT),
   })
   .strict()
   .superRefine((value, context) => {
@@ -33,12 +47,10 @@ const prepareInputSchema = z
         code: 'custom',
         message: 'planned resources must be unique',
       });
-    if (
-      value.plannedResources.some((resource) => !resource.includes(value.runId))
-    )
+    if (value.plannedResources[0] !== `baci-evidence-${value.runId}`)
       context.addIssue({
         code: 'custom',
-        message: 'planned resources must bind the run ID',
+        message: 'planned resource must be the deterministic run resource',
       });
   });
 
@@ -76,6 +88,8 @@ function parseArguments(args: readonly string[]): EvidenceRunInput {
 }
 
 function argumentsFor(input: EvidenceRunInput) {
+  if (input.expectedProbeCount !== REVIEWED_PROBE_COUNT)
+    throw new Error('expected probe count is fixed by the reviewed matrix');
   return [
     '--prepare',
     '--run-id',
@@ -101,9 +115,20 @@ function argumentsFor(input: EvidenceRunInput) {
     '--pre-inventory-sha256',
     input.preInventorySha256,
     '--expected-probe-count',
-    String(input.expectedProbeCount),
+    String(REVIEWED_PROBE_COUNT),
   ];
 }
+
+const runnerFields = Object.freeze({
+  mutation: {
+    path: 'mutationRunnerModulePath',
+    sha256: 'mutationRunnerModuleSha256',
+  },
+  measurement: {
+    path: 'measurementRunnerModulePath',
+    sha256: 'measurementRunnerModuleSha256',
+  },
+} as const);
 
 async function run(
   args: readonly string[],
@@ -113,9 +138,12 @@ async function run(
   if (environment.CLOUDFLARE_WRITE_TOKEN || environment.CLOUDFLARE_READ_TOKEN)
     throw new Error('prepare must not inherit a Cloudflare credential');
   const stateDir = environment.EVIDENCE_RUN_STATE_DIR;
-  if (!stateDir) throw new Error('absolute EVIDENCE_RUN_STATE_DIR is required');
+  if (!stateDir || !isAbsolute(stateDir))
+    throw new Error('absolute EVIDENCE_RUN_STATE_DIR is required');
   const input = parseArguments(args);
   const workspaceRoot = environment.EVIDENCE_WORKSPACE_ROOT ?? process.cwd();
+  if (!isAbsolute(workspaceRoot))
+    throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');
   const { stdout: head } = await execFileAsync('git', [
     '-C',
     workspaceRoot,
@@ -133,7 +161,36 @@ async function run(
     '--untracked-files=all',
   ]);
   if (status.trim()) throw new Error('tooling worktree is not clean');
-  const journal = await openEvidenceRun(stateDir, input);
+  const reviewedAuthority = await verifyPrepareAuthority(input, environment);
+  const runnerDescriptors = await Promise.all([
+    ['mutation', readEvidenceRunnerModuleDescriptor(environment, 'mutation')],
+    [
+      'measurement',
+      readEvidenceRunnerModuleDescriptor(environment, 'measurement'),
+    ],
+  ] as const).then(async ([mutation, measurement]) => {
+    const [verifiedMutation, verifiedMeasurement] = await Promise.all([
+      verifyReviewedEvidenceRunnerModule(
+        workspaceRoot,
+        input.toolingMergeSha,
+        mutation[1]
+      ),
+      verifyReviewedEvidenceRunnerModule(
+        workspaceRoot,
+        input.toolingMergeSha,
+        measurement[1]
+      ),
+    ]);
+    return { mutation: verifiedMutation, measurement: verifiedMeasurement };
+  });
+  const journal = await openEvidenceRun(stateDir, {
+    ...input,
+    ...reviewedAuthority,
+    [runnerFields.mutation.path]: runnerDescriptors.mutation.path,
+    [runnerFields.mutation.sha256]: runnerDescriptors.mutation.sha256,
+    [runnerFields.measurement.path]: runnerDescriptors.measurement.path,
+    [runnerFields.measurement.sha256]: runnerDescriptors.measurement.sha256,
+  });
   write(`${JSON.stringify({ runId: journal.runId, nextPhase: 'mutate' })}\n`);
 }
 

@@ -1,8 +1,16 @@
+import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
+import {
+  calculateReviewedPolicySha256,
+  cloudflareEvidencePrepare,
+  verifyPrepareAuthority,
+} from './cloudflare-evidence-prepare';
 
+const runId = 'a'.repeat(32);
 const input = {
-  runId: 'run-123',
+  runId,
   approvalId: 'approval-123',
   policyId: 'policy-123',
   toolingMergeSha: '1'.repeat(40),
@@ -10,7 +18,7 @@ const input = {
   readTokenId: 'read-token-id',
   accountId: 'account-id',
   zoneId: 'zone-id',
-  plannedResources: ['baci-evidence-run-123'],
+  plannedResources: [`baci-evidence-${runId}`],
   preInventorySha256: 'a'.repeat(64),
   expectedProbeCount: 2,
 };
@@ -28,11 +36,159 @@ describe('cloudflareEvidencePrepare', () => {
     const valid = cloudflareEvidencePrepare.argumentsFor(input);
     for (const args of [
       [...valid, '--token', 'secret'],
+      valid.map((value) => (value === input.runId ? 'run-123' : value)),
       valid.map((value) => (value === input.toolingMergeSha ? 'bad' : value)),
+      valid.map((value) => (value === '2' ? '3' : value)),
       valid.map((value) =>
         value === input.plannedResources[0] ? 'foreign-resource' : value
       ),
     ])
       expect(() => cloudflareEvidencePrepare.parseArguments(args)).toThrow();
+  });
+
+  it('requires matching owner approval and reviewed policy artifacts before a run can be prepared', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-authority-'));
+    await chmod(dir, 0o700);
+    const now = new Date('2026-08-01T12:00:00.000Z');
+    const policy = {
+      id: input.policyId,
+      toolingMergeSha: input.toolingMergeSha,
+      tokenId: input.writeTokenId,
+      accountId: input.accountId,
+      zoneId: input.zoneId,
+      permissionGroupIds: ['workers.write'],
+      resources: ['account'],
+      expiresAt: '2026-08-01T13:00:00.000Z',
+      policySha256: calculateReviewedPolicySha256({
+        tokenId: input.writeTokenId,
+        accountId: input.accountId,
+        zoneId: input.zoneId,
+        permissionGroupIds: ['workers.write'],
+        resources: ['account'],
+        expiresAt: '2026-08-01T13:00:00.000Z',
+      }),
+    };
+    const approval = {
+      id: input.approvalId,
+      toolingMergeSha: input.toolingMergeSha,
+      policyId: input.policyId,
+      policySha256: policy.policySha256,
+      approvedAt: '2026-08-01T11:00:00.000Z',
+      expiresAt: '2026-08-01T13:00:00.000Z',
+    };
+    const approvalPath = join(dir, 'approval.json');
+    const policyPath = join(dir, 'policy.json');
+    await writeFile(approvalPath, `${JSON.stringify(approval)}\n`, {
+      mode: 0o600,
+    });
+    await writeFile(policyPath, `${JSON.stringify(policy)}\n`, {
+      mode: 0o600,
+    });
+    await expect(
+      verifyPrepareAuthority(
+        input,
+        {
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+        },
+        now
+      )
+    ).resolves.toEqual({
+      approvalId: input.approvalId,
+      policyId: input.policyId,
+      policySha256: policy.policySha256,
+    });
+    await writeFile(
+      approvalPath,
+      `${JSON.stringify({ ...approval, policyId: 'other-policy' })}\n`
+    );
+    await expect(
+      verifyPrepareAuthority(
+        input,
+        {
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+        },
+        now
+      )
+    ).rejects.toThrow('identities');
+
+    await writeFile(approvalPath, `${JSON.stringify(approval)}\n`);
+    await writeFile(
+      policyPath,
+      `${JSON.stringify({ ...policy, tokenId: input.readTokenId })}\n`
+    );
+    await expect(
+      verifyPrepareAuthority(
+        input,
+        {
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+        },
+        now
+      )
+    ).rejects.toThrow('identities');
+
+    await writeFile(policyPath, `${JSON.stringify(policy)}\n`);
+    await expect(
+      verifyPrepareAuthority(
+        { ...input, readTokenId: input.writeTokenId },
+        {
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+        },
+        now
+      )
+    ).rejects.toThrow('identities');
+  });
+
+  it('rejects missing, mutable, or expired authority artifacts', async () => {
+    await expect(
+      verifyPrepareAuthority(input, {}, new Date('2026-08-01T12:00:00.000Z'))
+    ).rejects.toThrow('ARTIFACT');
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-authority-'));
+    const policy = {
+      id: input.policyId,
+      toolingMergeSha: input.toolingMergeSha,
+      tokenId: input.writeTokenId,
+      accountId: input.accountId,
+      zoneId: input.zoneId,
+      permissionGroupIds: ['workers.write'],
+      resources: ['account'],
+      expiresAt: '2026-08-01T11:59:59.000Z',
+      policySha256: calculateReviewedPolicySha256({
+        tokenId: input.writeTokenId,
+        accountId: input.accountId,
+        zoneId: input.zoneId,
+        permissionGroupIds: ['workers.write'],
+        resources: ['account'],
+        expiresAt: '2026-08-01T11:59:59.000Z',
+      }),
+    };
+    const approvalPath = join(dir, 'approval.json');
+    const policyPath = join(dir, 'policy.json');
+    await writeFile(
+      approvalPath,
+      JSON.stringify({
+        id: input.approvalId,
+        toolingMergeSha: input.toolingMergeSha,
+        policyId: input.policyId,
+        policySha256: policy.policySha256,
+        approvedAt: '2026-08-01T11:00:00.000Z',
+        expiresAt: '2026-08-01T11:59:59.000Z',
+      }),
+      { mode: 0o600 }
+    );
+    await writeFile(policyPath, JSON.stringify(policy), { mode: 0o600 });
+    await expect(
+      verifyPrepareAuthority(
+        input,
+        {
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+        },
+        new Date('2026-08-01T12:00:00.000Z')
+      )
+    ).rejects.toThrow('expired');
   });
 });

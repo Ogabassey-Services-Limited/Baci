@@ -9,6 +9,9 @@ type ArtifactBuild = Readonly<{
   generatedTypeDeclaration: string;
   wranglerVersion: string;
 }>;
+export const QUALIFICATION_WORKER_NAME = 'baci-evidence-qualification';
+export const QUALIFICATION_COMPATIBILITY_DATE = '2026-07-31';
+export const QUALIFICATION_WRANGLER_VERSION = '4.115.0';
 export type ArtifactBuildRunner = Readonly<{
   dryRun(configPath: string, outputDirectory: string): Promise<ArtifactBuild>;
 }>;
@@ -49,7 +52,7 @@ const canonicalConfigJson = (value: unknown): string => {
 /** Parses the Wrangler JSONC authority surface; no source code implies bindings. */
 export function validateQualificationWorkerConfig(
   configText: string,
-  expectedMain?: string
+  expectedMain: string
 ) {
   const parsed = parse<Record<string, unknown>>(configText, null, true);
   const keys = Object.keys(parsed);
@@ -72,7 +75,18 @@ export function validateQualificationWorkerConfig(
     throw new Error(
       'Worker config must contain exactly one version_metadata binding'
     );
-  if (expectedMain !== undefined && parsed.main !== expectedMain)
+  if (parsed.name !== QUALIFICATION_WORKER_NAME)
+    throw new Error('Worker config name does not match the reviewed fixture');
+  if (parsed.compatibility_date !== QUALIFICATION_COMPATIBILITY_DATE)
+    throw new Error(
+      'Worker config compatibility date does not match the reviewed fixture'
+    );
+  if (
+    !['src/version-a.ts', 'src/version-b.ts'].includes(
+      typeof parsed.main === 'string' ? parsed.main : ''
+    ) ||
+    parsed.main !== expectedMain
+  )
     throw new Error(
       'Worker config main does not match the reviewed entrypoint'
     );
@@ -97,7 +111,7 @@ export async function buildQualificationArtifactReceipt(
     resolve(root, `wrangler.version-${version}.jsonc`),
     resolve(root, `.qualification-dist/${version}`)
   );
-  if (!/^4\.115\.0$/.test(build.wranglerVersion))
+  if (build.wranglerVersion !== QUALIFICATION_WRANGLER_VERSION)
     throw new Error('dry-run did not use the pinned Wrangler version');
   const expectedMain = `src/version-${version}.ts`;
   const qualificationConfig = validateQualificationWorkerConfig(

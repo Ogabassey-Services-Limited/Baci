@@ -1,138 +1,32 @@
-import { createHash } from 'node:crypto';
-import { z } from 'zod';
+export type {
+  CloudflareWorkersLogsContractValidationOptions,
+  CloudflareWorkersLogsEntitlement,
+  CloudflareWorkersLogsPlanContract,
+} from './cloudflare-workers-logs-contract';
+export {
+  CloudflareWorkersLogsEntitlementSchema,
+  CloudflareWorkersLogsPlanContractSchema,
+  retrieveCurrentCloudflareWorkersLogsContract,
+  validateCloudflareWorkersLogsPlanContract,
+} from './cloudflare-workers-logs-contract';
 
-const SHA256 = /^[a-f0-9]{64}$/;
-const decimal = z.string().regex(/^\d+(?:\.\d{2})?$/);
+const MILLISECONDS_PER_UTC_DAY = 86_400_000;
+const CLOSED_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/;
+const DEFAULT_MAXIMUM_BASELINE_AGE_DAYS = 7;
 
-export const CloudflareWorkersLogsPlanContractSchema = z
-  .object({
-    plan: z.enum(['free', 'paid']),
-    allowanceEvents: z.bigint().nonnegative(),
-    allowancePeriod: z.enum(['utc_day', 'billing_month']),
-    allowancePeriodStartsAt: z.string().datetime({ offset: true }),
-    allowancePeriodEndsAt: z.string().datetime({ offset: true }),
-    currentAllowancePeriodAllAccountEvents: z.bigint().nonnegative(),
-    allowanceUsageSourceFingerprint: z.string().regex(SHA256),
-    allowanceMaximumObservationLagSeconds: z.number().int().nonnegative(),
-    allowanceObservedAt: z.string().datetime({ offset: true }),
-    utcDayStartsAt: z.string().datetime({ offset: true }),
-    utcDayEndsAt: z.string().datetime({ offset: true }),
-    currentUtcDayAllAccountEvents: z.bigint().nonnegative(),
-    utcDayUsageSourceFingerprint: z.string().regex(SHA256),
-    utcDayMaximumObservationLagSeconds: z.number().int().nonnegative(),
-    utcDayObservedAt: z.string().datetime({ offset: true }),
-    overageAllowed: z.boolean(),
-    overageUsdPerMillion: decimal.nullable(),
-    forcedSamplingDailyThreshold: z.bigint().positive(),
-    forcedSamplingRate: z.string().regex(/^0\.\d+$/),
-    officialDocsSha256: z.string().regex(SHA256),
-    authenticatedEntitlementSha256: z.string().regex(SHA256),
-  })
-  .strict();
-
-export type CloudflareWorkersLogsPlanContract = z.infer<
-  typeof CloudflareWorkersLogsPlanContractSchema
->;
-
-export type CloudflareWorkersLogsContractValidationOptions = Readonly<{
-  now?: Date;
-}>;
-
-function requireCurrentObservation(
-  observedAt: string,
-  periodStart: string,
-  periodEnd: string,
-  maximumLagSeconds: number,
-  now: Date
-) {
-  const observedMs = new Date(observedAt).valueOf();
-  const startMs = new Date(periodStart).valueOf();
-  const endMs = new Date(periodEnd).valueOf();
-  const nowMs = now.valueOf();
-  if (
-    ![observedMs, startMs, endMs, nowMs].every(Number.isFinite) ||
-    observedMs < startMs ||
-    observedMs > endMs ||
-    nowMs < startMs ||
-    nowMs > endMs ||
-    observedMs > nowMs ||
-    nowMs - observedMs > maximumLagSeconds * 1000
-  )
-    throw new Error('Cloudflare usage observation is stale or out of period');
-}
-
-/** Rejects pricing, period, and forced-sampling drift from the approved public contract. */
-export function validateCloudflareWorkersLogsPlanContract(
-  value: unknown,
-  options: CloudflareWorkersLogsContractValidationOptions = {}
-): CloudflareWorkersLogsPlanContract {
-  const contract = CloudflareWorkersLogsPlanContractSchema.parse(value);
-  const expectedFree =
-    contract.plan === 'free' &&
-    contract.allowanceEvents === 200_000n &&
-    contract.allowancePeriod === 'utc_day' &&
-    !contract.overageAllowed &&
-    contract.overageUsdPerMillion === null;
-  const expectedPaid =
-    contract.plan === 'paid' &&
-    contract.allowanceEvents === 20_000_000n &&
-    contract.allowancePeriod === 'billing_month' &&
-    contract.overageAllowed &&
-    contract.overageUsdPerMillion === '0.60';
-  if (!expectedFree && !expectedPaid)
-    throw new Error('Cloudflare Workers Logs allowance contract drifted');
-  if (
-    contract.forcedSamplingDailyThreshold !== 5_000_000_000n ||
-    contract.forcedSamplingRate !== '0.01'
-  )
-    throw new Error('Cloudflare forced-sampling contract drifted');
-  if (
-    new Date(contract.allowancePeriodStartsAt) >=
-      new Date(contract.allowancePeriodEndsAt) ||
-    new Date(contract.utcDayStartsAt) >= new Date(contract.utcDayEndsAt)
-  )
-    throw new Error('Cloudflare usage counter boundaries are invalid');
-  const now = options.now ?? new Date();
-  requireCurrentObservation(
-    contract.allowanceObservedAt,
-    contract.allowancePeriodStartsAt,
-    contract.allowancePeriodEndsAt,
-    contract.allowanceMaximumObservationLagSeconds,
-    now
-  );
-  requireCurrentObservation(
-    contract.utcDayObservedAt,
-    contract.utcDayStartsAt,
-    contract.utcDayEndsAt,
-    contract.utcDayMaximumObservationLagSeconds,
-    now
-  );
-  return contract;
-}
-
-export async function retrieveCurrentCloudflareWorkersLogsContract(
-  fetchOfficialDocs: () => Promise<string>,
-  fetchAuthenticatedEntitlement: () => Promise<string>,
-  contract: unknown,
-  options: CloudflareWorkersLogsContractValidationOptions = {}
-): Promise<CloudflareWorkersLogsPlanContract> {
-  const [officialDocs, entitlement] = await Promise.all([
-    fetchOfficialDocs(),
-    fetchAuthenticatedEntitlement(),
-  ]);
-  const checked = validateCloudflareWorkersLogsPlanContract(contract, options);
-  const digest = (value: string) =>
-    createHash('sha256').update(value).digest('hex');
-  if (
-    checked.officialDocsSha256 !== digest(officialDocs) ||
-    checked.authenticatedEntitlementSha256 !== digest(entitlement)
-  )
-    throw new Error('Cloudflare documentation or entitlement receipt drifted');
-  return checked;
+function parseStrictUtcBoundary(value: string) {
+  if (!CLOSED_UTC_PATTERN.test(value)) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.valueOf()) && date.toISOString() === value
+    ? date
+    : null;
 }
 
 export type OgabasseyOriginBusinessCaseInput = {
   windowDays: number;
+  windowStart?: string;
+  windowEnd?: string;
+  observedAt: string;
   allIngressRequests?: number;
   allIngressOriginAttempts?: number;
   discoveredHostnames: readonly string[];
@@ -142,6 +36,10 @@ export type OgabasseyOriginBusinessCaseInput = {
   ownerApprovedPaybackMonths?: number;
   paybackMonths?: number;
 };
+export type OgabasseyOriginBusinessCaseOptions = Readonly<{
+  now?: Date;
+  maximumWindowAgeDays?: number;
+}>;
 
 function decimalToMinorUnits(value: string): bigint | null {
   const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value);
@@ -151,12 +49,67 @@ function decimalToMinorUnits(value: string): bigint | null {
 
 /** Gates design work on a complete, current, all-ingress baseline—not a percentage claim. */
 export function evaluateOgabasseyOriginBusinessCase(
-  input: OgabasseyOriginBusinessCaseInput
+  input: OgabasseyOriginBusinessCaseInput,
+  options: OgabasseyOriginBusinessCaseOptions = {}
 ): {
   verdict: 'PROCEED' | 'STOP' | 'NOT_PROVEN';
   reasonCodes: readonly string[];
 } {
   const reasons: string[] = [];
+  const windowStart = input.windowStart
+    ? parseStrictUtcBoundary(input.windowStart)
+    : null;
+  const windowEnd = input.windowEnd
+    ? parseStrictUtcBoundary(input.windowEnd)
+    : null;
+  const now = options.now ?? new Date();
+  const nowMs = now.valueOf();
+  const maximumWindowAgeDays =
+    options.maximumWindowAgeDays ?? DEFAULT_MAXIMUM_BASELINE_AGE_DAYS;
+  let baselineWindowValid = true;
+  if (!windowStart || !windowEnd) {
+    reasons.push('baseline_window_missing_or_invalid');
+    baselineWindowValid = false;
+  } else if (
+    windowEnd.valueOf() - windowStart.valueOf() !==
+    7 * MILLISECONDS_PER_UTC_DAY
+  ) {
+    reasons.push('baseline_window_not_seven_days');
+    baselineWindowValid = false;
+  }
+  if (
+    !Number.isFinite(nowMs) ||
+    !Number.isFinite(maximumWindowAgeDays) ||
+    !Number.isInteger(maximumWindowAgeDays) ||
+    maximumWindowAgeDays < 0
+  ) {
+    reasons.push('baseline_window_clock_or_age_invalid');
+    baselineWindowValid = false;
+  } else if (windowEnd) {
+    const currentUtcDayStart = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate()
+    );
+    if (windowEnd.valueOf() > currentUtcDayStart) {
+      reasons.push('baseline_window_not_closed');
+      baselineWindowValid = false;
+    } else if (
+      currentUtcDayStart - windowEnd.valueOf() >
+      maximumWindowAgeDays * MILLISECONDS_PER_UTC_DAY
+    ) {
+      reasons.push('baseline_window_stale');
+      baselineWindowValid = false;
+    }
+  }
+  const observedAtMs =
+    typeof input.observedAt === 'string'
+      ? new Date(input.observedAt).valueOf()
+      : Number.NaN;
+  if (!Number.isFinite(observedAtMs) || observedAtMs > nowMs) {
+    reasons.push('baseline_observation_invalid');
+    baselineWindowValid = false;
+  }
   if (
     input.windowDays !== 7 ||
     !Number.isInteger(input.allIngressRequests) ||
@@ -164,6 +117,7 @@ export function evaluateOgabasseyOriginBusinessCase(
     (input.allIngressRequests ?? 0) <= 0
   )
     reasons.push('baseline_not_current_all_ingress');
+  if (!baselineWindowValid) reasons.push('baseline_not_current_all_ingress');
   if (
     Number.isInteger(input.allIngressRequests) &&
     Number.isInteger(input.allIngressOriginAttempts) &&

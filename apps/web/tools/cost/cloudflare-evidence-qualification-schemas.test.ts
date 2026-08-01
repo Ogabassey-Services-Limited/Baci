@@ -8,6 +8,7 @@ describe('cloudflare evidence qualification schemas', () => {
   it('rejects pointer-cache hashes that are not canonical SHA-256 values', () => {
     expect(
       PointerCacheSchema.safeParse({
+        pointerUrl: 'https://edge-evidence.ogabassey.com/__baci-evidence/a',
         cacheRuleId: 'rule',
         cacheRulesetVersion: 'version',
         traceExpressionSha256: 'bad',
@@ -32,6 +33,26 @@ describe('cloudflare evidence qualification schemas', () => {
         rateLimitFingerprint: 'b'.repeat(64),
         policySha256: 'c'.repeat(64),
         productionResourceState: 'present_verified',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects BYPASS as pointer-cache proof', () => {
+    expect(
+      PointerCacheSchema.safeParse({
+        pointerUrl: 'https://edge-evidence.ogabassey.com/__baci-evidence/a',
+        cacheRuleId: 'rule',
+        cacheRulesetVersion: 'version',
+        traceExpressionSha256: 'a'.repeat(64),
+        acceptedCfCacheStatuses: ['BYPASS'],
+        requestCacheMode: 'no-store',
+        repeatedProbeCount: 2,
+        ageObserved: false,
+        hitObserved: false,
+        missObserved: false,
+        qualifiedAt: '2026-07-31T00:00:00.000Z',
+        expiresAt: '2026-08-01T00:00:00.000Z',
+        canonicalSha256: 'b'.repeat(64),
       }).success
     ).toBe(false);
   });

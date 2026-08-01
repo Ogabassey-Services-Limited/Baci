@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  calculateCanonicalSha256,
+  canonicalizeJson,
+} from '../../../../packages/shared/src/storefront/delivery-evidence';
 
 const policySchema = z
   .object({
@@ -33,6 +37,29 @@ function equalList(left: readonly string[], right: readonly string[]) {
   );
 }
 
+function reviewedPolicyValue(value: unknown) {
+  if (
+    value &&
+    typeof value === 'object' &&
+    'reviewedWriteTokenPolicy' in value
+  ) {
+    const envelope = value as {
+      notProvisioned?: unknown;
+      reviewedWriteTokenPolicy?: unknown;
+    };
+    if (envelope.notProvisioned === true)
+      throw new Error('reviewed Cloudflare token policy is not provisioned');
+    return envelope.reviewedWriteTokenPolicy;
+  }
+  return value;
+}
+
+export function calculateCloudflareEvidenceTokenPolicySha256(
+  value: Omit<CloudflareEvidenceTokenPolicy, 'policySha256'>
+) {
+  return calculateCanonicalSha256(canonicalizeJson(value));
+}
+
 /** Verifies a separately exported, reviewed least-privilege write policy against token status. */
 export async function verifyCloudflareEvidenceTokenPolicy(
   liveToken: string,
@@ -43,8 +70,17 @@ export async function verifyCloudflareEvidenceTokenPolicy(
 ): Promise<VerifiedEvidenceTokenCapability> {
   const [owner, reviewed] = [
     policySchema.parse(ownerExport),
-    policySchema.parse(reviewedPolicy),
+    policySchema.parse(reviewedPolicyValue(reviewedPolicy)),
   ];
+  const { policySha256: _ownerPolicySha256, ...ownerContent } = owner;
+  const { policySha256: _reviewedPolicySha256, ...reviewedContent } = reviewed;
+  if (
+    owner.policySha256 !==
+      calculateCloudflareEvidenceTokenPolicySha256(ownerContent) ||
+    reviewed.policySha256 !==
+      calculateCloudflareEvidenceTokenPolicySha256(reviewedContent)
+  )
+    throw new Error('Cloudflare token policy fingerprint is invalid');
   const live = await client.verify(liveToken);
   if (
     live.status !== 'active' ||

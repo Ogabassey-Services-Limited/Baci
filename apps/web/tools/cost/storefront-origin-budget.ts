@@ -80,6 +80,12 @@ export function summarizeStorefrontDelivery(
         day.maxSampleInterval === 1 &&
         day.invocationCountExact &&
         day.totalDecisionCount === day.workerInvocationCount &&
+        day.edgeReleaseCount +
+          day.edgeRejectCount +
+          day.terminalCount +
+          day.edgeErrorCount +
+          day.originFallbackCount ===
+          day.totalDecisionCount &&
         day.canonicalEligibleRequestCount + day.aliasEligibleRequestCount <=
           day.totalDecisionCount &&
         day.aliasEligibleRequestCount === day.aliasEdgeRedirectCount &&

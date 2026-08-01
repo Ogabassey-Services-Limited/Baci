@@ -2,7 +2,16 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
-import type { EvidenceRunInput } from './cloudflare-evidence-run-journal';
+import {
+  type EvidenceRunInput,
+  loadEvidenceRunForCleanup,
+} from './cloudflare-evidence-run-journal';
+import {
+  evidenceRunnerModuleEnvironmentNames,
+  readEvidenceRunnerModuleDescriptor,
+  verifyReviewedEvidenceFile,
+  verifyReviewedEvidenceRunnerModule,
+} from './cloudflare-evidence-runner-modules';
 import { buildClosedEvidenceProcessEnvironment } from './qualify-cloudflare-evidence-sources';
 
 export type EvidenceChildCommand = 'prepare' | 'mutate' | 'cleanup' | 'measure';
@@ -44,6 +53,37 @@ const absoluteToolPath = (
   command: EvidenceChildCommand
 ) => resolve(workspaceRoot, 'apps/web/tools/cost', scriptFor(command));
 
+const prepareEnvironment = (
+  inherited: Readonly<Record<string, string | undefined>>
+) => {
+  if (
+    !inherited.EVIDENCE_APPROVAL_ARTIFACT ||
+    !inherited.EVIDENCE_POLICY_ARTIFACT ||
+    !isAbsolute(inherited.EVIDENCE_APPROVAL_ARTIFACT) ||
+    !isAbsolute(inherited.EVIDENCE_POLICY_ARTIFACT)
+  )
+    throw new Error(
+      'prepare authority artifact paths must be absolute and allowlisted'
+    );
+  readEvidenceRunnerModuleDescriptor(inherited, 'mutation');
+  readEvidenceRunnerModuleDescriptor(inherited, 'measurement');
+  const names = [
+    'PATH',
+    'TMPDIR',
+    'EVIDENCE_APPROVAL_ARTIFACT',
+    'EVIDENCE_POLICY_ARTIFACT',
+    evidenceRunnerModuleEnvironmentNames('mutation').path,
+    evidenceRunnerModuleEnvironmentNames('mutation').sha256,
+    evidenceRunnerModuleEnvironmentNames('measurement').path,
+    evidenceRunnerModuleEnvironmentNames('measurement').sha256,
+  ] as const;
+  return Object.fromEntries(
+    names
+      .filter((name) => inherited[name])
+      .map((name) => [name, inherited[name] as string])
+  );
+};
+
 /** Spawns exactly one purpose-bound command with a closed environment and one credential. */
 export async function spawnIsolatedCloudflareEvidenceProcess(
   spawner: EvidenceProcessSpawner,
@@ -70,37 +110,68 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
   if (command === 'measure' && credential?.name !== 'CLOUDFLARE_READ_TOKEN')
     throw new Error('measurement requires only the read credential');
   const privateHome = await mkdtemp(join(tmpdir(), 'baci-evidence-home-'));
-  const env = credential
-    ? buildClosedEvidenceProcessEnvironment(
-        credential.name,
-        credential.value,
-        inherited
-      )
-    : Object.fromEntries(
-        ['PATH', 'TMPDIR']
-          .filter((name) => inherited[name])
-          .map((name) => [name, inherited[name] as string])
-      );
-  env.HOME = privateHome;
-  env.XDG_CONFIG_HOME = join(privateHome, 'config');
-  env.XDG_DATA_HOME = join(privateHome, 'data');
-  env.EVIDENCE_RUN_STATE_DIR = stateDir;
-  env.EVIDENCE_WORKSPACE_ROOT = workspaceRoot;
-  const runnerVariable =
-    command === 'measure'
-      ? 'EVIDENCE_MEASUREMENT_RUNNER_MODULE'
-      : command === 'prepare'
-        ? undefined
-        : 'EVIDENCE_MUTATION_RUNNER_MODULE';
-  if (runnerVariable && inherited[runnerVariable])
-    env[runnerVariable] = inherited[runnerVariable];
   try {
+    const env = credential
+      ? buildClosedEvidenceProcessEnvironment(
+          credential.name,
+          credential.value,
+          inherited
+        )
+      : prepareEnvironment(inherited);
+    env.HOME = privateHome;
+    env.XDG_CONFIG_HOME = join(privateHome, 'config');
+    env.XDG_DATA_HOME = join(privateHome, 'data');
+    env.EVIDENCE_RUN_STATE_DIR = stateDir;
+    env.EVIDENCE_WORKSPACE_ROOT = workspaceRoot;
+    const journal =
+      command === 'prepare'
+        ? undefined
+        : await loadEvidenceRunForCleanup(stateDir, runId);
+    let commandPath = absoluteToolPath(workspaceRoot, command);
+    if (journal) {
+      commandPath = (
+        await verifyReviewedEvidenceFile(
+          workspaceRoot,
+          journal.toolingMergeSha,
+          commandPath
+        )
+      ).path;
+    }
+    const runnerNames =
+      command === 'measure'
+        ? evidenceRunnerModuleEnvironmentNames('measurement')
+        : command === 'prepare'
+          ? undefined
+          : evidenceRunnerModuleEnvironmentNames('mutation');
+    if (runnerNames) {
+      if (!journal) throw new Error('credentialed command journal is missing');
+      const descriptor =
+        command === 'measure'
+          ? {
+              path: journal.measurementRunnerModulePath,
+              sha256: journal.measurementRunnerModuleSha256,
+            }
+          : {
+              path: journal.mutationRunnerModulePath,
+              sha256: journal.mutationRunnerModuleSha256,
+            };
+      const modulePath = descriptor.path;
+      const moduleSha256 = descriptor.sha256;
+      if (!modulePath || !moduleSha256)
+        throw new Error(
+          'journal is missing the reviewed runner module descriptor'
+        );
+      const verified = await verifyReviewedEvidenceRunnerModule(
+        workspaceRoot,
+        journal.toolingMergeSha,
+        { path: modulePath, sha256: moduleSha256 }
+      );
+      env[runnerNames.path] = verified.path;
+      env[runnerNames.sha256] = verified.sha256;
+    }
     return await spawner.spawn(
       pinnedTsx(workspaceRoot),
-      [
-        absoluteToolPath(workspaceRoot, command),
-        ...argumentsFor(command, runId, prepareInput),
-      ],
+      [commandPath, ...argumentsFor(command, runId, prepareInput)],
       {
         cwd: workspaceRoot,
         env,

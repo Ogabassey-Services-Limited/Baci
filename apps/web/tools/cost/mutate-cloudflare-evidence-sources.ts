@@ -1,57 +1,46 @@
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import type {
+  TokenRevocationClient,
+  TokenRevocationReceipt,
+} from './cloudflare-evidence-run-journal';
 import {
-  createCleanupVerificationReceipt,
   loadEvidenceRunForCleanup,
   recordCleanupVerified,
+  recordCleanupWriteToken,
   recordEvidenceMutation,
   recordEvidencePhase,
   recordEvidenceProbeResults,
+  recordTokenRevocation,
 } from './cloudflare-evidence-run-journal';
+import {
+  requireTokenReadBackClient,
+  revokeCleanupWriteTokenIfNeeded,
+  revokeWriteTokenIfAvailable,
+  verifyInventoryBeforeCleanup,
+  verifyInventoryBeforeMutation,
+} from './mutate-cloudflare-evidence-cleanup-support';
+import type {
+  EvidenceMutationClient,
+  EvidenceMutationDependencies,
+  EvidenceResource,
+} from './mutate-cloudflare-evidence-support';
+import {
+  EVIDENCE_HOSTNAME,
+  isEvidenceMutationClient,
+  loadMutationDependencies,
+  parseMutationArguments,
+  SYNTHETIC_PATHS,
+  verifyCapability,
+  verifyIdentity,
+  verifyResource,
+} from './mutate-cloudflare-evidence-support';
 import type { VerifiedEvidenceTokenCapability } from './verify-cloudflare-evidence-token-policy';
 
-const EVIDENCE_HOSTNAME = 'edge-evidence.ogabassey.com';
-const SYNTHETIC_PATHS = ['/baci-evidence/a', '/baci-evidence/b'] as const;
-type EvidenceResource = Readonly<{
-  id: string;
-  name: string;
-  description: string;
-  accountId: string;
-  zoneId: string;
-}>;
-type EvidenceProbeResult = Readonly<{ id: string; succeeded: boolean }>;
-export type EvidenceMutationClient = {
-  identity(): Promise<{ accountId: string; zoneId: string }>;
-  findByName(name: string): Promise<EvidenceResource | null>;
-  get(id: string): Promise<EvidenceResource | null>;
-  create(
-    name: string,
-    hostname: string,
-    paths: readonly string[]
-  ): Promise<{ id: string }>;
-  probe(resource: EvidenceResource): Promise<readonly EvidenceProbeResult[]>;
-  cleanup(name: string, id: string): Promise<boolean>;
-  inventorySha256(excluding?: EvidenceResource): Promise<string>;
+export type {
+  EvidenceMutationClient,
+  EvidenceMutationDependencies,
+  EvidenceResource,
 };
-export type EvidenceMutationDependencies = Readonly<{
-  capability: VerifiedEvidenceTokenCapability;
-  client: EvidenceMutationClient;
-}>;
-
-export function parseMutationArguments(args: readonly string[]) {
-  if (args.length === 2 && args[0] === '--cleanup-run' && args[1])
-    return { mode: 'cleanup' as const, runId: args[1] };
-  if (
-    args.length !== 3 ||
-    args[0] !== '--run' ||
-    !args[1] ||
-    args[2] !== '--apply'
-  )
-    throw new Error(
-      'mutation accepts only --run <runId> --apply or --cleanup-run <runId>'
-    );
-  return { mode: 'apply' as const, runId: args[1] };
-}
+export { parseMutationArguments, SYNTHETIC_PATHS };
 
 export function runMutationCommand(
   args: readonly string[],
@@ -59,6 +48,20 @@ export function runMutationCommand(
   dependencies: EvidenceMutationDependencies
 ) {
   const parsed = parseMutationArguments(args);
+  if (parsed.mode === 'record_write_revocation') {
+    if (!dependencies.revocationReceipt)
+      throw new Error('an externally verified write-token receipt is required');
+    return recordCloudflareEvidenceWriteTokenRevocation(
+      stateDir,
+      parsed.runId,
+      dependencies.revocationReceipt,
+      requireTokenReadBackClient(dependencies.client)
+    );
+  }
+  if (!dependencies.capability)
+    throw new Error('a verified write capability is required');
+  if (!isEvidenceMutationClient(dependencies.client))
+    throw new Error('mutation provider dependencies are invalid');
   return parsed.mode === 'apply'
     ? applyCloudflareEvidenceMutation(
         stateDir,
@@ -74,79 +77,6 @@ export function runMutationCommand(
       );
 }
 
-type MutationRunnerFactory = (
-  input: Readonly<{
-    token: string;
-    runId: string;
-    stateDir: string;
-    mode: 'apply' | 'cleanup';
-  }>
-) => Promise<EvidenceMutationDependencies>;
-
-async function loadMutationDependencies(
-  runId: string,
-  stateDir: string,
-  mode: 'apply' | 'cleanup'
-) {
-  const modulePath = process.env.EVIDENCE_MUTATION_RUNNER_MODULE;
-  const token = process.env.CLOUDFLARE_WRITE_TOKEN;
-  if (!modulePath || !token)
-    throw new Error(
-      'mutation requires a provider runner module and the isolated write token'
-    );
-  const loaded: unknown = await import(pathToFileURL(resolve(modulePath)).href);
-  const factory =
-    loaded &&
-    typeof loaded === 'object' &&
-    'createMutationDependencies' in loaded
-      ? (loaded as { createMutationDependencies?: unknown })
-          .createMutationDependencies
-      : undefined;
-  if (typeof factory !== 'function')
-    throw new Error('mutation runner module is invalid');
-  return (factory as MutationRunnerFactory)({ token, runId, stateDir, mode });
-}
-
-function verifyCapability(
-  capability: VerifiedEvidenceTokenCapability,
-  journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>
-) {
-  if (capability.kind !== 'write')
-    throw new Error('a verified write capability is required');
-  if (
-    capability.tokenId !== journal.writeTokenId ||
-    capability.accountId !== journal.accountId ||
-    capability.zoneId !== journal.zoneId
-  )
-    throw new Error('write capability does not match the journaled authority');
-}
-function verifyIdentity(
-  actual: { accountId: string; zoneId: string },
-  expected: { accountId: string; zoneId: string }
-) {
-  if (actual.accountId !== expected.accountId)
-    throw new Error('provider account does not match journal');
-  if (actual.zoneId !== expected.zoneId)
-    throw new Error('provider zone does not match journal');
-}
-function verifyResource(
-  resource: EvidenceResource,
-  journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>,
-  name: string,
-  expectedId?: string
-) {
-  if (
-    (expectedId && resource.id !== expectedId) ||
-    resource.name !== name ||
-    !resource.description.includes(journal.runId) ||
-    resource.accountId !== journal.accountId ||
-    resource.zoneId !== journal.zoneId
-  )
-    throw new Error(
-      'journaled resource identity does not match provider read-back'
-    );
-}
-
 /** Applies one deterministic resource set, recording every successful create before probing. */
 export async function applyCloudflareEvidenceMutation(
   stateDir: string,
@@ -155,23 +85,19 @@ export async function applyCloudflareEvidenceMutation(
   client: EvidenceMutationClient
 ) {
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
-  verifyCapability(capability, journal);
+  verifyCapability(capability, journal, 'apply');
+  if (!['prepared', 'mutated'].includes(journal.phase))
+    throw new Error('mutation cannot run after cleanup or a terminal phase');
   verifyIdentity(await client.identity(), journal);
   const name = `baci-evidence-${runId}`;
   if (!journal.plannedResources.includes(name))
     throw new Error('deterministic resource was not pre-journaled');
   let resource = await client.findByName(name);
-  if (
-    (await client.inventorySha256(resource ?? undefined)) !==
-    journal.preInventorySha256
-  )
-    throw new Error('provider inventory drift before mutation');
+  await verifyInventoryBeforeMutation(client, journal, resource);
   if (resource) {
-    if (!resource.description.includes(runId))
+    if (!journal.mutations[name])
       throw new Error('pre-existing resource collision');
     verifyResource(resource, journal, name, resource.id);
-    if (!journal.mutations[name])
-      await recordEvidenceMutation(stateDir, runId, name, resource.id);
   } else {
     const created = await client.create(
       name,
@@ -180,7 +106,7 @@ export async function applyCloudflareEvidenceMutation(
     );
     resource = await client.get(created.id);
     if (!resource) throw new Error('created resource was not readable');
-    verifyResource(resource, journal, name);
+    verifyResource(resource, journal, name, created.id);
     await recordEvidenceMutation(stateDir, runId, name, resource.id);
   }
   const probes = await client.probe(resource);
@@ -202,18 +128,75 @@ export async function cleanupCloudflareEvidenceRun(
   client: EvidenceMutationClient
 ) {
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
-  verifyCapability(capability, journal);
+  verifyCapability(capability, journal, 'cleanup');
   verifyIdentity(await client.identity(), journal);
+  if (
+    ![
+      'prepared',
+      'mutated',
+      'cleanup_verified',
+      'cleanup_incomplete_stop',
+    ].includes(journal.phase)
+  )
+    throw new Error(
+      'cleanup cannot run after verification or a terminal phase'
+    );
+  const replacement = capability.tokenId !== journal.writeTokenId;
+  if (replacement)
+    await recordCleanupWriteToken(stateDir, runId, capability.tokenId);
+  const journalAfterToken = replacement
+    ? await loadEvidenceRunForCleanup(stateDir, runId)
+    : journal;
+  const cleanupTokenToRevoke =
+    journalAfterToken.cleanupWriteTokenId &&
+    !journalAfterToken.cleanupWriteTokenRevocationReceipt
+      ? journalAfterToken.cleanupWriteTokenId
+      : undefined;
+
+  // Cleanup verification is durable before token revocation. If the process
+  // dies in that gap, resume from the receipt without repeating deletes or
+  // requiring the provider to recreate the already-verified state.
+  if (journal.phase === 'cleanup_verified') {
+    if (cleanupTokenToRevoke) {
+      await revokeCleanupWriteTokenIfNeeded(
+        stateDir,
+        runId,
+        cleanupTokenToRevoke,
+        client
+      );
+    }
+    if (
+      !replacement &&
+      (await revokeWriteTokenIfAvailable(stateDir, runId, client))
+    )
+      return loadEvidenceRunForCleanup(stateDir, runId);
+    return loadEvidenceRunForCleanup(stateDir, runId);
+  }
   const incomplete = journal.probeResults.length !== journal.expectedProbeCount;
-  for (const [name, id] of Object.entries(journal.mutations).reverse()) {
+
+  // A provider create may succeed between the API response and the journal
+  // append. Discover only the deterministic pre-journaled names, bind the
+  // returned ID, and then delete it; never search by a caller-selected ID.
+  const mutations = new Map(Object.entries(journal.mutations));
+  for (const name of journal.plannedResources) {
+    if (mutations.has(name)) continue;
+    const recovered = await client.findByName(name);
+    if (!recovered) continue;
+    verifyResource(recovered, journal, name);
+    await recordEvidenceMutation(stateDir, runId, name, recovered.id);
+    mutations.set(name, recovered.id);
+  }
+
+  await verifyInventoryBeforeCleanup(client, journal, mutations);
+  for (const [name, id] of [...mutations.entries()].reverse()) {
     if (!journal.plannedResources.includes(name))
       throw new Error('journal mutation name is not planned');
     const resource = await client.get(id);
     if (!resource) continue;
     verifyResource(resource, journal, name, id);
-    if ((await client.inventorySha256(resource)) !== journal.preInventorySha256)
-      throw new Error('provider inventory drift before cleanup');
     if (!(await client.cleanup(name, id)))
+      throw new Error('evidence cleanup read-back did not prove absence');
+    if (await client.get(id))
       throw new Error('evidence cleanup read-back did not prove absence');
   }
   if ((await client.inventorySha256()) !== journal.preInventorySha256)
@@ -232,15 +215,52 @@ export async function cleanupCloudflareEvidenceRun(
       ],
     }
   );
-  if (incomplete) return next;
-  return recordCleanupVerified(
-    stateDir,
-    runId,
-    createCleanupVerificationReceipt(
-      journal.preInventorySha256,
-      new Date().toISOString()
+  if (incomplete) {
+    if (cleanupTokenToRevoke) {
+      await revokeCleanupWriteTokenIfNeeded(
+        stateDir,
+        runId,
+        cleanupTokenToRevoke,
+        client
+      );
+    }
+    if (
+      !replacement &&
+      (await revokeWriteTokenIfAvailable(stateDir, runId, client))
     )
-  );
+      return loadEvidenceRunForCleanup(stateDir, runId);
+    return cleanupTokenToRevoke
+      ? loadEvidenceRunForCleanup(stateDir, runId)
+      : next;
+  }
+  if (!client.verifyCleanup)
+    throw new Error('cleanup verification requires provider readback');
+  const verified = await recordCleanupVerified(stateDir, runId, client);
+  if (cleanupTokenToRevoke) {
+    await revokeCleanupWriteTokenIfNeeded(
+      stateDir,
+      runId,
+      cleanupTokenToRevoke,
+      client
+    );
+  }
+  if (
+    !replacement &&
+    (await revokeWriteTokenIfAvailable(stateDir, runId, client))
+  )
+    return loadEvidenceRunForCleanup(stateDir, runId);
+  if (cleanupTokenToRevoke) return loadEvidenceRunForCleanup(stateDir, runId);
+  return verified;
+}
+
+/** Persists a provider/audit-verified write-token revocation after operator cleanup. */
+export function recordCloudflareEvidenceWriteTokenRevocation(
+  stateDir: string,
+  runId: string,
+  receipt: TokenRevocationReceipt,
+  client: Pick<TokenRevocationClient, 'readBack'>
+) {
+  return recordTokenRevocation(stateDir, runId, 'write', receipt, client);
 }
 
 if (

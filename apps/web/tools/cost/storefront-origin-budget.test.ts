@@ -16,11 +16,15 @@ const hash = (letter: string) => letter.repeat(64);
 function manifest(overrides: Record<string, unknown> = {}) {
   const hostnameInventorySha256 = calculateHostnameInventorySha256([
     'ogabassey.com',
+    'ogabassey.usebaci.com',
     'www.ogabassey.com',
   ]);
   const days = Array.from({ length: 7 }, (_, index) => {
+    const utcDate = new Date(Date.UTC(2026, 6, 25 + index))
+      .toISOString()
+      .slice(0, 10);
     const day = {
-      utcDate: `2026-07-0${index + 1}`,
+      utcDate,
       hostnameInventorySha256,
       eligibilityPolicySha256: hash('b'),
       aliasRulesetVersion: 'alias-v1',
@@ -29,7 +33,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
       originOnlyVersionId: 'origin-v1',
       edgeVersionId: 'edge-v1',
       source: 'worker-analytics',
-      exportedAt: '2026-07-08T00:00:00.000Z',
+      exportedAt: new Date(Date.UTC(2026, 6, 26 + index)).toISOString(),
       providerSamplingApplied: false,
       maxSampleInterval: 1,
       exportComplete: true,
@@ -42,6 +46,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
       unknownOriginAttemptCount: 0,
       edgeReleaseCount: 1000,
       edgeRejectCount: 0,
+      originFallbackCount: 0,
       terminalCount: 0,
       edgeErrorCount: 0,
       aliasEligibleRequestCount: 0,
@@ -53,28 +58,28 @@ function manifest(overrides: Record<string, unknown> = {}) {
       allowedOriginRateLimitCount: 0,
       sourceEvidence: {
         invocation: {
-          sourceFingerprint: 'invocation-v1',
+          sourceFingerprint: hash('1'),
           complete: true,
           exact: true,
           providerSamplingApplied: false,
           maxSampleInterval: 1,
         },
         aliasRedirect: {
-          sourceFingerprint: 'alias-v1',
+          sourceFingerprint: hash('2'),
           complete: true,
           exact: true,
           providerSamplingApplied: false,
           maxSampleInterval: 1,
         },
         wafRateLimit: {
-          sourceFingerprint: 'waf-v1',
+          sourceFingerprint: hash('3'),
           complete: true,
           exact: true,
           providerSamplingApplied: false,
           maxSampleInterval: 1,
         },
         originEvent: {
-          sourceFingerprint: 'origin-v1',
+          sourceFingerprint: hash('4'),
           complete: true,
           exact: true,
           providerSamplingApplied: false,
@@ -87,11 +92,15 @@ function manifest(overrides: Record<string, unknown> = {}) {
     return day;
   });
   const base = {
-    windowStart: '2026-07-01T00:00:00.000Z',
-    windowEnd: '2026-07-08T00:00:00.000Z',
+    windowStart: '2026-07-25T00:00:00.000Z',
+    windowEnd: '2026-08-01T00:00:00.000Z',
     canonicalHostname: 'ogabassey.com' as const,
-    aliasHostnames: ['www.ogabassey.com'],
-    inventoryHostnames: ['ogabassey.com', 'www.ogabassey.com'],
+    aliasHostnames: ['ogabassey.usebaci.com', 'www.ogabassey.com'],
+    inventoryHostnames: [
+      'ogabassey.com',
+      'ogabassey.usebaci.com',
+      'www.ogabassey.com',
+    ],
     hostnameInventorySha256,
     eligibilityPolicySha256: hash('b'),
     aliasRulesetVersion: 'alias-v1',
@@ -100,10 +109,10 @@ function manifest(overrides: Record<string, unknown> = {}) {
     originOnlyVersionId: 'origin-v1',
     edgeVersionId: 'edge-v1',
     sourceFingerprints: {
-      invocation: 'invocation-v1',
-      aliasRedirect: 'alias-v1',
-      wafRateLimit: 'waf-v1',
-      originEvent: 'origin-v1',
+      invocation: hash('1'),
+      aliasRedirect: hash('2'),
+      wafRateLimit: hash('3'),
+      originEvent: hash('4'),
     },
     evidenceSource: 'worker-analytics' as const,
     days,
@@ -213,6 +222,13 @@ describe('summarizeStorefrontDelivery', () => {
         'NOT_PROVEN'
       );
     }
+  });
+  it('returns not proven when decision classifications do not reconcile with invocations', () => {
+    const malformed = manifest();
+    malformed.days[0].edgeReleaseCount = 0;
+    expect(summarizeStorefrontDelivery(seal(malformed)).verdict).toBe(
+      'NOT_PROVEN'
+    );
   });
   it('returns not proven when an independent source is estimated, incomplete, or sampled', () => {
     const evidence = manifest();

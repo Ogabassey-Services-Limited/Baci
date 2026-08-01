@@ -1,15 +1,24 @@
 import { z } from 'zod';
+import {
+  calculateCanonicalSha256,
+  canonicalizeJson,
+} from '../../../../packages/shared/src/storefront/delivery-evidence';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
+export const QUALIFICATION_WORKER_NAME = 'baci-evidence-qualification';
+export const QUALIFICATION_POINTER_PROBE_COUNT = 2;
 
 export const PointerCacheSchema = z
   .object({
+    pointerUrl: z.literal(
+      'https://edge-evidence.ogabassey.com/__baci-evidence/a'
+    ),
     cacheRuleId: z.string().min(1),
     cacheRulesetVersion: z.string().min(1),
     traceExpressionSha256: Hash,
-    acceptedCfCacheStatuses: z.array(z.enum(['DYNAMIC', 'BYPASS'])).min(1),
+    acceptedCfCacheStatuses: z.array(z.literal('DYNAMIC')).length(1),
     requestCacheMode: z.literal('no-store'),
-    repeatedProbeCount: z.number().int().min(2),
+    repeatedProbeCount: z.literal(QUALIFICATION_POINTER_PROBE_COUNT),
     ageObserved: z.literal(false),
     hitObserved: z.literal(false),
     missObserved: z.literal(false),
@@ -37,9 +46,198 @@ export const ArtifactReadbackSchema = z
       )
       .length(2),
     deploymentsEndpoint: z.string().min(1),
+    deployments: z
+      .object({
+        deploymentId: z.string().min(1),
+        versions: z
+          .array(
+            z
+              .object({
+                versionId: z.string().min(1),
+                percentage: z.number().min(0).max(100),
+              })
+              .strict()
+          )
+          .length(2),
+      })
+      .strict(),
     pointerCache: PointerCacheSchema,
   })
   .strict();
+
+export const ReviewedQualificationArtifactSchema = z
+  .object({
+    accountId: z.string().min(1),
+    scriptName: z.literal(QUALIFICATION_WORKER_NAME),
+    versionId: z.string().min(1),
+    scriptEtag: Hash,
+    moduleSha256: Hash,
+    settingsSha256: Hash,
+    artifactReceipt: z
+      .object({
+        canonicalSourceSha256: Hash,
+        configSha256: Hash,
+        dependencyLockSha256: Hash,
+        wranglerVersion: z.literal('4.115.0'),
+        generatedTypeSha256: Hash,
+        moduleListSha256: Hash,
+        bundleSha256: Hash,
+        soleVersionMetadataBinding: z.literal('CF_VERSION_METADATA'),
+      })
+      .strict(),
+  })
+  .strict();
+export type ReviewedQualificationArtifact = z.infer<
+  typeof ReviewedQualificationArtifactSchema
+>;
+export const QUALIFICATION_POINTER_URL =
+  'https://edge-evidence.ogabassey.com/__baci-evidence/a';
+
+export function calculatePointerCacheCanonicalSha256(value: unknown) {
+  return calculateCanonicalSha256(canonicalizeJson(value));
+}
+
+export function qualifyCloudflareEvidenceReadback(
+  value: unknown,
+  options: Readonly<{
+    now?: Date;
+    maximumAgeSeconds?: number;
+    expectedArtifacts: readonly [
+      ReviewedQualificationArtifact,
+      ReviewedQualificationArtifact,
+    ];
+    expectedScriptName: string;
+    expectedAccountId?: string;
+  }>
+):
+  | { ok: true; qualification: z.infer<typeof ArtifactReadbackSchema> }
+  | { ok: false; reason: string } {
+  const parsed = ArtifactReadbackSchema.safeParse(value);
+  if (!parsed.success) return { ok: false, reason: 'readback_schema_invalid' };
+  const receipt = parsed.data;
+  if (options.expectedScriptName !== QUALIFICATION_WORKER_NAME)
+    return { ok: false, reason: 'reviewed_script_identity_required' };
+  if (receipt.scriptName !== options.expectedScriptName)
+    return { ok: false, reason: 'script_identity_mismatch' };
+  const expectedArtifacts = options.expectedArtifacts;
+  if (
+    expectedArtifacts.some(
+      (artifact) =>
+        !ReviewedQualificationArtifactSchema.safeParse(artifact).success
+    )
+  )
+    return { ok: false, reason: 'reviewed_artifacts_invalid' };
+  const reviewedAccountIds = new Set(
+    expectedArtifacts.map(({ accountId }) => accountId)
+  );
+  if (
+    expectedArtifacts.length !== 2 ||
+    reviewedAccountIds.size !== 1 ||
+    (options.expectedAccountId !== undefined &&
+      !reviewedAccountIds.has(options.expectedAccountId)) ||
+    new Set(expectedArtifacts.map(({ versionId }) => versionId)).size !== 2 ||
+    new Set(expectedArtifacts.map(({ scriptName }) => scriptName)).size !== 1 ||
+    new Set(
+      expectedArtifacts.map(
+        ({ artifactReceipt }) => artifactReceipt.bundleSha256
+      )
+    ).size !== 2 ||
+    new Set(
+      expectedArtifacts.map(
+        ({ artifactReceipt }) => artifactReceipt.canonicalSourceSha256
+      )
+    ).size !== 2 ||
+    expectedArtifacts.some(
+      (artifact) => artifact.scriptName !== options.expectedScriptName
+    )
+  )
+    return { ok: false, reason: 'reviewed_artifacts_invalid' };
+  if (
+    new Set(receipt.versions.map(({ versionId }) => versionId)).size !== 2 ||
+    new Set(receipt.versions.map(({ endpoint }) => endpoint)).size !== 2
+  )
+    return { ok: false, reason: 'duplicate_version_identity' };
+  const expectedById = new Map(
+    expectedArtifacts.map((artifact) => [artifact.versionId, artifact])
+  );
+  if (
+    receipt.versions.some((version) => {
+      const expected = expectedById.get(version.versionId);
+      return (
+        !expected ||
+        version.scriptEtag !== expected.scriptEtag ||
+        version.moduleSha256 !== expected.moduleSha256 ||
+        version.settingsSha256 !== expected.settingsSha256
+      );
+    })
+  )
+    return { ok: false, reason: 'reviewed_artifact_mismatch' };
+  const deploymentVersionIds = new Set(
+    receipt.deployments.versions.map(({ versionId }) => versionId)
+  );
+  const deploymentVersionById = new Map(
+    receipt.deployments.versions.map((version) => [version.versionId, version])
+  );
+  const deploymentA = deploymentVersionById.get(
+    expectedArtifacts[0]?.versionId
+  );
+  const deploymentB = deploymentVersionById.get(
+    expectedArtifacts[1]?.versionId
+  );
+  if (
+    deploymentVersionIds.size !== 2 ||
+    !deploymentA ||
+    !deploymentB ||
+    deploymentA.percentage !== 100 ||
+    deploymentB.percentage !== 0
+  )
+    return { ok: false, reason: 'deployment_tuple_invalid' };
+  const prefixMatch = receipt.versions[0]?.endpoint.match(
+    /^(\/accounts\/[^/]+\/workers\/scripts\/[^/]+)\/versions\/[^/]+$/
+  );
+  if (!prefixMatch)
+    return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
+  const prefix = prefixMatch[1];
+  if (prefix.split('/').at(-1) !== receipt.scriptName)
+    return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
+  const expectedAccountId =
+    options.expectedAccountId ?? expectedArtifacts[0]?.accountId;
+  if (!expectedAccountId || prefix.split('/')[2] !== expectedAccountId)
+    return { ok: false, reason: 'scripts_versions_account_mismatch' };
+  if (
+    !receipt.versions.every(
+      (version) =>
+        version.endpoint === `${prefix}/versions/${version.versionId}`
+    )
+  )
+    return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
+  if (receipt.deploymentsEndpoint !== `${prefix}/deployments`)
+    return { ok: false, reason: 'deployments_endpoint_invalid' };
+  if (
+    receipt.versions[0].moduleSha256 === receipt.versions[1].moduleSha256 ||
+    receipt.versions[0].settingsSha256 === receipt.versions[1].settingsSha256
+  )
+    return { ok: false, reason: 'artifacts_not_distinguishable' };
+  const nowMs = (options.now ?? new Date()).valueOf();
+  const qualifiedAt = new Date(receipt.pointerCache.qualifiedAt).valueOf();
+  const expiresAt = new Date(receipt.pointerCache.expiresAt).valueOf();
+  const maximumAgeSeconds = options.maximumAgeSeconds ?? 24 * 60 * 60;
+  if (
+    ![nowMs, qualifiedAt, expiresAt].every(Number.isFinite) ||
+    expiresAt < qualifiedAt ||
+    qualifiedAt > nowMs ||
+    expiresAt <= nowMs ||
+    nowMs - qualifiedAt > maximumAgeSeconds * 1000
+  )
+    return { ok: false, reason: 'pointer_cache_qualification_expired' };
+  const { canonicalSha256: _ignored, ...withoutHash } = receipt.pointerCache;
+  if (
+    receipt.pointerCache.canonicalSha256 !==
+    calculatePointerCacheCanonicalSha256(withoutHash)
+  )
+    return { ok: false, reason: 'pointer_cache_fingerprint_invalid' };
+  return { ok: true, qualification: receipt };
+}
 
 export const PurgeContractSchema = z
   .object({

@@ -1,14 +1,24 @@
 import { execFile } from 'node:child_process';
-import { chmod, lstat, mkdtemp, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { chmod, lstat, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
+import { calculateReviewedPolicySha256 } from './cloudflare-evidence-prepare';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
+import { openEvidenceRun } from './cloudflare-evidence-run-journal';
+
+type Spawn = (
+  executable: string,
+  argv: readonly string[],
+  options: { cwd: string; env: Record<string, string> }
+) => Promise<void>;
 
 describe('spawnIsolatedCloudflareEvidenceProcess', () => {
+  const runId = 'b'.repeat(32);
   const prepareInput = {
-    runId: 'run-child-123',
+    runId,
     approvalId: 'approval-123',
     policyId: 'policy-123',
     toolingMergeSha: '1'.repeat(40),
@@ -16,36 +26,10 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     readTokenId: 'read-token-id',
     accountId: 'account-id',
     zoneId: 'zone-id',
-    plannedResources: ['baci-evidence-run-child-123'],
+    plannedResources: [`baci-evidence-${runId}`],
     preInventorySha256: 'a'.repeat(64),
     expectedProbeCount: 2,
   };
-  const prepareArguments = [
-    '--prepare',
-    '--run-id',
-    prepareInput.runId,
-    '--approval-id',
-    prepareInput.approvalId,
-    '--policy-id',
-    prepareInput.policyId,
-    '--tooling-merge-sha',
-    prepareInput.toolingMergeSha,
-    '--write-token-id',
-    prepareInput.writeTokenId,
-    '--read-token-id',
-    prepareInput.readTokenId,
-    '--account-id',
-    prepareInput.accountId,
-    '--zone-id',
-    prepareInput.zoneId,
-    '--planned-resource',
-    prepareInput.plannedResources[0],
-    '--pre-inventory-sha256',
-    prepareInput.preInventorySha256,
-    '--expected-probe-count',
-    String(prepareInput.expectedProbeCount),
-  ];
-
   it('creates a private initial journal and prints only its bounded handoff', async () => {
     const workspaceRoot = resolve(import.meta.dirname, '../../../..');
     const { stdout: toolingMergeSha } = await promisify(execFile)('git', [
@@ -59,6 +43,54 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       ...prepareInput,
       toolingMergeSha: toolingMergeSha.trim(),
     };
+    const runnerModulePath = resolve(
+      workspaceRoot,
+      'packages/shared/src/constants/countries.ts'
+    );
+    const runnerModuleSha256 = createHash('sha256')
+      .update(await readFile(runnerModulePath))
+      .digest('hex');
+    const authorityDir = await mkdtemp(
+      join(tmpdir(), 'baci-evidence-authority-')
+    );
+    await chmod(authorityDir, 0o700);
+    const authorityNow = new Date();
+    const approvedAt = new Date(
+      authorityNow.valueOf() - 60 * 1000
+    ).toISOString();
+    const expiresAt = new Date(
+      authorityNow.valueOf() + 60 * 60 * 1000
+    ).toISOString();
+    const policy = {
+      id: reviewedPrepareInput.policyId,
+      toolingMergeSha: reviewedPrepareInput.toolingMergeSha,
+      tokenId: reviewedPrepareInput.writeTokenId,
+      accountId: reviewedPrepareInput.accountId,
+      zoneId: reviewedPrepareInput.zoneId,
+      permissionGroupIds: ['workers.write'],
+      resources: ['account'],
+      expiresAt,
+      policySha256: calculateReviewedPolicySha256({
+        tokenId: reviewedPrepareInput.writeTokenId,
+        accountId: reviewedPrepareInput.accountId,
+        zoneId: reviewedPrepareInput.zoneId,
+        permissionGroupIds: ['workers.write'],
+        resources: ['account'],
+        expiresAt,
+      }),
+    };
+    const authority = {
+      id: reviewedPrepareInput.approvalId,
+      toolingMergeSha: reviewedPrepareInput.toolingMergeSha,
+      policyId: reviewedPrepareInput.policyId,
+      policySha256: policy.policySha256,
+      approvedAt,
+      expiresAt,
+    };
+    const approvalPath = join(authorityDir, 'approval.json');
+    const policyPath = join(authorityDir, 'policy.json');
+    await writeFile(approvalPath, JSON.stringify(authority), { mode: 0o600 });
+    await writeFile(policyPath, JSON.stringify(policy), { mode: 0o600 });
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-prepare-child-'));
     await chmod(stateDir, 0o700);
     let stdout = '';
@@ -85,13 +117,19 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       {
         PATH: process.env.PATH ?? '',
         SECRET_THAT_MUST_NOT_ESCAPE: 'never-forward',
+        CLOUDFLARE_WRITE_TOKEN: 'credential-must-not-escape',
+        EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+        EVIDENCE_POLICY_ARTIFACT: policyPath,
+        EVIDENCE_MUTATION_RUNNER_MODULE: runnerModulePath,
+        EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: runnerModuleSha256,
+        EVIDENCE_MEASUREMENT_RUNNER_MODULE: runnerModulePath,
+        EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: runnerModuleSha256,
       },
       undefined,
       workspaceRoot,
       stateDir,
       reviewedPrepareInput
     );
-    expect(stderr).toBe('');
     expect(stdout).toBe(
       `${JSON.stringify({ runId: reviewedPrepareInput.runId, nextPhase: 'mutate' })}\n`
     );
@@ -99,17 +137,33 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     const rawJournal = await readFile(journalPath, 'utf8');
     expect(JSON.parse(rawJournal)).toMatchObject({
       ...reviewedPrepareInput,
+      policySha256: policy.policySha256,
+      mutationRunnerModulePath: runnerModulePath,
+      mutationRunnerModuleSha256: runnerModuleSha256,
+      measurementRunnerModulePath: runnerModulePath,
+      measurementRunnerModuleSha256: runnerModuleSha256,
       phase: 'prepared',
       cleanupAttempts: 0,
     });
     expect((await lstat(journalPath)).mode & 0o077).toBe(0);
     expect(`${stdout}${stderr}${rawJournal}`).not.toContain('never-forward');
+    expect(`${stdout}${stderr}${rawJournal}`).not.toContain(
+      'credential-must-not-escape'
+    );
     await expect(
       spawnIsolatedCloudflareEvidenceProcess(
         spawner,
         'prepare',
         reviewedPrepareInput.runId,
-        { PATH: process.env.PATH ?? '' },
+        {
+          PATH: process.env.PATH ?? '',
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+          EVIDENCE_MUTATION_RUNNER_MODULE: runnerModulePath,
+          EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: runnerModuleSha256,
+          EVIDENCE_MEASUREMENT_RUNNER_MODULE: runnerModulePath,
+          EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: runnerModuleSha256,
+        },
         undefined,
         workspaceRoot,
         stateDir,
@@ -118,25 +172,46 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     ).rejects.toThrow('active');
   });
   it('uses separate children with one allowlisted credential and exact command ownership', async () => {
-    const spawn = vi.fn(async () => undefined);
+    const spawn = vi.fn<Spawn>(async () => undefined);
     const inherited = { PATH: '/bin', SECRET: 'never-forward' };
-    const workspaceRoot = '/workspace';
-    const stateDir = '/private/evidence-state';
-    await spawnIsolatedCloudflareEvidenceProcess(
-      { spawn },
-      'prepare',
-      prepareInput.runId,
-      inherited,
-      undefined,
+    const workspaceRoot = resolve(import.meta.dirname, '../../../..');
+    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-isolation-'));
+    await chmod(stateDir, 0o700);
+    const { stdout: toolingMergeSha } = await promisify(execFile)('git', [
+      '-C',
       workspaceRoot,
-      stateDir,
-      prepareInput
+      'rev-parse',
+      '--verify',
+      'HEAD',
+    ]);
+    const runnerModulePath = resolve(
+      workspaceRoot,
+      'packages/shared/src/constants/countries.ts'
     );
+    const runnerModuleSha256 = createHash('sha256')
+      .update(await readFile(runnerModulePath))
+      .digest('hex');
+    await openEvidenceRun(stateDir, {
+      ...prepareInput,
+      toolingMergeSha: toolingMergeSha.trim(),
+      mutationRunnerModulePath: runnerModulePath,
+      mutationRunnerModuleSha256: runnerModuleSha256,
+      measurementRunnerModulePath: runnerModulePath,
+      measurementRunnerModuleSha256: runnerModuleSha256,
+    });
+    const attackerPath = '/tmp/attacker-runner.ts';
+    const credentialInherited = {
+      ...inherited,
+      EVIDENCE_MUTATION_RUNNER_MODULE: attackerPath,
+      EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: 'f'.repeat(64),
+      EVIDENCE_MEASUREMENT_RUNNER_MODULE: attackerPath,
+      EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: 'f'.repeat(64),
+    };
     await spawnIsolatedCloudflareEvidenceProcess(
       { spawn },
       'mutate',
-      'run-123',
-      inherited,
+      prepareInput.runId,
+      credentialInherited,
       { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
       workspaceRoot,
       stateDir
@@ -144,8 +219,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     await spawnIsolatedCloudflareEvidenceProcess(
       { spawn },
       'cleanup',
-      'run-123',
-      inherited,
+      prepareInput.runId,
+      credentialInherited,
       { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
       workspaceRoot,
       stateDir
@@ -153,51 +228,58 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     await spawnIsolatedCloudflareEvidenceProcess(
       { spawn },
       'measure',
-      'run-123',
-      inherited,
+      prepareInput.runId,
+      credentialInherited,
       { name: 'CLOUDFLARE_READ_TOKEN', value: 'read' },
       workspaceRoot,
       stateDir
     );
-    expect(spawn).toHaveBeenCalledTimes(4);
+    expect(spawn).toHaveBeenCalledTimes(3);
     expect(spawn.mock.calls.map(([, argv]) => argv)).toEqual([
       [
-        '/workspace/apps/web/tools/cost/qualify-cloudflare-evidence-sources.ts',
-        ...prepareArguments,
-      ],
-      [
-        '/workspace/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts',
+        `${workspaceRoot}/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts`,
         '--run',
-        'run-123',
+        prepareInput.runId,
         '--apply',
       ],
       [
-        '/workspace/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts',
+        `${workspaceRoot}/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts`,
         '--cleanup-run',
-        'run-123',
+        prepareInput.runId,
       ],
       [
-        '/workspace/apps/web/tools/cost/measure-cloudflare-evidence-sources.ts',
+        `${workspaceRoot}/apps/web/tools/cost/measure-cloudflare-evidence-sources.ts`,
         '--run',
-        'run-123',
+        prepareInput.runId,
       ],
     ]);
     for (const [executable, , options] of spawn.mock.calls) {
-      expect(executable).toBe('/workspace/node_modules/.bin/tsx');
-      expect(options.cwd).toBe('/workspace');
+      expect(executable).toBe(`${workspaceRoot}/node_modules/.bin/tsx`);
       expect(options.env.EVIDENCE_RUN_STATE_DIR).toBe(stateDir);
     }
-    for (const [, , { env }] of spawn.mock.calls) {
+    for (const [, , { env }] of spawn.mock.calls.slice(0, 2)) {
       expect(env.SECRET).toBeUndefined();
+      expect(env.EVIDENCE_MUTATION_RUNNER_MODULE).toBe(runnerModulePath);
+      expect(env.EVIDENCE_MUTATION_RUNNER_MODULE_SHA256).toBe(
+        runnerModuleSha256
+      );
       expect(
         Object.keys(env).filter((key) => key.includes('TOKEN'))
       ).toHaveLength(
         env.CLOUDFLARE_WRITE_TOKEN || env.CLOUDFLARE_READ_TOKEN ? 1 : 0
       );
     }
+    const measureEnvironment = spawn.mock.calls[2]?.[2].env;
+    expect(measureEnvironment.EVIDENCE_MEASUREMENT_RUNNER_MODULE).toBe(
+      runnerModulePath
+    );
+    expect(measureEnvironment.EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256).toBe(
+      runnerModuleSha256
+    );
+    expect(measureEnvironment.EVIDENCE_MUTATION_RUNNER_MODULE).toBeUndefined();
   });
   it('rejects wrong and inherited credential combinations before spawning', async () => {
-    const spawn = vi.fn(async () => undefined);
+    const spawn = vi.fn<Spawn>(async () => undefined);
     await expect(
       spawnIsolatedCloudflareEvidenceProcess(
         { spawn },

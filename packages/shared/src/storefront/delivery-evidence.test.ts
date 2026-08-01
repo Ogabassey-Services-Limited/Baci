@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  canonicalizeJson,
   calculateCanonicalSha256,
   calculateStorefrontDeliveryDailyEvidenceSha256,
+  canonicalizeJson,
   StorefrontDeliveryDailyEvidenceSchema,
 } from './delivery-evidence';
 
@@ -29,6 +29,7 @@ const dailyEvidence = {
   unknownOriginAttemptCount: 0,
   edgeReleaseCount: 1000,
   edgeRejectCount: 0,
+  originFallbackCount: 0,
   terminalCount: 0,
   edgeErrorCount: 0,
   aliasEligibleRequestCount: 0,
@@ -90,7 +91,8 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
     expect(() => canonicalizeJson({ value: Number.NaN })).toThrow(
       'unsupported'
     );
-    const sparse = [1, , 3];
+    const sparse = [1, 2, 3];
+    delete sparse[1];
     expect(() => canonicalizeJson(sparse)).toThrow('sparse');
     expect(() => canonicalizeJson({ [Symbol('hidden')]: 'value' })).toThrow(
       'symbol'

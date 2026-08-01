@@ -1,3 +1,7 @@
+import {
+  calculateCanonicalSha256,
+  canonicalizeJson,
+} from '../../../../packages/shared/src/storefront/delivery-evidence';
 import type {
   CloudflareEvidenceTokenPolicy,
   CloudflareTokenVerificationClient,
@@ -16,6 +20,12 @@ export type ReviewedCloudflarePermissionMetadata = Readonly<{
   capability: 'read' | 'write' | 'admin';
 }>;
 
+export function calculateReviewedPermissionMetadataSha256(
+  metadata: readonly ReviewedCloudflarePermissionMetadata[]
+) {
+  return calculateCanonicalSha256(canonicalizeJson(metadata));
+}
+
 /** Verifies a distinct read-only token; it cannot be used where mutation capability is required. */
 export async function verifyCloudflareEvidenceReadTokenPolicy(
   liveToken: string,
@@ -23,7 +33,9 @@ export async function verifyCloudflareEvidenceReadTokenPolicy(
   reviewedPolicy: unknown,
   client: CloudflareTokenVerificationClient,
   permissionMetadata: readonly ReviewedCloudflarePermissionMetadata[] = [],
-  options: TokenPolicyVerificationOptions = {}
+  options: TokenPolicyVerificationOptions & {
+    permissionMetadataSha256?: string;
+  } = {}
 ): Promise<VerifiedEvidenceReadCapability> {
   const verified = await verifyCloudflareEvidenceTokenPolicy(
     liveToken,
@@ -35,6 +47,15 @@ export async function verifyCloudflareEvidenceReadTokenPolicy(
       maximumLifetimeMs: options.maximumLifetimeMs ?? 24 * 60 * 60 * 1000,
     }
   );
+  if (
+    permissionMetadata.length === 0 ||
+    !options.permissionMetadataSha256 ||
+    options.permissionMetadataSha256 !==
+      calculateReviewedPermissionMetadataSha256(permissionMetadata)
+  )
+    throw new Error(
+      'Cloudflare read token permission metadata is not cryptographically reviewed'
+    );
   for (const permissionId of verified.permissionGroupIds) {
     const metadata = permissionMetadata.find(
       (entry) => entry.id === permissionId

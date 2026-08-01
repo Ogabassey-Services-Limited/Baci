@@ -7,7 +7,7 @@ import {
 } from './delivery-evidence-manifest';
 
 const dailyEvidence = {
-  utcDate: '2026-07-01',
+  utcDate: '2026-07-25',
   hostnameInventorySha256: 'a'.repeat(64),
   eligibilityPolicySha256: 'b'.repeat(64),
   aliasRulesetVersion: 'alias-v1',
@@ -29,6 +29,7 @@ const dailyEvidence = {
   unknownOriginAttemptCount: 0,
   edgeReleaseCount: 1000,
   edgeRejectCount: 0,
+  originFallbackCount: 0,
   terminalCount: 0,
   edgeErrorCount: 0,
   aliasEligibleRequestCount: 0,
@@ -40,28 +41,28 @@ const dailyEvidence = {
   allowedOriginRateLimitCount: 0,
   sourceEvidence: {
     invocation: {
-      sourceFingerprint: 'invocation-v1',
+      sourceFingerprint: '1'.repeat(64),
       complete: true,
       exact: true,
       providerSamplingApplied: false,
       maxSampleInterval: 1,
     },
     aliasRedirect: {
-      sourceFingerprint: 'alias-v1',
+      sourceFingerprint: '2'.repeat(64),
       complete: true,
       exact: true,
       providerSamplingApplied: false,
       maxSampleInterval: 1,
     },
     wafRateLimit: {
-      sourceFingerprint: 'waf-v1',
+      sourceFingerprint: '3'.repeat(64),
       complete: true,
       exact: true,
       providerSamplingApplied: false,
       maxSampleInterval: 1,
     },
     originEvent: {
-      sourceFingerprint: 'origin-v1',
+      sourceFingerprint: '4'.repeat(64),
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -75,8 +76,11 @@ function sevenDays() {
   return Array.from({ length: 7 }, (_, index) => {
     const day = {
       ...dailyEvidence,
-      utcDate: `2026-07-0${index + 1}`,
-      exportedAt: `2026-07-${String(index + 2).padStart(2, '0')}T00:00:00.000Z`,
+      utcDate: `2026-07-${String(index + 25).padStart(2, '0')}`,
+      exportedAt:
+        index === 6
+          ? '2026-08-01T00:00:00.000Z'
+          : `2026-07-${String(index + 26).padStart(2, '0')}T00:00:00.000Z`,
       sha256: '',
     };
     day.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(day);
@@ -87,6 +91,7 @@ function sevenDays() {
 const manifest = () => {
   const hostnameInventorySha256 = calculateHostnameInventorySha256([
     'ogabassey.com',
+    'ogabassey.usebaci.com',
     'www.ogabassey.com',
   ]);
   const days = sevenDays().map((day) => {
@@ -95,11 +100,15 @@ const manifest = () => {
     return next;
   });
   const base = {
-    windowStart: '2026-07-01T00:00:00.000Z',
-    windowEnd: '2026-07-08T00:00:00.000Z',
+    windowStart: '2026-07-25T00:00:00.000Z',
+    windowEnd: '2026-08-01T00:00:00.000Z',
     canonicalHostname: 'ogabassey.com' as const,
-    aliasHostnames: ['www.ogabassey.com'],
-    inventoryHostnames: ['ogabassey.com', 'www.ogabassey.com'],
+    aliasHostnames: ['ogabassey.usebaci.com', 'www.ogabassey.com'],
+    inventoryHostnames: [
+      'ogabassey.com',
+      'ogabassey.usebaci.com',
+      'www.ogabassey.com',
+    ],
     hostnameInventorySha256,
     eligibilityPolicySha256: 'b'.repeat(64),
     aliasRulesetVersion: 'alias-v1',
@@ -108,10 +117,10 @@ const manifest = () => {
     originOnlyVersionId: 'origin-v1',
     edgeVersionId: 'edge-v1',
     sourceFingerprints: {
-      invocation: 'invocation-v1',
-      aliasRedirect: 'alias-v1',
-      wafRateLimit: 'waf-v1',
-      originEvent: 'origin-v1',
+      invocation: '1'.repeat(64),
+      aliasRedirect: '2'.repeat(64),
+      wafRateLimit: '3'.repeat(64),
+      originEvent: '4'.repeat(64),
     },
     evidenceSource: 'worker-analytics' as const,
     days,
@@ -124,32 +133,37 @@ const manifest = () => {
 };
 
 describe('validateStorefrontDeliveryManifest', () => {
+  const now = new Date('2026-08-01T12:00:00.000Z');
   it('accepts exactly seven contiguous closed UTC days', () =>
-    expect(validateStorefrontDeliveryManifest(manifest()).ok).toBe(true));
+    expect(validateStorefrontDeliveryManifest(manifest(), { now }).ok).toBe(
+      true
+    ));
   it('rejects a missing day and an unsorted or omitted hostname partition', () => {
     expect(
-      validateStorefrontDeliveryManifest({
-        ...manifest(),
-        days: sevenDays().slice(1),
-      }).ok
+      validateStorefrontDeliveryManifest(
+        { ...manifest(), days: sevenDays().slice(1) },
+        { now }
+      ).ok
     ).toBe(false);
     expect(
       validateStorefrontDeliveryManifest({
         ...manifest(),
         aliasHostnames: ['www.ogabassey.com'],
-        inventoryHostnames: ['ogabassey.com'],
+        inventoryHostnames: ['ogabassey.com', 'www.ogabassey.com'],
       }).ok
     ).toBe(false);
   });
   it('rejects tampered daily or canonical hostname-inventory hashes', () => {
     const tamperedDay = manifest();
     tamperedDay.days[0].sha256 = 'f'.repeat(64);
-    expect(validateStorefrontDeliveryManifest(tamperedDay).ok).toBe(false);
+    expect(validateStorefrontDeliveryManifest(tamperedDay, { now }).ok).toBe(
+      false
+    );
     expect(
-      validateStorefrontDeliveryManifest({
-        ...manifest(),
-        hostnameInventorySha256: 'f'.repeat(64),
-      }).ok
+      validateStorefrontDeliveryManifest(
+        { ...manifest(), hostnameInventorySha256: 'f'.repeat(64) },
+        { now }
+      ).ok
     ).toBe(false);
   });
   it('rejects a daily drift from each independent evidence source even with a resealed daily hash', () => {
@@ -162,15 +176,57 @@ describe('validateStorefrontDeliveryManifest', () => {
       const candidate = manifest();
       candidate.days[3].sourceEvidence[source] = {
         ...candidate.days[3].sourceEvidence[source],
-        sourceFingerprint: `${source}-drift`,
+        sourceFingerprint: 'f'.repeat(64),
       };
       candidate.days[3].sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(
         candidate.days[3]
       );
-      expect(validateStorefrontDeliveryManifest(candidate)).toMatchObject({
+      expect(
+        validateStorefrontDeliveryManifest(candidate, { now })
+      ).toMatchObject({
         ok: false,
         reasonCodes: expect.arrayContaining(['source_fingerprint_drift']),
       });
     }
+  });
+  it('rejects calendar-invalid UTC boundaries even when their normalized duration hashes correctly', () => {
+    const candidate = manifest();
+    candidate.windowStart = '2026-02-30T00:00:00.000Z';
+    expect(
+      validateStorefrontDeliveryManifest(candidate, { now })
+    ).toMatchObject({ ok: false, reasonCodes: ['manifest_invalid'] });
+  });
+  it('requires both known Ogabassey aliases at schema parse time', () => {
+    expect(
+      validateStorefrontDeliveryManifest(
+        { ...manifest(), aliasHostnames: ['www.ogabassey.com'] },
+        { now }
+      )
+    ).toMatchObject({ ok: false, reasonCodes: ['manifest_invalid'] });
+  });
+  it('rejects a stale window and an export timestamp after validation time', () => {
+    const stale = manifest();
+    stale.windowStart = '2026-06-25T00:00:00.000Z';
+    stale.windowEnd = '2026-07-02T00:00:00.000Z';
+    stale.days = sevenDays().map((day, index) => ({
+      ...day,
+      utcDate: new Date(Date.UTC(2026, 5, 25 + index))
+        .toISOString()
+        .slice(0, 10),
+      exportedAt: new Date(Date.UTC(2026, 5, 26 + index)).toISOString(),
+    }));
+    expect(validateStorefrontDeliveryManifest(stale, { now })).toMatchObject({
+      ok: false,
+      reasonCodes: expect.arrayContaining(['window_stale']),
+    });
+    const future = manifest();
+    future.days[6].exportedAt = '2026-08-01T13:00:00.000Z';
+    future.days[6].sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(
+      future.days[6]
+    );
+    expect(validateStorefrontDeliveryManifest(future, { now })).toMatchObject({
+      ok: false,
+      reasonCodes: expect.arrayContaining(['day_exported_in_future']),
+    });
   });
 });

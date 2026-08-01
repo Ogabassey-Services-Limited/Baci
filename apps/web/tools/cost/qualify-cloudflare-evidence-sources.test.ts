@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildClosedEvidenceProcessEnvironment,
-  calculatePointerCacheCanonicalSha256,
   executeCloudflareEvidenceQualification,
   parseQualificationArguments,
-  qualifyCloudflareEvidenceReadback,
-  qualifyCloudflareReleasePurgeContract,
-  qualifyCloudflareTopologyEndpoints,
+  QUALIFICATION_POINTER_URL,
 } from './qualify-cloudflare-evidence-sources';
+import { readback } from './qualify-cloudflare-evidence-sources.test-fixtures';
 
 describe('parseQualificationArguments', () => {
   it('leaves functional prepare to its strict option parser', () => {
@@ -21,129 +18,18 @@ describe('parseQualificationArguments', () => {
       parseQualificationArguments([
         '--validate-readback',
         '/private/receipt.json',
+        '--expected-artifact-a',
+        '/private/artifact-a.json',
+        '--expected-artifact-b',
+        '/private/artifact-b.json',
+        '--script-name',
+        'baci-evidence-qualification',
       ]).mode
     ).toBe('validate-readback');
   });
 });
 
 describe('Cloudflare read-only qualification contracts', () => {
-  const readback = {
-    apiFamily: 'scripts-versions',
-    scriptName: 'baci-evidence-qualification',
-    versions: [
-      {
-        versionId: 'a',
-        endpoint:
-          '/accounts/account/workers/scripts/baci-evidence-qualification/versions/a',
-        scriptEtag: 'a'.repeat(64),
-        moduleSha256: 'b'.repeat(64),
-        settingsSha256: 'c'.repeat(64),
-      },
-      {
-        versionId: 'b',
-        endpoint:
-          '/accounts/account/workers/scripts/baci-evidence-qualification/versions/b',
-        scriptEtag: 'd'.repeat(64),
-        moduleSha256: 'e'.repeat(64),
-        settingsSha256: 'f'.repeat(64),
-      },
-    ],
-    deploymentsEndpoint:
-      '/accounts/account/workers/scripts/baci-evidence-qualification/deployments',
-    pointerCache: {
-      cacheRuleId: 'rule',
-      cacheRulesetVersion: 'v1',
-      traceExpressionSha256: 'a'.repeat(64),
-      acceptedCfCacheStatuses: ['DYNAMIC'],
-      requestCacheMode: 'no-store',
-      repeatedProbeCount: 2,
-      ageObserved: false,
-      hitObserved: false,
-      missObserved: false,
-      qualifiedAt: '2026-07-31T00:00:00.000Z',
-      expiresAt: '2026-07-31T00:02:00.000Z',
-      canonicalSha256: '',
-    },
-  };
-  {
-    const { canonicalSha256: _ignored, ...withoutHash } = readback.pointerCache;
-    readback.pointerCache.canonicalSha256 =
-      calculatePointerCacheCanonicalSha256(withoutHash);
-  }
-  it('rejects swapped/latest-only script artifacts and cache hits', () => {
-    expect(
-      qualifyCloudflareEvidenceReadback(readback, {
-        now: new Date('2026-07-31T00:01:00.000Z'),
-      }).ok
-    ).toBe(true);
-    expect(
-      qualifyCloudflareEvidenceReadback(
-        {
-          ...readback,
-          versions: [
-            readback.versions[0],
-            { ...readback.versions[1], moduleSha256: 'b'.repeat(64) },
-          ],
-        },
-        { now: new Date('2026-07-31T00:01:00.000Z') }
-      ).ok
-    ).toBe(false);
-    expect(
-      qualifyCloudflareEvidenceReadback(
-        {
-          ...readback,
-          pointerCache: { ...readback.pointerCache, hitObserved: true },
-        },
-        { now: new Date('2026-07-31T00:01:00.000Z') }
-      ).ok
-    ).toBe(false);
-  });
-  it('constructs a closed one-token environment and rejects inherited credentials', () => {
-    expect(
-      buildClosedEvidenceProcessEnvironment('CLOUDFLARE_READ_TOKEN', 'read', {
-        PATH: '/bin',
-      })
-    ).toEqual({ PATH: '/bin', CLOUDFLARE_READ_TOKEN: 'read' });
-    expect(() =>
-      buildClosedEvidenceProcessEnvironment('CLOUDFLARE_READ_TOKEN', 'read', {
-        CLOUDFLARE_READ_TOKEN: 'read',
-        CLOUDFLARE_WRITE_TOKEN: 'write',
-      })
-    ).toThrow('inherited');
-  });
-  it('fails closed for malformed purge and topology endpoint schemas', () => {
-    expect(
-      qualifyCloudflareReleasePurgeContract({
-        endpoint: '/zones/zone/purge_cache',
-        requestSchemaSha256: 'a'.repeat(64),
-        rateLimitFingerprint: 'b'.repeat(64),
-        policySha256: 'c'.repeat(64),
-        productionResourceState: 'absent_requires_bootstrap',
-      }).ok
-    ).toBe(true);
-    expect(
-      qualifyCloudflareReleasePurgeContract({
-        endpoint: '/zones/zone/purge_cache',
-        requestSchemaSha256: 'bad',
-        rateLimitFingerprint: 'b'.repeat(64),
-        policySha256: 'c'.repeat(64),
-        productionResourceState: 'absent_requires_bootstrap',
-      }).ok
-    ).toBe(false);
-    expect(
-      qualifyCloudflareTopologyEndpoints({
-        endpoints: [
-          {
-            family: 'r2-custom-domain',
-            endpoint: '/accounts/account/r2/buckets/bucket/domains',
-            requestSchemaSha256: 'a'.repeat(64),
-            responseSchemaSha256: 'b'.repeat(64),
-            maximumVisibilitySeconds: 60,
-          },
-        ],
-      }).ok
-    ).toBe(true);
-  });
   it('executes Scripts Versions, Deployments, Trace, repeated pointers, and bounded purge through an injected client', async () => {
     const calls: string[] = [];
     const artifactA = readback.versions[0];
@@ -169,7 +55,13 @@ describe('Cloudflare read-only qualification contracts', () => {
       },
       readDeployments: async () => {
         calls.push('deployments');
-        return ['a', 'b'];
+        return {
+          deploymentId: 'deployment',
+          versions: [
+            { versionId: 'a', percentage: 100 },
+            { versionId: 'b', percentage: 0 },
+          ],
+        };
       },
       trace: async () => {
         calls.push('trace');
@@ -204,13 +96,23 @@ describe('Cloudflare read-only qualification contracts', () => {
         accountId: 'account',
         scriptName: readback.scriptName,
         artifacts: [artifactA, artifactB],
-        pointerUrl: 'https://edge-evidence.ogabassey.com/',
+        pointerUrl: QUALIFICATION_POINTER_URL,
         purge: {
           endpoint: '/zones/zone/purge_cache',
           requestSchemaSha256: 'a'.repeat(64),
           rateLimitFingerprint: 'b'.repeat(64),
           policySha256: 'c'.repeat(64),
           productionResourceState: 'present_verified',
+        },
+        journaledPurge: {
+          zoneId: 'zone',
+          contract: {
+            endpoint: '/zones/zone/purge_cache',
+            requestSchemaSha256: 'a'.repeat(64),
+            rateLimitFingerprint: 'b'.repeat(64),
+            policySha256: 'c'.repeat(64),
+            productionResourceState: 'present_verified',
+          },
         },
         topology: {
           family: 'r2-custom-domain',
@@ -246,13 +148,23 @@ describe('Cloudflare read-only qualification contracts', () => {
           accountId: 'account',
           scriptName: readback.scriptName,
           artifacts: [artifactA, artifactB],
-          pointerUrl: 'https://edge-evidence.ogabassey.com/',
+          pointerUrl: QUALIFICATION_POINTER_URL,
           purge: {
             endpoint: '/zones/zone/purge_cache',
             requestSchemaSha256: 'a'.repeat(64),
             rateLimitFingerprint: 'b'.repeat(64),
             policySha256: 'c'.repeat(64),
             productionResourceState: 'present_verified',
+          },
+          journaledPurge: {
+            zoneId: 'zone',
+            contract: {
+              endpoint: '/zones/zone/purge_cache',
+              requestSchemaSha256: 'a'.repeat(64),
+              rateLimitFingerprint: 'b'.repeat(64),
+              policySha256: 'c'.repeat(64),
+              productionResourceState: 'present_verified',
+            },
           },
           topology: {
             family: 'r2-custom-domain',
@@ -265,5 +177,111 @@ describe('Cloudflare read-only qualification contracts', () => {
         }
       )
     ).rejects.toThrow('cacheable');
+  });
+  it('rejects BYPASS, unrelated evidence URLs, and noncanonical deployment tuples', async () => {
+    const artifactA = readback.versions[0];
+    const artifactB = readback.versions[1];
+    const baseInput = {
+      accountId: 'account',
+      scriptName: readback.scriptName,
+      artifacts: [artifactA, artifactB] as const,
+      pointerUrl: QUALIFICATION_POINTER_URL,
+      purge: {
+        endpoint: '/zones/zone/purge_cache',
+        requestSchemaSha256: 'a'.repeat(64),
+        rateLimitFingerprint: 'b'.repeat(64),
+        policySha256: 'c'.repeat(64),
+        productionResourceState: 'present_verified' as const,
+      },
+      journaledPurge: {
+        zoneId: 'zone',
+        contract: {
+          endpoint: '/zones/zone/purge_cache',
+          requestSchemaSha256: 'a'.repeat(64),
+          rateLimitFingerprint: 'b'.repeat(64),
+          policySha256: 'c'.repeat(64),
+          productionResourceState: 'present_verified' as const,
+        },
+      },
+      topology: {
+        family: 'r2-custom-domain' as const,
+        endpoint: '/accounts/account/r2/buckets/bucket/domains',
+        requestSchemaSha256: 'a'.repeat(64),
+        responseSchemaSha256: 'b'.repeat(64),
+        maximumVisibilitySeconds: 60,
+      },
+      zoneId: 'zone',
+    };
+    const baseClient = {
+      listVersions: async () => ['a', 'b'],
+      readVersion: async (
+        _account: string,
+        _script: string,
+        versionId: string
+      ) => (versionId === 'a' ? artifactA : { ...artifactB, versionId }),
+      readDeployments: async () => ({
+        deploymentId: 'deployment',
+        versions: [
+          { versionId: 'a', percentage: 100 },
+          { versionId: 'b', percentage: 0 },
+        ],
+      }),
+      trace: async () => ({ matched: true }),
+      pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
+      temporaryPurge: async () => ({ operationId: 'purge' }),
+      readPurge: async () => 'complete' as const,
+      topologyConverged: async () => true,
+    };
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...baseClient,
+          readDeployments: async () => ({
+            deploymentId: 'deployment',
+            versions: [
+              { versionId: 'a', percentage: 50 },
+              { versionId: 'b', percentage: 50 },
+            ],
+          }),
+        } as never,
+        baseInput
+      )
+    ).rejects.toThrow('100/0');
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...baseClient,
+          pointerProbe: async () => ({ cfCacheStatus: 'BYPASS' }),
+        } as never,
+        baseInput
+      )
+    ).rejects.toThrow('cacheable');
+    await expect(
+      executeCloudflareEvidenceQualification(baseClient as never, {
+        ...baseInput,
+        pointerUrl: 'https://edge-evidence.ogabassey.com/',
+      })
+    ).rejects.toThrow('pointer URL');
+    await expect(
+      executeCloudflareEvidenceQualification(baseClient as never, {
+        ...baseInput,
+        journaledPurge: {
+          ...baseInput.journaledPurge,
+          contract: {
+            ...baseInput.journaledPurge.contract,
+            requestSchemaSha256: 'd'.repeat(64),
+          },
+        },
+      })
+    ).rejects.toThrow('journaled');
+    await expect(
+      executeCloudflareEvidenceQualification(baseClient as never, {
+        ...baseInput,
+        purge: {
+          ...baseInput.purge,
+          policySha256: 'd'.repeat(64),
+        },
+      })
+    ).rejects.toThrow('journaled');
   });
 });

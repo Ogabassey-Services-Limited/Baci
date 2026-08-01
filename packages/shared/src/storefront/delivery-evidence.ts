@@ -38,6 +38,7 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
     unknownOriginAttemptCount: CountSchema,
     edgeReleaseCount: CountSchema,
     edgeRejectCount: CountSchema,
+    originFallbackCount: CountSchema,
     terminalCount: CountSchema,
     edgeErrorCount: CountSchema,
     aliasEligibleRequestCount: CountSchema,
