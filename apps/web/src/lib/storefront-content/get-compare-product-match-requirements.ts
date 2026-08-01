@@ -7,8 +7,11 @@ import { normalizeContentCurrencyTokens } from './normalize-content-currency-tok
 type CompareProductMatchRequirement = {
   identifier: string;
   brand: string | null;
-  occurrence?: number;
+  discriminatorTokens?: string[];
 };
+
+const VARIANT_DISCRIMINATOR_PATTERN =
+  /^(?:\d+(?:gb|tb|mb|mm|inch)|(?:e)?sim|wifi|cellular|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
 
 function tokenize(value: string) {
   return normalizeContentCurrencyTokens(value)
@@ -48,6 +51,14 @@ function inferSourceBrand(
   );
 }
 
+function getSourceDiscriminatorTokens(source: string, identifier: string) {
+  const identifierTokens = new Set(tokenize(identifier));
+  return tokenize(source).filter(
+    (token) =>
+      !identifierTokens.has(token) && VARIANT_DISCRIMINATOR_PATTERN.test(token)
+  );
+}
+
 /** Builds per-product compare requirements without collapsing brand collisions. */
 export function getCompareProductMatchRequirements(
   context: BuildCommercialGuideLinksContext
@@ -71,6 +82,10 @@ export function getCompareProductMatchRequirements(
           {
             identifier,
             brand: inferSourceBrand(brandSource, context),
+            discriminatorTokens: getSourceDiscriminatorTokens(
+              brandSource,
+              identifier
+            ),
           },
         ]
       : [];
@@ -91,13 +106,17 @@ export function getCompareProductMatchRequirements(
     const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
     candidateCounts.set(key, (candidateCounts.get(key) ?? 0) + 1);
   }
-  const candidateOccurrences = new Map<string, number>();
+  const candidateGroups = new Map<string, typeof candidates>();
+  for (const candidate of candidates) {
+    const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
+    const group = candidateGroups.get(key) ?? [];
+    group.push(candidate);
+    candidateGroups.set(key, group);
+  }
 
   return candidates
     .map((candidate) => {
       const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
-      const occurrence = (candidateOccurrences.get(key) ?? 0) + 1;
-      candidateOccurrences.set(key, occurrence);
       const requirement: CompareProductMatchRequirement = {
         identifier: candidate.identifier,
         brand:
@@ -106,7 +125,16 @@ export function getCompareProductMatchRequirements(
             : null,
       };
       if ((candidateCounts.get(key) ?? 0) > 1) {
-        requirement.occurrence = occurrence;
+        const group = candidateGroups.get(key) ?? [];
+        const discriminatorTokens = candidate.discriminatorTokens.filter(
+          (token) =>
+            group
+              .filter((other) => other !== candidate)
+              .every((other) => !other.discriminatorTokens.includes(token))
+        );
+        if (discriminatorTokens.length > 0) {
+          requirement.discriminatorTokens = discriminatorTokens;
+        }
       }
       return requirement;
     })
@@ -116,7 +144,8 @@ export function getCompareProductMatchRequirements(
           (other) =>
             other.identifier === candidate.identifier &&
             other.brand === candidate.brand &&
-            other.occurrence === candidate.occurrence
+            other.discriminatorTokens?.join('\u0000') ===
+              candidate.discriminatorTokens?.join('\u0000')
         ) === index
     );
 }

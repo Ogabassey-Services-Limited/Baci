@@ -7,6 +7,8 @@ import { normalizeContentCurrencyTokens } from './normalize-content-currency-tok
 const MAX_SEARCH_QUERY_LENGTH = 512;
 const MAX_SEARCH_TERM_LENGTH = 80;
 const WEBSEARCH_OPERATOR_WORDS = new Set(['and', 'not', 'or']);
+const INDEX_METADATA_TOKEN_PATTERN =
+  /^\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg)$/u;
 const UTF8_ENCODER = new TextEncoder();
 
 function normalizeSearchTerm(value: string): string {
@@ -20,7 +22,8 @@ function normalizeSearchTerm(value: string): string {
       (word) =>
         word.length > 0 &&
         word.length <= MAX_SEARCH_TERM_LENGTH &&
-        !WEBSEARCH_OPERATOR_WORDS.has(word)
+        !WEBSEARCH_OPERATOR_WORDS.has(word) &&
+        !INDEX_METADATA_TOKEN_PATTERN.test(word)
     );
   const accepted: string[] = [];
 
@@ -33,6 +36,21 @@ function normalizeSearchTerm(value: string): string {
   }
 
   return accepted.join(' ');
+}
+
+function normalizeIndexCompatibleSearchTerm(value: string): string {
+  const words = value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .split(/\s+/u)
+    .filter(
+      (word) =>
+        word.length > 0 &&
+        word.length <= MAX_SEARCH_TERM_LENGTH &&
+        !WEBSEARCH_OPERATOR_WORDS.has(word)
+    );
+  return words.join(' ');
 }
 
 function getContextBrandTerms(
@@ -101,6 +119,19 @@ function getCompactCategoryProductTerm(identifier: string) {
   );
 }
 
+function getIndexCompatibleProductTerms(
+  context: BuildCommercialGuideLinksContext
+) {
+  if (context.pageKind !== 'product' && context.pageKind !== 'compare') {
+    return [];
+  }
+
+  const productSources = context.productNames?.length
+    ? context.productNames
+    : (context.productSlugs ?? []);
+  return productSources.map(normalizeIndexCompatibleSearchTerm).filter(Boolean);
+}
+
 export function buildClusterGuideSearchQuery(
   context: BuildCommercialGuideLinksContext
 ): string {
@@ -127,6 +158,7 @@ export function buildClusterGuideSearchQuery(
     ...getContextBrandTerms(context),
     ...modelFamilyTerms,
     ...productTerms,
+    ...getIndexCompatibleProductTerms(context),
     ...priceBandTerms,
     ...support.articleTokens,
   ];

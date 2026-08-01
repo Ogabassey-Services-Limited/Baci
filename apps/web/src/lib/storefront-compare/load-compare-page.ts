@@ -30,6 +30,7 @@ import {
   type ProductComparisonMatrix,
 } from '@/lib/storefront-specs/spec-matrix';
 import type { ComparableProductKeySpecs } from '@/lib/storefront-specs/spec-taxonomy';
+import { buildCompareGuideContexts } from './build-compare-guide-contexts';
 import { extractComparableKeySpecs } from './comparable-key-specs';
 import {
   buildBrandCompareCandidate,
@@ -838,9 +839,17 @@ async function getCachedComparePageModel(
       `${leftDetails.name} vs ${rightDetails.name}`,
       countryContext
     );
-    const guideBrands = [leftDetails.brand, rightDetails.brand].filter(
-      (brand): brand is string => Boolean(brand)
-    );
+    const compareGuideContexts = buildCompareGuideContexts({
+      supportedClusterCategory,
+      leftBrand: leftDetails.brand,
+      rightBrand: rightDetails.brand,
+      leftName: leftDetails.name,
+      rightName: rightDetails.name,
+      leftLoadSlug: parsed.leftKey,
+      rightLoadSlug: parsed.rightKey,
+      leftBuildSlug: leftDetails.slug || parsed.leftKey,
+      rightBuildSlug: rightDetails.slug || parsed.rightKey,
+    });
     return {
       kind: 'product',
       canonicalSlug: parsed.canonicalSlug,
@@ -890,27 +899,7 @@ async function getCachedComparePageModel(
         isMaintainedCanonicalSlug: true,
         // Faithful to the pre-overlay contexts: the guide LOAD used the raw
         // parsed URL keys, the guide BUILD used the resolved detail slugs.
-        guideLoadContext: supportedClusterCategory
-          ? {
-              pageKind: 'compare',
-              categorySlug: supportedClusterCategory,
-              brands: guideBrands,
-              productNames: [leftDetails.name, rightDetails.name],
-              productSlugs: [parsed.leftKey, parsed.rightKey],
-            }
-          : null,
-        guideBuildContext: supportedClusterCategory
-          ? {
-              pageKind: 'compare',
-              categorySlug: supportedClusterCategory,
-              brands: guideBrands,
-              productNames: [leftDetails.name, rightDetails.name],
-              productSlugs: [
-                leftDetails.slug || parsed.leftKey,
-                rightDetails.slug || parsed.rightKey,
-              ],
-            }
-          : null,
+        ...compareGuideContexts,
       },
     };
   }

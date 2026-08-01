@@ -7,9 +7,9 @@ import type {
   ContentClusterKind,
   InformationalGuideLink,
 } from './content-cluster-types';
-import { countCleanIdentifierOccurrences } from './count-clean-identifier-occurrences';
 import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
+import { hasCleanIdentifierOccurrence } from './has-clean-identifier-occurrence';
 import { inferContentClusterContext } from './infer-content-cluster-context';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 
@@ -81,7 +81,7 @@ function matchesProductIdentifier(
   inferredTokens: string[],
   identifierTokens: string[],
   hasBrandMatch: boolean,
-  minimumOccurrences = 1
+  occurrenceOptions?: Parameters<typeof hasCleanIdentifierOccurrence>[2]
 ) {
   if (
     identifierTokens.length === 0 ||
@@ -92,9 +92,10 @@ function matchesProductIdentifier(
     return false;
   }
 
-  return (
-    countCleanIdentifierOccurrences(post, identifierTokens) >=
-    minimumOccurrences
+  return hasCleanIdentifierOccurrence(
+    post,
+    identifierTokens,
+    occurrenceOptions
   );
 }
 
@@ -192,14 +193,18 @@ export function buildCommercialGuideLinks(
         input.context.pageKind === 'compare' &&
         compareProductMatchRequirements.length > 0 &&
         compareProductMatchRequirements.every(
-          ({ identifier, brand, occurrence }) =>
+          ({ identifier, brand, discriminatorTokens }) =>
             (!brand || inferred.brands.includes(brand)) &&
             matchesProductIdentifier(
               post,
               inferred.tokens,
               tokenizeModelIdentifier(identifier),
               hasBrandMatch,
-              occurrence
+              {
+                brand,
+                knownBrands: inferred.brands,
+                discriminatorTokens,
+              }
             )
         );
       const qualifiesForProductTokenMatch =

@@ -9,7 +9,8 @@ describe('buildCommercialGuideLinks same-brand compare variants', () => {
         {
           slug: 'iphone-15-buyer-guide',
           title: 'iPhone 15 Buyer Guide',
-          excerpt: null,
+          excerpt:
+            'The iPhone 15 buying guide covers battery, camera, and storage options.',
           category: 'Smartphones',
           tags: ['smartphones', 'apple'],
           keywords: null,

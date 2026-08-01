@@ -140,4 +140,23 @@ describe('buildClusterGuideSearchQuery', () => {
 
     expect(query).toContain('"gbp 50"');
   });
+
+  it('adds raw index-compatible fallbacks for currency and plus symbols', () => {
+    const giftCardQuery = buildClusterGuideSearchQuery({
+      pageKind: 'product',
+      categorySlug: 'gift-cards',
+      productNames: ['PSN Card £50 Gift Card'],
+      productSlugs: [],
+    });
+    const plusModelQuery = buildClusterGuideSearchQuery({
+      pageKind: 'product',
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productNames: ['Samsung Galaxy S24+'],
+      productSlugs: [],
+    });
+
+    expect(giftCardQuery).toContain('"psn card 50 gift card"');
+    expect(plusModelQuery).toContain('"samsung galaxy s24"');
+  });
 });

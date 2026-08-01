@@ -28,8 +28,12 @@ describe('getCompareProductMatchRequirements', () => {
     });
 
     expect(requirements).toEqual([
-      { identifier: '15', brand: null, occurrence: 1 },
-      { identifier: '15', brand: null, occurrence: 2 },
+      { identifier: '15', brand: null, discriminatorTokens: ['128gb', 'esim'] },
+      {
+        identifier: '15',
+        brand: null,
+        discriminatorTokens: ['256gb', 'physical', 'sim'],
+      },
     ]);
   });
 });

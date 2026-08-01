@@ -114,6 +114,21 @@ describe('getPublishedClusterPosts', () => {
     ]);
   });
 
+  it('passes index-compatible symbol fallbacks to the candidate RPC', async () => {
+    await getPublishedClusterPosts('merchant-1', {
+      pageKind: 'product',
+      categorySlug: 'gift-cards',
+      productNames: ['PSN Card £50 Gift Card'],
+      productSlugs: [],
+    });
+
+    expect(mockRpc.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        p_search_query: expect.stringContaining('"psn card 50 gift card"'),
+      })
+    );
+  });
+
   it('returns an empty candidate set when the RPC succeeds without rows', async () => {
     mockRpc.mockReturnValueOnce(createRpcQuery({ data: null, error: null }));
 
