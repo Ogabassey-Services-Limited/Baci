@@ -162,7 +162,10 @@ describe('GET /api/merchant/blog/posts/[id]', () => {
         embedded_products: productIds,
       });
       expect(mockSupabase.from).toHaveBeenCalledWith('blog_post_products');
-      expect(mockSupabase.select).toHaveBeenCalledWith('product_id');
+      expect(mockSupabase.select).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('product_id')
+      );
       expect(mockSupabase.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
       expect(mockSupabase.eq).toHaveBeenCalledWith('blog_post_id', POST_ID);
       expect(mockSupabase.order).toHaveBeenCalledWith('position', {
