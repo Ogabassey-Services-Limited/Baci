@@ -4,6 +4,12 @@ import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 
+type CompareProductMatchRequirement = {
+  identifier: string;
+  brand: string | null;
+  occurrence?: number;
+};
+
 function tokenize(value: string) {
   return normalizeContentCurrencyTokens(value)
     .toLowerCase()
@@ -80,20 +86,37 @@ export function getCompareProductMatchRequirements(
     brandsByIdentifier.set(candidate.identifier, brands);
   }
 
+  const candidateCounts = new Map<string, number>();
+  for (const candidate of candidates) {
+    const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
+    candidateCounts.set(key, (candidateCounts.get(key) ?? 0) + 1);
+  }
+  const candidateOccurrences = new Map<string, number>();
+
   return candidates
-    .map((candidate) => ({
-      identifier: candidate.identifier,
-      brand:
-        (brandsByIdentifier.get(candidate.identifier)?.size ?? 0) > 1
-          ? candidate.brand
-          : null,
-    }))
+    .map((candidate) => {
+      const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
+      const occurrence = (candidateOccurrences.get(key) ?? 0) + 1;
+      candidateOccurrences.set(key, occurrence);
+      const requirement: CompareProductMatchRequirement = {
+        identifier: candidate.identifier,
+        brand:
+          (brandsByIdentifier.get(candidate.identifier)?.size ?? 0) > 1
+            ? candidate.brand
+            : null,
+      };
+      if ((candidateCounts.get(key) ?? 0) > 1) {
+        requirement.occurrence = occurrence;
+      }
+      return requirement;
+    })
     .filter(
       (candidate, index, all) =>
         all.findIndex(
           (other) =>
             other.identifier === candidate.identifier &&
-            other.brand === candidate.brand
+            other.brand === candidate.brand &&
+            other.occurrence === candidate.occurrence
         ) === index
     );
 }

@@ -1,5 +1,6 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
+import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { normalizeProductModelTokens } from './normalize-product-model-tokens';
@@ -222,6 +223,7 @@ function getModelTokens(
   const modelTokens = tokens.filter(
     (token, index) =>
       !isModelMetadataToken(token, categorySlug) &&
+      !isBareCapacityMetadataToken(tokens, index) &&
       token !== 'inch' &&
       (token !== 'in' ||
         GAME_CATEGORY_PATTERN.test(categorySlug) ||

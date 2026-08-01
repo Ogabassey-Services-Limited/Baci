@@ -73,6 +73,17 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
     expect(identifiers).toEqual(['g3 15 3579']);
   });
 
+  it('removes a bare Nokia storage value before labeled memory metadata', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Nokia'],
+      productNames: ['Nokia X10 128 6GB'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['x10']);
+  });
+
   it('preserves an HP model number that repeats the display size', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',

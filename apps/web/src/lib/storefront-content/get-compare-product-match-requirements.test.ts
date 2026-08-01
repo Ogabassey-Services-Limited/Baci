@@ -15,4 +15,21 @@ describe('getCompareProductMatchRequirements', () => {
       { identifier: 'watch ultra', brand: 'samsung' },
     ]);
   });
+
+  it('retains occurrence discriminators for same-brand model variants', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productNames: [
+        'Apple iPhone 15 6GB 128GB eSIM',
+        'Apple iPhone 15 6GB 256GB physical SIM',
+      ],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: '15', brand: null, occurrence: 1 },
+      { identifier: '15', brand: null, occurrence: 2 },
+    ]);
+  });
 });

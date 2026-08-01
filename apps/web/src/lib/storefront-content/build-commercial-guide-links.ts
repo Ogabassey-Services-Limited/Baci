@@ -7,6 +7,7 @@ import type {
   ContentClusterKind,
   InformationalGuideLink,
 } from './content-cluster-types';
+import { countCleanIdentifierOccurrences } from './count-clean-identifier-occurrences';
 import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { inferContentClusterContext } from './infer-content-cluster-context';
@@ -19,27 +20,7 @@ const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
   'price-band': ['best-in-nigeria', 'buyer-guide'],
 };
 
-const MODEL_VARIANT_MARKER_TOKENS = new Set([
-  'active',
-  'classic',
-  'edge',
-  'fe',
-  'flip',
-  'fold',
-  'lite',
-  'max',
-  'mini',
-  'neo',
-  'plus',
-  'power',
-  'prime',
-  'pro',
-  'se',
-  'ultra',
-  'xl',
-]);
 const MODEL_FAMILY_CONTEXT_EXCLUSIONS = new Set(['and', 'or']);
-const MODEL_GENERATION_SUFFIX_PATTERN = /^\d{1,2}(?:st|nd|rd|th)?$/u;
 
 function toPublishedTimestamp(value: string | null) {
   if (!value) {
@@ -95,40 +76,12 @@ function hasContiguousTokenSequence(
   );
 }
 
-function hasCleanIdentifierOccurrence(
-  post: BuildCommercialGuideLinksInput['posts'][number],
-  identifierTokens: string[]
-) {
-  const postTokenGroups = [
-    post.title,
-    post.excerpt,
-    post.category,
-    ...(post.tags ?? []),
-    ...(post.keywords ?? []),
-  ].map(tokenizeText);
-
-  return postTokenGroups.some((postTokens) =>
-    postTokens.some((_, startIndex) => {
-      const matchesIdentifier = identifierTokens.every(
-        (token, offset) => postTokens[startIndex + offset] === token
-      );
-      const suffix = postTokens[startIndex + identifierTokens.length] ?? '';
-      return (
-        matchesIdentifier &&
-        !(
-          MODEL_VARIANT_MARKER_TOKENS.has(suffix) ||
-          MODEL_GENERATION_SUFFIX_PATTERN.test(suffix)
-        )
-      );
-    })
-  );
-}
-
 function matchesProductIdentifier(
   post: BuildCommercialGuideLinksInput['posts'][number],
   inferredTokens: string[],
   identifierTokens: string[],
-  hasBrandMatch: boolean
+  hasBrandMatch: boolean,
+  minimumOccurrences = 1
 ) {
   if (
     identifierTokens.length === 0 ||
@@ -139,7 +92,10 @@ function matchesProductIdentifier(
     return false;
   }
 
-  return hasCleanIdentifierOccurrence(post, identifierTokens);
+  return (
+    countCleanIdentifierOccurrences(post, identifierTokens) >=
+    minimumOccurrences
+  );
 }
 
 function hasContextualSingleTokenFamilyMatch(
@@ -236,13 +192,14 @@ export function buildCommercialGuideLinks(
         input.context.pageKind === 'compare' &&
         compareProductMatchRequirements.length > 0 &&
         compareProductMatchRequirements.every(
-          ({ identifier, brand }) =>
+          ({ identifier, brand, occurrence }) =>
             (!brand || inferred.brands.includes(brand)) &&
             matchesProductIdentifier(
               post,
               inferred.tokens,
               tokenizeModelIdentifier(identifier),
-              hasBrandMatch
+              hasBrandMatch,
+              occurrence
             )
         );
       const qualifiesForProductTokenMatch =
