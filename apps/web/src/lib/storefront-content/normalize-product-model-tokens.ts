@@ -86,8 +86,9 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
 
 /** Removes catalog suffixes that describe merchandising, region, or connectivity. */
 export function normalizeProductModelTokens(tokens: string[]) {
-  const withoutMerchandising = stripFirstMatchingSuffix(tokens, (token) =>
-    MERCHANDISING_SUFFIX_TOKENS.has(token)
+  const withoutMerchandising = stripFirstMatchingSuffix(
+    tokens,
+    (token, index) => index > 0 && MERCHANDISING_SUFFIX_TOKENS.has(token)
   );
   const withoutConnectivity =
     stripOptionalConnectivitySuffix(withoutMerchandising);

@@ -140,8 +140,8 @@ function stripTrailingProcessorTier(tokens: string[]) {
 }
 
 function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
-  const rawTokens = normalizeProductModelTokens(tokenize(slug)).filter(
-    (token) => !excludedTokens.has(token)
+  const rawTokens = normalizeProductModelTokens(
+    tokenize(slug).filter((token) => !excludedTokens.has(token))
   );
   const tokens =
     rawTokens.length > 1 &&

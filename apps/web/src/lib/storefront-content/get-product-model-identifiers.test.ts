@@ -167,6 +167,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['13 pro']);
   });
 
+  it('does not treat a leading Red Magic model token as merchandising', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Red Magic'],
+      productSlugs: ['red-magic-10-pro'],
+    });
+
+    expect(identifiers).toEqual(['10 pro']);
+  });
+
   it('retains model-family aliases in compound laptop identifiers', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
