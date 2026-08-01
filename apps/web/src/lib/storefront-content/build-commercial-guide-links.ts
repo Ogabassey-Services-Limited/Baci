@@ -6,6 +6,7 @@ import type {
   ContentClusterKind,
   InformationalGuideLink,
 } from './content-cluster-types';
+import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { inferContentClusterContext } from './infer-content-cluster-context';
 
 const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
@@ -54,6 +55,7 @@ export function buildCommercialGuideLinks(
   input: BuildCommercialGuideLinksInput
 ): InformationalGuideLink[] {
   const preferredKinds = KIND_PREFERENCE[input.context.pageKind];
+  const productModelIdentifiers = getProductModelIdentifiers(input.context);
 
   return input.posts
     .map((post) => {
@@ -92,8 +94,8 @@ export function buildCommercialGuideLinks(
       }
 
       if (
-        (input.context.productSlugs ?? []).some((slug) =>
-          tokenizeSlug(slug).some((token) => inferred.tokens.includes(token))
+        productModelIdentifiers.some((identifier) =>
+          inferred.tokens.includes(identifier)
         )
       ) {
         score += CONTENT_CLUSTER_SCORE.productTokenMatch;

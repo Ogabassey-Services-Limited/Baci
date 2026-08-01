@@ -65,6 +65,47 @@ describe('buildCommercialGuideLinks', () => {
     expect(links).toHaveLength(3);
   });
 
+  it('boosts a model guide without treating the brand token as a product match', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'itel-buyer-guide',
+          title: 'Itel Phones Buyer Guide',
+          excerpt: 'How to choose an Itel phone.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'itel'],
+          keywords: ['battery'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'itel-power-80-buyer-guide',
+          title: 'Itel Power 80 Buyer Guide',
+          excerpt: 'Battery life, 4G limits and camera expectations.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'itel', 'power 80'],
+          keywords: ['battery'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'category',
+        categorySlug: 'smartphones',
+        brands: ['Itel'],
+        productSlugs: ['itel-power-80-128gb-4gb'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/itel-power-80-buyer-guide',
+      'https://ogabassey.com/blog/itel-buyer-guide',
+    ]);
+  });
+
   it('treats malformed published dates as least-recent entries', () => {
     const links = buildCommercialGuideLinks({
       storeUrl: 'https://ogabassey.com',

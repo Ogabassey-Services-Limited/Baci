@@ -55,4 +55,23 @@ describe('buildClusterGuideSearchQuery', () => {
     expect(terms.every((term) => /^"[^"\\]+"$/u.test(term))).toBe(true);
     expect(query.endsWith('"')).toBe(true);
   });
+
+  it('spreads compact category product markers across the bounded query', () => {
+    const productSlugs = Array.from(
+      { length: 40 },
+      (_, index) => `itel-model-${String(index + 1).padStart(2, '0')}`
+    );
+    const query = buildClusterGuideSearchQuery({
+      pageKind: 'category',
+      categorySlug: 'smartphones',
+      brands: ['Itel'],
+      productSlugs,
+    });
+
+    expect(query).toContain('"01"');
+    expect(query).toContain('"20"');
+    expect(query).toContain('"40"');
+    expect(query).not.toContain('"itel model 01"');
+    expect(new TextEncoder().encode(query).byteLength).toBeLessThanOrEqual(512);
+  });
 });

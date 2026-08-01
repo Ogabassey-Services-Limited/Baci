@@ -1,6 +1,7 @@
 import type { ClusterSupport } from '@/config/storefront-content-cluster-shared';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
+import { getProductModelIdentifiers } from './get-product-model-identifiers';
 
 const MAX_SEARCH_QUERY_LENGTH = 512;
 const MAX_SEARCH_TERM_LENGTH = 80;
@@ -60,6 +61,21 @@ function getContextBrandTerms(
   return terms;
 }
 
+function spreadTerms(terms: string[]) {
+  if (terms.length < 3) {
+    return terms;
+  }
+
+  const bucketCount = Math.min(8, terms.length);
+  const spread: string[] = [];
+  for (let bucket = 0; bucket < bucketCount; bucket += 1) {
+    for (let index = bucket; index < terms.length; index += bucketCount) {
+      spread.push(terms[index]);
+    }
+  }
+  return spread;
+}
+
 export function buildClusterGuideSearchQuery(
   context: BuildCommercialGuideLinksContext
 ): string {
@@ -70,10 +86,14 @@ export function buildClusterGuideSearchQuery(
   const priceBandTerms = context.priceBandSlug
     ? (support.priceBandAliases[context.priceBandSlug] ?? [])
     : [];
+  const productTerms =
+    context.pageKind === 'category'
+      ? spreadTerms(getProductModelIdentifiers(context))
+      : (context.productSlugs ?? []).map((slug) => slug.replace(/-/g, ' '));
   const rawTerms = [
     ...support.categoryNames,
     ...getContextBrandTerms(context),
-    ...(context.productSlugs ?? []).map((slug) => slug.replace(/-/g, ' ')),
+    ...productTerms,
     ...priceBandTerms,
     ...support.articleTokens,
   ];
