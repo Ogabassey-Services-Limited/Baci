@@ -197,6 +197,34 @@ test('ignores an unrelated container that disappears during inspect', async () =
   }
 });
 
+test('preserves a persistent Docker inspect failure after inventory retry', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'baci-ollama-container-inspect-'));
+  const bin = join(dir, 'bin');
+  try {
+    await mkdir(bin);
+    await writeFile(
+      join(bin, 'docker'),
+      '#!/bin/sh\ncase "$*" in *\' ps \'*) printf "gone\\n";; *\' inspect \'*) exit 42;; esac\n'
+    );
+    await execFileAsync('chmod', ['0755', join(bin, 'docker')]);
+    await assert.rejects(
+      execFileAsync(
+        'sh',
+        [
+          '-c',
+          '. "$1"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+          'retire-ollama-container-inspect-race-test',
+          script.pathname,
+        ],
+        { env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: bin } }
+      ),
+      (error) => error.code === 42 || error.status === 42
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('classifies a container with an Ollama endpoint as a consumer', async () => {
   assert.match(
     await scannedContainers([

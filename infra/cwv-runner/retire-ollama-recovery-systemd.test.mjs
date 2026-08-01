@@ -86,7 +86,7 @@ test('rejects a loopback listener whose argv omits Ollama and the port', async (
     await symlink('socket:[12345]', join(procRoot, '43', 'fd', '7'));
     await writeFile(
       join(procRoot, 'net', 'tcp'),
-      '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2C9A 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000 0 12345\n'
+      '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2CAA 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000 0 12345\n'
     );
     await writeFile(ports, '{}\n');
     await writeFile(
@@ -120,7 +120,7 @@ test('binds a reviewed listener socket inode to its process evidence', async () 
     await symlink('socket:[12345]', join(procRoot, '41', 'fd', '7'));
     await writeFile(
       join(procRoot, 'net', 'tcp'),
-      '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2C9A 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000 0 12345\n'
+      '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2CAA 00000000:0000 0A 00000000:00000000 00:00000000 00:00000000 1000 0 12345\n'
     );
     await writeFile(
       ports,

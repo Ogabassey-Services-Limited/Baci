@@ -81,7 +81,7 @@ recovery_socket_snapshot() {
   container_pid=$1; container_cgroup=$2; container_namespace=$3; ports=$4; processes=$5; listeners='[]'; seen=''
   if [ ! -d "$RECOVERY_PROC_ROOT/net" ]; then RECOVERY_SOCKET_SNAPSHOT_SHA=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; RECOVERY_LISTENING_SOCKETS='[]'; return; fi
   raw=$(temp_path)
-  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do if [ -e "$table" ] || [ -L "$table" ]; then [ -f "$table" ] && [ ! -L "$table" ] || review_required 'unsafe recovery socket table'; else continue; fi; family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,a,":"); if ($4 == "0A" && a[2] == "2C9A") print family "|" a[1] "|" a[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
+  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do if [ -e "$table" ] || [ -L "$table" ]; then [ -f "$table" ] && [ ! -L "$table" ] || review_required 'unsafe recovery socket table'; else continue; fi; family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,a,":"); if ($4 == "0A" && a[2] == "2CAA") print family "|" a[1] "|" a[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
   while IFS='|' read -r family address port inode || [ -n "$family$address$port$inode" ]; do
     [ -n "$inode" ] || continue; found=0
     while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
@@ -169,8 +169,10 @@ scan_container_rows() {
       if line=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Mounts}} {{json .NetworkSettings.Networks}}' "$id"); then
         case "$line" in *" /$CONTAINER "*) ;; *) printf '%s' "$line" | /usr/bin/grep -Eqi 'ollama|11434' && printf '%s\n' "$line";; esac
         break
+      else
+        status=$?
       fi
-      status=$?; [ "$attempt" -eq 0 ] || { fresh=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$fresh"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$fresh"; fi || { rm -f "$raw" "$fresh"; return "$status"; }; if grep -Fqx -- "$id" "$fresh"; then rm -f "$raw" "$fresh"; return "$status"; fi; rm -f "$fresh"; break; }; attempt=$((attempt + 1))
+      [ "$attempt" -eq 0 ] || { fresh=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$fresh"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$fresh"; fi || { rm -f "$raw" "$fresh"; return "$status"; }; if grep -Fqx -- "$id" "$fresh"; then rm -f "$raw" "$fresh"; return "$status"; fi; rm -f "$fresh"; break; }; attempt=$((attempt + 1))
     done
   done <"$raw"; rm -f "$raw"
 }
