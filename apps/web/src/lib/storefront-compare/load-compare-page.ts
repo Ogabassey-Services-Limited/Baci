@@ -838,6 +838,9 @@ async function getCachedComparePageModel(
       `${leftDetails.name} vs ${rightDetails.name}`,
       countryContext
     );
+    const guideBrands = [leftDetails.brand, rightDetails.brand].filter(
+      (brand): brand is string => Boolean(brand)
+    );
     return {
       kind: 'product',
       canonicalSlug: parsed.canonicalSlug,
@@ -891,6 +894,7 @@ async function getCachedComparePageModel(
           ? {
               pageKind: 'compare',
               categorySlug: supportedClusterCategory,
+              brands: guideBrands,
               productNames: [leftDetails.name, rightDetails.name],
               productSlugs: [parsed.leftKey, parsed.rightKey],
             }
@@ -899,6 +903,7 @@ async function getCachedComparePageModel(
           ? {
               pageKind: 'compare',
               categorySlug: supportedClusterCategory,
+              brands: guideBrands,
               productNames: [leftDetails.name, rightDetails.name],
               productSlugs: [
                 leftDetails.slug || parsed.leftKey,
