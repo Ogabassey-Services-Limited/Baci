@@ -187,6 +187,47 @@ describe('buildCommercialGuideLinks', () => {
     ]);
   });
 
+  it('requires the Xbox Series marker before boosting a letter model', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'xbox-buyer-guide',
+          title: 'Xbox Buyer Guide',
+          excerpt: "Microsoft's console buying advice.",
+          category: 'Xbox',
+          tags: ['xbox', 'console'],
+          keywords: ['game pass'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'xbox-series-s-guide',
+          title: 'Xbox Series S Buyer Guide',
+          excerpt: 'Series S performance and storage expectations.',
+          category: 'Xbox',
+          tags: ['xbox', 'series s'],
+          keywords: ['console'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'category',
+        categorySlug: 'xbox',
+        brands: ['Xbox'],
+        productSlugs: ['xbox-series-s'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/xbox-series-s-guide',
+      'https://ogabassey.com/blog/xbox-buyer-guide',
+    ]);
+  });
+
   it('treats malformed published dates as least-recent entries', () => {
     const links = buildCommercialGuideLinks({
       storeUrl: 'https://ogabassey.com',

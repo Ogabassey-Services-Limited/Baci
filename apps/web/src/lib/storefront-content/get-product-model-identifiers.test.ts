@@ -109,6 +109,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['m18 r3']);
   });
 
+  it('strips a decimal display suffix before selecting the laptop model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productSlugs: ['dell-xps-15-9560-15-6-4k-touchscreen'],
+    });
+
+    expect(identifiers).toEqual(['9560']);
+  });
+
   it('preserves both numbers in a convertible model phrase', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
@@ -247,6 +257,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['spark pro']);
   });
 
+  it('removes a compound connectivity marker run before sim', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productSlugs: ['samsung-galaxy-s22-ultra-12gb-256gb-dual-physical-sim'],
+    });
+
+    expect(identifiers).toEqual(['s22 ultra']);
+  });
+
   it('removes a preceding physical marker from an esim suffix', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',
@@ -298,14 +318,14 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual([]);
   });
 
-  it('preserves a single-character model identifier', () => {
+  it('preserves Xbox Series letter models as family phrases', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'xbox',
       brands: ['Xbox'],
-      productSlugs: ['xbox-series-x'],
+      productSlugs: ['xbox-series-x', 'xbox-series-s'],
     });
 
-    expect(identifiers).toEqual(['x']);
+    expect(identifiers).toEqual(['series x', 'series s']);
   });
 
   it('returns an empty list when no brands or product slugs are supplied', () => {

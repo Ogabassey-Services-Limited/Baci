@@ -33,6 +33,34 @@ describe('normalizeProductModelTokens', () => {
     expect(tokens).toEqual(['tecno', 'spark', 'pro']);
   });
 
+  it('removes consecutive connectivity markers before sim', () => {
+    const tokens = normalizeProductModelTokens([
+      'samsung',
+      's22',
+      'ultra',
+      'dual',
+      'physical',
+      'sim',
+    ]);
+
+    expect(tokens).toEqual(['samsung', 's22', 'ultra']);
+  });
+
+  it('removes a decimal display size and its suffix markers', () => {
+    const tokens = normalizeProductModelTokens([
+      'dell',
+      'xps',
+      '15',
+      '9560',
+      '15',
+      '6',
+      '4k',
+      'touchscreen',
+    ]);
+
+    expect(tokens).toEqual(['dell', 'xps', '15', '9560']);
+  });
+
   it('removes the physical marker with an esim suffix', () => {
     const tokens = normalizeProductModelTokens([
       'iphone',

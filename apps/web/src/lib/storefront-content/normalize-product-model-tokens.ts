@@ -68,6 +68,18 @@ const CONNECTIVITY_MARKER_TOKENS = new Set([
   'physical',
   'single',
 ]);
+const DISPLAY_SUFFIX_MARKER_TOKENS = new Set([
+  '4k',
+  '8k',
+  'display',
+  'inch',
+  'ips',
+  'oled',
+  'retina',
+  'screen',
+  'touchscreen',
+  'uhd',
+]);
 
 function stripFirstMatchingSuffix(
   tokens: string[],
@@ -88,11 +100,34 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
     return tokens;
   }
 
-  const markerIndex = suffixIndex - 1;
-  const startsWithMarker = CONNECTIVITY_MARKER_TOKENS.has(
-    tokens[markerIndex] ?? ''
-  );
-  return tokens.slice(0, startsWithMarker ? markerIndex : suffixIndex);
+  let markerIndex = suffixIndex - 1;
+  while (
+    markerIndex >= 0 &&
+    CONNECTIVITY_MARKER_TOKENS.has(tokens[markerIndex] ?? '')
+  ) {
+    markerIndex -= 1;
+  }
+  return tokens.slice(0, markerIndex + 1);
+}
+
+function stripDecimalDisplaySuffix(tokens: string[]) {
+  const decimalIndex = tokens.findIndex((token, index) => {
+    const nextToken = tokens[index + 1] ?? '';
+    if (!/^\d{2}$/u.test(token) || !/^\d$/u.test(nextToken)) {
+      return false;
+    }
+
+    const displaySize = Number(token);
+    return (
+      displaySize >= 10 &&
+      displaySize <= 20 &&
+      tokens
+        .slice(index + 2)
+        .some((suffixToken) => DISPLAY_SUFFIX_MARKER_TOKENS.has(suffixToken))
+    );
+  });
+
+  return decimalIndex >= 0 ? tokens.slice(0, decimalIndex) : tokens;
 }
 
 function isConvertibleInConnector(tokens: string[], index: number) {
@@ -114,10 +149,11 @@ export function normalizeProductModelTokens(tokens: string[]) {
   );
   const withoutConnectivity =
     stripOptionalConnectivitySuffix(withoutMerchandising);
+  const withoutDisplaySuffix = stripDecimalDisplaySuffix(withoutConnectivity);
 
-  return withoutConnectivity.filter(
+  return withoutDisplaySuffix.filter(
     (token, index) =>
       !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token) ||
-      isConvertibleInConnector(withoutConnectivity, index)
+      isConvertibleInConnector(withoutDisplaySuffix, index)
   );
 }

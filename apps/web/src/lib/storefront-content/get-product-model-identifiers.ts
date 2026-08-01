@@ -28,6 +28,7 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'legion',
   'pavilion',
   'redmi',
+  'series',
   'watch',
 ]);
 const MODEL_LINE_MARKER_TOKENS = new Set(['air', 'pro']);
@@ -228,9 +229,17 @@ function getModelIdentifier(tokens: string[]) {
     return phraseTokens.join(' ');
   }
 
-  const phraseTokens = tokens.filter(
-    (token) => token.length > 1 && !GENERIC_MODEL_MARKER_TOKENS.has(token)
-  );
+  const phraseTokens = tokens.filter((token, index) => {
+    const isSeriesMarker =
+      token === 'series' && /^[a-z]$/u.test(tokens[index + 1] ?? '');
+    const followsSeriesMarker =
+      index > 0 && tokens[index - 1] === 'series' && /^[a-z]$/u.test(token);
+    return (
+      (token.length > 1 && !GENERIC_MODEL_MARKER_TOKENS.has(token)) ||
+      isSeriesMarker ||
+      followsSeriesMarker
+    );
+  });
   return phraseTokens.join(' ') || tokens[0] || null;
 }
 
