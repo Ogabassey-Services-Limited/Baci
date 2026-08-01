@@ -381,6 +381,7 @@ interface LcpRouteProduct {
   default_variant_id?: string;
   description: string;
   gtin: string;
+  has_variant_matrix?: boolean;
   has_variants?: boolean;
   id: string;
   image: string;
@@ -563,7 +564,6 @@ function getCachedProductRoutePrimaryImage(
     normalizeStorefrontProductVariants(cachedProduct.product_variants, {
       merchantId: cachedProduct.merchant_id || OGABASSEY_MERCHANT_ID,
       productId: cachedProduct.id,
-      manageStock: cachedProduct.manage_stock ?? true,
     });
   const initialVariant = getInitialRouteVariant(
     cachedProduct,
@@ -597,7 +597,6 @@ function mapCachedProductLcpHintToRouteProduct(
     {
       merchantId: cachedProduct.merchant_id || OGABASSEY_MERCHANT_ID,
       productId: cachedProduct.id,
-      manageStock,
     }
   );
   const primaryImage =
@@ -642,6 +641,9 @@ function mapCachedProductLcpHintToRouteProduct(
     description: cachedProduct.meta_description ?? '',
     gtin: '',
     has_variants: Boolean(cachedProduct.has_variants) || variants.length > 0,
+    has_variant_matrix:
+      Array.isArray(cachedProduct.product_variants) &&
+      cachedProduct.product_variants.length > 0,
     id: cachedProduct.id,
     keywords: cachedProduct.keywords ?? undefined,
     image: primaryImage,
@@ -796,8 +798,10 @@ const getProductForMerchant = async (
     variants: normalizeStorefrontProductVariants(product.product_variants, {
       merchantId: product.merchant_id || merchant.id,
       productId: product.id,
-      manageStock,
     }),
+    has_variant_matrix:
+      Array.isArray(product.product_variants) &&
+      product.product_variants.length > 0,
   } as unknown as Product;
 
   const productCategorySlug =
@@ -1433,6 +1437,7 @@ export default async function CategoryProductPage({
     ? buildOgabasseyProductVisibleSummary({
         brand: product.brand,
         condition: product.condition,
+        has_variant_matrix: product.has_variant_matrix,
         manage_stock: commerceProduct.manage_stock,
         name: product.name,
         variants: commerceProduct.variants,

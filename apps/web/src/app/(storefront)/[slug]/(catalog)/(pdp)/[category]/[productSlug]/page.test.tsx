@@ -2602,6 +2602,42 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
   });
 
+  it('omits the summary when the raw variant matrix has no visible rows', async () => {
+    const productWithArchivedVariant = {
+      ...categorizedDetailedProduct,
+      product_variants: [
+        {
+          archived_at: '2026-01-01T00:00:00.000Z',
+          id: 'archived-variant',
+          stock_quantity: 4,
+        } as LegacyProductVariantFixture,
+      ],
+    };
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct(productWithArchivedVariant)
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce(
+      productWithArchivedVariant
+    );
+
+    const { container } = render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(
+      container.querySelector('[data-ogabassey-pdp-visible-summary]')
+    ).toBeNull();
+  });
+
   it('does not render a route-level hidden description duplicate', async () => {
     const { container } = render(
       await resolveRsc(

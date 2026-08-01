@@ -110,6 +110,7 @@ describe('checkProductDescriptionWriterInventory', () => {
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: csv,
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
 
     expect(csv.split('\n')[0]).toBe(PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER);
@@ -154,6 +155,7 @@ $writer$;`,
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
 
     expect(result.errors).toEqual([
@@ -172,6 +174,7 @@ $writer$;`,
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rowsWithCsvCharacters),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
 
     expect(result).toEqual({ errors: [], ok: true });
@@ -189,6 +192,7 @@ $writer$;`,
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
 
     expect(result).toEqual({
@@ -203,6 +207,7 @@ $writer$;`,
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
     expect(result.errors).toEqual([
       `Inventoried writer path is missing: ${webWriterPath}`,
@@ -214,6 +219,7 @@ $writer$;`,
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv([...rows, rows[0]]),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
     expect(result.errors).toEqual([
       `Duplicate inventory path: ${webWriterPath}`,
@@ -228,6 +234,7 @@ $writer$;`,
         'inventory_version_drifted'
       ),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
     expect(result.errors).toEqual([
       'Inventory CSV header does not match the required schema',
@@ -240,6 +247,7 @@ $writer$;`,
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
     expect(result.errors).toEqual([
       `Inventoried test path is missing: ${rows[0].test_path}`,
@@ -256,6 +264,7 @@ $writer$;`,
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
     expect(result.errors).toEqual([`File SHA-256 drift for ${webWriterPath}`]);
   });
@@ -268,6 +277,7 @@ $writer$;`,
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(changedRows),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
     expect(result.errors).toContain(
       `Invalid inventory field can_attest_source for ${rows[0].path}: expected no`

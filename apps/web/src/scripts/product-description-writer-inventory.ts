@@ -1,7 +1,7 @@
 export const PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER =
   'inventory_version,path,caller_or_route,operation,description_input_contract,can_attest_source,unattested_source,guard_error_contract,test_path,file_sha256';
 
-export type Column =
+export type ProductDescriptionWriterInventoryColumn =
   | 'inventory_version'
   | 'path'
   | 'caller_or_route'
@@ -12,11 +12,16 @@ export type Column =
   | 'guard_error_contract'
   | 'test_path'
   | 'file_sha256';
-export type ProductDescriptionWriterInventoryRow = Record<Column, string>;
+export type ProductDescriptionWriterInventoryRow = Record<
+  ProductDescriptionWriterInventoryColumn,
+  string
+>;
 export type CheckResult = { errors: string[]; ok: boolean };
 
 export const INVENTORY_COLUMNS =
-  PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER.split(',') as Column[];
+  PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER.split(
+    ','
+  ) as ProductDescriptionWriterInventoryColumn[];
 export const TS_ROOTS = [
   'apps/web/src',
   'apps/web/mcp-server',
@@ -85,18 +90,25 @@ const row = (
   operation: string,
   contract: string,
   test: string
-): ProductDescriptionWriterInventoryRow => ({
-  inventory_version: '1',
-  path,
-  caller_or_route: caller,
-  operation,
-  description_input_contract: contract,
-  can_attest_source: 'no',
-  unattested_source: UNATTESTED,
-  guard_error_contract: GUARD,
-  test_path: test,
-  file_sha256: HASHES[path] ?? '',
-});
+): ProductDescriptionWriterInventoryRow => {
+  const fileSha256 = HASHES[path];
+  if (!fileSha256) {
+    throw new Error(`Missing canonical product description writer hash: ${path}`);
+  }
+
+  return {
+    inventory_version: '1',
+    path,
+    caller_or_route: caller,
+    operation,
+    description_input_contract: contract,
+    can_attest_source: 'no',
+    unattested_source: UNATTESTED,
+    guard_error_contract: GUARD,
+    test_path: test,
+    file_sha256: fileSha256,
+  };
+};
 
 export const CURRENT_INVENTORY_ROWS = [
   row(

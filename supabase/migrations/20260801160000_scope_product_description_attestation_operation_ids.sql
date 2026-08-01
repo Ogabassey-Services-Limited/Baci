@@ -19,16 +19,6 @@ BEGIN
       UNIQUE (merchant_id, operation_id);
   END IF;
 
-  IF EXISTS (
-    SELECT 1
-    FROM pg_catalog.pg_constraint
-    WHERE conrelid = 'private.product_description_attestation_grants'::regclass
-      AND conname = 'product_description_attestation_grants_operation_id_key'
-  ) THEN
-    ALTER TABLE private.product_description_attestation_grants
-      DROP CONSTRAINT product_description_attestation_grants_operation_id_key;
-  END IF;
-
   IF NOT EXISTS (
     SELECT 1
     FROM pg_catalog.pg_constraint
@@ -40,16 +30,6 @@ BEGIN
       UNIQUE (merchant_id, operation_id);
   END IF;
 
-  IF EXISTS (
-    SELECT 1
-    FROM pg_catalog.pg_constraint
-    WHERE conrelid = 'private.product_description_attestation_grant_evidence'::regclass
-      AND conname = 'product_description_attestation_grant_evidence_operation_id_key'
-  ) THEN
-    ALTER TABLE private.product_description_attestation_grant_evidence
-      DROP CONSTRAINT product_description_attestation_grant_evidence_operation_id_key;
-  END IF;
 END;
 $$;
-
 

@@ -177,6 +177,15 @@ describe('buildOgabasseyProductVisibleSummary', () => {
       buildOgabasseyProductVisibleSummary({
         brand: 'Dell',
         condition: 'new',
+        has_variant_matrix: true,
+        name: 'Latitude 7450',
+        variants: [],
+      })
+    ).toBeNull();
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Dell',
+        condition: 'new',
         manage_stock: true,
         name: 'Latitude 7450',
         variants: [{ condition: 'used', stock_quantity: 0 }],

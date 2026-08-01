@@ -49,6 +49,7 @@ describe('normalizeProductConditionOffers', () => {
       normalizeProductConditionOffers(
         [
           { condition: 'new', id: 'bad-price', price: 'not-a-price' },
+          { condition: 'new', id: 'partial-price', price: '100invalid' },
           {
             condition: 'new',
             id: 'bad-compare',

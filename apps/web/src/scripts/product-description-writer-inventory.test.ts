@@ -14,5 +14,8 @@ describe('product description writer inventory definition', () => {
     expect(CURRENT_INVENTORY_ROWS.every((row) =>
       INVENTORY_COLUMNS.every((column) => typeof row[column] === 'string')
     )).toBe(true);
+    expect(
+      CURRENT_INVENTORY_ROWS.every((row) => /^[0-9a-f]{64}$/.test(row.file_sha256))
+    ).toBe(true);
   });
 });

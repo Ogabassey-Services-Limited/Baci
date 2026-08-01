@@ -254,6 +254,16 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- Keep the old global keys until this replacement function is installed. The
+-- two operations commit together in this migration, so an interrupted apply
+-- cannot leave the installed function without its conflict target.
+ALTER TABLE private.product_description_attestation_grants
+  DROP CONSTRAINT IF EXISTS product_description_attestation_grants_operation_id_key;
+
+ALTER TABLE private.product_description_attestation_grant_evidence
+  DROP CONSTRAINT IF EXISTS product_description_attestation_grant_evidence_operation_id_key;
+
 REVOKE ALL ON FUNCTION public.request_product_description_attestation_grant(
   uuid, uuid, uuid, text, text, text, text, boolean, text
 ) FROM PUBLIC, anon;

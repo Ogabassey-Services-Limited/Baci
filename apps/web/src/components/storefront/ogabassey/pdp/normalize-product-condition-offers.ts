@@ -20,7 +20,11 @@ function parseOfferPrice(value: number | string | null | undefined) {
   }
 
   if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
+    const normalizedValue = value.trim();
+    if (!normalizedValue) {
+      return null;
+    }
+    const parsed = Number(normalizedValue);
     return Number.isFinite(parsed) ? parsed : null;
   }
 

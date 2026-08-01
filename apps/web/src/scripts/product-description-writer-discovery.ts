@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import {
   TS_EXTENSIONS,
@@ -57,14 +56,32 @@ function aiProducer(path: string, source: string): boolean {
 export function functionDefinitions(source: string): FunctionDefinition[] {
   const definitions: FunctionDefinition[] = [];
   const startPattern =
-    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+((?:public|private)\.[\w]+)\s*\(([^)]*)\)[\s\S]*?\bAS\s+(\$[\w]*\$)/gi;
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+((?:public|private)\.[\w]+)\s*\(/gi;
   for (const match of source.matchAll(startPattern)) {
     const start = match.index ?? 0;
-    const tag = match[3];
-    const bodyStart = start + match[0].length;
+    const openingParenthesis = start + match[0].length - 1;
+    const closingParenthesis = findClosingParenthesis(
+      source,
+      openingParenthesis
+    );
+    if (closingParenthesis < 0) {
+      continue;
+    }
+    const header = /[\s\S]*?\bAS\s+(\$[\w]*\$)/i.exec(
+      source.slice(closingParenthesis + 1)
+    );
+    if (!header) {
+      continue;
+    }
+    const tag = header[1];
+    const bodyStart =
+      closingParenthesis + 1 + header.index + header[0].length;
     const bodyEnd = source.indexOf(tag, bodyStart);
     if (bodyEnd >= 0) {
-      const normalizedArguments = match[2].replace(/\s+/g, ' ').trim();
+      const normalizedArguments = source
+        .slice(openingParenthesis + 1, closingParenthesis)
+        .replace(/\s+/g, ' ')
+        .trim();
       definitions.push({
         signature: `${match[1]}(${normalizedArguments})`,
         start,
@@ -74,6 +91,40 @@ export function functionDefinitions(source: string): FunctionDefinition[] {
     }
   }
   return definitions;
+}
+
+function findClosingParenthesis(source: string, openingParenthesis: number) {
+  let depth = 0;
+  let quote: '"' | "'" | undefined;
+
+  for (let index = openingParenthesis; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+
+    if (quote) {
+      if (char === quote) {
+        if (next === quote) {
+          index += 1;
+        } else {
+          quote = undefined;
+        }
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+
+  return -1;
 }
 
 function sqlWritesDescription(source: string): boolean {
@@ -90,10 +141,11 @@ export async function discoverSql(root: string): Promise<string[]> {
       (path) => path.endsWith('.sql') && !path.includes('/migrations/tests/')
     )
     .sort();
+  const sources = await readFilesWithConcurrency(files);
   const latest = new Map<string, { path: string; body: string }>();
   const discovered = new Set<string>();
-  for (const path of files) {
-    const source = await readFile(path, 'utf8');
+  for (const [index, path] of files.entries()) {
+    const source = sources[index];
     const definitions = functionDefinitions(source);
     let topLevel = source;
     for (const definition of definitions) {

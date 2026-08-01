@@ -82,10 +82,7 @@ function normalizeVariantImages(images: unknown) {
   return normalizedImages.length > 0 ? normalizedImages : undefined;
 }
 
-function isSelectableVariant(
-  variant: StorefrontVariantRecord,
-  manageStock: boolean | undefined
-) {
+function isSelectableVariant(variant: StorefrontVariantRecord) {
   if (
     variant.is_active === false ||
     variant.is_inventory_anchor === true ||
@@ -96,13 +93,7 @@ function isSelectableVariant(
     return false;
   }
 
-  return (
-    manageStock === undefined ||
-    manageStock === false ||
-    (typeof variant.stock_quantity === 'number' &&
-      Number.isFinite(variant.stock_quantity) &&
-      variant.stock_quantity > 0)
-  );
+  return true;
 }
 
 export function normalizeStorefrontProductVariants(
@@ -110,25 +101,22 @@ export function normalizeStorefrontProductVariants(
   options: {
     merchantId: string;
     productId: string;
-    manageStock?: boolean;
   }
 ): ProductVariant[] {
-  return (variants || [])
-    .filter((variant) => isSelectableVariant(variant, options.manageStock))
-    .map((variant) => ({
-      id: variant.id,
-      product_id: variant.product_id || options.productId,
-      merchant_id: variant.merchant_id || options.merchantId,
-      condition: normalizeStorefrontCondition(variant.condition),
-      attributes: normalizeVariantAttributes(variant.attributes),
-      price_override: normalizeOptionalNumber(variant.price_override),
-      stock_quantity:
-        typeof variant.stock_quantity === 'number' &&
-        Number.isFinite(variant.stock_quantity)
-          ? variant.stock_quantity
-          : 0,
-      images: normalizeVariantImages(variant.images),
-      primary_image: variant.primary_image || undefined,
-      sku: variant.sku || undefined,
-    }));
+  return (variants || []).filter(isSelectableVariant).map((variant) => ({
+    id: variant.id,
+    product_id: variant.product_id || options.productId,
+    merchant_id: variant.merchant_id || options.merchantId,
+    condition: normalizeStorefrontCondition(variant.condition),
+    attributes: normalizeVariantAttributes(variant.attributes),
+    price_override: normalizeOptionalNumber(variant.price_override),
+    stock_quantity:
+      typeof variant.stock_quantity === 'number' &&
+      Number.isFinite(variant.stock_quantity)
+        ? variant.stock_quantity
+        : 0,
+    images: normalizeVariantImages(variant.images),
+    primary_image: variant.primary_image || undefined,
+    sku: variant.sku || undefined,
+  }));
 }

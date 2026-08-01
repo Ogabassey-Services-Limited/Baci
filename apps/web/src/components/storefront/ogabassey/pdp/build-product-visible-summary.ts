@@ -12,6 +12,7 @@ export interface OgabasseyProductVisibleSummaryOffer {
 export interface OgabasseyProductVisibleSummaryInput {
   brand?: string | null;
   condition?: string | null;
+  has_variant_matrix?: boolean;
   manage_stock?: boolean | null;
   name?: string | null;
   variants?: OgabasseyProductVisibleSummaryOffer[] | null;
@@ -182,6 +183,7 @@ function formatValues(values: string[]) {
 export function buildOgabasseyProductVisibleSummary({
   brand,
   condition,
+  has_variant_matrix: hasVariantMatrixInput,
   manage_stock: manageStock,
   name,
   variants,
@@ -192,7 +194,9 @@ export function buildOgabasseyProductVisibleSummary({
   const selectableVariants = (variants || []).filter((offer) =>
     isSelectable(offer, manageStock)
   );
-  if ((variants?.length ?? 0) > 0 && selectableVariants.length === 0) {
+  const hasVariantMatrix =
+    hasVariantMatrixInput ?? (variants?.length ?? 0) > 0;
+  if (hasVariantMatrix && selectableVariants.length === 0) {
     return null;
   }
   const parentCondition = normalizeCondition(condition);

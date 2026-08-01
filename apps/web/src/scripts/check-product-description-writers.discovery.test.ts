@@ -102,6 +102,7 @@ describe('checkProductDescriptionWriterInventory discovery coverage', () => {
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
 
     expect(result.errors).toContain(
@@ -137,6 +138,7 @@ describe('checkProductDescriptionWriterInventory discovery coverage', () => {
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
+      validateCanonicalInventory: false,
     });
 
     expect(result.errors).toEqual([

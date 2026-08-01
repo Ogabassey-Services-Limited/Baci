@@ -11,33 +11,20 @@ import {
   type ProductDescriptionWriterInventoryRow,
 } from './product-description-writer-inventory';
 import { parseProductDescriptionWriterInventoryCsv } from './product-description-writer-inventory-csv';
-import { discoverWriterPaths } from './product-description-writer-discovery';
+import * as writerDiscovery from './product-description-writer-discovery';
 
 export async function checkProductDescriptionWriterInventory({
   canonicalInventoryRows,
   inventoryCsv,
   repositoryRoot,
+  validateCanonicalInventory = true,
 }: {
   canonicalInventoryRows?: readonly ProductDescriptionWriterInventoryRow[];
   inventoryCsv: string;
   repositoryRoot: string;
+  validateCanonicalInventory?: boolean;
 }): Promise<CheckResult> {
-  let parsed: {
-    errors: string[];
-    rows: ProductDescriptionWriterInventoryRow[];
-  };
-  try {
-    parsed = parseProductDescriptionWriterInventoryCsv(inventoryCsv);
-  } catch (error) {
-    return {
-      errors: [
-        error instanceof Error
-          ? error.message
-          : 'Inventory CSV does not match the required schema',
-      ],
-      ok: false,
-    };
-  }
+  const parsed = parseProductDescriptionWriterInventoryCsv(inventoryCsv);
   if (parsed.errors.length) return { errors: parsed.errors, ok: false };
 
   const errors: string[] = [];
@@ -47,17 +34,13 @@ export async function checkProductDescriptionWriterInventory({
     canonicalInventoryRows === undefined
       ? CURRENT_INVENTORY_ROWS_BY_PATH
       : new Map(canonicalRows.map((entry) => [entry.path, entry]));
-  const shouldValidateCanonicalInventory =
-    canonicalInventoryRows !== undefined ||
-    parsed.rows.some((entry) => canonicalRowsByPath.has(entry.path));
-
   for (const entry of parsed.rows) {
     if (inventoryPaths.has(entry.path)) {
       errors.push(`Duplicate inventory path: ${entry.path}`);
     }
     inventoryPaths.add(entry.path);
     const canonicalEntry = canonicalRowsByPath.get(entry.path);
-    if (shouldValidateCanonicalInventory && canonicalEntry) {
+    if (validateCanonicalInventory && canonicalEntry) {
       for (const column of INVENTORY_COLUMNS) {
         if (entry[column] !== canonicalEntry[column]) {
           errors.push(`Canonical inventory drift for ${entry.path}: ${column}`);
@@ -85,14 +68,14 @@ export async function checkProductDescriptionWriterInventory({
     }
   }
 
-  if (shouldValidateCanonicalInventory) {
+  if (validateCanonicalInventory) {
     for (const entry of canonicalRows) {
       if (!inventoryPaths.has(entry.path)) {
         errors.push(`Canonical inventory row is missing: ${entry.path}`);
       }
     }
   }
-  for (const path of await discoverWriterPaths(repositoryRoot)) {
+  for (const path of await writerDiscovery.discoverWriterPaths(repositoryRoot)) {
     if (!inventoryPaths.has(path)) {
       errors.push(`Discovered description writer is not inventoried: ${path}`);
     }

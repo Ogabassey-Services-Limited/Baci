@@ -13,6 +13,10 @@ function escapeCsv(value: string): string {
 export function buildProductDescriptionWriterInventoryCsv(
   rows: ProductDescriptionWriterInventoryRow[]
 ): string {
+  if (rows.length === 0) {
+    return `${PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER}\n`;
+  }
+
   return `${PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER}\n${rows
     .map((entry) =>
       INVENTORY_COLUMNS.map((column) => escapeCsv(entry[column])).join(',')
