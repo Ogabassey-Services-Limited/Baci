@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { lstat, open, readFile, stat } from 'node:fs/promises';
+import { lstat, readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import { tryCreateEvidenceLock } from './cloudflare-evidence-lock-guard';
 import { reclaimLockIfOwner } from './cloudflare-evidence-lock-reclamation';
 import { RUN_ID_PATTERN } from './cloudflare-evidence-run-journal-state';
 
@@ -107,18 +108,13 @@ async function acquireTransitionLock(stateDir: string, runId: string) {
   for (;;) {
     if (Date.now() > deadline)
       throw new Error('journal transition lock wait timed out');
-    try {
-      const handle = await open(path, 'wx', 0o600);
-      try {
-        await handle.writeFile(encodeLockRecord(runId, token, startTime));
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
+    if (
+      await tryCreateEvidenceLock(
+        path,
+        encodeLockRecord(runId, token, startTime)
+      )
+    )
       return { path, token };
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-    }
 
     let ownerText = '';
     try {
@@ -237,21 +233,13 @@ export async function acquireActiveRunLock(
 ) {
   if (basename(runId) !== runId || !RUN_ID_PATTERN.test(runId))
     throw new Error('journal run ID is invalid');
-  try {
-    const path = activeRunLockPath(stateDir);
-    const token = randomUUID();
-    const startTime = currentProcessStartTime();
-    const lock = await open(path, 'wx', 0o600);
-    try {
-      await lock.writeFile(encodeLockRecord(runId, token, startTime));
-      await lock.sync();
-    } finally {
-      await lock.close();
-    }
+  const path = activeRunLockPath(stateDir);
+  const token = randomUUID();
+  const startTime = currentProcessStartTime();
+  if (
+    await tryCreateEvidenceLock(path, encodeLockRecord(runId, token, startTime))
+  )
     return;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-  }
   let ownerText = '';
   try {
     ownerText = await readLockRecord(activeRunLockPath(stateDir));

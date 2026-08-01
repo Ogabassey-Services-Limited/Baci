@@ -20,14 +20,10 @@ export {
 
 const DEFAULT_MAXIMUM_BASELINE_AGE_DAYS = 7;
 const FORCED_SAMPLING_HEADROOM_MULTIPLIER = 4n;
-
 export type OgabasseyOriginCostProjection = Readonly<{
-  /** Current origin spend from policy-allowed dynamic traffic this work cannot reduce. */
   irreducibleDynamicOriginCostUsd: string;
-  /** Current origin spend attributable to static traffic this work could reduce. */
   reducibleStaticOriginCostUsd: string;
 }>;
-
 export type OgabasseyOriginBusinessCaseInput = {
   windowDays: number;
   windowStart?: string;
@@ -50,13 +46,11 @@ export type OgabasseyOriginBusinessCaseOptions = Readonly<{
   now?: Date;
   maximumWindowAgeDays?: number;
 }>;
-
 function decimalToMinorUnits(value: string): bigint | null {
   const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value);
   if (!match) return null;
   return BigInt(match[1]) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'));
 }
-
 function nonNegativeInteger(value: unknown): bigint | null {
   if (typeof value === 'bigint') return value >= 0n ? value : null;
   if (typeof value === 'number')
@@ -64,7 +58,6 @@ function nonNegativeInteger(value: unknown): bigint | null {
   if (typeof value === 'string' && /^\d+$/.test(value)) return BigInt(value);
   return null;
 }
-
 function validateOriginCostProjection(input: OgabasseyOriginBusinessCaseInput) {
   const dynamic = decimalToMinorUnits(
     input.originCostProjection?.irreducibleDynamicOriginCostUsd ?? ''
@@ -93,7 +86,6 @@ function validateOriginCostProjection(input: OgabasseyOriginBusinessCaseInput) {
     };
   return { ok: true as const };
 }
-
 function validateWorkersLogsEvidence(
   input: OgabasseyOriginBusinessCaseInput,
   now: Date
@@ -118,11 +110,10 @@ function validateWorkersLogsEvidence(
       verdict: 'NOT_PROVEN' as const,
       reason: 'workers_logs_projection_invalid',
     };
-  const forcedSamplingThreshold = contract.forcedSamplingDailyThreshold;
   const projectedWithHeadroom = projected * FORCED_SAMPLING_HEADROOM_MULTIPLIER;
   if (
-    contract.currentUtcDayAllAccountEvents >= forcedSamplingThreshold ||
-    projectedWithHeadroom >= forcedSamplingThreshold
+    contract.currentUtcDayAllAccountEvents + projectedWithHeadroom >=
+    contract.forcedSamplingDailyThreshold
   )
     return {
       ok: false as const,
@@ -130,10 +121,14 @@ function validateWorkersLogsEvidence(
       reason: 'workers_logs_forced_sampling_headroom_insufficient',
     };
   const allowanceUsage = contract.currentAllowancePeriodAllAccountEvents;
-  const allowanceRemaining = contract.allowanceEvents - allowanceUsage;
-  const projectedAllowanceUse = allowanceUsage + projected;
+  const end = Date.parse(contract.allowancePeriodEndsAt);
+  const remainingDays = BigInt(
+    Math.max(1, Math.ceil((end - now.valueOf()) / UTC_DAY_MILLISECONDS))
+  );
+  const projectedAllowanceUse = allowanceUsage + projected * remainingDays;
+  let projectedOverageCostMinorUnits = 0n;
   if (
-    allowanceRemaining <= 0n ||
+    allowanceUsage >= contract.allowanceEvents ||
     projectedAllowanceUse > contract.allowanceEvents
   ) {
     if (!contract.overageAllowed || contract.overageUsdPerMillion === null)
@@ -142,10 +137,15 @@ function validateWorkersLogsEvidence(
         verdict: 'STOP' as const,
         reason: 'workers_logs_allowance_exhausted',
       };
+    const rate = decimalToMinorUnits(contract.overageUsdPerMillion);
+    if (rate === null)
+      throw new Error('Cloudflare overage price contract drifted');
+    const overageEvents = projectedAllowanceUse - contract.allowanceEvents;
+    projectedOverageCostMinorUnits =
+      (overageEvents * rate + 1_000_000n - 1n) / 1_000_000n;
   }
-  return { ok: true as const };
+  return { ok: true as const, projectedOverageCostMinorUnits };
 }
-
 /** Gates design work on a complete, current, all-ingress baseline—not a percentage claim. */
 export function evaluateOgabasseyOriginBusinessCase(
   input: OgabasseyOriginBusinessCaseInput,
@@ -280,7 +280,9 @@ export function evaluateOgabasseyOriginBusinessCase(
   const projected = decimalToMinorUnits(input.projectedEdgeCostUsd ?? '');
   if (current === null || projected === null)
     return { verdict: 'NOT_PROVEN', reasonCodes: ['cost_input_invalid'] };
-  if (current <= projected)
+  const projectedWithWorkersLogs =
+    projected + workersLogsEvidence.projectedOverageCostMinorUnits;
+  if (current <= projectedWithWorkersLogs)
     return { verdict: 'STOP', reasonCodes: ['savings_not_positive'] };
   if (
     input.paybackMonths !== undefined &&

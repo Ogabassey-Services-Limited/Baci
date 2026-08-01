@@ -8,7 +8,7 @@ import {
   verifyCloudflareTopologyEndpointFamily,
 } from './cloudflare-evidence-topology-contract';
 export type TopologyFamily = CloudflareTopologyFamily;
-export type TopologyAction = 'detach' | 'write';
+export type TopologyAction = 'detach' | 'reattach' | 'write';
 export type TopologyTuple = Readonly<{ state: string; fingerprint: string }>;
 export type TopologyReadback = Readonly<{
   tuple: TopologyTuple;
@@ -16,6 +16,7 @@ export type TopologyReadback = Readonly<{
   elapsedSeconds: number;
 }>;
 export type TopologyRestoreContract = Readonly<{
+  action: TopologyAction;
   requestSchemaSha256: string;
   responseSchemaSha256: string;
 }>;
@@ -46,10 +47,7 @@ type TraceExpectation = Readonly<{
   rulesetVersion: string;
   expressionSha256: string;
 }>;
-type MutationResponse = {
-  operationId?: string;
-  lostResponse?: boolean;
-};
+type MutationResponse = { operationId?: string; lostResponse?: boolean };
 export type TopologyMutationRequest = Readonly<{
   family: TopologyFamily;
   action: TopologyAction;
@@ -76,12 +74,11 @@ export type DeepQualificationClient = Readonly<{
   ): Promise<readonly TopologyReadback[]>;
 }>;
 const SHA256 = /^[a-f0-9]{64}$/;
-const TOPOLOGY_ACTION_BY_FAMILY = {
-  'worker-custom-domain': 'detach',
-  'r2-cors': 'write',
-  'r2-custom-domain': 'detach',
-} as const satisfies Record<TopologyFamily, TopologyAction>;
-
+const TOPOLOGY_ACTIONS_BY_FAMILY = {
+  'worker-custom-domain': { action: 'detach', restore: 'reattach' },
+  'r2-cors': { action: 'write', restore: 'write' },
+  'r2-custom-domain': { action: 'detach', restore: 'reattach' },
+} as const;
 function verifyMutationResponse(mutation: MutationResponse) {
   const operationId = mutation.operationId;
   const lostResponse = mutation.lostResponse;
@@ -114,8 +111,13 @@ function verifyJournaledTopologyEndpoints(
   const journaledBuckets = new Set<string>();
   for (const topology of topologies) {
     const journaled = journalByFamily.get(topology.family);
-    const expected = TOPOLOGY_ACTION_BY_FAMILY[topology.family];
-    if (topology.action !== expected || journaled?.action !== expected)
+    const expected = TOPOLOGY_ACTIONS_BY_FAMILY[topology.family];
+    if (
+      topology.action !== expected?.action ||
+      journaled?.action !== expected?.action ||
+      topology.restore.action !== expected?.restore ||
+      journaled?.restore.action !== expected?.restore
+    )
       throw new Error(
         'topology action violates fixed family-to-action mapping'
       );
@@ -157,10 +159,10 @@ function verifyJournaledTopologyEndpoints(
 const sameTuple = (left: TopologyTuple, right: TopologyTuple) =>
   left.state === right.state && left.fingerprint === right.fingerprint;
 const buildTopologyMutationRequest = (
-  { family, action, endpoint }: TopologyPlan,
-  requestSchemaSha256: string
+  { family, action: defaultAction, endpoint }: TopologyPlan,
+  requestSchemaSha256: string,
+  action = defaultAction
 ) => ({ family, action, endpoint, requestSchemaSha256 });
-
 function verifyMutationConvergence(
   readbacks: readonly TopologyReadback[],
   topology: TopologyPlan
@@ -278,7 +280,8 @@ export async function executeDeepCloudflareEvidenceQualification(
       await client.topologyMutate(
         buildTopologyMutationRequest(
           topology,
-          topology.restore.requestSchemaSha256
+          topology.restore.requestSchemaSha256,
+          topology.restore.action
         )
       )
     );

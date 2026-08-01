@@ -69,6 +69,9 @@ export const ArtifactReadbackSchema = z
     pointerCache: PointerCacheSchema,
   })
   .strict();
+export type CloudflareWorkerArtifactReadbackQualification = z.infer<
+  typeof ArtifactReadbackSchema
+>;
 
 export const ReviewedQualificationArtifactSchema = z
   .object({

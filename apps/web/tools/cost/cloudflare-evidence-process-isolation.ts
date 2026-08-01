@@ -1,7 +1,11 @@
-import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
-import ts from 'typescript';
+import { isAbsolute, join, resolve } from 'node:path';
+import {
+  EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST,
+  readReviewedEvidenceDependencyManifest,
+} from './cloudflare-evidence-dependency-integrity';
+import { verifyCredentialedEvidenceCommandImportClosure } from './cloudflare-evidence-import-closure';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
 import {
   type EvidenceRunInput,
@@ -53,101 +57,6 @@ const absoluteToolPath = (
   workspaceRoot: string,
   command: EvidenceChildCommand
 ) => resolve(workspaceRoot, 'apps/web/tools/cost', scriptFor(command));
-
-const MODULE_EXTENSIONS = [
-  '',
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-  '.json',
-] as const;
-
-function staticImportSpecifiers(source: string, filePath: string) {
-  const sourceFile = ts.createSourceFile(
-    filePath,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TS
-  );
-  const specifiers: string[] = [];
-  const visit = (node: ts.Node) => {
-    const moduleSpecifier =
-      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-      node.moduleSpecifier &&
-      ts.isStringLiteralLike(node.moduleSpecifier)
-        ? node.moduleSpecifier.text
-        : ts.isImportEqualsDeclaration(node) &&
-            !node.isTypeOnly &&
-            ts.isExternalModuleReference(node.moduleReference) &&
-            ts.isStringLiteralLike(node.moduleReference.expression)
-          ? node.moduleReference.expression.text
-          : ts.isCallExpression(node) &&
-              (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
-                (ts.isIdentifier(node.expression) &&
-                  node.expression.text === 'require')) &&
-              node.arguments.length === 1 &&
-              ts.isStringLiteralLike(node.arguments[0])
-            ? node.arguments[0].text
-            : undefined;
-    if (moduleSpecifier) specifiers.push(moduleSpecifier);
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  return specifiers;
-}
-
-async function resolveLocalImport(from: string, specifier: string) {
-  const requested = isAbsolute(specifier)
-    ? specifier
-    : resolve(dirname(from), specifier);
-  const candidates = extname(requested)
-    ? [requested]
-    : [
-        ...MODULE_EXTENSIONS.map((extension) => `${requested}${extension}`),
-        ...MODULE_EXTENSIONS.slice(1).map(
-          (extension) => `${requested}/index${extension}`
-        ),
-      ];
-  for (const candidate of candidates) {
-    try {
-      const stat = await lstat(candidate);
-      if (stat.isFile()) return candidate;
-    } catch {
-      // Continue through the extension and index candidates.
-    }
-  }
-  throw new Error('credentialed evidence command import is not a local file');
-}
-
-async function verifyCredentialedCommandImportClosure(
-  workspaceRoot: string,
-  toolingMergeSha: string,
-  entrypoint: string
-) {
-  const visited = new Set<string>([entrypoint]);
-  const pending = [entrypoint];
-  while (pending.length) {
-    const current = pending.pop() as string;
-    const source = await readFile(current, 'utf8');
-    for (const specifier of staticImportSpecifiers(source, current)) {
-      if (!specifier.startsWith('.') && !isAbsolute(specifier)) continue;
-      const imported = await resolveLocalImport(current, specifier);
-      const verified = await verifyReviewedEvidenceFile(
-        workspaceRoot,
-        toolingMergeSha,
-        imported
-      );
-      if (!visited.has(verified.path)) {
-        visited.add(verified.path);
-        pending.push(verified.path);
-      }
-    }
-  }
-}
 
 const prepareEnvironment = (
   inherited: Readonly<Record<string, string | undefined>>
@@ -233,10 +142,22 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
           commandPath
         )
       ).path;
-      await verifyCredentialedCommandImportClosure(
+      const manifestPath = inherited[EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST];
+      if (!manifestPath || !isAbsolute(manifestPath))
+        throw new Error(
+          'credentialed command dependency integrity manifest is required'
+        );
+      const reviewedDependencies = await readReviewedEvidenceDependencyManifest(
         workspaceRoot,
         journal.toolingMergeSha,
-        commandPath
+        manifestPath
+      );
+      env[EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST] = reviewedDependencies.path;
+      await verifyCredentialedEvidenceCommandImportClosure(
+        workspaceRoot,
+        journal.toolingMergeSha,
+        commandPath,
+        reviewedDependencies.manifest
       );
     }
     const runnerNames =

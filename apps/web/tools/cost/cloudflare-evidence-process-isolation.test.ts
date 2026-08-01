@@ -7,7 +7,11 @@ import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import { calculateReviewedPolicySha256 } from './cloudflare-evidence-prepare';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
-import { writeProtectedMergeIdentity } from './cloudflare-evidence-process-isolation.test-fixtures';
+import {
+  createEvidenceDependencyIntegrityManifest,
+  readEvidenceToolingHead,
+  writeProtectedMergeIdentity,
+} from './cloudflare-evidence-process-isolation.test-fixtures';
 import { openEvidenceRun } from './cloudflare-evidence-run-journal';
 
 type Spawn = (
@@ -15,7 +19,6 @@ type Spawn = (
   argv: readonly string[],
   options: { cwd: string; env: Record<string, string> }
 ) => Promise<void>;
-
 describe('spawnIsolatedCloudflareEvidenceProcess', () => {
   const runId = 'b'.repeat(32);
   const prepareInput = {
@@ -32,7 +35,6 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     preInventorySha256: 'a'.repeat(64),
     expectedProbeCount: 2,
   };
-
   it('creates a private initial journal and prints only its bounded handoff', async () => {
     const workspaceRoot = resolve(import.meta.dirname, '../../../..');
     const { stdout: toolingMergeSha } = await promisify(execFile)('git', [
@@ -187,20 +189,13 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       )
     ).rejects.toThrow('active');
   });
-
   it('uses separate children with one allowlisted credential and exact command ownership', async () => {
     const spawn = vi.fn<Spawn>(async () => undefined);
     const inherited = { PATH: '/bin', SECRET: 'never-forward' };
     const workspaceRoot = resolve(import.meta.dirname, '../../../..');
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-isolation-'));
     await chmod(stateDir, 0o700);
-    const { stdout: toolingMergeSha } = await promisify(execFile)('git', [
-      '-C',
-      workspaceRoot,
-      'rev-parse',
-      '--verify',
-      'HEAD',
-    ]);
+    const toolingMergeSha = await readEvidenceToolingHead(workspaceRoot);
     const runnerModulePath = resolve(
       workspaceRoot,
       'packages/shared/src/constants/countries.ts'
@@ -208,9 +203,14 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     const runnerModuleSha256 = createHash('sha256')
       .update(await readFile(runnerModulePath))
       .digest('hex');
+    const manifestPath = await createEvidenceDependencyIntegrityManifest(
+      workspaceRoot,
+      toolingMergeSha,
+      ['zod']
+    );
     await openEvidenceRun(stateDir, {
       ...prepareInput,
-      toolingMergeSha: toolingMergeSha.trim(),
+      toolingMergeSha,
       mutationRunnerModulePath: runnerModulePath,
       mutationRunnerModuleSha256: runnerModuleSha256,
       measurementRunnerModulePath: runnerModulePath,
@@ -219,6 +219,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     const attackerPath = '/tmp/attacker-runner.ts';
     const credentialInherited = {
       ...inherited,
+      EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
       EVIDENCE_MUTATION_RUNNER_MODULE: attackerPath,
       EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: 'f'.repeat(64),
       EVIDENCE_MEASUREMENT_RUNNER_MODULE: attackerPath,
@@ -276,6 +277,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     }
     for (const [, , { env }] of spawn.mock.calls.slice(0, 2)) {
       expect(env.SECRET).toBeUndefined();
+      expect(env.EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST).toBe(manifestPath);
       expect(env.EVIDENCE_MUTATION_RUNNER_MODULE).toBe(runnerModulePath);
       expect(env.EVIDENCE_MUTATION_RUNNER_MODULE_SHA256).toBe(
         runnerModuleSha256

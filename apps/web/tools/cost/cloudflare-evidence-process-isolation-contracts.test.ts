@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
+import { createEvidenceDependencyIntegrityManifest } from './cloudflare-evidence-process-isolation.test-fixtures';
 import { openEvidenceRun } from './cloudflare-evidence-run-journal';
 
 const execFileAsync = promisify(execFile);
@@ -53,15 +54,27 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
     const commandPath = join(toolsDir, 'mutate-cloudflare-evidence-sources.ts');
     const dependencyPath = join(toolsDir, 'command-helper.ts');
     const runnerPath = join(toolsDir, 'runner.ts');
+    const packageRoot = join(root, 'node_modules', 'fixture-package');
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-command-state-'));
     await chmod(stateDir, 0o700);
     await mkdir(toolsDir, { recursive: true });
+    await mkdir(packageRoot, { recursive: true });
     await writeFile(
       commandPath,
-      "import { value } from './command-helper';\nexport { value };\n"
+      "import { value } from './command-helper';\nimport { packageValue } from 'fixture-package';\nexport { value, packageValue };\n"
     );
     await writeFile(dependencyPath, 'export const value = 1;\n');
     await writeFile(runnerPath, 'export const runner = 1;\n');
+    await writeFile(join(root, '.gitignore'), 'node_modules\n');
+    await writeFile(
+      join(packageRoot, 'package.json'),
+      '{"name":"fixture-package","main":"index.js"}\n'
+    );
+    await writeFile(
+      join(packageRoot, 'index.js'),
+      'exports.packageValue = 1;\n'
+    );
+    await writeFile(join(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n');
     await execFileAsync('git', ['-C', root, 'init', '--quiet']);
     await execFileAsync('git', ['-C', root, 'add', '--', '.']);
     await execFileAsync('git', [
@@ -86,6 +99,11 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
     const runnerModuleSha256 = createHash('sha256')
       .update(await readFile(runnerPath))
       .digest('hex');
+    const manifestPath = await createEvidenceDependencyIntegrityManifest(
+      root,
+      head.trim(),
+      ['fixture-package']
+    );
     const runId = 'a'.repeat(32);
     const input = {
       runId,
@@ -112,19 +130,39 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
         { spawn },
         'mutate',
         runId,
-        {},
+        { EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath },
         { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
         root,
         stateDir
       );
       expect(spawn).toHaveBeenCalledTimes(1);
+      await writeFile(
+        join(packageRoot, 'index.js'),
+        'exports.packageValue = 2;\n'
+      );
+      await expect(
+        spawnIsolatedCloudflareEvidenceProcess(
+          { spawn },
+          'mutate',
+          runId,
+          { EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath },
+          { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
+          root,
+          stateDir
+        )
+      ).rejects.toThrow('bytes differ from reviewed integrity metadata');
+      expect(spawn).toHaveBeenCalledTimes(1);
+      await writeFile(
+        join(packageRoot, 'index.js'),
+        'exports.packageValue = 1;\n'
+      );
       await writeFile(dependencyPath, 'export const value = 2;\n');
       await expect(
         spawnIsolatedCloudflareEvidenceProcess(
           { spawn },
           'mutate',
           runId,
-          {},
+          { EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath },
           { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
           root,
           stateDir

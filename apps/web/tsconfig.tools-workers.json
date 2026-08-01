@@ -14,6 +14,7 @@
   "include": [
     "tools/events/**/*.ts",
     "tools/db/**/*.ts",
+    "tools/cost/**/*.ts",
     "src/scripts/process-domain-events.ts",
     "src/scripts/process-domain-events.test.ts",
     "src/scripts/domain-event-worker-message.ts",
@@ -38,5 +39,5 @@
     "src/scripts/process-quiz-finalization.ts",
     "src/scripts/process-quiz-finalization.test.ts"
   ],
-  "exclude": ["node_modules", ".next", "supabase"]
+  "exclude": ["node_modules", ".next", "supabase", "tools/cost/**/*.test.ts"]
 }

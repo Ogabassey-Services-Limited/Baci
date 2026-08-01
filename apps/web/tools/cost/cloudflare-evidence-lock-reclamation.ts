@@ -1,32 +1,29 @@
 import { randomUUID } from 'node:crypto';
-import { link, lstat, open, rename, rm } from 'node:fs/promises';
+import { link, lstat, open, readFile, rename, rm } from 'node:fs/promises';
+import { withEvidenceLockPathGuard } from './cloudflare-evidence-lock-guard';
 
 type ReclamationHook = (path: string, ownerText: string) => Promise<void>;
 
 const lockTombstonePath = (path: string) =>
   `${path}.reclaim-${process.pid}-${randomUUID()}`;
 
-async function restoreLockTombstone(
-  tombstone: string,
-  path: string,
-  ownerInode: { dev: number; ino: number }
-) {
+function isPrivateRegularFile(stat: Awaited<ReturnType<typeof lstat>>) {
+  return (
+    !stat.isSymbolicLink() && stat.isFile() && (Number(stat.mode) & 0o077) === 0
+  );
+}
+
+async function restoreLockTombstone(tombstone: string, path: string) {
   try {
-    // Hard-link before removing the tombstone to restore the exact inode
-    // without replacing a successor that may have acquired the pathname.
+    // link(2) never replaces `path`: if a newer owner acquired it while the
+    // tombstone was detached, EEXIST leaves that newer pathname untouched.
+    // It also preserves a successor symlink as a symlink; callers will reject
+    // that path on their next private-regular-file validation.
     await link(tombstone, path);
-    await rm(tombstone);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-      // A successor owns `path`; only remove the tombstone when its inode is
-      // the stale owner we just detached. Never delete a replacement inode.
-      const tombstoneStat = await lstat(tombstone);
-      if (isSameInode(ownerInode, tombstoneStat))
-        await rm(tombstone, { force: true });
-      return;
-    }
-    throw error;
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
   }
+  await rm(tombstone, { force: true });
 }
 
 function isSameInode(
@@ -37,34 +34,33 @@ function isSameInode(
 }
 
 /**
- * Reclaims a lock only when the atomically renamed inode is still the owner
- * observed before reclamation. The hook exists for deterministic race tests;
- * production callers omit it.
+ * Reclaims a lock only when the inode moved to the tombstone is still the owner
+ * observed before reclamation. Hooks exist for deterministic race tests;
+ * production callers omit them.
  */
-export async function reclaimLockIfOwner(
+async function reclaimLockIfOwnerUnsafe(
   path: string,
   expected: string | undefined,
-  afterOwnerCheck?: ReclamationHook
+  afterOwnerCheck?: ReclamationHook,
+  beforeRename?: ReclamationHook
 ) {
   let ownerHandle: Awaited<ReturnType<typeof open>> | undefined;
   let ownerInode: { dev: number; ino: number } | undefined;
   let tombstone: string | undefined;
   try {
     const lockStat = await lstat(path);
-    if (
-      lockStat.isSymbolicLink() ||
-      !lockStat.isFile() ||
-      (lockStat.mode & 0o077) !== 0
-    )
+    if (!isPrivateRegularFile(lockStat))
       throw new Error('evidence lock is not private regular storage');
     ownerHandle = await open(path, 'r');
     ownerInode = await ownerHandle.stat();
     const ownerText = await ownerHandle.readFile('utf8');
     if (expected !== undefined && ownerText !== expected) return false;
+    await beforeRename?.(path, ownerText);
     tombstone = lockTombstonePath(path);
     try {
-      // Rename is the ownership boundary: all subsequent reads/deletes target
-      // this unique tombstone, so a successor at `path` cannot be removed.
+      // Rename is the ownership boundary. Whatever inode currently occupies
+      // `path` is moved atomically to this unique tombstone; no later cleanup
+      // operation targets a successor pathname.
       await rename(path, tombstone);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true;
@@ -72,25 +68,24 @@ export async function reclaimLockIfOwner(
     }
     await afterOwnerCheck?.(path, ownerText);
     const tombstoneStat = await lstat(tombstone);
-    if (
-      tombstoneStat.isSymbolicLink() ||
-      !tombstoneStat.isFile() ||
-      (tombstoneStat.mode & 0o077) !== 0
-    )
+    if (!isPrivateRegularFile(tombstoneStat))
       throw new Error('evidence lock is not private regular storage');
-    if (!isSameInode(ownerInode, tombstoneStat)) {
-      await restoreLockTombstone(tombstone, path, ownerInode);
+    const ownsTombstone =
+      isSameInode(ownerInode, tombstoneStat) &&
+      (await readFile(tombstone, 'utf8')) === ownerText;
+    if (ownsTombstone) {
+      await rm(tombstone, { force: true });
       tombstone = undefined;
-      return false;
+      return true;
     }
-    await rm(tombstone);
+    await restoreLockTombstone(tombstone, path);
     tombstone = undefined;
-    return true;
+    return false;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true;
     if (tombstone && ownerInode) {
       try {
-        await restoreLockTombstone(tombstone, path, ownerInode);
+        await restoreLockTombstone(tombstone, path);
       } catch {
         // Preserve the original validation/read error. A tombstone left behind
         // is safer than replacing a successor pathname during recovery.
@@ -100,4 +95,15 @@ export async function reclaimLockIfOwner(
   } finally {
     await ownerHandle?.close();
   }
+}
+
+export function reclaimLockIfOwner(
+  path: string,
+  expected: string | undefined,
+  afterOwnerCheck?: ReclamationHook,
+  beforeRename?: ReclamationHook
+) {
+  return withEvidenceLockPathGuard(path, () =>
+    reclaimLockIfOwnerUnsafe(path, expected, afterOwnerCheck, beforeRename)
+  );
 }

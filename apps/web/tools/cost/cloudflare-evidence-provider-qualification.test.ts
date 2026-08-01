@@ -28,6 +28,29 @@ describe('deep Cloudflare provider topology qualification', () => {
       executeDeepCloudflareEvidenceQualification(client(), input)
     ).resolves.toMatchObject({ qualified: true });
   });
+  it('uses the inverse reattach action when restoring detached topology', async () => {
+    const requests: Array<{ family: TopologyFamily; action: string }> = [];
+    await executeDeepCloudflareEvidenceQualification(
+      client({
+        topologyMutate: async ({ family, action }) => {
+          requests.push({ family, action });
+          return {
+            operationId: `${family}-${requests.length}`,
+            lostResponse: false,
+          };
+        },
+      }),
+      input
+    );
+    expect(requests).toEqual([
+      { family: 'worker-custom-domain', action: 'detach' },
+      { family: 'worker-custom-domain', action: 'reattach' },
+      { family: 'r2-cors', action: 'write' },
+      { family: 'r2-cors', action: 'write' },
+      { family: 'r2-custom-domain', action: 'detach' },
+      { family: 'r2-custom-domain', action: 'reattach' },
+    ]);
+  });
   it('rejects an unchanged control tuple while any provider operation is pending', async () => {
     await expect(
       executeDeepCloudflareEvidenceQualification(

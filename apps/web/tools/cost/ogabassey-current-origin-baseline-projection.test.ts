@@ -53,4 +53,55 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
       reasonCodes: ['origin_cost_projection_mismatch'],
     });
   });
+
+  it('includes current account events when enforcing forced-sampling headroom', () => {
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        {
+          ...current,
+          workersLogsContract: {
+            ...current.workersLogsContract,
+            currentUtcDayAllAccountEvents: 4_900_000_000n,
+          },
+          projectedAccountLogEventsPerDay: 50_000_000n,
+        },
+        { now }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['workers_logs_forced_sampling_headroom_insufficient'],
+    });
+  });
+
+  it('scales Paid monthly projection and binds overage cost before savings', () => {
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        {
+          ...current,
+          currentVercelAttributionUsd: '10.00',
+          projectedEdgeCostUsd: '1.00',
+          originCostProjection: {
+            irreducibleDynamicOriginCostUsd: '2.00',
+            reducibleStaticOriginCostUsd: '8.00',
+          },
+          workersLogsContract: {
+            ...current.workersLogsContract,
+            plan: 'paid' as const,
+            allowanceEvents: 20_000_000n,
+            allowancePeriod: 'billing_month' as const,
+            allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+            allowancePeriodEndsAt: '2026-09-01T00:00:00.000Z',
+            currentAllowancePeriodAllAccountEvents: 19_000_000n,
+            overageAllowed: true,
+            overageUsdPerMillion: '0.60',
+          },
+          projectedAccountLogEventsPerDay: 1_000_000n,
+        },
+        { now }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['savings_not_positive'],
+    });
+  });
 });

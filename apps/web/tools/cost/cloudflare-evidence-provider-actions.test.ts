@@ -33,6 +33,7 @@ const topologies = families.map((family) => ({
   intermediate: tuple(family, 'intermediate'),
   after: tuple(family, 'after'),
   restore: {
+    action: family === 'r2-cors' ? ('write' as const) : ('reattach' as const),
     requestSchemaSha256: 'd'.repeat(64),
     responseSchemaSha256: 'e'.repeat(64),
   },
@@ -118,7 +119,7 @@ function client(
 }
 
 describe('Cloudflare topology mutation actions', () => {
-  it('binds fixed family actions to forward and restore requests', async () => {
+  it('binds fixed family actions to forward and inverse restore requests', async () => {
     const requests: TopologyMutationRequest[] = [];
     await expect(
       executeDeepCloudflareEvidenceQualification(
@@ -142,7 +143,7 @@ describe('Cloudflare topology mutation actions', () => {
         },
         {
           family: topology.family,
-          action: topology.action,
+          action: topology.restore.action,
           endpoint: topology.endpoint,
           requestSchemaSha256: topology.restore.requestSchemaSha256,
         },

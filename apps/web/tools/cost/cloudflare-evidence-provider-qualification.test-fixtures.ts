@@ -33,6 +33,7 @@ const makeTopology = (
     intermediate: tuple(family, 'intermediate'),
     after: tuple(family, 'after'),
     restore: {
+      action: action === 'detach' ? 'reattach' : 'write',
       requestSchemaSha256: 'd'.repeat(64),
       responseSchemaSha256: 'e'.repeat(64),
     },

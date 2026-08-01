@@ -2,7 +2,6 @@ import { pathToFileURL } from 'node:url';
 import type { z } from 'zod';
 import { runQualificationCliFromProcess } from './cloudflare-evidence-qualification-cli';
 import {
-  type ArtifactReadbackSchema,
   PurgeContractSchema,
   QUALIFICATION_EVIDENCE_HOST,
   QUALIFICATION_POINTER_PROBE_COUNT,
@@ -20,6 +19,7 @@ import { qualifyCloudflareZeroWeightReadback } from './cloudflare-evidence-quali
 import { qualifyCloudflareTopologyEndpoint } from './cloudflare-evidence-topology-contract';
 import {
   type CloudflareDeploymentReadback,
+  type CloudflarePurgeReadback,
   type CloudflarePurgeReadbackRequest,
   type CloudflarePurgeRequest,
   type CloudflareTraceExpectation,
@@ -36,6 +36,7 @@ export {
   runQualificationCliFromProcess,
 } from './cloudflare-evidence-qualification-cli';
 export {
+  type CloudflareWorkerArtifactReadbackQualification,
   calculatePointerCacheCanonicalSha256,
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
@@ -59,16 +60,11 @@ export {
   ZeroWeightDeploymentTupleSchema,
   ZeroWeightProofSchema,
 } from './cloudflare-evidence-qualification-traffic';
-
-type CloudflareTopologyEndpoint = z.infer<typeof TopologyEndpointSchema>;
-export type CloudflareWorkerArtifactReadbackQualification = z.infer<
-  typeof ArtifactReadbackSchema
->;
 export type CloudflareQualificationClient = Readonly<{
-  listVersions(
+  listVersions: (
     accountId: string,
     scriptName: string
-  ): Promise<readonly string[]>;
+  ) => Promise<readonly string[]>;
   readVersion(
     accountId: string,
     scriptName: string,
@@ -104,7 +100,9 @@ export type CloudflareQualificationClient = Readonly<{
   readPurgeReadback?(
     request: CloudflarePurgeReadbackRequest
   ): Promise<CloudflarePurgeReadback>;
-  topologyConverged(topology: CloudflareTopologyEndpoint): Promise<boolean>;
+  topologyConverged(
+    topology: z.infer<typeof TopologyEndpointSchema>
+  ): Promise<boolean>;
 }>;
 export type {
   CloudflareDeploymentReadback,
