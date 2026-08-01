@@ -1,5 +1,5 @@
 import type { PublishedClusterPost } from './content-cluster-types';
-import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
+import { tokenizeContentText } from './tokenize-content-text';
 
 const MODEL_VARIANT_MARKER_TOKENS = new Set([
   'active',
@@ -21,16 +21,7 @@ const MODEL_VARIANT_MARKER_TOKENS = new Set([
   'xl',
 ]);
 const MODEL_GENERATION_SUFFIX_PATTERN = /^\d{1,2}(?:st|nd|rd|th)?$/u;
-
-function tokenizeText(value: string | null | undefined) {
-  return normalizeContentCurrencyTokens(value ?? '')
-    .toLowerCase()
-    .replace(/[’']s\b/gu, '')
-    .replace(/\+/gu, ' plus ')
-    .split(/[^a-z0-9]+/iu)
-    .map((token) => token.trim())
-    .filter(Boolean);
-}
+const MAX_BRAND_TOKEN_DISTANCE = 3;
 
 interface IdentifierOccurrenceOptions {
   brand?: string | null;
@@ -77,7 +68,7 @@ function isBrandQualifiedOccurrence(
     new Set([requestedBrand, ...knownBrands])
   ).flatMap((brand) =>
     [brand, ...(brandAliases[brand] ?? [])]
-      .map((candidate) => ({ brand, tokens: tokenizeText(candidate) }))
+      .map((candidate) => ({ brand, tokens: tokenizeContentText(candidate) }))
       .filter(({ tokens: brandTokens }) => brandTokens.length > 0)
   );
   let nearestBrand: string | null = null;
@@ -98,7 +89,7 @@ function isBrandQualifiedOccurrence(
         identifierEnd,
         index
       );
-      if (distance <= 3 && distance < nearestDistance) {
+      if (distance <= MAX_BRAND_TOKEN_DISTANCE && distance < nearestDistance) {
         nearestBrand = candidate.brand;
         nearestDistance = distance;
       }
@@ -120,7 +111,7 @@ export function hasCleanIdentifierOccurrence(
     post.category,
     ...(post.tags ?? []),
     ...(post.keywords ?? []),
-  ].map(tokenizeText);
+  ].map(tokenizeContentText);
 
   return postTokenGroups.some((postTokens) =>
     postTokens.some((_, startIndex) => {

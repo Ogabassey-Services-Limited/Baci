@@ -121,6 +121,24 @@ describe('inferContentClusterContext', () => {
     ).toEqual(['samsung']);
   });
 
+  it('normalizes currency-bearing metadata across all post fields', () => {
+    const context = inferContentClusterContext({
+      title: 'Best $50 Samsung Galaxy Watch deals',
+      excerpt: 'Compare US100 smartwatch options.',
+      category: 'Smartwatches',
+      tags: ['£200 Galaxy Watch'],
+      keywords: ['₦300 watch'],
+    });
+
+    expect(context).toMatchObject({
+      categorySlug: 'smartwatches',
+      brands: ['samsung'],
+    });
+    expect(context.tokens).toEqual(
+      expect.arrayContaining(['usd', '50', '100', 'gbp', '200', 'ngn', '300'])
+    );
+  });
+
   it('prefers the most specific explicit category alias over generic parent aliases', () => {
     expect(
       inferContentClusterContext({

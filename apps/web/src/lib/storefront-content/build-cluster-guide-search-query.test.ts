@@ -102,7 +102,7 @@ describe('buildClusterGuideSearchQuery', () => {
       });
 
       expect(query).toContain('"s25 ultra"');
-      expect(query).not.toContain('"samsung galaxy s25 ultra 12gb 256gb"');
+      expect(query).toContain('"samsung galaxy s25 ultra 12gb 256gb"');
     }
   });
 
@@ -158,5 +158,17 @@ describe('buildClusterGuideSearchQuery', () => {
 
     expect(giftCardQuery).toContain('"psn card 50 gift card"');
     expect(plusModelQuery).toContain('"samsung galaxy s24"');
+  });
+
+  it('preserves storage metadata in index-compatible product fallbacks', () => {
+    const query = buildClusterGuideSearchQuery({
+      pageKind: 'product',
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productNames: ['Samsung Galaxy S25 Ultra 12GB 256GB'],
+      productSlugs: [],
+    });
+
+    expect(query).toContain('"samsung galaxy s25 ultra 12gb 256gb"');
   });
 });

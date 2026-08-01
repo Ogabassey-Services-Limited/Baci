@@ -153,38 +153,50 @@ export function buildClusterGuideSearchQuery(
       : context.pageKind === 'product' || context.pageKind === 'compare'
         ? getProductModelIdentifiers(context)
         : (context.productSlugs ?? []).map((slug) => slug.replace(/-/g, ' '));
-  const rawTerms = [
-    ...support.categoryNames,
-    ...getContextBrandTerms(context),
-    ...modelFamilyTerms,
-    ...productTerms,
-    ...getIndexCompatibleProductTerms(context),
-    ...priceBandTerms,
-    ...support.articleTokens,
+  const rawTermGroups = [
+    {
+      terms: [
+        ...support.categoryNames,
+        ...getContextBrandTerms(context),
+        ...modelFamilyTerms,
+        ...productTerms,
+      ],
+      normalize: normalizeSearchTerm,
+    },
+    {
+      terms: getIndexCompatibleProductTerms(context),
+      normalize: normalizeIndexCompatibleSearchTerm,
+    },
+    {
+      terms: [...priceBandTerms, ...support.articleTokens],
+      normalize: normalizeSearchTerm,
+    },
   ];
   const seen = new Set<string>();
   const expressions: string[] = [];
   let queryByteLength = 0;
 
-  for (const rawTerm of rawTerms) {
-    const term = normalizeSearchTerm(rawTerm);
-    if (!term || seen.has(term)) {
-      continue;
-    }
+  for (const { terms, normalize } of rawTermGroups) {
+    for (const rawTerm of terms) {
+      const term = normalize(rawTerm);
+      if (!term || seen.has(term)) {
+        continue;
+      }
 
-    const expression = `"${term}"`;
-    const separatorLength = expressions.length > 0 ? 4 : 0;
-    const expressionByteLength = UTF8_ENCODER.encode(expression).byteLength;
-    if (
-      queryByteLength + separatorLength + expressionByteLength >
-      MAX_SEARCH_QUERY_LENGTH
-    ) {
-      continue;
-    }
+      const expression = `"${term}"`;
+      const separatorLength = expressions.length > 0 ? 4 : 0;
+      const expressionByteLength = UTF8_ENCODER.encode(expression).byteLength;
+      if (
+        queryByteLength + separatorLength + expressionByteLength >
+        MAX_SEARCH_QUERY_LENGTH
+      ) {
+        continue;
+      }
 
-    seen.add(term);
-    expressions.push(expression);
-    queryByteLength += separatorLength + expressionByteLength;
+      seen.add(term);
+      expressions.push(expression);
+      queryByteLength += separatorLength + expressionByteLength;
+    }
   }
 
   return expressions.join(' OR ');

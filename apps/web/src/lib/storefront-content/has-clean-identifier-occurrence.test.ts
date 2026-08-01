@@ -18,6 +18,22 @@ describe('hasCleanIdentifierOccurrence', () => {
     expect(hasCleanIdentifierOccurrence(post, ['15'])).toBe(true);
   });
 
+  it('rejects an occurrence followed by a variant marker', () => {
+    const post = {
+      slug: 'iphone-15-pro-only',
+      title: 'iPhone 15 Pro storage guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    expect(hasCleanIdentifierOccurrence(post, ['15'])).toBe(false);
+  });
+
   it('requires the requested brand to qualify a colliding model occurrence', () => {
     const post = {
       slug: 'watch-ultra-compare',

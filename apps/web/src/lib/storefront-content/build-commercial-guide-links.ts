@@ -15,6 +15,7 @@ import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { hasCleanIdentifierOccurrence } from './has-clean-identifier-occurrence';
 import { inferContentClusterContext } from './infer-content-cluster-context';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
+import { tokenizeContentText } from './tokenize-content-text';
 
 const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
   category: ['buyer-guide', 'best-in-nigeria'],
@@ -48,16 +49,6 @@ function tokenizeModelIdentifier(identifier: string) {
     .filter(Boolean);
 }
 
-function tokenizeText(value: string | null | undefined) {
-  return normalizeContentCurrencyTokens(value ?? '')
-    .toLowerCase()
-    .replace(/[’']s\b/gu, '')
-    .replace(/\+/gu, ' plus ')
-    .split(/[^a-z0-9]+/iu)
-    .map((token) => token.trim())
-    .filter(Boolean);
-}
-
 function hasContiguousTokenSequence(
   post: BuildCommercialGuideLinksInput['posts'][number],
   expectedTokens: string[]
@@ -68,7 +59,7 @@ function hasContiguousTokenSequence(
     post.category,
     ...(post.tags ?? []),
     ...(post.keywords ?? []),
-  ].map(tokenizeText);
+  ].map(tokenizeContentText);
 
   return postTokenGroups.some((postTokens) =>
     postTokens.some((_, startIndex) =>
@@ -108,7 +99,7 @@ function hasContextualSingleTokenFamilyMatch(
   brands: string[]
 ) {
   const brandTokens = brands
-    .flatMap(tokenizeText)
+    .flatMap(tokenizeContentText)
     .filter(
       (token) => token.length > 1 && !MODEL_FAMILY_CONTEXT_EXCLUSIONS.has(token)
     );
