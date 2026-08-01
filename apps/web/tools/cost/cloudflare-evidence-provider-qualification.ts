@@ -1,3 +1,4 @@
+import { executeTopologyMutationWithRollback } from './cloudflare-evidence-provider-qualification-topology';
 import {
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
@@ -47,7 +48,10 @@ type TraceExpectation = Readonly<{
   rulesetVersion: string;
   expressionSha256: string;
 }>;
-type MutationResponse = { operationId?: string; lostResponse?: boolean };
+type MutationResponse = {
+  operationId?: string;
+  lostResponse?: boolean;
+};
 export type TopologyMutationRequest = Readonly<{
   family: TopologyFamily;
   action: TopologyAction;
@@ -79,18 +83,8 @@ const TOPOLOGY_ACTIONS_BY_FAMILY = {
   'r2-cors': { action: 'write', restore: 'write' },
   'r2-custom-domain': { action: 'detach', restore: 'reattach' },
 } as const;
-function verifyMutationResponse(mutation: MutationResponse) {
-  const operationId = mutation.operationId;
-  const lostResponse = mutation.lostResponse;
-  if (
-    typeof lostResponse !== 'boolean' ||
-    (operationId !== undefined &&
-      (typeof operationId !== 'string' || operationId.trim().length === 0)) ||
-    (!lostResponse && operationId === undefined)
-  )
-    throw new Error('topology mutation response is ambiguous');
-  return { operationId: operationId ?? null, lostResponse };
-}
+const sameTopologyTuple = (left: TopologyTuple, right: TopologyTuple) =>
+  left.state === right.state && left.fingerprint === right.fingerprint;
 function verifyJournaledTopologyEndpoints(
   topologies: readonly [TopologyPlan, TopologyPlan, TopologyPlan],
   journaledTopologies: readonly [
@@ -128,9 +122,9 @@ function verifyJournaledTopologyEndpoints(
       topology.responseSchemaSha256 !== journaled.responseSchemaSha256 ||
       topology.maximumVisibilitySeconds !==
         journaled.maximumVisibilitySeconds ||
-      !sameTuple(topology.before, journaled.before) ||
-      !sameTuple(topology.intermediate, journaled.intermediate) ||
-      !sameTuple(topology.after, journaled.after) ||
+      !sameTopologyTuple(topology.before, journaled.before) ||
+      !sameTopologyTuple(topology.intermediate, journaled.intermediate) ||
+      !sameTopologyTuple(topology.after, journaled.after) ||
       topology.restore.requestSchemaSha256 !==
         journaled.restore.requestSchemaSha256 ||
       topology.restore.responseSchemaSha256 !==
@@ -156,61 +150,6 @@ function verifyJournaledTopologyEndpoints(
       'topology endpoints do not share the journaled resource scope'
     );
 }
-const sameTuple = (left: TopologyTuple, right: TopologyTuple) =>
-  left.state === right.state && left.fingerprint === right.fingerprint;
-const buildTopologyMutationRequest = (
-  { family, action: defaultAction, endpoint }: TopologyPlan,
-  requestSchemaSha256: string,
-  action = defaultAction
-) => ({ family, action, endpoint, requestSchemaSha256 });
-function verifyMutationConvergence(
-  readbacks: readonly TopologyReadback[],
-  topology: TopologyPlan
-) {
-  if (readbacks.length < 2)
-    throw new Error('topology polling did not prove bounded convergence');
-  let reachedAfter = false;
-  let previousElapsed = -1;
-  for (const readback of readbacks) {
-    if (
-      !Number.isFinite(readback.elapsedSeconds) ||
-      readback.elapsedSeconds < previousElapsed ||
-      readback.elapsedSeconds > topology.maximumVisibilitySeconds
-    )
-      throw new Error('topology convergence exceeded the visibility bound');
-    previousElapsed = readback.elapsedSeconds;
-    if (sameTuple(readback.tuple, topology.after)) reachedAfter = true;
-    else if (reachedAfter || !sameTuple(readback.tuple, topology.intermediate))
-      throw new Error('topology polling returned a mixed or unknown tuple');
-  }
-  const final = readbacks.at(-1);
-  if (!final || !sameTuple(final.tuple, topology.after))
-    throw new Error('topology did not converge to the exact after tuple');
-  if (final.pendingOperation)
-    throw new Error('topology after tuple still has a pending operation');
-}
-function verifyControlNoEffect(
-  readbacks: readonly TopologyReadback[],
-  topology: TopologyPlan
-) {
-  if (readbacks.some((readback) => readback.pendingOperation))
-    throw new Error('topology control has a pending provider operation');
-  if (
-    readbacks.length < 2 ||
-    readbacks.some(
-      (readback) =>
-        !sameTuple(readback.tuple, topology.before) ||
-        !Number.isFinite(readback.elapsedSeconds) ||
-        readback.elapsedSeconds < 0 ||
-        readback.elapsedSeconds > topology.maximumVisibilitySeconds
-    ) ||
-    readbacks.at(-1)?.elapsedSeconds !== topology.maximumVisibilitySeconds
-  )
-    throw new Error(
-      'topology control did not prove the exact unchanged before tuple through the visibility bound'
-    );
-}
-
 /** Executes only injected reads/writes against the bounded qualification topology contract. */
 export async function executeDeepCloudflareEvidenceQualification(
   client: DeepQualificationClient,
@@ -252,45 +191,8 @@ export async function executeDeepCloudflareEvidenceQualification(
     }
   const mutationReceipts: TopologyMutationAuditReceipt[] = [];
   for (const topology of input.topologies) {
-    if (sameTuple(topology.before, topology.after))
-      throw new Error('topology qualification requires a real mutation');
-    if (!sameTuple(await client.topologyRead(topology.family), topology.before))
-      throw new Error('topology before tuple does not match');
-    const mutation = await client.topologyMutate(
-      buildTopologyMutationRequest(topology, topology.requestSchemaSha256)
-    );
-    const { operationId, lostResponse } = verifyMutationResponse(mutation);
-    mutationReceipts.push({
-      family: topology.family,
-      action: topology.action,
-      endpoint: topology.endpoint,
-      requestSchemaSha256: topology.requestSchemaSha256,
-      responseSchemaSha256: topology.responseSchemaSha256,
-      operationId: operationId ?? null,
-      lostResponse,
-    });
-    verifyMutationConvergence(
-      await client.topologyPoll(
-        topology.family,
-        topology.maximumVisibilitySeconds
-      ),
-      topology
-    );
-    verifyMutationResponse(
-      await client.topologyMutate(
-        buildTopologyMutationRequest(
-          topology,
-          topology.restore.requestSchemaSha256,
-          topology.restore.action
-        )
-      )
-    );
-    verifyControlNoEffect(
-      await client.topologyControlReadback(
-        topology.family,
-        topology.maximumVisibilitySeconds
-      ),
-      topology
+    mutationReceipts.push(
+      await executeTopologyMutationWithRollback(client, topology)
     );
   }
   return {

@@ -22,12 +22,14 @@ export type {
   EvidenceProbeResult,
   EvidenceReadbackClient,
   EvidenceResource,
+  EvidenceTemporaryRuleBinding,
   MutationMode,
 } from './mutate-cloudflare-evidence-validation';
 export {
   EVIDENCE_HOSTNAME,
   isEvidenceMutationClient,
   parseMutationArguments,
+  REVIEWED_TEMPORARY_RULE_BINDING,
   SYNTHETIC_PATHS,
   verifyCapability,
   verifyIdentity,

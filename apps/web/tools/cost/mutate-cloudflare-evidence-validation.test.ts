@@ -6,8 +6,10 @@ import {
 } from './mutate-cloudflare-evidence-test-fixtures';
 import {
   parseMutationArguments,
+  REVIEWED_TEMPORARY_RULE_BINDING,
   verifyCapability,
   verifyResource,
+  verifyTemporaryRule,
 } from './mutate-cloudflare-evidence-validation';
 
 const runId = '0123456789abcdef0123456789abcdef';
@@ -28,6 +30,7 @@ const resource = {
   zoneId: 'zone',
   hostname: 'edge-evidence.ogabassey.com',
   paths: ['/__baci-evidence/a', '/__baci-evidence/b'],
+  temporaryRule: REVIEWED_TEMPORARY_RULE_BINDING,
 };
 
 describe('mutation validation helpers', () => {
@@ -52,6 +55,86 @@ describe('mutation validation helpers', () => {
         resource.name
       )
     ).toThrow('provider read-back');
+  });
+
+  it('rejects a provider rule with a broader method set', () => {
+    expect(() =>
+      verifyResource(
+        {
+          ...resource,
+          temporaryRule: {
+            ...resource.temporaryRule,
+            methods: ['GET', 'HEAD', 'POST'],
+          },
+        },
+        journal,
+        resource.name
+      )
+    ).toThrow('temporary rule fields');
+  });
+
+  it('rejects a provider rule with a changed header predicate', () => {
+    expect(() =>
+      verifyResource(
+        {
+          ...resource,
+          temporaryRule: {
+            ...resource.temporaryRule,
+            headers: resource.temporaryRule.headers?.map((header, index) =>
+              index === 0 ? { ...header, value: '2' } : header
+            ),
+          },
+        },
+        journal,
+        resource.name
+      )
+    ).toThrow('temporary rule fields');
+  });
+
+  it('rejects a provider rule with a changed action', () => {
+    expect(() =>
+      verifyResource(
+        {
+          ...resource,
+          temporaryRule: { ...resource.temporaryRule, action: 'allow' },
+        },
+        journal,
+        resource.name
+      )
+    ).toThrow('temporary rule fields');
+  });
+
+  it('rejects a provider rule with a changed rate threshold', () => {
+    expect(() =>
+      verifyResource(
+        {
+          ...resource,
+          temporaryRule: { ...resource.temporaryRule, threshold: 101 },
+        },
+        journal,
+        resource.name
+      )
+    ).toThrow('temporary rule fields');
+  });
+
+  it('accepts an independently bound canonical hash when fields are unavailable', () => {
+    const hashOnlyBinding = {
+      id: REVIEWED_TEMPORARY_RULE_BINDING.id,
+      canonicalSha256: REVIEWED_TEMPORARY_RULE_BINDING.canonicalSha256,
+    };
+    expect(() =>
+      verifyResource(
+        { ...resource, temporaryRule: hashOnlyBinding },
+        journal,
+        resource.name
+      )
+    ).not.toThrow();
+  });
+
+  it('rejects a missing temporary rule binding', () => {
+    expect(() => verifyTemporaryRule(undefined as never)).toThrow(
+      'missing its binding'
+    );
   });
 
   it('accepts a cleanup replacement only with its separately approved policy hash', () => {

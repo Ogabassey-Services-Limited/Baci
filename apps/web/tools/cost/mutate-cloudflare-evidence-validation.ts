@@ -6,13 +6,31 @@ import {
   type loadEvidenceRunForCleanup,
   RUN_ID_PATTERN,
 } from './cloudflare-evidence-run-journal';
+import {
+  EVIDENCE_HOSTNAME,
+  type EvidenceTemporaryRuleBinding,
+  REVIEWED_TEMPORARY_RULE_BINDING,
+  verifyTemporaryRule,
+} from './mutate-cloudflare-evidence-rule-binding';
 import type { VerifiedEvidenceTokenCapability } from './verify-cloudflare-evidence-token-policy';
 
-export const EVIDENCE_HOSTNAME = 'edge-evidence.ogabassey.com';
+const HASH_PATTERN = /^[a-f0-9]{64}$/;
+
 export const SYNTHETIC_PATHS = [
   '/__baci-evidence/a',
   '/__baci-evidence/b',
 ] as const;
+
+export type {
+  EvidenceRuleHeader,
+  EvidenceTemporaryRuleBinding,
+} from './mutate-cloudflare-evidence-rule-binding';
+export {
+  calculateEvidenceTemporaryRuleCanonicalSha256,
+  EVIDENCE_HOSTNAME,
+  REVIEWED_TEMPORARY_RULE_BINDING,
+  verifyTemporaryRule,
+} from './mutate-cloudflare-evidence-rule-binding';
 
 export type EvidenceResource = Readonly<{
   id: string;
@@ -22,6 +40,7 @@ export type EvidenceResource = Readonly<{
   zoneId: string;
   hostname: string;
   paths: readonly string[];
+  temporaryRule: EvidenceTemporaryRuleBinding;
 }>;
 export type EvidenceProbeResult = Readonly<{ id: string; succeeded: boolean }>;
 export type EvidenceMutationClient = {
@@ -31,7 +50,8 @@ export type EvidenceMutationClient = {
   create(
     name: string,
     hostname: string,
-    paths: readonly string[]
+    paths: readonly string[],
+    temporaryRule: EvidenceTemporaryRuleBinding
   ): Promise<{ id: string }>;
   probe(resource: EvidenceResource): Promise<readonly EvidenceProbeResult[]>;
   cleanup(name: string, id: string): Promise<boolean>;
@@ -65,8 +85,6 @@ export type EvidenceJournal = Awaited<
     /** Optional approval for a cleanup-only replacement token. */
     cleanupPolicySha256?: string;
   }>;
-
-const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 type CleanupReplacementCapability = VerifiedEvidenceTokenCapability &
   Readonly<{
@@ -159,7 +177,7 @@ export function verifyCapability(
     !isCleanupReplacementCapability(capability) ||
     capability.replacementForTokenId !== journal.writeTokenId ||
     !approvedCleanupPolicySha256 ||
-    !SHA256_PATTERN.test(approvedCleanupPolicySha256) ||
+    !HASH_PATTERN.test(approvedCleanupPolicySha256) ||
     capability.policySha256 !== approvedCleanupPolicySha256
   )
     throw new Error('write capability does not match the journaled authority');
@@ -179,7 +197,8 @@ export function verifyResource(
   resource: EvidenceResource,
   journal: EvidenceJournal,
   name: string,
-  expectedId?: string
+  expectedId?: string,
+  expectedTemporaryRule: EvidenceTemporaryRuleBinding = REVIEWED_TEMPORARY_RULE_BINDING
 ) {
   if (
     !resource.id ||
@@ -195,4 +214,5 @@ export function verifyResource(
     throw new Error(
       'journaled resource identity does not match provider read-back'
     );
+  verifyTemporaryRule(resource.temporaryRule, expectedTemporaryRule);
 }

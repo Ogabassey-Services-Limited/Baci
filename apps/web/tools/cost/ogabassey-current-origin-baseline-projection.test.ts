@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateOgabasseyOriginBusinessCase } from './ogabassey-current-origin-baseline';
-import { current } from './ogabassey-current-origin-baseline.test-fixtures';
+import {
+  current,
+  currentWithWorkersLogsContract,
+} from './ogabassey-current-origin-baseline.test-fixtures';
 
 describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
   const now = new Date('2026-08-01T12:00:00.000Z');
@@ -54,16 +57,16 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
     });
   });
 
-  it('includes current account events when enforcing forced-sampling headroom', () => {
+  it('includes current account events when enforcing forced-sampling headroom', async () => {
+    const contract = await currentWithWorkersLogsContract({
+      currentUtcDayAllAccountEvents: 4_900_000_000n,
+    });
     expect(
       evaluateOgabasseyOriginBusinessCase(
         {
           ...current,
-          workersLogsContract: {
-            ...current.workersLogsContract,
-            currentUtcDayAllAccountEvents: 4_900_000_000n,
-          },
-          projectedAccountLogEventsPerDay: 50_000_000n,
+          workersLogsContract: contract,
+          expectedDailyWorkerInvocations: 25_000_000n,
         },
         { now }
       )
@@ -73,7 +76,17 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
     });
   });
 
-  it('scales Paid monthly projection and binds overage cost before savings', () => {
+  it('scales Paid monthly projection and binds overage cost before savings', async () => {
+    const contract = await currentWithWorkersLogsContract({
+      plan: 'paid' as const,
+      allowanceEvents: 20_000_000n,
+      allowancePeriod: 'billing_month' as const,
+      allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+      allowancePeriodEndsAt: '2026-09-01T00:00:00.000Z',
+      currentAllowancePeriodAllAccountEvents: 19_000_000n,
+      overageAllowed: true,
+      overageUsdPerMillion: '0.60',
+    });
     expect(
       evaluateOgabasseyOriginBusinessCase(
         {
@@ -84,18 +97,8 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
             irreducibleDynamicOriginCostUsd: '2.00',
             reducibleStaticOriginCostUsd: '8.00',
           },
-          workersLogsContract: {
-            ...current.workersLogsContract,
-            plan: 'paid' as const,
-            allowanceEvents: 20_000_000n,
-            allowancePeriod: 'billing_month' as const,
-            allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
-            allowancePeriodEndsAt: '2026-09-01T00:00:00.000Z',
-            currentAllowancePeriodAllAccountEvents: 19_000_000n,
-            overageAllowed: true,
-            overageUsdPerMillion: '0.60',
-          },
-          projectedAccountLogEventsPerDay: 1_000_000n,
+          workersLogsContract: contract,
+          expectedDailyWorkerInvocations: 1_000_000n,
         },
         { now }
       )

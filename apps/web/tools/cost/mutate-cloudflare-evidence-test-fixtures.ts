@@ -1,3 +1,5 @@
+import { REVIEWED_TEMPORARY_RULE_BINDING } from './mutate-cloudflare-evidence-validation';
+
 export const mutationInput = {
   runId: '0123456789abcdef0123456789abcdef',
   approvalId: 'approval',
@@ -44,6 +46,7 @@ export const mutationResource = {
   zoneId: 'zone',
   hostname: 'edge-evidence.ogabassey.com',
   paths: ['/__baci-evidence/a', '/__baci-evidence/b'],
+  temporaryRule: REVIEWED_TEMPORARY_RULE_BINDING,
 };
 
 export const cleanupReceipt = {

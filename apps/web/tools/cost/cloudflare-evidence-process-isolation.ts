@@ -1,9 +1,18 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import {
+  lstat,
+  mkdtemp,
+  readFile,
+  readlink,
+  realpath,
+  rm,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import {
   EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST,
+  type EvidenceDependencyIntegrityManifest,
   readReviewedEvidenceDependencyManifest,
+  verifyEvidenceDependencyFile,
 } from './cloudflare-evidence-dependency-integrity';
 import { verifyCredentialedEvidenceCommandImportClosure } from './cloudflare-evidence-import-closure';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
@@ -58,6 +67,85 @@ const absoluteToolPath = (
   command: EvidenceChildCommand
 ) => resolve(workspaceRoot, 'apps/web/tools/cost', scriptFor(command));
 
+async function verifyReviewedPackageClosure(
+  workspaceRoot: string,
+  packageName: string,
+  manifest: EvidenceDependencyIntegrityManifest
+) {
+  const metadata = manifest.packages[packageName];
+  if (!metadata)
+    throw new Error('tsx runtime dependency lacks reviewed integrity metadata');
+  const packageRoot = resolve(workspaceRoot, metadata.root);
+  for (const file of Object.keys(metadata.files))
+    await verifyEvidenceDependencyFile(
+      workspaceRoot,
+      packageName,
+      resolve(packageRoot, file),
+      manifest
+    );
+  const value = JSON.parse(
+    await readFile(resolve(packageRoot, 'package.json'), 'utf8')
+  ) as { dependencies?: Record<string, unknown> };
+  for (const dependency of Object.keys(value.dependencies ?? {}))
+    await verifyReviewedPackageClosure(workspaceRoot, dependency, manifest);
+}
+
+async function resolveShebangNode(pathValue: string | undefined) {
+  if (!pathValue) throw new Error('tsx shebang runtime PATH is required');
+  const entries = pathValue.split(delimiter);
+  if (entries.some((entry) => !entry || !isAbsolute(entry)))
+    throw new Error(
+      'tsx shebang runtime PATH must contain only absolute directories'
+    );
+  const expected = await realpath(process.execPath);
+  for (const entry of entries) {
+    const candidate = resolve(entry, 'node');
+    const candidateStat = await lstat(candidate).catch(() => undefined);
+    if (!candidateStat) continue;
+    if (candidateStat.isDirectory())
+      throw new Error('tsx shebang runtime node is not a regular executable');
+    const resolved = await realpath(candidate).catch(() => undefined);
+    if (!resolved || resolved !== expected)
+      throw new Error(
+        'tsx shebang runtime node does not match the reviewed runtime'
+      );
+    return resolved;
+  }
+  throw new Error('tsx shebang runtime node is not on the reviewed PATH');
+}
+
+export async function verifyReviewedTsxLauncher(
+  workspaceRoot: string,
+  manifest: EvidenceDependencyIntegrityManifest,
+  pathValue = process.env.PATH
+) {
+  if (!isAbsolute(workspaceRoot))
+    throw new Error('evidence workspace root must be absolute');
+  const launcher = pinnedTsx(workspaceRoot);
+  const launcherStat = await lstat(launcher).catch(() => undefined);
+  if (!launcherStat?.isSymbolicLink())
+    throw new Error('tsx launcher must remain the reviewed symlink');
+  if ((await readlink(launcher)) !== '../tsx/dist/cli.mjs')
+    throw new Error('tsx launcher symlink target is not reviewed');
+  const target = await verifyEvidenceDependencyFile(
+    workspaceRoot,
+    'tsx',
+    launcher,
+    manifest
+  );
+  const expectedTarget = await realpath(
+    resolve(dirname(launcher), '../tsx/dist/cli.mjs')
+  ).catch(() => undefined);
+  if (!expectedTarget || target !== expectedTarget)
+    throw new Error('tsx launcher target is not reviewed');
+  const firstLine = (await readFile(target, 'utf8')).split(/\r?\n/u, 1)[0];
+  if (firstLine !== '#!/usr/bin/env node')
+    throw new Error('tsx launcher shebang is not reviewed');
+  const nodePath = await resolveShebangNode(pathValue);
+  await verifyReviewedPackageClosure(workspaceRoot, 'tsx', manifest);
+  return Object.freeze({ launcher, target, nodePath });
+}
+
 const prepareEnvironment = (
   inherited: Readonly<Record<string, string | undefined>>
 ) => {
@@ -90,7 +178,6 @@ const prepareEnvironment = (
   );
 };
 
-/** Spawns exactly one purpose-bound command with a closed environment and one credential. */
 export async function spawnIsolatedCloudflareEvidenceProcess(
   spawner: EvidenceProcessSpawner,
   command: EvidenceChildCommand,
@@ -153,6 +240,11 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
         manifestPath
       );
       env[EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST] = reviewedDependencies.path;
+      await verifyReviewedTsxLauncher(
+        workspaceRoot,
+        reviewedDependencies.manifest,
+        env.PATH
+      );
       await verifyCredentialedEvidenceCommandImportClosure(
         workspaceRoot,
         journal.toolingMergeSha,

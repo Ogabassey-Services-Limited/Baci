@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateOgabasseyOriginBusinessCase } from './ogabassey-current-origin-baseline';
-import { current } from './ogabassey-current-origin-baseline.test-fixtures';
+import {
+  current,
+  currentWithWorkersLogsContract,
+} from './ogabassey-current-origin-baseline.test-fixtures';
 
 describe('evaluateOgabasseyOriginBusinessCase', () => {
   it('proceeds only on a current complete all-ingress seven-day baseline with positive savings', () =>
@@ -111,7 +114,26 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
   it('does not proceed from a favorable price without validated Workers Logs evidence', () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(
-        { ...current, workersLogsContract: undefined },
+        {
+          ...current,
+          workersLogsContract: undefined,
+        } as unknown as typeof current,
+        { now: new Date('2026-08-01T12:00:00.000Z') }
+      )
+    ).toEqual({
+      verdict: 'NOT_PROVEN',
+      reasonCodes: ['workers_logs_contract_invalid'],
+    });
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        {
+          ...current,
+          workersLogsContract: Object.fromEntries(
+            Object.entries(current.workersLogsContract).filter(
+              ([key]) => key !== 'provenance'
+            )
+          ),
+        } as unknown as typeof current,
         { now: new Date('2026-08-01T12:00:00.000Z') }
       )
     ).toEqual({
@@ -119,16 +141,16 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
       reasonCodes: ['workers_logs_contract_invalid'],
     });
   });
-  it('rejects exhausted Free allowance and insufficient forced-sampling headroom', () => {
+  it('rejects exhausted Free allowance and insufficient forced-sampling headroom', async () => {
     const now = new Date('2026-08-01T12:00:00.000Z');
+    const exhaustedContract = await currentWithWorkersLogsContract({
+      currentAllowancePeriodAllAccountEvents: 200_000n,
+    });
     expect(
       evaluateOgabasseyOriginBusinessCase(
         {
           ...current,
-          workersLogsContract: {
-            ...current.workersLogsContract,
-            currentAllowancePeriodAllAccountEvents: 200_000n,
-          },
+          workersLogsContract: exhaustedContract,
         },
         { now }
       )
@@ -140,7 +162,7 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
       evaluateOgabasseyOriginBusinessCase(
         {
           ...current,
-          projectedAccountLogEventsPerDay: 1_250_000_000n,
+          expectedDailyWorkerInvocations: 1_250_000_000n,
         },
         { now }
       )
@@ -148,6 +170,20 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
       verdict: 'STOP',
       reasonCodes: ['workers_logs_forced_sampling_headroom_insufficient'],
     });
+  });
+  it('rejects zero or understated expected daily invocations', () => {
+    const now = new Date('2026-08-01T12:00:00.000Z');
+    for (const expectedDailyWorkerInvocations of [0n, 142n]) {
+      expect(
+        evaluateOgabasseyOriginBusinessCase(
+          { ...current, expectedDailyWorkerInvocations },
+          { now }
+        )
+      ).toEqual({
+        verdict: 'NOT_PROVEN',
+        reasonCodes: ['workers_logs_projection_invalid'],
+      });
+    }
   });
   it('rejects an undated, future, stale, or calendar-invalid baseline window', () => {
     const now = new Date('2026-08-01T12:00:00.000Z');

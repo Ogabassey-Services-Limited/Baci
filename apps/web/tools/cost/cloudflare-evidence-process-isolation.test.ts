@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, lstat, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import { calculateReviewedPolicySha256 } from './cloudflare-evidence-prepare';
@@ -19,6 +19,9 @@ type Spawn = (
   argv: readonly string[],
   options: { cwd: string; env: Record<string, string> }
 ) => Promise<void>;
+
+const runnerModulePathFor = (workspaceRoot: string) =>
+  resolve(workspaceRoot, 'packages/shared/src/constants/countries.ts');
 describe('spawnIsolatedCloudflareEvidenceProcess', () => {
   const runId = 'b'.repeat(32);
   const prepareInput = {
@@ -48,10 +51,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       ...prepareInput,
       toolingMergeSha: toolingMergeSha.trim(),
     };
-    const runnerModulePath = resolve(
-      workspaceRoot,
-      'packages/shared/src/constants/countries.ts'
-    );
+    const runnerModulePath = runnerModulePathFor(workspaceRoot);
     const runnerModuleSha256 = createHash('sha256')
       .update(await readFile(runnerModulePath))
       .digest('hex');
@@ -191,22 +191,22 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
   });
   it('uses separate children with one allowlisted credential and exact command ownership', async () => {
     const spawn = vi.fn<Spawn>(async () => undefined);
-    const inherited = { PATH: '/bin', SECRET: 'never-forward' };
+    const inherited = {
+      PATH: `${dirname(process.execPath)}${process.platform === 'win32' ? ';' : ':'}/bin`,
+      SECRET: 'never-forward',
+    };
     const workspaceRoot = resolve(import.meta.dirname, '../../../..');
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-isolation-'));
     await chmod(stateDir, 0o700);
     const toolingMergeSha = await readEvidenceToolingHead(workspaceRoot);
-    const runnerModulePath = resolve(
-      workspaceRoot,
-      'packages/shared/src/constants/countries.ts'
-    );
+    const runnerModulePath = runnerModulePathFor(workspaceRoot);
     const runnerModuleSha256 = createHash('sha256')
       .update(await readFile(runnerModulePath))
       .digest('hex');
     const manifestPath = await createEvidenceDependencyIntegrityManifest(
       workspaceRoot,
       toolingMergeSha,
-      ['zod']
+      ['zod', 'tsx', 'esbuild']
     );
     await openEvidenceRun(stateDir, {
       ...prepareInput,

@@ -2,8 +2,10 @@ import {
   parseStrictUtcBoundary,
   UTC_DAY_MILLISECONDS,
 } from '../../../../packages/shared/src/storefront/utc-boundary';
-import type { CloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
-import { validateCloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
+import {
+  type RetrievedCloudflareWorkersLogsContract,
+  validateWorkersLogsEvidence,
+} from './ogabassey-current-origin-baseline-workers-logs';
 import { DEFAULT_ORIGIN_RATE_THRESHOLD } from './origin-rate-constants';
 
 export type {
@@ -14,12 +16,19 @@ export type {
 export {
   CloudflareWorkersLogsEntitlementSchema,
   CloudflareWorkersLogsPlanContractSchema,
-  retrieveCurrentCloudflareWorkersLogsContract,
   validateCloudflareWorkersLogsPlanContract,
 } from './cloudflare-workers-logs-contract';
+export type {
+  CloudflareWorkersLogsContractCapability,
+  CloudflareWorkersLogsContractProvenance,
+  RetrievedCloudflareWorkersLogsContract,
+} from './ogabassey-current-origin-baseline-workers-logs';
+export {
+  isRetrievedCloudflareWorkersLogsContract,
+  retrieveAuthenticatedCloudflareWorkersLogsContract as retrieveCurrentCloudflareWorkersLogsContract,
+} from './ogabassey-current-origin-baseline-workers-logs';
 
 const DEFAULT_MAXIMUM_BASELINE_AGE_DAYS = 7;
-const FORCED_SAMPLING_HEADROOM_MULTIPLIER = 4n;
 export type OgabasseyOriginCostProjection = Readonly<{
   irreducibleDynamicOriginCostUsd: string;
   reducibleStaticOriginCostUsd: string;
@@ -38,9 +47,9 @@ export type OgabasseyOriginBusinessCaseInput = {
   originCostProjection?: OgabasseyOriginCostProjection;
   ownerApprovedPaybackMonths?: number;
   paybackMonths?: number;
-  /** Raw receipt is deliberately unknown so callers cannot bypass validation. */
-  workersLogsContract: unknown;
-  projectedAccountLogEventsPerDay: bigint | number | string;
+  workersLogsContract: RetrievedCloudflareWorkersLogsContract;
+  expectedDailyWorkerInvocations: bigint | number | string;
+  qualifiedLogEventsPerInvocation: bigint | number | string;
 };
 export type OgabasseyOriginBusinessCaseOptions = Readonly<{
   now?: Date;
@@ -50,13 +59,6 @@ function decimalToMinorUnits(value: string): bigint | null {
   const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value);
   if (!match) return null;
   return BigInt(match[1]) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'));
-}
-function nonNegativeInteger(value: unknown): bigint | null {
-  if (typeof value === 'bigint') return value >= 0n ? value : null;
-  if (typeof value === 'number')
-    return Number.isSafeInteger(value) && value >= 0 ? BigInt(value) : null;
-  if (typeof value === 'string' && /^\d+$/.test(value)) return BigInt(value);
-  return null;
 }
 function validateOriginCostProjection(input: OgabasseyOriginBusinessCaseInput) {
   const dynamic = decimalToMinorUnits(
@@ -85,66 +87,6 @@ function validateOriginCostProjection(input: OgabasseyOriginBusinessCaseInput) {
       reason: 'dynamic_origin_cost_dominant',
     };
   return { ok: true as const };
-}
-function validateWorkersLogsEvidence(
-  input: OgabasseyOriginBusinessCaseInput,
-  now: Date
-) {
-  let contract: CloudflareWorkersLogsPlanContract;
-  try {
-    contract = validateCloudflareWorkersLogsPlanContract(
-      input.workersLogsContract,
-      { now }
-    );
-  } catch {
-    return {
-      ok: false as const,
-      verdict: 'NOT_PROVEN' as const,
-      reason: 'workers_logs_contract_invalid',
-    };
-  }
-  const projected = nonNegativeInteger(input.projectedAccountLogEventsPerDay);
-  if (projected === null)
-    return {
-      ok: false as const,
-      verdict: 'NOT_PROVEN' as const,
-      reason: 'workers_logs_projection_invalid',
-    };
-  const projectedWithHeadroom = projected * FORCED_SAMPLING_HEADROOM_MULTIPLIER;
-  if (
-    contract.currentUtcDayAllAccountEvents + projectedWithHeadroom >=
-    contract.forcedSamplingDailyThreshold
-  )
-    return {
-      ok: false as const,
-      verdict: 'STOP' as const,
-      reason: 'workers_logs_forced_sampling_headroom_insufficient',
-    };
-  const allowanceUsage = contract.currentAllowancePeriodAllAccountEvents;
-  const end = Date.parse(contract.allowancePeriodEndsAt);
-  const remainingDays = BigInt(
-    Math.max(1, Math.ceil((end - now.valueOf()) / UTC_DAY_MILLISECONDS))
-  );
-  const projectedAllowanceUse = allowanceUsage + projected * remainingDays;
-  let projectedOverageCostMinorUnits = 0n;
-  if (
-    allowanceUsage >= contract.allowanceEvents ||
-    projectedAllowanceUse > contract.allowanceEvents
-  ) {
-    if (!contract.overageAllowed || contract.overageUsdPerMillion === null)
-      return {
-        ok: false as const,
-        verdict: 'STOP' as const,
-        reason: 'workers_logs_allowance_exhausted',
-      };
-    const rate = decimalToMinorUnits(contract.overageUsdPerMillion);
-    if (rate === null)
-      throw new Error('Cloudflare overage price contract drifted');
-    const overageEvents = projectedAllowanceUse - contract.allowanceEvents;
-    projectedOverageCostMinorUnits =
-      (overageEvents * rate + 1_000_000n - 1n) / 1_000_000n;
-  }
-  return { ok: true as const, projectedOverageCostMinorUnits };
 }
 /** Gates design work on a complete, current, all-ingress baseline—not a percentage claim. */
 export function evaluateOgabasseyOriginBusinessCase(
@@ -251,7 +193,14 @@ export function evaluateOgabasseyOriginBusinessCase(
       verdict: originCostProjection.verdict,
       reasonCodes: [originCostProjection.reason],
     };
-  const workersLogsEvidence = validateWorkersLogsEvidence(input, now);
+  const workersLogsEvidence = validateWorkersLogsEvidence(
+    input.workersLogsContract,
+    input.expectedDailyWorkerInvocations,
+    input.qualifiedLogEventsPerInvocation,
+    input.allIngressRequests,
+    input.windowDays,
+    now
+  );
   if (!workersLogsEvidence.ok)
     return {
       verdict: workersLogsEvidence.verdict ?? 'NOT_PROVEN',

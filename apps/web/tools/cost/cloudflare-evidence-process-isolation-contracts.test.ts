@@ -7,10 +7,11 @@ import {
   readFile,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
@@ -55,10 +56,16 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
     const dependencyPath = join(toolsDir, 'command-helper.ts');
     const runnerPath = join(toolsDir, 'runner.ts');
     const packageRoot = join(root, 'node_modules', 'fixture-package');
+    const tsxRoot = join(root, 'node_modules', 'tsx');
+    const binRoot = join(root, 'node_modules', '.bin');
+    const launcher = join(binRoot, 'tsx');
+    const tsxCli = join(tsxRoot, 'dist', 'cli.mjs');
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-command-state-'));
     await chmod(stateDir, 0o700);
     await mkdir(toolsDir, { recursive: true });
     await mkdir(packageRoot, { recursive: true });
+    await mkdir(join(tsxRoot, 'dist'), { recursive: true });
+    await mkdir(binRoot, { recursive: true });
     await writeFile(
       commandPath,
       "import { value } from './command-helper';\nimport { packageValue } from 'fixture-package';\nexport { value, packageValue };\n"
@@ -74,6 +81,12 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
       join(packageRoot, 'index.js'),
       'exports.packageValue = 1;\n'
     );
+    await writeFile(
+      join(tsxRoot, 'package.json'),
+      '{"name":"tsx","bin":"./dist/cli.mjs"}\n'
+    );
+    await writeFile(tsxCli, '#!/usr/bin/env node\n');
+    await symlink('../tsx/dist/cli.mjs', launcher);
     await writeFile(join(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n');
     await execFileAsync('git', ['-C', root, 'init', '--quiet']);
     await execFileAsync('git', ['-C', root, 'add', '--', '.']);
@@ -102,7 +115,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
     const manifestPath = await createEvidenceDependencyIntegrityManifest(
       root,
       head.trim(),
-      ['fixture-package']
+      ['fixture-package', 'tsx']
     );
     const runId = 'a'.repeat(32);
     const input = {
@@ -130,7 +143,10 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
         { spawn },
         'mutate',
         runId,
-        { EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath },
+        {
+          PATH: dirname(process.execPath),
+          EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+        },
         { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
         root,
         stateDir
@@ -145,7 +161,10 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
           { spawn },
           'mutate',
           runId,
-          { EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath },
+          {
+            PATH: dirname(process.execPath),
+            EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+          },
           { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
           root,
           stateDir
@@ -162,12 +181,34 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
           { spawn },
           'mutate',
           runId,
-          { EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath },
+          {
+            PATH: dirname(process.execPath),
+            EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+          },
           { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
           root,
           stateDir
         )
       ).rejects.toThrow('differs from the reviewed commit');
+      expect(spawn).toHaveBeenCalledTimes(1);
+      await rm(launcher);
+      await writeFile(launcher, '#!/usr/bin/env node\nmalicious();\n', {
+        mode: 0o755,
+      });
+      await expect(
+        spawnIsolatedCloudflareEvidenceProcess(
+          { spawn },
+          'mutate',
+          runId,
+          {
+            PATH: dirname(process.execPath),
+            EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+          },
+          { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
+          root,
+          stateDir
+        )
+      ).rejects.toThrow('launcher');
       expect(spawn).toHaveBeenCalledTimes(1);
     } finally {
       await rm(root, { recursive: true, force: true });

@@ -28,6 +28,7 @@ import {
   isEvidenceMutationClient,
   loadMutationDependencies,
   parseMutationArguments,
+  REVIEWED_TEMPORARY_RULE_BINDING,
   SYNTHETIC_PATHS,
   verifyCapability,
   verifyIdentity,
@@ -103,7 +104,8 @@ export async function applyCloudflareEvidenceMutation(
     const created = await client.create(
       name,
       EVIDENCE_HOSTNAME,
-      SYNTHETIC_PATHS
+      SYNTHETIC_PATHS,
+      REVIEWED_TEMPORARY_RULE_BINDING
     );
     resource = await client.get(created.id);
     if (!resource) throw new Error('created resource was not readable');
