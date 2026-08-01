@@ -18,6 +18,7 @@
 - The companion migration must set `lock_timeout = '5s'` and `statement_timeout = '30s'` before DDL.
 - Every companion table is private, forced-RLS, policy-free, and has all table privileges revoked from `PUBLIC`, `anon`, `authenticated`, `service_role`, and `payment_control_plane`.
 - Create `payment_control_plane` only as `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION`; grant it only `EXECUTE` on the five named guarded functions.
+- The six companion relations are the identity catalog, deployment-attestation root, deployment binding, parser proof registry, creation receipts, and transition receipts; no relation is seeded by the migration.
 - No active generation, deployment binding activation, provider credential, secret, ciphertext, raw key, artifact bytes, seed row, or public RPC may be created.
 - `postgres`/reviewed DBA history repair is an explicit privileged-migration exception and must not be represented as runtime immutability.
 - Migration source registration happens only after the migration bytes are final; pending-source count must move from 56 to 57.
@@ -38,7 +39,7 @@
 **Interfaces:**
 
 - Consumes the existing `private.payment_ingress_contract_generations` table and its exact four-key scope.
-- Produces the five private relations, one dedicated `payment_control_plane` role, and exactly these functions:
+- Produces the six private relations, one dedicated `payment_control_plane` role, and exactly these functions:
   `private.create_payment_ingress_contract_generation(uuid, uuid)`,
   `private.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid)`,
   `private.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid)`,
@@ -62,9 +63,14 @@
     malformed scope/revision/kind/fingerprint/reference; stores no secret-like
     column; rejects duplicate revision and cross-scope generation references;
     direct reads/writes/deletes fail for all five denied roles.
+  - `payment_ingress_deployment_attestations` has the exact immutable root fields
+    in the amendment and is the only active-attestation predicate. It is not
+    writable by runtime roles; SQL fixtures insert and roll it back as the
+    `migration` actor.
   - `payment_ingress_deployment_manifest_bindings` has the exact fields in the
-    amendment, lower-case 64-hex hashes, bounded versions/references, immutable
-    metadata, duplicate-binding rejection, and no artifact/secret bytes.
+    amendment, including `attestation_id` and a composite identity-revision FK,
+    lower-case 64-hex hashes, bounded versions/references, immutable metadata,
+    duplicate-binding rejection, an active-root FK, and no artifact/secret bytes.
   - `payment_ingress_parser_compatibility_proofs` enforces scope/artifact FKs,
     distinct and ascending basis/candidate generations, bounded equivalence
     versions, compatible-only result, unique proof identity, and direct-access
@@ -79,14 +85,15 @@
     branch status/timestamp shapes, positive result versions exactly expected+1,
     same-scope FKs, unique claimed row versions, actor/hash/JSON/reason checks,
     and direct-access denial.
-  - All five functions reject callers outside `payment_control_plane`, caller-
+  - All five functions reject callers whose `current_setting('role', true)` is
+    not exactly `payment_control_plane`, caller-
     selected identity/generation/artifact/actor authority, changed replay input,
     stale versions, cross-scope rows, non-monotonic/overflowed generations,
     `draining -> active`, timestamp clearing, successor replacement, proof or
     binding mismatch, reopened retired scopes, and all retire calls before the
     later inbox/redelivery/retention gates are available.
-  - The migration creates no active row, no binding with active attestation, no
-    proof, no receipt, and no production route/provider object.
+  - The migration creates no active row, no attestation or binding, no proof, no
+    receipt, and no production route/provider object.
 
 - [ ] **Step 2: Run RED and verify the failures are contract-shaped**
 
@@ -109,12 +116,14 @@
 
   1. Create the `payment_control_plane` role with the exact no-login/no-create
      flags if absent; do not grant it table privileges.
-  2. Create the identity catalog and deployment-binding tables, then add the
-     deferrable same-scope FK from the existing generation registry.
+  2. Create the identity catalog, deployment-attestation root, and deployment-
+     binding tables, then add the deferrable same-scope and identity-revision
+     FKs from the existing generation registry/binding.
   3. Create the proof, creation-receipt, and transition-receipt tables with every
      named constraint/index/FK and the exact receipt branch matrix.
   4. Create the five `postgres`-owned `SECURITY DEFINER SET search_path = ''`
-     functions with schema-qualified SQL, null-safe role checks, advisory-lock
+     functions with schema-qualified SQL, `current_setting('role', true)` role
+     checks, advisory-lock
      derivation from the four scope keys, retry fingerprint comparison, checked
      bigint allocation, locked CAS, and same-transaction receipt insertion.
   5. Revoke all function execute privileges, then grant `EXECUTE` only to
@@ -127,11 +136,12 @@
   - Creation derives the identity and all generation fields from the immutable
     deployment binding, allocates `max(generation)+1` under the scope advisory
     lock, rejects overflow, and returns the original staged row on identical
-    replay or `PGRST409` on divergent replay.
+    replay or SQLSTATE `PT409` on divergent replay.
   - Initial activation is staged→active with no outgoing branch.
   - Roll-forward and rollback atomically drain the outgoing active generation and
     activate a strictly higher staged successor; both require an approved proof
-    and active retained deployment binding.
+    whose basis equals the outgoing generation and an active retained deployment
+    binding.
   - Retirement always fails closed in this slice because the durable inbox,
     redelivery horizon, unsupported-row census, and retention gates are not yet
     present; it cannot silently reopen a retired scope.
@@ -192,4 +202,3 @@ and dispatch a fresh Terra reviewer. The reviewer must return both spec
 compliance and task-quality verdicts. Any Critical/Important finding enters the
 implementer fix/re-review loop; no controller-side fix is permitted. CodeRabbit
 remains waived for this task by explicit owner instruction.
-

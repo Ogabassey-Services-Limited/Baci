@@ -990,14 +990,16 @@ generation, acknowledged inbox row, or receipt references them.
 
 The receipt's `(compatibility_proof_id, scope, compatibility_basis_generation_id,
 incoming_generation_id)` has a deferrable composite FK to that proof target.
-`rollback` requires the proof and basis; every other operation forbids both. The
-future rollback writer reloads the proof, basis, and candidate generations, checks
-their artifact hashes and scope against the proof, and rejects any proof whose
-verifier artifact, corpus manifest, equivalence-contract versions, approval, or
-retention is not active in the separately reviewed deployment manifest. The proof
-registry, receipt table, deployment-manifest binding, and guarded writers land
-together in a later RED-first slice before rollback is callable; none belongs to
-the first generation-registry slice.
+`roll_forward` and `rollback` require the proof and basis; `initial_activate` and
+`retire` forbid both. The future transition writer reloads the proof, basis, and
+candidate generations, requires the proof basis to equal the outgoing generation,
+checks their artifact hashes and scope against the proof, and rejects any proof
+whose verifier artifact, corpus manifest, equivalence-contract versions,
+approval, or retention is not active in the separately reviewed deployment
+attestation. The proof registry, receipt table, deployment-manifest binding,
+attestation root, and guarded writers land together in a later RED-first slice
+before any transition is callable; none belongs to the first generation-registry
+slice.
 
 Receipt shape is exhaustive:
 
@@ -1034,9 +1036,9 @@ control-plane role frozen below.
 Before the first writer, each such function is owned by `postgres`, declares
 `SECURITY DEFINER SET search_path = ''`, is revoked from `PUBLIC`, `anon`, and
 `authenticated`, and grants `EXECUTE` only to `payment_control_plane`. It rejects
- a caller whose null-safe `current_user` is not `payment_control_plane`, validates
-the immutable actor/approval/evidence authorization inside the function, names
-every object with
+ a caller whose `current_setting('role', true)` is not exactly
+`payment_control_plane`, validates the immutable actor/approval/evidence
+authorization inside the function, names every object with
 its schema, and exposes no dynamic SQL. `service_role` retains no direct table
 privilege; the `postgres` definer is the deliberate RLS-bypassing owner. No other
 definer or table owner is authorized, and these ownership/grant conditions are a
@@ -1107,9 +1109,11 @@ The fingerprint is an externally computed SHA-256 of approved non-secret public
 material (`public_key`) or a provider configuration revision descriptor
 (`shared_secret_config`); it is never a digest of a secret, ciphertext,
 credential, or raw key. The catalog is immutable and unique on
-`(provider, endpoint_key, signature_key_scope, identity_revision)`. A redundant
-unique target `(id, provider, endpoint_key, signature_key_scope)` receives a
-deferrable `ON DELETE RESTRICT` foreign key from the existing generation row's
+`(provider, endpoint_key, signature_key_scope, identity_revision)`. Redundant
+unique targets `(id, provider, endpoint_key, signature_key_scope)` and
+`(id, provider, endpoint_key, signature_key_scope, identity_revision)` receive
+deferrable `ON DELETE RESTRICT` foreign keys from the existing generation row and
+deployment binding respectively. The existing generation row's target is
 `(signature_key_identity_id, provider, endpoint_key, signature_key_scope)`;
 `authority_key` remains only a classifier and is deliberately not part of key
 identity scope. A retired scope is permanently closed; no initial-activation
@@ -1120,7 +1124,7 @@ The companion adds an immutable, externally attested deployment binding,
 `id uuid primary key default gen_random_uuid()`, `environment text not null`,
 `provider text not null`, `endpoint_key text not null`, `signature_key_scope
 text not null`, `authority_key text not null`, `signature_key_identity_id uuid
-not null`, `identity_revision bigint not null`,
+not null`, `identity_revision bigint not null`, `attestation_id uuid not null`,
 `parser_contract_version text not null`,
 `normalized_envelope_schema_version text not null`,
 `replay_identity_contract_version text not null`,
@@ -1135,14 +1139,34 @@ default now()`. `environment` matches `^[a-z][a-z0-9_.:-]{0,63}$`; all four
 scope keys use the generation-table expression; `identity_revision > 0`; all
 hashes are lower-case 64-hex; all version fields are trimmed and bounded to
 255 characters; and approval/provenance references are trimmed, non-empty, and
-at most 512 characters. A deferrable same-scope composite FK binds
-`(signature_key_identity_id, provider, endpoint_key, signature_key_scope)` to
-the identity catalog. The binding stores metadata only, never artifact bytes or
+at most 512 characters. Deferrable composite FKs bind
+`(signature_key_identity_id, provider, endpoint_key, signature_key_scope,
+identity_revision)` to the identity catalog's revision target and
+`(attestation_id, environment, manifest_sha256, attestation_sha256)` to the
+attestation root. The binding stores metadata only, never artifact bytes or
 secrets. It is append-only, uniquely identified by `(environment,
 manifest_sha256, attestation_sha256, provider, endpoint_key,
 signature_key_scope, authority_key, parser_artifact_sha256)`, and is accepted
 by a writer only while the pinned external attestation is active and
 `retention_until > clock_timestamp()`.
+
+The pinned external attestation is represented by the append-only
+`private.payment_ingress_deployment_attestations` root. Its exact fields are
+`id uuid primary key default gen_random_uuid()`, `environment text not null`,
+`manifest_sha256 text not null`, `attestation_sha256 text not null`,
+`verified_by text not null`, `approval_reference text not null`,
+`verified_at timestamptz not null`, `retention_until timestamptz not null`,
+`revoked_at timestamptz`, and `created_at timestamptz not null default now()`.
+The root is populated only by a reviewed privileged deployment migration that
+has an external signed-attestation receipt; no runtime edge or generic
+`service_role` may insert, update, revoke, or delete it. A binding carries
+`attestation_id uuid not null` and a deferrable composite FK to
+`(id, environment, manifest_sha256, attestation_sha256)` on the root. A binding
+is active exactly when its root is unrepealed and
+`retention_until > clock_timestamp()`; the transition writer reloads both rows
+under lock. This is the authoritative active predicate rather than a hash-shaped
+text field. The companion migration creates no root or binding rows; SQL fixtures
+may create and roll them back as the `migration` actor only.
 
 Parser equivalence proof is required for every two-sided parser overlap:
 `roll_forward` and `rollback` both require an approved proof; only
@@ -1158,21 +1182,28 @@ not a false `jsonb::text` approximation of RFC 8785.
 
 Staged creation is a first-class idempotent operation. The companion adds
 `private.payment_ingress_contract_creation_receipts` with `operation_id uuid
-primary key`, a SHA-256 request fingerprint, the approved deployment-binding
+primary key`, `request_fingerprint text not null` containing exactly 64
+lower-case hex characters, the approved deployment-binding
 ID, the derived generation ID/number, scope, and `recorded_at`. The guarded
 creator accepts only an approved binding ID and operation ID, takes the scope
 advisory lock, allocates `max(generation)+1` with checked bigint overflow, and
 derives every generation field and identity UUID from the binding. Replaying the
 same operation and fingerprint returns the original staged row; a changed
-fingerprint fails with SQLSTATE `PGRST409` and no mutation. There is no
+fingerprint fails with SQLSTATE `PT409` and no mutation. There is no
 caller-selected generation, identity UUID, parser artifact, timestamp, actor,
 or approval authority.
 
 Transition receipts add a non-null `deployment_binding_id` for every operation
-with an incoming branch and retain it for audit. `initial_activate` is the only
+with an incoming branch and retain it for audit, plus a non-null
+`request_fingerprint text` containing the exact 64-hex hash of operation kind,
+scope, generation IDs, expected control versions, binding ID, proof ID, and the
+attested actor/evidence tuple. The writer derives `actor_kind`, actor/reference,
+approval/evidence references, `evidence_sha256`, and `metrics_snapshot` from the
+locked attestation root and binding; none is caller-selected. `initial_activate` is the only
 incoming operation with no outgoing branch; `roll_forward` and `rollback` are
 atomic `active -> draining` plus `staged -> active` operations with strictly
-increasing generations and an approved compatibility proof; `retire` is
+increasing generations and an approved compatibility proof whose basis is the
+outgoing generation; `retire` is
 `draining -> retired` and is permanently rejected until the later inbox,
 redelivery-horizon, unsupported-row, and artifact-retention gates exist. The
 guarded transition functions are exactly:
