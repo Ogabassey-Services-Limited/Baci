@@ -1,5 +1,6 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
+import { normalizeProductModelTokens } from './normalize-product-model-tokens';
 
 function tokenize(value: string) {
   return value
@@ -21,59 +22,6 @@ const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'new',
   'series',
   'version',
-]);
-const MERCHANDISING_SUFFIX_TOKENS = new Set([
-  'beige',
-  'black',
-  'blue',
-  'bronze',
-  'brown',
-  'clearance',
-  'coral',
-  'cream',
-  'gold',
-  'graphite',
-  'gray',
-  'green',
-  'grey',
-  'jet',
-  'lavender',
-  'midnight',
-  'mint',
-  'new',
-  'open',
-  'orange',
-  'pink',
-  'platinum',
-  'premium',
-  'purple',
-  'red',
-  'refurb',
-  'refurbished',
-  'rose',
-  'sale',
-  'sealed',
-  'silver',
-  'starlight',
-  'used',
-  'violet',
-  'white',
-  'yellow',
-]);
-const REGION_OR_VARIANT_SUFFIX_TOKENS = new Set([
-  'ca',
-  'cn',
-  'eu',
-  'gb',
-  'global',
-  'in',
-  'international',
-  'jp',
-  'ng',
-  'nigeria',
-  'uae',
-  'uk',
-  'us',
 ]);
 const MODEL_FAMILY_ALIAS_TOKENS = new Set(['legion']);
 
@@ -177,28 +125,17 @@ function isDimensionToken(tokens: string[], index: number) {
   );
 }
 
-function stripMerchandisingSuffix(tokens: string[]) {
-  const suffixIndex = tokens.findIndex((token) =>
-    MERCHANDISING_SUFFIX_TOKENS.has(token)
-  );
-  return suffixIndex >= 0 ? tokens.slice(0, suffixIndex) : tokens;
-}
-
-function stripOptionalConnectivitySuffix(tokens: string[]) {
-  const suffixIndex = tokens.findIndex(
+function stripTrailingProcessorTier(tokens: string[]) {
+  const processorIndex = tokens.findIndex(
     (token, index) =>
-      token === 'esim' ||
-      ((token === 'dual' || token === 'single') && tokens[index + 1] === 'sim')
+      token === 'ultra' && /^\d+$/u.test(tokens[index + 1] ?? '')
   );
-  return suffixIndex >= 0 ? tokens.slice(0, suffixIndex) : tokens;
+  return processorIndex > 0 ? tokens.slice(0, processorIndex) : tokens;
 }
 
 function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
-  const rawTokens = stripOptionalConnectivitySuffix(
-    stripMerchandisingSuffix(tokenize(slug))
-  ).filter(
-    (token) =>
-      !excludedTokens.has(token) && !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token)
+  const rawTokens = normalizeProductModelTokens(tokenize(slug)).filter(
+    (token) => !excludedTokens.has(token)
   );
   const tokens =
     rawTokens.length > 1 &&
@@ -206,13 +143,14 @@ function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
     /\d/u.test(rawTokens[rawTokens.length - 2] ?? '')
       ? rawTokens.slice(0, -1)
       : rawTokens;
-  return tokens.filter(
+  const modelTokens = tokens.filter(
     (token, index) =>
       !SPECIFICATION_TOKEN_PATTERN.test(token) &&
       !YEAR_TOKEN_PATTERN.test(token) &&
       !['in', 'inch'].includes(token) &&
       !isDimensionToken(tokens, index)
   );
+  return stripTrailingProcessorTier(modelTokens);
 }
 
 function getModelIdentifier(tokens: string[]) {

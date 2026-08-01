@@ -66,6 +66,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['probook 440 g8']);
   });
 
+  it('strips a trailing processor tier from a laptop model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['HP'],
+      productSlugs: ['hp-elitebook-840-g11-ultra-7-32gb'],
+    });
+
+    expect(identifiers).toEqual(['840 g11']);
+  });
+
   it('preserves the family marker for numeric model generations', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',
@@ -152,6 +162,16 @@ describe('getProductModelIdentifiers', () => {
     });
 
     expect(identifiers).toEqual(['spark pro']);
+  });
+
+  it('removes a preceding physical marker from an esim suffix', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: ['iphone-16-pro-8gb-512gb-physical-esim-new'],
+    });
+
+    expect(identifiers).toEqual(['16 pro']);
   });
 
   it('preserves configured model-family markers that overlap brand aliases', () => {
