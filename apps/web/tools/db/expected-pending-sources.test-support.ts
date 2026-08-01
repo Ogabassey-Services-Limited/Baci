@@ -257,4 +257,6 @@ export const EXPECTED_PENDING_SOURCES = [
       sha256,
     })
   ),
-];
+].sort((left, right) =>
+  left.repositoryPath.localeCompare(right.repositoryPath)
+);

@@ -76,10 +76,6 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '7f72e33273f922c0418898cd4d38b40c7bfd6d0a2be69103f781a9c9f3cecfe1',
   ],
   [
-    '20260801140000_payment_ingress_contract_companion.sql',
-    '55c1efce71726e1f1e0f9fa2b035cd52f040bae5ab1693ee6442e0e2e25ff70f',
-  ],
-  [
     '20260801140200_harden_gigl_tracking_status_and_tenant_scope.sql',
     '4950d67d52680339288cf93661c800f5bc36f954c0bd134bc50b3ea63fc8483f',
   ],
