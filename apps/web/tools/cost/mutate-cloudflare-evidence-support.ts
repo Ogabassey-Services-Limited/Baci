@@ -1,4 +1,5 @@
-import { lstat, readFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { type FileHandle, open } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
 import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
@@ -199,16 +200,24 @@ async function loadCredentiallessRevocationDependencies(
     throw new Error(
       'EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_RECEIPT_PATH must be absolute'
     );
-  const stat = await lstat(receiptPath);
-  if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o777) !== 0o600)
-    throw new Error(
-      'external write-token revocation receipt is not private regular storage'
-    );
   let value: unknown;
+  let handle: FileHandle | undefined;
   try {
-    value = JSON.parse(await readFile(receiptPath, 'utf8'));
+    handle = await open(receiptPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    if (
+      stat.isSymbolicLink() ||
+      !stat.isFile() ||
+      (stat.mode & 0o777) !== 0o600
+    )
+      throw new Error(
+        'external write-token revocation receipt is not private regular storage'
+      );
+    value = JSON.parse(await handle.readFile('utf8'));
   } catch {
     throw new Error('external write-token revocation receipt is invalid');
+  } finally {
+    await handle?.close().catch(() => undefined);
   }
   const receipt = parseWriteTokenRevocationReceipt(value);
   if (receipt.tokenId !== journal.writeTokenId)
