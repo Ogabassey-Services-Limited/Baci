@@ -15,11 +15,15 @@ function isConvertibleInConnector(tokens: string[], index: number) {
   );
 }
 
-function isMeaningfulModelToken(token: string) {
+function isMeaningfulModelToken(
+  token: string,
+  preserveGameTitleTokens = false
+) {
   return (
     !/^\d+$/u.test(token) &&
     token.length > 1 &&
-    !GENERIC_MODEL_MARKER_TOKENS.has(token)
+    (!GENERIC_MODEL_MARKER_TOKENS.has(token) ||
+      (preserveGameTitleTokens && token === 'new'))
   );
 }
 
@@ -64,7 +68,7 @@ export function selectProductModelIdentifier(
       (token, index) =>
         (hasConvertibleModel && /^\d+$/u.test(token)) ||
         index === numericIndex ||
-        isMeaningfulModelToken(token) ||
+        isMeaningfulModelToken(token, preserveYearTokens) ||
         isSeriesPhraseToken(tokens, index)
     );
     return phraseTokens.join(' ');
@@ -77,16 +81,19 @@ export function selectProductModelIdentifier(
     const alphanumericIndex = tokens.indexOf(alphanumericToken);
     const prefixTokens = tokens
       .slice(0, alphanumericIndex)
-      .filter(isMeaningfulModelToken);
+      .filter((token) => isMeaningfulModelToken(token, preserveYearTokens));
     const suffixTokens = tokens
       .slice(alphanumericIndex + 1)
-      .filter(isMeaningfulModelToken);
+      .filter((token) => isMeaningfulModelToken(token, preserveYearTokens));
     const phraseTokens = [...prefixTokens, alphanumericToken, ...suffixTokens];
     return phraseTokens.join(' ');
   }
 
   const phraseTokens = tokens.filter((token, index) => {
-    return isMeaningfulModelToken(token) || isSeriesPhraseToken(tokens, index);
+    return (
+      isMeaningfulModelToken(token, preserveYearTokens) ||
+      isSeriesPhraseToken(tokens, index)
+    );
   });
   return phraseTokens.join(' ') || tokens[0] || null;
 }

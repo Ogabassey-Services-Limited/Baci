@@ -215,6 +215,20 @@ function stripSplitCapacitySuffix(tokens: string[]) {
     : tokens;
 }
 
+function isInternalGameTitleToken(
+  tokens: string[],
+  index: number,
+  preserveGameTitleTokens: boolean
+) {
+  return (
+    preserveGameTitleTokens &&
+    tokens[index] === 'new' &&
+    tokens
+      .slice(index + 1)
+      .some((token) => !MERCHANDISING_SUFFIX_TOKENS.has(token))
+  );
+}
+
 function isConvertibleInConnector(tokens: string[], index: number) {
   return (
     tokens[index] === 'in' &&
@@ -226,7 +240,7 @@ function isConvertibleInConnector(tokens: string[], index: number) {
 /** Removes catalog suffixes that describe merchandising, region, or connectivity. */
 export function normalizeProductModelTokens(
   tokens: string[],
-  preserveTerminalColors = false
+  preserveGameTitleTokens = false
 ) {
   const withoutLeadingCondition = LEADING_CONDITION_TOKENS.has(tokens[0] ?? '')
     ? tokens.slice(1)
@@ -236,8 +250,13 @@ export function normalizeProductModelTokens(
     (token, index) =>
       index > 0 &&
       MERCHANDISING_SUFFIX_TOKENS.has(token) &&
+      !isInternalGameTitleToken(
+        withoutLeadingCondition,
+        index,
+        preserveGameTitleTokens
+      ) &&
       (!COLOR_SUFFIX_TOKENS.has(token) ||
-        (!preserveTerminalColors &&
+        (!preserveGameTitleTokens &&
           isTerminalColorSuffix(withoutLeadingCondition, index)))
   );
   const withoutConnectivity =
@@ -253,6 +272,7 @@ export function normalizeProductModelTokens(
 
   return withoutSplitCapacity.filter(
     (token, index) =>
+      preserveGameTitleTokens ||
       !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token) ||
       isConvertibleInConnector(withoutSplitCapacity, index)
   );

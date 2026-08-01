@@ -33,6 +33,7 @@ const MODEL_VARIANT_MARKER_TOKENS = new Set([
   'pro',
   'se',
   'ultra',
+  'xl',
 ]);
 const MODEL_FAMILY_CONTEXT_EXCLUSIONS = new Set(['and', 'or']);
 const MODEL_GENERATION_SUFFIX_PATTERN = /^\d{1,2}(?:st|nd|rd|th)?$/u;

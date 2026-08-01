@@ -78,7 +78,6 @@ function getExcludedTokensForSlug(
         excludedTokens.add(token);
       }
     }
-
     for (const aliasTokens of group.aliases) {
       if (
         aliasTokens.length === 0 ||
@@ -93,7 +92,6 @@ function getExcludedTokensForSlug(
         if (excludedTokens.has(token) || aliasTokens.includes(token)) {
           return false;
         }
-
         return (
           !SPECIFICATION_TOKEN_PATTERN.test(token) &&
           !YEAR_TOKEN_PATTERN.test(token) &&
@@ -113,7 +111,6 @@ function getExcludedTokensForSlug(
       }
     }
   }
-
   return excludedTokens;
 }
 function isDimensionToken(tokens: string[], index: number) {
@@ -129,7 +126,6 @@ function isDimensionToken(tokens: string[], index: number) {
   ) {
     return false;
   }
-
   return (
     ['in', 'inch'].includes(previousToken) || ['in', 'inch'].includes(nextToken)
   );
@@ -165,7 +161,7 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
   if (!DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)) {
     return tokens;
   }
-  const firstToken = tokens[0] ?? '';
+  const [firstToken = '', nextToken = ''] = tokens;
   const displaySize = Number(firstToken);
   const hasFollowingModelText = tokens
     .slice(1)
@@ -173,12 +169,20 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
   const hasConvertibleModel = tokens.some((_, index) =>
     isConvertibleInConnector(tokens, index)
   );
-  return /^\d{2}$/u.test(firstToken) &&
-    displaySize >= 10 &&
-    displaySize <= 20 &&
+  const isIntegerDisplayPrefix =
+    /^\d{2}$/u.test(firstToken) && displaySize >= 10 && displaySize <= 20;
+  const isTabletDecimalDisplayPrefix =
+    categorySlug === 'tablets' &&
+    /^\d$/u.test(firstToken) &&
+    /^\d$/u.test(nextToken) &&
+    Number(`${firstToken}.${nextToken}`) >= 7 &&
+    Number(`${firstToken}.${nextToken}`) <= 20;
+  return (isIntegerDisplayPrefix || isTabletDecimalDisplayPrefix) &&
     hasFollowingModelText &&
     !hasConvertibleModel
-    ? tokens.slice(/^\d$/u.test(tokens[1] ?? '') ? 2 : 1)
+    ? tokens.slice(
+        isTabletDecimalDisplayPrefix || /^\d$/u.test(nextToken) ? 2 : 1
+      )
     : tokens;
 }
 function stripGeneratedCollisionSuffix(tokens: string[]) {
@@ -195,20 +199,12 @@ function stripGeneratedCollisionSuffix(tokens: string[]) {
   if (/\d/u.test(previousToken)) {
     return tokens.slice(0, -1);
   }
-
   const precedingNumericIndex = tokens.findLastIndex(
     (token, index) => index < tokens.length - 1 && /^\d+$/u.test(token)
   );
   return precedingNumericIndex >= 0 && precedingNumericIndex < tokens.length - 2
     ? tokens.slice(0, -1)
     : tokens;
-}
-
-function stripGamePlatformGeneration(tokens: string[], categorySlug: string) {
-  const generation = categorySlug.match(
-    /^(?:playstation|nintendo-switch)-(\d+)$/u
-  )?.[1];
-  return generation && tokens[0] === generation ? tokens.slice(1) : tokens;
 }
 function getModelTokens(
   slug: string,
@@ -221,10 +217,13 @@ function getModelTokens(
     ),
     GAME_CATEGORY_PATTERN.test(categorySlug)
   );
-  const platformStrippedTokens = stripGamePlatformGeneration(
-    rawTokens,
-    categorySlug
-  );
+  const platformGeneration = categorySlug.match(
+    /^(?:playstation|nintendo-switch)-(\d+)$/u
+  )?.[1];
+  const platformStrippedTokens =
+    platformGeneration && rawTokens[0] === platformGeneration
+      ? rawTokens.slice(1)
+      : rawTokens;
   const tokens = stripGeneratedCollisionSuffix(
     stripLeadingDisplaySize(platformStrippedTokens, categorySlug)
   );
@@ -232,7 +231,9 @@ function getModelTokens(
     (token, index) =>
       !SPECIFICATION_TOKEN_PATTERN.test(token) &&
       token !== 'inch' &&
-      (token !== 'in' || isConvertibleInConnector(tokens, index)) &&
+      (token !== 'in' ||
+        GAME_CATEGORY_PATTERN.test(categorySlug) ||
+        isConvertibleInConnector(tokens, index)) &&
       !isDimensionToken(tokens, index)
   );
   return stripTrailingProcessorTier(
@@ -275,7 +276,6 @@ export function getProductModelIdentifiers(
   const productSources = context.productNames?.length
     ? context.productNames
     : (context.productSlugs ?? []);
-
   return Array.from(
     new Set(
       productSources

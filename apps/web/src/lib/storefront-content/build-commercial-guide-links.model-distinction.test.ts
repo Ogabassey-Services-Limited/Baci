@@ -141,4 +141,31 @@ describe('buildCommercialGuideLinks model distinctions', () => {
       'https://ogabassey.com/blog/hasbro-game-night-buying-guide'
     );
   });
+
+  it('does not match a Pixel 9 Pro XL guide to the base Pro model', () => {
+    const context = {
+      pageKind: 'product',
+      categorySlug: 'smartphones',
+      brands: ['Google'],
+      productSlugs: ['google-pixel-9-pro'],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post(
+        'pixel-9-pro-xl-buying-guide',
+        'Google Pixel 9 Pro XL Buyer Guide',
+        'Smartphones',
+        ['smartphones', 'google', 'pixel 9 pro xl']
+      ),
+      post(
+        'pixel-9-pro-buying-guide',
+        'Google Pixel 9 Pro Buyer Guide',
+        'Smartphones',
+        ['smartphones', 'google', 'pixel 9 pro']
+      ),
+    ];
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/pixel-9-pro-buying-guide'
+    );
+  });
 });
