@@ -1,7 +1,7 @@
 'use client';
 
+import { ActiveBlogClientPage } from '@/app/dashboard/blog/active-blog-client-page';
 import { useMerchant } from '@/hooks/use-merchant-client';
-import { BlogClientContent } from './blog-client-content';
 import type { BlogClientPageProps } from './blog-client-types';
 
 export type {
@@ -25,14 +25,12 @@ export function BlogClientPage({
     );
   }
 
-  const isServerMerchantActive = activeMerchant.id === merchant?.id;
-
   return (
-    <BlogClientContent
-      initialCounts={isServerMerchantActive ? initialCounts : undefined}
-      initialPosts={isServerMerchantActive ? initialPosts : undefined}
-      key={activeMerchant.id}
-      merchant={activeMerchant}
+    <ActiveBlogClientPage
+      activeMerchant={activeMerchant}
+      initialCounts={initialCounts}
+      initialPosts={initialPosts}
+      merchant={merchant}
     />
   );
 }

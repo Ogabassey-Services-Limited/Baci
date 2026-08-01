@@ -42,7 +42,11 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 vi.mock('@/hooks/use-merchant-features', () => ({
-  useMerchantFeatures: vi.fn(() => ({ autoBlogEnabled: false })),
+  useMerchantFeatures: vi.fn(() => ({
+    autoBlogEnabled: false,
+    blogEnabled: true,
+    isLoading: false,
+  })),
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
@@ -170,6 +174,8 @@ export function setupBlogClientPageTests() {
     } as unknown as ReturnType<typeof useToast>);
     vi.mocked(useMerchantFeatures).mockReturnValue({
       autoBlogEnabled: false,
+      blogEnabled: true,
+      isLoading: false,
     } as ReturnType<typeof useMerchantFeatures>);
     vi.mocked(useMerchant).mockReturnValue({ merchant: null } as ReturnType<
       typeof useMerchant

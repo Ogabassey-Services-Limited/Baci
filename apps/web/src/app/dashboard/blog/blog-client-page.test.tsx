@@ -109,6 +109,8 @@ describe('BlogClientPage rendering and data states', () => {
   it('shows the AI generator and RSS links when enabled and safe', () => {
     vi.mocked(useMerchantFeatures).mockReturnValue({
       autoBlogEnabled: true,
+      blogEnabled: true,
+      isLoading: false,
     } as ReturnType<typeof useMerchantFeatures>);
 
     render(

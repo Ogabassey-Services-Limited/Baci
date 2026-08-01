@@ -148,6 +148,11 @@ interface SubmitBlogPostUpdateArgs {
   embeddedProductIds?: string[];
 }
 
+export type BlogPostUpdateReceipt = Pick<
+  BlogPost,
+  'id' | 'published_at' | 'status'
+>;
+
 export async function submitBlogPostUpdate({
   postId,
   merchantId,
@@ -156,7 +161,7 @@ export async function submitBlogPostUpdate({
   newStatus,
   scheduledDate,
   embeddedProductIds,
-}: SubmitBlogPostUpdateArgs): Promise<BlogPost> {
+}: SubmitBlogPostUpdateArgs): Promise<BlogPostUpdateReceipt> {
   const postData = sanitizeBlogPostData({
     title: formData.title.trim(),
     slug:
@@ -210,5 +215,5 @@ export async function submitBlogPostUpdate({
         : data.error || 'Failed to update post'
     );
   }
-  return (await response.json()) as BlogPost;
+  return (await response.json()) as BlogPostUpdateReceipt;
 }

@@ -58,15 +58,20 @@ vi.mock('./edit-blog-header', () => ({
   EditBlogHeader: ({
     formData,
     isSaving,
+    originalPost,
     savePost,
   }: {
     formData: { status: string };
     isSaving: boolean;
+    originalPost: { view_count: number } | null;
     savePost: () => Promise<boolean>;
   }) => (
     <>
       <h1>Edit Post</h1>
       <output aria-label="post-status">{formData.status}</output>
+      <output aria-label="post-view-count">
+        {originalPost?.view_count ?? 'missing'}
+      </output>
       <button type="button" disabled={isSaving} onClick={() => void savePost()}>
         Save Changes
       </button>
@@ -168,6 +173,38 @@ describe('EditBlogPostPage save completion', () => {
     );
     expect(mockClearSavedData).toHaveBeenCalledOnce();
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
+  });
+
+  it('preserves loaded view metadata when the save receipt omits it', async () => {
+    const savedPost = createDeferred<{
+      id: string;
+      published_at: null;
+      status: 'draft';
+    }>();
+    mockLoadBlogPost.mockResolvedValueOnce({
+      embeddedProducts: [],
+      formData: loadedPost,
+      post: { ...loadedPost, id: 'post-1', view_count: 42 },
+      productsLoadFailed: false,
+      status: 'success',
+    });
+    mockSubmitBlogPostUpdate.mockReturnValueOnce(savedPost.promise);
+
+    await renderAndStartSave();
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+    await act(async () => {
+      savedPost.resolve({
+        id: 'post-1',
+        published_at: null,
+        status: 'draft',
+      });
+      await savedPost.promise;
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled()
+    );
+    expect(screen.getByLabelText('post-view-count')).toHaveTextContent('42');
   });
 
   it('shows current-session save failures without clearing the draft', async () => {

@@ -18,6 +18,7 @@ import type {
 } from './blog-client-types';
 import { createBlogStatusMutationCoordinator as createStatusCoordinator } from './blog-status-mutation-coordinator';
 import { getBlogStatusToast } from './blog-status-toast';
+import { useBlogMerchantSession } from './use-blog-merchant-session';
 
 export function useBlogClientState({
   initialCounts,
@@ -42,14 +43,11 @@ export function useBlogClientState({
   );
   const [initialMerchantId] = useState(merchant.id);
   const initialDataConsumedRef = useRef(false);
-  const merchantSessionRef = useRef({ id: merchant.id });
+  const merchantSessionRef = useBlogMerchantSession(merchant.id);
   const [statusMutationCoordinator] = useState(() =>
     createStatusCoordinator<BlogPost>()
   );
   const [previousMerchantId, setPreviousMerchantId] = useState(merchant.id);
-  if (merchantSessionRef.current.id !== merchant.id) {
-    merchantSessionRef.current = { id: merchant.id };
-  }
   const shouldUseInitialData =
     useInitialData &&
     merchant.id === initialMerchantId &&
@@ -122,18 +120,15 @@ export function useBlogClientState({
     setStatusFilter(status);
     setPage(1);
   };
-
   const changeSearch = (search: string) => {
     setSearchQuery(search);
     setPage(1);
   };
-
   const showDiscoverRemediation = () => {
     setStatusFilter('published');
     setSearchQuery('');
     setPage(1);
   };
-
   const previewPost = async (post: BlogPost) => {
     if (!merchant.slug) {
       toast({
@@ -143,10 +138,17 @@ export function useBlogClientState({
       });
       return;
     }
+    const previewMerchantSession = merchantSessionRef.current;
     try {
-      const previewUrl = await getPreviewUrl(merchant.slug, post.slug);
+      const previewUrl = await getPreviewUrl(
+        merchant.id,
+        merchant.slug,
+        post.slug
+      );
+      if (merchantSessionRef.current !== previewMerchantSession) return;
       window.open(previewUrl, '_blank');
     } catch (error) {
+      if (merchantSessionRef.current !== previewMerchantSession) return;
       console.error('Error getting preview URL:', error);
       toast({
         title: 'Error',
@@ -273,7 +275,6 @@ export function useBlogClientState({
     posts,
     merchant.id
   );
-
   return {
     autoBlogEnabled,
     changeSearch,

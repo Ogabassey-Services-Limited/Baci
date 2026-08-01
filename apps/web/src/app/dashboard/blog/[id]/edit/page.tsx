@@ -137,7 +137,6 @@ export default function EditBlogPostPage() {
       description: `The ${field.replace('_', ' ')} has been truncated to 160 characters.`,
     });
   };
-
   const savePost = async (
     newStatus?: PostFormData['status']
   ): Promise<boolean> => {
@@ -185,7 +184,9 @@ export default function EditBlogPostPage() {
             : undefined,
       });
       if (merchantSessionRef.current !== savedMerchantSession) return false;
-      setOriginalPost(updatedPost);
+      setOriginalPost((previous) =>
+        previous ? { ...previous, ...updatedPost } : previous
+      );
       setFormData((previous) => ({
         ...previous,
         status: updatedPost.status,
@@ -222,6 +223,7 @@ export default function EditBlogPostPage() {
   };
 
   const handlePreview = createEditBlogPreviewAction({
+    merchantId: merchant?.id,
     merchantSessionRef,
     merchantSlug: merchant?.slug,
     postSlug: formData.slug,

@@ -225,6 +225,7 @@ describe('NewBlogPostPage tenant-scoped save completion', () => {
     await waitFor(() =>
       expect(mockGetPreviewUrl).toHaveBeenCalledWith(
         'merchant-a',
+        'merchant-a',
         'merchant-a-post'
       )
     );

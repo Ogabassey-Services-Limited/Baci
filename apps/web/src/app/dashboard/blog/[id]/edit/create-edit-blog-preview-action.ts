@@ -5,12 +5,14 @@ import type { PostFormData } from './edit-blog-types';
 type Toast = ReturnType<typeof useToast>['toast'];
 
 export function createEditBlogPreviewAction({
+  merchantId,
   merchantSessionRef,
   merchantSlug,
   postSlug,
   savePost,
   toast,
 }: {
+  merchantId: string | undefined;
   merchantSessionRef: { current: object };
   merchantSlug: string | undefined;
   postSlug: string;
@@ -19,7 +21,7 @@ export function createEditBlogPreviewAction({
 }) {
   return async () => {
     const previewMerchantSession = merchantSessionRef.current;
-    if (!merchantSlug) {
+    if (!merchantId || !merchantSlug) {
       toast({
         title: 'Error',
         description: 'Merchant slug not found.',
@@ -29,7 +31,11 @@ export function createEditBlogPreviewAction({
     }
     if (!(await savePost('draft'))) return;
     try {
-      const previewUrl = await getPreviewUrl(merchantSlug, postSlug);
+      const previewUrl = await getPreviewUrl(
+        merchantId,
+        merchantSlug,
+        postSlug
+      );
       if (merchantSessionRef.current !== previewMerchantSession) return;
       window.open(previewUrl, '_blank');
     } catch (error) {

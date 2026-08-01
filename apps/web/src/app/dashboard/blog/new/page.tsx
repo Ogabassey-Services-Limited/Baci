@@ -192,7 +192,7 @@ export default function NewBlogPostPage() {
     const previewMerchantSlug = merchant?.slug;
     const previewMerchantSessionGeneration =
       merchantSessionRef.current.generation;
-    if (!previewMerchantSlug) {
+    if (!previewMerchantId || !previewMerchantSlug) {
       toast({
         title: 'Error',
         description: 'Merchant slug not found.',
@@ -204,6 +204,7 @@ export default function NewBlogPostPage() {
     if (!savedPost) return;
     try {
       const previewUrl = await getPreviewUrl(
+        previewMerchantId,
         previewMerchantSlug,
         savedPost.slug
       );
