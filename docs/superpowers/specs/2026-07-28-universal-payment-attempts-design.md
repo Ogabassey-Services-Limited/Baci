@@ -8171,7 +8171,11 @@ constraints/indexes/comments, cycle deletion behavior, valid/invalid tagged keys
 and rollback cleanliness. Its negative replay fixtures must separately exercise
 each closed-object boundary: a missing required key, an unknown extension key,
 and a non-string value for every tagged replay preimage; a missing or unknown
-scope/envelope key; and an unknown or non-string/non-null redacted parent value.
-These cases must fail at the named table CHECKs, while valid sentinel/scalar
-forms pass. The migration must not claim deferred writer invariants as table
-CHECK coverage.
+scope/envelope key; a non-string value for each of
+`merchant_id` and `provider_account_scope`; a non-string `contract_version` and
+`event_type`; a non-object/non-null value for each of `receiver`,
+`provider_customer`, `assignment`, `economics`, and `paid_time`; a non-array
+`children`; and an unknown or non-string/non-null redacted parent value. Each
+case must fail at its named table CHECK, while valid sentinel/scalar, object-or-
+null, and array forms pass. The migration must not claim deferred writer
+invariants as table CHECK coverage.
