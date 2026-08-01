@@ -3,6 +3,7 @@ import { constants, type Stats } from 'node:fs';
 import { type FileHandle, lstat, open } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
+import { assertNoSymlinkAncestors } from './cloudflare-evidence-authority-path';
 import type { EvidenceRunInput } from './cloudflare-evidence-run-journal';
 import { calculateCloudflareEvidenceTokenPolicySha256 } from './verify-cloudflare-evidence-token-policy';
 
@@ -67,7 +68,6 @@ export type VerifiedPrepareAuthority = Readonly<{
   readPolicySha256: string;
   cleanupPolicySha256?: string;
 }>;
-
 export function calculateReviewedPolicySha256(
   value: Omit<
     z.infer<typeof reviewedPolicyArtifactSchema>,
@@ -76,10 +76,10 @@ export function calculateReviewedPolicySha256(
 ) {
   return calculateCloudflareEvidenceTokenPolicySha256(value);
 }
-
 export async function readAuthorityArtifact(path: string, label: string) {
   if (!isAbsolute(path))
     throw new Error(`${label} artifact path must be absolute`);
+  await assertNoSymlinkAncestors(path, label);
   const scope = resolve(dirname(path));
   const scopeStat = await lstat(scope).catch(() => {
     throw new Error(`${label} authority scope is not readable`);
@@ -126,7 +126,6 @@ export async function readAuthorityArtifact(path: string, label: string) {
     await handle.close().catch(() => undefined);
   }
 }
-
 function approvalFingerprint(approval: z.infer<typeof approvalArtifactSchema>) {
   return createHash('sha256')
     .update(
@@ -144,13 +143,13 @@ function approvalFingerprint(approval: z.infer<typeof approvalArtifactSchema>) {
     )
     .digest('hex');
 }
-
 async function consumeApproval(
   approvalPath: string,
   approval: z.infer<typeof approvalArtifactSchema>,
   input: PrepareAuthorityInput,
   stateDir: string | undefined
 ) {
+  await assertNoSymlinkAncestors(approvalPath, 'approval');
   const scope = resolve(dirname(approvalPath));
   const fingerprint = approvalFingerprint(approval);
   const markerPath = join(
@@ -214,7 +213,6 @@ async function consumeApproval(
     await scopeHandle?.close().catch(() => undefined);
   }
 }
-
 /** Verifies owner approval and the reviewed policy identity before journaling any run. */
 export async function verifyPrepareAuthority(
   input: PrepareAuthorityInput,

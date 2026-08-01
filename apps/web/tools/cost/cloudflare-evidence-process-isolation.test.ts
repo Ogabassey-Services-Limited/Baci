@@ -1,7 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, lstat, mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { lstat, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,6 +8,7 @@ import { calculateReviewedPolicySha256 } from './cloudflare-evidence-prepare';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
 import {
   createEvidenceDependencyIntegrityManifest,
+  makePrivateTempDir,
   readEvidenceToolingHead,
   writeProtectedMergeIdentity,
 } from './cloudflare-evidence-process-isolation.test-fixtures';
@@ -22,6 +22,7 @@ type Spawn = (
 
 const runnerModulePathFor = (workspaceRoot: string) =>
   resolve(workspaceRoot, 'packages/shared/src/constants/countries.ts');
+
 describe('spawnIsolatedCloudflareEvidenceProcess', () => {
   const runId = 'b'.repeat(32);
   const prepareInput = {
@@ -55,10 +56,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     const runnerModuleSha256 = createHash('sha256')
       .update(await readFile(runnerModulePath))
       .digest('hex');
-    const authorityDir = await mkdtemp(
-      join(tmpdir(), 'baci-evidence-authority-')
-    );
-    await chmod(authorityDir, 0o700);
+    const authorityDir = await makePrivateTempDir('baci-evidence-authority-');
     const authorityNow = new Date();
     const approvedAt = new Date(
       authorityNow.valueOf() - 60 * 1000
@@ -106,8 +104,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       protectedMergeIdentityPath,
       reviewedPrepareInput.toolingMergeSha
     );
-    const stateDir = await mkdtemp(join(tmpdir(), 'baci-prepare-child-'));
-    await chmod(stateDir, 0o700);
+    const stateDir = await makePrivateTempDir('baci-prepare-child-');
     let stdout = '';
     let stderr = '';
     const spawner = {
@@ -196,8 +193,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       SECRET: 'never-forward',
     };
     const workspaceRoot = resolve(import.meta.dirname, '../../../..');
-    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-isolation-'));
-    await chmod(stateDir, 0o700);
+    const stateDir = await makePrivateTempDir('baci-evidence-isolation-');
     const toolingMergeSha = await readEvidenceToolingHead(workspaceRoot);
     const runnerModulePath = runnerModulePathFor(workspaceRoot);
     const runnerModuleSha256 = createHash('sha256')

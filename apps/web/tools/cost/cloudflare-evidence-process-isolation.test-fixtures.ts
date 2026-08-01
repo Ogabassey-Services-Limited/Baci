@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  chmod,
   mkdtemp,
   readdir,
   readFile,
@@ -12,6 +13,12 @@ import { join, relative } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+
+export async function makePrivateTempDir(prefix: string) {
+  const dir = await mkdtemp(join(await realpath(tmpdir()), prefix));
+  await chmod(dir, 0o700);
+  return dir;
+}
 
 export async function writeProtectedMergeIdentity(
   path: string,

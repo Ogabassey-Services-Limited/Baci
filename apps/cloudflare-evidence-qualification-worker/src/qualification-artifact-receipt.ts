@@ -5,9 +5,13 @@ import { parse } from 'comment-json';
 
 type ArtifactBuild = Readonly<{
   bundle: Uint8Array;
-  moduleList: readonly string[];
+  moduleList: readonly (string | QualificationArtifactModule)[];
   generatedTypeDeclaration: string;
   wranglerVersion: string;
+}>;
+export type QualificationArtifactModule = Readonly<{
+  name: string;
+  bytes: Uint8Array;
 }>;
 export const QUALIFICATION_WORKER_NAME = 'baci-evidence-qualification';
 export const QUALIFICATION_COMPATIBILITY_DATE = '2026-07-31';
@@ -48,6 +52,41 @@ const canonicalConfigJson = (value: unknown): string => {
     .map(([key, item]) => `${JSON.stringify(key)}:${canonicalConfigJson(item)}`)
     .join(',')}}`;
 };
+
+const compareCanonicalText = (left: string, right: string) =>
+  left < right ? -1 : left > right ? 1 : 0;
+
+/**
+ * Canonicalizes the dry-run module graph without losing module contents.
+ * Base64 is used only as a deterministic JSON representation of the raw bytes.
+ */
+export function canonicalizeQualificationArtifactModules(
+  modules: readonly QualificationArtifactModule[]
+) {
+  const records = modules.map(({ name, bytes }) => {
+    if (
+      typeof name !== 'string' ||
+      name.length === 0 ||
+      !(bytes instanceof Uint8Array)
+    )
+      throw new Error('dry-run module graph contains invalid module bytes');
+    return {
+      name,
+      bytesBase64: Buffer.from(bytes).toString('base64'),
+    };
+  });
+  const names = new Set(records.map(({ name }) => name));
+  if (names.size !== records.length)
+    throw new Error('dry-run module graph contains duplicate module names');
+  records.sort((left, right) => compareCanonicalText(left.name, right.name));
+  return JSON.stringify(records);
+}
+
+export function calculateQualificationArtifactModuleListSha256(
+  modules: readonly QualificationArtifactModule[]
+) {
+  return sha256(canonicalizeQualificationArtifactModules(modules));
+}
 
 /** Parses the Wrangler JSONC authority surface; no source code implies bindings. */
 export function validateQualificationWorkerConfig(
@@ -123,27 +162,55 @@ export async function buildQualificationArtifactReceipt(
       'dry-run module graph does not bind the reviewed entrypoint'
     );
   const canonicalRoot = resolve(root);
-  const canonicalModules = build.moduleList.map((module) => {
-    if (typeof module !== 'string' || !module)
+  const canonicalModulePaths = build.moduleList.map((module) => {
+    const moduleName = typeof module === 'string' ? module : module?.name;
+    if (typeof moduleName !== 'string' || !moduleName)
       throw new Error('dry-run module graph contains an invalid module path');
-    const candidate = isAbsolute(module)
-      ? resolve(module)
-      : resolve(canonicalRoot, module);
-    return relative(canonicalRoot, candidate).split(sep).join('/');
+    const candidate = isAbsolute(moduleName)
+      ? resolve(moduleName)
+      : resolve(canonicalRoot, moduleName);
+    const canonicalName = relative(canonicalRoot, candidate)
+      .split(sep)
+      .join('/');
+    if (
+      !canonicalName ||
+      canonicalName === '..' ||
+      canonicalName.startsWith('../') ||
+      isAbsolute(canonicalName)
+    )
+      throw new Error('dry-run module graph contains an invalid module path');
+    return { canonicalName, candidate, module };
   });
-  if (!canonicalModules.includes(expectedMain))
+  if (
+    !canonicalModulePaths.some(
+      ({ canonicalName }) => canonicalName === expectedMain
+    )
+  )
     throw new Error(
       'dry-run module graph does not bind the reviewed entrypoint'
     );
-  if (canonicalModules.length !== 1 || canonicalModules[0] !== expectedMain)
+  if (
+    canonicalModulePaths.length !== 1 ||
+    canonicalModulePaths[0]?.canonicalName !== expectedMain
+  )
     throw new Error('dry-run module graph contains unexpected fixture modules');
+  const canonicalModules = await Promise.all(
+    canonicalModulePaths.map(async ({ canonicalName, candidate, module }) => {
+      const bytes =
+        typeof module === 'string' ? await readFile(candidate) : module.bytes;
+      if (!(bytes instanceof Uint8Array))
+        throw new Error('dry-run module graph contains invalid module bytes');
+      return { name: canonicalName, bytes };
+    })
+  );
   return Object.freeze({
     canonicalSourceSha256: sha256(source),
     configSha256: qualificationConfig.canonicalSha256,
     dependencyLockSha256: sha256(lock),
     wranglerVersion: build.wranglerVersion,
     generatedTypeSha256: sha256(build.generatedTypeDeclaration),
-    moduleListSha256: sha256(JSON.stringify([...canonicalModules].sort())),
+    moduleListSha256:
+      calculateQualificationArtifactModuleListSha256(canonicalModules),
     bundleSha256: sha256(build.bundle),
     soleVersionMetadataBinding: qualificationConfig.binding,
   });

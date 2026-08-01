@@ -1,7 +1,9 @@
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildQualificationArtifactReceipt,
+  calculateQualificationArtifactModuleListSha256,
   validateQualificationWorkerConfig,
 } from './qualification-artifact-receipt';
 import versionA from './version-a';
@@ -71,8 +73,55 @@ describe('cloudflare evidence qualification worker fixture', () => {
     expect(receiptA.canonicalSourceSha256).not.toBe(
       receiptB.canonicalSourceSha256
     );
+    expect(receiptA.moduleListSha256).toBe(
+      calculateQualificationArtifactModuleListSha256([
+        {
+          name: 'src/version-a.ts',
+          bytes: await readFile(resolve(root, 'src/version-a.ts')),
+        },
+      ])
+    );
     expect(receiptA.soleVersionMetadataBinding).toBe('CF_VERSION_METADATA');
     expect(receiptA.wranglerVersion).toBe('4.115.0');
+  });
+  it('changes the module-list receipt when module bytes change', async () => {
+    const build = (bytes: Uint8Array) => ({
+      dryRun: async () => ({
+        bundle: new TextEncoder().encode('bundle-a'),
+        moduleList: [{ name: 'src/version-a.ts', bytes }],
+        generatedTypeDeclaration: 'declare const a: string',
+        wranglerVersion: '4.115.0',
+      }),
+    });
+    const receiptA = await buildQualificationArtifactReceipt(
+      root,
+      'a',
+      build(new TextEncoder().encode('module-a'))
+    );
+    const receiptB = await buildQualificationArtifactReceipt(
+      root,
+      'a',
+      build(new TextEncoder().encode('module-b'))
+    );
+    expect(receiptA.moduleListSha256).not.toBe(receiptB.moduleListSha256);
+  });
+  it('rejects a module descriptor with missing bytes', async () => {
+    const runner = {
+      dryRun: async () => ({
+        bundle: new TextEncoder().encode('bundle-a'),
+        moduleList: [
+          {
+            name: 'src/version-a.ts',
+            bytes: undefined as unknown as Uint8Array,
+          },
+        ],
+        generatedTypeDeclaration: 'declare const a: string',
+        wranglerVersion: '4.115.0',
+      }),
+    };
+    await expect(
+      buildQualificationArtifactReceipt(root, 'a', runner)
+    ).rejects.toThrow('invalid module bytes');
   });
   it('rejects an additional module in the fixture bundle', async () => {
     const runner = {

@@ -116,6 +116,42 @@ describe('Cloudflare topology mutation rollback', () => {
 
   it.each(
     families
+  )('rejects %s convergence with monotonic negative elapsed seconds', async (family) => {
+    const topology = topologyFor(family);
+    const requests: TopologyMutationRequest[] = [];
+    const base = client();
+    const injected: DeepQualificationClient = {
+      ...base,
+      topologyMutate: async (request) => {
+        requests.push(request);
+        return base.topologyMutate(request);
+      },
+      topologyPoll: async (candidate) => {
+        if (candidate === family)
+          return [
+            {
+              tuple: topology.intermediate,
+              pendingOperation: true,
+              elapsedSeconds: -0.75,
+            },
+            {
+              tuple: topology.after,
+              pendingOperation: false,
+              elapsedSeconds: -0.5,
+            },
+          ];
+        return base.topologyPoll(candidate, topology.maximumVisibilitySeconds);
+      },
+    };
+
+    await expect(
+      executeTopologyMutationWithRollback(injected, topology)
+    ).rejects.toThrow('visibility');
+    assertForwardAndRestoreRequests(requests, topology);
+  });
+
+  it.each(
+    families
   )('restores %s after restoration readback fails', async (family) => {
     const topology = topologyFor(family);
     const requests: TopologyMutationRequest[] = [];

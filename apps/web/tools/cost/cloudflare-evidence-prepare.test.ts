@@ -1,5 +1,4 @@
-import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { chmod, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -7,6 +6,7 @@ import {
   cloudflareEvidencePrepare,
   verifyPrepareAuthority,
 } from './cloudflare-evidence-prepare';
+import { makePrivateTempDir } from './cloudflare-evidence-process-isolation.test-fixtures';
 
 const runId = 'a'.repeat(32);
 const input = {
@@ -49,8 +49,7 @@ describe('cloudflareEvidencePrepare', () => {
   });
 
   it('requires matching owner approval and reviewed policy artifacts before a run can be prepared', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-authority-'));
-    await chmod(dir, 0o700);
+    const dir = await makePrivateTempDir('baci-evidence-authority-');
     const now = new Date('2026-08-01T12:00:00.000Z');
     const policy = {
       id: input.policyId,
@@ -160,8 +159,7 @@ describe('cloudflareEvidencePrepare', () => {
   it('binds an optional cleanup replacement policy fingerprint to owner approval', async () => {
     const cleanupPolicySha256 = 'd'.repeat(64);
     const cleanupInput = { ...input, cleanupPolicySha256 };
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-cleanup-policy-'));
-    await chmod(dir, 0o700);
+    const dir = await makePrivateTempDir('baci-evidence-cleanup-policy-');
     const policy = {
       id: cleanupInput.policyId,
       toolingMergeSha: cleanupInput.toolingMergeSha,
@@ -214,7 +212,7 @@ describe('cloudflareEvidencePrepare', () => {
     await expect(
       verifyPrepareAuthority(input, {}, new Date('2026-08-01T12:00:00.000Z'))
     ).rejects.toThrow('ARTIFACT');
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-authority-'));
+    const dir = await makePrivateTempDir('baci-evidence-authority-');
     const policy = {
       id: input.policyId,
       toolingMergeSha: input.toolingMergeSha,

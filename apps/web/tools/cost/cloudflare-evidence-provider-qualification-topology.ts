@@ -65,6 +65,7 @@ function verifyMutationConvergence(
   for (const readback of readbacks) {
     if (
       !Number.isFinite(readback.elapsedSeconds) ||
+      readback.elapsedSeconds < 0 ||
       readback.elapsedSeconds < previousElapsed ||
       readback.elapsedSeconds > topology.maximumVisibilitySeconds
     )

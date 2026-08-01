@@ -15,6 +15,11 @@ const policySchema = z
     policySha256: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();
+
+// Mutation and cleanup each use the repository's bounded one-minute guard
+// window. Require both phases to fit before accepting a write capability.
+export const MINIMUM_REMAINING_LIFETIME_MS = 2 * 60 * 1000;
+
 export type CloudflareEvidenceTokenPolicy = z.infer<typeof policySchema>;
 export type CloudflareTokenVerificationClient = {
   verify(token: string): Promise<{ id: string; status: string }>;
@@ -109,10 +114,15 @@ export async function verifyCloudflareEvidenceTokenPolicy(
     expiresAtMs <= nowMs
   )
     throw new Error('Cloudflare token policy is expired');
+  const remainingLifetimeMs = expiresAtMs - nowMs;
+  if (remainingLifetimeMs < MINIMUM_REMAINING_LIFETIME_MS)
+    throw new Error(
+      'Cloudflare token policy does not leave enough lifetime for mutation and cleanup'
+    );
   if (
     !Number.isFinite(maximumLifetimeMs) ||
     maximumLifetimeMs <= 0 ||
-    expiresAtMs - nowMs > maximumLifetimeMs
+    remainingLifetimeMs > maximumLifetimeMs
   )
     throw new Error('Cloudflare token policy exceeds its maximum lifetime');
   return Object.freeze({
