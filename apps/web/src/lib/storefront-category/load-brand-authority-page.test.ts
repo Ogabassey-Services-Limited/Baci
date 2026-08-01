@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetMerchant = vi.fn();
 const mockGetCategory = vi.fn();
 const mockGetCachedBrandAuthorityProducts = vi.fn();
+const mockLoadPublishedClusterPostsSafely = vi.fn();
 let mockHeaders = new Headers();
 
 vi.mock('next/headers', () => ({
@@ -30,7 +31,8 @@ vi.mock('@/lib/store-url', () => ({
 }));
 
 vi.mock('@/lib/storefront-content/load-published-cluster-posts-safely', () => ({
-  loadPublishedClusterPostsSafely: () => Promise.resolve([]),
+  loadPublishedClusterPostsSafely: (...args: unknown[]) =>
+    mockLoadPublishedClusterPostsSafely(...args),
 }));
 
 function makeProduct(index: number, brand = 'Samsung') {
@@ -70,6 +72,7 @@ describe('loadBrandAuthorityPage', () => {
     mockGetCachedBrandAuthorityProducts.mockResolvedValue(
       Array.from({ length: 6 }, (_, index) => makeProduct(index))
     );
+    mockLoadPublishedClusterPostsSafely.mockResolvedValue([]);
   });
 
   it('builds a canonical indexable hub from matching active inventory', async () => {
@@ -94,6 +97,18 @@ describe('loadBrandAuthorityPage', () => {
     expect(page?.products).toHaveLength(6);
     expect(page?.breadcrumbItems).toHaveLength(3);
     expect(mockGetCategory).toHaveBeenCalledWith('merchant-1', 'smartphones');
+    expect(mockLoadPublishedClusterPostsSafely).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.objectContaining({
+        pageKind: 'category',
+        categorySlug: 'smartphones',
+        brands: ['Samsung', 'samsung'],
+        productSlugs: Array.from(
+          { length: 6 },
+          (_, index) => `samsung-phone-${index}`
+        ),
+      })
+    );
   });
 
   it('rejects uncurated and thin brand pages', async () => {

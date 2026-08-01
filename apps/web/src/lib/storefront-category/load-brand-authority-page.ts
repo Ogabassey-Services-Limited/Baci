@@ -156,12 +156,16 @@ async function loadBrandAuthorityPage(
     args.categorySlug in CONTENT_CLUSTER_SUPPORT
       ? (args.categorySlug as SupportedClusterCategory)
       : null;
-  const guidePosts = supportedCategory
-    ? await loadPublishedClusterPostsSafely(merchant.id, {
-        pageKind: 'category',
+  const guideContext = supportedCategory
+    ? {
+        pageKind: 'category' as const,
         categorySlug: supportedCategory,
         brands: [authorityEntry.displayName, authorityEntry.brandKey],
-      })
+        productSlugs: normalizedProducts.map((product) => product.slug),
+      }
+    : null;
+  const guidePosts = guideContext
+    ? await loadPublishedClusterPostsSafely(merchant.id, guideContext)
     : [];
   const familyLinks = modelFamilyAuthorityTaxonomy
     .getEntries(args.categorySlug, authorityEntry.brandKey)
@@ -194,15 +198,11 @@ async function loadBrandAuthorityPage(
     categoryName,
     brand: authorityEntry,
     products,
-    guideLinks: supportedCategory
+    guideLinks: guideContext
       ? buildCommercialGuideLinks({
           storeUrl,
           posts: guidePosts,
-          context: {
-            pageKind: 'category',
-            categorySlug: supportedCategory,
-            brands: [authorityEntry.displayName, authorityEntry.brandKey],
-          },
+          context: guideContext,
         })
       : [],
     familyLinks,
