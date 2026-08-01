@@ -44,6 +44,7 @@ describe('mutation evidence test fixtures', () => {
     const replacement: ReplacementCapability = {
       ...mutationCapability,
       tokenId: 'replacement-write',
+      policySha256: mutationInput.cleanupPolicySha256,
       replacementForTokenId: mutationInput.writeTokenId,
       cleanupOnly: true,
     };

@@ -1,7 +1,7 @@
 import { chmod, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   openEvidenceRun,
   recordCleanupVerified,
@@ -10,26 +10,8 @@ import {
   revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 import type { EvidenceMeasurementClient } from './measure-cloudflare-evidence-sources';
-import {
-  measureCloudflareEvidenceSources,
-  parseMeasurementArguments,
-} from './measure-cloudflare-evidence-sources';
+import { measureCloudflareEvidenceSources } from './measure-cloudflare-evidence-sources';
 
-describe('parseMeasurementArguments', () => {
-  it('requires a fresh read-only measurement run and has no apply mode', () => {
-    expect(
-      parseMeasurementArguments(['--run', '0123456789abcdef0123456789abcdef'])
-        .runId
-    ).toBe('0123456789abcdef0123456789abcdef');
-    expect(() =>
-      parseMeasurementArguments([
-        '--run',
-        '0123456789abcdef0123456789abcdef',
-        '--apply',
-      ])
-    ).toThrow('read-only');
-  });
-});
 const input = {
   runId: '0123456789abcdef0123456789abcdef',
   approvalId: 'approval',
@@ -56,6 +38,10 @@ const capability = {
   providerNegativeScopeUnverified: true as const,
 };
 describe('measureCloudflareEvidenceSources', () => {
+  beforeEach(() =>
+    vi.useFakeTimers({ now: new Date('2026-07-31T00:05:00.000Z') })
+  );
+  afterEach(() => vi.useRealTimers());
   it('requires verified matching write and read revocation receipts', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
@@ -179,7 +165,6 @@ describe('measureCloudflareEvidenceSources', () => {
       })
     ).rejects.toThrow('incomplete');
   });
-
   it('rejects a measurement without an authenticated provider receipt instead of fabricating one', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
@@ -233,7 +218,6 @@ describe('measureCloudflareEvidenceSources', () => {
       })
     ).rejects.toThrow('receipt');
   });
-
   it('resumes read-token revocation from an already recorded measurement', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);

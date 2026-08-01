@@ -122,18 +122,12 @@ async function loadCredentiallessRevocationDependencies(
       'external write-token revocation receipt does not match the journal'
     );
   const client: EvidenceReadbackClient = {
-    readBack: (tokenId) => {
-      if (tokenId !== receipt.tokenId)
-        throw new Error(
-          'external write-token revocation receipt does not match the journal'
-        );
-      return Promise.resolve({
-        tokenId: receipt.tokenId,
-        status: 'inactive' as const,
-        auditReceiptSha256: receipt.providerReceiptSha256,
-        observedAt: receipt.observedAt,
-      });
-    },
+    readBack: () =>
+      Promise.reject(
+        new Error(
+          'external write-token revocation requires an independent authenticated provider readback'
+        )
+      ),
   };
   return { client, revocationReceipt: receipt };
 }

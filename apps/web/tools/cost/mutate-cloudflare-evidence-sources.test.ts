@@ -73,6 +73,41 @@ describe('Cloudflare evidence mutation lifecycle', () => {
     ).toEqual(['probe-a', 'probe-b']);
   });
 
+  it('rejects a resumed resource recreated under the deterministic name', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, mutationInput);
+    await recordEvidenceMutation(
+      dir,
+      mutationInput.runId,
+      mutationResource.name,
+      mutationResource.id
+    );
+    const probe = vi.fn();
+    const create = vi.fn();
+    await expect(
+      applyCloudflareEvidenceMutation(
+        dir,
+        mutationInput.runId,
+        mutationCapability,
+        {
+          identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
+          findByName: async () => ({
+            ...mutationResource,
+            id: 'resource-recreated',
+          }),
+          get: async () => ({ ...mutationResource, id: 'resource-recreated' }),
+          create,
+          probe,
+          cleanup: async () => true,
+          inventorySha256: async () => 'a'.repeat(64),
+        }
+      )
+    ).rejects.toThrow('provider read-back');
+    expect(create).not.toHaveBeenCalled();
+    expect(probe).not.toHaveBeenCalled();
+  });
+
   it('rejects an exact pre-existing resource that was not journaled by apply', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);

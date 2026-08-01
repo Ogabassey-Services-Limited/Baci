@@ -156,6 +156,59 @@ describe('cloudflareEvidencePrepare', () => {
     ).rejects.toThrow('identities');
   });
 
+  it('binds an optional cleanup replacement policy fingerprint to owner approval', async () => {
+    const cleanupPolicySha256 = 'd'.repeat(64);
+    const cleanupInput = { ...input, cleanupPolicySha256 };
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-cleanup-policy-'));
+    await chmod(dir, 0o700);
+    const policy = {
+      id: cleanupInput.policyId,
+      toolingMergeSha: cleanupInput.toolingMergeSha,
+      tokenId: cleanupInput.writeTokenId,
+      accountId: cleanupInput.accountId,
+      zoneId: cleanupInput.zoneId,
+      permissionGroupIds: ['workers.write'],
+      resources: ['account'],
+      expiresAt: '2026-08-01T13:00:00.000Z',
+      policySha256: calculateReviewedPolicySha256({
+        tokenId: cleanupInput.writeTokenId,
+        accountId: cleanupInput.accountId,
+        zoneId: cleanupInput.zoneId,
+        permissionGroupIds: ['workers.write'],
+        resources: ['account'],
+        expiresAt: '2026-08-01T13:00:00.000Z',
+      }),
+    };
+    const approval = {
+      id: cleanupInput.approvalId,
+      toolingMergeSha: cleanupInput.toolingMergeSha,
+      policyId: cleanupInput.policyId,
+      policySha256: policy.policySha256,
+      readTokenId: cleanupInput.readTokenId,
+      readPolicySha256: cleanupInput.readPolicySha256,
+      cleanupPolicySha256,
+      approvedAt: '2026-08-01T11:00:00.000Z',
+      expiresAt: '2026-08-01T13:00:00.000Z',
+    };
+    const approvalPath = join(dir, 'approval.json');
+    const policyPath = join(dir, 'policy.json');
+    await writeFile(approvalPath, JSON.stringify(approval), { mode: 0o600 });
+    await writeFile(policyPath, JSON.stringify(policy), { mode: 0o600 });
+    await expect(
+      verifyPrepareAuthority(
+        cleanupInput,
+        {
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+        },
+        new Date('2026-08-01T12:00:00.000Z')
+      )
+    ).resolves.toMatchObject({ cleanupPolicySha256 });
+    expect(cloudflareEvidencePrepare.argumentsFor(cleanupInput)).toContain(
+      '--cleanup-policy-sha256'
+    );
+  });
+
   it('rejects missing, mutable, or expired authority artifacts', async () => {
     await expect(
       verifyPrepareAuthority(input, {}, new Date('2026-08-01T12:00:00.000Z'))

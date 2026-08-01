@@ -30,6 +30,7 @@ describe('Cloudflare evidence token revocation lifecycle', () => {
     const replacementCapability: ReplacementCapability = {
       ...mutationCapability,
       tokenId: 'replacement-write',
+      policySha256: mutationInput.cleanupPolicySha256,
       replacementForTokenId: mutationInput.writeTokenId,
       cleanupOnly: true,
     };
@@ -73,6 +74,7 @@ describe('Cloudflare evidence token revocation lifecycle', () => {
     const secondCapability: ReplacementCapability = {
       ...mutationCapability,
       tokenId: 'replacement-write-2',
+      policySha256: mutationInput.cleanupPolicySha256,
       replacementForTokenId: mutationInput.writeTokenId,
       cleanupOnly: true,
     };

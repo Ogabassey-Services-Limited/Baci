@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { parse } from 'comment-json';
 
 type ArtifactBuild = Readonly<{
@@ -118,21 +118,32 @@ export async function buildQualificationArtifactReceipt(
     config,
     expectedMain
   );
-  if (
-    !build.moduleList.some(
-      (module) => module === expectedMain || module.endsWith(`/${expectedMain}`)
-    )
-  )
+  if (!Array.isArray(build.moduleList) || build.moduleList.length === 0)
     throw new Error(
       'dry-run module graph does not bind the reviewed entrypoint'
     );
+  const canonicalRoot = resolve(root);
+  const canonicalModules = build.moduleList.map((module) => {
+    if (typeof module !== 'string' || !module)
+      throw new Error('dry-run module graph contains an invalid module path');
+    const candidate = isAbsolute(module)
+      ? resolve(module)
+      : resolve(canonicalRoot, module);
+    return relative(canonicalRoot, candidate).split(sep).join('/');
+  });
+  if (!canonicalModules.includes(expectedMain))
+    throw new Error(
+      'dry-run module graph does not bind the reviewed entrypoint'
+    );
+  if (canonicalModules.length !== 1 || canonicalModules[0] !== expectedMain)
+    throw new Error('dry-run module graph contains unexpected fixture modules');
   return Object.freeze({
     canonicalSourceSha256: sha256(source),
     configSha256: qualificationConfig.canonicalSha256,
     dependencyLockSha256: sha256(lock),
     wranglerVersion: build.wranglerVersion,
     generatedTypeSha256: sha256(build.generatedTypeDeclaration),
-    moduleListSha256: sha256(JSON.stringify([...build.moduleList].sort())),
+    moduleListSha256: sha256(JSON.stringify([...canonicalModules].sort())),
     bundleSha256: sha256(build.bundle),
     soleVersionMetadataBinding: qualificationConfig.binding,
   });

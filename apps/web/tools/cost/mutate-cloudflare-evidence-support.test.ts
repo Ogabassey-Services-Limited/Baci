@@ -2,7 +2,13 @@ import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { openEvidenceRun } from './cloudflare-evidence-run-journal';
+import {
+  loadEvidenceRunForCleanup,
+  openEvidenceRun,
+  recordCleanupVerified,
+  recordEvidenceMutation,
+} from './cloudflare-evidence-run-journal';
+import { runMutationCommand } from './mutate-cloudflare-evidence-sources';
 import { loadMutationDependencies } from './mutate-cloudflare-evidence-support';
 
 vi.mock('./cloudflare-evidence-runner-modules', () => ({
@@ -34,7 +40,7 @@ afterEach(() => {
 });
 
 describe('mutation dependency loader', () => {
-  it('uses a private credentialless provider receipt without runner/token env', async () => {
+  it('does not treat a private local receipt as provider readback', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
     await openEvidenceRun(dir, input);
@@ -68,16 +74,72 @@ describe('mutation dependency loader', () => {
         'record_write_revocation'
       );
       expect(dependencies.revocationReceipt).toEqual(receipt);
-      if (typeof dependencies.client.readBack !== 'function')
-        throw new Error('readback client was not loaded');
       await expect(
         dependencies.client.readBack(input.writeTokenId)
-      ).resolves.toEqual({
+      ).rejects.toThrow('independent authenticated provider readback');
+    } finally {
+      process.argv[1] = originalArgv1;
+    }
+  });
+
+  it('cannot record revocation from a forged local receipt or transition the journal', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, input);
+    await recordEvidenceMutation(
+      dir,
+      input.runId,
+      input.plannedResources[0],
+      'provider-id'
+    );
+    await recordCleanupVerified(dir, input.runId, {
+      verifyCleanup: async () => ({
+        status: 'absent' as const,
+        inventorySha256: input.preInventorySha256,
+        providerReceiptSha256: 'e'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
+    });
+    const receiptPath = join(dir, 'forged-revocation-receipt.json');
+    await writeFile(
+      receiptPath,
+      JSON.stringify({
         tokenId: input.writeTokenId,
-        status: 'inactive',
-        auditReceiptSha256: receipt.providerReceiptSha256,
-        observedAt: receipt.observedAt,
-      });
+        status: 'revoked',
+        providerReceiptSha256: 'c'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
+      { mode: 0o600 }
+    );
+    await chmod(receiptPath, 0o600);
+    const workspaceRoot = resolve(process.cwd());
+    const commandPath = resolve(
+      workspaceRoot,
+      'apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts'
+    );
+    const originalArgv1 = process.argv[1];
+    process.argv[1] = commandPath;
+    vi.stubEnv('EVIDENCE_WORKSPACE_ROOT', workspaceRoot);
+    vi.stubEnv(
+      'EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_RECEIPT_PATH',
+      receiptPath
+    );
+    try {
+      const dependencies = await loadMutationDependencies(
+        runId,
+        dir,
+        'record_write_revocation'
+      );
+      await expect(
+        runMutationCommand(
+          ['--record-write-revocation', runId],
+          dir,
+          dependencies
+        )
+      ).rejects.toThrow('independent authenticated provider readback');
+      await expect(
+        loadEvidenceRunForCleanup(dir, runId)
+      ).resolves.toMatchObject({ phase: 'cleanup_verified' });
     } finally {
       process.argv[1] = originalArgv1;
     }

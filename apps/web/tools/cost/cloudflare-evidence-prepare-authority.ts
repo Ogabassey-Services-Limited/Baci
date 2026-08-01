@@ -16,6 +16,8 @@ const approvalArtifactSchema = z
     readTokenId: boundedId,
     /** Separately reviewed read-only policy fingerprint used after cleanup. */
     readPolicySha256: sha256,
+    /** Optional separately approved cleanup-only replacement policy fingerprint. */
+    cleanupPolicySha256: sha256.optional(),
     approvedAt: z.string().datetime({ offset: true }),
     expiresAt: z.string().datetime({ offset: true }),
   })
@@ -42,6 +44,7 @@ export type PrepareAuthorityInput = Pick<
   | 'writeTokenId'
   | 'readTokenId'
   | 'readPolicySha256'
+  | 'cleanupPolicySha256'
   | 'accountId'
   | 'zoneId'
 >;
@@ -50,6 +53,7 @@ export type VerifiedPrepareAuthority = Readonly<{
   policyId: string;
   policySha256: string;
   readPolicySha256: string;
+  cleanupPolicySha256?: string;
 }>;
 
 export function calculateReviewedPolicySha256(
@@ -105,6 +109,7 @@ export async function verifyPrepareAuthority(
     approval.toolingMergeSha !== input.toolingMergeSha ||
     approval.readTokenId !== input.readTokenId ||
     approval.readPolicySha256 !== input.readPolicySha256 ||
+    approval.cleanupPolicySha256 !== input.cleanupPolicySha256 ||
     policy.id !== approval.policyId ||
     policy.toolingMergeSha !== input.toolingMergeSha ||
     policy.tokenId !== input.writeTokenId ||
@@ -144,5 +149,8 @@ export async function verifyPrepareAuthority(
     policyId: policy.id,
     policySha256: policy.policySha256,
     readPolicySha256: approval.readPolicySha256,
+    ...(approval.cleanupPolicySha256
+      ? { cleanupPolicySha256: approval.cleanupPolicySha256 }
+      : {}),
   });
 }

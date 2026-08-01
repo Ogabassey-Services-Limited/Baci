@@ -13,6 +13,7 @@ export {
 const MILLISECONDS_PER_UTC_DAY = 86_400_000;
 const CLOSED_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/;
 const DEFAULT_MAXIMUM_BASELINE_AGE_DAYS = 7;
+const MAXIMUM_ORIGIN_AVOIDANCE_RATE = 0.001;
 
 function parseStrictUtcBoundary(value: string) {
   if (!CLOSED_UTC_PATTERN.test(value)) return null;
@@ -137,6 +138,15 @@ export function evaluateOgabasseyOriginBusinessCase(
     )
   )
     reasons.push('host_inventory_incomplete');
+  if (reasons.length) return { verdict: 'NOT_PROVEN', reasonCodes: reasons };
+  const originAvoidanceRate =
+    (input.allIngressOriginAttempts ?? 0) /
+    (input.allIngressRequests ?? Number.NaN);
+  if (originAvoidanceRate <= MAXIMUM_ORIGIN_AVOIDANCE_RATE)
+    return {
+      verdict: 'STOP',
+      reasonCodes: ['origin_avoidance_target_met'],
+    };
   if (
     !input.currentVercelAttributionUsd ||
     !input.projectedEdgeCostUsd ||

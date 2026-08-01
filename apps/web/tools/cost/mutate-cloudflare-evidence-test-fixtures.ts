@@ -5,6 +5,8 @@ export const mutationInput = {
   toolingMergeSha: '1'.repeat(40),
   writeTokenId: 'write',
   readTokenId: 'read',
+  policySha256: 'b'.repeat(64),
+  cleanupPolicySha256: 'd'.repeat(64),
   readPolicySha256: 'c'.repeat(64),
   accountId: 'account',
   zoneId: 'zone',
@@ -24,8 +26,15 @@ export const mutationCapability = {
   providerNegativeScopeUnverified: true as const,
 };
 
-export type ReplacementCapability = typeof mutationCapability &
-  Readonly<{ replacementForTokenId: string; cleanupOnly: true }>;
+export type ReplacementCapability = Omit<
+  typeof mutationCapability,
+  'policySha256'
+> &
+  Readonly<{
+    policySha256: string;
+    replacementForTokenId: string;
+    cleanupOnly: true;
+  }>;
 
 export const mutationResource = {
   id: 'resource-1',

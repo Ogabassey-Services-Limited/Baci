@@ -35,6 +35,7 @@ const prepareInputSchema = z
     writeTokenId: boundedId,
     readTokenId: boundedId,
     readPolicySha256: sha256,
+    cleanupPolicySha256: sha256.optional(),
     accountId: boundedId,
     zoneId: boundedId,
     plannedResources: z.array(boundedId).length(1),
@@ -63,6 +64,7 @@ const optionNames = {
   '--write-token-id': 'writeTokenId',
   '--read-token-id': 'readTokenId',
   '--read-policy-sha256': 'readPolicySha256',
+  '--cleanup-policy-sha256': 'cleanupPolicySha256',
   '--account-id': 'accountId',
   '--zone-id': 'zoneId',
   '--planned-resource': 'plannedResources',
@@ -108,6 +110,9 @@ function argumentsFor(input: EvidenceRunInput) {
     input.readTokenId,
     '--read-policy-sha256',
     input.readPolicySha256,
+    ...(input.cleanupPolicySha256
+      ? ['--cleanup-policy-sha256', input.cleanupPolicySha256]
+      : []),
     '--account-id',
     input.accountId,
     '--zone-id',

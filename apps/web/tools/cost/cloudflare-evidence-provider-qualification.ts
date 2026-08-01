@@ -1,6 +1,7 @@
 import {
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
+  QUALIFICATION_WORKER_NAME,
 } from './cloudflare-evidence-qualification-schemas';
 
 export type TopologyFamily =
@@ -91,7 +92,7 @@ function verifyTopologyEndpointFamily(
       parts.length === 8 &&
       parts[2] === 'workers' &&
       parts[3] === 'scripts' &&
-      Boolean(parts[4]) &&
+      parts[4] === QUALIFICATION_WORKER_NAME &&
       parts[5] === 'domains' &&
       parts[6] === 'custom' &&
       parts[7] === 'edge-evidence.ogabassey.com'

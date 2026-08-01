@@ -29,29 +29,50 @@ export type EvidenceMeasurementDependencies = Readonly<{
   capability: VerifiedEvidenceReadCapability;
   client: EvidenceMeasurementClient;
 }>;
+type MeasurementCommand = Readonly<{
+  mode: 'measure' | 'revoke-read';
+  runId: string;
+}>;
+type MeasurementOptions = Readonly<{ now?: Date }>;
+// Read-token policy verification caps the authority lifetime at 24 hours.
+const MAX_MEASUREMENT_OBSERVATION_LAG_MS = 24 * 60 * 60 * 1000;
 export function parseMeasurementArguments(args: readonly string[]) {
   if (
     args.length !== 2 ||
-    args[0] !== '--run' ||
+    !['--run', '--revoke-read'].includes(args[0]) ||
     !args[1] ||
     !RUN_ID_PATTERN.test(args[1])
   )
-    throw new Error('measurement is read-only and accepts only --run <runId>');
-  return { runId: args[1] };
+    throw new Error(
+      'measurement is read-only and accepts only --run <runId> or --revoke-read <runId>'
+    );
+  return {
+    mode:
+      args[0] === '--revoke-read'
+        ? ('revoke-read' as const)
+        : ('measure' as const),
+    runId: args[1],
+  } satisfies MeasurementCommand;
 }
-
 export function runMeasurementCommand(
   args: readonly string[],
   stateDir: string,
   dependencies: EvidenceMeasurementDependencies
 ) {
-  const { runId } = parseMeasurementArguments(args);
-  return measureCloudflareEvidenceSources(
-    stateDir,
-    runId,
-    dependencies.capability,
-    dependencies.client
-  );
+  const parsed = parseMeasurementArguments(args);
+  return parsed.mode === 'revoke-read'
+    ? revokeCloudflareEvidenceReadToken(
+        stateDir,
+        parsed.runId,
+        dependencies.capability,
+        dependencies.client
+      )
+    : measureCloudflareEvidenceSources(
+        stateDir,
+        parsed.runId,
+        dependencies.capability,
+        dependencies.client
+      );
 }
 
 type MeasurementRunnerFactory = (
@@ -61,7 +82,6 @@ type MeasurementRunnerFactory = (
     stateDir: string;
   }>
 ) => Promise<EvidenceMeasurementDependencies>;
-
 async function loadMeasurementDependencies(runId: string, stateDir: string) {
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
   const workspaceRoot = process.env.EVIDENCE_WORKSPACE_ROOT;
@@ -123,25 +143,18 @@ async function loadMeasurementDependencies(runId: string, stateDir: string) {
     throw new Error('measurement runner module is invalid');
   return (factory as MeasurementRunnerFactory)({ token, runId, stateDir });
 }
-
 /** Polls only after the journal proves write cleanup and revocation; it accepts no write credential. */
 export async function measureCloudflareEvidenceSources(
   stateDir: string,
   runId: string,
   capability: VerifiedEvidenceReadCapability,
-  client: EvidenceMeasurementClient
+  client: EvidenceMeasurementClient,
+  options: MeasurementOptions = {}
 ) {
   if (capability.kind !== 'read')
     throw new Error('a verified read capability is required');
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
-  if (
-    capability.tokenId !== journal.readTokenId ||
-    capability.accountId !== journal.accountId ||
-    capability.zoneId !== journal.zoneId ||
-    !journal.readPolicySha256 ||
-    capability.policySha256 !== journal.readPolicySha256
-  )
-    throw new Error('read capability does not match the journaled authority');
+  assertReadCapabilityMatchesJournal(capability, journal);
   const measurementAlreadyRecorded = Boolean(
     journal.measurementVerifiedAt && journal.measurementReceiptSha256
   );
@@ -181,6 +194,11 @@ export async function measureCloudflareEvidenceSources(
     Number.isNaN(new Date(result.observedAt).valueOf())
   )
     throw new Error('Cloudflare evidence export receipt is invalid');
+  assertMeasurementObservationWindow(
+    journal,
+    result.observedAt,
+    options.now ?? new Date()
+  );
   await recordEvidenceMeasurement(stateDir, runId, {
     providerReceiptSha256: result.providerReceiptSha256,
     observedAt: result.observedAt,
@@ -188,7 +206,67 @@ export async function measureCloudflareEvidenceSources(
   await revokeEvidenceRunToken(stateDir, runId, 'read', client);
   return recordEvidencePhase(stateDir, runId, 'proof_complete');
 }
-
+/** Revokes the read token after an incomplete cleanup without polling or recording proof. */
+export async function revokeCloudflareEvidenceReadToken(
+  stateDir: string,
+  runId: string,
+  capability: VerifiedEvidenceReadCapability,
+  client: EvidenceMeasurementClient
+) {
+  if (capability.kind !== 'read')
+    throw new Error('a verified read capability is required');
+  const journal = await loadEvidenceRunForCleanup(stateDir, runId);
+  assertReadCapabilityMatchesJournal(capability, journal);
+  if (
+    journal.phase !== 'write_token_revoked' ||
+    !journal.cleanupIncomplete ||
+    !journal.writeTokenRevocationReceipt ||
+    journal.writeTokenRevocationReceipt.tokenId !== journal.writeTokenId ||
+    journal.measurementVerifiedAt ||
+    journal.measurementReceiptSha256
+  )
+    throw new Error(
+      'read-token revocation requires a write-revoked incomplete cleanup run'
+    );
+  return revokeEvidenceRunToken(stateDir, runId, 'read', client);
+}
+function assertReadCapabilityMatchesJournal(
+  capability: VerifiedEvidenceReadCapability,
+  journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>
+) {
+  if (
+    capability.tokenId !== journal.readTokenId ||
+    capability.accountId !== journal.accountId ||
+    capability.zoneId !== journal.zoneId ||
+    !journal.readPolicySha256 ||
+    capability.policySha256 !== journal.readPolicySha256
+  )
+    throw new Error('read capability does not match the journaled authority');
+}
+function assertMeasurementObservationWindow(
+  journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>,
+  observedAt: string,
+  now: Date
+) {
+  const observedAtMs = new Date(observedAt).valueOf();
+  const nowMs = now.valueOf();
+  const writeRevokedAtMs = journal.writeTokenRevocationReceipt
+    ? new Date(journal.writeTokenRevocationReceipt.observedAt).valueOf()
+    : Number.NaN;
+  const cleanupVerifiedAtMs = journal.cleanupVerifiedAt
+    ? new Date(journal.cleanupVerifiedAt).valueOf()
+    : Number.NaN;
+  const lowerBoundMs = Math.max(writeRevokedAtMs, cleanupVerifiedAtMs);
+  if (
+    ![observedAtMs, nowMs, lowerBoundMs].every(Number.isFinite) ||
+    observedAtMs < lowerBoundMs ||
+    observedAtMs > nowMs ||
+    nowMs - observedAtMs > MAX_MEASUREMENT_OBSERVATION_LAG_MS
+  )
+    throw new Error(
+      'Cloudflare evidence export observation is outside the active run window'
+    );
+}
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href

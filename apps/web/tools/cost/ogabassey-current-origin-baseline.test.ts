@@ -26,6 +26,42 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
         now: new Date('2026-08-01T12:00:00.000Z'),
       }).verdict
     ).toBe('PROCEED'));
+  it('stops before cost or payback evaluation when the origin-avoidance target is met', () => {
+    const now = new Date('2026-08-01T12:00:00.000Z');
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        {
+          ...current,
+          allIngressOriginAttempts: 0,
+          currentVercelAttributionUsd: undefined,
+          projectedEdgeCostUsd: undefined,
+          ownerApprovedPaybackMonths: undefined,
+          paybackMonths: undefined,
+        },
+        { now }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['origin_avoidance_target_met'],
+    });
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        {
+          ...current,
+          allIngressRequests: 1000,
+          allIngressOriginAttempts: 1,
+          currentVercelAttributionUsd: undefined,
+          projectedEdgeCostUsd: undefined,
+          ownerApprovedPaybackMonths: undefined,
+          paybackMonths: undefined,
+        },
+        { now }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['origin_avoidance_target_met'],
+    });
+  });
   it('rejects percentage-only, apex-only, stale, or incomplete evidence', () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(

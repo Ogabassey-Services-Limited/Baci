@@ -103,6 +103,11 @@ export async function openEvidenceRun(
       throw new Error('write and read tokens must be distinct');
     if (!/^[a-f0-9]{64}$/.test(input.readPolicySha256))
       throw new Error('read policy fingerprint is invalid');
+    if (
+      input.cleanupPolicySha256 !== undefined &&
+      !/^[a-f0-9]{64}$/.test(input.cleanupPolicySha256)
+    )
+      throw new Error('cleanup policy fingerprint is invalid');
     const journal: CloudflareEvidenceRunJournal = {
       ...input,
       mutations: {},

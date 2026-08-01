@@ -95,9 +95,10 @@ export async function applyCloudflareEvidenceMutation(
   let resource = await client.findByName(name);
   await verifyInventoryBeforeMutation(client, journal, resource);
   if (resource) {
-    if (!journal.mutations[name])
+    const journaledResourceId = journal.mutations[name];
+    if (!journaledResourceId)
       throw new Error('pre-existing resource collision');
-    verifyResource(resource, journal, name, resource.id);
+    verifyResource(resource, journal, name, journaledResourceId);
   } else {
     const created = await client.create(
       name,

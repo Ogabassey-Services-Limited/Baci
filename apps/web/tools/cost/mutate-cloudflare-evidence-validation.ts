@@ -60,7 +60,30 @@ export type EvidenceMutationDependencies = Readonly<{
 export type MutationMode = 'apply' | 'cleanup' | 'record_write_revocation';
 export type EvidenceJournal = Awaited<
   ReturnType<typeof loadEvidenceRunForCleanup>
->;
+> &
+  Readonly<{
+    /** Optional approval for a cleanup-only replacement token. */
+    cleanupPolicySha256?: string;
+  }>;
+
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+
+type CleanupReplacementCapability = VerifiedEvidenceTokenCapability &
+  Readonly<{
+    replacementForTokenId: string;
+    cleanupOnly: true;
+  }>;
+
+function isCleanupReplacementCapability(
+  capability: VerifiedEvidenceTokenCapability
+): capability is CleanupReplacementCapability {
+  return (
+    'replacementForTokenId' in capability &&
+    typeof capability.replacementForTokenId === 'string' &&
+    'cleanupOnly' in capability &&
+    capability.cleanupOnly === true
+  );
+}
 
 export function parseMutationArguments(args: readonly string[]) {
   if (
@@ -119,17 +142,25 @@ export function verifyCapability(
     capability.zoneId !== journal.zoneId
   )
     throw new Error('write capability does not match the journaled authority');
-  if (journal.policySha256 && capability.policySha256 !== journal.policySha256)
-    throw new Error('write capability policy does not match the journal');
-  if (capability.tokenId === journal.writeTokenId) return;
+  if (capability.tokenId === journal.writeTokenId) {
+    if (
+      journal.policySha256 &&
+      capability.policySha256 !== journal.policySha256
+    )
+      throw new Error('write capability policy does not match the journal');
+    return;
+  }
   if (capability.tokenId === journal.readTokenId)
     throw new Error('cleanup replacement token cannot be the read token');
-  const replacement = capability as VerifiedEvidenceTokenCapability &
-    Readonly<{ replacementForTokenId?: string; cleanupOnly?: boolean }>;
+
+  const approvedCleanupPolicySha256 = journal.cleanupPolicySha256;
   if (
     mode !== 'cleanup' ||
-    replacement.replacementForTokenId !== journal.writeTokenId ||
-    replacement.cleanupOnly !== true
+    !isCleanupReplacementCapability(capability) ||
+    capability.replacementForTokenId !== journal.writeTokenId ||
+    !approvedCleanupPolicySha256 ||
+    !SHA256_PATTERN.test(approvedCleanupPolicySha256) ||
+    capability.policySha256 !== approvedCleanupPolicySha256
   )
     throw new Error('write capability does not match the journaled authority');
 }

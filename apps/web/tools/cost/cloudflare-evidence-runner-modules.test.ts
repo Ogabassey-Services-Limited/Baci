@@ -15,6 +15,14 @@ const reviewedModule = resolve(
   workspaceRoot,
   'packages/shared/src/constants/countries.ts'
 );
+const closureModule = resolve(
+  workspaceRoot,
+  'packages/shared/src/insurance/index.ts'
+);
+const closureDependency = resolve(
+  workspaceRoot,
+  'packages/shared/src/insurance/claim-status.ts'
+);
 const execFileAsync = promisify(execFile);
 
 describe('cloudflare evidence runner module integrity', () => {
@@ -125,5 +133,34 @@ describe('cloudflare evidence runner module integrity', () => {
       await unlink(alias).catch(() => undefined);
     }
     await expect(lstat(alias)).rejects.toThrow();
+  });
+
+  it('rejects a changed transitive import before the runner can load', async () => {
+    const entryBytes = await readFile(closureModule);
+    const dependencyBytes = await readFile(closureDependency);
+    const digest = createHash('sha256').update(entryBytes).digest('hex');
+    const { stdout: head } = await execFileAsync('git', [
+      '-C',
+      workspaceRoot,
+      'rev-parse',
+      '--verify',
+      'HEAD',
+    ]);
+    const descriptor = { path: closureModule, sha256: digest };
+    await expect(
+      verifyReviewedEvidenceRunnerModule(workspaceRoot, head.trim(), descriptor)
+    ).resolves.toMatchObject(descriptor);
+    await writeFile(closureDependency, `${dependencyBytes}\n// changed\n`);
+    try {
+      await expect(
+        verifyReviewedEvidenceRunnerModule(
+          workspaceRoot,
+          head.trim(),
+          descriptor
+        )
+      ).rejects.toThrow('differs from the reviewed commit');
+    } finally {
+      await writeFile(closureDependency, dependencyBytes);
+    }
   });
 });

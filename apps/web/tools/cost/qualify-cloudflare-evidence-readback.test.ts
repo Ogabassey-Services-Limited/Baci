@@ -104,7 +104,7 @@ describe('Cloudflare read-only qualification contracts', () => {
     ).toThrow('inherited');
   });
 
-  it('fails closed for malformed purge and topology endpoint schemas', () => {
+  it('fails closed for malformed purge and incomplete topology endpoint schemas', () => {
     expect(
       qualifyCloudflareReleasePurgeContract({
         endpoint: '/zones/zone/purge_cache',
@@ -128,14 +128,61 @@ describe('Cloudflare read-only qualification contracts', () => {
         endpoints: [
           {
             family: 'r2-custom-domain',
-            endpoint: '/accounts/account/r2/buckets/bucket/domains',
+            endpoint:
+              '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
             requestSchemaSha256: 'a'.repeat(64),
             responseSchemaSha256: 'b'.repeat(64),
             maximumVisibilitySeconds: 60,
           },
         ],
       }).ok
+    ).toBe(false);
+    const topologyEndpoints = [
+      {
+        family: 'worker-custom-domain' as const,
+        endpoint:
+          '/accounts/account/workers/scripts/baci-evidence-qualification/domains/custom/edge-evidence.ogabassey.com',
+      },
+      {
+        family: 'r2-cors' as const,
+        endpoint: '/accounts/account/r2/buckets/bucket/cors',
+      },
+      {
+        family: 'r2-custom-domain' as const,
+        endpoint:
+          '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
+      },
+    ].map((topology) => ({
+      ...topology,
+      requestSchemaSha256: 'a'.repeat(64),
+      responseSchemaSha256: 'b'.repeat(64),
+      maximumVisibilitySeconds: 60,
+    }));
+    expect(
+      qualifyCloudflareTopologyEndpoints({ endpoints: topologyEndpoints }).ok
     ).toBe(true);
+    expect(
+      qualifyCloudflareTopologyEndpoints({
+        endpoints: topologyEndpoints.map((topology) =>
+          topology.family === 'worker-custom-domain'
+            ? {
+                ...topology,
+                endpoint:
+                  '/accounts/account/workers/scripts/production-storefront/domains/custom/edge-evidence.ogabassey.com',
+              }
+            : topology
+        ),
+      }).ok
+    ).toBe(false);
+    expect(
+      qualifyCloudflareTopologyEndpoints({
+        endpoints: topologyEndpoints.map((topology) =>
+          topology.family === 'r2-cors'
+            ? { ...topology, family: 'r2-custom-domain' as const }
+            : topology
+        ),
+      }).ok
+    ).toBe(false);
   });
 
   it('requires reviewed local artifacts and rejects duplicate readback identities', () => {

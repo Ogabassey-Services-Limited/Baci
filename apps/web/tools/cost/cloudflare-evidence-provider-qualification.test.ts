@@ -264,4 +264,32 @@ describe('deep Cloudflare provider topology qualification', () => {
       )
     ).rejects.toThrow('ambiguous');
   });
+
+  it('rejects a self-consistent topology mutation for another Worker', async () => {
+    const unrelatedEndpoint =
+      '/accounts/account/workers/scripts/production-storefront/domains/custom/edge-evidence.ogabassey.com';
+    const unrelatedWorker = {
+      ...input,
+      topologies: asTopologyPlans(
+        input.topologies.map((topology) =>
+          topology.family === 'worker-custom-domain'
+            ? { ...topology, endpoint: unrelatedEndpoint }
+            : topology
+        )
+      ),
+      journaledTopologies: asJournaledTopologyPlans(
+        input.journaledTopologies.map((topology) =>
+          topology.family === 'worker-custom-domain'
+            ? { ...topology, endpoint: unrelatedEndpoint }
+            : topology
+        )
+      ),
+    };
+    await expect(
+      executeDeepCloudflareEvidenceQualification(
+        client() as never,
+        unrelatedWorker
+      )
+    ).rejects.toThrow('journaled');
+  });
 });

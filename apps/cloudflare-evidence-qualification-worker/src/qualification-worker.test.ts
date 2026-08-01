@@ -74,6 +74,19 @@ describe('cloudflare evidence qualification worker fixture', () => {
     expect(receiptA.soleVersionMetadataBinding).toBe('CF_VERSION_METADATA');
     expect(receiptA.wranglerVersion).toBe('4.115.0');
   });
+  it('rejects an additional module in the fixture bundle', async () => {
+    const runner = {
+      dryRun: async () => ({
+        bundle: new TextEncoder().encode('bundle-a'),
+        moduleList: ['src/version-a.ts', 'src/unreviewed-helper.ts'],
+        generatedTypeDeclaration: 'declare const a: string',
+        wranglerVersion: '4.115.0',
+      }),
+    };
+    await expect(
+      buildQualificationArtifactReceipt(root, 'a', runner)
+    ).rejects.toThrow('unexpected fixture modules');
+  });
   it('parses JSONC comments, trailing commas, and double slashes inside strings', () => {
     const config = `{
       // The qualification fixture has no provider route.

@@ -1,12 +1,34 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstat, readFile, realpath } from 'node:fs/promises';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { builtinModules } from 'node:module';
+import {
+  dirname,
+  extname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const SHA256 = /^[a-f0-9]{64}$/;
 const TOOLING_SHA = /^[a-f0-9]{40}$/;
+const IMPORT_SPECIFIER =
+  /\b(?:import|export)\s+(?:(?:[^'"`]*?)\sfrom\s+)?['"]([^'"]+)['"]|\b(?:import|require)\(\s*['"]([^'"]+)['"]\s*\)/g;
+const DYNAMIC_IMPORT = /\b(?:import|require)\s*\(([^)]*)\)/g;
+const MODULE_EXTENSIONS = [
+  '',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.json',
+];
+const BUILTIN_MODULES = new Set(builtinModules);
 
 export type EvidenceRunnerModuleKind = 'mutation' | 'measurement';
 export type EvidenceRunnerModuleDescriptor = Readonly<{
@@ -61,6 +83,131 @@ async function assertNoSymlinkPath(root: string, file: string) {
   }
 }
 
+function importedSpecifiers(source: string) {
+  for (const match of source.matchAll(DYNAMIC_IMPORT))
+    if (!/^\s*(['"])[^'"\n]*\1\s*$/.test(match[1]))
+      throw new Error('evidence runner module has a non-literal import');
+  return [...source.matchAll(IMPORT_SPECIFIER)].map(
+    (match) => match[1] ?? match[2]
+  );
+}
+
+async function resolveLocalImport(from: string, specifier: string) {
+  const requested = isAbsolute(specifier)
+    ? specifier
+    : resolve(dirname(from), specifier);
+  const candidates = extname(requested)
+    ? [requested]
+    : [
+        ...MODULE_EXTENSIONS.map((extension) => `${requested}${extension}`),
+        ...MODULE_EXTENSIONS.slice(1).map(
+          (extension) => `${requested}/index${extension}`
+        ),
+      ];
+  for (const candidate of candidates) {
+    try {
+      if ((await lstat(candidate)).isFile()) return candidate;
+    } catch {
+      // Continue through the extension and index candidates.
+    }
+  }
+  throw new Error('evidence runner module import is not a local file');
+}
+
+async function reviewedBytes(
+  root: string,
+  toolingMergeSha: string,
+  relativeFile: string,
+  label: string
+) {
+  try {
+    const tracked = await execFileAsync(
+      'git',
+      ['-C', root, 'ls-files', '--error-unmatch', '--', relativeFile],
+      { encoding: 'utf8' }
+    );
+    if (tracked.stdout.trim() !== relativeFile)
+      throw new Error(`${label} is not tracked by git`);
+    const reviewed = await execFileAsync(
+      'git',
+      ['-C', root, 'show', `${toolingMergeSha}:${relativeFile}`],
+      { encoding: 'buffer', maxBuffer: 8 * 1024 * 1024 }
+    );
+    return Buffer.isBuffer(reviewed.stdout)
+      ? reviewed.stdout
+      : Buffer.from(reviewed.stdout);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes(label)) throw error;
+    throw new Error(`${label} is not present in the reviewed commit`);
+  }
+}
+
+async function verifyReviewedTrackedFile(
+  root: string,
+  toolingMergeSha: string,
+  file: string,
+  label: string,
+  expectedSha256?: string
+) {
+  const lexicalPath = resolve(file);
+  relativePath(root, lexicalPath);
+  await assertNoSymlinkPath(root, lexicalPath);
+  const canonicalPath = await realpath(file).catch(() => {
+    throw new Error(`${label} is not readable`);
+  });
+  relativePath(root, canonicalPath);
+  await assertNoSymlinkPath(root, canonicalPath);
+  if (!(await lstat(canonicalPath)).isFile())
+    throw new Error(
+      label === 'evidence tooling file'
+        ? 'evidence tooling file is not regular'
+        : `${label} is not a regular file`
+    );
+  const source = await readFile(canonicalPath);
+  if (expectedSha256 && sha256(source) !== expectedSha256)
+    throw new Error(`${label} bytes do not match its reviewed hash`);
+  const relativeFile = relativePath(root, canonicalPath);
+  const reviewed = await reviewedBytes(
+    root,
+    toolingMergeSha,
+    relativeFile,
+    label
+  );
+  if (sha256(reviewed) !== sha256(source))
+    throw new Error(`${label} differs from the reviewed commit`);
+  return { path: canonicalPath, source };
+}
+
+async function verifyRunnerImportClosure(
+  root: string,
+  toolingMergeSha: string,
+  entrypoint: string
+) {
+  const visited = new Set<string>([entrypoint]);
+  const pending = [entrypoint];
+  while (pending.length) {
+    const current = pending.pop() as string;
+    const source = await readFile(current, 'utf8');
+    for (const specifier of importedSpecifiers(source)) {
+      if (specifier.startsWith('node:') || BUILTIN_MODULES.has(specifier))
+        continue;
+      if (!specifier.startsWith('.') && !isAbsolute(specifier))
+        throw new Error('evidence runner module imports an external module');
+      const imported = await resolveLocalImport(current, specifier);
+      const verified = await verifyReviewedTrackedFile(
+        root,
+        toolingMergeSha,
+        imported,
+        'evidence runner module'
+      );
+      if (!visited.has(verified.path)) {
+        visited.add(verified.path);
+        pending.push(verified.path);
+      }
+    }
+  }
+}
+
 /** Reads the one path/hash pair allowed for a runner kind from an environment. */
 export function readEvidenceRunnerModuleDescriptor(
   environment: Readonly<Record<string, string | undefined>>,
@@ -100,59 +247,19 @@ export async function verifyReviewedEvidenceRunnerModule(
   const canonicalRoot = await realpath(workspaceRoot).catch(() => {
     throw new Error('evidence workspace root is not readable');
   });
-  const lexicalPath = resolve(descriptor.path);
-  relativePath(canonicalRoot, lexicalPath);
-  await assertNoSymlinkPath(canonicalRoot, lexicalPath);
-  const canonicalPath = await realpath(descriptor.path).catch(() => {
-    throw new Error('evidence runner module is not readable');
-  });
-  relativePath(canonicalRoot, canonicalPath);
-  await assertNoSymlinkPath(canonicalRoot, canonicalPath);
-  const fileStat = await lstat(canonicalPath);
-  if (!fileStat.isFile())
-    throw new Error('evidence runner module is not a regular file');
-  const source = await readFile(canonicalPath);
-  if (sha256(source) !== descriptor.sha256)
-    throw new Error(
-      'evidence runner module bytes do not match its reviewed hash'
-    );
-
-  const relativeModulePath = relativePath(canonicalRoot, canonicalPath);
-  try {
-    const tracked = await execFileAsync(
-      'git',
-      [
-        '-C',
-        canonicalRoot,
-        'ls-files',
-        '--error-unmatch',
-        '--',
-        relativeModulePath,
-      ],
-      { encoding: 'utf8' }
-    );
-    if (tracked.stdout.trim() !== relativeModulePath)
-      throw new Error('evidence runner module is not tracked by git');
-    const reviewed = await execFileAsync(
-      'git',
-      ['-C', canonicalRoot, 'show', `${toolingMergeSha}:${relativeModulePath}`],
-      { encoding: 'buffer', maxBuffer: 8 * 1024 * 1024 }
-    );
-    const reviewedBytes = Buffer.isBuffer(reviewed.stdout)
-      ? reviewed.stdout
-      : Buffer.from(reviewed.stdout);
-    if (sha256(reviewedBytes) !== descriptor.sha256)
-      throw new Error(
-        'evidence runner module differs from the reviewed commit'
-      );
-  } catch (error) {
-    if (error instanceof Error && /evidence runner module/.test(error.message))
-      throw error;
-    throw new Error(
-      'evidence runner module is not present in the reviewed commit'
-    );
-  }
-  return Object.freeze({ path: canonicalPath, sha256: descriptor.sha256 });
+  const verified = await verifyReviewedTrackedFile(
+    canonicalRoot,
+    toolingMergeSha,
+    descriptor.path,
+    'evidence runner module',
+    descriptor.sha256
+  );
+  await verifyRunnerImportClosure(
+    canonicalRoot,
+    toolingMergeSha,
+    verified.path
+  );
+  return Object.freeze({ path: verified.path, sha256: descriptor.sha256 });
 }
 
 /** Verifies a checked-in command entrypoint against the exact reviewed commit. */
@@ -168,43 +275,14 @@ export async function verifyReviewedEvidenceFile(
   const canonicalRoot = await realpath(workspaceRoot).catch(() => {
     throw new Error('evidence workspace root is not readable');
   });
-  const lexicalPath = resolve(filePath);
-  relativePath(canonicalRoot, lexicalPath);
-  await assertNoSymlinkPath(canonicalRoot, lexicalPath);
-  const canonicalPath = await realpath(filePath).catch(() => {
-    throw new Error('evidence tooling file is not readable');
+  const verified = await verifyReviewedTrackedFile(
+    canonicalRoot,
+    toolingMergeSha,
+    filePath,
+    'evidence tooling file'
+  );
+  return Object.freeze({
+    path: verified.path,
+    sha256: sha256(verified.source),
   });
-  relativePath(canonicalRoot, canonicalPath);
-  await assertNoSymlinkPath(canonicalRoot, canonicalPath);
-  const stat = await lstat(canonicalPath);
-  if (!stat.isFile()) throw new Error('evidence tooling file is not regular');
-  const source = await readFile(canonicalPath);
-  const sourceSha256 = sha256(source);
-  const relativeFile = relativePath(canonicalRoot, canonicalPath);
-  try {
-    const tracked = await execFileAsync(
-      'git',
-      ['-C', canonicalRoot, 'ls-files', '--error-unmatch', '--', relativeFile],
-      { encoding: 'utf8' }
-    );
-    if (tracked.stdout.trim() !== relativeFile)
-      throw new Error('evidence tooling file is not tracked by git');
-    const reviewed = await execFileAsync(
-      'git',
-      ['-C', canonicalRoot, 'show', `${toolingMergeSha}:${relativeFile}`],
-      { encoding: 'buffer', maxBuffer: 8 * 1024 * 1024 }
-    );
-    const reviewedBytes = Buffer.isBuffer(reviewed.stdout)
-      ? reviewed.stdout
-      : Buffer.from(reviewed.stdout);
-    if (sha256(reviewedBytes) !== sourceSha256)
-      throw new Error('evidence tooling file differs from the reviewed commit');
-  } catch (error) {
-    if (error instanceof Error && /evidence tooling file/.test(error.message))
-      throw error;
-    throw new Error(
-      'evidence tooling file is not present in the reviewed commit'
-    );
-  }
-  return Object.freeze({ path: canonicalPath, sha256: sourceSha256 });
 }

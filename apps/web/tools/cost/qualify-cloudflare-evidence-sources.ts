@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import { runQualificationCliFromProcess } from './cloudflare-evidence-qualification-cli';
 import {
   type ArtifactReadbackSchema,
@@ -6,7 +6,6 @@ import {
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
   sameCloudflarePurgeContract,
-  TopologyEndpointSchema,
 } from './cloudflare-evidence-qualification-schemas';
 import type {
   CloudflareOrdinaryTrafficProof,
@@ -125,15 +124,7 @@ export function qualifyCloudflareReleasePurgeContract(value: unknown) {
     ? { ok: true as const, contract: parsed.data }
     : { ok: false as const, reason: 'purge_contract_invalid' };
 }
-export function qualifyCloudflareTopologyEndpoints(value: unknown) {
-  const parsed = z
-    .object({ endpoints: z.array(TopologyEndpointSchema).min(1) })
-    .strict()
-    .safeParse(value);
-  return parsed.success
-    ? { ok: true as const, contract: parsed.data }
-    : { ok: false as const, reason: 'topology_contract_invalid' };
-}
+export { qualifyCloudflareTopologyEndpoints } from './cloudflare-evidence-topology-contract';
 
 /** Executes the bounded, injectable provider readback/pointer/purge qualification. */
 export async function executeCloudflareEvidenceQualification(
