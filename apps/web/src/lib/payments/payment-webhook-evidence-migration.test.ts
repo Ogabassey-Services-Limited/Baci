@@ -128,6 +128,7 @@ describe('payment webhook evidence foundation migration', () => {
     expect(replayContractSql).toContain('polpermissive');
     expect(replayContractSql).toContain('pg_get_expr(polqual, polrelid)');
     expect(replayContractSql).toContain('pg_get_constraintdef');
+    expect(replayContractSql).toContain('definition_md5');
     expect(replayContractSql).toContain('conrelid');
     expect(replayContractSql).toContain('index_namespace');
     for (const [
@@ -156,6 +157,12 @@ describe('payment webhook evidence foundation migration', () => {
     );
     expect(replayContractSql).toContain(
       'payment webhook evidence index count does not match the sealed relation-scoped contract'
+    );
+    expect(replayContractSql).toContain(
+      'payment webhook evidence constraint count does not match the sealed relation-scoped contract'
+    );
+    expect(replayContractSql).toContain(
+      'payment webhook evidence constraint catalog contains an unexpected relation-scoped entry'
     );
     expect(replayContractSql).toContain(
       'payment webhook evidence named constraints changed or lost their relation scope after fixture rollback'

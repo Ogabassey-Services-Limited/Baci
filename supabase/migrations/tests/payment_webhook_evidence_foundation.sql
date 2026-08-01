@@ -12,7 +12,6 @@ DECLARE
   v_relation text;
   v_role text;
   v_missing_column text;
-  v_missing_constraint text;
   v_missing_index text;
   v_scope_value text;
   v_policy_name text;
@@ -227,52 +226,173 @@ BEGIN
     RAISE EXCEPTION 'payment webhook evidence columns do not match the ordered relation-scoped catalog contract';
   END IF;
 
-  SELECT expected.name INTO v_missing_constraint
-  FROM (
-    VALUES
-      ('payment_ingress_contract_generations_evidence_binding_key'),
-      ('payment_webhook_inbox_provider_check'), ('payment_webhook_inbox_endpoint_key_check'),
-      ('payment_webhook_inbox_signature_scope_check'), ('payment_webhook_inbox_authority_key_check'),
-      ('payment_webhook_inbox_generation_fkey'), ('payment_webhook_inbox_replay_kind_check'),
-      ('payment_webhook_inbox_replay_digest_check'), ('payment_webhook_inbox_replay_preimage_check'),
-      ('payment_webhook_inbox_ingress_scope_snapshot_check'), ('payment_webhook_inbox_envelope_check'),
-      ('payment_webhook_inbox_hashes_check'), ('payment_webhook_inbox_event_type_check'),
-      ('payment_webhook_inbox_reference_check'), ('payment_webhook_inbox_amount_currency_check'),
-      ('payment_webhook_inbox_manifest_check'), ('payment_webhook_inbox_processing_check'),
-      ('payment_webhook_inbox_error_check'), ('payment_webhook_inbox_decision_projection_check'),
-      ('payment_webhook_inbox_source_manifest_fkey'),
-      ('payment_webhook_source_manifests_provider_check'), ('payment_webhook_source_manifests_endpoint_key_check'),
-      ('payment_webhook_source_manifests_signature_scope_check'), ('payment_webhook_source_manifests_authority_key_check'),
-      ('payment_webhook_source_manifests_generation_fkey'), ('payment_webhook_source_manifests_replay_kind_check'),
-      ('payment_webhook_source_manifests_replay_digest_check'), ('payment_webhook_source_manifests_replay_preimage_check'),
-      ('payment_webhook_source_manifests_scope_snapshot_check'), ('payment_webhook_source_manifests_economics_check'),
-      ('payment_webhook_source_manifests_parent_identity_check'), ('payment_webhook_source_manifests_inbox_fkey'),
-      ('payment_webhook_source_proofs_manifest_fkey'), ('payment_webhook_source_proofs_child_identity_check'),
-      ('payment_webhook_source_proofs_ordinal_check'), ('payment_webhook_source_proofs_reference_check'),
-      ('payment_webhook_source_proofs_capture_identity_check'), ('payment_webhook_source_proofs_amount_check'),
-      ('payment_webhook_source_proofs_currency_fkey'), ('payment_webhook_source_proofs_paid_precision_check'),
-      ('payment_webhook_source_proofs_hash_check'), ('payment_webhook_source_proofs_decision_check'),
-      ('payment_webhook_source_proofs_reason_check'), ('payment_webhook_source_proofs_review_scope_check'),
-      ('payment_webhook_source_proofs_decision_shape_check')
-  ) AS expected(name)
-  WHERE NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = expected.name
-      AND (
-        (expected.name = 'payment_ingress_contract_generations_evidence_binding_key'
-          AND conrelid = 'private.payment_ingress_contract_generations'::regclass)
-        OR (expected.name LIKE 'payment_webhook_inbox_%'
-          AND conrelid = 'private.payment_webhook_inbox'::regclass)
-        OR (expected.name LIKE 'payment_webhook_source_manifests_%'
-          AND conrelid = 'private.payment_webhook_source_manifests'::regclass)
-        OR (expected.name LIKE 'payment_webhook_source_proofs_%'
-          AND conrelid = 'private.payment_webhook_source_proofs'::regclass)
+  -- Keep the sealed constraint catalog exact. The digest is an exact fingerprint
+  -- of the whitespace-normalized pg_get_constraintdef output, so a renamed,
+  -- weakened, or extra constraint cannot hide behind an expected-name lookup.
+  IF (
+    SELECT count(*)
+    FROM pg_constraint constraint_catalog
+    JOIN pg_class relation ON relation.oid = constraint_catalog.conrelid
+    JOIN pg_namespace schema ON schema.oid = relation.relnamespace
+    WHERE schema.nspname = 'private'
+      AND relation.relname IN (
+        'payment_webhook_inbox',
+        'payment_webhook_source_manifests',
+        'payment_webhook_source_proofs'
       )
-  )
-  LIMIT 1;
+  ) <> 56 THEN
+    RAISE EXCEPTION 'payment webhook evidence constraint count does not match the sealed relation-scoped contract';
+  END IF;
 
-  IF v_missing_constraint IS NOT NULL THEN
-    RAISE EXCEPTION 'payment webhook evidence constraint is missing: %', v_missing_constraint;
+  IF EXISTS (
+    WITH expected(table_name, constraint_name, constraint_type, definition_md5) AS (
+      VALUES
+        ('payment_ingress_contract_generations', 'payment_ingress_contract_generations_evidence_binding_key', 'u', '563ba5057ae76666e59bf4d086907b41'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_amount_currency_check', 'c', '7ed936ac43a5427570c0fd746e2c9a74'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_authority_key_check', 'c', '283be407002f5ef64b35a43086b56340'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_decision_projection_check', 'c', '766313c357835a8bcb5650400345cdc0'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_endpoint_key_check', 'c', 'eb180c4427d944ed3f12db0a1953536b'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_envelope_check', 'c', '501d4f7105d3afb38d6db1f8c842993e'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_error_check', 'c', 'e9946d732b8d0bb929fb15313e01819b'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_event_type_check', 'c', '9d10d8a0af65b33a0a1852f806cc9244'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_generation_fkey', 'f', 'feef7f664ac028e4313c71ed0f59d9c7'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_hashes_check', 'c', '1cdd40de832a41c7f1d1adb2bc991709'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_ingress_scope_snapshot_check', 'c', '3080a0b44d72175bab000aa4ffbea7c9'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_manifest_binding_uq', 'u', '44a06a09320828a8c3616aac364f9b77'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_manifest_check', 'c', 'b5b119687aeff9de6b2a827a6215be23'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_pkey', 'p', '4c6419b3704337bbfe50f018842a9ad3'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_processing_check', 'c', 'a879c77ab6a661c9befb5a3375f89754'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_provider_check', 'c', '533b9fd90954f63e7c913430cd87d143'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_reference_check', 'c', 'cb45d2dd457e39ce2e9b87acfcb4e3c2'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_digest_check', 'c', 'c8067fdd36702cc353dec555bbf398f9'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_key_uq', 'u', '07b77c604d41b5d5882b174a83371650'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_kind_check', 'c', '67d4880cc23e9131ab00e75d94c21b29'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_preimage_check', 'c', 'c54ae122bdde67ecdb6b4e80f23c968a'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_signature_scope_check', 'c', '2ef1b16986b077f9e7a2b4f7edf0ad57'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_source_manifest_fkey', 'f', '55b8f19f4bb5fe8936200f9178cd6468'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_authority_key_check', 'c', '283be407002f5ef64b35a43086b56340'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_binding_uq', 'u', '4026adb937de716931ef6854f1c8007a'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_currency_target_uq', 'u', 'c1351995bc0b6fb0610b133f991bd890'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_economics_check', 'c', 'a2c8b6fff374428b16d96440e9b55ca0'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_endpoint_key_check', 'c', 'eb180c4427d944ed3f12db0a1953536b'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_generation_fkey', 'f', 'feef7f664ac028e4313c71ed0f59d9c7'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_fkey', 'f', 'ff7a88b64f22b186d43e4c211fad047b'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_target_uq', 'u', '377cf998821deb0252fbebb2a4095dc7'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_parent_identity_check', 'c', '27d0b7eb682d7620fc0963aa8d6d0465'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_pkey', 'p', '4c6419b3704337bbfe50f018842a9ad3'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_provider_check', 'c', '533b9fd90954f63e7c913430cd87d143'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_digest_check', 'c', 'c8067fdd36702cc353dec555bbf398f9'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_key_uq', 'u', '07b77c604d41b5d5882b174a83371650'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_kind_check', 'c', '67d4880cc23e9131ab00e75d94c21b29'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_preimage_check', 'c', 'c54ae122bdde67ecdb6b4e80f23c968a'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_scope_snapshot_check', 'c', '3080a0b44d72175bab000aa4ffbea7c9'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_signature_scope_check', 'c', '2ef1b16986b077f9e7a2b4f7edf0ad57'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_amount_check', 'c', '6d5ad2e20e6ea6a63dfc39f8b38b454c'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_capture_identity_check', 'c', 'a41b72e4bfb93187f6026c0725d7263d'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_child_identity_check', 'c', '28c56974519375c87ef205759782ab17'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_currency_fkey', 'f', 'ea1c41a1ed0a6e5604973454aa0532f3'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_decision_check', 'c', 'ed3c8e4cd8bf6bcccd4a7b4133092421'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_decision_shape_check', 'c', 'a5f77c7ec358a2049f81cf451e9eab65'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_hash_check', 'c', '7efb6bd7a480cfc326e6da87c55b61fb'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_capture_uq', 'u', '35bed48958cc576a827a2b338daf4462'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_child_uq', 'u', 'eb92548e7283765b892cd9929a997d35'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_fkey', 'f', '99ca01c8bb0bc1c82aa212307cba37de'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_ordinal_uq', 'u', 'ab4042923f0af53ee1f7f0aeba57e911'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_ordinal_check', 'c', '44109bf59c9766b4ca51ca08f160926b'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_paid_precision_check', 'c', '28aeae2b06ce380d9e31a5bf6923b92f'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_pkey', 'p', '4c6419b3704337bbfe50f018842a9ad3'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_reason_check', 'c', '5feadd790ccd3045841d3c52ce24f2e9'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_reference_check', 'c', 'b0760f17ba72e52ffb3e959ee180b6e5'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_review_scope_check', 'c', '5b394dea7d88b354d8857400b6020219')
+    )
+    SELECT 1
+    FROM expected
+    LEFT JOIN pg_constraint constraint_catalog
+      ON constraint_catalog.conrelid = ('private.' || expected.table_name)::regclass
+      AND constraint_catalog.conname = expected.constraint_name
+    WHERE constraint_catalog.oid IS NULL
+      OR constraint_catalog.contype IS DISTINCT FROM expected.constraint_type
+      OR md5(regexp_replace(pg_get_constraintdef(constraint_catalog.oid), '\s+', ' ', 'g')) IS DISTINCT FROM expected.definition_md5
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence constraint definitions do not match the complete relation-scoped catalog contract';
+  END IF;
+
+  IF EXISTS (
+    WITH expected(table_name, constraint_name) AS (
+      VALUES
+        ('payment_webhook_inbox', 'payment_webhook_inbox_amount_currency_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_authority_key_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_decision_projection_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_endpoint_key_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_envelope_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_error_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_event_type_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_generation_fkey'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_hashes_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_ingress_scope_snapshot_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_manifest_binding_uq'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_manifest_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_pkey'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_processing_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_provider_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_reference_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_digest_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_key_uq'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_kind_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_preimage_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_signature_scope_check'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_source_manifest_fkey'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_authority_key_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_binding_uq'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_currency_target_uq'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_economics_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_endpoint_key_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_generation_fkey'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_fkey'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_target_uq'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_parent_identity_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_pkey'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_provider_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_digest_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_key_uq'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_kind_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_preimage_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_scope_snapshot_check'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_signature_scope_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_amount_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_capture_identity_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_child_identity_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_currency_fkey'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_decision_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_decision_shape_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_hash_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_capture_uq'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_child_uq'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_fkey'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_ordinal_uq'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_ordinal_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_paid_precision_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_pkey'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_reason_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_reference_check'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_review_scope_check')
+    )
+    SELECT 1
+    FROM pg_constraint constraint_catalog
+    JOIN pg_class relation ON relation.oid = constraint_catalog.conrelid
+    JOIN pg_namespace schema ON schema.oid = relation.relnamespace
+    LEFT JOIN expected
+      ON expected.table_name = relation.relname
+      AND expected.constraint_name = constraint_catalog.conname
+    WHERE schema.nspname = 'private'
+      AND relation.relname IN (
+        'payment_webhook_inbox',
+        'payment_webhook_source_manifests',
+        'payment_webhook_source_proofs'
+      )
+      AND expected.constraint_name IS NULL
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence constraint catalog contains an unexpected relation-scoped entry';
   END IF;
 
   SELECT expected.name INTO v_missing_index
@@ -1030,6 +1150,20 @@ BEGIN
     WHERE constraint_catalog.oid IS NULL
   ) THEN
     RAISE EXCEPTION 'payment webhook evidence named constraints changed or lost their relation scope after fixture rollback';
+  END IF;
+  IF (
+    SELECT count(*)
+    FROM pg_constraint constraint_catalog
+    JOIN pg_class relation ON relation.oid = constraint_catalog.conrelid
+    JOIN pg_namespace schema ON schema.oid = relation.relnamespace
+    WHERE schema.nspname = 'private'
+      AND relation.relname IN (
+        'payment_webhook_inbox',
+        'payment_webhook_source_manifests',
+        'payment_webhook_source_proofs'
+      )
+  ) <> 56 THEN
+    RAISE EXCEPTION 'payment webhook evidence constraint count changed after fixture rollback';
   END IF;
   IF EXISTS (
     SELECT 1
