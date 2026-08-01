@@ -45,4 +45,14 @@ describe('getProductModelIdentifiers', () => {
 
     expect(identifiers).toEqual(['m2']);
   });
+
+  it('preserves a single-character model identifier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'xbox',
+      brands: ['Xbox'],
+      productSlugs: ['xbox-series-x'],
+    });
+
+    expect(identifiers).toEqual(['x']);
+  });
 });

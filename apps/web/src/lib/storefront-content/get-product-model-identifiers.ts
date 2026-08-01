@@ -6,7 +6,9 @@ function tokenize(value: string) {
     .toLowerCase()
     .split(/[^a-z0-9]+/u)
     .map((token) => token.trim())
-    .filter((token) => token.length > 1 || /\d/u.test(token));
+    .filter(
+      (token) => token.length > 1 || /\d/u.test(token) || /^[a-z]$/u.test(token)
+    );
 }
 
 const SPECIFICATION_TOKEN_PATTERN =
@@ -79,6 +81,7 @@ export function getProductModelIdentifiers(
           (tokens) =>
             tokens.find((token) => /[a-z]/u.test(token) && /\d/u.test(token)) ??
             tokens.find((token) => /\d/u.test(token)) ??
+            tokens.find((token) => token.length > 1) ??
             tokens[0] ??
             null
         )
