@@ -235,6 +235,8 @@ test('publishes a source-bound, fixed-path receipt and ignores redirect variable
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-ollama-recovery-receipt-')
   );
+  const receiptRoot = join(directory, 'receipts');
+  await mkdir(receiptRoot, { mode: 0o700 });
   const bin = await testBin();
   const snapshot = join(directory, 'snapshot.json');
   const outside = join(directory, 'outside.json');
@@ -244,15 +246,15 @@ test('publishes a source-bound, fixed-path receipt and ignores redirect variable
       '{"surfaces":[],"dependencies":[],"consumerCounts":[],"consumerEvidence":[]}\n'
     );
     const { stdout } = await shell(
-      'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$6"; RECOVERY_RECEIPT_ROOT="$2"; RETIRE_OLLAMA_RECOVERY_RECEIPT="$4"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$5"',
-      [directory, directory, outside, snapshot, sourceSha],
+      'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$6"; RECOVERY_RECEIPT_ROOT="$3"; RETIRE_OLLAMA_RECOVERY_RECEIPT="$4"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$5"',
+      [directory, receiptRoot, outside, snapshot, sourceSha],
       {
         RETIRE_OLLAMA_TEST_BIN: bin,
-        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: directory,
+        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot,
         RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA: sourceSha,
       }
     );
-    const receiptPath = join(directory, sourceSha, 'recovery-scan.json');
+    const receiptPath = join(receiptRoot, sourceSha, 'recovery-scan.json');
     const receiptBytes = await readFile(receiptPath);
     const receipt = JSON.parse(receiptBytes);
     assert.equal(receipt.destructiveAuthority, false);
@@ -273,7 +275,7 @@ test('publishes a source-bound, fixed-path receipt and ignores redirect variable
       [snapshot, sourceSha],
       {
         RETIRE_OLLAMA_TEST_BIN: bin,
-        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: directory,
+        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot,
         RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA: sourceSha,
       }
     );

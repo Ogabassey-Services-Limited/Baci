@@ -114,17 +114,19 @@ test('creates the intermediate production-shaped receipt directories and repairs
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-ollama-recovery-receipt-crash-')
   );
+  const receiptRoot = join(directory, 'receipts');
+  await mkdir(receiptRoot, { mode: 0o700 });
   const bin = await testBin();
   const snapshot = await receiptSnapshot(directory);
-  const json = join(directory, sourceSha, 'recovery-scan.json');
+  const json = join(receiptRoot, sourceSha, 'recovery-scan.json');
   const digest = `${json}.sha256`;
   try {
     const { stdout } = await shell(
       'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$5"; RETIRE_OLLAMA_RECOVERY_TEST_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$2"; rm -f "$4"; recovery_write_receipt "$2"',
-      [snapshot, directory, digest, sourceSha],
+      [snapshot, receiptRoot, digest, sourceSha],
       {
         RETIRE_OLLAMA_TEST_BIN: bin,
-        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: directory,
+        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot,
       }
     );
     assert.equal(stdout.trim().split('\n').length, 2);
@@ -144,17 +146,19 @@ test('repairs a JSON-pending-only and digest-plus-JSON-pending publication bound
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-ollama-recovery-pending-')
   );
+  const receiptRoot = join(directory, 'receipts');
+  await mkdir(receiptRoot, { mode: 0o700 });
   const bin = await testBin();
   const snapshot = await receiptSnapshot(directory);
-  const json = join(directory, sourceSha, 'recovery-scan.json');
+  const json = join(receiptRoot, sourceSha, 'recovery-scan.json');
   const digest = `${json}.sha256`;
   try {
     await shell(
       'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$5"; RETIRE_OLLAMA_RECOVERY_TEST_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$2"; mv "$6" "$6.pending"; rm -f "$4"; recovery_write_receipt "$2"; mv "$6" "$6.pending"; recovery_write_receipt "$2"',
-      [snapshot, directory, digest, sourceSha, json],
+      [snapshot, receiptRoot, digest, sourceSha, json],
       {
         RETIRE_OLLAMA_TEST_BIN: bin,
-        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: directory,
+        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot,
       }
     );
     assert.equal((await readFile(json)).length > 0, true);
@@ -246,16 +250,18 @@ test('rejects unsafe canonical receipt mode and unknown pending residue', async 
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-ollama-recovery-receipt-safety-')
   );
+  const receiptRoot = join(directory, 'receipts');
+  await mkdir(receiptRoot, { mode: 0o700 });
   const bin = await testBin();
   const snapshot = await receiptSnapshot(directory);
-  const json = join(directory, sourceSha, 'recovery-scan.json');
+  const json = join(receiptRoot, sourceSha, 'recovery-scan.json');
   try {
     await shell(
       'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$5"; RETIRE_OLLAMA_RECOVERY_TEST_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$2"; chmod 0644 "$4"; recovery_write_receipt "$2"',
-      [snapshot, directory, json, sourceSha],
+      [snapshot, receiptRoot, json, sourceSha],
       {
         RETIRE_OLLAMA_TEST_BIN: bin,
-        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: directory,
+        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot,
       }
     ).then(
       () => assert.fail('unsafe canonical receipt should be refused'),
@@ -264,10 +270,10 @@ test('rejects unsafe canonical receipt mode and unknown pending residue', async 
     await chmod(json, 0o600);
     await shell(
       'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$5"; RETIRE_OLLAMA_RECOVERY_TEST_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$2"; : > "$4.extra.pending"; recovery_write_receipt "$2"',
-      [snapshot, directory, json, sourceSha],
+      [snapshot, receiptRoot, json, sourceSha],
       {
         RETIRE_OLLAMA_TEST_BIN: bin,
-        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: directory,
+        RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot,
       }
     ).then(
       () => assert.fail('unknown pending residue should be refused'),

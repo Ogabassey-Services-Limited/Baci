@@ -71,12 +71,21 @@ recovery_safe_receipt_ancestry() {
   [ "$root_directory" = "$(recovery_receipt_base)" ] || return 1
   [ -d "$root_parent" ] && [ ! -L "$root_parent" ] && [ "$(readlink -f -- "$root_parent")" = "$root_parent" ] || return 1
   [ -d "$root_directory" ] && [ ! -L "$root_directory" ] && [ "$(readlink -f -- "$root_directory")" = "$root_directory" ] || return 1
-  recovery_safe_dir "$root_parent" && recovery_safe_dir "$root_directory" && recovery_safe_dir "$generation"
+  recovery_safe_receipt_parent "$root_parent" && recovery_safe_dir "$root_directory" && recovery_safe_dir "$generation"
 }
 
 recovery_safe_dir() {
   directory=$1; [ -d "$directory" ] && [ ! -L "$directory" ] || return 1
   [ "$(stat -c '%a' "$directory")" = 700 ] || return 1
+  if [ "$(id -u)" -eq 0 ]; then [ "$(stat -c '%u:%g' "$directory")" = 0:0 ] || return 1; fi
+}
+
+recovery_safe_receipt_parent() {
+  directory=$1; [ -d "$directory" ] && [ ! -L "$directory" ] || return 1
+  [ "$(readlink -f -- "$directory")" = "$directory" ] || return 1
+  mode=$(stat -c '%a' "$directory") || return 1
+  case "$mode" in ''|*[!0-7]*) return 1;; esac
+  [ $((0$mode & 022)) -eq 0 ] || return 1
   if [ "$(id -u)" -eq 0 ]; then [ "$(stat -c '%u:%g' "$directory")" = 0:0 ] || return 1; fi
 }
 
@@ -93,7 +102,7 @@ recovery_prepare_dir() {
   [ "$root_directory" = "$expected_root" ] || die 'recovery receipt root mismatch'
   [ -n "$root_directory" ] && [ "$root_directory" != "$target" ] || die 'invalid recovery receipt directory'
   [ -d "$root_parent" ] && [ ! -L "$root_parent" ] && [ "$(readlink -f -- "$root_parent")" = "$root_parent" ] || die 'unsafe recovery receipt parent'
-  recovery_safe_dir "$root_parent" || die 'unsafe recovery receipt parent'
+  recovery_safe_receipt_parent "$root_parent" || die 'unsafe recovery receipt parent'
   recovery_prepare_one_dir "$root_directory" "$root_parent"; recovery_prepare_one_dir "$target" "$root_directory"; recovery_safe_receipt_ancestry "$target" || die 'recovery receipt ancestry changed'
 }
 
