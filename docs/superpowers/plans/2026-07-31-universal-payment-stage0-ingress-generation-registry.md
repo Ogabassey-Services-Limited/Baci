@@ -34,15 +34,15 @@ completed within this ownership boundary.
    migration exists.
 2. Run the focused Vitest file and capture the expected failure because the exact
    migration is absent.
-3. Run chronological replay with the SQL check and capture the expected failure
-   because `private.payment_ingress_contract_generations` is absent.
+3. Run chronological replay with the contract SQL check and capture the expected
+   failure because `private.payment_ingress_contract_generations` is absent.
 4. Only after both failures are observed may the migration be added.
 
 Commands:
 
 ```bash
 pnpm --filter @baci/web exec vitest run src/lib/payments/payment-ingress-contract-generations-migration.test.ts
-pnpm --filter @baci/web db:replay:chronological -- --sql-check supabase/migrations/tests/payment_ingress_contract_generation_foundation.sql
+pnpm --filter @baci/web db:replay:chronological --sql-check supabase/migrations/tests/payment_ingress_contract_generation_foundation.sql
 ```
 
 The RED failures must be the missing migration/relation, not syntax, import,
@@ -51,6 +51,9 @@ fixture, Docker, credential, or unrelated baseline failures.
 ### Exact migration contract
 
 Create `private.payment_ingress_contract_generations` with:
+
+- `SET LOCAL lock_timeout = '5s'` and `SET LOCAL statement_timeout = '30s'` at
+  migration start; these bounded DDL guards are part of the Stage 0 contract.
 
 - `id uuid primary key default gen_random_uuid()`;
 - `provider text not null`;
@@ -87,11 +90,14 @@ Freeze these constraint/index names:
 - `payment_ingress_contract_generations_successor_not_self_check`;
 - `payment_ingress_contract_generations_scope_generation_key`;
 - `payment_ingress_contract_generations_identity_scope_key`;
-- `payment_ingress_contract_generations_identity_artifact_scope_key`;
+- `payment_ingress_contract_generations_identity_artifact_scope_uq`;
 - `payment_ingress_contract_generations_successor_fkey`;
 - `payment_ingress_contract_generations_successor_uidx`;
 - `payment_ingress_contract_generations_one_active_uidx`; and
 - `payment_ingress_contract_generations_scope_status_idx`.
+
+All frozen PostgreSQL identifiers must remain within PostgreSQL's 63-byte
+identifier limit; the `_uq` suffix on the artifact target is intentional.
 
 Rules:
 
@@ -166,7 +172,9 @@ Run:
 bash .github/scripts/check-migration-versions.test.sh
 bash .github/scripts/check-migration-versions.sh
 pnpm --filter @baci/web exec vitest run src/lib/payments/payment-ingress-contract-generations-migration.test.ts tools/db/supabase-history-replay-sources.test.ts tools/db/supabase-history-replay-manifest.test.ts tools/db/verify-supabase-history-replay-manifest.test.ts
-pnpm --filter @baci/web db:replay:chronological -- --sql-check supabase/migrations/tests/payment_ingress_contract_generation_foundation.sql
+pnpm --filter @baci/web db:replay:chronological \
+  --sql-check supabase/migrations/20260731140000_payment_ingress_contract_generation_foundation.sql \
+  --sql-check supabase/migrations/tests/payment_ingress_contract_generation_foundation.sql
 pnpm turbo lint
 pnpm turbo typecheck
 pnpm turbo test
