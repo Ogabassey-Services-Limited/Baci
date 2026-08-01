@@ -43,7 +43,11 @@ export function useBlogClientState({
   );
   const [initialMerchantId] = useState(merchant.id);
   const initialDataConsumedRef = useRef(false);
+  const merchantSessionRef = useRef({ id: merchant.id });
   const [previousMerchantId, setPreviousMerchantId] = useState(merchant.id);
+  if (merchantSessionRef.current.id !== merchant.id) {
+    merchantSessionRef.current = { id: merchant.id };
+  }
   const shouldUseInitialData =
     useInitialData &&
     merchant.id === initialMerchantId &&
@@ -155,6 +159,7 @@ export function useBlogClientState({
     const previousPosts = [...posts];
     const idToDelete = deletePostId;
     const deletedPost = previousPosts.find((post) => post.id === idToDelete);
+    const submittedMerchantSession = merchantSessionRef.current;
     setPosts((current) => current.filter((post) => post.id !== idToDelete));
     if (deletedPost) {
       setStatsData((current) =>
@@ -164,11 +169,13 @@ export function useBlogClientState({
     setDeletePostId(null);
     try {
       await blogClientRequests.requestDeletePost(merchant.id, idToDelete);
+      if (merchantSessionRef.current !== submittedMerchantSession) return;
       toast({
         title: 'Post Deleted',
         description: 'The blog post has been permanently deleted.',
       });
     } catch (error) {
+      if (merchantSessionRef.current !== submittedMerchantSession) return;
       console.error('Error deleting post:', error);
       setPosts((current) => {
         if (current.some((post) => post.id === idToDelete)) return current;

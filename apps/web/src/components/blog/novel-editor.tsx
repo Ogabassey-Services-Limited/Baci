@@ -1,6 +1,5 @@
 'use client';
 
-import type { EditorView } from '@tiptap/pm/view';
 import {
   EditorBubble,
   EditorCommand,
@@ -18,7 +17,10 @@ import {
 
 import { useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
-import { uploadFn } from '@/components/blog/novel-features/image-upload';
+import {
+  createImageUploader,
+  createMerchantImageUploader,
+} from '@/components/blog/novel-features/image-upload';
 import { Separator } from '@/components/ui/separator';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { defaultExtensions } from './novel-features/extensions';
@@ -28,7 +30,10 @@ import { EditorToolbar } from './novel-features/selectors/editor-toolbar';
 import { LinkSelector } from './novel-features/selectors/link-selector';
 import { NodeSelector } from './novel-features/selectors/node-selector';
 import { TextButtons } from './novel-features/selectors/text-buttons';
-import { slashCommand, suggestionItems } from './novel-features/slash-command';
+import {
+  createSlashCommand,
+  createSuggestionItems,
+} from './novel-features/slash-command';
 import { ProductEmbedPicker } from './product-embed';
 
 // Remove static extensions definition
@@ -66,27 +71,28 @@ export default function NovelEditor({
   const [openLink, setOpenLink] = useState(false);
   const [openProducts, setOpenProducts] = useState(false);
 
-  // Define extensions
-  const extensions = [
-    ...defaultExtensions,
-    slashCommand,
-    ProductExtension.configure({
-      onOpenPicker: () => setOpenProducts(true),
-    }),
-  ];
-
   const debouncedUpdates = useDebouncedCallback((editor: EditorInstance) => {
     const html = editor.getHTML();
     onChange(html);
   }, 500);
 
-  // Use passed upload handler or fallback to default
-  const handleUpload = (file: File, view: EditorView, pos: number) => {
-    if (onImageUpload) {
-      return onImageUpload(file);
-    }
-    return uploadFn(file, view, pos);
-  };
+  const imageUploader = onImageUpload
+    ? createImageUploader(onImageUpload)
+    : merchantId
+      ? createMerchantImageUploader(merchantId)
+      : () =>
+          Promise.reject(
+            new Error('Select a merchant before uploading inline images')
+          );
+
+  const suggestionItems = createSuggestionItems(imageUploader);
+  const extensions = [
+    ...defaultExtensions,
+    createSlashCommand(suggestionItems),
+    ProductExtension.configure({
+      onOpenPicker: () => setOpenProducts(true),
+    }),
+  ];
 
   return (
     <div className="relative w-full max-w-4xl mx-auto">
@@ -102,9 +108,9 @@ export default function NovelEditor({
               keydown: (_view, event) => handleCommandNavigation(event),
             },
             handlePaste: (view, event) =>
-              handleImagePaste(view, event, handleUpload),
+              handleImagePaste(view, event, imageUploader),
             handleDrop: (view, event, _slice, moved) =>
-              handleImageDrop(view, event, moved, handleUpload),
+              handleImageDrop(view, event, moved, imageUploader),
             transformPastedHTML: (html) => {
               // Sanitize pasted HTML to prevent XSS
               const clean = sanitizeHtml(html);
@@ -134,6 +140,7 @@ export default function NovelEditor({
           }}
           slotBefore={
             <EditorToolbar
+              onImageUpload={imageUploader}
               onOpenLink={() => setOpenLink(true)}
               onOpenProducts={
                 onProductsChange ? () => setOpenProducts(true) : undefined

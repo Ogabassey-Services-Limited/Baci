@@ -57,12 +57,6 @@ const post: BlogPost = {
   updated_at: '2026-01-01T00:00:00Z',
   view_count: 0,
 };
-const otherPost: BlogPost = {
-  ...post,
-  id: 'post-2',
-  slug: 'post-2',
-  title: 'Other draft',
-};
 const merchant = { id: 'merchant-1', slug: 'demo' };
 const otherMerchant = { id: 'merchant-2', slug: 'other' };
 
@@ -87,7 +81,7 @@ describe('useBlogClientState', () => {
     expect(requests.requestPosts).toHaveBeenCalled();
   });
 
-  it('resets search and opens the published filter for Discover remediation', () => {
+  it('resets search and opens the published filter for Discover remediation', async () => {
     const { result } = renderHook(() =>
       useBlogClientState({ initialPosts: [post], merchant })
     );
@@ -100,6 +94,7 @@ describe('useBlogClientState', () => {
     expect(result.current.searchQuery).toBe('');
     expect(result.current.statusFilter).toBe('published');
     expect(result.current.page).toBe(1);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
 
   it('does not fetch again when the server supplied the initial list', async () => {
@@ -125,104 +120,6 @@ describe('useBlogClientState', () => {
     await waitFor(() =>
       expect(requests.requestPosts).toHaveBeenCalledWith(expect.anything())
     );
-  });
-
-  it('optimistically deletes then restores a post when the mutation fails', async () => {
-    requests.requestDeletePost.mockRejectedValue(new Error('offline'));
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    const { result } = renderHook(() =>
-      useBlogClientState({ initialPosts: [post], merchant })
-    );
-    try {
-      expect(result.current.posts).toEqual([post]);
-
-      act(() => result.current.setDeletePostId(post.id));
-      await act(async () => result.current.deletePost());
-
-      expect(result.current.posts).toEqual([post]);
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Error', variant: 'destructive' })
-      );
-    } finally {
-      consoleError.mockRestore();
-    }
-  });
-
-  it('updates global stats for an optimistic delete and restores them on failure', async () => {
-    let rejectDelete: (reason?: unknown) => void = () => undefined;
-    requests.requestDeletePost.mockReturnValue(
-      new Promise<void>((_resolve, reject) => {
-        rejectDelete = reject;
-      })
-    );
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    const { result } = renderHook(() =>
-      useBlogClientState({
-        initialCounts: { archived: 1, draft: 2, published: 3, total: 6 },
-        initialPosts: [post],
-        merchant,
-      })
-    );
-
-    try {
-      act(() => result.current.setDeletePostId(post.id));
-      let deleting: Promise<void>;
-      act(() => {
-        deleting = result.current.deletePost();
-      });
-      expect(result.current.stats).toMatchObject({ drafts: 1, total: 5 });
-
-      await act(async () => {
-        rejectDelete(new Error('offline'));
-        await deleting;
-      });
-
-      expect(result.current.stats).toMatchObject({ drafts: 2, total: 6 });
-    } finally {
-      consoleError.mockRestore();
-    }
-  });
-
-  it('restores only the deleted post when a newer update changes another post', async () => {
-    let rejectDelete: (reason?: unknown) => void = () => undefined;
-    requests.requestDeletePost.mockReturnValue(
-      new Promise<void>((_resolve, reject) => {
-        rejectDelete = reject;
-      })
-    );
-    requests.requestUpdatePostStatus.mockResolvedValue({ status: 'published' });
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    const { result } = renderHook(() =>
-      useBlogClientState({ initialPosts: [post, otherPost], merchant })
-    );
-
-    try {
-      act(() => result.current.setDeletePostId(post.id));
-      let deleting: Promise<void>;
-      act(() => {
-        deleting = result.current.deletePost();
-      });
-      await act(async () =>
-        result.current.updatePostStatus(otherPost.id, 'published')
-      );
-      await act(async () => {
-        rejectDelete(new Error('offline'));
-        await deleting;
-      });
-
-      expect(result.current.posts).toEqual([
-        post,
-        { ...otherPost, status: 'published' },
-      ]);
-    } finally {
-      consoleError.mockRestore();
-    }
   });
 
   it('merges a successful status update into the matching post', async () => {

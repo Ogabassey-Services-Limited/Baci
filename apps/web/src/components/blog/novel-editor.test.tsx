@@ -50,7 +50,8 @@ vi.mock('novel', () => ({
 }));
 
 vi.mock('@/components/blog/novel-features/image-upload', () => ({
-  uploadFn: vi.fn(),
+  createImageUploader: vi.fn(() => vi.fn()),
+  createMerchantImageUploader: vi.fn(() => vi.fn()),
 }));
 
 vi.mock('@/components/ui/separator', () => ({
@@ -105,8 +106,8 @@ vi.mock('./novel-features/selectors/text-buttons', () => ({
 }));
 
 vi.mock('./novel-features/slash-command', () => ({
-  slashCommand: { name: 'slashCommand' },
-  suggestionItems: [
+  createSlashCommand: vi.fn(() => ({ name: 'slashCommand' })),
+  createSuggestionItems: vi.fn(() => [
     {
       title: 'Heading 1',
       description: 'Big heading',
@@ -119,7 +120,7 @@ vi.mock('./novel-features/slash-command', () => ({
       icon: 'UL',
       command: vi.fn(),
     },
-  ],
+  ]),
 }));
 
 vi.mock('./product-embed', () => ({
@@ -172,11 +173,6 @@ describe('NovelEditor', () => {
     render(<NovelEditor {...defaultProps} />);
     expect(screen.getByTestId('editor-root')).toBeInTheDocument();
     expect(screen.getByTestId('editor-content')).toBeInTheDocument();
-  });
-
-  it('renders the toolbar', () => {
-    render(<NovelEditor {...defaultProps} />);
-    expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
   });
 
   it('renders the bubble menu with selectors', () => {

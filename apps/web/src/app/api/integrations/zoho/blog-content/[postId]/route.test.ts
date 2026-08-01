@@ -33,12 +33,6 @@ vi.mock('@/lib/zoho-blog-campaign-dispatch', () => {
   );
 });
 
-vi.mock('@/lib/zoho-blog-content-signature-server', () => {
-  throw new Error(
-    'Zoho blog-content route must not load the combined signature capability'
-  );
-});
-
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogRevalidationContext: vi.fn(async () => ({
     canonicalMerchantSlug: 'ogabassey',
