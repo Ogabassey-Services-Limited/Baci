@@ -260,6 +260,12 @@ ALTER TABLE private.payment_ingress_contract_generations
     id, provider, endpoint_key, signature_key_scope
   ) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
+ALTER TABLE private.payment_ingress_contract_generations
+  ADD CONSTRAINT payment_ingress_generations_identity_scope_generation_uq
+  UNIQUE (
+    id, provider, endpoint_key, signature_key_scope, authority_key, generation
+  );
+
 CREATE TABLE private.payment_ingress_parser_compatibility_proofs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider text NOT NULL,
@@ -418,17 +424,12 @@ CREATE TABLE private.payment_ingress_contract_creation_receipts (
     ) REFERENCES private.payment_ingress_deployment_manifest_bindings (
       id, provider, endpoint_key, signature_key_scope, authority_key
     ) DEFERRABLE INITIALLY DEFERRED,
-  CONSTRAINT payment_ingress_creation_receipts_generation_scope_fk
+  CONSTRAINT payment_ingress_creation_receipts_generation_identity_fk
     FOREIGN KEY (
-      generation_id, provider, endpoint_key, signature_key_scope, authority_key
+      generation_id, provider, endpoint_key, signature_key_scope, authority_key,
+      generation
     ) REFERENCES private.payment_ingress_contract_generations (
-      id, provider, endpoint_key, signature_key_scope, authority_key
-    ) DEFERRABLE INITIALLY DEFERRED,
-  CONSTRAINT payment_ingress_creation_receipts_scope_generation_fk
-    FOREIGN KEY (
-      provider, endpoint_key, signature_key_scope, authority_key, generation
-    ) REFERENCES private.payment_ingress_contract_generations (
-      provider, endpoint_key, signature_key_scope, authority_key, generation
+      id, provider, endpoint_key, signature_key_scope, authority_key, generation
     ) DEFERRABLE INITIALLY DEFERRED
 );
 
@@ -514,6 +515,7 @@ CREATE TABLE private.payment_ingress_contract_transition_receipts (
   CONSTRAINT payment_ingress_transition_receipts_branch_matrix_ck
     CHECK (
       (
+        (
         operation_kind = 'initial_activate'
         AND outgoing_generation_id IS NULL
         AND outgoing_expected_control_version IS NULL
@@ -608,7 +610,8 @@ CREATE TABLE private.payment_ingress_contract_transition_receipts (
         AND deployment_binding_id IS NULL
         AND compatibility_basis_generation_id IS NULL
         AND compatibility_proof_id IS NULL
-      )
+        )
+      ) IS TRUE
     ),
   CONSTRAINT payment_ingress_transition_receipts_outgoing_scope_fk
     FOREIGN KEY (
@@ -675,6 +678,106 @@ CREATE TABLE private.payment_ingress_contract_transition_receipts (
       basis_generation_id, candidate_generation_id
     ) DEFERRABLE INITIALLY DEFERRED
 );
+
+CREATE INDEX payment_ingress_bindings_identity_fk_idx
+  ON private.payment_ingress_deployment_manifest_bindings (
+    signature_key_identity_id, provider, endpoint_key, signature_key_scope,
+    identity_revision
+  );
+
+CREATE INDEX payment_ingress_bindings_attestation_fk_idx
+  ON private.payment_ingress_deployment_manifest_bindings (
+    attestation_id, environment, manifest_sha256, attestation_sha256
+  );
+
+CREATE INDEX payment_ingress_generations_identity_fk_idx
+  ON private.payment_ingress_contract_generations (
+    signature_key_identity_id, provider, endpoint_key, signature_key_scope
+  );
+
+CREATE INDEX payment_ingress_proofs_approved_by_idx
+  ON private.payment_ingress_parser_compatibility_proofs (approved_by);
+
+CREATE INDEX payment_ingress_proofs_basis_fk_idx
+  ON private.payment_ingress_parser_compatibility_proofs (
+    basis_generation_id, provider, endpoint_key, signature_key_scope,
+    authority_key, basis_parser_artifact_sha256
+  );
+
+CREATE INDEX payment_ingress_proofs_candidate_fk_idx
+  ON private.payment_ingress_parser_compatibility_proofs (
+    candidate_generation_id, provider, endpoint_key, signature_key_scope,
+    authority_key, candidate_parser_artifact_sha256
+  );
+
+CREATE INDEX payment_ingress_creation_binding_fk_idx
+  ON private.payment_ingress_contract_creation_receipts (
+    deployment_binding_id, provider, endpoint_key, signature_key_scope,
+    authority_key
+  );
+
+CREATE INDEX payment_ingress_creation_generation_fk_idx
+  ON private.payment_ingress_contract_creation_receipts (
+    generation_id, provider, endpoint_key, signature_key_scope, authority_key,
+    generation
+  );
+
+CREATE INDEX payment_ingress_transition_actor_idx
+  ON private.payment_ingress_contract_transition_receipts (actor_user_id);
+
+CREATE INDEX payment_ingress_transition_outgoing_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    outgoing_generation_id, provider, endpoint_key, signature_key_scope,
+    authority_key
+  );
+
+CREATE INDEX payment_ingress_transition_incoming_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    incoming_generation_id, provider, endpoint_key, signature_key_scope,
+    authority_key
+  );
+
+CREATE INDEX payment_ingress_transition_out_expected_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    outgoing_expected_successor_generation_id, provider, endpoint_key,
+    signature_key_scope, authority_key
+  );
+
+CREATE INDEX payment_ingress_transition_out_result_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    outgoing_result_successor_generation_id, provider, endpoint_key,
+    signature_key_scope, authority_key
+  );
+
+CREATE INDEX payment_ingress_transition_in_expected_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    incoming_expected_successor_generation_id, provider, endpoint_key,
+    signature_key_scope, authority_key
+  );
+
+CREATE INDEX payment_ingress_transition_in_result_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    incoming_result_successor_generation_id, provider, endpoint_key,
+    signature_key_scope, authority_key
+  );
+
+CREATE INDEX payment_ingress_transition_binding_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    deployment_binding_id, provider, endpoint_key, signature_key_scope,
+    authority_key
+  );
+
+CREATE INDEX payment_ingress_transition_basis_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    compatibility_basis_generation_id, provider, endpoint_key,
+    signature_key_scope, authority_key
+  );
+
+CREATE INDEX payment_ingress_transition_proof_fk_idx
+  ON private.payment_ingress_contract_transition_receipts (
+    compatibility_proof_id, provider, endpoint_key, signature_key_scope,
+    authority_key, compatibility_basis_generation_id, incoming_generation_id
+  );
 
 CREATE UNIQUE INDEX payment_ingress_transition_receipts_outgoing_claim_uidx
   ON private.payment_ingress_contract_transition_receipts (

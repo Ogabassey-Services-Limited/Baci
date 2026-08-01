@@ -168,6 +168,52 @@ describe('payment ingress control-plane companion migration', () => {
     }
   });
 
+  it('binds receipt generations atomically and indexes every child foreign key', () => {
+    expect(migrationSql).toContain(
+      'payment_ingress_generations_identity_scope_generation_uq'
+    );
+    expect(migrationSql).toContain(
+      'payment_ingress_creation_receipts_generation_identity_fk'
+    );
+    expect(migrationSql).toContain(
+      'generation_id, provider, endpoint_key, signature_key_scope, authority_key,\n      generation'
+    );
+    expect(migrationSql).not.toContain(
+      'payment_ingress_creation_receipts_generation_scope_fk'
+    );
+    expect(migrationSql).not.toContain(
+      'payment_ingress_creation_receipts_scope_generation_fk'
+    );
+
+    for (const indexName of [
+      'payment_ingress_bindings_identity_fk_idx',
+      'payment_ingress_bindings_attestation_fk_idx',
+      'payment_ingress_generations_identity_fk_idx',
+      'payment_ingress_proofs_approved_by_idx',
+      'payment_ingress_proofs_basis_fk_idx',
+      'payment_ingress_proofs_candidate_fk_idx',
+      'payment_ingress_creation_binding_fk_idx',
+      'payment_ingress_creation_generation_fk_idx',
+      'payment_ingress_transition_actor_idx',
+      'payment_ingress_transition_outgoing_fk_idx',
+      'payment_ingress_transition_incoming_fk_idx',
+      'payment_ingress_transition_out_expected_fk_idx',
+      'payment_ingress_transition_out_result_fk_idx',
+      'payment_ingress_transition_in_expected_fk_idx',
+      'payment_ingress_transition_in_result_fk_idx',
+      'payment_ingress_transition_binding_fk_idx',
+      'payment_ingress_transition_basis_fk_idx',
+      'payment_ingress_transition_proof_fk_idx',
+    ]) {
+      expect(migrationSql).toContain(`CREATE INDEX ${indexName}`);
+    }
+
+    expect(migrationSql).toContain(
+      'payment_ingress_transition_receipts_branch_matrix_ck\n    CHECK (\n      (\n        ('
+    );
+    expect(migrationSql).toContain('      ) IS TRUE\n    ),');
+  });
+
   it('serializes each scoped writer before replay and generation row locks', () => {
     for (const functionName of [
       'create_payment_ingress_contract_generation',

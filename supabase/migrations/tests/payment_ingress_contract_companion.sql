@@ -215,6 +215,21 @@ BEGIN
     'provider', 'endpoint', 'signature', 'authority', 1, 1
   );
 
+  BEGIN
+    INSERT INTO private.payment_ingress_contract_creation_receipts (
+      operation_id, request_fingerprint, deployment_binding_id, generation_id,
+      provider, endpoint_key, signature_key_scope, authority_key, generation,
+      result_control_version
+    ) VALUES (
+      '10000000-0000-4000-8000-000000000012', repeat('4', 64), v_binding_id,
+      v_generation_one, 'provider', 'endpoint', 'signature', 'authority', 2, 1
+    );
+    SET CONSTRAINTS private.payment_ingress_creation_receipts_generation_identity_fk IMMEDIATE;
+    RAISE EXCEPTION 'mismatched creation generation tuple unexpectedly passed';
+  EXCEPTION WHEN foreign_key_violation THEN
+    SET CONSTRAINTS private.payment_ingress_creation_receipts_generation_identity_fk DEFERRED;
+  END;
+
   INSERT INTO private.payment_ingress_contract_transition_receipts (
     operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
     authority_key, operation_kind, incoming_generation_id,
@@ -234,6 +249,31 @@ BEGIN
     'service', 'payment_control_plane', 'migration-fixture', repeat('c', 64),
     repeat('c', 64), '{}'::jsonb, 'initial_activate', v_now, NULL, NULL
   );
+
+  BEGIN
+    INSERT INTO private.payment_ingress_contract_transition_receipts (
+      operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
+      authority_key, operation_kind, incoming_generation_id,
+      incoming_expected_control_version, incoming_result_control_version,
+      incoming_from_status, incoming_to_status, incoming_expected_activated_at,
+      incoming_result_activated_at, incoming_expected_draining_at,
+      incoming_result_draining_at, incoming_expected_retired_at,
+      incoming_result_retired_at, incoming_expected_successor_generation_id,
+      incoming_result_successor_generation_id, deployment_binding_id, actor_kind,
+      actor_reference, approval_reference, evidence_reference, evidence_sha256,
+      metrics_snapshot, reason_code, recorded_at, compatibility_basis_generation_id,
+      compatibility_proof_id
+    ) VALUES (
+      '10000000-0000-4000-8000-000000000013', repeat('5', 64), 'provider',
+      'endpoint', 'signature', 'authority', 'initial_activate', v_generation_one,
+      NULL, NULL, 'staged', 'active', NULL, v_now, NULL, NULL, NULL, NULL,
+      NULL, NULL, v_binding_id, 'service', 'payment_control_plane',
+      'migration-fixture', repeat('c', 64), repeat('c', 64), '{}'::jsonb,
+      'initial_activate', v_now, NULL, NULL
+    );
+    RAISE EXCEPTION 'NULL branch field unexpectedly passed';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
 
   BEGIN
     INSERT INTO private.payment_ingress_signature_key_identities (
