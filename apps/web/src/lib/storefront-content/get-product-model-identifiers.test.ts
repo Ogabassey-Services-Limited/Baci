@@ -99,6 +99,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['840 g11']);
   });
 
+  it('strips a trailing RTX tier from a laptop model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productSlugs: ['dell-alienware-m18-r3-rtx-5080'],
+    });
+
+    expect(identifiers).toEqual(['m18 r3']);
+  });
+
   it('preserves the family marker for numeric model generations', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',
@@ -202,6 +212,16 @@ describe('getProductModelIdentifiers', () => {
       categorySlug: 'smartphones',
       brands: ['Xiaomi and Redmi', 'xiaomi'],
       modelFamilySlug: 'redmi-15',
+      productSlugs: ['redmi-15'],
+    });
+
+    expect(identifiers).toEqual(['redmi 15']);
+  });
+
+  it('keeps Redmi as a discriminator on PDP and comparison contexts', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Redmi'],
       productSlugs: ['redmi-15'],
     });
 

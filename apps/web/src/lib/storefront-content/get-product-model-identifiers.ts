@@ -23,7 +23,7 @@ const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'series',
   'version',
 ]);
-const MODEL_FAMILY_ALIAS_TOKENS = new Set(['legion', 'pavilion']);
+const MODEL_FAMILY_ALIAS_TOKENS = new Set(['legion', 'pavilion', 'redmi']);
 const MODEL_LINE_MARKER_TOKENS = new Set(['air', 'pro']);
 
 interface BrandAliasGroup {
@@ -68,7 +68,11 @@ function getExcludedTokensForSlug(
 
   for (const group of brandAliasGroups) {
     for (const token of group.brandTokens) {
-      if (slugTokens.includes(token) && !protectedFamilyTokens.has(token)) {
+      if (
+        slugTokens.includes(token) &&
+        !protectedFamilyTokens.has(token) &&
+        !MODEL_FAMILY_ALIAS_TOKENS.has(token)
+      ) {
         excludedTokens.add(token);
       }
     }
@@ -129,7 +133,8 @@ function isDimensionToken(tokens: string[], index: number) {
 function stripTrailingProcessorTier(tokens: string[]) {
   const processorIndex = tokens.findIndex(
     (token, index) =>
-      token === 'ultra' && /^\d+$/u.test(tokens[index + 1] ?? '')
+      (token === 'ultra' || token === 'rtx') &&
+      /^\d+$/u.test(tokens[index + 1] ?? '')
   );
   return processorIndex > 0 ? tokens.slice(0, processorIndex) : tokens;
 }
@@ -219,7 +224,12 @@ export function getProductModelIdentifiers(
               : []),
           ])
       ),
-    ].filter((token) => Boolean(token) && !protectedFamilyTokens.has(token))
+    ].filter(
+      (token) =>
+        Boolean(token) &&
+        !protectedFamilyTokens.has(token) &&
+        !MODEL_FAMILY_ALIAS_TOKENS.has(token)
+    )
   );
   const brandAliasGroups = getBrandAliasGroups(context);
 
