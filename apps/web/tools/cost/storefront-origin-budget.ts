@@ -39,6 +39,12 @@ type OriginBudgetOptions = Readonly<{
 }>;
 const sum = (values: readonly number[]) =>
   values.reduce((total, value) => total + value, 0);
+const isValidThresholdOverride = (threshold: number) =>
+  Number.isFinite(threshold) && threshold >= 0 && threshold <= 1;
+const assertValidThresholdOverride = (threshold: number | undefined) => {
+  if (threshold !== undefined && !isValidThresholdOverride(threshold))
+    throw new Error('cost gate threshold must be between 0 and 1');
+};
 const EMPTY_RECONCILIATION = {
   originEventRequests: 0,
   classifiedOriginAttempts: 0,
@@ -63,6 +69,7 @@ export function summarizeStorefrontDelivery(
   value: unknown,
   options: OriginBudgetOptions = {}
 ): StorefrontDeliverySummary {
+  assertValidThresholdOverride(options.thresholdOverride);
   const validation = validateStorefrontDeliveryManifest(value, {
     now: options.now,
   });
@@ -241,7 +248,7 @@ export function parseStorefrontOriginBudgetArguments(args: readonly string[]) {
       result.environment = value;
     } else {
       const threshold = Number(value);
-      if (!Number.isFinite(threshold) || threshold < 0)
+      if (!isValidThresholdOverride(threshold))
         throw new Error('cost gate threshold is invalid');
       result.thresholdOverride = threshold;
     }

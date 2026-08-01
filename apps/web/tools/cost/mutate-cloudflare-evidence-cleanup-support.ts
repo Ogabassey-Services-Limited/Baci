@@ -51,12 +51,22 @@ export async function verifyInventoryBeforeCleanup(
 /** Reconciles a create that may have succeeded before its journal/read-back step. */
 export async function reconcileCreatedEvidenceResource(
   client: EvidenceMutationClient,
+  journal: EvidenceJournal,
   name: string,
   createdId?: string
 ) {
   let id = createdId;
   if (!id) id = (await client.findByName(name))?.id;
   if (!id) return;
+  // Never issue a destructive cleanup from a create response alone. A
+  // provider timeout can return an unrelated ID, and a same-name resource can
+  // appear concurrently; bind the exact object to this run before deleting.
+  const resource = await client.get(id);
+  if (!resource)
+    throw new Error(
+      'created evidence resource could not be read before cleanup'
+    );
+  verifyResource(resource, journal, name, id);
   let cleanupError: unknown;
   try {
     await client.cleanup(name, id);

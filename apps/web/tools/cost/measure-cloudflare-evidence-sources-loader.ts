@@ -1,4 +1,8 @@
 import { resolve } from 'node:path';
+import {
+  evidenceExecutionRoot,
+  mapEvidenceExecutionPath,
+} from './cloudflare-evidence-execution-path';
 import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
 import { loadEvidenceRunForCleanup } from './cloudflare-evidence-run-journal';
 import {
@@ -20,9 +24,7 @@ export async function loadMeasurementDependencies(
   stateDir: string
 ) {
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
-  const workspaceRoot = process.env.EVIDENCE_WORKSPACE_ROOT;
-  if (!workspaceRoot)
-    throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');
+  const workspaceRoot = evidenceExecutionRoot();
   const commandPath = resolve(
     workspaceRoot,
     'apps/web/tools/cost/measure-cloudflare-evidence-sources.ts'
@@ -43,7 +45,11 @@ export async function loadMeasurementDependencies(
     throw new Error(
       'measurement runner module descriptor is missing from the journal'
     );
-  if (configuredPath && resolve(configuredPath) !== resolve(modulePath))
+  const executionModulePath = mapEvidenceExecutionPath(modulePath);
+  if (
+    configuredPath &&
+    resolve(configuredPath) !== resolve(executionModulePath)
+  )
     throw new Error('measurement runner module does not match the journal');
   if (
     configuredSha256 &&
@@ -59,7 +65,10 @@ export async function loadMeasurementDependencies(
   const verified = await verifyReviewedEvidenceRunnerModule(
     workspaceRoot,
     journal.toolingMergeSha,
-    { path: modulePath, sha256: journal.measurementRunnerModuleSha256 }
+    {
+      path: executionModulePath,
+      sha256: journal.measurementRunnerModuleSha256,
+    }
   );
   return importReviewedEvidenceModule(
     workspaceRoot,

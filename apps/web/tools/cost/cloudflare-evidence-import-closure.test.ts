@@ -81,7 +81,11 @@ describe('credentialed evidence command import closure', () => {
           command,
           loaded.manifest
         )
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual([
+        command,
+        join(packageRoot, 'index.js'),
+        join(packageRoot, 'helper.js'),
+      ]);
       await writeFile(join(packageRoot, 'helper.js'), 'exports.value = 2;\n');
       await expect(
         verifyCredentialedEvidenceCommandImportClosure(

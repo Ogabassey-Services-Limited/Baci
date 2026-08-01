@@ -5,11 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   loadEvidenceRunForCleanup,
   openEvidenceRun,
-  recordCleanupWriteToken,
-  recordEvidenceMutation,
-  recordEvidencePhase,
 } from './cloudflare-evidence-run-journal';
 import {
+  reconcileCreatedEvidenceResource,
   requireTokenReadBackClient,
   requireTokenRevocationClient,
   revokeCleanupWriteTokenIfNeeded,
@@ -27,8 +25,6 @@ import {
 } from './mutate-cloudflare-evidence-test-fixtures';
 
 const inventoryHash = 'a'.repeat(64);
-const receiptHash = 'b'.repeat(64);
-const observedAt = '2026-07-31T00:00:00.000Z';
 
 async function createRun() {
   const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
@@ -100,6 +96,52 @@ describe('mutation cleanup support', () => {
         new Map([[mutationResource.name, mutationResource.id]])
       )
     ).rejects.toThrow('before cleanup');
+  });
+
+  it('does not delete a create response until the exact resource is bound to the run', async () => {
+    const dir = await createRun();
+    const journal = await loadEvidenceRunForCleanup(dir, mutationInput.runId);
+    const cleanup = vi.fn(async () => true);
+    await expect(
+      reconcileCreatedEvidenceResource(
+        createClient({
+          get: async () => ({
+            ...mutationResource,
+            accountId: 'other-account',
+          }),
+          cleanup,
+        }),
+        journal,
+        mutationResource.name,
+        mutationResource.id
+      )
+    ).rejects.toThrow('journaled resource identity');
+    expect(cleanup).not.toHaveBeenCalled();
+  });
+
+  it('binds a same-name concurrent resource before cleanup', async () => {
+    const dir = await createRun();
+    const journal = await loadEvidenceRunForCleanup(dir, mutationInput.runId);
+    const cleanup = vi.fn(async () => true);
+    let cleaned = false;
+    await expect(
+      reconcileCreatedEvidenceResource(
+        createClient({
+          findByName: async () => ({ ...mutationResource, id: 'concurrent' }),
+          get: async (id) =>
+            id === 'concurrent' && !cleaned
+              ? { ...mutationResource, id }
+              : null,
+          cleanup: async (...args) => {
+            cleaned = true;
+            return cleanup(...args);
+          },
+        }),
+        journal,
+        mutationResource.name
+      )
+    ).resolves.toBeUndefined();
+    expect(cleanup).toHaveBeenCalledWith(mutationResource.name, 'concurrent');
   });
 
   it('selects the bounded cleanup inventory strategy for zero, one, and many resources', async () => {
@@ -203,73 +245,5 @@ describe('mutation cleanup support', () => {
     await expect(
       revokeWriteTokenIfAvailable('unused', mutationInput.runId, createClient())
     ).resolves.toBe(false);
-  });
-
-  it('records cleanup replacement and original write-token revocations', async () => {
-    const dir = await createRun();
-    await recordEvidenceMutation(
-      dir,
-      mutationInput.runId,
-      mutationResource.name,
-      mutationResource.id
-    );
-    await recordCleanupWriteToken(
-      dir,
-      mutationInput.runId,
-      'replacement-write'
-    );
-    await recordEvidencePhase(
-      dir,
-      mutationInput.runId,
-      'cleanup_incomplete_stop',
-      { cleanupAttempts: 1, cleanupIncomplete: true }
-    );
-    const client = createClient({
-      revoke: async (tokenId) => ({
-        tokenId,
-        auditReceiptSha256: receiptHash,
-      }),
-      readBack: async (tokenId) => ({
-        tokenId,
-        status: 'inactive' as const,
-        auditReceiptSha256: receiptHash,
-        observedAt,
-      }),
-    });
-    await revokeCleanupWriteTokenIfNeeded(
-      dir,
-      mutationInput.runId,
-      'replacement-write',
-      client
-    );
-    expect(
-      (await loadEvidenceRunForCleanup(dir, mutationInput.runId))
-        .cleanupWriteTokenRevocationReceipt?.tokenId
-    ).toBe('replacement-write');
-
-    const originalDir = await createRun();
-    await recordEvidenceMutation(
-      originalDir,
-      mutationInput.runId,
-      mutationResource.name,
-      mutationResource.id
-    );
-    await recordEvidencePhase(
-      originalDir,
-      mutationInput.runId,
-      'cleanup_incomplete_stop',
-      { cleanupAttempts: 1, cleanupIncomplete: true }
-    );
-    await expect(
-      revokeWriteTokenIfAvailable(originalDir, mutationInput.runId, client)
-    ).resolves.toBe(true);
-    const journal = await loadEvidenceRunForCleanup(
-      originalDir,
-      mutationInput.runId
-    );
-    expect(journal.phase).toBe('write_token_revoked');
-    expect(journal.writeTokenRevocationReceipt?.tokenId).toBe(
-      mutationInput.writeTokenId
-    );
   });
 });

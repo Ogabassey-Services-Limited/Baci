@@ -2,6 +2,10 @@ import { constants } from 'node:fs';
 import { type FileHandle, open } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
+import {
+  evidenceExecutionRoot,
+  mapEvidenceExecutionPath,
+} from './cloudflare-evidence-execution-path';
 import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
 import { loadEvidenceRunForCleanup } from './cloudflare-evidence-run-journal';
 import {
@@ -74,9 +78,7 @@ async function verifyReviewedCommand(
   stateDir: string
 ): Promise<EvidenceJournal> {
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
-  const workspaceRoot = process.env.EVIDENCE_WORKSPACE_ROOT;
-  if (!workspaceRoot)
-    throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');
+  const workspaceRoot = evidenceExecutionRoot();
   const commandPath = resolve(
     workspaceRoot,
     'apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts'
@@ -98,17 +100,6 @@ function parseWriteTokenRevocationReceipt(value: unknown) {
   return Object.freeze(parsed.data);
 }
 
-function verifyReviewedModule(
-  workspaceRoot: string,
-  toolingMergeSha: string,
-  descriptor: Readonly<{ path: string; sha256: string }>
-) {
-  return verifyReviewedEvidenceRunnerModule(
-    workspaceRoot,
-    toolingMergeSha,
-    descriptor
-  );
-}
 async function loadAuthenticatedRevocationReadbackClient(
   journal: EvidenceJournal,
   runId: string,
@@ -135,13 +126,12 @@ async function loadAuthenticatedRevocationReadbackClient(
     throw new Error(
       'authenticated revocation readback module descriptor is invalid'
     );
-  const workspaceRoot = process.env.EVIDENCE_WORKSPACE_ROOT;
-  if (!workspaceRoot)
-    throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');
-  const verified = await verifyReviewedModule(
+  const workspaceRoot = evidenceExecutionRoot();
+  const executionModulePath = resolve(modulePath);
+  const verified = await verifyReviewedEvidenceRunnerModule(
     workspaceRoot,
     journal.toolingMergeSha,
-    { path: modulePath, sha256: moduleSha256 }
+    { path: executionModulePath, sha256: moduleSha256 }
   );
   return importReviewedEvidenceModule(
     workspaceRoot,
@@ -246,7 +236,11 @@ async function loadAuthenticatedMutationDependencies(
     throw new Error(
       'mutation runner module descriptor is missing from the journal'
     );
-  if (configuredPath && resolve(configuredPath) !== resolve(modulePath))
+  const executionModulePath = mapEvidenceExecutionPath(modulePath);
+  if (
+    configuredPath &&
+    resolve(configuredPath) !== resolve(executionModulePath)
+  )
     throw new Error('mutation runner module does not match the journal');
   if (
     configuredSha256 &&
@@ -257,13 +251,11 @@ async function loadAuthenticatedMutationDependencies(
     throw new Error(
       'mutation requires a provider runner module and the isolated write token'
     );
-  const workspaceRoot = process.env.EVIDENCE_WORKSPACE_ROOT;
-  if (!workspaceRoot)
-    throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');
-  const verified = await verifyReviewedModule(
+  const workspaceRoot = evidenceExecutionRoot();
+  const verified = await verifyReviewedEvidenceRunnerModule(
     workspaceRoot,
     journal.toolingMergeSha,
-    { path: modulePath, sha256: journal.mutationRunnerModuleSha256 }
+    { path: executionModulePath, sha256: journal.mutationRunnerModuleSha256 }
   );
   return importReviewedEvidenceModule(
     workspaceRoot,

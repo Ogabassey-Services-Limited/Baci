@@ -1,6 +1,7 @@
 import type {
   DeepQualificationClient,
   executeDeepCloudflareEvidenceQualification,
+  JournaledTopologyAuthority,
   JournaledTopologyEndpoint,
   TopologyAction,
   TopologyFamily,
@@ -13,6 +14,8 @@ const families = [
   'r2-cors',
   'r2-custom-domain',
 ] as const;
+const runId = '0123456789abcdef0123456789abcdef';
+const bucketName = `baci-ogabassey-storefront-evidence-${runId}`;
 export const tuple = (family: TopologyFamily, state: string) => ({
   state,
   fingerprint: `${family}-${state}`,
@@ -47,12 +50,12 @@ const topologyPlans = [
   makeTopology(
     'r2-cors',
     'write',
-    '/accounts/account/r2/buckets/evidence/cors'
+    `/accounts/account/r2/buckets/${bucketName}/cors`
   ),
   makeTopology(
     families[2],
     'detach',
-    '/accounts/account/r2/buckets/evidence/domains/custom/edge-evidence.ogabassey.com'
+    `/accounts/account/r2/buckets/${bucketName}/domains/custom/edge-evidence.ogabassey.com`
   ),
 ] as const;
 const makeJournaledTopology = (
@@ -69,25 +72,26 @@ const makeJournaledTopology = (
   after: topology.after,
   restore: topology.restore,
 });
-const journaledTopologyPlans = [
+export const journaledTopologyPlans = [
   makeJournaledTopology(topologyPlans[0]),
   makeJournaledTopology(topologyPlans[1]),
   makeJournaledTopology(topologyPlans[2]),
 ] as const;
 export const input = {
+  runId,
   pointerUrl: 'https://edge-evidence.ogabassey.com/__baci-evidence/a',
   pointerProbeCount: 2,
   pointerProbeExpectation: {
     bundle: 'version-a-204',
-    version: 'a',
+    version: 'provider-a',
   },
+  pointerVersionId: 'provider-a',
   trace: {
     cacheRuleId: 'rule',
     rulesetVersion: 'v1',
     expressionSha256: 'a'.repeat(64),
   },
   topologies: topologyPlans,
-  journaledTopologies: journaledTopologyPlans,
 } satisfies Parameters<typeof executeDeepCloudflareEvidenceQualification>[1];
 export function client(
   overrides: Partial<DeepQualificationClient> = {}
@@ -99,8 +103,21 @@ export function client(
       cfCacheStatus: 'DYNAMIC',
       headers: {
         'X-Baci-Evidence-Bundle': 'version-a-204',
-        'X-Baci-Evidence-Version': 'a',
+        'X-Baci-Evidence-Version': 'provider-a',
       },
+    }),
+    topologyJournalRead: async (): Promise<JournaledTopologyAuthority> => ({
+      runId,
+      accountId: 'account',
+      bucketName,
+      preInventorySha256: 'a'.repeat(64),
+      topologies: journaledTopologyPlans,
+    }),
+    topologyResourceReadback: async () => ({
+      accountId: 'account',
+      bucketName,
+      inventorySha256: 'a'.repeat(64),
+      present: true,
     }),
     topologyRead: async (family: TopologyFamily) => tuple(family, 'before'),
     topologyMutate: ({

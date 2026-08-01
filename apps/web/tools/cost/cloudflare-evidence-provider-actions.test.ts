@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type DeepQualificationClient,
   executeDeepCloudflareEvidenceQualification,
+  type JournaledTopologyAuthority,
   type JournaledTopologyEndpoint,
   type TopologyFamily,
   type TopologyMutationRequest,
@@ -13,6 +14,8 @@ const families = [
   'r2-cors',
   'r2-custom-domain',
 ] as const;
+const runId = '0123456789abcdef0123456789abcdef';
+const bucketName = `baci-ogabassey-storefront-evidence-${runId}`;
 const tuple = (family: TopologyFamily, state: string) => ({
   state,
   fingerprint: `${family}-${state}`,
@@ -24,8 +27,8 @@ const topologies = families.map((family) => ({
     family === 'worker-custom-domain'
       ? '/accounts/account/workers/scripts/baci-evidence-qualification/domains/custom/edge-evidence.ogabassey.com'
       : family === 'r2-cors'
-        ? '/accounts/account/r2/buckets/evidence/cors'
-        : '/accounts/account/r2/buckets/evidence/domains/custom/edge-evidence.ogabassey.com',
+        ? `/accounts/account/r2/buckets/${bucketName}/cors`
+        : `/accounts/account/r2/buckets/${bucketName}/domains/custom/edge-evidence.ogabassey.com`,
   requestSchemaSha256: 'b'.repeat(64),
   responseSchemaSha256: 'c'.repeat(64),
   maximumVisibilitySeconds: 60,
@@ -64,23 +67,21 @@ const journaledTopologyPlans = families.map((family) => {
 ];
 const asTopologyPlans = (values: readonly TopologyPlan[]) =>
   values as unknown as typeof topologyPlans;
-const asJournaledTopologyPlans = (
-  values: readonly JournaledTopologyEndpoint[]
-) => values as unknown as typeof journaledTopologyPlans;
 const input = {
+  runId,
   pointerUrl: 'https://edge-evidence.ogabassey.com/__baci-evidence/a',
   pointerProbeCount: 2,
   pointerProbeExpectation: {
     bundle: 'version-a-204',
-    version: 'a',
+    version: 'provider-a',
   },
+  pointerVersionId: 'provider-a',
   trace: {
     cacheRuleId: 'rule',
     rulesetVersion: 'v1',
     expressionSha256: 'a'.repeat(64),
   },
   topologies: topologyPlans,
-  journaledTopologies: journaledTopologyPlans,
 };
 function responseSchemaFor(
   family: TopologyFamily,
@@ -109,8 +110,21 @@ function client(
       cfCacheStatus: 'DYNAMIC',
       headers: {
         'X-Baci-Evidence-Bundle': 'version-a-204',
-        'X-Baci-Evidence-Version': 'a',
+        'X-Baci-Evidence-Version': 'provider-a',
       },
+    }),
+    topologyJournalRead: async (): Promise<JournaledTopologyAuthority> => ({
+      runId,
+      accountId: 'account',
+      bucketName,
+      preInventorySha256: 'a'.repeat(64),
+      topologies: journaledTopologyPlans,
+    }),
+    topologyResourceReadback: async () => ({
+      accountId: 'account',
+      bucketName,
+      inventorySha256: 'a'.repeat(64),
+      present: true,
     }),
     topologyRead: async (family: TopologyFamily) => tuple(family, 'before'),
     topologyMutate,
@@ -187,13 +201,6 @@ describe('Cloudflare topology mutation actions', () => {
       ...input,
       topologies: asTopologyPlans(
         input.topologies.map((topology) =>
-          topology.family === family
-            ? { ...topology, action: wrongAction }
-            : topology
-        )
-      ),
-      journaledTopologies: asJournaledTopologyPlans(
-        input.journaledTopologies.map((topology) =>
           topology.family === family
             ? { ...topology, action: wrongAction }
             : topology

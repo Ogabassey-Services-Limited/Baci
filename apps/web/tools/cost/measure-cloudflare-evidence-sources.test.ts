@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   openEvidenceRun,
   recordCleanupVerified,
+  recordEvidenceMeasurementFailure,
   recordEvidenceMutation,
   recordEvidenceProbeResults,
   revokeEvidenceRunToken,
@@ -196,6 +197,59 @@ describe('measureCloudflareEvidenceSources', () => {
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
     ).resolves.toMatchObject({ phase: 'proof_complete' });
     expect(measure).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a run after measurement evidence is marked terminal', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, input);
+    await recordEvidenceMutation(
+      dir,
+      input.runId,
+      input.plannedResources[0],
+      'resource-id'
+    );
+    await recordEvidenceProbeResults(dir, input.runId, ['probe-a', 'probe-b']);
+    await recordCleanupVerified(dir, input.runId, {
+      verifyCleanup: async () => ({
+        status: 'absent',
+        inventorySha256: input.preInventorySha256,
+        providerReceiptSha256: 'f'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
+    });
+    await revokeEvidenceRunToken(dir, input.runId, 'write', {
+      revoke: async (tokenId) => ({
+        tokenId,
+        auditReceiptSha256: 'd'.repeat(64),
+      }),
+      readBack: async (tokenId) => ({
+        tokenId,
+        status: 'inactive' as const,
+        auditReceiptSha256: 'd'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
+    });
+    await recordEvidenceMeasurementFailure(dir, input.runId);
+    const measure = vi.fn(async () => {
+      throw new Error('measurement should not retry');
+    });
+    await expect(
+      measureCloudflareEvidenceSources(dir, input.runId, capability, {
+        measure,
+        revoke: async (tokenId) => ({
+          tokenId,
+          auditReceiptSha256: 'e'.repeat(64),
+        }),
+        readBack: async (tokenId) => ({
+          tokenId,
+          status: 'inactive' as const,
+          auditReceiptSha256: 'e'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        }),
+      })
+    ).rejects.toThrow('terminal');
+    expect(measure).not.toHaveBeenCalled();
   });
 });
 

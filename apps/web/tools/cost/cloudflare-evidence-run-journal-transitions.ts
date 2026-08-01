@@ -115,6 +115,13 @@ export function createEvidenceJournalTransitionOperations(
       )
         throw new Error('cleanup retry cannot clear incomplete evidence');
       if (
+        journal.measurementIncomplete &&
+        details.measurementIncomplete === false
+      )
+        throw new Error(
+          'incomplete measurement evidence requires a verified receipt to clear'
+        );
+      if (
         details.cleanupAttempts !== undefined &&
         (!Number.isInteger(details.cleanupAttempts) ||
           details.cleanupAttempts < journal.cleanupAttempts)
@@ -185,6 +192,10 @@ export function createEvidenceJournalTransitionOperations(
           'measurement receipt is append-only and cannot be replaced'
         );
       }
+      if (journal.measurementIncomplete)
+        throw new Error(
+          'incomplete measurement evidence requires read-token revocation'
+        );
       if (journal.phase !== 'write_token_revoked')
         throw new Error('measurement requires write-token revocation');
       journal.measurementVerifiedAt = receipt.observedAt;

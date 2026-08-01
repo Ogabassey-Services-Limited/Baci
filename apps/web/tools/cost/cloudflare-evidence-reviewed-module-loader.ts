@@ -30,24 +30,21 @@ function destinationPath(
   return join(temporaryRoot, relativePath);
 }
 
-/** Imports a verified module closure from immutable bytes in private storage. */
-export function importReviewedEvidenceModule<T>(
-  workspaceRoot: string,
-  entrypoint: string,
-  files: readonly ReviewedEvidenceModuleSource[],
-  use: (loaded: unknown) => Promise<T> | T
-): Promise<T>;
-export async function importReviewedEvidenceModule(
-  workspaceRoot: string,
-  entrypoint: string,
-  files: readonly ReviewedEvidenceModuleSource[]
-): Promise<unknown>;
+/**
+ * Imports a verified module closure from immutable bytes in private storage.
+ *
+ * The callback is required so factories and deferred imports run while the
+ * private extracted closure is still available. Callers must not retain the
+ * loaded module after this promise resolves.
+ */
 export async function importReviewedEvidenceModule<T>(
   workspaceRoot: string,
   entrypoint: string,
   files: readonly ReviewedEvidenceModuleSource[],
-  use?: (loaded: unknown) => Promise<T> | T
-): Promise<T | unknown> {
+  use: (loaded: unknown) => Promise<T> | T
+): Promise<T> {
+  if (typeof use !== 'function')
+    throw new Error('reviewed module loader requires a lifetime callback');
   const temporaryRoot = await mkdtemp(
     join(resolve(workspaceRoot), '.baci-reviewed-module-')
   );
@@ -63,7 +60,7 @@ export async function importReviewedEvidenceModule<T>(
     }
     const entry = destinationPath(workspaceRoot, temporaryRoot, entrypoint);
     const loaded = await importReviewedEntrypoint(entry);
-    return use ? await use(loaded) : loaded;
+    return await use(loaded);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true }).catch(
       () => undefined

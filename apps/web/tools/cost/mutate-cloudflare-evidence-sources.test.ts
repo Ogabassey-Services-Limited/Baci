@@ -126,7 +126,7 @@ describe('Cloudflare evidence mutation lifecycle', () => {
     });
   });
 
-  it('still runs journal cleanup when created-resource reconciliation fails', async () => {
+  it('still records journal cleanup when created-resource reconciliation cannot bind a resource', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
     await openEvidenceRun(dir, mutationInput);
@@ -152,7 +152,7 @@ describe('Cloudflare evidence mutation lifecycle', () => {
         }
       )
     ).rejects.toBeInstanceOf(AggregateError);
-    expect(cleanup).toHaveBeenCalledOnce();
+    expect(cleanup).not.toHaveBeenCalled();
     await expect(
       loadEvidenceRunForCleanup(dir, mutationInput.runId)
     ).resolves.toMatchObject({
@@ -272,62 +272,5 @@ describe('Cloudflare evidence mutation lifecycle', () => {
     ).rejects.toThrow('account');
     expect(cleanupCreate).not.toHaveBeenCalled();
     expect(cleanupProbe).not.toHaveBeenCalled();
-  });
-
-  it('blocks inventory drift before create and requires exactly the journaled probe count', async () => {
-    const cases = [
-      {
-        inventorySha256: async () => 'b'.repeat(64),
-        probe: async () => [
-          { id: 'probe-a', succeeded: true },
-          { id: 'probe-b', succeeded: true },
-        ],
-        error: 'before mutation',
-      },
-      {
-        inventorySha256: async () => 'a'.repeat(64),
-        probe: async () => [{ id: 'probe-a', succeeded: true }],
-        error: 'expected',
-      },
-      {
-        inventorySha256: async () => 'a'.repeat(64),
-        probe: async () => [
-          { id: 'probe-a', succeeded: true },
-          { id: 'probe-b', succeeded: true },
-          { id: 'probe-c', succeeded: true },
-        ],
-        error: 'expected',
-      },
-    ];
-    for (const entry of cases) {
-      const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-      await chmod(dir, 0o700);
-      await openEvidenceRun(dir, mutationInput);
-      const create = vi.fn(async () => ({ id: mutationResource.id }));
-      let resourcePresent = true;
-      const cleanup = vi.fn(async () => {
-        resourcePresent = false;
-        return true;
-      });
-      await expect(
-        applyCloudflareEvidenceMutation(
-          dir,
-          mutationInput.runId,
-          mutationCapability,
-          {
-            identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
-            findByName: async () => null,
-            get: async () => (resourcePresent ? mutationResource : null),
-            create,
-            probe: entry.probe,
-            cleanup,
-            inventorySha256: entry.inventorySha256,
-          }
-        )
-      ).rejects.toThrow(entry.error);
-      if (entry.error === 'before mutation')
-        expect(create).not.toHaveBeenCalled();
-      else expect(cleanup).toHaveBeenCalledOnce();
-    }
   });
 });

@@ -6,6 +6,12 @@ import {
   parseStorefrontOriginBudgetArguments,
   readSealedStorefrontDeliveryManifest,
 } from './storefront-origin-budget';
+import {
+  manifest,
+  seal,
+  summarizeAtFixtureTime,
+  validationNow,
+} from './storefront-origin-budget.test-fixtures';
 
 const production = { environment: 'production' as const };
 
@@ -77,5 +83,67 @@ describe('storefront origin budget guards', () => {
     await expect(
       readSealedStorefrontDeliveryManifest(sealedPath, production)
     ).rejects.toThrow();
+  });
+});
+
+describe('summarizeStorefrontDelivery guards', () => {
+  it('returns not proven for sampling, count mismatch, alias redirect mismatch, missing day, config drift, or zero ingress', () => {
+    for (const change of [
+      (m: ReturnType<typeof manifest>) => {
+        m.days[0].maxSampleInterval = 2;
+      },
+      (m: ReturnType<typeof manifest>) => {
+        m.days[0].totalDecisionCount = 999;
+      },
+      (m: ReturnType<typeof manifest>) => {
+        m.days[0].aliasEligibleRequestCount = 1;
+      },
+      (m: ReturnType<typeof manifest>) => {
+        m.days.pop();
+      },
+      (m: ReturnType<typeof manifest>) => {
+        m.days[0].wafRulesetVersion = 'drift';
+      },
+      (m: ReturnType<typeof manifest>) =>
+        m.days.forEach((day) => {
+          day.canonicalEligibleRequestCount = 0;
+          day.aliasEligibleRequestCount = 0;
+        }),
+    ]) {
+      const evidence = manifest();
+      change(evidence);
+      expect(summarizeAtFixtureTime(seal(evidence)).verdict).toBe('NOT_PROVEN');
+    }
+  });
+
+  it('returns not proven when decision classifications do not reconcile with invocations', () => {
+    const malformed = manifest();
+    malformed.days[0].edgeReleaseCount = 0;
+    expect(summarizeAtFixtureTime(seal(malformed)).verdict).toBe('NOT_PROVEN');
+  });
+
+  it('returns not proven when an independent source is estimated, incomplete, or sampled', () => {
+    const evidence = manifest();
+    evidence.days[0].sourceEvidence.originEvent.exact = false;
+    expect(summarizeAtFixtureTime(seal(evidence)).verdict).toBe('NOT_PROVEN');
+  });
+
+  it('reads only an audited sealed manifest and rejects production threshold overrides', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'baci-manifest-'));
+    await chmod(directory, 0o700);
+    const path = join(directory, 'sealed.json');
+    await writeFile(path, JSON.stringify(manifest()), { mode: 0o600 });
+    await expect(
+      readSealedStorefrontDeliveryManifest(path, {
+        environment: 'production',
+        now: validationNow,
+      })
+    ).resolves.toMatchObject({ canonicalHostname: 'ogabassey.com' });
+    await expect(
+      readSealedStorefrontDeliveryManifest(path, {
+        environment: 'production',
+        thresholdOverride: 0.1,
+      })
+    ).rejects.toThrow('overrides');
   });
 });

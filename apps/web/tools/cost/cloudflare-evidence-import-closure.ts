@@ -183,4 +183,5 @@ export async function verifyCredentialedEvidenceCommandImportClosure(
       }
     }
   }
+  return Object.freeze([...visited]);
 }

@@ -14,18 +14,14 @@ import {
   readReviewedEvidenceDependencyManifest,
   verifyEvidenceDependencyFile,
 } from './cloudflare-evidence-dependency-integrity';
-import { verifyCredentialedEvidenceCommandImportClosure } from './cloudflare-evidence-import-closure';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
+import { preparePrivateCredentialedChild } from './cloudflare-evidence-private-closure';
 import { prepareEvidenceProcessEnvironment } from './cloudflare-evidence-process-environment';
 import {
   type EvidenceRunInput,
   loadEvidenceRunForCleanup,
 } from './cloudflare-evidence-run-journal';
-import {
-  evidenceRunnerModuleEnvironmentNames,
-  verifyReviewedEvidenceFile,
-  verifyReviewedEvidenceRunnerModule,
-} from './cloudflare-evidence-runner-modules';
+import { verifyReviewedEvidenceFile } from './cloudflare-evidence-runner-modules';
 import { buildClosedEvidenceProcessEnvironment } from './qualify-cloudflare-evidence-sources';
 
 export type EvidenceChildCommand =
@@ -180,6 +176,7 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
   )
     throw new Error('measurement requires only the read credential');
   const privateHome = await mkdtemp(join(tmpdir(), 'baci-evidence-home-'));
+  let privateClosureRoot: string | undefined;
   try {
     const env = credential
       ? buildClosedEvidenceProcessEnvironment(
@@ -203,7 +200,7 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
       commandPath,
       ...argumentsFor(command, runId, prepareInput),
     ];
-    if (journal) {
+    if (journal && command !== 'prepare') {
       commandPath = (
         await verifyReviewedEvidenceFile(
           workspaceRoot,
@@ -242,50 +239,31 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
         commandPath,
         ...argumentsFor(command, runId, prepareInput),
       ];
-      await verifyCredentialedEvidenceCommandImportClosure(
+      const privateChild = await preparePrivateCredentialedChild({
+        command,
+        journal,
         workspaceRoot,
-        journal.toolingMergeSha,
         commandPath,
-        reviewedDependencies.manifest
-      );
-    }
-    const runnerNames =
-      command === 'measure' || command === 'revoke-read'
-        ? evidenceRunnerModuleEnvironmentNames('measurement')
-        : command === 'prepare'
-          ? undefined
-          : evidenceRunnerModuleEnvironmentNames('mutation');
-    if (runnerNames) {
-      if (!journal) throw new Error('credentialed command journal is missing');
-      const descriptor =
-        command === 'measure' || command === 'revoke-read'
-          ? {
-              path: journal.measurementRunnerModulePath,
-              sha256: journal.measurementRunnerModuleSha256,
-            }
-          : {
-              path: journal.mutationRunnerModulePath,
-              sha256: journal.mutationRunnerModuleSha256,
-            };
-      const modulePath = descriptor.path;
-      const moduleSha256 = descriptor.sha256;
-      if (!modulePath || !moduleSha256)
-        throw new Error(
-          'journal is missing the reviewed runner module descriptor'
-        );
-      const verified = await verifyReviewedEvidenceRunnerModule(
-        workspaceRoot,
-        journal.toolingMergeSha,
-        { path: modulePath, sha256: moduleSha256 }
-      );
-      env[runnerNames.path] = verified.path;
-      env[runnerNames.sha256] = verified.sha256;
+        args: argumentsFor(command, runId, prepareInput),
+        inherited,
+        environment: env,
+        launcher: reviewedLauncher,
+        dependencies: {
+          ...reviewedDependencies,
+          sha256: journal.dependencyManifestSha256,
+        },
+      });
+      privateClosureRoot = privateChild.closure.root;
+      executable = privateChild.executable;
+      executableArguments = privateChild.executableArguments;
     }
     return await spawner.spawn(executable, executableArguments, {
-      cwd: workspaceRoot,
+      cwd: privateClosureRoot ?? workspaceRoot,
       env,
     });
   } finally {
+    if (privateClosureRoot)
+      await rm(privateClosureRoot, { recursive: true, force: true });
     await rm(privateHome, { recursive: true, force: true });
   }
 }

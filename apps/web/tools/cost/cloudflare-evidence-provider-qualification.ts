@@ -39,6 +39,28 @@ export type TopologyPlan = Readonly<{
   restore: TopologyRestoreContract;
 }>;
 export type JournaledTopologyEndpoint = TopologyPlan;
+/**
+ * Authority loaded from the private run journal.  The qualification caller
+ * may propose topology plans, but it cannot choose the resource scope that
+ * the provider mutation is allowed to touch.
+ */
+export type JournaledTopologyAuthority = Readonly<{
+  runId: string;
+  accountId: string;
+  bucketName: string;
+  preInventorySha256: string;
+  topologies: readonly [
+    JournaledTopologyEndpoint,
+    JournaledTopologyEndpoint,
+    JournaledTopologyEndpoint,
+  ];
+}>;
+export type TopologyResourceReadback = Readonly<{
+  accountId: string;
+  bucketName: string;
+  inventorySha256: string;
+  present: boolean;
+}>;
 export type TopologyMutationAuditReceipt = Readonly<{
   family: TopologyFamily;
   action: TopologyAction;
@@ -72,6 +94,10 @@ export type DeepQualificationClient = Readonly<{
     method: 'GET' | 'HEAD',
     url: string
   ): Promise<CloudflarePointerProbeReadback>;
+  /** Reads the immutable topology authority from the run journal. */
+  topologyJournalRead(runId: string): Promise<JournaledTopologyAuthority>;
+  /** Reads the temporary bucket and its pre-mutation inventory before writes. */
+  topologyResourceReadback(): Promise<TopologyResourceReadback>;
   topologyRead(family: TopologyFamily): Promise<TopologyTuple>;
   topologyMutate(request: TopologyMutationRequest): Promise<MutationResponse>;
   topologyPoll(
@@ -89,18 +115,17 @@ const TOPOLOGY_ACTIONS_BY_FAMILY = {
   'r2-cors': { action: 'write', restore: 'write' },
   'r2-custom-domain': { action: 'detach', restore: 'reattach' },
 } as const;
+const RUN_ID = /^[a-f0-9]{32}$/;
+const expectedRunScopedBucket = (runId: string) =>
+  `baci-ogabassey-storefront-evidence-${runId}`;
 const sameTopologyTuple = (left: TopologyTuple, right: TopologyTuple) =>
   left.state === right.state && left.fingerprint === right.fingerprint;
 function verifyJournaledTopologyEndpoints(
   topologies: readonly [TopologyPlan, TopologyPlan, TopologyPlan],
-  journaledTopologies: readonly [
-    JournaledTopologyEndpoint,
-    JournaledTopologyEndpoint,
-    JournaledTopologyEndpoint,
-  ]
+  authority: JournaledTopologyAuthority
 ) {
   const journalByFamily = new Map(
-    journaledTopologies.map((topology) => [topology.family, topology])
+    authority.topologies.map((topology) => [topology.family, topology])
   );
   if (
     journalByFamily.size !== 3 ||
@@ -151,25 +176,28 @@ function verifyJournaledTopologyEndpoints(
     if (topology.family !== 'worker-custom-domain')
       journaledBuckets.add(parts[4]);
   }
-  if (journaledAccounts.size !== 1 || journaledBuckets.size > 1)
+  if (
+    journaledAccounts.size !== 1 ||
+    journaledAccounts.has(authority.accountId) === false ||
+    journaledBuckets.size !== 1 ||
+    !journaledBuckets.has(authority.bucketName) ||
+    authority.bucketName !== expectedRunScopedBucket(authority.runId)
+  )
     throw new Error(
-      'topology endpoints do not share the journaled resource scope'
+      'topology endpoints do not share the run-journaled resource scope'
     );
 }
 /** Executes only injected reads/writes against the bounded qualification topology contract. */
 export async function executeDeepCloudflareEvidenceQualification(
   client: DeepQualificationClient,
   input: Readonly<{
+    runId: string;
     pointerUrl: string;
     pointerProbeCount: number;
     pointerProbeExpectation: CloudflarePointerProbeExpectation;
+    pointerVersionId: string;
     trace: TraceExpectation;
     topologies: readonly [TopologyPlan, TopologyPlan, TopologyPlan];
-    journaledTopologies: readonly [
-      JournaledTopologyEndpoint,
-      JournaledTopologyEndpoint,
-      JournaledTopologyEndpoint,
-    ];
   }>
 ) {
   if (input.pointerProbeCount !== QUALIFICATION_POINTER_PROBE_COUNT)
@@ -179,11 +207,33 @@ export async function executeDeepCloudflareEvidenceQualification(
       'pointer URL does not bind the evidence qualification host'
     );
   if (
+    !RUN_ID.test(input.runId) ||
+    !input.pointerVersionId ||
     input.pointerProbeExpectation.bundle !== 'version-a-204' ||
-    input.pointerProbeExpectation.version !== 'a'
+    input.pointerProbeExpectation.version !== input.pointerVersionId
   )
-    throw new Error('pointer probe expectation is not the reviewed fixture');
-  verifyJournaledTopologyEndpoints(input.topologies, input.journaledTopologies);
+    throw new Error(
+      'pointer probe expectation is not bound to the provider version'
+    );
+  const authority = await client.topologyJournalRead(input.runId);
+  if (
+    authority.runId !== input.runId ||
+    !RUN_ID.test(authority.runId) ||
+    !authority.accountId ||
+    !SHA256.test(authority.preInventorySha256)
+  )
+    throw new Error('topology journal authority is invalid');
+  verifyJournaledTopologyEndpoints(input.topologies, authority);
+  const resource = await client.topologyResourceReadback();
+  if (
+    !resource.present ||
+    resource.accountId !== authority.accountId ||
+    resource.bucketName !== authority.bucketName ||
+    resource.inventorySha256 !== authority.preInventorySha256
+  )
+    throw new Error(
+      'topology provider resource does not match the run-journaled inventory'
+    );
   const trace = await client.trace(QUALIFICATION_POINTER_URL);
   if (
     !trace.matched ||

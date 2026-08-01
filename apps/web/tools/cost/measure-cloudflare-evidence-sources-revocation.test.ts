@@ -193,9 +193,9 @@ describe('measureCloudflareEvidenceSources revocation', () => {
     ).rejects.toThrow('incomplete');
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
-    ).rejects.toThrow('readback');
+    ).rejects.toThrow('terminal');
     await expect(
-      measureCloudflareEvidenceSources(dir, input.runId, capability, {
+      revokeCloudflareEvidenceReadToken(dir, input.runId, capability, {
         ...client,
         revoke: async (tokenId) => ({
           tokenId,
@@ -208,6 +208,6 @@ describe('measureCloudflareEvidenceSources revocation', () => {
           observedAt: '2026-07-31T00:00:00.000Z',
         }),
       })
-    ).resolves.toMatchObject({ phase: 'proof_complete' });
+    ).resolves.toMatchObject({ phase: 'closed_stop' });
   });
 });

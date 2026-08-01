@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile, realpath, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
@@ -100,39 +100,34 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
       stateDir
     );
     expect(spawn).toHaveBeenCalledTimes(3);
-    const reviewedTsxTarget = await realpath(
-      join(workspaceRoot, 'node_modules/tsx/dist/cli.mjs')
-    );
-    expect(spawn.mock.calls.map(([, argv]) => argv)).toEqual([
-      [
-        reviewedTsxTarget,
-        `${workspaceRoot}/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts`,
-        '--run',
-        runId,
-        '--apply',
-      ],
-      [
-        reviewedTsxTarget,
-        `${workspaceRoot}/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts`,
-        '--cleanup-run',
-        runId,
-      ],
-      [
-        reviewedTsxTarget,
-        `${workspaceRoot}/apps/web/tools/cost/measure-cloudflare-evidence-sources.ts`,
-        '--run',
-        runId,
-      ],
+    expect(spawn.mock.calls[0]?.[1].slice(2)).toEqual([
+      '--run',
+      runId,
+      '--apply',
     ]);
+    expect(spawn.mock.calls[1]?.[1].slice(2)).toEqual(['--cleanup-run', runId]);
+    expect(spawn.mock.calls[2]?.[1].slice(2)).toEqual(['--run', runId]);
     for (const [executable, argv, options] of spawn.mock.calls) {
       expect(executable).toBe(process.execPath);
-      expect(argv[0]).toBe(reviewedTsxTarget);
+      expect(argv[0]).toContain('baci-evidence-closure-');
+      expect(argv[1]).toContain('baci-evidence-closure-');
+      expect(options.cwd).toContain('baci-evidence-closure-');
+      expect(options.env.EVIDENCE_EXECUTION_ROOT).toContain(
+        'baci-evidence-closure-'
+      );
       expect(options.env.EVIDENCE_RUN_STATE_DIR).toBe(stateDir);
+      expect(options.env.EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST).toContain(
+        'baci-evidence-closure-'
+      );
     }
     for (const [, , { env }] of spawn.mock.calls.slice(0, 2)) {
       expect(env.SECRET).toBeUndefined();
-      expect(env.EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST).toBe(manifestPath);
-      expect(env.EVIDENCE_MUTATION_RUNNER_MODULE).toBe(runnerModulePath);
+      expect(env.EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST).toContain(
+        'baci-evidence-closure-'
+      );
+      expect(env.EVIDENCE_MUTATION_RUNNER_MODULE).toContain(
+        'baci-evidence-closure-'
+      );
       expect(env.EVIDENCE_MUTATION_RUNNER_MODULE_SHA256).toBe(
         runnerModuleSha256
       );
@@ -143,8 +138,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
       );
     }
     const measureEnvironment = spawn.mock.calls[2]?.[2].env;
-    expect(measureEnvironment.EVIDENCE_MEASUREMENT_RUNNER_MODULE).toBe(
-      runnerModulePath
+    expect(measureEnvironment.EVIDENCE_MEASUREMENT_RUNNER_MODULE).toContain(
+      'baci-evidence-closure-'
     );
     expect(measureEnvironment.EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256).toBe(
       runnerModuleSha256

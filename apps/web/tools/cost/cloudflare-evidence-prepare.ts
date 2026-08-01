@@ -206,7 +206,6 @@ async function run(
     '--untracked-files=all',
   ]);
   if (status.trim()) throw new Error('tooling worktree is not clean');
-  const reviewedAuthority = await verifyPrepareAuthority(input, environment);
   const [mutation, measurement] = await Promise.all([
     verifyReviewedEvidenceRunnerModule(
       workspaceRoot,
@@ -219,6 +218,9 @@ async function run(
       readEvidenceRunnerModuleDescriptor(environment, 'measurement')
     ),
   ]);
+  // Validate both reviewed runner entrypoints before consuming the one-use
+  // owner approval. A malformed module must not burn approval or create a
+  // journal that can never advance to mutation/measurement.
   await Promise.all([
     validateRunnerFactory(
       workspaceRoot,
@@ -233,6 +235,7 @@ async function run(
       'measurement'
     ),
   ]);
+  const reviewedAuthority = await verifyPrepareAuthority(input, environment);
   const runnerDescriptors = { mutation, measurement };
   const journal = await openEvidenceRun(stateDir, {
     ...input,

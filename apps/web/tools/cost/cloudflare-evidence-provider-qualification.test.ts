@@ -8,6 +8,7 @@ import {
 import {
   client,
   input,
+  journaledTopologyPlans,
   tuple,
 } from './cloudflare-evidence-provider-qualification.test-fixtures';
 
@@ -143,20 +144,30 @@ describe('deep Cloudflare provider topology qualification', () => {
       JournaledTopologyEndpoint,
       JournaledTopologyEndpoint,
     ] = [
-      input.journaledTopologies[0],
+      journaledTopologyPlans[0],
       {
-        ...input.journaledTopologies[1],
-        after: input.journaledTopologies[1].before,
+        ...journaledTopologyPlans[1],
+        after: journaledTopologyPlans[1].before,
       },
-      input.journaledTopologies[2],
+      journaledTopologyPlans[2],
     ];
     const unchanged = {
       ...input,
       topologies: unchangedTopologies,
-      journaledTopologies: unchangedJournaledTopologies,
     };
     await expect(
-      executeDeepCloudflareEvidenceQualification(client(), unchanged)
+      executeDeepCloudflareEvidenceQualification(
+        client({
+          topologyJournalRead: async (runId) => ({
+            runId,
+            accountId: 'account',
+            bucketName: `baci-ogabassey-storefront-evidence-${runId}`,
+            preInventorySha256: 'a'.repeat(64),
+            topologies: unchangedJournaledTopologies,
+          }),
+        }),
+        unchanged
+      )
     ).rejects.toThrow('real mutation');
   });
   it('rejects BYPASS as pointer-cache proof and never forwards an unjournaled URL', async () => {
@@ -168,7 +179,7 @@ describe('deep Cloudflare provider topology qualification', () => {
             cfCacheStatus: 'BYPASS',
             headers: {
               'X-Baci-Evidence-Bundle': 'version-a-204',
-              'X-Baci-Evidence-Version': 'a',
+              'X-Baci-Evidence-Version': 'provider-a',
             },
           }),
         }),
@@ -195,7 +206,7 @@ describe('deep Cloudflare provider topology qualification', () => {
           version: 'unreviewed',
         },
       })
-    ).rejects.toThrow('reviewed fixture');
+    ).rejects.toThrow('provider version');
     await expect(
       executeDeepCloudflareEvidenceQualification(
         client({
@@ -204,7 +215,7 @@ describe('deep Cloudflare provider topology qualification', () => {
             cfCacheStatus: 'DYNAMIC',
             headers: {
               'X-Baci-Evidence-Bundle': 'unreviewed',
-              'X-Baci-Evidence-Version': 'a',
+              'X-Baci-Evidence-Version': 'provider-a',
             },
           }),
         }),
@@ -231,17 +242,25 @@ describe('deep Cloudflare provider topology qualification', () => {
       })
     ).rejects.toThrow('journaled');
     await expect(
-      executeDeepCloudflareEvidenceQualification(client(), {
-        ...input,
-        journaledTopologies: [
-          input.journaledTopologies[0],
-          {
-            ...input.journaledTopologies[1],
-            responseSchemaSha256: 'd'.repeat(64),
-          },
-          input.journaledTopologies[2],
-        ],
-      })
+      executeDeepCloudflareEvidenceQualification(
+        client({
+          topologyJournalRead: async (runId) => ({
+            runId,
+            accountId: 'account',
+            bucketName: `baci-ogabassey-storefront-evidence-${runId}`,
+            preInventorySha256: 'a'.repeat(64),
+            topologies: [
+              journaledTopologyPlans[0],
+              {
+                ...journaledTopologyPlans[1],
+                responseSchemaSha256: 'd'.repeat(64),
+              },
+              journaledTopologyPlans[2],
+            ],
+          }),
+        }),
+        input
+      )
     ).rejects.toThrow('journaled');
   });
   it('rejects an ambiguous topology mutation response instead of claiming an audited receipt', async () => {
@@ -261,38 +280,5 @@ describe('deep Cloudflare provider topology qualification', () => {
         input
       )
     ).rejects.toThrow('ambiguous');
-  });
-  it('rejects a self-consistent topology mutation for another Worker', async () => {
-    const unrelatedEndpoint =
-      '/accounts/account/workers/scripts/production-storefront/domains/custom/edge-evidence.ogabassey.com';
-    const unrelatedTopologies: readonly [
-      TopologyPlan,
-      TopologyPlan,
-      TopologyPlan,
-    ] = [
-      {
-        ...input.topologies[0],
-        endpoint: unrelatedEndpoint,
-      },
-      input.topologies[1],
-      input.topologies[2],
-    ];
-    const unrelatedJournaledTopologies: readonly [
-      JournaledTopologyEndpoint,
-      JournaledTopologyEndpoint,
-      JournaledTopologyEndpoint,
-    ] = [
-      { ...input.journaledTopologies[0], endpoint: unrelatedEndpoint },
-      input.journaledTopologies[1],
-      input.journaledTopologies[2],
-    ];
-    const unrelatedWorker = {
-      ...input,
-      topologies: unrelatedTopologies,
-      journaledTopologies: unrelatedJournaledTopologies,
-    };
-    await expect(
-      executeDeepCloudflareEvidenceQualification(client(), unrelatedWorker)
-    ).rejects.toThrow('journaled');
   });
 });

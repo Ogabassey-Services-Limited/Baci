@@ -71,10 +71,7 @@ describe('ambiguous create recovery', () => {
         client
       )
     ).rejects.toThrow();
-    expect(cleanup).toHaveBeenCalledWith(
-      mutationResource.name,
-      mutationResource.id
-    );
+    expect(cleanup).not.toHaveBeenCalled();
     await expect(
       loadEvidenceRunForCleanup(dir, mutationInput.runId)
     ).resolves.toMatchObject({

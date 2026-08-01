@@ -189,6 +189,28 @@ describe('measurement observation timestamps', () => {
     ).rejects.toThrow('outside the active run window');
     expect(client.measure).not.toHaveBeenCalled();
   });
+
+  it('uses revoke-read to close a run whose stored measurement aged out', async () => {
+    const dir = await createMeasuredRun();
+    await recordEvidenceMeasurement(dir, input.runId, {
+      providerReceiptSha256: 'a'.repeat(64),
+      observedAt: '2026-07-31T00:00:00.000Z',
+    });
+    const client = measurementClient('2026-07-31T00:00:00.000Z');
+    await expect(
+      measureCloudflareEvidenceSources(dir, input.runId, capability, client, {
+        now: new Date('2026-08-01T00:01:00.000Z'),
+      })
+    ).rejects.toThrow('outside the active run window');
+    await expect(
+      revokeCloudflareEvidenceReadToken(dir, input.runId, capability, client, {
+        now: new Date('2026-08-01T00:01:00.000Z'),
+      })
+    ).resolves.toMatchObject({
+      phase: 'closed_stop',
+      measurementIncomplete: true,
+    });
+  });
 });
 
 describe('incomplete-run read-token revocation', () => {

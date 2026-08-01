@@ -142,7 +142,16 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
       measurementRunnerModuleSha256: runnerModuleSha256,
       dependencyManifestSha256,
     } as const;
-    const spawn = vi.fn(async () => undefined);
+    const originalCommand = await readFile(commandPath, 'utf8');
+    const spawn = vi.fn(async (_executable, argv) => {
+      if (!argv[1]?.includes('baci-evidence-closure-')) return;
+      await writeFile(
+        commandPath,
+        'throw new Error("workspace replacement");\n'
+      );
+      expect(await readFile(argv[1], 'utf8')).toBe(originalCommand);
+      await writeFile(commandPath, originalCommand);
+    });
     try {
       await openEvidenceRun(stateDir, input);
       await spawnIsolatedCloudflareEvidenceProcess(
@@ -161,13 +170,14 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
       );
       expect(spawn).toHaveBeenCalledTimes(1);
       expect(spawn.mock.calls[0]?.[0]).toBe(process.execPath);
-      expect(spawn.mock.calls[0]?.[1]).toEqual([
-        tsxCli,
-        commandPath,
-        '--run',
-        runId,
-        '--apply',
-      ]);
+      const [executable, argv, options] = spawn.mock.calls[0] ?? [];
+      expect(executable).toBe(process.execPath);
+      expect(argv?.[0]).not.toBe(tsxCli);
+      expect(argv?.[0]).toContain('baci-evidence-closure-');
+      expect(argv?.[1]).not.toBe(commandPath);
+      expect(argv?.[1]).toContain('baci-evidence-closure-');
+      expect(argv?.slice(2)).toEqual(['--run', runId, '--apply']);
+      expect(options?.cwd).toContain('baci-evidence-closure-');
       await writeFile(
         join(packageRoot, 'index.js'),
         'exports.packageValue = 2;\n'

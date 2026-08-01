@@ -96,6 +96,10 @@ export async function measureCloudflareEvidenceSources(
     throw new Error('a verified read capability is required');
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
   assertReadCapabilityMatchesJournal(capability, journal);
+  if (journal.measurementIncomplete)
+    throw new Error(
+      'measurement evidence is terminal; use --revoke-read to close the run'
+    );
   const measurementAlreadyRecorded = Boolean(
     journal.measurementVerifiedAt && journal.measurementReceiptSha256
   );
@@ -170,25 +174,66 @@ export async function revokeCloudflareEvidenceReadToken(
   stateDir: string,
   runId: string,
   capability: VerifiedEvidenceReadCapability,
-  client: EvidenceMeasurementClient
+  client: EvidenceMeasurementClient,
+  options: MeasurementOptions = {}
 ) {
   if (capability.kind !== 'read')
     throw new Error('a verified read capability is required');
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
   assertReadCapabilityMatchesJournal(capability, journal);
+  const measurementAlreadyRecorded = Boolean(
+    journal.measurementVerifiedAt && journal.measurementReceiptSha256
+  );
+  const staleMeasurement =
+    measurementAlreadyRecorded &&
+    isMeasurementOutsideWindow(journal, options.now ?? new Date());
   if (
-    journal.phase !== 'write_token_revoked' ||
-    (!journal.cleanupIncomplete && !journal.measurementIncomplete) ||
+    !['write_token_revoked', 'read_token_revoked'].includes(journal.phase) ||
+    (!journal.cleanupIncomplete &&
+      !journal.measurementIncomplete &&
+      !measurementAlreadyRecorded) ||
     !journal.writeTokenRevocationReceipt ||
     journal.writeTokenRevocationReceipt.tokenId !== journal.writeTokenId ||
-    journal.measurementVerifiedAt ||
-    journal.measurementReceiptSha256 ||
     !hasVerifiedCleanupWriteTokenRevocation(journal)
   )
     throw new Error(
       'read-token revocation requires a write-revoked incomplete run'
     );
-  return revokeEvidenceRunToken(stateDir, runId, 'read', client);
+  if (journal.phase === 'read_token_revoked') {
+    if (!staleMeasurement)
+      throw new Error(
+        'read token is already revoked; normal measurement completion is required'
+      );
+    return recordEvidencePhase(stateDir, runId, 'closed_stop', {
+      measurementIncomplete: true,
+      readBackEvidence: appendMeasurementStopEvidence(journal.readBackEvidence),
+    });
+  }
+  const revoked = await revokeEvidenceRunToken(stateDir, runId, 'read', client);
+  if (!staleMeasurement) return revoked;
+  return recordEvidencePhase(stateDir, runId, 'closed_stop', {
+    measurementIncomplete: true,
+    readBackEvidence: appendMeasurementStopEvidence(journal.readBackEvidence),
+  });
+}
+function isMeasurementOutsideWindow(
+  journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>,
+  now: Date
+) {
+  try {
+    assertMeasurementObservationWindow(
+      journal,
+      journal.measurementVerifiedAt,
+      now
+    );
+    return false;
+  } catch {
+    return true;
+  }
+}
+function appendMeasurementStopEvidence(evidence: readonly string[]) {
+  const marker = 'measurement evidence outside active run window; STOP';
+  return evidence.includes(marker) ? evidence : [...evidence, marker];
 }
 function assertReadCapabilityMatchesJournal(
   capability: VerifiedEvidenceReadCapability,

@@ -104,7 +104,8 @@ async function applyCloudflareEvidenceMutationUnlocked(
     } catch (error) {
       const failures: unknown[] = [error];
       try {
-        await reconcileCreatedEvidenceResource(client, name, createdId);
+        const cleanupArgs = [client, journal, name, createdId] as const;
+        await reconcileCreatedEvidenceResource(...cleanupArgs);
       } catch (reconcileError) {
         failures.push(reconcileError);
       }
