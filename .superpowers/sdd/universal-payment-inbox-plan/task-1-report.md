@@ -5,7 +5,7 @@
 - `supabase/migrations/20260801150000_payment_webhook_evidence_foundation.sql`
   creates only the three sealed private evidence relations plus the approved
   generation binding unique target. The final SHA-256 is
-  `c1e2851810d827e9bab54d6cb24140a71e81ac930e3f95640c40cee6d51d0dd6`.
+  `6b76ece9b86713f00552a11d9e942b73dd0c8893e958466314bdbf2766058321`.
 - `supabase/migrations/tests/payment_webhook_evidence_foundation.sql` provides
   the transactional catalog, ACL/RLS, closed-JSON, FK/cycle, uniqueness,
   retention, prerequisite, and rollback assertions without asserting
@@ -30,8 +30,12 @@
 
 ## GREEN evidence
 
-- With the foundation plus required companion-role boundary present, the
-  migration applied and the transactional SQL replay contract passed.
+- With both the foundation and full companion prerequisites present, including
+  the signature-key identity catalog, the migration applied and the
+  transactional SQL replay contract passed after `SET CONSTRAINTS ALL
+  IMMEDIATE` validated the constructed graph.
+- Terra's asymmetric nullable-pair regression first failed against the prior
+  CHECK, then passed after the populated branch was made explicitly non-null.
 - Focused migration source contract passed (3 tests).
 - Replay source test passed (6 tests); replay-manifest test passed (9 tests).
 - `pnpm turbo lint` passed (existing warnings only) and `pnpm turbo typecheck`

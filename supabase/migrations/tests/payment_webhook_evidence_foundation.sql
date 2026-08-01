@@ -224,6 +224,7 @@ $$;
 DO $$
 DECLARE
   v_generation_id uuid := '10000000-0000-4000-8000-000000000001';
+  v_identity_id uuid := '10000000-0000-4000-8000-000000000002';
   v_manifest_id uuid := '20000000-0000-4000-8000-000000000001';
   v_inbox_id uuid := '30000000-0000-4000-8000-000000000001';
   v_proof_id uuid := '40000000-0000-4000-8000-000000000001';
@@ -273,13 +274,21 @@ BEGIN
     RAISE EXCEPTION 'payment webhook evidence foreign keys do not match the deferred retention contract';
   END IF;
 
+  INSERT INTO private.payment_ingress_signature_key_identities (
+    id, provider, endpoint_key, signature_key_scope, identity_revision,
+    identity_kind, material_fingerprint, provenance_reference
+  ) VALUES (
+    v_identity_id, 'provider', 'endpoint', 'signature', 1,
+    'shared_secret_config', repeat('0', 64), 'test-identity'
+  );
+
   INSERT INTO private.payment_ingress_contract_generations (
     id, provider, endpoint_key, signature_key_scope, signature_key_identity_id,
     authority_key, generation, parser_contract_version, parser_artifact_sha256,
     normalized_envelope_schema_version, replay_identity_contract_version
   ) VALUES (
     v_generation_id, 'provider', 'endpoint', 'signature',
-    '10000000-0000-4000-8000-000000000002', 'authority', 1, 'adapter-v1',
+    v_identity_id, 'authority', 1, 'adapter-v1',
     repeat('a', 64), 'envelope-v1', 'replay-v1'
   );
 
@@ -293,7 +302,7 @@ BEGIN
     amount_minor, currency, contract_bound_minor, redacted_parent_source_identity
   ) VALUES (
     v_manifest_id, 'provider', 'endpoint', 'signature', 'authority',
-    '10000000-0000-4000-8000-000000000002', v_generation_id, 1, 'adapter-v1',
+    v_identity_id, v_generation_id, 1, 'adapter-v1',
     'envelope-v1', 'replay-v1', 'svix', repeat('b', 64),
     '{"v":1,"kind":"svix","provider":"provider","endpoint_key":"endpoint","signature_key_scope":"signature","completion_authority_key":"authority","svix_id":"event-1","event_type":"payment.received"}'::jsonb,
     v_scope, 'singleton', repeat('c', 64), 1, 100, 'NGN', 100, v_parent
@@ -310,7 +319,7 @@ BEGIN
     child_manifest_sha256, child_count, manifest_amount_minor, manifest_currency
   ) VALUES (
     v_inbox_id, 'provider', 'endpoint', 'signature', 'authority',
-    '10000000-0000-4000-8000-000000000002', v_generation_id, 1, 'adapter-v1',
+    v_identity_id, v_generation_id, 1, 'adapter-v1',
     'envelope-v1', 'replay-v1', 'svix', repeat('b', 64),
     '{"v":1,"kind":"svix","provider":"provider","endpoint_key":"endpoint","signature_key_scope":"signature","completion_authority_key":"authority","svix_id":"event-1","event_type":"payment.received"}'::jsonb,
     v_scope, v_envelope, repeat('d', 64), repeat('e', 64), 'payment.received',
@@ -332,6 +341,28 @@ BEGIN
     'claim_installed', 'none'
   );
 
+  SET CONSTRAINTS ALL IMMEDIATE;
+
+  BEGIN
+    UPDATE private.payment_webhook_inbox
+    SET amount_minor = NULL, currency = 'NGN'
+    WHERE id = v_inbox_id;
+    RAISE EXCEPTION 'amount-null/currency-populated pair unexpectedly passed';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
+    IF v_constraint IS DISTINCT FROM 'payment_webhook_inbox_amount_currency_check' THEN RAISE; END IF;
+  END;
+
+  BEGIN
+    UPDATE private.payment_webhook_inbox
+    SET amount_minor = 100, currency = NULL
+    WHERE id = v_inbox_id;
+    RAISE EXCEPTION 'amount-populated/currency-null pair unexpectedly passed';
+  EXCEPTION WHEN check_violation THEN
+    GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
+    IF v_constraint IS DISTINCT FROM 'payment_webhook_inbox_amount_currency_check' THEN RAISE; END IF;
+  END;
+
   -- Valid account-reference and fallback-locator preimages are admitted without
   -- claiming that their digests or semantic facts are writer-validated here.
   INSERT INTO private.payment_webhook_source_manifests (
@@ -344,12 +375,12 @@ BEGIN
     amount_minor, currency, contract_bound_minor, redacted_parent_source_identity
   ) VALUES
     ('20000000-0000-4000-8000-000000000002', 'provider', 'endpoint', 'signature', 'authority',
-      '10000000-0000-4000-8000-000000000002', v_generation_id, 1, 'adapter-v1', 'envelope-v1', 'replay-v1',
+      v_identity_id, v_generation_id, 1, 'adapter-v1', 'envelope-v1', 'replay-v1',
       'account_reference', repeat('1', 64),
       '{"v":1,"kind":"account_reference","provider":"provider","completion_authority_key":"authority","provider_account_scope":"__unresolved__","provider_reference":"reference-1","event_type":"payment.received"}'::jsonb,
       v_scope, 'singleton', repeat('2', 64), 1, 100, 'NGN', 100, '{}'::jsonb),
     ('20000000-0000-4000-8000-000000000003', 'provider', 'endpoint', 'signature', 'authority',
-      '10000000-0000-4000-8000-000000000002', v_generation_id, 1, 'adapter-v1', 'envelope-v1', 'replay-v1',
+      v_identity_id, v_generation_id, 1, 'adapter-v1', 'envelope-v1', 'replay-v1',
       'fallback_locator', repeat('3', 64),
       '{"v":1,"kind":"fallback_locator","provider":"provider","endpoint_key":"endpoint","signature_key_scope":"signature","completion_authority_key":"authority","event_type":"payment.received","reference":"__unresolved__","amount_minor":"100","currency":"NGN","provider_paid_at":"__unresolved__","raw_body_sha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}'::jsonb,
       v_scope, 'singleton', repeat('4', 64), 1, 100, 'NGN', 100, '{}'::jsonb);

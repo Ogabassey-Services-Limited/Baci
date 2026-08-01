@@ -355,7 +355,12 @@ CREATE TABLE private.payment_webhook_inbox (
   CONSTRAINT payment_webhook_inbox_amount_currency_check
     CHECK (
       (amount_minor IS NULL AND currency IS NULL)
-      OR (amount_minor > 0 AND currency ~ '^[A-Z]{3}$')
+      OR (
+        amount_minor IS NOT NULL
+        AND currency IS NOT NULL
+        AND amount_minor > 0
+        AND currency ~ '^[A-Z]{3}$'
+      )
     ),
   CONSTRAINT payment_webhook_inbox_manifest_check
     CHECK (
