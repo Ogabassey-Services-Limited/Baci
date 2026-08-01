@@ -111,7 +111,9 @@ export function buildClusterGuideSearchQuery(
       ? spreadTerms(
           getProductModelIdentifiers(context).map(getCompactCategoryProductTerm)
         )
-      : (context.productSlugs ?? []).map((slug) => slug.replace(/-/g, ' '));
+      : context.pageKind === 'product' || context.pageKind === 'compare'
+        ? getProductModelIdentifiers(context)
+        : (context.productSlugs ?? []).map((slug) => slug.replace(/-/g, ' '));
   const rawTerms = [
     ...support.categoryNames,
     ...getContextBrandTerms(context),

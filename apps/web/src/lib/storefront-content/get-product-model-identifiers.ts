@@ -231,7 +231,6 @@ function getModelTokens(
   const modelTokens = tokens.filter(
     (token, index) =>
       !SPECIFICATION_TOKEN_PATTERN.test(token) &&
-      !YEAR_TOKEN_PATTERN.test(token) &&
       token !== 'inch' &&
       (token !== 'in' || isConvertibleInConnector(tokens, index)) &&
       !isDimensionToken(tokens, index)

@@ -115,6 +115,19 @@ describe('getProductModelIdentifiers model phrases', () => {
     expect(identifiers).toEqual(['air m3']);
   });
 
+  it('retains year-only laptop generations as model discriminators', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Apple'],
+      productSlugs: [
+        '13-macbook-air-2015-8gb-128gb-i5',
+        '13-macbook-air-2017-8gb-128gb-i5',
+      ],
+    });
+
+    expect(identifiers).toEqual(['air 2015', 'air 2017']);
+  });
+
   it('strips a leading filler article before selecting a phone model', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

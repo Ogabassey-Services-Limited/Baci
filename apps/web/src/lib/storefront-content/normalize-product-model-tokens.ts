@@ -64,6 +64,7 @@ const REGION_OR_VARIANT_SUFFIX_TOKENS = new Set([
 ]);
 const CONNECTIVITY_MARKER_TOKENS = new Set([
   'dual',
+  'e',
   'nano',
   'physical',
   'single',

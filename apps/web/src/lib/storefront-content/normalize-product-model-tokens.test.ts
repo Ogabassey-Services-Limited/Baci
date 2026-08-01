@@ -88,4 +88,16 @@ describe('normalizeProductModelTokens', () => {
 
     expect(tokens).toEqual(['iphone', '16', 'pro']);
   });
+
+  it('removes a hyphenated e-sim suffix', () => {
+    const tokens = normalizeProductModelTokens([
+      'iphone',
+      '14',
+      'pro',
+      'e',
+      'sim',
+    ]);
+
+    expect(tokens).toEqual(['iphone', '14', 'pro']);
+  });
 });

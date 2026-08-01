@@ -30,7 +30,7 @@ describe('buildClusterGuideSearchQuery', () => {
     expect(query).not.toContain(')');
     expect(query).not.toContain('\n');
     expect(query.split(' OR ')).toEqual(
-      expect.arrayContaining(['"password"', '"pixel 8 secret"'])
+      expect.arrayContaining(['"password"', '"8 secret"'])
     );
     expect(query.split(' OR ').every((term) => /^"[^"\\]+"$/u.test(term))).toBe(
       true
@@ -90,5 +90,19 @@ describe('buildClusterGuideSearchQuery', () => {
       modelNumbers.every((modelNumber) => query.includes(`"${modelNumber}"`))
     ).toBe(true);
     expect(new TextEncoder().encode(query).byteLength).toBeLessThanOrEqual(512);
+  });
+
+  it('uses normalized model terms for product and compare retrieval', () => {
+    for (const pageKind of ['product', 'compare'] as const) {
+      const query = buildClusterGuideSearchQuery({
+        pageKind,
+        categorySlug: 'smartphones',
+        brands: ['Samsung'],
+        productSlugs: ['samsung-galaxy-s25-ultra-12gb-256gb'],
+      });
+
+      expect(query).toContain('"s25 ultra"');
+      expect(query).not.toContain('"samsung galaxy s25 ultra 12gb 256gb"');
+    }
   });
 });

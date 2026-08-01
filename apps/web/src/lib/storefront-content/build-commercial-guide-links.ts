@@ -63,6 +63,9 @@ export function buildCommercialGuideLinks(
 ): InformationalGuideLink[] {
   const preferredKinds = KIND_PREFERENCE[input.context.pageKind];
   const productModelIdentifiers = getProductModelIdentifiers(input.context);
+  const modelFamilyTokens = tokenizeModelIdentifier(
+    input.context.modelFamilySlug ?? ''
+  );
 
   return input.posts
     .map((post) => {
@@ -100,15 +103,19 @@ export function buildCommercialGuideLinks(
         score += CONTENT_CLUSTER_SCORE.priceBandMatch;
       }
 
-      if (
-        productModelIdentifiers.some((identifier) => {
+      const hasProductModelMatch = productModelIdentifiers.some(
+        (identifier) => {
           const identifierTokens = tokenizeModelIdentifier(identifier);
           return (
             identifierTokens.length > 0 &&
             identifierTokens.every((token) => inferred.tokens.includes(token))
           );
-        })
-      ) {
+        }
+      );
+      const hasModelFamilyMatch =
+        modelFamilyTokens.length > 0 &&
+        modelFamilyTokens.every((token) => inferred.tokens.includes(token));
+      if (hasProductModelMatch || hasModelFamilyMatch) {
         score += CONTENT_CLUSTER_SCORE.productTokenMatch;
       }
 

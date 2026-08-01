@@ -5,6 +5,7 @@ const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'series',
   'version',
 ]);
+const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 
 function isConvertibleInConnector(tokens: string[], index: number) {
   return (
@@ -24,7 +25,17 @@ function isMeaningfulModelToken(token: string) {
 
 /** Selects a compact phrase from already-normalized model tokens. */
 export function selectProductModelIdentifier(tokens: string[]) {
-  const numericIndex = tokens.findLastIndex((token) => /^\d+$/u.test(token));
+  const hasNonYearAlphanumericModel = tokens.some(
+    (token) =>
+      !YEAR_TOKEN_PATTERN.test(token) &&
+      /[a-z]/u.test(token) &&
+      /\d/u.test(token)
+  );
+  const numericIndex = tokens.findLastIndex(
+    (token) =>
+      /^\d+$/u.test(token) &&
+      (!YEAR_TOKEN_PATTERN.test(token) || !hasNonYearAlphanumericModel)
+  );
   if (numericIndex >= 0) {
     const hasConvertibleModel = tokens.some((_, index) =>
       isConvertibleInConnector(tokens, index)
