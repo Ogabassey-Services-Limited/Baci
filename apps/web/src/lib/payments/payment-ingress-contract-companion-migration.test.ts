@@ -70,6 +70,18 @@ describe('payment ingress control-plane companion migration', () => {
 
   it('creates the dedicated no-login executor role and no table grant', () => {
     expect(migrationSql).toContain('CREATE ROLE payment_control_plane');
+    expect(migrationSql).toContain(
+      'CREATE SCHEMA private_payment_control_plane AUTHORIZATION postgres;'
+    );
+    expect(migrationSql).toContain(
+      'REVOKE ALL ON SCHEMA private_payment_control_plane FROM PUBLIC, anon, authenticated, service_role;'
+    );
+    expect(migrationSql).toContain(
+      'GRANT USAGE ON SCHEMA private_payment_control_plane TO payment_control_plane;'
+    );
+    expect(migrationSql).toContain(
+      'REVOKE ALL ON SCHEMA private FROM payment_control_plane;'
+    );
     for (const roleFlag of [
       'NOLOGIN',
       'NOSUPERUSER',
@@ -114,11 +126,17 @@ describe('payment ingress control-plane companion migration', () => {
             .replaceAll(' ', '\\s*')}\\)\\s+OWNER TO postgres;`
         )
       );
-      expect(migrationSql).toContain('SECURITY DEFINER');
-      expect(migrationSql).toContain("SET search_path = ''");
       expect(migrationSql).toContain(
+        `CREATE OR REPLACE FUNCTION private_payment_control_plane.${functionName}`
+      );
+      expect(migrationSql).toContain(
+        `GRANT EXECUTE ON FUNCTION private_payment_control_plane.${signature} TO payment_control_plane;`
+      );
+      expect(migrationSql).not.toContain(
         `GRANT EXECUTE ON FUNCTION private.${signature} TO payment_control_plane;`
       );
+      expect(migrationSql).toContain('SECURITY DEFINER');
+      expect(migrationSql).toContain("SET search_path = ''");
     }
 
     expect(migrationSql).toContain("current_setting('role', true)");
@@ -147,6 +165,9 @@ describe('payment ingress control-plane companion migration', () => {
     expect(migrationSql).toContain('compatibility_proof_id');
     expect(migrationSql).toContain('request_fingerprint');
     expect(migrationSql).toContain('deployment_binding_id');
+    expect(migrationSql).toContain(
+      'payment_ingress_deployment_attestations_revocation_pair_check\n    CHECK (\n      (\n        (revoked_at IS NULL AND revocation_reference IS NULL)'
+    );
     expect(migrationSql).toContain('outgoing_expected_control_version');
     expect(migrationSql).toContain('incoming_expected_control_version');
     expect(migrationSql).toContain('result_control_version');

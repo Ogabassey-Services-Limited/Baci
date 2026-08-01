@@ -1031,11 +1031,13 @@ enables and forces RLS, defines no policy, and revokes every table
 privilege from `PUBLIC`, `anon`, `authenticated`, and `service_role`. Existing
 private-schema privileges remain unchanged. Future narrowly granted
 `SECURITY DEFINER` functions are the only intended access path; Task 1 adds none,
-while the later companion may add dormant functions under the dedicated
-control-plane role frozen below.
+while the later companion may add dormant private implementation functions plus
+dedicated-schema wrappers under the dedicated control-plane role frozen below.
 Before the first writer, each such function is owned by `postgres`, declares
 `SECURITY DEFINER SET search_path = ''`, is revoked from `PUBLIC`, `anon`, and
-`authenticated`, and grants `EXECUTE` only to `payment_control_plane`. It rejects
+`authenticated`. Only the dedicated-schema wrapper receives `EXECUTE` for
+`payment_control_plane`; the role receives no `USAGE` on `private`, so unrelated
+private-schema functions remain unreachable. The implementation writer rejects
  a caller whose `current_setting('role', true)` is not exactly
 `payment_control_plane`, validates the immutable actor/approval/evidence
 authorization inside the function, names every object with
@@ -1080,7 +1082,9 @@ acknowledgement, parser, money path, or deployment activation may use them.
 
 The companion uses a dedicated `payment_control_plane` `NOLOGIN` database role,
 created with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION`, as
-the only executable role for its guarded functions. A later reviewed deployment
+the only executable role for its guarded functions. Its `USAGE` is limited to
+the dedicated `private_payment_control_plane` schema, whose wrappers are the
+only role-executable entry points; the role has no `USAGE` on `private`. A later reviewed deployment
 credential may be granted membership in that role; the generic `service_role`
 and every user-facing edge remain unable to execute the functions. Every new
 table is private, forced-RLS, policy-free, and has all table privileges revoked
@@ -1239,6 +1243,11 @@ guarded transition functions are exactly:
 - `private.retire_payment_ingress_contract_generation(operation_id uuid,
   outgoing_generation_id uuid, expected_control_version bigint,
   deployment_binding_id uuid)`.
+
+These five private writers are implementation functions, not the credential
+surface. The companion exposes same-signature wrappers in
+`private_payment_control_plane`, grants `EXECUTE` only to those wrappers for
+`payment_control_plane`, and grants that role no `USAGE` on `private`.
 
 Each returns `(operation_id uuid, generation_id uuid, generation bigint,
 control_version bigint, replayed boolean, result_code text)`. Every function

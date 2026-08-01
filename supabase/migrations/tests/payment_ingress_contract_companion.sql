@@ -67,13 +67,21 @@ BEGIN
     END LOOP;
   END LOOP;
 
-    IF NOT EXISTS (
+  IF NOT EXISTS (
       SELECT 1 FROM pg_roles
       WHERE rolname = 'payment_control_plane'
         AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
       AND NOT rolinherit AND NOT rolreplication AND NOT rolbypassrls
     ) THEN
     RAISE EXCEPTION 'payment_control_plane must be the exact no-login executor role';
+  END IF;
+
+  IF has_schema_privilege('payment_control_plane', 'private', 'USAGE')
+    OR NOT has_schema_privilege(
+      'payment_control_plane', 'private_payment_control_plane', 'USAGE'
+    )
+  THEN
+    RAISE EXCEPTION 'payment_control_plane schema isolation is wrong';
   END IF;
 
   FOREACH v_function IN ARRAY ARRAY[
@@ -84,10 +92,24 @@ BEGIN
     'retire_payment_ingress_contract_generation(uuid,uuid,bigint,uuid)'
   ] LOOP
     IF to_regprocedure('private.' || v_function) IS NULL
-      OR NOT has_function_privilege('payment_control_plane', 'private.' || v_function, 'EXECUTE')
-      OR has_function_privilege('service_role', 'private.' || v_function, 'EXECUTE')
-      OR has_function_privilege('authenticated', 'private.' || v_function, 'EXECUTE')
-      OR has_function_privilege('anon', 'private.' || v_function, 'EXECUTE')
+      OR to_regprocedure('private_payment_control_plane.' || v_function) IS NULL
+      OR NOT has_function_privilege(
+        'payment_control_plane',
+        'private_payment_control_plane.' || v_function,
+        'EXECUTE'
+      )
+      OR has_function_privilege(
+        'payment_control_plane', 'private.' || v_function, 'EXECUTE'
+      )
+      OR has_function_privilege(
+        'service_role', 'private_payment_control_plane.' || v_function, 'EXECUTE'
+      )
+      OR has_function_privilege(
+        'authenticated', 'private_payment_control_plane.' || v_function, 'EXECUTE'
+      )
+      OR has_function_privilege(
+        'anon', 'private_payment_control_plane.' || v_function, 'EXECUTE'
+      )
     THEN
       RAISE EXCEPTION 'companion function ACL/shape is wrong: %', v_function;
     END IF;
@@ -162,6 +184,19 @@ BEGIN
     v_attestation_id, 'test', repeat('b', 64), repeat('c', 64), 'migration',
     'migration-fixture', clock_timestamp(), clock_timestamp() + interval '1 day'
   );
+
+  BEGIN
+    INSERT INTO private.payment_ingress_deployment_attestations (
+      id, environment, manifest_sha256, attestation_sha256, verified_by,
+      approval_reference, verified_at, retention_until, revoked_at
+    ) VALUES (
+      '10000000-0000-4000-8000-000000000012', 'test', repeat('b', 64),
+      repeat('c', 64), 'migration', 'migration-fixture', clock_timestamp(),
+      clock_timestamp() + interval '1 day', clock_timestamp()
+    );
+    RAISE EXCEPTION 'revoked attestation without reference unexpectedly passed';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
 
   INSERT INTO private.payment_ingress_deployment_manifest_bindings (
     id, environment, provider, endpoint_key, signature_key_scope, authority_key,
@@ -495,35 +530,35 @@ BEGIN
 
   -- The role GUC, not the function ACL, must reject every non-control caller.
   BEGIN
-    PERFORM private.create_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.create_payment_ingress_contract_generation(
       v_create_one_operation, v_binding_one
     );
     RAISE EXCEPTION 'create did not reject the non-control role';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
   BEGIN
-    PERFORM private.activate_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.activate_payment_ingress_contract_generation(
       v_activate_operation, v_generation_five, 1, v_binding_one
     );
     RAISE EXCEPTION 'activate did not reject the non-control role';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
   BEGIN
-    PERFORM private.roll_forward_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.roll_forward_payment_ingress_contract_generation(
       v_roll_forward_operation, v_generation_five, 1, v_binding_one, v_proof_one_id
     );
     RAISE EXCEPTION 'roll-forward did not reject the non-control role';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
   BEGIN
-    PERFORM private.rollback_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.rollback_payment_ingress_contract_generation(
       v_rollback_operation, v_generation_five, 1, v_binding_one, v_proof_one_id
     );
     RAISE EXCEPTION 'rollback did not reject the non-control role';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
   BEGIN
-    PERFORM private.retire_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.retire_payment_ingress_contract_generation(
       v_retire_operation, v_generation_five, 1, v_binding_one
     );
     RAISE EXCEPTION 'retire did not reject the non-control role';
@@ -534,7 +569,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.create_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.create_payment_ingress_contract_generation(
     v_create_one_operation, v_binding_one
   ) AS result;
   IF v_generation <> 1 OR v_control_version <> 1 OR v_replayed OR v_result_code <> 'created' THEN
@@ -544,7 +579,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.create_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.create_payment_ingress_contract_generation(
     v_create_one_operation, v_binding_one
   ) AS result;
   IF v_generation <> 1 OR v_control_version <> 1 OR NOT v_replayed OR v_result_code <> 'replayed' THEN
@@ -552,7 +587,7 @@ BEGIN
   END IF;
 
   BEGIN
-    PERFORM private.create_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.create_payment_ingress_contract_generation(
       v_create_one_operation, v_binding_two
     );
     RAISE EXCEPTION 'divergent creation retry unexpectedly passed';
@@ -562,7 +597,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.activate_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.activate_payment_ingress_contract_generation(
     v_activate_operation, v_generation_one, 1, v_binding_one
   ) AS result;
   IF v_generation <> 1 OR v_control_version <> 2 OR v_replayed OR v_result_code <> 'activated' THEN
@@ -574,7 +609,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_two, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.create_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.create_payment_ingress_contract_generation(
     v_create_two_operation, v_binding_two
   ) AS result;
   IF v_generation <> 2 OR v_control_version <> 1 OR v_replayed OR v_result_code <> 'created' THEN
@@ -599,7 +634,7 @@ BEGIN
 
   PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
   BEGIN
-    PERFORM private.roll_forward_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.roll_forward_payment_ingress_contract_generation(
       v_roll_forward_operation, v_generation_one, 1, v_binding_two, v_proof_one_id
     );
     RAISE EXCEPTION 'stale roll-forward compare-and-set unexpectedly passed';
@@ -608,7 +643,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_two, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.roll_forward_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.roll_forward_payment_ingress_contract_generation(
     v_roll_forward_operation, v_generation_one, 2, v_binding_two, v_proof_one_id
   ) AS result;
   IF v_generation <> 2 OR v_control_version <> 2 OR v_replayed
@@ -620,7 +655,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.create_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.create_payment_ingress_contract_generation(
     v_create_one_operation, v_binding_one
   ) AS result;
   IF v_generation <> 1 OR v_control_version <> 1 OR NOT v_replayed
@@ -630,7 +665,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.activate_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.activate_payment_ingress_contract_generation(
     v_activate_operation, v_generation_one, 1, v_binding_one
   ) AS result;
   IF v_generation <> 1 OR v_control_version <> 2 OR NOT v_replayed
@@ -642,7 +677,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_three, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.create_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.create_payment_ingress_contract_generation(
     v_create_three_operation, v_binding_three
   ) AS result;
   IF v_generation <> 3 OR v_control_version <> 1 OR v_replayed OR v_result_code <> 'created' THEN
@@ -669,7 +704,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_three, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.rollback_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.rollback_payment_ingress_contract_generation(
     v_rollback_operation, v_generation_two, 2, v_binding_three, v_proof_two_id
   ) AS result;
   IF v_generation <> 3 OR v_control_version <> 2 OR v_replayed
@@ -680,7 +715,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_two, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.roll_forward_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.roll_forward_payment_ingress_contract_generation(
     v_roll_forward_operation, v_generation_one, 2, v_binding_two, v_proof_one_id
   ) AS result;
   IF v_generation <> 2 OR v_control_version <> 2 OR NOT v_replayed
@@ -690,7 +725,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_three, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.rollback_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.rollback_payment_ingress_contract_generation(
     v_rollback_operation, v_generation_two, 2, v_binding_three, v_proof_two_id
   ) AS result;
   IF v_generation <> 3 OR v_control_version <> 2 OR NOT v_replayed
@@ -702,7 +737,7 @@ BEGIN
   SELECT result.generation_id, result.generation, result.control_version,
     result.replayed, result.result_code
   INTO v_generation_four, v_generation, v_control_version, v_replayed, v_result_code
-  FROM private.create_payment_ingress_contract_generation(
+  FROM private_payment_control_plane.create_payment_ingress_contract_generation(
     v_create_four_operation, v_binding_four
   ) AS result;
   IF v_generation <> 4 OR v_control_version <> 1 OR v_replayed OR v_result_code <> 'created' THEN
@@ -730,7 +765,7 @@ BEGIN
 
   PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
   BEGIN
-    PERFORM private.roll_forward_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.roll_forward_payment_ingress_contract_generation(
       v_proof_mismatch_operation, v_generation_three, 2, v_binding_four,
       v_proof_mismatch_id
     );
@@ -765,7 +800,7 @@ BEGIN
 
   PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
   BEGIN
-    PERFORM private.roll_forward_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.roll_forward_payment_ingress_contract_generation(
       v_root_mismatch_operation, v_generation_three, 2, v_binding_five,
       v_root_mismatch_proof_id
     );
@@ -773,7 +808,7 @@ BEGIN
   EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
   END;
   BEGIN
-    PERFORM private.retire_payment_ingress_contract_generation(
+    PERFORM private_payment_control_plane.retire_payment_ingress_contract_generation(
       v_retire_operation, v_generation_three, 2, v_binding_three
     );
     RAISE EXCEPTION 'retire unexpectedly passed before later safety gates';

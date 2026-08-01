@@ -17,7 +17,7 @@
 - Do not modify routes, webhooks, Svix, checkout, parser code, provider configuration, acknowledgements, orders, transactions, wallets, settlement, inventory, cleanup, generated Supabase types, or deployment activation.
 - The companion migration must set `lock_timeout = '5s'` and `statement_timeout = '30s'` before DDL.
 - Every companion table is private, forced-RLS, policy-free, and has all table privileges revoked from `PUBLIC`, `anon`, `authenticated`, `service_role`, and `payment_control_plane`.
-- Create `payment_control_plane` only as `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`, with no role memberships; grant it only `EXECUTE` on the five named guarded functions.
+- Create `payment_control_plane` only as `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`, with no role memberships; grant it only `USAGE` on `private_payment_control_plane` and `EXECUTE` on the five named wrappers, never `USAGE` on `private`.
 - The six companion relations are the identity catalog, deployment-attestation root, deployment binding, parser proof registry, creation receipts, and transition receipts; no relation is seeded by the migration.
 - The reviewed deployment migration that later provisions an attestation is the
   only author of identity, binding, and proof rows; this companion adds no
@@ -52,6 +52,11 @@
   `private.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid)`,
   `private.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid)`, and
   `private.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid)`.
+- The five private writers are implementation functions only. The role receives
+  `USAGE` on the dedicated `private_payment_control_plane` schema and `EXECUTE`
+  only on same-signature `SECURITY DEFINER` wrappers there; it receives no
+  `USAGE` on `private`, so unrelated private-schema functions cannot be reached
+  through the executor credential.
 - Every function returns `(operation_id uuid, generation_id uuid, generation bigint, control_version bigint, replayed boolean, result_code text)`.
 
 - [ ] **Step 1: Write the failing source and SQL contracts**
@@ -125,20 +130,25 @@
   Add the timeout-guarded migration in this order:
 
   1. Create the `payment_control_plane` role with the exact no-login/no-create
-     flags if absent; do not grant it table privileges.
+     flags if absent; create the dedicated `private_payment_control_plane`
+     schema, revoke generic schema access, and do not grant the role table
+     privileges or `USAGE` on `private`.
   2. Create the identity catalog, deployment-attestation root, and deployment-
      binding tables, then add the deferrable same-scope and identity-revision
      FKs from the existing generation registry/binding.
   3. Create the proof, creation-receipt, and transition-receipt tables with every
      named constraint/index/FK and the exact receipt branch matrix.
-  4. Create the five `postgres`-owned `SECURITY DEFINER SET search_path = ''`
-    functions with schema-qualified SQL, `current_setting('role', true)` role
+  4. Create the five `postgres`-owned private `SECURITY DEFINER SET search_path = ''`
+    writers and dedicated-schema wrappers with schema-qualified SQL,
+    `current_setting('role', true)` role
     checks, operation-level serialization before advisory-lock derivation from
     the four scope keys, retry fingerprint comparison, checked bigint
     allocation, locked CAS, same-transaction receipt insertion, and unique-key
     race recovery.
-  5. Revoke all function execute privileges, then grant `EXECUTE` only to
-     `payment_control_plane`; do not grant `service_role` or any user-facing role.
+  5. Revoke all function execute privileges, then grant `EXECUTE` only to the
+     dedicated-schema wrappers for `payment_control_plane`; do not grant
+     `service_role` or any user-facing role, and do not expose the private
+     implementation writers through `PUBLIC`.
   6. Enable/force RLS, revoke direct table privileges, and add the required
      comments. Do not insert any row.
 

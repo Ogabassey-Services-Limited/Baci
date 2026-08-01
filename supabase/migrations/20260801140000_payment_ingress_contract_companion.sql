@@ -43,6 +43,11 @@ BEGIN
 END;
 $$;
 
+CREATE SCHEMA private_payment_control_plane AUTHORIZATION postgres;
+REVOKE ALL ON SCHEMA private_payment_control_plane FROM PUBLIC, anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA private_payment_control_plane TO payment_control_plane;
+REVOKE ALL ON SCHEMA private FROM payment_control_plane;
+
 CREATE TABLE private.payment_ingress_signature_key_identities (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider text NOT NULL,
@@ -111,13 +116,15 @@ CREATE TABLE private.payment_ingress_deployment_attestations (
     ),
   CONSTRAINT payment_ingress_deployment_attestations_revocation_pair_check
     CHECK (
-      (revoked_at IS NULL AND revocation_reference IS NULL)
-      OR (
-        revoked_at IS NOT NULL
-        AND revocation_reference = btrim(revocation_reference)
-        AND revocation_reference <> ''
-        AND char_length(revocation_reference) <= 512
-      )
+      (
+        (revoked_at IS NULL AND revocation_reference IS NULL)
+        OR (
+          revoked_at IS NOT NULL
+          AND revocation_reference = btrim(revocation_reference)
+          AND revocation_reference <> ''
+          AND char_length(revocation_reference) <= 512
+        )
+      ) IS TRUE
     ),
   CONSTRAINT payment_ingress_deployment_attestations_identity_key
     UNIQUE (id, environment, manifest_sha256, attestation_sha256)
@@ -1645,6 +1652,111 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION private_payment_control_plane.create_payment_ingress_contract_generation(
+  p_operation_id uuid,
+  p_deployment_binding_id uuid
+)
+RETURNS TABLE (
+  operation_id uuid,
+  generation_id uuid,
+  generation bigint,
+  control_version bigint,
+  replayed boolean,
+  result_code text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT * FROM private.create_payment_ingress_contract_generation($1, $2);
+$$;
+
+CREATE OR REPLACE FUNCTION private_payment_control_plane.activate_payment_ingress_contract_generation(
+  p_operation_id uuid,
+  p_generation_id uuid,
+  p_expected_control_version bigint,
+  p_deployment_binding_id uuid
+)
+RETURNS TABLE (
+  operation_id uuid,
+  generation_id uuid,
+  generation bigint,
+  control_version bigint,
+  replayed boolean,
+  result_code text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT * FROM private.activate_payment_ingress_contract_generation($1, $2, $3, $4);
+$$;
+
+CREATE OR REPLACE FUNCTION private_payment_control_plane.roll_forward_payment_ingress_contract_generation(
+  p_operation_id uuid,
+  p_outgoing_generation_id uuid,
+  p_expected_control_version bigint,
+  p_deployment_binding_id uuid,
+  p_compatibility_proof_id uuid
+)
+RETURNS TABLE (
+  operation_id uuid,
+  generation_id uuid,
+  generation bigint,
+  control_version bigint,
+  replayed boolean,
+  result_code text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT * FROM private.roll_forward_payment_ingress_contract_generation($1, $2, $3, $4, $5);
+$$;
+
+CREATE OR REPLACE FUNCTION private_payment_control_plane.rollback_payment_ingress_contract_generation(
+  p_operation_id uuid,
+  p_outgoing_generation_id uuid,
+  p_expected_control_version bigint,
+  p_deployment_binding_id uuid,
+  p_compatibility_proof_id uuid
+)
+RETURNS TABLE (
+  operation_id uuid,
+  generation_id uuid,
+  generation bigint,
+  control_version bigint,
+  replayed boolean,
+  result_code text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT * FROM private.rollback_payment_ingress_contract_generation($1, $2, $3, $4, $5);
+$$;
+
+CREATE OR REPLACE FUNCTION private_payment_control_plane.retire_payment_ingress_contract_generation(
+  p_operation_id uuid,
+  p_outgoing_generation_id uuid,
+  p_expected_control_version bigint,
+  p_deployment_binding_id uuid
+)
+RETURNS TABLE (
+  operation_id uuid,
+  generation_id uuid,
+  generation bigint,
+  control_version bigint,
+  replayed boolean,
+  result_code text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT * FROM private.retire_payment_ingress_contract_generation($1, $2, $3, $4);
+$$;
+
 ALTER FUNCTION private.create_payment_ingress_contract_generation(uuid, uuid)
   OWNER TO postgres;
 ALTER FUNCTION private.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid)
@@ -1656,6 +1768,17 @@ ALTER FUNCTION private.rollback_payment_ingress_contract_generation(uuid, uuid, 
 ALTER FUNCTION private.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid)
   OWNER TO postgres;
 
+ALTER FUNCTION private_payment_control_plane.create_payment_ingress_contract_generation(uuid, uuid)
+  OWNER TO postgres;
+ALTER FUNCTION private_payment_control_plane.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid)
+  OWNER TO postgres;
+ALTER FUNCTION private_payment_control_plane.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid)
+  OWNER TO postgres;
+ALTER FUNCTION private_payment_control_plane.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid)
+  OWNER TO postgres;
+ALTER FUNCTION private_payment_control_plane.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid)
+  OWNER TO postgres;
+
 REVOKE ALL ON FUNCTION private.payment_ingress_deployment_attestations_write_once() FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.payment_ingress_parser_compatibility_proofs_validate() FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.create_payment_ingress_contract_generation(uuid, uuid) FROM PUBLIC;
@@ -1663,17 +1786,26 @@ REVOKE ALL ON FUNCTION private.activate_payment_ingress_contract_generation(uuid
 REVOKE ALL ON FUNCTION private.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION private.create_payment_ingress_contract_generation(uuid, uuid) FROM payment_control_plane;
+REVOKE ALL ON FUNCTION private.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) FROM payment_control_plane;
+REVOKE ALL ON FUNCTION private.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) FROM payment_control_plane;
+REVOKE ALL ON FUNCTION private.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) FROM payment_control_plane;
+REVOKE ALL ON FUNCTION private.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) FROM payment_control_plane;
 REVOKE ALL ON FUNCTION private.create_payment_ingress_contract_generation(uuid, uuid) FROM anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION private.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) FROM anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION private.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) FROM anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION private.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) FROM anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION private.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) FROM anon, authenticated, service_role;
-GRANT USAGE ON SCHEMA private TO payment_control_plane;
-GRANT EXECUTE ON FUNCTION private.create_payment_ingress_contract_generation(uuid, uuid) TO payment_control_plane;
-GRANT EXECUTE ON FUNCTION private.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) TO payment_control_plane;
-GRANT EXECUTE ON FUNCTION private.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) TO payment_control_plane;
-GRANT EXECUTE ON FUNCTION private.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) TO payment_control_plane;
-GRANT EXECUTE ON FUNCTION private.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) TO payment_control_plane;
+REVOKE ALL ON FUNCTION private_payment_control_plane.create_payment_ingress_contract_generation(uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION private_payment_control_plane.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION private_payment_control_plane.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION private_payment_control_plane.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION private_payment_control_plane.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private_payment_control_plane.create_payment_ingress_contract_generation(uuid, uuid) TO payment_control_plane;
+GRANT EXECUTE ON FUNCTION private_payment_control_plane.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) TO payment_control_plane;
+GRANT EXECUTE ON FUNCTION private_payment_control_plane.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) TO payment_control_plane;
+GRANT EXECUTE ON FUNCTION private_payment_control_plane.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) TO payment_control_plane;
+GRANT EXECUTE ON FUNCTION private_payment_control_plane.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) TO payment_control_plane;
 
 ALTER TABLE private.payment_ingress_signature_key_identities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.payment_ingress_signature_key_identities FORCE ROW LEVEL SECURITY;
@@ -1725,8 +1857,14 @@ COMMENT ON TABLE private.payment_ingress_deployment_manifest_bindings IS 'Append
 COMMENT ON TABLE private.payment_ingress_parser_compatibility_proofs IS 'Append-only parser compatibility proof; canonicalization authority is the pinned external verifier artifact.';
 COMMENT ON TABLE private.payment_ingress_contract_creation_receipts IS 'Append-only idempotent receipt for a guarded staged ingress generation creation.';
 COMMENT ON TABLE private.payment_ingress_contract_transition_receipts IS 'Append-only CAS evidence for guarded ingress-generation transitions; metrics snapshot is audit data, never authority.';
+COMMENT ON SCHEMA private_payment_control_plane IS 'Dedicated executor schema; no generic private-schema function is reachable through the payment_control_plane role.';
 COMMENT ON FUNCTION private.create_payment_ingress_contract_generation(uuid, uuid) IS 'Dormant payment_control_plane-only guarded staged generation creator.';
 COMMENT ON FUNCTION private.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) IS 'Dormant payment_control_plane-only guarded initial activation writer.';
 COMMENT ON FUNCTION private.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) IS 'Dormant payment_control_plane-only guarded roll-forward writer.';
 COMMENT ON FUNCTION private.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) IS 'Dormant payment_control_plane-only guarded rollback writer.';
 COMMENT ON FUNCTION private.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) IS 'Dormant payment_control_plane-only retirement fence; permanently fails closed until later gates land.';
+COMMENT ON FUNCTION private_payment_control_plane.create_payment_ingress_contract_generation(uuid, uuid) IS 'Dedicated payment_control_plane wrapper for the guarded staged generation creator.';
+COMMENT ON FUNCTION private_payment_control_plane.activate_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) IS 'Dedicated payment_control_plane wrapper for the guarded initial activation writer.';
+COMMENT ON FUNCTION private_payment_control_plane.roll_forward_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) IS 'Dedicated payment_control_plane wrapper for the guarded roll-forward writer.';
+COMMENT ON FUNCTION private_payment_control_plane.rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid) IS 'Dedicated payment_control_plane wrapper for the guarded rollback writer.';
+COMMENT ON FUNCTION private_payment_control_plane.retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid) IS 'Dedicated payment_control_plane wrapper for the guarded retirement fence.';
