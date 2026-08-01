@@ -149,6 +149,9 @@ recovery_proxy_ports_ok() {
     (any((.NetworkSettings.Networks // {})[]?; (.IPAddress // "") == $containerIp))
   ' "$ports" >/dev/null 2>&1
 }
+recovery_container_ports_ok() {
+  ports=$1; /usr/bin/jq -e '(any((.HostConfig.PortBindings["11434/tcp"] // [])[]?; ((.HostPort // "") == "11434") and ((.HostIp // "0.0.0.0") == "127.0.0.1"))) and (any((.NetworkSettings.Ports["11434/tcp"] // [])[]?; ((.HostPort // "") == "11434") and ((.HostIp // "0.0.0.0") == "127.0.0.1"))) and (any((.NetworkSettings.Networks // {})[]?; (.IPAddress // "") != ""))' "$ports" >/dev/null 2>&1
+}
 recovery_process_snapshot() {
   container_pid=$1; container_cgroup=$2; container_namespace=$3; ports=$4; processes=$5
   RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; RECOVERY_SCANNER_ANCESTORS='[]'; RECOVERY_CONTAINER_PROCESS_UID=''
@@ -184,7 +187,7 @@ EOF
     entries=$(/usr/bin/jq -cn --argjson old "$entries" --argjson executable "$executable" --arg pid "$pid" --arg ppid "$ppid" --arg class "$class" --arg cgroup "$cgroup" --arg namespace "$namespace" --arg binding "$binding" --arg args "$(hash_text "$args")" '$old + [{pid:$pid,ppid:$ppid,class:$class,cgroupSha256:$cgroup,pidNamespaceSha256:$namespace,binding:$binding,executable:$executable,argsSha256:$args}]') || die 'process receipt serialization failed'
     count=$((count + 1))
   done <"$processes"
-  [ "$container_count" -gt 0 ] && [ "$proxy_count" -gt 0 ] || review_required 'incomplete reviewed Ollama process set'
+  [ "$container_count" -gt 0 ] || review_required 'incomplete reviewed Ollama process set'; [ "$proxy_count" -gt 0 ] || recovery_container_ports_ok "$ports" || review_required 'published Ollama binding is not loopback-bound'
   /usr/bin/jq -cn --arg pid "$container_pid" --arg cgroup "$container_cgroup" --arg namespace "$container_namespace" --arg uid "${RECOVERY_CONTAINER_PROCESS_UID:-}" --argjson entries "$entries" --argjson ancestors "${RECOVERY_SCANNER_ANCESTORS:-[]}" --argjson containers "$container_count" --argjson proxies "$proxy_count" '{containerPid:$pid,containerCgroupSha256:$cgroup,containerPidNamespaceSha256:$namespace,containerUid:$uid,matchingProcesses:$entries,scannerAncestors:$ancestors,containerProcessCount:$containers,proxyProcessCount:$proxies}'
 }
 recovery_cron_snapshot() {
@@ -224,8 +227,7 @@ recovery_container_snapshot() {
       rm -f "$json" "$error" "$listed"; RECOVERY_CONTAINER_STATE=absent; /usr/bin/jq -cn '{name:"ollama-loopback",state:"absent"}'; return
     fi
     rm -f "$json" "$error"; die "recovery container inspection failed ($status)"
-  fi
-  rm -f "$error"
+  fi; rm -f "$error"
   /usr/bin/jq -e '
     type == "object" and .Name == "/ollama-loopback" and
     (.Id|type == "string" and test("^[0-9a-f]{64}$")) and
@@ -260,10 +262,8 @@ recovery_collect_systemd() {
 # shellcheck disable=SC2153 # TIMER is defined by the sourced entrypoint.
   recovery_surface systemd-timer-definitions recovery_systemctl cat "$TIMER"
   recovery_surface systemd-consumers scan_systemd_consumers
-  for name in "$UNIT" "$TIMER"; do
-    for property in FragmentPath DropInPaths EnvironmentFiles; do
-      out=$(temp_path)
-      if recovery_systemd_properties "$name" "$property" "$out"; then status=0; else status=$?; fi
+  for name in "$UNIT" "$TIMER"; do for property in FragmentPath DropInPaths EnvironmentFiles; do
+      out=$(temp_path); if recovery_systemd_properties "$name" "$property" "$out"; then status=0; else status=$?; fi
       value=$(sha "$out")
       RECOVERY_RECORDS=$(/usr/bin/jq -cn --argjson old "$RECOVERY_RECORDS" --arg class "systemd-$property" --arg name "$name" --argjson status "$status" --arg value "$value" '$old + [{class:$class,unit:$name,exitStatus:$status,sha256:$value}]')
       if [ "$status" -eq 0 ]; then
@@ -273,10 +273,8 @@ recovery_collect_systemd() {
           EnvironmentFiles) recovery_record_environment_property "$out";;
         esac
       fi
-      rm -f "$out"
-    done
-  done
-  :
+      rm -f "$out"; done
+  done; :
 }
 recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes cat "$processes"; }
 recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; recovery_is_scanner_ancestor "$pid" && continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) review_required 'foreign Ollama process remains after container removal';; esac; done <"$processes"; /usr/bin/jq -cn '{state:"absent",matchingProcesses:[]}'; }

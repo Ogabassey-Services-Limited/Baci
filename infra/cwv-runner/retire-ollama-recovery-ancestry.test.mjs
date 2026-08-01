@@ -21,7 +21,7 @@ function shell(command, args = [], env = {}) {
     'sh',
     [
       '-c',
-      `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; ${command}`,
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; [ -z "\${RETIRE_OLLAMA_RECOVERY_TEST_ROOT:-}" ] || RECOVERY_RECEIPT_ROOT="\${RETIRE_OLLAMA_RECOVERY_TEST_ROOT:-}"; ${command}`,
       'recovery-ancestry-test',
       script.pathname,
       ...args,
@@ -106,5 +106,27 @@ test('accepts root scanner UID and PID 1 with PPID zero in ancestry evidence', a
   } finally {
     await rm(directory, { recursive: true, force: true });
     await rm(bin, { recursive: true, force: true });
+  }
+});
+
+test('accepts container recovery without a Docker userland proxy when inspect proves loopback binding', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-recovery-no-proxy-'));
+  const processes = join(directory, 'processes');
+  const ports = join(directory, 'ports.json');
+  try {
+    await writeFile(processes, '41 1 /usr/bin/ollama serve\n');
+    await writeFile(
+      ports,
+      '{"HostConfig":{"PortBindings":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]}},"NetworkSettings":{"Ports":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]},"Networks":{"bridge":{"IPAddress":"172.17.0.2"}}}}\n'
+    );
+    const { stdout } = await shell(
+      'recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 40 container-cgroup container-ns "$2" "$3"',
+      [ports, processes]
+    );
+    const snapshot = JSON.parse(stdout);
+    assert.equal(snapshot.containerProcessCount, 1);
+    assert.equal(snapshot.proxyProcessCount, 0);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 });
