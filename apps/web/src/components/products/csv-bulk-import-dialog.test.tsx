@@ -39,4 +39,47 @@ describe('CSVBulkImportDialog', () => {
     await waitFor(() => expect(uploadProductCsv).toHaveBeenCalledWith(file));
     await waitFor(() => expect(onImportComplete).toHaveBeenCalledOnce());
   });
+
+  it.each([
+    [
+      'rejects the upload request',
+      () => uploadProductCsv.mockRejectedValue(new Error('network failure')),
+    ],
+    [
+      'receives an error outcome',
+      () =>
+        uploadProductCsv.mockResolvedValue({
+          status: 'error',
+          error: new Error('invalid CSV'),
+        }),
+    ],
+  ])('%s without completing the import', async (_name, configureUpload) => {
+    configureUpload();
+    const onImportComplete = vi.fn();
+    render(
+      <CSVBulkImportDialog
+        open
+        onImportComplete={onImportComplete}
+        onOpenChange={vi.fn()}
+      />
+    );
+
+    const file = new File(['name,description\nPhone,Copy'], 'products.csv', {
+      type: 'text/csv',
+    });
+    fireEvent.change(screen.getByLabelText('2. Upload Filled CSV'), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /import products/i }));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Upload Failed',
+          variant: 'destructive',
+        })
+      )
+    );
+    expect(onImportComplete).not.toHaveBeenCalled();
+  });
 });

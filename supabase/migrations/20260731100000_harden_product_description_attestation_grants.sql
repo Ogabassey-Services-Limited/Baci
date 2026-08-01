@@ -26,6 +26,9 @@ DECLARE
   v_product_sha256 text;
   v_new_grant_id uuid;
   v_new_expires_at timestamptz;
+  c_grant_lifetime constant interval := interval '15 minutes';
+  c_max_attempts constant integer := 3;
+  v_attempts integer := 0;
 BEGIN
   IF v_actor_id IS NULL THEN
     RAISE EXCEPTION 'product_description_attestation_unauthenticated';
@@ -71,22 +74,12 @@ BEGIN
   );
 
   LOOP
-    SELECT
-      attestation.id,
-      attestation.merchant_id,
-      attestation.product_id,
-      attestation.actor_id,
-      attestation.operation_id,
-      attestation.expected_old_description,
-      attestation.expected_old_source_type,
-      attestation.expected_old_sha256,
-      attestation.proposed_description_sha256,
-      attestation.full_replacement,
-      attestation.purpose,
-      attestation.created_at,
-      attestation.expires_at,
-      attestation.consumed_at
-    INTO v_existing
+    v_attempts := v_attempts + 1;
+    IF v_attempts > c_max_attempts THEN
+      RAISE EXCEPTION 'product_description_attestation_retry_limit_exceeded';
+    END IF;
+
+    SELECT attestation.* INTO v_existing
     FROM private.product_description_attestation_grants AS attestation
     WHERE attestation.operation_id = p_operation_id
     FOR UPDATE;
@@ -136,7 +129,7 @@ BEGIN
 
     IF FOUND THEN
       IF v_product_merchant_id IS DISTINCT FROM p_merchant_id THEN
-        RAISE EXCEPTION 'product_description_attestation_product_merchant_mismatch';
+        RAISE EXCEPTION 'product_description_attestation_expected_old_mismatch';
       END IF;
 
       IF pg_catalog.convert_to(v_product_description, 'UTF8')
@@ -150,7 +143,7 @@ BEGIN
     ELSIF p_expected_old_description IS NOT NULL
       OR p_expected_old_source_type IS NOT NULL
       OR p_expected_old_sha256 IS NOT NULL THEN
-      RAISE EXCEPTION 'product_description_attestation_new_product_expected_old_mismatch';
+      RAISE EXCEPTION 'product_description_attestation_expected_old_mismatch';
     END IF;
 
     INSERT INTO private.product_description_attestation_grants AS inserted_grant (
@@ -176,7 +169,7 @@ BEGIN
       p_proposed_description_sha256,
       p_full_replacement,
       p_purpose,
-      pg_catalog.clock_timestamp() + interval '15 minutes'
+      pg_catalog.clock_timestamp() + c_grant_lifetime
     )
     ON CONFLICT (operation_id) DO NOTHING
     RETURNING inserted_grant.id, inserted_grant.expires_at

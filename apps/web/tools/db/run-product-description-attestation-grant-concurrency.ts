@@ -1,5 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { createSupabaseReplayDatabaseEnvironment } from './supabase-replay-contract';
 
 type RunOptions = { databaseUrl?: string; psqlBin?: string };
@@ -31,9 +32,15 @@ function session(environment: NodeJS.ProcessEnv, psqlBin: string): Session {
   return { child, stderr, stdout };
 }
 
-function waitForMarker(value: Session, marker: string): Promise<void> {
+function waitForMarker(
+  value: Session,
+  marker: string,
+  timeoutMs = 30_000
+): Promise<void> {
   return new Promise((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     const cleanup = () => {
+      if (timeout) clearTimeout(timeout);
       value.child.stdout.off('data', onData);
       value.child.off('close', onClose);
       value.child.off('error', onError);
@@ -54,6 +61,11 @@ function waitForMarker(value: Session, marker: string): Promise<void> {
     value.child.stdout.on('data', onData);
     value.child.on('close', onClose);
     value.child.on('error', onError);
+    timeout = setTimeout(() => {
+      cleanup();
+      value.child.kill('SIGKILL');
+      reject(new Error(`psql timed out before ${marker}`));
+    }, timeoutMs);
     onData();
   });
 }
@@ -142,8 +154,12 @@ async function runScenario(options: {
     firstExit,
     secondExit,
   ]);
+  const firstGrantId = grantId(firstResult.stdout);
+  const secondGrantId = grantId(secondResult.stdout);
   if (options.mismatch) {
     if (
+      firstResult.code !== 0 ||
+      firstGrantId === undefined ||
       secondResult.code === 0 ||
       !secondResult.stderr.includes(
         'product_description_attestation_operation_binding_mismatch'
@@ -159,7 +175,9 @@ async function runScenario(options: {
   if (
     firstResult.code !== 0 ||
     secondResult.code !== 0 ||
-    grantId(firstResult.stdout) !== grantId(secondResult.stdout)
+    firstGrantId === undefined ||
+    secondGrantId === undefined ||
+    firstGrantId !== secondGrantId
   ) {
     throw new Error(
       `identical concurrent replay was not idempotent: ${firstResult.stderr}${secondResult.stderr}`
@@ -173,7 +191,7 @@ export async function runProductDescriptionAttestationGrantConcurrency(
   const databaseUrl = options.databaseUrl ?? process.env.LOCAL_DATABASE_URL;
   if (!databaseUrl) throw new Error('LOCAL_DATABASE_URL is required');
   const environment = createSupabaseReplayDatabaseEnvironment(databaseUrl);
-  const psqlBin = options.psqlBin ?? '/opt/homebrew/opt/libpq/bin/psql';
+  const psqlBin = options.psqlBin ?? process.env.PSQL_BIN ?? 'psql';
   const userId = randomUUID();
   const merchantId = randomUUID();
   const productId = randomUUID();
@@ -220,11 +238,14 @@ DELETE FROM public.products WHERE id = ${literal(productId)}::uuid;
 DELETE FROM public.merchants WHERE id = ${literal(merchantId)}::uuid;
 DELETE FROM auth.users WHERE id = ${literal(userId)}::uuid;
 `
-    ).catch(() => undefined);
+    );
   }
 }
 
-if (import.meta.url === new URL(process.argv[1] ?? '', 'file:').href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   runProductDescriptionAttestationGrantConcurrency().catch((error: unknown) => {
     process.stderr.write(
       `${error instanceof Error ? error.message : 'Concurrency check failed'}\n`

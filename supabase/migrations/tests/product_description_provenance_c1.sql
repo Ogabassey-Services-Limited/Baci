@@ -8,6 +8,10 @@ DECLARE
   hash_column record;
   product_acl text;
   function_acl text;
+  cleanup_function_acl text;
+  attestation_owner text;
+  evidence_owner text;
+  evidence_acl text;
 BEGIN
   SELECT column_name, is_nullable INTO source_column
   FROM information_schema.columns
@@ -37,6 +41,19 @@ BEGIN
     RAISE EXCEPTION 'C1 provenance constraints are missing';
   END IF;
 
+  IF EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.products'::regclass
+      AND conname IN (
+        'products_description_digital_source_type_check',
+        'products_description_provenance_sha256_check'
+      )
+      AND NOT convalidated
+  ) THEN
+    RAISE EXCEPTION 'C1 provenance constraints must be validated';
+  END IF;
+
   SELECT relacl::text INTO product_acl
   FROM pg_class WHERE oid = 'public.products'::regclass;
   IF product_acl IS NULL THEN
@@ -56,6 +73,48 @@ BEGIN
     OR has_table_privilege('authenticated', 'private.product_description_attestation_grants', 'INSERT')
     OR has_table_privilege('anon', 'private.product_description_attestation_grants', 'SELECT') THEN
     RAISE EXCEPTION 'C1 attestation grants must deny direct anonymous/authenticated table access';
+  END IF;
+
+  SELECT pg_catalog.pg_get_userbyid(relowner) INTO attestation_owner
+  FROM pg_class
+  WHERE oid = 'private.product_description_attestation_grants'::regclass;
+  IF attestation_owner IS DISTINCT FROM 'postgres'
+    OR NOT EXISTS (
+      SELECT 1
+      FROM pg_class
+      WHERE oid = 'private.product_description_attestation_grants_merchant_id_idx'::regclass
+    )
+    OR NOT EXISTS (
+      SELECT 1
+      FROM pg_class
+      WHERE oid = 'private.product_description_attestation_grants_actor_id_idx'::regclass
+    ) THEN
+    RAISE EXCEPTION 'C1 attestation grant ownership or supporting indexes are incorrect';
+  END IF;
+
+  SELECT pg_catalog.pg_get_userbyid(relowner), relacl::text
+    INTO evidence_owner, evidence_acl
+  FROM pg_class
+  WHERE oid = 'private.product_description_attestation_grant_evidence'::regclass;
+  IF evidence_owner IS DISTINCT FROM 'postgres'
+    OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'private.product_description_attestation_grant_evidence'::regclass)
+    OR has_table_privilege('anon', 'private.product_description_attestation_grant_evidence', 'SELECT')
+    OR has_table_privilege('authenticated', 'private.product_description_attestation_grant_evidence', 'SELECT')
+    OR NOT has_table_privilege('service_role', 'private.product_description_attestation_grant_evidence', 'SELECT')
+    OR has_table_privilege('service_role', 'private.product_description_attestation_grant_evidence', 'INSERT')
+    OR has_table_privilege('service_role', 'private.product_description_attestation_grant_evidence', 'UPDATE')
+    OR has_table_privilege('service_role', 'private.product_description_attestation_grant_evidence', 'DELETE') THEN
+    RAISE EXCEPTION 'C1 terminal attestation evidence ownership, RLS, or ACLs are incorrect: %', evidence_acl;
+  END IF;
+
+  SELECT proacl::text INTO cleanup_function_acl
+  FROM pg_proc
+  WHERE oid = 'private.cleanup_product_description_attestation_grants(integer)'::regprocedure;
+  IF cleanup_function_acl IS NULL
+    OR has_function_privilege('anon', 'private.cleanup_product_description_attestation_grants(integer)', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'private.cleanup_product_description_attestation_grants(integer)', 'EXECUTE')
+    OR NOT has_function_privilege('service_role', 'private.cleanup_product_description_attestation_grants(integer)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'C1 retention function must be service-role-only';
   END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -88,6 +147,7 @@ VALUES ('00000000-0000-4000-b000-000000000101', '00000000-0000-4000-a000-0000000
 INSERT INTO public.products (id, merchant_id, name, price, description, status) VALUES
   ('00000000-0000-4000-c000-000000000101', '00000000-0000-4000-b000-000000000101', 'C1 legacy product', 100, 'legacy exact bytes', 'draft'),
   ('00000000-0000-4000-c000-000000000102', '00000000-0000-4000-b000-000000000101', 'C1 default product', 100, 'current default bytes', 'draft'),
+  ('00000000-0000-4000-c000-000000000103', '00000000-0000-4000-b000-000000000102', 'C1 foreign product', 100, 'foreign exact bytes', 'draft'),
   ('00000000-0000-4000-c000-000000000105', '00000000-0000-4000-b000-000000000105', 'C1 dual product', 100, 'dual exact bytes', 'draft');
 
 UPDATE public.products
@@ -175,6 +235,32 @@ BEGIN
       repeat('a', 64), true, 'manual_description'
     );
     RAISE EXCEPTION 'mismatched expected-old triple was accepted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'product_description_attestation_expected_old_mismatch' THEN RAISE; END IF;
+  END;
+
+  BEGIN
+    PERFORM public.request_product_description_attestation_grant(
+      '00000000-0000-4000-b000-000000000101',
+      '00000000-0000-4000-c000-000000000103',
+      '00000000-0000-4000-d000-000000000103',
+      'foreign exact bytes', NULL, NULL,
+      repeat('a', 64), true, 'manual_description'
+    );
+    RAISE EXCEPTION 'foreign product state was disclosed';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'product_description_attestation_expected_old_mismatch' THEN RAISE; END IF;
+  END;
+
+  BEGIN
+    PERFORM public.request_product_description_attestation_grant(
+      '00000000-0000-4000-b000-000000000101',
+      '00000000-0000-4000-c000-000000009999',
+      '00000000-0000-4000-d000-000000000104',
+      'missing product old bytes', NULL, NULL,
+      repeat('a', 64), true, 'manual_description'
+    );
+    RAISE EXCEPTION 'missing product state was disclosed';
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM <> 'product_description_attestation_expected_old_mismatch' THEN RAISE; END IF;
   END;
@@ -291,5 +377,88 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 RESET ROLE;
+
+-- Terminal grants are archived before active rows are reclaimed; exact actor
+-- and byte bindings remain available as immutable evidence.
+INSERT INTO private.product_description_attestation_grants (
+  id, merchant_id, product_id, actor_id, operation_id,
+  expected_old_description, expected_old_source_type, expected_old_sha256,
+  proposed_description_sha256, full_replacement, purpose,
+  created_at, expires_at, consumed_at
+) VALUES
+  (
+    '00000000-0000-4000-e000-000000000110',
+    '00000000-0000-4000-b000-000000000101',
+    '00000000-0000-4000-c000-000000000101',
+    '00000000-0000-4000-a000-000000000101',
+    '00000000-0000-4000-d000-000000000110',
+    'expired evidence bytes', 'default', repeat('1', 64), repeat('2', 64),
+    true, 'manual_description',
+    pg_catalog.clock_timestamp() - interval '3 minutes',
+    pg_catalog.clock_timestamp() - interval '2 minutes',
+    NULL
+  ),
+  (
+    '00000000-0000-4000-e000-000000000111',
+    '00000000-0000-4000-b000-000000000101',
+    '00000000-0000-4000-c000-000000000101',
+    '00000000-0000-4000-a000-000000000101',
+    '00000000-0000-4000-d000-000000000111',
+    'consumed evidence bytes', 'default', repeat('3', 64), repeat('4', 64),
+    true, 'manual_description',
+    pg_catalog.clock_timestamp() - interval '3 minutes',
+    pg_catalog.clock_timestamp() + interval '10 minutes',
+    pg_catalog.clock_timestamp()
+  );
+
+SET LOCAL ROLE service_role;
+DO $$
+DECLARE
+  archived_count integer;
+BEGIN
+  SELECT private.cleanup_product_description_attestation_grants(10)
+    INTO archived_count;
+  IF archived_count <> 2 THEN
+    RAISE EXCEPTION 'C1 retention must archive two terminal grants, got %', archived_count;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+RESET ROLE;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM private.product_description_attestation_grants
+    WHERE operation_id IN (
+      '00000000-0000-4000-d000-000000000110',
+      '00000000-0000-4000-d000-000000000111'
+    )
+  ) OR (
+    SELECT count(*)
+    FROM private.product_description_attestation_grant_evidence
+    WHERE operation_id IN (
+      '00000000-0000-4000-d000-000000000110',
+      '00000000-0000-4000-d000-000000000111'
+    )
+  ) <> 2 OR NOT EXISTS (
+    SELECT 1
+    FROM private.product_description_attestation_grant_evidence
+    WHERE operation_id = '00000000-0000-4000-d000-000000000110'
+      AND actor_id = '00000000-0000-4000-a000-000000000101'
+      AND expected_old_description = 'expired evidence bytes'
+      AND expected_old_sha256 = repeat('1', 64)
+  ) OR NOT EXISTS (
+    SELECT 1
+    FROM private.product_description_attestation_grant_evidence
+    WHERE operation_id = '00000000-0000-4000-d000-000000000111'
+      AND actor_id = '00000000-0000-4000-a000-000000000101'
+      AND expected_old_description = 'consumed evidence bytes'
+      AND expected_old_sha256 = repeat('3', 64)
+  ) THEN
+    RAISE EXCEPTION 'C1 terminal grant evidence was not retained exactly';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 ROLLBACK;

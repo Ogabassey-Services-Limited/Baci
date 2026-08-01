@@ -94,6 +94,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-a200-000000000001","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
 DO $$
 DECLARE first_grant uuid; replay_grant uuid;
 BEGIN

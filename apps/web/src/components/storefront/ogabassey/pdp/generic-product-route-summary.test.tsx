@@ -39,4 +39,20 @@ describe('GenericProductRouteSummary', () => {
     expect(summary).toHaveTextContent('Conditionnew');
     expect(summary).toHaveTextContent('PriceNGN 645,600');
   });
+
+  it('keeps price and product metadata when the description is empty', () => {
+    render(
+      <GenericProductRouteSummary
+        currency="NGN"
+        merchant={{ business_name: 'TestStore', country: 'NG' }}
+        product={{ ...product, description: '' }}
+      />
+    );
+
+    const summary = screen.getByLabelText('HP Laptop 14-ep0063nia summary');
+    expect(summary).toHaveTextContent('Buy the HP Laptop 14-ep0063nia today.');
+    expect(summary).toHaveTextContent('BrandHP');
+    expect(summary).toHaveTextContent('PriceNGN 645,600');
+    expect(summary).not.toHaveTextContent('Reliable work laptop.');
+  });
 });

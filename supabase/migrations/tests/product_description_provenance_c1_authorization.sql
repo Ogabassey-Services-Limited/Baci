@@ -1,5 +1,8 @@
 -- C1 authorization non-disclosure regression. Run only against a disposable
 -- full-history replay database. All fixtures are rolled back.
+-- The private schema has shared RPCs elsewhere in the history, so this test
+-- intentionally asserts table/function ACLs rather than revoking schema USAGE
+-- globally for anon/authenticated.
 BEGIN;
 
 INSERT INTO auth.users (
@@ -35,9 +38,17 @@ DECLARE
   privilege_name text;
   function_config text[];
   product_policies text[];
+  attestation_owner text;
 BEGIN
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'private.product_description_attestation_grants'::regclass) THEN
     RAISE EXCEPTION 'C1 attestation grants must retain RLS';
+  END IF;
+
+  SELECT pg_catalog.pg_get_userbyid(relowner) INTO attestation_owner
+  FROM pg_class
+  WHERE oid = 'private.product_description_attestation_grants'::regclass;
+  IF attestation_owner IS DISTINCT FROM 'postgres' THEN
+    RAISE EXCEPTION 'C1 attestation grants must remain owned by postgres';
   END IF;
 
   FOR privilege_name IN SELECT unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'])
@@ -80,6 +91,7 @@ DO $$
 DECLARE
   test_case record;
   first_error text;
+  accepted_case text;
 BEGIN
   FOR test_case IN
     SELECT * FROM (VALUES
@@ -89,6 +101,7 @@ BEGIN
       ('wrong_old', '00000000-0000-4000-c100-000000000001'::uuid, '00000000-0000-4000-d100-000000000004'::uuid, 'wrong old bytes'::text)
     ) AS cases(case_name, product_id, operation_id, expected_old_description)
   LOOP
+    accepted_case := NULL;
     BEGIN
       PERFORM public.request_product_description_attestation_grant(
         '00000000-0000-4000-b100-000000000001',
@@ -101,17 +114,22 @@ BEGIN
         true,
         'manual_description'
       );
-      RAISE EXCEPTION 'unauthorized % request was accepted', test_case.case_name;
+      accepted_case := test_case.case_name;
     EXCEPTION WHEN raise_exception THEN
-      IF first_error IS NULL THEN
-        first_error := SQLERRM;
-      ELSIF SQLERRM <> first_error THEN
-        RAISE EXCEPTION 'unauthorized requests leaked product state: % != %', SQLERRM, first_error;
+      IF accepted_case IS NULL THEN
+        IF first_error IS NULL THEN
+          first_error := SQLERRM;
+        ELSIF SQLERRM <> first_error THEN
+          RAISE EXCEPTION 'unauthorized requests leaked product state: % != %', SQLERRM, first_error;
+        END IF;
       END IF;
     END;
+    IF accepted_case IS NOT NULL THEN
+      RAISE EXCEPTION 'unauthorized % request was accepted', accepted_case;
+    END IF;
   END LOOP;
 
-  IF first_error <> 'product_description_attestation_merchant_authority_required' THEN
+  IF first_error IS DISTINCT FROM 'product_description_attestation_merchant_authority_required' THEN
     RAISE EXCEPTION 'unauthorized outward contract must be merchant authority, got %', first_error;
   END IF;
 END;

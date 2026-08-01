@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildProductDescriptionWriterInventoryCsv,
   checkProductDescriptionWriterInventory,
+  parseProductDescriptionWriterInventoryCsv,
   PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER,
   type ProductDescriptionWriterInventoryRow,
 } from './check-product-description-writers';
@@ -63,8 +64,8 @@ $$;
       operation: 'insert public.products.description',
       description_input_contract: 'fixture input',
       can_attest_source: 'no',
-      unattested_source: 'merchant_unattested',
-      guard_error_contract: 'prepared_guard_not_yet_installed',
+      unattested_source: 'unattested_pending_C2b',
+      guard_error_contract: 'C3 prepared guard not installed; stable error mapping pending',
       test_path: webWriterPath.replace(/\.ts$/, '.test.ts'),
       file_sha256: sha256(webWriter),
     },
@@ -75,8 +76,8 @@ $$;
       operation: 'generate only; no public.products write',
       description_input_contract: 'fixture prompt',
       can_attest_source: 'no',
-      unattested_source: 'not_persisted',
-      guard_error_contract: 'not_applicable_not_persisted',
+      unattested_source: 'unattested_pending_C2b',
+      guard_error_contract: 'C3 prepared guard not installed; stable error mapping pending',
       test_path: aiProducerPath.replace(/\.ts$/, '.test.ts'),
       file_sha256: sha256(aiProducer),
     },
@@ -87,8 +88,8 @@ $$;
       operation: 'RPC insert public.products.description',
       description_input_contract: 'p_product_payload.description',
       can_attest_source: 'no',
-      unattested_source: 'mobile_admin_unattested',
-      guard_error_contract: 'prepared_guard_not_yet_installed',
+      unattested_source: 'unattested_pending_C2b',
+      guard_error_contract: 'C3 prepared guard not installed; stable error mapping pending',
       test_path: 'apps/mobile-admin/hooks/product-save.test.ts',
       file_sha256: sha256(sqlWriter),
     },
@@ -115,38 +116,49 @@ describe('checkProductDescriptionWriterInventory', () => {
     expect(result).toEqual({ errors: [], ok: true });
   });
 
-  it('fails closed across mobile, packages, SQL, and persistence-caller surfaces', async () => {
-    const { root, rows } = await createFixture();
-    const unlistedPaths = [
+  it.each([
+    [
+      'mobile writer',
       'apps/mobile-admin/hooks/unlisted-product-writer.ts',
+      "await supabase.from('products').upsert({ description: input.description });",
+    ],
+    [
+      'shared package writer',
       'packages/shared/src/unlisted-product-writer.ts',
+      "await client.from('products').update({ description: payload.description });",
+    ],
+    [
+      'top-level SQL writer',
       'supabase/migrations/20260703000000_top_level_description.sql',
+      "UPDATE public.products SET description = 'top-level';",
+    ],
+    [
+      'tagged SQL function writer',
       'supabase/migrations/20260704000000_tagged_function_description.sql',
-      'apps/mobile-admin/hooks/unlisted-product-persistence.ts',
-    ];
-    await Promise.all([
-      writeFixture(root, unlistedPaths[0], "await supabase.from('products').upsert({ description: input.description });"),
-      writeFixture(root, unlistedPaths[1], "await client.from('products').update({ description: payload.description });"),
-      writeFixture(root, unlistedPaths[2], "UPDATE public.products SET description = 'top-level';"),
-      writeFixture(root, unlistedPaths[3], `CREATE OR REPLACE FUNCTION public.tagged_writer()
+      `CREATE OR REPLACE FUNCTION public.tagged_writer()
 RETURNS void LANGUAGE plpgsql AS $writer$
 BEGIN
   UPDATE public.products SET description = 'tagged';
 END;
-$writer$;`),
-      writeFixture(root, unlistedPaths[4], "await supabase.rpc('save_mobile_admin_product_with_variants', { p_product_payload: { description } });"),
-    ]);
+$writer$;`,
+    ],
+    [
+      'mobile persistence caller',
+      'apps/mobile-admin/hooks/unlisted-product-persistence.ts',
+      "await supabase.rpc('save_mobile_admin_product_with_variants', { p_product_payload: { description } });",
+    ],
+  ] as const)('fails closed for a %s', async (_name, unlistedPath, source) => {
+    const { root, rows } = await createFixture();
+    await writeFixture(root, unlistedPath, source);
 
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
     });
 
-    expect(result.errors).toEqual(
-      expect.arrayContaining(
-        unlistedPaths.map((path) => `Discovered description writer is not inventoried: ${path}`)
-      )
-    );
+    expect(result.errors).toEqual([
+      `Discovered description writer is not inventoried: ${unlistedPath}`,
+    ]);
   });
 
   it('round-trips CSV values containing a comma, quote, and newline', async () => {
@@ -185,67 +197,144 @@ $writer$;`),
     });
   });
 
-  it('fails closed for a missing inventoried path, duplicate path, header drift, missing test path, and SHA drift', async () => {
+  it('fails closed when an inventoried writer path is missing', async () => {
     const { root, rows, webWriterPath } = await createFixture();
-    const csv = buildProductDescriptionWriterInventoryCsv(rows);
-
     await rm(join(root, webWriterPath));
-    const missingPath = await checkProductDescriptionWriterInventory({
-      inventoryCsv: csv,
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
     });
-    expect(missingPath.errors).toContain(`Inventoried writer path is missing: ${webWriterPath}`);
+    expect(result.errors).toEqual([
+      `Inventoried writer path is missing: ${webWriterPath}`,
+    ]);
+  });
 
-    const duplicate = await checkProductDescriptionWriterInventory({
+  it('fails closed when an inventory path is duplicated', async () => {
+    const { root, rows, webWriterPath } = await createFixture();
+    const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv([...rows, rows[0]]),
       repositoryRoot: root,
     });
-    expect(duplicate.errors).toContain(`Duplicate inventory path: ${webWriterPath}`);
-
-    const headerDrift = await checkProductDescriptionWriterInventory({
-      inventoryCsv: csv.replace('inventory_version', 'inventory_version_drifted'),
-      repositoryRoot: root,
-    });
-    expect(headerDrift.errors).toContain('Inventory CSV header does not match the required schema');
-
-    await writeFixture(root, webWriterPath, 'await supabase.from(\'products\').insert({ description: input.description });');
-    await rm(join(root, rows[0].test_path));
-    const missingTestAndHashDrift = await checkProductDescriptionWriterInventory({
-      inventoryCsv: csv,
-      repositoryRoot: root,
-    });
-    expect(missingTestAndHashDrift.errors).toEqual(
-      expect.arrayContaining([
-        `Inventoried test path is missing: ${rows[0].test_path}`,
-        `File SHA-256 drift for ${webWriterPath}`,
-      ])
-    );
-  });
-});
-
-  it('fails closed for generic AI and RPC callers plus MCP and temporary web scripts', async () => {
-    const { root, rows } = await createFixture();
-    const paths = [
-      'apps/web/mcp-server/unlisted-writer.ts',
-      'apps/web/scripts-tmp/unlisted-writer.ts',
-      'apps/mobile-storefront/hooks/submit-generated-product.ts',
-      'packages/shared/src/save-product-rpc.ts',
-    ];
-    await Promise.all([
-      writeFixture(root, paths[0], "await client.from('products').insert({ description: value });"),
-      writeFixture(root, paths[1], "await client.from('products').update({ description: value });"),
-      writeFixture(root, paths[2], "const generated = await createCatalogCopy(); await submitProduct({ description: generated.description });"),
-      writeFixture(root, paths[3], "await db.rpc('persist_product_copy', { product_description: description });"),
+    expect(result.errors).toEqual([
+      `Duplicate inventory path: ${webWriterPath}`,
     ]);
+  });
+
+  it('fails closed when the inventory header drifts', async () => {
+    const { root, rows } = await createFixture();
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows).replace(
+        'inventory_version',
+        'inventory_version_drifted'
+      ),
+      repositoryRoot: root,
+    });
+    expect(result.errors).toEqual([
+      'Inventory CSV header does not match the required schema',
+    ]);
+  });
+
+  it('fails closed when an inventoried test path is missing', async () => {
+    const { root, rows } = await createFixture();
+    await rm(join(root, rows[0].test_path));
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
+      repositoryRoot: root,
+    });
+    expect(result.errors).toEqual([
+      `Inventoried test path is missing: ${rows[0].test_path}`,
+    ]);
+  });
+
+  it('fails closed when an inventoried writer hash drifts', async () => {
+    const { root, rows, webWriterPath } = await createFixture();
+    await writeFixture(
+      root,
+      webWriterPath,
+      "await supabase.from('products').insert({ description: input.description });"
+    );
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
+      repositoryRoot: root,
+    });
+    expect(result.errors).toEqual([`File SHA-256 drift for ${webWriterPath}`]);
+  });
+
+  it('fails closed when an inventory attestation field changes', async () => {
+    const { root, rows } = await createFixture();
+    const changedRows = rows.map((row, index) =>
+      index === 0 ? { ...row, can_attest_source: 'yes' } : row
+    );
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(changedRows),
+      repositoryRoot: root,
+    });
+    expect(result.errors).toContain(
+      `Invalid inventory field can_attest_source for ${rows[0].path}: expected no`
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('returns a schema error for an inventory row with the wrong column count', () => {
+    const result = parseProductDescriptionWriterInventoryCsv(
+      `${PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER}\nonly-one-value\n`
+    );
+    expect(result).toEqual({
+      errors: ['Inventory CSV row 2 does not match the required schema'],
+      rows: [],
+    });
+  });
+
+  it('discovers an unlisted AI flow writer with a product path', async () => {
+    const { root, rows } = await createFixture();
+    const path = 'apps/web/src/ai/flows/generate-product-copy.ts';
+    await Promise.all([
+      writeFixture(
+        root,
+        path,
+        "const result = await generateTextWithChain({ prompt: 'description' });\nreturn { description: result.text };"
+      ),
+      writeFixture(root, `${path.replace(/\.ts$/, '.test.ts')}`, ''),
+    ]);
+    const result = await checkProductDescriptionWriterInventory({
+      inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
+      repositoryRoot: root,
+    });
+    expect(result.errors).toContain(`Discovered description writer is not inventoried: ${path}`);
+  });
+
+  it.each([
+    [
+      'MCP writer',
+      'apps/web/mcp-server/unlisted-writer.ts',
+      "await client.from('products').insert({ description: value });",
+    ],
+    [
+      'temporary web writer',
+      'apps/web/scripts-tmp/unlisted-writer.ts',
+      "await client.from('products').update({ description: value });",
+    ],
+    [
+      'mobile generated-copy caller',
+      'apps/mobile-storefront/hooks/submit-generated-product.ts',
+      "const generated = await createCatalogCopy(); await submitProduct({ description: generated.description });",
+    ],
+    [
+      'shared RPC caller',
+      'packages/shared/src/save-product-rpc.ts',
+      "await db.rpc('persist_product_copy', { product_description: description });",
+    ],
+  ] as const)('fails closed for a %s', async (_name, path, source) => {
+    const { root, rows } = await createFixture();
+    await writeFixture(root, path, source);
 
     const result = await checkProductDescriptionWriterInventory({
       inventoryCsv: buildProductDescriptionWriterInventoryCsv(rows),
       repositoryRoot: root,
     });
 
-    expect(result.errors).toEqual(
-      expect.arrayContaining(
-        paths.map((path) => `Discovered description writer is not inventoried: ${path}`)
-      )
-    );
+    expect(result.errors).toEqual([
+      `Discovered description writer is not inventoried: ${path}`,
+    ]);
   });
+});

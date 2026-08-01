@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import process from 'node:process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER =
   'inventory_version,path,caller_or_route,operation,description_input_contract,can_attest_source,unattested_source,guard_error_contract,test_path,file_sha256';
@@ -20,6 +21,12 @@ const TS_ROOTS = ['apps/web/src', 'apps/web/mcp-server', 'apps/web/scripts-tmp',
 const TS_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts']);
 const UNATTESTED = 'unattested_pending_C2b';
 const GUARD = 'C3 prepared guard not installed; stable error mapping pending';
+const EXPECTED_INVENTORY_FIELDS = {
+  inventory_version: '1',
+  can_attest_source: 'no',
+  unattested_source: UNATTESTED,
+  guard_error_contract: GUARD,
+} as const;
 const HASHES: Record<string, string> = {
   'apps/web/src/schemas/products.ts': 'ce02c458edf20d90f7ea395df926473542406addca46e917912ef7ae66f17b5f', 'apps/web/src/app/dashboard/products/add/add-product-form.tsx': '1742d39c6f45ffb1db3051252a1348018e9de681ea02d831e1ad79ff920bdd7f', 'apps/web/src/app/api/products/route.ts': 'd72a7b81ce7a0333d8c5c37b6e9bfc5e12a0c7e420b26444e406348a12033a92', 'apps/web/src/app/api/products/[id]/route.ts': 'bbf6b4b564e4d9bf1c085d8139450ed7340fa94f008b5d6a00f9f08502d71e83', 'apps/web/src/components/products/csv-bulk-import-dialog.tsx': 'ebcf3dfa786f49243b6fa7a64caa451ebaea4097529b26394e26cf05da48fe4d', 'apps/web/src/app/api/products/bulk-import/route.ts': '15d0d8675b95a5292cbf49df78311c96ab9f6423a5102fea9cca23ba0ff2274f', 'apps/web/src/components/products/review-changes.tsx': 'c6e4a42e07025b9b65a3ff33eb2e0c4732e5814270b0597051ab25573428b93b', 'apps/web/src/contexts/product-context.tsx': '3e47398edc8a6109058d847bef93392f3950f25fd446e3c95601d1ff7dcb5743', 'apps/web/src/app/api/products/bulk-update/route.ts': '0e71cbf869330b065bfe2909e7b0d213d9af247495a810e8f6fae4b4080ca1ef', 'apps/web/src/app/api/products/bulk-update/bulk-update-change-processing.ts': '2c2ee0dc3e64187880ef5f707ba0c6eac4343e9bd192671628191fb0b3d0482f', 'apps/web/src/lib/import-jobs/run-claimed-import-job.ts': '8652502134b8c7912dd28c870a708c1290b51702fac6a3de171ae4c4e2a0483c', 'apps/web/src/lib/import-commit/commit-bumpa-products.ts': 'c3f98397d19843877418fe91a1162d8372079b56acf81ebdd68fd657fed1a541', 'apps/web/src/app/dashboard/products/use-products-page-actions.ts': '38f752fb0e755715a1b5202148fa5f95a22a40b6380244d90db6406fff145a49', 'apps/web/src/app/api/marketplace/jumia/products/import/route.ts': '813253bdbd7ebfe974b5fc227a03a004fb542312e0a6e11beda1ced99878f4b2', 'apps/mobile-admin/hooks/product-save.ts': 'b30f9431b0c7968880e3ce4d7b55db74a72afaa07e09ab2cab72c275994b4558', 'supabase/migrations/20260615181534_serialized_variant_inventory.sql': 'd0f34aeab2a0622c0cae17dbd260c671cc6c96db31f85d414fb19beabb11fce8', 'supabase/migrations/20260702063638_restore_mobile_admin_product_rpc_contract.sql': 'a04858072ce04f37af2269bb14bd4a936df612b6243fdb0099e8b417ba9c3ba4', 'apps/web/src/ai/flows/generate-product-descriptions.ts': '2d75d5427336ed5db57afe4f174ec1db18e09ce5a36edfde08e23eed380d1fc7', 'apps/web/src/ai/flows/autofill-product-details.ts': 'c2e08bc974fd4e485c4ce75af674831204f3712d4a0351dfabc655911731f771',
 };
@@ -53,7 +60,9 @@ function escapeCsv(value: string): string { return /[",\r\n]/.test(value) ? `"${
 export function buildProductDescriptionWriterInventoryCsv(rows: ProductDescriptionWriterInventoryRow[]): string {
   return `${PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER}\n${rows.map((entry) => COLUMNS.map((column) => escapeCsv(entry[column])).join(',')).join('\n')}\n`;
 }
-function parseCsv(csv: string): { errors: string[]; rows: ProductDescriptionWriterInventoryRow[] } {
+export function parseProductDescriptionWriterInventoryCsv(
+  csv: string
+): { errors: string[]; rows: ProductDescriptionWriterInventoryRow[] } {
   const fields: string[][] = [[]]; let field = ''; let quoted = false;
   for (let index = 0; index < csv.length; index += 1) {
     const char = csv[index]; const next = csv[index + 1];
@@ -70,11 +79,26 @@ function parseCsv(csv: string): { errors: string[]; rows: ProductDescriptionWrit
   fields.at(-1)?.push(field);
   if (fields.at(-1)?.length === 1 && fields.at(-1)?.[0] === '') fields.pop();
   if (fields[0]?.join(',') !== PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER) return { errors: ['Inventory CSV header does not match the required schema'], rows: [] };
-  const rows = fields.slice(1).map((values, index) => {
-    if (values.length !== COLUMNS.length) throw new Error(`Inventory CSV row ${index + 2} does not match the required schema`);
-    return Object.fromEntries(COLUMNS.map((column, valueIndex) => [column, values[valueIndex]])) as ProductDescriptionWriterInventoryRow;
-  });
-  try { return { errors: [], rows }; } catch { return { errors: ['Inventory CSV does not match the required schema'], rows: [] }; }
+  try {
+    const rows = fields.slice(1).map((values, index) => {
+      if (values.length !== COLUMNS.length) {
+        throw new Error(`Inventory CSV row ${index + 2} does not match the required schema`);
+      }
+      return Object.fromEntries(
+        COLUMNS.map((column, valueIndex) => [column, values[valueIndex]])
+      ) as ProductDescriptionWriterInventoryRow;
+    });
+    return { errors: [], rows };
+  } catch (error) {
+    return {
+      errors: [
+        error instanceof Error
+          ? error.message
+          : 'Inventory CSV does not match the required schema',
+      ],
+      rows: [],
+    };
+  }
 }
 
 async function listFiles(root: string): Promise<string[]> {
@@ -121,10 +145,31 @@ async function discoverWriterPaths(root: string): Promise<string[]> {
 
 export async function checkProductDescriptionWriterInventory({ inventoryCsv, repositoryRoot }: { inventoryCsv: string; repositoryRoot: string }): Promise<CheckResult> {
   let parsed: { errors: string[]; rows: ProductDescriptionWriterInventoryRow[] };
-  try { parsed = parseCsv(inventoryCsv); } catch (error) { return { errors: [error instanceof Error ? error.message : 'Inventory CSV does not match the required schema'], ok: false }; }
+  try {
+    parsed = parseProductDescriptionWriterInventoryCsv(inventoryCsv);
+  } catch (error) {
+    return {
+      errors: [
+        error instanceof Error
+          ? error.message
+          : 'Inventory CSV does not match the required schema',
+      ],
+      ok: false,
+    };
+  }
   if (parsed.errors.length) return { errors: parsed.errors, ok: false };
   const errors: string[] = []; const inventoryPaths = new Set<string>();
-  for (const entry of parsed.rows) { if (inventoryPaths.has(entry.path)) errors.push(`Duplicate inventory path: ${entry.path}`); inventoryPaths.add(entry.path); const source = join(repositoryRoot, entry.path);
+  for (const entry of parsed.rows) {
+    if (inventoryPaths.has(entry.path)) {
+      errors.push(`Duplicate inventory path: ${entry.path}`);
+    }
+    inventoryPaths.add(entry.path);
+    for (const [field, expected] of Object.entries(EXPECTED_INVENTORY_FIELDS)) {
+      if (entry[field as keyof typeof EXPECTED_INVENTORY_FIELDS] !== expected) {
+        errors.push(`Invalid inventory field ${field} for ${entry.path}: expected ${expected}`);
+      }
+    }
+    const source = join(repositoryRoot, entry.path);
     if (!existsSync(source)) errors.push(`Inventoried writer path is missing: ${entry.path}`);
     else if (createHash('sha256').update(await readFile(source)).digest('hex') !== entry.file_sha256) errors.push(`File SHA-256 drift for ${entry.path}`);
     if (!existsSync(join(repositoryRoot, entry.test_path))) errors.push(`Inventoried test path is missing: ${entry.test_path}`);
@@ -132,5 +177,27 @@ export async function checkProductDescriptionWriterInventory({ inventoryCsv, rep
   for (const path of await discoverWriterPaths(repositoryRoot)) if (!inventoryPaths.has(path)) errors.push(`Discovered description writer is not inventoried: ${path}`);
   return { errors, ok: errors.length === 0 };
 }
-async function main() { const index = process.argv.indexOf('--output'); const output = index >= 0 ? process.argv[index + 1] : undefined; if (!output) throw new Error('Usage: tsx check-product-description-writers.ts --output <csv-path>'); const root = join(process.cwd(), '..', '..'); const csv = existsSync(output) ? await readFile(output, 'utf8') : buildProductDescriptionWriterInventoryCsv(CURRENT_INVENTORY_ROWS); const result = await checkProductDescriptionWriterInventory({ inventoryCsv: csv, repositoryRoot: root }); if (!result.ok) throw new Error(result.errors.join('\n')); await mkdir(dirname(output), { recursive: true }); await writeFile(output, csv, 'utf8'); process.stdout.write(`Product description writer inventory verified: ${output}\n`); }
-if (import.meta.url === `file://${process.argv[1]}`) void main();
+async function main() {
+  const index = process.argv.indexOf('--output');
+  const output = index >= 0 ? process.argv[index + 1] : undefined;
+  if (!output) {
+    throw new Error('Usage: tsx check-product-description-writers.ts --output <csv-path>');
+  }
+  const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
+  const csv = existsSync(output)
+    ? await readFile(output, 'utf8')
+    : buildProductDescriptionWriterInventoryCsv(CURRENT_INVENTORY_ROWS);
+  const result = await checkProductDescriptionWriterInventory({
+    inventoryCsv: csv,
+    repositoryRoot,
+  });
+  if (!result.ok) {
+    throw new Error(result.errors.join('\n'));
+  }
+  await mkdir(dirname(output), { recursive: true });
+  await writeFile(output, csv, 'utf8');
+  process.stdout.write(`Product description writer inventory verified: ${output}\n`);
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main();
+}
