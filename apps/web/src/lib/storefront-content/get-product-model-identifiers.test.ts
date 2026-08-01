@@ -104,4 +104,12 @@ describe('getProductModelIdentifiers', () => {
 
     expect(identifiers).toEqual(['x']);
   });
+
+  it('returns an empty list when no brands or product slugs are supplied', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+    });
+
+    expect(identifiers).toEqual([]);
+  });
 });
