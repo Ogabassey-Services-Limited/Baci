@@ -25,6 +25,10 @@ describe('getCompareProductMatchRequirements', () => {
         'Apple iPhone 15 6GB 128GB eSIM',
         'Apple iPhone 15 6GB 256GB physical SIM',
       ],
+      productSlugs: [
+        'apple-iphone-15-6gb-128gb-esim',
+        'apple-iphone-15-6gb-256gb-physical-sim',
+      ],
     });
 
     expect(requirements).toEqual([

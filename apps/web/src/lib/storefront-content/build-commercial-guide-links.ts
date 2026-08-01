@@ -151,11 +151,15 @@ export function buildCommercialGuideLinks(
       const normalizedBrands = (input.context.brands ?? []).map((brand) =>
         generateSlug(brand)
       );
+      const hasDirectBrandMatch = normalizedBrands.some((brand) =>
+        hasContiguousTokenSequence(post, tokenizeModelIdentifier(brand))
+      );
       const hasBrandMatch =
         normalizedBrands.length > 0 &&
-        inferred.brands.some((brand) =>
-          normalizedBrands.includes(generateSlug(brand))
-        );
+        (hasDirectBrandMatch ||
+          inferred.brands.some((brand) =>
+            normalizedBrands.includes(generateSlug(brand))
+          ));
       if (hasBrandMatch) {
         score += CONTENT_CLUSTER_SCORE.brandMatch;
       }

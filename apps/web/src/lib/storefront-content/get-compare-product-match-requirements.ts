@@ -53,10 +53,19 @@ function inferSourceBrand(
 
 function getSourceDiscriminatorTokens(source: string, identifier: string) {
   const identifierTokens = new Set(tokenize(identifier));
-  return tokenize(source).filter(
-    (token) =>
-      !identifierTokens.has(token) && VARIANT_DISCRIMINATOR_PATTERN.test(token)
-  );
+  const seen = new Set<string>();
+  const discriminatorTokens: string[] = [];
+  for (const token of tokenize(source)) {
+    if (
+      !identifierTokens.has(token) &&
+      VARIANT_DISCRIMINATOR_PATTERN.test(token) &&
+      !seen.has(token)
+    ) {
+      seen.add(token);
+      discriminatorTokens.push(token);
+    }
+  }
+  return discriminatorTokens;
 }
 
 function isNumericOnlyIdentifier(identifier: string) {
