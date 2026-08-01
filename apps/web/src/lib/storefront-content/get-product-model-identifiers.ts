@@ -22,6 +22,44 @@ const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'series',
   'version',
 ]);
+const MERCHANDISING_SUFFIX_TOKENS = new Set([
+  'beige',
+  'black',
+  'blue',
+  'bronze',
+  'brown',
+  'clearance',
+  'coral',
+  'cream',
+  'gold',
+  'graphite',
+  'gray',
+  'green',
+  'grey',
+  'jet',
+  'lavender',
+  'midnight',
+  'mint',
+  'new',
+  'open',
+  'orange',
+  'pink',
+  'platinum',
+  'premium',
+  'purple',
+  'red',
+  'refurb',
+  'refurbished',
+  'rose',
+  'sale',
+  'sealed',
+  'silver',
+  'starlight',
+  'used',
+  'violet',
+  'white',
+  'yellow',
+]);
 
 interface BrandAliasGroup {
   brandTokens: string[];
@@ -57,14 +95,15 @@ function getBrandAliasGroups(
 function getExcludedTokensForSlug(
   slug: string,
   baseExcludedTokens: ReadonlySet<string>,
-  brandAliasGroups: readonly BrandAliasGroup[]
+  brandAliasGroups: readonly BrandAliasGroup[],
+  protectedFamilyTokens: ReadonlySet<string>
 ) {
   const slugTokens = tokenize(slug);
   const excludedTokens = new Set(baseExcludedTokens);
 
   for (const group of brandAliasGroups) {
     for (const token of group.brandTokens) {
-      if (slugTokens.includes(token)) {
+      if (slugTokens.includes(token) && !protectedFamilyTokens.has(token)) {
         excludedTokens.add(token);
       }
     }
@@ -74,6 +113,10 @@ function getExcludedTokensForSlug(
         aliasTokens.length === 0 ||
         !aliasTokens.every((token) => slugTokens.includes(token))
       ) {
+        continue;
+      }
+
+      if (aliasTokens.some((token) => protectedFamilyTokens.has(token))) {
         continue;
       }
 
@@ -112,8 +155,15 @@ function isDimensionToken(tokens: string[], index: number) {
   );
 }
 
+function stripMerchandisingSuffix(tokens: string[]) {
+  const suffixIndex = tokens.findIndex((token) =>
+    MERCHANDISING_SUFFIX_TOKENS.has(token)
+  );
+  return suffixIndex >= 0 ? tokens.slice(0, suffixIndex) : tokens;
+}
+
 function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
-  const rawTokens = tokenize(slug).filter(
+  const rawTokens = stripMerchandisingSuffix(tokenize(slug)).filter(
     (token) => !excludedTokens.has(token)
   );
   const tokens =
@@ -148,7 +198,17 @@ function getModelIdentifier(tokens: string[]) {
     (token) => /[a-z]/u.test(token) && /\d/u.test(token)
   );
   if (alphanumericToken) {
-    return alphanumericToken;
+    const alphanumericIndex = tokens.indexOf(alphanumericToken);
+    const suffixTokens = tokens
+      .slice(alphanumericIndex + 1)
+      .filter(
+        (token) =>
+          !/^\d+$/u.test(token) &&
+          token.length > 1 &&
+          !GENERIC_MODEL_MARKER_TOKENS.has(token)
+      );
+    const phraseTokens = [alphanumericToken, ...suffixTokens];
+    return phraseTokens.join(' ');
   }
 
   const phraseTokens = tokens.filter(
@@ -165,9 +225,12 @@ function getModelIdentifier(tokens: string[]) {
 export function getProductModelIdentifiers(
   context: Pick<
     BuildCommercialGuideLinksContext,
-    'categorySlug' | 'brands' | 'productSlugs'
+    'categorySlug' | 'brands' | 'modelFamilySlug' | 'productSlugs'
   >
 ) {
+  const protectedFamilyTokens = new Set(
+    tokenize(context.modelFamilySlug ?? '')
+  );
   const baseExcludedTokens = new Set(
     [
       ...(context.brands ?? []).flatMap(tokenize),
@@ -180,7 +243,7 @@ export function getProductModelIdentifiers(
               : []),
           ])
       ),
-    ].filter(Boolean)
+    ].filter((token) => Boolean(token) && !protectedFamilyTokens.has(token))
   );
   const brandAliasGroups = getBrandAliasGroups(context);
 
@@ -190,7 +253,12 @@ export function getProductModelIdentifiers(
         .map((slug) =>
           getModelTokens(
             slug,
-            getExcludedTokensForSlug(slug, baseExcludedTokens, brandAliasGroups)
+            getExcludedTokensForSlug(
+              slug,
+              baseExcludedTokens,
+              brandAliasGroups,
+              protectedFamilyTokens
+            )
           )
         )
         .map(getModelIdentifier)

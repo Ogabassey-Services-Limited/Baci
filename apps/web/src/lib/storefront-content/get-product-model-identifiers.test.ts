@@ -104,6 +104,37 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['9 pro']);
   });
 
+  it('retains alphanumeric model suffix markers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productSlugs: ['samsung-galaxy-s25-ultra-12gb-256gb'],
+    });
+
+    expect(identifiers).toEqual(['s25 ultra']);
+  });
+
+  it('removes merchandising suffixes from model identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: ['iphone-13-pro-128gb-premium-used'],
+    });
+
+    expect(identifiers).toEqual(['13 pro']);
+  });
+
+  it('preserves configured model-family markers that overlap brand aliases', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Xiaomi and Redmi', 'xiaomi'],
+      modelFamilySlug: 'redmi-15',
+      productSlugs: ['redmi-15'],
+    });
+
+    expect(identifiers).toEqual(['redmi 15']);
+  });
+
   it('ignores generated numeric collision suffixes', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',
