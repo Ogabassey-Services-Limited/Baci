@@ -39,4 +39,20 @@ describe('OgabasseyPdpDeferredDetailIsland source HTML', () => {
     );
     expect(sourceHtml).toContain('data-testid="deferred-product-details-placeholder"');
   });
+
+  it('lazy-loads images in the initial server-rendered description handoff', () => {
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland
+        product={{
+          ...product,
+          description:
+            '<p>Creator laptop.</p><img src="https://example.com/body.jpg" loading="eager" alt="Laptop detail">',
+        }}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(sourceHtml).toContain('loading="lazy"');
+    expect(sourceHtml).not.toContain('loading="eager"');
+  });
 });

@@ -28,6 +28,7 @@ export function SafeHtml({
   as = 'div',
   html,
   headingLevelOffset,
+  forceLazyImages,
   normalizeHeadingHierarchy,
   normalizeSeoAnchors,
   stripNofollowFromLinks,
@@ -49,6 +50,7 @@ export function SafeHtml({
     dangerouslySetInnerHTML: {
       __html: sanitizeHtml(html, {
         ...headingOptions,
+        forceLazyImages,
         normalizeSeoAnchors,
         stripNofollowFromLinks,
         trustedPriorityImageSources,
