@@ -17,6 +17,7 @@ OLLAMA_CRON_ONE=4cee5cdc723001694bc0d2ea22be4db9ff91a1df5f969dc95d2483f55900519d
 OLLAMA_CRON_TWO=3b27b446d253183977b01ea6e94c09a0d5bb4ac7d2414ad162ddd7fb49a6fc81
 PACKAGE_FORMAT="\${Version}"
 COMPOSE_ROOTS='/srv /home/bassey'
+SYSTEMD_ROOTS='/etc/systemd/system /lib/systemd/system'
 TEMP_ROOT=''
 EXIT_REVIEW_REQUIRED=78
 
@@ -162,8 +163,9 @@ scan_compose_definitions() {
   while IFS= read -r path || [ -n "$path" ]; do if grep -l -Ei 'ollama|11434' "$path"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; done <"$list"; rm -f "$list"
 }
 scan_systemd_consumers() {
-  list=$(temp_path); for root in /etc/systemd/system /lib/systemd/system; do [ -d "$root" ] || continue; if grep -R -l -E 'ollama|11434' "$root" >>"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; done
+  list=$(temp_path); environment_files=$(temp_path); for root in $SYSTEMD_ROOTS; do [ -d "$root" ] || continue; if grep -R -l -E 'ollama|11434' "$root" >>"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files"; return "$status"; }; fi; if grep -R -H -E '^[[:space:]]*EnvironmentFile=' "$root" >>"$environment_files"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files"; return "$status"; }; fi; done
   while IFS= read -r path || [ -n "$path" ]; do case "$path" in */"$UNIT"|*/"$UNIT".d/*|*/"$TIMER"|*/"$TIMER".d/*) ;; *) printf '%s\n' "$path";; esac; done <"$list"; rm -f "$list"
+  while IFS=: read -r definition directive || [ -n "$definition$directive" ]; do case "$definition" in */"$UNIT"|*/"$UNIT".d/*|*/"$TIMER"|*/"$TIMER".d/*) continue;; esac; value=${directive#*=}; set -f; for item in $value; do optional=0; case "$item" in -*) optional=1; item=${item#-};; esac; item=${item#\"}; item=${item%\"}; case "$item" in /*) :;; *) set +f; rm -f "$environment_files"; return 2;; esac; if [ ! -e "$item" ]; then [ "$optional" -eq 1 ] && continue; set +f; rm -f "$environment_files"; return 2; fi; [ -f "$item" ] && [ ! -L "$item" ] || { set +f; rm -f "$environment_files"; return 2; }; [ "${RECOVERY_RECORDS+x}" = x ] && recovery_record_environment "$item" "$optional"; if grep -q -Ei 'ollama|11434' "$item"; then printf '%s:%s\n' "$definition" "$item"; else status=$?; [ "$status" -eq 1 ] || { set +f; rm -f "$environment_files"; return "$status"; }; fi; done; set +f; done <"$environment_files"; rm -f "$environment_files"
 }
 scan_container_rows() {
   scope=$1; raw=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$raw"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$raw"; fi || { status=$?; rm -f "$raw"; return "$status"; }

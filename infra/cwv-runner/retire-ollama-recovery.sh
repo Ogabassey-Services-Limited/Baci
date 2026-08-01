@@ -1,5 +1,6 @@
 #!/bin/sh
-RECOVERY_PROC_ROOT=${RETIRE_OLLAMA_PROC_ROOT:-/proc}
+recovery_proc_root_for_uid() { if [ "$1" = 0 ]; then printf /proc; else printf '%s' "${2:-/proc}"; fi; }
+RECOVERY_PROC_ROOT=$(recovery_proc_root_for_uid "$(/usr/bin/id -u)" "${RETIRE_OLLAMA_PROC_ROOT:-}")
 RECOVERY_CONTAINER_COMMAND_PATH=${RECOVERY_CONTAINER_COMMAND_PATH:-}
 RECOVERY_CONTAINER_PORTS_FILE=${RECOVERY_CONTAINER_PORTS_FILE:-}
 RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}; RECOVERY_SOURCE_ROOT=/srv/baci-cwv/source; RECOVERY_RECEIPT_ROOT=/srv/baci-cwv/retired-ollama/recovery-scan; : "${RECOVERY_RECEIPT_ROOT}"

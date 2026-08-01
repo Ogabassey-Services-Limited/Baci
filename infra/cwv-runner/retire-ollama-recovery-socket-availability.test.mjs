@@ -59,6 +59,19 @@ test('rejects a proc net symlink under an overridden root', async () => {
   }
 });
 
+test('ignores a caller proc-root override for privileged recovery', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-ollama-root-proc-'));
+  try {
+    const { stdout } = await shell(
+      'printf "%s\\n" "$(recovery_proc_root_for_uid 0 "$2")" "$(recovery_proc_root_for_uid 1000 "$2")"',
+      [directory]
+    );
+    assert.deepEqual(stdout.trim().split('\n'), ['/proc', directory]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('accepts the canonical Linux proc net symlink', {
   skip: process.platform !== 'linux',
 }, async () => {
