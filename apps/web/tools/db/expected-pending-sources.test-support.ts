@@ -296,4 +296,9 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_PENDING_TAIL_SOURCES.paymentIngressFoundation,
   ...RECENT_PENDING_SOURCES.slice(6),
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3),
+  {
+    repositoryPath:
+      'supabase/migrations/20260801150000_payment_webhook_evidence_foundation.sql',
+    sha256: 'c1e2851810d827e9bab54d6cb24140a71e81ac930e3f95640c40cee6d51d0dd6',
+  },
 ];
