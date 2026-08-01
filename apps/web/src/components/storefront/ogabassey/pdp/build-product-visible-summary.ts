@@ -193,6 +193,9 @@ export function buildOgabasseyProductVisibleSummary({
   const selectableVariants = (variants || []).filter((offer) =>
     isSelectable(offer, manageStock)
   );
+  if ((variants?.length ?? 0) > 0 && selectableVariants.length === 0) {
+    return null;
+  }
   const parentOffer: OgabasseyProductVisibleSummaryOffer = { condition };
   const parentCondition = normalizeCondition(condition);
   const variantFacts = selectableVariants.map((offer) =>

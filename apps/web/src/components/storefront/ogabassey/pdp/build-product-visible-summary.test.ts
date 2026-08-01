@@ -161,7 +161,7 @@ describe('buildOgabasseyProductVisibleSummary', () => {
     ).toBe('HP Laptop 14-ep0063nia. Condition: New.');
   });
 
-  it('falls back to the active parent when every supplied variant is not selectable', () => {
+  it('does not summarize filtered variants or restore a stale parent condition', () => {
     expect(
       buildOgabasseyProductVisibleSummary({
         brand: 'Dell',
@@ -172,7 +172,16 @@ describe('buildOgabasseyProductVisibleSummary', () => {
           { condition: 'refurbished', deleted_at: '2026-01-01' },
         ],
       })
-    ).toBe('Dell Latitude 7450. Condition: New.');
+    ).toBeNull();
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Dell',
+        condition: 'new',
+        manage_stock: true,
+        name: 'Latitude 7450',
+        variants: [{ condition: 'used', stock_quantity: 0 }],
+      })
+    ).toBeNull();
   });
 
   it('omits the summary when identity or all safe facts are absent', () => {
@@ -288,5 +297,4 @@ describe('buildOgabasseyProductVisibleSummary', () => {
       })
     ).toBe('Apple iPhone 16. Storage: 256 GB. Condition: New.');
   });
-
 });

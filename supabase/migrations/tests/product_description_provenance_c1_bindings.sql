@@ -93,6 +93,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Operation IDs are merchant-scoped: reusing a UUID in another merchant must
+-- not disclose the first merchant's operation or collide with its grant.
+DO $$
+DECLARE v_grant uuid;
+BEGIN
+  SELECT grant_id INTO v_grant
+  FROM public.request_product_description_attestation_grant(
+    '00000000-0000-4000-b200-000000000002',
+    '00000000-0000-4000-c200-000000000099',
+    '00000000-0000-4000-d200-000000000001',
+    NULL, NULL, NULL, repeat('9', 64), true, 'manual_description'
+  );
+  IF v_grant IS NULL THEN
+    RAISE EXCEPTION 'merchant-scoped operation replay did not issue a grant';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
 SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-a200-000000000001","role":"authenticated"}', true);
 SET LOCAL ROLE authenticated;
 DO $$
