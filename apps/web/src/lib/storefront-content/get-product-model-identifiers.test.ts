@@ -43,7 +43,7 @@ describe('getProductModelIdentifiers', () => {
       productSlugs: ['macbook-air-13-inch-2022-m2-8gb-256gb'],
     });
 
-    expect(identifiers).toEqual(['m2']);
+    expect(identifiers).toEqual(['air m2']);
   });
 
   it('retains a later numeric model code after a screen-size token', () => {
@@ -64,6 +64,29 @@ describe('getProductModelIdentifiers', () => {
     });
 
     expect(identifiers).toEqual(['probook 440 g8']);
+  });
+
+  it('preserves configured laptop family aliases', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['HP'],
+      productSlugs: ['hp-pavilion-15'],
+    });
+
+    expect(identifiers).toEqual(['pavilion 15']);
+  });
+
+  it('keeps MacBook line markers distinct before a chip identifier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Apple'],
+      productSlugs: [
+        'macbook-air-m4-16gb-256gb-13-inch-new',
+        'macbook-pro-m4-16gb-512gb-14-inch-new',
+      ],
+    });
+
+    expect(identifiers).toEqual(['air m4', 'pro m4']);
   });
 
   it('strips a trailing processor tier from a laptop model', () => {

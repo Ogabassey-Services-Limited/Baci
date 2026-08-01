@@ -23,7 +23,8 @@ const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'series',
   'version',
 ]);
-const MODEL_FAMILY_ALIAS_TOKENS = new Set(['legion']);
+const MODEL_FAMILY_ALIAS_TOKENS = new Set(['legion', 'pavilion']);
+const MODEL_LINE_MARKER_TOKENS = new Set(['air', 'pro']);
 
 interface BrandAliasGroup {
   brandTokens: string[];
@@ -46,7 +47,7 @@ function getBrandAliasGroups(
     CONTENT_CLUSTER_SUPPORT[context.categorySlug].brandTokens
   ).flatMap(([brandKey, aliases]) => {
     const brandTokens = tokenize(brandKey);
-    const aliasTokens = (aliases as readonly string[]).map(tokenize);
+    const aliasTokens = aliases.map(tokenize);
     const matchesContext = [brandTokens, ...aliasTokens].some(
       (tokens: string[]) =>
         tokens.some((token) => contextBrandTokens.has(token))
@@ -171,6 +172,9 @@ function getModelIdentifier(tokens: string[]) {
   );
   if (alphanumericToken) {
     const alphanumericIndex = tokens.indexOf(alphanumericToken);
+    const prefixTokens = tokens
+      .slice(0, alphanumericIndex)
+      .filter((token) => MODEL_LINE_MARKER_TOKENS.has(token));
     const suffixTokens = tokens
       .slice(alphanumericIndex + 1)
       .filter(
@@ -179,7 +183,7 @@ function getModelIdentifier(tokens: string[]) {
           token.length > 1 &&
           !GENERIC_MODEL_MARKER_TOKENS.has(token)
       );
-    const phraseTokens = [alphanumericToken, ...suffixTokens];
+    const phraseTokens = [...prefixTokens, alphanumericToken, ...suffixTokens];
     return phraseTokens.join(' ');
   }
 
