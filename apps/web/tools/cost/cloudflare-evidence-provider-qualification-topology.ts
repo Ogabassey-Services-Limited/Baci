@@ -12,7 +12,9 @@ type MutationResponse = Awaited<
 type MutationReceiptParts = Readonly<{
   operationId: string | null;
   lostResponse: boolean;
+  responseSchemaSha256: string;
 }>;
+const SHA256 = /^[a-f0-9]{64}$/;
 
 const sameTopologyTuple = (left: TopologyTuple, right: TopologyTuple) =>
   left.state === right.state && left.fingerprint === right.fingerprint;
@@ -26,10 +28,12 @@ function buildTopologyMutationRequest(
 }
 
 function verifyMutationResponse(
-  mutation: MutationResponse
+  mutation: MutationResponse,
+  expectedResponseSchemaSha256: string
 ): MutationReceiptParts {
   const operationId = mutation.operationId;
   const lostResponse = mutation.lostResponse;
+  const responseSchemaSha256 = mutation.responseSchemaSha256;
   if (
     typeof lostResponse !== 'boolean' ||
     (operationId !== undefined &&
@@ -37,7 +41,17 @@ function verifyMutationResponse(
     (!lostResponse && operationId === undefined)
   )
     throw new Error('topology mutation response is ambiguous');
-  return { operationId: operationId ?? null, lostResponse };
+  if (
+    typeof responseSchemaSha256 !== 'string' ||
+    !SHA256.test(responseSchemaSha256) ||
+    responseSchemaSha256 !== expectedResponseSchemaSha256
+  )
+    throw new Error('topology mutation response schema is unverified');
+  return {
+    operationId: operationId ?? null,
+    lostResponse,
+    responseSchemaSha256,
+  };
 }
 
 function verifyMutationConvergence(
@@ -103,7 +117,8 @@ async function restoreTopology(
         topology.restore.requestSchemaSha256,
         topology.restore.action
       )
-    )
+    ),
+    topology.restore.responseSchemaSha256
   );
   verifyControlNoEffect(
     await client.topologyControlReadback(
@@ -158,7 +173,8 @@ export async function executeTopologyMutationWithRollback(
     const mutation = await client.topologyMutate(
       buildTopologyMutationRequest(topology, topology.requestSchemaSha256)
     );
-    const { operationId, lostResponse } = verifyMutationResponse(mutation);
+    const { operationId, lostResponse, responseSchemaSha256 } =
+      verifyMutationResponse(mutation, topology.responseSchemaSha256);
     verifyMutationConvergence(
       await client.topologyPoll(
         topology.family,
@@ -171,7 +187,7 @@ export async function executeTopologyMutationWithRollback(
       action: topology.action,
       endpoint: topology.endpoint,
       requestSchemaSha256: topology.requestSchemaSha256,
-      responseSchemaSha256: topology.responseSchemaSha256,
+      responseSchemaSha256,
       operationId,
       lostResponse,
     };

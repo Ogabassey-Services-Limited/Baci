@@ -3,7 +3,10 @@ import {
   executeCloudflareEvidenceQualification,
   QUALIFICATION_POINTER_URL,
 } from './qualify-cloudflare-evidence-sources';
-import { readback } from './qualify-cloudflare-evidence-sources.test-fixtures';
+import {
+  pointerProbeReadback,
+  readback,
+} from './qualify-cloudflare-evidence-sources.test-fixtures';
 
 describe('Cloudflare read-only qualification contracts', () => {
   it('executes Scripts Versions, Deployments, Trace, repeated pointers, and bounded purge through an injected client', async () => {
@@ -62,8 +65,15 @@ describe('Cloudflare read-only qualification contracts', () => {
       },
       pointerProbe: async (method: 'GET' | 'HEAD') => {
         calls.push(method);
-        return { cfCacheStatus: 'DYNAMIC' };
+        return pointerProbeReadback;
       },
+      readPurgeContract: async () => ({
+        endpoint: '/zones/zone/purge_cache',
+        requestSchemaSha256: 'a'.repeat(64),
+        rateLimitFingerprint: 'b'.repeat(64),
+        policySha256: 'c'.repeat(64),
+        productionResourceState: 'present_verified' as const,
+      }),
       temporaryPurge: async (request: {
         endpoint: string;
         zoneId: string;
@@ -158,7 +168,11 @@ describe('Cloudflare read-only qualification contracts', () => {
       executeCloudflareEvidenceQualification(
         {
           ...client,
-          pointerProbe: async () => ({ cfCacheStatus: 'HIT', age: '1' }),
+          pointerProbe: async () => ({
+            ...pointerProbeReadback,
+            cfCacheStatus: 'HIT',
+            age: '1',
+          }),
         },
         {
           accountId: 'account',

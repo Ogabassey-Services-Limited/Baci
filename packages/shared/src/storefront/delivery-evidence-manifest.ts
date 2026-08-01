@@ -17,6 +17,16 @@ const KNOWN_OGABASSEY_ALIASES = [
   'ogabassey.usebaci.com',
   'www.ogabassey.com',
 ] as const;
+/** Reviewed Task-1 authority; manifest input cannot expand this inventory. */
+export const APPROVED_OGABASSEY_HOSTNAME_INVENTORY = Object.freeze({
+  artifactId: 'ogabassey-hostname-inventory-v1',
+  hostnames: Object.freeze([
+    'ogabassey.com',
+    'ogabassey.usebaci.com',
+    'www.ogabassey.com',
+  ] as const),
+  sha256: '4d07d9eeffdf7bcf75e9d4fb9e6966cf1e13679f9c51cd1d46939f1c7788737c',
+});
 
 const ClosedUtc = z
   .string()
@@ -41,7 +51,7 @@ const SourceFingerprintsSchema = z
 const EvidenceSourceSchema = z.enum(['worker-analytics', 'worker-log']);
 const AliasHostnamesSchema = z
   .array(HostnameSchema)
-  .min(KNOWN_OGABASSEY_ALIASES.length)
+  .length(KNOWN_OGABASSEY_ALIASES.length)
   .superRefine((aliases, context) => {
     for (const hostname of KNOWN_OGABASSEY_ALIASES) {
       if (!aliases.includes(hostname))
@@ -53,9 +63,9 @@ const AliasHostnamesSchema = z
   });
 const InventoryHostnamesSchema = z
   .array(HostnameSchema)
-  .min(KNOWN_OGABASSEY_ALIASES.length + 1)
+  .length(APPROVED_OGABASSEY_HOSTNAME_INVENTORY.hostnames.length)
   .superRefine((hostnames, context) => {
-    for (const hostname of ['ogabassey.com', ...KNOWN_OGABASSEY_ALIASES]) {
+    for (const hostname of APPROVED_OGABASSEY_HOSTNAME_INVENTORY.hostnames) {
       if (!hostnames.includes(hostname))
         context.addIssue({
           code: 'custom',
@@ -166,18 +176,24 @@ export function validateStorefrontDeliveryManifest(
   if (
     new Set(aliases).size !== aliases.length ||
     aliases.includes(manifest.canonicalHostname) ||
-    aliases.some((host, index) => index > 0 && aliases[index - 1] >= host)
+    aliases.some((host, index) => index > 0 && aliases[index - 1] >= host) ||
+    aliases.some(
+      (hostname, index) =>
+        hostname !== APPROVED_OGABASSEY_HOSTNAME_INVENTORY.hostnames[index + 1]
+    )
   )
     reasons.push('alias_partition_invalid');
   const inventory = manifest.inventoryHostnames;
-  const expectedInventory = [manifest.canonicalHostname, ...aliases];
+  const expectedInventory = APPROVED_OGABASSEY_HOSTNAME_INVENTORY.hostnames;
   if (
     inventory.length !== expectedInventory.length ||
     inventory.some(
       (hostname, index) => hostname !== expectedInventory[index]
     ) ||
     manifest.hostnameInventorySha256 !==
-      calculateHostnameInventorySha256(inventory)
+      APPROVED_OGABASSEY_HOSTNAME_INVENTORY.sha256 ||
+    calculateHostnameInventorySha256(inventory) !==
+      APPROVED_OGABASSEY_HOSTNAME_INVENTORY.sha256
   )
     reasons.push('inventory_partition_invalid');
   const keys = [

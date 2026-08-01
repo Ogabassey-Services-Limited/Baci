@@ -4,7 +4,10 @@ import {
   executeCloudflareEvidenceQualification,
   QUALIFICATION_POINTER_URL,
 } from './qualify-cloudflare-evidence-sources';
-import { readback } from './qualify-cloudflare-evidence-sources.test-fixtures';
+import {
+  pointerProbeReadback,
+  readback,
+} from './qualify-cloudflare-evidence-sources.test-fixtures';
 
 describe('Cloudflare read-only qualification rejection contracts', () => {
   it('rejects BYPASS, unrelated evidence URLs, and noncanonical deployment tuples', async () => {
@@ -73,7 +76,8 @@ describe('Cloudflare read-only qualification rejection contracts', () => {
         rulesetVersion: readback.pointerCache.cacheRulesetVersion,
         expressionSha256: readback.pointerCache.traceExpressionSha256,
       }),
-      pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
+      pointerProbe: async () => pointerProbeReadback,
+      readPurgeContract: async () => baseInput.purge,
       temporaryPurge: async () => ({ operationId: 'purge' }),
       readPurge: async () => 'complete' as const,
       topologyConverged: async () => true,
@@ -125,7 +129,10 @@ describe('Cloudflare read-only qualification rejection contracts', () => {
       executeCloudflareEvidenceQualification(
         {
           ...baseClient,
-          pointerProbe: async () => ({ cfCacheStatus: 'BYPASS' }),
+          pointerProbe: async () => ({
+            ...pointerProbeReadback,
+            cfCacheStatus: 'BYPASS',
+          }),
         },
         baseInput
       )
@@ -157,6 +164,18 @@ describe('Cloudflare read-only qualification rejection contracts', () => {
         },
       })
     ).rejects.toThrow('journaled');
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...baseClient,
+          readPurgeContract: async () => ({
+            ...baseInput.purge,
+            rateLimitFingerprint: 'd'.repeat(64),
+          }),
+        },
+        baseInput
+      )
+    ).rejects.toThrow('provider contract');
     await expect(
       executeCloudflareEvidenceQualification(
         {

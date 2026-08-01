@@ -4,7 +4,10 @@ import {
   executeCloudflareEvidenceQualification,
   QUALIFICATION_POINTER_URL,
 } from './qualify-cloudflare-evidence-sources';
-import { readback } from './qualify-cloudflare-evidence-sources.test-fixtures';
+import {
+  pointerProbeReadback,
+  readback,
+} from './qualify-cloudflare-evidence-sources.test-fixtures';
 
 const input = {
   accountId: 'account',
@@ -68,7 +71,8 @@ const client = (
     rulesetVersion: readback.pointerCache.cacheRulesetVersion,
     expressionSha256: readback.pointerCache.traceExpressionSha256,
   }),
-  pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
+  pointerProbe: async () => pointerProbeReadback,
+  readPurgeContract: async () => input.purge,
   temporaryPurge: async () => ({ operationId: 'purge' }),
   readPurge: async () => 'complete',
   topologyConverged: async () => true,

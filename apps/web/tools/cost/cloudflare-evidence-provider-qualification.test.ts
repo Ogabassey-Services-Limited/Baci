@@ -30,14 +30,12 @@ describe('deep Cloudflare provider topology qualification', () => {
   });
   it('uses the inverse reattach action when restoring detached topology', async () => {
     const requests: Array<{ family: TopologyFamily; action: string }> = [];
+    const base = client();
     await executeDeepCloudflareEvidenceQualification(
       client({
-        topologyMutate: async ({ family, action }) => {
-          requests.push({ family, action });
-          return {
-            operationId: `${family}-${requests.length}`,
-            lostResponse: false,
-          };
+        topologyMutate: async (request) => {
+          requests.push({ family: request.family, action: request.action });
+          return base.topologyMutate(request);
         },
       }),
       input

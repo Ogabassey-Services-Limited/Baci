@@ -108,3 +108,51 @@ export const reviewedArtifacts = readback.versions.map((version) => ({
     soleVersionMetadataBinding: 'CF_VERSION_METADATA' as const,
   } as const,
 }));
+
+export const pointerProbeReadback = {
+  status: 204,
+  cfCacheStatus: 'DYNAMIC',
+  headers: {
+    'X-Baci-Evidence-Bundle': 'version-a-204',
+    'X-Baci-Evidence-Version': 'a',
+  },
+} as const;
+
+export const qualificationInput = {
+  accountId: 'account',
+  scriptName: readback.scriptName,
+  artifacts: [readback.versions[0], readback.versions[1]] as const,
+  pointerUrl: QUALIFICATION_POINTER_URL,
+  purge: {
+    endpoint: '/zones/zone/purge_cache',
+    requestSchemaSha256: 'a'.repeat(64),
+    rateLimitFingerprint: 'b'.repeat(64),
+    policySha256: 'c'.repeat(64),
+    productionResourceState: 'present_verified' as const,
+  },
+  journaledPurge: {
+    zoneId: 'zone',
+    contract: {
+      endpoint: '/zones/zone/purge_cache',
+      requestSchemaSha256: 'a'.repeat(64),
+      rateLimitFingerprint: 'b'.repeat(64),
+      policySha256: 'c'.repeat(64),
+      productionResourceState: 'present_verified' as const,
+    },
+  },
+  topology: {
+    family: 'r2-custom-domain' as const,
+    endpoint:
+      '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
+    requestSchemaSha256: 'a'.repeat(64),
+    responseSchemaSha256: 'b'.repeat(64),
+    maximumVisibilitySeconds: 60,
+  },
+  zoneId: 'zone',
+  ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
+  trace: {
+    cacheRuleId: readback.pointerCache.cacheRuleId,
+    rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+    expressionSha256: readback.pointerCache.traceExpressionSha256,
+  },
+};

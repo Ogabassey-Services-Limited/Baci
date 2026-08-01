@@ -51,6 +51,7 @@ type TraceExpectation = Readonly<{
 type MutationResponse = {
   operationId?: string;
   lostResponse?: boolean;
+  responseSchemaSha256?: string;
 };
 export type TopologyMutationRequest = Readonly<{
   family: TopologyFamily;

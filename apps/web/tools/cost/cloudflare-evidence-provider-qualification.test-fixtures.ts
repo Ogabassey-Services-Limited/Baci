@@ -92,10 +92,24 @@ export function client(
     trace: async () => ({ ...input.trace, matched: true }),
     pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
     topologyRead: async (family: TopologyFamily) => tuple(family, 'before'),
-    topologyMutate: async ({ family }: TopologyMutationRequest) => ({
-      operationId: `${family}-operation`,
-      lostResponse: family === 'r2-cors',
-    }),
+    topologyMutate: ({
+      family,
+      requestSchemaSha256,
+    }: TopologyMutationRequest) => {
+      const topology = topologyPlans.find(
+        (candidate) => candidate.family === family
+      );
+      if (!topology) throw new Error(`missing topology fixture for ${family}`);
+      const restoring =
+        requestSchemaSha256 === topology.restore.requestSchemaSha256;
+      return Promise.resolve({
+        operationId: `${family}-operation`,
+        lostResponse: family === 'r2-cors',
+        responseSchemaSha256: restoring
+          ? topology.restore.responseSchemaSha256
+          : topology.responseSchemaSha256,
+      });
+    },
     topologyPoll: async (family: TopologyFamily) => [
       {
         tuple: tuple(family, 'intermediate'),

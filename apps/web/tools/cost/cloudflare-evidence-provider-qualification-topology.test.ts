@@ -140,4 +140,53 @@ describe('Cloudflare topology mutation rollback', () => {
     ).rejects.toThrow('readback failed');
     assertForwardAndRestoreRequests(requests, topology);
   });
+
+  it.each(
+    families
+  )('rejects %s when the forward response schema fingerprint is wrong', async (family) => {
+    const topology = topologyFor(family);
+    const requests: TopologyMutationRequest[] = [];
+    const base = client();
+    let forward = true;
+    const injected: DeepQualificationClient = {
+      ...base,
+      topologyMutate: async (request) => {
+        requests.push(request);
+        const response = await base.topologyMutate(request);
+        if (!forward) return response;
+        forward = false;
+        return { ...response, responseSchemaSha256: 'f'.repeat(64) };
+      },
+    };
+
+    await expect(
+      executeTopologyMutationWithRollback(injected, topology)
+    ).rejects.toThrow('response schema');
+    assertForwardAndRestoreRequests(requests, topology);
+  });
+
+  it.each(
+    families
+  )('rejects %s when the restore response schema fingerprint is wrong', async (family) => {
+    const topology = topologyFor(family);
+    const requests: TopologyMutationRequest[] = [];
+    const base = client();
+    let mutationCount = 0;
+    const injected: DeepQualificationClient = {
+      ...base,
+      topologyMutate: async (request) => {
+        requests.push(request);
+        const response = await base.topologyMutate(request);
+        mutationCount += 1;
+        return mutationCount === 2
+          ? { ...response, responseSchemaSha256: 'f'.repeat(64) }
+          : response;
+      },
+    };
+
+    await expect(
+      executeTopologyMutationWithRollback(injected, topology)
+    ).rejects.toThrow('response schema');
+    assertForwardAndRestoreRequests(requests, topology);
+  });
 });

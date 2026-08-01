@@ -9,23 +9,17 @@ import {
   sameCloudflarePurgeContract,
   type TopologyEndpointSchema,
 } from './cloudflare-evidence-qualification-schemas';
-import type {
-  CloudflareOrdinaryTrafficProof,
-  CloudflareOwnerAcceptance,
-  CloudflareProtectedOverrideProof,
-  CloudflareZeroWeightContract,
-} from './cloudflare-evidence-qualification-traffic';
+import type { CloudflareOwnerAcceptance } from './cloudflare-evidence-qualification-traffic';
 import { qualifyCloudflareZeroWeightReadback } from './cloudflare-evidence-qualification-traffic';
 import { qualifyCloudflareTopologyEndpoint } from './cloudflare-evidence-topology-contract';
 import {
-  type CloudflareDeploymentReadback,
-  type CloudflarePurgeReadback,
-  type CloudflarePurgeReadbackRequest,
   type CloudflarePurgeRequest,
+  type CloudflareQualificationClient,
   type CloudflareTraceExpectation,
-  type CloudflareTraceReadback,
   type ExpectedQualificationArtifact,
   type JournaledPurgeContract,
+  matchesCloudflarePointerProbe,
+  matchesCloudflarePurgeContractReadback,
   matchesCloudflarePurgeReadback,
   matchesCloudflareTrace,
 } from './qualify-cloudflare-evidence-sources-contracts';
@@ -60,53 +54,10 @@ export {
   ZeroWeightDeploymentTupleSchema,
   ZeroWeightProofSchema,
 } from './cloudflare-evidence-qualification-traffic';
-export type CloudflareQualificationClient = Readonly<{
-  listVersions: (
-    accountId: string,
-    scriptName: string
-  ) => Promise<readonly string[]>;
-  readVersion(
-    accountId: string,
-    scriptName: string,
-    versionId: string
-  ): Promise<ExpectedQualificationArtifact>;
-  readDeployments(
-    accountId: string,
-    scriptName: string
-  ): Promise<CloudflareDeploymentReadback>;
-  readZeroWeightContract(
-    accountId: string,
-    scriptName: string
-  ): Promise<CloudflareZeroWeightContract>;
-  readOrdinaryTrafficProof(
-    accountId: string,
-    scriptName: string,
-    versionIds: readonly [string, string]
-  ): Promise<CloudflareOrdinaryTrafficProof>;
-  readProtectedVersionOverrideProof(
-    accountId: string,
-    scriptName: string,
-    candidateVersionId: string
-  ): Promise<CloudflareProtectedOverrideProof>;
-  trace(url: string): Promise<CloudflareTraceReadback>;
-  pointerProbe(
-    method: 'GET' | 'HEAD',
-    url: string
-  ): Promise<Readonly<{ cfCacheStatus: string; age?: string }>>;
-  temporaryPurge(
-    request: CloudflarePurgeRequest
-  ): Promise<Readonly<{ operationId: string }>>;
-  readPurge(operationId: string): Promise<'complete' | 'lost_response'>;
-  readPurgeReadback?(
-    request: CloudflarePurgeReadbackRequest
-  ): Promise<CloudflarePurgeReadback>;
-  topologyConverged(
-    topology: z.infer<typeof TopologyEndpointSchema>
-  ): Promise<boolean>;
-}>;
 export type {
   CloudflareDeploymentReadback,
   CloudflareDeploymentVersion,
+  CloudflareQualificationClient,
   ExpectedQualificationArtifact,
   JournaledPurgeContract,
 } from './qualify-cloudflare-evidence-sources-contracts';
@@ -154,6 +105,22 @@ export async function executeCloudflareEvidenceQualification(
     !sameCloudflarePurgeContract(parsedPurge.data, parsedJournaledPurge.data)
   )
     throw new Error('purge request schema and policy are not journaled');
+  if (typeof client.readPurgeContract !== 'function')
+    throw new Error('purge provider contract readback is required');
+  const providerPurgeContract = await client.readPurgeContract();
+  if (
+    !matchesCloudflarePurgeContractReadback(
+      providerPurgeContract,
+      parsedPurge.data
+    ) ||
+    !matchesCloudflarePurgeContractReadback(
+      providerPurgeContract,
+      parsedJournaledPurge.data
+    )
+  )
+    throw new Error(
+      'purge provider contract does not bind the journaled policy fingerprints'
+    );
   const listed = await client.listVersions(input.accountId, input.scriptName);
   if (
     new Set(listed).size !== 2 ||
@@ -246,8 +213,15 @@ export async function executeCloudflareEvidenceQualification(
         method,
         QUALIFICATION_POINTER_URL
       );
-      if (result.cfCacheStatus !== 'DYNAMIC' || result.age !== undefined)
-        throw new Error('pointer cache probe observed a cacheable response');
+      if (
+        !matchesCloudflarePointerProbe(result, {
+          bundle: 'version-a-204',
+          version: input.artifacts[0].versionId,
+        })
+      )
+        throw new Error(
+          'pointer cache probe did not reach the reviewed qualification fixture or observed a cacheable response'
+        );
     }
   const expectedPurgeEndpoint = `/zones/${input.zoneId}/purge_cache`;
   if (input.purge.endpoint !== expectedPurgeEndpoint)
@@ -261,6 +235,8 @@ export async function executeCloudflareEvidenceQualification(
     endpoint: expectedPurgeEndpoint,
     zoneId: input.zoneId,
     requestSchemaSha256: parsedJournaledPurge.data.requestSchemaSha256,
+    rateLimitFingerprint: parsedJournaledPurge.data.rateLimitFingerprint,
+    policySha256: parsedJournaledPurge.data.policySha256,
     body: purgeBody,
   };
   const operation = await client.temporaryPurge(purgeRequest);

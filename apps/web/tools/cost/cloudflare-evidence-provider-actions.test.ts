@@ -78,12 +78,24 @@ const input = {
   topologies: topologyPlans,
   journaledTopologies: journaledTopologyPlans,
 };
+function responseSchemaFor(
+  family: TopologyFamily,
+  requestSchemaSha256: string
+) {
+  const topology = topologies.find((candidate) => candidate.family === family);
+  if (!topology) throw new Error(`missing topology fixture for ${family}`);
+  return requestSchemaSha256 === topology.restore.requestSchemaSha256
+    ? topology.restore.responseSchemaSha256
+    : topology.responseSchemaSha256;
+}
 function client(
   topologyMutate: DeepQualificationClient['topologyMutate'] = async ({
     family,
+    requestSchemaSha256,
   }) => ({
     operationId: `${family}-operation`,
     lostResponse: family === 'r2-cors',
+    responseSchemaSha256: responseSchemaFor(family, requestSchemaSha256),
   })
 ) {
   return {
@@ -128,6 +140,10 @@ describe('Cloudflare topology mutation actions', () => {
           return {
             operationId: `${request.family}-${requests.length}`,
             lostResponse: request.family === 'r2-cors',
+            responseSchemaSha256: responseSchemaFor(
+              request.family,
+              request.requestSchemaSha256
+            ),
           };
         }) as never,
         input
