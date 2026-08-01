@@ -49,7 +49,9 @@ const HASHES: Record<string, string> = {
   'apps/web/src/app/dashboard/products/add/add-product-form.tsx':
     '1742d39c6f45ffb1db3051252a1348018e9de681ea02d831e1ad79ff920bdd7f',
   'apps/web/src/app/api/products/route.ts':
-    'd72a7b81ce7a0333d8c5c37b6e9bfc5e12a0c7e420b26444e406348a12033a92',
+    '333c0f88c0e935d9b9b7596db207732d0e59a1ff953dea92ef6a2e84ab060584',
+  'apps/web/src/app/api/products/create-product.ts':
+    'a3f477c37f68e72ed054c1eeef785c5f9cf8c15db620b826e602339d36e8174f',
   'apps/web/src/app/api/products/[id]/route.ts':
     'bbf6b4b564e4d9bf1c085d8139450ed7340fa94f008b5d6a00f9f08502d71e83',
   'apps/web/src/components/products/csv-bulk-import-dialog.tsx':
@@ -131,6 +133,13 @@ export const CURRENT_INVENTORY_ROWS = [
     'insert public.products.description',
     'createProductSchema description',
     'apps/web/src/app/api/products/route.test.ts'
+  ),
+  row(
+    'apps/web/src/app/api/products/create-product.ts',
+    'POST /api/products handler',
+    'insert public.products.description',
+    'createProductSchema description',
+    'apps/web/src/app/api/products/create-product.test.ts'
   ),
   row(
     'apps/web/src/app/api/products/[id]/route.ts',
