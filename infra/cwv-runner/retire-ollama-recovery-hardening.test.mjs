@@ -82,6 +82,9 @@ test('binds a container Ollama process to inspect Path without a host executable
     await writeFile(executable, 'container Ollama bytes');
     await chmod(executable, 0o755);
     await symlink(executable, join(pidDir, 'exe'));
+    await mkdir(join(directory, 'rootfs', 'bin'), { recursive: true });
+    await symlink(executable, join(directory, 'rootfs', 'bin', 'ollama'));
+    await symlink(join(directory, 'rootfs'), join(pidDir, 'root'));
     await writeFile(
       join(pidDir, 'stat'),
       `41 (ollama) ${['S', ...Array(18).fill('1'), '42'].join(' ')}\n`

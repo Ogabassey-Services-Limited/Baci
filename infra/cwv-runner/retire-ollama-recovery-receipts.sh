@@ -155,7 +155,12 @@ recovery_reconcile_pair() {
 
 recovery_write_receipt() {
   snapshot=$1; directory=$(recovery_fixed_receipt_dir); recovery_prepare_dir "$directory"
-  if recovery_reconcile_pair "$directory"; then cat "$directory/recovery-scan.json.sha256"; return 0; fi
+  if recovery_reconcile_pair "$directory"; then
+    current=$(temp_path); /usr/bin/jq -S -c . "$snapshot" >"$current" || die 'recovery snapshot invalid'
+    stored=$(temp_path); /usr/bin/jq -S -c .scan "$directory/recovery-scan.json" >"$stored" || die 'recovery stored scan invalid'
+    /usr/bin/cmp -s "$current" "$stored" || { /bin/rm -f -- "$current" "$stored"; review_required 'recovery receipt snapshot drift'; }
+    /bin/rm -f -- "$current" "$stored"; cat "$directory/recovery-scan.json.sha256"; return 0
+  fi
   RECOVERY_SCRIPT_SHA=${RECOVERY_SCRIPT_SHA:-$(sha "$SCRIPT_DIR/retire-ollama.sh")}; RECOVERY_HELPER_SHA=${RECOVERY_HELPER_SHA:-$(sha "$RECOVERY_HELPER")}; RECOVERY_RECEIPTS_SHA=${RECOVERY_RECEIPTS_SHA:-$(sha "$RECOVERY_RECEIPTS_HELPER")}
   json="$directory/recovery-scan.json"; digest="$json.sha256"; json_pending="$json.pending"; digest_pending="$digest.pending"
   [ ! -e "$json" ] && [ ! -L "$json" ] && [ ! -e "$digest" ] && [ ! -L "$digest" ] && [ ! -e "$json_pending" ] && [ ! -L "$json_pending" ] && [ ! -e "$digest_pending" ] && [ ! -L "$digest_pending" ] || review_required 'recovery receipt publication race'

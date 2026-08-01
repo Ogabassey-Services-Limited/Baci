@@ -1,9 +1,7 @@
 #!/bin/sh
-# Read-only recovery evidence for a partially retired Ollama host.
-# This file is sourced by retire-ollama.sh; it must never mutate host state.
 RECOVERY_PROC_ROOT=${RETIRE_OLLAMA_PROC_ROOT:-/proc}
 RECOVERY_CONTAINER_COMMAND_PATH=${RECOVERY_CONTAINER_COMMAND_PATH:-}
-RECOVERY_SOURCE_SHA=${SCRIPT_DIR%/*}; RECOVERY_SOURCE_SHA=${RECOVERY_SOURCE_SHA##*/}
+RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}
 # shellcheck disable=SC2034 # Consumed by the sourced receipt publication helper.
 RECOVERY_RECEIPT_ROOT=/srv/baci-cwv/retired-ollama/recovery-scan
 RECOVERY_RECEIPTS_HELPER="$SCRIPT_DIR/retire-ollama-recovery-receipts.sh"
@@ -14,13 +12,15 @@ recovery_dpkg_query() { dpkg-query "$@"; }
 recovery_systemctl() { systemctl "$@"; }
 recovery_docker() { docker --host "unix://$CANONICAL_DOCKER_SOCKET" "$@"; }
 recovery_ps() { ps -eo pid=,ppid=,args=; }
-recovery_hex() { /usr/bin/printf '%s' "$1" | /usr/bin/grep -Eq '^[0-9a-f]{64}$'; }
 recovery_safe_int() { case "$1" in ''|*[!0-9]*) return 1;; esac; [ "$1" -gt 0 ] 2>/dev/null; }; recovery_nonnegative_int() { case "$1" in ''|*[!0-9]*) return 1;; esac; [ "$1" -ge 0 ] 2>/dev/null; }
 recovery_source_identity() { /usr/bin/printf '%s' "$1" | /usr/bin/grep -Eq '^[0-9a-f]{40}$'; }
 recovery_package_snapshot() {
-  if version=$(recovery_dpkg_query -W "-f=$PACKAGE_FORMAT" ollama 2>/dev/null); then
-    [ -n "$version" ] || die 'empty Ollama package version'
-    /usr/bin/jq -cn --arg version "$version" '{name:"ollama",state:"present",version:$version}'
+  if package=$(recovery_dpkg_query -W "-f=\${db:Status-Abbrev} \${Version}" ollama 2>/dev/null); then
+    status=${package%%  *}; version=${package#*  }
+    case "$status" in [a-z][a-z]) :;; *) die 'invalid Ollama package status';; esac
+    case "$version" in ''|*[[:space:]]*) die 'invalid Ollama package version';; esac
+    [ "$status" = ii ] || { /usr/bin/jq -cn '{name:"ollama",state:"absent",version:null}'; return; }
+    [ -n "$version" ] || die 'empty Ollama package version'; /usr/bin/jq -cn --arg version "$version" '{name:"ollama",state:"present",version:$version}'
   else
     status=$?; [ "$status" -eq 1 ] || die "Ollama package query failed ($status)"
     /usr/bin/jq -cn '{name:"ollama",state:"absent",version:null}'
@@ -28,28 +28,10 @@ recovery_package_snapshot() {
 }
 recovery_unit_snapshot() {
   name=$1
-  if value=$(recovery_systemctl show "$name" -p LoadState -p UnitFileState -p ActiveState 2>/dev/null); then
-    case "$value" in
-      *'LoadState=not-found'*) /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}' ;;
-      *) /usr/bin/jq -cn --arg name "$name" --arg value "$(hash_text "$value")" '{name:$name,state:"present",stateSha256:$value}' ;;
-    esac
-  else
-    status=$?; [ "$status" -eq 4 ] || die "unit state failed $name ($status)"
-    /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}'
-  fi
+  if value=$(recovery_systemctl show "$name" -p LoadState -p UnitFileState -p ActiveState 2>/dev/null); then case "$value" in *'LoadState=not-found'*) /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}';; *) /usr/bin/jq -cn --arg name "$name" --arg value "$(hash_text "$value")" '{name:$name,state:"present",stateSha256:$value}';; esac
+  else status=$?; [ "$status" -eq 4 ] || die "unit state failed $name ($status)"; /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}'; fi
 }
-recovery_systemd_definition() {
-  name=$1; out=$2
-  if recovery_systemctl cat "$name" >"$out" 2>/dev/null; then return 0; fi
-  status=$?; [ "$status" -eq 1 ] || [ "$status" -eq 4 ] || return "$status"; : >"$out"; return "$status"
-}
-recovery_systemd_properties() {
-  name=$1; property=$2; out=$3
-  if recovery_systemctl show "$name" -p "$property" --value >"$out" 2>/dev/null; then return 0; fi
-  status=$?; case "$status" in 1|4) : >"$out"; return "$status";; *) die "systemd property failed $name ($status)";; esac
-}
-# shellcheck disable=SC2329 # Passed indirectly to recovery_surface.
-recovery_systemd_cat() { recovery_systemctl cat "$1"; }
+recovery_systemd_properties() { name=$1; property=$2; out=$3; if recovery_systemctl show "$name" -p "$property" --value >"$out" 2>/dev/null; then return 0; fi; status=$?; case "$status" in 1|4) : >"$out"; return "$status";; *) die "systemd property failed $name ($status)";; esac; }
 recovery_surface() {
   class=$1; shift; out=$(temp_path); err=$(temp_path)
   status=0; "$@" >"$out" 2>"$err" || status=$?
@@ -60,8 +42,8 @@ recovery_surface() {
   value=$(sha "$out"); error=$(sha "$err")
   RECOVERY_RECORDS=$(/usr/bin/jq -cn --argjson old "$RECOVERY_RECORDS" --arg class "$class" --argjson status "$status" --arg value "$value" --arg error "$error" '$old + [{class:$class,exitStatus:$status,sha256:$value,stderrSha256:$error}]') || die "recovery surface serialization failed $class"
   case "$class" in
-    systemd-consumers|reverse-proxy|compose-definitions|running-containers|container-definitions)
-      record_consumers "$class" "$out" all || die "recovery consumer evidence failed $class";;
+    systemd-consumers|reverse-proxy|compose-definitions|running-containers|container-definitions) record_consumers "$class" "$out" all || die "recovery consumer evidence failed $class";;
+    running-processes) record_consumers "$class" "$out" || die "recovery consumer evidence failed $class";;
   esac
   /bin/rm -f -- "$out" "$err"
 }
@@ -89,8 +71,7 @@ recovery_process_identity() {
   pid=$1; recovery_safe_int "$pid" || die 'invalid process pid'
   cgroup="$RECOVERY_PROC_ROOT/$pid/cgroup"; namespace="$RECOVERY_PROC_ROOT/$pid/ns/pid"
   [ -f "$cgroup" ] && [ ! -L "$cgroup" ] && [ -e "$namespace" ] || die "process identity unavailable $pid"
-  namespace_value=$(readlink -- "$namespace") || die "process namespace unavailable $pid"
-  printf '%s %s\n' "$(sha "$cgroup")" "$(hash_text "$namespace_value")"
+  namespace_value=$(readlink -- "$namespace") || die "process namespace unavailable $pid"; printf '%s %s\n' "$(sha "$cgroup")" "$(hash_text "$namespace_value")"
 }
 recovery_is_scanner_ancestor() {
   case " ${RECOVERY_SCANNER_PID_SET:-} " in *" $1 "*) return 0;; *) return 1;; esac
@@ -125,7 +106,12 @@ recovery_process_executable() {
   observed=$(readlink -- "$exe") || review_required 'process executable target unavailable'; observed=${observed% (deleted)}
   real=$(readlink -f -- "$exe") || review_required 'process executable resolution failed'
   case "$kind:$real" in
-    ollama:*) [ "$observed" = "$expected" ] || review_required 'process executable mismatch';;
+    ollama:*)
+      expected_path="$RECOVERY_PROC_ROOT/$pid/root$expected"
+      expected_real=$(readlink -f -- "$expected_path") || review_required 'process executable expectation unresolved'
+      expected_identity=$(stat -Lc '%d:%i:%u:%g:%a' "$expected_path") || review_required 'process executable expectation identity failed'
+      observed_identity=$(stat -Lc '%d:%i:%u:%g:%a' "$exe") || review_required 'process executable identity failed'; [ "$expected_identity" = "$observed_identity" ] || review_required 'process executable mismatch'
+      [ -n "$expected_real" ] || review_required 'process executable expectation unresolved';;
     docker-proxy:/usr/bin/docker-proxy|docker-proxy:/usr/libexec/docker/docker-proxy) :;;
     *) review_required 'unreviewed process executable path';;
   esac
@@ -154,7 +140,7 @@ recovery_proxy_ports_ok() {
       *) return 1;;
     esac
   done
-  [ "$proto" = tcp ] && [ -n "$host_ip" ] && [ -n "$host_port" ] && [ -n "$container_ip" ] && [ "$container_port" = 11434 ] || return 1
+  [ "$proto" = tcp ] && [ "$host_ip" = 127.0.0.1 ] && [ "$host_port" = 11434 ] && [ -n "$container_ip" ] && [ "$container_port" = 11434 ] || return 1
   [ -n "$host_ip" ] || host_ip=0.0.0.0
   /usr/bin/jq -e --arg hostIp "$host_ip" --arg hostPort "$host_port" --arg containerIp "$container_ip" '
     (any((.NetworkSettings.Ports["11434/tcp"] // [])[]?; ((.HostPort // "") == $hostPort) and ((.HostIp // "0.0.0.0") == $hostIp))) and
@@ -209,6 +195,7 @@ recovery_cron_snapshot() {
   /usr/bin/jq -cn --arg whole "$whole" --argjson count "$count" --argjson entries "$entries" '{wholeSha256:$whole,lineCount:$count,lines:$entries}'
 }
 recovery_model_snapshot() {
+  if [ ! -e "$STORE" ] && [ ! -L "$STORE" ]; then /usr/bin/jq -cn '{state:"absent"}'; return; fi
   [ -d "$STORE" ] && [ ! -L "$STORE" ] || die 'unsafe recovery model store'
   real=$(readlink -f -- "$STORE") || die 'cannot resolve recovery model store'; [ "$real" = "$STORE" ] || die 'replaced recovery model store'
   parent=$(dirname "$STORE"); parent_real=$(readlink -f -- "$parent") || die 'cannot resolve recovery model parent'; [ "$parent_real" = "$parent" ] || die 'replaced recovery model parent'
@@ -226,10 +213,17 @@ EOF
   /usr/bin/jq -cn --arg path "$real" --arg parent "$parent_real" --arg device "$device" --arg inode "$inode" --arg uid "$uid" --arg gid "$gid" --arg mode "$mode" --arg pdevice "$parent_device" --arg pinode "$parent_inode" --arg puid "$parent_uid" --arg pgid "$parent_gid" --arg pmode "$parent_mode" --arg mount "$mount_sha" --arg tree "$tree" '{realPath:$path,parent:{realPath:$parent,device:$pdevice,inode:$pinode,uid:$puid,gid:$pgid,mode:$pmode},device:$device,inode:$inode,mountSha256:$mount,treeSha256:$tree,owner:{uid:$uid,gid:$gid,mode:$mode}}'
 }
 recovery_container_snapshot() {
-  # One immutable inspect JSON is the only source for all container fields.
-  json=$(temp_path)
-  # shellcheck disable=SC2153 # CONTAINER is defined by the sourced entrypoint.
-  recovery_docker inspect -f '{{json .}}' "$CONTAINER" >"$json" || die 'recovery container missing'
+  json=$(temp_path); error=$(temp_path)
+# shellcheck disable=SC2153 # CONTAINER is defined by the sourced entrypoint.
+  if recovery_docker inspect -f '{{json .}}' "$CONTAINER" >"$json" 2>"$error"; then :; else
+    status=$?; if [ "$status" -eq 1 ] && grep -Fqx "Error: No such object: $CONTAINER" "$error"; then
+      listed=$(temp_path); recovery_docker ps -a --no-trunc --format '{{.Names}}' >"$listed" 2>/dev/null || { rm -f "$json" "$error" "$listed"; die 'recovery container absence verification failed'; }
+      grep -Fqx "$CONTAINER" "$listed" && { rm -f "$json" "$error" "$listed"; die 'recovery container changed during absence verification'; }
+      rm -f "$json" "$error" "$listed"; RECOVERY_CONTAINER_STATE=absent; /usr/bin/jq -cn '{name:"ollama-loopback",state:"absent"}'; return
+    fi
+    rm -f "$json" "$error"; die "recovery container inspection failed ($status)"
+  fi
+  rm -f "$error"
   /usr/bin/jq -e '
     type == "object" and .Name == "/ollama-loopback" and
     (.Id|type == "string" and test("^[0-9a-f]{64}$")) and
@@ -245,7 +239,7 @@ recovery_container_snapshot() {
 $identity
 EOF
   [ -z "${extra:-}" ] && [ -n "$cgroup" ] && [ -n "$namespace" ] || die 'invalid container process identity'
-  RECOVERY_CONTAINER_COMMAND_PATH=$path RECOVERY_CONTAINER_PID=$pid RECOVERY_CONTAINER_CGROUP=$cgroup RECOVERY_CONTAINER_NAMESPACE=$namespace RECOVERY_CONTAINER_PORTS_FILE=$ports_file
+  RECOVERY_CONTAINER_STATE=present RECOVERY_CONTAINER_COMMAND_PATH=$path RECOVERY_CONTAINER_PID=$pid RECOVERY_CONTAINER_CGROUP=$cgroup RECOVERY_CONTAINER_NAMESPACE=$namespace RECOVERY_CONTAINER_PORTS_FILE=$ports_file
   /usr/bin/jq -cn --arg id "$id" --arg image "$image" --arg path "$path" --arg pid "$pid" --arg config "$config" --arg ports "$ports_sha" '{name:"ollama-loopback",fullId:$id,imageId:$image,commandPath:$path,pid:$pid,configSha256:$config,portsSha256:$ports}'
   rm -f "$json"
 }
@@ -259,10 +253,10 @@ recovery_collect_crontab() {
   if crontab -u "$OWNER" -l >"$target" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'recovery crontab scan failed'; : >"$target"; fi
 }
 recovery_collect_systemd() {
-  # shellcheck disable=SC2153 # UNIT is defined by the sourced entrypoint.
-  recovery_surface systemd-definitions recovery_systemd_cat "$UNIT"
-  # shellcheck disable=SC2153 # TIMER is defined by the sourced entrypoint.
-  recovery_surface systemd-timer-definitions recovery_systemd_cat "$TIMER"
+# shellcheck disable=SC2153 # UNIT is defined by the sourced entrypoint.
+  recovery_surface systemd-definitions recovery_systemctl cat "$UNIT"
+# shellcheck disable=SC2153 # TIMER is defined by the sourced entrypoint.
+  recovery_surface systemd-timer-definitions recovery_systemctl cat "$TIMER"
   recovery_surface systemd-consumers scan_systemd_consumers
   for name in "$UNIT" "$TIMER"; do
     for property in FragmentPath DropInPaths EnvironmentFiles; do
@@ -282,6 +276,8 @@ recovery_collect_systemd() {
   done
   :
 }
+recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes cat "$processes"; }
+recovery_absent_process_snapshot() { processes=$1; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *11434*) review_required 'foreign Ollama process remains after container removal';; esac; done <"$processes"; /usr/bin/jq -cn '{state:"absent",matchingProcesses:[]}'; }
 recovery_scan() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$
   if [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi
@@ -291,9 +287,11 @@ recovery_scan() {
   recovery_collect_systemd
   recovery_surface reverse-proxy scan_nginx_definitions; recovery_surface compose-definitions scan_compose_definitions
   recovery_surface container-definitions scan_container_definitions; recovery_surface running-containers scan_running_containers
-  recovery_container_snapshot >"$container"; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes recovery_ps
+  recovery_container_snapshot >"$container"
+  recovery_collect_processes "$processes"
+  if [ "${RECOVERY_CONTAINER_STATE:-}" = absent ]; then process_json=$(recovery_absent_process_snapshot "$processes"); else process_json=$(recovery_process_snapshot "$RECOVERY_CONTAINER_PID" "$RECOVERY_CONTAINER_CGROUP" "$RECOVERY_CONTAINER_NAMESPACE" "$RECOVERY_CONTAINER_PORTS_FILE" "$processes"); fi
   recovery_collect_crontab "$cron"; recovery_surface current-crontab cat "$cron"
-  package=$(recovery_package_snapshot); unit=$(recovery_unit_snapshot "$UNIT"); timer=$(recovery_unit_snapshot "$TIMER"); model=$(recovery_model_snapshot); cron_json=$(recovery_cron_snapshot "$cron"); process_json=$(recovery_process_snapshot "$RECOVERY_CONTAINER_PID" "$RECOVERY_CONTAINER_CGROUP" "$RECOVERY_CONTAINER_NAMESPACE" "$RECOVERY_CONTAINER_PORTS_FILE" "$processes"); container_json=$(cat "$container")
+  package=$(recovery_package_snapshot); unit=$(recovery_unit_snapshot "$UNIT"); timer=$(recovery_unit_snapshot "$TIMER"); model=$(recovery_model_snapshot); cron_json=$(recovery_cron_snapshot "$cron"); container_json=$(cat "$container")
   records=$RECOVERY_RECORDS; record_docker_socket; RECOVERY_RECORDS=$records; recovery_surface docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'
   /usr/bin/jq -S -n --argjson package "$package" --argjson unit "$unit" --argjson timer "$timer" --argjson container "$container_json" --argjson model "$model" --argjson cron "$cron_json" --argjson processes "$process_json" --argjson records "$RECOVERY_RECORDS" --argjson dependencies "$deps" --argjson consumerCounts "$consumer_counts" --argjson consumerEvidence "$consumer_evidence" '{package:$package,units:[$unit,$timer],container:$container,model:$model,crontab:$cron,processes:$processes,surfaces:$records,dependencies:$dependencies,consumerCounts:$consumerCounts,consumerEvidence:$consumerEvidence,dependencyTaxonomy:["disabled","external-provider","ollama-loopback","unknown"]}' >"$snapshot" || die 'recovery snapshot serialization failed'
   recovery_write_receipt "$snapshot"; rm -f "$snapshot" "$cron" "$processes" "$container" "$RECOVERY_CONTAINER_PORTS_FILE"
