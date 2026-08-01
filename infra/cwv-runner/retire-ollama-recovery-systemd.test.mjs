@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -60,6 +67,89 @@ test('rejects Ollama subcommand prefixes without a token boundary', async () => 
           error.code === 78 && /unsupported Ollama process/.test(error.stderr)
       );
     }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('rejects a loopback listener whose argv omits Ollama and the port', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-ollama-recovery-socket-')
+  );
+  const procRoot = join(directory, 'proc');
+  const ports = join(directory, 'ports.json');
+  const processes = join(directory, 'processes');
+  try {
+    await mkdir(join(procRoot, 'net'), { recursive: true });
+    await mkdir(join(procRoot, '41', 'fd'), { recursive: true });
+    await mkdir(join(procRoot, '43', 'fd'), { recursive: true });
+    await symlink('socket:[12345]', join(procRoot, '43', 'fd', '7'));
+    await writeFile(
+      join(procRoot, 'net', 'tcp'),
+      '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2C9A 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000 0 12345\n'
+    );
+    await writeFile(ports, '{}\n');
+    await writeFile(
+      processes,
+      '41 1 /usr/bin/ollama serve\n43 1 /usr/bin/python server.py\n'
+    );
+    await assert.rejects(
+      shell(
+        'RECOVERY_PROC_ROOT="$2"; recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"path\\":\\"/usr/bin/ollama\\",\\"sha256\\":\\"%064d\\",\\"identitySha256\\":\\"%064d\\",\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n" 0 0; }; recovery_listener_executable() { printf "{\\"path\\":\\"/usr/bin/python\\",\\"realPath\\":\\"/usr/bin/python\\",\\"sha256\\":\\"%064d\\",\\"identitySha256\\":\\"%064d\\",\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n" 0 0; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$3" "$4"',
+        {},
+        [procRoot, ports, processes]
+      ),
+      (error) =>
+        error.code === 78 && /unreviewed port-11434 listener/.test(error.stderr)
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('binds a reviewed listener socket inode to its process evidence', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-ollama-recovery-socket-bound-')
+  );
+  const procRoot = join(directory, 'proc');
+  const ports = join(directory, 'ports.json');
+  const processes = join(directory, 'processes');
+  try {
+    await mkdir(join(procRoot, 'net'), { recursive: true });
+    await mkdir(join(procRoot, '41', 'fd'), { recursive: true });
+    await symlink('socket:[12345]', join(procRoot, '41', 'fd', '7'));
+    await writeFile(
+      join(procRoot, 'net', 'tcp'),
+      '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2C9A 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000 0 12345\n'
+    );
+    await writeFile(
+      ports,
+      '{"HostConfig":{"PortBindings":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]}},"NetworkSettings":{"Ports":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]},"Networks":{"bridge":{"IPAddress":"172.17.0.2"}}}}\n'
+    );
+    await writeFile(processes, '41 1 /usr/bin/ollama serve\n');
+    const { stdout } = await shell(
+      'RECOVERY_PROC_ROOT="$2"; recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"path\\":\\"/usr/bin/ollama\\",\\"sha256\\":\\"%064d\\",\\"identitySha256\\":\\"%064d\\",\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n" 0 0; }; recovery_listener_executable() { printf "{\\"path\\":\\"/usr/bin/ollama\\",\\"realPath\\":\\"/usr/bin/ollama\\",\\"sha256\\":\\"%064d\\",\\"identitySha256\\":\\"%064d\\",\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n" 0 0; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$3" "$4"',
+      {},
+      [procRoot, ports, processes]
+    );
+    const snapshot = JSON.parse(stdout);
+    assert.deepEqual(snapshot.listeningSockets, [
+      {
+        class: 'container',
+        executable: {
+          identitySha256: '0'.repeat(64),
+          path: '/usr/bin/ollama',
+          sha256: '0'.repeat(64),
+          startTime: '1',
+          uid: '1000',
+        },
+        family: 'tcp',
+        inode: '12345',
+        localAddressHex: '0100007F',
+        pid: '41',
+        port: 11434,
+      },
+    ]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

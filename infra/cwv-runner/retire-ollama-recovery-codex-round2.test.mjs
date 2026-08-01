@@ -103,10 +103,11 @@ test('ignores the recovery scanner ancestry in absent-container evidence', async
       'recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh /srv/retire-ollama.sh --recovery-scan\\n" "$$" >"$2"; recovery_absent_process_snapshot "$2"',
       [processes]
     );
-    assert.deepEqual(JSON.parse(stdout), {
-      state: 'absent',
-      matchingProcesses: [],
-    });
+    const snapshot = JSON.parse(stdout);
+    assert.equal(snapshot.state, 'absent');
+    assert.deepEqual(snapshot.matchingProcesses, []);
+    assert.deepEqual(snapshot.listeningSockets, []);
+    assert.match(snapshot.socketSnapshotSha256, /^[0-9a-f]{64}$/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

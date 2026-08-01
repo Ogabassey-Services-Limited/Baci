@@ -268,10 +268,11 @@ test('rejects a lingering Ollama process after container removal', async () => {
     const { stdout } = await shell('recovery_absent_process_snapshot "$2"', [
       processes,
     ]);
-    assert.deepEqual(JSON.parse(stdout), {
-      state: 'absent',
-      matchingProcesses: [],
-    });
+    const snapshot = JSON.parse(stdout);
+    assert.equal(snapshot.state, 'absent');
+    assert.deepEqual(snapshot.matchingProcesses, []);
+    assert.deepEqual(snapshot.listeningSockets, []);
+    assert.match(snapshot.socketSnapshotSha256, /^[0-9a-f]{64}$/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

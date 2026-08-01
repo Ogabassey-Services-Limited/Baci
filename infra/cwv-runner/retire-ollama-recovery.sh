@@ -2,9 +2,7 @@
 RECOVERY_PROC_ROOT=${RETIRE_OLLAMA_PROC_ROOT:-/proc}
 RECOVERY_CONTAINER_COMMAND_PATH=${RECOVERY_CONTAINER_COMMAND_PATH:-}
 RECOVERY_CONTAINER_PORTS_FILE=${RECOVERY_CONTAINER_PORTS_FILE:-}
-RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}; RECOVERY_SOURCE_ROOT=/srv/baci-cwv/source
-# shellcheck disable=SC2034 # Consumed by the sourced receipt publication helper.
-RECOVERY_RECEIPT_ROOT=/srv/baci-cwv/retired-ollama/recovery-scan
+RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}; RECOVERY_SOURCE_ROOT=/srv/baci-cwv/source; RECOVERY_RECEIPT_ROOT=/srv/baci-cwv/retired-ollama/recovery-scan; : "${RECOVERY_RECEIPT_ROOT}"
 RECOVERY_RECEIPTS_HELPER="$SCRIPT_DIR/retire-ollama-recovery-receipts.sh"
 [ -f "$RECOVERY_RECEIPTS_HELPER" ] && [ ! -L "$RECOVERY_RECEIPTS_HELPER" ] || review_required 'recovery receipts helper missing'
 # shellcheck disable=SC1090,SC1091 # Resolved beside this sealed recovery helper.
@@ -158,6 +156,7 @@ recovery_process_snapshot() {
   container_pid=$1; container_cgroup=$2; container_namespace=$3; ports=$4; processes=$5
   RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; RECOVERY_SCANNER_ANCESTORS='[]'; RECOVERY_CONTAINER_PROCESS_UID=''
   if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi
+  recovery_socket_snapshot "$container_pid" "$container_cgroup" "$container_namespace" "$ports" "$processes"
   entries='[]'; count=0; container_count=0; proxy_count=0; container_pid_seen=0
   while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
     [ -n "$pid" ] || continue
@@ -190,7 +189,7 @@ EOF
     count=$((count + 1))
   done <"$processes"
   [ "$container_count" -gt 0 ] || review_required 'incomplete reviewed Ollama process set'; [ "$container_pid_seen" -eq 1 ] || review_required 'inspected container process missing'; [ "$proxy_count" -gt 0 ] || recovery_container_ports_ok "$ports" || review_required 'published Ollama binding is not loopback-bound'
-  /usr/bin/jq -cn --arg pid "$container_pid" --arg cgroup "$container_cgroup" --arg namespace "$container_namespace" --arg uid "${RECOVERY_CONTAINER_PROCESS_UID:-}" --argjson entries "$entries" --argjson ancestors "${RECOVERY_SCANNER_ANCESTORS:-[]}" --argjson containers "$container_count" --argjson proxies "$proxy_count" '{containerPid:$pid,containerCgroupSha256:$cgroup,containerPidNamespaceSha256:$namespace,containerUid:$uid,matchingProcesses:$entries,scannerAncestors:$ancestors,containerProcessCount:$containers,proxyProcessCount:$proxies}'
+  /usr/bin/jq -cn --arg pid "$container_pid" --arg cgroup "$container_cgroup" --arg namespace "$container_namespace" --arg uid "${RECOVERY_CONTAINER_PROCESS_UID:-}" --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson entries "$entries" --argjson ancestors "${RECOVERY_SCANNER_ANCESTORS:-[]}" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" --argjson containers "$container_count" --argjson proxies "$proxy_count" '{containerPid:$pid,containerCgroupSha256:$cgroup,containerPidNamespaceSha256:$namespace,containerUid:$uid,matchingProcesses:$entries,listeningSockets:$listeners,socketSnapshotSha256:$socketDigest,scannerAncestors:$ancestors,containerProcessCount:$containers,proxyProcessCount:$proxies}'
 }
 recovery_cron_snapshot() {
   cron=$1; [ -f "$cron" ] && [ ! -L "$cron" ] || die 'unsafe recovery crontab'
@@ -279,7 +278,7 @@ recovery_collect_systemd() {
   done; :
 }
 recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes cat "$processes"; }
-recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; recovery_is_scanner_ancestor "$pid" && continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) review_required 'foreign Ollama process remains after container removal';; esac; done <"$processes"; /usr/bin/jq -cn '{state:"absent",matchingProcesses:[]}'; }
+recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; recovery_is_scanner_ancestor "$pid" && continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) review_required 'foreign Ollama process remains after container removal';; esac; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
 recovery_scan() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$; RECOVERY_CONTAINER_PORTS_FILE=''
   if [ "$(id -u)" -ne 0 ] && [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi
