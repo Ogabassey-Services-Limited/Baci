@@ -8,6 +8,7 @@ import {
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const decimal = z.string().regex(/^\d+(?:\.\d{2})?$/);
+const MAX_MEASURED_OTHER_WORKERS_DAILY_LOG_EVENTS = 5_000_000_000n;
 const BigIntLike = z
   .union([
     z.bigint().nonnegative(),
@@ -15,6 +16,9 @@ const BigIntLike = z
     z.string().regex(/^\d+$/),
   ])
   .transform((value) => BigInt(value));
+const BoundedDailyEvents = BigIntLike.refine(
+  (value) => value <= MAX_MEASURED_OTHER_WORKERS_DAILY_LOG_EVENTS
+);
 const PositiveBigIntLike = BigIntLike.refine((value) => value > 0n);
 const entitlementShape = {
   plan: z.enum(['free', 'paid']),
@@ -29,6 +33,11 @@ const entitlementShape = {
   utcDayStartsAt: z.string().datetime({ offset: true }),
   utcDayEndsAt: z.string().datetime({ offset: true }),
   currentUtcDayAllAccountEvents: BigIntLike,
+  /**
+   * Authenticated account-wide measurement of every Worker except the
+   * projected Ogabassey Worker, bounded by the provider's daily hard ceiling.
+   */
+  otherWorkersWorstCaseDailyLogEvents: BoundedDailyEvents,
   utcDayUsageSourceFingerprint: z.string().regex(SHA256),
   utcDayMaximumObservationLagSeconds: z.number().int().nonnegative(),
   utcDayObservedAt: z.string().datetime({ offset: true }),

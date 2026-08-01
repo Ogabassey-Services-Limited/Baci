@@ -15,7 +15,10 @@ import {
   readReviewedEvidenceDependencyManifest,
   verifyEvidenceDependencyFile,
 } from './cloudflare-evidence-dependency-integrity';
-import { writeEvidenceDependencyIntegrityManifest } from './cloudflare-evidence-process-isolation.test-fixtures';
+import {
+  readEvidenceDependencyManifestSha256,
+  writeEvidenceDependencyIntegrityManifest,
+} from './cloudflare-evidence-process-isolation.test-fixtures';
 
 const execFileAsync = promisify(execFile);
 
@@ -63,7 +66,13 @@ async function createFixture() {
     stdout.trim(),
     ['fixture-package']
   );
-  return { root, packageRoot, manifestPath, toolingMergeSha: stdout.trim() };
+  return {
+    root,
+    packageRoot,
+    manifestPath,
+    manifestSha256: await readEvidenceDependencyManifestSha256(manifestPath),
+    toolingMergeSha: stdout.trim(),
+  };
 }
 
 describe('cloudflare evidence dependency integrity', () => {
@@ -74,7 +83,8 @@ describe('cloudflare evidence dependency integrity', () => {
         readReviewedEvidenceDependencyManifest(
           fixture.root,
           fixture.toolingMergeSha,
-          fixture.manifestPath
+          fixture.manifestPath,
+          fixture.manifestSha256
         )
       ).resolves.toMatchObject({ path: fixture.manifestPath });
       await writeFile(join(fixture.root, 'pnpm-lock.yaml'), 'tampered\n');
@@ -82,9 +92,36 @@ describe('cloudflare evidence dependency integrity', () => {
         readReviewedEvidenceDependencyManifest(
           fixture.root,
           fixture.toolingMergeSha,
-          fixture.manifestPath
+          fixture.manifestPath,
+          fixture.manifestSha256
         )
       ).rejects.toThrow('lockfile');
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a manifest regenerated after node_modules was modified', async () => {
+    const fixture = await createFixture();
+    try {
+      await writeFile(
+        join(fixture.packageRoot, 'index.js'),
+        'exports.value = "attacker";\n'
+      );
+      await writeEvidenceDependencyIntegrityManifest(
+        fixture.manifestPath,
+        fixture.root,
+        fixture.toolingMergeSha,
+        ['fixture-package']
+      );
+      await expect(
+        readReviewedEvidenceDependencyManifest(
+          fixture.root,
+          fixture.toolingMergeSha,
+          fixture.manifestPath,
+          fixture.manifestSha256
+        )
+      ).rejects.toThrow('reviewed authority');
     } finally {
       await rm(fixture.root, { recursive: true, force: true });
     }
@@ -96,7 +133,8 @@ describe('cloudflare evidence dependency integrity', () => {
       const loaded = await readReviewedEvidenceDependencyManifest(
         fixture.root,
         fixture.toolingMergeSha,
-        fixture.manifestPath
+        fixture.manifestPath,
+        fixture.manifestSha256
       );
       const packageFile = join(fixture.packageRoot, 'index.js');
       await expect(
@@ -130,7 +168,8 @@ describe('cloudflare evidence dependency integrity', () => {
         readReviewedEvidenceDependencyManifest(
           fixture.root,
           fixture.toolingMergeSha,
-          join(aliasDirectory, 'manifest.json')
+          join(aliasDirectory, 'manifest.json'),
+          fixture.manifestSha256
         )
       ).rejects.toThrow('parent');
     } finally {

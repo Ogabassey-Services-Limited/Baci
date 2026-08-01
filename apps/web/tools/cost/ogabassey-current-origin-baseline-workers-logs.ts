@@ -148,7 +148,20 @@ export function validateWorkersLogsEvidence(
       reason: 'workers_logs_projection_invalid',
     };
   const contract = workersLogsContract;
-  const projectedWithHeadroom = projected * FORCED_SAMPLING_HEADROOM_MULTIPLIER;
+  // Workers Logs allowances and the forced-sampling ceiling are shared by all
+  // Workers in the account. The authenticated entitlement carries the
+  // measured worst-case daily volume for every other Worker; project that
+  // volume alongside Ogabassey's traffic on every remaining day.
+  const projectedAccountLogEventsPerDay =
+    projected + contract.otherWorkersWorstCaseDailyLogEvents;
+  if (projectedAccountLogEventsPerDay < projected)
+    return {
+      ok: false as const,
+      verdict: 'NOT_PROVEN' as const,
+      reason: 'workers_logs_projection_invalid',
+    };
+  const projectedWithHeadroom =
+    projectedAccountLogEventsPerDay * FORCED_SAMPLING_HEADROOM_MULTIPLIER;
   if (
     contract.currentUtcDayAllAccountEvents + projectedWithHeadroom >=
     contract.forcedSamplingDailyThreshold
@@ -159,11 +172,31 @@ export function validateWorkersLogsEvidence(
       reason: 'workers_logs_forced_sampling_headroom_insufficient',
     };
   const allowanceUsage = contract.currentAllowancePeriodAllAccountEvents;
+  const start = Date.parse(contract.allowancePeriodStartsAt);
   const end = Date.parse(contract.allowancePeriodEndsAt);
-  const remainingDays = BigInt(
-    Math.max(1, Math.ceil((end - now.valueOf()) / UTC_DAY_MILLISECONDS))
-  );
-  const projectedAllowanceUse = allowanceUsage + projected * remainingDays;
+  const nowMs = now.valueOf();
+  if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    !Number.isFinite(nowMs) ||
+    nowMs < start ||
+    nowMs >= end
+  )
+    return {
+      ok: false as const,
+      verdict: 'NOT_PROVEN' as const,
+      reason: 'workers_logs_projection_invalid',
+    };
+  const remainingDaysNumber = Math.ceil((end - nowMs) / UTC_DAY_MILLISECONDS);
+  if (!Number.isSafeInteger(remainingDaysNumber) || remainingDaysNumber <= 0)
+    return {
+      ok: false as const,
+      verdict: 'NOT_PROVEN' as const,
+      reason: 'workers_logs_projection_invalid',
+    };
+  const remainingDays = BigInt(remainingDaysNumber);
+  const projectedAllowanceUse =
+    allowanceUsage + projectedAccountLogEventsPerDay * remainingDays;
   let projectedOverageCostMinorUnits = 0n;
   if (
     allowanceUsage >= contract.allowanceEvents ||

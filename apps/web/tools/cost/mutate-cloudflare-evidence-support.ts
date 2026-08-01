@@ -1,8 +1,7 @@
-import { createHash } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
+import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
 import { loadEvidenceRunForCleanup } from './cloudflare-evidence-run-journal';
 import {
   verifyReviewedEvidenceFile,
@@ -45,6 +44,18 @@ type MutationRunnerFactory = (
   }>
 ) => Promise<EvidenceMutationDependencies>;
 
+/**
+ * The recovery command receives no Cloudflare token. Its reviewed module must
+ * obtain authentication from an independent audit/provider boundary and only
+ * expose the narrow token read-back operation needed by the journal.
+ */
+type RevocationReadbackFactory = (
+  input: Readonly<{
+    runId: string;
+    stateDir: string;
+  }>
+) => Promise<EvidenceReadbackClient>;
+
 const OWNER_PROVISIONING_REVOCATION_READBACK_BLOCKER =
   'owner provisioning required: independent authenticated provider or audit readback is unavailable; a local receipt cannot authorize a write-token revocation phase transition';
 
@@ -86,8 +97,97 @@ function parseWriteTokenRevocationReceipt(value: unknown) {
   return Object.freeze(parsed.data);
 }
 
+function verifyReviewedModule(
+  workspaceRoot: string,
+  toolingMergeSha: string,
+  descriptor: Readonly<{ path: string; sha256: string }>
+) {
+  return verifyReviewedEvidenceRunnerModule(
+    workspaceRoot,
+    toolingMergeSha,
+    descriptor
+  );
+}
+
+async function loadAuthenticatedRevocationReadbackClient(
+  journal: EvidenceJournal,
+  runId: string,
+  stateDir: string,
+  receipt: Readonly<{
+    tokenId: string;
+    providerReceiptSha256: string;
+    observedAt: string;
+  }>
+): Promise<EvidenceReadbackClient> {
+  if (process.env.CLOUDFLARE_WRITE_TOKEN || process.env.CLOUDFLARE_READ_TOKEN)
+    throw new Error(
+      'external write-token revocation must not receive a Cloudflare token'
+    );
+  const modulePath =
+    process.env.EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_MODULE;
+  const moduleSha256 =
+    process.env.EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_MODULE_SHA256;
+  if (!modulePath || !moduleSha256)
+    throw new Error(
+      `${OWNER_PROVISIONING_REVOCATION_READBACK_BLOCKER}; an authenticated revocation readback module descriptor is required`
+    );
+  if (!isAbsolute(modulePath) || !/^[a-f0-9]{64}$/.test(moduleSha256))
+    throw new Error(
+      'authenticated revocation readback module descriptor is invalid'
+    );
+  const workspaceRoot = process.env.EVIDENCE_WORKSPACE_ROOT;
+  if (!workspaceRoot)
+    throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');
+  const verified = await verifyReviewedModule(
+    workspaceRoot,
+    journal.toolingMergeSha,
+    { path: modulePath, sha256: moduleSha256 }
+  );
+  const loaded: unknown = await importReviewedEvidenceModule(
+    workspaceRoot,
+    verified.path,
+    verified.files
+  );
+  const factory =
+    loaded && typeof loaded === 'object'
+      ? // Keep the legacy name for already-deployed reviewed modules.
+        'createRevocationReadbackClient' in loaded
+        ? (loaded as { createRevocationReadbackClient?: unknown })
+            .createRevocationReadbackClient
+        : 'createRevocationReadbackDependencies' in loaded
+          ? (loaded as { createRevocationReadbackDependencies?: unknown })
+              .createRevocationReadbackDependencies
+          : undefined
+      : undefined;
+  if (typeof factory !== 'function')
+    throw new Error('authenticated revocation readback module is invalid');
+  const client = await (factory as RevocationReadbackFactory)({
+    runId,
+    stateDir,
+  });
+  if (
+    !client ||
+    typeof client !== 'object' ||
+    typeof client.readBack !== 'function'
+  )
+    throw new Error(
+      'authenticated revocation readback module did not provide readback'
+    );
+  return Object.freeze({
+    readBack: (tokenId: string) => {
+      if (tokenId !== receipt.tokenId)
+        throw new Error(
+          'external write-token revocation receipt does not match the journal'
+        );
+      return client.readBack(tokenId);
+    },
+  });
+}
+
 async function loadCredentiallessRevocationDependencies(
-  journal: EvidenceJournal
+  journal: EvidenceJournal,
+  runId: string,
+  stateDir: string
 ): Promise<EvidenceMutationDependencies> {
   const receiptPath =
     process.env.EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_RECEIPT_PATH;
@@ -115,12 +215,14 @@ async function loadCredentiallessRevocationDependencies(
     throw new Error(
       'external write-token revocation receipt does not match the journal'
     );
-  // This command has no authenticated provider/audit client contract. The
-  // receipt is an untrusted handoff artifact and must never become readback.
-  const client: EvidenceReadbackClient = {
-    readBack: () =>
-      Promise.reject(new Error(OWNER_PROVISIONING_REVOCATION_READBACK_BLOCKER)),
-  };
+  // The serialized receipt remains an untrusted handoff artifact. Only the
+  // separately reviewed module may authenticate provider/audit read-back.
+  const client = await loadAuthenticatedRevocationReadbackClient(
+    journal,
+    runId,
+    stateDir,
+    receipt
+  );
   return { client, revocationReceipt: receipt };
 }
 
@@ -152,16 +254,16 @@ async function loadAuthenticatedMutationDependencies(
   const workspaceRoot = process.env.EVIDENCE_WORKSPACE_ROOT;
   if (!workspaceRoot)
     throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');
-  const verified = await verifyReviewedEvidenceRunnerModule(
+  const verified = await verifyReviewedModule(
     workspaceRoot,
     journal.toolingMergeSha,
     { path: modulePath, sha256: journal.mutationRunnerModuleSha256 }
   );
-  const bytes = await readFile(verified.path);
-  const actualSha256 = createHash('sha256').update(bytes).digest('hex');
-  if (actualSha256 !== verified.sha256)
-    throw new Error('mutation runner module hash does not match the journal');
-  const loaded: unknown = await import(pathToFileURL(verified.path).href);
+  const loaded: unknown = await importReviewedEvidenceModule(
+    workspaceRoot,
+    verified.path,
+    verified.files
+  );
   const factory =
     loaded &&
     typeof loaded === 'object' &&
@@ -186,6 +288,6 @@ export async function loadMutationDependencies(
 ) {
   const journal = await verifyReviewedCommand(runId, stateDir);
   return mode === 'record_write_revocation'
-    ? loadCredentiallessRevocationDependencies(journal)
+    ? loadCredentiallessRevocationDependencies(journal, runId, stateDir)
     : loadAuthenticatedMutationDependencies(journal, runId, stateDir, mode);
 }

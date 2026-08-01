@@ -28,7 +28,11 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         policy,
         policy,
         {
-          verify: async () => ({ id: 'read-id', status: 'active' }),
+          verify: async () => ({
+            id: 'read-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
         },
         readMetadata,
         {
@@ -51,7 +55,13 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         'token',
         writePolicy,
         writePolicy,
-        { verify: async () => ({ id: 'read-id', status: 'active' }) },
+        {
+          verify: async () => ({
+            id: 'read-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
+        },
         [{ id: 'workers.write', capability: 'write' }],
         {
           now: () => new Date('2026-08-01T12:00:00.000Z'),
@@ -72,7 +82,11 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
       policySha256: calculateCloudflareEvidenceTokenPolicySha256(opaqueContent),
     };
     const client = {
-      verify: async () => ({ id: 'read-id', status: 'active' }),
+      verify: async () => ({
+        id: 'read-id',
+        status: 'active',
+        issuedAt: '2026-08-01T12:00:00.000Z',
+      }),
     };
     const opaqueReadMetadata = [
       { id: '018f-opaque-write-id', capability: 'read' as const },

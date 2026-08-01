@@ -15,14 +15,25 @@ const policySchema = z
     policySha256: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();
+const tokenVerificationSchema = z
+  .object({
+    id: z.string().min(1),
+    status: z.string().min(1),
+    /** Authenticated provider creation time (Cloudflare's issued_on). */
+    issuedAt: z.iso.datetime({ offset: true }),
+  })
+  .strict();
 
 // Mutation and cleanup each use the repository's bounded one-minute guard
 // window. Require both phases to fit before accepting a write capability.
 export const MINIMUM_REMAINING_LIFETIME_MS = 2 * 60 * 1000;
 
 export type CloudflareEvidenceTokenPolicy = z.infer<typeof policySchema>;
+export type CloudflareTokenVerification = z.infer<
+  typeof tokenVerificationSchema
+>;
 export type CloudflareTokenVerificationClient = {
-  verify(token: string): Promise<{ id: string; status: string }>;
+  verify(token: string): Promise<CloudflareTokenVerification>;
 };
 export type TokenPolicyVerificationOptions = Readonly<{
   now?: () => Date;
@@ -86,7 +97,7 @@ export async function verifyCloudflareEvidenceTokenPolicy(
       calculateCloudflareEvidenceTokenPolicySha256(reviewedContent)
   )
     throw new Error('Cloudflare token policy fingerprint is invalid');
-  const live = await client.verify(liveToken);
+  const live = tokenVerificationSchema.parse(await client.verify(liveToken));
   if (
     live.status !== 'active' ||
     live.id !== owner.tokenId ||
@@ -106,6 +117,7 @@ export async function verifyCloudflareEvidenceTokenPolicy(
     throw new Error('Cloudflare owner export does not equal reviewed policy');
   const now = (options.now ?? (() => new Date()))();
   const nowMs = now.valueOf();
+  const issuedAtMs = new Date(live.issuedAt).valueOf();
   const expiresAtMs = new Date(owner.expiresAt).valueOf();
   const maximumLifetimeMs = options.maximumLifetimeMs ?? 2 * 60 * 60 * 1000;
   if (
@@ -120,9 +132,12 @@ export async function verifyCloudflareEvidenceTokenPolicy(
       'Cloudflare token policy does not leave enough lifetime for mutation and cleanup'
     );
   if (
+    !Number.isFinite(issuedAtMs) ||
+    issuedAtMs > nowMs ||
+    issuedAtMs >= expiresAtMs ||
     !Number.isFinite(maximumLifetimeMs) ||
     maximumLifetimeMs <= 0 ||
-    remainingLifetimeMs > maximumLifetimeMs
+    expiresAtMs - issuedAtMs > maximumLifetimeMs
   )
     throw new Error('Cloudflare token policy exceeds its maximum lifetime');
   return Object.freeze({

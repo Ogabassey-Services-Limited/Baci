@@ -18,6 +18,7 @@ const BASE_WORKERS_LOGS_CONTRACT = {
   utcDayStartsAt: '2026-08-01T00:00:00.000Z',
   utcDayEndsAt: '2026-08-02T00:00:00.000Z',
   currentUtcDayAllAccountEvents: 2_345n,
+  otherWorkersWorstCaseDailyLogEvents: 0n,
   utcDayUsageSourceFingerprint: '2'.repeat(64),
   utcDayMaximumObservationLagSeconds: 3_600,
   utcDayObservedAt: '2026-08-01T11:30:00.000Z',

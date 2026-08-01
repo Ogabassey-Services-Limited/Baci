@@ -1,0 +1,187 @@
+import { createHash } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
+import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
+import {
+  createEvidenceDependencyIntegrityAuthority,
+  makePrivateTempDir,
+  readEvidenceDependencyManifestSha256,
+  readEvidenceToolingHead,
+} from './cloudflare-evidence-process-isolation.test-fixtures';
+import { openEvidenceRun } from './cloudflare-evidence-run-journal';
+
+type Spawn = (
+  executable: string,
+  argv: readonly string[],
+  options: { cwd: string; env: Record<string, string> }
+) => Promise<void>;
+
+const runnerModulePathFor = (workspaceRoot: string) =>
+  resolve(workspaceRoot, 'packages/shared/src/constants/countries.ts');
+
+describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
+  it('uses separate children with one allowlisted credential and exact command ownership', async () => {
+    const spawn = vi.fn<Spawn>(async () => undefined);
+    const inherited = {
+      PATH: `${dirname(process.execPath)}${process.platform === 'win32' ? ';' : ':'}/bin`,
+      SECRET: 'never-forward',
+    };
+    const workspaceRoot = resolve(import.meta.dirname, '../../../..');
+    const stateDir = await makePrivateTempDir('baci-evidence-isolation-');
+    const toolingMergeSha = await readEvidenceToolingHead(workspaceRoot);
+    const runnerModulePath = runnerModulePathFor(workspaceRoot);
+    const runnerModuleSha256 = createHash('sha256')
+      .update(await readFile(runnerModulePath))
+      .digest('hex');
+    const { manifestPath, protectedMergeIdentityPath } =
+      await createEvidenceDependencyIntegrityAuthority(
+        workspaceRoot,
+        toolingMergeSha,
+        ['zod', 'tsx', 'esbuild']
+      );
+    const dependencyManifestSha256 =
+      await readEvidenceDependencyManifestSha256(manifestPath);
+    const runId = 'b'.repeat(32);
+    await openEvidenceRun(stateDir, {
+      runId,
+      approvalId: 'approval-123',
+      policyId: 'policy-123',
+      toolingMergeSha,
+      writeTokenId: 'write-token-id',
+      readTokenId: 'read-token-id',
+      readPolicySha256: 'c'.repeat(64),
+      accountId: 'account-id',
+      zoneId: 'zone-id',
+      plannedResources: [`baci-evidence-${runId}`],
+      preInventorySha256: 'a'.repeat(64),
+      expectedProbeCount: 2,
+      mutationRunnerModulePath: runnerModulePath,
+      mutationRunnerModuleSha256: runnerModuleSha256,
+      measurementRunnerModulePath: runnerModulePath,
+      measurementRunnerModuleSha256: runnerModuleSha256,
+      dependencyManifestSha256,
+    });
+    const attackerPath = '/tmp/attacker-runner.ts';
+    const credentialInherited = {
+      ...inherited,
+      EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+      EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT: protectedMergeIdentityPath,
+      EVIDENCE_MUTATION_RUNNER_MODULE: attackerPath,
+      EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: 'f'.repeat(64),
+      EVIDENCE_MEASUREMENT_RUNNER_MODULE: attackerPath,
+      EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: 'f'.repeat(64),
+    };
+    await spawnIsolatedCloudflareEvidenceProcess(
+      { spawn },
+      'mutate',
+      runId,
+      credentialInherited,
+      { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
+      workspaceRoot,
+      stateDir
+    );
+    await spawnIsolatedCloudflareEvidenceProcess(
+      { spawn },
+      'cleanup',
+      runId,
+      credentialInherited,
+      { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
+      workspaceRoot,
+      stateDir
+    );
+    await spawnIsolatedCloudflareEvidenceProcess(
+      { spawn },
+      'measure',
+      runId,
+      credentialInherited,
+      { name: 'CLOUDFLARE_READ_TOKEN', value: 'read' },
+      workspaceRoot,
+      stateDir
+    );
+    expect(spawn).toHaveBeenCalledTimes(3);
+    expect(spawn.mock.calls.map(([, argv]) => argv)).toEqual([
+      [
+        `${workspaceRoot}/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts`,
+        '--run',
+        runId,
+        '--apply',
+      ],
+      [
+        `${workspaceRoot}/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts`,
+        '--cleanup-run',
+        runId,
+      ],
+      [
+        `${workspaceRoot}/apps/web/tools/cost/measure-cloudflare-evidence-sources.ts`,
+        '--run',
+        runId,
+      ],
+    ]);
+    for (const [executable, , options] of spawn.mock.calls) {
+      expect(executable).toBe(`${workspaceRoot}/node_modules/.bin/tsx`);
+      expect(options.env.EVIDENCE_RUN_STATE_DIR).toBe(stateDir);
+    }
+    for (const [, , { env }] of spawn.mock.calls.slice(0, 2)) {
+      expect(env.SECRET).toBeUndefined();
+      expect(env.EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST).toBe(manifestPath);
+      expect(env.EVIDENCE_MUTATION_RUNNER_MODULE).toBe(runnerModulePath);
+      expect(env.EVIDENCE_MUTATION_RUNNER_MODULE_SHA256).toBe(
+        runnerModuleSha256
+      );
+      expect(
+        Object.keys(env).filter((key) => key.includes('TOKEN'))
+      ).toHaveLength(
+        env.CLOUDFLARE_WRITE_TOKEN || env.CLOUDFLARE_READ_TOKEN ? 1 : 0
+      );
+    }
+    const measureEnvironment = spawn.mock.calls[2]?.[2].env;
+    expect(measureEnvironment.EVIDENCE_MEASUREMENT_RUNNER_MODULE).toBe(
+      runnerModulePath
+    );
+    expect(measureEnvironment.EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256).toBe(
+      runnerModuleSha256
+    );
+    expect(measureEnvironment.EVIDENCE_MUTATION_RUNNER_MODULE).toBeUndefined();
+
+    const journalPath = join(stateDir, `${runId}.json`);
+    const journal = JSON.parse(await readFile(journalPath, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    const { dependencyManifestSha256: _ignored, ...withoutDigest } = journal;
+    await writeFile(journalPath, JSON.stringify(withoutDigest), {
+      mode: 0o600,
+    });
+    await expect(
+      spawnIsolatedCloudflareEvidenceProcess(
+        { spawn },
+        'mutate',
+        runId,
+        credentialInherited,
+        { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
+        workspaceRoot,
+        stateDir
+      )
+    ).rejects.toThrow('authenticated dependency integrity manifest hash');
+    expect(spawn).toHaveBeenCalledTimes(3);
+
+    await writeFile(
+      journalPath,
+      JSON.stringify({ ...journal, dependencyManifestSha256: 'f'.repeat(64) }),
+      { mode: 0o600 }
+    );
+    await expect(
+      spawnIsolatedCloudflareEvidenceProcess(
+        { spawn },
+        'mutate',
+        runId,
+        credentialInherited,
+        { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
+        workspaceRoot,
+        stateDir
+      )
+    ).rejects.toThrow('does not match the reviewed authority');
+    expect(spawn).toHaveBeenCalledTimes(3);
+  }, 30_000);
+});

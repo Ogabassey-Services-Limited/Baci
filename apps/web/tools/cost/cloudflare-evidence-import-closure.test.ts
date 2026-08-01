@@ -6,7 +6,10 @@ import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { readReviewedEvidenceDependencyManifest } from './cloudflare-evidence-dependency-integrity';
 import { verifyCredentialedEvidenceCommandImportClosure } from './cloudflare-evidence-import-closure';
-import { writeEvidenceDependencyIntegrityManifest } from './cloudflare-evidence-process-isolation.test-fixtures';
+import {
+  readEvidenceDependencyManifestSha256,
+  writeEvidenceDependencyIntegrityManifest,
+} from './cloudflare-evidence-process-isolation.test-fixtures';
 
 const execFileAsync = promisify(execFile);
 
@@ -62,11 +65,14 @@ describe('credentialed evidence command import closure', () => {
       stdout.trim(),
       ['fixture-package']
     );
+    const manifestSha256 =
+      await readEvidenceDependencyManifestSha256(manifestPath);
     try {
       const loaded = await readReviewedEvidenceDependencyManifest(
         root,
         stdout.trim(),
-        manifestPath
+        manifestPath,
+        manifestSha256
       );
       await expect(
         verifyCredentialedEvidenceCommandImportClosure(

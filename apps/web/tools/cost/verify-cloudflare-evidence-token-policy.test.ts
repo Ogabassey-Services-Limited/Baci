@@ -36,7 +36,11 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
         policy,
         policy,
         {
-          verify: async () => ({ id: 'write-id', status: 'active' }),
+          verify: async () => ({
+            id: 'write-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
         },
         { now: () => new Date('2026-08-01T12:00:00.000Z') }
       )
@@ -47,7 +51,11 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
         policy,
         policy,
         {
-          verify: async () => ({ id: 'write-id', status: 'inactive' }),
+          verify: async () => ({
+            id: 'write-id',
+            status: 'inactive',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
         },
         { now: () => new Date('2026-08-01T12:00:00.000Z') }
       )
@@ -58,7 +66,11 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
         policy,
         policy,
         {
-          verify: async () => ({ id: 'other-id', status: 'active' }),
+          verify: async () => ({
+            id: 'other-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
         },
         { now: () => new Date('2026-08-01T12:00:00.000Z') }
       )
@@ -74,7 +86,13 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
         'token',
         policy,
         scopeMismatchPolicy,
-        { verify: async () => ({ id: 'write-id', status: 'active' }) },
+        {
+          verify: async () => ({
+            id: 'write-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
+        },
         { now: () => new Date('2026-07-31T23:00:00.000Z') }
       )
     ).rejects.toThrow('owner export does not equal reviewed policy');
@@ -94,7 +112,13 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
         'token',
         longLived,
         longLived,
-        { verify: async () => ({ id: 'write-id', status: 'active' }) },
+        {
+          verify: async () => ({
+            id: 'write-id',
+            status: 'active',
+            issuedAt: '2026-07-31T23:00:00.000Z',
+          }),
+        },
         { now: () => new Date('2026-08-01T00:00:00.000Z') }
       )
     ).rejects.toThrow('maximum lifetime');
@@ -109,7 +133,13 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
         'token',
         nearExpiry,
         nearExpiry,
-        { verify: async () => ({ id: 'write-id', status: 'active' }) },
+        {
+          verify: async () => ({
+            id: 'write-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
+        },
         { now: () => now }
       )
     ).rejects.toThrow('enough lifetime for mutation and cleanup');
@@ -124,7 +154,13 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
         'token',
         boundary,
         boundary,
-        { verify: async () => ({ id: 'write-id', status: 'active' }) },
+        {
+          verify: async () => ({
+            id: 'write-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
+        },
         { now: () => now }
       )
     ).resolves.toMatchObject({ expiresAt: boundary.expiresAt });
@@ -135,10 +171,34 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
         'token',
         { ...policy, permissionGroupIds: ['workers.write', 'dns.write'] },
         { ...policy, permissionGroupIds: ['workers.write', 'dns.write'] },
-        { verify: async () => ({ id: 'write-id', status: 'active' }) },
+        {
+          verify: async () => ({
+            id: 'write-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
+        },
         { now: () => new Date('2026-08-01T12:00:00.000Z') }
       )
     ).rejects.toThrow('fingerprint');
+  });
+  it('rejects an old token even when its remaining lifetime is within the maximum window', async () => {
+    const now = new Date('2026-08-01T12:00:00.000Z');
+    await expect(
+      verifyCloudflareEvidenceTokenPolicy(
+        'token',
+        policy,
+        policy,
+        {
+          verify: async () => ({
+            id: 'write-id',
+            status: 'active',
+            issuedAt: '2026-07-31T12:00:00.000Z',
+          }),
+        },
+        { now: () => now }
+      )
+    ).rejects.toThrow('maximum lifetime');
   });
   it('keeps the checked-in policy descriptive until the owner provisions a reviewed projection', async () => {
     const policyDocument = JSON.parse(

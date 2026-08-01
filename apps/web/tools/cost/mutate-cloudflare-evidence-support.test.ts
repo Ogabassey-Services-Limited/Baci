@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,7 +8,6 @@ import {
   recordCleanupVerified,
   recordEvidenceMutation,
 } from './cloudflare-evidence-run-journal';
-import { runMutationCommand } from './mutate-cloudflare-evidence-sources';
 import { loadMutationDependencies } from './mutate-cloudflare-evidence-support';
 
 vi.mock('./cloudflare-evidence-runner-modules', () => ({
@@ -16,7 +15,18 @@ vi.mock('./cloudflare-evidence-runner-modules', () => ({
     path: 'apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts',
     sha256: 'a'.repeat(64),
   })),
-  verifyReviewedEvidenceRunnerModule: vi.fn(),
+  verifyReviewedEvidenceRunnerModule: vi.fn(
+    async (
+      _workspaceRoot: string,
+      _toolingMergeSha: string,
+      descriptor: { path: string; sha256: string }
+    ) => ({
+      ...descriptor,
+      files: [
+        { path: descriptor.path, source: await readFile(descriptor.path) },
+      ],
+    })
+  ),
 }));
 
 const runId = '0123456789abcdef0123456789abcdef';
@@ -38,7 +48,6 @@ const input = {
 afterEach(() => {
   vi.unstubAllEnvs();
 });
-
 describe('mutation dependency loader', () => {
   it('does not treat a private local receipt as provider readback', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
@@ -68,16 +77,8 @@ describe('mutation dependency loader', () => {
     vi.stubEnv('EVIDENCE_MUTATION_RUNNER_MODULE', '');
     vi.stubEnv('CLOUDFLARE_WRITE_TOKEN', '');
     try {
-      const dependencies = await loadMutationDependencies(
-        runId,
-        dir,
-        'record_write_revocation'
-      );
-      expect(dependencies.revocationReceipt).toEqual(receipt);
-      if (typeof dependencies.client.readBack !== 'function')
-        throw new Error('readback client was not loaded');
       await expect(
-        dependencies.client.readBack(input.writeTokenId)
+        loadMutationDependencies(runId, dir, 'record_write_revocation')
       ).rejects.toThrow(
         'owner provisioning required: independent authenticated provider or audit readback is unavailable'
       );
@@ -129,17 +130,8 @@ describe('mutation dependency loader', () => {
       receiptPath
     );
     try {
-      const dependencies = await loadMutationDependencies(
-        runId,
-        dir,
-        'record_write_revocation'
-      );
       await expect(
-        runMutationCommand(
-          ['--record-write-revocation', runId],
-          dir,
-          dependencies
-        )
+        loadMutationDependencies(runId, dir, 'record_write_revocation')
       ).rejects.toThrow(
         'owner provisioning required: independent authenticated provider or audit readback is unavailable'
       );
@@ -150,7 +142,6 @@ describe('mutation dependency loader', () => {
       process.argv[1] = originalArgv1;
     }
   });
-
   it('rejects a receipt with extra fields before binding it to the journal', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
@@ -187,7 +178,6 @@ describe('mutation dependency loader', () => {
       process.argv[1] = originalArgv1;
     }
   });
-
   it('rejects a loosely parseable revocation timestamp before binding it to the journal', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);

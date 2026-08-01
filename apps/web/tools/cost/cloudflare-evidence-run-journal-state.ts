@@ -58,6 +58,8 @@ export type CloudflareEvidenceRunJournal = {
   readPolicySha256: string;
   /** Optional fingerprint of the separately approved cleanup replacement policy. */
   cleanupPolicySha256?: string;
+  /** Hash of the dependency-integrity manifest authenticated during prepare. */
+  dependencyManifestSha256?: string;
   toolingMergeSha: string;
   writeTokenId: string;
   readTokenId: string;
@@ -281,7 +283,6 @@ export function assertTerminalPrerequisites(
     );
 }
 
-/** Shape helper only; recordCleanupVerified authenticates through provider readback. */
 export function createCleanupVerificationReceipt(
   inventorySha256: string,
   observedAt: string
@@ -294,7 +295,6 @@ export function createCleanupVerificationReceipt(
     observedAt,
   });
 }
-
 export function isHash(value: string) {
   return hash.test(value);
 }

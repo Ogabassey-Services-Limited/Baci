@@ -15,7 +15,10 @@ import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
-import { createEvidenceDependencyIntegrityManifest } from './cloudflare-evidence-process-isolation.test-fixtures';
+import {
+  createEvidenceDependencyIntegrityAuthority,
+  readEvidenceDependencyManifestSha256,
+} from './cloudflare-evidence-process-isolation.test-fixtures';
 import { openEvidenceRun } from './cloudflare-evidence-run-journal';
 
 const execFileAsync = promisify(execFile);
@@ -112,11 +115,13 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
     const runnerModuleSha256 = createHash('sha256')
       .update(await readFile(runnerPath))
       .digest('hex');
-    const manifestPath = await createEvidenceDependencyIntegrityManifest(
-      root,
-      head.trim(),
-      ['fixture-package', 'tsx']
-    );
+    const { manifestPath, protectedMergeIdentityPath } =
+      await createEvidenceDependencyIntegrityAuthority(root, head.trim(), [
+        'fixture-package',
+        'tsx',
+      ]);
+    const dependencyManifestSha256 =
+      await readEvidenceDependencyManifestSha256(manifestPath);
     const runId = 'a'.repeat(32);
     const input = {
       runId,
@@ -135,6 +140,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
       mutationRunnerModuleSha256: runnerModuleSha256,
       measurementRunnerModulePath: runnerPath,
       measurementRunnerModuleSha256: runnerModuleSha256,
+      dependencyManifestSha256,
     } as const;
     const spawn = vi.fn(async () => undefined);
     try {
@@ -146,6 +152,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
         {
           PATH: dirname(process.execPath),
           EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+          EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT:
+            protectedMergeIdentityPath,
         },
         { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
         root,
@@ -164,6 +172,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
           {
             PATH: dirname(process.execPath),
             EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+            EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT:
+              protectedMergeIdentityPath,
           },
           { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
           root,
@@ -184,6 +194,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
           {
             PATH: dirname(process.execPath),
             EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+            EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT:
+              protectedMergeIdentityPath,
           },
           { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
           root,
@@ -203,6 +215,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
           {
             PATH: dirname(process.execPath),
             EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST: manifestPath,
+            EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT:
+              protectedMergeIdentityPath,
           },
           { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
           root,

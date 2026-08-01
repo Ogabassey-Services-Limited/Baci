@@ -2,7 +2,12 @@ import { execFile } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
-import { verifyProtectedMergeIdentity } from './cloudflare-evidence-merge-identity';
+import {
+  loadProtectedMergeIdentityAuthority,
+  type ProtectedMergeIdentityAuthorityResolver,
+  readProtectedMergeIdentityAuthorityModuleDescriptor,
+  verifyProtectedMergeIdentityWithAuthority,
+} from './cloudflare-evidence-merge-identity';
 import {
   calculateReviewedPolicySha256,
   readAuthorityArtifact,
@@ -144,16 +149,18 @@ const runnerFields = Object.freeze({
 
 async function verifyProtectedMergeReceipt(
   environment: Readonly<Record<string, string | undefined>>,
-  toolingMergeSha: string
+  toolingMergeSha: string,
+  resolveAuthority: ProtectedMergeIdentityAuthorityResolver | undefined
 ) {
   const path = environment.EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT;
   if (!path || !isAbsolute(path))
     throw new Error(
       'a private protected merge identity artifact is required before prepare'
     );
-  return verifyProtectedMergeIdentity(
+  return verifyProtectedMergeIdentityWithAuthority(
     await readAuthorityArtifact(path, 'protected merge identity'),
-    toolingMergeSha
+    toolingMergeSha,
+    resolveAuthority
   );
 }
 
@@ -168,10 +175,19 @@ async function run(
   if (!stateDir || !isAbsolute(stateDir))
     throw new Error('absolute EVIDENCE_RUN_STATE_DIR is required');
   const input = parseArguments(args);
-  await verifyProtectedMergeReceipt(environment, input.toolingMergeSha);
   const workspaceRoot = environment.EVIDENCE_WORKSPACE_ROOT ?? process.cwd();
   if (!isAbsolute(workspaceRoot))
     throw new Error('absolute EVIDENCE_WORKSPACE_ROOT is required');
+  const authenticatedAuthority = await loadProtectedMergeIdentityAuthority(
+    workspaceRoot,
+    input.toolingMergeSha,
+    readProtectedMergeIdentityAuthorityModuleDescriptor(environment)
+  );
+  const protectedMergeIdentity = await verifyProtectedMergeReceipt(
+    environment,
+    input.toolingMergeSha,
+    authenticatedAuthority
+  );
   const { stdout: head } = await execFileAsync('git', [
     '-C',
     workspaceRoot,
@@ -206,6 +222,7 @@ async function run(
   const journal = await openEvidenceRun(stateDir, {
     ...input,
     ...reviewedAuthority,
+    dependencyManifestSha256: protectedMergeIdentity.artifactManifestSha256,
     [runnerFields.mutation.path]: runnerDescriptors.mutation.path,
     [runnerFields.mutation.sha256]: runnerDescriptors.mutation.sha256,
     [runnerFields.measurement.path]: runnerDescriptors.measurement.path,

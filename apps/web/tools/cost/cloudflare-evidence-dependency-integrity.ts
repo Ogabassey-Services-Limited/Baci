@@ -78,9 +78,11 @@ async function readPrivateManifest(path: string) {
       throw new Error(
         'dependency integrity manifest must be a private regular file'
       );
+    const source = await handle.readFile();
     return {
       path,
-      value: JSON.parse(await handle.readFile('utf8')) as unknown,
+      bytes: source,
+      value: JSON.parse(source.toString('utf8')) as unknown,
     };
   } catch (error) {
     if (error instanceof Error && error.message.includes('private regular'))
@@ -167,14 +169,23 @@ async function reviewedLockfileBytes(root: string, toolingMergeSha: string) {
 export async function readReviewedEvidenceDependencyManifest(
   workspaceRoot: string,
   toolingMergeSha: string,
-  path: string
+  path: string,
+  reviewedManifestSha256: string
 ): Promise<ReviewedEvidenceDependencyManifest> {
-  if (!isAbsolute(workspaceRoot) || !TOOLING_SHA.test(toolingMergeSha))
+  if (
+    !isAbsolute(workspaceRoot) ||
+    !TOOLING_SHA.test(toolingMergeSha) ||
+    !SHA256.test(reviewedManifestSha256)
+  )
     throw new Error('dependency integrity manifest authority is invalid');
   const canonicalRoot = await realpath(workspaceRoot).catch(() => {
     throw new Error('evidence workspace root is not readable');
   });
   const sealed = await readPrivateManifest(path);
+  if (hashBytes(sealed.bytes) !== reviewedManifestSha256)
+    throw new Error(
+      'dependency integrity manifest does not match the reviewed authority'
+    );
   const manifest = validateManifest(sealed.value, toolingMergeSha);
   const lockfilePath = resolve(canonicalRoot, 'pnpm-lock.yaml');
   const lockfileStat = await lstat(lockfilePath).catch(() => undefined);

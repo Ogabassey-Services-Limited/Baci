@@ -16,13 +16,13 @@ import {
 } from './cloudflare-evidence-dependency-integrity';
 import { verifyCredentialedEvidenceCommandImportClosure } from './cloudflare-evidence-import-closure';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
+import { prepareEvidenceProcessEnvironment } from './cloudflare-evidence-process-environment';
 import {
   type EvidenceRunInput,
   loadEvidenceRunForCleanup,
 } from './cloudflare-evidence-run-journal';
 import {
   evidenceRunnerModuleEnvironmentNames,
-  readEvidenceRunnerModuleDescriptor,
   verifyReviewedEvidenceFile,
   verifyReviewedEvidenceRunnerModule,
 } from './cloudflare-evidence-runner-modules';
@@ -146,38 +146,6 @@ export async function verifyReviewedTsxLauncher(
   return Object.freeze({ launcher, target, nodePath });
 }
 
-const prepareEnvironment = (
-  inherited: Readonly<Record<string, string | undefined>>
-) => {
-  if (
-    !inherited.EVIDENCE_APPROVAL_ARTIFACT ||
-    !inherited.EVIDENCE_POLICY_ARTIFACT ||
-    !isAbsolute(inherited.EVIDENCE_APPROVAL_ARTIFACT) ||
-    !isAbsolute(inherited.EVIDENCE_POLICY_ARTIFACT)
-  )
-    throw new Error(
-      'prepare authority artifact paths must be absolute and allowlisted'
-    );
-  readEvidenceRunnerModuleDescriptor(inherited, 'mutation');
-  readEvidenceRunnerModuleDescriptor(inherited, 'measurement');
-  const names = [
-    'PATH',
-    'TMPDIR',
-    'EVIDENCE_APPROVAL_ARTIFACT',
-    'EVIDENCE_POLICY_ARTIFACT',
-    'EVIDENCE_PROTECTED_MERGE_IDENTITY_ARTIFACT',
-    evidenceRunnerModuleEnvironmentNames('mutation').path,
-    evidenceRunnerModuleEnvironmentNames('mutation').sha256,
-    evidenceRunnerModuleEnvironmentNames('measurement').path,
-    evidenceRunnerModuleEnvironmentNames('measurement').sha256,
-  ] as const;
-  return Object.fromEntries(
-    names
-      .filter((name) => inherited[name])
-      .map((name) => [name, inherited[name] as string])
-  );
-};
-
 export async function spawnIsolatedCloudflareEvidenceProcess(
   spawner: EvidenceProcessSpawner,
   command: EvidenceChildCommand,
@@ -210,7 +178,7 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
           credential.value,
           inherited
         )
-      : prepareEnvironment(inherited);
+      : prepareEvidenceProcessEnvironment(inherited);
     env.HOME = privateHome;
     env.XDG_CONFIG_HOME = join(privateHome, 'config');
     env.XDG_DATA_HOME = join(privateHome, 'data');
@@ -234,10 +202,15 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
         throw new Error(
           'credentialed command dependency integrity manifest is required'
         );
+      if (!journal.dependencyManifestSha256)
+        throw new Error(
+          'journal is missing the authenticated dependency integrity manifest hash'
+        );
       const reviewedDependencies = await readReviewedEvidenceDependencyManifest(
         workspaceRoot,
         journal.toolingMergeSha,
-        manifestPath
+        manifestPath,
+        journal.dependencyManifestSha256
       );
       env[EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST] = reviewedDependencies.path;
       await verifyReviewedTsxLauncher(

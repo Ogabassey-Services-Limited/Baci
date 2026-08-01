@@ -22,7 +22,8 @@ export async function makePrivateTempDir(prefix: string) {
 
 export async function writeProtectedMergeIdentity(
   path: string,
-  mergeSha: string
+  mergeSha: string,
+  artifactManifestSha256 = 'a'.repeat(64)
 ) {
   await writeFile(
     path,
@@ -38,10 +39,30 @@ export async function writeProtectedMergeIdentity(
       reviewAuthor: 'reviewer',
       requiredCheckRunIds: ['123'],
       requiredCheckNames: ['Build'],
-      artifactManifestSha256: 'a'.repeat(64),
+      artifactManifestSha256,
     }),
     { mode: 0o600 }
   );
+}
+
+/** Test-only authority adapter standing in for an authenticated GitHub/tag readback. */
+export function resolveProtectedMergeIdentityAuthority(
+  toolingMergeSha: string
+) {
+  return {
+    reviewedHeadSha: 'd'.repeat(40),
+    requiredChecksSha: 'e'.repeat(40),
+    mergeSha: toolingMergeSha,
+    mergeMethod: 'squash' as const,
+    protectedRef: `refs/tags/storefront-ogabassey-rollout-${toolingMergeSha}-${'f'.repeat(16)}`,
+    protectedRefTargetSha: toolingMergeSha,
+    protectedTagObjectSha: '1'.repeat(40),
+    reviewId: 'review-123',
+    reviewAuthor: 'reviewer',
+    requiredCheckRunIds: ['123'],
+    requiredCheckNames: ['Build'],
+    artifactManifestSha256: 'a'.repeat(64),
+  };
 }
 
 async function packageFiles(root: string, directory = root) {
@@ -105,6 +126,35 @@ export async function createEvidenceDependencyIntegrityManifest(
     packageNames
   );
   return path;
+}
+
+export async function readEvidenceDependencyManifestSha256(path: string) {
+  return createHash('sha256')
+    .update(await readFile(path))
+    .digest('hex');
+}
+
+export async function createEvidenceDependencyIntegrityAuthority(
+  workspaceRoot: string,
+  toolingMergeSha: string,
+  packageNames: readonly string[]
+) {
+  const manifestPath = await createEvidenceDependencyIntegrityManifest(
+    workspaceRoot,
+    toolingMergeSha,
+    packageNames
+  );
+  const authorityDir = await makePrivateTempDir('baci-evidence-authority-');
+  const protectedMergeIdentityPath = join(
+    authorityDir,
+    'protected-merge-identity.json'
+  );
+  await writeProtectedMergeIdentity(
+    protectedMergeIdentityPath,
+    toolingMergeSha,
+    await readEvidenceDependencyManifestSha256(manifestPath)
+  );
+  return { manifestPath, protectedMergeIdentityPath };
 }
 
 export async function readEvidenceToolingHead(workspaceRoot: string) {

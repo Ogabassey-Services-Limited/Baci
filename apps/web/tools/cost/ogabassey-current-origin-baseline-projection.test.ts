@@ -107,4 +107,131 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
       reasonCodes: ['savings_not_positive'],
     });
   });
+
+  it('projects authenticated other-worker traffic through every remaining allowance day', async () => {
+    const paidContract = {
+      plan: 'paid' as const,
+      allowanceEvents: 20_000_000n,
+      allowancePeriod: 'billing_month' as const,
+      allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+      allowancePeriodEndsAt: '2026-09-01T00:00:00.000Z',
+      currentAllowancePeriodAllAccountEvents: 1_000_000n,
+      overageAllowed: true,
+      overageUsdPerMillion: '0.60',
+    };
+    const withoutOtherWorkers = await currentWithWorkersLogsContract({
+      ...paidContract,
+      otherWorkersWorstCaseDailyLogEvents: 0n,
+    });
+    const withOtherWorkers = await currentWithWorkersLogsContract({
+      ...paidContract,
+      otherWorkersWorstCaseDailyLogEvents: 1_000_000n,
+    });
+    const input = {
+      ...current,
+      currentVercelAttributionUsd: '8.00',
+      projectedEdgeCostUsd: '2.00',
+      originCostProjection: {
+        irreducibleDynamicOriginCostUsd: '2.00',
+        reducibleStaticOriginCostUsd: '6.00',
+      },
+      expectedDailyWorkerInvocations: 143n,
+    };
+
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...input, workersLogsContract: withoutOtherWorkers },
+        { now }
+      )
+    ).toEqual({ verdict: 'PROCEED', reasonCodes: [] });
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...input, workersLogsContract: withOtherWorkers },
+        { now }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['savings_not_positive'],
+    });
+  });
+
+  it('includes other-worker volume in forced-sampling headroom', async () => {
+    const withoutOtherWorkers = await currentWithWorkersLogsContract({
+      currentUtcDayAllAccountEvents: 4_300_000_000n,
+      otherWorkersWorstCaseDailyLogEvents: 0n,
+    });
+    const withOtherWorkers = await currentWithWorkersLogsContract({
+      currentUtcDayAllAccountEvents: 4_300_000_000n,
+      otherWorkersWorstCaseDailyLogEvents: 200_000_000n,
+    });
+    const input = {
+      ...current,
+      expectedDailyWorkerInvocations: 143n,
+    };
+
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...input, workersLogsContract: withoutOtherWorkers },
+        { now }
+      ).verdict
+    ).toBe('PROCEED');
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...input, workersLogsContract: withOtherWorkers },
+        { now }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['workers_logs_forced_sampling_headroom_insufficient'],
+    });
+  });
+
+  it('fails closed when evaluation time is at or before the allowance period boundary', async () => {
+    const contract = await currentWithWorkersLogsContract({
+      plan: 'paid' as const,
+      allowanceEvents: 20_000_000n,
+      allowancePeriod: 'billing_month' as const,
+      allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+      allowancePeriodEndsAt: '2026-09-01T00:00:00.000Z',
+      currentAllowancePeriodAllAccountEvents: 1_000_000n,
+      overageAllowed: true,
+      overageUsdPerMillion: '0.60',
+    });
+    const atEnd = evaluateOgabasseyOriginBusinessCase(
+      { ...current, workersLogsContract: contract },
+      { now: new Date('2026-09-01T00:00:00.000Z'), maximumWindowAgeDays: 40 }
+    );
+    expect(atEnd.verdict).toBe('NOT_PROVEN');
+    expect(atEnd.reasonCodes).toContain('workers_logs_projection_invalid');
+
+    const beforeStart = evaluateOgabasseyOriginBusinessCase(
+      {
+        ...current,
+        windowStart: '2026-07-24T00:00:00.000Z',
+        windowEnd: '2026-07-31T00:00:00.000Z',
+        observedAt: '2026-07-31T22:00:00.000Z',
+        workersLogsContract: contract,
+      },
+      { now: new Date('2026-07-31T23:00:00.000Z') }
+    );
+    expect(beforeStart.verdict).toBe('NOT_PROVEN');
+    expect(beforeStart.reasonCodes).toContain(
+      'workers_logs_projection_invalid'
+    );
+  });
+
+  it('rejects an unparseable allowance period timestamp at contract retrieval', async () => {
+    await expect(
+      currentWithWorkersLogsContract({
+        plan: 'paid' as const,
+        allowanceEvents: 20_000_000n,
+        allowancePeriod: 'billing_month' as const,
+        allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+        allowancePeriodEndsAt: 'not-a-timestamp',
+        currentAllowancePeriodAllAccountEvents: 1_000_000n,
+        overageAllowed: true,
+        overageUsdPerMillion: '0.60',
+      })
+    ).rejects.toThrow();
+  });
 });

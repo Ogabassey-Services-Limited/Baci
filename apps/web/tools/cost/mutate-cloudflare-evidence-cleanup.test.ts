@@ -1,6 +1,3 @@
-import { chmod, mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   loadEvidenceRunForCleanup,
@@ -10,6 +7,7 @@ import {
   recordEvidenceProbeResults,
   revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
+import { createCleanupRun } from './mutate-cloudflare-evidence-cleanup.test-support';
 import { cleanupCloudflareEvidenceRun } from './mutate-cloudflare-evidence-sources';
 import {
   mutationCapability,
@@ -19,9 +17,7 @@ import {
 
 describe('Cloudflare evidence cleanup lifecycle', () => {
   it('cleanup-only stops incomplete crash recovery without create, probe, or measurement', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
-    await openEvidenceRun(dir, mutationInput);
+    const dir = await createCleanupRun();
     await recordEvidenceMutation(
       dir,
       mutationInput.runId,
@@ -127,9 +123,7 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
   });
 
   it('discovers a successful create that was not journaled before cleanup deletes it', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
-    await openEvidenceRun(dir, mutationInput);
+    const dir = await createCleanupRun();
     let resourcePresent = true;
     const cleanup = vi.fn(async () => {
       resourcePresent = false;
@@ -161,9 +155,7 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
   });
 
   it('records write-token revocation after incomplete cleanup when provider readback is available', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
-    await openEvidenceRun(dir, mutationInput);
+    const dir = await createCleanupRun();
     await recordEvidenceMutation(
       dir,
       mutationInput.runId,
@@ -204,9 +196,7 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
   });
 
   it('preflights cleanup readback before deleting a complete run', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
-    await openEvidenceRun(dir, mutationInput);
+    const dir = await createCleanupRun();
     await recordEvidenceMutation(
       dir,
       mutationInput.runId,
@@ -242,9 +232,7 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
   });
 
   it('can retry a cleanup whose provider readback failed after deletion', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
-    await openEvidenceRun(dir, mutationInput);
+    const dir = await createCleanupRun();
     await recordEvidenceMutation(
       dir,
       mutationInput.runId,

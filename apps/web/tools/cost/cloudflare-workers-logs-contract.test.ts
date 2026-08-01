@@ -20,6 +20,7 @@ const entitlementProjection = {
   utcDayStartsAt: '2026-08-01T00:00:00.000Z',
   utcDayEndsAt: '2026-08-02T00:00:00.000Z',
   currentUtcDayAllAccountEvents: '2345',
+  otherWorkersWorstCaseDailyLogEvents: '0',
   utcDayUsageSourceFingerprint: '2'.repeat(64),
   utcDayMaximumObservationLagSeconds: 3600,
   utcDayObservedAt: '2026-08-01T11:30:00.000Z',
@@ -39,6 +40,9 @@ function contractFor(entitlement = entitlementProjection) {
     ),
     currentUtcDayAllAccountEvents: BigInt(
       entitlement.currentUtcDayAllAccountEvents
+    ),
+    otherWorkersWorstCaseDailyLogEvents: BigInt(
+      entitlement.otherWorkersWorstCaseDailyLogEvents
     ),
     forcedSamplingDailyThreshold: BigInt(
       entitlement.forcedSamplingDailyThreshold
@@ -97,6 +101,26 @@ describe('Cloudflare Workers Logs plan contract', () => {
       allowanceEvents: 20_000_000n,
       allowancePeriod: 'billing_month',
     }));
+  it('accepts the maximum bounded other-worker daily event measurement', () =>
+    expect(
+      validateCloudflareWorkersLogsPlanContract(
+        contractFor({
+          ...entitlementProjection,
+          otherWorkersWorstCaseDailyLogEvents: '5000000000',
+        }),
+        { now }
+      ).otherWorkersWorstCaseDailyLogEvents
+    ).toBe(5_000_000_000n));
+  it('rejects an unbounded other-worker daily event measurement', () =>
+    expect(() =>
+      validateCloudflareWorkersLogsPlanContract(
+        contractFor({
+          ...entitlementProjection,
+          otherWorkersWorstCaseDailyLogEvents: '5000000001',
+        }),
+        { now }
+      )
+    ).toThrow());
   it('rejects an allowance observation older than its declared maximum lag', () => {
     expect(() =>
       validateCloudflareWorkersLogsPlanContract(

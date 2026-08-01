@@ -35,6 +35,10 @@ export type EvidenceRunnerModuleDescriptor = Readonly<{
   path: string;
   sha256: string;
 }>;
+export type ReviewedEvidenceModuleSource = Readonly<{
+  path: string;
+  source: Uint8Array;
+}>;
 
 const names = Object.freeze({
   mutation: Object.freeze({
@@ -181,13 +185,14 @@ async function verifyReviewedTrackedFile(
 async function verifyRunnerImportClosure(
   root: string,
   toolingMergeSha: string,
-  entrypoint: string
+  entrypoint: string,
+  entrySource: Uint8Array
 ) {
-  const visited = new Set<string>([entrypoint]);
+  const visited = new Map<string, Uint8Array>([[entrypoint, entrySource]]);
   const pending = [entrypoint];
   while (pending.length) {
     const current = pending.pop() as string;
-    const source = await readFile(current, 'utf8');
+    const source = Buffer.from(visited.get(current) ?? '').toString('utf8');
     for (const specifier of importedSpecifiers(source)) {
       if (specifier.startsWith('node:') || BUILTIN_MODULES.has(specifier))
         continue;
@@ -201,14 +206,16 @@ async function verifyRunnerImportClosure(
         'evidence runner module'
       );
       if (!visited.has(verified.path)) {
-        visited.add(verified.path);
+        visited.set(verified.path, verified.source);
         pending.push(verified.path);
       }
     }
   }
+  return Object.freeze(
+    [...visited].map(([path, source]) => Object.freeze({ path, source }))
+  );
 }
 
-/** Reads the one path/hash pair allowed for a runner kind from an environment. */
 export function readEvidenceRunnerModuleDescriptor(
   environment: Readonly<Record<string, string | undefined>>,
   kind: EvidenceRunnerModuleKind
@@ -223,22 +230,21 @@ export function readEvidenceRunnerModuleDescriptor(
   return Object.freeze(descriptor);
 }
 
-/** Returns only the descriptor variable names; callers must not forward other ambient variables. */
 export function evidenceRunnerModuleEnvironmentNames(
   kind: EvidenceRunnerModuleKind
 ) {
   return names[kind];
 }
 
-/**
- * Verifies that a runner is a tracked file from the exact reviewed tooling
- * commit and that its current bytes still equal the prepared SHA-256.
- */
 export async function verifyReviewedEvidenceRunnerModule(
   workspaceRoot: string,
   toolingMergeSha: string,
   descriptor: EvidenceRunnerModuleDescriptor
-): Promise<EvidenceRunnerModuleDescriptor> {
+): Promise<
+  EvidenceRunnerModuleDescriptor & {
+    files: readonly ReviewedEvidenceModuleSource[];
+  }
+> {
   assertDescriptor(descriptor);
   if (!TOOLING_SHA.test(toolingMergeSha))
     throw new Error('reviewed tooling merge SHA is invalid');
@@ -254,12 +260,17 @@ export async function verifyReviewedEvidenceRunnerModule(
     'evidence runner module',
     descriptor.sha256
   );
-  await verifyRunnerImportClosure(
+  const files = await verifyRunnerImportClosure(
     canonicalRoot,
     toolingMergeSha,
-    verified.path
+    verified.path,
+    verified.source
   );
-  return Object.freeze({ path: verified.path, sha256: descriptor.sha256 });
+  return Object.freeze({
+    path: verified.path,
+    sha256: descriptor.sha256,
+    files,
+  });
 }
 
 /** Verifies a checked-in command entrypoint against the exact reviewed commit. */
