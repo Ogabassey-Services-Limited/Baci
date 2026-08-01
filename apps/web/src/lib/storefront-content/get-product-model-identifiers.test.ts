@@ -109,6 +109,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['m18 r3']);
   });
 
+  it('strips a trailing Intel processor tier from a laptop model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['HP'],
+      productSlugs: ['hp-probook-440-g5-14-inch-i5-8gb-256gb'],
+    });
+
+    expect(identifiers).toEqual(['probook 440 g5']);
+  });
+
   it('strips a decimal display suffix before selecting the laptop model', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
@@ -117,6 +127,16 @@ describe('getProductModelIdentifiers', () => {
     });
 
     expect(identifiers).toEqual(['9560']);
+  });
+
+  it('strips a leading filler article before selecting a phone model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: ['the-iphone-11-4gb-128gb'],
+    });
+
+    expect(identifiers).toEqual(['11']);
   });
 
   it('preserves both numbers in a convertible model phrase', () => {

@@ -33,6 +33,7 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
 ]);
 const MODEL_LINE_MARKER_TOKENS = new Set(['air', 'pro']);
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
+const LEADING_FILLER_TOKENS = new Set(['a', 'an', 'the']);
 
 interface BrandAliasGroup {
   brandTokens: string[];
@@ -161,10 +162,19 @@ function stripTrailingProcessorTier(tokens: string[], categorySlug: string) {
 
   const processorIndex = tokens.findIndex(
     (token, index) =>
-      (token === 'ultra' || token === 'rtx') &&
-      /^\d+$/u.test(tokens[index + 1] ?? '')
+      ((token === 'ultra' || token === 'rtx') &&
+        /^\d+$/u.test(tokens[index + 1] ?? '')) ||
+      /^i[3579]$/u.test(token)
   );
   return processorIndex > 0 ? tokens.slice(0, processorIndex) : tokens;
+}
+
+function stripLeadingFillerTokens(tokens: string[]) {
+  let firstModelToken = 0;
+  while (LEADING_FILLER_TOKENS.has(tokens[firstModelToken] ?? '')) {
+    firstModelToken += 1;
+  }
+  return firstModelToken > 0 ? tokens.slice(firstModelToken) : tokens;
 }
 
 function getModelTokens(
@@ -189,7 +199,10 @@ function getModelTokens(
       (token !== 'in' || isConvertibleInConnector(tokens, index)) &&
       !isDimensionToken(tokens, index)
   );
-  return stripTrailingProcessorTier(modelTokens, categorySlug);
+  return stripTrailingProcessorTier(
+    stripLeadingFillerTokens(modelTokens),
+    categorySlug
+  );
 }
 
 function getModelIdentifier(tokens: string[]) {
