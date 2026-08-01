@@ -126,20 +126,39 @@ describe('buildOgabasseyProductVisibleSummary', () => {
     expect(afterSelectionSummary).toBe(firstSummary);
   });
 
-  it('uses only the active parent when no selectable variants exist', () => {
+  it('does not advertise cached condition offers when no selectable SKU variants exist', () => {
     expect(
       buildOgabasseyProductVisibleSummary({
-        brand: 'Dell',
-        condition: 'used',
-        name: 'Latitude 7440',
+        brand: 'HP',
+        condition: 'new',
+        name: 'Laptop 14-ep0063nia',
         ...( {
           offers: [
-            { condition: 'new', status: 'active' },
-            { condition: 'refurbished', status: 'inactive' },
+            {
+              condition: 'used',
+              id: 'offer-used',
+              price: 500000,
+              status: 'active',
+              stock_quantity: 2,
+            },
+            {
+              condition: 'open_box',
+              id: 'offer-open-box',
+              price: 580000,
+              status: 'active',
+              stock_quantity: 1,
+            },
+            {
+              condition: 'refurbished',
+              id: 'offer-inactive',
+              price: 450000,
+              status: 'inactive',
+              stock_quantity: 1,
+            },
           ],
         } as object),
       })
-    ).toBe('Dell Latitude 7440. Condition: Used.');
+    ).toBe('HP Laptop 14-ep0063nia. Condition: New.');
   });
 
   it('falls back to the active parent when every supplied variant is not selectable', () => {

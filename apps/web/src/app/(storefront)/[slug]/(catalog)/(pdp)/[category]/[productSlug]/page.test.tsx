@@ -4322,57 +4322,6 @@ describe('[category]/[productSlug] page render', () => {
     ).toHaveTextContent('A laptop');
   });
 
-  it('does not advertise cached condition offers when the selector has no variants', async () => {
-    const activeOffers = [
-      {
-        condition: 'used',
-        id: 'offer-used',
-        price: 500000,
-        status: 'active',
-        stock_quantity: 2,
-      },
-      {
-        condition: 'open_box',
-        id: 'offer-open-box',
-        price: 580000,
-        status: 'active',
-        stock_quantity: 1,
-      },
-      {
-        condition: 'refurbished',
-        id: 'offer-inactive',
-        price: 450000,
-        status: 'inactive',
-        stock_quantity: 1,
-      },
-    ];
-    mockGetCachedProductLcpHint.mockResolvedValue({
-      ...toLegacyCachedProduct(),
-      offers: activeOffers,
-      product_offers: activeOffers,
-    });
-
-    render(
-      await resolveRsc(
-        await CategoryProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'laptops',
-            productSlug: 'hp-laptop-14-ep0063nia',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      )
-    );
-
-    expect(
-      screen.getByText('HP Laptop 14-ep0063nia. Condition: New.')
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Available choices: Condition New or Open Box or Used/)
-    ).not.toBeInTheDocument();
-  });
-
   it('keeps the generic product client behind the default branch loader', () => {
     const routeSource = readFileSync(
       join(

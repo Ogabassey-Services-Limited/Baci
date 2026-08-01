@@ -30,9 +30,15 @@ describe('critical PDP description geometry', () => {
     expect(criticalPdpCss).toMatch(
       /\[data-ogabassey-pdp-deferred-description-panel\]\s*\{[\s\S]*?min-height:\s*20rem/
     );
-    expect(criticalPdpCss).toMatch(
-      /\[data-ogabassey-pdp-deferred-description-panel\]\s*\{[\s\S]*?var\(--store-background/
-    );
+    const descriptionPanel = criticalPdpCss.match(
+      /\[data-ogabassey-pdp-deferred-description-panel\]\s*\{([\s\S]*?)\}/
+    )?.[1];
+
+    expect(descriptionPanel).toBeDefined();
+    expect(descriptionPanel).toContain('var(--ogabassey-surface)');
+    expect(descriptionPanel).toContain('var(--ogabassey-border)');
+    expect(descriptionPanel).toContain('var(--ogabassey-surface-text)');
+    expect(descriptionPanel).not.toMatch(/#[0-9a-f]{3,8}/i);
     expect(criticalPdpCss).toMatch(
       /@media \(min-width: 768px\) \{[\s\S]*?\[data-ogabassey-pdp-deferred-description-container\]\s*\{[\s\S]*?padding-inline:\s*1\.5rem/
     );
