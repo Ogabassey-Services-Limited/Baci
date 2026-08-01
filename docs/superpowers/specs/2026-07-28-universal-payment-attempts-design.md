@@ -8179,3 +8179,43 @@ scope/envelope key; a non-string value for each of
 case must fail at its named table CHECK, while valid sentinel/scalar, object-or-
 null, and array forms pass. The migration must not claim deferred writer
 invariants as table CHECK coverage.
+
+## Amendment — Referencing-side FK indexes and exact replay assertions (2026-08-01)
+
+This follow-up amendment tightens the same schema-only evidence slice after
+implementation review. It authorizes four additional, non-authority indexes so
+every new foreign-key referencing path has a usable leading-key index for
+retention and generation checks. The implementing migration must create these
+exact named indexes in addition to the indexes already frozen above:
+
+- `payment_webhook_source_manifests_generation_idx` on
+  `private.payment_webhook_source_manifests
+  (ingress_contract_generation_id, id)`;
+- `payment_webhook_inbox_generation_idx` on
+  `private.payment_webhook_inbox (ingress_contract_generation_id, id)`;
+- `payment_webhook_inbox_source_manifest_idx` on
+  `private.payment_webhook_inbox (source_manifest_id, id)`; and
+- `payment_webhook_source_manifests_inbox_idx` on
+  `private.payment_webhook_source_manifests (inbox_id, id)` with the exact
+  predicate `WHERE inbox_id IS NOT NULL`.
+
+These are lookup/retention indexes only; they do not grant authority, change
+the deferred composite-FK graph, or replace any previously named unique target.
+The replay contract must scope every expected column to its relation and assert
+column order, `format_type`, `attnotnull`, and normalized default expression
+through `pg_attribute`, `pg_attrdef`, and `pg_get_expr`. It must scope every
+constraint by `conrelid` and assert the relevant normalized
+`pg_get_constraintdef`, including ordered FK columns, referenced relation,
+delete action, and deferrability. It must scope every index by schema and
+relation and assert uniqueness, ordered key columns, and the exact partial
+predicate for the nullable inbox link; name-only global existence checks are
+insufficient.
+
+The replay contract must construct a valid graph, force deferred constraints
+with `SET CONSTRAINTS ALL IMMEDIATE`, run its retention assertions, execute
+`ROLLBACK`, and then issue post-rollback assertions that the fixture identity,
+generation, inbox, manifest, and proof rows are absent while the migration's
+relations and catalog objects remain. This proves rollback cleanliness rather
+than inferring it from an unobserved transaction end. The slice remains
+schema-only: no writer, trigger, policy, grant, seed, provider behavior, or
+financial/order authority is authorized by this amendment.
