@@ -14,6 +14,7 @@ import {
   verifyReviewedEvidenceFile,
   verifyReviewedEvidenceRunnerModule,
 } from './cloudflare-evidence-runner-modules';
+import { assertMeasurementObservationWindow } from './measurement-observation-window';
 import type { VerifiedEvidenceReadCapability } from './verify-cloudflare-evidence-read-token-policy';
 
 export type EvidenceMeasurementClient = TokenRevocationClient & {
@@ -34,8 +35,6 @@ type MeasurementCommand = Readonly<{
   runId: string;
 }>;
 type MeasurementOptions = Readonly<{ now?: Date }>;
-// Read-token policy verification caps the authority lifetime at 24 hours.
-const MAX_MEASUREMENT_OBSERVATION_LAG_MS = 24 * 60 * 60 * 1000;
 export function parseMeasurementArguments(args: readonly string[]) {
   if (
     args.length !== 2 ||
@@ -81,6 +80,10 @@ type MeasurementRunnerFactory = (
     runId: string;
     stateDir: string;
   }>
+) => Promise<EvidenceMeasurementDependencies>;
+type MeasurementDependencyLoader = (
+  runId: string,
+  stateDir: string
 ) => Promise<EvidenceMeasurementDependencies>;
 async function loadMeasurementDependencies(runId: string, stateDir: string) {
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
@@ -143,6 +146,19 @@ async function loadMeasurementDependencies(runId: string, stateDir: string) {
     throw new Error('measurement runner module is invalid');
   return (factory as MeasurementRunnerFactory)({ token, runId, stateDir });
 }
+/** Keeps argument parsing inside the same rejection path as dependency loading. */
+export function runMeasurementEntrypoint(
+  args: readonly string[],
+  stateDir: string,
+  loadDependencies: MeasurementDependencyLoader = loadMeasurementDependencies
+) {
+  return Promise.resolve()
+    .then(() => parseMeasurementArguments(args))
+    .then((parsed) => loadDependencies(parsed.runId, stateDir))
+    .then((dependencies) =>
+      runMeasurementCommand(args, stateDir, dependencies)
+    );
+}
 /** Polls only after the journal proves write cleanup and revocation; it accepts no write credential. */
 export async function measureCloudflareEvidenceSources(
   stateDir: string,
@@ -176,6 +192,11 @@ export async function measureCloudflareEvidenceSources(
   // revoke or the final phase write failed. Resume from that receipt instead
   // of polling the provider again and risking a conflicting receipt.
   if (measurementAlreadyRecorded) {
+    assertMeasurementObservationWindow(
+      journal,
+      journal.measurementVerifiedAt,
+      options.now ?? new Date()
+    );
     if (journal.phase === 'read_token_revoked')
       return recordEvidencePhase(stateDir, runId, 'proof_complete');
     await revokeEvidenceRunToken(stateDir, runId, 'read', client);
@@ -243,45 +264,17 @@ function assertReadCapabilityMatchesJournal(
   )
     throw new Error('read capability does not match the journaled authority');
 }
-function assertMeasurementObservationWindow(
-  journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>,
-  observedAt: string,
-  now: Date
-) {
-  const observedAtMs = new Date(observedAt).valueOf();
-  const nowMs = now.valueOf();
-  const writeRevokedAtMs = journal.writeTokenRevocationReceipt
-    ? new Date(journal.writeTokenRevocationReceipt.observedAt).valueOf()
-    : Number.NaN;
-  const cleanupVerifiedAtMs = journal.cleanupVerifiedAt
-    ? new Date(journal.cleanupVerifiedAt).valueOf()
-    : Number.NaN;
-  const lowerBoundMs = Math.max(writeRevokedAtMs, cleanupVerifiedAtMs);
-  if (
-    ![observedAtMs, nowMs, lowerBoundMs].every(Number.isFinite) ||
-    observedAtMs < lowerBoundMs ||
-    observedAtMs > nowMs ||
-    nowMs - observedAtMs > MAX_MEASUREMENT_OBSERVATION_LAG_MS
-  )
-    throw new Error(
-      'Cloudflare evidence export observation is outside the active run window'
-    );
-}
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href
 ) {
   const args = process.argv.slice(2);
-  const parsed = parseMeasurementArguments(args);
   const stateDir = process.env.EVIDENCE_RUN_STATE_DIR;
   if (!stateDir) {
     process.stderr.write('absolute EVIDENCE_RUN_STATE_DIR is required\n');
     process.exitCode = 1;
   } else {
-    loadMeasurementDependencies(parsed.runId, stateDir)
-      .then((dependencies) =>
-        runMeasurementCommand(args, stateDir, dependencies)
-      )
+    runMeasurementEntrypoint(args, stateDir)
       .then((journal) =>
         process.stdout.write(
           `${JSON.stringify({ runId: journal.runId, phase: journal.phase })}\n`

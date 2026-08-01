@@ -226,6 +226,26 @@ describe('summarizeStorefrontDelivery', () => {
     rejected.days[0].rejectedMethodOriginCount = 1;
     expect(summarizeStorefrontDelivery(seal(rejected)).verdict).toBe('FAIL');
   });
+  it('does not pass when dynamic or rate-limit origin events are outside the static equation', () => {
+    for (const change of [
+      (evidence: ReturnType<typeof manifest>) => {
+        evidence.days[0].dynamicOriginAttemptCount = 1;
+      },
+      (evidence: ReturnType<typeof manifest>) => {
+        evidence.days[0].aliasDynamicOriginCount = 1;
+      },
+      (evidence: ReturnType<typeof manifest>) => {
+        evidence.days[0].allowedOriginRateLimitCount = 1;
+      },
+    ]) {
+      const evidence = manifest();
+      change(evidence);
+      const summary = summarizeStorefrontDelivery(seal(evidence));
+      expect(summary.verdict).toBe('NOT_PROVEN');
+      expect(summary.evidenceComplete).toBe(false);
+      expect(summary.unaccountedOriginAttempts).toBe(1);
+    }
+  });
   it('does not erase an origin attempt when delivery ends as edge-error', () => {
     const evidence = manifest();
     evidence.days[0] = {

@@ -174,6 +174,12 @@ export async function cleanupCloudflareEvidenceRun(
     return loadEvidenceRunForCleanup(stateDir, runId);
   }
   const incomplete = journal.probeResults.length !== journal.expectedProbeCount;
+  // Complete cleanup must have a provider readback capability before any
+  // destructive call. Incomplete probe runs stop without this extra proof,
+  // but a complete run would otherwise delete resources and only then discover
+  // that it cannot authenticate their absence.
+  if (!incomplete && typeof client.verifyCleanup !== 'function')
+    throw new Error('cleanup verification requires provider readback');
 
   // A provider create may succeed between the API response and the journal
   // append. Discover only the deterministic pre-journaled names, bind the
@@ -234,8 +240,6 @@ export async function cleanupCloudflareEvidenceRun(
       ? loadEvidenceRunForCleanup(stateDir, runId)
       : next;
   }
-  if (!client.verifyCleanup)
-    throw new Error('cleanup verification requires provider readback');
   const verified = await recordCleanupVerified(stateDir, runId, client);
   if (cleanupTokenToRevoke) {
     await revokeCleanupWriteTokenIfNeeded(

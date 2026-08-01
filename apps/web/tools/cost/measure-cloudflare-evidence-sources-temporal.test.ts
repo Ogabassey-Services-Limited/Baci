@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   openEvidenceRun,
   recordCleanupVerified,
+  recordEvidenceMeasurement,
   recordEvidenceMutation,
   recordEvidencePhase,
   recordEvidenceProbeResults,
@@ -167,6 +168,24 @@ describe('measurement observation timestamps', () => {
         { now: new Date('2026-08-01T00:01:00.000Z') }
       )
     ).rejects.toThrow('outside the active run window');
+  });
+
+  it.each([
+    ['stale', '2026-07-30T23:59:59.999Z'],
+    ['future', '2026-07-31T00:06:00.000Z'],
+  ])('rejects a %s persisted measurement when resuming', async (_label, observedAt) => {
+    const dir = await createMeasuredRun();
+    await recordEvidenceMeasurement(dir, input.runId, {
+      providerReceiptSha256: 'a'.repeat(64),
+      observedAt,
+    });
+    const client = measurementClient('2026-07-31T00:00:00.000Z');
+    await expect(
+      measureCloudflareEvidenceSources(dir, input.runId, capability, client, {
+        now: new Date('2026-07-31T00:05:00.000Z'),
+      })
+    ).rejects.toThrow('outside the active run window');
+    expect(client.measure).not.toHaveBeenCalled();
   });
 });
 

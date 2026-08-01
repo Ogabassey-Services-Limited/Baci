@@ -168,7 +168,9 @@ export function evaluateOgabasseyOriginBusinessCase(
   if (reasons.length) return { verdict: 'NOT_PROVEN', reasonCodes: reasons };
   const current = decimalToMinorUnits(input.currentVercelAttributionUsd ?? '');
   const projected = decimalToMinorUnits(input.projectedEdgeCostUsd ?? '');
-  if (current === null || projected === null || current <= projected)
+  if (current === null || projected === null)
+    return { verdict: 'NOT_PROVEN', reasonCodes: ['cost_input_invalid'] };
+  if (current <= projected)
     return { verdict: 'STOP', reasonCodes: ['savings_not_positive'] };
   if (
     input.paybackMonths !== undefined &&

@@ -105,6 +105,26 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
       ).reasonCodes
     ).toContain('payback_invalid');
   });
+  it('does not treat malformed cost evidence as a savings STOP', () => {
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...current, currentVercelAttributionUsd: 'not-usd' },
+        { now: new Date('2026-08-01T12:00:00.000Z') }
+      )
+    ).toEqual({
+      verdict: 'NOT_PROVEN',
+      reasonCodes: ['cost_input_invalid'],
+    });
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...current, projectedEdgeCostUsd: '$2.00' },
+        { now: new Date('2026-08-01T12:00:00.000Z') }
+      )
+    ).toEqual({
+      verdict: 'NOT_PROVEN',
+      reasonCodes: ['cost_input_invalid'],
+    });
+  });
   it('rejects an undated, future, stale, or calendar-invalid baseline window', () => {
     const now = new Date('2026-08-01T12:00:00.000Z');
     expect(

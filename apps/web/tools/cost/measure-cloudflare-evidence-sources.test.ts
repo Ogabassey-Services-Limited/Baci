@@ -9,8 +9,14 @@ import {
   recordEvidenceProbeResults,
   revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
-import type { EvidenceMeasurementClient } from './measure-cloudflare-evidence-sources';
-import { measureCloudflareEvidenceSources } from './measure-cloudflare-evidence-sources';
+import type {
+  EvidenceMeasurementClient,
+  EvidenceMeasurementDependencies,
+} from './measure-cloudflare-evidence-sources';
+import {
+  measureCloudflareEvidenceSources,
+  runMeasurementEntrypoint,
+} from './measure-cloudflare-evidence-sources';
 
 const input = {
   runId: '0123456789abcdef0123456789abcdef',
@@ -280,5 +286,26 @@ describe('measureCloudflareEvidenceSources', () => {
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
     ).resolves.toMatchObject({ phase: 'proof_complete' });
     expect(measure).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runMeasurementEntrypoint', () => {
+  it('keeps invalid argument errors in the promise rejection path', async () => {
+    const loadDependencies = vi.fn(
+      async (
+        _runId: string,
+        _stateDir: string
+      ): Promise<EvidenceMeasurementDependencies> => {
+        throw new Error('dependency loader should not run');
+      }
+    );
+    await expect(
+      runMeasurementEntrypoint(
+        ['--run', 'not-a-run-id'],
+        '/tmp/state',
+        loadDependencies
+      )
+    ).rejects.toThrow('read-only');
+    expect(loadDependencies).not.toHaveBeenCalled();
   });
 });

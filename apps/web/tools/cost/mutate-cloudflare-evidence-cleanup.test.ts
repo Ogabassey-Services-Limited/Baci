@@ -7,6 +7,7 @@ import {
   openEvidenceRun,
   recordEvidenceMutation,
   recordEvidencePhase,
+  recordEvidenceProbeResults,
   revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 import { cleanupCloudflareEvidenceRun } from './mutate-cloudflare-evidence-sources';
@@ -200,5 +201,105 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
         }
       )
     ).resolves.toMatchObject({ phase: 'write_token_revoked' });
+  });
+
+  it('preflights cleanup readback before deleting a complete run', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, mutationInput);
+    await recordEvidenceMutation(
+      dir,
+      mutationInput.runId,
+      mutationResource.name,
+      mutationResource.id
+    );
+    await recordEvidenceProbeResults(dir, mutationInput.runId, [
+      'probe-a',
+      'probe-b',
+    ]);
+    const cleanup = vi.fn();
+    const client = {
+      identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
+      findByName: async () => null,
+      get: async () => mutationResource,
+      create: vi.fn(),
+      probe: vi.fn(),
+      cleanup,
+      inventorySha256: async () => 'a'.repeat(64),
+    };
+    await expect(
+      cleanupCloudflareEvidenceRun(
+        dir,
+        mutationInput.runId,
+        mutationCapability,
+        client
+      )
+    ).rejects.toThrow('provider readback');
+    expect(cleanup).not.toHaveBeenCalled();
+    expect(
+      (await loadEvidenceRunForCleanup(dir, mutationInput.runId)).phase
+    ).toBe('mutated');
+  });
+
+  it('can retry a cleanup whose provider readback failed after deletion', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, mutationInput);
+    await recordEvidenceMutation(
+      dir,
+      mutationInput.runId,
+      mutationResource.name,
+      mutationResource.id
+    );
+    await recordEvidenceProbeResults(dir, mutationInput.runId, [
+      'probe-a',
+      'probe-b',
+    ]);
+    let resourcePresent = true;
+    const cleanup = vi.fn(async () => {
+      resourcePresent = false;
+      return true;
+    });
+    const verifyCleanup = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('provider readback unavailable'))
+      .mockResolvedValue({
+        status: 'absent' as const,
+        inventorySha256: 'a'.repeat(64),
+        providerReceiptSha256: 'f'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      });
+    const client = {
+      identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
+      findByName: async () => null,
+      get: async () => (resourcePresent ? mutationResource : null),
+      create: vi.fn(),
+      probe: vi.fn(),
+      cleanup,
+      inventorySha256: async () => 'a'.repeat(64),
+      verifyCleanup,
+    };
+    await expect(
+      cleanupCloudflareEvidenceRun(
+        dir,
+        mutationInput.runId,
+        mutationCapability,
+        client
+      )
+    ).rejects.toThrow('provider readback unavailable');
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(
+      (await loadEvidenceRunForCleanup(dir, mutationInput.runId)).phase
+    ).toBe('mutated');
+    await expect(
+      cleanupCloudflareEvidenceRun(
+        dir,
+        mutationInput.runId,
+        mutationCapability,
+        client
+      )
+    ).resolves.toMatchObject({ phase: 'cleanup_verified' });
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(verifyCleanup).toHaveBeenCalledTimes(2);
   });
 });

@@ -15,6 +15,10 @@ export type StorefrontDeliverySummary = {
   allEligibleIngress: number;
   canonicalEligibleOriginAttempts: number;
   aliasEligibleOriginAttempts: number;
+  dynamicOriginAttempts: number;
+  aliasDynamicOriginAttempts: number;
+  allowedOriginRateLimitAttempts: number;
+  unaccountedOriginAttempts: number;
   allEligibleOriginAttempts: number;
   originRate: number;
   unknownOriginAttempts: number;
@@ -62,6 +66,22 @@ export function summarizeStorefrontDelivery(
   const aliasEligibleOriginAttempts = sum(
     days.map((day) => day.aliasEligibleOriginRequestCount ?? 0)
   );
+  // Dynamic/API and rate-limit origins are outside the static eligibility
+  // numerator, but they still require an explicit reconciliation. A complete
+  // census must not silently pass while these origin events are unaccounted.
+  const dynamicOriginAttempts = sum(
+    days.map((day) => day.dynamicOriginAttemptCount ?? 0)
+  );
+  const aliasDynamicOriginAttempts = sum(
+    days.map((day) => day.aliasDynamicOriginCount ?? 0)
+  );
+  const allowedOriginRateLimitAttempts = sum(
+    days.map((day) => day.allowedOriginRateLimitCount ?? 0)
+  );
+  const unaccountedOriginAttempts =
+    dynamicOriginAttempts +
+    aliasDynamicOriginAttempts +
+    allowedOriginRateLimitAttempts;
   const unknownOriginAttempts = sum(
     days.map((day) => day.unknownOriginAttemptCount ?? 0)
   );
@@ -77,6 +97,7 @@ export function summarizeStorefrontDelivery(
       : Number.NaN;
   const evidenceComplete =
     validation.ok &&
+    unaccountedOriginAttempts === 0 &&
     days.every(
       (day) =>
         day.exportComplete &&
@@ -122,6 +143,10 @@ export function summarizeStorefrontDelivery(
     allEligibleIngress,
     canonicalEligibleOriginAttempts,
     aliasEligibleOriginAttempts,
+    dynamicOriginAttempts,
+    aliasDynamicOriginAttempts,
+    allowedOriginRateLimitAttempts,
+    unaccountedOriginAttempts,
     allEligibleOriginAttempts,
     originRate,
     unknownOriginAttempts,
