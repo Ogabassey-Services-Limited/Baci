@@ -60,4 +60,38 @@ describe('hasCleanIdentifierOccurrence', () => {
       })
     ).toBe(true);
   });
+
+  it('requires the complete ordered variant discriminator', () => {
+    const hybridPost = {
+      slug: 'iphone-15-hybrid-storage-guide',
+      title: 'iPhone 15 8GB 128GB storage guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: 6,
+    };
+    const completePost = {
+      ...hybridPost,
+      slug: 'iphone-15-esim-storage-guide',
+      title: 'Apple iPhone 15 128GB eSIM storage guide',
+    };
+
+    expect(
+      hasCleanIdentifierOccurrence(hybridPost, ['15'], {
+        brand: 'apple',
+        knownBrands: ['apple'],
+        discriminatorTokens: ['128gb', 'esim'],
+      })
+    ).toBe(false);
+    expect(
+      hasCleanIdentifierOccurrence(completePost, ['15'], {
+        brand: 'apple',
+        knownBrands: ['apple'],
+        discriminatorTokens: ['128gb', 'esim'],
+      })
+    ).toBe(true);
+  });
 });

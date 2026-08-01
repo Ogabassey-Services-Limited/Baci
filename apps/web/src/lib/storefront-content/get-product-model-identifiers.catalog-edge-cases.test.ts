@@ -12,6 +12,17 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
     expect(identifiers).toEqual(['modern 15 b13m']);
   });
 
+  it('removes a terminal integer quote-only display size from a named laptop', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Lenovo'],
+      productNames: ['Lenovo ThinkPad T14 Gen 4 – 14”'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['thinkpad t14 gen 4']);
+  });
+
   it('orders ThinkPad generation tokens for guide matching', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',

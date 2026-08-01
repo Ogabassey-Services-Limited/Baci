@@ -28,12 +28,29 @@ describe('getCompareProductMatchRequirements', () => {
     });
 
     expect(requirements).toEqual([
-      { identifier: '15', brand: null, discriminatorTokens: ['128gb', 'esim'] },
       {
         identifier: '15',
-        brand: null,
+        brand: 'apple',
+        discriminatorTokens: ['128gb', 'esim'],
+      },
+      {
+        identifier: '15',
+        brand: 'apple',
         discriminatorTokens: ['256gb', 'physical', 'sim'],
       },
+    ]);
+  });
+
+  it('preserves source brands for numeric identifiers with different models', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      productNames: ['Apple iPhone 15', 'Samsung Galaxy S25'],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: '15', brand: 'apple' },
+      { identifier: 's25', brand: null },
     ]);
   });
 });

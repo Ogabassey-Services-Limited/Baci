@@ -10,6 +10,7 @@ const { isConvertibleInConnector, isDimensionToken } = modelTokenMatchers;
 
 function tokenize(value: string) {
   return normalizeContentCurrencyTokens(value)
+    .replace(/(\d{1,2}(?:\.\d+)?)\s*["″”]/gu, '$1 inch')
     .toLowerCase()
     .replace(/[’']s\b/gu, '')
     .replace(/\+/gu, ' plus ')

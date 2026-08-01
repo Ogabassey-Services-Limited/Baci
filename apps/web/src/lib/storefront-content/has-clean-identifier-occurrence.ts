@@ -40,6 +40,22 @@ function matchesTokenSequence(
   );
 }
 
+function matchesOrderedTokenSequence(
+  tokens: string[],
+  expectedTokens: string[]
+) {
+  let expectedIndex = 0;
+  for (const token of tokens) {
+    if (token === expectedTokens[expectedIndex]) {
+      expectedIndex += 1;
+      if (expectedIndex === expectedTokens.length) {
+        return true;
+      }
+    }
+  }
+  return expectedTokens.length === 0;
+}
+
 function getBrandDistance(
   brandTokens: string[],
   identifierStart: number,
@@ -131,7 +147,7 @@ export function hasCleanIdentifierOccurrence(
 
       if (
         options.discriminatorTokens?.length &&
-        !options.discriminatorTokens.some((token) => postTokens.includes(token))
+        !matchesOrderedTokenSequence(postTokens, options.discriminatorTokens)
       ) {
         return false;
       }

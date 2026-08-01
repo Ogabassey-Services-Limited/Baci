@@ -59,6 +59,11 @@ function getSourceDiscriminatorTokens(source: string, identifier: string) {
   );
 }
 
+function isNumericOnlyIdentifier(identifier: string) {
+  const tokens = tokenize(identifier);
+  return tokens.length > 0 && tokens.every((token) => /^\d+$/u.test(token));
+}
+
 /** Builds per-product compare requirements without collapsing brand collisions. */
 export function getCompareProductMatchRequirements(
   context: BuildCommercialGuideLinksContext
@@ -120,6 +125,7 @@ export function getCompareProductMatchRequirements(
       const requirement: CompareProductMatchRequirement = {
         identifier: candidate.identifier,
         brand:
+          isNumericOnlyIdentifier(candidate.identifier) ||
           (brandsByIdentifier.get(candidate.identifier)?.size ?? 0) > 1
             ? candidate.brand
             : null,

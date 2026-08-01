@@ -80,7 +80,8 @@ function matchesProductIdentifier(
   if (
     identifierTokens.length === 0 ||
     (identifierTokens.every((token) => /^\d+$/u.test(token)) &&
-      !hasBrandMatch) ||
+      !hasBrandMatch &&
+      !occurrenceOptions?.brand) ||
     !identifierTokens.every((token) => inferredTokens.includes(token))
   ) {
     return false;
