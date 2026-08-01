@@ -342,4 +342,373 @@ BEGIN
 END;
 $$;
 
+-- The disposable replay actor needs temporary membership to exercise the exact
+-- control-plane role gate. The enclosing transaction rolls this membership back.
+GRANT payment_control_plane TO postgres;
+
+-- Writer regression fixtures: all rows stay inside the surrounding rollback.
+DO $$
+DECLARE
+  v_attestation_id uuid := '20000000-0000-4000-8000-000000000001';
+  v_identity_id uuid := '20000000-0000-4000-8000-000000000002';
+  v_binding_one uuid := '20000000-0000-4000-8000-000000000003';
+  v_binding_two uuid := '20000000-0000-4000-8000-000000000004';
+  v_binding_three uuid := '20000000-0000-4000-8000-000000000005';
+  v_binding_four uuid := '20000000-0000-4000-8000-000000000006';
+  v_binding_five uuid := '20000000-0000-4000-8000-000000000007';
+  v_approver_id uuid := '20000000-0000-4000-8000-000000000008';
+  v_create_one_operation uuid := '20000000-0000-4000-8000-000000000009';
+  v_activate_operation uuid := '20000000-0000-4000-8000-000000000010';
+  v_create_two_operation uuid := '20000000-0000-4000-8000-000000000011';
+  v_roll_forward_operation uuid := '20000000-0000-4000-8000-000000000012';
+  v_create_three_operation uuid := '20000000-0000-4000-8000-000000000013';
+  v_rollback_operation uuid := '20000000-0000-4000-8000-000000000014';
+  v_create_four_operation uuid := '20000000-0000-4000-8000-000000000015';
+  v_proof_mismatch_operation uuid := '20000000-0000-4000-8000-000000000016';
+  v_root_mismatch_operation uuid := '20000000-0000-4000-8000-000000000017';
+  v_retire_operation uuid := '20000000-0000-4000-8000-000000000018';
+  v_proof_one_id uuid := '20000000-0000-4000-8000-000000000019';
+  v_proof_two_id uuid := '20000000-0000-4000-8000-000000000020';
+  v_proof_mismatch_id uuid := '20000000-0000-4000-8000-000000000021';
+  v_root_mismatch_proof_id uuid := '20000000-0000-4000-8000-000000000022';
+  v_generation_one uuid;
+  v_generation_two uuid;
+  v_generation_three uuid;
+  v_generation_four uuid;
+  v_generation_five uuid := '20000000-0000-4000-8000-000000000023';
+  v_generation bigint;
+  v_control_version bigint;
+  v_replayed boolean;
+  v_result_code text;
+BEGIN
+  INSERT INTO private.payment_ingress_signature_key_identities (
+    id, provider, endpoint_key, signature_key_scope, identity_revision, identity_kind,
+    material_fingerprint, provenance_reference
+  ) VALUES (
+    v_identity_id, 'writer-provider', 'writer-endpoint', 'writer-signature', 1,
+    'public_key', repeat('1', 64), 'writer-fixture'
+  );
+
+  INSERT INTO auth.users (id, email)
+  VALUES (v_approver_id, 'payment-ingress-writer@example.test');
+
+  INSERT INTO private.payment_ingress_deployment_attestations (
+    id, environment, manifest_sha256, attestation_sha256, verified_by,
+    approval_reference, verified_at, retention_until
+  ) VALUES (
+    v_attestation_id, 'writer-test', repeat('2', 64), repeat('3', 64), 'migration',
+    'writer-approved', clock_timestamp(), clock_timestamp() + interval '1 day'
+  );
+
+  INSERT INTO private.payment_ingress_deployment_manifest_bindings (
+    id, environment, provider, endpoint_key, signature_key_scope, authority_key,
+    signature_key_identity_id, identity_revision, attestation_id,
+    parser_contract_version, normalized_envelope_schema_version,
+    replay_identity_contract_version, parser_artifact_sha256, manifest_sha256,
+    attestation_sha256, verifier_artifact_sha256, corpus_manifest_sha256,
+    normalized_envelope_equivalence_contract_version,
+    replay_identity_equivalence_contract_version, provenance_reference,
+    approval_reference, retention_until
+  ) VALUES
+    (
+      v_binding_one, 'writer-test', 'writer-provider', 'writer-endpoint',
+      'writer-signature', 'writer-authority', v_identity_id, 1, v_attestation_id,
+      'writer-parser-v1', 'writer-envelope-v1', 'writer-replay-v1', repeat('4', 64),
+      repeat('2', 64), repeat('3', 64), repeat('a', 64), repeat('b', 64),
+      'writer-equivalence-envelope-v1', 'writer-equivalence-replay-v1',
+      'writer-fixture', 'writer-approved', clock_timestamp() + interval '1 day'
+    ),
+    (
+      v_binding_two, 'writer-test', 'writer-provider', 'writer-endpoint',
+      'writer-signature', 'writer-authority', v_identity_id, 1, v_attestation_id,
+      'writer-parser-v2', 'writer-envelope-v2', 'writer-replay-v2', repeat('5', 64),
+      repeat('2', 64), repeat('3', 64), repeat('a', 64), repeat('b', 64),
+      'writer-equivalence-envelope-v1', 'writer-equivalence-replay-v1',
+      'writer-fixture', 'writer-approved', clock_timestamp() + interval '1 day'
+    ),
+    (
+      v_binding_three, 'writer-test', 'writer-provider', 'writer-endpoint',
+      'writer-signature', 'writer-authority', v_identity_id, 1, v_attestation_id,
+      'writer-parser-v3', 'writer-envelope-v3', 'writer-replay-v3', repeat('6', 64),
+      repeat('2', 64), repeat('3', 64), repeat('a', 64), repeat('b', 64),
+      'writer-equivalence-envelope-v1', 'writer-equivalence-replay-v1',
+      'writer-fixture', 'writer-approved', clock_timestamp() + interval '1 day'
+    ),
+    (
+      v_binding_four, 'writer-test', 'writer-provider', 'writer-endpoint',
+      'writer-signature', 'writer-authority', v_identity_id, 1, v_attestation_id,
+      'writer-parser-v4', 'writer-envelope-v4', 'writer-replay-v4', repeat('7', 64),
+      repeat('2', 64), repeat('3', 64), repeat('a', 64), repeat('b', 64),
+      'writer-equivalence-envelope-v1', 'writer-equivalence-replay-v1',
+      'writer-fixture', 'writer-approved', clock_timestamp() + interval '1 day'
+    ),
+    (
+      v_binding_five, 'writer-test', 'writer-provider', 'writer-endpoint',
+      'writer-signature', 'writer-authority', v_identity_id, 1, v_attestation_id,
+      'writer-parser-v5', 'writer-envelope-v5', 'writer-replay-v5', repeat('8', 64),
+      repeat('2', 64), repeat('3', 64), repeat('a', 64), repeat('b', 64),
+      'writer-equivalence-envelope-v1', 'writer-equivalence-replay-v1',
+      'writer-fixture', 'writer-root-mismatch', clock_timestamp() + interval '1 day'
+    );
+
+  -- The role GUC, not the function ACL, must reject every non-control caller.
+  BEGIN
+    PERFORM private.create_payment_ingress_contract_generation(
+      v_create_one_operation, v_binding_one
+    );
+    RAISE EXCEPTION 'create did not reject the non-control role';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM private.activate_payment_ingress_contract_generation(
+      v_activate_operation, v_generation_five, 1, v_binding_one
+    );
+    RAISE EXCEPTION 'activate did not reject the non-control role';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM private.roll_forward_payment_ingress_contract_generation(
+      v_roll_forward_operation, v_generation_five, 1, v_binding_one, v_proof_one_id
+    );
+    RAISE EXCEPTION 'roll-forward did not reject the non-control role';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM private.rollback_payment_ingress_contract_generation(
+      v_rollback_operation, v_generation_five, 1, v_binding_one, v_proof_one_id
+    );
+    RAISE EXCEPTION 'rollback did not reject the non-control role';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM private.retire_payment_ingress_contract_generation(
+      v_retire_operation, v_generation_five, 1, v_binding_one
+    );
+    RAISE EXCEPTION 'retire did not reject the non-control role';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.create_payment_ingress_contract_generation(
+    v_create_one_operation, v_binding_one
+  ) AS result;
+  IF v_generation <> 1 OR v_control_version <> 1 OR v_replayed OR v_result_code <> 'created' THEN
+    RAISE EXCEPTION 'create did not produce the initial staged generation';
+  END IF;
+
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.create_payment_ingress_contract_generation(
+    v_create_one_operation, v_binding_one
+  ) AS result;
+  IF v_generation <> 1 OR v_control_version <> 1 OR NOT v_replayed OR v_result_code <> 'replayed' THEN
+    RAISE EXCEPTION 'identical creation retry was not replayed';
+  END IF;
+
+  BEGIN
+    PERFORM private.create_payment_ingress_contract_generation(
+      v_create_one_operation, v_binding_two
+    );
+    RAISE EXCEPTION 'divergent creation retry unexpectedly passed';
+  EXCEPTION WHEN SQLSTATE 'PT409' THEN NULL;
+  END;
+
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.activate_payment_ingress_contract_generation(
+    v_activate_operation, v_generation_one, 1, v_binding_one
+  ) AS result;
+  IF v_generation <> 1 OR v_control_version <> 2 OR v_replayed OR v_result_code <> 'activated' THEN
+    RAISE EXCEPTION 'initial activation did not advance the control version';
+  END IF;
+  PERFORM pg_catalog.set_config('role', 'none', true);
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_two, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.create_payment_ingress_contract_generation(
+    v_create_two_operation, v_binding_two
+  ) AS result;
+  IF v_generation <> 2 OR v_control_version <> 1 OR v_replayed OR v_result_code <> 'created' THEN
+    RAISE EXCEPTION 'second staged generation was not created';
+  END IF;
+  PERFORM pg_catalog.set_config('role', 'none', true);
+
+  INSERT INTO private.payment_ingress_parser_compatibility_proofs (
+    id, provider, endpoint_key, signature_key_scope, authority_key,
+    basis_generation_id, candidate_generation_id, basis_parser_artifact_sha256,
+    candidate_parser_artifact_sha256,
+    normalized_envelope_equivalence_contract_version,
+    replay_identity_equivalence_contract_version, verifier_artifact_sha256,
+    corpus_manifest_sha256, proof_sha256, result, approved_by, approval_reference
+  ) VALUES (
+    v_proof_one_id, 'writer-provider', 'writer-endpoint', 'writer-signature',
+    'writer-authority', v_generation_one, v_generation_two, repeat('4', 64),
+    repeat('5', 64), 'writer-equivalence-envelope-v1',
+    'writer-equivalence-replay-v1', repeat('a', 64), repeat('b', 64),
+    repeat('c', 64), 'compatible', v_approver_id, 'writer-approved'
+  );
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  BEGIN
+    PERFORM private.roll_forward_payment_ingress_contract_generation(
+      v_roll_forward_operation, v_generation_one, 1, v_binding_two, v_proof_one_id
+    );
+    RAISE EXCEPTION 'stale roll-forward compare-and-set unexpectedly passed';
+  EXCEPTION WHEN SQLSTATE 'PT409' THEN NULL;
+  END;
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_two, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.roll_forward_payment_ingress_contract_generation(
+    v_roll_forward_operation, v_generation_one, 2, v_binding_two, v_proof_one_id
+  ) AS result;
+  IF v_generation <> 2 OR v_control_version <> 2 OR v_replayed
+    OR v_result_code <> 'rolled_forward'
+  THEN RAISE EXCEPTION 'roll-forward did not atomically advance the staged successor'; END IF;
+  PERFORM pg_catalog.set_config('role', 'none', true);
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_three, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.create_payment_ingress_contract_generation(
+    v_create_three_operation, v_binding_three
+  ) AS result;
+  IF v_generation <> 3 OR v_control_version <> 1 OR v_replayed OR v_result_code <> 'created' THEN
+    RAISE EXCEPTION 'third staged generation was not created';
+  END IF;
+  PERFORM pg_catalog.set_config('role', 'none', true);
+
+  INSERT INTO private.payment_ingress_parser_compatibility_proofs (
+    id, provider, endpoint_key, signature_key_scope, authority_key,
+    basis_generation_id, candidate_generation_id, basis_parser_artifact_sha256,
+    candidate_parser_artifact_sha256,
+    normalized_envelope_equivalence_contract_version,
+    replay_identity_equivalence_contract_version, verifier_artifact_sha256,
+    corpus_manifest_sha256, proof_sha256, result, approved_by, approval_reference
+  ) VALUES (
+    v_proof_two_id, 'writer-provider', 'writer-endpoint', 'writer-signature',
+    'writer-authority', v_generation_two, v_generation_three, repeat('5', 64),
+    repeat('6', 64), 'writer-equivalence-envelope-v1',
+    'writer-equivalence-replay-v1', repeat('a', 64), repeat('b', 64),
+    repeat('d', 64), 'compatible', v_approver_id, 'writer-approved'
+  );
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_three, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.rollback_payment_ingress_contract_generation(
+    v_rollback_operation, v_generation_two, 2, v_binding_three, v_proof_two_id
+  ) AS result;
+  IF v_generation <> 3 OR v_control_version <> 2 OR v_replayed
+    OR v_result_code <> 'rolled_back'
+  THEN RAISE EXCEPTION 'rollback did not atomically advance the staged successor'; END IF;
+  PERFORM pg_catalog.set_config('role', 'none', true);
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_four, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.create_payment_ingress_contract_generation(
+    v_create_four_operation, v_binding_four
+  ) AS result;
+  IF v_generation <> 4 OR v_control_version <> 1 OR v_replayed OR v_result_code <> 'created' THEN
+    RAISE EXCEPTION 'fourth staged generation was not created';
+  END IF;
+  PERFORM pg_catalog.set_config('role', 'none', true);
+
+  INSERT INTO private.payment_ingress_parser_compatibility_proofs (
+    id, provider, endpoint_key, signature_key_scope, authority_key,
+    basis_generation_id, candidate_generation_id, basis_parser_artifact_sha256,
+    candidate_parser_artifact_sha256,
+    normalized_envelope_equivalence_contract_version,
+    replay_identity_equivalence_contract_version, verifier_artifact_sha256,
+    corpus_manifest_sha256, proof_sha256, result, approved_by, approval_reference
+  ) VALUES (
+    v_proof_mismatch_id, 'writer-provider', 'writer-endpoint', 'writer-signature',
+    'writer-authority', v_generation_three, v_generation_four, repeat('6', 64),
+    repeat('7', 64), 'writer-equivalence-envelope-v1',
+    'writer-equivalence-replay-v1', repeat('a', 64), repeat('b', 64),
+    repeat('e', 64), 'compatible', v_approver_id, 'writer-approved'
+  );
+  UPDATE private.payment_ingress_parser_compatibility_proofs
+  SET approval_reference = 'writer-tampered'
+  WHERE id = v_proof_mismatch_id;
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  BEGIN
+    PERFORM private.roll_forward_payment_ingress_contract_generation(
+      v_proof_mismatch_operation, v_generation_three, 2, v_binding_four,
+      v_proof_mismatch_id
+    );
+    RAISE EXCEPTION 'proof approval mismatch unexpectedly passed';
+  EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+  END;
+  PERFORM pg_catalog.set_config('role', 'none', true);
+
+  INSERT INTO private.payment_ingress_contract_generations (
+    id, provider, endpoint_key, signature_key_scope, signature_key_identity_id,
+    authority_key, generation, parser_contract_version, parser_artifact_sha256,
+    normalized_envelope_schema_version, replay_identity_contract_version
+  ) VALUES (
+    v_generation_five, 'writer-provider', 'writer-endpoint', 'writer-signature',
+    v_identity_id, 'writer-authority', 5, 'writer-parser-v5', repeat('8', 64),
+    'writer-envelope-v5', 'writer-replay-v5'
+  );
+  INSERT INTO private.payment_ingress_parser_compatibility_proofs (
+    id, provider, endpoint_key, signature_key_scope, authority_key,
+    basis_generation_id, candidate_generation_id, basis_parser_artifact_sha256,
+    candidate_parser_artifact_sha256,
+    normalized_envelope_equivalence_contract_version,
+    replay_identity_equivalence_contract_version, verifier_artifact_sha256,
+    corpus_manifest_sha256, proof_sha256, result, approved_by, approval_reference
+  ) VALUES (
+    v_root_mismatch_proof_id, 'writer-provider', 'writer-endpoint', 'writer-signature',
+    'writer-authority', v_generation_three, v_generation_five, repeat('6', 64),
+    repeat('8', 64), 'writer-equivalence-envelope-v1',
+    'writer-equivalence-replay-v1', repeat('a', 64), repeat('b', 64),
+    repeat('f', 64), 'compatible', v_approver_id, 'writer-root-mismatch'
+  );
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  BEGIN
+    PERFORM private.roll_forward_payment_ingress_contract_generation(
+      v_root_mismatch_operation, v_generation_three, 2, v_binding_five,
+      v_root_mismatch_proof_id
+    );
+    RAISE EXCEPTION 'binding/root approval mismatch unexpectedly passed';
+  EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+  END;
+  BEGIN
+    PERFORM private.retire_payment_ingress_contract_generation(
+      v_retire_operation, v_generation_three, 2, v_binding_three
+    );
+    RAISE EXCEPTION 'retire unexpectedly passed before later safety gates';
+  EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+  END;
+  PERFORM pg_catalog.set_config('role', 'none', true);
+
+  IF (SELECT count(*) FROM private.payment_ingress_contract_creation_receipts
+      WHERE provider = 'writer-provider') <> 4
+    OR (SELECT count(*) FROM private.payment_ingress_contract_transition_receipts
+      WHERE provider = 'writer-provider') <> 3
+    OR (SELECT status FROM private.payment_ingress_contract_generations
+      WHERE id = v_generation_three) <> 'active'
+  THEN
+    RAISE EXCEPTION 'writer fixtures did not leave the expected durable control-plane evidence';
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  PERFORM pg_catalog.set_config('role', 'none', true);
+  RAISE;
+END;
+$$;
+
 ROLLBACK;

@@ -288,6 +288,6 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260801140000_payment_ingress_contract_companion.sql',
-    sha256: 'a0ca4fb4b82ca5683a6d6190b58be6a23f5e83f8938a22628f3c45346b4ff87f',
+    sha256: 'cfa32cc36a4381685a79005849a300f82985ab72083006435e5f7ed39112a16c',
   },
 ];

@@ -30,6 +30,20 @@ const companionFunctions = [
   'retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid)',
 ] as const;
 
+function functionBody(functionName: string) {
+  const match = migrationSql.match(
+    new RegExp(
+      `CREATE OR REPLACE FUNCTION private\\.${functionName}\\([\\s\\S]*?AS \\$\\$([\\s\\S]*?)\\$\\$;`
+    )
+  );
+
+  if (!match) {
+    throw new Error(`missing payment ingress function body: ${functionName}`);
+  }
+
+  return match[1];
+}
+
 describe('payment ingress control-plane companion migration', () => {
   it('is the exact timeout-guarded companion migration', () => {
     expect(migrationFilename).toBe(
@@ -148,6 +162,58 @@ describe('payment ingress control-plane companion migration', () => {
       'attestation',
     ]) {
       expect(migrationSql.toLowerCase()).toContain(comment);
+    }
+  });
+
+  it('serializes each scoped writer before replay and generation row locks', () => {
+    for (const functionName of [
+      'create_payment_ingress_contract_generation',
+      'activate_payment_ingress_contract_generation',
+      'roll_forward_payment_ingress_contract_generation',
+      'rollback_payment_ingress_contract_generation',
+    ]) {
+      const body = functionBody(functionName);
+      const advisoryLock = body.indexOf('pg_catalog.pg_advisory_xact_lock');
+      const receiptReload = body.indexOf('AS receipt');
+      const firstRowLock = body.indexOf('FOR UPDATE');
+
+      expect(advisoryLock).toBeGreaterThan(-1);
+      expect(receiptReload).toBeGreaterThan(advisoryLock);
+      expect(firstRowLock).toBeGreaterThan(receiptReload);
+    }
+
+    for (const functionName of [
+      'roll_forward_payment_ingress_contract_generation',
+      'rollback_payment_ingress_contract_generation',
+    ]) {
+      const body = functionBody(functionName);
+      const outgoingLock = body.indexOf(
+        'WHERE generation_row.id = p_outgoing_generation_id\n  FOR UPDATE'
+      );
+      const incomingSelection = body.indexOf(
+        'WHERE generation_row.id = v_proof.candidate_generation_id'
+      );
+      const incomingLock = body.indexOf('FOR UPDATE', incomingSelection);
+
+      expect(outgoingLock).toBeGreaterThan(-1);
+      expect(incomingSelection).toBeGreaterThan(outgoingLock);
+      expect(incomingLock).toBeGreaterThan(outgoingLock);
+    }
+  });
+
+  it('requires proof and deployment approval to share the active root approval', () => {
+    for (const functionName of [
+      'roll_forward_payment_ingress_contract_generation',
+      'rollback_payment_ingress_contract_generation',
+    ]) {
+      const body = functionBody(functionName);
+
+      expect(body).toContain(
+        'v_proof.approval_reference = binding.approval_reference'
+      );
+      expect(body).toContain(
+        'binding.approval_reference = attestation.approval_reference'
+      );
     }
   });
 

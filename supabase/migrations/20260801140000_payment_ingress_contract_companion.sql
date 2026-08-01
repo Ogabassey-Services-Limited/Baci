@@ -675,9 +675,9 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_binding private.payment_ingress_deployment_manifest_bindings%ROWTYPE;
-  v_receipt private.payment_ingress_contract_creation_receipts%ROWTYPE;
-  v_generation private.payment_ingress_contract_generations%ROWTYPE;
+  v_binding record;
+  v_receipt record;
+  v_generation record;
   v_fingerprint text;
   v_next_generation bigint;
 BEGIN
@@ -688,41 +688,19 @@ BEGIN
     RAISE EXCEPTION 'operation id and deployment binding are required' USING ERRCODE = '22023';
   END IF;
 
-  SELECT receipt INTO v_receipt
-  FROM private.payment_ingress_contract_creation_receipts AS receipt
-  WHERE operation_id = p_operation_id;
-
   v_fingerprint := pg_catalog.encode(
     extensions.digest('create:' || p_operation_id::text || ':' || p_deployment_binding_id::text, 'sha256'),
     'hex'
   );
-  IF FOUND THEN
-    IF v_receipt.request_fingerprint <> v_fingerprint THEN
-      RAISE EXCEPTION 'payment ingress creation replay diverged' USING ERRCODE = 'PT409';
-    END IF;
-    SELECT generation_row INTO v_generation
-    FROM private.payment_ingress_contract_generations AS generation_row
-    WHERE id = v_receipt.generation_id;
-    RETURN QUERY SELECT v_receipt.operation_id, v_generation.id, v_generation.generation,
-      v_generation.control_version, true, 'replayed'::text;
-    RETURN;
-  END IF;
 
-  SELECT binding INTO v_binding
+  -- Discover scope without a row lock, then serialize all retries for that scope.
+  SELECT binding.provider, binding.endpoint_key, binding.signature_key_scope,
+    binding.authority_key
+  INTO v_binding
   FROM private.payment_ingress_deployment_manifest_bindings AS binding
-  JOIN private.payment_ingress_deployment_attestations AS attestation
-    ON attestation.id = binding.attestation_id
-    AND attestation.environment = binding.environment
-    AND attestation.manifest_sha256 = binding.manifest_sha256
-    AND attestation.attestation_sha256 = binding.attestation_sha256
-  WHERE binding.id = p_deployment_binding_id
-    AND attestation.revoked_at IS NULL
-    AND attestation.retention_until > pg_catalog.clock_timestamp()
-    AND binding.retention_until > pg_catalog.clock_timestamp()
-  FOR UPDATE OF binding, attestation;
-
+  WHERE binding.id = p_deployment_binding_id;
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'active retained deployment binding is required' USING ERRCODE = '22023';
+    RAISE EXCEPTION 'deployment binding scope is required' USING ERRCODE = '22023';
   END IF;
 
   PERFORM pg_catalog.pg_advisory_xact_lock(
@@ -733,13 +711,53 @@ BEGIN
     )
   );
 
-  SELECT generation INTO v_next_generation
-  FROM private.payment_ingress_contract_generations
-  WHERE provider = v_binding.provider
-    AND endpoint_key = v_binding.endpoint_key
-    AND signature_key_scope = v_binding.signature_key_scope
-    AND authority_key = v_binding.authority_key
-  ORDER BY generation DESC
+  SELECT receipt.operation_id, receipt.request_fingerprint, receipt.generation_id
+  INTO v_receipt
+  FROM private.payment_ingress_contract_creation_receipts AS receipt
+  WHERE receipt.operation_id = p_operation_id;
+  IF FOUND THEN
+    IF v_receipt.request_fingerprint <> v_fingerprint THEN
+      RAISE EXCEPTION 'payment ingress creation replay diverged' USING ERRCODE = 'PT409';
+    END IF;
+    SELECT generation_row.id, generation_row.generation, generation_row.control_version
+    INTO v_generation
+    FROM private.payment_ingress_contract_generations AS generation_row
+    WHERE id = v_receipt.generation_id;
+    RETURN QUERY SELECT v_receipt.operation_id, v_generation.id, v_generation.generation,
+      v_generation.control_version, true, 'replayed'::text;
+    RETURN;
+  END IF;
+
+  SELECT binding.id, binding.provider, binding.endpoint_key,
+    binding.signature_key_scope, binding.signature_key_identity_id,
+    binding.authority_key, binding.parser_contract_version,
+    binding.parser_artifact_sha256, binding.normalized_envelope_schema_version,
+    binding.replay_identity_contract_version
+  INTO v_binding
+  FROM private.payment_ingress_deployment_manifest_bindings AS binding
+  JOIN private.payment_ingress_deployment_attestations AS attestation
+    ON attestation.id = binding.attestation_id
+    AND attestation.environment = binding.environment
+    AND attestation.manifest_sha256 = binding.manifest_sha256
+    AND attestation.attestation_sha256 = binding.attestation_sha256
+  WHERE binding.id = p_deployment_binding_id
+    AND binding.approval_reference = attestation.approval_reference
+    AND attestation.revoked_at IS NULL
+    AND attestation.retention_until > pg_catalog.clock_timestamp()
+    AND binding.retention_until > pg_catalog.clock_timestamp()
+  FOR UPDATE OF binding, attestation;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'active retained deployment binding is required' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT generation_row.generation INTO v_next_generation
+  FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.provider = v_binding.provider
+    AND generation_row.endpoint_key = v_binding.endpoint_key
+    AND generation_row.signature_key_scope = v_binding.signature_key_scope
+    AND generation_row.authority_key = v_binding.authority_key
+  ORDER BY generation_row.generation DESC
   LIMIT 1
   FOR UPDATE;
 
@@ -758,7 +776,8 @@ BEGIN
     v_binding.parser_contract_version, v_binding.parser_artifact_sha256,
     v_binding.normalized_envelope_schema_version,
     v_binding.replay_identity_contract_version
-  ) RETURNING generation_row INTO v_generation;
+  ) RETURNING generation_row.id, generation_row.generation,
+    generation_row.control_version INTO v_generation;
 
   INSERT INTO private.payment_ingress_contract_creation_receipts (
     operation_id, request_fingerprint, deployment_binding_id, generation_id,
@@ -793,10 +812,10 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_generation private.payment_ingress_contract_generations%ROWTYPE;
-  v_receipt private.payment_ingress_contract_transition_receipts%ROWTYPE;
-  v_binding private.payment_ingress_deployment_manifest_bindings%ROWTYPE;
-  v_attestation private.payment_ingress_deployment_attestations%ROWTYPE;
+  v_generation record;
+  v_receipt record;
+  v_binding record;
+  v_attestation record;
   v_fingerprint text;
   v_now timestamptz;
 BEGIN
@@ -807,34 +826,59 @@ BEGIN
     OR p_expected_control_version IS NULL OR p_deployment_binding_id IS NULL
   THEN RAISE EXCEPTION 'activation inputs are required' USING ERRCODE = '22023'; END IF;
 
-  SELECT receipt INTO v_receipt FROM private.payment_ingress_contract_transition_receipts AS receipt
-  WHERE operation_id = p_operation_id;
   v_fingerprint := pg_catalog.encode(extensions.digest(
     'initial_activate:' || p_operation_id::text || ':' || p_generation_id::text || ':' ||
     p_expected_control_version::text || ':' || p_deployment_binding_id::text,
     'sha256'
   ), 'hex');
+
+  -- Discover scope without holding a generation row lock before serialization.
+  SELECT generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.authority_key
+  INTO v_generation
+  FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = p_generation_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'staged generation compare-and-set failed' USING ERRCODE = 'PT409';
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'payment-ingress:' || v_generation.provider || ':' || v_generation.endpoint_key || ':' ||
+    v_generation.signature_key_scope || ':' || v_generation.authority_key, 0
+  ));
+
+  SELECT receipt.operation_id, receipt.request_fingerprint,
+    receipt.incoming_generation_id
+  INTO v_receipt
+  FROM private.payment_ingress_contract_transition_receipts AS receipt
+  WHERE receipt.operation_id = p_operation_id;
   IF FOUND THEN
     IF v_receipt.request_fingerprint <> v_fingerprint THEN
       RAISE EXCEPTION 'payment ingress activation replay diverged' USING ERRCODE = 'PT409';
     END IF;
-    SELECT generation_row INTO v_generation FROM private.payment_ingress_contract_generations AS generation_row
+    SELECT generation_row.id, generation_row.generation, generation_row.control_version
+    INTO v_generation FROM private.payment_ingress_contract_generations AS generation_row
     WHERE id = v_receipt.incoming_generation_id;
     RETURN QUERY SELECT v_receipt.operation_id, v_generation.id, v_generation.generation,
       v_generation.control_version, true, 'replayed'::text;
     RETURN;
   END IF;
 
-  SELECT generation_row INTO v_generation FROM private.payment_ingress_contract_generations AS generation_row
-  WHERE id = p_generation_id FOR UPDATE;
+  SELECT generation_row.id, generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.signature_key_identity_id,
+    generation_row.authority_key, generation_row.generation,
+    generation_row.parser_contract_version, generation_row.parser_artifact_sha256,
+    generation_row.normalized_envelope_schema_version,
+    generation_row.replay_identity_contract_version, generation_row.status,
+    generation_row.control_version
+  INTO v_generation
+  FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = p_generation_id
+  FOR UPDATE;
   IF NOT FOUND OR v_generation.status <> 'staged'
     OR v_generation.control_version <> p_expected_control_version
   THEN RAISE EXCEPTION 'staged generation compare-and-set failed' USING ERRCODE = 'PT409'; END IF;
 
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
-    'payment-ingress:' || v_generation.provider || ':' || v_generation.endpoint_key || ':' ||
-    v_generation.signature_key_scope || ':' || v_generation.authority_key, 0
-  ));
   IF EXISTS (
     SELECT 1 FROM private.payment_ingress_contract_generations
     WHERE provider = v_generation.provider AND endpoint_key = v_generation.endpoint_key
@@ -847,7 +891,8 @@ BEGIN
       AND authority_key = v_generation.authority_key AND status = 'active'
   ) THEN RAISE EXCEPTION 'payment ingress scope cannot be activated' USING ERRCODE = 'PT409'; END IF;
 
-  SELECT binding INTO v_binding
+  SELECT binding.id, binding.attestation_id, binding.approval_reference
+  INTO v_binding
   FROM private.payment_ingress_deployment_manifest_bindings AS binding
   JOIN private.payment_ingress_deployment_attestations AS attestation
     ON attestation.id = binding.attestation_id
@@ -855,6 +900,7 @@ BEGIN
     AND attestation.manifest_sha256 = binding.manifest_sha256
     AND attestation.attestation_sha256 = binding.attestation_sha256
   WHERE binding.id = p_deployment_binding_id
+    AND binding.approval_reference = attestation.approval_reference
     AND binding.provider = v_generation.provider
     AND binding.endpoint_key = v_generation.endpoint_key
     AND binding.signature_key_scope = v_generation.signature_key_scope
@@ -869,18 +915,23 @@ BEGIN
     AND binding.retention_until > pg_catalog.clock_timestamp()
   FOR UPDATE OF binding, attestation;
   IF NOT FOUND OR NOT EXISTS (
-    SELECT 1 FROM private.payment_ingress_contract_creation_receipts
-    WHERE generation_id = v_generation.id AND deployment_binding_id = p_deployment_binding_id
+    SELECT 1 FROM private.payment_ingress_contract_creation_receipts AS receipt
+    WHERE receipt.generation_id = v_generation.id
+      AND receipt.deployment_binding_id = p_deployment_binding_id
   ) THEN RAISE EXCEPTION 'active retained creation binding is required' USING ERRCODE = '22023'; END IF;
-  SELECT attestation INTO v_attestation
+  SELECT attestation.attestation_sha256
+  INTO v_attestation
   FROM private.payment_ingress_deployment_attestations AS attestation
   WHERE id = v_binding.attestation_id;
 
   v_now := pg_catalog.clock_timestamp();
   UPDATE private.payment_ingress_contract_generations AS generation_row
-  SET status = 'active', activated_at = v_now, control_version = control_version + 1
+  SET status = 'active', activated_at = v_now,
+    control_version = generation_row.control_version + 1
   WHERE id = v_generation.id
-  RETURNING generation_row INTO v_generation;
+  RETURNING generation_row.id, generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.authority_key,
+    generation_row.generation, generation_row.control_version INTO v_generation;
 
   INSERT INTO private.payment_ingress_contract_transition_receipts (
     operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
@@ -922,12 +973,12 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_outgoing private.payment_ingress_contract_generations%ROWTYPE;
-  v_incoming private.payment_ingress_contract_generations%ROWTYPE;
-  v_proof private.payment_ingress_parser_compatibility_proofs%ROWTYPE;
-  v_receipt private.payment_ingress_contract_transition_receipts%ROWTYPE;
-  v_binding private.payment_ingress_deployment_manifest_bindings%ROWTYPE;
-  v_attestation private.payment_ingress_deployment_attestations%ROWTYPE;
+  v_outgoing record;
+  v_incoming record;
+  v_proof record;
+  v_receipt record;
+  v_binding record;
+  v_attestation record;
   v_fingerprint text;
   v_now timestamptz;
 BEGIN
@@ -939,36 +990,63 @@ BEGIN
     OR p_compatibility_proof_id IS NULL
   THEN RAISE EXCEPTION 'roll-forward inputs are required' USING ERRCODE = '22023'; END IF;
 
-  SELECT receipt INTO v_receipt FROM private.payment_ingress_contract_transition_receipts AS receipt
-  WHERE operation_id = p_operation_id;
   v_fingerprint := pg_catalog.encode(extensions.digest(
     'roll_forward:' || p_operation_id::text || ':' || p_outgoing_generation_id::text || ':' ||
     p_expected_control_version::text || ':' || p_deployment_binding_id::text || ':' ||
     p_compatibility_proof_id::text, 'sha256'
   ), 'hex');
-  IF FOUND THEN
-    IF v_receipt.request_fingerprint <> v_fingerprint THEN
-      RAISE EXCEPTION 'payment ingress roll-forward replay diverged' USING ERRCODE = 'PT409';
-    END IF;
-    SELECT generation_row INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
-    WHERE id = v_receipt.incoming_generation_id;
-    RETURN QUERY SELECT v_receipt.operation_id, v_incoming.id, v_incoming.generation,
-      v_incoming.control_version, true, 'replayed'::text;
-    RETURN;
-  END IF;
 
-  SELECT generation_row INTO v_outgoing FROM private.payment_ingress_contract_generations AS generation_row
-  WHERE id = p_outgoing_generation_id FOR UPDATE;
-  IF NOT FOUND OR v_outgoing.status <> 'active'
-    OR v_outgoing.control_version <> p_expected_control_version
-  THEN RAISE EXCEPTION 'active outgoing generation compare-and-set failed' USING ERRCODE = 'PT409'; END IF;
+  -- Read only the immutable scope identity before taking the scope lock.
+  SELECT generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.authority_key
+  INTO v_outgoing
+  FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = p_outgoing_generation_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'active outgoing generation compare-and-set failed' USING ERRCODE = 'PT409';
+  END IF;
 
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
     'payment-ingress:' || v_outgoing.provider || ':' || v_outgoing.endpoint_key || ':' ||
     v_outgoing.signature_key_scope || ':' || v_outgoing.authority_key, 0
   ));
-  SELECT proof INTO v_proof FROM private.payment_ingress_parser_compatibility_proofs AS proof
-  WHERE id = p_compatibility_proof_id
+
+  SELECT receipt.operation_id, receipt.request_fingerprint,
+    receipt.incoming_generation_id
+  INTO v_receipt
+  FROM private.payment_ingress_contract_transition_receipts AS receipt
+  WHERE receipt.operation_id = p_operation_id;
+  IF FOUND THEN
+    IF v_receipt.request_fingerprint <> v_fingerprint THEN
+      RAISE EXCEPTION 'payment ingress roll-forward replay diverged' USING ERRCODE = 'PT409';
+    END IF;
+    SELECT generation_row.id, generation_row.generation, generation_row.control_version
+    INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
+    WHERE generation_row.id = v_receipt.incoming_generation_id;
+    RETURN QUERY SELECT v_receipt.operation_id, v_incoming.id, v_incoming.generation,
+      v_incoming.control_version, true, 'replayed'::text;
+    RETURN;
+  END IF;
+
+  SELECT generation_row.id, generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.authority_key,
+    generation_row.generation, generation_row.parser_artifact_sha256,
+    generation_row.status, generation_row.control_version, generation_row.activated_at
+  INTO v_outgoing
+  FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = p_outgoing_generation_id
+  FOR UPDATE;
+  IF NOT FOUND OR v_outgoing.status <> 'active'
+    OR v_outgoing.control_version <> p_expected_control_version
+  THEN RAISE EXCEPTION 'active outgoing generation compare-and-set failed' USING ERRCODE = 'PT409'; END IF;
+
+  SELECT proof.id, proof.candidate_generation_id,
+    proof.candidate_parser_artifact_sha256, proof.verifier_artifact_sha256,
+    proof.corpus_manifest_sha256,
+    proof.normalized_envelope_equivalence_contract_version,
+    proof.replay_identity_equivalence_contract_version, proof.approval_reference
+  INTO v_proof FROM private.payment_ingress_parser_compatibility_proofs AS proof
+  WHERE proof.id = p_compatibility_proof_id
     AND provider = v_outgoing.provider
     AND endpoint_key = v_outgoing.endpoint_key
     AND signature_key_scope = v_outgoing.signature_key_scope
@@ -979,8 +1057,15 @@ BEGIN
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'approved compatibility proof is required' USING ERRCODE = '22023'; END IF;
 
-  SELECT generation_row INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
-  WHERE id = v_proof.candidate_generation_id
+  SELECT generation_row.id, generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.signature_key_identity_id,
+    generation_row.authority_key, generation_row.generation,
+    generation_row.parser_contract_version, generation_row.parser_artifact_sha256,
+    generation_row.normalized_envelope_schema_version,
+    generation_row.replay_identity_contract_version, generation_row.status,
+    generation_row.control_version
+  INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = v_proof.candidate_generation_id
   FOR UPDATE;
   IF NOT FOUND OR v_incoming.status <> 'staged'
     OR v_incoming.generation <= v_outgoing.generation
@@ -991,7 +1076,8 @@ BEGIN
     OR v_incoming.parser_artifact_sha256 <> v_proof.candidate_parser_artifact_sha256
   THEN RAISE EXCEPTION 'roll-forward successor is invalid' USING ERRCODE = 'PT409'; END IF;
 
-  SELECT binding INTO v_binding
+  SELECT binding.id, binding.attestation_id, binding.approval_reference
+  INTO v_binding
   FROM private.payment_ingress_deployment_manifest_bindings AS binding
   JOIN private.payment_ingress_deployment_attestations AS attestation
     ON attestation.id = binding.attestation_id
@@ -999,6 +1085,8 @@ BEGIN
     AND attestation.manifest_sha256 = binding.manifest_sha256
     AND attestation.attestation_sha256 = binding.attestation_sha256
   WHERE binding.id = p_deployment_binding_id
+    AND v_proof.approval_reference = binding.approval_reference
+    AND binding.approval_reference = attestation.approval_reference
     AND binding.provider = v_incoming.provider
     AND binding.endpoint_key = v_incoming.endpoint_key
     AND binding.signature_key_scope = v_incoming.signature_key_scope
@@ -1017,20 +1105,27 @@ BEGIN
     AND binding.retention_until > pg_catalog.clock_timestamp()
   FOR UPDATE OF binding, attestation;
   IF NOT FOUND THEN RAISE EXCEPTION 'active retained deployment binding is required' USING ERRCODE = '22023'; END IF;
-  SELECT attestation INTO v_attestation
+  SELECT attestation.attestation_sha256
+  INTO v_attestation
   FROM private.payment_ingress_deployment_attestations AS attestation
   WHERE id = v_binding.attestation_id;
 
   v_now := pg_catalog.clock_timestamp();
   UPDATE private.payment_ingress_contract_generations AS outgoing_generation
   SET status = 'draining', draining_at = v_now,
-    successor_generation_id = v_incoming.id, control_version = control_version + 1
+    successor_generation_id = v_incoming.id,
+    control_version = outgoing_generation.control_version + 1
   WHERE id = v_outgoing.id
-  RETURNING outgoing_generation INTO v_outgoing;
+  RETURNING outgoing_generation.id, outgoing_generation.provider,
+    outgoing_generation.endpoint_key, outgoing_generation.signature_key_scope,
+    outgoing_generation.authority_key, outgoing_generation.control_version,
+    outgoing_generation.activated_at INTO v_outgoing;
   UPDATE private.payment_ingress_contract_generations AS incoming_generation
-  SET status = 'active', activated_at = v_now, control_version = control_version + 1
+  SET status = 'active', activated_at = v_now,
+    control_version = incoming_generation.control_version + 1
   WHERE id = v_incoming.id
-  RETURNING incoming_generation INTO v_incoming;
+  RETURNING incoming_generation.id, incoming_generation.generation,
+    incoming_generation.control_version INTO v_incoming;
 
   INSERT INTO private.payment_ingress_contract_transition_receipts (
     operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
@@ -1080,12 +1175,12 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_outgoing private.payment_ingress_contract_generations%ROWTYPE;
-  v_incoming private.payment_ingress_contract_generations%ROWTYPE;
-  v_proof private.payment_ingress_parser_compatibility_proofs%ROWTYPE;
-  v_receipt private.payment_ingress_contract_transition_receipts%ROWTYPE;
-  v_binding private.payment_ingress_deployment_manifest_bindings%ROWTYPE;
-  v_attestation private.payment_ingress_deployment_attestations%ROWTYPE;
+  v_outgoing record;
+  v_incoming record;
+  v_proof record;
+  v_receipt record;
+  v_binding record;
+  v_attestation record;
   v_fingerprint text;
   v_now timestamptz;
 BEGIN
@@ -1097,36 +1192,63 @@ BEGIN
     OR p_compatibility_proof_id IS NULL
   THEN RAISE EXCEPTION 'rollback inputs are required' USING ERRCODE = '22023'; END IF;
 
-  SELECT receipt INTO v_receipt FROM private.payment_ingress_contract_transition_receipts AS receipt
-  WHERE operation_id = p_operation_id;
   v_fingerprint := pg_catalog.encode(extensions.digest(
     'rollback:' || p_operation_id::text || ':' || p_outgoing_generation_id::text || ':' ||
     p_expected_control_version::text || ':' || p_deployment_binding_id::text || ':' ||
     p_compatibility_proof_id::text, 'sha256'
   ), 'hex');
-  IF FOUND THEN
-    IF v_receipt.request_fingerprint <> v_fingerprint THEN
-      RAISE EXCEPTION 'payment ingress rollback replay diverged' USING ERRCODE = 'PT409';
-    END IF;
-    SELECT generation_row INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
-    WHERE id = v_receipt.incoming_generation_id;
-    RETURN QUERY SELECT v_receipt.operation_id, v_incoming.id, v_incoming.generation,
-      v_incoming.control_version, true, 'replayed'::text;
-    RETURN;
-  END IF;
 
-  SELECT generation_row INTO v_outgoing FROM private.payment_ingress_contract_generations AS generation_row
-  WHERE id = p_outgoing_generation_id FOR UPDATE;
-  IF NOT FOUND OR v_outgoing.status <> 'active'
-    OR v_outgoing.control_version <> p_expected_control_version
-  THEN RAISE EXCEPTION 'active outgoing generation compare-and-set failed' USING ERRCODE = 'PT409'; END IF;
+  -- Read scope first without a row lock so concurrent writers serialize together.
+  SELECT generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.authority_key
+  INTO v_outgoing
+  FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = p_outgoing_generation_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'active outgoing generation compare-and-set failed' USING ERRCODE = 'PT409';
+  END IF;
 
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
     'payment-ingress:' || v_outgoing.provider || ':' || v_outgoing.endpoint_key || ':' ||
     v_outgoing.signature_key_scope || ':' || v_outgoing.authority_key, 0
   ));
-  SELECT proof INTO v_proof FROM private.payment_ingress_parser_compatibility_proofs AS proof
-  WHERE id = p_compatibility_proof_id
+
+  SELECT receipt.operation_id, receipt.request_fingerprint,
+    receipt.incoming_generation_id
+  INTO v_receipt
+  FROM private.payment_ingress_contract_transition_receipts AS receipt
+  WHERE receipt.operation_id = p_operation_id;
+  IF FOUND THEN
+    IF v_receipt.request_fingerprint <> v_fingerprint THEN
+      RAISE EXCEPTION 'payment ingress rollback replay diverged' USING ERRCODE = 'PT409';
+    END IF;
+    SELECT generation_row.id, generation_row.generation, generation_row.control_version
+    INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
+    WHERE generation_row.id = v_receipt.incoming_generation_id;
+    RETURN QUERY SELECT v_receipt.operation_id, v_incoming.id, v_incoming.generation,
+      v_incoming.control_version, true, 'replayed'::text;
+    RETURN;
+  END IF;
+
+  SELECT generation_row.id, generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.authority_key,
+    generation_row.generation, generation_row.parser_artifact_sha256,
+    generation_row.status, generation_row.control_version, generation_row.activated_at
+  INTO v_outgoing
+  FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = p_outgoing_generation_id
+  FOR UPDATE;
+  IF NOT FOUND OR v_outgoing.status <> 'active'
+    OR v_outgoing.control_version <> p_expected_control_version
+  THEN RAISE EXCEPTION 'active outgoing generation compare-and-set failed' USING ERRCODE = 'PT409'; END IF;
+
+  SELECT proof.id, proof.candidate_generation_id,
+    proof.candidate_parser_artifact_sha256, proof.verifier_artifact_sha256,
+    proof.corpus_manifest_sha256,
+    proof.normalized_envelope_equivalence_contract_version,
+    proof.replay_identity_equivalence_contract_version, proof.approval_reference
+  INTO v_proof FROM private.payment_ingress_parser_compatibility_proofs AS proof
+  WHERE proof.id = p_compatibility_proof_id
     AND provider = v_outgoing.provider
     AND endpoint_key = v_outgoing.endpoint_key
     AND signature_key_scope = v_outgoing.signature_key_scope
@@ -1137,8 +1259,15 @@ BEGIN
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'approved compatibility proof is required' USING ERRCODE = '22023'; END IF;
 
-  SELECT generation_row INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
-  WHERE id = v_proof.candidate_generation_id
+  SELECT generation_row.id, generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.signature_key_identity_id,
+    generation_row.authority_key, generation_row.generation,
+    generation_row.parser_contract_version, generation_row.parser_artifact_sha256,
+    generation_row.normalized_envelope_schema_version,
+    generation_row.replay_identity_contract_version, generation_row.status,
+    generation_row.control_version
+  INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = v_proof.candidate_generation_id
   FOR UPDATE;
   IF NOT FOUND OR v_incoming.status <> 'staged'
     OR v_incoming.generation <= v_outgoing.generation
@@ -1149,7 +1278,8 @@ BEGIN
     OR v_incoming.parser_artifact_sha256 <> v_proof.candidate_parser_artifact_sha256
   THEN RAISE EXCEPTION 'rollback successor is invalid' USING ERRCODE = 'PT409'; END IF;
 
-  SELECT binding INTO v_binding
+  SELECT binding.id, binding.attestation_id, binding.approval_reference
+  INTO v_binding
   FROM private.payment_ingress_deployment_manifest_bindings AS binding
   JOIN private.payment_ingress_deployment_attestations AS attestation
     ON attestation.id = binding.attestation_id
@@ -1157,6 +1287,8 @@ BEGIN
     AND attestation.manifest_sha256 = binding.manifest_sha256
     AND attestation.attestation_sha256 = binding.attestation_sha256
   WHERE binding.id = p_deployment_binding_id
+    AND v_proof.approval_reference = binding.approval_reference
+    AND binding.approval_reference = attestation.approval_reference
     AND binding.provider = v_incoming.provider
     AND binding.endpoint_key = v_incoming.endpoint_key
     AND binding.signature_key_scope = v_incoming.signature_key_scope
@@ -1175,20 +1307,27 @@ BEGIN
     AND binding.retention_until > pg_catalog.clock_timestamp()
   FOR UPDATE OF binding, attestation;
   IF NOT FOUND THEN RAISE EXCEPTION 'active retained deployment binding is required' USING ERRCODE = '22023'; END IF;
-  SELECT attestation INTO v_attestation
+  SELECT attestation.attestation_sha256
+  INTO v_attestation
   FROM private.payment_ingress_deployment_attestations AS attestation
   WHERE id = v_binding.attestation_id;
 
   v_now := pg_catalog.clock_timestamp();
   UPDATE private.payment_ingress_contract_generations AS outgoing_generation
   SET status = 'draining', draining_at = v_now,
-    successor_generation_id = v_incoming.id, control_version = control_version + 1
+    successor_generation_id = v_incoming.id,
+    control_version = outgoing_generation.control_version + 1
   WHERE id = v_outgoing.id
-  RETURNING outgoing_generation INTO v_outgoing;
+  RETURNING outgoing_generation.id, outgoing_generation.provider,
+    outgoing_generation.endpoint_key, outgoing_generation.signature_key_scope,
+    outgoing_generation.authority_key, outgoing_generation.control_version,
+    outgoing_generation.activated_at INTO v_outgoing;
   UPDATE private.payment_ingress_contract_generations AS incoming_generation
-  SET status = 'active', activated_at = v_now, control_version = control_version + 1
+  SET status = 'active', activated_at = v_now,
+    control_version = incoming_generation.control_version + 1
   WHERE id = v_incoming.id
-  RETURNING incoming_generation INTO v_incoming;
+  RETURNING incoming_generation.id, incoming_generation.generation,
+    incoming_generation.control_version INTO v_incoming;
 
   INSERT INTO private.payment_ingress_contract_transition_receipts (
     operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
@@ -1236,6 +1375,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_generation record;
 BEGIN
   IF pg_catalog.current_setting('role', true) IS DISTINCT FROM 'payment_control_plane' THEN
     RAISE EXCEPTION 'payment ingress control-plane role is required' USING ERRCODE = '42501';
@@ -1243,6 +1384,20 @@ BEGIN
   IF p_operation_id IS NULL OR p_outgoing_generation_id IS NULL
     OR p_expected_control_version IS NULL OR p_deployment_binding_id IS NULL
   THEN RAISE EXCEPTION 'retirement inputs are required' USING ERRCODE = '22023'; END IF;
+
+  -- Retirement remains closed, but still derives and serializes a known scope
+  -- without acquiring a generation row lock first.
+  SELECT generation_row.provider, generation_row.endpoint_key,
+    generation_row.signature_key_scope, generation_row.authority_key
+  INTO v_generation
+  FROM private.payment_ingress_contract_generations AS generation_row
+  WHERE generation_row.id = p_outgoing_generation_id;
+  IF FOUND THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+      'payment-ingress:' || v_generation.provider || ':' || v_generation.endpoint_key || ':' ||
+      v_generation.signature_key_scope || ':' || v_generation.authority_key, 0
+    ));
+  END IF;
 
   RAISE EXCEPTION 'payment ingress retirement is unavailable before inbox, redelivery, census, and retention gates'
     USING ERRCODE = '55000';
