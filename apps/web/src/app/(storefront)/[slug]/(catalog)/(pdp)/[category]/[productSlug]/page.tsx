@@ -631,6 +631,29 @@ function mapCachedProductLcpHintToRouteProduct(
   const primaryImage =
     getCachedProductRoutePrimaryImage(cachedProduct, variants) || '';
   const baseImage = getCachedProductLcpHintPrimaryImage(cachedProduct) || '';
+  const productCondition = normalizeProductCondition(cachedProduct.condition);
+  const offers = cachedProduct.product_offers?.flatMap((offer) => {
+    const condition = normalizeProductCondition(offer.condition);
+    const price = parseRouteProductNumber(offer.price);
+    if (
+      offer.status !== 'active' ||
+      !condition ||
+      price === null ||
+      condition === productCondition
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        condition,
+        id: offer.id,
+        images: offer.images,
+        price,
+        stock_quantity: parseRouteProductNumber(offer.stock_quantity) ?? 0,
+      },
+    ];
+  });
 
   return {
     base_price: legacyPrices.basePrice,
@@ -641,7 +664,7 @@ function mapCachedProductLcpHintToRouteProduct(
     category: primaryCategory?.name ?? cachedProduct.category ?? undefined,
     category_slug: primaryCategory?.slug,
     color: cachedProduct.color ?? undefined,
-    condition: normalizeProductCondition(cachedProduct.condition),
+    condition: productCondition,
     compare_at_price: legacyPrices.compareAtPrice ?? undefined,
     default_variant_id: cachedProduct.default_variant_id ?? undefined,
     description: cachedProduct.meta_description ?? '',
@@ -663,6 +686,7 @@ function mapCachedProductLcpHintToRouteProduct(
       : undefined,
     mpn: '',
     name: cachedProduct.name,
+    offers,
     price: legacyPrices.price,
     sale_price: legacyPrices.salePrice,
     schema_markup: cachedProduct.schema_markup as Product['schema_markup'],
@@ -1426,16 +1450,19 @@ export default async function CategoryProductPage({
   const criticalCurrency = criticalProduct
     ? resolveMerchantCurrencyConfig(merchant)
     : null;
+  const commerceProduct = buildCriticalCommerceRouteProduct(product);
   const visibleSummary = criticalProduct
     ? buildOgabasseyProductVisibleSummary({
         brand: product.brand,
         condition: product.condition,
         name: product.name,
-        variants: product.variants,
+        variants: [
+          ...(commerceProduct.variants ?? []),
+          ...(commerceProduct.offers ?? []),
+        ],
       })
     : null;
   const resolvedSearchParams = await searchParams;
-  const commerceProduct = buildCriticalCommerceRouteProduct(product);
   const criticalInitialVariantSelection = criticalProduct
     ? getInitialCriticalVariantSelection(commerceProduct, resolvedSearchParams)
     : undefined;

@@ -185,6 +185,22 @@ describe('buildOgabasseyProductVisibleSummary', () => {
     ).toBe('Dell XPS 13. Storage: 512 GB. Condition: New.');
   });
 
+  it('includes the parent condition with active condition offers', () => {
+    const summary = buildOgabasseyProductVisibleSummary({
+      brand: 'HP',
+      condition: 'new',
+      name: 'EliteBook 640 G11',
+      variants: [
+        { condition: 'used', attributes: {} },
+        { condition: 'open_box', attributes: {} },
+      ],
+    });
+
+    expect(summary).toBe(
+      'HP EliteBook 640 G11. Available choices: Condition New or Open Box or Used.'
+    );
+  });
+
   it('does not replace the selector condition fallback with a variant attribute', () => {
     expect(
       buildOgabasseyProductVisibleSummary({

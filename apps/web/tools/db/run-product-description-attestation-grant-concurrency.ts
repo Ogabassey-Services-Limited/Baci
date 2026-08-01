@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { createSupabaseReplayDatabaseEnvironment } from './supabase-replay-contract';
 
-type RunOptions = { databaseUrl?: string; psqlBin?: string };
+type RunOptions = {
+  databaseUrl?: string;
+  psqlBin?: string;
+  spawnProcess?: typeof spawn;
+};
 type Session = {
   child: ChildProcessWithoutNullStreams;
   stderr: string[];
@@ -15,8 +19,12 @@ function literal(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-function session(environment: NodeJS.ProcessEnv, psqlBin: string): Session {
-  const child = spawn(psqlBin, ['-X', '-qAt', '-v', 'ON_ERROR_STOP=1'], {
+function session(
+  environment: NodeJS.ProcessEnv,
+  psqlBin: string,
+  spawnProcess: typeof spawn
+): Session {
+  const child = spawnProcess(psqlBin, ['-X', '-qAt', '-v', 'ON_ERROR_STOP=1'], {
     env: environment,
     shell: false,
     stdio: 'pipe',
@@ -86,15 +94,46 @@ function waitForExit(value: Session): Promise<SessionResult> {
 async function runSql(
   environment: NodeJS.ProcessEnv,
   psqlBin: string,
-  sql: string
+  sql: string,
+  spawnProcess: typeof spawn
 ): Promise<SessionResult> {
-  const value = session(environment, psqlBin);
+  const value = session(environment, psqlBin, spawnProcess);
   const result = waitForExit(value);
   value.child.stdin.end(sql);
   const completed = await result;
   if (completed.code !== 0)
     throw new Error(completed.stderr.trim() || 'psql failed');
   return completed;
+}
+
+async function terminateSession(value: Session | undefined): Promise<void> {
+  if (
+    !value ||
+    value.child.exitCode !== null ||
+    value.child.signalCode !== null
+  ) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      value.child.off('close', finish);
+      value.child.off('error', finish);
+      resolve();
+    };
+    const timeout = setTimeout(() => {
+      value.child.kill('SIGKILL');
+      finish();
+    }, 1_000);
+
+    value.child.once('close', finish);
+    value.child.once('error', finish);
+    if (!value.child.kill('SIGTERM')) finish();
+  });
 }
 
 function rpcSql(options: {
@@ -131,57 +170,69 @@ async function runScenario(options: {
   merchantId: string;
   productId: string;
   psqlBin: string;
+  spawnProcess: typeof spawn;
   userId: string;
   mismatch: boolean;
 }): Promise<void> {
   const operationId = randomUUID();
-  const first = session(options.environment, options.psqlBin);
-  first.child.stdin.write(
-    `\\set merchant_id ${literal(options.merchantId)}\n\\set product_id ${literal(options.productId)}\n${rpcSql({ marker: 'A_GRANTED', operationId, proposedHash: 'a'.repeat(64), userId: options.userId })}`
-  );
-  await waitForMarker(first, 'A_GRANTED');
+  let first: Session | undefined;
+  let second: Session | undefined;
 
-  const second = session(options.environment, options.psqlBin);
-  second.child.stdin.end(
-    `\\set merchant_id ${literal(options.merchantId)}\n\\set product_id ${literal(options.productId)}\n${rpcSql({ marker: 'B_STARTED', operationId, proposedHash: options.mismatch ? 'b'.repeat(64) : 'a'.repeat(64), userId: options.userId })}COMMIT;\n`
-  );
-  await waitForMarker(second, 'B_STARTED');
+  try {
+    first = session(options.environment, options.psqlBin, options.spawnProcess);
+    first.child.stdin.write(
+      `\\set merchant_id ${literal(options.merchantId)}\n\\set product_id ${literal(options.productId)}\n${rpcSql({ marker: 'A_GRANTED', operationId, proposedHash: 'a'.repeat(64), userId: options.userId })}`
+    );
+    await waitForMarker(first, 'A_GRANTED');
 
-  const firstExit = waitForExit(first);
-  const secondExit = waitForExit(second);
-  first.child.stdin.end('COMMIT;\n');
-  const [firstResult, secondResult] = await Promise.all([
-    firstExit,
-    secondExit,
-  ]);
-  const firstGrantId = grantId(firstResult.stdout);
-  const secondGrantId = grantId(secondResult.stdout);
-  if (options.mismatch) {
+    second = session(
+      options.environment,
+      options.psqlBin,
+      options.spawnProcess
+    );
+    second.child.stdin.end(
+      `\\set merchant_id ${literal(options.merchantId)}\n\\set product_id ${literal(options.productId)}\n${rpcSql({ marker: 'B_STARTED', operationId, proposedHash: options.mismatch ? 'b'.repeat(64) : 'a'.repeat(64), userId: options.userId })}COMMIT;\n`
+    );
+    await waitForMarker(second, 'B_STARTED');
+
+    const firstExit = waitForExit(first);
+    const secondExit = waitForExit(second);
+    first.child.stdin.end('COMMIT;\n');
+    const [firstResult, secondResult] = await Promise.all([
+      firstExit,
+      secondExit,
+    ]);
+    const firstGrantId = grantId(firstResult.stdout);
+    const secondGrantId = grantId(secondResult.stdout);
+    if (options.mismatch) {
+      if (
+        firstResult.code !== 0 ||
+        firstGrantId === undefined ||
+        secondResult.code === 0 ||
+        !secondResult.stderr.includes(
+          'product_description_attestation_operation_binding_mismatch'
+        ) ||
+        secondResult.stderr.includes('23505')
+      ) {
+        throw new Error(
+          `mismatched concurrent replay was not stable: ${secondResult.stderr.trim()}`
+        );
+      }
+      return;
+    }
     if (
       firstResult.code !== 0 ||
+      secondResult.code !== 0 ||
       firstGrantId === undefined ||
-      secondResult.code === 0 ||
-      !secondResult.stderr.includes(
-        'product_description_attestation_operation_binding_mismatch'
-      ) ||
-      secondResult.stderr.includes('23505')
+      secondGrantId === undefined ||
+      firstGrantId !== secondGrantId
     ) {
       throw new Error(
-        `mismatched concurrent replay was not stable: ${secondResult.stderr.trim()}`
+        `identical concurrent replay was not idempotent: ${firstResult.stderr}${secondResult.stderr}`
       );
     }
-    return;
-  }
-  if (
-    firstResult.code !== 0 ||
-    secondResult.code !== 0 ||
-    firstGrantId === undefined ||
-    secondGrantId === undefined ||
-    firstGrantId !== secondGrantId
-  ) {
-    throw new Error(
-      `identical concurrent replay was not idempotent: ${firstResult.stderr}${secondResult.stderr}`
-    );
+  } finally {
+    await Promise.all([terminateSession(first), terminateSession(second)]);
   }
 }
 
@@ -192,6 +243,7 @@ export async function runProductDescriptionAttestationGrantConcurrency(
   if (!databaseUrl) throw new Error('LOCAL_DATABASE_URL is required');
   const environment = createSupabaseReplayDatabaseEnvironment(databaseUrl);
   const psqlBin = options.psqlBin ?? process.env.PSQL_BIN ?? 'psql';
+  const spawnProcess = options.spawnProcess ?? spawn;
   const userId = randomUUID();
   const merchantId = randomUUID();
   const productId = randomUUID();
@@ -209,13 +261,15 @@ VALUES (${literal(merchantId)}::uuid, ${literal(userId)}::uuid, ${literal(`c1-co
 INSERT INTO public.products (id, merchant_id, name, price, description, status, description_digital_source_type, description_provenance_sha256)
 VALUES (${literal(productId)}::uuid, ${literal(merchantId)}::uuid, 'C1 concurrency product', 100, 'C1 concurrency old bytes', 'draft', 'default', repeat('0', 64));
 COMMIT;
-`
+      `,
+      spawnProcess
     );
     await runScenario({
       environment,
       merchantId,
       productId,
       psqlBin,
+      spawnProcess,
       userId,
       mismatch: false,
     });
@@ -224,6 +278,7 @@ COMMIT;
       merchantId,
       productId,
       psqlBin,
+      spawnProcess,
       userId,
       mismatch: true,
     });
@@ -237,7 +292,8 @@ DELETE FROM private.product_description_attestation_grants WHERE merchant_id = $
 DELETE FROM public.products WHERE id = ${literal(productId)}::uuid;
 DELETE FROM public.merchants WHERE id = ${literal(merchantId)}::uuid;
 DELETE FROM auth.users WHERE id = ${literal(userId)}::uuid;
-`
+      `,
+      spawnProcess
     );
   }
 }

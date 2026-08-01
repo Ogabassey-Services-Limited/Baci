@@ -172,15 +172,26 @@ export function buildOgabasseyProductVisibleSummary({
 
   const selectableVariants = (variants || []).filter(isSelectable);
   const parentOffer: OgabasseyProductVisibleSummaryOffer = { condition };
-  const selectable =
-    selectableVariants.length > 0 ? selectableVariants : [parentOffer];
   const parentCondition = normalizeCondition(condition);
+  const includesParentCondition =
+    selectableVariants.length > 0 && Boolean(parentCondition);
+  const selectable =
+    selectableVariants.length > 0
+      ? [
+          ...(includesParentCondition ? [parentOffer] : []),
+          ...selectableVariants,
+        ]
+      : [parentOffer];
   const facts = selectable.map((offer) => getOfferFacts(offer, parentCondition));
   const sharedFacts: string[] = [];
   const choiceFacts: string[] = [];
 
   for (const axis of AXIS_PRIORITY) {
-    const values = facts.map((fact) => fact[axis]);
+    const factsForAxis =
+      includesParentCondition && axis !== 'condition'
+        ? facts.slice(1)
+        : facts;
+    const values = factsForAxis.map((fact) => fact[axis]);
     if (values.some((value) => !value)) continue;
 
     const uniqueValues = Array.from(new Set(values as string[])).sort((left, right) =>
