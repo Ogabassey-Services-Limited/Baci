@@ -123,9 +123,14 @@ async function acquireActiveRunLock(stateDir: string, runId: string) {
         await releaseActiveRunLock(stateDir, owner);
         return acquireActiveRunLock(stateDir, runId);
       }
-    } catch {
-      await releaseActiveRunLock(stateDir, owner);
-      return acquireActiveRunLock(stateDir, runId);
+    } catch (error) {
+      // A lock may be observed before its journal is durably visible. Treat
+      // that state as active instead of deleting the lock and admitting a
+      // concurrent run. Unknown/corrupt journal state also fails closed.
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new Error('an evidence run is already active');
+      }
+      throw error;
     }
   }
   throw new Error('an evidence run is already active');
