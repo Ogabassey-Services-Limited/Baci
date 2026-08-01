@@ -7777,6 +7777,49 @@ digest. This makes unscoped acknowledgement, later adoption, and post-pruning
 redelivery reload the same immutable manifest before applying newly learned
 scope.
 
+The table-level JSON predicates are frozen as follows. The inbox and manifest
+checks named `*_replay_preimage_check` must require
+`jsonb_typeof(replay_key_preimage) = 'object'`,
+`jsonb_typeof(replay_key_preimage->'v') = 'number'`,
+`replay_key_preimage->>'v' = '1'`,
+`replay_key_preimage->>'kind' = replay_key_kind`, and the exact key set for the
+tag: eight keys (`v, kind, provider, endpoint_key, signature_key_scope,
+completion_authority_key, svix_id, event_type`) for `svix`; seven keys
+(`v, kind, provider, completion_authority_key, provider_account_scope,
+provider_reference, event_type`) for `account_reference`; and twelve keys
+(`v, kind, provider, endpoint_key, signature_key_scope,
+completion_authority_key, event_type, reference, amount_minor, currency,
+provider_paid_at, raw_body_sha256`) for `fallback_locator`. The exact-key
+predicate is `jsonb_object_length(replay_key_preimage) = <count>` together with
+`replay_key_preimage ?& ARRAY[<required keys>]`; no extension key is permitted.
+Every non-`v` value must have JSON type `string`; the later adapter/writer
+checks tagged-field formats, RFC-8785 bytes, digest equality, and sentinel
+placement.
+
+The inbox and manifest checks named `*_ingress_scope_snapshot_check` must
+require a JSON object with exactly two keys (`merchant_id` and
+`provider_account_scope`), both JSON strings, each either the exact
+`__unresolved__` sentinel or its canonical trimmed value; the exact-key
+predicate is `jsonb_object_length(ingress_scope_snapshot) = 2 AND
+ingress_scope_snapshot ?& ARRAY['merchant_id','provider_account_scope']`.
+The inbox check named `payment_webhook_inbox_envelope_check` must require a JSON
+object with exactly eight top-level keys
+(`contract_version,event_type,receiver,provider_customer,assignment,economics,
+paid_time,children`), string `contract_version` and `event_type`, object-or-null
+values for the five named evidence objects, and an array `children`; its exact
+top-level predicate is `jsonb_object_length(normalized_envelope) = 8 AND
+normalized_envelope ?& ARRAY['contract_version','event_type','receiver',
+'provider_customer','assignment','economics','paid_time','children']` plus
+those `jsonb_typeof` checks. The manifest's
+`redacted_parent_source_identity_check` must require a JSON object of at most
+five keys, all drawn from
+`event_type,provider_reference,receiver_reference,provider_customer_reference,
+provider_paid_at`; unknown keys are rejected with
+`jsonb_object_length(...) <= 5` and `NOT (... ?| ARRAY[<unknown keys>])`.
+These predicates protect the structural boundary only; recursive safe-field
+validation, prohibited nested data, and digest/replay comparisons remain the
+explicit adapter/guarded-writer enforcement locus.
+
 ### `private.payment_webhook_inbox`
 
 The operational, prunable parent has exactly these columns:
@@ -7930,6 +7973,7 @@ normalized_envelope_schema_version, replay_identity_contract_version)`, unique
 signature_key_scope, completion_authority_key, signature_key_identity_id,
 ingress_contract_generation, adapter_schema_version,
 normalized_envelope_schema_version, replay_identity_contract_version, currency)`,
+unique `payment_webhook_source_manifests_currency_target_uq` on `(id, currency)`,
 and `payment_webhook_source_manifests_provider_account_idx` on
 `(provider, provider_account_scope, created_at, id)`.
 
@@ -8023,8 +8067,9 @@ The named constraints are
 `payment_webhook_source_proofs_review_scope_check`, and
 `payment_webhook_source_proofs_decision_shape_check`. The manifest FK is
 `ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED`; the currency FK is a
-deferrable composite FK `(source_manifest_id, currency)` to the manifest's
-binding target, preventing a child from changing the conserved currency.
+deferrable composite FK `(source_manifest_id, currency)` to the named manifest
+unique target `payment_webhook_source_manifests_currency_target_uq`, preventing
+a child from changing the conserved currency.
 
 Named indexes are unique `payment_webhook_source_proofs_manifest_child_uq` on
 `(source_manifest_id, child_identity)`, unique
