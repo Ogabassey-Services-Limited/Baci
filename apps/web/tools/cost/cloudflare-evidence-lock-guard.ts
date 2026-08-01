@@ -1,15 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import {
-  lstat,
-  mkdir,
-  open,
-  readdir,
-  readFile,
-  rm,
-  rmdir,
-} from 'node:fs/promises';
+import { lstat, mkdir, open, readdir, readFile, rm } from 'node:fs/promises';
 import { basename, dirname } from 'node:path';
 
 type GuardRecord = Readonly<{
@@ -20,6 +12,7 @@ type GuardRecord = Readonly<{
 
 const GUARD_TIMEOUT_MS = 60_000;
 const guardPath = (path: string) => `${path}.reclaim-guard`;
+const guardOwnerPath = (path: string) => `${guardPath(path)}/owner`;
 const ownerPrefix = (path: string) => `${basename(path)}.reclaim-owner-`;
 const ownerPath = (path: string, token: string) =>
   `${path}.reclaim-owner-${process.pid}-${token}`;
@@ -107,6 +100,41 @@ async function readOwnerRecords(path: string) {
   return records;
 }
 
+async function readGuardOwner(path: string) {
+  const directoryPath = guardPath(path);
+  const stat = await lstat(directoryPath);
+  if (stat.isSymbolicLink() || !stat.isDirectory() || (stat.mode & 0o077) !== 0)
+    throw new Error('evidence lock guard is not a private directory');
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  if (entries.some((entry) => entry.name !== 'owner'))
+    throw new Error('evidence lock guard contains unexpected entries');
+  if (entries.length === 0) return undefined;
+  const ownerStat = await lstat(guardOwnerPath(path));
+  if (
+    ownerStat.isSymbolicLink() ||
+    !ownerStat.isFile() ||
+    (ownerStat.mode & 0o077) !== 0
+  )
+    throw new Error('evidence lock guard owner metadata is not private');
+  return parseRecord(await readFile(guardOwnerPath(path), 'utf8'));
+}
+
+async function removeOwnedGuard(path: string, record: GuardRecord) {
+  try {
+    const owner = await readGuardOwner(path);
+    if (
+      owner &&
+      (owner.pid !== record.pid ||
+        owner.processStartTime !== record.processStartTime ||
+        owner.token !== record.token)
+    )
+      throw new Error('evidence lock guard owner changed during release');
+    await rm(guardPath(path), { recursive: true, force: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+}
+
 const waitForGuard = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 5));
 
@@ -116,12 +144,13 @@ export async function withEvidenceLockPathGuard<T>(
   operation: () => Promise<T>
 ) {
   const token = randomUUID();
-  const metadataPath = ownerPath(path, token);
-  await writeOwnerRecord(metadataPath, {
+  const record = Object.freeze({
     pid: process.pid,
     processStartTime: currentProcessStartTime(),
     token,
   });
+  const metadataPath = ownerPath(path, token);
+  await writeOwnerRecord(metadataPath, record);
   const deadline = Date.now() + GUARD_TIMEOUT_MS;
   let acquired = false;
   try {
@@ -130,6 +159,7 @@ export async function withEvidenceLockPathGuard<T>(
         throw new Error('evidence lock guard wait timed out');
       const records = await readOwnerRecords(path);
       const liveRecords = records.filter(({ record }) => isProcessLive(record));
+      const hasDeadRecord = liveRecords.length !== records.length;
       const firstLiveRecord = [...liveRecords].sort((left, right) =>
         left.path.localeCompare(right.path)
       )[0];
@@ -140,20 +170,46 @@ export async function withEvidenceLockPathGuard<T>(
       for (const { path: recordPath, record } of records)
         if (recordPath !== metadataPath && !isProcessLive(record))
           await rm(recordPath, { force: true });
+      let guardCreated = false;
       try {
         await mkdir(guardPath(path), { mode: 0o700 });
+        guardCreated = true;
+        await writeOwnerRecord(guardOwnerPath(path), record);
         acquired = true;
       } catch (error) {
+        if (guardCreated) {
+          await rm(guardPath(path), { recursive: true, force: true });
+          throw error;
+        }
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-        const stat = await lstat(guardPath(path));
-        if (stat.isSymbolicLink() || !stat.isDirectory())
-          throw new Error('evidence lock guard is not a private directory');
+        let owner: GuardRecord | undefined;
+        try {
+          owner = await readGuardOwner(path);
+        } catch (readError) {
+          if ((readError as NodeJS.ErrnoException).code !== 'ENOENT')
+            throw readError;
+        }
+        if (owner && isProcessLive(owner)) {
+          await waitForGuard();
+          continue;
+        }
+        if (
+          !owner &&
+          liveRecords.some(
+            ({ path: recordPath }) => recordPath !== metadataPath
+          ) &&
+          !hasDeadRecord
+        ) {
+          await waitForGuard();
+          continue;
+        }
+        await rm(guardPath(path), { recursive: true, force: true });
         await waitForGuard();
       }
     }
     return await operation();
   } finally {
-    if (acquired) await rmdir(guardPath(path));
+    if (acquired) await removeOwnedGuard(path, record);
     await rm(metadataPath, { force: true });
   }
 }
