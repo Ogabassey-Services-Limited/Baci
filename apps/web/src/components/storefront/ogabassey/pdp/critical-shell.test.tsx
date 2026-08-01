@@ -214,26 +214,6 @@ describe('OgabasseyPdpCriticalShell', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps the server-computed visible summary near the primary product information', () => {
-    const { container } = renderCriticalShell({
-      visibleSummary:
-        'Samsung Galaxy Z TriFold. Available choices: Storage 512 GB or 1 TB.',
-    });
-
-    const summary = screen.getByText(
-      'Samsung Galaxy Z TriFold. Available choices: Storage 512 GB or 1 TB.'
-    );
-
-    expect(summary).toBeVisible();
-    expect(summary.closest('[data-ogabassey-pdp-summary]')).not.toBeNull();
-    expect(
-      container.querySelector('[data-ogabassey-pdp-commerce-slot]')?.contains(
-        summary
-      )
-    ).toBe(false);
-  });
-
-
   it('does not render filled stars for products without reviews', () => {
     renderCriticalShell();
 

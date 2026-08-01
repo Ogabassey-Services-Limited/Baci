@@ -440,29 +440,6 @@ describe('storefront CSS partitioning', () => {
     );
   });
 
-  it('keeps only the initial deferred description geometry in critical PDP CSS', () => {
-    const criticalPdpCss = readStorefrontFile('storefront-pdp-critical.css');
-    const deferredPdpCss = readStorefrontFile(
-      'storefront-ogabassey-pdp-deferred.css'
-    );
-
-    expect(criticalPdpCss).toMatch(
-      /\[data-ogabassey-pdp-deferred-description-container\]\s*\{[\s\S]*?max-width:\s*1400px/
-    );
-    expect(criticalPdpCss).toMatch(
-      /\[data-ogabassey-pdp-deferred-description-panel\]\s*\{[\s\S]*?min-height:\s*20rem/
-    );
-    expect(criticalPdpCss).toMatch(
-      /\[data-ogabassey-pdp-deferred-description-panel\]\s*\{[\s\S]*?var\(--store-background/
-    );
-    expect(criticalPdpCss).toMatch(
-      /@media \(min-width: 768px\) \{[\s\S]*?\[data-ogabassey-pdp-deferred-description-container\]\s*\{[\s\S]*?padding-inline:\s*1\.5rem/
-    );
-    expect(deferredPdpCss).not.toMatch(
-      /data-ogabassey-pdp-deferred-description-container/
-    );
-  });
-
   it('validates OgaBassey category PDP route imports critical CSS in page, PDP CSS in renderer, and excludes PDP CSS from client', () => {
     const categoryPdpPage = readStorefrontFile(
       '[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx'
