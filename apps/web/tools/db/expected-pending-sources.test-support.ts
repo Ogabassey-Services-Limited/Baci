@@ -280,4 +280,9 @@ export const EXPECTED_PENDING_SOURCES = [
     sha256: '9e4df9812810ef2c7e0659a238390d6c97222b2891454ba00740ddbff6cc6104',
   },
   ...AUDIT_PENDING_SOURCES,
+  {
+    repositoryPath:
+      'supabase/migrations/20260731140000_payment_ingress_contract_generation_foundation.sql',
+    sha256: '700877e2325ddc208dad2b7a62a6ba1c9c687610c567c621f9fda2e666f3e4e1',
+  },
 ];
