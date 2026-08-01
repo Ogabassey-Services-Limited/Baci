@@ -117,6 +117,41 @@ describe('loadBlogPost', () => {
     });
   });
 
+  it('restores hydrated products to the embedded product ID order when the API returns created-at order', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ...embeddedProductPost,
+          embedded_products: ['product-b', 'product-a'],
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          products: ['product-a', 'product-b'].map((id) => ({
+            id,
+            name: `Product ${id}`,
+            price: 100,
+            images: [],
+            slug: id,
+            status: 'active',
+          })),
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await loadBlogPost('post-1', 'merchant-b');
+
+    expect(result).toMatchObject({
+      status: 'success',
+      productsLoadFailed: false,
+    });
+    expect(
+      result.status === 'success' &&
+        result.embeddedProducts?.map((product) => product.id)
+    ).toEqual(['product-b', 'product-a']);
+  });
+
   it.each([
     ['returns an error status', false, { products: [] }],
     ['returns malformed data', true, { products: 'not-an-array' }],

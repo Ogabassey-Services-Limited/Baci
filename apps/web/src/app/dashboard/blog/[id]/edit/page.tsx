@@ -8,9 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
-import { asRoute } from '@/lib/routes';
 import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
-import { getPreviewUrl } from '../../actions';
+import { createEditBlogPreviewAction } from './create-edit-blog-preview-action';
 import { EditBlogAuthorTab } from './edit-blog-author-tab';
 import { getBlogContentStats } from './edit-blog-content-stats';
 import { EditBlogContentTab } from './edit-blog-content-tab';
@@ -27,6 +26,7 @@ import {
 import { EditBlogSeoTab } from './edit-blog-seo-tab';
 import type { BlogPost, PostFormData, Product } from './edit-blog-types';
 import { useEditBlogDraftRecovery } from './use-edit-blog-draft-recovery';
+import { useEditBlogSession } from './use-edit-blog-merchant-session';
 import { useFeaturedImageActions } from './use-featured-image-actions';
 
 export default function EditBlogPostPage() {
@@ -36,6 +36,7 @@ export default function EditBlogPostPage() {
   const { merchant } = useMerchant();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const merchantSessionRef = useEditBlogSession(merchant?.id, setIsSaving);
   const [activeTab, setActiveTab] = useState('content');
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
   const [hasHydratedEmbeddedProducts, setHasHydratedEmbeddedProducts] =
@@ -67,7 +68,7 @@ export default function EditBlogPostPage() {
     let loadedFormData: PostFormData | null = null;
     if (result.status === 'not-found') {
       toast({ title: 'Post not found', variant: 'destructive' });
-      router.push(asRoute('/dashboard/blog'));
+      router.push('/dashboard/blog');
     } else if (result.status === 'error')
       toast({
         title: 'Error',
@@ -156,6 +157,7 @@ export default function EditBlogPostPage() {
       });
       return false;
     }
+    const savedMerchantSession = merchantSessionRef.current;
     setIsSaving(true);
     try {
       const updatedPost = await submitBlogPostUpdate({
@@ -170,6 +172,7 @@ export default function EditBlogPostPage() {
             ? embeddedProducts.map((product) => product.id)
             : undefined,
       });
+      if (merchantSessionRef.current !== savedMerchantSession) return false;
       setOriginalPost(updatedPost);
       setFormData((previous) => ({
         ...previous,
@@ -191,6 +194,7 @@ export default function EditBlogPostPage() {
       clearSavedData();
       return true;
     } catch (error) {
+      if (merchantSessionRef.current !== savedMerchantSession) return false;
       console.error('Error saving post:', error);
       toast({
         title: 'Error',
@@ -200,31 +204,18 @@ export default function EditBlogPostPage() {
       });
       return false;
     } finally {
-      setIsSaving(false);
+      if (merchantSessionRef.current === savedMerchantSession)
+        setIsSaving(false);
     }
   };
 
-  const handlePreview = async () => {
-    if (!merchant?.slug) {
-      toast({
-        title: 'Error',
-        description: 'Merchant slug not found.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (!(await savePost('draft'))) return;
-    try {
-      window.open(await getPreviewUrl(merchant.slug, formData.slug), '_blank');
-    } catch (error) {
-      console.error('Error getting preview URL:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to generate preview link.',
-        variant: 'destructive',
-      });
-    }
-  };
+  const handlePreview = createEditBlogPreviewAction({
+    merchantSessionRef,
+    merchantSlug: merchant?.slug,
+    postSlug: formData.slug,
+    savePost,
+    toast,
+  });
   const suggestSchedule = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);

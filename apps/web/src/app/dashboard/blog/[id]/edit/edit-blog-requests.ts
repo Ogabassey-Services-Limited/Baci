@@ -33,6 +33,20 @@ function hasCompleteEmbeddedProductHydration(
   );
 }
 
+function restoreEmbeddedProductOrder(
+  embeddedProductIds: string[],
+  products: Product[]
+) {
+  const productsById = new Map(
+    products.map((product) => [product.id, product])
+  );
+
+  return embeddedProductIds.flatMap((productId) => {
+    const product = productsById.get(productId);
+    return product ? [product] : [];
+  });
+}
+
 function toEmbeddedProductIds(value: unknown): string[] | null {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
     ? value
@@ -100,7 +114,10 @@ export async function loadBlogPost(
             Array.isArray(products) &&
             hasCompleteEmbeddedProductHydration(embeddedProductIds, products)
           )
-            embeddedProducts = products;
+            embeddedProducts = restoreEmbeddedProductOrder(
+              embeddedProductIds,
+              products
+            );
           else productsLoadFailed = true;
         }
       }
