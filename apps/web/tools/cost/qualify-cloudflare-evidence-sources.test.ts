@@ -29,6 +29,8 @@ describe('Cloudflare read-only qualification contracts', () => {
           versionId,
           scriptEtag: version.scriptEtag,
           moduleSha256: version.moduleSha256,
+          modules: version.modules,
+          moduleListSha256: version.moduleListSha256,
           settingsSha256: version.settingsSha256,
         };
       },

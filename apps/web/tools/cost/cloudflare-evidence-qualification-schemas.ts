@@ -4,6 +4,11 @@ import {
   canonicalizeJson,
 } from '../../../../packages/shared/src/storefront/delivery-evidence';
 import {
+  calculateQualificationArtifactModuleListSha256,
+  QualificationArtifactModuleListSchema,
+  QualificationArtifactReadbackVersionSchema,
+} from './cloudflare-evidence-qualification-artifact';
+import {
   validateCloudflareZeroWeightProof,
   ZeroWeightProofSchema,
 } from './cloudflare-evidence-qualification-traffic';
@@ -13,7 +18,6 @@ export const QUALIFICATION_WORKER_NAME = 'baci-evidence-qualification';
 export const QUALIFICATION_EVIDENCE_HOST = 'edge-evidence.ogabassey.com';
 export const QUALIFICATION_POINTER_URL = `https://${QUALIFICATION_EVIDENCE_HOST}/__baci-evidence/a`;
 export const QUALIFICATION_POINTER_PROBE_COUNT = 2;
-
 export const PointerCacheSchema = z
   .object({
     pointerUrl: z.literal(QUALIFICATION_POINTER_URL),
@@ -31,24 +35,11 @@ export const PointerCacheSchema = z
     canonicalSha256: Hash,
   })
   .strict();
-
 export const ArtifactReadbackSchema = z
   .object({
     apiFamily: z.literal('scripts-versions'),
     scriptName: z.string().min(1),
-    versions: z
-      .array(
-        z
-          .object({
-            versionId: z.string().min(1),
-            endpoint: z.string().min(1),
-            scriptEtag: Hash,
-            moduleSha256: Hash,
-            settingsSha256: Hash,
-          })
-          .strict()
-      )
-      .length(2),
+    versions: z.array(QualificationArtifactReadbackVersionSchema).length(2),
     deploymentsEndpoint: z.string().min(1),
     deployments: z
       .object({
@@ -72,7 +63,6 @@ export const ArtifactReadbackSchema = z
 export type CloudflareWorkerArtifactReadbackQualification = z.infer<
   typeof ArtifactReadbackSchema
 >;
-
 export const ReviewedQualificationArtifactSchema = z
   .object({
     accountId: z.string().min(1),
@@ -80,6 +70,8 @@ export const ReviewedQualificationArtifactSchema = z
     versionId: z.string().min(1),
     scriptEtag: Hash,
     moduleSha256: Hash,
+    modules: QualificationArtifactModuleListSchema,
+    moduleListSha256: Hash,
     settingsSha256: Hash,
     artifactReceipt: z
       .object({
@@ -96,16 +88,23 @@ export const ReviewedQualificationArtifactSchema = z
   })
   .strict()
   .refine(
-    ({ scriptEtag, moduleSha256, settingsSha256, artifactReceipt }) =>
+    ({
+      scriptEtag,
+      modules,
+      moduleListSha256,
+      settingsSha256,
+      artifactReceipt,
+    }) =>
       artifactReceipt.bundleSha256 === scriptEtag &&
-      artifactReceipt.moduleListSha256 === moduleSha256 &&
-      artifactReceipt.configSha256 === settingsSha256,
+      artifactReceipt.configSha256 === settingsSha256 &&
+      artifactReceipt.moduleListSha256 === moduleListSha256 &&
+      moduleListSha256 ===
+        calculateQualificationArtifactModuleListSha256(modules),
     'reviewed artifact provider identities must match the nested receipt'
   );
 export type ReviewedQualificationArtifact = z.infer<
   typeof ReviewedQualificationArtifactSchema
 >;
-
 export function calculatePointerCacheCanonicalSha256(value: unknown) {
   return calculateCanonicalSha256(canonicalizeJson(value));
 }
@@ -181,6 +180,8 @@ export function qualifyCloudflareEvidenceReadback(
         !expected ||
         version.scriptEtag !== expected.scriptEtag ||
         version.moduleSha256 !== expected.moduleSha256 ||
+        version.moduleListSha256 !==
+          expected.artifactReceipt.moduleListSha256 ||
         version.settingsSha256 !== expected.settingsSha256
       );
     })
@@ -262,7 +263,6 @@ export function qualifyCloudflareEvidenceReadback(
     return { ok: false, reason: 'pointer_cache_fingerprint_invalid' };
   return { ok: true, qualification: receipt };
 }
-
 export const PurgeContractSchema = z
   .object({
     endpoint: z.string().regex(/^\/zones\/[^/]+\/purge_cache$/),
@@ -275,7 +275,6 @@ export const PurgeContractSchema = z
     ]),
   })
   .strict();
-
 export const TopologyEndpointSchema = z
   .object({
     family: z.enum(['worker-custom-domain', 'r2-cors', 'r2-custom-domain']),

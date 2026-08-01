@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import type { z } from 'zod';
+import { calculateQualificationArtifactModuleListSha256 } from './cloudflare-evidence-qualification-artifact';
 import { runQualificationCliFromProcess } from './cloudflare-evidence-qualification-cli';
 import {
   PurgeContractSchema,
@@ -140,6 +141,11 @@ export async function executeCloudflareEvidenceQualification(
       actual.versionId !== artifact.versionId ||
       actual.scriptEtag !== artifact.scriptEtag ||
       actual.moduleSha256 !== artifact.moduleSha256 ||
+      actual.moduleListSha256 !== artifact.moduleListSha256 ||
+      calculateQualificationArtifactModuleListSha256(actual.modules) !==
+        actual.moduleListSha256 ||
+      calculateQualificationArtifactModuleListSha256(artifact.modules) !==
+        artifact.moduleListSha256 ||
       actual.settingsSha256 !== artifact.settingsSha256
     )
       throw new Error(

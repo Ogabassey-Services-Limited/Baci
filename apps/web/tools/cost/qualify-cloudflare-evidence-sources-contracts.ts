@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { QualificationArtifactModule } from './cloudflare-evidence-qualification-artifact';
 import type { TopologyEndpointSchema } from './cloudflare-evidence-qualification-schemas';
 import {
   PurgeContractSchema,
@@ -14,6 +15,8 @@ export type ExpectedQualificationArtifact = Readonly<{
   versionId: string;
   scriptEtag: string;
   moduleSha256: string;
+  modules: readonly QualificationArtifactModule[];
+  moduleListSha256: string;
   settingsSha256: string;
 }>;
 export type CloudflareDeploymentVersion = Readonly<{

@@ -224,8 +224,6 @@ async function loadCredentiallessRevocationDependencies(
     throw new Error(
       'external write-token revocation receipt does not match the journal'
     );
-  // The serialized receipt remains an untrusted handoff artifact. Only the
-  // separately reviewed module may authenticate provider/audit read-back.
   const client = await loadAuthenticatedRevocationReadbackClient(
     journal,
     runId,

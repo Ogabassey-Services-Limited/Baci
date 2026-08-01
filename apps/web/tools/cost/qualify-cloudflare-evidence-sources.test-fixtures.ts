@@ -1,7 +1,15 @@
+import { calculateQualificationArtifactModuleListSha256 } from './cloudflare-evidence-qualification-artifact';
 import {
   calculatePointerCacheCanonicalSha256,
   QUALIFICATION_POINTER_URL,
 } from './qualify-cloudflare-evidence-sources';
+
+const modulesA = [
+  { name: 'src/version-a.ts', bytesBase64: 'bW9kdWxlLWE=' },
+] as const;
+const modulesB = [
+  { name: 'src/version-b.ts', bytesBase64: 'bW9kdWxlLWI=' },
+] as const;
 
 export const readback = {
   apiFamily: 'scripts-versions',
@@ -13,6 +21,9 @@ export const readback = {
         '/accounts/account/workers/scripts/baci-evidence-qualification/versions/a',
       scriptEtag: 'a'.repeat(64),
       moduleSha256: 'b'.repeat(64),
+      modules: modulesA,
+      moduleListSha256:
+        calculateQualificationArtifactModuleListSha256(modulesA),
       settingsSha256: 'c'.repeat(64),
     },
     {
@@ -21,6 +32,9 @@ export const readback = {
         '/accounts/account/workers/scripts/baci-evidence-qualification/versions/b',
       scriptEtag: 'd'.repeat(64),
       moduleSha256: 'e'.repeat(64),
+      modules: modulesB,
+      moduleListSha256:
+        calculateQualificationArtifactModuleListSha256(modulesB),
       settingsSha256: 'f'.repeat(64),
     },
   ],
@@ -96,6 +110,8 @@ export const reviewedArtifacts = readback.versions.map((version) => ({
   versionId: version.versionId,
   scriptEtag: version.scriptEtag,
   moduleSha256: version.moduleSha256,
+  modules: version.modules,
+  moduleListSha256: version.moduleListSha256,
   settingsSha256: version.settingsSha256,
   artifactReceipt: {
     canonicalSourceSha256: version.scriptEtag,
@@ -103,7 +119,7 @@ export const reviewedArtifacts = readback.versions.map((version) => ({
     dependencyLockSha256: '1'.repeat(64),
     wranglerVersion: '4.115.0',
     generatedTypeSha256: '2'.repeat(64),
-    moduleListSha256: version.moduleSha256,
+    moduleListSha256: version.moduleListSha256,
     bundleSha256: version.scriptEtag,
     soleVersionMetadataBinding: 'CF_VERSION_METADATA' as const,
   } as const,

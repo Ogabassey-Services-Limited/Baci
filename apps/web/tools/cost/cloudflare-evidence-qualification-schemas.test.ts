@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ArtifactReadbackSchema,
   PointerCacheSchema,
   PurgeContractSchema,
   QUALIFICATION_EVIDENCE_HOST,
@@ -92,7 +93,6 @@ describe('cloudflare evidence qualification schemas', () => {
 
   it.each([
     ['bundleSha256', 'scriptEtag'],
-    ['moduleListSha256', 'moduleSha256'],
     ['configSha256', 'settingsSha256'],
   ] as const)('binds nested %s to top-level %s', (nestedField) => {
     const artifact = reviewedArtifacts[0];
@@ -106,6 +106,39 @@ describe('cloudflare evidence qualification schemas', () => {
 
     expect(
       ReviewedQualificationArtifactSchema.safeParse(mismatched).success
+    ).toBe(false);
+  });
+
+  it('rejects provider module hashes that do not bind returned module bytes', () => {
+    const changedModule = {
+      ...readback.versions[0].modules[0],
+      bytesBase64: 'dW5yZXZpZXdlZA==',
+    };
+    const tampered = {
+      ...readback,
+      versions: [
+        { ...readback.versions[0], modules: [changedModule] },
+        readback.versions[1],
+      ],
+    };
+
+    expect(ArtifactReadbackSchema.safeParse(tampered).success).toBe(false);
+  });
+
+  it('keeps provider module identity separate from the local module-list hash', () => {
+    const artifact = reviewedArtifacts[0];
+    expect(artifact.moduleSha256).not.toBe(artifact.moduleListSha256);
+    expect(
+      ReviewedQualificationArtifactSchema.safeParse(artifact).success
+    ).toBe(true);
+    expect(
+      ReviewedQualificationArtifactSchema.safeParse({
+        ...artifact,
+        artifactReceipt: {
+          ...artifact.artifactReceipt,
+          moduleListSha256: '0'.repeat(64),
+        },
+      }).success
     ).toBe(false);
   });
 });
