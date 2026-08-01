@@ -120,7 +120,7 @@ test('accepts container recovery without a Docker userland proxy when inspect pr
       '{"HostConfig":{"PortBindings":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]}},"NetworkSettings":{"Ports":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]},"Networks":{"bridge":{"IPAddress":"172.17.0.2"}}}}\n'
     );
     const { stdout } = await shell(
-      'recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 40 container-cgroup container-ns "$2" "$3"',
+      'recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$2" "$3"',
       [ports, processes]
     );
     const snapshot = JSON.parse(stdout);

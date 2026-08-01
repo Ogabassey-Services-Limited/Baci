@@ -103,7 +103,12 @@ test('binds a container Ollama process to inspect Path without a host executable
       }
     );
     const snapshot = JSON.parse(stdout);
-    assert.equal(snapshot.path, '/bin/ollama');
+    assert.equal(
+      snapshot.path,
+      process.getuid?.() === 0
+        ? await realpath(join(pidDir, 'exe'))
+        : '/bin/ollama'
+    );
     assert.equal(snapshot.realPath, await realpath(executable));
     assert.equal(snapshot.uid, '1000');
     assert.equal(snapshot.kind, 'ollama');
@@ -171,7 +176,6 @@ test('repairs a JSON-pending-only and digest-plus-JSON-pending publication bound
     await rm(bin, { recursive: true, force: true });
   }
 });
-
 test('rejects foreign scanner substrings, mismatched proxy tuples, and proxy-only evidence', async () => {
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-ollama-recovery-process-hardening-')
@@ -184,6 +188,13 @@ test('rejects foreign scanner substrings, mismatched proxy tuples, and proxy-onl
     await writeFile(
       ports,
       '{"NetworkSettings":{"Ports":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]},"Networks":{"bridge":{"IPAddress":"172.17.0.2"}}}}\n'
+    );
+    await writeFile(processes, '41 1 /usr/bin/ollama serve\n');
+    await assert.rejects(
+      shell(identity, [ports, processes]),
+      (error) =>
+        error.code === 78 &&
+        /inspected container process missing/.test(error.stderr)
     );
     await writeFile(
       processes,

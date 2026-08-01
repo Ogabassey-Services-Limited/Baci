@@ -158,7 +158,7 @@ recovery_process_snapshot() {
   container_pid=$1; container_cgroup=$2; container_namespace=$3; ports=$4; processes=$5
   RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; RECOVERY_SCANNER_ANCESTORS='[]'; RECOVERY_CONTAINER_PROCESS_UID=''
   if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi
-  entries='[]'; count=0; container_count=0; proxy_count=0
+  entries='[]'; count=0; container_count=0; proxy_count=0; container_pid_seen=0
   while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
     [ -n "$pid" ] || continue
     if ! recovery_safe_int "$pid" || ! recovery_nonnegative_int "$ppid"; then review_required 'invalid process pid binding'; fi
@@ -179,7 +179,7 @@ EOF
       if recovery_proxy_ports_ok "$args" "$ports"; then :; else status=$?; [ "$status" -eq 2 ] && continue; review_required 'Docker proxy is not bound to the reviewed container'; fi
       binding='container-port-11434/tcp'; proxy_count=$((proxy_count + 1))
     else
-      [ "$cgroup" = "$container_cgroup" ] && [ "$namespace" = "$container_namespace" ] || review_required 'foreign Ollama process refused'
+      [ "$cgroup" = "$container_cgroup" ] && [ "$namespace" = "$container_namespace" ] || review_required 'foreign Ollama process refused'; [ "$pid" = "$container_pid" ] && container_pid_seen=1
       container_count=$((container_count + 1))
     fi
     if [ "$class" = docker-proxy ]; then executable=$(recovery_process_executable "$pid" docker-proxy docker-proxy); else executable=$(recovery_process_executable "$pid" "$RECOVERY_CONTAINER_COMMAND_PATH" ollama); process_uid=$(/usr/bin/jq -er .uid <<EOF
@@ -189,7 +189,7 @@ EOF
     entries=$(/usr/bin/jq -cn --argjson old "$entries" --argjson executable "$executable" --arg pid "$pid" --arg ppid "$ppid" --arg class "$class" --arg cgroup "$cgroup" --arg namespace "$namespace" --arg binding "$binding" --arg args "$(hash_text "$args")" '$old + [{pid:$pid,ppid:$ppid,class:$class,cgroupSha256:$cgroup,pidNamespaceSha256:$namespace,binding:$binding,executable:$executable,argsSha256:$args}]') || die 'process receipt serialization failed'
     count=$((count + 1))
   done <"$processes"
-  [ "$container_count" -gt 0 ] || review_required 'incomplete reviewed Ollama process set'; [ "$proxy_count" -gt 0 ] || recovery_container_ports_ok "$ports" || review_required 'published Ollama binding is not loopback-bound'
+  [ "$container_count" -gt 0 ] || review_required 'incomplete reviewed Ollama process set'; [ "$container_pid_seen" -eq 1 ] || review_required 'inspected container process missing'; [ "$proxy_count" -gt 0 ] || recovery_container_ports_ok "$ports" || review_required 'published Ollama binding is not loopback-bound'
   /usr/bin/jq -cn --arg pid "$container_pid" --arg cgroup "$container_cgroup" --arg namespace "$container_namespace" --arg uid "${RECOVERY_CONTAINER_PROCESS_UID:-}" --argjson entries "$entries" --argjson ancestors "${RECOVERY_SCANNER_ANCESTORS:-[]}" --argjson containers "$container_count" --argjson proxies "$proxy_count" '{containerPid:$pid,containerCgroupSha256:$cgroup,containerPidNamespaceSha256:$namespace,containerUid:$uid,matchingProcesses:$entries,scannerAncestors:$ancestors,containerProcessCount:$containers,proxyProcessCount:$proxies}'
 }
 recovery_cron_snapshot() {
