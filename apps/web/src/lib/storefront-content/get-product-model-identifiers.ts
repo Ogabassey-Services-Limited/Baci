@@ -1,6 +1,7 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { normalizeProductModelTokens } from './normalize-product-model-tokens';
+import { selectProductModelIdentifier } from './select-product-model-identifier';
 
 function tokenize(value: string) {
   return value
@@ -15,14 +16,6 @@ function tokenize(value: string) {
 const SPECIFICATION_TOKEN_PATTERN =
   /^\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg)$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
-const COLLISION_SUFFIX_PATTERN = /^\d{1,2}$/u;
-const GENERIC_MODEL_MARKER_TOKENS = new Set([
-  'edition',
-  'model',
-  'new',
-  'series',
-  'version',
-]);
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
   'legion',
@@ -31,7 +24,6 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'series',
   'watch',
 ]);
-const MODEL_LINE_MARKER_TOKENS = new Set(['air', 'pro']);
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
 const LEADING_FILLER_TOKENS = new Set(['a', 'an', 'the']);
 
@@ -164,6 +156,7 @@ function stripTrailingProcessorTier(tokens: string[], categorySlug: string) {
     (token, index) =>
       ((token === 'ultra' || token === 'rtx') &&
         /^\d+$/u.test(tokens[index + 1] ?? '')) ||
+      (token === 'core' && /^i[3579]$/u.test(tokens[index + 1] ?? '')) ||
       /^i[3579]$/u.test(token)
   );
   return processorIndex > 0 ? tokens.slice(0, processorIndex) : tokens;
@@ -177,6 +170,53 @@ function stripLeadingFillerTokens(tokens: string[]) {
   return firstModelToken > 0 ? tokens.slice(firstModelToken) : tokens;
 }
 
+function stripLeadingLaptopDisplaySize(tokens: string[], categorySlug: string) {
+  if (!LAPTOP_CATEGORY_SLUGS.has(categorySlug)) {
+    return tokens;
+  }
+
+  const firstToken = tokens[0] ?? '';
+  const displaySize = Number(firstToken);
+  const hasFollowingModelText = tokens
+    .slice(1)
+    .some((token) => /[a-z]/u.test(token));
+  const hasConvertibleModel = tokens.some((_, index) =>
+    isConvertibleInConnector(tokens, index)
+  );
+  return /^\d{2}$/u.test(firstToken) &&
+    displaySize >= 10 &&
+    displaySize <= 20 &&
+    hasFollowingModelText &&
+    !hasConvertibleModel
+    ? tokens.slice(1)
+    : tokens;
+}
+
+function stripGeneratedCollisionSuffix(tokens: string[]) {
+  const lastToken = tokens.at(-1) ?? '';
+  if (tokens.length < 2 || !/^\d{1,2}$/u.test(lastToken)) {
+    return tokens;
+  }
+
+  const previousToken = tokens.at(-2) ?? '';
+  const isConvertibleSuffix =
+    previousToken === 'in' && /^\d+$/u.test(tokens.at(-3) ?? '');
+  if (isConvertibleSuffix) {
+    return tokens;
+  }
+
+  if (/\d/u.test(previousToken)) {
+    return tokens.slice(0, -1);
+  }
+
+  const precedingNumericIndex = tokens.findLastIndex(
+    (token, index) => index < tokens.length - 1 && /^\d+$/u.test(token)
+  );
+  return precedingNumericIndex >= 0 && precedingNumericIndex < tokens.length - 2
+    ? tokens.slice(0, -1)
+    : tokens;
+}
+
 function getModelTokens(
   slug: string,
   excludedTokens: ReadonlySet<string>,
@@ -185,12 +225,9 @@ function getModelTokens(
   const rawTokens = normalizeProductModelTokens(
     tokenize(slug).filter((token) => !excludedTokens.has(token))
   );
-  const tokens =
-    rawTokens.length > 1 &&
-    COLLISION_SUFFIX_PATTERN.test(rawTokens[rawTokens.length - 1] ?? '') &&
-    /\d/u.test(rawTokens[rawTokens.length - 2] ?? '')
-      ? rawTokens.slice(0, -1)
-      : rawTokens;
+  const tokens = stripGeneratedCollisionSuffix(
+    stripLeadingLaptopDisplaySize(rawTokens, categorySlug)
+  );
   const modelTokens = tokens.filter(
     (token, index) =>
       !SPECIFICATION_TOKEN_PATTERN.test(token) &&
@@ -203,57 +240,6 @@ function getModelTokens(
     stripLeadingFillerTokens(modelTokens),
     categorySlug
   );
-}
-
-function getModelIdentifier(tokens: string[]) {
-  const numericIndex = tokens.findLastIndex((token) => /^\d+$/u.test(token));
-  if (numericIndex >= 0) {
-    const hasConvertibleModel = tokens.some((_, index) =>
-      isConvertibleInConnector(tokens, index)
-    );
-    const phraseTokens = tokens.filter(
-      (token, index) =>
-        (hasConvertibleModel && /^\d+$/u.test(token)) ||
-        index === numericIndex ||
-        (!/^\d+$/u.test(token) &&
-          token.length > 1 &&
-          !GENERIC_MODEL_MARKER_TOKENS.has(token))
-    );
-    return phraseTokens.join(' ');
-  }
-
-  const alphanumericToken = tokens.find(
-    (token) => /[a-z]/u.test(token) && /\d/u.test(token)
-  );
-  if (alphanumericToken) {
-    const alphanumericIndex = tokens.indexOf(alphanumericToken);
-    const prefixTokens = tokens
-      .slice(0, alphanumericIndex)
-      .filter((token) => MODEL_LINE_MARKER_TOKENS.has(token));
-    const suffixTokens = tokens
-      .slice(alphanumericIndex + 1)
-      .filter(
-        (token) =>
-          !/^\d+$/u.test(token) &&
-          token.length > 1 &&
-          !GENERIC_MODEL_MARKER_TOKENS.has(token)
-      );
-    const phraseTokens = [...prefixTokens, alphanumericToken, ...suffixTokens];
-    return phraseTokens.join(' ');
-  }
-
-  const phraseTokens = tokens.filter((token, index) => {
-    const isSeriesMarker =
-      token === 'series' && /^[a-z]$/u.test(tokens[index + 1] ?? '');
-    const followsSeriesMarker =
-      index > 0 && tokens[index - 1] === 'series' && /^[a-z]$/u.test(token);
-    return (
-      (token.length > 1 && !GENERIC_MODEL_MARKER_TOKENS.has(token)) ||
-      isSeriesMarker ||
-      followsSeriesMarker
-    );
-  });
-  return phraseTokens.join(' ') || tokens[0] || null;
 }
 
 /**
@@ -306,7 +292,7 @@ export function getProductModelIdentifiers(
             context.categorySlug
           )
         )
-        .map(getModelIdentifier)
+        .map(selectProductModelIdentifier)
         .filter((token): token is string => Boolean(token))
     )
   );
