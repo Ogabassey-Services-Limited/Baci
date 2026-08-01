@@ -258,16 +258,20 @@ test('rejects a lingering Ollama process after container removal', async () => {
     for (const command of ['/usr/bin/ollama serve', 'ollama serve', 'ollama']) {
       await writeFile(processes, `41 1 ${command}\n`);
       await assert.rejects(
-        shell('recovery_absent_process_snapshot "$2"', [processes]),
+        shell(
+          'init_temp_root; trap cleanup_temp EXIT; recovery_absent_process_snapshot "$2"',
+          [processes]
+        ),
         (error) =>
           error.code === 78 &&
           /foreign Ollama process remains/.test(error.stderr)
       );
     }
     await writeFile(processes, '41 1 /usr/bin/other-service\n');
-    const { stdout } = await shell('recovery_absent_process_snapshot "$2"', [
-      processes,
-    ]);
+    const { stdout } = await shell(
+      'init_temp_root; trap cleanup_temp EXIT; recovery_absent_process_snapshot "$2"',
+      [processes]
+    );
     const snapshot = JSON.parse(stdout);
     assert.equal(snapshot.state, 'absent');
     assert.deepEqual(snapshot.matchingProcesses, []);

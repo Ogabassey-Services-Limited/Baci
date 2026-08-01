@@ -72,7 +72,10 @@ test('rejects wrapped Ollama processes in absent-container evidence', async () =
   try {
     await writeFile(processes, '41 1 python /opt/ollama/server.py\n');
     await assert.rejects(
-      shell('recovery_absent_process_snapshot "$2"', [processes]),
+      shell(
+        'init_temp_root; trap cleanup_temp EXIT; recovery_absent_process_snapshot "$2"',
+        [processes]
+      ),
       (error) =>
         error.code === 78 && /foreign Ollama process remains/.test(error.stderr)
     );
@@ -100,7 +103,7 @@ test('ignores the recovery scanner ancestry in absent-container evidence', async
   const processes = join(directory, 'processes');
   try {
     const { stdout } = await shell(
-      'recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh /srv/retire-ollama.sh --recovery-scan\\n" "$$" >"$2"; recovery_absent_process_snapshot "$2"',
+      'init_temp_root; trap cleanup_temp EXIT; recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh /srv/retire-ollama.sh --recovery-scan\\n" "$$" >"$2"; recovery_absent_process_snapshot "$2"',
       [processes]
     );
     const snapshot = JSON.parse(stdout);
