@@ -64,7 +64,10 @@ async function loadBrandAuthorityPage(
     categorySlug: string;
     brandSlug: string;
   },
-  options: { includeRequestPathPrefix?: boolean } = {}
+  options: {
+    includeRequestPathPrefix?: boolean;
+    includeGuideLinks?: boolean;
+  } = {}
 ) {
   const merchant = await brandAuthorityPublicData.getMerchant(
     args.merchantSlug
@@ -164,9 +167,10 @@ async function loadBrandAuthorityPage(
         productSlugs: normalizedProducts.map((product) => product.slug),
       }
     : null;
-  const guidePosts = guideContext
-    ? await loadPublishedClusterPostsSafely(merchant.id, guideContext)
-    : [];
+  const guidePosts =
+    options.includeGuideLinks === false || !guideContext
+      ? []
+      : await loadPublishedClusterPostsSafely(merchant.id, guideContext);
   const familyLinks = modelFamilyAuthorityTaxonomy
     .getEntries(args.categorySlug, authorityEntry.brandKey)
     .flatMap((entry) => {
@@ -198,13 +202,14 @@ async function loadBrandAuthorityPage(
     categoryName,
     brand: authorityEntry,
     products,
-    guideLinks: guideContext
-      ? buildCommercialGuideLinks({
-          storeUrl,
-          posts: guidePosts,
-          context: guideContext,
-        })
-      : [],
+    guideLinks:
+      guideContext && options.includeGuideLinks !== false
+        ? buildCommercialGuideLinks({
+            storeUrl,
+            posts: guidePosts,
+            context: guideContext,
+          })
+        : [],
     familyLinks,
     breadcrumbItems: [
       { name: merchant.business_name, url: storeUrl },

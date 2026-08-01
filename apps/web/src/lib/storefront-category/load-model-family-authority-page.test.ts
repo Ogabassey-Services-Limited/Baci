@@ -70,6 +70,7 @@ describe('model family authority page loader', () => {
         ],
       })
     );
+    expect(mockLoadClusterPosts).toHaveBeenCalledTimes(1);
   });
 
   it('rejects thin and uncurated family pages', async () => {

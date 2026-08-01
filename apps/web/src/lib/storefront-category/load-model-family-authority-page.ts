@@ -27,7 +27,7 @@ async function loadModelFamilyAuthorityPage(args: {
       categorySlug: args.categorySlug,
       brandSlug: args.brandSlug,
     },
-    { includeRequestPathPrefix: false }
+    { includeGuideLinks: false, includeRequestPathPrefix: false }
   );
   if (!brandPage) return null;
 
