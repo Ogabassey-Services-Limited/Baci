@@ -144,6 +144,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['x']);
   });
 
+  it('removes optional connectivity suffixes from model identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Tecno'],
+      productSlugs: ['tecno-spark-pro-dual-sim'],
+    });
+
+    expect(identifiers).toEqual(['spark pro']);
+  });
+
   it('preserves configured model-family markers that overlap brand aliases', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

@@ -184,8 +184,19 @@ function stripMerchandisingSuffix(tokens: string[]) {
   return suffixIndex >= 0 ? tokens.slice(0, suffixIndex) : tokens;
 }
 
+function stripOptionalConnectivitySuffix(tokens: string[]) {
+  const suffixIndex = tokens.findIndex(
+    (token, index) =>
+      token === 'esim' ||
+      ((token === 'dual' || token === 'single') && tokens[index + 1] === 'sim')
+  );
+  return suffixIndex >= 0 ? tokens.slice(0, suffixIndex) : tokens;
+}
+
 function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
-  const rawTokens = stripMerchandisingSuffix(tokenize(slug)).filter(
+  const rawTokens = stripOptionalConnectivitySuffix(
+    stripMerchandisingSuffix(tokenize(slug))
+  ).filter(
     (token) =>
       !excludedTokens.has(token) && !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token)
   );
