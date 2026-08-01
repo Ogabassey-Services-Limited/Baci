@@ -66,6 +66,38 @@ describe('OgabasseyPdpDeferredDetailIsland source HTML', () => {
     );
   });
 
+  it.each(['<img>', '<img src="">', '<img src="javascript:alert(1)">'])(
+    'does not emit a description panel for an image without a usable source: %s',
+    (description) => {
+      const sourceHtml = renderToStaticMarkup(
+        <OgabasseyPdpDeferredDetailIsland
+          product={{ ...product, description }}
+          storeSlug="ogabassey"
+        />
+      );
+
+      expect(sourceHtml).not.toContain(
+        'data-ogabassey-pdp-deferred-description-container'
+      );
+    }
+  );
+
+  it('keeps a description panel when an image has a usable srcset', () => {
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland
+        product={{
+          ...product,
+          description: '<img srcset="https://example.com/laptop.avif 1x">',
+        }}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(sourceHtml).toContain(
+      'data-ogabassey-pdp-deferred-description-container'
+    );
+  });
+
   it('lazy-loads images in the initial server-rendered description handoff', () => {
     const sourceHtml = renderToStaticMarkup(
       <OgabasseyPdpDeferredDetailIsland

@@ -95,6 +95,7 @@ import {
   normalizeRouteProductVariants,
   shouldRedirectVariantSelectionParams,
 } from './critical-variant-selection';
+import { buildLcpRouteProductProjection } from './lcp-route-product-projection';
 import { OgabasseyPdpRequestScopedSemanticSections } from './ogabassey-pdp-request-scoped-semantic-sections';
 import { getPdpPriceFormatter } from './pdp-price-formatter';
 import {
@@ -602,28 +603,14 @@ function mapCachedProductLcpHintToRouteProduct(
   const primaryImage =
     getCachedProductRoutePrimaryImage(cachedProduct, variants) || '';
   const baseImage = getCachedProductLcpHintPrimaryImage(cachedProduct) || '';
-  const productCondition = normalizeProductCondition(cachedProduct.condition);
-  const offers = cachedProduct.product_offers?.flatMap((offer) => {
-    const condition = normalizeProductCondition(offer.condition);
-    const price = parseRouteProductNumber(offer.price);
-    if (
-      offer.status !== 'active' ||
-      !condition ||
-      price === null ||
-      condition === productCondition
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        condition,
-        id: offer.id,
-        images: offer.images,
-        price,
-        stock_quantity: parseRouteProductNumber(offer.stock_quantity) ?? 0,
-      },
-    ];
+  const {
+    condition: productCondition,
+    hasVariantMatrix,
+    offers,
+  } = buildLcpRouteProductProjection({
+    condition: cachedProduct.condition,
+    product_offers: cachedProduct.product_offers,
+    product_variants: cachedProduct.product_variants,
   });
 
   return {
@@ -641,9 +628,7 @@ function mapCachedProductLcpHintToRouteProduct(
     description: cachedProduct.meta_description ?? '',
     gtin: '',
     has_variants: Boolean(cachedProduct.has_variants) || variants.length > 0,
-    has_variant_matrix:
-      Array.isArray(cachedProduct.product_variants) &&
-      cachedProduct.product_variants.length > 0,
+    has_variant_matrix: hasVariantMatrix,
     id: cachedProduct.id,
     keywords: cachedProduct.keywords ?? undefined,
     image: primaryImage,

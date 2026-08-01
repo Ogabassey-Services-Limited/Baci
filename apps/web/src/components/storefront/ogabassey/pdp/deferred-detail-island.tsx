@@ -22,8 +22,21 @@ function hasRenderableDescriptionContent(description: string) {
   const textContent = stripHtmlTags(sanitizedDescription)
     .replace(/&(?:nbsp|#0*160|#x0*a0);/gi, ' ')
     .trim();
+  const imageTags = sanitizedDescription.match(/<img\b[^>]*>/gi) ?? [];
+  const hasUsableImage = imageTags.some((imageTag) => {
+    const sourceMatch = imageTag.match(
+      /\b(?:src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i
+    );
 
-  return Boolean(textContent) || /<img(?:\s|>)/i.test(sanitizedDescription);
+    return Boolean(
+      sourceMatch &&
+        [sourceMatch[1], sourceMatch[2], sourceMatch[3]].some((source) =>
+          source?.trim()
+        )
+    );
+  });
+
+  return Boolean(textContent) || hasUsableImage;
 }
 
 export function OgabasseyPdpDeferredDetailIsland({
