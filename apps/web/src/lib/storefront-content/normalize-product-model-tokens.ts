@@ -254,16 +254,18 @@ function isConvertibleInConnector(tokens: string[], index: number) {
     /^\d+$/u.test(tokens[index + 1] ?? '')
   );
 }
-
 /** Removes catalog suffixes that describe merchandising, region, or connectivity. */
 export function normalizeProductModelTokens(
   tokens: string[],
   preserveGameTitleTokens = false,
   stripTerminalDisplay = false
 ) {
-  const withoutLeadingCondition = LEADING_CONDITION_TOKENS.has(tokens[0] ?? '')
-    ? tokens.slice(1)
-    : tokens;
+  const preservesLeadingGameTitle =
+    preserveGameTitleTokens && isInternalGameTitleToken(tokens, 0, true);
+  const withoutLeadingCondition =
+    LEADING_CONDITION_TOKENS.has(tokens[0] ?? '') && !preservesLeadingGameTitle
+      ? tokens.slice(1)
+      : tokens;
   const withoutMerchandising = stripFirstMatchingSuffix(
     withoutLeadingCondition,
     (token, index) =>
@@ -286,9 +288,8 @@ export function normalizeProductModelTokens(
     withoutOrdinalGenerationConnector,
     stripTerminalDisplay
   );
-  const withoutOptionalFeature =
-    stripOptionalFeatureSuffix(withoutDisplaySuffix);
-  const withoutSplitCapacity = stripSplitCapacitySuffix(withoutOptionalFeature);
+  const withoutFeature = stripOptionalFeatureSuffix(withoutDisplaySuffix);
+  const withoutSplitCapacity = stripSplitCapacitySuffix(withoutFeature);
 
   return withoutSplitCapacity.filter(
     (token, index) =>

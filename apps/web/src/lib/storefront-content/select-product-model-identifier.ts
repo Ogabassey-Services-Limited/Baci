@@ -6,6 +6,18 @@ const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'version',
 ]);
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
+const COMPACT_GAME_CODE_PATTERN = /^([a-z]{2,})(\d{1,4})$/u;
+
+function expandCompactGameCodeTokens(
+  tokens: string[],
+  preserveGameTitleTokens: boolean
+) {
+  return preserveGameTitleTokens
+    ? tokens.flatMap(
+        (token) => token.match(COMPACT_GAME_CODE_PATTERN)?.slice(1) ?? [token]
+      )
+    : tokens;
+}
 
 function isConvertibleInConnector(tokens: string[], index: number) {
   return (
@@ -21,7 +33,7 @@ function isMeaningfulModelToken(
 ) {
   return (
     !/^\d+$/u.test(token) &&
-    token.length > 1 &&
+    (token.length > 1 || (preserveGameTitleTokens && /^[a-z]$/u.test(token))) &&
     (!GENERIC_MODEL_MARKER_TOKENS.has(token) ||
       (preserveGameTitleTokens && token === 'new'))
   );
@@ -68,7 +80,9 @@ export function selectProductModelIdentifier(
   inputTokens: string[],
   preserveYearTokens = false
 ) {
-  const tokens = reorderGenerationModelTokens(inputTokens);
+  const tokens = reorderGenerationModelTokens(
+    expandCompactGameCodeTokens(inputTokens, preserveYearTokens)
+  );
   const hasNonYearAlphanumericModel = tokens.some(
     (token) =>
       !YEAR_TOKEN_PATTERN.test(token) &&
@@ -88,7 +102,7 @@ export function selectProductModelIdentifier(
     );
     const phraseTokens = tokens.filter(
       (token, index) =>
-        (hasConvertibleModel && /^\d+$/u.test(token)) ||
+        ((hasConvertibleModel || preserveYearTokens) && /^\d+$/u.test(token)) ||
         index === numericIndex ||
         isMeaningfulModelToken(token, preserveYearTokens) ||
         isSeriesPhraseToken(tokens, index)

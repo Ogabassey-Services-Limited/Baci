@@ -211,9 +211,11 @@ function getModelTokens(
   categorySlug: string
 ) {
   const rawTokens = normalizeProductModelTokens(
-    tokenize(slug.replace(/\bplay[\s-]+station\b/gu, 'playstation')).filter(
-      (token) => !excludedTokens.has(token)
-    ),
+    tokenize(
+      slug
+        .replace(/\bplay[\s-]+station\b/gu, 'playstation')
+        .replace(/([a-z]{3,})-s-(?=[a-z])/gu, '$1-')
+    ).filter((token) => !excludedTokens.has(token)),
     GAME_CATEGORY_PATTERN.test(categorySlug),
     DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)
   );
@@ -224,9 +226,11 @@ function getModelTokens(
     platformGeneration && rawTokens[0] === platformGeneration
       ? rawTokens.slice(1)
       : rawTokens;
-  const tokens = stripGeneratedCollisionSuffix(
-    stripLeadingDisplaySize(platformStrippedTokens, categorySlug)
-  );
+  const tokens = GAME_CATEGORY_PATTERN.test(categorySlug)
+    ? platformStrippedTokens
+    : stripGeneratedCollisionSuffix(
+        stripLeadingDisplaySize(platformStrippedTokens, categorySlug)
+      );
   const modelTokens = tokens.filter(
     (token, index) =>
       !MODEL_METADATA_TOKEN_PATTERN.test(token) &&
@@ -247,9 +251,7 @@ export function getProductModelIdentifiers(
   const protectedFamilyTokens = new Set(
     tokenize(context.modelFamilySlug ?? '')
   );
-  const categoryExcludesNumericTokens = GAME_CATEGORY_PATTERN.test(
-    context.categorySlug
-  );
+  const isGameCategory = GAME_CATEGORY_PATTERN.test(context.categorySlug);
   const baseExcludedTokens = new Set(
     [
       ...(context.brands ?? []).flatMap(tokenize),
@@ -266,13 +268,12 @@ export function getProductModelIdentifiers(
     ].filter(
       (token) =>
         Boolean(token) &&
-        !(categoryExcludesNumericTokens && /^\d+$/u.test(token)) &&
+        !(isGameCategory && /^\d+$/u.test(token)) &&
         !protectedFamilyTokens.has(token) &&
         !MODEL_FAMILY_ALIAS_TOKENS.has(token)
     )
   );
   const brandAliasGroups = getBrandAliasGroups(context);
-  const preserveGameYears = categoryExcludesNumericTokens;
   const productSources = context.productNames?.length
     ? context.productNames
     : (context.productSlugs ?? []);
@@ -291,9 +292,7 @@ export function getProductModelIdentifiers(
             context.categorySlug
           )
         )
-        .map((tokens) =>
-          selectProductModelIdentifier(tokens, preserveGameYears)
-        )
+        .map((tokens) => selectProductModelIdentifier(tokens, isGameCategory))
         .filter((token): token is string => Boolean(token))
     )
   );

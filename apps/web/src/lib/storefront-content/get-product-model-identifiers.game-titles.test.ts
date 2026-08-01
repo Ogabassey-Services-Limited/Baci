@@ -56,6 +56,33 @@ describe('getProductModelIdentifiers game titles', () => {
     expect(identifiers).toEqual(['farcry new dawn']);
   });
 
+  it('preserves single-letter game-title tokens', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'nintendo-switch',
+      productSlugs: ['nintendo-switch-new-super-mario-bros-u-deluxe'],
+    });
+
+    expect(identifiers).toEqual(['new super mario bros u deluxe']);
+  });
+
+  it('expands compact alphanumeric game codes for guide matching', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'playstation-4',
+      productSlugs: ['ps4-fc24', 'ps4-fc25'],
+    });
+
+    expect(identifiers).toEqual(['fc 24', 'fc 25']);
+  });
+
+  it('retains consecutive numeric game-title endings', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'nintendo-switch',
+      productSlugs: ['nintendo-switch-1-2-switch'],
+    });
+
+    expect(identifiers).toEqual(['1 2']);
+  });
+
   it('preserves a sub-10-inch tablet display prefix as metadata', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'tablets',

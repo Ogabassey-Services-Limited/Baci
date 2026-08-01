@@ -26,4 +26,16 @@ describe('selectProductModelIdentifier', () => {
 
     expect(identifier).toBe('series s');
   });
+
+  it('expands compact game codes when preserving game titles', () => {
+    const identifier = selectProductModelIdentifier(['fc24'], true);
+
+    expect(identifier).toBe('fc 24');
+  });
+
+  it('keeps consecutive numeric game-title tokens', () => {
+    const identifier = selectProductModelIdentifier(['1', '2'], true);
+
+    expect(identifier).toBe('1 2');
+  });
 });
