@@ -63,6 +63,8 @@ function tokenizeModelIdentifier(identifier: string) {
 function tokenizeText(value: string | null | undefined) {
   return (value ?? '')
     .toLowerCase()
+    .replace(/[’']s\b/gu, '')
+    .replace(/\+/gu, ' plus ')
     .split(/[^a-z0-9]+/iu)
     .map((token) => token.trim())
     .filter(Boolean);

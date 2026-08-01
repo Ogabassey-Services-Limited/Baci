@@ -164,10 +164,7 @@ describe('getProductModelIdentifiers model phrases', () => {
       productSlugs: ['play-station-5-madden-23', 'play-station-5-madden-24'],
     });
 
-    expect(identifiers).toEqual([
-      'play station madden 23',
-      'play station madden 24',
-    ]);
+    expect(identifiers).toEqual(['madden 23', 'madden 24']);
   });
 
   it('preserves both numbers in a convertible model phrase', () => {

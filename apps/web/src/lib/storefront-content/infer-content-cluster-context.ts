@@ -25,6 +25,8 @@ function tokenize(values: Array<string | null | undefined>) {
       values
         .map(normalizeText)
         .join(' ')
+        .replace(/[’']s\b/gu, '')
+        .replace(/\+/gu, ' plus ')
         .split(/[^a-z0-9]+/i)
         .map((token) => token.trim())
         .filter(Boolean)

@@ -6,6 +6,7 @@ import { selectProductModelIdentifier } from './select-product-model-identifier'
 function tokenize(value: string) {
   return value
     .toLowerCase()
+    .replace(/[’']s\b/gu, '')
     .replace(/\+/gu, ' plus ')
     .split(/[^a-z0-9]+/u)
     .map((token) => token.trim())
@@ -13,7 +14,6 @@ function tokenize(value: string) {
       (token) => token.length > 1 || /\d/u.test(token) || /^[a-z]$/u.test(token)
     );
 }
-
 const SPECIFICATION_TOKEN_PATTERN =
   /^(?:ram|vram|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg))$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
@@ -33,12 +33,10 @@ const DISPLAY_SIZE_CATEGORY_SLUGS = new Set(LAPTOP_CATEGORY_SLUGS).add(
 const GAME_CATEGORY_PATTERN =
   /^(?:gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
 const LEADING_FILLER_TOKENS = new Set(['a', 'an', 'the']);
-
 interface BrandAliasGroup {
   brandTokens: string[];
   aliases: string[][];
 }
-
 function getBrandAliasGroups(
   context: Omit<BuildCommercialGuideLinksContext, 'pageKind'>
 ): BrandAliasGroup[] {
@@ -229,7 +227,9 @@ function getModelTokens(
   categorySlug: string
 ) {
   const rawTokens = normalizeProductModelTokens(
-    tokenize(slug).filter((token) => !excludedTokens.has(token)),
+    tokenize(slug.replace(/\bplay[\s-]+station\b/gu, 'playstation')).filter(
+      (token) => !excludedTokens.has(token)
+    ),
     GAME_CATEGORY_PATTERN.test(categorySlug)
   );
   const tokens = stripGeneratedCollisionSuffix(
