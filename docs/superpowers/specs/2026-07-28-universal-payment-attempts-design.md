@@ -1164,7 +1164,10 @@ never mutate it. This is the explicit privileged-DBA exception to runtime
 append-only history. A named check requires
 `revoked_at IS NULL` if and only if `revocation_reference IS NULL`; when present,
 the reference is trimmed, non-empty, and at most 512 characters. No later
-update may clear or rewrite either field.
+update may clear or rewrite either field. The companion owns the exact
+`private.payment_ingress_deployment_attestations_write_once` `BEFORE UPDATE`
+trigger guard: it permits only the first null→non-null revocation pair and
+rejects every later update or any change to either value.
 It has a redundant unique target on
 `(id, environment, manifest_sha256, attestation_sha256)` for the binding FK.
 The root, identity catalog, binding, and proof rows are populated only by that
