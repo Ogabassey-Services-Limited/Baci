@@ -2602,63 +2602,6 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
   });
 
-  it('omits the summary when the raw variant matrix has no visible rows', async () => {
-    const productWithArchivedVariant = {
-      ...categorizedDetailedProduct,
-      product_variants: [
-        {
-          archived_at: '2026-01-01T00:00:00.000Z',
-          id: 'archived-variant',
-          stock_quantity: 4,
-        } as LegacyProductVariantFixture,
-      ],
-    };
-    mockGetCachedProductLcpHint.mockResolvedValueOnce(
-      toLegacyCachedProduct(productWithArchivedVariant)
-    );
-    mockGetCachedProductWithDetails.mockResolvedValueOnce(
-      productWithArchivedVariant
-    );
-
-    const { container } = render(
-      await resolveRsc(
-        await CategoryProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'laptops',
-            productSlug: 'hp-laptop-14-ep0063nia',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      )
-    );
-
-    expect(
-      container.querySelector('[data-ogabassey-pdp-visible-summary]')
-    ).toBeNull();
-  });
-
-  it('does not render a route-level hidden description duplicate', async () => {
-    const { container } = render(
-      await resolveRsc(
-        await CategoryProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'laptops',
-            productSlug: 'hp-laptop-14-ep0063nia',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      )
-    );
-
-    expect(
-      container.querySelector(
-        'article[aria-label="HP Laptop 14-ep0063nia summary"]'
-      )
-    ).toBeNull();
-  });
-
   it('keeps visible OgaBassey product identity aligned with Product JSON-LD input', async () => {
     render(
       await resolveRsc(
@@ -2911,7 +2854,7 @@ describe('[category]/[productSlug] page render', () => {
         '<p>A <strong>premium</strong> laptop built for creators.</p>',
     });
 
-    const { container } = render(
+    render(
       await resolveRsc(
         await CategoryProductPage({
           params: Promise.resolve({
@@ -2932,11 +2875,8 @@ describe('[category]/[productSlug] page render', () => {
       '<p>A <strong>premium</strong> laptop built for creators.</p>'
     );
     expect(
-      container.querySelector('[data-ogabassey-pdp-visible-summary]')
-    ).not.toHaveTextContent('premium laptop built for creators');
-    expect(
-      container.querySelector('article[aria-label*="summary"]')
-    ).toBeNull();
+      screen.queryByText('premium laptop built for creators')
+    ).not.toBeInTheDocument();
   });
 
   it('removes stale absolute listed-price sentences before deferred PDP detail rendering', async () => {
@@ -4332,7 +4272,7 @@ describe('[category]/[productSlug] page render', () => {
       template_id: `${OGABASSEY_TEMPLATE_ID}_other`,
     });
 
-    const { container } = render(
+    render(
       await resolveRsc(
         await CategoryProductPage({
           params: Promise.resolve({
@@ -4348,14 +4288,6 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
     expect(mockPreloadOgabasseyPdpStaticResources).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
-    expect(
-      container.querySelector('[data-ogabassey-pdp-visible-summary]')
-    ).toBeNull();
-    expect(
-      container.querySelector(
-        'article[aria-label="HP Laptop 14-ep0063nia summary"]'
-      )
-    ).toHaveTextContent('A laptop');
   });
 
   it('keeps the generic product client behind the default branch loader', () => {

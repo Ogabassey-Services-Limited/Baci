@@ -38,6 +38,8 @@ const ATTESTATION_GRANT_FUNCTION_MIGRATION =
   '20260801170000_redefine_product_description_attestation_grant.sql';
 const ATTESTATION_INDEX_MIGRATION =
   '20260801180000_harden_product_description_attestation_indexes.sql';
+const ATTESTATION_INDEX_RECOVERY_MIGRATION =
+  '20260801190000_recover_product_description_attestation_indexes.sql';
 
 function rows(block: string): string[] {
   return block
@@ -91,6 +93,7 @@ describe('supabase-history-replay sources', () => {
       OPERATION_ID_SCOPE_MIGRATION,
       ATTESTATION_GRANT_FUNCTION_MIGRATION,
       ATTESTATION_INDEX_MIGRATION,
+      ATTESTATION_INDEX_RECOVERY_MIGRATION,
     ].map((migration) => PENDING_SOURCES.indexOf(migration));
     expect(migrationOrder.every((index) => index >= 0)).toBe(true);
     expect(migrationOrder).toEqual([...migrationOrder].sort((a, b) => a - b));

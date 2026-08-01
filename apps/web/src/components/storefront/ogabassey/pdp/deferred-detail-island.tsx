@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { SafeHtml } from '@/components/ui/safe-html';
 import type { Product } from '@/components/storefront/ogabassey/types';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import { OgabasseyPdpDeferredDetailClient } from './deferred-detail-island.client';
 import { OgabasseyPdpDeferredRailsIsland } from './deferred-rails-island.client';
 import { buildOgabasseyPdpDeferredProductPayload } from './deferred-product-payload';
@@ -10,6 +12,18 @@ interface OgabasseyPdpDeferredDetailIslandProps {
   semanticSections?: ReactNode;
   serverPrimaryDetails?: ReactNode;
   storeSlug: string;
+}
+
+function hasRenderableDescriptionContent(description: string) {
+  const sanitizedDescription = sanitizeHtml(description, {
+    forceLazyImages: true,
+    headingLevelOffset: 1,
+  });
+  const textContent = stripHtmlTags(sanitizedDescription)
+    .replace(/&(?:nbsp|#0*160|#x0*a0);/gi, ' ')
+    .trim();
+
+  return Boolean(textContent) || /<img(?:\s|>)/i.test(sanitizedDescription);
 }
 
 export function OgabasseyPdpDeferredDetailIsland({
@@ -26,7 +40,7 @@ export function OgabasseyPdpDeferredDetailIsland({
   // already-sanitized markup, never the sanitizer. `description` is returned
   // out-of-band (not on `tabProduct`) so the raw HTML is never serialized into
   // the client island props.
-  const descriptionSlot = description.trim() ? (
+  const descriptionSlot = hasRenderableDescriptionContent(description) ? (
     <SafeHtml
       html={description}
       forceLazyImages

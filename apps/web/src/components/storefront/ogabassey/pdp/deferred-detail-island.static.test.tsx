@@ -40,6 +40,32 @@ describe('OgabasseyPdpDeferredDetailIsland source HTML', () => {
     expect(sourceHtml).toContain('data-testid="deferred-product-details-placeholder"');
   });
 
+  it('does not emit a description panel for markup with no renderable content', () => {
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland
+        product={{ ...product, description: '<p><br /></p>' }}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(sourceHtml).not.toContain(
+      'data-ogabassey-pdp-deferred-description-container'
+    );
+  });
+
+  it('does not emit a description panel when sanitization removes the content', () => {
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland
+        product={{ ...product, description: '<script>alert(1)</script>' }}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(sourceHtml).not.toContain(
+      'data-ogabassey-pdp-deferred-description-container'
+    );
+  });
+
   it('lazy-loads images in the initial server-rendered description handoff', () => {
     const sourceHtml = renderToStaticMarkup(
       <OgabasseyPdpDeferredDetailIsland

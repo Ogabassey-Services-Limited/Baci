@@ -27,4 +27,9 @@ export const ATTESTATION_ISSUANCE_PENDING_SOURCES = [
       'supabase/migrations/20260801180000_harden_product_description_attestation_indexes.sql',
     sha256: '61743616a53b433da87eee5276a8ebd0d44ad6000e4dd23afbff23b6425dd587',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260801190000_recover_product_description_attestation_indexes.sql',
+    sha256: '8095fb3fd570ff29c035af40044b231101e77a8f544a242347b0bb81514364d2',
+  },
 ] as const;

@@ -51,5 +51,6 @@ describe('OgabasseyPdpCriticalShell visible summary', () => {
         summary
       )
     ).toBe(false);
+    expect(container.querySelector('article[aria-label*="summary"]')).toBeNull();
   });
 });
