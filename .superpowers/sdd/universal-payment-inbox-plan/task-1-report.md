@@ -5,7 +5,7 @@
 - `supabase/migrations/20260801150000_payment_webhook_evidence_foundation.sql`
   creates only the three sealed private evidence relations plus the approved
   generation binding unique target. The final SHA-256 is
-  `6b76ece9b86713f00552a11d9e942b73dd0c8893e958466314bdbf2766058321`.
+  `c773655eb4d64e0e7c02a655d7299ec2b23f157e6d0f80f8f8dc49dae7664b80`.
 - `supabase/migrations/tests/payment_webhook_evidence_foundation.sql` provides
   the transactional catalog, ACL/RLS, closed-JSON, FK/cycle, uniqueness,
   retention, prerequisite, and rollback assertions without asserting
@@ -41,6 +41,24 @@
 - `pnpm turbo lint` passed (existing warnings only) and `pnpm turbo typecheck`
   passed.
 
+## Design-amendment replay hardening
+
+- RED: the new source contract failed against the approved prior head because
+  all four named leading-key foreign-key indexes were absent; after adding the
+  index DDL it also rejected the missing relation-scoped catalog metadata.
+- GREEN: a clean disposable PostgreSQL replay with the foundation and full
+  companion applied the amended migration and passed the SQL contract. The
+  contract now seals ordered `pg_attribute` type/nullability metadata,
+  `pg_attrdef` defaults, relation-scoped `pg_constraint.conrelid` names, exact
+  normalized FK definitions (including column order, targets, delete actions,
+  and deferrability), critical CHECK/UNIQUE definitions, and the four approved
+  FK indexes (key order, uniqueness, and partial predicate).
+- The fixture calls `SET CONSTRAINTS ALL IMMEDIATE` before retention assertions
+  and, after `ROLLBACK`, proves the identity, generation, inbox, manifest, and
+  proof fixtures are gone while the private evidence relations and index remain.
+- The pending source count remains 78; both source-hash registry mirrors were
+  atomically refreshed for the amended migration.
+
 ## Limitations
 
 - Full local Supabase chronological bootstrap is blocked by an unrelated,
@@ -48,9 +66,10 @@
   `20260525140048_quiz_authoritative_answer_scoring.sql` at
   `extract(epoch FROM ...)`; it occurs before either prerequisite. It is not
   counted as RED-B or as a migration failure.
-- The broader `verify-supabase-history-replay-manifest.test.ts` did not emit a
-  result before its Vitest runner stalled, so it was terminated; the two direct
-  replay manifest/source contracts above passed.
+- A full `pnpm turbo test` attempt ran the monorepo suites but did not emit a
+  terminal result after 77 seconds while the confirmed `@baci/web:test`
+  `vitest run` process remained active; that owned process tree was terminated.
+  The focused replay manifest/source contracts passed independently.
 - This slice intentionally does not enforce digest equality, append-only
   behavior, cross-row child conservation/projection, status transitions,
   review binding, or any order/financial authority. Those remain guarded-writer

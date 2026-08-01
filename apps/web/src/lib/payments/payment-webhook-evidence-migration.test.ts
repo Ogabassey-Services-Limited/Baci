@@ -8,6 +8,10 @@ const migrationPath = resolve(
   process.cwd(),
   `../../supabase/migrations/${migrationFilename}`
 );
+const replayContractPath = resolve(
+  process.cwd(),
+  '../../supabase/migrations/tests/payment_webhook_evidence_foundation.sql'
+);
 
 function readMigration() {
   return readFileSync(migrationPath, 'utf8');
@@ -72,5 +76,32 @@ describe('payment webhook evidence foundation migration', () => {
     expect(migrationSql).not.toMatch(/CREATE\s+TRIGGER/i);
     expect(migrationSql).not.toMatch(/CREATE\s+POLICY/i);
     expect(migrationSql).not.toMatch(/GRANT\s+/i);
+  });
+
+  it('indexes every new foreign-key referencing path without changing authority', () => {
+    const migrationSql = readMigration();
+
+    for (const definition of [
+      'CREATE INDEX payment_webhook_source_manifests_generation_idx\n  ON private.payment_webhook_source_manifests (ingress_contract_generation_id, id);',
+      'CREATE INDEX payment_webhook_inbox_generation_idx\n  ON private.payment_webhook_inbox (ingress_contract_generation_id, id);',
+      'CREATE INDEX payment_webhook_inbox_source_manifest_idx\n  ON private.payment_webhook_inbox (source_manifest_id, id);',
+      'CREATE INDEX payment_webhook_source_manifests_inbox_idx\n  ON private.payment_webhook_source_manifests (inbox_id, id)\n  WHERE inbox_id IS NOT NULL;',
+    ]) {
+      expect(migrationSql).toContain(definition);
+    }
+  });
+
+  it('requires relation-scoped catalog checks and post-rollback fixture absence', () => {
+    const replayContractSql = readFileSync(replayContractPath, 'utf8');
+
+    expect(replayContractSql).toContain('pg_attribute');
+    expect(replayContractSql).toContain('pg_attrdef');
+    expect(replayContractSql).toContain('pg_get_constraintdef');
+    expect(replayContractSql).toContain('conrelid');
+    expect(replayContractSql).toContain('SET CONSTRAINTS ALL IMMEDIATE;');
+    expect(replayContractSql).toMatch(/ROLLBACK;\s+DO \$\$/);
+    expect(replayContractSql).toContain(
+      'fixture identity row survived rollback'
+    );
   });
 });

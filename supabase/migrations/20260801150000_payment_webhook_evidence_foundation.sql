@@ -181,6 +181,9 @@ CREATE INDEX payment_webhook_source_manifests_provider_account_idx
     provider, provider_account_scope, created_at, id
   );
 
+CREATE INDEX payment_webhook_source_manifests_generation_idx
+  ON private.payment_webhook_source_manifests (ingress_contract_generation_id, id);
+
 CREATE TABLE private.payment_webhook_inbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider text NOT NULL,
@@ -427,6 +430,12 @@ CREATE TABLE private.payment_webhook_inbox (
 CREATE INDEX payment_webhook_inbox_processing_idx
   ON private.payment_webhook_inbox (processing_status, received_at, id);
 
+CREATE INDEX payment_webhook_inbox_generation_idx
+  ON private.payment_webhook_inbox (ingress_contract_generation_id, id);
+
+CREATE INDEX payment_webhook_inbox_source_manifest_idx
+  ON private.payment_webhook_inbox (source_manifest_id, id);
+
 ALTER TABLE private.payment_webhook_source_manifests
   ADD CONSTRAINT payment_webhook_source_manifests_inbox_fkey
   FOREIGN KEY (
@@ -440,6 +449,10 @@ ALTER TABLE private.payment_webhook_source_manifests
     signature_key_identity_id, ingress_contract_generation, adapter_schema_version,
     normalized_envelope_schema_version, replay_identity_contract_version
   ) ON DELETE SET NULL (inbox_id) DEFERRABLE INITIALLY DEFERRED;
+
+CREATE INDEX payment_webhook_source_manifests_inbox_idx
+  ON private.payment_webhook_source_manifests (inbox_id, id)
+  WHERE inbox_id IS NOT NULL;
 
 CREATE TABLE private.payment_webhook_source_proofs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

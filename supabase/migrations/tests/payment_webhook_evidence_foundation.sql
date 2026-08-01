@@ -161,6 +161,51 @@ BEGIN
     RAISE EXCEPTION 'payment webhook source proof columns do not match the frozen contract: %', v_missing_column;
   END IF;
 
+  -- `information_schema` above confirms the public names; this catalog-level
+  -- matrix seals physical order, rendered type names, and nullability as well.
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        (
+          'payment_webhook_inbox',
+          ARRAY['id','provider','endpoint_key','signature_key_scope','completion_authority_key','signature_key_identity_id','ingress_contract_generation_id','ingress_contract_generation','adapter_schema_version','normalized_envelope_schema_version','replay_identity_contract_version','replay_key_kind','replay_key_digest','replay_key_preimage','ingress_scope_snapshot','normalized_envelope','normalized_envelope_sha256','raw_body_sha256','event_type','provider_reference','amount_minor','currency','provider_paid_at','provider_received_at','verified_at','merchant_id','provider_account_scope','source_manifest_id','capture_mode','child_manifest_sha256','child_count','manifest_amount_minor','manifest_currency','processing_status','processing_attempt_count','last_error','processed_at','claim_installed_child_count','no_safe_order_claim_child_count','late_ingress_child_count','not_order_protecting_child_count','intake_protection_complete','received_at','created_at','updated_at']::text[],
+          ARRAY['uuid','text','text','text','text','uuid','uuid','bigint','text','text','text','text','text','jsonb','jsonb','jsonb','text','text','text','text','bigint','text','timestamp with time zone','timestamp with time zone','timestamp with time zone','uuid','text','uuid','text','text','integer','bigint','text','text','integer','text','timestamp with time zone','integer','integer','integer','integer','boolean','timestamp with time zone','timestamp with time zone','timestamp with time zone']::text[],
+          ARRAY[true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,false,false,false,true,false,false,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true]::boolean[]
+        ),
+        (
+          'payment_webhook_source_manifests',
+          ARRAY['id','inbox_id','provider','endpoint_key','signature_key_scope','completion_authority_key','signature_key_identity_id','ingress_contract_generation_id','ingress_contract_generation','adapter_schema_version','normalized_envelope_schema_version','replay_identity_contract_version','replay_key_kind','replay_key_digest','replay_key_preimage','ingress_scope_snapshot','merchant_id','provider_account_scope','capture_mode','child_manifest_sha256','child_count','amount_minor','currency','contract_bound_minor','redacted_parent_source_identity','created_at']::text[],
+          ARRAY['uuid','uuid','text','text','text','text','uuid','uuid','bigint','text','text','text','text','text','jsonb','jsonb','uuid','text','text','text','integer','bigint','text','bigint','jsonb','timestamp with time zone']::text[],
+          ARRAY[true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true]::boolean[]
+        ),
+        (
+          'payment_webhook_source_proofs',
+          ARRAY['id','source_manifest_id','child_identity','child_ordinal','child_reference','capture_identity','amount_minor','currency','provider_paid_at','paid_time_precision','child_sha256','intake_decision','decided_at','decision_reason_code','review_scope_kind','review_id','created_at']::text[],
+          ARRAY['uuid','uuid','text','integer','text','text','bigint','text','timestamp with time zone','text','text','text','timestamp with time zone','text','text','uuid','timestamp with time zone']::text[],
+          ARRAY[true,true,true,true,false,true,true,true,false,true,true,true,true,true,true,false,true]::boolean[]
+        )
+    ) AS expected(table_name, column_names, type_names, not_null)
+    LEFT JOIN pg_class relation ON relation.relname = expected.table_name
+    LEFT JOIN pg_namespace schema ON schema.oid = relation.relnamespace
+    LEFT JOIN LATERAL (
+      SELECT
+        array_agg(attribute.attname::text ORDER BY attribute.attnum) AS column_names,
+        array_agg(format_type(attribute.atttypid, attribute.atttypmod) ORDER BY attribute.attnum) AS type_names,
+        array_agg(attribute.attnotnull ORDER BY attribute.attnum) AS not_null
+      FROM pg_attribute attribute
+      WHERE attribute.attrelid = relation.oid
+        AND attribute.attnum > 0
+        AND NOT attribute.attisdropped
+    ) AS actual ON true
+    WHERE schema.nspname IS DISTINCT FROM 'private'
+      OR actual.column_names IS DISTINCT FROM expected.column_names
+      OR actual.type_names IS DISTINCT FROM expected.type_names
+      OR actual.not_null IS DISTINCT FROM expected.not_null
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence columns do not match the ordered relation-scoped catalog contract';
+  END IF;
+
   SELECT expected.name INTO v_missing_constraint
   FROM (
     VALUES
@@ -192,6 +237,16 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conname = expected.name
+      AND (
+        (expected.name = 'payment_ingress_contract_generations_evidence_binding_key'
+          AND conrelid = 'private.payment_ingress_contract_generations'::regclass)
+        OR (expected.name LIKE 'payment_webhook_inbox_%'
+          AND conrelid = 'private.payment_webhook_inbox'::regclass)
+        OR (expected.name LIKE 'payment_webhook_source_manifests_%'
+          AND conrelid = 'private.payment_webhook_source_manifests'::regclass)
+        OR (expected.name LIKE 'payment_webhook_source_proofs_%'
+          AND conrelid = 'private.payment_webhook_source_proofs'::regclass)
+      )
   )
   LIMIT 1;
 
@@ -207,16 +262,107 @@ BEGIN
       ('payment_webhook_source_manifests_inbox_target_uq'), ('payment_webhook_source_manifests_binding_uq'),
       ('payment_webhook_source_manifests_currency_target_uq'),
       ('payment_webhook_source_manifests_provider_account_idx'),
+      ('payment_webhook_source_manifests_generation_idx'),
       ('payment_webhook_source_proofs_manifest_child_uq'),
       ('payment_webhook_source_proofs_manifest_ordinal_uq'),
       ('payment_webhook_source_proofs_manifest_capture_uq'),
-      ('payment_webhook_source_proofs_decision_idx')
+      ('payment_webhook_source_proofs_decision_idx'),
+      ('payment_webhook_inbox_generation_idx'),
+      ('payment_webhook_inbox_source_manifest_idx'),
+      ('payment_webhook_source_manifests_inbox_idx')
   ) AS expected(name)
   WHERE NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = expected.name)
   LIMIT 1;
 
   IF v_missing_index IS NOT NULL THEN
     RAISE EXCEPTION 'payment webhook evidence index is missing: %', v_missing_index;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_webhook_source_manifests_generation_idx', 'payment_webhook_source_manifests', ARRAY['ingress_contract_generation_id', 'id']::text[], false, NULL::text),
+        ('payment_webhook_inbox_generation_idx', 'payment_webhook_inbox', ARRAY['ingress_contract_generation_id', 'id']::text[], false, NULL::text),
+        ('payment_webhook_inbox_source_manifest_idx', 'payment_webhook_inbox', ARRAY['source_manifest_id', 'id']::text[], false, NULL::text),
+        ('payment_webhook_source_manifests_inbox_idx', 'payment_webhook_source_manifests', ARRAY['inbox_id', 'id']::text[], false, '(inbox_id IS NOT NULL)'::text)
+    ) AS expected(index_name, table_name, key_columns, is_unique, predicate)
+    LEFT JOIN pg_class index_relation
+      ON index_relation.relname = expected.index_name
+    LEFT JOIN pg_index index_catalog
+      ON index_catalog.indexrelid = index_relation.oid
+    LEFT JOIN pg_class table_relation
+      ON table_relation.oid = index_catalog.indrelid
+    LEFT JOIN pg_namespace table_namespace
+      ON table_namespace.oid = table_relation.relnamespace
+    LEFT JOIN LATERAL (
+      SELECT array_agg(attribute.attname::text ORDER BY key_columns.ordinality) AS names
+      FROM unnest(index_catalog.indkey) WITH ORDINALITY AS key_columns(attnum, ordinality)
+      JOIN pg_attribute attribute
+        ON attribute.attrelid = table_relation.oid
+        AND attribute.attnum = key_columns.attnum
+    ) AS actual_keys ON true
+    WHERE table_namespace.nspname IS DISTINCT FROM 'private'
+      OR table_relation.relname IS DISTINCT FROM expected.table_name
+      OR index_catalog.indisunique IS DISTINCT FROM expected.is_unique
+      OR actual_keys.names IS DISTINCT FROM expected.key_columns
+      OR COALESCE(pg_get_expr(index_catalog.indpred, index_catalog.indrelid), NULL) IS DISTINCT FROM expected.predicate
+  ) THEN
+    RAISE EXCEPTION 'payment webhook FK index metadata does not match the sealed relation-scoped contract';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_webhook_inbox', 'id', 'gen_random_uuid()'),
+        ('payment_webhook_inbox', 'processing_status', '''received''::text'),
+        ('payment_webhook_inbox', 'processing_attempt_count', '0'),
+        ('payment_webhook_inbox', 'claim_installed_child_count', '0'),
+        ('payment_webhook_inbox', 'no_safe_order_claim_child_count', '0'),
+        ('payment_webhook_inbox', 'late_ingress_child_count', '0'),
+        ('payment_webhook_inbox', 'not_order_protecting_child_count', '0'),
+        ('payment_webhook_inbox', 'intake_protection_complete', 'false'),
+        ('payment_webhook_inbox', 'received_at', 'now()'),
+        ('payment_webhook_inbox', 'created_at', 'now()'),
+        ('payment_webhook_inbox', 'updated_at', 'now()'),
+        ('payment_webhook_source_manifests', 'id', 'gen_random_uuid()'),
+        ('payment_webhook_source_manifests', 'created_at', 'now()'),
+        ('payment_webhook_source_proofs', 'id', 'gen_random_uuid()'),
+        ('payment_webhook_source_proofs', 'created_at', 'now()')
+    ) AS expected(table_name, column_name, default_expression)
+    LEFT JOIN pg_class relation ON relation.relname = expected.table_name
+    LEFT JOIN pg_namespace schema ON schema.oid = relation.relnamespace
+    LEFT JOIN pg_attribute attribute
+      ON attribute.attrelid = relation.oid
+      AND attribute.attname = expected.column_name
+      AND attribute.attnum > 0
+      AND NOT attribute.attisdropped
+    LEFT JOIN pg_attrdef default_value
+      ON default_value.adrelid = relation.oid
+      AND default_value.adnum = attribute.attnum
+    WHERE schema.nspname IS DISTINCT FROM 'private'
+      OR pg_get_expr(default_value.adbin, default_value.adrelid) IS DISTINCT FROM expected.default_expression
+  ) OR EXISTS (
+    SELECT 1
+    FROM pg_attrdef default_value
+    JOIN pg_class relation ON relation.oid = default_value.adrelid
+    JOIN pg_namespace schema ON schema.oid = relation.relnamespace
+    JOIN pg_attribute attribute
+      ON attribute.attrelid = relation.oid AND attribute.attnum = default_value.adnum
+    WHERE schema.nspname = 'private'
+      AND relation.relname IN ('payment_webhook_inbox', 'payment_webhook_source_manifests', 'payment_webhook_source_proofs')
+      AND (relation.relname, attribute.attname) NOT IN (
+        ('payment_webhook_inbox', 'id'), ('payment_webhook_inbox', 'processing_status'),
+        ('payment_webhook_inbox', 'processing_attempt_count'), ('payment_webhook_inbox', 'claim_installed_child_count'),
+        ('payment_webhook_inbox', 'no_safe_order_claim_child_count'), ('payment_webhook_inbox', 'late_ingress_child_count'),
+        ('payment_webhook_inbox', 'not_order_protecting_child_count'), ('payment_webhook_inbox', 'intake_protection_complete'),
+        ('payment_webhook_inbox', 'received_at'), ('payment_webhook_inbox', 'created_at'), ('payment_webhook_inbox', 'updated_at'),
+        ('payment_webhook_source_manifests', 'id'), ('payment_webhook_source_manifests', 'created_at'),
+        ('payment_webhook_source_proofs', 'id'), ('payment_webhook_source_proofs', 'created_at')
+      )
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence defaults do not match the relation-scoped contract';
   END IF;
 END;
 $$;
@@ -255,23 +401,52 @@ BEGIN
     RAISE EXCEPTION 'payment webhook evidence comments do not match the sealed contract';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'payment_webhook_inbox_source_manifest_fkey'
-      AND condeferrable AND condeferred
-      AND pg_get_constraintdef(oid) LIKE '%ON DELETE RESTRICT%'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'payment_webhook_source_manifests_inbox_fkey'
-      AND condeferrable AND condeferred
-      AND pg_get_constraintdef(oid) LIKE '%ON DELETE SET NULL (inbox_id)%'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'payment_webhook_source_proofs_currency_fkey'
-      AND condeferrable AND condeferred
-      AND pg_get_constraintdef(oid) LIKE '%REFERENCES private.payment_webhook_source_manifests(id, currency)%'
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_generation_fkey', 'FOREIGN KEY (ingress_contract_generation_id, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) REFERENCES private.payment_ingress_contract_generations(id, provider, endpoint_key, signature_key_scope, authority_key, signature_key_identity_id, generation, parser_contract_version, normalized_envelope_schema_version, replay_identity_contract_version) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_generation_fkey', 'FOREIGN KEY (ingress_contract_generation_id, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) REFERENCES private.payment_ingress_contract_generations(id, provider, endpoint_key, signature_key_scope, authority_key, signature_key_identity_id, generation, parser_contract_version, normalized_envelope_schema_version, replay_identity_contract_version) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_source_manifest_fkey', 'FOREIGN KEY (source_manifest_id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) REFERENCES private.payment_webhook_source_manifests(id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_fkey', 'FOREIGN KEY (inbox_id, id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) REFERENCES private.payment_webhook_inbox(id, source_manifest_id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) ON DELETE SET NULL (inbox_id) DEFERRABLE INITIALLY DEFERRED'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_fkey', 'FOREIGN KEY (source_manifest_id) REFERENCES private.payment_webhook_source_manifests(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_currency_fkey', 'FOREIGN KEY (source_manifest_id, currency) REFERENCES private.payment_webhook_source_manifests(id, currency) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED')
+    ) AS expected(table_name, constraint_name, definition)
+    LEFT JOIN pg_constraint constraint_catalog
+      ON constraint_catalog.conrelid = ('private.' || expected.table_name)::regclass
+      AND constraint_catalog.conname = expected.constraint_name
+      AND constraint_catalog.contype = 'f'
+    WHERE NOT constraint_catalog.condeferrable
+      OR NOT constraint_catalog.condeferred
+      OR regexp_replace(pg_get_constraintdef(constraint_catalog.oid), '\s+', ' ', 'g') IS DISTINCT FROM expected.definition
   ) THEN
-    RAISE EXCEPTION 'payment webhook evidence foreign keys do not match the deferred retention contract';
+    RAISE EXCEPTION 'payment webhook evidence foreign keys do not match the normalized relation-scoped deferred retention contract';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_ingress_contract_generations', 'payment_ingress_contract_generations_evidence_binding_key', 'UNIQUE (id, provider, endpoint_key, signature_key_scope, authority_key, signature_key_identity_id, generation, parser_contract_version, normalized_envelope_schema_version, replay_identity_contract_version)'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_replay_key_uq', 'UNIQUE (replay_key_kind, replay_key_digest)'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_manifest_binding_uq', 'UNIQUE (id, source_manifest_id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version)'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_key_uq', 'UNIQUE (replay_key_kind, replay_key_digest)'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_target_uq', 'UNIQUE (id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version)'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_binding_uq', 'UNIQUE (id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version, currency)'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_currency_target_uq', 'UNIQUE (id, currency)'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_child_uq', 'UNIQUE (source_manifest_id, child_identity)'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_ordinal_uq', 'UNIQUE (source_manifest_id, child_ordinal)'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_capture_uq', 'UNIQUE (source_manifest_id, capture_identity)'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_amount_currency_check', 'CHECK ((((amount_minor IS NULL) AND (currency IS NULL)) OR ((amount_minor IS NOT NULL) AND (currency IS NOT NULL) AND (amount_minor > 0) AND (currency ~ ''^[A-Z]{3}$''::text))))'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_economics_check', 'CHECK ((((provider_account_scope IS NULL) OR ((provider_account_scope = btrim(provider_account_scope)) AND (provider_account_scope <> ''''::text) AND (char_length(provider_account_scope) <= 255))) AND (adapter_schema_version = btrim(adapter_schema_version)) AND (adapter_schema_version <> ''''::text) AND (char_length(adapter_schema_version) <= 255) AND (normalized_envelope_schema_version = btrim(normalized_envelope_schema_version)) AND (normalized_envelope_schema_version <> ''''::text) AND (char_length(normalized_envelope_schema_version) <= 255) AND (replay_identity_contract_version = btrim(replay_identity_contract_version)) AND (replay_identity_contract_version <> ''''::text) AND (char_length(replay_identity_contract_version) <= 255) AND (capture_mode = ANY (ARRAY[''singleton''::text, ''bounded_multi_capture''::text])) AND (child_manifest_sha256 ~ ''^[0-9a-f]{64}$''::text) AND ((child_count >= 1) AND (child_count <= 64)) AND ((capture_mode <> ''singleton''::text) OR (child_count = 1)) AND (amount_minor > 0) AND (currency ~ ''^[A-Z]{3}$''::text) AND (contract_bound_minor > 0)))'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_decision_shape_check', 'CHECK ((((intake_decision = ANY (ARRAY[''claim_installed''::text, ''not_order_protecting''::text])) AND (review_scope_kind = ''none''::text) AND (review_id IS NULL)) OR ((intake_decision = ANY (ARRAY[''no_safe_order_claim''::text, ''late_ingress''::text])) AND (review_scope_kind = ANY (ARRAY[''merchant_reconciliation''::text, ''global_quarantine''::text])) AND (review_id IS NOT NULL))))')
+    ) AS expected(table_name, constraint_name, definition)
+    LEFT JOIN pg_constraint constraint_catalog
+      ON constraint_catalog.conrelid = ('private.' || expected.table_name)::regclass
+      AND constraint_catalog.conname = expected.constraint_name
+    WHERE regexp_replace(pg_get_constraintdef(constraint_catalog.oid), '\s+', ' ', 'g') IS DISTINCT FROM expected.definition
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence critical CHECK or UNIQUE definition differs from the normalized relation-scoped contract';
   END IF;
 
   INSERT INTO private.payment_ingress_signature_key_identities (
@@ -592,3 +767,51 @@ END;
 $$;
 
 ROLLBACK;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM private.payment_ingress_signature_key_identities
+    WHERE id = '10000000-0000-4000-8000-000000000002'
+  ) THEN
+    RAISE EXCEPTION 'fixture identity row survived rollback';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM private.payment_ingress_contract_generations
+    WHERE id = '10000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'fixture generation row survived rollback';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM private.payment_webhook_inbox
+    WHERE id = '30000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'fixture inbox row survived rollback';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM private.payment_webhook_source_manifests
+    WHERE id = '20000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'fixture manifest row survived rollback';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM private.payment_webhook_source_proofs
+    WHERE id = '40000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'fixture proof row survived rollback';
+  END IF;
+  IF to_regclass('private.payment_webhook_inbox') IS NULL
+    OR to_regclass('private.payment_webhook_source_manifests') IS NULL
+    OR to_regclass('private.payment_webhook_source_proofs') IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM pg_class index_relation
+      JOIN pg_namespace schema ON schema.oid = index_relation.relnamespace
+      WHERE schema.nspname = 'private'
+        AND index_relation.relname = 'payment_webhook_inbox_generation_idx'
+    )
+  THEN
+    RAISE EXCEPTION 'migration catalog did not remain after fixture rollback';
+  END IF;
+END;
+$$;
