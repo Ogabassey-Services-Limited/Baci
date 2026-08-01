@@ -162,7 +162,17 @@ scan_systemd_consumers() {
 scan_container_rows() {
   scope=$1; raw=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$raw"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$raw"; fi || { status=$?; rm -f "$raw"; return "$status"; }
   # shellcheck disable=SC2094 # The open snapshot descriptor remains readable if error cleanup unlinks its pathname.
-  while IFS= read -r id || [ -n "$id" ]; do [ -n "$id" ] || continue; line=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Mounts}} {{json .NetworkSettings.Networks}}' "$id") || { status=$?; rm -f "$raw"; return "$status"; }; case "$line" in *" /$CONTAINER "*) ;; *) printf '%s' "$line" | /usr/bin/grep -Eqi 'ollama|11434' && printf '%s\n' "$line";; esac; done <"$raw"; rm -f "$raw"
+  while IFS= read -r id || [ -n "$id" ]; do
+    [ -n "$id" ] || continue
+    attempt=0
+    while :; do
+      if line=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Mounts}} {{json .NetworkSettings.Networks}}' "$id"); then
+        case "$line" in *" /$CONTAINER "*) ;; *) printf '%s' "$line" | /usr/bin/grep -Eqi 'ollama|11434' && printf '%s\n' "$line";; esac
+        break
+      fi
+      status=$?; [ "$attempt" -eq 0 ] || { fresh=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$fresh"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$fresh"; fi || { rm -f "$raw" "$fresh"; return "$status"; }; if grep -Fqx -- "$id" "$fresh"; then rm -f "$raw" "$fresh"; return "$status"; fi; rm -f "$fresh"; break; }; attempt=$((attempt + 1))
+    done
+  done <"$raw"; rm -f "$raw"
 }
 scan_container_definitions() { scan_container_rows all; }
 scan_running_containers() { scan_container_rows running; }

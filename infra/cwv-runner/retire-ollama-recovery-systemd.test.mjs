@@ -185,6 +185,31 @@ test('parses systemd EnvironmentFiles annotations and preserves optionality', as
   }
 });
 
+test('parses systemd EnvironmentFile comments, continuations, and quoted values', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-ollama-recovery-environment-')
+  );
+  const environment = join(directory, 'ollama.env');
+  try {
+    await writeFile(
+      environment,
+      '; systemd comment\n# shell-style comment\nOLLAMA_HOST="http://127.0.0.1:11434"\nOLLAMA_MODELS=/var/lib/ollama\\\n/models\nOLLAMA_ARGS="serve \\\n--port=11434"\n'
+    );
+    const { stdout } = await shell(
+      'recovery_record_path() { :; }; record_dependency() { printf "%s=%s\\n" "$1" "$2"; }; init_temp_root; trap cleanup_temp EXIT; recovery_record_environment "$2" 0',
+      {},
+      [environment]
+    );
+    assert.deepEqual(stdout.trim().split('\n'), [
+      'environment:OLLAMA_HOST=http://127.0.0.1:11434',
+      'environment:OLLAMA_MODELS=/var/lib/ollama/models',
+      'environment:OLLAMA_ARGS=serve --port=11434',
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('rejects unknown or contradictory systemd EnvironmentFiles annotations', async () => {
   const bin = await testBin();
   try {

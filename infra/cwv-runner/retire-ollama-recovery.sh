@@ -61,12 +61,11 @@ recovery_record_path() {
     path_sha=$(hash_text "$path"); RECOVERY_RECORDS=$(/usr/bin/jq -cn --argjson old "$RECOVERY_RECORDS" --arg class "$class" --arg path "$path_sha" '$old + [{class:$class,state:"absent",pathSha256:$path}]') || die 'recovery absent reference serialization failed'
   fi
 }
+recovery_environment_complete() { /usr/bin/printf '%s\n' "$1" | awk 'BEGIN{sq=0;dq=0;esc=0} {for(i=1;i<=length($0);i++){c=substr($0,i,1);if(esc){esc=0;continue};if(c=="\\"){esc=1;continue};if(c=="\""&&!sq)dq=!dq;else if(c=="\047"&&!dq)sq=!sq}} END{exit(sq||dq)}'; }
+recovery_environment_continues() { /usr/bin/printf '%s\n' "$1" | awk '{n=0;for(i=length($0);i>0&&substr($0,i,1)=="\\";i--)n++;exit(n%2?0:1)}'; }
 recovery_record_environment() {
-  path=$1; optional=$2; recovery_record_path environment-file "$path" "$optional"
-  [ -f "$path" ] && [ ! -L "$path" ] || [ "$optional" -eq 1 ] || die 'required recovery environment file missing'
-  [ -f "$path" ] || return 0
-  # shellcheck disable=SC2094 # record_dependency only appends to the in-memory receipt.
-  while IFS= read -r line || [ -n "$line" ]; do case "$line" in ''|'#'*) continue;; *=*) record_dependency "environment:${line%%=*}" "${line#*=}" "$path";; *) die 'malformed recovery EnvironmentFile';; esac; done <"$path"
+  path=$1; optional=$2; recovery_record_path environment-file "$path" "$optional"; [ -f "$path" ] && [ ! -L "$path" ] || [ "$optional" -eq 1 ] || die 'required recovery environment file missing'; [ -f "$path" ] || return 0; pending=''
+  while IFS= read -r line || [ -n "$line" ]; do [ -n "$pending" ] || { case "$line" in *[![:space:]]*) line=${line#"${line%%[![:space:]]*}"};; *) continue;; esac; case "$line" in '#'*|';'*) continue;; esac; }; pending=$pending$line; recovery_environment_continues "$line" && { pending=${pending%\\}; continue; }; recovery_environment_complete "$pending" && { case "$pending" in *=*) key=${pending%%=*}; value=${pending#*=};; *) die 'malformed recovery EnvironmentFile';; esac; case "$key" in ''|*[!A-Za-z_0-9]*|[0-9]*) die 'malformed recovery EnvironmentFile';; esac; case "$value" in \"*\") value=${value#\"}; value=${value%\"};; \'*\') value=${value#\'}; value=${value%\'};; esac; record_dependency "environment:$key" "$value" "$path"; pending=''; }; done <"$path"; [ -z "$pending" ] || die 'malformed recovery EnvironmentFile'
 }
 recovery_process_identity() {
   pid=$1; recovery_safe_int "$pid" || die 'invalid process pid'
@@ -229,23 +228,18 @@ recovery_container_snapshot() {
     fi
     rm -f "$json" "$error"; die "recovery container inspection failed ($status)"
   fi; rm -f "$error"
-  /usr/bin/jq -e '
-    type == "object" and .Name == "/ollama-loopback" and
-    (.Id|type == "string" and test("^[0-9a-f]{64}$")) and
-    (.Image|type == "string" and test("^sha256:[0-9a-f]{64}$")) and
-    (.Path|type == "string" and test("^/[A-Za-z0-9._+@/-]*ollama$")) and
-    (.State|type == "object") and (.State.Running == true) and
-    (.State.Pid|type == "number" and floor == . and . > 0)
-  ' "$json" >/dev/null || { rm -f "$json"; die 'invalid recovery container snapshot'; }
-  id=$(/usr/bin/jq -er '.Id' "$json"); image=$(/usr/bin/jq -er '.Image' "$json"); path=$(/usr/bin/jq -er '.Path' "$json"); pid=$(/usr/bin/jq -er '.State.Pid' "$json")
+  /usr/bin/jq -e 'type == "object" and .Name == "/ollama-loopback" and (.Id|type == "string" and test("^[0-9a-f]{64}$")) and (.Image|type == "string" and test("^sha256:[0-9a-f]{64}$")) and (.Path|type == "string" and test("^/[A-Za-z0-9._+@/-]*ollama$")) and (.State|type == "object") and (.State.Running|type == "boolean") and (.State.Pid|type == "number" and floor == . and . >= 0) and ((.State.Running and .State.Pid > 0) or ((.State.Running|not) and .State.Pid == 0))' "$json" >/dev/null || { rm -f "$json"; die 'invalid recovery container snapshot'; }
+  id=$(/usr/bin/jq -er '.Id' "$json"); image=$(/usr/bin/jq -er '.Image' "$json"); path=$(/usr/bin/jq -er '.Path' "$json"); pid=$(/usr/bin/jq -er '.State.Pid' "$json"); running=$(/usr/bin/jq -r '.State.Running' "$json")
   config_file=$(temp_path); /usr/bin/jq -S -c '{Config,HostConfig,Mounts,Networks:.NetworkSettings.Networks}' "$json" >"$config_file" || die 'recovery container config failed'; config=$(sha "$config_file"); rm -f "$config_file"
   ports_file=$(temp_path); /usr/bin/jq -S '{HostConfig:{PortBindings:.HostConfig.PortBindings},NetworkSettings:{Ports:.NetworkSettings.Ports,Networks:.NetworkSettings.Networks}}' "$json" >"$ports_file" || die 'recovery container ports failed'; ports_sha=$(sha "$ports_file")
-  identity=$(recovery_process_identity "$pid"); IFS=' ' read -r cgroup namespace extra <<EOF
+  cgroup=; namespace=; state=stopped
+  if [ "$running" = true ]; then identity=$(recovery_process_identity "$pid"); IFS=' ' read -r cgroup namespace extra <<EOF
 $identity
 EOF
-  [ -z "${extra:-}" ] && [ -n "$cgroup" ] && [ -n "$namespace" ] || die 'invalid container process identity'
-  RECOVERY_CONTAINER_STATE=present RECOVERY_CONTAINER_COMMAND_PATH=$path RECOVERY_CONTAINER_PID=$pid RECOVERY_CONTAINER_CGROUP=$cgroup RECOVERY_CONTAINER_NAMESPACE=$namespace RECOVERY_CONTAINER_PORTS_FILE=$ports_file
-  /usr/bin/jq -cn --arg id "$id" --arg image "$image" --arg path "$path" --arg pid "$pid" --arg config "$config" --arg ports "$ports_sha" '{name:"ollama-loopback",fullId:$id,imageId:$image,commandPath:$path,pid:$pid,configSha256:$config,portsSha256:$ports}'
+    [ -z "${extra:-}" ] && [ -n "$cgroup" ] && [ -n "$namespace" ] || die 'invalid container process identity'; state=running
+  fi
+  RECOVERY_CONTAINER_STATE=$state RECOVERY_CONTAINER_COMMAND_PATH=$path RECOVERY_CONTAINER_PID=$pid RECOVERY_CONTAINER_CGROUP=$cgroup RECOVERY_CONTAINER_NAMESPACE=$namespace RECOVERY_CONTAINER_PORTS_FILE=$ports_file
+  /usr/bin/jq -cn --arg id "$id" --arg image "$image" --arg path "$path" --arg pid "$pid" --arg state "$state" --arg config "$config" --arg ports "$ports_sha" '{name:"ollama-loopback",state:$state,fullId:$id,imageId:$image,commandPath:$path,pid:$pid,configSha256:$config,portsSha256:$ports}'
   rm -f "$json"
 }
 recovery_record_environment_property() {
@@ -278,7 +272,7 @@ recovery_collect_systemd() {
   done; :
 }
 recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes cat "$processes"; }
-recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; recovery_is_scanner_ancestor "$pid" && continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) review_required 'foreign Ollama process remains after container removal';; esac; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
+recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) recovery_is_scanner_ancestor "$pid" || review_required 'foreign Ollama process remains after container removal';; esac; recovery_is_scanner_ancestor "$pid" && continue; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
 recovery_scan() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$; RECOVERY_CONTAINER_PORTS_FILE=''
   if [ "$(id -u)" -ne 0 ] && [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi
@@ -290,7 +284,7 @@ recovery_scan() {
   recovery_surface container-definitions scan_container_definitions; recovery_surface running-containers scan_running_containers
   recovery_container_snapshot >"$container"
   recovery_collect_processes "$processes"
-  if [ "${RECOVERY_CONTAINER_STATE:-}" = absent ]; then process_json=$(recovery_absent_process_snapshot "$processes"); else process_json=$(recovery_process_snapshot "$RECOVERY_CONTAINER_PID" "$RECOVERY_CONTAINER_CGROUP" "$RECOVERY_CONTAINER_NAMESPACE" "$RECOVERY_CONTAINER_PORTS_FILE" "$processes"); fi
+  case "${RECOVERY_CONTAINER_STATE:-}" in absent|stopped) process_json=$(recovery_absent_process_snapshot "$processes");; running) process_json=$(recovery_process_snapshot "$RECOVERY_CONTAINER_PID" "$RECOVERY_CONTAINER_CGROUP" "$RECOVERY_CONTAINER_NAMESPACE" "$RECOVERY_CONTAINER_PORTS_FILE" "$processes");; *) die 'invalid recovery container state';; esac
   recovery_collect_crontab "$cron"; recovery_surface current-crontab cat "$cron"
   package=$(recovery_package_snapshot); unit=$(recovery_unit_snapshot "$UNIT"); timer=$(recovery_unit_snapshot "$TIMER"); model=$(recovery_model_snapshot); cron_json=$(recovery_cron_snapshot "$cron"); container_json=$(cat "$container")
   records=$RECOVERY_RECORDS; record_docker_socket; RECOVERY_RECORDS=$records; recovery_surface docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'

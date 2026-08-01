@@ -164,6 +164,39 @@ test('does not classify an unrelated Baci container as an Ollama consumer', asyn
   );
 });
 
+test('ignores an unrelated container that disappears during inspect', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'baci-ollama-container-race-'));
+  const bin = join(dir, 'bin');
+  const state = join(dir, 'ps-seen');
+  try {
+    await mkdir(bin);
+    await writeFile(
+      join(bin, 'docker'),
+      '#!/bin/sh\ncase "$*" in *\' ps \'*) if [ ! -e "$RETIRE_OLLAMA_TEST_STATE" ]; then : >"$RETIRE_OLLAMA_TEST_STATE"; printf "gone\\nkept\\n"; else printf "kept\\n"; fi;; *\' inspect \'*gone) exit 1;; *\' inspect \'*kept) printf "kept image [] [] {} {}\\n";; esac\n'
+    );
+    await execFileAsync('chmod', ['0755', join(bin, 'docker')]);
+    const { stdout } = await execFileAsync(
+      'sh',
+      [
+        '-c',
+        '. "$1"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+        'retire-ollama-container-race-test',
+        script.pathname,
+      ],
+      {
+        env: {
+          ...process.env,
+          RETIRE_OLLAMA_TEST_BIN: bin,
+          RETIRE_OLLAMA_TEST_STATE: state,
+        },
+      }
+    );
+    assert.equal(stdout, '');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('classifies a container with an Ollama endpoint as a consumer', async () => {
   assert.match(
     await scannedContainers([
