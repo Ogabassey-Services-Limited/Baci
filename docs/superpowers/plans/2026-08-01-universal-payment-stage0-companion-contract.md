@@ -70,7 +70,8 @@
   - `payment_ingress_deployment_attestations` has the exact root fields in the
     amendment, including write-once revocation metadata, and is the only
     active-attestation predicate. It is not writable by runtime roles; SQL
-    fixtures insert and roll it back as the `migration` actor.
+    fixtures insert and roll it back as the `migration` actor. The named check
+    enforces the null-paired revocation fields and no-clear/no-rewrite fixture.
   - `payment_ingress_deployment_manifest_bindings` has the exact fields in the
     amendment, including `attestation_id` and a composite identity-revision FK,
     lower-case 64-hex hashes, bounded versions/references, immutable metadata,
@@ -150,6 +151,13 @@
   - Retirement always fails closed in this slice because the durable inbox,
     redelivery horizon, unsupported-row census, and retention gates are not yet
     present; it cannot silently reopen a retired scope.
+
+  For every transition receipt, derive `actor_kind = 'service'`,
+  `actor_user_id = NULL`, `actor_reference = 'payment_control_plane'`,
+  `approval_reference` from the binding, `evidence_reference` and
+  `evidence_sha256` from the attestation root, `reason_code` from the lower-case
+  operation kind, and `metrics_snapshot = '{}'::jsonb`; callers cannot supply
+  any of these values.
 
 - [ ] **Step 4: Run GREEN focused tests**
 

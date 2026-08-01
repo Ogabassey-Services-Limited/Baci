@@ -1161,7 +1161,10 @@ timestamptz not null default now()`. `revoked_at` is write-once and may be set
 only by the same reviewed privileged deployment migration that records a
 non-empty `revocation_reference`; runtime roles and the companion functions can
 never mutate it. This is the explicit privileged-DBA exception to runtime
-append-only history.
+append-only history. A named check requires
+`revoked_at IS NULL` if and only if `revocation_reference IS NULL`; when present,
+the reference is trimmed, non-empty, and at most 512 characters. No later
+update may clear or rewrite either field.
 It has a redundant unique target on
 `(id, environment, manifest_sha256, attestation_sha256)` for the binding FK.
 The root, identity catalog, binding, and proof rows are populated only by that
@@ -1170,11 +1173,13 @@ signed-attestation receipt; no runtime edge or generic `service_role` may
 insert, update, revoke, or delete them. A binding carries
 `attestation_id uuid not null` and a deferrable composite FK to
 `(id, environment, manifest_sha256, attestation_sha256)` on the root. A binding
-is active exactly when its root has `revoked_at IS NULL`, both the root and
-binding `retention_until` values exceed `clock_timestamp()`, and the external
-attestation receipt remains valid; the transition writer reloads both rows under
-lock. This is the authoritative active predicate rather than a hash-shaped text
-field. The companion migration creates no root, catalog, binding, or proof rows;
+is active exactly when its root has `revoked_at IS NULL` and both the root and
+binding `retention_until` values exceed `clock_timestamp()`; the transition
+writer reloads both rows under lock. The reviewed privileged deployment
+migration is responsible for translating an externally invalid attestation into
+the write-once revocation update. This is the authoritative database predicate
+rather than a hash-shaped text field. The companion migration creates no root,
+catalog, binding, or proof rows;
 SQL fixtures may create and roll them back as the `migration` actor only.
 
 Parser equivalence proof is required for every two-sided parser overlap:
@@ -1244,6 +1249,16 @@ generations, `draining -> active`, timestamp clearing, successor replacement,
 cross-scope IDs, proof/binding mismatch, permanently closed scopes, and every
 retire call before its later gates fail closed. Function execution is dormant
 until a later activation receipt grants the dedicated role.
+
+Receipt actor/evidence fields are mechanically derived: `actor_kind` is always
+`service`, `actor_user_id` is null, `actor_reference` is the literal
+`payment_control_plane`, `approval_reference` is the binding's approval
+reference, `evidence_reference` is the attestation root's attestation hash,
+`evidence_sha256` is that same attestation hash, `reason_code` is the lower-case
+operation kind, and `metrics_snapshot` is exactly the empty JSON object. The
+creation receipt stores the same request fingerprint and binding ID; a transition
+receipt stores it alongside the complete CAS images. These values are never
+accepted from a caller.
 
 A private `payment_authority_routing_generations` registry owns provider,
 provider-account/endpoint scope, completion-authority key, monotonically
