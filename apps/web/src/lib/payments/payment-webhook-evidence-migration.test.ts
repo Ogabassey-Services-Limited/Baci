@@ -80,6 +80,23 @@ describe('payment webhook evidence foundation migration', () => {
     expect(migrationSql).not.toMatch(/GRANT\s+/i);
   });
 
+  it('rejects blank or padded ingress-scope snapshot values', () => {
+    const migrationSql = readMigration();
+
+    expect(migrationSql).toContain(
+      "ingress_scope_snapshot->>'merchant_id' = btrim(ingress_scope_snapshot->>'merchant_id')"
+    );
+    expect(migrationSql).toContain(
+      "ingress_scope_snapshot->>'provider_account_scope' = btrim(ingress_scope_snapshot->>'provider_account_scope')"
+    );
+    expect(migrationSql).toContain(
+      "ingress_scope_snapshot->>'merchant_id' <> ''"
+    );
+    expect(migrationSql).toContain(
+      "ingress_scope_snapshot->>'provider_account_scope' <> ''"
+    );
+  });
+
   it('indexes every new foreign-key referencing path without changing authority', () => {
     const migrationSql = readMigration();
 
@@ -115,9 +132,10 @@ describe('payment webhook evidence foundation migration', () => {
         .map((column) => `'${column}'`)
         .join(', ');
 
-      expect(replayContractSql).toContain(
-        `('${indexName}', '${tableName}', ARRAY[${keyColumnsSql}]::text[], ${isUnique}, ${isPrimary}, ${predicateSql})`
-      );
+      const matrixTuple = `('${indexName}', '${tableName}', ARRAY[${keyColumnsSql}]::text[], ${isUnique}, ${isPrimary}, ${predicateSql})`;
+      expect(
+        replayContractSql.split(matrixTuple).length - 1
+      ).toBeGreaterThanOrEqual(2);
     }
     expect(replayContractSql).toContain('indisprimary');
     expect(replayContractSql).toContain('PRIMARY KEY (id)');

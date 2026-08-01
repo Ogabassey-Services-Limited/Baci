@@ -14,6 +14,7 @@ DECLARE
   v_missing_column text;
   v_missing_constraint text;
   v_missing_index text;
+  v_scope_value text;
 BEGIN
   FOREACH v_relation IN ARRAY ARRAY[
     'payment_webhook_inbox',
@@ -678,6 +679,20 @@ BEGIN
           RAISE EXCEPTION 'scope value failed at %, expected %', v_constraint, v_expected_constraint;
         END IF;
       END;
+
+      FOREACH v_scope_value IN ARRAY ARRAY['', '   '] LOOP
+        BEGIN
+          EXECUTE format('UPDATE private.%I SET ingress_scope_snapshot = $1 WHERE id = $2', v_table)
+            USING jsonb_set(v_scope, ARRAY[v_key], to_jsonb(v_scope_value), true),
+              CASE WHEN v_table = 'payment_webhook_inbox' THEN v_inbox_id ELSE v_manifest_id END;
+          RAISE EXCEPTION 'blank or padded scope value unexpectedly passed: %', v_key;
+        EXCEPTION WHEN check_violation THEN
+          GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
+          IF v_constraint IS DISTINCT FROM v_expected_constraint THEN
+            RAISE EXCEPTION 'blank or padded scope value failed at %, expected %', v_constraint, v_expected_constraint;
+          END IF;
+        END;
+      END LOOP;
     END LOOP;
     BEGIN
       EXECUTE format('UPDATE private.%I SET ingress_scope_snapshot = $1 WHERE id = $2', v_table)

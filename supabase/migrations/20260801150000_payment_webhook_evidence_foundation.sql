@@ -121,6 +121,10 @@ CREATE TABLE private.payment_webhook_source_manifests (
       AND ingress_scope_snapshot - ARRAY['merchant_id','provider_account_scope']::text[] = '{}'::jsonb
       AND jsonb_typeof(ingress_scope_snapshot->'merchant_id') = 'string'
       AND jsonb_typeof(ingress_scope_snapshot->'provider_account_scope') = 'string'
+      AND ingress_scope_snapshot->>'merchant_id' = btrim(ingress_scope_snapshot->>'merchant_id')
+      AND ingress_scope_snapshot->>'merchant_id' <> ''
+      AND ingress_scope_snapshot->>'provider_account_scope' = btrim(ingress_scope_snapshot->>'provider_account_scope')
+      AND ingress_scope_snapshot->>'provider_account_scope' <> ''
     ),
   CONSTRAINT payment_webhook_source_manifests_economics_check
     CHECK (
@@ -306,6 +310,10 @@ CREATE TABLE private.payment_webhook_inbox (
       AND ingress_scope_snapshot - ARRAY['merchant_id','provider_account_scope']::text[] = '{}'::jsonb
       AND jsonb_typeof(ingress_scope_snapshot->'merchant_id') = 'string'
       AND jsonb_typeof(ingress_scope_snapshot->'provider_account_scope') = 'string'
+      AND ingress_scope_snapshot->>'merchant_id' = btrim(ingress_scope_snapshot->>'merchant_id')
+      AND ingress_scope_snapshot->>'merchant_id' <> ''
+      AND ingress_scope_snapshot->>'provider_account_scope' = btrim(ingress_scope_snapshot->>'provider_account_scope')
+      AND ingress_scope_snapshot->>'provider_account_scope' <> ''
     ),
   CONSTRAINT payment_webhook_inbox_envelope_check
     CHECK (
