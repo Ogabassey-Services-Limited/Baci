@@ -7790,32 +7790,66 @@ provider_reference, event_type`) for `account_reference`; and twelve keys
 (`v, kind, provider, endpoint_key, signature_key_scope,
 completion_authority_key, event_type, reference, amount_minor, currency,
 provider_paid_at, raw_body_sha256`) for `fallback_locator`. The exact-key
-predicate is `jsonb_object_length(replay_key_preimage) = <count>` together with
-`replay_key_preimage ?& ARRAY[<required keys>]`; no extension key is permitted.
-Every non-`v` value must have JSON type `string`; the later adapter/writer
-checks tagged-field formats, RFC-8785 bytes, digest equality, and sentinel
-placement.
+predicate is written with only native PostgreSQL operators: after the
+root/type checks, the required-key array must be present with `?&`, and
+subtracting that same array with the `jsonb - text[]` operator must equal
+`'{}'::jsonb`. The concrete arrays are frozen per tag. For `svix` the CHECK
+uses `ARRAY['v','kind','provider','endpoint_key','signature_key_scope',
+'completion_authority_key','svix_id','event_type']::text[]`; for
+`account_reference` it uses
+`ARRAY['v','kind','provider','completion_authority_key',
+'provider_account_scope','provider_reference','event_type']::text[]`; and for
+`fallback_locator` it uses
+`ARRAY['v','kind','provider','endpoint_key','signature_key_scope',
+'completion_authority_key','event_type','reference','amount_minor','currency',
+'provider_paid_at','raw_body_sha256']::text[]`. Each selected array appears
+once in `?&` and once in `-`; this proves both that every required key exists
+and that no extension key is present without relying on a nonexistent
+object-length function. Every non-`v` key in the selected array must also
+have an explicit `jsonb_typeof(replay_key_preimage->'<key>') = 'string'`
+conjunct in the table CHECK; the later adapter/writer checks tagged-field
+formats, RFC-8785 bytes, digest equality, and sentinel placement.
 
 The inbox and manifest checks named `*_ingress_scope_snapshot_check` must
 require a JSON object with exactly two keys (`merchant_id` and
 `provider_account_scope`), both JSON strings, each either the exact
 `__unresolved__` sentinel or its canonical trimmed value; the exact-key
-predicate is `jsonb_object_length(ingress_scope_snapshot) = 2 AND
-ingress_scope_snapshot ?& ARRAY['merchant_id','provider_account_scope']`.
+predicate is
+`ingress_scope_snapshot ?&
+ARRAY['merchant_id','provider_account_scope']::text[] AND
+ingress_scope_snapshot -
+ARRAY['merchant_id','provider_account_scope']::text[] = '{}'::jsonb`, with
+`jsonb_typeof(ingress_scope_snapshot->'merchant_id') = 'string'` and
+`jsonb_typeof(ingress_scope_snapshot->'provider_account_scope') = 'string'`.
 The inbox check named `payment_webhook_inbox_envelope_check` must require a JSON
 object with exactly eight top-level keys
 (`contract_version,event_type,receiver,provider_customer,assignment,economics,
 paid_time,children`), string `contract_version` and `event_type`, object-or-null
 values for the five named evidence objects, and an array `children`; its exact
-top-level predicate is `jsonb_object_length(normalized_envelope) = 8 AND
-normalized_envelope ?& ARRAY['contract_version','event_type','receiver',
-'provider_customer','assignment','economics','paid_time','children']` plus
-those `jsonb_typeof` checks. The manifest's
-`redacted_parent_source_identity_check` must require a JSON object of at most
-five keys, all drawn from
+top-level predicate is
+`normalized_envelope ?& ARRAY['contract_version','event_type','receiver',
+'provider_customer','assignment','economics','paid_time','children']::text[]
+AND normalized_envelope - ARRAY['contract_version','event_type','receiver',
+'provider_customer','assignment','economics','paid_time','children']::text[]
+= '{}'::jsonb`, with
+`jsonb_typeof(normalized_envelope->'contract_version') = 'string'`,
+`jsonb_typeof(normalized_envelope->'event_type') = 'string'`,
+`jsonb_typeof(normalized_envelope->'receiver') IN ('object','null')`,
+`jsonb_typeof(normalized_envelope->'provider_customer') IN ('object','null')`,
+`jsonb_typeof(normalized_envelope->'assignment') IN ('object','null')`,
+`jsonb_typeof(normalized_envelope->'economics') IN ('object','null')`,
+`jsonb_typeof(normalized_envelope->'paid_time') IN ('object','null')`, and
+`jsonb_typeof(normalized_envelope->'children') = 'array'`. The manifest's
+`redacted_parent_source_identity_check` must require a JSON object whose keys
+are all drawn from the five safe v1 keys
 `event_type,provider_reference,receiver_reference,provider_customer_reference,
-provider_paid_at`; unknown keys are rejected with
-`jsonb_object_length(...) <= 5` and `NOT (... ?| ARRAY[<unknown keys>])`.
+provider_paid_at`; the native subtraction check
+`redacted_parent_source_identity - ARRAY['event_type','provider_reference',
+'receiver_reference','provider_customer_reference','provider_paid_at']::text[]
+= '{}'::jsonb` rejects every unknown key and therefore proves the at-most-five
+bound. For each allowed key, when present, the value must satisfy
+`jsonb_typeof(redacted_parent_source_identity->'<key>') IN ('string','null')`;
+missing allowed keys remain valid.
 These predicates protect the structural boundary only; recursive safe-field
 validation, prohibited nested data, and digest/replay comparisons remain the
 explicit adapter/guarded-writer enforcement locus.
@@ -8134,5 +8168,10 @@ decision, never a financial routing, attempt, transaction, allocation, or
 completion authority." The migration/replay contract must prove exact catalog
 shape, forced RLS, zero policies, zero rows, direct privilege denial, all named
 constraints/indexes/comments, cycle deletion behavior, valid/invalid tagged keys,
-and rollback cleanliness; it must not claim deferred writer invariants as table
+and rollback cleanliness. Its negative replay fixtures must separately exercise
+each closed-object boundary: a missing required key, an unknown extension key,
+and a non-string value for every tagged replay preimage; a missing or unknown
+scope/envelope key; and an unknown or non-string/non-null redacted parent value.
+These cases must fail at the named table CHECKs, while valid sentinel/scalar
+forms pass. The migration must not claim deferred writer invariants as table
 CHECK coverage.
