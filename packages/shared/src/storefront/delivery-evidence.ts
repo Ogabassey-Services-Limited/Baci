@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import {
+  StorefrontDeliveryHostnameSchema,
+  StorefrontDeliveryTrafficPartitionRowSchema,
+} from './delivery-traffic-partition';
+
+export type { StorefrontDeliveryTrafficPartitionRow } from './delivery-traffic-partition';
+export { StorefrontDeliveryTrafficPartitionRowSchema } from './delivery-traffic-partition';
 
 const Sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 const UtcDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -14,7 +21,7 @@ const SourceEvidenceSchema = z
   .strict();
 const HostPartitionRowSchema = z
   .object({
-    hostname: z.string().min(1),
+    hostname: StorefrontDeliveryHostnameSchema,
     requestCount: CountSchema,
     eligibleRequestCount: CountSchema,
     eligibleOriginAttemptCount: CountSchema,
@@ -70,6 +77,14 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
     rejectedMethodRequestCount: CountSchema,
     rejectedMethodOriginCount: CountSchema,
     allowedOriginRateLimitCount: CountSchema,
+    /**
+     * Complete bounded raw census. Every approved inventory host must appear;
+     * the delivery gate reconciles the row aggregates before PASS.
+     */
+    trafficPartition: z
+      .array(StorefrontDeliveryTrafficPartitionRowSchema)
+      .min(1)
+      .max(4096),
     sourceEvidence: z
       .object({
         invocation: SourceEvidenceSchema,

@@ -13,6 +13,7 @@ import {
   verifyReviewedEvidenceFile,
   verifyReviewedEvidenceRunnerModule,
 } from './cloudflare-evidence-runner-modules';
+import { hasVerifiedCleanupWriteTokenRevocation } from './measure-cloudflare-evidence-sources-requirements';
 import { assertMeasurementObservationWindow } from './measurement-observation-window';
 import type { VerifiedEvidenceReadCapability } from './verify-cloudflare-evidence-read-token-policy';
 export type EvidenceMeasurementClient = TokenRevocationClient & {
@@ -180,7 +181,8 @@ export async function measureCloudflareEvidenceSources(
     !journal.cleanupVerificationReceiptSha256 ||
     journal.cleanupIncomplete ||
     Object.keys(journal.mutations).length === 0 ||
-    journal.probeResults.length !== journal.expectedProbeCount
+    journal.probeResults.length !== journal.expectedProbeCount ||
+    !hasVerifiedCleanupWriteTokenRevocation(journal)
   )
     throw new Error(
       'write process must exit, clean up, and revoke before measurement'
@@ -253,7 +255,8 @@ export async function revokeCloudflareEvidenceReadToken(
     !journal.writeTokenRevocationReceipt ||
     journal.writeTokenRevocationReceipt.tokenId !== journal.writeTokenId ||
     journal.measurementVerifiedAt ||
-    journal.measurementReceiptSha256
+    journal.measurementReceiptSha256 ||
+    !hasVerifiedCleanupWriteTokenRevocation(journal)
   )
     throw new Error(
       'read-token revocation requires a write-revoked incomplete run'

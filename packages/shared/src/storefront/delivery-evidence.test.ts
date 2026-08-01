@@ -42,6 +42,35 @@ const dailyEvidence = {
   rejectedMethodRequestCount: 0,
   rejectedMethodOriginCount: 0,
   allowedOriginRateLimitCount: 0,
+  trafficPartition: [
+    {
+      hostname: 'ogabassey.com',
+      methodClass: 'GET_HEAD',
+      pathClass: 'document',
+      ruleId: 'worker-static',
+      requestCount: 1000,
+      eligibleRequestCount: 1000,
+      eligibleOriginAttemptCount: 0,
+    },
+    {
+      hostname: 'ogabassey.usebaci.com',
+      methodClass: 'GET_HEAD',
+      pathClass: 'document',
+      ruleId: 'alias-static',
+      requestCount: 0,
+      eligibleRequestCount: 0,
+      eligibleOriginAttemptCount: 0,
+    },
+    {
+      hostname: 'www.ogabassey.com',
+      methodClass: 'GET_HEAD',
+      pathClass: 'document',
+      ruleId: 'alias-static',
+      requestCount: 0,
+      eligibleRequestCount: 0,
+      eligibleOriginAttemptCount: 0,
+    },
+  ],
   sourceEvidence: {
     invocation: {
       sourceFingerprint: 'invocation-v1',
@@ -244,6 +273,40 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
             hostPartition: [],
           },
         },
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts bounded host, method, path, and rule aggregates but rejects raw path values', () => {
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse(dailyEvidence).success
+    ).toBe(true);
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse({
+        ...dailyEvidence,
+        trafficPartition: [
+          {
+            ...dailyEvidence.trafficPartition[0],
+            pathClass: '/products/secret?customer=1',
+          },
+          ...dailyEvidence.trafficPartition.slice(1),
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects a partition whose eligible count exceeds its raw count', () => {
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse({
+        ...dailyEvidence,
+        trafficPartition: [
+          {
+            ...dailyEvidence.trafficPartition[0],
+            requestCount: 0,
+            eligibleRequestCount: 1,
+          },
+          ...dailyEvidence.trafficPartition.slice(1),
+        ],
       }).success
     ).toBe(false);
   });

@@ -159,4 +159,57 @@ describe('qualification CLI owner authority wiring', () => {
       'owner-approval'
     );
   });
+
+  it.each([
+    'CLOUDFLARE_WRITE_TOKEN',
+    'CLOUDFLARE_READ_TOKEN',
+  ] as const)('rejects %s before loading owner authority or reviewed artifacts', async (credentialName) => {
+    const directory = await mkdtemp(join(tmpdir(), 'baci-qualification-cli-'));
+    await chmod(directory, 0o700);
+    const receipt = currentReadback();
+    const paths = await writeArtifacts(directory, receipt);
+    const workspaceRoot = join(directory, 'workspace');
+    await mkdir(workspaceRoot, { mode: 0o700 });
+    const canonicalWorkspaceRoot = await realpath(workspaceRoot);
+    const authority = await createReviewedAuthority(
+      canonicalWorkspaceRoot,
+      receipt.zeroWeightProof.ownerAcceptance
+    );
+    let stderr = '';
+    let exitCode: number | undefined;
+    await runQualificationCli(
+      [
+        '--validate-readback',
+        paths.receipt,
+        '--expected-artifact-a',
+        paths.artifactA,
+        '--expected-artifact-b',
+        paths.artifactB,
+        '--script-name',
+        'baci-evidence-qualification',
+        '--expected-owner-approval-id',
+        'owner-approval',
+      ],
+      {
+        EVIDENCE_WORKSPACE_ROOT: canonicalWorkspaceRoot,
+        EVIDENCE_TOOLING_MERGE_SHA: authority.toolingMergeSha,
+        EVIDENCE_OWNER_ACCEPTANCE_AUTHORITY_MODULE: authority.path,
+        EVIDENCE_OWNER_ACCEPTANCE_AUTHORITY_MODULE_SHA256: authority.sha256,
+        [credentialName]: 'provider-token',
+      },
+      {
+        stdout: () => undefined,
+        stderr: (value) => {
+          stderr += value;
+        },
+        setExitCode: (code) => {
+          exitCode = code;
+        },
+      }
+    );
+    expect(stderr).toBe(
+      'validate-readback must not receive a Cloudflare credential\n'
+    );
+    expect(exitCode).toBe(1);
+  });
 });

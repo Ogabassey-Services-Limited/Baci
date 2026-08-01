@@ -58,6 +58,35 @@ export function manifest(overrides: Record<string, unknown> = {}) {
       rejectedMethodRequestCount: 0,
       rejectedMethodOriginCount: 0,
       allowedOriginRateLimitCount: 0,
+      trafficPartition: [
+        {
+          hostname: 'ogabassey.com',
+          methodClass: 'GET_HEAD',
+          pathClass: 'document',
+          ruleId: 'worker-static',
+          requestCount: 1000,
+          eligibleRequestCount: 1000,
+          eligibleOriginAttemptCount: 0,
+        },
+        {
+          hostname: 'ogabassey.usebaci.com',
+          methodClass: 'GET_HEAD',
+          pathClass: 'document',
+          ruleId: 'alias-static',
+          requestCount: 0,
+          eligibleRequestCount: 0,
+          eligibleOriginAttemptCount: 0,
+        },
+        {
+          hostname: 'www.ogabassey.com',
+          methodClass: 'GET_HEAD',
+          pathClass: 'document',
+          ruleId: 'alias-static',
+          requestCount: 0,
+          eligibleRequestCount: 0,
+          eligibleOriginAttemptCount: 0,
+        },
+      ],
       sourceEvidence: {
         invocation: {
           sourceFingerprint: hash('1'),
@@ -171,5 +200,74 @@ export function withSyntheticProjection(
   day.canonicalEligibleRequestCount = canonicalRequestCount;
   day.syntheticQualificationRequestCount = requestCount;
   day.sourceEvidence.syntheticQualification.requestCount = sourceRequestCount;
+  const canonicalTrafficRow = day.trafficPartition.find(
+    (row) => row.hostname === 'ogabassey.com'
+  );
+  if (canonicalTrafficRow) {
+    canonicalTrafficRow.requestCount = canonicalRequestCount;
+    canonicalTrafficRow.eligibleRequestCount = canonicalRequestCount;
+  }
   return evidence;
+}
+
+export function setTrafficPartitionCounts(
+  day: ReturnType<typeof manifest>['days'][number],
+  values: Partial<{
+    canonicalRawRequestCount: number;
+    aliasRawRequestCount: number;
+    canonicalEligibleRequestCount: number;
+    aliasEligibleRequestCount: number;
+    canonicalEligibleOriginAttemptCount: number;
+    aliasEligibleOriginRequestCount: number;
+  }> = {}
+) {
+  const canonical = day.trafficPartition.filter(
+    (row) => row.hostname === 'ogabassey.com'
+  );
+  const aliases = day.trafficPartition.filter(
+    (row) => row.hostname !== 'ogabassey.com'
+  );
+  if (values.canonicalRawRequestCount !== undefined) {
+    const requestCount = values.canonicalRawRequestCount;
+    canonical[0].requestCount = requestCount;
+    if (canonical[0].eligibleRequestCount > requestCount) {
+      canonical[0].eligibleRequestCount = requestCount;
+    }
+    if (
+      canonical[0].eligibleOriginAttemptCount >
+      canonical[0].eligibleRequestCount
+    ) {
+      canonical[0].eligibleOriginAttemptCount =
+        canonical[0].eligibleRequestCount;
+    }
+  }
+  if (values.aliasRawRequestCount !== undefined) {
+    const requestCount = values.aliasRawRequestCount;
+    aliases[0].requestCount = requestCount;
+    if (aliases[0].eligibleRequestCount > requestCount) {
+      aliases[0].eligibleRequestCount = requestCount;
+    }
+    if (
+      aliases[0].eligibleOriginAttemptCount > aliases[0].eligibleRequestCount
+    ) {
+      aliases[0].eligibleOriginAttemptCount = aliases[0].eligibleRequestCount;
+    }
+  }
+  if (values.canonicalEligibleRequestCount !== undefined) {
+    canonical[0].eligibleRequestCount = values.canonicalEligibleRequestCount;
+  }
+  if (values.aliasEligibleRequestCount !== undefined) {
+    aliases[0].eligibleRequestCount = values.aliasEligibleRequestCount;
+    aliases[1].eligibleRequestCount = 0;
+  }
+  if (values.canonicalEligibleOriginAttemptCount !== undefined) {
+    canonical[0].eligibleOriginAttemptCount =
+      values.canonicalEligibleOriginAttemptCount;
+  }
+  if (values.aliasEligibleOriginRequestCount !== undefined) {
+    aliases[0].eligibleOriginAttemptCount =
+      values.aliasEligibleOriginRequestCount;
+    aliases[1].eligibleOriginAttemptCount = 0;
+  }
+  return day;
 }

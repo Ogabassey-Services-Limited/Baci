@@ -2,11 +2,23 @@ import { chmod, mkdtemp, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { reclaimLockIfOwner } from './cloudflare-evidence-lock-reclamation';
 import {
   acquireActiveRunLock,
   releaseActiveRunLock,
   withEvidenceRunTransitionLock,
 } from './cloudflare-evidence-run-lock';
+
+vi.mock('./cloudflare-evidence-lock-reclamation', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('./cloudflare-evidence-lock-reclamation')
+    >();
+  return {
+    ...actual,
+    reclaimLockIfOwner: vi.fn(actual.reclaimLockIfOwner),
+  };
+});
 
 describe('cloudflare evidence run lock', () => {
   const runA = '0123456789abcdef0123456789abcdef';
@@ -192,6 +204,31 @@ describe('cloudflare evidence run lock', () => {
       async () => 'recovered'
     );
     await expect(first).rejects.toThrow('transition failed');
+    await expect(second).resolves.toBe('recovered');
+  });
+
+  it('releases a queued successor when lock cleanup rejects', async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-lock-'));
+    await chmod(stateDir, 0o700);
+    const actual = await vi.importActual<
+      typeof import('./cloudflare-evidence-lock-reclamation')
+    >('./cloudflare-evidence-lock-reclamation');
+    vi.mocked(reclaimLockIfOwner).mockImplementationOnce(
+      async (path, ownerText) => {
+        await actual.reclaimLockIfOwner(path, ownerText);
+        throw new Error('lock cleanup failed');
+      }
+    );
+    const first = withEvidenceRunTransitionLock(stateDir, runA, async () => {
+      return 'first';
+    });
+    const second = withEvidenceRunTransitionLock(
+      stateDir,
+      runA,
+      async () => 'recovered'
+    );
+
+    await expect(first).rejects.toThrow('lock cleanup failed');
     await expect(second).resolves.toBe('recovered');
   });
 });

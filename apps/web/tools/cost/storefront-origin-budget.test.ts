@@ -7,6 +7,7 @@ import { readSealedStorefrontDeliveryManifest } from './storefront-origin-budget
 import {
   manifest,
   seal,
+  setTrafficPartitionCounts,
   summarizeAtFixtureTime,
   validationNow,
   withSyntheticProjection,
@@ -15,6 +16,28 @@ import {
 describe('summarizeStorefrontDelivery', () => {
   it('passes a complete seven-day all-ingress census with zero origins', () =>
     expect(summarizeAtFixtureTime(manifest()).verdict).toBe('PASS'));
+  it('returns not proven when bounded raw traffic rows drift from the source totals', () => {
+    const evidence = manifest();
+    setTrafficPartitionCounts(evidence.days[0], {
+      canonicalRawRequestCount: 999,
+    });
+    const summary = summarizeAtFixtureTime(seal(evidence));
+    expect(summary.trafficPartitionReconciled).toBe(false);
+    expect(summary.verdict).toBe('NOT_PROVEN');
+  });
+  it('returns not proven when a host or composite dimension is omitted or duplicated', () => {
+    const omitted = manifest();
+    omitted.days[0].trafficPartition = omitted.days[0].trafficPartition.slice(
+      0,
+      2
+    );
+    expect(summarizeAtFixtureTime(seal(omitted)).verdict).toBe('NOT_PROVEN');
+    const duplicated = manifest();
+    duplicated.days[0].trafficPartition.push({
+      ...duplicated.days[0].trafficPartition[0],
+    });
+    expect(summarizeAtFixtureTime(seal(duplicated)).verdict).toBe('NOT_PROVEN');
+  });
   it('excludes independently reconciled synthetic qualification probes from real ingress', () => {
     const summary = summarizeAtFixtureTime(
       seal(withSyntheticProjection(manifest(), 10, 10, 990))
@@ -66,7 +89,18 @@ describe('summarizeStorefrontDelivery', () => {
       day.workerInvocationCount = 0;
       day.totalDecisionCount = 0;
       day.edgeReleaseCount = 0;
+      setTrafficPartitionCounts(day, {
+        canonicalRawRequestCount: 0,
+        canonicalEligibleRequestCount: 0,
+      });
     }
+    setTrafficPartitionCounts(evidence.days[0], {
+      canonicalRawRequestCount: 1000,
+      aliasRawRequestCount: 500,
+      canonicalEligibleRequestCount: 500,
+      aliasEligibleRequestCount: 500,
+      canonicalEligibleOriginAttemptCount: 1,
+    });
     expect(summarizeAtFixtureTime(seal(evidence)).originRate).toBe(
       DEFAULT_ORIGIN_RATE_THRESHOLD
     );
@@ -76,6 +110,9 @@ describe('summarizeStorefrontDelivery', () => {
     const comparison = manifest();
     comparison.days[0].canonicalEligibleOriginAttemptCount = 50;
     comparison.days[0].sourceEvidence.originEvent.requestCount = 50;
+    setTrafficPartitionCounts(comparison.days[0], {
+      canonicalEligibleOriginAttemptCount: 50,
+    });
     expect(
       summarizeAtFixtureTime(seal(comparison), {
         thresholdOverride: 0.1,
@@ -89,6 +126,9 @@ describe('summarizeStorefrontDelivery', () => {
     const over = manifest();
     over.days[0].canonicalEligibleOriginAttemptCount = 8;
     over.days[0].sourceEvidence.originEvent.requestCount = 8;
+    setTrafficPartitionCounts(over.days[0], {
+      canonicalEligibleOriginAttemptCount: 8,
+    });
     expect(summarizeAtFixtureTime(seal(over)).verdict).toBe('FAIL');
     const unknown = manifest();
     unknown.days[0].unknownOriginAttemptCount = 1;
@@ -102,6 +142,11 @@ describe('summarizeStorefrontDelivery', () => {
     alias.days[0].sourceEvidence.aliasRedirect.hostPartition[0].eligibleRequestCount = 1;
     alias.days[0].sourceEvidence.aliasRedirect.hostPartition[0].eligibleOriginAttemptCount = 1;
     alias.days[0].sourceEvidence.originEvent.requestCount = 1;
+    setTrafficPartitionCounts(alias.days[0], {
+      aliasRawRequestCount: 1,
+      aliasEligibleRequestCount: 1,
+      aliasEligibleOriginRequestCount: 1,
+    });
     expect(summarizeAtFixtureTime(seal(alias)).verdict).toBe('FAIL');
     const rejected = manifest();
     rejected.days[0].rejectedMethodOriginCount = 1;
@@ -121,6 +166,9 @@ describe('summarizeStorefrontDelivery', () => {
     const evidence = manifest();
     evidence.days[0].canonicalEligibleOriginAttemptCount = 1;
     evidence.days[0].sourceEvidence.originEvent.requestCount = 1;
+    setTrafficPartitionCounts(evidence.days[0], {
+      canonicalEligibleOriginAttemptCount: 1,
+    });
     const summary = summarizeAtFixtureTime(seal(evidence));
     expect(summary.originEventRequests).toBe(1);
     expect(summary.classifiedOriginAttempts).toBe(1);
@@ -165,6 +213,9 @@ describe('summarizeStorefrontDelivery', () => {
         },
       },
     };
+    setTrafficPartitionCounts(evidence.days[0], {
+      canonicalEligibleOriginAttemptCount: 1,
+    });
     const summary = summarizeAtFixtureTime(seal(evidence));
     expect(summary.canonicalEligibleOriginAttempts).toBe(1);
     expect(summary.evidenceComplete).toBe(true);

@@ -71,6 +71,18 @@ export function buildClosedEvidenceProcessEnvironment(
   return environment;
 }
 
+function assertCredentiallessValidationEnvironment(
+  environment: Readonly<Record<string, string | undefined>>
+) {
+  if (
+    environment.CLOUDFLARE_WRITE_TOKEN !== undefined ||
+    environment.CLOUDFLARE_READ_TOKEN !== undefined
+  )
+    throw new Error(
+      'validate-readback must not receive a Cloudflare credential'
+    );
+}
+
 type QualificationCliIo = Readonly<{
   stdout: (value: string) => void;
   stderr: (value: string) => void;
@@ -168,6 +180,7 @@ export async function runQualificationCli(
         scriptName,
         expectedOwnerApprovalId,
       } = parseQualificationArguments(args);
+      assertCredentiallessValidationEnvironment(environment);
       const authority =
         ownerAcceptanceAuthority ??
         (await loadOwnerAcceptanceAuthority(environment));

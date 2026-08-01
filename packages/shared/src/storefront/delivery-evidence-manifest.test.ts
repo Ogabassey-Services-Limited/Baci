@@ -42,6 +42,35 @@ const dailyEvidence = {
   rejectedMethodRequestCount: 0,
   rejectedMethodOriginCount: 0,
   allowedOriginRateLimitCount: 0,
+  trafficPartition: [
+    {
+      hostname: 'ogabassey.com',
+      methodClass: 'GET_HEAD',
+      pathClass: 'document',
+      ruleId: 'worker-static',
+      requestCount: 1000,
+      eligibleRequestCount: 1000,
+      eligibleOriginAttemptCount: 0,
+    },
+    {
+      hostname: 'ogabassey.usebaci.com',
+      methodClass: 'GET_HEAD',
+      pathClass: 'document',
+      ruleId: 'alias-static',
+      requestCount: 0,
+      eligibleRequestCount: 0,
+      eligibleOriginAttemptCount: 0,
+    },
+    {
+      hostname: 'www.ogabassey.com',
+      methodClass: 'GET_HEAD',
+      pathClass: 'document',
+      ruleId: 'alias-static',
+      requestCount: 0,
+      eligibleRequestCount: 0,
+      eligibleOriginAttemptCount: 0,
+    },
+  ],
   sourceEvidence: {
     invocation: {
       sourceFingerprint: '1'.repeat(64),

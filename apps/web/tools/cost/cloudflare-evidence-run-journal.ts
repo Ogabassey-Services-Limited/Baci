@@ -1,4 +1,5 @@
-import { lstat, readdir, readFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { type FileHandle, open, readdir } from 'node:fs/promises';
 import { createEvidenceJournalTransitionOperations } from './cloudflare-evidence-run-journal-transitions';
 import {
   acquireActiveRunLock,
@@ -59,17 +60,29 @@ export async function writeJournal(
 export async function readJournal(stateDir: string, runId: string) {
   await verifyDirectory(stateDir);
   const target = journalPath(stateDir, runId);
-  const stat = await lstat(target);
-  if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o077) !== 0)
-    throw new Error('journal file is not private regular storage');
-  const parsed: unknown = JSON.parse(await readFile(target, 'utf8'));
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    !isEvidencePhase((parsed as { phase?: unknown }).phase)
-  )
-    throw new Error('journal phase is invalid');
-  return parsed as CloudflareEvidenceRunJournal;
+  let handle: FileHandle | undefined;
+  try {
+    try {
+      handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ELOOP')
+        throw new Error('journal file is not private regular storage');
+      throw error;
+    }
+    const stat = await handle.stat();
+    if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o077) !== 0)
+      throw new Error('journal file is not private regular storage');
+    const parsed: unknown = JSON.parse(await handle.readFile('utf8'));
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      !isEvidencePhase((parsed as { phase?: unknown }).phase)
+    )
+      throw new Error('journal phase is invalid');
+    return parsed as CloudflareEvidenceRunJournal;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
 }
 
 const transitionJournal = <T>(

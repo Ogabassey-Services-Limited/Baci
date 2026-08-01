@@ -208,10 +208,13 @@ export async function withEvidenceRunTransitionLock<T>(
   try {
     return await transition();
   } finally {
-    await releaseTransitionLock(lock);
-    releaseQueue();
-    if (localTransitionQueues.get(key) === current)
-      localTransitionQueues.delete(key);
+    try {
+      await releaseTransitionLock(lock);
+    } finally {
+      releaseQueue();
+      if (localTransitionQueues.get(key) === current)
+        localTransitionQueues.delete(key);
+    }
   }
 }
 

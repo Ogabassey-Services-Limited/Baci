@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   manifest,
   seal,
+  setTrafficPartitionCounts,
   summarizeAtFixtureTime,
 } from './storefront-origin-budget.test-fixtures';
 
@@ -33,7 +34,17 @@ describe('storefront origin budget alias host partition', () => {
       day.workerInvocationCount = 0;
       day.totalDecisionCount = 0;
       day.edgeReleaseCount = 0;
+      setTrafficPartitionCounts(day, {
+        canonicalRawRequestCount: 0,
+        canonicalEligibleRequestCount: 0,
+      });
     }
+    setTrafficPartitionCounts(evidence.days[0], {
+      canonicalRawRequestCount: 10,
+      aliasRawRequestCount: 20,
+      canonicalEligibleRequestCount: 10,
+      aliasEligibleRequestCount: 20,
+    });
     const summary = summarizeAtFixtureTime(seal(evidence));
     expect(summary.allEligibleIngress).toBe(30);
     expect(summary.verdict).toBe('PASS');

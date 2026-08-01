@@ -6,6 +6,7 @@ import {
   type StorefrontDeliveryEvidenceManifest,
   validateStorefrontDeliveryManifest,
 } from '../../../../packages/shared/src/storefront/delivery-evidence-manifest';
+import { reconcileStorefrontDeliveryTrafficPartition } from '../../../../packages/shared/src/storefront/delivery-traffic-partition';
 import { DEFAULT_ORIGIN_RATE_THRESHOLD } from './origin-rate-constants';
 
 export type StorefrontDeliverySummary = {
@@ -20,6 +21,7 @@ export type StorefrontDeliverySummary = {
   originEventRequests: number;
   classifiedOriginAttempts: number;
   originEventReconciled: boolean;
+  trafficPartitionReconciled: boolean;
   dynamicOriginAttempts: number;
   aliasDynamicOriginAttempts: number;
   allowedOriginRateLimitAttempts: number;
@@ -112,6 +114,23 @@ export function summarizeStorefrontDelivery(
           day.aliasEligibleOriginRequestCount
       );
     });
+  const trafficPartitionReconciled =
+    validation.ok &&
+    days.every((day) =>
+      reconcileStorefrontDeliveryTrafficPartition({
+        rows: day.trafficPartition,
+        inventoryHostnames: validation.manifest.inventoryHostnames,
+        canonicalHostname: validation.manifest.canonicalHostname,
+        canonicalRawRequestCount:
+          day.workerInvocationCount - day.syntheticQualificationRequestCount,
+        aliasRawRequestCount: day.aliasEdgeRedirectCount,
+        canonicalEligibleRequestCount: day.canonicalEligibleRequestCount,
+        aliasEligibleRequestCount: day.aliasEligibleRequestCount,
+        canonicalEligibleOriginAttemptCount:
+          day.canonicalEligibleOriginAttemptCount,
+        aliasEligibleOriginRequestCount: day.aliasEligibleOriginRequestCount,
+      })
+    );
   // Dynamic and rate-limit origins stay outside the eligible equation.
   const dynamicOriginAttempts = sum(
     days.map((day) => day.dynamicOriginAttemptCount ?? 0)
@@ -143,6 +162,7 @@ export function summarizeStorefrontDelivery(
     validation.ok &&
     originEventReconciled &&
     hostPartitionReconciled &&
+    trafficPartitionReconciled &&
     days.every(
       (day) =>
         day.exportComplete &&
@@ -191,6 +211,7 @@ export function summarizeStorefrontDelivery(
     originEventRequests,
     classifiedOriginAttempts,
     originEventReconciled,
+    trafficPartitionReconciled,
     dynamicOriginAttempts,
     aliasDynamicOriginAttempts,
     allowedOriginRateLimitAttempts,
