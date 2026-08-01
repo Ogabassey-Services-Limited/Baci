@@ -110,14 +110,19 @@ export async function applyCloudflareEvidenceMutation(
     verifyResource(resource, journal, name, created.id);
     await recordEvidenceMutation(stateDir, runId, name, resource.id);
   }
-  const probes = await client.probe(resource);
-  if (probes.some((probe) => !probe.succeeded))
-    throw new Error('synthetic probe did not complete');
-  await recordEvidenceProbeResults(
-    stateDir,
-    runId,
-    probes.map((probe) => probe.id)
-  );
+  try {
+    const probes = await client.probe(resource);
+    if (probes.some((probe) => !probe.succeeded))
+      throw new Error('synthetic probe did not complete');
+    await recordEvidenceProbeResults(
+      stateDir,
+      runId,
+      probes.map((probe) => probe.id)
+    );
+  } catch (error) {
+    await cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
+    throw error;
+  }
   return cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
 }
 
@@ -166,11 +171,8 @@ export async function cleanupCloudflareEvidenceRun(
         client
       );
     }
-    if (
-      !replacement &&
-      (await revokeWriteTokenIfAvailable(stateDir, runId, client))
-    )
-      return loadEvidenceRunForCleanup(stateDir, runId);
+    if (!replacement)
+      await revokeWriteTokenIfAvailable(stateDir, runId, client);
     return loadEvidenceRunForCleanup(stateDir, runId);
   }
   const incomplete = journal.probeResults.length !== journal.expectedProbeCount;

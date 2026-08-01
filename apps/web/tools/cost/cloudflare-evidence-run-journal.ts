@@ -21,6 +21,7 @@ export {
   assertTransition,
   createCleanupVerificationReceipt,
   hasReceipt,
+  isEvidencePhase,
   journalPath,
   REVIEWED_PROBE_COUNT,
   RUN_ID_PATTERN,
@@ -37,6 +38,7 @@ import type {
   EvidenceRunInput,
 } from './cloudflare-evidence-run-journal-state';
 import {
+  isEvidencePhase,
   journalPath,
   REVIEWED_PROBE_COUNT,
   terminal,
@@ -60,9 +62,14 @@ export async function readJournal(stateDir: string, runId: string) {
   const stat = await lstat(target);
   if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o077) !== 0)
     throw new Error('journal file is not private regular storage');
-  return JSON.parse(
-    await readFile(target, 'utf8')
-  ) as CloudflareEvidenceRunJournal;
+  const parsed: unknown = JSON.parse(await readFile(target, 'utf8'));
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    !isEvidencePhase((parsed as { phase?: unknown }).phase)
+  )
+    throw new Error('journal phase is invalid');
+  return parsed as CloudflareEvidenceRunJournal;
 }
 
 const transitionJournal = <T>(

@@ -52,6 +52,20 @@ const dailyEvidence = {
     },
     aliasRedirect: {
       sourceFingerprint: '2'.repeat(64),
+      hostPartition: [
+        {
+          hostname: 'ogabassey.usebaci.com',
+          requestCount: 0,
+          eligibleRequestCount: 0,
+          eligibleOriginAttemptCount: 0,
+        },
+        {
+          hostname: 'www.ogabassey.com',
+          requestCount: 0,
+          eligibleRequestCount: 0,
+          eligibleOriginAttemptCount: 0,
+        },
+      ],
       complete: true,
       exact: true,
       providerSamplingApplied: false,

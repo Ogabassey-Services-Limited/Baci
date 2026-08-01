@@ -1,5 +1,7 @@
-import { lstat, readFile } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { createHash } from 'node:crypto';
+import { constants, type Stats } from 'node:fs';
+import { type FileHandle, lstat, open } from 'node:fs/promises';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 import type { EvidenceRunInput } from './cloudflare-evidence-run-journal';
 import { calculateCloudflareEvidenceTokenPolicySha256 } from './verify-cloudflare-evidence-token-policy';
@@ -7,6 +9,7 @@ import { calculateCloudflareEvidenceTokenPolicySha256 } from './verify-cloudflar
 const boundedId = z.string().min(1).max(128).regex(/^\S+$/);
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const toolingSha = z.string().regex(/^[a-f0-9]{40}$/);
+const runId = z.string().regex(/^[a-f0-9]{32}$/);
 const approvalArtifactSchema = z
   .object({
     id: boundedId,
@@ -35,9 +38,18 @@ const reviewedPolicyArtifactSchema = z
     policySha256: sha256,
   })
   .strict();
+const approvalConsumptionSchema = z
+  .object({
+    approvalFingerprint: sha256,
+    approvalId: boundedId,
+    runId,
+    stateDir: z.string().min(1).optional(),
+  })
+  .strict();
 
 export type PrepareAuthorityInput = Pick<
   EvidenceRunInput,
+  | 'runId'
   | 'approvalId'
   | 'policyId'
   | 'toolingMergeSha'
@@ -68,18 +80,139 @@ export function calculateReviewedPolicySha256(
 async function readAuthorityArtifact(path: string, label: string) {
   if (!isAbsolute(path))
     throw new Error(`${label} artifact path must be absolute`);
-  const stat = await lstat(path).catch(() => {
-    throw new Error(`${label} artifact is not readable`);
+  const scope = resolve(dirname(path));
+  const scopeStat = await lstat(scope).catch(() => {
+    throw new Error(`${label} authority scope is not readable`);
   });
-  if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o777) !== 0o600)
-    throw new Error(`${label} artifact must be a private regular file`);
-  let parsed: unknown;
+  if (
+    scopeStat.isSymbolicLink() ||
+    !scopeStat.isDirectory() ||
+    (scopeStat.mode & 0o077) !== 0
+  )
+    throw new Error(`${label} authority scope is not private durable storage`);
+  let handle: FileHandle;
   try {
-    parsed = JSON.parse(await readFile(path, 'utf8'));
-  } catch {
-    throw new Error(`${label} artifact is not valid JSON`);
+    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ELOOP')
+      throw new Error(`${label} artifact must be a private regular file`);
+    throw new Error(`${label} artifact is not readable`);
   }
-  return parsed;
+  try {
+    let stat: Stats;
+    try {
+      stat = await handle.stat();
+    } catch {
+      throw new Error(`${label} artifact is not readable`);
+    }
+    if (
+      stat.isSymbolicLink() ||
+      !stat.isFile() ||
+      (stat.mode & 0o777) !== 0o600
+    )
+      throw new Error(`${label} artifact must be a private regular file`);
+    let source: string;
+    try {
+      source = await handle.readFile('utf8');
+    } catch {
+      throw new Error(`${label} artifact is not readable`);
+    }
+    try {
+      return JSON.parse(source) as unknown;
+    } catch {
+      throw new Error(`${label} artifact is not valid JSON`);
+    }
+  } finally {
+    await handle.close().catch(() => undefined);
+  }
+}
+
+function approvalFingerprint(approval: z.infer<typeof approvalArtifactSchema>) {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        id: approval.id,
+        toolingMergeSha: approval.toolingMergeSha,
+        policyId: approval.policyId,
+        policySha256: approval.policySha256,
+        readTokenId: approval.readTokenId,
+        readPolicySha256: approval.readPolicySha256,
+        cleanupPolicySha256: approval.cleanupPolicySha256,
+        approvedAt: approval.approvedAt,
+        expiresAt: approval.expiresAt,
+      })
+    )
+    .digest('hex');
+}
+
+async function consumeApproval(
+  approvalPath: string,
+  approval: z.infer<typeof approvalArtifactSchema>,
+  input: PrepareAuthorityInput,
+  stateDir: string | undefined
+) {
+  const scope = resolve(dirname(approvalPath));
+  const fingerprint = approvalFingerprint(approval);
+  const markerPath = join(
+    scope,
+    `.baci-evidence-approval-${createHash('sha256')
+      .update(`${resolve(approvalPath)}\0${fingerprint}`)
+      .digest('hex')}.consumed`
+  );
+  let handle: FileHandle;
+  try {
+    handle = await open(
+      markerPath,
+      constants.O_WRONLY |
+        constants.O_CREAT |
+        constants.O_EXCL |
+        constants.O_NOFOLLOW,
+      0o600
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST')
+      throw new Error('approval consumption record could not be created');
+    let existing: z.infer<typeof approvalConsumptionSchema>;
+    try {
+      existing = approvalConsumptionSchema.parse(
+        await readAuthorityArtifact(markerPath, 'approval consumption')
+      );
+    } catch {
+      throw new Error('approval consumption record is invalid');
+    }
+    if (
+      existing.approvalFingerprint !== fingerprint ||
+      existing.approvalId !== approval.id ||
+      existing.runId !== input.runId ||
+      existing.stateDir !== stateDir
+    )
+      throw new Error('approval is already consumed for another run');
+    return;
+  }
+  try {
+    await handle.writeFile(
+      `${JSON.stringify({
+        approvalFingerprint: fingerprint,
+        approvalId: approval.id,
+        runId: input.runId,
+        ...(stateDir ? { stateDir } : {}),
+      })}\n`
+    );
+    await handle.sync();
+  } catch {
+    throw new Error('approval consumption record could not be persisted');
+  } finally {
+    await handle.close().catch(() => undefined);
+  }
+  let scopeHandle: FileHandle | undefined;
+  try {
+    scopeHandle = await open(scope, constants.O_RDONLY);
+    await scopeHandle.sync();
+  } catch {
+    throw new Error('approval consumption record could not be persisted');
+  } finally {
+    await scopeHandle?.close().catch(() => undefined);
+  }
 }
 
 /** Verifies owner approval and the reviewed policy identity before journaling any run. */
@@ -96,6 +229,13 @@ export async function verifyPrepareAuthority(
     );
   if (approvalPath === policyPath)
     throw new Error('approval and policy artifacts must be distinct');
+  const approvalScope = resolve(dirname(approvalPath));
+  const policyScope = resolve(dirname(policyPath));
+  if (approvalScope !== policyScope)
+    throw new Error('approval and policy artifacts must share authority scope');
+  const stateDir = environment.EVIDENCE_RUN_STATE_DIR;
+  if (stateDir !== undefined && !isAbsolute(stateDir))
+    throw new Error('EVIDENCE_RUN_STATE_DIR must be absolute');
   const [approvalValue, policyValue] = await Promise.all([
     readAuthorityArtifact(approvalPath, 'approval'),
     readAuthorityArtifact(policyPath, 'policy'),
@@ -144,6 +284,7 @@ export async function verifyPrepareAuthority(
     throw new Error(
       'owner approval or token policy is expired or not yet effective'
     );
+  await consumeApproval(approvalPath, approval, input, stateDir);
   return Object.freeze({
     approvalId: approval.id,
     policyId: policy.id,

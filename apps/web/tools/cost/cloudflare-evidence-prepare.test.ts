@@ -37,6 +37,7 @@ describe('cloudflareEvidencePrepare', () => {
     const valid = cloudflareEvidencePrepare.argumentsFor(input);
     for (const args of [
       [...valid, '--token', 'secret'],
+      [...valid, '--constructor', 'unexpected'],
       valid.map((value) => (value === input.runId ? 'run-123' : value)),
       valid.map((value) => (value === input.toolingMergeSha ? 'bad' : value)),
       valid.map((value) => (value === '2' ? '3' : value)),
@@ -249,6 +250,18 @@ describe('cloudflareEvidencePrepare', () => {
       { mode: 0o600 }
     );
     await writeFile(policyPath, JSON.stringify(policy), { mode: 0o600 });
+    await chmod(approvalPath, 0o644);
+    await expect(
+      verifyPrepareAuthority(
+        input,
+        {
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+        },
+        new Date('2026-08-01T12:00:00.000Z')
+      )
+    ).rejects.toThrow('private regular file');
+    await chmod(approvalPath, 0o600);
     await expect(
       verifyPrepareAuthority(
         input,

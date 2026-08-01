@@ -2,168 +2,15 @@ import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { calculateStorefrontDeliveryDailyEvidenceSha256 } from '../../../../packages/shared/src/storefront/delivery-evidence';
+import { DEFAULT_ORIGIN_RATE_THRESHOLD } from './origin-rate-constants';
+import { readSealedStorefrontDeliveryManifest } from './storefront-origin-budget';
 import {
-  calculateHostnameInventorySha256,
-  calculateStorefrontDeliveryWindowFingerprintSha256,
-} from '../../../../packages/shared/src/storefront/delivery-evidence-manifest';
-import {
-  readSealedStorefrontDeliveryManifest,
-  summarizeStorefrontDelivery,
-} from './storefront-origin-budget';
-
-const hash = (letter: string) => letter.repeat(64);
-const validationNow = new Date('2026-08-02T12:00:00.000Z');
-const summarizeAtFixtureTime = (
-  value: unknown,
-  options: { thresholdOverride?: number } = {}
-) => summarizeStorefrontDelivery(value, { ...options, now: validationNow });
-
-function manifest(overrides: Record<string, unknown> = {}) {
-  const hostnameInventorySha256 = calculateHostnameInventorySha256([
-    'ogabassey.com',
-    'ogabassey.usebaci.com',
-    'www.ogabassey.com',
-  ]);
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const utcDate = new Date(Date.UTC(2026, 6, 25 + index))
-      .toISOString()
-      .slice(0, 10);
-    const day = {
-      utcDate,
-      hostnameInventorySha256,
-      eligibilityPolicySha256: hash('b'),
-      aliasRulesetVersion: 'alias-v1',
-      wafRulesetVersion: 'waf-v1',
-      responseHeaderRulesetSha256: hash('c'),
-      rawOriginRobotsTxtSha256: hash('d'),
-      workerDeploymentId: 'deployment-v1',
-      originOnlyVersionId: 'origin-v1',
-      edgeVersionId: 'edge-v1',
-      source: 'worker-analytics',
-      exportedAt: new Date(Date.UTC(2026, 6, 26 + index)).toISOString(),
-      providerSamplingApplied: false,
-      maxSampleInterval: 1,
-      exportComplete: true,
-      invocationCountExact: true,
-      workerInvocationCount: 1000,
-      totalDecisionCount: 1000,
-      syntheticQualificationRequestCount: 0,
-      canonicalEligibleRequestCount: 1000,
-      canonicalEligibleOriginAttemptCount: 0,
-      dynamicOriginAttemptCount: 0,
-      unknownOriginAttemptCount: 0,
-      edgeReleaseCount: 1000,
-      edgeRejectCount: 0,
-      originFallbackCount: 0,
-      terminalCount: 0,
-      edgeErrorCount: 0,
-      aliasEligibleRequestCount: 0,
-      aliasEdgeRedirectCount: 0,
-      aliasEligibleOriginRequestCount: 0,
-      aliasDynamicOriginCount: 0,
-      rejectedMethodRequestCount: 0,
-      rejectedMethodOriginCount: 0,
-      allowedOriginRateLimitCount: 0,
-      sourceEvidence: {
-        invocation: {
-          sourceFingerprint: hash('1'),
-          complete: true,
-          exact: true,
-          providerSamplingApplied: false,
-          maxSampleInterval: 1,
-        },
-        aliasRedirect: {
-          sourceFingerprint: hash('2'),
-          complete: true,
-          exact: true,
-          providerSamplingApplied: false,
-          maxSampleInterval: 1,
-        },
-        wafRateLimit: {
-          sourceFingerprint: hash('3'),
-          complete: true,
-          exact: true,
-          providerSamplingApplied: false,
-          maxSampleInterval: 1,
-        },
-        originEvent: {
-          sourceFingerprint: hash('4'),
-          requestCount: 0,
-          complete: true,
-          exact: true,
-          providerSamplingApplied: false,
-          maxSampleInterval: 1,
-        },
-        syntheticQualification: {
-          sourceFingerprint: hash('5'),
-          requestCount: 0,
-          complete: true,
-          exact: true,
-          providerSamplingApplied: false,
-          maxSampleInterval: 1,
-        },
-      },
-      sha256: '',
-    };
-    day.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(day);
-    return day;
-  });
-  const base = {
-    windowStart: '2026-07-25T00:00:00.000Z',
-    windowEnd: '2026-08-01T00:00:00.000Z',
-    canonicalHostname: 'ogabassey.com' as const,
-    aliasHostnames: ['ogabassey.usebaci.com', 'www.ogabassey.com'],
-    inventoryHostnames: [
-      'ogabassey.com',
-      'ogabassey.usebaci.com',
-      'www.ogabassey.com',
-    ],
-    hostnameInventorySha256,
-    eligibilityPolicySha256: hash('b'),
-    aliasRulesetVersion: 'alias-v1',
-    wafRulesetVersion: 'waf-v1',
-    responseHeaderRulesetSha256: hash('c'),
-    rawOriginRobotsTxtSha256: hash('d'),
-    workerDeploymentId: 'deployment-v1',
-    originOnlyVersionId: 'origin-v1',
-    edgeVersionId: 'edge-v1',
-    sourceFingerprints: {
-      invocation: hash('1'),
-      aliasRedirect: hash('2'),
-      wafRateLimit: hash('3'),
-      originEvent: hash('4'),
-      syntheticQualification: hash('5'),
-    },
-    evidenceSource: 'worker-analytics' as const,
-    days,
-    ...overrides,
-  };
-  return {
-    ...base,
-    windowFingerprintSha256:
-      calculateStorefrontDeliveryWindowFingerprintSha256(base),
-  };
-}
-function seal<T extends ReturnType<typeof manifest>>(evidence: T) {
-  for (const day of evidence.days)
-    day.sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(day);
-  evidence.windowFingerprintSha256 =
-    calculateStorefrontDeliveryWindowFingerprintSha256(evidence);
-  return evidence;
-}
-function withSyntheticProjection(
-  evidence: ReturnType<typeof manifest>,
-  requestCount: number,
-  sourceRequestCount = requestCount,
-  canonicalRequestCount = 1000
-) {
-  const day = evidence.days[0];
-  day.canonicalEligibleRequestCount = canonicalRequestCount;
-  day.syntheticQualificationRequestCount = requestCount;
-  day.sourceEvidence.syntheticQualification.requestCount = sourceRequestCount;
-  return evidence;
-}
+  manifest,
+  seal,
+  summarizeAtFixtureTime,
+  validationNow,
+  withSyntheticProjection,
+} from './storefront-origin-budget.test-fixtures';
 
 describe('summarizeStorefrontDelivery', () => {
   it('passes a complete seven-day all-ingress census with zero origins', () =>
@@ -197,6 +44,17 @@ describe('summarizeStorefrontDelivery', () => {
       canonicalEligibleOriginAttemptCount: 1,
       sourceEvidence: {
         ...evidence.days[0].sourceEvidence,
+        aliasRedirect: {
+          ...evidence.days[0].sourceEvidence.aliasRedirect,
+          hostPartition: [
+            {
+              ...evidence.days[0].sourceEvidence.aliasRedirect.hostPartition[0],
+              requestCount: 500,
+              eligibleRequestCount: 500,
+            },
+            evidence.days[0].sourceEvidence.aliasRedirect.hostPartition[1],
+          ],
+        },
         originEvent: {
           ...evidence.days[0].sourceEvidence.originEvent,
           requestCount: 1,
@@ -209,7 +67,9 @@ describe('summarizeStorefrontDelivery', () => {
       day.totalDecisionCount = 0;
       day.edgeReleaseCount = 0;
     }
-    expect(summarizeAtFixtureTime(seal(evidence)).originRate).toBe(0.001);
+    expect(summarizeAtFixtureTime(seal(evidence)).originRate).toBe(
+      DEFAULT_ORIGIN_RATE_THRESHOLD
+    );
     expect(summarizeAtFixtureTime(seal(evidence)).verdict).toBe('PASS');
   });
   it('applies a comparison threshold and rejects an impossible eligibility denominator', () => {
@@ -235,7 +95,12 @@ describe('summarizeStorefrontDelivery', () => {
     unknown.days[0].sourceEvidence.originEvent.requestCount = 1;
     expect(summarizeAtFixtureTime(seal(unknown)).verdict).toBe('FAIL');
     const alias = manifest();
+    alias.days[0].aliasEligibleRequestCount = 1;
+    alias.days[0].aliasEdgeRedirectCount = 1;
     alias.days[0].aliasEligibleOriginRequestCount = 1;
+    alias.days[0].sourceEvidence.aliasRedirect.hostPartition[0].requestCount = 1;
+    alias.days[0].sourceEvidence.aliasRedirect.hostPartition[0].eligibleRequestCount = 1;
+    alias.days[0].sourceEvidence.aliasRedirect.hostPartition[0].eligibleOriginAttemptCount = 1;
     alias.days[0].sourceEvidence.originEvent.requestCount = 1;
     expect(summarizeAtFixtureTime(seal(alias)).verdict).toBe('FAIL');
     const rejected = manifest();
@@ -290,6 +155,7 @@ describe('summarizeStorefrontDelivery', () => {
     evidence.days[0] = {
       ...evidence.days[0],
       canonicalEligibleOriginAttemptCount: 1,
+      edgeReleaseCount: 999,
       edgeErrorCount: 1,
       sourceEvidence: {
         ...evidence.days[0].sourceEvidence,
@@ -299,9 +165,10 @@ describe('summarizeStorefrontDelivery', () => {
         },
       },
     };
-    expect(
-      summarizeAtFixtureTime(seal(evidence)).canonicalEligibleOriginAttempts
-    ).toBe(1);
+    const summary = summarizeAtFixtureTime(seal(evidence));
+    expect(summary.canonicalEligibleOriginAttempts).toBe(1);
+    expect(summary.evidenceComplete).toBe(true);
+    expect(summary.verdict).toBe('PASS');
   });
   it('returns not proven for sampling, count mismatch, alias redirect mismatch, missing day, config drift, or zero ingress', () => {
     for (const change of [

@@ -11,7 +11,7 @@ const policySchema = z
     zoneId: z.string().min(1),
     permissionGroupIds: z.array(z.string().min(1)).min(1),
     resources: z.array(z.string().min(1)).min(1),
-    expiresAt: z.string().datetime({ offset: true }),
+    expiresAt: z.iso.datetime({ offset: true }),
     policySha256: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();

@@ -12,6 +12,18 @@ const SourceEvidenceSchema = z
     maxSampleInterval: z.number().int().positive(),
   })
   .strict();
+const HostPartitionRowSchema = z
+  .object({
+    hostname: z.string().min(1),
+    requestCount: CountSchema,
+    eligibleRequestCount: CountSchema,
+    eligibleOriginAttemptCount: CountSchema,
+  })
+  .strict();
+const AliasRedirectSourceEvidenceSchema = SourceEvidenceSchema.extend({
+  /** Bounded host aggregates; raw URLs, methods, and request rows are excluded. */
+  hostPartition: z.array(HostPartitionRowSchema).min(1).max(64),
+});
 const SyntheticQualificationSourceEvidenceSchema = SourceEvidenceSchema.extend({
   requestCount: CountSchema,
 });
@@ -61,7 +73,7 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
     sourceEvidence: z
       .object({
         invocation: SourceEvidenceSchema,
-        aliasRedirect: SourceEvidenceSchema,
+        aliasRedirect: AliasRedirectSourceEvidenceSchema,
         wafRateLimit: SourceEvidenceSchema,
         originEvent: OriginEventSourceEvidenceSchema,
         syntheticQualification: SyntheticQualificationSourceEvidenceSchema,

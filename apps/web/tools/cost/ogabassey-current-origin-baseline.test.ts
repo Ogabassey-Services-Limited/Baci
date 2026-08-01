@@ -246,4 +246,24 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
       ).reasonCodes
     ).toContain('baseline_window_missing_or_invalid');
   });
+  it('stops when projected edge cost does not produce positive savings', () =>
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...current, currentVercelAttributionUsd: '2.00' },
+        { now: new Date('2026-08-01T12:00:00.000Z') }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['savings_not_positive'],
+    }));
+  it('stops when payback exceeds the owner-approved horizon', () =>
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...current, paybackMonths: 13 },
+        { now: new Date('2026-08-01T12:00:00.000Z') }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['payback_exceeds_approved_horizon'],
+    }));
 });

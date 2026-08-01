@@ -1,5 +1,10 @@
+import {
+  parseStrictUtcBoundary,
+  UTC_DAY_MILLISECONDS,
+} from '../../../../packages/shared/src/storefront/utc-boundary';
 import type { CloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
 import { validateCloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
+import { DEFAULT_ORIGIN_RATE_THRESHOLD } from './origin-rate-constants';
 
 export type {
   CloudflareWorkersLogsContractValidationOptions,
@@ -13,19 +18,8 @@ export {
   validateCloudflareWorkersLogsPlanContract,
 } from './cloudflare-workers-logs-contract';
 
-const MILLISECONDS_PER_UTC_DAY = 86_400_000;
-const CLOSED_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/;
 const DEFAULT_MAXIMUM_BASELINE_AGE_DAYS = 7;
-const MAXIMUM_ORIGIN_AVOIDANCE_RATE = 0.001;
 const FORCED_SAMPLING_HEADROOM_MULTIPLIER = 4n;
-
-function parseStrictUtcBoundary(value: string) {
-  if (!CLOSED_UTC_PATTERN.test(value)) return null;
-  const date = new Date(value);
-  return Number.isFinite(date.valueOf()) && date.toISOString() === value
-    ? date
-    : null;
-}
 
 export type OgabasseyOriginBusinessCaseInput = {
   windowDays: number;
@@ -140,7 +134,7 @@ export function evaluateOgabasseyOriginBusinessCase(
     baselineWindowValid = false;
   } else if (
     windowEnd.valueOf() - windowStart.valueOf() !==
-    7 * MILLISECONDS_PER_UTC_DAY
+    7 * UTC_DAY_MILLISECONDS
   ) {
     reasons.push('baseline_window_not_seven_days');
     baselineWindowValid = false;
@@ -164,7 +158,7 @@ export function evaluateOgabasseyOriginBusinessCase(
       baselineWindowValid = false;
     } else if (
       currentUtcDayStart - windowEnd.valueOf() >
-      maximumWindowAgeDays * MILLISECONDS_PER_UTC_DAY
+      maximumWindowAgeDays * UTC_DAY_MILLISECONDS
     ) {
       reasons.push('baseline_window_stale');
       baselineWindowValid = false;
@@ -209,7 +203,7 @@ export function evaluateOgabasseyOriginBusinessCase(
   const originAvoidanceRate =
     (input.allIngressOriginAttempts ?? 0) /
     (input.allIngressRequests ?? Number.NaN);
-  if (originAvoidanceRate <= MAXIMUM_ORIGIN_AVOIDANCE_RATE)
+  if (originAvoidanceRate <= DEFAULT_ORIGIN_RATE_THRESHOLD)
     return {
       verdict: 'STOP',
       reasonCodes: ['origin_avoidance_target_met'],

@@ -6,27 +6,29 @@ import {
   type StorefrontDeliveryDailyEvidence,
   StorefrontDeliveryDailyEvidenceSchema,
 } from './delivery-evidence';
+import {
+  parseStrictUtcBoundary,
+  STRICT_UTC_BOUNDARY_PATTERN,
+  UTC_DAY_MILLISECONDS,
+} from './utc-boundary';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
-const MILLISECONDS_PER_UTC_DAY = 86_400_000;
-const CLOSED_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/;
 const KNOWN_OGABASSEY_ALIASES = [
   'ogabassey.usebaci.com',
   'www.ogabassey.com',
 ] as const;
 
-function parseStrictUtcBoundary(value: string) {
-  if (!CLOSED_UTC_PATTERN.test(value)) return null;
-  const parsed = new Date(value);
-  return Number.isFinite(parsed.valueOf()) && parsed.toISOString() === value
-    ? parsed
-    : null;
-}
-
 const ClosedUtc = z
   .string()
-  .regex(CLOSED_UTC_PATTERN)
+  .regex(STRICT_UTC_BOUNDARY_PATTERN)
   .refine((value) => parseStrictUtcBoundary(value) !== null);
+const HostnameSchema = z
+  .string()
+  .min(1)
+  .max(253)
+  .refine((hostname) => !/[\r\n]/.test(hostname), {
+    message: 'hostname must not contain line breaks',
+  });
 const SourceFingerprintsSchema = z
   .object({
     invocation: Hash,
@@ -38,7 +40,7 @@ const SourceFingerprintsSchema = z
   .strict();
 const EvidenceSourceSchema = z.enum(['worker-analytics', 'worker-log']);
 const AliasHostnamesSchema = z
-  .array(z.string().min(1))
+  .array(HostnameSchema)
   .min(KNOWN_OGABASSEY_ALIASES.length)
   .superRefine((aliases, context) => {
     for (const hostname of KNOWN_OGABASSEY_ALIASES) {
@@ -50,7 +52,7 @@ const AliasHostnamesSchema = z
     }
   });
 const InventoryHostnamesSchema = z
-  .array(z.string().min(1))
+  .array(HostnameSchema)
   .min(KNOWN_OGABASSEY_ALIASES.length + 1)
   .superRefine((hostnames, context) => {
     for (const hostname of ['ogabassey.com', ...KNOWN_OGABASSEY_ALIASES]) {
@@ -131,7 +133,7 @@ export function validateStorefrontDeliveryManifest(
   const reasons: string[] = [];
   const start = new Date(manifest.windowStart);
   const end = new Date(manifest.windowEnd);
-  if (end.valueOf() - start.valueOf() !== 7 * 86_400_000)
+  if (end.valueOf() - start.valueOf() !== 7 * UTC_DAY_MILLISECONDS)
     reasons.push('window_not_seven_days');
   const now = options.now ?? new Date();
   const maximumWindowAgeDays = options.maximumWindowAgeDays ?? 7;
@@ -151,7 +153,7 @@ export function validateStorefrontDeliveryManifest(
   else if (
     currentUtcDayStart !== null &&
     currentUtcDayStart - end.valueOf() >
-      maximumWindowAgeDays * MILLISECONDS_PER_UTC_DAY
+      maximumWindowAgeDays * UTC_DAY_MILLISECONDS
   )
     reasons.push('window_stale');
   if (
@@ -170,7 +172,10 @@ export function validateStorefrontDeliveryManifest(
   const inventory = manifest.inventoryHostnames;
   const expectedInventory = [manifest.canonicalHostname, ...aliases];
   if (
-    inventory.join('\n') !== expectedInventory.join('\n') ||
+    inventory.length !== expectedInventory.length ||
+    inventory.some(
+      (hostname, index) => hostname !== expectedInventory[index]
+    ) ||
     manifest.hostnameInventorySha256 !==
       calculateHostnameInventorySha256(inventory)
   )
@@ -209,7 +214,7 @@ export function validateStorefrontDeliveryManifest(
       return (
         !Number.isFinite(exportedAtMs) ||
         dayStart === null ||
-        exportedAtMs < dayStart.valueOf() + MILLISECONDS_PER_UTC_DAY
+        exportedAtMs < dayStart.valueOf() + UTC_DAY_MILLISECONDS
       );
     })
   )

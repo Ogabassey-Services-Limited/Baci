@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { z } from 'zod';
 import { loadEvidenceRunForCleanup } from './cloudflare-evidence-run-journal';
 import {
   verifyReviewedEvidenceFile,
@@ -45,6 +46,15 @@ type MutationRunnerFactory = (
 const OWNER_PROVISIONING_REVOCATION_READBACK_BLOCKER =
   'owner provisioning required: independent authenticated provider or audit readback is unavailable; a local receipt cannot authorize a write-token revocation phase transition';
 
+const externalWriteTokenRevocationReceiptSchema = z
+  .object({
+    tokenId: z.string().min(1),
+    status: z.literal('revoked'),
+    providerReceiptSha256: z.string().regex(/^[a-f0-9]{64}$/),
+    observedAt: z.iso.datetime({ offset: true }),
+  })
+  .strict();
+
 async function verifyReviewedCommand(
   runId: string,
   stateDir: string
@@ -68,31 +78,10 @@ async function verifyReviewedCommand(
 }
 
 function parseWriteTokenRevocationReceipt(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value))
+  const parsed = externalWriteTokenRevocationReceiptSchema.safeParse(value);
+  if (!parsed.success)
     throw new Error('external write-token revocation receipt is invalid');
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  if (
-    keys.length !== 4 ||
-    keys.some(
-      (key, index) =>
-        key !==
-        ['observedAt', 'providerReceiptSha256', 'status', 'tokenId'][index]
-    ) ||
-    typeof record.tokenId !== 'string' ||
-    record.status !== 'revoked' ||
-    typeof record.providerReceiptSha256 !== 'string' ||
-    !/^[a-f0-9]{64}$/.test(record.providerReceiptSha256) ||
-    typeof record.observedAt !== 'string' ||
-    Number.isNaN(new Date(record.observedAt).valueOf())
-  )
-    throw new Error('external write-token revocation receipt is invalid');
-  return Object.freeze({
-    tokenId: record.tokenId,
-    status: 'revoked' as const,
-    providerReceiptSha256: record.providerReceiptSha256,
-    observedAt: record.observedAt,
-  });
+  return Object.freeze(parsed.data);
 }
 
 async function loadCredentiallessRevocationDependencies(

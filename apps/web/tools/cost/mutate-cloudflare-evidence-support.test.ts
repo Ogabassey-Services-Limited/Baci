@@ -187,4 +187,40 @@ describe('mutation dependency loader', () => {
       process.argv[1] = originalArgv1;
     }
   });
+
+  it('rejects a loosely parseable revocation timestamp before binding it to the journal', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, input);
+    const receiptPath = join(dir, 'revocation-receipt.json');
+    await writeFile(
+      receiptPath,
+      JSON.stringify({
+        tokenId: input.writeTokenId,
+        status: 'revoked',
+        providerReceiptSha256: 'c'.repeat(64),
+        observedAt: '2026-07-31',
+      }),
+      { mode: 0o600 }
+    );
+    await chmod(receiptPath, 0o600);
+    vi.stubEnv('EVIDENCE_WORKSPACE_ROOT', resolve(process.cwd()));
+    vi.stubEnv(
+      'EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_RECEIPT_PATH',
+      receiptPath
+    );
+    const commandPath = resolve(
+      process.cwd(),
+      'apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts'
+    );
+    const originalArgv1 = process.argv[1];
+    process.argv[1] = commandPath;
+    try {
+      await expect(
+        loadMutationDependencies(runId, dir, 'record_write_revocation')
+      ).rejects.toThrow('invalid');
+    } finally {
+      process.argv[1] = originalArgv1;
+    }
+  });
 });

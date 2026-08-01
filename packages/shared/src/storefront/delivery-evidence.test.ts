@@ -52,6 +52,20 @@ const dailyEvidence = {
     },
     aliasRedirect: {
       sourceFingerprint: 'alias-v1',
+      hostPartition: [
+        {
+          hostname: 'ogabassey.usebaci.com',
+          requestCount: 0,
+          eligibleRequestCount: 0,
+          eligibleOriginAttemptCount: 0,
+        },
+        {
+          hostname: 'www.ogabassey.com',
+          requestCount: 0,
+          eligibleRequestCount: 0,
+          eligibleOriginAttemptCount: 0,
+        },
+      ],
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -90,6 +104,15 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
   it('uses the canonical SHA-256 digest rather than a runtime-specific hash provider', () => {
     expect(calculateCanonicalSha256('abc')).toBe(
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+    );
+    expect(calculateCanonicalSha256('')).toBe(
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    );
+    expect(calculateCanonicalSha256('a'.repeat(56))).toBe(
+      'b35439a4ac6f0948b6d6f9e3c6af0f5f590ce20f1bde7090ef7970686ec6738a'
+    );
+    expect(calculateCanonicalSha256('a'.repeat(1_000_000))).toBe(
+      'cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0'
     );
   });
   it('sorts object keys recursively, preserves arrays, and rejects ambiguous values', () => {
@@ -156,7 +179,7 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
       }).success
     ).toBe(false);
   });
-  it('requires each independent source to be exact, complete, and unsampled', () => {
+  it('parses source exactness metadata for the completeness gate', () => {
     expect(
       StorefrontDeliveryDailyEvidenceSchema.safeParse({
         ...dailyEvidence,
@@ -205,6 +228,20 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
           originEvent: {
             ...dailyEvidence.sourceEvidence.originEvent,
             requestCount: undefined,
+          },
+        },
+      }).success
+    ).toBe(false);
+  });
+  it('requires bounded per-host alias evidence', () => {
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse({
+        ...dailyEvidence,
+        sourceEvidence: {
+          ...dailyEvidence.sourceEvidence,
+          aliasRedirect: {
+            ...dailyEvidence.sourceEvidence.aliasRedirect,
+            hostPartition: [],
           },
         },
       }).success

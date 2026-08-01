@@ -1,10 +1,12 @@
 import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import { dirname, isAbsolute, parse, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   type StorefrontDeliveryEvidenceManifest,
   validateStorefrontDeliveryManifest,
 } from '../../../../packages/shared/src/storefront/delivery-evidence-manifest';
+import { DEFAULT_ORIGIN_RATE_THRESHOLD } from './origin-rate-constants';
 
 export type StorefrontDeliverySummary = {
   evidenceMode: 'census' | 'sampled';
@@ -32,10 +34,8 @@ type OriginBudgetOptions = Readonly<{
   thresholdOverride?: number;
   now?: Date;
 }>;
-
 const sum = (values: readonly number[]) =>
   values.reduce((total, value) => total + value, 0);
-
 async function assertNoSymlinkAncestors(path: string) {
   const root = parse(path).root;
   const benignSystemAliases = new Set(['/var', '/tmp']);
@@ -47,7 +47,6 @@ async function assertNoSymlinkAncestors(path: string) {
     current = dirname(current);
   }
 }
-
 /** Produces the fail-closed all-ingress production origin-avoidance decision. */
 export function summarizeStorefrontDelivery(
   value: unknown,
@@ -57,6 +56,7 @@ export function summarizeStorefrontDelivery(
     now: options.now,
   });
   const days = validation.ok ? validation.manifest.days : [];
+  const aliases = validation.ok ? validation.manifest.aliasHostnames : [];
   const canonicalEligibleRequests = sum(
     days.map((day) => day.canonicalEligibleRequestCount ?? 0)
   );
@@ -72,8 +72,7 @@ export function summarizeStorefrontDelivery(
   const aliasEligibleOriginAttempts = sum(
     days.map((day) => day.aliasEligibleOriginRequestCount ?? 0)
   );
-  // Origin-fallback and edge-error counts are final decision classes; the
-  // independent origin-event count must not double-count those outcomes.
+  // Origin fallback and edge-error are final classes; do not double-count.
   const originAttemptsForDay = (day: (typeof days)[number]) =>
     day.canonicalEligibleOriginAttemptCount +
     day.dynamicOriginAttemptCount +
@@ -93,9 +92,27 @@ export function summarizeStorefrontDelivery(
         day.sourceEvidence.originEvent.requestCount ===
         originAttemptsForDay(day)
     );
-  // Dynamic/API and rate-limit origins are outside the static eligibility
-  // numerator, but they still require an explicit reconciliation. A complete
-  // census must not silently pass while these origin events are unaccounted.
+  const hostPartitionReconciled =
+    validation.ok &&
+    days.every((day) => {
+      const rows = day.sourceEvidence.aliasRedirect.hostPartition;
+      return (
+        rows.length === aliases.length &&
+        rows.every(
+          (row, index) =>
+            row.hostname === aliases[index] &&
+            row.eligibleRequestCount <= row.requestCount &&
+            row.eligibleOriginAttemptCount <= row.eligibleRequestCount
+        ) &&
+        sum(rows.map((row) => row.requestCount)) ===
+          day.aliasEdgeRedirectCount &&
+        sum(rows.map((row) => row.eligibleRequestCount)) ===
+          day.aliasEligibleRequestCount &&
+        sum(rows.map((row) => row.eligibleOriginAttemptCount)) ===
+          day.aliasEligibleOriginRequestCount
+      );
+    });
+  // Dynamic and rate-limit origins stay outside the eligible equation.
   const dynamicOriginAttempts = sum(
     days.map((day) => day.dynamicOriginAttemptCount ?? 0)
   );
@@ -125,6 +142,7 @@ export function summarizeStorefrontDelivery(
   const evidenceComplete =
     validation.ok &&
     originEventReconciled &&
+    hostPartitionReconciled &&
     unaccountedOriginAttempts === 0 &&
     days.every(
       (day) =>
@@ -142,7 +160,6 @@ export function summarizeStorefrontDelivery(
         day.sourceEvidence.syntheticQualification.requestCount ===
           day.syntheticQualificationRequestCount &&
         day.canonicalEligibleRequestCount +
-          day.aliasEligibleRequestCount +
           day.syntheticQualificationRequestCount <=
           day.totalDecisionCount &&
         day.aliasEligibleRequestCount === day.aliasEdgeRedirectCount &&
@@ -161,7 +178,8 @@ export function summarizeStorefrontDelivery(
     aliasEligibleOriginAttempts > 0 ||
     (evidenceComplete &&
       Number.isFinite(originRate) &&
-      originRate > (options.thresholdOverride ?? 0.001));
+      originRate >
+        (options.thresholdOverride ?? DEFAULT_ORIGIN_RATE_THRESHOLD));
   return {
     evidenceMode,
     evidenceComplete,
@@ -189,7 +207,6 @@ export function summarizeStorefrontDelivery(
         : 'NOT_PROVEN',
   };
 }
-
 export async function readSealedStorefrontDeliveryManifest(
   path: string,
   options: {
@@ -227,7 +244,6 @@ export async function readSealedStorefrontDeliveryManifest(
     );
   return validation.manifest;
 }
-
 export function parseStorefrontOriginBudgetArguments(args: readonly string[]) {
   if (args.length < 2 || args[0] !== '--manifest' || !args[1])
     throw new Error('cost gate requires --manifest <absolute-sealed-manifest>');
@@ -270,7 +286,7 @@ export function parseStorefrontOriginBudgetArguments(args: readonly string[]) {
 
 if (
   process.argv[1] &&
-  import.meta.url === new URL(process.argv[1], 'file:').href
+  import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   const { manifestPath, environment, thresholdOverride } =
     parseStorefrontOriginBudgetArguments(process.argv.slice(2));

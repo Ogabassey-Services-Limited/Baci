@@ -1,4 +1,11 @@
-import { chmod, lstat, mkdtemp, readFile, symlink } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdtemp,
+  readFile,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -62,6 +69,24 @@ describe('CloudflareEvidenceRunJournal', () => {
       recordEvidencePhase(dir, input.runId, 'proof_complete')
     ).rejects.toThrow(/phase|revocation/);
   });
+  it('rejects an unknown persisted phase before applying a transition', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    const opened = await openEvidenceRun(dir, input);
+    await writeFile(
+      join(dir, `${input.runId}.json`),
+      JSON.stringify({ ...opened, phase: 'unknown' }),
+      { mode: 0o600 }
+    );
+    await expect(
+      recordEvidenceMutation(
+        dir,
+        input.runId,
+        input.plannedResources[0],
+        'provider-id'
+      )
+    ).rejects.toThrow('journal phase is invalid');
+  });
   it('requires a separately approved read-policy fingerprint before journaling', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
@@ -83,7 +108,6 @@ describe('CloudflareEvidenceRunJournal', () => {
       results.filter((result) => result.status === 'rejected')
     ).toHaveLength(1);
   });
-
   it('rejects reopening an existing run ID even after its journal is terminal', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
@@ -95,7 +119,6 @@ describe('CloudflareEvidenceRunJournal', () => {
     });
     await expect(openEvidenceRun(dir, input)).rejects.toThrow('already exists');
   });
-
   it('serializes concurrent mutations so one read-modify-write cannot erase another', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);

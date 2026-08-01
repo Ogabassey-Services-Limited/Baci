@@ -72,10 +72,10 @@ export function requireTokenReadBackClient(
 export async function revokeCleanupWriteTokenIfNeeded(
   stateDir: string,
   runId: string,
-  tokenId: string | undefined,
+  cleanupTokenPresent: string | undefined,
   client: EvidenceMutationClient
 ) {
-  if (!tokenId) return;
+  if (!cleanupTokenPresent) return;
   await revokeEvidenceRunToken(
     stateDir,
     runId,

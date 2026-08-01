@@ -30,7 +30,8 @@ const input = {
   },
   topology: {
     family: 'r2-custom-domain' as const,
-    endpoint: '/accounts/account/r2/buckets/bucket/domains',
+    endpoint:
+      '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
     requestSchemaSha256: 'a'.repeat(64),
     responseSchemaSha256: 'b'.repeat(64),
     maximumVisibilitySeconds: 60,

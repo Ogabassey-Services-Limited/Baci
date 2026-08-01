@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { qualifyCloudflareTopologyEndpoints } from './cloudflare-evidence-topology-contract';
+import {
+  qualifyCloudflareTopologyEndpoint,
+  qualifyCloudflareTopologyEndpoints,
+} from './cloudflare-evidence-topology-contract';
 
 const endpoints = [
   {
@@ -28,6 +31,36 @@ const endpoints = [
 ] as const;
 
 describe('Cloudflare topology contract', () => {
+  it('qualifies a bounded endpoint only for the expected account', () => {
+    expect(qualifyCloudflareTopologyEndpoint(endpoints[2], 'account').ok).toBe(
+      true
+    );
+    expect(
+      qualifyCloudflareTopologyEndpoint(
+        {
+          ...endpoints[2],
+          endpoint: endpoints[2].endpoint.replace(
+            '/accounts/account/',
+            '/accounts/other-account/'
+          ),
+        },
+        'account'
+      ).ok
+    ).toBe(false);
+    expect(
+      qualifyCloudflareTopologyEndpoint(
+        {
+          ...endpoints[2],
+          endpoint: endpoints[2].endpoint.replace(
+            '/domains/custom/edge-evidence.ogabassey.com',
+            '/domains'
+          ),
+        },
+        'account'
+      ).ok
+    ).toBe(false);
+  });
+
   it('accepts one exact endpoint for each family', () => {
     expect(qualifyCloudflareTopologyEndpoints({ endpoints }).ok).toBe(true);
   });

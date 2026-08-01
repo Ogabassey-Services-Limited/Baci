@@ -1,8 +1,12 @@
+import { chmod, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { CloudflareEvidenceRunJournal } from './cloudflare-evidence-run-journal-state';
 import {
   assertTransition,
   createCleanupVerificationReceipt,
+  verifyDirectory,
 } from './cloudflare-evidence-run-journal-state';
 
 const journal = {
@@ -40,10 +44,25 @@ describe('cloudflare evidence journal state helpers', () => {
     });
   });
 
-  it('allows only the prepared-to-mutation transition', () => {
+  it('allows prepared-to-mutation and rejects an unrelated transition', () => {
     expect(() => assertTransition(journal, 'mutated')).not.toThrow();
     expect(() => assertTransition(journal, 'write_token_revoked')).toThrow(
       'invalid evidence phase transition'
     );
+  });
+
+  it('rejects writable ancestors while accepting a sticky temporary ancestor', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'baci-evidence-state-'));
+    const stateDir = join(root, 'state');
+    try {
+      await chmod(root, 0o770);
+      await expect(verifyDirectory(stateDir)).rejects.toThrow(
+        'private durable operator storage'
+      );
+      await chmod(root, 0o1777);
+      await expect(verifyDirectory(stateDir)).resolves.toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

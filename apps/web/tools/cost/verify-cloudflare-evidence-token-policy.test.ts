@@ -35,11 +35,39 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
       verifyCloudflareEvidenceTokenPolicy(
         'token',
         policy,
-        { ...policy, zoneId: 'other' },
+        policy,
+        {
+          verify: async () => ({ id: 'write-id', status: 'inactive' }),
+        },
+        { now: () => new Date('2026-08-01T12:00:00.000Z') }
+      )
+    ).rejects.toThrow('inactive or does not match');
+    await expect(
+      verifyCloudflareEvidenceTokenPolicy(
+        'token',
+        policy,
+        policy,
+        {
+          verify: async () => ({ id: 'other-id', status: 'active' }),
+        },
+        { now: () => new Date('2026-08-01T12:00:00.000Z') }
+      )
+    ).rejects.toThrow('inactive or does not match');
+    const scopeMismatchContent = { ...policyContent, zoneId: 'other' };
+    const scopeMismatchPolicy = {
+      ...scopeMismatchContent,
+      policySha256:
+        calculateCloudflareEvidenceTokenPolicySha256(scopeMismatchContent),
+    };
+    await expect(
+      verifyCloudflareEvidenceTokenPolicy(
+        'token',
+        policy,
+        scopeMismatchPolicy,
         { verify: async () => ({ id: 'write-id', status: 'active' }) },
         { now: () => new Date('2026-07-31T23:00:00.000Z') }
       )
-    ).rejects.toThrow('policy');
+    ).rejects.toThrow('owner export does not equal reviewed policy');
   });
   it('rejects an expiry beyond the two-hour write-token window', async () => {
     const longLivedContent = {

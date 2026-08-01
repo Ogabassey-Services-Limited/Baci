@@ -1,7 +1,7 @@
 import { chmod, mkdtemp, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   acquireActiveRunLock,
   releaseActiveRunLock,
@@ -115,6 +115,35 @@ describe('cloudflare evidence run lock', () => {
     await expect(
       withEvidenceRunTransitionLock(stateDir, runA, async () => 'recovered')
     ).resolves.toBe('recovered');
+  });
+
+  it('times out when a live transition owner never releases its lock', async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-lock-'));
+    await chmod(stateDir, 0o700);
+    await writeFile(
+      join(stateDir, `.journal-${runA}.lock`),
+      JSON.stringify({ runId: runA, pid: process.pid, token: 'live' }),
+      { mode: 0o600 }
+    );
+    const realNow = Date.now;
+    const startedAt = realNow();
+    let nowReads = 0;
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => {
+      nowReads += 1;
+      return startedAt + (nowReads >= 3 ? 60_001 : 0);
+    });
+    try {
+      const waiting = withEvidenceRunTransitionLock(
+        stateDir,
+        runA,
+        async () => 'unreachable'
+      );
+      await expect(waiting).rejects.toThrow(
+        'journal transition lock wait timed out'
+      );
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('does not follow a symlinked active lock', async () => {

@@ -73,6 +73,59 @@ describe('Cloudflare evidence mutation lifecycle', () => {
     ).toEqual(['probe-a', 'probe-b']);
   });
 
+  it('cleans up and revokes the write token when a probe fails after creation', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, mutationInput);
+    let resourcePresent = false;
+    const cleanup = vi.fn(async () => {
+      resourcePresent = false;
+      return true;
+    });
+    const revoke = vi.fn(async (tokenId: string) => ({
+      tokenId,
+      auditReceiptSha256: 'f'.repeat(64),
+    }));
+    const readBack = vi.fn(async (tokenId: string) => ({
+      tokenId,
+      status: 'inactive' as const,
+      auditReceiptSha256: 'f'.repeat(64),
+      observedAt: '2026-08-01T00:00:00.000Z',
+    }));
+    await expect(
+      applyCloudflareEvidenceMutation(
+        dir,
+        mutationInput.runId,
+        mutationCapability,
+        {
+          identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
+          findByName: async () => null,
+          get: async () => (resourcePresent ? mutationResource : null),
+          create: async () => {
+            resourcePresent = true;
+            return { id: mutationResource.id };
+          },
+          probe: async () => [
+            { id: 'probe-a', succeeded: false },
+            { id: 'probe-b', succeeded: true },
+          ],
+          cleanup,
+          inventorySha256: async () => 'a'.repeat(64),
+          revoke,
+          readBack,
+        }
+      )
+    ).rejects.toThrow('synthetic probe did not complete');
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(revoke).toHaveBeenCalledWith('write');
+    await expect(
+      loadEvidenceRunForCleanup(dir, mutationInput.runId)
+    ).resolves.toMatchObject({
+      phase: 'write_token_revoked',
+      cleanupIncomplete: true,
+    });
+  });
+
   it('rejects a resumed resource recreated under the deterministic name', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
@@ -216,6 +269,11 @@ describe('Cloudflare evidence mutation lifecycle', () => {
       await chmod(dir, 0o700);
       await openEvidenceRun(dir, mutationInput);
       const create = vi.fn(async () => ({ id: mutationResource.id }));
+      let resourcePresent = true;
+      const cleanup = vi.fn(async () => {
+        resourcePresent = false;
+        return true;
+      });
       await expect(
         applyCloudflareEvidenceMutation(
           dir,
@@ -224,16 +282,17 @@ describe('Cloudflare evidence mutation lifecycle', () => {
           {
             identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
             findByName: async () => null,
-            get: async () => mutationResource,
+            get: async () => (resourcePresent ? mutationResource : null),
             create,
             probe: entry.probe,
-            cleanup: async () => true,
+            cleanup,
             inventorySha256: entry.inventorySha256,
           }
         )
       ).rejects.toThrow(entry.error);
       if (entry.error === 'before mutation')
         expect(create).not.toHaveBeenCalled();
+      else expect(cleanup).toHaveBeenCalledOnce();
     }
   });
 });

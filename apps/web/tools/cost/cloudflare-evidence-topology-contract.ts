@@ -52,6 +52,20 @@ function hasExpectedShape(endpoint: TopologyEndpoint) {
   );
 }
 
+export function qualifyCloudflareTopologyEndpoint(
+  value: unknown,
+  expectedAccountId: string
+) {
+  const parsed = TopologyEndpointSchema.safeParse(value);
+  if (
+    !parsed.success ||
+    !parsed.data.endpoint.startsWith(`/accounts/${expectedAccountId}/`) ||
+    !hasExpectedShape(parsed.data)
+  )
+    return { ok: false as const, reason: 'topology_contract_invalid' };
+  return { ok: true as const, contract: parsed.data };
+}
+
 export function qualifyCloudflareTopologyEndpoints(value: unknown) {
   const parsed = z
     .object({ endpoints: z.array(TopologyEndpointSchema).length(3) })

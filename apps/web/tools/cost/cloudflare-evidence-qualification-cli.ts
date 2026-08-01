@@ -1,4 +1,5 @@
-import { lstat, readFile } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { open } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
 import type { ReviewedQualificationArtifact } from './cloudflare-evidence-qualification-schemas';
@@ -70,12 +71,26 @@ type QualificationCliIo = Readonly<{
 async function readReviewedArtifact(path: string, label: string) {
   if (!isAbsolute(path))
     throw new Error(`${label} artifact path must be absolute`);
-  const stat = await lstat(path).catch(() => {
+  const privateRegularFileError = new Error(
+    `${label} artifact must be a private regular file`
+  );
+  try {
+    const handle = await open(
+      path,
+      fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW
+    );
+    try {
+      const stat = await handle.stat();
+      if (!stat.isFile() || (stat.mode & 0o777) !== 0o600)
+        throw privateRegularFileError;
+      return await handle.readFile('utf8');
+    } finally {
+      await handle.close();
+    }
+  } catch (error: unknown) {
+    if (error === privateRegularFileError) throw error;
     throw new Error(`${label} artifact is not readable`);
-  });
-  if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o777) !== 0o600)
-    throw new Error(`${label} artifact must be a private regular file`);
-  return readFile(path, 'utf8');
+  }
 }
 
 export async function runQualificationCli(

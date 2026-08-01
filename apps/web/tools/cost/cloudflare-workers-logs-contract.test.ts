@@ -49,6 +49,18 @@ function contractFor(entitlement = entitlementProjection) {
       .digest('hex'),
   };
 }
+function paidContract() {
+  return {
+    ...contractFor(),
+    plan: 'paid' as const,
+    allowanceEvents: 20_000_000n,
+    allowancePeriod: 'billing_month' as const,
+    allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+    allowancePeriodEndsAt: '2026-09-01T00:00:00.000Z',
+    overageAllowed: true,
+    overageUsdPerMillion: '0.60',
+  };
+}
 
 describe('Cloudflare Workers Logs plan contract', () => {
   it('requires a full current UTC day for the forced-sampling counter', () =>
@@ -77,6 +89,25 @@ describe('Cloudflare Workers Logs plan contract', () => {
       )
     ).toThrow('full current day');
   });
+  it('accepts the paid monthly allowance contract with the current UTC-day counter', () =>
+    expect(
+      validateCloudflareWorkersLogsPlanContract(paidContract(), { now })
+    ).toMatchObject({
+      plan: 'paid',
+      allowanceEvents: 20_000_000n,
+      allowancePeriod: 'billing_month',
+    }));
+  it('rejects an allowance observation older than its declared maximum lag', () => {
+    expect(() =>
+      validateCloudflareWorkersLogsPlanContract(
+        {
+          ...contractFor(),
+          allowanceObservedAt: '2026-08-01T09:00:00.000Z',
+        },
+        { now }
+      )
+    ).toThrow('stale');
+  });
   it('derives every usage field from the authenticated entitlement projection', async () => {
     const rawEntitlement = JSON.stringify(entitlementProjection);
     await expect(
@@ -95,6 +126,16 @@ describe('Cloudflare Workers Logs plan contract', () => {
         { now }
       )
     ).resolves.toMatchObject({ currentUtcDayAllAccountEvents: 2345n });
+  });
+  it('rejects official documentation digest drift', async () => {
+    await expect(
+      retrieveCurrentCloudflareWorkersLogsContract(
+        async () => 'changed-workers-logs-docs',
+        async () => JSON.stringify(entitlementProjection),
+        contractFor(),
+        { now }
+      )
+    ).rejects.toThrow('documentation or entitlement receipt drifted');
   });
   it('accepts the provider envelope only when its normalized result is complete', async () => {
     const rawEntitlement = JSON.stringify({ result: entitlementProjection });

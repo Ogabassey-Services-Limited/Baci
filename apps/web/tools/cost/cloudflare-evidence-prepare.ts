@@ -77,10 +77,11 @@ function parseArguments(args: readonly string[]): EvidenceRunInput {
     throw new Error('prepare options are invalid');
   const values: Record<string, unknown> = { plannedResources: [] };
   for (let index = 1; index < args.length; index += 2) {
-    const option = args[index] as keyof typeof optionNames;
     const value = args[index + 1];
-    const field = optionNames[option];
-    if (!field || !value) throw new Error('prepare options are invalid');
+    const option = args[index];
+    if (!option || !value || !Object.hasOwn(optionNames, option))
+      throw new Error('prepare options are invalid');
+    const field = optionNames[option as keyof typeof optionNames];
     if (field === 'plannedResources') {
       (values.plannedResources as string[]).push(value);
       continue;
@@ -171,27 +172,19 @@ async function run(
   ]);
   if (status.trim()) throw new Error('tooling worktree is not clean');
   const reviewedAuthority = await verifyPrepareAuthority(input, environment);
-  const runnerDescriptors = await Promise.all([
-    ['mutation', readEvidenceRunnerModuleDescriptor(environment, 'mutation')],
-    [
-      'measurement',
-      readEvidenceRunnerModuleDescriptor(environment, 'measurement'),
-    ],
-  ] as const).then(async ([mutation, measurement]) => {
-    const [verifiedMutation, verifiedMeasurement] = await Promise.all([
-      verifyReviewedEvidenceRunnerModule(
-        workspaceRoot,
-        input.toolingMergeSha,
-        mutation[1]
-      ),
-      verifyReviewedEvidenceRunnerModule(
-        workspaceRoot,
-        input.toolingMergeSha,
-        measurement[1]
-      ),
-    ]);
-    return { mutation: verifiedMutation, measurement: verifiedMeasurement };
-  });
+  const [mutation, measurement] = await Promise.all([
+    verifyReviewedEvidenceRunnerModule(
+      workspaceRoot,
+      input.toolingMergeSha,
+      readEvidenceRunnerModuleDescriptor(environment, 'mutation')
+    ),
+    verifyReviewedEvidenceRunnerModule(
+      workspaceRoot,
+      input.toolingMergeSha,
+      readEvidenceRunnerModuleDescriptor(environment, 'measurement')
+    ),
+  ]);
+  const runnerDescriptors = { mutation, measurement };
   const journal = await openEvidenceRun(stateDir, {
     ...input,
     ...reviewedAuthority,

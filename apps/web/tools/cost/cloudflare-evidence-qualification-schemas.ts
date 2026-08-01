@@ -10,13 +10,13 @@ import {
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 export const QUALIFICATION_WORKER_NAME = 'baci-evidence-qualification';
+export const QUALIFICATION_EVIDENCE_HOST = 'edge-evidence.ogabassey.com';
+export const QUALIFICATION_POINTER_URL = `https://${QUALIFICATION_EVIDENCE_HOST}/__baci-evidence/a`;
 export const QUALIFICATION_POINTER_PROBE_COUNT = 2;
 
 export const PointerCacheSchema = z
   .object({
-    pointerUrl: z.literal(
-      'https://edge-evidence.ogabassey.com/__baci-evidence/a'
-    ),
+    pointerUrl: z.literal(QUALIFICATION_POINTER_URL),
     cacheRuleId: z.string().min(1),
     cacheRulesetVersion: z.string().min(1),
     traceExpressionSha256: Hash,
@@ -102,8 +102,6 @@ export const ReviewedQualificationArtifactSchema = z
 export type ReviewedQualificationArtifact = z.infer<
   typeof ReviewedQualificationArtifactSchema
 >;
-export const QUALIFICATION_POINTER_URL =
-  'https://edge-evidence.ogabassey.com/__baci-evidence/a';
 
 export function calculatePointerCacheCanonicalSha256(value: unknown) {
   return calculateCanonicalSha256(canonicalizeJson(value));

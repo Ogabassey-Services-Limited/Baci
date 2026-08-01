@@ -1,8 +1,10 @@
+import { pathToFileURL } from 'node:url';
 import type { z } from 'zod';
 import { runQualificationCliFromProcess } from './cloudflare-evidence-qualification-cli';
 import {
   type ArtifactReadbackSchema,
   PurgeContractSchema,
+  QUALIFICATION_EVIDENCE_HOST,
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
   sameCloudflarePurgeContract,
@@ -15,6 +17,7 @@ import type {
   CloudflareZeroWeightContract,
 } from './cloudflare-evidence-qualification-traffic';
 import { qualifyCloudflareZeroWeightReadback } from './cloudflare-evidence-qualification-traffic';
+import { qualifyCloudflareTopologyEndpoint } from './cloudflare-evidence-topology-contract';
 import {
   type CloudflareDeploymentReadback,
   type CloudflarePurgeReadbackRequest,
@@ -57,6 +60,7 @@ export {
   ZeroWeightProofSchema,
 } from './cloudflare-evidence-qualification-traffic';
 
+type CloudflareTopologyEndpoint = z.infer<typeof TopologyEndpointSchema>;
 export type CloudflareWorkerArtifactReadbackQualification = z.infer<
   typeof ArtifactReadbackSchema
 >;
@@ -69,14 +73,7 @@ export type CloudflareQualificationClient = Readonly<{
     accountId: string,
     scriptName: string,
     versionId: string
-  ): Promise<
-    Readonly<{
-      versionId: string;
-      scriptEtag: string;
-      moduleSha256: string;
-      settingsSha256: string;
-    }>
-  >;
+  ): Promise<ExpectedQualificationArtifact>;
   readDeployments(
     accountId: string,
     scriptName: string
@@ -107,7 +104,7 @@ export type CloudflareQualificationClient = Readonly<{
   readPurgeReadback?(
     request: CloudflarePurgeReadbackRequest
   ): Promise<CloudflarePurgeReadback>;
-  topologyConverged(maximumVisibilitySeconds: number): Promise<boolean>;
+  topologyConverged(topology: CloudflareTopologyEndpoint): Promise<boolean>;
 }>;
 export type {
   CloudflareDeploymentReadback,
@@ -115,7 +112,6 @@ export type {
   ExpectedQualificationArtifact,
   JournaledPurgeContract,
 } from './qualify-cloudflare-evidence-sources-contracts';
-
 export function qualifyCloudflareReleasePurgeContract(value: unknown) {
   const parsed = PurgeContractSchema.safeParse(value);
   return parsed.success
@@ -123,8 +119,6 @@ export function qualifyCloudflareReleasePurgeContract(value: unknown) {
     : { ok: false as const, reason: 'purge_contract_invalid' };
 }
 export { qualifyCloudflareTopologyEndpoints } from './cloudflare-evidence-topology-contract';
-
-/** Executes the bounded, injectable provider readback/pointer/purge qualification. */
 export async function executeCloudflareEvidenceQualification(
   client: CloudflareQualificationClient,
   input: Readonly<{
@@ -145,6 +139,12 @@ export async function executeCloudflareEvidenceQualification(
     pointerProbeCount?: number;
   }>
 ) {
+  const parsedTopology = qualifyCloudflareTopologyEndpoint(
+    input.topology,
+    input.accountId
+  );
+  if (!parsedTopology.ok)
+    throw new Error('topology contract is not the bounded journaled resource');
   const parsedPurge = PurgeContractSchema.safeParse(input.purge);
   const parsedJournaledPurge = PurgeContractSchema.safeParse(
     input.journaledPurge?.contract
@@ -257,7 +257,7 @@ export async function executeCloudflareEvidenceQualification(
       'temporary purge endpoint does not match the journaled zone'
     );
   const purgeBody = Object.freeze({
-    hosts: Object.freeze(['edge-evidence.ogabassey.com'] as const),
+    hosts: Object.freeze([QUALIFICATION_EVIDENCE_HOST] as const),
   });
   const purgeRequest: CloudflarePurgeRequest = {
     endpoint: expectedPurgeEndpoint,
@@ -288,15 +288,13 @@ export async function executeCloudflareEvidenceQualification(
         'temporary purge readback does not bind the purge request'
       );
   }
+  if (!(await client.topologyConverged(parsedTopology.contract)))
+    throw new Error('topology did not converge within the journaled bound');
   return {
     purgeStatus,
     qualified: true as const,
     zeroWeightProof: zeroWeightQualification.proof,
   };
 }
-
-if (
-  process.argv[1] &&
-  import.meta.url === new URL(process.argv[1], 'file:').href
-)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
   runQualificationCliFromProcess();

@@ -1,10 +1,13 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import {
+  parseStrictUtcBoundary,
+  STRICT_UTC_BOUNDARY_PATTERN,
+  UTC_DAY_MILLISECONDS,
+} from '../../../../packages/shared/src/storefront/utc-boundary';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const decimal = z.string().regex(/^\d+(?:\.\d{2})?$/);
-const MILLISECONDS_PER_UTC_DAY = 86_400_000;
-const CLOSED_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/;
 const BigIntLike = z
   .union([
     z.bigint().nonnegative(),
@@ -13,94 +16,49 @@ const BigIntLike = z
   ])
   .transform((value) => BigInt(value));
 const PositiveBigIntLike = BigIntLike.refine((value) => value > 0n);
-export const CloudflareWorkersLogsPlanContractSchema = z
-  .object({
-    plan: z.enum(['free', 'paid']),
-    allowanceEvents: BigIntLike,
-    allowancePeriod: z.enum(['utc_day', 'billing_month']),
-    allowancePeriodStartsAt: z.string().datetime({ offset: true }),
-    allowancePeriodEndsAt: z.string().datetime({ offset: true }),
-    currentAllowancePeriodAllAccountEvents: BigIntLike,
-    allowanceUsageSourceFingerprint: z.string().regex(SHA256),
-    allowanceMaximumObservationLagSeconds: z.number().int().nonnegative(),
-    allowanceObservedAt: z.string().datetime({ offset: true }),
-    utcDayStartsAt: z.string().datetime({ offset: true }),
-    utcDayEndsAt: z.string().datetime({ offset: true }),
-    currentUtcDayAllAccountEvents: BigIntLike,
-    utcDayUsageSourceFingerprint: z.string().regex(SHA256),
-    utcDayMaximumObservationLagSeconds: z.number().int().nonnegative(),
-    utcDayObservedAt: z.string().datetime({ offset: true }),
-    overageAllowed: z.boolean(),
-    overageUsdPerMillion: decimal.nullable(),
-    forcedSamplingDailyThreshold: PositiveBigIntLike,
-    forcedSamplingRate: z.string().regex(/^0\.\d+$/),
-    officialDocsSha256: z.string().regex(SHA256),
-    authenticatedEntitlementSha256: z.string().regex(SHA256),
-  })
-  .strict();
-
-export type CloudflareWorkersLogsPlanContract = z.infer<
-  typeof CloudflareWorkersLogsPlanContractSchema
->;
+const entitlementShape = {
+  plan: z.enum(['free', 'paid']),
+  allowanceEvents: BigIntLike,
+  allowancePeriod: z.enum(['utc_day', 'billing_month']),
+  allowancePeriodStartsAt: z.string().datetime({ offset: true }),
+  allowancePeriodEndsAt: z.string().datetime({ offset: true }),
+  currentAllowancePeriodAllAccountEvents: BigIntLike,
+  allowanceUsageSourceFingerprint: z.string().regex(SHA256),
+  allowanceMaximumObservationLagSeconds: z.number().int().nonnegative(),
+  allowanceObservedAt: z.string().datetime({ offset: true }),
+  utcDayStartsAt: z.string().datetime({ offset: true }),
+  utcDayEndsAt: z.string().datetime({ offset: true }),
+  currentUtcDayAllAccountEvents: BigIntLike,
+  utcDayUsageSourceFingerprint: z.string().regex(SHA256),
+  utcDayMaximumObservationLagSeconds: z.number().int().nonnegative(),
+  utcDayObservedAt: z.string().datetime({ offset: true }),
+  overageAllowed: z.boolean(),
+  overageUsdPerMillion: decimal.nullable(),
+  forcedSamplingDailyThreshold: BigIntLike,
+  forcedSamplingRate: z.string().regex(/^0\.\d+$/),
+};
 export const CloudflareWorkersLogsEntitlementSchema = z
-  .object({
-    plan: z.enum(['free', 'paid']),
-    allowanceEvents: BigIntLike,
-    allowancePeriod: z.enum(['utc_day', 'billing_month']),
-    allowancePeriodStartsAt: z.string().datetime({ offset: true }),
-    allowancePeriodEndsAt: z.string().datetime({ offset: true }),
-    currentAllowancePeriodAllAccountEvents: BigIntLike,
-    allowanceUsageSourceFingerprint: z.string().regex(SHA256),
-    allowanceMaximumObservationLagSeconds: z.number().int().nonnegative(),
-    allowanceObservedAt: z.string().datetime({ offset: true }),
-    utcDayStartsAt: z.string().datetime({ offset: true }),
-    utcDayEndsAt: z.string().datetime({ offset: true }),
-    currentUtcDayAllAccountEvents: BigIntLike,
-    utcDayUsageSourceFingerprint: z.string().regex(SHA256),
-    utcDayMaximumObservationLagSeconds: z.number().int().nonnegative(),
-    utcDayObservedAt: z.string().datetime({ offset: true }),
-    overageAllowed: z.boolean(),
-    overageUsdPerMillion: decimal.nullable(),
-    forcedSamplingDailyThreshold: BigIntLike,
-    forcedSamplingRate: z.string().regex(/^0\.\d+$/),
-  })
+  .object(entitlementShape)
   .strict();
 export type CloudflareWorkersLogsEntitlement = z.infer<
   typeof CloudflareWorkersLogsEntitlementSchema
 >;
-
-const ENTITLEMENT_KEYS = [
-  'plan',
-  'allowanceEvents',
-  'allowancePeriod',
-  'allowancePeriodStartsAt',
-  'allowancePeriodEndsAt',
-  'currentAllowancePeriodAllAccountEvents',
-  'allowanceUsageSourceFingerprint',
-  'allowanceMaximumObservationLagSeconds',
-  'allowanceObservedAt',
-  'utcDayStartsAt',
-  'utcDayEndsAt',
-  'currentUtcDayAllAccountEvents',
-  'utcDayUsageSourceFingerprint',
-  'utcDayMaximumObservationLagSeconds',
-  'utcDayObservedAt',
-  'overageAllowed',
-  'overageUsdPerMillion',
-  'forcedSamplingDailyThreshold',
-  'forcedSamplingRate',
-] as const satisfies readonly (keyof CloudflareWorkersLogsEntitlement)[];
+export const CloudflareWorkersLogsPlanContractSchema =
+  CloudflareWorkersLogsEntitlementSchema.extend({
+    forcedSamplingDailyThreshold: PositiveBigIntLike,
+    officialDocsSha256: z.string().regex(SHA256),
+    authenticatedEntitlementSha256: z.string().regex(SHA256),
+  }).strict();
+export type CloudflareWorkersLogsPlanContract = z.infer<
+  typeof CloudflareWorkersLogsPlanContractSchema
+>;
+const ENTITLEMENT_KEYS = Object.keys(
+  CloudflareWorkersLogsEntitlementSchema.shape
+) as Array<keyof CloudflareWorkersLogsEntitlement>;
 
 export type CloudflareWorkersLogsContractValidationOptions = Readonly<{
   now?: Date;
 }>;
-function parseStrictUtcBoundary(value: string) {
-  if (!CLOSED_UTC_PATTERN.test(value)) return null;
-  const date = new Date(value);
-  return Number.isFinite(date.valueOf()) && date.toISOString() === value
-    ? date
-    : null;
-}
 
 function requireCurrentObservation(
   observedAt: string,
@@ -126,6 +84,7 @@ function requireCurrentObservation(
 }
 
 function isUtcMonthStart(value: string) {
+  if (!STRICT_UTC_BOUNDARY_PATTERN.test(value)) return false;
   const parsed = parseStrictUtcBoundary(value);
   return parsed !== null && parsed.getUTCDate() === 1;
 }
@@ -192,7 +151,7 @@ function assertUtcUsageBoundaries(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
   );
   const expectedDayEnd = new Date(
-    currentDayStart.valueOf() + MILLISECONDS_PER_UTC_DAY
+    currentDayStart.valueOf() + UTC_DAY_MILLISECONDS
   );
   const dayStart = parseStrictUtcBoundary(contract.utcDayStartsAt);
   const dayEnd = parseStrictUtcBoundary(contract.utcDayEndsAt);

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises';
 import { basename, isAbsolute, join, parse, sep } from 'node:path';
 import { releaseActiveRunLock } from './cloudflare-evidence-run-lock';
-
+export const RUN_ID_PATTERN = /^[a-f0-9]{32}$/;
 export type EvidencePhase =
   | 'prepared'
   | 'mutated'
@@ -13,8 +13,16 @@ export type EvidencePhase =
   | 'proof_complete'
   | 'closed_stop';
 export const REVIEWED_PROBE_COUNT = 2;
-export const RUN_ID_PATTERN = /^[a-f0-9]{32}$/;
-
+const evidencePhases = new Set<EvidencePhase>([
+  'prepared',
+  'mutated',
+  'cleanup_verified',
+  'cleanup_incomplete_stop',
+  'write_token_revoked',
+  'read_token_revoked',
+  'proof_complete',
+  'closed_stop',
+]);
 export type TokenRevocationReceipt = Readonly<{
   tokenId: string;
   status: 'revoked';
@@ -109,7 +117,11 @@ export const terminal = new Set<EvidencePhase>([
   'closed_stop',
 ]);
 const hash = /^[a-f0-9]{64}$/;
-
+export function isEvidencePhase(value: unknown): value is EvidencePhase {
+  return (
+    typeof value === 'string' && evidencePhases.has(value as EvidencePhase)
+  );
+}
 export function journalPath(stateDir: string, runId: string) {
   if (basename(runId) !== runId || !RUN_ID_PATTERN.test(runId))
     throw new Error('journal run ID is invalid');
@@ -130,7 +142,9 @@ export async function verifyDirectory(stateDir: string) {
       // other symlinked ancestors so an operator cannot redirect authority.
       if (
         (stat.isSymbolicLink() && current !== '/var' && current !== '/tmp') ||
-        (!stat.isSymbolicLink() && !stat.isDirectory())
+        (!stat.isSymbolicLink() && !stat.isDirectory()) ||
+        ((stat.mode & 0o022) !== 0 &&
+          !(stat.isDirectory() && (stat.mode & 0o1000) !== 0))
       )
         throw new Error(
           'EVIDENCE_RUN_STATE_DIR is not private durable operator storage'
@@ -202,6 +216,8 @@ export function assertTransition(
   journal: CloudflareEvidenceRunJournal,
   next: EvidencePhase
 ) {
+  if (!isEvidencePhase(journal.phase) || !isEvidencePhase(next))
+    throw new Error('journal phase is invalid');
   const allowed: Record<EvidencePhase, readonly EvidencePhase[]> = {
     prepared: ['mutated', 'cleanup_incomplete_stop'],
     mutated: ['mutated', 'cleanup_verified', 'cleanup_incomplete_stop'],

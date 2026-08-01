@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -8,6 +8,7 @@ import {
 } from './cloudflare-evidence-prepare-authority';
 
 const input = {
+  runId: 'a'.repeat(32),
   approvalId: 'approval-id',
   policyId: 'policy-id',
   toolingMergeSha: 'a'.repeat(40),
@@ -79,5 +80,94 @@ describe('cloudflare evidence prepare authority', () => {
         new Date('2026-08-01T12:00:00.000Z')
       )
     ).rejects.toThrow('identities');
+  });
+
+  it('consumes one approval in its fixed authority scope for one run and state directory', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-authority-'));
+    await chmod(dir, 0o700);
+    const expiresAt = '2026-08-01T13:00:00.000Z';
+    const reviewed = policy(expiresAt);
+    const approval = {
+      id: input.approvalId,
+      toolingMergeSha: input.toolingMergeSha,
+      policyId: input.policyId,
+      policySha256: reviewed.policySha256,
+      readTokenId: input.readTokenId,
+      readPolicySha256: input.readPolicySha256,
+      approvedAt: '2026-08-01T11:00:00.000Z',
+      expiresAt,
+    };
+    const approvalPath = join(dir, 'approval.json');
+    const policyPath = join(dir, 'policy.json');
+    await writeFile(approvalPath, JSON.stringify(approval), { mode: 0o600 });
+    await writeFile(policyPath, JSON.stringify(reviewed), { mode: 0o600 });
+    const stateDir = join(dir, 'state-a');
+    const environment = {
+      EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+      EVIDENCE_POLICY_ARTIFACT: policyPath,
+      EVIDENCE_RUN_STATE_DIR: stateDir,
+    };
+    try {
+      await expect(
+        verifyPrepareAuthority(
+          input,
+          environment,
+          new Date('2026-08-01T12:00:00.000Z')
+        )
+      ).resolves.toMatchObject({ approvalId: input.approvalId });
+      await expect(
+        verifyPrepareAuthority(
+          { ...input, runId: 'b'.repeat(32) },
+          { ...environment, EVIDENCE_RUN_STATE_DIR: join(dir, 'state-b') },
+          new Date('2026-08-01T12:00:00.000Z')
+        )
+      ).rejects.toThrow('already consumed');
+      await expect(
+        verifyPrepareAuthority(
+          input,
+          environment,
+          new Date('2026-08-01T12:00:00.000Z')
+        )
+      ).resolves.toMatchObject({ approvalId: input.approvalId });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects an authority symlink before reading substituted bytes', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-authority-'));
+    await chmod(dir, 0o700);
+    const expiresAt = '2026-08-01T13:00:00.000Z';
+    const reviewed = policy(expiresAt);
+    const approval = {
+      id: input.approvalId,
+      toolingMergeSha: input.toolingMergeSha,
+      policyId: input.policyId,
+      policySha256: reviewed.policySha256,
+      readTokenId: input.readTokenId,
+      readPolicySha256: input.readPolicySha256,
+      approvedAt: '2026-08-01T11:00:00.000Z',
+      expiresAt,
+    };
+    const targetPath = join(dir, 'approval-target.json');
+    const approvalPath = join(dir, 'approval.json');
+    const policyPath = join(dir, 'policy.json');
+    await writeFile(targetPath, JSON.stringify(approval), { mode: 0o600 });
+    await symlink(targetPath, approvalPath);
+    await writeFile(policyPath, JSON.stringify(reviewed), { mode: 0o600 });
+    try {
+      await expect(
+        verifyPrepareAuthority(
+          input,
+          {
+            EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+            EVIDENCE_POLICY_ARTIFACT: policyPath,
+          },
+          new Date('2026-08-01T12:00:00.000Z')
+        )
+      ).rejects.toThrow('private regular file');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

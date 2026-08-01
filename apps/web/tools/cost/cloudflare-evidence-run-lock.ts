@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { lstat, open, readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { reclaimLockIfOwner } from './cloudflare-evidence-lock-reclamation';
+import { RUN_ID_PATTERN } from './cloudflare-evidence-run-journal-state';
 
 type LockJournal = Readonly<{ phase: string }>;
-const RUN_ID_PATTERN = /^[a-f0-9]{32}$/;
+const TRANSITION_LOCK_TIMEOUT_MS = 60_000;
 
 export type EvidenceRunLockOptions = Readonly<{
   readJournal: (stateDir: string, runId: string) => Promise<LockJournal>;
@@ -74,7 +75,10 @@ const localTransitionQueues = new Map<string, Promise<void>>();
 async function acquireTransitionLock(stateDir: string, runId: string) {
   const path = transitionLockPath(stateDir, runId);
   const token = randomUUID();
+  const deadline = Date.now() + TRANSITION_LOCK_TIMEOUT_MS;
   for (;;) {
+    if (Date.now() > deadline)
+      throw new Error('journal transition lock wait timed out');
     try {
       const handle = await open(path, 'wx', 0o600);
       try {
