@@ -8,11 +8,22 @@ import {
   ReviewedQualificationArtifactSchema,
 } from './cloudflare-evidence-qualification-schemas';
 
+const MAXIMUM_APPROVAL_ID_LENGTH = 128;
+
+function isBoundedApprovalId(value: string | undefined): value is string {
+  return (
+    value !== undefined &&
+    value.length > 0 &&
+    value.length <= MAXIMUM_APPROVAL_ID_LENGTH &&
+    !/\s/u.test(value)
+  );
+}
+
 export function parseQualificationArguments(args: readonly string[]) {
   if (args[0] === '--prepare')
     throw new Error('prepare options require the functional prepare parser');
   if (
-    args.length === 8 &&
+    args.length === 10 &&
     args[0] === '--validate-readback' &&
     args[1].startsWith('/') &&
     args[2] === '--expected-artifact-a' &&
@@ -20,16 +31,19 @@ export function parseQualificationArguments(args: readonly string[]) {
     args[4] === '--expected-artifact-b' &&
     args[5].startsWith('/') &&
     args[6] === '--script-name' &&
-    args[7] === QUALIFICATION_WORKER_NAME
+    args[7] === QUALIFICATION_WORKER_NAME &&
+    args[8] === '--expected-owner-approval-id' &&
+    isBoundedApprovalId(args[9])
   )
     return {
       mode: 'validate-readback' as const,
       receiptPath: args[1],
       expectedArtifactPaths: [args[3], args[5]] as const,
       scriptName: args[7],
+      expectedOwnerApprovalId: args[9],
     };
   throw new Error(
-    'qualification is credentialless and accepts only --prepare or --validate-readback <absolute-receipt> --expected-artifact-a <absolute-artifact> --expected-artifact-b <absolute-artifact> --script-name <name>'
+    'qualification is credentialless and accepts only --prepare or --validate-readback <absolute-receipt> --expected-artifact-a <absolute-artifact> --expected-artifact-b <absolute-artifact> --script-name <name> --expected-owner-approval-id <owner-reviewed-approval-id>'
   );
 }
 
@@ -75,8 +89,12 @@ export async function runQualificationCli(
       return;
     }
     if (args[0] === '--validate-readback') {
-      const { receiptPath, expectedArtifactPaths, scriptName } =
-        parseQualificationArguments(args);
+      const {
+        receiptPath,
+        expectedArtifactPaths,
+        scriptName,
+        expectedOwnerApprovalId,
+      } = parseQualificationArguments(args);
       const [value, ...artifactValues] = await Promise.all([
         readReviewedArtifact(receiptPath, 'readback'),
         ...expectedArtifactPaths.map((path, index) =>
@@ -101,6 +119,7 @@ export async function runQualificationCli(
       const result = qualifyCloudflareEvidenceReadback(JSON.parse(value), {
         expectedArtifacts,
         expectedScriptName: scriptName,
+        expectedOwnerApprovalId,
       });
       if (!result.ok) throw new Error(result.reason);
       io.stdout(`${JSON.stringify(result.qualification)}\n`);

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, open, readFile, rm, stat } from 'node:fs/promises';
+import { lstat, open, readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import { reclaimLockIfOwner } from './cloudflare-evidence-lock-reclamation';
 
 type LockJournal = Readonly<{ phase: string }>;
 const RUN_ID_PATTERN = /^[a-f0-9]{32}$/;
@@ -57,25 +58,6 @@ function processIsAlive(pid: number | undefined) {
   }
 }
 
-async function removeLockIfOwner(path: string, expected: string | undefined) {
-  try {
-    const lockStat = await lstat(path);
-    if (
-      lockStat.isSymbolicLink() ||
-      !lockStat.isFile() ||
-      (lockStat.mode & 0o077) !== 0
-    )
-      throw new Error('evidence lock is not private regular storage');
-    if (expected !== undefined && (await readFile(path, 'utf8')) !== expected)
-      return false;
-    await rm(path);
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true;
-    throw error;
-  }
-}
-
 async function readLockRecord(path: string) {
   const lockStat = await lstat(path);
   if (
@@ -119,7 +101,7 @@ async function acquireTransitionLock(stateDir: string, runId: string) {
     if (!ownerText.trim()) {
       const lockStat = await stat(path);
       if (Date.now() - lockStat.mtimeMs >= 5_000) {
-        await removeLockIfOwner(path, ownerText);
+        await reclaimLockIfOwner(path, ownerText);
         continue;
       }
       await new Promise<void>((resolve) => setTimeout(resolve, 5));
@@ -132,11 +114,11 @@ async function acquireTransitionLock(stateDir: string, runId: string) {
         await new Promise<void>((resolve) => setTimeout(resolve, 5));
         continue;
       }
-      await removeLockIfOwner(path, ownerText);
+      await reclaimLockIfOwner(path, ownerText);
       continue;
     }
     if (!processIsAlive(owner.pid)) {
-      await removeLockIfOwner(path, ownerText);
+      await reclaimLockIfOwner(path, ownerText);
       continue;
     }
     await new Promise<void>((resolve) => setTimeout(resolve, 5));
@@ -149,7 +131,7 @@ async function releaseTransitionLock(
   try {
     const ownerText = await readLockRecord(lock.path);
     if (parseLockRecord(ownerText).token === lock.token)
-      await removeLockIfOwner(lock.path, ownerText);
+      await reclaimLockIfOwner(lock.path, ownerText);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
@@ -206,7 +188,7 @@ export async function releaseActiveRunLock(stateDir: string, runId: string) {
     const path = activeRunLockPath(stateDir);
     const ownerText = await readFile(path, 'utf8');
     const owner = parseLockRecord(ownerText);
-    if (owner.runId === runId) await removeLockIfOwner(path, ownerText);
+    if (owner.runId === runId) await reclaimLockIfOwner(path, ownerText);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
@@ -246,7 +228,7 @@ export async function acquireActiveRunLock(
     const lockStat = await stat(activeRunLockPath(stateDir));
     if (Date.now() - lockStat.mtimeMs < 5_000)
       throw new Error('an evidence run is already active');
-    await removeLockIfOwner(activeRunLockPath(stateDir), ownerText);
+    await reclaimLockIfOwner(activeRunLockPath(stateDir), ownerText);
     return acquireActiveRunLock(stateDir, runId, options);
   }
   if (owner.runId) {
@@ -264,7 +246,7 @@ export async function acquireActiveRunLock(
         // an orphaned preparation lock. Plain legacy records are also safe to
         // reclaim because new owners always persist a PID-bearing record.
         if (!owner.pid || !processIsAlive(owner.pid)) {
-          await removeLockIfOwner(activeRunLockPath(stateDir), ownerText);
+          await reclaimLockIfOwner(activeRunLockPath(stateDir), ownerText);
           return acquireActiveRunLock(stateDir, runId, options);
         }
         throw new Error('an evidence run is already active');

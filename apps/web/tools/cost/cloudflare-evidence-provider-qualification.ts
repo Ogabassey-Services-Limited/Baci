@@ -1,13 +1,13 @@
 import {
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
-  QUALIFICATION_WORKER_NAME,
 } from './cloudflare-evidence-qualification-schemas';
-
-export type TopologyFamily =
-  | 'worker-custom-domain'
-  | 'r2-cors'
-  | 'r2-custom-domain';
+import {
+  type CloudflareTopologyFamily,
+  cloudflareTopologyEndpointParts,
+  verifyCloudflareTopologyEndpointFamily,
+} from './cloudflare-evidence-topology-contract';
+export type TopologyFamily = CloudflareTopologyFamily;
 export type TopologyTuple = Readonly<{
   state: string;
   fingerprint: string;
@@ -16,6 +16,10 @@ export type TopologyReadback = Readonly<{
   tuple: TopologyTuple;
   pendingOperation: boolean;
   elapsedSeconds: number;
+}>;
+export type TopologyRestoreContract = Readonly<{
+  requestSchemaSha256: string;
+  responseSchemaSha256: string;
 }>;
 export type TopologyPlan = Readonly<{
   family: TopologyFamily;
@@ -27,18 +31,9 @@ export type TopologyPlan = Readonly<{
   before: TopologyTuple;
   intermediate: TopologyTuple;
   after: TopologyTuple;
+  restore: TopologyRestoreContract;
 }>;
-export type JournaledTopologyEndpoint = Readonly<{
-  family: TopologyFamily;
-  action: 'detach' | 'write';
-  endpoint: string;
-  requestSchemaSha256: string;
-  responseSchemaSha256: string;
-  maximumVisibilitySeconds: number;
-  before: TopologyTuple;
-  intermediate: TopologyTuple;
-  after: TopologyTuple;
-}>;
+export type JournaledTopologyEndpoint = TopologyPlan;
 export type TopologyMutationAuditReceipt = Readonly<{
   family: TopologyFamily;
   endpoint: string;
@@ -51,6 +46,10 @@ type TraceExpectation = Readonly<{
   cacheRuleId: string;
   rulesetVersion: string;
   expressionSha256: string;
+}>;
+type MutationResponse = Readonly<{
+  operationId?: string;
+  lostResponse?: boolean;
 }>;
 export type DeepQualificationClient = Readonly<{
   trace(
@@ -65,7 +64,7 @@ export type DeepQualificationClient = Readonly<{
     family: TopologyFamily,
     endpoint: string,
     requestSchemaSha256: string
-  ): Promise<Readonly<{ operationId?: string; lostResponse?: boolean }>>;
+  ): Promise<MutationResponse>;
   topologyPoll(
     family: TopologyFamily,
     maximumVisibilitySeconds: number
@@ -76,37 +75,18 @@ export type DeepQualificationClient = Readonly<{
   ): Promise<readonly TopologyReadback[]>;
 }>;
 const SHA256 = /^[a-f0-9]{64}$/;
-
-function endpointParts(endpoint: string) {
-  return endpoint.split('/').filter(Boolean);
+function verifyMutationResponse(mutation: MutationResponse) {
+  const operationId = mutation.operationId;
+  const lostResponse = mutation.lostResponse;
+  if (
+    typeof lostResponse !== 'boolean' ||
+    (operationId !== undefined &&
+      (typeof operationId !== 'string' || operationId.trim().length === 0)) ||
+    (!lostResponse && operationId === undefined)
+  )
+    throw new Error('topology mutation response is ambiguous');
+  return { operationId: operationId ?? null, lostResponse };
 }
-
-function verifyTopologyEndpointFamily(
-  endpoint: string,
-  family: TopologyFamily
-) {
-  const parts = endpointParts(endpoint);
-  if (parts[0] !== 'accounts' || !parts[1]) return false;
-  if (family === 'worker-custom-domain')
-    return (
-      parts.length === 8 &&
-      parts[2] === 'workers' &&
-      parts[3] === 'scripts' &&
-      parts[4] === QUALIFICATION_WORKER_NAME &&
-      parts[5] === 'domains' &&
-      parts[6] === 'custom' &&
-      parts[7] === 'edge-evidence.ogabassey.com'
-    );
-  if (parts[2] !== 'r2' || parts[3] !== 'buckets' || !parts[4]) return false;
-  if (family === 'r2-cors') return parts.length === 6 && parts[5] === 'cors';
-  return (
-    parts.length === 8 &&
-    parts[5] === 'domains' &&
-    parts[6] === 'custom' &&
-    parts[7] === 'edge-evidence.ogabassey.com'
-  );
-}
-
 function verifyJournaledTopologyEndpoints(
   topologies: readonly [TopologyPlan, TopologyPlan, TopologyPlan],
   journaledTopologies: readonly [
@@ -138,12 +118,22 @@ function verifyJournaledTopologyEndpoints(
       !sameTuple(topology.before, journaled.before) ||
       !sameTuple(topology.intermediate, journaled.intermediate) ||
       !sameTuple(topology.after, journaled.after) ||
+      topology.restore.requestSchemaSha256 !==
+        journaled.restore.requestSchemaSha256 ||
+      topology.restore.responseSchemaSha256 !==
+        journaled.restore.responseSchemaSha256 ||
       !SHA256.test(journaled.requestSchemaSha256) ||
       !SHA256.test(journaled.responseSchemaSha256) ||
-      !verifyTopologyEndpointFamily(journaled.endpoint, journaled.family)
+      !SHA256.test(journaled.restore.requestSchemaSha256) ||
+      !SHA256.test(journaled.restore.responseSchemaSha256) ||
+      topology.restore.requestSchemaSha256 === topology.requestSchemaSha256 ||
+      !verifyCloudflareTopologyEndpointFamily(
+        journaled.endpoint,
+        journaled.family
+      )
     )
       throw new Error('topology mutation endpoint is not journaled');
-    const parts = endpointParts(journaled.endpoint);
+    const parts = cloudflareTopologyEndpointParts(journaled.endpoint);
     journaledAccounts.add(parts[1]);
     if (topology.family !== 'worker-custom-domain')
       journaledBuckets.add(parts[4]);
@@ -153,7 +143,6 @@ function verifyJournaledTopologyEndpoints(
       'topology endpoints do not share the journaled resource scope'
     );
 }
-
 const sameTuple = (left: TopologyTuple, right: TopologyTuple) =>
   left.state === right.state && left.fingerprint === right.fingerprint;
 
@@ -183,7 +172,6 @@ function verifyMutationConvergence(
   if (final.pendingOperation)
     throw new Error('topology after tuple still has a pending operation');
 }
-
 function verifyControlNoEffect(
   readbacks: readonly TopologyReadback[],
   topology: TopologyPlan
@@ -256,15 +244,7 @@ export async function executeDeepCloudflareEvidenceQualification(
       topology.endpoint,
       topology.requestSchemaSha256
     );
-    const operationId = mutation.operationId;
-    const lostResponse = mutation.lostResponse;
-    if (
-      typeof lostResponse !== 'boolean' ||
-      (operationId !== undefined &&
-        (typeof operationId !== 'string' || operationId.trim().length === 0)) ||
-      (!lostResponse && operationId === undefined)
-    )
-      throw new Error('topology mutation response is ambiguous');
+    const { operationId, lostResponse } = verifyMutationResponse(mutation);
     mutationReceipts.push({
       family: topology.family,
       endpoint: topology.endpoint,
@@ -279,6 +259,13 @@ export async function executeDeepCloudflareEvidenceQualification(
         topology.maximumVisibilitySeconds
       ),
       topology
+    );
+    verifyMutationResponse(
+      await client.topologyMutate(
+        topology.family,
+        topology.endpoint,
+        topology.restore.requestSchemaSha256
+      )
     );
     verifyControlNoEffect(
       await client.topologyControlReadback(

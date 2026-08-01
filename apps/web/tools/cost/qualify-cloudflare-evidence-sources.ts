@@ -15,6 +15,17 @@ import type {
   CloudflareZeroWeightContract,
 } from './cloudflare-evidence-qualification-traffic';
 import { qualifyCloudflareZeroWeightReadback } from './cloudflare-evidence-qualification-traffic';
+import {
+  type CloudflareDeploymentReadback,
+  type CloudflarePurgeReadbackRequest,
+  type CloudflarePurgeRequest,
+  type CloudflareTraceExpectation,
+  type CloudflareTraceReadback,
+  type ExpectedQualificationArtifact,
+  type JournaledPurgeContract,
+  matchesCloudflarePurgeReadback,
+  matchesCloudflareTrace,
+} from './qualify-cloudflare-evidence-sources-contracts';
 
 export {
   buildClosedEvidenceProcessEnvironment,
@@ -84,40 +95,26 @@ export type CloudflareQualificationClient = Readonly<{
     scriptName: string,
     candidateVersionId: string
   ): Promise<CloudflareProtectedOverrideProof>;
-  trace(url: string): Promise<Readonly<{ matched: boolean }>>;
+  trace(url: string): Promise<CloudflareTraceReadback>;
   pointerProbe(
     method: 'GET' | 'HEAD',
     url: string
   ): Promise<Readonly<{ cfCacheStatus: string; age?: string }>>;
   temporaryPurge(
-    request: Readonly<{
-      endpoint: string;
-      zoneId: string;
-      requestSchemaSha256: string;
-      body: Readonly<{ hosts: readonly ['edge-evidence.ogabassey.com'] }>;
-    }>
+    request: CloudflarePurgeRequest
   ): Promise<Readonly<{ operationId: string }>>;
   readPurge(operationId: string): Promise<'complete' | 'lost_response'>;
+  readPurgeReadback?(
+    request: CloudflarePurgeReadbackRequest
+  ): Promise<CloudflarePurgeReadback>;
   topologyConverged(maximumVisibilitySeconds: number): Promise<boolean>;
 }>;
-export type ExpectedQualificationArtifact = Readonly<{
-  versionId: string;
-  scriptEtag: string;
-  moduleSha256: string;
-  settingsSha256: string;
-}>;
-export type CloudflareDeploymentVersion = Readonly<{
-  versionId: string;
-  percentage: number;
-}>;
-export type CloudflareDeploymentReadback = Readonly<{
-  deploymentId: string;
-  versions: readonly CloudflareDeploymentVersion[];
-}>;
-export type JournaledPurgeContract = Readonly<{
-  zoneId: string;
-  contract: z.infer<typeof PurgeContractSchema>;
-}>;
+export type {
+  CloudflareDeploymentReadback,
+  CloudflareDeploymentVersion,
+  ExpectedQualificationArtifact,
+  JournaledPurgeContract,
+} from './qualify-cloudflare-evidence-sources-contracts';
 
 export function qualifyCloudflareReleasePurgeContract(value: unknown) {
   const parsed = PurgeContractSchema.safeParse(value);
@@ -143,6 +140,7 @@ export async function executeCloudflareEvidenceQualification(
     topology: z.infer<typeof TopologyEndpointSchema>;
     zoneId: string;
     ownerAcceptance: CloudflareOwnerAcceptance;
+    trace: CloudflareTraceExpectation;
     expectedOwnerApprovalId?: string;
     pointerProbeCount?: number;
   }>
@@ -237,8 +235,9 @@ export async function executeCloudflareEvidenceQualification(
     throw new Error(
       'pointer URL does not bind the evidence qualification host'
     );
-  if (!(await client.trace(QUALIFICATION_POINTER_URL)).matched)
-    throw new Error('Trace did not bind the pointer cache rule');
+  const trace = await client.trace(QUALIFICATION_POINTER_URL);
+  if (!matchesCloudflareTrace(trace, input.trace))
+    throw new Error('Trace did not bind the exact cache rule and expression');
   const pointerProbeCount =
     input.pointerProbeCount ?? QUALIFICATION_POINTER_PROBE_COUNT;
   if (pointerProbeCount !== QUALIFICATION_POINTER_PROBE_COUNT)
@@ -260,20 +259,35 @@ export async function executeCloudflareEvidenceQualification(
   const purgeBody = Object.freeze({
     hosts: Object.freeze(['edge-evidence.ogabassey.com'] as const),
   });
-  const operation = await client.temporaryPurge({
+  const purgeRequest: CloudflarePurgeRequest = {
     endpoint: expectedPurgeEndpoint,
     zoneId: input.zoneId,
     requestSchemaSha256: parsedJournaledPurge.data.requestSchemaSha256,
     body: purgeBody,
-  });
+  };
+  const operation = await client.temporaryPurge(purgeRequest);
   const purgeStatus = await client.readPurge(operation.operationId);
-  if (
-    purgeStatus === 'lost_response' &&
-    !(await client.topologyConverged(input.topology.maximumVisibilitySeconds))
-  )
-    throw new Error('temporary purge lost-response topology did not converge');
   if (purgeStatus !== 'complete' && purgeStatus !== 'lost_response')
     throw new Error('temporary purge outcome is ambiguous');
+  if (purgeStatus === 'lost_response') {
+    if (!client.readPurgeReadback)
+      throw new Error(
+        'temporary purge lost response requires purge-specific readback or bound before/after cache probe'
+      );
+    const readback = await client.readPurgeReadback({
+      ...purgeRequest,
+      operationId: operation.operationId,
+    });
+    if (
+      !matchesCloudflarePurgeReadback(readback, {
+        ...purgeRequest,
+        operationId: operation.operationId,
+      })
+    )
+      throw new Error(
+        'temporary purge readback does not bind the purge request'
+      );
+  }
   return {
     purgeStatus,
     qualified: true as const,

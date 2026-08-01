@@ -19,6 +19,8 @@ describe('parseQualificationArguments', () => {
         '/private/artifact-b.json',
         '--script-name',
         'baci-evidence-qualification',
+        '--expected-owner-approval-id',
+        'owner-approval',
       ]).mode
     ).toBe('validate-readback');
   });

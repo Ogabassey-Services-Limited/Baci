@@ -53,7 +53,12 @@ describe('Cloudflare read-only qualification contracts', () => {
       },
       trace: async () => {
         calls.push('trace');
-        return { matched: true };
+        return {
+          matched: true,
+          cacheRuleId: readback.pointerCache.cacheRuleId,
+          rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+          expressionSha256: readback.pointerCache.traceExpressionSha256,
+        };
       },
       pointerProbe: async (method: 'GET' | 'HEAD') => {
         calls.push(method);
@@ -73,6 +78,16 @@ describe('Cloudflare read-only qualification contracts', () => {
       readPurge: async () => {
         calls.push('purge-read');
         return 'lost_response' as const;
+      },
+      readPurgeReadback: async (request: {
+        operationId: string;
+        endpoint: string;
+        zoneId: string;
+        requestSchemaSha256: string;
+        body: { hosts: readonly ['edge-evidence.ogabassey.com'] };
+      }) => {
+        calls.push('purge-readback');
+        return { status: 'complete' as const, ...request };
       },
       topologyConverged: async (seconds: number) => {
         calls.push(`topology:${seconds}`);
@@ -111,6 +126,11 @@ describe('Cloudflare read-only qualification contracts', () => {
         },
         zoneId: 'zone',
         ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
+        trace: {
+          cacheRuleId: readback.pointerCache.cacheRuleId,
+          rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+          expressionSha256: readback.pointerCache.traceExpressionSha256,
+        },
       })
     ).resolves.toMatchObject({ qualified: true, purgeStatus: 'lost_response' });
     expect(calls).toEqual([
@@ -128,7 +148,7 @@ describe('Cloudflare read-only qualification contracts', () => {
       'HEAD',
       '/zones/zone/purge_cache:zone:edge-evidence.ogabassey.com',
       'purge-read',
-      'topology:60',
+      'purge-readback',
     ]);
     await expect(
       executeCloudflareEvidenceQualification(
@@ -167,6 +187,11 @@ describe('Cloudflare read-only qualification contracts', () => {
           },
           zoneId: 'zone',
           ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
+          trace: {
+            cacheRuleId: readback.pointerCache.cacheRuleId,
+            rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+            expressionSha256: readback.pointerCache.traceExpressionSha256,
+          },
         }
       )
     ).rejects.toThrow('cacheable');
@@ -205,6 +230,11 @@ describe('Cloudflare read-only qualification contracts', () => {
       },
       zoneId: 'zone',
       ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
+      trace: {
+        cacheRuleId: readback.pointerCache.cacheRuleId,
+        rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+        expressionSha256: readback.pointerCache.traceExpressionSha256,
+      },
     };
     const baseClient = {
       listVersions: async () => ['a', 'b'],
@@ -225,7 +255,12 @@ describe('Cloudflare read-only qualification contracts', () => {
         readback.zeroWeightProof.ordinaryTraffic,
       readProtectedVersionOverrideProof: async () =>
         readback.zeroWeightProof.protectedOverride,
-      trace: async () => ({ matched: true }),
+      trace: async () => ({
+        matched: true,
+        cacheRuleId: readback.pointerCache.cacheRuleId,
+        rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+        expressionSha256: readback.pointerCache.traceExpressionSha256,
+      }),
       pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
       temporaryPurge: async () => ({ operationId: 'purge' }),
       readPurge: async () => 'complete' as const,
@@ -282,5 +317,28 @@ describe('Cloudflare read-only qualification contracts', () => {
         },
       })
     ).rejects.toThrow('journaled');
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...baseClient,
+          trace: async () => ({
+            matched: true,
+            cacheRuleId: 'unreviewed-rule',
+            rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+            expressionSha256: readback.pointerCache.traceExpressionSha256,
+          }),
+        } as never,
+        baseInput
+      )
+    ).rejects.toThrow('exact cache rule');
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...baseClient,
+          readPurge: async () => 'lost_response' as const,
+        } as never,
+        baseInput
+      )
+    ).rejects.toThrow('purge-specific readback');
   });
 });

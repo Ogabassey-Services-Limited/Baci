@@ -54,4 +54,37 @@ describe('Cloudflare topology contract', () => {
       }).ok
     ).toBe(false);
   });
+
+  it('rejects topology endpoints from mixed accounts or R2 buckets', () => {
+    expect(
+      qualifyCloudflareTopologyEndpoints({
+        endpoints: endpoints.map((endpoint) =>
+          endpoint.family === 'worker-custom-domain'
+            ? {
+                ...endpoint,
+                endpoint: endpoint.endpoint.replace(
+                  '/accounts/account/',
+                  '/accounts/other-account/'
+                ),
+              }
+            : endpoint
+        ),
+      }).ok
+    ).toBe(false);
+    expect(
+      qualifyCloudflareTopologyEndpoints({
+        endpoints: endpoints.map((endpoint) =>
+          endpoint.family === 'r2-custom-domain'
+            ? {
+                ...endpoint,
+                endpoint: endpoint.endpoint.replace(
+                  '/buckets/bucket/',
+                  '/buckets/other-bucket/'
+                ),
+              }
+            : endpoint
+        ),
+      }).ok
+    ).toBe(false);
+  });
 });

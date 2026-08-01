@@ -10,17 +10,23 @@ const TOPOLOGY_FAMILIES = [
   'r2-cors',
   'r2-custom-domain',
 ] as const;
+export type CloudflareTopologyFamily = (typeof TOPOLOGY_FAMILIES)[number];
 const QUALIFICATION_EVIDENCE_HOST = new URL(QUALIFICATION_POINTER_URL).hostname;
 type TopologyEndpoint = z.infer<typeof TopologyEndpointSchema>;
 
-function endpointParts(endpoint: string) {
+export function cloudflareTopologyEndpointParts(endpoint: string) {
   return endpoint.split('/').filter(Boolean);
 }
 
-function hasExpectedShape(endpoint: TopologyEndpoint) {
-  const parts = endpointParts(endpoint.endpoint);
+export function verifyCloudflareTopologyEndpointFamily(
+  endpoint: string,
+  family: string
+) {
+  if (!TOPOLOGY_FAMILIES.some((knownFamily) => knownFamily === family))
+    return false;
+  const parts = cloudflareTopologyEndpointParts(endpoint);
   if (parts[0] !== 'accounts' || !parts[1]) return false;
-  if (endpoint.family === 'worker-custom-domain')
+  if (family === 'worker-custom-domain')
     return (
       parts.length === 8 &&
       parts[2] === 'workers' &&
@@ -31,13 +37,18 @@ function hasExpectedShape(endpoint: TopologyEndpoint) {
       parts[7] === QUALIFICATION_EVIDENCE_HOST
     );
   if (parts[2] !== 'r2' || parts[3] !== 'buckets' || !parts[4]) return false;
-  if (endpoint.family === 'r2-cors')
-    return parts.length === 6 && parts[5] === 'cors';
+  if (family === 'r2-cors') return parts.length === 6 && parts[5] === 'cors';
   return (
     parts.length === 8 &&
     parts[5] === 'domains' &&
     parts[6] === 'custom' &&
     parts[7] === QUALIFICATION_EVIDENCE_HOST
+  );
+}
+function hasExpectedShape(endpoint: TopologyEndpoint) {
+  return verifyCloudflareTopologyEndpointFamily(
+    endpoint.endpoint,
+    endpoint.family
   );
 }
 
@@ -54,6 +65,18 @@ export function qualifyCloudflareTopologyEndpoints(value: unknown) {
     !TOPOLOGY_FAMILIES.every((family) => families.has(family)) ||
     !parsed.data.endpoints.every(hasExpectedShape)
   )
+    return { ok: false as const, reason: 'topology_contract_invalid' };
+  const accountIds = new Set(
+    parsed.data.endpoints.map(
+      (endpoint) => cloudflareTopologyEndpointParts(endpoint.endpoint)[1]
+    )
+  );
+  const bucketNames = new Set(
+    parsed.data.endpoints
+      .filter(({ family }) => family !== 'worker-custom-domain')
+      .map((endpoint) => cloudflareTopologyEndpointParts(endpoint.endpoint)[4])
+  );
+  if (accountIds.size !== 1 || bucketNames.size !== 1)
     return { ok: false as const, reason: 'topology_contract_invalid' };
   return { ok: true as const, contract: parsed.data };
 }

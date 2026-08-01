@@ -78,7 +78,9 @@ describe('mutation dependency loader', () => {
         throw new Error('readback client was not loaded');
       await expect(
         dependencies.client.readBack(input.writeTokenId)
-      ).rejects.toThrow('independent authenticated provider readback');
+      ).rejects.toThrow(
+        'owner provisioning required: independent authenticated provider or audit readback is unavailable'
+      );
     } finally {
       process.argv[1] = originalArgv1;
     }
@@ -138,7 +140,9 @@ describe('mutation dependency loader', () => {
           dir,
           dependencies
         )
-      ).rejects.toThrow('independent authenticated provider readback');
+      ).rejects.toThrow(
+        'owner provisioning required: independent authenticated provider or audit readback is unavailable'
+      );
       await expect(
         loadEvidenceRunForCleanup(dir, runId)
       ).resolves.toMatchObject({ phase: 'cleanup_verified' });

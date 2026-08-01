@@ -42,6 +42,9 @@ type MutationRunnerFactory = (
   }>
 ) => Promise<EvidenceMutationDependencies>;
 
+const OWNER_PROVISIONING_REVOCATION_READBACK_BLOCKER =
+  'owner provisioning required: independent authenticated provider or audit readback is unavailable; a local receipt cannot authorize a write-token revocation phase transition';
+
 async function verifyReviewedCommand(
   runId: string,
   stateDir: string
@@ -121,13 +124,11 @@ async function loadCredentiallessRevocationDependencies(
     throw new Error(
       'external write-token revocation receipt does not match the journal'
     );
+  // This command has no authenticated provider/audit client contract. The
+  // receipt is an untrusted handoff artifact and must never become readback.
   const client: EvidenceReadbackClient = {
     readBack: () =>
-      Promise.reject(
-        new Error(
-          'external write-token revocation requires an independent authenticated provider readback'
-        )
-      ),
+      Promise.reject(new Error(OWNER_PROVISIONING_REVOCATION_READBACK_BLOCKER)),
   };
   return { client, revocationReceipt: receipt };
 }

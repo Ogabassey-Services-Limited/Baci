@@ -30,6 +30,10 @@ const topologies = families.map((family) => ({
   before: tuple(family, 'before'),
   intermediate: tuple(family, 'intermediate'),
   after: tuple(family, 'after'),
+  restore: {
+    requestSchemaSha256: 'd'.repeat(64),
+    responseSchemaSha256: 'e'.repeat(64),
+  },
 }));
 const topologyPlans = topologies as unknown as readonly [
   TopologyPlan,
@@ -48,6 +52,7 @@ const journaledTopologyPlans = families.map((family) => {
     before: topology?.before,
     intermediate: topology?.intermediate,
     after: topology?.after,
+    restore: topology?.restore,
   };
 }) as unknown as readonly [
   JournaledTopologyEndpoint,
@@ -70,7 +75,6 @@ const input = {
   topologies: topologyPlans,
   journaledTopologies: journaledTopologyPlans,
 };
-
 function client(overrides: Record<string, unknown> = {}) {
   return {
     trace: async () => ({ ...input.trace, matched: true }),
@@ -107,7 +111,6 @@ function client(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
-
 describe('deep Cloudflare provider topology qualification', () => {
   it('polls normal and lost-response mutations to exact after tuples for every family', async () => {
     const result = await executeDeepCloudflareEvidenceQualification(
@@ -125,7 +128,6 @@ describe('deep Cloudflare provider topology qualification', () => {
       executeDeepCloudflareEvidenceQualification(client() as never, input)
     ).resolves.toMatchObject({ qualified: true });
   });
-
   it('rejects an unchanged control tuple while any provider operation is pending', async () => {
     await expect(
       executeDeepCloudflareEvidenceQualification(
@@ -142,7 +144,6 @@ describe('deep Cloudflare provider topology qualification', () => {
       )
     ).rejects.toThrow('pending');
   });
-
   it('rejects convergence that applies beyond the qualified visibility bound', async () => {
     await expect(
       executeDeepCloudflareEvidenceQualification(
@@ -164,7 +165,6 @@ describe('deep Cloudflare provider topology qualification', () => {
       )
     ).rejects.toThrow('visibility');
   });
-
   it('rejects mixed or unknown mutation tuples instead of treating them as convergence', async () => {
     await expect(
       executeDeepCloudflareEvidenceQualification(
@@ -264,7 +264,6 @@ describe('deep Cloudflare provider topology qualification', () => {
       )
     ).rejects.toThrow('ambiguous');
   });
-
   it('rejects a self-consistent topology mutation for another Worker', async () => {
     const unrelatedEndpoint =
       '/accounts/account/workers/scripts/production-storefront/domains/custom/edge-evidence.ogabassey.com';
@@ -273,7 +272,13 @@ describe('deep Cloudflare provider topology qualification', () => {
       topologies: asTopologyPlans(
         input.topologies.map((topology) =>
           topology.family === 'worker-custom-domain'
-            ? { ...topology, endpoint: unrelatedEndpoint }
+            ? {
+                ...topology,
+                endpoint: unrelatedEndpoint,
+                restore: {
+                  ...topology.restore,
+                },
+              }
             : topology
         )
       ),

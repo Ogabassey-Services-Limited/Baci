@@ -37,6 +37,11 @@ const input = {
   },
   zoneId: 'zone',
   ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
+  trace: {
+    cacheRuleId: readback.pointerCache.cacheRuleId,
+    rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+    expressionSha256: readback.pointerCache.traceExpressionSha256,
+  },
 };
 
 const client = (
@@ -56,7 +61,12 @@ const client = (
     readback.zeroWeightProof.ordinaryTraffic,
   readProtectedVersionOverrideProof: async () =>
     readback.zeroWeightProof.protectedOverride,
-  trace: async () => ({ matched: true }),
+  trace: async () => ({
+    matched: true,
+    cacheRuleId: readback.pointerCache.cacheRuleId,
+    rulesetVersion: readback.pointerCache.cacheRulesetVersion,
+    expressionSha256: readback.pointerCache.traceExpressionSha256,
+  }),
   pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
   temporaryPurge: async () => ({ operationId: 'purge' }),
   readPurge: async () => 'complete',
