@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -9,7 +9,17 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
 
-function shell(command, args = [], env = {}) {
+async function shell(command, args = [], env = {}) {
+  const procRoot = await mkdtemp(join(tmpdir(), 'baci-recovery-proc-'));
+  await mkdir(join(procRoot, 'net'));
+  await Promise.all(
+    ['tcp', 'tcp6'].map((name) =>
+      writeFile(
+        join(procRoot, 'net', name),
+        'sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n'
+      )
+    )
+  );
   return execFileAsync(
     'sh',
     [
@@ -19,8 +29,8 @@ function shell(command, args = [], env = {}) {
       script.pathname,
       ...args,
     ],
-    { env: { ...process.env, ...env } }
-  );
+    { env: { ...process.env, RETIRE_OLLAMA_PROC_ROOT: procRoot, ...env } }
+  ).finally(() => rm(procRoot, { recursive: true, force: true }));
 }
 
 test('classifies residual and held dpkg package states', async () => {
