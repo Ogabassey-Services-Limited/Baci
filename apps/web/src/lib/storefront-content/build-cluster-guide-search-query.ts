@@ -90,6 +90,10 @@ function getCompactCategoryProductTerm(identifier: string) {
   // budget before later products are searchable. Full identifiers remain in
   // buildCommercialGuideLinks for the exact downstream score.
   return (
+    tokens.findLast(
+      (token) => /^\d{2,}$/u.test(token) && !/^(?:19|20)\d{2}$/u.test(token)
+    ) ??
+    tokens.findLast((token) => /^\d{2,}$/u.test(token)) ??
     tokens.find((token) => /\d/u.test(token)) ??
     [...tokens].sort((left, right) => right.length - left.length)[0] ??
     ''

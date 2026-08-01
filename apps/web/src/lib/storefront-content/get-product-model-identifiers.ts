@@ -14,8 +14,8 @@ function tokenize(value: string) {
       (token) => token.length > 1 || /\d/u.test(token) || /^[a-z]$/u.test(token)
     );
 }
-const SPECIFICATION_TOKEN_PATTERN =
-  /^(?:ram|vram|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg))$/u;
+const MODEL_METADATA_TOKEN_PATTERN =
+  /^(?:ram|vram|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg)|\d{4,}[a-z]{2,})$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
@@ -95,7 +95,7 @@ function getExcludedTokensForSlug(
           return false;
         }
         return (
-          !SPECIFICATION_TOKEN_PATTERN.test(token) &&
+          !MODEL_METADATA_TOKEN_PATTERN.test(token) &&
           !YEAR_TOKEN_PATTERN.test(token) &&
           !isDimensionToken(slugTokens, index)
         );
@@ -229,7 +229,7 @@ function getModelTokens(
   );
   const modelTokens = tokens.filter(
     (token, index) =>
-      !SPECIFICATION_TOKEN_PATTERN.test(token) &&
+      !MODEL_METADATA_TOKEN_PATTERN.test(token) &&
       token !== 'inch' &&
       (token !== 'in' ||
         GAME_CATEGORY_PATTERN.test(categorySlug) ||

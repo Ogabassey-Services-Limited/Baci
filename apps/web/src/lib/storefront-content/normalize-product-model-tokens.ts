@@ -189,8 +189,17 @@ function stripOptionalFeatureSuffix(tokens: string[]) {
     (token, index) =>
       token === 'touchbar' || (token === 'touch' && tokens[index + 1] === 'bar')
   );
+  const allInOneIndex = tokens.findIndex(
+    (token, index) =>
+      token === 'all' &&
+      tokens[index + 1] === 'in' &&
+      tokens[index + 2] === 'one'
+  );
+  const suffixIndex = [touchBarIndex, allInOneIndex].find(
+    (index) => index >= 0
+  );
 
-  return touchBarIndex >= 0 ? tokens.slice(0, touchBarIndex) : tokens;
+  return suffixIndex !== undefined ? tokens.slice(0, suffixIndex) : tokens;
 }
 
 function stripOptionalOrdinalGenerationConnectorSuffix(tokens: string[]) {

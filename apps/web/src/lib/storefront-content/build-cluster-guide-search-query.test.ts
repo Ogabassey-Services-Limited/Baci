@@ -117,4 +117,16 @@ describe('buildClusterGuideSearchQuery', () => {
 
     expect(query).toContain('"spark"');
   });
+
+  it('uses a later numeric laptop code instead of the display size', () => {
+    const query = buildClusterGuideSearchQuery({
+      pageKind: 'category',
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productSlugs: ['dell-inspiron-14-7430-2-in-1'],
+    });
+
+    expect(query).toContain('"7430"');
+    expect(query).not.toContain('"14"');
+  });
 });

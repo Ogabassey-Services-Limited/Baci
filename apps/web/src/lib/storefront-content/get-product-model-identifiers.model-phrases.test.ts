@@ -155,7 +155,7 @@ describe('getProductModelIdentifiers model phrases', () => {
       productSlugs: ['hp-officejet-pro-8123-all-in-one-printer-2'],
     });
 
-    expect(identifiers).toEqual(['officejet pro 8123 all one']);
+    expect(identifiers).toEqual(['officejet pro 8123']);
   });
 
   it('preserves legitimate game years after a platform number', () => {

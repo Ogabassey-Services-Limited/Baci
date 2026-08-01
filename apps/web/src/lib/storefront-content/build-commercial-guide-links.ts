@@ -234,8 +234,7 @@ export function buildCommercialGuideLinks(
               modelFamilyTokens[0] ?? '',
               input.context.brands ?? []
             )
-          : !modelFamilyTokens.some((token) => token.length === 1) ||
-            hasContiguousTokenSequence(post, modelFamilyTokens));
+          : hasContiguousTokenSequence(post, modelFamilyTokens));
       const hasRequiredCompareModelMatch =
         input.context.pageKind === 'compare' &&
         productModelIdentifiers.length > 0 &&

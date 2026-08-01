@@ -163,6 +163,21 @@ describe('normalizeProductModelTokens', () => {
     expect(tokens).toEqual(['macbook', 'pro', '2016', 'i7']);
   });
 
+  it('removes the all-in-one printer form factor', () => {
+    const tokens = normalizeProductModelTokens([
+      'hp',
+      'smart',
+      'tank',
+      '750',
+      'all',
+      'in',
+      'one',
+      'printer',
+    ]);
+
+    expect(tokens).toEqual(['hp', 'smart', 'tank', '750']);
+  });
+
   it('removes NFID condition metadata', () => {
     const tokens = normalizeProductModelTokens([
       'iphone',
