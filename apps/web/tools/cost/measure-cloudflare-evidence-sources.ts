@@ -1,11 +1,10 @@
-import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
 import {
   loadEvidenceRunForCleanup,
   RUN_ID_PATTERN,
   recordEvidenceMeasurement,
+  recordEvidenceMeasurementFailure,
   recordEvidencePhase,
   revokeEvidenceRunToken,
   type TokenRevocationClient,
@@ -16,7 +15,6 @@ import {
 } from './cloudflare-evidence-runner-modules';
 import { assertMeasurementObservationWindow } from './measurement-observation-window';
 import type { VerifiedEvidenceReadCapability } from './verify-cloudflare-evidence-read-token-policy';
-
 export type EvidenceMeasurementClient = TokenRevocationClient & {
   measure(runId: string): Promise<{
     complete: boolean;
@@ -74,7 +72,6 @@ export function runMeasurementCommand(
         dependencies.client
       );
 }
-
 type MeasurementRunnerFactory = (
   input: Readonly<{
     token: string;
@@ -129,23 +126,23 @@ async function loadMeasurementDependencies(runId: string, stateDir: string) {
     journal.toolingMergeSha,
     { path: modulePath, sha256: journal.measurementRunnerModuleSha256 }
   );
-  const bytes = await readFile(verified.path);
-  const actualSha256 = createHash('sha256').update(bytes).digest('hex');
-  if (actualSha256 !== verified.sha256)
-    throw new Error(
-      'measurement runner module hash does not match the journal'
-    );
-  const loaded: unknown = await import(pathToFileURL(verified.path).href);
-  const factory =
-    loaded &&
-    typeof loaded === 'object' &&
-    'createMeasurementDependencies' in loaded
-      ? (loaded as { createMeasurementDependencies?: unknown })
-          .createMeasurementDependencies
-      : undefined;
-  if (typeof factory !== 'function')
-    throw new Error('measurement runner module is invalid');
-  return (factory as MeasurementRunnerFactory)({ token, runId, stateDir });
+  return importReviewedEvidenceModule(
+    workspaceRoot,
+    verified.path,
+    verified.files,
+    (loaded) => {
+      const factory =
+        loaded &&
+        typeof loaded === 'object' &&
+        'createMeasurementDependencies' in loaded
+          ? (loaded as { createMeasurementDependencies?: unknown })
+              .createMeasurementDependencies
+          : undefined;
+      if (typeof factory !== 'function')
+        throw new Error('measurement runner module is invalid');
+      return (factory as MeasurementRunnerFactory)({ token, runId, stateDir });
+    }
+  );
 }
 /** Keeps argument parsing inside the same rejection path as dependency loading. */
 export function runMeasurementEntrypoint(
@@ -160,7 +157,6 @@ export function runMeasurementEntrypoint(
       runMeasurementCommand(args, stateDir, dependencies)
     );
 }
-/** Polls only after the journal proves write cleanup and revocation; it accepts no write credential. */
 export async function measureCloudflareEvidenceSources(
   stateDir: string,
   runId: string,
@@ -189,9 +185,6 @@ export async function measureCloudflareEvidenceSources(
     throw new Error(
       'write process must exit, clean up, and revoke before measurement'
     );
-  // Measurement is append-only and may already be durable when a read-token
-  // revoke or the final phase write failed. Resume from that receipt instead
-  // of polling the provider again and risking a conflicting receipt.
   if (measurementAlreadyRecorded) {
     assertMeasurementObservationWindow(
       journal,
@@ -203,36 +196,47 @@ export async function measureCloudflareEvidenceSources(
     await revokeEvidenceRunToken(stateDir, runId, 'read', client);
     return recordEvidencePhase(stateDir, runId, 'proof_complete');
   }
-  const result = await client.measure(runId);
-  if (
-    !result.complete ||
-    result.expectedProbeCount !== journal.expectedProbeCount ||
-    result.observedProbeCount !== journal.expectedProbeCount ||
-    result.expectedProbeCount !== result.observedProbeCount ||
-    !Array.isArray(result.probeResults) ||
-    result.probeResults.length !== journal.probeResults.length ||
-    new Set(result.probeResults).size !== result.probeResults.length ||
-    result.probeResults.some((probe) => !journal.probeResults.includes(probe))
-  )
-    throw new Error('Cloudflare evidence export is incomplete');
-  if (
-    !/^[a-f0-9]{64}$/.test(result.providerReceiptSha256) ||
-    Number.isNaN(new Date(result.observedAt).valueOf())
-  )
-    throw new Error('Cloudflare evidence export receipt is invalid');
-  assertMeasurementObservationWindow(
-    journal,
-    result.observedAt,
-    options.now ?? new Date()
-  );
-  await recordEvidenceMeasurement(stateDir, runId, {
-    providerReceiptSha256: result.providerReceiptSha256,
-    observedAt: result.observedAt,
-  });
+  try {
+    const result = await client.measure(runId);
+    if (
+      !result.complete ||
+      result.expectedProbeCount !== journal.expectedProbeCount ||
+      result.observedProbeCount !== journal.expectedProbeCount ||
+      result.expectedProbeCount !== result.observedProbeCount ||
+      !Array.isArray(result.probeResults) ||
+      result.probeResults.length !== journal.probeResults.length ||
+      new Set(result.probeResults).size !== result.probeResults.length ||
+      result.probeResults.some((probe) => !journal.probeResults.includes(probe))
+    )
+      throw new Error('Cloudflare evidence export is incomplete');
+    if (
+      !/^[a-f0-9]{64}$/.test(result.providerReceiptSha256) ||
+      Number.isNaN(new Date(result.observedAt).valueOf())
+    )
+      throw new Error('Cloudflare evidence export receipt is invalid');
+    assertMeasurementObservationWindow(
+      journal,
+      result.observedAt,
+      options.now ?? new Date()
+    );
+    await recordEvidenceMeasurement(stateDir, runId, {
+      providerReceiptSha256: result.providerReceiptSha256,
+      observedAt: result.observedAt,
+    });
+  } catch (error) {
+    try {
+      await recordEvidenceMeasurementFailure(stateDir, runId);
+    } catch (markError) {
+      throw new AggregateError(
+        [error, markError],
+        'measurement failed and could not be durably marked'
+      );
+    }
+    throw error;
+  }
   await revokeEvidenceRunToken(stateDir, runId, 'read', client);
   return recordEvidencePhase(stateDir, runId, 'proof_complete');
 }
-/** Revokes the read token after an incomplete cleanup without polling or recording proof. */
 export async function revokeCloudflareEvidenceReadToken(
   stateDir: string,
   runId: string,
@@ -245,14 +249,14 @@ export async function revokeCloudflareEvidenceReadToken(
   assertReadCapabilityMatchesJournal(capability, journal);
   if (
     journal.phase !== 'write_token_revoked' ||
-    !journal.cleanupIncomplete ||
+    (!journal.cleanupIncomplete && !journal.measurementIncomplete) ||
     !journal.writeTokenRevocationReceipt ||
     journal.writeTokenRevocationReceipt.tokenId !== journal.writeTokenId ||
     journal.measurementVerifiedAt ||
     journal.measurementReceiptSha256
   )
     throw new Error(
-      'read-token revocation requires a write-revoked incomplete cleanup run'
+      'read-token revocation requires a write-revoked incomplete run'
     );
   return revokeEvidenceRunToken(stateDir, runId, 'read', client);
 }

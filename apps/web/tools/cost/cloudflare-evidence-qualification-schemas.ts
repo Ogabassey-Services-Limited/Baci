@@ -9,6 +9,7 @@ import {
   QualificationArtifactReadbackVersionSchema,
 } from './cloudflare-evidence-qualification-artifact';
 import {
+  type CloudflareOwnerAcceptanceAuthorityResolver,
   validateCloudflareZeroWeightProof,
   ZeroWeightProofSchema,
 } from './cloudflare-evidence-qualification-traffic';
@@ -108,7 +109,6 @@ export type ReviewedQualificationArtifact = z.infer<
 export function calculatePointerCacheCanonicalSha256(value: unknown) {
   return calculateCanonicalSha256(canonicalizeJson(value));
 }
-
 export function qualifyCloudflareEvidenceReadback(
   value: unknown,
   options: Readonly<{
@@ -120,7 +120,8 @@ export function qualifyCloudflareEvidenceReadback(
     ];
     expectedScriptName: string;
     expectedAccountId?: string;
-    expectedOwnerApprovalId?: string;
+    expectedOwnerApprovalId: string;
+    ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
   }>
 ):
   | { ok: true; qualification: z.infer<typeof ArtifactReadbackSchema> }
@@ -214,6 +215,8 @@ export function qualifyCloudflareEvidenceReadback(
       stableVersionId: expectedArtifacts[0].versionId,
       candidateVersionId: expectedArtifacts[1].versionId,
       expectedOwnerApprovalId: options.expectedOwnerApprovalId,
+      ownerAcceptanceAuthority: options.ownerAcceptanceAuthority,
+      now: options.now,
     }
   );
   if (!zeroWeightProof.ok) return zeroWeightProof;
@@ -284,16 +287,3 @@ export const TopologyEndpointSchema = z
     maximumVisibilitySeconds: z.number().int().positive(),
   })
   .strict();
-
-export function sameCloudflarePurgeContract(
-  left: z.infer<typeof PurgeContractSchema>,
-  right: z.infer<typeof PurgeContractSchema>
-) {
-  return (
-    left.endpoint === right.endpoint &&
-    left.requestSchemaSha256 === right.requestSchemaSha256 &&
-    left.rateLimitFingerprint === right.rateLimitFingerprint &&
-    left.policySha256 === right.policySha256 &&
-    left.productionResourceState === right.productionResourceState
-  );
-}

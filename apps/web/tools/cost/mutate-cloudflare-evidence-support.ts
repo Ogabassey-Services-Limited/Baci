@@ -109,7 +109,6 @@ function verifyReviewedModule(
     descriptor
   );
 }
-
 async function loadAuthenticatedRevocationReadbackClient(
   journal: EvidenceJournal,
   runId: string,
@@ -144,47 +143,48 @@ async function loadAuthenticatedRevocationReadbackClient(
     journal.toolingMergeSha,
     { path: modulePath, sha256: moduleSha256 }
   );
-  const loaded: unknown = await importReviewedEvidenceModule(
+  return importReviewedEvidenceModule(
     workspaceRoot,
     verified.path,
-    verified.files
-  );
-  const factory =
-    loaded && typeof loaded === 'object'
-      ? // Keep the legacy name for already-deployed reviewed modules.
-        'createRevocationReadbackClient' in loaded
-        ? (loaded as { createRevocationReadbackClient?: unknown })
-            .createRevocationReadbackClient
-        : 'createRevocationReadbackDependencies' in loaded
-          ? (loaded as { createRevocationReadbackDependencies?: unknown })
-              .createRevocationReadbackDependencies
-          : undefined
-      : undefined;
-  if (typeof factory !== 'function')
-    throw new Error('authenticated revocation readback module is invalid');
-  const client = await (factory as RevocationReadbackFactory)({
-    runId,
-    stateDir,
-  });
-  if (
-    !client ||
-    typeof client !== 'object' ||
-    typeof client.readBack !== 'function'
-  )
-    throw new Error(
-      'authenticated revocation readback module did not provide readback'
-    );
-  return Object.freeze({
-    readBack: (tokenId: string) => {
-      if (tokenId !== receipt.tokenId)
+    verified.files,
+    async (loaded) => {
+      const factory =
+        loaded && typeof loaded === 'object'
+          ? // Keep the legacy name for already-deployed reviewed modules.
+            'createRevocationReadbackClient' in loaded
+            ? (loaded as { createRevocationReadbackClient?: unknown })
+                .createRevocationReadbackClient
+            : 'createRevocationReadbackDependencies' in loaded
+              ? (loaded as { createRevocationReadbackDependencies?: unknown })
+                  .createRevocationReadbackDependencies
+              : undefined
+          : undefined;
+      if (typeof factory !== 'function')
+        throw new Error('authenticated revocation readback module is invalid');
+      const client = await (factory as RevocationReadbackFactory)({
+        runId,
+        stateDir,
+      });
+      if (
+        !client ||
+        typeof client !== 'object' ||
+        typeof client.readBack !== 'function'
+      )
         throw new Error(
-          'external write-token revocation receipt does not match the journal'
+          'authenticated revocation readback module did not provide readback'
         );
-      return client.readBack(tokenId);
-    },
-  });
+      return Object.freeze({
+        readBack: (tokenId: string) => {
+          if (tokenId !== receipt.tokenId)
+            throw new Error(
+              'external write-token revocation receipt does not match the journal'
+            );
+          return client.readBack(tokenId);
+        },
+      });
+    }
+  );
 }
-
 async function loadCredentiallessRevocationDependencies(
   journal: EvidenceJournal,
   runId: string,
@@ -232,7 +232,6 @@ async function loadCredentiallessRevocationDependencies(
   );
   return { client, revocationReceipt: receipt };
 }
-
 async function loadAuthenticatedMutationDependencies(
   journal: EvidenceJournal,
   runId: string,
@@ -266,28 +265,29 @@ async function loadAuthenticatedMutationDependencies(
     journal.toolingMergeSha,
     { path: modulePath, sha256: journal.mutationRunnerModuleSha256 }
   );
-  const loaded: unknown = await importReviewedEvidenceModule(
+  return importReviewedEvidenceModule(
     workspaceRoot,
     verified.path,
-    verified.files
+    verified.files,
+    (loaded) => {
+      const factory =
+        loaded &&
+        typeof loaded === 'object' &&
+        'createMutationDependencies' in loaded
+          ? (loaded as { createMutationDependencies?: unknown })
+              .createMutationDependencies
+          : undefined;
+      if (typeof factory !== 'function')
+        throw new Error('mutation runner module is invalid');
+      return (factory as MutationRunnerFactory)({
+        token,
+        runId,
+        stateDir,
+        mode,
+      });
+    }
   );
-  const factory =
-    loaded &&
-    typeof loaded === 'object' &&
-    'createMutationDependencies' in loaded
-      ? (loaded as { createMutationDependencies?: unknown })
-          .createMutationDependencies
-      : undefined;
-  if (typeof factory !== 'function')
-    throw new Error('mutation runner module is invalid');
-  return (factory as MutationRunnerFactory)({
-    token,
-    runId,
-    stateDir,
-    mode,
-  });
 }
-
 export async function loadMutationDependencies(
   runId: string,
   stateDir: string,

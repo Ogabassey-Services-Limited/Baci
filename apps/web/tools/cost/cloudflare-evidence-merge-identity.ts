@@ -96,21 +96,26 @@ export async function loadProtectedMergeIdentityAuthority(
     toolingMergeSha,
     descriptor
   );
-  const loaded: unknown = await importReviewedEvidenceModule(
-    workspaceRoot,
-    verified.path,
-    verified.files
-  );
-  if (
-    !loaded ||
-    typeof loaded !== 'object' ||
-    !('resolveProtectedMergeIdentityAuthority' in loaded) ||
-    typeof loaded.resolveProtectedMergeIdentityAuthority !== 'function'
-  )
-    throw new Error(
-      'protected merge authority module must export resolveProtectedMergeIdentityAuthority'
+  return async (requestedToolingMergeSha: string) =>
+    importReviewedEvidenceModule(
+      workspaceRoot,
+      verified.path,
+      verified.files,
+      (loaded) => {
+        if (
+          !loaded ||
+          typeof loaded !== 'object' ||
+          !('resolveProtectedMergeIdentityAuthority' in loaded) ||
+          typeof loaded.resolveProtectedMergeIdentityAuthority !== 'function'
+        )
+          throw new Error(
+            'protected merge authority module must export resolveProtectedMergeIdentityAuthority'
+          );
+        return (
+          loaded.resolveProtectedMergeIdentityAuthority as ProtectedMergeIdentityAuthorityResolver
+        )(requestedToolingMergeSha);
+      }
     );
-  return loaded.resolveProtectedMergeIdentityAuthority as ProtectedMergeIdentityAuthorityResolver;
 }
 
 export function readProtectedMergeIdentityAuthorityModuleDescriptor(

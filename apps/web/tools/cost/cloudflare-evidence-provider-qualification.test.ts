@@ -163,11 +163,54 @@ describe('deep Cloudflare provider topology qualification', () => {
     await expect(
       executeDeepCloudflareEvidenceQualification(
         client({
-          pointerProbe: async () => ({ cfCacheStatus: 'BYPASS' }),
+          pointerProbe: async () => ({
+            status: 204,
+            cfCacheStatus: 'BYPASS',
+            headers: {
+              'X-Baci-Evidence-Bundle': 'version-a-204',
+              'X-Baci-Evidence-Version': 'a',
+            },
+          }),
         }),
         input
       )
     ).rejects.toThrow('cacheable');
+    await expect(
+      executeDeepCloudflareEvidenceQualification(
+        client({
+          pointerProbe: async () => ({
+            status: 404,
+            cfCacheStatus: 'DYNAMIC',
+            headers: {},
+          }),
+        }),
+        input
+      )
+    ).rejects.toThrow('reviewed qualification fixture');
+    await expect(
+      executeDeepCloudflareEvidenceQualification(client(), {
+        ...input,
+        pointerProbeExpectation: {
+          bundle: 'version-a-204',
+          version: 'unreviewed',
+        },
+      })
+    ).rejects.toThrow('reviewed fixture');
+    await expect(
+      executeDeepCloudflareEvidenceQualification(
+        client({
+          pointerProbe: async () => ({
+            status: 204,
+            cfCacheStatus: 'DYNAMIC',
+            headers: {
+              'X-Baci-Evidence-Bundle': 'unreviewed',
+              'X-Baci-Evidence-Version': 'a',
+            },
+          }),
+        }),
+        input
+      )
+    ).rejects.toThrow('reviewed qualification fixture');
     await expect(
       executeDeepCloudflareEvidenceQualification(client(), {
         ...input,

@@ -1,10 +1,7 @@
 import type { z } from 'zod';
 import type { QualificationArtifactModule } from './cloudflare-evidence-qualification-artifact';
 import type { TopologyEndpointSchema } from './cloudflare-evidence-qualification-schemas';
-import {
-  PurgeContractSchema,
-  sameCloudflarePurgeContract,
-} from './cloudflare-evidence-qualification-schemas';
+import { PurgeContractSchema } from './cloudflare-evidence-qualification-schemas';
 import type {
   CloudflareOrdinaryTrafficProof,
   CloudflareProtectedOverrideProof,
@@ -31,6 +28,19 @@ export type JournaledPurgeContract = Readonly<{
   zoneId: string;
   contract: z.infer<typeof PurgeContractSchema>;
 }>;
+
+export function sameCloudflarePurgeContract(
+  left: z.infer<typeof PurgeContractSchema>,
+  right: z.infer<typeof PurgeContractSchema>
+) {
+  return (
+    left.endpoint === right.endpoint &&
+    left.requestSchemaSha256 === right.requestSchemaSha256 &&
+    left.rateLimitFingerprint === right.rateLimitFingerprint &&
+    left.policySha256 === right.policySha256 &&
+    left.productionResourceState === right.productionResourceState
+  );
+}
 
 export type CloudflareQualificationClient = Readonly<{
   listVersions: (

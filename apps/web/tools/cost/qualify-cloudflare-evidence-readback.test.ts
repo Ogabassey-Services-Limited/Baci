@@ -10,6 +10,11 @@ import {
   reviewedArtifacts,
 } from './qualify-cloudflare-evidence-sources.test-fixtures';
 
+const ownerAcceptanceOptions = {
+  expectedOwnerApprovalId: 'owner-approval',
+  ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
+};
+
 describe('Cloudflare read-only qualification contracts', () => {
   it('rejects swapped/latest-only script artifacts and cache hits', () => {
     expect(
@@ -17,6 +22,7 @@ describe('Cloudflare read-only qualification contracts', () => {
         now: new Date('2026-07-31T00:01:00.000Z'),
         expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
         expectedScriptName: readback.scriptName,
+        ...ownerAcceptanceOptions,
         expectedAccountId: 'other-account',
       }).ok
     ).toBe(false);
@@ -25,6 +31,7 @@ describe('Cloudflare read-only qualification contracts', () => {
         now: new Date('2026-07-31T00:01:00.000Z'),
         expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
         expectedScriptName: readback.scriptName,
+        ...ownerAcceptanceOptions,
       }).ok
     ).toBe(true);
     expect(
@@ -40,6 +47,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           now: new Date('2026-07-31T00:01:00.000Z'),
           expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
           expectedScriptName: readback.scriptName,
+          ...ownerAcceptanceOptions,
         }
       ).ok
     ).toBe(false);
@@ -53,6 +61,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           now: new Date('2026-07-31T00:01:00.000Z'),
           expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
           expectedScriptName: readback.scriptName,
+          ...ownerAcceptanceOptions,
         }
       ).ok
     ).toBe(false);
@@ -69,6 +78,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           now: new Date('2026-07-31T00:01:00.000Z'),
           expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
           expectedScriptName: readback.scriptName,
+          ...ownerAcceptanceOptions,
         }
       ).ok
     ).toBe(false);
@@ -85,6 +95,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           now: new Date('2026-07-31T00:01:00.000Z'),
           expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
           expectedScriptName: readback.scriptName,
+          ...ownerAcceptanceOptions,
         }
       ).ok
     ).toBe(false);
@@ -191,6 +202,7 @@ describe('Cloudflare read-only qualification contracts', () => {
         now: new Date('2026-07-31T00:01:00.000Z'),
         expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
         expectedScriptName: 'unreviewed-worker',
+        ...ownerAcceptanceOptions,
       }).ok
     ).toBe(false);
     expect(
@@ -198,6 +210,7 @@ describe('Cloudflare read-only qualification contracts', () => {
         now: new Date('2026-07-31T00:01:00.000Z'),
         expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
         expectedScriptName: readback.scriptName,
+        ...ownerAcceptanceOptions,
       }).ok
     ).toBe(true);
     expect(
@@ -208,6 +221,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           reviewedArtifacts[1],
         ],
         expectedScriptName: readback.scriptName,
+        ...ownerAcceptanceOptions,
       }).ok
     ).toBe(false);
     expect(
@@ -227,6 +241,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           now: new Date('2026-07-31T00:01:00.000Z'),
           expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
           expectedScriptName: readback.scriptName,
+          ...ownerAcceptanceOptions,
         }
       ).ok
     ).toBe(false);
@@ -249,6 +264,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           now: new Date('2026-07-31T00:01:00.000Z'),
           expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
           expectedScriptName: readback.scriptName,
+          ...ownerAcceptanceOptions,
         }
       ).ok
     ).toBe(false);

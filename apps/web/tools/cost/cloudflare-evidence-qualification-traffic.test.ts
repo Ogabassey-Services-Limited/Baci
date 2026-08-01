@@ -43,6 +43,8 @@ const proof = {
     receiptSha256: '1'.repeat(64),
   },
 } as const;
+const ownerAcceptanceAuthority = () => proof.ownerAcceptance;
+const qualificationNow = new Date('2026-07-31T01:00:00.000Z');
 
 describe('Cloudflare zero-weight qualification proof', () => {
   it('accepts exact ordinary, override, contradiction, and owner evidence', () => {
@@ -52,6 +54,8 @@ describe('Cloudflare zero-weight qualification proof', () => {
         stableVersionId: 'a',
         candidateVersionId: 'b',
         expectedOwnerApprovalId: 'owner-approval',
+        ownerAcceptanceAuthority,
+        now: qualificationNow,
       })
     ).toMatchObject({ ok: true });
   });
@@ -63,7 +67,14 @@ describe('Cloudflare zero-weight qualification proof', () => {
           ...proof,
           ordinaryTraffic: { ...proof.ordinaryTraffic, bInvocationCount: 1 },
         },
-        { deployment, stableVersionId: 'a', candidateVersionId: 'b' }
+        {
+          deployment,
+          stableVersionId: 'a',
+          candidateVersionId: 'b',
+          expectedOwnerApprovalId: 'owner-approval',
+          ownerAcceptanceAuthority,
+          now: qualificationNow,
+        }
       )
     ).toEqual({
       ok: false,
@@ -82,7 +93,14 @@ describe('Cloudflare zero-weight qualification proof', () => {
             versionMetadataVersionId: 'a',
           },
         },
-        { deployment, stableVersionId: 'a', candidateVersionId: 'b' }
+        {
+          deployment,
+          stableVersionId: 'a',
+          candidateVersionId: 'b',
+          expectedOwnerApprovalId: 'owner-approval',
+          ownerAcceptanceAuthority,
+          now: qualificationNow,
+        }
       )
     ).toEqual({
       ok: false,
@@ -97,5 +115,71 @@ describe('Cloudflare zero-weight qualification proof', () => {
         ownerAcceptance: { ...proof.ownerAcceptance, accepted: false },
       }).success
     ).toBe(false);
+  });
+
+  it('rejects a raw owner receipt without an independently supplied authority', () => {
+    expect(
+      validateCloudflareZeroWeightProof(proof, {
+        deployment,
+        stableVersionId: 'a',
+        candidateVersionId: 'b',
+        expectedOwnerApprovalId: 'owner-approval',
+        ownerAcceptanceAuthority: undefined as never,
+        now: qualificationNow,
+      })
+    ).toEqual({
+      ok: false,
+      reason: 'owner_acceptance_authority_required',
+    });
+  });
+
+  it('rejects owner acceptance that is stale or differs from the authority readback', () => {
+    expect(
+      validateCloudflareZeroWeightProof(
+        {
+          ...proof,
+          ownerAcceptance: {
+            ...proof.ownerAcceptance,
+            acceptedAt: '2026-07-29T00:00:00.000Z',
+          },
+        },
+        {
+          deployment,
+          stableVersionId: 'a',
+          candidateVersionId: 'b',
+          expectedOwnerApprovalId: 'owner-approval',
+          ownerAcceptanceAuthority,
+          now: qualificationNow,
+        }
+      )
+    ).toEqual({
+      ok: false,
+      reason: 'owner_acceptance_mismatch',
+    });
+    expect(
+      validateCloudflareZeroWeightProof(
+        {
+          ...proof,
+          ownerAcceptance: {
+            ...proof.ownerAcceptance,
+            acceptedAt: '2026-07-29T00:00:00.000Z',
+          },
+        },
+        {
+          deployment,
+          stableVersionId: 'a',
+          candidateVersionId: 'b',
+          expectedOwnerApprovalId: 'owner-approval',
+          ownerAcceptanceAuthority: () => ({
+            ...proof.ownerAcceptance,
+            acceptedAt: '2026-07-29T00:00:00.000Z',
+          }),
+          now: qualificationNow,
+        }
+      )
+    ).toEqual({
+      ok: false,
+      reason: 'owner_acceptance_stale',
+    });
   });
 });

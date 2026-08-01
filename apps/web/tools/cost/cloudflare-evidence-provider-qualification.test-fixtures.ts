@@ -77,6 +77,10 @@ const journaledTopologyPlans = [
 export const input = {
   pointerUrl: 'https://edge-evidence.ogabassey.com/__baci-evidence/a',
   pointerProbeCount: 2,
+  pointerProbeExpectation: {
+    bundle: 'version-a-204',
+    version: 'a',
+  },
   trace: {
     cacheRuleId: 'rule',
     rulesetVersion: 'v1',
@@ -90,7 +94,14 @@ export function client(
 ): DeepQualificationClient {
   return {
     trace: async () => ({ ...input.trace, matched: true }),
-    pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
+    pointerProbe: async () => ({
+      status: 204,
+      cfCacheStatus: 'DYNAMIC',
+      headers: {
+        'X-Baci-Evidence-Bundle': 'version-a-204',
+        'X-Baci-Evidence-Version': 'a',
+      },
+    }),
     topologyRead: async (family: TopologyFamily) => tuple(family, 'before'),
     topologyMutate: ({
       family,

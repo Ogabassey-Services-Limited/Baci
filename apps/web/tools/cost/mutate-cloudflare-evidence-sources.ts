@@ -12,6 +12,7 @@ import {
   recordTokenRevocation,
 } from './cloudflare-evidence-run-journal';
 import {
+  reconcileCreatedEvidenceResource,
   requireTokenReadBackClient,
   revokeCleanupWriteTokenIfNeeded,
   revokeWriteTokenIfAvailable,
@@ -42,7 +43,6 @@ export type {
   EvidenceResource,
 };
 export { parseMutationArguments, SYNTHETIC_PATHS };
-
 export function runMutationCommand(
   args: readonly string[],
   stateDir: string,
@@ -77,8 +77,6 @@ export function runMutationCommand(
         dependencies.client
       );
 }
-
-/** Applies one deterministic resource set, recording every successful create before probing. */
 export async function applyCloudflareEvidenceMutation(
   stateDir: string,
   runId: string,
@@ -101,16 +99,33 @@ export async function applyCloudflareEvidenceMutation(
       throw new Error('pre-existing resource collision');
     verifyResource(resource, journal, name, journaledResourceId);
   } else {
-    const created = await client.create(
-      name,
-      EVIDENCE_HOSTNAME,
-      SYNTHETIC_PATHS,
-      REVIEWED_TEMPORARY_RULE_BINDING
-    );
-    resource = await client.get(created.id);
-    if (!resource) throw new Error('created resource was not readable');
-    verifyResource(resource, journal, name, created.id);
-    await recordEvidenceMutation(stateDir, runId, name, resource.id);
+    let createdId: string | undefined;
+    try {
+      const created = await client.create(
+        name,
+        EVIDENCE_HOSTNAME,
+        SYNTHETIC_PATHS,
+        REVIEWED_TEMPORARY_RULE_BINDING
+      );
+      createdId = created.id;
+      if (!createdId)
+        throw new Error('provider create returned no resource ID');
+      resource = await client.get(createdId);
+      if (!resource) throw new Error('created resource was not readable');
+      verifyResource(resource, journal, name, createdId);
+      await recordEvidenceMutation(stateDir, runId, name, resource.id);
+    } catch (error) {
+      await reconcileCreatedEvidenceResource(client, name, createdId);
+      try {
+        await cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          'created evidence resource cleanup did not complete'
+        );
+      }
+      throw error;
+    }
   }
   try {
     const probes = await client.probe(resource);
@@ -127,8 +142,6 @@ export async function applyCloudflareEvidenceMutation(
   }
   return cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
 }
-
-/** Cleanup mode never creates or probes; it deletes only exact journaled resources. */
 export async function cleanupCloudflareEvidenceRun(
   stateDir: string,
   runId: string,
@@ -160,10 +173,6 @@ export async function cleanupCloudflareEvidenceRun(
     !journalAfterToken.cleanupWriteTokenRevocationReceipt
       ? journalAfterToken.cleanupWriteTokenId
       : undefined;
-
-  // Cleanup verification is durable before token revocation. If the process
-  // dies in that gap, resume from the receipt without repeating deletes or
-  // requiring the provider to recreate the already-verified state.
   if (journal.phase === 'cleanup_verified') {
     if (cleanupTokenToRevoke) {
       await revokeCleanupWriteTokenIfNeeded(
@@ -178,16 +187,10 @@ export async function cleanupCloudflareEvidenceRun(
     return loadEvidenceRunForCleanup(stateDir, runId);
   }
   const incomplete = journal.probeResults.length !== journal.expectedProbeCount;
-  // Complete cleanup must have a provider readback capability before any
-  // destructive call. Incomplete probe runs stop without this extra proof,
-  // but a complete run would otherwise delete resources and only then discover
-  // that it cannot authenticate their absence.
+  // Complete cleanup requires provider readback before destructive calls.
   if (!incomplete && typeof client.verifyCleanup !== 'function')
     throw new Error('cleanup verification requires provider readback');
-
-  // A provider create may succeed between the API response and the journal
-  // append. Discover only the deterministic pre-journaled names, bind the
-  // returned ID, and then delete it; never search by a caller-selected ID.
+  // Recover only deterministic pre-journaled names after an API/journal gap.
   const mutations = new Map(Object.entries(journal.mutations));
   for (const name of journal.plannedResources) {
     if (mutations.has(name)) continue;
@@ -197,7 +200,6 @@ export async function cleanupCloudflareEvidenceRun(
     await recordEvidenceMutation(stateDir, runId, name, recovered.id);
     mutations.set(name, recovered.id);
   }
-
   await verifyInventoryBeforeCleanup(client, journal, mutations);
   for (const [name, id] of [...mutations.entries()].reverse()) {
     if (!journal.plannedResources.includes(name))
@@ -261,7 +263,6 @@ export async function cleanupCloudflareEvidenceRun(
   if (cleanupTokenToRevoke) return loadEvidenceRunForCleanup(stateDir, runId);
   return verified;
 }
-
 /** Persists a provider/audit-verified write-token revocation after operator cleanup. */
 export function recordCloudflareEvidenceWriteTokenRevocation(
   stateDir: string,
@@ -271,7 +272,6 @@ export function recordCloudflareEvidenceWriteTokenRevocation(
 ) {
   return recordTokenRevocation(stateDir, runId, 'write', receipt, client);
 }
-
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href

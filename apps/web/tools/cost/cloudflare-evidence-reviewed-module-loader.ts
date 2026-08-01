@@ -31,11 +31,23 @@ function destinationPath(
 }
 
 /** Imports a verified module closure from immutable bytes in private storage. */
+export function importReviewedEvidenceModule<T>(
+  workspaceRoot: string,
+  entrypoint: string,
+  files: readonly ReviewedEvidenceModuleSource[],
+  use: (loaded: unknown) => Promise<T> | T
+): Promise<T>;
 export async function importReviewedEvidenceModule(
   workspaceRoot: string,
   entrypoint: string,
   files: readonly ReviewedEvidenceModuleSource[]
-) {
+): Promise<unknown>;
+export async function importReviewedEvidenceModule<T>(
+  workspaceRoot: string,
+  entrypoint: string,
+  files: readonly ReviewedEvidenceModuleSource[],
+  use?: (loaded: unknown) => Promise<T> | T
+): Promise<T | unknown> {
   const temporaryRoot = await mkdtemp(
     join(resolve(workspaceRoot), '.baci-reviewed-module-')
   );
@@ -50,7 +62,8 @@ export async function importReviewedEvidenceModule(
       await writeFile(destination, file.source, { mode: 0o600 });
     }
     const entry = destinationPath(workspaceRoot, temporaryRoot, entrypoint);
-    return await importReviewedEntrypoint(entry);
+    const loaded = await importReviewedEntrypoint(entry);
+    return use ? await use(loaded) : loaded;
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true }).catch(
       () => undefined

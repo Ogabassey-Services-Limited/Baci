@@ -7,10 +7,12 @@ import {
   QUALIFICATION_EVIDENCE_HOST,
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
-  sameCloudflarePurgeContract,
   type TopologyEndpointSchema,
 } from './cloudflare-evidence-qualification-schemas';
-import type { CloudflareOwnerAcceptance } from './cloudflare-evidence-qualification-traffic';
+import type {
+  CloudflareOwnerAcceptance,
+  CloudflareOwnerAcceptanceAuthorityResolver,
+} from './cloudflare-evidence-qualification-traffic';
 import { qualifyCloudflareZeroWeightReadback } from './cloudflare-evidence-qualification-traffic';
 import { qualifyCloudflareTopologyEndpoint } from './cloudflare-evidence-topology-contract';
 import {
@@ -23,6 +25,7 @@ import {
   matchesCloudflarePurgeContractReadback,
   matchesCloudflarePurgeReadback,
   matchesCloudflareTrace,
+  sameCloudflarePurgeContract,
 } from './qualify-cloudflare-evidence-sources-contracts';
 
 export {
@@ -42,6 +45,7 @@ export {
 export {
   type CloudflareOrdinaryTrafficProof,
   type CloudflareOwnerAcceptance,
+  type CloudflareOwnerAcceptanceAuthorityResolver,
   type CloudflareProtectedOverrideProof,
   type CloudflareZeroWeightContract,
   type CloudflareZeroWeightDeployment,
@@ -84,8 +88,10 @@ export async function executeCloudflareEvidenceQualification(
     topology: z.infer<typeof TopologyEndpointSchema>;
     zoneId: string;
     ownerAcceptance: CloudflareOwnerAcceptance;
+    ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
     trace: CloudflareTraceExpectation;
-    expectedOwnerApprovalId?: string;
+    expectedOwnerApprovalId: string;
+    now?: Date;
     pointerProbeCount?: number;
   }>
 ) {
@@ -197,6 +203,8 @@ export async function executeCloudflareEvidenceQualification(
     stableVersionId: input.artifacts[0].versionId,
     candidateVersionId: input.artifacts[1].versionId,
     expectedOwnerApprovalId: input.expectedOwnerApprovalId,
+    ownerAcceptanceAuthority: input.ownerAcceptanceAuthority,
+    now: input.now,
   });
   if (!zeroWeightQualification.ok)
     throw new Error(

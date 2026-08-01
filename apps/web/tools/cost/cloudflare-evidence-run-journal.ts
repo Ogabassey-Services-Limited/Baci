@@ -123,6 +123,7 @@ export async function openEvidenceRun(
       readBackEvidence: [],
       probeResults: [],
       cleanupIncomplete: false,
+      measurementIncomplete: false,
     };
     await writeJournal(stateDir, journal);
     return journal;
@@ -138,6 +139,7 @@ export const {
   recordCleanupVerified,
   recordCleanupWriteToken,
   recordEvidenceMeasurement,
+  recordEvidenceMeasurementFailure,
   recordEvidenceMutation,
   recordEvidencePhase,
   recordEvidenceProbeResults,

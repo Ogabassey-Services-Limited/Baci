@@ -29,26 +29,22 @@ export type TokenRevocationReceipt = Readonly<{
   providerReceiptSha256: string;
   observedAt: string;
 }>;
-
 export type CleanupVerificationProviderReceipt = Readonly<{
   status: 'absent';
   inventorySha256: string;
   providerReceiptSha256: string;
   observedAt: string;
 }>;
-
 export type CleanupVerificationClient = Readonly<{
   verifyCleanup(
     runId: string,
     expectedInventorySha256: string
   ): Promise<CleanupVerificationProviderReceipt>;
 }>;
-
 export type MeasurementReceipt = Readonly<{
   providerReceiptSha256: string;
   observedAt: string;
 }>;
-
 export type CloudflareEvidenceRunJournal = {
   runId: string;
   approvalId: string;
@@ -74,6 +70,8 @@ export type CloudflareEvidenceRunJournal = {
   readBackEvidence: readonly string[];
   probeResults: readonly string[];
   cleanupIncomplete: boolean;
+  /** True when clean-up completed but measurement could not be proven. */
+  measurementIncomplete?: boolean;
   cleanupVerifiedAt?: string;
   cleanupVerificationReceiptSha256?: string;
   measurementVerifiedAt?: string;
@@ -91,7 +89,6 @@ export type CloudflareEvidenceRunJournal = {
   measurementRunnerModulePath?: string;
   measurementRunnerModuleSha256?: string;
 };
-
 export type EvidenceRunInput = Omit<
   CloudflareEvidenceRunJournal,
   | 'mutations'
@@ -100,6 +97,7 @@ export type EvidenceRunInput = Omit<
   | 'readBackEvidence'
   | 'probeResults'
   | 'cleanupIncomplete'
+  | 'measurementIncomplete'
   | 'cleanupVerifiedAt'
   | 'cleanupVerificationReceiptSha256'
   | 'measurementVerifiedAt'
@@ -113,7 +111,6 @@ export type EvidenceRunInput = Omit<
   | 'cleanupWriteTokenRevocationReceipt'
   | 'cleanupWriteTokenRevocations'
 >;
-
 export const terminal = new Set<EvidencePhase>([
   'proof_complete',
   'closed_stop',
@@ -129,7 +126,6 @@ export function journalPath(stateDir: string, runId: string) {
     throw new Error('journal run ID is invalid');
   return join(stateDir, `${runId}.json`);
 }
-
 export async function verifyDirectory(stateDir: string) {
   if (!isAbsolute(stateDir))
     throw new Error('EVIDENCE_RUN_STATE_DIR must be absolute');
@@ -196,11 +192,9 @@ export async function writeJournalUnlocked(
   if (terminal.has(journal.phase))
     await releaseActiveRunLock(stateDir, journal.runId);
 }
-
 export function validDate(value: string) {
   return !Number.isNaN(new Date(value).valueOf());
 }
-
 export function hasReceipt(
   receipt: TokenRevocationReceipt | undefined,
   tokenId: string
@@ -264,8 +258,14 @@ export function assertTerminalPrerequisites(
         'proof_complete requires cleanup, probes, measurement, and revocation'
       );
   }
-  if (phase === 'closed_stop' && !journal.cleanupIncomplete)
-    throw new Error('closed_stop requires incomplete cleanup evidence');
+  if (
+    phase === 'closed_stop' &&
+    !journal.cleanupIncomplete &&
+    !journal.measurementIncomplete
+  )
+    throw new Error(
+      'closed_stop requires incomplete cleanup or measurement evidence'
+    );
   if (
     !hasReceipt(journal.writeTokenRevocationReceipt, journal.writeTokenId) ||
     !hasReceipt(journal.readTokenRevocationReceipt, journal.readTokenId) ||

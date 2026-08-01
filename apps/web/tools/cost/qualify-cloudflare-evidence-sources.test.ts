@@ -141,6 +141,10 @@ describe('Cloudflare read-only qualification contracts', () => {
         },
         zoneId: 'zone',
         ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
+        ownerAcceptanceAuthority: () =>
+          readback.zeroWeightProof.ownerAcceptance,
+        expectedOwnerApprovalId: 'owner-approval',
+        now: new Date('2026-07-31T01:00:00.000Z'),
         trace: {
           cacheRuleId: readback.pointerCache.cacheRuleId,
           rulesetVersion: readback.pointerCache.cacheRulesetVersion,
@@ -208,6 +212,10 @@ describe('Cloudflare read-only qualification contracts', () => {
           },
           zoneId: 'zone',
           ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
+          ownerAcceptanceAuthority: () =>
+            readback.zeroWeightProof.ownerAcceptance,
+          expectedOwnerApprovalId: 'owner-approval',
+          now: new Date('2026-07-31T01:00:00.000Z'),
           trace: {
             cacheRuleId: readback.pointerCache.cacheRuleId,
             rulesetVersion: readback.pointerCache.cacheRulesetVersion,

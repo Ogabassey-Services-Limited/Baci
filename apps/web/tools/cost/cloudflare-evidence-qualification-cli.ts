@@ -8,6 +8,7 @@ import {
   qualifyCloudflareEvidenceReadback,
   ReviewedQualificationArtifactSchema,
 } from './cloudflare-evidence-qualification-schemas';
+import type { CloudflareOwnerAcceptanceAuthorityResolver } from './cloudflare-evidence-qualification-traffic';
 
 const MAXIMUM_APPROVAL_ID_LENGTH = 128;
 
@@ -96,7 +97,8 @@ async function readReviewedArtifact(path: string, label: string) {
 export async function runQualificationCli(
   args: readonly string[],
   environment: Readonly<Record<string, string | undefined>>,
-  io: QualificationCliIo
+  io: QualificationCliIo,
+  ownerAcceptanceAuthority?: CloudflareOwnerAcceptanceAuthorityResolver
 ) {
   try {
     if (args[0] === '--prepare') {
@@ -110,6 +112,10 @@ export async function runQualificationCli(
         scriptName,
         expectedOwnerApprovalId,
       } = parseQualificationArguments(args);
+      if (!ownerAcceptanceAuthority)
+        throw new Error(
+          'independently authenticated owner acceptance readback is required'
+        );
       const [value, ...artifactValues] = await Promise.all([
         readReviewedArtifact(receiptPath, 'readback'),
         ...expectedArtifactPaths.map((path, index) =>
@@ -135,6 +141,7 @@ export async function runQualificationCli(
         expectedArtifacts,
         expectedScriptName: scriptName,
         expectedOwnerApprovalId,
+        ownerAcceptanceAuthority,
       });
       if (!result.ok) throw new Error(result.reason);
       io.stdout(`${JSON.stringify(result.qualification)}\n`);

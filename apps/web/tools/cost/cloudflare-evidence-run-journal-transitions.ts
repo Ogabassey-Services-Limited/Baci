@@ -87,7 +87,10 @@ export function createEvidenceJournalTransitionOperations(
     details: Partial<
       Pick<
         CloudflareEvidenceRunJournal,
-        'cleanupAttempts' | 'readBackEvidence' | 'cleanupIncomplete'
+        | 'cleanupAttempts'
+        | 'readBackEvidence'
+        | 'cleanupIncomplete'
+        | 'measurementIncomplete'
       >
     > = {}
   ) {
@@ -186,6 +189,29 @@ export function createEvidenceJournalTransitionOperations(
         throw new Error('measurement requires write-token revocation');
       journal.measurementVerifiedAt = receipt.observedAt;
       journal.measurementReceiptSha256 = receipt.providerReceiptSha256;
+      journal.measurementIncomplete = false;
+      return journal;
+    });
+  }
+
+  function recordEvidenceMeasurementFailure(stateDir: string, runId: string) {
+    return transitionJournal(stateDir, runId, (journal) => {
+      if (journal.phase !== 'write_token_revoked')
+        throw new Error('measurement failure requires write-token revocation');
+      if (journal.measurementReceiptSha256 || journal.measurementVerifiedAt)
+        throw new Error(
+          'measurement failure cannot replace a recorded receipt'
+        );
+      journal.measurementIncomplete = true;
+      if (
+        !journal.readBackEvidence.includes(
+          'measurement evidence incomplete; STOP'
+        )
+      )
+        journal.readBackEvidence = [
+          ...journal.readBackEvidence,
+          'measurement evidence incomplete; STOP',
+        ];
       return journal;
     });
   }
@@ -233,6 +259,7 @@ export function createEvidenceJournalTransitionOperations(
 
   return {
     recordEvidenceMeasurement,
+    recordEvidenceMeasurementFailure,
     recordEvidenceMutation,
     recordEvidencePhase,
     recordEvidenceProbeResults,

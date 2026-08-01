@@ -8,6 +8,11 @@ import {
   cloudflareTopologyEndpointParts,
   verifyCloudflareTopologyEndpointFamily,
 } from './cloudflare-evidence-topology-contract';
+import {
+  type CloudflarePointerProbeExpectation,
+  type CloudflarePointerProbeReadback,
+  matchesCloudflarePointerProbe,
+} from './qualify-cloudflare-evidence-sources-contracts';
 export type TopologyFamily = CloudflareTopologyFamily;
 export type TopologyAction = 'detach' | 'reattach' | 'write';
 export type TopologyTuple = Readonly<{ state: string; fingerprint: string }>;
@@ -66,7 +71,7 @@ export type DeepQualificationClient = Readonly<{
   pointerProbe(
     method: 'GET' | 'HEAD',
     url: string
-  ): Promise<Readonly<{ cfCacheStatus: string; age?: string }>>;
+  ): Promise<CloudflarePointerProbeReadback>;
   topologyRead(family: TopologyFamily): Promise<TopologyTuple>;
   topologyMutate(request: TopologyMutationRequest): Promise<MutationResponse>;
   topologyPoll(
@@ -157,6 +162,7 @@ export async function executeDeepCloudflareEvidenceQualification(
   input: Readonly<{
     pointerUrl: string;
     pointerProbeCount: number;
+    pointerProbeExpectation: CloudflarePointerProbeExpectation;
     trace: TraceExpectation;
     topologies: readonly [TopologyPlan, TopologyPlan, TopologyPlan];
     journaledTopologies: readonly [
@@ -172,6 +178,11 @@ export async function executeDeepCloudflareEvidenceQualification(
     throw new Error(
       'pointer URL does not bind the evidence qualification host'
     );
+  if (
+    input.pointerProbeExpectation.bundle !== 'version-a-204' ||
+    input.pointerProbeExpectation.version !== 'a'
+  )
+    throw new Error('pointer probe expectation is not the reviewed fixture');
   verifyJournaledTopologyEndpoints(input.topologies, input.journaledTopologies);
   const trace = await client.trace(QUALIFICATION_POINTER_URL);
   if (
@@ -187,8 +198,12 @@ export async function executeDeepCloudflareEvidenceQualification(
         method,
         QUALIFICATION_POINTER_URL
       );
-      if (response.cfCacheStatus !== 'DYNAMIC' || response.age !== undefined)
-        throw new Error('pointer cache probe observed a cacheable response');
+      if (
+        !matchesCloudflarePointerProbe(response, input.pointerProbeExpectation)
+      )
+        throw new Error(
+          'pointer cache probe did not reach the reviewed qualification fixture or observed a cacheable response'
+        );
     }
   const mutationReceipts: TopologyMutationAuditReceipt[] = [];
   for (const topology of input.topologies) {

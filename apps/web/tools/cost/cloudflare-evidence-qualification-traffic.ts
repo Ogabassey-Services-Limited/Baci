@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 const NonEmpty = z.string().min(1);
+const MAXIMUM_OWNER_ACCEPTANCE_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const ZeroWeightDeploymentTupleSchema = z
   .object({
@@ -86,6 +87,15 @@ export type CloudflareProtectedOverrideProof = z.infer<
   typeof ProtectedOverrideProofSchema
 >;
 export type CloudflareOwnerAcceptance = z.infer<typeof OwnerAcceptanceSchema>;
+/**
+ * Resolves the owner receipt from an independently authenticated authority.
+ *
+ * The resolver must perform its own provider/audit readback or signed
+ * attestation verification. It receives no caller-selected approval ID or
+ * receipt fields, so the proof cannot choose which authority record to trust.
+ */
+export type CloudflareOwnerAcceptanceAuthorityResolver =
+  () => CloudflareOwnerAcceptance;
 export type CloudflareZeroWeightProof = z.infer<typeof ZeroWeightProofSchema>;
 export type CloudflareZeroWeightDeployment = Readonly<{
   deploymentId: string;
@@ -98,7 +108,9 @@ export function validateCloudflareZeroWeightProof(
     deployment: CloudflareZeroWeightDeployment;
     stableVersionId: string;
     candidateVersionId: string;
-    expectedOwnerApprovalId?: string;
+    expectedOwnerApprovalId: string;
+    ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
+    now?: Date;
   }>
 ) {
   const parsed = ZeroWeightProofSchema.safeParse(value);
@@ -163,11 +175,39 @@ export function validateCloudflareZeroWeightProof(
       ok: false as const,
       reason: 'zero_weight_visibility_bound_invalid',
     };
+  if (typeof options.ownerAcceptanceAuthority !== 'function')
+    return {
+      ok: false as const,
+      reason: 'owner_acceptance_authority_required',
+    };
+  let authoritative: CloudflareOwnerAcceptance;
+  try {
+    authoritative = OwnerAcceptanceSchema.parse(
+      options.ownerAcceptanceAuthority()
+    );
+  } catch {
+    return {
+      ok: false as const,
+      reason: 'owner_acceptance_authority_invalid',
+    };
+  }
   if (
-    options.expectedOwnerApprovalId !== undefined &&
-    proof.ownerAcceptance.approvalId !== options.expectedOwnerApprovalId
+    authoritative.accepted !== proof.ownerAcceptance.accepted ||
+    authoritative.approvalId !== proof.ownerAcceptance.approvalId ||
+    authoritative.acceptedAt !== proof.ownerAcceptance.acceptedAt ||
+    authoritative.receiptSha256 !== proof.ownerAcceptance.receiptSha256 ||
+    authoritative.approvalId !== options.expectedOwnerApprovalId
   )
     return { ok: false as const, reason: 'owner_acceptance_mismatch' };
+  const nowMs = (options.now ?? new Date()).valueOf();
+  const acceptedAtMs = new Date(authoritative.acceptedAt).valueOf();
+  if (
+    !Number.isFinite(nowMs) ||
+    !Number.isFinite(acceptedAtMs) ||
+    acceptedAtMs > nowMs ||
+    nowMs - acceptedAtMs > MAXIMUM_OWNER_ACCEPTANCE_AGE_MS
+  )
+    return { ok: false as const, reason: 'owner_acceptance_stale' };
   return { ok: true as const, proof };
 }
 
@@ -180,7 +220,9 @@ export function qualifyCloudflareZeroWeightReadback(
     ownerAcceptance: CloudflareOwnerAcceptance;
     stableVersionId: string;
     candidateVersionId: string;
-    expectedOwnerApprovalId?: string;
+    expectedOwnerApprovalId: string;
+    ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
+    now?: Date;
   }>
 ) {
   const proof = {
@@ -195,5 +237,7 @@ export function qualifyCloudflareZeroWeightReadback(
     stableVersionId: input.stableVersionId,
     candidateVersionId: input.candidateVersionId,
     expectedOwnerApprovalId: input.expectedOwnerApprovalId,
+    ownerAcceptanceAuthority: input.ownerAcceptanceAuthority,
+    now: input.now,
   });
 }

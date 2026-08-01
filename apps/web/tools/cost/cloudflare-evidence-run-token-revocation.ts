@@ -113,9 +113,10 @@ export function createTokenRevocationOperations(
         throw new Error('cleanup replacement token revocation is required');
       journal.readTokenRevocationReceipt = receipt;
       journal.readTokenRevokedAt = receipt.observedAt;
-      journal.phase = journal.cleanupIncomplete
-        ? 'closed_stop'
-        : 'read_token_revoked';
+      journal.phase =
+        journal.cleanupIncomplete || journal.measurementIncomplete
+          ? 'closed_stop'
+          : 'read_token_revoked';
     } else {
       if (!journal.cleanupWriteTokenId)
         throw new Error('cleanup replacement token is not journaled');

@@ -48,6 +48,38 @@ export async function verifyInventoryBeforeCleanup(
     throw new Error('provider inventory drift before cleanup');
 }
 
+/** Reconciles a create that may have succeeded before its journal/read-back step. */
+export async function reconcileCreatedEvidenceResource(
+  client: EvidenceMutationClient,
+  name: string,
+  createdId?: string
+) {
+  let id = createdId;
+  if (!id) id = (await client.findByName(name))?.id;
+  if (!id) return;
+  let cleanupError: unknown;
+  try {
+    await client.cleanup(name, id);
+  } catch (error) {
+    cleanupError = error;
+  }
+  let remaining: EvidenceResource | null;
+  try {
+    remaining = await client.get(id);
+  } catch (error) {
+    throw new Error('created evidence resource absence could not be verified', {
+      cause: cleanupError ?? error,
+    });
+  }
+  if (remaining)
+    throw new Error('created evidence resource remained after reconciliation', {
+      cause: cleanupError,
+    });
+  // A provider may report an idempotent delete as a failed request even though
+  // the subsequent read proves the resource is gone. The durable absence proof
+  // is authoritative for this recovery path.
+}
+
 export function requireTokenRevocationClient(
   client: EvidenceMutationClient
 ): TokenRevocationClient {

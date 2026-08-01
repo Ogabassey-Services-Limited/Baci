@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  loadEvidenceRunForCleanup,
   openEvidenceRun,
   recordCleanupVerified,
   recordEvidenceMeasurement,
@@ -191,6 +192,27 @@ describe('measurement observation timestamps', () => {
 });
 
 describe('incomplete-run read-token revocation', () => {
+  it('marks a clean measurement failure and closes after read-token revocation', async () => {
+    const dir = await createMeasuredRun();
+    const client = measurementClient('2026-07-31T00:00:00.000Z');
+    client.measure = vi.fn(async () => {
+      throw new Error('provider export unavailable');
+    });
+    await expect(
+      measureCloudflareEvidenceSources(dir, input.runId, capability, client)
+    ).rejects.toThrow('provider export unavailable');
+    await expect(
+      loadEvidenceRunForCleanup(dir, input.runId)
+    ).resolves.toMatchObject({
+      phase: 'write_token_revoked',
+      cleanupIncomplete: false,
+      measurementIncomplete: true,
+    });
+    await expect(
+      revokeCloudflareEvidenceReadToken(dir, input.runId, capability, client)
+    ).resolves.toMatchObject({ phase: 'closed_stop' });
+  });
+
   it('revokes the read token and closes the stop run without measuring', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);

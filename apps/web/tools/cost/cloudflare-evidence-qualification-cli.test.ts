@@ -38,7 +38,17 @@ function currentReadback() {
   const { canonicalSha256: _ignored, ...withoutHash } = pointerCache;
   pointerCache.canonicalSha256 =
     calculatePointerCacheCanonicalSha256(withoutHash);
-  return { ...readback, pointerCache };
+  return {
+    ...readback,
+    zeroWeightProof: {
+      ...readback.zeroWeightProof,
+      ownerAcceptance: {
+        ...readback.zeroWeightProof.ownerAcceptance,
+        acceptedAt: new Date(Date.now() - 1000).toISOString(),
+      },
+    },
+    pointerCache,
+  };
 }
 
 async function writeValidationArtifacts(directory: string, receipt: unknown) {
@@ -46,17 +56,32 @@ async function writeValidationArtifacts(directory: string, receipt: unknown) {
     receipt: join(directory, 'readback.json'),
     artifactA: join(directory, 'artifact-a.json'),
     artifactB: join(directory, 'artifact-b.json'),
+    ownerAcceptance: join(directory, 'owner-acceptance.json'),
   };
+  const ownerAcceptance =
+    (
+      receipt as {
+        zeroWeightProof?: { ownerAcceptance?: unknown };
+      }
+    ).zeroWeightProof?.ownerAcceptance ??
+    readback.zeroWeightProof.ownerAcceptance;
   await Promise.all([
     writeFile(paths.receipt, JSON.stringify(receipt), { mode: 0o600 }),
     writeFile(paths.artifactA, JSON.stringify(reviewedArtifacts[0]), {
+      mode: 0o600,
+    }),
+    writeFile(paths.ownerAcceptance, JSON.stringify(ownerAcceptance), {
       mode: 0o600,
     }),
     writeFile(paths.artifactB, JSON.stringify(reviewedArtifacts[1]), {
       mode: 0o600,
     }),
   ]);
-  return paths;
+  return {
+    ...paths,
+    ownerAcceptance:
+      ownerAcceptance as typeof readback.zeroWeightProof.ownerAcceptance,
+  };
 }
 
 type ValidationPaths = Awaited<ReturnType<typeof writeValidationArtifacts>>;
@@ -83,7 +108,9 @@ async function runValidation(
       '--expected-owner-approval-id',
       expectedOwnerApprovalId,
     ],
-    {},
+    {
+      EVIDENCE_OWNER_ACCEPTANCE_ARTIFACT: resolvedPaths.ownerAcceptance,
+    },
     {
       stdout: (value) => {
         stdout += value;
@@ -94,7 +121,8 @@ async function runValidation(
       setExitCode: (code) => {
         exitCode = code;
       },
-    }
+    },
+    () => paths.ownerAcceptance
   );
   return { stdout, stderr, exitCode };
 }
@@ -142,6 +170,42 @@ describe('qualification CLI helpers', () => {
     expect(mismatch.stdout).toBe('');
     expect(mismatch.stderr).toContain('owner_acceptance_mismatch');
     expect(mismatch.exitCode).toBe(1);
+  });
+
+  it('fails closed when the credentialless CLI has no authenticated owner authority seam', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'baci-qualification-cli-'));
+    await chmod(directory, 0o700);
+    const paths = await writeValidationArtifacts(directory, currentReadback());
+    let stderr = '';
+    let exitCode: number | undefined;
+    await runQualificationCli(
+      [
+        '--validate-readback',
+        paths.receipt,
+        '--expected-artifact-a',
+        paths.artifactA,
+        '--expected-artifact-b',
+        paths.artifactB,
+        '--script-name',
+        'baci-evidence-qualification',
+        '--expected-owner-approval-id',
+        'owner-approval',
+      ],
+      {},
+      {
+        stdout: () => undefined,
+        stderr: (value) => {
+          stderr += value;
+        },
+        setExitCode: (code) => {
+          exitCode = code;
+        },
+      }
+    );
+    expect(stderr).toBe(
+      'independently authenticated owner acceptance readback is required\n'
+    );
+    expect(exitCode).toBe(1);
   });
 
   it('rejects a reviewed artifact with permissions broader than 0600', async () => {

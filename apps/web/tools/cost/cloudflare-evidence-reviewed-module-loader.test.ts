@@ -24,6 +24,37 @@ describe('importReviewedEvidenceModule', () => {
     expect(loaded.value).toBe(42);
   });
 
+  it('retains the private closure while a factory performs a deferred import', async () => {
+    const workspaceRoot = resolve(process.cwd());
+    const value = await importReviewedEvidenceModule(
+      workspaceRoot,
+      resolve(workspaceRoot, 'factory.mjs'),
+      [
+        {
+          path: resolve(workspaceRoot, 'factory.mjs'),
+          source: Buffer.from(
+            'export async function create() { return (await import("./factory-dependency.mjs")).value; }'
+          ),
+        },
+        {
+          path: resolve(workspaceRoot, 'factory-dependency.mjs'),
+          source: Buffer.from('export const value = 42;'),
+        },
+      ],
+      async (loaded) => {
+        if (
+          !loaded ||
+          typeof loaded !== 'object' ||
+          !('create' in loaded) ||
+          typeof loaded.create !== 'function'
+        )
+          throw new Error('factory fixture is invalid');
+        return loaded.create();
+      }
+    );
+    expect(value).toBe(42);
+  });
+
   it('rejects a closure entry outside the workspace', async () => {
     const workspaceRoot = resolve(process.cwd());
     await expect(
