@@ -80,7 +80,7 @@ export function getProductModelIdentifiers(
         .map(
           (tokens) =>
             tokens.find((token) => /[a-z]/u.test(token) && /\d/u.test(token)) ??
-            tokens.find((token) => /\d/u.test(token)) ??
+            [...tokens].reverse().find((token) => /\d/u.test(token)) ??
             tokens.find((token) => token.length > 1) ??
             tokens[0] ??
             null

@@ -46,6 +46,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['m2']);
   });
 
+  it('retains a later numeric model code after a screen-size token', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productSlugs: ['dell-xps-13-9350'],
+    });
+
+    expect(identifiers).toEqual(['9350']);
+  });
+
   it('preserves a single-character model identifier', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'xbox',
