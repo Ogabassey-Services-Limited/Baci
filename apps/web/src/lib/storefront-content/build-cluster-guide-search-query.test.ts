@@ -74,4 +74,21 @@ describe('buildClusterGuideSearchQuery', () => {
     expect(query).not.toContain('"itel model 01"');
     expect(new TextEncoder().encode(query).byteLength).toBeLessThanOrEqual(512);
   });
+
+  it('retains every compact marker from a full compound authority catalog', () => {
+    const modelNumbers = Array.from({ length: 48 }, (_, index) => index + 101);
+    const query = buildClusterGuideSearchQuery({
+      pageKind: 'category',
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: modelNumbers.map(
+        (modelNumber) => `apple-iphone-${modelNumber}-pro-max`
+      ),
+    });
+
+    expect(
+      modelNumbers.every((modelNumber) => query.includes(`"${modelNumber}"`))
+    ).toBe(true);
+    expect(new TextEncoder().encode(query).byteLength).toBeLessThanOrEqual(512);
+  });
 });

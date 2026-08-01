@@ -76,6 +76,26 @@ function spreadTerms(terms: string[]) {
   return spread;
 }
 
+function getCompactCategoryProductTerm(identifier: string) {
+  const tokens = identifier
+    .split(/[^a-z0-9]+/iu)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return '';
+  }
+
+  // The RPC query is only a candidate prefilter. Keep one model discriminator
+  // per product so a long authority catalog does not exhaust the 512-byte
+  // budget before later products are searchable. Full identifiers remain in
+  // buildCommercialGuideLinks for the exact downstream score.
+  return (
+    tokens.find((token) => /\d/u.test(token)) ??
+    [...tokens].sort((left, right) => right.length - left.length)[0] ??
+    ''
+  );
+}
+
 export function buildClusterGuideSearchQuery(
   context: BuildCommercialGuideLinksContext
 ): string {
@@ -88,7 +108,9 @@ export function buildClusterGuideSearchQuery(
     : [];
   const productTerms =
     context.pageKind === 'category'
-      ? spreadTerms(getProductModelIdentifiers(context))
+      ? spreadTerms(
+          getProductModelIdentifiers(context).map(getCompactCategoryProductTerm)
+        )
       : (context.productSlugs ?? []).map((slug) => slug.replace(/-/g, ' '));
   const rawTerms = [
     ...support.categoryNames,
