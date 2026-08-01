@@ -22,7 +22,7 @@ EXIT_REVIEW_REQUIRED=78
 
 die() { printf '%s\n' "$1" >&2; exit "${2:-65}"; }
 review_required() { die "$1" "$EXIT_REVIEW_REQUIRED"; }
-usage() { die 'usage: retire-ollama.sh --scan|--apply' 64; }
+usage() { die 'usage: retire-ollama.sh --scan|--apply|--recovery-scan' 64; }
 root() { [ "$(id -u)" = 0 ] || die 'root required' 77; }
 cleanup_temp() { [ -n "$TEMP_ROOT" ] && [ -d "$TEMP_ROOT" ] && [ ! -L "$TEMP_ROOT" ] && rm -rf -- "$TEMP_ROOT"; TEMP_ROOT=''; }
 init_temp_root() {
@@ -46,6 +46,11 @@ sha() {
   printf '%s\n' "$digest"
 }
 hash_text() { out=$(temp_path); printf %s "$1" >"$out" || { rm -f "$out"; die 'text digest write failed'; }; sha "$out"; status=$?; rm -f "$out"; return "$status"; }
+RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"
+if [ -f "$RECOVERY_HELPER" ] && [ ! -L "$RECOVERY_HELPER" ]; then
+  # shellcheck disable=SC1090,SC1091 # Resolved beside this script at runtime.
+  . "$RECOVERY_HELPER"
+fi
 digest_command() {
   out=$1; class=$2; shift 2
   if "$@" >"$out"; then :; else status=$?; rm -f "$out"; die "scan failed $class ($status)"; fi
@@ -233,6 +238,6 @@ apply() {
   post=$(completion_metrics)
   ensure_receipt_dir; completion_pending=$(pending_for "$RECEIPT_DIR/completion.json"); jq -S -n --arg receiptSha256 "$(canonical_receipt_digest)" --argjson pre "$pre" --argjson post "$post" '{receiptSha256:$receiptSha256,prePostDeltas:{preDestructive:$pre,postDestructive:$post,deltas:{cgroupMemoryBytes:($post.cgroupMemoryBytes-$pre.cgroupMemoryBytes),hostAvailableMemoryBytes:($post.hostAvailableMemoryBytes-$pre.hostAvailableMemoryBytes),modelStoreBytes:($post.modelStoreBytes-$pre.modelStoreBytes)}},rollbackNeeds:["reinstall Ollama package","redownload models"]}' >"$completion_pending" || { discard_pending "$completion_pending"; die 'completion receipt failed'; }; publish_pending "$completion_pending" "$RECEIPT_DIR/completion.json"
 }
-main() { case "${1:-}" in --scan) scan;; --apply) apply;; *) usage;; esac; }
+main() { case "${1:-}" in --scan) scan;; --apply) apply;; --recovery-scan) type recovery_scan >/dev/null 2>&1 || review_required 'recovery helper missing'; recovery_scan;; *) usage;; esac; }
 # Sourcing exposes helpers; execute only when this file is the CLI entrypoint.
 case "$0" in */retire-ollama.sh|retire-ollama.sh) main "$@";; esac
