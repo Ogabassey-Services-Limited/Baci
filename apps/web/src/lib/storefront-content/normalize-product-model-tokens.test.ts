@@ -100,4 +100,31 @@ describe('normalizeProductModelTokens', () => {
 
     expect(tokens).toEqual(['iphone', '14', 'pro']);
   });
+
+  it('removes non-SIM connectivity suffixes', () => {
+    const lteTokens = normalizeProductModelTokens([
+      'apple',
+      'series',
+      '9',
+      '45mm',
+      'lte',
+    ]);
+    const wifiTokens = normalizeProductModelTokens([
+      'iphone',
+      '14',
+      'wi',
+      'fi',
+      'only',
+    ]);
+    const cellularTokens = normalizeProductModelTokens([
+      'ipad',
+      'pro',
+      '13',
+      'cellular',
+    ]);
+
+    expect(lteTokens).toEqual(['apple', 'series', '9', '45mm']);
+    expect(wifiTokens).toEqual(['iphone', '14']);
+    expect(cellularTokens).toEqual(['ipad', 'pro', '13']);
+  });
 });

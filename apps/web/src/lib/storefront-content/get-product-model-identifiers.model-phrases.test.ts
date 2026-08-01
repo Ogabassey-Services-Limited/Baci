@@ -167,4 +167,24 @@ describe('getProductModelIdentifiers model phrases', () => {
 
     expect(identifiers).toEqual(['14 plus 2 in 1']);
   });
+
+  it('removes generic pc descriptors from laptop identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['HP'],
+      productSlugs: ['hp-250-g10-notebook-pc'],
+    });
+
+    expect(identifiers).toEqual(['250 g10']);
+  });
+
+  it('removes standalone ram labels from phone model phrases', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productSlugs: ['samsung-z-fold-5-12gb-ram-256gb'],
+    });
+
+    expect(identifiers).toEqual(['fold 5']);
+  });
 });

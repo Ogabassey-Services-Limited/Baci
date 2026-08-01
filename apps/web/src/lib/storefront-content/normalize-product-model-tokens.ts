@@ -95,6 +95,10 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
   const suffixIndex = tokens.findIndex(
     (token, index) =>
       token === 'esim' ||
+      token === 'lte' ||
+      token === 'cellular' ||
+      token === 'wifi' ||
+      (token === 'wi' && tokens[index + 1] === 'fi') ||
       (token === 'sim' &&
         CONNECTIVITY_MARKER_TOKENS.has(tokens[index - 1] ?? ''))
   );
