@@ -23,8 +23,26 @@ function isMeaningfulModelToken(token: string) {
   );
 }
 
+function isSeriesPhraseToken(tokens: string[], index: number) {
+  const token = tokens[index] ?? '';
+  const nextToken = tokens[index + 1] ?? '';
+  const isSeriesMarker =
+    token === 'series' &&
+    (/^[a-z]$/u.test(nextToken) ||
+      /^\d+$/u.test(nextToken) ||
+      nextToken === 'se');
+  const followsSeriesMarker =
+    index > 0 &&
+    tokens[index - 1] === 'series' &&
+    (/^[a-z]$/u.test(token) || /^\d+$/u.test(token) || token === 'se');
+  return isSeriesMarker || followsSeriesMarker;
+}
+
 /** Selects a compact phrase from already-normalized model tokens. */
-export function selectProductModelIdentifier(tokens: string[]) {
+export function selectProductModelIdentifier(
+  tokens: string[],
+  preserveYearTokens = false
+) {
   const hasNonYearAlphanumericModel = tokens.some(
     (token) =>
       !YEAR_TOKEN_PATTERN.test(token) &&
@@ -34,7 +52,9 @@ export function selectProductModelIdentifier(tokens: string[]) {
   const numericIndex = tokens.findLastIndex(
     (token) =>
       /^\d+$/u.test(token) &&
-      (!YEAR_TOKEN_PATTERN.test(token) || !hasNonYearAlphanumericModel)
+      (preserveYearTokens ||
+        !YEAR_TOKEN_PATTERN.test(token) ||
+        !hasNonYearAlphanumericModel)
   );
   if (numericIndex >= 0) {
     const hasConvertibleModel = tokens.some((_, index) =>
@@ -44,7 +64,8 @@ export function selectProductModelIdentifier(tokens: string[]) {
       (token, index) =>
         (hasConvertibleModel && /^\d+$/u.test(token)) ||
         index === numericIndex ||
-        isMeaningfulModelToken(token)
+        isMeaningfulModelToken(token) ||
+        isSeriesPhraseToken(tokens, index)
     );
     return phraseTokens.join(' ');
   }
@@ -65,13 +86,7 @@ export function selectProductModelIdentifier(tokens: string[]) {
   }
 
   const phraseTokens = tokens.filter((token, index) => {
-    const isSeriesMarker =
-      token === 'series' && /^[a-z]$/u.test(tokens[index + 1] ?? '');
-    const followsSeriesMarker =
-      index > 0 && tokens[index - 1] === 'series' && /^[a-z]$/u.test(token);
-    return (
-      isMeaningfulModelToken(token) || isSeriesMarker || followsSeriesMarker
-    );
+    return isMeaningfulModelToken(token) || isSeriesPhraseToken(tokens, index);
   });
   return phraseTokens.join(' ') || tokens[0] || null;
 }

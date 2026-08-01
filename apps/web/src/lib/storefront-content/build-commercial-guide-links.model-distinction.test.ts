@@ -1,0 +1,144 @@
+import { describe, expect, it } from 'vitest';
+import { buildCommercialGuideLinks } from './build-commercial-guide-links';
+import type {
+  BuildCommercialGuideLinksContext,
+  PublishedClusterPost,
+} from './content-cluster-types';
+
+function post(
+  slug: string,
+  title: string,
+  category: string,
+  tags: string[]
+): PublishedClusterPost {
+  return {
+    slug,
+    title,
+    excerpt: title,
+    category,
+    tags,
+    keywords: ['buyer guide'],
+    featured_image_url: null,
+    published_at: '2026-04-01T09:00:00.000Z',
+    reading_time_minutes: 6,
+  };
+}
+
+function firstGuide(
+  context: BuildCommercialGuideLinksContext,
+  posts: PublishedClusterPost[]
+) {
+  return buildCommercialGuideLinks({
+    storeUrl: 'https://ogabassey.com',
+    posts,
+    context,
+  })[0]?.href;
+}
+
+describe('buildCommercialGuideLinks model distinctions', () => {
+  it('ranks an annual F1 guide above a generic F1 guide', () => {
+    const context = {
+      pageKind: 'product',
+      categorySlug: 'playstation-4',
+      brands: ['PlayStation'],
+      productSlugs: ['ps4-f1-2024'],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post('f1-buying-guide', 'PlayStation 4 F1 Buyer Guide', 'PlayStation 4', [
+        'playstation',
+        'f1',
+      ]),
+      post(
+        'f1-2024-buying-guide',
+        'PlayStation 4 F1 2024 Buyer Guide',
+        'PlayStation 4',
+        ['playstation', 'f1 2024']
+      ),
+    ];
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/f1-2024-buying-guide'
+    );
+  });
+
+  it('ranks an Apple Watch Series 9 guide above a generic watch guide', () => {
+    const context = {
+      pageKind: 'product',
+      categorySlug: 'smartwatches',
+      brands: ['Apple'],
+      productSlugs: ['apple-watch-series-9-45mm-gps'],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post(
+        'apple-watch-buying-guide',
+        'Apple Watch Buyer Guide',
+        'Smartwatches',
+        ['smartwatches', 'apple']
+      ),
+      post(
+        'apple-watch-series-9-buying-guide',
+        'Apple Watch Series 9 Buyer Guide',
+        'Smartwatches',
+        ['smartwatches', 'apple', 'watch series 9']
+      ),
+    ];
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/apple-watch-series-9-buying-guide'
+    );
+  });
+
+  it('retains a PlayStation sequel number in guide matching', () => {
+    const context = {
+      pageKind: 'product',
+      categorySlug: 'playstation-4',
+      brands: ['PlayStation'],
+      productSlugs: ['ps4-resident-evil-4-remake'],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post(
+        'resident-evil-buying-guide',
+        'Resident Evil Buyer Guide',
+        'PlayStation 4',
+        ['playstation', 'resident evil']
+      ),
+      post(
+        'resident-evil-4-buying-guide',
+        'Resident Evil 4 Remake Buyer Guide',
+        'PlayStation 4',
+        ['playstation', 'resident evil 4']
+      ),
+    ];
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/resident-evil-4-buying-guide'
+    );
+  });
+
+  it('keeps game words for a Nintendo Switch title', () => {
+    const context = {
+      pageKind: 'product',
+      categorySlug: 'nintendo-switch',
+      brands: ['Nintendo'],
+      productSlugs: ['nintendo-switch-hasbro-game-night'],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post(
+        'nintendo-switch-game-buying-guide',
+        'Nintendo Switch Game Buying Guide',
+        'Nintendo Switch',
+        ['nintendo', 'switch', 'game']
+      ),
+      post(
+        'hasbro-game-night-buying-guide',
+        'Hasbro Game Night Buyer Guide',
+        'Nintendo Switch',
+        ['nintendo', 'switch', 'hasbro game night']
+      ),
+    ];
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/hasbro-game-night-buying-guide'
+    );
+  });
+});

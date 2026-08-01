@@ -167,6 +167,33 @@ describe('getProductModelIdentifiers model phrases', () => {
     expect(identifiers).toEqual(['madden 23', 'madden 24']);
   });
 
+  it('retains annual game years after an alphanumeric platform token', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'playstation-4',
+      productSlugs: ['ps4-f1-2018', 'ps4-f1-2024'],
+    });
+
+    expect(identifiers).toEqual(['f1 2018', 'f1 2024']);
+  });
+
+  it('preserves sequel numbers after a PlayStation platform generation', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'playstation-4',
+      productSlugs: ['ps4-resident-evil-4-remake'],
+    });
+
+    expect(identifiers).toEqual(['resident evil 4 remake']);
+  });
+
+  it('keeps game words that are not a configured brand alias', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'nintendo-switch',
+      productSlugs: ['nintendo-switch-hasbro-game-night'],
+    });
+
+    expect(identifiers).toEqual(['hasbro game night']);
+  });
+
   it('preserves both numbers in a convertible model phrase', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
@@ -263,7 +290,17 @@ describe('getProductModelIdentifiers model phrases', () => {
       productSlugs: ['apple-watch-series-9-45mm-gps'],
     });
 
-    expect(identifiers).toEqual(['watch 9']);
+    expect(identifiers).toEqual(['watch series 9']);
+  });
+
+  it('retains the Series marker for an Apple Watch SE identifier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartwatches',
+      brands: ['Apple'],
+      productSlugs: ['apple-watch-series-se-40mm-gps'],
+    });
+
+    expect(identifiers).toEqual(['watch series se']);
   });
 
   it('preserves a terminal color that is part of a game title', () => {

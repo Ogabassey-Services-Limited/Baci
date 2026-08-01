@@ -47,21 +47,19 @@ function getBrandAliasGroups(
       ...(context.productNames ?? []),
     ].flatMap(tokenize)
   );
-
   return Object.entries(
     CONTENT_CLUSTER_SUPPORT[context.categorySlug].brandTokens
   ).flatMap(([brandKey, aliases]) => {
+    if (brandKey === 'gaming') return [];
     const brandTokens = tokenize(brandKey);
     const aliasTokens = aliases.map(tokenize);
     const matchesContext = [brandTokens, ...aliasTokens].some(
       (tokens: string[]) =>
         tokens.some((token) => contextBrandTokens.has(token))
     );
-
     return matchesContext ? [{ brandTokens, aliases: aliasTokens }] : [];
   });
 }
-
 function getExcludedTokensForSlug(
   slug: string,
   baseExcludedTokens: ReadonlySet<string>,
@@ -70,7 +68,6 @@ function getExcludedTokensForSlug(
 ) {
   const slugTokens = tokenize(slug);
   const excludedTokens = new Set(baseExcludedTokens);
-
   for (const group of brandAliasGroups) {
     for (const token of group.brandTokens) {
       if (
@@ -89,11 +86,9 @@ function getExcludedTokensForSlug(
       ) {
         continue;
       }
-
       if (aliasTokens.some((token) => protectedFamilyTokens.has(token))) {
         continue;
       }
-
       const leavesModelToken = slugTokens.some((token, index) => {
         if (excludedTokens.has(token) || aliasTokens.includes(token)) {
           return false;
@@ -105,7 +100,6 @@ function getExcludedTokensForSlug(
           !isDimensionToken(slugTokens, index)
         );
       });
-
       const isModelFamilyAlias = aliasTokens.some((token) =>
         MODEL_FAMILY_ALIAS_TOKENS.has(token)
       );
@@ -122,13 +116,11 @@ function getExcludedTokensForSlug(
 
   return excludedTokens;
 }
-
 function isDimensionToken(tokens: string[], index: number) {
   const token = tokens[index];
   if (!/^\d+$/u.test(token)) {
     return false;
   }
-
   const previousToken = tokens[index - 1] ?? '';
   const nextToken = tokens[index + 1] ?? '';
   if (
@@ -142,7 +134,6 @@ function isDimensionToken(tokens: string[], index: number) {
     ['in', 'inch'].includes(previousToken) || ['in', 'inch'].includes(nextToken)
   );
 }
-
 function isConvertibleInConnector(tokens: string[], index: number) {
   return (
     tokens[index] === 'in' &&
@@ -150,12 +141,10 @@ function isConvertibleInConnector(tokens: string[], index: number) {
     /^\d+$/u.test(tokens[index + 1] ?? '')
   );
 }
-
 function stripTrailingProcessorTier(tokens: string[], categorySlug: string) {
   if (!LAPTOP_CATEGORY_SLUGS.has(categorySlug)) {
     return tokens;
   }
-
   const processorIndex = tokens.findIndex(
     (token, index) =>
       ((token === 'ultra' || token === 'rtx') &&
@@ -165,7 +154,6 @@ function stripTrailingProcessorTier(tokens: string[], categorySlug: string) {
   );
   return processorIndex > 0 ? tokens.slice(0, processorIndex) : tokens;
 }
-
 function stripLeadingFillerTokens(tokens: string[]) {
   let firstModelToken = 0;
   while (LEADING_FILLER_TOKENS.has(tokens[firstModelToken] ?? '')) {
@@ -173,12 +161,10 @@ function stripLeadingFillerTokens(tokens: string[]) {
   }
   return firstModelToken > 0 ? tokens.slice(firstModelToken) : tokens;
 }
-
 function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
   if (!DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)) {
     return tokens;
   }
-
   const firstToken = tokens[0] ?? '';
   const displaySize = Number(firstToken);
   const hasFollowingModelText = tokens
@@ -195,20 +181,17 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
     ? tokens.slice(/^\d$/u.test(tokens[1] ?? '') ? 2 : 1)
     : tokens;
 }
-
 function stripGeneratedCollisionSuffix(tokens: string[]) {
   const lastToken = tokens.at(-1) ?? '';
   if (tokens.length < 2 || !/^\d$/u.test(lastToken)) {
     return tokens;
   }
-
   const previousToken = tokens.at(-2) ?? '';
   const isConvertibleSuffix =
     previousToken === 'in' && /^\d+$/u.test(tokens.at(-3) ?? '');
   if (isConvertibleSuffix) {
     return tokens;
   }
-
   if (/\d/u.test(previousToken)) {
     return tokens.slice(0, -1);
   }
@@ -221,6 +204,12 @@ function stripGeneratedCollisionSuffix(tokens: string[]) {
     : tokens;
 }
 
+function stripGamePlatformGeneration(tokens: string[], categorySlug: string) {
+  const generation = categorySlug.match(
+    /^(?:playstation|nintendo-switch)-(\d+)$/u
+  )?.[1];
+  return generation && tokens[0] === generation ? tokens.slice(1) : tokens;
+}
 function getModelTokens(
   slug: string,
   excludedTokens: ReadonlySet<string>,
@@ -232,8 +221,12 @@ function getModelTokens(
     ),
     GAME_CATEGORY_PATTERN.test(categorySlug)
   );
+  const platformStrippedTokens = stripGamePlatformGeneration(
+    rawTokens,
+    categorySlug
+  );
   const tokens = stripGeneratedCollisionSuffix(
-    stripLeadingDisplaySize(rawTokens, categorySlug)
+    stripLeadingDisplaySize(platformStrippedTokens, categorySlug)
   );
   const modelTokens = tokens.filter(
     (token, index) =>
@@ -253,6 +246,9 @@ export function getProductModelIdentifiers(
   const protectedFamilyTokens = new Set(
     tokenize(context.modelFamilySlug ?? '')
   );
+  const categoryExcludesNumericTokens = GAME_CATEGORY_PATTERN.test(
+    context.categorySlug
+  );
   const baseExcludedTokens = new Set(
     [
       ...(context.brands ?? []).flatMap(tokenize),
@@ -269,11 +265,13 @@ export function getProductModelIdentifiers(
     ].filter(
       (token) =>
         Boolean(token) &&
+        !(categoryExcludesNumericTokens && /^\d+$/u.test(token)) &&
         !protectedFamilyTokens.has(token) &&
         !MODEL_FAMILY_ALIAS_TOKENS.has(token)
     )
   );
   const brandAliasGroups = getBrandAliasGroups(context);
+  const preserveGameYears = categoryExcludesNumericTokens;
   const productSources = context.productNames?.length
     ? context.productNames
     : (context.productSlugs ?? []);
@@ -293,7 +291,9 @@ export function getProductModelIdentifiers(
             context.categorySlug
           )
         )
-        .map(selectProductModelIdentifier)
+        .map((tokens) =>
+          selectProductModelIdentifier(tokens, preserveGameYears)
+        )
         .filter((token): token is string => Boolean(token))
     )
   );
