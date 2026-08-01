@@ -36,6 +36,13 @@ export interface BlogClientPageProps {
   initialCounts?: BlogCounts;
 }
 
+export interface UseBlogClientStateOptions {
+  initialCounts?: BlogCounts;
+  initialPosts: BlogPost[];
+  merchant: BlogMerchant;
+  useInitialData?: boolean;
+}
+
 export interface BlogPostsResponse {
   posts?: BlogPost[];
   hasMore: boolean;

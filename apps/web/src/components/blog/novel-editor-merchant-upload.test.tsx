@@ -70,9 +70,11 @@ vi.mock('./novel-features/extensions', () => ({ defaultExtensions: [] }));
 vi.mock('./novel-features/product-extension', () => ({
   ProductExtension: { configure: vi.fn(() => ({ name: 'product' })) },
 }));
-vi.mock('./novel-features/slash-command', () => ({
-  createSlashCommand: vi.fn(() => ({ name: 'slash' })),
+vi.mock('@/components/blog/novel-features/slash-command', () => ({
   createSuggestionItems: mockCreateSuggestionItems.mockReturnValue([]),
+}));
+vi.mock('@/components/blog/novel-features/slash-command-extension', () => ({
+  createSlashCommand: vi.fn(() => ({ name: 'slash' })),
 }));
 vi.mock('./novel-features/selectors/editor-toolbar', () => ({
   EditorToolbar: ({ onImageUpload }: { onImageUpload: unknown }) => {

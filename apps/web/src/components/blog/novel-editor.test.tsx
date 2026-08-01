@@ -105,8 +105,7 @@ vi.mock('./novel-features/selectors/text-buttons', () => ({
   TextButtons: () => <div data-testid="text-buttons" />,
 }));
 
-vi.mock('./novel-features/slash-command', () => ({
-  createSlashCommand: vi.fn(() => ({ name: 'slashCommand' })),
+vi.mock('@/components/blog/novel-features/slash-command', () => ({
   createSuggestionItems: vi.fn(() => [
     {
       title: 'Heading 1',
@@ -121,6 +120,10 @@ vi.mock('./novel-features/slash-command', () => ({
       command: vi.fn(),
     },
   ]),
+}));
+
+vi.mock('@/components/blog/novel-features/slash-command-extension', () => ({
+  createSlashCommand: vi.fn(() => ({ name: 'slashCommand' })),
 }));
 
 vi.mock('./product-embed', () => ({

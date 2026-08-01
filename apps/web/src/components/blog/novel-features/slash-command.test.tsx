@@ -4,8 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('novel', () => ({
   createSuggestionItems: (items: unknown[]) => items,
   createImageUpload: vi.fn(() => vi.fn()),
-  Command: { configure: vi.fn() },
-  renderItems: vi.fn(),
 }));
 
 import { createSuggestionItems } from './slash-command';

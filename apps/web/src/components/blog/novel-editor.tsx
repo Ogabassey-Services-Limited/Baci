@@ -21,6 +21,8 @@ import {
   createImageUploader,
   createMerchantImageUploader,
 } from '@/components/blog/novel-features/image-upload';
+import { createSuggestionItems } from '@/components/blog/novel-features/slash-command';
+import { createSlashCommand } from '@/components/blog/novel-features/slash-command-extension';
 import { Separator } from '@/components/ui/separator';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { defaultExtensions } from './novel-features/extensions';
@@ -30,10 +32,6 @@ import { EditorToolbar } from './novel-features/selectors/editor-toolbar';
 import { LinkSelector } from './novel-features/selectors/link-selector';
 import { NodeSelector } from './novel-features/selectors/node-selector';
 import { TextButtons } from './novel-features/selectors/text-buttons';
-import {
-  createSlashCommand,
-  createSuggestionItems,
-} from './novel-features/slash-command';
 import { ProductEmbedPicker } from './product-embed';
 
 // Remove static extensions definition

@@ -11,14 +11,13 @@ import {
 } from './blog-client-counts';
 import { blogClientDerivedState } from './blog-client-derived-state';
 import { blogClientRequests } from './blog-client-requests';
-import type { BlogCounts, BlogMerchant, BlogPost } from './blog-client-types';
-
-interface UseBlogClientStateOptions {
-  initialCounts?: BlogCounts;
-  initialPosts: BlogPost[];
-  merchant: BlogMerchant;
-  useInitialData?: boolean;
-}
+import type {
+  BlogCounts,
+  BlogPost,
+  UseBlogClientStateOptions,
+} from './blog-client-types';
+import { createBlogStatusMutationCoordinator as createStatusCoordinator } from './blog-status-mutation-coordinator';
+import { getBlogStatusToast } from './blog-status-toast';
 
 export function useBlogClientState({
   initialCounts,
@@ -44,6 +43,9 @@ export function useBlogClientState({
   const [initialMerchantId] = useState(merchant.id);
   const initialDataConsumedRef = useRef(false);
   const merchantSessionRef = useRef({ id: merchant.id });
+  const [statusMutationCoordinator] = useState(() =>
+    createStatusCoordinator<BlogPost>()
+  );
   const [previousMerchantId, setPreviousMerchantId] = useState(merchant.id);
   if (merchantSessionRef.current.id !== merchant.id) {
     merchantSessionRef.current = { id: merchant.id };
@@ -211,49 +213,58 @@ export function useBlogClientState({
   ) => {
     const previousPost = posts.find((post) => post.id === postId);
     if (!previousPost || previousPost.status === status) return;
+    const submittedMerchantSession = merchantSessionRef.current;
+    const statusMutationKey = `${submittedMerchantSession.id}:${postId}`;
     setPosts((current) =>
       current.map((post) => (post.id === postId ? { ...post, status } : post))
     );
     setStatsData((current) =>
       updateCountsForStatus(current, previousPost.status, status)
     );
+    const statusMutation = statusMutationCoordinator.enqueue(
+      statusMutationKey,
+      previousPost,
+      () =>
+        blogClientRequests.requestUpdatePostStatus(
+          submittedMerchantSession.id,
+          postId,
+          status
+        )
+    );
+    const isCurrentStatusMutation = () =>
+      merchantSessionRef.current === submittedMerchantSession &&
+      statusMutation.isLatest();
     try {
-      const updatedPost = await blogClientRequests.requestUpdatePostStatus(
-        merchant.id,
-        postId,
-        status
-      );
+      const updatedPost = await statusMutation.result;
+      statusMutation.confirm({ ...statusMutation.confirmed(), ...updatedPost });
+      if (!isCurrentStatusMutation()) return;
       setPosts((current) =>
         current.map((post) =>
           post.id === postId ? { ...post, ...updatedPost } : post
         )
       );
-      toast({
-        title:
-          status === 'published'
-            ? 'Post Published'
-            : status === 'archived'
-              ? 'Post Archived'
-              : 'Post Unpublished',
-        description: `The blog post has been ${status === 'published' ? 'published' : status === 'archived' ? 'archived' : 'moved to drafts'}.`,
-      });
+      toast(getBlogStatusToast(status));
     } catch (error) {
+      if (!isCurrentStatusMutation()) return;
       console.error('Error updating post:', error);
+      const confirmedPost = statusMutation.confirmed();
       setPosts((current) =>
         current.map((post) =>
           post.id === postId && post.status === status
-            ? { ...post, ...previousPost }
+            ? { ...post, ...confirmedPost }
             : post
         )
       );
       setStatsData((current) =>
-        updateCountsForStatus(current, status, previousPost.status)
+        updateCountsForStatus(current, status, confirmedPost.status)
       );
       toast({
         title: 'Error',
         description: 'Failed to update blog post.',
         variant: 'destructive',
       });
+    } finally {
+      statusMutation.clear();
     }
   };
 

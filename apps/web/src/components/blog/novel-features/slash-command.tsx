@@ -13,10 +13,8 @@ import {
   TextQuote,
 } from 'lucide-react';
 import {
-  Command,
   createSuggestionItems as createNovelSuggestionItems,
   type EditorInstance,
-  renderItems,
 } from 'novel';
 
 export type ImageUploadHandler = (
@@ -168,15 +166,4 @@ export function createSuggestionItems(uploadImage: ImageUploadHandler) {
       },
     },
   ]);
-}
-
-export function createSlashCommand(
-  suggestionItems: ReturnType<typeof createSuggestionItems>
-) {
-  return Command.configure({
-    suggestion: {
-      items: () => suggestionItems,
-      render: renderItems,
-    },
-  });
 }
