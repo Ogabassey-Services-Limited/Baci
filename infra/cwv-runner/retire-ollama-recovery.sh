@@ -1,6 +1,7 @@
 #!/bin/sh
 RECOVERY_PROC_ROOT=${RETIRE_OLLAMA_PROC_ROOT:-/proc}
 RECOVERY_CONTAINER_COMMAND_PATH=${RECOVERY_CONTAINER_COMMAND_PATH:-}
+RECOVERY_CONTAINER_PORTS_FILE=${RECOVERY_CONTAINER_PORTS_FILE:-}
 RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}
 # shellcheck disable=SC2034 # Consumed by the sourced receipt publication helper.
 RECOVERY_RECEIPT_ROOT=/srv/baci-cwv/retired-ollama/recovery-scan
@@ -140,8 +141,9 @@ recovery_proxy_ports_ok() {
       *) return 1;;
     esac
   done
+  [ -n "$host_port" ] && [ -n "$container_port" ] || return 1
+  if [ "$host_port" != 11434 ] && [ "$container_port" != 11434 ]; then return 2; fi
   [ "$proto" = tcp ] && [ "$host_ip" = 127.0.0.1 ] && [ "$host_port" = 11434 ] && [ -n "$container_ip" ] && [ "$container_port" = 11434 ] || return 1
-  [ -n "$host_ip" ] || host_ip=0.0.0.0
   /usr/bin/jq -e --arg hostIp "$host_ip" --arg hostPort "$host_port" --arg containerIp "$container_ip" '
     (any((.NetworkSettings.Ports["11434/tcp"] // [])[]?; ((.HostPort // "") == $hostPort) and ((.HostIp // "0.0.0.0") == $hostIp))) and
     (any((.NetworkSettings.Networks // {})[]?; (.IPAddress // "") == $containerIp))
@@ -169,7 +171,7 @@ EOF
     [ -z "${extra:-}" ] && [ -n "$cgroup" ] && [ -n "$namespace" ] || review_required 'invalid process identity'
     binding='container'
     if [ "$class" = docker-proxy ]; then
-      recovery_proxy_ports_ok "$args" "$ports" || review_required 'Docker proxy is not bound to the reviewed container'
+      if recovery_proxy_ports_ok "$args" "$ports"; then :; else status=$?; [ "$status" -eq 2 ] && continue; review_required 'Docker proxy is not bound to the reviewed container'; fi
       binding='container-port-11434/tcp'; proxy_count=$((proxy_count + 1))
     else
       [ "$cgroup" = "$container_cgroup" ] && [ "$namespace" = "$container_namespace" ] || review_required 'foreign Ollama process refused'
@@ -277,9 +279,9 @@ recovery_collect_systemd() {
   :
 }
 recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes cat "$processes"; }
-recovery_absent_process_snapshot() { processes=$1; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *11434*) review_required 'foreign Ollama process remains after container removal';; esac; done <"$processes"; /usr/bin/jq -cn '{state:"absent",matchingProcesses:[]}'; }
+recovery_absent_process_snapshot() { processes=$1; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) review_required 'foreign Ollama process remains after container removal';; esac; done <"$processes"; /usr/bin/jq -cn '{state:"absent",matchingProcesses:[]}'; }
 recovery_scan() {
-  root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$
+  root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$; RECOVERY_CONTAINER_PORTS_FILE=''
   if [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi
   recovery_source_identity "$RECOVERY_SOURCE_SHA" || die 'invalid recovery source identity'
   RECOVERY_RECORDS='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'
@@ -294,5 +296,5 @@ recovery_scan() {
   package=$(recovery_package_snapshot); unit=$(recovery_unit_snapshot "$UNIT"); timer=$(recovery_unit_snapshot "$TIMER"); model=$(recovery_model_snapshot); cron_json=$(recovery_cron_snapshot "$cron"); container_json=$(cat "$container")
   records=$RECOVERY_RECORDS; record_docker_socket; RECOVERY_RECORDS=$records; recovery_surface docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'
   /usr/bin/jq -S -n --argjson package "$package" --argjson unit "$unit" --argjson timer "$timer" --argjson container "$container_json" --argjson model "$model" --argjson cron "$cron_json" --argjson processes "$process_json" --argjson records "$RECOVERY_RECORDS" --argjson dependencies "$deps" --argjson consumerCounts "$consumer_counts" --argjson consumerEvidence "$consumer_evidence" '{package:$package,units:[$unit,$timer],container:$container,model:$model,crontab:$cron,processes:$processes,surfaces:$records,dependencies:$dependencies,consumerCounts:$consumerCounts,consumerEvidence:$consumerEvidence,dependencyTaxonomy:["disabled","external-provider","ollama-loopback","unknown"]}' >"$snapshot" || die 'recovery snapshot serialization failed'
-  recovery_write_receipt "$snapshot"; rm -f "$snapshot" "$cron" "$processes" "$container" "$RECOVERY_CONTAINER_PORTS_FILE"
+  recovery_write_receipt "$snapshot"; rm -f "$snapshot" "$cron" "$processes" "$container"; [ -z "${RECOVERY_CONTAINER_PORTS_FILE:-}" ] || rm -f "$RECOVERY_CONTAINER_PORTS_FILE"
 }

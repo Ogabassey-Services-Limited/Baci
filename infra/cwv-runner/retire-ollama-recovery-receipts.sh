@@ -20,6 +20,17 @@ recovery_json_digest() {
   digest=$(sha "$canonical"); /bin/rm -f -- "$canonical"; printf '%s\n' "$digest"
 }
 
+recovery_drift_snapshot() {
+  source=$1; target=$2
+  /usr/bin/jq -S '
+    if (.processes | type) == "object" then .processes = (.processes | del(.scannerAncestors)) else . end |
+    .surfaces = ((.surfaces // []) | map(select(.class != "running-processes"))) |
+    .dependencies = ((.dependencies // []) | map(select((.["key-name"] // "") | startswith("running-processes:") | not))) |
+    .consumerCounts = ((.consumerCounts // []) | map(select(.surface != "running-processes"))) |
+    .consumerEvidence = ((.consumerEvidence // []) | map(select(.surface != "running-processes")))
+  ' "$source" >"$target"
+}
+
 recovery_validate_json() {
   candidate=$1; recovery_safe_receipt_file "$candidate" || return 1
   script_sha=${RECOVERY_SCRIPT_SHA:-$(sha "$SCRIPT_DIR/retire-ollama.sh")}
@@ -59,6 +70,15 @@ recovery_publish_link() {
   recovery_safe_receipt_ancestry "${target%/*}" || return 1
   recovery_safe_receipt_file "$target" || return 1
   fsync_file "$target"; fsync_dir "${target%/*}"; /bin/rm -f -- "$pending"; fsync_dir "${target%/*}"
+}
+
+recovery_reconcile_duplicate_link() {
+  pending=$1; target=$2
+  recovery_safe_receipt_file "$pending" || return 1
+  recovery_safe_receipt_file "$target" || return 1
+  [ "$(stat -c '%d:%i' "$pending")" = "$(stat -c '%d:%i' "$target")" ] || return 1
+  [ "$(recovery_json_digest "$pending")" = "$(recovery_json_digest "$target")" ] || return 1
+  /bin/rm -f -- "$pending"; fsync_dir "${target%/*}"
 }
 
 recovery_safe_receipt_file() {
@@ -132,12 +152,13 @@ recovery_reconcile_pair() {
   fi
   if [ "$json_exists" -eq 1 ] && [ "$digest_exists" -eq 1 ]; then
     recovery_pair_digest "$json" "$digest" || review_required 'recovery receipt pair drift'
-    if [ "$json_pending_exists" -eq 1 ]; then recovery_pair_digest "$json_pending" "$digest_pending" || { recovery_validate_json "$json_pending" || review_required 'recovery pending JSON unsafe'; [ "$(recovery_json_digest "$json_pending")" = "$(recovery_read_digest "$digest")" ] || review_required 'recovery pending JSON drift'; }; /bin/rm -f -- "$json_pending"; fi
+    if [ "$json_pending_exists" -eq 1 ]; then if [ "$digest_pending_exists" -eq 1 ]; then recovery_pair_digest "$json_pending" "$digest_pending" || review_required 'recovery pending JSON pair drift'; fi; recovery_reconcile_duplicate_link "$json_pending" "$json" || review_required 'recovery pending JSON residue'; fi
     if [ "$digest_pending_exists" -eq 1 ]; then [ "$(recovery_read_digest "$digest_pending")" = "$(recovery_read_digest "$digest")" ] || review_required 'recovery pending digest drift'; /bin/rm -f -- "$digest_pending"; fi
     recovery_no_pending "$directory" || review_required 'recovery receipt pending residue'; return 0
   fi
   if [ "$json_exists" -eq 1 ]; then
     if [ "$digest_pending_exists" -eq 1 ]; then [ "$(recovery_read_digest "$digest_pending")" = "$(recovery_json_digest "$json")" ] || review_required 'recovery digest pending drift'; recovery_publish_link "$digest_pending" "$digest" || review_required 'recovery digest publication race'; else recovery_make_digest_file "$json" "$digest" || review_required 'recovery digest publication failed'; fi
+    if [ "$json_pending_exists" -eq 1 ]; then recovery_reconcile_duplicate_link "$json_pending" "$json" || review_required 'recovery pending JSON residue'; fi
     recovery_pair_digest "$json" "$digest" || review_required 'recovery receipt pair drift'; recovery_no_pending "$directory" || review_required 'recovery receipt pending residue'; return 0
   fi
   if [ "$digest_exists" -eq 1 ]; then
@@ -156,10 +177,11 @@ recovery_reconcile_pair() {
 recovery_write_receipt() {
   snapshot=$1; directory=$(recovery_fixed_receipt_dir); recovery_prepare_dir "$directory"
   if recovery_reconcile_pair "$directory"; then
-    current=$(temp_path); /usr/bin/jq -S -c . "$snapshot" >"$current" || die 'recovery snapshot invalid'
-    stored=$(temp_path); /usr/bin/jq -S -c .scan "$directory/recovery-scan.json" >"$stored" || die 'recovery stored scan invalid'
+    current=$(temp_path); recovery_drift_snapshot "$snapshot" "$current" || die 'recovery snapshot invalid'
+    stored_source=$(temp_path); /usr/bin/jq -S -c .scan "$directory/recovery-scan.json" >"$stored_source" || die 'recovery stored scan invalid'
+    stored=$(temp_path); recovery_drift_snapshot "$stored_source" "$stored" || die 'recovery stored scan invalid'
     /usr/bin/cmp -s "$current" "$stored" || { /bin/rm -f -- "$current" "$stored"; review_required 'recovery receipt snapshot drift'; }
-    /bin/rm -f -- "$current" "$stored"; cat "$directory/recovery-scan.json.sha256"; return 0
+    /bin/rm -f -- "$current" "$stored_source" "$stored"; cat "$directory/recovery-scan.json.sha256"; return 0
   fi
   RECOVERY_SCRIPT_SHA=${RECOVERY_SCRIPT_SHA:-$(sha "$SCRIPT_DIR/retire-ollama.sh")}; RECOVERY_HELPER_SHA=${RECOVERY_HELPER_SHA:-$(sha "$RECOVERY_HELPER")}; RECOVERY_RECEIPTS_SHA=${RECOVERY_RECEIPTS_SHA:-$(sha "$RECOVERY_RECEIPTS_HELPER")}
   json="$directory/recovery-scan.json"; digest="$json.sha256"; json_pending="$json.pending"; digest_pending="$digest.pending"
