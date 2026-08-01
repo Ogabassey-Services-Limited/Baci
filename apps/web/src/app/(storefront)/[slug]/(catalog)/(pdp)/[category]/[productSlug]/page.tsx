@@ -1,4 +1,5 @@
 import '@/app/(storefront)/storefront-pdp-critical.css';
+import '@/app/(storefront)/storefront-pdp-description-critical.css';
 import '@/app/(storefront)/storefront-pdp-semantic.css';
 import {
   resolveDefaultVariantSelection,
@@ -562,6 +563,7 @@ function getCachedProductRoutePrimaryImage(
     normalizeStorefrontProductVariants(cachedProduct.product_variants, {
       merchantId: cachedProduct.merchant_id || OGABASSEY_MERCHANT_ID,
       productId: cachedProduct.id,
+      manageStock: cachedProduct.manage_stock ?? true,
     });
   const initialVariant = getInitialRouteVariant(
     cachedProduct,
@@ -595,6 +597,7 @@ function mapCachedProductLcpHintToRouteProduct(
     {
       merchantId: cachedProduct.merchant_id || OGABASSEY_MERCHANT_ID,
       productId: cachedProduct.id,
+      manageStock,
     }
   );
   const primaryImage =
@@ -780,14 +783,20 @@ const getProductForMerchant = async (
     category: dbCategoryName || product.category,
     category_slug: dbCategorySlug,
     // Filter offers to exclude main product condition
-    offers: product.product_offers?.filter(
-      (o: { condition: string; status: string }) =>
-        o.condition !== product.condition && o.status === 'active'
-    ),
+    offers: product.product_offers?.filter((offer) => {
+      const offerCondition = normalizeProductCondition(offer.condition);
+      const productCondition = normalizeProductCondition(product.condition);
+      return (
+        offerCondition !== undefined &&
+        offerCondition !== productCondition &&
+        offer.status === 'active'
+      );
+    }),
     // Map variants
     variants: normalizeStorefrontProductVariants(product.product_variants, {
       merchantId: product.merchant_id || merchant.id,
       productId: product.id,
+      manageStock,
     }),
   } as unknown as Product;
 

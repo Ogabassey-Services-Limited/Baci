@@ -61,4 +61,36 @@ BEGIN
   END;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Replays are checked before the rolling-window budget. The operation created
+-- by the authorization/replay contract must still return its original grant
+-- even when the merchant is already at the issuance cap.
+DO $$
+DECLARE
+  first_replay uuid;
+  second_replay uuid;
+BEGIN
+  SELECT grant_id INTO first_replay
+  FROM public.request_product_description_attestation_grant(
+    '00000000-0000-4000-b000-000000000101',
+    '00000000-0000-4000-c000-000000000102',
+    '00000000-0000-4000-d000-000000000108',
+    'current default bytes', 'default', repeat('0', 64),
+    repeat('2', 64), false, 'manual_description'
+  );
+
+  SELECT grant_id INTO second_replay
+  FROM public.request_product_description_attestation_grant(
+    '00000000-0000-4000-b000-000000000101',
+    '00000000-0000-4000-c000-000000000102',
+    '00000000-0000-4000-d000-000000000108',
+    'current default bytes', 'default', repeat('0', 64),
+    repeat('2', 64), false, 'manual_description'
+  );
+
+  IF first_replay IS NULL OR second_replay IS DISTINCT FROM first_replay THEN
+    RAISE EXCEPTION 'idempotent replay was not preserved at the issuance cap';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 RESET ROLE;

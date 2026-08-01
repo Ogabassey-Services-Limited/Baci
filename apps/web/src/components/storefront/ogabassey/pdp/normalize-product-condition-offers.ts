@@ -14,17 +14,17 @@ type RawConditionOffer = {
   stock_quantity?: number;
 };
 
-function parseOfferPrice(value: number | string) {
+function parseOfferPrice(value: number | string | null | undefined) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
 
   if (typeof value === 'string') {
     const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
-  return 0;
+  return null;
 }
 
 export function normalizeProductConditionOffers(
@@ -42,10 +42,16 @@ export function normalizeProductConditionOffers(
     }
 
     const rawPrice = parseOfferPrice(offer.price);
+    if (rawPrice === null) {
+      return [];
+    }
+
+    const compareAtRawPrice = parseOfferPrice(offer.compare_at_price);
+    if (offer.compare_at_price != null && compareAtRawPrice === null) {
+      return [];
+    }
     const compareAtPrice =
-      offer.compare_at_price == null
-        ? undefined
-        : formatPrice(parseOfferPrice(offer.compare_at_price));
+      compareAtRawPrice === null ? undefined : formatPrice(compareAtRawPrice);
 
     return [
       {

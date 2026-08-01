@@ -95,6 +95,31 @@ describe('normalizeStorefrontProductVariants', () => {
     ]);
   });
 
+  it('does not expose inactive, archived, deleted, anchor, or unavailable managed variants', () => {
+    expect(
+      normalizeStorefrontProductVariants(
+        [
+          { id: 'inactive', is_active: false, stock_quantity: 4 },
+          { id: 'archived', archived_at: '2026-01-01', stock_quantity: 4 },
+          { id: 'deleted', deleted_at: '2026-01-01', stock_quantity: 4 },
+          { id: 'anchor', is_inventory_anchor: true, stock_quantity: 4 },
+          { id: 'sold-out', stock_quantity: 0 },
+          { id: 'available', stock_quantity: 2 },
+        ],
+        { merchantId: 'merchant-5', productId: 'product-5', manageStock: true }
+      ).map((variant) => variant.id)
+    ).toEqual(['available']);
+  });
+
+  it('keeps unavailable variants for products that do not manage stock', () => {
+    expect(
+      normalizeStorefrontProductVariants(
+        [{ id: 'untracked', stock_quantity: 0 }],
+        { merchantId: 'merchant-6', productId: 'product-6', manageStock: false }
+      ).map((variant) => variant.id)
+    ).toEqual(['untracked']);
+  });
+
   it.each([
     ['new', 'new'],
     ['used', 'used'],

@@ -43,4 +43,24 @@ describe('normalizeProductConditionOffers', () => {
     ).toEqual([]);
     expect(normalizeProductConditionOffers(null, String)).toBeUndefined();
   });
+
+  it('omits offers with malformed prices instead of treating them as free', () => {
+    expect(
+      normalizeProductConditionOffers(
+        [
+          { condition: 'new', id: 'bad-price', price: 'not-a-price' },
+          {
+            condition: 'new',
+            id: 'bad-compare',
+            price: 100,
+            compare_at_price: 'invalid',
+          },
+          { condition: 'new', id: 'valid', price: 100 },
+        ],
+        String
+      )
+    ).toEqual([
+      expect.objectContaining({ id: 'valid', rawPrice: 100, price: '100' }),
+    ]);
+  });
 });

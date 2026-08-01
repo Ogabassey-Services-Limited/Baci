@@ -20,17 +20,14 @@ function readStorefrontFile(fileName: string): string {
 describe('critical PDP description geometry', () => {
   it('keeps only the initial deferred description geometry in critical PDP CSS', () => {
     const criticalPdpCss = readStorefrontFile('storefront-pdp-critical.css');
-    const deferredPdpCss = readStorefrontFile(
-      'storefront-ogabassey-pdp-deferred.css'
+    const descriptionCriticalPdpCss = readStorefrontFile(
+      'storefront-pdp-description-critical.css'
     );
 
-    expect(criticalPdpCss).toMatch(
-      /\[data-ogabassey-pdp-deferred-description-container\]\s*\{[\s\S]*?max-width:\s*1400px/
+    expect(criticalPdpCss).not.toMatch(
+      /data-ogabassey-pdp-deferred-description-container/
     );
-    expect(criticalPdpCss).toMatch(
-      /\[data-ogabassey-pdp-deferred-description-panel\]\s*\{[\s\S]*?min-height:\s*20rem/
-    );
-    const descriptionPanel = criticalPdpCss.match(
+    const descriptionPanel = descriptionCriticalPdpCss.match(
       /\[data-ogabassey-pdp-deferred-description-panel\]\s*\{([\s\S]*?)\}/
     )?.[1];
 
@@ -39,11 +36,15 @@ describe('critical PDP description geometry', () => {
     expect(descriptionPanel).toContain('var(--ogabassey-border)');
     expect(descriptionPanel).toContain('var(--ogabassey-surface-text)');
     expect(descriptionPanel).not.toMatch(/#[0-9a-f]{3,8}/i);
-    expect(criticalPdpCss).toMatch(
+    expect(descriptionCriticalPdpCss).toMatch(
+      /\[data-ogabassey-pdp-deferred-description-container\]\s*\{[\s\S]*?max-width:\s*1400px/
+    );
+    expect(descriptionCriticalPdpCss).toMatch(
+      /\[data-ogabassey-pdp-deferred-description-panel\]\s*\{[\s\S]*?min-height:\s*20rem/
+    );
+    expect(descriptionCriticalPdpCss).toMatch(
       /@media \(min-width: 768px\) \{[\s\S]*?\[data-ogabassey-pdp-deferred-description-container\]\s*\{[\s\S]*?padding-inline:\s*1\.5rem/
     );
-    expect(deferredPdpCss).not.toMatch(
-      /data-ogabassey-pdp-deferred-description-container/
-    );
+    expect(descriptionCriticalPdpCss).not.toMatch(/#[0-9a-f]{3,8}/i);
   });
 });

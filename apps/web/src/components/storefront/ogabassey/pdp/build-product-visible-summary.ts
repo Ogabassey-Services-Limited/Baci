@@ -131,8 +131,7 @@ function hasConflictingConditionAliases(
 }
 
 function getOfferFacts(
-  offer: OgabasseyProductVisibleSummaryOffer,
-  parentCondition: string | null
+  offer: OgabasseyProductVisibleSummaryOffer
 ): NormalizedOfferFacts {
   const conditionRejected = hasConflictingConditionAliases(offer.attributes);
 
@@ -143,7 +142,7 @@ function getOfferFacts(
     colour: getAttributeAxisValue(offer.attributes, 'colour'),
     condition: conditionRejected
       ? null
-      : (normalizeCondition(offer.condition) || parentCondition),
+      : normalizeCondition(offer.condition),
     conditionRejected,
   };
 }
@@ -196,11 +195,8 @@ export function buildOgabasseyProductVisibleSummary({
   if ((variants?.length ?? 0) > 0 && selectableVariants.length === 0) {
     return null;
   }
-  const parentOffer: OgabasseyProductVisibleSummaryOffer = { condition };
   const parentCondition = normalizeCondition(condition);
-  const variantFacts = selectableVariants.map((offer) =>
-    getOfferFacts(offer, null)
-  );
+  const variantFacts = selectableVariants.map((offer) => getOfferFacts(offer));
   if (
     parentCondition &&
     variantFacts.length > 0 &&
@@ -211,7 +207,7 @@ export function buildOgabasseyProductVisibleSummary({
     for (const fact of variantFacts) fact.condition = parentCondition;
   }
   const facts =
-    variantFacts.length > 0 ? variantFacts : [getOfferFacts(parentOffer, null)];
+    variantFacts.length > 0 ? variantFacts : [getOfferFacts({ condition })];
   const sharedFacts: string[] = [];
   const choiceFacts: string[] = [];
 

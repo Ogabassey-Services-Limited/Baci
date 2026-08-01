@@ -32,6 +32,12 @@ const ATTESTATION_PRIVACY_MIGRATION =
   '20260801110000_harden_product_description_attestation_privacy.sql';
 const ATTESTATION_ISSUANCE_MIGRATION =
   '20260801130000_bound_product_description_attestation_issuance.sql';
+const OPERATION_ID_SCOPE_MIGRATION =
+  '20260801160000_scope_product_description_attestation_operation_ids.sql';
+const ATTESTATION_GRANT_FUNCTION_MIGRATION =
+  '20260801170000_redefine_product_description_attestation_grant.sql';
+const ATTESTATION_INDEX_MIGRATION =
+  '20260801180000_harden_product_description_attestation_indexes.sql';
 
 function rows(block: string): string[] {
   return block
@@ -82,6 +88,9 @@ describe('supabase-history-replay sources', () => {
       OPERATION_ID_BINDING_MIGRATION,
       ATTESTATION_PRIVACY_MIGRATION,
       ATTESTATION_ISSUANCE_MIGRATION,
+      OPERATION_ID_SCOPE_MIGRATION,
+      ATTESTATION_GRANT_FUNCTION_MIGRATION,
+      ATTESTATION_INDEX_MIGRATION,
     ].map((migration) => PENDING_SOURCES.indexOf(migration));
     expect(migrationOrder.every((index) => index >= 0)).toBe(true);
     expect(migrationOrder).toEqual([...migrationOrder].sort((a, b) => a - b));
