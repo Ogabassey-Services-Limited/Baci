@@ -1117,21 +1117,32 @@ writer may reopen a scope with prior retired history.
 
 The companion adds an immutable, externally attested deployment binding,
 `private.payment_ingress_deployment_manifest_bindings`. Its exact fields are
-`id uuid primary key default gen_random_uuid()`, `environment text`, the four
-generation scope keys, `signature_key_identity_id uuid`,
-`identity_revision bigint`, all three parser/envelope/replay contract-version
-texts, `parser_artifact_sha256 text`, `manifest_sha256 text`,
-`attestation_sha256 text`, `verifier_artifact_sha256 text`,
-`corpus_manifest_sha256 text`, both equivalence-contract versions,
-`provenance_reference text`, `approval_reference text`, `retention_until
-timestamptz`, and `created_at timestamptz default now()`. All hashes are
-lower-case 64-hex; all version/reference fields are trimmed and bounded to 255
-characters except approval/provenance references (512). The binding stores
-metadata only, never artifact bytes or secrets. It is append-only, uniquely
-identified by `(environment, manifest_sha256, attestation_sha256, provider,
-endpoint_key, signature_key_scope, authority_key, parser_artifact_sha256)`, and
-is accepted by a writer only while the pinned external attestation is active
-and `retention_until > clock_timestamp()`.
+`id uuid primary key default gen_random_uuid()`, `environment text not null`,
+`provider text not null`, `endpoint_key text not null`, `signature_key_scope
+text not null`, `authority_key text not null`, `signature_key_identity_id uuid
+not null`, `identity_revision bigint not null`,
+`parser_contract_version text not null`,
+`normalized_envelope_schema_version text not null`,
+`replay_identity_contract_version text not null`,
+`parser_artifact_sha256 text not null`, `manifest_sha256 text not null`,
+`attestation_sha256 text not null`, `verifier_artifact_sha256 text not null`,
+`corpus_manifest_sha256 text not null`,
+`normalized_envelope_equivalence_contract_version text not null`,
+`replay_identity_equivalence_contract_version text not null`,
+`provenance_reference text not null`, `approval_reference text not null`,
+`retention_until timestamptz not null`, and `created_at timestamptz not null
+default now()`. `environment` matches `^[a-z][a-z0-9_.:-]{0,63}$`; all four
+scope keys use the generation-table expression; `identity_revision > 0`; all
+hashes are lower-case 64-hex; all version fields are trimmed and bounded to
+255 characters; and approval/provenance references are trimmed, non-empty, and
+at most 512 characters. A deferrable same-scope composite FK binds
+`(signature_key_identity_id, provider, endpoint_key, signature_key_scope)` to
+the identity catalog. The binding stores metadata only, never artifact bytes or
+secrets. It is append-only, uniquely identified by `(environment,
+manifest_sha256, attestation_sha256, provider, endpoint_key,
+signature_key_scope, authority_key, parser_artifact_sha256)`, and is accepted
+by a writer only while the pinned external attestation is active and
+`retention_until > clock_timestamp()`.
 
 Parser equivalence proof is required for every two-sided parser overlap:
 `roll_forward` and `rollback` both require an approved proof; only
