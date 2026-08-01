@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { terminateProductDescriptionAttestationSession } from './product-description-attestation-concurrency-session';
 import { createSupabaseReplayDatabaseEnvironment } from './supabase-replay-contract';
 
 type RunOptions = {
@@ -106,36 +107,6 @@ async function runSql(
   return completed;
 }
 
-async function terminateSession(value: Session | undefined): Promise<void> {
-  if (
-    !value ||
-    value.child.exitCode !== null ||
-    value.child.signalCode !== null
-  ) {
-    return;
-  }
-
-  await new Promise<void>((resolve) => {
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      value.child.off('close', finish);
-      value.child.off('error', finish);
-      resolve();
-    };
-    const timeout = setTimeout(() => {
-      value.child.kill('SIGKILL');
-      finish();
-    }, 1_000);
-
-    value.child.once('close', finish);
-    value.child.once('error', finish);
-    if (!value.child.kill('SIGTERM')) finish();
-  });
-}
-
 function rpcSql(options: {
   marker: string;
   operationId: string;
@@ -232,7 +203,10 @@ async function runScenario(options: {
       );
     }
   } finally {
-    await Promise.all([terminateSession(first), terminateSession(second)]);
+    await Promise.all([
+      terminateProductDescriptionAttestationSession(first),
+      terminateProductDescriptionAttestationSession(second),
+    ]);
   }
 }
 
