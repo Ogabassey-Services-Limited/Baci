@@ -248,4 +248,23 @@ describe('buildOgabasseyProductVisibleSummary', () => {
     ).toBeNull();
   });
 
+  it('does not replace rejected variant condition aliases with the parent condition', () => {
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Dell',
+        condition: 'new',
+        name: 'Latitude 7450',
+        variants: [
+          {
+            attributes: {
+              condition: 'not-a-condition',
+              storage: '512 GB',
+            },
+            condition: 'used',
+          },
+        ],
+      })
+    ).toBe('Dell Latitude 7450. Storage: 512 GB.');
+  });
+
 });

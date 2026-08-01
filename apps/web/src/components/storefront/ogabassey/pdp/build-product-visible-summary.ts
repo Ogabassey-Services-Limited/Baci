@@ -23,6 +23,10 @@ type SummaryAxis =
 
 type SummaryFact = Record<SummaryAxis, string | null>;
 
+interface NormalizedOfferFacts extends SummaryFact {
+  conditionRejected: boolean;
+}
+
 const AXIS_PRIORITY: SummaryAxis[] = [
   'storage',
   'ram',
@@ -126,15 +130,18 @@ function hasConflictingConditionAliases(
 function getOfferFacts(
   offer: OgabasseyProductVisibleSummaryOffer,
   parentCondition: string | null
-): SummaryFact {
+): NormalizedOfferFacts {
+  const conditionRejected = hasConflictingConditionAliases(offer.attributes);
+
   return {
     storage: getAttributeAxisValue(offer.attributes, 'storage'),
     ram: getAttributeAxisValue(offer.attributes, 'ram'),
     connectivity: getAttributeAxisValue(offer.attributes, 'connectivity'),
     colour: getAttributeAxisValue(offer.attributes, 'colour'),
-    condition: hasConflictingConditionAliases(offer.attributes)
+    condition: conditionRejected
       ? null
       : (normalizeCondition(offer.condition) || parentCondition),
+    conditionRejected,
   };
 }
 
@@ -179,7 +186,9 @@ export function buildOgabasseyProductVisibleSummary({
   if (
     parentCondition &&
     variantFacts.length > 0 &&
-    variantFacts.every((fact) => fact.condition === null)
+    variantFacts.every(
+      (fact) => fact.condition === null && !fact.conditionRejected
+    )
   ) {
     for (const fact of variantFacts) fact.condition = parentCondition;
   }
