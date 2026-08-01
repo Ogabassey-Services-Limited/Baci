@@ -93,6 +93,109 @@ export function functionDefinitions(source: string): FunctionDefinition[] {
   return definitions;
 }
 
+const SQL_TYPE_START_REGEX =
+  /^(?:bigint|bigserial|bit(?:\s+varying)?|bool(?:ean)?|bytea|char(?:acter)?(?:\s+varying)?|date|decimal|double\s+precision|float(?:4|8)?|inet|int(?:2|4|8)?|integer|jsonb?|money|numeric|real|record|serial(?:2|4|8)?|smallint|text|time(?:\s+(?:with|without)\s+time\s+zone)?|timestamp(?:\s+(?:with|without)\s+time\s+zone)?|uuid|varbit|void|xml)(?:\s|\(|\[|$)/i;
+
+function splitFunctionArguments(source: string): string[] {
+  const argumentsList: string[] = [];
+  let start = 0;
+  let depth = 0;
+  let quote: '"' | "'" | undefined;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (quote) {
+      if (char === quote) {
+        if (next === quote) {
+          index += 1;
+        } else {
+          quote = undefined;
+        }
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      depth -= 1;
+    } else if (char === ',' && depth === 0) {
+      argumentsList.push(source.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+
+  const lastArgument = source.slice(start).trim();
+  if (lastArgument) argumentsList.push(lastArgument);
+  return argumentsList;
+}
+
+function stripArgumentDefault(source: string): string {
+  let depth = 0;
+  let quote: '"' | "'" | undefined;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (quote) {
+      if (char === quote) {
+        if (next === quote) {
+          index += 1;
+        } else {
+          quote = undefined;
+        }
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      depth -= 1;
+    } else if (depth === 0 && char === '=') {
+      return source.slice(0, index).trim();
+    } else if (
+      depth === 0 &&
+      /[A-Za-z]/.test(char) &&
+      /\bDEFAULT\b/i.test(source.slice(index)) &&
+      /^(?:DEFAULT)\b/i.test(source.slice(index))
+    ) {
+      return source.slice(0, index).trim();
+    }
+  }
+  return source.trim();
+}
+
+function canonicalInputArgumentType(source: string): string | null {
+  let argument = stripArgumentDefault(source).replace(/^\s*(INOUT|IN|OUT|VARIADIC)\s+/i, '');
+  if (/^OUT\b/i.test(source.trim())) return null;
+  if (!SQL_TYPE_START_REGEX.test(argument)) {
+    const namedArgument = /^(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)\s+([\s\S]+)$/.exec(
+      argument
+    );
+    if (namedArgument) argument = namedArgument[1].trim();
+  }
+  return argument.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+export function canonicalFunctionIdentity(signature: string): string {
+  const openingParenthesis = signature.indexOf('(');
+  const name =
+    openingParenthesis >= 0
+      ? signature.slice(0, openingParenthesis).trim().toLowerCase()
+      : signature.trim().toLowerCase();
+  const argumentsSource =
+    openingParenthesis >= 0
+      ? signature.slice(openingParenthesis + 1, signature.lastIndexOf(')'))
+      : '';
+  const inputTypes = splitFunctionArguments(argumentsSource)
+    .map(canonicalInputArgumentType)
+    .filter((argument): argument is string => Boolean(argument));
+  return `${name}(${inputTypes.join(',')})`;
+}
+
 function findClosingParenthesis(source: string, openingParenthesis: number) {
   let depth = 0;
   let quote: '"' | "'" | undefined;
@@ -149,7 +252,7 @@ export async function discoverSql(root: string): Promise<string[]> {
     const definitions = functionDefinitions(source);
     let topLevel = source;
     for (const definition of definitions) {
-      latest.set(definition.signature, {
+      latest.set(canonicalFunctionIdentity(definition.signature), {
         path,
         body: definition.body,
       });

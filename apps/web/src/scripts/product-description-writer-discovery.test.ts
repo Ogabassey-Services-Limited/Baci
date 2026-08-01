@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  canonicalFunctionIdentity,
   discoverSql,
   discoverWriterPaths,
   functionDefinitions,
@@ -57,6 +58,50 @@ $$;`;
         signature: 'public.save_copy(p_amount numeric(10, 2))',
       }),
     ]);
+  });
+
+  it('canonicalizes renamed arguments and defaults without merging true overloads', () => {
+    expect(
+      canonicalFunctionIdentity(
+        "public.save_copy(p_new_id uuid, p_payload jsonb, p_mode text DEFAULT 'current')"
+      )
+    ).toBe('public.save_copy(uuid,jsonb,text)');
+    expect(canonicalFunctionIdentity('public.save_copy(p_id uuid)')).not.toBe(
+      canonicalFunctionIdentity('public.save_copy(p_id text)')
+    );
+  });
+
+  it('selects the latest body when only SQL argument names and defaults change', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'baci-description-sql-'));
+    roots.push(root);
+    const migrationRoot = join(root, 'supabase/migrations');
+    await mkdir(migrationRoot, { recursive: true });
+    await writeFile(
+      join(migrationRoot, '20260801000000_old_writer.sql'),
+      `CREATE OR REPLACE FUNCTION public.save_copy(
+  p_id uuid,
+  p_mode text DEFAULT 'legacy'
+)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO public.products (description) VALUES ('old');
+END;
+$$;`
+    );
+    await writeFile(
+      join(migrationRoot, '20260802000000_replacement.sql'),
+      `CREATE OR REPLACE FUNCTION public.save_copy(
+  product_id uuid,
+  mode text DEFAULT 'current'
+)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM product_id, mode;
+END;
+$$;`
+    );
+
+    await expect(discoverSql(root)).resolves.toEqual([]);
   });
 
   it('discovers only matching source files and ignores their test files', async () => {
