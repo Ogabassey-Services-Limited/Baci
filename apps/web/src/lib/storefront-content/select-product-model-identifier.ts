@@ -64,6 +64,27 @@ function isGenerationYearToken(tokens: string[], index: number) {
   );
 }
 
+function isSignificantInterveningNumericToken(
+  tokens: string[],
+  index: number,
+  numericIndex: number
+) {
+  const token = tokens[index] ?? '';
+  const hasAlphanumericModelBefore = tokens
+    .slice(0, index)
+    .some(
+      (prefixToken) => /[a-z]/u.test(prefixToken) && /\d/u.test(prefixToken)
+    );
+  return (
+    index < numericIndex &&
+    hasAlphanumericModelBefore &&
+    /^\d{1,2}$/u.test(token) &&
+    tokens
+      .slice(index + 1, numericIndex + 1)
+      .every((suffixToken) => /^\d+$/u.test(suffixToken))
+  );
+}
+
 function reorderGenerationModelTokens(tokens: string[]) {
   const generationIndex = tokens.findIndex(
     (token, index) =>
@@ -114,6 +135,7 @@ export function selectProductModelIdentifier(
     const phraseTokens = tokens.filter(
       (token, index) =>
         ((hasConvertibleModel || preserveYearTokens) && /^\d+$/u.test(token)) ||
+        isSignificantInterveningNumericToken(tokens, index, numericIndex) ||
         index === numericIndex ||
         isMeaningfulModelToken(token, preserveYearTokens) ||
         isSeriesPhraseToken(tokens, index)

@@ -62,6 +62,17 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
     expect(identifiers).toEqual(['14 7430 2 in 1']);
   });
 
+  it('preserves an intervening Dell G3 model number before the final code', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'gaming-laptops',
+      brands: ['Dell'],
+      productNames: ['DELL G3 15 3579 Gaming Laptop 15.6” FHD'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['g3 15 3579']);
+  });
+
   it('preserves an HP model number that repeats the display size', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
