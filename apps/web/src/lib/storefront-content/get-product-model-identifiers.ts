@@ -25,10 +25,11 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'watch',
 ]);
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
-const DISPLAY_SIZE_CATEGORY_SLUGS = new Set([
-  ...LAPTOP_CATEGORY_SLUGS,
-  'tablets',
-]);
+const DISPLAY_SIZE_CATEGORY_SLUGS = new Set(LAPTOP_CATEGORY_SLUGS).add(
+  'tablets'
+);
+const GAME_CATEGORY_PATTERN =
+  /^(?:gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
 const LEADING_FILLER_TOKENS = new Set(['a', 'an', 'the']);
 
 interface BrandAliasGroup {
@@ -228,7 +229,8 @@ function getModelTokens(
   categorySlug: string
 ) {
   const rawTokens = normalizeProductModelTokens(
-    tokenize(slug).filter((token) => !excludedTokens.has(token))
+    tokenize(slug).filter((token) => !excludedTokens.has(token)),
+    GAME_CATEGORY_PATTERN.test(categorySlug)
   );
   const tokens = stripGeneratedCollisionSuffix(
     stripLeadingDisplaySize(rawTokens, categorySlug)
@@ -245,8 +247,6 @@ function getModelTokens(
     categorySlug
   );
 }
-
-/** Returns compact model-specific identifiers without repeated hub context. */
 export function getProductModelIdentifiers(
   context: Pick<
     BuildCommercialGuideLinksContext,

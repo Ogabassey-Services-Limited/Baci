@@ -89,7 +89,7 @@ function hasContiguousTokenSequence(
   );
 }
 
-function hasVariantSuffixAfterIdentifier(
+function hasCleanIdentifierOccurrence(
   post: BuildCommercialGuideLinksInput['posts'][number],
   identifierTokens: string[]
 ) {
@@ -109,8 +109,10 @@ function hasVariantSuffixAfterIdentifier(
       const suffix = postTokens[startIndex + identifierTokens.length] ?? '';
       return (
         matchesIdentifier &&
-        (MODEL_VARIANT_MARKER_TOKENS.has(suffix) ||
-          MODEL_GENERATION_SUFFIX_PATTERN.test(suffix))
+        !(
+          MODEL_VARIANT_MARKER_TOKENS.has(suffix) ||
+          MODEL_GENERATION_SUFFIX_PATTERN.test(suffix)
+        )
       );
     })
   );
@@ -128,7 +130,10 @@ function matchesProductIdentifier(
     return false;
   }
 
-  return !hasVariantSuffixAfterIdentifier(post, identifierTokens);
+  return (
+    hasCleanIdentifierOccurrence(post, identifierTokens) ||
+    !hasContiguousTokenSequence(post, identifierTokens)
+  );
 }
 
 function hasContextualSingleTokenFamilyMatch(

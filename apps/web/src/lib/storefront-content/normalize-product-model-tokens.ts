@@ -135,6 +135,7 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
       token === 'esim' ||
       token === 'lte' ||
       token === 'cellular' ||
+      token === 'gps' ||
       token === 'wifi' ||
       (token === 'wi' && tokens[index + 1] === 'fi') ||
       (token === 'sim' &&
@@ -212,7 +213,10 @@ function isConvertibleInConnector(tokens: string[], index: number) {
 }
 
 /** Removes catalog suffixes that describe merchandising, region, or connectivity. */
-export function normalizeProductModelTokens(tokens: string[]) {
+export function normalizeProductModelTokens(
+  tokens: string[],
+  preserveTerminalColors = false
+) {
   const withoutLeadingCondition = LEADING_CONDITION_TOKENS.has(tokens[0] ?? '')
     ? tokens.slice(1)
     : tokens;
@@ -222,7 +226,8 @@ export function normalizeProductModelTokens(tokens: string[]) {
       index > 0 &&
       MERCHANDISING_SUFFIX_TOKENS.has(token) &&
       (!COLOR_SUFFIX_TOKENS.has(token) ||
-        isTerminalColorSuffix(withoutLeadingCondition, index))
+        (!preserveTerminalColors &&
+          isTerminalColorSuffix(withoutLeadingCondition, index)))
   );
   const withoutConnectivity =
     stripOptionalConnectivitySuffix(withoutMerchandising);

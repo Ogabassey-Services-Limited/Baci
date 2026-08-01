@@ -61,7 +61,8 @@ describe('buildCommercialGuideLinks compare context', () => {
         {
           slug: 'iphone-15-buyer-guide',
           title: 'iPhone 15 Buyer Guide',
-          excerpt: 'What to know before buying the iPhone 15.',
+          excerpt:
+            'What to know before buying the iPhone 15, including whether the iPhone 15 Pro is worth it.',
           category: 'Smartphones',
           tags: ['smartphones', 'apple', 'iphone 15'],
           keywords: ['camera'],

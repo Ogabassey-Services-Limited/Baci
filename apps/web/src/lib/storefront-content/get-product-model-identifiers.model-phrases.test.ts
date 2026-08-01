@@ -238,4 +238,23 @@ describe('getProductModelIdentifiers model phrases', () => {
 
     expect(identifiers).toEqual(['airpods pro 2']);
   });
+
+  it('removes GPS configuration metadata from watch identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartwatches',
+      brands: ['Apple'],
+      productSlugs: ['apple-watch-series-9-45mm-gps'],
+    });
+
+    expect(identifiers).toEqual(['watch 9']);
+  });
+
+  it('preserves a terminal color that is part of a game title', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'nintendo-switch',
+      productSlugs: ['nintendo-switch-pokemon-violet'],
+    });
+
+    expect(identifiers).toEqual(['pokemon violet']);
+  });
 });
