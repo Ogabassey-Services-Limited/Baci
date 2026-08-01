@@ -221,4 +221,31 @@ describe('buildCommercialGuideLinks model distinctions', () => {
       'https://ogabassey.com/blog/galaxy-buds-pro-buying-guide'
     );
   });
+
+  it('keeps same-denomination gift-card guides separated by currency', () => {
+    const context = {
+      pageKind: 'product',
+      categorySlug: 'gift-cards',
+      productNames: ['PSN Card £50 Gift Card'],
+      productSlugs: [],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post(
+        'psn-card-usd-50-guide',
+        'PSN Card $50 Gift Card Buyer Guide',
+        'Gift Cards',
+        ['gift cards', 'psn', 'usd 50']
+      ),
+      post(
+        'psn-card-gbp-50-guide',
+        'PSN Card £50 Gift Card Buyer Guide',
+        'Gift Cards',
+        ['gift cards', 'psn', 'gbp 50']
+      ),
+    ];
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/psn-card-gbp-50-guide'
+    );
+  });
 });

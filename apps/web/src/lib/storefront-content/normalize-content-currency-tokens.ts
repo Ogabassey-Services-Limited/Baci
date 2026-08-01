@@ -1,0 +1,15 @@
+const CURRENCY_TOKEN_BY_SYMBOL: Record<string, string> = {
+  $: 'usd',
+  '£': 'gbp',
+  '€': 'eur',
+  '₦': 'ngn',
+};
+
+export function normalizeContentCurrencyTokens(value: string) {
+  return value
+    .replace(
+      /[£$€₦]/gu,
+      (symbol) => ` ${CURRENCY_TOKEN_BY_SYMBOL[symbol] ?? ''} `
+    )
+    .replace(/\s+/gu, ' ');
+}

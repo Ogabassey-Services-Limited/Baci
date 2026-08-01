@@ -2,6 +2,7 @@ import type { ClusterSupport } from '@/config/storefront-content-cluster-shared'
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
+import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 
 const MAX_SEARCH_QUERY_LENGTH = 512;
 const MAX_SEARCH_TERM_LENGTH = 80;
@@ -9,7 +10,7 @@ const WEBSEARCH_OPERATOR_WORDS = new Set(['and', 'not', 'or']);
 const UTF8_ENCODER = new TextEncoder();
 
 function normalizeSearchTerm(value: string): string {
-  const words = value
+  const words = normalizeContentCurrencyTokens(value)
     .normalize('NFKC')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]+/gu, ' ')

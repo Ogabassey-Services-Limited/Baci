@@ -8,6 +8,7 @@ import type {
 } from './content-cluster-types';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { inferContentClusterContext } from './infer-content-cluster-context';
+import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 
 const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
   category: ['buyer-guide', 'best-in-nigeria'],
@@ -48,21 +49,21 @@ function toPublishedTimestamp(value: string | null) {
 }
 
 function tokenizeSlug(slug: string) {
-  return slug
+  return normalizeContentCurrencyTokens(slug)
     .split(/[^a-z0-9]+/i)
     .map((token) => token.trim().toLowerCase())
     .filter((token) => token.length > 2);
 }
 
 function tokenizeModelIdentifier(identifier: string) {
-  return identifier
+  return normalizeContentCurrencyTokens(identifier)
     .split(/[^a-z0-9]+/iu)
     .map((token) => token.trim().toLowerCase())
     .filter(Boolean);
 }
 
 function tokenizeText(value: string | null | undefined) {
-  return (value ?? '')
+  return normalizeContentCurrencyTokens(value ?? '')
     .toLowerCase()
     .replace(/[’']s\b/gu, '')
     .replace(/\+/gu, ' plus ')

@@ -61,4 +61,29 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
 
     expect(identifiers).toEqual(['14 7430 2 in 1']);
   });
+
+  it('preserves an HP model number that repeats the display size', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['HP'],
+      productNames: ['HP 15 15 inch i5 8GB 512GB'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['15']);
+  });
+
+  it('keeps currency discriminators for same-denomination gift cards', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'gift-cards',
+      productNames: [
+        'PSN Card £50 Gift Card',
+        'PSN Card $50 Gift Card',
+        'PSN Card €50 Gift Card',
+      ],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['gbp 50', 'usd 50', 'eur 50']);
+  });
 });

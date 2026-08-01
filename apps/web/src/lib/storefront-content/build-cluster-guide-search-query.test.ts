@@ -129,4 +129,15 @@ describe('buildClusterGuideSearchQuery', () => {
     expect(query).toContain('"7430"');
     expect(query).not.toContain('"14"');
   });
+
+  it('retains a gift-card currency discriminator in retrieval terms', () => {
+    const query = buildClusterGuideSearchQuery({
+      pageKind: 'product',
+      categorySlug: 'gift-cards',
+      productNames: ['PSN Card £50 Gift Card'],
+      productSlugs: [],
+    });
+
+    expect(query).toContain('"gbp 50"');
+  });
 });

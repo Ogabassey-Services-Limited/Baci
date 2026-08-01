@@ -8,6 +8,7 @@ import type {
   PublishedClusterPost,
   SupportedClusterCategory,
 } from './content-cluster-types';
+import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 
 interface InferContentClusterContextInput
   extends Pick<
@@ -16,7 +17,7 @@ interface InferContentClusterContextInput
   > {}
 
 function normalizeText(value: string | null | undefined) {
-  return value?.toLowerCase().trim() ?? '';
+  return normalizeContentCurrencyTokens(value?.toLowerCase().trim() ?? '');
 }
 
 function tokenize(values: Array<string | null | undefined>) {

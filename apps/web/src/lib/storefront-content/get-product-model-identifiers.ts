@@ -1,10 +1,14 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
+import { modelTokenMatchers } from './model-token-matchers';
+import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { normalizeProductModelTokens } from './normalize-product-model-tokens';
 import { selectProductModelIdentifier } from './select-product-model-identifier';
 
+const { isConvertibleInConnector, isDimensionToken } = modelTokenMatchers;
+
 function tokenize(value: string) {
-  return value
+  return normalizeContentCurrencyTokens(value)
     .toLowerCase()
     .replace(/[’']s\b/gu, '')
     .replace(/\+/gu, ' plus ')
@@ -115,30 +119,6 @@ function getExcludedTokensForSlug(
   }
   return excludedTokens;
 }
-function isDimensionToken(tokens: string[], index: number) {
-  const token = tokens[index];
-  if (!/^\d+$/u.test(token)) {
-    return false;
-  }
-  const previousToken = tokens[index - 1] ?? '';
-  const nextToken = tokens[index + 1] ?? '';
-  if (
-    (previousToken === 'in' && isConvertibleInConnector(tokens, index - 1)) ||
-    (nextToken === 'in' && isConvertibleInConnector(tokens, index + 1))
-  ) {
-    return false;
-  }
-  return (
-    ['in', 'inch'].includes(previousToken) || ['in', 'inch'].includes(nextToken)
-  );
-}
-function isConvertibleInConnector(tokens: string[], index: number) {
-  return (
-    tokens[index] === 'in' &&
-    /^\d+$/u.test(tokens[index - 1] ?? '') &&
-    /^\d+$/u.test(tokens[index + 1] ?? '')
-  );
-}
 function stripTrailingProcessorTier(tokens: string[], categorySlug: string) {
   if (!LAPTOP_CATEGORY_SLUGS.has(categorySlug)) {
     return tokens;
@@ -171,7 +151,10 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
     isConvertibleInConnector(tokens, index)
   );
   const isIntegerDisplayPrefix =
-    /^\d{2}$/u.test(firstToken) && displaySize >= 10 && displaySize <= 20;
+    /^\d{2}$/u.test(firstToken) &&
+    displaySize >= 10 &&
+    displaySize <= 20 &&
+    !isDimensionToken(tokens, 1);
   const isTabletDecimalDisplayPrefix =
     categorySlug === 'tablets' &&
     /^\d$/u.test(firstToken) &&
