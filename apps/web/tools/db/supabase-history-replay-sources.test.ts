@@ -26,6 +26,8 @@ const CORRECTIVE_ATTESTATION_MIGRATION =
   '20260731100000_harden_product_description_attestation_grants.sql';
 const RETENTION_PROVENANCE_MIGRATION =
   '20260801090000_harden_product_description_provenance_retention.sql';
+const OPERATION_ID_BINDING_MIGRATION =
+  '20260801100000_preserve_product_description_attestation_operation_ids.sql';
 
 function rows(block: string): string[] {
   return block
@@ -73,6 +75,7 @@ describe('supabase-history-replay sources', () => {
       ADDITIVE_PROVENANCE_MIGRATION,
       CORRECTIVE_ATTESTATION_MIGRATION,
       RETENTION_PROVENANCE_MIGRATION,
+      OPERATION_ID_BINDING_MIGRATION,
     ].map((migration) => PENDING_SOURCES.indexOf(migration));
     expect(migrationOrder.every((index) => index >= 0)).toBe(true);
     expect(migrationOrder).toEqual([...migrationOrder].sort((a, b) => a - b));

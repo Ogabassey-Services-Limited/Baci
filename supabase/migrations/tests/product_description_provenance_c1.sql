@@ -409,6 +409,18 @@ INSERT INTO private.product_description_attestation_grants (
     pg_catalog.clock_timestamp() - interval '3 minutes',
     pg_catalog.clock_timestamp() + interval '10 minutes',
     pg_catalog.clock_timestamp()
+  ),
+  (
+    '00000000-0000-4000-e000-000000000112',
+    '00000000-0000-4000-b000-000000000101',
+    '00000000-0000-4000-c000-000000000101',
+    '00000000-0000-4000-a000-000000000101',
+    '00000000-0000-4000-d000-000000000112',
+    'legacy exact bytes', NULL, NULL, repeat('5', 64),
+    true, 'manual_description',
+    pg_catalog.clock_timestamp() - interval '3 minutes',
+    pg_catalog.clock_timestamp() - interval '2 minutes',
+    NULL
   );
 
 SET LOCAL ROLE service_role;
@@ -418,8 +430,8 @@ DECLARE
 BEGIN
   SELECT private.cleanup_product_description_attestation_grants(10)
     INTO archived_count;
-  IF archived_count <> 2 THEN
-    RAISE EXCEPTION 'C1 retention must archive two terminal grants, got %', archived_count;
+  IF archived_count <> 3 THEN
+    RAISE EXCEPTION 'C1 retention must archive three terminal grants, got %', archived_count;
   END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -432,16 +444,18 @@ BEGIN
     FROM private.product_description_attestation_grants
     WHERE operation_id IN (
       '00000000-0000-4000-d000-000000000110',
-      '00000000-0000-4000-d000-000000000111'
+      '00000000-0000-4000-d000-000000000111',
+      '00000000-0000-4000-d000-000000000112'
     )
   ) OR (
     SELECT count(*)
     FROM private.product_description_attestation_grant_evidence
     WHERE operation_id IN (
       '00000000-0000-4000-d000-000000000110',
-      '00000000-0000-4000-d000-000000000111'
+      '00000000-0000-4000-d000-000000000111',
+      '00000000-0000-4000-d000-000000000112'
     )
-  ) <> 2 OR NOT EXISTS (
+  ) <> 3 OR NOT EXISTS (
     SELECT 1
     FROM private.product_description_attestation_grant_evidence
     WHERE operation_id = '00000000-0000-4000-d000-000000000110'
@@ -460,5 +474,41 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+-- An archived operation ID remains terminal and cannot be rebound after the
+-- active grant row is reclaimed. The third fixture intentionally matches the
+-- current product state so the pre-fix RPC would create a replacement grant.
+SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-a000-000000000101","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.request_product_description_attestation_grant(
+      '00000000-0000-4000-b000-000000000101',
+      '00000000-0000-4000-c000-000000000101',
+      '00000000-0000-4000-d000-000000000112',
+      'legacy exact bytes', NULL, NULL,
+      repeat('5', 64), true, 'manual_description'
+    );
+    RAISE EXCEPTION 'archived expired operation replay was accepted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'product_description_attestation_grant_expired' THEN RAISE; END IF;
+  END;
+
+  BEGIN
+    PERFORM public.request_product_description_attestation_grant(
+      '00000000-0000-4000-b000-000000000101',
+      '00000000-0000-4000-c000-000000000101',
+      '00000000-0000-4000-d000-000000000112',
+      'legacy exact bytes', NULL, NULL,
+      repeat('6', 64), true, 'manual_description'
+    );
+    RAISE EXCEPTION 'archived operation binding reuse was accepted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'product_description_attestation_operation_binding_mismatch' THEN RAISE; END IF;
+  END;
+END;
+$$ LANGUAGE plpgsql;
+RESET ROLE;
 
 ROLLBACK;
