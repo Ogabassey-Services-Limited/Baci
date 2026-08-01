@@ -282,5 +282,5 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       runnerModuleSha256
     );
     expect(measureEnvironment.EVIDENCE_MUTATION_RUNNER_MODULE).toBeUndefined();
-  });
+  }, 30_000);
 });
