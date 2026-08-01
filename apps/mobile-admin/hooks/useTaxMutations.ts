@@ -83,6 +83,13 @@ export function useTaxMutations({
     context.submittedMerchantRevision ===
       activeMerchantScopeRef.current.revision;
 
+  const invalidateSubmittedMerchantContext = (
+    context: MerchantMutationContext | undefined
+  ) => {
+    if (!context?.submittedMerchantId) return;
+    queryClient.invalidateQueries({ queryKey: ['merchant'] });
+  };
+
   const isPendingForCurrentMerchant = ({
     isPending,
     variables,
@@ -119,8 +126,8 @@ export function useTaxMutations({
       return { submittedMerchantId, submittedMerchantRevision };
     },
     onSuccess: (enabled, _variables, context) => {
+      invalidateSubmittedMerchantContext(context);
       if (!isCurrentMerchant(context)) return;
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
       Alert.alert(
         'Success',
         enabled
@@ -153,8 +160,8 @@ export function useTaxMutations({
       submittedMerchantRevision,
     }),
     onSuccess: (_data, _variables, context) => {
+      invalidateSubmittedMerchantContext(context);
       if (!isCurrentMerchant(context)) return;
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
       Alert.alert('Success', 'Tax Identification Number saved.');
     },
     onError: (error: Error, _variables, context) => {
@@ -177,8 +184,8 @@ export function useTaxMutations({
       submittedMerchantRevision,
     }),
     onSuccess: (_data, _variables, context) => {
+      invalidateSubmittedMerchantContext(context);
       if (!isCurrentMerchant(context)) return;
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
       Alert.alert('Success', 'Legal entity name saved.');
     },
     onError: (_error, _variables, context) => {
@@ -199,8 +206,8 @@ export function useTaxMutations({
       submittedMerchantRevision,
     }),
     onSuccess: (_data, _variables, context) => {
+      invalidateSubmittedMerchantContext(context);
       if (!isCurrentMerchant(context)) return;
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
       Alert.alert('Success', 'Registered business address saved.');
     },
     onError: (_error, _variables, context) => {

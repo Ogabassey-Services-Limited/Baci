@@ -7,17 +7,20 @@ import {
 
 export function useEditBlogSession(
   merchantId: string | undefined,
+  postId: string,
   setIsSaving: Dispatch<SetStateAction<boolean>>
 ) {
-  const merchantSessionRef = useRef({ generation: 0, id: merchantId });
+  const merchantSessionRef = useRef({ generation: 0, merchantId, postId });
   useLayoutEffect(() => {
-    if (merchantSessionRef.current.id === merchantId) return;
+    const session = merchantSessionRef.current;
+    if (session.merchantId === merchantId && session.postId === postId) return;
     merchantSessionRef.current = {
-      generation: merchantSessionRef.current.generation + 1,
-      id: merchantId,
+      generation: session.generation + 1,
+      merchantId,
+      postId,
     };
     setIsSaving(false);
-  }, [merchantId, setIsSaving]);
+  }, [merchantId, postId, setIsSaving]);
 
   return merchantSessionRef;
 }

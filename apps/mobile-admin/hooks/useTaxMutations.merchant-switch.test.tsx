@@ -96,7 +96,7 @@ describe('useTaxMutations merchant-switch lifecycle', () => {
     expect(mockAlert).not.toHaveBeenCalled();
   });
 
-  it('keeps writes on merchant A but suppresses stale success UI after switching to B', async () => {
+  it('invalidates merchant A tax saves but suppresses stale success UI after switching to B', async () => {
     const deferredWrites = Array.from({ length: 4 }, createDeferred);
     deferredWrites.forEach(({ promise }) => {
       mockUpdateMerchantSettings.mockReturnValueOnce(promise);
@@ -110,19 +110,23 @@ describe('useTaxMutations merchant-switch lifecycle', () => {
       expect(mockUpdateMerchantSettings).toHaveBeenCalledTimes(4)
     );
     rerender({ merchantId: 'merchant-b' });
-    await act(async () => {
-      deferredWrites.forEach(({ resolve }) => {
+    for (const [index, { resolve }] of deferredWrites.entries()) {
+      await act(async () => {
         resolve();
+        await completions[index];
       });
-      await Promise.all(completions);
-    });
+      expect(invalidateQueries).toHaveBeenCalledTimes(index + 1);
+      expect(invalidateQueries).toHaveBeenLastCalledWith({
+        queryKey: ['merchant'],
+      });
+    }
 
     for (const [submittedMerchantId] of mockUpdateMerchantSettings.mock.calls) {
       expect(submittedMerchantId).toBe('merchant-a');
     }
     expect(setVatEnabled).toHaveBeenCalledOnce();
     expect(setVatEnabled).toHaveBeenCalledWith(true);
-    expect(invalidateQueries).not.toHaveBeenCalled();
+    expect(invalidateQueries).toHaveBeenCalledTimes(4);
     expect(mockAlert).not.toHaveBeenCalled();
   });
 
@@ -212,7 +216,9 @@ describe('useTaxMutations merchant-switch lifecycle', () => {
     });
     expect(setVatEnabled).toHaveBeenCalledOnce();
     expect(setVatEnabled).toHaveBeenCalledWith(true);
-    expect(invalidateQueries).not.toHaveBeenCalled();
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant'],
+    });
     expect(mockAlert).not.toHaveBeenCalled();
   });
 

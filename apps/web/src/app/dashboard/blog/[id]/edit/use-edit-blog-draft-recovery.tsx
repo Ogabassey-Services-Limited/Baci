@@ -15,22 +15,24 @@ type DraftPersistence = Pick<
 
 export function useEditBlogDraftRecovery({
   persistence,
+  scopeKey,
   setEditorResetKey,
   setFormData,
   toast,
 }: {
   persistence: DraftPersistence;
+  scopeKey: string;
   setEditorResetKey: Dispatch<SetStateAction<number>>;
   setFormData: Dispatch<SetStateAction<PostFormData>>;
   toast: ReturnType<typeof useToast>['toast'];
 }) {
-  const hasCheckedForRecovery = useRef(false);
+  const recoveredScopeKey = useRef<string | null>(null);
 
   return (loadedFormData: PostFormData | null) => {
-    if (!persistence.hasSavedData() || hasCheckedForRecovery.current) {
+    if (!persistence.hasSavedData() || recoveredScopeKey.current === scopeKey) {
       return;
     }
-    hasCheckedForRecovery.current = true;
+    recoveredScopeKey.current = scopeKey;
     const saved = persistence.getSavedData();
     if (!saved) return;
     const previousData = loadedFormData ?? { ...INITIAL_FORM_DATA };

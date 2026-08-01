@@ -29,6 +29,7 @@ describe('useEditBlogDraftRecovery', () => {
           getSavedData: vi.fn(() => ({ data: saved, savedAt: new Date() })),
           hasSavedData: vi.fn(() => true),
         },
+        scopeKey: 'merchant-a:post-1',
         setEditorResetKey,
         setFormData,
         toast,
@@ -66,6 +67,37 @@ describe('useEditBlogDraftRecovery', () => {
     expect(clearSavedData).toHaveBeenCalledTimes(1);
     expect(mockToast).toHaveBeenLastCalledWith(
       expect.objectContaining({ title: 'Recovery Undone' })
+    );
+  });
+
+  it('allows a separate merchant editor session to recover its own draft', () => {
+    const setFormData = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ scopeKey }: { scopeKey: string }) =>
+        useEditBlogDraftRecovery({
+          persistence: {
+            clearSavedData: vi.fn(),
+            getSavedData: vi.fn(() => ({
+              data: { ...INITIAL_FORM_DATA, title: scopeKey },
+              savedAt: new Date(),
+            })),
+            hasSavedData: vi.fn(() => true),
+          },
+          scopeKey,
+          setEditorResetKey: vi.fn(),
+          setFormData,
+          toast: vi.fn() as unknown as ReturnType<typeof useToast>['toast'],
+        }),
+      { initialProps: { scopeKey: 'merchant-a:post-1' } }
+    );
+
+    result.current({ ...INITIAL_FORM_DATA });
+    rerender({ scopeKey: 'merchant-b:post-1' });
+    result.current({ ...INITIAL_FORM_DATA });
+
+    expect(setFormData).toHaveBeenCalledTimes(2);
+    expect(setFormData).toHaveBeenLastCalledWith(
+      expect.objectContaining({ title: 'merchant-b:post-1' })
     );
   });
 });

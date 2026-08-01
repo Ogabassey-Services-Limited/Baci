@@ -36,7 +36,11 @@ export default function EditBlogPostPage() {
   const { merchant } = useMerchant();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const merchantSessionRef = useEditBlogSession(merchant?.id, setIsSaving);
+  const merchantSessionRef = useEditBlogSession(
+    merchant?.id,
+    postId,
+    setIsSaving
+  );
   const [activeTab, setActiveTab] = useState('content');
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
   const [hasHydratedEmbeddedProducts, setHasHydratedEmbeddedProducts] =
@@ -48,7 +52,7 @@ export default function EditBlogPostPage() {
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>();
   const [contentResetKey, setContentResetKey] = useState(0);
   const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
-    storageKey: `blog-draft-edit-${postId}`,
+    storageKey: `blog-draft-edit-${merchant?.id ?? 'pending'}-${postId}`,
     data: formData,
     enabled: !isLoading,
   });
@@ -60,6 +64,7 @@ export default function EditBlogPostPage() {
   });
   const recoverSavedDraft = useEditBlogDraftRecovery({
     persistence: { clearSavedData, hasSavedData, getSavedData },
+    scopeKey: `${merchant?.id ?? 'pending'}:${postId}`,
     setEditorResetKey: setContentResetKey,
     setFormData,
     toast,
@@ -90,17 +95,23 @@ export default function EditBlogPostPage() {
           variant: 'destructive',
         });
     }
-    recoverSavedDraft(loadedFormData);
+    if (loadedFormData) recoverSavedDraft(loadedFormData);
     setIsLoading(false);
   });
 
   useEffect(() => {
-    if (!postId || !merchant?.id) return;
     let isStale = false;
     setIsLoading(true);
+    setOriginalPost(null);
+    setFormData(INITIAL_FORM_DATA);
+    setScheduledDate(undefined);
     setEmbeddedProducts([]);
     setHasHydratedEmbeddedProducts(false);
     setHasUserChangedEmbeddedProducts(false);
+    if (!postId || !merchant?.id)
+      return () => {
+        isStale = true;
+      };
     loadBlogPost(postId, merchant.id).then((result) => {
       if (!isStale) onPostLoaded(result);
     });

@@ -11,18 +11,16 @@ import {
   extractKeywords,
   generateExcerpt,
   generateSeoDescription,
-  generateSlug,
 } from '@/lib/blog-utils';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
-import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 import { parseBlogPostMutationBody } from './blog-post-mutation-body';
 import { loadBlogPostMerchant } from './load-blog-post-merchant';
 import { persistBlogPostMutation } from './persist-blog-post-mutation';
 import { scheduleCreatedPostPublicationEffects } from './post-publication-effects';
-
+import { prepareCreateBlogPostInput } from './prepare-create-blog-post-input';
 export async function createBlogPost(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -37,6 +35,19 @@ export async function createBlogPost(request: NextRequest) {
       return (
         response ??
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+    const parsedBody = await parseBlogPostMutationBody(request);
+    if (parsedBody.error)
+      return NextResponse.json({ error: parsedBody.error }, { status: 400 });
+    const preparedInput = prepareCreateBlogPostInput(parsedBody.body);
+    if (!preparedInput.validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation error',
+          details: preparedInput.validation.error.flatten(),
+        },
+        { status: 400 }
       );
     }
     const selectedMerchant = await resolveSelectedMerchantAccess({
@@ -83,18 +94,16 @@ export async function createBlogPost(request: NextRequest) {
         { merchantId: access.merchantId }
       );
     }
-    const merchant = {
-      id: access.merchantId,
-      business_name: merchantLookup.businessName || 'Store Owner',
-    };
+    const merchantId = access.merchantId;
+    const merchantBusinessName = merchantLookup.businessName || 'Store Owner';
     const { data: features, error: featuresError } = await auth.supabase
       .from('merchant_feature_settings')
       .select('blog_enabled, blog_discover_image_validation_enabled')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .maybeSingle();
     if (featuresError) {
       console.error('Failed to fetch blog feature settings:', {
-        merchantId: merchant.id,
+        merchantId,
         error: featuresError,
       });
       return NextResponse.json(
@@ -111,26 +120,20 @@ export async function createBlogPost(request: NextRequest) {
         { status: 403 }
       );
     }
-
-    const parsedBody = await parseBlogPostMutationBody(request);
-    if (parsedBody.error) {
-      return NextResponse.json({ error: parsedBody.error }, { status: 400 });
-    }
-    const body = sanitizeBlogPostData(parsedBody.body);
-    if (!body.slug && body.title) body.slug = generateSlug(String(body.title));
-    if (!body.author_name) body.author_name = merchant.business_name;
-    const validated = createPostSchema.safeParse(body);
-    if (!validated.success) {
+    const finalValidation = prepareCreateBlogPostInput({
+      ...preparedInput.validation.data,
+      author_name: preparedInput.body.author_name || merchantBusinessName,
+    }).validation;
+    if (!finalValidation.success)
       return NextResponse.json(
-        { error: 'Validation error', details: validated.error.flatten() },
+        { error: 'Validation error', details: finalValidation.error.flatten() },
         { status: 400 }
       );
-    }
     const { embedded_products: embeddedProductIds, ...postData } =
-      validated.data;
+      finalValidation.data;
     const variantIntegrity = validateBlogImageVariantIntegrity(
       postData,
-      merchant.id
+      merchantId
     );
     if (!variantIntegrity.ready) {
       return NextResponse.json(
@@ -144,7 +147,7 @@ export async function createBlogPost(request: NextRequest) {
     }
     const discoverImageReadiness =
       postData.status === 'published'
-        ? validateBlogDiscoverImageReadiness(postData, merchant.id)
+        ? validateBlogDiscoverImageReadiness(postData, merchantId)
         : { ready: true as const };
     if (
       !discoverImageReadiness.ready &&
@@ -162,12 +165,12 @@ export async function createBlogPost(request: NextRequest) {
     const { data: existingPost, error: existingPostError } = await auth.supabase
       .from('blog_posts')
       .select('id')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('slug', postData.slug)
       .maybeSingle();
     if (existingPostError) {
       console.error('Failed to validate blog post slug:', {
-        merchantId: merchant.id,
+        merchantId,
         slug: postData.slug,
         error: existingPostError,
       });
@@ -187,7 +190,7 @@ export async function createBlogPost(request: NextRequest) {
       ? postData.keywords
       : extractKeywords(postData.title, postData.content);
     const insertData = {
-      merchant_id: merchant.id,
+      merchant_id: merchantId,
       title: postData.title,
       slug: postData.slug,
       content: postData.content,
@@ -218,7 +221,7 @@ export async function createBlogPost(request: NextRequest) {
     };
     const persistence = await persistBlogPostMutation({
       embeddedProductIds,
-      merchantId: merchant.id,
+      merchantId,
       postData: insertData,
       postId: null,
       supabase: auth.supabase,
