@@ -125,4 +125,129 @@ describe('buildCommercialGuideLinks compare context', () => {
       'https://ogabassey.com/blog/apple-watch-ultra-2-buyer-guide',
     ]);
   });
+
+  it('preserves a plus-model guide when the catalog slug lost the plus sign', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'samsung-galaxy-s24-buyer-guide',
+          title: 'Samsung Galaxy S24 Buyer Guide',
+          excerpt: 'What to know before buying the Galaxy S24.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung', 'galaxy s24'],
+          keywords: ['android'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'samsung-galaxy-s24-plus-buyer-guide',
+          title: 'Samsung Galaxy S24 Plus Buyer Guide',
+          excerpt: 'What to know before buying the Galaxy S24 Plus.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung', 'galaxy s24 plus'],
+          keywords: ['android'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'smartphones',
+        brands: ['Samsung'],
+        productNames: ['Samsung Galaxy S24+'],
+        productSlugs: ['samsung-galaxy-s24-2'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/samsung-galaxy-s24-plus-buyer-guide',
+      'https://ogabassey.com/blog/samsung-galaxy-s24-buyer-guide',
+    ]);
+  });
+
+  it('requires a coherent model occurrence instead of scattered tokens', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'apple-watch-ultra-2-buyer-guide',
+          title: 'Apple Watch Ultra 2 Buyer Guide',
+          excerpt: 'What to know before buying the Apple Watch Ultra 2.',
+          category: 'Smartwatches',
+          tags: ['smartwatches', 'apple', 'watch ultra 2'],
+          keywords: ['battery'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'apple-watch-buyer-guide',
+          title: 'Apple Watch Buyer Guide',
+          excerpt: 'Ultra-long battery life can reach 2 days.',
+          category: 'Smartwatches',
+          tags: ['smartwatches', 'apple'],
+          keywords: ['battery'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'smartwatches',
+        brands: ['Apple'],
+        productSlugs: ['apple-watch-ultra-2'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/apple-watch-ultra-2-buyer-guide',
+      'https://ogabassey.com/blog/apple-watch-buyer-guide',
+    ]);
+  });
+
+  it('does not boost a generic numeric VR guide for Meta Quest 3', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'top-3-meta-vr-headsets',
+          title: 'Top 3 Meta VR Headsets',
+          excerpt: 'A current shortlist for virtual reality buyers.',
+          category: 'VR Headsets',
+          tags: ['vr', 'meta', 'headsets'],
+          keywords: ['buying guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'meta-quest-3-buyer-guide',
+          title: 'Meta Quest 3 Buyer Guide',
+          excerpt: 'What to know before buying the Meta Quest 3.',
+          category: 'VR Headsets',
+          tags: ['vr', 'meta', 'quest 3'],
+          keywords: ['buying guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'vr-headsets',
+        brands: ['Meta'],
+        productNames: ['Meta Quest 3'],
+        productSlugs: ['meta-quest-3'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/meta-quest-3-buyer-guide',
+      'https://ogabassey.com/blog/top-3-meta-vr-headsets',
+    ]);
+  });
 });

@@ -72,6 +72,7 @@ export interface BuildCommercialGuideLinksContext {
   modelFamilySlug?: string;
   priceBandSlug?: string;
   productSlugs?: string[];
+  productNames?: string[];
 }
 
 export interface BuildCommercialGuideLinksInput {

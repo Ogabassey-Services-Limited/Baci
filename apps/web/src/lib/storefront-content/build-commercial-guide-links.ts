@@ -130,10 +130,7 @@ function matchesProductIdentifier(
     return false;
   }
 
-  return (
-    hasCleanIdentifierOccurrence(post, identifierTokens) ||
-    !hasContiguousTokenSequence(post, identifierTokens)
-  );
+  return hasCleanIdentifierOccurrence(post, identifierTokens);
 }
 
 function hasContextualSingleTokenFamilyMatch(

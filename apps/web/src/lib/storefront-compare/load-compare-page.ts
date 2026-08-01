@@ -891,6 +891,7 @@ async function getCachedComparePageModel(
           ? {
               pageKind: 'compare',
               categorySlug: supportedClusterCategory,
+              productNames: [leftDetails.name, rightDetails.name],
               productSlugs: [parsed.leftKey, parsed.rightKey],
             }
           : null,
@@ -898,6 +899,7 @@ async function getCachedComparePageModel(
           ? {
               pageKind: 'compare',
               categorySlug: supportedClusterCategory,
+              productNames: [leftDetails.name, rightDetails.name],
               productSlugs: [
                 leftDetails.slug || parsed.leftKey,
                 rightDetails.slug || parsed.rightKey,

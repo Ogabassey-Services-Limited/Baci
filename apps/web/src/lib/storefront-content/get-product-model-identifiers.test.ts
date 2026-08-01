@@ -61,7 +61,18 @@ describe('getProductModelIdentifiers', () => {
       productSlugs: ['apple-vision-pro', 'meta-quest-3'],
     });
 
-    expect(identifiers).toEqual(['vision pro', '3']);
+    expect(identifiers).toEqual(['vision pro', 'quest 3']);
+  });
+
+  it('preserves plus variants from product names instead of collision slugs', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productNames: ['Samsung Galaxy S24+'],
+      productSlugs: ['samsung-galaxy-s24-2'],
+    });
+
+    expect(identifiers).toEqual(['s24 plus']);
   });
 
   it('preserves variant markers after numeric model generations', () => {

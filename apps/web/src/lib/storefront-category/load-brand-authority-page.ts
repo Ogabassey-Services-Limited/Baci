@@ -164,6 +164,7 @@ async function loadBrandAuthorityPage(
         pageKind: 'category' as const,
         categorySlug: supportedCategory,
         brands: [authorityEntry.displayName, authorityEntry.brandKey],
+        productNames: normalizedProducts.map((product) => product.name),
         productSlugs: normalizedProducts.map((product) => product.slug),
       }
     : null;

@@ -6,6 +6,7 @@ import { selectProductModelIdentifier } from './select-product-model-identifier'
 function tokenize(value: string) {
   return value
     .toLowerCase()
+    .replace(/\+/gu, ' plus ')
     .split(/[^a-z0-9]+/u)
     .map((token) => token.trim())
     .filter(
@@ -20,6 +21,7 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
   'legion',
   'pavilion',
+  'quest',
   'redmi',
   'series',
   'watch',
@@ -38,15 +40,14 @@ interface BrandAliasGroup {
 }
 
 function getBrandAliasGroups(
-  context: Pick<
-    BuildCommercialGuideLinksContext,
-    'categorySlug' | 'brands' | 'productSlugs'
-  >
+  context: Omit<BuildCommercialGuideLinksContext, 'pageKind'>
 ): BrandAliasGroup[] {
   const contextBrandTokens = new Set(
-    [...(context.brands ?? []), ...(context.productSlugs ?? [])].flatMap(
-      tokenize
-    )
+    [
+      ...(context.brands ?? []),
+      ...(context.productSlugs ?? []),
+      ...(context.productNames ?? []),
+    ].flatMap(tokenize)
   );
 
   return Object.entries(
@@ -193,13 +194,12 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
     displaySize <= 20 &&
     hasFollowingModelText &&
     !hasConvertibleModel
-    ? tokens.slice(1)
+    ? tokens.slice(/^\d$/u.test(tokens[1] ?? '') ? 2 : 1)
     : tokens;
 }
 
 function stripGeneratedCollisionSuffix(tokens: string[]) {
   const lastToken = tokens.at(-1) ?? '';
-  // Single-digit suffixes are the generated collision shape; larger numbers are model data.
   if (tokens.length < 2 || !/^\d$/u.test(lastToken)) {
     return tokens;
   }
@@ -248,10 +248,7 @@ function getModelTokens(
   );
 }
 export function getProductModelIdentifiers(
-  context: Pick<
-    BuildCommercialGuideLinksContext,
-    'categorySlug' | 'brands' | 'modelFamilySlug' | 'productSlugs'
-  >
+  context: Omit<BuildCommercialGuideLinksContext, 'pageKind'>
 ) {
   const protectedFamilyTokens = new Set(
     tokenize(context.modelFamilySlug ?? '')
@@ -277,10 +274,13 @@ export function getProductModelIdentifiers(
     )
   );
   const brandAliasGroups = getBrandAliasGroups(context);
+  const productSources = context.productNames?.length
+    ? context.productNames
+    : (context.productSlugs ?? []);
 
   return Array.from(
     new Set(
-      (context.productSlugs ?? [])
+      productSources
         .map((slug) =>
           getModelTokens(
             slug,

@@ -204,6 +204,17 @@ function stripOptionalOrdinalGenerationConnectorSuffix(tokens: string[]) {
     : tokens;
 }
 
+function stripSplitCapacitySuffix(tokens: string[]) {
+  const capacityIndex = tokens.findIndex(
+    (token, index) =>
+      /^\d+$/u.test(token) &&
+      ['gb', 'tb', 'mb'].includes(tokens[index + 1] ?? '')
+  );
+  return capacityIndex >= 0
+    ? [...tokens.slice(0, capacityIndex), ...tokens.slice(capacityIndex + 2)]
+    : tokens;
+}
+
 function isConvertibleInConnector(tokens: string[], index: number) {
   return (
     tokens[index] === 'in' &&
@@ -238,10 +249,11 @@ export function normalizeProductModelTokens(
   );
   const withoutOptionalFeature =
     stripOptionalFeatureSuffix(withoutDisplaySuffix);
+  const withoutSplitCapacity = stripSplitCapacitySuffix(withoutOptionalFeature);
 
-  return withoutOptionalFeature.filter(
+  return withoutSplitCapacity.filter(
     (token, index) =>
       !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token) ||
-      isConvertibleInConnector(withoutOptionalFeature, index)
+      isConvertibleInConnector(withoutSplitCapacity, index)
   );
 }

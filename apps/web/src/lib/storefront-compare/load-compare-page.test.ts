@@ -385,6 +385,7 @@ describe('loadComparePage', () => {
     expect(mockGetPublishedClusterPosts).toHaveBeenCalledWith('merchant-1', {
       pageKind: 'compare',
       categorySlug: 'smartphones',
+      productNames: ['iPhone 17 Pro Max', 'Samsung Galaxy Z TriFold'],
       productSlugs: ['iphone-17-pro-max', 'samsung-galaxy-z-trifold'],
     });
     resolveGuidePosts?.([]);

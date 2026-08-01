@@ -50,6 +50,7 @@ async function loadModelFamilyAuthorityPage(args: {
         categorySlug: supportedCategory,
         brands: [brandPage.brand.displayName, brandPage.brand.brandKey],
         modelFamilySlug: family.familyKey,
+        productNames: products.map((product) => product.name),
         productSlugs: products.map((product) => product.slug),
       }
     : null;

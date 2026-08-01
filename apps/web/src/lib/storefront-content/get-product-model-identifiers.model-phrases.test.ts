@@ -210,6 +210,26 @@ describe('getProductModelIdentifiers model phrases', () => {
     expect(identifiers).toEqual(['air 6th generation m2']);
   });
 
+  it('strips both tokens from a decimal tablet display prefix', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Apple'],
+      productSlugs: ['10-9-ipad-air-5th-generation-2021-m1-wifi-64gb'],
+    });
+
+    expect(identifiers).toEqual(['air 5th generation m1']);
+  });
+
+  it('removes split capacity metadata from a tablet model phrase', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Apple'],
+      productSlugs: ['12-9-ipad-pro-2021-m1-1-tb-wifi-cellular'],
+    });
+
+    expect(identifiers).toEqual(['pro m1']);
+  });
+
   it('preserves color words that are part of a game title', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'playstation-5',

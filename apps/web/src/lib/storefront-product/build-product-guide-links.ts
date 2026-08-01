@@ -78,6 +78,7 @@ export function buildProductGuideLinks(input: BuildProductSemanticModelInput) {
         pageKind: 'product',
         categorySlug: input.categorySlug as SupportedClusterCategory,
         brands: input.currentProduct.brand ? [input.currentProduct.brand] : [],
+        productNames: [input.currentProduct.name],
         productSlugs: [input.currentProduct.slug],
       },
     }),
