@@ -134,12 +134,11 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
     // The description is sanitized on the server and passed as a React slot,
     // so `sanitize-html` never enters the client tabs chunk.
     const detailProps = mockDeferredDetailClient.mock.calls[0]?.[0] as {
-      descriptionSlot?: { props?: { html?: string; headingLevelOffset?: number } };
+      descriptionSlot?: { props?: { sanitizedHtml?: string } };
     };
-    expect(detailProps.descriptionSlot?.props?.html).toBe(
+    expect(detailProps.descriptionSlot?.props?.sanitizedHtml).toBe(
       'Creator laptop with RTX graphics.'
     );
-    expect(detailProps.descriptionSlot?.props?.headingLevelOffset).toBe(1);
     expect(mockDeferredRailsIsland).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({
