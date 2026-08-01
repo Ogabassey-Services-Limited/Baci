@@ -25,14 +25,21 @@ test('finds another unit whose EnvironmentFile consumes Ollama', async () => {
       join(units, 'ollama.service'),
       `[Service]\nEnvironmentFile=${environment}\n`
     );
+    await writeFile(
+      join(units, 'uppercase.service'),
+      '[Service]\nEnvironment=OLLAMA_HOST=http://127.0.0.1:8080\n'
+    );
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      '. "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; RECOVERY_RECORDS="[]"; deps="[]"; recovery_record_path() { :; }; scan_systemd_consumers; printf "deps=%s\\n" "$deps"',
+      'systemctl() { :; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; RECOVERY_RECORDS="[]"; deps="[]"; recovery_record_path() { :; }; scan_systemd_consumers; printf "deps=%s\\n" "$deps"',
       'retire-ollama-systemd-consumers-test',
       script.pathname,
       units,
     ]);
-    const [consumer, serializedDependencies] = stdout.trim().split('\n');
+    const [direct, consumer, serializedDependencies] = stdout
+      .trim()
+      .split('\n');
+    assert.equal(direct, join(units, 'uppercase.service'));
     assert.equal(
       consumer,
       `${join(units, 'application.service')}:${environment}`
@@ -50,6 +57,26 @@ test('finds another unit whose EnvironmentFile consumes Ollama', async () => {
         disposition: 'review',
       },
     ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('finds a loaded transient unit whose runtime environment consumes Ollama', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-systemd-runtime-'));
+  try {
+    const property = 'Environment=OLLAMA_HOST=http://127.0.0.1:11434';
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      'systemctl() { case "$1" in list-units) printf "transient.service loaded active running transient\\n";; show) printf "Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nExecStart={}\\n";; *) return 64;; esac; }; . "$1"; SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      'retire-ollama-systemd-runtime-test',
+      script.pathname,
+      directory,
+    ]);
+    assert.equal(
+      stdout.trim(),
+      `transient.service:${createHash('sha256').update(property).digest('hex')}`
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
