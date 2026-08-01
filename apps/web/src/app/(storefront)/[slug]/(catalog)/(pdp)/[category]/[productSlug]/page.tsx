@@ -1455,11 +1455,9 @@ export default async function CategoryProductPage({
     ? buildOgabasseyProductVisibleSummary({
         brand: product.brand,
         condition: product.condition,
+        conditionOffers: commerceProduct.offers,
         name: product.name,
-        variants: [
-          ...(commerceProduct.variants ?? []),
-          ...(commerceProduct.offers ?? []),
-        ],
+        variants: commerceProduct.variants,
       })
     : null;
   const resolvedSearchParams = await searchParams;

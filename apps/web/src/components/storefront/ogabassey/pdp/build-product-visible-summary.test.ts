@@ -189,16 +189,29 @@ describe('buildOgabasseyProductVisibleSummary', () => {
     const summary = buildOgabasseyProductVisibleSummary({
       brand: 'HP',
       condition: 'new',
-      name: 'EliteBook 640 G11',
-      variants: [
+      conditionOffers: [
         { condition: 'used', attributes: {} },
         { condition: 'open_box', attributes: {} },
       ],
+      name: 'EliteBook 640 G11',
     });
 
     expect(summary).toBe(
       'HP EliteBook 640 G11. Available choices: Condition New or Open Box or Used.'
     );
+  });
+
+  it('does not add a stale parent condition to SKU-matrix variants', () => {
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Dell',
+        condition: 'new',
+        name: 'Latitude 7450',
+        variants: [
+          { condition: 'used', attributes: { storage: '512 GB' } },
+        ],
+      })
+    ).toBe('Dell Latitude 7450. Storage: 512 GB. Condition: Used.');
   });
 
   it('does not replace the selector condition fallback with a variant attribute', () => {
