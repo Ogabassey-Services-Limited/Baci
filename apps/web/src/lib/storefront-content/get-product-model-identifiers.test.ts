@@ -25,4 +25,24 @@ describe('getProductModelIdentifiers', () => {
 
     expect(identifiers).toEqual(['s25', 's24']);
   });
+
+  it('removes configured brand aliases from nonnumeric model slugs', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productSlugs: ['samsung-galaxy-z-trifold'],
+    });
+
+    expect(identifiers).toEqual(['trifold']);
+  });
+
+  it('prefers a model code over dimensions, years, and capacities', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Apple'],
+      productSlugs: ['macbook-air-13-inch-2022-m2-8gb-256gb'],
+    });
+
+    expect(identifiers).toEqual(['m2']);
+  });
 });

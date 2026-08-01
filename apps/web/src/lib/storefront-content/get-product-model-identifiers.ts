@@ -9,8 +9,45 @@ function tokenize(value: string) {
     .filter((token) => token.length > 1 || /\d/u.test(token));
 }
 
+const SPECIFICATION_TOKEN_PATTERN =
+  /^\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg)$/u;
+const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
+
+function getBrandAliasTokens(
+  context: Pick<BuildCommercialGuideLinksContext, 'categorySlug' | 'brands'>
+) {
+  const contextBrandTokens = new Set((context.brands ?? []).flatMap(tokenize));
+
+  return Object.entries(
+    CONTENT_CLUSTER_SUPPORT[context.categorySlug].brandTokens
+  ).flatMap(([brandKey, aliases]) => {
+    const aliasTokens = [brandKey, ...aliases].flatMap(tokenize);
+    return aliasTokens.some((token) => contextBrandTokens.has(token))
+      ? aliasTokens
+      : [];
+  });
+}
+
+function isDimensionToken(tokens: string[], index: number) {
+  const token = tokens[index];
+  if (!/^\d+$/u.test(token)) {
+    return false;
+  }
+
+  return (
+    ['in', 'inch'].includes(tokens[index - 1] ?? '') ||
+    ['in', 'inch'].includes(tokens[index + 1] ?? '')
+  );
+}
+
 function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
-  return tokenize(slug).filter((token) => !excludedTokens.has(token));
+  const tokens = tokenize(slug).filter((token) => !excludedTokens.has(token));
+  return tokens.filter(
+    (token, index) =>
+      !SPECIFICATION_TOKEN_PATTERN.test(token) &&
+      !YEAR_TOKEN_PATTERN.test(token) &&
+      !isDimensionToken(tokens, index)
+  );
 }
 
 /**
@@ -27,6 +64,7 @@ export function getProductModelIdentifiers(
   const excludedTokens = new Set(
     [
       ...(context.brands ?? []).flatMap(tokenize),
+      ...getBrandAliasTokens(context),
       ...CONTENT_CLUSTER_SUPPORT[context.categorySlug].categoryNames.flatMap(
         tokenize
       ),
@@ -39,7 +77,10 @@ export function getProductModelIdentifiers(
         .map((slug) => getModelTokens(slug, excludedTokens))
         .map(
           (tokens) =>
-            tokens.find((token) => /\d/u.test(token)) ?? tokens[0] ?? null
+            tokens.find((token) => /[a-z]/u.test(token) && /\d/u.test(token)) ??
+            tokens.find((token) => /\d/u.test(token)) ??
+            tokens[0] ??
+            null
         )
         .filter((token): token is string => Boolean(token))
     )
