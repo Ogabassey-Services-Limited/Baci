@@ -35,11 +35,10 @@ describe('runSupabaseHistoryReplay', () => {
       `supabase migration up --local --workdir ${fixture.workdir}`,
       `supabase status --workdir ${fixture.workdir} -o env`,
       'psql -X -w -v ON_ERROR_STOP=1 -At',
-      'psql -X -w -At -c SHOW server_version_num',
-      `psql -X -w -v ON_ERROR_STOP=1 -f ${fixture.workdir}/sql/126-00000000000126_migration.sql`,
-      `psql -X -w -v ON_ERROR_STOP=1 -f ${fixture.workdir}/sql/127-00000000000127_migration.sql`,
-      `psql -X -w -v ON_ERROR_STOP=1 -f ${fixture.root}/supabase/tests/one.sql`,
-      `psql -X -w -v ON_ERROR_STOP=1 -f ${fixture.root}/supabase/tests/two.sql`,
+      `psql -X -w -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f ${fixture.workdir}/sql/126-00000000000126_migration.sql`,
+      `psql -X -w -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f ${fixture.workdir}/sql/127-00000000000127_migration.sql`,
+      `psql -X -w -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f ${fixture.root}/supabase/tests/one.sql`,
+      `psql -X -w -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f ${fixture.root}/supabase/tests/two.sql`,
       'psql -X -w -At -c SHOW server_version_num',
       `supabase gen types typescript --db-url ${fixture.databaseUrl} --schema public`,
       'read ownership',
@@ -68,6 +67,64 @@ describe('runSupabaseHistoryReplay', () => {
     expect(fixture.writes[0]?.bytes).not.toContain(fixture.databaseUrl);
     expect(fixture.deps.output).toHaveBeenCalledTimes(2);
     expect(fixture.removed).toEqual([fixture.workdir]);
+  });
+
+  it('applies the verified current-tree suffix after effects and before checks and types', async () => {
+    const fixture = createSupabaseReplayRuntimeFixture();
+    const verified = await fixture.deps.verifyManifest(fixture.root, {
+      pendingRepairState: 'materialized',
+    });
+    fixture.deps.verifyManifest = vi.fn(async () => ({
+      ...verified,
+      manifest: {
+        ...verified.manifest,
+        pendingSources: [
+          {
+            repositoryPath: 'supabase/migrations/00000000000129_pending.sql',
+            sha256: '9'.repeat(64),
+          },
+        ],
+      },
+      postReplaySources: [
+        {
+          receiptId: 'post-replay:supabase/migrations/00000000000128_post.sql',
+          repositoryPath: 'supabase/migrations/00000000000128_post.sql',
+          sha256: '8'.repeat(64),
+        },
+      ],
+    }));
+    const stages: string[] = [];
+    const verifyEffects = fixture.deps.verifyEffects;
+    fixture.deps.verifyEffects = vi.fn(async (options) => {
+      stages.push('effects');
+      return verifyEffects(options);
+    });
+    const createCommand = fixture.deps.createCommand;
+    fixture.deps.createCommand = (root) => {
+      const run = createCommand(root);
+      return async (command, args, options) => {
+        const invocation = args.join(' ');
+        if (invocation.includes('00000000000128_post.sql')) stages.push('post');
+        if (invocation.includes('00000000000129_pending.sql'))
+          stages.push('pending');
+        if (invocation.includes('supabase/tests/current.sql'))
+          stages.push('check');
+        if (command === 'supabase' && args.includes('gen'))
+          stages.push('types');
+        return run(command, args, options);
+      };
+    };
+
+    await runSupabaseHistoryReplay(
+      {
+        ...fixture.replayOptions(),
+        sqlChecks: ['supabase/tests/current.sql'],
+        typesOutput: 'apps/web/src/types/supabase.ts',
+      },
+      fixture.deps
+    );
+
+    expect(stages).toEqual(['effects', 'post', 'pending', 'check', 'types']);
   });
 
   it('cleans up without applying replay SQL when migration-up fails', async () => {

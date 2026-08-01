@@ -1,17 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/env', () => ({
-  getMonnifyApiKey: vi.fn(),
-  getMonnifySecretKey: vi.fn(),
+vi.mock('@/lib/monnify-provider-config', () => ({
   getMonnifyBaseUrl: vi.fn(() => 'https://api.monnify.com'),
+  getMonnifyCredentials: vi.fn(),
 }));
 
 vi.mock('@/ai/provider', () => ({
   withRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
 }));
 
-import { getMonnifyApiKey, getMonnifySecretKey } from '@/env';
 import * as MonnifyModule from '@/lib/monnify';
+import { getMonnifyCredentials } from '@/lib/monnify-provider-config';
 
 const { getMonnifyToken } = MonnifyModule;
 
@@ -37,8 +36,10 @@ describe('getMonnifyToken', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     MonnifyModule.clearMonnifyTokenCache();
-    vi.mocked(getMonnifyApiKey).mockReturnValue('test-api-key');
-    vi.mocked(getMonnifySecretKey).mockReturnValue('test-secret-key');
+    vi.mocked(getMonnifyCredentials).mockReturnValue({
+      apiKey: 'test-api-key',
+      secretKey: 'test-secret-key',
+    });
   });
 
   afterEach(() => {
@@ -47,7 +48,10 @@ describe('getMonnifyToken', () => {
   });
 
   it('throws when MONNIFY_API_KEY is not configured', async () => {
-    vi.mocked(getMonnifyApiKey).mockReturnValue(undefined);
+    vi.mocked(getMonnifyCredentials).mockReturnValue({
+      apiKey: undefined,
+      secretKey: 'test-secret-key',
+    });
 
     await expect(getMonnifyToken()).rejects.toThrow(
       'Monnify credentials not configured'
@@ -55,7 +59,10 @@ describe('getMonnifyToken', () => {
   });
 
   it('throws when MONNIFY_SECRET_KEY is not configured', async () => {
-    vi.mocked(getMonnifySecretKey).mockReturnValue(undefined);
+    vi.mocked(getMonnifyCredentials).mockReturnValue({
+      apiKey: 'test-api-key',
+      secretKey: undefined,
+    });
 
     await expect(getMonnifyToken()).rejects.toThrow(
       'Monnify credentials not configured'

@@ -8,10 +8,6 @@ import { createClient } from '@/lib/supabase/client';
 import { defaultStaffAccess } from './constants';
 import { fetchDashboardMerchantViaApi } from './fetch-dashboard-merchant-via-api';
 import { MerchantContext } from './merchant-context';
-import {
-  assertNoIdentityFields,
-  pickGenericWritable,
-} from './merchant-writable-fields';
 import { getDemoMerchant } from './mock-data';
 import { fetchMerchantBySlug, fetchPrimaryDomain } from './queries';
 import type {
@@ -20,9 +16,9 @@ import type {
   MerchantProviderProps,
   StaffAccess,
 } from './types';
+import { createMerchantUpdate } from './update-merchant-data';
 
 type SupabaseClient = ReturnType<typeof createClient>;
-
 interface LoadBySlugArgs {
   supabase: SupabaseClient;
   slug: string;
@@ -31,8 +27,7 @@ interface LoadBySlugArgs {
   setLoading: (loading: boolean) => void;
 }
 
-// Module-scope helper owns the try/catch/finally so the provider body stays
-// lowerable by the React Compiler (try/finally bails out the whole component).
+// Module scope keeps try/finally out of the React Compiler-lowered provider.
 async function loadMerchantBySlug({
   supabase,
   slug,
@@ -107,9 +102,7 @@ export const MerchantProvider = ({
   const user = auth?.user ?? null;
   const authLoading = auth?.loading ?? false;
 
-  // Resolve a demo merchant synchronously from the slug (no DB call). Used for
-  // both the initial state and prop-change sync so the data is ready on the
-  // first commit instead of routing a synchronous setState through an effect.
+  // Resolve demo merchants synchronously so data is ready on the first commit.
   const initialDemoMerchant =
     !initialMerchant && slug ? getDemoMerchant(slug) : null;
 
@@ -272,74 +265,14 @@ export const MerchantProvider = ({
     }
   };
 
-  const updateMerchant = async (
-    data: Partial<MerchantData>,
-    options?: { skipReload?: boolean }
-  ) => {
-    if (!user) {
-      const errorMsg = 'Cannot update merchant data, no user logged in.';
-      logger.error({ message: errorMsg });
-      throw new Error(errorMsg);
-    }
-
-    if (
-      staffAccess.isStaff &&
-      !permissionGrantsAccess(staffAccess.permissions, 'settings', 'edit')
-    ) {
-      const errorMsg = "You don't have permission to update store settings.";
-      logger.error({ message: errorMsg });
-      throw new Error(errorMsg);
-    }
-
-    // PR-D / V1: fail-closed deny-list — identity/contact/legal fields must NOT
-    // be written through this generic sink (they drifted to placeholders when an
-    // unfiltered payload from any caller landed a stale identity key in the DB).
-    // They go through the dedicated /api/merchant/settings PATCH route instead.
-    assertNoIdentityFields(data);
-
-    // Allowlist: drop everything not explicitly generic-writable so no unknown
-    // key can ever reach the DB through this path.
-    const writableData = pickGenericWritable(data);
-    if (Object.keys(writableData).length === 0) {
-      logger.info({
-        message: 'Merchant update skipped: no generic-writable fields present.',
-      });
-      return;
-    }
-
-    logger.info({
-      message: 'Updating merchant data in Supabase...',
-      data: writableData,
-    });
-
-    const query = staffAccess.isOwner
-      ? supabaseRef.current
-          .from('merchants')
-          .update(writableData)
-          .eq('user_id', user.id)
-      : supabaseRef.current
-          .from('merchants')
-          .update(writableData)
-          .eq('id', merchant?.id);
-
-    const { error } = await query;
-
-    if (error) {
-      logger.error({
-        message: 'Failed to update merchant data',
-        error: error as Error,
-      });
-      throw error;
-    }
-
-    if (options?.skipReload) {
-      setMerchant((prev) => (prev ? { ...prev, ...writableData } : prev));
-      logger.info({ message: 'Merchant data updated optimistically.' });
-    } else {
-      logger.info({ message: 'Merchant data updated, reloading.' });
-      reloadMerchant();
-    }
-  };
+  const updateMerchant = createMerchantUpdate({
+    supabase: supabaseRef.current,
+    userId: user?.id ?? null,
+    staffAccess,
+    activeMerchantId: merchant?.id,
+    setMerchant,
+    reloadMerchant,
+  });
 
   const hasPermission = (resource: string, action: string): boolean => {
     if (staffAccess.isOwner) return true;

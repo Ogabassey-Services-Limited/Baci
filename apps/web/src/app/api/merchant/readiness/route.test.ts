@@ -1,439 +1,283 @@
+import type { StoreReadiness } from '@baci/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  createAdminClient: vi.fn(),
-  createClient: vi.fn(),
+  authenticateApiRequest: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
-}));
-
-vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({}),
+  loadStoreReadiness: vi.fn(),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: mocks.authenticateApiRequest,
   hasPermission: mocks.hasPermission,
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: mocks.getMerchantForApiRequest,
-  toUserAccess: vi.fn((context) => context.staffAccess),
+  toUserAccess: (context: { merchantId: string; staffAccess: unknown }) => ({
+    merchantId: context.merchantId,
+    ...(context.staffAccess as object),
+  }),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: mocks.createAdminClient,
+vi.mock('@/lib/store-readiness/load-store-readiness', () => ({
+  loadStoreReadiness: mocks.loadStoreReadiness,
 }));
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: mocks.createClient,
-}));
+const merchantContext = {
+  merchantId: '11111111-1111-4111-8111-111111111111',
+  staffAccess: {
+    isOwner: true,
+    isStaff: false,
+    permissions: { full_access: { all: true } },
+    role: 'owner',
+  },
+};
 
-function merchantRow() {
-  return {
-    id: 'merchant-1',
-    bank_account_number: '0001112223',
-    bank_code: '044',
-    business_address: '12 Allen Avenue',
-    business_name: 'Bassey Phones',
-    country: 'NG',
-    email: 'owner@example.com',
-    facebook_pixel_id: null,
-    google_analytics_id: null,
-    hero_slides: [],
-    is_published: false,
-    logo_url: 'https://cdn.example/logo.png',
-    pages: { about: 'About us', privacy: 'Privacy', terms: 'Terms' },
-    phone: null,
-    paystack_subaccount_code: 'ACCT_6uujpqtzmnufzkw',
-    snapchat_pixel_id: null,
-    social_media: {},
-    support_email: 'support@example.com',
-    support_phone: null,
-    tiktok_pixel_id: null,
-    twitter_pixel_id: null,
-  };
-}
-
-function queryResult(data: unknown, error: unknown = null, count?: number) {
-  return {
-    data,
-    error,
-    count,
-  };
-}
-
-function chain(result: unknown) {
-  return {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue(result),
-  };
-}
-
-function countChain(result: unknown) {
-  const query = Promise.resolve(result) as Promise<unknown> & {
-    eq: ReturnType<typeof vi.fn>;
-    select: ReturnType<typeof vi.fn>;
-  };
-  query.select = vi.fn(() => query);
-  query.eq = vi.fn(() => query);
-  return query;
-}
-
-// The owned-merchant read and the staff_members -> merchants join now select
-// only non-secret columns and run on the authenticated client. Paystack
-// configured-ness is read separately via the derived boolean RPC. The per-test
-// merchant option is shared here so both the authenticated merchants mock and
-// the rpc mock resolve the same fixture.
-let currentMerchantMock: unknown;
-
-function createReadinessSupabaseMock(options?: {
-  featureSettingsError?: unknown;
-  featureSettings?: unknown;
-  homePageConfig?: unknown;
-  latestJob?: unknown;
-  latestJobError?: unknown;
-  merchant?: unknown;
-  productCount?: number;
-  user?: { id: string } | null;
-}) {
-  currentMerchantMock = options?.merchant ?? merchantRow();
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({
-        data: {
-          user: options?.user === undefined ? { id: 'user-1' } : options.user,
-        },
-      }),
+const readiness: StoreReadiness = {
+  completedRecommended: 0,
+  completedRequired: 1,
+  isPublished: false,
+  isReady: true,
+  items: [
+    {
+      category: 'store',
+      completed: true,
+      description: 'Choose a unique address for your store.',
+      id: 'store_url',
+      label: 'Set your store URL',
+      priority: 'required',
     },
-    from: vi.fn((table: string) => {
-      // Non-secret merchant columns are read on the authenticated client, so the
-      // owned-merchant read and the staff_members -> merchants join are served
-      // here. The revoked paystack_subaccount_code is NOT selected; only its
-      // configured-ness is read, via the rpc mock below.
-      if (table === 'merchants') {
-        return chain(queryResult(currentMerchantMock ?? merchantRow()));
-      }
+  ],
+  merchantId: merchantContext.merchantId,
+  overallProgress: 100,
+  storeBuild: {
+    aiStatus: 'not_started',
+    canApplyAiDraft: false,
+    latestJobId: null,
+    message: 'Starter store is ready.',
+    starterStoreReady: true,
+  },
+  surface: 'web',
+  totalRecommended: 0,
+  totalRequired: 1,
+};
 
-      if (table === 'staff_members') {
-        return chain(queryResult(null));
-      }
-
-      if (table === 'products') {
-        return countChain({
-          count: options?.productCount ?? 1,
-          data: null,
-          error: null,
-        });
-      }
-
-      if (table === 'ai_jobs') {
-        return chain(
-          queryResult(
-            options?.latestJob ?? null,
-            options?.latestJobError ?? null
-          )
-        );
-      }
-
-      if (table === 'page_configs') {
-        return chain(queryResult(options?.homePageConfig ?? { id: 'page-1' }));
-      }
-
-      if (table === 'merchant_feature_settings') {
-        return chain(
-          queryResult(
-            options?.featureSettings ?? {
-              korapay_enabled: true,
-              pay_on_delivery_enabled: false,
-              paystack_enabled: true,
-            },
-            options?.featureSettingsError ?? null
-          )
-        );
-      }
-
-      throw new Error(`Unexpected table ${table}`);
-    }),
-    // The revoked paystack_subaccount_code is never selected; readiness reads
-    // only the derived configured-ness boolean via this owner/staff-scoped RPC.
-    rpc: vi.fn((fn: string) => {
-      if (fn === 'get_merchant_paystack_subaccount_configured') {
-        const code = (
-          currentMerchantMock as
-            | { paystack_subaccount_code?: string | null }
-            | undefined
-        )?.paystack_subaccount_code;
-        return Promise.resolve({ data: Boolean(code?.trim()), error: null });
-      }
-      throw new Error(`Unexpected rpc ${fn}`);
-    }),
-  };
+function request(path = '') {
+  return new NextRequest(`https://usebaci.com/api/merchant/readiness${path}`);
 }
 
-function createAdminSupabaseMock() {
-  return {
-    from: vi.fn((table: string) => {
-      // The admin client is retained ONLY for the merchant_verifications KYC
-      // read (getVerificationFlags). The merchant row is now read on the
-      // authenticated client; its secret paystack_subaccount_code comes from
-      // the bounded RPC helper.
-      if (table === 'merchant_verifications') {
-        return chain(
-          queryResult({
-            bvn_verified: true,
-            cac_verified: false,
-            nin_verified: false,
-          })
-        );
-      }
-
-      throw new Error(`Unexpected admin table ${table}`);
-    }),
-  };
+function bearerRequest(path = '') {
+  return new NextRequest(`https://usebaci.com/api/merchant/readiness${path}`, {
+    headers: { Authorization: 'Bearer mobile-session-token' },
+  });
 }
 
 describe('GET /api/merchant/readiness', () => {
+  const scopedClient = { scope: 'caller' } as unknown as SupabaseClient;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    currentMerchantMock = undefined;
-    mocks.hasPermission.mockImplementation(
-      (_access: unknown, _resource: string, action: string) => action !== 'edit'
-    );
-    mocks.getMerchantForApiRequest.mockResolvedValue({
-      merchantId: 'merchant-1',
-      staffAccess: {
-        isOwner: true,
-        isStaff: false,
-        permissions: { full_access: { all: true } },
-        role: null,
-      },
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: scopedClient,
+      user: { id: 'user-1' },
     });
-    mocks.createAdminClient.mockReturnValue(createAdminSupabaseMock());
+    mocks.getMerchantForApiRequest.mockResolvedValue(merchantContext);
+    mocks.hasPermission.mockReturnValue(true);
+    mocks.loadStoreReadiness.mockResolvedValue(readiness);
   });
 
-  it('returns 401 when no web session exists', async () => {
-    mocks.createClient.mockReturnValue(
-      createReadinessSupabaseMock({ user: null })
-    );
-
+  it('returns 401 before merchant lookup when bearer or cookie auth fails', async () => {
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: 'Not authenticated',
+      supabase: null,
+      user: null,
+    });
     const { GET } = await import('./route');
-    const response = await GET();
+
+    const response = await GET(bearerRequest('?merchantId=not-a-uuid'));
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.loadStoreReadiness).not.toHaveBeenCalled();
   });
 
-  it('returns 404 when merchant context is missing', async () => {
-    mocks.createClient.mockReturnValue(createReadinessSupabaseMock());
-    mocks.getMerchantForApiRequest.mockResolvedValue(null);
-
+  it('returns 401 when authentication reports an error despite a populated client and user', async () => {
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: 'Expired session',
+      supabase: scopedClient,
+      user: { id: 'user-1' },
+    });
     const { GET } = await import('./route');
-    const response = await GET();
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.loadStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('passes the bearer-scoped client to merchant resolution and the loader', async () => {
+    const { GET } = await import('./route');
+    const input = bearerRequest('?surface=mobile');
+
+    await GET(input);
+
+    expect(mocks.authenticateApiRequest).toHaveBeenCalledWith(input);
+    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+      scopedClient,
+      'user-1',
+      { requestedMerchantId: undefined }
+    );
+    expect(mocks.loadStoreReadiness).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: merchantContext.merchantId,
+        surface: 'mobile',
+        supabase: scopedClient,
+      })
+    );
+  });
+
+  it('returns 400 for an invalid merchantId only after authentication succeeds', async () => {
+    const { GET } = await import('./route');
+
+    const response = await GET(request('?merchantId=not-a-uuid'));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'INVALID_READINESS_QUERY',
+      error: 'Invalid readiness query',
+    });
+    expect(mocks.authenticateApiRequest).toHaveBeenCalledTimes(1);
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for an invalid readiness surface', async () => {
+    const { GET } = await import('./route');
+
+    const response = await GET(request('?surface=desktop'));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'INVALID_READINESS_QUERY',
+      error: 'Invalid readiness query',
+    });
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('defaults cookie/web requests without a surface to web', async () => {
+    const { GET } = await import('./route');
+
+    await GET(request());
+
+    expect(mocks.loadStoreReadiness).toHaveBeenCalledWith(
+      expect.objectContaining({ surface: 'web' })
+    );
+  });
+
+  it('passes a valid requested merchantId to getMerchantForApiRequest', async () => {
+    const { GET } = await import('./route');
+    const requestedMerchantId = '22222222-2222-4222-8222-222222222222';
+
+    await GET(request(`?merchantId=${requestedMerchantId}`));
+
+    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+      scopedClient,
+      'user-1',
+      { requestedMerchantId }
+    );
+  });
+
+  it('returns 404 when the authenticated caller cannot access the requested merchant', async () => {
+    mocks.getMerchantForApiRequest.mockResolvedValue(null);
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      bearerRequest('?merchantId=22222222-2222-4222-8222-222222222222')
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: 'Merchant not found' });
+    expect(mocks.loadStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('supports a cookie-authenticated web request through the same helper', async () => {
+    const { GET } = await import('./route');
+    const input = request();
+
+    const response = await GET(input);
+
+    expect(response.status).toBe(200);
+    expect(mocks.authenticateApiRequest).toHaveBeenCalledWith(input);
+    expect(await response.json()).toEqual(readiness);
+  });
+
+  it('returns 404 when no merchant context exists', async () => {
+    mocks.getMerchantForApiRequest.mockResolvedValue(null);
+    const { GET } = await import('./route');
+
+    const response = await GET(request());
 
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: 'Merchant not found' });
   });
 
-  it('reads the merchant row on the authenticated client and Paystack configured-ness via the derived boolean RPC', async () => {
-    mocks.hasPermission.mockReturnValue(true);
-    const authClient = createReadinessSupabaseMock({});
-    mocks.createClient.mockReturnValue(authClient);
-
+  it('returns 403 without dashboard.view', async () => {
+    mocks.hasPermission.mockReturnValue(false);
     const { GET } = await import('./route');
-    const response = await GET();
 
-    expect(response.status).toBe(200);
-    // Non-secret merchant columns run on the authenticated client...
-    expect(authClient.from).toHaveBeenCalledWith('merchants');
-    // ...and only the derived configured-ness boolean is read — never the raw
-    // secret — keyed to the resolved merchant id.
-    expect(authClient.rpc).toHaveBeenCalledWith(
-      'get_merchant_paystack_subaccount_configured',
-      { p_merchant_id: 'merchant-1' }
-    );
+    const response = await GET(request());
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: 'Forbidden' });
+    expect(mocks.loadStoreReadiness).not.toHaveBeenCalled();
   });
 
-  it('reports Paystack as configured for dashboard.view-only staff (accountant/sales_rep) instead of falsely showing not-ready', async () => {
-    // Regression for the post-#3173 Codex finding: gating the raw-code RPC on
-    // settings/integrations permissions made readiness report a configured
-    // Paystack subaccount as missing for default roles that only hold
-    // dashboard.view. The derived boolean RPC is owner/any-active-staff scoped,
-    // so those roles keep an accurate checklist.
-    mocks.hasPermission.mockImplementation(
-      (_access: unknown, resource: string, action: string) =>
-        resource === 'dashboard' && action === 'view'
-    );
-    mocks.getMerchantForApiRequest.mockResolvedValue({
-      merchantId: 'merchant-1',
-      staffAccess: {
-        isOwner: false,
-        isStaff: true,
-        permissions: { dashboard: { view: true } },
-        role: 'sales_rep',
-      },
-    });
-    const authClient = createReadinessSupabaseMock({
-      featureSettings: {
-        korapay_enabled: false,
-        pay_on_delivery_enabled: false,
-        paystack_enabled: true,
-      },
-    });
-    mocks.createClient.mockReturnValue(authClient);
-
+  it('returns the platform-neutral readiness DTO on success', async () => {
     const { GET } = await import('./route');
-    const response = await GET();
+
+    const response = await GET(request());
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(authClient.rpc).toHaveBeenCalledWith(
-      'get_merchant_paystack_subaccount_configured',
-      { p_merchant_id: 'merchant-1' }
-    );
-    // The fixture's subaccount is configured; the NG launch-payment item must
-    // reflect that even though this staff role could not read the raw code —
-    // pre-fix, the permission-gated raw-code RPC returned NULL here and this
-    // item regressed to completed: false.
-    expect(body.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'bank_account', completed: true }),
-      ])
-    );
+    expect(body).toEqual(readiness);
+    expect(JSON.stringify(body)).not.toContain('href');
   });
 
-  it('returns starter readiness with store build status', async () => {
-    mocks.hasPermission.mockReturnValue(true);
-    mocks.createClient.mockReturnValue(
-      createReadinessSupabaseMock({
-        latestJob: {
-          id: 'job-1',
-          status: 'completed',
-          error: null,
-          result_applied_at: null,
-          created_at: '2026-04-28T10:00:00.000Z',
-        },
-      })
+  it('returns a stable 500 code when readiness loading fails', async () => {
+    mocks.loadStoreReadiness.mockRejectedValue(
+      new Error('database unavailable')
     );
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.storeBuild).toEqual(
-      expect.objectContaining({
-        aiStatus: 'ready',
-        canApplyAiDraft: true,
-        latestJobId: 'job-1',
-        starterStoreReady: true,
-      })
-    );
-    expect(body.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'first_product', completed: true }),
-      ])
-    );
-  });
-
-  it('marks India Pay on Delivery as the completed launch payment method without Paystack bank details', async () => {
-    mocks.createClient.mockReturnValue(
-      createReadinessSupabaseMock({
-        merchant: {
-          ...merchantRow(),
-          country: 'IN',
-          bank_account_number: null,
-          bank_code: null,
-          paystack_subaccount_code: null,
-        },
-        featureSettings: {
-          korapay_enabled: false,
-          pay_on_delivery_enabled: true,
-          paystack_enabled: false,
-        },
-      })
-    );
-
-    const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: 'payment_method',
-          completed: true,
-          label: 'Enable a payment method',
-        }),
-      ])
-    );
-    expect(body.isReady).toBe(true);
-  });
-
-  it('marks contact info complete when only the onboarding account email exists', async () => {
-    mocks.createClient.mockReturnValue(
-      createReadinessSupabaseMock({
-        merchant: {
-          ...merchantRow(),
-          support_email: null,
-          support_phone: null,
-          email: 'owner@example.com',
-          phone: null,
-        },
-      })
-    );
-
-    const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'contact_info', completed: true }),
-      ])
-    );
-  });
-
-  it('returns 500 when storefront job status cannot be loaded', async () => {
-    mocks.createClient.mockReturnValue(
-      createReadinessSupabaseMock({
-        latestJobError: { message: 'query failed' },
-      })
-    );
-    vi.spyOn(console, 'error').mockImplementation(() => {
-      // Silence expected route error.
-    });
-
-    const { GET } = await import('./route');
-    const response = await GET();
+    const response = await GET(request());
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
-      error: 'Failed to load storefront build status',
-      code: 'STOREFRONT_JOB_LOAD_FAILED',
+      code: 'READINESS_LOAD_FAILED',
+      error: 'Failed to load store readiness',
     });
   });
 
-  it('returns 500 when payment settings cannot be loaded', async () => {
-    mocks.createClient.mockReturnValue(
-      createReadinessSupabaseMock({
-        featureSettings: null,
-        featureSettingsError: { message: 'query failed' },
-      })
+  it('returns the stable 500 contract when merchant resolution fails', async () => {
+    mocks.getMerchantForApiRequest.mockRejectedValue(
+      new Error('merchant lookup unavailable')
     );
-
     const { GET } = await import('./route');
-    const response = await GET();
+
+    const response = await GET(request());
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
-      error: 'Failed to load payment settings',
-      code: 'PAYMENT_SETTINGS_LOAD_FAILED',
+      code: 'READINESS_LOAD_FAILED',
+      error: 'Failed to load store readiness',
     });
+    expect(mocks.loadStoreReadiness).not.toHaveBeenCalled();
   });
 });

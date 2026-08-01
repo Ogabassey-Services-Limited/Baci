@@ -1,9 +1,7 @@
-// Expected PENDING replay sources, extracted from the manifest test (Codex #3171)
-// so the binding test stays under the 300-line modularity gate. Independently
-// hand-verified against supabase-history-replay-sources.ts PENDING_SOURCES.
 import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
 import { PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES } from './expected-pending-payment-ingress-sources.test-support';
-
+import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
+import { RECENT_PENDING_SOURCES } from './recent-pending-sources.test-fixture';
 export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
@@ -280,6 +278,22 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260728091958_provision_mobile_merchant_v2.sql',
     sha256: '9e4df9812810ef2c7e0659a238390d6c97222b2891454ba00740ddbff6cc6104',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260729100000_add_merchant_identity_verified_rpc.sql',
+    sha256: '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260729195913_guard_merchant_identity_updates.sql',
+    sha256: '12c758bd0bfd54643076b0d5e4c2b48092808493b2c0fb7caed9c16eb35db185',
+  },
+  ...EXPECTED_PENDING_TAIL_SOURCES.identity,
+  ...RECENT_PENDING_SOURCES.slice(0, 1),
   ...AUDIT_PENDING_SOURCES,
-  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES,
+  ...RECENT_PENDING_SOURCES.slice(1, 6),
+  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(0, 2),
+  ...EXPECTED_PENDING_TAIL_SOURCES.paymentIngressFoundation,
+  ...RECENT_PENDING_SOURCES.slice(6),
+  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3),
 ];

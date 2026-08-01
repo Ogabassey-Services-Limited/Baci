@@ -4,39 +4,45 @@ import { createElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStorePublish } from './useStorePublish';
 
-const { mockApiClient, TestNetworkError } = vi.hoisted(() => {
-  class TestNetworkError extends Error {
-    public readonly isTimeout: boolean;
-    public readonly isOffline: boolean;
-    public readonly statusCode?: number;
-    public readonly data?: unknown;
+const { mockApiClient, mockInvalidateStoreReadiness, TestNetworkError } =
+  vi.hoisted(() => {
+    class TestNetworkError extends Error {
+      public readonly isTimeout: boolean;
+      public readonly isOffline: boolean;
+      public readonly statusCode?: number;
+      public readonly data?: unknown;
 
-    constructor(
-      message: string,
-      options: {
-        isTimeout?: boolean;
-        isOffline?: boolean;
-        statusCode?: number;
-        data?: unknown;
-      } = {}
-    ) {
-      super(message);
-      this.name = 'NetworkError';
-      this.isTimeout = options.isTimeout ?? false;
-      this.isOffline = options.isOffline ?? false;
-      this.statusCode = options.statusCode;
-      this.data = options.data;
+      constructor(
+        message: string,
+        options: {
+          isTimeout?: boolean;
+          isOffline?: boolean;
+          statusCode?: number;
+          data?: unknown;
+        } = {}
+      ) {
+        super(message);
+        this.name = 'NetworkError';
+        this.isTimeout = options.isTimeout ?? false;
+        this.isOffline = options.isOffline ?? false;
+        this.statusCode = options.statusCode;
+        this.data = options.data;
+      }
     }
-  }
-  return {
-    mockApiClient: vi.fn(),
-    TestNetworkError,
-  };
-});
+    return {
+      mockApiClient: vi.fn(),
+      mockInvalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+      TestNetworkError,
+    };
+  });
 
 vi.mock('@/lib/api-client', () => ({
   NetworkError: TestNetworkError,
   apiClient: (...args: unknown[]) => mockApiClient(...args),
+}));
+
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mockInvalidateStoreReadiness,
 }));
 
 function createWrapper() {
@@ -61,9 +67,10 @@ function createWrapper() {
 describe('useStorePublish', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockInvalidateStoreReadiness.mockResolvedValue(undefined);
   });
 
-  it('publishes via the web API and invalidates merchant readiness data', async () => {
+  it('publishes the captured merchant and invalidates that merchant readiness data', async () => {
     const { queryClient, Wrapper } = createWrapper();
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     const onPublished = vi.fn().mockResolvedValue(undefined);
@@ -85,11 +92,13 @@ describe('useStorePublish', () => {
 
     expect(mockApiClient).toHaveBeenCalledWith('/api/merchant/publish', {
       method: 'POST',
+      body: JSON.stringify({ merchantId: 'merchant-1' }),
     });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['store-readiness'],
-    });
+    expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
+      queryClient,
+      'merchant-1'
+    );
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['merchant-payout'],
     });
@@ -120,6 +129,61 @@ describe('useStorePublish', () => {
     );
     expect(mockApiClient).not.toHaveBeenCalled();
     expect(result.current.isPublishing).toBe(false);
+  });
+
+  it('starts every post-publish refresh together and waits before completing', async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const releases: Array<() => void> = [];
+    const deferred = () =>
+      new Promise<void>((resolve) => releases.push(resolve));
+    vi.spyOn(queryClient, 'invalidateQueries').mockImplementation(deferred);
+    mockInvalidateStoreReadiness.mockImplementation(deferred);
+    mockApiClient.mockResolvedValueOnce({ success: true });
+    const { result } = renderHook(
+      () => useStorePublish({ merchantId: 'merchant-1' }),
+      { wrapper: Wrapper }
+    );
+
+    let completed = false;
+    let publish!: Promise<void>;
+    act(() => {
+      publish = result.current.publishStore().then(() => {
+        completed = true;
+      });
+    });
+    await vi.waitFor(() => expect(releases).toHaveLength(3));
+    expect(completed).toBe(false);
+    await act(async () => {
+      for (const release of releases) release();
+      await publish;
+    });
+    expect(completed).toBe(true);
+  });
+
+  it('preserves publish success when only readiness invalidation fails', async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const onPublished = vi.fn().mockResolvedValue(undefined);
+    mockApiClient.mockResolvedValueOnce({ success: true });
+    mockInvalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+    const { result } = renderHook(
+      () => useStorePublish({ merchantId: 'merchant-1', onPublished }),
+      { wrapper: Wrapper }
+    );
+
+    await act(async () => {
+      await expect(result.current.publishStore()).resolves.toEqual({
+        status: 'published',
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant-payout'],
+    });
+    expect(onPublished).toHaveBeenCalledTimes(1);
   });
 
   it('surfaces validation errors with missingItems when apiClient throws NetworkError', async () => {

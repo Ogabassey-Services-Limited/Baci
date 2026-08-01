@@ -1,13 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addPendingMerchant,
+  buildReadinessUrl,
   getFallbackProgress,
   getStatusAccent,
   getStatusLabel,
   isApplyResponsePayload,
   readApplyResponse,
+  removePendingMerchant,
 } from './store-build-status-card-helpers';
 
 describe('store build status card helpers', () => {
+  it('encodes merchant IDs in readiness URLs', () => {
+    expect(buildReadinessUrl('merchant/with space')).toBe(
+      '/api/merchant/readiness?merchantId=merchant%2Fwith+space'
+    );
+  });
+
+  it('tracks each pending merchant independently', () => {
+    const merchantA = addPendingMerchant(new Set(), 'merchant-a');
+    const both = addPendingMerchant(merchantA, 'merchant-b');
+
+    expect([...both]).toEqual(['merchant-a', 'merchant-b']);
+    expect([...removePendingMerchant(both, 'merchant-a')]).toEqual([
+      'merchant-b',
+    ]);
+  });
+
   it.each([
     ['not_started', 20],
     ['pending', 45],

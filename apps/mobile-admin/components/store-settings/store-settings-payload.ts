@@ -32,7 +32,10 @@ export function hasNonEmptyTrimmedValue(
  * (null) value baselines to an empty string, never a UI fallback. Otherwise a
  * merchant with `country = null` would baseline to the visible default (e.g.
  * `NG`); saving that visible default would produce an empty diff and the column
- * would never be written, leaving readiness incomplete.
+ * would never be written, leaving readiness incomplete. The sole exception is
+ * support email: its editable display prefill is the auth email when no public
+ * support email exists, so the baseline matches that display value until the
+ * merchant changes it.
  */
 export function buildBaselineFromMerchant(
   merchant: Merchant
@@ -41,9 +44,7 @@ export function buildBaselineFromMerchant(
     business_name: merchant.business_name || '',
     phone: merchant.phone || '',
     support_phone: merchant.support_phone || '',
-    // `email` (the auth email) is shown in the form but is not an editable
-    // column; the persisted baseline tracks the real `support_email` column.
-    support_email: merchant.support_email || '',
+    support_email: merchant.support_email || merchant.email || '',
     business_address: merchant.business_address || '',
     country: merchant.country || '',
     payout_currency: merchant.payout_currency || '',
@@ -83,7 +84,7 @@ export function buildInitialFormValues(
     businessName: merchant.business_name || '',
     phone: merchant.phone || '',
     supportPhone: merchant.support_phone || '',
-    email: merchant.support_email || '',
+    email: merchant.support_email || merchant.email || '',
     address: merchant.business_address || '',
     country,
     currency:
@@ -137,4 +138,34 @@ export function buildMerchantUpdatePayload(
   }
 
   return payload;
+}
+
+/**
+ * Applies an accepted settings receipt to the local diff baseline.
+ *
+ * The receipt contains the persisted support email, which remains blank when
+ * the user saves another field without touching the auth-email display prefill.
+ * Keep that unchanged prefill in the comparison baseline so the next unrelated
+ * save does not convert it into a support-email write.
+ */
+export function rebaseStoreSettingsBaseline({
+  authEmailPrefill,
+  baseline,
+  displayedSupportEmail,
+  savedValues,
+}: {
+  authEmailPrefill: string;
+  baseline: StoreSettingsFormValues;
+  displayedSupportEmail: string;
+  savedValues: StoreSettingsFormValues;
+}): StoreSettingsFormValues {
+  return {
+    ...baseline,
+    ...savedValues,
+    support_email:
+      savedValues.support_email ||
+      (authEmailPrefill && displayedSupportEmail === authEmailPrefill
+        ? authEmailPrefill
+        : ''),
+  };
 }

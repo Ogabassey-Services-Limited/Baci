@@ -76,6 +76,33 @@ describe('IndexNow helpers', () => {
     );
   });
 
+  it('honors explicit IndexNow key and endpoint overrides', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(''),
+    });
+
+    const result = await submitIndexNowUrls({
+      endpoint: 'https://indexnow.example/submit',
+      fetchImpl: fetchMock,
+      host: 'ogabassey.com',
+      key: 'merchant-key',
+      urls: ['https://ogabassey.com/blog/infinix-hot-70'],
+    });
+
+    expect(result).toMatchObject({
+      endpoint: 'https://indexnow.example/submit',
+      status: 'submitted',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://indexnow.example/submit',
+      expect.objectContaining({
+        body: expect.stringContaining('merchant-key'),
+      })
+    );
+  });
+
   it('skips submission when the IndexNow key is missing', async () => {
     const fetchMock = vi.fn();
 

@@ -6,8 +6,17 @@ type QueryConfig = {
   queryFn: () => Promise<unknown>;
 };
 
-type MutationVariables = { field: string; value: boolean };
-type MutationContext = { previousSettings?: unknown };
+type MutationVariables = {
+  field: string;
+  merchantId: string;
+  settingsId: string;
+  value: boolean;
+};
+
+type MutationContext = {
+  merchantId?: string;
+  previousSettings?: unknown;
+};
 
 type MutationConfig = {
   mutationFn: (variables: MutationVariables) => Promise<void>;
@@ -19,7 +28,17 @@ type MutationConfig = {
     variables: unknown,
     context?: MutationContext
   ) => void;
-  onSettled?: () => void;
+  onSuccess?: (
+    data: unknown,
+    variables: unknown,
+    context?: MutationContext
+  ) => Promise<void>;
+  onSettled?: (
+    data: unknown,
+    error: Error | null,
+    variables: unknown,
+    context?: MutationContext
+  ) => Promise<void> | void;
 };
 
 interface MockUseMerchantResult {
@@ -32,7 +51,12 @@ const hoistedMocks = vi.hoisted(() => ({
   alert: vi.fn(),
   eq: vi.fn(),
   from: vi.fn(),
+  getQueryData: vi.fn(),
   invalidateQueries: vi.fn(),
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+  isPending: false,
+  mutate: vi.fn(),
+  mutationConfig: undefined as MutationConfig | undefined,
   openURL: vi.fn(),
   refetch: vi.fn(),
   select: vi.fn(),
@@ -60,26 +84,36 @@ vi.mock('expo-router', async () => {
 
 vi.mock('@tanstack/react-query', () => ({
   useMutation: (config: MutationConfig) => {
+    mocks.mutationConfig = config;
+    mocks.mutate.mockImplementation((variables: MutationVariables) => {
+      void (async () => {
+        const context = await config.onMutate?.(variables);
+        let mutationError: Error | null = null;
+        try {
+          await config.mutationFn(variables);
+          await config.onSuccess?.(undefined, variables, context);
+        } catch (error) {
+          mutationError = error as Error;
+          config.onError?.(mutationError, variables, context);
+        } finally {
+          await config.onSettled?.(
+            undefined,
+            mutationError,
+            variables,
+            context
+          );
+        }
+      })();
+    });
     return {
-      isPending: false,
-      mutate: (variables: MutationVariables) => {
-        void (async () => {
-          const context = await config.onMutate?.(variables);
-          try {
-            await config.mutationFn(variables);
-          } catch (error) {
-            config.onError?.(error as Error, variables, context);
-          } finally {
-            config.onSettled?.();
-          }
-        })();
-      },
+      isPending: mocks.isPending,
+      mutate: mocks.mutate,
     };
   },
   useQuery: (config: QueryConfig) => mocks.useQuery(config),
   useQueryClient: () => ({
     cancelQueries: vi.fn(),
-    getQueryData: vi.fn(() => paymentSettings),
+    getQueryData: mocks.getQueryData,
     invalidateQueries: mocks.invalidateQueries,
     setQueryData: mocks.setQueryData,
   }),
@@ -109,6 +143,10 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => mocks.useMerchantResult,
+}));
+
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mocks.invalidateStoreReadiness,
 }));
 
 vi.mock('@/components/ui/ScreenSkeleton', async () => {
@@ -209,7 +247,14 @@ export function resetPaymentMethodsScreenMocks() {
   mocks.alert.mockReset();
   mocks.eq.mockReset();
   mocks.from.mockReset();
+  mocks.getQueryData.mockReset();
+  mocks.getQueryData.mockReturnValue(paymentSettings);
   mocks.invalidateQueries.mockReset();
+  mocks.invalidateStoreReadiness.mockReset();
+  mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
+  mocks.isPending = false;
+  mocks.mutate.mockReset();
+  mocks.mutationConfig = undefined;
   mocks.openURL.mockReset();
   mocks.refetch.mockReset();
   mocks.select.mockReset();
@@ -222,8 +267,11 @@ export function resetPaymentMethodsScreenMocks() {
     error: null,
   };
   mocks.useQuery.mockReset();
+  mocks.update.mockReset();
   mocks.single.mockResolvedValue({ data: paymentSettings, error: null });
-  mocks.eq.mockReturnValue({ single: mocks.single });
+  mocks.eq.mockImplementation((column: string) =>
+    column === 'id' ? { eq: mocks.eq } : { error: null, single: mocks.single }
+  );
   mocks.select.mockReturnValue({ eq: mocks.eq });
   mocks.update.mockReturnValue({ eq: mocks.eq });
   mocks.from.mockReturnValue(createMerchantFeatureSettingsQuery());

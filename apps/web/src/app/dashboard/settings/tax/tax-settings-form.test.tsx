@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaxSettingsForm } from './tax-settings-form';
@@ -28,6 +34,7 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 const defaultProps = {
+  merchantId: 'merchant-1',
   initialVatEnabled: false,
   initialVatRate: 7.5,
   initialTaxId: '',
@@ -40,6 +47,16 @@ const defaultProps = {
   },
   initialStateCode: '',
 };
+
+function createDeferred<T>() {
+  let reject!: (reason?: unknown) => void;
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
 
 describe('TaxSettingsForm', () => {
   beforeEach(() => {
@@ -82,6 +99,7 @@ describe('TaxSettingsForm', () => {
 
     await waitFor(() => {
       expect(mockApiPatch).toHaveBeenCalledWith('/api/merchant/settings', {
+        merchantId: 'merchant-1',
         vat_registration_status: 'registered',
       });
     });
@@ -132,6 +150,7 @@ describe('TaxSettingsForm', () => {
 
     await waitFor(() => {
       expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/verify-tax-id', {
+        merchantId: 'merchant-1',
         taxIdentificationNumber: '2522599781276',
         legalEntityName: 'OGABASSEY SERVICES LIMITED',
       });
@@ -145,6 +164,31 @@ describe('TaxSettingsForm', () => {
         expect.objectContaining({ title: 'Tax ID Verified' })
       );
     });
+  });
+
+  it('suppresses a stale TIN verification success after switching merchants', async () => {
+    const deferred = createDeferred<{
+      taxIdentificationNumber: string;
+      verified: boolean;
+    }>();
+    mockApiPost.mockReturnValueOnce(deferred.promise);
+    const { rerender } = render(<TaxSettingsForm {...defaultProps} />);
+    const input = screen.getByLabelText('Tax Identification Number (TIN)');
+    fireEvent.change(input, { target: { value: '1234567890' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify & Save' }));
+    await waitFor(() => expect(mockApiPost).toHaveBeenCalledOnce());
+
+    rerender(<TaxSettingsForm {...defaultProps} merchantId="merchant-2" />);
+    await act(async () => {
+      deferred.resolve({
+        taxIdentificationNumber: '2522599781276',
+        verified: true,
+      });
+      await deferred.promise;
+    });
+
+    expect((input as HTMLInputElement).value).toBe('');
+    expect(mockToast).not.toHaveBeenCalled();
   });
 
   it('rejects invalid TIN values before calling the API', async () => {

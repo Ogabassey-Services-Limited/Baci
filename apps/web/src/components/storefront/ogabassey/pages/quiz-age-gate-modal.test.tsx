@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QuizAgeGateModal } from './quiz-age-gate-modal';
 
 function setup(overrides: Partial<Parameters<typeof QuizAgeGateModal>[0]> = {}) {
@@ -19,6 +19,10 @@ function setup(overrides: Partial<Parameters<typeof QuizAgeGateModal>[0]> = {}) 
 }
 
 describe('QuizAgeGateModal', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders nothing when closed', () => {
     render(
       <QuizAgeGateModal
@@ -126,10 +130,9 @@ describe('QuizAgeGateModal', () => {
   });
 
   it('does not offer today or a future date in the picker (max is yesterday)', () => {
+    vi.useFakeTimers({ now: new Date('2026-07-31T12:00:00.000Z') });
     setup();
     const input = screen.getByLabelText('Date of birth') as HTMLInputElement;
-    const today = new Date().toISOString().slice(0, 10);
-    expect(input.max).toBeTruthy();
-    expect(input.max < today).toBe(true);
+    expect(input.max).toBe('2026-07-30');
   });
 });

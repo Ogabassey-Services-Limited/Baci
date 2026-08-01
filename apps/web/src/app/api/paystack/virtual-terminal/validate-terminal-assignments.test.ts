@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { validateTerminalAssignments } from './validate-terminal-assignments';
 
-function createAdminClient(
+function createScopedClient(
   results: Array<{ data: { id: string } | null; error: unknown }>
 ) {
   const maybeSingle = vi.fn();
@@ -17,7 +17,7 @@ function createAdminClient(
 
 describe('validateTerminalAssignments', () => {
   it('accepts staff and branch IDs scoped to the merchant', async () => {
-    const { client, from } = createAdminClient([
+    const { client, from } = createScopedClient([
       { data: { id: 'staff-1' }, error: null },
       { data: { id: 'branch-1' }, error: null },
     ]);
@@ -33,7 +33,7 @@ describe('validateTerminalAssignments', () => {
   });
 
   it('rejects a staff ID that is not scoped to the merchant', async () => {
-    const { client } = createAdminClient([{ data: null, error: null }]);
+    const { client } = createScopedClient([{ data: null, error: null }]);
 
     await expect(
       validateTerminalAssignments(client as never, 'merchant-1', {
@@ -46,7 +46,7 @@ describe('validateTerminalAssignments', () => {
   });
 
   it('rejects a branch ID that is not scoped to the merchant', async () => {
-    const { client } = createAdminClient([{ data: null, error: null }]);
+    const { client } = createScopedClient([{ data: null, error: null }]);
 
     await expect(
       validateTerminalAssignments(client as never, 'merchant-1', {
@@ -59,7 +59,7 @@ describe('validateTerminalAssignments', () => {
   });
 
   it('fails closed when assignment validation cannot query the database', async () => {
-    const { client } = createAdminClient([
+    const { client } = createScopedClient([
       { data: null, error: { message: 'database unavailable' } },
     ]);
 

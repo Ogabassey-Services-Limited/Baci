@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
+import { useLayoutEffect, useRef } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { normalizeGooglePlaceId } from '@/lib/google-place-id-normalization';
 interface GoogleReviewAuthoritySettingsCardProps {
   initialGooglePlaceId: string | null;
   initialGoogleReviewsEnabled: boolean;
+  merchantId: string;
 }
 
 interface MerchantGoogleReviewSettings {
@@ -47,8 +49,25 @@ type GoogleReviewAuthoritySettingsFormValues = z.infer<
 export function GoogleReviewAuthoritySettingsCard({
   initialGooglePlaceId,
   initialGoogleReviewsEnabled,
+  merchantId,
+}: GoogleReviewAuthoritySettingsCardProps) {
+  return (
+    <GoogleReviewAuthoritySettingsForm
+      key={merchantId}
+      initialGooglePlaceId={initialGooglePlaceId}
+      initialGoogleReviewsEnabled={initialGoogleReviewsEnabled}
+      merchantId={merchantId}
+    />
+  );
+}
+
+function GoogleReviewAuthoritySettingsForm({
+  initialGooglePlaceId,
+  initialGoogleReviewsEnabled,
+  merchantId,
 }: GoogleReviewAuthoritySettingsCardProps) {
   const { toast } = useToast();
+  const isActive = useRef(true);
   const {
     control,
     formState: { errors, isSubmitting },
@@ -62,6 +81,13 @@ export function GoogleReviewAuthoritySettingsCard({
     },
     resolver: zodResolver(googleReviewAuthoritySettingsSchema),
   });
+
+  useLayoutEffect(() => {
+    isActive.current = true;
+    return () => {
+      isActive.current = false;
+    };
+  }, []);
 
   // useWatch is React Compiler-compatible, unlike watch() which returns
   // interior-mutable values that would skip memoization for this component.
@@ -81,7 +107,10 @@ export function GoogleReviewAuthoritySettingsCard({
       await apiPatch<MerchantGoogleReviewSettings>('/api/merchant/features', {
         google_place_id: normalizedPlaceId,
         google_reviews_enabled: values.google_reviews_enabled,
+        merchantId,
       });
+      if (!isActive.current) return;
+
       toast({
         title: 'Google review authority saved',
         description: values.google_reviews_enabled
@@ -89,6 +118,8 @@ export function GoogleReviewAuthoritySettingsCard({
           : 'Google reviews are no longer used for merchant-level trust authority.',
       });
     } catch {
+      if (!isActive.current) return;
+
       setError('root', {
         message: 'Failed to save Google review settings.',
         type: 'server',

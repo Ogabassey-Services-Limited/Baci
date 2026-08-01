@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetUser = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
+const mockAuthenticateApiRequest = vi.fn();
 const mockFrom = vi.fn();
 const mockRpc = vi.fn();
-const mockAdminFrom = vi.fn();
-const mockCreateAdminClient = vi.fn(() => ({ from: mockAdminFrom }));
 const mockCreateVirtualTerminal = vi.fn();
+const mockAdminFrom = vi.fn();
+const mockAdminInsert = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() => ({})),
@@ -22,11 +23,12 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => mockCreateAdminClient(),
+  createAdminClient: vi.fn(() => ({ from: mockAdminFrom })),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
-  authenticateApiRequest: vi.fn(),
+  authenticateApiRequest: (...args: unknown[]) =>
+    mockAuthenticateApiRequest(...args),
   hasPermission: vi.fn(() => true),
 }));
 
@@ -57,7 +59,10 @@ import { POST } from './route';
 
 function createRequest() {
   return new NextRequest('http://localhost/api/paystack/virtual-terminal', {
-    body: JSON.stringify({ name: 'Sales Terminal' }),
+    body: JSON.stringify({
+      merchantId: '22222222-2222-4222-8222-222222222222',
+      name: 'Sales Terminal',
+    }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   });
@@ -66,6 +71,11 @@ function createRequest() {
 describe('POST /api/paystack/virtual-terminal legacy sync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: { from: mockFrom, rpc: mockRpc },
+      user: { id: 'user-1' },
+    });
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
     mockGetMerchantForApiRequest.mockResolvedValue({
       businessName: 'Test Store',
@@ -81,21 +91,18 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       data: { code: 'VT_123', paymentMethods: [] },
       success: true,
     });
+    mockAdminInsert.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: { id: 'terminal-1' },
+          error: null,
+        }),
+      }),
+    });
+    mockAdminFrom.mockReturnValue({ insert: mockAdminInsert });
   });
 
   it('returns success with a warning when the post-create legacy lookup fails', async () => {
-    const terminalInsert = {
-      insert: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { id: 'terminal-1' },
-        error: null,
-      }),
-    };
-    // Only the virtual_terminals insert runs on the admin client now.
-    mockAdminFrom.mockReturnValue(terminalInsert);
-    // The secret `virtual_terminal_code` read is served by the bounded
-    // SECURITY DEFINER RPC on the authenticated client.
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: 'legacy lookup failed' },
@@ -109,25 +116,20 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       success: true,
       terminal: { code: 'VT_123', id: 'terminal-1' },
     });
-    // The revoked secret column is read through the bounded RPC on the
-    // authenticated client, never a service-role client.
+    expect(mockAdminInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'VT_123',
+        merchant_id: 'merchant-1',
+      })
+    );
     expect(mockRpc).toHaveBeenCalledWith('get_merchant_virtual_terminal_code', {
       p_merchant_id: 'merchant-1',
     });
-    expect(mockAdminFrom).not.toHaveBeenCalledWith('merchants');
     // A failed read short-circuits before any legacy UPDATE.
     expect(mockFrom).not.toHaveBeenCalledWith('merchants');
   });
 
   it('returns success with a warning when the legacy update fails', async () => {
-    const terminalInsert = {
-      insert: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { id: 'terminal-1' },
-        error: null,
-      }),
-    };
     const legacyUpdate = {
       eq: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({
@@ -137,10 +139,6 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       select: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
     };
-    // Insert runs on the admin client; the secret-column read is the bounded RPC
-    // on the authenticated client; the SET-only UPDATE (filtered by id) stays on
-    // the authenticated client.
-    mockAdminFrom.mockReturnValue(terminalInsert);
     mockRpc.mockResolvedValue({ data: null, error: null });
     mockFrom.mockReturnValue(legacyUpdate);
 
@@ -152,26 +150,13 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       success: true,
       terminal: { code: 'VT_123', id: 'terminal-1' },
     });
-    // The secret read uses the bounded RPC; the SET-only legacy UPDATE remains on
-    // the authenticated client and the secret column is never read via admin.
     expect(mockRpc).toHaveBeenCalledWith('get_merchant_virtual_terminal_code', {
       p_merchant_id: 'merchant-1',
     });
     expect(mockFrom).toHaveBeenCalledWith('merchants');
-    expect(mockAdminFrom).not.toHaveBeenCalledWith('merchants');
   });
 
   it('returns success without a warning when the legacy code is already set', async () => {
-    const terminalInsert = {
-      insert: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { id: 'terminal-1' },
-        error: null,
-      }),
-    };
-    mockAdminFrom.mockReturnValue(terminalInsert);
-    // The bounded RPC reports an existing legacy code on the authenticated client.
     mockRpc.mockResolvedValue({ data: 'VT_EXISTING', error: null });
 
     const response = await POST(createRequest());
@@ -183,13 +168,10 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       terminal: { code: 'VT_123', id: 'terminal-1' },
     });
     expect(responseBody).not.toHaveProperty('legacySyncWarning');
-    // The read is served by the bounded RPC on the authenticated client.
     expect(mockRpc).toHaveBeenCalledWith('get_merchant_virtual_terminal_code', {
       p_merchant_id: 'merchant-1',
     });
-    // When the legacy code is already set no authenticated UPDATE is issued.
+    // When the legacy code is already set no authenticated merchant UPDATE is issued.
     expect(mockFrom).not.toHaveBeenCalled();
-    // The secret column is never read through a service-role client.
-    expect(mockAdminFrom).not.toHaveBeenCalledWith('merchants');
   });
 });

@@ -19,7 +19,8 @@ vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
 }));
 
-const { onUpload, uploadFn, validateFn } = await import('./image-upload');
+const { createMerchantImageUpload, createMerchantImageUploader, validateFn } =
+  await import('./image-upload');
 
 function getUploadBodyFromFirstCall(): FormData {
   if (mockFetchWithCsrf.mock.calls.length === 0) {
@@ -34,7 +35,7 @@ describe('novel image upload integration', () => {
     vi.clearAllMocks();
   });
 
-  it('posts inline image uploads with purpose=inline', async () => {
+  it('posts inline image uploads with the selected merchant header', async () => {
     mockFetchWithCsrf.mockResolvedValue({
       status: 200,
       json: async () => ({
@@ -43,7 +44,7 @@ describe('novel image upload integration', () => {
     });
 
     const file = new File(['image-bytes'], 'inline.png', { type: 'image/png' });
-    const result = await onUpload(file);
+    const result = await createMerchantImageUpload('merchant-selected')(file);
 
     expect(result).toBe(
       'https://cdn.example.com/storage/v1/object/public/media/image.png'
@@ -51,6 +52,7 @@ describe('novel image upload integration', () => {
     expect(mockFetchWithCsrf).toHaveBeenCalledWith(
       '/api/merchant/blog/upload',
       expect.objectContaining({
+        headers: { 'x-baci-merchant-id': 'merchant-selected' },
         method: 'POST',
       })
     );
@@ -67,7 +69,9 @@ describe('novel image upload integration', () => {
     });
 
     const file = new File(['image-bytes'], 'inline.png', { type: 'image/png' });
-    await expect(onUpload(file)).rejects.toThrow('Image upload unauthorized');
+    await expect(
+      createMerchantImageUpload('merchant-selected')(file)
+    ).rejects.toThrow('Image upload unauthorized');
 
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -84,7 +88,9 @@ describe('novel image upload integration', () => {
     });
 
     const file = new File(['image-bytes'], 'inline.png', { type: 'image/png' });
-    await expect(onUpload(file)).rejects.toThrow('Upload failed');
+    await expect(
+      createMerchantImageUpload('merchant-selected')(file)
+    ).rejects.toThrow('Upload failed');
 
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -95,7 +101,9 @@ describe('novel image upload integration', () => {
   });
 
   it('keeps validator behavior for type and max-size checks', () => {
-    expect(uploadFn).toMatchObject({ onUpload, validateFn });
+    expect(createMerchantImageUploader('merchant-selected')).toMatchObject({
+      validateFn,
+    });
 
     expect(validateFn({ type: 'text/plain', size: 10 } as File)).toBe(false);
     expect(

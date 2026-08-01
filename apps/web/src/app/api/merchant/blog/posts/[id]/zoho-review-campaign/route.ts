@@ -6,7 +6,8 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
-import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
+import type { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
+import { dispatchConfiguredZohoBlogCampaign } from '@/lib/zoho-blog-campaign-server';
 import { zohoReviewCampaignRouteParamsSchema } from '@/schemas/zoho-review-campaign-route-params';
 
 interface RouteParams {
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       auth.supabase,
       access.merchantId
     );
-    const result = await dispatchZohoBlogCampaign({
+    const result = await dispatchConfiguredZohoBlogCampaign({
       audience: 'review',
       context,
       post,

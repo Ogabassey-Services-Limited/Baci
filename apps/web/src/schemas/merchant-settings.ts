@@ -1,6 +1,7 @@
 import type { RegisteredAddress } from '@baci/shared';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize-core';
+import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 
 const socialMediaSchema = z.object({
   twitter: z
@@ -73,33 +74,45 @@ export const registeredAddressSchema: z.ZodType<RegisteredAddress> = z.object({
     .nullable(),
 });
 
-export const updateMerchantSettingsSchema = z
-  .object({
-    social_media: socialMediaSchema.optional(),
-    clear_social_media: z.boolean().optional(),
-    vat_registration_status: z
-      .enum(['not_registered', 'registered', 'exempt', 'pending'])
-      .optional(),
-    tax_identification_number: z
-      .string()
-      .transform((value) => sanitizeText(value, 32))
-      .optional()
-      .nullable(),
-    legal_entity_name: z
-      .string()
-      .transform((value) => sanitizeText(value, 255))
-      .optional()
-      .nullable(),
-    registered_address: registeredAddressSchema.optional().nullable(),
-    state_code: z
-      .string()
-      .transform((value) => sanitizeText(value, 10))
-      .optional()
-      .nullable(),
-  })
-  .refine((value) => Object.keys(value).length > 0, {
+const merchantSettingsFieldsSchema = z.object({
+  social_media: socialMediaSchema.optional(),
+  clear_social_media: z.boolean().optional(),
+  vat_registration_status: z
+    .enum(['not_registered', 'registered', 'exempt', 'pending'])
+    .optional(),
+  tax_identification_number: z
+    .string()
+    .transform((value) => sanitizeText(value, 32))
+    .optional()
+    .nullable(),
+  legal_entity_name: z
+    .string()
+    .transform((value) => sanitizeText(value, 255))
+    .optional()
+    .nullable(),
+  registered_address: registeredAddressSchema.optional().nullable(),
+  state_code: z
+    .string()
+    .transform((value) => sanitizeText(value, 10))
+    .optional()
+    .nullable(),
+});
+
+export const updateMerchantSettingsSchema = merchantSettingsFieldsSchema.refine(
+  (settings) => Object.keys(settings).length > 0,
+  {
     error: 'At least one merchant setting must be provided',
-  });
+  }
+);
+
+/** Validated request envelope for merchant-selected settings writes. */
+export const merchantSettingsRequestSchema = merchantSettingsFieldsSchema
+  .extend({ merchantId: merchantIdParamSchema })
+  .refine(
+    ({ merchantId: _merchantId, ...settings }) =>
+      Object.keys(settings).length > 0,
+    { error: 'At least one merchant setting must be provided' }
+  );
 
 export function formatMerchantSettingsErrors(
   error: z.ZodError

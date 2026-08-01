@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { PropsWithChildren } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,15 +30,31 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('./tax-settings-form', () => ({
-  TaxSettingsForm: (props: Record<string, unknown>) => (
-    <div data-testid="tax-settings-form">{JSON.stringify(props)}</div>
-  ),
-}));
+vi.mock('./tax-settings-form', async () => {
+  const { useState } = await import('react');
+
+  return {
+    TaxSettingsForm: (props: Record<string, unknown>) => {
+      const [draft, setDraft] = useState('');
+      return (
+        <div data-testid="tax-settings-form">
+          {JSON.stringify(props)}
+          <input
+            aria-label="Tax ID draft"
+            data-merchant-id={String(props.merchantId)}
+            onChange={(event) => setDraft(event.target.value)}
+            value={draft}
+          />
+        </div>
+      );
+    },
+  };
+});
 
 import TaxSettingsPage from './page';
 
 const merchantData = {
+  country: 'NG',
   vat_registration_status: 'registered',
   vat_rate: 7.5,
   tax_identification_number: 'TIN-1',
@@ -69,6 +86,22 @@ describe('TaxSettingsPage', () => {
     expect(mocks.ensurePermission).toHaveBeenCalledWith('settings', 'view');
     expect(mocks.ensurePermission).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('tax-settings-form')).toHaveTextContent('TIN-1');
+    expect(screen.getByTestId('tax-settings-form')).toHaveTextContent(
+      'merchant-1'
+    );
+  });
+
+  it('hides Nigerian tax settings for a non-Nigerian merchant', async () => {
+    mocks.ensurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-1', ...merchantData, country: 'IN' },
+    });
+
+    render(await TaxSettingsPage());
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Tax settings are only available for Nigerian merchants.'
+    );
+    expect(screen.queryByTestId('tax-settings-form')).not.toBeInTheDocument();
   });
 
   it('accepts settings edit access when view is denied', async () => {
@@ -122,5 +155,31 @@ describe('TaxSettingsPage', () => {
     await expect(TaxSettingsPage()).rejects.toBe(outage);
 
     expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it('remounts tax form state when the selected merchant changes', async () => {
+    const user = userEvent.setup();
+    mocks.ensurePermission
+      .mockResolvedValueOnce({
+        merchant: { id: 'merchant-a', ...merchantData },
+      })
+      .mockResolvedValueOnce({
+        merchant: { id: 'merchant-b', ...merchantData },
+      });
+
+    const { rerender } = render(await TaxSettingsPage());
+    await user.type(
+      screen.getByRole('textbox', { name: 'Tax ID draft' }),
+      'draft for merchant A'
+    );
+
+    rerender(await TaxSettingsPage());
+
+    expect(
+      screen.getByRole('textbox', { name: 'Tax ID draft' })
+    ).toHaveAttribute('data-merchant-id', 'merchant-b');
+    expect(screen.getByRole('textbox', { name: 'Tax ID draft' })).toHaveValue(
+      ''
+    );
   });
 });

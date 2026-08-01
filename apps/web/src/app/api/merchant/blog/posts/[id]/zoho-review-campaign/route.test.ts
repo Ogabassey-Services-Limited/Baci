@@ -27,8 +27,8 @@ vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
 
 const mockDispatchZohoBlogCampaign = vi.fn();
 
-vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
-  dispatchZohoBlogCampaign: (...args: unknown[]) =>
+vi.mock('@/lib/zoho-blog-campaign-server', () => ({
+  dispatchConfiguredZohoBlogCampaign: (...args: unknown[]) =>
     mockDispatchZohoBlogCampaign(...args),
 }));
 

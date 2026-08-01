@@ -1,15 +1,14 @@
 'use client';
 
-import { Loader2, Package, Search, ShoppingCart } from 'lucide-react';
+import { Loader2, Package, Search } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -18,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatCurrency } from '@/lib/currency';
-import { isSafeSlug } from '@/lib/validate-slug';
 
 interface Product {
   id: string;
@@ -31,6 +29,7 @@ interface Product {
 }
 
 interface ProductEmbedPickerProps {
+  merchantId?: string;
   open: boolean;
   onClose: () => void;
   onSelect: (products: Product[]) => void;
@@ -46,12 +45,14 @@ interface FetchProductsCallbacks {
 
 async function fetchProducts(
   query: string,
+  merchantId: string,
   { setProducts, setIsLoading, setLoadError, signal }: FetchProductsCallbacks
 ) {
   setIsLoading(true);
   try {
     const params = new URLSearchParams();
     if (query) params.set('search', query);
+    params.set('merchantId', merchantId);
     const res = await fetch(`/api/products?${params.toString()}`, { signal });
     if (!res.ok) throw new Error('Failed to fetch products');
     const data = await res.json();
@@ -74,6 +75,7 @@ async function fetchProducts(
 }
 
 export function ProductEmbedPicker({
+  merchantId,
   open,
   onClose,
   onSelect,
@@ -90,16 +92,20 @@ export function ProductEmbedPicker({
 
   useEffect(() => {
     const controller = new AbortController();
-    if (open) {
-      fetchProducts(debouncedSearch, {
+    if (open && merchantId) {
+      fetchProducts(debouncedSearch, merchantId, {
         setProducts,
         setIsLoading,
         setLoadError,
         signal: controller.signal,
       });
+    } else if (open) {
+      setProducts([]);
+      setLoadError('Select a merchant before embedding products.');
+      setIsLoading(false);
     }
     return () => controller.abort();
-  }, [open, debouncedSearch]);
+  }, [open, debouncedSearch, merchantId]);
 
   const toggleProduct = (id: string) => {
     const newSelected = new Set(selected);
@@ -122,6 +128,9 @@ export function ProductEmbedPicker({
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Select Products to Embed</DialogTitle>
+          <DialogDescription>
+            Choose products from the selected merchant to include in this post.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="relative">
@@ -227,148 +236,5 @@ export function ProductEmbedPicker({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-interface ProductCardProps {
-  product: Product;
-  merchantSlug?: string;
-  onAddToCart?: (productId: string) => void;
-}
-
-export function ProductCard({
-  product,
-  merchantSlug,
-  onAddToCart,
-}: ProductCardProps) {
-  const hasDiscount =
-    product.compare_at_price && product.compare_at_price > product.price;
-  const discountPercentage = hasDiscount
-    ? Math.round((1 - product.price / (product.compare_at_price ?? 1)) * 100)
-    : 0;
-
-  return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
-      {merchantSlug && isSafeSlug(merchantSlug) ? (
-        <a
-          href={`/${encodeURIComponent(merchantSlug)}/products/${encodeURIComponent(product.slug)}`}
-        >
-          <div className="aspect-square relative overflow-hidden bg-muted">
-            {product.images?.[0] ? (
-              <Image
-                src={product.images[0]}
-                alt={product.name}
-                fill
-                sizes="(max-width: 768px) 50vw, 33vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="size-12 text-muted-foreground" />
-              </div>
-            )}
-            {hasDiscount && (
-              <Badge className="absolute top-2 right-2" variant="destructive">
-                -{discountPercentage}%
-              </Badge>
-            )}
-          </div>
-        </a>
-      ) : (
-        <div className="aspect-square relative overflow-hidden bg-muted">
-          {product.images?.[0] ? (
-            <Image
-              src={product.images[0]}
-              alt={product.name}
-              fill
-              sizes="(max-width: 768px) 50vw, 33vw"
-              className="object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Package className="size-12 text-muted-foreground" />
-            </div>
-          )}
-          {hasDiscount && (
-            <Badge className="absolute top-2 right-2" variant="destructive">
-              -{discountPercentage}%
-            </Badge>
-          )}
-        </div>
-      )}
-      <CardContent className="p-4">
-        {merchantSlug && isSafeSlug(merchantSlug) ? (
-          <a
-            href={`/${encodeURIComponent(merchantSlug)}/products/${encodeURIComponent(product.slug)}`}
-          >
-            <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
-              {product.name}
-            </h3>
-          </a>
-        ) : (
-          <h3 className="font-semibold line-clamp-2">{product.name}</h3>
-        )}
-        <div className="flex items-center gap-2 mt-2">
-          <span className="font-bold text-lg">
-            {formatCurrency(product.price)}
-          </span>
-          {hasDiscount && (
-            <span className="text-sm text-muted-foreground line-through">
-              {formatCurrency(product.compare_at_price ?? 0)}
-            </span>
-          )}
-        </div>
-        {onAddToCart && (
-          <Button
-            className="w-full mt-3"
-            size="sm"
-            onClick={(e) => {
-              e.preventDefault();
-              onAddToCart(product.id);
-            }}
-          >
-            <ShoppingCart className="size-4 mr-2" />
-            Add to Cart
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-interface ProductGridProps {
-  products: Product[];
-  merchantSlug?: string;
-  onAddToCart?: (productId: string) => void;
-}
-
-export function ProductGrid({
-  products,
-  merchantSlug,
-  onAddToCart,
-}: ProductGridProps) {
-  if (products.length === 0) return null;
-
-  return (
-    <div className="my-8 not-prose">
-      <div
-        className={`grid gap-4 ${
-          products.length === 1
-            ? 'grid-cols-1 max-w-sm mx-auto'
-            : products.length === 2
-              ? 'grid-cols-2 max-w-xl mx-auto'
-              : 'grid-cols-2 md:grid-cols-3'
-        }`}
-      >
-        {products.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            merchantSlug={merchantSlug}
-            onAddToCart={onAddToCart}
-          />
-        ))}
-      </div>
-    </div>
   );
 }

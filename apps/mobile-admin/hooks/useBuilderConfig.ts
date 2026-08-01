@@ -1,76 +1,74 @@
-/**
- * useBuilderConfig Hook
- * Manages the page builder configuration for the AI Copilot.
- * Communicates with the Web API to fetch, modify via AI, save, and publish configs.
- */
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
+import {
+  type BuilderApiResponse,
+  type BuilderConfig,
+  type BuilderMutationVariables,
+  type ChatMessage,
+  type GeminiResponse,
+  isCurrentBuilderAiRequest,
+  type MerchantBuilderDraft,
+} from './builder-ai-request';
+import type { BuilderMerchantRequest } from './builder-mutation-callbacks';
+import { createBuilderMerchantMutationAction } from './createBuilderMerchantMutationAction';
 import { formatAiCopilotError } from './format-ai-copilot-error';
+import { useMerchant } from './useMerchant';
+import { useMerchantScopedPending } from './useMerchantScopedPending';
 
-export interface BuilderConfig {
-  content: Array<{
-    type: string;
-    props: Record<string, unknown>;
-  }>;
-  root: {
-    title?: string;
-    [key: string]: unknown;
-  };
-  zones?: Record<string, unknown>;
-  theme?: {
-    colors?: {
-      primary?: string;
-      accent?: string;
-      header?: Record<string, string>;
-      footer?: Record<string, string>;
-    };
-    [key: string]: unknown;
-  };
-}
-
-interface BuilderApiResponse {
-  config: BuilderConfig;
-  seo?: Record<string, unknown>;
-  storeSettings?: Record<string, unknown>;
-  setupSettings?: Record<string, unknown>;
-  publishedConfig?: BuilderConfig | null;
-  isPublished?: boolean;
-  isDefault?: boolean;
-  lastUpdated?: string;
-}
-
-interface GeminiResponse {
-  config: BuilderConfig;
-  error?: string;
-}
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: Date;
-}
-
+export type { BuilderConfig } from './builder-ai-request';
 export function useBuilderConfig(pageSlug: string = 'home') {
   const queryClient = useQueryClient();
   const { session, isLoading } = useAuth();
+  const { merchant } = useMerchant();
+  const merchantId = merchant?.id ?? null;
+  const savePending = useMerchantScopedPending();
+  const publishPending = useMerchantScopedPending();
+  const merchantRequestRef = useRef<BuilderMerchantRequest>({
+    merchantId,
+    revision: 0,
+  });
+  const aiRequestSequenceRef = useRef(0);
+  const messagesMerchantIdRef = useRef(merchantId);
+  const errorMerchantIdRef = useRef(merchantId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [currentConfig, setCurrentConfig] = useState<BuilderConfig | null>(
-    null
-  );
+  const [currentConfig, setCurrentConfig] =
+    useState<MerchantBuilderDraft | null>(null);
+  const [activeAiRequestSequence, setActiveAiRequestSequence] = useState<
+    number | null
+  >(null);
 
-  // Fetch current configuration
+  useLayoutEffect(() => {
+    if (merchantRequestRef.current.merchantId !== merchantId) {
+      merchantRequestRef.current = {
+        merchantId,
+        revision: merchantRequestRef.current.revision + 1,
+      };
+    }
+    // A completion from the prior committed merchant must never become active
+    // if the user returns to that merchant later.
+    aiRequestSequenceRef.current += 1;
+  }, [merchantId]);
+
+  useEffect(() => {
+    setActiveAiRequestSequence(null);
+    messagesMerchantIdRef.current = merchantId;
+    setMessages([]);
+    setCurrentConfig((draft) =>
+      draft?.merchantId === merchantId ? draft : null
+    );
+  }, [merchantId]);
   const {
     data: configData,
     isLoading: isLoadingConfig,
     error: configError,
     refetch: refetchConfig,
   } = useQuery({
-    queryKey: ['builderConfig', pageSlug],
-    enabled: !!session?.access_token && !isLoading,
+    queryKey: ['builderConfig', merchantId, pageSlug],
+    enabled: !!session?.access_token && !isLoading && !!merchantId,
     retry: (failureCount, error) => {
       if (error instanceof Error && error.message === 'Not authenticated') {
         return false;
@@ -82,49 +80,56 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       if (!token) {
         throw new Error('Not authenticated');
       }
-
+      if (!merchantId) {
+        throw new Error('Merchant not loaded. Please try again.');
+      }
       return apiClient<BuilderApiResponse>(
-        `/api/builder?slug=${encodeURIComponent(pageSlug)}`
+        `/api/builder?slug=${encodeURIComponent(pageSlug)}&merchantId=${encodeURIComponent(merchantId)}`
       );
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
-
-  // Derive effective config: local override (from AI mutation) or query cache
-  const effectiveConfig = currentConfig ?? configData?.config ?? null;
-
-  // Update config with AI (Gemini)
+  const effectiveConfig =
+    currentConfig?.merchantId === merchantId
+      ? currentConfig.config
+      : (configData?.config ?? null);
   const aiMutation = useMutation({
     mutationFn: async (prompt: string): Promise<BuilderConfig> => {
       const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
       }
-
       if (!effectiveConfig) {
         throw new Error('No configuration loaded');
       }
-
-      // Add user message to chat
+      if (!merchantId) {
+        throw new Error('Merchant not loaded. Please try again.');
+      }
+      const requestMerchantId = merchantId;
+      const requestConfig = effectiveConfig;
+      const requestSequence = ++aiRequestSequenceRef.current;
+      setActiveAiRequestSequence(requestSequence);
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'user',
         content: prompt,
         timestamp: new Date(),
       };
+      messagesMerchantIdRef.current = requestMerchantId;
       setMessages((prev) => [...prev, userMessage]);
-
       try {
         const data = await apiClient<GeminiResponse>('/api/builder/gemini', {
           method: 'POST',
           timeout: 30_000,
           body: JSON.stringify({
+            merchantId: requestMerchantId,
             prompt,
-            currentConfig: effectiveConfig,
+            currentConfig: requestConfig,
           }),
         });
-
-        // Add success message to chat
+        if (!isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
+          return data.config;
+        }
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -133,14 +138,16 @@ export function useBuilderConfig(pageSlug: string = 'home') {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
-
-        // Update local config
-        setCurrentConfig(data.config);
-
+        setCurrentConfig({
+          merchantId: requestMerchantId,
+          config: data.config,
+        });
         return data.config;
       } catch (error) {
+        if (!isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
+          return requestConfig;
+        }
         const formattedError = formatAiCopilotError(error);
-        // Add error message to chat
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'system',
@@ -148,105 +155,140 @@ export function useBuilderConfig(pageSlug: string = 'home') {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMessage]);
-
         throw Object.assign(new Error(formattedError.message), {
           code: formattedError.code,
           requestId: formattedError.requestId,
         });
+      } finally {
+        if (isCurrentBuilderAiRequest(aiRequestSequenceRef, requestSequence)) {
+          setActiveAiRequestSequence(null);
+        }
       }
     },
   });
-
-  // Save draft
   const saveDraftMutation = useMutation({
-    mutationFn: async (): Promise<void> => {
+    mutationFn: async ({
+      merchantId,
+    }: BuilderMutationVariables): Promise<void> => {
       const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
       }
-
+      if (!merchantId) {
+        throw new Error('Merchant not loaded. Please try again.');
+      }
       if (!effectiveConfig) {
         throw new Error('No configuration to save');
       }
-
       await apiClient('/api/builder', {
         method: 'POST',
         body: JSON.stringify({
           slug: pageSlug,
+          merchantId,
           config: effectiveConfig,
           name: 'Home',
         }),
       });
     },
-    onSuccess: () => {
-      // Clear local override so query cache becomes source of truth again
-      setCurrentConfig(null);
-      queryClient.invalidateQueries({ queryKey: ['builderConfig', pageSlug] });
+    onMutate: (variables) => {
+      savePending.begin(variables.merchantId);
+    },
+    onSuccess: (_data, variables) => {
+      setCurrentConfig((draft) =>
+        draft?.merchantId === variables.merchantId ? null : draft
+      );
+      queryClient.invalidateQueries({
+        queryKey: ['builderConfig', variables.merchantId, pageSlug],
+      });
+    },
+    onSettled: (_data, _error, variables) => {
+      savePending.end(variables.merchantId);
     },
   });
-
-  // Publish
   const publishMutation = useMutation({
-    mutationFn: async (): Promise<void> => {
-      // First save the current config as draft
-      await saveDraftMutation.mutateAsync();
-
+    mutationFn: async (variables: BuilderMutationVariables): Promise<void> => {
+      if (!variables.merchantId) {
+        throw new Error('Merchant not loaded. Please try again.');
+      }
+      await saveDraftMutation.mutateAsync(variables);
       const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
       }
-
       await apiClient('/api/builder', {
         method: 'PUT',
         body: JSON.stringify({
           slug: pageSlug,
+          merchantId: variables.merchantId,
         }),
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['builderConfig', pageSlug] });
+    onMutate: (variables) => {
+      publishPending.begin(variables.merchantId);
+    },
+    onSuccess: async (_data, variables) => {
+      const invalidations: Promise<unknown>[] = [
+        queryClient.invalidateQueries({
+          queryKey: ['builderConfig', variables.merchantId, pageSlug],
+        }),
+      ];
+      const merchantId = variables.merchantId;
+      if (merchantId) {
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, merchantId)
+          )
+        );
+      }
+      await Promise.all(invalidations);
+    },
+    onSettled: (_data, _error, variables) => {
+      publishPending.end(variables.merchantId);
     },
   });
-
-  // Send a message to the AI
+  useLayoutEffect(() => {
+    if (errorMerchantIdRef.current === merchantId) return;
+    errorMerchantIdRef.current = merchantId;
+    aiMutation.reset();
+    saveDraftMutation.reset();
+    publishMutation.reset();
+  }, [
+    merchantId,
+    aiMutation.reset,
+    publishMutation.reset,
+    saveDraftMutation.reset,
+  ]);
   function sendMessage(prompt: string) {
     return aiMutation.mutateAsync(prompt);
   }
-
-  // Clear chat history
   function clearChat() {
     setMessages([]);
   }
-
   return {
-    // Config state
     config: effectiveConfig,
     configData,
     isLoadingConfig,
     configError,
     refetchConfig,
-
-    // Chat state
-    messages,
+    messages: messagesMerchantIdRef.current === merchantId ? messages : [],
     clearChat,
-
-    // AI actions
     sendMessage,
-    isProcessingAI: aiMutation.isPending,
+    isProcessingAI: activeAiRequestSequence !== null,
     aiError: aiMutation.error,
-
-    // Save/Publish actions
-    saveDraft: saveDraftMutation.mutate,
-    isSavingDraft: saveDraftMutation.isPending,
+    saveDraft: createBuilderMerchantMutationAction(
+      saveDraftMutation,
+      merchantRequestRef
+    ),
+    isSavingDraft: savePending.isPending(merchantId),
     saveDraftError: saveDraftMutation.error,
-
-    publish: publishMutation.mutate,
-    isPublishing: publishMutation.isPending,
+    publish: createBuilderMerchantMutationAction(
+      publishMutation,
+      merchantRequestRef
+    ),
+    isPublishing: publishPending.isPending(merchantId),
     publishError: publishMutation.error,
-
-    // Convenience
     hasUnsavedChanges:
-      !!currentConfig &&
+      currentConfig?.merchantId === merchantId &&
       JSON.stringify(effectiveConfig) !== JSON.stringify(configData?.config),
     isPublished: configData?.isPublished ?? false,
   };

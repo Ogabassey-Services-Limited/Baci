@@ -43,7 +43,8 @@ export function createSupabaseReplayRuntimeFixture() {
   const orderedSources = [...bootstrapSources, source(126), source(127)];
   const verified = {
     bootstrapSources,
-    manifest: { baseSha: 'base-sha' },
+    manifest: { baseSha: 'base-sha', pendingSources: [] },
+    postReplaySources: [],
   } as unknown as VerifiedReplayManifest;
   let ownership: Awaited<
     ReturnType<ReplayRuntimeDependencies['createOwnership']>

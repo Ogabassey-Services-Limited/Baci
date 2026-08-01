@@ -34,6 +34,7 @@ describe('PaymentMethodsScreen', () => {
     });
     expect(mocks.from).toHaveBeenCalledWith('merchant_feature_settings');
     expect(mocks.eq).toHaveBeenCalledWith('id', 'settings-1');
+    expect(mocks.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
   });
 
   it('hides payment methods whose backing settings columns are unavailable', () => {
@@ -92,7 +93,9 @@ describe('PaymentMethodsScreen', () => {
   it('alerts and rolls back when a rendered payment method toggle fails', async () => {
     // Arrange
     const persistenceError = new Error('Failed to update payment method');
-    mocks.eq.mockReturnValueOnce({ error: persistenceError });
+    mocks.eq
+      .mockReturnValueOnce({ eq: mocks.eq })
+      .mockReturnValueOnce({ error: persistenceError });
     render(<PaymentMethodsScreen />);
 
     // Act
@@ -109,6 +112,91 @@ describe('PaymentMethodsScreen', () => {
       ['payment-settings', 'merchant-1'],
       paymentSettings
     );
+  });
+
+  it('restores and refreshes the origin cache when a toggle fails after switching merchants', async () => {
+    let activeMerchantId = 'merchant-1';
+    mocks.useMerchantResult = {
+      isLoading: false,
+      merchant: {
+        get id() {
+          return activeMerchantId;
+        },
+      },
+      error: null,
+    };
+
+    render(<PaymentMethodsScreen />);
+    const originMutation = mocks.mutationConfig;
+    const context = await originMutation?.onMutate?.({
+      field: 'klump_enabled',
+      merchantId: 'merchant-1',
+      settingsId: 'settings-1',
+      value: false,
+    });
+
+    activeMerchantId = 'merchant-2';
+    const error = new Error('Failed to update payment method');
+    const variables = { field: 'klump_enabled', value: false };
+    originMutation?.onError?.(error, variables, context);
+    await originMutation?.onSettled?.(undefined, error, variables, context);
+
+    expect(mocks.setQueryData).toHaveBeenLastCalledWith(
+      ['payment-settings', 'merchant-1'],
+      paymentSettings
+    );
+    expect(mocks.invalidateQueries).toHaveBeenLastCalledWith({
+      queryKey: ['payment-settings', 'merchant-1'],
+    });
+  });
+
+  it('refreshes the originating merchant readiness after a successful toggle', async () => {
+    render(<PaymentMethodsScreen />);
+
+    const context = await mocks.mutationConfig?.onMutate?.({
+      field: 'klump_enabled',
+      merchantId: 'merchant-1',
+      settingsId: 'settings-1',
+      value: false,
+    });
+
+    mocks.useMerchantResult = {
+      isLoading: false,
+      merchant: { id: 'merchant-2' },
+      error: null,
+    };
+
+    await mocks.mutationConfig?.onSuccess?.(
+      undefined,
+      { field: 'klump_enabled', value: false },
+      context
+    );
+
+    expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      expect.any(Object),
+      'merchant-1'
+    );
+  });
+
+  it('does not reject a committed toggle when readiness refresh fails', async () => {
+    render(<PaymentMethodsScreen />);
+    const context = await mocks.mutationConfig?.onMutate?.({
+      field: 'klump_enabled',
+      merchantId: 'merchant-1',
+      settingsId: 'settings-1',
+      value: false,
+    });
+    mocks.invalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+
+    await expect(
+      mocks.mutationConfig?.onSuccess?.(
+        undefined,
+        { field: 'klump_enabled', value: false },
+        context
+      )
+    ).resolves.toBeUndefined();
   });
 
   it('retries payment settings fetch when PostgREST reports missing columns', async () => {

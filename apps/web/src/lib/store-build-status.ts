@@ -1,16 +1,6 @@
-export interface StoreBuildStatus {
-  starterStoreReady: boolean;
-  aiStatus:
-    | 'not_started'
-    | 'pending'
-    | 'processing'
-    | 'ready'
-    | 'applied'
-    | 'failed';
-  latestJobId: string | null;
-  canApplyAiDraft: boolean;
-  message: string;
-}
+import type { StoreBuildStatus } from '@baci/shared';
+
+export type { StoreBuildStatus } from '@baci/shared';
 
 export interface StorefrontBuildJob {
   id: string;

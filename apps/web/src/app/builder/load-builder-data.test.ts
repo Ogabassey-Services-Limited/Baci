@@ -28,6 +28,7 @@ function jsonResponse(
 
 function createParams() {
   return {
+    merchantId: 'merchant-1',
     router: { push: vi.fn() } as unknown as LoadBuilderDataParams['router'],
     toast: createToastMock<LoadBuilderDataParams>(),
     setData: vi.fn(),
@@ -111,6 +112,7 @@ describe('loadBuilderData', () => {
       const url = new URL(String(requestedUrl));
       expect(url.pathname).toBe('/api/builder');
       expect(url.searchParams.get('slug')).toBe('home');
+      expect(url.searchParams.get('merchantId')).toBe('merchant-1');
       expect(url.searchParams.get('aiDraftJobId')).toBe('job-123');
       expect(requestInit).toEqual(
         expect.objectContaining({ signal: expect.any(AbortSignal) })

@@ -5,13 +5,16 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import type {
   AdminProductSearchFilters,
   AdminProductStockFilter,
 } from '@/lib/product-search';
 import { supabase } from '@/lib/supabase';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import type { ProductFormValues } from '@/lib/validators/product';
 import { fetchProductDetail } from './product-detail-query';
+import { productQueryKeys } from './product-query-keys';
 import { createProductRecord, updateProductRecord } from './product-save';
 import type {
   InventoryStats,
@@ -19,11 +22,7 @@ import type {
   ProductStatus,
   ProductsPage,
 } from './products.types';
-import {
-  fetchProducts,
-  updateProductStatus,
-  updateProductStock,
-} from './products-data';
+import { fetchProducts, updateProductStock } from './products-data';
 import {
   buildUpdateProductArgs,
   type UpdateProductVariables,
@@ -33,6 +32,7 @@ import { useMerchant } from './useMerchant';
 export type StockFilter = AdminProductStockFilter;
 export type { InventoryStats, Product, ProductStatus, ProductsPage };
 
+type ProductMutationContext = { merchantId: string | undefined };
 export function useProducts(filters?: AdminProductSearchFilters) {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
@@ -71,7 +71,12 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
 
-  return useMutation<Product, Error, UpdateProductVariables>({
+  return useMutation<
+    Product,
+    Error,
+    UpdateProductVariables,
+    ProductMutationContext
+  >({
     mutationFn: (variables: UpdateProductVariables) => {
       if (!merchant?.id) throw new Error('No merchant');
       return updateProductRecord(
@@ -79,11 +84,25 @@ export function useUpdateProduct() {
       );
     },
     mutationKey: ['updateProduct'],
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({
-        queryKey: ['product', merchant?.id, data.id],
-      });
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+    onMutate: () => ({ merchantId: merchant?.id }),
+    onSuccess: async (data, variables, context) => {
+      const merchantId = context?.merchantId;
+      const invalidations: Promise<unknown>[] = [
+        queryClient.invalidateQueries({
+          queryKey: productQueryKeys.detail(merchantId, data.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: productQueryKeys.list(merchantId),
+        }),
+      ];
+      if (merchantId && variables.updates.status !== undefined) {
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, merchantId)
+          )
+        );
+      }
+      await Promise.all(invalidations);
     },
   });
 }
@@ -92,16 +111,32 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
 
-  return useMutation<Product, Error, ProductFormValues>({
-    mutationFn: (newProduct: ProductFormValues) => {
-      if (!merchant?.id) throw new Error('No merchant');
-      return createProductRecord({ merchantId: merchant.id, newProduct });
-    },
-    mutationKey: ['createProduct'],
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
-    },
-  });
+  return useMutation<Product, Error, ProductFormValues, ProductMutationContext>(
+    {
+      mutationFn: (newProduct: ProductFormValues) => {
+        if (!merchant?.id) throw new Error('No merchant');
+        return createProductRecord({ merchantId: merchant.id, newProduct });
+      },
+      mutationKey: ['createProduct'],
+      onMutate: () => ({ merchantId: merchant?.id }),
+      onSuccess: async (data, _variables, context) => {
+        const merchantId = context?.merchantId;
+        const invalidations: Promise<unknown>[] = [
+          queryClient.invalidateQueries({
+            queryKey: productQueryKeys.list(merchantId),
+          }),
+        ];
+        if (merchantId && data.status === 'active') {
+          invalidations.push(
+            tryRefreshStoreReadiness(() =>
+              invalidateStoreReadiness(queryClient, merchantId)
+            )
+          );
+        }
+        await Promise.all(invalidations);
+      },
+    }
+  );
 }
 
 export function useUpdateProductStock() {
@@ -113,6 +148,7 @@ export function useUpdateProductStock() {
     Error,
     { productId: string; stock: number },
     {
+      merchantId: string | undefined;
       previousQueriesData: Array<{
         queryKey: readonly unknown[];
         data: unknown;
@@ -168,44 +204,25 @@ export function useUpdateProductStock() {
         }
       );
 
-      return { previousQueriesData };
+      return { merchantId: merchant?.id, previousQueriesData };
     },
-    onSettled: (_data, _error, { productId }) => {
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
-      queryClient.invalidateQueries({
-        queryKey: ['product', merchant?.id, productId],
-      });
-    },
-  });
-}
-
-export function useUpdateProductStatus() {
-  const queryClient = useQueryClient();
-  const { merchant } = useMerchant();
-
-  return useMutation({
-    mutationFn: ({
-      productId,
-      status,
-    }: {
-      productId: string;
-      status: ProductStatus;
-    }) => {
-      if (!merchant?.id) throw new Error('No merchant');
-      return updateProductStatus(productId, status, merchant.id);
-    },
-    mutationKey: ['updateProductStatus'],
-    onSettled: (_data, _error, { productId }) => {
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
-      queryClient.invalidateQueries({
-        queryKey: ['product', merchant?.id, productId],
-      });
+    onSettled: async (_data, _error, { productId }, context) => {
+      const merchantId = context?.merchantId;
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: productQueryKeys.list(merchantId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: productQueryKeys.detail(merchantId, productId),
+        }),
+      ]);
     },
   });
 }
 
 export { useCategories } from './useCategories';
 export { useCreateCategory } from './useCreateCategory';
+export { useUpdateProductStatus } from './useUpdateProductStatus';
 
 export function useInventoryStats() {
   const { merchant } = useMerchant();

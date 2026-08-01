@@ -1,88 +1,20 @@
-import Ionicons, {
-  type IoniconsIconName,
-} from '@react-native-vector-icons/ionicons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import {
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SettingsListItem from '@/components/settings/SettingsListItem';
 import { APP_VERSION_LABEL } from '@/constants/app-info';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
-
-interface SettingItemProps {
-  icon: IoniconsIconName;
-  title: string;
-  subtitle?: string;
-  showArrow?: boolean;
-  toggle?: boolean;
-  onPress?: () => void;
-}
-
-function SettingItem({
-  icon,
-  title,
-  subtitle,
-  showArrow = true,
-  toggle,
-  onPress,
-}: SettingItemProps) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.settingItem,
-        { borderBottomColor: colors.border },
-        pressed && onPress && { opacity: 0.7 },
-      ]}
-      onPress={onPress}
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
-      accessibilityHint={onPress ? subtitle : undefined}
-    >
-      <View
-        style={[styles.settingIcon, { backgroundColor: colors.background }]}
-      >
-        <Ionicons name={icon} size={20} color={colors.primary} />
-      </View>
-      <View style={styles.settingContent}>
-        <Text style={[styles.settingTitle, { color: colors.text }]}>
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text
-            style={[styles.settingSubtitle, { color: colors.textSecondary }]}
-          >
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-      {toggle !== undefined ? (
-        <Switch
-          value={toggle}
-          onValueChange={() => {
-            // Toggle logic handled by parent
-          }}
-          trackColor={{ true: colors.primary }}
-        />
-      ) : showArrow ? (
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={colors.textSecondary}
-        />
-      ) : null}
-    </Pressable>
-  );
-}
 
 export default function SettingsScreen() {
   const { resetOnboarding } = useOnboarding();
@@ -120,17 +52,17 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             STORE
           </Text>
-          <SettingItem
+          <SettingsListItem
             icon="storefront-outline"
             title="Store Profile"
             subtitle="Name, logo, contact info"
           />
-          <SettingItem
+          <SettingsListItem
             icon="time-outline"
             title="Business Hours"
             subtitle="Set operating hours"
           />
-          <SettingItem
+          <SettingsListItem
             icon="location-outline"
             title="Store Locations"
             subtitle="Manage pickup points"
@@ -147,13 +79,13 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             GROWTH & MARKETING
           </Text>
-          <SettingItem
+          <SettingsListItem
             icon="bar-chart-outline"
             title="Analytics & Tracking"
             subtitle="Pixels, CAPI, Setup"
             onPress={() => _router.push('/(admin)/analytics-config')}
           />
-          <SettingItem
+          <SettingsListItem
             icon="mail-outline"
             title="Email Domain"
             subtitle="Send emails from your own domain"
@@ -171,13 +103,17 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             NOTIFICATIONS
           </Text>
-          <SettingItem
+          <SettingsListItem
             icon="notifications-outline"
             title="Push Notifications"
             toggle={true}
           />
-          <SettingItem icon="mail-outline" title="Email Alerts" toggle={true} />
-          <SettingItem
+          <SettingsListItem
+            icon="mail-outline"
+            title="Email Alerts"
+            toggle={true}
+          />
+          <SettingsListItem
             icon="musical-notes-outline"
             title="Order Sound"
             toggle={false}
@@ -194,17 +130,17 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             ORDERS
           </Text>
-          <SettingItem
+          <SettingsListItem
             icon="print-outline"
             title="Receipt Printer"
             subtitle="Connect thermal printer"
           />
-          <SettingItem
+          <SettingsListItem
             icon="bicycle-outline"
             title="Delivery Settings"
             subtitle="Zones, fees, partners"
           />
-          <SettingItem
+          <SettingsListItem
             icon="pricetag-outline"
             title="Tax Configuration"
             subtitle="VAT and pricing rules"
@@ -221,17 +157,18 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             ACCOUNT
           </Text>
-          <SettingItem
+          <SettingsListItem
             icon="people-outline"
             title="Team Members"
             subtitle="Manage staff access"
           />
-          <SettingItem
+          <SettingsListItem
             icon="shield-checkmark-outline"
             title="Security"
             subtitle="Password, 2FA"
+            onPress={() => _router.push('/(admin)/security')}
           />
-          <SettingItem icon="help-circle-outline" title="Help & Support" />
+          <SettingsListItem icon="help-circle-outline" title="Help & Support" />
         </View>
 
         {/* Logout */}
@@ -306,31 +243,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    gap: 12,
-  },
-  settingIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingContent: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  settingSubtitle: {
-    fontSize: 13,
-    marginTop: 2,
   },
   logoutButton: {
     flexDirection: 'row',

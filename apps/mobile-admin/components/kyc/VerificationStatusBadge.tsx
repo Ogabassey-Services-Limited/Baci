@@ -4,36 +4,42 @@ import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
 interface VerificationStatusBadgeProps {
-  verified: boolean;
+  label?: string;
+  status: 'not-started' | 'pending' | 'verified';
 }
 
 export default function VerificationStatusBadge({
-  verified,
+  label,
+  status,
 }: VerificationStatusBadgeProps) {
   const { colors } = useTheme();
+  const isPending = status === 'pending';
+  const isVerified = status === 'verified';
+  const resolvedLabel =
+    label ?? (isVerified ? 'Verified' : isPending ? 'Pending' : 'Not Started');
+  const backgroundColor = isVerified
+    ? colors.successLight
+    : isPending
+      ? colors.warningLight
+      : colors.inputBg;
+  const textColor = isVerified
+    ? colors.success
+    : isPending
+      ? colors.warning
+      : colors.textMuted;
 
   return (
     <View
-      style={[
-        styles.badge,
-        {
-          backgroundColor: verified ? colors.successLight : colors.inputBg,
-        },
-      ]}
+      style={[styles.badge, { backgroundColor }]}
       accessibilityRole="text"
-      accessibilityLabel={verified ? 'Verified' : 'Not Started'}
+      accessibilityLabel={resolvedLabel}
     >
-      {verified && (
+      {isVerified ? (
         <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-      )}
-      <Text
-        style={[
-          styles.label,
-          { color: verified ? colors.success : colors.textMuted },
-        ]}
-      >
-        {verified ? 'Verified' : 'Not Started'}
-      </Text>
+      ) : isPending ? (
+        <Ionicons name="time-outline" size={14} color={colors.warning} />
+      ) : null}
+      <Text style={[styles.label, { color: textColor }]}>{resolvedLabel}</Text>
     </View>
   );
 }

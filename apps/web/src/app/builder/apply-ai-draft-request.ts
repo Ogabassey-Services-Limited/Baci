@@ -10,6 +10,8 @@ import { getBuilderMutationErrorMessage } from './builder-descriptions';
 interface ApplyAiDraftRequestParams extends BuilderSessionSetters {
   aiDraftJobId: string;
   force: boolean;
+  merchantId: string;
+  isCurrentRequest: () => boolean;
   router: BuilderRouter;
   toast: BuilderToast;
   setShowStaleAiDraftDialog: Dispatch<SetStateAction<boolean>>;
@@ -33,6 +35,8 @@ export async function applyAiDraftRequest(params: ApplyAiDraftRequestParams) {
   const {
     aiDraftJobId,
     force,
+    merchantId,
+    isCurrentRequest,
     router,
     toast,
     setShowStaleAiDraftDialog,
@@ -45,14 +49,17 @@ export async function applyAiDraftRequest(params: ApplyAiDraftRequestParams) {
     setCanApplyAiDraft,
   } = params;
 
+  if (!isCurrentRequest()) return;
   setApplyingAiDraft(true);
   try {
     const response = await fetchWithCsrf(`/api/ai-jobs/${aiDraftJobId}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(force ? { force } : {}),
+      body: JSON.stringify({ merchantId, ...(force ? { force } : {}) }),
     });
+    if (!isCurrentRequest()) return;
     const payload = await readApplyAiDraftResponse(response);
+    if (!isCurrentRequest()) return;
 
     if (
       !force &&
@@ -81,6 +88,7 @@ export async function applyAiDraftRequest(params: ApplyAiDraftRequestParams) {
     setCanApplyAiDraft(false);
     router.push('/builder');
   } catch (error) {
+    if (!isCurrentRequest()) return;
     console.error('Failed to apply AI draft:', error);
     toast({
       title: 'Failed to apply AI design',
@@ -91,6 +99,8 @@ export async function applyAiDraftRequest(params: ApplyAiDraftRequestParams) {
       variant: 'destructive',
     });
   } finally {
-    setApplyingAiDraft(false);
+    if (isCurrentRequest()) {
+      setApplyingAiDraft(false);
+    }
   }
 }

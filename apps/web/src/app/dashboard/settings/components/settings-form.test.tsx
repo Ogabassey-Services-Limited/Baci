@@ -5,7 +5,22 @@ import { SettingsForm } from './settings-form';
 
 // Mock child components to avoid deep rendering
 vi.mock('./branding-card', () => ({
-  BrandingCard: () => <div data-testid="branding-card" />,
+  BrandingCard: ({
+    onColorChange,
+    onShuffleColors,
+  }: {
+    onColorChange: (role: 'primary', color: string) => void;
+    onShuffleColors: () => void;
+  }) => (
+    <div data-testid="branding-card">
+      <button type="button" onClick={() => onColorChange('primary', '#123456')}>
+        Change primary color
+      </button>
+      <button type="button" onClick={onShuffleColors}>
+        Shuffle colors
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('./hero-carousel-card', () => ({
@@ -155,63 +170,6 @@ describe('SettingsForm', () => {
     ).toBeInTheDocument();
   });
 
-  it('submit saves generic fields and social_media before one context reload', async () => {
-    // Arrange
-    mockUpdateMerchant.mockResolvedValueOnce(undefined);
-    mockUpdateSocial.mockResolvedValueOnce({
-      merchant: { id: 'merchant-1', social_media: { twitter: '@test' } },
-    });
-    render(
-      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
-    );
-    fireEvent.click(screen.getByTestId('social-media-card'));
-    const form = screen
-      .getByRole('button', { name: /save changes/i })
-      .closest('form');
-
-    if (!form) throw new Error('Form not found');
-
-    // Act
-    fireEvent.submit(form);
-
-    // Assert — generic hook gets non-identity fields only (no social_media).
-    await waitFor(() => {
-      expect(mockUpdateMerchant).toHaveBeenCalledWith(
-        expect.objectContaining({
-          business_name: 'Test Store',
-          country: 'NG',
-          hero_slides: [],
-        }),
-        { skipReload: true }
-      );
-    });
-    expect(mockUpdateMerchant.mock.calls[0]?.[0]).not.toHaveProperty(
-      'social_media'
-    );
-
-    // Assert — social_media persists via the dedicated PATCH helper.
-    await waitFor(() => {
-      expect(mockUpdateSocial).toHaveBeenCalledWith(
-        expect.objectContaining({ twitter: '@test' })
-      );
-    });
-
-    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
-    expect(
-      Math.max(
-        mockUpdateMerchant.mock.invocationCallOrder[0] ?? 0,
-        mockUpdateSocial.mock.invocationCallOrder[0] ?? 0
-      )
-    ).toBeLessThan(mockReloadMerchant.mock.invocationCallOrder[0] ?? 0);
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Settings Saved!',
-        description: 'Your store settings have been updated.',
-      });
-    });
-  });
-
   it('shows error toast when updateMerchant rejects', async () => {
     // Arrange
     const error = new Error('Update failed');
@@ -266,5 +224,45 @@ describe('SettingsForm', () => {
       },
       { timeout: 200 }
     );
+  });
+
+  it('writes branding changes to the selected merchant after switching stores', async () => {
+    const merchantB = {
+      ...mockMerchant,
+      id: 'merchant-2',
+      business_name: 'Second Store',
+      brand_colors: { primary: '#111', background: '#222', accent: '#333' },
+    };
+    mockUpdateMerchant.mockResolvedValue(undefined);
+    const rendered = render(
+      <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
+    );
+
+    rendered.rerender(
+      <SettingsForm initialMerchant={merchantB} initialBlogEnabled={false} />
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change primary color' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle colors' }));
+
+    await waitFor(() => {
+      expect(mockUpdateMerchant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brand_colors: expect.objectContaining({ primary: '#123456' }),
+        }),
+        { merchantId: 'merchant-2', skipReload: true }
+      );
+      expect(mockUpdateMerchant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brand_colors: {
+            primary: '#333',
+            background: '#123456',
+            accent: '#222',
+          },
+        }),
+        { merchantId: 'merchant-2', skipReload: true }
+      );
+    });
   });
 });

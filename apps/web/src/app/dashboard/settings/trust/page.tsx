@@ -80,15 +80,18 @@ export default async function TrustSettingsPage() {
         <AgentCommerceControlsCard
           initialCustomSettings={agenticCustomSettings}
           initialEnabled={agenticCheckoutEnabled}
+          merchantId={merchant.id}
         />
       </div>
 
       <GoogleReviewAuthoritySettingsCard
         initialGooglePlaceId={googlePlaceId}
         initialGoogleReviewsEnabled={googleReviewsEnabled}
+        merchantId={merchant.id}
       />
 
       <TrustSettingsClient
+        merchantId={merchant.id}
         initialTrustProfile={merchant.trust_profile ?? null}
       />
     </div>

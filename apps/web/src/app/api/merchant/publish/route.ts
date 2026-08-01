@@ -1,24 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
-import {
-  getLaunchPaymentRequirement,
-  requiresNigerianKycForLaunch,
-} from '@/lib/checkout/payment-gateway-availability';
-import { checkCsrfProtection } from '@/lib/csrf';
-import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
 import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
+import { loadStoreLaunchReadiness } from '@/lib/store-readiness/load-store-launch-readiness';
+import { getStorePublicationMissingItems } from '@/lib/store-readiness/store-publication-missing-items';
 import { evictStorefrontPublicationCaches } from '@/lib/storefront-publication-cache-eviction';
-import { createAdminClient } from '@/lib/supabase/admin';
-
-interface MerchantVerificationStatus {
-  nin_verified: boolean;
-  bvn_verified: boolean;
-  cac_verified: boolean;
-}
+import { resolvePublishMerchantAccess } from './resolve-publish-merchant-access';
 
 function storefrontCacheEvictionFailureResponse(): NextResponse {
   return NextResponse.json(
@@ -33,39 +18,6 @@ function storefrontCacheEvictionFailureResponse(): NextResponse {
 }
 
 /**
- * Returns the verified flags from merchant_verifications for the given
- * merchant. Uses the admin (service-role) client because the underlying
- * table denies reads from `authenticated` via RLS. Auth + permission
- * checks have already been enforced by the caller; this function only
- * reads three boolean columns keyed by `merchant_id`.
- *
- * Throws on DB errors so the caller surfaces them as a 5xx. Collapsing
- * failures into `false` would misclassify backend outages as user-side
- * KYC gaps and block already-verified merchants from publishing.
- */
-async function getVerificationStatus(
-  merchantId: string
-): Promise<MerchantVerificationStatus> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('merchant_verifications')
-    .select('nin_verified, bvn_verified, cac_verified')
-    .eq('merchant_id', merchantId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[Publish API] merchant_verifications read failed:', error);
-    throw new Error('Failed to load verification status');
-  }
-
-  return {
-    nin_verified: !!data?.nin_verified,
-    bvn_verified: !!data?.bvn_verified,
-    cac_verified: !!data?.cac_verified,
-  };
-}
-
-/**
  * Store Publish API
  *
  * POST - Publish the merchant's store (make it publicly accessible)
@@ -74,191 +26,21 @@ async function getVerificationStatus(
 
 export async function POST(request: NextRequest) {
   try {
-    // CSRF protection
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
+    const merchantAccess = await resolvePublishMerchantAccess(request);
+    if (!merchantAccess.ok) return merchantAccess.response;
 
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const access = await getUserAccess(auth.supabase);
-    if (!access) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    if (!hasPermission(access, 'settings', 'edit')) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    // Use the auth-scoped client from authenticateApiRequest for user-facing DB
-    // ops so mobile (Bearer token) requests run with the user's token and
-    // satisfy RLS. Falling back to cookie-based createClient would run as anon
-    // on React Native where no session cookie is present, silently failing RLS
-    // checks and breaking publish from the mobile admin app.
-    const supabase = auth.supabase;
-
-    // Non-secret merchant columns remain granted to the `authenticated`
-    // Postgres role, so read the fields needed for publish validation on the
-    // auth-scoped client, strictly keyed to the caller's already-resolved
-    // merchant id (access.merchantId) to preserve tenant scoping. The secret
-    // `paystack_subaccount_code` is revoked from that role and is fetched
-    // separately below via a bounded RPC.
-    const { data: merchantRecord, error: merchantError } = await supabase
-      .from('merchants')
-      .select(
-        'id, business_name, country, email, phone, support_email, support_phone, bank_code, bank_account_number, slug'
-      )
-      .eq('id', access.merchantId)
-      .maybeSingle();
-
-    if (merchantError) {
-      console.error('[Publish API] merchant read failed:', merchantError);
-      return NextResponse.json(
-        { error: 'Failed to load merchant' },
-        { status: 500 }
-      );
-    }
-
-    if (!merchantRecord) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    // Read the revoked `paystack_subaccount_code` through the bounded SECURITY
-    // DEFINER RPC on the same authenticated client (owner/active-staff), then
-    // merge it into the merchant row the launch-payment gate validates.
-    const merchant = {
-      ...merchantRecord,
-      paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
-        supabase,
-        access.merchantId
-      ),
-    };
-
-    const { data: featureSettings, error: featureSettingsError } =
-      await supabase
-        .from('merchant_feature_settings')
-        .select('paystack_enabled, korapay_enabled, pay_on_delivery_enabled')
-        .eq('merchant_id', merchant.id)
-        .maybeSingle();
-
-    if (featureSettingsError) {
-      console.error(
-        '[Publish API] merchant_feature_settings read failed:',
-        featureSettingsError
-      );
-      return NextResponse.json(
-        { error: 'Failed to load payment settings' },
-        { status: 500 }
-      );
-    }
-
-    const paymentMerchant = {
-      ...merchant,
-      feature_settings: featureSettings ?? undefined,
-    };
-
-    // Check for required setup items
-    const missingItems: string[] = [];
-
-    // Legacy rows can predate the required storefront slug. Publishing without
-    // one would make cache eviction identities incomplete after the mutation.
-    if (!merchant.slug?.trim()) {
-      missingItems.push('Store URL');
-    }
-
-    // Identity verification requires at least one of NIN/BVN/CAC to have been
-    // *verified* against the upstream identity provider — not merely entered.
-    // merchant_verifications is the source of truth for verified flags.
-    if (requiresNigerianKycForLaunch(paymentMerchant)) {
-      const verification = await getVerificationStatus(merchant.id);
-      const hasVerifiedIdentity =
-        verification.nin_verified ||
-        verification.bvn_verified ||
-        verification.cac_verified;
-      if (!hasVerifiedIdentity) {
-        missingItems.push('Identity verification (NIN, BVN, or CAC)');
-      }
-    }
-
-    const paymentRequirement = getLaunchPaymentRequirement(paymentMerchant);
-    if (!paymentRequirement.completed) {
-      missingItems.push(
-        paymentRequirement.id === 'bank_account'
-          ? 'Bank account details'
-          : 'Payment method'
-      );
-    }
-
-    // Country required for currency/shipping
-    if (!merchant.country) {
-      missingItems.push('Country/region setting');
-    }
-
-    // Contact info required
-    if (
-      !merchant.support_email &&
-      !merchant.support_phone &&
-      !merchant.email &&
-      !merchant.phone
-    ) {
-      missingItems.push('Contact information (email or phone)');
-    }
-
-    // Check for at least one product
-    const { count: productCount, error: productError } = await supabase
-      .from('products')
-      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchant.id)
-      .eq('status', 'active');
-
-    // Also get total products for debugging
-    const { count: totalProducts, error: totalProductsError } = await supabase
-      .from('products')
-      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchant.id);
-
-    console.log('[Publish API] Product check:', {
-      merchantId: merchant.id,
-      activeCount: productCount,
-      totalProducts,
-      productError,
-      totalProductsError,
+    const { merchantId, supabase } = merchantAccess;
+    const launchReadiness = await loadStoreLaunchReadiness({
+      supabase,
+      merchantId,
     });
 
-    if (!productCount || productCount === 0) {
-      missingItems.push(
-        totalProducts && totalProducts > 0
-          ? `At least one active product (you have ${totalProducts} product(s) but none are active - go to Products and activate them)`
-          : 'At least one active product'
-      );
-    }
-
-    // If any required items are missing, return error
-    if (missingItems.length > 0) {
+    if (!launchReadiness.isReady) {
       return NextResponse.json(
         {
           error: 'Cannot publish store',
           message: 'Please complete the following required items:',
-          missingItems,
+          missingItems: getStorePublicationMissingItems(launchReadiness),
         },
         { status: 400 }
       );
@@ -269,8 +51,8 @@ export async function POST(request: NextRequest) {
     const publicationCacheIdentity =
       await getStorefrontPublicationCacheIdentity(
         supabase,
-        merchant.id,
-        merchant.slug
+        merchantId,
+        launchReadiness.slug
       );
 
     // All checks passed, publish the store
@@ -280,7 +62,7 @@ export async function POST(request: NextRequest) {
         is_published: true,
         published_at: new Date().toISOString(),
       })
-      .eq('id', merchant.id);
+      .eq('id', merchantId);
 
     if (updateError) {
       console.error('Error publishing store:', updateError);
@@ -315,45 +97,18 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // CSRF protection
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
+    const merchantAccess = await resolvePublishMerchantAccess(request);
+    if (!merchantAccess.ok) return merchantAccess.response;
 
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const access = await getUserAccess(auth.supabase);
-    if (!access) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    if (!hasPermission(access, 'settings', 'edit')) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    // Use the auth-scoped client from authenticateApiRequest so mobile
-    // (Bearer token) requests satisfy RLS. See POST handler for context.
-    const supabase = auth.supabase;
+    // The resolver returns the auth-scoped client, so mobile Bearer-token
+    // requests satisfy RLS. See POST handler for the matching publish flow.
+    const { merchantId, supabase } = merchantAccess;
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, slug')
-      .eq('id', access.merchantId)
+      .eq('id', merchantId)
       .maybeSingle();
 
     if (merchantError) {
@@ -375,7 +130,7 @@ export async function DELETE(request: NextRequest) {
     const publicationCacheIdentity =
       await getStorefrontPublicationCacheIdentity(
         supabase,
-        merchant.id,
+        merchantId,
         merchant.slug
       );
 
@@ -385,7 +140,7 @@ export async function DELETE(request: NextRequest) {
       .update({
         is_published: false,
       })
-      .eq('id', merchant.id);
+      .eq('id', merchantId);
 
     if (updateError) {
       console.error('Error unpublishing store:', updateError);

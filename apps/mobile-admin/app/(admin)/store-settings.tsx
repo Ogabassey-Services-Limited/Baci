@@ -1,18 +1,19 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stack, useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { StoreLogoSection } from '@/components/store-settings/StoreLogoSection';
 import { StoreSettingsBackButton } from '@/components/store-settings/StoreSettingsBackButton';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
+import { StoreSettingsLoadError } from '@/components/store-settings/StoreSettingsLoadError';
 import { StoreSettingsSaveButton } from '@/components/store-settings/StoreSettingsSaveButton';
 import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
 import { storeSettingsStyles as styles } from '@/components/store-settings/store-settings.styles';
 import {
   buildBaselineFromMerchant,
   buildInitialFormValues,
-  buildMerchantUpdatePayload,
   hasNonEmptyTrimmedValue,
+  rebaseStoreSettingsBaseline,
   type StoreSettingsFormValues,
 } from '@/components/store-settings/store-settings-payload';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
@@ -25,14 +26,19 @@ import {
 import { COUNTRIES } from '@/constants/countries';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { useStoreSettingsFormDirty } from '@/hooks/useStoreSettingsFormDirty';
+import {
+  type RefreshedLocalStoreSettingsSave,
+  useStoreSettingsSaveLifecycle,
+} from '@/hooks/useStoreSettingsSaveLifecycle';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const queryClient = useQueryClient();
   const { merchant, isLoading } = useMerchant();
   const { isPro } = useRevenueCat();
@@ -52,10 +58,14 @@ export default function StoreSettingsScreen() {
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
+  const { getFormRevision, isFormDirty, markFormDirty, resetFormDirty } =
+    useStoreSettingsFormDirty();
   const [syncedMerchant, setSyncedMerchant] = useState<typeof merchant | null>(
     null
   );
-  // Snapshot of the form values as loaded, used to diff only the edited columns.
+  const [syncedMerchantUpdatedAt, setSyncedMerchantUpdatedAt] = useState<
+    string | null
+  >(null);
   const [baseline, setBaseline] = useState<StoreSettingsFormValues | null>(
     null
   );
@@ -63,14 +73,18 @@ export default function StoreSettingsScreen() {
     setStatusModal,
   });
 
-  // Adjust form state during render when the merchant identity changes so the
-  // form never paints a stale frame (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
-  if (merchant && merchant !== syncedMerchant) {
-    setSyncedMerchant(merchant);
+  const hasMerchantChanged = merchant?.id !== syncedMerchant?.id;
 
-    // Form state uses UI fallbacks (e.g. a default country/currency) so the
-    // picker is never empty.
+  if (
+    merchant &&
+    merchant !== syncedMerchant &&
+    (!isFormDirty || hasMerchantChanged)
+  ) {
+    if (hasMerchantChanged) resetFormDirty();
+    setSyncedMerchant(merchant);
+    setSyncedMerchantUpdatedAt(merchant.updated_at ?? null);
     const initialForm = buildInitialFormValues(merchant);
+    setBaseline(buildBaselineFromMerchant(merchant));
     setBusinessName(initialForm.businessName);
     setPhone(initialForm.phone);
     setSupportPhone(initialForm.supportPhone);
@@ -80,23 +94,22 @@ export default function StoreSettingsScreen() {
     setCurrency(initialForm.currency);
     setSlug(initialForm.slug);
     setIsSlugEdited(hasNonEmptyTrimmedValue(merchant.slug));
-
-    // The baseline diffs against the merchant's REAL persisted columns (null →
-    // empty string), never the UI fallback. Otherwise a merchant whose country
-    // is null would baseline to the visible default, so saving that default
-    // would produce an empty diff and never write the column.
-    setBaseline(buildBaselineFromMerchant(merchant));
   }
 
   const hasEstablishedMerchantSlug = hasNonEmptyTrimmedValue(baseline?.slug);
+  const authEmailPrefill = syncedMerchant?.support_email
+    ? ''
+    : syncedMerchant?.email || '';
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
+    markFormDirty();
     setCountry(selected.code);
     setCurrency(selected.currency);
     setShowCountryModal(false);
   };
 
   const handleBusinessNameChange = (text: string) => {
+    markFormDirty();
     setBusinessName(text);
     if (!(isSlugEdited || hasEstablishedMerchantSlug)) {
       const generated = text
@@ -110,25 +123,42 @@ export default function StoreSettingsScreen() {
   const handleSlugChange = (text: string) => {
     if (hasEstablishedMerchantSlug) return;
 
+    markFormDirty();
     setIsSlugEdited(true);
     const sanitized = text.toLowerCase().replace(/[^a-z0-9-]/g, '');
     setSlug(sanitized);
   };
 
-  const invalidateMerchantQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ['merchant'] });
-    queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });
+  const invalidateMerchantQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+      queryClient.invalidateQueries({ queryKey: ['merchant-settings'] }),
+    ]);
   };
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!merchant?.id || !baseline) throw new Error('No merchant found');
+  const updateFormValue = (setter: (value: string) => void, value: string) => {
+    markFormDirty();
+    setter(value);
+  };
 
-      // Build the payload from a dirty-field diff against the loaded snapshot so
-      // only edited columns are written. This stops a stale full-form snapshot
-      // from reverting columns the user never touched (the recurring identity
-      // drift) and keeps phone/support_phone as independent columns.
-      const payload = buildMerchantUpdatePayload(baseline, {
+  const adoptRefreshedLocalSave = (save: RefreshedLocalStoreSettingsSave) => {
+    setSyncedMerchantUpdatedAt(save.updatedAt);
+    setBaseline((previous) =>
+      previous
+        ? rebaseStoreSettingsBaseline({
+            authEmailPrefill,
+            baseline: previous,
+            displayedSupportEmail: email,
+            savedValues: save.savedValues,
+          })
+        : previous
+    );
+  };
+
+  const { handleCloseStatusModal, isSaving, startSave } =
+    useStoreSettingsSaveLifecycle({
+      baseline,
+      formValues: {
         business_name: businessName,
         phone,
         support_phone: supportPhone,
@@ -137,64 +167,17 @@ export default function StoreSettingsScreen() {
         country,
         payout_currency: currency,
         slug,
-      });
-
-      // Nothing changed — skip the write entirely.
-      if (Object.keys(payload).length === 0) {
-        return;
-      }
-
-      let query = supabase
-        .from('merchants')
-        .update(payload)
-        .eq('id', merchant.id);
-
-      // Optimistic-concurrency guard: only overwrite the row we actually loaded.
-      // If the row moved on (updated_at differs), the filter matches no rows and
-      // we surface a conflict instead of silently clobbering the newer write.
-      const loadedUpdatedAt = syncedMerchant?.updated_at;
-      if (loadedUpdatedAt) {
-        query = query.eq('updated_at', loadedUpdatedAt);
-      }
-
-      const { data, error } = await query.select('id');
-      if (error) throw error;
-
-      if (loadedUpdatedAt && (!data || data.length === 0)) {
-        throw new Error(
-          'These settings changed elsewhere. Reopen the page and try again.'
-        );
-      }
-    },
-    onSuccess: () => {
-      invalidateMerchantQueries();
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
-      setStatusModal({
-        visible: true,
-        type: 'success',
-        title: 'Success!',
-        message: 'Store settings updated successfully.',
-      });
-    },
-    onError: (error: unknown) => {
-      console.error('Update error:', error);
-      setStatusModal({
-        visible: true,
-        type: 'error',
-        title: 'Update Failed',
-        message: (error as Error).message || 'Failed to update store settings',
-      });
-    },
-  });
-
-  const handleCloseStatusModal = () => {
-    if (statusModal.type === 'success' && statusModal.title === 'Success!') {
-      setStatusModal((prev) => ({ ...prev, visible: false }));
-      router.back();
-    } else {
-      setStatusModal((prev) => ({ ...prev, visible: false }));
-    }
-  };
+      },
+      from,
+      getFormRevision,
+      merchant,
+      onRefreshedLocalSave: adoptRefreshedLocalSave,
+      queryClient,
+      resetFormDirty,
+      router,
+      setStatusModal,
+      syncedMerchantUpdatedAt,
+    });
 
   if (isLoading) {
     return (
@@ -204,9 +187,22 @@ export default function StoreSettingsScreen() {
     );
   }
 
-  const selectedCountryLabel =
-    COUNTRIES.find((c) => c.code === country || c.name === country)?.name ||
-    country;
+  if (!merchant) {
+    return (
+      <StoreSettingsLoadError
+        colors={colors}
+        onRetry={() =>
+          void queryClient.invalidateQueries({ queryKey: ['merchant'] })
+        }
+      />
+    );
+  }
+
+  const selectedCountry = COUNTRIES.find(
+    (candidate) => candidate.code === country || candidate.name === country
+  );
+  const selectedCountryCode = selectedCountry?.code || COUNTRIES[0].code;
+  const selectedCountryLabel = selectedCountry?.name || country;
   const planLabel = SubscriptionManagement.getPlanLabel(isPro) || 'Free Plan';
   const manageSubscriptionLabel =
     SubscriptionManagement.getManagementLabel() || 'Manage Subscription';
@@ -225,8 +221,8 @@ export default function StoreSettingsScreen() {
           headerRight: () => (
             <StoreSettingsSaveButton
               colors={colors}
-              isSaving={saveMutation.isPending}
-              onPress={() => saveMutation.mutate()}
+              isSaving={isSaving}
+              onPress={startSave}
             />
           ),
         }}
@@ -252,16 +248,21 @@ export default function StoreSettingsScreen() {
           address={address}
           businessName={businessName}
           colors={colors}
+          countryCode={selectedCountryCode}
           countryLabel={selectedCountryLabel}
           currency={currency}
           email={email}
-          onAddressChange={setAddress}
+          googleMapsApiKey={process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}
+          isDark={isDark}
+          onAddressChange={(value) => updateFormValue(setAddress, value)}
           onBusinessNameChange={handleBusinessNameChange}
-          onEmailChange={setEmail}
+          onEmailChange={(value) => updateFormValue(setEmail, value)}
           onOpenCountryPicker={() => setShowCountryModal(true)}
-          onPhoneChange={setPhone}
+          onPhoneChange={(value) => updateFormValue(setPhone, value)}
           onSlugChange={handleSlugChange}
-          onSupportPhoneChange={setSupportPhone}
+          onSupportPhoneChange={(value) =>
+            updateFormValue(setSupportPhone, value)
+          }
           phone={phone}
           shadowStyle={shadows.sm}
           slugLocked={hasEstablishedMerchantSlug}
@@ -286,7 +287,10 @@ export default function StoreSettingsScreen() {
           onClose={() => setShowCountryModal(false)}
         />
 
-        <StatusModal status={statusModal} onClose={handleCloseStatusModal} />
+        <StatusModal
+          status={statusModal}
+          onClose={() => handleCloseStatusModal(statusModal)}
+        />
       </AppFormScreen>
     </>
   );

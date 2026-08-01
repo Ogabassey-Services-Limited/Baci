@@ -9,12 +9,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockApiPost = vi.fn();
 const mockToast = vi.fn();
-const mockReload = vi.fn();
 
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({
     merchant: { id: 'merchant-1', slug: 'oldstore' },
-    reloadMerchant: mockReload,
   }),
 }));
 
@@ -76,6 +74,7 @@ describe('ChangeStoreUrl', () => {
 
     await waitFor(() =>
       expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/rename-slug', {
+        merchantId: 'merchant-1',
         new_slug: 'newstore',
       })
     );
@@ -84,7 +83,6 @@ describe('ChangeStoreUrl', () => {
         expect.objectContaining({ title: 'Store URL changed' })
       )
     );
-    expect(mockReload).toHaveBeenCalled();
   });
 
   it('surfaces the server error message when the rename fails', async () => {
@@ -108,7 +106,6 @@ describe('ChangeStoreUrl', () => {
         })
       )
     );
-    expect(mockReload).not.toHaveBeenCalled();
   });
 
   it('shows a disabled loading state while the rename is in flight', async () => {

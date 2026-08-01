@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation } from '@tanstack/react-query';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,69 +12,85 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, NetworkError } from '@/lib/api-client';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
+import BvnVerificationCard from './BvnVerificationCard';
 import DateOfBirthPicker from './DateOfBirthPicker';
 import { isDateInPast, isValidCalendarDate } from './date-utils';
+import IdentityNameFields from './IdentityNameFields';
 import VerificationStatusBadge from './VerificationStatusBadge';
 import { verificationCardStyles as styles } from './verification-card-styles';
 import type { VerificationIdentityDraft } from './verification-identity';
 
 interface NinVerificationCardProps {
+  bvnVerified: boolean;
   dateOfBirth: string;
   firstName: string;
   lastName: string;
+  merchantId?: string | null;
+  mobileNo: string;
   onIdentityChange: React.Dispatch<
     React.SetStateAction<VerificationIdentityDraft>
   >;
-  onVerified: () => void;
-  verified: boolean;
+  onVerified: () => Promise<unknown>;
+  isActive?: () => boolean;
+  prefillBvn?: string | null;
   prefillNin?: string | null;
+  verified: boolean;
 }
 
-interface VerifyNinResponse {
-  verified: boolean;
-}
+type VerifyNinResponse = { verified: boolean };
 
 export default function NinVerificationCard({
+  bvnVerified,
   verified,
+  prefillBvn,
   prefillNin,
   firstName,
   lastName,
+  merchantId,
   dateOfBirth,
+  mobileNo,
   onIdentityChange,
   onVerified,
+  isActive = () => true,
 }: NinVerificationCardProps) {
   const { colors, shadows } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [nin, setNin] = useState(prefillNin ?? '');
-
-  // Adjust state during render (instead of in an effect) so users never see
-  // a stale NIN frame between commits when the prefill or verified prop flips.
+  const isFullyVerified = verified && bvnVerified;
+  useEffect(() => {
+    if (isFullyVerified) setExpanded(false);
+  }, [isFullyVerified]);
   const [prevPrefillNin, setPrevPrefillNin] = useState(prefillNin);
   const [prevVerified, setPrevVerified] = useState(verified);
   if (prefillNin !== prevPrefillNin || verified !== prevVerified) {
     setPrevPrefillNin(prefillNin);
     setPrevVerified(verified);
-    if (!verified) {
-      setNin(prefillNin ?? '');
-    }
+    if (!verified) setNin(prefillNin ?? '');
   }
-
   const mutation = useMutation({
     mutationFn: () =>
       apiClient<VerifyNinResponse>('/api/merchant/verify-nin', {
         method: 'POST',
         body: JSON.stringify({
+          merchantId,
           nin,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           dateOfBirth: dateOfBirth.trim(),
         }),
       }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.verified) {
-        Alert.alert('Success', 'Your NIN has been verified successfully.');
-        onVerified();
-      } else {
+        const readinessRefreshed = await tryRefreshStoreReadiness(onVerified);
+        if (!isActive()) return;
+        Alert.alert(
+          'Success',
+          readinessRefreshed
+            ? 'Your NIN has been verified successfully.'
+            : 'Your NIN has been verified successfully. Your setup status will refresh shortly.'
+        );
+      } else if (!data.verified && isActive()) {
         Alert.alert(
           'Verification Failed',
           "The details you provided don't match NIN records."
@@ -82,6 +98,7 @@ export default function NinVerificationCard({
       }
     },
     onError: (error: unknown) => {
+      if (!isActive()) return;
       if (error instanceof NetworkError && error.statusCode === 429) {
         Alert.alert(
           'Rate Limited',
@@ -134,19 +151,24 @@ export default function NinVerificationCard({
     >
       <Pressable
         style={styles.header}
-        onPress={() => setExpanded((prev) => !prev)}
+        onPress={() => setExpanded((current) => !current)}
         accessibilityRole="button"
-        accessibilityLabel="Toggle NIN verification section"
+        accessibilityLabel="Toggle identity verification"
         accessibilityState={{ expanded }}
       >
         <View style={styles.headerLeft}>
           <Ionicons name="id-card-outline" size={22} color={colors.primary} />
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            NIN Verification
+            Identity Verification
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <VerificationStatusBadge verified={verified} />
+          <VerificationStatusBadge
+            label={verified && !bvnVerified ? 'BVN Pending' : undefined}
+            status={
+              bvnVerified ? 'verified' : verified ? 'pending' : 'not-started'
+            }
+          />
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={20}
@@ -154,6 +176,7 @@ export default function NinVerificationCard({
           />
         </View>
       </Pressable>
+
       {expanded && (
         <View style={styles.body}>
           {verified && (
@@ -189,59 +212,21 @@ export default function NinVerificationCard({
             placeholder="12345678901"
             placeholderTextColor={colors.textMuted}
             value={nin}
-            onChangeText={(v) => setNin(v.replace(/\D/g, '').slice(0, 11))}
+            onChangeText={(value) =>
+              setNin(value.replace(/\D/g, '').slice(0, 11))
+            }
             keyboardType="number-pad"
             maxLength={11}
             editable={!verified}
             accessibilityLabel="NIN input"
           />
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            First Name
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="First name"
-            placeholderTextColor={colors.textMuted}
-            value={firstName}
-            onChangeText={(value) =>
-              onIdentityChange((current) => ({ ...current, firstName: value }))
-            }
-            autoCapitalize="words"
-            maxLength={50}
-            editable={!verified}
-            accessibilityLabel="First name input"
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Last Name
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="Last name"
-            placeholderTextColor={colors.textMuted}
-            value={lastName}
-            onChangeText={(value) =>
-              onIdentityChange((current) => ({ ...current, lastName: value }))
-            }
-            autoCapitalize="words"
-            maxLength={50}
-            editable={!verified}
-            accessibilityLabel="Last name input"
+          <IdentityNameFields
+            colors={colors}
+            disabled={bvnVerified}
+            firstName={firstName}
+            lastName={lastName}
+            onIdentityChange={onIdentityChange}
           />
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -256,7 +241,7 @@ export default function NinVerificationCard({
               }))
             }
             colors={colors}
-            disabled={verified}
+            disabled={bvnVerified}
           />
 
           {!verified && (
@@ -286,6 +271,24 @@ export default function NinVerificationCard({
               )}
             </Pressable>
           )}
+
+          <BvnVerificationCard
+            verified={bvnVerified}
+            prefillBvn={prefillBvn}
+            firstName={firstName}
+            lastName={lastName}
+            dateOfBirth={dateOfBirth}
+            mobileNo={mobileNo}
+            merchantId={merchantId}
+            onMobileNumberChange={(value) =>
+              onIdentityChange((current) => ({
+                ...current,
+                mobileNo: value.replace(/\D/g, '').slice(0, 11),
+              }))
+            }
+            isActive={isActive}
+            onVerified={onVerified}
+          />
         </View>
       )}
     </View>

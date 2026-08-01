@@ -125,11 +125,12 @@ export function useActiveBranch() {
 export function useCreateBranch() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
+  const merchantId = merchant?.id?.trim() || null;
 
   return useMutation({
     mutationFn: (input: CreateBranchInput) => {
-      if (!merchant?.id) throw new Error('No merchant');
-      return createBranchViaApi(input);
+      if (!merchantId) throw new Error('No merchant');
+      return createBranchViaApi(input, merchantId);
     },
     onSuccess: () => {
       // Invalidate branches query to refetch

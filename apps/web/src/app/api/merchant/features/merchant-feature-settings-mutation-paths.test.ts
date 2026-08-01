@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const routeMocks = vi.hoisted(() => ({
   from: vi.fn(),
+  hasPermission: vi.fn(),
   select: vi.fn(),
   selectEq: vi.fn(),
   selectMaybeSingle: vi.fn(),
@@ -22,9 +23,19 @@ vi.mock('@/lib/api-auth', () => ({
       supabase: { from: routeMocks.from },
       user: { id: 'task5-user' },
     }),
-  getUserAccess: () =>
-    Promise.resolve({ merchantId: 'task5-merchant', role: 'owner' }),
-  hasPermission: () => true,
+  hasPermission: (...args: unknown[]) => routeMocks.hasPermission(...args),
+}));
+
+const merchantId = '22222222-2222-4222-8222-222222222222';
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: vi.fn(() =>
+    Promise.resolve({
+      merchantId,
+      staffAccess: { isOwner: true, isStaff: false, permissions: {} },
+    })
+  ),
+  toUserAccess: vi.fn(() => ({ merchantId, role: 'owner' })),
 }));
 
 vi.mock('@/lib/cache-revalidation', () => ({
@@ -52,7 +63,7 @@ vi.mock('@/lib/merchant-feature-settings-redaction', () => ({
 
 function makeRequest(method: 'PATCH' | 'PUT', body: Record<string, unknown>) {
   return new NextRequest('http://localhost:3000/api/merchant/features', {
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, merchantId }),
     headers: { 'Content-Type': 'application/json' },
     method,
   });
@@ -60,6 +71,7 @@ function makeRequest(method: 'PATCH' | 'PUT', body: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  routeMocks.hasPermission.mockReturnValue(true);
   routeMocks.selectMaybeSingle.mockResolvedValue({
     data: { custom_settings: {} },
     error: null,
@@ -69,7 +81,7 @@ beforeEach(() => {
   });
   routeMocks.select.mockReturnValue({ eq: routeMocks.selectEq });
   routeMocks.writeSingle.mockResolvedValue({
-    data: { id: 'task5-settings', merchant_id: 'task5-merchant' },
+    data: { id: 'task5-settings', merchant_id: merchantId },
     error: null,
   });
   routeMocks.writeSelect.mockReturnValue({ single: routeMocks.writeSingle });
@@ -111,10 +123,7 @@ describe('merchant feature settings audited mutation paths', () => {
         preferred_local_gateway: 'korapay',
       })
     );
-    expect(routeMocks.updateEq).toHaveBeenCalledWith(
-      'merchant_id',
-      'task5-merchant'
-    );
+    expect(routeMocks.updateEq).toHaveBeenCalledWith('merchant_id', merchantId);
     expect(routeMocks.upsert).not.toHaveBeenCalled();
   });
 
@@ -142,12 +151,17 @@ describe('merchant feature settings audited mutation paths', () => {
         credit_direct_enabled: true,
         free_shipping_threshold: 50_000,
         korapay_enabled: true,
-        merchant_id: 'task5-merchant',
+        merchant_id: merchantId,
         preferred_international_gateway: 'paystack',
       }),
       { onConflict: 'merchant_id' }
     );
     expect(routeMocks.update).not.toHaveBeenCalled();
+    expect(routeMocks.hasPermission).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId }),
+      'settings',
+      'edit'
+    );
   });
 
   it('does not revalidate when PATCH update persistence fails', async () => {

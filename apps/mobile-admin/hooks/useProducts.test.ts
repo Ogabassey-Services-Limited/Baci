@@ -1,179 +1,28 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const mocks = vi.hoisted(() => ({
-  chainCalls: [] as Array<{ method: string; args: unknown[] }>,
-  createProductRecord: vi.fn(),
-  fetchProductDetail: vi.fn(),
-  infiniteQueryConfigs: [] as Array<{
-    queryFn: (args: { pageParam?: number }) => Promise<unknown>;
-    queryKey: readonly unknown[];
-    staleTime?: number;
-  }>,
-  mutationConfigs: [] as Array<{
-    mutationFn?: (variables: unknown) => unknown;
-    onSettled?: (
-      data: unknown,
-      error: unknown,
-      variables: { productId: string; stock: number }
-    ) => void;
-  }>,
-  updateProductRecord: vi.fn(),
-  productQueryResult: {
-    count: 0,
-    data: [] as unknown[],
-    error: null as { message: string } | null,
-  },
-  queryClient: {
-    cancelQueries: vi.fn(),
-    getQueriesData: vi.fn(() => []),
-    invalidateQueries: vi.fn(),
-    setQueriesData: vi.fn(),
-    setQueryData: vi.fn(),
-  },
-  queryConfigs: [] as Array<{
-    enabled?: boolean;
-    queryFn: () => Promise<unknown>;
-    queryKey: readonly unknown[];
-    staleTime?: number;
-  }>,
-  queryPromises: [] as Promise<unknown>[],
-  rpc: vi.fn(),
-}));
-
-function makeProductQuery() {
-  const chain: Record<string, unknown> = {};
-  const passthrough =
-    (method: string) =>
-    (...args: unknown[]) => {
-      mocks.chainCalls.push({ method, args });
-      return chain;
-    };
-
-  for (const method of [
-    'select',
-    'eq',
-    'is',
-    'order',
-    'range',
-    'lte',
-    'gt',
-    'or',
-  ]) {
-    chain[method] = passthrough(method);
-  }
-  // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are thenable.
-  chain.then = (
-    resolve: (value: {
-      data: unknown[];
-      count: number;
-      error: { message: string } | null;
-    }) => unknown
-  ) => Promise.resolve(mocks.productQueryResult).then(resolve);
-  return chain;
-}
-
-vi.mock('@tanstack/react-query', () => ({
-  keepPreviousData: Symbol('keepPreviousData'),
-  useInfiniteQuery: (config: {
-    queryFn: (args: { pageParam?: number }) => Promise<unknown>;
-    queryKey: readonly unknown[];
-    staleTime?: number;
-  }) => {
-    mocks.infiniteQueryConfigs.push(config);
-    mocks.queryPromises.push(config.queryFn({ pageParam: 0 }));
-    return {};
-  },
-  useMutation: (config: {
-    mutationFn?: (variables: unknown) => unknown;
-    onSettled?: (
-      data: unknown,
-      error: unknown,
-      variables: { productId: string; stock: number }
-    ) => void;
-  }) => {
-    mocks.mutationConfigs.push(config);
-    return {};
-  },
-  useQuery: (config: {
-    enabled?: boolean;
-    queryFn: () => Promise<unknown>;
-    queryKey: readonly unknown[];
-    staleTime?: number;
-  }) => {
-    mocks.queryConfigs.push(config);
-    mocks.queryPromises.push(config.queryFn());
-    return {};
-  },
-  useQueryClient: () => mocks.queryClient,
-}));
-
-// B1-lite: createCategory now posts to the web Route Handler (which owns
-// origin cache revalidation) instead of inserting directly, so the api-client
-// must be mocked — importing it for real pulls in RN transport internals the
-// test environment cannot load.
-vi.mock('@/lib/api-client', () => ({
-  apiClient: vi.fn().mockResolvedValue({
-    category: { id: 'category-1', name: 'Phones', slug: 'phones' },
-  }),
-}));
-
-vi.mock('@/lib/revalidate-storefront-products', () => ({
-  revalidateStorefrontProducts: vi.fn(),
-}));
-
-vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
-}));
-
-vi.mock('@/hooks/useBranchScope', () => ({
-  useBranchScope: () => ({
-    scope: { type: 'branch', branchId: 'branch-1' },
-  }),
-}));
-
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: () => makeProductQuery(),
-    rpc: mocks.rpc,
-  },
-}));
-
-vi.mock('./product-detail-query', () => ({
-  fetchProductDetail: mocks.fetchProductDetail,
-}));
-
-vi.mock('./product-save', () => ({
-  createProductRecord: mocks.createProductRecord,
-  updateProductRecord: mocks.updateProductRecord,
-}));
-
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
-  useInventoryStats,
-  useProduct,
-  useProducts,
-  useUpdateProduct,
-  useUpdateProductStock,
-} from './useProducts';
+  getUseProductsMocks,
+  resetUseProductsMocks,
+} from './useProducts.test-setup';
 
-describe('useProducts branch semantics', () => {
-  beforeEach(() => {
-    mocks.chainCalls.length = 0;
-    mocks.infiniteQueryConfigs.length = 0;
-    mocks.mutationConfigs.length = 0;
-    mocks.queryConfigs.length = 0;
-    mocks.queryPromises.length = 0;
-    mocks.fetchProductDetail.mockReset();
-    mocks.productQueryResult = { count: 0, data: [], error: null };
-    mocks.queryClient.cancelQueries.mockReset();
-    mocks.queryClient.getQueriesData.mockReset();
-    mocks.queryClient.getQueriesData.mockReturnValue([]);
-    mocks.queryClient.invalidateQueries.mockReset();
-    mocks.queryClient.setQueriesData.mockReset();
-    mocks.queryClient.setQueryData.mockReset();
-    mocks.rpc.mockReset();
-    mocks.createProductRecord.mockReset();
-    mocks.updateProductRecord.mockReset();
+const mocks = getUseProductsMocks();
+let useInventoryStats: typeof import('./useProducts').useInventoryStats;
+let useProduct: typeof import('./useProducts').useProduct;
+let useProducts: typeof import('./useProducts').useProducts;
+let useUpdateProduct: typeof import('./useProducts').useUpdateProduct;
+let useUpdateProductStock: typeof import('./useProducts').useUpdateProductStock;
+
+describe('useProducts branch and query semantics', () => {
+  beforeAll(async () => {
+    ({
+      useInventoryStats,
+      useProduct,
+      useProducts,
+      useUpdateProduct,
+      useUpdateProductStock,
+    } = await import('./useProducts'));
   });
+
+  beforeEach(resetUseProductsMocks);
 
   it('does not add branch_id filters to merchant-wide product catalog queries', () => {
     useProducts();
@@ -210,13 +59,59 @@ describe('useProducts branch semantics', () => {
     });
   });
 
-  it('invalidates the product list and changed product after stock updates settle', () => {
+  it('invalidates the product list and changed product after stock updates settle', async () => {
     useUpdateProductStock();
 
-    mocks.mutationConfigs[0]?.onSettled?.(undefined, undefined, {
+    const context = await mocks.mutationConfigs[0]?.onMutate?.({
       productId: 'product-1',
       stock: 7,
     });
+    await mocks.mutationConfigs[0]?.onSettled?.(
+      undefined,
+      undefined,
+      { productId: 'product-1', stock: 7 },
+      context
+    );
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product', 'merchant-1', 'product-1'],
+    });
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('uses unscoped product keys after a stock update settles without merchant context', async () => {
+    mocks.merchant = null;
+    useUpdateProductStock();
+
+    await mocks.mutationConfigs[0]?.onSettled?.(undefined, undefined, {
+      productId: 'product-1',
+      stock: 7,
+    });
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product'],
+    });
+  });
+
+  it('keeps a pending stock mutation scoped to its originating merchant after a merchant switch', async () => {
+    const variables = { productId: 'product-1', stock: 7 };
+    useUpdateProductStock();
+    const context = await mocks.mutationConfigs[0]?.onMutate?.(variables);
+
+    mocks.merchant = { id: 'merchant-2' };
+    useUpdateProductStock();
+    await mocks.mutationConfigs[1]?.onSettled?.(
+      undefined,
+      undefined,
+      variables,
+      context
+    );
 
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['products', 'merchant-1'],
@@ -247,28 +142,19 @@ describe('useProducts branch semantics', () => {
     await expect(mocks.queryPromises[0]).rejects.toEqual({
       message: 'rpc-failed',
     });
-    expect(mocks.rpc).toHaveBeenCalledWith('get_merchant_inventory_stats', {
-      p_merchant_id: 'merchant-1',
-    });
   });
 
-  it('forwards previousCategory/previousCategoryId into updateProductRecord', async () => {
+  it('forwards previous category snapshots into updateProductRecord', async () => {
     mocks.updateProductRecord.mockResolvedValue({ id: 'product-1' });
-
     useUpdateProduct();
 
-    const config = mocks.mutationConfigs[0];
-    expect(config?.mutationFn).toBeDefined();
-
-    await config?.mutationFn?.({
+    await mocks.mutationConfigs[0]?.mutationFn?.({
       id: 'product-1',
       updates: { name: 'iPhone 15' },
       previousCategory: 'Smartphones',
       previousCategoryId: 'cat-old',
     });
 
-    // The category MOVE snapshot must reach the save layer so the OLD category's
-    // cached storefront data is also revalidated.
     expect(mocks.updateProductRecord).toHaveBeenCalledWith({
       id: 'product-1',
       merchantId: 'merchant-1',

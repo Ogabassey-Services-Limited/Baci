@@ -1,10 +1,11 @@
 import { Alert } from 'react-native';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInitialProductEditFormData } from '@/components/product/product-edit.defaults';
 import type { ProductEditFormData } from '@/components/product/product-edit.types';
 
 const mocks = vi.hoisted(() => ({
   getPublicUrl: vi.fn(),
+  fetch: vi.fn(),
   launchCameraAsync: vi.fn(),
   launchImageLibraryAsync: vi.fn(),
   requestCameraPermissionsAsync: vi.fn(),
@@ -73,6 +74,8 @@ async function triggerCameraFlow() {
 }
 
 describe('createProductEditImageActions', () => {
+  const selectedImageBytes = new ArrayBuffer(8);
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getPublicUrl.mockReturnValue({
@@ -93,6 +96,14 @@ describe('createProductEditImageActions', () => {
       status: 'granted',
     });
     mocks.upload.mockResolvedValue({ error: null });
+    mocks.fetch.mockResolvedValue({
+      arrayBuffer: vi.fn().mockResolvedValue(selectedImageBytes),
+    });
+    vi.stubGlobal('fetch', mocks.fetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('uploads the selected image and appends the public URL', async () => {
@@ -111,6 +122,25 @@ describe('createProductEditImageActions', () => {
     expect(store.formData.images).toEqual(['https://example.com/product.jpg']);
     expect(setIsUploading).toHaveBeenNthCalledWith(1, true);
     expect(setIsUploading).toHaveBeenLastCalledWith(false);
+  });
+
+  it('uploads image bytes instead of unsupported React Native FormData', async () => {
+    const store = createFormDataSetter();
+    const actions = createProductEditImageActions({
+      merchantId: 'merchant-1',
+      setFormData: store.setFormData,
+      setIsUploading: vi.fn(),
+    });
+
+    actions.handleImagePick();
+    await triggerLibraryFlow();
+
+    expect(mocks.fetch).toHaveBeenCalledWith('file:///product.jpg');
+    expect(mocks.upload).toHaveBeenCalledWith(
+      expect.stringMatching(/^merchant-1\/products\/\d+\.jpg$/),
+      selectedImageBytes,
+      { contentType: 'image/jpeg', upsert: true }
+    );
   });
 
   it('alerts and clears uploading state when the upload fails', async () => {

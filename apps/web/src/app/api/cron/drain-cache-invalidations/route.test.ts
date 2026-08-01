@@ -66,7 +66,7 @@ describe('GET /api/cron/drain-cache-invalidations', () => {
     mocks.drain.mockResolvedValue({ ok: true });
   });
 
-  it('authenticates, uses optional finish defaults, and completes only after ordered delivery', async () => {
+  it('authenticates before claiming, uses optional finish defaults, and completes after ordered delivery', async () => {
     const response = await GET(request());
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
@@ -78,15 +78,10 @@ describe('GET /api/cron/drain-cache-invalidations', () => {
       p_batch_size: 2,
       p_worker_id: expect.stringMatching(/^next-cron-/),
     });
-    expect(rpc).toHaveBeenNthCalledWith(
-      2,
-      'finish_cache_invalidation',
-      expect.objectContaining({
-        p_error_code: undefined,
-        p_retry_after_seconds: undefined,
-        p_succeeded: true,
-      })
-    );
+    const finishArgs = rpc.mock.calls[1]?.[1];
+    expect(finishArgs).toMatchObject({ p_succeeded: true });
+    expect(finishArgs).not.toHaveProperty('p_error_code');
+    expect(finishArgs).not.toHaveProperty('p_retry_after_seconds');
     expect(mocks.drain.mock.invocationCallOrder[0]).toBeLessThan(
       rpc.mock.invocationCallOrder[1]
     );

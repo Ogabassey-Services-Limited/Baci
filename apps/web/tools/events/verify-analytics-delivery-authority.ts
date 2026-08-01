@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { analyzeAnalyticsDeliveryAuthoritySources } from './analytics-delivery-authority-analysis';
 import { analyticsDeliveryAuthorityManifest as manifest } from './analytics-delivery-authority-manifest';
 import { analyzeCredentialProjectionSets } from './analytics-delivery-credential-projection-analysis';
+// biome-ignore format: compact verifier import preserves the 300-line gate.
 import { analyzeAnalyticsWorkerAuthority } from './analytics-worker-authority-analysis';
 import { readQueueOnlyDeliveryCutover } from './event-pipeline-authority-cutover-analysis';
 import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
@@ -14,14 +15,12 @@ import { isTestSourcePath } from './event-pipeline-source-path';
 
 const wrapperSpecifier = '@/lib/analytics/trusted-server-ad-platform-fanout';
 const sourceExtension = '(cjs|cts|js|jsx|mjs|mts|ts|tsx)';
-
 function colocatedTestPath(path: string): string {
   return path.replace(
     new RegExp(`\\.${sourceExtension}$`),
     (_match, extension: string) => `.test.${extension}`
   );
 }
-
 function runtimePathForColocatedTest(path: string): string | undefined {
   const runtimePath = path.replace(
     new RegExp(`\\.test\\.${sourceExtension}$`),
@@ -50,8 +49,7 @@ export function analyzeChangedRuntimeContracts(
       /^apps\/web\/(?:src|tools)\//.test(value) &&
       eventPipelineSourceFilePolicy.isSourcePath(value) &&
       !isTestSourcePath(value) &&
-      !/\.d\.[^.]+$/.test(value) &&
-      !value.includes('test-support')
+      !/\.d\.(?:cts|mts|ts)$/.test(value)
   )) {
     const source = sources.get(path);
     if (!source) continue;

@@ -37,7 +37,12 @@ describe('ProductEmbedPicker', () => {
     // Arrange
     const fetchMock = mockFetch();
     render(
-      <ProductEmbedPicker open={true} onClose={vi.fn()} onSelect={vi.fn()} />
+      <ProductEmbedPicker
+        merchantId="merchant-1"
+        open={true}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+      />
     );
     // Initial open triggers one fetch with the empty debounced query.
     await flush();
@@ -62,6 +67,22 @@ describe('ProductEmbedPicker', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const lastUrl = String(fetchMock.mock.calls[1]?.[0] ?? '');
     expect(lastUrl).toContain('search=pho');
+    expect(lastUrl).toContain('merchantId=merchant-1');
+  });
+
+  it('does not load products without a selected merchant', async () => {
+    const fetchMock = mockFetch();
+
+    render(
+      <ProductEmbedPicker open={true} onClose={vi.fn()} onSelect={vi.fn()} />
+    );
+
+    await flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('Select a merchant before embedding products.')
+    ).toBeInTheDocument();
   });
 
   it('shows a distinct error state when product loading fails', async () => {
@@ -75,7 +96,12 @@ describe('ProductEmbedPicker', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(
-      <ProductEmbedPicker open={true} onClose={vi.fn()} onSelect={vi.fn()} />
+      <ProductEmbedPicker
+        merchantId="merchant-1"
+        open={true}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+      />
     );
 
     await flush();
@@ -108,7 +134,12 @@ describe('ProductEmbedPicker', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(
-      <ProductEmbedPicker open={true} onClose={vi.fn()} onSelect={vi.fn()} />
+      <ProductEmbedPicker
+        merchantId="merchant-1"
+        open={true}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+      />
     );
 
     await flush();

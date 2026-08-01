@@ -95,16 +95,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    // CSRF protection
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
     const { code } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -114,6 +104,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
     }
 
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
@@ -185,16 +184,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
-    // CSRF protection
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(_request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
     const { code } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -204,6 +193,15 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(_request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
     }
 
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);

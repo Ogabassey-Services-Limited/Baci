@@ -1,7 +1,5 @@
-import { env } from '@/env';
-
 export const DEFAULT_INDEXNOW_KEY = '0751d5c882ab3d7c013ecbfe9e624d71';
-const DEFAULT_INDEXNOW_ENDPOINT = 'https://api.indexnow.org/indexnow';
+export const DEFAULT_INDEXNOW_ENDPOINT = 'https://api.indexnow.org/indexnow';
 const MAX_RESPONSE_BODY_LENGTH = 500;
 const DEFAULT_INDEXNOW_REQUEST_TIMEOUT_MS = 5000;
 
@@ -115,7 +113,7 @@ export function buildIndexNowBlogPostUrl(
 
 export function buildIndexNowPayload({
   host,
-  key = env.INDEXNOW_KEY ?? DEFAULT_INDEXNOW_KEY,
+  key = DEFAULT_INDEXNOW_KEY,
   urls,
 }: BuildIndexNowPayloadOptions): IndexNowPayload | null {
   const normalizedHost = normalizeIndexNowHost(host);
@@ -146,10 +144,10 @@ export function buildIndexNowPayload({
 }
 
 export async function submitIndexNowUrls({
-  endpoint = env.INDEXNOW_ENDPOINT ?? DEFAULT_INDEXNOW_ENDPOINT,
+  endpoint = DEFAULT_INDEXNOW_ENDPOINT,
   fetchImpl = fetch,
   host,
-  key = env.INDEXNOW_KEY ?? DEFAULT_INDEXNOW_KEY,
+  key = DEFAULT_INDEXNOW_KEY,
   timeoutMs = DEFAULT_INDEXNOW_REQUEST_TIMEOUT_MS,
   urls,
 }: SubmitIndexNowUrlsOptions): Promise<IndexNowSubmitResult> {
