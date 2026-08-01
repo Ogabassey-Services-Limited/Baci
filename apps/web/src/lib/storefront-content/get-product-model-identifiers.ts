@@ -23,12 +23,17 @@ const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'version',
 ]);
 
-function getBrandAliasTokens(
+interface BrandAliasGroup {
+  brandTokens: string[];
+  aliases: string[][];
+}
+
+function getBrandAliasGroups(
   context: Pick<
     BuildCommercialGuideLinksContext,
     'categorySlug' | 'brands' | 'productSlugs'
   >
-) {
+): BrandAliasGroup[] {
   const contextBrandTokens = new Set(
     [...(context.brands ?? []), ...(context.productSlugs ?? [])].flatMap(
       tokenize
@@ -38,11 +43,61 @@ function getBrandAliasTokens(
   return Object.entries(
     CONTENT_CLUSTER_SUPPORT[context.categorySlug].brandTokens
   ).flatMap(([brandKey, aliases]) => {
-    const aliasTokens = [brandKey, ...aliases].flatMap(tokenize);
-    return aliasTokens.some((token) => contextBrandTokens.has(token))
-      ? aliasTokens
-      : [];
+    const brandTokens = tokenize(brandKey);
+    const aliasTokens = (aliases as readonly string[]).map(tokenize);
+    const matchesContext = [brandTokens, ...aliasTokens].some(
+      (tokens: string[]) =>
+        tokens.some((token) => contextBrandTokens.has(token))
+    );
+
+    return matchesContext ? [{ brandTokens, aliases: aliasTokens }] : [];
   });
+}
+
+function getExcludedTokensForSlug(
+  slug: string,
+  baseExcludedTokens: ReadonlySet<string>,
+  brandAliasGroups: readonly BrandAliasGroup[]
+) {
+  const slugTokens = tokenize(slug);
+  const excludedTokens = new Set(baseExcludedTokens);
+
+  for (const group of brandAliasGroups) {
+    for (const token of group.brandTokens) {
+      if (slugTokens.includes(token)) {
+        excludedTokens.add(token);
+      }
+    }
+
+    for (const aliasTokens of group.aliases) {
+      if (
+        aliasTokens.length === 0 ||
+        !aliasTokens.every((token) => slugTokens.includes(token))
+      ) {
+        continue;
+      }
+
+      const leavesModelToken = slugTokens.some((token, index) => {
+        if (excludedTokens.has(token) || aliasTokens.includes(token)) {
+          return false;
+        }
+
+        return (
+          !SPECIFICATION_TOKEN_PATTERN.test(token) &&
+          !YEAR_TOKEN_PATTERN.test(token) &&
+          !isDimensionToken(slugTokens, index)
+        );
+      });
+
+      if (aliasTokens.length === 1 || leavesModelToken) {
+        for (const token of aliasTokens) {
+          excludedTokens.add(token);
+        }
+      }
+    }
+  }
+
+  return excludedTokens;
 }
 
 function isDimensionToken(tokens: string[], index: number) {
@@ -71,11 +126,24 @@ function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
     (token, index) =>
       !SPECIFICATION_TOKEN_PATTERN.test(token) &&
       !YEAR_TOKEN_PATTERN.test(token) &&
+      !['in', 'inch'].includes(token) &&
       !isDimensionToken(tokens, index)
   );
 }
 
 function getModelIdentifier(tokens: string[]) {
+  const numericIndex = tokens.findLastIndex((token) => /^\d+$/u.test(token));
+  if (numericIndex >= 0) {
+    const phraseTokens = tokens.filter(
+      (token, index) =>
+        index === numericIndex ||
+        (!/^\d+$/u.test(token) &&
+          token.length > 1 &&
+          !GENERIC_MODEL_MARKER_TOKENS.has(token))
+    );
+    return phraseTokens.join(' ');
+  }
+
   const alphanumericToken = tokens.find(
     (token) => /[a-z]/u.test(token) && /\d/u.test(token)
   );
@@ -83,22 +151,10 @@ function getModelIdentifier(tokens: string[]) {
     return alphanumericToken;
   }
 
-  const numericIndex = tokens.findLastIndex((token) => /\d/u.test(token));
-  if (numericIndex >= 0) {
-    const numericToken = tokens[numericIndex];
-    const familyToken = [
-      ...tokens.slice(0, numericIndex).reverse(),
-      ...tokens.slice(numericIndex + 1),
-    ].find(
-      (token) =>
-        !/\d/u.test(token) &&
-        token.length > 1 &&
-        !GENERIC_MODEL_MARKER_TOKENS.has(token)
-    );
-    return familyToken ? `${familyToken} ${numericToken}` : numericToken;
-  }
-
-  return tokens.find((token) => token.length > 1) ?? tokens[0] ?? null;
+  const phraseTokens = tokens.filter(
+    (token) => token.length > 1 && !GENERIC_MODEL_MARKER_TOKENS.has(token)
+  );
+  return phraseTokens.join(' ') || tokens[0] || null;
 }
 
 /**
@@ -112,10 +168,9 @@ export function getProductModelIdentifiers(
     'categorySlug' | 'brands' | 'productSlugs'
   >
 ) {
-  const excludedTokens = new Set(
+  const baseExcludedTokens = new Set(
     [
       ...(context.brands ?? []).flatMap(tokenize),
-      ...getBrandAliasTokens(context),
       ...CONTENT_CLUSTER_SUPPORT[context.categorySlug].categoryNames.flatMap(
         (name) =>
           tokenize(name).flatMap((token) => [
@@ -127,11 +182,17 @@ export function getProductModelIdentifiers(
       ),
     ].filter(Boolean)
   );
+  const brandAliasGroups = getBrandAliasGroups(context);
 
   return Array.from(
     new Set(
       (context.productSlugs ?? [])
-        .map((slug) => getModelTokens(slug, excludedTokens))
+        .map((slug) =>
+          getModelTokens(
+            slug,
+            getExcludedTokensForSlug(slug, baseExcludedTokens, brandAliasGroups)
+          )
+        )
         .map(getModelIdentifier)
         .filter((token): token is string => Boolean(token))
     )

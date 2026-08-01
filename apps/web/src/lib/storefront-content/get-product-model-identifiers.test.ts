@@ -56,6 +56,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['9350']);
   });
 
+  it('keeps the laptop family and generation together', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['HP'],
+      productSlugs: ['hp-probook-440-g8'],
+    });
+
+    expect(identifiers).toEqual(['probook 440 g8']);
+  });
+
   it('preserves the family marker for numeric model generations', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',
@@ -73,6 +83,25 @@ describe('getProductModelIdentifiers', () => {
     });
 
     expect(identifiers).toEqual(['trifold']);
+  });
+
+  it('retains complete product aliases in a VR comparison', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'vr-headsets',
+      productSlugs: ['apple-vision-pro', 'meta-quest-3'],
+    });
+
+    expect(identifiers).toEqual(['vision pro', '3']);
+  });
+
+  it('preserves variant markers after numeric model generations', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Google'],
+      productSlugs: ['google-pixel-9-pro'],
+    });
+
+    expect(identifiers).toEqual(['9 pro']);
   });
 
   it('ignores generated numeric collision suffixes', () => {
