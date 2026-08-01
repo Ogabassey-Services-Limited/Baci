@@ -19,11 +19,13 @@ const SPECIFICATION_TOKEN_PATTERN =
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
+  'buds',
   'legion',
   'pavilion',
   'quest',
   'redmi',
   'series',
+  'thinkpad',
   'watch',
 ]);
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
@@ -151,11 +153,10 @@ function stripTrailingProcessorTier(tokens: string[], categorySlug: string) {
   return processorIndex > 0 ? tokens.slice(0, processorIndex) : tokens;
 }
 function stripLeadingFillerTokens(tokens: string[]) {
-  let firstModelToken = 0;
-  while (LEADING_FILLER_TOKENS.has(tokens[firstModelToken] ?? '')) {
-    firstModelToken += 1;
-  }
-  return firstModelToken > 0 ? tokens.slice(firstModelToken) : tokens;
+  const firstModelToken = tokens.findIndex(
+    (token) => !LEADING_FILLER_TOKENS.has(token)
+  );
+  return tokens.slice(firstModelToken < 0 ? tokens.length : firstModelToken);
 }
 function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
   if (!DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)) {
@@ -191,9 +192,7 @@ function stripGeneratedCollisionSuffix(tokens: string[]) {
     return tokens;
   }
   const previousToken = tokens.at(-2) ?? '';
-  const isConvertibleSuffix =
-    previousToken === 'in' && /^\d+$/u.test(tokens.at(-3) ?? '');
-  if (isConvertibleSuffix) {
+  if (previousToken === 'in' && /^\d+$/u.test(tokens.at(-3) ?? '')) {
     return tokens;
   }
   if (/\d/u.test(previousToken)) {
@@ -215,7 +214,8 @@ function getModelTokens(
     tokenize(slug.replace(/\bplay[\s-]+station\b/gu, 'playstation')).filter(
       (token) => !excludedTokens.has(token)
     ),
-    GAME_CATEGORY_PATTERN.test(categorySlug)
+    GAME_CATEGORY_PATTERN.test(categorySlug),
+    DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)
   );
   const platformGeneration = categorySlug.match(
     /^(?:playstation|nintendo-switch)-(\d+)$/u

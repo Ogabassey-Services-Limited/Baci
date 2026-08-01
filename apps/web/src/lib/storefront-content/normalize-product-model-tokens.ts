@@ -155,7 +155,10 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
   return tokens.slice(0, markerIndex + 1);
 }
 
-function stripDecimalDisplaySuffix(tokens: string[]) {
+function stripDecimalDisplaySuffix(
+  tokens: string[],
+  stripTerminalDisplay = false
+) {
   const decimalIndex = tokens.findIndex((token, index) => {
     const nextToken = tokens[index + 1] ?? '';
     if (!/^\d{2}$/u.test(token) || !/^\d$/u.test(nextToken)) {
@@ -163,12 +166,18 @@ function stripDecimalDisplaySuffix(tokens: string[]) {
     }
 
     const displaySize = Number(token);
+    const isTerminalDisplay =
+      stripTerminalDisplay &&
+      index + 2 === tokens.length &&
+      displaySize >= 10 &&
+      displaySize <= 20;
     return (
       displaySize >= 10 &&
       displaySize <= 20 &&
-      tokens
-        .slice(index + 2)
-        .some((suffixToken) => DISPLAY_SUFFIX_MARKER_TOKENS.has(suffixToken))
+      (isTerminalDisplay ||
+        tokens
+          .slice(index + 2)
+          .some((suffixToken) => DISPLAY_SUFFIX_MARKER_TOKENS.has(suffixToken)))
     );
   });
 
@@ -240,7 +249,8 @@ function isConvertibleInConnector(tokens: string[], index: number) {
 /** Removes catalog suffixes that describe merchandising, region, or connectivity. */
 export function normalizeProductModelTokens(
   tokens: string[],
-  preserveGameTitleTokens = false
+  preserveGameTitleTokens = false,
+  stripTerminalDisplay = false
 ) {
   const withoutLeadingCondition = LEADING_CONDITION_TOKENS.has(tokens[0] ?? '')
     ? tokens.slice(1)
@@ -264,7 +274,8 @@ export function normalizeProductModelTokens(
   const withoutOrdinalGenerationConnector =
     stripOptionalOrdinalGenerationConnectorSuffix(withoutConnectivity);
   const withoutDisplaySuffix = stripDecimalDisplaySuffix(
-    withoutOrdinalGenerationConnector
+    withoutOrdinalGenerationConnector,
+    stripTerminalDisplay
   );
   const withoutOptionalFeature =
     stripOptionalFeatureSuffix(withoutDisplaySuffix);

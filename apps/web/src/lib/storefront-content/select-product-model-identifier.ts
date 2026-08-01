@@ -42,11 +42,33 @@ function isSeriesPhraseToken(tokens: string[], index: number) {
   return isSeriesMarker || followsSeriesMarker;
 }
 
+function reorderGenerationModelTokens(tokens: string[]) {
+  const generationIndex = tokens.findIndex(
+    (token, index) =>
+      ['gen', 'generation'].includes(token) &&
+      /^\d+$/u.test(tokens[index + 1] ?? '') &&
+      /^x\d+$/u.test(tokens[index + 2] ?? '')
+  );
+  if (generationIndex < 0) {
+    return tokens;
+  }
+
+  const modelToken = tokens[generationIndex + 2];
+  return [
+    ...tokens.slice(0, generationIndex),
+    modelToken,
+    tokens[generationIndex],
+    tokens[generationIndex + 1],
+    ...tokens.slice(generationIndex + 3),
+  ];
+}
+
 /** Selects a compact phrase from already-normalized model tokens. */
 export function selectProductModelIdentifier(
-  tokens: string[],
+  inputTokens: string[],
   preserveYearTokens = false
 ) {
+  const tokens = reorderGenerationModelTokens(inputTokens);
   const hasNonYearAlphanumericModel = tokens.some(
     (token) =>
       !YEAR_TOKEN_PATTERN.test(token) &&

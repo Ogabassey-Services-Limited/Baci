@@ -168,4 +168,57 @@ describe('buildCommercialGuideLinks model distinctions', () => {
       'https://ogabassey.com/blog/pixel-9-pro-buying-guide'
     );
   });
+
+  it('matches the conventional ThinkPad X1 Gen 8 guide wording', () => {
+    const context = {
+      pageKind: 'product',
+      categorySlug: 'laptops',
+      brands: ['Lenovo'],
+      productSlugs: ['lenovo-thinkpad-gen-8-x1-14-inch'],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post('thinkpad-buyer-guide', 'Lenovo ThinkPad Buyer Guide', 'Laptops', [
+        'laptops',
+        'lenovo',
+        'thinkpad',
+      ]),
+      post(
+        'thinkpad-x1-gen-8-buyer-guide',
+        'Lenovo ThinkPad X1 Gen 8 Buyer Guide',
+        'Laptops',
+        ['laptops', 'lenovo', 'thinkpad x1 gen 8']
+      ),
+    ];
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/thinkpad-x1-gen-8-buyer-guide'
+    );
+  });
+
+  it('keeps Galaxy Buds family context ahead of generic earbud guides', () => {
+    const context = {
+      pageKind: 'product',
+      categorySlug: 'earbuds',
+      brands: ['Samsung'],
+      productSlugs: ['samsung-galaxy-buds-pro'],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post(
+        'samsung-earbuds-buying-guide',
+        'Samsung Earbuds Buyer Guide',
+        'Earbuds',
+        ['earbuds', 'samsung']
+      ),
+      post(
+        'galaxy-buds-pro-buying-guide',
+        'Samsung Galaxy Buds Pro Buyer Guide',
+        'Earbuds',
+        ['earbuds', 'samsung', 'galaxy buds pro']
+      ),
+    ];
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/galaxy-buds-pro-buying-guide'
+    );
+  });
 });
