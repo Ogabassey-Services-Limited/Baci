@@ -106,6 +106,9 @@ export function buildClusterGuideSearchQuery(
   const priceBandTerms = context.priceBandSlug
     ? (support.priceBandAliases[context.priceBandSlug] ?? [])
     : [];
+  const modelFamilyTerms = context.modelFamilySlug
+    ? [context.modelFamilySlug.replace(/-/g, ' ')]
+    : [];
   const productTerms =
     context.pageKind === 'category'
       ? spreadTerms(
@@ -117,6 +120,7 @@ export function buildClusterGuideSearchQuery(
   const rawTerms = [
     ...support.categoryNames,
     ...getContextBrandTerms(context),
+    ...modelFamilyTerms,
     ...productTerms,
     ...priceBandTerms,
     ...support.articleTokens,

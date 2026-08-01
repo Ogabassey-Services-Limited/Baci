@@ -42,4 +42,45 @@ describe('buildCommercialGuideLinks compare context', () => {
       'https://ogabassey.com/blog/samsung-galaxy-s25-buyer-guide',
     ]);
   });
+
+  it('does not boost an iPhone 15 Pro guide for the base iPhone 15 product', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'iphone-15-pro-buyer-guide',
+          title: 'iPhone 15 Pro Buyer Guide',
+          excerpt: 'What to know before buying the iPhone 15 Pro.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'apple', 'iphone 15 pro'],
+          keywords: ['camera'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'iphone-15-buyer-guide',
+          title: 'iPhone 15 Buyer Guide',
+          excerpt: 'What to know before buying the iPhone 15.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'apple', 'iphone 15'],
+          keywords: ['camera'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'smartphones',
+        brands: ['Apple'],
+        productSlugs: ['iphone-15'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/iphone-15-buyer-guide',
+      'https://ogabassey.com/blog/iphone-15-pro-buyer-guide',
+    ]);
+  });
 });

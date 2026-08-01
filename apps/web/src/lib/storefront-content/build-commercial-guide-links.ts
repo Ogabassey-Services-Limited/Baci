@@ -16,6 +16,26 @@ const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
   'price-band': ['best-in-nigeria', 'buyer-guide'],
 };
 
+const MODEL_VARIANT_MARKER_TOKENS = new Set([
+  'active',
+  'classic',
+  'edge',
+  'fe',
+  'flip',
+  'fold',
+  'lite',
+  'max',
+  'mini',
+  'neo',
+  'plus',
+  'power',
+  'prime',
+  'pro',
+  'se',
+  'ultra',
+]);
+const MODEL_FAMILY_CONTEXT_EXCLUSIONS = new Set(['and', 'or']);
+
 function toPublishedTimestamp(value: string | null) {
   if (!value) {
     return 0;
@@ -65,6 +85,63 @@ function hasContiguousTokenSequence(
         (token, offset) => postTokens[startIndex + offset] === token
       )
     )
+  );
+}
+
+function hasVariantSuffixAfterSingleToken(
+  post: BuildCommercialGuideLinksInput['posts'][number],
+  identifierToken: string
+) {
+  const postTokenGroups = [
+    post.title,
+    post.excerpt,
+    post.category,
+    ...(post.tags ?? []),
+    ...(post.keywords ?? []),
+  ].map(tokenizeText);
+
+  return postTokenGroups.some((postTokens) =>
+    postTokens.some(
+      (token, index) =>
+        token === identifierToken &&
+        MODEL_VARIANT_MARKER_TOKENS.has(postTokens[index + 1] ?? '')
+    )
+  );
+}
+
+function matchesProductIdentifier(
+  post: BuildCommercialGuideLinksInput['posts'][number],
+  inferredTokens: string[],
+  identifierTokens: string[]
+) {
+  if (
+    identifierTokens.length === 0 ||
+    !identifierTokens.every((token) => inferredTokens.includes(token))
+  ) {
+    return false;
+  }
+
+  return !(
+    identifierTokens.length === 1 &&
+    hasVariantSuffixAfterSingleToken(post, identifierTokens[0] ?? '')
+  );
+}
+
+function hasContextualSingleTokenFamilyMatch(
+  post: BuildCommercialGuideLinksInput['posts'][number],
+  familyToken: string,
+  brands: string[]
+) {
+  const brandTokens = brands
+    .flatMap(tokenizeText)
+    .filter(
+      (token) => token.length > 1 && !MODEL_FAMILY_CONTEXT_EXCLUSIONS.has(token)
+    );
+
+  return brandTokens.some(
+    (brandToken) =>
+      hasContiguousTokenSequence(post, [brandToken, familyToken]) ||
+      hasContiguousTokenSequence(post, [familyToken, brandToken])
   );
 }
 
@@ -132,30 +209,34 @@ export function buildCommercialGuideLinks(
         score += CONTENT_CLUSTER_SCORE.priceBandMatch;
       }
 
-      const hasProductModelMatch = productModelIdentifiers.some(
-        (identifier) => {
-          const identifierTokens = tokenizeModelIdentifier(identifier);
-          return (
-            identifierTokens.length > 0 &&
-            identifierTokens.every((token) => inferred.tokens.includes(token))
-          );
-        }
+      const hasProductModelMatch = productModelIdentifiers.some((identifier) =>
+        matchesProductIdentifier(
+          post,
+          inferred.tokens,
+          tokenizeModelIdentifier(identifier)
+        )
       );
       const hasModelFamilyMatch =
         modelFamilyTokens.length > 0 &&
         modelFamilyTokens.every((token) => inferred.tokens.includes(token)) &&
-        (!modelFamilyTokens.some((token) => token.length === 1) ||
-          hasContiguousTokenSequence(post, modelFamilyTokens));
+        (modelFamilyTokens.length === 1
+          ? hasContextualSingleTokenFamilyMatch(
+              post,
+              modelFamilyTokens[0] ?? '',
+              input.context.brands ?? []
+            )
+          : !modelFamilyTokens.some((token) => token.length === 1) ||
+            hasContiguousTokenSequence(post, modelFamilyTokens));
       const hasRequiredCompareModelMatch =
         input.context.pageKind === 'compare' &&
         productModelIdentifiers.length > 0 &&
-        productModelIdentifiers.every((identifier) => {
-          const identifierTokens = tokenizeModelIdentifier(identifier);
-          return (
-            identifierTokens.length > 0 &&
-            identifierTokens.every((token) => inferred.tokens.includes(token))
-          );
-        });
+        productModelIdentifiers.every((identifier) =>
+          matchesProductIdentifier(
+            post,
+            inferred.tokens,
+            tokenizeModelIdentifier(identifier)
+          )
+        );
       const qualifiesForProductTokenMatch =
         input.context.pageKind === 'compare'
           ? hasRequiredCompareModelMatch

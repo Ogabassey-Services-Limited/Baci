@@ -89,4 +89,46 @@ describe('buildCommercialGuideLinks model-family context', () => {
       'https://ogabassey.com/blog/redmi-buyer-guide',
     ]);
   });
+
+  it('requires brand context for a common-word Infinix family', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'infinix-buyer-guide',
+          title: 'Infinix Phones Buyer Guide',
+          excerpt: 'Note the battery life before you buy.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'infinix'],
+          keywords: ['android'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'infinix-note-buyer-guide',
+          title: 'Infinix Note Buyer Guide',
+          excerpt: 'Infinix Note battery and performance expectations.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'infinix note'],
+          keywords: ['android'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'category',
+        categorySlug: 'smartphones',
+        brands: ['Infinix'],
+        modelFamilySlug: 'note',
+        productSlugs: ['infinix-note-50'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/infinix-note-buyer-guide',
+      'https://ogabassey.com/blog/infinix-buyer-guide',
+    ]);
+  });
 });

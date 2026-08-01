@@ -105,4 +105,16 @@ describe('buildClusterGuideSearchQuery', () => {
       expect(query).not.toContain('"samsung galaxy s25 ultra 12gb 256gb"');
     }
   });
+
+  it('includes the model family phrase in category retrieval', () => {
+    const query = buildClusterGuideSearchQuery({
+      pageKind: 'category',
+      categorySlug: 'smartphones',
+      brands: ['Tecno'],
+      modelFamilySlug: 'spark',
+      productSlugs: ['tecno-spark-30', 'tecno-spark-40'],
+    });
+
+    expect(query).toContain('"spark"');
+  });
 });

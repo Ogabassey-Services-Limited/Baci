@@ -194,7 +194,8 @@ function stripLeadingLaptopDisplaySize(tokens: string[], categorySlug: string) {
 
 function stripGeneratedCollisionSuffix(tokens: string[]) {
   const lastToken = tokens.at(-1) ?? '';
-  if (tokens.length < 2 || !/^\d{1,2}$/u.test(lastToken)) {
+  // Single-digit suffixes are the generated collision shape; larger numbers are model data.
+  if (tokens.length < 2 || !/^\d$/u.test(lastToken)) {
     return tokens;
   }
 
