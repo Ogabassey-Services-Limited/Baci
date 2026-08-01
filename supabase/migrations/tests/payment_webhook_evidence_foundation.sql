@@ -258,12 +258,15 @@ BEGIN
   FROM (
     VALUES
       ('payment_webhook_inbox_replay_key_uq'), ('payment_webhook_inbox_manifest_binding_uq'),
+      ('payment_webhook_inbox_pkey'),
       ('payment_webhook_inbox_processing_idx'), ('payment_webhook_source_manifests_replay_key_uq'),
+      ('payment_webhook_source_manifests_pkey'),
       ('payment_webhook_source_manifests_inbox_target_uq'), ('payment_webhook_source_manifests_binding_uq'),
       ('payment_webhook_source_manifests_currency_target_uq'),
       ('payment_webhook_source_manifests_provider_account_idx'),
       ('payment_webhook_source_manifests_generation_idx'),
       ('payment_webhook_source_proofs_manifest_child_uq'),
+      ('payment_webhook_source_proofs_pkey'),
       ('payment_webhook_source_proofs_manifest_ordinal_uq'),
       ('payment_webhook_source_proofs_manifest_capture_uq'),
       ('payment_webhook_source_proofs_decision_idx'),
@@ -282,13 +285,31 @@ BEGIN
     SELECT 1
     FROM (
       VALUES
-        ('payment_webhook_source_manifests_generation_idx', 'payment_webhook_source_manifests', ARRAY['ingress_contract_generation_id', 'id']::text[], false, NULL::text),
+        ('payment_webhook_inbox_pkey', 'payment_webhook_inbox', ARRAY['id']::text[], true, NULL::text),
+        ('payment_webhook_inbox_replay_key_uq', 'payment_webhook_inbox', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, NULL::text),
+        ('payment_webhook_inbox_manifest_binding_uq', 'payment_webhook_inbox', ARRAY['id', 'source_manifest_id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, NULL::text),
+        ('payment_webhook_inbox_processing_idx', 'payment_webhook_inbox', ARRAY['processing_status', 'received_at', 'id']::text[], false, NULL::text),
         ('payment_webhook_inbox_generation_idx', 'payment_webhook_inbox', ARRAY['ingress_contract_generation_id', 'id']::text[], false, NULL::text),
         ('payment_webhook_inbox_source_manifest_idx', 'payment_webhook_inbox', ARRAY['source_manifest_id', 'id']::text[], false, NULL::text),
-        ('payment_webhook_source_manifests_inbox_idx', 'payment_webhook_source_manifests', ARRAY['inbox_id', 'id']::text[], false, '(inbox_id IS NOT NULL)'::text)
+        ('payment_webhook_source_manifests_pkey', 'payment_webhook_source_manifests', ARRAY['id']::text[], true, NULL::text),
+        ('payment_webhook_source_manifests_replay_key_uq', 'payment_webhook_source_manifests', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, NULL::text),
+        ('payment_webhook_source_manifests_inbox_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, NULL::text),
+        ('payment_webhook_source_manifests_binding_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version', 'currency']::text[], true, NULL::text),
+        ('payment_webhook_source_manifests_currency_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'currency']::text[], true, NULL::text),
+        ('payment_webhook_source_manifests_provider_account_idx', 'payment_webhook_source_manifests', ARRAY['provider', 'provider_account_scope', 'created_at', 'id']::text[], false, NULL::text),
+        ('payment_webhook_source_manifests_generation_idx', 'payment_webhook_source_manifests', ARRAY['ingress_contract_generation_id', 'id']::text[], false, NULL::text),
+        ('payment_webhook_source_manifests_inbox_idx', 'payment_webhook_source_manifests', ARRAY['inbox_id', 'id']::text[], false, '(inbox_id IS NOT NULL)'::text),
+        ('payment_webhook_source_proofs_pkey', 'payment_webhook_source_proofs', ARRAY['id']::text[], true, NULL::text),
+        ('payment_webhook_source_proofs_manifest_child_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'child_identity']::text[], true, NULL::text),
+        ('payment_webhook_source_proofs_manifest_ordinal_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'child_ordinal']::text[], true, NULL::text),
+        ('payment_webhook_source_proofs_manifest_capture_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'capture_identity']::text[], true, NULL::text),
+        ('payment_webhook_source_proofs_decision_idx', 'payment_webhook_source_proofs', ARRAY['intake_decision', 'review_scope_kind', 'decided_at', 'id']::text[], false, NULL::text)
     ) AS expected(index_name, table_name, key_columns, is_unique, predicate)
+    LEFT JOIN pg_namespace index_namespace
+      ON index_namespace.nspname = 'private'
     LEFT JOIN pg_class index_relation
-      ON index_relation.relname = expected.index_name
+      ON index_relation.relnamespace = index_namespace.oid
+      AND index_relation.relname = expected.index_name
     LEFT JOIN pg_index index_catalog
       ON index_catalog.indexrelid = index_relation.oid
     LEFT JOIN pg_class table_relation
@@ -302,13 +323,14 @@ BEGIN
         ON attribute.attrelid = table_relation.oid
         AND attribute.attnum = key_columns.attnum
     ) AS actual_keys ON true
-    WHERE table_namespace.nspname IS DISTINCT FROM 'private'
+    WHERE index_relation.oid IS NULL
+      OR table_namespace.nspname IS DISTINCT FROM 'private'
       OR table_relation.relname IS DISTINCT FROM expected.table_name
       OR index_catalog.indisunique IS DISTINCT FROM expected.is_unique
       OR actual_keys.names IS DISTINCT FROM expected.key_columns
       OR COALESCE(pg_get_expr(index_catalog.indpred, index_catalog.indrelid), NULL) IS DISTINCT FROM expected.predicate
   ) THEN
-    RAISE EXCEPTION 'payment webhook FK index metadata does not match the sealed relation-scoped contract';
+    RAISE EXCEPTION 'payment webhook evidence index metadata does not match the sealed schema-and-relation-scoped contract';
   END IF;
 
   IF EXISTS (
@@ -789,8 +811,13 @@ BEGIN
     RAISE EXCEPTION 'fixture inbox row survived rollback';
   END IF;
   IF EXISTS (
-    SELECT 1 FROM private.payment_webhook_source_manifests
-    WHERE id = '20000000-0000-4000-8000-000000000001'
+    SELECT 1
+    FROM private.payment_webhook_source_manifests
+    WHERE id = ANY (ARRAY[
+      '20000000-0000-4000-8000-000000000001'::uuid,
+      '20000000-0000-4000-8000-000000000002'::uuid,
+      '20000000-0000-4000-8000-000000000003'::uuid
+    ])
   ) THEN
     RAISE EXCEPTION 'fixture manifest row survived rollback';
   END IF;
@@ -800,9 +827,26 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'fixture proof row survived rollback';
   END IF;
-  IF to_regclass('private.payment_webhook_inbox') IS NULL
-    OR to_regclass('private.payment_webhook_source_manifests') IS NULL
-    OR to_regclass('private.payment_webhook_source_proofs') IS NULL
+  IF (SELECT count(*) FROM private.payment_webhook_inbox) <> 0
+    OR (SELECT count(*) FROM private.payment_webhook_source_manifests) <> 0
+    OR (SELECT count(*) FROM private.payment_webhook_source_proofs) <> 0
+  THEN
+    RAISE EXCEPTION 'payment webhook evidence relations must be empty after fixture rollback';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_webhook_inbox'),
+        ('payment_webhook_source_manifests'),
+        ('payment_webhook_source_proofs')
+    ) AS expected(relation_name)
+    LEFT JOIN pg_namespace schema ON schema.nspname = 'private'
+    LEFT JOIN pg_class relation
+      ON relation.relnamespace = schema.oid
+      AND relation.relname = expected.relation_name
+    WHERE relation.oid IS NULL
+  )
     OR NOT EXISTS (
       SELECT 1
       FROM pg_class index_relation

@@ -59,6 +59,24 @@
 - The pending source count remains 78; both source-hash registry mirrors were
   atomically refreshed for the amended migration.
 
+## Final replay catalog closure
+
+- The relation-scoped index matrix now covers every declared primary-key,
+  UNIQUE, and explicit nonunique index on the inbox, manifest, and proof
+  relations. It asserts the private index schema and owning relation, exact
+  uniqueness, ordered key columns, and the sole partial predicate
+  `(inbox_id IS NOT NULL)`.
+- The post-rollback fixture now individually rejects all three manifest
+  fixture IDs as well as the identity, generation, inbox, and proof rows, then
+  asserts each evidence relation is empty. Relation and retained-index catalog
+  checks remain private-schema scoped.
+- The migration SHA-256 was recomputed as
+  `c773655eb4d64e0e7c02a655d7299ec2b23f157e6d0f80f8f8dc49dae7664b80`;
+  both registry mirrors still match and the pending-source count remains 78.
+- Focused source/replay tests (20 tests) and a clean foundation-plus-companion
+  disposable PostgreSQL replay passed. Full monorepo testing was intentionally
+  not rerun in this round.
+
 ## Limitations
 
 - Full local Supabase chronological bootstrap is blocked by an unrelated,
