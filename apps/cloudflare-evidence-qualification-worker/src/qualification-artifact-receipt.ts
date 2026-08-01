@@ -47,7 +47,10 @@ const canonicalConfigJson = (value: unknown): string => {
 };
 
 /** Parses the Wrangler JSONC authority surface; no source code implies bindings. */
-export function validateQualificationWorkerConfig(configText: string) {
+export function validateQualificationWorkerConfig(
+  configText: string,
+  expectedMain?: string
+) {
   const parsed = parse<Record<string, unknown>>(configText, null, true);
   const keys = Object.keys(parsed);
   if (keys.some((key) => forbiddenConfigKeys.has(key)))
@@ -68,6 +71,10 @@ export function validateQualificationWorkerConfig(configText: string) {
   )
     throw new Error(
       'Worker config must contain exactly one version_metadata binding'
+    );
+  if (expectedMain !== undefined && parsed.main !== expectedMain)
+    throw new Error(
+      'Worker config main does not match the reviewed entrypoint'
     );
   return Object.freeze({
     binding: 'CF_VERSION_METADATA' as const,
@@ -92,7 +99,19 @@ export async function buildQualificationArtifactReceipt(
   );
   if (!/^4\.115\.0$/.test(build.wranglerVersion))
     throw new Error('dry-run did not use the pinned Wrangler version');
-  const qualificationConfig = validateQualificationWorkerConfig(config);
+  const expectedMain = `src/version-${version}.ts`;
+  const qualificationConfig = validateQualificationWorkerConfig(
+    config,
+    expectedMain
+  );
+  if (
+    !build.moduleList.some(
+      (module) => module === expectedMain || module.endsWith(`/${expectedMain}`)
+    )
+  )
+    throw new Error(
+      'dry-run module graph does not bind the reviewed entrypoint'
+    );
   return Object.freeze({
     canonicalSourceSha256: sha256(source),
     configSha256: qualificationConfig.canonicalSha256,

@@ -137,4 +137,17 @@ describe('deep Cloudflare provider topology qualification', () => {
       )
     ).rejects.toThrow('tuple');
   });
+  it('rejects a topology plan whose before and after tuples are identical', async () => {
+    const unchanged = {
+      ...input,
+      topologies: input.topologies.map((topology) =>
+        topology.family === 'r2-cors'
+          ? { ...topology, after: topology.before }
+          : topology
+      ),
+    };
+    await expect(
+      executeDeepCloudflareEvidenceQualification(client() as never, unchanged)
+    ).rejects.toThrow('real mutation');
+  });
 });

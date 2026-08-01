@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { z } from 'zod';
 import {
   type EvidenceRunInput,
@@ -5,6 +7,7 @@ import {
 } from './cloudflare-evidence-run-journal';
 
 const boundedId = z.string().min(1).max(128).regex(/^\S+$/);
+const execFileAsync = promisify(execFile);
 const prepareInputSchema = z
   .object({
     runId: z
@@ -112,6 +115,24 @@ async function run(
   const stateDir = environment.EVIDENCE_RUN_STATE_DIR;
   if (!stateDir) throw new Error('absolute EVIDENCE_RUN_STATE_DIR is required');
   const input = parseArguments(args);
+  const workspaceRoot = environment.EVIDENCE_WORKSPACE_ROOT ?? process.cwd();
+  const { stdout: head } = await execFileAsync('git', [
+    '-C',
+    workspaceRoot,
+    'rev-parse',
+    '--verify',
+    'HEAD',
+  ]);
+  if (head.trim() !== input.toolingMergeSha)
+    throw new Error('tooling merge SHA does not match the checked-out commit');
+  const { stdout: status } = await execFileAsync('git', [
+    '-C',
+    workspaceRoot,
+    'status',
+    '--porcelain',
+    '--untracked-files=all',
+  ]);
+  if (status.trim()) throw new Error('tooling worktree is not clean');
   const journal = await openEvidenceRun(stateDir, input);
   write(`${JSON.stringify({ runId: journal.runId, nextPhase: 'mutate' })}\n`);
 }

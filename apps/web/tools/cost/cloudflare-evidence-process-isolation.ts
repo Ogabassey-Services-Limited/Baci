@@ -1,4 +1,6 @@
-import { isAbsolute, resolve } from 'node:path';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { isAbsolute, join, resolve } from 'node:path';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
 import type { EvidenceRunInput } from './cloudflare-evidence-run-journal';
 import { buildClosedEvidenceProcessEnvironment } from './qualify-cloudflare-evidence-sources';
@@ -67,6 +69,7 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
     throw new Error('write command requires only the write credential');
   if (command === 'measure' && credential?.name !== 'CLOUDFLARE_READ_TOKEN')
     throw new Error('measurement requires only the read credential');
+  const privateHome = await mkdtemp(join(tmpdir(), 'baci-evidence-home-'));
   const env = credential
     ? buildClosedEvidenceProcessEnvironment(
         credential.name,
@@ -74,20 +77,36 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
         inherited
       )
     : Object.fromEntries(
-        ['PATH', 'HOME', 'TMPDIR']
+        ['PATH', 'TMPDIR']
           .filter((name) => inherited[name])
           .map((name) => [name, inherited[name] as string])
       );
+  env.HOME = privateHome;
+  env.XDG_CONFIG_HOME = join(privateHome, 'config');
+  env.XDG_DATA_HOME = join(privateHome, 'data');
   env.EVIDENCE_RUN_STATE_DIR = stateDir;
-  return await spawner.spawn(
-    pinnedTsx(workspaceRoot),
-    [
-      absoluteToolPath(workspaceRoot, command),
-      ...argumentsFor(command, runId, prepareInput),
-    ],
-    {
-      cwd: workspaceRoot,
-      env,
-    }
-  );
+  env.EVIDENCE_WORKSPACE_ROOT = workspaceRoot;
+  const runnerVariable =
+    command === 'measure'
+      ? 'EVIDENCE_MEASUREMENT_RUNNER_MODULE'
+      : command === 'prepare'
+        ? undefined
+        : 'EVIDENCE_MUTATION_RUNNER_MODULE';
+  if (runnerVariable && inherited[runnerVariable])
+    env[runnerVariable] = inherited[runnerVariable];
+  try {
+    return await spawner.spawn(
+      pinnedTsx(workspaceRoot),
+      [
+        absoluteToolPath(workspaceRoot, command),
+        ...argumentsFor(command, runId, prepareInput),
+      ],
+      {
+        cwd: workspaceRoot,
+        env,
+      }
+    );
+  } finally {
+    await rm(privateHome, { recursive: true, force: true });
+  }
 }

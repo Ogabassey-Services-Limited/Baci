@@ -1,4 +1,9 @@
+import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
+import {
+  calculateCanonicalSha256,
+  canonicalizeJson,
+} from '../../../../packages/shared/src/storefront/delivery-evidence';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -90,8 +95,12 @@ export type CloudflareQualificationClient = Readonly<{
     url: string
   ): Promise<Readonly<{ cfCacheStatus: string; age?: string }>>;
   temporaryPurge(
-    endpoint: string,
-    requestSchemaSha256: string
+    request: Readonly<{
+      endpoint: string;
+      zoneId: string;
+      requestSchemaSha256: string;
+      body: Readonly<{ hosts: readonly ['edge-evidence.ogabassey.com'] }>;
+    }>
   ): Promise<Readonly<{ operationId: string }>>;
   readPurge(operationId: string): Promise<'complete' | 'lost_response'>;
   topologyConverged(maximumVisibilitySeconds: number): Promise<boolean>;
@@ -102,6 +111,12 @@ export type ExpectedQualificationArtifact = Readonly<{
   moduleSha256: string;
   settingsSha256: string;
 }>;
+
+export function calculatePointerCacheCanonicalSha256(
+  value: Omit<z.infer<typeof PointerCacheSchema>, 'canonicalSha256'>
+) {
+  return calculateCanonicalSha256(canonicalizeJson(value));
+}
 
 export function parseQualificationArguments(args: readonly string[]) {
   if (args[0] === '--prepare')
@@ -119,32 +134,54 @@ export function parseQualificationArguments(args: readonly string[]) {
 
 /** Validates a read-only Scripts Versions/Deployments and pointer-cache receipt. */
 export function qualifyCloudflareEvidenceReadback(
-  value: unknown
+  value: unknown,
+  options: Readonly<{ now?: Date; maximumAgeSeconds?: number }> = {}
 ):
   | { ok: true; qualification: CloudflareWorkerArtifactReadbackQualification }
   | { ok: false; reason: string } {
   const parsed = ArtifactReadbackSchema.safeParse(value);
   if (!parsed.success) return { ok: false, reason: 'readback_schema_invalid' };
   const receipt = parsed.data;
-  const prefix = `/accounts/`;
+  const prefixMatch = receipt.versions[0]?.endpoint.match(
+    /^(\/accounts\/[^/]+\/workers\/scripts\/[^/]+)\/versions\/[^/]+$/
+  );
+  if (!prefixMatch)
+    return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
+  const prefix = prefixMatch[1];
+  if (prefix.split('/').at(-1) !== receipt.scriptName)
+    return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
   if (
     !receipt.versions.every(
       (version) =>
-        version.endpoint.startsWith(prefix) &&
-        version.endpoint.endsWith(`/versions/${version.versionId}`)
+        version.endpoint === `${prefix}/versions/${version.versionId}`
     )
   )
     return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
-  if (
-    !receipt.deploymentsEndpoint.startsWith(prefix) ||
-    !receipt.deploymentsEndpoint.endsWith('/deployments')
-  )
+  if (receipt.deploymentsEndpoint !== `${prefix}/deployments`)
     return { ok: false, reason: 'deployments_endpoint_invalid' };
   if (
     receipt.versions[0].moduleSha256 === receipt.versions[1].moduleSha256 ||
     receipt.versions[0].settingsSha256 === receipt.versions[1].settingsSha256
   )
     return { ok: false, reason: 'artifacts_not_distinguishable' };
+  const nowMs = (options.now ?? new Date()).valueOf();
+  const qualifiedAt = new Date(receipt.pointerCache.qualifiedAt).valueOf();
+  const expiresAt = new Date(receipt.pointerCache.expiresAt).valueOf();
+  const maximumAgeSeconds = options.maximumAgeSeconds ?? 24 * 60 * 60;
+  if (
+    ![nowMs, qualifiedAt, expiresAt].every(Number.isFinite) ||
+    expiresAt < qualifiedAt ||
+    qualifiedAt > nowMs ||
+    expiresAt <= nowMs ||
+    nowMs - qualifiedAt > maximumAgeSeconds * 1000
+  )
+    return { ok: false, reason: 'pointer_cache_qualification_expired' };
+  const { canonicalSha256: _ignored, ...withoutHash } = receipt.pointerCache;
+  if (
+    receipt.pointerCache.canonicalSha256 !==
+    calculatePointerCacheCanonicalSha256(withoutHash)
+  )
+    return { ok: false, reason: 'pointer_cache_fingerprint_invalid' };
   return { ok: true, qualification: receipt };
 }
 export function qualifyCloudflareReleasePurgeContract(value: unknown) {
@@ -176,6 +213,8 @@ export async function executeCloudflareEvidenceQualification(
     pointerUrl: string;
     purge: z.infer<typeof PurgeContractSchema>;
     topology: z.infer<typeof TopologyEndpointSchema>;
+    zoneId: string;
+    pointerProbeCount?: number;
   }>
 ) {
   const listed = await client.listVersions(input.accountId, input.scriptName);
@@ -210,18 +249,32 @@ export async function executeCloudflareEvidenceQualification(
     throw new Error('Deployments does not bind both expected versions');
   if (!(await client.trace(input.pointerUrl)).matched)
     throw new Error('Trace did not bind the pointer cache rule');
-  for (const method of ['GET', 'HEAD'] as const) {
-    const result = await client.pointerProbe(method, input.pointerUrl);
-    if (
-      !['DYNAMIC', 'BYPASS'].includes(result.cfCacheStatus) ||
-      result.age !== undefined
-    )
-      throw new Error('pointer cache probe observed a cacheable response');
-  }
-  const operation = await client.temporaryPurge(
-    input.purge.endpoint,
-    input.purge.requestSchemaSha256
-  );
+  const pointerProbeCount = input.pointerProbeCount ?? 2;
+  if (!Number.isInteger(pointerProbeCount) || pointerProbeCount < 2)
+    throw new Error('pointer probes must be repeated independently');
+  for (const method of ['GET', 'HEAD'] as const)
+    for (let index = 0; index < pointerProbeCount; index++) {
+      const result = await client.pointerProbe(method, input.pointerUrl);
+      if (
+        !['DYNAMIC', 'BYPASS'].includes(result.cfCacheStatus) ||
+        result.age !== undefined
+      )
+        throw new Error('pointer cache probe observed a cacheable response');
+    }
+  const expectedPurgeEndpoint = `/zones/${input.zoneId}/purge_cache`;
+  if (input.purge.endpoint !== expectedPurgeEndpoint)
+    throw new Error(
+      'temporary purge endpoint does not match the journaled zone'
+    );
+  const purgeBody = Object.freeze({
+    hosts: Object.freeze(['edge-evidence.ogabassey.com'] as const),
+  });
+  const operation = await client.temporaryPurge({
+    endpoint: expectedPurgeEndpoint,
+    zoneId: input.zoneId,
+    requestSchemaSha256: input.purge.requestSchemaSha256,
+    body: purgeBody,
+  });
   const purgeStatus = await client.readPurge(operation.operationId);
   if (
     purgeStatus === 'lost_response' &&
@@ -242,7 +295,7 @@ export function buildClosedEvidenceProcessEnvironment(
   if (inherited.CLOUDFLARE_WRITE_TOKEN || inherited.CLOUDFLARE_READ_TOKEN)
     throw new Error('evidence process inherited a credential');
   const environment: Record<string, string> = {};
-  for (const name of ['PATH', 'HOME', 'TMPDIR'] as const)
+  for (const name of ['PATH', 'TMPDIR'] as const)
     if (inherited[name]) environment[name] = inherited[name];
   environment[credentialName] = credential;
   return environment;
@@ -262,5 +315,21 @@ if (
         );
         process.exitCode = 1;
       });
-  } else parseQualificationArguments(args);
+  } else if (args[0] === '--validate-readback') {
+    const { receiptPath } = parseQualificationArguments(args);
+    readFile(receiptPath, 'utf8')
+      .then((value) => {
+        const result = qualifyCloudflareEvidenceReadback(JSON.parse(value));
+        if (!result.ok) throw new Error(result.reason);
+        process.stdout.write(`${JSON.stringify(result.qualification)}\n`);
+      })
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${error instanceof Error ? error.message : 'readback validation failed'}\n`
+        );
+        process.exitCode = 1;
+      });
+  } else {
+    parseQualificationArguments(args);
+  }
 }

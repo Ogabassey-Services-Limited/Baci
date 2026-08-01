@@ -34,9 +34,37 @@ export type CloudflareWorkersLogsPlanContract = z.infer<
   typeof CloudflareWorkersLogsPlanContractSchema
 >;
 
+export type CloudflareWorkersLogsContractValidationOptions = Readonly<{
+  now?: Date;
+}>;
+
+function requireCurrentObservation(
+  observedAt: string,
+  periodStart: string,
+  periodEnd: string,
+  maximumLagSeconds: number,
+  now: Date
+) {
+  const observedMs = new Date(observedAt).valueOf();
+  const startMs = new Date(periodStart).valueOf();
+  const endMs = new Date(periodEnd).valueOf();
+  const nowMs = now.valueOf();
+  if (
+    ![observedMs, startMs, endMs, nowMs].every(Number.isFinite) ||
+    observedMs < startMs ||
+    observedMs > endMs ||
+    nowMs < startMs ||
+    nowMs > endMs ||
+    observedMs > nowMs ||
+    nowMs - observedMs > maximumLagSeconds * 1000
+  )
+    throw new Error('Cloudflare usage observation is stale or out of period');
+}
+
 /** Rejects pricing, period, and forced-sampling drift from the approved public contract. */
 export function validateCloudflareWorkersLogsPlanContract(
-  value: unknown
+  value: unknown,
+  options: CloudflareWorkersLogsContractValidationOptions = {}
 ): CloudflareWorkersLogsPlanContract {
   const contract = CloudflareWorkersLogsPlanContractSchema.parse(value);
   const expectedFree =
@@ -64,19 +92,35 @@ export function validateCloudflareWorkersLogsPlanContract(
     new Date(contract.utcDayStartsAt) >= new Date(contract.utcDayEndsAt)
   )
     throw new Error('Cloudflare usage counter boundaries are invalid');
+  const now = options.now ?? new Date();
+  requireCurrentObservation(
+    contract.allowanceObservedAt,
+    contract.allowancePeriodStartsAt,
+    contract.allowancePeriodEndsAt,
+    contract.allowanceMaximumObservationLagSeconds,
+    now
+  );
+  requireCurrentObservation(
+    contract.utcDayObservedAt,
+    contract.utcDayStartsAt,
+    contract.utcDayEndsAt,
+    contract.utcDayMaximumObservationLagSeconds,
+    now
+  );
   return contract;
 }
 
 export async function retrieveCurrentCloudflareWorkersLogsContract(
   fetchOfficialDocs: () => Promise<string>,
   fetchAuthenticatedEntitlement: () => Promise<string>,
-  contract: unknown
+  contract: unknown,
+  options: CloudflareWorkersLogsContractValidationOptions = {}
 ): Promise<CloudflareWorkersLogsPlanContract> {
   const [officialDocs, entitlement] = await Promise.all([
     fetchOfficialDocs(),
     fetchAuthenticatedEntitlement(),
   ]);
-  const checked = validateCloudflareWorkersLogsPlanContract(contract);
+  const checked = validateCloudflareWorkersLogsPlanContract(contract, options);
   const digest = (value: string) =>
     createHash('sha256').update(value).digest('hex');
   if (
@@ -121,9 +165,18 @@ export function evaluateOgabasseyOriginBusinessCase(
   )
     reasons.push('baseline_not_current_all_ingress');
   if (
+    Number.isInteger(input.allIngressRequests) &&
+    Number.isInteger(input.allIngressOriginAttempts) &&
+    ((input.allIngressOriginAttempts ?? 0) < 0 ||
+      (input.allIngressOriginAttempts ?? 0) > (input.allIngressRequests ?? 0))
+  )
+    reasons.push('origin_attempt_count_invalid');
+  if (
     !input.completeHostEvidence ||
-    input.discoveredHostnames.length < 2 ||
-    !input.discoveredHostnames.includes('ogabassey.com')
+    input.discoveredHostnames.length < 3 ||
+    !['ogabassey.com', 'www.ogabassey.com', 'ogabassey.usebaci.com'].every(
+      (hostname) => input.discoveredHostnames.includes(hostname)
+    )
   )
     reasons.push('host_inventory_incomplete');
   if (
@@ -133,6 +186,17 @@ export function evaluateOgabasseyOriginBusinessCase(
     input.paybackMonths === undefined
   )
     reasons.push('cost_or_approval_missing');
+  if (
+    input.ownerApprovedPaybackMonths !== undefined &&
+    (!Number.isFinite(input.ownerApprovedPaybackMonths) ||
+      input.ownerApprovedPaybackMonths < 0)
+  )
+    reasons.push('payback_approval_invalid');
+  if (
+    input.paybackMonths !== undefined &&
+    (!Number.isFinite(input.paybackMonths) || input.paybackMonths < 0)
+  )
+    reasons.push('payback_invalid');
   if (reasons.length) return { verdict: 'NOT_PROVEN', reasonCodes: reasons };
   const current = decimalToMinorUnits(input.currentVercelAttributionUsd ?? '');
   const projected = decimalToMinorUnits(input.projectedEdgeCostUsd ?? '');

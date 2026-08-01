@@ -1,5 +1,9 @@
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
+  createCleanupVerificationReceipt,
   loadEvidenceRunForCleanup,
+  recordCleanupVerified,
   recordEvidenceMutation,
   recordEvidencePhase,
   recordEvidenceProbeResults,
@@ -29,6 +33,10 @@ export type EvidenceMutationClient = {
   cleanup(name: string, id: string): Promise<boolean>;
   inventorySha256(excluding?: EvidenceResource): Promise<string>;
 };
+export type EvidenceMutationDependencies = Readonly<{
+  capability: VerifiedEvidenceTokenCapability;
+  client: EvidenceMutationClient;
+}>;
 
 export function parseMutationArguments(args: readonly string[]) {
   if (args.length === 2 && args[0] === '--cleanup-run' && args[1])
@@ -45,9 +53,72 @@ export function parseMutationArguments(args: readonly string[]) {
   return { mode: 'apply' as const, runId: args[1] };
 }
 
-function verifyCapability(capability: VerifiedEvidenceTokenCapability) {
+export function runMutationCommand(
+  args: readonly string[],
+  stateDir: string,
+  dependencies: EvidenceMutationDependencies
+) {
+  const parsed = parseMutationArguments(args);
+  return parsed.mode === 'apply'
+    ? applyCloudflareEvidenceMutation(
+        stateDir,
+        parsed.runId,
+        dependencies.capability,
+        dependencies.client
+      )
+    : cleanupCloudflareEvidenceRun(
+        stateDir,
+        parsed.runId,
+        dependencies.capability,
+        dependencies.client
+      );
+}
+
+type MutationRunnerFactory = (
+  input: Readonly<{
+    token: string;
+    runId: string;
+    stateDir: string;
+    mode: 'apply' | 'cleanup';
+  }>
+) => Promise<EvidenceMutationDependencies>;
+
+async function loadMutationDependencies(
+  runId: string,
+  stateDir: string,
+  mode: 'apply' | 'cleanup'
+) {
+  const modulePath = process.env.EVIDENCE_MUTATION_RUNNER_MODULE;
+  const token = process.env.CLOUDFLARE_WRITE_TOKEN;
+  if (!modulePath || !token)
+    throw new Error(
+      'mutation requires a provider runner module and the isolated write token'
+    );
+  const loaded: unknown = await import(pathToFileURL(resolve(modulePath)).href);
+  const factory =
+    loaded &&
+    typeof loaded === 'object' &&
+    'createMutationDependencies' in loaded
+      ? (loaded as { createMutationDependencies?: unknown })
+          .createMutationDependencies
+      : undefined;
+  if (typeof factory !== 'function')
+    throw new Error('mutation runner module is invalid');
+  return (factory as MutationRunnerFactory)({ token, runId, stateDir, mode });
+}
+
+function verifyCapability(
+  capability: VerifiedEvidenceTokenCapability,
+  journal: Awaited<ReturnType<typeof loadEvidenceRunForCleanup>>
+) {
   if (capability.kind !== 'write')
     throw new Error('a verified write capability is required');
+  if (
+    capability.tokenId !== journal.writeTokenId ||
+    capability.accountId !== journal.accountId ||
+    capability.zoneId !== journal.zoneId
+  )
+    throw new Error('write capability does not match the journaled authority');
 }
 function verifyIdentity(
   actual: { accountId: string; zoneId: string },
@@ -83,8 +154,8 @@ export async function applyCloudflareEvidenceMutation(
   capability: VerifiedEvidenceTokenCapability,
   client: EvidenceMutationClient
 ) {
-  verifyCapability(capability);
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
+  verifyCapability(capability, journal);
   verifyIdentity(await client.identity(), journal);
   const name = `baci-evidence-${runId}`;
   if (!journal.plannedResources.includes(name))
@@ -98,7 +169,7 @@ export async function applyCloudflareEvidenceMutation(
   if (resource) {
     if (!resource.description.includes(runId))
       throw new Error('pre-existing resource collision');
-    verifyResource(resource, journal, name);
+    verifyResource(resource, journal, name, resource.id);
     if (!journal.mutations[name])
       await recordEvidenceMutation(stateDir, runId, name, resource.id);
   } else {
@@ -130,8 +201,8 @@ export async function cleanupCloudflareEvidenceRun(
   capability: VerifiedEvidenceTokenCapability,
   client: EvidenceMutationClient
 ) {
-  verifyCapability(capability);
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
+  verifyCapability(capability, journal);
   verifyIdentity(await client.identity(), journal);
   const incomplete = journal.probeResults.length !== journal.expectedProbeCount;
   for (const [name, id] of Object.entries(journal.mutations).reverse()) {
@@ -147,10 +218,10 @@ export async function cleanupCloudflareEvidenceRun(
   }
   if ((await client.inventorySha256()) !== journal.preInventorySha256)
     throw new Error('provider inventory drift after cleanup');
-  return recordEvidencePhase(
+  const next = await recordEvidencePhase(
     stateDir,
     runId,
-    incomplete ? 'cleanup_incomplete_stop' : 'cleanup_verified',
+    incomplete ? 'cleanup_incomplete_stop' : 'mutated',
     {
       cleanupAttempts: journal.cleanupAttempts + 1,
       cleanupIncomplete: incomplete,
@@ -161,10 +232,40 @@ export async function cleanupCloudflareEvidenceRun(
       ],
     }
   );
+  if (incomplete) return next;
+  return recordCleanupVerified(
+    stateDir,
+    runId,
+    createCleanupVerificationReceipt(
+      journal.preInventorySha256,
+      new Date().toISOString()
+    )
+  );
 }
 
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href
-)
-  parseMutationArguments(process.argv.slice(2));
+) {
+  const args = process.argv.slice(2);
+  const parsed = parseMutationArguments(args);
+  const stateDir = process.env.EVIDENCE_RUN_STATE_DIR;
+  if (!stateDir) {
+    process.stderr.write('absolute EVIDENCE_RUN_STATE_DIR is required\n');
+    process.exitCode = 1;
+  } else {
+    loadMutationDependencies(parsed.runId, stateDir, parsed.mode)
+      .then((dependencies) => runMutationCommand(args, stateDir, dependencies))
+      .then((journal) =>
+        process.stdout.write(
+          `${JSON.stringify({ runId: journal.runId, phase: journal.phase })}\n`
+        )
+      )
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${error instanceof Error ? error.message : 'mutation failed'}\n`
+        );
+        process.exitCode = 1;
+      });
+  }
+}

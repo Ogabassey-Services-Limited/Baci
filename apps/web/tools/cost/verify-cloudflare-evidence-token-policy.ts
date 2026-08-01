@@ -15,6 +15,10 @@ export type CloudflareEvidenceTokenPolicy = z.infer<typeof policySchema>;
 export type CloudflareTokenVerificationClient = {
   verify(token: string): Promise<{ id: string; status: string }>;
 };
+export type TokenPolicyVerificationOptions = Readonly<{
+  now?: () => Date;
+  maximumLifetimeMs?: number;
+}>;
 export type VerifiedEvidenceTokenCapability = Readonly<
   CloudflareEvidenceTokenPolicy & {
     readonly kind: 'write';
@@ -34,7 +38,8 @@ export async function verifyCloudflareEvidenceTokenPolicy(
   liveToken: string,
   ownerExport: unknown,
   reviewedPolicy: unknown,
-  client: CloudflareTokenVerificationClient
+  client: CloudflareTokenVerificationClient,
+  options: TokenPolicyVerificationOptions = {}
 ): Promise<VerifiedEvidenceTokenCapability> {
   const [owner, reviewed] = [
     policySchema.parse(ownerExport),
@@ -58,8 +63,22 @@ export async function verifyCloudflareEvidenceTokenPolicy(
     !equalList(owner.resources, reviewed.resources)
   )
     throw new Error('Cloudflare owner export does not equal reviewed policy');
-  if (new Date(owner.expiresAt) <= new Date())
+  const now = (options.now ?? (() => new Date()))();
+  const nowMs = now.valueOf();
+  const expiresAtMs = new Date(owner.expiresAt).valueOf();
+  const maximumLifetimeMs = options.maximumLifetimeMs ?? 2 * 60 * 60 * 1000;
+  if (
+    !Number.isFinite(nowMs) ||
+    !Number.isFinite(expiresAtMs) ||
+    expiresAtMs <= nowMs
+  )
     throw new Error('Cloudflare token policy is expired');
+  if (
+    !Number.isFinite(maximumLifetimeMs) ||
+    maximumLifetimeMs <= 0 ||
+    expiresAtMs - nowMs > maximumLifetimeMs
+  )
+    throw new Error('Cloudflare token policy exceeds its maximum lifetime');
   return Object.freeze({
     ...owner,
     kind: 'write' as const,

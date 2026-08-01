@@ -54,6 +54,20 @@ describe('CloudflareEvidenceRunJournal', () => {
       recordEvidencePhase(dir, input.runId, 'proof_complete')
     ).rejects.toThrow('revocation');
   });
+  it('serializes concurrent run creation before either journal is visible', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    const results = await Promise.allSettled([
+      openEvidenceRun(dir, input),
+      openEvidenceRun(dir, { ...input, runId: 'run-456' }),
+    ]);
+    expect(
+      results.filter((result) => result.status === 'fulfilled')
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected')
+    ).toHaveLength(1);
+  });
   it('never follows traversal or symlink journal paths', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
@@ -65,7 +79,7 @@ describe('CloudflareEvidenceRunJournal', () => {
       'regular'
     );
   });
-  it('rejects fabricated revocation receipts and accepts only provider revoke/readback authority', async () => {
+  it('accepts a serialized revocation receipt only after provider readback re-verifies it', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
     await openEvidenceRun(dir, input);
@@ -75,13 +89,26 @@ describe('CloudflareEvidenceRunJournal', () => {
       })
     ).rejects.toThrow('receipt');
     await expect(
-      recordTokenRevocation(dir, input.runId, 'write', {
-        tokenId: 'write',
-        status: 'revoked',
-        providerReceiptSha256: 'd'.repeat(64),
-        observedAt: '2026-07-31T00:00:00.000Z',
-      } as never)
-    ).rejects.toThrow('provider operation');
+      recordTokenRevocation(
+        dir,
+        input.runId,
+        'write',
+        {
+          tokenId: 'write',
+          status: 'revoked',
+          providerReceiptSha256: 'd'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        },
+        {
+          readBack: async (tokenId) => ({
+            tokenId,
+            status: 'inactive',
+            auditReceiptSha256: 'd'.repeat(64),
+            observedAt: '2026-07-31T00:00:00.000Z',
+          }),
+        }
+      )
+    ).resolves.toMatchObject({ phase: 'write_token_revoked' });
     await revokeEvidenceRunToken(dir, input.runId, 'write', {
       revoke: async (tokenId) => ({
         tokenId,

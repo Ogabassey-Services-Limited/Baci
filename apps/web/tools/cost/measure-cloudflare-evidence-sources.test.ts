@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  createCleanupVerificationReceipt,
   openEvidenceRun,
+  recordCleanupVerified,
+  recordEvidenceMutation,
   revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 import {
@@ -51,6 +54,20 @@ describe('measureCloudflareEvidenceSources', () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
     await openEvidenceRun(dir, input);
+    await recordEvidenceMutation(
+      dir,
+      input.runId,
+      input.plannedResources[0],
+      'resource-id'
+    );
+    await recordCleanupVerified(
+      dir,
+      input.runId,
+      createCleanupVerificationReceipt(
+        input.preInventorySha256,
+        '2026-07-31T00:00:00.000Z'
+      )
+    );
     const client = {
       measure: async () => ({
         complete: true,
@@ -96,6 +113,54 @@ describe('measureCloudflareEvidenceSources', () => {
           observedAt: '2026-07-31T00:00:00.000Z',
         }),
       })
-    ).resolves.toMatchObject({ phase: 'read_token_revoked' });
+    ).resolves.toMatchObject({ phase: 'proof_complete' });
+  });
+  it('rejects a measurement that reports a client-controlled probe count', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, input);
+    await recordEvidenceMutation(
+      dir,
+      input.runId,
+      input.plannedResources[0],
+      'resource-id'
+    );
+    await recordCleanupVerified(
+      dir,
+      input.runId,
+      createCleanupVerificationReceipt(
+        input.preInventorySha256,
+        '2026-07-31T00:00:00.000Z'
+      )
+    );
+    const revoke = async (tokenId: string) => ({
+      tokenId,
+      auditReceiptSha256: 'c'.repeat(64),
+    });
+    await revokeEvidenceRunToken(dir, input.runId, 'write', {
+      revoke,
+      readBack: async (tokenId) => ({
+        tokenId,
+        status: 'inactive' as const,
+        auditReceiptSha256: 'd'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
+    });
+    await expect(
+      measureCloudflareEvidenceSources(dir, input.runId, capability, {
+        measure: async () => ({
+          complete: true,
+          expectedProbeCount: 1,
+          observedProbeCount: 1,
+        }),
+        revoke,
+        readBack: async (tokenId) => ({
+          tokenId,
+          status: 'inactive' as const,
+          auditReceiptSha256: 'e'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        }),
+      })
+    ).rejects.toThrow('incomplete');
   });
 });

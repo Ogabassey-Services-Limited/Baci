@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildClosedEvidenceProcessEnvironment,
+  calculatePointerCacheCanonicalSha256,
   executeCloudflareEvidenceQualification,
   parseQualificationArguments,
   qualifyCloudflareEvidenceReadback,
@@ -61,25 +62,40 @@ describe('Cloudflare read-only qualification contracts', () => {
       missObserved: false,
       qualifiedAt: '2026-07-31T00:00:00.000Z',
       expiresAt: '2026-07-31T00:02:00.000Z',
-      canonicalSha256: 'b'.repeat(64),
+      canonicalSha256: '',
     },
   };
+  {
+    const { canonicalSha256: _ignored, ...withoutHash } = readback.pointerCache;
+    readback.pointerCache.canonicalSha256 =
+      calculatePointerCacheCanonicalSha256(withoutHash);
+  }
   it('rejects swapped/latest-only script artifacts and cache hits', () => {
-    expect(qualifyCloudflareEvidenceReadback(readback).ok).toBe(true);
     expect(
-      qualifyCloudflareEvidenceReadback({
-        ...readback,
-        versions: [
-          readback.versions[0],
-          { ...readback.versions[1], moduleSha256: 'b'.repeat(64) },
-        ],
+      qualifyCloudflareEvidenceReadback(readback, {
+        now: new Date('2026-07-31T00:01:00.000Z'),
       }).ok
+    ).toBe(true);
+    expect(
+      qualifyCloudflareEvidenceReadback(
+        {
+          ...readback,
+          versions: [
+            readback.versions[0],
+            { ...readback.versions[1], moduleSha256: 'b'.repeat(64) },
+          ],
+        },
+        { now: new Date('2026-07-31T00:01:00.000Z') }
+      ).ok
     ).toBe(false);
     expect(
-      qualifyCloudflareEvidenceReadback({
-        ...readback,
-        pointerCache: { ...readback.pointerCache, hitObserved: true },
-      }).ok
+      qualifyCloudflareEvidenceReadback(
+        {
+          ...readback,
+          pointerCache: { ...readback.pointerCache, hitObserved: true },
+        },
+        { now: new Date('2026-07-31T00:01:00.000Z') }
+      ).ok
     ).toBe(false);
   });
   it('constructs a closed one-token environment and rejects inherited credentials', () => {
@@ -163,8 +179,15 @@ describe('Cloudflare read-only qualification contracts', () => {
         calls.push(method);
         return { cfCacheStatus: 'DYNAMIC' };
       },
-      temporaryPurge: async (endpoint: string) => {
-        calls.push(endpoint);
+      temporaryPurge: async (request: {
+        endpoint: string;
+        zoneId: string;
+        requestSchemaSha256: string;
+        body: { hosts: readonly ['edge-evidence.ogabassey.com'] };
+      }) => {
+        calls.push(
+          `${request.endpoint}:${request.zoneId}:${request.body.hosts[0]}`
+        );
         return { operationId: 'purge' };
       },
       readPurge: async () => {
@@ -196,6 +219,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           responseSchemaSha256: 'b'.repeat(64),
           maximumVisibilitySeconds: 60,
         },
+        zoneId: 'zone',
       })
     ).resolves.toMatchObject({ qualified: true, purgeStatus: 'lost_response' });
     expect(calls).toEqual([
@@ -205,8 +229,10 @@ describe('Cloudflare read-only qualification contracts', () => {
       'deployments',
       'trace',
       'GET',
+      'GET',
       'HEAD',
-      '/zones/zone/purge_cache',
+      'HEAD',
+      '/zones/zone/purge_cache:zone:edge-evidence.ogabassey.com',
       'purge-read',
       'topology:60',
     ]);
@@ -235,6 +261,7 @@ describe('Cloudflare read-only qualification contracts', () => {
             responseSchemaSha256: 'b'.repeat(64),
             maximumVisibilitySeconds: 60,
           },
+          zoneId: 'zone',
         }
       )
     ).rejects.toThrow('cacheable');

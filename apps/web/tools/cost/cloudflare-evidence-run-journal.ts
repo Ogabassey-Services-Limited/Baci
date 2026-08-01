@@ -5,6 +5,7 @@ import {
   readdir,
   readFile,
   rename,
+  rm,
 } from 'node:fs/promises';
 import { basename, isAbsolute, join } from 'node:path';
 
@@ -35,6 +36,8 @@ export type CloudflareEvidenceRunJournal = {
   readBackEvidence: readonly string[];
   probeResults: readonly string[];
   cleanupIncomplete: boolean;
+  cleanupVerifiedAt?: string;
+  cleanupVerificationReceiptSha256?: string;
   writeTokenRevokedAt?: string;
   readTokenRevokedAt?: string;
   writeTokenRevocationReceipt?: TokenRevocationReceipt;
@@ -46,10 +49,13 @@ export type TokenRevocationReceipt = Readonly<{
   providerReceiptSha256: string;
   observedAt: string;
 }>;
-const verifiedRevocations = new WeakSet<object>();
-declare const verifiedTokenRevocation: unique symbol;
-export type VerifiedTokenRevocation = TokenRevocationReceipt &
-  Readonly<{ [verifiedTokenRevocation]: true }>;
+const verifiedCleanupVerification = Symbol('verifiedCleanupVerification');
+export type VerifiedCleanupVerification = Readonly<{
+  status: 'absent';
+  inventorySha256: string;
+  observedAt: string;
+  [verifiedCleanupVerification]: true;
+}>;
 export type TokenRevocationClient = Readonly<{
   revoke(
     tokenId: string
@@ -71,11 +77,59 @@ export type EvidenceRunInput = Omit<
   | 'readBackEvidence'
   | 'probeResults'
   | 'cleanupIncomplete'
+  | 'cleanupVerifiedAt'
+  | 'cleanupVerificationReceiptSha256'
   | 'writeTokenRevokedAt'
   | 'readTokenRevokedAt'
   | 'writeTokenRevocationReceipt'
   | 'readTokenRevocationReceipt'
 >;
+
+const activeRunLockPath = (stateDir: string) =>
+  join(stateDir, '.active-run.lock');
+
+async function releaseActiveRunLock(stateDir: string, runId: string) {
+  try {
+    const owner = (await readFile(activeRunLockPath(stateDir), 'utf8')).trim();
+    if (owner === runId) await rm(activeRunLockPath(stateDir));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+}
+
+async function acquireActiveRunLock(stateDir: string, runId: string) {
+  try {
+    const lock = await open(activeRunLockPath(stateDir), 'wx', 0o600);
+    try {
+      await lock.writeFile(`${runId}\n`);
+      await lock.sync();
+    } finally {
+      await lock.close();
+    }
+    return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  }
+  let owner = '';
+  try {
+    owner = (await readFile(activeRunLockPath(stateDir), 'utf8')).trim();
+  } catch {
+    throw new Error('an evidence run is already active');
+  }
+  if (owner) {
+    try {
+      const existing = await readJournal(stateDir, owner);
+      if (terminal.has(existing.phase)) {
+        await releaseActiveRunLock(stateDir, owner);
+        return acquireActiveRunLock(stateDir, runId);
+      }
+    } catch {
+      await releaseActiveRunLock(stateDir, owner);
+      return acquireActiveRunLock(stateDir, runId);
+    }
+  }
+  throw new Error('an evidence run is already active');
+}
 
 function journalPath(stateDir: string, runId: string) {
   if (basename(runId) !== runId || !/^[a-zA-Z0-9_-]+$/.test(runId))
@@ -112,6 +166,8 @@ async function writeJournal(
   } finally {
     await directory.close();
   }
+  if (terminal.has(journal.phase))
+    await releaseActiveRunLock(stateDir, journal.runId);
 }
 async function readJournal(stateDir: string, runId: string) {
   await verifyDirectory(stateDir);
@@ -134,28 +190,34 @@ export async function openEvidenceRun(
   input: EvidenceRunInput
 ): Promise<CloudflareEvidenceRunJournal> {
   await verifyDirectory(stateDir);
-  const active = await readdir(stateDir);
-  for (const name of active.filter((entry) => entry.endsWith('.json'))) {
-    const existing = await readJournal(stateDir, name.slice(0, -5));
-    if (!terminal.has(existing.phase))
-      throw new Error('an evidence run is already active');
+  await acquireActiveRunLock(stateDir, input.runId);
+  try {
+    const active = await readdir(stateDir);
+    for (const name of active.filter((entry) => entry.endsWith('.json'))) {
+      const existing = await readJournal(stateDir, name.slice(0, -5));
+      if (!terminal.has(existing.phase))
+        throw new Error('an evidence run is already active');
+    }
+    if (
+      !Number.isInteger(input.expectedProbeCount) ||
+      input.expectedProbeCount < 1
+    )
+      throw new Error('expected probe count is invalid');
+    const journal: CloudflareEvidenceRunJournal = {
+      ...input,
+      mutations: {},
+      phase: 'prepared',
+      cleanupAttempts: 0,
+      readBackEvidence: [],
+      probeResults: [],
+      cleanupIncomplete: false,
+    };
+    await writeJournal(stateDir, journal);
+    return journal;
+  } catch (error) {
+    await releaseActiveRunLock(stateDir, input.runId);
+    throw error;
   }
-  if (
-    !Number.isInteger(input.expectedProbeCount) ||
-    input.expectedProbeCount < 1
-  )
-    throw new Error('expected probe count is invalid');
-  const journal: CloudflareEvidenceRunJournal = {
-    ...input,
-    mutations: {},
-    phase: 'prepared',
-    cleanupAttempts: 0,
-    readBackEvidence: [],
-    probeResults: [],
-    cleanupIncomplete: false,
-  };
-  await writeJournal(stateDir, journal);
-  return journal;
 }
 export async function recordEvidenceMutation(
   stateDir: string,
@@ -205,6 +267,8 @@ export async function recordEvidencePhase(
   const journal = await readJournal(stateDir, runId);
   if (phase === 'write_token_revoked' || phase === 'read_token_revoked')
     throw new Error('token revocation requires an authenticated receipt');
+  if (phase === 'cleanup_verified')
+    throw new Error('cleanup verification requires an authenticated receipt');
   if ('writeTokenRevokedAt' in details || 'readTokenRevokedAt' in details)
     throw new Error('caller timestamps cannot prove token revocation');
   Object.assign(journal, details);
@@ -219,6 +283,45 @@ export async function recordEvidencePhase(
   await writeJournal(stateDir, journal);
   return journal;
 }
+
+export function createCleanupVerificationReceipt(
+  inventorySha256: string,
+  observedAt: string
+): VerifiedCleanupVerification {
+  if (
+    !/^[a-f0-9]{64}$/.test(inventorySha256) ||
+    Number.isNaN(new Date(observedAt).valueOf())
+  )
+    throw new Error('cleanup verification receipt is invalid');
+  return Object.freeze({
+    status: 'absent' as const,
+    inventorySha256,
+    observedAt,
+    [verifiedCleanupVerification]: true as const,
+  });
+}
+
+export async function recordCleanupVerified(
+  stateDir: string,
+  runId: string,
+  receipt: VerifiedCleanupVerification
+) {
+  if (receipt[verifiedCleanupVerification] !== true)
+    throw new Error('cleanup verification must come from provider readback');
+  const journal = await readJournal(stateDir, runId);
+  if (journal.phase !== 'mutated')
+    throw new Error('cleanup verification requires a mutated run');
+  if (journal.cleanupIncomplete || journal.phase === 'cleanup_incomplete_stop')
+    throw new Error('incomplete cleanup cannot be marked verified');
+  if (receipt.inventorySha256 !== journal.preInventorySha256)
+    throw new Error('cleanup inventory receipt does not match the journal');
+  journal.cleanupVerifiedAt = receipt.observedAt;
+  journal.cleanupVerificationReceiptSha256 = receipt.inventorySha256;
+  journal.phase = 'cleanup_verified';
+  await writeJournal(stateDir, journal);
+  return journal;
+}
+
 function validateRevocationReceipt(
   expectedTokenId: string,
   receipt: TokenRevocationReceipt
@@ -236,15 +339,22 @@ export async function recordTokenRevocation(
   stateDir: string,
   runId: string,
   kind: 'write' | 'read',
-  receipt: VerifiedTokenRevocation
+  receipt: TokenRevocationReceipt,
+  client: Pick<TokenRevocationClient, 'readBack'>
 ) {
-  if (!verifiedRevocations.has(receipt))
-    throw new Error('token revocation must come from a provider operation');
   const journal = await readJournal(stateDir, runId);
   validateRevocationReceipt(
     kind === 'write' ? journal.writeTokenId : journal.readTokenId,
     receipt
   );
+  const providerReadBack = await client.readBack(receipt.tokenId);
+  if (
+    providerReadBack.tokenId !== receipt.tokenId ||
+    !['inactive', 'absent'].includes(providerReadBack.status) ||
+    providerReadBack.auditReceiptSha256 !== receipt.providerReceiptSha256 ||
+    providerReadBack.observedAt !== receipt.observedAt
+  )
+    throw new Error('serialized token revocation receipt is not verified');
   if (kind === 'write') {
     journal.writeTokenRevocationReceipt = receipt;
     journal.writeTokenRevokedAt = receipt.observedAt;
@@ -287,9 +397,8 @@ export async function revokeEvidenceRunToken(
     status: 'revoked' as const,
     providerReceiptSha256: readBack.auditReceiptSha256,
     observedAt: readBack.observedAt,
-  }) as VerifiedTokenRevocation;
-  verifiedRevocations.add(receipt);
-  return recordTokenRevocation(stateDir, runId, kind, receipt);
+  });
+  return recordTokenRevocation(stateDir, runId, kind, receipt, client);
 }
 export function loadEvidenceRunForCleanup(stateDir: string, runId: string) {
   return readJournal(stateDir, runId);

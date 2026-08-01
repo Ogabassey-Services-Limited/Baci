@@ -1,6 +1,7 @@
 import type {
   CloudflareEvidenceTokenPolicy,
   CloudflareTokenVerificationClient,
+  TokenPolicyVerificationOptions,
 } from './verify-cloudflare-evidence-token-policy';
 import { verifyCloudflareEvidenceTokenPolicy } from './verify-cloudflare-evidence-token-policy';
 
@@ -21,13 +22,18 @@ export async function verifyCloudflareEvidenceReadTokenPolicy(
   ownerExport: unknown,
   reviewedPolicy: unknown,
   client: CloudflareTokenVerificationClient,
-  permissionMetadata: readonly ReviewedCloudflarePermissionMetadata[] = []
+  permissionMetadata: readonly ReviewedCloudflarePermissionMetadata[] = [],
+  options: TokenPolicyVerificationOptions = {}
 ): Promise<VerifiedEvidenceReadCapability> {
   const verified = await verifyCloudflareEvidenceTokenPolicy(
     liveToken,
     ownerExport,
     reviewedPolicy,
-    client
+    client,
+    {
+      ...options,
+      maximumLifetimeMs: options.maximumLifetimeMs ?? 24 * 60 * 60 * 1000,
+    }
   );
   for (const permissionId of verified.permissionGroupIds) {
     const metadata = permissionMetadata.find(

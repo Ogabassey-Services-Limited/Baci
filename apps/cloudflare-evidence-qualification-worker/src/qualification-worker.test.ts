@@ -11,12 +11,24 @@ const root = resolve(import.meta.dirname, '..');
 describe('cloudflare evidence qualification worker fixture', () => {
   it('produces distinct deterministic 204 artifact receipts and metadata headers', async () => {
     const [responseA, responseB] = await Promise.all([
-      versionA.fetch(new Request('https://edge-evidence.ogabassey.com'), {
-        CF_VERSION_METADATA: { id: 'provider-a' },
-      } as Env),
-      versionB.fetch(new Request('https://edge-evidence.ogabassey.com'), {
-        CF_VERSION_METADATA: { id: 'provider-b' },
-      } as Env),
+      versionA.fetch(
+        new Request('https://edge-evidence.ogabassey.com/__baci-evidence/a', {
+          headers: {
+            'X-Baci-Evidence-Probe': '1',
+            'X-Baci-Evidence-Run': 'a'.repeat(32),
+          },
+        }),
+        { CF_VERSION_METADATA: { id: 'provider-a' } } as Env
+      ),
+      versionB.fetch(
+        new Request('https://edge-evidence.ogabassey.com/__baci-evidence/b', {
+          headers: {
+            'X-Baci-Evidence-Probe': '1',
+            'X-Baci-Evidence-Run': 'b'.repeat(32),
+          },
+        }),
+        { CF_VERSION_METADATA: { id: 'provider-b' } } as Env
+      ),
     ]);
     expect(responseA.status).toBe(204);
     expect(responseB.status).toBe(204);
@@ -29,6 +41,13 @@ describe('cloudflare evidence qualification worker fixture', () => {
     expect(responseA.headers.get('X-Baci-Evidence-Version')).toBe('provider-a');
     expect(responseB.headers.get('X-Baci-Evidence-Version')).toBe('provider-b');
   });
+  it('fails closed for arbitrary host, path, method, or probe identity', async () => {
+    const response = await versionA.fetch(
+      new Request('https://edge-evidence.ogabassey.com/not-a-probe'),
+      { CF_VERSION_METADATA: { id: 'provider-a' } } as Env
+    );
+    expect(response.status).toBe(404);
+  });
   it('runs both injected dry-run artifacts and seals deterministic unequal receipts', async () => {
     const calls: string[] = [];
     const runner = {
@@ -37,7 +56,7 @@ describe('cloudflare evidence qualification worker fixture', () => {
         const version = configPath.includes('version-a') ? 'a' : 'b';
         return {
           bundle: new TextEncoder().encode(`bundle-${version}`),
-          moduleList: [`version-${version}.js`],
+          moduleList: [`src/version-${version}.ts`],
           generatedTypeDeclaration: `declare const ${version}: string`,
           wranglerVersion: '4.115.0',
         };
@@ -59,12 +78,14 @@ describe('cloudflare evidence qualification worker fixture', () => {
     const config = `{
       // The qualification fixture has no provider route.
       "name": "baci-evidence-qualification",
-      "main": "src/version-a.ts//literal",
+      "main": "src/version-a.ts",
       /* Wrangler accepts trailing commas in JSONC. */
       "compatibility_date": "2026-07-31",
       "version_metadata": { "binding": "CF_VERSION_METADATA", },
     }`;
-    expect(validateQualificationWorkerConfig(config)).toMatchObject({
+    expect(
+      validateQualificationWorkerConfig(config, 'src/version-a.ts')
+    ).toMatchObject({
       binding: 'CF_VERSION_METADATA',
     });
   });
@@ -78,6 +99,12 @@ describe('cloudflare evidence qualification worker fixture', () => {
     expect(validateQualificationWorkerConfig(config)).toMatchObject({
       binding: 'CF_VERSION_METADATA',
     });
+    expect(() =>
+      validateQualificationWorkerConfig(
+        JSON.stringify({ ...JSON.parse(config), main: 'src/version-b.ts' }),
+        'src/version-a.ts'
+      )
+    ).toThrow('entrypoint');
     for (const extra of [
       { route: 'edge-evidence.ogabassey.com/*' },
       { routes: ['edge-evidence.ogabassey.com/*'] },
@@ -115,13 +142,17 @@ describe('cloudflare evidence qualification worker fixture', () => {
       "main": "src/version-a.ts",
       "version_metadata": { "binding": "CF_VERSION_METADATA" }
     }`;
-    const expected = validateQualificationWorkerConfig(first).canonicalSha256;
+    const expected = validateQualificationWorkerConfig(
+      first,
+      'src/version-a.ts'
+    ).canonicalSha256;
     const localeCompare = vi
       .spyOn(String.prototype, 'localeCompare')
       .mockReturnValue(1);
-    expect(validateQualificationWorkerConfig(reordered).canonicalSha256).toBe(
-      expected
-    );
+    expect(
+      validateQualificationWorkerConfig(reordered, 'src/version-a.ts')
+        .canonicalSha256
+    ).toBe(expected);
     localeCompare.mockRestore();
   });
 });

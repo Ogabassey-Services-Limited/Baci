@@ -105,6 +105,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
       wafRateLimit: 'waf-v1',
       originEvent: 'origin-v1',
     },
+    evidenceSource: 'worker-analytics' as const,
     days,
     ...overrides,
   };
@@ -142,6 +143,20 @@ describe('summarizeStorefrontDelivery', () => {
     }
     expect(summarizeStorefrontDelivery(seal(evidence)).originRate).toBe(0.001);
     expect(summarizeStorefrontDelivery(seal(evidence)).verdict).toBe('PASS');
+  });
+  it('applies a comparison threshold and rejects an impossible eligibility denominator', () => {
+    const comparison = manifest();
+    comparison.days[0].canonicalEligibleOriginAttemptCount = 50;
+    expect(
+      summarizeStorefrontDelivery(seal(comparison), {
+        thresholdOverride: 0.1,
+      }).verdict
+    ).toBe('PASS');
+    const malformed = manifest();
+    malformed.days[0].canonicalEligibleRequestCount = 1001;
+    expect(summarizeStorefrontDelivery(seal(malformed)).verdict).toBe(
+      'NOT_PROVEN'
+    );
   });
   it('fails above 1/1000 and for any unknown, alias, or rejected-method origin attempt', () => {
     const over = manifest();

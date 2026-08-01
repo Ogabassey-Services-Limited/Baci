@@ -131,6 +131,8 @@ export async function executeDeepCloudflareEvidenceQualification(
   if (families.size !== 3)
     throw new Error('each topology family requires an independent contract');
   for (const topology of input.topologies) {
+    if (sameTuple(topology.before, topology.after))
+      throw new Error('topology qualification requires a real mutation');
     if (!sameTuple(await client.topologyRead(topology.family), topology.before))
       throw new Error('topology before tuple does not match');
     await client.topologyMutate(

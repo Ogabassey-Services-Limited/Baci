@@ -48,6 +48,17 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
 
   it('creates a private initial journal and prints only its bounded handoff', async () => {
     const workspaceRoot = resolve(import.meta.dirname, '../../../..');
+    const { stdout: toolingMergeSha } = await promisify(execFile)('git', [
+      '-C',
+      workspaceRoot,
+      'rev-parse',
+      '--verify',
+      'HEAD',
+    ]);
+    const reviewedPrepareInput = {
+      ...prepareInput,
+      toolingMergeSha: toolingMergeSha.trim(),
+    };
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-prepare-child-'));
     await chmod(stateDir, 0o700);
     let stdout = '';
@@ -70,7 +81,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     await spawnIsolatedCloudflareEvidenceProcess(
       spawner,
       'prepare',
-      prepareInput.runId,
+      reviewedPrepareInput.runId,
       {
         PATH: process.env.PATH ?? '',
         SECRET_THAT_MUST_NOT_ESCAPE: 'never-forward',
@@ -78,16 +89,16 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       undefined,
       workspaceRoot,
       stateDir,
-      prepareInput
+      reviewedPrepareInput
     );
     expect(stderr).toBe('');
     expect(stdout).toBe(
-      `${JSON.stringify({ runId: prepareInput.runId, nextPhase: 'mutate' })}\n`
+      `${JSON.stringify({ runId: reviewedPrepareInput.runId, nextPhase: 'mutate' })}\n`
     );
     const journalPath = join(stateDir, `${prepareInput.runId}.json`);
     const rawJournal = await readFile(journalPath, 'utf8');
     expect(JSON.parse(rawJournal)).toMatchObject({
-      ...prepareInput,
+      ...reviewedPrepareInput,
       phase: 'prepared',
       cleanupAttempts: 0,
     });
@@ -97,12 +108,12 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       spawnIsolatedCloudflareEvidenceProcess(
         spawner,
         'prepare',
-        prepareInput.runId,
+        reviewedPrepareInput.runId,
         { PATH: process.env.PATH ?? '' },
         undefined,
         workspaceRoot,
         stateDir,
-        prepareInput
+        reviewedPrepareInput
       )
     ).rejects.toThrow('active');
   });

@@ -1,6 +1,13 @@
 /// <reference path="../.qualification-dist/types/version-b.d.ts" />
 export default {
-  fetch(_request: Request, env: Env) {
+  fetch(request: Request, env: Env) {
+    if (
+      request.url !== 'https://edge-evidence.ogabassey.com/__baci-evidence/b' ||
+      !['GET', 'HEAD'].includes(request.method) ||
+      request.headers.get('X-Baci-Evidence-Probe') !== '1' ||
+      !/^[a-f0-9]{32}$/.test(request.headers.get('X-Baci-Evidence-Run') ?? '')
+    )
+      return new Response(null, { status: 404 });
     return new Response(null, {
       status: 204,
       headers: {

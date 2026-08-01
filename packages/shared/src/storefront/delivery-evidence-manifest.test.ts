@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { calculateStorefrontDeliveryDailyEvidenceSha256 } from './delivery-evidence';
 import {
-  calculateStorefrontDeliveryWindowFingerprintSha256,
   calculateHostnameInventorySha256,
+  calculateStorefrontDeliveryWindowFingerprintSha256,
   validateStorefrontDeliveryManifest,
 } from './delivery-evidence-manifest';
 
@@ -112,6 +112,7 @@ const manifest = () => {
       wafRateLimit: 'waf-v1',
       originEvent: 'origin-v1',
     },
+    evidenceSource: 'worker-analytics' as const,
     days,
   };
   return {

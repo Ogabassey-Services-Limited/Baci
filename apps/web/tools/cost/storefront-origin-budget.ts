@@ -1,5 +1,6 @@
-import { lstat, readFile } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { constants } from 'node:fs';
+import { lstat, open } from 'node:fs/promises';
+import { dirname, isAbsolute, parse, resolve } from 'node:path';
 import {
   type StorefrontDeliveryEvidenceManifest,
   validateStorefrontDeliveryManifest,
@@ -19,13 +20,29 @@ export type StorefrontDeliverySummary = {
   rejectedMethodOriginAttempts: number;
   verdict: 'PASS' | 'FAIL' | 'NOT_PROVEN';
 };
+type OriginBudgetOptions = Readonly<{
+  thresholdOverride?: number;
+}>;
 
 const sum = (values: readonly number[]) =>
   values.reduce((total, value) => total + value, 0);
 
+async function assertNoSymlinkAncestors(path: string) {
+  const root = parse(path).root;
+  const benignSystemAliases = new Set(['/var', '/tmp']);
+  let current = path;
+  while (current !== root) {
+    const stat = await lstat(current);
+    if (stat.isSymbolicLink() && !benignSystemAliases.has(current))
+      throw new Error('manifest path must not traverse a symlink');
+    current = dirname(current);
+  }
+}
+
 /** Produces the fail-closed all-ingress production origin-avoidance decision. */
 export function summarizeStorefrontDelivery(
-  value: unknown
+  value: unknown,
+  options: OriginBudgetOptions = {}
 ): StorefrontDeliverySummary {
   const validation = validateStorefrontDeliveryManifest(value);
   const days = validation.ok ? validation.manifest.days : [];
@@ -63,6 +80,8 @@ export function summarizeStorefrontDelivery(
         day.maxSampleInterval === 1 &&
         day.invocationCountExact &&
         day.totalDecisionCount === day.workerInvocationCount &&
+        day.canonicalEligibleRequestCount + day.aliasEligibleRequestCount <=
+          day.totalDecisionCount &&
         day.aliasEligibleRequestCount === day.aliasEdgeRedirectCount &&
         Object.values(day.sourceEvidence).every(
           (source) =>
@@ -77,7 +96,9 @@ export function summarizeStorefrontDelivery(
     unknownOriginAttempts > 0 ||
     rejectedMethodOriginAttempts > 0 ||
     aliasEligibleOriginAttempts > 0 ||
-    (evidenceComplete && Number.isFinite(originRate) && originRate > 0.001);
+    (evidenceComplete &&
+      Number.isFinite(originRate) &&
+      originRate > (options.thresholdOverride ?? 0.001));
   return {
     evidenceMode,
     evidenceComplete,
@@ -114,11 +135,18 @@ export async function readSealedStorefrontDeliveryManifest(
     options.thresholdOverride !== undefined
   )
     throw new Error('production cost gate rejects threshold overrides');
-  if ((await lstat(path)).isSymbolicLink())
-    throw new Error('manifest path must not traverse a symlink');
-  const validation = validateStorefrontDeliveryManifest(
-    JSON.parse(await readFile(path, 'utf8'))
-  );
+  await assertNoSymlinkAncestors(path);
+  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  let value: unknown;
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || (stat.mode & 0o077) !== 0)
+      throw new Error('sealed manifest must be a private regular file');
+    value = JSON.parse(await handle.readFile('utf8'));
+  } finally {
+    await handle.close();
+  }
+  const validation = validateStorefrontDeliveryManifest(value);
   if (!validation.ok)
     throw new Error(
       `sealed manifest is invalid: ${validation.reasonCodes.join(',')}`
@@ -127,22 +155,56 @@ export async function readSealedStorefrontDeliveryManifest(
 }
 
 export function parseStorefrontOriginBudgetArguments(args: readonly string[]) {
-  if (args.length !== 2 || args[0] !== '--manifest' || !args[1])
-    throw new Error(
-      'cost gate accepts only --manifest <absolute-sealed-manifest>'
-    );
-  return { manifestPath: args[1] };
+  if (args.length < 2 || args[0] !== '--manifest' || !args[1])
+    throw new Error('cost gate requires --manifest <absolute-sealed-manifest>');
+  const result: {
+    manifestPath: string;
+    environment: 'production' | 'comparison';
+    thresholdOverride?: number;
+  } = {
+    manifestPath: args[1],
+    environment: 'production',
+  };
+  for (let index = 2; index < args.length; index += 2) {
+    const option = args[index];
+    const value = args[index + 1];
+    if (!value || (option !== '--environment' && option !== '--threshold'))
+      throw new Error('cost gate options are invalid');
+    if (option === '--environment') {
+      if (value !== 'production' && value !== 'comparison')
+        throw new Error('cost gate environment is invalid');
+      result.environment = value;
+    } else {
+      const threshold = Number(value);
+      if (!Number.isFinite(threshold) || threshold < 0)
+        throw new Error('cost gate threshold is invalid');
+      result.thresholdOverride = threshold;
+    }
+  }
+  if (
+    result.environment === 'production' &&
+    result.thresholdOverride !== undefined
+  )
+    throw new Error('production cost gate rejects threshold overrides');
+  if (
+    result.environment === 'comparison' &&
+    result.thresholdOverride === undefined
+  )
+    throw new Error('comparison cost gate requires a threshold override');
+  return result;
 }
 
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href
 ) {
-  const { manifestPath } = parseStorefrontOriginBudgetArguments(
-    process.argv.slice(2)
-  );
-  const manifest = await readSealedStorefrontDeliveryManifest(manifestPath);
-  process.stdout.write(
-    `${JSON.stringify(summarizeStorefrontDelivery(manifest))}\n`
-  );
+  const { manifestPath, environment, thresholdOverride } =
+    parseStorefrontOriginBudgetArguments(process.argv.slice(2));
+  const manifest = await readSealedStorefrontDeliveryManifest(manifestPath, {
+    environment,
+    thresholdOverride,
+  });
+  const summary = summarizeStorefrontDelivery(manifest, { thresholdOverride });
+  process.stdout.write(`${JSON.stringify(summary)}\n`);
+  if (summary.verdict !== 'PASS') process.exitCode = 1;
 }

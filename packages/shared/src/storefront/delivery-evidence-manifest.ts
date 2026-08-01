@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import {
-  canonicalizeJson,
   calculateCanonicalSha256,
   calculateStorefrontDeliveryDailyEvidenceSha256,
+  canonicalizeJson,
   type StorefrontDeliveryDailyEvidence,
   StorefrontDeliveryDailyEvidenceSchema,
 } from './delivery-evidence';
@@ -17,6 +17,7 @@ const SourceFingerprintsSchema = z
     originEvent: z.string().min(1),
   })
   .strict();
+const EvidenceSourceSchema = z.enum(['worker-analytics', 'worker-log']);
 export const StorefrontDeliveryEvidenceManifestSchema = z
   .object({
     windowStart: ClosedUtc,
@@ -32,6 +33,7 @@ export const StorefrontDeliveryEvidenceManifestSchema = z
     originOnlyVersionId: z.string().min(1),
     edgeVersionId: z.string().min(1),
     sourceFingerprints: SourceFingerprintsSchema,
+    evidenceSource: EvidenceSourceSchema,
     windowFingerprintSha256: Hash,
     days: z.array(StorefrontDeliveryDailyEvidenceSchema).length(7),
   })
@@ -53,6 +55,9 @@ export function calculateStorefrontDeliveryWindowFingerprintSha256(
   const { windowFingerprintSha256: _ignored, ...canonical } = value;
   return calculateCanonicalSha256(canonicalizeJson(canonical));
 }
+function startOfCurrentUtcDay(now: Date) {
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+}
 function expectedDates(windowStart: string) {
   const start = new Date(windowStart);
   return Array.from({ length: 7 }, (_, index) => {
@@ -68,7 +73,8 @@ function matchesDailyHash(day: StorefrontDeliveryDailyEvidence) {
 
 /** Parses, canonicalizes, and seals the exact seven-day manifest without casts. */
 export function validateStorefrontDeliveryManifest(
-  value: unknown
+  value: unknown,
+  options: Readonly<{ now?: Date }> = {}
 ): StorefrontDeliveryManifestValidation {
   const parsed = StorefrontDeliveryEvidenceManifestSchema.safeParse(value);
   if (!parsed.success) return { ok: false, reasonCodes: ['manifest_invalid'] };
@@ -78,6 +84,12 @@ export function validateStorefrontDeliveryManifest(
   const end = new Date(manifest.windowEnd);
   if (end.valueOf() - start.valueOf() !== 7 * 86_400_000)
     reasons.push('window_not_seven_days');
+  const now = options.now ?? new Date();
+  if (
+    !Number.isFinite(now.valueOf()) ||
+    end.valueOf() > startOfCurrentUtcDay(now)
+  )
+    reasons.push('window_not_closed');
   if (
     manifest.days.some(
       (day, index) => day.utcDate !== expectedDates(manifest.windowStart)[index]
@@ -122,6 +134,16 @@ export function validateStorefrontDeliveryManifest(
     )
   )
     reasons.push('source_fingerprint_drift');
+  if (manifest.days.some((day) => day.source !== manifest.evidenceSource))
+    reasons.push('evidence_source_drift');
+  if (
+    manifest.days.some(
+      (day) =>
+        new Date(day.exportedAt).valueOf() <
+        new Date(`${day.utcDate}T00:00:00.000Z`).valueOf() + 86_400_000
+    )
+  )
+    reasons.push('day_exported_before_close');
   if (
     manifest.windowFingerprintSha256 !==
     calculateStorefrontDeliveryWindowFingerprintSha256(manifest)

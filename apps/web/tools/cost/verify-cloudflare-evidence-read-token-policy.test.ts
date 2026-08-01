@@ -20,7 +20,8 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         {
           verify: async () => ({ id: 'read-id', status: 'active' }),
         },
-        [{ id: 'analytics.read', capability: 'read' }]
+        [{ id: 'analytics.read', capability: 'read' }],
+        { now: () => new Date('2026-07-31T23:00:00.000Z') }
       )
     ).resolves.toBeDefined();
     await expect(
@@ -29,7 +30,8 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         { ...policy, permissionGroupIds: ['workers.write'] },
         { ...policy, permissionGroupIds: ['workers.write'] },
         { verify: async () => ({ id: 'read-id', status: 'active' }) },
-        [{ id: 'workers.write', capability: 'write' }]
+        [{ id: 'workers.write', capability: 'write' }],
+        { now: () => new Date('2026-07-31T23:00:00.000Z') }
       )
     ).rejects.toThrow('write');
   });
@@ -44,18 +46,29 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         opaque,
         opaque,
         client,
-        []
+        [],
+        { now: () => new Date('2026-07-31T23:00:00.000Z') }
       )
     ).rejects.toThrow('allowlist');
     await expect(
-      verifyCloudflareEvidenceReadTokenPolicy('token', opaque, opaque, client, [
-        { id: '018f-opaque-write-id', capability: 'write' },
-      ])
+      verifyCloudflareEvidenceReadTokenPolicy(
+        'token',
+        opaque,
+        opaque,
+        client,
+        [{ id: '018f-opaque-write-id', capability: 'write' }],
+        { now: () => new Date('2026-07-31T23:00:00.000Z') }
+      )
     ).rejects.toThrow('read-only');
     await expect(
-      verifyCloudflareEvidenceReadTokenPolicy('token', opaque, opaque, client, [
-        { id: '018f-opaque-write-id', capability: 'read' },
-      ])
+      verifyCloudflareEvidenceReadTokenPolicy(
+        'token',
+        opaque,
+        opaque,
+        client,
+        [{ id: '018f-opaque-write-id', capability: 'read' }],
+        { now: () => new Date('2026-07-31T23:00:00.000Z') }
+      )
     ).resolves.toMatchObject({ kind: 'read' });
   });
 });
