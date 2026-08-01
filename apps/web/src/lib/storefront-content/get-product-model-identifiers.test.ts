@@ -144,6 +144,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['legion pro 9']);
   });
 
+  it('removes optional Touch Bar suffixes from MacBook identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Apple'],
+      productSlugs: ['13-macbook-pro-2022-m2-8gb-512gb-touch-bar'],
+    });
+
+    expect(identifiers).toEqual(['pro m2']);
+  });
+
   it('ignores region suffixes before selecting a single-character model', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

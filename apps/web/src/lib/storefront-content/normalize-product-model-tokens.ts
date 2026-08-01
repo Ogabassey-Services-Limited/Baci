@@ -136,6 +136,14 @@ function stripDecimalDisplaySuffix(tokens: string[]) {
   return decimalIndex >= 0 ? tokens.slice(0, decimalIndex) : tokens;
 }
 
+function stripOptionalFeatureSuffix(tokens: string[]) {
+  const touchBarIndex = tokens.findIndex(
+    (token, index) => token === 'touch' && tokens[index + 1] === 'bar'
+  );
+
+  return touchBarIndex >= 0 ? tokens.slice(0, touchBarIndex) : tokens;
+}
+
 function isConvertibleInConnector(tokens: string[], index: number) {
   return (
     tokens[index] === 'in' &&
@@ -156,10 +164,12 @@ export function normalizeProductModelTokens(tokens: string[]) {
   const withoutConnectivity =
     stripOptionalConnectivitySuffix(withoutMerchandising);
   const withoutDisplaySuffix = stripDecimalDisplaySuffix(withoutConnectivity);
+  const withoutOptionalFeature =
+    stripOptionalFeatureSuffix(withoutDisplaySuffix);
 
-  return withoutDisplaySuffix.filter(
+  return withoutOptionalFeature.filter(
     (token, index) =>
       !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token) ||
-      isConvertibleInConnector(withoutDisplaySuffix, index)
+      isConvertibleInConnector(withoutOptionalFeature, index)
   );
 }

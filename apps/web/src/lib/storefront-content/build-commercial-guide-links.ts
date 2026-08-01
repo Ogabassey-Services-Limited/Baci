@@ -39,6 +39,35 @@ function tokenizeModelIdentifier(identifier: string) {
     .filter(Boolean);
 }
 
+function tokenizeText(value: string | null | undefined) {
+  return (value ?? '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/iu)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function hasContiguousTokenSequence(
+  post: BuildCommercialGuideLinksInput['posts'][number],
+  expectedTokens: string[]
+) {
+  const postTokenGroups = [
+    post.title,
+    post.excerpt,
+    post.category,
+    ...(post.tags ?? []),
+    ...(post.keywords ?? []),
+  ].map(tokenizeText);
+
+  return postTokenGroups.some((postTokens) =>
+    postTokens.some((_, startIndex) =>
+      expectedTokens.every(
+        (token, offset) => postTokens[startIndex + offset] === token
+      )
+    )
+  );
+}
+
 function buildGuideHref(storeUrl: string, slug: string) {
   return `${storeUrl}/blog/${slug}`;
 }
@@ -114,8 +143,24 @@ export function buildCommercialGuideLinks(
       );
       const hasModelFamilyMatch =
         modelFamilyTokens.length > 0 &&
-        modelFamilyTokens.every((token) => inferred.tokens.includes(token));
-      if (hasProductModelMatch || hasModelFamilyMatch) {
+        modelFamilyTokens.every((token) => inferred.tokens.includes(token)) &&
+        (!modelFamilyTokens.some((token) => token.length === 1) ||
+          hasContiguousTokenSequence(post, modelFamilyTokens));
+      const hasRequiredCompareModelMatch =
+        input.context.pageKind === 'compare' &&
+        productModelIdentifiers.length > 0 &&
+        productModelIdentifiers.every((identifier) => {
+          const identifierTokens = tokenizeModelIdentifier(identifier);
+          return (
+            identifierTokens.length > 0 &&
+            identifierTokens.every((token) => inferred.tokens.includes(token))
+          );
+        });
+      const qualifiesForProductTokenMatch =
+        input.context.pageKind === 'compare'
+          ? hasRequiredCompareModelMatch
+          : hasProductModelMatch;
+      if (qualifiesForProductTokenMatch || hasModelFamilyMatch) {
         score += CONTENT_CLUSTER_SCORE.productTokenMatch;
       }
 

@@ -127,4 +127,17 @@ describe('normalizeProductModelTokens', () => {
     expect(wifiTokens).toEqual(['iphone', '14']);
     expect(cellularTokens).toEqual(['ipad', 'pro', '13']);
   });
+
+  it('removes an optional Touch Bar feature suffix', () => {
+    const tokens = normalizeProductModelTokens([
+      'macbook',
+      'pro',
+      '2022',
+      'm2',
+      'touch',
+      'bar',
+    ]);
+
+    expect(tokens).toEqual(['macbook', 'pro', '2022', 'm2']);
+  });
 });
