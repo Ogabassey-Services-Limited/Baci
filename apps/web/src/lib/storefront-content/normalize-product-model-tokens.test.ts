@@ -61,6 +61,21 @@ describe('normalizeProductModelTokens', () => {
     expect(tokens).toEqual(['dell', 'xps', '15', '9560']);
   });
 
+  it('removes a decimal FHD display size from laptop model tokens', () => {
+    const tokens = normalizeProductModelTokens([
+      'dell',
+      'precision',
+      '5540',
+      '15',
+      '6',
+      'fhd',
+      'non',
+      'touch',
+    ]);
+
+    expect(tokens).toEqual(['dell', 'precision', '5540']);
+  });
+
   it('removes the physical marker with an esim suffix', () => {
     const tokens = normalizeProductModelTokens([
       'iphone',

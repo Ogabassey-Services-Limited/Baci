@@ -72,6 +72,7 @@ const DISPLAY_SUFFIX_MARKER_TOKENS = new Set([
   '4k',
   '8k',
   'display',
+  'fhd',
   'inch',
   'ips',
   'oled',
