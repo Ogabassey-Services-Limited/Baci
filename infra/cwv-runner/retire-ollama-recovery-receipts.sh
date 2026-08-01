@@ -81,6 +81,15 @@ recovery_reconcile_duplicate_link() {
   /bin/rm -f -- "$pending"; fsync_dir "${target%/*}"
 }
 
+recovery_reconcile_digest_link() {
+  pending=$1; target=$2
+  recovery_safe_receipt_file "$pending" || return 1
+  recovery_safe_receipt_file "$target" || return 1
+  [ "$(stat -c '%d:%i' "$pending")" = "$(stat -c '%d:%i' "$target")" ] || return 1
+  [ "$(recovery_read_digest "$pending")" = "$(recovery_read_digest "$target")" ] || return 1
+  /bin/rm -f -- "$pending"; fsync_dir "${target%/*}"
+}
+
 recovery_safe_receipt_file() {
   file=$1; [ -f "$file" ] && [ ! -L "$file" ] || return 1; [ "$(stat -c '%a' "$file")" = 600 ] || return 1
   if [ "$(id -u)" -eq 0 ]; then [ "$(stat -c '%u:%g' "$file")" = 0:0 ] || return 1; fi
@@ -145,8 +154,24 @@ recovery_no_pending() {
   directory=$1; for pending in "$directory"/*.pending; do [ -e "$pending" ] || [ -L "$pending" ] || continue; return 1; done; return 0
 }
 
+recovery_reconcile_publish_temporaries() {
+  directory=$1; json="$directory/recovery-scan.json"; digest="$json.sha256"
+  for temporary in "$directory"/.recovery-publish.*; do
+    [ -e "$temporary" ] || [ -L "$temporary" ] || continue
+    recovery_safe_receipt_file "$temporary" || return 1
+    if [ -e "$json" ] && [ "$(stat -c '%d:%i' "$temporary")" = "$(stat -c '%d:%i' "$json")" ]; then
+      recovery_reconcile_duplicate_link "$temporary" "$json" || return 1
+    elif [ -e "$digest" ] && [ "$(stat -c '%d:%i' "$temporary")" = "$(stat -c '%d:%i' "$digest")" ]; then
+      recovery_reconcile_digest_link "$temporary" "$digest" || return 1
+    else
+      /bin/rm -f -- "$temporary" || return 1; fsync_dir "$directory"
+    fi
+  done
+}
+
 recovery_reconcile_pair() {
   directory=$1; json="$directory/recovery-scan.json"; digest="$json.sha256"; json_pending="$json.pending"; digest_pending="$digest.pending"
+  recovery_reconcile_publish_temporaries "$directory" || review_required 'recovery publication temporary residue'
   json_exists=0; digest_exists=0; json_pending_exists=0; digest_pending_exists=0
   [ -e "$json" ] || [ -L "$json" ] && json_exists=1; [ -e "$digest" ] || [ -L "$digest" ] && digest_exists=1
   [ -e "$json_pending" ] || [ -L "$json_pending" ] && json_pending_exists=1; [ -e "$digest_pending" ] || [ -L "$digest_pending" ] && digest_pending_exists=1

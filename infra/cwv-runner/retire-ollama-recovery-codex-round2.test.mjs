@@ -126,7 +126,7 @@ test('reconciles a JSON link left by an interrupted publication', async () => {
   const digest = `${json}.sha256`;
   try {
     const { stdout } = await shell(
-      'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$5"; RETIRE_OLLAMA_RECOVERY_TEST_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$2"; mv "$6" "$6.pending"; ln -- "$6.pending" "$6"; mv "$4" "$4.pending"; recovery_write_receipt "$2"',
+      'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$5"; RETIRE_OLLAMA_RECOVERY_TEST_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$2"; mv "$6" "$6.pending"; ln -- "$6.pending" "$6"; ln -- "$6.pending" "$3/$5/.recovery-publish.json"; mv "$4" "$4.pending"; recovery_write_receipt "$2"',
       [snapshot, receiptRoot, digest, sourceSha, json],
       {
         RETIRE_OLLAMA_TEST_BIN: bin,
@@ -141,6 +141,9 @@ test('reconciles a JSON link left by an interrupted publication', async () => {
         .digest('hex')
     );
     await assert.rejects(readFile(`${json}.pending`));
+    await assert.rejects(
+      readFile(join(receiptRoot, sourceSha, '.recovery-publish.json'))
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
     await rm(bin, { recursive: true, force: true });

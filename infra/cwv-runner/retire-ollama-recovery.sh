@@ -20,18 +20,20 @@ recovery_package_snapshot() {
     status=${package%%  *}; version=${package#*  }
     case "$status" in [a-z][a-z]) :;; *) die 'invalid Ollama package status';; esac
     case "$version" in ''|*[[:space:]]*) die 'invalid Ollama package version';; esac
-    [ "$status" = ii ] || { /usr/bin/jq -cn '{name:"ollama",state:"absent",version:null}'; return; }
+    case "$status" in ?i) :;; *) /usr/bin/jq -cn '{name:"ollama",state:"absent",version:null}'; return;; esac
     [ -n "$version" ] || die 'empty Ollama package version'; /usr/bin/jq -cn --arg version "$version" '{name:"ollama",state:"present",version:$version}'
   else
     status=$?; [ "$status" -eq 1 ] || die "Ollama package query failed ($status)"
     /usr/bin/jq -cn '{name:"ollama",state:"absent",version:null}'
   fi
 }
-recovery_unit_snapshot() {
-  name=$1
-  if value=$(recovery_systemctl show "$name" -p LoadState -p UnitFileState -p ActiveState 2>/dev/null); then case "$value" in *'LoadState=not-found'*) /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}';; *) /usr/bin/jq -cn --arg name "$name" --arg value "$(hash_text "$value")" '{name:$name,state:"present",stateSha256:$value}';; esac
-  else status=$?; [ "$status" -eq 4 ] || die "unit state failed $name ($status)"; /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}'; fi
-}
+recovery_unit_snapshot() { name=$1
+  if value=$(recovery_systemctl show "$name" -p LoadState -p UnitFileState -p ActiveState 2>/dev/null); then
+    properties=$(temp_path); printf '%s\n' "$value" >"$properties" || die 'unit state serialization failed'; load_state=; unit_file_state=; active_state=; load_seen=0; unit_seen=0; active_seen=0
+    while IFS='=' read -r key property || [ -n "$key$property" ]; do case "$key" in LoadState) [ "$load_seen" -eq 0 ] || die 'duplicate LoadState'; load_state=$property; load_seen=1;; UnitFileState) [ "$unit_seen" -eq 0 ] || die 'duplicate UnitFileState'; unit_file_state=$property; unit_seen=1;; ActiveState) [ "$active_seen" -eq 0 ] || die 'duplicate ActiveState'; active_state=$property; active_seen=1;; *) /bin/rm -f -- "$properties"; die 'unknown unit state property';; esac; done <"$properties"
+    /bin/rm -f -- "$properties"; [ "$load_seen" -eq 1 ] && [ "$unit_seen" -eq 1 ] && [ "$active_seen" -eq 1 ] || die 'incomplete unit state'
+    case "$load_state" in not-found) /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}';; '') die 'empty unit LoadState';; *) /usr/bin/jq -cn --arg name "$name" --arg load "$load_state" --arg unit "$unit_file_state" --arg active "$active_state" --arg value "$(hash_text "$value")" '{name:$name,state:"present",loadState:$load,unitFileState:$unit,activeState:$active,stateSha256:$value}';; esac
+  else status=$?; [ "$status" -eq 4 ] || die "unit state failed $name ($status)"; /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}'; fi; }
 recovery_systemd_properties() { name=$1; property=$2; out=$3; if recovery_systemctl show "$name" -p "$property" --value >"$out" 2>/dev/null; then return 0; fi; status=$?; case "$status" in 1|4) : >"$out"; return "$status";; *) die "systemd property failed $name ($status)";; esac; }
 recovery_surface() {
   class=$1; shift; out=$(temp_path); err=$(temp_path)

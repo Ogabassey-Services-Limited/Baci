@@ -85,7 +85,7 @@ test('derives the source identity from the sealed SHA directory', async () => {
   }
 });
 
-test('marks a residual-config dpkg package absent', async () => {
+test('classifies residual and held dpkg package states', async () => {
   const { stdout } = await shell(
     "recovery_dpkg_query() { printf 'rc  0.1\\n'; }; init_temp_root; trap cleanup_temp EXIT; recovery_package_snapshot"
   );
@@ -94,8 +94,11 @@ test('marks a residual-config dpkg package absent', async () => {
     state: 'absent',
     version: null,
   });
+  const held = await shell(
+    "recovery_dpkg_query() { printf 'hi  0.1\\n'; }; init_temp_root; trap cleanup_temp EXIT; recovery_package_snapshot"
+  );
+  assert.equal(JSON.parse(held.stdout).state, 'present');
 });
-
 test('accepts the merged-usr executable alias only after canonical resolution', async () => {
   const root = await mkdtemp(join(tmpdir(), 'baci-recovery-alias-'));
   const bin = join(root, 'bin');

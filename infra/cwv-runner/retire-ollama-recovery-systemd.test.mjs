@@ -75,3 +75,24 @@ test('rejects unknown or contradictory systemd EnvironmentFiles annotations', as
     await rm(bin, { recursive: true, force: true });
   }
 });
+
+test('retains parsed unit activity and enablement states in recovery evidence', async () => {
+  const bin = await testBin();
+  try {
+    const { stdout } = await shell(
+      'recovery_systemctl() { case "$2" in ollama.service) printf "LoadState=loaded\\nUnitFileState=enabled\\nActiveState=active\\n";; ollama-watchdog.timer) printf "LoadState=loaded\\nUnitFileState=disabled\\nActiveState=inactive\\n";; esac; }; init_temp_root; trap cleanup_temp EXIT; recovery_unit_snapshot ollama.service; recovery_unit_snapshot ollama-watchdog.timer',
+      { RETIRE_OLLAMA_TEST_BIN: bin }
+    );
+    const [active, inactive] = stdout.trim().split('\n').map(JSON.parse);
+    assert.equal(active.name, 'ollama.service');
+    assert.equal(active.state, 'present');
+    assert.equal(active.loadState, 'loaded');
+    assert.equal(active.unitFileState, 'enabled');
+    assert.equal(active.activeState, 'active');
+    assert.match(active.stateSha256, /^[0-9a-f]{64}$/);
+    assert.equal(inactive.unitFileState, 'disabled');
+    assert.equal(inactive.activeState, 'inactive');
+  } finally {
+    await rm(bin, { recursive: true, force: true });
+  }
+});
