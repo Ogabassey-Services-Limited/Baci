@@ -1007,12 +1007,11 @@ Receipt shape is exhaustive:
 - `roll_forward` and `rollback` both record outgoing `active -> draining` with
   activation retained, drain set, and successor changing from null to the incoming
   generation, plus incoming `staged -> active` with only result activation set;
-  `roll_forward` requires both compatibility fields null. `rollback` requires both
-  non-null and binds the incoming parser artifact/contract to the retained basis
-  generation through the immutable compatibility proof; the later guarded writer
-  validates that proof against its proof registry row and pinned deployment-
-  manifest binding before
-  changing either generation;
+  both operations require non-null compatibility fields and bind the incoming
+  parser artifact/contract to the retained basis generation through the immutable
+  compatibility proof; the later guarded writer validates that proof against its
+  proof registry row and pinned deployment-manifest binding before changing either
+  generation;
 - `retire` has no incoming branch; outgoing is `draining -> retired`, retains
   activation, drain, and successor, sets only retirement, and has both
   compatibility fields null. Every non-rollback operation requires both
@@ -1029,12 +1028,15 @@ In its own slice, every generation, proof, receipt, and non-secret identity tabl
 enables and forces RLS, defines no policy, and revokes every table
 privilege from `PUBLIC`, `anon`, `authenticated`, and `service_role`. Existing
 private-schema privileges remain unchanged. Future narrowly granted
-`SECURITY DEFINER` functions are the only intended access path; Stage 0 adds none.
+`SECURITY DEFINER` functions are the only intended access path; Task 1 adds none,
+while the later companion may add dormant functions under the dedicated
+control-plane role frozen below.
 Before the first writer, each such function is owned by `postgres`, declares
 `SECURITY DEFINER SET search_path = ''`, is revoked from `PUBLIC`, `anon`, and
-`authenticated`, and grants `EXECUTE` only to `service_role`. It rejects a caller
-whose null-safe `auth.role()` is not `service_role`, validates the immutable
-actor/approval/evidence authorization inside the function, names every object with
+`authenticated`, and grants `EXECUTE` only to `payment_control_plane`. It rejects
+ a caller whose null-safe `current_user` is not `payment_control_plane`, validates
+the immutable actor/approval/evidence authorization inside the function, names
+every object with
 its schema, and exposes no dynamic SQL. `service_role` retains no direct table
 privilege; the `postgres` definer is the deliberate RLS-bypassing owner. No other
 definer or table owner is authorized, and these ownership/grant conditions are a
@@ -1064,6 +1066,133 @@ scope-monotonic allocation, `draining -> active` rejection, receipt-to-row snaps
 equality, and a rollback that drains B while activating a new B-compatible C—must
 first go RED and then pass in the guarded creation/CAS writer slice before any
 writer grant or active row exists.
+
+#### Task 2 companion contract freeze (2026-08-01)
+
+This amendment freezes the later Stage 0 companion so it can be implemented
+without inventing authority. It supersedes the phrase "Stage 0 adds none" when
+that phrase is read as applying to the companion: Task 1 adds no functions or
+writers; this later companion may add dormant private control-plane functions,
+but no production caller, active generation, provider route, webhook response,
+acknowledgement, parser, money path, or deployment activation may use them.
+
+The companion uses a dedicated `payment_control_plane` `NOLOGIN` database role,
+created with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION`, as
+the only executable role for its guarded functions. A later reviewed deployment
+credential may be granted membership in that role; the generic `service_role`
+and every user-facing edge remain unable to execute the functions. Every new
+table is private, forced-RLS, policy-free, and has all table privileges revoked
+from `PUBLIC`, `anon`, `authenticated`, `service_role`, and
+`payment_control_plane`; only the named functions receive `EXECUTE` for that
+role. A reviewed privileged migration/DBA may repair history only through an
+audited migration receipt; RLS is a runtime-role boundary, not a claim that a
+`postgres` superuser cannot alter rows.
+
+The non-secret identity catalog is
+`private.payment_ingress_signature_key_identities` with exactly:
+
+- `id uuid primary key default gen_random_uuid()`;
+- `provider text`, `endpoint_key text`, and `signature_key_scope text`, all
+  non-null and using the same canonical key expression as the generation table;
+- `identity_revision bigint not null check (identity_revision > 0)`;
+- `identity_kind text not null check (identity_kind in
+  ('public_key','shared_secret_config'))`;
+- `material_fingerprint text not null check
+  (material_fingerprint ~ '^[0-9a-f]{64}$')`;
+- `provenance_reference text not null` (trimmed, non-empty, at most 512
+  characters); and
+- `created_at timestamptz not null default now()`.
+
+The fingerprint is an externally computed SHA-256 of approved non-secret public
+material (`public_key`) or a provider configuration revision descriptor
+(`shared_secret_config`); it is never a digest of a secret, ciphertext,
+credential, or raw key. The catalog is immutable and unique on
+`(provider, endpoint_key, signature_key_scope, identity_revision)`. A redundant
+unique target `(id, provider, endpoint_key, signature_key_scope)` receives a
+deferrable `ON DELETE RESTRICT` foreign key from the existing generation row's
+`(signature_key_identity_id, provider, endpoint_key, signature_key_scope)`;
+`authority_key` remains only a classifier and is deliberately not part of key
+identity scope. A retired scope is permanently closed; no initial-activation
+writer may reopen a scope with prior retired history.
+
+The companion adds an immutable, externally attested deployment binding,
+`private.payment_ingress_deployment_manifest_bindings`. Its exact fields are
+`id uuid primary key default gen_random_uuid()`, `environment text`, the four
+generation scope keys, `signature_key_identity_id uuid`,
+`identity_revision bigint`, all three parser/envelope/replay contract-version
+texts, `parser_artifact_sha256 text`, `manifest_sha256 text`,
+`attestation_sha256 text`, `verifier_artifact_sha256 text`,
+`corpus_manifest_sha256 text`, both equivalence-contract versions,
+`provenance_reference text`, `approval_reference text`, `retention_until
+timestamptz`, and `created_at timestamptz default now()`. All hashes are
+lower-case 64-hex; all version/reference fields are trimmed and bounded to 255
+characters except approval/provenance references (512). The binding stores
+metadata only, never artifact bytes or secrets. It is append-only, uniquely
+identified by `(environment, manifest_sha256, attestation_sha256, provider,
+endpoint_key, signature_key_scope, authority_key, parser_artifact_sha256)`, and
+is accepted by a writer only while the pinned external attestation is active
+and `retention_until > clock_timestamp()`.
+
+Parser equivalence proof is required for every two-sided parser overlap:
+`roll_forward` and `rollback` both require an approved proof; only
+`initial_activate` and `retire` forbid proof fields. The proof registry keeps
+the named fields and composite same-scope/artifact foreign keys already frozen
+above, adds explicit bounds of 255 characters to both equivalence-contract
+versions, makes the generation pair canonical in ascending generation order,
+and requires a unique proof identity on scope, basis/candidate generations,
+equivalence versions, verifier artifact, and corpus manifest. `proof_sha256` is
+computed by the pinned offline RFC 8785 verifier artifact identified by the
+deployment binding; PostgreSQL validates the exact bound fields and hash shape,
+not a false `jsonb::text` approximation of RFC 8785.
+
+Staged creation is a first-class idempotent operation. The companion adds
+`private.payment_ingress_contract_creation_receipts` with `operation_id uuid
+primary key`, a SHA-256 request fingerprint, the approved deployment-binding
+ID, the derived generation ID/number, scope, and `recorded_at`. The guarded
+creator accepts only an approved binding ID and operation ID, takes the scope
+advisory lock, allocates `max(generation)+1` with checked bigint overflow, and
+derives every generation field and identity UUID from the binding. Replaying the
+same operation and fingerprint returns the original staged row; a changed
+fingerprint fails with SQLSTATE `PGRST409` and no mutation. There is no
+caller-selected generation, identity UUID, parser artifact, timestamp, actor,
+or approval authority.
+
+Transition receipts add a non-null `deployment_binding_id` for every operation
+with an incoming branch and retain it for audit. `initial_activate` is the only
+incoming operation with no outgoing branch; `roll_forward` and `rollback` are
+atomic `active -> draining` plus `staged -> active` operations with strictly
+increasing generations and an approved compatibility proof; `retire` is
+`draining -> retired` and is permanently rejected until the later inbox,
+redelivery-horizon, unsupported-row, and artifact-retention gates exist. The
+guarded transition functions are exactly:
+
+- `private.create_payment_ingress_contract_generation(operation_id uuid,
+  deployment_binding_id uuid)`;
+- `private.activate_payment_ingress_contract_generation(operation_id uuid,
+  generation_id uuid, expected_control_version bigint,
+  deployment_binding_id uuid)`;
+- `private.roll_forward_payment_ingress_contract_generation(operation_id uuid,
+  outgoing_generation_id uuid, expected_control_version bigint,
+  deployment_binding_id uuid, compatibility_proof_id uuid)`;
+- `private.rollback_payment_ingress_contract_generation(operation_id uuid,
+  outgoing_generation_id uuid, expected_control_version bigint,
+  deployment_binding_id uuid, compatibility_proof_id uuid)`; and
+- `private.retire_payment_ingress_contract_generation(operation_id uuid,
+  outgoing_generation_id uuid, expected_control_version bigint,
+  deployment_binding_id uuid)`.
+
+Each returns `(operation_id uuid, generation_id uuid, generation bigint,
+control_version bigint, replayed boolean, result_code text)`. Every function
+reloads the operation first, compares an immutable request fingerprint, takes
+the one scope advisory lock, locks involved rows in generation order, validates
+the binding/proof/retention/actor facts, performs the CAS, inserts the complete
+before/after receipt, and commits all mutations together. The only successful
+result codes are `created`, `activated`, `rolled_forward`, `rolled_back`,
+`retired`, and `replayed`; stale versions, non-monotonic or overflowed
+generations, `draining -> active`, timestamp clearing, successor replacement,
+cross-scope IDs, proof/binding mismatch, permanently closed scopes, and every
+retire call before its later gates fail closed. Function execution is dormant
+until a later activation receipt grants the dedicated role.
 
 A private `payment_authority_routing_generations` registry owns provider,
 provider-account/endpoint scope, completion-authority key, monotonically
