@@ -83,4 +83,45 @@ describe('buildCommercialGuideLinks compare context', () => {
       'https://ogabassey.com/blog/iphone-15-pro-buyer-guide',
     ]);
   });
+
+  it('does not boost an Apple Watch Ultra 2 guide for the base Ultra product', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'apple-watch-ultra-2-buyer-guide',
+          title: 'Apple Watch Ultra 2 Buyer Guide',
+          excerpt: 'What to know before buying the Apple Watch Ultra 2.',
+          category: 'Smartwatches',
+          tags: ['smartwatches', 'apple', 'watch ultra 2'],
+          keywords: ['battery'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'apple-watch-ultra-buyer-guide',
+          title: 'Apple Watch Ultra Buyer Guide',
+          excerpt: 'What to know before buying the Apple Watch Ultra.',
+          category: 'Smartwatches',
+          tags: ['smartwatches', 'apple', 'watch ultra'],
+          keywords: ['battery'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'smartwatches',
+        brands: ['Apple'],
+        productSlugs: ['apple-watch-ultra'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/apple-watch-ultra-buyer-guide',
+      'https://ogabassey.com/blog/apple-watch-ultra-2-buyer-guide',
+    ]);
+  });
 });

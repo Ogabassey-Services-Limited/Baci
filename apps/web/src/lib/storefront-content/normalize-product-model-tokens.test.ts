@@ -164,4 +164,41 @@ describe('normalizeProductModelTokens', () => {
 
     expect(tokens).toEqual(['iphone', 'x', '3gb', '64gb']);
   });
+
+  it('normalizes ordinal generation with a terminal Type-C connector', () => {
+    const tokens = normalizeProductModelTokens([
+      'apple',
+      'airpods',
+      'pro',
+      '2nd',
+      'gen',
+      'type',
+      'c',
+    ]);
+
+    expect(tokens).toEqual(['apple', 'airpods', 'pro', '2']);
+  });
+
+  it('keeps a color that is followed by title tokens', () => {
+    const tokens = normalizeProductModelTokens([
+      'call',
+      'of',
+      'duty',
+      'black',
+      'ops4',
+    ]);
+
+    expect(tokens).toEqual(['call', 'of', 'duty', 'black', 'ops4']);
+  });
+
+  it('strips a color followed only by catalog metadata', () => {
+    const tokens = normalizeProductModelTokens([
+      'iphone',
+      '13',
+      'blue',
+      '128gb',
+    ]);
+
+    expect(tokens).toEqual(['iphone', '13']);
+  });
 });

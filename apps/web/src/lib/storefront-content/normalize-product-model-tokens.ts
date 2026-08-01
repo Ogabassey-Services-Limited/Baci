@@ -37,6 +37,35 @@ const MERCHANDISING_SUFFIX_TOKENS = new Set([
   'white',
   'yellow',
 ]);
+const COLOR_SUFFIX_TOKENS = new Set([
+  'beige',
+  'black',
+  'blue',
+  'bronze',
+  'brown',
+  'coral',
+  'cream',
+  'gold',
+  'graphite',
+  'gray',
+  'green',
+  'grey',
+  'jet',
+  'lavender',
+  'midnight',
+  'mint',
+  'orange',
+  'pink',
+  'platinum',
+  'purple',
+  'red',
+  'rose',
+  'silver',
+  'starlight',
+  'violet',
+  'white',
+  'yellow',
+]);
 const LEADING_CONDITION_TOKENS = new Set([
   'clearance',
   'new',
@@ -90,6 +119,14 @@ function stripFirstMatchingSuffix(
 ) {
   const suffixIndex = tokens.findIndex(predicate);
   return suffixIndex >= 0 ? tokens.slice(0, suffixIndex) : tokens;
+}
+
+function isTerminalColorSuffix(tokens: string[], index: number) {
+  return tokens
+    .slice(index + 1)
+    .every(
+      (token) => MERCHANDISING_SUFFIX_TOKENS.has(token) || /^\d/u.test(token)
+    );
 }
 
 function stripOptionalConnectivitySuffix(tokens: string[]) {
@@ -146,6 +183,26 @@ function stripOptionalFeatureSuffix(tokens: string[]) {
   return touchBarIndex >= 0 ? tokens.slice(0, touchBarIndex) : tokens;
 }
 
+function stripOptionalOrdinalGenerationConnectorSuffix(tokens: string[]) {
+  const ordinalPattern = /^(\d+)(?:st|nd|rd|th)$/u;
+  const generationIndex = tokens.findIndex(
+    (token, index) =>
+      ordinalPattern.test(token) &&
+      ['gen', 'generation'].includes(tokens[index + 1] ?? '') &&
+      tokens[index + 2] === 'type' &&
+      tokens[index + 3] === 'c' &&
+      index + 4 === tokens.length
+  );
+  if (generationIndex < 0) {
+    return tokens;
+  }
+
+  const generation = tokens[generationIndex]?.match(ordinalPattern)?.[1];
+  return generation
+    ? [...tokens.slice(0, generationIndex), generation]
+    : tokens;
+}
+
 function isConvertibleInConnector(tokens: string[], index: number) {
   return (
     tokens[index] === 'in' &&
@@ -161,11 +218,19 @@ export function normalizeProductModelTokens(tokens: string[]) {
     : tokens;
   const withoutMerchandising = stripFirstMatchingSuffix(
     withoutLeadingCondition,
-    (token, index) => index > 0 && MERCHANDISING_SUFFIX_TOKENS.has(token)
+    (token, index) =>
+      index > 0 &&
+      MERCHANDISING_SUFFIX_TOKENS.has(token) &&
+      (!COLOR_SUFFIX_TOKENS.has(token) ||
+        isTerminalColorSuffix(withoutLeadingCondition, index))
   );
   const withoutConnectivity =
     stripOptionalConnectivitySuffix(withoutMerchandising);
-  const withoutDisplaySuffix = stripDecimalDisplaySuffix(withoutConnectivity);
+  const withoutOrdinalGenerationConnector =
+    stripOptionalOrdinalGenerationConnectorSuffix(withoutConnectivity);
+  const withoutDisplaySuffix = stripDecimalDisplaySuffix(
+    withoutOrdinalGenerationConnector
+  );
   const withoutOptionalFeature =
     stripOptionalFeatureSuffix(withoutDisplaySuffix);
 

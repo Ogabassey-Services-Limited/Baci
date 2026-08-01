@@ -35,6 +35,7 @@ const MODEL_VARIANT_MARKER_TOKENS = new Set([
   'ultra',
 ]);
 const MODEL_FAMILY_CONTEXT_EXCLUSIONS = new Set(['and', 'or']);
+const MODEL_GENERATION_SUFFIX_PATTERN = /^\d{1,2}(?:st|nd|rd|th)?$/u;
 
 function toPublishedTimestamp(value: string | null) {
   if (!value) {
@@ -88,9 +89,9 @@ function hasContiguousTokenSequence(
   );
 }
 
-function hasVariantSuffixAfterSingleToken(
+function hasVariantSuffixAfterIdentifier(
   post: BuildCommercialGuideLinksInput['posts'][number],
-  identifierToken: string
+  identifierTokens: string[]
 ) {
   const postTokenGroups = [
     post.title,
@@ -101,11 +102,17 @@ function hasVariantSuffixAfterSingleToken(
   ].map(tokenizeText);
 
   return postTokenGroups.some((postTokens) =>
-    postTokens.some(
-      (token, index) =>
-        token === identifierToken &&
-        MODEL_VARIANT_MARKER_TOKENS.has(postTokens[index + 1] ?? '')
-    )
+    postTokens.some((_, startIndex) => {
+      const matchesIdentifier = identifierTokens.every(
+        (token, offset) => postTokens[startIndex + offset] === token
+      );
+      const suffix = postTokens[startIndex + identifierTokens.length] ?? '';
+      return (
+        matchesIdentifier &&
+        (MODEL_VARIANT_MARKER_TOKENS.has(suffix) ||
+          MODEL_GENERATION_SUFFIX_PATTERN.test(suffix))
+      );
+    })
   );
 }
 
@@ -121,10 +128,7 @@ function matchesProductIdentifier(
     return false;
   }
 
-  return !(
-    identifierTokens.length === 1 &&
-    hasVariantSuffixAfterSingleToken(post, identifierTokens[0] ?? '')
-  );
+  return !hasVariantSuffixAfterIdentifier(post, identifierTokens);
 }
 
 function hasContextualSingleTokenFamilyMatch(

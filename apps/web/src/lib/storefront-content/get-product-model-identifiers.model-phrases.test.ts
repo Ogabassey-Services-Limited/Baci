@@ -199,4 +199,43 @@ describe('getProductModelIdentifiers model phrases', () => {
 
     expect(identifiers).toEqual(['fold 5']);
   });
+
+  it('strips a leading tablet display size from the model phrase', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Apple'],
+      productSlugs: ['11-ipad-air-6th-generation-2024-m2-wifi-only-256gb'],
+    });
+
+    expect(identifiers).toEqual(['air 6th generation m2']);
+  });
+
+  it('preserves color words that are part of a game title', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'playstation-5',
+      productSlugs: ['ps5-call-of-duty-black-ops-6'],
+    });
+
+    expect(identifiers).toEqual(['call of duty black ops 6']);
+  });
+
+  it('strips a terminal device color after model metadata', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: ['iphone-13-blue-128gb'],
+    });
+
+    expect(identifiers).toEqual(['13']);
+  });
+
+  it('normalizes ordinal AirPods generation and Type-C metadata', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'audio',
+      brands: ['Apple'],
+      productSlugs: ['apple-airpods-pro-2nd-gen-type-c'],
+    });
+
+    expect(identifiers).toEqual(['airpods pro 2']);
+  });
 });

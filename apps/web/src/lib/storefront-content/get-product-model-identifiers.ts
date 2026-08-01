@@ -25,6 +25,10 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'watch',
 ]);
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
+const DISPLAY_SIZE_CATEGORY_SLUGS = new Set([
+  ...LAPTOP_CATEGORY_SLUGS,
+  'tablets',
+]);
 const LEADING_FILLER_TOKENS = new Set(['a', 'an', 'the']);
 
 interface BrandAliasGroup {
@@ -170,8 +174,8 @@ function stripLeadingFillerTokens(tokens: string[]) {
   return firstModelToken > 0 ? tokens.slice(firstModelToken) : tokens;
 }
 
-function stripLeadingLaptopDisplaySize(tokens: string[], categorySlug: string) {
-  if (!LAPTOP_CATEGORY_SLUGS.has(categorySlug)) {
+function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
+  if (!DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)) {
     return tokens;
   }
 
@@ -227,7 +231,7 @@ function getModelTokens(
     tokenize(slug).filter((token) => !excludedTokens.has(token))
   );
   const tokens = stripGeneratedCollisionSuffix(
-    stripLeadingLaptopDisplaySize(rawTokens, categorySlug)
+    stripLeadingDisplaySize(rawTokens, categorySlug)
   );
   const modelTokens = tokens.filter(
     (token, index) =>
@@ -242,11 +246,7 @@ function getModelTokens(
   );
 }
 
-/**
- * Returns compact, model-specific identifiers for the supplied catalog slugs.
- * Brand and category words are deliberately removed so a generic brand guide
- * cannot receive a product-match boost merely by repeating the hub context.
- */
+/** Returns compact model-specific identifiers without repeated hub context. */
 export function getProductModelIdentifiers(
   context: Pick<
     BuildCommercialGuideLinksContext,
