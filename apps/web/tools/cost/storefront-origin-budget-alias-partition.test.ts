@@ -19,6 +19,10 @@ describe('storefront origin budget alias host partition', () => {
       aliasEdgeRedirectCount: 20,
       sourceEvidence: {
         ...evidence.days[0].sourceEvidence,
+        invocation: {
+          ...evidence.days[0].sourceEvidence.invocation,
+          requestCount: 10,
+        },
         aliasRedirect: {
           ...evidence.days[0].sourceEvidence.aliasRedirect,
           hostPartition:
@@ -32,6 +36,7 @@ describe('storefront origin budget alias host partition', () => {
       day.canonicalEligibleRequestCount = 0;
       day.aliasEligibleRequestCount = 0;
       day.workerInvocationCount = 0;
+      day.sourceEvidence.invocation.requestCount = 0;
       day.totalDecisionCount = 0;
       day.edgeReleaseCount = 0;
       setTrafficPartitionCounts(day, {

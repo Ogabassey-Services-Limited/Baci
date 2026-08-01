@@ -126,6 +126,41 @@ describe('Cloudflare evidence mutation lifecycle', () => {
     });
   });
 
+  it('still runs journal cleanup when created-resource reconciliation fails', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await openEvidenceRun(dir, mutationInput);
+    let getCalls = 0;
+    const cleanup = vi.fn(async () => true);
+    await expect(
+      applyCloudflareEvidenceMutation(
+        dir,
+        mutationInput.runId,
+        mutationCapability,
+        {
+          identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
+          findByName: async () => null,
+          get: async () => {
+            getCalls += 1;
+            if (getCalls === 1) return null;
+            throw new Error('provider readback unavailable');
+          },
+          create: async () => ({ id: mutationResource.id }),
+          probe: async () => [],
+          cleanup,
+          inventorySha256: async () => 'a'.repeat(64),
+        }
+      )
+    ).rejects.toBeInstanceOf(AggregateError);
+    expect(cleanup).toHaveBeenCalledOnce();
+    await expect(
+      loadEvidenceRunForCleanup(dir, mutationInput.runId)
+    ).resolves.toMatchObject({
+      phase: 'cleanup_incomplete_stop',
+      cleanupIncomplete: true,
+    });
+  });
+
   it('rejects a resumed resource recreated under the deterministic name', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);

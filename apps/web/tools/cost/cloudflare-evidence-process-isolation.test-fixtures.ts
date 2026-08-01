@@ -167,3 +167,13 @@ export async function readEvidenceToolingHead(workspaceRoot: string) {
   ]);
   return stdout.trim();
 }
+
+// Reviewed-module exports used by the credentialless prepare integration test.
+// Prepare verifies these factories without invoking provider code.
+export function createMutationDependencies() {
+  throw new Error('test mutation runner must not be invoked during prepare');
+}
+
+export function createMeasurementDependencies() {
+  throw new Error('test measurement runner must not be invoked during prepare');
+}

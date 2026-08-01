@@ -6,8 +6,8 @@ import {
   type StorefrontDeliveryEvidenceManifest,
   validateStorefrontDeliveryManifest,
 } from '../../../../packages/shared/src/storefront/delivery-evidence-manifest';
-import { reconcileStorefrontDeliveryTrafficPartition } from '../../../../packages/shared/src/storefront/delivery-traffic-partition';
 import { DEFAULT_ORIGIN_RATE_THRESHOLD } from './origin-rate-constants';
+import { reconcileStorefrontDeliveryEvidence } from './storefront-origin-budget-reconciliation';
 
 export type StorefrontDeliverySummary = {
   evidenceMode: 'census' | 'sampled';
@@ -22,6 +22,7 @@ export type StorefrontDeliverySummary = {
   classifiedOriginAttempts: number;
   originEventReconciled: boolean;
   trafficPartitionReconciled: boolean;
+  independentSourceCountsReconciled: boolean;
   dynamicOriginAttempts: number;
   aliasDynamicOriginAttempts: number;
   allowedOriginRateLimitAttempts: number;
@@ -38,6 +39,14 @@ type OriginBudgetOptions = Readonly<{
 }>;
 const sum = (values: readonly number[]) =>
   values.reduce((total, value) => total + value, 0);
+const EMPTY_RECONCILIATION = {
+  originEventRequests: 0,
+  classifiedOriginAttempts: 0,
+  originEventReconciled: false,
+  hostPartitionReconciled: false,
+  trafficPartitionReconciled: false,
+  independentSourceCountsReconciled: false,
+} as const;
 async function assertNoSymlinkAncestors(path: string) {
   const root = parse(path).root;
   const benignSystemAliases = new Set(['/var', '/tmp']);
@@ -58,7 +67,9 @@ export function summarizeStorefrontDelivery(
     now: options.now,
   });
   const days = validation.ok ? validation.manifest.days : [];
-  const aliases = validation.ok ? validation.manifest.aliasHostnames : [];
+  const reconciliation = validation.ok
+    ? reconcileStorefrontDeliveryEvidence(validation.manifest)
+    : EMPTY_RECONCILIATION;
   const canonicalEligibleRequests = sum(
     days.map((day) => day.canonicalEligibleRequestCount ?? 0)
   );
@@ -74,63 +85,6 @@ export function summarizeStorefrontDelivery(
   const aliasEligibleOriginAttempts = sum(
     days.map((day) => day.aliasEligibleOriginRequestCount ?? 0)
   );
-  // Origin fallback and edge-error are final classes; do not double-count.
-  const originAttemptsForDay = (day: (typeof days)[number]) =>
-    day.canonicalEligibleOriginAttemptCount +
-    day.dynamicOriginAttemptCount +
-    day.unknownOriginAttemptCount +
-    day.aliasEligibleOriginRequestCount +
-    day.aliasDynamicOriginCount +
-    day.rejectedMethodOriginCount +
-    day.allowedOriginRateLimitCount;
-  const originEventRequests = sum(
-    days.map((day) => day.sourceEvidence.originEvent.requestCount)
-  );
-  const classifiedOriginAttempts = sum(days.map(originAttemptsForDay));
-  const originEventReconciled =
-    validation.ok &&
-    days.every(
-      (day) =>
-        day.sourceEvidence.originEvent.requestCount ===
-        originAttemptsForDay(day)
-    );
-  const hostPartitionReconciled =
-    validation.ok &&
-    days.every((day) => {
-      const rows = day.sourceEvidence.aliasRedirect.hostPartition;
-      return (
-        rows.length === aliases.length &&
-        rows.every(
-          (row, index) =>
-            row.hostname === aliases[index] &&
-            row.eligibleRequestCount <= row.requestCount &&
-            row.eligibleOriginAttemptCount <= row.eligibleRequestCount
-        ) &&
-        sum(rows.map((row) => row.requestCount)) ===
-          day.aliasEdgeRedirectCount &&
-        sum(rows.map((row) => row.eligibleRequestCount)) ===
-          day.aliasEligibleRequestCount &&
-        sum(rows.map((row) => row.eligibleOriginAttemptCount)) ===
-          day.aliasEligibleOriginRequestCount
-      );
-    });
-  const trafficPartitionReconciled =
-    validation.ok &&
-    days.every((day) =>
-      reconcileStorefrontDeliveryTrafficPartition({
-        rows: day.trafficPartition,
-        inventoryHostnames: validation.manifest.inventoryHostnames,
-        canonicalHostname: validation.manifest.canonicalHostname,
-        canonicalRawRequestCount:
-          day.workerInvocationCount - day.syntheticQualificationRequestCount,
-        aliasRawRequestCount: day.aliasEdgeRedirectCount,
-        canonicalEligibleRequestCount: day.canonicalEligibleRequestCount,
-        aliasEligibleRequestCount: day.aliasEligibleRequestCount,
-        canonicalEligibleOriginAttemptCount:
-          day.canonicalEligibleOriginAttemptCount,
-        aliasEligibleOriginRequestCount: day.aliasEligibleOriginRequestCount,
-      })
-    );
   // Dynamic and rate-limit origins stay outside the eligible equation.
   const dynamicOriginAttempts = sum(
     days.map((day) => day.dynamicOriginAttemptCount ?? 0)
@@ -160,9 +114,10 @@ export function summarizeStorefrontDelivery(
       : Number.NaN;
   const evidenceComplete =
     validation.ok &&
-    originEventReconciled &&
-    hostPartitionReconciled &&
-    trafficPartitionReconciled &&
+    reconciliation.originEventReconciled &&
+    reconciliation.hostPartitionReconciled &&
+    reconciliation.trafficPartitionReconciled &&
+    reconciliation.independentSourceCountsReconciled &&
     days.every(
       (day) =>
         day.exportComplete &&
@@ -176,11 +131,9 @@ export function summarizeStorefrontDelivery(
           day.edgeErrorCount +
           day.originFallbackCount ===
           day.totalDecisionCount &&
-        day.sourceEvidence.syntheticQualification.requestCount ===
-          day.syntheticQualificationRequestCount &&
         day.canonicalEligibleRequestCount +
           day.syntheticQualificationRequestCount <=
-          day.totalDecisionCount &&
+          day.edgeReleaseCount + day.originFallbackCount + day.edgeErrorCount &&
         day.aliasEligibleRequestCount === day.aliasEdgeRedirectCount &&
         Object.values(day.sourceEvidence).every(
           (source) =>
@@ -208,10 +161,12 @@ export function summarizeStorefrontDelivery(
     allEligibleIngress,
     canonicalEligibleOriginAttempts,
     aliasEligibleOriginAttempts,
-    originEventRequests,
-    classifiedOriginAttempts,
-    originEventReconciled,
-    trafficPartitionReconciled,
+    originEventRequests: reconciliation.originEventRequests,
+    classifiedOriginAttempts: reconciliation.classifiedOriginAttempts,
+    originEventReconciled: reconciliation.originEventReconciled,
+    trafficPartitionReconciled: reconciliation.trafficPartitionReconciled,
+    independentSourceCountsReconciled:
+      reconciliation.independentSourceCountsReconciled,
     dynamicOriginAttempts,
     aliasDynamicOriginAttempts,
     allowedOriginRateLimitAttempts,

@@ -1,7 +1,73 @@
 import { z } from 'zod';
-import { calculateCanonicalSha256 } from '../../../../packages/shared/src/storefront/delivery-evidence';
+import {
+  calculateCanonicalSha256,
+  canonicalizeJson,
+} from '../../../../packages/shared/src/storefront/delivery-evidence';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
+export const QualificationRunBindingSchema = z
+  .object({
+    runId: z.string().regex(/^[a-f0-9]{32}$/),
+    toolingMergeSha: z.string().regex(/^[a-f0-9]{40}$/),
+    cleanupVerificationReceiptSha256: Hash,
+    measurementReceiptSha256: Hash,
+  })
+  .strict();
+export type QualificationRunBinding = z.infer<
+  typeof QualificationRunBindingSchema
+>;
+export function matchesQualificationRunBinding(
+  value: QualificationRunBinding,
+  expected: QualificationRunBinding
+) {
+  return (
+    value.runId === expected.runId &&
+    value.toolingMergeSha === expected.toolingMergeSha &&
+    value.cleanupVerificationReceiptSha256 ===
+      expected.cleanupVerificationReceiptSha256 &&
+    value.measurementReceiptSha256 === expected.measurementReceiptSha256
+  );
+}
+export function matchesQualificationRunBindings(
+  readback: QualificationRunBinding,
+  artifacts: readonly QualificationRunBinding[],
+  expected: QualificationRunBinding
+) {
+  return (
+    matchesQualificationRunBinding(readback, expected) &&
+    artifacts.every((artifact) =>
+      matchesQualificationRunBinding(artifact, expected)
+    )
+  );
+}
+export function calculatePointerCacheCanonicalSha256(value: unknown) {
+  return calculateCanonicalSha256(canonicalizeJson(value));
+}
+export function qualifyQualificationPointerCache(
+  pointerCache: Readonly<{
+    qualifiedAt: string;
+    expiresAt: string;
+    canonicalSha256: string;
+  }>,
+  now: Date,
+  maximumAgeSeconds: number
+) {
+  const nowMs = now.valueOf();
+  const qualifiedAt = new Date(pointerCache.qualifiedAt).valueOf();
+  const expiresAt = new Date(pointerCache.expiresAt).valueOf();
+  const { canonicalSha256: _ignored, ...withoutHash } = pointerCache;
+  return {
+    fresh:
+      [nowMs, qualifiedAt, expiresAt].every(Number.isFinite) &&
+      expiresAt >= qualifiedAt &&
+      qualifiedAt <= nowMs &&
+      expiresAt > nowMs &&
+      nowMs - qualifiedAt <= maximumAgeSeconds * 1000,
+    fingerprintValid:
+      pointerCache.canonicalSha256 ===
+      calculatePointerCacheCanonicalSha256(withoutHash),
+  } as const;
+}
 
 /**
  * Provider module bytes are normalized to base64 before they cross the

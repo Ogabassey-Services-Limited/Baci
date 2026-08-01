@@ -7,14 +7,16 @@ import {
   QUALIFICATION_EVIDENCE_HOST,
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
-  type TopologyEndpointSchema,
 } from './cloudflare-evidence-qualification-schemas';
 import type {
   CloudflareOwnerAcceptance,
   CloudflareOwnerAcceptanceAuthorityResolver,
 } from './cloudflare-evidence-qualification-traffic';
 import { qualifyCloudflareZeroWeightReadback } from './cloudflare-evidence-qualification-traffic';
-import { qualifyCloudflareTopologyEndpoint } from './cloudflare-evidence-topology-contract';
+import {
+  type CloudflareQualificationTopology,
+  qualifyCloudflareQualificationTopology,
+} from './cloudflare-evidence-topology-contract';
 import {
   type CloudflarePurgeRequest,
   type CloudflareQualificationClient,
@@ -66,6 +68,7 @@ export type {
   ExpectedQualificationArtifact,
   JournaledPurgeContract,
 } from './qualify-cloudflare-evidence-sources-contracts';
+
 export function qualifyCloudflareReleasePurgeContract(value: unknown) {
   const parsed = PurgeContractSchema.safeParse(value);
   return parsed.success
@@ -85,7 +88,8 @@ export async function executeCloudflareEvidenceQualification(
     pointerUrl: string;
     purge: z.infer<typeof PurgeContractSchema>;
     journaledPurge: JournaledPurgeContract;
-    topology: z.infer<typeof TopologyEndpointSchema>;
+    /** The complete shared-scope topology contract, one endpoint per family. */
+    topology: CloudflareQualificationTopology;
     zoneId: string;
     ownerAcceptance: CloudflareOwnerAcceptance;
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
@@ -95,12 +99,14 @@ export async function executeCloudflareEvidenceQualification(
     pointerProbeCount?: number;
   }>
 ) {
-  const parsedTopology = qualifyCloudflareTopologyEndpoint(
+  const parsedTopology = qualifyCloudflareQualificationTopology(
     input.topology,
     input.accountId
   );
   if (!parsedTopology.ok)
-    throw new Error('topology contract is not the bounded journaled resource');
+    throw new Error(
+      'topology contract is not the complete bounded journaled resource set'
+    );
   const parsedPurge = PurgeContractSchema.safeParse(input.purge);
   const parsedJournaledPurge = PurgeContractSchema.safeParse(
     input.journaledPurge?.contract
@@ -276,8 +282,9 @@ export async function executeCloudflareEvidenceQualification(
         'temporary purge readback does not bind the purge request'
       );
   }
-  if (!(await client.topologyConverged(parsedTopology.contract)))
-    throw new Error('topology did not converge within the journaled bound');
+  for (const topology of parsedTopology.contract.endpoints)
+    if (!(await client.topologyConverged(topology)))
+      throw new Error('topology did not converge within the journaled bound');
   return {
     purgeStatus,
     qualified: true as const,

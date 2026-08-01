@@ -99,6 +99,12 @@ export const readback = {
     expiresAt: '2026-07-31T00:02:00.000Z',
     canonicalSha256: '',
   },
+  runBinding: {
+    runId: 'a'.repeat(32),
+    toolingMergeSha: '1'.repeat(40),
+    cleanupVerificationReceiptSha256: '8'.repeat(64),
+    measurementReceiptSha256: '9'.repeat(64),
+  },
 };
 const { canonicalSha256: _ignored, ...withoutHash } = readback.pointerCache;
 readback.pointerCache.canonicalSha256 =
@@ -123,6 +129,7 @@ export const reviewedArtifacts = readback.versions.map((version) => ({
     bundleSha256: version.scriptEtag,
     soleVersionMetadataBinding: 'CF_VERSION_METADATA' as const,
   } as const,
+  runBinding: readback.runBinding,
 }));
 
 export const pointerProbeReadback = {
@@ -156,14 +163,31 @@ export const qualificationInput = {
       productionResourceState: 'present_verified' as const,
     },
   },
-  topology: {
-    family: 'r2-custom-domain' as const,
-    endpoint:
-      '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
-    requestSchemaSha256: 'a'.repeat(64),
-    responseSchemaSha256: 'b'.repeat(64),
-    maximumVisibilitySeconds: 60,
-  },
+  topology: [
+    {
+      family: 'worker-custom-domain' as const,
+      endpoint:
+        '/accounts/account/workers/scripts/baci-evidence-qualification/domains/custom/edge-evidence.ogabassey.com',
+      requestSchemaSha256: 'a'.repeat(64),
+      responseSchemaSha256: 'b'.repeat(64),
+      maximumVisibilitySeconds: 60,
+    },
+    {
+      family: 'r2-cors' as const,
+      endpoint: '/accounts/account/r2/buckets/bucket/cors',
+      requestSchemaSha256: 'c'.repeat(64),
+      responseSchemaSha256: 'd'.repeat(64),
+      maximumVisibilitySeconds: 60,
+    },
+    {
+      family: 'r2-custom-domain' as const,
+      endpoint:
+        '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
+      requestSchemaSha256: 'e'.repeat(64),
+      responseSchemaSha256: 'f'.repeat(64),
+      maximumVisibilitySeconds: 60,
+    },
+  ] as const,
   zoneId: 'zone',
   ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
   ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,

@@ -21,6 +21,10 @@ describe('parseQualificationArguments', () => {
         'baci-evidence-qualification',
         '--expected-owner-approval-id',
         'owner-approval',
+        '--run-state-dir',
+        '/private/state',
+        '--run-id',
+        'b'.repeat(32),
       ]).mode
     ).toBe('validate-readback');
   });

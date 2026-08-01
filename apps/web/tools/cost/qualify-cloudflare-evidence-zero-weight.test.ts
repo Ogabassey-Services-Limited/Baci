@@ -6,6 +6,7 @@ import {
 } from './qualify-cloudflare-evidence-sources';
 import {
   pointerProbeReadback,
+  qualificationInput,
   readback,
 } from './qualify-cloudflare-evidence-sources.test-fixtures';
 
@@ -31,14 +32,7 @@ const input = {
       productionResourceState: 'present_verified' as const,
     },
   },
-  topology: {
-    family: 'r2-custom-domain' as const,
-    endpoint:
-      '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
-    requestSchemaSha256: 'a'.repeat(64),
-    responseSchemaSha256: 'b'.repeat(64),
-    maximumVisibilitySeconds: 60,
-  },
+  topology: qualificationInput.topology,
   zoneId: 'zone',
   ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
   ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,

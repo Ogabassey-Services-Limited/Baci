@@ -23,6 +23,7 @@ export {
   createCleanupVerificationReceipt,
   hasReceipt,
   isEvidencePhase,
+  isHash,
   journalPath,
   REVIEWED_PROBE_COUNT,
   RUN_ID_PATTERN,

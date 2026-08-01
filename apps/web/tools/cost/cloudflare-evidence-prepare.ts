@@ -13,6 +13,7 @@ import {
   readAuthorityArtifact,
   verifyPrepareAuthority,
 } from './cloudflare-evidence-prepare-authority';
+import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
 import {
   type EvidenceRunInput,
   openEvidenceRun,
@@ -218,6 +219,20 @@ async function run(
       readEvidenceRunnerModuleDescriptor(environment, 'measurement')
     ),
   ]);
+  await Promise.all([
+    validateRunnerFactory(
+      workspaceRoot,
+      mutation,
+      'createMutationDependencies',
+      'mutation'
+    ),
+    validateRunnerFactory(
+      workspaceRoot,
+      measurement,
+      'createMeasurementDependencies',
+      'measurement'
+    ),
+  ]);
   const runnerDescriptors = { mutation, measurement };
   const journal = await openEvidenceRun(stateDir, {
     ...input,
@@ -229,6 +244,27 @@ async function run(
     [runnerFields.measurement.sha256]: runnerDescriptors.measurement.sha256,
   });
   write(`${JSON.stringify({ runId: journal.runId, nextPhase: 'mutate' })}\n`);
+}
+
+async function validateRunnerFactory(
+  workspaceRoot: string,
+  descriptor: Awaited<ReturnType<typeof verifyReviewedEvidenceRunnerModule>>,
+  exportName: 'createMutationDependencies' | 'createMeasurementDependencies',
+  label: 'mutation' | 'measurement'
+) {
+  await importReviewedEvidenceModule(
+    workspaceRoot,
+    descriptor.path,
+    descriptor.files,
+    (loaded) => {
+      const factory =
+        loaded && typeof loaded === 'object' && exportName in loaded
+          ? (loaded as Record<string, unknown>)[exportName]
+          : undefined;
+      if (typeof factory !== 'function')
+        throw new Error(`${label} runner module is invalid`);
+    }
+  );
 }
 
 /** Owns the credentialless prepare command's parsing, serialization, and execution. */

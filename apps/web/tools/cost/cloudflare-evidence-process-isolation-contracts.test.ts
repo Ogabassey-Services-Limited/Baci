@@ -160,6 +160,14 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
         stateDir
       );
       expect(spawn).toHaveBeenCalledTimes(1);
+      expect(spawn.mock.calls[0]?.[0]).toBe(process.execPath);
+      expect(spawn.mock.calls[0]?.[1]).toEqual([
+        tsxCli,
+        commandPath,
+        '--run',
+        runId,
+        '--apply',
+      ]);
       await writeFile(
         join(packageRoot, 'index.js'),
         'exports.packageValue = 2;\n'

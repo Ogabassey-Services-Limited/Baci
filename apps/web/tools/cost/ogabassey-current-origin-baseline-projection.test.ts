@@ -39,6 +39,26 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
     });
   });
 
+  it('includes irreducible dynamic origin cost before accepting savings', () => {
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        {
+          ...current,
+          currentVercelAttributionUsd: '100.00',
+          projectedEdgeCostUsd: '70.00',
+          originCostProjection: {
+            irreducibleDynamicOriginCostUsd: '40.00',
+            reducibleStaticOriginCostUsd: '60.00',
+          },
+        },
+        { now }
+      )
+    ).toEqual({
+      verdict: 'STOP',
+      reasonCodes: ['savings_not_positive'],
+    });
+  });
+
   it('fails closed when the projection does not reconcile to attributed origin cost', () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(

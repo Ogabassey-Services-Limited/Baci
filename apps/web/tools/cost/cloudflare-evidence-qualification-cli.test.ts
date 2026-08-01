@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -24,6 +24,10 @@ const validateReadbackArguments = [
   'baci-evidence-qualification',
   '--expected-owner-approval-id',
   'owner-approval',
+  '--run-state-dir',
+  '/tmp/evidence-state',
+  '--run-id',
+  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
 ] as const;
 
 function currentReadback() {
@@ -84,6 +88,43 @@ async function writeValidationArtifacts(directory: string, receipt: unknown) {
   };
 }
 
+async function writeCompletedJournal(directory: string) {
+  const stateDir = join(directory, 'state');
+  await mkdir(stateDir, { mode: 0o700, recursive: true });
+  const runId = 'a'.repeat(32);
+  const observedAt = new Date(Date.now() - 1000).toISOString();
+  const runBinding = readback.runBinding;
+  await writeFile(
+    join(stateDir, `${runId}.json`),
+    JSON.stringify({
+      runId,
+      phase: 'proof_complete',
+      toolingMergeSha: runBinding.toolingMergeSha,
+      cleanupVerifiedAt: observedAt,
+      measurementVerifiedAt: observedAt,
+      cleanupVerificationReceiptSha256:
+        runBinding.cleanupVerificationReceiptSha256,
+      measurementReceiptSha256: runBinding.measurementReceiptSha256,
+      writeTokenId: 'write-token',
+      readTokenId: 'read-token',
+      writeTokenRevocationReceipt: {
+        tokenId: 'write-token',
+        status: 'revoked',
+        providerReceiptSha256: 'a'.repeat(64),
+        observedAt,
+      },
+      readTokenRevocationReceipt: {
+        tokenId: 'read-token',
+        status: 'revoked',
+        providerReceiptSha256: 'b'.repeat(64),
+        observedAt,
+      },
+    }),
+    { mode: 0o600 }
+  );
+  return { stateDir, runId };
+}
+
 type ValidationPaths = Awaited<ReturnType<typeof writeValidationArtifacts>>;
 
 async function runValidation(
@@ -92,6 +133,9 @@ async function runValidation(
   overrides: Partial<ValidationPaths> = {}
 ) {
   const resolvedPaths = { ...paths, ...overrides };
+  const { stateDir, runId } = await writeCompletedJournal(
+    resolvedPaths.receipt.slice(0, resolvedPaths.receipt.lastIndexOf('/'))
+  );
   let stdout = '';
   let stderr = '';
   let exitCode: number | undefined;
@@ -107,6 +151,10 @@ async function runValidation(
       'baci-evidence-qualification',
       '--expected-owner-approval-id',
       expectedOwnerApprovalId,
+      '--run-state-dir',
+      stateDir,
+      '--run-id',
+      runId,
     ],
     {
       EVIDENCE_OWNER_ACCEPTANCE_ARTIFACT: resolvedPaths.ownerAcceptance,
@@ -135,6 +183,8 @@ describe('qualification CLI helpers', () => {
       expectedArtifactPaths: ['/tmp/a.json', '/tmp/b.json'],
       scriptName: 'baci-evidence-qualification',
       expectedOwnerApprovalId: 'owner-approval',
+      runStateDir: '/tmp/evidence-state',
+      runId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     });
   });
 
@@ -176,6 +226,7 @@ describe('qualification CLI helpers', () => {
     const directory = await mkdtemp(join(tmpdir(), 'baci-qualification-cli-'));
     await chmod(directory, 0o700);
     const paths = await writeValidationArtifacts(directory, currentReadback());
+    await writeCompletedJournal(directory);
     let stderr = '';
     let exitCode: number | undefined;
     await runQualificationCli(
@@ -190,6 +241,10 @@ describe('qualification CLI helpers', () => {
         'baci-evidence-qualification',
         '--expected-owner-approval-id',
         'owner-approval',
+        '--run-state-dir',
+        join(directory, 'state'),
+        '--run-id',
+        'a'.repeat(32),
       ],
       {},
       {

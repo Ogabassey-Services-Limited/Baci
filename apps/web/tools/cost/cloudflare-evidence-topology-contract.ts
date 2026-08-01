@@ -13,6 +13,11 @@ const TOPOLOGY_FAMILIES = [
 export type CloudflareTopologyFamily = (typeof TOPOLOGY_FAMILIES)[number];
 const QUALIFICATION_EVIDENCE_HOST = new URL(QUALIFICATION_POINTER_URL).hostname;
 type TopologyEndpoint = z.infer<typeof TopologyEndpointSchema>;
+export type CloudflareQualificationTopology = readonly [
+  TopologyEndpoint,
+  TopologyEndpoint,
+  TopologyEndpoint,
+];
 
 export function cloudflareTopologyEndpointParts(endpoint: string) {
   return endpoint.split('/').filter(Boolean);
@@ -93,4 +98,23 @@ export function qualifyCloudflareTopologyEndpoints(value: unknown) {
   if (accountIds.size !== 1 || bucketNames.size !== 1)
     return { ok: false as const, reason: 'topology_contract_invalid' };
   return { ok: true as const, contract: parsed.data };
+}
+
+export function qualifyCloudflareQualificationTopology(
+  value: CloudflareQualificationTopology,
+  expectedAccountId: string
+) {
+  const parsed = qualifyCloudflareTopologyEndpoints({ endpoints: value });
+  if (
+    !parsed.ok ||
+    parsed.contract.endpoints.some(
+      (endpoint) =>
+        !endpoint.endpoint.startsWith(`/accounts/${expectedAccountId}/`)
+    )
+  )
+    return {
+      ok: false as const,
+      reason: 'topology_contract_invalid',
+    };
+  return parsed;
 }

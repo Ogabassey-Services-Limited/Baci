@@ -4,6 +4,8 @@ import {
   canonicalizeJson,
 } from '../../../../packages/shared/src/storefront/delivery-evidence';
 
+const PermissionMetadataSha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+
 const policySchema = z
   .object({
     tokenId: z.string().min(1),
@@ -12,6 +14,11 @@ const policySchema = z
     permissionGroupIds: z.array(z.string().min(1)).min(1),
     resources: z.array(z.string().min(1)).min(1),
     expiresAt: z.iso.datetime({ offset: true }),
+    /**
+     * Owner-reviewed digest of the provider permission metadata. Read-token
+     * verification requires this binding; write policies may omit it.
+     */
+    permissionMetadataSha256: PermissionMetadataSha256Schema.optional(),
     policySha256: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();

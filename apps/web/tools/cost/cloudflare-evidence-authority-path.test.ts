@@ -2,7 +2,11 @@ import { chmod, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { assertNoSymlinkAncestors } from './cloudflare-evidence-authority-path';
+import {
+  assertAuthorityAncestorsUnchanged,
+  assertNoSymlinkAncestors,
+  captureAuthorityAncestors,
+} from './cloudflare-evidence-authority-path';
 
 async function privateTempDir() {
   const directory = await mkdtemp(
@@ -43,6 +47,22 @@ describe('authority path ancestry', () => {
           'approval'
         )
       ).rejects.toThrow('symlink');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('detects an ancestor replacement after the initial path check', async () => {
+    const directory = await privateTempDir();
+    const nested = join(directory, 'nested');
+    try {
+      await mkdir(nested, { mode: 0o700 });
+      const path = join(nested, 'authority.json');
+      const before = await captureAuthorityAncestors(path, 'approval');
+      await chmod(nested, 0o755);
+      await expect(
+        assertAuthorityAncestorsUnchanged(path, 'approval', before)
+      ).rejects.toThrow('changed during access');
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

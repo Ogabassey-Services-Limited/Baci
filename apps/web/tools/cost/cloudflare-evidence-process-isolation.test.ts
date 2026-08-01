@@ -12,7 +12,10 @@ import {
 } from './cloudflare-evidence-process-isolation.test-fixtures';
 
 const runnerModulePathFor = (workspaceRoot: string) =>
-  resolve(workspaceRoot, 'packages/shared/src/constants/countries.ts');
+  resolve(
+    workspaceRoot,
+    'apps/web/tools/cost/cloudflare-evidence-process-isolation.test-fixtures.ts'
+  );
 
 describe('spawnIsolatedCloudflareEvidenceProcess', () => {
   const runId = 'b'.repeat(32);

@@ -86,7 +86,7 @@ function validateOriginCostProjection(input: OgabasseyOriginBusinessCaseInput) {
       verdict: 'STOP' as const,
       reason: 'dynamic_origin_cost_dominant',
     };
-  return { ok: true as const };
+  return { ok: true as const, dynamicMinorUnits: dynamic };
 }
 /** Gates design work on a complete, current, all-ingress baseline—not a percentage claim. */
 export function evaluateOgabasseyOriginBusinessCase(
@@ -231,7 +231,9 @@ export function evaluateOgabasseyOriginBusinessCase(
     return { verdict: 'NOT_PROVEN', reasonCodes: ['cost_input_invalid'] };
   const projectedWithWorkersLogs =
     projected + workersLogsEvidence.projectedOverageCostMinorUnits;
-  if (current <= projectedWithWorkersLogs)
+  const projectedWithIrreducibleOrigin =
+    projectedWithWorkersLogs + originCostProjection.dynamicMinorUnits;
+  if (current <= projectedWithIrreducibleOrigin)
     return { verdict: 'STOP', reasonCodes: ['savings_not_positive'] };
   if (
     input.paybackMonths !== undefined &&

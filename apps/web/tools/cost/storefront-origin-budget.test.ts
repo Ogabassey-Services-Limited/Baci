@@ -57,6 +57,24 @@ describe('summarizeStorefrontDelivery', () => {
       ).verdict
     ).toBe('NOT_PROVEN');
   });
+  it('rejects synthetic overlap even when other decision classes leave census slack', () => {
+    const evidence = manifest();
+    const day = evidence.days[0];
+    day.workerInvocationCount = 1003;
+    day.totalDecisionCount = 1003;
+    day.syntheticQualificationRequestCount = 2;
+    day.sourceEvidence.invocation.requestCount = 1003;
+    day.sourceEvidence.syntheticQualification.requestCount = 2;
+    day.canonicalEligibleRequestCount = 1001;
+    day.edgeReleaseCount = 1001;
+    day.terminalCount = 2;
+    setTrafficPartitionCounts(day, {
+      canonicalRawRequestCount: 1001,
+      canonicalEligibleRequestCount: 1001,
+    });
+
+    expect(summarizeAtFixtureTime(seal(evidence)).verdict).toBe('NOT_PROVEN');
+  });
   it('uses canonical plus alias ingress for the threshold equation', () => {
     const evidence = manifest();
     evidence.days[0] = {
@@ -87,6 +105,7 @@ describe('summarizeStorefrontDelivery', () => {
     for (const day of evidence.days.slice(1)) {
       day.canonicalEligibleRequestCount = 0;
       day.workerInvocationCount = 0;
+      day.sourceEvidence.invocation.requestCount = 0;
       day.totalDecisionCount = 0;
       day.edgeReleaseCount = 0;
       setTrafficPartitionCounts(day, {
@@ -162,6 +181,22 @@ describe('summarizeStorefrontDelivery', () => {
     expect(summary.originEventReconciled).toBe(false);
     expect(summary.verdict).toBe('NOT_PROVEN');
   });
+  it('does not pass when invocation or WAF source counts drift from daily totals', () => {
+    for (const change of [
+      (evidence: ReturnType<typeof manifest>) => {
+        evidence.days[0].sourceEvidence.invocation.requestCount = 999;
+      },
+      (evidence: ReturnType<typeof manifest>) => {
+        evidence.days[0].sourceEvidence.wafRateLimit.allowedOriginRateLimitCount = 1;
+      },
+    ]) {
+      const evidence = manifest();
+      change(evidence);
+      const summary = summarizeAtFixtureTime(seal(evidence));
+      expect(summary.independentSourceCountsReconciled).toBe(false);
+      expect(summary.verdict).toBe('NOT_PROVEN');
+    }
+  });
   it('reconciles the independent origin-event count before applying the rate gate', () => {
     const evidence = manifest();
     evidence.days[0].canonicalEligibleOriginAttemptCount = 1;
@@ -187,6 +222,7 @@ describe('summarizeStorefrontDelivery', () => {
       },
       (evidence: ReturnType<typeof manifest>) => {
         evidence.days[0].allowedOriginRateLimitCount = 1;
+        evidence.days[0].sourceEvidence.wafRateLimit.allowedOriginRateLimitCount = 1;
         evidence.days[0].sourceEvidence.originEvent.requestCount = 1;
       },
     ]) {

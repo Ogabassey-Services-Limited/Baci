@@ -2,10 +2,10 @@ import { constants as fsConstants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
-import type { ReviewedQualificationArtifact } from './cloudflare-evidence-qualification-schemas';
 import {
   QUALIFICATION_WORKER_NAME,
   qualifyCloudflareEvidenceReadback,
+  type ReviewedQualificationArtifact,
   ReviewedQualificationArtifactSchema,
 } from './cloudflare-evidence-qualification-schemas';
 import {
@@ -13,6 +13,12 @@ import {
   OwnerAcceptanceSchema,
 } from './cloudflare-evidence-qualification-traffic';
 import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
+import {
+  hasReceipt,
+  isHash,
+  loadEvidenceRunForCleanup,
+  validDate,
+} from './cloudflare-evidence-run-journal';
 import {
   type EvidenceRunnerModuleDescriptor,
   verifyReviewedEvidenceRunnerModule,
@@ -33,7 +39,7 @@ export function parseQualificationArguments(args: readonly string[]) {
   if (args[0] === '--prepare')
     throw new Error('prepare options require the functional prepare parser');
   if (
-    args.length === 10 &&
+    args.length === 14 &&
     args[0] === '--validate-readback' &&
     args[1].startsWith('/') &&
     args[2] === '--expected-artifact-a' &&
@@ -43,7 +49,11 @@ export function parseQualificationArguments(args: readonly string[]) {
     args[6] === '--script-name' &&
     args[7] === QUALIFICATION_WORKER_NAME &&
     args[8] === '--expected-owner-approval-id' &&
-    isBoundedApprovalId(args[9])
+    isBoundedApprovalId(args[9]) &&
+    args[10] === '--run-state-dir' &&
+    isAbsolute(args[11]) &&
+    args[12] === '--run-id' &&
+    /^[a-f0-9]{32}$/u.test(args[13] ?? '')
   )
     return {
       mode: 'validate-readback' as const,
@@ -51,10 +61,46 @@ export function parseQualificationArguments(args: readonly string[]) {
       expectedArtifactPaths: [args[3], args[5]] as const,
       scriptName: args[7],
       expectedOwnerApprovalId: args[9],
+      runStateDir: args[11],
+      runId: args[13],
     };
   throw new Error(
-    'qualification is credentialless and accepts only --prepare or --validate-readback <absolute-receipt> --expected-artifact-a <absolute-artifact> --expected-artifact-b <absolute-artifact> --script-name <name> --expected-owner-approval-id <owner-reviewed-approval-id>'
+    'qualification is credentialless and accepts only --prepare or --validate-readback <absolute-receipt> --expected-artifact-a <absolute-artifact> --expected-artifact-b <absolute-artifact> --script-name <name> --expected-owner-approval-id <owner-reviewed-approval-id> --run-state-dir <absolute-state-dir> --run-id <run-id>'
   );
+}
+
+async function readCompletedRunBinding(stateDir: string, runId: string) {
+  const journal = await loadEvidenceRunForCleanup(stateDir, runId);
+  const cleanupReceipt = journal.cleanupVerificationReceiptSha256;
+  const measurementReceipt = journal.measurementReceiptSha256;
+  if (
+    journal.runId !== runId ||
+    journal.phase !== 'proof_complete' ||
+    !journal.cleanupVerifiedAt ||
+    !validDate(journal.cleanupVerifiedAt) ||
+    !journal.measurementVerifiedAt ||
+    !validDate(journal.measurementVerifiedAt) ||
+    !cleanupReceipt ||
+    !measurementReceipt ||
+    !isHash(cleanupReceipt) ||
+    !isHash(measurementReceipt) ||
+    !hasReceipt(journal.writeTokenRevocationReceipt, journal.writeTokenId) ||
+    !hasReceipt(journal.readTokenRevocationReceipt, journal.readTokenId) ||
+    (journal.cleanupWriteTokenId !== undefined &&
+      !hasReceipt(
+        journal.cleanupWriteTokenRevocationReceipt,
+        journal.cleanupWriteTokenId
+      ))
+  )
+    throw new Error(
+      'qualification readback requires a completed proof_complete run journal'
+    );
+  return {
+    runId,
+    toolingMergeSha: journal.toolingMergeSha,
+    cleanupVerificationReceiptSha256: cleanupReceipt,
+    measurementReceiptSha256: measurementReceipt,
+  } as const;
 }
 
 export function buildClosedEvidenceProcessEnvironment(
@@ -179,8 +225,14 @@ export async function runQualificationCli(
         expectedArtifactPaths,
         scriptName,
         expectedOwnerApprovalId,
+        runStateDir,
+        runId,
       } = parseQualificationArguments(args);
       assertCredentiallessValidationEnvironment(environment);
+      const expectedRunBinding = await readCompletedRunBinding(
+        runStateDir,
+        runId
+      );
       const authority =
         ownerAcceptanceAuthority ??
         (await loadOwnerAcceptanceAuthority(environment));
@@ -210,6 +262,7 @@ export async function runQualificationCli(
         expectedScriptName: scriptName,
         expectedOwnerApprovalId,
         ownerAcceptanceAuthority: authority,
+        expectedRunBinding,
       });
       if (!result.ok) throw new Error(result.reason);
       io.stdout(`${JSON.stringify(result.qualification)}\n`);

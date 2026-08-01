@@ -31,6 +31,16 @@ const AliasRedirectSourceEvidenceSchema = SourceEvidenceSchema.extend({
   /** Bounded host aggregates; raw URLs, methods, and request rows are excluded. */
   hostPartition: z.array(HostPartitionRowSchema).min(1).max(64),
 });
+const InvocationSourceEvidenceSchema = SourceEvidenceSchema.extend({
+  /** Independent exact invocation total for the day. */
+  requestCount: CountSchema,
+});
+const WafRateLimitSourceEvidenceSchema = SourceEvidenceSchema.extend({
+  /** Independent bounded aggregates for rejected methods and allowed limits. */
+  rejectedMethodRequestCount: CountSchema,
+  rejectedMethodOriginCount: CountSchema,
+  allowedOriginRateLimitCount: CountSchema,
+});
 const SyntheticQualificationSourceEvidenceSchema = SourceEvidenceSchema.extend({
   requestCount: CountSchema,
 });
@@ -87,9 +97,9 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
       .max(4096),
     sourceEvidence: z
       .object({
-        invocation: SourceEvidenceSchema,
+        invocation: InvocationSourceEvidenceSchema,
         aliasRedirect: AliasRedirectSourceEvidenceSchema,
-        wafRateLimit: SourceEvidenceSchema,
+        wafRateLimit: WafRateLimitSourceEvidenceSchema,
         originEvent: OriginEventSourceEvidenceSchema,
         syntheticQualification: SyntheticQualificationSourceEvidenceSchema,
       })

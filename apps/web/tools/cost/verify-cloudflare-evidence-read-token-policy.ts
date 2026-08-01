@@ -34,6 +34,7 @@ export async function verifyCloudflareEvidenceReadTokenPolicy(
   client: CloudflareTokenVerificationClient,
   permissionMetadata: readonly ReviewedCloudflarePermissionMetadata[] = [],
   options: TokenPolicyVerificationOptions & {
+    /** @deprecated The expected digest must come from the reviewed policy. */
     permissionMetadataSha256?: string;
   } = {}
 ): Promise<VerifiedEvidenceReadCapability> {
@@ -47,10 +48,11 @@ export async function verifyCloudflareEvidenceReadTokenPolicy(
       maximumLifetimeMs: options.maximumLifetimeMs ?? 24 * 60 * 60 * 1000,
     }
   );
+  const reviewedPermissionMetadataSha256 = verified.permissionMetadataSha256;
   if (
     permissionMetadata.length === 0 ||
-    !options.permissionMetadataSha256 ||
-    options.permissionMetadataSha256 !==
+    !reviewedPermissionMetadataSha256 ||
+    reviewedPermissionMetadataSha256 !==
       calculateReviewedPermissionMetadataSha256(permissionMetadata)
   )
     throw new Error(

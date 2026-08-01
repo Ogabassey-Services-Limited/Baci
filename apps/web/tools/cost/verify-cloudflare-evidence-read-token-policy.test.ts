@@ -5,13 +5,16 @@ import {
 } from './verify-cloudflare-evidence-read-token-policy';
 import { calculateCloudflareEvidenceTokenPolicySha256 } from './verify-cloudflare-evidence-token-policy';
 
+const readMetadata = [{ id: 'analytics.read', capability: 'read' as const }];
 const policyContent = {
   tokenId: 'read-id',
   accountId: 'account',
   zoneId: 'zone',
   permissionGroupIds: ['analytics.read'],
   resources: ['com.cloudflare.api.account.account'],
-  expiresAt: '2026-08-01T14:00:00.000Z',
+  expiresAt: '2026-08-02T12:00:00.000Z',
+  permissionMetadataSha256:
+    calculateReviewedPermissionMetadataSha256(readMetadata),
 };
 const policy = {
   ...policyContent,
@@ -19,9 +22,6 @@ const policy = {
 };
 describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
   it('brands a separate read capability and rejects every write permission', async () => {
-    const readMetadata = [
-      { id: 'analytics.read', capability: 'read' as const },
-    ];
     await expect(
       verifyCloudflareEvidenceReadTokenPolicy(
         'token',
@@ -37,14 +37,15 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         readMetadata,
         {
           now: () => new Date('2026-08-01T12:00:00.000Z'),
-          permissionMetadataSha256:
-            calculateReviewedPermissionMetadataSha256(readMetadata),
         }
       )
     ).resolves.toBeDefined();
     const writeContent = {
       ...policyContent,
       permissionGroupIds: ['workers.write'],
+      permissionMetadataSha256: calculateReviewedPermissionMetadataSha256([
+        { id: 'workers.write', capability: 'write' as const },
+      ]),
     };
     const writePolicy = {
       ...writeContent,
@@ -65,17 +66,39 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         [{ id: 'workers.write', capability: 'write' }],
         {
           now: () => new Date('2026-08-01T12:00:00.000Z'),
-          permissionMetadataSha256: calculateReviewedPermissionMetadataSha256([
-            { id: 'workers.write', capability: 'write' },
-          ]),
         }
       )
     ).rejects.toThrow('write');
+
+    await expect(
+      verifyCloudflareEvidenceReadTokenPolicy(
+        'token',
+        writePolicy,
+        writePolicy,
+        {
+          verify: async () => ({
+            id: 'read-id',
+            status: 'active',
+            issuedAt: '2026-08-01T12:00:00.000Z',
+          }),
+        },
+        [{ id: 'workers.write', capability: 'read' }],
+        {
+          now: () => new Date('2026-08-01T12:00:00.000Z'),
+          permissionMetadataSha256: calculateReviewedPermissionMetadataSha256([
+            { id: 'workers.write', capability: 'read' },
+          ]),
+        }
+      )
+    ).rejects.toThrow('permission metadata');
   });
   it('rejects opaque permission IDs unless reviewed metadata proves read-only capability', async () => {
     const opaqueContent = {
       ...policyContent,
       permissionGroupIds: ['018f-opaque-write-id'],
+      permissionMetadataSha256: calculateReviewedPermissionMetadataSha256([
+        { id: '018f-opaque-write-id', capability: 'read' as const },
+      ]),
     };
     const opaque = {
       ...opaqueContent,
@@ -91,6 +114,19 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
     const opaqueReadMetadata = [
       { id: '018f-opaque-write-id', capability: 'read' as const },
     ];
+    const opaqueWriteMetadata = [
+      { id: '018f-opaque-write-id', capability: 'write' as const },
+    ];
+    const opaqueWrite = {
+      ...opaqueContent,
+      permissionMetadataSha256:
+        calculateReviewedPermissionMetadataSha256(opaqueWriteMetadata),
+      policySha256: calculateCloudflareEvidenceTokenPolicySha256({
+        ...opaqueContent,
+        permissionMetadataSha256:
+          calculateReviewedPermissionMetadataSha256(opaqueWriteMetadata),
+      }),
+    };
     await expect(
       verifyCloudflareEvidenceReadTokenPolicy(
         'token',
@@ -100,24 +136,18 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         [],
         {
           now: () => new Date('2026-08-01T12:00:00.000Z'),
-          permissionMetadataSha256: calculateReviewedPermissionMetadataSha256(
-            []
-          ),
         }
       )
     ).rejects.toThrow('permission metadata');
     await expect(
       verifyCloudflareEvidenceReadTokenPolicy(
         'token',
-        opaque,
-        opaque,
+        opaqueWrite,
+        opaqueWrite,
         client,
-        [{ id: '018f-opaque-write-id', capability: 'write' }],
+        opaqueWriteMetadata,
         {
           now: () => new Date('2026-08-01T12:00:00.000Z'),
-          permissionMetadataSha256: calculateReviewedPermissionMetadataSha256([
-            { id: '018f-opaque-write-id', capability: 'write' },
-          ]),
         }
       )
     ).rejects.toThrow('read-only');
@@ -130,8 +160,6 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
         opaqueReadMetadata,
         {
           now: () => new Date('2026-08-01T12:00:00.000Z'),
-          permissionMetadataSha256:
-            calculateReviewedPermissionMetadataSha256(opaqueReadMetadata),
         }
       )
     ).resolves.toMatchObject({ kind: 'read' });

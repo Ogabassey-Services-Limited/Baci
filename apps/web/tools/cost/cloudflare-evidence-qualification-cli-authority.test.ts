@@ -58,6 +58,45 @@ async function writeArtifacts(
   return paths;
 }
 
+async function writeCompletedJournal(
+  directory: string,
+  runBinding: ReturnType<typeof currentReadback>['runBinding']
+) {
+  const stateDir = join(directory, 'state');
+  await mkdir(stateDir, { mode: 0o700 });
+  const runId = runBinding.runId;
+  const observedAt = new Date(Date.now() - 1000).toISOString();
+  await writeFile(
+    join(stateDir, `${runId}.json`),
+    JSON.stringify({
+      runId,
+      phase: 'proof_complete',
+      toolingMergeSha: runBinding.toolingMergeSha,
+      cleanupVerifiedAt: observedAt,
+      measurementVerifiedAt: observedAt,
+      cleanupVerificationReceiptSha256:
+        runBinding.cleanupVerificationReceiptSha256,
+      measurementReceiptSha256: runBinding.measurementReceiptSha256,
+      writeTokenId: 'write-token',
+      readTokenId: 'read-token',
+      writeTokenRevocationReceipt: {
+        tokenId: 'write-token',
+        status: 'revoked',
+        providerReceiptSha256: 'a'.repeat(64),
+        observedAt,
+      },
+      readTokenRevocationReceipt: {
+        tokenId: 'read-token',
+        status: 'revoked',
+        providerReceiptSha256: 'b'.repeat(64),
+        observedAt,
+      },
+    }),
+    { mode: 0o600 }
+  );
+  return { stateDir, runId };
+}
+
 async function createReviewedAuthority(
   workspaceRoot: string,
   acceptance: ReturnType<
@@ -112,6 +151,10 @@ describe('qualification CLI owner authority wiring', () => {
     await chmod(directory, 0o700);
     const receipt = currentReadback();
     const paths = await writeArtifacts(directory, receipt);
+    const { stateDir, runId } = await writeCompletedJournal(
+      directory,
+      receipt.runBinding
+    );
     const workspaceRoot = join(directory, 'workspace');
     await mkdir(workspaceRoot, { mode: 0o700 });
     const canonicalWorkspaceRoot = await realpath(workspaceRoot);
@@ -134,6 +177,10 @@ describe('qualification CLI owner authority wiring', () => {
         'baci-evidence-qualification',
         '--expected-owner-approval-id',
         'owner-approval',
+        '--run-state-dir',
+        stateDir,
+        '--run-id',
+        runId,
       ],
       {
         EVIDENCE_WORKSPACE_ROOT: canonicalWorkspaceRoot,
@@ -168,6 +215,10 @@ describe('qualification CLI owner authority wiring', () => {
     await chmod(directory, 0o700);
     const receipt = currentReadback();
     const paths = await writeArtifacts(directory, receipt);
+    const { stateDir, runId } = await writeCompletedJournal(
+      directory,
+      receipt.runBinding
+    );
     const workspaceRoot = join(directory, 'workspace');
     await mkdir(workspaceRoot, { mode: 0o700 });
     const canonicalWorkspaceRoot = await realpath(workspaceRoot);
@@ -189,6 +240,10 @@ describe('qualification CLI owner authority wiring', () => {
         'baci-evidence-qualification',
         '--expected-owner-approval-id',
         'owner-approval',
+        '--run-state-dir',
+        stateDir,
+        '--run-id',
+        runId,
       ],
       {
         EVIDENCE_WORKSPACE_ROOT: canonicalWorkspaceRoot,

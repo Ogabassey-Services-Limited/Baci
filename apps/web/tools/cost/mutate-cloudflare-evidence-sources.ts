@@ -1,3 +1,4 @@
+import { withEvidenceRunOperationLock } from './cloudflare-evidence-operation-lock';
 import type {
   TokenRevocationClient,
   TokenRevocationReceipt,
@@ -13,12 +14,13 @@ import {
 } from './cloudflare-evidence-run-journal';
 import {
   reconcileCreatedEvidenceResource,
-  requireTokenReadBackClient,
   revokeCleanupWriteTokenIfNeeded,
   revokeWriteTokenIfAvailable,
   verifyInventoryBeforeCleanup,
   verifyInventoryBeforeMutation,
 } from './mutate-cloudflare-evidence-cleanup-support';
+import { dispatchMutationCommand } from './mutate-cloudflare-evidence-command';
+import { runMutationCliFromProcess } from './mutate-cloudflare-evidence-entrypoint';
 import type {
   EvidenceMutationClient,
   EvidenceMutationDependencies,
@@ -26,8 +28,6 @@ import type {
 } from './mutate-cloudflare-evidence-support';
 import {
   EVIDENCE_HOSTNAME,
-  isEvidenceMutationClient,
-  loadMutationDependencies,
   parseMutationArguments,
   REVIEWED_TEMPORARY_RULE_BINDING,
   SYNTHETIC_PATHS,
@@ -48,36 +48,23 @@ export function runMutationCommand(
   stateDir: string,
   dependencies: EvidenceMutationDependencies
 ) {
-  const parsed = parseMutationArguments(args);
-  if (parsed.mode === 'record_write_revocation') {
-    if (!dependencies.revocationReceipt)
-      throw new Error('an externally verified write-token receipt is required');
-    return recordCloudflareEvidenceWriteTokenRevocation(
-      stateDir,
-      parsed.runId,
-      dependencies.revocationReceipt,
-      requireTokenReadBackClient(dependencies.client)
-    );
-  }
-  if (!dependencies.capability)
-    throw new Error('a verified write capability is required');
-  if (!isEvidenceMutationClient(dependencies.client))
-    throw new Error('mutation provider dependencies are invalid');
-  return parsed.mode === 'apply'
-    ? applyCloudflareEvidenceMutation(
-        stateDir,
-        parsed.runId,
-        dependencies.capability,
-        dependencies.client
-      )
-    : cleanupCloudflareEvidenceRun(
-        stateDir,
-        parsed.runId,
-        dependencies.capability,
-        dependencies.client
-      );
+  return dispatchMutationCommand(args, stateDir, dependencies, {
+    apply: applyCloudflareEvidenceMutation,
+    cleanup: cleanupCloudflareEvidenceRun,
+    recordRevocation: recordCloudflareEvidenceWriteTokenRevocation,
+  });
 }
-export async function applyCloudflareEvidenceMutation(
+export function applyCloudflareEvidenceMutation(
+  stateDir: string,
+  runId: string,
+  capability: VerifiedEvidenceTokenCapability,
+  client: EvidenceMutationClient
+) {
+  return withEvidenceRunOperationLock(stateDir, runId, () =>
+    applyCloudflareEvidenceMutationUnlocked(stateDir, runId, capability, client)
+  );
+}
+async function applyCloudflareEvidenceMutationUnlocked(
   stateDir: string,
   runId: string,
   capability: VerifiedEvidenceTokenCapability,
@@ -115,15 +102,27 @@ export async function applyCloudflareEvidenceMutation(
       verifyResource(resource, journal, name, createdId);
       await recordEvidenceMutation(stateDir, runId, name, resource.id);
     } catch (error) {
-      await reconcileCreatedEvidenceResource(client, name, createdId);
+      const failures: unknown[] = [error];
       try {
-        await cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
+        await reconcileCreatedEvidenceResource(client, name, createdId);
+      } catch (reconcileError) {
+        failures.push(reconcileError);
+      }
+      try {
+        await cleanupCloudflareEvidenceRunUnlocked(
+          stateDir,
+          runId,
+          capability,
+          client
+        );
       } catch (cleanupError) {
+        failures.push(cleanupError);
+      }
+      if (failures.length > 1)
         throw new AggregateError(
-          [error, cleanupError],
+          failures,
           'created evidence resource cleanup did not complete'
         );
-      }
       throw error;
     }
   }
@@ -137,12 +136,32 @@ export async function applyCloudflareEvidenceMutation(
       probes.map((probe) => probe.id)
     );
   } catch (error) {
-    await cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
+    await cleanupCloudflareEvidenceRunUnlocked(
+      stateDir,
+      runId,
+      capability,
+      client
+    );
     throw error;
   }
-  return cleanupCloudflareEvidenceRun(stateDir, runId, capability, client);
+  return cleanupCloudflareEvidenceRunUnlocked(
+    stateDir,
+    runId,
+    capability,
+    client
+  );
 }
-export async function cleanupCloudflareEvidenceRun(
+export function cleanupCloudflareEvidenceRun(
+  stateDir: string,
+  runId: string,
+  capability: VerifiedEvidenceTokenCapability,
+  client: EvidenceMutationClient
+) {
+  return withEvidenceRunOperationLock(stateDir, runId, () =>
+    cleanupCloudflareEvidenceRunUnlocked(stateDir, runId, capability, client)
+  );
+}
+async function cleanupCloudflareEvidenceRunUnlocked(
   stateDir: string,
   runId: string,
   capability: VerifiedEvidenceTokenCapability,
@@ -275,26 +294,5 @@ export function recordCloudflareEvidenceWriteTokenRevocation(
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href
-) {
-  const args = process.argv.slice(2);
-  const parsed = parseMutationArguments(args);
-  const stateDir = process.env.EVIDENCE_RUN_STATE_DIR;
-  if (!stateDir) {
-    process.stderr.write('absolute EVIDENCE_RUN_STATE_DIR is required\n');
-    process.exitCode = 1;
-  } else {
-    loadMutationDependencies(parsed.runId, stateDir, parsed.mode)
-      .then((dependencies) => runMutationCommand(args, stateDir, dependencies))
-      .then((journal) =>
-        process.stdout.write(
-          `${JSON.stringify({ runId: journal.runId, phase: journal.phase })}\n`
-        )
-      )
-      .catch((error: unknown) => {
-        process.stderr.write(
-          `${error instanceof Error ? error.message : 'mutation failed'}\n`
-        );
-        process.exitCode = 1;
-      });
-  }
-}
+)
+  runMutationCliFromProcess(runMutationCommand);

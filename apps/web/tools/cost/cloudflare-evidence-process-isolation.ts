@@ -28,7 +28,12 @@ import {
 } from './cloudflare-evidence-runner-modules';
 import { buildClosedEvidenceProcessEnvironment } from './qualify-cloudflare-evidence-sources';
 
-export type EvidenceChildCommand = 'prepare' | 'mutate' | 'cleanup' | 'measure';
+export type EvidenceChildCommand =
+  | 'prepare'
+  | 'mutate'
+  | 'cleanup'
+  | 'measure'
+  | 'revoke-read';
 export type EvidenceProcessSpawner = Readonly<{
   spawn(
     executable: string,
@@ -52,12 +57,13 @@ const argumentsFor = (
   }
   if (command === 'cleanup') return ['--cleanup-run', runId];
   if (command === 'mutate') return ['--run', runId, '--apply'];
+  if (command === 'revoke-read') return ['--revoke-read', runId];
   return ['--run', runId];
 };
 const scriptFor = (command: EvidenceChildCommand) =>
   command === 'prepare'
     ? 'qualify-cloudflare-evidence-sources.ts'
-    : command === 'measure'
+    : command === 'measure' || command === 'revoke-read'
       ? 'measure-cloudflare-evidence-sources.ts'
       : 'mutate-cloudflare-evidence-sources.ts';
 const pinnedTsx = (workspaceRoot: string) =>
@@ -168,7 +174,10 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
     credential?.name !== 'CLOUDFLARE_WRITE_TOKEN'
   )
     throw new Error('write command requires only the write credential');
-  if (command === 'measure' && credential?.name !== 'CLOUDFLARE_READ_TOKEN')
+  if (
+    (command === 'measure' || command === 'revoke-read') &&
+    credential?.name !== 'CLOUDFLARE_READ_TOKEN'
+  )
     throw new Error('measurement requires only the read credential');
   const privateHome = await mkdtemp(join(tmpdir(), 'baci-evidence-home-'));
   try {
@@ -189,6 +198,11 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
         ? undefined
         : await loadEvidenceRunForCleanup(stateDir, runId);
     let commandPath = absoluteToolPath(workspaceRoot, command);
+    let executable = pinnedTsx(workspaceRoot);
+    let executableArguments = [
+      commandPath,
+      ...argumentsFor(command, runId, prepareInput),
+    ];
     if (journal) {
       commandPath = (
         await verifyReviewedEvidenceFile(
@@ -213,11 +227,21 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
         journal.dependencyManifestSha256
       );
       env[EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST] = reviewedDependencies.path;
-      await verifyReviewedTsxLauncher(
+      const reviewedLauncher = await verifyReviewedTsxLauncher(
         workspaceRoot,
         reviewedDependencies.manifest,
         env.PATH
       );
+      // Invoke the reviewed runtime and resolved CLI target directly. The
+      // checked symlink is not passed to the credentialed child, avoiding a
+      // replacement between validation and spawn and avoiding PATH/shebang
+      // resolution after the authority check.
+      executable = reviewedLauncher.nodePath;
+      executableArguments = [
+        reviewedLauncher.target,
+        commandPath,
+        ...argumentsFor(command, runId, prepareInput),
+      ];
       await verifyCredentialedEvidenceCommandImportClosure(
         workspaceRoot,
         journal.toolingMergeSha,
@@ -226,7 +250,7 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
       );
     }
     const runnerNames =
-      command === 'measure'
+      command === 'measure' || command === 'revoke-read'
         ? evidenceRunnerModuleEnvironmentNames('measurement')
         : command === 'prepare'
           ? undefined
@@ -234,7 +258,7 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
     if (runnerNames) {
       if (!journal) throw new Error('credentialed command journal is missing');
       const descriptor =
-        command === 'measure'
+        command === 'measure' || command === 'revoke-read'
           ? {
               path: journal.measurementRunnerModulePath,
               sha256: journal.measurementRunnerModuleSha256,
@@ -257,14 +281,10 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
       env[runnerNames.path] = verified.path;
       env[runnerNames.sha256] = verified.sha256;
     }
-    return await spawner.spawn(
-      pinnedTsx(workspaceRoot),
-      [commandPath, ...argumentsFor(command, runId, prepareInput)],
-      {
-        cwd: workspaceRoot,
-        env,
-      }
-    );
+    return await spawner.spawn(executable, executableArguments, {
+      cwd: workspaceRoot,
+      env,
+    });
   } finally {
     await rm(privateHome, { recursive: true, force: true });
   }

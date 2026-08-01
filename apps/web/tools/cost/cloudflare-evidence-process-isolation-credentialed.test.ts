@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
@@ -100,26 +100,33 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
       stateDir
     );
     expect(spawn).toHaveBeenCalledTimes(3);
+    const reviewedTsxTarget = await realpath(
+      join(workspaceRoot, 'node_modules/tsx/dist/cli.mjs')
+    );
     expect(spawn.mock.calls.map(([, argv]) => argv)).toEqual([
       [
+        reviewedTsxTarget,
         `${workspaceRoot}/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts`,
         '--run',
         runId,
         '--apply',
       ],
       [
+        reviewedTsxTarget,
         `${workspaceRoot}/apps/web/tools/cost/mutate-cloudflare-evidence-sources.ts`,
         '--cleanup-run',
         runId,
       ],
       [
+        reviewedTsxTarget,
         `${workspaceRoot}/apps/web/tools/cost/measure-cloudflare-evidence-sources.ts`,
         '--run',
         runId,
       ],
     ]);
-    for (const [executable, , options] of spawn.mock.calls) {
-      expect(executable).toBe(`${workspaceRoot}/node_modules/.bin/tsx`);
+    for (const [executable, argv, options] of spawn.mock.calls) {
+      expect(executable).toBe(process.execPath);
+      expect(argv[0]).toBe(reviewedTsxTarget);
       expect(options.env.EVIDENCE_RUN_STATE_DIR).toBe(stateDir);
     }
     for (const [, , { env }] of spawn.mock.calls.slice(0, 2)) {

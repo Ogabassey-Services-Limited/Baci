@@ -1,9 +1,13 @@
 import { createHash } from 'node:crypto';
-import { constants, type Stats } from 'node:fs';
+import { constants } from 'node:fs';
 import { type FileHandle, lstat, open } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
-import { assertNoSymlinkAncestors } from './cloudflare-evidence-authority-path';
+import { readAuthorityArtifact } from './cloudflare-evidence-authority-file';
+import {
+  assertAuthorityAncestorsUnchanged,
+  captureAuthorityAncestors,
+} from './cloudflare-evidence-authority-path';
 import type { EvidenceRunInput } from './cloudflare-evidence-run-journal';
 import { calculateCloudflareEvidenceTokenPolicySha256 } from './verify-cloudflare-evidence-token-policy';
 
@@ -22,8 +26,8 @@ const approvalArtifactSchema = z
     readPolicySha256: sha256,
     /** Optional separately approved cleanup-only replacement policy fingerprint. */
     cleanupPolicySha256: sha256.optional(),
-    approvedAt: z.string().datetime({ offset: true }),
-    expiresAt: z.string().datetime({ offset: true }),
+    approvedAt: z.iso.datetime({ offset: true }),
+    expiresAt: z.iso.datetime({ offset: true }),
   })
   .strict();
 const reviewedPolicyArtifactSchema = z
@@ -35,7 +39,7 @@ const reviewedPolicyArtifactSchema = z
     zoneId: boundedId,
     permissionGroupIds: z.array(boundedId).min(1).max(32),
     resources: z.array(boundedId).min(1).max(32),
-    expiresAt: z.string().datetime({ offset: true }),
+    expiresAt: z.iso.datetime({ offset: true }),
     policySha256: sha256,
   })
   .strict();
@@ -76,56 +80,8 @@ export function calculateReviewedPolicySha256(
 ) {
   return calculateCloudflareEvidenceTokenPolicySha256(value);
 }
-export async function readAuthorityArtifact(path: string, label: string) {
-  if (!isAbsolute(path))
-    throw new Error(`${label} artifact path must be absolute`);
-  await assertNoSymlinkAncestors(path, label);
-  const scope = resolve(dirname(path));
-  const scopeStat = await lstat(scope).catch(() => {
-    throw new Error(`${label} authority scope is not readable`);
-  });
-  if (
-    scopeStat.isSymbolicLink() ||
-    !scopeStat.isDirectory() ||
-    (scopeStat.mode & 0o077) !== 0
-  )
-    throw new Error(`${label} authority scope is not private durable storage`);
-  let handle: FileHandle;
-  try {
-    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ELOOP')
-      throw new Error(`${label} artifact must be a private regular file`);
-    throw new Error(`${label} artifact is not readable`);
-  }
-  try {
-    let stat: Stats;
-    try {
-      stat = await handle.stat();
-    } catch {
-      throw new Error(`${label} artifact is not readable`);
-    }
-    if (
-      stat.isSymbolicLink() ||
-      !stat.isFile() ||
-      (stat.mode & 0o777) !== 0o600
-    )
-      throw new Error(`${label} artifact must be a private regular file`);
-    let source: string;
-    try {
-      source = await handle.readFile('utf8');
-    } catch {
-      throw new Error(`${label} artifact is not readable`);
-    }
-    try {
-      return JSON.parse(source) as unknown;
-    } catch {
-      throw new Error(`${label} artifact is not valid JSON`);
-    }
-  } finally {
-    await handle.close().catch(() => undefined);
-  }
-}
+export { readAuthorityArtifact } from './cloudflare-evidence-authority-file';
+
 function approvalFingerprint(approval: z.infer<typeof approvalArtifactSchema>) {
   return createHash('sha256')
     .update(
@@ -149,14 +105,24 @@ async function consumeApproval(
   input: PrepareAuthorityInput,
   stateDir: string | undefined
 ) {
-  await assertNoSymlinkAncestors(approvalPath, 'approval');
   const scope = resolve(dirname(approvalPath));
   const fingerprint = approvalFingerprint(approval);
   const markerPath = join(
     scope,
-    `.baci-evidence-approval-${createHash('sha256')
-      .update(`${resolve(approvalPath)}\0${fingerprint}`)
-      .digest('hex')}.consumed`
+    `.baci-evidence-approval-${fingerprint}.consumed`
+  );
+  const scopeStat = await lstat(scope).catch(() => {
+    throw new Error('approval authority scope is not readable');
+  });
+  if (
+    scopeStat.isSymbolicLink() ||
+    !scopeStat.isDirectory() ||
+    (Number(scopeStat.mode) & 0o077) !== 0
+  )
+    throw new Error('approval authority scope is not private durable storage');
+  const ancestors = await captureAuthorityAncestors(
+    markerPath,
+    'approval consumption'
   );
   let handle: FileHandle;
   try {
@@ -189,6 +155,11 @@ async function consumeApproval(
     return;
   }
   try {
+    await assertAuthorityAncestorsUnchanged(
+      markerPath,
+      'approval consumption',
+      ancestors
+    );
     await handle.writeFile(
       `${JSON.stringify({
         approvalFingerprint: fingerprint,

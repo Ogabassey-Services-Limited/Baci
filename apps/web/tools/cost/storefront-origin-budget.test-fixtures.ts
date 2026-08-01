@@ -90,6 +90,7 @@ export function manifest(overrides: Record<string, unknown> = {}) {
       sourceEvidence: {
         invocation: {
           sourceFingerprint: hash('1'),
+          requestCount: 1000,
           complete: true,
           exact: true,
           providerSamplingApplied: false,
@@ -118,6 +119,9 @@ export function manifest(overrides: Record<string, unknown> = {}) {
         },
         wafRateLimit: {
           sourceFingerprint: hash('3'),
+          rejectedMethodRequestCount: 0,
+          rejectedMethodOriginCount: 0,
+          allowedOriginRateLimitCount: 0,
           complete: true,
           exact: true,
           providerSamplingApplied: false,

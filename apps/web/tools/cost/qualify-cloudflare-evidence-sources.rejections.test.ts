@@ -6,6 +6,7 @@ import {
 } from './qualify-cloudflare-evidence-sources';
 import {
   pointerProbeReadback,
+  qualificationInput,
   readback,
 } from './qualify-cloudflare-evidence-sources.test-fixtures';
 
@@ -35,14 +36,7 @@ describe('Cloudflare read-only qualification rejection contracts', () => {
           productionResourceState: 'present_verified' as const,
         },
       },
-      topology: {
-        family: 'r2-custom-domain' as const,
-        endpoint:
-          '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
-        requestSchemaSha256: 'a'.repeat(64),
-        responseSchemaSha256: 'b'.repeat(64),
-        maximumVisibilitySeconds: 60,
-      },
+      topology: qualificationInput.topology,
       zoneId: 'zone',
       ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
       ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
@@ -97,20 +91,28 @@ describe('Cloudflare read-only qualification rejection contracts', () => {
     await expect(
       executeCloudflareEvidenceQualification(baseClient, {
         ...baseInput,
-        topology: {
-          ...baseInput.topology,
-          endpoint: '/accounts/account/r2/buckets/bucket/domains',
-        },
+        topology: baseInput.topology.map((topology, index) =>
+          index === 2
+            ? {
+                ...topology,
+                endpoint: '/accounts/account/r2/buckets/bucket/domains',
+              }
+            : topology
+        ) as typeof baseInput.topology,
       })
     ).rejects.toThrow('topology contract');
     await expect(
       executeCloudflareEvidenceQualification(baseClient, {
         ...baseInput,
-        topology: {
-          ...baseInput.topology,
-          endpoint:
-            '/accounts/other-account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
-        },
+        topology: baseInput.topology.map((topology, index) =>
+          index === 2
+            ? {
+                ...topology,
+                endpoint:
+                  '/accounts/other-account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
+              }
+            : topology
+        ) as typeof baseInput.topology,
       })
     ).rejects.toThrow('topology contract');
     await expect(

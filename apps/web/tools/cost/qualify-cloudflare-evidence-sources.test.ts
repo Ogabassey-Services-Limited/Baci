@@ -5,6 +5,7 @@ import {
 } from './qualify-cloudflare-evidence-sources';
 import {
   pointerProbeReadback,
+  qualificationInput,
   readback,
 } from './qualify-cloudflare-evidence-sources.test-fixtures';
 
@@ -131,14 +132,7 @@ describe('Cloudflare read-only qualification contracts', () => {
             productionResourceState: 'present_verified',
           },
         },
-        topology: {
-          family: 'r2-custom-domain',
-          endpoint:
-            '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
-          requestSchemaSha256: 'a'.repeat(64),
-          responseSchemaSha256: 'b'.repeat(64),
-          maximumVisibilitySeconds: 60,
-        },
+        topology: qualificationInput.topology,
         zoneId: 'zone',
         ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
         ownerAcceptanceAuthority: () =>
@@ -168,6 +162,8 @@ describe('Cloudflare read-only qualification contracts', () => {
       '/zones/zone/purge_cache:zone:edge-evidence.ogabassey.com',
       'purge-read',
       'purge-readback',
+      'topology:worker-custom-domain:/accounts/account/workers/scripts/baci-evidence-qualification/domains/custom/edge-evidence.ogabassey.com:60',
+      'topology:r2-cors:/accounts/account/r2/buckets/bucket/cors:60',
       'topology:r2-custom-domain:/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com:60',
     ]);
     await expect(
@@ -202,14 +198,7 @@ describe('Cloudflare read-only qualification contracts', () => {
               productionResourceState: 'present_verified',
             },
           },
-          topology: {
-            family: 'r2-custom-domain',
-            endpoint:
-              '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
-            requestSchemaSha256: 'a'.repeat(64),
-            responseSchemaSha256: 'b'.repeat(64),
-            maximumVisibilitySeconds: 60,
-          },
+          topology: qualificationInput.topology,
           zoneId: 'zone',
           ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
           ownerAcceptanceAuthority: () =>

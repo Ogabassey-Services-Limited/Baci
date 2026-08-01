@@ -1,12 +1,11 @@
 import { z } from 'zod';
 import {
-  calculateCanonicalSha256,
-  canonicalizeJson,
-} from '../../../../packages/shared/src/storefront/delivery-evidence';
-import {
   calculateQualificationArtifactModuleListSha256,
+  matchesQualificationRunBindings,
   QualificationArtifactModuleListSchema,
   QualificationArtifactReadbackVersionSchema,
+  QualificationRunBindingSchema,
+  qualifyQualificationPointerCache,
 } from './cloudflare-evidence-qualification-artifact';
 import {
   type CloudflareOwnerAcceptanceAuthorityResolver,
@@ -59,6 +58,7 @@ export const ArtifactReadbackSchema = z
       .strict(),
     zeroWeightProof: ZeroWeightProofSchema,
     pointerCache: PointerCacheSchema,
+    runBinding: QualificationRunBindingSchema,
   })
   .strict();
 export type CloudflareWorkerArtifactReadbackQualification = z.infer<
@@ -86,6 +86,7 @@ export const ReviewedQualificationArtifactSchema = z
         soleVersionMetadataBinding: z.literal('CF_VERSION_METADATA'),
       })
       .strict(),
+    runBinding: QualificationRunBindingSchema,
   })
   .strict()
   .refine(
@@ -106,9 +107,7 @@ export const ReviewedQualificationArtifactSchema = z
 export type ReviewedQualificationArtifact = z.infer<
   typeof ReviewedQualificationArtifactSchema
 >;
-export function calculatePointerCacheCanonicalSha256(value: unknown) {
-  return calculateCanonicalSha256(canonicalizeJson(value));
-}
+export { calculatePointerCacheCanonicalSha256 } from './cloudflare-evidence-qualification-artifact';
 export function qualifyCloudflareEvidenceReadback(
   value: unknown,
   options: Readonly<{
@@ -122,6 +121,7 @@ export function qualifyCloudflareEvidenceReadback(
     expectedAccountId?: string;
     expectedOwnerApprovalId: string;
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
+    expectedRunBinding?: z.infer<typeof QualificationRunBindingSchema>;
   }>
 ):
   | { ok: true; qualification: z.infer<typeof ArtifactReadbackSchema> }
@@ -141,6 +141,17 @@ export function qualifyCloudflareEvidenceReadback(
     )
   )
     return { ok: false, reason: 'reviewed_artifacts_invalid' };
+  if (options.expectedRunBinding) {
+    const expectedBinding = options.expectedRunBinding;
+    if (
+      !matchesQualificationRunBindings(
+        receipt.runBinding,
+        expectedArtifacts.map(({ runBinding }) => runBinding),
+        expectedBinding
+      )
+    )
+      return { ok: false, reason: 'qualification_run_binding_mismatch' };
+  }
   const reviewedAccountIds = new Set(
     expectedArtifacts.map(({ accountId }) => accountId)
   );
@@ -246,23 +257,15 @@ export function qualifyCloudflareEvidenceReadback(
     receipt.versions[0].settingsSha256 === receipt.versions[1].settingsSha256
   )
     return { ok: false, reason: 'artifacts_not_distinguishable' };
-  const nowMs = (options.now ?? new Date()).valueOf();
-  const qualifiedAt = new Date(receipt.pointerCache.qualifiedAt).valueOf();
-  const expiresAt = new Date(receipt.pointerCache.expiresAt).valueOf();
   const maximumAgeSeconds = options.maximumAgeSeconds ?? 24 * 60 * 60;
-  if (
-    ![nowMs, qualifiedAt, expiresAt].every(Number.isFinite) ||
-    expiresAt < qualifiedAt ||
-    qualifiedAt > nowMs ||
-    expiresAt <= nowMs ||
-    nowMs - qualifiedAt > maximumAgeSeconds * 1000
-  )
+  const pointerCacheValidation = qualifyQualificationPointerCache(
+    receipt.pointerCache,
+    options.now ?? new Date(),
+    maximumAgeSeconds
+  );
+  if (!pointerCacheValidation.fresh)
     return { ok: false, reason: 'pointer_cache_qualification_expired' };
-  const { canonicalSha256: _ignored, ...withoutHash } = receipt.pointerCache;
-  if (
-    receipt.pointerCache.canonicalSha256 !==
-    calculatePointerCacheCanonicalSha256(withoutHash)
-  )
+  if (!pointerCacheValidation.fingerprintValid)
     return { ok: false, reason: 'pointer_cache_fingerprint_invalid' };
   return { ok: true, qualification: receipt };
 }

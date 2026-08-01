@@ -74,6 +74,7 @@ const dailyEvidence = {
   sourceEvidence: {
     invocation: {
       sourceFingerprint: 'invocation-v1',
+      requestCount: 1000,
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -102,6 +103,9 @@ const dailyEvidence = {
     },
     wafRateLimit: {
       sourceFingerprint: 'waf-v1',
+      rejectedMethodRequestCount: 0,
+      rejectedMethodOriginCount: 0,
+      allowedOriginRateLimitCount: 0,
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -260,6 +264,35 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
           },
         },
       }).success
+    ).toBe(false);
+  });
+  it('requires independently counted invocation and WAF/rate-limit projections', () => {
+    const missingInvocationCount = {
+      ...dailyEvidence,
+      sourceEvidence: {
+        ...dailyEvidence.sourceEvidence,
+        invocation: {
+          ...dailyEvidence.sourceEvidence.invocation,
+          requestCount: undefined,
+        },
+      },
+    };
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse(missingInvocationCount)
+        .success
+    ).toBe(false);
+    const missingWafCount = {
+      ...dailyEvidence,
+      sourceEvidence: {
+        ...dailyEvidence.sourceEvidence,
+        wafRateLimit: {
+          ...dailyEvidence.sourceEvidence.wafRateLimit,
+          allowedOriginRateLimitCount: undefined,
+        },
+      },
+    };
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse(missingWafCount).success
     ).toBe(false);
   });
   it('requires bounded per-host alias evidence', () => {

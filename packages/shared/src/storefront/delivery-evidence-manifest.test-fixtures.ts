@@ -72,6 +72,7 @@ const dailyEvidence = {
   sourceEvidence: {
     invocation: {
       sourceFingerprint: '1'.repeat(64),
+      requestCount: 1000,
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -100,6 +101,9 @@ const dailyEvidence = {
     },
     wafRateLimit: {
       sourceFingerprint: '3'.repeat(64),
+      rejectedMethodRequestCount: 0,
+      rejectedMethodOriginCount: 0,
+      allowedOriginRateLimitCount: 0,
       complete: true,
       exact: true,
       providerSamplingApplied: false,
