@@ -21,6 +21,30 @@ describe('product description writer file reading', () => {
     ).resolves.toEqual(['ONE', 'TWO', 'THREE']);
   });
 
+  it('never exceeds the requested read concurrency', async () => {
+    const files = ['one', 'two', 'three'];
+    const releases: Array<() => void> = [];
+    let inFlight = 0;
+    let peak = 0;
+    const result = readFilesWithConcurrency(files, 2, async (file) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise<void>((resolve) => releases.push(resolve));
+      inFlight -= 1;
+      return file;
+    });
+
+    expect(releases).toHaveLength(2);
+    releases.splice(0, 2).forEach((release) => release());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(releases).toHaveLength(1);
+    expect(peak).toBe(2);
+    releases[0]();
+    await expect(result).resolves.toEqual(files);
+  });
+
   it.each([0, -1, 1.5])(
     'rejects a non-positive or non-integer concurrency value: %s',
     async (concurrency) => {
