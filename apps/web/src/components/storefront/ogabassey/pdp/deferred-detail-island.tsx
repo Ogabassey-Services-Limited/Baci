@@ -20,15 +20,14 @@ function hasRenderableDescriptionContent(sanitizedDescription: string) {
     .trim();
   const imageTags = sanitizedDescription.match(/<img\b[^>]*>/gi) ?? [];
   const hasUsableImage = imageTags.some((imageTag) => {
-    const sourceMatch = imageTag.match(
-      /\b(?:src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i
-    );
-
-    return Boolean(
-      sourceMatch &&
-        [sourceMatch[1], sourceMatch[2], sourceMatch[3]].some((source) =>
-          source?.trim()
-        )
+    return Array.from(
+      imageTag.matchAll(
+        /\b(?:src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi
+      )
+    ).some((sourceMatch) =>
+      [sourceMatch[1], sourceMatch[2], sourceMatch[3]].some((source) =>
+        source?.trim()
+      )
     );
   });
 

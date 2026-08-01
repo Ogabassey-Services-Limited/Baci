@@ -218,6 +218,35 @@ SET LOCAL ROLE authenticated;
 DO $$
 DECLARE v_grant uuid;
 BEGIN
+  BEGIN
+    PERFORM public.request_product_description_attestation_grant(
+      '00000000-0000-4000-b000-000000000101',
+      '00000000-0000-4000-c000-000000000199',
+      '00000000-0000-4000-d000-000000000107',
+      NULL, NULL, NULL, repeat('1',64), true, 'manual_description');
+    RAISE EXCEPTION 'view-only staff received create authority';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'product_description_attestation_merchant_authority_required' THEN RAISE; END IF;
+  END;
+END;
+$$ LANGUAGE plpgsql;
+RESET ROLE;
+
+-- Grant only the product-create permission explicitly, leaving the default
+-- sales_rep role view-only so the preceding denial remains a behavioral check.
+SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-a000-000000000101","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+UPDATE public.staff_members
+SET permissions = '{"products":{"create":true}}'::jsonb
+WHERE merchant_id = '00000000-0000-4000-b000-000000000101'
+  AND user_id = '00000000-0000-4000-a000-000000000102';
+RESET ROLE;
+
+SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-a000-000000000102","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+DO $$
+DECLARE v_grant uuid;
+BEGIN
   SELECT grant_id INTO v_grant FROM public.request_product_description_attestation_grant(
     '00000000-0000-4000-b000-000000000101','00000000-0000-4000-c000-000000000199','00000000-0000-4000-d000-000000000107',NULL,NULL,NULL,repeat('1',64),true,'manual_description');
   IF v_grant IS NULL THEN RAISE EXCEPTION 'active staff new-product authority did not succeed'; END IF;

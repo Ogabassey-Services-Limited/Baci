@@ -98,6 +98,23 @@ describe('OgabasseyPdpDeferredDetailIsland source HTML', () => {
     );
   });
 
+  it('keeps a description panel when a later image source is usable', () => {
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland
+        product={{
+          ...product,
+          description:
+            '<img src="" srcset="https://example.com/laptop.avif 1x">',
+        }}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(sourceHtml).toContain(
+      'data-ogabassey-pdp-deferred-description-container'
+    );
+  });
+
   it('lazy-loads images in the initial server-rendered description handoff', () => {
     const sourceHtml = renderToStaticMarkup(
       <OgabasseyPdpDeferredDetailIsland
