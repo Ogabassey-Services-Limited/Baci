@@ -95,7 +95,8 @@ export default function EditBlogPostPage() {
           variant: 'destructive',
         });
     }
-    if (loadedFormData) recoverSavedDraft(loadedFormData);
+    if (loadedFormData || result.status === 'error')
+      recoverSavedDraft(loadedFormData);
     setIsLoading(false);
   });
 

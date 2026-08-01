@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { buildStorefrontBlogPostUrl } from './zoho-blog-campaign-dispatch';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+
+import { buildStorefrontBlogPostUrl } from './zoho-blog-storefront-url-server';
 
 const context = {
   canonicalMerchantSlug: 'ogabassey',

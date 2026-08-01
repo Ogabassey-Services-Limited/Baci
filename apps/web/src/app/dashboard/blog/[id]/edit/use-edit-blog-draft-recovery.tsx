@@ -29,10 +29,9 @@ export function useEditBlogDraftRecovery({
   const recoveredScopeKey = useRef<string | null>(null);
 
   return (loadedFormData: PostFormData | null) => {
-    if (!persistence.hasSavedData() || recoveredScopeKey.current === scopeKey) {
-      return;
-    }
+    if (recoveredScopeKey.current === scopeKey) return;
     recoveredScopeKey.current = scopeKey;
+    if (!persistence.hasSavedData()) return;
     const saved = persistence.getSavedData();
     if (!saved) return;
     const previousData = loadedFormData ?? { ...INITIAL_FORM_DATA };

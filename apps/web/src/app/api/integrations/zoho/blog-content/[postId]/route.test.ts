@@ -9,16 +9,29 @@ const mockQuery = {
   select: vi.fn(() => mockQuery),
 };
 
+vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => mockQuery),
 }));
 
-vi.mock('@/lib/zoho-blog-campaign-server', () => ({
+vi.mock('@/lib/zoho-blog-content-config-server', () => ({
   getConfiguredZohoBlogContentConfig: () => ({
     contentSecret: 'content-secret',
     publicBaseUrl: 'https://usebaci.com',
   }),
 }));
+
+vi.mock('@/lib/zoho-blog-campaign-server', () => {
+  throw new Error(
+    'Zoho blog-content route must not load the campaign-dispatch capability graph'
+  );
+});
+
+vi.mock('@/lib/zoho-blog-campaign-dispatch', () => {
+  throw new Error(
+    'Zoho blog-content route must not load the campaign-dispatch module'
+  );
+});
 
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogRevalidationContext: vi.fn(async () => ({
@@ -41,7 +54,7 @@ vi.mock('@/lib/merchant-zoho-campaign-settings', async () => {
   };
 });
 
-import { buildZohoBlogContentSignature } from '@/lib/zoho-blog-campaign-dispatch';
+import { buildZohoBlogContentSignature } from '@/lib/zoho-blog-content-signature-server';
 import { GET } from './route';
 
 const postId = '4db63f48-3577-4ef3-9e09-e3ec6af7a5a2';

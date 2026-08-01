@@ -30,8 +30,3 @@ export function dispatchConfiguredZohoBlogCampaign({
     supabase,
   });
 }
-
-/** Exposes only the config required by the server content-signature route. */
-export function getConfiguredZohoBlogContentConfig() {
-  return getZohoBlogCampaignRuntimeConfig();
-}
