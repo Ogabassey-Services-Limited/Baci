@@ -109,6 +109,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['m18 r3']);
   });
 
+  it('preserves both numbers in a convertible model phrase', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productSlugs: ['dell-14-plus-2-in-1'],
+    });
+
+    expect(identifiers).toEqual(['14 plus 2 in 1']);
+  });
+
   it('preserves the family marker for numeric model generations', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',
@@ -175,6 +185,36 @@ describe('getProductModelIdentifiers', () => {
     });
 
     expect(identifiers).toEqual(['10 pro']);
+  });
+
+  it('retains AirPods in generation-only identifiers', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'audio',
+      brands: ['Apple'],
+      productSlugs: ['apple-airpods-2'],
+    });
+
+    expect(identifiers).toEqual(['airpods 2']);
+  });
+
+  it('removes a leading used condition without truncating the model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Sony'],
+      productSlugs: ['used-xperia-1-vii'],
+    });
+
+    expect(identifiers).toEqual(['xperia 1 vii']);
+  });
+
+  it('keeps Ultra when it is a smartwatch model marker', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartwatches',
+      brands: ['Apple'],
+      productSlugs: ['apple-watch-ultra-2'],
+    });
+
+    expect(identifiers).toEqual(['watch ultra 2']);
   });
 
   it('retains model-family aliases in compound laptop identifiers', () => {

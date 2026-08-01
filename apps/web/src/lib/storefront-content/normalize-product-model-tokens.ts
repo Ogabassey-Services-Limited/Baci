@@ -36,6 +36,17 @@ const MERCHANDISING_SUFFIX_TOKENS = new Set([
   'white',
   'yellow',
 ]);
+const LEADING_CONDITION_TOKENS = new Set([
+  'clearance',
+  'new',
+  'open',
+  'premium',
+  'refurb',
+  'refurbished',
+  'sale',
+  'sealed',
+  'used',
+]);
 const REGION_OR_VARIANT_SUFFIX_TOKENS = new Set([
   'ca',
   'cn',
@@ -84,16 +95,29 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
   return tokens.slice(0, startsWithMarker ? markerIndex : suffixIndex);
 }
 
+function isConvertibleInConnector(tokens: string[], index: number) {
+  return (
+    tokens[index] === 'in' &&
+    /^\d+$/u.test(tokens[index - 1] ?? '') &&
+    /^\d+$/u.test(tokens[index + 1] ?? '')
+  );
+}
+
 /** Removes catalog suffixes that describe merchandising, region, or connectivity. */
 export function normalizeProductModelTokens(tokens: string[]) {
+  const withoutLeadingCondition = LEADING_CONDITION_TOKENS.has(tokens[0] ?? '')
+    ? tokens.slice(1)
+    : tokens;
   const withoutMerchandising = stripFirstMatchingSuffix(
-    tokens,
+    withoutLeadingCondition,
     (token, index) => index > 0 && MERCHANDISING_SUFFIX_TOKENS.has(token)
   );
   const withoutConnectivity =
     stripOptionalConnectivitySuffix(withoutMerchandising);
 
   return withoutConnectivity.filter(
-    (token) => !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token)
+    (token, index) =>
+      !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token) ||
+      isConvertibleInConnector(withoutConnectivity, index)
   );
 }

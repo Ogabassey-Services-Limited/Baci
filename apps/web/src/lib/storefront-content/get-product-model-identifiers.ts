@@ -23,8 +23,15 @@ const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'series',
   'version',
 ]);
-const MODEL_FAMILY_ALIAS_TOKENS = new Set(['legion', 'pavilion', 'redmi']);
+const MODEL_FAMILY_ALIAS_TOKENS = new Set([
+  'airpods',
+  'legion',
+  'pavilion',
+  'redmi',
+  'watch',
+]);
 const MODEL_LINE_MARKER_TOKENS = new Set(['air', 'pro']);
+const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
 
 interface BrandAliasGroup {
   brandTokens: string[];
@@ -124,13 +131,33 @@ function isDimensionToken(tokens: string[], index: number) {
     return false;
   }
 
+  const previousToken = tokens[index - 1] ?? '';
+  const nextToken = tokens[index + 1] ?? '';
+  if (
+    (previousToken === 'in' && isConvertibleInConnector(tokens, index - 1)) ||
+    (nextToken === 'in' && isConvertibleInConnector(tokens, index + 1))
+  ) {
+    return false;
+  }
+
   return (
-    ['in', 'inch'].includes(tokens[index - 1] ?? '') ||
-    ['in', 'inch'].includes(tokens[index + 1] ?? '')
+    ['in', 'inch'].includes(previousToken) || ['in', 'inch'].includes(nextToken)
   );
 }
 
-function stripTrailingProcessorTier(tokens: string[]) {
+function isConvertibleInConnector(tokens: string[], index: number) {
+  return (
+    tokens[index] === 'in' &&
+    /^\d+$/u.test(tokens[index - 1] ?? '') &&
+    /^\d+$/u.test(tokens[index + 1] ?? '')
+  );
+}
+
+function stripTrailingProcessorTier(tokens: string[], categorySlug: string) {
+  if (!LAPTOP_CATEGORY_SLUGS.has(categorySlug)) {
+    return tokens;
+  }
+
   const processorIndex = tokens.findIndex(
     (token, index) =>
       (token === 'ultra' || token === 'rtx') &&
@@ -139,7 +166,11 @@ function stripTrailingProcessorTier(tokens: string[]) {
   return processorIndex > 0 ? tokens.slice(0, processorIndex) : tokens;
 }
 
-function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
+function getModelTokens(
+  slug: string,
+  excludedTokens: ReadonlySet<string>,
+  categorySlug: string
+) {
   const rawTokens = normalizeProductModelTokens(
     tokenize(slug).filter((token) => !excludedTokens.has(token))
   );
@@ -153,17 +184,22 @@ function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
     (token, index) =>
       !SPECIFICATION_TOKEN_PATTERN.test(token) &&
       !YEAR_TOKEN_PATTERN.test(token) &&
-      !['in', 'inch'].includes(token) &&
+      token !== 'inch' &&
+      (token !== 'in' || isConvertibleInConnector(tokens, index)) &&
       !isDimensionToken(tokens, index)
   );
-  return stripTrailingProcessorTier(modelTokens);
+  return stripTrailingProcessorTier(modelTokens, categorySlug);
 }
 
 function getModelIdentifier(tokens: string[]) {
   const numericIndex = tokens.findLastIndex((token) => /^\d+$/u.test(token));
   if (numericIndex >= 0) {
+    const hasConvertibleModel = tokens.some((_, index) =>
+      isConvertibleInConnector(tokens, index)
+    );
     const phraseTokens = tokens.filter(
       (token, index) =>
+        (hasConvertibleModel && /^\d+$/u.test(token)) ||
         index === numericIndex ||
         (!/^\d+$/u.test(token) &&
           token.length > 1 &&
@@ -244,7 +280,8 @@ export function getProductModelIdentifiers(
               baseExcludedTokens,
               brandAliasGroups,
               protectedFamilyTokens
-            )
+            ),
+            context.categorySlug
           )
         )
         .map(getModelIdentifier)
