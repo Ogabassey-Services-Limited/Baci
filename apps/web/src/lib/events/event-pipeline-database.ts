@@ -138,7 +138,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
   ],
   authority: {
     // biome-ignore format: compact reviewed authority allowlist preserves the 300-line module gate.
-    adminImporters: ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts'],
+    adminImporters: ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts'],
     bareClientImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/api/analytics/conversion/route.ts',
@@ -148,12 +148,17 @@ export const EVENT_PIPELINE_BOUNDARY = {
     ],
     // Full import paths only. This is the sole fail-open Cloudflare hostname
     // scheduler path; it cannot grant URL purging or Supabase authority.
+    // biome-ignore format: reviewed full import paths preserve the 300-line module gate.
     credentialPaths: [
-      [
-        'apps/web/src/lib/storefront-product-purge-hostnames.ts',
-        'apps/web/src/lib/cloudflare-purge.ts',
-        'apps/web/src/env.ts',
-      ],
+      ['apps/web/src/lib/storefront-product-purge-hostnames.ts', 'apps/web/src/lib/cloudflare-purge.ts', 'apps/web/src/env.ts'],
+      ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
+      ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
+      ['apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
+      ['apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
+      ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-monitor-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
+      ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-monitor-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
+      ['apps/web/src/app/api/cron/gigl-tracking/route.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-monitor-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
+      ['apps/web/src/app/api/cron/gigl-tracking/route.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-monitor-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
     ],
     factoryModules: [
       'apps/web/src/lib/supabase/admin.ts',
@@ -174,6 +179,8 @@ export const EVENT_PIPELINE_BOUNDARY = {
     ],
     serviceImporters: [
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
+      'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
+      'apps/web/src/app/api/cron/gigl-tracking/route.ts',
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',

@@ -236,6 +236,7 @@ describe('push notification native loading', () => {
         p_platform: 'android',
         p_app_type: 'admin',
         p_build_number: 42,
+        p_shipment_update_capability: 1,
       })
     );
   });

@@ -169,6 +169,31 @@ describe('buildEditOrderPayload', () => {
     });
   });
 
+  it('preserves the existing city and state when the customer address is unchanged', () => {
+    const payload = buildPayload({
+      customer: {
+        address: '1 Baci Road',
+        email: 'ada@example.com',
+        id: 'customer-1',
+        name: 'Ada Buyer',
+        phone: '08030000000',
+      },
+      deliveryInfo: {
+        address: '1 Baci Road',
+        city: 'Lekki',
+        name: 'Ada Buyer',
+        phone: '08030000000',
+        state: 'Lagos',
+      },
+      sameAsCustomer: true,
+    });
+
+    expect(payload.shipping_address).toMatchObject({
+      city: 'Lekki',
+      state: 'Lagos',
+    });
+  });
+
   it('does not reuse stale delivery city/state when shipping matches the selected customer', () => {
     const payload = buildPayload({
       deliveryInfo: {
@@ -183,6 +208,32 @@ describe('buildEditOrderPayload', () => {
 
     expect(payload.shipping_address).toMatchObject({
       address: '1 Baci Road',
+      city: null,
+      state: null,
+    });
+  });
+
+  it('does not preserve stale locality when both customer and delivery addresses are blank', () => {
+    const payload = buildPayload({
+      customer: {
+        address: '',
+        email: 'ada@example.com',
+        id: 'customer-1',
+        name: 'Ada Buyer',
+        phone: '08030000000',
+      },
+      deliveryInfo: {
+        address: '',
+        city: 'Old City',
+        name: 'Ada Buyer',
+        phone: '08030000000',
+        state: 'Old State',
+      },
+      sameAsCustomer: true,
+    });
+
+    expect(payload.shipping_address).toMatchObject({
+      address: '',
       city: null,
       state: null,
     });

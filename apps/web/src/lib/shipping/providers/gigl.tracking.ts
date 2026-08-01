@@ -1,17 +1,13 @@
-import { mapGiglStatus } from '../status-mapper';
-import type { TrackingEvent, TrackingResult } from '../types';
+import type { TrackingResult } from '../types';
 import type { GiglApiClient } from './gigl.auth';
 import {
+  GIGL_TRACKING_RESPONSE_MAX_BYTES,
   GIGL_TRACKING_TIMEOUT_MS,
   type GiglProviderIo,
   isGiglAbortError,
-  PickupOptions,
 } from './gigl.constants';
 import { giglSchemas } from './gigl.schemas';
-
-type NormalizedTrackingEvent = TrackingEvent & {
-  status: TrackingResult['status'];
-};
+import { normalizeGiglTrackingShipment } from './gigl.tracking-normalizer';
 
 export async function trackGiglShipment(
   apiClient: GiglApiClient,
@@ -27,13 +23,14 @@ export async function trackGiglShipment(
     );
     const { envelope, response } =
       await apiClient.safeFetchEnvelopeWithAccessToken(
-        `${apiClient.baseUrl}/track/mobileShipment?Waybill=${encodeURIComponent(trackingNumber)}`,
+        `${apiClient.baseUrl}/track/mobileShipment?Waybill=${encodeURIComponent(trackingNumber)}&fetchOption=2`,
         tokenData,
         () => ({
           method: 'GET',
           timeout: GIGL_TRACKING_TIMEOUT_MS,
           signal,
-        })
+        }),
+        { maxResponseBytes: GIGL_TRACKING_RESPONSE_MAX_BYTES }
       );
 
     if (!response.ok) {
@@ -56,32 +53,11 @@ export async function trackGiglShipment(
     }
 
     const shipment = trackingData[0];
-    const events: NormalizedTrackingEvent[] = (
-      shipment.MobileShipmentTrackings || []
-    ).map((tracking) => ({
-      status: mapGiglStatus(tracking.Status),
-      description: tracking.ScanStatusReason || tracking.Status,
-      location: tracking.DepartureServiceCentre?.Name,
-      timestamp: new Date(tracking.DateTime),
-      rawStatus: tracking.Status,
-    }));
-    const sortedEvents = [...events].sort(
-      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-    );
-    const latestEvent = sortedEvents[0];
-    const status = latestEvent?.status ?? 'pending';
-    const actualDelivery =
-      status === 'delivered' && latestEvent ? latestEvent.timestamp : undefined;
+    if (!shipment) {
+      throw new Error('Shipment not found');
+    }
 
-    return {
-      provider: 'GIGL',
-      trackingNumber,
-      status,
-      carrierName: 'GIG Logistics',
-      actualDelivery,
-      events: sortedEvents,
-      isStationPickup: shipment.PickupOptions === PickupOptions.ServiceCentre,
-    };
+    return normalizeGiglTrackingShipment(shipment, trackingNumber, new Date());
   } catch (error) {
     if (signal.aborted || isGiglAbortError(error)) {
       io.log('warn', 'GIGL tracking timed out', {

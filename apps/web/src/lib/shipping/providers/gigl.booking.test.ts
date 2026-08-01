@@ -7,6 +7,7 @@ vi.hoisted(() => {
   process.env.GIGL_PASSWORD = 'test-password';
 });
 
+import type { OrderShipmentBookingError } from '../order-shipment-booking-utils';
 import { GiglApiClient } from './gigl.auth';
 import { bookGiglShipment } from './gigl.booking';
 import { GIGL_BOOKING_TIMEOUT_MS } from './gigl.constants';
@@ -80,7 +81,7 @@ describe('GiglProvider booking requests', () => {
         DeliveryType: 0,
         IsPriorityShipment: false,
         PricingStrategy: 3,
-        IsCashOnDelivery: 0,
+        IsCashOnDelivery: false,
         CashOnDeliveryAmount: 0,
         VehicleType: 1,
       },
@@ -215,6 +216,29 @@ describe('GiglProvider booking requests', () => {
       trackingNumber: 'GIGL-WB-1',
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('marks GIGL validation rejections as safe to retry before a waybill is created', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            message: '"ShipmentDetails.IsCashOnDelivery" must be a boolean',
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+    const provider = buildBookingHarness();
+
+    await expect(provider.bookShipment(bookingRequest)).rejects.toMatchObject({
+      code: 'GIGL_BOOKING_VALIDATION_FAILED',
+      status: 400,
+    } satisfies Partial<OrderShipmentBookingError>);
   });
 
   it('bounds slow booking token fetches with the GIGL booking timeout', async () => {

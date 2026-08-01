@@ -19,6 +19,7 @@ import { findNearestGiglServiceCentres } from './gigl.directory';
 import { getGiglQuotes } from './gigl.quotes';
 import { GiglStationsService } from './gigl.stations';
 import { trackGiglShipment } from './gigl.tracking';
+import { trackGiglShipmentBatch } from './gigl.tracking-batch';
 
 export class GiglProvider extends BaseShippingProvider {
   readonly code = 'GIGL' as const;
@@ -65,6 +66,16 @@ export class GiglProvider extends BaseShippingProvider {
 
   trackShipment(trackingNumber: string): Promise<TrackingResult> {
     return trackGiglShipment(this.apiClient, this.providerIo, trackingNumber);
+  }
+
+  trackShipments(
+    trackingNumbers: readonly string[]
+  ): Promise<Map<string, TrackingResult>> {
+    return trackGiglShipmentBatch(
+      this.apiClient,
+      this.providerIo,
+      trackingNumbers
+    );
   }
 
   cancelShipment(shipmentId: string): Promise<CancellationResult> {

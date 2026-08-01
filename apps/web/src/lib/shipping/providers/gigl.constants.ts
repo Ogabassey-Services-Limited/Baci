@@ -1,11 +1,8 @@
+import { readPositiveIntegerEnv } from './gigl.tracking-constants';
+
 function trimmedEnv(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
-}
-
-function positiveIntegerEnv(value: string | undefined): number | undefined {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 export function isExplicitlyDisabledEnv(value: string | undefined): boolean {
@@ -23,14 +20,31 @@ export const GIGL_PASSWORD = trimmedEnv(process.env.GIGL_PASSWORD);
 export const GIGL_ENABLED = !isExplicitlyDisabledEnv(process.env.GIGL_ENABLED);
 export const GIGL_TOKEN_EXPIRY_MS = 20 * 24 * 60 * 60 * 1000;
 export const GIGL_QUOTE_TIMEOUT_MS =
-  positiveIntegerEnv(process.env.GIGL_QUOTE_TIMEOUT_MS) || 5000;
+  readPositiveIntegerEnv(process.env.GIGL_QUOTE_TIMEOUT_MS) || 5000;
 export const GIGL_BOOKING_TIMEOUT_MS =
-  positiveIntegerEnv(process.env.GIGL_BOOKING_TIMEOUT_MS) || 10000;
+  readPositiveIntegerEnv(process.env.GIGL_BOOKING_TIMEOUT_MS) || 10000;
 export const GIGL_TRACKING_TIMEOUT_MS =
-  positiveIntegerEnv(process.env.GIGL_TRACKING_TIMEOUT_MS) || 5000;
+  readPositiveIntegerEnv(process.env.GIGL_TRACKING_TIMEOUT_MS) || 5000;
+export * from './gigl.tracking-constants';
 export const GIGL_STATIONS_TIMEOUT_MS =
-  positiveIntegerEnv(process.env.GIGL_STATIONS_TIMEOUT_MS) || 5000;
+  readPositiveIntegerEnv(process.env.GIGL_STATIONS_TIMEOUT_MS) || 5000;
 export const GIGL_STATIONS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+export const GIGL_TRACKING_MAX_EVENTS_PER_SHIPMENT = 500;
+export const GIGL_TRACKING_MAX_EVENTS_PER_BATCH = 5_000;
+export const GIGL_TRACKING_MAX_NOTIFICATIONS_PER_APPLY = 1_000;
+export const GIGL_TRACKING_WAYBILL_MAX_LENGTH = 128;
+export const GIGL_TRACKING_EVENT_ID_MAX_LENGTH = 128;
+export const GIGL_TRACKING_EVENT_KEY_MAX_LENGTH = 256;
+export const GIGL_TRACKING_RAW_STATUS_MAX_LENGTH = 128;
+export const GIGL_TRACKING_NORMALIZED_STATUS_MAX_LENGTH = 64;
+export const GIGL_TRACKING_DESCRIPTION_MAX_LENGTH = 2_048;
+export const GIGL_TRACKING_LOCATION_MAX_LENGTH = 512;
+export const GIGL_TRACKING_TIMESTAMP_MAX_LENGTH = 64;
+export const GIGL_TRACKING_MAX_FUTURE_SKEW_MS = 5 * 60 * 1_000;
+export const GIGL_TRACKING_RESPONSE_MAX_BYTES = 5 * 1_024 * 1_024;
+export const GIGL_LOGIN_RESPONSE_MAX_BYTES = 256 * 1_024;
+export const GIGL_TRACKING_RPC_EVENTS_MAX_BYTES = 2 * 1_024 * 1_024;
+export const GIGL_TRACKING_RPC_NOTIFICATIONS_MAX_BYTES = 512 * 1_024;
 
 export function isGiglRuntimeConfigured(): boolean {
   return Boolean(GIGL_ENABLED && GIGL_BASE_URL && GIGL_EMAIL && GIGL_PASSWORD);
@@ -45,6 +59,7 @@ export interface GiglToken {
 
 export type GiglApiEnvelope = {
   status: number;
+  success?: boolean;
   message?: string;
   data?: unknown;
 };

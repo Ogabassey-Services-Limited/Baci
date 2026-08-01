@@ -155,6 +155,7 @@ export async function savePushTokenToServer(
       p_device_name: getLoadedPushDeviceModule()?.modelName || 'Unknown Device',
       p_app_type: 'admin',
       p_build_number: resolveNativeBuildNumber(),
+      p_shipment_update_capability: 1,
     });
 
     if (error) {

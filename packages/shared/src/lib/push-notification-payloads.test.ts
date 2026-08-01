@@ -6,6 +6,15 @@ import {
 } from './push-notification-payloads';
 
 describe('getAdminNotificationNavigationTarget', () => {
+  it('routes shipment tracking payloads directly to the affected order', () => {
+    expect(
+      getAdminNotificationNavigationTarget({
+        type: 'shipment_tracking',
+        orderId: 'order-123',
+      })
+    ).toEqual({ screen: 'order', params: { id: 'order-123' } });
+  });
+
   it('routes new order payloads directly to the order when order_id is present', () => {
     expect(
       getAdminNotificationNavigationTarget({
@@ -51,6 +60,15 @@ describe('getAdminNotificationNavigationTarget', () => {
 });
 
 describe('getStorefrontNotificationNavigationTarget', () => {
+  it('routes shipment tracking payloads directly to the affected order', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'shipment_tracking',
+        orderId: 'order-456',
+      })
+    ).toEqual({ screen: 'order-details', params: { id: 'order-456' } });
+  });
+
   it('routes order update payloads to order details using snake_case order_id', () => {
     expect(
       getStorefrontNotificationNavigationTarget({

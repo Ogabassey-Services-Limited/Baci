@@ -11,6 +11,8 @@ import Expo, {
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
 import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
+import { createDeliveryStartBoundary } from '@/lib/push-delivery-boundary';
+import { filterPushTokensByShipmentUpdateCapability } from '@/lib/push-token-capability';
 import {
   getPushTokenDeactivationReason,
   shouldDeactivateForInvalidCredentials,
@@ -64,6 +66,12 @@ export interface NotificationSendResult {
   errors: string[];
 }
 
+type DeliveryStartOptions = {
+  onDeliveryStart?: () => void | Promise<void>;
+  onDeliveryRejected?: () => void | Promise<void>;
+  requiredShipmentUpdateCapability?: number;
+};
+
 /**
  * Notification channel types for Android
  */
@@ -112,7 +120,7 @@ export async function sendPushNotification(
  */
 export async function sendPushNotifications(
   messages: ExpoPushMessage[],
-  options?: { onDeliveryStart?: () => void }
+  options?: DeliveryStartOptions
 ): Promise<ExpoPushTicket[]> {
   if (messages.length === 0) return [];
 
@@ -148,39 +156,36 @@ export async function sendPushNotifications(
   // Chunk and send
   const chunks = _getExpo().chunkPushNotifications(validMessages);
   const sdkTickets: ExpoPushTicket[] = [];
-  let deliveryStarted = false;
-  const markDeliveryStarted = (): void => {
-    if (deliveryStarted) return;
-    options?.onDeliveryStart?.();
-    deliveryStarted = true;
-  };
+  const markDeliveryStarted = createDeliveryStartBoundary(
+    options?.onDeliveryStart
+  );
+  let allProviderResponsesDefinitive = true;
 
   for (const chunk of chunks) {
+    await markDeliveryStarted();
+
+    let chunkTickets: ExpoPushTicket[];
     try {
-      const chunkTickets = await _getExpo().sendPushNotificationsAsync(chunk);
-      if (chunkTickets.some((ticket) => ticket.status === 'ok')) {
-        markDeliveryStarted();
-      }
-      sdkTickets.push(...chunkTickets);
+      chunkTickets = await _getExpo().sendPushNotificationsAsync(chunk);
     } catch (error) {
       if (isMixedProjectPushError(error)) {
         console.warn(
           '[expo-push] Mixed-project token batch detected, retrying chunk per message'
         );
-        const fallbackTickets = await sendChunkIndividually(
+        const fallbackResult = await sendChunkIndividually(
           chunk,
           markDeliveryStarted
         );
-        if (fallbackTickets.some((ticket) => ticket.status === 'ok')) {
-          markDeliveryStarted();
-        }
-        sdkTickets.push(...fallbackTickets);
+        sdkTickets.push(...fallbackResult.tickets);
+        allProviderResponsesDefinitive &&=
+          fallbackResult.allProviderResponsesDefinitive;
         continue;
       }
 
-      // The request reached the SDK but threw without tickets, so Expo may
-      // have accepted it even though the outcome is unknowable locally.
-      markDeliveryStarted();
+      // A thrown request has an unknown delivery outcome. Preserve the
+      // no-replay boundary while synthesizing retryable error tickets.
+      allProviderResponsesDefinitive = false;
+
       // Synthesize error tickets for the failed chunk
       for (const _ of chunk) {
         sdkTickets.push({
@@ -189,7 +194,19 @@ export async function sendPushNotifications(
           details: { error: 'ExpoError' },
         });
       }
+      continue;
     }
+
+    sdkTickets.push(...chunkTickets);
+  }
+
+  if (
+    options?.onDeliveryRejected &&
+    allProviderResponsesDefinitive &&
+    sdkTickets.length === validMessages.length &&
+    sdkTickets.every((ticket) => ticket.status === 'error')
+  ) {
+    await options.onDeliveryRejected();
   }
 
   // Reassemble in original order
@@ -215,16 +232,21 @@ function isMixedProjectPushError(error: unknown): boolean {
 
 async function sendChunkIndividually(
   chunk: ExpoPushMessage[],
-  onDeliveryUnknown: () => void
-): Promise<ExpoPushTicket[]> {
+  markDeliveryStarted: () => Promise<void>
+): Promise<{
+  tickets: ExpoPushTicket[];
+  allProviderResponsesDefinitive: boolean;
+}> {
   const tickets: ExpoPushTicket[] = [];
+  let allProviderResponsesDefinitive = true;
 
   for (const message of chunk) {
+    await markDeliveryStarted();
     try {
       const [ticket] = await _getExpo().sendPushNotificationsAsync([message]);
       tickets.push(ticket);
     } catch (error) {
-      onDeliveryUnknown();
+      allProviderResponsesDefinitive = false;
       tickets.push({
         status: 'error',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -233,7 +255,7 @@ async function sendChunkIndividually(
     }
   }
 
-  return tickets;
+  return { tickets, allProviderResponsesDefinitive };
 }
 
 // ── Merchant / Customer delivery ─────────────────────────────────────────────
@@ -246,16 +268,21 @@ export async function notifyMerchant(
   title: string,
   body: string,
   data?: Record<string, unknown>,
-  channelId: NotificationChannel = 'general'
+  channelId: NotificationChannel = 'general',
+  options?: DeliveryStartOptions
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
-  const { data: tokens, error } = await supabase
-    .from('push_tokens')
-    .select('token, platform')
-    .eq('merchant_id', merchantId)
-    .eq('is_active', true)
-    .eq('app_type', 'admin');
+  const tokenQuery = filterPushTokensByShipmentUpdateCapability(
+    supabase
+      .from('push_tokens')
+      .select('token, platform')
+      .eq('merchant_id', merchantId)
+      .eq('is_active', true)
+      .eq('app_type', 'admin'),
+    options?.requiredShipmentUpdateCapability
+  );
+  const { data: tokens, error } = await tokenQuery;
 
   if (error) {
     console.error('Error fetching push tokens:', error);
@@ -304,7 +331,7 @@ export async function notifyMerchant(
 
   let result: NotificationSendResult;
   try {
-    const tickets = await sendPushNotifications(messages);
+    const tickets = await sendPushNotifications(messages, options);
 
     result = await processTickets(tickets, tokens, supabase, {
       merchantId,
@@ -345,7 +372,7 @@ export async function notifyCustomer(
   body: string,
   data?: Record<string, unknown>,
   channelId: NotificationChannel = 'orders',
-  options?: { merchantId?: string; onDeliveryStart?: () => void }
+  options?: { merchantId?: string } & DeliveryStartOptions
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
@@ -362,6 +389,10 @@ export async function notifyCustomer(
   if (options?.merchantId) {
     tokenQuery = tokenQuery.eq('merchant_id', options.merchantId);
   }
+  tokenQuery = filterPushTokensByShipmentUpdateCapability(
+    tokenQuery,
+    options?.requiredShipmentUpdateCapability
+  );
   const { data: tokens, error } = await tokenQuery;
 
   if (error) {
@@ -415,6 +446,7 @@ export async function notifyCustomer(
   try {
     const tickets = await sendPushNotifications(messages, {
       onDeliveryStart: options?.onDeliveryStart,
+      onDeliveryRejected: options?.onDeliveryRejected,
     });
 
     result = await processTickets(tickets, tokens, supabase, {

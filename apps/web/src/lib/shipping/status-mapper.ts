@@ -3,79 +3,15 @@
  * Normalizes shipment statuses from different providers to a unified format
  */
 
+import { mapKnownGiglStatus } from '@baci/shared/lib';
 import type { NormalizedShipmentStatus } from './types';
 
 // =============================================================================
 // GIGL STATUS MAPPING
 // =============================================================================
 
-const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
-  // Created / Booked
-  SHIPMENT_CREATED: 'booked',
-  Created: 'booked',
-  CREATED: 'booked',
-  Pending: 'pending',
-  PENDING: 'pending',
-
-  // Pickup
-  ASSIGNED_FOR_PICKUP: 'pickup_scheduled',
-  AssignedForPickup: 'pickup_scheduled',
-  PICKUP_SCHEDULED: 'pickup_scheduled',
-  PICKED_UP: 'picked_up',
-  PickedUp: 'picked_up',
-  Collected: 'picked_up',
-  COLLECTED: 'picked_up',
-
-  // Transit
-  IN_TRANSIT: 'in_transit',
-  SHIPMENT_IN_TRANSIT: 'in_transit',
-  InTransit: 'in_transit',
-  Processing: 'in_transit',
-  PROCESSING: 'in_transit',
-  Departed: 'in_transit',
-  DEPARTED: 'in_transit',
-  Arrived: 'in_transit',
-  ARRIVED: 'in_transit',
-
-  // Out for Delivery
-  OUT_FOR_DELIVERY: 'out_for_delivery',
-  OutForDelivery: 'out_for_delivery',
-  OnDelivery: 'out_for_delivery',
-  ON_DELIVERY: 'out_for_delivery',
-
-  // Delivered
-  DELIVERED: 'delivered',
-  Delivered: 'delivered',
-  SHIPMENT_DELIVERED: 'delivered',
-  'Shipment delivered': 'delivered',
-  COMPLETED: 'delivered',
-  Completed: 'delivered',
-
-  // Cancelled / Failed
-  CANCELLED: 'cancelled',
-  Cancelled: 'cancelled',
-  CANCELED: 'cancelled',
-  FAILED: 'failed',
-  Failed: 'failed',
-  DeliveryFailed: 'failed',
-  DELIVERY_FAILED: 'failed',
-
-  // Returned
-  RETURNED: 'returned',
-  Returned: 'returned',
-  ReturnedToSender: 'returned',
-  RETURNED_TO_SENDER: 'returned',
-};
-
 export function mapGiglStatus(status: string): NormalizedShipmentStatus {
-  const normalized = status.trim();
-  const screamingSnake = normalized
-    .replace(/[^a-z0-9]+/gi, '_')
-    .replace(/^_+|_+$/g, '')
-    .toUpperCase();
-  return (
-    GIGL_STATUS_MAP[normalized] || GIGL_STATUS_MAP[screamingSnake] || 'pending'
-  );
+  return mapKnownGiglStatus(status) ?? 'pending';
 }
 
 // =============================================================================

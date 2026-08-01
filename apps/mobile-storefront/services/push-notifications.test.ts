@@ -106,6 +106,7 @@ describe('savePushTokenToServer', () => {
         // Captured from Application.nativeBuildVersion ('646') for update-nudge
         // targeting.
         p_build_number: 646,
+        p_shipment_update_capability: 1,
       })
     );
   });

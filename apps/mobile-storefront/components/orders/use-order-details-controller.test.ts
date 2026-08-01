@@ -14,6 +14,7 @@ const mockRpc = jest.fn((..._args: unknown[]) => mockCanCancelRpc());
 const mockCancelOrder = jest.fn<(reason?: string) => Promise<boolean>>();
 const mockNotCancellableRef = { current: false };
 const mockRemoveChannel = jest.fn();
+const mockTrackingWakeup = { current: null as (() => void) | null };
 const mockUseLocalSearchParams = jest.fn<() => { id?: string }>();
 const mockAuthState: {
   user: { id: string } | null;
@@ -81,7 +82,21 @@ jest.mock('./order-details.helpers', () => ({
 
 jest.mock('@/lib/supabase', () => {
   const channel = {
-    on: jest.fn(() => channel),
+    on: jest.fn(
+      (
+        type: string,
+        config: { event?: string },
+        callback: (() => void) | undefined
+      ) => {
+        if (
+          type === 'broadcast' &&
+          config.event === 'shipment_tracking_changed'
+        ) {
+          mockTrackingWakeup.current = callback ?? null;
+        }
+        return channel;
+      }
+    ),
     subscribe: jest.fn(() => channel),
   };
   return {
@@ -112,6 +127,7 @@ jest.mock('@/lib/supabase', () => {
 describe('useOrderDetailsController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTrackingWakeup.current = null;
     mockNotCancellableRef.current = false;
     mockUseLocalSearchParams.mockReturnValue({ id: 'order-1' });
     mockAuthState.user = { id: 'user-1' };
@@ -316,5 +332,21 @@ describe('useOrderDetailsController', () => {
     );
 
     alertSpy.mockRestore();
+  });
+
+  it('refetches order details when the private shipment tracking wakeup arrives', async () => {
+    renderHook(() => useOrderDetailsController());
+    await waitFor(() => expect(mockTrackingWakeup.current).not.toBeNull());
+    const fetchCallsBefore = mockOrderSingle.mock.calls.length;
+
+    await act(async () => {
+      mockTrackingWakeup.current?.();
+    });
+
+    await waitFor(() =>
+      expect(mockOrderSingle.mock.calls.length).toBeGreaterThan(
+        fetchCallsBefore
+      )
+    );
   });
 });

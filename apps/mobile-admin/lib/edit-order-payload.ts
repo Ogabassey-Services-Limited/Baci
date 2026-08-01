@@ -137,16 +137,25 @@ export function buildEditOrderPayload({
   const sanitizedCustomerAddress = customer.address
     ? sanitizeAddress(customer.address)
     : '';
+  const deliveryAddress = sanitizeAddress(deliveryInfo.address);
+  const preservesCustomerLocality =
+    sameAsCustomer &&
+    sanitizedCustomerAddress.length > 0 &&
+    deliveryAddress === sanitizedCustomerAddress;
   const shippingAddress = sameAsCustomer
     ? {
         address: sanitizedCustomerAddress,
-        city: null,
+        city: preservesCustomerLocality
+          ? sanitizeText(deliveryInfo.city, 100) || null
+          : null,
         name: sanitizedCustomerName,
         phone: sanitizedCustomerPhone || '',
-        state: null,
+        state: preservesCustomerLocality
+          ? sanitizeText(deliveryInfo.state, 100) || null
+          : null,
       }
     : {
-        address: sanitizeAddress(deliveryInfo.address),
+        address: deliveryAddress,
         city: sanitizeText(deliveryInfo.city, 100) || null,
         name: sanitizeCustomerName(deliveryInfo.name),
         phone: sanitizePhone(deliveryInfo.phone),

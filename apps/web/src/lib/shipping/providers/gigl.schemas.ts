@@ -1,16 +1,18 @@
 import { z } from 'zod';
+import {
+  GIGL_TRACKING_DESCRIPTION_MAX_LENGTH,
+  GIGL_TRACKING_EVENT_ID_MAX_LENGTH,
+  GIGL_TRACKING_LOCATION_MAX_LENGTH,
+  GIGL_TRACKING_MAX_EVENTS_PER_SHIPMENT,
+  GIGL_TRACKING_RAW_STATUS_MAX_LENGTH,
+  GIGL_TRACKING_TIMESTAMP_MAX_LENGTH,
+} from './gigl.constants';
 
 const optionalStringSchema = z
   .string()
   .nullable()
   .optional()
   .transform((value) => value ?? undefined);
-
-const optionalStringWithDefaultSchema = z
-  .string()
-  .nullable()
-  .optional()
-  .transform((value) => value ?? '');
 
 const optionalNumberSchema = z
   .number()
@@ -21,6 +23,7 @@ const optionalNumberSchema = z
 const envelopeObject = z
   .object({
     status: optionalNumberSchema,
+    success: z.boolean().optional(),
     message: optionalStringSchema,
     data: z.unknown().optional(),
   })
@@ -132,18 +135,49 @@ const invoiceData = z
   })
   .loose();
 
+const boundedTrackingId = z
+  .number()
+  .int()
+  .nonnegative()
+  .safe()
+  .refine((value) => String(value).length <= GIGL_TRACKING_EVENT_ID_MAX_LENGTH);
+
+const boundedTrackingString = (max: number) =>
+  z
+    .string()
+    .max(max)
+    .nullable()
+    .optional()
+    .transform((value) => value ?? undefined);
+
+const serviceCentreLocation = z
+  .object({
+    Name: boundedTrackingString(GIGL_TRACKING_LOCATION_MAX_LENGTH),
+    Address: boundedTrackingString(GIGL_TRACKING_LOCATION_MAX_LENGTH),
+  })
+  .loose();
+
 const trackingEvent = z
   .object({
-    Status: z.string(),
-    ScanStatusReason: optionalStringWithDefaultSchema,
-    DateTime: z.string(),
-    DepartureServiceCentre: z
-      .object({
-        Name: z.string(),
-        Address: optionalStringSchema,
-      })
-      .loose()
-      .optional(),
+    MobileShipmentTrackingId: boundedTrackingId.optional(),
+    ShipmentTrackingId: boundedTrackingId.optional(),
+    Status: z.string().trim().min(1).max(GIGL_TRACKING_RAW_STATUS_MAX_LENGTH),
+    ScanStatusIncident: boundedTrackingString(
+      GIGL_TRACKING_DESCRIPTION_MAX_LENGTH
+    ),
+    ScanStatusReason: z
+      .string()
+      .max(GIGL_TRACKING_DESCRIPTION_MAX_LENGTH)
+      .nullable()
+      .optional()
+      .transform((value) => value ?? ''),
+    ScanStatusComment: boundedTrackingString(
+      GIGL_TRACKING_DESCRIPTION_MAX_LENGTH
+    ),
+    DateTime: boundedTrackingString(GIGL_TRACKING_TIMESTAMP_MAX_LENGTH),
+    DateTimeUtc: boundedTrackingString(GIGL_TRACKING_TIMESTAMP_MAX_LENGTH),
+    Location: boundedTrackingString(GIGL_TRACKING_LOCATION_MAX_LENGTH),
+    DepartureServiceCentre: serviceCentreLocation.optional(),
   })
   .loose();
 
@@ -156,6 +190,7 @@ const trackingShipment = z
     DeliveryType: optionalNumberSchema,
     MobileShipmentTrackings: z
       .array(trackingEvent)
+      .max(GIGL_TRACKING_MAX_EVENTS_PER_SHIPMENT)
       .nullish()
       .transform((value) => value ?? []),
   })

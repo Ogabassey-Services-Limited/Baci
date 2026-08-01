@@ -1,3 +1,5 @@
+import type { ShipmentTrackingStatus } from '@baci/shared/schemas';
+
 /**
  * Shipping Provider Types
  * Unified interfaces for GIGL and Topship integration
@@ -178,6 +180,8 @@ export interface TrackingEvent {
   location?: string;
   timestamp: Date;
   rawStatus?: string; // Original status from provider
+  providerEventId?: string;
+  providerEventKey?: string;
 }
 
 export interface TrackingResult {
@@ -185,6 +189,7 @@ export interface TrackingResult {
   trackingNumber: string;
   status: NormalizedShipmentStatus;
   carrierName: string;
+  hasRecognizedLifecycleEvent?: boolean;
   estimatedDelivery?: Date;
   actualDelivery?: Date;
   events: TrackingEvent[];
@@ -197,17 +202,7 @@ export interface TrackingResult {
 // STATUS TYPES
 // =============================================================================
 
-export type NormalizedShipmentStatus =
-  | 'pending'
-  | 'booked'
-  | 'pickup_scheduled'
-  | 'picked_up'
-  | 'in_transit'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'cancelled'
-  | 'failed'
-  | 'returned';
+export type NormalizedShipmentStatus = ShipmentTrackingStatus;
 
 export const SHIPMENT_STATUS_LABELS: Record<NormalizedShipmentStatus, string> =
   {

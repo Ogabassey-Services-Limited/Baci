@@ -3,6 +3,7 @@ export * from './dedupe-by-id';
 export * from './derive-category-slug';
 export * from './fetch-with-timeout';
 export * from './filter-by-location-phrase';
+export * from './gigl-tracking-status';
 export * from './is-finite-number';
 export * from './kuda-data-plan-bill-items';
 export * from './kuda-electricity-bill-items';

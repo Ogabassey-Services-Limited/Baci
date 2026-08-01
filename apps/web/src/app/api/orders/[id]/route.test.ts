@@ -1148,6 +1148,10 @@ describe('PATCH /api/orders/[id]', () => {
       'GIGL_INTERNATIONAL_RATE_INVALID',
       'Selected GIGL international rate is invalid',
     ],
+    [
+      'GIGL_BOOKING_VALIDATION_FAILED',
+      'GIGL rejected the shipment booking request. Please correct the order details and try again.',
+    ],
   ])('releases the booking lock when shipment booking fails with %s', async (code, message) => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',

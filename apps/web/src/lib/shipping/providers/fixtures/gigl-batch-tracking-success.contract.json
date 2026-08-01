@@ -1,0 +1,57 @@
+{
+  "status": 200,
+  "success": true,
+  "message": "Success",
+  "data": [
+    {
+      "Amount": 1200,
+      "Waybill": "SYNTHETIC-WB-1",
+      "WaybillLabel": "https://example.invalid/label-1",
+      "MobileShipmentTrackings": [
+        {
+          "DateTime": "2026-07-30 08:00:00 WAT",
+          "DateTimeUtc": "2026-07-30T07:00:00.000Z",
+          "DeliveryOption": 0,
+          "DepartureServiceCentre": { "Name": "Lagos" },
+          "DepartureServiceCentreId": 4,
+          "GrandTotal": 1200,
+          "Location": "Lagos",
+          "MobileShipmentTrackingId": 1001,
+          "PickupOptions": 0,
+          "ScanStatusComment": "Collected",
+          "ScanStatusIncident": "Collected from sender",
+          "ScanStatusReason": "Shipment collected",
+          "ServiceCentreId": 4,
+          "ShipmentTrackingId": 2001,
+          "Status": "MAPT",
+          "TrackingType": 1
+        }
+      ]
+    },
+    {
+      "Amount": 2400,
+      "Waybill": "SYNTHETIC-WB-2",
+      "WaybillLabel": "https://example.invalid/label-2",
+      "MobileShipmentTrackings": [
+        {
+          "DateTime": "2026-07-30 10:00:00 WAT",
+          "DateTimeUtc": "2026-07-30T09:00:00.000Z",
+          "DeliveryOption": 0,
+          "DepartureServiceCentre": { "Name": "Port Harcourt" },
+          "DepartureServiceCentreId": 2,
+          "GrandTotal": 2400,
+          "Location": "Port Harcourt",
+          "MobileShipmentTrackingId": 1002,
+          "PickupOptions": 0,
+          "ScanStatusComment": "Delivered",
+          "ScanStatusIncident": "Delivered",
+          "ScanStatusReason": "Shipment delivered",
+          "ServiceCentreId": 2,
+          "ShipmentTrackingId": 2002,
+          "Status": "Shipment delivered",
+          "TrackingType": 1
+        }
+      ]
+    }
+  ]
+}

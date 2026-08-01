@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('./gigl.tracking-batch', () => ({
+  trackGiglShipmentBatch: vi.fn(),
+}));
+
 import { GiglProvider, giglProvider } from './gigl';
+import { trackGiglShipmentBatch } from './gigl.tracking-batch';
+
+const trackGiglShipmentBatchMock = vi.mocked(trackGiglShipmentBatch);
 
 describe('GiglProvider orchestrator', () => {
   it('exports the singleton and provider metadata', () => {
@@ -18,5 +26,28 @@ describe('GiglProvider orchestrator', () => {
       message:
         'GIGL shipment cancellation must be done through their customer service',
     });
+  });
+
+  it('forwards batch waybills and preserves the batch result', async () => {
+    const provider = new GiglProvider();
+    const results = new Map();
+    trackGiglShipmentBatchMock.mockResolvedValueOnce(results);
+
+    await expect(provider.trackShipments(['WB-1', 'WB-2'])).resolves.toBe(
+      results
+    );
+    expect(trackGiglShipmentBatchMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      ['WB-1', 'WB-2']
+    );
+  });
+
+  it('preserves batch tracking errors', async () => {
+    const provider = new GiglProvider();
+    const error = new Error('batch failure');
+    trackGiglShipmentBatchMock.mockRejectedValueOnce(error);
+
+    await expect(provider.trackShipments(['WB-1'])).rejects.toBe(error);
   });
 });

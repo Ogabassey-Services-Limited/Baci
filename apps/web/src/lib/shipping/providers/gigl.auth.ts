@@ -1,6 +1,8 @@
 import type { z } from 'zod';
+import { fetchGiglWithAccessToken } from './gigl.auth-request';
 import {
   GIGL_EMAIL,
+  GIGL_LOGIN_RESPONSE_MAX_BYTES,
   GIGL_PASSWORD,
   GIGL_TOKEN_EXPIRY_MS,
   type GiglApiEnvelope,
@@ -10,22 +12,16 @@ import {
   getConfiguredGiglBaseUrl,
   withGiglTokenRequestTimeout,
 } from './gigl.constants';
+import {
+  type GiglResponseJsonOptions,
+  readResponseJson,
+  readResponseJsonWithTimeout,
+} from './gigl.response-json';
 import { giglSchemas } from './gigl.schemas';
 
-function readNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? value
-    : undefined;
-}
-
 function normalizeCustomerType(...values: unknown[]): number {
-  for (const value of values) {
-    const customerType = readNumber(value);
-    if (customerType !== undefined) {
-      return customerType;
-    }
-  }
-
+  for (const value of values)
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
   return 0;
 }
 
@@ -45,10 +41,12 @@ function unwrapApiEnvelope(payload: unknown): GiglApiEnvelope {
     nestedEnvelope.success &&
     (nestedEnvelope.data.data !== undefined ||
       nestedEnvelope.data.status !== undefined ||
+      nestedEnvelope.data.success !== undefined ||
       nestedEnvelope.data.message !== undefined)
   ) {
     return {
       status: nestedEnvelope.data.status ?? outer.status ?? 200,
+      success: nestedEnvelope.data.success ?? outer.success,
       message: nestedEnvelope.data.message || outer.message,
       data: nestedEnvelope.data.data,
     };
@@ -56,26 +54,17 @@ function unwrapApiEnvelope(payload: unknown): GiglApiEnvelope {
 
   return {
     status: outer.status ?? 200,
+    success: outer.success,
     message: outer.message,
     data: outer.data,
   };
 }
 
-function isAuthRejectedResponseStatus(status: number): boolean {
-  return status === 401 || status === 403;
-}
-
 function isAuthRejectedEnvelope(envelope: GiglApiEnvelope): boolean {
-  if (isAuthRejectedResponseStatus(envelope.status)) {
-    return true;
-  }
-
-  if (envelope.status >= 200 && envelope.status < 300) {
-    return false;
-  }
+  if (envelope.status === 401 || envelope.status === 403) return true;
 
   const message = envelope.message?.toLowerCase() ?? '';
-  return [
+  const hasAuthFailure = [
     'wrong authentication credentials',
     'unauthorized',
     'unauthorised',
@@ -87,6 +76,12 @@ function isAuthRejectedEnvelope(envelope: GiglApiEnvelope): boolean {
     'authorization failed',
     'authorization required',
   ].some((authFailure) => message.includes(authFailure));
+
+  if (envelope.success === false) {
+    return hasAuthFailure;
+  }
+
+  return !(envelope.status >= 200 && envelope.status < 300) && hasAuthFailure;
 }
 
 export class GiglApiClient {
@@ -110,10 +105,15 @@ export class GiglApiClient {
   ): T {
     const parsed = schema.safeParse(envelope.data);
     if (!parsed.success) {
+      const issues = parsed.error.issues.map(({ code, path }) => ({
+        code,
+        path,
+      }));
       this.io.log('warn', `Invalid GIGL ${description} response`, {
+        code: 'gigl_invalid_response',
+        issueCount: issues.length,
+        issues,
         status: envelope.status,
-        apiMessage: envelope.message,
-        issues: parsed.error.issues,
       });
       throw new Error(`Invalid GIGL ${description} response`);
     }
@@ -141,54 +141,93 @@ export class GiglApiClient {
   async safeFetchEnvelopeWithAccessToken(
     url: string,
     tokenData: GiglToken,
-    buildRequest: (tokenData: GiglToken) => GiglFetchOptions
+    buildRequest: (tokenData: GiglToken) => GiglFetchOptions,
+    responseOptions?: GiglResponseJsonOptions
   ): Promise<{
     envelope: GiglApiEnvelope | null;
     response: Response;
     tokenData: GiglToken;
   }> {
-    let result = await this.safeFetchWithAccessToken(
+    let result = await fetchGiglWithAccessToken(
+      this.io,
+      this.getApiToken.bind(this),
+      (token) => this.invalidateCachedToken(token),
       url,
       tokenData,
       buildRequest
     );
 
     if (!result.response.ok) {
-      return { ...result, envelope: null };
+      return {
+        envelope: null,
+        response: result.response,
+        tokenData: result.tokenData,
+      };
     }
 
-    let envelope = unwrapApiEnvelope(await result.response.json());
+    let envelope = unwrapApiEnvelope(
+      await readResponseJsonWithTimeout(
+        result.response,
+        result.requestOptions.timeout,
+        result.requestOptions.signal ?? undefined,
+        result.deadlineAt,
+        responseOptions
+      )
+    );
     if (!isAuthRejectedEnvelope(envelope)) {
-      return { ...result, envelope };
+      return {
+        envelope,
+        response: result.response,
+        tokenData: result.tokenData,
+      };
     }
 
     this.io.log(
       'warn',
       'GIGL token rejected in API envelope; refreshing token',
       {
+        code: 'gigl_token_rejected_envelope',
         status: envelope.status,
-        apiMessage: envelope.message,
       }
     );
     this.invalidateCachedToken(result.tokenData.token);
 
-    const retryOptions = buildRequest(result.tokenData);
+    const retryOptions = result.requestOptions;
     const refreshedToken = await this.getApiToken(
       retryOptions.timeout,
       retryOptions.signal ?? undefined
     );
-    result = await this.safeFetchWithAccessToken(
+    result = await fetchGiglWithAccessToken(
+      this.io,
+      this.getApiToken.bind(this),
+      (token) => this.invalidateCachedToken(token),
       url,
       refreshedToken,
       buildRequest
     );
 
     if (!result.response.ok) {
-      return { ...result, envelope: null };
+      return {
+        envelope: null,
+        response: result.response,
+        tokenData: result.tokenData,
+      };
     }
 
-    envelope = unwrapApiEnvelope(await result.response.json());
-    return { ...result, envelope };
+    envelope = unwrapApiEnvelope(
+      await readResponseJsonWithTimeout(
+        result.response,
+        result.requestOptions.timeout,
+        result.requestOptions.signal ?? undefined,
+        result.deadlineAt,
+        responseOptions
+      )
+    );
+    return {
+      envelope,
+      response: result.response,
+      tokenData: result.tokenData,
+    };
   }
 
   private async fetchApiToken(): Promise<GiglToken> {
@@ -205,20 +244,24 @@ export class GiglApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.text();
+      await response.body?.cancel().catch(() => undefined);
       this.io.log('error', 'GIGL login failed', {
+        code: 'gigl_login_http_error',
         status: response.status,
-        error,
       });
       throw new Error('GIGL API authentication failed');
     }
 
-    const envelope = unwrapApiEnvelope(await response.json());
+    const envelope = unwrapApiEnvelope(
+      await readResponseJson(response, {
+        maxResponseBytes: GIGL_LOGIN_RESPONSE_MAX_BYTES,
+      })
+    );
 
     if (envelope.status !== 200) {
       this.io.log('warn', 'Invalid GIGL login response', {
+        code: 'gigl_invalid_login_envelope',
         status: envelope.status,
-        apiMessage: envelope.message,
       });
       throw new Error('Invalid GIGL login response');
     }
@@ -246,47 +289,5 @@ export class GiglApiClient {
     if (!token || this.cachedToken?.token === token) {
       this.cachedToken = null;
     }
-  }
-
-  private async safeFetchWithAccessToken(
-    url: string,
-    tokenData: GiglToken,
-    buildRequest: (tokenData: GiglToken) => GiglFetchOptions
-  ): Promise<{ response: Response; tokenData: GiglToken }> {
-    const withAccessToken = (options: GiglFetchOptions, token: string) => {
-      const headers = new Headers(options.headers);
-      headers.set('access-token', token);
-
-      return {
-        ...options,
-        headers,
-      };
-    };
-
-    const initialOptions = buildRequest(tokenData);
-    let response = await this.io.safeFetch(
-      url,
-      withAccessToken(initialOptions, tokenData.token)
-    );
-
-    if (!isAuthRejectedResponseStatus(response.status)) {
-      return { response, tokenData };
-    }
-
-    this.io.log('warn', 'GIGL token rejected; refreshing token', {
-      status: response.status,
-    });
-    this.invalidateCachedToken(tokenData.token);
-
-    const refreshedToken = await this.getApiToken(
-      initialOptions.timeout,
-      initialOptions.signal ?? undefined
-    );
-    response = await this.io.safeFetch(
-      url,
-      withAccessToken(buildRequest(refreshedToken), refreshedToken.token)
-    );
-
-    return { response, tokenData: refreshedToken };
   }
 }
