@@ -173,4 +173,46 @@ describe('buildCommercialGuideLinks model-family context', () => {
       'https://ogabassey.com/blog/redmi-buyer-guide',
     ]);
   });
+
+  it('does not boost a cross-brand Galaxy A guide for Oppo A Series', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'oppo-a-series',
+          title: 'A Series Buyer Guide',
+          excerpt: 'Oppo A Series battery and performance expectations.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'oppo', 'a series'],
+          keywords: ['android'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'samsung-galaxy-a-series',
+          title: 'Samsung Galaxy A Series Buyer Guide',
+          excerpt: 'Galaxy A battery and performance expectations.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung', 'galaxy a series'],
+          keywords: ['android'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'category',
+        categorySlug: 'smartphones',
+        brands: ['Oppo'],
+        modelFamilySlug: 'a-series',
+        productSlugs: ['oppo-a5'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/oppo-a-series',
+      'https://ogabassey.com/blog/samsung-galaxy-a-series',
+    ]);
+  });
 });

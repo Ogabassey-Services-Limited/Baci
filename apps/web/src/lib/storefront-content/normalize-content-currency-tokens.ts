@@ -11,5 +11,6 @@ export function normalizeContentCurrencyTokens(value: string) {
       /[£$€₦]/gu,
       (symbol) => ` ${CURRENCY_TOKEN_BY_SYMBOL[symbol] ?? ''} `
     )
+    .replace(/\bus(\d+(?:\.\d+)?)\b/giu, ' usd $1')
     .replace(/\s+/gu, ' ');
 }

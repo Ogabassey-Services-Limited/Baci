@@ -127,10 +127,13 @@ function hasCleanIdentifierOccurrence(
 function matchesProductIdentifier(
   post: BuildCommercialGuideLinksInput['posts'][number],
   inferredTokens: string[],
-  identifierTokens: string[]
+  identifierTokens: string[],
+  hasBrandMatch: boolean
 ) {
   if (
     identifierTokens.length === 0 ||
+    (identifierTokens.every((token) => /^\d+$/u.test(token)) &&
+      !hasBrandMatch) ||
     !identifierTokens.every((token) => inferredTokens.includes(token))
   ) {
     return false;
@@ -194,12 +197,12 @@ export function buildCommercialGuideLinks(
       const normalizedBrands = (input.context.brands ?? []).map((brand) =>
         generateSlug(brand)
       );
-      if (
+      const hasBrandMatch =
         normalizedBrands.length > 0 &&
         inferred.brands.some((brand) =>
           normalizedBrands.includes(generateSlug(brand))
-        )
-      ) {
+        );
+      if (hasBrandMatch) {
         score += CONTENT_CLUSTER_SCORE.brandMatch;
       }
 
@@ -214,11 +217,13 @@ export function buildCommercialGuideLinks(
         matchesProductIdentifier(
           post,
           inferred.tokens,
-          tokenizeModelIdentifier(identifier)
+          tokenizeModelIdentifier(identifier),
+          hasBrandMatch
         )
       );
       const hasModelFamilyMatch =
         modelFamilyTokens.length > 0 &&
+        hasBrandMatch &&
         modelFamilyTokens.every((token) => inferred.tokens.includes(token)) &&
         (modelFamilyTokens.length === 1
           ? hasContextualSingleTokenFamilyMatch(
@@ -236,7 +241,8 @@ export function buildCommercialGuideLinks(
             matchesProductIdentifier(
               post,
               inferred.tokens,
-              tokenizeModelIdentifier(identifier)
+              tokenizeModelIdentifier(identifier),
+              hasBrandMatch
             )
         );
       const qualifiesForProductTokenMatch =

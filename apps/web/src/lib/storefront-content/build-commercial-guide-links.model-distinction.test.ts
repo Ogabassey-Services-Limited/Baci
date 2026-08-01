@@ -248,4 +248,30 @@ describe('buildCommercialGuideLinks model distinctions', () => {
       'https://ogabassey.com/blog/psn-card-gbp-50-guide'
     );
   });
+
+  it('does not promote a standalone phone number without brand context', () => {
+    const context = {
+      pageKind: 'category',
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: ['iphone-15-6gb-256gb-wifi-only'],
+    } satisfies BuildCommercialGuideLinksContext;
+    const posts = [
+      post('15-best-smartphones', '15 Best Smartphones', 'Smartphones', [
+        'smartphones',
+        'best',
+      ]),
+      post('14-best-smartphones', '14 Best Smartphones', 'Smartphones', [
+        'smartphones',
+        'best',
+      ]),
+    ].map((entry, index) => ({
+      ...entry,
+      published_at: `2026-04-${String(index + 10).padStart(2, '0')}T09:00:00.000Z`,
+    }));
+
+    expect(firstGuide(context, posts)).toBe(
+      'https://ogabassey.com/blog/14-best-smartphones'
+    );
+  });
 });

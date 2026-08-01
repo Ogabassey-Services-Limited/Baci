@@ -118,4 +118,15 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
 
     expect(identifiers).toEqual(['tab s9 plus']);
   });
+
+  it('removes a leading headset form factor before the JBL model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'audio',
+      brands: ['JBL'],
+      productNames: ['Headset JBL Quantum 100'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['quantum 100']);
+  });
 });

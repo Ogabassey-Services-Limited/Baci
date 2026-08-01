@@ -9,4 +9,12 @@ describe('normalizeContentCurrencyTokens', () => {
 
     expect(normalized).toBe('PSN Card gbp 50, usd 50, eur 50, and ngn 50');
   });
+
+  it('canonicalizes compact US gift-card denominations', () => {
+    const normalized = normalizeContentCurrencyTokens(
+      'Steam US100 and Steam us10 Gift Card'
+    );
+
+    expect(normalized).toBe('Steam usd 100 and Steam usd 10 Gift Card');
+  });
 });
