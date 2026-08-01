@@ -11,11 +11,17 @@ import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
  * 2026 Best Practice: Keep secrets on the server and use server actions for secure URL generation.
  * IMPORTANT: encodeURIComponent is required for secrets containing special characters like +, /, =
  */
-export async function getPreviewUrl(
+type GetPreviewUrl = (
   merchantId: string,
   merchantSlug: string,
   postSlug: string
-) {
+) => Promise<string>;
+
+export const getPreviewUrl: GetPreviewUrl = async (
+  merchantId: unknown,
+  merchantSlug: string,
+  postSlug: string
+) => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,7 +32,9 @@ export async function getPreviewUrl(
     throw new Error('Unauthorized');
   }
 
-  const parsedMerchantId = merchantIdParamSchema.safeParse(merchantId.trim());
+  const parsedMerchantId = merchantIdParamSchema.safeParse(
+    typeof merchantId === 'string' ? merchantId.trim() : merchantId
+  );
   if (!parsedMerchantId.success) {
     throw new Error('Merchant not found or access denied');
   }
@@ -59,4 +67,4 @@ export async function getPreviewUrl(
   const encodedPostSlug = encodeURIComponent(postSlug);
   const encodedMerchantSlug = encodeURIComponent(merchantSlug);
   return `/api/blog/preview?secret=${encodedSecret}&slug=${encodedPostSlug}&merchantSlug=${encodedMerchantSlug}`;
-}
+};

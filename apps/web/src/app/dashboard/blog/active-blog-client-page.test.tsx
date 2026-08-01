@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -37,6 +37,29 @@ describe('ActiveBlogClientPage', () => {
       'Loading blog feature'
     );
     expect(screen.queryByText('Blog Feature')).not.toBeInTheDocument();
+  });
+
+  it('shows a retryable alert instead of the disabled gate when loading the active merchant feature fails', () => {
+    const refresh = vi.fn();
+    useMerchantFeatures.mockReturnValue({
+      blogEnabled: false,
+      error: 'Failed to fetch settings',
+      isLoading: false,
+      refresh,
+    });
+
+    render(
+      <ActiveBlogClientPage activeMerchant={merchant} merchant={merchant} />
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "We couldn't load the blog feature settings."
+    );
+    expect(screen.queryByText('Blog Feature')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(refresh).toHaveBeenCalledOnce();
   });
 
   it('shows the feature card while the active merchant has blogging disabled', () => {

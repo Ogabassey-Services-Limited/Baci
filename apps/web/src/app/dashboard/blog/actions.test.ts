@@ -26,6 +26,11 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 const { getPreviewUrl } = await import('./actions');
+const getPreviewUrlFromUntrustedInput = getPreviewUrl as unknown as (
+  merchantId: unknown,
+  merchantSlug: string,
+  postSlug: string
+) => Promise<string>;
 
 const selectedMerchantId = '22222222-2222-4222-8222-222222222222';
 
@@ -83,6 +88,19 @@ describe('getPreviewUrl', () => {
   it('rejects a malformed merchant ID before resolving merchant access', async () => {
     await expect(
       getPreviewUrl('not-a-uuid', 'store slug', 'draft-post')
+    ).rejects.toThrow('Merchant not found or access denied');
+
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.getBlogPreviewSecret).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    null,
+    42,
+    { id: selectedMerchantId },
+  ])('rejects a non-string merchant ID (%p) through the controlled denial path', async (merchantId) => {
+    await expect(
+      getPreviewUrlFromUntrustedInput(merchantId, 'store slug', 'draft-post')
     ).rejects.toThrow('Merchant not found or access denied');
 
     expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();

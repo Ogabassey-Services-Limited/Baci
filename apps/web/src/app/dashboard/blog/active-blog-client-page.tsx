@@ -16,10 +16,40 @@ export function ActiveBlogClientPage({
   initialCounts,
   merchant,
 }: ActiveBlogClientPageProps) {
-  const { blogEnabled, isLoading } = useMerchantFeatures(activeMerchant.id);
+  const { blogEnabled, error, isLoading, refresh } = useMerchantFeatures(
+    activeMerchant.id
+  );
 
   if (isLoading) {
     return <div role="status">Loading blog feature</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Blog</h1>
+          <p className="text-muted-foreground">
+            Create and manage blog posts for your store
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive" role="alert">
+              We couldn&apos;t load the blog feature settings.
+            </p>
+            <Button
+              className="mt-3"
+              onClick={refresh}
+              size="sm"
+              variant="outline"
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (!blogEnabled) {
