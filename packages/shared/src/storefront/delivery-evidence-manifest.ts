@@ -33,6 +33,7 @@ const SourceFingerprintsSchema = z
     aliasRedirect: Hash,
     wafRateLimit: Hash,
     originEvent: Hash,
+    syntheticQualification: Hash,
   })
   .strict();
 const EvidenceSourceSchema = z.enum(['worker-analytics', 'worker-log']);
@@ -71,6 +72,8 @@ export const StorefrontDeliveryEvidenceManifestSchema = z
     eligibilityPolicySha256: Hash,
     aliasRulesetVersion: z.string().min(1),
     wafRulesetVersion: z.string().min(1),
+    responseHeaderRulesetSha256: Hash,
+    rawOriginRobotsTxtSha256: Hash,
     workerDeploymentId: z.string().min(1),
     originOnlyVersionId: z.string().min(1),
     edgeVersionId: z.string().min(1),
@@ -177,6 +180,8 @@ export function validateStorefrontDeliveryManifest(
     'eligibilityPolicySha256',
     'aliasRulesetVersion',
     'wafRulesetVersion',
+    'responseHeaderRulesetSha256',
+    'rawOriginRobotsTxtSha256',
     'workerDeploymentId',
     'originOnlyVersionId',
     'edgeVersionId',

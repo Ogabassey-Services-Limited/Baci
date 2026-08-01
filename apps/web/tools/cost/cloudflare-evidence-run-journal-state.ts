@@ -46,6 +46,8 @@ export type CloudflareEvidenceRunJournal = {
   approvalId: string;
   policyId: string;
   policySha256?: string;
+  /** Fingerprint of the separately reviewed read-only measurement policy. */
+  readPolicySha256: string;
   toolingMergeSha: string;
   writeTokenId: string;
   readTokenId: string;

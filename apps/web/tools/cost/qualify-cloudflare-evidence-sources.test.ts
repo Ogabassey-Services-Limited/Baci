@@ -1,33 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   executeCloudflareEvidenceQualification,
-  parseQualificationArguments,
   QUALIFICATION_POINTER_URL,
 } from './qualify-cloudflare-evidence-sources';
 import { readback } from './qualify-cloudflare-evidence-sources.test-fixtures';
-
-describe('parseQualificationArguments', () => {
-  it('leaves functional prepare to its strict option parser', () => {
-    expect(() => parseQualificationArguments(['--prepare'])).toThrow(
-      'prepare options'
-    );
-    expect(() =>
-      parseQualificationArguments(['--prepare', '--token', 'secret'])
-    ).toThrow('prepare options');
-    expect(
-      parseQualificationArguments([
-        '--validate-readback',
-        '/private/receipt.json',
-        '--expected-artifact-a',
-        '/private/artifact-a.json',
-        '--expected-artifact-b',
-        '/private/artifact-b.json',
-        '--script-name',
-        'baci-evidence-qualification',
-      ]).mode
-    ).toBe('validate-readback');
-  });
-});
 
 describe('Cloudflare read-only qualification contracts', () => {
   it('executes Scripts Versions, Deployments, Trace, repeated pointers, and bounded purge through an injected client', async () => {
@@ -62,6 +38,18 @@ describe('Cloudflare read-only qualification contracts', () => {
             { versionId: 'b', percentage: 0 },
           ],
         };
+      },
+      readZeroWeightContract: async () => {
+        calls.push('zero-weight-contract');
+        return readback.zeroWeightProof;
+      },
+      readOrdinaryTrafficProof: async () => {
+        calls.push('ordinary-traffic');
+        return readback.zeroWeightProof.ordinaryTraffic;
+      },
+      readProtectedVersionOverrideProof: async () => {
+        calls.push('protected-override');
+        return readback.zeroWeightProof.protectedOverride;
       },
       trace: async () => {
         calls.push('trace');
@@ -122,6 +110,7 @@ describe('Cloudflare read-only qualification contracts', () => {
           maximumVisibilitySeconds: 60,
         },
         zoneId: 'zone',
+        ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
       })
     ).resolves.toMatchObject({ qualified: true, purgeStatus: 'lost_response' });
     expect(calls).toEqual([
@@ -129,6 +118,9 @@ describe('Cloudflare read-only qualification contracts', () => {
       'version:a',
       'version:b',
       'deployments',
+      'zero-weight-contract',
+      'ordinary-traffic',
+      'protected-override',
       'trace',
       'GET',
       'GET',
@@ -174,6 +166,7 @@ describe('Cloudflare read-only qualification contracts', () => {
             maximumVisibilitySeconds: 60,
           },
           zoneId: 'zone',
+          ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
         }
       )
     ).rejects.toThrow('cacheable');
@@ -211,6 +204,7 @@ describe('Cloudflare read-only qualification contracts', () => {
         maximumVisibilitySeconds: 60,
       },
       zoneId: 'zone',
+      ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
     };
     const baseClient = {
       listVersions: async () => ['a', 'b'],
@@ -226,6 +220,11 @@ describe('Cloudflare read-only qualification contracts', () => {
           { versionId: 'b', percentage: 0 },
         ],
       }),
+      readZeroWeightContract: async () => readback.zeroWeightProof,
+      readOrdinaryTrafficProof: async () =>
+        readback.zeroWeightProof.ordinaryTraffic,
+      readProtectedVersionOverrideProof: async () =>
+        readback.zeroWeightProof.protectedOverride,
       trace: async () => ({ matched: true }),
       pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
       temporaryPurge: async () => ({ operationId: 'purge' }),

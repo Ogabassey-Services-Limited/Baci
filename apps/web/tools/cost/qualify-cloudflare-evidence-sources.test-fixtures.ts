@@ -33,6 +33,43 @@ export const readback = {
       { versionId: 'b', percentage: 0 },
     ],
   },
+  zeroWeightProof: {
+    zeroWeightDeploymentSupported: true,
+    zeroWeightOpenApiContradiction: true,
+    productDocumentSha256: '1'.repeat(64),
+    openApiSha256: '2'.repeat(64),
+    openApiMinimumWeight: 0.01,
+    visibilityBoundSeconds: 60,
+    deployment: {
+      deploymentId: 'deployment',
+      versions: [
+        { versionId: 'a', percentage: 100 },
+        { versionId: 'b', percentage: 0 },
+      ],
+    },
+    ordinaryTraffic: {
+      requestSha256: '3'.repeat(64),
+      responseSha256: '4'.repeat(64),
+      requestCount: 4,
+      aInvocationCount: 4,
+      bInvocationCount: 0,
+      visibilityBoundSeconds: 60,
+    },
+    protectedOverride: {
+      requestSha256: '5'.repeat(64),
+      responseSha256: '6'.repeat(64),
+      requestCount: 1,
+      servedVersionId: 'b',
+      versionMetadataVersionId: 'b',
+      visibilityBoundSeconds: 60,
+    },
+    ownerAcceptance: {
+      accepted: true,
+      approvalId: 'owner-approval',
+      acceptedAt: '2026-07-31T00:00:00.000Z',
+      receiptSha256: '7'.repeat(64),
+    },
+  } as const,
   pointerCache: {
     pointerUrl: QUALIFICATION_POINTER_URL,
     cacheRuleId: 'rule',

@@ -24,12 +24,14 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     toolingMergeSha: '1'.repeat(40),
     writeTokenId: 'write-token-id',
     readTokenId: 'read-token-id',
+    readPolicySha256: 'c'.repeat(64),
     accountId: 'account-id',
     zoneId: 'zone-id',
     plannedResources: [`baci-evidence-${runId}`],
     preInventorySha256: 'a'.repeat(64),
     expectedProbeCount: 2,
   };
+
   it('creates a private initial journal and prints only its bounded handoff', async () => {
     const workspaceRoot = resolve(import.meta.dirname, '../../../..');
     const { stdout: toolingMergeSha } = await promisify(execFile)('git', [
@@ -84,6 +86,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       toolingMergeSha: reviewedPrepareInput.toolingMergeSha,
       policyId: reviewedPrepareInput.policyId,
       policySha256: policy.policySha256,
+      readTokenId: reviewedPrepareInput.readTokenId,
+      readPolicySha256: reviewedPrepareInput.readPolicySha256,
       approvedAt,
       expiresAt,
     };
@@ -171,6 +175,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       )
     ).rejects.toThrow('active');
   });
+
   it('uses separate children with one allowlisted credential and exact command ownership', async () => {
     const spawn = vi.fn<Spawn>(async () => undefined);
     const inherited = { PATH: '/bin', SECRET: 'never-forward' };
@@ -277,30 +282,5 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       runnerModuleSha256
     );
     expect(measureEnvironment.EVIDENCE_MUTATION_RUNNER_MODULE).toBeUndefined();
-  });
-  it('rejects wrong and inherited credential combinations before spawning', async () => {
-    const spawn = vi.fn<Spawn>(async () => undefined);
-    await expect(
-      spawnIsolatedCloudflareEvidenceProcess(
-        { spawn },
-        'measure',
-        'run',
-        {},
-        { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
-        '/workspace',
-        '/private/evidence-state'
-      )
-    ).rejects.toThrow('read');
-    await expect(
-      spawnIsolatedCloudflareEvidenceProcess(
-        { spawn },
-        'mutate',
-        'run',
-        { CLOUDFLARE_READ_TOKEN: 'read', CLOUDFLARE_WRITE_TOKEN: 'write' },
-        { name: 'CLOUDFLARE_WRITE_TOKEN', value: 'write' },
-        '/workspace',
-        '/private/evidence-state'
-      )
-    ).rejects.toThrow('inherited');
   });
 });

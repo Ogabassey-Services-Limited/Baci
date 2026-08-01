@@ -114,3 +114,13 @@ export async function runQualificationCli(
     io.setExitCode(1);
   }
 }
+
+export function runQualificationCliFromProcess() {
+  void runQualificationCli(process.argv.slice(2), process.env, {
+    stdout: (value) => process.stdout.write(value),
+    stderr: (value) => process.stderr.write(value),
+    setExitCode: (code) => {
+      process.exitCode = code;
+    },
+  });
+}

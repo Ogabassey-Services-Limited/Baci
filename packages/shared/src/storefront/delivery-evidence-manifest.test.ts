@@ -12,6 +12,8 @@ const dailyEvidence = {
   eligibilityPolicySha256: 'b'.repeat(64),
   aliasRulesetVersion: 'alias-v1',
   wafRulesetVersion: 'waf-v1',
+  responseHeaderRulesetSha256: 'c'.repeat(64),
+  rawOriginRobotsTxtSha256: 'd'.repeat(64),
   workerDeploymentId: 'deployment-v1',
   originOnlyVersionId: 'origin-v1',
   edgeVersionId: 'edge-v1',
@@ -23,6 +25,7 @@ const dailyEvidence = {
   invocationCountExact: true,
   workerInvocationCount: 1000,
   totalDecisionCount: 1000,
+  syntheticQualificationRequestCount: 0,
   canonicalEligibleRequestCount: 1000,
   canonicalEligibleOriginAttemptCount: 0,
   dynamicOriginAttemptCount: 0,
@@ -63,6 +66,14 @@ const dailyEvidence = {
     },
     originEvent: {
       sourceFingerprint: '4'.repeat(64),
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+    syntheticQualification: {
+      sourceFingerprint: '5'.repeat(64),
+      requestCount: 0,
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -113,6 +124,8 @@ const manifest = () => {
     eligibilityPolicySha256: 'b'.repeat(64),
     aliasRulesetVersion: 'alias-v1',
     wafRulesetVersion: 'waf-v1',
+    responseHeaderRulesetSha256: 'c'.repeat(64),
+    rawOriginRobotsTxtSha256: 'd'.repeat(64),
     workerDeploymentId: 'deployment-v1',
     originOnlyVersionId: 'origin-v1',
     edgeVersionId: 'edge-v1',
@@ -121,6 +134,7 @@ const manifest = () => {
       aliasRedirect: '2'.repeat(64),
       wafRateLimit: '3'.repeat(64),
       originEvent: '4'.repeat(64),
+      syntheticQualification: '5'.repeat(64),
     },
     evidenceSource: 'worker-analytics' as const,
     days,
@@ -186,6 +200,39 @@ describe('validateStorefrontDeliveryManifest', () => {
       ).toMatchObject({
         ok: false,
         reasonCodes: expect.arrayContaining(['source_fingerprint_drift']),
+      });
+    }
+    const syntheticCandidate = manifest();
+    syntheticCandidate.days[3].sourceEvidence.syntheticQualification = {
+      ...syntheticCandidate.days[3].sourceEvidence.syntheticQualification,
+      sourceFingerprint: 'f'.repeat(64),
+    };
+    syntheticCandidate.days[3].sha256 =
+      calculateStorefrontDeliveryDailyEvidenceSha256(
+        syntheticCandidate.days[3]
+      );
+    expect(
+      validateStorefrontDeliveryManifest(syntheticCandidate, { now })
+    ).toMatchObject({
+      ok: false,
+      reasonCodes: expect.arrayContaining(['source_fingerprint_drift']),
+    });
+  });
+  it('rejects daily response-header and raw-origin robots identity drift even with a resealed daily hash', () => {
+    for (const key of [
+      'responseHeaderRulesetSha256',
+      'rawOriginRobotsTxtSha256',
+    ] as const) {
+      const candidate = manifest();
+      candidate.days[3][key] = 'f'.repeat(64);
+      candidate.days[3].sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(
+        candidate.days[3]
+      );
+      expect(
+        validateStorefrontDeliveryManifest(candidate, { now })
+      ).toMatchObject({
+        ok: false,
+        reasonCodes: expect.arrayContaining(['fingerprint_drift']),
       });
     }
   });

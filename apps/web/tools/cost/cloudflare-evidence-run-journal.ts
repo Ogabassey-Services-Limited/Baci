@@ -101,6 +101,8 @@ export async function openEvidenceRun(
       throw new Error('expected probe count is not the reviewed probe matrix');
     if (input.writeTokenId === input.readTokenId)
       throw new Error('write and read tokens must be distinct');
+    if (!/^[a-f0-9]{64}$/.test(input.readPolicySha256))
+      throw new Error('read policy fingerprint is invalid');
     const journal: CloudflareEvidenceRunJournal = {
       ...input,
       mutations: {},

@@ -29,6 +29,8 @@ function manifest(overrides: Record<string, unknown> = {}) {
       eligibilityPolicySha256: hash('b'),
       aliasRulesetVersion: 'alias-v1',
       wafRulesetVersion: 'waf-v1',
+      responseHeaderRulesetSha256: hash('c'),
+      rawOriginRobotsTxtSha256: hash('d'),
       workerDeploymentId: 'deployment-v1',
       originOnlyVersionId: 'origin-v1',
       edgeVersionId: 'edge-v1',
@@ -40,6 +42,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
       invocationCountExact: true,
       workerInvocationCount: 1000,
       totalDecisionCount: 1000,
+      syntheticQualificationRequestCount: 0,
       canonicalEligibleRequestCount: 1000,
       canonicalEligibleOriginAttemptCount: 0,
       dynamicOriginAttemptCount: 0,
@@ -85,6 +88,14 @@ function manifest(overrides: Record<string, unknown> = {}) {
           providerSamplingApplied: false,
           maxSampleInterval: 1,
         },
+        syntheticQualification: {
+          sourceFingerprint: hash('5'),
+          requestCount: 0,
+          complete: true,
+          exact: true,
+          providerSamplingApplied: false,
+          maxSampleInterval: 1,
+        },
       },
       sha256: '',
     };
@@ -105,6 +116,8 @@ function manifest(overrides: Record<string, unknown> = {}) {
     eligibilityPolicySha256: hash('b'),
     aliasRulesetVersion: 'alias-v1',
     wafRulesetVersion: 'waf-v1',
+    responseHeaderRulesetSha256: hash('c'),
+    rawOriginRobotsTxtSha256: hash('d'),
     workerDeploymentId: 'deployment-v1',
     originOnlyVersionId: 'origin-v1',
     edgeVersionId: 'edge-v1',
@@ -113,6 +126,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
       aliasRedirect: hash('2'),
       wafRateLimit: hash('3'),
       originEvent: hash('4'),
+      syntheticQualification: hash('5'),
     },
     evidenceSource: 'worker-analytics' as const,
     days,
@@ -131,10 +145,41 @@ function seal<T extends ReturnType<typeof manifest>>(evidence: T) {
     calculateStorefrontDeliveryWindowFingerprintSha256(evidence);
   return evidence;
 }
+function withSyntheticProjection(
+  evidence: ReturnType<typeof manifest>,
+  requestCount: number,
+  sourceRequestCount = requestCount,
+  canonicalRequestCount = 1000
+) {
+  const day = evidence.days[0];
+  day.canonicalEligibleRequestCount = canonicalRequestCount;
+  day.syntheticQualificationRequestCount = requestCount;
+  day.sourceEvidence.syntheticQualification.requestCount = sourceRequestCount;
+  return evidence;
+}
 
 describe('summarizeStorefrontDelivery', () => {
   it('passes a complete seven-day all-ingress census with zero origins', () =>
     expect(summarizeStorefrontDelivery(manifest()).verdict).toBe('PASS'));
+  it('excludes independently reconciled synthetic qualification probes from real ingress', () => {
+    const summary = summarizeStorefrontDelivery(
+      seal(withSyntheticProjection(manifest(), 10, 10, 990))
+    );
+    expect(summary.syntheticQualificationRequests).toBe(10);
+    expect(summary.allEligibleIngress).toBe(6990);
+    expect(summary.verdict).toBe('PASS');
+  });
+  it('returns not proven when synthetic probes are included in canonical eligibility', () => {
+    expect(
+      summarizeStorefrontDelivery(seal(withSyntheticProjection(manifest(), 10)))
+        .verdict
+    ).toBe('NOT_PROVEN');
+    expect(
+      summarizeStorefrontDelivery(
+        seal(withSyntheticProjection(manifest(), 10, 9, 990))
+      ).verdict
+    ).toBe('NOT_PROVEN');
+  });
   it('uses canonical plus alias ingress for the threshold equation', () => {
     const evidence = manifest();
     evidence.days[0] = {

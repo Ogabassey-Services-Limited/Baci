@@ -30,14 +30,15 @@ describe('parseMeasurementArguments', () => {
     ).toThrow('read-only');
   });
 });
-
 const input = {
   runId: '0123456789abcdef0123456789abcdef',
   approvalId: 'approval',
   policyId: 'policy',
+  policySha256: 'b'.repeat(64),
   toolingMergeSha: '1'.repeat(40),
   writeTokenId: 'write',
   readTokenId: 'read',
+  readPolicySha256: 'c'.repeat(64),
   accountId: 'account',
   zoneId: 'zone',
   plannedResources: ['baci-evidence-0123456789abcdef0123456789abcdef'],
@@ -50,11 +51,10 @@ const capability = {
   permissionGroupIds: ['analytics.read'],
   resources: ['account'],
   expiresAt: '2026-08-01T00:00:00.000Z',
-  policySha256: 'b'.repeat(64),
+  policySha256: input.readPolicySha256,
   kind: 'read' as const,
   providerNegativeScopeUnverified: true as const,
 };
-
 describe('measureCloudflareEvidenceSources', () => {
   it('requires verified matching write and read revocation receipts', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));

@@ -85,6 +85,12 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
     ).toContain('baseline_observation_invalid');
     expect(
       evaluateOgabasseyOriginBusinessCase(
+        { ...current, observedAt: '2026-07-31T23:59:59.999Z' },
+        { now }
+      ).reasonCodes
+    ).toContain('baseline_observation_invalid');
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
         { ...current, windowStart: undefined },
         { now }
       ).reasonCodes

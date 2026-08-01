@@ -106,7 +106,11 @@ export function evaluateOgabasseyOriginBusinessCase(
     typeof input.observedAt === 'string'
       ? new Date(input.observedAt).valueOf()
       : Number.NaN;
-  if (!Number.isFinite(observedAtMs) || observedAtMs > nowMs) {
+  if (
+    !Number.isFinite(observedAtMs) ||
+    observedAtMs > nowMs ||
+    (windowEnd !== null && observedAtMs < windowEnd.valueOf())
+  ) {
     reasons.push('baseline_observation_invalid');
     baselineWindowValid = false;
   }

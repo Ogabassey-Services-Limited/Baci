@@ -13,6 +13,9 @@ const approvalArtifactSchema = z
     toolingMergeSha: toolingSha,
     policyId: boundedId,
     policySha256: sha256,
+    readTokenId: boundedId,
+    /** Separately reviewed read-only policy fingerprint used after cleanup. */
+    readPolicySha256: sha256,
     approvedAt: z.string().datetime({ offset: true }),
     expiresAt: z.string().datetime({ offset: true }),
   })
@@ -38,6 +41,7 @@ export type PrepareAuthorityInput = Pick<
   | 'toolingMergeSha'
   | 'writeTokenId'
   | 'readTokenId'
+  | 'readPolicySha256'
   | 'accountId'
   | 'zoneId'
 >;
@@ -45,6 +49,7 @@ export type VerifiedPrepareAuthority = Readonly<{
   approvalId: string;
   policyId: string;
   policySha256: string;
+  readPolicySha256: string;
 }>;
 
 export function calculateReviewedPolicySha256(
@@ -98,6 +103,8 @@ export async function verifyPrepareAuthority(
     approval.id !== input.approvalId ||
     approval.policyId !== input.policyId ||
     approval.toolingMergeSha !== input.toolingMergeSha ||
+    approval.readTokenId !== input.readTokenId ||
+    approval.readPolicySha256 !== input.readPolicySha256 ||
     policy.id !== approval.policyId ||
     policy.toolingMergeSha !== input.toolingMergeSha ||
     policy.tokenId !== input.writeTokenId ||
@@ -136,5 +143,6 @@ export async function verifyPrepareAuthority(
     approvalId: approval.id,
     policyId: policy.id,
     policySha256: policy.policySha256,
+    readPolicySha256: approval.readPolicySha256,
   });
 }

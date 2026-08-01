@@ -12,6 +12,9 @@ const SourceEvidenceSchema = z
     maxSampleInterval: z.number().int().positive(),
   })
   .strict();
+const SyntheticQualificationSourceEvidenceSchema = SourceEvidenceSchema.extend({
+  requestCount: CountSchema,
+});
 
 /** Privacy-bounded per-source aggregates; raw request rows are never representable. */
 export const StorefrontDeliveryDailyEvidenceSchema = z
@@ -21,6 +24,8 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
     eligibilityPolicySha256: Sha256Schema,
     aliasRulesetVersion: z.string().min(1),
     wafRulesetVersion: z.string().min(1),
+    responseHeaderRulesetSha256: Sha256Schema,
+    rawOriginRobotsTxtSha256: Sha256Schema,
     workerDeploymentId: z.string().min(1),
     originOnlyVersionId: z.string().min(1),
     edgeVersionId: z.string().min(1),
@@ -32,6 +37,7 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
     invocationCountExact: z.boolean(),
     workerInvocationCount: CountSchema,
     totalDecisionCount: CountSchema,
+    syntheticQualificationRequestCount: CountSchema,
     canonicalEligibleRequestCount: CountSchema,
     canonicalEligibleOriginAttemptCount: CountSchema,
     dynamicOriginAttemptCount: CountSchema,
@@ -54,6 +60,7 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
         aliasRedirect: SourceEvidenceSchema,
         wafRateLimit: SourceEvidenceSchema,
         originEvent: SourceEvidenceSchema,
+        syntheticQualification: SyntheticQualificationSourceEvidenceSchema,
       })
       .strict(),
     sha256: Sha256Schema,

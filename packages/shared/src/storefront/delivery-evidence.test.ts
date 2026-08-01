@@ -12,6 +12,8 @@ const dailyEvidence = {
   eligibilityPolicySha256: 'b'.repeat(64),
   aliasRulesetVersion: 'alias-v1',
   wafRulesetVersion: 'waf-v1',
+  responseHeaderRulesetSha256: 'c'.repeat(64),
+  rawOriginRobotsTxtSha256: 'd'.repeat(64),
   workerDeploymentId: 'deployment-v1',
   originOnlyVersionId: 'origin-v1',
   edgeVersionId: 'edge-v1',
@@ -23,6 +25,7 @@ const dailyEvidence = {
   invocationCountExact: true,
   workerInvocationCount: 1000,
   totalDecisionCount: 1000,
+  syntheticQualificationRequestCount: 0,
   canonicalEligibleRequestCount: 1000,
   canonicalEligibleOriginAttemptCount: 0,
   dynamicOriginAttemptCount: 0,
@@ -63,6 +66,14 @@ const dailyEvidence = {
     },
     originEvent: {
       sourceFingerprint: 'origin-v1',
+      complete: true,
+      exact: true,
+      providerSamplingApplied: false,
+      maxSampleInterval: 1,
+    },
+    syntheticQualification: {
+      sourceFingerprint: 'synthetic-v1',
+      requestCount: 0,
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -111,6 +122,19 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
     ).toBe(false);
   });
 
+  it('requires the sealed response-header and raw-origin robots identities', () => {
+    for (const key of [
+      'responseHeaderRulesetSha256',
+      'rawOriginRobotsTxtSha256',
+    ] as const) {
+      const candidate: Record<string, unknown> = { ...dailyEvidence };
+      delete candidate[key];
+      expect(
+        StorefrontDeliveryDailyEvidenceSchema.safeParse(candidate).success
+      ).toBe(false);
+    }
+  });
+
   it('rejects fractional, negative, or malformed aggregate fields', () => {
     expect(
       StorefrontDeliveryDailyEvidenceSchema.safeParse({
@@ -144,5 +168,31 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
         },
       }).success
     ).toBe(true);
+  });
+  it('requires an independently counted synthetic qualification projection', () => {
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse({
+        ...dailyEvidence,
+        sourceEvidence: {
+          ...dailyEvidence.sourceEvidence,
+          syntheticQualification: {
+            ...dailyEvidence.sourceEvidence.syntheticQualification,
+            requestCount: 1,
+          },
+        },
+      }).success
+    ).toBe(true);
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse({
+        ...dailyEvidence,
+        sourceEvidence: {
+          ...dailyEvidence.sourceEvidence,
+          syntheticQualification: {
+            ...dailyEvidence.sourceEvidence.syntheticQualification,
+            requestCount: undefined,
+          },
+        },
+      }).success
+    ).toBe(false);
   });
 });

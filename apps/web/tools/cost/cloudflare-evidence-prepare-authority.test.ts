@@ -13,6 +13,7 @@ const input = {
   toolingMergeSha: 'a'.repeat(40),
   writeTokenId: 'write-token',
   readTokenId: 'read-token',
+  readPolicySha256: 'c'.repeat(64),
   accountId: 'account-id',
   zoneId: 'zone-id',
 };
@@ -59,6 +60,8 @@ describe('cloudflare evidence prepare authority', () => {
       toolingMergeSha: input.toolingMergeSha,
       policyId: input.policyId,
       policySha256: reviewed.policySha256,
+      readTokenId: input.readTokenId,
+      readPolicySha256: input.readPolicySha256,
       approvedAt: '2026-08-01T11:00:00.000Z',
       expiresAt,
     };

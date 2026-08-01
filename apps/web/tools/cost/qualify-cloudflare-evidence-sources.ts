@@ -1,16 +1,25 @@
 import { z } from 'zod';
-import { runQualificationCli } from './cloudflare-evidence-qualification-cli';
+import { runQualificationCliFromProcess } from './cloudflare-evidence-qualification-cli';
 import {
   type ArtifactReadbackSchema,
   PurgeContractSchema,
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
+  sameCloudflarePurgeContract,
   TopologyEndpointSchema,
 } from './cloudflare-evidence-qualification-schemas';
+import type {
+  CloudflareOrdinaryTrafficProof,
+  CloudflareOwnerAcceptance,
+  CloudflareProtectedOverrideProof,
+  CloudflareZeroWeightContract,
+} from './cloudflare-evidence-qualification-traffic';
+import { qualifyCloudflareZeroWeightReadback } from './cloudflare-evidence-qualification-traffic';
 
 export {
   buildClosedEvidenceProcessEnvironment,
   parseQualificationArguments,
+  runQualificationCliFromProcess,
 } from './cloudflare-evidence-qualification-cli';
 export {
   calculatePointerCacheCanonicalSha256,
@@ -20,6 +29,22 @@ export {
   qualifyCloudflareEvidenceReadback,
   type ReviewedQualificationArtifact,
 } from './cloudflare-evidence-qualification-schemas';
+export {
+  type CloudflareOrdinaryTrafficProof,
+  type CloudflareOwnerAcceptance,
+  type CloudflareProtectedOverrideProof,
+  type CloudflareZeroWeightContract,
+  type CloudflareZeroWeightDeployment,
+  type CloudflareZeroWeightProof,
+  OrdinaryTrafficProofSchema,
+  OwnerAcceptanceSchema,
+  ProtectedOverrideProofSchema,
+  qualifyCloudflareZeroWeightReadback,
+  validateCloudflareZeroWeightProof,
+  ZeroWeightContractSchema,
+  ZeroWeightDeploymentTupleSchema,
+  ZeroWeightProofSchema,
+} from './cloudflare-evidence-qualification-traffic';
 
 export type CloudflareWorkerArtifactReadbackQualification = z.infer<
   typeof ArtifactReadbackSchema
@@ -45,6 +70,20 @@ export type CloudflareQualificationClient = Readonly<{
     accountId: string,
     scriptName: string
   ): Promise<CloudflareDeploymentReadback>;
+  readZeroWeightContract(
+    accountId: string,
+    scriptName: string
+  ): Promise<CloudflareZeroWeightContract>;
+  readOrdinaryTrafficProof(
+    accountId: string,
+    scriptName: string,
+    versionIds: readonly [string, string]
+  ): Promise<CloudflareOrdinaryTrafficProof>;
+  readProtectedVersionOverrideProof(
+    accountId: string,
+    scriptName: string,
+    candidateVersionId: string
+  ): Promise<CloudflareProtectedOverrideProof>;
   trace(url: string): Promise<Readonly<{ matched: boolean }>>;
   pointerProbe(
     method: 'GET' | 'HEAD',
@@ -80,16 +119,6 @@ export type JournaledPurgeContract = Readonly<{
   contract: z.infer<typeof PurgeContractSchema>;
 }>;
 
-const samePurgeContract = (
-  left: z.infer<typeof PurgeContractSchema>,
-  right: z.infer<typeof PurgeContractSchema>
-) =>
-  left.endpoint === right.endpoint &&
-  left.requestSchemaSha256 === right.requestSchemaSha256 &&
-  left.rateLimitFingerprint === right.rateLimitFingerprint &&
-  left.policySha256 === right.policySha256 &&
-  left.productionResourceState === right.productionResourceState;
-
 export function qualifyCloudflareReleasePurgeContract(value: unknown) {
   const parsed = PurgeContractSchema.safeParse(value);
   return parsed.success
@@ -121,6 +150,8 @@ export async function executeCloudflareEvidenceQualification(
     journaledPurge: JournaledPurgeContract;
     topology: z.infer<typeof TopologyEndpointSchema>;
     zoneId: string;
+    ownerAcceptance: CloudflareOwnerAcceptance;
+    expectedOwnerApprovalId?: string;
     pointerProbeCount?: number;
   }>
 ) {
@@ -132,7 +163,7 @@ export async function executeCloudflareEvidenceQualification(
     !parsedPurge.success ||
     !parsedJournaledPurge.success ||
     input.journaledPurge?.zoneId !== input.zoneId ||
-    !samePurgeContract(parsedPurge.data, parsedJournaledPurge.data)
+    !sameCloudflarePurgeContract(parsedPurge.data, parsedJournaledPurge.data)
   )
     throw new Error('purge request schema and policy are not journaled');
   const listed = await client.listVersions(input.accountId, input.scriptName);
@@ -182,6 +213,34 @@ export async function executeCloudflareEvidenceQualification(
     deploymentB.percentage !== 0
   )
     throw new Error('Deployments does not bind the exact 100/0 version tuple');
+  const zeroWeightContract = await client.readZeroWeightContract(
+    input.accountId,
+    input.scriptName
+  );
+  const ordinaryTraffic = await client.readOrdinaryTrafficProof(
+    input.accountId,
+    input.scriptName,
+    [input.artifacts[0].versionId, input.artifacts[1].versionId]
+  );
+  const protectedOverride = await client.readProtectedVersionOverrideProof(
+    input.accountId,
+    input.scriptName,
+    input.artifacts[1].versionId
+  );
+  const zeroWeightQualification = qualifyCloudflareZeroWeightReadback({
+    contract: zeroWeightContract,
+    deployment: deployments,
+    ordinaryTraffic,
+    protectedOverride,
+    ownerAcceptance: input.ownerAcceptance,
+    stableVersionId: input.artifacts[0].versionId,
+    candidateVersionId: input.artifacts[1].versionId,
+    expectedOwnerApprovalId: input.expectedOwnerApprovalId,
+  });
+  if (!zeroWeightQualification.ok)
+    throw new Error(
+      `zero-weight qualification failed: ${zeroWeightQualification.reason}`
+    );
   if (input.pointerUrl !== QUALIFICATION_POINTER_URL)
     throw new Error(
       'pointer URL does not bind the evidence qualification host'
@@ -223,18 +282,15 @@ export async function executeCloudflareEvidenceQualification(
     throw new Error('temporary purge lost-response topology did not converge');
   if (purgeStatus !== 'complete' && purgeStatus !== 'lost_response')
     throw new Error('temporary purge outcome is ambiguous');
-  return { purgeStatus, qualified: true as const };
+  return {
+    purgeStatus,
+    qualified: true as const,
+    zeroWeightProof: zeroWeightQualification.proof,
+  };
 }
 
 if (
   process.argv[1] &&
   import.meta.url === new URL(process.argv[1], 'file:').href
-) {
-  void runQualificationCli(process.argv.slice(2), process.env, {
-    stdout: (value) => process.stdout.write(value),
-    stderr: (value) => process.stderr.write(value),
-    setExitCode: (code) => {
-      process.exitCode = code;
-    },
-  });
-}
+)
+  runQualificationCliFromProcess();

@@ -3,6 +3,10 @@ import {
   calculateCanonicalSha256,
   canonicalizeJson,
 } from '../../../../packages/shared/src/storefront/delivery-evidence';
+import {
+  validateCloudflareZeroWeightProof,
+  ZeroWeightProofSchema,
+} from './cloudflare-evidence-qualification-traffic';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 export const QUALIFICATION_WORKER_NAME = 'baci-evidence-qualification';
@@ -61,6 +65,7 @@ export const ArtifactReadbackSchema = z
           .length(2),
       })
       .strict(),
+    zeroWeightProof: ZeroWeightProofSchema,
     pointerCache: PointerCacheSchema,
   })
   .strict();
@@ -108,6 +113,7 @@ export function qualifyCloudflareEvidenceReadback(
     ];
     expectedScriptName: string;
     expectedAccountId?: string;
+    expectedOwnerApprovalId?: string;
   }>
 ):
   | { ok: true; qualification: z.infer<typeof ArtifactReadbackSchema> }
@@ -192,6 +198,16 @@ export function qualifyCloudflareEvidenceReadback(
     deploymentB.percentage !== 0
   )
     return { ok: false, reason: 'deployment_tuple_invalid' };
+  const zeroWeightProof = validateCloudflareZeroWeightProof(
+    receipt.zeroWeightProof,
+    {
+      deployment: receipt.deployments,
+      stableVersionId: expectedArtifacts[0].versionId,
+      candidateVersionId: expectedArtifacts[1].versionId,
+      expectedOwnerApprovalId: options.expectedOwnerApprovalId,
+    }
+  );
+  if (!zeroWeightProof.ok) return zeroWeightProof;
   const prefixMatch = receipt.versions[0]?.endpoint.match(
     /^(\/accounts\/[^/]+\/workers\/scripts\/[^/]+)\/versions\/[^/]+$/
   );
@@ -261,3 +277,16 @@ export const TopologyEndpointSchema = z
     maximumVisibilitySeconds: z.number().int().positive(),
   })
   .strict();
+
+export function sameCloudflarePurgeContract(
+  left: z.infer<typeof PurgeContractSchema>,
+  right: z.infer<typeof PurgeContractSchema>
+) {
+  return (
+    left.endpoint === right.endpoint &&
+    left.requestSchemaSha256 === right.requestSchemaSha256 &&
+    left.rateLimitFingerprint === right.rateLimitFingerprint &&
+    left.policySha256 === right.policySha256 &&
+    left.productionResourceState === right.productionResourceState
+  );
+}

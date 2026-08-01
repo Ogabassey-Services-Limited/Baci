@@ -11,6 +11,7 @@ export type StorefrontDeliverySummary = {
   evidenceComplete: boolean;
   canonicalEligibleRequests: number;
   aliasEligibleRequests: number;
+  syntheticQualificationRequests: number;
   allEligibleIngress: number;
   canonicalEligibleOriginAttempts: number;
   aliasEligibleOriginAttempts: number;
@@ -52,6 +53,9 @@ export function summarizeStorefrontDelivery(
   const aliasEligibleRequests = sum(
     days.map((day) => day.aliasEligibleRequestCount ?? 0)
   );
+  const syntheticQualificationRequests = sum(
+    days.map((day) => day.syntheticQualificationRequestCount ?? 0)
+  );
   const canonicalEligibleOriginAttempts = sum(
     days.map((day) => day.canonicalEligibleOriginAttemptCount ?? 0)
   );
@@ -86,7 +90,11 @@ export function summarizeStorefrontDelivery(
           day.edgeErrorCount +
           day.originFallbackCount ===
           day.totalDecisionCount &&
-        day.canonicalEligibleRequestCount + day.aliasEligibleRequestCount <=
+        day.sourceEvidence.syntheticQualification.requestCount ===
+          day.syntheticQualificationRequestCount &&
+        day.canonicalEligibleRequestCount +
+          day.aliasEligibleRequestCount +
+          day.syntheticQualificationRequestCount <=
           day.totalDecisionCount &&
         day.aliasEligibleRequestCount === day.aliasEdgeRedirectCount &&
         Object.values(day.sourceEvidence).every(
@@ -110,6 +118,7 @@ export function summarizeStorefrontDelivery(
     evidenceComplete,
     canonicalEligibleRequests,
     aliasEligibleRequests,
+    syntheticQualificationRequests,
     allEligibleIngress,
     canonicalEligibleOriginAttempts,
     aliasEligibleOriginAttempts,

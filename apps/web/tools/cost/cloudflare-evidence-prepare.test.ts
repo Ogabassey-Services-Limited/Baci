@@ -16,6 +16,7 @@ const input = {
   toolingMergeSha: '1'.repeat(40),
   writeTokenId: 'write-token-id',
   readTokenId: 'read-token-id',
+  readPolicySha256: 'c'.repeat(64),
   accountId: 'account-id',
   zoneId: 'zone-id',
   plannedResources: [`baci-evidence-${runId}`],
@@ -73,6 +74,8 @@ describe('cloudflareEvidencePrepare', () => {
       toolingMergeSha: input.toolingMergeSha,
       policyId: input.policyId,
       policySha256: policy.policySha256,
+      readTokenId: input.readTokenId,
+      readPolicySha256: input.readPolicySha256,
       approvedAt: '2026-08-01T11:00:00.000Z',
       expiresAt: '2026-08-01T13:00:00.000Z',
     };
@@ -97,7 +100,18 @@ describe('cloudflareEvidencePrepare', () => {
       approvalId: input.approvalId,
       policyId: input.policyId,
       policySha256: policy.policySha256,
+      readPolicySha256: input.readPolicySha256,
     });
+    await expect(
+      verifyPrepareAuthority(
+        { ...input, readPolicySha256: 'd'.repeat(64) },
+        {
+          EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+          EVIDENCE_POLICY_ARTIFACT: policyPath,
+        },
+        now
+      )
+    ).rejects.toThrow('identities');
     await writeFile(
       approvalPath,
       `${JSON.stringify({ ...approval, policyId: 'other-policy' })}\n`
@@ -174,6 +188,8 @@ describe('cloudflareEvidencePrepare', () => {
         toolingMergeSha: input.toolingMergeSha,
         policyId: input.policyId,
         policySha256: policy.policySha256,
+        readTokenId: input.readTokenId,
+        readPolicySha256: input.readPolicySha256,
         approvedAt: '2026-08-01T11:00:00.000Z',
         expiresAt: '2026-08-01T11:59:59.000Z',
       }),

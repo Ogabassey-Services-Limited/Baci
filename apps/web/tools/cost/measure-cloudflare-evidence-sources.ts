@@ -138,8 +138,8 @@ export async function measureCloudflareEvidenceSources(
     capability.tokenId !== journal.readTokenId ||
     capability.accountId !== journal.accountId ||
     capability.zoneId !== journal.zoneId ||
-    (journal.policySha256 !== undefined &&
-      capability.policySha256 !== journal.policySha256)
+    !journal.readPolicySha256 ||
+    capability.policySha256 !== journal.readPolicySha256
   )
     throw new Error('read capability does not match the journaled authority');
   const measurementAlreadyRecorded = Boolean(

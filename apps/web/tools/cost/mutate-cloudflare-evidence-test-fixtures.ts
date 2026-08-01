@@ -5,6 +5,7 @@ export const mutationInput = {
   toolingMergeSha: '1'.repeat(40),
   writeTokenId: 'write',
   readTokenId: 'read',
+  readPolicySha256: 'c'.repeat(64),
   accountId: 'account',
   zoneId: 'zone',
   plannedResources: ['baci-evidence-0123456789abcdef0123456789abcdef'],

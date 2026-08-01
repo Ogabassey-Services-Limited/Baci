@@ -25,6 +25,7 @@ const input = {
   toolingMergeSha: '1'.repeat(40),
   writeTokenId: 'write',
   readTokenId: 'read',
+  readPolicySha256: 'c'.repeat(64),
   accountId: 'account',
   zoneId: 'zone',
   plannedResources: ['evidence-run-123-worker'],
@@ -60,6 +61,13 @@ describe('CloudflareEvidenceRunJournal', () => {
     await expect(
       recordEvidencePhase(dir, input.runId, 'proof_complete')
     ).rejects.toThrow(/phase|revocation/);
+  });
+  it('requires a separately approved read-policy fingerprint before journaling', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(dir, 0o700);
+    await expect(
+      openEvidenceRun(dir, { ...input, readPolicySha256: 'bad' })
+    ).rejects.toThrow('read policy fingerprint');
   });
   it('serializes concurrent run creation before either journal is visible', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));

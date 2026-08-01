@@ -8,6 +8,7 @@ const journal = {
   toolingMergeSha: '1'.repeat(40),
   writeTokenId: 'write',
   readTokenId: 'read',
+  readPolicySha256: 'c'.repeat(64),
   accountId: 'account',
   zoneId: 'zone',
   plannedResources: ['resource'],
