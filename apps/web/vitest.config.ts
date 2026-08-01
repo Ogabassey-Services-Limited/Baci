@@ -79,6 +79,13 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(__dirname, './src') },
+      {
+        find: /^react-remove-scroll$/,
+        replacement: path.resolve(
+          __dirname,
+          './src/test-mocks/react-remove-scroll.ts'
+        ),
+      },
       { find: '@testing-library/react', replacement: testingLibraryReactPath },
       { find: /^react$/, replacement: reactPath },
       { find: /^react\/jsx-runtime$/, replacement: reactJsxRuntimePath },
