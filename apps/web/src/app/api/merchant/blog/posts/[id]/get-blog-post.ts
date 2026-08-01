@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveSelectedMerchantAccess } from '@/app/api/merchant/features/resolve-selected-merchant-access';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { getOrderedBlogPostProductLinks } from '@/lib/ordered-blog-post-product-links';
 import type { RouteParams } from './route-params';
 
 export async function getBlogPost(
@@ -55,12 +56,12 @@ export async function getBlogPost(
         { status: 500 }
       );
     }
-    const { data: productLinks, error: productLinksError } = await auth.supabase
-      .from('blog_post_products')
-      .select('product_id')
-      .eq('merchant_id', access.merchantId)
-      .eq('blog_post_id', id)
-      .order('position', { ascending: true });
+    const { data: productLinks, error: productLinksError } =
+      await getOrderedBlogPostProductLinks(
+        auth.supabase,
+        access.merchantId,
+        id
+      );
     if (productLinksError) {
       console.error('Error fetching blog post product links:', {
         merchantId: access.merchantId,

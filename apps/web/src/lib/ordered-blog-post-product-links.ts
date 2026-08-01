@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { RELATED_BLOG_PRODUCT_LINKS_SELECT } from '@/lib/related-blog-products';
 
+const ORDERED_BLOG_PRODUCT_LINKS_SELECT =
+  `product_id, ${RELATED_BLOG_PRODUCT_LINKS_SELECT}` as const;
+
 function isMissingPositionColumnError(error: unknown) {
   if (!error || typeof error !== 'object') return false;
 
@@ -23,7 +26,7 @@ export async function getOrderedBlogPostProductLinks(
 ) {
   const canonicalResult = await supabase
     .from('blog_post_products')
-    .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
+    .select(ORDERED_BLOG_PRODUCT_LINKS_SELECT)
     .eq('merchant_id', merchantId)
     .eq('blog_post_id', blogPostId)
     .order('position', { ascending: true });
@@ -34,7 +37,7 @@ export async function getOrderedBlogPostProductLinks(
 
   return supabase
     .from('blog_post_products')
-    .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
+    .select(ORDERED_BLOG_PRODUCT_LINKS_SELECT)
     .eq('merchant_id', merchantId)
     .eq('blog_post_id', blogPostId)
     .order('created_at', { ascending: true })

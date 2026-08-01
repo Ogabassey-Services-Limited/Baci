@@ -21,7 +21,7 @@ describe('getOrderedBlogPostProductLinks', () => {
 
     expect(from).toHaveBeenCalledWith('blog_post_products');
     expect(select).toHaveBeenCalledWith(
-      'relationship, product:products!blog_post_products_product_id_fkey(id, name, slug, status, categories:category_id(slug))'
+      'product_id, relationship, product:products!blog_post_products_product_id_fkey(id, name, slug, status, categories:category_id(slug))'
     );
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(query.eq).toHaveBeenCalledWith('blog_post_id', 'post-1');
