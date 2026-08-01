@@ -70,4 +70,10 @@ describe('supabase-history-replay sources', () => {
     ].map((row) => row.split(' ')[1]);
     expect(new Set(names).size).toBe(names.length);
   });
+
+  it('registers the bounded identity-verification capability as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d 20260729100000_add_merchant_identity_verified_rpc.sql'
+    );
+  });
 });

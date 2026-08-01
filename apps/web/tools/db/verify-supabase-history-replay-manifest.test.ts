@@ -1,60 +1,41 @@
 import { execFile } from 'node:child_process';
-import {
-  cp,
-  mkdtemp,
-  readFile,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createReplayManifestTestWorkspace } from './replay-manifest-test-workspace.test-support';
 import { supabaseHistoryReplayManifest } from './supabase-history-replay-manifest';
 import { verifySupabaseHistoryReplayManifest } from './verify-supabase-history-replay-manifest';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../../..');
-const temporaryRoots: string[] = [];
 const execFileAsync = promisify(execFile);
+const replayManifestWorkspace = createReplayManifestTestWorkspace();
+const WORKSPACE_ROOT = replayManifestWorkspace.workspaceRoot;
+const copyWorkspace = replayManifestWorkspace.copyWorkspace;
 
-async function copyWorkspace(prefix = 'baci-replay-verifier-') {
-  const root = await mkdtemp(path.join(tmpdir(), prefix));
-  temporaryRoots.push(root);
-  await execFileAsync('git', [
-    'clone',
-    '--shared',
-    '--no-checkout',
-    WORKSPACE_ROOT,
-    root,
-  ]);
-  await cp(
-    path.join(WORKSPACE_ROOT, 'supabase/migrations'),
-    path.join(root, 'supabase/migrations'),
-    { recursive: true }
-  );
-  await cp(
-    path.join(WORKSPACE_ROOT, 'supabase/tests/migration_history_overlays'),
-    path.join(root, 'supabase/tests/migration_history_overlays'),
-    { recursive: true }
-  );
-  await cp(
-    path.join(WORKSPACE_ROOT, 'apps/web/tools/db/fixtures'),
-    path.join(root, 'apps/web/tools/db/fixtures'),
-    { recursive: true }
-  );
-  return root;
-}
-
-afterEach(async () => {
-  await Promise.all(
-    temporaryRoots
-      .splice(0)
-      .map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
+afterEach(replayManifestWorkspace.cleanUp);
 
 describe('verifySupabaseHistoryReplayManifest', () => {
+  it('keeps the historical quiz migration immutable and replay-transformable', async () => {
+    const result = await verifySupabaseHistoryReplayManifest(WORKSPACE_ROOT, {
+      pendingRepairState: 'materialized',
+    });
+
+    expect(
+      result.verifiedSources.find(
+        ({ repositoryPath }) =>
+          repositoryPath ===
+          'supabase/migrations/20260525140048_quiz_authoritative_answer_scoring.sql'
+      )
+    ).toMatchObject({
+      sha256:
+        '2b1ebac0ab9514d5b6c91e0ebf4543e3470b9fa71b0a80ab0746c9cccc9a4c41',
+      transform: {
+        outputSha256:
+          '6f6444120e4cefe5febaba935ea70e7a304bf2d330702afc838d4ab70a77b9d8',
+      },
+    });
+  }, 60_000);
+
   it('verifies the frozen base without Docker, Supabase, or network I/O', async () => {
     const result = await verifySupabaseHistoryReplayManifest(WORKSPACE_ROOT, {
       pendingRepairState: 'materialized',
@@ -63,7 +44,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(77);
+    expect(result.manifest.pendingSources).toHaveLength(89);
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );

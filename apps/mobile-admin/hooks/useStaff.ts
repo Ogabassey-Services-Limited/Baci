@@ -9,6 +9,7 @@ import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import type { StaffMember, StaffRole, StaffStatus } from '@/lib/types/staff';
 import { useMerchant } from './useMerchant';
+import { useStaffMutationLifecycle } from './useStaffMutationLifecycle';
 
 // ============================================================
 // Fetch Staff Members
@@ -45,10 +46,6 @@ export function useStaff() {
   });
 }
 
-// ============================================================
-// Staff Stats
-// ============================================================
-
 export function useStaffStats() {
   const {
     data: staff,
@@ -68,10 +65,6 @@ export function useStaffStats() {
 
   return { error, isError, isLoading, isRefetching, refetch, stats };
 }
-
-// ============================================================
-// Invite Staff Member
-// ============================================================
 
 interface InviteStaffParams {
   email: string;
@@ -106,10 +99,12 @@ interface ResendInvitationResponse {
 export function useInviteStaff() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
+  const merchantId = merchant?.id?.trim() || null;
+  const lifecycle = useStaffMutationLifecycle(merchantId);
 
   return useMutation({
     mutationFn: async (params: InviteStaffParams) => {
-      if (!merchant?.id) throw new Error('Merchant not found');
+      if (!merchantId) throw new Error('Merchant not found');
 
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -122,7 +117,7 @@ export function useInviteStaff() {
       const response = await apiClient<InviteStaffResponse>('/api/staff', {
         method: 'POST',
         headers: {
-          'x-baci-merchant-id': merchant.id,
+          'x-baci-merchant-id': merchantId,
         },
         body: JSON.stringify({
           email: normalizedEmail,
@@ -159,6 +154,7 @@ export function useInviteStaff() {
                 }),
               },
               body: JSON.stringify({
+                merchantId,
                 name: accountName,
                 staffId: response.staff.id,
               }),
@@ -186,15 +182,13 @@ export function useInviteStaff() {
         emailDelivery: response.emailDelivery,
       };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
+    onMutate: () => lifecycle.captureScope(),
+    onSuccess: (_data, _variables, scope) => {
+      if (!lifecycle.isCurrentScope(scope)) return;
+      queryClient.invalidateQueries({ queryKey: ['staff', scope.merchantId] });
     },
   });
 }
-
-// ============================================================
-// Update Staff Member
-// ============================================================
 
 interface UpdateStaffParams {
   id: string;
@@ -205,10 +199,12 @@ interface UpdateStaffParams {
 export function useUpdateStaff() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
+  const merchantId = merchant?.id?.trim() || null;
+  const lifecycle = useStaffMutationLifecycle(merchantId);
 
   return useMutation({
     mutationFn: async (params: UpdateStaffParams) => {
-      if (!merchant?.id) throw new Error('Merchant not found');
+      if (!merchantId) throw new Error('Merchant not found');
 
       const updateData: Partial<{ role: StaffRole; status: StaffStatus }> = {};
       if (params.role) updateData.role = params.role;
@@ -222,38 +218,38 @@ export function useUpdateStaff() {
         .from('staff_members')
         .update(updateData)
         .eq('id', params.id)
-        .eq('merchant_id', merchant.id);
+        .eq('merchant_id', merchantId);
 
       if (error) throw new Error('Failed to update staff member');
       return { success: true };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
+    onMutate: () => lifecycle.captureScope(),
+    onSuccess: (_data, _variables, scope) => {
+      if (!lifecycle.isCurrentScope(scope)) return;
+      queryClient.invalidateQueries({ queryKey: ['staff', scope.merchantId] });
     },
   });
 }
 
-// ============================================================
-// Resend Invitation
-// ============================================================
-
 export function useResendInvitation() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
+  const merchantId = merchant?.id?.trim() || null;
+  const lifecycle = useStaffMutationLifecycle(merchantId);
 
   return useMutation({
     mutationFn: async (staffId: string) => {
       if (__DEV__) {
         console.log('[ResendInvite] Starting for staffId:', staffId);
       }
-      if (!merchant?.id) throw new Error('Merchant not found');
+      if (!merchantId) throw new Error('Merchant not found');
 
       const response = await apiClient<ResendInvitationResponse>(
         `/api/staff/${staffId}`,
         {
           method: 'POST',
           headers: {
-            'x-baci-merchant-id': merchant.id,
+            'x-baci-merchant-id': merchantId,
           },
         }
       );
@@ -265,35 +261,37 @@ export function useResendInvitation() {
         emailDelivery: response.emailDelivery,
       };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
+    onMutate: () => lifecycle.captureScope(),
+    onSuccess: (_data, _variables, scope) => {
+      if (!lifecycle.isCurrentScope(scope)) return;
+      queryClient.invalidateQueries({ queryKey: ['staff', scope.merchantId] });
     },
   });
 }
 
-// ============================================================
-// Remove Staff Member (Soft Delete)
-// ============================================================
-
 export function useRemoveStaff() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
+  const merchantId = merchant?.id?.trim() || null;
+  const lifecycle = useStaffMutationLifecycle(merchantId);
 
   return useMutation({
     mutationFn: async (staffId: string) => {
-      if (!merchant?.id) throw new Error('Merchant not found');
+      if (!merchantId) throw new Error('Merchant not found');
 
       const { error } = await supabase
         .from('staff_members')
         .update({ status: 'removed' })
         .eq('id', staffId)
-        .eq('merchant_id', merchant.id);
+        .eq('merchant_id', merchantId);
 
       if (error) throw new Error('Failed to remove staff member');
       return { success: true };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
+    onMutate: () => lifecycle.captureScope(),
+    onSuccess: (_data, _variables, scope) => {
+      if (!lifecycle.isCurrentScope(scope)) return;
+      queryClient.invalidateQueries({ queryKey: ['staff', scope.merchantId] });
     },
   });
 }

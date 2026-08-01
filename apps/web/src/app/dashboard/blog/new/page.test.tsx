@@ -3,14 +3,18 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFetchWithCsrf, mockPush, mockToast, mockWindowOpen } = vi.hoisted(
-  () => ({
+const { mockFetchWithCsrf, mockMerchant, mockPush, mockToast, mockWindowOpen } =
+  vi.hoisted(() => ({
     mockFetchWithCsrf: vi.fn(),
+    mockMerchant: {
+      business_name: 'Baci Store',
+      id: 'merchant-1' as string | undefined,
+      slug: 'baci-store',
+    },
     mockPush: vi.fn(),
     mockToast: vi.fn(),
     mockWindowOpen: vi.fn(),
-  })
-);
+  }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -55,7 +59,7 @@ vi.mock('@/components/blog/blog-editor', () => ({
   ),
 }));
 
-vi.mock('@/components/blog/product-embed', () => ({
+vi.mock('@/components/blog/product-embed-grid', () => ({
   ProductGrid: () => <div>Embedded products</div>,
 }));
 
@@ -88,11 +92,7 @@ vi.mock('@/hooks/use-blog-auto-save', () => ({
 
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({
-    merchant: {
-      id: 'merchant-1',
-      business_name: 'Baci Store',
-      slug: 'baci-store',
-    },
+    merchant: mockMerchant,
   }),
 }));
 
@@ -147,7 +147,26 @@ const featuredUploadResponse = {
 describe('NewBlogPostPage Discover image upload metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMerchant.id = 'merchant-1';
     window.open = mockWindowOpen;
+  });
+
+  it('does not create a post until the merchant context resolves', async () => {
+    const user = userEvent.setup();
+    mockMerchant.id = undefined;
+
+    render(<NewBlogPostPage />);
+
+    await user.type(screen.getByLabelText(/title/i), 'Pending merchant');
+    await user.type(screen.getByLabelText(/content editor/i), 'Post content');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Error', variant: 'destructive' })
+      )
+    );
   });
 
   it('uploads featured images with purpose=featured and persists returned metadata', async () => {
@@ -182,6 +201,9 @@ describe('NewBlogPostPage Discover image upload metadata', () => {
     await user.click(screen.getByRole('button', { name: /save draft/i }));
 
     await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledTimes(2));
+    expect(mockFetchWithCsrf.mock.calls[1]?.[0]).toBe(
+      '/api/merchant/blog/posts?merchantId=merchant-1'
+    );
     const saveOptions = mockFetchWithCsrf.mock.calls[1]?.[1] as {
       body: string;
     };

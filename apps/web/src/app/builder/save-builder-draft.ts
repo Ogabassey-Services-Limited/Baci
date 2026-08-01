@@ -9,6 +9,8 @@ import type { BuilderToast } from './builder-client-types';
 import { getBuilderMutationErrorMessage } from './builder-descriptions';
 
 interface SaveBuilderDraftParams {
+  merchantId: string;
+  isCurrentRequest: () => boolean;
   newData: Data;
   seoData: SEOData;
   storeSettings: StoreSettings;
@@ -23,6 +25,8 @@ export async function saveBuilderDraft(
   params: SaveBuilderDraftParams
 ): Promise<string | null> {
   const {
+    merchantId,
+    isCurrentRequest,
     newData,
     seoData,
     storeSettings,
@@ -36,6 +40,7 @@ export async function saveBuilderDraft(
   setSaving(true);
   try {
     const result = await apiPost<BuilderMutationResponse>('/api/builder', {
+      merchantId,
       slug: 'home',
       name: 'Home',
       config: newData,
@@ -44,9 +49,15 @@ export async function saveBuilderDraft(
       setupSettings,
       expectedLastUpdated,
     });
+    if (!isCurrentRequest()) {
+      return null;
+    }
     setLastUpdated(result.lastUpdated);
     return result.lastUpdated;
   } catch (error) {
+    if (!isCurrentRequest()) {
+      return null;
+    }
     console.error('Failed to save:', error);
     toast({
       title: 'Error',
@@ -58,6 +69,8 @@ export async function saveBuilderDraft(
     });
     return null;
   } finally {
-    setSaving(false);
+    if (isCurrentRequest()) {
+      setSaving(false);
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { merchantIdParamSchema } from './merchant-id-param';
 
 export const aiJobTypeSchema = z.enum([
   'price_list_processing',
@@ -26,6 +27,7 @@ export const createAiJobSchema = z.discriminatedUnion('type', [
 
 export const applyAiDraftSchema = z.strictObject({
   force: z.boolean().optional().default(false),
+  merchantId: merchantIdParamSchema,
 });
 
 export type AiJobType = z.infer<typeof aiJobTypeSchema>;

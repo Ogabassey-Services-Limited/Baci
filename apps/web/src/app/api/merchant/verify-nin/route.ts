@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getMonnifyBaseUrl } from '@/env';
-import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { getMonnifyToken } from '@/lib/monnify';
-import { checkRateLimit } from '@/lib/rate-limiter';
+import { getMonnifyBaseUrl } from '@/lib/monnify-provider-config';
 import { ninVerifySchema } from '@/schemas/verification';
 import type { MonnifyNINResponse } from '@/types/monnify';
+import { getVerificationRateLimitError } from '../verification-rate-limit';
 
 function normalizeNameParts(name: string): string[] {
   return name.trim().toUpperCase().split(/\s+/).filter(Boolean).sort();
@@ -47,54 +48,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!access.isOwner) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const { data: merchantRecord, error: merchantError } = await auth.supabase
-    .from('merchants')
-    .select('country')
-    .eq('id', access.merchantId)
-    .maybeSingle();
-
-  if (merchantError) {
-    console.error('verify-nin: failed to load merchant country', merchantError);
-    return NextResponse.json(
-      { error: 'Unable to load merchant verification details' },
-      { status: 500 }
-    );
-  }
-
-  if (!merchantRecord) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
-    return NextResponse.json(
-      { error: 'NIN verification is only available for Nigerian merchants' },
-      { status: 400 }
-    );
-  }
-
-  const allowed = await checkRateLimit(
-    auth.supabase,
-    auth.user.id,
-    'verify-nin',
-    3,
-    1
-  );
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', code: 'rate_limited' },
-      { status: 429 }
-    );
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -113,9 +66,58 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { nin, firstName, lastName, dateOfBirth } = parsed.data;
+  const { nin, firstName, lastName, dateOfBirth, merchantId } = parsed.data;
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: merchantId }
+  );
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!merchantContext.staffAccess.isOwner) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { data: merchantRecord, error: merchantError } = await auth.supabase
+    .from('merchants')
+    .select('country')
+    .eq('id', merchantContext.merchantId)
+    .maybeSingle();
+  if (merchantError) {
+    console.error('verify-nin: failed to load merchant country', merchantError);
+    return NextResponse.json(
+      { error: 'Unable to load merchant verification details' },
+      { status: 500 }
+    );
+  }
+  if (!merchantRecord) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
+    return NextResponse.json(
+      { error: 'NIN verification is only available for Nigerian merchants' },
+      { status: 400 }
+    );
+  }
+
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-nin-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
 
   try {
+    const providerRateLimitError = await getVerificationRateLimitError(
+      auth.supabase,
+      auth.user.id,
+      'verify-nin',
+      3
+    );
+    if (providerRateLimitError) return providerRateLimitError;
+
     const token = await getMonnifyToken();
 
     const controller = new AbortController();
@@ -162,7 +164,7 @@ export async function POST(request: NextRequest) {
       const { error: rpcError } = await auth.supabase.rpc(
         'record_nin_verification',
         {
-          p_merchant_id: access.merchantId,
+          p_merchant_id: merchantContext.merchantId,
           p_nin: nin,
           p_first_name: firstName,
           p_last_name: lastName,
@@ -174,7 +176,7 @@ export async function POST(request: NextRequest) {
         console.error('record_nin_verification RPC error:', {
           code: rpcError.code,
           message: rpcError.message,
-          merchantId: access.merchantId,
+          merchantId: merchantContext.merchantId,
         });
         return NextResponse.json(
           { error: 'Failed to record verification' },

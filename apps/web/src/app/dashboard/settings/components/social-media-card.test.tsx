@@ -12,17 +12,12 @@ import { SocialMediaCard } from './social-media-card';
 // /api/merchant/settings PATCH route (updateSocial), NOT the generic hook.
 const mockUpdateSocial = vi.fn();
 vi.mock('@/hooks/merchant/update-social', () => ({
-  updateSocial: (data: Record<string, string>) => mockUpdateSocial(data),
+  updateSocial: (...args: unknown[]) => mockUpdateSocial(...args),
 }));
 
 const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
-}));
-
-const mockReloadMerchant = vi.fn();
-vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: () => ({ reloadMerchant: mockReloadMerchant }),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -45,6 +40,7 @@ describe('SocialMediaCard', () => {
     render(
       <SocialMediaCard
         initialSocialMedia={{ twitter: '' }}
+        merchantId="11111111-1111-4111-8111-111111111111"
         onSocialMediaChange={onChange}
       />
     );
@@ -61,9 +57,9 @@ describe('SocialMediaCard', () => {
     // Assert
     expect(mockUpdateSocial).toHaveBeenCalledTimes(1);
     expect(mockUpdateSocial).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
       expect.objectContaining({ twitter: '@oga' })
     );
-    expect(mockReloadMerchant).toHaveBeenCalledTimes(1);
   });
 
   it('shows a destructive toast when the dedicated save fails', async () => {
@@ -73,6 +69,7 @@ describe('SocialMediaCard', () => {
     render(
       <SocialMediaCard
         initialSocialMedia={{ instagram: '' }}
+        merchantId="11111111-1111-4111-8111-111111111111"
         onSocialMediaChange={vi.fn()}
       />
     );
@@ -92,5 +89,130 @@ describe('SocialMediaCard', () => {
         expect.objectContaining({ variant: 'destructive' })
       );
     });
+  });
+
+  it('re-seeds local handles when the selected merchant changes', () => {
+    const rendered = render(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '@first-store' }}
+        merchantId="merchant-1"
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByLabelText(/twitter/i), {
+      target: { value: '@first-store-draft' },
+    });
+
+    rendered.rerender(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '@second-store' }}
+        merchantId="merchant-2"
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText(/twitter/i)).toHaveValue('@second-store');
+  });
+
+  it('does not save a first merchant draft after the selected merchant changes', async () => {
+    vi.useFakeTimers();
+    const rendered = render(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '@first-store' }}
+        merchantId="merchant-1"
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+    const twitterInput = screen.getByLabelText(/twitter/i);
+    fireEvent.change(twitterInput, { target: { value: '@first-store-draft' } });
+    fireEvent.blur(twitterInput);
+
+    rendered.rerender(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '@second-store' }}
+        merchantId="merchant-2"
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(mockUpdateSocial).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('does not reload or update status when a first merchant save resolves after a switch', async () => {
+    vi.useFakeTimers();
+    let resolveSave: (() => void) | undefined;
+    mockUpdateSocial.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    const rendered = render(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '@first-store' }}
+        merchantId="merchant-1"
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+    const twitterInput = screen.getByLabelText(/twitter/i);
+    fireEvent.change(twitterInput, { target: { value: '@first-store-draft' } });
+    fireEvent.blur(twitterInput);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    rendered.rerender(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '@second-store' }}
+        merchantId="merchant-2"
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+    await act(async () => {
+      resolveSave?.();
+    });
+
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('does not show an old merchant save error after a switch', async () => {
+    vi.useFakeTimers();
+    let rejectSave: ((error: Error) => void) | undefined;
+    mockUpdateSocial.mockReturnValueOnce(
+      new Promise<void>((_resolve, reject) => {
+        rejectSave = reject;
+      })
+    );
+    const rendered = render(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '@first-store' }}
+        merchantId="merchant-1"
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+    const twitterInput = screen.getByLabelText(/twitter/i);
+    fireEvent.change(twitterInput, { target: { value: '@first-store-draft' } });
+    fireEvent.blur(twitterInput);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    rendered.rerender(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '@second-store' }}
+        merchantId="merchant-2"
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+    await act(async () => {
+      rejectSave?.(new Error('first-store failure'));
+    });
+
+    expect(mockToast).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

@@ -18,10 +18,13 @@ describe('updateSocial', () => {
     });
 
     // Act
-    const result = await updateSocial({ twitter: '@oga' });
+    const result = await updateSocial('11111111-1111-4111-8111-111111111111', {
+      twitter: '@oga',
+    });
 
     // Assert
     expect(mockApiPatch).toHaveBeenCalledWith('/api/merchant/settings', {
+      merchantId: '11111111-1111-4111-8111-111111111111',
       social_media: { twitter: '@oga' },
     });
     expect(result.merchant.social_media).toEqual({ twitter: '@oga' });
@@ -32,8 +35,10 @@ describe('updateSocial', () => {
     mockApiPatch.mockRejectedValueOnce(new Error('Forbidden'));
 
     // Act & Assert
-    await expect(updateSocial({ twitter: '@oga' })).rejects.toThrow(
-      'Forbidden'
-    );
+    await expect(
+      updateSocial('11111111-1111-4111-8111-111111111111', {
+        twitter: '@oga',
+      })
+    ).rejects.toThrow('Forbidden');
   });
 });

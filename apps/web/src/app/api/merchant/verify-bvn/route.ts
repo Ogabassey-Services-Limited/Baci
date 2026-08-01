@@ -1,28 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getMonnifyBaseUrl } from '@/env';
-import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { getMonnifyToken } from '@/lib/monnify';
-import { checkRateLimit } from '@/lib/rate-limiter';
+import { getMonnifyBaseUrl } from '@/lib/monnify-provider-config';
 import { bvnVerifySchema } from '@/schemas/verification';
-import type { MonnifyBVNMatchResponse } from '@/types/monnify';
+import { getVerificationRateLimitError } from '../verification-rate-limit';
+import normalizeBvnMatchResult from './normalize-bvn-match-result';
 
 const MOBILE_REGEX = /^0\d{10}$/;
-const MONNIFY_MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+const MONNIFY_MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(
+  ' '
+);
 
 const SAFE_MONNIFY_VALIDATION_MESSAGES = new Set([
   'Invalid date format supplied. Accepted date format - dd-MMM-yyyy',
@@ -65,57 +55,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!access.isOwner) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const { data: merchantRecord, error: merchantError } = await auth.supabase
-    .from('merchants')
-    .select('country, phone')
-    .eq('id', access.merchantId)
-    .maybeSingle();
-
-  if (merchantError) {
-    console.error(
-      'verify-bvn: failed to load merchant verification details',
-      merchantError
-    );
-    return NextResponse.json(
-      { error: 'Unable to load merchant verification details' },
-      { status: 500 }
-    );
-  }
-
-  if (!merchantRecord) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
-    return NextResponse.json(
-      { error: 'BVN verification is only available for Nigerian merchants' },
-      { status: 400 }
-    );
-  }
-
-  const allowed = await checkRateLimit(
-    auth.supabase,
-    auth.user.id,
-    'verify-bvn',
-    3,
-    1
-  );
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', code: 'rate_limited' },
-      { status: 429 }
-    );
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -134,22 +73,75 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { bvn, firstName, lastName, dateOfBirth, mobileNo } = parsed.data;
+  const { bvn, firstName, lastName, dateOfBirth, mobileNo, merchantId } =
+    parsed.data;
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: merchantId }
+  );
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!merchantContext.staffAccess.isOwner) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { data: merchantRecord, error: merchantError } = await auth.supabase
+    .from('merchants')
+    .select('country, phone')
+    .eq('id', merchantContext.merchantId)
+    .maybeSingle();
+  if (merchantError) {
+    console.error(
+      'verify-bvn: failed to load merchant verification details',
+      merchantError
+    );
+    return NextResponse.json(
+      { error: 'Unable to load merchant verification details' },
+      { status: 500 }
+    );
+  }
+  if (!merchantRecord) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!isBaciPaystackSettlementCountry(merchantRecord.country)) {
+    return NextResponse.json(
+      { error: 'BVN verification is only available for Nigerian merchants' },
+      { status: 400 }
+    );
+  }
+
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-bvn-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
+
   const monnifyDateOfBirth = formatDateOfBirthForMonnify(dateOfBirth);
+  let effectiveMobileNo = mobileNo?.trim() ?? '';
+
+  if (!effectiveMobileNo) {
+    effectiveMobileNo = merchantRecord.phone?.trim() ?? '';
+  }
+
+  if (!MOBILE_REGEX.test(effectiveMobileNo)) {
+    return NextResponse.json(
+      { error: 'Add a valid store phone number before verifying BVN' },
+      { status: 400 }
+    );
+  }
 
   try {
-    let effectiveMobileNo = mobileNo?.trim() ?? '';
-
-    if (!effectiveMobileNo) {
-      effectiveMobileNo = merchantRecord?.phone?.trim() ?? '';
-    }
-
-    if (!MOBILE_REGEX.test(effectiveMobileNo)) {
-      return NextResponse.json(
-        { error: 'Add a valid store phone number before verifying BVN' },
-        { status: 400 }
-      );
-    }
+    const providerRateLimitError = await getVerificationRateLimitError(
+      auth.supabase,
+      auth.user.id,
+      'verify-bvn',
+      3
+    );
+    if (providerRateLimitError) return providerRateLimitError;
 
     const token = await getMonnifyToken();
 
@@ -242,9 +234,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = (await monnifyRes.json()) as MonnifyBVNMatchResponse;
+    const matchResult = normalizeBvnMatchResult(await monnifyRes.json());
 
-    if (!data.responseBody) {
+    if (!matchResult) {
       console.error('verify-bvn: unexpected Monnify response structure');
       return NextResponse.json(
         { error: 'BVN verification service returned invalid data' },
@@ -252,13 +244,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const matched = data.responseBody.matchStatus === 'FULL_MATCH';
-
-    if (matched) {
+    if (matchResult.verified) {
       const { error: rpcError } = await auth.supabase.rpc(
         'record_bvn_verification',
         {
-          p_merchant_id: access.merchantId,
+          p_merchant_id: merchantContext.merchantId,
           p_bvn: bvn,
           p_first_name: firstName,
           p_last_name: lastName,
@@ -275,7 +265,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ verified: matched });
+    return NextResponse.json(matchResult);
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : 'Unknown BVN verification error';

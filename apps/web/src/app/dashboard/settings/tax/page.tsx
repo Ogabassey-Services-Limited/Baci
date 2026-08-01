@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import {
   ensurePermission,
   isMerchantPermissionRedirectError,
@@ -90,14 +91,25 @@ export default async function TaxSettingsPage() {
         </div>
       </div>
 
-      <TaxSettingsForm
-        initialVatEnabled={vatEnabled}
-        initialVatRate={vatRate}
-        initialTaxId={taxId}
-        initialLegalEntityName={legalEntityName}
-        initialRegisteredAddress={registeredAddress}
-        initialStateCode={stateCode}
-      />
+      {isBaciPaystackSettlementCountry(merchant.country) ? (
+        <TaxSettingsForm
+          key={merchant.id}
+          merchantId={merchant.id}
+          initialVatEnabled={vatEnabled}
+          initialVatRate={vatRate}
+          initialTaxId={taxId}
+          initialLegalEntityName={legalEntityName}
+          initialRegisteredAddress={registeredAddress}
+          initialStateCode={stateCode}
+        />
+      ) : (
+        <p
+          className="rounded-lg border border-border bg-muted p-4 text-sm"
+          role="alert"
+        >
+          Tax settings are only available for Nigerian merchants.
+        </p>
+      )}
     </div>
   );
 }

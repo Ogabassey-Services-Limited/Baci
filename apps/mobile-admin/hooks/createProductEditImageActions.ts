@@ -29,12 +29,9 @@ export function createProductEditImageActions({
       const fileExt = ALLOWED_EXTS.includes(rawExt) ? rawExt : 'jpg';
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${merchantId}/products/${fileName}`;
-      const fileData = new FormData();
-      fileData.append('file', {
-        name: fileName,
-        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-        uri,
-      } as unknown as Blob);
+      const fileData = await fetch(uri).then((response) =>
+        response.arrayBuffer()
+      );
 
       const { error } = await supabase.storage
         .from('media')

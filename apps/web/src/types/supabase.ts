@@ -676,6 +676,7 @@ export type Database = {
           created_at: string;
           id: string;
           merchant_id: string;
+          position: number;
           product_id: string;
           relationship: string;
         };
@@ -684,6 +685,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           merchant_id: string;
+          position: number;
           product_id: string;
           relationship?: string;
         };
@@ -692,6 +694,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           merchant_id?: string;
+          position?: number;
           product_id?: string;
           relationship?: string;
         };
@@ -16525,6 +16528,10 @@ export type Database = {
         Args: { user_uuid: string };
         Returns: string;
       };
+      get_merchant_identity_verified: {
+        Args: { p_merchant_id: string };
+        Returns: boolean;
+      };
       get_merchant_inventory_stats: {
         Args: { p_merchant_id: string };
         Returns: Json;
@@ -17419,6 +17426,26 @@ export type Database = {
           title: string;
         }[];
       };
+      mutate_merchant_blog_post_with_product_links: {
+        Args: {
+          p_merchant_id: string;
+          p_post_data: Json;
+          p_post_id: string | null;
+          p_product_ids?: string[] | null;
+        };
+        Returns: {
+          category: string | null;
+          content: string;
+          excerpt: string | null;
+          featured_image_url: string | null;
+          id: string;
+          merchant_id: string;
+          published_at: string | null;
+          slug: string;
+          status: string;
+          title: string;
+        }[];
+      };
       merchant_feature_settings_public_cache_projection: {
         Args: {
           p_settings: Database['public']['Tables']['merchant_feature_settings']['Row'];
@@ -17751,6 +17778,25 @@ export type Database = {
           p_rc_number: string;
         };
         Returns: undefined;
+      };
+      record_credit_direct_client_completion: {
+        Args: {
+          p_checkout_transaction_id?: string;
+          p_email?: string;
+          p_order_id: string;
+          p_session_id?: string;
+          p_tracking_token?: string;
+        };
+        Returns: Json;
+      };
+      record_credit_direct_client_completion_v1: {
+        Args: {
+          p_checkout_transaction_id?: string;
+          p_order_id: string;
+          p_session_id?: string;
+          p_tracking_token?: string;
+        };
+        Returns: Json;
       };
       record_event_worker_heartbeat_v1: {
         Args: {

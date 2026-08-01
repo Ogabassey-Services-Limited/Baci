@@ -54,6 +54,7 @@ const bvnFormSchema = z.object({
 type BvnFormValues = z.input<typeof bvnFormSchema>;
 
 interface BvnVerificationProps {
+  merchantId: string;
   verified: boolean;
   prefillBvn: string | null;
   prefillFirstName: string | null;
@@ -64,6 +65,7 @@ interface BvnVerificationProps {
 }
 
 export function BvnVerification({
+  merchantId,
   verified,
   prefillBvn,
   prefillFirstName,
@@ -101,7 +103,7 @@ export function BvnVerification({
     try {
       const res = await fetchWithCsrf('/api/merchant/verify-bvn', {
         method: 'POST',
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, merchantId }),
       });
 
       if (res.status === 429) {

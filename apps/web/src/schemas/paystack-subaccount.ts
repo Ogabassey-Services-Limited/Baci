@@ -4,6 +4,7 @@ import { isValidManualAccountNumber } from '@/schemas/manual-account-number';
 const payoutModeSchema = z.enum(['manual', 'instant', 'weekly']);
 
 const paystackSubaccountSourceSchema = z.object({
+  merchantId: z.string().trim().uuid().optional(),
   account_number: z.string().optional(),
   accountNumber: z.string().optional(),
   bank_code: z.string().optional(),
@@ -26,6 +27,7 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
     const accountName = (data.account_name ?? data.accountName ?? '').trim();
 
     return {
+      merchant_id: data.merchantId,
       account_number: (data.account_number ?? data.accountNumber ?? '').trim(),
       bank_code: (data.bank_code ?? data.bankCode ?? '').trim(),
       ...(bankName ? { bank_name: bankName } : {}),

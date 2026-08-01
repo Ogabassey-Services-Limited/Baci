@@ -1,17 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   revalidateProductSlugs,
   revalidateProducts,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import { resolveProductPurgeCategorySegmentForRow } from '@/lib/storefront-product-purge-urls';
+import { archiveProductRequestSchema } from '@/schemas/archive-product';
 
 const paramsSchema = z.object({
   id: z.uuid(),
@@ -54,21 +55,41 @@ export async function PATCH(
     return csrf.response ?? jsonError('CSRF validation failed', 403);
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access || !hasPermission(access, 'products', 'edit')) {
-    return jsonError('Permission denied', 403);
-  }
-
   const parsedParams = paramsSchema.safeParse(await context.params);
   if (!parsedParams.success) {
     return jsonError('Invalid product id', 400);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError('Invalid request body', 400);
+  }
+  const parsedBody = archiveProductRequestSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return jsonError('Invalid request body', 400);
+  }
+
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: parsedBody.data.merchantId }
+  );
+  if (!merchantContext) {
+    return jsonError('Merchant not found', 404);
+  }
+
+  const access = toUserAccess(merchantContext);
+  if (!access || !hasPermission(access, 'products', 'edit')) {
+    return jsonError('Permission denied', 403);
   }
 
   const { data: product, error } = await auth.supabase
     .from('products')
     .update({ status: 'archived', updated_at: new Date().toISOString() })
     .eq('id', parsedParams.data.id)
-    .eq('merchant_id', access.merchantId)
+    .eq('merchant_id', merchantContext.merchantId)
     // Read the purge inputs (legacy text `category` + the `category_id` direct
     // join + the `product_categories` junction) alongside the archive so the
     // eviction below resolves the row's canonical category segment. All three
@@ -86,7 +107,7 @@ export async function PATCH(
     return jsonError('Failed to archive product', 500);
   }
 
-  revalidateProducts(access.merchantId, product.slug ?? undefined);
+  revalidateProducts(merchantContext.merchantId, product.slug ?? undefined);
 
   // Archiving removes the product from listings AND changes its PDP (the
   // storefront redirects archived slugs), yet nothing else evicts the raised
@@ -102,14 +123,14 @@ export async function PATCH(
     // post-purge MISS cannot refill a stale "product still listed" page. Runs
     // first (needs only the merchant id) so a failed merchant-slug read below
     // cannot skip it.
-    revalidateProductSlugs(access.merchantId, [purgeSlug]);
-    // scheduleStorefrontProductPurge needs the MERCHANT slug (this route auths
-    // via getUserAccess, which only yields the merchant id). Resolve it here; a
-    // miss makes the schedule a silent no-op (fail-open).
+    revalidateProductSlugs(merchantContext.merchantId, [purgeSlug]);
+    // scheduleStorefrontProductPurge needs the merchant slug (the resolved
+    // merchant context only yields its id). Resolve it here; a miss makes the
+    // schedule a silent no-op (fail-open).
     const { data: merchantRow } = await auth.supabase
       .from('merchants')
       .select('slug')
-      .eq('id', access.merchantId)
+      .eq('id', merchantContext.merchantId)
       .single<{ slug: string | null }>();
     scheduleStorefrontProductPurge(merchantRow?.slug, [
       {

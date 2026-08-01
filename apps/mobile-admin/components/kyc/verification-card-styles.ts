@@ -35,6 +35,29 @@ export const verificationCardStyles = StyleSheet.create({
     paddingBottom: SPACING.lg,
     gap: SPACING.xs,
   },
+  nameRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  nameField: {
+    flex: 1,
+    minWidth: 0,
+  },
+  embeddedSection: {
+    borderTopWidth: 1,
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.lg,
+  },
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  stepTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.md,
+  },
   verifiedBanner: {
     flexDirection: 'row',
     alignItems: 'center',

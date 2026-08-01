@@ -4,7 +4,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-import { apiClient, apiFormData, NetworkError } from '@/lib/api-client';
+import { apiClient, apiFormData } from '@/lib/api-client';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import { createUploadFile } from '@/types/upload';
 import CacResultStep from './CacResultStep';
 import CacSearchStep from './CacSearchStep';
@@ -22,33 +23,25 @@ import {
   normalizeCacStatus,
   type SelectedCacDocument,
 } from './cac-types';
+import { showCacVerificationError } from './cac-verification-alerts';
 import VerificationStatusBadge from './VerificationStatusBadge';
 
 interface CacVerificationCardProps {
   cacApprovedName?: string | null;
-  onVerified: () => void;
+  merchantId?: string | null;
+  onVerified: () => Promise<unknown>;
+  isActive?: () => boolean;
   prefillRcNumber?: string | null;
   verified: boolean;
-}
-
-function handleMutationError(error: unknown): void {
-  if (error instanceof NetworkError && error.statusCode === 429) {
-    Alert.alert(
-      'Rate Limited',
-      'Rate limit exceeded. Please wait a minute and try again.'
-    );
-    return;
-  }
-  const message =
-    error instanceof Error ? error.message : 'An unexpected error occurred';
-  Alert.alert('Error', message);
 }
 
 export default function CacVerificationCard({
   verified,
   prefillRcNumber,
   cacApprovedName,
+  merchantId,
   onVerified,
+  isActive = () => true,
 }: CacVerificationCardProps) {
   const { colors, shadows } = useTheme();
   const [expanded, setExpanded] = useState(false);
@@ -66,8 +59,6 @@ export default function CacVerificationCard({
     reason?: string;
   } | null>(null);
 
-  // Sync the registration fields from the prefill prop during render (instead
-  // of in an effect) so the first frame already shows the prefilled values.
   const [prevPrefillRcNumber, setPrevPrefillRcNumber] = useState<
     string | null | undefined
   >(undefined);
@@ -107,15 +98,15 @@ export default function CacVerificationCard({
       return { companies };
     },
     onSuccess: ({ companies }) => {
-      if (companies.length === 1) {
+      if (companies.length === 1 && isActive()) {
         setSelectedCompany(companies[0]);
         setCacStep('upload');
-      } else {
+      } else if (isActive()) {
         setSelectedCompany(null);
         setCacStep('search');
       }
     },
-    onError: (error: unknown) => handleMutationError(error),
+    onError: (error: unknown) => isActive() && showCacVerificationError(error),
   });
 
   const uploadMutation = useMutation({
@@ -139,17 +130,28 @@ export default function CacVerificationCard({
       );
       formData.append('rcNumber', selectedCompany.rcNumber);
       formData.append('approvedName', selectedCompany.approvedName);
+      formData.append('merchantId', merchantId ?? '');
       return apiFormData<{ verified: boolean; reason?: string }>(
         '/api/merchant/verify-cac',
         formData
       );
     },
-    onSuccess: (data) => {
-      setVerifyResult(data);
-      setCacStep('result');
-      if (data.verified) onVerified();
+    onSuccess: async (data) => {
+      if (isActive()) setVerifyResult(data);
+      if (isActive()) setCacStep('result');
+      const readinessRefreshed = data.verified
+        ? await tryRefreshStoreReadiness(onVerified)
+        : true;
+      if (!isActive()) return;
+
+      if (data.verified && !readinessRefreshed) {
+        Alert.alert(
+          'Verified',
+          'Your CAC has been verified. Your setup status will refresh shortly.'
+        );
+      }
     },
-    onError: (error: unknown) => handleMutationError(error),
+    onError: (error: unknown) => isActive() && showCacVerificationError(error),
   });
 
   function handleSearch() {
@@ -200,10 +202,18 @@ export default function CacVerificationCard({
         ]}
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            CAC Verification
-          </Text>
-          <VerificationStatusBadge verified />
+          <View style={styles.headerLeft}>
+            <Ionicons
+              accessibilityLabel="Business verification icon"
+              color={colors.primary}
+              name="business-outline"
+              size={22}
+            />
+            <Text style={[styles.title, { color: colors.text }]}>
+              Business Verification
+            </Text>
+          </View>
+          <VerificationStatusBadge status="verified" />
         </View>
         {cacApprovedName ? (
           <Text style={[styles.approvedName, { color: colors.success }]}>
@@ -226,13 +236,19 @@ export default function CacVerificationCard({
         style={styles.header}
         onPress={() => setExpanded((prev) => !prev)}
         accessibilityRole="button"
-        accessibilityLabel="Toggle CAC Verification section"
+        accessibilityLabel="Toggle Business Verification section"
       >
         <View style={styles.headerLeft}>
+          <Ionicons
+            accessibilityLabel="Business verification icon"
+            color={colors.primary}
+            name="business-outline"
+            size={22}
+          />
           <Text style={[styles.title, { color: colors.text }]}>
-            CAC Verification
+            Business Verification
           </Text>
-          <VerificationStatusBadge verified={false} />
+          <VerificationStatusBadge status="not-started" />
         </View>
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}

@@ -1,22 +1,20 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BvnVerificationCard from '@/components/kyc/BvnVerificationCard';
 import CacVerificationCard from '@/components/kyc/CacVerificationCard';
+import { styles } from '@/components/kyc/kyc-screen.styles';
 import NinVerificationCard from '@/components/kyc/NinVerificationCard';
 import type { VerificationIdentityDraft } from '@/components/kyc/verification-identity';
-import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { useAuth } from '@/hooks/useAuth';
 import { useKycVerificationRefresh } from '@/hooks/useKycVerificationRefresh';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -32,6 +30,13 @@ interface VerificationStatus {
   last_name: string | null;
   date_of_birth: string | null;
 }
+
+const EMPTY_IDENTITY_DRAFT: VerificationIdentityDraft = {
+  dateOfBirth: '',
+  firstName: '',
+  lastName: '',
+  mobileNo: '',
+};
 
 function isVerificationStatus(value: unknown): value is VerificationStatus {
   if (!value || typeof value !== 'object') return false;
@@ -60,17 +65,25 @@ export default function KYCScreen() {
   const { user } = useAuth();
   const { merchant } = useMerchant();
   const lastMerchantIdRef = useRef<string | null>(null);
-  const [identityDraft, setIdentityDraft] = useState<VerificationIdentityDraft>(
-    {
-      dateOfBirth: '',
-      firstName: '',
-      lastName: '',
-      mobileNo: '',
-    }
-  );
+  const activeMerchantIdRef = useRef<string | null>(null);
+  const merchantId = merchant?.id ?? null;
+  useLayoutEffect(() => {
+    activeMerchantIdRef.current = merchantId;
+  }, [merchantId]);
+  const [identityDraft, setIdentityDraft] =
+    useState<VerificationIdentityDraft>(EMPTY_IDENTITY_DRAFT);
+  const [identityDraftMerchantId, setIdentityDraftMerchantId] = useState<
+    string | null
+  >(null);
+  const visibleIdentityDraft =
+    identityDraftMerchantId === merchantId
+      ? identityDraft
+      : EMPTY_IDENTITY_DRAFT;
 
   const isOwner =
     !!user?.id && !!merchant?.user_id && user.id === merchant.user_id;
+  const supportsNigerianVerification =
+    merchant?.country?.trim().toUpperCase() === 'NG';
 
   const {
     data: status,
@@ -93,13 +106,15 @@ export default function KYCScreen() {
       }
       return data;
     },
-    enabled: isOwner && !!merchant?.id,
+    enabled: isOwner && supportsNigerianVerification && !!merchant?.id,
     staleTime: 1000 * 60 * 5,
   });
   const { refreshAfterVerification } = useKycVerificationRefresh({
-    merchantId: merchant?.id,
+    merchantId,
     refetchVerificationStatus: refetch,
   });
+  const isVerificationSessionActive = () =>
+    activeMerchantIdRef.current === merchantId;
 
   useEffect(() => {
     const merchantId = merchant?.id ?? null;
@@ -120,6 +135,7 @@ export default function KYCScreen() {
         : current.mobileNo || normalizeBvnMobileNumber(merchant?.phone) || '',
     }));
     lastMerchantIdRef.current = merchantId;
+    setIdentityDraftMerchantId(merchantId);
   }, [
     merchant?.id,
     merchant?.phone,
@@ -144,9 +160,10 @@ export default function KYCScreen() {
       >
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-        <ScrollView
+        <AppKeyboardContainer
+          align="start"
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+          keyboardVerticalOffset={0}
         >
           <View style={styles.header}>
             <View
@@ -186,6 +203,21 @@ export default function KYCScreen() {
                 owner to complete verification.
               </Text>
             </View>
+          ) : !supportsNigerianVerification ? (
+            <View
+              style={[styles.ownerOnlyBanner, { backgroundColor: colors.card }]}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={24}
+                color={colors.textMuted}
+              />
+              <Text
+                style={[styles.ownerOnlyText, { color: colors.textSecondary }]}
+              >
+                Identity verification is only available for Nigerian merchants.
+              </Text>
+            </View>
           ) : isLoading ? (
             <ActivityIndicator
               size="large"
@@ -220,30 +252,27 @@ export default function KYCScreen() {
               </View>
             </View>
           ) : (
-            <View style={styles.cards}>
+            <View key={merchant?.id ?? 'no-merchant'} style={styles.cards}>
               <NinVerificationCard
+                bvnVerified={status?.bvn_verified ?? false}
                 verified={status?.nin_verified ?? false}
-                prefillNin={merchant?.nin}
-                firstName={identityDraft.firstName}
-                lastName={identityDraft.lastName}
-                dateOfBirth={identityDraft.dateOfBirth}
-                onIdentityChange={setIdentityDraft}
-                onVerified={refreshAfterVerification}
-              />
-              <BvnVerificationCard
-                verified={status?.bvn_verified ?? false}
                 prefillBvn={merchant?.bvn}
-                firstName={identityDraft.firstName}
-                lastName={identityDraft.lastName}
-                dateOfBirth={identityDraft.dateOfBirth}
-                mobileNo={identityDraft.mobileNo}
+                prefillNin={merchant?.nin}
+                firstName={visibleIdentityDraft.firstName}
+                lastName={visibleIdentityDraft.lastName}
+                merchantId={merchantId}
+                dateOfBirth={visibleIdentityDraft.dateOfBirth}
+                mobileNo={visibleIdentityDraft.mobileNo}
                 onIdentityChange={setIdentityDraft}
+                isActive={isVerificationSessionActive}
                 onVerified={refreshAfterVerification}
               />
               <CacVerificationCard
                 verified={status?.cac_verified ?? false}
                 prefillRcNumber={merchant?.cac_rc_number}
                 cacApprovedName={status?.cac_approved_name}
+                merchantId={merchantId}
+                isActive={isVerificationSessionActive}
                 onVerified={refreshAfterVerification}
               />
             </View>
@@ -261,65 +290,8 @@ export default function KYCScreen() {
               Your data is encrypted and used only for verification purposes.
             </Text>
           </View>
-        </ScrollView>
+        </AppKeyboardContainer>
       </SafeAreaView>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
-  header: { alignItems: 'center', marginBottom: SPACING.xl },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  title: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-    paddingHorizontal: SPACING.md,
-  },
-  cards: { gap: SPACING.lg },
-  loader: { marginTop: SPACING['2xl'] },
-  ownerOnlyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    padding: SPACING.lg,
-    borderRadius: 12,
-  },
-  ownerOnlyText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  securityNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    marginTop: SPACING.xl,
-  },
-  securityNoteText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  tryAgainText: {
-    marginTop: SPACING.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  errorBody: {
-    flex: 1,
-  },
-});

@@ -1,6 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation } from '@tanstack/react-query';
-import type React from 'react';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,54 +11,72 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient } from '@/lib/api-client';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import BvnMobileNumberField from './BvnMobileNumberField';
 import { showBvnVerificationError } from './bvn-verification-alerts';
-import DateOfBirthPicker from './DateOfBirthPicker';
 import { isDateInPast, isValidCalendarDate } from './date-utils';
 import VerificationStatusBadge from './VerificationStatusBadge';
 import { verificationCardStyles as styles } from './verification-card-styles';
-import type { VerificationIdentityDraft } from './verification-identity';
 
 interface BvnVerificationCardProps {
   dateOfBirth: string;
   firstName: string;
   lastName: string;
+  merchantId?: string | null;
   mobileNo: string;
-  onIdentityChange: React.Dispatch<
-    React.SetStateAction<VerificationIdentityDraft>
-  >;
-  onVerified: () => void;
+  onMobileNumberChange: (value: string) => void;
+  onVerified: () => Promise<unknown>;
+  isActive?: () => boolean;
   verified: boolean;
   prefillBvn?: string | null;
 }
 
 const MOBILE_REGEX = /^0\d{10}$/;
 
+type BvnMismatchField = 'name' | 'date_of_birth' | 'mobile_number';
+
+interface BvnVerificationResponse {
+  mismatchFields?: BvnMismatchField[];
+  verified: boolean;
+}
+
+function getMismatchMessage(mismatchFields?: BvnMismatchField[]): string {
+  if (mismatchFields?.length === 1) {
+    if (mismatchFields[0] === 'mobile_number') {
+      return 'The mobile number does not match your BVN records.';
+    }
+    if (mismatchFields[0] === 'date_of_birth') {
+      return 'The date of birth does not match your BVN records.';
+    }
+    if (mismatchFields[0] === 'name') {
+      return 'The name does not match your BVN records.';
+    }
+  }
+
+  return "The details you provided don't match BVN records.";
+}
+
 export default function BvnVerificationCard({
   verified,
   prefillBvn,
   firstName,
   lastName,
+  merchantId,
   dateOfBirth,
   mobileNo,
-  onIdentityChange,
+  onMobileNumberChange,
   onVerified,
+  isActive = () => true,
 }: BvnVerificationCardProps) {
-  const { colors, shadows } = useTheme();
-  const [expanded, setExpanded] = useState(false);
+  const { colors } = useTheme();
   const [bvn, setBvn] = useState(prefillBvn ?? '');
   const [isDirty, setIsDirty] = useState(false);
-  const markBvnDirty = () => {
-    if (!isDirty) setIsDirty(true);
-  };
   const inputColors = {
     color: colors.text,
     backgroundColor: colors.inputBg,
     borderColor: colors.border,
   };
 
-  // Sync the prefilled BVN during render (guarded prev-compare) instead of in
-  // an effect, so the update lands pre-commit without a stale frame.
   const shouldSyncPrefill = !verified && !isDirty;
   const [prevPrefillSync, setPrevPrefillSync] = useState({
     prefillBvn,
@@ -70,16 +87,15 @@ export default function BvnVerificationCard({
     prevPrefillSync.shouldSyncPrefill !== shouldSyncPrefill
   ) {
     setPrevPrefillSync({ prefillBvn, shouldSyncPrefill });
-    if (shouldSyncPrefill) {
-      setBvn(prefillBvn ?? '');
-    }
+    if (shouldSyncPrefill) setBvn(prefillBvn ?? '');
   }
 
   const mutation = useMutation({
     mutationFn: () =>
-      apiClient<{ verified: boolean }>('/api/merchant/verify-bvn', {
+      apiClient<BvnVerificationResponse>('/api/merchant/verify-bvn', {
         method: 'POST',
         body: JSON.stringify({
+          merchantId,
           bvn,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -87,18 +103,27 @@ export default function BvnVerificationCard({
           mobileNo: mobileNo.trim(),
         }),
       }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.verified) {
-        Alert.alert('Success', 'Your BVN has been verified successfully.');
-        onVerified();
-      } else {
+        const readinessRefreshed = await tryRefreshStoreReadiness(onVerified);
+        if (!isActive()) return;
+
+        Alert.alert(
+          'Success',
+          readinessRefreshed
+            ? 'Your BVN has been verified successfully.'
+            : 'Your BVN has been verified successfully. Your setup status will refresh shortly.'
+        );
+      } else if (!data.verified && isActive()) {
         Alert.alert(
           'Verification Failed',
-          "The details you provided don't match BVN records."
+          getMismatchMessage(data.mismatchFields)
         );
       }
     },
-    onError: showBvnVerificationError,
+    onError: (error: unknown) => {
+      if (isActive()) showBvnVerificationError(error);
+    },
   });
 
   const handleSubmit = () => {
@@ -133,55 +158,21 @@ export default function BvnVerificationCard({
   };
 
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.card, borderColor: colors.border },
-        shadows.sm,
-      ]}
-    >
-      <Pressable
-        style={styles.header}
-        onPress={() => setExpanded((prev) => !prev)}
-        accessibilityRole="button"
-        accessibilityLabel="Toggle BVN verification section"
-        accessibilityState={{ expanded }}
-      >
+    <View style={[styles.embeddedSection, { borderTopColor: colors.border }]}>
+      <View style={styles.stepHeader}>
         <View style={styles.headerLeft}>
-          <Ionicons name="card-outline" size={22} color={colors.primary} />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
+          <Ionicons name="card-outline" size={20} color={colors.primary} />
+          <Text style={[styles.stepTitle, { color: colors.text }]}>
             BVN Verification
           </Text>
         </View>
-        <View style={styles.headerRight}>
-          <VerificationStatusBadge verified={verified} />
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={colors.textMuted}
-          />
-        </View>
-      </Pressable>
-      {expanded && (
-        <View style={styles.body}>
-          {verified && (
-            <View
-              style={[
-                styles.verifiedBanner,
-                { backgroundColor: colors.successLight },
-              ]}
-            >
-              <Ionicons
-                name="checkmark-circle"
-                size={18}
-                color={colors.success}
-              />
-              <Text style={[styles.verifiedText, { color: colors.success }]}>
-                Your BVN has been verified
-              </Text>
-            </View>
-          )}
+        <VerificationStatusBadge
+          status={verified ? 'verified' : 'not-started'}
+        />
+      </View>
 
+      {!verified && (
+        <>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             BVN
           </Text>
@@ -190,103 +181,48 @@ export default function BvnVerificationCard({
             placeholder="12345678901"
             placeholderTextColor={colors.textMuted}
             value={bvn}
-            onChangeText={(v) => {
-              markBvnDirty();
-              setBvn(v.replace(/\D/g, '').slice(0, 11));
+            onChangeText={(value) => {
+              if (!isDirty) setIsDirty(true);
+              setBvn(value.replace(/\D/g, '').slice(0, 11));
             }}
             keyboardType="number-pad"
             maxLength={11}
-            editable={!verified}
             accessibilityLabel="BVN input"
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            First Name
-          </Text>
-          <TextInput
-            style={[styles.input, inputColors]}
-            placeholder="First name"
-            placeholderTextColor={colors.textMuted}
-            value={firstName}
-            onChangeText={(v) => {
-              onIdentityChange((current) => ({ ...current, firstName: v }));
-            }}
-            autoCapitalize="words"
-            editable={!verified}
-            accessibilityLabel="First name input"
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Last Name
-          </Text>
-          <TextInput
-            style={[styles.input, inputColors]}
-            placeholder="Last name"
-            placeholderTextColor={colors.textMuted}
-            value={lastName}
-            onChangeText={(v) => {
-              onIdentityChange((current) => ({ ...current, lastName: v }));
-            }}
-            autoCapitalize="words"
-            editable={!verified}
-            accessibilityLabel="Last name input"
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Date of Birth
-          </Text>
-          <DateOfBirthPicker
-            value={dateOfBirth}
-            onChange={(value) => {
-              onIdentityChange((current) => ({
-                ...current,
-                dateOfBirth: value,
-              }));
-            }}
-            colors={colors}
-            disabled={verified}
           />
 
           <BvnMobileNumberField
             colors={colors}
             disabled={mutation.isPending}
             mobileNo={mobileNo}
-            onChangeText={(value) => {
-              onIdentityChange((current) => ({
-                ...current,
-                mobileNo: value.replace(/\D/g, '').slice(0, 11),
-              }));
-            }}
+            onChangeText={onMobileNumberChange}
           />
 
-          {!verified && (
-            <Pressable
-              style={[
-                styles.submitButton,
-                { backgroundColor: colors.primary },
-                mutation.isPending && styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={mutation.isPending || !mobileNo}
-              accessibilityRole="button"
-              accessibilityLabel="Verify BVN"
-              accessibilityState={{ disabled: mutation.isPending || !mobileNo }}
-            >
-              {mutation.isPending ? (
-                <ActivityIndicator size="small" color={colors.textOnPrimary} />
-              ) : (
-                <Text
-                  style={[
-                    styles.submitButtonText,
-                    { color: colors.textOnPrimary },
-                  ]}
-                >
-                  Verify BVN
-                </Text>
-              )}
-            </Pressable>
-          )}
-        </View>
+          <Pressable
+            style={[
+              styles.submitButton,
+              { backgroundColor: colors.primary },
+              mutation.isPending && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={mutation.isPending || !mobileNo}
+            accessibilityRole="button"
+            accessibilityLabel="Verify BVN"
+            accessibilityState={{ disabled: mutation.isPending || !mobileNo }}
+          >
+            {mutation.isPending ? (
+              <ActivityIndicator size="small" color={colors.textOnPrimary} />
+            ) : (
+              <Text
+                style={[
+                  styles.submitButtonText,
+                  { color: colors.textOnPrimary },
+                ]}
+              >
+                Verify BVN
+              </Text>
+            )}
+          </Pressable>
+        </>
       )}
     </View>
   );

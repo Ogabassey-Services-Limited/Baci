@@ -1,6 +1,4 @@
-import Ionicons, {
-  type IoniconsIconName,
-} from '@react-native-vector-icons/ionicons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -12,42 +10,20 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { ThemeColors } from '@/constants/theme';
+import { SetupChecklistItem } from '@/components/setup/SetupChecklistItem';
+import { StoreReadinessLoadError } from '@/components/setup/StoreReadinessLoadError';
+import { getMobileStoreReadinessRoute } from '@/constants/store-readiness-routes';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useStorePublish } from '@/hooks/useStorePublish';
 import { useStoreReadiness } from '@/hooks/useStoreReadiness';
 import { useTheme } from '@/hooks/useTheme';
-import type { SetupItem } from '@/types/readiness';
-
-const CATEGORY_ICONS: Record<string, string> = {
-  payments: 'card-outline',
-  products: 'cube-outline',
-  store: 'storefront-outline',
-  legal: 'document-text-outline',
-  marketing: 'megaphone-outline',
-};
-
-const getPriorityColors = (colors: ThemeColors) => ({
-  required: { bg: colors.errorLight, border: colors.error, text: colors.error },
-  recommended: {
-    bg: colors.warningLight,
-    border: colors.warning,
-    text: colors.warning,
-  },
-  optional: { bg: colors.infoLight, border: colors.info, text: colors.info },
-});
-
-const PRIORITY_LABELS = {
-  required: 'Required',
-  recommended: 'Recommended',
-  optional: 'Optional',
-};
 
 export default function SetupChecklistScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { readiness, isLoading, refetch } = useStoreReadiness();
+  const { readiness, isLoading, isFetching, error, refetch } =
+    useStoreReadiness();
   const { merchant } = useMerchant();
   const { isPublishing, publishStore } = useStorePublish({
     merchantId: merchant?.id,
@@ -64,7 +40,8 @@ export default function SetupChecklistScreen() {
     }
 
     try {
-      await publishStore();
+      const result = await publishStore();
+      if (result.status === 'stale') return;
       Alert.alert('Success', 'Your store is now LIVE!');
     } catch (error) {
       console.error('Publish error:', error);
@@ -87,135 +64,20 @@ export default function SetupChecklistScreen() {
     );
   }
 
-  if (!readiness) return null;
-
-  const renderItem = (item: SetupItem, isNext: boolean) => {
-    const priorityColor = getPriorityColors(colors)[item.priority];
-    const _iconName =
-      (CATEGORY_ICONS[item.category] as IoniconsIconName) || 'list-outline';
-
+  if (error && !readiness) {
     return (
-      <Pressable
-        key={item.id}
-        onPress={() =>
-          // item.href is a dynamic string from CHECKLIST_ITEMS config; the
-          // typed `pathname/params` form requires a literal pathname
-          // known at compile time. Cast is intentional for config-driven
-          // navigation. New routes added to CHECKLIST_ITEMS must still be
-          // valid Expo Router paths.
-          item.href.startsWith('/')
-            ? router.push(item.href as Parameters<typeof router.push>[0])
-            : undefined
-        }
-        style={[
-          styles.itemCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: item.completed
-              ? colors.successLight
-              : isNext
-                ? colors.primary
-                : colors.border,
-            borderWidth: isNext ? 2 : 1,
-          },
-          item.completed && { opacity: 0.8 },
-        ]}
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
       >
-        {/* Status Icon */}
-        <View
-          style={[
-            styles.statusIcon,
-            {
-              backgroundColor: item.completed
-                ? colors.successLight
-                : isNext
-                  ? colors.primaryLight
-                  : colors.cardHover,
-            },
-          ]}
-        >
-          <Ionicons
-            name={
-              item.completed
-                ? 'checkmark'
-                : isNext
-                  ? 'arrow-forward'
-                  : 'ellipse-outline'
-            }
-            size={18}
-            color={
-              item.completed
-                ? colors.success
-                : isNext
-                  ? colors.primary
-                  : colors.textSecondary
-            }
-          />
-        </View>
-
-        {/* Content */}
-        <View style={styles.itemContent}>
-          <View style={styles.itemHeader}>
-            <Text
-              style={[
-                styles.itemLabel,
-                {
-                  color: colors.text,
-                  textDecorationLine: item.completed ? 'line-through' : 'none',
-                },
-              ]}
-            >
-              {item.label}
-            </Text>
-            {!item.completed && !isNext && (
-              <View
-                style={[
-                  styles.priorityBadge,
-                  {
-                    backgroundColor: priorityColor.bg,
-                    borderColor: priorityColor.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[styles.priorityText, { color: priorityColor.text }]}
-                >
-                  {PRIORITY_LABELS[item.priority]}
-                </Text>
-              </View>
-            )}
-            {isNext && (
-              <View
-                style={[
-                  styles.priorityBadge,
-                  {
-                    backgroundColor: colors.primaryLight,
-                    borderColor: colors.primary,
-                  },
-                ]}
-              >
-                <Text style={[styles.priorityText, { color: colors.primary }]}>
-                  NEXT STEP
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text
-            style={[styles.itemDescription, { color: colors.textSecondary }]}
-            numberOfLines={2}
-          >
-            {item.description}
-          </Text>
-        </View>
-
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={colors.textSecondary}
+        <StoreReadinessLoadError
+          isRetrying={isFetching}
+          onRetry={() => void refetch()}
         />
-      </Pressable>
+      </SafeAreaView>
     );
-  };
+  }
+
+  if (!readiness) return null;
 
   // Determine the next incomplete item to leverage "Next Step" highlighting
   const incompleteItems = readiness.items.filter((i) => !i.completed);
@@ -312,9 +174,15 @@ export default function SetupChecklistScreen() {
 
         {/* Items List */}
         <View style={styles.listContainer}>
-          {readiness.items.map((item) =>
-            renderItem(item, !readiness.isPublished && item.id === nextItem?.id)
-          )}
+          {readiness.items.map((item) => (
+            <SetupChecklistItem
+              colors={colors}
+              isNext={!readiness.isPublished && item.id === nextItem?.id}
+              item={item}
+              key={item.id}
+              onPress={() => router.push(getMobileStoreReadinessRoute(item.id))}
+            />
+          ))}
         </View>
 
         {/* Success State if empty */}
@@ -377,47 +245,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
   },
   listContainer: { gap: SPACING.md },
-  itemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  statusIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  itemContent: { flex: 1, marginRight: SPACING.sm },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginBottom: 2,
-  },
-  itemLabel: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    marginRight: SPACING.sm,
-  },
-  priorityBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    textTransform: 'uppercase',
-  },
-  itemDescription: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
   emptyState: { alignItems: 'center', padding: SPACING.xl, gap: SPACING.md },
   emptyStateText: {
     fontSize: TYPOGRAPHY.size.lg,

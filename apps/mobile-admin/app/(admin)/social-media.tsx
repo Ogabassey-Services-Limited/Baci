@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,25 +19,32 @@ import {
   EMPTY_SOCIAL_MEDIA,
   SOCIAL_MEDIA_FIELDS,
 } from '@/constants/social-media-fields';
+import { isStoreReadinessSetupOrigin } from '@/constants/store-readiness-routes';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
+import { useMerchantScopedPending } from '@/hooks/useMerchantScopedPending';
 import { useTheme } from '@/hooks/useTheme';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { updateMerchantSettings } from '@/lib/merchant-settings';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 
 export default function SocialMediaScreen() {
   const { colors, shadows } = useTheme();
   const { merchant, isLoading } = useMerchant();
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const queryClient = useQueryClient();
+  const savePending = useMerchantScopedPending();
+  const activeMerchantIdRef = useRef(merchant?.id);
+  useLayoutEffect(() => {
+    activeMerchantIdRef.current = merchant?.id;
+  }, [merchant?.id]);
   const screenOptions = {
     title: 'Social Media',
     headerStyle: { backgroundColor: colors.background },
     headerShadowVisible: false,
     headerTintColor: colors.text,
   };
-  // Non-edit states (loading / retry) must explicitly clear headerRight. React
-  // Navigation merges Stack.Screen options, so omitting it would leave a stale
-  // Save action from a previously-rendered form. (V4 drift guard)
   const guardedScreenOptions = {
     ...screenOptions,
     headerRight: () => null,
@@ -63,6 +70,7 @@ export default function SocialMediaScreen() {
     snapchat,
   } satisfies MerchantSocialMedia;
   const merchantSocialMediaKey = [
+    merchant?.id ?? '',
     instagram,
     twitter,
     facebook,
@@ -83,9 +91,8 @@ export default function SocialMediaScreen() {
     setSocialMedia(merchantSocialMedia);
   }
 
-  // Only allow saving when the form actually changed, so a no-op save can't churn the row
-  // and (with the no-merchant guard below) a load that produced no merchant data can never
-  // blank saved handles. (V4)
+  // Save is disabled until at least one social-media value differs from the
+  // merchant's persisted values, preventing a no-op settings write.
   const isDirty = (
     Object.keys(EMPTY_SOCIAL_MEDIA) as (keyof MerchantSocialMedia)[]
   ).some(
@@ -93,27 +100,55 @@ export default function SocialMediaScreen() {
       (socialMedia[platform] ?? '') !== (merchantSocialMedia[platform] ?? '')
   );
 
-  // Save Mutation
   const saveMutation = useMutation({
-    mutationFn: async () =>
-      updateMerchantSettings({
-        social_media: socialMedia,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
+    mutationFn: async ({
+      merchantId,
+      values,
+    }: {
+      merchantId: string;
+      values: MerchantSocialMedia;
+    }) => updateMerchantSettings(merchantId, { social_media: values }),
+    onMutate: ({ merchantId }) => {
+      savePending.begin(merchantId);
+      return merchantId;
+    },
+    onSuccess: async (_data, _variables, savedMerchantId) => {
+      const invalidations: Promise<unknown>[] = [
+        queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+      ];
+      if (savedMerchantId) {
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, savedMerchantId)
+          )
+        );
+      }
+      await Promise.allSettled(invalidations);
+      if (savedMerchantId && activeMerchantIdRef.current !== savedMerchantId) {
+        return;
+      }
+      if (isStoreReadinessSetupOrigin(from)) {
+        router.back();
+        return;
+      }
       Alert.alert('Success', 'Social media links updated', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, _variables, savedMerchantId) => {
+      if (savedMerchantId && activeMerchantIdRef.current !== savedMerchantId) {
+        return;
+      }
       Alert.alert('Error', (error as Error).message);
+    },
+    onSettled: (_data, _error, _variables, savedMerchantId) => {
+      savePending.end(savedMerchantId ?? null);
     },
   });
 
   const handleSave = () => {
     if (!merchant || !isDirty) return;
-    saveMutation.mutate();
+    saveMutation.mutate({ merchantId: merchant.id, values: socialMedia });
   };
 
   const handleSocialMediaChange = (
@@ -139,11 +174,6 @@ export default function SocialMediaScreen() {
     );
   }
 
-  // No merchant data to edit (settled with null, or a hard load error that left no
-  // cached data): show a retry state instead of an empty form, so Save can never write
-  // blank handles over the merchant's saved social_media. A cached merchant with a
-  // background-refetch error keeps the form editable (TanStack keeps `data` + `error`),
-  // because saving from cached handles is safe. (V4 drift guard)
   if (!merchant) {
     return (
       <>
@@ -167,14 +197,13 @@ export default function SocialMediaScreen() {
       <Stack.Screen
         options={{
           ...screenOptions,
-          /* Native back button */
           headerRight: () => (
             <Pressable
               onPress={handleSave}
-              disabled={saveMutation.isPending || !isDirty}
+              disabled={savePending.isPending(merchant.id) || !isDirty}
               style={styles.saveButton}
             >
-              {saveMutation.isPending ? (
+              {savePending.isPending(merchant.id) ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={[styles.saveText, { color: colors.primary }]}>
@@ -183,7 +212,6 @@ export default function SocialMediaScreen() {
               )}
             </Pressable>
           ),
-          // headerBackTitleVisible: false,
         }}
       />
       <SafeAreaView

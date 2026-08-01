@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import { getCopilotTextProviderChain } from '@/ai/copilot-provider-chain';
 import {
   AI_RATE_LIMITS,
@@ -13,10 +12,8 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
-import {
-  type AiBuilderConfig,
-  aiBuilderConfigSchema,
-} from './builder-config-shape';
+import { builderGeminiRequestSchema } from '@/schemas/builder-gemini-request';
+import type { AiBuilderConfig } from './builder-config-shape';
 import {
   BUILDER_GEMINI_TIMEOUT_MS,
   type BuilderGeminiLogContext,
@@ -25,11 +22,6 @@ import {
   runBuilderGeminiWithTimeout,
 } from './route-provider-errors';
 import { runBuilderProviderChain } from './run-builder-provider-chain';
-
-const builderGeminiRequestSchema = z.object({
-  prompt: z.string().trim().min(1, 'Prompt is required'),
-  currentConfig: aiBuilderConfigSchema,
-});
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -66,7 +58,29 @@ export async function POST(req: NextRequest) {
 
     const { user, supabase } = auth;
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsed = builderGeminiRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { merchantId, prompt, currentConfig } = parsed.data;
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -101,26 +115,6 @@ export async function POST(req: NextRequest) {
         }
       );
     }
-
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    const parsed = builderGeminiRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid request body',
-          details: parsed.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-
-    const { prompt, currentConfig } = parsed.data;
 
     // Sanitize the user prompt
     const sanitizedPrompt = sanitizePromptInput(prompt, 1000).value;

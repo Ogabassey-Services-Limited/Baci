@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
-const mockGetUserAccess = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
 const mockRpc = vi.fn();
 const mockFrom = vi.fn();
 const mockRevalidateMerchant = vi.fn();
@@ -14,6 +14,7 @@ const mockRevalidateSlugLookup = vi.fn();
 const mockRevalidateProductsSlugCache = vi.fn();
 const mockRevalidateBlogFeed = vi.fn();
 const mockTriggerSync = vi.fn();
+const merchantAId = '11111111-1111-4111-8111-111111111111';
 
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>();
@@ -32,8 +33,18 @@ vi.mock('@/lib/edge-config-sync', () => ({
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
-  getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
 }));
+
+vi.mock('@/lib/get-merchant-for-api-request', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/get-merchant-for-api-request')>();
+
+  return {
+    ...actual,
+    getMerchantForApiRequest: (...args: unknown[]) =>
+      mockGetMerchantForApiRequest(...args),
+  };
+});
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateMerchant: (...args: unknown[]) => mockRevalidateMerchant(...args),
@@ -54,9 +65,17 @@ vi.mock('@/env', () => ({ getRootDomain: () => 'usebaci.com' }));
 const { POST } = await import('./route');
 
 function createRequest(body: unknown): NextRequest {
+  const requestBody =
+    body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
   return new Request('http://localhost/api/merchant/rename-slug', {
     method: 'POST',
-    body: typeof body === 'string' ? body : JSON.stringify(body),
+    body:
+      typeof body === 'string'
+        ? body
+        : JSON.stringify({
+            merchantId: merchantAId,
+            ...requestBody,
+          }),
     headers: { 'Content-Type': 'application/json' },
   }) as unknown as NextRequest;
 }
@@ -80,12 +99,14 @@ describe('POST /api/merchant/rename-slug', () => {
       }),
     });
     mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
-    mockGetUserAccess.mockResolvedValue({
-      merchantId: 'merchant-1',
-      isOwner: true,
-      isStaff: false,
-      permissions: {},
-      role: 'owner',
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: merchantAId,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: {},
+        role: 'owner',
+      },
     });
     // rename_merchant_slug returns { slug, retired_slug } (jsonb).
     mockRpc.mockResolvedValue({
@@ -112,12 +133,14 @@ describe('POST /api/merchant/rename-slug', () => {
   });
 
   it('returns 403 when the staff member lacks settings-edit permission', async () => {
-    mockGetUserAccess.mockResolvedValue({
-      merchantId: 'merchant-1',
-      isOwner: false,
-      isStaff: true,
-      permissions: { products: { edit: true } },
-      role: 'staff',
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: merchantAId,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: { products: { edit: true } },
+        role: 'staff',
+      },
     });
     const response = await POST(createRequest({ new_slug: 'newslug' }));
     expect(response.status).toBe(403);
@@ -125,12 +148,14 @@ describe('POST /api/merchant/rename-slug', () => {
   });
 
   it('allows a staff member granted full_access.all (matches the DB check)', async () => {
-    mockGetUserAccess.mockResolvedValue({
-      merchantId: 'merchant-1',
-      isOwner: false,
-      isStaff: true,
-      permissions: { full_access: { all: true } },
-      role: 'staff',
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: merchantAId,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: { full_access: { all: true } },
+        role: 'staff',
+      },
     });
     const response = await POST(createRequest({ new_slug: 'newslug' }));
     expect(response.status).toBe(200);
@@ -138,24 +163,28 @@ describe('POST /api/merchant/rename-slug', () => {
   });
 
   it('allows a wildcard-resource edit grant ({ "*": { edit: true } })', async () => {
-    mockGetUserAccess.mockResolvedValue({
-      merchantId: 'merchant-1',
-      isOwner: false,
-      isStaff: true,
-      permissions: { '*': { edit: true } },
-      role: 'staff',
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: merchantAId,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: { '*': { edit: true } },
+        role: 'staff',
+      },
     });
     const response = await POST(createRequest({ new_slug: 'newslug' }));
     expect(response.status).toBe(200);
   });
 
   it('allows a wildcard-action settings grant ({ settings: { "*": true } })', async () => {
-    mockGetUserAccess.mockResolvedValue({
-      merchantId: 'merchant-1',
-      isOwner: false,
-      isStaff: true,
-      permissions: { settings: { '*': true } },
-      role: 'staff',
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: merchantAId,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: { settings: { '*': true } },
+        role: 'staff',
+      },
     });
     const response = await POST(createRequest({ new_slug: 'newslug' }));
     expect(response.status).toBe(200);
@@ -173,20 +202,17 @@ describe('POST /api/merchant/rename-slug', () => {
 
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('rename_merchant_slug', {
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: merchantAId,
       p_new_slug: 'newslug',
     });
     expect(payload).toEqual({
       slug: 'newslug',
       url: 'https://newslug.usebaci.com',
     });
-    expect(mockRevalidateMerchant).toHaveBeenCalledWith(
-      'merchant-1',
-      'newslug'
-    );
+    expect(mockRevalidateMerchant).toHaveBeenCalledWith(merchantAId, 'newslug');
     expect(mockRevalidateDomains).toHaveBeenCalled();
-    expect(mockRevalidatePageConfig).toHaveBeenCalledWith('merchant-1');
-    expect(mockRevalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
+    expect(mockRevalidatePageConfig).toHaveBeenCalledWith(merchantAId);
+    expect(mockRevalidateMerchantFeed).toHaveBeenCalledWith(merchantAId);
     // The by-slug lookup cache must be busted for BOTH the retired slug (so it
     // stops resolving to a live store) and the new slug (so it serves at once).
     expect(mockRevalidateSlugLookup).toHaveBeenCalledWith('oldslug');

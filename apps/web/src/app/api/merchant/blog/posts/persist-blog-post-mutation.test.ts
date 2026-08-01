@@ -1,0 +1,98 @@
+import { describe, expect, it, vi } from 'vitest';
+import { persistBlogPostMutation } from './persist-blog-post-mutation';
+
+const merchantId = 'merchant-1';
+const postData = {
+  content: '<p>Useful content</p>',
+  slug: 'useful-post',
+  status: 'draft',
+  title: 'Useful post',
+};
+
+function createSupabase(input: {
+  products?: { data: unknown; error: unknown };
+  rpc: { data: unknown; error: unknown };
+}) {
+  const in_ = vi
+    .fn()
+    .mockResolvedValue(input.products ?? { data: [], error: null });
+  const eq = vi.fn().mockReturnValue({ in: in_ });
+  const select = vi.fn().mockReturnValue({ eq });
+  const from = vi.fn().mockReturnValue({ select });
+  const rpc = vi.fn().mockResolvedValue(input.rpc);
+  return { rpc, supabase: { from, rpc } };
+}
+
+describe('persistBlogPostMutation', () => {
+  it('fails before the RPC when an embedded product belongs to another merchant', async () => {
+    const { rpc, supabase } = createSupabase({
+      products: { data: [], error: null },
+      rpc: { data: null, error: null },
+    });
+
+    await expect(
+      persistBlogPostMutation({
+        embeddedProductIds: ['foreign-product'],
+        merchantId,
+        postData,
+        postId: null,
+        supabase: supabase as never,
+      })
+    ).resolves.toMatchObject({
+      error: 'One or more embedded products do not belong to this merchant',
+      post: null,
+      status: 400,
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('maps a duplicate merchant slug from the atomic RPC to a conflict response', async () => {
+    const { supabase } = createSupabase({
+      rpc: {
+        data: null,
+        error: {
+          code: '23505',
+          message:
+            'duplicate key value violates unique constraint blog_posts_merchant_id_slug_key',
+        },
+      },
+    });
+
+    await expect(
+      persistBlogPostMutation({
+        embeddedProductIds: undefined,
+        merchantId,
+        postData,
+        postId: null,
+        supabase: supabase as never,
+      })
+    ).resolves.toMatchObject({
+      error: 'A post with this slug already exists',
+      post: null,
+      status: 409,
+    });
+  });
+
+  it('normalizes the atomic RPC record into the blog post response contract', async () => {
+    const { supabase } = createSupabase({
+      rpc: {
+        data: [{ id: 'post-1', merchant_id: merchantId, ...postData }],
+        error: null,
+      },
+    });
+
+    await expect(
+      persistBlogPostMutation({
+        embeddedProductIds: undefined,
+        merchantId,
+        postData,
+        postId: null,
+        supabase: supabase as never,
+      })
+    ).resolves.toMatchObject({
+      error: null,
+      post: { id: 'post-1', merchant_id: merchantId, slug: 'useful-post' },
+      status: null,
+    });
+  });
+});

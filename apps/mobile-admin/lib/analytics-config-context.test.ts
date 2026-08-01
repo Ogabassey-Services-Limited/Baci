@@ -23,7 +23,7 @@ describe('fetchAnalyticsConfigContext', () => {
     }));
   });
 
-  it('returns the merchant analytics fields and owner flag from the context RPC', async () => {
+  it('loads analytics through the caller-authorized active merchant RPC', async () => {
     // Arrange
     supabaseMocks.rpc.mockImplementation(async () => ({
       data: {
@@ -37,10 +37,13 @@ describe('fetchAnalyticsConfigContext', () => {
     }));
 
     // Act
-    const context = await fetchAnalyticsConfigContext();
+    const context = await fetchAnalyticsConfigContext('merchant-b');
 
     // Assert
-    expect(supabaseMocks.rpc).toHaveBeenCalledWith('get_user_merchant_context');
+    expect(supabaseMocks.rpc).toHaveBeenCalledWith(
+      'get_merchant_analytics_config',
+      { p_merchant_id: 'merchant-b' }
+    );
     expect(context.analytics).toMatchObject({
       ga4_api_secret: 'owner-secret',
       google_analytics_id: 'G-1',
@@ -59,7 +62,7 @@ describe('fetchAnalyticsConfigContext', () => {
     }));
 
     // Act
-    const context = await fetchAnalyticsConfigContext();
+    const context = await fetchAnalyticsConfigContext('merchant-1');
 
     // Assert
     expect(context.isOwner).toBe(false);
@@ -71,13 +74,13 @@ describe('fetchAnalyticsConfigContext', () => {
       error: new Error('rpc unavailable'),
     }));
 
-    await expect(fetchAnalyticsConfigContext()).rejects.toThrow(
+    await expect(fetchAnalyticsConfigContext('merchant-1')).rejects.toThrow(
       'rpc unavailable'
     );
   });
 
   it('throws a merchant-not-found error when the RPC returns no context', async () => {
-    await expect(fetchAnalyticsConfigContext()).rejects.toThrow(
+    await expect(fetchAnalyticsConfigContext('merchant-1')).rejects.toThrow(
       'Merchant profile not found'
     );
   });

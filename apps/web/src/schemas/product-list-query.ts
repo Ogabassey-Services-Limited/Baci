@@ -48,6 +48,9 @@ const positiveIntegerSchema = (defaultValue: number, maxValue: number) =>
 export const productListQuerySchema = z.object({
   page: positiveIntegerSchema(1, MAX_PAGE),
   limit: positiveIntegerSchema(10, MAX_LIMIT),
+  merchantId: stringParamSchema.transform(
+    (value) => value?.trim() || undefined
+  ),
   search: stringParamSchema.transform((value) => value ?? ''),
   ids: stringParamSchema,
   migration: stringParamSchema

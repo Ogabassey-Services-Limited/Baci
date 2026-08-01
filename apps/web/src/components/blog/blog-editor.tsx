@@ -1,7 +1,6 @@
 import { marked } from 'marked';
 import dynamic from 'next/dynamic';
 import type { JSONContent } from 'novel';
-import { useState } from 'react';
 
 // Dynamically import NovelEditor to avoid SSR issues with Tiptap
 const NovelEditor = dynamic(() => import('./novel-editor'), {
@@ -19,7 +18,9 @@ interface Product {
 }
 
 interface BlogEditorProps {
+  merchantId?: string;
   content: string; // Used for content storage
+  contentResetKey?: number;
   onChange: (content: string) => void;
   placeholder?: string;
   onImageUpload?: (file: File) => Promise<string>;
@@ -30,12 +31,14 @@ interface BlogEditorProps {
 
 export function BlogEditor({
   content,
+  contentResetKey = 0,
+  merchantId,
   onChange,
   onImageUpload,
   onProductsChange,
   embeddedProducts = [],
 }: BlogEditorProps) {
-  const [initialContent] = useState<JSONContent | string | undefined>(() => {
+  const initialContent: JSONContent | string | undefined = (() => {
     if (!content) return undefined;
 
     try {
@@ -52,7 +55,7 @@ export function BlogEditor({
       console.error('Error parsing blog content:', e);
       return content;
     }
-  });
+  })();
 
   // Handle HTML content updates from Novel
   const handleContentChange = (html: string) => {
@@ -64,6 +67,8 @@ export function BlogEditor({
   return (
     <div className="min-h-[500px] w-full">
       <NovelEditor
+        key={`${merchantId ?? 'no-merchant'}-${contentResetKey}`}
+        merchantId={merchantId}
         initialValue={initialContent}
         onChange={handleContentChange}
         onImageUpload={onImageUpload}

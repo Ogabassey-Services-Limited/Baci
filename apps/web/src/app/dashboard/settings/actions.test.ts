@@ -122,6 +122,31 @@ describe('uploadFavicon', () => {
     expect(processFavicon).not.toHaveBeenCalled();
   });
 
+  it('does not process a favicon for a different merchant than the selected target', async () => {
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: 'merchant-2',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new File(['img'], 'icon.png', { type: 'image/png' })
+    );
+
+    const result = await uploadFavicon(formData, 'merchant-1');
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Merchant not found or access denied',
+    });
+    expect(processFavicon).not.toHaveBeenCalled();
+  });
+
   it('returns error when processFavicon throws', async () => {
     // Arrange
     vi.mocked(processFavicon).mockRejectedValue(new Error('Sharp failed'));

@@ -21,6 +21,7 @@ import { NinVerification } from './nin-verification';
 import { VerificationBadge } from './verification-badge';
 
 export interface KycVerificationProps {
+  merchantId: string;
   verificationStatus: {
     nin_verified: boolean;
     bvn_verified: boolean;
@@ -37,6 +38,7 @@ export interface KycVerificationProps {
 }
 
 export function KycVerification({
+  merchantId,
   verificationStatus,
   prefillNin,
   prefillBvn,
@@ -78,6 +80,7 @@ export function KycVerification({
             </AccordionTrigger>
             <AccordionContent>
               <NinVerification
+                merchantId={merchantId}
                 verified={verificationStatus.nin_verified}
                 prefillNin={prefillNin}
                 prefillFirstName={verificationStatus.first_name}
@@ -98,6 +101,7 @@ export function KycVerification({
             </AccordionTrigger>
             <AccordionContent>
               <BvnVerification
+                merchantId={merchantId}
                 verified={verificationStatus.bvn_verified}
                 prefillBvn={prefillBvn}
                 prefillFirstName={verificationStatus.first_name}
@@ -119,6 +123,7 @@ export function KycVerification({
             </AccordionTrigger>
             <AccordionContent>
               <CacVerification
+                merchantId={merchantId}
                 verified={verificationStatus.cac_verified}
                 cacApprovedName={verificationStatus.cac_approved_name}
                 prefillRcNumber={prefillRcNumber}

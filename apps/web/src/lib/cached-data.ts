@@ -17,6 +17,7 @@ import {
 import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
+import { getOrderedBlogPostProductLinks } from '@/lib/ordered-blog-post-product-links';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import type { Product } from '@/lib/products';
@@ -30,7 +31,6 @@ import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import {
   normalizeRelatedBlogProductLinks,
   normalizeRelatedBlogProducts,
-  RELATED_BLOG_PRODUCT_LINKS_SELECT,
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
 import { selectSemanticRelatedBlogPosts } from '@/lib/semantic-related-blog-posts';
@@ -2961,12 +2961,7 @@ async function getCachedBlogPostEnrichment(core: CachedBlogPostCore) {
   ] = await Promise.all([
     recentRelatedPostsPromise,
     categoryRelatedPostsPromise,
-    supabase
-      .from('blog_post_products')
-      .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
-      .eq('merchant_id', merchant.id)
-      .eq('blog_post_id', post.id)
-      .order('created_at', { ascending: true }),
+    getOrderedBlogPostProductLinks(supabase, merchant.id, post.id),
   ]);
 
   if (relatedPostsError) {

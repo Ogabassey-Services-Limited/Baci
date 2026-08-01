@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GoogleMerchantCustomerReviewsCard } from './google-merchant-customer-reviews-card';
 
@@ -37,6 +38,7 @@ describe('GoogleMerchantCustomerReviewsCard', () => {
   it('loads the current Merchant Center ID from custom settings', () => {
     render(
       <GoogleMerchantCustomerReviewsCard
+        merchantId="22222222-2222-4222-8222-222222222222"
         initialCustomSettings={{ google_merchant_id: '112524323' }}
       />
     );
@@ -49,6 +51,7 @@ describe('GoogleMerchantCustomerReviewsCard', () => {
   it('saves the numeric Merchant Center ID while preserving custom settings', async () => {
     render(
       <GoogleMerchantCustomerReviewsCard
+        merchantId="22222222-2222-4222-8222-222222222222"
         initialCustomSettings={{ agentic_agent_allowlist: ['chatgpt'] }}
       />
     );
@@ -64,6 +67,7 @@ describe('GoogleMerchantCustomerReviewsCard', () => {
           agentic_agent_allowlist: ['chatgpt'],
           google_merchant_id: '112524323',
         },
+        merchantId: '22222222-2222-4222-8222-222222222222',
       });
     });
     expect(mockToast).toHaveBeenCalledWith(
@@ -72,7 +76,9 @@ describe('GoogleMerchantCustomerReviewsCard', () => {
   });
 
   it('blocks nonnumeric Merchant Center IDs before saving', async () => {
-    render(<GoogleMerchantCustomerReviewsCard />);
+    render(
+      <GoogleMerchantCustomerReviewsCard merchantId="22222222-2222-4222-8222-222222222222" />
+    );
 
     fireEvent.change(screen.getByLabelText(/merchant center id/i), {
       target: { value: 'GMC-112524323' },
@@ -96,6 +102,7 @@ describe('GoogleMerchantCustomerReviewsCard', () => {
 
     render(
       <GoogleMerchantCustomerReviewsCard
+        merchantId="22222222-2222-4222-8222-222222222222"
         initialCustomSettings={{
           agentic_agent_allowlist: ['chatgpt'],
           google_merchant_id: '112524323',
@@ -113,7 +120,71 @@ describe('GoogleMerchantCustomerReviewsCard', () => {
         custom_settings: {
           agentic_agent_allowlist: ['chatgpt'],
         },
+        merchantId: '22222222-2222-4222-8222-222222222222',
       });
+    });
+  });
+
+  it('resets for merchant B and ignores merchant A save completion after a switch', async () => {
+    let resolveMerchantASave: (value: Record<string, unknown>) => void = () =>
+      undefined;
+    mockApiPatch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveMerchantASave = resolve;
+        })
+    );
+
+    const { rerender } = render(
+      <GoogleMerchantCustomerReviewsCard
+        merchantId="11111111-1111-4111-8111-111111111111"
+        initialCustomSettings={{ google_merchant_id: '111111111' }}
+      />
+    );
+    fireEvent.change(screen.getByLabelText(/merchant center id/i), {
+      target: { value: '222222222' },
+    });
+    submitSettingsForm();
+
+    rerender(
+      <GoogleMerchantCustomerReviewsCard
+        merchantId="22222222-2222-4222-8222-222222222222"
+        initialCustomSettings={{ google_merchant_id: '333333333' }}
+      />
+    );
+
+    expect(screen.getByLabelText(/merchant center id/i)).toHaveValue(
+      '333333333'
+    );
+
+    resolveMerchantASave({
+      custom_settings: { google_merchant_id: '222222222' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/merchant center id/i)).toHaveValue(
+        '333333333'
+      );
+    });
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('accepts saves after the StrictMode lifecycle replay', async () => {
+    render(
+      <StrictMode>
+        <GoogleMerchantCustomerReviewsCard
+          merchantId="22222222-2222-4222-8222-222222222222"
+          initialCustomSettings={{ google_merchant_id: '112524323' }}
+        />
+      </StrictMode>
+    );
+
+    submitSettingsForm();
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Merchant Center ID saved' })
+      );
     });
   });
 });

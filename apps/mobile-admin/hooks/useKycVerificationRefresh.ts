@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 
 interface UseKycVerificationRefreshOptions {
-  merchantId?: string | null;
+  merchantId: string | null | undefined;
   refetchVerificationStatus: () => Promise<unknown>;
 }
 
@@ -12,25 +14,20 @@ export function useKycVerificationRefresh({
   const queryClient = useQueryClient();
 
   async function refreshAfterVerification() {
-    // Store readiness is derived from merchant cache fields (nin/bvn/cac_rc_number),
-    // so the merchant refetch must settle before readiness is recomputed — otherwise
-    // readiness may resolve against stale KYC data and hide the publish CTA until a
-    // later manual refresh.
-    await queryClient.invalidateQueries({ queryKey: ['merchant'] });
-
-    const invalidations: Promise<unknown>[] = [
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] }),
-    ];
-
-    if (merchantId) {
-      invalidations.push(
-        queryClient.invalidateQueries({
-          queryKey: ['verification-status', merchantId],
-        })
-      );
+    const normalizedMerchantId = merchantId?.trim();
+    if (!normalizedMerchantId) {
+      throw new Error('Merchant ID is required to refresh verification');
     }
 
-    await Promise.all(invalidations);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+      queryClient.invalidateQueries({
+        queryKey: ['verification-status', normalizedMerchantId],
+      }),
+      tryRefreshStoreReadiness(() =>
+        invalidateStoreReadiness(queryClient, normalizedMerchantId)
+      ),
+    ]);
 
     await refetchVerificationStatus();
   }
