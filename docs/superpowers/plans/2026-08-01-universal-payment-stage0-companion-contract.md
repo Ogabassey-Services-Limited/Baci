@@ -19,6 +19,10 @@
 - Every companion table is private, forced-RLS, policy-free, and has all table privileges revoked from `PUBLIC`, `anon`, `authenticated`, `service_role`, and `payment_control_plane`.
 - Create `payment_control_plane` only as `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION`; grant it only `EXECUTE` on the five named guarded functions.
 - The six companion relations are the identity catalog, deployment-attestation root, deployment binding, parser proof registry, creation receipts, and transition receipts; no relation is seeded by the migration.
+- The reviewed deployment migration that later provisions an attestation is the
+  only author of identity, binding, and proof rows; this companion adds no
+  registration API. Attestation revocation is a write-once privileged migration
+  update carrying a non-empty revocation reference, never a runtime mutation.
 - No active generation, deployment binding activation, provider credential, secret, ciphertext, raw key, artifact bytes, seed row, or public RPC may be created.
 - `postgres`/reviewed DBA history repair is an explicit privileged-migration exception and must not be represented as runtime immutability.
 - Migration source registration happens only after the migration bytes are final; pending-source count must move from 56 to 57.
@@ -63,14 +67,15 @@
     malformed scope/revision/kind/fingerprint/reference; stores no secret-like
     column; rejects duplicate revision and cross-scope generation references;
     direct reads/writes/deletes fail for all five denied roles.
-  - `payment_ingress_deployment_attestations` has the exact immutable root fields
-    in the amendment and is the only active-attestation predicate. It is not
-    writable by runtime roles; SQL fixtures insert and roll it back as the
-    `migration` actor.
+  - `payment_ingress_deployment_attestations` has the exact root fields in the
+    amendment, including write-once revocation metadata, and is the only
+    active-attestation predicate. It is not writable by runtime roles; SQL
+    fixtures insert and roll it back as the `migration` actor.
   - `payment_ingress_deployment_manifest_bindings` has the exact fields in the
     amendment, including `attestation_id` and a composite identity-revision FK,
     lower-case 64-hex hashes, bounded versions/references, immutable metadata,
-    duplicate-binding rejection, an active-root FK, and no artifact/secret bytes.
+    duplicate-binding rejection, an active-root FK, retention checks for both
+    root and binding, and no artifact/secret bytes.
   - `payment_ingress_parser_compatibility_proofs` enforces scope/artifact FKs,
     distinct and ascending basis/candidate generations, bounded equivalence
     versions, compatible-only result, unique proof identity, and direct-access

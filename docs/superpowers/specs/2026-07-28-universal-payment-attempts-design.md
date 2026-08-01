@@ -1015,9 +1015,9 @@ Receipt shape is exhaustive:
   proof registry row and pinned deployment-manifest binding before changing either
   generation;
 - `retire` has no incoming branch; outgoing is `draining -> retired`, retains
-  activation, drain, and successor, sets only retirement, and has both
-  compatibility fields null. Every non-rollback operation requires both
-  compatibility fields null.
+  activation, and successor, sets only retirement, and has both compatibility
+  fields null. Only `initial_activate` and `retire` forbid compatibility fields;
+  `roll_forward` and `rollback` require them.
 
 `actor_kind` is `operator | service | migration`; `actor_user_id` is non-null if
 and only if the actor is an operator. Actor, approval, and evidence references are
@@ -1156,17 +1156,26 @@ The pinned external attestation is represented by the append-only
 `manifest_sha256 text not null`, `attestation_sha256 text not null`,
 `verified_by text not null`, `approval_reference text not null`,
 `verified_at timestamptz not null`, `retention_until timestamptz not null`,
-`revoked_at timestamptz`, and `created_at timestamptz not null default now()`.
-The root is populated only by a reviewed privileged deployment migration that
-has an external signed-attestation receipt; no runtime edge or generic
-`service_role` may insert, update, revoke, or delete it. A binding carries
+`revoked_at timestamptz`, `revocation_reference text`, and `created_at
+timestamptz not null default now()`. `revoked_at` is write-once and may be set
+only by the same reviewed privileged deployment migration that records a
+non-empty `revocation_reference`; runtime roles and the companion functions can
+never mutate it. This is the explicit privileged-DBA exception to runtime
+append-only history.
+It has a redundant unique target on
+`(id, environment, manifest_sha256, attestation_sha256)` for the binding FK.
+The root, identity catalog, binding, and proof rows are populated only by that
+same reviewed privileged deployment migration, which carries the external
+signed-attestation receipt; no runtime edge or generic `service_role` may
+insert, update, revoke, or delete them. A binding carries
 `attestation_id uuid not null` and a deferrable composite FK to
 `(id, environment, manifest_sha256, attestation_sha256)` on the root. A binding
-is active exactly when its root is unrepealed and
-`retention_until > clock_timestamp()`; the transition writer reloads both rows
-under lock. This is the authoritative active predicate rather than a hash-shaped
-text field. The companion migration creates no root or binding rows; SQL fixtures
-may create and roll them back as the `migration` actor only.
+is active exactly when its root has `revoked_at IS NULL`, both the root and
+binding `retention_until` values exceed `clock_timestamp()`, and the external
+attestation receipt remains valid; the transition writer reloads both rows under
+lock. This is the authoritative active predicate rather than a hash-shaped text
+field. The companion migration creates no root, catalog, binding, or proof rows;
+SQL fixtures may create and roll them back as the `migration` actor only.
 
 Parser equivalence proof is required for every two-sided parser overlap:
 `roll_forward` and `rollback` both require an approved proof; only
