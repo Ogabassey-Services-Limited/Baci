@@ -285,26 +285,26 @@ BEGIN
     SELECT 1
     FROM (
       VALUES
-        ('payment_webhook_inbox_pkey', 'payment_webhook_inbox', ARRAY['id']::text[], true, NULL::text),
-        ('payment_webhook_inbox_replay_key_uq', 'payment_webhook_inbox', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, NULL::text),
-        ('payment_webhook_inbox_manifest_binding_uq', 'payment_webhook_inbox', ARRAY['id', 'source_manifest_id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, NULL::text),
-        ('payment_webhook_inbox_processing_idx', 'payment_webhook_inbox', ARRAY['processing_status', 'received_at', 'id']::text[], false, NULL::text),
-        ('payment_webhook_inbox_generation_idx', 'payment_webhook_inbox', ARRAY['ingress_contract_generation_id', 'id']::text[], false, NULL::text),
-        ('payment_webhook_inbox_source_manifest_idx', 'payment_webhook_inbox', ARRAY['source_manifest_id', 'id']::text[], false, NULL::text),
-        ('payment_webhook_source_manifests_pkey', 'payment_webhook_source_manifests', ARRAY['id']::text[], true, NULL::text),
-        ('payment_webhook_source_manifests_replay_key_uq', 'payment_webhook_source_manifests', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, NULL::text),
-        ('payment_webhook_source_manifests_inbox_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, NULL::text),
-        ('payment_webhook_source_manifests_binding_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version', 'currency']::text[], true, NULL::text),
-        ('payment_webhook_source_manifests_currency_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'currency']::text[], true, NULL::text),
-        ('payment_webhook_source_manifests_provider_account_idx', 'payment_webhook_source_manifests', ARRAY['provider', 'provider_account_scope', 'created_at', 'id']::text[], false, NULL::text),
-        ('payment_webhook_source_manifests_generation_idx', 'payment_webhook_source_manifests', ARRAY['ingress_contract_generation_id', 'id']::text[], false, NULL::text),
-        ('payment_webhook_source_manifests_inbox_idx', 'payment_webhook_source_manifests', ARRAY['inbox_id', 'id']::text[], false, '(inbox_id IS NOT NULL)'::text),
-        ('payment_webhook_source_proofs_pkey', 'payment_webhook_source_proofs', ARRAY['id']::text[], true, NULL::text),
-        ('payment_webhook_source_proofs_manifest_child_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'child_identity']::text[], true, NULL::text),
-        ('payment_webhook_source_proofs_manifest_ordinal_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'child_ordinal']::text[], true, NULL::text),
-        ('payment_webhook_source_proofs_manifest_capture_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'capture_identity']::text[], true, NULL::text),
-        ('payment_webhook_source_proofs_decision_idx', 'payment_webhook_source_proofs', ARRAY['intake_decision', 'review_scope_kind', 'decided_at', 'id']::text[], false, NULL::text)
-    ) AS expected(index_name, table_name, key_columns, is_unique, predicate)
+        ('payment_webhook_inbox_pkey', 'payment_webhook_inbox', ARRAY['id']::text[], true, true, NULL::text),
+        ('payment_webhook_inbox_replay_key_uq', 'payment_webhook_inbox', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, false, NULL::text),
+        ('payment_webhook_inbox_manifest_binding_uq', 'payment_webhook_inbox', ARRAY['id', 'source_manifest_id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, false, NULL::text),
+        ('payment_webhook_inbox_processing_idx', 'payment_webhook_inbox', ARRAY['processing_status', 'received_at', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_inbox_generation_idx', 'payment_webhook_inbox', ARRAY['ingress_contract_generation_id', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_inbox_source_manifest_idx', 'payment_webhook_inbox', ARRAY['source_manifest_id', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_source_manifests_pkey', 'payment_webhook_source_manifests', ARRAY['id']::text[], true, true, NULL::text),
+        ('payment_webhook_source_manifests_replay_key_uq', 'payment_webhook_source_manifests', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_inbox_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_binding_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version', 'currency']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_currency_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'currency']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_provider_account_idx', 'payment_webhook_source_manifests', ARRAY['provider', 'provider_account_scope', 'created_at', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_source_manifests_generation_idx', 'payment_webhook_source_manifests', ARRAY['ingress_contract_generation_id', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_source_manifests_inbox_idx', 'payment_webhook_source_manifests', ARRAY['inbox_id', 'id']::text[], false, false, '(inbox_id IS NOT NULL)'::text),
+        ('payment_webhook_source_proofs_pkey', 'payment_webhook_source_proofs', ARRAY['id']::text[], true, true, NULL::text),
+        ('payment_webhook_source_proofs_manifest_child_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'child_identity']::text[], true, false, NULL::text),
+        ('payment_webhook_source_proofs_manifest_ordinal_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'child_ordinal']::text[], true, false, NULL::text),
+        ('payment_webhook_source_proofs_manifest_capture_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'capture_identity']::text[], true, false, NULL::text),
+        ('payment_webhook_source_proofs_decision_idx', 'payment_webhook_source_proofs', ARRAY['intake_decision', 'review_scope_kind', 'decided_at', 'id']::text[], false, false, NULL::text)
+    ) AS expected(index_name, table_name, key_columns, is_unique, is_primary, predicate)
     LEFT JOIN pg_namespace index_namespace
       ON index_namespace.nspname = 'private'
     LEFT JOIN pg_class index_relation
@@ -327,10 +327,28 @@ BEGIN
       OR table_namespace.nspname IS DISTINCT FROM 'private'
       OR table_relation.relname IS DISTINCT FROM expected.table_name
       OR index_catalog.indisunique IS DISTINCT FROM expected.is_unique
+      OR index_catalog.indisprimary IS DISTINCT FROM expected.is_primary
       OR actual_keys.names IS DISTINCT FROM expected.key_columns
       OR COALESCE(pg_get_expr(index_catalog.indpred, index_catalog.indrelid), NULL) IS DISTINCT FROM expected.predicate
   ) THEN
     RAISE EXCEPTION 'payment webhook evidence index metadata does not match the sealed schema-and-relation-scoped contract';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_webhook_inbox', 'payment_webhook_inbox_pkey', 'PRIMARY KEY (id)'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_pkey', 'PRIMARY KEY (id)'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_pkey', 'PRIMARY KEY (id)')
+    ) AS expected(table_name, constraint_name, definition)
+    LEFT JOIN pg_constraint constraint_catalog
+      ON constraint_catalog.conrelid = ('private.' || expected.table_name)::regclass
+      AND constraint_catalog.conname = expected.constraint_name
+    WHERE constraint_catalog.contype IS DISTINCT FROM 'p'
+      OR regexp_replace(pg_get_constraintdef(constraint_catalog.oid), '\s+', ' ', 'g') IS DISTINCT FROM expected.definition
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence primary-key constraints do not match the relation-scoped contract';
   END IF;
 
   IF EXISTS (
@@ -832,6 +850,122 @@ BEGIN
     OR (SELECT count(*) FROM private.payment_webhook_source_proofs) <> 0
   THEN
     RAISE EXCEPTION 'payment webhook evidence relations must be empty after fixture rollback';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_webhook_inbox_pkey', 'payment_webhook_inbox', ARRAY['id']::text[], true, true, NULL::text),
+        ('payment_webhook_inbox_replay_key_uq', 'payment_webhook_inbox', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, false, NULL::text),
+        ('payment_webhook_inbox_manifest_binding_uq', 'payment_webhook_inbox', ARRAY['id', 'source_manifest_id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, false, NULL::text),
+        ('payment_webhook_inbox_processing_idx', 'payment_webhook_inbox', ARRAY['processing_status', 'received_at', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_inbox_generation_idx', 'payment_webhook_inbox', ARRAY['ingress_contract_generation_id', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_inbox_source_manifest_idx', 'payment_webhook_inbox', ARRAY['source_manifest_id', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_source_manifests_pkey', 'payment_webhook_source_manifests', ARRAY['id']::text[], true, true, NULL::text),
+        ('payment_webhook_source_manifests_replay_key_uq', 'payment_webhook_source_manifests', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_inbox_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_binding_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version', 'currency']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_currency_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'currency']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_provider_account_idx', 'payment_webhook_source_manifests', ARRAY['provider', 'provider_account_scope', 'created_at', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_source_manifests_generation_idx', 'payment_webhook_source_manifests', ARRAY['ingress_contract_generation_id', 'id']::text[], false, false, NULL::text),
+        ('payment_webhook_source_manifests_inbox_idx', 'payment_webhook_source_manifests', ARRAY['inbox_id', 'id']::text[], false, false, '(inbox_id IS NOT NULL)'::text),
+        ('payment_webhook_source_proofs_pkey', 'payment_webhook_source_proofs', ARRAY['id']::text[], true, true, NULL::text),
+        ('payment_webhook_source_proofs_manifest_child_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'child_identity']::text[], true, false, NULL::text),
+        ('payment_webhook_source_proofs_manifest_ordinal_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'child_ordinal']::text[], true, false, NULL::text),
+        ('payment_webhook_source_proofs_manifest_capture_uq', 'payment_webhook_source_proofs', ARRAY['source_manifest_id', 'capture_identity']::text[], true, false, NULL::text),
+        ('payment_webhook_source_proofs_decision_idx', 'payment_webhook_source_proofs', ARRAY['intake_decision', 'review_scope_kind', 'decided_at', 'id']::text[], false, false, NULL::text)
+    ) AS expected(index_name, table_name, key_columns, is_unique, is_primary, predicate)
+    LEFT JOIN pg_namespace index_namespace ON index_namespace.nspname = 'private'
+    LEFT JOIN pg_class index_relation
+      ON index_relation.relnamespace = index_namespace.oid
+      AND index_relation.relname = expected.index_name
+    LEFT JOIN pg_index index_catalog ON index_catalog.indexrelid = index_relation.oid
+    LEFT JOIN pg_class table_relation ON table_relation.oid = index_catalog.indrelid
+    LEFT JOIN pg_namespace table_namespace ON table_namespace.oid = table_relation.relnamespace
+    LEFT JOIN LATERAL (
+      SELECT array_agg(attribute.attname::text ORDER BY key_columns.ordinality) AS names
+      FROM unnest(index_catalog.indkey) WITH ORDINALITY AS key_columns(attnum, ordinality)
+      JOIN pg_attribute attribute
+        ON attribute.attrelid = table_relation.oid
+        AND attribute.attnum = key_columns.attnum
+    ) AS actual_keys ON true
+    WHERE index_relation.oid IS NULL
+      OR table_namespace.nspname IS DISTINCT FROM 'private'
+      OR table_relation.relname IS DISTINCT FROM expected.table_name
+      OR index_catalog.indisunique IS DISTINCT FROM expected.is_unique
+      OR index_catalog.indisprimary IS DISTINCT FROM expected.is_primary
+      OR actual_keys.names IS DISTINCT FROM expected.key_columns
+      OR COALESCE(pg_get_expr(index_catalog.indpred, index_catalog.indrelid), NULL) IS DISTINCT FROM expected.predicate
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence index catalog changed after fixture rollback';
+  END IF;
+  IF EXISTS (
+    WITH expected AS (
+      SELECT 'payment_ingress_contract_generations'::text AS table_name,
+        unnest(ARRAY['payment_ingress_contract_generations_evidence_binding_key']::text[]) AS constraint_name
+      UNION ALL
+      SELECT 'payment_webhook_inbox', unnest(ARRAY[
+        'payment_webhook_inbox_pkey', 'payment_webhook_inbox_provider_check',
+        'payment_webhook_inbox_endpoint_key_check', 'payment_webhook_inbox_signature_scope_check',
+        'payment_webhook_inbox_authority_key_check', 'payment_webhook_inbox_generation_fkey',
+        'payment_webhook_inbox_replay_kind_check', 'payment_webhook_inbox_replay_digest_check',
+        'payment_webhook_inbox_replay_preimage_check', 'payment_webhook_inbox_ingress_scope_snapshot_check',
+        'payment_webhook_inbox_envelope_check', 'payment_webhook_inbox_hashes_check',
+        'payment_webhook_inbox_event_type_check', 'payment_webhook_inbox_reference_check',
+        'payment_webhook_inbox_amount_currency_check', 'payment_webhook_inbox_manifest_check',
+        'payment_webhook_inbox_processing_check', 'payment_webhook_inbox_error_check',
+        'payment_webhook_inbox_decision_projection_check', 'payment_webhook_inbox_replay_key_uq',
+        'payment_webhook_inbox_manifest_binding_uq', 'payment_webhook_inbox_source_manifest_fkey'
+      ]::text[])
+      UNION ALL
+      SELECT 'payment_webhook_source_manifests', unnest(ARRAY[
+        'payment_webhook_source_manifests_pkey', 'payment_webhook_source_manifests_provider_check',
+        'payment_webhook_source_manifests_endpoint_key_check', 'payment_webhook_source_manifests_signature_scope_check',
+        'payment_webhook_source_manifests_authority_key_check', 'payment_webhook_source_manifests_generation_fkey',
+        'payment_webhook_source_manifests_replay_kind_check', 'payment_webhook_source_manifests_replay_digest_check',
+        'payment_webhook_source_manifests_replay_preimage_check', 'payment_webhook_source_manifests_scope_snapshot_check',
+        'payment_webhook_source_manifests_economics_check', 'payment_webhook_source_manifests_parent_identity_check',
+        'payment_webhook_source_manifests_replay_key_uq', 'payment_webhook_source_manifests_inbox_target_uq',
+        'payment_webhook_source_manifests_binding_uq', 'payment_webhook_source_manifests_currency_target_uq',
+        'payment_webhook_source_manifests_inbox_fkey'
+      ]::text[])
+      UNION ALL
+      SELECT 'payment_webhook_source_proofs', unnest(ARRAY[
+        'payment_webhook_source_proofs_pkey', 'payment_webhook_source_proofs_manifest_fkey',
+        'payment_webhook_source_proofs_child_identity_check', 'payment_webhook_source_proofs_ordinal_check',
+        'payment_webhook_source_proofs_reference_check', 'payment_webhook_source_proofs_capture_identity_check',
+        'payment_webhook_source_proofs_amount_check', 'payment_webhook_source_proofs_currency_fkey',
+        'payment_webhook_source_proofs_paid_precision_check', 'payment_webhook_source_proofs_hash_check',
+        'payment_webhook_source_proofs_decision_check', 'payment_webhook_source_proofs_reason_check',
+        'payment_webhook_source_proofs_review_scope_check', 'payment_webhook_source_proofs_decision_shape_check',
+        'payment_webhook_source_proofs_manifest_child_uq', 'payment_webhook_source_proofs_manifest_ordinal_uq',
+        'payment_webhook_source_proofs_manifest_capture_uq'
+      ]::text[])
+    )
+    SELECT 1
+    FROM expected
+    LEFT JOIN pg_constraint constraint_catalog
+      ON constraint_catalog.conrelid = ('private.' || expected.table_name)::regclass
+      AND constraint_catalog.conname = expected.constraint_name
+    WHERE constraint_catalog.oid IS NULL
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence named constraints changed or lost their relation scope after fixture rollback';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_webhook_inbox', 'payment_webhook_inbox_pkey', 'PRIMARY KEY (id)'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_pkey', 'PRIMARY KEY (id)'),
+        ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_pkey', 'PRIMARY KEY (id)')
+    ) AS expected(table_name, constraint_name, definition)
+    LEFT JOIN pg_constraint constraint_catalog
+      ON constraint_catalog.conrelid = ('private.' || expected.table_name)::regclass
+      AND constraint_catalog.conname = expected.constraint_name
+    WHERE constraint_catalog.contype IS DISTINCT FROM 'p'
+      OR regexp_replace(pg_get_constraintdef(constraint_catalog.oid), '\s+', ' ', 'g') IS DISTINCT FROM expected.definition
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence primary-key constraints changed after fixture rollback';
   END IF;
   IF EXISTS (
     SELECT 1

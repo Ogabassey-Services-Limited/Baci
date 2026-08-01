@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { expectedEvidenceIndexMatrix } from './payment-webhook-evidence-index-matrix.test-support';
+
 const migrationFilename =
   '20260801150000_payment_webhook_evidence_foundation.sql';
 const migrationPath = resolve(
@@ -99,29 +101,32 @@ describe('payment webhook evidence foundation migration', () => {
     expect(replayContractSql).toContain('pg_get_constraintdef');
     expect(replayContractSql).toContain('conrelid');
     expect(replayContractSql).toContain('index_namespace');
-    for (const indexName of [
-      'payment_webhook_inbox_pkey',
-      'payment_webhook_inbox_replay_key_uq',
-      'payment_webhook_inbox_manifest_binding_uq',
-      'payment_webhook_inbox_processing_idx',
-      'payment_webhook_inbox_generation_idx',
-      'payment_webhook_inbox_source_manifest_idx',
-      'payment_webhook_source_manifests_pkey',
-      'payment_webhook_source_manifests_replay_key_uq',
-      'payment_webhook_source_manifests_inbox_target_uq',
-      'payment_webhook_source_manifests_binding_uq',
-      'payment_webhook_source_manifests_currency_target_uq',
-      'payment_webhook_source_manifests_provider_account_idx',
-      'payment_webhook_source_manifests_generation_idx',
-      'payment_webhook_source_manifests_inbox_idx',
-      'payment_webhook_source_proofs_pkey',
-      'payment_webhook_source_proofs_manifest_child_uq',
-      'payment_webhook_source_proofs_manifest_ordinal_uq',
-      'payment_webhook_source_proofs_manifest_capture_uq',
-      'payment_webhook_source_proofs_decision_idx',
-    ]) {
-      expect(replayContractSql).toContain(indexName);
+    for (const [
+      indexName,
+      tableName,
+      keyColumns,
+      isUnique,
+      isPrimary,
+      predicate,
+    ] of expectedEvidenceIndexMatrix) {
+      const predicateSql =
+        predicate === null ? 'NULL::text' : `'${predicate}'::text`;
+      const keyColumnsSql = keyColumns
+        .map((column) => `'${column}'`)
+        .join(', ');
+
+      expect(replayContractSql).toContain(
+        `('${indexName}', '${tableName}', ARRAY[${keyColumnsSql}]::text[], ${isUnique}, ${isPrimary}, ${predicateSql})`
+      );
     }
+    expect(replayContractSql).toContain('indisprimary');
+    expect(replayContractSql).toContain('PRIMARY KEY (id)');
+    expect(replayContractSql).toContain(
+      'payment webhook evidence index catalog changed after fixture rollback'
+    );
+    expect(replayContractSql).toContain(
+      'payment webhook evidence named constraints changed or lost their relation scope after fixture rollback'
+    );
     expect(replayContractSql).toContain('SET CONSTRAINTS ALL IMMEDIATE;');
     expect(replayContractSql).toMatch(/ROLLBACK;\s+DO \$\$/);
     expect(replayContractSql).toContain(

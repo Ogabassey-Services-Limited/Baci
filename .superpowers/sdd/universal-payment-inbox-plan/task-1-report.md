@@ -77,6 +77,21 @@
   disposable PostgreSQL replay passed. Full monorepo testing was intentionally
   not rerun in this round.
 
+## Primary-key and post-rollback oracle closure
+
+- The frozen index matrix now separately asserts `pg_index.indisprimary` for
+  all three primary-key indexes. Relation-scoped `pg_constraint` checks require
+  their exact `PRIMARY KEY (id)` definitions, preventing a same-named UNIQUE
+  index from satisfying the contract.
+- After `ROLLBACK`, the fixture replays the complete 19-index metadata matrix
+  and verifies every expected constraint name is still attached to its exact
+  private relation, with primary-key definitions rechecked.
+- The source contract carries the same exact index tuples (name, relation,
+  ordered keys, uniqueness, primary flag, and predicate) and requires the
+  post-rollback catalog oracle markers. The migration SHA and both registry
+  mirrors remain `c773655eb4d64e0e7c02a655d7299ec2b23f157e6d0f80f8f8dc49dae7664b80`;
+  the pending-source count remains 78.
+
 ## Limitations
 
 - Full local Supabase chronological bootstrap is blocked by an unrelated,
