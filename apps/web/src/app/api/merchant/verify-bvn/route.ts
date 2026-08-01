@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getMonnifyBaseUrl } from '@/env';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { getMonnifyToken } from '@/lib/monnify';
+import { getMonnifyBaseUrl } from '@/lib/monnify-provider-config';
 import { bvnVerifySchema } from '@/schemas/verification';
 import { getVerificationRateLimitError } from '../verification-rate-limit';
 import normalizeBvnMatchResult from './normalize-bvn-match-result';

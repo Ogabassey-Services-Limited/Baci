@@ -72,8 +72,8 @@ vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
     mockGetMerchantBlogCacheIdentifiers(...args),
 }));
 
-vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
-  dispatchZohoBlogCampaign: (...args: unknown[]) =>
+vi.mock('@/lib/zoho-blog-campaign-server', () => ({
+  dispatchConfiguredZohoBlogCampaign: (...args: unknown[]) =>
     mockDispatchZohoBlogCampaign(...args),
 }));
 
@@ -82,9 +82,12 @@ vi.mock('@/lib/indexnow', async (importOriginal) => {
 
   return {
     ...actual,
-    submitIndexNowUrls: (...args: unknown[]) => mockSubmitIndexNowUrls(...args),
   };
 });
+vi.mock('@/lib/indexnow-server', () => ({
+  submitConfiguredIndexNowUrls: (...args: unknown[]) =>
+    mockSubmitIndexNowUrls(...args),
+}));
 
 // Mock blog image prewarm scheduling
 const mockSchedulePrewarmBlogImageTransforms = vi.fn();

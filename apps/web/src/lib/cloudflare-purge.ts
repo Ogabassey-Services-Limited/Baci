@@ -1,4 +1,4 @@
-import { getCloudflareApiToken, getCloudflareZoneId } from '@/env';
+import { getCloudflarePurgeCredentials } from '@/lib/cloudflare-purge-credentials';
 
 /**
  * Best-effort Cloudflare edge cache purge for the storefront custom domains.
@@ -70,16 +70,15 @@ async function executeCloudflarePurge(
     return { ok: true, reason: 'not_required' };
   }
 
-  const token = getCloudflareApiToken();
-  const zoneId = getCloudflareZoneId();
-  if (!token || !zoneId) {
+  const credentials = getCloudflarePurgeCredentials();
+  if (!credentials) {
     warnMissingConfigOnce();
     return { ok: false, reason: 'missing_configuration' };
   }
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const endpoint = `${CLOUDFLARE_PURGE_API_BASE}/${encodeURIComponent(
-    zoneId
+    credentials.zoneId
   )}/purge_cache`;
   const timeoutMs = options.timeoutMs ?? DEFAULT_PURGE_TIMEOUT_MS;
   let providerRejected = false;
@@ -90,7 +89,7 @@ async function executeCloudflarePurge(
       const response = await fetchImpl(endpoint, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${credentials.token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ [payloadKey]: batch }),

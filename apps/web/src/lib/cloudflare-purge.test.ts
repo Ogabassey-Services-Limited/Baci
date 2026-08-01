@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetCloudflareApiToken = vi.fn();
-const mockGetCloudflareZoneId = vi.fn();
+const mockGetCloudflarePurgeCredentials = vi.fn();
 
-vi.mock('@/env', () => ({
-  getCloudflareApiToken: () => mockGetCloudflareApiToken(),
-  getCloudflareZoneId: () => mockGetCloudflareZoneId(),
+vi.mock('@/lib/cloudflare-purge-credentials', () => ({
+  getCloudflarePurgeCredentials: () => mockGetCloudflarePurgeCredentials(),
 }));
 
 // Re-import per test so the module-level "warned once" flag resets between
@@ -39,8 +37,10 @@ function okResponse(): Response {
 describe('purgeCloudflareUrls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCloudflareApiToken.mockReturnValue('cf-token');
-    mockGetCloudflareZoneId.mockReturnValue('cf-zone');
+    mockGetCloudflarePurgeCredentials.mockReturnValue({
+      token: 'cf-token',
+      zoneId: 'cf-zone',
+    });
   });
 
   afterEach(() => {
@@ -171,12 +171,11 @@ describe('purgeCloudflareUrls', () => {
     });
 
     expect(fetchImpl).not.toHaveBeenCalled();
-    expect(mockGetCloudflareApiToken).not.toHaveBeenCalled();
+    expect(mockGetCloudflarePurgeCredentials).not.toHaveBeenCalled();
   });
 
   it('warns once and skips fetch when configuration is missing', async () => {
-    mockGetCloudflareApiToken.mockReturnValue(undefined);
-    mockGetCloudflareZoneId.mockReturnValue(undefined);
+    mockGetCloudflarePurgeCredentials.mockReturnValue(undefined);
     const warnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -238,8 +237,7 @@ describe('purgeCloudflareUrls', () => {
   });
 
   it('reports missing configuration instead of confirming eviction', async () => {
-    mockGetCloudflareApiToken.mockReturnValue(undefined);
-    mockGetCloudflareZoneId.mockReturnValue(undefined);
+    mockGetCloudflarePurgeCredentials.mockReturnValue(undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const purgeCloudflareUrlsConfirmed = await loadConfirmedPurge();
 

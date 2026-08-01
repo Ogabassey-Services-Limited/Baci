@@ -3,9 +3,10 @@ import type { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog
 import {
   buildIndexNowBlogPostUrl,
   getIndexNowHostFromIdentifiers,
-  submitIndexNowUrls,
 } from '@/lib/indexnow';
-import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
+import { submitConfiguredIndexNowUrls } from '@/lib/indexnow-server';
+import type { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
+import { dispatchConfiguredZohoBlogCampaign } from '@/lib/zoho-blog-campaign-server';
 
 type BlogRevalidation = Awaited<
   ReturnType<typeof getMerchantBlogRevalidationContext>
@@ -23,7 +24,9 @@ function startIndexNowEffect({
   try {
     const host = getIndexNowHostFromIdentifiers(blogRevalidation?.identifiers);
     const url = host ? buildIndexNowBlogPostUrl(host, post.slug) : null;
-    return host && url ? submitIndexNowUrls({ host, urls: [url] }) : undefined;
+    return host && url
+      ? submitConfiguredIndexNowUrls({ host, urls: [url] })
+      : undefined;
   } catch (error) {
     console.error('IndexNow blog submit failed', error);
   }
@@ -39,7 +42,7 @@ function startZohoEffect({
   supabase: Parameters<typeof dispatchZohoBlogCampaign>[0]['supabase'];
 }): PublicationEffect {
   try {
-    return dispatchZohoBlogCampaign({
+    return dispatchConfiguredZohoBlogCampaign({
       ...(blogRevalidation ? { context: blogRevalidation } : {}),
       post,
       supabase,

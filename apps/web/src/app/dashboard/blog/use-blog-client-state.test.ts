@@ -87,6 +87,21 @@ describe('useBlogClientState', () => {
     expect(requests.requestPosts).toHaveBeenCalled();
   });
 
+  it('resets search and opens the published filter for Discover remediation', () => {
+    const { result } = renderHook(() =>
+      useBlogClientState({ initialPosts: [post], merchant })
+    );
+
+    act(() => result.current.changeSearch('missing image'));
+    expect(result.current.searchQuery).toBe('missing image');
+
+    act(() => result.current.showDiscoverRemediation());
+
+    expect(result.current.searchQuery).toBe('');
+    expect(result.current.statusFilter).toBe('published');
+    expect(result.current.page).toBe(1);
+  });
+
   it('does not fetch again when the server supplied the initial list', async () => {
     renderHook(() => useBlogClientState({ initialPosts: [post], merchant }));
 

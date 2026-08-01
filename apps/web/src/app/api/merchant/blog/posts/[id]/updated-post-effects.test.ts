@@ -12,15 +12,17 @@ vi.mock('next/server', () => ({
 vi.mock('@/lib/indexnow', () => ({
   buildIndexNowBlogPostUrl: vi.fn(),
   getIndexNowHostFromIdentifiers: vi.fn(),
-  submitIndexNowUrls: vi.fn(),
+}));
+vi.mock('@/lib/indexnow-server', () => ({
+  submitConfiguredIndexNowUrls: vi.fn(),
 }));
 
 vi.mock('@/lib/ogabassey-blog-image-prewarm', () => ({
   schedulePrewarmBlogImageTransforms: vi.fn(),
 }));
 
-vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
-  dispatchZohoBlogCampaign: (...args: unknown[]) =>
+vi.mock('@/lib/zoho-blog-campaign-server', () => ({
+  dispatchConfiguredZohoBlogCampaign: (...args: unknown[]) =>
     mockDispatchZohoBlogCampaign(...args),
 }));
 

@@ -13,8 +13,8 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => mockQuery),
 }));
 
-vi.mock('@/env', () => ({
-  getZohoCampaignsRuntimeConfig: () => ({
+vi.mock('@/lib/zoho-blog-campaign-server', () => ({
+  getConfiguredZohoBlogContentConfig: () => ({
     contentSecret: 'content-secret',
     publicBaseUrl: 'https://usebaci.com',
   }),

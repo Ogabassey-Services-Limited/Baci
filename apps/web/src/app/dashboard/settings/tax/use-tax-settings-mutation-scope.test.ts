@@ -29,4 +29,18 @@ describe('useTaxSettingsMutationScope', () => {
 
     expect(isCurrent()).toBe(false);
   });
+
+  it('keeps independent mutation generations current while superseding repeats', () => {
+    const { result } = renderHook(() =>
+      useTaxSettingsMutationScope('merchant-a')
+    );
+
+    const firstVatRequest = result.current.beginRequest('vat');
+    const taxIdRequest = result.current.beginRequest('taxId');
+    const latestVatRequest = result.current.beginRequest('vat');
+
+    expect(firstVatRequest()).toBe(false);
+    expect(taxIdRequest()).toBe(true);
+    expect(latestVatRequest()).toBe(true);
+  });
 });

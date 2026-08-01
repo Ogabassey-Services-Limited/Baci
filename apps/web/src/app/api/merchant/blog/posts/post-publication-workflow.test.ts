@@ -19,10 +19,12 @@ vi.mock('next/server', () => ({ after: mockAfter }));
 vi.mock('@/lib/indexnow', () => ({
   buildIndexNowBlogPostUrl: mockBuildIndexNowBlogPostUrl,
   getIndexNowHostFromIdentifiers: mockGetIndexNowHostFromIdentifiers,
-  submitIndexNowUrls: mockSubmitIndexNowUrls,
 }));
-vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
-  dispatchZohoBlogCampaign: mockDispatchZohoBlogCampaign,
+vi.mock('@/lib/indexnow-server', () => ({
+  submitConfiguredIndexNowUrls: mockSubmitIndexNowUrls,
+}));
+vi.mock('@/lib/zoho-blog-campaign-server', () => ({
+  dispatchConfiguredZohoBlogCampaign: mockDispatchZohoBlogCampaign,
 }));
 
 import { schedulePostPublicationWorkflow } from './post-publication-workflow';

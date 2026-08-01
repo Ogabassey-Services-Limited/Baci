@@ -10,7 +10,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { getRootDomain } from '@/env';
+import { getPublicRootDomain } from '@/lib/blog-public-config';
 import type { MerchantPreviewData, PostFormData } from './edit-blog-types';
 
 export function EditBlogSeoTab({
@@ -30,7 +30,7 @@ export function EditBlogSeoTab({
   const blogUrl = merchant?.custom_domain
     ? `https://${merchant.custom_domain.replace(/\/$/, '')}/blog/`
     : merchant?.slug
-      ? `https://${getRootDomain() ?? 'usebaci.com'}/${merchant.slug}/blog/`
+      ? `https://${getPublicRootDomain() ?? 'usebaci.com'}/${merchant.slug}/blog/`
       : '/blog/';
   return (
     <Card>

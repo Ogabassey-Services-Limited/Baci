@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getZohoCampaignsRuntimeConfig } from '@/env';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { getMerchantZohoEmailBrand } from '@/lib/merchant-zoho-campaign-settings';
 import { createClient } from '@/lib/supabase/server';
@@ -8,6 +7,7 @@ import {
   buildStorefrontBlogPostUrl,
   isValidZohoBlogContentSignature,
 } from '@/lib/zoho-blog-campaign-dispatch';
+import { getConfiguredZohoBlogContentConfig } from '@/lib/zoho-blog-campaign-server';
 import { buildZohoBlogEmailHtml } from '@/lib/zoho-blog-email-content';
 
 const routeParamsSchema = z.object({
@@ -26,7 +26,7 @@ export async function GET(
     );
   }
 
-  const config = getZohoCampaignsRuntimeConfig();
+  const config = getConfiguredZohoBlogContentConfig();
   if (!config.contentSecret) {
     return NextResponse.json(
       { error: 'Zoho Campaigns content signing is not configured' },

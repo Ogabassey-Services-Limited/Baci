@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRoleKey } from '@/env';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { deriveProductVariantWriteProjections } from '@/lib/derive-product-variant-projections';
@@ -23,6 +22,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';
 import { buildProductImagesInput } from './build-product-images-input';
 import { scheduleNewProductCaches } from './schedule-new-product-caches';
+
+const EMBEDDING_GENERATION_TIMEOUT_MS = 10_000;
 
 export async function createProduct(request: NextRequest) {
   try {
@@ -238,30 +239,34 @@ export async function createProduct(request: NextRequest) {
       }
     }
     if (product?.id) {
+      const embeddingAbortController = new AbortController();
+      const embeddingTimeout = setTimeout(
+        () => embeddingAbortController.abort(),
+        EMBEDDING_GENERATION_TIMEOUT_MS
+      );
       const embeddingText = getProductEmbeddingText({
         name: body.name,
         description,
         brand: body.brand,
         category_name: body.category,
       });
-      fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-embedding`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getSupabaseServiceRoleKey()}`,
-          },
-          body: JSON.stringify({
-            type: 'product',
+      void supabase.functions
+        .invoke('generate-embedding', {
+          body: {
             id: product.id,
             text: embeddingText,
-          }),
-          signal: AbortSignal.timeout(10_000),
-        }
-      ).catch((error) =>
-        console.error('Failed to generate product embedding:', error)
-      );
+            type: 'product',
+          },
+          signal: embeddingAbortController.signal,
+        })
+        .then(({ error }) => {
+          if (error)
+            console.error('Failed to generate product embedding:', error);
+        })
+        .catch((error) =>
+          console.error('Failed to generate product embedding:', error)
+        )
+        .finally(() => clearTimeout(embeddingTimeout));
     }
     scheduleNewProductCaches({
       merchantId,

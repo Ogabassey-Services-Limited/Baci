@@ -101,6 +101,32 @@ describe('useNewBlogPostMediaActions merchant context', () => {
     expect(mockFetchWithCsrf).not.toHaveBeenCalled();
   });
 
+  it('shows a merchant-specific error before a featured upload without a merchant', async () => {
+    mockMerchant.id = undefined as unknown as string;
+    const toast = vi.fn();
+    const { result } = renderHook(() =>
+      useNewBlogPostMediaActions({
+        uploadedFeaturedImage: null,
+        setFormData: vi.fn(),
+        setUploadedFeaturedImage: vi.fn(),
+        toast,
+      })
+    );
+
+    await act(() =>
+      result.current.handleFeaturedImageUpload([
+        new File(['image'], 'featured.png', { type: 'image/png' }),
+      ])
+    );
+
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith({
+      description: 'Select a merchant before uploading media',
+      title: 'Merchant unavailable',
+      variant: 'destructive',
+    });
+  });
+
   it('deletes and rejects an inline upload that completes after a merchant switch', async () => {
     const pendingUpload: {
       resolve?: (value: ReturnType<typeof response>) => void;

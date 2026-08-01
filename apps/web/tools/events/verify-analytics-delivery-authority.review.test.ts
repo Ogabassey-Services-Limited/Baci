@@ -10,9 +10,14 @@ describe('changed analytics runtime review regressions', () => {
 
   it.each([
     'fixture.test.ts',
+    'fixture.tests.ts',
     'fixture.spec.tsx',
     'fixture.test.mjs',
     'fixture.spec.mjs',
+    'fixture.test-suite.ts',
+    'fixture.test-support.ts',
+    'fixture.test-helpers.ts',
+    'fixture.test-fixture.ts',
   ])('exempts %s from changed runtime contracts', (name) => {
     const path = `apps/web/src/lib/analytics/${name}`;
     expect(
@@ -34,6 +39,18 @@ describe('changed analytics runtime review regressions', () => {
       )
     ).toEqual([
       `${path}: changed runtime is missing colocated test apps/web/src/lib/analytics/provider.test.${extension}`,
+    ]);
+  });
+
+  it('does not mistake a .d.js runtime module for a TypeScript declaration', () => {
+    const path = 'apps/web/src/lib/analytics/provider.d.js';
+    expect(
+      analyzeChangedRuntimeContracts(
+        [path],
+        new Map([[path, 'export const provider = true;']])
+      )
+    ).toEqual([
+      `${path}: changed runtime is missing colocated test apps/web/src/lib/analytics/provider.d.test.js`,
     ]);
   });
 });

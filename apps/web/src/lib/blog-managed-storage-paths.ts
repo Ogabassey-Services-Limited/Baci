@@ -1,5 +1,5 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
-import { env } from '@/env';
+import { getPublicBlogMediaCdnOrigin } from '@/lib/blog-public-config';
 
 export const BLOG_FEATURED_VARIANT_KEYS = [
   'landscape_16x9',
@@ -46,9 +46,7 @@ function getExpectedPrefix(scope: BlogStorageScope): [string, string] {
 
 function getConfiguredBlogMediaCdnOrigin(origin?: string): string {
   const configured =
-    origin ||
-    env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN ||
-    DEFAULT_BLOG_MEDIA_CDN_ORIGIN;
+    origin || getPublicBlogMediaCdnOrigin() || DEFAULT_BLOG_MEDIA_CDN_ORIGIN;
 
   try {
     return new URL(configured).origin;

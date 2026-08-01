@@ -1,0 +1,121 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { revalidateBlogPosts } from '@/lib/cache-revalidation';
+import {
+  getMerchantBlogRevalidationContext,
+  type MerchantBlogRevalidationContext,
+} from '@/lib/get-merchant-blog-cache-identifiers';
+import { schedulePrewarmBlogImageTransforms } from '@/lib/ogabassey-blog-image-prewarm';
+import { dispatchConfiguredZohoBlogCampaign } from '@/lib/zoho-blog-campaign-server';
+import type { ScheduledPost } from './publish-scheduled-posts-eligibility';
+
+export type MerchantScheduledPosts = {
+  categories: Set<string>;
+  featuredImageUrls: string[];
+  listingPages: number[];
+  postSlugs: string[];
+};
+
+export type RevalidationResult = {
+  blogRevalidationByMerchant: Map<string, MerchantBlogRevalidationContext>;
+  failedMerchants: string[];
+};
+
+export function groupPostsByMerchant(scheduledPosts: ScheduledPost[]) {
+  const postsByMerchant = new Map<string, MerchantScheduledPosts>();
+
+  for (const post of scheduledPosts) {
+    const merchantPosts = postsByMerchant.get(post.merchant_id) ?? {
+      categories: new Set<string>(),
+      featuredImageUrls: [],
+      listingPages: [1],
+      postSlugs: [],
+    };
+
+    if (post.slug) {
+      merchantPosts.postSlugs.push(post.slug);
+    }
+    if (post.category) {
+      merchantPosts.categories.add(post.category);
+    }
+    if (post.featured_image_url) {
+      merchantPosts.featuredImageUrls.push(post.featured_image_url);
+    }
+
+    postsByMerchant.set(post.merchant_id, merchantPosts);
+  }
+
+  return postsByMerchant;
+}
+
+export async function revalidateScheduledPostsByMerchant(
+  supabase: SupabaseClient,
+  postsByMerchant: Map<string, MerchantScheduledPosts>
+): Promise<RevalidationResult> {
+  const failedMerchants: string[] = [];
+  const blogRevalidationByMerchant = new Map<
+    string,
+    MerchantBlogRevalidationContext
+  >();
+
+  for (const [merchantId, merchantPosts] of postsByMerchant) {
+    try {
+      const blogRevalidation = await getMerchantBlogRevalidationContext(
+        supabase,
+        merchantId
+      );
+      blogRevalidationByMerchant.set(merchantId, blogRevalidation);
+      revalidateBlogPosts({
+        merchantId,
+        identifiers: blogRevalidation.identifiers,
+        canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
+        listingCategories: Array.from(merchantPosts.categories),
+        listingPages: merchantPosts.listingPages,
+        postSlugs: merchantPosts.postSlugs,
+      });
+      schedulePrewarmBlogImageTransforms(merchantPosts.featuredImageUrls);
+      console.log(
+        `🔄 Cron: Revalidated blog cache for merchant ${merchantId} across ${merchantPosts.postSlugs.length} posts`
+      );
+    } catch (revalError) {
+      console.error(
+        'Cron Error: Revalidation failed for merchant %s:',
+        merchantId,
+        revalError
+      );
+      failedMerchants.push(merchantId);
+    }
+  }
+
+  return { blogRevalidationByMerchant, failedMerchants };
+}
+
+export async function dispatchScheduledPostZohoCampaigns(
+  supabase: SupabaseClient,
+  eligiblePosts: ScheduledPost[],
+  blogRevalidationByMerchant: Map<string, MerchantBlogRevalidationContext>
+) {
+  const dispatchablePosts = eligiblePosts.filter((post) =>
+    blogRevalidationByMerchant.has(post.merchant_id)
+  );
+  const skippedCampaignResults = eligiblePosts
+    .filter((post) => !blogRevalidationByMerchant.has(post.merchant_id))
+    .map((post) => ({
+      postId: post.id,
+      reason:
+        'Skipped Zoho Campaigns dispatch because blog revalidation failed for this merchant',
+      status: 'skipped' as const,
+    }));
+
+  return [
+    ...(await Promise.all(
+      dispatchablePosts.map((post) =>
+        dispatchConfiguredZohoBlogCampaign({
+          context: blogRevalidationByMerchant.get(post.merchant_id),
+          post,
+          supabase,
+        })
+      )
+    )),
+    ...skippedCampaignResults,
+  ];
+}

@@ -1,9 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  getZohoCampaignsRuntimeConfig,
-  type ZohoCampaignsRuntimeConfig,
-} from '@/env';
+import type { ZohoCampaignsRuntimeConfig } from '@/env';
 import {
   createZohoBlogCampaign,
   refreshZohoCampaignsAccessToken,
@@ -28,6 +25,15 @@ const HOSTNAME_PATTERN =
 const DEFAULT_ZOHO_REQUEST_TIMEOUT_MS = 15_000;
 
 type ZohoBlogCampaignAudience = 'primary' | 'review';
+
+export type ZohoBlogCampaignDispatchInput = {
+  audience?: ZohoBlogCampaignAudience;
+  config: ZohoCampaignsRuntimeConfig;
+  context?: MerchantBlogRevalidationContext;
+  fetchImpl?: FetchImplementation;
+  post: ZohoBlogCampaignPost;
+  supabase: SupabaseClient;
+};
 
 function withZohoRequestTimeout(
   fetchImpl: FetchImplementation,
@@ -152,19 +158,12 @@ export function isValidZohoBlogContentSignature({
 
 export async function dispatchZohoBlogCampaign({
   audience = 'primary',
-  config = getZohoCampaignsRuntimeConfig(),
+  config,
   context,
   fetchImpl = fetch,
   post,
   supabase,
-}: {
-  audience?: ZohoBlogCampaignAudience;
-  config?: ZohoCampaignsRuntimeConfig;
-  context?: MerchantBlogRevalidationContext;
-  fetchImpl?: FetchImplementation;
-  post: ZohoBlogCampaignPost;
-  supabase: SupabaseClient;
-}): Promise<ZohoCampaignDispatchResult> {
+}: ZohoBlogCampaignDispatchInput): Promise<ZohoCampaignDispatchResult> {
   if (!config.enabled) {
     return {
       postId: post.id,

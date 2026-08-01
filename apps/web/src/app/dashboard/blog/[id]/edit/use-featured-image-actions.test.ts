@@ -243,11 +243,28 @@ describe('useFeaturedImageActions merchant context', () => {
         url: 'https://cdn.example.com/second.png',
         width: 100,
         height: 100,
+        variants: {
+          landscape_16x9: 'https://cdn.example.com/second-16x9.webp',
+          unsupported: 'https://cdn.example.com/unsupported.webp',
+        },
       })
     );
     await act(async () => second);
 
     expect(result.current.isUploading).toBe(false);
     expect(setFormData).toHaveBeenCalledTimes(1);
+    const updateFormData = setFormData.mock.calls[0]?.[0] as (
+      previous: PostFormData
+    ) => PostFormData;
+    expect(updateFormData(formData)).toEqual(
+      expect.objectContaining({
+        featured_image_height: 100,
+        featured_image_url: 'https://cdn.example.com/second.png',
+        featured_image_variants: {
+          landscape_16x9: 'https://cdn.example.com/second-16x9.webp',
+        },
+        featured_image_width: 100,
+      })
+    );
   });
 });
