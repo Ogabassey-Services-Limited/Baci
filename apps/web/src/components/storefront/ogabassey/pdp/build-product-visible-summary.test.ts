@@ -267,4 +267,26 @@ describe('buildOgabasseyProductVisibleSummary', () => {
     ).toBe('Dell Latitude 7450. Storage: 512 GB.');
   });
 
+  it('does not advertise managed-stock variants with no inventory', () => {
+    expect(
+      buildOgabasseyProductVisibleSummary({
+        brand: 'Apple',
+        manage_stock: true,
+        name: 'iPhone 16',
+        variants: [
+          {
+            attributes: { storage: '128 GB' },
+            condition: 'new',
+            stock_quantity: 0,
+          },
+          {
+            attributes: { storage: '256 GB' },
+            condition: 'new',
+            stock_quantity: 3,
+          },
+        ],
+      })
+    ).toBe('Apple iPhone 16. Storage: 256 GB. Condition: New.');
+  });
+
 });

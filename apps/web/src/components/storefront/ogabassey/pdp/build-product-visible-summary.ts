@@ -3,13 +3,16 @@ export interface OgabasseyProductVisibleSummaryOffer {
   attributes?: Record<string, unknown> | null;
   condition?: string | null;
   deleted_at?: string | null;
+  in_stock?: boolean | null;
   is_active?: boolean | null;
+  stock_quantity?: number | null;
   status?: string | null;
 }
 
 export interface OgabasseyProductVisibleSummaryInput {
   brand?: string | null;
   condition?: string | null;
+  manage_stock?: boolean | null;
   name?: string | null;
   variants?: OgabasseyProductVisibleSummaryOffer[] | null;
 }
@@ -145,7 +148,16 @@ function getOfferFacts(
   };
 }
 
-function isSelectable(offer: OgabasseyProductVisibleSummaryOffer) {
+function isSelectable(
+  offer: OgabasseyProductVisibleSummaryOffer,
+  manageStock: boolean | null | undefined
+) {
+  if (manageStock !== false && typeof offer.stock_quantity === 'number') {
+    if (offer.stock_quantity <= 0) return false;
+  } else if (manageStock !== false && typeof offer.in_stock === 'boolean') {
+    if (!offer.in_stock) return false;
+  }
+
   return (
     offer.active !== false &&
     offer.is_active !== false &&
@@ -171,13 +183,16 @@ function formatValues(values: string[]) {
 export function buildOgabasseyProductVisibleSummary({
   brand,
   condition,
+  manage_stock: manageStock,
   name,
   variants,
 }: OgabasseyProductVisibleSummaryInput) {
   const identity = buildIdentity(brand, name);
   if (!identity) return null;
 
-  const selectableVariants = (variants || []).filter(isSelectable);
+  const selectableVariants = (variants || []).filter((offer) =>
+    isSelectable(offer, manageStock)
+  );
   const parentOffer: OgabasseyProductVisibleSummaryOffer = { condition };
   const parentCondition = normalizeCondition(condition);
   const variantFacts = selectableVariants.map((offer) =>

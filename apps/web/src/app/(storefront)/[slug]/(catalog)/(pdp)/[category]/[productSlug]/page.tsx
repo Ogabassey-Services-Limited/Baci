@@ -1424,6 +1424,7 @@ export default async function CategoryProductPage({
     ? buildOgabasseyProductVisibleSummary({
         brand: product.brand,
         condition: product.condition,
+        manage_stock: commerceProduct.manage_stock,
         name: product.name,
         variants: commerceProduct.variants,
       })
