@@ -9,7 +9,7 @@ describe('getProductModelIdentifiers', () => {
       productSlugs: ['itel-power-80-128gb-4gb', 'itel-a06'],
     });
 
-    expect(identifiers).toEqual(['80', 'a06']);
+    expect(identifiers).toEqual(['power 80', 'a06']);
   });
 
   it('deduplicates identifiers across product variants', () => {
@@ -54,6 +54,45 @@ describe('getProductModelIdentifiers', () => {
     });
 
     expect(identifiers).toEqual(['9350']);
+  });
+
+  it('preserves the family marker for numeric model generations', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Tecno'],
+      productSlugs: ['tecno-spark-40'],
+    });
+
+    expect(identifiers).toEqual(['spark 40']);
+  });
+
+  it('derives brand aliases from compare slugs when brands are omitted', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      productSlugs: ['samsung-galaxy-z-trifold'],
+    });
+
+    expect(identifiers).toEqual(['trifold']);
+  });
+
+  it('ignores generated numeric collision suffixes', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productSlugs: ['apple-iphone-12-2'],
+    });
+
+    expect(identifiers).toEqual(['12']);
+  });
+
+  it('does not treat a singular category word as a model identifier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Nothing'],
+      productSlugs: ['nothing-phone'],
+    });
+
+    expect(identifiers).toEqual([]);
   });
 
   it('preserves a single-character model identifier', () => {

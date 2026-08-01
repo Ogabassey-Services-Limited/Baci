@@ -106,6 +106,87 @@ describe('buildCommercialGuideLinks', () => {
     ]);
   });
 
+  it('derives compare brand aliases from product slugs', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'samsung-buyer-guide',
+          title: 'Samsung Phones Buyer Guide',
+          excerpt: 'How to choose a Samsung phone.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung'],
+          keywords: ['android'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'samsung-galaxy-z-trifold-guide',
+          title: 'Samsung Galaxy Z Trifold Buyer Guide',
+          excerpt: 'What to know about the Galaxy Z Trifold.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung', 'trifold'],
+          keywords: ['foldable'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'compare',
+        categorySlug: 'smartphones',
+        productSlugs: ['samsung-galaxy-z-trifold'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/samsung-galaxy-z-trifold-guide',
+      'https://ogabassey.com/blog/samsung-buyer-guide',
+    ]);
+  });
+
+  it('requires the family marker when scoring numeric generations', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'tecno-camon-40-guide',
+          title: 'Tecno Camon 40 Buyer Guide',
+          excerpt: 'Camon 40 camera and battery expectations.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'tecno', 'camon', '40'],
+          keywords: ['camera'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'tecno-spark-40-guide',
+          title: 'Tecno Spark 40 Buyer Guide',
+          excerpt: 'Spark 40 battery and camera expectations.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'tecno', 'spark', '40'],
+          keywords: ['battery'],
+          published_at: '2026-04-01T09:00:00.000Z',
+          featured_image_url: null,
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'category',
+        categorySlug: 'smartphones',
+        brands: ['Tecno'],
+        productSlugs: ['tecno-spark-40'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/tecno-spark-40-guide',
+      'https://ogabassey.com/blog/tecno-camon-40-guide',
+    ]);
+  });
+
   it('treats malformed published dates as least-recent entries', () => {
     const links = buildCommercialGuideLinks({
       storeUrl: 'https://ogabassey.com',

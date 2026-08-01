@@ -32,6 +32,13 @@ function tokenizeSlug(slug: string) {
     .filter((token) => token.length > 2);
 }
 
+function tokenizeModelIdentifier(identifier: string) {
+  return identifier
+    .split(/[^a-z0-9]+/iu)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function buildGuideHref(storeUrl: string, slug: string) {
   return `${storeUrl}/blog/${slug}`;
 }
@@ -94,9 +101,13 @@ export function buildCommercialGuideLinks(
       }
 
       if (
-        productModelIdentifiers.some((identifier) =>
-          inferred.tokens.includes(identifier)
-        )
+        productModelIdentifiers.some((identifier) => {
+          const identifierTokens = tokenizeModelIdentifier(identifier);
+          return (
+            identifierTokens.length > 0 &&
+            identifierTokens.every((token) => inferred.tokens.includes(token))
+          );
+        })
       ) {
         score += CONTENT_CLUSTER_SCORE.productTokenMatch;
       }

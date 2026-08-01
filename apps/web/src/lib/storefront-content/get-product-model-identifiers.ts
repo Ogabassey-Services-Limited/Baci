@@ -14,11 +14,26 @@ function tokenize(value: string) {
 const SPECIFICATION_TOKEN_PATTERN =
   /^\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg)$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
+const COLLISION_SUFFIX_PATTERN = /^\d{1,2}$/u;
+const GENERIC_MODEL_MARKER_TOKENS = new Set([
+  'edition',
+  'model',
+  'new',
+  'series',
+  'version',
+]);
 
 function getBrandAliasTokens(
-  context: Pick<BuildCommercialGuideLinksContext, 'categorySlug' | 'brands'>
+  context: Pick<
+    BuildCommercialGuideLinksContext,
+    'categorySlug' | 'brands' | 'productSlugs'
+  >
 ) {
-  const contextBrandTokens = new Set((context.brands ?? []).flatMap(tokenize));
+  const contextBrandTokens = new Set(
+    [...(context.brands ?? []), ...(context.productSlugs ?? [])].flatMap(
+      tokenize
+    )
+  );
 
   return Object.entries(
     CONTENT_CLUSTER_SUPPORT[context.categorySlug].brandTokens
@@ -43,13 +58,47 @@ function isDimensionToken(tokens: string[], index: number) {
 }
 
 function getModelTokens(slug: string, excludedTokens: ReadonlySet<string>) {
-  const tokens = tokenize(slug).filter((token) => !excludedTokens.has(token));
+  const rawTokens = tokenize(slug).filter(
+    (token) => !excludedTokens.has(token)
+  );
+  const tokens =
+    rawTokens.length > 1 &&
+    COLLISION_SUFFIX_PATTERN.test(rawTokens[rawTokens.length - 1] ?? '') &&
+    /\d/u.test(rawTokens[rawTokens.length - 2] ?? '')
+      ? rawTokens.slice(0, -1)
+      : rawTokens;
   return tokens.filter(
     (token, index) =>
       !SPECIFICATION_TOKEN_PATTERN.test(token) &&
       !YEAR_TOKEN_PATTERN.test(token) &&
       !isDimensionToken(tokens, index)
   );
+}
+
+function getModelIdentifier(tokens: string[]) {
+  const alphanumericToken = tokens.find(
+    (token) => /[a-z]/u.test(token) && /\d/u.test(token)
+  );
+  if (alphanumericToken) {
+    return alphanumericToken;
+  }
+
+  const numericIndex = tokens.findLastIndex((token) => /\d/u.test(token));
+  if (numericIndex >= 0) {
+    const numericToken = tokens[numericIndex];
+    const familyToken = [
+      ...tokens.slice(0, numericIndex).reverse(),
+      ...tokens.slice(numericIndex + 1),
+    ].find(
+      (token) =>
+        !/\d/u.test(token) &&
+        token.length > 1 &&
+        !GENERIC_MODEL_MARKER_TOKENS.has(token)
+    );
+    return familyToken ? `${familyToken} ${numericToken}` : numericToken;
+  }
+
+  return tokens.find((token) => token.length > 1) ?? tokens[0] ?? null;
 }
 
 /**
@@ -68,7 +117,13 @@ export function getProductModelIdentifiers(
       ...(context.brands ?? []).flatMap(tokenize),
       ...getBrandAliasTokens(context),
       ...CONTENT_CLUSTER_SUPPORT[context.categorySlug].categoryNames.flatMap(
-        tokenize
+        (name) =>
+          tokenize(name).flatMap((token) => [
+            token,
+            ...(token.endsWith('s') && token.length > 3
+              ? [token.slice(0, -1)]
+              : []),
+          ])
       ),
     ].filter(Boolean)
   );
@@ -77,14 +132,7 @@ export function getProductModelIdentifiers(
     new Set(
       (context.productSlugs ?? [])
         .map((slug) => getModelTokens(slug, excludedTokens))
-        .map(
-          (tokens) =>
-            tokens.find((token) => /[a-z]/u.test(token) && /\d/u.test(token)) ??
-            [...tokens].reverse().find((token) => /\d/u.test(token)) ??
-            tokens.find((token) => token.length > 1) ??
-            tokens[0] ??
-            null
-        )
+        .map(getModelIdentifier)
         .filter((token): token is string => Boolean(token))
     )
   );
