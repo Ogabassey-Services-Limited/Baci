@@ -299,6 +299,6 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260801150000_payment_webhook_evidence_foundation.sql',
-    sha256: '34d870d8b4a2fa8ce9d665fe20307a3665db389d932a0670fe322a4423d0cedb',
+    sha256: '0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72',
   },
 ];

@@ -5,15 +5,18 @@
 - `supabase/migrations/20260801150000_payment_webhook_evidence_foundation.sql`
   creates only the three sealed private evidence relations plus the approved
   generation binding unique target. The final SHA-256 is
-  `c773655eb4d64e0e7c02a655d7299ec2b23f157e6d0f80f8f8dc49dae7664b80`.
+  `0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72`.
 - `supabase/migrations/tests/payment_webhook_evidence_foundation.sql` provides
   the transactional catalog, ACL/RLS, closed-JSON, FK/cycle, uniqueness,
   retention, prerequisite, and rollback assertions without asserting
   writer-owned semantics.
 - `apps/web/src/lib/payments/payment-webhook-evidence-migration.test.ts`
   guards migration scope, roles, forced RLS, and the no-writer boundary.
+- Each evidence relation has one explicit restrictive deny-all RLS policy,
+  preserving the dormant fail-closed boundary while satisfying the repository
+  policy invariant.
 - The pending replay source registry, expected fixture, and pending count were
-  updated together (77 to 78).
+  updated together (89 to 90).
 
 ## RED evidence
 
@@ -36,8 +39,8 @@
   IMMEDIATE` validated the constructed graph.
 - Terra's asymmetric nullable-pair regression first failed against the prior
   CHECK, then passed after the populated branch was made explicitly non-null.
-- Focused migration source contract passed (3 tests).
-- Replay source test passed (6 tests); replay-manifest test passed (9 tests).
+- Focused migration source contract passed (6 tests).
+- Replay source test passed (7 tests); replay-manifest test passed (9 tests).
 - `pnpm turbo lint` passed (existing warnings only) and `pnpm turbo typecheck`
   passed.
 
@@ -56,7 +59,7 @@
 - The fixture calls `SET CONSTRAINTS ALL IMMEDIATE` before retention assertions
   and, after `ROLLBACK`, proves the identity, generation, inbox, manifest, and
   proof fixtures are gone while the private evidence relations and index remain.
-- The pending source count remains 78; both source-hash registry mirrors were
+- The pending source count remains 90; both source-hash registry mirrors were
   atomically refreshed for the amended migration.
 
 ## Final replay catalog closure
@@ -66,16 +69,20 @@
   relations. It asserts the private index schema and owning relation, exact
   uniqueness, ordered key columns, and the sole partial predicate
   `(inbox_id IS NOT NULL)`.
+- The contract also asserts the exact 19-index relation-scoped count, so an
+  unexpected index or UNIQUE constraint fails before metadata matching.
 - The post-rollback fixture now individually rejects all three manifest
   fixture IDs as well as the identity, generation, inbox, and proof rows, then
   asserts each evidence relation is empty. Relation and retained-index catalog
   checks remain private-schema scoped.
 - The migration SHA-256 was recomputed as
-  `c773655eb4d64e0e7c02a655d7299ec2b23f157e6d0f80f8f8dc49dae7664b80`;
-  both registry mirrors still match and the pending-source count remains 78.
-- Focused source/replay tests (20 tests) and a clean foundation-plus-companion
-  disposable PostgreSQL replay passed. Full monorepo testing was intentionally
-  not rerun in this round.
+  `0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72`;
+  both registry mirrors still match and the pending-source count remains 90.
+- Focused source/replay tests (37 tests) passed, and a clean
+  foundation-plus-companion disposable PostgreSQL replay passed. The full
+  `pnpm turbo test` run completed with 3,578 files and 26,406 tests passing,
+  but one unrelated builder CSRF test timed out; an isolated rerun passed all
+  9 builder route-mutation tests.
 
 ## Primary-key and post-rollback oracle closure
 
@@ -89,8 +96,8 @@
 - The source contract carries the same exact index tuples (name, relation,
   ordered keys, uniqueness, primary flag, and predicate) and requires the
   post-rollback catalog oracle markers. The migration SHA and both registry
-  mirrors remain `c773655eb4d64e0e7c02a655d7299ec2b23f157e6d0f80f8f8dc49dae7664b80`;
-  the pending-source count remains 78.
+  mirrors remain `0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72`;
+  the pending-source count remains 90.
 
 ## Limitations
 
@@ -99,10 +106,10 @@
   `20260525140048_quiz_authoritative_answer_scoring.sql` at
   `extract(epoch FROM ...)`; it occurs before either prerequisite. It is not
   counted as RED-B or as a migration failure.
-- A full `pnpm turbo test` attempt ran the monorepo suites but did not emit a
-  terminal result after 77 seconds while the confirmed `@baci/web:test`
-  `vitest run` process remained active; that owned process tree was terminated.
-  The focused replay manifest/source contracts passed independently.
+- The full `pnpm turbo test` run is not fully green because the unrelated
+  `src/app/api/builder/route-mutations.test.ts` CSRF case timed out once under
+  the 25-minute monorepo run; the isolated file rerun passed 9/9. The focused
+  webhook-evidence/replay contracts passed independently (37/37).
 - This slice intentionally does not enforce digest equality, append-only
   behavior, cross-row child conservation/projection, status transitions,
   review binding, or any order/financial authority. Those remain guarded-writer

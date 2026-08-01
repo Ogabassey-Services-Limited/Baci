@@ -983,7 +983,8 @@ hashes must equal those immutable generation rows. The proof hash is SHA-256 ove
 the UTF-8 RFC 8785 canonical JSON object containing exactly the scope, both
 generation IDs and artifact hashes, both equivalence-contract versions, verifier
 artifact hash, corpus-manifest hash, result, approver, and approval reference.
-Proofs are append-only, never deleted, forced-RLS private rows with no policy or
+Proofs are append-only, never deleted, forced-RLS private rows with one explicit
+restrictive deny-all policy and no
 direct `PUBLIC`/`anon`/`authenticated`/`service_role` privileges; their approved
 offline verifier artifact and corpus are retained at least as long as any proof,
 generation, acknowledged inbox row, or receipt references them.
@@ -1027,7 +1028,7 @@ lower-case hexadecimal characters, `metrics_snapshot` is a JSON object, and
 authorize parsing, acknowledgement, routing, or money.
 
 In its own slice, every generation, proof, receipt, and non-secret identity table
-enables and forces RLS, defines no policy, and revokes every table
+enables and forces RLS, defines one explicit restrictive deny-all policy, and revokes every table
 privilege from `PUBLIC`, `anon`, `authenticated`, and `service_role`. Existing
 private-schema privileges remain unchanged. Future narrowly granted
 `SECURITY DEFINER` functions are the only intended access path; Task 1 adds none,
@@ -1089,7 +1090,8 @@ the dedicated `private_payment_control_plane` schema, whose wrappers are the
 only role-executable entry points; the role has no `USAGE` on `private`. A later reviewed deployment
 credential may be granted membership in that role; the generic `service_role`
 and every user-facing edge remain unable to execute the functions. Every new
-table is private, forced-RLS, policy-free, and has all table privileges revoked
+table is private, forced-RLS, protected by one explicit restrictive deny-all policy,
+and has all table privileges revoked
 from `PUBLIC`, `anon`, `authenticated`, `service_role`, and
 `payment_control_plane`; only the named functions receive `EXECUTE` for that
 role. A reviewed privileged migration/DBA may repair history only through an
@@ -7706,8 +7708,9 @@ The migration creates exactly these empty relations:
 
 It may add the one redundant unique target specified below to
 `private.payment_ingress_contract_generations`; it creates no other relation,
-role, function, trigger, policy, grant, seed, runtime code, generated type, or
-provider behavior. All UUID defaults below are `gen_random_uuid()` and all
+role, function, trigger, grant, seed, runtime code, generated type, or provider
+behavior. Each of the three evidence relations receives exactly one explicit
+restrictive deny-all policy; no other policy is created. All UUID defaults below are `gen_random_uuid()` and all
 timestamps are `timestamptz`.
 
 Unless a more specific check is named, canonical ingress keys (`provider`,
@@ -8155,8 +8158,8 @@ pruning; and all claim/order/financial-command authority. Until that writer and
 its direct-SQL denial tests exist, these tables are dormant retained evidence,
 not acknowledgement or financial authority.
 
-Each new relation enables and forces RLS, has zero policies, and revokes all
-table privileges from `PUBLIC`, `anon`, `authenticated`, `service_role`, and
+Each new relation enables and forces RLS, has one explicit restrictive deny-all
+policy, and revokes all table privileges from `PUBLIC`, `anon`, `authenticated`, and
 `payment_control_plane`; no application role receives a grant and schema-level
 `private` privileges are unchanged. Required comments are: inbox —
 "Operational webhook replay infrastructure, never completion or financial
@@ -8166,7 +8169,7 @@ evidence independent of the prunable inbox, never completion authority."; and
 proof — "Immutable child ingress evidence and terminal intake-protection
 decision, never a financial routing, attempt, transaction, allocation, or
 completion authority." The migration/replay contract must prove exact catalog
-shape, forced RLS, zero policies, zero rows, direct privilege denial, all named
+shape, forced RLS, exactly one explicit restrictive deny-all policy, zero rows, direct privilege denial, all named
 constraints/indexes/comments, cycle deletion behavior, valid/invalid tagged keys,
 and rollback cleanliness. Its negative replay fixtures must separately exercise
 each closed-object boundary: a missing required key, an unknown extension key,
@@ -8217,5 +8220,5 @@ with `SET CONSTRAINTS ALL IMMEDIATE`, run its retention assertions, execute
 generation, inbox, manifest, and proof rows are absent while the migration's
 relations and catalog objects remain. This proves rollback cleanliness rather
 than inferring it from an unobserved transaction end. The slice remains
-schema-only: no writer, trigger, policy, grant, seed, provider behavior, or
+schema-only: no writer, trigger, grant, seed, provider behavior, or
 financial/order authority is authorized by this amendment.

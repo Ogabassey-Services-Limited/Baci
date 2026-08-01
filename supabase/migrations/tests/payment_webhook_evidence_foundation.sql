@@ -15,6 +15,7 @@ DECLARE
   v_missing_constraint text;
   v_missing_index text;
   v_scope_value text;
+  v_policy_name text;
 BEGIN
   FOREACH v_relation IN ARRAY ARRAY[
     'payment_webhook_inbox',
@@ -35,12 +36,31 @@ BEGIN
       RAISE EXCEPTION 'payment webhook evidence relation must enable and force RLS: %', v_relation;
     END IF;
 
-    IF EXISTS (
+    v_policy_name := CASE v_relation
+      WHEN 'payment_webhook_inbox' THEN 'payment_webhook_inbox_dormant_deny'
+      WHEN 'payment_webhook_source_manifests' THEN 'payment_webhook_source_manifests_dormant_deny'
+      WHEN 'payment_webhook_source_proofs' THEN 'payment_webhook_source_proofs_dormant_deny'
+    END;
+
+    IF (
+      SELECT count(*)
+      FROM pg_policy
+      WHERE polrelid = ('private.' || v_relation)::regclass
+    ) <> 1 THEN
+      RAISE EXCEPTION 'payment webhook evidence relation must have exactly one dormant deny policy: %', v_relation;
+    END IF;
+
+    IF NOT EXISTS (
       SELECT 1
       FROM pg_policy
       WHERE polrelid = ('private.' || v_relation)::regclass
+        AND polname = v_policy_name
+        AND NOT polpermissive
+        AND polcmd = '*'
+        AND COALESCE(pg_get_expr(polqual, polrelid), '') = 'false'
+        AND COALESCE(pg_get_expr(polwithcheck, polrelid), '') = 'false'
     ) THEN
-      RAISE EXCEPTION 'payment webhook evidence relation must have no policies: %', v_relation;
+      RAISE EXCEPTION 'payment webhook evidence relation must have an explicit restrictive deny-all policy: %', v_relation;
     END IF;
 
     IF (SELECT count(*) FROM pg_catalog.pg_class WHERE oid = ('private.' || v_relation)::regclass) <> 1 THEN
@@ -280,6 +300,28 @@ BEGIN
 
   IF v_missing_index IS NOT NULL THEN
     RAISE EXCEPTION 'payment webhook evidence index is missing: %', v_missing_index;
+  END IF;
+
+  IF (
+    SELECT count(*)
+    FROM pg_class index_relation
+    JOIN pg_namespace index_namespace
+      ON index_namespace.oid = index_relation.relnamespace
+    JOIN pg_index index_catalog
+      ON index_catalog.indexrelid = index_relation.oid
+    JOIN pg_class table_relation
+      ON table_relation.oid = index_catalog.indrelid
+    JOIN pg_namespace table_namespace
+      ON table_namespace.oid = table_relation.relnamespace
+    WHERE index_namespace.nspname = 'private'
+      AND table_namespace.nspname = 'private'
+      AND table_relation.relname IN (
+        'payment_webhook_inbox',
+        'payment_webhook_source_manifests',
+        'payment_webhook_source_proofs'
+      )
+  ) <> 19 THEN
+    RAISE EXCEPTION 'payment webhook evidence index count does not match the sealed relation-scoped contract';
   END IF;
 
   IF EXISTS (
@@ -865,6 +907,29 @@ BEGIN
     OR (SELECT count(*) FROM private.payment_webhook_source_proofs) <> 0
   THEN
     RAISE EXCEPTION 'payment webhook evidence relations must be empty after fixture rollback';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      VALUES
+        ('payment_webhook_inbox_dormant_deny', 'payment_webhook_inbox'),
+        ('payment_webhook_source_manifests_dormant_deny', 'payment_webhook_source_manifests'),
+        ('payment_webhook_source_proofs_dormant_deny', 'payment_webhook_source_proofs')
+    ) AS expected(policy_name, table_name)
+    LEFT JOIN pg_namespace table_namespace ON table_namespace.nspname = 'private'
+    LEFT JOIN pg_class table_relation
+      ON table_relation.relnamespace = table_namespace.oid
+      AND table_relation.relname = expected.table_name
+    LEFT JOIN pg_policy policy
+      ON policy.polrelid = table_relation.oid
+      AND policy.polname = expected.policy_name
+    WHERE policy.oid IS NULL
+      OR policy.polpermissive
+      OR policy.polcmd <> '*'
+      OR COALESCE(pg_get_expr(policy.polqual, policy.polrelid), '') <> 'false'
+      OR COALESCE(pg_get_expr(policy.polwithcheck, policy.polrelid), '') <> 'false'
+  ) THEN
+    RAISE EXCEPTION 'payment webhook evidence deny-all policies changed after fixture rollback';
   END IF;
   IF EXISTS (
     SELECT 1

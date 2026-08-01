@@ -546,6 +546,27 @@ ALTER TABLE private.payment_webhook_source_manifests FORCE ROW LEVEL SECURITY;
 ALTER TABLE private.payment_webhook_source_proofs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.payment_webhook_source_proofs FORCE ROW LEVEL SECURITY;
 
+CREATE POLICY payment_webhook_inbox_dormant_deny
+  ON private.payment_webhook_inbox
+  AS RESTRICTIVE
+  FOR ALL
+  USING (false)
+  WITH CHECK (false);
+
+CREATE POLICY payment_webhook_source_manifests_dormant_deny
+  ON private.payment_webhook_source_manifests
+  AS RESTRICTIVE
+  FOR ALL
+  USING (false)
+  WITH CHECK (false);
+
+CREATE POLICY payment_webhook_source_proofs_dormant_deny
+  ON private.payment_webhook_source_proofs
+  AS RESTRICTIVE
+  FOR ALL
+  USING (false)
+  WITH CHECK (false);
+
 REVOKE ALL ON TABLE private.payment_webhook_inbox FROM PUBLIC;
 REVOKE ALL ON TABLE private.payment_webhook_inbox FROM anon;
 REVOKE ALL ON TABLE private.payment_webhook_inbox FROM authenticated;
