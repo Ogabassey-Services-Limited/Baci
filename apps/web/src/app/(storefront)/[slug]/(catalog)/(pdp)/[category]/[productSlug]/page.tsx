@@ -23,6 +23,7 @@ import {
 import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { GenericProductRouteSummary } from '@/components/storefront/ogabassey/pdp/generic-product-route-summary';
+import { normalizeProductConditionOffers } from '@/components/storefront/ogabassey/pdp/normalize-product-condition-offers';
 import { OgabasseyPdpServerPrimaryDetails } from '@/components/storefront/ogabassey/pdp/server-primary-details';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import { SemanticSectionsErrorBoundary } from '@/components/storefront/ogabassey/seo/semantic-sections-error-boundary';
@@ -252,40 +253,8 @@ function toOgabasseyProduct(
       ) || [],
     // Phase 5: Condition offers for consolidated products
     has_condition_offers: product.has_condition_offers,
-    offers: product.offers?.map(
-      (o: {
-        id: string;
-        condition: string;
-        price: number | string;
-        compare_at_price?: number | string | null;
-        stock_quantity?: number;
-        images?: string[];
-        condition_notes?: string;
-        grade?: string;
-      }) => ({
-        id: o.id,
-        condition: o.condition as 'new' | 'open_box' | 'used',
-        price: formatter.format(
-          typeof o.price === 'string'
-            ? Number.parseFloat(o.price) || 0
-            : o.price
-        ),
-        rawPrice:
-          typeof o.price === 'string'
-            ? Number.parseFloat(o.price) || 0
-            : o.price,
-        compare_at_price: o.compare_at_price
-          ? formatter.format(
-              typeof o.compare_at_price === 'string'
-                ? Number.parseFloat(o.compare_at_price) || 0
-                : o.compare_at_price
-            )
-          : undefined,
-        stock: o.stock_quantity,
-        images: o.images,
-        notes: o.condition_notes,
-        grade: o.grade,
-      })
+    offers: normalizeProductConditionOffers(product.offers, (value) =>
+      formatter.format(value)
     ),
   };
 }
@@ -1455,7 +1424,6 @@ export default async function CategoryProductPage({
     ? buildOgabasseyProductVisibleSummary({
         brand: product.brand,
         condition: product.condition,
-        conditionOffers: commerceProduct.offers,
         name: product.name,
         variants: commerceProduct.variants,
       })

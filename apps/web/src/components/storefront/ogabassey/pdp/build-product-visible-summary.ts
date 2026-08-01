@@ -10,7 +10,6 @@ export interface OgabasseyProductVisibleSummaryOffer {
 export interface OgabasseyProductVisibleSummaryInput {
   brand?: string | null;
   condition?: string | null;
-  conditionOffers?: OgabasseyProductVisibleSummaryOffer[] | null;
   name?: string | null;
   variants?: OgabasseyProductVisibleSummaryOffer[] | null;
 }
@@ -165,7 +164,6 @@ function formatValues(values: string[]) {
 export function buildOgabasseyProductVisibleSummary({
   brand,
   condition,
-  conditionOffers,
   name,
   variants,
 }: OgabasseyProductVisibleSummaryInput) {
@@ -173,7 +171,6 @@ export function buildOgabasseyProductVisibleSummary({
   if (!identity) return null;
 
   const selectableVariants = (variants || []).filter(isSelectable);
-  const selectableConditionOffers = (conditionOffers || []).filter(isSelectable);
   const parentOffer: OgabasseyProductVisibleSummaryOffer = { condition };
   const parentCondition = normalizeCondition(condition);
   const variantFacts = selectableVariants.map((offer) =>
@@ -186,33 +183,13 @@ export function buildOgabasseyProductVisibleSummary({
   ) {
     for (const fact of variantFacts) fact.condition = parentCondition;
   }
-  const conditionOfferFacts = selectableConditionOffers.map((offer) =>
-    getOfferFacts(offer, null)
-  );
-  const conditionFacts = [
-    ...(selectableConditionOffers.length > 0 && parentCondition
-      ? [getOfferFacts(parentOffer, null)]
-      : []),
-    ...variantFacts,
-    ...conditionOfferFacts,
-  ];
-  const fallbackFacts =
-    conditionFacts.length > 0 ? conditionFacts : [getOfferFacts(parentOffer, null)];
+  const facts =
+    variantFacts.length > 0 ? variantFacts : [getOfferFacts(parentOffer, null)];
   const sharedFacts: string[] = [];
   const choiceFacts: string[] = [];
 
   for (const axis of AXIS_PRIORITY) {
-    const factsForAxis =
-      axis === 'condition'
-        ? conditionFacts.length > 0
-          ? conditionFacts
-          : fallbackFacts
-        : selectableVariants.length > 0
-          ? variantFacts
-          : selectableConditionOffers.length > 0
-            ? conditionOfferFacts
-            : fallbackFacts;
-    const values = factsForAxis.map((fact) => fact[axis]);
+    const values = facts.map((fact) => fact[axis]);
     if (values.some((value) => !value)) continue;
 
     const uniqueValues = Array.from(new Set(values as string[])).sort((left, right) =>

@@ -56,6 +56,9 @@ const CURRENT_INVENTORY_ROWS = [
   row('apps/web/src/ai/flows/generate-product-descriptions.ts', 'add/edit form server action', 'generate only; persisted by add form', 'GenerateProductDescriptionInput -> text', 'apps/web/src/ai/flows/generate-product-descriptions.test.ts'),
   row('apps/web/src/ai/flows/autofill-product-details.ts', 'add/edit form server action', 'generate only; persisted by add form', 'Autofill input -> details.description', 'apps/web/src/ai/flows/autofill-product-details.test.ts'),
 ];
+const CURRENT_INVENTORY_ROWS_BY_PATH = new Map(
+  CURRENT_INVENTORY_ROWS.map((entry) => [entry.path, entry])
+);
 
 function escapeCsv(value: string): string { return /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value; }
 export function buildProductDescriptionWriterInventoryCsv(rows: ProductDescriptionWriterInventoryRow[]): string {
@@ -176,7 +179,15 @@ async function discoverWriterPaths(root: string): Promise<string[]> {
   return [...new Set([...paths.flat(), ...(await discoverSql(root))])].sort();
 }
 
-export async function checkProductDescriptionWriterInventory({ inventoryCsv, repositoryRoot }: { inventoryCsv: string; repositoryRoot: string }): Promise<CheckResult> {
+export async function checkProductDescriptionWriterInventory({
+  canonicalInventoryRows,
+  inventoryCsv,
+  repositoryRoot,
+}: {
+  canonicalInventoryRows?: readonly ProductDescriptionWriterInventoryRow[];
+  inventoryCsv: string;
+  repositoryRoot: string;
+}): Promise<CheckResult> {
   let parsed: { errors: string[]; rows: ProductDescriptionWriterInventoryRow[] };
   try {
     parsed = parseProductDescriptionWriterInventoryCsv(inventoryCsv);
@@ -191,12 +202,31 @@ export async function checkProductDescriptionWriterInventory({ inventoryCsv, rep
     };
   }
   if (parsed.errors.length) return { errors: parsed.errors, ok: false };
-  const errors: string[] = []; const inventoryPaths = new Set<string>();
+  const errors: string[] = [];
+  const inventoryPaths = new Set<string>();
+  const canonicalRows = canonicalInventoryRows ?? CURRENT_INVENTORY_ROWS;
+  const canonicalRowsByPath =
+    canonicalInventoryRows === undefined
+      ? CURRENT_INVENTORY_ROWS_BY_PATH
+      : new Map(canonicalRows.map((entry) => [entry.path, entry]));
+  const shouldValidateCanonicalInventory =
+    canonicalInventoryRows !== undefined ||
+    parsed.rows.some((entry) => canonicalRowsByPath.has(entry.path));
   for (const entry of parsed.rows) {
     if (inventoryPaths.has(entry.path)) {
       errors.push(`Duplicate inventory path: ${entry.path}`);
     }
     inventoryPaths.add(entry.path);
+    const canonicalEntry = canonicalRowsByPath.get(entry.path);
+    if (shouldValidateCanonicalInventory && canonicalEntry) {
+      for (const column of COLUMNS) {
+        if (entry[column] !== canonicalEntry[column]) {
+          errors.push(
+            `Canonical inventory drift for ${entry.path}: ${column}`
+          );
+        }
+      }
+    }
     for (const [field, expected] of Object.entries(EXPECTED_INVENTORY_FIELDS)) {
       if (entry[field as keyof typeof EXPECTED_INVENTORY_FIELDS] !== expected) {
         errors.push(`Invalid inventory field ${field} for ${entry.path}: expected ${expected}`);
@@ -206,6 +236,13 @@ export async function checkProductDescriptionWriterInventory({ inventoryCsv, rep
     if (!existsSync(source)) errors.push(`Inventoried writer path is missing: ${entry.path}`);
     else if (createHash('sha256').update(await readFile(source)).digest('hex') !== entry.file_sha256) errors.push(`File SHA-256 drift for ${entry.path}`);
     if (!existsSync(join(repositoryRoot, entry.test_path))) errors.push(`Inventoried test path is missing: ${entry.test_path}`);
+  }
+  if (shouldValidateCanonicalInventory) {
+    for (const entry of canonicalRows) {
+      if (!inventoryPaths.has(entry.path)) {
+        errors.push(`Canonical inventory row is missing: ${entry.path}`);
+      }
+    }
   }
   for (const path of await discoverWriterPaths(repositoryRoot)) if (!inventoryPaths.has(path)) errors.push(`Discovered description writer is not inventoried: ${path}`);
   return { errors, ok: errors.length === 0 };

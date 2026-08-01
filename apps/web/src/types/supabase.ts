@@ -18299,9 +18299,9 @@ export type Database = {
       };
       request_product_description_attestation_grant: {
         Args: {
-          p_expected_old_description: string;
-          p_expected_old_sha256: string;
-          p_expected_old_source_type: string;
+          p_expected_old_description: string | null;
+          p_expected_old_sha256: string | null;
+          p_expected_old_source_type: string | null;
           p_full_replacement: boolean;
           p_merchant_id: string;
           p_operation_id: string;

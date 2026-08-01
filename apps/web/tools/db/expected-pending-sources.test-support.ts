@@ -284,7 +284,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260731090000_add_product_description_provenance.sql',
-    sha256: 'a6cdada73766949a794366b81ce5d4096a8645ea91434fde0da903d2412a14f1',
+    sha256: 'c403c8bd47d7fbfa6eb3ef80a3f6e11f7455350d37cf12b40c34f345012d9d9b',
   },
   {
     repositoryPath:

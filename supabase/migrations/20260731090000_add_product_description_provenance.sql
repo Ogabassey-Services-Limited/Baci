@@ -8,22 +8,43 @@ ALTER TABLE public.products
 
 -- Keep the additive migration metadata-only. Validation is performed by the
 -- ordered follow-up migration after the constraints are present, avoiding an
--- access-exclusive table scan during the main history replay.
-ALTER TABLE public.products
-  ADD CONSTRAINT products_description_digital_source_type_check
-    CHECK (
-      description_digital_source_type IS NULL
-      OR description_digital_source_type IN (
-        'unknown',
-        'default',
-        'trained_algorithmic_media'
-      )
-    ) NOT VALID,
-  ADD CONSTRAINT products_description_provenance_sha256_check
-    CHECK (
-      description_provenance_sha256 IS NULL
-      OR description_provenance_sha256 ~ '^[0-9a-f]{64}$'
-    ) NOT VALID;
+-- access-exclusive table scan during the main history replay. Guard each
+-- constraint so a retry after out-of-band materialization is idempotent.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'public.products'::regclass
+      AND conname = 'products_description_digital_source_type_check'
+  ) THEN
+    ALTER TABLE public.products
+      ADD CONSTRAINT products_description_digital_source_type_check
+      CHECK (
+        description_digital_source_type IS NULL
+        OR description_digital_source_type IN (
+          'unknown',
+          'default',
+          'trained_algorithmic_media'
+        )
+      ) NOT VALID;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'public.products'::regclass
+      AND conname = 'products_description_provenance_sha256_check'
+  ) THEN
+    ALTER TABLE public.products
+      ADD CONSTRAINT products_description_provenance_sha256_check
+      CHECK (
+        description_provenance_sha256 IS NULL
+        OR description_provenance_sha256 ~ '^[0-9a-f]{64}$'
+      ) NOT VALID;
+  END IF;
+END;
+$$;
 
 COMMENT ON COLUMN public.products.description_digital_source_type IS
   'C1 additive provenance classification. Legacy rows remain NULL until an exact reviewed reconciliation.';
