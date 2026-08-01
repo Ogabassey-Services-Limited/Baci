@@ -17,7 +17,7 @@
 - Do not modify routes, webhooks, Svix, checkout, parser code, provider configuration, acknowledgements, orders, transactions, wallets, settlement, inventory, cleanup, generated Supabase types, or deployment activation.
 - The companion migration must set `lock_timeout = '5s'` and `statement_timeout = '30s'` before DDL.
 - Every companion table is private, forced-RLS, policy-free, and has all table privileges revoked from `PUBLIC`, `anon`, `authenticated`, `service_role`, and `payment_control_plane`.
-- Create `payment_control_plane` only as `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION`; grant it only `EXECUTE` on the five named guarded functions.
+- Create `payment_control_plane` only as `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`, with no role memberships; grant it only `EXECUTE` on the five named guarded functions.
 - The six companion relations are the identity catalog, deployment-attestation root, deployment binding, parser proof registry, creation receipts, and transition receipts; no relation is seeded by the migration.
 - The reviewed deployment migration that later provisions an attestation is the
   only author of identity, binding, and proof rows; this companion adds no
@@ -25,7 +25,10 @@
   update carrying a non-empty revocation reference, never a runtime mutation.
 - No active generation, deployment binding activation, provider credential, secret, ciphertext, raw key, artifact bytes, seed row, or public RPC may be created.
 - `postgres`/reviewed DBA history repair is an explicit privileged-migration exception and must not be represented as runtime immutability.
-- Migration source registration happens only after the migration bytes are final; pending-source count must move from 56 to 57.
+- Migration source registration happens only after the migration bytes are final; on the current mainline replay manifest the pending-source count moves from 76 to 77.
+- Every writer serializes the operation UUID before scope discovery, so one
+  operation cannot race across scopes; receipt replay returns the recorded
+  result control version rather than a later mutable generation version.
 
 ---
 
@@ -84,7 +87,8 @@
     the pinned external verifier named by its deployment binding.
   - `payment_ingress_contract_creation_receipts` enforces operation-id and
     request-fingerprint idempotency, scope/binding/generation FKs, immutable
-    replay evidence, and direct-access denial.
+    replay evidence including the result control version, and direct-access
+    denial.
   - `payment_ingress_contract_transition_receipts` enforces the complete outgoing
     and incoming CAS image columns, deployment binding for incoming operations,
     proof for `roll_forward`/`rollback`, no proof for `initial_activate`/`retire`,
@@ -128,10 +132,11 @@
   3. Create the proof, creation-receipt, and transition-receipt tables with every
      named constraint/index/FK and the exact receipt branch matrix.
   4. Create the five `postgres`-owned `SECURITY DEFINER SET search_path = ''`
-     functions with schema-qualified SQL, `current_setting('role', true)` role
-     checks, advisory-lock
-     derivation from the four scope keys, retry fingerprint comparison, checked
-     bigint allocation, locked CAS, and same-transaction receipt insertion.
+    functions with schema-qualified SQL, `current_setting('role', true)` role
+    checks, operation-level serialization before advisory-lock derivation from
+    the four scope keys, retry fingerprint comparison, checked bigint
+    allocation, locked CAS, same-transaction receipt insertion, and unique-key
+    race recovery.
   5. Revoke all function execute privileges, then grant `EXECUTE` only to
      `payment_control_plane`; do not grant `service_role` or any user-facing role.
   6. Enable/force RLS, revoke direct table privileges, and add the required
@@ -141,13 +146,16 @@
 
   - Creation derives the identity and all generation fields from the immutable
     deployment binding, allocates `max(generation)+1` under the scope advisory
-    lock, rejects overflow, and returns the original staged row on identical
-    replay or SQLSTATE `PT409` on divergent replay.
+    lock, rejects overflow, and returns the original staged row and recorded
+    control version on identical replay or SQLSTATE `PT409` on divergent replay.
   - Initial activation is staged→active with no outgoing branch.
   - Roll-forward and rollback atomically drain the outgoing active generation and
     activate a strictly higher staged successor; both require an approved proof
     whose basis equals the outgoing generation and an active retained deployment
     binding.
+  - Activation, roll-forward, and rollback receipts persist their result control
+    versions; identical retries return that immutable receipt snapshot even if a
+    later transition has advanced the generation.
   - Retirement always fails closed in this slice because the durable inbox,
     redelivery horizon, unsupported-row census, and retention gates are not yet
     present; it cannot silently reopen a retired scope.
@@ -170,13 +178,13 @@
   ```
 
   Expected: all focused source/replay tests pass and the pending-source count is
-  exactly 57.
+  exactly 77.
 
 - [ ] **Step 5: Register the final migration source**
 
   Compute the SHA-256 of the final migration, add exactly one lexically ordered
   pending source and matching expected-pending object, then update only the
-  pending-count assertion from 56 to 57. Do not classify the migration as
+  pending-count assertion from 76 to 77. Do not classify the migration as
   historical or forward-repair.
 
 - [ ] **Step 6: Run replay and repository gates**
@@ -185,6 +193,7 @@
   bash .github/scripts/check-migration-versions.test.sh
   bash .github/scripts/check-migration-versions.sh
   pnpm --filter @baci/web db:replay:chronological \
+    --sql-check supabase/migrations/20260731140000_payment_ingress_contract_generation_foundation.sql \
     --sql-check supabase/migrations/20260801140000_payment_ingress_contract_companion.sql \
     --sql-check supabase/migrations/tests/payment_ingress_contract_companion.sql
   pnpm turbo lint
@@ -192,8 +201,12 @@
   pnpm turbo test
   ```
 
-  The disposable replay must converge with no changed production components;
-  SQL fixtures must roll back all rows and leave no active generation/binding.
+  The disposable replay applies each ordered historical source once and must
+  converge with no changed production components. The two pending migrations
+  are not in that ordered historical list, so pass each pending migration once
+  as an SQL check before the companion fixture; never pass a migration that the
+  ordered list already applied a second time. The fixture must roll back all
+  rows and leave no active generation/binding.
 
 - [ ] **Step 7: Commit the cohesive companion slice**
 

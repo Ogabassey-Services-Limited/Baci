@@ -163,22 +163,27 @@ After migration bytes are final:
 1. Compute the SHA-256.
 2. Add exactly one lexically ordered `PENDING_SOURCES` row.
 3. Add the matching `EXPECTED_PENDING_SOURCES` object.
-4. Increase the pending-source assertion from 55 to 56, after verifying those are
-   still the current counts.
+4. Increase the pending-source assertion from 75 to 76, after verifying those
+   are the current counts on mainline.
 
 Run:
 
 ```bash
-bash .github/scripts/check-migration-versions.test.sh
-bash .github/scripts/check-migration-versions.sh
-pnpm --filter @baci/web exec vitest run src/lib/payments/payment-ingress-contract-generations-migration.test.ts tools/db/supabase-history-replay-sources.test.ts tools/db/supabase-history-replay-manifest.test.ts tools/db/verify-supabase-history-replay-manifest.test.ts
-pnpm --filter @baci/web db:replay:chronological \
+  bash .github/scripts/check-migration-versions.test.sh
+  bash .github/scripts/check-migration-versions.sh
+  pnpm --filter @baci/web exec vitest run src/lib/payments/payment-ingress-contract-generations-migration.test.ts tools/db/supabase-history-replay-sources.test.ts tools/db/supabase-history-replay-manifest.test.ts tools/db/verify-supabase-history-replay-manifest.test.ts
+  pnpm --filter @baci/web db:replay:chronological \
   --sql-check supabase/migrations/20260731140000_payment_ingress_contract_generation_foundation.sql \
   --sql-check supabase/migrations/tests/payment_ingress_contract_generation_foundation.sql
 pnpm turbo lint
 pnpm turbo typecheck
 pnpm turbo test
 ```
+
+The chronological runner applies the frozen historical list first; the pending
+foundation migration is then applied exactly once as the first `--sql-check`,
+followed by its rollback fixture. Do not pass a migration that is already in
+the ordered historical list a second time.
 
 Refactor only test helpers duplicated inside the owned new test files. Commit all
 Task 1 files atomically and report the observed RED evidence, GREEN evidence,

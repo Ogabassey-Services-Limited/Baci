@@ -5,10 +5,40 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 
 DO $$
+DECLARE
+  v_role_oid oid;
+  v_can_login boolean;
+  v_is_superuser boolean;
+  v_can_create_db boolean;
+  v_can_create_role boolean;
+  v_inherit boolean;
+  v_replication boolean;
+  v_bypass_rls boolean;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'payment_control_plane') THEN
+  SELECT role_row.oid, role_row.rolcanlogin, role_row.rolsuper,
+    role_row.rolcreatedb, role_row.rolcreaterole, role_row.rolinherit,
+    role_row.rolreplication, role_row.rolbypassrls
+  INTO v_role_oid, v_can_login, v_is_superuser, v_can_create_db,
+    v_can_create_role, v_inherit, v_replication, v_bypass_rls
+  FROM pg_catalog.pg_roles AS role_row
+  WHERE role_row.rolname = 'payment_control_plane';
+
+  IF NOT FOUND THEN
     CREATE ROLE payment_control_plane
-      NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION;
+      NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION
+      NOBYPASSRLS;
+  ELSIF v_can_login OR v_is_superuser OR v_can_create_db OR v_can_create_role
+    OR v_inherit OR v_replication OR v_bypass_rls
+    OR EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_auth_members AS membership
+      WHERE membership.roleid = v_role_oid
+        OR membership.member = v_role_oid
+    )
+  THEN
+    RAISE EXCEPTION
+      'payment_control_plane must be an unprivileged role with no memberships'
+      USING ERRCODE = '42501';
   END IF;
 END;
 $$;
@@ -371,11 +401,14 @@ CREATE TABLE private.payment_ingress_contract_creation_receipts (
   signature_key_scope text NOT NULL,
   authority_key text NOT NULL,
   generation bigint NOT NULL,
+  result_control_version bigint NOT NULL,
   recorded_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT payment_ingress_contract_creation_receipts_fingerprint_check
     CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'),
   CONSTRAINT payment_ingress_contract_creation_receipts_generation_check
     CHECK (generation > 0),
+  CONSTRAINT payment_ingress_contract_creation_receipts_result_version_check
+    CHECK (result_control_version > 0),
   CONSTRAINT payment_ingress_contract_creation_receipts_fingerprint_key
     UNIQUE (request_fingerprint),
   CONSTRAINT payment_ingress_contract_creation_receipts_binding_scope_fkey
@@ -693,6 +726,13 @@ BEGIN
     'hex'
   );
 
+  -- Serialize operation identities globally before discovering a scope. This
+  -- prevents the same operation_id from racing across different scopes and
+  -- leaving an unreceipted generation behind after a unique-key conflict.
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'payment-ingress-operation:' || p_operation_id::text, 0
+  ));
+
   -- Discover scope without a row lock, then serialize all retries for that scope.
   SELECT binding.provider, binding.endpoint_key, binding.signature_key_scope,
     binding.authority_key
@@ -711,7 +751,8 @@ BEGIN
     )
   );
 
-  SELECT receipt.operation_id, receipt.request_fingerprint, receipt.generation_id
+  SELECT receipt.operation_id, receipt.request_fingerprint, receipt.generation_id,
+    receipt.result_control_version
   INTO v_receipt
   FROM private.payment_ingress_contract_creation_receipts AS receipt
   WHERE receipt.operation_id = p_operation_id;
@@ -724,7 +765,7 @@ BEGIN
     FROM private.payment_ingress_contract_generations AS generation_row
     WHERE id = v_receipt.generation_id;
     RETURN QUERY SELECT v_receipt.operation_id, v_generation.id, v_generation.generation,
-      v_generation.control_version, true, 'replayed'::text;
+      v_receipt.result_control_version, true, 'replayed'::text;
     RETURN;
   END IF;
 
@@ -779,14 +820,36 @@ BEGIN
   ) RETURNING generation_row.id, generation_row.generation,
     generation_row.control_version INTO v_generation;
 
-  INSERT INTO private.payment_ingress_contract_creation_receipts (
-    operation_id, request_fingerprint, deployment_binding_id, generation_id,
-    provider, endpoint_key, signature_key_scope, authority_key, generation
-  ) VALUES (
-    p_operation_id, v_fingerprint, v_binding.id, v_generation.id,
-    v_binding.provider, v_binding.endpoint_key, v_binding.signature_key_scope,
-    v_binding.authority_key, v_generation.generation
-  );
+  BEGIN
+    INSERT INTO private.payment_ingress_contract_creation_receipts (
+      operation_id, request_fingerprint, deployment_binding_id, generation_id,
+      provider, endpoint_key, signature_key_scope, authority_key, generation,
+      result_control_version
+    ) VALUES (
+      p_operation_id, v_fingerprint, v_binding.id, v_generation.id,
+      v_binding.provider, v_binding.endpoint_key, v_binding.signature_key_scope,
+      v_binding.authority_key, v_generation.generation, v_generation.control_version
+    );
+  EXCEPTION WHEN unique_violation THEN
+    SELECT receipt.operation_id, receipt.request_fingerprint,
+      receipt.generation_id, receipt.result_control_version
+    INTO v_receipt
+    FROM private.payment_ingress_contract_creation_receipts AS receipt
+    WHERE receipt.operation_id = p_operation_id;
+    IF NOT FOUND THEN
+      RAISE;
+    END IF;
+    IF v_receipt.request_fingerprint <> v_fingerprint THEN
+      RAISE EXCEPTION 'payment ingress creation replay diverged' USING ERRCODE = 'PT409';
+    END IF;
+    SELECT generation_row.id, generation_row.generation
+    INTO v_generation
+    FROM private.payment_ingress_contract_generations AS generation_row
+    WHERE generation_row.id = v_receipt.generation_id;
+    RETURN QUERY SELECT v_receipt.operation_id, v_generation.id, v_generation.generation,
+      v_receipt.result_control_version, true, 'replayed'::text;
+    RETURN;
+  END;
 
   RETURN QUERY SELECT p_operation_id, v_generation.id, v_generation.generation,
     v_generation.control_version, false, 'created'::text;
@@ -832,6 +895,10 @@ BEGIN
     'sha256'
   ), 'hex');
 
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'payment-ingress-operation:' || p_operation_id::text, 0
+  ));
+
   -- Discover scope without holding a generation row lock before serialization.
   SELECT generation_row.provider, generation_row.endpoint_key,
     generation_row.signature_key_scope, generation_row.authority_key
@@ -848,7 +915,7 @@ BEGIN
   ));
 
   SELECT receipt.operation_id, receipt.request_fingerprint,
-    receipt.incoming_generation_id
+    receipt.incoming_generation_id, receipt.incoming_result_control_version
   INTO v_receipt
   FROM private.payment_ingress_contract_transition_receipts AS receipt
   WHERE receipt.operation_id = p_operation_id;
@@ -860,7 +927,7 @@ BEGIN
     INTO v_generation FROM private.payment_ingress_contract_generations AS generation_row
     WHERE id = v_receipt.incoming_generation_id;
     RETURN QUERY SELECT v_receipt.operation_id, v_generation.id, v_generation.generation,
-      v_generation.control_version, true, 'replayed'::text;
+      v_receipt.incoming_result_control_version, true, 'replayed'::text;
     RETURN;
   END IF;
 
@@ -933,21 +1000,42 @@ BEGIN
     generation_row.signature_key_scope, generation_row.authority_key,
     generation_row.generation, generation_row.control_version INTO v_generation;
 
-  INSERT INTO private.payment_ingress_contract_transition_receipts (
-    operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
-    authority_key, operation_kind, incoming_generation_id,
-    incoming_expected_control_version, incoming_result_control_version,
-    incoming_from_status, incoming_to_status, incoming_result_activated_at,
-    deployment_binding_id, actor_kind, actor_reference, approval_reference,
-    evidence_reference, evidence_sha256, metrics_snapshot, reason_code, recorded_at
-  ) VALUES (
-    p_operation_id, v_fingerprint, v_generation.provider, v_generation.endpoint_key,
-    v_generation.signature_key_scope, v_generation.authority_key, 'initial_activate',
-    v_generation.id, p_expected_control_version, v_generation.control_version,
-    'staged', 'active', v_now, v_binding.id, 'service', 'payment_control_plane',
-    v_binding.approval_reference, v_attestation.attestation_sha256,
-    v_attestation.attestation_sha256, '{}'::jsonb, 'initial_activate', v_now
-  );
+  BEGIN
+    INSERT INTO private.payment_ingress_contract_transition_receipts (
+      operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
+      authority_key, operation_kind, incoming_generation_id,
+      incoming_expected_control_version, incoming_result_control_version,
+      incoming_from_status, incoming_to_status, incoming_result_activated_at,
+      deployment_binding_id, actor_kind, actor_reference, approval_reference,
+      evidence_reference, evidence_sha256, metrics_snapshot, reason_code, recorded_at
+    ) VALUES (
+      p_operation_id, v_fingerprint, v_generation.provider, v_generation.endpoint_key,
+      v_generation.signature_key_scope, v_generation.authority_key, 'initial_activate',
+      v_generation.id, p_expected_control_version, v_generation.control_version,
+      'staged', 'active', v_now, v_binding.id, 'service', 'payment_control_plane',
+      v_binding.approval_reference, v_attestation.attestation_sha256,
+      v_attestation.attestation_sha256, '{}'::jsonb, 'initial_activate', v_now
+    );
+  EXCEPTION WHEN unique_violation THEN
+    SELECT receipt.operation_id, receipt.request_fingerprint,
+      receipt.incoming_generation_id, receipt.incoming_result_control_version
+    INTO v_receipt
+    FROM private.payment_ingress_contract_transition_receipts AS receipt
+    WHERE receipt.operation_id = p_operation_id;
+    IF NOT FOUND THEN
+      RAISE;
+    END IF;
+    IF v_receipt.request_fingerprint <> v_fingerprint THEN
+      RAISE EXCEPTION 'payment ingress activation replay diverged' USING ERRCODE = 'PT409';
+    END IF;
+    SELECT generation_row.id, generation_row.generation
+    INTO v_generation
+    FROM private.payment_ingress_contract_generations AS generation_row
+    WHERE generation_row.id = v_receipt.incoming_generation_id;
+    RETURN QUERY SELECT v_receipt.operation_id, v_generation.id, v_generation.generation,
+      v_receipt.incoming_result_control_version, true, 'replayed'::text;
+    RETURN;
+  END;
   RETURN QUERY SELECT p_operation_id, v_generation.id, v_generation.generation,
     v_generation.control_version, false, 'activated'::text;
 END;
@@ -996,6 +1084,10 @@ BEGIN
     p_compatibility_proof_id::text, 'sha256'
   ), 'hex');
 
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'payment-ingress-operation:' || p_operation_id::text, 0
+  ));
+
   -- Read only the immutable scope identity before taking the scope lock.
   SELECT generation_row.provider, generation_row.endpoint_key,
     generation_row.signature_key_scope, generation_row.authority_key
@@ -1012,7 +1104,7 @@ BEGIN
   ));
 
   SELECT receipt.operation_id, receipt.request_fingerprint,
-    receipt.incoming_generation_id
+    receipt.incoming_generation_id, receipt.incoming_result_control_version
   INTO v_receipt
   FROM private.payment_ingress_contract_transition_receipts AS receipt
   WHERE receipt.operation_id = p_operation_id;
@@ -1024,7 +1116,7 @@ BEGIN
     INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
     WHERE generation_row.id = v_receipt.incoming_generation_id;
     RETURN QUERY SELECT v_receipt.operation_id, v_incoming.id, v_incoming.generation,
-      v_incoming.control_version, true, 'replayed'::text;
+      v_receipt.incoming_result_control_version, true, 'replayed'::text;
     RETURN;
   END IF;
 
@@ -1127,29 +1219,50 @@ BEGIN
   RETURNING incoming_generation.id, incoming_generation.generation,
     incoming_generation.control_version INTO v_incoming;
 
-  INSERT INTO private.payment_ingress_contract_transition_receipts (
-    operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
-    authority_key, operation_kind, outgoing_generation_id,
-    outgoing_expected_control_version, outgoing_result_control_version,
-    outgoing_from_status, outgoing_to_status, outgoing_expected_activated_at,
-    outgoing_result_activated_at, outgoing_result_draining_at,
-    outgoing_result_successor_generation_id, incoming_generation_id,
-    incoming_expected_control_version, incoming_result_control_version,
-    incoming_from_status, incoming_to_status, incoming_result_activated_at,
-    deployment_binding_id, actor_kind, actor_reference, approval_reference,
-    evidence_reference, evidence_sha256, metrics_snapshot, reason_code,
-    recorded_at, compatibility_basis_generation_id, compatibility_proof_id
-  ) VALUES (
-    p_operation_id, v_fingerprint, v_outgoing.provider, v_outgoing.endpoint_key,
-    v_outgoing.signature_key_scope, v_outgoing.authority_key, 'roll_forward',
-    v_outgoing.id, p_expected_control_version, v_outgoing.control_version,
-    'active', 'draining', v_outgoing.activated_at, v_outgoing.activated_at, v_now,
-    v_incoming.id, v_incoming.id, v_incoming.control_version - 1,
-    v_incoming.control_version, 'staged', 'active', v_now, v_binding.id,
-    'service', 'payment_control_plane', v_binding.approval_reference,
-    v_attestation.attestation_sha256, v_attestation.attestation_sha256, '{}'::jsonb,
-    'roll_forward', v_now, v_outgoing.id, v_proof.id
-  );
+  BEGIN
+    INSERT INTO private.payment_ingress_contract_transition_receipts (
+      operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
+      authority_key, operation_kind, outgoing_generation_id,
+      outgoing_expected_control_version, outgoing_result_control_version,
+      outgoing_from_status, outgoing_to_status, outgoing_expected_activated_at,
+      outgoing_result_activated_at, outgoing_result_draining_at,
+      outgoing_result_successor_generation_id, incoming_generation_id,
+      incoming_expected_control_version, incoming_result_control_version,
+      incoming_from_status, incoming_to_status, incoming_result_activated_at,
+      deployment_binding_id, actor_kind, actor_reference, approval_reference,
+      evidence_reference, evidence_sha256, metrics_snapshot, reason_code,
+      recorded_at, compatibility_basis_generation_id, compatibility_proof_id
+    ) VALUES (
+      p_operation_id, v_fingerprint, v_outgoing.provider, v_outgoing.endpoint_key,
+      v_outgoing.signature_key_scope, v_outgoing.authority_key, 'roll_forward',
+      v_outgoing.id, p_expected_control_version, v_outgoing.control_version,
+      'active', 'draining', v_outgoing.activated_at, v_outgoing.activated_at, v_now,
+      v_incoming.id, v_incoming.id, v_incoming.control_version - 1,
+      v_incoming.control_version, 'staged', 'active', v_now, v_binding.id,
+      'service', 'payment_control_plane', v_binding.approval_reference,
+      v_attestation.attestation_sha256, v_attestation.attestation_sha256, '{}'::jsonb,
+      'roll_forward', v_now, v_outgoing.id, v_proof.id
+    );
+  EXCEPTION WHEN unique_violation THEN
+    SELECT receipt.operation_id, receipt.request_fingerprint,
+      receipt.incoming_generation_id, receipt.incoming_result_control_version
+    INTO v_receipt
+    FROM private.payment_ingress_contract_transition_receipts AS receipt
+    WHERE receipt.operation_id = p_operation_id;
+    IF NOT FOUND THEN
+      RAISE;
+    END IF;
+    IF v_receipt.request_fingerprint <> v_fingerprint THEN
+      RAISE EXCEPTION 'payment ingress roll-forward replay diverged' USING ERRCODE = 'PT409';
+    END IF;
+    SELECT generation_row.id, generation_row.generation
+    INTO v_incoming
+    FROM private.payment_ingress_contract_generations AS generation_row
+    WHERE generation_row.id = v_receipt.incoming_generation_id;
+    RETURN QUERY SELECT v_receipt.operation_id, v_incoming.id, v_incoming.generation,
+      v_receipt.incoming_result_control_version, true, 'replayed'::text;
+    RETURN;
+  END;
   RETURN QUERY SELECT p_operation_id, v_incoming.id, v_incoming.generation,
     v_incoming.control_version, false, 'rolled_forward'::text;
 END;
@@ -1198,6 +1311,10 @@ BEGIN
     p_compatibility_proof_id::text, 'sha256'
   ), 'hex');
 
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'payment-ingress-operation:' || p_operation_id::text, 0
+  ));
+
   -- Read scope first without a row lock so concurrent writers serialize together.
   SELECT generation_row.provider, generation_row.endpoint_key,
     generation_row.signature_key_scope, generation_row.authority_key
@@ -1214,7 +1331,7 @@ BEGIN
   ));
 
   SELECT receipt.operation_id, receipt.request_fingerprint,
-    receipt.incoming_generation_id
+    receipt.incoming_generation_id, receipt.incoming_result_control_version
   INTO v_receipt
   FROM private.payment_ingress_contract_transition_receipts AS receipt
   WHERE receipt.operation_id = p_operation_id;
@@ -1226,7 +1343,7 @@ BEGIN
     INTO v_incoming FROM private.payment_ingress_contract_generations AS generation_row
     WHERE generation_row.id = v_receipt.incoming_generation_id;
     RETURN QUERY SELECT v_receipt.operation_id, v_incoming.id, v_incoming.generation,
-      v_incoming.control_version, true, 'replayed'::text;
+      v_receipt.incoming_result_control_version, true, 'replayed'::text;
     RETURN;
   END IF;
 
@@ -1329,29 +1446,50 @@ BEGIN
   RETURNING incoming_generation.id, incoming_generation.generation,
     incoming_generation.control_version INTO v_incoming;
 
-  INSERT INTO private.payment_ingress_contract_transition_receipts (
-    operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
-    authority_key, operation_kind, outgoing_generation_id,
-    outgoing_expected_control_version, outgoing_result_control_version,
-    outgoing_from_status, outgoing_to_status, outgoing_expected_activated_at,
-    outgoing_result_activated_at, outgoing_result_draining_at,
-    outgoing_result_successor_generation_id, incoming_generation_id,
-    incoming_expected_control_version, incoming_result_control_version,
-    incoming_from_status, incoming_to_status, incoming_result_activated_at,
-    deployment_binding_id, actor_kind, actor_reference, approval_reference,
-    evidence_reference, evidence_sha256, metrics_snapshot, reason_code,
-    recorded_at, compatibility_basis_generation_id, compatibility_proof_id
-  ) VALUES (
-    p_operation_id, v_fingerprint, v_outgoing.provider, v_outgoing.endpoint_key,
-    v_outgoing.signature_key_scope, v_outgoing.authority_key, 'rollback',
-    v_outgoing.id, p_expected_control_version, v_outgoing.control_version,
-    'active', 'draining', v_outgoing.activated_at, v_outgoing.activated_at, v_now,
-    v_incoming.id, v_incoming.id, v_incoming.control_version - 1,
-    v_incoming.control_version, 'staged', 'active', v_now, v_binding.id,
-    'service', 'payment_control_plane', v_binding.approval_reference,
-    v_attestation.attestation_sha256, v_attestation.attestation_sha256, '{}'::jsonb,
-    'rollback', v_now, v_outgoing.id, v_proof.id
-  );
+  BEGIN
+    INSERT INTO private.payment_ingress_contract_transition_receipts (
+      operation_id, request_fingerprint, provider, endpoint_key, signature_key_scope,
+      authority_key, operation_kind, outgoing_generation_id,
+      outgoing_expected_control_version, outgoing_result_control_version,
+      outgoing_from_status, outgoing_to_status, outgoing_expected_activated_at,
+      outgoing_result_activated_at, outgoing_result_draining_at,
+      outgoing_result_successor_generation_id, incoming_generation_id,
+      incoming_expected_control_version, incoming_result_control_version,
+      incoming_from_status, incoming_to_status, incoming_result_activated_at,
+      deployment_binding_id, actor_kind, actor_reference, approval_reference,
+      evidence_reference, evidence_sha256, metrics_snapshot, reason_code,
+      recorded_at, compatibility_basis_generation_id, compatibility_proof_id
+    ) VALUES (
+      p_operation_id, v_fingerprint, v_outgoing.provider, v_outgoing.endpoint_key,
+      v_outgoing.signature_key_scope, v_outgoing.authority_key, 'rollback',
+      v_outgoing.id, p_expected_control_version, v_outgoing.control_version,
+      'active', 'draining', v_outgoing.activated_at, v_outgoing.activated_at, v_now,
+      v_incoming.id, v_incoming.id, v_incoming.control_version - 1,
+      v_incoming.control_version, 'staged', 'active', v_now, v_binding.id,
+      'service', 'payment_control_plane', v_binding.approval_reference,
+      v_attestation.attestation_sha256, v_attestation.attestation_sha256, '{}'::jsonb,
+      'rollback', v_now, v_outgoing.id, v_proof.id
+    );
+  EXCEPTION WHEN unique_violation THEN
+    SELECT receipt.operation_id, receipt.request_fingerprint,
+      receipt.incoming_generation_id, receipt.incoming_result_control_version
+    INTO v_receipt
+    FROM private.payment_ingress_contract_transition_receipts AS receipt
+    WHERE receipt.operation_id = p_operation_id;
+    IF NOT FOUND THEN
+      RAISE;
+    END IF;
+    IF v_receipt.request_fingerprint <> v_fingerprint THEN
+      RAISE EXCEPTION 'payment ingress rollback replay diverged' USING ERRCODE = 'PT409';
+    END IF;
+    SELECT generation_row.id, generation_row.generation
+    INTO v_incoming
+    FROM private.payment_ingress_contract_generations AS generation_row
+    WHERE generation_row.id = v_receipt.incoming_generation_id;
+    RETURN QUERY SELECT v_receipt.operation_id, v_incoming.id, v_incoming.generation,
+      v_receipt.incoming_result_control_version, true, 'replayed'::text;
+    RETURN;
+  END;
   RETURN QUERY SELECT p_operation_id, v_incoming.id, v_incoming.generation,
     v_incoming.control_version, false, 'rolled_back'::text;
 END;

@@ -67,12 +67,12 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_roles
-    WHERE rolname = 'payment_control_plane'
-      AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
-      AND NOT rolinherit AND NOT rolreplication
-  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_roles
+      WHERE rolname = 'payment_control_plane'
+        AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
+      AND NOT rolinherit AND NOT rolreplication AND NOT rolbypassrls
+    ) THEN
     RAISE EXCEPTION 'payment_control_plane must be the exact no-login executor role';
   END IF;
 
@@ -208,10 +208,11 @@ BEGIN
 
   INSERT INTO private.payment_ingress_contract_creation_receipts (
     operation_id, request_fingerprint, deployment_binding_id, generation_id,
-    provider, endpoint_key, signature_key_scope, authority_key, generation
+    provider, endpoint_key, signature_key_scope, authority_key, generation,
+    result_control_version
   ) VALUES (
     v_creation_operation, repeat('1', 64), v_binding_id, v_generation_one,
-    'provider', 'endpoint', 'signature', 'authority', 1
+    'provider', 'endpoint', 'signature', 'authority', 1, 1
   );
 
   INSERT INTO private.payment_ingress_contract_transition_receipts (
@@ -295,10 +296,11 @@ BEGIN
   BEGIN
     INSERT INTO private.payment_ingress_contract_creation_receipts (
       operation_id, request_fingerprint, deployment_binding_id, generation_id,
-      provider, endpoint_key, signature_key_scope, authority_key, generation
+      provider, endpoint_key, signature_key_scope, authority_key, generation,
+      result_control_version
     ) VALUES (
       '10000000-0000-4000-8000-000000000009', repeat('1', 64), v_binding_id,
-      v_generation_one, 'provider', 'endpoint', 'signature', 'authority', 1
+      v_generation_one, 'provider', 'endpoint', 'signature', 'authority', 1, 1
     );
     RAISE EXCEPTION 'duplicate creation fingerprint unexpectedly passed';
   EXCEPTION WHEN unique_violation THEN NULL;
@@ -572,6 +574,28 @@ BEGIN
   IF v_generation <> 2 OR v_control_version <> 2 OR v_replayed
     OR v_result_code <> 'rolled_forward'
   THEN RAISE EXCEPTION 'roll-forward did not atomically advance the staged successor'; END IF;
+
+  -- Replays must return the receipt's original result version even after the
+  -- generation has moved on to a later control version.
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.create_payment_ingress_contract_generation(
+    v_create_one_operation, v_binding_one
+  ) AS result;
+  IF v_generation <> 1 OR v_control_version <> 1 OR NOT v_replayed
+    OR v_result_code <> 'replayed'
+  THEN RAISE EXCEPTION 'creation replay did not return its recorded control version'; END IF;
+
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_one, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.activate_payment_ingress_contract_generation(
+    v_activate_operation, v_generation_one, 1, v_binding_one
+  ) AS result;
+  IF v_generation <> 1 OR v_control_version <> 2 OR NOT v_replayed
+    OR v_result_code <> 'replayed'
+  THEN RAISE EXCEPTION 'activation replay did not return its recorded control version'; END IF;
   PERFORM pg_catalog.set_config('role', 'none', true);
 
   PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
@@ -611,6 +635,27 @@ BEGIN
   IF v_generation <> 3 OR v_control_version <> 2 OR v_replayed
     OR v_result_code <> 'rolled_back'
   THEN RAISE EXCEPTION 'rollback did not atomically advance the staged successor'; END IF;
+
+  PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_two, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.roll_forward_payment_ingress_contract_generation(
+    v_roll_forward_operation, v_generation_one, 2, v_binding_two, v_proof_one_id
+  ) AS result;
+  IF v_generation <> 2 OR v_control_version <> 2 OR NOT v_replayed
+    OR v_result_code <> 'replayed'
+  THEN RAISE EXCEPTION 'roll-forward replay did not return its recorded control version'; END IF;
+
+  SELECT result.generation_id, result.generation, result.control_version,
+    result.replayed, result.result_code
+  INTO v_generation_three, v_generation, v_control_version, v_replayed, v_result_code
+  FROM private.rollback_payment_ingress_contract_generation(
+    v_rollback_operation, v_generation_two, 2, v_binding_three, v_proof_two_id
+  ) AS result;
+  IF v_generation <> 3 OR v_control_version <> 2 OR NOT v_replayed
+    OR v_result_code <> 'replayed'
+  THEN RAISE EXCEPTION 'rollback replay did not return its recorded control version'; END IF;
   PERFORM pg_catalog.set_config('role', 'none', true);
 
   PERFORM pg_catalog.set_config('role', 'payment_control_plane', true);

@@ -77,6 +77,7 @@ describe('payment ingress control-plane companion migration', () => {
       'NOCREATEROLE',
       'NOINHERIT',
       'NOREPLICATION',
+      'NOBYPASSRLS',
     ]) {
       expect(migrationSql).toContain(roleFlag);
     }
@@ -122,6 +123,7 @@ describe('payment ingress control-plane companion migration', () => {
 
     expect(migrationSql).toContain("current_setting('role', true)");
     expect(migrationSql).toContain("'payment_control_plane'");
+    expect(migrationSql).toContain('pg_catalog.pg_auth_members');
     expect(migrationSql).toContain("ERRCODE = '42501'");
     expect(migrationSql).toContain("ERRCODE = 'PT409'");
     expect(migrationSql).toContain('pg_catalog.pg_advisory_xact_lock');
@@ -147,6 +149,7 @@ describe('payment ingress control-plane companion migration', () => {
     expect(migrationSql).toContain('deployment_binding_id');
     expect(migrationSql).toContain('outgoing_expected_control_version');
     expect(migrationSql).toContain('incoming_expected_control_version');
+    expect(migrationSql).toContain('result_control_version');
     expect(migrationSql).toContain('revocation_reference');
     expect(migrationSql).toContain(
       'retention_until > pg_catalog.clock_timestamp()'
@@ -174,12 +177,27 @@ describe('payment ingress control-plane companion migration', () => {
     ]) {
       const body = functionBody(functionName);
       const advisoryLock = body.indexOf('pg_catalog.pg_advisory_xact_lock');
+      const operationLock = body.indexOf('payment-ingress-operation:');
+      const scopeLock = body.indexOf("'payment-ingress:'");
       const receiptReload = body.indexOf('AS receipt');
       const firstRowLock = body.indexOf('FOR UPDATE');
 
       expect(advisoryLock).toBeGreaterThan(-1);
+      expect(operationLock).toBeGreaterThan(-1);
+      expect(scopeLock).toBeGreaterThan(operationLock);
       expect(receiptReload).toBeGreaterThan(advisoryLock);
       expect(firstRowLock).toBeGreaterThan(receiptReload);
+    }
+
+    for (const functionName of [
+      'create_payment_ingress_contract_generation',
+      'activate_payment_ingress_contract_generation',
+      'roll_forward_payment_ingress_contract_generation',
+      'rollback_payment_ingress_contract_generation',
+    ]) {
+      expect(functionBody(functionName)).toContain(
+        'EXCEPTION WHEN unique_violation'
+      );
     }
 
     for (const functionName of [
