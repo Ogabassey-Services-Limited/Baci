@@ -6,6 +6,7 @@ import {
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
   sameCloudflarePurgeContract,
+  type TopologyEndpointSchema,
 } from './cloudflare-evidence-qualification-schemas';
 import type {
   CloudflareOrdinaryTrafficProof,
