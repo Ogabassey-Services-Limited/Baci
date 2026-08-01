@@ -16,7 +16,7 @@
   preserving the dormant fail-closed boundary while satisfying the repository
   policy invariant.
 - The pending replay source registry, expected fixture, and pending count were
-  updated together (89 to 90).
+  updated together (100 to 101) after rebasing onto the current mainline.
 
 ## RED evidence
 
@@ -40,7 +40,7 @@
 - Terra's asymmetric nullable-pair regression first failed against the prior
   CHECK, then passed after the populated branch was made explicitly non-null.
 - Focused migration source contract passed (6 tests).
-- Replay source test passed (7 tests); replay-manifest test passed (9 tests).
+- Replay source test passed (8 tests); replay-manifest test passed (15 tests).
 - `pnpm turbo lint` passed (existing warnings only) and `pnpm turbo typecheck`
   passed.
 
@@ -59,7 +59,7 @@
 - The fixture calls `SET CONSTRAINTS ALL IMMEDIATE` before retention assertions
   and, after `ROLLBACK`, proves the identity, generation, inbox, manifest, and
   proof fixtures are gone while the private evidence relations and index remain.
-- The pending source count remains 90; both source-hash registry mirrors were
+- The pending source count remains 101; both source-hash registry mirrors were
   atomically refreshed for the amended migration.
 
 ## Final replay catalog closure
@@ -77,8 +77,8 @@
   checks remain private-schema scoped.
 - The migration SHA-256 was recomputed as
   `0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72`;
-  both registry mirrors still match and the pending-source count remains 90.
-- Focused source/replay tests (37 tests) passed, and a clean
+  both registry mirrors still match and the pending-source count remains 101.
+- Focused migration/replay Vitest contracts passed (29 tests), and a clean
   foundation-plus-companion disposable PostgreSQL replay passed. The full
   `pnpm turbo test` run completed with 3,578 files and 26,406 tests passing,
   but one unrelated builder CSRF test timed out; an isolated rerun passed all
@@ -97,7 +97,7 @@
   ordered keys, uniqueness, primary flag, and predicate) and requires the
   post-rollback catalog oracle markers. The migration SHA and both registry
   mirrors remain `0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72`;
-  the pending-source count remains 90.
+  the pending-source count remains 101.
 
 ## Limitations
 
@@ -109,7 +109,7 @@
 - The full `pnpm turbo test` run is not fully green because the unrelated
   `src/app/api/builder/route-mutations.test.ts` CSRF case timed out once under
   the 25-minute monorepo run; the isolated file rerun passed 9/9. The focused
-  webhook-evidence/replay contracts passed independently (37/37).
+  webhook-evidence/replay Vitest contracts passed independently (29/29).
 - This slice intentionally does not enforce digest equality, append-only
   behavior, cross-row child conservation/projection, status transitions,
   review binding, or any order/financial authority. Those remain guarded-writer
