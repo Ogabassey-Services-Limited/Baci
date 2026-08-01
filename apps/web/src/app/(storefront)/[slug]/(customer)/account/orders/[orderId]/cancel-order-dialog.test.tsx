@@ -8,6 +8,34 @@ vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
 }));
 
+// The Radix dialog brings react-remove-scroll into this test's graph. Under
+// the monorepo Vitest resolver that can load a second React instance and fail
+// before the cancellation behavior is exercised, so keep the test at the
+// component contract boundary.
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div role="dialog">{children}</div>
+  ),
+  DialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <p>{children}</p>
+  ),
+  DialogFooter: ({ children }: { children: React.ReactNode }) => (
+    <footer>{children}</footer>
+  ),
+  DialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <header>{children}</header>
+  ),
+  DialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <h2>{children}</h2>
+  ),
+  DialogTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
 function jsonResponse(status: number, body: unknown): Response {
   return {
     ok: status >= 200 && status < 300,
