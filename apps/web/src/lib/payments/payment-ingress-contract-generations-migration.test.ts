@@ -15,6 +15,8 @@ const executableSql = migrationSql
 
 describe('payment ingress contract generations migration', () => {
   it('creates only the private dormant ingress-generation registry', () => {
+    expect(migrationSql).toContain("SET LOCAL lock_timeout = '5s';");
+    expect(migrationSql).toContain("SET LOCAL statement_timeout = '30s';");
     expect(migrationSql).toContain(
       'CREATE TABLE private.payment_ingress_contract_generations'
     );

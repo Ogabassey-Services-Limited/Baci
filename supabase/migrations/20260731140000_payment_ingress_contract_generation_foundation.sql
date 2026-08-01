@@ -1,3 +1,6 @@
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
+
 CREATE TABLE private.payment_ingress_contract_generations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider text NOT NULL,

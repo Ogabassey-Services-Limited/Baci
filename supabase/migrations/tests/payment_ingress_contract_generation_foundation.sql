@@ -11,6 +11,14 @@ SELECT count(*)
 FROM private.payment_ingress_contract_generations;
 
 DO $$
+BEGIN
+  IF (SELECT count(*) FROM private.payment_ingress_contract_generations) <> 0 THEN
+    RAISE EXCEPTION 'payment ingress generation registry must start empty';
+  END IF;
+END;
+$$;
+
+DO $$
 DECLARE
   v_table regclass := 'private.payment_ingress_contract_generations'::regclass;
   v_missing_column text;
@@ -120,34 +128,40 @@ BEGIN
     RAISE EXCEPTION 'payment ingress generation required columns must be NOT NULL';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
+  IF (
+    SELECT count(*)
     FROM pg_attrdef
     WHERE adrelid = v_table
-      AND pg_get_expr(adbin, adrelid) = 'gen_random_uuid()'
-  ) OR NOT EXISTS (
+  ) <> 4
+  OR EXISTS (
     SELECT 1
-    FROM pg_attrdef
-    JOIN pg_attribute ON attrelid = adrelid AND attnum = adnum
-    WHERE adrelid = v_table
-      AND attname = 'status'
-      AND pg_get_expr(adbin, adrelid) = '''staged''::text'
-  ) OR NOT EXISTS (
+    FROM (
+      VALUES
+        ('id', 'gen_random_uuid()'),
+        ('status', '''staged''::text'),
+        ('control_version', '1'),
+        ('created_at', 'now()')
+    ) AS expected(attname, default_expression)
+    LEFT JOIN pg_attribute actual_attr
+      ON actual_attr.attrelid = v_table
+      AND actual_attr.attname = expected.attname
+    LEFT JOIN pg_attrdef actual_def
+      ON actual_def.adrelid = v_table
+      AND actual_def.adnum = actual_attr.attnum
+    WHERE actual_attr.attname IS NULL
+      OR pg_get_expr(actual_def.adbin, actual_def.adrelid) IS DISTINCT FROM
+        expected.default_expression
+  )
+  OR EXISTS (
     SELECT 1
-    FROM pg_attrdef
-    JOIN pg_attribute ON attrelid = adrelid AND attnum = adnum
-    WHERE adrelid = v_table
-      AND attname = 'control_version'
-      AND pg_get_expr(adbin, adrelid) = '1'
-  ) OR NOT EXISTS (
-    SELECT 1
-    FROM pg_attrdef
-    JOIN pg_attribute ON attrelid = adrelid AND attnum = adnum
-    WHERE adrelid = v_table
-      AND attname = 'created_at'
-      AND pg_get_expr(adbin, adrelid) = 'now()'
+    FROM pg_attrdef actual_def
+    JOIN pg_attribute actual_attr
+      ON actual_attr.attrelid = actual_def.adrelid
+      AND actual_attr.attnum = actual_def.adnum
+    WHERE actual_def.adrelid = v_table
+      AND actual_attr.attname NOT IN ('id', 'status', 'control_version', 'created_at')
   ) THEN
-    RAISE EXCEPTION 'payment ingress generation defaults do not match the frozen contract';
+    RAISE EXCEPTION 'payment ingress generation defaults do not match the frozen column-bound contract';
   END IF;
 
   SELECT expected.name
