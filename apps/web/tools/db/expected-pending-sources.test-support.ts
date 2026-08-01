@@ -294,5 +294,16 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   ...RECENT_PENDING_SOURCES.slice(0, 1),
   ...AUDIT_PENDING_SOURCES,
-  ...RECENT_PENDING_SOURCES.slice(1),
+  ...RECENT_PENDING_SOURCES.slice(1, 6),
+  {
+    repositoryPath:
+      'supabase/migrations/20260731140000_payment_ingress_contract_generation_foundation.sql',
+    sha256: '1a390474d12890e9f641c72f743b35669798eee56a887a87720f4bd8b53a1705',
+  },
+  ...RECENT_PENDING_SOURCES.slice(6),
+  {
+    repositoryPath:
+      'supabase/migrations/20260801140000_payment_ingress_contract_companion.sql',
+    sha256: '55c1efce71726e1f1e0f9fa2b035cd52f040bae5ab1693ee6442e0e2e25ff70f',
+  },
 ];
