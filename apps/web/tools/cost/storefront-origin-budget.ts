@@ -15,6 +15,9 @@ export type StorefrontDeliverySummary = {
   allEligibleIngress: number;
   canonicalEligibleOriginAttempts: number;
   aliasEligibleOriginAttempts: number;
+  originEventRequests: number;
+  classifiedOriginAttempts: number;
+  originEventReconciled: boolean;
   dynamicOriginAttempts: number;
   aliasDynamicOriginAttempts: number;
   allowedOriginRateLimitAttempts: number;
@@ -27,6 +30,7 @@ export type StorefrontDeliverySummary = {
 };
 type OriginBudgetOptions = Readonly<{
   thresholdOverride?: number;
+  now?: Date;
 }>;
 
 const sum = (values: readonly number[]) =>
@@ -49,7 +53,9 @@ export function summarizeStorefrontDelivery(
   value: unknown,
   options: OriginBudgetOptions = {}
 ): StorefrontDeliverySummary {
-  const validation = validateStorefrontDeliveryManifest(value);
+  const validation = validateStorefrontDeliveryManifest(value, {
+    now: options.now,
+  });
   const days = validation.ok ? validation.manifest.days : [];
   const canonicalEligibleRequests = sum(
     days.map((day) => day.canonicalEligibleRequestCount ?? 0)
@@ -66,6 +72,27 @@ export function summarizeStorefrontDelivery(
   const aliasEligibleOriginAttempts = sum(
     days.map((day) => day.aliasEligibleOriginRequestCount ?? 0)
   );
+  // Origin-fallback and edge-error counts are final decision classes; the
+  // independent origin-event count must not double-count those outcomes.
+  const originAttemptsForDay = (day: (typeof days)[number]) =>
+    day.canonicalEligibleOriginAttemptCount +
+    day.dynamicOriginAttemptCount +
+    day.unknownOriginAttemptCount +
+    day.aliasEligibleOriginRequestCount +
+    day.aliasDynamicOriginCount +
+    day.rejectedMethodOriginCount +
+    day.allowedOriginRateLimitCount;
+  const originEventRequests = sum(
+    days.map((day) => day.sourceEvidence.originEvent.requestCount)
+  );
+  const classifiedOriginAttempts = sum(days.map(originAttemptsForDay));
+  const originEventReconciled =
+    validation.ok &&
+    days.every(
+      (day) =>
+        day.sourceEvidence.originEvent.requestCount ===
+        originAttemptsForDay(day)
+    );
   // Dynamic/API and rate-limit origins are outside the static eligibility
   // numerator, but they still require an explicit reconciliation. A complete
   // census must not silently pass while these origin events are unaccounted.
@@ -97,6 +124,7 @@ export function summarizeStorefrontDelivery(
       : Number.NaN;
   const evidenceComplete =
     validation.ok &&
+    originEventReconciled &&
     unaccountedOriginAttempts === 0 &&
     days.every(
       (day) =>
@@ -143,6 +171,9 @@ export function summarizeStorefrontDelivery(
     allEligibleIngress,
     canonicalEligibleOriginAttempts,
     aliasEligibleOriginAttempts,
+    originEventRequests,
+    classifiedOriginAttempts,
+    originEventReconciled,
     dynamicOriginAttempts,
     aliasDynamicOriginAttempts,
     allowedOriginRateLimitAttempts,
@@ -164,6 +195,7 @@ export async function readSealedStorefrontDeliveryManifest(
   options: {
     environment: 'production' | 'comparison';
     thresholdOverride?: number;
+    now?: Date;
   } = {
     environment: 'production',
   }
@@ -186,7 +218,9 @@ export async function readSealedStorefrontDeliveryManifest(
   } finally {
     await handle.close();
   }
-  const validation = validateStorefrontDeliveryManifest(value);
+  const validation = validateStorefrontDeliveryManifest(value, {
+    now: options.now,
+  });
   if (!validation.ok)
     throw new Error(
       `sealed manifest is invalid: ${validation.reasonCodes.join(',')}`

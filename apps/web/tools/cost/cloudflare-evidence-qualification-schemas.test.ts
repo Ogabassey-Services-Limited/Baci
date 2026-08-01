@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   PointerCacheSchema,
   PurgeContractSchema,
+  ReviewedQualificationArtifactSchema,
 } from './cloudflare-evidence-qualification-schemas';
+import { reviewedArtifacts } from './qualify-cloudflare-evidence-sources.test-fixtures';
 
 describe('cloudflare evidence qualification schemas', () => {
   it('rejects pointer-cache hashes that are not canonical SHA-256 values', () => {
@@ -54,6 +56,25 @@ describe('cloudflare evidence qualification schemas', () => {
         expiresAt: '2026-08-01T00:00:00.000Z',
         canonicalSha256: 'b'.repeat(64),
       }).success
+    ).toBe(false);
+  });
+
+  it.each([
+    ['bundleSha256', 'scriptEtag'],
+    ['moduleListSha256', 'moduleSha256'],
+    ['configSha256', 'settingsSha256'],
+  ] as const)('binds nested %s to top-level %s', (nestedField) => {
+    const artifact = reviewedArtifacts[0];
+    const mismatched = {
+      ...artifact,
+      artifactReceipt: {
+        ...artifact.artifactReceipt,
+        [nestedField]: '0'.repeat(64),
+      },
+    };
+
+    expect(
+      ReviewedQualificationArtifactSchema.safeParse(mismatched).success
     ).toBe(false);
   });
 });

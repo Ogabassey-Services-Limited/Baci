@@ -80,7 +80,7 @@ function client(overrides: Record<string, unknown> = {}) {
     trace: async () => ({ ...input.trace, matched: true }),
     pointerProbe: async () => ({ cfCacheStatus: 'DYNAMIC' }),
     topologyRead: async (family: TopologyFamily) => tuple(family, 'before'),
-    topologyMutate: async (family: TopologyFamily) => ({
+    topologyMutate: async ({ family }: Pick<TopologyPlan, 'family'>) => ({
       operationId: `${family}-operation`,
       lostResponse: family === 'r2-cors',
     }),

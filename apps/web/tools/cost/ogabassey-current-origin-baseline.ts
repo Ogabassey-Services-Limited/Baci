@@ -1,3 +1,6 @@
+import type { CloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
+import { validateCloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
+
 export type {
   CloudflareWorkersLogsContractValidationOptions,
   CloudflareWorkersLogsEntitlement,
@@ -14,6 +17,7 @@ const MILLISECONDS_PER_UTC_DAY = 86_400_000;
 const CLOSED_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/;
 const DEFAULT_MAXIMUM_BASELINE_AGE_DAYS = 7;
 const MAXIMUM_ORIGIN_AVOIDANCE_RATE = 0.001;
+const FORCED_SAMPLING_HEADROOM_MULTIPLIER = 4n;
 
 function parseStrictUtcBoundary(value: string) {
   if (!CLOSED_UTC_PATTERN.test(value)) return null;
@@ -36,6 +40,9 @@ export type OgabasseyOriginBusinessCaseInput = {
   projectedEdgeCostUsd?: string;
   ownerApprovedPaybackMonths?: number;
   paybackMonths?: number;
+  /** Raw receipt is deliberately unknown so callers cannot bypass validation. */
+  workersLogsContract: unknown;
+  projectedAccountLogEventsPerDay: bigint | number | string;
 };
 export type OgabasseyOriginBusinessCaseOptions = Readonly<{
   now?: Date;
@@ -46,6 +53,66 @@ function decimalToMinorUnits(value: string): bigint | null {
   const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value);
   if (!match) return null;
   return BigInt(match[1]) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'));
+}
+
+function nonNegativeInteger(value: unknown): bigint | null {
+  if (typeof value === 'bigint') return value >= 0n ? value : null;
+  if (typeof value === 'number')
+    return Number.isSafeInteger(value) && value >= 0 ? BigInt(value) : null;
+  if (typeof value === 'string' && /^\d+$/.test(value)) return BigInt(value);
+  return null;
+}
+
+function validateWorkersLogsEvidence(
+  input: OgabasseyOriginBusinessCaseInput,
+  now: Date
+) {
+  let contract: CloudflareWorkersLogsPlanContract;
+  try {
+    contract = validateCloudflareWorkersLogsPlanContract(
+      input.workersLogsContract,
+      { now }
+    );
+  } catch {
+    return {
+      ok: false as const,
+      verdict: 'NOT_PROVEN' as const,
+      reason: 'workers_logs_contract_invalid',
+    };
+  }
+  const projected = nonNegativeInteger(input.projectedAccountLogEventsPerDay);
+  if (projected === null)
+    return {
+      ok: false as const,
+      verdict: 'NOT_PROVEN' as const,
+      reason: 'workers_logs_projection_invalid',
+    };
+  const forcedSamplingThreshold = contract.forcedSamplingDailyThreshold;
+  const projectedWithHeadroom = projected * FORCED_SAMPLING_HEADROOM_MULTIPLIER;
+  if (
+    contract.currentUtcDayAllAccountEvents >= forcedSamplingThreshold ||
+    projectedWithHeadroom >= forcedSamplingThreshold
+  )
+    return {
+      ok: false as const,
+      verdict: 'STOP' as const,
+      reason: 'workers_logs_forced_sampling_headroom_insufficient',
+    };
+  const allowanceUsage = contract.currentAllowancePeriodAllAccountEvents;
+  const allowanceRemaining = contract.allowanceEvents - allowanceUsage;
+  const projectedAllowanceUse = allowanceUsage + projected;
+  if (
+    allowanceRemaining <= 0n ||
+    projectedAllowanceUse > contract.allowanceEvents
+  ) {
+    if (!contract.overageAllowed || contract.overageUsdPerMillion === null)
+      return {
+        ok: false as const,
+        verdict: 'STOP' as const,
+        reason: 'workers_logs_allowance_exhausted',
+      };
+  }
+  return { ok: true as const };
 }
 
 /** Gates design work on a complete, current, all-ingress baseline—not a percentage claim. */
@@ -146,6 +213,12 @@ export function evaluateOgabasseyOriginBusinessCase(
     return {
       verdict: 'STOP',
       reasonCodes: ['origin_avoidance_target_met'],
+    };
+  const workersLogsEvidence = validateWorkersLogsEvidence(input, now);
+  if (!workersLogsEvidence.ok)
+    return {
+      verdict: workersLogsEvidence.verdict ?? 'NOT_PROVEN',
+      reasonCodes: [workersLogsEvidence.reason],
     };
   if (
     !input.currentVercelAttributionUsd ||

@@ -66,6 +66,7 @@ const dailyEvidence = {
     },
     originEvent: {
       sourceFingerprint: 'origin-v1',
+      requestCount: 0,
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -189,6 +190,20 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
           ...dailyEvidence.sourceEvidence,
           syntheticQualification: {
             ...dailyEvidence.sourceEvidence.syntheticQualification,
+            requestCount: undefined,
+          },
+        },
+      }).success
+    ).toBe(false);
+  });
+  it('requires an independently counted origin-event projection', () => {
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse({
+        ...dailyEvidence,
+        sourceEvidence: {
+          ...dailyEvidence.sourceEvidence,
+          originEvent: {
+            ...dailyEvidence.sourceEvidence.originEvent,
             requestCount: undefined,
           },
         },

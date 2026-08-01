@@ -13,6 +13,12 @@ import {
 } from './storefront-origin-budget';
 
 const hash = (letter: string) => letter.repeat(64);
+const validationNow = new Date('2026-08-02T12:00:00.000Z');
+const summarizeAtFixtureTime = (
+  value: unknown,
+  options: { thresholdOverride?: number } = {}
+) => summarizeStorefrontDelivery(value, { ...options, now: validationNow });
+
 function manifest(overrides: Record<string, unknown> = {}) {
   const hostnameInventorySha256 = calculateHostnameInventorySha256([
     'ogabassey.com',
@@ -83,6 +89,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
         },
         originEvent: {
           sourceFingerprint: hash('4'),
+          requestCount: 0,
           complete: true,
           exact: true,
           providerSamplingApplied: false,
@@ -160,9 +167,9 @@ function withSyntheticProjection(
 
 describe('summarizeStorefrontDelivery', () => {
   it('passes a complete seven-day all-ingress census with zero origins', () =>
-    expect(summarizeStorefrontDelivery(manifest()).verdict).toBe('PASS'));
+    expect(summarizeAtFixtureTime(manifest()).verdict).toBe('PASS'));
   it('excludes independently reconciled synthetic qualification probes from real ingress', () => {
-    const summary = summarizeStorefrontDelivery(
+    const summary = summarizeAtFixtureTime(
       seal(withSyntheticProjection(manifest(), 10, 10, 990))
     );
     expect(summary.syntheticQualificationRequests).toBe(10);
@@ -171,11 +178,11 @@ describe('summarizeStorefrontDelivery', () => {
   });
   it('returns not proven when synthetic probes are included in canonical eligibility', () => {
     expect(
-      summarizeStorefrontDelivery(seal(withSyntheticProjection(manifest(), 10)))
+      summarizeAtFixtureTime(seal(withSyntheticProjection(manifest(), 10)))
         .verdict
     ).toBe('NOT_PROVEN');
     expect(
-      summarizeStorefrontDelivery(
+      summarizeAtFixtureTime(
         seal(withSyntheticProjection(manifest(), 10, 9, 990))
       ).verdict
     ).toBe('NOT_PROVEN');
@@ -188,6 +195,13 @@ describe('summarizeStorefrontDelivery', () => {
       aliasEligibleRequestCount: 500,
       aliasEdgeRedirectCount: 500,
       canonicalEligibleOriginAttemptCount: 1,
+      sourceEvidence: {
+        ...evidence.days[0].sourceEvidence,
+        originEvent: {
+          ...evidence.days[0].sourceEvidence.originEvent,
+          requestCount: 1,
+        },
+      },
     };
     for (const day of evidence.days.slice(1)) {
       day.canonicalEligibleRequestCount = 0;
@@ -195,52 +209,77 @@ describe('summarizeStorefrontDelivery', () => {
       day.totalDecisionCount = 0;
       day.edgeReleaseCount = 0;
     }
-    expect(summarizeStorefrontDelivery(seal(evidence)).originRate).toBe(0.001);
-    expect(summarizeStorefrontDelivery(seal(evidence)).verdict).toBe('PASS');
+    expect(summarizeAtFixtureTime(seal(evidence)).originRate).toBe(0.001);
+    expect(summarizeAtFixtureTime(seal(evidence)).verdict).toBe('PASS');
   });
   it('applies a comparison threshold and rejects an impossible eligibility denominator', () => {
     const comparison = manifest();
     comparison.days[0].canonicalEligibleOriginAttemptCount = 50;
+    comparison.days[0].sourceEvidence.originEvent.requestCount = 50;
     expect(
-      summarizeStorefrontDelivery(seal(comparison), {
+      summarizeAtFixtureTime(seal(comparison), {
         thresholdOverride: 0.1,
       }).verdict
     ).toBe('PASS');
     const malformed = manifest();
     malformed.days[0].canonicalEligibleRequestCount = 1001;
-    expect(summarizeStorefrontDelivery(seal(malformed)).verdict).toBe(
-      'NOT_PROVEN'
-    );
+    expect(summarizeAtFixtureTime(seal(malformed)).verdict).toBe('NOT_PROVEN');
   });
   it('fails above 1/1000 and for any unknown, alias, or rejected-method origin attempt', () => {
     const over = manifest();
     over.days[0].canonicalEligibleOriginAttemptCount = 8;
-    expect(summarizeStorefrontDelivery(seal(over)).verdict).toBe('FAIL');
+    over.days[0].sourceEvidence.originEvent.requestCount = 8;
+    expect(summarizeAtFixtureTime(seal(over)).verdict).toBe('FAIL');
     const unknown = manifest();
     unknown.days[0].unknownOriginAttemptCount = 1;
-    expect(summarizeStorefrontDelivery(seal(unknown)).verdict).toBe('FAIL');
+    unknown.days[0].sourceEvidence.originEvent.requestCount = 1;
+    expect(summarizeAtFixtureTime(seal(unknown)).verdict).toBe('FAIL');
     const alias = manifest();
     alias.days[0].aliasEligibleOriginRequestCount = 1;
-    expect(summarizeStorefrontDelivery(seal(alias)).verdict).toBe('FAIL');
+    alias.days[0].sourceEvidence.originEvent.requestCount = 1;
+    expect(summarizeAtFixtureTime(seal(alias)).verdict).toBe('FAIL');
     const rejected = manifest();
     rejected.days[0].rejectedMethodOriginCount = 1;
-    expect(summarizeStorefrontDelivery(seal(rejected)).verdict).toBe('FAIL');
+    rejected.days[0].sourceEvidence.originEvent.requestCount = 1;
+    expect(summarizeAtFixtureTime(seal(rejected)).verdict).toBe('FAIL');
+  });
+  it('does not pass when the independent origin-event count understates classified attempts', () => {
+    const evidence = manifest();
+    evidence.days[0].canonicalEligibleOriginAttemptCount = 1;
+    const summary = summarizeAtFixtureTime(seal(evidence));
+    expect(summary.originEventRequests).toBe(0);
+    expect(summary.classifiedOriginAttempts).toBe(1);
+    expect(summary.originEventReconciled).toBe(false);
+    expect(summary.verdict).toBe('NOT_PROVEN');
+  });
+  it('reconciles the independent origin-event count before applying the rate gate', () => {
+    const evidence = manifest();
+    evidence.days[0].canonicalEligibleOriginAttemptCount = 1;
+    evidence.days[0].sourceEvidence.originEvent.requestCount = 1;
+    const summary = summarizeAtFixtureTime(seal(evidence));
+    expect(summary.originEventRequests).toBe(1);
+    expect(summary.classifiedOriginAttempts).toBe(1);
+    expect(summary.originEventReconciled).toBe(true);
+    expect(summary.verdict).toBe('PASS');
   });
   it('does not pass when dynamic or rate-limit origin events are outside the static equation', () => {
     for (const change of [
       (evidence: ReturnType<typeof manifest>) => {
         evidence.days[0].dynamicOriginAttemptCount = 1;
+        evidence.days[0].sourceEvidence.originEvent.requestCount = 1;
       },
       (evidence: ReturnType<typeof manifest>) => {
         evidence.days[0].aliasDynamicOriginCount = 1;
+        evidence.days[0].sourceEvidence.originEvent.requestCount = 1;
       },
       (evidence: ReturnType<typeof manifest>) => {
         evidence.days[0].allowedOriginRateLimitCount = 1;
+        evidence.days[0].sourceEvidence.originEvent.requestCount = 1;
       },
     ]) {
       const evidence = manifest();
       change(evidence);
-      const summary = summarizeStorefrontDelivery(seal(evidence));
+      const summary = summarizeAtFixtureTime(seal(evidence));
       expect(summary.verdict).toBe('NOT_PROVEN');
       expect(summary.evidenceComplete).toBe(false);
       expect(summary.unaccountedOriginAttempts).toBe(1);
@@ -252,10 +291,16 @@ describe('summarizeStorefrontDelivery', () => {
       ...evidence.days[0],
       canonicalEligibleOriginAttemptCount: 1,
       edgeErrorCount: 1,
+      sourceEvidence: {
+        ...evidence.days[0].sourceEvidence,
+        originEvent: {
+          ...evidence.days[0].sourceEvidence.originEvent,
+          requestCount: 1,
+        },
+      },
     };
     expect(
-      summarizeStorefrontDelivery(seal(evidence))
-        .canonicalEligibleOriginAttempts
+      summarizeAtFixtureTime(seal(evidence)).canonicalEligibleOriginAttempts
     ).toBe(1);
   });
   it('returns not proven for sampling, count mismatch, alias redirect mismatch, missing day, config drift, or zero ingress', () => {
@@ -283,24 +328,18 @@ describe('summarizeStorefrontDelivery', () => {
     ]) {
       const evidence = manifest();
       change(evidence);
-      expect(summarizeStorefrontDelivery(seal(evidence)).verdict).toBe(
-        'NOT_PROVEN'
-      );
+      expect(summarizeAtFixtureTime(seal(evidence)).verdict).toBe('NOT_PROVEN');
     }
   });
   it('returns not proven when decision classifications do not reconcile with invocations', () => {
     const malformed = manifest();
     malformed.days[0].edgeReleaseCount = 0;
-    expect(summarizeStorefrontDelivery(seal(malformed)).verdict).toBe(
-      'NOT_PROVEN'
-    );
+    expect(summarizeAtFixtureTime(seal(malformed)).verdict).toBe('NOT_PROVEN');
   });
   it('returns not proven when an independent source is estimated, incomplete, or sampled', () => {
     const evidence = manifest();
     evidence.days[0].sourceEvidence.originEvent.exact = false;
-    expect(summarizeStorefrontDelivery(seal(evidence)).verdict).toBe(
-      'NOT_PROVEN'
-    );
+    expect(summarizeAtFixtureTime(seal(evidence)).verdict).toBe('NOT_PROVEN');
   });
   it('reads only an audited sealed manifest and rejects production threshold overrides', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'baci-manifest-'));
@@ -308,7 +347,10 @@ describe('summarizeStorefrontDelivery', () => {
     const path = join(directory, 'sealed.json');
     await writeFile(path, JSON.stringify(manifest()), { mode: 0o600 });
     await expect(
-      readSealedStorefrontDeliveryManifest(path)
+      readSealedStorefrontDeliveryManifest(path, {
+        environment: 'production',
+        now: validationNow,
+      })
     ).resolves.toMatchObject({ canonicalHostname: 'ogabassey.com' });
     await expect(
       readSealedStorefrontDeliveryManifest(path, {

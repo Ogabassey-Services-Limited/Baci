@@ -8,10 +8,8 @@ import {
   verifyCloudflareTopologyEndpointFamily,
 } from './cloudflare-evidence-topology-contract';
 export type TopologyFamily = CloudflareTopologyFamily;
-export type TopologyTuple = Readonly<{
-  state: string;
-  fingerprint: string;
-}>;
+export type TopologyAction = 'detach' | 'write';
+export type TopologyTuple = Readonly<{ state: string; fingerprint: string }>;
 export type TopologyReadback = Readonly<{
   tuple: TopologyTuple;
   pendingOperation: boolean;
@@ -23,7 +21,7 @@ export type TopologyRestoreContract = Readonly<{
 }>;
 export type TopologyPlan = Readonly<{
   family: TopologyFamily;
-  action: 'detach' | 'write';
+  action: TopologyAction;
   endpoint: string;
   requestSchemaSha256: string;
   responseSchemaSha256: string;
@@ -36,6 +34,7 @@ export type TopologyPlan = Readonly<{
 export type JournaledTopologyEndpoint = TopologyPlan;
 export type TopologyMutationAuditReceipt = Readonly<{
   family: TopologyFamily;
+  action: TopologyAction;
   endpoint: string;
   requestSchemaSha256: string;
   responseSchemaSha256: string;
@@ -47,9 +46,15 @@ type TraceExpectation = Readonly<{
   rulesetVersion: string;
   expressionSha256: string;
 }>;
-type MutationResponse = Readonly<{
+type MutationResponse = {
   operationId?: string;
   lostResponse?: boolean;
+};
+export type TopologyMutationRequest = Readonly<{
+  family: TopologyFamily;
+  action: TopologyAction;
+  endpoint: string;
+  requestSchemaSha256: string;
 }>;
 export type DeepQualificationClient = Readonly<{
   trace(
@@ -60,11 +65,7 @@ export type DeepQualificationClient = Readonly<{
     url: string
   ): Promise<Readonly<{ cfCacheStatus: string; age?: string }>>;
   topologyRead(family: TopologyFamily): Promise<TopologyTuple>;
-  topologyMutate(
-    family: TopologyFamily,
-    endpoint: string,
-    requestSchemaSha256: string
-  ): Promise<MutationResponse>;
+  topologyMutate(request: TopologyMutationRequest): Promise<MutationResponse>;
   topologyPoll(
     family: TopologyFamily,
     maximumVisibilitySeconds: number
@@ -75,6 +76,12 @@ export type DeepQualificationClient = Readonly<{
   ): Promise<readonly TopologyReadback[]>;
 }>;
 const SHA256 = /^[a-f0-9]{64}$/;
+const TOPOLOGY_ACTION_BY_FAMILY = {
+  'worker-custom-domain': 'detach',
+  'r2-cors': 'write',
+  'r2-custom-domain': 'detach',
+} as const satisfies Record<TopologyFamily, TopologyAction>;
+
 function verifyMutationResponse(mutation: MutationResponse) {
   const operationId = mutation.operationId;
   const lostResponse = mutation.lostResponse;
@@ -107,9 +114,13 @@ function verifyJournaledTopologyEndpoints(
   const journaledBuckets = new Set<string>();
   for (const topology of topologies) {
     const journaled = journalByFamily.get(topology.family);
+    const expected = TOPOLOGY_ACTION_BY_FAMILY[topology.family];
+    if (topology.action !== expected || journaled?.action !== expected)
+      throw new Error(
+        'topology action violates fixed family-to-action mapping'
+      );
     if (
       !journaled ||
-      topology.action !== journaled.action ||
       topology.endpoint !== journaled.endpoint ||
       topology.requestSchemaSha256 !== journaled.requestSchemaSha256 ||
       topology.responseSchemaSha256 !== journaled.responseSchemaSha256 ||
@@ -145,6 +156,10 @@ function verifyJournaledTopologyEndpoints(
 }
 const sameTuple = (left: TopologyTuple, right: TopologyTuple) =>
   left.state === right.state && left.fingerprint === right.fingerprint;
+const buildTopologyMutationRequest = (
+  { family, action, endpoint }: TopologyPlan,
+  requestSchemaSha256: string
+) => ({ family, action, endpoint, requestSchemaSha256 });
 
 function verifyMutationConvergence(
   readbacks: readonly TopologyReadback[],
@@ -215,6 +230,7 @@ export async function executeDeepCloudflareEvidenceQualification(
     throw new Error(
       'pointer URL does not bind the evidence qualification host'
     );
+  verifyJournaledTopologyEndpoints(input.topologies, input.journaledTopologies);
   const trace = await client.trace(QUALIFICATION_POINTER_URL);
   if (
     !trace.matched ||
@@ -232,7 +248,6 @@ export async function executeDeepCloudflareEvidenceQualification(
       if (response.cfCacheStatus !== 'DYNAMIC' || response.age !== undefined)
         throw new Error('pointer cache probe observed a cacheable response');
     }
-  verifyJournaledTopologyEndpoints(input.topologies, input.journaledTopologies);
   const mutationReceipts: TopologyMutationAuditReceipt[] = [];
   for (const topology of input.topologies) {
     if (sameTuple(topology.before, topology.after))
@@ -240,13 +255,12 @@ export async function executeDeepCloudflareEvidenceQualification(
     if (!sameTuple(await client.topologyRead(topology.family), topology.before))
       throw new Error('topology before tuple does not match');
     const mutation = await client.topologyMutate(
-      topology.family,
-      topology.endpoint,
-      topology.requestSchemaSha256
+      buildTopologyMutationRequest(topology, topology.requestSchemaSha256)
     );
     const { operationId, lostResponse } = verifyMutationResponse(mutation);
     mutationReceipts.push({
       family: topology.family,
+      action: topology.action,
       endpoint: topology.endpoint,
       requestSchemaSha256: topology.requestSchemaSha256,
       responseSchemaSha256: topology.responseSchemaSha256,
@@ -262,9 +276,10 @@ export async function executeDeepCloudflareEvidenceQualification(
     );
     verifyMutationResponse(
       await client.topologyMutate(
-        topology.family,
-        topology.endpoint,
-        topology.restore.requestSchemaSha256
+        buildTopologyMutationRequest(
+          topology,
+          topology.restore.requestSchemaSha256
+        )
       )
     );
     verifyControlNoEffect(

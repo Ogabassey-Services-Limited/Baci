@@ -15,6 +15,10 @@ const SourceEvidenceSchema = z
 const SyntheticQualificationSourceEvidenceSchema = SourceEvidenceSchema.extend({
   requestCount: CountSchema,
 });
+const OriginEventSourceEvidenceSchema = SourceEvidenceSchema.extend({
+  /** Exact aggregate of all origin-attempt classes emitted for this day. */
+  requestCount: CountSchema,
+});
 
 /** Privacy-bounded per-source aggregates; raw request rows are never representable. */
 export const StorefrontDeliveryDailyEvidenceSchema = z
@@ -59,7 +63,7 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
         invocation: SourceEvidenceSchema,
         aliasRedirect: SourceEvidenceSchema,
         wafRateLimit: SourceEvidenceSchema,
-        originEvent: SourceEvidenceSchema,
+        originEvent: OriginEventSourceEvidenceSchema,
         syntheticQualification: SyntheticQualificationSourceEvidenceSchema,
       })
       .strict(),

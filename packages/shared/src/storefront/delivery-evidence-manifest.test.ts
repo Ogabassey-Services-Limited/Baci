@@ -66,6 +66,7 @@ const dailyEvidence = {
     },
     originEvent: {
       sourceFingerprint: '4'.repeat(64),
+      requestCount: 0,
       complete: true,
       exact: true,
       providerSamplingApplied: false,
@@ -188,10 +189,9 @@ describe('validateStorefrontDeliveryManifest', () => {
       'originEvent',
     ] as const) {
       const candidate = manifest();
-      candidate.days[3].sourceEvidence[source] = {
-        ...candidate.days[3].sourceEvidence[source],
-        sourceFingerprint: 'f'.repeat(64),
-      };
+      candidate.days[3].sourceEvidence[source].sourceFingerprint = 'f'.repeat(
+        64
+      );
       candidate.days[3].sha256 = calculateStorefrontDeliveryDailyEvidenceSha256(
         candidate.days[3]
       );

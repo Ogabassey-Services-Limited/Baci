@@ -91,7 +91,14 @@ export const ReviewedQualificationArtifactSchema = z
       })
       .strict(),
   })
-  .strict();
+  .strict()
+  .refine(
+    ({ scriptEtag, moduleSha256, settingsSha256, artifactReceipt }) =>
+      artifactReceipt.bundleSha256 === scriptEtag &&
+      artifactReceipt.moduleListSha256 === moduleSha256 &&
+      artifactReceipt.configSha256 === settingsSha256,
+    'reviewed artifact provider identities must match the nested receipt'
+  );
 export type ReviewedQualificationArtifact = z.infer<
   typeof ReviewedQualificationArtifactSchema
 >;
