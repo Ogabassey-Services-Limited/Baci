@@ -111,17 +111,27 @@ test('accepts root scanner UID and PID 1 with PPID zero in ancestry evidence', a
 
 test('accepts container recovery without a Docker userland proxy when inspect proves loopback binding', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-recovery-no-proxy-'));
+  const proc = join(directory, 'proc');
   const processes = join(directory, 'processes');
   const ports = join(directory, 'ports.json');
   try {
+    await mkdir(join(proc, 'net'), { recursive: true });
+    await Promise.all(
+      ['tcp', 'tcp6'].map((name) =>
+        writeFile(
+          join(proc, 'net', name),
+          'sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n'
+        )
+      )
+    );
     await writeFile(processes, '41 1 /usr/bin/ollama serve\n');
     await writeFile(
       ports,
       '{"HostConfig":{"PortBindings":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]}},"NetworkSettings":{"Ports":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]},"Networks":{"bridge":{"IPAddress":"172.17.0.2"}}}}\n'
     );
     const { stdout } = await shell(
-      'recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$2" "$3"',
-      [ports, processes]
+      'RECOVERY_PROC_ROOT="$4"; recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\"}\\n"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$2" "$3"',
+      [ports, processes, proc]
     );
     const snapshot = JSON.parse(stdout);
     assert.equal(snapshot.containerProcessCount, 1);

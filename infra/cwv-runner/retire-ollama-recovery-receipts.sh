@@ -31,12 +31,21 @@ recovery_drift_snapshot() {
   ' "$source" >"$target"
 }
 
+recovery_source_digests() {
+  actual_script=$(sha "$SCRIPT_DIR/retire-ollama.sh") || return 1
+  actual_helper=$(sha "$RECOVERY_HELPER") || return 1
+  actual_receipts=$(sha "$RECOVERY_RECEIPTS_HELPER") || return 1
+  if [ "$(id -u)" -ne 0 ] && [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ]; then
+    RECOVERY_SCRIPT_SHA=${RECOVERY_SCRIPT_SHA:-$actual_script}; RECOVERY_HELPER_SHA=${RECOVERY_HELPER_SHA:-$actual_helper}; RECOVERY_RECEIPTS_SHA=${RECOVERY_RECEIPTS_SHA:-$actual_receipts}
+  else
+    RECOVERY_SCRIPT_SHA=$actual_script; RECOVERY_HELPER_SHA=$actual_helper; RECOVERY_RECEIPTS_SHA=$actual_receipts
+  fi
+}
+
 recovery_validate_json() {
   candidate=$1; recovery_safe_receipt_file "$candidate" || return 1
-  script_sha=${RECOVERY_SCRIPT_SHA:-$(sha "$SCRIPT_DIR/retire-ollama.sh")}
-  helper_sha=${RECOVERY_HELPER_SHA:-$(sha "$RECOVERY_HELPER")}
-  receipts_sha=${RECOVERY_RECEIPTS_SHA:-$(sha "$RECOVERY_RECEIPTS_HELPER")}
-  /usr/bin/jq -e --arg source "$RECOVERY_SOURCE_SHA" --arg script "$script_sha" --arg helper "$helper_sha" --arg receipts "$receipts_sha" '
+  recovery_source_digests || return 1
+  /usr/bin/jq -e --arg source "$RECOVERY_SOURCE_SHA" --arg script "$RECOVERY_SCRIPT_SHA" --arg helper "$RECOVERY_HELPER_SHA" --arg receipts "$RECOVERY_RECEIPTS_SHA" '
     type == "object" and .schemaVersion == 2 and .mode == "recovery-scan" and
     .destructiveAuthority == false and
     (.inventoryBinding | type == "object" and .requiresSeparateReview == true) and
@@ -216,7 +225,7 @@ recovery_write_receipt() {
     /usr/bin/cmp -s "$current" "$stored" || { /bin/rm -f -- "$current" "$stored"; review_required 'recovery receipt snapshot drift'; }
     /bin/rm -f -- "$current" "$stored_source" "$stored"; cat "$directory/recovery-scan.json.sha256"; return 0
   fi
-  RECOVERY_SCRIPT_SHA=${RECOVERY_SCRIPT_SHA:-$(sha "$SCRIPT_DIR/retire-ollama.sh")}; RECOVERY_HELPER_SHA=${RECOVERY_HELPER_SHA:-$(sha "$RECOVERY_HELPER")}; RECOVERY_RECEIPTS_SHA=${RECOVERY_RECEIPTS_SHA:-$(sha "$RECOVERY_RECEIPTS_HELPER")}
+  recovery_source_digests || die 'recovery source digest failed'
   json="$directory/recovery-scan.json"; digest="$json.sha256"; json_pending="$json.pending"; digest_pending="$digest.pending"
   [ ! -e "$json" ] && [ ! -L "$json" ] && [ ! -e "$digest" ] && [ ! -L "$digest" ] && [ ! -e "$json_pending" ] && [ ! -L "$json_pending" ] && [ ! -e "$digest_pending" ] && [ ! -L "$digest_pending" ] || review_required 'recovery receipt publication race'
   pending=$(recovery_receipt_temp_path "$directory") || review_required 'recovery receipt temporary failed'; /usr/bin/jq -S -c -n --slurpfile scan "$snapshot" --arg source "$RECOVERY_SOURCE_SHA" --arg script "$RECOVERY_SCRIPT_SHA" --arg helper "$RECOVERY_HELPER_SHA" --arg receipts "$RECOVERY_RECEIPTS_SHA" '{schemaVersion:2,mode:"recovery-scan",destructiveAuthority:false,inventoryBinding:{requiresSeparateReview:true},sourceBinding:{sourceSha:$source,scriptSha256:$script,helperSha256:$helper,receiptsSha256:$receipts},scan:$scan[0]}' >"$pending" || { /bin/rm -f -- "$pending"; die 'recovery receipt serialization failed'; }

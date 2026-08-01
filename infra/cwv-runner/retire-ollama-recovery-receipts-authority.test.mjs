@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+const script = new URL('./retire-ollama.sh', import.meta.url);
+
+function shell(env = {}, options = {}) {
+  return execFileAsync(
+    'sh',
+    [
+      '-c',
+      '. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; id() { printf "%s\\n" "$RETIRE_OLLAMA_TEST_FAKE_UID"; }; sha() { /usr/bin/shasum -a 256 "$1" | /usr/bin/awk "{print \\$1}"; }; init_temp_root; trap cleanup_temp EXIT; recovery_source_digests; printf "%s:%s:%s\\n" "$RECOVERY_SCRIPT_SHA" "$RECOVERY_HELPER_SHA" "$RECOVERY_RECEIPTS_SHA"',
+      'recovery-receipts-authority-test',
+      script.pathname,
+    ],
+    { ...options, env: { ...process.env, ...env } }
+  );
+}
+
+async function sha256(file) {
+  return createHash('sha256')
+    .update(await readFile(file))
+    .digest('hex');
+}
+
+test('derives recovery source digests from sealed files for privileged execution', async () => {
+  const overrides = {
+    RECOVERY_HELPER_SHA: 'b'.repeat(64),
+    RECOVERY_RECEIPTS_SHA: 'c'.repeat(64),
+    RECOVERY_SCRIPT_SHA: 'a'.repeat(64),
+    RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+    RETIRE_OLLAMA_TEST_FAKE_UID: '0',
+  };
+  const expected = await Promise.all([
+    sha256(script),
+    sha256(new URL('./retire-ollama-recovery.sh', script)),
+    sha256(new URL('./retire-ollama-recovery-receipts.sh', script)),
+  ]);
+  const { stdout } = await shell(overrides);
+  assert.deepEqual(stdout.trim().split(':'), expected);
+});
+
+test('permits digest overrides only in the unprivileged test harness', async () => {
+  const overrides = {
+    RECOVERY_HELPER_SHA: 'b'.repeat(64),
+    RECOVERY_RECEIPTS_SHA: 'c'.repeat(64),
+    RECOVERY_SCRIPT_SHA: 'a'.repeat(64),
+    RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+    RETIRE_OLLAMA_TEST_FAKE_UID: '65534',
+  };
+  const { stdout } = await shell(overrides);
+  assert.deepEqual(stdout.trim().split(':'), [
+    overrides.RECOVERY_SCRIPT_SHA,
+    overrides.RECOVERY_HELPER_SHA,
+    overrides.RECOVERY_RECEIPTS_SHA,
+  ]);
+});

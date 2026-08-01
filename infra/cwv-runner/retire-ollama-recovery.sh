@@ -32,7 +32,7 @@ recovery_unit_snapshot() { name=$1
     /bin/rm -f -- "$properties"; [ "$load_seen" -eq 1 ] && [ "$unit_seen" -eq 1 ] && [ "$active_seen" -eq 1 ] || die 'incomplete unit state'
     case "$load_state" in not-found) /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}';; '') die 'empty unit LoadState';; *) /usr/bin/jq -cn --arg name "$name" --arg load "$load_state" --arg unit "$unit_file_state" --arg active "$active_state" --arg value "$(hash_text "$value")" '{name:$name,state:"present",loadState:$load,unitFileState:$unit,activeState:$active,stateSha256:$value}';; esac
   else status=$?; [ "$status" -eq 4 ] || die "unit state failed $name ($status)"; /usr/bin/jq -cn --arg name "$name" '{name:$name,state:"absent"}'; fi; }
-recovery_systemd_properties() { name=$1; property=$2; out=$3; if recovery_systemctl show "$name" -p "$property" --value >"$out" 2>/dev/null; then return 0; fi; status=$?; case "$status" in 1|4) : >"$out"; return "$status";; *) die "systemd property failed $name ($status)";; esac; }
+recovery_systemd_properties() { name=$1; property=$2; out=$3; if recovery_systemctl show "$name" -p "$property" --value >"$out" 2>/dev/null; then return 0; else status=$?; fi; case "$status" in 1|4) : >"$out"; return "$status";; *) die "systemd property failed $name ($status)";; esac; }
 recovery_surface() {
   class=$1; shift; out=$(temp_path); err=$(temp_path)
   status=0; "$@" >"$out" 2>"$err" || status=$?

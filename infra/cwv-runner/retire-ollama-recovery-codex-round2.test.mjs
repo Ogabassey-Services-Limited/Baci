@@ -65,16 +65,29 @@ async function snapshotFile(directory, value) {
   await writeFile(snapshot, `${JSON.stringify(value)}\n`);
   return snapshot;
 }
+async function emptyProc(root) {
+  await mkdir(join(root, 'net'), { recursive: true });
+  await Promise.all(
+    ['tcp', 'tcp6'].map((name) =>
+      writeFile(
+        join(root, 'net', name),
+        'sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n'
+      )
+    )
+  );
+}
 
 test('rejects wrapped Ollama processes in absent-container evidence', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-recovery-wrapped-'));
+  const proc = join(directory, 'proc');
   const processes = join(directory, 'processes');
   try {
+    await emptyProc(proc);
     await writeFile(processes, '41 1 python /opt/ollama/server.py\n');
     await assert.rejects(
       shell(
-        'init_temp_root; trap cleanup_temp EXIT; recovery_absent_process_snapshot "$2"',
-        [processes]
+        'RECOVERY_PROC_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_absent_process_snapshot "$2"',
+        [processes, proc]
       ),
       (error) =>
         error.code === 78 && /foreign Ollama process remains/.test(error.stderr)
@@ -86,7 +99,7 @@ test('rejects wrapped Ollama processes in absent-container evidence', async () =
 
 test('completes an absent-container recovery scan without a ports temp', async () => {
   const { stdout } = await shell(
-    `root() { :; }; SCRIPT_DIR="/srv/baci-cwv/source/${sourceSha}"; RECOVERY_SOURCE_SHA="${sourceSha}"; assert_docker_socket() { CANONICAL_DOCKER_SOCKET=/run/docker.sock; }; recovery_collect_systemd() { :; }; recovery_surface() { :; }; recovery_container_snapshot() { RECOVERY_CONTAINER_STATE=absent; printf '%s\\n' '{"name":"ollama-loopback","state":"absent"}'; }; recovery_collect_processes() { : >"$1"; }; recovery_collect_crontab() { : >"$1"; }; recovery_package_snapshot() { printf '%s\\n' '{"name":"ollama","state":"absent","version":null}'; }; recovery_unit_snapshot() { printf '{"name":"%s","state":"absent"}\\n' "$1"; }; recovery_model_snapshot() { printf '%s\\n' '{"state":"absent"}'; }; recovery_cron_snapshot() { printf '%s\\n' '{"wholeSha256":"0000000000000000000000000000000000000000000000000000000000000000","lineCount":0,"lines":[]}'; }; record_docker_socket() { :; }; recovery_write_receipt() { [ -s "$1" ] || return 65; printf '%s' "$RECOVERY_SOURCE_SHA"; }; recovery_scan`,
+    `root() { :; }; SCRIPT_DIR="/srv/baci-cwv/source/${sourceSha}"; RECOVERY_SOURCE_SHA="${sourceSha}"; assert_docker_socket() { CANONICAL_DOCKER_SOCKET=/run/docker.sock; }; recovery_collect_systemd() { :; }; recovery_surface() { :; }; recovery_container_snapshot() { RECOVERY_CONTAINER_STATE=absent; printf '%s\\n' '{"name":"ollama-loopback","state":"absent"}'; }; recovery_collect_processes() { : >"$1"; }; recovery_collect_crontab() { : >"$1"; }; recovery_absent_process_snapshot() { printf '%s\\n' '{"state":"absent","matchingProcesses":[],"listeningSockets":[],"socketSnapshotSha256":"0000000000000000000000000000000000000000000000000000000000000000"}'; }; recovery_package_snapshot() { printf '%s\\n' '{"name":"ollama","state":"absent","version":null}'; }; recovery_unit_snapshot() { printf '{"name":"%s","state":"absent"}\\n' "$1"; }; recovery_model_snapshot() { printf '%s\\n' '{"state":"absent"}'; }; recovery_cron_snapshot() { printf '%s\\n' '{"wholeSha256":"0000000000000000000000000000000000000000000000000000000000000000","lineCount":0,"lines":[]}'; }; record_docker_socket() { :; }; recovery_write_receipt() { [ -s "$1" ] || return 65; printf '%s' "$RECOVERY_SOURCE_SHA"; }; recovery_scan`,
     [],
     {
       RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
@@ -100,11 +113,13 @@ test('ignores the recovery scanner ancestry in absent-container evidence', async
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-recovery-absent-scanner-')
   );
+  const proc = join(directory, 'proc');
   const processes = join(directory, 'processes');
   try {
+    await emptyProc(proc);
     const { stdout } = await shell(
-      'init_temp_root; trap cleanup_temp EXIT; recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh /srv/retire-ollama.sh --recovery-scan\\n" "$$" >"$2"; recovery_absent_process_snapshot "$2"',
-      [processes]
+      'RECOVERY_PROC_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh /srv/retire-ollama.sh --recovery-scan\\n" "$$" >"$2"; recovery_absent_process_snapshot "$2"',
+      [processes, proc]
     );
     const snapshot = JSON.parse(stdout);
     assert.equal(snapshot.state, 'absent');
@@ -156,9 +171,11 @@ test('reconciles a JSON link left by an interrupted publication', async () => {
 
 test('ignores unrelated Docker proxies while retaining the reviewed binding', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-recovery-proxy-scope-'));
+  const proc = join(directory, 'proc');
   const processes = join(directory, 'processes');
   const ports = join(directory, 'ports.json');
   try {
+    await emptyProc(proc);
     await writeFile(
       processes,
       '41 1 /usr/bin/ollama serve\n42 1 /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 11434 -container-ip 172.17.0.2 -container-port 11434\n43 1 /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 8080 -container-ip 172.17.0.3 -container-port 8080\n'
@@ -168,8 +185,8 @@ test('ignores unrelated Docker proxies while retaining the reviewed binding', as
       '{"NetworkSettings":{"Ports":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]},"Networks":{"bridge":{"IPAddress":"172.17.0.2"}}}}\n'
     );
     const { stdout } = await shell(
-      'recovery_process_identity() { case "$1" in 41) printf "container-cgroup container-ns\\n";; 42) printf "proxy-cgroup proxy-ns\\n";; *) printf "foreign-cgroup foreign-ns\\n";; esac; }; recovery_process_executable() { printf "{\\"path\\":\\"/usr/bin/%s\\",\\"sha256\\":\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\",\\"identitySha256\\":\\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\",\\"uid\\":\\"0\\",\\"startTime\\":\\"1\\",\\"expected\\":\\"%s\\"}\\n" "$2" "$2"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$2" "$3"',
-      [ports, processes]
+      'RECOVERY_PROC_ROOT="$4"; recovery_process_identity() { case "$1" in 41) printf "container-cgroup container-ns\\n";; 42) printf "proxy-cgroup proxy-ns\\n";; *) printf "foreign-cgroup foreign-ns\\n";; esac; }; recovery_process_executable() { printf "{\\"path\\":\\"/usr/bin/%s\\",\\"sha256\\":\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\",\\"identitySha256\\":\\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\",\\"uid\\":\\"0\\",\\"startTime\\":\\"1\\",\\"expected\\":\\"%s\\"}\\n" "$2" "$2"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$2" "$3"',
+      [ports, processes, proc]
     );
     const snapshot = JSON.parse(stdout);
     assert.equal(snapshot.containerProcessCount, 1);

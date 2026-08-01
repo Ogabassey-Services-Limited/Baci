@@ -79,9 +79,10 @@ recovery_listener_executable() {
 }
 recovery_socket_snapshot() {
   container_pid=$1; container_cgroup=$2; container_namespace=$3; ports=$4; processes=$5; listeners='[]'; seen=''
-  if [ ! -d "$RECOVERY_PROC_ROOT/net" ]; then RECOVERY_SOCKET_SNAPSHOT_SHA=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; RECOVERY_LISTENING_SOCKETS='[]'; return; fi
+  [ -d "$RECOVERY_PROC_ROOT/net" ] && [ ! -L "$RECOVERY_PROC_ROOT/net" ] || review_required 'recovery socket directory unavailable'
+  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do [ -f "$table" ] && [ ! -L "$table" ] || review_required 'unsafe recovery socket table'; done
   raw=$(temp_path)
-  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do if [ -e "$table" ] || [ -L "$table" ]; then [ -f "$table" ] && [ ! -L "$table" ] || review_required 'unsafe recovery socket table'; else continue; fi; family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,a,":"); if ($4 == "0A" && a[2] == "2CAA") print family "|" a[1] "|" a[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
+  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,a,":"); if ($4 == "0A" && a[2] == "2CAA") print family "|" a[1] "|" a[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
   while IFS='|' read -r family address port inode || [ -n "$family$address$port$inode" ]; do
     [ -n "$inode" ] || continue; found=0
     while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
@@ -153,7 +154,7 @@ scan_nginx_definitions() { [ -d /etc/nginx ] || return 0; if grep -R -l -E 'olla
 scan_compose_definitions() {
   list=$(temp_path); for root in $COMPOSE_ROOTS; do [ -d "$root" ] || continue; find "$root" -maxdepth 5 -type f \( -name 'docker-compose*.yml' -o -name 'docker-compose*.yaml' -o -name 'compose*.yml' -o -name 'compose*.yaml' -o -name 'Containerfile' \) >>"$list" || { rm -f "$list"; return 2; }; done
   # shellcheck disable=SC2094 # $list is only read after the find phase above has completed.
-  while IFS= read -r path || [ -n "$path" ]; do if grep -l -E 'ollama|11434' "$path"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; done <"$list"; rm -f "$list"
+  while IFS= read -r path || [ -n "$path" ]; do if grep -l -Ei 'ollama|11434' "$path"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; done <"$list"; rm -f "$list"
 }
 scan_systemd_consumers() {
   list=$(temp_path); for root in /etc/systemd/system /lib/systemd/system; do [ -d "$root" ] || continue; if grep -R -l -E 'ollama|11434' "$root" >>"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; done
@@ -166,7 +167,7 @@ scan_container_rows() {
     [ -n "$id" ] || continue
     attempt=0
     while :; do
-      if line=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Mounts}} {{json .NetworkSettings.Networks}}' "$id"); then
+      if line=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Mounts}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}}' "$id"); then
         case "$line" in *" /$CONTAINER "*) ;; *) printf '%s' "$line" | /usr/bin/grep -Eqi 'ollama|11434' && printf '%s\n' "$line";; esac
         break
       else

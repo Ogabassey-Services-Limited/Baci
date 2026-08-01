@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -9,6 +16,13 @@ import { promisify } from 'node:util';
 const root = new URL('.', import.meta.url);
 const script = new URL('./retire-ollama.sh', root);
 const execFileAsync = promisify(execFile);
+const unprivilegedExecution =
+  process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};
+
+async function exposeFixture(directory, writable = false) {
+  if (process.getuid?.() === 0)
+    await chmod(directory, writable ? 0o777 : 0o755);
+}
 
 async function scannedContainers(rows) {
   const dir = await mkdtemp(join(tmpdir(), 'baci-ollama-container-scan-'));
@@ -25,6 +39,7 @@ async function scannedContainers(rows) {
         .join(' ')} esac;; esac\n`
     );
     await execFileAsync('chmod', ['0755', docker]);
+    await exposeFixture(dir);
     const { stdout } = await execFileAsync(
       'sh',
       [
@@ -33,7 +48,10 @@ async function scannedContainers(rows) {
         'retire-ollama-container-test',
         script.pathname,
       ],
-      { env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: bin } }
+      {
+        ...unprivilegedExecution,
+        env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: bin },
+      }
     );
     return stdout.trim();
   } finally {
@@ -175,6 +193,7 @@ test('ignores an unrelated container that disappears during inspect', async () =
       '#!/bin/sh\ncase "$*" in *\' ps \'*) if [ ! -e "$RETIRE_OLLAMA_TEST_STATE" ]; then : >"$RETIRE_OLLAMA_TEST_STATE"; printf "gone\\nkept\\n"; else printf "kept\\n"; fi;; *\' inspect \'*gone) exit 1;; *\' inspect \'*kept) printf "kept image [] [] {} {}\\n";; esac\n'
     );
     await execFileAsync('chmod', ['0755', join(bin, 'docker')]);
+    await exposeFixture(dir, true);
     const { stdout } = await execFileAsync(
       'sh',
       [
@@ -184,6 +203,7 @@ test('ignores an unrelated container that disappears during inspect', async () =
         script.pathname,
       ],
       {
+        ...unprivilegedExecution,
         env: {
           ...process.env,
           RETIRE_OLLAMA_TEST_BIN: bin,
@@ -207,6 +227,7 @@ test('preserves a persistent Docker inspect failure after inventory retry', asyn
       '#!/bin/sh\ncase "$*" in *\' ps \'*) printf "gone\\n";; *\' inspect \'*) exit 42;; esac\n'
     );
     await execFileAsync('chmod', ['0755', join(bin, 'docker')]);
+    await exposeFixture(dir);
     await assert.rejects(
       execFileAsync(
         'sh',
@@ -216,7 +237,10 @@ test('preserves a persistent Docker inspect failure after inventory retry', asyn
           'retire-ollama-container-inspect-race-test',
           script.pathname,
         ],
-        { env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: bin } }
+        {
+          ...unprivilegedExecution,
+          env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: bin },
+        }
       ),
       (error) => error.code === 42 || error.status === 42
     );
@@ -236,4 +260,38 @@ test('classifies a container with an Ollama endpoint as a consumer', async () =>
     ]),
     /OLLAMA_HOST/
   );
+});
+
+test('classifies a generic container that publishes port 11434 without an Ollama name', async () => {
+  assert.match(
+    await scannedContainers([
+      {
+        id: 'generic-api',
+        detail:
+          'generic-api generic/app [] [] {} {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {}',
+      },
+    ]),
+    /11434/
+  );
+});
+
+test('detects uppercase Ollama hosts in Compose definitions', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-ollama-compose-'));
+  const compose = join(directory, 'compose.yaml');
+  try {
+    await writeFile(
+      compose,
+      'services:\n  app:\n    environment:\n      OLLAMA_HOST: http://127.0.0.1:8080\n'
+    );
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      '. "$1"; init_temp_root; trap cleanup_temp EXIT; COMPOSE_ROOTS="$2"; scan_compose_definitions',
+      'retire-ollama-compose-test',
+      script.pathname,
+      directory,
+    ]);
+    assert.equal(stdout.trim(), compose);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

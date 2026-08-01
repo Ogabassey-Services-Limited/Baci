@@ -53,16 +53,32 @@ test('classifies Ollama crontab consumers in recovery evidence', async () => {
 
 test('rejects Ollama subcommand prefixes without a token boundary', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-ollama-recovery-argv-'));
+  const procRoot = join(directory, 'proc');
   const processes = join(directory, 'processes');
   const ports = join(directory, 'ports.json');
   const command =
     'recovery_process_identity() { printf "container-cgroup container-ns\\n"; }; recovery_process_executable() { printf "{\\"path\\":\\"/usr/bin/ollama\\",\\"sha256\\":\\"%064d\\",\\"identitySha256\\":\\"%064d\\",\\"uid\\":\\"1000\\",\\"startTime\\":\\"1\\",\\"expected\\":\\"/bin/ollama\\"}\\n" 0 0; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$2" "$3"';
   try {
+    await mkdir(join(procRoot, 'net'), { recursive: true });
+    await Promise.all([
+      writeFile(
+        join(procRoot, 'net', 'tcp'),
+        'sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n'
+      ),
+      writeFile(
+        join(procRoot, 'net', 'tcp6'),
+        'sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n'
+      ),
+    ]);
     await writeFile(ports, '{}\n');
     for (const subcommand of ['serve-malicious', 'runner-malicious']) {
       await writeFile(processes, `41 1 /usr/bin/ollama ${subcommand}\n`);
       await assert.rejects(
-        shell(command, {}, [ports, processes]),
+        shell(`RECOVERY_PROC_ROOT="$4"; ${command}`, {}, [
+          ports,
+          processes,
+          procRoot,
+        ]),
         (error) =>
           error.code === 78 && /unsupported Ollama process/.test(error.stderr)
       );
@@ -87,6 +103,10 @@ test('rejects a loopback listener whose argv omits Ollama and the port', async (
     await writeFile(
       join(procRoot, 'net', 'tcp'),
       '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2CAA 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000 0 12345\n'
+    );
+    await writeFile(
+      join(procRoot, 'net', 'tcp6'),
+      '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n'
     );
     await writeFile(ports, '{}\n');
     await writeFile(
@@ -121,6 +141,10 @@ test('binds a reviewed listener socket inode to its process evidence', async () 
     await writeFile(
       join(procRoot, 'net', 'tcp'),
       '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2CAA 00000000:0000 0A 00000000:00000000 00:00000000 00:00000000 1000 0 12345\n'
+    );
+    await writeFile(
+      join(procRoot, 'net', 'tcp6'),
+      '  sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n'
     );
     await writeFile(
       ports,
@@ -253,4 +277,11 @@ test('retains parsed unit activity and enablement states in recovery evidence', 
   } finally {
     await rm(bin, { recursive: true, force: true });
   }
+});
+
+test('retains an absent systemd property status for its caller', async () => {
+  const { stdout } = await shell(
+    'recovery_systemctl() { return 4; }; init_temp_root; trap cleanup_temp EXIT; out=$(temp_path); if recovery_systemd_properties ollama.service EnvironmentFiles "$out"; then exit 1; else status=$?; fi; printf "%s:%s\\n" "$status" "$(wc -c <"$out")"'
+  );
+  assert.match(stdout.trim(), /^4:\s*0$/);
 });
