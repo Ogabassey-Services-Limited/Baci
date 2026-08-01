@@ -19,6 +19,7 @@ type FunctionDefinition = { body: string; end: number; name: string; start: numb
 const COLUMNS = PRODUCT_DESCRIPTION_WRITER_INVENTORY_HEADER.split(',') as Column[];
 const TS_ROOTS = ['apps/web/src', 'apps/web/mcp-server', 'apps/web/scripts-tmp', 'apps/mobile-admin', 'apps/mobile-storefront', 'packages', 'supabase/functions'];
 const TS_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts']);
+const DEFAULT_FILE_READ_CONCURRENCY = 32;
 const UNATTESTED = 'unattested_pending_C2b';
 const GUARD = 'C3 prepared guard not installed; stable error mapping pending';
 const EXPECTED_INVENTORY_FIELDS = {
@@ -104,7 +105,38 @@ export function parseProductDescriptionWriterInventoryCsv(
 async function listFiles(root: string): Promise<string[]> {
   if (!existsSync(root)) return [];
   const entries = await readdir(root, { withFileTypes: true });
-  return (await Promise.all(entries.map((entry) => { const path = join(root, entry.name); return entry.isDirectory() ? listFiles(path) : [path]; }))).flat();
+  const files: string[] = [];
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listFiles(path)));
+    } else {
+      files.push(path);
+    }
+  }
+  return files;
+}
+export async function readFilesWithConcurrency(
+  files: string[],
+  concurrency = DEFAULT_FILE_READ_CONCURRENCY,
+  reader: (path: string) => Promise<string> = (path) => readFile(path, 'utf8')
+): Promise<string[]> {
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new RangeError('File read concurrency must be a positive integer');
+  }
+  const contents = new Array<string>(files.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(concurrency, files.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < files.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        contents[index] = await reader(files[index]);
+      }
+    })
+  );
+  return contents;
 }
 function writesDescription(source: string): boolean { return /\bdescription\b/.test(source); }
 function directProductsMutation(source: string): boolean {
@@ -139,7 +171,8 @@ async function discoverSql(root: string): Promise<string[]> {
 }
 async function discoverWriterPaths(root: string): Promise<string[]> {
   const files = (await Promise.all(TS_ROOTS.map((path) => listFiles(join(root, path))))).flat().filter((path) => TS_EXTENSIONS.has(path.slice(path.lastIndexOf('.'))) && !path.includes('.test.'));
-  const paths = await Promise.all(files.map(async (path) => { const source = await readFile(path, 'utf8'); const rel = relative(root, path); return directProductsMutation(source) || persistenceCaller(rel, source) || aiProducer(rel, source) ? [rel] : []; }));
+  const sources = await readFilesWithConcurrency(files);
+  const paths = files.map((path, index) => { const source = sources[index]; const rel = relative(root, path); return directProductsMutation(source) || persistenceCaller(rel, source) || aiProducer(rel, source) ? [rel] : []; });
   return [...new Set([...paths.flat(), ...(await discoverSql(root))])].sort();
 }
 

@@ -81,19 +81,28 @@ export function OgabasseyPdpDeferredDetailClient({
         />
       ) : (
         <>
-          <div data-ogabassey-pdp-deferred-description-container>
-            <div data-ogabassey-pdp-deferred-description-panel>
-              {descriptionSlot}
-              {hasLoadError ? (
-                <div
-                  data-ogabassey-pdp-deferred-description-error
-                  role="alert"
-                >
-                  Product details could not be loaded. Refresh to try again.
-                </div>
-              ) : null}
+          {descriptionSlot ? (
+            <div data-ogabassey-pdp-deferred-description-container>
+              <div data-ogabassey-pdp-deferred-description-panel>
+                {descriptionSlot}
+                {hasLoadError ? (
+                  <div
+                    data-ogabassey-pdp-deferred-description-error
+                    role="alert"
+                  >
+                    Product details could not be loaded. Refresh to try again.
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
+          ) : hasLoadError ? (
+            <div
+              data-ogabassey-pdp-deferred-description-error
+              role="alert"
+            >
+              Product details could not be loaded. Refresh to try again.
+            </div>
+          ) : null}
           {hasLoadError ? null : <DeferredDetailsSkeleton />}
         </>
       )}

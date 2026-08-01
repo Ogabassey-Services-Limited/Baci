@@ -26,13 +26,13 @@ export function OgabasseyPdpDeferredDetailIsland({
   // already-sanitized markup, never the sanitizer. `description` is returned
   // out-of-band (not on `tabProduct`) so the raw HTML is never serialized into
   // the client island props.
-  const descriptionSlot = (
+  const descriptionSlot = description.trim() ? (
     <SafeHtml
-      html={description || ''}
+      html={description}
       headingLevelOffset={1}
       className="ogabassey-pdp-tabs__rich-text prose max-w-none prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm"
     />
-  );
+  ) : null;
 
   return (
     <section

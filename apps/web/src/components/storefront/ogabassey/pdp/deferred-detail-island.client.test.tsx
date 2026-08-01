@@ -68,6 +68,27 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
     ).toBeInTheDocument();
   });
 
+  it('does not render an empty description panel before deferred tabs activate', () => {
+    mockUseViewportActivation.mockReturnValue({
+      ref: { current: null },
+      isActive: false,
+    });
+
+    const { container } = render(
+      <OgabasseyPdpDeferredDetailClient
+        productData={productData}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(
+      container.querySelector('[data-ogabassey-pdp-deferred-description-container]')
+    ).toBeNull();
+    expect(
+      screen.getByRole('status', { name: /loading product details/i })
+    ).toBeInTheDocument();
+  });
+
   it('renders a recoverable error state when the details chunk fails to load', async () => {
     mockUseViewportActivation.mockReturnValue({
       ref: { current: null },

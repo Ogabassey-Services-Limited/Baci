@@ -2,7 +2,7 @@
 // so the binding test stays under the 300-line modularity gate. Independently
 // hand-verified against supabase-history-replay-sources.ts PENDING_SOURCES.
 import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
-import { OPERATION_ID_PENDING_SOURCES } from './expected-pending-operation-id-source.test-support';
+import { PRODUCT_PROVENANCE_PENDING_SOURCES } from './expected-pending-product-provenance-sources.test-support';
 
 export const EXPECTED_PENDING_SOURCES = [
   {
@@ -296,5 +296,5 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260801090000_harden_product_description_provenance_retention.sql',
     sha256: '9bc6d7703a7e8c32248ce024d651a157965365f4fcffc0f6eb43e3fa07b3babd',
   },
-  ...OPERATION_ID_PENDING_SOURCES,
+  ...PRODUCT_PROVENANCE_PENDING_SOURCES,
 ];

@@ -25,4 +25,18 @@ describe('OgabasseyPdpDeferredDetailIsland source HTML', () => {
     expect(sourceHtml.match(/Creator laptop with RTX graphics\./g)).toHaveLength(1);
     expect(sourceHtml).toContain('data-testid="deferred-product-details-placeholder"');
   });
+
+  it('does not emit an empty description panel for a blank description', () => {
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland
+        product={{ ...product, description: '' }}
+        storeSlug="ogabassey"
+      />
+    );
+
+    expect(sourceHtml).not.toContain(
+      'data-ogabassey-pdp-deferred-description-container'
+    );
+    expect(sourceHtml).toContain('data-testid="deferred-product-details-placeholder"');
+  });
 });

@@ -267,6 +267,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- A null expected-old triple is the caller-generated-product flow. Existing
+-- foreign IDs and absent IDs intentionally share the same successful outcome,
+-- so this request cannot be used to enumerate product ownership.
+DO $$
+DECLARE
+  foreign_grant uuid;
+  missing_grant uuid;
+BEGIN
+  SELECT grant_id INTO foreign_grant
+  FROM public.request_product_description_attestation_grant(
+    '00000000-0000-4000-b000-000000000101',
+    '00000000-0000-4000-c000-000000000103',
+    '00000000-0000-4000-d000-000000000109',
+    NULL, NULL, NULL, repeat('b', 64), true, 'manual_description'
+  );
+
+  SELECT grant_id INTO missing_grant
+  FROM public.request_product_description_attestation_grant(
+    '00000000-0000-4000-b000-000000000101',
+    '00000000-0000-4000-c000-000000009998',
+    '00000000-0000-4000-d000-00000000010a',
+    NULL, NULL, NULL, repeat('b', 64), true, 'manual_description'
+  );
+
+  IF foreign_grant IS NULL OR missing_grant IS NULL THEN
+    RAISE EXCEPTION 'null expected-old foreign and missing product outcomes differ';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
 DO $$
 DECLARE
   first_grant uuid;
@@ -430,8 +460,8 @@ DECLARE
 BEGIN
   SELECT private.cleanup_product_description_attestation_grants(10)
     INTO archived_count;
-  IF archived_count <> 3 THEN
-    RAISE EXCEPTION 'C1 retention must archive three terminal grants, got %', archived_count;
+  IF archived_count <> 4 THEN
+    RAISE EXCEPTION 'C1 retention must archive four terminal grants, got %', archived_count;
   END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -443,6 +473,7 @@ BEGIN
     SELECT 1
     FROM private.product_description_attestation_grants
     WHERE operation_id IN (
+      '00000000-0000-4000-d000-000000000101',
       '00000000-0000-4000-d000-000000000110',
       '00000000-0000-4000-d000-000000000111',
       '00000000-0000-4000-d000-000000000112'
@@ -451,11 +482,12 @@ BEGIN
     SELECT count(*)
     FROM private.product_description_attestation_grant_evidence
     WHERE operation_id IN (
+      '00000000-0000-4000-d000-000000000101',
       '00000000-0000-4000-d000-000000000110',
       '00000000-0000-4000-d000-000000000111',
       '00000000-0000-4000-d000-000000000112'
     )
-  ) <> 3 OR NOT EXISTS (
+  ) <> 4 OR NOT EXISTS (
     SELECT 1
     FROM private.product_description_attestation_grant_evidence
     WHERE operation_id = '00000000-0000-4000-d000-000000000110'
@@ -469,6 +501,13 @@ BEGIN
       AND actor_id = '00000000-0000-4000-a000-000000000101'
       AND expected_old_description = 'consumed evidence bytes'
       AND expected_old_sha256 = repeat('3', 64)
+  ) OR NOT EXISTS (
+    SELECT 1
+    FROM private.product_description_attestation_grant_evidence
+    WHERE operation_id = '00000000-0000-4000-d000-000000000101'
+      AND actor_id = '00000000-0000-4000-a000-000000000101'
+      AND expected_old_description = 'legacy exact bytes'
+      AND expected_old_sha256 IS NULL
   ) THEN
     RAISE EXCEPTION 'C1 terminal grant evidence was not retained exactly';
   END IF;
