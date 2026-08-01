@@ -60,6 +60,26 @@ $$;`;
     ]);
   });
 
+  it('discovers quoted and unqualified product description writers', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'baci-description-sql-'));
+    roots.push(root);
+    const migrationRoot = join(root, 'supabase/migrations');
+    await mkdir(migrationRoot, { recursive: true });
+    await writeFile(
+      join(migrationRoot, '20260803000000_quoted_update.sql'),
+      'UPDATE "public"."products" SET "description" = \'quoted\';'
+    );
+    await writeFile(
+      join(migrationRoot, '20260804000000_unqualified_insert.sql'),
+      "INSERT INTO products (description) VALUES ('unqualified');"
+    );
+
+    await expect(discoverSql(root)).resolves.toEqual([
+      'supabase/migrations/20260803000000_quoted_update.sql',
+      'supabase/migrations/20260804000000_unqualified_insert.sql',
+    ]);
+  });
+
   it('canonicalizes renamed arguments and defaults without merging true overloads', () => {
     expect(
       canonicalFunctionIdentity(

@@ -230,10 +230,21 @@ function findClosingParenthesis(source: string, openingParenthesis: number) {
   return -1;
 }
 
+function normalizeSqlIdentifiers(source: string): string {
+  return source
+    .replace(/"((?:""|[^"])*)"/g, (_match, identifier: string) =>
+      identifier.replace(/""/g, '"')
+    )
+    .replace(/\s+/g, ' ');
+}
+
 function sqlWritesDescription(source: string): boolean {
-  return /INSERT\s+INTO\s+public\.products\s*\([\s\S]*?\bdescription\b[\s\S]*?\)\s*VALUES|UPDATE\s+public\.products\b[\s\S]*?\bSET\b[\s\S]*?\bdescription\s*=/i.test(
-    source
-  );
+  const normalizedSource = normalizeSqlIdentifiers(source);
+  const productTable = '(?:(?:public\\s*\\.\\s*)?products)';
+  return new RegExp(
+    `INSERT\\s+INTO\\s+${productTable}\\s*(?:AS\\s+\\w+\\s*)?\\([\\s\\S]*?\\bdescription\\b[\\s\\S]*?\\)\\s*VALUES|UPDATE\\s+${productTable}\\b[\\s\\S]*?\\bSET\\b[\\s\\S]*?\\b(?:\\w+\\.)?description\\s*=`,
+    'i'
+  ).test(normalizedSource);
 }
 
 export async function discoverSql(root: string): Promise<string[]> {
