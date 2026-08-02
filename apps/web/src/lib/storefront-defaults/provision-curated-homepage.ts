@@ -18,6 +18,7 @@ interface ProvisionCuratedHomepageInput {
   expectedOwnerUserId: string;
   merchantId: string;
   merchantSlug: string;
+  merchantLogoUrl?: string | null;
   businessName: string;
   businessType: string;
   brandColors: BrandColors;
@@ -72,6 +73,7 @@ export async function provisionCuratedHomepage({
   expectedOwnerUserId,
   merchantId,
   merchantSlug,
+  merchantLogoUrl,
   businessName,
   businessType,
   brandColors,
@@ -88,7 +90,11 @@ export async function provisionCuratedHomepage({
       businessName,
       businessType,
       brandColors,
-      merchant: { id: merchantId, slug: merchantSlug },
+      merchant: {
+        id: merchantId,
+        slug: merchantSlug,
+        ...(merchantLogoUrl ? { logo_url: merchantLogoUrl } : {}),
+      },
     });
   } catch (error) {
     logFailure(merchantId, 'template', error);

@@ -12,6 +12,7 @@ const input = {
   expectedOwnerUserId: 'user-1',
   merchantId: 'merchant-1',
   merchantSlug: 'analytical-engines',
+  merchantLogoUrl: 'https://cdn.example.com/logo.png',
   businessName: 'Analytical Engines',
   businessType: 'technology',
   brandColors: { primary: '#111111', background: '#ffffff', accent: '#f59e0b' },
@@ -108,7 +109,11 @@ describe('provisionCuratedHomepage', () => {
       businessName: 'Analytical Engines',
       businessType: 'technology',
       brandColors: input.brandColors,
-      merchant: { id: 'merchant-1', slug: 'analytical-engines' },
+      merchant: {
+        id: 'merchant-1',
+        slug: 'analytical-engines',
+        logo_url: 'https://cdn.example.com/logo.png',
+      },
     });
   });
 

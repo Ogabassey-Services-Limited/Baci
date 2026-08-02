@@ -207,4 +207,31 @@ describe('POST /api/mobile-onboarding v1 compatibility', () => {
       })
     );
   });
+
+  it('treats an existing canonical home as a successful legacy signup outcome', async () => {
+    mocks.provisionCuratedHomepage.mockResolvedValue({
+      status: 'already_exists',
+      updatedAt: '2026-08-02T00:00:00Z',
+    });
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ success: true });
+  });
+
+  it('uses the shared fallback palette when the legacy client has no usable palette', async () => {
+    const response = await POST(request({ ...validBody, brandColors: 'null' }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandColors: {
+          primary: '#000000',
+          background: '#ffffff',
+          accent: '#F59E0B',
+        },
+      })
+    );
+  });
 });

@@ -19,6 +19,15 @@ export type OnboardingUserResolution =
   | { status: 'resolved'; user: User }
   | { status: 'message'; message: string };
 
+const LOGIN_GUIDANCE =
+  'An account may already exist. Please log in to continue.';
+const ACCOUNT_VERIFICATION_GUIDANCE =
+  'Could not verify your account. Please try again.';
+
+function loginGuidance(): OnboardingUserResolution {
+  return { status: 'message', message: LOGIN_GUIDANCE };
+}
+
 export async function resolveOnboardingUser({
   businessName: _businessName,
   email,
@@ -34,44 +43,30 @@ export async function resolveOnboardingUser({
     if (authUser.email?.toLowerCase() === email.toLowerCase()) {
       return { status: 'resolved', user: authUser };
     }
-    if (!password) {
-      return {
-        status: 'message',
-        message: `You are logged in as ${authUser.email}. Please log out first, or enter a password to create a new account with ${email}.`,
-      };
-    }
-    await supabase.auth.signOut();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: redirectUrl },
-    });
-    if (error) throw error;
-    if (!data.session || !data.user) {
-      throw new Error('Please disable "Confirm Email" in Supabase settings.');
-    }
-    onNewSession();
-    return { status: 'resolved', user: data.user };
+    return {
+      status: 'message',
+      message: 'Please sign in with the account used for this store setup.',
+    };
   }
 
-  if (!password) throw new Error('Authentication failed.');
+  if (!password) return loginGuidance();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
   if (!error && data.user) return { status: 'resolved', user: data.user };
-  if (!error) throw new Error('Authentication failed.');
-  if (!error.message.includes('Invalid login credentials')) throw error;
+  if (!error)
+    return { status: 'message', message: ACCOUNT_VERIFICATION_GUIDANCE };
+  if (!error.message.includes('Invalid login credentials'))
+    return { status: 'message', message: ACCOUNT_VERIFICATION_GUIDANCE };
 
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: { emailRedirectTo: redirectUrl },
   });
-  if (signUpError) throw signUpError;
-  if (!signUpData.session || !signUpData.user) {
-    throw new Error('Please disable "Confirm Email" in Supabase settings.');
-  }
+  if (signUpError) return loginGuidance();
+  if (!signUpData.session || !signUpData.user) return loginGuidance();
   onNewSession();
   return { status: 'resolved', user: signUpData.user };
 }

@@ -9,6 +9,7 @@ import { sendWelcomeEmail } from '@/lib/email';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { logger } from '@/lib/logger';
 import { normalizeBusinessName } from '@/lib/normalize-business-name';
+import { DEFAULT_CURATED_BRAND_COLORS } from '@/lib/storefront-defaults/default-curated-brand-colors';
 import { provisionCuratedHomepage } from '@/lib/storefront-defaults/provision-curated-homepage';
 import { createClient } from '@/lib/supabase/server';
 import { parseBrandColors } from '@/schemas/brand-colors';
@@ -48,11 +49,8 @@ function resolveStarterBrandColors(
 ): BrandColors {
   return (
     parsed ??
-    parseBrandColors(merchant?.brand_colors) ?? {
-      primary: '#000000',
-      background: '#ffffff',
-      accent: '#F59E0B',
-    }
+    parseBrandColors(merchant?.brand_colors) ??
+    DEFAULT_CURATED_BRAND_COLORS
   );
 }
 export async function runSubmitOnboardingWorkflow(
@@ -140,9 +138,13 @@ export async function runSubmitOnboardingWorkflow(
       expectedOwnerUserId: userResolution.user.id,
       merchantId: merchant.id,
       merchantSlug: merchant.slug,
+      merchantLogoUrl: merchant.logo_url,
       businessName: persisted.businessName,
       businessType: persisted.businessType,
-      brandColors: resolveStarterBrandColors(brandColors, merchant),
+      brandColors: resolveStarterBrandColors(
+        persisted.status === 'completed' ? null : brandColors,
+        merchant
+      ),
     });
     if (homepage.status === 'failed') {
       const error = new Error(
@@ -165,6 +167,14 @@ export async function runSubmitOnboardingWorkflow(
       merchantId: merchant.id,
     };
   } catch (error) {
-    return { success: false, message: (error as Error).message };
+    logger.error({
+      message: 'Onboarding setup failed',
+      stage: 'setup',
+      error,
+    });
+    return {
+      success: false,
+      message: 'Could not finish store setup. Please try again.',
+    };
   }
 }

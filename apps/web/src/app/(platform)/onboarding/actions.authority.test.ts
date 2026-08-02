@@ -59,4 +59,23 @@ describe('onboarding action palette authority', () => {
       expect.objectContaining({ brandColors: palette })
     );
   });
+  it('uses the shared default palette when a web submission has no usable palette', async () => {
+    mocks.adminMaybeSingle.mockResolvedValue({ data: null, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+
+    await submitOnboarding(
+      prevState,
+      makeFormData({ ...validFields, brandColors: 'null' })
+    );
+
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandColors: {
+          primary: '#000000',
+          background: '#ffffff',
+          accent: '#F59E0B',
+        },
+      })
+    );
+  });
 });

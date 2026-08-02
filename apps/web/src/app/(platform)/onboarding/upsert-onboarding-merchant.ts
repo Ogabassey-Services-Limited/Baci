@@ -62,7 +62,12 @@ export async function upsertOnboardingMerchant({
       eq: (
         column: 'user_id',
         value: string
-      ) => { maybeSingle: () => Promise<{ data: OnboardingMerchant | null }> };
+      ) => {
+        maybeSingle: () => Promise<{
+          data: OnboardingMerchant | null;
+          error: { message: string } | null;
+        }>;
+      };
     };
     update: (values: Record<string, unknown>) => {
       eq: (
@@ -91,12 +96,15 @@ export async function upsertOnboardingMerchant({
       };
     };
   };
-  const { data: existing } = await merchants
+  const lookup = await merchants
     .select(
       'id, business_name, business_type, country, slug, brand_colors, logo_url'
     )
     .eq('user_id', user.id)
     .maybeSingle();
+  if (lookup.error)
+    throw new Error('Could not load your store setup. Please try again.');
+  const existing = lookup.data;
   if (existing?.business_name) {
     return {
       status: 'completed',

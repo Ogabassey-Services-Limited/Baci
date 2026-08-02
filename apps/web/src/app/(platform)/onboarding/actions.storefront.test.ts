@@ -16,7 +16,11 @@ describe('onboarding action starter storefront effects', () => {
   beforeEach(setupActionMocks);
   function readyMerchant() {
     mocks.adminMaybeSingle.mockResolvedValue({ data: null, error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+    setupChainedMock({
+      id: 'merchant-1',
+      slug: 'teststore',
+      logo_url: 'https://example.com/logo.png',
+    });
   }
   it('uses one authenticated client to ensure the domain before canonical homepage provisioning', async () => {
     readyMerchant();
@@ -29,6 +33,7 @@ describe('onboarding action starter storefront effects', () => {
       expect.objectContaining({
         expectedOwnerUserId: 'user-123',
         merchantId: 'merchant-1',
+        merchantLogoUrl: 'https://example.com/logo.png',
       })
     );
   });
@@ -54,6 +59,26 @@ describe('onboarding action starter storefront effects', () => {
       submitOnboarding(prevState, makeFormData(validFields))
     ).resolves.toMatchObject({ success: false });
     expect(mocks.provisionCuratedHomepage).not.toHaveBeenCalled();
+  });
+  it('logs the failing setup stage internally without returning provider details', async () => {
+    readyMerchant();
+    mocks.ensureOnboardingDomain.mockRejectedValue(
+      new Error('provider timeout request_id=internal-only')
+    );
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Could not finish store setup. Please try again.',
+    });
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Onboarding setup failed',
+        stage: 'setup',
+      })
+    );
+    expect(JSON.stringify(result)).not.toContain('internal-only');
   });
   it('contains no privileged client, AI enqueue, server event, or hero-assignment dependency', () => {
     const source = readFileSync(

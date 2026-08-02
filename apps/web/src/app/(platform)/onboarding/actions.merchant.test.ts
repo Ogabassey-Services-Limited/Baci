@@ -208,4 +208,52 @@ describe('onboarding action merchant persistence', () => {
     expect(result.message).toContain('Welcome back');
     expect(mocks.adminUpdate).not.toHaveBeenCalled();
   });
+
+  it('uses only persisted merchant facts when recovering a completed owner', async () => {
+    const persistedPalette = {
+      primary: '#112233',
+      background: '#fefefe',
+      accent: '#445566',
+    };
+    mocks.adminMaybeSingle.mockReset().mockResolvedValue({
+      data: {
+        id: 'existing-1',
+        business_name: 'Persisted Store',
+        business_type: 'technology',
+        country: 'NG',
+        slug: 'persisted-store',
+        logo_url: 'https://cdn.example.com/persisted-logo.png',
+        brand_colors: persistedPalette,
+      },
+      error: null,
+    });
+
+    const result = await submitOnboarding(
+      prevState,
+      makeFormData({
+        ...validFields,
+        businessName: 'Conflicting Submitted Name',
+        businessType: 'fashion',
+        logoUrl: 'https://cdn.example.com/submitted-logo.png',
+        brandColors: JSON.stringify({
+          primary: '#abcdef',
+          background: '#000000',
+          accent: '#fedcba',
+        }),
+      })
+    );
+
+    expect(result).toMatchObject({ success: true, merchantId: 'existing-1' });
+    expect(mocks.adminUpdate).not.toHaveBeenCalled();
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'existing-1',
+        merchantSlug: 'persisted-store',
+        merchantLogoUrl: 'https://cdn.example.com/persisted-logo.png',
+        businessName: 'Persisted Store',
+        businessType: 'technology',
+        brandColors: persistedPalette,
+      })
+    );
+  });
 });

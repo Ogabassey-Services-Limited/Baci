@@ -1,6 +1,7 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import { recordMobileOnboardingContractInvocation } from '@/lib/posthog/mobile-onboarding-contract-telemetry';
+import { DEFAULT_CURATED_BRAND_COLORS } from '@/lib/storefront-defaults/default-curated-brand-colors';
 import { provisionCuratedHomepage } from '@/lib/storefront-defaults/provision-curated-homepage';
 import { parseBrandColors } from '@/schemas/brand-colors';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
@@ -161,16 +162,13 @@ export async function POST(request: NextRequest) {
       expectedOwnerUserId: auth.user.id,
       merchantId: merchant.merchantId,
       merchantSlug: merchant.merchantSlug,
+      merchantLogoUrl: logoUrl,
       businessName,
       businessType:
         businessType === 'other'
           ? (otherBusinessType ?? businessType)
           : businessType,
-      brandColors: brandColors ?? {
-        primary: '#000000',
-        background: '#ffffff',
-        accent: '#f59e0b',
-      },
+      brandColors: brandColors ?? DEFAULT_CURATED_BRAND_COLORS,
     });
     if (homepage.status === 'failed')
       return provisioningErrorResponse(

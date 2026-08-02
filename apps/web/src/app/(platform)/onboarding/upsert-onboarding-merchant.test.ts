@@ -45,4 +45,37 @@ describe('upsertOnboardingMerchant', () => {
       })
     );
   });
+
+  it('fails closed before slug RPC or writes when the owner-scoped lookup fails', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'RLS transient failure' },
+    });
+    const insert = vi.fn();
+    const rpc = vi.fn();
+    const supabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({ maybeSingle }),
+        }),
+        insert,
+      }),
+      rpc,
+    };
+
+    await expect(
+      upsertOnboardingMerchant({
+        supabase: supabase as never,
+        user: { id: 'user-1' } as never,
+        email: 'merchant@example.com',
+        businessName: 'Baci Food',
+        businessType: 'food',
+        country: 'NG',
+        brandColors: null,
+        brandColorsParsed: false,
+      })
+    ).rejects.toThrow('Could not load your store setup. Please try again.');
+    expect(rpc).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
 });
