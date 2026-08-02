@@ -8,7 +8,6 @@ import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { isRawDbProductRecord, type RawDbProduct } from '@/lib/raw-db-product';
 import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { escapeHtml } from '@/lib/sanitize-core';
-import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildCommercialSupportDiscoveryLinks } from '@/lib/storefront-compare/build-compare-discovery-links';
 import {
@@ -23,17 +22,10 @@ import {
 } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
-
-export interface ProductWithCategory {
-  id: string;
-  slug: string | null;
-  category: string | null;
-  canonical_url: string | null;
-  images: Array<string | { url: string }> | null;
-  updated_at: string | null;
-  category_id: string | null;
-  categories: { slug: string | null } | null;
-}
+import {
+  buildProductSitemapEntry,
+  type ProductWithCategory,
+} from './build-product-sitemap-entry';
 
 const SITEMAP_QUERY_PAGE_SIZE = 1000;
 // Sitemap spec caps a single file at 50,000 URLs. Leave headroom so the
@@ -301,42 +293,9 @@ export async function getProductSitemapEntries({
     return [];
   }
 
-  return products.map((product) => {
-    const normalizedJoinedCategory =
-      product.categories?.slug && product.categories.slug.trim().length > 0
-        ? { slug: product.categories.slug.trim() }
-        : null;
-
-    const url = `${storeUrl}${getProductUrl({
-      id: product.id,
-      slug: product.slug ?? undefined,
-      name: product.slug || product.id,
-      category: product.category,
-      categories: normalizedJoinedCategory,
-      canonical_url: product.canonical_url,
-    })}`;
-
-    const images: string[] = [];
-    if (Array.isArray(product.images)) {
-      product.images.forEach((img: unknown) => {
-        const url =
-          typeof img === 'string' ? img : (img as Record<string, unknown>)?.url;
-        if (typeof url === 'string' && url.startsWith('http')) {
-          images.push(url);
-        }
-      });
-    }
-
-    return {
-      url,
-      lastModified: product.updated_at
-        ? new Date(product.updated_at)
-        : undefined,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-      ...(images.length > 0 && { images }),
-    };
-  });
+  return products.map((product) =>
+    buildProductSitemapEntry({ product, storeUrl })
+  );
 }
 
 export async function getCategorySitemapEntries({
