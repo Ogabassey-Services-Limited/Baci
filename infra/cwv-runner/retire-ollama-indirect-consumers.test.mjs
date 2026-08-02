@@ -110,7 +110,7 @@ test('expands a static optional EnvironmentFile wildcard through the same safe p
     await writeFile(environment, 'OLLAMA_HOST=http://127.0.0.1:11434\n');
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${shellPrelude}systemctl() { case "$1" in list-units) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
+      `${shellPrelude}getent() { [ "$#" -eq 1 ] && [ "$1" = passwd ] || return 2; return 0; }; systemctl() { case "$1" in list-units) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
       'retire-ollama-static-environment-wildcard-test',
       script.pathname,
       directory,

@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
 const prelude =
-  'sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { if [ "$1" = -c ] && [ "$2" = %F ]; then [ -d "$3" ] && printf "directory\\n" || printf "regular file\\n"; else printf "1:2:81a4:10:501:20:644\\n"; fi; }; findmnt() { printf "/ fixture apfs ro\\n"; }; ';
+  'sha256sum() { if [ -x /usr/bin/sha256sum ]; then /usr/bin/sha256sum "$@"; elif [ -x /bin/sha256sum ]; then /bin/sha256sum "$@"; else /usr/bin/shasum -a 256 "$@"; fi; }; stat() { if [ "$1" = -c ] && [ "$2" = %F ]; then [ -d "$3" ] && printf "directory\\n" || printf "regular file\\n"; else printf "1:2:81a4:10:501:20:644\\n"; fi; }; findmnt() { printf "/ fixture apfs ro\\n"; }; ';
 
 function binding(output, definition, target) {
   assert.ok(
@@ -196,20 +196,39 @@ test('scans unloaded user units for a second local account', async () => {
   const system = join(root, 'system');
   const owner = join(root, 'bassey');
   const alice = join(root, 'alice');
-  const unit = join(alice, '.config', 'systemd', 'user', 'application.service');
+  const ownerUnit = join(
+    owner,
+    '.config',
+    'systemd',
+    'user',
+    'owner-application.service'
+  );
+  const aliceUnit = join(
+    alice,
+    '.config',
+    'systemd',
+    'user',
+    'application.service'
+  );
   try {
     await Promise.all([
       mkdir(system),
       mkdir(join(owner, '.config', 'systemd', 'user'), { recursive: true }),
       mkdir(join(alice, '.config', 'systemd', 'user'), { recursive: true }),
     ]);
-    await writeFile(
-      unit,
-      '[Service]\nEnvironment=OLLAMA_HOST=http://127.0.0.1:11434\n'
-    );
+    await Promise.all([
+      writeFile(
+        ownerUnit,
+        '[Service]\nEnvironment=OLLAMA_HOST=http://127.0.0.1:11434\n'
+      ),
+      writeFile(
+        aliceUnit,
+        '[Service]\nEnvironment=OLLAMA_HOST=http://127.0.0.1:11434\n'
+      ),
+    ]);
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${prelude}owner=$3; alice=$4; getent() { [ "$1" = passwd ] || return 2; case "\${2:-}" in '') printf 'bassey:x:1001:1001::%s:/bin/sh\\nalice:x:999:999::%s:/usr/sbin/nologin\\n' "$owner" "$alice";; *) return 2;; esac; }; systemctl() { return 0; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
+      `${prelude}owner=$3; alice=$4; getent() { [ "$1" = passwd ] || return 2; case "\${2:-}" in '') printf 'bassey:x:1001:1001::%s:/bin/sh\\nalice:x:999:999::%s:/usr/sbin/nologin\\n' "$owner" "$alice";; *) return 2;; esac; }; systemctl() { return 0; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); systemd_user_roots() { home=\${1#*:}; printf '%s\\n' "$home/.config/systemd/user"; }; SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
       'retire-ollama-systemd-other-user-test',
       script.pathname,
       system,
@@ -218,7 +237,11 @@ test('scans unloaded user units for a second local account', async () => {
     ]);
     assert.match(
       stdout,
-      new RegExp(`^${unit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|`, 'm')
+      new RegExp(`^${ownerUnit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|`, 'm')
+    );
+    assert.match(
+      stdout,
+      new RegExp(`^${aliceUnit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|`, 'm')
     );
   } finally {
     await rm(root, { recursive: true, force: true });

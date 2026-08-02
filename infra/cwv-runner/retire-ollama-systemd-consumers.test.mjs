@@ -17,6 +17,8 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
+const emptyPasswdInventory =
+  'getent() { [ "$#" -eq 1 ] && [ "$1" = passwd ] || return 2; return 0; };';
 
 function assertFingerprint(fields, offset, expectedPath) {
   assert.equal(fields[offset], expectedPath);
@@ -90,7 +92,7 @@ test('skips a quoted optional missing EnvironmentFile and rejects malformed quot
     );
     await execFileAsync('sh', [
       '-c',
-      'systemctl() { :; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      `systemctl() { :; }; ${emptyPasswdInventory} . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
       'retire-ollama-systemd-consumers-optional-test',
       script.pathname,
       units,
@@ -102,7 +104,7 @@ test('skips a quoted optional missing EnvironmentFile and rejects malformed quot
     await assert.rejects(
       execFileAsync('sh', [
         '-c',
-        'systemctl() { :; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+        `systemctl() { :; }; ${emptyPasswdInventory} . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
         'retire-ollama-systemd-consumers-malformed-test',
         script.pathname,
         units,
@@ -120,7 +122,7 @@ test('finds a loaded transient unit whose runtime environment consumes Ollama', 
     const property = 'Environment=OLLAMA_HOST=http://127.0.0.1:11434';
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      'systemctl() { case "$1:$2" in list-units:*) printf "transient.service loaded active running transient\\n";; list-unit-files:*|--user:list-unit-files) return 0;; show:*) printf "Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nExecStart={}\\n";; *) return 64;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      `systemctl() { case "$1:$2" in list-units:*) printf "transient.service loaded active running transient\\n";; list-unit-files:*|--user:list-unit-files) return 0;; show:*) printf "Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nExecStart={}\\n";; *) return 64;; esac; }; ${emptyPasswdInventory} . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
       'retire-ollama-systemd-runtime-test',
       script.pathname,
       directory,
@@ -150,7 +152,7 @@ test('canonicalizes a merged-usr systemd root before binding consumers', async (
     );
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      'systemctl() { case "$1" in list-units) return 0;; esac; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2 $3"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      `systemctl() { case "$1" in list-units) return 0;; esac; }; ${emptyPasswdInventory} stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2 $3"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
       'retire-ollama-systemd-consumers-merged-usr-test',
       script.pathname,
       configuredAlias,
