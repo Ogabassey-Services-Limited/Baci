@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest';
+import { parseQualificationArguments } from './qualify-cloudflare-evidence-sources';
+
+describe('parseQualificationArguments', () => {
+  it('leaves functional prepare to its strict option parser', () => {
+    expect(() => parseQualificationArguments(['--prepare'])).toThrow(
+      'prepare options'
+    );
+    expect(() =>
+      parseQualificationArguments(['--prepare', '--token', 'secret'])
+    ).toThrow('prepare options');
+    expect(
+      parseQualificationArguments([
+        '--validate-readback',
+        '/private/receipt.json',
+        '--expected-artifact-a',
+        '/private/artifact-a.json',
+        '--expected-artifact-b',
+        '/private/artifact-b.json',
+        '--script-name',
+        'baci-evidence-qualification',
+        '--expected-owner-approval-id',
+        'owner-approval',
+        '--run-state-dir',
+        '/private/state',
+        '--run-id',
+        'b'.repeat(32),
+      ]).mode
+    ).toBe('validate-readback');
+  });
+});

@@ -32,6 +32,7 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
   assert.deepEqual(toolsTsconfig.include, [
     'tools/events/**/*.ts',
     'tools/db/**/*.ts',
+    'tools/cost/**/*.ts',
     'src/scripts/process-domain-events.ts',
     'src/scripts/process-domain-events.test.ts',
     'src/scripts/domain-event-worker-message.ts',

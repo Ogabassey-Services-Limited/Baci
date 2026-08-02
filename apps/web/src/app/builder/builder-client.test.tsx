@@ -10,6 +10,13 @@ import {
   resetBuilderClientTest,
 } from './builder-client.test-support';
 
+vi.mock('@/components/ui/alert-dialog', async () => {
+  const { default: alertDialogMock } = await import(
+    './builder-client-alert-dialog.test-support'
+  );
+  return alertDialogMock;
+});
+
 describe('BuilderClient', () => {
   beforeEach(resetBuilderClientTest);
   afterEach(cleanupBuilderClientTest);

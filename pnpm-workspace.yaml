@@ -85,6 +85,7 @@ allowBuilds:
   puppeteer: true
   sharp: true
   unrs-resolver: true
+  workerd: true
 
 overrides:
   # --- Patched-dependency version locks ---
