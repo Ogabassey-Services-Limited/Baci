@@ -30,6 +30,7 @@ import {
   PLACEHOLDER_IMAGE,
 } from './image-utils';
 import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
+import { createProductSchemaAdditionalPropertyCollector } from './product-schema-additional-properties';
 import { shouldIncludeProductSchemaSpec } from './product-schema-specs';
 import type {
   Product,
@@ -630,15 +631,19 @@ export function generateProductSchema(
   const safeName = product.name;
 
   // Product schema should describe the product itself, not repeat a short
-  // search-snippet template. Prefer the enriched visible description and
-  // retain the meta description only as a fallback.
-  const rawDescription = product.description || product.meta_description;
-  const productDescription = rawDescription
-    ? generateMetaDescription(rawDescription, 500)
+  // search-snippet template. Prefer the enriched visible description and use
+  // the meta description only when the visible description sanitizes empty.
+  const productDescription = product.description
+    ? generateMetaDescription(product.description, 500)
+    : '';
+  const metaDescription = product.meta_description
+    ? generateMetaDescription(product.meta_description, 500)
     : '';
   const safeDescription = productDescription
     ? productDescription
-    : `Buy ${safeName} from ${merchantName}. Best prices, fast delivery, and secure payments.`;
+    : metaDescription
+      ? metaDescription
+      : `Buy ${safeName} from ${merchantName}. Best prices, fast delivery, and secure payments.`;
 
   const safeBrand = product.brand || merchantName;
   const safeMerchantName = merchantName;
@@ -779,42 +784,8 @@ export function generateProductSchema(
 
   // Detailed specifications for AI/Crawlers (additionalProperty)
   // This enables rich snippets and voice assistants to answer spec queries
-  const additionalProperties: Record<string, unknown>[] = [];
-  const additionalPropertyKeys = new Set<string>();
-  const additionalPropertyNameAliases: Record<string, string> = {
-    '3.5mm headphone jack': '3.5mm jack',
-    '3.5mm jack': '3.5mm jack',
-    loudspeaker: 'speakers',
-    speakers: 'speakers',
-    video: 'video recording',
-    'video recording': 'video recording',
-  };
-
-  const addAdditionalProperty = (name: unknown, value: unknown) => {
-    if (typeof name !== 'string' || typeof value !== 'string') {
-      return;
-    }
-
-    const normalizedName = name.trim().toLowerCase().replace(/\s+/g, ' ');
-    const normalizedValue = value.trim().toLowerCase().replace(/\s+/g, ' ');
-    if (!normalizedName || !normalizedValue) {
-      return;
-    }
-
-    const canonicalName =
-      additionalPropertyNameAliases[normalizedName] || normalizedName;
-    const propertyKey = `${canonicalName}|${normalizedValue}`;
-    if (additionalPropertyKeys.has(propertyKey)) {
-      return;
-    }
-
-    additionalPropertyKeys.add(propertyKey);
-    additionalProperties.push({
-      '@type': 'PropertyValue',
-      name,
-      value,
-    });
-  };
+  const additionalPropertyCollector =
+    createProductSchemaAdditionalPropertyCollector();
 
   // Extract from product_key_specs (GSM Arena-level specs)
   const keySpecs = product.product_key_specs;
@@ -872,7 +843,9 @@ export function generateProductSchema(
       {
         key: 'card_slot_type',
         name: 'Card Slot',
-        check: () => Boolean(keySpecs.has_card_slot),
+        check: () =>
+          typeof keySpecs.card_slot_type === 'string' &&
+          keySpecs.card_slot_type.trim().length > 0,
       },
 
       // Camera
@@ -929,7 +902,13 @@ export function generateProductSchema(
     ];
 
     // Handle Main Camera logic separately (too complex for generic map)
-    if (keySpecs.main_camera_mp) {
+    if (
+      keySpecs.main_camera_mp &&
+      shouldIncludeProductSchemaSpec(product, {
+        key: 'main_camera_mp',
+        value: keySpecs.main_camera_mp,
+      })
+    ) {
       const cameraType = keySpecs.has_quad_camera
         ? 'Quad'
         : keySpecs.has_triple_camera
@@ -937,7 +916,7 @@ export function generateProductSchema(
           : keySpecs.has_dual_camera
             ? 'Dual'
             : 'Single';
-      addAdditionalProperty(
+      additionalPropertyCollector.add(
         'Main Camera',
         `${cameraType} ${keySpecs.main_camera_mp}MP`
       );
@@ -961,7 +940,7 @@ export function generateProductSchema(
           value,
         })
       ) {
-        addAdditionalProperty(
+        additionalPropertyCollector.add(
           mapping.name,
           mapping.format ? mapping.format(value) : String(value)
         );
@@ -983,14 +962,10 @@ export function generateProductSchema(
             continue;
           }
 
-          addAdditionalProperty(item.label, item.value);
+          additionalPropertyCollector.add(item.label, item.value);
         }
       }
     }
-  }
-
-  if (additionalProperties.length > 0) {
-    schema.additionalProperty = additionalProperties;
   }
 
   // Dimensions
@@ -1096,9 +1071,46 @@ export function generateProductSchema(
     const sanitizedCustomSchema = sanitizeCustomProductSchemaMarkup(
       product.schema_markup
     );
-    // We merge sanitizedCustomSchema into schema
-    // Using Object.assign to override/extend existing fields
-    Object.assign(schema, sanitizedCustomSchema);
+    const {
+      additionalProperty: customAdditionalProperty,
+      ...customSchemaFields
+    } = sanitizedCustomSchema;
+    Object.assign(schema, customSchemaFields);
+
+    if (Array.isArray(customAdditionalProperty)) {
+      for (const property of customAdditionalProperty) {
+        if (
+          !property ||
+          typeof property !== 'object' ||
+          Array.isArray(property)
+        ) {
+          continue;
+        }
+
+        const candidate = property as {
+          name?: unknown;
+          value?: unknown;
+        };
+        if (
+          !shouldIncludeProductSchemaSpec(product, {
+            label:
+              typeof candidate.name === 'string' ? candidate.name : undefined,
+            value: candidate.value,
+          })
+        ) {
+          continue;
+        }
+
+        additionalPropertyCollector.add(candidate.name, candidate.value);
+      }
+    }
+  }
+
+  const additionalProperties = additionalPropertyCollector.getProperties();
+  if (additionalProperties.length > 0) {
+    schema.additionalProperty = additionalProperties;
+  } else {
+    delete schema.additionalProperty;
   }
 
   // ProductGroup transformation for products with variants

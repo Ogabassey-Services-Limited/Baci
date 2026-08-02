@@ -36,7 +36,7 @@ const ACCESSORY_CATEGORY_MARKERS = [
   'hub',
 ];
 
-function isAccessoryLikeCategory(categoryName: string) {
+export function isAccessoryLikeCategory(categoryName: string) {
   return ACCESSORY_CATEGORY_MARKERS.some((marker) =>
     new RegExp(`(^|[^a-z])${marker}(s)?([^a-z]|$)`).test(categoryName)
   );
@@ -54,7 +54,7 @@ export function getProductSpecFamily(
 
   if (
     !isAccessory &&
-    (/(^|[^a-z])(phone|smartphone|tablet|smartwatch|wearable)(s)?([^a-z]|$)/.test(
+    (/(^|[^a-z])(cell|iphone|ipad|phone|smartphone|tablet|smartwatch|wearable|watch)(s)?([^a-z]|$)/.test(
       normalized
     ) ||
       normalized.includes('google pixel'))

@@ -42,4 +42,30 @@ describe('category-specific key spec families', () => {
       ])
     );
   });
+
+  it('retains legitimate computer audio fields', () => {
+    const fields = getKeySpecCategoriesForFamily('computer').flatMap(
+      (category) => category.fields
+    );
+
+    expect(fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'has_headphone_jack' }),
+        expect.objectContaining({ key: 'has_stereo_speakers' }),
+      ])
+    );
+  });
+
+  it('provides safe general hardware fields only for non-accessory categories', () => {
+    const gamingFields = getKeySpecCategoriesForFamily('general', 'Gaming')
+      .flatMap((category) => category.fields)
+      .map((field) => field.key);
+
+    expect(gamingFields).toEqual(
+      expect.arrayContaining(['chipset', 'gpu', 'storage_gb'])
+    );
+    expect(
+      getKeySpecCategoriesForFamily('general', 'PlayStation Accessories')
+    ).toEqual([]);
+  });
 });

@@ -345,6 +345,31 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     );
   });
 
+  it('includes a verified camera card slot even when the legacy boolean is stale', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        category: 'Cameras',
+        product_key_specs: {
+          card_slot_type: 'CFexpress Type B',
+          has_card_slot: false,
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Card Slot',
+          value: 'CFexpress Type B',
+        },
+      ])
+    );
+  });
+
   it('uses the enriched product description for Product schema instead of a generic meta description', () => {
     const schema = generateProductSchema(
       makeProduct({
@@ -362,6 +387,22 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.description).toContain('45MP stacked full-frame sensor');
     expect(schema.description).not.toBe(
       'Shop Canon EOS R5 Mark II Mirrorless Camera Body in Nigeria.'
+    );
+  });
+
+  it('falls back to meta description after visible description sanitizes empty', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        description: '<p></p>',
+        meta_description: 'Canon EOS R5 mirrorless camera with 45MP imaging.',
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe(
+      'Canon EOS R5 mirrorless camera with 45MP imaging.'
     );
   });
 
@@ -1026,6 +1067,36 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
 
     expect(schema.description).toBe('Premium foldable phone.');
     expect(schema.aggregateRating).toBeUndefined();
+  });
+
+  it('filters stored additional properties through the current product taxonomy', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        category: 'Cameras',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          additionalProperty: [
+            { '@type': 'PropertyValue', name: '5G Support', value: 'No' },
+            { '@type': 'PropertyValue', name: 'Sensor', value: '45MP CMOS' },
+          ],
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        { '@type': 'PropertyValue', name: 'Sensor', value: '45MP CMOS' },
+      ])
+    );
+    expect(schema.additionalProperty).not.toEqual(
+      expect.arrayContaining([
+        { '@type': 'PropertyValue', name: '5G Support', value: 'No' },
+      ])
+    );
   });
 
   it('keeps custom aggregate ratings when ratingCount is positive and reviewCount is zero', () => {

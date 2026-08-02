@@ -1,8 +1,7 @@
-import {
-  buildDescriptionKeySpecs,
-  normalizeSpecItems,
-  normalizeSpecSections,
-} from './spec-data-normalization';
+import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
+import { buildDescriptionKeySpecs } from './build-description-key-specs';
+import { normalizeSpecItems } from './normalize-spec-items';
+import { normalizeSpecSections } from './normalize-spec-sections';
 import { buildDetailedSpecsFromKeySpecs } from './spec-key-specs';
 import {
   type ComparableProductKeySpecs,
@@ -104,6 +103,22 @@ function mergeSpecSections(...sections: ProductSpecSection[][]) {
   return merged.filter((section) => section.items.length > 0);
 }
 
+function filterCameraLegacySpecifications(
+  sections: ProductSpecSection[],
+  categoryName: string
+) {
+  return sections.flatMap((section) => {
+    const items = section.items.filter((item) =>
+      shouldIncludeProductSchemaSpec(
+        { category: categoryName, categories: null },
+        { label: item.label, value: item.value }
+      )
+    );
+
+    return items.length > 0 ? [{ ...section, items }] : [];
+  });
+}
+
 function buildGeneralFallbackSpecs(
   source: SpecDataSource
 ): ProductSpecSection[] {
@@ -181,18 +196,37 @@ export function buildProductSpecData(source: SpecDataSource) {
     source.product_key_specs &&
     typeof source.product_key_specs === 'object' &&
     !Array.isArray(source.product_key_specs)
-      ? buildDetailedSpecsFromKeySpecs(source.product_key_specs, specFamily)
+      ? buildDetailedSpecsFromKeySpecs(
+          source.product_key_specs,
+          specFamily,
+          hasSourceCategory(source) ? sourceCategoryName : undefined
+        )
       : [];
 
+  const detailedSpecifications =
+    specFamily === 'camera'
+      ? filterCameraLegacySpecifications(
+          normalizedDetailedSpecs,
+          sourceCategoryName
+        )
+      : normalizedDetailedSpecs;
+  const legacySpecifications =
+    specFamily === 'camera'
+      ? filterCameraLegacySpecifications(
+          normalizedLegacySpecifications,
+          sourceCategoryName
+        )
+      : normalizedLegacySpecifications;
+
   const structuredSpecs =
-    normalizedDetailedSpecs.length > 0
-      ? normalizedDetailedSpecs
-      : specFamily === 'camera' && normalizedLegacySpecifications.length > 0
-        ? mergeSpecSections(normalizedLegacySpecifications, keySpecSections)
+    detailedSpecifications.length > 0
+      ? detailedSpecifications
+      : specFamily === 'camera' && legacySpecifications.length > 0
+        ? mergeSpecSections(legacySpecifications, keySpecSections)
         : keySpecSections.length > 0
           ? keySpecSections
-          : normalizedLegacySpecifications.length > 0
-            ? normalizedLegacySpecifications
+          : legacySpecifications.length > 0
+            ? legacySpecifications
             : buildGeneralFallbackSpecs(source);
 
   const detailedSpecs = mergeSpecSections(descriptionKeySpecs, structuredSpecs);

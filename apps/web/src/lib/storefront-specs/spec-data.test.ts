@@ -209,11 +209,16 @@ describe('buildProductSpecData', () => {
           items: [
             { label: 'Sensor', value: '45MP full-frame CMOS' },
             { label: 'Video', value: '8K RAW' },
+            { label: '5G Support', value: 'No' },
+            { label: 'NFC', value: 'No' },
           ],
         },
         {
           category: 'Storage and media',
-          items: [{ label: 'Media', value: 'CFexpress Type B and UHS-II SD' }],
+          items: [
+            { label: 'Media', value: 'CFexpress Type B and UHS-II SD' },
+            { label: 'Card Slot', value: 'N/A' },
+          ],
         },
       ],
     });
@@ -233,6 +238,8 @@ describe('buildProductSpecData', () => {
       expect.arrayContaining([
         { label: '5G Support', value: 'No' },
         { label: 'Card Slot', value: 'No' },
+        { label: 'NFC', value: 'No' },
+        { label: 'Card Slot', value: 'N/A' },
       ])
     );
     expect(result.specs).toEqual(
@@ -324,6 +331,39 @@ describe('buildProductSpecData', () => {
         { label: 'Battery Capacity', value: '0mAh' },
         { label: 'Chipset', value: 'Apple U1' },
       ])
+    );
+  });
+
+  it('retains safe key specs for general gaming products', () => {
+    const result = buildProductSpecData({
+      category: 'Gaming',
+      product_key_specs: {
+        chipset: 'Custom AMD Zen 2',
+        gpu: 'RDNA 2',
+        storage_gb: 825,
+        has_5g: false,
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'Processing',
+          items: [
+            { label: 'Processor', value: 'Custom AMD Zen 2' },
+            { label: 'GPU', value: 'RDNA 2' },
+          ],
+        }),
+        expect.objectContaining({
+          category: 'Memory',
+          items: [{ label: 'Internal Storage', value: '825GB' }],
+        }),
+      ])
+    );
+    expect(
+      result.detailedSpecs.flatMap((section) => section.items)
+    ).not.toEqual(
+      expect.arrayContaining([{ label: '5G Support', value: 'No' }])
     );
   });
 });

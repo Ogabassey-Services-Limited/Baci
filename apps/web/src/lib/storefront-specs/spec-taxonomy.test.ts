@@ -25,6 +25,9 @@ describe('spec taxonomy', () => {
     expect(getProductSpecFamily('Instant Cameras')).toBe('camera');
     expect(getProductSpecFamily('Camera Accessories')).toBe('general');
     expect(getProductSpecFamily('Smartphones')).toBe('mobile');
+    expect(getProductSpecFamily('iPhones')).toBe('mobile');
+    expect(getProductSpecFamily('iPad')).toBe('mobile');
+    expect(getProductSpecFamily('Apple Watch')).toBe('mobile');
     expect(getProductSpecFamily('Laptops')).toBe('computer');
     expect(getProductSpecFamily('Accessories')).toBe('general');
     expect(getProductSpecFamily('Smartphone Cases')).toBe('general');

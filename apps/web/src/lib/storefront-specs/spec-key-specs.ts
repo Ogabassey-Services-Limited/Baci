@@ -5,11 +5,41 @@ import type {
   ProductSpecFamily,
 } from './spec-taxonomy';
 
+const UNSUPPORTED_GENERAL_VALUES = new Set([
+  '',
+  '0',
+  'false',
+  'n/a',
+  'na',
+  'none',
+  'not applicable',
+  'not available',
+  'not listed',
+  'not published',
+  'not supported',
+  'no',
+  'unsupported',
+  'unavailable',
+]);
+
+function isUnsupportedGeneralValue(value: unknown) {
+  if (typeof value === 'boolean') return !value;
+  if (typeof value === 'number') return !Number.isFinite(value) || value === 0;
+  if (typeof value !== 'string') return false;
+
+  const normalized = value.trim().toLowerCase();
+  return (
+    UNSUPPORTED_GENERAL_VALUES.has(normalized) ||
+    normalized.startsWith('confirm exact')
+  );
+}
+
 export function buildDetailedSpecsFromKeySpecs(
   keySpecs: ComparableProductKeySpecs,
-  family: ProductSpecFamily
+  family: ProductSpecFamily,
+  categoryName?: string
 ): ProductSpecSection[] {
-  return getKeySpecCategoriesForFamily(family)
+  return getKeySpecCategoriesForFamily(family, categoryName)
     .map(({ category, fields }) => ({
       category,
       items: fields
@@ -19,6 +49,7 @@ export function buildDetailedSpecsFromKeySpecs(
             value !== null &&
             value !== undefined &&
             (typeof value !== 'string' || value.trim().length > 0) &&
+            (family !== 'general' || !isUnsupportedGeneralValue(value)) &&
             (!condition || condition(keySpecs))
           );
         })

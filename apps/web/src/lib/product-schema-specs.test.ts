@@ -66,6 +66,15 @@ describe('shouldIncludeProductSchemaSpec', () => {
     ).toBe(true);
   });
 
+  it('uses the joined category before a stale legacy category', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Electronics', categories: { name: 'Smartphones' } },
+        { key: 'has_5g', value: true }
+      )
+    ).toBe(true);
+  });
+
   it('preserves negative mapping behavior for phone, tablet, and laptop categories', () => {
     for (const category of ['Smartphones', 'Tablets', 'Laptops']) {
       expect(
@@ -90,6 +99,21 @@ describe('shouldIncludeProductSchemaSpec', () => {
         { key: 'has_nfc', value: false }
       )
     ).toBe(false);
+  });
+
+  it('does not classify device accessory categories as phone families', () => {
+    for (const category of [
+      'Phone Accessories',
+      'Smartphone Cases',
+      'Laptop Keyboard',
+    ]) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category, categories: null },
+          { key: 'has_5g', value: false }
+        )
+      ).toBe(false);
+    }
   });
 
   it('rejects positive phone-only fields on consoles and other non-phone products', () => {
@@ -121,6 +145,12 @@ describe('shouldIncludeProductSchemaSpec', () => {
         { key: 'has_nfc', value: true }
       )
     ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'iPhones', categories: null },
+        { key: 'has_5g', value: true }
+      )
+    ).toBe(true);
   });
 
   it('drops unverified negative stabilization claims from non-phone schemas', () => {
@@ -136,5 +166,50 @@ describe('shouldIncludeProductSchemaSpec', () => {
         { label: 'OIS', value: '5-axis in-body stabilization' }
       )
     ).toBe(true);
+  });
+
+  it('keeps legitimate operating systems while dropping unsupported placeholders', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Televisions', categories: null },
+        { label: 'Operating System', value: 'webOS 25' }
+      )
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Gaming', categories: null },
+        { label: 'OS', value: 'Orbis OS' }
+      )
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Televisions', categories: null },
+        { label: 'Operating System', value: 'N/A' }
+      )
+    ).toBe(false);
+  });
+
+  it('applies the camera key allowlist and rejects card-slot placeholders', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { key: 'network_technology', value: 'N/A' }
+      )
+    ).toBe(false);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { key: 'front_camera_mp', value: 0 }
+      )
+    ).toBe(false);
+
+    for (const value of ['N/A', 'None', 'Not supported']) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Cameras', categories: null },
+          { key: 'card_slot_type', value }
+        )
+      ).toBe(false);
+    }
   });
 });

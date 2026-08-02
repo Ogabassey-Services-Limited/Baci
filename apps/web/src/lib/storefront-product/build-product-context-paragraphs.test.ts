@@ -170,6 +170,10 @@ describe('buildProductContextParagraphs', () => {
             storage_gb: 256,
             battery_mah: 4000,
             has_5g: true,
+            has_ois: true,
+            announced_date: '2024-01-17',
+            release_date: '2024-01-31',
+            recommended_for: 'Everyday photography',
             front_camera_mp: null,
             display_resolution: '   ',
           },
@@ -182,9 +186,35 @@ describe('buildProductContextParagraphs', () => {
     expect(copy).toContain('Internal Storage: 256GB');
     expect(copy).toContain('Capacity: 4000mAh');
     expect(copy).toContain('5G Support: Yes');
+    expect(copy).toContain('OIS: Yes');
     expect(copy).not.toContain('created at');
     expect(copy).not.toContain('nullMP');
     expect(copy).not.toContain('Display resolution');
+  });
+
+  it('retains mobile lifecycle and recommendation facts outside the display taxonomy', () => {
+    const paragraphs = buildProductContextParagraphs(
+      makeInput({
+        categorySlug: 'smartphones',
+        categoryName: 'Smartphones',
+        currentProduct: {
+          slug: 'pixel-8',
+          name: 'Google Pixel 8',
+          price: 800_000,
+          category_slug: 'smartphones',
+          product_key_specs: {
+            announced_date: '2023-10-04',
+            release_date: '2023-10-12',
+            recommended_for: 'Everyday photography',
+          },
+        },
+      })
+    );
+
+    const copy = paragraphs.join(' ');
+    expect(copy).toContain('Announced: 2023-10-04');
+    expect(copy).toContain('Release date: 2023-10-12');
+    expect(copy).toContain('Recommended for: Everyday photography');
   });
 
   it('uses camera taxonomy and omits phone-only negative facts from camera crawl copy', () => {
