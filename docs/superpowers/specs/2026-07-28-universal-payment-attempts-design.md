@@ -7690,8 +7690,8 @@ Before any code execution, planning must:
 
 This dated amendment freezes the next append-only, schema-only ingress slice.
 It resolves the preflight blocker without authorizing a route, a writer, a
-seeded generation, a provider change, a financial command, an RLS policy, or a
-deployment. It is additive to, and takes precedence over, earlier prose only
+seeded generation, a provider change, a financial command, or a deployment. It
+is additive to, and takes precedence over, earlier prose only
 where this amendment gives an exact name, type, bound, or enforcement boundary.
 The implementing migration is ordered after both
 `20260731140000_payment_ingress_contract_generation_foundation.sql` and
@@ -8004,7 +8004,8 @@ Named indexes are unique `payment_webhook_source_manifests_replay_key_uq` on
 `(id, replay_key_kind, replay_key_digest, provider, endpoint_key,
 signature_key_scope, completion_authority_key, signature_key_identity_id,
 ingress_contract_generation, adapter_schema_version,
-normalized_envelope_schema_version, replay_identity_contract_version)`, unique
+normalized_envelope_schema_version, replay_identity_contract_version,
+child_manifest_sha256, child_count, capture_mode, amount_minor, currency)`, unique
 `payment_webhook_source_manifests_binding_uq` on
 `(id, replay_key_kind, replay_key_digest, provider, endpoint_key,
 signature_key_scope, completion_authority_key, signature_key_identity_id,
@@ -8020,8 +8021,9 @@ The cyclic link is intentional and fully specified. The inbox's
 `(source_manifest_id, replay_key_kind, replay_key_digest, provider,
 endpoint_key, signature_key_scope, completion_authority_key,
 signature_key_identity_id, ingress_contract_generation, adapter_schema_version,
-normalized_envelope_schema_version, replay_identity_contract_version)` is a
-deferrable composite FK to
+normalized_envelope_schema_version, replay_identity_contract_version,
+child_manifest_sha256, child_count, capture_mode, manifest_amount_minor,
+manifest_currency)` is a deferrable composite FK to
 `payment_webhook_source_manifests_inbox_target_uq`. The manifest's
 `(inbox_id, id, replay_key_kind, replay_key_digest, provider,
 endpoint_key, signature_key_scope, completion_authority_key,
