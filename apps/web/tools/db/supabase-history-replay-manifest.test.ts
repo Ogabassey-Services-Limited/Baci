@@ -189,7 +189,7 @@ describe('supabaseHistoryReplayManifest', () => {
     });
   });
 
-  it('binds the only replay transform and exact overlay', () => {
+  it('binds the replay-only transform without changing migration history', () => {
     expect(supabaseHistoryReplayManifest.transforms).toEqual([
       {
         originalSha256:
@@ -198,9 +198,9 @@ describe('supabaseHistoryReplayManifest', () => {
           '6f6444120e4cefe5febaba935ea70e7a304bf2d330702afc838d4ab70a77b9d8',
         overlayPath:
           'supabase/tests/migration_history_overlays/20260525140048_quiz_authoritative_answer_scoring.sql',
+        replacement: 'extract(epoch FROM (pg_catalog.now() - v_issued_at))',
         repositoryPath:
           'supabase/migrations/20260525140048_quiz_authoritative_answer_scoring.sql',
-        replacement: 'extract(epoch FROM (pg_catalog.now() - v_issued_at))',
         search:
           'pg_catalog.extract(epoch FROM (pg_catalog.now() - v_issued_at))',
       },

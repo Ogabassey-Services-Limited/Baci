@@ -10,15 +10,14 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import coinsImage from '@/assets/quiz/png/Coins.png';
 import { useTheme } from '@/hooks/useTheme';
-import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import { createLogger } from '@/lib/logger';
 import {
   fetchQuizEvents,
   type QuizIntegrityTier,
-  startQuizAttempt,
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
+import { QuizDateOfBirthGateModal } from './QuizDateOfBirthGateModal';
 import { QuizEventsList } from './QuizEventsList';
 import { QuizPrizeClaimPanel } from './QuizPrizeClaimPanel';
 import { QuizQuestionCard } from './QuizQuestionCard';
@@ -26,7 +25,7 @@ import { createQuizStyles } from './QuizScreen.styles';
 import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
 import { QuizUsernameGateModal } from './QuizUsernameGateModal';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
-import { useQuizStartGate } from './useQuizStartGate';
+import { useQuizStartFlow } from './useQuizStartFlow';
 
 const log = createLogger('Quiz');
 
@@ -96,29 +95,13 @@ export function QuizScreen({
     };
   }, [loadEvents, setError, status]);
 
-  const handleStart = async (eventId: string) => {
-    try {
-      await startEvent(eventId, integrityTier, async () => {
-        // Resolve inside the starter so startEvent enters its synchronous
-        // in-flight state before this best-effort native lookup can yield.
-        const deviceFingerprint = await getQuizDeviceFingerprint().catch(
-          () => null
-        );
-        return startQuizAttempt({ deviceFingerprint, eventId, integrityTier });
-      });
-    } catch (error) {
-      log.warn('Failed to start quiz attempt', error);
-      setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
-    }
-  };
-
-  // A shopper must choose a public username before their first play (it becomes
-  // their leaderboard name). requestStart shows the gate when needed and only
-  // then proceeds to handleStart.
-  const { cancelGate, confirmGate, isGateVisible, requestStart } =
-    useQuizStartGate((eventId) => {
-      void handleStart(eventId);
-    });
+  // Composes the username + 18+ date-of-birth gates and the attempt start,
+  // including reopening the DOB gate when the server age gate rejects a stored
+  // value.
+  const { dobGate, usernameGate } = useQuizStartFlow({
+    integrityTier,
+    startEvent,
+  });
 
   const submitAnswerValue = async (answer: string, viaForfeit: boolean) => {
     if (!attempt) return;
@@ -200,13 +183,15 @@ export function QuizScreen({
         <ActivityIndicator accessibilityLabel="Loading quiz events" />
       ) : null}
 
-      {error ? (
+      {error && !dobGate.isGateVisible ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
         </Text>
       ) : null}
 
-      {error && (status === 'ready' || status === 'error') ? (
+      {error &&
+      !dobGate.isGateVisible &&
+      (status === 'ready' || status === 'error') ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry loading quiz events"
@@ -228,7 +213,7 @@ export function QuizScreen({
           events={events}
           isStarting={status === 'starting'}
           locale={locale}
-          onStart={requestStart}
+          onStart={usernameGate.requestStart}
           styles={styles}
           timeNotSetLabel={QUIZ_COPY.timeNotSet}
         />
@@ -274,11 +259,26 @@ export function QuizScreen({
       ) : null}
 
       <QuizUsernameGateModal
-        onCancel={cancelGate}
+        onCancel={usernameGate.cancelGate}
         onSuccess={() => {
-          confirmGate();
+          usernameGate.confirmGate();
         }}
-        visible={isGateVisible}
+        visible={usernameGate.isGateVisible}
+      />
+      <QuizDateOfBirthGateModal
+        errorMessage={dobGate.correctionError}
+        initialValue={
+          dobGate.correctionError
+            ? (dobGate.dateOfBirth ?? undefined)
+            : undefined
+        }
+        onCancel={dobGate.cancelGate}
+        onSuccess={() => {
+          // Pass the generation snapshotted at open time so a save that resolved
+          // after the gate was cancelled/reopened cannot start the wrong event.
+          dobGate.confirmGate(dobGate.generation);
+        }}
+        visible={dobGate.isGateVisible}
       />
     </ScrollView>
   );

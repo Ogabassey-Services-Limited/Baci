@@ -16,6 +16,7 @@ const CUSTOMER_SESSION_SELECT = `
   email,
   phone,
   address,
+  date_of_birth,
   saved_addresses,
   store_credit,
   total_orders,

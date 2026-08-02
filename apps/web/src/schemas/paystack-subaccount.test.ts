@@ -2,6 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { paystackSubaccountSchema } from '@/schemas/paystack-subaccount';
 
 describe('paystackSubaccountSchema', () => {
+  it('preserves the validated requested merchant ID for exact-target routes', () => {
+    const result = paystackSubaccountSchema.parse({
+      accountNumber: '1234567890',
+      bankCode: '044',
+      merchantId: '33333333-3333-4333-8333-333333333333',
+    });
+
+    expect(result).toMatchObject({
+      merchant_id: '33333333-3333-4333-8333-333333333333',
+    });
+  });
+
+  it('rejects malformed requested merchant IDs', () => {
+    const result = paystackSubaccountSchema.safeParse({
+      accountNumber: '1234567890',
+      bankCode: '044',
+      merchantId: 'merchant-a',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('parses snake_case payloads', () => {
     const result = paystackSubaccountSchema.parse({
       account_number: '1234567890',

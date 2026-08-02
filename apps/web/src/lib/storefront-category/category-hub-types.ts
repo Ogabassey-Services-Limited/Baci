@@ -6,11 +6,21 @@ import type {
 export type CategoryHubSource = 'merchant' | 'curated' | 'fallback';
 
 export interface BrandAuthorityEntry {
+  brandAliases?: string[];
   brandKey: string;
   brandQueryValue: string;
   categorySlug: string;
   displayName: string;
   minimumProducts: number;
+}
+
+export interface ModelFamilyAuthorityEntry {
+  brandKey: string;
+  categorySlug: string;
+  displayName: string;
+  familyKey: string;
+  minimumProducts: number;
+  productNamePattern: string;
 }
 
 export interface CategoryHubFaqItem {

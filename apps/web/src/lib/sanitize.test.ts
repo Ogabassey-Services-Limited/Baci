@@ -85,6 +85,17 @@ describe('sanitize', () => {
     expect(output).not.toContain('fetchpriority=');
   });
 
+  it('forces below-fold images to lazy loading when requested', () => {
+    const output = sanitizeHtml(
+      '<img src="https://example.com/body.jpg" alt="Body" loading="eager">',
+      { forceLazyImages: true }
+    );
+
+    expect(output).toContain('loading="lazy"');
+    expect(output).toContain('decoding="async"');
+    expect(output).not.toContain('loading="eager"');
+  });
+
   it('keeps fetchpriority only for internally trusted priority blog images', () => {
     const priorityImageSource =
       'https://cdn.ogabassey.com/core-assets/blog/x/inline-1-b9244d7a754d.png';

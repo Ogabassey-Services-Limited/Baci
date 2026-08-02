@@ -1,0 +1,1 @@
+export const BRAND_AUTHORITY_PRODUCT_LIMIT = 48;

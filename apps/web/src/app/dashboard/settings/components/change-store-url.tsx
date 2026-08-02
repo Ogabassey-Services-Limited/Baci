@@ -54,7 +54,7 @@ interface RenameSlugResponse {
  * confirmation copy reassures rather than alarms.
  */
 export function ChangeStoreUrl() {
-  const { merchant, reloadMerchant } = useMerchant();
+  const { merchant } = useMerchant();
   const { toast } = useToast();
 
   const currentSlug = merchant?.slug ?? '';
@@ -76,7 +76,7 @@ export function ChangeStoreUrl() {
     try {
       const result = await apiPost<RenameSlugResponse>(
         '/api/merchant/rename-slug',
-        { new_slug: trimmed }
+        { merchantId, new_slug: trimmed }
       );
       toast({
         title: 'Store URL changed',
@@ -86,7 +86,8 @@ export function ChangeStoreUrl() {
         )}. The old link redirects here automatically.`,
       });
       setNextSlug('');
-      reloadMerchant();
+      // The rename response is scoped to the captured merchant. Do not reload
+      // whichever merchant happens to be selected after this request finishes.
     } catch (error) {
       toast({
         title: 'Could not change URL',

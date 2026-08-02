@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import test from 'node:test';
 import { makeFakeCommand } from './deploy-with-retry.test-helpers.mjs';
 import { runScript } from './deploy-with-retry.run-script.mjs';
+
+// One regression test drives a genuinely hanging deploy through the real
+// `timeout` so the kill path itself is covered (the direct-exit fakes below are
+// supplemental, per-branch cases). Skip only where neither `timeout` nor
+// `gtimeout` exists (a bare macOS dev box); it runs on the Linux CI/deploy
+// runners.
+const hasTimeoutCmd =
+  spawnSync('bash', ['-c', 'command -v timeout || command -v gtimeout'])
+    .status === 0;
 
 test('promotes the observed deployment when deploy succeeds first try', () => {
   const fakeCommand = makeFakeCommand('success');
@@ -156,6 +166,100 @@ test('refuses duplicate custom id recovery without an observed deployment target
     assert.match(result.stderr, /no deployment URL or ID was observed/);
     assert.match(result.stdout, /Deploy failed after 2 attempts/);
     assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '2');
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('recovers when a deploy attempt is SIGKILLed (exit 137) after creating the deployment', () => {
+  const fakeCommand = makeFakeCommand('killed-137-after-create');
+
+  try {
+    // No timeout needed: the fake exits 137 directly, the way `timeout -k` does
+    // when it escalates to SIGKILL against a TERM-resistant hung deploy.
+    const result = runScript(fakeCommand);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(
+      result.stdout,
+      /Recovered killed deploy by promoting https:\/\/baci-hang\.vercel\.app/
+    );
+    assert.equal(
+      readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+      'https://baci-hang.vercel.app'
+    );
+    assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '1');
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
+test(
+  'recovers a genuinely hung deploy that the real timeout has to kill',
+  { skip: hasTimeoutCmd ? false : 'timeout/gtimeout unavailable' },
+  () => {
+    const fakeCommand = makeFakeCommand('hang-until-killed');
+
+    try {
+      // Exercises run_with_timeout end to end: the fake blocks in `sleep` until
+      // `timeout` (exit 124, or 137 if it must escalate to KILL) terminates it,
+      // and the created deployment is then promoted. Reproduces the exact CLI-57
+      // hang the direct-exit fakes only simulate.
+      const result = runScript(fakeCommand, ['fake-vercel', 'deploy'], {
+        DEPLOY_ATTEMPT_TIMEOUT_SECONDS: '2',
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Recovered killed deploy by promoting/);
+      assert.equal(
+        readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+        'https://baci-hang.vercel.app'
+      );
+      assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '1');
+    } finally {
+      rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+    }
+  }
+);
+
+test('retries (keeps its attempts) when a killed deploy cannot be promoted', () => {
+  const fakeCommand = makeFakeCommand('killed-137-promote-fails');
+
+  try {
+    // A 137 whose deployment is not promotable (unrelated/OOM kill, not a -k
+    // escalation) must NOT be treated as a recovered timeout: the promote fails
+    // and the run falls through to its normal retries rather than exiting.
+    const result = runScript(fakeCommand);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Could not promote/);
+    assert.match(result.stdout, /Deploy failed after 2 attempts/);
+    // both attempts ran, and nothing was ever promoted
+    assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '2');
+    assert.throws(() => readFileSync(fakeCommand.promotedFile, 'utf8'));
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('re-promotes the same deployment on a transient promote failure (no new deploy)', () => {
+  const fakeCommand = makeFakeCommand('killed-137-promote-flaky');
+
+  try {
+    // The first promote fails transiently and the second succeeds. The captured
+    // target is re-promoted rather than a fresh deploy being started, so there
+    // is still exactly ONE deploy attempt and no duplicate deployment.
+    const result = runScript(fakeCommand, ['fake-vercel', 'deploy'], {
+      PROMOTE_ATTEMPTS: '3',
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Recovered killed deploy by promoting/);
+    assert.equal(
+      readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+      'https://baci-hang.vercel.app'
+    );
+    assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '1');
   } finally {
     rmSync(fakeCommand.tempDir, { recursive: true, force: true });
   }

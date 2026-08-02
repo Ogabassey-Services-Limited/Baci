@@ -43,6 +43,8 @@ export function resolveSuggestionNavigationPath(
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
+  /** Resolved Santa storefront used by actions in this assistant response. */
+  merchantSlug?: string;
   /**
    * @deprecated Use `santaActions` for new code. Kept only so older
    * Ogabassey chat message render paths can read previously shaped messages

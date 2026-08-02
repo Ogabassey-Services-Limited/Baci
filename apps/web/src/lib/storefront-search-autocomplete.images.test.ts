@@ -82,7 +82,7 @@ describe('getStorefrontAutocompleteProducts image normalization', () => {
     const result = await getStorefrontAutocompleteProducts({
       supabase: imageSupabase,
       merchantId: VALID_MERCHANT_ID,
-      query: 'iphone',
+      query: 'iphone-empty-images',
       limit: 10,
     });
 
@@ -121,7 +121,7 @@ describe('getStorefrontAutocompleteProducts image normalization', () => {
     const result = await getStorefrontAutocompleteProducts({
       supabase: imageSupabase,
       merchantId: VALID_MERCHANT_ID,
-      query: 'iphone',
+      query: 'iphone-object-images',
       limit: 10,
     });
 

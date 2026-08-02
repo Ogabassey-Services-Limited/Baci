@@ -122,10 +122,13 @@ export const MerchantContextSchema = z.object({
 export interface MerchantData {
   merchant: Merchant | null;
   primaryDomain: Domain | null;
+  resolvedForUserId: string | null;
   storeUrl: string;
   isLive: boolean;
   isLoading: boolean;
+  isFetching: boolean;
   error: Error | null;
+  refetch: () => Promise<unknown>;
 }
 
 class MerchantNetworkError extends Error {
@@ -165,9 +168,11 @@ function isMerchantNetworkFailure(error: unknown): boolean {
   );
 }
 
-export async function fetchMerchantData(
-  userId: string
-): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
+export async function fetchMerchantData(userId: string): Promise<{
+  merchant: Merchant | null;
+  primaryDomain: Domain | null;
+  resolvedForUserId: string;
+}> {
   if (__DEV__) {
     console.log('[Merchant] Fetching context for user:', userId);
   }
@@ -193,7 +198,11 @@ export async function fetchMerchantData(
     if (__DEV__) {
       console.log('[Merchant] No merchant context found for user');
     }
-    return { merchant: null, primaryDomain: null };
+    return {
+      merchant: null,
+      primaryDomain: null,
+      resolvedForUserId: userId,
+    };
   }
 
   // data is typed as any from RPC, so we cast and validate it
@@ -210,13 +219,14 @@ export async function fetchMerchantData(
   return {
     merchant: result.merchant,
     primaryDomain: result.primaryDomain,
+    resolvedForUserId: userId,
   };
 }
 
 export function useMerchant(): MerchantData {
   const { user } = useAuth();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isFetching, isLoading, error, refetch } = useQuery({
     queryKey: ['merchant', user?.id],
     queryFn: () => {
       if (!user?.id) throw new Error('No user authenticated');
@@ -242,9 +252,12 @@ export function useMerchant(): MerchantData {
   return {
     merchant,
     primaryDomain,
+    resolvedForUserId: data?.resolvedForUserId ?? null,
     storeUrl,
     isLive: merchant?.is_published ?? false,
+    isFetching,
     isLoading,
     error: error as Error | null,
+    refetch,
   };
 }

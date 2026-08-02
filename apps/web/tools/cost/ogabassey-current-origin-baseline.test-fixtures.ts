@@ -1,0 +1,157 @@
+import { createHash } from 'node:crypto';
+import type { CloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
+import { retrieveCurrentCloudflareWorkersLogsContract } from './ogabassey-current-origin-baseline';
+import type { OgabasseyOriginHostEvidence } from './ogabassey-current-origin-baseline-traffic';
+import { retrieveAuthenticatedTransformRuleCapability } from './ogabassey-current-origin-baseline-transform';
+
+const NOW = new Date('2026-08-01T12:00:00.000Z');
+const OFFICIAL_DOCS = 'current-workers-logs-docs';
+
+const BASE_WORKERS_LOGS_CONTRACT = {
+  plan: 'free' as const,
+  allowanceEvents: 200_000n,
+  allowancePeriod: 'utc_day' as const,
+  allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+  allowancePeriodEndsAt: '2026-08-02T00:00:00.000Z',
+  currentAllowancePeriodAllAccountEvents: 1_234n,
+  allowanceUsageSourceFingerprint: '1'.repeat(64),
+  allowanceMaximumObservationLagSeconds: 3_600,
+  allowanceObservedAt: '2026-08-01T11:30:00.000Z',
+  utcDayStartsAt: '2026-08-01T00:00:00.000Z',
+  utcDayEndsAt: '2026-08-02T00:00:00.000Z',
+  currentUtcDayAllAccountEvents: 2_345n,
+  otherWorkersWorstCaseDailyLogEvents: 0n,
+  utcDayUsageSourceFingerprint: '2'.repeat(64),
+  utcDayMaximumObservationLagSeconds: 3_600,
+  utcDayObservedAt: '2026-08-01T11:30:00.000Z',
+  overageAllowed: false,
+  overageUsdPerMillion: null,
+  forcedSamplingDailyThreshold: 5_000_000_000n,
+  forcedSamplingRate: '0.01',
+  officialDocsSha256: '',
+  authenticatedEntitlementSha256: '',
+};
+
+function sha256(value: string) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function entitlementReceipt(contract: Record<string, unknown>) {
+  const projection: Record<string, unknown> = { ...contract };
+  delete projection.officialDocsSha256;
+  delete projection.authenticatedEntitlementSha256;
+  return JSON.stringify(projection, (_, value: unknown) =>
+    typeof value === 'bigint' ? value.toString() : value
+  );
+}
+
+export function currentWithWorkersLogsContract(
+  overrides: Partial<CloudflareWorkersLogsPlanContract> = {}
+) {
+  const unsigned = {
+    ...BASE_WORKERS_LOGS_CONTRACT,
+    ...overrides,
+    officialDocsSha256: sha256(OFFICIAL_DOCS),
+    authenticatedEntitlementSha256: '',
+  };
+  const rawEntitlement = entitlementReceipt(unsigned);
+  const contract = {
+    ...unsigned,
+    authenticatedEntitlementSha256: sha256(rawEntitlement),
+  };
+  return retrieveCurrentCloudflareWorkersLogsContract(
+    async () => OFFICIAL_DOCS,
+    async () => rawEntitlement,
+    contract,
+    { now: NOW }
+  );
+}
+
+export function currentWithTransformRuleCapability(
+  overrides: Readonly<{
+    supported?: boolean;
+    approved?: boolean;
+    incrementalZonePlanCostUsd?: string;
+  }> = {}
+) {
+  const provider = JSON.stringify({ supported: overrides.supported ?? true });
+  const owner = JSON.stringify({
+    approved: overrides.approved ?? true,
+    incrementalZonePlanCostUsd: overrides.incrementalZonePlanCostUsd ?? '0.00',
+  });
+  return retrieveAuthenticatedTransformRuleCapability(
+    async () => provider,
+    async () => owner,
+    {
+      supported: overrides.supported ?? true,
+      approved: overrides.approved ?? true,
+      incrementalZonePlanCostUsd:
+        overrides.incrementalZonePlanCostUsd ?? '0.00',
+      providerCapabilitySha256: sha256(provider),
+      ownerApprovalSha256: sha256(owner),
+    }
+  );
+}
+
+const BASE_INPUT = {
+  windowDays: 7,
+  windowStart: '2026-07-25T00:00:00.000Z',
+  windowEnd: '2026-08-01T00:00:00.000Z',
+  observedAt: '2026-08-01T11:00:00.000Z',
+  allIngressRequests: 1_000,
+  allIngressOriginAttempts: 20,
+  discoveredHostnames: [
+    'ogabassey.com',
+    'ogabassey.usebaci.com',
+    'www.ogabassey.com',
+  ],
+  hostEvidence: [
+    {
+      hostname: 'ogabassey.com',
+      requestCount: 1_000,
+      originAttemptCount: 20,
+      eligibleStaticRequestCount: 1_000,
+      eligibleStaticOriginAttemptCount: 20,
+      dynamicRequestCount: 0,
+      dynamicOriginAttemptCount: 0,
+    },
+    {
+      hostname: 'ogabassey.usebaci.com',
+      requestCount: 0,
+      originAttemptCount: 0,
+      eligibleStaticRequestCount: 0,
+      eligibleStaticOriginAttemptCount: 0,
+      dynamicRequestCount: 0,
+      dynamicOriginAttemptCount: 0,
+    },
+    {
+      hostname: 'www.ogabassey.com',
+      requestCount: 0,
+      originAttemptCount: 0,
+      eligibleStaticRequestCount: 0,
+      eligibleStaticOriginAttemptCount: 0,
+      dynamicRequestCount: 0,
+      dynamicOriginAttemptCount: 0,
+    },
+  ] satisfies readonly OgabasseyOriginHostEvidence[],
+  completeHostEvidence: true,
+  currentVercelAttributionUsd: '12.00',
+  projectedEdgeCostUsd: '2.00',
+  originCostProjection: {
+    irreducibleDynamicOriginCostUsd: '2.00',
+    reducibleStaticOriginCostUsd: '10.00',
+  },
+  ownerApprovedPaybackMonths: 12,
+  verifiedUpfrontImplementationCostUsd: '16.00',
+  paybackMonths: 2,
+  expectedDailyWorkerInvocations: 143n,
+  qualifiedLogEventsPerInvocation: 2n,
+  ownerApprovedTrafficHeadroomMultiplier: '1.00',
+  ownerApprovedErrorHeadroomMultiplier: '1.00',
+};
+
+export const current = {
+  ...BASE_INPUT,
+  transformRuleCapability: await currentWithTransformRuleCapability(),
+  workersLogsContract: await currentWithWorkersLogsContract(),
+};

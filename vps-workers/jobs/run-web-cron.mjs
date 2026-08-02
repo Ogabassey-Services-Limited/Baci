@@ -9,10 +9,16 @@ import { config } from 'dotenv';
 // These paths expose CRON_SECRET-gated wrappers that delegate to the underlying
 // scheduled work. The VPS worker must not call OAuth callbacks.
 const WEB_CRON_CONFIG = new Map([
+  [
+    '/api/cron/drain-cache-invalidations',
+    { method: 'GET', timeoutMs: 90_000 },
+  ],
   ['/api/ai-jobs/worker', { method: 'GET', timeoutMs: 15 * 60_000 }],
   ['/api/cron/alert-stuck-bnpl', { method: 'GET', timeoutMs: 5 * 60_000 }],
+  ['/api/cron/merchant-signup-health', { method: 'GET', timeoutMs: 60_000 }],
   ['/api/cron/cleanup-orders', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/cron/process-settlements', { method: 'POST', timeoutMs: 5 * 60_000 }],
+  ['/api/cron/petrock-reconcile', { method: 'GET', timeoutMs: 5 * 60_000 }],
   [
     '/api/cron/publish-scheduled-posts',
     { method: 'GET', timeoutMs: 5 * 60_000 },
@@ -37,13 +43,13 @@ const WEB_CRON_CONFIG = new Map([
     { method: 'GET', timeoutMs: 6 * 60_000 },
   ],
   ['/api/cron/sync-petrock-catalog', { method: 'GET', timeoutMs: 5 * 60_000 }],
-  ['/api/cron/petrock-reconcile', { method: 'GET', timeoutMs: 5 * 60_000 }],
   [
     '/api/cron/agentic-commerce-health',
     { method: 'GET', timeoutMs: 5 * 60_000 },
   ],
   ['/api/cron/wallet-payouts', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/cron/order-notifications', { method: 'GET', timeoutMs: 5 * 60_000 }],
+  ['/api/quiz/finalize', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/inventory/push-alerts', { method: 'GET', timeoutMs: 10 * 60_000 }],
   [
     '/api/cron/storefront-update-nudge',
@@ -51,7 +57,6 @@ const WEB_CRON_CONFIG = new Map([
   ],
   ['/api/cron/ios-live-build-sync', { method: 'GET', timeoutMs: 60_000 }],
   ['/api/cron/android-live-build-sync', { method: 'GET', timeoutMs: 60_000 }],
-  ['/api/quiz/finalize', { method: 'GET', timeoutMs: 5 * 60_000 }],
 ]);
 
 const RESPONSE_PREVIEW_LIMIT = 500;

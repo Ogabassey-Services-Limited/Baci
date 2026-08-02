@@ -37,6 +37,16 @@ function allowedFactoryImporter(path: string, kind: FactoryKind): boolean {
   return allowed.includes(path);
 }
 
+function allowsCredentialPath(path: readonly string[]): boolean {
+  const allowed: readonly (readonly string[])[] =
+    manifest.authority.credentialPaths;
+  return allowed.some(
+    (candidate) =>
+      candidate.length === path.length &&
+      candidate.every((segment, index) => segment === path[index])
+  );
+}
+
 function pathMessage(
   root: string,
   kind: AuthorityKind,
@@ -167,6 +177,7 @@ function collectAuthorityEdges(
         ) {
           continue;
         }
+        if (kind === 'credential' && allowsCredentialPath(path)) continue;
         const message = pathMessage(root, kind, target, path);
         for (let index = 1; index < path.length; index += 1) {
           edges.push({

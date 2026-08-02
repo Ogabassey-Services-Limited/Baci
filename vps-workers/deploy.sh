@@ -4,23 +4,24 @@
 
 set -euo pipefail
 
+WORKER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/prepare-worker-release.sh
+source "$WORKER_ROOT/lib/prepare-worker-release.sh"
+
 VPS="bassey@82.29.190.219"
 REMOTE_DIR="/home/bassey/baci-workers"
+APP_SHA=$(git rev-parse HEAD)
 
-echo "==> Syncing worker files to $VPS:$REMOTE_DIR"
-rsync -av --delete --exclude='.env*' --exclude='node_modules' --exclude='logs' --exclude='locks' \
-  vps-workers/ "$VPS:$REMOTE_DIR/"
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Refusing worker deployment from a dirty tracked checkout." >&2
+  exit 1
+fi
+if [ -n "$(git ls-files --others --exclude-standard)" ]; then
+  echo "Refusing worker deployment with untracked files." >&2
+  exit 1
+fi
 
-echo "==> Installing dependencies on VPS"
-# Note: commit vps-workers/pnpm-lock.yaml to enable --frozen-lockfile
-ssh "$VPS" "cd $REMOTE_DIR && CI=true pnpm install --frozen-lockfile --prod"
-
-echo "==> Creating runtime directories on VPS"
-ssh "$VPS" "mkdir -p $REMOTE_DIR/logs $REMOTE_DIR/locks"
-
-echo "==> Resolving Node.js path on VPS"
-NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
-echo "    Using Node: $NODE_BIN"
+prepare_worker_release
 
 echo "==> Installing Vercel drain receiver user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-vercel-log-drain-receiver.service"
@@ -93,9 +94,11 @@ $CRON_BLOCK_START
 0 5    * * * flock -n $REMOTE_DIR/locks/process-settlements.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/process-settlements' >> $REMOTE_DIR/logs/process-settlements.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/order-cancellation-side-effects.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/process-settlements?cancellationsOnly=true' >> $REMOTE_DIR/logs/order-cancellation-side-effects.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/reconcile-vtu-processing.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/reconcile-vtu-processing' >> $REMOTE_DIR/logs/reconcile-vtu-processing.log 2>&1
+*/5 *  * * * flock -n $REMOTE_DIR/locks/merchant-signup-health.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/merchant-signup-health' >> $REMOTE_DIR/logs/merchant-signup-health.log 2>&1
 20 *   * * * flock -n $REMOTE_DIR/locks/reconcile-gateway-paid-orders.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/reconcile-gateway-paid-orders' >> $REMOTE_DIR/logs/reconcile-gateway-paid-orders.log 2>&1
-* *    * * * flock -n $REMOTE_DIR/locks/petrock-reconcile.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/petrock-reconcile' >> $REMOTE_DIR/logs/petrock-reconcile.log 2>&1
+* *    * * * flock -n $REMOTE_DIR/locks/petrock-reconcile.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=petrock-reconciliation && cd $REMOTE_DIR && timeout --signal=TERM --kill-after=30s 5m $REMOTE_DIR/bin/process-petrock-reconciliation.sh' >> $REMOTE_DIR/logs/petrock-reconcile.log 2>&1
 */5 * * * * flock -n $REMOTE_DIR/locks/order-notifications.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/order-notifications?batchSize=5' >> $REMOTE_DIR/logs/order-notifications.log 2>&1
+*/2 * * * * flock -n $REMOTE_DIR/locks/cache-invalidations.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/drain-cache-invalidations' >> $REMOTE_DIR/logs/cache-invalidations.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/ollama-workload.lock flock -n $REMOTE_DIR/locks/agentic-commerce-health.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/agentic-commerce-health' >> $REMOTE_DIR/logs/agentic-commerce-health.log 2>&1
 0 */6  * * * flock -n $REMOTE_DIR/locks/inventory-push-alerts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/inventory/push-alerts' >> $REMOTE_DIR/logs/inventory-push-alerts.log 2>&1
@@ -113,7 +116,7 @@ $CRON_BLOCK_START
 0 10   * * * flock -n $REMOTE_DIR/locks/storefront-update-nudge.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/storefront-update-nudge' >> $REMOTE_DIR/logs/storefront-update-nudge.log 2>&1
 30 9   * * * flock -n $REMOTE_DIR/locks/ios-live-build-sync.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/ios-live-build-sync' >> $REMOTE_DIR/logs/ios-live-build-sync.log 2>&1
 45 9   * * * flock -n $REMOTE_DIR/locks/android-live-build-sync.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/android-live-build-sync' >> $REMOTE_DIR/logs/android-live-build-sync.log 2>&1
-* * * * * flock -n $REMOTE_DIR/locks/quiz-finalize.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/quiz/finalize' >> $REMOTE_DIR/logs/quiz-finalize.log 2>&1
+* * * * * flock -n $REMOTE_DIR/locks/quiz-finalize.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=quiz-finalization && cd $REMOTE_DIR && timeout --signal=TERM --kill-after=30s 5m $REMOTE_DIR/bin/process-quiz-finalization.sh' >> $REMOTE_DIR/logs/quiz-finalize.log 2>&1
 15 4   * * * flock -n $REMOTE_DIR/locks/sync-gigl-service-centres.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/sync-gigl-service-centres.mjs' >> $REMOTE_DIR/logs/sync-gigl-service-centres.log 2>&1
 $CRON_BLOCK_END
 EOF
@@ -212,6 +215,17 @@ echo "    Reminder: create $REMOTE_DIR/.env if not already present:"
 echo "         NEXT_PUBLIC_SUPABASE_URL=..."
 echo "         NEXT_PUBLIC_SUPABASE_ANON_KEY=..."
 echo "         SUPABASE_SERVICE_ROLE_KEY=..."
+echo "         IMEI_IDENTIFIER_ENCRYPTION_KEY=..."
+echo "         PETROCK_API_TOKEN=..."
+echo "         PETROCK_API_BASE_URL=https://api.petrock.biz/api/reseller/v1"
+echo "         PETROCK_ENABLED=true"
+echo "         PETROCK_ENABLED_TIERS=..."
+echo "         PETROCK_REMEDIATION_ENABLED=true"
+echo "         QUIZ_PHASE=1a"
+echo "         QUIZ_PRODUCTION_APPROVED=false"
+echo "         QUIZ_RPC_SERVER_SECRET=..."
+echo "         QUIZ_DEVICE_HASH_PEPPER=..."
+echo "         BACI_REPO_DIR=/opt/baci/app"
 echo "         GIGL_BASE_URL=..."
 echo "         GIGL_EMAIL=..."
 echo "         GIGL_PASSWORD=..."

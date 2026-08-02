@@ -23,6 +23,51 @@ describe('web cron worker', () => {
     );
   });
 
+  it('allows the ordered cache invalidation endpoint', async () => {
+    const calls = [];
+    await runWebCron({
+      path: '/api/cron/drain-cache-invalidations',
+      env: {
+        BACI_WEB_BASE_URL: 'https://ogabassey.com',
+        CRON_SECRET: 'secret',
+      },
+      fetchFn: (url, init) => {
+        calls.push({ url, init });
+        return new Response('ok', { status: 200 });
+      },
+      logger: noopLogger,
+    });
+
+    assert.equal(
+      calls[0].url,
+      'https://ogabassey.com/api/cron/drain-cache-invalidations'
+    );
+    assert.equal(calls[0].init.method, 'GET');
+  });
+
+  it('fails the VPS invocation on the cache dead-letter alert response', async () => {
+    await assert.rejects(
+      () =>
+        runWebCron({
+          path: '/api/cron/drain-cache-invalidations',
+          env: {
+            BACI_WEB_BASE_URL: 'https://ogabassey.com',
+            CRON_SECRET: 'secret',
+          },
+          fetchFn: () =>
+            new Response(
+              JSON.stringify({
+                code: 'cache_invalidation_dead_letter',
+                error: 'Cache invalidations require intervention',
+              }),
+              { status: 503 }
+            ),
+          logger: noopLogger,
+        }),
+      /HTTP 503:.*cache_invalidation_dead_letter/
+    );
+  });
+
   it('allows the gateway paid-order reconcile drain endpoint', async () => {
     const calls = [];
     const result = await runWebCron({
@@ -221,18 +266,24 @@ describe('web cron worker', () => {
     assert.deepEqual(result, { status: 200, body: 'ok' });
   });
 
-  it('allows the Petrock reconciliation cron endpoint', async () => {
-    const result = await runWebCron({
-      path: '/api/cron/petrock-reconcile',
-      env: {
-        BACI_WEB_BASE_URL: 'https://ogabassey.com',
-        CRON_SECRET: 'secret',
-      },
-      fetchFn: () => new Response('ok', { status: 200 }),
-      logger: noopLogger,
-    });
+  it('retains the Petrock reconciliation endpoint for safe deployment transitions', () => {
+    assert.equal(
+      buildWebCronUrl({
+        baseUrl: 'https://ogabassey.com',
+        path: '/api/cron/petrock-reconcile',
+      }).toString(),
+      'https://ogabassey.com/api/cron/petrock-reconcile'
+    );
+  });
 
-    assert.deepEqual(result, { status: 200, body: 'ok' });
+  it('retains the quiz finalization endpoint for safe deployment transitions', () => {
+    assert.equal(
+      buildWebCronUrl({
+        baseUrl: 'https://ogabassey.com',
+        path: '/api/quiz/finalize',
+      }).toString(),
+      'https://ogabassey.com/api/quiz/finalize'
+    );
   });
 
   it('allows the agentic commerce health cron endpoint', async () => {

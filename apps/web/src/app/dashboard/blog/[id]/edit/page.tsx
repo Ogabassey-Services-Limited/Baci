@@ -1,1564 +1,300 @@
 'use client';
 
 import { format } from 'date-fns';
-import {
-  Archive,
-  ArrowLeft,
-  Calendar as CalendarIcon,
-  Clock,
-  ExternalLink,
-  Eye,
-  Save,
-  Send,
-  Sparkles,
-  X,
-} from 'lucide-react';
-import Image from 'next/image';
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { BlogEditor } from '@/components/blog/blog-editor';
-import { ProductGrid } from '@/components/blog/product-embed';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { BagLoader } from '@/components/ui/bag-loader';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { FileUploader } from '@/components/ui/file-uploader';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import { getRootDomain } from '@/env';
 import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
-import { fetchWithCsrf } from '@/lib/api-client';
-import {
-  BLOG_FEATURED_VARIANT_KEYS,
-  type BlogFeaturedVariantKey,
-  extractManagedBlogStoragePath,
-} from '@/lib/blog-managed-storage-paths';
-import { asRoute } from '@/lib/routes';
-import { isSafeSlug } from '@/lib/validate-slug';
 import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
-import { getPreviewUrl } from '../../actions';
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  compare_at_price?: number;
-  images: string[];
-  slug: string;
-  status: string;
-}
-
-interface PostFormData {
-  title: string;
-  slug: string;
-  content: string;
-  excerpt: string;
-  featured_image_url: string;
-  featured_image_alt: string;
-  featured_image_width: number | null;
-  featured_image_height: number | null;
-  featured_image_variants: FeaturedImageVariants;
-  category: string;
-  tags: string;
-  keywords: string;
-  author_name: string;
-  author_title: string;
-  author_bio: string;
-  seo_title: string;
-  seo_description: string;
-  focus_keyword: string;
-  status: 'draft' | 'published' | 'archived' | 'scheduled';
-  published_at?: string | null;
-}
-
-type FeaturedImageVariants = Partial<Record<BlogFeaturedVariantKey, string>>;
-type FeaturedImageVariantPaths = Partial<
-  Record<BlogFeaturedVariantKey, string>
->;
-
-interface FeaturedImageUploadResponse {
-  url: string;
-  path: string;
-  width: number;
-  height: number;
-  variants?: FeaturedImageVariants;
-  variantPaths?: FeaturedImageVariantPaths;
-}
-
-interface UploadedFeaturedImage {
-  path: string;
-  variantPaths: FeaturedImageVariantPaths;
-}
-
-interface BlogPost extends PostFormData {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  published_at: string | null;
-  view_count: number;
-  word_count: number;
-  reading_time_minutes: number;
-}
-
-function normalizeFeaturedImageVariantMap(
-  value: unknown
-): FeaturedImageVariants {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-
-  const input = value as Partial<Record<BlogFeaturedVariantKey, unknown>>;
-  const normalized: FeaturedImageVariants = {};
-
-  for (const key of BLOG_FEATURED_VARIANT_KEYS) {
-    const variantUrl = input[key];
-    if (typeof variantUrl === 'string' && variantUrl.trim()) {
-      normalized[key] = variantUrl;
-    }
-  }
-
-  return normalized;
-}
-
-function normalizeFeaturedImageVariantPaths(
-  value: unknown
-): FeaturedImageVariantPaths {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-
-  const input = value as Partial<Record<BlogFeaturedVariantKey, unknown>>;
-  const normalized: FeaturedImageVariantPaths = {};
-
-  for (const key of BLOG_FEATURED_VARIANT_KEYS) {
-    const variantPath = input[key];
-    if (typeof variantPath === 'string' && variantPath.trim()) {
-      normalized[key] = variantPath;
-    }
-  }
-
-  return normalized;
-}
-
-function withFeaturedImageDefaults(data: PostFormData): PostFormData {
-  return {
-    ...data,
-    featured_image_width: data.featured_image_width ?? null,
-    featured_image_height: data.featured_image_height ?? null,
-    featured_image_variants: normalizeFeaturedImageVariantMap(
-      data.featured_image_variants
-    ),
-  };
-}
-
-function getFeaturedImagePreviewUrl(data: PostFormData): string {
-  return data.featured_image_variants.landscape_16x9 || data.featured_image_url;
-}
-
-async function readResponseErrorMessage(
-  response: Response,
-  fallback: string
-): Promise<string> {
-  let body = '';
-
-  try {
-    body = await response.text();
-  } catch {
-    return fallback;
-  }
-
-  if (!body) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(body) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      const error = (parsed as Record<string, unknown>).error;
-      if (typeof error === 'string' && error.trim()) {
-        return error;
-      }
-
-      const message = (parsed as Record<string, unknown>).message;
-      if (typeof message === 'string' && message.trim()) {
-        return message;
-      }
-    }
-  } catch {
-    return body;
-  }
-
-  return body;
-}
-
-const INITIAL_FORM_DATA: PostFormData = {
-  title: '',
-  slug: '',
-  content: '',
-  excerpt: '',
-  featured_image_url: '',
-  featured_image_alt: '',
-  featured_image_width: null,
-  featured_image_height: null,
-  featured_image_variants: {},
-  category: '',
-  tags: '',
-  keywords: '',
-  author_name: '',
-  author_title: '',
-  author_bio: '',
-  seo_title: '',
-  seo_description: '',
-  focus_keyword: '',
-  status: 'draft',
-  published_at: null,
-};
-
-type FetchedBlogPost = Omit<BlogPost, 'tags' | 'keywords'> & {
-  tags?: unknown;
-  keywords?: unknown;
-  embedded_products?: unknown;
-};
-
-type LoadBlogPostResult =
-  | { status: 'not-found' }
-  | { status: 'error' }
-  | {
-      status: 'success';
-      post: BlogPost;
-      formData: PostFormData;
-      embeddedProducts: Product[] | null;
-      productsLoadFailed: boolean;
-    };
-
-async function loadBlogPost(postId: string): Promise<LoadBlogPostResult> {
-  try {
-    const response = await fetch(`/api/merchant/blog/posts/${postId}`);
-    if (!response.ok) {
-      if (response.status === 404) {
-        return { status: 'not-found' };
-      }
-      throw new Error('Failed to fetch post');
-    }
-
-    const post = (await response.json()) as FetchedBlogPost;
-    const formData: PostFormData = {
-      title: post.title || '',
-      slug: post.slug || '',
-      content: post.content || '',
-      excerpt: post.excerpt || '',
-      featured_image_url: post.featured_image_url || '',
-      featured_image_alt: post.featured_image_alt || '',
-      featured_image_width: post.featured_image_width ?? null,
-      featured_image_height: post.featured_image_height ?? null,
-      featured_image_variants: normalizeFeaturedImageVariantMap(
-        post.featured_image_variants
-      ),
-      category: post.category || '',
-      tags: Array.isArray(post.tags) ? post.tags.join(', ') : '',
-      keywords: Array.isArray(post.keywords) ? post.keywords.join(', ') : '',
-      author_name: post.author_name || '',
-      author_title: post.author_title || '',
-      author_bio: post.author_bio || '',
-      seo_title: post.seo_title || '',
-      seo_description: post.seo_description || '',
-      focus_keyword: post.focus_keyword || '',
-      status: post.status || 'draft',
-      published_at: post.published_at || null,
-    };
-
-    // Fetch embedded products if any
-    let embeddedProducts: Product[] | null = null;
-    let productsLoadFailed = false;
-    try {
-      if (
-        Array.isArray(post.embedded_products) &&
-        post.embedded_products.length > 0
-      ) {
-        const productsResponse = await fetch(
-          `/api/products?ids=${post.embedded_products.join(',')}`
-        );
-        if (productsResponse.ok) {
-          const data = (await productsResponse.json()) as {
-            products?: Product[];
-          };
-          embeddedProducts = data.products || [];
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching post:', error);
-      productsLoadFailed = true;
-    }
-
-    return {
-      status: 'success',
-      post: post as BlogPost,
-      formData,
-      embeddedProducts,
-      productsLoadFailed,
-    };
-  } catch (error) {
-    console.error('Error fetching post:', error);
-    return { status: 'error' };
-  }
-}
-
-async function deleteUploadedFeaturedImage(
-  imageToDelete: UploadedFeaturedImage
-): Promise<void> {
-  const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    method: 'DELETE',
-    body: JSON.stringify({
-      path: imageToDelete.path,
-      variantPaths: imageToDelete.variantPaths,
-    }),
-  });
-
-  if (!response.ok) {
-    const fallback = 'Failed to delete image';
-    const message = await readResponseErrorMessage(response, fallback);
-    throw new Error(
-      message === fallback
-        ? `${fallback} (${response.status})`
-        : `${fallback} (${response.status}): ${message}`
-    );
-  }
-}
-
-async function deletePreviousFeaturedImage(
-  image: UploadedFeaturedImage
-): Promise<void> {
-  try {
-    await deleteUploadedFeaturedImage(image);
-  } catch (deleteError) {
-    console.error(
-      'Error deleting previously uploaded featured image:',
-      deleteError
-    );
-  }
-}
-
-async function uploadFeaturedImage(
-  file: File
-): Promise<FeaturedImageUploadResponse> {
-  const formDataUpload = new FormData();
-  formDataUpload.append('file', file);
-  formDataUpload.append('purpose', 'featured');
-
-  const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-    method: 'POST',
-    body: formDataUpload,
-  });
-
-  if (!response.ok) {
-    const error = (await response.json()) as { error?: string };
-    throw new Error(error.error || 'Failed to upload image');
-  }
-
-  return (await response.json()) as FeaturedImageUploadResponse;
-}
-
-interface SubmitBlogPostUpdateArgs {
-  postId: string;
-  formData: PostFormData;
-  originalSlug?: string;
-  newStatus?: PostFormData['status'];
-  scheduledDate?: Date;
-  embeddedProductIds: string[];
-}
-
-async function submitBlogPostUpdate({
-  postId,
-  formData,
-  originalSlug,
-  newStatus,
-  scheduledDate,
-  embeddedProductIds,
-}: SubmitBlogPostUpdateArgs): Promise<BlogPost> {
-  const rawPostData = {
-    title: formData.title.trim(),
-    slug:
-      formData.slug && formData.slug !== originalSlug
-        ? formData.slug
-        : undefined,
-    content: formData.content,
-    excerpt: formData.excerpt,
-    featured_image_url: formData.featured_image_url,
-    featured_image_alt: formData.featured_image_alt,
-    featured_image_width: formData.featured_image_url
-      ? formData.featured_image_width
-      : null,
-    featured_image_height: formData.featured_image_url
-      ? formData.featured_image_height
-      : null,
-    featured_image_variants: formData.featured_image_url
-      ? formData.featured_image_variants
-      : {},
-    category: formData.category,
-    tags: formData.tags ? formData.tags.split(',') : [],
-    keywords: formData.keywords ? formData.keywords.split(',') : [],
-    author_name: formData.author_name,
-    author_title: formData.author_title,
-    author_bio: formData.author_bio,
-    seo_title: formData.seo_title,
-    seo_description: formData.seo_description,
-    focus_keyword: formData.focus_keyword,
-    status: newStatus || formData.status,
-    published_at:
-      newStatus === 'scheduled'
-        ? scheduledDate?.toISOString()
-        : newStatus === 'published'
-          ? new Date().toISOString()
-          : formData.published_at,
-    embedded_products: embeddedProductIds,
-  };
-
-  const postData = sanitizeBlogPostData(rawPostData);
-
-  const response = await fetchWithCsrf(`/api/merchant/blog/posts/${postId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(postData),
-  });
-
-  if (!response.ok) {
-    const data = (await response.json()) as {
-      error?: string;
-      details?: { fieldErrors?: Record<string, string[]> };
-    };
-    const fieldErrors = data.details?.fieldErrors;
-    const errorMessage = fieldErrors
-      ? Object.values(fieldErrors)[0]?.[0]
-      : data.error;
-
-    throw new Error(errorMessage || 'Failed to update post');
-  }
-
-  return (await response.json()) as BlogPost;
-}
+import { createEditBlogPreviewAction } from './create-edit-blog-preview-action';
+import { EditBlogAuthorTab } from './edit-blog-author-tab';
+import { getBlogContentStats } from './edit-blog-content-stats';
+import { EditBlogContentTab } from './edit-blog-content-tab';
+import {
+  INITIAL_FORM_DATA,
+  normalizePostFormData,
+} from './edit-blog-form-data';
+import { EditBlogHeader } from './edit-blog-header';
+import {
+  type LoadBlogPostResult,
+  loadBlogPost,
+  submitBlogPostUpdate,
+} from './edit-blog-requests';
+import { EditBlogSeoTab } from './edit-blog-seo-tab';
+import type { BlogPost, PostFormData, Product } from './edit-blog-types';
+import { useEditBlogDraftRecovery } from './use-edit-blog-draft-recovery';
+import { useEditBlogSession } from './use-edit-blog-merchant-session';
+import { useFeaturedImageActions } from './use-featured-image-actions';
 
 export default function EditBlogPostPage() {
   const router = useRouter();
-  const params = useParams();
-  const postId = params.id as string;
+  const postId = useParams().id as string;
   const { toast } = useToast();
   const { merchant } = useMerchant();
-
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const merchantSessionRef = useEditBlogSession(
+    merchant?.id,
+    postId,
+    setIsSaving
+  );
   const [activeTab, setActiveTab] = useState('content');
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
+  const [hasHydratedEmbeddedProducts, setHasHydratedEmbeddedProducts] =
+    useState(false);
+  const [hasUserChangedEmbeddedProducts, setHasUserChangedEmbeddedProducts] =
+    useState(false);
   const [originalPost, setOriginalPost] = useState<BlogPost | null>(null);
   const [formData, setFormData] = useState<PostFormData>(INITIAL_FORM_DATA);
-  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(
-    formData.published_at ? new Date(formData.published_at) : undefined
-  );
-  const [isSchedulePopoverOpen, setIsSchedulePopoverOpen] = useState(false);
-  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
-  const [uploadedFeaturedImage, setUploadedFeaturedImage] =
-    useState<UploadedFeaturedImage | null>(null);
-  const uploadedFeaturedImageRef = useRef<UploadedFeaturedImage | null>(null);
-  const hasCheckedForRecovery = useRef(false);
-
-  // Auto-save to localStorage (protects against Chrome Memory Saver)
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>();
+  const [contentResetKey, setContentResetKey] = useState(0);
   const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
-    storageKey: `blog-draft-edit-${postId}`,
+    storageKey: `blog-draft-edit-${merchant?.id ?? 'pending'}-${postId}`,
     data: formData,
-    enabled: !isLoading, // Don't auto-save during initial load
+    enabled: !isLoading,
   });
-
-  const recoverDraft = () => {
-    const saved = getSavedData();
-    if (saved) {
-      setFormData(withFeaturedImageDefaults(saved.data));
-      toast({
-        title: 'Draft Recovered',
-        description: 'Your unsaved changes have been restored.',
-      });
-    }
-    setShowRecoveryDialog(false);
-  };
-
-  const discardRecoveredDraft = () => {
-    clearSavedData();
-    setShowRecoveryDialog(false);
-  };
-
-  // Undo auto-recovery - restore the original database state
-  const undoRecovery = (previousData: PostFormData) => {
-    setFormData(previousData);
-    clearSavedData();
-    toast({
-      title: 'Recovery Undone',
-      description: 'Restored to the last saved version.',
-    });
-  };
-
-  // Silent auto-recovery after initial load (no blocking dialog)
-  const recoverSavedDraft = (loadedFormData: PostFormData | null) => {
-    if (!hasSavedData() || hasCheckedForRecovery.current) {
-      return;
-    }
-    hasCheckedForRecovery.current = true;
-    const saved = getSavedData();
-    if (!saved) {
-      return;
-    }
-    // Keep the pre-recovery data for undo functionality
-    const previousData = loadedFormData ?? { ...INITIAL_FORM_DATA };
-    // Silently restore the draft
-    setFormData(withFeaturedImageDefaults(saved.data));
-    // Show non-blocking toast with undo option
-    toast({
-      title: 'Draft Recovered',
-      description: 'Your unsaved changes have been restored.',
-      action: (
-        <button
-          type="button"
-          onClick={() => undoRecovery(previousData)}
-          className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
-        >
-          Undo
-        </button>
-      ),
-      duration: 8000, // Give user time to read and click undo
-    });
-  };
-
+  const imageActions = useFeaturedImageActions({
+    merchantId: merchant?.id,
+    formData,
+    setFormData,
+    toast,
+  });
+  const recoverSavedDraft = useEditBlogDraftRecovery({
+    persistence: { clearSavedData, hasSavedData, getSavedData },
+    scopeKey: `${merchant?.id ?? 'pending'}:${postId}`,
+    setEditorResetKey: setContentResetKey,
+    setFormData,
+    toast,
+  });
   const onPostLoaded = useEffectEvent((result: LoadBlogPostResult) => {
     let loadedFormData: PostFormData | null = null;
-
     if (result.status === 'not-found') {
       toast({ title: 'Post not found', variant: 'destructive' });
-      router.push(asRoute('/dashboard/blog'));
-    } else if (result.status === 'error') {
+      router.push('/dashboard/blog');
+    } else if (result.status === 'error')
       toast({
         title: 'Error',
         description: 'Failed to load blog post.',
         variant: 'destructive',
       });
-    } else {
+    else {
       setOriginalPost(result.post);
       setFormData(result.formData);
       loadedFormData = result.formData;
-      if (result.post.published_at) {
+      if (result.post.published_at)
         setScheduledDate(new Date(result.post.published_at));
-      }
-      if (result.embeddedProducts) {
-        setEmbeddedProducts(result.embeddedProducts);
-      }
-      if (result.productsLoadFailed) {
+      if (result.embeddedProducts) setEmbeddedProducts(result.embeddedProducts);
+      setHasHydratedEmbeddedProducts(!result.productsLoadFailed);
+      if (result.productsLoadFailed)
         toast({
           title: 'Error',
           description: 'Failed to load blog post.',
           variant: 'destructive',
         });
-      }
     }
-
-    recoverSavedDraft(loadedFormData);
+    if (loadedFormData || result.status === 'error')
+      recoverSavedDraft(loadedFormData);
     setIsLoading(false);
   });
 
   useEffect(() => {
-    if (!postId) {
-      return;
-    }
+    let isStale = false;
+    setIsLoading(true);
+    setOriginalPost(null);
+    setFormData(INITIAL_FORM_DATA);
+    setScheduledDate(undefined);
+    setEmbeddedProducts([]);
+    setHasHydratedEmbeddedProducts(false);
+    setHasUserChangedEmbeddedProducts(false);
+    if (!postId || !merchant?.id)
+      return () => {
+        isStale = true;
+      };
+    loadBlogPost(postId, merchant.id).then((result) => {
+      if (!isStale) onPostLoaded(result);
+    });
+    return () => {
+      isStale = true;
+    };
+  }, [merchant?.id, postId]);
 
-    loadBlogPost(postId).then((result) => onPostLoaded(result));
-  }, [postId]);
-
-  const handleChange = (field: keyof PostFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (field: keyof PostFormData, value: string) =>
+    setFormData((previous) => ({ ...previous, [field]: value }));
+  const handleEmbeddedProductsChange = (products: Product[]) => {
+    setEmbeddedProducts(products);
+    setHasUserChangedEmbeddedProducts(true);
   };
-
   const optimizeSEO = (field: 'seo_title' | 'seo_description') => {
-    const limit = field === 'seo_title' ? 70 : 160;
-    const currentValue =
+    const value =
       formData[field] ||
       (field === 'seo_title' ? formData.title : formData.excerpt);
-    const optimized = currentValue.slice(0, limit);
-    handleChange(field, optimized);
+    handleChange(field, value.slice(0, field === 'seo_title' ? 70 : 160));
     toast({
       title: 'SEO Optimized',
       description: `The ${field.replace('_', ' ')} has been truncated to 160 characters.`,
     });
   };
-
-  const [isUploading, setIsUploading] = useState(false);
-
-  const setTrackedUploadedFeaturedImage = (
-    image: UploadedFeaturedImage | null
-  ) => {
-    uploadedFeaturedImageRef.current = image;
-    setUploadedFeaturedImage(image);
-  };
-
-  // Handle featured image selection and upload
-  const handleFeaturedImageUpload = async (files: File[]) => {
-    if (files.length === 0) return;
-
-    setIsUploading(true);
-    const file = files[0];
-
-    await uploadFeaturedImage(file)
-      .then(async (data) => {
-        const featuredImageVariants = normalizeFeaturedImageVariantMap(
-          data.variants
-        );
-        const variantPaths = normalizeFeaturedImageVariantPaths(
-          data.variantPaths
-        );
-
-        if (uploadedFeaturedImageRef.current) {
-          await deletePreviousFeaturedImage(uploadedFeaturedImageRef.current);
-        }
-
-        setFormData((prev) => ({
-          ...prev,
-          featured_image_url: data.url,
-          featured_image_width: data.width,
-          featured_image_height: data.height,
-          featured_image_variants: featuredImageVariants,
-        }));
-        setTrackedUploadedFeaturedImage({
-          path: data.path,
-          variantPaths,
-        });
-        toast({
-          title: 'Success',
-          description: 'Featured image uploaded successfully.',
-        });
-      })
-      .catch((error) => {
-        console.error('Error uploading image:', error);
-        toast({
-          title: 'Error',
-          description:
-            error instanceof Error ? error.message : 'Failed to upload image',
-          variant: 'destructive',
-        });
-      })
-      .finally(() => {
-        setIsUploading(false);
-      });
-  };
-
-  // Image upload handler for the editor
-  const handleImageUpload = async (file: File): Promise<string> => {
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
-    formDataUpload.append('purpose', 'inline');
-
-    const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-      method: 'POST',
-      body: formDataUpload,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to upload image');
-    }
-
-    const data = await response.json();
-    return data.url;
-  };
-
-  const clearFeaturedImageFields = () => {
-    setFormData((prev) => ({
-      ...prev,
-      featured_image_url: '',
-      featured_image_width: null,
-      featured_image_height: null,
-      featured_image_variants: {},
-    }));
-  };
-
-  const buildFeaturedImageDeletePayload = () => {
-    if (uploadedFeaturedImage) {
-      return uploadedFeaturedImage;
-    }
-
-    if (!merchant?.id || !formData.featured_image_url) {
-      return null;
-    }
-
-    const path = extractManagedBlogStoragePath(
-      formData.featured_image_url,
-      merchant.id
-    );
-
-    if (!path) {
-      return null;
-    }
-
-    const variantPaths: FeaturedImageVariantPaths = {};
-    for (const key of BLOG_FEATURED_VARIANT_KEYS) {
-      const variantUrl = formData.featured_image_variants[key];
-      if (!variantUrl) {
-        continue;
-      }
-
-      const variantPath = extractManagedBlogStoragePath(
-        variantUrl,
-        merchant.id
-      );
-      if (variantPath) {
-        variantPaths[key] = variantPath;
-      }
-    }
-
-    return { path, variantPaths };
-  };
-
-  const handleRemoveFeaturedImage = async () => {
-    const imageToDelete = buildFeaturedImageDeletePayload();
-
-    if (!imageToDelete) {
-      clearFeaturedImageFields();
-      setTrackedUploadedFeaturedImage(null);
-      return;
-    }
-
-    try {
-      await deleteUploadedFeaturedImage(imageToDelete);
-      clearFeaturedImageFields();
-      setTrackedUploadedFeaturedImage(null);
-    } catch (error) {
-      console.error('Error deleting uploaded image:', error);
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to delete image',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const normalizePublishedAt = (
-    publishedAt?: string | null
-  ): string | null | undefined => {
-    if (!publishedAt) {
-      return publishedAt;
-    }
-
-    const parsedPublishedAt = new Date(publishedAt);
-
-    if (Number.isNaN(parsedPublishedAt.getTime())) {
-      return publishedAt;
-    }
-
-    return parsedPublishedAt.toISOString();
-  };
-
-  const normalizeFormData = (data: PostFormData): PostFormData =>
-    withFeaturedImageDefaults({
-      ...data,
-      published_at: normalizePublishedAt(data.published_at),
-    });
-
-  const validateForm = (data: PostFormData): string | null => {
-    // Sanitize data first
-    const sanitizedData = sanitizeBlogPostData({
-      ...data,
-      slug:
-        data.slug && data.slug !== originalPost?.slug ? data.slug : undefined,
-    });
-
-    const result = blogPostSchema.safeParse(sanitizedData);
-
-    if (!result.success) {
-      const firstError = result.error.issues?.[0];
-      return firstError?.message || 'Invalid form data';
-    }
-
-    return null;
-  };
-
   const savePost = async (
-    newStatus?: 'draft' | 'published' | 'archived' | 'scheduled'
+    newStatus?: PostFormData['status']
   ): Promise<boolean> => {
-    const normalizedFormData = normalizeFormData(formData);
-    const error = validateForm(normalizedFormData);
-    if (error) {
+    if (!merchant?.id) {
       toast({
-        title: 'Validation Error',
-        description: error,
+        title: 'Merchant unavailable',
+        description: 'Wait for the merchant context to load before saving.',
         variant: 'destructive',
       });
       return false;
     }
-
+    const normalizedFormData = normalizePostFormData(formData);
+    const validation = blogPostSchema.safeParse(
+      sanitizeBlogPostData({
+        ...normalizedFormData,
+        slug:
+          normalizedFormData.slug &&
+          normalizedFormData.slug !== originalPost?.slug
+            ? normalizedFormData.slug
+            : undefined,
+      })
+    );
+    if (!validation.success) {
+      toast({
+        title: 'Validation Error',
+        description:
+          validation.error.issues?.[0]?.message || 'Invalid form data',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    const savedMerchantSession = merchantSessionRef.current;
     setIsSaving(true);
-    return await submitBlogPostUpdate({
-      postId,
-      formData: normalizedFormData,
-      originalSlug: originalPost?.slug,
-      newStatus,
-      scheduledDate,
-      embeddedProductIds: embeddedProducts.map((p) => p.id),
-    })
-      .then((updatedPost) => {
-        setOriginalPost(updatedPost);
-        setFormData((prev) => ({
-          ...prev,
-          status: updatedPost.status,
-          published_at: updatedPost.published_at ?? null,
-        }));
-
-        const statusMessages: Record<string, string> = {
-          published: 'Your blog post is now live.',
-          draft: 'Your post has been saved as a draft.',
-          archived: 'Your post has been archived.',
-          scheduled: `Your post is scheduled for ${scheduledDate ? format(scheduledDate, 'PPP p') : 'later'}.`,
-        };
-
-        toast({
-          title:
-            newStatus === 'published' ? 'Post Published!' : 'Changes Saved',
-          description:
-            statusMessages[newStatus || formData.status] ||
-            'Your changes have been saved.',
-        });
-
-        // Clear auto-saved draft on successful server save
-        clearSavedData();
-        return true;
-      })
-      .catch((saveError) => {
-        console.error('Error saving post:', saveError);
-        toast({
-          title: 'Error',
-          description:
-            saveError instanceof Error
-              ? saveError.message
-              : 'Failed to save blog post.',
-          variant: 'destructive',
-        });
-        return false;
-      })
-      .finally(() => {
-        setIsSaving(false);
-      });
-  };
-
-  const handlePreview = async () => {
-    if (!merchant?.slug) {
-      toast({
-        title: 'Error',
-        description: 'Merchant slug not found.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Always save as draft first to ensure the latest content is available in preview
-    const saved = await savePost('draft');
-    if (!saved) {
-      return;
-    }
-
     try {
-      const previewUrl = await getPreviewUrl(merchant.slug, formData.slug);
-      window.open(previewUrl, '_blank');
+      const updatedPost = await submitBlogPostUpdate({
+        postId,
+        merchantId: merchant.id,
+        formData: normalizedFormData,
+        originalSlug: originalPost?.slug,
+        newStatus,
+        scheduledDate,
+        embeddedProductIds:
+          hasHydratedEmbeddedProducts || hasUserChangedEmbeddedProducts
+            ? embeddedProducts.map((product) => product.id)
+            : undefined,
+      });
+      if (merchantSessionRef.current !== savedMerchantSession) return false;
+      setOriginalPost((previous) =>
+        previous ? { ...previous, ...updatedPost } : previous
+      );
+      setFormData((previous) => ({
+        ...previous,
+        status: updatedPost.status,
+        published_at: updatedPost.published_at ?? null,
+      }));
+      const messages: Record<string, string> = {
+        published: 'Your blog post is now live.',
+        draft: 'Your post has been saved as a draft.',
+        archived: 'Your post has been archived.',
+        scheduled: `Your post is scheduled for ${scheduledDate ? format(scheduledDate, 'PPP p') : 'later'}.`,
+      };
+      toast({
+        title: newStatus === 'published' ? 'Post Published!' : 'Changes Saved',
+        description:
+          messages[newStatus || formData.status] ||
+          'Your changes have been saved.',
+      });
+      clearSavedData();
+      return true;
     } catch (error) {
-      console.error('Error getting preview URL:', error);
+      if (merchantSessionRef.current !== savedMerchantSession) return false;
+      console.error('Error saving post:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate preview link.',
+        description:
+          error instanceof Error ? error.message : 'Failed to save blog post.',
         variant: 'destructive',
       });
+      return false;
+    } finally {
+      if (merchantSessionRef.current === savedMerchantSession)
+        setIsSaving(false);
     }
   };
 
-  const handleAISuggestSchedule = () => {
+  const handlePreview = createEditBlogPreviewAction({
+    merchantId: merchant?.id,
+    merchantSessionRef,
+    merchantSlug: merchant?.slug,
+    postSlug: formData.slug,
+    savePost,
+    toast,
+  });
+  const suggestSchedule = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0); // 10 AM tomorrow
+    tomorrow.setHours(10, 0, 0, 0);
     setScheduledDate(tomorrow);
     toast({
       title: 'AI Timing Optimization',
       description: 'Scheduled for tomorrow at 10:00 AM for peak engagement.',
     });
   };
+  const stats = getBlogContentStats(formData.content);
 
-  const titleLength = formData.seo_title?.length || formData.title.length;
-  const descriptionLength =
-    formData.seo_description?.length || formData.excerpt.length;
-
-  // Calculate word count from JSON content
-  const getTextContent = (jsonString: string) => {
-    try {
-      if (!jsonString) return '';
-      // If it looks like HTML (starts with <), use DOMParser
-      if (jsonString.trim().startsWith('<') && typeof window !== 'undefined') {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(jsonString, 'text/html');
-        return doc.body.textContent || '';
-      }
-
-      const json = JSON.parse(jsonString);
-      let text = '';
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap JSON content
-      const traverse = (node: any) => {
-        if (node.text) text += `${node.text} `;
-        if (node.content && Array.isArray(node.content)) {
-          node.content.forEach(traverse);
-        }
-      };
-      traverse(json);
-      return text.trim();
-    } catch {
-      return '';
-    }
-  };
-  const wordCount = getTextContent(formData.content)
-    .split(/\s+/)
-    .filter(Boolean).length;
-  const readingTime = Math.ceil(wordCount / 200);
-
-  if (isLoading) {
+  if (isLoading)
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <BagLoader size={32} />
       </div>
     );
-  }
-
-  const statusBadgeVariant = {
-    published: 'default' as const,
-    draft: 'secondary' as const,
-    archived: 'outline' as const,
-    scheduled: 'destructive' as const, // Using destructive (red) for scheduled to grab attention, or 'outline' for secondary feel
-  };
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href={asRoute('/dashboard/blog')}>
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">Edit Post</h1>
-              <Badge variant={statusBadgeVariant[formData.status]}>
-                {formData.status.charAt(0).toUpperCase() +
-                  formData.status.slice(1)}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {wordCount} words | {readingTime} min read
-              {originalPost?.view_count
-                ? ` | ${originalPost.view_count} views`
-                : ''}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handlePreview} disabled={isSaving}>
-            {isSaving ? (
-              <BagLoader size={16} />
-            ) : (
-              <Eye className="size-4 mr-2" />
-            )}
-            Preview
-          </Button>
-          {formData.status === 'published' &&
-            merchant?.slug &&
-            isSafeSlug(merchant.slug) && (
-              <Button variant="outline" asChild>
-                <a
-                  href={
-                    merchant.custom_domain
-                      ? `https://${merchant.custom_domain.replace(/\/$/, '')}/blog/${encodeURIComponent(formData.slug)}`
-                      : `/${encodeURIComponent(merchant.slug)}/blog/${encodeURIComponent(formData.slug)}`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="size-4 mr-2" />
-                  View Live
-                </a>
-              </Button>
-            )}
-          <Button
-            variant="outline"
-            onClick={() => savePost()}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <BagLoader size={16} />
-            ) : (
-              <Save className="size-4 mr-2" />
-            )}
-            Save Changes
-          </Button>
-
-          {/* Schedule Button & Popover */}
-          {(formData.status === 'draft' || formData.status === 'scheduled') && (
-            <Popover
-              open={isSchedulePopoverOpen}
-              onOpenChange={setIsSchedulePopoverOpen}
-            >
-              <PopoverTrigger asChild>
-                <Button variant="outline" disabled={isSaving}>
-                  <CalendarIcon className="size-4 mr-2" />
-                  {formData.status === 'scheduled' && scheduledDate
-                    ? `Scheduled: ${format(scheduledDate, 'MMM d, HH:mm')}`
-                    : 'Schedule'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">
-                      Publish Date & Time
-                    </Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleAISuggestSchedule}
-                      className="h-7 text-[10px] px-2 text-primary"
-                    >
-                      <Sparkles className="size-3 mr-1" />
-                      AI Suggest
-                    </Button>
-                  </div>
-                  <Calendar
-                    selected={scheduledDate || null}
-                    onSelect={(date: Date | null) =>
-                      setScheduledDate(date || undefined)
-                    }
-                    minDate={new Date()}
-                  />
-                  <div className="flex items-center gap-2 border-t pt-4">
-                    <Clock className="size-4 text-muted-foreground ml-2" />
-                    <Input
-                      type="time"
-                      className="h-8 py-1"
-                      value={
-                        scheduledDate ? format(scheduledDate, 'HH:mm') : ''
-                      }
-                      onChange={(e) => {
-                        const [hours, minutes] = e.target.value.split(':');
-                        const newDate = scheduledDate
-                          ? new Date(scheduledDate)
-                          : new Date();
-                        newDate.setHours(
-                          Number.parseInt(hours, 10),
-                          Number.parseInt(minutes, 10)
-                        );
-                        setScheduledDate(newDate);
-                      }}
-                    />
-                  </div>
-                  <Button
-                    className="w-full"
-                    size="sm"
-                    disabled={!scheduledDate || isSaving}
-                    onClick={() => {
-                      savePost('scheduled');
-                      setIsSchedulePopoverOpen(false);
-                    }}
-                  >
-                    Confirm Schedule
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-
-          {formData.status === 'draft' && (
-            <Button onClick={() => savePost('published')} disabled={isSaving}>
-              {isSaving ? (
-                <BagLoader size={16} />
-              ) : (
-                <Send className="size-4 mr-2" />
-              )}
-              Publish Now
-            </Button>
-          )}
-          {formData.status === 'published' && (
-            <Button
-              variant="secondary"
-              onClick={() => savePost('draft')}
-              disabled={isSaving}
-            >
-              Unpublish
-            </Button>
-          )}
-          {formData.status !== 'archived' && (
-            <Button
-              variant="ghost"
-              onClick={() => savePost('archived')}
-              disabled={isSaving}
-            >
-              <Archive className="size-4 mr-2" />
-              Archive
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Editor Tabs */}
+      <EditBlogHeader
+        formData={formData}
+        merchant={merchant}
+        originalPost={originalPost}
+        isSaving={isSaving}
+        scheduledDate={scheduledDate}
+        setScheduledDate={setScheduledDate}
+        savePost={savePost}
+        onPreview={handlePreview}
+        onSuggestSchedule={suggestSchedule}
+        {...stats}
+      />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
           <TabsTrigger value="author">Author</TabsTrigger>
         </TabsList>
-
-        {/* Content Tab */}
         <TabsContent value="content" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Post Content</CardTitle>
-              <CardDescription>Edit your blog post content</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  placeholder="Enter post title"
-                  value={formData.title}
-                  onChange={(e) => handleChange('title', e.target.value)}
-                  className="text-lg font-medium"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="slug">URL Slug</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    /{merchant?.slug}/blog/
-                  </span>
-                  <Input
-                    id="slug"
-                    placeholder="post-url-slug"
-                    value={formData.slug}
-                    onChange={(e) =>
-                      handleChange(
-                        'slug',
-                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
-                      )
-                    }
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="content">Content *</Label>
-                <BlogEditor
-                  content={formData.content}
-                  onChange={(content) => handleChange('content', content)}
-                  onImageUpload={handleImageUpload}
-                  onProductsChange={setEmbeddedProducts}
-                  embeddedProducts={embeddedProducts}
-                  placeholder="Start writing... Drag and drop images, or click the shopping bag icon to embed products."
-                />
-              </div>
-
-              {/* Embedded Products Preview */}
-              {embeddedProducts.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      Embedded Products ({embeddedProducts.length})
-                    </CardTitle>
-                    <CardDescription>
-                      These products will appear in your blog post
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ProductGrid
-                      products={embeddedProducts}
-                      merchantSlug={merchant?.slug}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-4"
-                      onClick={() => setEmbeddedProducts([])}
-                    >
-                      <X className="size-4 mr-2" />
-                      Clear All Products
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="excerpt">Excerpt</Label>
-                <Textarea
-                  id="excerpt"
-                  placeholder="Brief summary of the post (used in listings and meta description)"
-                  value={formData.excerpt}
-                  onChange={(e) => handleChange('excerpt', e.target.value)}
-                  rows={3}
-                  maxLength={300}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {formData.excerpt.length}/300 characters
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Featured Image</CardTitle>
-              <CardDescription>
-                Add a featured image for your post (min 1200px wide for Google
-                Discover)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <Label>Featured Image</Label>
-                {formData.featured_image_url ? (
-                  <div className="relative aspect-video max-w-md rounded-lg overflow-hidden border bg-muted">
-                    <Image
-                      src={getFeaturedImagePreviewUrl(formData)}
-                      alt="Featured image preview"
-                      fill
-                      sizes="(max-width: 768px) 100vw, 448px"
-                      className="object-cover"
-                      unoptimized
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleRemoveFeaturedImage}
-                      >
-                        <X className="size-4 mr-2" />
-                        Remove Image
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <FileUploader
-                    onFilesSelected={handleFeaturedImageUpload}
-                    maxFiles={1}
-                    maxSize={5 * 1024 * 1024}
-                    accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] }}
-                    className="max-w-md"
-                  />
-                )}
-                {isUploading && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <BagLoader size={16} />
-                    Uploading image…
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="featured_image_alt">Alt Text</Label>
-                <Input
-                  id="featured_image_alt"
-                  placeholder="Describe the image for accessibility"
-                  value={formData.featured_image_alt}
-                  onChange={(e) =>
-                    handleChange('featured_image_alt', e.target.value)
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Organization</CardTitle>
-              <CardDescription>Categorize your post</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  placeholder="Product News, Tutorials, Industry Insights"
-                  value={formData.category}
-                  onChange={(e) => handleChange('category', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tags">Tags</Label>
-                <Input
-                  id="tags"
-                  placeholder="Separate tags with commas"
-                  value={formData.tags}
-                  onChange={(e) => handleChange('tags', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  e.g., tech, gadgets, reviews
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <EditBlogContentTab
+            formData={formData}
+            contentResetKey={contentResetKey}
+            merchantId={merchant?.id}
+            handleChange={handleChange}
+            merchantSlug={merchant?.slug}
+            embeddedProducts={embeddedProducts}
+            setEmbeddedProducts={handleEmbeddedProductsChange}
+            onImageUpload={imageActions.handleInlineImageUpload}
+            onFeaturedImageUpload={imageActions.handleFeaturedImageUpload}
+            onRemoveFeaturedImage={imageActions.handleRemoveFeaturedImage}
+            isUploading={imageActions.isUploading}
+          />
         </TabsContent>
-
-        {/* SEO Tab */}
         <TabsContent value="seo" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>SEO Settings</CardTitle>
-              <CardDescription>
-                Optimize your post for search engines and Google Discover
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="seo_title">SEO Title</Label>
-                <Input
-                  id="seo_title"
-                  placeholder={formData.title || 'Custom SEO title'}
-                  value={formData.seo_title}
-                  onChange={(e) => handleChange('seo_title', e.target.value)}
-                />
-                <div className="flex justify-between items-center text-xs">
-                  <span
-                    className={
-                      titleLength > 60
-                        ? 'text-destructive font-medium'
-                        : 'text-muted-foreground'
-                    }
-                  >
-                    {titleLength}/60 characters (recommended)
-                  </span>
-                  {titleLength >= 50 && titleLength <= 60 && (
-                    <Badge
-                      variant="secondary"
-                      className="bg-green-100 text-green-700 hover:bg-green-100 border-none"
-                    >
-                      Optimized for SEO
-                    </Badge>
-                  )}
-                  {titleLength > 70 && (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="destructive" className="animate-pulse">
-                        Too Long
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px]"
-                        onClick={() => optimizeSEO('seo_title')}
-                      >
-                        Fix for me
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="seo_description">Meta Description</Label>
-                <Textarea
-                  id="seo_description"
-                  placeholder={formData.excerpt || 'Custom meta description'}
-                  value={formData.seo_description}
-                  onChange={(e) =>
-                    handleChange('seo_description', e.target.value)
-                  }
-                  rows={3}
-                />
-                <div className="flex justify-between items-center text-xs">
-                  <span
-                    className={
-                      descriptionLength > 150
-                        ? 'text-destructive font-medium'
-                        : 'text-muted-foreground'
-                    }
-                  >
-                    {descriptionLength}/150 characters{' '}
-                    {!formData.seo_description &&
-                      formData.excerpt &&
-                      '(using excerpt)'}
-                  </span>
-                  {descriptionLength >= 120 && descriptionLength <= 150 && (
-                    <Badge
-                      variant="secondary"
-                      className="bg-green-100 text-green-700 hover:bg-green-100 border-none"
-                    >
-                      Optimized for Google/Social
-                    </Badge>
-                  )}
-                  {descriptionLength > 160 && (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="destructive" className="animate-pulse">
-                        Exceeds Limit
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px]"
-                        onClick={() => optimizeSEO('seo_description')}
-                      >
-                        Fix for me
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="focus_keyword">Focus Keyword</Label>
-                <Input
-                  id="focus_keyword"
-                  placeholder="Primary keyword to target"
-                  value={formData.focus_keyword}
-                  onChange={(e) =>
-                    handleChange('focus_keyword', e.target.value)
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="keywords">SEO Keywords</Label>
-                <Input
-                  id="keywords"
-                  placeholder="Separate keywords with commas"
-                  value={formData.keywords}
-                  onChange={(e) => handleChange('keywords', e.target.value)}
-                />
-              </div>
-
-              {/* SEO Preview */}
-              <div className="pt-4 border-t">
-                <Label className="mb-2 block">Search Preview</Label>
-                <div className="p-4 bg-white dark:bg-slate-950 rounded-lg border">
-                  <div className="text-blue-600 dark:text-blue-400 text-lg hover:underline cursor-pointer truncate">
-                    {formData.seo_title || formData.title || 'Post Title'}
-                  </div>
-                  <div className="text-green-700 dark:text-green-500 text-sm">
-                    {merchant?.custom_domain
-                      ? `https://${merchant.custom_domain.replace(/\/$/, '')}/blog/`
-                      : merchant?.slug
-                        ? `https://${getRootDomain() ?? 'usebaci.com'}/${merchant.slug}/blog/`
-                        : '/blog/'}
-                    {formData.slug || 'post-slug'}
-                  </div>
-                  <div className="text-sm text-muted-foreground line-clamp-2">
-                    {formData.seo_description ||
-                      formData.excerpt ||
-                      'Post description will appear here...'}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <EditBlogSeoTab
+            formData={formData}
+            merchant={merchant}
+            handleChange={handleChange}
+            optimizeSEO={optimizeSEO}
+          />
         </TabsContent>
-
-        {/* Author Tab */}
         <TabsContent value="author" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Author Information</CardTitle>
-              <CardDescription>
-                Author details for E-E-A-T (Experience, Expertise,
-                Authoritativeness, Trustworthiness)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="author_name">Author Name *</Label>
-                <Input
-                  id="author_name"
-                  placeholder="Your name or business name"
-                  value={formData.author_name}
-                  onChange={(e) => handleChange('author_name', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="author_title">Author Title</Label>
-                <Input
-                  id="author_title"
-                  placeholder="Founder, Product Expert, Marketing Manager"
-                  value={formData.author_title}
-                  onChange={(e) => handleChange('author_title', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="author_bio">Author Bio</Label>
-                <Textarea
-                  id="author_bio"
-                  placeholder="Brief bio to establish expertise and credibility"
-                  value={formData.author_bio}
-                  onChange={(e) => handleChange('author_bio', e.target.value)}
-                  rows={4}
-                  maxLength={500}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {formData.author_bio.length}/500 characters
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <EditBlogAuthorTab formData={formData} handleChange={handleChange} />
         </TabsContent>
       </Tabs>
-
-      {/* Draft Recovery Dialog */}
-      <AlertDialog
-        open={showRecoveryDialog}
-        onOpenChange={setShowRecoveryDialog}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Recover Unsaved Changes?</AlertDialogTitle>
-            <AlertDialogDescription>
-              We found unsaved changes from a previous session. Would you like
-              to restore them?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={discardRecoveredDraft}>
-              Discard
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={recoverDraft}>
-              Recover Changes
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

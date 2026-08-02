@@ -1,0 +1,23 @@
+[Unit]
+Description=Baci CWV dedicated containerd
+
+[Service]
+Type=notify
+NotifyAccess=all
+User=root
+Group=root
+Slice=cwv-measurement-control.slice
+RuntimeDirectory=baci-cwv baci-cwv/containerd
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/containerd --config /etc/baci-cwv/containerd.toml
+Restart=no
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+KillMode=control-group
+Delegate=true
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/baci-cwv/containerd/root /run/baci-cwv/containerd

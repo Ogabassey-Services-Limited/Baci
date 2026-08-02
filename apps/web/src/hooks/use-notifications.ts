@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { createClient } from '@/lib/supabase/client';
 import type {
   ActiveBanner,
@@ -142,7 +143,7 @@ async function markNotificationAsRead(
   setUnreadCount: Dispatch<SetStateAction<number>>
 ): Promise<void> {
   try {
-    const response = await fetch(`/api/notifications/${id}`, {
+    const response = await fetchWithCsrf(`/api/notifications/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ read: true }),
@@ -180,7 +181,7 @@ async function markAllNotificationsAsRead(
     const hasUnread = notifications.some((n) => !n.read_at);
     if (!hasUnread) return;
 
-    const response = await fetch('/api/notifications/mark-all-read', {
+    const response = await fetchWithCsrf('/api/notifications/mark-all-read', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -212,7 +213,7 @@ async function dismissNotification(
   setUnreadCount: Dispatch<SetStateAction<number>>
 ): Promise<void> {
   try {
-    const response = await fetch(`/api/notifications/${id}`, {
+    const response = await fetchWithCsrf(`/api/notifications/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dismissed: true }),
@@ -241,7 +242,7 @@ async function dismissBannerNotification(
   setActiveBanners: Dispatch<SetStateAction<ActiveBanner[]>>
 ): Promise<void> {
   try {
-    const response = await fetch(`/api/notifications/${id}`, {
+    const response = await fetchWithCsrf(`/api/notifications/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ banner_dismissed: true }),

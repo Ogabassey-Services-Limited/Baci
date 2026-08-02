@@ -12,6 +12,7 @@ export type SanitizeHtmlHeadingOptions =
     };
 
 export type SanitizeHtmlOptions = SanitizeHtmlHeadingOptions & {
+  forceLazyImages?: boolean;
   normalizeSeoAnchors?: boolean;
   stripNofollowFromLinks?: boolean;
   trustedPriorityImageSources?: readonly string[];
@@ -167,6 +168,10 @@ export function createSanitizeHtmlOptions(
       delete nextAttribs['data-baci-priority-image'];
       if (!allowPriorityImage) {
         delete nextAttribs.fetchpriority;
+      }
+      if (options.forceLazyImages && !allowPriorityImage) {
+        nextAttribs.loading = 'lazy';
+        nextAttribs.decoding = 'async';
       }
 
       return {

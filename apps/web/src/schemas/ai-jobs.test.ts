@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   aiJobTypeSchema,
+  applyAiDraftSchema,
   createAiJobSchema,
   storefrontLayoutJobInputSchema,
 } from './ai-jobs';
@@ -112,5 +113,31 @@ describe('createAiJobSchema', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe('applyAiDraftSchema', () => {
+  it('defaults force to false for a scoped draft application', () => {
+    expect(
+      applyAiDraftSchema.parse({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+      })
+    ).toEqual({
+      force: false,
+      merchantId: '11111111-1111-4111-8111-111111111111',
+    });
+  });
+
+  it('requires the merchant ID that scopes the draft application', () => {
+    expect(applyAiDraftSchema.safeParse({})).toMatchObject({ success: false });
+  });
+
+  it('rejects unknown fields instead of accepting an unscoped payload shape', () => {
+    expect(
+      applyAiDraftSchema.safeParse({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        unexpected: true,
+      })
+    ).toMatchObject({ success: false });
   });
 });

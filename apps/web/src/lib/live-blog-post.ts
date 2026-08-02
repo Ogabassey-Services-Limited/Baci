@@ -1,5 +1,6 @@
 import { getMerchantSafe } from '@/lib/cached-data';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
+import { getOrderedBlogPostProductLinks } from '@/lib/ordered-blog-post-product-links';
 import {
   filterPublicBlogPosts,
   isPublicBlogPost,
@@ -8,7 +9,6 @@ import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import {
   normalizeRelatedBlogProductLinks,
   normalizeRelatedBlogProducts,
-  RELATED_BLOG_PRODUCT_LINKS_SELECT,
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
@@ -89,12 +89,8 @@ export async function getLiveBlogPost(
     console.error('Error fetching related live blog posts:', relatedPostsError);
   }
 
-  const { data: linkedProducts, error: linkedProductsError } = await supabase
-    .from('blog_post_products')
-    .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
-    .eq('merchant_id', merchant.id)
-    .eq('blog_post_id', post.id)
-    .order('created_at', { ascending: true });
+  const { data: linkedProducts, error: linkedProductsError } =
+    await getOrderedBlogPostProductLinks(supabase, merchant.id, post.id);
 
   if (linkedProductsError) {
     console.error(

@@ -1,5 +1,5 @@
 import { Redirect, Stack, useSegments } from 'expo-router';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -10,12 +10,14 @@ import {
 } from '@/lib/staff-invite-pending';
 
 export default function AuthLayout() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const { hasSeenOnboarding, isLoading: onboardingLoading } = useOnboarding();
   const {
     merchant,
     isLoading: merchantLoading,
     error: merchantError,
+    refetch: refetchMerchant,
+    resolvedForUserId,
   } = useMerchant();
   const { colors } = useTheme();
   const segments = useSegments();
@@ -30,11 +32,14 @@ export default function AuthLayout() {
     hasSeenOnboarding &&
     !isVerifyScreen &&
     !isCompleteProfileScreen;
+  const merchantStateIsCurrent =
+    Boolean(user?.id) && resolvedForUserId === user?.id;
 
   if (
     authLoading ||
     onboardingLoading ||
-    (shouldResolveMerchantRedirect && merchantLoading)
+    (shouldResolveMerchantRedirect &&
+      (merchantLoading || (!merchantError && !merchantStateIsCurrent)))
   ) {
     return (
       <View
@@ -74,6 +79,14 @@ export default function AuthLayout() {
         <Text style={{ color: colors.error ?? '#DC2626' }}>
           Unable to load your merchant profile right now.
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            void refetchMerchant();
+          }}
+        >
+          <Text style={{ color: colors.primary }}>Try again</Text>
+        </Pressable>
       </View>
     );
   }

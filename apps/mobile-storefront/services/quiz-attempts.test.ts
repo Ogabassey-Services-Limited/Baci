@@ -264,21 +264,31 @@ describe('quiz service attempt lifecycle', () => {
     warnSpy.mockRestore();
   });
 
-  it('fails closed when the mobile bearer session is missing', async () => {
-    mockGetSession.mockResolvedValueOnce({
+  it('fails closed when the mobile bearer session is persistently missing', async () => {
+    jest.useFakeTimers();
+    // No usable token on either attempt: cold-start retries once, then fails
+    // closed (getQuizAuthHeaders now retries a not-yet-hydrated session).
+    mockGetSession.mockResolvedValue({
       data: { session: { access_token: '' } },
     });
 
-    await expect(
-      startQuizAttempt({
-        baseUrl: 'https://example.com',
-        eventId: 'event-1',
-        integrityTier: 'basic',
-      })
-    ).rejects.toMatchObject({
+    const resultPromise = startQuizAttempt({
+      baseUrl: 'https://example.com',
+      eventId: 'event-1',
+      integrityTier: 'basic',
+    });
+    // Attach the rejection expectation before advancing the fake timer so the
+    // rejection is never momentarily unhandled.
+    const expectation = expect(resultPromise).rejects.toMatchObject({
       code: 'QUIZ_AUTH_REQUIRED',
       status: 401,
     });
+    await jest.advanceTimersByTimeAsync(300);
+    await expectation;
+
+    // (getSession call count isn't asserted: this suite's beforeEach does not
+    // reset the mock between tests, so the count accumulates across the file.)
     expect(mockFetch).not.toHaveBeenCalled();
+    jest.useRealTimers();
   });
 });

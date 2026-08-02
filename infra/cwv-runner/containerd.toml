@@ -1,0 +1,6 @@
+version = 3
+root = "/srv/baci-cwv/containerd/root"
+state = "/run/baci-cwv/containerd"
+
+[grpc]
+address = "/run/baci-cwv/containerd/containerd.sock"

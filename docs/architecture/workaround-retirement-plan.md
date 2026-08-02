@@ -1,8 +1,8 @@
 # Workaround Retirement Plan — replace edge/app-layer band-aids with source-authoritative architecture
 
-**Status:** proposal (rev 22) · **Created:** 2026-07-11 · **Trigger:** PR #3028 (SEO shell-title fix) revealed a family of workarounds sharing one anti-pattern. · **Verification baseline:** current census artifacts revalidated at `origin/main@6758e4db3f`; live production ACL probe on 2026-07-11.
+**Status:** proposal (rev 26) · **Created:** 2026-07-11 · **Trigger:** PR #3028 (SEO shell-title fix) revealed a family of workarounds sharing one anti-pattern. · **Verification baseline:** current census artifacts revalidated at `origin/main@6758e4db3f`; live production ACL probe on 2026-07-11.
 
-> **Rev 7** (verified vs `main`): Workstream C's "derive from the Next route manifest" was an unproven contract — added a **C0 feasibility/design gate** (semantic schema + supported source + prebuilt typed artifact + CI drift check); C and B3 are blocked on C0. **Rev 8** (verified vs `main`): (a) the authenticated cutover missed the web **storefront** public reader — `fetchMerchantBySlug` (`queries.ts:211`, via `MerchantProvider`) selects `merchants` directly, and a signed-in shopper runs as `authenticated`, so it must migrate to the snapshot RPC **before** revoking authenticated bridge columns; (b) B2's "async purge" is today fire-and-forget (`after()`, lossy) — a longer fresh TTL needs a **durable** queue, so added a **B2a durability gate**. **Rev 9:** made private merchant RPCs permission-scoped instead of exposing one all-secrets projection to every active staff member, and completed the durable worker's lease/retry/observability contract. **Rev 10:** made the grant cutover exhaustive across every runtime-role direct access (not only `MerchantProvider`), added a public-snapshot compatibility/capability gate, corrected table-level-grant revocation semantics, and aligned B1 authorization with the category mutation. **Rev 11:** expanded B2 from product-row delivery to a complete PDP dependency/outbox contract, made Cloudflare delivery failure-observable/retryable, ordered Next-cache invalidation before edge purge, and accounted for `stale-while-revalidate` in the maximum-staleness budget. **Rev 12:** removed the S2 scheduling contradiction by requiring immediate public-RPC containment or a complete capability fix before non-security work, and moved B1 category changes behind one authoritative mutation boundary so old/new slugs cannot be spoofed or lost. **Rev 13:** corrected the live PDP cache math (`300 + 86400`, not `300 + 3600`), made the TTL decision cover Vercel/Cloudflare/API directives explicitly, and made B3's generated category classification tenant-scoped and invalidatable. **Rev 14:** added an explicit S0 compatibility-risk sign-off and bounded the A1 static-parameter obligation to routes actually approved for prerendering. **Rev 15:** closed the table-vs-column ACL retirement gap: final revocation must remove both relation ACLs and every compatibility `attacl` introduced by S0. **Rev 16:** separated private plan/billing state from public storefront capabilities so S1 and D no longer prescribe incompatible data shapes, and made S2 revoke default `PUBLIC` execution as defense in depth. **Rev 17:** made the durable invalidation substrate shared by B1/B2; category/home documents already have long stale allowances, so B1 can no longer terminate in a lossy post-commit purge. **Rev 18:** synchronized the prose execution sequence with that shared-substrate dependency. **Rev 19:** aligned the compact execution summary with the detailed census-driven S0 grant and relation-plus-column S1 revocation contracts. **Rev 20:** resolved the anon-bank bridge decision with an explicit mandatory-version exit, hoisted the public-capability adapter wholly into S1, added a B0 drainer-runtime feasibility gate, split B1 into shippable best-effort and durable phases, and defined one security-to-A/B implementation gate. **Rev 21:** superseded the proposed standalone S2 containment PR with the owner-approved S2-I+S2-P bundle, aligned the headline with the final B0/A1 artifacts, and added delayed retry scheduling to the outbox contract.
+> **Rev 7** (verified vs `main`): Workstream C's "derive from the Next route manifest" was an unproven contract — added a **C0 feasibility/design gate** (semantic schema + supported source + prebuilt typed artifact + CI drift check); C and B3 are blocked on C0. **Rev 8** (verified vs `main`): (a) the authenticated cutover missed the web **storefront** public reader — `fetchMerchantBySlug` (`queries.ts:211`, via `MerchantProvider`) selects `merchants` directly, and a signed-in shopper runs as `authenticated`, so it must migrate to the snapshot RPC **before** revoking authenticated bridge columns; (b) B2's "async purge" is today fire-and-forget (`after()`, lossy) — a longer fresh TTL needs a **durable** queue, so added a **B2a durability gate**. **Rev 9:** made private merchant RPCs permission-scoped instead of exposing one all-secrets projection to every active staff member, and completed the durable worker's lease/retry/observability contract. **Rev 10:** made the grant cutover exhaustive across every runtime-role direct access (not only `MerchantProvider`), added a public-snapshot compatibility/capability gate, corrected table-level-grant revocation semantics, and aligned B1 authorization with the category mutation. **Rev 11:** expanded B2 from product-row delivery to a complete PDP dependency/outbox contract, made Cloudflare delivery failure-observable/retryable, ordered Next-cache invalidation before edge purge, and accounted for `stale-while-revalidate` in the maximum-staleness budget. **Rev 12:** removed the S2 scheduling contradiction by requiring immediate public-RPC containment or a complete capability fix before non-security work, and moved B1 category changes behind one authoritative mutation boundary so old/new slugs cannot be spoofed or lost. **Rev 13:** corrected the live PDP cache math (`300 + 86400`, not `300 + 3600`), made the TTL decision cover Vercel/Cloudflare/API directives explicitly, and made B3's generated category classification tenant-scoped and invalidatable. **Rev 14:** added an explicit S0 compatibility-risk sign-off and bounded the A1 static-parameter obligation to routes actually approved for prerendering. **Rev 15:** closed the table-vs-column ACL retirement gap: final revocation must remove both relation ACLs and every compatibility `attacl` introduced by S0. **Rev 16:** separated private plan/billing state from public storefront capabilities so S1 and D no longer prescribe incompatible data shapes, and made S2 revoke default `PUBLIC` execution as defense in depth. **Rev 17:** made the durable invalidation substrate shared by B1/B2; category/home documents already have long stale allowances, so B1 can no longer terminate in a lossy post-commit purge. **Rev 18:** synchronized the prose execution sequence with that shared-substrate dependency. **Rev 19:** aligned the compact execution summary with the detailed census-driven S0 grant and relation-plus-column S1 revocation contracts. **Rev 20:** resolved the anon-bank bridge decision with an explicit mandatory-version exit, hoisted the public-capability adapter wholly into S1, added a B0 drainer-runtime feasibility gate, split B1 into shippable best-effort and durable phases, and defined one security-to-A/B implementation gate. **Rev 21:** superseded the proposed standalone S2 containment PR with the owner-approved S2-I+S2-P bundle, aligned the headline with the final B0/A1 artifacts, and added delayed retry scheduling to the outbox contract. **Rev 23:** recorded the first delegated B1-lite decision after PR #3205. **Rev 24:** corrected its SWR math. **Rev 25:** corrected the layered headers, failure path, durable Vercel stage, and authority gate. **Rev 26:** uses the already-allowlisted Vercel tag-deletion primitive in B1-lite after immediate Next expiry; no Cloudflare credential enters the merchant route.
 
 > **Revision history:** rev 1 partly from memory. Rev 2 corrected vs `main` + rewrote the unsafe A2 gate. Rev 3 (live-ACL): exposed RPCs, no safe A1 opener, A1≠A2a, B1 misses the mutation. Rev 4 (live-ACL): `REVOKE ALL` not `REVOKE SELECT`; don't union anon columns; retire direct reads onto the snapshot RPC; S2 guest-checkout has no owner; B3 can cache private routes. Rev 5 (live-ACL): explicit rollout waves (an immediate `REVOKE ALL` breaks shipped binaries selecting bank fields); plan-tier allowlist has **3 copies**. **Rev 6** (live-ACL): (a) column narrowing alone is insufficient — the anon **row** policy is still `USING(true)`, so the same emergency migration must set `USING (is_published = true)` or retained fields leak for unpublished merchants; (b) wave 1 **cannot apply identically to `anon` and `authenticated`** — the web dashboard's authenticated select pulls `nin/bvn/tokens` directly, so the web owner-private RPC refactor must be deployed **before** any authenticated grant change; (c) wave 3 must use **mandatory min-version enforcement** (`/api/mobile/release-policy`), not "proven adoption." All claims code-verified vs `main` except where marked *(live DB probe)*.
 
@@ -100,26 +100,65 @@ Next.js confirms runtime `searchParams` **defer** metadata and that a streamed e
 
 ## Workstream B — Cloudflare purge coverage & TTL
 
-> Product + blog purge are wired today as best-effort fire-and-forget. B1-lite may reuse that behavior as an explicit improvement over no category purge; durability and any TTL expansion remain gated on B0.
+> Product + blog purge remain best-effort fire-and-forget legacy paths. B1-lite deliberately does not copy that credential-bearing pattern into a new merchant route; durability, category edge eviction, and any TTL expansion remain gated on B0.
 
-### B0 — Durable invalidation feasibility/runtime-selection gate (design first; blocks durable B1/B2, not B1-lite)
+### B0 — Complete the adopted durable-invalidation ADR exit checklist
 
 **Verified current hosting state (`origin/main@cff335b0fd`):** `vercel.json` has one daily observability cron (`/api/cron/web-vitals-health`, `0 4 * * *`) but no queue drainer; no migration installs `cron.schedule()`; Vercel Functions are request-scoped; and the existing `payment_side_effects` precedent is claimed/drained inline by payment processing with manual reconciliation, not by a general lease worker. Its claim-token, stale-takeover, attempts, and service-role-only ACL pattern is reusable, but its table is order-specific (`order_id`/`transaction_id` FKs + fixed payment-step enum), so direct table reuse is not assumed.
 
-**B0 exit artifact: a signed ADR before queue code or migrations.** It must select and prove one drainer runtime:
+`docs/architecture/adr/B0-durable-cache-invalidation-substrate.md` already adopts the VPS cron →
+`CRON_SECRET`-gated web-route runtime. Do not repeat runtime selection. Complete its sign-off and
+prototype checklist, amended to prove three ordered stages: Next tag/path invalidation, confirmed
+Vercel CDN tag deletion for the exact affected storefront documents, then strict Cloudflare purge.
 
-1. **Vercel Cron → protected Route Handler:** specify plan-supported minimum interval, function duration/memory limits, `CRON_SECRET` authentication, overlapping-invocation behavior, batch size, and how the cron is deployed/monitored.
-2. **Supabase `pg_cron` + `pg_net` → protected Route Handler:** first prove both extensions and outbound networking are available in production; define secret rotation/storage without embedding credentials in migrations, retry ownership, and how Next cache invalidation stays in the application runtime.
-3. **Owner-approved external/VPS worker:** define operational ownership, deployment, health supervision, secret handling, and recovery; the existing prebuilt deployment VPS is not silently treated as a persistent application worker.
+**Privileged-edge gate:** the proposed drainer claims service-role-only outbox RPCs and reaches CDN
+credentials from a new cron Route Handler. No existing temporary authority exception transfers to
+that route. Before implementation, obtain explicit owner/security approval for the exact route,
+RPCs, credential imports, and boundary-manifest change. This plan does not authorize widening
+`manifest.authority.*`. Detached `after()`/`void` execution remains non-durable. Until B0 exits,
+no durable-worker estimate or TTL increase is schedulable.
 
-Detached `after()`/`void` execution is explicitly **not** a durable candidate. The ADR compares generalizing the `payment_side_effects` claim pattern versus a dedicated semantic invalidation outbox, selects the schema/claim API, sets delivery SLO and cost, and demonstrates a timed prototype that claims, crashes, recovers after lease expiry, performs Next invalidation, calls a mocked Cloudflare endpoint, and records completion. Until B0 exits, no durable-worker estimate or TTL increase is schedulable.
-
-### B1 — Category mutation reaches a purge now, then joins the durable substrate
+### B1 — Category mutation reaches Next invalidation now, then joins the durable substrate
 
 - Editing `revalidateCategories` (`lib/cache-revalidation.ts:167`, currently `revalidateTag` only) is necessary but **not sufficient**: mobile-admin `hooks/useProducts.ts:242` inserts directly into `categories` and only invalidates React Query; it never invokes web revalidation.
 - **Authorization contract first:** category INSERT RLS is owner-only, while `/api/cache/revalidate` requires `settings:edit`. Choose one category-management permission (owner-only or an explicit `products` action) and enforce it identically at mutation/revalidation boundaries. Do not grant `settings:edit` merely to make purge work.
-- **B1-lite (independent of B0, strict improvement):** route mobile category create/rename/deactivate/delete through a narrow authenticated Route Handler using the shared Bearer-token client; authenticate first, validate with Zod, derive merchant identity server-side, reject cross-merchant ids, capture authoritative old/new slugs, execute the mutation, call `revalidateCategories`, resolve hostnames/URLs server-side, and invoke the existing best-effort scheduled Cloudflare purge. Keep current cache directives unchanged, label the delivery best-effort in code/telemetry, and test owner/permitted/denied staff, rollback, old+new slug construction, and that successful mutations attempt both Next and edge invalidation.
-- **B1-durable (blocked on B0):** move mutation + semantic invalidation-intent creation into one DB transaction/RPC or narrow trigger; the chosen B0 drainer performs Next category/navigation/home invalidation before strict Cloudflare acknowledgement. Test no-intent-on-rollback, lease recovery, replay, tombstones, and dead-letter recovery.
+- **B1-lite (independent of B0, strict improvement):** route mobile category create/rename/deactivate/delete through a narrow authenticated Route Handler using the shared Bearer-token client; authenticate first, validate with Zod, derive merchant identity server-side, reject cross-merchant ids, capture authoritative old/new slugs, execute the mutation, and call `revalidateCategories`. Keep current cache directives unchanged. Test owner success, denied staff, rollback, old+new slug invalidation, and assert that the category route's import graph cannot reach credential authority. Do **not** add Cloudflare credentials to the handler or widen `manifest.authority.*`; strict edge eviction belongs in B1-durable.
+
+  **STATUS — mutation boundary shipped; edge-freshness acceptance remains open (PR #3205).** The premise was verified accurate: mobile-admin
+  `hooks/useProducts.ts:242` did insert straight into `categories` and only called
+  `queryClient.invalidateQueries(['categories'])`, so category creation never reached web
+  revalidation or the edge. What shipped:
+  - `POST /api/merchant/categories` + `PATCH`/`DELETE /api/merchant/categories/[id]`, on the
+    shared Bearer-capable client (`getAuthenticatedUser`, which also serves web cookies).
+    CSRF is already Bearer-exempt (`lib/csrf.ts:147`).
+  - **Permission contract resolved: owner-only.** `categories_merchant_insert/update/delete`
+    are RLS-scoped to `merchants.user_id = auth.uid()` with no staff branch, so owner-only is
+    the only option needing no RLS widening and unable to diverge from the DB. Widening to a
+    `products` action later means changing `isCategoryManager` AND the three policies together.
+  - `revalidateCategories()` hard-expires navigation/home/category tags and **both** the old and
+    new slug on a rename; product-derived category data is hard-expired too. #3207 then awaits
+    Vercel deletion of the tenant `ps:`/`ph:` response tags already carried by storefront HTML.
+    The graph reaches no `env.ts` credential authority. Cache directives are unchanged.
+  - **No Cloudflare purge shipped.** Canonical category documents use layered storefront-document
+    headers: Vercel 300/86400 and downstream Cloudflare 3600/86400/86400. Cloudflare reported
+    `DYNAMIC`, but Vercel reported `HIT` for a browser request. A retained browser object may be
+    served stale during the full SWR allowance; if tag revalidation fails after commit, the origin
+    also falls back to its natural Next cache window. No applicable already-allowlisted category
+    Cloudflare credential surface was found. The lower-level Vercel primitive is compatible and
+    is now used; `/api/cache/revalidate` still has a different `settings:edit` contract, and no
+    durable cron/drainer exists yet.
+  - Mobile `createCategory` migrated off the direct insert onto the handler.
+
+  **Decision correction (rev 26):** both delegated falsifiers occurred. #3207 uses the compatible
+  Vercel primitive now; it does not widen credential authority. Prioritize B0/B1-durable ahead of
+  unrelated D cleanup for transactional intent, retries, and Cloudflare coverage.
+
+  **Residual:** only *create* had a caller. `PATCH`/`DELETE` exist but are so far unused —
+  rename/deactivate/delete have no UI in any app. Production shows the table is edited
+  out-of-band (67 rows / 6 merchants, 65 updated in 90 days) and **nothing in the repo writes
+  it apart from the mobile create path**, so those direct edits remain invisible to the cache
+  until they move onto this API. B1-durable must close that producer gap.
+- **B1-durable (blocked on B0):** use a database trigger for semantic invalidation intent, or make migration plus enforcement of every out-of-band writer an acceptance prerequisite; an RPC-only design cannot claim durable coverage while direct SQL/dashboard edits remain. The B0 drainer hard-expires Next category/navigation/home data, then confirms Vercel deletion of the exact category-dependent HTML tags (use the existing tenant publication tags or add and test a dedicated category response tag), then obtains strict Cloudflare acknowledgement. It may not mark completion if any stage fails. Test no-intent-on-rollback, direct/out-of-band edits, tag-expiry failure, stale-origin refill prevention, Vercel deletion failure, lease recovery, replay, tombstones, and dead-letter recovery.
 
 ### B2 — Complete PDP durable coverage before changing any cache directive
 
@@ -130,10 +169,10 @@ After B0 selects/proves the runtime, B2 must:
 1. Census every PDP-rendered dependency and producer: products, variants/media/attributes, category joins/slugs, inventory/price/status, approved reviews/ratings, merchant currency/settings/capabilities, bulk/import, checkout-stock, and agentic mutations.
 2. Write semantic intents in the same transaction as each mutation, capturing merchant/product ids, generation, and old/new paths; never accept absolute URLs from clients. Add reconciliation for any uncovered legacy path and keep current directives until coverage is complete.
 3. Resolve active hostnames server-side at delivery; retain old+new host/path data for rename/domain moves. Use generation-aware idempotency so a completed purge never suppresses a later mutation of the same path.
-4. Invalidate relevant Next tags/paths first, then Cloudflare. Persist/repeat stages safely so an edge MISS cannot refill from stale Next data.
+4. Hard-expire relevant Next tags/paths first, confirm Vercel deletion for the affected Data/Runtime/CDN response tags second, then purge Cloudflare. Persist/repeat all three stages safely so an outer-edge MISS cannot refill from a stale inner layer.
 5. Replace `purgeCloudflareUrls(): Promise<void>` as the acknowledgement primitive with a strict internal result that treats missing config, timeouts, non-2xx, HTTP `200` + `success:false`, partial failures, and `429/Retry-After` as retryable. Keep the fail-open wrapper only for legacy callers.
 6. Implement the B0-selected lease/claim, batching, backoff, attempts, dead-letter, RLS/service-only completion, queue-age/error/latency metrics, and alerts inside the chosen freshness budget.
-7. Test transaction rollback, dependency changes, concurrent claims, crash between Next/CF stages, replay, later-generation re-enqueue, partial/429 failures, old+new paths, delete tombstones, domain rename, bulk load, and dead-letter replay.
+7. Test transaction rollback, dependency changes, concurrent claims, crashes between each of the Next/Vercel/Cloudflare stages, stale-origin refill prevention, Vercel deletion failure, replay, later-generation re-enqueue, partial/429 failures, old+new paths, delete tombstones, domain rename, bulk load, and dead-letter replay.
 8. Raise TTL/directives only after staging/production telemetry proves the SLO, every producer is covered, and reconciliation/dead-letter operations work. Then update the stale comments in `config/storefront-cache.ts` and `storefront-cdn-cache-control.ts`.
 
 ### B3 — Derive the 27-segment "cache-everything" category allowlist from the DB — but subtract reserved routes first (rev-4 catch)
@@ -202,10 +241,11 @@ PARALLEL DESIGN/INVESTIGATION ONLY while the security lane is open (no non-secur
 NON-SECURITY IMPLEMENTATION GATE opens only when S0-B and S1 are complete AND either (a) Credit
 Direct remains disabled with public execution revoked, or (b) the bundled S2-I + S2-P permanent
 capability is complete:
-  B1-lite first: authenticated category Route Handler → existing Next revalidation + best-effort CF purge
-  D cleanup/filler PRs
-  B0 selected substrate implementation → B1-durable → B2 complete producer coverage/telemetry
+  B1-lite mutation boundary first: authenticated Route Handler → Next tags (partial in #3205)
+  B0 exit checklist + owner/security privileged-edge approval → B1-durable three-stage bound
+    (Next → Vercel → Cloudflare) → B2 producer coverage/telemetry
     → only then change PDP fresh/SWR directives
+  D cleanup/filler PRs after the B1-durable edge bound
   C after C0/owner approval → B3 tenant-scoped classification after C
   A route implementation only for signed-off A1 decisions; A2 still requires full-body bot strategy
 ```

@@ -38,7 +38,7 @@ describe('eventPipelineGovernedPaths', () => {
 
   it('pins the authority-byte baseline to a reachable reviewed commit', () => {
     const root = eventPipelineGovernedPaths.repoRoot();
-    const reviewedSha = '3aba6709895656f3852c7342230f486ea8edf622';
+    const reviewedSha = 'cfe0e9864cd776af98ef400969257e2ec147f65d';
 
     expect(eventPipelineGovernedPaths.authorityByteBaseSha).toBe(reviewedSha);
     expect(

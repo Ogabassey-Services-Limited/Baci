@@ -186,4 +186,29 @@ describe('createPublicClient', () => {
       signal: combinedSignal,
     });
   });
+
+  it('uses the shared bounded build transport for PDP index clients', async () => {
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(new AbortController().signal);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null));
+
+    createPublicClient({ clientInfo: 'baci-storefront-product-index' });
+    const options = mockCreateClient.mock.calls[0][2] as {
+      global: {
+        fetch: (url: string, requestOptions?: RequestInit) => Promise<Response>;
+      };
+    };
+
+    await options.global.fetch('https://example.com/product-index');
+
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://example.com/product-index',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+  });
 });

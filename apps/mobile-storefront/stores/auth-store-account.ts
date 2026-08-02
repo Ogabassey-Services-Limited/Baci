@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
 import { CUSTOMER_SELECT_COLUMNS } from './auth-helpers';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
+import { profileRpcErrorMessages } from './auth-store-error-messages';
 import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
@@ -17,20 +18,6 @@ import { useQuizStore } from './quiz-store';
 import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
-
-// set_customer_username raises these as the Postgres error message.
-const USERNAME_ERROR_MESSAGES: Record<string, string> = {
-  username_taken: 'That username is already taken. Try another.',
-  reserved_username: 'That username is not available.',
-  invalid_username:
-    'Use 3-20 letters, numbers, or single . _ separators (start and end with a letter or number).',
-  customer_not_found: 'No shopper account found for this store.',
-  not_authenticated: 'Please sign in to choose a username.',
-};
-
-function mapUsernameError(message: string): string {
-  return USERNAME_ERROR_MESSAGES[message] ?? 'Could not set username';
-}
 
 function clearUserStores() {
   queryClient.clear();
@@ -162,6 +149,10 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
         // handled in setUsername below). Prefer the live store value — it can
         // only be newer, since this action cannot legitimately change it.
         const liveUsername = get().customer?.username;
+        // Same stale-read race as username: updateProfile never writes
+        // date_of_birth, so a concurrent setDateOfBirth could have resolved
+        // while this update was in flight. Prefer the live store value.
+        const liveDateOfBirth = get().customer?.date_of_birth;
         set({
           customer: {
             id: updateValidation.data.id,
@@ -173,6 +164,10 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
             loyalty_points: updateValidation.data.loyalty_points ?? undefined,
             username:
               liveUsername ?? updateValidation.data.username ?? undefined,
+            date_of_birth:
+              liveDateOfBirth ??
+              updateValidation.data.date_of_birth ??
+              undefined,
           },
         });
         return { success: true };
@@ -212,7 +207,10 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           p_username: cleaned,
         });
         if (error) {
-          return { success: false, error: mapUsernameError(error.message) };
+          return {
+            success: false,
+            error: profileRpcErrorMessages.username(error.message),
+          };
         }
 
         const stored = typeof data === 'string' ? data : cleaned;
@@ -229,6 +227,64 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Could not set username';
+        return { success: false, error: message };
+      }
+    },
+
+    setDateOfBirth: async (dateOfBirth: string) => {
+      try {
+        // Only merchantId is required: the RPC re-derives the customer from
+        // auth.uid() + merchant, so a shopper whose local customer row failed to
+        // hydrate can still save (and then pass the server age gate). The
+        // getUser() check below still rejects a genuinely signed-out session.
+        const { merchantId } = get();
+        if (!merchantId) {
+          return { success: false, error: 'Not logged in' };
+        }
+
+        const {
+          data: { user: verifiedUser },
+          error: authError,
+        } = await supabase.auth.getUser();
+        if (authError || !verifiedUser) {
+          return {
+            success: false,
+            error: 'Session expired. Please sign in again.',
+          };
+        }
+
+        // The RPC re-derives the customer from auth.uid() + merchant, validates
+        // the ISO date server-side, and raises friendly codes.
+        const { data, error } = await supabase.rpc(
+          'set_customer_date_of_birth',
+          {
+            p_merchant_id: merchantId,
+            p_date_of_birth: dateOfBirth,
+          }
+        );
+        if (error) {
+          return {
+            success: false,
+            error: profileRpcErrorMessages.dateOfBirth(error.message),
+          };
+        }
+
+        const stored = typeof data === 'string' ? data : dateOfBirth;
+        // Re-read the customer instead of spreading the top-of-function
+        // snapshot: two awaits (getUser + the RPC) ran since, during which a
+        // concurrent updateProfile could have replaced `customer`. Patch local
+        // state only when the row is present; if hydration failed the write
+        // still succeeded server-side and is picked up on the next sync.
+        const latestCustomer = get().customer;
+        if (latestCustomer) {
+          set({ customer: { ...latestCustomer, date_of_birth: stored } });
+        }
+        return { success: true, dateOfBirth: stored };
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Could not save date of birth';
         return { success: false, error: message };
       }
     },

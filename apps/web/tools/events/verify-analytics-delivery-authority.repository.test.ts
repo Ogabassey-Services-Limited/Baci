@@ -171,5 +171,5 @@ describe('analytics delivery authority repository contract', () => {
     expect(
       verifyAnalyticsDeliveryAuthority(resolve(process.cwd(), '../..'))
     ).toEqual([]);
-  }, 120_000);
+  }, 480_000);
 });

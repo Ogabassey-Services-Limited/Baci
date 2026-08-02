@@ -5,6 +5,29 @@ const service = 'apps/web/src/lib/supabase/service.ts';
 const admin = 'apps/web/src/lib/supabase/admin.ts';
 
 describe('event pipeline service authority graph', () => {
+  it.each([
+    'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
+    'apps/web/src/lib/drain-storefront-cache-invalidation.ts',
+    'apps/web/src/lib/strict-cloudflare-hostname-purge.ts',
+  ])('rejects an extra credential import from B0 module %s', (root) => {
+    const env = 'apps/web/src/env.ts';
+    const route = 'apps/web/src/app/api/cron/security-probe/route.ts';
+    const sources = new Map([
+      [root, "import { getSupabaseServiceRoleKey } from '@/env';"],
+      [env, 'use(process.env.SUPABASE_SERVICE_ROLE_KEY);'],
+    ]);
+    if (root !== route && !root.includes('/app/api/')) {
+      sources.set(
+        route,
+        `import '${root.replace('apps/web/src/', '@/').replace(/\.ts$/, '')}';`
+      );
+    }
+    const productionRoot = root.includes('/app/api/') ? root : route;
+    expect(serviceAuthorityGraphFindings(sources, [productionRoot])).toContain(
+      `${productionRoot}: API import graph reaches credential authority ${env}${productionRoot === root ? '' : ` via ${productionRoot} -> ${root} -> ${env}`}`
+    );
+  });
+
   it('treats a test-named bridge as production when a route reaches it', () => {
     const route = 'apps/web/src/app/api/fourth/route.ts';
     const bridge = 'apps/web/src/lib/events/authority-bridge.test.ts';

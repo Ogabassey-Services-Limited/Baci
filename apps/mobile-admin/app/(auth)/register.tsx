@@ -1,8 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as NavigationBar from 'expo-navigation-bar';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -12,256 +11,167 @@ import {
   View,
 } from 'react-native';
 import { RegisterAccountStep } from '@/components/auth/register/RegisterAccountStep';
-import { RegisterBusinessStep } from '@/components/auth/register/RegisterBusinessStep';
 import { getStyles } from '@/components/auth/register/register.styles';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
-import { isRuntimePlatform } from '@/config/runtime-platform';
-import type { BusinessTypeId } from '@/constants/business-types';
-import { useRegistration } from '@/hooks/useRegistration';
+import { useAuth } from '@/hooks/useAuth';
+import { useLightNavigationBar } from '@/hooks/useLightNavigationBar';
 import { useTheme } from '@/hooks/useTheme';
-import type { NetworkError } from '@/lib/api-client';
 import {
   type PasswordValidationResult,
   validatePassword,
 } from '@/lib/password-utils';
 import { getEmailError } from '@/lib/sanitize';
 
+interface AccountFormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  firstName: string;
+  lastName: string;
+}
+
+const INITIAL_FORM: AccountFormData = {
+  email: '',
+  password: '',
+  confirmPassword: '',
+  firstName: '',
+  lastName: '',
+};
+
+const INITIAL_PASSWORD_STATE: PasswordValidationResult = {
+  isValid: false,
+  strength: 0,
+  requirements: {
+    length: false,
+    complexity: false,
+    notCommon: false,
+    match: true,
+  },
+};
+
 export default function RegisterScreen() {
   const { colors, isDark } = useTheme();
   const styles = getStyles(colors);
   const router = useRouter();
-  const { register, isLoading } = useRegistration();
-  const [step, setStep] = useState(1);
+  const { signUp } = useAuth();
+  const submissionLocked = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  // Form State
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    firstName: '',
-    lastName: '',
-    businessName: '',
-    businessType: '',
-    country: 'NG',
-    otherBusinessType: '',
-    slug: '',
-  });
-  const [isSlugEdited, setIsSlugEdited] = useState(false);
-
-  // Validation State
-  const [passwordState, setPasswordState] = useState<PasswordValidationResult>({
-    isValid: false,
-    strength: 0,
-    requirements: {
-      length: false,
-      complexity: false,
-      notCommon: false,
-      match: true,
-    },
-  });
+  const [formData, setFormData] = useState<AccountFormData>(INITIAL_FORM);
+  const [passwordState, setPasswordState] = useState<PasswordValidationResult>(
+    INITIAL_PASSWORD_STATE
+  );
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  useLightNavigationBar(isDark);
 
-  useEffect(() => {
-    if (!isRuntimePlatform('android')) {
+  const updateForm = <K extends keyof AccountFormData>(
+    key: K,
+    value: AccountFormData[K]
+  ) => {
+    if (key === 'password') {
+      setPasswordState(validatePassword(value, formData.confirmPassword));
+      setConfirmError(
+        formData.confirmPassword && value !== formData.confirmPassword
+          ? 'Passwords do not match'
+          : null
+      );
+    }
+    if (key === 'confirmPassword') {
+      setConfirmError(
+        formData.password && value !== formData.password
+          ? 'Passwords do not match'
+          : null
+      );
+    }
+    setFormData((previous) => ({ ...previous, [key]: value }));
+  };
+
+  const validateAccount = (): string | null => {
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      return 'Please enter your first and last name';
+    }
+    if (!formData.email || !formData.password || !formData.confirmPassword) {
+      return 'Please fill in all fields';
+    }
+    const emailError = getEmailError(formData.email.trim());
+    if (emailError) {
+      return emailError;
+    }
+    const result = validatePassword(
+      formData.password,
+      formData.confirmPassword
+    );
+    if (!result.isValid) {
+      return result.error || 'Please choose a stronger password.';
+    }
+    return null;
+  };
+
+  const handleNext = async () => {
+    if (submissionLocked.current) {
+      return;
+    }
+    const validationError = validateAccount();
+    if (validationError) {
+      Alert.alert('Check Your Details', validationError);
       return;
     }
 
-    void NavigationBar.setStyle('light');
-    return () => {
-      void NavigationBar.setStyle(isDark ? 'light' : 'dark');
-    };
-  }, [isDark]);
+    submissionLocked.current = true;
+    setIsSubmitting(true);
+    const email = formData.email.trim().toLowerCase();
+    const firstName = formData.firstName.trim();
+    const lastName = formData.lastName.trim();
 
-  const updateForm = <K extends keyof typeof formData>(
-    key: K,
-    value: (typeof formData)[K]
-  ) => {
-    setFormData((prev) => {
-      const updates: Partial<typeof formData> = { [key]: value };
+    try {
+      const result = await signUp({
+        email,
+        password: formData.password,
+        firstName,
+        lastName,
+        fullName: `${firstName} ${lastName}`,
+      });
 
-      // Auto-generate slug if business name changes and slug hasn't been manually edited
-      if (key === 'businessName' && !isSlugEdited) {
-        const firstWord = value.split(' ')[0] || '';
-        updates.slug = firstWord
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '');
-      }
-
-      // Real-time validation
-      if (key === 'password') {
-        const result = validatePassword(value, prev.confirmPassword);
-        setPasswordState(result);
-        if (prev.confirmPassword && value !== prev.confirmPassword) {
-          setConfirmError('Passwords do not match');
-        } else {
-          setConfirmError(null);
-        }
-      }
-      if (key === 'confirmPassword') {
-        if (prev.password && value !== prev.password) {
-          setConfirmError('Passwords do not match');
-        } else {
-          setConfirmError(null);
-        }
-      }
-
-      if (key === 'businessType' && value !== 'other') {
-        updates.otherBusinessType = '';
-      }
-
-      return { ...prev, ...updates };
-    });
-  };
-
-  const handleSlugChange = (text: string) => {
-    setIsSlugEdited(true);
-    // Basic sanitization for manual input (allow hyphens, lowercase)
-    const sanitized = text.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    setFormData((prev) => ({ ...prev, slug: sanitized }));
-  };
-
-  const handleNext = () => {
-    if (step === 1) {
-      if (!formData.firstName.trim() || !formData.lastName.trim()) {
-        Alert.alert('Error', 'Please enter your first and last name');
+      if (result.error) {
+        Alert.alert('Sign Up Failed', result.error);
         return;
       }
-
-      if (!formData.email || !formData.password || !formData.confirmPassword) {
-        Alert.alert('Error', 'Please fill in all fields');
-        return;
-      }
-
-      // Validate email format using Zod schema
-      const emailError = getEmailError(formData.email.trim());
-      if (emailError) {
-        Alert.alert('Invalid Email', emailError);
-        return;
-      }
-
-      const result = validatePassword(
-        formData.password,
-        formData.confirmPassword
-      );
-      if (!result.isValid) {
+      if (result.accountExists) {
         Alert.alert(
-          'Password too weak',
-          result.error || 'Please choose a stronger password.'
+          'Account Exists',
+          'An account with this email already exists. Please sign in instead.',
+          [
+            {
+              text: 'Sign In',
+              onPress: () => router.replace('/(auth)/login'),
+            },
+            { text: 'Cancel', style: 'cancel' },
+          ]
         );
         return;
       }
-
-      setStep(2);
-    }
-  };
-
-  const handleRegister = () => {
-    if (!formData.businessName || !formData.businessType) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (
-      formData.businessType === 'other' &&
-      !formData.otherBusinessType.trim()
-    ) {
-      Alert.alert('Error', 'Please specify your business type');
-      return;
-    }
-
-    const email = formData.email.toLowerCase();
-    register.mutate(
-      {
-        email,
-        password: formData.password,
-        confirmPassword: formData.confirmPassword,
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        businessName: formData.businessName,
-        businessType: formData.businessType,
-        country: formData.country,
-        otherBusinessType: formData.otherBusinessType,
-        // Send the DISPLAYED Store Link (so the URL the user sees is what gets
-        // provisioned when free) plus whether they edited it: an edited slug is
-        // honored verbatim (409 if taken); an untouched auto-slug is a preference
-        // the server de-dupes via generate_slug (never a surprising 409).
-        slug: formData.slug || undefined,
-        slugIsCustom: isSlugEdited,
-        brandColors: JSON.stringify({
-          primary: '#000000',
-          background: '#ffffff',
-          accent: '#F59E0B',
-        }),
-        logoUrl: '',
-        brandPreferences: '',
-      },
-      {
-        onSuccess: () => {
-          // Navigate directly to dashboard — email confirmation is disabled,
-          // so signup returns a session immediately and the merchant is ready.
-          // Staff invitees do NOT come through here: merchant registration
-          // creates an owner store and the merchant-context RPC prefers owner
-          // over staff, which would pin the invitee to their own empty store.
-          // Invitees use the account-only /(auth)/staff-signup flow instead.
-          router.replace('/(admin)/(tabs)');
-        },
-        onError: (error: Error) => {
-          console.error('Registration error:', error.message);
-          const networkError = error as NetworkError;
-
-          // Handle specific server error codes
-          const errorCode = (networkError.data as { code?: string } | undefined)
-            ?.code;
-          if (
-            networkError.statusCode === 409 &&
-            errorCode === 'slug_unavailable'
-          ) {
-            // The user's chosen Store Link is taken/retired — offer to pick
-            // another, NOT "go to login" (which would be the wrong recovery).
-            Alert.alert(
-              'Store URL Unavailable',
-              'That store URL is already taken. Please choose a different one.'
-            );
-            return;
-          }
-          if (networkError.statusCode === 409) {
-            Alert.alert(
-              'Account Exists',
-              'An account with this email already exists. Please log in instead.',
-              [
-                {
-                  text: 'Go to Login',
-                  onPress: () => router.replace('/(auth)/login'),
-                },
-                { text: 'OK', style: 'cancel' },
-              ]
-            );
-            return;
-          }
-
-          if (networkError.statusCode === 429) {
-            Alert.alert(
-              'Too Many Attempts',
-              'Please wait a minute before trying again.'
-            );
-            return;
-          }
-
-          let message = error.message || 'Please try again later.';
-          if (networkError.isTimeout) {
-            message =
-              'The server is taking too long to respond. Please check your connection and try again.';
-          } else if (networkError.isOffline) {
-            message =
-              'Could not reach the server. Please check your internet connection and try again.';
-          }
-
-          Alert.alert('Registration Failed', message);
-        },
+      if (result.needsEmailConfirmation) {
+        router.replace(`/(auth)/verify?email=${encodeURIComponent(email)}`);
+        return;
       }
-    );
+      if (result.sessionEstablished) {
+        router.replace('/(auth)/complete-profile');
+        return;
+      }
+
+      Alert.alert(
+        'Sign Up Failed',
+        'We could not establish your session. Please try again.'
+      );
+    } catch {
+      Alert.alert(
+        'Sign Up Failed',
+        'Unable to connect. Please check your internet connection.'
+      );
+    } finally {
+      submissionLocked.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -271,13 +181,12 @@ export default function RegisterScreen() {
         colors={['#0D0D1A', '#1A1A2E']}
         style={StyleSheet.absoluteFill}
       />
-
       <AppFormScreen
         contentContainerStyle={styles.content}
         header={
           <View style={styles.header}>
             <Pressable
-              onPress={() => (step === 1 ? router.back() : setStep(1))}
+              onPress={() => router.back()}
               style={styles.backButton}
               accessibilityLabel="Back"
               accessibilityRole="button"
@@ -290,42 +199,20 @@ export default function RegisterScreen() {
         }
         style={styles.safeArea}
       >
-        {/* Progress Indicator */}
         <View style={styles.progressContainer}>
-          <View
-            style={[styles.progressBar, { width: step === 1 ? '50%' : '100%' }]}
-          />
+          <View style={[styles.progressBar, { width: '50%' }]} />
         </View>
-        <Text style={styles.stepText}>Step {step} of 2</Text>
-
-        {step === 1 ? (
-          <RegisterAccountStep
-            confirmError={confirmError}
-            formData={formData}
-            onNext={handleNext}
-            passwordState={passwordState}
-            showPassword={showPassword}
-            updateForm={updateForm}
-            onTogglePassword={() => setShowPassword((prev) => !prev)}
-          />
-        ) : (
-          <RegisterBusinessStep
-            formData={formData}
-            isLoading={isLoading}
-            onBusinessNameChange={(text) => updateForm('businessName', text)}
-            onBusinessTypeChange={(typeId: BusinessTypeId) =>
-              updateForm('businessType', typeId)
-            }
-            onCountryChange={(countryCode) =>
-              updateForm('country', countryCode)
-            }
-            onLaunchStore={handleRegister}
-            onOtherBusinessTypeChange={(text) =>
-              updateForm('otherBusinessType', text)
-            }
-            onSlugChange={handleSlugChange}
-          />
-        )}
+        <Text style={styles.stepText}>Step 1 of 2</Text>
+        <RegisterAccountStep
+          confirmError={confirmError}
+          formData={formData}
+          isLoading={isSubmitting}
+          onNext={handleNext}
+          passwordState={passwordState}
+          showPassword={showPassword}
+          updateForm={updateForm}
+          onTogglePassword={() => setShowPassword((previous) => !previous)}
+        />
       </AppFormScreen>
     </View>
   );

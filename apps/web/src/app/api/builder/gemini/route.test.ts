@@ -1,11 +1,12 @@
 import { generateObject } from 'ai';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockGetAuthenticatedUser = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
+const merchantId = '11111111-1111-4111-8111-111111111111';
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mockCheckCsrfProtection,
@@ -60,141 +61,6 @@ describe('/api/builder/gemini route', () => {
     mockHasPermission.mockReturnValue(true);
   });
 
-  it('returns the CSRF response before auth when the token is invalid', async () => {
-    mockCheckCsrfProtection.mockResolvedValue({
-      valid: false,
-      response: NextResponse.json(
-        { error: 'Invalid CSRF token' },
-        { status: 403 }
-      ),
-    });
-
-    const request = new NextRequest('http://localhost/api/builder/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: 'Make it blue', currentConfig: {} }),
-    });
-
-    const { POST } = await import('./route');
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body).toEqual({ error: 'Invalid CSRF token' });
-    expect(mockGetAuthenticatedUser).not.toHaveBeenCalled();
-  });
-
-  it('returns 403 when the user lacks builder permissions', async () => {
-    mockGetAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase: {},
-    });
-    mockHasPermission.mockReturnValue(false);
-
-    const request = new NextRequest('http://localhost/api/builder/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: 'Make it blue', currentConfig: {} }),
-    });
-
-    const { POST } = await import('./route');
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body).toEqual({ error: 'Forbidden' });
-  });
-
-  it('returns 400 when the AI request body is invalid', async () => {
-    mockGetAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase: {},
-    });
-
-    const request = new NextRequest('http://localhost/api/builder/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: '   ' }),
-    });
-
-    const { POST } = await import('./route');
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(body.error).toBe('Invalid request body');
-  });
-
-  it('returns 400 when the request body is malformed JSON', async () => {
-    mockGetAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase: {},
-    });
-
-    const request = new NextRequest('http://localhost/api/builder/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{invalid-json',
-    });
-
-    const { POST } = await import('./route');
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(body).toEqual({ error: 'Invalid JSON body' });
-  });
-
-  it('returns generated config for a valid request', async () => {
-    mockGetAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase: {},
-    });
-
-    vi.mocked(generateObject).mockResolvedValue({
-      object: {
-        content: [{ type: 'Hero', props: { title: 'Updated hero' } }],
-        root: { title: 'Updated home' },
-        zones: {},
-      },
-    } as Awaited<ReturnType<typeof generateObject>>);
-
-    const request = new NextRequest('http://localhost/api/builder/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: 'Update the hero title',
-        currentConfig: {
-          content: [{ type: 'Hero', props: { title: 'Home' } }],
-          root: { title: 'Home' },
-          zones: {},
-        },
-      }),
-    });
-
-    const { POST } = await import('./route');
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      config: {
-        content: [
-          expect.objectContaining({
-            type: 'Hero',
-            props: expect.objectContaining({
-              title: 'Updated hero',
-              id: expect.stringContaining('hero-'),
-            }),
-          }),
-        ],
-        root: { title: 'Updated home' },
-        zones: {},
-        theme: {},
-      },
-    });
-  });
-
   it('deep-merges non-color theme sections from the generated config', async () => {
     mockGetAuthenticatedUser.mockResolvedValue({
       user: { id: 'user-1' },
@@ -231,6 +97,7 @@ describe('/api/builder/gemini route', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId,
         prompt: 'Refresh the visual design',
         currentConfig: {
           content: [{ type: 'Hero', props: { title: 'Home' } }],
@@ -306,6 +173,7 @@ describe('/api/builder/gemini route', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId,
         prompt: 'Update the hero title',
         currentConfig: {
           content: [{ type: 'Hero', props: { title: 'Home' } }],

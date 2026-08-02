@@ -55,6 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   revalidateBlogPosts({
+    merchantId: parsed.data.merchantId,
     identifiers: parsed.data.identifiers,
     canonicalMerchantSlug: parsed.data.canonicalMerchantSlug,
     listingCategories: parsed.data.listingCategories ?? [],

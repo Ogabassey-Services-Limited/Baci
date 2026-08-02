@@ -8,7 +8,7 @@ import { collectProductionImportClosure, eventPipelineBoundaryManifest } from '.
 import { readGitIndexSources } from './event-pipeline-git-content';
 import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
 
-const FROZEN_BASE_SHA = '9e3d1b14b1931a5e441fc23f0e5417c188056e47';
+const FROZEN_BASE_SHA = 'cfe0e9864cd776af98ef400969257e2ec147f65d';
 const inventoryPath =
   'apps/web/tools/events/fixtures/event-pipeline-path-inventory.tsv';
 const checkedExtension = /\.(?:json|mjs|sh|sql|ts|tsx)$/;

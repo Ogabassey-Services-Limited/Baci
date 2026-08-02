@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockConnection = vi.hoisted(() => vi.fn());
@@ -25,9 +26,25 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-vi.mock('./kyc-verification', () => ({
-  KycVerification: () => <div data-testid="kyc-verification" />,
-}));
+vi.mock('./kyc-verification', async () => {
+  const { useState } = await import('react');
+
+  return {
+    KycVerification: ({ merchantId }: { merchantId: string }) => {
+      const [draft, setDraft] = useState('');
+
+      return (
+        <input
+          aria-label="KYC draft"
+          data-merchant-id={merchantId}
+          data-testid="kyc-verification"
+          onChange={(event) => setDraft(event.target.value)}
+          value={draft}
+        />
+      );
+    },
+  };
+});
 
 import { cookies } from 'next/headers';
 import { getMerchantForUser } from '@/lib/merchant-server';
@@ -80,5 +97,47 @@ describe('KycSettingsPage', () => {
 
     expect(screen.getByTestId('kyc-verification')).toBeInTheDocument();
     expect(mockConnection).toHaveBeenCalledOnce();
+  });
+
+  it('remounts the KYC form when the active merchant changes', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getMerchantForUser)
+      .mockResolvedValueOnce({
+        merchant: {
+          id: 'merchant-a',
+          country: 'NG',
+          nin: null,
+          bvn: null,
+          cac_rc_number: null,
+          phone: null,
+        },
+        staffAccess: { isOwner: true },
+      } as never)
+      .mockResolvedValueOnce({
+        merchant: {
+          id: 'merchant-b',
+          country: 'NG',
+          nin: null,
+          bvn: null,
+          cac_rc_number: null,
+          phone: null,
+        },
+        staffAccess: { isOwner: true },
+      } as never);
+    vi.mocked(createClient).mockReturnValue({
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    } as never);
+
+    const { rerender } = render(await KycSettingsPage());
+    const form = screen.getByTestId('kyc-verification');
+    await user.type(form, 'draft for merchant A');
+
+    rerender(await KycSettingsPage());
+
+    expect(screen.getByTestId('kyc-verification')).toHaveAttribute(
+      'data-merchant-id',
+      'merchant-b'
+    );
+    expect(screen.getByRole('textbox', { name: 'KYC draft' })).toHaveValue('');
   });
 });

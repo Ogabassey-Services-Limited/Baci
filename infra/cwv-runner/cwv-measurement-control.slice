@@ -1,0 +1,13 @@
+[Unit]
+Description=Baci CWV dedicated runtime control ceiling
+
+[Slice]
+AllowedCPUs=2-3
+CPUQuota=100%
+MemoryMax=2147483648
+MemorySwapMax=0
+TasksMax=256
+IOWeight=10
+CPUAccounting=true
+MemoryAccounting=true
+IOAccounting=true

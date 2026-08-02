@@ -1,4 +1,5 @@
 import { revalidateTag } from 'next/cache';
+import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
 import { logger } from '@/lib/logger';
 import { normalizeMerchantId } from '@/lib/normalize-merchant-id';
 import {
@@ -9,38 +10,67 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 
 export interface ProductRevalidationOptions {
+  expireImmediately?: boolean;
   feedScope?: 'all' | 'merchant' | 'none';
 }
 
-function revalidateProductTag(tag: string, profile: string): void {
+type ProductCacheProfile = string | { readonly expire: 0 };
+
+function resolveProfile(
+  profile: string,
+  options: ProductRevalidationOptions
+): ProductCacheProfile {
+  return options.expireImmediately ? { expire: 0 } : profile;
+}
+
+function revalidateProductTag(
+  tag: string,
+  profile: ProductCacheProfile
+): boolean {
   try {
     revalidateTag(tag, profile);
+    return true;
   } catch (error) {
     logger.error({
       error: sanitizeForLog(error),
       message: 'Failed to revalidate product cache tag',
       tag: sanitizeForLog(tag),
     });
+    return false;
   }
 }
 
-function revalidateMerchantFeed(merchantId: string): void {
+function revalidateMerchantFeed(
+  merchantId: string,
+  options: ProductRevalidationOptions = {}
+): boolean {
   const normalizedMerchantId = normalizeMerchantId(merchantId);
   if (!normalizedMerchantId) {
     logger.warn({
       merchantId: sanitizeForLog(merchantId),
       message: 'Skipped merchant feed revalidation for invalid merchant ID',
     });
-    return;
+    return false;
   }
 
-  revalidateProductTag('google-merchant-feed', 'products');
-  revalidateProductTag('openai-product-feed', 'products');
-  revalidateProductTag(`merchant-feed-${normalizedMerchantId}`, 'products');
-  revalidateProductTag(
-    `merchant-feed-review-signals-${normalizedMerchantId}`,
-    'products'
-  );
+  return [
+    revalidateProductTag(
+      'google-merchant-feed',
+      resolveProfile('products', options)
+    ),
+    revalidateProductTag(
+      'openai-product-feed',
+      resolveProfile('products', options)
+    ),
+    revalidateProductTag(
+      `merchant-feed-${normalizedMerchantId}`,
+      resolveProfile('products', options)
+    ),
+    revalidateProductTag(
+      `merchant-feed-review-signals-${normalizedMerchantId}`,
+      resolveProfile('products', options)
+    ),
+  ].every(Boolean);
 }
 
 function revalidateDashboard(merchantId: string): void {
@@ -60,49 +90,93 @@ function revalidateProducts(
   merchantId: string,
   productSlug?: string,
   options: ProductRevalidationOptions = {}
-): void {
+): boolean {
   const normalizedMerchantId = normalizeMerchantId(merchantId);
   if (!normalizedMerchantId) {
     logger.warn({
       merchantId: sanitizeForLog(merchantId),
       message: 'Skipped product cache revalidation for invalid merchant ID',
     });
-    return;
+    return false;
   }
 
-  revalidateProductTag(`products-${normalizedMerchantId}`, 'products');
+  const results = [
+    revalidateProductTag(
+      `products-${normalizedMerchantId}`,
+      resolveProfile('products', options)
+    ),
+  ];
   for (const tag of buildStorefrontProductsCacheTags(normalizedMerchantId)) {
-    revalidateProductTag(tag, 'products');
+    results.push(
+      revalidateProductTag(tag, resolveProfile('products', options))
+    );
   }
   const normalizedProductSlug = productSlug?.trim();
   if (normalizedProductSlug) {
-    revalidateProductTag(
-      getProductScopedCacheTag(
-        'product',
-        normalizedMerchantId,
-        normalizedProductSlug
-      ),
-      'products'
+    results.push(
+      revalidateProductTag(
+        getProductScopedCacheTag(
+          'product',
+          normalizedMerchantId,
+          normalizedProductSlug
+        ),
+        resolveProfile('products', options)
+      )
     );
   }
-  revalidateProductTag('product-details', 'products');
-  revalidateProductTag('category-page-data', 'storefront-page');
-  revalidateProductTag(`product-index-${normalizedMerchantId}`, 'products');
-  revalidateProductTag(
-    getProductSlugSetCacheTag(normalizedMerchantId),
-    'products'
+  results.push(
+    revalidateProductTag('product-details', resolveProfile('products', options))
   );
-  revalidateProductTag('product-canonical-redirect', 'products');
-  revalidateProductTag('product-legacy-redirect', 'products');
+  results.push(
+    revalidateProductTag(
+      getCategoryPageDataCacheTag(normalizedMerchantId),
+      resolveProfile('storefront-page', options)
+    )
+  );
+  results.push(
+    revalidateProductTag(
+      `product-index-${normalizedMerchantId}`,
+      resolveProfile('products', options)
+    )
+  );
+  results.push(
+    revalidateProductTag(
+      getProductSlugSetCacheTag(normalizedMerchantId),
+      resolveProfile('products', options)
+    )
+  );
+  results.push(
+    revalidateProductTag(
+      'product-canonical-redirect',
+      resolveProfile('products', options)
+    )
+  );
+  results.push(
+    revalidateProductTag(
+      'product-legacy-redirect',
+      resolveProfile('products', options)
+    )
+  );
   const feedScope = options.feedScope ?? 'all';
   if (feedScope === 'all') {
-    revalidateMerchantFeed(normalizedMerchantId);
+    results.push(revalidateMerchantFeed(normalizedMerchantId, options));
   } else if (feedScope === 'merchant') {
     // The merchant-scoped tag is sufficient to evict this merchant's Google
     // and OpenAI feed entries without churning every merchant's feed cache.
-    revalidateProductTag(`merchant-feed-${normalizedMerchantId}`, 'products');
+    results.push(
+      revalidateProductTag(
+        `merchant-feed-${normalizedMerchantId}`,
+        resolveProfile('products', options)
+      )
+    );
   }
-  revalidateProductTag(`dashboard-${normalizedMerchantId}`, 'merchant');
+  results.push(
+    revalidateProductTag(
+      `dashboard-${normalizedMerchantId}`,
+      resolveProfile('merchant', options)
+    )
+  );
+  return results.every(Boolean);
 }
 
 function revalidateProductSlugs(

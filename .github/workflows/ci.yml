@@ -36,6 +36,8 @@ jobs:
       test_plan_reason: ${{ steps.test-plan.outputs.reason }}
       web: ${{ steps.gate.outputs.web }}
       quiz_db: ${{ steps.gate.outputs.quiz_db }}
+      cwv_runner: ${{ steps.gate.outputs.cwv_runner }}
+      deploy_scripts: ${{ steps.gate.outputs.deploy_scripts }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -96,15 +98,51 @@ jobs:
             # Root Next config changes affect the web app even when apps/web/**
             # is untouched; keep them in the web quality-gate filter.
             quiz_db:
+              - '.github/workflows/ci.yml'
               - 'supabase/migrations/**'
+              - 'supabase/tests/cache_invalidation_outbox*.sql'
+              - 'supabase/tests/run-cache-invalidation-outbox-test*.sh'
               - '.github/scripts/apply-pending-migrations.sh'
               - '.github/scripts/apply-pending-migrations.test.sh'
               - '.github/scripts/split-sql-statements.mjs'
               - '.github/scripts/split-sql-statements.test.mjs'
               - '.github/scripts/check-migration-versions.sh'
               - '.github/scripts/check-migration-versions.test.sh'
+            cwv_runner:
+              - 'infra/cwv-runner/**'
+              - '.github/workflows/**'
+              - '.github/scripts/cwv-runner-*.mjs'
+              - '.github/scripts/canonical-json.mjs'
+              - '.github/scripts/policy.json'
+              - '.github/scripts/policy.schema.mjs'
+              - '.github/scripts/actionlint-runner-label-contract.test.mjs'
+              - 'biome.json'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/actionlint.yml'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/cwv-runner-attestation.yml'
+              - '.github/workflows/deploy.yml'
+              - '.github/actionlint.yaml'
+            deploy_scripts:
+              - '.github/workflows/ci.yml'
+              - 'vps-workers/**'
+              - '.github/scripts/deploy-with-retry.sh'
+              - '.github/scripts/deploy-with-retry.test.mjs'
+              - '.github/scripts/deploy-with-retry.test-helpers.mjs'
+              - '.github/scripts/deploy-with-retry.run-script.mjs'
+              - '.github/scripts/inject-prebuilt-env-secret.mjs'
+              - '.github/scripts/inject-prebuilt-env-secret.jwk.test.mjs'
+              - '.github/scripts/inject-prebuilt-env-secret.test.mjs'
+              - '.github/scripts/run-pinned-vercel.sh'
+              - '.github/scripts/run-pinned-vercel.test.mjs'
+              - '.github/scripts/sync-cloudflare-vercel-production-env.sh'
+              - '.github/scripts/sync-cloudflare-vercel-production-env.test.mjs'
+              - '.github/workflows/deploy.yml'
             web:
               - 'apps/web/**'
+              - 'apps/cloudflare-evidence-qualification-worker/**'
               - 'apps/mobile-storefront/assets/quiz/**'
               - 'apps/mobile-storefront/app/**'
               - 'apps/mobile-storefront/app.config.ts'
@@ -127,6 +165,7 @@ jobs:
               - '.github/scripts/resolve-ci-test-plan-config.mjs'
               - '.github/scripts/resolve-ci-test-plan-config.test.mjs'
               - '.github/scripts/tools-worker-typecheck-contract.test.mjs'
+              - '.github/scripts/web-build-timeout-contract.test.mjs'
               - '.github/scripts/resolve-ci-test-plan.test.mjs'
               - '.github/workflows/ci.yml'
               - 'package.json'
@@ -144,6 +183,8 @@ jobs:
           FILTER_MOBILE_STOREFRONT: ${{ steps.filter.outputs.mobile_storefront }}
           FILTER_WEB: ${{ steps.filter.outputs.web }}
           FILTER_QUIZ_DB: ${{ steps.filter.outputs.quiz_db }}
+          FILTER_CWV_RUNNER: ${{ steps.filter.outputs.cwv_runner }}
+          FILTER_DEPLOY_SCRIPTS: ${{ steps.filter.outputs.deploy_scripts }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "merge_group" ]; then
@@ -151,23 +192,49 @@ jobs:
             mobile_storefront=true
             web=true
             quiz_db=true
+            cwv_runner=true
+            deploy_scripts=true
           else
             mobile_admin="${FILTER_MOBILE_ADMIN:-false}"
             mobile_storefront="${FILTER_MOBILE_STOREFRONT:-false}"
             web="${FILTER_WEB:-false}"
             quiz_db="${FILTER_QUIZ_DB:-false}"
+            cwv_runner="${FILTER_CWV_RUNNER:-false}"
+            deploy_scripts="${FILTER_DEPLOY_SCRIPTS:-false}"
           fi
           {
             echo "mobile_admin=$mobile_admin"
             echo "mobile_storefront=$mobile_storefront"
             echo "web=$web"
             echo "quiz_db=$quiz_db"
+            echo "cwv_runner=$cwv_runner"
+            echo "deploy_scripts=$deploy_scripts"
           } >> "$GITHUB_OUTPUT"
       - name: Resolve test plan
         id: test-plan
         env:
           EVENT_NAME: ${{ github.event_name }}
         run: node .github/scripts/resolve-ci-test-plan.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
+
+  cwv-runner-contracts:
+    name: CWV Runner Contracts
+    needs: [changes]
+    if: needs.changes.outputs.cwv_runner == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-install-cached
+      - name: Run CWV runner contract tests
+        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs .github/scripts/actionlint-runner-label-contract.test.mjs
+      - name: Check CWV runner formatting
+        run: pnpm exec biome check infra/cwv-runner .github/scripts/cwv-runner-*.mjs
+      - name: Run CWV workflow actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
   quality-lint:
     name: Quality Gate - Lint
@@ -311,7 +378,7 @@ jobs:
   quality-misc:
     name: Quality Gate - Misc
     needs: [changes]
-    if: (needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile_storefront == 'true' || needs.changes.outputs.quiz_db == 'true') && needs.changes.outputs.test_plan_mode != 'config-smoke'
+    if: (needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile_storefront == 'true' || needs.changes.outputs.quiz_db == 'true' || needs.changes.outputs.deploy_scripts == 'true') && needs.changes.outputs.test_plan_mode != 'config-smoke'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -329,9 +396,30 @@ jobs:
           node --test .github/scripts/split-sql-statements.test.mjs
       - name: Verify Migration Versions
         run: bash .github/scripts/check-migration-versions.sh
+      - name: Test Cache Invalidation Outbox SQL
+        if: needs.changes.outputs.quiz_db == 'true'
+        run: >-
+          bash supabase/tests/run-cache-invalidation-outbox-test-runner.test.sh &&
+          bash supabase/tests/run-cache-invalidation-outbox-test.sh
       - name: Run CI Test Planner Unit Tests
         if: needs.changes.outputs.web == 'true'
         run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
+      - name: Run storefront origin cost-contract tests
+        if: needs.changes.outputs.web == 'true'
+        run: >-
+          pnpm --filter @baci/shared test -- src/storefront/delivery-evidence.test.ts src/storefront/delivery-evidence-manifest.test.ts &&
+          pnpm --filter @baci/cloudflare-evidence-qualification-worker test &&
+          pnpm --filter @baci/web exec vitest run tools/cost/storefront-origin-budget.test.ts tools/cost/ogabassey-current-origin-baseline.test.ts tools/cost/qualify-cloudflare-evidence-sources.test.ts tools/cost/cloudflare-evidence-process-isolation.test.ts tools/cost/mutate-cloudflare-evidence-sources.test.ts tools/cost/measure-cloudflare-evidence-sources.test.ts tools/cost/verify-cloudflare-evidence-token-policy.test.ts tools/cost/verify-cloudflare-evidence-read-token-policy.test.ts tools/cost/cloudflare-evidence-run-journal.test.ts
+      - name: Test Deployment and VPS Worker Scripts
+        if: needs.changes.outputs.deploy_scripts == 'true'
+        run: >-
+          pnpm --dir vps-workers test &&
+          node --test
+          .github/scripts/deploy-with-retry.test.mjs
+          .github/scripts/run-pinned-vercel.test.mjs
+          .github/scripts/inject-prebuilt-env-secret.jwk.test.mjs
+          .github/scripts/inject-prebuilt-env-secret.test.mjs
+          .github/scripts/sync-cloudflare-vercel-production-env.test.mjs
       - name: Verify Quiz Assets
         if: needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
@@ -411,7 +499,7 @@ jobs:
 
   quality:
     name: Quality Gate
-    needs: [changes, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, mobile-quality, silent-revert-guard]
+    needs: [changes, cwv-runner-contracts, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, mobile-quality, silent-revert-guard]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -419,6 +507,7 @@ jobs:
       - name: Verify split quality gate results
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          CWV_RUNNER_CONTRACTS_RESULT: ${{ needs['cwv-runner-contracts'].result }}
           LINT_RESULT: ${{ needs['quality-lint'].result }}
           TYPECHECK_RESULT: ${{ needs['quality-typecheck'].result }}
           TEST_RESULT: ${{ needs['quality-test'].result }}
@@ -434,7 +523,7 @@ jobs:
             exit 1
           fi
 
-          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
+          for result in "$CWV_RUNNER_CONTRACTS_RESULT" "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
             case "$result" in
               success|skipped)
                 ;;
@@ -479,9 +568,10 @@ jobs:
     # PR head: max(test, build) instead of test-then-build.
     needs: [changes]
     runs-on: ubuntu-24.04
-    # Cold Next.js builds currently take ~19 minutes before Actions cleanup.
-    # Keep enough headroom for setup and post-job cache/checkout cleanup.
-    timeout-minutes: 30
+    # Bounded build-time storefront reads can extend page-data collection past
+    # 30 minutes on a cold runner. Keep enough headroom for that safe pressure
+    # control plus setup and post-job cache/checkout cleanup.
+    timeout-minutes: 45
     steps:
       - if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

@@ -1,16 +1,8 @@
 'use client';
-
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  Pencil,
-  RefreshCw,
-  Sparkles,
-  Wand2,
-} from 'lucide-react';
+import type { StoreBuildStatus } from '@baci/shared';
+import { CheckCircle2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +16,6 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -33,47 +24,64 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
-import type { StoreBuildStatus } from '@/lib/store-build-status';
 import { cn } from '@/lib/utils';
+import { isWebStoreReadiness } from './is-web-store-readiness';
 import {
+  addPendingMerchant,
+  buildReadinessUrl,
   getFallbackProgress,
   getStatusAccent,
   getStatusLabel,
-  isReadinessPayload,
   readApplyResponse,
+  removePendingMerchant,
 } from './store-build-status-card-helpers';
+import { StoreBuildStatusCardLoadingState } from './store-build-status-card-loading-state';
 
-interface StoreBuildStatusCardProps {
-  onApplied?: () => void;
-}
-
-export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
-  const [status, setStatus] = useState<StoreBuildStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+type Props = { merchantId?: string; onApplied?: () => void };
+type ScopedStatus = { merchantId: string; value: StoreBuildStatus };
+export function StoreBuildStatusCard({ merchantId, onApplied }: Props) {
+  const [loadedStatus, setLoadedStatus] = useState<ScopedStatus | null>(null);
+  const [loading, setLoading] = useState(Boolean(merchantId));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [applying, setApplying] = useState(false);
-  const [showStaleDialog, setShowStaleDialog] = useState(false);
+  const [applyingMerchantIds, setApplyingMerchantIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const [staleDialogFor, setStaleDialogFor] = useState<string | null>(null);
+  const activeMerchantId = useRef(merchantId);
+  useLayoutEffect(() => {
+    activeMerchantId.current = merchantId;
+  }, [merchantId]);
   const { toast } = useToast();
-
+  const status =
+    loadedStatus?.merchantId === merchantId ? loadedStatus?.value : null;
+  const applying = merchantId ? applyingMerchantIds.has(merchantId) : false;
   useEffect(() => {
-    // The retry button increments reloadToken to intentionally re-run this effect.
-    void reloadToken;
+    setLoadedStatus(null);
+    setLoadError(null);
+    setStaleDialogFor((current) => (current === merchantId ? current : null));
+    setLoading(Boolean(merchantId));
+    if (!merchantId) return;
     let active = true;
-
-    fetch('/api/merchant/readiness', {
+    fetch(buildReadinessUrl(merchantId), {
       credentials: 'include',
+      ...(reloadToken > 0 ? { cache: 'no-store' } : {}),
     })
       .then((response) => {
         if (!response.ok) {
           throw new Error('Failed to load store build status');
         }
-
         return response.json() as Promise<unknown>;
       })
       .then((payload) => {
-        if (active && isReadinessPayload(payload)) {
-          setStatus(payload.storeBuild ?? null);
+        if (
+          !isWebStoreReadiness(payload) ||
+          payload.merchantId !== merchantId
+        ) {
+          throw new Error('Invalid readiness payload');
+        }
+        if (active) {
+          setLoadedStatus({ merchantId, value: payload.storeBuild });
           setLoadError(null);
         }
       })
@@ -88,20 +96,17 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
           setLoading(false);
         }
       });
-
     return () => {
       active = false;
     };
-  }, [reloadToken]);
-
+  }, [merchantId, reloadToken]);
   const retryLoad = () => {
     setLoading(true);
     setLoadError(null);
     setReloadToken((token) => token + 1);
   };
-
   const applyDraft = (force = false) => {
-    if (!status?.latestJobId || !status.canApplyAiDraft) {
+    if (!merchantId || !status?.latestJobId || !status.canApplyAiDraft) {
       toast({
         title: 'Cannot apply this AI design',
         description: 'You need builder edit access to replace the store draft.',
@@ -109,37 +114,42 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
       });
       return;
     }
-
-    setApplying(true);
+    const submittedMerchantId = merchantId;
+    setApplyingMerchantIds((current) =>
+      addPendingMerchant(current, submittedMerchantId)
+    );
     fetchWithCsrf(`/api/ai-jobs/${status.latestJobId}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(force ? { force: true } : {}),
+      body: JSON.stringify(
+        force ? { merchantId, force: true } : { merchantId }
+      ),
     })
       .then(async (response) => {
         const payload = await readApplyResponse(response);
-
+        if (activeMerchantId.current !== submittedMerchantId) return;
         if (
           !force &&
           response.status === 409 &&
           payload.code === 'ai_draft_stale'
         ) {
-          setShowStaleDialog(true);
+          setStaleDialogFor(submittedMerchantId);
           return;
         }
-
         if (!response.ok) {
           throw new Error(
             payload.error || payload.message || 'Failed to apply AI design'
           );
         }
-
-        setStatus((current) =>
-          current
+        setLoadedStatus((current) =>
+          current?.merchantId === submittedMerchantId
             ? {
                 ...current,
-                aiStatus: 'applied',
-                message: 'Your generated storefront is now editable.',
+                value: {
+                  ...current.value,
+                  aiStatus: 'applied',
+                  message: 'Your generated storefront is now editable.',
+                },
               }
             : current
         );
@@ -150,6 +160,7 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
         onApplied?.();
       })
       .catch((error: unknown) => {
+        if (activeMerchantId.current !== submittedMerchantId) return;
         console.error('Failed to apply AI storefront draft:', error);
         toast({
           title: 'Failed to apply AI design',
@@ -159,53 +170,26 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
         });
       })
       .finally(() => {
-        setApplying(false);
+        setApplyingMerchantIds((current) =>
+          removePendingMerchant(current, submittedMerchantId)
+        );
       });
   };
-
-  if (loading) {
+  if (loading || loadError) {
     return (
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-          Checking store build status…
-        </CardContent>
-      </Card>
+      <StoreBuildStatusCardLoadingState
+        loadError={loadError}
+        loading={loading}
+        onRetry={retryLoad}
+      />
     );
   }
-
-  if (loadError) {
-    return (
-      <Card className="border-destructive">
-        <CardContent className="pt-6">
-          <p className="text-sm text-destructive flex items-center gap-2">
-            <AlertTriangle className="size-4" />
-            {loadError}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={retryLoad}
-          >
-            <RefreshCw className="size-4 mr-1.5" />
-            Retry
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   if (!status || status.aiStatus === 'not_started') {
     return null;
   }
-
   const progress = getFallbackProgress(status.aiStatus);
-  const canPreview = Boolean(
-    status.latestJobId &&
-      (status.aiStatus === 'ready' || status.aiStatus === 'applied')
-  );
-
+  const canPreview =
+    status.latestJobId && ['ready', 'applied'].includes(status.aiStatus);
   return (
     <>
       <Card className={cn('overflow-hidden', getStatusAccent(status.aiStatus))}>
@@ -264,7 +248,12 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
           </Button>
         </CardFooter>
       </Card>
-      <AlertDialog open={showStaleDialog} onOpenChange={setShowStaleDialog}>
+      <AlertDialog
+        open={staleDialogFor === merchantId}
+        onOpenChange={(open) =>
+          setStaleDialogFor(open ? (merchantId ?? null) : null)
+        }
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Replace your current draft?</AlertDialogTitle>

@@ -1,13 +1,10 @@
 /**
  * Account-only email/password sign-up.
  *
- * Unlike merchant registration (POST /api/mobile-onboarding, which provisions a
- * merchant + subdomain + owner staff row), this calls supabase.auth.signUp
- * directly and creates ONLY an auth.users row — no merchant. That is essential
- * for the staff-invite flow: get_user_merchant_context resolves an owned
- * merchant before staff membership, so if an invitee owned a store they would
- * be pinned to it and never reach the store they were invited to. Creating no
- * merchant lets the RPC's staff fallback return the invited store.
+ * This is the shared account primitive for merchant and staff registration. It
+ * creates and commits only the Supabase Auth identity/session; the caller
+ * decides whether authenticated merchant provisioning follows. Keeping this
+ * primitive account-only is essential for staff invite acceptance.
  *
  * NOTE: this relies on there being NO auth.users trigger that creates a
  * merchant. handle_new_user() is currently a no-op; if that ever changes this
@@ -15,6 +12,8 @@
  */
 
 import { isAuthApiError, type Session, type User } from '@supabase/supabase-js';
+import { isConnectivityError } from '@/lib/api-errors';
+import { checkPasswordBreach } from '@/lib/auth/check-password-breach';
 import { supabase } from '@/lib/supabase';
 import { trackAuthTelemetry } from '@/services/auth-telemetry';
 
@@ -24,6 +23,8 @@ export interface PasswordSignUpResult {
   accountExists?: boolean;
   /** New account created but a session was not returned (email confirmation on). */
   needsEmailConfirmation?: boolean;
+  /** A native session was committed to the global auth store. */
+  sessionEstablished?: boolean;
 }
 
 interface SignUpStateUpdate {
@@ -39,9 +40,11 @@ interface SignUpStateUpdate {
 interface RunPasswordSignUpOptions {
   email: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   getCurrentUserId: () => string | undefined;
-  onResetUserStores: () => void;
+  onResetUserStores: () => Promise<void>;
   setState: (state: SignUpStateUpdate) => void;
 }
 
@@ -57,9 +60,21 @@ function isAlreadyRegistered(message: string): boolean {
   );
 }
 
+function toSentenceCase(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+  return `${normalized.charAt(0).toUpperCase()}${normalized
+    .slice(1)
+    .toLowerCase()}`;
+}
+
 export async function runPasswordSignUp({
   email,
   password,
+  firstName,
+  lastName,
   fullName,
   getCurrentUserId,
   onResetUserStores,
@@ -70,10 +85,39 @@ export async function runPasswordSignUp({
   trackAuthTelemetry({ provider: 'password', stage: 'start' });
 
   try {
+    const { count, isBreached } = await checkPasswordBreach(password);
+    if (isBreached) {
+      trackAuthTelemetry({
+        code: 'password_breached',
+        durationMs: Date.now() - startedAt,
+        provider: 'password',
+        stage: 'failure',
+      });
+      return {
+        error: `This password has appeared in ${(count ?? 1).toLocaleString()} known data breaches. Please choose a different, more secure password.`,
+      };
+    }
+
+    const normalizedFirstName = toSentenceCase(firstName);
+    const normalizedLastName = toSentenceCase(lastName);
+    const normalizedFullName =
+      [normalizedFirstName, normalizedLastName].filter(Boolean).join(' ') ||
+      fullName
+        ?.trim()
+        .split(/\s+/)
+        .map((part) => toSentenceCase(part))
+        .filter(Boolean)
+        .join(' ');
+    const metadata = {
+      ...(normalizedFirstName ? { first_name: normalizedFirstName } : {}),
+      ...(normalizedLastName ? { last_name: normalizedLastName } : {}),
+      ...(normalizedFullName ? { full_name: normalizedFullName } : {}),
+    };
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: fullName ? { data: { full_name: fullName } } : undefined,
+      options:
+        Object.keys(metadata).length > 0 ? { data: metadata } : undefined,
     });
 
     if (error) {
@@ -115,6 +159,9 @@ export async function runPasswordSignUp({
 
     if (data.session && data.user) {
       const currentUserId = getCurrentUserId();
+      if (currentUserId !== data.user.id) {
+        await onResetUserStores();
+      }
       setState({
         session: data.session,
         user: data.user,
@@ -122,16 +169,13 @@ export async function runPasswordSignUp({
         isInitialized: true,
         isLoading: false,
       });
-      if (currentUserId !== data.user.id) {
-        onResetUserStores();
-      }
       trackAuthTelemetry({
         durationMs: Date.now() - startedAt,
         metadata: { hasSession: true },
         provider: 'password',
         stage: 'success',
       });
-      return { error: null };
+      return { error: null, sessionEstablished: true };
     }
 
     // New account created but no session — email confirmation is required.
@@ -143,8 +187,9 @@ export async function runPasswordSignUp({
     });
     return { error: null, needsEmailConfirmation: true };
   } catch (caught) {
-    const message =
-      caught instanceof Error
+    const message = isConnectivityError(caught)
+      ? 'Unable to connect. Please check your internet connection.'
+      : caught instanceof Error
         ? caught.message
         : 'Sign-up failed. Please try again.';
     trackAuthTelemetry({

@@ -55,6 +55,26 @@ describe('internalRevalidateProductsBodySchema', () => {
     expect(result.data?.merchantSlug).toBeUndefined();
   });
 
+  it('accepts an explicit whole-storefront purge only with the trusted storefront identifier', () => {
+    const result = internalRevalidateProductsBodySchema.safeParse({
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      purgeWholeStorefront: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.purgeWholeStorefront).toBe(true);
+  });
+
+  it('rejects a whole-storefront purge without a storefront identifier', () => {
+    const result = internalRevalidateProductsBodySchema.safeParse({
+      merchantId: 'merchant-1',
+      purgeWholeStorefront: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a product entry with neither a slug nor an id', () => {
     const result = internalRevalidateProductsBodySchema.safeParse({
       merchantId: 'merchant-1',

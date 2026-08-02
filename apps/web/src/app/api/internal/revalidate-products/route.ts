@@ -8,12 +8,13 @@ import {
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
-import {
-  countDistinctProductPurgeEntries,
-  PURGE_LISTINGS_ONLY_THRESHOLD,
-} from '@/lib/storefront-product-purge-urls';
+import { scheduleStorefrontHostnamePurge } from '@/lib/storefront-product-purge-hostnames';
 import { createPublicClient } from '@/lib/supabase/public';
 import { internalRevalidateProductsBodySchema } from '@/schemas/internal-revalidate-products-route';
+
+function normalizeMerchantSlug(value: string): string {
+  return value.trim().toLowerCase();
+}
 
 /**
  * Internal product-cache revalidation endpoint.
@@ -62,35 +63,105 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { merchantId, merchantSlug, products } = parsed.data;
+  const { merchantId, merchantSlug, products, purgeWholeStorefront } =
+    parsed.data;
 
   // Runs in a route context, so revalidateTag works here (unlike the CLI worker).
   revalidateProducts(merchantId);
 
+  // The internal Bearer secret authorizes this endpoint, but `merchantSlug` is
+  // still only caller-supplied routing data. Resolve the canonical slug from
+  // the validated merchant id before it can reach either Cloudflare purge
+  // scheduler. The public client is intentional: this server-only route needs
+  // only the public `merchants.slug` projection and must not expand to a
+  // service-role client.
+  const needsStorefrontPurge = Boolean(
+    merchantSlug && (purgeWholeStorefront || (products && products.length > 0))
+  );
+  const needsPublicClient = Boolean(
+    needsStorefrontPurge || (products && products.length > 0)
+  );
+  let supabase: ReturnType<typeof createPublicClient> | undefined;
+  let authoritativeMerchantSlug: string | undefined;
+
+  if (needsPublicClient) {
+    try {
+      supabase = createPublicClient({
+        clientInfo: 'internal-revalidate-products-purge',
+      });
+
+      if (needsStorefrontPurge && merchantSlug) {
+        const { data: merchantRow, error: merchantLookupError } = await supabase
+          .from('merchants')
+          .select('slug')
+          .eq('id', merchantId)
+          .maybeSingle<{ slug: string | null }>();
+
+        if (merchantLookupError) {
+          logger.error({
+            message:
+              'Skipped Cloudflare storefront purge after merchant slug lookup failed',
+            error: merchantLookupError,
+            merchantId,
+          });
+        } else {
+          const resolvedSlug = merchantRow?.slug?.trim();
+          if (!resolvedSlug) {
+            logger.error({
+              message:
+                'Skipped Cloudflare storefront purge because the merchant has no slug',
+              merchantId,
+            });
+          } else if (
+            normalizeMerchantSlug(resolvedSlug) !==
+            normalizeMerchantSlug(merchantSlug)
+          ) {
+            logger.warn({
+              message:
+                'Rejected internal storefront purge with a mismatched merchant slug',
+              merchantId,
+            });
+            return NextResponse.json(
+              {
+                error: 'Merchant slug does not match merchant ID',
+                code: 'MERCHANT_SLUG_MISMATCH',
+              },
+              { status: 400 }
+            );
+          } else {
+            authoritativeMerchantSlug = resolvedSlug;
+          }
+        }
+      }
+    } catch (purgeClientError) {
+      logger.error({
+        message: 'Skipped Cloudflare storefront purge client initialization',
+        error: purgeClientError,
+        merchantId,
+      });
+    }
+  }
+
   // When the caller supplies product entries, resolve them against the DB and
-  // bust their per-slug Next caches; when it ALSO supplies the merchant slug,
-  // evict the products' public URLs from Cloudflare (the standalone import
-  // worker and the mobile-admin save path have no Next store context, so this
-  // Bearer-authed route is where the purge reliably runs). The per-slug bust
-  // needs only merchantId, so it is deliberately NOT gated on merchantSlug — a
-  // failed slug lookup upstream must not leave stale PDP entries in the Next
-  // cache. Fire-and-forget: a purge is always survivable, so it must never
-  // fail the revalidation.
+  // bust their per-slug Next caches. The per-slug bust needs only merchantId,
+  // so it remains independent of the merchant-slug-gated Cloudflare purge.
   if (products && products.length > 0) {
     try {
       // Enrich from the product ROWS with the SAME resolution `/api/cache/revalidate`
       // performs, so an {id}-only import/save entry purges the real slug/category
-      // URLs (not `/products/<uuid>`). Service-role client: this route is
-      // Anon public client per repo rule (no service-role for lookups): the
-      // anon policy exposes only ACTIVE rows, which is sufficient — draft/
+      // URLs (not `/products/<uuid>`). Public client: this route intentionally
+      // uses no service-role credentials, and the anon policy exposes only
+      // ACTIVE rows, which is sufficient — draft/
       // pending PDPs are never publicly cached, so an unresolved row simply
       // falls back to the caller's hints + the always-purged fallback URLs.
       // Fail-open lives inside the enrichment.
-      const supabase = createPublicClient({
-        clientInfo: 'internal-revalidate-products-purge',
-      });
+      const purgeClient =
+        supabase ??
+        createPublicClient({
+          clientInfo: 'internal-revalidate-products-purge',
+        });
       const { entries, resolvedSlugs } = await enrichProductPurgeEntries(
-        supabase,
+        purgeClient,
         merchantId,
         products
       );
@@ -99,14 +170,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // and is NOT invalidated by the slug-less revalidateProducts above, so a
       // Cloudflare MISS would otherwise refill from stale Next data until TTL.
       revalidateProductSlugs(merchantId, resolvedSlugs);
-      if (merchantSlug) {
-        // Base the fan-out threshold on the DISTINCT (slug, segment) count so
-        // duplicate entries for one product do not inflate the count and
-        // wrongly suppress its per-PDP purge.
-        const distinctPurgeCount = countDistinctProductPurgeEntries(entries);
-        scheduleStorefrontProductPurge(merchantSlug, entries, {
-          listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
-        });
+      if (authoritativeMerchantSlug && !purgeWholeStorefront) {
+        scheduleStorefrontProductPurge(authoritativeMerchantSlug, entries);
       }
     } catch (purgeError) {
       logger.error({
@@ -114,6 +179,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         error: purgeError,
       });
     }
+  }
+
+  // Category path changes are structural: the affected public documents cannot
+  // be enumerated safely from a category mutation, so use the bounded hostname
+  // purge rather than a partial URL list. The hostname comes only from the
+  // merchant-id lookup above, never directly from the request body.
+  if (purgeWholeStorefront && authoritativeMerchantSlug) {
+    scheduleStorefrontHostnamePurge(authoritativeMerchantSlug);
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

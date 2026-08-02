@@ -54,6 +54,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: '',
+          merchantId: 'merchant-1',
           postalCode: '',
           setVatEnabled,
           stateCode: 'NG-LA',
@@ -67,7 +68,7 @@ describe('useTaxMutations', () => {
     });
 
     expect(setVatEnabled).toHaveBeenCalledWith(true);
-    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith({
+    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith('merchant-1', {
       vat_registration_status: 'registered',
     });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
@@ -89,6 +90,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: '',
+          merchantId: 'merchant-1',
           postalCode: '',
           setVatEnabled,
           stateCode: 'NG-LA',
@@ -127,6 +129,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: 'Lagos',
+          merchantId: 'merchant-1',
           postalCode: '100001',
           setVatEnabled: vi.fn(),
           stateCode: 'NG-LA',
@@ -139,7 +142,7 @@ describe('useTaxMutations', () => {
       await result.current.saveAddressMutation.mutateAsync();
     });
 
-    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith({
+    expect(mockUpdateMerchantSettings).toHaveBeenCalledWith('merchant-1', {
       registered_address: {
         street: '12 Allen Avenue',
         city: 'Lagos',
@@ -167,6 +170,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: 'Lagos',
+          merchantId: 'merchant-1',
           postalCode: '100001',
           setVatEnabled: vi.fn(),
           stateCode: 'NG-LA',
@@ -201,6 +205,7 @@ describe('useTaxMutations', () => {
       () =>
         useTaxMutations({
           city: '',
+          merchantId: 'merchant-1',
           postalCode: '',
           setVatEnabled: vi.fn(),
           stateCode: 'NG-LA',
@@ -227,6 +232,43 @@ describe('useTaxMutations', () => {
       'Error',
       'Nigerian TIN must be exactly 10 digits'
     );
+    expect(invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it('does not start public tax mutations without an active merchant', async () => {
+    const setVatEnabled = vi.fn();
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(
+      () =>
+        useTaxMutations({
+          city: 'Lagos',
+          merchantId: '   ',
+          postalCode: '100001',
+          setVatEnabled,
+          stateCode: 'NG-LA',
+          street: '12 Allen Avenue',
+        }),
+      { wrapper: Wrapper }
+    );
+
+    await expect(
+      result.current.updateVatMutation.mutateAsync(true)
+    ).rejects.toThrow('No merchant found');
+    await expect(
+      result.current.saveTinMutation.mutateAsync('1234567890')
+    ).rejects.toThrow('No merchant found');
+    await expect(
+      result.current.saveLegalEntityMutation.mutateAsync('Baci Store')
+    ).rejects.toThrow('No merchant found');
+    await expect(
+      result.current.saveAddressMutation.mutateAsync()
+    ).rejects.toThrow('No merchant found');
+    result.current.updateVatMutation.mutate(true);
+
+    expect(mockUpdateMerchantSettings).not.toHaveBeenCalled();
+    expect(setVatEnabled).not.toHaveBeenCalled();
+    expect(mockAlert).not.toHaveBeenCalled();
     expect(invalidateQueries).not.toHaveBeenCalled();
   });
 });

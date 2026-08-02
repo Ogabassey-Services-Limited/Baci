@@ -4,6 +4,7 @@ import type { RawDbProduct } from '@/lib/normalize-product';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import { brandAuthorityPublicData } from '@/lib/storefront-category/brand-authority-public-data';
 import { isBrandAuthorityProductInStock } from '@/lib/storefront-category/brand-authority-stock-filter';
+import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import type { BrandAuthorityEntry } from '@/lib/storefront-category/category-hub-types';
 
 const BRAND_AUTHORITY_PRODUCT_LIMIT = 48;
@@ -59,14 +60,27 @@ async function readCachedBrandAuthorityInventory(
   let from = 0;
 
   while (true) {
-    const { data, error } = await supabase
+    const brandQueryValues = brandAuthorityTaxonomy.getBrandQueryValues(entry);
+    const baseQuery = supabase
       .from('products')
       .select(BRAND_AUTHORITY_PRODUCTS_SELECT)
       .eq('merchant_id', merchantId)
       .eq('product_categories.categories.slug', categorySlug)
-      .eq('status', 'active')
-      .or('is_parent.eq.true,parent_product_id.is.null')
-      .ilike('brand', entry.brandQueryValue)
+      .eq('status', 'active');
+    const brandQuery =
+      brandQueryValues.length === 1
+        ? baseQuery
+            .or('is_parent.eq.true,parent_product_id.is.null')
+            .ilike('brand', brandQueryValues[0])
+        : baseQuery.or(
+            brandQueryValues
+              .flatMap((value) => [
+                `and(is_parent.eq.true,brand.ilike.${value})`,
+                `and(parent_product_id.is.null,brand.ilike.${value})`,
+              ])
+              .join(',')
+          );
+    const { data, error } = await brandQuery
       .order('updated_at', { ascending: false })
       .order('id', { ascending: true })
       .range(from, from + BRAND_AUTHORITY_QUERY_PAGE_SIZE - 1);

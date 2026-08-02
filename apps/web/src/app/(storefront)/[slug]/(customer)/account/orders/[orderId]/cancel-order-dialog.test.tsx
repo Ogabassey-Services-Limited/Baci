@@ -3,9 +3,59 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CancelOrderDialog } from '@/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/cancel-order-dialog';
 
 const mockFetchWithCsrf = vi.fn();
+const dialogState = vi.hoisted(() => ({
+  open: false,
+  onOpenChange: undefined as ((open: boolean) => void) | undefined,
+}));
 
 vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
+}));
+
+// The Radix dialog brings react-remove-scroll into this test's graph. Under
+// the monorepo Vitest resolver that can load a second React instance and fail
+// before the cancellation behavior is exercised, so keep the test at the
+// component contract boundary.
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({
+    children,
+    open,
+    onOpenChange,
+  }: {
+    children: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+  }) => {
+    dialogState.open = open ?? false;
+    dialogState.onOpenChange = onOpenChange;
+    return <div>{children}</div>;
+  },
+  DialogContent: ({ children }: { children: React.ReactNode }) =>
+    dialogState.open ? <div role="dialog">{children}</div> : null,
+  DialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <p>{children}</p>
+  ),
+  DialogFooter: ({ children }: { children: React.ReactNode }) => (
+    <footer>{children}</footer>
+  ),
+  DialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <header>{children}</header>
+  ),
+  DialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <h2>{children}</h2>
+  ),
+  DialogTrigger: ({ children }: { children: React.ReactNode }) => {
+    if (!children || typeof children !== 'object' || !('props' in children))
+      return <>{children}</>;
+    const trigger = children as {
+      props?: { children?: React.ReactNode };
+    };
+    return (
+      <button type="button" onClick={() => dialogState.onOpenChange?.(true)}>
+        {trigger.props?.children}
+      </button>
+    );
+  },
 }));
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -23,6 +73,8 @@ function openDialog() {
 describe('CancelOrderDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    dialogState.open = false;
+    dialogState.onOpenChange = undefined;
   });
 
   it('renders the trigger button', () => {
@@ -31,6 +83,14 @@ describe('CancelOrderDialog', () => {
     expect(
       screen.getByRole('button', { name: /cancel order/i })
     ).toBeInTheDocument();
+  });
+
+  it('keeps dialog content closed until the trigger is activated', () => {
+    render(<CancelOrderDialog orderId="order-1" />);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    openDialog();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('posts to the cancel endpoint with a CSRF-protected request on confirm', async () => {

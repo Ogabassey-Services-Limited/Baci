@@ -6,16 +6,18 @@ import {
 import { cacheLife, cacheTag } from 'next/cache';
 import { cache } from 'react';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
-import {
-  getSupabaseAnonKey,
-  getSupabaseServiceRoleKey,
-  getSupabaseUrl,
-} from '@/env';
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+import {
+  type CachedCategoryPageProductScope,
+  categoryPageProductIdCache,
+  type SpecialCollectionSlug,
+} from '@/lib/category-page-product-id-cache';
 import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
+import { getOrderedBlogPostProductLinks } from '@/lib/ordered-blog-post-product-links';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import type { Product } from '@/lib/products';
@@ -25,10 +27,10 @@ import {
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
+import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import {
   normalizeRelatedBlogProductLinks,
   normalizeRelatedBlogProducts,
-  RELATED_BLOG_PRODUCT_LINKS_SELECT,
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
 import { selectSemanticRelatedBlogPosts } from '@/lib/semantic-related-blog-posts';
@@ -42,6 +44,7 @@ import {
   StorefrontReadUnavailableError,
   unwrapStorefrontReadResultForCache,
 } from '@/lib/storefront-read-result';
+import { STOREFRONT_SPECIAL_COLLECTION_SLUGS } from '@/lib/storefront-special-collection-slugs';
 import type { VariantAttributeSource } from '@/lib/storefront-specs/variant-attributes';
 import { createTimeoutComposedFetch } from '@/lib/supabase/compose-fetch-signal';
 import {
@@ -55,6 +58,8 @@ import type {
 } from '@/types/storefront-database';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
 import { sanitizePublicProduct } from './public-fulfillment-sanitizer';
+
+export { getPublicSupabaseClient };
 
 // Supabase/PostgREST `estimated` keeps small public blog counts exact while
 // avoiding full COUNT scans when stale route regeneration hits large merchant
@@ -115,35 +120,6 @@ function combineUniqueRelatedBlogPosts<T extends RelatedBlogPostIdentity>(
 
 /** Default transport bound for cached-data Supabase clients. */
 const CACHED_CLIENT_DEFAULT_TIMEOUT_MS = 10_000;
-
-/**
- * Create a Supabase client for cached queries.
- * This client doesn't use cookies, so it's suitable for caching.
- * Only use for public/read-only data that doesn't require authentication.
- */
-export function getPublicSupabaseClient(options?: { timeoutMs?: number }) {
-  const url = getSupabaseUrl();
-  const key = getSupabaseAnonKey();
-
-  if (!url || !key) {
-    throw new Error('Supabase configuration is missing');
-  }
-
-  return createSupabaseClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'baci-web-cached',
-      },
-      fetch: createTimeoutComposedFetch(
-        options?.timeoutMs ?? CACHED_CLIENT_DEFAULT_TIMEOUT_MS
-      ),
-    },
-  });
-}
 
 function getStorefrontSnapshotSupabaseClient(): SupabaseClient<StorefrontDatabase> {
   // The runtime client is the same anonymous public client used by the rest of
@@ -1153,6 +1129,7 @@ export interface CachedProductLcpHint {
         }>
       | null;
   }> | null;
+  product_offers?: CachedStorefrontProductOffer[];
   product_variants?: PublicStorefrontProductVariant[] | null;
   sale_price?: number | null;
   schema_markup?: unknown;
@@ -1594,24 +1571,7 @@ export const getStorefrontCategories = cache(
 
 const CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE = 48;
 const CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY = 3;
-const SPECIAL_COLLECTIONS = [
-  'new-arrivals',
-  'best-sellers',
-  'on-sale',
-  'featured',
-] as const;
-
-type SpecialCollectionSlug = (typeof SPECIAL_COLLECTIONS)[number];
-
-type CachedCategoryPageProductScope =
-  | {
-      categoryId: string;
-      categoryIds: string[];
-      kind: 'category';
-    }
-  | { kind: 'collection'; collectionSlug: SpecialCollectionSlug }
-  | { categoryName: string; kind: 'legacy' }
-  | { kind: 'none' };
+const SPECIAL_COLLECTIONS = STOREFRONT_SPECIAL_COLLECTION_SLUGS;
 
 type CachedCategoryPageShellData =
   | {
@@ -1927,240 +1887,6 @@ async function getCategoryPageShellData(
 }
 
 /**
- * Deterministic cap on the ordered product-ID list a category/collection page
- * materializes. On origin/main this reader had NO SQL cap, so a broad category
- * or collection could return 100s-1000s of UUIDs into one cache item. Each
- * scope branch orders by `id` last, so the `.limit()` is deterministic; the cap
- * sits well above the current whole-catalog size (~1,333) while bounding the
- * (now local) cache payload as catalogs grow.
- */
-const CATEGORY_PAGE_PRODUCT_ID_CAP = 2000;
-
-type ActiveCategoryPageProductScope = Exclude<
-  CachedCategoryPageProductScope,
-  { kind: 'none' }
->;
-
-/**
- * Shared ordered-ID query builder for category/collection pages so the cached
- * capped list, the exact head-count, and the beyond-cap window fetch all use
- * identical filters and deterministic ordering (each branch orders by `id`
- * last, so `.limit()`/`.range()` windows are stable).
- */
-function buildCategoryPageProductIdsQuery(
-  supabase: ReturnType<typeof getPublicSupabaseClient>,
-  merchantId: string,
-  scope: ActiveCategoryPageProductScope,
-  selectOptions?: { count: 'exact'; head: boolean }
-) {
-  if (scope.kind === 'category') {
-    return supabase
-      .from('products')
-      .select('id, product_categories!inner(category_id)', selectOptions)
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .in('product_categories.category_id', scope.categoryIds)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true });
-  }
-
-  if (scope.kind === 'legacy') {
-    // Legacy fallback for category URLs that predate canonical category rows.
-    const sanitizedCategoryName = scope.categoryName.replace(/[,().]/g, '');
-    return supabase
-      .from('products')
-      .select('id', selectOptions)
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .or(
-        `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
-      )
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true });
-  }
-
-  let query = supabase
-    .from('products')
-    .select('id', selectOptions)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active');
-
-  switch (scope.collectionSlug) {
-    case 'new-arrivals':
-      query = query
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: true });
-      break;
-    case 'best-sellers':
-      query = query
-        .order('rating', { ascending: false })
-        .order('id', { ascending: true });
-      break;
-    case 'on-sale':
-      query = query
-        .not('compare_at_price', 'is', null)
-        .order('updated_at', { ascending: false })
-        .order('id', { ascending: true });
-      break;
-    case 'featured':
-      query = query
-        .order('price', { ascending: false })
-        .order('id', { ascending: true });
-      break;
-  }
-
-  return query;
-}
-
-function extractCategoryPageProductIds(data: unknown): string[] {
-  return ((data || []) as Array<{ id?: string | null }>)
-    .map((product) => product.id)
-    .filter((id): id is string => Boolean(id));
-}
-
-/**
- * Remote-cached ordered product IDs for category/collection pages — the CORE
- * catalog read. IDs are compact and make the product detail fetch snapshot-safe:
- * detail chunks are keyed by stable ID slices, not shifting offset windows. The
- * list is capped (CATEGORY_PAGE_PRODUCT_ID_CAP) so the cache item stays bounded.
- *
- * `'use cache: remote'`, NOT local (PR4b review round 4 — reverted from the
- * demotion): this entry's freshness contract depends on `revalidateTag`
- * propagation. `revalidateProducts()` busts `category-page-data` /
- * `products-${merchantId}` and `revalidateCategories()` busts
- * `category-page-data` / `categories-${merchantId}` on product and category
- * create/delete/status/category changes. A tag bust handled on ONE instance
- * never clears a LOCAL entry on the others, so a demotion would leave other
- * instances serving stale category membership and counts until `cacheLife`
- * expiry. See inventory §8 — the shared store is the only thing that makes tag
- * invalidation cross-instance.
- */
-async function getCachedCategoryPageProductIds({
-  merchantId,
-  scope,
-}: {
-  merchantId: string;
-  scope: CachedCategoryPageProductScope;
-}): Promise<string[]> {
-  'use cache: remote';
-  cacheLife('storefront-page');
-  cacheTag(
-    'category-page-data',
-    'products',
-    'categories',
-    `products-${merchantId}`,
-    `categories-${merchantId}`
-  );
-
-  if (scope.kind === 'none') {
-    return [];
-  }
-
-  const supabase = getPublicSupabaseClient();
-  const { data, error } = await buildCategoryPageProductIdsQuery(
-    supabase,
-    merchantId,
-    scope
-  ).limit(CATEGORY_PAGE_PRODUCT_ID_CAP);
-
-  if (error) {
-    throw error;
-  }
-
-  return extractCategoryPageProductIds(data);
-}
-
-/**
- * Exact scope size for category/collection pages — SUPPLEMENTARY to the ID list.
- *
- * Cached as its OWN entry (not folded into the ID-list read) so a transient
- * count failure can never empty the catalog: the ID list keeps its own cache
- * entry and its own fill, and a throw here writes NO entry at all — so the
- * wrong-but-confident count is never persisted and the very next request
- * refills it. The request-local boundary (getCategoryPageProductIds) degrades
- * the TOTALS only (PR4b review round 4).
- *
- * The truncated ID-list length can NEVER be trusted as the scope size: besides
- * our own cap, PostgREST clamps every response to the server's max-rows (this
- * project does not override it in supabase/config.toml, so the Supabase managed
- * default of 1,000 applies — BELOW the 2,000 cap), so a "did we hit the cap?"
- * gate would silently report the clamped length as the total. The count runs
- * unconditionally as a head request (no rows, same indexed filters).
- *
- * Remote-cached for the same invalidation-propagation contract as the ID list.
- */
-async function getCachedCategoryPageProductTotalCount({
-  merchantId,
-  scope,
-}: {
-  merchantId: string;
-  scope: CachedCategoryPageProductScope;
-}): Promise<number> {
-  'use cache: remote';
-  cacheLife('storefront-page');
-  cacheTag(
-    'category-page-data',
-    'products',
-    'categories',
-    `products-${merchantId}`,
-    `categories-${merchantId}`
-  );
-
-  if (scope.kind === 'none') {
-    return 0;
-  }
-
-  const supabase = getPublicSupabaseClient();
-  const { count, error } = await buildCategoryPageProductIdsQuery(
-    supabase,
-    merchantId,
-    scope,
-    { count: 'exact', head: true }
-  );
-
-  if (error) {
-    throw error;
-  }
-
-  return count ?? 0;
-}
-
-/**
- * Per-request ordered ID window for pages past the capped cached ID list.
- * Rare tail path (only categories larger than CATEGORY_PAGE_PRODUCT_ID_CAP);
- * uses the same deterministic ordering as the cached list, deliberately
- * uncached so the bounded cache item stays the common-case fast path.
- */
-async function fetchCategoryPageProductIdWindow({
-  merchantId,
-  scope,
-  from,
-  to,
-}: {
-  merchantId: string;
-  scope: CachedCategoryPageProductScope;
-  from: number;
-  to: number;
-}): Promise<string[]> {
-  if (scope.kind === 'none') {
-    return [];
-  }
-
-  const supabase = getPublicSupabaseClient();
-  const { data, error } = await buildCategoryPageProductIdsQuery(
-    supabase,
-    merchantId,
-    scope
-  ).range(from, to);
-
-  if (error) {
-    throw error;
-  }
-
-  return extractCategoryPageProductIds(data);
-}
-
-/**
  * Ranged-page size for assembling the full ID list past the cached window.
  * Matches the PostgREST max-rows clamp (Supabase managed default 1,000) so
  * each iteration fetches the largest window the server will return.
@@ -2214,7 +1940,7 @@ async function fetchAllCategoryPageProductIds({
       return ids;
     }
 
-    const window = await fetchCategoryPageProductIdWindow({
+    const window = await categoryPageProductIdCache.fetchProductIdWindow({
       merchantId,
       scope,
       from,
@@ -2271,7 +1997,13 @@ async function getCategoryPageProductIds({
   let productIds: string[];
 
   try {
-    productIds = await getCachedCategoryPageProductIds({ merchantId, scope });
+    productIds =
+      scope.kind === 'legacy'
+        ? await categoryPageProductIdCache.getLegacyProductIds({
+            merchantId,
+            scope,
+          })
+        : await categoryPageProductIdCache.getProductIds({ merchantId, scope });
   } catch (error) {
     console.error('Product ID query failed outside cache:', error);
     return {
@@ -2283,10 +2015,16 @@ async function getCategoryPageProductIds({
   }
 
   try {
-    const exactCount = await getCachedCategoryPageProductTotalCount({
-      merchantId,
-      scope,
-    });
+    const exactCount =
+      scope.kind === 'legacy'
+        ? await categoryPageProductIdCache.getLegacyProductTotalCount({
+            merchantId,
+            scope,
+          })
+        : await categoryPageProductIdCache.getProductTotalCount({
+            merchantId,
+            scope,
+          });
 
     return {
       productIds,
@@ -2577,7 +2315,7 @@ async function getCachedCategoryPageProductsUncached({
     // is what stops a transient count failure from 404ing a valid deep page
     // (PR4b review r5).
     try {
-      productWindow = await fetchCategoryPageProductIdWindow({
+      productWindow = await categoryPageProductIdCache.fetchProductIdWindow({
         merchantId,
         scope,
         from: windowStart,
@@ -3224,12 +2962,7 @@ async function getCachedBlogPostEnrichment(core: CachedBlogPostCore) {
   ] = await Promise.all([
     recentRelatedPostsPromise,
     categoryRelatedPostsPromise,
-    supabase
-      .from('blog_post_products')
-      .select(RELATED_BLOG_PRODUCT_LINKS_SELECT)
-      .eq('merchant_id', merchant.id)
-      .eq('blog_post_id', post.id)
-      .order('created_at', { ascending: true }),
+    getOrderedBlogPostProductLinks(supabase, merchant.id, post.id),
   ]);
 
   if (relatedPostsError) {

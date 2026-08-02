@@ -76,6 +76,17 @@ chmod 600 /home/bassey/baci-workers/.env
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+IMEI_IDENTIFIER_ENCRYPTION_KEY=...
+PETROCK_API_TOKEN=...
+PETROCK_API_BASE_URL=https://api.petrock.biz/api/reseller/v1
+PETROCK_ENABLED=true
+PETROCK_ENABLED_TIERS=blacklist
+PETROCK_REMEDIATION_ENABLED=true
+QUIZ_PHASE=1a
+QUIZ_PRODUCTION_APPROVED=false
+# Required when QUIZ_PHASE=production:
+QUIZ_RPC_SERVER_SECRET=...
+QUIZ_DEVICE_HASH_PEPPER=...
 EXPO_ACCESS_TOKEN=...
 JUMIA_CLIENT_ID=...
 BACI_WEB_BASE_URL=...
@@ -117,9 +128,15 @@ Variable purposes:
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL used by web scripts and standalone workers.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public Supabase key required by the web runtime configuration.
 - `SUPABASE_SERVICE_ROLE_KEY`: Server-only Supabase key for worker writes; never expose it to browsers or commit it.
+- `IMEI_IDENTIFIER_ENCRYPTION_KEY`: Server-only key used to decrypt identifiers for claimed Petrock reconciliation work.
+- `PETROCK_API_TOKEN`: Petrock reseller API token required by the direct reconciliation worker.
+- `PETROCK_API_BASE_URL`: Optional Petrock reseller API base; defaults to the production reseller endpoint.
+- `PETROCK_ENABLED`, `PETROCK_ENABLED_TIERS`, `PETROCK_REMEDIATION_ENABLED`: Explicit Petrock rollout values copied from the reviewed web production configuration. The direct-worker preflight requires all three to prevent an accidental configuration mismatch.
+- `QUIZ_PHASE`, `QUIZ_PRODUCTION_APPROVED`: Explicit quiz launch gate values copied from web production. They must be present even for the fail-closed `1a`/`false` state.
+- `QUIZ_RPC_SERVER_SECRET`, `QUIZ_DEVICE_HASH_PEPPER`: Required by the shared environment schema when `QUIZ_PHASE=production`; the device pepper must be at least 32 characters.
 - `EXPO_ACCESS_TOKEN`: Expo token used for push notification delivery and related mobile app operations.
 - `JUMIA_CLIENT_ID`: Jumia application/client identifier used when refreshing integration credentials.
-- `BACI_WEB_BASE_URL`: HTTPS base URL for web cron endpoint calls, for example `https://ogabassey.com`.
+- `BACI_WEB_BASE_URL`: HTTPS base URL for retained web cron endpoint calls and direct Petrock remediation URLs, for example `https://ogabassey.com`. Direct Petrock execution rejects credentials and non-HTTPS values.
 - `CRON_SECRET`: Shared secret that must match the web deployment and protect cron endpoints.
 - `OLLAMA_STOREFRONT_BASE_URL`: Local/private Ollama base URL for async storefront generation. Use `http://localhost:11434` when Ollama runs on the same VPS.
 - `OLLAMA_STOREFRONT_MODEL`: Gemma model used for storefront layout generation.
@@ -156,6 +173,20 @@ invalid. At minimum, validate `NEXT_PUBLIC_SUPABASE_URL`,
 before work starts; log only the variable name and exit non-zero, never the
 secret value.
 
+`deploy.sh` runs `jobs/preflight-direct-web-workers.mjs` before installing the
+crontab. The preflight checks the Supabase values, credential-free HTTPS web
+origin, Petrock token/encryption key/rollout flags, explicit quiz gates, and
+the two additional quiz production secrets. It prints only variable names and
+fixed validation reasons, never values. Each direct TypeScript CLI repeats its
+essential preflight at runtime so later configuration drift exits nonzero
+instead of returning a successful skip.
+
+Worker deployment also refuses a dirty local checkout and requires the
+configured `BACI_REPO_DIR` checkout on the VPS to be at the exact same Git SHA
+as the deploying repository, with both direct scripts and `tsx` present. Update
+and install that full checkout first; the crontab is not replaced when this
+readback fails.
+
 To rotate a secret, generate the replacement value, deploy the updated `.env`
 through the deployment secret store, restart the affected worker process, verify
 successful cron execution, then revoke the old value. Rotate server-only values
@@ -172,9 +203,18 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 - `/api/cron/cleanup-orders`
 - `/api/cron/process-settlements`
 - `/api/cron/publish-scheduled-posts`
+- `/api/cron/drain-cache-invalidations`
 - `/api/cron/vtu-cashback-summaries`
 - `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
+
+Petrock reconciliation and quiz finalization are deliberately absent from this
+allowlist. Their minute schedules invoke `bin/process-petrock-reconciliation.sh`
+and `bin/process-quiz-finalization.sh` directly against the full Baci checkout.
+Those scripts use the server-side Supabase/admin and job-specific environment;
+they do not send `CRON_SECRET` or make HTTP calls to the web deployment. A
+nonzero exit is retained in the matching persistent cron log, but no verified
+pager transport is configured.
 
 Merchant cancellation refund and email outbox work uses the trusted
 `/api/cron/process-settlements?cancellationsOnly=true` mode every five minutes;
@@ -189,6 +229,12 @@ agent route latency does not depend on retention cleanup.
 variables or the project's secret manager, keep it aligned between the VPS
 worker and web deployment, and rotate it through the normal secret-management
 process. No API keys, passwords, or tokens should be stored in repo files.
+
+The two-minute `drain-cache-invalidations` sweep uses only the existing
+`BACI_WEB_BASE_URL` and `CRON_SECRET` web-cron boundary. The Next route claims
+transactional cache targets and enforces Next → Vercel → Cloudflare ordering;
+this cache drainer never receives Supabase service-role or Cloudflare
+credentials.
 
 `/api/ai-jobs/worker` is intentionally retained only for short legacy web-safe
 jobs such as price list processing. Long `storefront_layout_generation` jobs

@@ -25,6 +25,7 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       migrations: ${{ steps.filter.outputs.migrations }}
+      cwv_runner: ${{ steps.filter.outputs.cwv_runner }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -37,6 +38,7 @@ jobs:
           filters: |
             web:
               - 'apps/web/**'
+              - 'infra/cwv-runner/**'
               - 'public/badges/**'
               - 'packages/shared/**'
               - 'next.config.ts'
@@ -49,9 +51,12 @@ jobs:
               - '.github/workflows/deploy.yml'
               - '.github/scripts/blog-smoke-check.mjs'
               - '.github/scripts/cloudflare-purge-cache.mjs'
+              - '.github/scripts/sync-cloudflare-vercel-production-env.sh'
+              - '.github/scripts/sync-cloudflare-vercel-production-env.test.mjs'
               - '.github/scripts/storefront-release-coherence.mjs'
               - '.github/scripts/storefront-sitemap-purge.mjs'
               - '.github/scripts/deploy-with-retry.sh'
+              - '.github/scripts/inject-prebuilt-env-secret.mjs'
               - '.github/scripts/merge-static-union.sh'
               - '.github/scripts/merge-static-union.test.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
@@ -60,9 +65,65 @@ jobs:
             migrations:
               - 'supabase/migrations/**'
               - '.github/workflows/deploy.yml'
+            cwv_runner:
+              - 'infra/cwv-runner/**'
+              - '.github/workflows/**'
+              - '.github/scripts/cwv-runner-*.mjs'
+              - '.github/scripts/canonical-json.mjs'
+              - '.github/scripts/policy.json'
+              - '.github/scripts/policy.schema.mjs'
+              - '.github/scripts/actionlint-runner-label-contract.test.mjs'
+              - 'biome.json'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/actionlint.yml'
+              - '.github/workflows/cwv-runner-attestation.yml'
+              - '.github/workflows/deploy.yml'
+              - '.github/actionlint.yaml'
 
-  # Apply any pending Supabase migrations BEFORE the Vercel deploy so
-  # application code never lands ahead of the schema it depends on. Closes
+  cwv-runner-contracts:
+    name: CWV Runner Contracts
+    needs: [changes]
+    if: needs.changes.outputs.cwv_runner == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-install-cached
+      - name: Run CWV runner contract tests
+        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs .github/scripts/actionlint-runner-label-contract.test.mjs
+      - name: Check CWV runner formatting
+        run: pnpm exec biome check infra/cwv-runner .github/scripts/cwv-runner-*.mjs
+      - name: Run CWV workflow actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
+
+  # Enqueue-capable migrations must never land until the production VPS has
+  # the matching cache-invalidation drain schedule. Verify live crontab state
+  # on the VPS-hosted deploy runner first; missing worker files and
+  # missing/duplicate entries fail closed before database credentials are
+  # exposed to a job.
+  vps-drain-readiness:
+    if: github.ref == 'refs/heads/main'
+    runs-on: baci-deploy
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Verify production cache-invalidation drain installation
+        env:
+          VPS_WORKER_REMOTE_DIR: ${{ vars.VPS_WORKER_REMOTE_DIR || '/home/bassey/baci-workers' }}
+        run: vps-workers/bin/verify-cache-invalidation-drain-installed.sh
+
+  # Apply any pending Supabase migrations AFTER drain readiness and BEFORE the
+  # Vercel deploy so application code never lands ahead of the schema it depends on. Closes
   # the gap that let 12 Apr 2026 migrations sit unapplied on production for
   # nearly a week.
   #
@@ -78,7 +139,8 @@ jobs:
   # `-- disable-transaction` are split into top-level statements first so
   # CREATE INDEX CONCURRENTLY can run without blocking production writes.
   db-migrations:
-    if: github.ref == 'refs/heads/main'
+    needs: [vps-drain-readiness]
+    if: github.ref == 'refs/heads/main' && needs.vps-drain-readiness.result == 'success'
     runs-on: ubuntu-24.04
     environment:
       name: production
@@ -94,12 +156,12 @@ jobs:
         run: .github/scripts/apply-pending-migrations.sh
 
   deploy-production:
-    needs: [changes, db-migrations]
+    needs: [changes, cwv-runner-contracts, db-migrations]
     # Hard-require db-migrations success — `result == 'success'` excludes both
     # 'skipped' and 'failure', so a skipped migrations job (e.g. if its `if`
     # condition becomes false in a future change) cannot let a web deploy
     # land against an out-of-date schema.
-    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (needs.cwv-runner-contracts.result == 'success' || needs.cwv-runner-contracts.result == 'skipped') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     # Run production prebuilt deploys on GitHub-hosted runners while the VPS
     # provider is returning sustained CPU steal. This still uses a local
     # `vercel build --prod` followed by `vercel deploy --prebuilt --prod`, so
@@ -160,6 +222,17 @@ jobs:
       # Bumping the pin requires re-checking that the new CLI's bundled
       # esbuild version is still on the allow list.
       - run: .github/scripts/run-pinned-vercel.sh pull --yes --environment=production
+      - name: Synchronize Cloudflare runtime credentials to Vercel Production
+        run: .github/scripts/sync-cloudflare-vercel-production-env.sh .github/scripts/run-pinned-vercel.sh
+      - name: Ensure build-time presence of runtime-only quiz RPC secret
+        env:
+          QUIZ_RPC_SERVER_SECRET: ${{ secrets.QUIZ_RPC_SERVER_SECRET }}
+        run: node .github/scripts/inject-prebuilt-env-secret.mjs QUIZ_RPC_SERVER_SECRET .vercel/.env.production.local 'build-time-presence-stand-in-not-used-at-runtime-000000000000'
+      - name: Ensure build-time presence of runtime-only scoped Supabase JWT key
+        # Vercel pulls sensitive runtime values as empty strings. Generate a
+        # fresh build-only JWK inside the injector to satisfy build validation;
+        # Vercel remains the runtime source of the sensitive Production value.
+        run: node .github/scripts/inject-prebuilt-env-secret.mjs SUPABASE_AGENTIC_JWT_PRIVATE_JWK .vercel/.env.production.local --generate-es256-jwk-standin
       - name: Build for Vercel
         run: .github/scripts/run-pinned-vercel.sh build --yes --prod
       # Every production deploy replaces content-hashed _next/static chunk
@@ -201,6 +274,13 @@ jobs:
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
+        # Backstop in case a deploy hangs past the script's per-attempt cap
+        # (deploy-with-retry.sh times out each `vercel deploy` and promotes the
+        # created deployment). Sized so the recovery budget -- one capped deploy
+        # (~20m) plus its promote retries (~5m) plus a fallback deploy (~20m) --
+        # fits, while still keeping a stuck deploy from holding the runner and the
+        # concurrency lock for the whole 150-minute job budget.
+        timeout-minutes: 55
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --archive=tgz
       - name: Purge and verify storefront release HTML
         run: node .github/scripts/storefront-release-coherence.mjs

@@ -128,7 +128,7 @@ describe('getStorefrontAutocompleteProducts', () => {
     const result = await getStorefrontAutocompleteProducts({
       supabase: unmatchedSupabase as never,
       merchantId: VALID_MERCHANT_ID,
-      query: 'iphone',
+      query: 'iphone-unmatched',
       limit: 10,
     });
 
@@ -206,7 +206,7 @@ describe('getStorefrontAutocompleteProducts', () => {
       getStorefrontAutocompleteProducts({
         supabase: errorSupabase as never,
         merchantId: VALID_MERCHANT_ID,
-        query: 'iphone',
+        query: 'iphone-error',
         limit: 10,
       })
     ).rejects.toThrow('DB error');
@@ -237,7 +237,7 @@ describe('getStorefrontAutocompleteProducts', () => {
       getStorefrontAutocompleteProducts({
         supabase: nullDataSupabase as never,
         merchantId: VALID_MERCHANT_ID,
-        query: 'iphone',
+        query: 'iphone-null',
         limit: 10,
       })
     ).resolves.toEqual({ suggestions: [], popularSearches: [] });

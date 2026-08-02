@@ -6,12 +6,20 @@ const migrationPath = resolve(
   __dirname,
   '../../../../../../../supabase/migrations/20260714121500_lock_down_virtual_terminal_sync.sql'
 );
+const unsafeAuthenticatedWrapperMigrationPath = resolve(
+  __dirname,
+  '../../../../../../../supabase/migrations/20260731180000_authorize_scoped_virtual_terminal_mutations.sql'
+);
 
 function normalizeSql(sql: string) {
   return sql.replace(/\s+/g, ' ').trim();
 }
 
 describe('virtual terminal constrained sync migration', () => {
+  it('does not expose authenticated provider-sync wrappers without unforgeable provider proof', () => {
+    expect(existsSync(unsafeAuthenticatedWrapperMigrationPath)).toBe(false);
+  });
+
   it('keeps ownership and provider sync off authenticated clients', () => {
     expect(existsSync(migrationPath)).toBe(true);
     if (!existsSync(migrationPath)) return;

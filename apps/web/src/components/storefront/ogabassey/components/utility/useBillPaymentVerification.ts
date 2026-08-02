@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 export interface BillPaymentVerification {
   verified: boolean;
@@ -79,7 +80,7 @@ async function requestVerification(
   signal: AbortSignal
 ): Promise<BillPaymentVerification | null> {
   try {
-    const res = await fetch('/api/vtu/verify', {
+    const res = await fetchWithCsrf('/api/vtu/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

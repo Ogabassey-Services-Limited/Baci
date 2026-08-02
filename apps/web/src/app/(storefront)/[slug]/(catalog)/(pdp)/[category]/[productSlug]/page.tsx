@@ -1,4 +1,5 @@
 import '@/app/(storefront)/storefront-pdp-critical.css';
+import '@/app/(storefront)/storefront-pdp-description-critical.css';
 import '@/app/(storefront)/storefront-pdp-semantic.css';
 import {
   resolveDefaultVariantSelection,
@@ -12,6 +13,7 @@ import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storef
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { JsonLd } from '@/components/seo/json-ld';
+import { buildOgabasseyProductVisibleSummary } from '@/components/storefront/ogabassey/pdp/build-product-visible-summary';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
@@ -21,6 +23,8 @@ import {
 } from '@/components/storefront/ogabassey/pdp/critical-commerce.client';
 import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
+import { GenericProductRouteSummary } from '@/components/storefront/ogabassey/pdp/generic-product-route-summary';
+import { normalizeProductConditionOffers } from '@/components/storefront/ogabassey/pdp/normalize-product-condition-offers';
 import { OgabasseyPdpServerPrimaryDetails } from '@/components/storefront/ogabassey/pdp/server-primary-details';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import { SemanticSectionsErrorBoundary } from '@/components/storefront/ogabassey/seo/semantic-sections-error-boundary';
@@ -48,6 +52,7 @@ import {
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
+import type { CurrencyConfig } from '@/lib/currency';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
@@ -55,7 +60,6 @@ import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductCondition } from '@/lib/products';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
-import { stripHtmlTags } from '@/lib/sanitize-core';
 import {
   buildStorefrontAcceptedPaymentMethods,
   generateBreadcrumbSchema,
@@ -91,7 +95,9 @@ import {
   normalizeRouteProductVariants,
   shouldRedirectVariantSelectionParams,
 } from './critical-variant-selection';
+import { buildLcpRouteProductProjection } from './lcp-route-product-projection';
 import { OgabasseyPdpRequestScopedSemanticSections } from './ogabassey-pdp-request-scoped-semantic-sections';
+import { getPdpPriceFormatter } from './pdp-price-formatter';
 import {
   PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
   resolveProductStaticParams,
@@ -120,8 +126,6 @@ const PRODUCT_NOT_FOUND_METADATA: Metadata = {
   },
 };
 
-const priceFormatterCache = new Map<string, Intl.NumberFormat>();
-
 function renderCategoryProductNotFoundContent(slug: string) {
   // generateMetadata keeps missing PDPs noindex/hard-not-found before render.
   // This stable body only covers render-time races after the storefront shell
@@ -135,28 +139,15 @@ function renderCategoryProductNotFoundContent(slug: string) {
   );
 }
 
-function getPriceFormatter(currency: string): Intl.NumberFormat {
-  let formatter = priceFormatterCache.get(currency);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-    });
-    priceFormatterCache.set(currency, formatter);
-  }
-  return formatter;
-}
-
 /**
  * Converts server-side Product to Ogabassey template format
  */
 function toOgabasseyProduct(
   product: Product,
-  currency = 'NGN'
+  currency: CurrencyConfig
 ): OgabasseyProduct {
-  // Format price with currency symbol
-  const formatter = getPriceFormatter(currency);
+  // Format price in the merchant's own currency AND locale
+  const formatter = getPdpPriceFormatter(currency);
 
   // Production data currently stores variant_attributes as either:
   // 1. a legacy object map { Storage: ['256GB'] }
@@ -264,40 +255,8 @@ function toOgabasseyProduct(
       ) || [],
     // Phase 5: Condition offers for consolidated products
     has_condition_offers: product.has_condition_offers,
-    offers: product.offers?.map(
-      (o: {
-        id: string;
-        condition: string;
-        price: number | string;
-        compare_at_price?: number | string | null;
-        stock_quantity?: number;
-        images?: string[];
-        condition_notes?: string;
-        grade?: string;
-      }) => ({
-        id: o.id,
-        condition: o.condition as 'new' | 'open_box' | 'used',
-        price: formatter.format(
-          typeof o.price === 'string'
-            ? Number.parseFloat(o.price) || 0
-            : o.price
-        ),
-        rawPrice:
-          typeof o.price === 'string'
-            ? Number.parseFloat(o.price) || 0
-            : o.price,
-        compare_at_price: o.compare_at_price
-          ? formatter.format(
-              typeof o.compare_at_price === 'string'
-                ? Number.parseFloat(o.compare_at_price) || 0
-                : o.compare_at_price
-            )
-          : undefined,
-        stock: o.stock_quantity,
-        images: o.images,
-        notes: o.condition_notes,
-        grade: o.grade,
-      })
+    offers: normalizeProductConditionOffers(product.offers, (value) =>
+      formatter.format(value)
     ),
   };
 }
@@ -317,14 +276,14 @@ type TemplateProductRenderMode = 'full' | 'belowFold';
  * Renders the correct template's product page based on merchant's template_id
  */
 async function renderTemplateProductPage({
-  currency = 'NGN',
+  currency,
   product,
   serverPrimaryDetails,
   semanticSections,
   storeSlug,
   templateId,
 }: {
-  currency?: string;
+  currency: CurrencyConfig;
   product: Product;
   renderMode?: TemplateProductRenderMode;
   serverPrimaryDetails: ReactNode;
@@ -423,6 +382,7 @@ interface LcpRouteProduct {
   default_variant_id?: string;
   description: string;
   gtin: string;
+  has_variant_matrix?: boolean;
   has_variants?: boolean;
   id: string;
   image: string;
@@ -643,6 +603,15 @@ function mapCachedProductLcpHintToRouteProduct(
   const primaryImage =
     getCachedProductRoutePrimaryImage(cachedProduct, variants) || '';
   const baseImage = getCachedProductLcpHintPrimaryImage(cachedProduct) || '';
+  const {
+    condition: productCondition,
+    hasVariantMatrix,
+    offers,
+  } = buildLcpRouteProductProjection({
+    condition: cachedProduct.condition,
+    product_offers: cachedProduct.product_offers,
+    product_variants: cachedProduct.product_variants,
+  });
 
   return {
     base_price: legacyPrices.basePrice,
@@ -653,12 +622,13 @@ function mapCachedProductLcpHintToRouteProduct(
     category: primaryCategory?.name ?? cachedProduct.category ?? undefined,
     category_slug: primaryCategory?.slug,
     color: cachedProduct.color ?? undefined,
-    condition: normalizeProductCondition(cachedProduct.condition),
+    condition: productCondition,
     compare_at_price: legacyPrices.compareAtPrice ?? undefined,
     default_variant_id: cachedProduct.default_variant_id ?? undefined,
     description: cachedProduct.meta_description ?? '',
     gtin: '',
     has_variants: Boolean(cachedProduct.has_variants) || variants.length > 0,
+    has_variant_matrix: hasVariantMatrix,
     id: cachedProduct.id,
     keywords: cachedProduct.keywords ?? undefined,
     image: primaryImage,
@@ -675,6 +645,7 @@ function mapCachedProductLcpHintToRouteProduct(
       : undefined,
     mpn: '',
     name: cachedProduct.name,
+    offers,
     price: legacyPrices.price,
     sale_price: legacyPrices.salePrice,
     schema_markup: cachedProduct.schema_markup as Product['schema_markup'],
@@ -799,15 +770,23 @@ const getProductForMerchant = async (
     category: dbCategoryName || product.category,
     category_slug: dbCategorySlug,
     // Filter offers to exclude main product condition
-    offers: product.product_offers?.filter(
-      (o: { condition: string; status: string }) =>
-        o.condition !== product.condition && o.status === 'active'
-    ),
+    offers: product.product_offers?.filter((offer) => {
+      const offerCondition = normalizeProductCondition(offer.condition);
+      const productCondition = normalizeProductCondition(product.condition);
+      return (
+        offerCondition !== undefined &&
+        offerCondition !== productCondition &&
+        offer.status === 'active'
+      );
+    }),
     // Map variants
     variants: normalizeStorefrontProductVariants(product.product_variants, {
       merchantId: product.merchant_id || merchant.id,
       productId: product.id,
     }),
+    has_variant_matrix:
+      Array.isArray(product.product_variants) &&
+      product.product_variants.length > 0,
   } as unknown as Product;
 
   const productCategorySlug =
@@ -1249,17 +1228,17 @@ async function CategoryProductPageContent({
       ? generateSlug(renderableProduct.category)
       : 'products');
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const currency = resolveMerchantCurrencyConfig(merchant).code;
-  const priceSeoCopy = buildProductPriceSeoCopy({
-    product: renderableProduct,
-    merchantDisplayName: merchant?.business_name || DEFAULT_STORE_NAME,
-    categoryName: renderableProduct.category || 'All Products',
-    currency,
-    country: merchant.country,
-  });
-  const plainProductDescription = stripHtmlTags(renderableProduct.description)
-    .replace(/\s+/g, ' ')
-    .trim();
+  const currencyConfig = resolveMerchantCurrencyConfig(merchant);
+  // SEO copy / JSON-LD / payment methods all take the bare ISO code.
+  const currency = currencyConfig.code;
+  const genericRouteSummary =
+    merchant.template_id !== OGABASSEY_TEMPLATE_ID ? (
+      <GenericProductRouteSummary
+        currency={currency}
+        merchant={merchant}
+        product={renderableProduct}
+      />
+    ) : null;
   const semanticSections = (
     // The async server component catches strict SEO-data cold-cache failures
     // before SSR can bubble to the route error boundary. This client boundary is
@@ -1329,12 +1308,11 @@ async function CategoryProductPageContent({
 
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
   const productPage = await renderTemplateProductPage({
-    currency,
+    currency: currencyConfig,
     product: renderableProduct,
     renderMode,
     serverPrimaryDetails: (
       <OgabasseyPdpServerPrimaryDetails
-        description={renderableProduct.description}
         detailedSpecs={derivedSpecData.detailedSpecs}
         productName={renderableProduct.name}
       />
@@ -1348,24 +1326,8 @@ async function CategoryProductPageContent({
     <>
       <JsonLd data={productSchema} />
       <JsonLd data={breadcrumbSchema} />
-      {/* Hidden crawlable summary without a second page-level heading */}
-      <article
-        className="sr-only"
-        aria-label={`${renderableProduct.name} summary`}
-      >
-        <p>{priceSeoCopy.answer}</p>
-        {plainProductDescription ? <p>{plainProductDescription}</p> : null}
-        <dl>
-          <dt>Brand</dt>
-          <dd>{renderableProduct.brand || 'OgaBassey'}</dd>
-          <dt>Category</dt>
-          <dd>{renderableProduct.category || 'Electronics'}</dd>
-          <dt>Condition</dt>
-          <dd>{renderableProduct.condition || 'New'}</dd>
-          <dt>Price</dt>
-          <dd>{priceSeoCopy.priceText || 'Contact for price'}</dd>
-        </dl>
-      </article>
+      {genericRouteSummary}
+
       {productPage}
     </>
   );
@@ -1455,8 +1417,18 @@ export default async function CategoryProductPage({
   const criticalCurrency = criticalProduct
     ? resolveMerchantCurrencyConfig(merchant)
     : null;
-  const resolvedSearchParams = await searchParams;
   const commerceProduct = buildCriticalCommerceRouteProduct(product);
+  const visibleSummary = criticalProduct
+    ? buildOgabasseyProductVisibleSummary({
+        brand: product.brand,
+        condition: product.condition,
+        has_variant_matrix: product.has_variant_matrix,
+        manage_stock: commerceProduct.manage_stock,
+        name: product.name,
+        variants: commerceProduct.variants,
+      })
+    : null;
+  const resolvedSearchParams = await searchParams;
   const criticalInitialVariantSelection = criticalProduct
     ? getInitialCriticalVariantSelection(commerceProduct, resolvedSearchParams)
     : undefined;
@@ -1520,6 +1492,7 @@ export default async function CategoryProductPage({
           product: {
             ...criticalProduct,
             variantCount,
+            visibleSummary,
           },
           variantAxes: getFirstViewportVariantAxes(
             commerceProduct.variants,

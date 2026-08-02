@@ -34,6 +34,13 @@ const page = {
     },
   ],
   pathPrefix: '',
+  familyLinks: [
+    {
+      href: 'https://ogabassey.com/smartphones/brands/samsung/families/galaxy-a',
+      label: 'Samsung Galaxy A phones',
+      productCount: 10,
+    },
+  ],
   products: [
     {
       id: 'product-1',
@@ -81,6 +88,12 @@ describe('BrandAuthorityPageContent', () => {
     expect(
       screen.getByRole('link', { name: 'Best Samsung Phones' })
     ).toHaveAttribute('href', 'https://ogabassey.com/blog/best-samsung-phones');
+    expect(
+      screen.getByRole('link', { name: 'Samsung Galaxy A phones (10)' })
+    ).toHaveAttribute(
+      'href',
+      'https://ogabassey.com/smartphones/brands/samsung/families/galaxy-a'
+    );
 
     const schemas = Array.from(
       container.querySelectorAll('script[type="application/ld+json"]')
@@ -119,6 +132,19 @@ describe('BrandAuthorityPageContent', () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Samsung buying guides' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('omits model family navigation when no families qualify', async () => {
+    const { BrandAuthorityPageContent } = await import(
+      './brand-authority-page-content'
+    );
+    render(
+      <BrandAuthorityPageContent page={{ ...page, familyLinks: undefined }} />
+    );
+
+    expect(
+      screen.queryByRole('heading', { name: 'Shop by model family' })
     ).not.toBeInTheDocument();
   });
 });

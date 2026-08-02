@@ -3,17 +3,16 @@ import Constants from 'expo-constants';
 import type { z } from 'zod';
 import { resolveApiBaseUrl } from '@/lib/api-url';
 import { CONFIG } from '@/lib/config';
-import { supabase } from '@/lib/supabase';
 import {
   quizAttemptSchema,
   quizEventsResponseSchema,
   quizResultSchema,
 } from '@/schemas/quiz-schemas';
+import { getQuizAuthHeaders } from '@/services/quiz-auth-headers';
 import {
   getOptionalString,
   getQuizErrorCode,
   getQuizErrorMessage,
-  getSafeErrorMessage,
   readQuizJson,
 } from '@/services/quiz-service-utils';
 import type {
@@ -28,7 +27,6 @@ import { QuizServiceError } from '@/services/quiz-types';
 
 export * from '@/services/quiz-types';
 
-const QUIZ_AUTH_RETRY_DELAY_MS = 300;
 const QUIZ_EVENTS_PAGE_LIMIT = 50;
 
 function getApiBaseUrl(configuredUrl?: string): string {
@@ -86,101 +84,24 @@ function getQuizEventsPath(
   return `/api/quiz/events?${query}`;
 }
 
-function waitForQuizAuthRetry() {
-  return new Promise((resolve) => {
-    setTimeout(resolve, QUIZ_AUTH_RETRY_DELAY_MS);
-  });
-}
-
-function isDefinitiveAuthError(error: unknown): boolean {
-  const message = getSafeErrorMessage(error).toLowerCase();
-  const status =
-    error &&
-    typeof error === 'object' &&
-    'status' in error &&
-    typeof (error as { status?: unknown }).status === 'number'
-      ? (error as { status: number }).status
-      : null;
-
-  return (
-    status === 400 ||
-    status === 401 ||
-    status === 403 ||
-    message.includes('invalid') ||
-    message.includes('expired') ||
-    message.includes('jwt') ||
-    message.includes('refresh token')
-  );
-}
-
-async function getQuizAuthHeaders(): Promise<Record<string, string>> {
-  const maxAttempts = 2;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const canRetry = attempt < maxAttempts;
-
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
-
-      if (error) {
-        console.warn('Unable to read quiz auth session', {
-          attempt,
-          message: getSafeErrorMessage(error),
-        });
-        if (canRetry && !isDefinitiveAuthError(error)) {
-          await waitForQuizAuthRetry();
-          continue;
-        }
-        break;
-      }
-
-      if (!accessToken) break;
-
-      const { data: userData, error: userError } =
-        await supabase.auth.getUser(accessToken);
-
-      if (!userError && userData.user) {
-        return { Authorization: `Bearer ${accessToken}` };
-      }
-
-      if (userError) {
-        console.warn('Unable to validate quiz auth session', {
-          attempt,
-          message: getSafeErrorMessage(userError),
-        });
-        if (canRetry && !isDefinitiveAuthError(userError)) {
-          await waitForQuizAuthRetry();
-          continue;
-        }
-      }
-      break;
-    } catch (error) {
-      console.warn('Unable to read quiz auth session', {
-        attempt,
-        message: getSafeErrorMessage(error),
-      });
-      if (canRetry && !isDefinitiveAuthError(error)) {
-        await waitForQuizAuthRetry();
-        continue;
-      }
-      break;
-    }
-  }
-
-  throw new QuizServiceError(
-    'Quiz authentication required',
-    'QUIZ_AUTH_REQUIRED',
-    401
-  );
-}
-
 async function requestQuiz<T>(
   path: string,
   init: RequestInit,
   responseSchema: z.ZodType<T>,
-  baseUrl?: string
+  baseUrl?: string,
+  expectedUserId?: string
 ): Promise<T> {
-  const authHeaders = await getQuizAuthHeaders();
+  const { headers: authHeaders, userId } = await getQuizAuthHeaders();
+  // Bind the request to the shopper the caller intended: if the account signed
+  // out or switched while the auth headers resolved, the token now belongs to a
+  // different user, so refuse rather than spend their attempt.
+  if (expectedUserId !== undefined && userId !== expectedUserId) {
+    throw new QuizServiceError(
+      'Your session changed. Please try again.',
+      'quiz_session_changed',
+      409
+    );
+  }
   const response = await fetch(`${getApiBaseUrl(baseUrl)}${path}`, {
     ...init,
     headers: {
@@ -248,6 +169,7 @@ export function startQuizAttempt({
   baseUrl,
   deviceFingerprint,
   eventId,
+  expectedUserId,
   integrityTier,
 }: StartQuizAttemptInput): Promise<QuizAttempt> {
   return requestQuiz<QuizAttempt>(
@@ -262,7 +184,8 @@ export function startQuizAttempt({
       }),
     },
     quizAttemptSchema,
-    baseUrl
+    baseUrl,
+    expectedUserId
   );
 }
 

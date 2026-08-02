@@ -1,5 +1,6 @@
 import { toast } from '@/hooks/use-toast';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
+import { toCreditDirectItems } from '@/lib/checkout/credit-direct-items';
 import {
   getCheckoutOrderErrorMessage,
   getOrderCreateErrorCode,
@@ -611,14 +612,13 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     }
 
     if (paymentMethod === 'credit_direct') {
+      // Weight the Credit Direct allocation by CANONICAL order-item prices
+      // (negotiated applied, quiz vouchers 0), never the raw cart price — a
+      // display price would finance a voucher item and under-allocate a paid
+      // one. The resumed-order branch already carries persisted canonical prices.
       const items =
         cart.length > 0
-          ? cart.map((item) => ({
-              id: String(item.id),
-              name: item.name,
-              price: item.price,
-              quantity: item.quantity,
-            }))
+          ? toCreditDirectItems(orderItems)
           : (resumedOrder?.items ?? []).map((item) => ({
               id: item.product_id,
               name: item.product_name,

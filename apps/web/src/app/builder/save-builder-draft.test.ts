@@ -17,6 +17,8 @@ const mockApiPost = vi.mocked(apiPost);
 
 function createParams() {
   return {
+    merchantId: 'merchant-1',
+    isCurrentRequest: () => true,
     newData: { content: [], root: {}, zones: {} } as Data,
     seoData: {
       description: 'Description',
@@ -46,6 +48,7 @@ describe('saveBuilderDraft', () => {
 
     expect(params.setSaving).toHaveBeenNthCalledWith(1, true);
     expect(mockApiPost).toHaveBeenCalledWith('/api/builder', {
+      merchantId: params.merchantId,
       slug: 'home',
       name: 'Home',
       config: params.newData,
@@ -84,5 +87,28 @@ describe('saveBuilderDraft', () => {
         'This page changed in another session. Refresh the builder to continue with the latest version.',
       variant: 'destructive',
     });
+  });
+
+  it('suppresses stale merchant completion after an active merchant switch', async () => {
+    let resolveSave!: (value: { lastUpdated: string }) => void;
+    mockApiPost.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    let isCurrent = true;
+    const params = {
+      ...createParams(),
+      isCurrentRequest: () => isCurrent,
+    };
+    const save = saveBuilderDraft(params);
+
+    isCurrent = false;
+    resolveSave({ lastUpdated: 'merchant-a-date' });
+
+    await expect(save).resolves.toBeNull();
+    expect(params.setLastUpdated).not.toHaveBeenCalled();
+    expect(params.setSaving).not.toHaveBeenCalledWith(false);
+    expect(params.toast).not.toHaveBeenCalled();
   });
 });

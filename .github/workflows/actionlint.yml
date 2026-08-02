@@ -6,11 +6,13 @@ on:
     paths:
       - ".github/workflows/**"
       - ".github/actionlint.yml"
+      - ".github/actionlint.yaml"
   pull_request:
     branches: [main]
     paths:
       - ".github/workflows/**"
       - ".github/actionlint.yml"
+      - ".github/actionlint.yaml"
   workflow_dispatch:
 
 permissions:
@@ -34,9 +36,59 @@ jobs:
       - name: Check for deprecated runner labels
         run: |
           # Fail if any workflow uses the retired baci-vps runner label.
-          # New runners: baci-android, baci-deploy, baci-lighthouse
-          if grep -rn 'runs-on:.*baci-vps' .github/workflows/ --include='*.yml' --exclude='actionlint.yml'; then
-            echo "::error::Deprecated runner label 'baci-vps' found. Use baci-android, baci-deploy, or baci-lighthouse instead."
+          # New runners use the current dedicated labels.
+          deprecated_runner_label_found=0
+          while IFS= read -r workflow; do
+            if ! awk '
+              function indentation(line) {
+                match(line, /^[[:space:]]*/)
+                return RLENGTH
+              }
+              function is_retired_label(value) {
+                return value ~ /^[[:space:]]*[\047"]?baci-vps[\047"]?[[:space:]]*(#.*)?$/
+              }
+              function contains_retired_label(value) {
+                return value ~ /(^|[\[,:[:space:]])[\047"]?baci-vps[\047"]?([,\]#[:space:]]|$)/
+              }
+              {
+                line = $0
+                indent = indentation(line)
+                if (in_runs_on) {
+                  if (line !~ /^[[:space:]]*($|#)/ && indent <= runs_on_indent) {
+                    in_runs_on = 0
+                  } else if (indent > runs_on_indent && line ~ /^[[:space:]]*-[[:space:]]*/) {
+                    value = line
+                    sub(/^[[:space:]]*-[[:space:]]*/, "", value)
+                    if (is_retired_label(value)) {
+                      print FILENAME ":" FNR ":" line
+                      found = 1
+                    }
+                  }
+                }
+                if (line ~ /^[[:space:]]*runs-on:[[:space:]]*/) {
+                  runs_on_indent = indent
+                  value = line
+                  sub(/^[[:space:]]*runs-on:[[:space:]]*/, "", value)
+                  if (value ~ /^($|#)/) {
+                    in_runs_on = 1
+                  } else {
+                    in_runs_on = 0
+                    sub(/[[:space:]]+#.*/, "", value)
+                    if (contains_retired_label(value)) {
+                      print FILENAME ":" FNR ":" line
+                      found = 1
+                    }
+                  }
+                }
+              }
+              END { exit found ? 1 : 0 }
+            ' "$workflow"; then
+              deprecated_runner_label_found=1
+            fi
+          done < <(find .github/workflows -type f \
+            \( -name '*.yml' -o -name '*.yaml' \) ! -name 'actionlint.yml')
+          if ((deprecated_runner_label_found)); then
+            echo "::error::Deprecated runner label 'baci-vps' found. Use a current dedicated runner label instead."
             exit 1
           fi
 

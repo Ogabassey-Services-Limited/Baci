@@ -31,6 +31,8 @@ vi.mock('@/lib/storefront-purge-urls', async (importOriginal) => {
 });
 
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import { getBlogContentLinksCacheTag } from '@/lib/blog-content-link-cache-tags';
+import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { buildStorefrontBlogPurgeUrls } from '@/lib/storefront-purge-urls';
 // ---- Import functions AFTER mocks ----
@@ -82,7 +84,7 @@ describe('cache-revalidation utilities', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'category-page-data',
+        getCategoryPageDataCacheTag(MERCHANT_ID),
         'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
@@ -142,7 +144,7 @@ describe('cache-revalidation utilities', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'category-page-data',
+        getCategoryPageDataCacheTag(MERCHANT_ID),
         'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
@@ -263,7 +265,7 @@ describe('cache-revalidation utilities', () => {
         'categories'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'category-page-data',
+        getCategoryPageDataCacheTag(MERCHANT_ID),
         'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
@@ -295,7 +297,7 @@ describe('cache-revalidation utilities', () => {
         'categories'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'category-page-data',
+        getCategoryPageDataCacheTag(MERCHANT_ID),
         'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
@@ -461,6 +463,42 @@ describe('cache-revalidation utilities', () => {
   });
 
   describe('revalidateBlogPosts', () => {
+    it('invalidates only the merchant content-link tag when merchantId is present', () => {
+      revalidateBlogPosts({
+        merchantId: MERCHANT_ID,
+        identifiers: ['test-merchant'],
+        postSlugs: ['test-post'],
+      });
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        getBlogContentLinksCacheTag(MERCHANT_ID),
+        'merchant'
+      );
+      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+        'blog-content-links',
+        'merchant'
+      );
+      expect(
+        mockRevalidateTag.mock.calls.filter(([tag]) =>
+          String(tag).startsWith('blog-content-links')
+        )
+      ).toEqual([[getBlogContentLinksCacheTag(MERCHANT_ID), 'merchant']]);
+    });
+
+    it('keeps the broad content-link tag for legacy callers without merchantId', () => {
+      revalidateBlogPosts('test-merchant', 'test-post');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-content-links',
+        'merchant'
+      );
+      expect(
+        mockRevalidateTag.mock.calls.filter(([tag]) =>
+          String(tag).startsWith('blog-content-links')
+        )
+      ).toEqual([['blog-content-links', 'merchant']]);
+    });
+
     it('revalidates blog posts cache', () => {
       revalidateBlogPosts({
         identifiers: ['test-merchant', 'OGABASSEY.COM', 'test-merchant'],

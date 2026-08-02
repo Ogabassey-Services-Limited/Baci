@@ -100,6 +100,19 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it.each([
+    'petrock-reconciliation',
+    'quiz-finalization',
+  ])('allows the %s worker profile without unrelated agentic signing material', async (workerProfile) => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'false');
+    vi.stubEnv('BACI_WORKER_PROFILE', workerProfile);
+    delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
   it('rejects spoofed GitHub Actions builds without GitHub run context', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');

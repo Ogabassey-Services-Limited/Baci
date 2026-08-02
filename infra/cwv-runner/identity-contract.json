@@ -1,0 +1,383 @@
+{
+  "schemaVersion": 1,
+  "execution": {
+    "environment": {
+      "HOME": "/var/empty/baci-cwv",
+      "LC_ALL": "C.UTF-8",
+      "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "TZ": "Etc/UTC"
+    },
+    "timeoutSeconds": 15,
+    "sampleTimeoutSeconds": 10,
+    "externalEnvironmentArgv": [
+      "/usr/bin/env",
+      "-i",
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "LC_ALL=C.UTF-8",
+      "TZ=Etc/UTC",
+      "HOME=/var/empty/baci-cwv"
+    ],
+    "curlPrefixArgv": [
+      "/usr/bin/curl",
+      "-q",
+      "--config",
+      "/dev/null",
+      "--noproxy",
+      "*",
+      "--proto",
+      "=https",
+      "--tlsv1.2",
+      "--cacert",
+      "/etc/ssl/certs/ca-certificates.crt",
+      "--fail",
+      "--silent",
+      "--show-error",
+      "--max-time",
+      "10"
+    ]
+  },
+  "sourceEnvelope": {
+    "keys": ["canonical", "owner", "schemaVersion", "sha256Receipt", "source"],
+    "owner": { "uid": 0, "gid": 10001, "mode": "0640" },
+    "receipt": "lowercase SHA-256 followed by one LF",
+    "canonical": "UTF-8 canonical JSON with sorted object keys and no trailing newline"
+  },
+  "builderSources": {
+    "required": ["policy", "host", "runtime", "github", "service", "image"],
+    "policy": {
+      "keys": [
+        "authorityMode",
+        "namespace",
+        "policyFileSha256",
+        "schemaVersion"
+      ],
+      "authorityMode": "personal-public-exact-run",
+      "namespace": "baci_cwv_measurement"
+    },
+    "host": {
+      "keys": [
+        "hostIdentity",
+        "hostIdentityDigest",
+        "hostRunner",
+        "hostRunnerIdentityDigest",
+        "hostname",
+        "schemaVersion"
+      ],
+      "hostname": "ogabassey",
+      "runnerFiles": [
+        ".runner",
+        "bin/Runner.Listener",
+        "bin/Runner.Worker",
+        "entrypoint.mjs"
+      ],
+      "frozenFields": [
+        "cgroupDocker",
+        "controlCgroup",
+        "cpuFreq",
+        "cpuSummary",
+        "cpuTopology",
+        "dns",
+        "egressProvider",
+        "hostBinaries",
+        "hostname",
+        "ipForward",
+        "iptables",
+        "kernel",
+        "locale",
+        "measurementCgroup",
+        "memory",
+        "nft",
+        "osRelease",
+        "publicEgress",
+        "rootFilesystem",
+        "route",
+        "timezone"
+      ]
+    },
+    "runtime": {
+      "keys": [
+        "chrome",
+        "imageId",
+        "node",
+        "pnpm",
+        "runtimeRunner",
+        "runtimeRunnerBinaryDigest",
+        "schemaVersion"
+      ],
+      "chrome": {
+        "keys": ["binarySha256", "debianPackage", "debianSha256", "version"],
+        "path": "/usr/bin/google-chrome-stable",
+        "targetPath": "/opt/google/chrome/google-chrome",
+        "debianPackage": {
+          "architecture": "amd64",
+          "name": "google-chrome-stable",
+          "version": "150.0.7871.128-1"
+        },
+        "version": "150.0.7871.128",
+        "debianSha256": "83ed59c85878ebb8fa53915ebe7066cafc58d1c04c1c95449486e6f9d99a1efb"
+      },
+      "node": {
+        "keys": ["binarySha256", "version"],
+        "path": "/opt/node/bin/node",
+        "version": "24.18.0"
+      },
+      "pnpm": {
+        "keys": [
+          "binarySha256",
+          "packageJsonSha256",
+          "packageProjection",
+          "version"
+        ],
+        "argv": ["/opt/node/bin/node", "/opt/pnpm/bin/pnpm.cjs", "--version"],
+        "packageProjection": {
+          "bin": "bin/pnpm.cjs",
+          "name": "pnpm",
+          "version": "11.7.0"
+        },
+        "version": "11.7.0"
+      },
+      "runnerFiles": [
+        "bin/Runner.Listener",
+        "bin/Runner.Worker",
+        "entrypoint.mjs"
+      ],
+      "runnerVersion": "2.335.1"
+    },
+    "github": {
+      "keys": ["repository", "runner", "schemaVersion"],
+      "repositoryId": 1100488586,
+      "runnerName": "baci-cwv-measurement-01",
+      "runnerOs": "linux",
+      "authorityMode": "personal-public-exact-run",
+      "controllerGeneration": 1,
+      "labels": ["Linux", "X64", "baci-cwv-measurement", "self-hosted"]
+    },
+    "service": { "keys": ["manifestSha256", "schemaVersion", "unitSha256"] },
+    "image": {
+      "keys": [
+        "id",
+        "imageReceiptSha256",
+        "platform",
+        "runtimeIdentitySha256",
+        "runtimeManifestSha256",
+        "schemaVersion"
+      ],
+      "platform": "linux/amd64"
+    }
+  },
+  "fields": {
+    "hostname": {
+      "argv": ["/bin/hostname", "--short"],
+      "normalization": "one lowercase RFC-1123 label; trim exactly one LF",
+      "expectation": "ogabassey"
+    },
+    "cpuSummary": {
+      "argv": ["lscpu", "--json"],
+      "normalization": "select Architecture,CPU(s),On-line CPU(s) list,Vendor ID,Model name,Thread(s) per core,Core(s) per socket,Socket(s),Virtualization type; integers and canonical cpuset",
+      "expectation": {
+        "architecture": "x86_64",
+        "cpus": 4,
+        "online": "0-3",
+        "vendor": "AuthenticAMD",
+        "model": "AMD EPYC 9354P 32-Core Processor",
+        "threadsPerCore": 1,
+        "coresPerSocket": 4,
+        "sockets": 1,
+        "virtualization": "full"
+      }
+    },
+    "cpuTopology": {
+      "argv": ["lscpu", "--json", "--extended=CPU,ONLINE,SOCKET,CORE,NODE"],
+      "normalization": "CPU numeric sort; exact CPU,ONLINE,SOCKET,CORE,NODE projection",
+      "expectation": [
+        [0, true, 0, 0, 0],
+        [1, true, 0, 1, 0],
+        [2, true, 0, 2, 0],
+        [3, true, 0, 3, 0]
+      ]
+    },
+    "cpuFreq": {
+      "source": "/sys/devices/system/cpu/cpu[0-9]*/cpufreq/{scaling_governor,energy_performance_preference}",
+      "normalization": "sorted contained records or one cpufreqUnavailable Boolean",
+      "expectation": { "cpufreqUnavailable": true }
+    },
+    "memory": {
+      "argv": ["/usr/bin/grep", "^MemTotal:", "/proc/meminfo"],
+      "normalization": "single decimal kB row",
+      "expectationKb": 16376040
+    },
+    "kernel": {
+      "argv": ["/usr/bin/uname", "-srmv"],
+      "normalization": "collapse ASCII whitespace once",
+      "expectation": "Linux 6.8.0-90-generic #91-Ubuntu SMP PREEMPT_DYNAMIC Tue Nov 18 14:14:30 UTC 2025 x86_64"
+    },
+    "osRelease": {
+      "source": "/etc/os-release",
+      "argv": ["/usr/bin/sha256sum", "/etc/os-release"],
+      "normalization": "ID,VERSION_ID,IMAGE_ID,IMAGE_VERSION plus raw SHA",
+      "expectation": {
+        "id": "ubuntu",
+        "versionId": "24.04",
+        "imageId": "",
+        "imageVersion": "",
+        "sha256": "01af466feb100306498c86aa6bad1815e33036019aa34d4362c20f374ea5c829"
+      }
+    },
+    "rootFilesystem": {
+      "argv": [
+        "findmnt",
+        "--json",
+        "--target",
+        "/",
+        "--output",
+        "SOURCE,FSTYPE,OPTIONS"
+      ],
+      "normalization": "one row; lexicographic options",
+      "expectation": {
+        "source": "/dev/sda1",
+        "fstype": "ext4",
+        "options": "commit=15,discard,errors=remount-ro,noatime,rw"
+      }
+    },
+    "route": {
+      "argv": ["ip", "--json", "route", "get", "1.1.1.1"],
+      "normalization": "one row dst,gateway,dev,prefsrc only",
+      "expectation": {
+        "dst": "1.1.1.1",
+        "gateway": "82.29.190.254",
+        "dev": "eth0",
+        "prefsrc": "82.29.190.219"
+      }
+    },
+    "ipForward": {
+      "source": "/proc/sys/net/ipv4/ip_forward",
+      "normalization": "one ASCII digit plus LF",
+      "expectation": "1"
+    },
+    "publicEgress": {
+      "argvSuffix": ["https://www.cloudflare.com/cdn-cgi/trace"],
+      "normalization": "one ip,tls,warp each; no other fields",
+      "expectation": { "ip": "82.29.190.219", "tls": "TLSv1.3", "warp": "off" }
+    },
+    "egressProvider": {
+      "argvSuffix": ["https://rdap.db.ripe.net/ip/82.29.190.219"],
+      "normalization": "JSON name,country,startAddress,endAddress only",
+      "expectation": {
+        "name": "HOSTINGER-HOSTING",
+        "country": "GB",
+        "startAddress": "82.29.184.0",
+        "endAddress": "82.29.191.255"
+      }
+    },
+    "dns": {
+      "argv": [
+        ["resolvectl", "dns", "eth0"],
+        ["resolvectl", "default-route", "eth0"],
+        ["resolvectl", "status"]
+      ],
+      "normalization": "global protocols/DNSSEC/resolv.conf mode plus sorted eth0 IPs",
+      "expectation": {
+        "servers": ["1.1.1.1", "8.8.4.4", "145.14.155.10"],
+        "defaultRoute": "yes",
+        "protocols": "-LLMNR,-mDNS,-DNSOverTLS",
+        "dnssec": "DNSSEC=no/unsupported",
+        "resolvConf": "stub"
+      }
+    },
+    "locale": {
+      "argv": [["localectl", "status", "--no-pager"], ["locale", "charmap"]],
+      "normalization": "LANG and charmap only",
+      "expectation": { "lang": "C.UTF-8", "charmap": "UTF-8" }
+    },
+    "timezone": {
+      "argv": ["timedatectl", "show", "--property=Timezone", "--value"],
+      "normalization": "one ASCII line",
+      "expectation": "Etc/UTC"
+    },
+    "cgroupDocker": {
+      "argv": [
+        ["stat", "--file-system", "--format=%T", "/sys/fs/cgroup"],
+        [
+          "docker",
+          "--host",
+          "unix:///run/baci-cwv/docker.sock",
+          "info",
+          "--format",
+          "{{json .}}"
+        ]
+      ],
+      "normalization": "cgroup fs/version/driver only",
+      "expectation": {
+        "filesystem": "cgroup2fs",
+        "version": 2,
+        "driver": "systemd"
+      }
+    },
+    "hostBinaries": {
+      "argv": ["/usr/bin/dockerd", "--version"],
+      "expectation": {
+        "dockerVersion": "29.6.1",
+        "dockerBuild": "8ec5ab3",
+        "dockerSha256": "e6e911588afdbb9c3664b38986934266a32730c5808f2dd9a007b299a32d5a94",
+        "containerdVersion": "2.2.6",
+        "containerdBuild": "11ce9d5f3c68c941867e82890e93e815c1304f1b",
+        "containerdSha256": "5e29ab968d742b0d2035da4bbc296fd348488473b89f48bc821fd9f6b826b898"
+      }
+    },
+    "iptables": {
+      "argv": ["/usr/sbin/iptables", "--version"],
+      "expectation": {
+        "version": "iptables v1.8.10 (nf_tables)",
+        "sha256": "a1610dd70bb5ab04180671280df65b0077b680b627c0b6c51480b327732a762d",
+        "linkOwnerMode": "0:0:777",
+        "resolvedPath": "/usr/sbin/xtables-nft-multi",
+        "targetOwnerMode": "0:0:755",
+        "targetSha256": "a1610dd70bb5ab04180671280df65b0077b680b627c0b6c51480b327732a762d",
+        "nftLinkOwnerMode": "0:0:777",
+        "nftResolvedPath": "/usr/sbin/xtables-nft-multi",
+        "nftTargetOwnerMode": "0:0:755",
+        "nftTargetSha256": "a1610dd70bb5ab04180671280df65b0077b680b627c0b6c51480b327732a762d"
+      }
+    },
+    "nft": {
+      "argv": ["/usr/sbin/nft", "--version"],
+      "expectation": {
+        "version": "nftables v1.0.9 (Old Doc Yak #3)",
+        "sha256": "3f1c21553e62716ef1abfcf31f51ff94eb73ff4234a6653bac754a42f936d1c7",
+        "liveArgv": [
+          "/usr/sbin/nft",
+          "--json",
+          "--handle",
+          "list",
+          "table",
+          "inet",
+          "baci_cwv_measurement"
+        ]
+      }
+    },
+    "controlCgroup": {
+      "unit": "cwv-measurement-control.slice",
+      "expectation": {
+        "cpus": "2-3",
+        "cpuQuota": "100%",
+        "memoryMax": 2147483648,
+        "memorySwapMax": 0,
+        "tasksMax": 256,
+        "ioWeight": 10
+      }
+    },
+    "measurementCgroup": {
+      "unit": "cwv-measurement.slice",
+      "expectation": {
+        "cpus": "2-3",
+        "memoryMax": 8589934592,
+        "memorySwapMax": 0,
+        "tasksMax": 1024,
+        "cpuAccounting": "yes",
+        "memoryAccounting": "yes",
+        "ioAccounting": "yes"
+      }
+    }
+  },
+  "refusal": "Any missing, extra, malformed, noncanonical, unhashed, non-root-owned, substituted, duplicate-authority, drifted, or secret-bearing value refuses without an accepted object."
+}

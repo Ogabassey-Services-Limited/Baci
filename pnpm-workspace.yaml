@@ -3,7 +3,7 @@ minimumReleaseAgeExclude:
   # Security hotfixes released within the cooldown window; Dependabot alerts opened 2026-06-15.
   - ws@5.2.5 || 6.2.4 || 7.5.11 || 8.21.0
   - protobufjs@7.6.5
-  - brace-expansion@5.0.7
+  - brace-expansion@5.0.8
   - js-yaml@4.3.0
   - shell-quote@1.9.0
   - body-parser@1.20.6 || 2.3.0
@@ -85,6 +85,7 @@ allowBuilds:
   puppeteer: true
   sharp: true
   unrs-resolver: true
+  workerd: true
 
 overrides:
   # --- Patched-dependency version locks ---
@@ -161,7 +162,7 @@ overrides:
   minimatch: "10.2.3"
   # Pin older uuid consumers to 11.1.1 to mitigate GHSA-w5hq-g745-h8pq while staying on a CommonJS-compatible patched release.
   # Pin to 5.0.7 to mitigate GHSA-3jxr-9vmj-r5cp / CVE-2026-13149 (exponential brace expansion DoS).
-  "minimatch>brace-expansion": "5.0.7"
+  "minimatch>brace-expansion": "5.0.8"
   # Pin vulnerable ws consumers to patched lines for GHSA-96hv-2xvq-fx4p / CVE-2026-48779 without forcing cross-major upgrades.
   "ws@>=5 <5.2.5": "5.2.5"
   "ws@>=6 <6.2.4": "6.2.4"
@@ -180,7 +181,7 @@ overrides:
   # Pin to 3.1.0 so Vitest 4.x consumers resolve a compatible color utility during CLI startup.
   tinyrainbow: "3.1.0"
   # Pin to the current patched 8.x release to mitigate GHSA-qx2v-qp2m-jg93 in CSS stringify output.
-  postcss: "8.5.15"
+  postcss: "8.5.18"
   # Preserve the existing legacy uuid guard for pre-7 consumers while keeping Expo xcode@3.0.1 on its CommonJS-compatible uuid@11.1.1 resolution (preventing ESM require crashes).
   "uuid@<7": "11.1.1"
   # Pin older uuid consumers to 11.1.1 to mitigate GHSA-w5hq-g745-h8pq while staying on a CommonJS-compatible patched release.

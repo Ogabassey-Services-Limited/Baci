@@ -1,9 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
-import {
-  resolveProductPurgeCategorySegment,
-  type StorefrontProductPurgeEntry,
-} from '@/lib/storefront-product-purge-urls';
+import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
 import {
   type BulkUpdateChange,
   groupBulkUpdateChanges,
@@ -86,6 +83,25 @@ async function processBulkUpdateChange({
         updates.cost_price = null;
       }
 
+      let previousQuery = supabase
+        .from('products')
+        .select(BULK_PURGE_ROW_COLUMNS);
+      if (productId) {
+        previousQuery = previousQuery
+          .eq('id', productId)
+          .eq('merchant_id', merchantId);
+      } else if (sku) {
+        previousQuery = previousQuery
+          .eq('sku', sku)
+          .eq('merchant_id', merchantId);
+      } else {
+        previousQuery = previousQuery
+          .eq('name', name)
+          .eq('merchant_id', merchantId);
+      }
+      const { data: previousRows, error: previousError } = await previousQuery;
+      if (previousError) throw previousError;
+
       let matchQuery = supabase.from('products').update(updates);
       if (productId) {
         matchQuery = matchQuery
@@ -102,7 +118,10 @@ async function processBulkUpdateChange({
       );
       if (error) throw error;
       onPurgeEntries?.(
-        getBulkPurgeEntries(updatedRows as BulkPurgeProductRow[] | null)
+        getBulkPurgeEntries(
+          updatedRows as BulkPurgeProductRow[] | null,
+          previousRows as BulkPurgeProductRow[] | null
+        )
       );
       result.updated = 1;
       return result;
@@ -114,7 +133,7 @@ async function processBulkUpdateChange({
         change.details.sku ||
         generateSlug(change.details.name).toUpperCase().substring(0, 20);
 
-      const { data: insertedRow, error } = await supabase
+      const { error } = await supabase
         .from('products')
         .insert({
           merchant_id: merchantId,
@@ -152,24 +171,18 @@ async function processBulkUpdateChange({
         .maybeSingle();
 
       if (error) throw error;
-      const createdPurgeSlug = slug?.trim() || insertedRow?.id;
-      if (createdPurgeSlug) {
-        onPurgeEntries?.([
-          {
-            slug: createdPurgeSlug,
-            categorySegment: resolveProductPurgeCategorySegment({
-              slug: createdPurgeSlug,
-              name: change.details.name,
-              category: change.details.category || 'General',
-            }),
-          },
-        ]);
-      }
       result.created = 1;
       return result;
     }
 
     if (change.type === 'remove' && change.productId) {
+      const { data: previousRows, error: previousError } = await supabase
+        .from('products')
+        .select(BULK_PURGE_ROW_COLUMNS)
+        .eq('id', change.productId)
+        .eq('merchant_id', merchantId);
+      if (previousError) throw previousError;
+
       const { data: archivedRows, error } = await supabase
         .from('products')
         .update({ status: 'archived' })
@@ -178,7 +191,10 @@ async function processBulkUpdateChange({
         .select(BULK_PURGE_ROW_COLUMNS);
       if (error) throw error;
       onPurgeEntries?.(
-        getBulkPurgeEntries(archivedRows as BulkPurgeProductRow[] | null)
+        getBulkPurgeEntries(
+          archivedRows as BulkPurgeProductRow[] | null,
+          previousRows as BulkPurgeProductRow[] | null
+        )
       );
       result.removed = 1;
     }

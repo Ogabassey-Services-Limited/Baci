@@ -51,6 +51,22 @@ describe('applySupabaseReplaySql', () => {
     ).rejects.toThrow(/^Replay SQL check failed at ordinal 1: non-zero-exit$/);
   });
 
+  it('preserves bounded psql location diagnostics without source output', async () => {
+    const apply = vi.fn(async () => {
+      throw new Error('psql failed: non-zero-exit (line=42,sqlstate=42501)');
+    });
+
+    await expect(
+      applySupabaseReplaySql(apply, {
+        kind: 'sql-check',
+        ordinal: 1,
+        sqlPath: '/owned/replay/secret.sql',
+      })
+    ).rejects.toThrow(
+      /^Replay SQL check failed at ordinal 1: non-zero-exit \(line=42,sqlstate=42501\)$/
+    );
+  });
+
   it.each([
     [
       'migration',

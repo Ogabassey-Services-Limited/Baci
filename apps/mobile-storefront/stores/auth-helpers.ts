@@ -16,7 +16,7 @@ const log = createLogger('AuthHelpers');
 // Reused by every customers select here and in auth-store-account so the shape
 // stays in sync with the Customer type / CustomerRowSchema.
 export const CUSTOMER_SELECT_COLUMNS =
-  'id, user_id, email, first_name, last_name, phone, loyalty_points, username';
+  'id, user_id, email, first_name, last_name, phone, loyalty_points, username, date_of_birth';
 
 // ---------------------------------------------------------------------------
 // Timeout helper
@@ -250,6 +250,7 @@ export async function hydrateCustomer({
     phone: validation.data.phone ?? undefined,
     loyalty_points: validation.data.loyalty_points ?? undefined,
     username: validation.data.username ?? undefined,
+    date_of_birth: validation.data.date_of_birth ?? undefined,
   };
 }
 

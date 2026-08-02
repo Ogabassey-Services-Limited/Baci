@@ -1,14 +1,14 @@
 import { normalizeRegisteredAddress, SOCIAL_MEDIA_KEYS } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
+import {
   formatMerchantSettingsErrors,
-  updateMerchantSettingsSchema,
+  merchantSettingsRequestSchema,
 } from '@/schemas/merchant-settings';
 
 function isFullBlankSocialMediaPayload(
@@ -19,6 +19,40 @@ function isFullBlankSocialMediaPayload(
     Object.values(socialMedia).every(
       (value) => (value ?? '').trim().length === 0
     )
+  );
+}
+
+function merchantSettingsAuthError(message: string) {
+  if (message.includes('merchant_settings_mfa_required')) {
+    return NextResponse.json(
+      {
+        code: 'MFA_REQUIRED',
+        error: 'Verify your second factor before changing merchant settings.',
+      },
+      { status: 403 }
+    );
+  }
+
+  if (message.includes('merchant_settings_reauthentication_required')) {
+    return NextResponse.json(
+      {
+        code: 'REAUTHENTICATION_REQUIRED',
+        error: 'Sign in again before changing merchant settings.',
+      },
+      { status: 403 }
+    );
+  }
+
+  return null;
+}
+
+function merchantSettingsUpdateFailureResponse() {
+  return NextResponse.json(
+    {
+      code: 'MERCHANT_SETTINGS_UPDATE_FAILED',
+      error: 'Failed to update merchant settings',
+    },
+    { status: 500 }
   );
 }
 
@@ -39,30 +73,47 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch (error) {
+    console.error('Invalid merchant settings payload:', error);
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 }
+    );
   }
 
-  if (!hasPermission(access, 'settings', 'edit')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const parseResult = merchantSettingsRequestSchema.safeParse(rawBody);
+
+  if (!parseResult.success) {
+    return NextResponse.json(
+      {
+        error: 'Validation failed',
+        details: formatMerchantSettingsErrors(parseResult.error),
+      },
+      { status: 400 }
+    );
   }
 
   try {
-    const rawBody = await request.json();
-    const parseResult = updateMerchantSettingsSchema.safeParse(rawBody);
-
-    if (!parseResult.success) {
+    const body = parseResult.data;
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id,
+      { requestedMerchantId: body.merchantId }
+    );
+    if (!merchantContext) {
       return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: formatMerchantSettingsErrors(parseResult.error),
-        },
-        { status: 400 }
+        { error: 'Merchant not found' },
+        { status: 404 }
       );
     }
 
-    const body = parseResult.data;
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const settingsPatch: Record<string, unknown> = {};
     const hasSocialMediaUpdate =
       body.social_media !== undefined || body.clear_social_media === true;
@@ -110,26 +161,23 @@ export async function PATCH(request: NextRequest) {
       'update_merchant_social_media',
       {
         p_clear: shouldClearSocialMedia,
-        p_merchant_id: access.merchantId,
+        p_merchant_id: merchantContext.merchantId,
         p_settings: settingsPatch,
         p_social_media: hasSocialMediaUpdate ? incomingSocialMedia : {},
       }
     );
 
     if (error || !merchant) {
+      const authErrorResponse = merchantSettingsAuthError(error?.message ?? '');
+      if (authErrorResponse) return authErrorResponse;
+
       console.error('Merchant settings update failed:', error);
-      return NextResponse.json(
-        { error: 'Failed to update merchant settings' },
-        { status: 500 }
-      );
+      return merchantSettingsUpdateFailureResponse();
     }
 
     return NextResponse.json({ merchant });
   } catch (error) {
-    console.error('Invalid merchant settings payload:', error);
-    return NextResponse.json(
-      { error: 'Invalid request body' },
-      { status: 400 }
-    );
+    console.error('Merchant settings update failed:', error);
+    return merchantSettingsUpdateFailureResponse();
   }
 }

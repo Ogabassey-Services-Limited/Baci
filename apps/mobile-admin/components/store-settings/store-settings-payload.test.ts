@@ -6,6 +6,7 @@ import {
   buildInitialFormValues,
   buildMerchantUpdatePayload,
   hasNonEmptyTrimmedValue,
+  rebaseStoreSettingsBaseline,
   type StoreSettingsFormValues,
 } from './store-settings-payload';
 
@@ -154,11 +155,107 @@ describe('store settings payload helpers', () => {
     expect(form.currency).toBe(DEFAULT_COUNTRY.currency);
   });
 
-  it('does not use auth email as an editable support email fallback', () => {
+  it('prefills an empty support email with the merchant auth email', () => {
     expect(
       buildInitialFormValues(
         makeMerchant({ email: 'owner@usebaci.com', support_email: null })
       ).email
+    ).toBe('owner@usebaci.com');
+  });
+
+  it('does not persist an auth-email prefill when an unrelated field is saved', () => {
+    const merchant = makeMerchant({
+      email: 'owner@usebaci.com',
+      support_email: null,
+    });
+    const baseline = buildBaselineFromMerchant(merchant);
+
+    expect(
+      buildMerchantUpdatePayload(baseline, {
+        ...baseline,
+        business_name: 'Baci Foods Ltd',
+        support_email: 'owner@usebaci.com',
+      })
+    ).toEqual({ business_name: 'Baci Foods Ltd' });
+  });
+
+  it('preserves an unchanged auth-email prefill after saving another field', () => {
+    const baseline = buildBaselineFromMerchant(
+      makeMerchant({ email: 'owner@usebaci.com', support_email: null })
+    );
+
+    expect(
+      rebaseStoreSettingsBaseline({
+        authEmailPrefill: 'owner@usebaci.com',
+        baseline,
+        displayedSupportEmail: 'owner@usebaci.com',
+        savedValues: {
+          ...baseline,
+          business_name: 'Baci Foods Ltd',
+          support_email: '',
+        },
+      })
+    ).toMatchObject({
+      business_name: 'Baci Foods Ltd',
+      support_email: 'owner@usebaci.com',
+    });
+  });
+
+  it('clears an edited auth-email prefill after the server saves it blank', () => {
+    const baseline = buildBaselineFromMerchant(
+      makeMerchant({ email: 'owner@usebaci.com', support_email: null })
+    );
+
+    expect(
+      rebaseStoreSettingsBaseline({
+        authEmailPrefill: 'owner@usebaci.com',
+        baseline,
+        displayedSupportEmail: '',
+        savedValues: { ...baseline, support_email: '' },
+      }).support_email
     ).toBe('');
+  });
+
+  it('merges saved server values over the existing baseline', () => {
+    const savedValues = {
+      ...baselineForm,
+      business_name: 'Baci Foods Ltd',
+      country: 'GH',
+      payout_currency: 'GHS',
+      support_email: 'help@usebaci.com',
+    };
+
+    expect(
+      rebaseStoreSettingsBaseline({
+        authEmailPrefill: 'owner@usebaci.com',
+        baseline: baselineForm,
+        displayedSupportEmail: 'help@usebaci.com',
+        savedValues,
+      })
+    ).toEqual(savedValues);
+  });
+
+  it('persists a change made to an auth-email prefill', () => {
+    const baseline = buildBaselineFromMerchant(
+      makeMerchant({ email: 'owner@usebaci.com', support_email: null })
+    );
+
+    expect(
+      buildMerchantUpdatePayload(baseline, {
+        ...baseline,
+        support_email: 'help@usebaci.com',
+      })
+    ).toEqual({ support_email: 'help@usebaci.com' });
+  });
+
+  it('keeps an existing support email instead of replacing it', () => {
+    expect(
+      buildInitialFormValues(
+        makeMerchant({
+          email: 'owner@usebaci.com',
+          support_email: 'help@usebaci.com',
+        })
+      ).email
+    ).toBe('help@usebaci.com');
   });
 });

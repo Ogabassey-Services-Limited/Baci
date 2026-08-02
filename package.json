@@ -22,7 +22,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
+    "@next/env": "16.2.11",
     "@typescript/native": "npm:typescript@~7.0.2",
+    "es-module-lexer": "^2.3.1",
     "knip": "^5.88.1",
     "lefthook": "^2.1.9",
     "next": "16.2.11",
@@ -30,6 +32,7 @@
     "turbo": "^2.9.18",
     "typescript": "npm:@typescript/typescript6@~6.0.2",
     "typescript-tsserver": "npm:typescript@~6.0.3",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   }
 }

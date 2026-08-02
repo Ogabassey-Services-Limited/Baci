@@ -68,15 +68,16 @@ Some cron work intentionally remains in the web app because it needs web-only ru
 - `supabase-retention-cleanup`, scheduled daily at 03:20.
 - `/api/cron/process-settlements`, scheduled daily at 05:00.
 - `/api/cron/reconcile-vtu-processing`, scheduled every 5 minutes.
+- `/api/cron/merchant-signup-health`, scheduled every 5 minutes. Verifies the
+  merchant read/write policy shapes plus every authenticated grant used by
+  mobile signup before and during `INSERT ... RETURNING`. Any drift returns non-2xx and logs
+  `mobile-onboarding deployment_fault`. Log:
+  `/home/bassey/baci-workers/logs/merchant-signup-health.log`.
 - `/api/cron/reconcile-gateway-paid-orders`, scheduled hourly at :20. Safety net behind the payment webhook's own heal-on-retry: heals "wedged" gateway orders (completed transaction, order never flipped to paid) after re-verifying with the gateway, then drains failed paid-order side effects (settlement / receipt email / ad tracking) for orders that are paid but whose outbox recorded a failure. Log: `/home/bassey/baci-workers/logs/reconcile-gateway-paid-orders.log`.
-- `/api/cron/petrock-reconcile`, scheduled every minute. It leases open
-  Petrock IMEI orders, polls by `order_uuid`, and atomically completes or
-  refunds them; stale pre-submit rows are escalated without retry or refund.
 - `/api/cron/wallet-payouts`, scheduled daily at 06:00.
 - `/api/cron/vtu-cashback-summaries`, scheduled monthly on the 1st at 08:30.
 - `/api/cron/publish-scheduled-posts`, scheduled every 15 minutes.
 - `/api/inventory/push-alerts`, scheduled every 6 hours.
-- `/api/quiz/finalize`, scheduled every minute. Closes due, compliance-verified, permitted ranked-prize quiz events and mints their ranked winners (bounded to 100 events per run). Fail-closed on `compliance_verified` and a non-blank `nlrc_permit_ref`, and additionally gated on `QUIZ_PHASE=production` + `QUIZ_PRODUCTION_APPROVED` in the WEB (Vercel) env, so it early-returns cheaply until launch is approved. Log: `/home/bassey/baci-workers/logs/quiz-finalize.log`.
 - `/api/cron/storefront-update-nudge`, scheduled daily at 10:00 (server time / UTC). Pushes the "update available" notification to storefront installs on an older native build than `MOBILE_STOREFRONT_<PLATFORM>_LATEST_BUILD`; throttled per device server-side, so a daily cadence is safe and idempotent. **Config lives in the WEB (Vercel) env, not the worker `.env`:** `MOBILE_STOREFRONT_UPDATES_ENABLED`, `MOBILE_STOREFRONT_{ANDROID,IOS}_LATEST_BUILD`, `_STORE_URL`, and optionally `MOBILE_STOREFRONT_UPDATE_MESSAGE` (overrides the push body / in-app prompt copy). A platform with a missing/blank `LATEST_BUILD` or `_STORE_URL` is silently skipped (`skipped: 'no_latest_build'` / `'no_store_url'`, still HTTP 200) — set both per release. The route returns non-2xx (so `run-web-cron.mjs` exits non-zero and the schedule alerts) whenever **any** attempted platform fails: a thrown error, a delivered-nothing result (Expo/DB down), or a throttle-stamp write failure. Healthy platforms' sends still persist.
 - `storefront_layout_generation` storefront worker, started immediately by
   `baci-ai-storefront-trigger.service` and swept every 10 minutes as a fallback:
@@ -93,6 +94,43 @@ run through `/home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh` via
 the signed trigger service, with cron only as the 10-minute fallback sweep.
 
 These entries require `BACI_WEB_BASE_URL` and `CRON_SECRET` in `/home/bassey/baci-workers/.env`. `BACI_WEB_BASE_URL` must be an `https://` TLS-terminated production web origin, for example `https://ogabassey.com`; do not use `http://` for production web cron calls because `CRON_SECRET` is sent on each request. `CRON_SECRET` must exist in both the VPS worker environment and the web deployment environment with the same value; rotate both copies together through the normal secret-management process.
+
+## Direct Petrock and Quiz Minute Workers
+
+Petrock reconciliation and quiz finalization run directly from the VPS every
+minute through `bin/process-petrock-reconciliation.sh` and
+`bin/process-quiz-finalization.sh`. This is the normal production path; the
+existing `CRON_SECRET`-authenticated `/api/cron/petrock-reconcile` and
+`/api/quiz/finalize` routes remain manual fallbacks only.
+
+The direct workers load the full Baci checkout environment and use server-side
+Supabase/admin access. They do not call Vercel or send `CRON_SECRET`. Petrock
+requires a credential-free HTTPS `BACI_WEB_BASE_URL` only to construct
+remediation URLs; quiz uses the existing `QUIZ_PHASE` and
+`QUIZ_PRODUCTION_APPROVED` gate variables. Preserve the existing locks, cadence,
+and logs: `/home/bassey/baci-workers/logs/petrock-reconcile.log` and
+`/home/bassey/baci-workers/logs/quiz-finalize.log`.
+
+Before the crontab is installed, `deploy.sh` runs a non-secret environment
+preflight. The VPS `.env` must contain the same reviewed Petrock token,
+identifier encryption key, rollout flags, and explicit quiz gate values as web
+production, plus the Supabase server/public values used by the imported web
+graph. `QUIZ_PHASE=production` additionally requires
+`QUIZ_RPC_SERVER_SECRET` and a 32-character-or-longer
+`QUIZ_DEVICE_HASH_PEPPER`. The preflight prints only missing/invalid variable
+names and aborts deployment; each direct CLI repeats the essential check so a
+later configuration deletion cannot become a successful no-op.
+
+The deploy script also compares the configured VPS `BACI_REPO_DIR` checkout
+against the exact deploying Git SHA and verifies both direct scripts plus the
+`tsx` runtime before changing crontab. It refuses dirty local source. Promote
+the reviewed full checkout and install it with the frozen workspace lockfile
+before deploying the worker schedule.
+
+Both CLIs exit nonzero on an operational failure and emit only sanitized result
+summaries, so inspect those persistent logs first. There is no verified pager
+or alert-delivery transport for these failures; configure and test one before
+treating logs as an active alert.
 
 The storefront worker also requires `OLLAMA_STOREFRONT_BASE_URL` in the worker
 `.env` for the private Ollama/Gemma endpoint, and

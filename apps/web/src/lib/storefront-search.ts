@@ -9,6 +9,7 @@ import { type NormalizedProduct, normalizeProduct } from './normalize-product';
 import { isValidUuid, sanitizeSearchQuery } from './sanitize-core';
 import { storefrontProductFilters } from './storefront-product-filters';
 import { STOREFRONT_PRODUCTS_COMPACT_SELECT } from './storefront-products-select';
+import { findStorefrontSearchDidYouMean } from './storefront-search-did-you-mean';
 import { createPublicClient } from './supabase/public';
 import { createClient } from './supabase/server';
 
@@ -61,6 +62,7 @@ interface SearchStorefrontProductsArgs {
   supabase: StorefrontSearchSupabase;
   analyticsSupabase?: StorefrontSearchAnalyticsSupabase;
   filters?: StorefrontSearchFilters;
+  includeDidYouMean?: boolean;
   merchantId: string;
   query: string;
   limit: number;
@@ -196,6 +198,7 @@ export async function searchStorefrontProducts({
   supabase,
   analyticsSupabase,
   filters,
+  includeDidYouMean = true,
   merchantId,
   query,
   limit,
@@ -248,32 +251,14 @@ export async function searchStorefrontProducts({
     });
   }
 
-  let didYouMean: string | null = null;
-
-  if (productIds.length === 0) {
-    const { data: suggestion, error: suggestionError } = await supabase.rpc(
-      'find_product_search_suggestion_v2',
-      {
-        merchant_id_param: merchantId,
-        search_term: sanitizedQuery,
-      }
-    );
-
-    if (suggestionError) {
-      // "Did you mean" is strictly additive — a failed suggestion lookup must
-      // not turn a (valid) zero-results search into a 500. Degrade to no
-      // suggestion instead of throwing.
-      logger.warn({
-        message: 'Search suggestion lookup failed; returning no suggestion',
-        error: suggestionError.message,
-        merchantId,
-        query: sanitizedQuery,
-      });
-    } else if (Array.isArray(suggestion) && suggestion.length > 0) {
-      didYouMean =
-        (suggestion[0] as { suggested_term?: string }).suggested_term ?? null;
-    }
-  }
+  const didYouMean =
+    includeDidYouMean && productIds.length === 0
+      ? await findStorefrontSearchDidYouMean({
+          supabase,
+          merchantId,
+          query: sanitizedQuery,
+        })
+      : null;
 
   return {
     count,

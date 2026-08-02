@@ -1,15 +1,27 @@
 'use server';
 
 import { getBlogPreviewSecret } from '@/env';
-import { ensurePermission } from '@/lib/merchant-server';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { permissionGrantsAccess } from '@/lib/permission-grant';
 import { createClient } from '@/lib/supabase/server';
+import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 
 /**
  * Generate a secure preview URL for a blog post.
  * 2026 Best Practice: Keep secrets on the server and use server actions for secure URL generation.
  * IMPORTANT: encodeURIComponent is required for secrets containing special characters like +, /, =
  */
-export async function getPreviewUrl(merchantSlug: string, postSlug: string) {
+type GetPreviewUrl = (
+  merchantId: string,
+  merchantSlug: string,
+  postSlug: string
+) => Promise<string>;
+
+export const getPreviewUrl: GetPreviewUrl = async (
+  merchantId: unknown,
+  merchantSlug: string,
+  postSlug: string
+) => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -20,9 +32,32 @@ export async function getPreviewUrl(merchantSlug: string, postSlug: string) {
     throw new Error('Unauthorized');
   }
 
-  const { merchant } = await ensurePermission('marketing', 'view');
+  const parsedMerchantId = merchantIdParamSchema.safeParse(
+    typeof merchantId === 'string' ? merchantId.trim() : merchantId
+  );
+  if (!parsedMerchantId.success) {
+    throw new Error('Merchant not found or access denied');
+  }
 
-  if (merchant.slug !== merchantSlug) {
+  const merchant = await getMerchantForApiRequest(supabase, user.id, {
+    requestedMerchantId: parsedMerchantId.data,
+  });
+  const canViewMarketing =
+    merchant?.staffAccess.isOwner ||
+    (merchant
+      ? permissionGrantsAccess(
+          merchant.staffAccess.permissions,
+          'marketing',
+          'view'
+        )
+      : false);
+
+  if (
+    !merchant ||
+    merchant.merchantId !== parsedMerchantId.data ||
+    merchant.merchantSlug !== merchantSlug ||
+    !canViewMarketing
+  ) {
     throw new Error('Merchant not found or access denied');
   }
 
@@ -32,4 +67,4 @@ export async function getPreviewUrl(merchantSlug: string, postSlug: string) {
   const encodedPostSlug = encodeURIComponent(postSlug);
   const encodedMerchantSlug = encodeURIComponent(merchantSlug);
   return `/api/blog/preview?secret=${encodedSecret}&slug=${encodedPostSlug}&merchantSlug=${encodedMerchantSlug}`;
-}
+};

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PublishedClusterPost } from '@/lib/storefront-content/content-cluster-types';
 import type { StorefrontClusterGuideRequest } from '@/lib/storefront-content/storefront-cluster-guide-request';
+import { PDP_SEMANTIC_INVENTORY_LIMIT } from '@/lib/storefront-product/pdp-semantic-inventory-limit';
 import type { StorefrontDatabase } from '@/types/storefront-database';
 import type { Json } from '@/types/supabase';
 import {
@@ -15,7 +16,6 @@ import {
 import type { ProductSemanticCandidate } from './product-semantic-types';
 
 const PDP_SEMANTIC_ENRICHMENT_TOTAL_DEADLINE_MS = 5_000;
-const PDP_SEMANTIC_INVENTORY_LIMIT = 48;
 const PDP_SEMANTIC_CLUSTER_GUIDE_LIMIT = 48;
 const PDP_SEMANTIC_PRODUCT_GUIDE_LIMIT = 8;
 

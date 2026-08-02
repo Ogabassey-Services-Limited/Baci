@@ -201,6 +201,10 @@ vi.mock(
   })
 );
 
+vi.mock('@/lib/storefront-category/get-cached-brand-authority-entries', () => ({
+  getCachedBrandAuthorityEntries: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('./category-page-content', async (importOriginal) => {
   const actual =
     await importOriginal<typeof import('./category-page-content')>();

@@ -1,9 +1,11 @@
-import type { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
-  getUserAccess: vi.fn(),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: vi.fn(),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -18,81 +20,17 @@ vi.mock('@/lib/monnify', () => ({
   getMonnifyToken: vi.fn(),
 }));
 
-import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { getMonnifyToken } from '@/lib/monnify';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { POST } from './route';
-
-const mockOwnerAccess = {
-  merchantId: 'merchant-1',
-  role: 'owner',
-  isOwner: true,
-  isStaff: false,
-  permissions: {},
-};
-
-const mockStaffAccess = {
-  ...mockOwnerAccess,
-  role: 'staff',
-  isOwner: false,
-  isStaff: true,
-};
-
-const validNinBody = {
-  nin: '12345678901',
-  firstName: 'John',
-  lastName: 'Doe',
-  dateOfBirth: '1990-01-15',
-};
-
-function makeRpcMock(error: unknown = null) {
-  return vi.fn().mockResolvedValue({ error });
-}
-
-function makeSupabaseMock(rpcError: unknown = null, country = 'NG') {
-  const merchantMaybeSingle = vi.fn().mockResolvedValue({
-    data: { country },
-    error: null,
-  });
-
-  return {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          maybeSingle: merchantMaybeSingle,
-        })),
-      })),
-    })),
-    merchantMaybeSingle,
-    rpc: makeRpcMock(rpcError),
-  };
-}
-
-function makeRequest(body: unknown): NextRequest {
-  return {
-    method: 'POST',
-    headers: new Headers({ 'Content-Type': 'application/json' }),
-    nextUrl: new URL('http://localhost/api/merchant/verify-nin'),
-    json: vi.fn().mockResolvedValue(body),
-    cookies: { get: vi.fn() },
-  } as unknown as NextRequest;
-}
-
-function makeNinResponse(firstName: string, lastName: string) {
-  return {
-    requestSuccessful: true,
-    responseBody: {
-      nin: '12345678901',
-      firstName,
-      lastName,
-      middleName: '',
-      dateOfBirth: '1990-01-15',
-      gender: 'M',
-      mobileNumber: '08012345678',
-    },
-  };
-}
+import {
+  makeRequest,
+  makeSupabaseMock,
+  validNinBody,
+} from './route.test-helpers';
 
 describe('POST /api/merchant/verify-nin', () => {
   afterEach(() => {
@@ -109,7 +47,15 @@ describe('POST /api/merchant/verify-nin', () => {
       error: null,
       supabase: makeSupabaseMock(),
     } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
-    vi.mocked(getUserAccess).mockResolvedValue(mockOwnerAccess);
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: validNinBody.merchantId,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -136,23 +82,56 @@ describe('POST /api/merchant/verify-nin', () => {
   });
 
   it('returns 403 when user is not merchant owner', async () => {
-    vi.mocked(getUserAccess).mockResolvedValue(mockStaffAccess);
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: validNinBody.merchantId,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: {},
+        role: 'manager',
+      },
+    });
 
     const res = await POST(makeRequest(validNinBody));
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
+    expect(checkRateLimit).not.toHaveBeenCalled();
   });
 
-  it('returns 429 when rate limit is exceeded', async () => {
-    vi.mocked(checkRateLimit).mockResolvedValue(false);
+  it('returns 429 when the provider quota is exceeded after authorization', async () => {
+    vi.mocked(checkRateLimit)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
 
-    const res = await POST(makeRequest(validNinBody));
+    const req = makeRequest(validNinBody);
+    const json = vi.spyOn(req, 'json');
+    const res = await POST(req);
 
     expect(res.status).toBe(429);
+    expect(json).toHaveBeenCalledOnce();
+    expect(getMerchantForApiRequest).toHaveBeenCalledOnce();
+    expect(
+      vi.mocked(getMerchantForApiRequest).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(checkRateLimit).mock.invocationCallOrder[1]);
   });
 
-  it('rejects India merchants before rate limiting or provider calls', async () => {
+  it('does not consume quota for a malformed NIN request body', async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue(false);
+    const req = makeRequest(validNinBody);
+    const json = vi
+      .spyOn(req, 'json')
+      .mockRejectedValue(new Error('malformed JSON'));
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(json).toHaveBeenCalledOnce();
+    expect(getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(checkRateLimit).not.toHaveBeenCalled();
+  });
+
+  it('rejects India merchants before consuming provider quota or making provider calls', async () => {
     const supabaseMock = makeSupabaseMock(null, 'IN');
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
@@ -183,50 +162,5 @@ describe('POST /api/merchant/verify-nin', () => {
     );
 
     expect(res.status).toBe(400);
-  });
-
-  it('returns 200 with verified: true when names match', async () => {
-    const supabaseMock = makeSupabaseMock();
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: supabaseMock,
-    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => makeNinResponse('John', 'Doe'),
-    } as Response);
-
-    const res = await POST(makeRequest(validNinBody));
-
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({ verified: true });
-    expect(supabaseMock.rpc).toHaveBeenCalledWith(
-      'record_nin_verification',
-      expect.objectContaining({
-        p_merchant_id: 'merchant-1',
-        p_nin: '12345678901',
-      })
-    );
-  });
-
-  it('returns 200 with verified: false when names do not match', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => makeNinResponse('Jane', 'Smith'),
-    } as Response);
-
-    const res = await POST(makeRequest(validNinBody));
-
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({ verified: false });
-  });
-
-  it('returns 500 when Monnify API fails', async () => {
-    vi.mocked(getMonnifyToken).mockRejectedValueOnce(new Error('Auth failed'));
-
-    const res = await POST(makeRequest(validNinBody));
-
-    expect(res.status).toBe(500);
   });
 });

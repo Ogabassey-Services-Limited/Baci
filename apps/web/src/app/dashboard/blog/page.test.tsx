@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockGetMerchantForUser = vi.fn();
@@ -23,9 +24,23 @@ vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
 }));
 
+vi.mock('next/link', () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
 vi.mock('./blog-client-page', () => ({
-  BlogClientPage: ({ initialPosts }: { initialPosts: unknown[] }) => (
-    <div data-testid="blog-client-page">{initialPosts.length}</div>
+  BlogClientPage: ({
+    initialPosts,
+    merchant,
+  }: {
+    initialPosts: unknown[];
+    merchant: { id: string };
+  }) => (
+    <section aria-label="Blog client page" data-merchant-id={merchant.id}>
+      {initialPosts.length}
+    </section>
   ),
 }));
 
@@ -70,7 +85,9 @@ describe('BlogPage', () => {
 
     render(await BlogPage());
 
-    expect(screen.getByTestId('blog-client-page')).toHaveTextContent('0');
+    expect(
+      screen.getByRole('region', { name: 'Blog client page' })
+    ).toHaveTextContent('0');
     expect(selectedFields[0]).toEqual(
       expect.stringContaining('featured_image_width')
     );
@@ -80,5 +97,31 @@ describe('BlogPage', () => {
     expect(selectedFields[0]).toEqual(
       expect.stringContaining('featured_image_variants')
     );
+  });
+
+  it('mounts the client gate when the implicit server merchant has blogging disabled', async () => {
+    const range = vi.fn().mockResolvedValue({ data: [], error: null });
+    const order = vi.fn(() => ({ range }));
+    const eq = vi.fn(() => ({ order }));
+    const countBuilder = Object.assign(
+      Promise.resolve({ count: 0, error: null }),
+      { eq: vi.fn() }
+    );
+    countBuilder.eq.mockReturnValue(countBuilder);
+    const from = vi.fn(() => ({
+      select: (fields: string) =>
+        fields.includes('featured_image_width') ? { eq } : countBuilder,
+    }));
+    mockGetMerchantForUser.mockResolvedValue({
+      merchant: { id: 'merchant-a', slug: 'merchant-a' },
+    });
+    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
+    mockCreateClient.mockReturnValue({ from });
+
+    render(await BlogPage());
+
+    expect(
+      screen.getByRole('region', { name: 'Blog client page' })
+    ).toHaveAttribute('data-merchant-id', 'merchant-a');
   });
 });

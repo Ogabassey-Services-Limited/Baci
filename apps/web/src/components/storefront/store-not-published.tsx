@@ -1,52 +1,51 @@
-import { Construction, Store } from 'lucide-react';
+import { ArrowUpRight, Sparkles, Store } from 'lucide-react';
+import styles from './store-not-published.module.css';
 
 interface StoreNotPublishedProps {
   businessName: string;
 }
 
 export function StoreNotPublished({ businessName }: StoreNotPublishedProps) {
+  const storeInitial = businessName.trim().charAt(0).toUpperCase() || 'B';
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
-      <div className="text-center px-4 max-w-md">
-        <div className="mb-8 flex justify-center">
-          <div className="relative">
-            <div className="size-24 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-              <Store className="size-12 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 size-10 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
-              <Construction className="size-5 text-white" />
-            </div>
+    <main className={styles.page}>
+      <div aria-hidden="true" className={styles.glow} />
+      <section className={styles.notice}>
+        <header className={styles.header}>
+          <div aria-hidden="true" className={styles.monogram}>
+            <span>{storeInitial}</span>
           </div>
-        </div>
+          <div className={styles.status}>
+            <span aria-hidden="true" className={styles.statusDot} />
+            <span>Opening soon</span>
+          </div>
+        </header>
 
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-          Coming Soon
-        </h1>
-
-        <p className="text-gray-600 dark:text-gray-400 mb-2">
-          <span className="font-semibold text-gray-800 dark:text-gray-200">
-            {businessName}
-          </span>{' '}
-          is currently setting up their store.
-        </p>
-
-        <p className="text-sm text-gray-500 dark:text-gray-500">
-          Check back later to explore their products and start shopping.
-        </p>
-
-        <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-800">
-          <p className="text-xs text-gray-400 dark:text-gray-600">
-            Are you the store owner?{' '}
-            <a
-              href="/login"
-              className="text-primary hover:underline font-medium"
-            >
-              Log in to your dashboard
-            </a>{' '}
-            to complete setup.
+        <div className={styles.content}>
+          <p className={styles.eyebrow}>
+            <Sparkles aria-hidden="true" size={15} />A new shopping destination
+          </p>
+          <h1 className={styles.title}>{businessName}</h1>
+          <p className={styles.message}>
+            We&apos;re curating something worth the wait. Fresh finds,
+            thoughtful details, and a brand-new storefront are almost ready for
+            you.
           </p>
         </div>
-      </div>
-    </div>
+
+        <footer className={styles.footer}>
+          <div className={styles.storeMark}>
+            <Store aria-hidden="true" size={18} />
+            <span>Check back shortly</span>
+          </div>
+          <a className={styles.ownerLink} href="/login">
+            Continue setting up your store
+            <ArrowUpRight aria-hidden="true" size={16} />
+          </a>
+        </footer>
+      </section>
+      <p className={styles.signature}>Storefront powered by Baci</p>
+    </main>
   );
 }

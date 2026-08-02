@@ -1,7 +1,7 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getRootDomain } from '@/env';
-import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import {
   revalidateBlogFeed,
   revalidateDomains,
@@ -17,8 +17,13 @@ import {
   invalidateReverseDomainCacheForSlug,
 } from '@/lib/domain-cache-simple';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { invalidateAliasCacheForSlug } from '@/lib/slug-alias-cache';
 import { RESERVED_PATHS } from '@/lib/validation';
+import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 import { renameSlugSchema } from '@/schemas/rename-slug';
 
 /**
@@ -68,15 +73,40 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 }
+    );
+  }
+
+  const parsed = renameSlugSchema
+    .extend({ merchantId: merchantIdParamSchema })
+    .safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: z.flattenError(parsed.error) },
+      { status: 400 }
+    );
+  }
+
+  const { merchantId, new_slug: requestedSlug } = parsed.data;
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: merchantId }
+  );
+  if (!merchantContext || merchantContext.merchantId !== merchantId) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
+
   // Mirror check_staff_permission (the DB helper rename_merchant_slug itself
   // calls) exactly for (resource='settings', action='edit'), so the route never
-  // 403s a staff member the RPC would allow. Accepted grant shapes (see
-  // 20260705143000_align_staff_permission_all_grants.sql): *.*, *.edit,
-  // settings.*, settings.edit, settings.all, full_access.all — plus the owner.
+  // 403s a staff member the RPC would allow.
+  const access = toUserAccess(merchantContext);
   const perms = access.permissions;
   const canRename =
     access.isOwner ||
@@ -90,25 +120,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: 'Invalid request body' },
-      { status: 400 }
-    );
-  }
-
-  const parsed = renameSlugSchema.safeParse(rawBody);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid input', details: z.flattenError(parsed.error) },
-      { status: 400 }
-    );
-  }
-
-  const newSlug = parsed.data.new_slug.toLowerCase();
+  const newSlug = requestedSlug.toLowerCase();
 
   // Reject storefront route words (wallet, product, orders, ...) up-front with a
   // friendly message. These are valid slug SHAPES but the storefront layout /

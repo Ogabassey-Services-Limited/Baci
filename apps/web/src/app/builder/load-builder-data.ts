@@ -12,6 +12,7 @@ import type {
   BuilderSessionSetters,
   BuilderToast,
 } from './builder-client-types';
+import { createDefaultBuilderSettings } from './builder-default-settings';
 import { getDegradedBuilderDescription } from './builder-descriptions';
 
 const BUILDER_BOOTSTRAP_TIMEOUT_MS = 15_000;
@@ -20,18 +21,20 @@ interface LoadBuilderDataParams
   extends BuilderSessionSetters,
     BuilderDataSetters {
   router: BuilderRouter;
+  merchantId: string;
   signal?: AbortSignal;
   toast: BuilderToast;
   setPageLoading: Dispatch<SetStateAction<boolean>>;
 }
 
-function getBuilderBootstrapUrl() {
+function getBuilderBootstrapUrl(merchantId: string) {
   if (typeof window === 'undefined') {
-    return '/api/builder?slug=home';
+    return `/api/builder?slug=home&merchantId=${encodeURIComponent(merchantId)}`;
   }
 
   const url = new URL('/api/builder', window.location.origin);
   url.searchParams.set('slug', 'home');
+  url.searchParams.set('merchantId', merchantId);
 
   const aiDraftJobId = new URLSearchParams(window.location.search).get(
     'aiDraftJobId'
@@ -65,6 +68,8 @@ function applyLoadedBuilderData({
   setAiDraftJobId,
   setCanApplyAiDraft,
 }: BuilderDataSetters & BuilderSessionSetters & { json: BuilderLoadResponse }) {
+  const defaultSettings = createDefaultBuilderSettings();
+
   setData(json.config as Data);
   setLastUpdated(json.lastUpdated);
   setCanEdit(json.canEdit);
@@ -84,13 +89,14 @@ function applyLoadedBuilderData({
     });
   }
 
-  if (json.storeSettings) {
-    setStoreSettings(json.storeSettings as StoreSettings);
-  }
-
-  if (json.setupSettings) {
-    setSetupSettings(json.setupSettings as SetupSettings);
-  }
+  setStoreSettings(
+    (json.storeSettings as StoreSettings | null) ??
+      defaultSettings.storeSettings
+  );
+  setSetupSettings(
+    (json.setupSettings as SetupSettings | null) ??
+      defaultSettings.setupSettings
+  );
 
   if (json.config?.theme) {
     applyTheme(json.config.theme as ThemeConfiguration);
@@ -100,11 +106,21 @@ function applyLoadedBuilderData({
 }
 
 function applyFallbackBuilderData(
-  setData: Dispatch<SetStateAction<Data>>,
+  {
+    setData,
+    setStoreSettings,
+    setSetupSettings,
+  }: Pick<
+    BuilderDataSetters,
+    'setData' | 'setStoreSettings' | 'setSetupSettings'
+  >,
   markReadOnly: BuilderSessionSetters | null = null
 ) {
   const defaultData = getDefaultBuilderData();
+  const defaultSettings = createDefaultBuilderSettings();
   setData(defaultData);
+  setStoreSettings(defaultSettings.storeSettings);
+  setSetupSettings(defaultSettings.setupSettings);
   applyTheme(defaultData.theme);
 
   if (markReadOnly) {
@@ -153,6 +169,7 @@ function getBuilderBootstrapSignal(signal?: AbortSignal) {
 export async function loadBuilderData(params: LoadBuilderDataParams) {
   const {
     router,
+    merchantId,
     signal,
     toast,
     setData,
@@ -169,7 +186,7 @@ export async function loadBuilderData(params: LoadBuilderDataParams) {
   } = params;
 
   try {
-    const res = await fetch(getBuilderBootstrapUrl(), {
+    const res = await fetch(getBuilderBootstrapUrl(merchantId), {
       signal: getBuilderBootstrapSignal(signal),
     });
 
@@ -226,7 +243,7 @@ export async function loadBuilderData(params: LoadBuilderDataParams) {
         });
       }
     } else {
-      applyFallbackBuilderData(setData);
+      applyFallbackBuilderData({ setData, setStoreSettings, setSetupSettings });
     }
   } catch (error) {
     if (signal?.aborted) {
@@ -239,14 +256,17 @@ export async function loadBuilderData(params: LoadBuilderDataParams) {
       description: 'Failed to load page configuration. Using default template.',
       variant: 'destructive',
     });
-    applyFallbackBuilderData(setData, {
-      setLastUpdated,
-      setCanEdit,
-      setDegradedReason,
-      setPreviewMode,
-      setAiDraftJobId,
-      setCanApplyAiDraft,
-    });
+    applyFallbackBuilderData(
+      { setData, setStoreSettings, setSetupSettings },
+      {
+        setLastUpdated,
+        setCanEdit,
+        setDegradedReason,
+        setPreviewMode,
+        setAiDraftJobId,
+        setCanApplyAiDraft,
+      }
+    );
   } finally {
     if (!signal?.aborted) {
       setPageLoading(false);

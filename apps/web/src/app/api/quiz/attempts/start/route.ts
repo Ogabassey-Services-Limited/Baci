@@ -18,6 +18,7 @@ import {
   quizAgeGateErrorResponse,
   quizRpcClientErrorResponse,
   quizUsernameGateErrorResponse,
+  rejectQuizIdentityMismatch,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -63,6 +64,15 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return invalidInputResponse(parsed.error.flatten().fieldErrors);
   }
+
+  // Bind the start to the shopper the caller intended, before the start RPC
+  // mutates anything — an account switch mid-request must not consume the new
+  // shopper's attempt.
+  const identityMismatch = rejectQuizIdentityMismatch(
+    parsed.data.expectedUserId,
+    auth.user.id
+  );
+  if (identityMismatch) return identityMismatch;
 
   if (getQuizPhaseEnv() === 'production') {
     try {

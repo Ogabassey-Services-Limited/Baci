@@ -20,6 +20,7 @@ vi.mock('@/lib/cached-storefront-product-slug-resolution', () => ({
 }));
 
 import { cacheLife, cacheTag } from 'next/cache';
+import { getBlogContentLinksCacheTag } from '@/lib/blog-content-link-cache-tags';
 import { getCachedDeadContentLinkSlugs } from '@/lib/cached-dead-content-links';
 
 interface QueryResult {
@@ -106,7 +107,12 @@ describe('getCachedDeadContentLinkSlugs', () => {
     await getCachedDeadContentLinkSlugs('merchant-1', ['draft-post'], []);
 
     expect(cacheLife).toHaveBeenCalledWith('merchant');
-    expect(cacheTag).toHaveBeenCalledWith('blog-posts', 'products-merchant-1');
+    expect(cacheTag).toHaveBeenCalledWith(
+      getBlogContentLinksCacheTag('merchant-1'),
+      'blog-content-links',
+      'products-merchant-1'
+    );
+    expect(vi.mocked(cacheTag).mock.calls.flat()).not.toContain('blog-posts');
   });
 
   it('returns requested blog slugs that have no live published post', async () => {

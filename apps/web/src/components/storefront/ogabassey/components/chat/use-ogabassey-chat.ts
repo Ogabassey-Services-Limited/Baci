@@ -6,6 +6,7 @@ import {
   parseSantaActions,
   stripSantaActions,
 } from '@/components/storefront/santa-chat/types';
+import { readSantaMerchantSlug } from '@/components/storefront/santa-chat/read-santa-merchant-slug';
 import type { ChatMessage, SantaCartAction } from './types';
 import { PROACTIVE_MESSAGES } from './types';
 
@@ -57,7 +58,7 @@ async function requestChatReply(
   isSanta: boolean,
   history: ChatMessage[],
   messageText: string
-): Promise<string> {
+): Promise<{ text: string; merchantSlug?: string }> {
   const endpoint = isSanta ? '/api/chat/santa' : '/api/chat';
   const requestBody = {
     ...(!isSanta ? { sessionId: getOrCreateChatSessionId() } : {}),
@@ -80,6 +81,8 @@ async function requestChatReply(
     throw new Error('Chat service unavailable');
   }
 
+  const merchantSlug = isSanta ? readSantaMerchantSlug(response) : null;
+
   // Parse streaming text response
   const reader = response.body?.getReader();
   const decoder = new TextDecoder();
@@ -99,11 +102,14 @@ async function requestChatReply(
     reader?.cancel();
   }
 
-  return aiResponseText;
+  return {
+    text: aiResponseText,
+    ...(merchantSlug ? { merchantSlug } : {}),
+  };
 }
 
 export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasseyChat {
-  const { addToCart, setIsCartOpen } = useCart();
+  const { addToCart, setIsCartOpen, setMerchantSlug } = useCart();
 
   const [isOpen, setIsOpenState] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -165,7 +171,8 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
     setIsLoading(true);
 
     try {
-      const aiResponseText = await requestChatReply(isSanta, history, messageText);
+      const chatReply = await requestChatReply(isSanta, history, messageText);
+      const aiResponseText = chatReply.text;
 
       // Check if Santa granted wishes (parse every ACTION directive).
       let santaActions: SantaCartAction[] | undefined;
@@ -183,7 +190,17 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
       // Clean the response text by removing Santa action directives for display.
       const displayText = stripSantaActions(aiResponseText);
 
-      setMessages((prev) => [...prev, { role: 'model', text: displayText, santaActions }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'model',
+          text: displayText,
+          santaActions,
+          ...(chatReply.merchantSlug
+            ? { merchantSlug: chatReply.merchantSlug }
+            : {}),
+        },
+      ]);
     } catch (error) {
       console.error('Chat error:', error);
       setMessages((prev) => [
@@ -211,9 +228,17 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
       : message?.santaAction;
     if (!santaAction || santaAction.added) return;
 
+    const merchantSlug = message.merchantSlug;
+    if (!merchantSlug) {
+      console.error('[Santa Cart] Missing resolved merchant slug');
+      return;
+    }
+
+    setMerchantSlug(merchantSlug);
+
     const santaProduct = {
       id: `santa-wish-${Date.now()}`,
-      merchant_id: 'ogabassey',
+      merchant_id: merchantSlug,
       name: santaAction.productName,
       description: `Santa's special Christmas wish - ${santaAction.productName}`,
       status: 'active' as const,
@@ -223,7 +248,7 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
       image: '/african-santa-head.svg',
       imageLarge: '/african-santa-head.svg',
       imageHint: 'Santa wish product',
-      brand: 'Ogabassey',
+      brand: merchantSlug,
       gtin: '',
       mpn: '',
       slug: 'santa-wish',

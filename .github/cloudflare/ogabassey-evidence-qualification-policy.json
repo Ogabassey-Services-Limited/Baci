@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "operationalGate": "B",
+  "mode": "read_only_until_owner_approved_isolated_fixture",
+  "officialDocumentation": {
+    "workersLogs": "https://developers.cloudflare.com/workers/observability/logs/workers-logs/",
+    "versionMetadata": "https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/",
+    "versionDetail": "https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/get/"
+  },
+  "expectedWorkersLogsContract": {
+    "freeEventsPerUtcDay": "200000",
+    "paidIncludedEventsPerBillingMonth": "20000000",
+    "paidOverageUsdPerMillion": "0.60",
+    "forcedSamplingDailyThreshold": "5000000000",
+    "forcedSamplingRate": "0.01"
+  },
+  "driftDisposition": "STOP",
+  "requiresAuthenticatedEntitlementReceipt": true,
+  "notProvisioned": true,
+  "reviewedWriteTokenPolicy": {
+    "tokenId": "<owner-exported-token-id>",
+    "accountId": "<owner-approved-account-id>",
+    "zoneId": "<owner-approved-ogabassey-zone-id>",
+    "permissionGroupIds": ["<owner-reviewed-permission-group-id>"],
+    "resources": ["<owner-reviewed-resource-expression>"],
+    "expiresAt": "2099-01-01T00:00:00.000Z",
+    "policySha256": "98c0a4c126593b68cfe440d07fa0df58cbc64cc28802f0e29eb0bbd048c9e1ff"
+  },
+  "tokenValueNeverStored": true,
+  "note": "The reviewedWriteTokenPolicy object is a checked-in shape-only placeholder. It is never a live credential artifact: replace every placeholder with the separately owner-exported expiring policy and use a private mode-0600 artifact before prepare. The verifier rejects this notProvisioned envelope and the far-future placeholder via its lifetime gate."
+}

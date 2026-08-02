@@ -5,8 +5,6 @@ import { describe, expect, it } from 'vitest';
 
 const OG_IMAGE_FILES = [
   '(blog)/blog/[postSlug]/opengraph-image-markup.tsx',
-  '(catalog)/(pdp)/[category]/[productSlug]/opengraph-image.tsx',
-  '(catalog)/(pdp)/products/[productSlug]/opengraph-image.tsx',
   'opengraph-image.tsx',
 ];
 

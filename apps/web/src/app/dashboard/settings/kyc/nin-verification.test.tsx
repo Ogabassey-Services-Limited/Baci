@@ -1,7 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/api-client', () => ({ fetchWithCsrf: vi.fn() }));
+const mockFetchWithCsrf = vi.fn();
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
+}));
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));
@@ -9,6 +13,7 @@ vi.mock('@/hooks/use-toast', () => ({
 import { NinVerification } from './nin-verification';
 
 const baseProps = {
+  merchantId: '11111111-1111-4111-8111-111111111111',
   verified: false,
   prefillNin: null,
   prefillFirstName: null,
@@ -64,5 +69,35 @@ describe('NinVerification', () => {
     expect(screen.getByLabelText(/first name/i)).toHaveValue('Jane');
     expect(screen.getByLabelText(/last name/i)).toHaveValue('Doe');
     expect(screen.getByLabelText(/date of birth/i)).toHaveValue('1990-05-20');
+  });
+
+  it('submits the authorized merchant ID with the NIN verification payload', async () => {
+    const user = userEvent.setup();
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ verified: false }),
+    });
+    render(
+      <NinVerification
+        {...baseProps}
+        prefillDateOfBirth="1990-05-20"
+        prefillFirstName="Jane"
+        prefillLastName="Doe"
+        prefillNin="12345678901"
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /verify nin/i }));
+
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledOnce());
+    const [, request] = mockFetchWithCsrf.mock.calls[0] as [
+      string,
+      { body: string },
+    ];
+    expect(JSON.parse(request.body)).toMatchObject({
+      merchantId: baseProps.merchantId,
+      nin: '12345678901',
+    });
   });
 });

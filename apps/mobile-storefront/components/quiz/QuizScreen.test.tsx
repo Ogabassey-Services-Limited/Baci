@@ -26,24 +26,63 @@ jest.setTimeout(15000);
 // start-flow tests below are unaffected by the username gate. The gate
 // itself is covered by the dedicated test further down.
 let mockUsername: string | null = 'ogafan';
+// Start-flow tests default to an adult DOB so the 18+ gate passes; the
+// dedicated date-of-birth gate tests below set it to null.
+let mockDateOfBirth: string | null = '1990-06-15';
 const mockSetUsername =
   jest.fn<
     (
       username: string
     ) => Promise<{ success: boolean; error?: string; username?: string }>
   >();
+const mockSetDateOfBirth =
+  jest.fn<
+    (
+      dateOfBirth: string
+    ) => Promise<{ success: boolean; error?: string; dateOfBirth?: string }>
+  >();
 
-jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (
-    selector: (state: {
-      customer: { username: string | null } | null;
-      setUsername: typeof mockSetUsername;
-    }) => unknown
-  ) =>
-    selector({
-      customer: { username: mockUsername },
-      setUsername: mockSetUsername,
-    }),
+jest.mock('@/stores/auth-store', () => {
+  const getState = () => ({
+    customer: {
+      id: 'customer-1',
+      username: mockUsername,
+      date_of_birth: mockDateOfBirth,
+    },
+    setUsername: mockSetUsername,
+    setDateOfBirth: mockSetDateOfBirth,
+    // useQuizStartFlow reads getState().user?.id to guard against account
+    // switches, so the mock must expose the static getState method too.
+    user: { id: 'quiz-shopper' },
+  });
+  const useAuthStore = (
+    selector: (state: ReturnType<typeof getState>) => unknown
+  ) => selector(getState());
+  useAuthStore.getState = getState;
+  return { useAuthStore };
+});
+
+// The date-of-birth gate transitively renders DateTimePickerField, which
+// imports the native picker. Mock it so the module resolves and a tapped field
+// yields a fixed, valid past date (1990-05-23).
+type MockDateTimePickerProps = {
+  onChange: (event: { type: 'set' }, date: Date) => void;
+};
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true,
+  default: ({ onChange }: MockDateTimePickerProps) => {
+    const { Pressable, Text } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+    return (
+      <Pressable
+        accessibilityLabel="mock-date-picker"
+        accessibilityRole="button"
+        onPress={() => onChange({ type: 'set' }, new Date(1990, 4, 23))}
+      >
+        <Text>mock picker</Text>
+      </Pressable>
+    );
+  },
 }));
 
 const quizEvent: QuizEvent = {
@@ -117,7 +156,9 @@ describe('QuizScreen', () => {
   beforeEach(() => {
     useQuizStore.getState().reset();
     mockUsername = 'ogafan';
+    mockDateOfBirth = '1990-06-15';
     mockSetUsername.mockReset();
+    mockSetDateOfBirth.mockReset();
     jest.mocked(fetchQuizEvents).mockResolvedValue([quizEvent]);
     jest
       .mocked(startQuizAttempt)
@@ -202,6 +243,7 @@ describe('QuizScreen', () => {
     expect(startQuizAttempt).toHaveBeenCalledWith({
       deviceFingerprint: 'a'.repeat(64),
       eventId: 'event-1',
+      expectedUserId: 'quiz-shopper',
       integrityTier: 'device',
     });
 
@@ -242,6 +284,7 @@ describe('QuizScreen', () => {
       expect(startQuizAttempt).toHaveBeenCalledWith({
         deviceFingerprint: 'c'.repeat(64),
         eventId: 'event-1',
+        expectedUserId: 'quiz-shopper',
         integrityTier: 'device',
       })
     );
@@ -356,6 +399,7 @@ describe('QuizScreen', () => {
     expect(startQuizAttempt).toHaveBeenCalledWith({
       deviceFingerprint: 'a'.repeat(64),
       eventId: 'event-1',
+      expectedUserId: 'quiz-shopper',
       integrityTier: 'device',
     });
   });
@@ -412,6 +456,7 @@ describe('QuizScreen', () => {
       expect(startQuizAttempt).toHaveBeenCalledWith({
         deviceFingerprint: 'a'.repeat(64),
         eventId: 'event-1',
+        expectedUserId: 'quiz-shopper',
         integrityTier: 'device',
       });
     });

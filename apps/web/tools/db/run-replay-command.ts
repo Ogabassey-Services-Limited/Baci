@@ -42,8 +42,35 @@ function sanitizedCommandName(command: string): string {
   return /^[A-Za-z0-9._-]+$/.test(basename) ? basename : 'command';
 }
 
-function commandFailure(command: string, failure: FailureClass): Error {
-  return new Error(`${sanitizedCommandName(command)} failed: ${failure}`);
+function boundedPsqlDiagnostic(
+  command: string,
+  stderr: readonly Buffer[]
+): string {
+  const commandName = sanitizedCommandName(command);
+  if (!/^psql(?:-[A-Za-z0-9._-]+)?$/.test(commandName)) {
+    return '';
+  }
+  const output = Buffer.concat(stderr).toString('utf8');
+  const escapedCommandName = commandName.replaceAll('.', '\\.');
+  const match = new RegExp(
+    `^${escapedCommandName}:[^\\r\\n]*:(\\d+):[ \\t]+(?:ERROR|error):(?:[ \\t]+([0-9A-Z]{5})(?=[: \\t]|$))?`,
+    'm'
+  ).exec(output);
+  const line = Number(match?.[1]);
+  if (!Number.isSafeInteger(line) || line < 1) return '';
+  return ` (line=${line}${match?.[2] ? `,sqlstate=${match[2]}` : ''})`;
+}
+
+function commandFailure(
+  command: string,
+  failure: FailureClass,
+  stderr: readonly Buffer[] = []
+): Error {
+  const diagnostic =
+    failure === 'non-zero-exit' ? boundedPsqlDiagnostic(command, stderr) : '';
+  return new Error(
+    `${sanitizedCommandName(command)} failed: ${failure}${diagnostic}`
+  );
 }
 
 function createReplayCommand(
@@ -81,6 +108,7 @@ function createReplayCommand(
         let stdoutBytes = 0;
         let stderrBytes = 0;
         let failure: FailureClass | undefined;
+        let stdinFailed = false;
         let settled = false;
         let executionTimer: NodeJS.Timeout | undefined;
         let terminationTimer: NodeJS.Timeout | undefined;
@@ -139,8 +167,8 @@ function createReplayCommand(
             reject(commandFailure(command, failure));
             return;
           }
-          if (code !== 0) {
-            reject(commandFailure(command, 'non-zero-exit'));
+          if (code !== 0 || stdinFailed) {
+            reject(commandFailure(command, 'non-zero-exit', stderr));
             return;
           }
           resolve({
@@ -149,7 +177,7 @@ function createReplayCommand(
           });
         };
         const onStdinError = () => {
-          if (!settled && !failure) fail('non-zero-exit');
+          if (!settled) stdinFailed = true;
         };
         child.stdout.on('data', onStdout);
         child.stderr.on('data', onStderr);

@@ -521,7 +521,7 @@ describe('loadComparePage', () => {
     warnSpy.mockRestore();
   });
 
-  it('keeps clicked inactive products from approving maintained compare routes', async () => {
+  it('rejects an unmaintained compare route before hydrating product details', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       // Suppress expected non-maintained fallback warning.
     });
@@ -541,32 +541,18 @@ describe('loadComparePage', () => {
     });
     staleInventory.products[0].status = 'draft';
     mockGetCachedCompareCategoryInventory.mockResolvedValue(staleInventory);
-    mockGetCachedProductWithDetails.mockResolvedValueOnce({
-      ...inactiveLeft,
-      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
-    });
-    mockGetCachedProductWithDetails.mockResolvedValueOnce({
-      ...activeRight,
-      product_key_specs: {
-        chipset: 'Snapdragon 8 Elite',
-        ram_gb: 16,
-        storage_gb: 512,
-      },
-    });
-
     const result = await loadComparePage({
       merchantSlug: 'ogabassey',
       categorySlug: 'smartphones',
       comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
     });
 
-    expect(result?.kind).toBe('product');
-    expect(result?.isIndexable).toBe(false);
-    expect(result?.isLegacyFallback).toBe(true);
+    expect(result).toBeNull();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
-      'COMPARE_NON_CURATED_FALLBACK',
+      'COMPARE_ROUTE_404',
       expect.objectContaining({
-        comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        reason: 'unapproved_product_compare_route',
       })
     );
 
@@ -583,6 +569,7 @@ describe('loadComparePage', () => {
       // Suppress expected bounded-inventory warning.
     });
     mockGetCachedCompareCategoryInventory
+      .mockResolvedValueOnce(toCompareInventory(categoryPageData))
       .mockResolvedValueOnce(toCompareInventory(categoryPageData))
       .mockRejectedValueOnce(new Error('inventory timeout'));
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
@@ -748,6 +735,52 @@ describe('loadComparePage', () => {
     // out-of-universe half is never a `leftProduct`/`rightProduct`, so the
     // product-detail branch is never entered.
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+  });
+
+  it('returns null without hydrating details for an existing pair absent from the maintained route manifest', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress the expected route-containment warning.
+    });
+    const unapprovedLeft = {
+      ...categoryPageData.products[0],
+      slug: 'unapproved-left',
+      name: 'Unapproved Left',
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
+    };
+    const unapprovedRight = {
+      ...categoryPageData.products[1],
+      slug: 'unapproved-right',
+      name: 'Unapproved Right',
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
+    };
+    mockGetCachedCompareCategoryInventory.mockResolvedValue(
+      toCompareInventory({
+        ...categoryPageData,
+        products: [
+          ...categoryPageData.products,
+          unapprovedLeft,
+          unapprovedRight,
+        ],
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce(unapprovedLeft);
+    mockGetCachedProductWithDetails.mockResolvedValueOnce(unapprovedRight);
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'unapproved-left-vs-unapproved-right',
+    });
+
+    expect(result).toBeNull();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'COMPARE_ROUTE_404',
+      expect.objectContaining({
+        reason: 'unapproved_product_compare_route',
+      })
+    );
+    warnSpy.mockRestore();
   });
 
   describe('slug safety gate', () => {

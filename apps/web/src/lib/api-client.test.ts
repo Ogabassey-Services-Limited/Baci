@@ -59,6 +59,33 @@ describe('fetchWithCsrf', () => {
     expect(warnSpy).toHaveBeenCalledOnce();
   });
 
+  it('uses the caller abort signal while initializing a missing CSRF token', async () => {
+    const controller = new AbortController();
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((input) => {
+        if (input === '/api/csrf') {
+          return Promise.resolve(new Response('{}', { status: 200 }));
+        }
+        return Promise.resolve(new Response('{}'));
+      });
+    vi.spyOn(csrf, 'getClientCsrfToken')
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce('fresh-token');
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await fetchWithCsrf('/api/upload', {
+      method: 'POST',
+      signal: controller.signal,
+    });
+
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      1,
+      '/api/csrf',
+      expect.objectContaining({ signal: controller.signal })
+    );
+  });
+
   it('never adds CSRF header for GET requests', async () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
@@ -121,6 +148,7 @@ describe('fetchWithCsrf', () => {
   });
 
   it('retries once after an invalid CSRF response', async () => {
+    const controller = new AbortController();
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockImplementation((input, init) => {
@@ -153,7 +181,10 @@ describe('fetchWithCsrf', () => {
       .mockReturnValueOnce('stale-token')
       .mockReturnValueOnce('fresh-token');
 
-    const response = await fetchWithCsrf('/api/example', { method: 'PATCH' });
+    const response = await fetchWithCsrf('/api/example', {
+      method: 'PATCH',
+      signal: controller.signal,
+    });
 
     expect(response.status).toBe(200);
     expect(fetchSpy).toHaveBeenCalledTimes(3);
@@ -167,6 +198,11 @@ describe('fetchWithCsrf', () => {
       fetchSpy.mock.calls[2]?.[1]?.headers
     );
     expect(secondRequestHeaders.get(csrf.CSRF_HEADER_NAME)).toBe('fresh-token');
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
+      '/api/csrf',
+      expect.objectContaining({ signal: controller.signal })
+    );
   });
 });
 

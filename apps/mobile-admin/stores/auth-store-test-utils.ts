@@ -2,6 +2,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { expect, vi } from 'vitest';
 
 const authStoreMocks = vi.hoisted(() => ({
+  checkPasswordBreach: vi.fn(async () => ({ isBreached: false })),
   clearAdminQueryCache: vi.fn(),
   getClaims: vi.fn(),
   getSession: vi.fn(),
@@ -18,9 +19,14 @@ const authStoreMocks = vi.hoisted(() => ({
   signUp: vi.fn(),
   trackAuthTelemetry: vi.fn(),
   removeAuthStorageKeys: vi.fn(),
+  verifyOtp: vi.fn(),
 }));
 
 export const mocks = authStoreMocks;
+
+vi.mock('@/lib/auth/check-password-breach', () => ({
+  checkPasswordBreach: authStoreMocks.checkPasswordBreach,
+}));
 
 vi.mock('@/lib/query-client', () => ({
   clearAdminQueryCache: authStoreMocks.clearAdminQueryCache,
@@ -36,6 +42,7 @@ vi.mock('@/lib/supabase', () => ({
       signInWithPassword: authStoreMocks.signInWithPassword,
       signOut: authStoreMocks.signOut,
       signUp: authStoreMocks.signUp,
+      verifyOtp: authStoreMocks.verifyOtp,
     },
   },
   supabaseAuthStorageKey: 'sb-test-auth-token',

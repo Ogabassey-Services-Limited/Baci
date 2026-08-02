@@ -28,6 +28,11 @@ export type BrandAuthorityPageContentModel = Pick<
     LoadedBrandAuthorityPage['merchant'],
     'country' | 'payout_currency'
   >;
+  familyLinks?: Array<{
+    href: string;
+    label: string;
+    productCount: number;
+  }>;
 };
 
 interface BrandAuthorityPageContentProps {
@@ -98,6 +103,26 @@ export function BrandAuthorityPageContent({
               Browse all {page.categoryName.toLowerCase()}
             </a>
           </header>
+
+          {page.familyLinks && page.familyLinks.length > 0 ? (
+            <nav aria-labelledby="model-families" className="mt-8">
+              <h2 id="model-families" className="text-xl font-semibold">
+                Shop by model family
+              </h2>
+              <ul className="mt-4 flex flex-wrap gap-3">
+                {page.familyLinks.map((family) => (
+                  <li key={family.href}>
+                    <a
+                      href={family.href}
+                      className="inline-flex rounded-full border border-store-border px-4 py-2 text-sm font-semibold text-store-primary underline-offset-4 hover:underline"
+                    >
+                      {family.label} ({family.productCount})
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ) : null}
 
           <section aria-labelledby="available-models" className="mt-10">
             <h2 id="available-models" className="text-2xl font-semibold">

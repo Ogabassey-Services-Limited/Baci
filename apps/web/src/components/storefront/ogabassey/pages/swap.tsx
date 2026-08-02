@@ -16,34 +16,10 @@ import {
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-
-interface AIAnalysisResult {
-  model: string;
-  grade: 'Excellent' | 'Good' | 'Fair' | 'Poor';
-  observations: string[];
-  basePrice: number;
-  estimatedValue: number;
-  deductionPercent: number;
-  matchedProduct: string;
-}
-
-// Module-scope helper: React Compiler cannot yet compile `throw` statements
-// inside a component-body try/catch, so the throwing fetch lives out here.
-async function requestDeviceGrading(videoFile: File): Promise<AIAnalysisResult> {
-  const formData = new FormData();
-  formData.append('video', videoFile);
-
-  const res = await fetch('/api/ai/grade-device', {
-    method: 'POST',
-    body: formData,
-  });
-
-  const data = (await res.json()) as { error?: string; data: AIAnalysisResult };
-
-  if (!res.ok) throw new Error(data.error || 'Failed to analyze');
-
-  return data.data;
-}
+import {
+  type DeviceGradingResult,
+  requestDeviceGrading,
+} from '@/lib/storefront/request-device-grading';
 
 function TradeInModal({
   isOpen,
@@ -56,7 +32,7 @@ function TradeInModal({
 }) {
   const [step, setStep] = useState<'upload' | 'analyzing' | 'result'>('upload');
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [result, setResult] = useState<AIAnalysisResult | null>(null);
+  const [result, setResult] = useState<DeviceGradingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

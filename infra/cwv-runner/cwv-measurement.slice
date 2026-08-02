@@ -1,0 +1,11 @@
+[Unit]
+Description=Baci CWV measurement runner ceiling
+
+[Slice]
+AllowedCPUs=2-3
+MemoryMax=8589934592
+MemorySwapMax=0
+TasksMax=1024
+CPUAccounting=true
+MemoryAccounting=true
+IOAccounting=true

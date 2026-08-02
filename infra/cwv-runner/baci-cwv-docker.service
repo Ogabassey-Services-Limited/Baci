@@ -1,0 +1,25 @@
+[Unit]
+Description=Baci CWV dedicated Docker daemon
+Requires=baci-cwv-containerd.service
+After=baci-cwv-containerd.service
+
+[Service]
+Type=notify
+NotifyAccess=all
+User=root
+Group=root
+Slice=cwv-measurement-control.slice
+RuntimeDirectory=baci-cwv
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/dockerd --config-file /etc/baci-cwv/daemon.json
+Restart=no
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+KillMode=control-group
+Delegate=true
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/baci-cwv/docker /srv/baci-cwv/writable /run/baci-cwv

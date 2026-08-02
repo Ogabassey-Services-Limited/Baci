@@ -132,7 +132,7 @@ describe('buildOgabasseyPdpDeferredProductPayload', () => {
       stock: 0,
     });
     expect(payload.relatedProduct.categories).toBeNull();
-    expect(payload.description).toBe('No description available.');
+    expect(payload.description).toBe('');
     expect(payload.tabProduct).not.toHaveProperty('description');
     expect(payload.tabProduct).toMatchObject({
       image: '/placeholder.svg',

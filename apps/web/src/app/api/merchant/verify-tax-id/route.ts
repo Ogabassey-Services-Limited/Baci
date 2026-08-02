@@ -3,29 +3,28 @@ import {
   normalizeCacSearchTerm,
 } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import {
   type CacPublicRecordsError,
   fetchCacCompanies,
   fetchCacTaxId,
   findMatchingCacCompany,
 } from '@/lib/cac-public-records';
+import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { checkRateLimit } from '@/lib/rate-limiter';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { taxIdVerifySchema } from '@/schemas/verification';
+import { getVerificationRateLimitError } from '../verification-rate-limit';
 
 const MERCHANT_TAX_IDENTITY_COLUMNS =
-  'id, business_name, legal_entity_name, cac_rc_number';
+  'id, business_name, legal_entity_name, cac_rc_number, country';
 
 interface MerchantTaxIdentity {
   id: string;
   business_name: string | null;
   legal_entity_name: string | null;
   cac_rc_number: string | null;
+  country: string | null;
 }
 
 function isCacPublicRecordsError(
@@ -62,29 +61,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  if (!hasPermission(access, 'settings', 'edit')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const allowed = await checkRateLimit(
-    auth.supabase,
-    auth.user.id,
-    'verify-tax-id',
-    10,
-    1
-  );
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', code: 'rate_limited' },
-      { status: 429 }
-    );
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -103,10 +79,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: parsed.data.merchantId }
+  );
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+  if (!merchantContext.staffAccess.isOwner) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const { data: merchant, error: merchantError } = await auth.supabase
     .from('merchants')
     .select(MERCHANT_TAX_IDENTITY_COLUMNS)
-    .eq('id', access.merchantId)
+    .eq('id', merchantContext.merchantId)
     .single();
 
   if (merchantError || !merchant) {
@@ -118,6 +106,12 @@ export async function POST(request: NextRequest) {
   }
 
   const merchantTaxIdentity = merchant as MerchantTaxIdentity;
+  if (!isBaciPaystackSettlementCountry(merchantTaxIdentity.country)) {
+    return NextResponse.json(
+      { error: 'Tax ID verification is only available for Nigerian merchants' },
+      { status: 400 }
+    );
+  }
   const legalEntityName =
     valueOrUndefined(parsed.data.legalEntityName) ??
     valueOrUndefined(merchantTaxIdentity.legal_entity_name) ??
@@ -138,7 +132,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const preflightRateLimitError = await getVerificationRateLimitError(
+    auth.supabase,
+    auth.user.id,
+    'verify-tax-id-preflight',
+    30
+  );
+  if (preflightRateLimitError) return preflightRateLimitError;
+
   try {
+    const providerRateLimitError = await getVerificationRateLimitError(
+      auth.supabase,
+      auth.user.id,
+      'verify-tax-id',
+      10
+    );
+    if (providerRateLimitError) return providerRateLimitError;
+
     const companies = await fetchCacCompanies(searchTerm);
     const matchingCompany = findMatchingCacCompany(companies, {
       legalEntityName,
@@ -183,7 +193,7 @@ export async function POST(request: NextRequest) {
         tax_identification_number: parsed.data.taxIdentificationNumber,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', access.merchantId)
+      .eq('id', merchantContext.merchantId)
       .select(MERCHANT_SETTINGS_COLUMNS)
       .single();
 

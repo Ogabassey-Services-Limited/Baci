@@ -402,6 +402,8 @@ const serverSchema = z
     const isNonAgenticWorker = [
       'ai-storefront-jobs',
       'event-pipeline',
+      'petrock-reconciliation',
+      'quiz-finalization',
     ].includes(process.env.BACI_WORKER_PROFILE ?? '');
 
     if (

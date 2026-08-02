@@ -25,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FollowUpQueueList } from '@/components/customers/FollowUpQueueList';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   type Customer,
@@ -32,13 +33,9 @@ import {
   useCustomers,
 } from '@/hooks/useCustomers';
 import { useDebounce } from '@/hooks/useDebounce';
-import { type FailedOrder, useFailedOrders } from '@/hooks/useFailedOrders';
+import type { FailedOrder } from '@/hooks/useFailedOrders';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
-import {
-  type GroupedFailedOrderListItem,
-  groupFailedOrdersByDate,
-} from '@/lib/customers-failed-orders';
 
 // Helper to get currency symbol from merchant's payout_currency
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -400,6 +397,7 @@ export default function CustomersScreen() {
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<CustomerTab>('failed');
+  const [followUpCount, setFollowUpCount] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState('');
   const customerTypeFilter: 'individual' | 'company' | undefined =
     activeTab === 'people'
@@ -457,12 +455,6 @@ export default function CustomersScreen() {
     customerType: customerTypeFilter,
   });
 
-  const {
-    data: failedOrders,
-    isLoading: isLoadingFailed,
-    refetch: refetchFailed,
-  } = useFailedOrders();
-
   const { data: stats } = useCustomerStats();
 
   // Flatten pages into single array and filter by search
@@ -477,21 +469,6 @@ export default function CustomersScreen() {
         (c.phone?.toLowerCase().includes(q) ?? false)
     );
   })();
-
-  // Filter failed orders by search
-  const filteredFailedOrders = (() => {
-    if (!failedOrders) return [];
-    if (!searchQuery.trim()) return failedOrders;
-    const q = searchQuery.toLowerCase();
-    return failedOrders.filter(
-      (o) =>
-        (o.customer_name?.toLowerCase().includes(q) ?? false) ||
-        o.customer_email.toLowerCase().includes(q)
-    );
-  })();
-
-  const { data: groupedFailedOrders, stickyHeaderIndices } =
-    groupFailedOrdersByDate(filteredFailedOrders);
 
   const handleLoadMore = () => {
     if (activeTab !== 'failed' && hasNextPage && !isFetchingNextPage) {
@@ -601,7 +578,7 @@ export default function CustomersScreen() {
       >
         {CUSTOMER_TABS.map((tab) => {
           const isSelected = activeTab === tab.key;
-          const count = tab.key === 'failed' ? failedOrders?.length : undefined;
+          const count = tab.key === 'failed' ? followUpCount : undefined;
           const label = count ? `${tab.label} (${count})` : tab.label;
 
           return (
@@ -742,75 +719,18 @@ export default function CustomersScreen() {
           />
         </>
       ) : (
-        /* Failed Transactions List */
-        <FlashList<GroupedFailedOrderListItem>
-          data={groupedFailedOrders}
-          renderItem={({ item }) => {
-            if (item.type === 'header') {
-              return (
-                <View
-                  style={[
-                    styles.sectionHeader,
-                    { backgroundColor: colors.background },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.sectionHeaderLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {item.title}
-                  </Text>
-                </View>
-              );
-            }
-
-            return (
-              <FailedOrderItem
-                item={item.data}
-                currencySymbol={currencySymbol}
-                onPress={handleFailedOrderPress}
-              />
-            );
-          }}
-          keyExtractor={(item) => item.key}
-          getItemType={(item) => item.type}
-          stickyHeaderIndices={stickyHeaderIndices}
-          stickyHeaderConfig={{
-            zIndex: 10,
-            hideRelatedCell: true,
-          }}
+        <FollowUpQueueList
+          currencySymbol={currencySymbol}
+          onFollowUpCountChange={setFollowUpCount}
           onScroll={handleScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={isLoadingFailed}
-              onRefresh={refetchFailed}
-              tintColor={colors.gold}
-              colors={[colors.gold]}
+          renderOrder={(item, failedOrderCurrencySymbol) => (
+            <FailedOrderItem
+              item={item}
+              currencySymbol={failedOrderCurrencySymbol}
+              onPress={handleFailedOrderPress}
             />
-          }
-          ListEmptyComponent={
-            !isLoadingFailed ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={56}
-                  color={colors.success}
-                />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  No issues
-                </Text>
-                <Text
-                  style={[styles.emptyText, { color: colors.textSecondary }]}
-                >
-                  All recent transactions are successful!
-                </Text>
-              </View>
-            ) : null
-          }
+          )}
+          searchQuery={searchQuery}
         />
       )}
     </SafeAreaView>
@@ -973,17 +893,6 @@ const styles = StyleSheet.create({
   lastOrder: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  sectionHeader: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    justifyContent: 'center',
-  },
-  sectionHeaderLabel: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   emptyContainer: {
     alignItems: 'center',

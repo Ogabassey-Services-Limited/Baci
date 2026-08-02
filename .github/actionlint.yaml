@@ -3,3 +3,4 @@ self-hosted-runner:
     - baci-android
     - baci-deploy
     - baci-lighthouse
+    - baci-cwv-measurement

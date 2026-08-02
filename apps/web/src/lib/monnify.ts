@@ -1,9 +1,8 @@
 import { withRetry } from '@/ai/provider';
 import {
-  getMonnifyApiKey,
   getMonnifyBaseUrl,
-  getMonnifySecretKey,
-} from '@/env';
+  getMonnifyCredentials,
+} from '@/lib/monnify-provider-config';
 import type { MonnifyAuthResponse } from '@/types/monnify';
 
 interface CachedToken {
@@ -21,8 +20,7 @@ export function clearMonnifyTokenCache(): void {
 }
 
 export async function getMonnifyToken(): Promise<string> {
-  const apiKey = getMonnifyApiKey();
-  const secretKey = getMonnifySecretKey();
+  const { apiKey, secretKey } = getMonnifyCredentials();
 
   if (!apiKey || !secretKey) {
     throw new Error('Monnify credentials not configured');

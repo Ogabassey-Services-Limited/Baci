@@ -6,6 +6,7 @@ import { PATCH } from './route';
 
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
+const mockCheckCsrfProtection = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({}),
@@ -16,6 +17,10 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
   })),
+}));
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
 // --- Helpers ---
@@ -32,14 +37,33 @@ function mockChain(returnValue: { data: unknown; error: unknown }) {
   const chain = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    // The customer lookup filters live rows with .is('deleted_at', null).
+    is: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(returnValue),
     // The merchant lookup now goes through resolveMerchantIdBySlugOrAlias, which
     // uses maybeSingle (with a merchant_slug_aliases fallback on a miss).
     maybeSingle: vi.fn().mockResolvedValue(returnValue),
     update: vi.fn().mockReturnThis(),
   };
-  // update().eq() should resolve to returnValue for update calls
   return chain;
+}
+
+// Builds the PATCH update chain: .update().eq().is().select().maybeSingle().
+// `matched` is the live row the write returned (null => no live row matched, i.e.
+// the customer was soft-deleted between the lookup and the update).
+function mockUpdateChain(matched: { id: string } | null) {
+  const update = vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      is: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          maybeSingle: vi
+            .fn()
+            .mockResolvedValue({ data: matched, error: null }),
+        }),
+      }),
+    }),
+  });
+  return { update };
 }
 
 // --- Tests ---
@@ -47,6 +71,29 @@ function mockChain(returnValue: { data: unknown; error: unknown }) {
 describe('PATCH /api/storefront/customer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: a valid CSRF token. Individual tests override to exercise the
+    // rejection path.
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
+  });
+
+  it('returns 403 when the CSRF token is missing or invalid', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-123' } },
+      error: null,
+    });
+    mockCheckCsrfProtection.mockResolvedValue({ valid: false });
+
+    const request = makeRequest({
+      merchantSlug: 'test-store',
+      date_of_birth: '1990-06-15',
+    });
+    const response = await PATCH(request);
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.error).toBe('Invalid CSRF token');
+    // The write must never happen when CSRF validation fails.
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('returns 401 when user is not authenticated', async () => {
@@ -109,11 +156,7 @@ describe('PATCH /api/storefront/customer', () => {
       data: { id: 'customer-1' },
       error: null,
     });
-    const updateChain = {
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
-    };
+    const updateChain = mockUpdateChain({ id: 'customer-1' });
 
     let fromCallCount = 0;
     mockFrom.mockImplementation((table: string) => {
@@ -165,11 +208,7 @@ describe('PATCH /api/storefront/customer', () => {
       data: { id: 'customer-1' },
       error: null,
     });
-    const updateChain = {
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
-    };
+    const updateChain = mockUpdateChain({ id: 'customer-1' });
 
     let fromCallCount = 0;
     mockFrom.mockImplementation((table: string) => {

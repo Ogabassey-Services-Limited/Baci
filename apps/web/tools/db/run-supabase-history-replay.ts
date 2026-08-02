@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { applySupabaseCurrentTreeSources } from './apply-supabase-current-tree-sources';
 import { applySupabaseReplaySql } from './apply-supabase-replay-sql';
 import { canonicalJsonValue } from './canonical-json-value';
 import { createSupabaseReplayProjectId } from './create-supabase-replay-project-id';
@@ -30,7 +31,6 @@ type ReplayFailureWithDiagnostics = Error & {
     cleanup: ownershipTools.ReplayProjectCleanupResult;
   };
 };
-
 export type SupabaseReplayOptions = {
   comparisonMode: SupabaseHistoryEffectComparisonMode;
   mode: SupabaseHistoryReplayMode;
@@ -147,18 +147,9 @@ export async function runSupabaseHistoryReplay(
       }
     );
     const env = createSupabaseReplayDatabaseEnvironment(databaseUrl);
+    const versionArgs = ['-X', '-w', '-At', '-c', 'SHOW server_version_num'];
     const version = async () =>
-      (
-        await run(
-          contract.psqlBin,
-          ['-X', '-w', '-At', '-c', 'SHOW server_version_num'],
-          {
-            env,
-          }
-        )
-      ).stdout.trim();
-    if ((await version()) !== '170006')
-      throw new Error('Local server version mismatch');
+      (await run(contract.psqlBin, versionArgs, { env })).stdout.trim();
     const orderedSources = runtime.materializeReplay(verified, options.mode);
     if (
       verified.bootstrapSources.length !== 125 ||
@@ -171,7 +162,8 @@ export async function runSupabaseHistoryReplay(
         )
     )
       throw new Error('Replay bootstrap order mismatch');
-    const fileArgs = ['-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f'];
+    // biome-ignore format: keep this orchestration module within its 300-line cap.
+    const fileArgs = ['-X', '-w', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=sqlstate', '-f'];
     const apply = (sqlPath: string) =>
       run(contract.psqlBin, [...fileArgs, sqlPath], { env });
     for (const [index, source] of orderedSources.slice(125).entries()) {
@@ -197,14 +189,6 @@ export async function runSupabaseHistoryReplay(
             repositoryRoot: root,
           })
         : undefined;
-    for (const [index, check] of options.sqlChecks.entries())
-      await applySupabaseReplaySql(apply, {
-        kind: 'sql-check',
-        ordinal: index + 1,
-        sqlPath: await runtime.repositoryPath(root, check),
-      });
-    if ((await version()) !== '170006')
-      throw new Error('Local server version mismatch');
     const effects = await runtime.verifyEffects({
       comparisonMode: options.comparisonMode,
       databaseUrl,
@@ -214,6 +198,24 @@ export async function runSupabaseHistoryReplay(
       repositoryRoot: root,
       runCommand: run,
     });
+    if (options.sqlChecks.length > 0 || options.typesOutput)
+      await applySupabaseCurrentTreeSources({
+        apply,
+        materializeSource: runtime.materializeSource,
+        pendingSources: verified.manifest.pendingSources,
+        postReplaySources: verified.postReplaySources,
+        repositoryRoot: root,
+        startingOrdinal: orderedSources.length + 1,
+        workdir,
+      });
+    for (const [index, check] of options.sqlChecks.entries())
+      await applySupabaseReplaySql(apply, {
+        kind: 'sql-check',
+        ordinal: index + 1,
+        sqlPath: await runtime.repositoryPath(root, check),
+      });
+    if ((await version()) !== '170006')
+      throw new Error('Local server version mismatch');
     if (options.typesOutput) {
       const generated = await run('supabase', [
         'gen',

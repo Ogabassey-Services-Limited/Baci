@@ -4,11 +4,12 @@ import {
   resolvePurgeHostnames,
 } from '@/lib/storefront-purge-shared';
 
-// Past this many DISTINCT product purge targets in one operation, purge only the
-// shared listing surfaces and skip the per-PDP URLs to bound the outbound
-// fan-out against Cloudflare's per-request URL budget (short-TTL PDPs self-heal).
-// Shared by every product-purge caller; compare `countDistinctProductPurgeEntries`.
-export const PURGE_LISTINGS_ONLY_THRESHOLD = 50;
+// Past this many DISTINCT product purge targets in one operation, use the
+// bounded hostname-wide Cloudflare purge instead of URL-by-URL fan-out. That
+// evicts every affected PDP (plus other public documents for this storefront)
+// while remaining bounded by the configured aliases. Shared by every
+// product-purge caller; compare `countDistinctProductPurgeEntries`.
+export const PURGE_WHOLE_STOREFRONT_THRESHOLD = 50;
 
 /**
  * One product's purge target: its slug plus the canonical category segment of
@@ -201,29 +202,15 @@ function dedupeProductPurgeEntries(
 /**
  * Count the DISTINCT purge targets in `entries`, deduped by the exact
  * `${slug}|${segment}` pair — the SAME key `dedupeProductPurgeEntries` (and thus
- * `buildStorefrontProductPurgeUrls`) collapses on. Threshold decisions
- * (`listingsOnly`) MUST use this, never `entries.length`: an import sheet with
- * repeated rows for one product (or callers that fan a product into several
- * entries) would otherwise inflate the raw length and wrongly suppress the
- * per-PDP purges for a small, well-under-budget change.
+ * `buildStorefrontProductPurgeUrls`) collapses on. The hostname-purge fallback
+ * threshold MUST use this, never `entries.length`: an import sheet with repeated
+ * rows for one product (or callers that fan a product into several entries)
+ * would otherwise escalate a small, well-under-budget change unnecessarily.
  */
 export function countDistinctProductPurgeEntries(
   entries: readonly StorefrontProductPurgeEntry[]
 ): number {
   return dedupeProductPurgeEntries(entries).length;
-}
-
-export interface BuildStorefrontProductPurgeUrlsOptions {
-  /**
-   * Emit ONLY the listing surfaces (home `/`, the all-products listing
-   * `/products`, and each distinct category listing `/<category>`) and skip the
-   * per-product PDP URLs. Used by high-cardinality bulk operations so a single
-   * op does not fan out one purge per product past Cloudflare's per-request URL
-   * budget — the short-TTL PDPs self-heal, and the listings (which every
-   * affected product shares) are still evicted. The entries' category segments
-   * still drive which listings are emitted.
-   */
-  listingsOnly?: boolean;
 }
 
 /**
@@ -236,13 +223,10 @@ export interface BuildStorefrontProductPurgeUrlsOptions {
  * Storefronts without a public cache policy resolve to no hostnames and return
  * an empty list (purge is a no-op).
  *
- * With `listingsOnly`, the per-product PDP URLs are skipped and only the shared
- * listing surfaces are emitted (see the option's docs).
  */
 export function buildStorefrontProductPurgeUrls(
   identifiers: readonly string[],
-  entries: readonly StorefrontProductPurgeEntry[],
-  options: BuildStorefrontProductPurgeUrlsOptions = {}
+  entries: readonly StorefrontProductPurgeEntry[]
 ): string[] {
   const dedupedEntries = dedupeProductPurgeEntries(entries);
   if (dedupedEntries.length === 0) {
@@ -266,24 +250,22 @@ export function buildStorefrontProductPurgeUrls(
       // can leave it stale — evict it once per hostname too.
       urls.add(`https://${hostname}/products`);
 
-      if (!options.listingsOnly) {
-        for (const entry of dedupedEntries) {
-          // The canonical categorized PDP is the URL the storefront serves 200
-          // for (mismatched paths 308 away), so evict it when the category is
-          // known.
-          if (entry.categorySegment) {
-            urls.add(
-              `https://${hostname}/${encodeURIComponent(
-                entry.categorySegment
-              )}/${encodeURIComponent(entry.slug)}`
-            );
-          }
-          // The `/products/<slug>` fallback PDP path resolves for every product
-          // regardless of category, so always evict it.
+      for (const entry of dedupedEntries) {
+        // The canonical categorized PDP is the URL the storefront serves 200
+        // for (mismatched paths 308 away), so evict it when the category is
+        // known.
+        if (entry.categorySegment) {
           urls.add(
-            `https://${hostname}/products/${encodeURIComponent(entry.slug)}`
+            `https://${hostname}/${encodeURIComponent(
+              entry.categorySegment
+            )}/${encodeURIComponent(entry.slug)}`
           );
         }
+        // The `/products/<slug>` fallback PDP path resolves for every product
+        // regardless of category, so always evict it.
+        urls.add(
+          `https://${hostname}/products/${encodeURIComponent(entry.slug)}`
+        );
       }
 
       // Category listing pages list their products, so a product entering,

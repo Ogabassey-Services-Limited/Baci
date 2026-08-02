@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
+import { sanitizeForSafeHtml } from '@/components/ui/sanitized-html';
 import { SafeHtml } from '@/components/ui/safe-html';
 import type { Product } from '@/components/storefront/ogabassey/types';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import { OgabasseyPdpDeferredDetailClient } from './deferred-detail-island.client';
 import { OgabasseyPdpDeferredRailsIsland } from './deferred-rails-island.client';
 import { buildOgabasseyPdpDeferredProductPayload } from './deferred-product-payload';
@@ -12,6 +14,26 @@ interface OgabasseyPdpDeferredDetailIslandProps {
   storeSlug: string;
 }
 
+function hasRenderableDescriptionContent(sanitizedDescription: string) {
+  const textContent = stripHtmlTags(sanitizedDescription)
+    .replace(/&(?:nbsp|#0*160|#x0*a0);/gi, ' ')
+    .trim();
+  const imageTags = sanitizedDescription.match(/<img\b[^>]*>/gi) ?? [];
+  const hasUsableImage = imageTags.some((imageTag) => {
+    return Array.from(
+      imageTag.matchAll(
+        /\b(?:src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi
+      )
+    ).some((sourceMatch) =>
+      [sourceMatch[1], sourceMatch[2], sourceMatch[3]].some((source) =>
+        source?.trim()
+      )
+    );
+  });
+
+  return Boolean(textContent) || hasUsableImage;
+}
+
 export function OgabasseyPdpDeferredDetailIsland({
   product,
   semanticSections = null,
@@ -20,19 +42,24 @@ export function OgabasseyPdpDeferredDetailIsland({
 }: OgabasseyPdpDeferredDetailIslandProps) {
   const { description, relatedProduct, tabProduct } =
     buildOgabasseyPdpDeferredProductPayload(product);
-  // Sanitize the product description HERE (server) and pass the rendered node
-  // into the client tabs island as a slot. This keeps `sanitize-html` (254 KB)
-  // and its main-thread parse off the client — the tabs chunk only receives the
-  // already-sanitized markup, never the sanitizer. `description` is returned
-  // out-of-band (not on `tabProduct`) so the raw HTML is never serialized into
-  // the client island props.
-  const descriptionSlot = (
+  // Sanitize the product description once on the server, inspect that exact
+  // output for renderability, and pass the branded result to SafeHtml. This
+  // keeps `sanitize-html` (254 KB) and its main-thread parse off the client,
+  // while avoiding a second server-side parse. `description` is returned
+  // out-of-band (not on `tabProduct`) so raw HTML is never serialized into the
+  // client island props.
+  const sanitizedDescription = sanitizeForSafeHtml(description, {
+    forceLazyImages: true,
+    headingLevelOffset: 1,
+  });
+  const descriptionSlot = hasRenderableDescriptionContent(
+    sanitizedDescription
+  ) ? (
     <SafeHtml
-      html={description || ''}
-      headingLevelOffset={1}
+      sanitizedHtml={sanitizedDescription}
       className="ogabassey-pdp-tabs__rich-text prose max-w-none prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm"
     />
-  );
+  ) : null;
 
   return (
     <section

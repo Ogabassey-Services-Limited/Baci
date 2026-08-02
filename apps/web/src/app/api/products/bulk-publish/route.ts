@@ -1,12 +1,21 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  type ProductPurgeCategoryRow,
+  resolveProductPurgeCategorySegmentForRow,
+  type StorefrontProductPurgeEntry,
+} from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -72,7 +81,9 @@ export async function POST(request: NextRequest) {
       .update({ status: 'active' })
       .eq('merchant_id', merchantId)
       .neq('status', 'active')
-      .select('id');
+      .select(
+        'id, slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
+      );
 
     if (updateError) {
       console.error('Error publishing products:', updateError);
@@ -84,6 +95,41 @@ export async function POST(request: NextRequest) {
 
     // Invalidate product caches after bulk publish
     revalidateProducts(merchantId);
+
+    // Draft rows deleted above were never public and intentionally do not add
+    // edge purge targets. Every returned update is now active, so it needs a
+    // PDP/listing purge using the row's canonical category resolution.
+    const publicPurgeEntries: StorefrontProductPurgeEntry[] = [];
+    for (const product of updatedProducts ?? []) {
+      const productRow = product as ProductPurgeCategoryRow;
+      const purgeSlug = productRow.slug?.trim() || productRow.id?.trim();
+      if (!purgeSlug) {
+        continue;
+      }
+      publicPurgeEntries.push({
+        slug: purgeSlug,
+        categorySegment: resolveProductPurgeCategorySegmentForRow(productRow),
+      });
+    }
+
+    if (publicPurgeEntries.length > 0) {
+      // Bust the per-slug Next entries before a Cloudflare MISS can repopulate
+      // from them. The purge is best-effort and cannot change a publish result.
+      try {
+        revalidateProductSlugs(
+          merchantId,
+          publicPurgeEntries.map((entry) => entry.slug)
+        );
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          publicPurgeEntries
+        );
+      } catch (purgeError) {
+        console.warn('Skipped Cloudflare product purge after bulk publish', {
+          purgeError,
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

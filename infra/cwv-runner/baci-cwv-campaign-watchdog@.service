@@ -1,0 +1,24 @@
+[Unit]
+Description=Baci CWV campaign watchdog %i
+After=baci-cwv-containerd.service baci-cwv-docker.service
+StartLimitIntervalSec=30m
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/srv/baci-cwv/source/@BACI_CWV_SOURCE_SHA@/campaign-watchdog.sh %i
+Restart=on-failure
+RestartSec=2s
+RuntimeMaxSec=30m
+TimeoutStopSec=5m
+KillMode=control-group
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/baci-cwv/allow /srv/baci-cwv/campaigns /srv/baci-cwv/exact-runs /srv/baci-cwv/inventory /srv/baci-cwv/listener-release /srv/baci-cwv/dedicated-runtime /srv/baci-cwv/import /srv/baci-cwv/registration-staging /etc/baci-cwv /var/lib/baci-cwv/prepare /run/baci-cwv /run/lock /var/spool/cron
+
+[Install]
+WantedBy=multi-user.target

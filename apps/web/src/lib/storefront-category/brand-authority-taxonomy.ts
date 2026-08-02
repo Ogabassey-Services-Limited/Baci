@@ -37,7 +37,33 @@ const BRAND_AUTHORITY_ENTRIES: readonly BrandAuthorityEntry[] = [
     displayName: 'Itel',
     minimumProducts: 5,
   },
+  {
+    brandAliases: ['Redmi'],
+    brandKey: 'xiaomi',
+    brandQueryValue: 'Xiaomi',
+    categorySlug: 'smartphones',
+    displayName: 'Xiaomi and Redmi',
+    minimumProducts: 5,
+  },
+  {
+    brandKey: 'oppo',
+    brandQueryValue: 'Oppo',
+    categorySlug: 'smartphones',
+    displayName: 'Oppo',
+    minimumProducts: 5,
+  },
 ];
+
+function getBrandQueryValues(entry: BrandAuthorityEntry) {
+  return [entry.brandQueryValue, ...(entry.brandAliases ?? [])];
+}
+
+function matchesBrand(entry: BrandAuthorityEntry, brand: string | null) {
+  const normalizedBrand = generateSlug(brand ?? '');
+  return getBrandQueryValues(entry).some(
+    (queryValue) => generateSlug(queryValue) === normalizedBrand
+  );
+}
 
 function getBrandAuthorityEntry(
   categorySlug: string,
@@ -64,8 +90,8 @@ function getEligibleBrandAuthorityEntries(
   return BRAND_AUTHORITY_ENTRIES.filter(
     (entry) => entry.categorySlug === normalizedCategory
   ).flatMap((entry) => {
-    const productCount = products.filter(
-      (product) => generateSlug(product.brand ?? '') === entry.brandKey
+    const productCount = products.filter((product) =>
+      matchesBrand(entry, product.brand ?? null)
     ).length;
 
     return productCount >= entry.minimumProducts
@@ -95,9 +121,11 @@ function supportsBrandAuthorityCategory(categorySlug: string) {
 }
 
 export const brandAuthorityTaxonomy = {
+  getBrandQueryValues,
   getEntries: getBrandAuthorityEntries,
   getEligibleEntries: getEligibleBrandAuthorityEntries,
   getEntry: getBrandAuthorityEntry,
   getSupportedCategories: getSupportedBrandAuthorityCategories,
+  matchesBrand,
   supportsCategory: supportsBrandAuthorityCategory,
 };

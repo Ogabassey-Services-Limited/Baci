@@ -1,5 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: mockFetchWithCsrf,
+}));
+
 import { useBillPaymentVerification } from './useBillPaymentVerification';
 
 const mockFetch = vi.fn();
@@ -23,6 +30,39 @@ function createDeferred<T>() {
 describe('useBillPaymentVerification', () => {
   beforeEach(() => {
     mockFetch.mockReset();
+    mockFetchWithCsrf.mockReset();
+    mockFetchWithCsrf.mockImplementation(mockFetch);
+  });
+
+  it('uses the CSRF-aware client for meter verification', async () => {
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ verified: true }),
+    });
+
+    const { result } = renderHook(() => useBillPaymentVerification());
+
+    await act(async () => {
+      await result.current.verify(
+        {
+          provider: 'kuda',
+          billItemIdentifier: 'IKEDC-PREPAID',
+          customerIdentifier: '0102030405',
+        },
+        'kuda|IKEDC-PREPAID|0102030405'
+      );
+    });
+
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith('/api/vtu/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'kuda',
+        billItemIdentifier: 'IKEDC-PREPAID',
+        customerIdentifier: '0102030405',
+      }),
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('stores successful verification responses with the current input key', async () => {

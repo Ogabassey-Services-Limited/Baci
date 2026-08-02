@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const ML_KIT_SCANNER_ACTIVITY =
   'com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity';
+const ADVERTISING_ID_PERMISSION = 'com.google.android.gms.permission.AD_ID';
 const USAGE =
   'Usage: verify-android-release-aab.mjs --aab <path> --mapping <path> --bundletool <path>';
 
@@ -73,6 +74,10 @@ export function findReleaseArtifactIssues({
     ?.find((activity) => activity.includes(ML_KIT_SCANNER_ACTIVITY));
   if (scannerActivity?.includes('android:screenOrientation=')) {
     issues.push('ML Kit barcode scanner activity still locks an orientation');
+  }
+
+  if (manifestXml.includes(ADVERTISING_ID_PERMISSION)) {
+    issues.push('AAB still requests the unused Advertising ID permission');
   }
 
   return issues;

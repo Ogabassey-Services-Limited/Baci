@@ -59,11 +59,27 @@ export type InternalRevalidateProductEntry = z.infer<
  * `merchantSlug` + `products` are OPTIONAL and backward compatible: `products`
  * alone busts the per-slug Next product-detail caches; adding `merchantSlug`
  * (which identifies the storefront's cache policy) additionally schedules a
- * Cloudflare purge of the listed products' public URLs. Existing callers that
- * send only `merchantId` keep working unchanged.
+ * Cloudflare purge of the listed products' public URLs. `purgeWholeStorefront`
+ * is reserved for broad structural mutations, such as a category path change,
+ * where every cacheable document on that storefront must be evicted. Existing
+ * callers that send only `merchantId` keep working unchanged.
  */
-export const internalRevalidateProductsBodySchema = z.object({
-  merchantId: z.string().trim().min(1).max(255),
-  merchantSlug: z.string().trim().min(1).max(255).optional(),
-  products: z.array(internalRevalidateProductEntrySchema).max(1000).optional(),
-});
+export const internalRevalidateProductsBodySchema = z
+  .object({
+    merchantId: z.string().trim().min(1).max(255),
+    merchantSlug: z.string().trim().min(1).max(255).optional(),
+    products: z
+      .array(internalRevalidateProductEntrySchema)
+      .max(1000)
+      .optional(),
+    purgeWholeStorefront: z.literal(true).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.purgeWholeStorefront && !value.merchantSlug) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A whole-storefront purge requires merchantSlug',
+        path: ['merchantSlug'],
+      });
+    }
+  });

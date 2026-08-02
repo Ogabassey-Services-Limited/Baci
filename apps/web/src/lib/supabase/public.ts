@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createStorefrontPublicReadFetch } from '@/lib/storefront-public-read-fetch';
 
 function getPublicSupabaseCredentials() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -28,23 +29,27 @@ export function createPublicClient(options: {
       headers: {
         'X-Client-Info': options.clientInfo,
       },
-      fetch: (requestUrl, requestOptions = {}) => {
-        const timeoutSignal = AbortSignal.timeout(options.timeoutMs ?? 10000);
-        const signal = options.signal
-          ? AbortSignal.any([
-              ...(requestOptions.signal ? [requestOptions.signal] : []),
-              options.signal,
-              timeoutSignal,
-            ])
-          : requestOptions.signal
-            ? AbortSignal.any([requestOptions.signal, timeoutSignal])
-            : timeoutSignal;
+      fetch: (() => {
+        const publicReadFetch = createStorefrontPublicReadFetch(
+          options.timeoutMs
+        );
 
-        return fetch(requestUrl, {
-          ...requestOptions,
-          signal,
-        });
-      },
+        return (
+          requestUrl: RequestInfo | URL,
+          requestOptions: RequestInit = {}
+        ) => {
+          const signal = options.signal
+            ? requestOptions.signal
+              ? AbortSignal.any([requestOptions.signal, options.signal])
+              : options.signal
+            : requestOptions.signal;
+
+          return publicReadFetch(
+            requestUrl,
+            signal ? { ...requestOptions, signal } : requestOptions
+          );
+        };
+      })(),
     },
   });
 }

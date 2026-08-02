@@ -13,225 +13,102 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { ThemeColors } from '@/constants/theme';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { getVerifyStyles } from '@/components/auth/verify.styles';
+import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
-const OTP_DIGIT_KEYS = [
-  'otp-digit-0',
-  'otp-digit-1',
-  'otp-digit-2',
-  'otp-digit-3',
-  'otp-digit-4',
-  'otp-digit-5',
-] as const;
-const LAST_OTP_INDEX = OTP_DIGIT_KEYS.length - 1;
+const OTP_KEYS = Array.from({ length: 6 }, (_, index) => `otp-${index}`);
+const LAST_OTP_INDEX = OTP_KEYS.length - 1;
 
-type OtpRequestResult = { ok: true } | { ok: false; message: string };
-
-// Module-scope helpers: try/catch with finalizers and throws cannot live in
-// the component body because React Compiler does not lower that syntax yet.
-async function requestOtpVerification(
-  email: string,
-  token: string
-): Promise<OtpRequestResult> {
+async function resendSignupOtp(email: string): Promise<string | null> {
   try {
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'signup', // or 'email' depending on context. For new signups 'signup' is safer usually.
-      // However, if they are already "signed up" but unverified, 'email' might work.
-      // Let's try 'signup' first as this is the registration flow.
-    });
-
-    if (error) throw error;
-
-    return { ok: true };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('Verification error:', message);
-    // Fallback: try 'email' type if 'signup' failed (edge case)
-    try {
-      const { error: retryError } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
-      });
-      if (!retryError) {
-        return { ok: true };
-      }
-      return { ok: false, message: message || 'Invalid code' };
-    } catch (_e) {
-      return { ok: false, message: message || 'Invalid code' };
+    const { error } = await supabase.auth.resend({ email, type: 'signup' });
+    if (!error) return null;
+    if (/rate limit|security purposes|too many/i.test(error.message)) {
+      return 'Please wait before requesting another code.';
     }
-  }
-}
-
-async function requestOtpResend(email: string): Promise<OtpRequestResult> {
-  try {
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email,
-    });
-    if (error) throw error;
-    return { ok: true };
-  } catch (error: unknown) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : String(error),
-    };
+    return 'Could not resend the code. Please try again.';
+  } catch {
+    return 'Unable to connect. Check your internet connection and try again.';
   }
 }
 
 export default function VerifyScreen() {
   const { colors, isDark } = useTheme();
-  const styles = getStyles(colors);
+  const styles = getVerifyStyles(colors);
   const router = useRouter();
+  const { verifySignupOtp } = useAuth();
   const { email } = useLocalSearchParams<{ email: string }>();
-  const [code, setCode] = useState<string[]>(() =>
-    OTP_DIGIT_KEYS.map(() => '')
-  ); // 6 digits
-  const [isLoading, setIsLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false); // Custom success state
-  const [timer, setTimer] = useState(30); // 30s countdown for resend
+  const [code, setCode] = useState(() => OTP_KEYS.map(() => ''));
   const [focusedOtpIndex, setFocusedOtpIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [timer, setTimer] = useState(30);
   const inputs = useRef<Array<TextInput | null>>([]);
 
-  // Refs for proper cleanup
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const isMountedRef = useRef(true);
-
-  // Cleanup all timers on unmount
   useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (navigationTimeoutRef.current) {
-        clearTimeout(navigationTimeoutRef.current);
-        navigationTimeoutRef.current = null;
-      }
-    };
-  }, []);
+    if (timer <= 0) return;
+    const interval = setInterval(() => {
+      setTimer((remaining) => Math.max(0, remaining - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timer]);
 
-  // Extract the condition to a variable for proper static analysis
-  const isTimerActive = timer > 0;
-
-  // Timer countdown effect - only start interval when timer > 0
-  useEffect(() => {
-    // Clear any existing interval first
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    if (isTimerActive) {
-      intervalRef.current = setInterval(() => {
-        if (isMountedRef.current) {
-          setTimer((t) => {
-            if (t <= 1) {
-              // Clear interval when timer reaches 0
-              if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-              }
-              return 0;
-            }
-            return t - 1;
-          });
-        }
-      }, 1000);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [isTimerActive]); // Only re-run when timer transitions between 0 and >0
-
-  // H-3: Guard against missing or invalid email param (placed after all hooks)
   if (typeof email !== 'string' || !email.trim()) {
     return <Redirect href="/(auth)/login" />;
   }
 
-  const handleCodeChange = (text: string, index: number) => {
-    const newCode = [...code];
-    newCode[index] = text;
-    setCode(newCode);
-
-    // Auto-focus next input
-    if (text && index < LAST_OTP_INDEX) {
-      inputs.current[index + 1]?.focus();
-    }
-
-    // Auto-submit if all filled
-    if (index === LAST_OTP_INDEX && text) {
-      // verifyCode(newCode.join('') + text.slice(-1)); // careful with state updates
-      // better to use explicit submit or updated array
-    }
+  const focusOtpInput = (index: number) => {
+    inputs.current[index]?.focus();
+    setFocusedOtpIndex(index);
   };
 
-  const handleKeyPress = (
-    e: { nativeEvent: { key: string } },
-    index: number
-  ) => {
-    if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
-      inputs.current[index - 1]?.focus();
+  const handleCodeChange = (text: string, index: number) => {
+    const digit = text.replace(/\D/g, '').slice(-1);
+    setCode((previous) =>
+      previous.map((value, currentIndex) =>
+        currentIndex === index ? digit : value
+      )
+    );
+    if (digit && index < LAST_OTP_INDEX) {
+      focusOtpInput(index + 1);
     }
   };
 
   const verifyOtp = async () => {
+    if (isLoading) return;
     const token = code.join('');
-    if (token.length !== OTP_DIGIT_KEYS.length) {
+    if (token.length !== OTP_KEYS.length) {
       Alert.alert('Error', 'Please enter a complete 6-digit code');
       return;
     }
 
     setIsLoading(true);
-    const result = await requestOtpVerification(email, token);
+    const result = await verifySignupOtp(email, token);
     setIsLoading(false);
-
-    if (result.ok) {
-      // Verification successful!
-      // Session is automatically updated by the Supabase client
-      // which triggers the useAuth listener.
-
-      // Verification successful!
-      // Show custom success view
-      setShowSuccess(true);
+    if (result.error || !result.sessionEstablished) {
+      Alert.alert(
+        'Verification Failed',
+        result.error ??
+          'Email verification did not finish. Request a new code and try again.'
+      );
       return;
     }
-
-    Alert.alert('Verification Failed', result.message);
+    setShowSuccess(true);
   };
 
   const resendCode = async () => {
-    if (timer > 0) return;
+    if (timer > 0 || isLoading) return;
     setIsLoading(true);
-    const result = await requestOtpResend(email);
+    const error = await resendSignupOtp(email);
     setIsLoading(false);
-
-    if (result.ok) {
-      Alert.alert('Sent', 'A new code has been sent to your email.');
-      setTimer(60);
+    if (error) {
+      Alert.alert('Could Not Resend Code', error);
       return;
     }
-
-    Alert.alert('Error', result.message);
-  };
-
-  const focusOtpInput = (index: number) => {
-    inputs.current[index]?.focus();
-    setFocusedOtpIndex(index);
+    Alert.alert('Sent', 'A new code has been sent to your email.');
+    setTimer(60);
   };
 
   const handleOtpAccessoryNext = () => {
@@ -239,7 +116,6 @@ export default function VerifyScreen() {
       focusOtpInput(focusedOtpIndex + 1);
       return;
     }
-
     void verifyOtp();
   };
 
@@ -253,48 +129,57 @@ export default function VerifyScreen() {
       <SafeAreaView style={styles.content}>
         <View style={styles.header}>
           <Pressable
+            accessibilityLabel="Back"
+            accessibilityRole="button"
             onPress={() => router.back()}
             style={({ pressed }) => [
               styles.backButton,
               pressed && { opacity: 0.7 },
             ]}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.title}>Check your email</Text>
           <Text style={styles.subtitle}>
             We sent a code to{' '}
-            <Text style={{ fontWeight: 'bold', color: colors.text }}>
+            <Text style={{ color: colors.text, fontWeight: 'bold' }}>
               {email}
             </Text>
           </Text>
         </View>
 
         <View style={styles.otpContainer}>
-          {OTP_DIGIT_KEYS.map((digitKey, index) => (
+          {OTP_KEYS.map((key, index) => (
             <TextInput
-              key={digitKey}
+              accessibilityLabel={`Digit ${index + 1} of ${OTP_KEYS.length}`}
+              autoComplete="one-time-code"
+              keyboardType="number-pad"
+              key={key}
+              maxLength={1}
+              onChangeText={(text) => handleCodeChange(text, index)}
+              onFocus={() => setFocusedOtpIndex(index)}
+              onKeyPress={({ nativeEvent }) => {
+                if (
+                  nativeEvent.key === 'Backspace' &&
+                  !code[index] &&
+                  index > 0
+                ) {
+                  focusOtpInput(index - 1);
+                }
+              }}
+              placeholder="-"
+              placeholderTextColor={colors.textMuted}
               ref={(ref) => {
                 inputs.current[index] = ref;
               }}
-              style={styles.otpInput}
-              accessibilityLabel={`Digit ${index + 1} of ${OTP_DIGIT_KEYS.length}`}
-              keyboardType="number-pad"
               returnKeyType="done"
-              maxLength={1}
-              value={code[index] ?? ''}
-              onChangeText={(text) => handleCodeChange(text, index)}
-              onFocus={() => setFocusedOtpIndex(index)}
-              onKeyPress={(e) => handleKeyPress(e, index)}
-              placeholder="-"
-              placeholderTextColor={colors.textMuted}
+              style={styles.otpInput}
               textContentType="oneTimeCode"
-              autoComplete="one-time-code"
+              value={code[index]}
             />
           ))}
         </View>
+
         <View style={styles.otpActionRow}>
           <Pressable
             accessibilityLabel="Previous code digit"
@@ -317,10 +202,12 @@ export default function VerifyScreen() {
                 : 'Verify code'
             }
             accessibilityRole="button"
+            accessibilityState={{ busy: isLoading, disabled: isLoading }}
+            disabled={isLoading}
             onPress={handleOtpAccessoryNext}
             style={({ pressed }) => [
               styles.otpActionPrimaryButton,
-              pressed && styles.otpActionPressed,
+              pressed && !isLoading && styles.otpActionPressed,
             ]}
           >
             <Text style={styles.otpActionPrimaryText}>
@@ -330,16 +217,16 @@ export default function VerifyScreen() {
         </View>
 
         <Pressable
+          accessibilityLabel="Verify Email"
+          accessibilityRole="button"
+          accessibilityState={{ busy: isLoading, disabled: isLoading }}
+          disabled={isLoading}
+          onPress={verifyOtp}
           style={({ pressed }) => [
             styles.button,
             isLoading && { opacity: 0.7 },
             pressed && !isLoading && { opacity: 0.7 },
           ]}
-          onPress={verifyOtp}
-          disabled={isLoading}
-          accessibilityRole="button"
-          accessibilityLabel="Verify Email"
-          accessibilityState={{ disabled: isLoading, busy: isLoading }}
         >
           {isLoading ? (
             <ActivityIndicator color={colors.textOnPrimary} />
@@ -349,18 +236,15 @@ export default function VerifyScreen() {
         </Pressable>
 
         <Pressable
-          onPress={resendCode}
-          disabled={timer > 0 || isLoading}
-          style={({ pressed }) => [
-            styles.resendButton,
-            pressed && timer <= 0 && !isLoading && { opacity: 0.7 },
-          ]}
-          accessibilityRole="button"
           accessibilityLabel="Resend code"
+          accessibilityRole="button"
           accessibilityState={{
-            disabled: timer > 0 || isLoading,
             busy: isLoading,
+            disabled: timer > 0 || isLoading,
           }}
+          disabled={timer > 0 || isLoading}
+          onPress={resendCode}
+          style={styles.resendButton}
         >
           <Text
             style={[
@@ -373,212 +257,36 @@ export default function VerifyScreen() {
         </Pressable>
       </SafeAreaView>
 
-      {/* Custom Success Modal Overlay */}
-      {showSuccess && (
+      {showSuccess ? (
         <View style={[StyleSheet.absoluteFill, styles.successOverlay]}>
           <View style={styles.successCard}>
             <View style={styles.iconContainer}>
               <Ionicons
+                color={colors.textOnPrimary}
                 name="checkmark"
                 size={40}
-                color={colors.textOnPrimary}
               />
             </View>
             <Text style={styles.successTitle}>Verified!</Text>
             <Text style={styles.successMessage}>
-              Your email has been successfully verified. Welcome to Baci.
+              Your account is ready. Continue to add your business details.
             </Text>
             <Pressable
-              style={({ pressed }) => [
-                styles.successButton,
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={() => {
-                // Dismiss the modal — the auth layout will handle the redirect
-                // once the auth state updates from the Supabase listener
-                router.dismissAll();
-              }}
+              accessibilityLabel="Continue setup"
               accessibilityRole="button"
-              accessibilityLabel="Enter Dashboard"
+              onPress={() => router.replace('/(auth)/complete-profile')}
+              style={styles.successButton}
             >
-              <Text style={styles.successButtonText}>Enter Dashboard</Text>
+              <Text style={styles.successButtonText}>Continue setup</Text>
               <Ionicons
+                color={colors.textOnPrimary}
                 name="arrow-forward"
                 size={20}
-                color={colors.textOnPrimary}
               />
             </Pressable>
           </View>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
-
-const getStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    content: {
-      flex: 1,
-      padding: SPACING.lg,
-      paddingTop: SPACING['3xl'], // Extra top padding
-    },
-    header: {
-      marginBottom: SPACING['3xl'],
-    },
-    backButton: {
-      marginBottom: SPACING.lg,
-    },
-    title: {
-      color: colors.text,
-      fontSize: TYPOGRAPHY.size['3xl'], // 30px
-      fontFamily: TYPOGRAPHY.fontFamily.bold,
-      marginBottom: SPACING.sm,
-    },
-    subtitle: {
-      color: colors.textSecondary,
-      fontSize: TYPOGRAPHY.size.md,
-      lineHeight: 24,
-    },
-    otpContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: SPACING.xs,
-      marginBottom: SPACING.sm,
-    },
-    otpInput: {
-      width: 45,
-      height: 55,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: RADIUS.md,
-      backgroundColor: colors.inputBg,
-      color: colors.text,
-      fontSize: TYPOGRAPHY.size.xl,
-      textAlign: 'center',
-      fontFamily: TYPOGRAPHY.fontFamily.bold,
-    },
-    otpActionRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: SPACING.xl,
-    },
-    otpActionButton: {
-      borderRadius: RADIUS.full,
-      paddingHorizontal: SPACING.lg,
-      paddingVertical: SPACING.sm,
-    },
-    otpActionPrimaryButton: {
-      backgroundColor: colors.primary,
-      borderRadius: RADIUS.full,
-      paddingHorizontal: SPACING.lg,
-      paddingVertical: SPACING.sm,
-    },
-    otpActionDisabled: {
-      opacity: 0.4,
-    },
-    otpActionPressed: {
-      opacity: 0.7,
-    },
-    otpActionText: {
-      color: colors.text,
-      fontSize: TYPOGRAPHY.size.md,
-      fontFamily: TYPOGRAPHY.fontFamily.medium,
-    },
-    otpActionPrimaryText: {
-      color: colors.textOnPrimary,
-      fontSize: TYPOGRAPHY.size.md,
-      fontFamily: TYPOGRAPHY.fontFamily.bold,
-    },
-    button: {
-      backgroundColor: colors.primary,
-      paddingVertical: 16,
-      borderRadius: RADIUS.full,
-      alignItems: 'center',
-      marginBottom: SPACING.lg,
-    },
-    buttonText: {
-      color: colors.textOnPrimary,
-      fontSize: TYPOGRAPHY.size.lg,
-      fontFamily: TYPOGRAPHY.fontFamily.bold,
-    },
-    resendButton: {
-      alignItems: 'center',
-      padding: SPACING.md,
-    },
-    resendText: {
-      color: colors.primary, // Brand color for link
-      fontSize: TYPOGRAPHY.size.md,
-      fontFamily: TYPOGRAPHY.fontFamily.medium,
-    },
-    // Success Modal Styles
-    successOverlay: {
-      backgroundColor: 'rgba(0,0,0,0.85)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: SPACING.xl,
-      zIndex: 100, // Ensure it sits on top
-    },
-    successCard: {
-      width: '100%',
-      backgroundColor: colors.card, // Slightly lighter than background
-      borderRadius: RADIUS.xl,
-      padding: SPACING['2xl'],
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.1)',
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 10,
-      },
-      shadowOpacity: 0.51,
-      shadowRadius: 13.16,
-      elevation: 20,
-    },
-    iconContainer: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: colors.success, // Emerald Green for success
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: SPACING.xl,
-      shadowColor: colors.success,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-    },
-    successTitle: {
-      color: colors.text,
-      fontSize: TYPOGRAPHY.size['2xl'],
-      fontFamily: TYPOGRAPHY.fontFamily.bold,
-      marginBottom: SPACING.sm,
-    },
-    successMessage: {
-      color: colors.textSecondary,
-      fontSize: TYPOGRAPHY.size.md,
-      textAlign: 'center',
-      marginBottom: SPACING['2xl'],
-      lineHeight: 24,
-    },
-    successButton: {
-      width: '100%',
-      backgroundColor: colors.primary,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 16,
-      borderRadius: RADIUS.full,
-      gap: SPACING.sm,
-    },
-    successButtonText: {
-      color: colors.textOnPrimary,
-      fontSize: TYPOGRAPHY.size.lg,
-      fontFamily: TYPOGRAPHY.fontFamily.bold,
-    },
-  });

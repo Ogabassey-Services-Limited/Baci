@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from 'next/cache';
+import { getBlogContentLinksCacheTag } from '@/lib/blog-content-link-cache-tags';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
 import { getCachedProductCanonicalPaths } from '@/lib/cached-product-canonical-paths';
 import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
@@ -188,18 +189,18 @@ export async function getCachedContentLinkRewrites(
   productSlugs: string[]
 ): Promise<StorefrontContentLinkRewrites> {
   // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
-  // Tagged `blog-posts`, `product-legacy-redirect`, `products-${id}` and
-  // `categories-${id}` — all four are busted by live revalidators
-  // (revalidateBlogPosts/revalidateBlogFeed, revalidateProducts,
-  // revalidateCategories). Link rewriting is exactly the contract that must
-  // propagate: after a product is archived or a blog slug renamed, an instance
-  // holding a LOCAL entry would keep rewriting links to a dead target. Already
-  // fail-loud (every lookup throws so the failure is never cached and callers
-  // fail open).
+  // Tagged with this merchant's derived blog-content-links tag, the generic
+  // blog-content-links compatibility tag, product-legacy-redirect,
+  // `products-${id}`, and `categories-${id}`. Live revalidators bust the
+  // matching tags. Link rewriting is exactly the contract that must propagate:
+  // after a product is archived or a blog slug renamed, an instance holding a
+  // LOCAL entry would keep rewriting links to a dead target. Already fail-loud
+  // (every lookup throws so the failure is never cached and callers fail open).
   'use cache: remote';
   cacheLife('merchant');
   cacheTag(
-    'blog-posts',
+    getBlogContentLinksCacheTag(merchantId),
+    'blog-content-links',
     'product-legacy-redirect',
     `products-${merchantId}`,
     `categories-${merchantId}`

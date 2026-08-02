@@ -1,6 +1,7 @@
-// Expected PENDING replay sources, extracted from the manifest test (Codex #3171)
-// so the binding test stays under the 300-line modularity gate. Independently
-// hand-verified against supabase-history-replay-sources.ts PENDING_SOURCES.
+import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
+import { PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES } from './expected-pending-payment-ingress-sources.test-support';
+import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
+import { RECENT_PENDING_SOURCES } from './recent-pending-sources.test-fixture';
 export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
@@ -179,12 +180,117 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260724130000_add_customers_date_of_birth.sql',
+    sha256: 'aaa12834a752011d2c417f3f7b2e3ff7a1efdec7e58e265a898ceea0a3bc7b5d',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260724140000_merchant_balance_gateway_origin_guard.sql',
     sha256: '8b794c4535b8a5f2acf674fbeb78037aeb518591e03b72bd2106efa4454e63f4',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260724150000_set_customer_date_of_birth_rpc.sql',
+    sha256: '77755c5f154ca7ccef73b2e0a2e68f9a5cf4cc9f1284a6489bb6d16d1c18d999',
   },
   {
     repositoryPath:
       'supabase/migrations/20260724160000_korapay_storefront_setting_default_off.sql',
     sha256: '76ccee1969b595892e70322b5957fe03b6df444952d9f1b6bb9c1e59ffc55556',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260725120000_guard_customer_dob_soft_delete.sql',
+    sha256: 'c1e76853223a105701c2ef28c2a7a1211508af13a7b27d12393590454b36bcd8',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260725164445_restore_merchant_owner_row_select_branch.sql',
+    sha256: '9823a697f756bb2865a5de62d2a202d2bf348b284ead1d5cee9c6838a477ca27',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260726103000_atomic_category_hierarchy_lifecycle.sql',
+    sha256: '0edb40c674e426a144b2ab9e7de455a307a0f3920193576867e4df8bc1041da2',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260726110000_add_merchant_signup_policy_health_rpc.sql',
+    sha256: '767937b88573d95bfaacb4777082d4955aca38c3c41b8aa2dee0e5787bcce6bb',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql',
+    sha256: '57037c2a309da200410ddbb167cd58183f9a3977a9c285815f5d81af99fbc5c3',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727033000_cache_invalidation_outbox.sql',
+    sha256: '429d8681f42744b359cde853299cc7d0272238848c5147e228dce86e2c570d81',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727090000_correct_cache_invalidation_outbox.sql',
+    sha256: '43c66d01aae976aa4c755cd591f8d22405da5aa0a4cd95d64f57501859e7e680',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727105959_archive_cross_tenant_product_category_memberships.sql',
+    sha256: '4ef89a73c4b71df4a7187ff61091de5447a3d500142c024fc82969cc79c5c1a6',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727110000_complete_cache_invalidation_trigger_coverage.sql',
+    sha256: 'fdb1e8751714cc7eff59ae88a1452e9c1cf62292bac817c30865fee716a0bbc3',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727150000_exact_product_and_feature_cache_invalidation.sql',
+    sha256: '5e32cabd902912727ade703ae12c5a9b563513cbf5e0659efeda662b0c622810',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727170000_fix_cache_invalidation_outbox_fairness.sql',
+    sha256: '95996acb8eeb804f8c63e817731fdd106955b5974cf83044784efe53b0891be8',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727170936_add_product_offer_and_key_spec_cache_invalidation.sql',
+    sha256: '0c08f39e96aaefad73ede1037402107c8944b19398eafcb88027e614b3c7b10d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727184356_enforce_ordered_exact_cache_and_membership_ownership.sql',
+    sha256: 'd4c7e5484a34f6496bd749f381e8b647762e975bfd1e9598e2a58fd515b99d38',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727185139_preserve_exact_product_identifier_case.sql',
+    sha256: '35225e92f3841ea6a1e802efb3acae85ed2720ba6ddf33e5839976cda7c44a89',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727195209_allow_platform_admin_read_product_category_archive.sql',
+    sha256: '2f3f56e70ad024272a6a0c3fc5b4c0ffc472f29e259319a4e1631acc4667c65a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260728091958_provision_mobile_merchant_v2.sql',
+    sha256: '9e4df9812810ef2c7e0659a238390d6c97222b2891454ba00740ddbff6cc6104',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260729100000_add_merchant_identity_verified_rpc.sql',
+    sha256: '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d',
+  },
+  ...EXPECTED_PENDING_TAIL_SOURCES.identity,
+  ...RECENT_PENDING_SOURCES.slice(0, 1),
+  ...AUDIT_PENDING_SOURCES,
+  ...RECENT_PENDING_SOURCES.slice(1, 6),
+  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(0, 2),
+  ...EXPECTED_PENDING_TAIL_SOURCES.paymentIngressFoundation,
+  ...RECENT_PENDING_SOURCES.slice(6),
+  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3, 8),
+  ...EXPECTED_PENDING_TAIL_SOURCES.paymentWebhookEvidence,
+  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(8),
 ];

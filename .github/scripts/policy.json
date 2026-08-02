@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "authority": {
+    "normativeContractPath": "docs/superpowers/plans/2026-07-13-ogabassey-home-critical-shell-v4.md",
+    "normativeContractSha256": "3503ca9613b6a511b2e37fb3d35b48830d19e8559e7e3c5df136487fce9efdca",
+    "implementationBaseSha": "f706fc9f309516aa776515e094120039e2431d34",
+    "deploymentRunId": 29733124902,
+    "deploymentRunAttempt": 2,
+    "deploymentMarker": "29733124902_2_f706fc9f309516aa7765"
+  },
+  "repository": { "id": 1100488586, "name": "ogabasseyy/Baci" },
+  "repositoryAuthority": {
+    "mode": "personal-public-exact-run",
+    "approved": true,
+    "approvedOn": "2026-07-20",
+    "workflowPath": ".github/workflows/cwv-runner-attestation.yml",
+    "workflowRef": "refs/heads/main",
+    "hookTimeoutSeconds": 5,
+    "admissionChallengeTtlSeconds": 30,
+    "inventoryReceiptTtlSeconds": 5,
+    "queueDeadlineSeconds": 120,
+    "listenerHoldTimeoutSeconds": 120,
+    "controllerTimeoutSeconds": 1200,
+    "watchdogTimeoutSeconds": 1800,
+    "artifactDownload": {
+      "hostPattern": "^productionresultssa[0-9]+\\.blob\\.core\\.windows\\.net$",
+      "pathPrefix": "/actions-results/",
+      "allowedQueryKeys": "rscd|rsct|se|sig|ske|skoid|sks|skt|sktid|skv|sp|spr|sr|st|sv",
+      "maxBytes": 1048576,
+      "connectTimeoutSeconds": 10,
+      "headerTimeoutSeconds": 10,
+      "bodyInactivityTimeoutSeconds": 10,
+      "overallTimeoutSeconds": 30
+    }
+  },
+  "host": {
+    "hostname": "ogabassey",
+    "virtualization": "kvm",
+    "adminAccount": "bassey",
+    "runnerAccount": "baci-cwv",
+    "runnerUid": 10001,
+    "runnerGid": 10001,
+    "owner": "ogabasseyy",
+    "recoveryContact": "ogabasseyy",
+    "alertDestination": "GitHub Actions failure notifications for ogabasseyy/Baci",
+    "sharedHostException": { "approved": true, "approvedOn": "2026-07-20" }
+  },
+  "runner": {
+    "name": "baci-cwv-measurement-01",
+    "labels": ["self-hosted", "Linux", "X64", "baci-cwv-measurement"],
+    "maxConcurrentJobs": 1,
+    "disableUpdate": true
+  },
+  "processAllowSet": {
+    "schemaVersion": 1,
+    "receiptBinding": "image-process-map-v1",
+    "phases": ["held", "listener-idle", "assigned", "cleanup"],
+    "executables": {
+      "bash": "/usr/bin/bash|1,0,1,0",
+      "runtimeNode": "/opt/node/bin/node|1,1,1,1",
+      "listener": "/opt/runner/bin/Runner.Listener|0,1,1,1",
+      "worker": "/opt/runner/bin/Runner.Worker|0,0,1,1",
+      "pluginHost": "/opt/runner/bin/Runner.PluginHost|0,0,1,1",
+      "actionNode": "/opt/runner/externals/node24/bin/node|0,0,1,1",
+      "git": "/usr/bin/git|0,0,1,0",
+      "gitRemoteHttps": "/usr/lib/git-core/git-remote-https|0,0,1,0"
+    }
+  },
+  "resources": {
+    "measurementCpuSet": "2-3",
+    "otherCpuSet": "0-1",
+    "memoryBytes": 8589934592,
+    "memorySwapBytes": 0,
+    "shmBytes": 1073741824,
+    "pidsLimit": 1024
+  },
+  "installationImport": {
+    "workerServices": "baci-cwv-docker.service|baci-cwv-containerd.service",
+    "cpuSet": "2-3",
+    "cpuQuotaPercent": 100,
+    "memoryBytes": 2147483648,
+    "memorySwapBytes": 0,
+    "pidsLimit": 256,
+    "ioWeight": 10,
+    "sampleSeconds": 2
+  },
+  "dedicatedRuntime": {
+    "dockerService": "baci-cwv-docker.service",
+    "containerdService": "baci-cwv-containerd.service",
+    "dockerSocket": "/run/baci-cwv/docker.sock",
+    "containerdSocket": "/run/baci-cwv/containerd/containerd.sock",
+    "dockerDataRoot": "/srv/baci-cwv/docker",
+    "dockerExecRoot": "/run/baci-cwv/docker-exec",
+    "dockerPidFile": "/run/baci-cwv/docker.pid",
+    "containerdRoot": "/srv/baci-cwv/containerd/root",
+    "containerdState": "/run/baci-cwv/containerd",
+    "networkName": "baci-cwv-net",
+    "bridgeName": "baci-cwv0",
+    "subnet": "172.31.255.0/28",
+    "gateway": "172.31.255.1",
+    "daemonIptables": false,
+    "daemonIpForward": false,
+    "daemonIpMasq": false,
+    "enableIpv6": false,
+    "firewallBackend": "iptables-nft",
+    "firewallInputChain": "INPUT",
+    "firewallForwardChain": "DOCKER-USER",
+    "firewallNatChain": "POSTROUTING",
+    "ownedInputChainPrefix": "BACI_CWV_IN_",
+    "ownedForwardChainPrefix": "BACI_CWV_FW_",
+    "ruleCommentPrefix": "baci-cwv:",
+    "deniedDestinationCidrs": "0.0.0.0/8|10.0.0.0/8|100.64.0.0/10|127.0.0.0/8|169.254.0.0/16|172.16.0.0/12|192.0.0.0/24|192.168.0.0/16|198.18.0.0/15|224.0.0.0/4|240.0.0.0/4",
+    "requiredHostIpv4Forward": 1,
+    "registrationProbeHost": "github.com",
+    "registrationProbePort": 443,
+    "registrationProbeTimeoutSeconds": 10
+  },
+  "networkAccounting": {
+    "family": "inet",
+    "table": "baci_cwv_measurement",
+    "classifyChain": "classify",
+    "classifyHook": "forward",
+    "classifyPriority": -150,
+    "ingressChain": "external_ingress",
+    "ingressHook": "forward",
+    "hostIngressChain": "host_external_ingress",
+    "hostIngressHook": "input",
+    "egressChain": "external_egress",
+    "hostEgressChain": "host_external_egress",
+    "egressHook": "postrouting",
+    "counterPriority": 0,
+    "markPrefix": 2952790016,
+    "markHashBits": 28
+  },
+  "thresholds": {
+    "load1Max": 0.5,
+    "cpuPsiFullAvg10Max": 0,
+    "ioPsiFullAvg10Max": 0.1,
+    "memoryPsiFullAvg10Max": 0,
+    "cpuStealPercentMax": 0.5,
+    "availableMemoryBytesMin": 6442450944,
+    "rootFreeBytesMin": 32212254720,
+    "networkRxBytesPerSecondMax": 1048576,
+    "networkTxBytesPerSecondMax": 1048576,
+    "networkSampleSeconds": 10
+  },
+  "ruleset": {
+    "name": "ogabassey-rollout-progress-immutable",
+    "target": "tag",
+    "enforcement": "active",
+    "tagIncludes": "refs/tags/ogabassey-rollout-claim/*|refs/tags/ogabassey-rollout-progress/**/*|refs/tags/ogabassey-semantic-admission/*",
+    "tagExcludes": [],
+    "rules": ["update", "deletion"],
+    "bypassActors": []
+  },
+  "workflowActions": {
+    "checkout": "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+    "uploadArtifact": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+    "downloadArtifact": "actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0",
+    "createGithubAppToken": "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1"
+  },
+  "artifactRetentionDays": 90,
+  "supplyChain": {
+    "ubuntu": {
+      "reference": "ubuntu@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+      "snapshotId": "20260720T000000Z",
+      "architecture": "amd64",
+      "signedBy": "/usr/share/keyrings/ubuntu-archive-keyring.gpg",
+      "sources": [
+        {
+          "uri": "https://archive.ubuntu.com/ubuntu",
+          "suites": ["noble", "noble-updates"],
+          "components": ["main", "universe", "restricted", "multiverse"]
+        },
+        {
+          "uri": "https://security.ubuntu.com/ubuntu",
+          "suites": ["noble-security"],
+          "components": ["main", "universe", "restricted", "multiverse"]
+        }
+      ]
+    },
+    "runner": {
+      "version": "2.335.1",
+      "url": "https://github.com/actions/runner/releases/download/v2.335.1/actions-runner-linux-x64-2.335.1.tar.gz",
+      "sha256": "4ef2f25285f0ae4477f1fe1e346db76d2f3ebf03824e2ddd1973a2819bf6c8cf",
+      "allowedFinalOrigins": [
+        "https://github.com",
+        "https://release-assets.githubusercontent.com"
+      ],
+      "commandSettingsUrl": "https://raw.githubusercontent.com/actions/runner/v2.335.1/src/Runner.Listener/CommandSettings.cs",
+      "commandSettingsSha256": "937f6552579f7d1eeb0a6d0201586781eb3e2e5ea2ab3878429076560e0cab08",
+      "commandSettingsAllowedFinalOrigins": [
+        "https://raw.githubusercontent.com"
+      ]
+    },
+    "node": {
+      "version": "24.18.0",
+      "url": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-x64.tar.xz",
+      "sha256": "55aa7153f9d88f28d765fcdad5ae6945b5c0f98a36881703817e4c450fa76742",
+      "allowedFinalOrigins": ["https://nodejs.org"],
+      "ownerDarwinArm64Url": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-arm64.tar.xz",
+      "ownerDarwinArm64Sha256": "4477b9f78efb77744cf5eb57a0e9594dba66466b38b4e93fa9f35cb907a095a6"
+    },
+    "pnpm": {
+      "version": "11.7.0",
+      "url": "https://registry.npmjs.org/pnpm/-/pnpm-11.7.0.tgz",
+      "sha256": "deafa7ec98a1218b6a047289b92fbe2395c1e22d3495bb711653013218ee15ee",
+      "integrity": "sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==",
+      "allowedFinalOrigins": ["https://registry.npmjs.org"]
+    },
+    "chrome": {
+      "version": "150.0.7871.128-1",
+      "url": "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_150.0.7871.128-1_amd64.deb",
+      "sha256": "83ed59c85878ebb8fa53915ebe7066cafc58d1c04c1c95449486e6f9d99a1efb",
+      "allowedFinalOrigins": ["https://dl.google.com"]
+    }
+  },
+  "supplyChainProvenance": {
+    "artifactMaxBytes": 268435456,
+    "immutableArtifactMediaTypes": {
+      "commandSettings": "text/plain",
+      "node.archive": "application/x-xz|application/octet-stream",
+      "node.checksums": "text/plain",
+      "node.signature": "application/pgp-signature|application/octet-stream",
+      "node.keyring": "application/octet-stream",
+      "runner.archive": "application/gzip|application/octet-stream",
+      "pnpm.archive": "application/gzip|application/octet-stream",
+      "chrome.archive": "application/vnd.debian.binary-package|application/octet-stream",
+      "chrome.inRelease": "text/plain",
+      "chrome.packages": "application/gzip|application/x-gzip|application/octet-stream",
+      "chrome.signingKey": "application/pgp-keys|application/octet-stream",
+      "ownerCli.checksums": "text/plain",
+      "ownerCli.archive": "application/zip|application/octet-stream"
+    },
+    "runner": {
+      "releaseApiUrl": "https://api.github.com/repos/actions/runner/releases/tags/v2.335.1",
+      "assetId": 442283019,
+      "assetName": "actions-runner-linux-x64-2.335.1.tar.gz",
+      "assetSize": 225628509,
+      "assetDigest": "sha256:4ef2f25285f0ae4477f1fe1e346db76d2f3ebf03824e2ddd1973a2819bf6c8cf",
+      "allowedFinalOrigins": ["https://api.github.com"]
+    },
+    "node": {
+      "checksumsUrl": "https://nodejs.org/dist/v24.18.0/SHASUMS256.txt",
+      "checksumsSha256": "3927bab574a00ca0560c9583fe19655ba19603a1c5851414e4325d34ac50e469",
+      "signatureUrl": "https://nodejs.org/dist/v24.18.0/SHASUMS256.txt.sig",
+      "signatureSha256": "d771440acfe010e7510a3c01d248525f771daa9cf75dae5784c97ea2b08d9393",
+      "keyringUrl": "https://raw.githubusercontent.com/nodejs/release-keys/b28073028e6d6855cfb53bf7fa0137599c01f967/gpg-only-active-keys/pubring.kbx",
+      "keyringSha256": "8e6f89521a0694e445f42decd022f48369c634f1b5bcb5975135b69c88629ae8",
+      "allowedFinalOrigins": [
+        "https://nodejs.org",
+        "https://raw.githubusercontent.com"
+      ]
+    },
+    "pnpm": {
+      "metadataUrl": "https://registry.npmjs.org/pnpm/11.7.0",
+      "distShasum": "bea54364524dadf0a42dae28dbfeeab25ff177e5",
+      "allowedFinalOrigins": ["https://registry.npmjs.org"]
+    },
+    "chrome": {
+      "inReleaseUrl": "https://dl.google.com/linux/chrome/deb/dists/stable/InRelease",
+      "inReleaseSha256": "103b34e58da0ab8d2150b921d827c730f98de9329f1b5c393fa41279dc78feca",
+      "packagesUrl": "https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages.gz",
+      "packagesSha256": "e46bfc093b1b728d0e7a6e5419b90be8672f9b113ddaf50b21a910f40c583173",
+      "signingKeyUrl": "https://dl.google.com/linux/linux_signing_key.pub",
+      "signingKeySha256": "54dea5f6c2a26091578cf52a999cebc6b64df478d37ad4dce96376b711e3b27c",
+      "allowedFinalOrigins": ["https://dl.google.com"]
+    },
+    "ownerCli": {
+      "version": "2.93.0",
+      "archiveUrl": "https://github.com/cli/cli/releases/download/v2.93.0/gh_2.93.0_macOS_arm64.zip",
+      "archiveSha256": "a86be4e0a86c26456cf71177d6572d6f1165cf1679e532b72f7f15918ee51fd2",
+      "binarySha256": "a38e8ea1b9794a445a1ce746392e36111ca00a3242a6447b49cd4c162cb191a7",
+      "checksumsUrl": "https://github.com/cli/cli/releases/download/v2.93.0/gh_2.93.0_checksums.txt",
+      "checksumsSha256": "f62a3bc9dedc88262c9c2b56eb653cb3ded6bde8076bdbb151f4cce9c8729da5",
+      "allowedFinalOrigins": [
+        "https://github.com",
+        "https://release-assets.githubusercontent.com"
+      ]
+    }
+  }
+}

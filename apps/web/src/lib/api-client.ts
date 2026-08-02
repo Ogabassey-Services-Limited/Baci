@@ -3,11 +3,14 @@
 
 import { CSRF_HEADER_NAME, getClientCsrfToken } from '@/lib/csrf';
 
-async function initializeCsrfToken(): Promise<string | null> {
+async function initializeCsrfToken(
+  signal?: AbortSignal
+): Promise<string | null> {
   try {
     const response = await fetch('/api/csrf', {
       credentials: 'include',
       cache: 'no-store',
+      signal,
     });
 
     if (!response.ok) {
@@ -64,7 +67,7 @@ export async function fetchWithCsrf(
       console.warn(
         `[CSRF] Missing csrfToken; attempting to initialize it before sending ${method} ${url}.`
       );
-      csrfToken = await initializeCsrfToken();
+      csrfToken = await initializeCsrfToken(options?.signal ?? undefined);
     }
 
     if (csrfToken) {
@@ -97,7 +100,9 @@ export async function fetchWithCsrf(
   let response = await fetch(url, requestInit);
 
   if (needsCsrf && (await isInvalidCsrfResponse(response))) {
-    const refreshedToken = await initializeCsrfToken();
+    const refreshedToken = await initializeCsrfToken(
+      options?.signal ?? undefined
+    );
 
     if (refreshedToken) {
       const retryHeaders = new Headers(headers);

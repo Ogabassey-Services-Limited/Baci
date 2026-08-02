@@ -1,0 +1,104 @@
+import 'dotenv/config';
+
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+import { finalizeDueQuizEvents } from '@/lib/quiz/finalize-due-quiz-events';
+
+interface CliLogger {
+  error(message: string): void;
+  info(message: string, summary: string): void;
+}
+
+const QUIZ_DIRECT_WORKER_REQUIRED_ENV = [
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'QUIZ_PHASE',
+  'QUIZ_PRODUCTION_APPROVED',
+  'SUPABASE_SERVICE_ROLE_KEY',
+] as const;
+const ENV_BOOLEAN_VALUES = new Set([
+  '0',
+  '1',
+  'false',
+  'no',
+  'true',
+  'yes',
+]);
+
+function hasQuizDirectWorkerEnv(env: NodeJS.ProcessEnv) {
+  if (
+    !QUIZ_DIRECT_WORKER_REQUIRED_ENV.every((name) =>
+      Boolean(env[name]?.trim())
+    )
+  ) {
+    return false;
+  }
+
+  const phase = env.QUIZ_PHASE?.trim();
+  const approved = env.QUIZ_PRODUCTION_APPROVED?.trim().toLowerCase();
+  if (
+    (phase !== '1a' && phase !== 'production') ||
+    !approved ||
+    !ENV_BOOLEAN_VALUES.has(approved)
+  ) {
+    return false;
+  }
+
+  return (
+    phase !== 'production' ||
+    (Boolean(env.QUIZ_RPC_SERVER_SECRET?.trim()) &&
+      Boolean(env.QUIZ_DEVICE_HASH_PEPPER?.trim()))
+  );
+}
+
+function sanitizeQuizSummary({
+  body,
+  status,
+}: Awaited<ReturnType<typeof finalizeDueQuizEvents>>) {
+  const summary: Record<string, number | string> = {};
+  if ('closed' in body && typeof body.closed === 'number') {
+    summary.closed = body.closed;
+  }
+  if ('finalized' in body && typeof body.finalized === 'number') {
+    summary.finalized = body.finalized;
+  }
+  if (
+    'skipped' in body &&
+    body.skipped === 'production_not_approved'
+  ) {
+    summary.skipped = body.skipped;
+  }
+  summary.status = status;
+  return JSON.stringify(summary);
+}
+
+export async function runQuizFinalizationCli({
+  env = process.env,
+  logger = console,
+  runJob = finalizeDueQuizEvents,
+}: {
+  env?: NodeJS.ProcessEnv;
+  logger?: CliLogger;
+  runJob?: typeof finalizeDueQuizEvents;
+} = {}): Promise<number> {
+  if (!hasQuizDirectWorkerEnv(env)) {
+    logger.error('[quiz-finalization] preflight failed');
+    return 1;
+  }
+
+  try {
+    const result = await runJob();
+    logger.info('[quiz-finalization] completed', sanitizeQuizSummary(result));
+    return result.status >= 500 ? 1 : 0;
+  } catch {
+    logger.error('[quiz-finalization] failed');
+    return 1;
+  }
+}
+
+const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
+if (import.meta.url === invokedPath) {
+  runQuizFinalizationCli().then((exitCode) => {
+    process.exitCode = exitCode;
+  });
+}

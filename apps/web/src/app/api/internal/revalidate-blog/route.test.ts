@@ -40,6 +40,7 @@ describe('POST /api/internal/revalidate-blog', () => {
       request(
         {
           identifiers: ['ogabassey.com', 'ogabassey'],
+          merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
           canonicalMerchantSlug: 'ogabassey',
           listingCategories: ['Smartphones'],
           listingPages: [1, 2],
@@ -53,6 +54,7 @@ describe('POST /api/internal/revalidate-blog', () => {
     expect(await res.json()).toEqual({ ok: true });
     expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
       identifiers: ['ogabassey.com', 'ogabassey'],
+      merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
       canonicalMerchantSlug: 'ogabassey',
       listingCategories: ['Smartphones'],
       listingPages: [1, 2],

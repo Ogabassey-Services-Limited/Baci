@@ -21,10 +21,10 @@ vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve({})),
 }));
 
-// The route resolves merchants via the shared cached helper, which sources
-// custom_domain from public.domains (the merchants table has no such column).
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: oauthRouteMocks.getMerchantByIdentifier,
+// The route resolves merchants through the alias-aware helper. Mock that
+// boundary so this route test never reaches Supabase or the alias cache.
+vi.mock('@/lib/get-merchant-by-identifier-or-alias', () => ({
+  getMerchantByIdentifierOrAlias: oauthRouteMocks.getMerchantByIdentifier,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({

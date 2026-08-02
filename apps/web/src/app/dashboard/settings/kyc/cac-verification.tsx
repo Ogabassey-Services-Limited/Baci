@@ -2,19 +2,17 @@
 
 import { normalizeCacSearchTerm } from '@baci/shared';
 import {
-  ArrowLeft,
   Building2,
   CheckCircle2,
   Loader2,
   Search,
-  Upload,
   XCircle,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { fetchWithCsrf } from '@/lib/api-client';
+import { validateCacCertificateFile } from './cac-file-validation';
 import type { CacCompany } from './cac-ui';
 import {
   AlertBanner,
@@ -22,8 +20,12 @@ import {
   normalizeCacStatus,
   StatusBadge,
 } from './cac-ui';
+import { CacUploadStep } from './cac-upload-step';
+import { postCacVerificationRequest } from './cac-verification-request';
+import { createCacVerificationFormData } from './cac-verification-upload';
 
 interface CacVerificationProps {
+  merchantId: string;
   verified: boolean;
   prefillRcNumber: string | null;
   cacApprovedName: string | null;
@@ -32,16 +34,8 @@ interface CacVerificationProps {
 
 type CacStep = 'search' | 'confirm' | 'upload' | 'result';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,application/pdf';
-const ACCEPTED_TYPES_SET = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/pdf',
-]);
-
 export function CacVerification({
+  merchantId,
   verified,
   prefillRcNumber,
   cacApprovedName,
@@ -87,8 +81,8 @@ export function CacVerification({
   }
 
   async function postApi(url: string, body: BodyInit) {
-    const res = await fetchWithCsrf(url, { method: 'POST', body });
-    if (res.status === 429) {
+    const result = await postCacVerificationRequest(url, body);
+    if (result.kind === 'rate-limited') {
       toast({
         variant: 'destructive',
         title: 'Too many requests',
@@ -96,11 +90,8 @@ export function CacVerification({
       });
       return null;
     }
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(e.error || 'Request failed');
-    }
-    return res.json();
+    if (result.kind === 'error') throw new Error(result.message);
+    return result.data;
   }
 
   async function handleSearch() {
@@ -145,23 +136,18 @@ export function CacVerification({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ACCEPTED_TYPES_SET.has(file.type)) {
+    const validation = validateCacCertificateFile(file);
+    if (validation.kind !== 'valid') {
       toast({
         variant: 'destructive',
-        title: 'Invalid file type',
-        description: 'Please upload a JPEG, PNG, WebP, or PDF file.',
-      });
-      e.target.value = '';
-      setSelectedFile(null);
-      if (filePreview) URL.revokeObjectURL(filePreview);
-      setFilePreview(null);
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      toast({
-        variant: 'destructive',
-        title: 'File too large',
-        description: 'Maximum file size is 5 MB.',
+        title:
+          validation.kind === 'invalid-type'
+            ? 'Invalid file type'
+            : 'File too large',
+        description:
+          validation.kind === 'invalid-type'
+            ? 'Please upload a JPEG, PNG, WebP, or PDF file.'
+            : 'Maximum file size is 5 MB.',
       });
       e.target.value = '';
       setSelectedFile(null);
@@ -180,10 +166,12 @@ export function CacVerification({
     if (!selectedFile || !selectedCompany) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('rcNumber', selectedCompany.rcNumber);
-      formData.append('approvedName', selectedCompany.approvedName);
+      const formData = createCacVerificationFormData({
+        file: selectedFile,
+        rcNumber: selectedCompany.rcNumber,
+        approvedName: selectedCompany.approvedName,
+        merchantId,
+      });
       const data = await postApi('/api/merchant/verify-cac', formData);
       if (data) {
         const result = data as { verified: boolean; reason?: string };
@@ -271,53 +259,15 @@ export function CacVerification({
       )}
 
       {cacStep === 'upload' && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Upload your CAC certificate (JPEG, PNG, WebP, or PDF, max 5 MB).
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_TYPES}
-            onChange={handleFileChange}
-            disabled={uploading}
-            aria-label="CAC certificate file upload"
-            className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
-          />
-          {selectedFile && (
-            <div className="rounded-lg border p-3">
-              <p className="text-sm font-medium">{selectedFile.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {(selectedFile.size / 1024).toFixed(1)} KB
-              </p>
-              {filePreview && (
-                // biome-ignore lint/performance/noImgElement: local blob URL preview, next/image doesn't support blob URLs
-                <img
-                  src={filePreview}
-                  alt="Certificate preview"
-                  className="mt-2 max-h-48 rounded-md object-contain"
-                />
-              )}
-            </div>
-          )}
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setCacStep('confirm')}>
-              <ArrowLeft className="mr-2 size-4" />
-              Back
-            </Button>
-            <Button
-              onClick={handleUpload}
-              disabled={uploading || !selectedFile}
-            >
-              {uploading ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Upload className="mr-2 size-4" />
-              )}
-              Verify Certificate
-            </Button>
-          </div>
-        </div>
+        <CacUploadStep
+          fileInputRef={fileInputRef}
+          filePreview={filePreview}
+          onBack={() => setCacStep('confirm')}
+          onFileChange={handleFileChange}
+          onUpload={handleUpload}
+          selectedFile={selectedFile}
+          uploading={uploading}
+        />
       )}
 
       {cacStep === 'result' &&

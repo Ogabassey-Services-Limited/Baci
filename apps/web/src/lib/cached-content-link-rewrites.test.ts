@@ -32,6 +32,8 @@ vi.mock('@/lib/seo-utils', () => ({
   }) => `/${product.categories?.slug ?? 'products'}/${product.slug}`,
 }));
 
+import { cacheLife, cacheTag } from 'next/cache';
+import { getBlogContentLinksCacheTag } from '@/lib/blog-content-link-cache-tags';
 import { getCachedContentLinkRewrites } from '@/lib/cached-content-link-rewrites';
 
 const ARCHIVED_UUID = '11111111-2222-4333-8444-555555555555';
@@ -103,6 +105,20 @@ describe('getCachedContentLinkRewrites', () => {
     expect(rewrites).toEqual({ blogSlugs: {}, productPaths: {} });
     expect(mockGetPublicSupabaseClient).not.toHaveBeenCalled();
     expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
+  });
+
+  it('sets merchant-scoped remote cache tags', async () => {
+    await getCachedContentLinkRewrites('merchant-1', ['post'], []);
+
+    expect(cacheLife).toHaveBeenCalledWith('merchant');
+    expect(cacheTag).toHaveBeenCalledWith(
+      getBlogContentLinksCacheTag('merchant-1'),
+      'blog-content-links',
+      'product-legacy-redirect',
+      'products-merchant-1',
+      'categories-merchant-1'
+    );
+    expect(vi.mocked(cacheTag).mock.calls.flat()).not.toContain('blog-posts');
   });
 
   it('returns canonical paths for live products and opts into throwing lookups', async () => {

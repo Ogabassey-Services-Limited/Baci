@@ -8,6 +8,7 @@
 
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
+import { isConnectivityError } from '@/lib/api-errors';
 import {
   classifyAuthError,
   getAuthErrorCode,
@@ -22,6 +23,10 @@ import {
   runSocialSignIn,
   type SocialAuthProvider,
 } from '@/lib/auth/social-auth-helper';
+import {
+  runSignupOtpVerification,
+  type VerifySignupOtpResult,
+} from '@/lib/auth/verify-signup-otp';
 import { clearAdminQueryCache } from '@/lib/query-client';
 import { supabase, supabaseAuthStorageKey } from '@/lib/supabase';
 import { trackAuthTelemetry } from '@/services/auth-telemetry';
@@ -49,6 +54,8 @@ interface AuthActions {
   signUp: (params: {
     email: string;
     password: string;
+    firstName?: string;
+    lastName?: string;
     fullName?: string;
   }) => Promise<PasswordSignUpResult>;
   signInWithApple: () => Promise<{ cancelled?: boolean; error: string | null }>;
@@ -56,6 +63,10 @@ interface AuthActions {
     cancelled?: boolean;
     error: string | null;
   }>;
+  verifySignupOtp: (
+    email: string,
+    token: string
+  ) => Promise<VerifySignupOtpResult>;
   signOut: (onBeforeSignOut?: () => Promise<void>) => Promise<void>;
 }
 
@@ -145,8 +156,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
         return { error: null };
       } catch (error) {
-        const message =
-          error instanceof Error
+        const message = isConnectivityError(error)
+          ? 'Unable to connect. Please check your internet connection.'
+          : error instanceof Error
             ? error.message
             : 'Password sign-in failed. Please try again.';
 
@@ -198,6 +210,15 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         setState: (state) => set(state),
       });
     },
+
+    verifySignupOtp: (email: string, token: string) =>
+      runSignupOtpVerification({
+        email,
+        token,
+        getCurrentUserId: () => get().user?.id,
+        onResetUserStores: () => resetUserStores(),
+        setState: (state) => set(state),
+      }),
 
     signOut: async (onBeforeSignOut?: () => Promise<void>) => {
       if (onBeforeSignOut) {

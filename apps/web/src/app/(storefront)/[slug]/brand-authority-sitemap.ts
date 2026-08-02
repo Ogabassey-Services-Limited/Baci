@@ -1,7 +1,9 @@
 import type { MetadataRoute } from 'next';
+import { BRAND_AUTHORITY_PRODUCT_LIMIT } from '@/lib/storefront-category/brand-authority-product-limit';
 import { brandAuthorityPublicData } from '@/lib/storefront-category/brand-authority-public-data';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import { getCachedBrandAuthorityInventory } from '@/lib/storefront-category/get-cached-brand-authority-inventory';
+import { modelFamilyAuthorityTaxonomy } from '@/lib/storefront-category/model-family-authority-taxonomy';
 import type { StorefrontSitemapContext } from './sitemap-data';
 
 export async function getBrandAuthoritySitemapEntries({
@@ -40,9 +42,9 @@ export async function getBrandAuthoritySitemapEntries({
                 entry
               );
               if (inventory.productCount < entry.minimumProducts) {
-                return null;
+                return [];
               }
-              return {
+              const brandEntry = {
                 url: `${storeUrl}/${entry.categorySlug}/brands/${entry.brandKey}`,
                 lastModified: inventory.latestUpdatedAt
                   ? new Date(inventory.latestUpdatedAt)
@@ -50,6 +52,30 @@ export async function getBrandAuthoritySitemapEntries({
                 changeFrequency: 'daily' as const,
                 priority: 0.7,
               };
+              const familyEntries = modelFamilyAuthorityTaxonomy
+                .getEntries(categorySlug, entry.brandKey)
+                .flatMap((family) => {
+                  const matchingProducts = (inventory.products ?? [])
+                    .slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT)
+                    .filter((product) =>
+                      modelFamilyAuthorityTaxonomy.matchesProduct(
+                        family,
+                        product.name
+                      )
+                    );
+                  if (matchingProducts.length < family.minimumProducts) {
+                    return [];
+                  }
+                  return [
+                    {
+                      url: `${brandEntry.url}/families/${family.familyKey}`,
+                      lastModified: brandEntry.lastModified,
+                      changeFrequency: 'daily' as const,
+                      priority: 0.65,
+                    },
+                  ];
+                });
+              return [brandEntry, ...familyEntries];
             } catch (error) {
               console.warn('Failed to load brand authority sitemap entry', {
                 merchantId: merchant.id,
@@ -57,12 +83,10 @@ export async function getBrandAuthoritySitemapEntries({
                 brandKey: entry.brandKey,
                 error,
               });
-              return null;
+              return [];
             }
           })
     )
   );
-  return categoryEntries.filter(
-    (entry): entry is NonNullable<typeof entry> => entry !== null
-  );
+  return categoryEntries.flat();
 }

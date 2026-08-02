@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { BusinessTypeSelector } from '@/components/auth/BusinessTypeSelector';
 
+vi.mock('@react-native-vector-icons/ionicons', () => ({ default: () => null }));
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 

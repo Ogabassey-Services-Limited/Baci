@@ -6,6 +6,7 @@ import {
   createQuizRpcServerProof,
   QuizRpcServerConfigError,
 } from '@/lib/quiz-proof';
+import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz-age-gate-message';
 import {
   QuizAgeGateError,
   QuizUsernameRequiredError,
@@ -35,6 +36,29 @@ export async function requireQuizCsrf(request: NextRequest) {
     return (
       csrf.response ??
       NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
+  return null;
+}
+
+/**
+ * Binds a quiz mutation to the shopper the caller intended. Cookies are ambient
+ * (and a CSRF re-init/retry can pause the request), so an account switch could
+ * otherwise act under the new shopper's session. Returns a 409 when the pinned
+ * `expectedUserId` no longer matches the authenticated user, else null.
+ */
+export function rejectQuizIdentityMismatch(
+  expectedUserId: string | undefined,
+  userId: string
+) {
+  if (expectedUserId !== undefined && expectedUserId !== userId) {
+    return NextResponse.json(
+      {
+        code: 'session_changed',
+        error: 'Your session changed. Please try again.',
+      },
+      { status: 409 }
     );
   }
 
@@ -85,7 +109,7 @@ export function quizAgeGateErrorResponse(error: unknown) {
     return NextResponse.json(
       {
         code: error.code,
-        error: 'Quiz participation requires an adult profile (18+)',
+        error: QUIZ_AGE_RESTRICTED_MESSAGE,
       },
       { status: error.status }
     );

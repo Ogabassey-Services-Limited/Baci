@@ -111,6 +111,15 @@ describe('mobile-admin app config version resolution', () => {
 });
 
 describe('mobile-admin Android release optimization config', () => {
+  it('blocks the unused advertising ID permission added by expo-tracking-transparency', async () => {
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.android?.blockedPermissions).toContain(
+      'com.google.android.gms.permission.AD_ID'
+    );
+  });
+
   it('enables R8 code minification and resource shrinking during prebuild', async () => {
     const { default: buildConfig } = await import('./app.config');
     const config = buildConfig(TEST_CONFIG_CONTEXT);

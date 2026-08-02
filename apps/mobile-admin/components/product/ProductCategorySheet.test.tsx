@@ -1,31 +1,38 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProductCategorySheet } from './ProductCategorySheet';
 
-vi.mock('@/components/ui/AppPageSheet', () => ({
-  AppPageSheet: ({
-    children,
-    footer,
-    onClose,
-    title,
-    visible,
-  }: {
-    children?: React.ReactNode;
-    footer?: React.ReactNode;
-    onClose: () => void;
-    title: string;
-    visible: boolean;
-  }) =>
-    visible ? (
-      <section aria-label={title}>
-        <button aria-label="Close sheet" onClick={onClose} type="button" />
-        {children}
-        {footer}
-      </section>
-    ) : null,
+const nativeState = vi.hoisted(() => ({
+  addNewStyle: null as unknown,
+  appPageSheetProps: null as Record<string, unknown> | null,
 }));
+
+vi.mock('@/components/ui/AppPageSheet', async () => {
+  const React = await import('react');
+  return {
+    AppPageSheet: ({ children, ...props }: Record<string, unknown>) => {
+      nativeState.appPageSheetProps = props;
+      if (!props.visible) return null;
+      return React.createElement(
+        'section',
+        { 'aria-label': 'Product category drawer' },
+        React.createElement('h2', null, String(props.title)),
+        React.createElement(
+          'button',
+          {
+            'aria-label': String(props.closeLabel),
+            onClick: props.onClose as () => void,
+            type: 'button',
+          },
+          'Close'
+        ),
+        children as React.ReactNode
+      );
+    },
+  };
+});
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
@@ -40,18 +47,25 @@ vi.mock('react-native', async () => {
   return {
     StatusBar: () => null,
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
+    Modal: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
     Pressable: ({
       accessibilityLabel,
       children,
       disabled,
       onPress,
+      style,
     }: {
       accessibilityLabel?: string;
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
-    }) =>
-      React.createElement(
+      style?: unknown;
+    }) => {
+      if (accessibilityLabel === 'Add new category') {
+        nativeState.addNewStyle = style;
+      }
+      return React.createElement(
         'button',
         {
           'aria-label': accessibilityLabel,
@@ -60,7 +74,8 @@ vi.mock('react-native', async () => {
           type: 'button',
         },
         children
-      ),
+      );
+    },
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
@@ -100,6 +115,95 @@ describe('ProductCategorySheet', () => {
     textSecondary: '#64748b',
     textOnPrimary: '#ffffff',
   };
+
+  beforeEach(() => {
+    nativeState.addNewStyle = null;
+    nativeState.appPageSheetProps = null;
+  });
+
+  it('uses a bottom drawer with a full-width Add New action', () => {
+    render(
+      <ProductCategorySheet
+        categories={[]}
+        colors={colors}
+        isCreating={false}
+        isSubmittingNewCategory={false}
+        newCategoryName=""
+        onClose={vi.fn()}
+        onCreateCategory={vi.fn()}
+        onNewCategoryNameChange={vi.fn()}
+        onSelect={vi.fn()}
+        onToggleCreateMode={vi.fn()}
+        selectedCategoryId=""
+        visible
+      />
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'Product category drawer' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Select Category')).toBeInTheDocument();
+    expect(nativeState.appPageSheetProps).toMatchObject({
+      closeLabel: 'Close category sheet',
+      scrollEnabled: true,
+      title: 'Select Category',
+      visible: true,
+    });
+    expect(nativeState.addNewStyle).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ minHeight: 52, width: '100%' }),
+      ])
+    );
+  });
+
+  it('routes close behavior through the shared sheet', () => {
+    const onClose = vi.fn();
+    render(
+      <ProductCategorySheet
+        categories={[]}
+        colors={colors}
+        isCreating={false}
+        isSubmittingNewCategory={false}
+        newCategoryName=""
+        onClose={onClose}
+        onCreateCategory={vi.fn()}
+        onNewCategoryNameChange={vi.fn()}
+        onSelect={vi.fn()}
+        onToggleCreateMode={vi.fn()}
+        selectedCategoryId=""
+        visible
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close category sheet' })
+    );
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('renders nothing when not visible', () => {
+    render(
+      <ProductCategorySheet
+        categories={[]}
+        colors={colors}
+        isCreating={false}
+        isSubmittingNewCategory={false}
+        newCategoryName=""
+        onClose={vi.fn()}
+        onCreateCategory={vi.fn()}
+        onNewCategoryNameChange={vi.fn()}
+        onSelect={vi.fn()}
+        onToggleCreateMode={vi.fn()}
+        selectedCategoryId=""
+        visible={false}
+      />
+    );
+
+    expect(
+      screen.queryByRole('region', { name: 'Product category drawer' })
+    ).not.toBeInTheDocument();
+  });
 
   it('renders categories and selects one', () => {
     const onSelect = vi.fn();

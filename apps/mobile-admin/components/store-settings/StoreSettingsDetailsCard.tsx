@@ -2,24 +2,50 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import {
   Pressable,
   type StyleProp,
-  StyleSheet,
   Text,
   TextInput,
   type TextStyle,
   View,
   type ViewStyle,
 } from 'react-native';
+import type { CountryCode } from 'react-native-country-picker-modal';
+import { COUNTRIES } from '@/constants/countries';
 import type { ThemeColors } from '@/constants/theme';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { StoreSettingsAddressField } from './StoreSettingsAddressField';
+import { storeSettingsDetailsStyles as styles } from './StoreSettingsDetailsCard.styles';
+import { StoreSettingsPhoneField } from './StoreSettingsPhoneField';
 import { StoreUrlSection } from './StoreUrlSection';
+
+function isSupportedCountryCode(code: string): code is CountryCode {
+  return COUNTRIES.some((country) => country.code === code);
+}
+
+function resolvePhoneCountryCode(country: string): CountryCode {
+  const normalizedCode = country.trim().toUpperCase();
+  if (isSupportedCountryCode(normalizedCode)) {
+    return normalizedCode;
+  }
+
+  const normalizedName = country.trim().toLocaleLowerCase();
+  const matchingCountry = COUNTRIES.find(
+    (candidate) => candidate.name.toLocaleLowerCase() === normalizedName
+  );
+
+  return matchingCountry && isSupportedCountryCode(matchingCountry.code)
+    ? matchingCountry.code
+    : 'NG';
+}
 
 interface StoreSettingsDetailsCardProps {
   address: string;
   businessName: string;
   colors: ThemeColors;
+  countryCode: string;
   countryLabel: string;
   currency: string;
   email: string;
+  googleMapsApiKey: string | undefined;
+  isDark: boolean;
   onAddressChange: (text: string) => void;
   onBusinessNameChange: (text: string) => void;
   onEmailChange: (text: string) => void;
@@ -38,9 +64,12 @@ export function StoreSettingsDetailsCard({
   address,
   businessName,
   colors,
+  countryCode,
   countryLabel,
   currency,
   email,
+  googleMapsApiKey,
+  isDark,
   onAddressChange,
   onBusinessNameChange,
   onEmailChange,
@@ -54,6 +83,7 @@ export function StoreSettingsDetailsCard({
   slug,
   supportPhone,
 }: StoreSettingsDetailsCardProps) {
+  const phoneCountryCode = resolvePhoneCountryCode(countryCode);
   const sharedInputStyle: StyleProp<TextStyle> = [
     styles.input,
     {
@@ -81,39 +111,29 @@ export function StoreSettingsDetailsCard({
         />
       </View>
 
-      <View
-        style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}
-      >
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Phone Number
-        </Text>
-        <TextInput
-          accessibilityLabel="Phone Number"
-          keyboardType="phone-pad"
-          onChangeText={onPhoneChange}
-          placeholder="Enter phone number"
-          placeholderTextColor={colors.textMuted}
-          style={sharedInputStyle}
-          value={phone}
-        />
-      </View>
+      <StoreSettingsPhoneField
+        accessibilityLabel="Phone Number"
+        colors={colors}
+        countryCode={phoneCountryCode}
+        isDark={isDark}
+        label="Phone Number"
+        onChange={onPhoneChange}
+        placeholder="Enter phone number"
+        shadowStyle={shadowStyle}
+        value={phone}
+      />
 
-      <View
-        style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}
-      >
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Support Phone
-        </Text>
-        <TextInput
-          accessibilityLabel="Support Phone"
-          keyboardType="phone-pad"
-          onChangeText={onSupportPhoneChange}
-          placeholder="Enter support phone number"
-          placeholderTextColor={colors.textMuted}
-          style={sharedInputStyle}
-          value={supportPhone}
-        />
-      </View>
+      <StoreSettingsPhoneField
+        accessibilityLabel="Support Phone"
+        colors={colors}
+        countryCode={phoneCountryCode}
+        isDark={isDark}
+        label="Support Phone"
+        onChange={onSupportPhoneChange}
+        placeholder="Enter support phone number"
+        shadowStyle={shadowStyle}
+        value={supportPhone}
+      />
 
       <View
         style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}
@@ -133,24 +153,14 @@ export function StoreSettingsDetailsCard({
         />
       </View>
 
-      <View
-        style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}
-      >
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Business Address
-        </Text>
-        <TextInput
-          accessibilityLabel="Business Address"
-          multiline
-          numberOfLines={3}
-          onChangeText={onAddressChange}
-          placeholder="Enter business address"
-          placeholderTextColor={colors.textMuted}
-          style={[sharedInputStyle, styles.multilineInput]}
-          textAlignVertical="top"
-          value={address}
-        />
-      </View>
+      <StoreSettingsAddressField
+        address={address}
+        colors={colors}
+        countryCode={phoneCountryCode}
+        googleMapsApiKey={googleMapsApiKey}
+        onAddressChange={onAddressChange}
+        shadowStyle={shadowStyle}
+      />
 
       <View
         style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}
@@ -217,43 +227,3 @@ export function StoreSettingsDetailsCard({
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.lg,
-    padding: SPACING.lg,
-  },
-  label: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-    marginBottom: SPACING.sm,
-  },
-  input: {
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    fontSize: TYPOGRAPHY.size.md,
-    padding: SPACING.md,
-  },
-  multilineInput: {
-    minHeight: 80,
-  },
-  regionGroup: {
-    gap: SPACING.md,
-  },
-  sublabel: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-    marginBottom: SPACING.xs,
-  },
-  readOnlyInput: {
-    alignItems: 'center',
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    height: 48,
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md,
-  },
-});

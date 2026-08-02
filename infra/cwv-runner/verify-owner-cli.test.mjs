@@ -1,0 +1,300 @@
+// biome-ignore-all lint/suspicious/noTemplateCurlyInString: shell fixture contains literal environment expansion
+// biome-ignore-all lint/suspicious/noUselessEscapeInString: shell fixture keeps quoted case patterns explicit
+// biome-ignore-all format: compact fixed-tool fixtures stay below the repository file limit
+import assert from 'node:assert/strict'; import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto'; import { chmod, copyFile, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os'; import path from 'node:path'; import test, { after } from 'node:test';
+
+const directory = path.dirname(new URL(import.meta.url).pathname); const darwinTest = process.platform === 'darwin' ? test : test.skip;
+const verifierPath = path.join(directory, 'verify-owner-cli.sh'); const dispatcherPath = path.join(directory, 'owner-dispatch.sh');
+const fixtureRoots = new Set(); after(async () => { await Promise.all([...fixtureRoots].map((root) => rm(root, { force: true, recursive: true }))); });
+const digest = (value) => createHash('sha256').update(value).digest('hex');
+const task7Operations = ['set-auditor-private-key', 'set-auditor-app-id', 'set-auditor-client-id', 'set-auditor-installation-id', 'read-auditor-app-registration', 'read-repository-retention', 'read-rollout-ruleset', 'create-owned-probe-tag-object', 'create-owned-probe-ref', 'read-owned-probe-ref', 'rollback-owned-probe-ref', 'upsert-rollout-ruleset', 'assert-owned-probe-duplicate-create', 'assert-owned-probe-update', 'assert-owned-probe-force-update', 'assert-owned-probe-delete'];
+const rulesetJournalFiles = ['ruleset-mutation-intent.json', 'ruleset-variable-publication-intent.json', 'ruleset-variable-id-published.json', 'ruleset-variable-sha-published.json', 'ruleset-variable-publication-complete.json'];
+const canonical = (value) => {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && Object.getPrototypeOf(value) === Object.prototype) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+};
+async function fixture(additionalChecksumRows = '') {
+  const temporaryRoot = await realpath(tmpdir());
+  const root = await mkdtemp(path.join(temporaryRoot, 'baci-cwv-owner-test-'));
+  fixtureRoots.add(root);
+  await chmod(root, 0o700);
+  const verifier = path.join(root, 'verify-owner-cli.sh');
+  const dispatcher = path.join(root, 'owner-dispatch.sh');
+  const fixtureVerifier = (await readFile(verifierPath, 'utf8')).replace('/private/tmp/baci-cwv-*', path.join(temporaryRoot, 'baci-cwv-owner-test-*'));
+  const fixtureDispatcher = (await readFile(dispatcherPath, 'utf8')).replace('/private/tmp/baci-cwv-*', path.join(temporaryRoot, 'baci-cwv-owner-test-*'));
+  await Promise.all([writeFile(verifier, fixtureVerifier, { mode: 0o500 }), writeFile(dispatcher, fixtureDispatcher, { mode: 0o500 })]);
+  await Promise.all([chmod(verifier, 0o500), chmod(dispatcher, 0o500)]);
+  const archiveName = 'gh_2.93.0_macOS_arm64.zip';
+  const archive = path.join(root, 'gh.tar.gz');
+  const binary = path.join(root, 'tools/gh/bin/gh');
+  await import('node:fs/promises').then(({ mkdir }) => mkdir(path.dirname(binary), { recursive: true, mode: 0o700 }));
+  const fakeGh = Buffer.from('#!/bin/sh\n[ -z "${FAKE_GH_LOG-}" ] || printf \'%s\\n\' "$*" >>"$FAKE_GH_LOG"\ncase "$*" in (*\"variable set H0_RUNNER_RULESET_\"*) case "$*" in (*\"H0_RUNNER_RULESET_ID\"*) variable=id;; (*) variable=sha;; esac; case "$*" in (*\"--body -\"*) value=-;; (*) value=$(/bin/cat);; esac; /usr/bin/printf \'stdin:%s\\n\' "$value" >>"$FAKE_GH_LOG"; [ "${FAKE_RULESET_VARIABLE_FAILURE-}" != "$variable" ] || exit 1;; esac\nif [ "$1" = --version ]; then printf \'gh version 2.93.0 (fixture)\\nhttps://github.com/cli/cli/releases/tag/v2.93.0\\n\'; elif [ -n "${FAKE_REFUSAL-}" ]; then case "$*" in (*--include*) :;; (*) exit 72;; esac; case "$*" in (*\"--method POST\"*) docs=create-a-reference;; (*\"--method PATCH\"*) docs=update-a-reference;; (*\"--method DELETE\"*) docs=delete-a-reference;; (*) exit 73;; esac; case "$FAKE_REFUSAL" in (valid) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\ncontent-type: application/json\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (wrong-status) printf \'HTTP/2.0 403 Forbidden\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"403"}\\n\' "$docs"; exit 1;; (wrong-message) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Validation Failed","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (wrong-docs) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#create-a-reference","status":"422"}\\n\'; exit 1;; (wrong-field) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":422}\\n\' "$docs"; exit 1;; (redirect) printf \'HTTP/2.0 302 Found\\r\\nlocation: https://api.github.com/elsewhere\\r\\n\\r\\nHTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (auth) printf \'HTTP/2.0 401 Unauthorized\\r\\n\\r\\n{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest","status":"401"}\\n\'; exit 1;; (transport) exit 1;; (*) exit 75;; esac; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method GET.*rulesets/[0-9]\'; then case "$*" in (*rulesets/17*) ruleset_id=17;; (*) ruleset_id=18;; esac; printf \'{"id":%s,"name":"ogabassey-rollout-progress-immutable","target":"tag","enforcement":"active","bypass_actors":[],"conditions":{"ref_name":{"include":["refs/tags/ogabassey-rollout-claim/*","refs/tags/ogabassey-rollout-progress/**/*","refs/tags/ogabassey-semantic-admission/*"],"exclude":[]}},"rules":[{"type":"update"},{"type":"deletion"}]}\\n\' "$ruleset_id"; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method GET.*rulesets\'; then case "$*" in (*\'?per_page=100&page=1\'*) page=1;; (*\'?per_page=100&page=2\'*) page=2;; (*\'?per_page=100&page=3\'*) page=3;; (*) exit 74;; esac; case "${FAKE_RULESET_MODE-}:$page" in (existing-page-2:1) printf \'[{"id":7,"name":"other"}]\\n\';; (existing-page-2:2) printf \'[{"id":17,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (existing-page-2:3) printf \'[]\\n\';; (duplicate-pages:1) printf \'[{"id":17,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (duplicate-pages:2) printf \'[{"id":19,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (duplicate-pages:3) printf \'[]\\n\';; (*:1) printf \'[]\\n\';; (*) exit 75;; esac; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method PATCH.*rulesets/17\'; then printf \'{"id":17}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method POST.*rulesets\'; then printf \'{"id":18}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q \'/git/tags\'; then printf \'{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q \'probe-2-ref-request.json\'; then printf \'{"ref":"refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1","object":{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}\\n\'; else printf \'%s\\n\' "$*"; fi\n');
+  const fakeGhBody = fakeGh.toString().replace('variable set H0_RUNNER_RULESET_', 'variable set ').replace("else printf '%s\\n' \"$*\"; fi\n", "elif printf '%s' \"$*\" | /usr/bin/grep -q '/git/refs'; then case \"$*\" in (*probe-0*) printf '{\"ref\":\"refs/tags/ogabassey-rollout-claim/h0-runner-ruleset-probe-v1\",\"object\":{\"sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}\\n';; (*probe-1*) printf '{\"ref\":\"refs/tags/ogabassey-rollout-progress/h0-runner-ruleset-probe-v1/start\",\"object\":{\"sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}\\n';; (*) printf '{\"ref\":\"refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1\",\"object\":{\"sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}\\n';; esac; else printf '%s\\n' \"$*\"; fi\n");
+  await Promise.all([writeFile(binary, fakeGhBody, { mode: 0o500 }), writeFile(archive, 'fixture archive', { mode: 0o400 })]);
+  const archiveSha256 = digest(await readFile(archive));
+  const checksums = path.join(root, 'gh-checksums.txt');
+  const checksumBytes = Buffer.from(`${archiveSha256}  ${archiveName}\n${additionalChecksumRows}`);
+  await writeFile(checksums, checksumBytes, { mode: 0o400 });
+  const policy = path.join(root, 'policy.json');
+  const policyBytes = Buffer.from(canonical({
+      repository: { id: 1100488586, name: 'ogabasseyy/Baci' },
+      authority: { deploymentMarker: '1_1_aaaaaaaaaaaaaaaaaaaa', deploymentRunAttempt: 1, deploymentRunId: 1, implementationBaseSha: 'a'.repeat(40), normativeContractPath: 'docs/contract.md', normativeContractSha256: 'b'.repeat(64) },
+      ruleset: {
+        bypassActors: [], enforcement: 'active', name: 'ogabassey-rollout-progress-immutable', rules: ['update', 'deletion'],
+        tagExcludes: [], tagIncludes: 'refs/tags/ogabassey-rollout-claim/*|refs/tags/ogabassey-rollout-progress/**/*|refs/tags/ogabassey-semantic-admission/*', target: 'tag',
+      },
+      supplyChain: { node: { ownerDarwinArm64Sha256: '1'.repeat(64), version: '24.18.0' } },
+      supplyChainProvenance: { ownerCli: { archiveSha256, binarySha256: digest(fakeGhBody), checksumsSha256: digest(checksumBytes), version: '2.93.0' } },
+    }));
+  await writeFile(policy, policyBytes, { mode: 0o400 });
+  const sourceManifest = path.join(root, 'source-manifest.json');
+  const manifestBytes = Buffer.from(canonical({
+      authority: { deploymentMarker: '1_1_aaaaaaaaaaaaaaaaaaaa', deploymentRunAttempt: 1, deploymentRunId: 1, implementationBaseSha: 'a'.repeat(40), normativeContractPath: 'docs/contract.md', normativeContractSha256: 'b'.repeat(64) }, baseSha: 'c'.repeat(40), entries: [{ blobSha256: digest(await readFile(dispatcher)), mode: '100755', path: 'infra/cwv-runner/owner-dispatch.sh', status: 'M' }],
+      policyCanonicalSha256: digest(policyBytes), policyFileSha256: digest(policyBytes), prNumber: 3218, reviewedHeadSha: 'd'.repeat(40),
+      schemaVersion: 'preflight-v1',
+      sourceArchive: {
+        prefix: 'infra/cwv-runner/', entries: [{ blobSha256: digest('unrelated-before'), mode: '100644', path: 'infra/cwv-runner/Dockerfile' }, { blobSha256: digest(await readFile(dispatcher)), mode: '100755', path: 'infra/cwv-runner/owner-dispatch.sh' }, { blobSha256: digest(policyBytes), mode: '100644', path: 'infra/cwv-runner/policy.json' }, { blobSha256: digest(await readFile(verifier)), mode: '100755', path: 'infra/cwv-runner/verify-owner-cli.sh' }, { blobSha256: digest('unrelated-after'), mode: '100644', path: 'infra/cwv-runner/verify-owner-cli.test.mjs' }],
+      },
+    }));
+  await writeFile(sourceManifest, manifestBytes, { mode: 0o400 });
+  return {
+    archive,
+    binary,
+    checksums,
+    dispatcher,
+    manifestSha256: digest(manifestBytes),
+    policy,
+    root,
+    sourceManifest,
+    verifier,
+  };
+}
+test('creates owner verifier fixtures in the runtime temporary directory', async () => { const value = await fixture(); assert.equal(path.dirname(value.root), await realpath(tmpdir())); });
+darwinTest('accepts GitHub duplicate-reference refusal for a retained probe', async () => { const value = await duplicateExistingFixture(); const { common, sourceReceipt } = task7(value); assert.equal(run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset']).status, 0); assert.equal(run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-tag-object', '--probe-id', '2']).status, 0); assert.equal(run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-ref', '--probe-id', '2']).status, 0); const ref = 'refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1'; await writeFile(path.join(value.root, 'task7-probe-2.json'), canonical({ schemaVersion: 1, policyFileSha256: digest(await readFile(value.policy)), sourceAuthorizationSha256: digest(await readFile(sourceReceipt)), ref, targetSha: 'a'.repeat(40), objectSha: 'b'.repeat(40) }), { mode: 0o400 }); const result = run(value.verifier, [...common, '--exec-gh-operation', 'assert-owned-probe-duplicate-create', '--probe-id', '2'], undefined, { FAKE_DUPLICATE_EXISTS: '1' }); assert.equal(result.status, 0, result.stderr); });
+darwinTest('accepts GitHub rule-detail refusals for retained probe update and deletion', async () => { const value = await ruleDetailFixture(); const { common, sourceReceipt } = task7(value); assert.equal(run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset']).status, 0); assert.equal(run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-tag-object', '--probe-id', '2']).status, 0); assert.equal(run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-ref', '--probe-id', '2']).status, 0); const ref = 'refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1'; await writeFile(path.join(value.root, 'task7-probe-2.json'), canonical({ schemaVersion: 1, policyFileSha256: digest(await readFile(value.policy)), sourceAuthorizationSha256: digest(await readFile(sourceReceipt)), ref, targetSha: 'a'.repeat(40), objectSha: 'b'.repeat(40) }), { mode: 0o400 }); for (const [operation, detail] of [['assert-owned-probe-update', 'update'], ['assert-owned-probe-delete', 'delete'], ['assert-owned-probe-delete', 'delete-tag']]) { const result = run(value.verifier, [...common, '--exec-gh-operation', operation, '--probe-id', '2'], undefined, { FAKE_RULE_DETAIL: detail }); assert.equal(result.status, 0, `${operation}/${detail}: ${result.stderr}`); if (detail === 'delete') await Promise.all(['wire', 'body.json', 'stderr'].map((suffix) => rm(path.join(value.root, `probe-2-delete-refusal.${suffix}`)))); } });
+function run(file, args, input, extraEnv = {}) { return spawnSync(file, args, { encoding: 'utf8', env: { ...extraEnv, LC_ALL: 'C', PATH: '/hostile/path', TZ: 'UTC' }, input }); }
+function task7(value) { const sourceReceipt = path.join(value.root, 'source-authorization.json'); const sourceDigest = path.join(value.root, 'source-authorization.sha256'); assert.equal(run(value.verifier, ['--verify-source', '--manifest', value.sourceManifest, '--manifest-sha256', value.manifestSha256, '--policy', value.policy, '--dispatcher', value.dispatcher, '--verifier', value.verifier, '--purpose', 'task7-provisioning', '--output-receipt', sourceReceipt, '--output-digest', sourceDigest]).status, 0); return { common: ['--policy', value.policy, '--checksum-file', value.checksums, '--archive', value.archive, '--receipt', path.join(value.root, 'gh-receipt.json'), '--source-authorization', sourceReceipt, '--source-authorization-sha256', sourceDigest, '--purpose', 'task7-provisioning'], sourceReceipt }; }
+async function sourceMutationStatus(mutate, bytes = canonical) { const value = await fixture(); const manifest = JSON.parse(await readFile(value.sourceManifest, 'utf8')); mutate(manifest); const changed = Buffer.from(bytes(manifest)); await chmod(value.sourceManifest, 0o600); await writeFile(value.sourceManifest, changed); await chmod(value.sourceManifest, 0o400); return run(value.verifier, ['--verify-source', '--manifest', value.sourceManifest, '--manifest-sha256', digest(changed), '--policy', value.policy, '--dispatcher', value.dispatcher, '--verifier', value.verifier, '--purpose', 'task7-provisioning', '--output-receipt', path.join(value.root, 'source-authorization.json'), '--output-digest', path.join(value.root, 'source-authorization.sha256')]); }
+async function hardeningFixture() { const value = await fixture(); let binary = await readFile(value.binary, 'utf8'); binary = binary.replace('#!/bin/sh\n', '#!/bin/sh\nif [ -n "${FAKE_RULESET_EXPECTED_JOURNAL-}" ] && printf \'%s\' "$*" | /usr/bin/grep -q -- \'variable set H0_RUNNER_RULESET_\'; then [ -f "$FAKE_RULESET_JOURNAL_ROOT/$FAKE_RULESET_EXPECTED_JOURNAL" ] || exit 91; fi\nif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method GET.*rulesets/[0-9]\'; then case "${FAKE_RULESET_READBACK-}" in (transport) exit 1;; (extra-condition) printf \'{"id":18,"name":"ogabassey-rollout-progress-immutable","target":"tag","enforcement":"active","bypass_actors":[],"conditions":{"ref_name":{"include":["refs/tags/ogabassey-rollout-claim/*","refs/tags/ogabassey-rollout-progress/**/*","refs/tags/ogabassey-semantic-admission/*"],"exclude":[],"extra":true}},"rules":[{"type":"update"},{"type":"deletion"}]}\\n\'; exit;; (extra-rule) printf \'{"id":18,"name":"ogabassey-rollout-progress-immutable","target":"tag","enforcement":"active","bypass_actors":[],"conditions":{"ref_name":{"include":["refs/tags/ogabassey-rollout-claim/*","refs/tags/ogabassey-rollout-progress/**/*","refs/tags/ogabassey-semantic-admission/*"],"exclude":[]}},"rules":[{"type":"update","parameters":{}},{"type":"deletion"}]}\\n\'; exit;; esac; fi\n'); await chmod(value.binary, 0o700); await writeFile(value.binary, binary); await chmod(value.binary, 0o500); const policy = JSON.parse(await readFile(value.policy, 'utf8')); policy.supplyChainProvenance.ownerCli.binarySha256 = digest(binary); const policyBytes = canonical(policy); await chmod(value.policy, 0o600); await writeFile(value.policy, policyBytes, { mode: 0o400 }); const manifest = JSON.parse(await readFile(value.sourceManifest, 'utf8')); manifest.policyCanonicalSha256 = digest(policyBytes); manifest.policyFileSha256 = digest(policyBytes); manifest.sourceArchive.entries.find((entry) => entry.path === 'infra/cwv-runner/policy.json').blobSha256 = digest(policyBytes); const manifestBytes = canonical(manifest); await chmod(value.sourceManifest, 0o600); await writeFile(value.sourceManifest, manifestBytes, { mode: 0o400 }); value.manifestSha256 = digest(manifestBytes); return value; }
+async function mutationFixture() { const value = await hardeningFixture(); let binary = await readFile(value.binary, 'utf8'); binary = binary.replace('#!/bin/sh\n', '#!/bin/sh\ncase "$*" in (*"--method POST"*rulesets*|*"--method PATCH"*rulesets*) case "${FAKE_RULESET_MUTATION-}" in (transport) exit 1;; (missing-id) printf \'{}\\n\'; exit;; esac;; esac\nif [ "${FAKE_RULESET_READBACK-}" = reversed ] && printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method GET.*rulesets/[0-9]\'; then printf \'{"id":18,"name":"ogabassey-rollout-progress-immutable","target":"tag","enforcement":"active","bypass_actors":[],"conditions":{"ref_name":{"exclude":[],"include":["refs/tags/ogabassey-rollout-claim/*","refs/tags/ogabassey-rollout-progress/**/*","refs/tags/ogabassey-semantic-admission/*"]}},"rules":[{"type":"update"},{"type":"deletion"}]}\\n\'; exit; fi\n'); await chmod(value.binary, 0o700); await writeFile(value.binary, binary); await chmod(value.binary, 0o500); const policy = JSON.parse(await readFile(value.policy, 'utf8')); policy.supplyChainProvenance.ownerCli.binarySha256 = digest(binary); const policyBytes = canonical(policy); await chmod(value.policy, 0o600); await writeFile(value.policy, policyBytes, { mode: 0o400 }); const manifest = JSON.parse(await readFile(value.sourceManifest, 'utf8')); manifest.policyCanonicalSha256 = digest(policyBytes); manifest.policyFileSha256 = digest(policyBytes); manifest.sourceArchive.entries.find((entry) => entry.path === 'infra/cwv-runner/policy.json').blobSha256 = digest(policyBytes); const manifestBytes = canonical(manifest); await chmod(value.sourceManifest, 0o600); await writeFile(value.sourceManifest, manifestBytes, { mode: 0o400 }); value.manifestSha256 = digest(manifestBytes); return value; }
+async function duplicateExistingFixture() { const value = await hardeningFixture(); let binary = await readFile(value.binary, 'utf8'); binary = binary.replace('#!/bin/sh\n', '#!/bin/sh\nif [ "${FAKE_DUPLICATE_EXISTS-}" = 1 ] && printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method POST.*git/refs\'; then printf \'HTTP/2.0 422 Unprocessable Entity\\r\\ncontent-type: application/json\\r\\n\\r\\n{"message":"Reference already exists","documentation_url":"https://docs.github.com/rest/git/refs#create-a-reference","status":"422"}\\n\'; exit 1; fi\n'); await chmod(value.binary, 0o700); await writeFile(value.binary, binary); await chmod(value.binary, 0o500); const policy = JSON.parse(await readFile(value.policy, 'utf8')); policy.supplyChainProvenance.ownerCli.binarySha256 = digest(binary); const policyBytes = canonical(policy); await chmod(value.policy, 0o600); await writeFile(value.policy, policyBytes, { mode: 0o400 }); const manifest = JSON.parse(await readFile(value.sourceManifest, 'utf8')); manifest.policyCanonicalSha256 = digest(policyBytes); manifest.policyFileSha256 = digest(policyBytes); manifest.sourceArchive.entries.find((entry) => entry.path === 'infra/cwv-runner/policy.json').blobSha256 = digest(policyBytes); const manifestBytes = canonical(manifest); await chmod(value.sourceManifest, 0o600); await writeFile(value.sourceManifest, manifestBytes, { mode: 0o400 }); value.manifestSha256 = digest(manifestBytes); return value; }
+async function ruleDetailFixture() { const value = await hardeningFixture(); let binary = await readFile(value.binary, 'utf8'); binary = binary.replace('#!/bin/sh\n', '#!/bin/sh\nif [ -n "${FAKE_RULE_DETAIL-}" ]; then case "$*:FAKE_RULE_DETAIL=$FAKE_RULE_DETAIL" in (*"--method PATCH"*:FAKE_RULE_DETAIL=update) docs=update-a-reference; message="Cannot update this protected ref.";; (*"--method DELETE"*:FAKE_RULE_DETAIL=delete) docs=delete-a-reference; message="Cannot delete this protected ref.";; (*"--method DELETE"*:FAKE_RULE_DETAIL=delete-tag) docs=delete-a-reference; message="Cannot delete this tag";; (*) docs=;; esac; if [ -n "$docs" ]; then printf \'HTTP/2.0 422 Unprocessable Entity\\r\\ncontent-type: application/json\\r\\n\\r\\n{"message":"Repository rule violations found\\\\n\\\\n%s\\\\n\\\\n","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$message" "$docs"; exit 1; fi; fi\n'); await chmod(value.binary, 0o700); await writeFile(value.binary, binary); await chmod(value.binary, 0o500); const policy = JSON.parse(await readFile(value.policy, 'utf8')); policy.supplyChainProvenance.ownerCli.binarySha256 = digest(binary); const policyBytes = canonical(policy); await chmod(value.policy, 0o600); await writeFile(value.policy, policyBytes, { mode: 0o400 }); const manifest = JSON.parse(await readFile(value.sourceManifest, 'utf8')); manifest.policyCanonicalSha256 = digest(policyBytes); manifest.policyFileSha256 = digest(policyBytes); manifest.sourceArchive.entries.find((entry) => entry.path === 'infra/cwv-runner/policy.json').blobSha256 = digest(policyBytes); const manifestBytes = canonical(manifest); await chmod(value.sourceManifest, 0o600); await writeFile(value.sourceManifest, manifestBytes, { mode: 0o400 }); value.manifestSha256 = digest(manifestBytes); return value; }
+test('uses only fixed macOS tools and exposes the closed verifier modes', async () => {
+  const [verifier, dispatcher] = await Promise.all([
+    readFile(verifierPath, 'utf8'),
+    readFile(dispatcherPath, 'utf8'),
+  ]);
+  for (const mode of ['--verify-source', '--verify-only', '--exec-gh-operation'])
+    assert.match(verifier, new RegExp(mode));
+  for (const tool of ['/usr/bin/plutil', '/usr/bin/shasum', '/usr/bin/stat'])
+    assert.match(verifier, new RegExp(tool));
+  assert.doesNotMatch(verifier, /command -v|\/opt\/homebrew|\beval\b|--input -/);
+  assert.doesNotMatch(verifier, /H0_RUNNER_RULESET_(?:ID|SHA256).*--body -/);
+  assert.doesNotMatch(verifier, /BACI_CWV_RUNNER_AUDITOR_(?:APP_ID|CLIENT_ID|INSTALLATION_ID).*--body -/);
+  assert.match(verifier, /ruleset_active\(\)[\s\S]*ruleset_reconciliation_closed/);
+  assert.match(dispatcher, /task7_op upsert-rollout-ruleset[\s\S]*task7_activated=1/);
+  assert.doesNotMatch(verifier, /--paginate|--slurp/);
+  assert.match(verifier, /Repository rule violations found/);
+  assert.match(verifier, /create-a-reference.*update-a-reference.*delete-a-reference/s);
+  assert.doesNotMatch(verifier, /expect_refusal\(\).*\/dev\/null/);
+  assert.doesNotMatch(dispatcher, /gh --paginate/); const evalSites = dispatcher.match(/"\$node" --input-type=module --eval '[^']+'[^\n]*3<"\$manifest"/g) ?? []; assert.equal(evalSites.length, 2); for (const site of evalSites) assert.match(site, /fstatSync\(3\).*lstatSync\(manifest\).*same\(held,current\).*readFileSync\(3\).*data:text\/javascript;base64.*runTask9SourceAuthorizationCli/s); assert.doesNotMatch(evalSites.reduce((source, site) => source.replace(site, ''), dispatcher), /\beval\b/);
+  assert.match(dispatcher, /--prepare-task9-bootstrap-node/);
+  assert.match(dispatcher, /--task9-operation/);
+  const preparation = dispatcher.slice(
+    dispatcher.indexOf('prepare_gh()'),
+    dispatcher.indexOf('task9()')
+  );
+  assert.doesNotMatch(preparation, /auth token|GITHUB_TOKEN|GH_TOKEN/);
+  assert.match(dispatcher, /--emit-task9-token[\s\S]*"--token-fd","0"/);
+  assert.doesNotMatch(dispatcher, /"\$gh" auth token/);
+  assert.match(verifier, /ruleset\.rules\.0.*= update.*ruleset\.rules\.1.*= deletion/);
+  assert.doesNotMatch(verifier, /"type":"creation"|= creation/);
+  assert.match(verifier, /private-key\.pem.*<"\$input"/); assert.match(verifier, /case "\$root" in \(\/private\/tmp\/baci-cwv-\*\)/);
+  for (const operation of task7Operations.slice(8)) assert.match(verifier, new RegExp(operation));
+});
+darwinTest('renders pipe-delimited ruleset includes as the exact GitHub array', async () => { const value = await fixture(); const { common } = task7(value); const result = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset']); assert.equal(result.status, 0, result.stderr); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-request.json'), 'utf8')).conditions.ref_name.include, ['refs/tags/ogabassey-rollout-claim/*', 'refs/tags/ogabassey-rollout-progress/**/*', 'refs/tags/ogabassey-semantic-admission/*']); });
+test('claims both source-authorization destinations without mv no-clobber ambiguity', async () => { const verifier = await readFile(verifierPath, 'utf8'); for (const writer of [verifier.slice(verifier.indexOf('write_atomic()'), verifier.indexOf('\nwrite_digest()')), verifier.slice(verifier.indexOf('write_digest()'), verifier.indexOf('\noperation_set()'))]) { assert.match(writer, /\/bin\/ln "\$temporary" "\$destination" \|\| refuse/); assert.match(writer, /\/bin\/rm -f -- "\$temporary" \|\| refuse/); assert.doesNotMatch(writer, /\/bin\/mv -n/); } });
+darwinTest('refuses malformed middle archive rows before a duplicate governed member', async () => { const result = await sourceMutationStatus((manifest) => { const row = manifest.sourceArchive.entries.find((entry) => entry.path.endsWith('/owner-dispatch.sh')); const insertion = manifest.sourceArchive.entries.findIndex((entry) => entry.path.endsWith('/verify-owner-cli.sh')) + 1; manifest.sourceArchive.entries.splice(insertion, 0, { blobSha256: 'e'.repeat(64), mode: '100644' }, { ...row }); }); assert.notEqual(result.status, 0); });
+darwinTest('refuses incomplete or noncanonical preflight identity', async () => { assert.notEqual((await sourceMutationStatus((manifest) => { delete manifest.prNumber; })).status, 0); assert.notEqual((await sourceMutationStatus(() => undefined, (manifest) => JSON.stringify(manifest, null, 2))).status, 0); });
+darwinTest('creates and revalidates one task7 source authorization', async () => {
+  const value = await fixture();
+  const receipt = path.join(value.root, 'source-authorization.json');
+  const receiptDigest = path.join(value.root, 'source-authorization.sha256');
+  const result = run(value.verifier, [
+    '--verify-source',
+    '--manifest',
+    value.sourceManifest,
+    '--manifest-sha256',
+    value.manifestSha256,
+    '--policy',
+    value.policy,
+    '--dispatcher',
+    value.dispatcher,
+    '--verifier',
+    value.verifier,
+    '--purpose',
+    'task7-provisioning',
+    '--output-receipt',
+    receipt,
+    '--output-digest',
+    receiptDigest,
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal((await stat(receipt)).mode & 0o777, 0o400);
+  assert.equal((await readFile(receiptDigest, 'utf8')).trim(), digest(await readFile(receipt)));
+  assert.deepEqual(JSON.parse(await readFile(receipt, 'utf8')), {
+    generation: 0,
+    operationSet: task7Operations,
+    operationSetDigest: digest(JSON.stringify(task7Operations)),
+    policyFileSha256: digest(await readFile(value.policy)),
+    provenance: { manifestSha256: value.manifestSha256, nodeProvenanceSha256: null, runtimeSha256: null, sourceArchiveSha256: null },
+    purpose: 'task7-provisioning', schemaVersion: 1, sourceBinding: null,
+    sourceHashes: { bootstrapSha256: null, dispatcherSha256: digest(await readFile(value.dispatcher)), transportSha256: null, verifierSha256: digest(await readFile(value.verifier)) },
+    transactionId: path.basename(value.root),
+  });
+});
+darwinTest('verifies archive, checksum row, binary, and version before rebound exec', async () => {
+  const value = await fixture(`${'b'.repeat(64)}  unrelated-release.zip\n`);
+  const { common, sourceReceipt } = task7(value);
+  const verified = run(value.verifier, [...common, '--verify-only']);
+  assert.equal(verified.status, 0, verified.stderr);
+  const executed = run(value.verifier, [
+    ...common,
+    '--exec-gh-operation',
+    'read-repository-retention',
+  ]);
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^api --method GET /);
+  const rulesetLog = path.join(value.root, 'ruleset-variables.log');
+  const ruleset = run(value.verifier, [
+    ...common,
+    '--exec-gh-operation',
+    'upsert-rollout-ruleset',
+  ], undefined, { FAKE_GH_LOG: rulesetLog });
+  assert.equal(ruleset.status, 0, ruleset.stderr);
+  assert.deepEqual(JSON.parse(ruleset.stdout), { id: 18 });
+  assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-request.json'), 'utf8')), {
+    bypass_actors: [], conditions: { ref_name: { exclude: [], include: ['refs/tags/ogabassey-rollout-claim/*', 'refs/tags/ogabassey-rollout-progress/**/*', 'refs/tags/ogabassey-semantic-admission/*'] } }, enforcement: 'active', name: 'ogabassey-rollout-progress-immutable', rules: [{ type: 'update' }, { type: 'deletion' }], target: 'tag',
+  });
+  const [requestDigest, variableLog] = [digest(await readFile(path.join(value.root, 'ruleset-request.json'))), await readFile(rulesetLog, 'utf8')];
+  assert.match(variableLog, /--method GET .*\/rulesets\/18/); assert.match(variableLog, /variable set H0_RUNNER_RULESET_ID --repo ogabasseyy\/Baci\nstdin:18/); assert.match(variableLog, new RegExp(`variable set H0_RUNNER_RULESET_SHA256 --repo ogabasseyy/Baci\\nstdin:${requestDigest}`));
+  const tag = run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-tag-object', '--probe-id', '2']);
+  assert.equal(tag.status, 0, tag.stderr);
+  const probe = run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-ref', '--probe-id', '2']);
+  assert.equal(probe.status, 0, probe.stderr);
+  assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'probe-2-tag-request.json'), 'utf8')), { message: 'H0 runner ruleset probe', object: 'a'.repeat(40), tag: 'ogabassey-semantic-admission/h0-runner-ruleset-probe-v1', type: 'commit' });
+  assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'probe-2-ref-request.json'), 'utf8')), { ref: 'refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1', sha: 'b'.repeat(40) });
+  await Promise.all(['ruleset-activated.json', 'ruleset-binding.json', 'ruleset-list-1.json', 'ruleset-readback.json', 'ruleset-request.json', 'ruleset-response.json', ...rulesetJournalFiles].map((name) => rm(path.join(value.root, name), { force: true })));
+  const ghLog = path.join(value.root, 'gh-calls.log');
+  const existing = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_GH_LOG: ghLog, FAKE_RULESET_MODE: 'existing-page-2' });
+  assert.equal(existing.status, 0, existing.stderr);
+  assert.deepEqual(JSON.parse(existing.stdout), { id: 17 });
+  assert.equal((await readFile(ghLog, 'utf8')).match(/--method POST.*\/rulesets(?:\s|$)/g)?.length ?? 0, 0);
+  assert.equal((await readFile(ghLog, 'utf8')).match(/--method PATCH.*\/rulesets\/17(?:\s|$)/g)?.length, 1);
+  assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-binding.json'), 'utf8')), { id: 17, requestSha256: digest(await readFile(path.join(value.root, 'ruleset-request.json'))) });
+  for (const [id, ref] of ['refs/tags/ogabassey-rollout-claim/h0-runner-ruleset-probe-v1', 'refs/tags/ogabassey-rollout-progress/h0-runner-ruleset-probe-v1/start'].entries()) await Promise.all([writeFile(path.join(value.root, `probe-${id}-ref-response.json`), canonical({ ref, object: { sha: 'c'.repeat(40) } }), { mode: 0o400 }), writeFile(path.join(value.root, `task7-probe-${id}.json`), canonical({ schemaVersion: 1, policyFileSha256: digest(await readFile(value.policy)), sourceAuthorizationSha256: digest(await readFile(sourceReceipt)), ref, targetSha: 'a'.repeat(40), objectSha: 'c'.repeat(40) }), { mode: 0o400 })]);
+  await writeFile(path.join(value.root, 'task7-probe-2.json'), canonical({ schemaVersion: 1, policyFileSha256: digest(await readFile(value.policy)), sourceAuthorizationSha256: digest(await readFile(sourceReceipt)), ref: 'refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1', targetSha: 'a'.repeat(40), objectSha: 'b'.repeat(40) }), { mode: 0o400 });
+  const readProbe = run(value.verifier, [...common, '--exec-gh-operation', 'read-owned-probe-ref', '--probe-id', '1']);
+  assert.equal(readProbe.status, 0, readProbe.stderr);
+  assert.match(readProbe.stdout, /tags\/ogabassey-rollout-progress\/h0-runner-ruleset-probe-v1\/start/);
+  for (const operation of task7Operations.slice(-4)) assert.equal(run(value.verifier, [...common, '--exec-gh-operation', operation, '--probe-id', '1'], undefined, { FAKE_REFUSAL: 'valid' }).status, 0, operation);
+  for (const [failure, operation, id] of [['wrong-status', 'assert-owned-probe-delete', '0'], ['wrong-message', 'assert-owned-probe-update', '0'], ['wrong-docs', 'assert-owned-probe-force-update', '0'], ['wrong-field', 'assert-owned-probe-duplicate-create', '0'], ['redirect', 'assert-owned-probe-delete', '2'], ['auth', 'assert-owned-probe-update', '2'], ['transport', 'assert-owned-probe-force-update', '2']]) assert.notEqual(run(value.verifier, [...common, '--exec-gh-operation', operation, '--probe-id', id], undefined, { FAKE_REFUSAL: failure }).status, 0, failure);
+  assert.notEqual(run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-ref', '--probe-id', 'other']).status, 0);
+  const key = path.join(value.root, 'private-key.pem');
+  await writeFile(key, '-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----\n', { mode: 0o600 });
+  assert.match(run(value.verifier, [...common, '--exec-gh-operation', 'set-auditor-private-key']).stdout, /secret set BACI_CWV_RUNNER_AUDITOR_PRIVATE_KEY/);
+  await chmod(key, 0o400);
+  assert.notEqual(run(value.verifier, [...common, '--exec-gh-operation', 'set-auditor-private-key']).status, 0);
+  const clientId = path.join(value.root, 'auditor-client-id');
+  for (const clientValue of ['Iv1.a2B3c4D5e6F7g8H9', 'Iv1a2B3c4D5e6F7g8H9', 'Iv23liKu2ydKKbRWnyg1', `Iv1.${'A'.repeat(124)}`]) {
+    await rm(clientId, { force: true }); await writeFile(clientId, `${clientValue}\n`, { mode: 0o400 }); const acceptedClient = run(value.verifier, [...common, '--exec-gh-operation', 'set-auditor-client-id']);
+    assert.equal(acceptedClient.status, 0, acceptedClient.stderr); assert.match(acceptedClient.stdout, /variable set BACI_CWV_RUNNER_AUDITOR_CLIENT_ID/); assert.doesNotMatch(acceptedClient.stdout, new RegExp(clientValue.replace('.', '\\.')));
+  }
+  for (const invalid of ['', ' Iv1.abc', 'Iv1.abc ', 'Iv1.abc def', '.Iv1abc', 'Iv1.', 'Iv1..abc', 'Iv1.abc-def', 'Iv1./etc', 'Iv1.\u0001abc', 'Iv1.abc\nsecond', `ghp_${'s'.repeat(36)}`, `Iv1.${'A'.repeat(125)}`]) { await chmod(clientId, 0o600); await writeFile(clientId, `${invalid}\n`); await chmod(clientId, 0o400); const refused = run(value.verifier, [...common, '--exec-gh-operation', 'set-auditor-client-id']); assert.notEqual(refused.status, 0, JSON.stringify(invalid)); assert.equal(refused.stdout, '', JSON.stringify(invalid)); }
+  for (const [name, operation] of [['auditor-app-id', 'set-auditor-app-id'], ['auditor-installation-id', 'set-auditor-installation-id']]) { const input = path.join(value.root, name); await writeFile(input, '123\n', { mode: 0o400 }); assert.equal(run(value.verifier, [...common, '--exec-gh-operation', operation]).status, 0, operation); await chmod(input, 0o600); await writeFile(input, 'Iv123\n'); await chmod(input, 0o400); const refused = run(value.verifier, [...common, '--exec-gh-operation', operation]); assert.notEqual(refused.status, 0, operation); assert.equal(refused.stdout, '', operation); }
+  await Promise.all(['ruleset-activated.json', 'ruleset-binding.json', 'ruleset-list-1.json', 'ruleset-list-2.json', 'ruleset-list-3.json', 'ruleset-readback.json', 'ruleset-request.json', 'ruleset-response.json', ...rulesetJournalFiles].map((name) => rm(path.join(value.root, name), { force: true })));
+  const duplicateLog = path.join(value.root, 'gh-duplicate-calls.log');
+  const duplicate = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_GH_LOG: duplicateLog, FAKE_RULESET_MODE: 'duplicate-pages' });
+  assert.notEqual(duplicate.status, 0);
+  assert.doesNotMatch(await readFile(duplicateLog, 'utf8'), /--method (?:POST|PATCH).*\/rulesets(?:\/|\s|$)/);
+  await chmod(value.binary, 0o700);
+  await writeFile(value.binary, '#!/bin/sh\nprintf bad\n');
+  await chmod(value.binary, 0o500);
+  const replaced = run(value.verifier, [
+    ...common,
+    '--exec-gh-operation',
+    'read-repository-retention',
+  ]);
+  assert.notEqual(replaced.status, 0);
+});
+darwinTest('records immutable ruleset publication phases after activation', async () => { const value = await fixture(); const { common } = task7(value); const artifacts = ['ruleset-activated.json', 'ruleset-binding.json', 'ruleset-list-1.json', 'ruleset-readback.json', 'ruleset-request.json', 'ruleset-response.json']; for (const [failure, published] of [['id', []], ['sha', ['H0_RUNNER_RULESET_ID']]]) { const partial = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_RULESET_VARIABLE_FAILURE: failure }); const requestSha256 = digest(await readFile(path.join(value.root, 'ruleset-request.json'))); assert.equal(partial.status, 0, partial.stderr); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-activated.json'), 'utf8')), { id: 18, requestSha256 }); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-variable-publication-intent.json'), 'utf8')), { id: 18, publishedVariables: [], requestSha256, schemaVersion: 1, unpublishedVariables: ['H0_RUNNER_RULESET_ID', 'H0_RUNNER_RULESET_SHA256'] }); if (failure === 'sha') assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-variable-id-published.json'), 'utf8')), { id: 18, publishedVariables: published, requestSha256, schemaVersion: 1, unpublishedVariables: ['H0_RUNNER_RULESET_SHA256'] }); await Promise.all([...artifacts, ...rulesetJournalFiles].map((name) => rm(path.join(value.root, name), { force: true }))); } });
+darwinTest('publishes verified ruleset values without --body', async () => { const value = await fixture(); const { common } = task7(value); const log = path.join(value.root, 'ruleset-values.log'); const result = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_GH_LOG: log }); const requestSha256 = digest(await readFile(path.join(value.root, 'ruleset-request.json'))); assert.equal(result.status, 0, result.stderr); assert.match(await readFile(log, 'utf8'), new RegExp(`H0_RUNNER_RULESET_ID --repo ogabasseyy/Baci\\nstdin:18[\\s\\S]*H0_RUNNER_RULESET_SHA256 --repo ogabasseyy/Baci\\nstdin:${requestSha256}`)); });
+darwinTest('publishes fixed auditor variables without --body', async () => { const value = await fixture(); const { common } = task7(value); for (const [file, operation, valueToSet] of [['auditor-app-id', 'set-auditor-app-id', '123'], ['auditor-client-id', 'set-auditor-client-id', 'Iv1.TestClient'], ['auditor-installation-id', 'set-auditor-installation-id', '456']]) { const log = path.join(value.root, `${file}.log`); await writeFile(path.join(value.root, file), `${valueToSet}\n`, { mode: 0o400 }); const result = run(value.verifier, [...common, '--exec-gh-operation', operation], undefined, { FAKE_GH_LOG: log }); assert.equal(result.status, 0, result.stderr); assert.match(await readFile(log, 'utf8'), new RegExp(`variable set .* --repo ogabasseyy/Baci\\nstdin:${valueToSet}`)); } });
+darwinTest('dispatcher preserves activation after either ruleset variable failure', async () => { for (const failure of ['id', 'sha']) { const value = await fixture(); const { sourceReceipt } = task7(value); const log = path.join(value.root, `${failure}.log`); const result = run(value.dispatcher, ['--run-task7-probes', '--transaction-dir', value.root, '--policy', value.policy, '--source-authorization', sourceReceipt, '--source-authorization-sha256', path.join(value.root, 'source-authorization.sha256')], undefined, { FAKE_GH_LOG: log, FAKE_RULESET_VARIABLE_FAILURE: failure }); const marker = path.join(value.root, 'ruleset-activated.json'); assert.notEqual(result.status, 0); assert.ok(await stat(marker).then(() => true, () => false), result.stderr); assert.equal(JSON.parse(await readFile(marker, 'utf8')).id, 18); assert.ok(JSON.parse(await readFile(path.join(value.root, 'ruleset-variable-publication-intent.json'), 'utf8'))); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'task7-manual-reconciliation.json'), 'utf8')), { reason: 'post-activation-refusal-failed', schemaVersion: 1 }); const calls = await readFile(log, 'utf8'); assert.doesNotMatch(calls, /--include|--method DELETE/); } });
+darwinTest('contains readback transport and shape uncertainty after a ruleset write', async () => { for (const mode of ['transport', 'extra-condition', 'extra-rule']) { const value = await hardeningFixture(); const { common } = task7(value); const result = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_RULESET_READBACK: mode }); assert.equal(result.status, 0, result.stderr); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-activated.json'), 'utf8')), { id: 18, requestSha256: digest(await readFile(path.join(value.root, 'ruleset-request.json'))) }); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-variable-publication-intent.json'), 'utf8')), { id: 18, publishedVariables: [], requestSha256: digest(await readFile(path.join(value.root, 'ruleset-request.json'))), schemaVersion: 1, unpublishedVariables: ['H0_RUNNER_RULESET_ID', 'H0_RUNNER_RULESET_SHA256'] }); assert.equal(result.stdout, ''); } });
+darwinTest('dispatcher never rolls back probes after indeterminate ruleset readback', async () => { const value = await hardeningFixture(); const { sourceReceipt } = task7(value); const log = path.join(value.root, 'readback.log'); const result = run(value.dispatcher, ['--run-task7-probes', '--transaction-dir', value.root, '--policy', value.policy, '--source-authorization', sourceReceipt, '--source-authorization-sha256', path.join(value.root, 'source-authorization.sha256')], undefined, { FAKE_GH_LOG: log, FAKE_RULESET_READBACK: 'transport' }); assert.notEqual(result.status, 0); assert.equal(JSON.parse(await readFile(path.join(value.root, 'ruleset-activated.json'), 'utf8')).id, 18); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'task7-manual-reconciliation.json'), 'utf8')), { reason: 'post-activation-refusal-failed', schemaVersion: 1 }); assert.doesNotMatch(await readFile(log, 'utf8'), /--method DELETE/); });
+darwinTest('persists variable intent before each publication failure window', async () => { for (const [variable, receipt] of [['id', 'ruleset-variable-publication-intent.json'], ['sha', 'ruleset-variable-id-published.json']]) { const value = await hardeningFixture(); const { common } = task7(value); const result = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_RULESET_JOURNAL_ROOT: value.root, FAKE_RULESET_EXPECTED_JOURNAL: receipt, FAKE_RULESET_VARIABLE_FAILURE: variable }); assert.equal(result.status, 0, result.stderr); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-variable-publication-intent.json'), 'utf8')), { id: 18, publishedVariables: [], requestSha256: digest(await readFile(path.join(value.root, 'ruleset-request.json'))), schemaVersion: 1, unpublishedVariables: ['H0_RUNNER_RULESET_ID', 'H0_RUNNER_RULESET_SHA256'] }); } });
+darwinTest('dispatcher contains ruleset mutation response uncertainty before activation', async () => { for (const mutation of ['transport', 'missing-id']) { const value = await mutationFixture(); const { sourceReceipt } = task7(value); const log = path.join(value.root, `${mutation}.log`); const result = run(value.dispatcher, ['--run-task7-probes', '--transaction-dir', value.root, '--policy', value.policy, '--source-authorization', sourceReceipt, '--source-authorization-sha256', path.join(value.root, 'source-authorization.sha256')], undefined, { FAKE_GH_LOG: log, FAKE_RULESET_MUTATION: mutation }); assert.notEqual(result.status, 0); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-mutation-intent.json'), 'utf8')), { operation: 'upsert-rollout-ruleset', requestSha256: digest(await readFile(path.join(value.root, 'ruleset-request.json'))), schemaVersion: 1 }); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'task7-manual-reconciliation.json'), 'utf8')), { reason: 'ruleset-mutation-indeterminate', schemaVersion: 1 }); assert.doesNotMatch(await readFile(log, 'utf8'), /--method DELETE/); } });
+darwinTest('dispatcher prioritizes durable activation over later publication-intent failure', async () => { const value = await fixture(); const { sourceReceipt } = task7(value); await writeFile(path.join(value.root, 'ruleset-variable-publication-intent.json'), '{}', { mode: 0o400 }); const log = path.join(value.root, 'activation.log'); const result = run(value.dispatcher, ['--run-task7-probes', '--transaction-dir', value.root, '--policy', value.policy, '--source-authorization', sourceReceipt, '--source-authorization-sha256', path.join(value.root, 'source-authorization.sha256')], undefined, { FAKE_GH_LOG: log }); assert.notEqual(result.status, 0); assert.ok(await stat(path.join(value.root, 'ruleset-activated.json'))); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'task7-manual-reconciliation.json'), 'utf8')), { reason: 'post-activation-refusal-failed', schemaVersion: 1 }); assert.doesNotMatch(await readFile(log, 'utf8'), /--method DELETE/); });
+darwinTest('accepts reversed exact condition keys on ruleset readback', async () => { const value = await mutationFixture(); const { common } = task7(value); const result = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_RULESET_READBACK: 'reversed' }); assert.equal(result.status, 0, result.stderr); assert.deepEqual(JSON.parse(result.stdout), { id: 18 }); assert.ok(await stat(path.join(value.root, 'ruleset-variable-publication-complete.json'))); });
+test('refuses wrong purpose, arbitrary operation, caller argv, and checksum drift', async () => {
+  const source = await readFile(verifierPath, 'utf8');
+  assert.match(source, /task7-provisioning/);
+  assert.match(source, /task9-exact-run/);
+  assert.doesNotMatch(source, /"\$@".*gh|gh.*"\$@"/);
+  const value = await fixture();
+  await chmod(value.checksums, 0o600);
+  await writeFile(value.checksums, `${'0'.repeat(64)}  gh_2.93.0_macOS_arm64.zip\n`);
+  const result = run(value.verifier, [
+    '--policy', value.policy,
+    '--checksum-file', value.checksums,
+    '--archive', value.archive,
+    '--receipt', path.join(value.root, 'gh-receipt.json'),
+    '--source-authorization', path.join(value.root, 'missing.json'),
+    '--source-authorization-sha256', path.join(value.root, 'missing.sha256'),
+    '--purpose', 'task7-provisioning',
+    '--exec-gh-operation', 'dispatch-exact-run', '--endpoint', 'example.test',
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stdout, '');
+});
+darwinTest('emits a Task 9 token only after immediate source and binary rebound, rejecting a Task 7 receipt', async () => {
+  const value = await fixture();
+  const sourceReceipt = path.join(value.root, 'source-authorization.json');
+  const sourceDigest = path.join(value.root, 'source-authorization.sha256');
+  const operations = ['list-attestation-runs', 'dispatch-exact-run', 'read-exact-run', 'cancel-exact-run', 'read-failed-job-evidence', 'rerun-failed-exact-run', 'list-runner-inventory', 'read-exact-job', 'list-exact-artifacts', 'download-exact-artifact'];
+  const sourceAuthorization = { generation: 1, operationSet: operations, operationSetDigest: digest(JSON.stringify(operations)), policyFileSha256: digest(await readFile(value.policy)), provenance: { manifestSha256: 'a'.repeat(64), nodeProvenanceSha256: 'b'.repeat(64), runtimeSha256: 'c'.repeat(64), sourceArchiveSha256: 'd'.repeat(64) }, purpose: 'task9-exact-run', schemaVersion: 1, sourceBinding: { base: { ref: 'refs/heads/main', sha: 'e'.repeat(40) }, deploymentSha: 'f'.repeat(40), exactRun: { admissionId: '1'.repeat(64), workflow: { id: 2, path: '.github/workflows/cwv-runner-attestation.yml', ref: 'refs/heads/main' } }, mergeSha: '2'.repeat(40), pullRequest: { headRef: 'h0/task9', number: 9 }, ref: 'refs/pull/9/merge', repository: { id: 1100488586, name: 'ogabasseyy/Baci' }, reviewedSha: '3'.repeat(40) }, sourceFiles: [{ path: 'infra/cwv-runner/owner-dispatch.sh', sha256: digest(await readFile(value.dispatcher)) }, { path: 'infra/cwv-runner/verify-owner-cli.sh', sha256: digest(await readFile(value.verifier)) }], transactionId: path.basename(value.root) };
+  await writeFile(sourceReceipt, canonical(sourceAuthorization), { mode: 0o400 });
+  await writeFile(sourceDigest, `${digest(await readFile(sourceReceipt))}\n`, { mode: 0o400 });
+  const authorizedRoot = path.join(
+    value.root,
+    'authorized-source/infra/cwv-runner'
+  );
+  await import('node:fs/promises').then(({ mkdir }) =>
+    mkdir(authorizedRoot, { recursive: true, mode: 0o700 })
+  );
+  await Promise.all([
+    copyFile(value.dispatcher, path.join(authorizedRoot, 'owner-dispatch.sh')),
+    copyFile(value.policy, path.join(authorizedRoot, 'policy.json')),
+    copyFile(value.verifier, path.join(authorizedRoot, 'verify-owner-cli.sh')),
+  ]);
+  const common = [
+    '--policy', path.join(authorizedRoot, 'policy.json'), '--checksum-file', value.checksums,
+    '--archive', value.archive, '--receipt', path.join(value.root, 'gh-receipt.json'),
+    '--source-authorization', sourceReceipt,
+    '--source-authorization-sha256', sourceDigest, '--purpose', 'task9-exact-run',
+  ];
+  assert.equal(run(value.verifier, [...common, '--verify-only']).status, 0);
+  const token = run(value.verifier, [...common, '--emit-task9-token']);
+  assert.equal(token.status, 0, token.stderr);
+  assert.equal(token.stdout, 'auth token\n');
+  const drift = { ...sourceAuthorization, purpose: 'task7-provisioning' };
+  await chmod(sourceReceipt, 0o600);
+  await chmod(sourceDigest, 0o600);
+  await writeFile(sourceReceipt, canonical(drift), { mode: 0o400 });
+  await writeFile(sourceDigest, `${digest(await readFile(sourceReceipt))}\n`, { mode: 0o400 });
+  assert.notEqual(run(value.verifier, [...common, '--emit-task9-token']).status, 0);
+});

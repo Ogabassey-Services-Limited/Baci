@@ -5,9 +5,18 @@ import { getStorefrontPublicationCacheIdentity } from './get-storefront-publicat
 function createSupabaseMock(options: {
   aliases?: Array<{ old_slug: string | null }> | null;
   aliasesError?: { message: string } | null;
+  currentSlug?: string | null;
   domains?: Array<{ domain: string | null }> | null;
   domainsError?: { message: string } | null;
+  merchantError?: { message: string } | null;
 }) {
+  const merchantMaybeSingle = vi.fn().mockResolvedValue({
+    data: options.merchantError ? null : { slug: options.currentSlug ?? null },
+    error: options.merchantError ?? null,
+  });
+  const merchantEq = vi.fn().mockReturnValue({
+    maybeSingle: merchantMaybeSingle,
+  });
   const domainsIn = vi.fn().mockResolvedValue({
     data: options.domains ?? null,
     error: options.domainsError ?? null,
@@ -22,6 +31,11 @@ function createSupabaseMock(options: {
   });
 
   const from = vi.fn((table: string) => {
+    if (table === 'merchants') {
+      return {
+        select: vi.fn().mockReturnValue({ eq: merchantEq }),
+      };
+    }
     if (table === 'domains') {
       return {
         select: vi.fn().mockReturnValue(domainsQuery),
@@ -41,6 +55,8 @@ function createSupabaseMock(options: {
     domainsEq,
     domainsIn,
     from,
+    merchantEq,
+    merchantMaybeSingle,
   };
 }
 
@@ -53,6 +69,7 @@ describe('getStorefrontPublicationCacheIdentity', () => {
         { old_slug: ' current-store ' },
         { old_slug: '   ' },
       ],
+      currentSlug: 'current-store',
       domains: [
         { domain: 'shop.example.com' },
         { domain: 'WWW.SHOP.EXAMPLE.COM' },
@@ -87,6 +104,8 @@ describe('getStorefrontPublicationCacheIdentity', () => {
     });
     expect(supabase.from).toHaveBeenCalledWith('domains');
     expect(supabase.from).toHaveBeenCalledWith('merchant_slug_aliases');
+    expect(supabase.from).toHaveBeenCalledWith('merchants');
+    expect(supabase.merchantEq).toHaveBeenCalledWith('id', 'merchant-1');
     expect(supabase.domainsEq).toHaveBeenCalledWith(
       'merchant_id',
       'merchant-1'
@@ -100,6 +119,43 @@ describe('getStorefrontPublicationCacheIdentity', () => {
       'merchant_id',
       'merchant-1'
     );
+  });
+
+  it('evicts both the captured and refreshed slug across a concurrent rename', async () => {
+    const supabase = createSupabaseMock({
+      aliases: [],
+      currentSlug: 'new-store',
+      domains: [],
+    });
+
+    await expect(
+      getStorefrontPublicationCacheIdentity(
+        supabase.client,
+        'merchant-rename',
+        'old-store'
+      )
+    ).resolves.toMatchObject({
+      canonicalMerchantSlug: 'new-store',
+      identifiers: ['new-store', 'old-store'],
+      merchantSlugs: ['new-store', 'old-store'],
+    });
+  });
+
+  it('fails closed when the current-slug refresh fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const supabase = createSupabaseMock({
+      aliases: [],
+      domains: [],
+      merchantError: { message: 'merchant lookup failed' },
+    });
+
+    await expect(
+      getStorefrontPublicationCacheIdentity(
+        supabase.client,
+        'merchant-lookup-failure',
+        'old-store'
+      )
+    ).rejects.toEqual({ message: 'merchant lookup failed' });
   });
 
   it('fails closed when the active-domain lookup fails', async () => {

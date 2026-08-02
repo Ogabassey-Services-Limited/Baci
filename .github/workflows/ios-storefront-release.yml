@@ -44,6 +44,15 @@ jobs:
     name: Build Storefront IPA & Submit to App Store Connect
     runs-on: macos-26
     timeout-minutes: 90
+    # App Store Connect has a single editable version slot, and the submit lane
+    # can withdraw an in-progress review to claim it. Share one job-level group
+    # with ios-storefront-submit.yml so the two submission paths can never race
+    # to cancel the same review or rename the same version. This is job-level on
+    # purpose: the workflow-level group above keeps cancelling superseded
+    # release builds, which this must not undo.
+    concurrency:
+      group: ios-storefront-app-store-submission
+      cancel-in-progress: false
 
     steps:
       - name: Checkout
@@ -290,6 +299,15 @@ jobs:
           SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
           IOS_RELEASE_NOTES: ${{ vars.IOS_STOREFRONT_RELEASE_NOTES }}
           IOS_REVIEW_NOTES: ${{ vars.IOS_STOREFRONT_REVIEW_NOTES }}
+          # IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT is deliberately NOT set
+          # here. This run is cancellable: the workflow-level group above
+          # cancels the whole run when a newer commit lands on main, and no
+          # job-level setting can prevent that. Withdrawing a review here could
+          # therefore be interrupted between cancel_submission and deliver,
+          # leaving the app with nothing under review. When the slot is taken
+          # this lane skips and the build waits on TestFlight; withdraw-and-
+          # replace lives in ios-storefront-submit.yml, whose run is never
+          # cancelled by a competing one.
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets

@@ -59,7 +59,8 @@ import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
 import { handoffLegacyCreditDirectSuccess } from './credit-direct-success';
 import { captureLegacyCreditDirectPopup } from './legacy-credit-direct-popup';
-import { buildLegacyCreditDirectTransaction } from './legacy-credit-direct-transaction';
+import { openLegacyCreditDirectPopup } from './open-legacy-credit-direct-popup';
+import { prepareLegacyCreditDirectCheckout } from './prepare-legacy-credit-direct-checkout';
 import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snapshot';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
@@ -348,6 +349,7 @@ type CheckoutPreparation =
       kind: 'credit_direct';
       order: Record<string, unknown>;
       sign: CreditDirectSignResult;
+      orderItems: ReturnType<typeof buildCheckoutOrderItems>;
     }
   | {
       kind: 'redirect';
@@ -418,9 +420,13 @@ async function prepareCheckout(
     );
 
     if (input.selectedGateway === 'credit_direct') {
+      const amounts = prepareLegacyCreditDirectCheckout(
+        orderItems,
+        Number(order.total)
+      );
       const signResult = await signCreditDirectCheckout({
         customerEmail: input.data.email,
-        totalAmount: order.total,
+        totalAmount: amounts.totalAmount,
         merchantSlug: input.merchantSlug,
         orderId: order.id,
         trackingToken: order.tracking_token ?? '',
@@ -435,7 +441,12 @@ async function prepareCheckout(
         };
       }
 
-      return { kind: 'credit_direct', order, sign: signResult.data };
+      return {
+        kind: 'credit_direct',
+        order,
+        sign: signResult.data,
+        orderItems,
+      };
     }
 
     return { kind: 'redirect', order, paystackAuthUrl };
@@ -1480,34 +1491,21 @@ function CheckoutPageContent() {
   const openCreditDirectPopup = (
     order: Record<string, unknown>,
     sign: CreditDirectSignResult,
+    orderItems: ReturnType<typeof buildCheckoutOrderItems>,
     data: ShippingFormValues
   ) => {
-    if (!window.Connect) {
-      toast({
-        variant: 'destructive',
-        title: 'BNPL Checkout Failed',
-        description: 'Credit Direct SDK not loaded',
-      });
-      setFormIsLoading(false);
-      return;
-    }
-
-    // Uses the SERVER-signed amount (never order.total) and balances the line
-    // items against it — see legacy-credit-direct-transaction.ts for why.
-    const transaction = buildLegacyCreditDirectTransaction({
-      signedAmount: sign.amount,
+    // SDK orchestration (guard, transaction build, fail-closed handling, cancel
+    // wiring, open) lives in the focused helper; the page injects its own
+    // success/popup handlers which need order/merchant/router context.
+    openLegacyCreditDirectPopup({
+      sign,
+      orderId: order.id as string,
+      orderItems,
       customerEmail: data.email,
       customerPhone: data.phone,
-      sessionId: sign.sessionId,
-      orderId: order.id as string,
-      cart,
-    });
-
-    const connect = new window.Connect({
-      publicKey: sign.publicKey,
-      signature: sign.signature,
-      transaction,
-      isLive: sign.isLive,
+      connect: window.Connect,
+      toast,
+      setLoading: setFormIsLoading,
       onSuccess: (response) => {
         if (typeof order.id !== 'string' || !order.id) {
           console.error('Credit Direct client completion skipped:', {
@@ -1529,13 +1527,6 @@ function CheckoutPageContent() {
           basePath,
           navigate: router.push,
         });
-      },
-      onClose: () => {
-        toast({
-          title: 'Checkout Cancelled',
-          description: 'You can complete your purchase anytime.',
-        });
-        setFormIsLoading(false);
       },
       onPopup: async (response) => {
         if (typeof order.id !== 'string' || !order.id) {
@@ -1570,9 +1561,6 @@ function CheckoutPageContent() {
         }
       },
     });
-
-    connect.setup();
-    connect.open();
   };
 
   const onShippingSubmit = async (data: ShippingFormValues) => {
@@ -1639,7 +1627,7 @@ function CheckoutPageContent() {
       // Popup callbacks drive the rest of the flow — don't proceed to the
       // success page yet. Matching the prior behavior, the submit spinner is
       // cleared now; the popup's onClose re-clears it if reopened.
-      openCreditDirectPopup(result.order, result.sign, data);
+      openCreditDirectPopup(result.order, result.sign, result.orderItems, data);
       setFormIsLoading(false);
       return;
     }

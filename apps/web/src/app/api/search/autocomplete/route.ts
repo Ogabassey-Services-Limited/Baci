@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import {
+  AUTOCOMPLETE_SATURATED_CODE,
   type AutocompleteSupabase,
   getStorefrontAutocompleteProducts,
 } from '@/lib/storefront-search-autocomplete';
@@ -82,6 +83,16 @@ export async function GET(request: NextRequest) {
       typeof error === 'object' && error && 'code' in error
         ? String(error.code)
         : '';
+
+    if (errorCode === AUTOCOMPLETE_SATURATED_CODE) {
+      console.warn(
+        'Autocomplete saturated; returning empty suggestions for this request'
+      );
+      return NextResponse.json({
+        suggestions: [],
+        popularSearches: [],
+      });
+    }
 
     if (errorCode === POSTGRES_QUERY_CANCELED_CODE) {
       console.warn(

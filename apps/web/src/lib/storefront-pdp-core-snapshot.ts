@@ -6,7 +6,15 @@ import {
   type StorefrontReadResult,
 } from './storefront-read-result';
 
-const PDP_CORE_SNAPSHOT_TOTAL_DEADLINE_MS = 8_000;
+const PDP_CORE_SNAPSHOT_RUNTIME_DEADLINE_MS = 8_000;
+
+function pdpCoreSnapshotDeadlineMs() {
+  return PDP_CORE_SNAPSHOT_RUNTIME_DEADLINE_MS;
+}
+
+function isBoundedStorefrontBuild() {
+  return process.env.BACI_STOREFRONT_BUILD_READS === 'bounded';
+}
 
 function isJsonObject(value: Json | null): value is Record<string, Json> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -46,12 +54,13 @@ export async function readStorefrontPdpCoreSnapshot(
   );
   const boundedQuery =
     typeof query.abortSignal === 'function'
-      ? query
-          .abortSignal(AbortSignal.timeout(PDP_CORE_SNAPSHOT_TOTAL_DEADLINE_MS))
-          // Disable postgrest-js's automatic GET retry. A native TimeoutError
-          // (from AbortSignal.timeout) is retryable to the SDK, so without this
-          // the bounded deadline is extended by ~4x retry backoff during tail
-          // events. Pinned by supabase/postgrest-timeout-retry.test.ts.
+      ? (isBoundedStorefrontBuild()
+          ? query
+          : query.abortSignal(AbortSignal.timeout(pdpCoreSnapshotDeadlineMs()))
+        )
+          // Disable postgrest-js's automatic GET retry so the runtime deadline
+          // or admitted build transport deadline is not extended by backoff.
+          // Pinned by supabase/postgrest-timeout-retry.test.ts.
           .retry(false)
       : query;
   const response = await boundedQuery;

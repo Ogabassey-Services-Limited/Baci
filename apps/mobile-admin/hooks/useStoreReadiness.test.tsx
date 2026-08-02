@@ -4,211 +4,180 @@ import type { ReactNode } from 'react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Minimal merchant shape that satisfies the hook's reads; fields the hook
-// does not touch are safe to omit.
-type MerchantStub = {
-  id: string;
-  user_id: string;
-  is_published: boolean;
-  country: string | null;
-  support_email: string | null;
-  support_phone: string | null;
-  business_address: string | null;
-  hero_slides: unknown[] | null;
-  social_media: Record<string, string> | null;
-  google_analytics_id: string | null;
-  facebook_pixel_id: string | null;
-  tiktok_pixel_id: string | null;
-  snapchat_pixel_id: string | null;
-  twitter_pixel_id: string | null;
-  bank_code: string | null;
-  bank_account_number: string | null;
-  paystack_subaccount_code: string | null;
-};
+const merchantId = '11111111-1111-4111-8111-111111111111';
 
-const mockRpc = vi.fn();
-const mockProductsSelect = vi.fn();
+const mocks = vi.hoisted(() => ({
+  apiClient: vi.fn(),
+  getMerchant: vi.fn(),
+  refetchMerchant: vi.fn(),
+  supabaseFrom: vi.fn(),
+  supabaseRpc: vi.fn(),
+}));
+
+vi.mock('@/lib/api-client', () => ({ apiClient: mocks.apiClient }));
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    rpc: (...args: unknown[]) => mockRpc(...args),
-    from: (table: string) => {
-      if (table !== 'products') {
-        throw new Error(`unexpected table ${table}`);
-      }
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: () => mockProductsSelect(),
-          }),
-        }),
-      };
-    },
+    from: mocks.supabaseFrom,
+    rpc: mocks.supabaseRpc,
   },
 }));
 
-let mockMerchant: MerchantStub | null = null;
-
 vi.mock('./useMerchant', () => ({
-  useMerchant: () => ({
-    merchant: mockMerchant,
-    isLoading: false,
-  }),
+  useMerchant: () => mocks.getMerchant(),
 }));
 
-// Import after mocks so the mocks apply.
 const { useStoreReadiness } = await import('./useStoreReadiness');
 
-function wrapper({ children }: { children: ReactNode }) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return React.createElement(QueryClientProvider, { client }, children);
-}
-
-function createCachedWrapper() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-
-  return function CachedWrapper({ children }: { children: ReactNode }) {
-    return React.createElement(QueryClientProvider, { client }, children);
+function readiness(completed: boolean) {
+  return {
+    merchantId,
+    surface: 'mobile',
+    isReady: completed,
+    isPublished: false,
+    completedRequired: completed ? 1 : 0,
+    totalRequired: 1,
+    completedRecommended: 0,
+    totalRecommended: 0,
+    overallProgress: completed ? 100 : 0,
+    items: [
+      {
+        id: 'bank_account',
+        label: 'Add bank account',
+        description: 'Required to receive payments via Paystack',
+        completed,
+        priority: 'required',
+        category: 'payments',
+      },
+    ],
+    storeBuild: {
+      starterStoreReady: true,
+      aiStatus: 'not_started',
+      latestJobId: null,
+      canApplyAiDraft: false,
+      message: 'Starter storefront is ready.',
+    },
   };
 }
 
-function buildMerchant(overrides: Partial<MerchantStub> = {}): MerchantStub {
-  return {
-    id: 'merchant-1',
-    user_id: 'owner-user',
-    is_published: false,
-    country: null,
-    support_email: null,
-    support_phone: null,
-    business_address: null,
-    hero_slides: null,
-    social_media: null,
-    google_analytics_id: null,
-    facebook_pixel_id: null,
-    tiktok_pixel_id: null,
-    snapchat_pixel_id: null,
-    twitter_pixel_id: null,
-    bank_code: null,
-    bank_account_number: null,
-    paystack_subaccount_code: null,
-    ...overrides,
+function createWrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return React.createElement(QueryClientProvider, { client }, children);
   };
 }
 
 describe('useStoreReadiness', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockMerchant = null;
-    mockProductsSelect.mockResolvedValue({ count: 0, error: null });
-  });
-
-  it('reads verification flags via the staff-safe RPC and marks KYC complete when verified', async () => {
-    mockMerchant = buildMerchant({ user_id: 'owner-user' });
-    mockRpc.mockResolvedValueOnce({
-      data: {
-        nin_verified: true,
-        bvn_verified: false,
-        cac_verified: false,
-      },
+    mocks.getMerchant.mockReturnValue({
+      merchant: { id: merchantId },
+      isLoading: false,
+      isFetching: false,
       error: null,
+      refetch: mocks.refetchMerchant,
     });
-
-    const { result } = renderHook(() => useStoreReadiness(), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    expect(mockRpc).toHaveBeenCalledWith('get_merchant_verification_flags', {
-      p_merchant_id: 'merchant-1',
-    });
-    const kyc = result.current.readiness?.items.find(
-      (item) => item.id === 'verify_kyc'
-    );
-    expect(kyc?.completed).toBe(true);
   });
 
-  it('calls the staff-safe RPC for every session so staff see an accurate KYC item', async () => {
-    // Staff with settings.edit are authorised by the RPC — the hook no
-    // longer gates on ownership, matching the /api/merchant/publish contract.
-    mockMerchant = buildMerchant({ user_id: 'owner-user' });
-    mockRpc.mockResolvedValueOnce({
-      data: {
-        nin_verified: false,
-        bvn_verified: true,
-        cac_verified: false,
-      },
+  it('uses newly fetched server readiness without refreshing merchant context', async () => {
+    mocks.apiClient
+      .mockResolvedValueOnce(readiness(false))
+      .mockResolvedValueOnce(readiness(true));
+
+    const { result } = renderHook(() => useStoreReadiness(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.readiness?.items[0]?.completed).toBe(false);
+    });
+
+    await result.current.refetch();
+
+    await waitFor(() => {
+      expect(result.current.readiness?.items[0]?.completed).toBe(true);
+    });
+    expect(mocks.refetchMerchant).not.toHaveBeenCalled();
+    expect(mocks.apiClient).toHaveBeenCalledTimes(2);
+    expect(mocks.supabaseFrom).not.toHaveBeenCalled();
+    expect(mocks.supabaseRpc).not.toHaveBeenCalled();
+  });
+
+  it('retries the existing merchant readiness request after it fails', async () => {
+    mocks.apiClient
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(readiness(true));
+
+    const { result } = renderHook(() => useStoreReadiness(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toEqual(new Error('offline'));
+    });
+
+    await result.current.refetch();
+
+    await waitFor(() => {
+      expect(result.current.readiness?.isReady).toBe(true);
+    });
+    expect(mocks.refetchMerchant).not.toHaveBeenCalled();
+  });
+
+  it('retries merchant context before enabling its canonical readiness query', async () => {
+    mocks.getMerchant.mockReturnValue({
+      merchant: null,
+      isLoading: false,
+      isFetching: false,
+      error: new Error('merchant offline'),
+      refetch: mocks.refetchMerchant,
+    });
+    mocks.refetchMerchant.mockImplementation(async () => {
+      mocks.getMerchant.mockReturnValue({
+        merchant: { id: merchantId },
+        isLoading: false,
+        isFetching: false,
+        error: null,
+        refetch: mocks.refetchMerchant,
+      });
+    });
+    mocks.apiClient.mockResolvedValueOnce(readiness(true));
+    const wrapper = createWrapper();
+
+    const { result, rerender } = renderHook(() => useStoreReadiness(), {
+      wrapper,
+    });
+
+    await result.current.refetch();
+    expect(mocks.refetchMerchant).toHaveBeenCalledTimes(1);
+    expect(mocks.apiClient).not.toHaveBeenCalled();
+
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.readiness?.isReady).toBe(true);
+    });
+    expect(mocks.apiClient).toHaveBeenCalledWith(
+      `/api/merchant/readiness?merchantId=${merchantId}&surface=mobile`,
+      { signal: expect.any(AbortSignal) }
+    );
+  });
+
+  it('keeps retry busy while merchant context is fetching', () => {
+    mocks.getMerchant.mockReturnValue({
+      merchant: null,
+      isLoading: false,
+      isFetching: true,
       error: null,
+      refetch: mocks.refetchMerchant,
     });
 
-    const { result } = renderHook(() => useStoreReadiness(), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
+    const { result } = renderHook(() => useStoreReadiness(), {
+      wrapper: createWrapper(),
     });
 
-    expect(mockRpc).toHaveBeenCalledWith('get_merchant_verification_flags', {
-      p_merchant_id: 'merchant-1',
-    });
-    const kyc = result.current.readiness?.items.find(
-      (item) => item.id === 'verify_kyc'
-    );
-    expect(kyc?.completed).toBe(true);
-  });
-
-  it('defaults KYC to unverified when the RPC returns an authorization error', async () => {
-    mockMerchant = buildMerchant({ user_id: 'owner-user' });
-    mockRpc.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'not authorized' },
-    });
-
-    const { result } = renderHook(() => useStoreReadiness(), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    // Hook should not throw — it degrades gracefully.
-    expect(result.current.readiness).not.toBeNull();
-    const kyc = result.current.readiness?.items.find(
-      (item) => item.id === 'verify_kyc'
-    );
-    expect(kyc?.completed).toBe(false);
-  });
-
-  it('reuses fresh readiness data when the hook remounts', async () => {
-    mockMerchant = buildMerchant({ user_id: 'owner-user' });
-    mockRpc.mockResolvedValue({
-      data: {
-        nin_verified: true,
-        bvn_verified: false,
-        cac_verified: false,
-      },
-      error: null,
-    });
-    const cachedWrapper = createCachedWrapper();
-    const firstRender = renderHook(() => useStoreReadiness(), {
-      wrapper: cachedWrapper,
-    });
-
-    await waitFor(() => {
-      expect(firstRender.result.current.isLoading).toBe(false);
-    });
-    firstRender.unmount();
-
-    const secondRender = renderHook(() => useStoreReadiness(), {
-      wrapper: cachedWrapper,
-    });
-
-    await waitFor(() => {
-      expect(secondRender.result.current.isLoading).toBe(false);
-    });
-    expect(mockProductsSelect).toHaveBeenCalledTimes(1);
-    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(result.current.isFetching).toBe(true);
   });
 });

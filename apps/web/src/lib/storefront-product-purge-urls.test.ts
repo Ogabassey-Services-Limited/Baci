@@ -363,30 +363,22 @@ describe('buildStorefrontProductPurgeUrls', () => {
     ).toEqual([]);
   });
 
-  it('emits only listing surfaces (no per-PDP URLs) when listingsOnly is set', () => {
-    const urls = buildStorefrontProductPurgeUrls(
-      ['ogabassey'],
-      [
-        { slug: 'iphone-15', categorySegment: 'smartphones' },
-        { slug: 'galaxy-s24', categorySegment: 'smartphones' },
-        { slug: 'ipad-air', categorySegment: 'tablets' },
-      ],
-      { listingsOnly: true }
-    );
+  it('keeps every PDP URL in a high-cardinality batch', () => {
+    const entries = Array.from({ length: 51 }, (_, index) => ({
+      slug: `product-${index}`,
+      categorySegment: 'smartphones',
+    }));
+    const urls = buildStorefrontProductPurgeUrls(['ogabassey'], entries);
 
-    // Home + /products + each distinct category listing per hostname; NO
-    // per-product PDP (`/<cat>/<slug>` or `/products/<slug>`) URLs.
-    expect(urls).toEqual([
-      'https://ogabassey.com/',
-      'https://ogabassey.com/products',
-      'https://ogabassey.com/smartphones',
-      'https://ogabassey.com/tablets',
-      'https://www.ogabassey.com/',
-      'https://www.ogabassey.com/products',
-      'https://www.ogabassey.com/smartphones',
-      'https://www.ogabassey.com/tablets',
-    ]);
-    expect(urls).not.toContain('https://ogabassey.com/smartphones/iphone-15');
-    expect(urls).not.toContain('https://ogabassey.com/products/iphone-15');
+    expect(urls).toEqual(
+      expect.arrayContaining([
+        'https://ogabassey.com/smartphones/product-0',
+        'https://ogabassey.com/products/product-0',
+        'https://ogabassey.com/smartphones/product-50',
+        'https://ogabassey.com/products/product-50',
+        'https://www.ogabassey.com/smartphones/product-50',
+        'https://www.ogabassey.com/products/product-50',
+      ])
+    );
   });
 });

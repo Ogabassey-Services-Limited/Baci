@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 
 const builderComponentSchema = z.looseObject({
   type: z.string().trim().min(1),
@@ -26,6 +27,7 @@ const builderDegradedReasonSchema = z.enum([
 ]);
 
 export const builderCreateSchema = z.object({
+  merchantId: merchantIdParamSchema,
   slug: z.string().trim().min(1).optional().default('home'),
   config: builderConfigSchema,
   name: z.string().trim().min(1).optional().default('Home'),
@@ -36,11 +38,13 @@ export const builderCreateSchema = z.object({
 });
 
 export const builderPublishSchema = z.object({
+  merchantId: merchantIdParamSchema,
   slug: z.string().trim().min(1, 'Slug is required'),
   expectedLastUpdated: builderExpectedLastUpdatedSchema,
 });
 
 export const builderLoadQuerySchema = z.object({
+  merchantId: merchantIdParamSchema,
   slug: z.string().trim().min(1).optional().default('home'),
   aiDraftJobId: z.uuid().optional(),
 });

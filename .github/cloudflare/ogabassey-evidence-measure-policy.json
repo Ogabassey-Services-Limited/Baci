@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "productionEvidenceModes": ["worker-log", "worker-analytics"],
+  "requiresSevenClosedUtcDays": true,
+  "requiresCompleteUnsampledCensus": true,
+  "disallowRawRequestRows": true,
+  "failClosedOn": [
+    "sampling",
+    "count_mismatch",
+    "fingerprint_drift",
+    "unknown_host_origin",
+    "rejected_method_origin",
+    "incomplete_export"
+  ],
+  "originRateThreshold": "0.001",
+  "productionThresholdOverrideAllowed": false
+}

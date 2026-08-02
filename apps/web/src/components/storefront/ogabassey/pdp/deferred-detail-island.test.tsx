@@ -1,4 +1,6 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyPdpDeferredDetailIsland } from './deferred-detail-island';
@@ -7,9 +9,15 @@ const mockDeferredDetailClient = vi.hoisted(() => vi.fn());
 const mockDeferredRailsIsland = vi.hoisted(() => vi.fn());
 
 vi.mock('./deferred-detail-island.client', () => ({
-  OgabasseyPdpDeferredDetailClient: (props: unknown) => {
+  OgabasseyPdpDeferredDetailClient: (props: {
+    descriptionSlot?: ReactNode;
+  }) => {
     mockDeferredDetailClient(props);
-    return <section aria-label="Deferred product detail client" />;
+    return (
+      <section aria-label="Deferred product detail client">
+        {props.descriptionSlot}
+      </section>
+    );
   },
 }));
 
@@ -86,6 +94,21 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
     expect(
       screen.getByRole('region', { name: 'Product details' })
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText('Creator laptop with RTX graphics.')
+    ).toHaveLength(1);
+    const sourceHtml = renderToStaticMarkup(
+      <OgabasseyPdpDeferredDetailIsland
+        product={product}
+        semanticSections={<section aria-label="Buying guidance" />}
+        serverPrimaryDetails={<section aria-label="Server product details" />}
+        storeSlug="ogabassey"
+      />
+    );
+    expect(sourceHtml).toContain('Creator laptop with RTX graphics.');
+    expect(sourceHtml.match(/Creator laptop with RTX graphics\./g)).toHaveLength(
+      1
+    );
     expect(screen.getByLabelText('Buying guidance')).toBeInTheDocument();
     expect(
       container.querySelector('[data-ogabassey-pdp-semantics]')
@@ -108,19 +131,14 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
       (mockDeferredDetailClient.mock.calls[0]?.[0] as { productData?: unknown })
         ?.productData
     ).not.toHaveProperty('description');
-    // The description is sanitized on the server here (SafeHtml element) and
-    // passed down as a slot, so `sanitize-html` never enters the client tabs
-    // chunk. `headingLevelOffset: 1` is the SEO heading demotion that used to
-    // live inside the client tabs component.
+    // The description is sanitized on the server and passed as a React slot,
+    // so `sanitize-html` never enters the client tabs chunk.
     const detailProps = mockDeferredDetailClient.mock.calls[0]?.[0] as {
-      descriptionSlot?: {
-        props?: { html?: string; headingLevelOffset?: number };
-      };
+      descriptionSlot?: { props?: { sanitizedHtml?: string } };
     };
-    expect(detailProps.descriptionSlot?.props?.html).toBe(
+    expect(detailProps.descriptionSlot?.props?.sanitizedHtml).toBe(
       'Creator laptop with RTX graphics.'
     );
-    expect(detailProps.descriptionSlot?.props?.headingLevelOffset).toBe(1);
     expect(mockDeferredRailsIsland).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({
@@ -145,7 +163,7 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
     );
     expect(clientPayload).not.toContain('verbose offer notes');
     expect(clientPayload).not.toContain('verbose generated alt payload');
-    // The description HTML lives only in the server-rendered slot, never in the
+    // The description HTML is a server-rendered React slot, never part of the
     // serialized client payload.
     expect(clientPayload).not.toContain('Creator laptop with RTX graphics.');
   });

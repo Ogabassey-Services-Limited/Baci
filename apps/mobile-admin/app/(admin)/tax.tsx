@@ -116,6 +116,7 @@ export default function TaxScreen() {
     updateVatMutation,
   } = useTaxMutations({
     city,
+    merchantId,
     postalCode,
     setVatEnabled,
     stateCode,

@@ -32,6 +32,7 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
   assert.deepEqual(toolsTsconfig.include, [
     'tools/events/**/*.ts',
     'tools/db/**/*.ts',
+    'tools/cost/**/*.ts',
     'src/scripts/process-domain-events.ts',
     'src/scripts/process-domain-events.test.ts',
     'src/scripts/domain-event-worker-message.ts',
@@ -47,6 +48,14 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
     'src/scripts/process-claimed-event-delivery.test.ts',
     'src/scripts/event-delivery-worker.ts',
     'src/scripts/event-delivery-worker.test.ts',
+    'src/lib/imei-providers/petrock/run-petrock-reconciliation.ts',
+    'src/lib/imei-providers/petrock/run-petrock-reconciliation.test.ts',
+    'src/lib/quiz/finalize-due-quiz-events.ts',
+    'src/lib/quiz/finalize-due-quiz-events.test.ts',
+    'src/scripts/process-petrock-reconciliation.ts',
+    'src/scripts/process-petrock-reconciliation.test.ts',
+    'src/scripts/process-quiz-finalization.ts',
+    'src/scripts/process-quiz-finalization.test.ts',
   ]);
   assert.ok(!toolsTsconfig.include.includes('tools/**/*.ts'));
   assert.ok(

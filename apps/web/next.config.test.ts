@@ -62,6 +62,17 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
+  it('bounds static generation pressure and retries transient page failures', () => {
+    expect(nextConfig.experimental).toEqual(
+      expect.objectContaining({
+        cpus: 1,
+        staticGenerationMaxConcurrency: 1,
+        staticGenerationMinPagesPerWorker: 1_600,
+        staticGenerationRetryCount: 3,
+      })
+    );
+  });
+
   it('publishes only public PostHog release context envs to the browser bundle', () => {
     expect(nextConfig.env).toEqual(
       expect.not.objectContaining({

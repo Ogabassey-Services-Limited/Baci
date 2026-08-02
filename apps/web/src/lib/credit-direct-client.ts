@@ -4,6 +4,7 @@
  * This module handles the browser-side popup checkout flow.
  * Server-side signing is done via /api/payments/credit-direct/sign
  */
+import { prepareCreditDirectAmounts } from './credit-direct-products';
 
 // Credit Direct SDK script URL
 const CREDIT_DIRECT_SCRIPT_URL =
@@ -153,13 +154,18 @@ export async function openCreditDirectCheckout(
   } = options;
 
   try {
+    const { totalAmount: requestedTotalAmount } = prepareCreditDirectAmounts(
+      items,
+      amount
+    );
+
     // Step 1: Get signature from server
     const signResponse = await fetch('/api/payments/credit-direct/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customerEmail,
-        totalAmount: amount,
+        totalAmount: requestedTotalAmount,
         merchantSlug,
         orderId,
         trackingToken,
@@ -192,35 +198,19 @@ export async function openCreditDirectCheckout(
     if (!Number.isFinite(signedAmount) || signedAmount <= 0) {
       throw new Error('Credit Direct signing response has an invalid amount');
     }
-    // Credit Direct's payout webhook validates the sum of `products` against the
-    // gateway amount. When the signed amount is a residual (wallet / deposit /
-    // partial payment) it no longer equals the full line-item total, so send a
-    // single balancing line item instead of the full-price items; when they
-    // match (full payment) keep the itemized breakdown.
-    const itemsTotal = items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
+    const { products, totalAmount } = prepareCreditDirectAmounts(
+      items,
+      signedAmount
     );
-    const products =
-      Math.abs(itemsTotal - signedAmount) < 0.01
-        ? items.map((item) => ({
-            productId: item.id,
-            productName: item.name,
-            productAmount: item.price * item.quantity,
-          }))
-        : [
-            {
-              productId: orderId,
-              productName: 'Order balance',
-              productAmount: signedAmount,
-            },
-          ];
     const transaction: CreditDirectTransaction = {
-      totalAmount: signedAmount,
+      totalAmount,
       customerEmail,
       customerPhone: customerPhone || '',
       sessionId: signData.sessionId,
       metaData: orderId, // Store orderId for webhook reconciliation
+      // Credit Direct requires totalAmount to equal the exact sum of products.
+      // Allocate shipping, tax, discounts and pre-gateway credits across the
+      // order lines in minor units so both checkout and webhook totals agree.
       products,
     };
 

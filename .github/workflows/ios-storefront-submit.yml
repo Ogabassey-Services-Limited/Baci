@@ -15,6 +15,11 @@ on:
         description: 'What''s New in This Version (leave empty for default)'
         required: false
         type: string
+      cancel_review_for_resubmit:
+        description: 'Withdraw the in-progress App Review submission so this build can replace it'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ios-storefront-submit-${{ github.ref }}
@@ -31,7 +36,20 @@ jobs:
   submit:
     name: Submit Storefront to App Store Review
     runs-on: macos-26
-    timeout-minutes: 30
+    # Withdrawal waits up to 10 minutes for Apple to free the editable version
+    # before set_changelog and deliver even start, so this needs headroom: a
+    # timeout between cancel_submission and deliver strands the app with
+    # nothing under review.
+    timeout-minutes: 45
+    # Shared with ios-storefront-release.yml's build-and-submit job so a manual
+    # submit can never race the automatic one over the single editable version
+    # slot. This workflow is the only one that may withdraw a live review, and
+    # its runs are never cancelled by a competing run (cancel-in-progress is
+    # false on both its groups), so the withdraw-to-submit critical section
+    # cannot be interrupted by CI.
+    concurrency:
+      group: ios-storefront-app-store-submission
+      cancel-in-progress: false
 
     steps:
       - name: Checkout
@@ -91,6 +109,9 @@ jobs:
           IOS_RELEASE_NOTES: ${{ env.IOS_RELEASE_NOTES }}
           SUBMIT_BUILD_NUMBER: ${{ inputs.build_number }}
           SUBMIT_APP_VERSION: ${{ inputs.app_version }}
+          # Opt-in, per run: without it the lane skips submission instead of
+          # withdrawing a build Apple may be actively reviewing.
+          IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT: ${{ inputs.cancel_review_for_resubmit }}
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets

@@ -66,6 +66,33 @@ describe('findReleaseArtifactIssues', () => {
     ]);
   });
 
+  it('rejects a bundle that still requests the unused Advertising ID permission', () => {
+    const issues = findReleaseArtifactIssues({
+      archiveEntries: [
+        'BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map',
+        'BUNDLE-METADATA/com.android.tools/r8.json',
+      ],
+      manifestXml: `
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+          <application />
+        </manifest>
+      `,
+      mappingSize: 42,
+      r8Metadata: JSON.stringify({
+        options: {
+          isOptimizationsEnabled: true,
+          isRepackageClassesEnabled: true,
+        },
+        resourceOptimization: { isOptimizedShrinkingEnabled: true },
+      }),
+    });
+
+    expect(issues).toEqual([
+      'AAB still requests the unused Advertising ID permission',
+    ]);
+  });
+
   it('reports missing R8 metadata without inferring disabled options', () => {
     const issues = findReleaseArtifactIssues({
       archiveEntries: [

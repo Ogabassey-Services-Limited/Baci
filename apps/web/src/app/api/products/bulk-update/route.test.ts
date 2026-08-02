@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PURGE_LISTINGS_ONLY_THRESHOLD } from '@/lib/storefront-product-purge-urls';
+import { createBulkUpdateRouteQueryBuilder } from './bulk-update-route-query-builder.test-support';
 
 // ---- Mocks ----
 
@@ -143,28 +143,9 @@ let updateError: unknown = null;
 let insertError: unknown = null;
 let productInserts: unknown[] = [];
 let productUpdates: unknown[] = [];
-// Rows returned by the `.select(...)` appended to the update/archive queries so
-// the route can derive the Cloudflare purge targets.
+// Rows returned before and after update/archive queries so the route can derive
+// publication-state-aware Cloudflare purge targets.
 let productUpdateSelectRows: unknown[] = [];
-
-// Creates a query builder that supports chaining .eq(); resolves with { error }
-// when awaited directly, or with { data, error } when `.select(...)` is called
-// (the purge path appends a returning select to the update/archive queries).
-function createQueryBuilder(
-  getError: () => unknown,
-  getRows: () => unknown[] = () => []
-) {
-  const builder: Record<string, unknown> = {};
-  builder.eq = vi.fn(() => builder);
-  builder.select = vi.fn(() =>
-    Promise.resolve({ data: getRows(), error: getError() })
-  );
-  // biome-ignore lint/suspicious/noThenProperty: Needed for vitest promise mocking
-  builder.then = vi.fn((resolve: (value: { error: unknown }) => void) =>
-    resolve({ error: getError() })
-  );
-  return builder;
-}
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -206,9 +187,15 @@ vi.mock('@/lib/supabase/server', () => ({
       }
       if (table === 'products') {
         return {
+          select: vi.fn(() =>
+            createBulkUpdateRouteQueryBuilder(
+              () => updateError,
+              () => productUpdateSelectRows
+            )
+          ),
           update: vi.fn((payload: unknown) => {
             productUpdates.push(payload);
-            return createQueryBuilder(
+            return createBulkUpdateRouteQueryBuilder(
               () => updateError,
               () => productUpdateSelectRows
             );
@@ -425,6 +412,7 @@ describe('POST /api/products/bulk-update', () => {
         id: 'product-1',
         slug: 'updated-product',
         category: 'Electronics',
+        status: 'active',
         categories: null,
         product_categories: [],
       },
@@ -446,8 +434,7 @@ describe('POST /api/products/bulk-update', () => {
     expect(res.status).toBe(200);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'updated-product', categorySegment: 'electronics' }],
-      { listingsOnly: false }
+      [{ slug: 'updated-product', categorySegment: 'electronics' }]
     );
   });
 
@@ -458,6 +445,7 @@ describe('POST /api/products/bulk-update', () => {
         id: 'legacy-id',
         slug: null,
         category: null,
+        status: 'active',
         categories: null,
         product_categories: [],
       },
@@ -477,68 +465,22 @@ describe('POST /api/products/bulk-update', () => {
 
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'legacy-id', categorySegment: null }],
-      { listingsOnly: false }
+      [{ slug: 'legacy-id', categorySegment: null }]
     );
   });
 
-  it('falls back to the created id when a bulk-created slug is blank', async () => {
-    mockGenerateProductSlug.mockReturnValueOnce('');
+  it('forwards every high-cardinality product to the shared bounded purge scheduler', async () => {
     const { POST } = await import('./route');
-
-    const res = await POST(
-      makeRequest({
-        changes: [
-          {
-            type: 'new',
-            details: { name: 'X', price: 100, category: 'Gadgets' },
-          },
-        ],
-      })
-    );
-
-    expect(res.status).toBe(200);
-    const entries = mockScheduleStorefrontProductPurge.mock.calls[0]?.[1];
-    expect(entries).toEqual([
-      expect.objectContaining({ slug: 'created-id-1' }),
-    ]);
-  });
-
-  it('schedules a Cloudflare purge for newly created products', async () => {
-    const { POST } = await import('./route');
-
-    await POST(
-      makeRequest({
-        changes: [
-          {
-            type: 'new',
-            details: { name: 'New Product', price: 20, category: 'Audio' },
-          },
-        ],
-      })
-    );
-
-    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
-      'ogabassey',
-      [{ slug: 'new-product', categorySegment: 'audio' }],
-      { listingsOnly: false }
-    );
-  });
-
-  it('purges only listing surfaces past the per-op product threshold', async () => {
-    const { POST } = await import('./route');
-    // One update matching more rows than the shared threshold triggers the
-    // listings-only fan-out guard.
-    productUpdateSelectRows = Array.from(
-      { length: PURGE_LISTINGS_ONLY_THRESHOLD + 1 },
-      (_, index) => ({
-        id: `p-${index}`,
-        slug: `slug-${index}`,
-        category: 'Electronics',
-        categories: null,
-        product_categories: [],
-      })
-    );
+    // The shared scheduler now owns the bounded hostname-purge strategy, so
+    // this caller must not omit PDP entries from a large mutation.
+    productUpdateSelectRows = Array.from({ length: 51 }, (_, index) => ({
+      id: `p-${index}`,
+      slug: `slug-${index}`,
+      category: 'Electronics',
+      status: 'active',
+      categories: null,
+      product_categories: [],
+    }));
 
     await POST(
       makeRequest({
@@ -552,9 +494,13 @@ describe('POST /api/products/bulk-update', () => {
       })
     );
 
-    const call = mockScheduleStorefrontProductPurge.mock.calls[0];
-    expect(call[0]).toBe('ogabassey');
-    expect(call[2]).toEqual({ listingsOnly: true });
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      expect.arrayContaining([
+        { slug: 'slug-0', categorySegment: 'electronics' },
+        { slug: 'slug-50', categorySegment: 'electronics' },
+      ])
+    );
   });
 
   it('does not persist whitespace-only product names during targeted updates', async () => {

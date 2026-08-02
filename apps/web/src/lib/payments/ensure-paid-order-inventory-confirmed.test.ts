@@ -172,9 +172,7 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
       error: null,
     });
 
-    const mockSupabase: MockSupabaseRpcClient = {
-      rpc: mockRpc,
-    };
+    const mockSupabase: MockSupabaseRpcClient = { rpc: mockRpc };
 
     await ensurePaidOrderInventoryConfirmed(
       asSupabaseClient(mockSupabase),
@@ -201,9 +199,7 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
       error: null,
     });
 
-    const mockSupabase: MockSupabaseRpcClient = {
-      rpc: mockRpc,
-    };
+    const mockSupabase: MockSupabaseRpcClient = { rpc: mockRpc };
 
     // The re-claim already committed via the RPC even though a different
     // item's exception makes this call reject — caches must still be busted.

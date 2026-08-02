@@ -92,6 +92,9 @@ export async function fetchSelectableItems(params: {
     .from('categories')
     .select(SELECTABLE_CATEGORY_COLUMNS)
     .eq('merchant_id', params.merchantId)
+    // Retired categories are explicit false tombstones. Preserve legacy NULL
+    // rows, which the storefront still treats as active.
+    .not('is_active', 'is', false)
     .ilike('name', searchTerm)
     .limit(SELECTABLE_ITEM_LIMIT);
 

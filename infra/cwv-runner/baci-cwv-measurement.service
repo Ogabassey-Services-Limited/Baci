@@ -1,0 +1,25 @@
+[Unit]
+Description=Baci CWV single-use measurement runner
+Requires=baci-cwv-docker.service
+After=baci-cwv-docker.service network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+Slice=cwv-measurement-control.slice
+RuntimeDirectory=baci-cwv-measurement
+RuntimeDirectoryMode=0700
+ExecStartPre=/usr/bin/env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C.UTF-8 TZ=Etc/UTC HOME=/var/empty/baci-cwv /bin/bash -p /srv/baci-cwv/sealed/measurement-service-wrapper.sh prepare /run/baci-cwv-measurement/input.env /srv/baci-cwv/image-id /srv/baci-cwv/image-id.sha256 /etc/baci-cwv/measurement.env
+ExecStart=/usr/bin/env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C.UTF-8 TZ=Etc/UTC HOME=/var/empty/baci-cwv /bin/bash -p /srv/baci-cwv/sealed/measurement-service-wrapper.sh start /run/baci-cwv-measurement/input.env
+ExecStop=/usr/bin/env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C.UTF-8 TZ=Etc/UTC HOME=/var/empty/baci-cwv /bin/bash -p /srv/baci-cwv/sealed/measurement-service-wrapper.sh stop
+Restart=no
+TimeoutStartSec=120s
+TimeoutStopSec=30s
+RuntimeMaxSec=30m
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/baci-cwv/writable

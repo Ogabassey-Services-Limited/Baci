@@ -51,6 +51,7 @@ const ninFormSchema = z.object({
 type NinFormValues = z.input<typeof ninFormSchema>;
 
 interface NinVerificationProps {
+  merchantId: string;
   verified: boolean;
   prefillNin: string | null;
   prefillFirstName: string | null;
@@ -60,6 +61,7 @@ interface NinVerificationProps {
 }
 
 export function NinVerification({
+  merchantId,
   verified,
   prefillNin,
   prefillFirstName,
@@ -95,7 +97,7 @@ export function NinVerification({
     try {
       const res = await fetchWithCsrf('/api/merchant/verify-nin', {
         method: 'POST',
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, merchantId }),
       });
 
       if (res.status === 429) {

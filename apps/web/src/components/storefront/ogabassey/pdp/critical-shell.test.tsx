@@ -214,7 +214,6 @@ describe('OgabasseyPdpCriticalShell', () => {
     ).not.toBeInTheDocument();
   });
 
-
   it('does not render filled stars for products without reviews', () => {
     renderCriticalShell();
 

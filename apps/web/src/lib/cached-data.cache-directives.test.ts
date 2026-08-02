@@ -21,6 +21,20 @@ const CACHED_DATA_AST = ts.createSourceFile(
   true,
   ts.ScriptKind.TS
 );
+const CATEGORY_PAGE_PRODUCT_ID_CACHE_SOURCE = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    'category-page-product-id-cache.ts'
+  ),
+  'utf8'
+);
+const CATEGORY_PAGE_PRODUCT_ID_CACHE_AST = ts.createSourceFile(
+  'category-page-product-id-cache.ts',
+  CATEGORY_PAGE_PRODUCT_ID_CACHE_SOURCE,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TS
+);
 const HYDRATE_PUBLIC_PRODUCTS_SOURCE = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), 'hydrate-public-products.ts'),
   'utf8'
@@ -65,6 +79,16 @@ function getFunctionSource(functionName: string): string {
     functionName,
     CACHED_DATA_SOURCE,
     CACHED_DATA_AST
+  );
+}
+
+function getCategoryPageProductIdCacheFunctionSource(
+  functionName: string
+): string {
+  return getFunctionSourceFrom(
+    functionName,
+    CATEGORY_PAGE_PRODUCT_ID_CACHE_SOURCE,
+    CATEGORY_PAGE_PRODUCT_ID_CACHE_AST
   );
 }
 
@@ -232,19 +256,32 @@ describe('cached-data cache directives', () => {
     expect(source).toContain('throw error');
   });
 
-  it('keeps category-page product IDs on the shared store and caps the list (PR4b review r4)', () => {
-    // Demotion REVERTED (Codex PRRT_kwDOQZgfis6QjNxf): the category-page-data /
-    // products-${id} / categories-${id} tags are all busted by
+  it('keeps canonical category product IDs on the shared store while legacy IDs stay local', () => {
+    // Demotion REVERTED (Codex PRRT_kwDOQZgfis6QjNxf): the
+    // category-page-data-${id} / products-${id} / categories-${id} tags are
+    // all busted by
     // revalidateProducts() and revalidateCategories(), so category membership
     // and counts MUST invalidate on every instance. The deterministic ID cap
     // stays (each scope branch orders by id last) to bound the cache item.
-    const source = getFunctionSource('getCachedCategoryPageProductIds');
+    const source = getCategoryPageProductIdCacheFunctionSource(
+      'getCachedCategoryPageProductIds'
+    );
     expect(source).toContain("'use cache: remote';");
     expect(source).toContain("cacheLife('storefront-page');");
     expect(source).toContain('cacheTag(');
     expect(source).toContain('CATEGORY_PAGE_PRODUCT_ID_CAP');
     expect(source).toContain('.limit(CATEGORY_PAGE_PRODUCT_ID_CAP)');
-    expect(CACHED_DATA_SOURCE).toContain('const CATEGORY_PAGE_PRODUCT_ID_CAP');
+    expect(CATEGORY_PAGE_PRODUCT_ID_CACHE_SOURCE).toContain(
+      'CATEGORY_PAGE_PRODUCT_ID_CAP'
+    );
+    expect(source).toContain('getCategoryPageDataCacheTag(merchantId)');
+
+    const legacySource = getCategoryPageProductIdCacheFunctionSource(
+      'getCachedLegacyCategoryPageProductIds'
+    );
+    expect(legacySource).toContain("'use cache';");
+    expect(legacySource).not.toContain("'use cache: remote';");
+    expect(legacySource).toContain('getCategoryPageDataCacheTag(merchantId)');
   });
 
   it('caches the exact count as its OWN entry so a count failure cannot empty the catalog (PR4b review r4)', () => {
@@ -255,8 +292,10 @@ describe('cached-data cache directives', () => {
     // query failed. The count now owns its own cached entry (a throw persists
     // NO entry, so the wrong count is never cached and the next request
     // refills), and the boundary degrades the TOTALS only.
-    const idsSource = getFunctionSource('getCachedCategoryPageProductIds');
-    const countSource = getFunctionSource(
+    const idsSource = getCategoryPageProductIdCacheFunctionSource(
+      'getCachedCategoryPageProductIds'
+    );
+    const countSource = getCategoryPageProductIdCacheFunctionSource(
       'getCachedCategoryPageProductTotalCount'
     );
     const boundarySource = getFunctionSource('getCategoryPageProductIds');
@@ -270,6 +309,13 @@ describe('cached-data cache directives', () => {
     expect(countSource).toContain("count: 'exact'");
     // No cap-equality gate in front of the count (max-rows clamp trap).
     expect(countSource).not.toContain('=== CATEGORY_PAGE_PRODUCT_ID_CAP');
+
+    const legacyCountSource = getCategoryPageProductIdCacheFunctionSource(
+      'getCachedLegacyCategoryPageProductTotalCount'
+    );
+    expect(legacyCountSource).toContain("'use cache';");
+    expect(legacyCountSource).not.toContain("'use cache: remote';");
+    expect(legacyCountSource).toContain("count: 'exact'");
 
     // The boundary keeps the IDs and degrades only the totals on count failure.
     expect(boundarySource).toContain('totalProductCountExact: false');
@@ -285,7 +331,7 @@ describe('cached-data cache directives', () => {
     // length as the total. Windows beyond the cached list are fetched
     // per-request with the same deterministic ordering, and no-limit
     // consumers get the FULL ID list assembled per-request.
-    const countSource = getFunctionSource(
+    const countSource = getCategoryPageProductIdCacheFunctionSource(
       'getCachedCategoryPageProductTotalCount'
     );
     expect(countSource).toContain("count: 'exact'");
@@ -293,7 +339,9 @@ describe('cached-data cache directives', () => {
       'getCachedCategoryPageProductsUncached'
     );
     expect(aggregateSource).toContain('totalProductCount');
-    expect(aggregateSource).toContain('fetchCategoryPageProductIdWindow');
+    expect(aggregateSource).toContain(
+      'categoryPageProductIdCache.fetchProductIdWindow'
+    );
     // Unbounded (no-limit) consumers assemble the complete ID list.
     expect(aggregateSource).toContain('fetchAllCategoryPageProductIds');
     // ...but NEVER page toward a total that the count query failed to produce.

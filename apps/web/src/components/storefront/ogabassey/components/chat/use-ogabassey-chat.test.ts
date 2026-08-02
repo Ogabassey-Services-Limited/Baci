@@ -1,9 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 
 const chatMocks = vi.hoisted(() => ({
   addToCart: vi.fn(),
   parseSantaActions: vi.fn(),
+  setMerchantSlug: vi.fn(),
   setIsCartOpen: vi.fn(),
   stripSantaActions: vi.fn((content: string) => content),
 }));
@@ -12,6 +14,7 @@ const chatMocks = vi.hoisted(() => ({
 vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     addToCart: chatMocks.addToCart,
+    setMerchantSlug: chatMocks.setMerchantSlug,
     setIsCartOpen: chatMocks.setIsCartOpen,
   })),
 }));
@@ -25,7 +28,7 @@ vi.mock('@/components/storefront/santa-chat/types', () => ({
 import { useOgabasseyChat } from './use-ogabassey-chat';
 
 // Helper to create a streaming response body from a string
-function makeStreamingResponse(text: string) {
+function makeStreamingResponse(text: string, merchantSlug?: string) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -36,6 +39,9 @@ function makeStreamingResponse(text: string) {
   return {
     ok: true,
     body: stream,
+    headers: new Headers(
+      merchantSlug ? { [SANTA_MERCHANT_SLUG_HEADER]: merchantSlug } : undefined
+    ),
   };
 }
 
@@ -383,7 +389,7 @@ describe('useOgabasseyChat - handleSend', () => {
       { type: 'ADD_TO_CART', productName: 'Pixel 9', price: 500000 },
     ]);
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      makeStreamingResponse('raw Santa directives')
+      makeStreamingResponse('raw Santa directives', 'winter-store')
     );
 
     const { result } = renderHook(() => useOgabasseyChat({ isSanta: true }));
@@ -398,11 +404,16 @@ describe('useOgabasseyChat - handleSend', () => {
 
     expect(chatMocks.addToCart).toHaveBeenCalledWith(
       expect.objectContaining({
+        merchant_id: 'winter-store',
         name: 'Pixel 9',
         price: 500000,
       }),
       1
     );
+    expect(chatMocks.setMerchantSlug).toHaveBeenCalledWith('winter-store');
+    expect(
+      chatMocks.setMerchantSlug.mock.invocationCallOrder[0]
+    ).toBeLessThan(chatMocks.addToCart.mock.invocationCallOrder[0]);
     expect(result.current.messages[1]?.santaActions).toEqual([
       { productName: 'iPhone 15', price: 600000, added: false },
       { productName: 'Pixel 9', price: 500000, added: true },
@@ -415,7 +426,7 @@ describe('useOgabasseyChat - handleSend', () => {
       { type: 'ADD_TO_CART', productName: 'iPhone 15', price: 600000 },
     ]);
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      makeStreamingResponse('raw Santa directive')
+      makeStreamingResponse('raw Santa directive', 'winter-store')
     );
 
     const { result } = renderHook(() => useOgabasseyChat({ isSanta: true }));
@@ -430,6 +441,28 @@ describe('useOgabasseyChat - handleSend', () => {
 
     expect(chatMocks.addToCart).not.toHaveBeenCalled();
     expect(result.current.messages[1]?.santaActions?.[0]?.added).toBe(false);
+  });
+
+  it('does not add Santa actions when the tenant header is missing', async () => {
+    chatMocks.parseSantaActions.mockReturnValueOnce([
+      { type: 'ADD_TO_CART', productName: 'iPhone 15', price: 600000 },
+    ]);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('raw Santa directive')
+    );
+
+    const { result } = renderHook(() => useOgabasseyChat({ isSanta: true }));
+
+    await act(async () => {
+      await result.current.handleSend('I want a phone');
+    });
+
+    act(() => {
+      result.current.handleAddSantaWishToCart(1);
+    });
+
+    expect(chatMocks.setMerchantSlug).not.toHaveBeenCalled();
+    expect(chatMocks.addToCart).not.toHaveBeenCalled();
   });
 });
 
