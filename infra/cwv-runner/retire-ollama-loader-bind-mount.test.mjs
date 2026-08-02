@@ -195,6 +195,7 @@ test('excludes the reviewed Ollama container and its bind file from consumer out
       `#!/bin/sh
 case "$*" in
   *' ps -a '*) printf 'ollama-loopback\\n' ;;
+  *'{{.Name}}'*) printf '/ollama-loopback\\n' ;;
   *'{{.Id}}'*) printf 'ollama-id /ollama-loopback [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
   *'{{json .Mounts}}'*) exit 99 ;;
 esac
