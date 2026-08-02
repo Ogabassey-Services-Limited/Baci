@@ -8,17 +8,21 @@ import {
 import { OnboardingPuckPreview } from './onboarding-puck-preview';
 
 describe('OnboardingPuckPreview content', () => {
-  it('renders fallback message when brand colors are missing', () => {
+  it('shows loading before the fallback when brand colors are missing', async () => {
     renderPreview({ brandColors: undefined });
     expect(
-      screen.getByText(/your store preview will appear here/i)
+      screen.getByRole('status', { name: /loading store preview/i })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/your store preview will appear here/i)
     ).toBeInTheDocument();
   });
-  it('renders fallback message when puck data is not loaded', () => {
+  it('shows loading before generating preview data without a logo', async () => {
     renderPreview({ logoDataUri: undefined });
     expect(
-      screen.getByText(/your store preview will appear here/i)
+      screen.getByRole('status', { name: /loading store preview/i })
     ).toBeInTheDocument();
+    expect(await screen.findByTestId('puck-render')).toBeInTheDocument();
   });
   it('renders preview with generated content and scoped theme values', async () => {
     const { container } = renderPreview();
@@ -41,18 +45,42 @@ describe('OnboardingPuckPreview content', () => {
       '"headingLevel":"h1"'
     );
   });
-  it('calls onEdit with the displayed page', async () => {
+  it('passes the exact logo-patched external page to Edit', async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
-    renderPreview({ onEdit });
+    const externalData = {
+      content: [
+        {
+          type: 'Header',
+          props: { id: 'external-header', storeName: 'External Store' },
+        },
+        { type: 'Text', props: { id: 'external-text', title: 'External' } },
+      ],
+      root: { props: { title: 'External' } },
+      zones: {},
+    };
+    renderPreview({
+      data: externalData,
+      logoDataUri: 'data:image/png;base64,changed-logo',
+      onEdit,
+    });
     await screen.findByTestId('puck-render');
     await user.click(screen.getByRole('button', { name: /edit template/i }));
-    expect(onEdit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        content: expect.any(Array),
-        root: expect.any(Object),
-      })
-    );
+    expect(onEdit).toHaveBeenCalledWith({
+      content: [
+        {
+          type: 'Header',
+          props: {
+            id: 'external-header',
+            storeName: 'External Store',
+            logoUrl: 'data:image/png;base64,changed-logo',
+          },
+        },
+        { type: 'Text', props: { id: 'external-text', title: 'External' } },
+      ],
+      root: { props: { title: 'External' } },
+      zones: {},
+    });
   });
   it('patches a changed logo URL into puck data', async () => {
     const { rerender } = renderPreview({

@@ -1,4 +1,4 @@
-import { normalizeBusinessType } from '@/lib/initial-template-profiles';
+import { getInitialTemplateProfile } from '@/lib/initial-template-profiles';
 
 export function buildCuratedCopy(input: {
   businessName: string;
@@ -6,32 +6,14 @@ export function buildCuratedCopy(input: {
   country: string;
 }) {
   const name = input.businessName.trim() || 'Your Store';
-  const category = normalizeBusinessType(input.businessType);
-  const subject =
-    category === 'fashion'
-      ? 'styles'
-      : category === 'food'
-        ? 'menu items'
-        : category === 'electronics'
-          ? 'devices'
-          : category === 'pharmacy'
-            ? 'health products'
-            : 'products';
-  const shopLabel =
-    category === 'fashion'
-      ? 'Collections'
-      : category === 'food'
-        ? 'Menu'
-        : category === 'electronics'
-          ? 'Gadgets'
-          : category === 'pharmacy'
-            ? 'Health Store'
-            : 'Shop';
+  const { shopNavLabel, subject } = getInitialTemplateProfile(
+    input.businessType
+  );
   return {
     header: {
       navigationLinks: [
         { label: 'Home', url: '/' },
-        { label: shopLabel, url: '/products' },
+        { label: shopNavLabel, url: '/products' },
         { label: 'About', url: '/about' },
       ],
       ctaButton: { show: false, text: 'Get Started', url: '/signup' },

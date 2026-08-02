@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import { OnboardingPreviewCanvas } from '@/components/onboarding-preview/onboarding-preview-canvas';
 import { OnboardingPreviewControls } from '@/components/onboarding-preview/onboarding-preview-controls';
 import { generatePreviewTemplate } from '@/components/onboarding-preview/onboarding-preview-data';
-import { Button } from '@/components/ui/button';
+import { OnboardingPreviewExpandedDialog } from '@/components/onboarding-preview/onboarding-preview-expanded-dialog';
+import { Dialog } from '@/components/ui/dialog';
 import { deriveCuratedTheme } from '@/lib/storefront-defaults/derive-curated-theme';
 import type { BrandColors } from '@/types';
 
@@ -85,10 +86,15 @@ export function OnboardingPuckPreview({
   data: externalData,
 }: OnboardingPuckPreviewProps) {
   const [internalPuckData, setInternalPuckData] = useState<Data | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !externalData);
   const [isExpanded, setIsExpanded] = useState(false);
   useEffect(() => {
+    if (externalData) {
+      setIsLoading(false);
+      return;
+    }
     let mounted = true;
+    setIsLoading(true);
     generatePreviewTemplate({
       businessName: businessName || 'Your Store',
       businessType: businessType || 'other',
@@ -107,9 +113,23 @@ export function OnboardingPuckPreview({
     return () => {
       mounted = false;
     };
-  }, [businessName, businessType, logoDataUri]);
+  }, [businessName, businessType, externalData, logoDataUri]);
   const puckData = externalData || internalPuckData;
   const patchedData = puckData ? patchLogo(puckData, logoDataUri) : null;
+  if (isLoading && !puckData)
+    return (
+      <div
+        className="p-6 rounded-lg border border-dashed flex items-center justify-center h-full text-muted-foreground bg-muted/20"
+        role="status"
+        aria-label="Loading store preview"
+        aria-live="polite"
+      >
+        <Loader2
+          className="size-8 animate-spin text-primary"
+          aria-hidden="true"
+        />
+      </div>
+    );
   if (!brandColors || !puckData || !patchedData)
     return (
       <div className="p-6 rounded-lg border border-dashed flex items-center justify-center h-full text-muted-foreground bg-muted/20">
@@ -135,59 +155,42 @@ export function OnboardingPuckPreview({
       resetKey={resetKey}
     />
   );
-  if (isExpanded)
-    return (
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="expanded-store-preview-title"
-        className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
-      >
-        <div className="relative w-full h-full max-w-[1600px] bg-background rounded-xl border shadow-2xl overflow-hidden flex flex-col">
-          <div className="h-14 border-b flex items-center justify-between px-6 bg-muted/10">
-            <h3
-              id="expanded-store-preview-title"
-              className="font-semibold text-lg"
-            >
-              Live Store Preview
-            </h3>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsExpanded(false)}
-            >
-              <span className="sr-only">Close Preview</span>×
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="min-h-full" style={themeStyles}>
-              {canvas}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   return (
-    <div className="relative w-full h-full rounded-xl border border-white/10 bg-muted/20 overflow-hidden flex flex-col group">
-      {isLoading && (
-        <div className="absolute inset-0 z-60 flex items-center justify-center bg-background/50 backdrop-blur-xs transition-opacity duration-200">
-          <Loader2 className="size-8 animate-spin text-primary" />
-        </div>
-      )}
-      <OnboardingPreviewControls
-        brandColors={brandColors}
-        data={puckData}
-        onEdit={onEdit}
-        onExpand={() => setIsExpanded(true)}
-      />
-      <div className="w-full h-full overflow-y-auto overflow-x-hidden p-4">
-        <div
-          className="origin-top-left scale-[0.65] sm:scale-[0.75] md:scale-[0.8] lg:scale-[0.85] w-[153.9%] sm:w-[133.4%] md:w-[125%] lg:w-[117.7%] min-h-[153.9%] sm:min-h-[133.4%] md:min-h-[125%] lg:min-h-[117.7%] rounded-md bg-background shadow-lg"
-          style={{ backgroundColor: 'var(--theme-background)', ...themeStyles }}
-        >
-          {canvas}
+    <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
+      <div className="relative w-full h-full rounded-xl border border-white/10 bg-muted/20 overflow-hidden flex flex-col group">
+        {isLoading && (
+          <div
+            className="absolute inset-0 z-60 flex items-center justify-center bg-background/50 backdrop-blur-xs transition-opacity duration-200"
+            role="status"
+            aria-label="Loading store preview"
+            aria-live="polite"
+          >
+            <Loader2
+              className="size-8 animate-spin text-primary"
+              aria-hidden="true"
+            />
+          </div>
+        )}
+        <OnboardingPreviewControls
+          brandColors={brandColors}
+          data={patchedData}
+          onEdit={onEdit}
+        />
+        <div className="w-full h-full overflow-y-auto overflow-x-hidden p-4">
+          <div
+            className="origin-top-left scale-[0.65] sm:scale-[0.75] md:scale-[0.8] lg:scale-[0.85] w-[153.9%] sm:w-[133.4%] md:w-[125%] lg:w-[117.7%] min-h-[153.9%] sm:min-h-[133.4%] md:min-h-[125%] lg:min-h-[117.7%] rounded-md bg-background shadow-lg"
+            style={{
+              backgroundColor: 'var(--theme-background)',
+              ...themeStyles,
+            }}
+          >
+            {canvas}
+          </div>
         </div>
       </div>
-    </div>
+      <OnboardingPreviewExpandedDialog>
+        {canvas}
+      </OnboardingPreviewExpandedDialog>
+    </Dialog>
   );
 }

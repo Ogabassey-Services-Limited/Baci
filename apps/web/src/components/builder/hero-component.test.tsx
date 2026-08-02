@@ -139,3 +139,34 @@ it('preserves supported animation duration and trigger values', () => {
     trigger: 'immediate',
   });
 });
+
+it('keeps manual background images opt-in for their existing overlay treatment', () => {
+  const renderHero = heroComponent.render as (props: {
+    title: string;
+    subtitle: string;
+    ctaText: string;
+    ctaLink: string;
+    align: 'center';
+    padding: 'large';
+    backgroundImage: string;
+    overlay: false;
+  }) => ReactNode;
+
+  const { container } = render(
+    renderHero({
+      title: 'North Star',
+      subtitle: 'Browse products.',
+      ctaText: 'Explore products',
+      ctaLink: '/collections',
+      align: 'center',
+      padding: 'large',
+      backgroundImage: 'https://images.example.com/manual-hero.jpg',
+      overlay: false,
+    })
+  );
+
+  expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
+  expect(
+    screen.getByRole('heading', { level: 1 }).parentElement
+  ).not.toHaveClass('text-white');
+});

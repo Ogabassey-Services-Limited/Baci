@@ -17,16 +17,45 @@ describe('OnboardingPuckPreview responsive controls', () => {
     expect(
       screen.getByRole('heading', { name: /live store preview/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /close preview/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
+  it('moves focus into the modal dialog and keeps Tab navigation there', async () => {
+    const user = userEvent.setup();
+    renderPreview();
+    await screen.findByTestId('puck-render');
+    await user.click(screen.getByRole('button', { name: /expand/i }));
+    const dialog = await screen.findByRole('dialog', {
+      name: /live store preview/i,
+    });
+
+    await waitFor(() =>
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    );
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+  it('closes the expanded dialog with Escape and restores trigger focus', async () => {
+    const user = userEvent.setup();
+    renderPreview();
+    const trigger = await screen.findByRole('button', { name: /expand/i });
+    await user.click(trigger);
+    await screen.findByRole('dialog', { name: /live store preview/i });
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: /live store preview/i })
+      ).not.toBeInTheDocument()
+    );
+    expect(trigger).toHaveFocus();
   });
   it('closes the expanded preview', async () => {
     const user = userEvent.setup();
     renderPreview();
     await screen.findByTestId('puck-render');
     await user.click(screen.getByRole('button', { name: /expand/i }));
-    await user.click(screen.getByRole('button', { name: /close preview/i }));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() =>
       expect(
         screen.getByRole('button', { name: /expand/i })

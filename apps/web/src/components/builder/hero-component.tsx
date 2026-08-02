@@ -116,6 +116,9 @@ function renderHero({
     large: 'py-32',
   }[padding];
   const HeadingTag = (headingLevel || 'h1') as 'h1' | 'h2' | 'div';
+  const usesReadableGradientSurface = Boolean(
+    backgroundGradient && !backgroundImage
+  );
 
   return (
     <AnimatedWrapper
@@ -141,8 +144,14 @@ function renderHero({
         }
         aria-label="Hero Banner"
       >
-        {overlay && backgroundImage && (
-          <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
+        {(usesReadableGradientSurface || (overlay && backgroundImage)) && (
+          <div
+            className={cn(
+              'absolute inset-0',
+              usesReadableGradientSurface ? 'bg-black/60' : 'bg-black/40'
+            )}
+            aria-hidden="true"
+          />
         )}
         <div
           className={cn(
@@ -152,7 +161,10 @@ function renderHero({
               'items-center text-center': align === 'center',
               'items-end text-right': align === 'right',
             },
-            { 'text-white': backgroundImage && overlay }
+            {
+              'text-white':
+                usesReadableGradientSurface || (backgroundImage && overlay),
+            }
           )}
         >
           <HeadingTag className="text-4xl md:text-6xl font-bold tracking-tighter">

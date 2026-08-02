@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { getInitialTemplateProfile } from '@/lib/initial-template-profiles';
 import { buildCuratedStorefront } from './build-curated-storefront';
+import { forbiddenCuratedStorefrontClaims } from './curated-claim-test-support';
 
 describe('curated starter claim safety', () => {
   it.each([
@@ -20,6 +22,9 @@ describe('curated starter claim safety', () => {
       },
     });
     const content = JSON.stringify(storefront).toLowerCase();
+    const profile = JSON.stringify(
+      getInitialTemplateProfile(businessType)
+    ).toLowerCase();
     expect(content).toContain('north star');
     expect(
       storefront.content.filter(
@@ -47,23 +52,9 @@ describe('curated starter claim safety', () => {
       { label: 'Privacy Policy', url: '/privacy' },
       { label: 'Terms', url: '/terms' },
     ]);
-    for (const claim of [
-      'nationwide delivery',
-      'flexible payment',
-      'trusted quality',
-      'best seller',
-      'expert',
-      'warranty',
-      'fresh meals',
-      'popular',
-      'delivery-ready',
-      'fulfillment',
-      'confidence',
-      'quality products',
-      'secure checkout',
-      'reliable',
-      'exclusive offers',
-    ])
+    for (const claim of forbiddenCuratedStorefrontClaims)
       expect(content).not.toContain(claim);
+    for (const claim of forbiddenCuratedStorefrontClaims)
+      expect(profile).not.toContain(claim);
   });
 });
