@@ -1,29 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  resolveCiTestPlan,
-  resolveNonWebTestFilterArgs,
-} from './resolve-ci-test-plan.mjs';
-
-test('selects only affected non-web packages for pull-request full test jobs', () => {
-  assert.deepEqual(
-    resolveNonWebTestFilterArgs({
-      baseRef: 'origin/main',
-      eventName: 'pull_request',
-    }),
-    ['--filter=...[origin/main]', '--filter=!@baci/web']
-  );
-});
-
-test('keeps the non-web filter without narrowing main and merge-queue jobs', () => {
-  assert.deepEqual(
-    resolveNonWebTestFilterArgs({
-      baseRef: 'origin/main',
-      eventName: 'merge_group',
-    }),
-    ['--filter=!@baci/web']
-  );
-});
+import { resolveCiTestPlan } from './resolve-ci-test-plan.mjs';
 
 test('targets Vitest changed tests for pull requests with only local web source changes', () => {
   assert.deepEqual(
@@ -128,8 +105,7 @@ test('keeps full affected tests when CI test planning changes', () => {
       mode: 'full-affected',
       reason:
         'Shared, package, CI, or test setup changes require the full affected test path.',
-      command:
-        'pnpm turbo run test --concurrency=3 --log-order=stream --filter=...[origin/main] --filter=!@baci/web',
+      command: 'pnpm turbo run test --concurrency=3 --log-order=stream',
     }
   );
 });
