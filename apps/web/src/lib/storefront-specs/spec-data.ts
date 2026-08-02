@@ -103,7 +103,7 @@ function mergeSpecSections(...sections: ProductSpecSection[][]) {
   return merged.filter((section) => section.items.length > 0);
 }
 
-function filterCameraLegacySpecifications(
+function filterNonDeviceLegacySpecifications(
   sections: ProductSpecSection[],
   categoryName: string
 ) {
@@ -204,22 +204,22 @@ export function buildProductSpecData(source: SpecDataSource) {
       : [];
 
   const detailedSpecifications =
-    specFamily === 'camera'
-      ? filterCameraLegacySpecifications(
+    specFamily === 'camera' || specFamily === 'general'
+      ? filterNonDeviceLegacySpecifications(
           normalizedDetailedSpecs,
           sourceCategoryName
         )
       : normalizedDetailedSpecs;
   const legacySpecifications =
-    specFamily === 'camera'
-      ? filterCameraLegacySpecifications(
+    specFamily === 'camera' || specFamily === 'general'
+      ? filterNonDeviceLegacySpecifications(
           normalizedLegacySpecifications,
           sourceCategoryName
         )
       : normalizedLegacySpecifications;
   const descriptionSpecifications =
-    specFamily === 'camera'
-      ? filterCameraLegacySpecifications(
+    specFamily === 'camera' || specFamily === 'general'
+      ? filterNonDeviceLegacySpecifications(
           descriptionKeySpecs,
           sourceCategoryName
         )

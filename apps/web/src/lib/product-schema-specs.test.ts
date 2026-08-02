@@ -199,6 +199,18 @@ describe('shouldIncludeProductSchemaSpec', () => {
     expect(
       shouldIncludeProductSchemaSpec(
         { category: 'Cameras', categories: null },
+        { label: 'Network Technology', value: 'N/A' }
+      )
+    ).toBe(false);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { label: 'Selfie Camera', value: '0MP' }
+      )
+    ).toBe(false);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
         { key: 'front_camera_mp', value: 0 }
       )
     ).toBe(false);

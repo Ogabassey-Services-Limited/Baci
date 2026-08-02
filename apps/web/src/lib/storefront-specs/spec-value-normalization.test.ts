@@ -14,4 +14,10 @@ describe('normalizeSpecValueText', () => {
     expect(normalizeSpecValueText(false)).toBe('No');
     expect(normalizeSpecValueText(Number.NaN)).toBe('');
   });
+
+  it('preserves numeric entities outside the Unicode range instead of throwing', () => {
+    expect(
+      normalizeSpecValueText('Sensor &#999999999; &#x110000; remains listed')
+    ).toBe('Sensor &#999999999; &#x110000; remains listed');
+  });
 });

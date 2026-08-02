@@ -357,6 +357,29 @@ describe('buildProductSpecData', () => {
     );
   });
 
+  it('filters stale phone rows from legacy specifications on accessory PDPs', () => {
+    const result = buildProductSpecData({
+      category: 'Phone Accessories',
+      specifications: [
+        {
+          category: 'Stored Details',
+          items: [
+            { label: '5G Support', value: 'No' },
+            { label: 'SIM', value: 'Nano-SIM' },
+            { label: 'Material', value: 'Silicone' },
+          ],
+        },
+      ],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Stored Details',
+        items: [{ label: 'Material', value: 'Silicone' }],
+      },
+    ]);
+  });
+
   it('retains safe key specs for general gaming products', () => {
     const result = buildProductSpecData({
       category: 'Gaming',

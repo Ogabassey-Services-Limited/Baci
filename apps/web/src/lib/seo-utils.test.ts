@@ -1078,6 +1078,12 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
           '@type': 'Product',
           additionalProperty: [
             { '@type': 'PropertyValue', name: '5G Support', value: 'No' },
+            {
+              '@type': 'PropertyValue',
+              name: 'Network Technology',
+              value: 'N/A',
+            },
+            { '@type': 'PropertyValue', name: 'Selfie Camera', value: '0MP' },
             { '@type': 'PropertyValue', name: 'Sensor', value: '45MP CMOS' },
           ],
         },
@@ -1095,6 +1101,12 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.additionalProperty).not.toEqual(
       expect.arrayContaining([
         { '@type': 'PropertyValue', name: '5G Support', value: 'No' },
+        {
+          '@type': 'PropertyValue',
+          name: 'Network Technology',
+          value: 'N/A',
+        },
+        { '@type': 'PropertyValue', name: 'Selfie Camera', value: '0MP' },
       ])
     );
   });
