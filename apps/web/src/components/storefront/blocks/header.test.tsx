@@ -268,8 +268,8 @@ describe('Header', () => {
     const headers = screen.getAllByRole('banner');
     expect(persistedHeader.props).toMatchObject({
       glassEffect: false,
-      backgroundColor: 'var(--store-background)',
-      textColor: 'var(--store-background-text)',
+      backgroundColor: 'var(--theme-header-bg)',
+      textColor: 'var(--theme-header-text)',
     });
     expect(previewHeader.props).toMatchObject({
       glassEffect: persistedHeader.props.glassEffect,
@@ -279,8 +279,8 @@ describe('Header', () => {
     expect(previewHeader.props).toMatchObject({ isPreview: true });
     for (const header of headers) {
       expect(header).toHaveStyle({
-        backgroundColor: 'var(--store-background)',
-        color: 'var(--store-background-text)',
+        backgroundColor: 'var(--theme-header-bg)',
+        color: 'var(--theme-header-text)',
       });
       expect(header).toHaveTextContent('Logo');
       expect(header).toHaveTextContent('Home');
