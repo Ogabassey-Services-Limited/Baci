@@ -218,6 +218,10 @@ export async function generateMetadata({
   const categoryQueryFailed =
     'categoryQueryFailed' in data && data.categoryQueryFailed === true;
   const existingRobots = getIndexableRobotsMetadata(resolvedSearchParams);
+  const baseRobots =
+    existingRobots && typeof existingRobots === 'object' ? existingRobots : {};
+  const baseGoogleBot =
+    typeof baseRobots.googleBot === 'object' ? baseRobots.googleBot : {};
   const categoryDecision = buildCategorySeoDecision({
     isStorePublished: merchant.is_published === true,
     isAvailable:
@@ -226,6 +230,10 @@ export async function generateMetadata({
     querySucceeded: !data.productsQueryFailed && !categoryQueryFailed,
     activeProductCount: data.productCount ?? productSlots.length,
   });
+  const finalIndex =
+    baseRobots.index === true &&
+    !data.productsQueryFailed &&
+    categoryDecision.index;
 
   return {
     title: metadataTitle,
@@ -234,12 +242,10 @@ export async function generateMetadata({
       canonical: paginatedCategoryUrl,
     },
     robots: {
-      index:
-        typeof existingRobots === 'object' &&
-        existingRobots?.index === true &&
-        !data.productsQueryFailed &&
-        categoryDecision.index,
+      ...baseRobots,
+      index: finalIndex,
       follow: true,
+      googleBot: { ...baseGoogleBot, index: finalIndex, follow: true },
     },
     openGraph: {
       title,

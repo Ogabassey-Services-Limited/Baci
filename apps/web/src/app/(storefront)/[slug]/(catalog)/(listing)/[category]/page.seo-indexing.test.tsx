@@ -28,6 +28,23 @@ const merchant = {
   logo_url: null,
 };
 
+function expectedRobots(index: boolean) {
+  return {
+    index,
+    follow: true,
+    googleBot: {
+      index,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+    'max-image-preview': 'large',
+    'max-snippet': -1,
+    'max-video-preview': -1,
+  };
+}
+
 describe('category metadata SEO indexing', () => {
   beforeEach(() => {
     mockGetCachedMerchant.mockResolvedValue(merchant);
@@ -52,7 +69,7 @@ describe('category metadata SEO indexing', () => {
       searchParams: Promise.resolve({ page: '1' }),
     });
 
-    expect(metadata.robots).toEqual({ index: false, follow: true });
+    expect(metadata.robots).toEqual(expectedRobots(false));
   });
 
   it('emits noindex robots for a successful but empty category', async () => {
@@ -75,6 +92,52 @@ describe('category metadata SEO indexing', () => {
       searchParams: Promise.resolve({ page: '1' }),
     });
 
-    expect(metadata.robots).toEqual({ index: false, follow: true });
+    expect(metadata.robots).toEqual(expectedRobots(false));
+  });
+
+  it('preserves inherited Googlebot and preview directives for an indexable category', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      category: { id: 'category-1', name: 'Fashion', slug: 'fashion' },
+      products: [],
+      productSlots: [],
+      productCount: 1,
+      fallbackName: 'Fashion',
+      fallbackDescription: '',
+      isInactiveCategory: false,
+      productsQueryFailed: false,
+      productIdsQueryFailed: false,
+      categoryQueryFailed: false,
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'zorvexa', category: 'fashion' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.robots).toEqual(expectedRobots(true));
+  });
+
+  it('keeps inherited Googlebot and preview directives when existing filters block indexing', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      category: { id: 'category-1', name: 'Fashion', slug: 'fashion' },
+      products: [],
+      productSlots: [],
+      productCount: 1,
+      fallbackName: 'Fashion',
+      fallbackDescription: '',
+      isInactiveCategory: false,
+      productsQueryFailed: false,
+      productIdsQueryFailed: false,
+      categoryQueryFailed: false,
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'zorvexa', category: 'fashion' }),
+      searchParams: Promise.resolve({ brand: 'zorvexa', color: 'blue' }),
+    });
+
+    expect(metadata.robots).toEqual(expectedRobots(false));
   });
 });
