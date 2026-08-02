@@ -59,7 +59,7 @@ export async function getMerchantShippingRates(
       merchantId,
       error,
     });
-    return { zones: [], locations: [], rates: [] };
+    return { zones: [], locations: [], rates: [], shippingProviders: [] };
   }
 
   return parseStorefrontShippingRatesPayload(data);

@@ -5,7 +5,6 @@ import {
   type RepairBookingPreselection,
   RepairBookingWizard,
 } from '@/components/storefront/RepairBookingWizard';
-import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedMerchant,
   getCachedMerchant,
@@ -100,13 +99,10 @@ function canUseRepairBooking(
     return false;
   }
 
-  return (
-    merchant.template_id === OGABASSEY_TEMPLATE_ID ||
-    isRepairsCatalogEnabled({
-      businessType: merchant.business_type,
-      repairsCatalogEnabled: merchant.feature_settings?.repairs_catalog_enabled,
-    })
-  );
+  return isRepairsCatalogEnabled({
+    businessType: merchant.business_type,
+    repairsCatalogEnabled: merchant.feature_settings?.repairs_catalog_enabled,
+  });
 }
 
 export async function generateMetadata({

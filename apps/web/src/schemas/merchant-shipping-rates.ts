@@ -7,8 +7,13 @@
  * throwing, so a single bad row can never break checkout.
  */
 
+import {
+  CARRIER_PROVIDER_IDS,
+  type CarrierProviderId,
+} from '@baci/shared/constants';
 import { z } from 'zod';
 import type {
+  MerchantCarrierProviderId,
   MerchantPickupAddress,
   MerchantRateConditionType,
   MerchantRateKind,
@@ -70,6 +75,26 @@ const optionalMerchantTextSchema = z.preprocess((value) => {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }, z.string().optional().catch(undefined));
+
+const merchantCarrierProviderIds = new Set<string>(CARRIER_PROVIDER_IDS);
+
+const shippingProvidersSchema = z.preprocess(
+  (value) => (Array.isArray(value) ? value : []),
+  z.array(z.unknown()).transform((providers): MerchantCarrierProviderId[] => [
+    ...new Set(
+      providers.flatMap((provider) => {
+        if (typeof provider !== 'string') {
+          return [];
+        }
+
+        const normalized = provider.trim().toLowerCase();
+        return merchantCarrierProviderIds.has(normalized)
+          ? [normalized as CarrierProviderId]
+          : [];
+      })
+    ),
+  ])
+);
 
 // ---------------------------------------------------------------------------
 // Row schemas (snake_case in -> camelCase out).
@@ -197,6 +222,7 @@ export const storefrontShippingRatesPayloadSchema = z
     zones: dropInvalid(zoneSchema),
     locations: dropInvalid(locationSchema),
     rates: dropInvalid(rateSchema),
+    shipping_providers: shippingProvidersSchema,
     merchant_payout_currency: optionalMerchantTextSchema,
     merchant_country: optionalMerchantTextSchema,
   })
@@ -205,8 +231,13 @@ export const storefrontShippingRatesPayloadSchema = z
       zones: payload.zones,
       locations: payload.locations,
       rates: payload.rates,
-      merchantPayoutCurrency: payload.merchant_payout_currency,
-      merchantCountry: payload.merchant_country,
+      shippingProviders: payload.shipping_providers,
+      ...(payload.merchant_payout_currency !== undefined
+        ? { merchantPayoutCurrency: payload.merchant_payout_currency }
+        : {}),
+      ...(payload.merchant_country !== undefined
+        ? { merchantCountry: payload.merchant_country }
+        : {}),
     })
   );
 
@@ -218,5 +249,7 @@ export function parseStorefrontShippingRatesPayload(
   value: unknown
 ): StorefrontShippingRatesPayload {
   const parsed = storefrontShippingRatesPayloadSchema.safeParse(value ?? {});
-  return parsed.success ? parsed.data : { zones: [], locations: [], rates: [] };
+  return parsed.success
+    ? parsed.data
+    : { zones: [], locations: [], rates: [], shippingProviders: [] };
 }

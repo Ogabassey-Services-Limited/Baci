@@ -119,6 +119,7 @@ export async function submitBnplCheckout({
     discountCode: appliedDiscountCode,
     items: orderRequest.items,
     selectedQuoteId: orderRequest.selected_quote_id,
+    shippingRateId: orderRequest.shipping_rate_id,
     shippingAddress: orderRequest.shipping_address,
     shippingFee: orderRequest.shipping_fee,
     shippingProvider: orderRequest.shipping_provider,

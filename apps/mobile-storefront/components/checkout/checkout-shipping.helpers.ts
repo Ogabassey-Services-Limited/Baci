@@ -165,6 +165,7 @@ export const fetchShippingQuotes = async ({
       body: JSON.stringify({
         ...(merchantId ? { merchantId } : {}),
         deliveryPreference,
+        supports_merchant_rates: true,
         receiver: {
           name:
             `${watchedFirstName} ${watchedLastName}`.trim() ||

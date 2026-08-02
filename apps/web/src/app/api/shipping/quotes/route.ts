@@ -37,7 +37,8 @@ import { resolveQuoteMerchantContext } from './quote-merchant-context';
  */
 function buildMerchantOnlyQuoteResponse(
   merchantQuotes: ShippingQuote[],
-  sessionId: string | undefined
+  sessionId: string | undefined,
+  unavailableWarning = 'Shipping rates are unavailable: carrier rates currently cover Nigerian merchants only, and this merchant has not configured its own shipping rates yet.'
 ): QuoteResponse {
   return {
     quotes: {
@@ -50,9 +51,7 @@ function buildMerchantOnlyQuoteResponse(
       new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     ...(merchantQuotes.length === 0
       ? {
-          warnings: [
-            'Shipping rates are unavailable: carrier rates currently cover Nigerian merchants only, and this merchant has not configured its own shipping rates yet.',
-          ],
+          warnings: [unavailableWarning],
         }
       : {}),
   } satisfies QuoteResponse;
@@ -109,17 +108,6 @@ export async function POST(request: NextRequest) {
       payout_currency: merchantContext.merchantPayoutCurrency,
     }).code;
 
-    // Did the route resolve the merchant's currency/country from TRUSTED context
-    // (a storefront header or an authenticated session) rather than DEFAULTING to
-    // NGN for a body-only request? Only trusted context populates these fields
-    // (see resolveQuoteMerchantContext); a body-only request leaves both null.
-    // The body-only fail-closed guard below is gated on this so the
-    // header/authenticated carrier decision — already made from trusted context —
-    // is never touched.
-    const hasTrustedMerchantCurrencyContext =
-      merchantContext.merchantCountry != null ||
-      merchantContext.merchantPayoutCurrency != null;
-
     // Merchant-configured rates are LOADED for EVERY resolved merchant — not
     // just opted-in callers — because the SECURITY DEFINER RPC is the ONLY
     // currency-discovery path for a body-only request (root-domain slug
@@ -127,16 +115,15 @@ export async function POST(request: NextRequest) {
     // the route defaulted `merchantCurrency` to NGN and cannot read the
     // merchants table for an arbitrary id). The resolved currency/country it
     // returns feeds the NGN-only carrier gate below, so a non-NG body-only
-    // merchant is detected even when the client cannot handle merchant rates.
+    // merchant is detected even before a client chooses to display its rates.
     // Whether the resulting QUOTES are EXPOSED is a separate decision
     // (`includeMerchantRateQuotes`): a merchant rate carries a synthetic
-    // `mrate_<uuid>` id the caller must be able to thread back into order
-    // creation as `shipping_rate_id`, and clients that cannot (e.g. the mobile
-    // storefront, which auto-selects the cheapest `quotes.all` entry and
-    // validates a UUID `selected_quote_id`) leave the flag false — they still
-    // get correct carrier SUPPRESSION for a non-NG merchant, but never the
-    // unbookable mrate_ quotes themselves. Never rejects (fails soft to []) so
-    // it runs concurrently with carriers.
+    // mrate_<uuid> id the caller must be able to thread back into order
+    // creation as shipping_rate_id. Modern web and mobile checkout opt in;
+    // older clients can leave the flag false and still receive the correct
+    // carrier suppression without an order-unusable rate. Never rejects
+    // (fails soft to []) so a bad merchant-rate configuration cannot take down
+    // checkout.
     const includeMerchantRateQuotes = data.supports_merchant_rates === true;
     const merchantQuotesPromise = merchantContext.merchantId
       ? getMerchantRateQuotes(supabase, {
@@ -146,31 +133,10 @@ export async function POST(request: NextRequest) {
           merchantCurrency,
           cartSubtotal: data.cart_subtotal,
         })
-      : Promise.resolve<MerchantRateQuoteResult>({ quotes: [] });
-
-    // Every registered carrier (Topship/GIGL) is Nigerian and quotes are
-    // NGN-denominated with a Nigeria origin. Both a merchant whose canonical
-    // currency (payout_currency -> country -> NGN) is not NGN and a merchant
-    // whose country is not Nigeria must not receive these quotes: the rates
-    // would be wrong in origin and/or currency. Carriers are skipped for them
-    // and merchant-configured rates become the only quote source.
-    if (
-      merchantCurrency !== 'NGN' ||
-      (merchantCountry && merchantCountry !== 'NG')
-    ) {
-      // Merchant-rate quotes are never persisted and all share one synthetic
-      // 24h engine expiry; the warning is reserved for the truly-empty case.
-      // Incapable clients still get the non-NG carrier suppression, but the
-      // unbookable mrate_ quotes are dropped ([]) so only opted-in callers see
-      // them.
-      const { quotes: merchantQuotes } = await merchantQuotesPromise;
-      return NextResponse.json(
-        buildMerchantOnlyQuoteResponse(
-          includeMerchantRateQuotes ? merchantQuotes : [],
-          data.sessionId
-        )
-      );
-    }
+      : Promise.resolve<MerchantRateQuoteResult>({
+          quotes: [],
+          enabledCarrierProviderCodes: [],
+        });
 
     let senderInfo = merchantContext.senderInfo;
 
@@ -194,9 +160,45 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    const merchantRateResult = await merchantQuotesPromise;
+    const {
+      quotes: merchantQuotes,
+      resolvedCurrency,
+      resolvedCountry,
+      loadFailed,
+    } = merchantRateResult;
+
+    // An empty provider list is a successful explicit merchant opt-out. A
+    // failed merchant-rate load, however, leaves provider opt-ins unknown, so
+    // carrier quotes must fail closed before the aggregator is called.
+    const shouldSuppressCarrierRates =
+      loadFailed ||
+      merchantCurrency !== 'NGN' ||
+      (merchantCountry !== undefined && merchantCountry !== 'NG') ||
+      (resolvedCurrency !== undefined && resolvedCurrency !== 'NGN') ||
+      (resolvedCountry !== undefined && resolvedCountry !== 'NG');
+
+    if (shouldSuppressCarrierRates) {
+      return NextResponse.json(
+        buildMerchantOnlyQuoteResponse(
+          includeMerchantRateQuotes ? merchantQuotes : [],
+          data.sessionId,
+          loadFailed
+            ? 'Shipping rates are temporarily unavailable. Please try again.'
+            : undefined
+        )
+      );
+    }
+
     // Build quote request
     const quoteRequest: QuoteRequest = {
       merchantId: merchantContext.merchantId,
+      ...(merchantContext.merchantId
+        ? {
+            enabledProviderCodes:
+              merchantRateResult.enabledCarrierProviderCodes,
+          }
+        : {}),
       sender: senderInfo,
       receiver: {
         ...data.receiver,
@@ -210,68 +212,10 @@ export async function POST(request: NextRequest) {
       deliveryPreference: data.deliveryPreference,
     };
 
-    // Get quotes from all providers (merchant rates computed concurrently)
-    const [carrierResponse, merchantRateResult] = await Promise.all([
-      shippingService.getQuotes(quoteRequest),
-      merchantQuotesPromise,
-    ]);
-    const {
-      quotes: merchantQuotes,
-      resolvedCurrency,
-      resolvedCountry,
-      loadFailed,
-    } = merchantRateResult;
-
-    // Body-only fail-closed on a rate-RPC LOAD FAILURE. The non-NG guard below
-    // reads `resolvedCurrency`/`resolvedCountry` from the SECURITY DEFINER RPC to
-    // detect a non-NG merchant the route defaulted to NGN. When that RPC errors,
-    // getMerchantRateQuotes surfaces `loadFailed` with BOTH resolved fields
-    // undefined, so the guard cannot see the merchant is non-NG and would MERGE
-    // the NGN/Lagos carrier quotes fetched above — a fee /api/orders could then
-    // charge as the merchant's own (now-unknown) currency. On the body-only path
-    // (no trusted storefront header / auth, so the currency defaulted to NGN)
-    // fail closed: drop carriers and return the merchant-only response (empty +
-    // the unavailable warning). A genuine NG merchant that hits a transient RPC
-    // error on this path gets no carrier quotes — the deliberate safe tradeoff,
-    // since no quotes beats a wrong-currency charge. The header/authenticated
-    // path resolved currency from trusted context, so it is gated out here and
-    // its carrier decision stays byte-identical.
-    if (loadFailed && !hasTrustedMerchantCurrencyContext) {
-      // `merchantQuotes` is already [] on a load failure; gate it anyway so the
-      // exposure rule is uniform across every merchant-only return.
-      return NextResponse.json(
-        buildMerchantOnlyQuoteResponse(
-          includeMerchantRateQuotes ? merchantQuotes : [],
-          data.sessionId
-        )
-      );
-    }
-
-    // Body-only non-NG guard. This branch is reached only when the route
-    // resolved NGN/NG — a body-only quote request (root-domain slug checkout
-    // posts just a body merchantId, and reading the merchants table for an
-    // arbitrary id is the anti-enumeration boundary) has no trusted merchant
-    // header, so `merchantCurrency` defaulted to NGN. The SECURITY DEFINER
-    // merchant-rate RPC just revealed the merchant is actually non-NG, so the
-    // NGN-denominated, Lagos-origin carrier quotes fetched above must NOT be
-    // merged into this checkout: a shopper selecting one would have that numeric
-    // fee charged as the merchant's own currency by /api/orders. Drop the
-    // carriers (the fetch is wasted, but correctness wins) and return
-    // merchant-rate only, matching the header-resolved non-NG early-skip above.
-    // When the RPC revealed nothing new (currency columns absent -> both
-    // undefined, or a genuine NGN/NG merchant), this is a no-op and the NG merge
-    // path below stays byte-identical.
-    if (
-      (resolvedCurrency && resolvedCurrency !== 'NGN') ||
-      (resolvedCountry && resolvedCountry !== 'NG')
-    ) {
-      return NextResponse.json(
-        buildMerchantOnlyQuoteResponse(
-          includeMerchantRateQuotes ? merchantQuotes : [],
-          data.sessionId
-        )
-      );
-    }
+    // Carrier selection is merchant-scoped. Merchant rates were loaded above so
+    // their carrier settings can constrain the provider registry before any
+    // live carrier request is made.
+    const carrierResponse = await shippingService.getQuotes(quoteRequest);
 
     // Merge merchant rates with carrier quotes, then RE-RANK the whole list
     // with the same scoring the aggregator applies to carrier quotes so a

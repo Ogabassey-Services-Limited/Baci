@@ -1,3 +1,4 @@
+import { CARRIER_PROVIDER_IDS } from '@baci/shared/constants';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
@@ -104,6 +105,15 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
   return Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === 'string')
     : fallback;
+}
+
+function asCarrierProviderArray(value: unknown): string[] {
+  const supported = new Set<string>(CARRIER_PROVIDER_IDS);
+  const providers = asStringArray(value, [])
+    .map((provider) => provider.trim().toLowerCase())
+    .filter((provider) => supported.has(provider));
+
+  return [...new Set(providers)];
 }
 
 function asNumberArray(value: unknown, fallback: number[]): number[] {
@@ -255,10 +265,7 @@ export async function GET(request: NextRequest) {
         asGateway(settings.preferred_international_gateway, 'korapay'),
         paystackEnabled
       ),
-      shippingProviders: asStringArray(settings.shipping_providers, [
-        'gigl',
-        'topship',
-      ]),
+      shippingProviders: asCarrierProviderArray(settings.shipping_providers),
       freeShippingThreshold: asNullableNumber(settings.free_shipping_threshold),
       collectPhone: asBoolean(settings.checkout_collect_phone, true),
       requireAccount: asBoolean(settings.checkout_require_account, false),

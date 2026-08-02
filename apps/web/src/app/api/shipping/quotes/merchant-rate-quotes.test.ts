@@ -78,6 +78,51 @@ describe('getMerchantRateQuotes', () => {
     });
   });
 
+  it('maps GIGL merchant settings to runtime provider codes', async () => {
+    const supabase = buildSupabase({
+      data: buildPayload({ shipping_providers: ['gigl'] }),
+      error: null,
+    });
+
+    const result = await getMerchantRateQuotes(supabase, input);
+
+    expect(result.enabledCarrierProviderCodes).toEqual(['GIGL']);
+  });
+
+  it('maps Topship merchant settings to runtime provider codes', async () => {
+    const supabase = buildSupabase({
+      data: buildPayload({ shipping_providers: ['topship'] }),
+      error: null,
+    });
+
+    const result = await getMerchantRateQuotes(supabase, input);
+
+    expect(result.enabledCarrierProviderCodes).toEqual(['TOPSHIP']);
+  });
+
+  it('drops unsupported provider ids instead of mapping them to Topship', async () => {
+    const supabase = buildSupabase({
+      data: buildPayload({ shipping_providers: ['gigl', 'future-carrier'] }),
+      error: null,
+    });
+
+    const result = await getMerchantRateQuotes(supabase, input);
+
+    expect(result.enabledCarrierProviderCodes).toEqual(['GIGL']);
+  });
+
+  it('keeps an explicit empty carrier provider list distinct from a load failure', async () => {
+    const supabase = buildSupabase({
+      data: buildPayload({ shipping_providers: [] }),
+      error: null,
+    });
+
+    const result = await getMerchantRateQuotes(supabase, input);
+
+    expect(result.enabledCarrierProviderCodes).toEqual([]);
+    expect(result.loadFailed).toBeUndefined();
+  });
+
   it('resolves free-text receiver states to subdivision codes for zone matching', async () => {
     const supabase = buildSupabase({
       data: buildPayload({
@@ -401,10 +446,16 @@ describe('getMerchantRateQuotes', () => {
       error: { message: 'permission denied' },
     });
 
-    const { quotes, loadFailed, resolvedCurrency, resolvedCountry } =
-      await getMerchantRateQuotes(supabase, input);
+    const {
+      quotes,
+      enabledCarrierProviderCodes,
+      loadFailed,
+      resolvedCurrency,
+      resolvedCountry,
+    } = await getMerchantRateQuotes(supabase, input);
 
     expect(quotes).toEqual([]);
+    expect(enabledCarrierProviderCodes).toEqual([]);
     // The load failure is surfaced so the route can suppress NGN carriers.
     expect(loadFailed).toBe(true);
     // Nothing about the merchant's currency/country could be resolved.

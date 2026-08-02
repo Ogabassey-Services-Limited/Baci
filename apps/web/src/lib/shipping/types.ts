@@ -83,6 +83,12 @@ export interface ShipmentItem {
 export interface QuoteRequest {
   sessionId: string;
   merchantId?: string;
+  /**
+   * Carrier providers the merchant has explicitly enabled. Omit this field for
+   * platform-level quotes without a merchant context; an empty array means the
+   * merchant has opted out of all carrier rates.
+   */
+  enabledProviderCodes?: readonly ShippingProviderCode[];
   sender?: ShippingAddress; // Uses merchant address if not provided
   receiver: ShippingAddress;
   items: ShipmentItem[];

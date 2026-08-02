@@ -93,6 +93,19 @@ describe('checkout-order-idempotency', () => {
     expect(codeA).not.toBe(codeB);
   });
 
+  it('distinguishes merchant delivery rates in the checkout fingerprint', () => {
+    const first = buildMobileCheckoutFingerprint({
+      ...baseInput,
+      shippingRateId: '11111111-1111-4111-8111-111111111111',
+    });
+    const second = buildMobileCheckoutFingerprint({
+      ...baseInput,
+      shippingRateId: '22222222-2222-4222-8222-222222222222',
+    });
+
+    expect(first).not.toBe(second);
+  });
+
   it('builds the same fingerprint for reordered duplicate product and variant lines', () => {
     const blueLine = {
       assuranceFee: 100,

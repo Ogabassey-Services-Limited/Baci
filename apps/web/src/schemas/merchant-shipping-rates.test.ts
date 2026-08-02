@@ -116,7 +116,28 @@ describe('storefrontShippingRatesPayloadSchema', () => {
   it('defaults missing top-level keys to empty arrays', () => {
     const result = storefrontShippingRatesPayloadSchema.parse({});
 
-    expect(result).toEqual({ zones: [], locations: [], rates: [] });
+    expect(result).toEqual({
+      zones: [],
+      locations: [],
+      rates: [],
+      shippingProviders: [],
+    });
+  });
+
+  it('normalizes supported provider ids and drops malformed stored values', () => {
+    const result = storefrontShippingRatesPayloadSchema.parse({
+      ...validPayload,
+      shipping_providers: [
+        ' GIGL ',
+        'topship',
+        'TopShip',
+        'future-carrier',
+        42,
+        'gigl',
+      ],
+    });
+
+    expect(result.shippingProviders).toEqual(['gigl', 'topship']);
   });
 
   it('surfaces merchant payout currency and country when the RPC returns them', () => {
@@ -149,11 +170,13 @@ describe('parseStorefrontShippingRatesPayload', () => {
       zones: [],
       locations: [],
       rates: [],
+      shippingProviders: [],
     });
     expect(parseStorefrontShippingRatesPayload('not an object')).toEqual({
       zones: [],
       locations: [],
       rates: [],
+      shippingProviders: [],
     });
   });
 

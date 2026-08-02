@@ -55,6 +55,7 @@ function buildPayload(
   rates: MerchantShippingRate[]
 ): StorefrontShippingRatesPayload {
   return {
+    shippingProviders: [],
     zones: [
       {
         id: LAGOS_ZONE_ID,

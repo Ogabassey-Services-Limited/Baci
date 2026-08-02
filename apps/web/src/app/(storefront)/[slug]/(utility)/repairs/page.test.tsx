@@ -85,6 +85,10 @@ describe('RepairsPage', () => {
   });
 
   it('uses root-relative links when the proxy resolved the merchant slug', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      ...merchant,
+      feature_settings: { repairs_catalog_enabled: true },
+    });
     mockHeaders.mockResolvedValue(
       new Headers([['x-merchant-slug', 'Ogabassey']])
     );
@@ -100,11 +104,15 @@ describe('RepairsPage', () => {
     ).toHaveTextContent('basePath:');
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
       basePath: '',
-      groups: undefined,
+      groups: [],
     });
   });
 
   it('uses root-relative links when the proxy resolved the custom domain', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      ...merchant,
+      feature_settings: { repairs_catalog_enabled: true },
+    });
     mockHeaders.mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
@@ -120,11 +128,15 @@ describe('RepairsPage', () => {
     ).toHaveTextContent('basePath:');
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
       basePath: '',
-      groups: undefined,
+      groups: [],
     });
   });
 
   it('keeps path-based routes under the merchant slug without trusted proxy headers', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      ...merchant,
+      feature_settings: { repairs_catalog_enabled: true },
+    });
     const { container } = render(
       await RepairsPage({
         params: Promise.resolve({ slug: 'ogabassey' }),
@@ -136,7 +148,7 @@ describe('RepairsPage', () => {
     ).toHaveTextContent('basePath:/ogabassey');
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
       basePath: '/ogabassey',
-      groups: undefined,
+      groups: [],
     });
 
     const jsonLd = JSON.parse(
@@ -211,10 +223,10 @@ describe('RepairsPage', () => {
     expect(mockOgabasseyV2Repairs).not.toHaveBeenCalled();
   });
 
-  it('throws notFound for non-Ogabassey merchants when the catalogue flag is off', async () => {
+  it('throws notFound for every merchant when the catalogue flag is off', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValueOnce({
       ...merchant,
-      template_id: 'default',
+      template_id: 'ogabassey',
     });
 
     await expect(
@@ -308,6 +320,11 @@ describe('RepairsPage', () => {
   });
 
   it('generates merchant-branded metadata distinct from the /repair booking page', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce({
+      ...merchant,
+      feature_settings: { repairs_catalog_enabled: true },
+    });
+
     await expect(
       generateMetadata({
         params: Promise.resolve({ slug: 'ogabassey' }),

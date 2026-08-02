@@ -133,6 +133,7 @@ describe('checkout-shipping.helpers', () => {
     const [, requestInit] = fetchMock.mock.calls[0] ?? [];
     const requestBody = JSON.parse(String(requestInit?.body));
     expect(requestBody.merchantId).toBe('merchant-1');
+    expect(requestBody.supports_merchant_rates).toBe(true);
     expect(requestBody.receiver).toMatchObject({
       latitude: 6.5244,
       longitude: 3.3792,

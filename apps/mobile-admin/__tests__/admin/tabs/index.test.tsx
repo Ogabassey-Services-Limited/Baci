@@ -5,6 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   branchScope: { isAllLocations: true },
+  isLive: true,
+  readiness: {
+    isReady: true,
+    isPublished: true,
+    overallProgress: 100,
+  },
   safeAreaEdges: null as null | readonly string[],
 }));
 
@@ -71,7 +77,6 @@ vi.mock('@/components/dashboard', async () => {
   return {
     BranchSwitcher: () => <Text>branch-switcher</Text>,
     InsightCard: () => <Text>insight-card</Text>,
-    ProgressCard: () => <Text>progress-card</Text>,
     QuickActionButton: ({
       label,
       onPress,
@@ -85,6 +90,7 @@ vi.mock('@/components/dashboard', async () => {
     ),
     RevenueChart: () => <Text>revenue-chart</Text>,
     StatCard: ({ label }: { label: string }) => <Text>{label}</Text>,
+    StoreSetupStatusCard: () => <Text>store-setup-status-card</Text>,
     WelcomeHeader: () => <Text>welcome-header</Text>,
   };
 });
@@ -111,7 +117,7 @@ vi.mock('@/hooks/useBranchScope', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
-    isLive: true,
+    isLive: mocks.isLive,
     merchant: {
       business_name: 'Ogabassey Services Limited',
       favicon_png_192_url: null,
@@ -153,7 +159,7 @@ vi.mock('@/hooks/useSettingsStore', () => ({
 vi.mock('@/hooks/useStoreReadiness', () => ({
   useStoreReadiness: () => ({
     isLoading: false,
-    readiness: { isReady: true, overallProgress: 100 },
+    readiness: mocks.readiness,
   }),
 }));
 
@@ -209,7 +215,14 @@ import HomeScreen from '../../../app/(admin)/(tabs)/index';
 describe('HomeScreen', () => {
   beforeEach(() => {
     mocks.branchScope = { isAllLocations: true };
+    mocks.isLive = true;
+    mocks.readiness = {
+      isReady: true,
+      isPublished: true,
+      overallProgress: 100,
+    };
     mocks.safeAreaEdges = null;
+    vi.clearAllMocks();
   });
 
   it('reserves the top safe area on the dashboard tab', () => {

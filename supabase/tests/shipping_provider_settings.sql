@@ -1,0 +1,192 @@
+-- =============================================
+-- VERIFICATION: merchant shipping provider opt-in
+--   Run against a Supabase branch after applying
+--   20260802175837_harden_repair_booking_and_shipping_providers.sql.
+--
+-- USAGE:
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--     -f supabase/tests/shipping_provider_settings.sql
+-- =============================================
+
+BEGIN;
+
+INSERT INTO public.merchants (
+  id, email, business_name, slug, business_type, is_published
+)
+VALUES (
+  '00000000-0000-0000-0000-000000003008',
+  'shipping-provider-settings@example.com',
+  'Shipping Provider Settings',
+  'shipping-provider-settings',
+  'electronics',
+  true
+)
+ON CONFLICT (id) DO UPDATE
+SET is_published = EXCLUDED.is_published;
+
+-- Recreate the settings row without explicitly supplying shipping_providers:
+-- new merchants must default to no live carrier integrations.
+DELETE FROM public.merchant_feature_settings
+WHERE merchant_id = '00000000-0000-0000-0000-000000003008';
+
+INSERT INTO public.merchant_feature_settings (merchant_id)
+VALUES ('00000000-0000-0000-0000-000000003008');
+
+DO $$
+DECLARE
+  providers jsonb;
+BEGIN
+  SELECT shipping_providers
+  INTO providers
+  FROM public.merchant_feature_settings
+  WHERE merchant_id = '00000000-0000-0000-0000-000000003008';
+
+  IF providers IS DISTINCT FROM '[]'::jsonb THEN
+    RAISE EXCEPTION 'new merchant shipping providers must default to []: %', providers;
+  END IF;
+END $$;
+
+-- The storefront RPC returns only supported, enabled carrier ids.
+UPDATE public.merchant_feature_settings
+SET shipping_providers = '["gigl", "shiip", "gigl"]'::jsonb
+WHERE merchant_id = '00000000-0000-0000-0000-000000003008';
+
+DO $$
+DECLARE
+  providers jsonb;
+BEGIN
+  SELECT public.get_storefront_shipping_rates(
+    '00000000-0000-0000-0000-000000003008'
+  )->'shipping_providers'
+  INTO providers;
+
+  IF providers IS DISTINCT FROM '["gigl"]'::jsonb THEN
+    RAISE EXCEPTION 'storefront carrier providers must be sanitized: %', providers;
+  END IF;
+END $$;
+
+INSERT INTO public.shipping_quotes (
+  id, merchant_id, session_id, provider, price, expires_at
+)
+VALUES (
+  '00000000-0000-0000-0000-000000003009',
+  '00000000-0000-0000-0000-000000003008',
+  'shipping-provider-settings-test',
+  'GIGL',
+  0,
+  now() + interval '1 hour'
+)
+ON CONFLICT (id) DO UPDATE
+SET merchant_id = EXCLUDED.merchant_id,
+    provider = EXCLUDED.provider,
+    expires_at = EXCLUDED.expires_at;
+
+-- A disabled provider cannot be attached to a new carrier-backed order.
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.orders (
+      id, merchant_id, order_number, total, selected_quote_id, shipping_provider
+    )
+    VALUES (
+      '00000000-0000-0000-0000-000000003010',
+      '00000000-0000-0000-0000-000000003008',
+      'shipping-provider-disabled-test',
+      0,
+      '00000000-0000-0000-0000-000000003009',
+      'TOPSHIP'
+    );
+
+    RAISE EXCEPTION 'disabled provider must not create a carrier-backed order';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%shipping_quote_required%' THEN
+        RAISE;
+      END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.orders
+    WHERE id = '00000000-0000-0000-0000-000000003010'
+  ) THEN
+    RAISE EXCEPTION 'disabled carrier order must not be inserted';
+  END IF;
+END $$;
+
+-- The retired Shiip value cannot be used even if a stale configuration row
+-- still contains it during rollout.
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.orders (
+      id, merchant_id, order_number, total, selected_quote_id, shipping_provider
+    )
+    VALUES (
+      '00000000-0000-0000-0000-000000003012',
+      '00000000-0000-0000-0000-000000003008',
+      'shipping-provider-retired-test',
+      0,
+      '00000000-0000-0000-0000-000000003009',
+      'SHIIP'
+    );
+
+    RAISE EXCEPTION 'retired carrier must not create a carrier-backed order';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%shipping_quote_required%' THEN
+        RAISE;
+      END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.orders
+    WHERE id = '00000000-0000-0000-0000-000000003012'
+  ) THEN
+    RAISE EXCEPTION 'retired carrier order must not be inserted';
+  END IF;
+END $$;
+
+-- The explicitly-enabled carrier remains usable.
+INSERT INTO public.orders (
+  id, merchant_id, order_number, total, selected_quote_id, shipping_provider
+)
+VALUES (
+  '00000000-0000-0000-0000-000000003011',
+  '00000000-0000-0000-0000-000000003008',
+  'shipping-provider-enabled-test',
+  0,
+  '00000000-0000-0000-0000-000000003009',
+  'GIGL'
+);
+
+-- Turning a carrier off affects new selections only. Existing orders must
+-- remain mutable, including updates that fire the trigger with the same
+-- carrier-backed selection.
+UPDATE public.merchant_feature_settings
+SET shipping_providers = '[]'::jsonb
+WHERE merchant_id = '00000000-0000-0000-0000-000000003008';
+
+UPDATE public.orders
+SET order_number = 'shipping-provider-enabled-test-updated'
+WHERE id = '00000000-0000-0000-0000-000000003011';
+
+UPDATE public.orders
+SET shipping_provider = shipping_provider
+WHERE id = '00000000-0000-0000-0000-000000003011';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.orders
+    WHERE id = '00000000-0000-0000-0000-000000003011'
+      AND order_number = 'shipping-provider-enabled-test-updated'
+      AND shipping_provider = 'GIGL'
+  ) THEN
+    RAISE EXCEPTION 'existing carrier order must remain mutable after opt-out';
+  END IF;
+END $$;
+
+ROLLBACK;

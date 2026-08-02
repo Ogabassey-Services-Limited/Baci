@@ -1,3 +1,5 @@
+import type { CarrierProviderId } from '@baci/shared/constants';
+
 /**
  * Merchant-configured shipping rate types.
  *
@@ -10,8 +12,8 @@
  *
  * Pure type file — no runtime logic (coverage exemption per repo conventions).
  * The `MerchantRateKind` / `MerchantRateConditionType` unions are the single
- * source of truth; the Zod schema's runtime enum tuples are `satisfies`-checked
- * against them so the two can't drift.
+ * source of truth; the corresponding Zod schemas consume their shared runtime
+ * constants so the compile-time and runtime contracts cannot drift.
  */
 
 /** `merchant_shipping_rates.kind` — a shippable rate vs. a local-pickup rate. */
@@ -19,6 +21,9 @@ export type MerchantRateKind = 'ship' | 'pickup';
 
 /** `merchant_shipping_rates.condition_type` — always-on vs. subtotal tier. */
 export type MerchantRateConditionType = 'always' | 'price_tier';
+
+/** Carrier settings that a merchant can opt into for live quote rates. */
+export type MerchantCarrierProviderId = CarrierProviderId;
 
 /** A merchant delivery zone (`merchant_shipping_zones`). */
 export interface MerchantShippingZone {
@@ -91,6 +96,11 @@ export interface StorefrontShippingRatesPayload {
   zones: MerchantShippingZone[];
   locations: MerchantShippingZoneLocation[];
   rates: MerchantShippingRate[];
+  /**
+   * Carrier integrations the merchant explicitly enabled. Empty means their
+   * own delivery rates and pickup are the only checkout shipping options.
+   */
+  shippingProviders: MerchantCarrierProviderId[];
   /**
    * The merchant's `payout_currency`, returned by the SECURITY DEFINER RPC for
    * the requested merchant. Lets the quote path resolve the canonical currency

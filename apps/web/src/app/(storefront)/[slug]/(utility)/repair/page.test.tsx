@@ -85,9 +85,8 @@ describe('RepairPage', () => {
 
   it('renders crawler-visible repair guidance before the booking wizard', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
-      id: 'merchant-1',
+      ...enabledMerchant,
       business_name: 'Ogabassey',
-      template_id: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
     const { container } = render(await callRepairPage('ogabassey'));
@@ -190,20 +189,16 @@ describe('RepairPage', () => {
     );
   });
 
-  it('skips the catalogue lookup entirely when the repairs flag is off', async () => {
+  it('throws notFound for Ogabassey when the repairs flag is off', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       ...enabledMerchant,
       feature_settings: { repairs_catalog_enabled: false },
     });
 
-    render(
-      await callRepairPage('ogabassey', { device: 'apple-iphone-13-pro-max' })
-    );
-
+    await expect(
+      callRepairPage('ogabassey', { device: 'apple-iphone-13-pro-max' })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
     expect(mockGetRepairDeviceDetailBySlug).not.toHaveBeenCalled();
-    expect(mockRepairBookingWizard).toHaveBeenCalledWith(
-      expect.objectContaining({ preselection: undefined })
-    );
   });
 
   it('ignores a malformed device query param without erroring', async () => {
@@ -219,9 +214,9 @@ describe('RepairPage', () => {
 
   it('returns repair metadata with an absolute title and a useful service description', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
+      ...enabledMerchant,
       business_name: 'Ogabassey',
       slug: 'ogabassey',
-      template_id: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
     const metadata = await callGenerateMetadata('ogabassey');
@@ -241,7 +236,7 @@ describe('RepairPage', () => {
     await expect(callRepairPage('missing')).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
-  it('throws notFound for merchants that are not on the Ogabassey template', async () => {
+  it('throws notFound for merchants that are not eligible for repairs', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       id: 'merchant-2',
       business_name: 'Other Store',
@@ -253,7 +248,7 @@ describe('RepairPage', () => {
     );
   });
 
-  it('returns not-found metadata for merchants that are not on the Ogabassey template', async () => {
+  it('returns not-found metadata for merchants that are not eligible for repairs', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       business_name: 'Other Store',
       slug: 'other-store',

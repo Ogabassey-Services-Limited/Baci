@@ -42,6 +42,14 @@ describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
             '1a390474d12890e9f641c72f743b35669798eee56a887a87720f4bd8b53a1705',
         },
       ],
+      storefrontShippingAndRepairs: [
+        {
+          repositoryPath:
+            'supabase/migrations/20260802175837_harden_repair_booking_and_shipping_providers.sql',
+          sha256:
+            '845c3dab7b48495c6e0ed88cd72033f4d736139f3ca6239bb8e8c61abe54dcda',
+        },
+      ],
     });
   });
 });
