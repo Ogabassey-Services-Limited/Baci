@@ -283,11 +283,6 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260729100000_add_merchant_identity_verified_rpc.sql',
     sha256: '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d',
   },
-  {
-    repositoryPath:
-      'supabase/migrations/20260729195913_guard_merchant_identity_updates.sql',
-    sha256: '12c758bd0bfd54643076b0d5e4c2b48092808493b2c0fb7caed9c16eb35db185',
-  },
   ...EXPECTED_PENDING_TAIL_SOURCES.identity,
   ...RECENT_PENDING_SOURCES.slice(0, 1),
   ...AUDIT_PENDING_SOURCES,
@@ -296,10 +291,6 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_PENDING_TAIL_SOURCES.paymentIngressFoundation,
   ...RECENT_PENDING_SOURCES.slice(6),
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3, 8),
-  {
-    repositoryPath:
-      'supabase/migrations/20260801150000_payment_webhook_evidence_foundation.sql',
-    sha256: '0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72',
-  },
+  ...EXPECTED_PENDING_TAIL_SOURCES.paymentWebhookEvidence,
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(8),
 ];
