@@ -136,7 +136,6 @@ describe('CloudflareEvidenceRunJournal', () => {
       'evidence-b': 'provider-1',
     });
   });
-
   it('makes probe and measurement receipts append-only and idempotent', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
@@ -184,6 +183,7 @@ describe('CloudflareEvidenceRunJournal', () => {
     );
     const measurement = {
       providerReceiptSha256: 'e'.repeat(64),
+      payloadSha256: 'f'.repeat(64),
       observedAt: '2026-07-31T00:00:01.000Z',
     };
     await recordEvidenceMeasurement(dir, input.runId, measurement);
@@ -191,6 +191,7 @@ describe('CloudflareEvidenceRunJournal', () => {
       recordEvidenceMeasurement(dir, input.runId, measurement)
     ).resolves.toMatchObject({
       measurementReceiptSha256: measurement.providerReceiptSha256,
+      measurementPayloadSha256: measurement.payloadSha256,
     });
     await expect(
       recordEvidenceMeasurement(dir, input.runId, {
@@ -268,7 +269,6 @@ describe('CloudflareEvidenceRunJournal', () => {
       (await loadEvidenceRunForCleanup(dir, input.runId)).writeTokenRevokedAt
     ).toBe('2026-07-31T00:00:00.000Z');
   });
-
   it('rejects the forgeable cleanup-receipt shape without provider readback', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);

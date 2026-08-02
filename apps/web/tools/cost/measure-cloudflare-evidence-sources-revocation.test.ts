@@ -31,6 +31,7 @@ function createMeasurementClient(): EvidenceMeasurementClient {
       observedProbeCount: input.expectedProbeCount,
       probeResults: ['probe-a', 'probe-b'],
       providerReceiptSha256: 'a'.repeat(64),
+      payloadSha256: 'b'.repeat(64),
       observedAt,
     })),
     revoke: vi.fn(async (tokenId: string) => ({
@@ -140,6 +141,7 @@ describe('measureCloudflareEvidenceSources revocation', () => {
         observedProbeCount: 2,
         probeResults: ['probe-a', 'probe-b'],
         providerReceiptSha256: 'a'.repeat(64),
+        payloadSha256: 'b'.repeat(64),
         observedAt: '2026-07-31T00:00:00.000Z',
       }),
       revoke: async (tokenId) => ({
@@ -177,6 +179,7 @@ describe('measureCloudflareEvidenceSources revocation', () => {
           observedProbeCount: 2,
           probeResults: ['probe-a', 'unrelated-probe'],
           providerReceiptSha256: 'a'.repeat(64),
+          payloadSha256: 'b'.repeat(64),
           observedAt: '2026-07-31T00:00:00.000Z',
         }),
         revoke: async (tokenId) => ({

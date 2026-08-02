@@ -46,6 +46,9 @@ export type OgabasseyOriginBusinessCaseInput = {
   projectedEdgeCostUsd?: string;
   originCostProjection?: OgabasseyOriginCostProjection;
   ownerApprovedPaybackMonths?: number;
+  /** Independently verified one-time implementation cost, in USD. */
+  verifiedUpfrontImplementationCostUsd?: string;
+  /** Legacy observation retained for input compatibility; never used for gating. */
   paybackMonths?: number;
   workersLogsContract: RetrievedCloudflareWorkersLogsContract;
   expectedDailyWorkerInvocations: bigint | number | string;
@@ -210,7 +213,7 @@ export function evaluateOgabasseyOriginBusinessCase(
     !input.currentVercelAttributionUsd ||
     !input.projectedEdgeCostUsd ||
     input.ownerApprovedPaybackMonths === undefined ||
-    input.paybackMonths === undefined
+    !input.verifiedUpfrontImplementationCostUsd
   )
     reasons.push('cost_or_approval_missing');
   if (
@@ -227,18 +230,33 @@ export function evaluateOgabasseyOriginBusinessCase(
   if (reasons.length) return { verdict: 'NOT_PROVEN', reasonCodes: reasons };
   const current = decimalToMinorUnits(input.currentVercelAttributionUsd ?? '');
   const projected = decimalToMinorUnits(input.projectedEdgeCostUsd ?? '');
+  const upfrontImplementationCost = decimalToMinorUnits(
+    input.verifiedUpfrontImplementationCostUsd ?? ''
+  );
   if (current === null || projected === null)
     return { verdict: 'NOT_PROVEN', reasonCodes: ['cost_input_invalid'] };
+  if (upfrontImplementationCost === null)
+    return {
+      verdict: 'NOT_PROVEN',
+      reasonCodes: ['implementation_cost_invalid'],
+    };
   const projectedWithWorkersLogs =
     projected + workersLogsEvidence.projectedOverageCostMinorUnits;
   const projectedWithIrreducibleOrigin =
     projectedWithWorkersLogs + originCostProjection.dynamicMinorUnits;
   if (current <= projectedWithIrreducibleOrigin)
     return { verdict: 'STOP', reasonCodes: ['savings_not_positive'] };
+  const monthlySavings = current - projectedWithIrreducibleOrigin;
+  const derivedPaybackMonths =
+    Number(upfrontImplementationCost) / Number(monthlySavings);
+  if (!Number.isFinite(derivedPaybackMonths))
+    return {
+      verdict: 'NOT_PROVEN',
+      reasonCodes: ['payback_calculation_invalid'],
+    };
   if (
-    input.paybackMonths !== undefined &&
     input.ownerApprovedPaybackMonths !== undefined &&
-    input.paybackMonths > input.ownerApprovedPaybackMonths
+    derivedPaybackMonths > input.ownerApprovedPaybackMonths
   )
     return {
       verdict: 'STOP',

@@ -1,4 +1,8 @@
-import { calculateQualificationArtifactModuleListSha256 } from './cloudflare-evidence-qualification-artifact';
+import {
+  calculateQualificationArtifactModuleListSha256,
+  calculateQualificationEvidencePayloadSha256,
+} from './cloudflare-evidence-qualification-artifact';
+import { calculateCloudflareZeroWeightDeploymentProofSha256 } from './cloudflare-evidence-qualification-traffic';
 import {
   calculatePointerCacheCanonicalSha256,
   QUALIFICATION_POINTER_URL,
@@ -10,6 +14,13 @@ const modulesA = [
 const modulesB = [
   { name: 'src/version-b.ts', bytesBase64: 'bW9kdWxlLWI=' },
 ] as const;
+const zeroWeightDeployment = {
+  deploymentId: 'deployment',
+  versions: [
+    { versionId: 'a', percentage: 100 },
+    { versionId: 'b', percentage: 0 },
+  ],
+} as const;
 
 export const readback = {
   apiFamily: 'scripts-versions',
@@ -40,13 +51,7 @@ export const readback = {
   ],
   deploymentsEndpoint:
     '/accounts/account/workers/scripts/baci-evidence-qualification/deployments',
-  deployments: {
-    deploymentId: 'deployment',
-    versions: [
-      { versionId: 'a', percentage: 100 },
-      { versionId: 'b', percentage: 0 },
-    ],
-  },
+  deployments: zeroWeightDeployment,
   zeroWeightProof: {
     zeroWeightDeploymentSupported: true,
     zeroWeightOpenApiContradiction: true,
@@ -54,13 +59,7 @@ export const readback = {
     openApiSha256: '2'.repeat(64),
     openApiMinimumWeight: 0.01,
     visibilityBoundSeconds: 60,
-    deployment: {
-      deploymentId: 'deployment',
-      versions: [
-        { versionId: 'a', percentage: 100 },
-        { versionId: 'b', percentage: 0 },
-      ],
-    },
+    deployment: zeroWeightDeployment,
     ordinaryTraffic: {
       requestSha256: '3'.repeat(64),
       responseSha256: '4'.repeat(64),
@@ -82,6 +81,10 @@ export const readback = {
       approvalId: 'owner-approval',
       acceptedAt: '2026-07-31T00:00:00.000Z',
       receiptSha256: '7'.repeat(64),
+      deploymentProofSha256:
+        calculateCloudflareZeroWeightDeploymentProofSha256(
+          zeroWeightDeployment
+        ),
     },
   } as const,
   pointerCache: {
@@ -99,11 +102,68 @@ export const readback = {
     expiresAt: '2026-07-31T00:02:00.000Z',
     canonicalSha256: '',
   },
+  controlEvidence: {
+    purge: {
+      endpoint: '/zones/zone/purge_cache',
+      zoneId: 'zone',
+      host: 'edge-evidence.ogabassey.com',
+      requestSchemaSha256: 'a'.repeat(64),
+      rateLimitFingerprint: 'b'.repeat(64),
+      policySha256: 'c'.repeat(64),
+      operationId: 'purge-operation',
+      status: 'lost_response' as const,
+      readbackVerified: true as const,
+    },
+    topology: [
+      {
+        family: 'worker-custom-domain' as const,
+        action: 'detach' as const,
+        restoreAction: 'reattach' as const,
+        endpoint:
+          '/accounts/account/workers/scripts/baci-evidence-qualification/domains/custom/edge-evidence.ogabassey.com',
+        requestSchemaSha256: 'a'.repeat(64),
+        responseSchemaSha256: 'b'.repeat(64),
+        restoreRequestSchemaSha256: 'c'.repeat(64),
+        restoreResponseSchemaSha256: 'd'.repeat(64),
+        operationId: 'worker-operation',
+        lostResponse: false,
+        restored: true as const,
+      },
+      {
+        family: 'r2-cors' as const,
+        action: 'write' as const,
+        restoreAction: 'write' as const,
+        endpoint: '/accounts/account/r2/buckets/bucket/cors',
+        requestSchemaSha256: 'e'.repeat(64),
+        responseSchemaSha256: 'f'.repeat(64),
+        restoreRequestSchemaSha256: '1'.repeat(64),
+        restoreResponseSchemaSha256: '2'.repeat(64),
+        operationId: 'cors-operation',
+        lostResponse: true,
+        restored: true as const,
+      },
+      {
+        family: 'r2-custom-domain' as const,
+        action: 'detach' as const,
+        restoreAction: 'reattach' as const,
+        endpoint:
+          '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
+        requestSchemaSha256: '3'.repeat(64),
+        responseSchemaSha256: '4'.repeat(64),
+        restoreRequestSchemaSha256: '5'.repeat(64),
+        restoreResponseSchemaSha256: '6'.repeat(64),
+        operationId: 'domain-operation',
+        lostResponse: false,
+        restored: true as const,
+      },
+    ],
+  },
   runBinding: {
     runId: 'a'.repeat(32),
     toolingMergeSha: '1'.repeat(40),
     cleanupVerificationReceiptSha256: '8'.repeat(64),
     measurementReceiptSha256: '9'.repeat(64),
+    measurementPayloadSha256: '0'.repeat(64),
   },
 };
 const { canonicalSha256: _ignored, ...withoutHash } = readback.pointerCache;
@@ -131,6 +191,39 @@ export const reviewedArtifacts = readback.versions.map((version) => ({
   } as const,
   runBinding: readback.runBinding,
 }));
+
+export const reviewedArtifactAuthority = {
+  toolingMergeSha: readback.runBinding.toolingMergeSha,
+  pointerCache: {
+    cacheRuleId: readback.pointerCache.cacheRuleId,
+    cacheRulesetVersion: readback.pointerCache.cacheRulesetVersion,
+    traceExpressionSha256: readback.pointerCache.traceExpressionSha256,
+  },
+  artifacts: reviewedArtifacts.map(
+    ({
+      accountId,
+      scriptName,
+      versionId,
+      scriptEtag,
+      moduleSha256,
+      moduleListSha256,
+      settingsSha256,
+      artifactReceipt,
+    }) => ({
+      accountId,
+      scriptName,
+      versionId,
+      scriptEtag,
+      moduleSha256,
+      moduleListSha256,
+      settingsSha256,
+      artifactReceipt,
+    })
+  ),
+} as const;
+
+readback.runBinding.measurementPayloadSha256 =
+  calculateQualificationEvidencePayloadSha256(readback, reviewedArtifacts);
 
 export const pointerProbeReadback = {
   status: 204,

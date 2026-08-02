@@ -31,9 +31,10 @@ const tokenVerificationSchema = z
   })
   .strict();
 
-// Mutation and cleanup each use the repository's bounded one-minute guard
-// window. Require both phases to fit before accepting a write capability.
-export const MINIMUM_REMAINING_LIFETIME_MS = 2 * 60 * 1000;
+// The token must cover the complete provider workflow: mutation, probe,
+// cleanup, provider readback, both revocations, and a bounded recovery margin.
+// The one-minute operation locks are not a workflow deadline.
+export const MINIMUM_REMAINING_LIFETIME_MS = 10 * 60 * 1000;
 
 export type CloudflareEvidenceTokenPolicy = z.infer<typeof policySchema>;
 export type CloudflareTokenVerification = z.infer<

@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises';
 import { basename, isAbsolute, join, parse, sep } from 'node:path';
 import { releaseActiveRunLock } from './cloudflare-evidence-run-lock';
+
+export type { MeasurementReceipt } from './cloudflare-evidence-measurement-receipt';
 export const RUN_ID_PATTERN = /^[a-f0-9]{32}$/;
 export type EvidencePhase =
   | 'prepared'
@@ -41,10 +43,6 @@ export type CleanupVerificationClient = Readonly<{
     expectedInventorySha256: string
   ): Promise<CleanupVerificationProviderReceipt>;
 }>;
-export type MeasurementReceipt = Readonly<{
-  providerReceiptSha256: string;
-  observedAt: string;
-}>;
 export type CloudflareEvidenceRunJournal = {
   runId: string;
   approvalId: string;
@@ -76,6 +74,7 @@ export type CloudflareEvidenceRunJournal = {
   cleanupVerificationReceiptSha256?: string;
   measurementVerifiedAt?: string;
   measurementReceiptSha256?: string;
+  measurementPayloadSha256?: string;
   writeTokenRevokedAt?: string;
   readTokenRevokedAt?: string;
   writeTokenRevocationReceipt?: TokenRevocationReceipt;
@@ -102,6 +101,7 @@ export type EvidenceRunInput = Omit<
   | 'cleanupVerificationReceiptSha256'
   | 'measurementVerifiedAt'
   | 'measurementReceiptSha256'
+  | 'measurementPayloadSha256'
   | 'writeTokenRevokedAt'
   | 'readTokenRevokedAt'
   | 'writeTokenRevocationReceipt'
@@ -207,7 +207,6 @@ export function hasReceipt(
     validDate(receipt.observedAt)
   );
 }
-
 export function assertTransition(
   journal: CloudflareEvidenceRunJournal,
   next: EvidencePhase
@@ -252,6 +251,8 @@ export function assertTerminalPrerequisites(
       !journal.measurementVerifiedAt ||
       !journal.measurementReceiptSha256 ||
       !hash.test(journal.measurementReceiptSha256) ||
+      !journal.measurementPayloadSha256 ||
+      !hash.test(journal.measurementPayloadSha256) ||
       !validDate(journal.measurementVerifiedAt)
     )
       throw new Error(
@@ -282,7 +283,6 @@ export function assertTerminalPrerequisites(
       'terminal evidence phase requires verified token revocation'
     );
 }
-
 export function createCleanupVerificationReceipt(
   inventorySha256: string,
   observedAt: string

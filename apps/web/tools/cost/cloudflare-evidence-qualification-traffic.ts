@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  calculateCanonicalSha256,
+  canonicalizeJson,
+} from '../../../../packages/shared/src/storefront/delivery-evidence';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 const NonEmpty = z.string().min(1);
@@ -59,6 +63,8 @@ export const OwnerAcceptanceSchema = z
     approvalId: NonEmpty,
     acceptedAt: z.string().datetime({ offset: true }),
     receiptSha256: Hash,
+    /** Canonical digest of the exact deployment tuple the owner accepted. */
+    deploymentProofSha256: Hash,
   })
   .strict();
 
@@ -102,6 +108,25 @@ export type CloudflareZeroWeightDeployment = Readonly<{
   versions: readonly Readonly<{ versionId: string; percentage: number }>[];
 }>;
 
+/**
+ * Hashes only the provider deployment tuple, with a domain-separated preimage.
+ *
+ * The owner acceptance is intentionally bound to the exact deployment
+ * readback, rather than to the complete proof (which would be circular) or to
+ * an approval ID that could be replayed against a different deployment.
+ */
+export function calculateCloudflareZeroWeightDeploymentProofSha256(
+  deployment: CloudflareZeroWeightDeployment
+) {
+  const parsed = ZeroWeightDeploymentTupleSchema.parse(deployment);
+  return calculateCanonicalSha256(
+    canonicalizeJson({
+      domain: 'baci:cloudflare:zero-weight-deployment:v1',
+      deployment: parsed,
+    })
+  );
+}
+
 export function validateCloudflareZeroWeightProof(
   value: unknown,
   options: Readonly<{
@@ -130,6 +155,11 @@ export function validateCloudflareZeroWeightProof(
     })
   )
     return { ok: false as const, reason: 'zero_weight_deployment_mismatch' };
+  if (
+    proof.ownerAcceptance.deploymentProofSha256 !==
+    calculateCloudflareZeroWeightDeploymentProofSha256(proof.deployment)
+  )
+    return { ok: false as const, reason: 'owner_acceptance_mismatch' };
   const deploymentById = new Map(
     proof.deployment.versions.map((version) => [version.versionId, version])
   );
@@ -196,6 +226,8 @@ export function validateCloudflareZeroWeightProof(
     authoritative.approvalId !== proof.ownerAcceptance.approvalId ||
     authoritative.acceptedAt !== proof.ownerAcceptance.acceptedAt ||
     authoritative.receiptSha256 !== proof.ownerAcceptance.receiptSha256 ||
+    authoritative.deploymentProofSha256 !==
+      proof.ownerAcceptance.deploymentProofSha256 ||
     authoritative.approvalId !== options.expectedOwnerApprovalId
   )
     return { ok: false as const, reason: 'owner_acceptance_mismatch' };

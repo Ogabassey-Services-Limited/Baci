@@ -111,7 +111,7 @@ async function restoreTopology(
   client: DeepQualificationClient,
   topology: TopologyPlan
 ) {
-  verifyMutationResponse(
+  const receipt = verifyMutationResponse(
     await client.topologyMutate(
       buildTopologyMutationRequest(
         topology,
@@ -128,6 +128,7 @@ async function restoreTopology(
     ),
     topology
   );
+  return receipt;
 }
 
 function asError(value: unknown) {
@@ -166,6 +167,7 @@ export async function executeTopologyMutationWithRollback(
   let restorationFailed = false;
   let qualificationError: unknown;
   let restorationError: unknown;
+  let restorationReceipt: MutationReceiptParts | undefined;
   let receipt: TopologyMutationAuditReceipt | undefined;
   try {
     // Set this before the provider call: a rejected response is an ambiguous
@@ -186,11 +188,17 @@ export async function executeTopologyMutationWithRollback(
     receipt = {
       family: topology.family,
       action: topology.action,
+      restoreAction: topology.restore.action,
       endpoint: topology.endpoint,
       requestSchemaSha256: topology.requestSchemaSha256,
       responseSchemaSha256,
+      restoreRequestSchemaSha256: topology.restore.requestSchemaSha256,
+      restoreResponseSchemaSha256:
+        restorationReceipt?.responseSchemaSha256 ??
+        topology.restore.responseSchemaSha256,
       operationId,
       lostResponse,
+      restored: true,
     };
   } catch (error) {
     qualificationFailed = true;
@@ -198,7 +206,7 @@ export async function executeTopologyMutationWithRollback(
   } finally {
     if (forwardMutationAttempted) {
       try {
-        await restoreTopology(client, topology);
+        restorationReceipt = await restoreTopology(client, topology);
       } catch (error) {
         restorationFailed = true;
         restorationError = error;
@@ -212,5 +220,10 @@ export async function executeTopologyMutationWithRollback(
   }
   if (qualificationFailed) throw qualificationError;
   if (!receipt) throw new Error('topology mutation receipt was not produced');
+  if (restorationReceipt)
+    receipt = {
+      ...receipt,
+      restoreResponseSchemaSha256: restorationReceipt.responseSchemaSha256,
+    };
   return receipt;
 }

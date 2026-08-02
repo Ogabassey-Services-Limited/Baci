@@ -117,6 +117,7 @@ function measurementClient(observedAt: string): EvidenceMeasurementClient {
       observedProbeCount: input.expectedProbeCount,
       probeResults: ['probe-a', 'probe-b'],
       providerReceiptSha256: 'a'.repeat(64),
+      payloadSha256: 'b'.repeat(64),
       observedAt,
     })),
     revoke: async (tokenId: string) => ({
@@ -179,6 +180,7 @@ describe('measurement observation timestamps', () => {
     const dir = await createMeasuredRun();
     await recordEvidenceMeasurement(dir, input.runId, {
       providerReceiptSha256: 'a'.repeat(64),
+      payloadSha256: 'b'.repeat(64),
       observedAt,
     });
     const client = measurementClient('2026-07-31T00:00:00.000Z');
@@ -194,6 +196,7 @@ describe('measurement observation timestamps', () => {
     const dir = await createMeasuredRun();
     await recordEvidenceMeasurement(dir, input.runId, {
       providerReceiptSha256: 'a'.repeat(64),
+      payloadSha256: 'b'.repeat(64),
       observedAt: '2026-07-31T00:00:00.000Z',
     });
     const client = measurementClient('2026-07-31T00:00:00.000Z');
@@ -262,6 +265,7 @@ describe('incomplete-run read-token revocation', () => {
       observedProbeCount: input.expectedProbeCount,
       probeResults: ['probe-a', 'probe-b'],
       providerReceiptSha256: 'a'.repeat(64),
+      payloadSha256: 'b'.repeat(64),
       observedAt: '2026-07-31T00:00:00.000Z',
     }));
     const result = await revokeCloudflareEvidenceReadToken(

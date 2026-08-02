@@ -7,7 +7,7 @@ import {
 } from './storefront-origin-budget.test-fixtures';
 
 describe('storefront origin budget alias host partition', () => {
-  it('keeps alias totals outside the Worker decision reconciliation', () => {
+  it('reconciles full alias raw traffic separately from static redirects', () => {
     const evidence = manifest();
     evidence.days[0] = {
       ...evidence.days[0],
@@ -17,6 +17,7 @@ describe('storefront origin budget alias host partition', () => {
       canonicalEligibleRequestCount: 10,
       aliasEligibleRequestCount: 20,
       aliasEdgeRedirectCount: 20,
+      aliasRawRequestCount: 21,
       sourceEvidence: {
         ...evidence.days[0].sourceEvidence,
         invocation: {
@@ -46,12 +47,26 @@ describe('storefront origin budget alias host partition', () => {
     }
     setTrafficPartitionCounts(evidence.days[0], {
       canonicalRawRequestCount: 10,
-      aliasRawRequestCount: 20,
       canonicalEligibleRequestCount: 10,
       aliasEligibleRequestCount: 20,
     });
+    const aliasStaticRow = evidence.days[0].trafficPartition.find(
+      (row) => row.hostname === 'ogabassey.usebaci.com'
+    );
+    if (!aliasStaticRow) throw new Error('alias fixture row is missing');
+    aliasStaticRow.requestCount = 20;
+    evidence.days[0].trafficPartition.push({
+      ...aliasStaticRow,
+      methodClass: 'POST',
+      pathClass: 'api',
+      ruleId: 'alias-api',
+      requestCount: 1,
+      eligibleRequestCount: 0,
+      eligibleOriginAttemptCount: 0,
+    });
     const summary = summarizeAtFixtureTime(seal(evidence));
     expect(summary.allEligibleIngress).toBe(30);
+    expect(summary.trafficPartitionReconciled).toBe(true);
     expect(summary.verdict).toBe('PASS');
   });
 

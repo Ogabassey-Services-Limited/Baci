@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -7,11 +7,12 @@ import {
   parseQualificationArguments,
   runQualificationCli,
 } from './cloudflare-evidence-qualification-cli';
-import { calculatePointerCacheCanonicalSha256 } from './cloudflare-evidence-qualification-schemas';
 import {
-  readback,
-  reviewedArtifacts,
-} from './qualify-cloudflare-evidence-sources.test-fixtures';
+  currentQualificationReadback,
+  runQualificationValidation,
+  writeCompletedQualificationJournal,
+  writeValidationArtifacts,
+} from './cloudflare-evidence-qualification-cli-test-support';
 
 const validateReadbackArguments = [
   '--validate-readback',
@@ -29,151 +30,6 @@ const validateReadbackArguments = [
   '--run-id',
   'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
 ] as const;
-
-function currentReadback() {
-  const qualifiedAt = new Date(Date.now() - 1000).toISOString();
-  const expiresAt = new Date(Date.now() + 60_000).toISOString();
-  const pointerCache = {
-    ...readback.pointerCache,
-    qualifiedAt,
-    expiresAt,
-    canonicalSha256: '',
-  };
-  const { canonicalSha256: _ignored, ...withoutHash } = pointerCache;
-  pointerCache.canonicalSha256 =
-    calculatePointerCacheCanonicalSha256(withoutHash);
-  return {
-    ...readback,
-    zeroWeightProof: {
-      ...readback.zeroWeightProof,
-      ownerAcceptance: {
-        ...readback.zeroWeightProof.ownerAcceptance,
-        acceptedAt: new Date(Date.now() - 1000).toISOString(),
-      },
-    },
-    pointerCache,
-  };
-}
-
-async function writeValidationArtifacts(directory: string, receipt: unknown) {
-  const paths = {
-    receipt: join(directory, 'readback.json'),
-    artifactA: join(directory, 'artifact-a.json'),
-    artifactB: join(directory, 'artifact-b.json'),
-    ownerAcceptance: join(directory, 'owner-acceptance.json'),
-  };
-  const ownerAcceptance =
-    (
-      receipt as {
-        zeroWeightProof?: { ownerAcceptance?: unknown };
-      }
-    ).zeroWeightProof?.ownerAcceptance ??
-    readback.zeroWeightProof.ownerAcceptance;
-  await Promise.all([
-    writeFile(paths.receipt, JSON.stringify(receipt), { mode: 0o600 }),
-    writeFile(paths.artifactA, JSON.stringify(reviewedArtifacts[0]), {
-      mode: 0o600,
-    }),
-    writeFile(paths.ownerAcceptance, JSON.stringify(ownerAcceptance), {
-      mode: 0o600,
-    }),
-    writeFile(paths.artifactB, JSON.stringify(reviewedArtifacts[1]), {
-      mode: 0o600,
-    }),
-  ]);
-  return {
-    ...paths,
-    ownerAcceptance:
-      ownerAcceptance as typeof readback.zeroWeightProof.ownerAcceptance,
-  };
-}
-
-async function writeCompletedJournal(directory: string) {
-  const stateDir = join(directory, 'state');
-  await mkdir(stateDir, { mode: 0o700, recursive: true });
-  const runId = 'a'.repeat(32);
-  const observedAt = new Date(Date.now() - 1000).toISOString();
-  const runBinding = readback.runBinding;
-  await writeFile(
-    join(stateDir, `${runId}.json`),
-    JSON.stringify({
-      runId,
-      phase: 'proof_complete',
-      toolingMergeSha: runBinding.toolingMergeSha,
-      cleanupVerifiedAt: observedAt,
-      measurementVerifiedAt: observedAt,
-      cleanupVerificationReceiptSha256:
-        runBinding.cleanupVerificationReceiptSha256,
-      measurementReceiptSha256: runBinding.measurementReceiptSha256,
-      writeTokenId: 'write-token',
-      readTokenId: 'read-token',
-      writeTokenRevocationReceipt: {
-        tokenId: 'write-token',
-        status: 'revoked',
-        providerReceiptSha256: 'a'.repeat(64),
-        observedAt,
-      },
-      readTokenRevocationReceipt: {
-        tokenId: 'read-token',
-        status: 'revoked',
-        providerReceiptSha256: 'b'.repeat(64),
-        observedAt,
-      },
-    }),
-    { mode: 0o600 }
-  );
-  return { stateDir, runId };
-}
-
-type ValidationPaths = Awaited<ReturnType<typeof writeValidationArtifacts>>;
-
-async function runValidation(
-  paths: ValidationPaths,
-  expectedOwnerApprovalId = 'owner-approval',
-  overrides: Partial<ValidationPaths> = {}
-) {
-  const resolvedPaths = { ...paths, ...overrides };
-  const { stateDir, runId } = await writeCompletedJournal(
-    resolvedPaths.receipt.slice(0, resolvedPaths.receipt.lastIndexOf('/'))
-  );
-  let stdout = '';
-  let stderr = '';
-  let exitCode: number | undefined;
-  await runQualificationCli(
-    [
-      '--validate-readback',
-      resolvedPaths.receipt,
-      '--expected-artifact-a',
-      resolvedPaths.artifactA,
-      '--expected-artifact-b',
-      resolvedPaths.artifactB,
-      '--script-name',
-      'baci-evidence-qualification',
-      '--expected-owner-approval-id',
-      expectedOwnerApprovalId,
-      '--run-state-dir',
-      stateDir,
-      '--run-id',
-      runId,
-    ],
-    {
-      EVIDENCE_OWNER_ACCEPTANCE_ARTIFACT: resolvedPaths.ownerAcceptance,
-    },
-    {
-      stdout: (value) => {
-        stdout += value;
-      },
-      stderr: (value) => {
-        stderr += value;
-      },
-      setExitCode: (code) => {
-        exitCode = code;
-      },
-    },
-    () => paths.ownerAcceptance
-  );
-  return { stdout, stderr, exitCode };
-}
 
 describe('qualification CLI helpers', () => {
   it('requires both reviewed sidecars and the script name', () => {
@@ -208,15 +64,21 @@ describe('qualification CLI helpers', () => {
   it('accepts private 0600 artifacts only when owner acceptance matches', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'baci-qualification-cli-'));
     await chmod(directory, 0o700);
-    const paths = await writeValidationArtifacts(directory, currentReadback());
-    const accepted = await runValidation(paths);
+    const paths = await writeValidationArtifacts(
+      directory,
+      currentQualificationReadback()
+    );
+    const accepted = await runQualificationValidation(paths);
     expect(accepted.exitCode).toBeUndefined();
     expect(accepted.stderr).toBe('');
     expect(
       JSON.parse(accepted.stdout).zeroWeightProof.ownerAcceptance.approvalId
     ).toBe('owner-approval');
 
-    const mismatch = await runValidation(paths, 'different-owner-approval');
+    const mismatch = await runQualificationValidation(
+      paths,
+      'different-owner-approval'
+    );
     expect(mismatch.stdout).toBe('');
     expect(mismatch.stderr).toContain('owner_acceptance_mismatch');
     expect(mismatch.exitCode).toBe(1);
@@ -225,8 +87,11 @@ describe('qualification CLI helpers', () => {
   it('fails closed when the credentialless CLI has no authenticated owner authority seam', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'baci-qualification-cli-'));
     await chmod(directory, 0o700);
-    const paths = await writeValidationArtifacts(directory, currentReadback());
-    await writeCompletedJournal(directory);
+    const paths = await writeValidationArtifacts(
+      directory,
+      currentQualificationReadback()
+    );
+    await writeCompletedQualificationJournal(directory);
     let stderr = '';
     let exitCode: number | undefined;
     await runQualificationCli(
@@ -266,10 +131,13 @@ describe('qualification CLI helpers', () => {
   it('rejects a reviewed artifact with permissions broader than 0600', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'baci-qualification-cli-'));
     await chmod(directory, 0o700);
-    const paths = await writeValidationArtifacts(directory, currentReadback());
+    const paths = await writeValidationArtifacts(
+      directory,
+      currentQualificationReadback()
+    );
     await chmod(paths.artifactA, 0o644);
 
-    const result = await runValidation(paths);
+    const result = await runQualificationValidation(paths);
 
     expect(result.stdout).toBe('');
     expect(result.stderr).toBe(
@@ -282,10 +150,13 @@ describe('qualification CLI helpers', () => {
   it('redacts filesystem errors when a reviewed artifact cannot be opened', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'baci-qualification-cli-'));
     await chmod(directory, 0o700);
-    const paths = await writeValidationArtifacts(directory, currentReadback());
+    const paths = await writeValidationArtifacts(
+      directory,
+      currentQualificationReadback()
+    );
     const missingPath = join(directory, 'missing.json');
 
-    const result = await runValidation(paths, 'owner-approval', {
+    const result = await runQualificationValidation(paths, 'owner-approval', {
       artifactA: missingPath,
     });
 
@@ -302,7 +173,7 @@ describe('qualification CLI helpers', () => {
     await chmod(directory, 0o700);
     const paths = await writeValidationArtifacts(directory, { invalid: true });
 
-    const result = await runValidation(paths);
+    const result = await runQualificationValidation(paths);
 
     expect(result.stdout).toBe('');
     expect(result.stderr).toBe('readback_schema_invalid\n');

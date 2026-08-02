@@ -65,7 +65,7 @@ export function reconcileStorefrontDeliveryEvidence(
       canonicalHostname: manifest.canonicalHostname,
       canonicalRawRequestCount:
         day.workerInvocationCount - day.syntheticQualificationRequestCount,
-      aliasRawRequestCount: day.aliasEdgeRedirectCount,
+      aliasRawRequestCount: day.aliasRawRequestCount,
       canonicalEligibleRequestCount: day.canonicalEligibleRequestCount,
       aliasEligibleRequestCount: day.aliasEligibleRequestCount,
       canonicalEligibleOriginAttemptCount:

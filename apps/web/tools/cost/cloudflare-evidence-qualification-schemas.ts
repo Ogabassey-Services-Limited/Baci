@@ -1,12 +1,23 @@
 import { z } from 'zod';
 import {
+  buildQualificationArtifactVersionEndpoint,
   calculateQualificationArtifactModuleListSha256,
+  calculateQualificationEvidencePayloadSha256,
+  matchesQualificationArtifactAuthority,
+  matchesQualificationPointerCacheAuthority,
   matchesQualificationRunBindings,
+  type QualificationArtifactAuthoritySchema,
   QualificationArtifactModuleListSchema,
   QualificationArtifactReadbackVersionSchema,
+  QualificationArtifactReceiptSchema,
   QualificationRunBindingSchema,
   qualifyQualificationPointerCache,
 } from './cloudflare-evidence-qualification-artifact';
+import { QualificationControlEvidenceSchema } from './cloudflare-evidence-qualification-contracts';
+import {
+  hasReviewedQualificationArtifactIdentity,
+  isQualificationControlEvidenceInScope,
+} from './cloudflare-evidence-qualification-control-scope';
 import {
   type CloudflareOwnerAcceptanceAuthorityResolver,
   validateCloudflareZeroWeightProof,
@@ -58,6 +69,8 @@ export const ArtifactReadbackSchema = z
       .strict(),
     zeroWeightProof: ZeroWeightProofSchema,
     pointerCache: PointerCacheSchema,
+    /** Authenticated purge and topology receipts from the provider qualification. */
+    controlEvidence: QualificationControlEvidenceSchema,
     runBinding: QualificationRunBindingSchema,
   })
   .strict();
@@ -74,18 +87,7 @@ export const ReviewedQualificationArtifactSchema = z
     modules: QualificationArtifactModuleListSchema,
     moduleListSha256: Hash,
     settingsSha256: Hash,
-    artifactReceipt: z
-      .object({
-        canonicalSourceSha256: Hash,
-        configSha256: Hash,
-        dependencyLockSha256: Hash,
-        wranglerVersion: z.literal('4.115.0'),
-        generatedTypeSha256: Hash,
-        moduleListSha256: Hash,
-        bundleSha256: Hash,
-        soleVersionMetadataBinding: z.literal('CF_VERSION_METADATA'),
-      })
-      .strict(),
+    artifactReceipt: QualificationArtifactReceiptSchema,
     runBinding: QualificationRunBindingSchema,
   })
   .strict()
@@ -122,6 +124,9 @@ export function qualifyCloudflareEvidenceReadback(
     expectedOwnerApprovalId: string;
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
     expectedRunBinding?: z.infer<typeof QualificationRunBindingSchema>;
+    expectedArtifactAuthority?: z.infer<
+      typeof QualificationArtifactAuthoritySchema
+    >;
   }>
 ):
   | { ok: true; qualification: z.infer<typeof ArtifactReadbackSchema> }
@@ -151,29 +156,47 @@ export function qualifyCloudflareEvidenceReadback(
       )
     )
       return { ok: false, reason: 'qualification_run_binding_mismatch' };
+    if (
+      !options.expectedArtifactAuthority ||
+      !matchesQualificationArtifactAuthority(
+        expectedArtifacts,
+        options.expectedArtifactAuthority,
+        expectedBinding.toolingMergeSha
+      )
+    )
+      return { ok: false, reason: 'reviewed_artifact_authority_mismatch' };
+    if (
+      !options.expectedArtifactAuthority ||
+      !matchesQualificationPointerCacheAuthority(
+        receipt.pointerCache,
+        options.expectedArtifactAuthority
+      )
+    )
+      return { ok: false, reason: 'pointer_cache_authority_mismatch' };
+    if (
+      calculateQualificationEvidencePayloadSha256(
+        receipt,
+        expectedArtifacts
+      ) !== expectedBinding.measurementPayloadSha256
+    )
+      return { ok: false, reason: 'measurement_payload_mismatch' };
   }
-  const reviewedAccountIds = new Set(
-    expectedArtifacts.map(({ accountId }) => accountId)
-  );
+  const controlAccountId =
+    options.expectedAccountId ?? expectedArtifacts[0]?.accountId;
   if (
-    expectedArtifacts.length !== 2 ||
-    reviewedAccountIds.size !== 1 ||
-    (options.expectedAccountId !== undefined &&
-      !reviewedAccountIds.has(options.expectedAccountId)) ||
-    new Set(expectedArtifacts.map(({ versionId }) => versionId)).size !== 2 ||
-    new Set(expectedArtifacts.map(({ scriptName }) => scriptName)).size !== 1 ||
-    new Set(
-      expectedArtifacts.map(
-        ({ artifactReceipt }) => artifactReceipt.bundleSha256
-      )
-    ).size !== 2 ||
-    new Set(
-      expectedArtifacts.map(
-        ({ artifactReceipt }) => artifactReceipt.canonicalSourceSha256
-      )
-    ).size !== 2 ||
-    expectedArtifacts.some(
-      (artifact) => artifact.scriptName !== options.expectedScriptName
+    !controlAccountId ||
+    !isQualificationControlEvidenceInScope(
+      receipt.controlEvidence,
+      controlAccountId,
+      receipt.scriptName
+    )
+  )
+    return { ok: false, reason: 'control_evidence_scope_invalid' };
+  if (
+    !hasReviewedQualificationArtifactIdentity(
+      expectedArtifacts,
+      options.expectedScriptName,
+      options.expectedAccountId
     )
   )
     return { ok: false, reason: 'reviewed_artifacts_invalid' };
@@ -231,26 +254,26 @@ export function qualifyCloudflareEvidenceReadback(
     }
   );
   if (!zeroWeightProof.ok) return zeroWeightProof;
-  const prefixMatch = receipt.versions[0]?.endpoint.match(
-    /^(\/accounts\/[^/]+\/workers\/scripts\/[^/]+)\/versions\/[^/]+$/
-  );
-  if (!prefixMatch)
-    return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
-  const prefix = prefixMatch[1];
-  if (prefix.split('/').at(-1) !== receipt.scriptName)
-    return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
   const expectedAccountId =
     options.expectedAccountId ?? expectedArtifacts[0]?.accountId;
-  if (!expectedAccountId || prefix.split('/')[2] !== expectedAccountId)
+  if (!expectedAccountId)
+    return { ok: false, reason: 'scripts_versions_account_mismatch' };
+  if (receipt.versions[0]?.endpoint.split('/')[2] !== expectedAccountId)
     return { ok: false, reason: 'scripts_versions_account_mismatch' };
   if (
     !receipt.versions.every(
       (version) =>
-        version.endpoint === `${prefix}/versions/${version.versionId}`
+        version.endpoint ===
+        buildQualificationArtifactVersionEndpoint(
+          expectedAccountId,
+          receipt.scriptName,
+          version.versionId
+        )
     )
   )
     return { ok: false, reason: 'scripts_versions_endpoint_invalid' };
-  if (receipt.deploymentsEndpoint !== `${prefix}/deployments`)
+  const scriptsEndpoint = `/accounts/${expectedAccountId}/workers/scripts/${receipt.scriptName}`;
+  if (receipt.deploymentsEndpoint !== `${scriptsEndpoint}/deployments`)
     return { ok: false, reason: 'deployments_endpoint_invalid' };
   if (
     receipt.versions[0].moduleSha256 === receipt.versions[1].moduleSha256 ||
@@ -269,24 +292,7 @@ export function qualifyCloudflareEvidenceReadback(
     return { ok: false, reason: 'pointer_cache_fingerprint_invalid' };
   return { ok: true, qualification: receipt };
 }
-export const PurgeContractSchema = z
-  .object({
-    endpoint: z.string().regex(/^\/zones\/[^/]+\/purge_cache$/),
-    requestSchemaSha256: Hash,
-    rateLimitFingerprint: Hash,
-    policySha256: Hash,
-    productionResourceState: z.enum([
-      'present_verified',
-      'absent_requires_bootstrap',
-    ]),
-  })
-  .strict();
-export const TopologyEndpointSchema = z
-  .object({
-    family: z.enum(['worker-custom-domain', 'r2-cors', 'r2-custom-domain']),
-    endpoint: z.string().startsWith('/accounts/'),
-    requestSchemaSha256: Hash,
-    responseSchemaSha256: Hash,
-    maximumVisibilitySeconds: z.number().int().positive(),
-  })
-  .strict();
+export {
+  PurgeContractSchema,
+  TopologyEndpointSchema,
+} from './cloudflare-evidence-qualification-contracts';

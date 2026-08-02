@@ -80,6 +80,8 @@ export const StorefrontDeliveryDailyEvidenceSchema = z
     originFallbackCount: CountSchema,
     terminalCount: CountSchema,
     edgeErrorCount: CountSchema,
+    /** Independent raw request total for every approved alias host. */
+    aliasRawRequestCount: CountSchema,
     aliasEligibleRequestCount: CountSchema,
     aliasEdgeRedirectCount: CountSchema,
     aliasEligibleOriginRequestCount: CountSchema,

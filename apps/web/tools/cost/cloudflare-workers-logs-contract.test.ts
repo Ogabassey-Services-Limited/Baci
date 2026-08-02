@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_REVIEWED_USAGE_OBSERVATION_LAG_SECONDS,
   retrieveCurrentCloudflareWorkersLogsContract,
   validateCloudflareWorkersLogsPlanContract,
 } from './cloudflare-workers-logs-contract';
@@ -131,6 +132,37 @@ describe('Cloudflare Workers Logs plan contract', () => {
         { now }
       )
     ).toThrow('stale');
+  });
+  it('rejects a paid allowance lag that exceeds the reviewed operational maximum', () => {
+    const monthEnd = new Date('2026-08-31T23:00:00.000Z');
+    const monthLongLagSeconds = 31 * 24 * 60 * 60;
+    expect(() =>
+      validateCloudflareWorkersLogsPlanContract(
+        {
+          ...paidContract(),
+          allowanceObservedAt: '2026-08-01T00:00:00.000Z',
+          allowanceMaximumObservationLagSeconds: monthLongLagSeconds,
+          utcDayStartsAt: '2026-08-31T00:00:00.000Z',
+          utcDayEndsAt: '2026-09-01T00:00:00.000Z',
+          utcDayObservedAt: '2026-08-31T22:30:00.000Z',
+        },
+        { now: monthEnd }
+      )
+    ).toThrow('reviewed operational maximum');
+  });
+  it('accepts the reviewed operational maximum for both usage counters', () => {
+    expect(() =>
+      validateCloudflareWorkersLogsPlanContract(
+        {
+          ...contractFor(),
+          allowanceMaximumObservationLagSeconds:
+            MAX_REVIEWED_USAGE_OBSERVATION_LAG_SECONDS,
+          utcDayMaximumObservationLagSeconds:
+            MAX_REVIEWED_USAGE_OBSERVATION_LAG_SECONDS,
+        },
+        { now }
+      )
+    ).not.toThrow();
   });
   it('derives every usage field from the authenticated entitlement projection', async () => {
     const rawEntitlement = JSON.stringify(entitlementProjection);

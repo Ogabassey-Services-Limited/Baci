@@ -168,6 +168,13 @@ describe('StorefrontDeliveryDailyEvidenceSchema', () => {
       StorefrontDeliveryDailyEvidenceSchema.safeParse(missingWafCount).success
     ).toBe(false);
   });
+  it('requires an independent all-alias raw request total', () => {
+    const candidate: Record<string, unknown> = { ...dailyEvidence };
+    delete candidate.aliasRawRequestCount;
+    expect(
+      StorefrontDeliveryDailyEvidenceSchema.safeParse(candidate).success
+    ).toBe(false);
+  });
   it('requires bounded per-host alias evidence', () => {
     expect(
       StorefrontDeliveryDailyEvidenceSchema.safeParse({

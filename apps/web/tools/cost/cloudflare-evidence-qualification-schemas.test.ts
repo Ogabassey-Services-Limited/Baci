@@ -5,10 +5,12 @@ import {
   PurgeContractSchema,
   QUALIFICATION_EVIDENCE_HOST,
   QUALIFICATION_POINTER_URL,
+  qualifyCloudflareEvidenceReadback,
   ReviewedQualificationArtifactSchema,
 } from './cloudflare-evidence-qualification-schemas';
 import {
   readback,
+  reviewedArtifactAuthority,
   reviewedArtifacts,
 } from './qualify-cloudflare-evidence-sources.test-fixtures';
 
@@ -125,6 +127,46 @@ describe('cloudflare evidence qualification schemas', () => {
     expect(ArtifactReadbackSchema.safeParse(tampered).success).toBe(false);
   });
 
+  it('rejects latest-state or suffixed endpoints instead of treating them as version readbacks', () => {
+    expect(
+      ArtifactReadbackSchema.safeParse({
+        ...readback,
+        versions: [
+          {
+            ...readback.versions[0],
+            endpoint:
+              '/accounts/account/workers/scripts/baci-evidence-qualification',
+          },
+          readback.versions[1],
+        ],
+      }).success
+    ).toBe(false);
+    expect(
+      qualifyCloudflareEvidenceReadback(
+        {
+          ...readback,
+          versions: [
+            readback.versions[0],
+            {
+              ...readback.versions[1],
+              endpoint: `${readback.versions[1].endpoint}/latest`,
+            },
+          ],
+        },
+        {
+          now: new Date('2026-07-31T00:01:00.000Z'),
+          expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
+          expectedScriptName: readback.scriptName,
+          expectedAccountId: 'account',
+          expectedOwnerApprovalId:
+            readback.zeroWeightProof.ownerAcceptance.approvalId,
+          ownerAcceptanceAuthority: () =>
+            readback.zeroWeightProof.ownerAcceptance,
+        }
+      ).ok
+    ).toBe(false);
+  });
+
   it('keeps provider module identity separate from the local module-list hash', () => {
     const artifact = reviewedArtifacts[0];
     expect(artifact.moduleSha256).not.toBe(artifact.moduleListSha256);
@@ -140,5 +182,87 @@ describe('cloudflare evidence qualification schemas', () => {
         },
       }).success
     ).toBe(false);
+  });
+
+  it('rejects a changed readback payload copied with the same measured binding', () => {
+    const result = qualifyCloudflareEvidenceReadback(
+      {
+        ...readback,
+        versions: [
+          { ...readback.versions[0], scriptEtag: '0'.repeat(64) },
+          readback.versions[1],
+        ],
+      },
+      {
+        now: new Date('2026-07-31T00:01:00.000Z'),
+        expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
+        expectedScriptName: readback.scriptName,
+        expectedAccountId: 'account',
+        expectedOwnerApprovalId:
+          readback.zeroWeightProof.ownerAcceptance.approvalId,
+        ownerAcceptanceAuthority: () =>
+          readback.zeroWeightProof.ownerAcceptance,
+        expectedRunBinding: readback.runBinding,
+        expectedArtifactAuthority: reviewedArtifactAuthority,
+      }
+    );
+    expect(result).toEqual({
+      ok: false,
+      reason: 'measurement_payload_mismatch',
+    });
+  });
+
+  it('rejects caller artifact sidecars that do not match the reviewed authority', () => {
+    const result = qualifyCloudflareEvidenceReadback(readback, {
+      now: new Date('2026-07-31T00:01:00.000Z'),
+      expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
+      expectedScriptName: readback.scriptName,
+      expectedAccountId: 'account',
+      expectedOwnerApprovalId:
+        readback.zeroWeightProof.ownerAcceptance.approvalId,
+      ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
+      expectedRunBinding: readback.runBinding,
+      expectedArtifactAuthority: {
+        ...reviewedArtifactAuthority,
+        artifacts: [
+          {
+            ...reviewedArtifactAuthority.artifacts[0],
+            artifactReceipt: {
+              ...reviewedArtifactAuthority.artifacts[0].artifactReceipt,
+              canonicalSourceSha256: 'f'.repeat(64),
+            },
+          },
+          reviewedArtifactAuthority.artifacts[1],
+        ],
+      },
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'reviewed_artifact_authority_mismatch',
+    });
+  });
+
+  it('rejects a pointer cache tuple that is not in the reviewed authority', () => {
+    const result = qualifyCloudflareEvidenceReadback(readback, {
+      now: new Date('2026-07-31T00:01:00.000Z'),
+      expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
+      expectedScriptName: readback.scriptName,
+      expectedAccountId: 'account',
+      expectedOwnerApprovalId:
+        readback.zeroWeightProof.ownerAcceptance.approvalId,
+      ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
+      expectedRunBinding: readback.runBinding,
+      expectedArtifactAuthority: {
+        ...reviewedArtifactAuthority,
+        pointerCache: {
+          ...reviewedArtifactAuthority.pointerCache,
+          cacheRuleId: 'unreviewed-rule',
+        },
+      },
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'pointer_cache_authority_mismatch',
+    });
   });
 });

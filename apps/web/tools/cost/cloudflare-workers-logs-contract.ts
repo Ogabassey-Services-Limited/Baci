@@ -8,6 +8,21 @@ import {
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const decimal = z.string().regex(/^\d+(?:\.\d{2})?$/);
+/**
+ * Usage counters are only safe for the cost gate while their provider
+ * observation is inside the reviewed one-hour operational freshness window.
+ * A receipt cannot widen this bound; a slower provider export requires a new
+ * qualification rather than silently accepting stale allowance data.
+ */
+export const MAX_REVIEWED_USAGE_OBSERVATION_LAG_SECONDS = 3_600;
+const reviewedObservationLagSeconds = z
+  .number()
+  .int()
+  .nonnegative()
+  .max(MAX_REVIEWED_USAGE_OBSERVATION_LAG_SECONDS, {
+    message:
+      'Cloudflare usage observation lag exceeds the reviewed operational maximum',
+  });
 const MAX_MEASURED_OTHER_WORKERS_DAILY_LOG_EVENTS = 5_000_000_000n;
 const BigIntLike = z
   .union([
@@ -28,7 +43,7 @@ const entitlementShape = {
   allowancePeriodEndsAt: z.string().datetime({ offset: true }),
   currentAllowancePeriodAllAccountEvents: BigIntLike,
   allowanceUsageSourceFingerprint: z.string().regex(SHA256),
-  allowanceMaximumObservationLagSeconds: z.number().int().nonnegative(),
+  allowanceMaximumObservationLagSeconds: reviewedObservationLagSeconds,
   allowanceObservedAt: z.string().datetime({ offset: true }),
   utcDayStartsAt: z.string().datetime({ offset: true }),
   utcDayEndsAt: z.string().datetime({ offset: true }),
@@ -39,7 +54,7 @@ const entitlementShape = {
    */
   otherWorkersWorstCaseDailyLogEvents: BoundedDailyEvents,
   utcDayUsageSourceFingerprint: z.string().regex(SHA256),
-  utcDayMaximumObservationLagSeconds: z.number().int().nonnegative(),
+  utcDayMaximumObservationLagSeconds: reviewedObservationLagSeconds,
   utcDayObservedAt: z.string().datetime({ offset: true }),
   overageAllowed: z.boolean(),
   overageUsdPerMillion: decimal.nullable(),

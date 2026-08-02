@@ -51,6 +51,7 @@ export function manifest(overrides: Record<string, unknown> = {}) {
       originFallbackCount: 0,
       terminalCount: 0,
       edgeErrorCount: 0,
+      aliasRawRequestCount: 0,
       aliasEligibleRequestCount: 0,
       aliasEdgeRedirectCount: 0,
       aliasEligibleOriginRequestCount: 0,
@@ -247,6 +248,7 @@ export function setTrafficPartitionCounts(
   }
   if (values.aliasRawRequestCount !== undefined) {
     const requestCount = values.aliasRawRequestCount;
+    day.aliasRawRequestCount = requestCount;
     aliases[0].requestCount = requestCount;
     if (aliases[0].eligibleRequestCount > requestCount) {
       aliases[0].eligibleRequestCount = requestCount;

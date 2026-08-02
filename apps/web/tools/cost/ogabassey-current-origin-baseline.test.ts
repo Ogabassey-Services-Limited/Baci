@@ -261,11 +261,25 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
   it('stops when payback exceeds the owner-approved horizon', () =>
     expect(
       evaluateOgabasseyOriginBusinessCase(
-        { ...current, paybackMonths: 13 },
+        {
+          ...current,
+          verifiedUpfrontImplementationCostUsd: '104.00',
+          paybackMonths: 0,
+        },
         { now: new Date('2026-08-01T12:00:00.000Z') }
       )
     ).toEqual({
       verdict: 'STOP',
       reasonCodes: ['payback_exceeds_approved_horizon'],
+    }));
+  it('rejects a malformed verified implementation cost', () =>
+    expect(
+      evaluateOgabasseyOriginBusinessCase(
+        { ...current, verifiedUpfrontImplementationCostUsd: '1.001' },
+        { now: new Date('2026-08-01T12:00:00.000Z') }
+      )
+    ).toEqual({
+      verdict: 'NOT_PROVEN',
+      reasonCodes: ['implementation_cost_invalid'],
     }));
 });

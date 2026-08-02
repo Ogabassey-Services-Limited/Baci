@@ -179,12 +179,14 @@ export function createEvidenceJournalTransitionOperations(
     return transitionJournal(stateDir, runId, (journal) => {
       if (
         !isHash(receipt.providerReceiptSha256) ||
+        !isHash(receipt.payloadSha256) ||
         !validDate(receipt.observedAt)
       )
         throw new Error('measurement receipt is invalid');
       if (journal.measurementReceiptSha256 || journal.measurementVerifiedAt) {
         if (
           journal.measurementReceiptSha256 === receipt.providerReceiptSha256 &&
+          journal.measurementPayloadSha256 === receipt.payloadSha256 &&
           journal.measurementVerifiedAt === receipt.observedAt
         )
           return journal;
@@ -200,6 +202,7 @@ export function createEvidenceJournalTransitionOperations(
         throw new Error('measurement requires write-token revocation');
       journal.measurementVerifiedAt = receipt.observedAt;
       journal.measurementReceiptSha256 = receipt.providerReceiptSha256;
+      journal.measurementPayloadSha256 = receipt.payloadSha256;
       journal.measurementIncomplete = false;
       return journal;
     });

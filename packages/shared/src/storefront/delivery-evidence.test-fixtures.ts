@@ -29,6 +29,7 @@ export const dailyEvidence = {
   originFallbackCount: 0,
   terminalCount: 0,
   edgeErrorCount: 0,
+  aliasRawRequestCount: 0,
   aliasEligibleRequestCount: 0,
   aliasEdgeRedirectCount: 0,
   aliasEligibleOriginRequestCount: 0,

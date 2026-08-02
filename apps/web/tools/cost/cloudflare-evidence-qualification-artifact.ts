@@ -4,13 +4,24 @@ import {
   canonicalizeJson,
 } from '../../../../packages/shared/src/storefront/delivery-evidence';
 
+export type { QualificationArtifactAuthority } from './cloudflare-evidence-qualification-authority';
+export {
+  matchesQualificationArtifactAuthority,
+  matchesQualificationPointerCacheAuthority,
+  QualificationArtifactAuthoritySchema,
+  QualificationArtifactReceiptSchema,
+} from './cloudflare-evidence-qualification-authority';
+
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
+const ToolingMergeSha = z.string().regex(/^[a-f0-9]{40}$/);
 export const QualificationRunBindingSchema = z
   .object({
     runId: z.string().regex(/^[a-f0-9]{32}$/),
-    toolingMergeSha: z.string().regex(/^[a-f0-9]{40}$/),
+    toolingMergeSha: ToolingMergeSha,
     cleanupVerificationReceiptSha256: Hash,
     measurementReceiptSha256: Hash,
+    /** Digest of the complete qualification payload returned by measurement. */
+    measurementPayloadSha256: Hash,
   })
   .strict();
 export type QualificationRunBinding = z.infer<
@@ -25,7 +36,8 @@ export function matchesQualificationRunBinding(
     value.toolingMergeSha === expected.toolingMergeSha &&
     value.cleanupVerificationReceiptSha256 ===
       expected.cleanupVerificationReceiptSha256 &&
-    value.measurementReceiptSha256 === expected.measurementReceiptSha256
+    value.measurementReceiptSha256 === expected.measurementReceiptSha256 &&
+    value.measurementPayloadSha256 === expected.measurementPayloadSha256
   );
 }
 export function matchesQualificationRunBindings(
@@ -42,6 +54,63 @@ export function matchesQualificationRunBindings(
 }
 export function calculatePointerCacheCanonicalSha256(value: unknown) {
   return calculateCanonicalSha256(canonicalizeJson(value));
+}
+
+/**
+ * The provider measurement receipt commits to this exact payload.  The
+ * payload digest is carried in each run binding, so that self-referential
+ * field is removed before canonicalization.  Artifact order is normalized by
+ * version ID; every other field remains part of the digest.
+ */
+export function canonicalizeQualificationEvidencePayload(
+  readback: unknown,
+  artifacts: readonly unknown[]
+) {
+  const stripPayloadDigest = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(stripPayloadDigest);
+    if (!value || typeof value !== 'object') return value;
+    const record = value as Record<string, unknown>;
+    const runBinding = record.runBinding;
+    if (!runBinding || typeof runBinding !== 'object') return value;
+    const {
+      measurementPayloadSha256: _measurementPayloadSha256,
+      ...withoutPayloadDigest
+    } = runBinding as Record<string, unknown>;
+    return {
+      ...record,
+      runBinding: withoutPayloadDigest,
+    };
+  };
+  const normalizedArtifacts = artifacts
+    .map(stripPayloadDigest)
+    .sort((left, right) => {
+      const leftVersion =
+        left && typeof left === 'object' && 'versionId' in left
+          ? String((left as { versionId?: unknown }).versionId)
+          : '';
+      const rightVersion =
+        right && typeof right === 'object' && 'versionId' in right
+          ? String((right as { versionId?: unknown }).versionId)
+          : '';
+      return leftVersion < rightVersion
+        ? -1
+        : leftVersion > rightVersion
+          ? 1
+          : 0;
+    });
+  return canonicalizeJson({
+    readback: stripPayloadDigest(readback),
+    artifacts: normalizedArtifacts,
+  });
+}
+
+export function calculateQualificationEvidencePayloadSha256(
+  readback: unknown,
+  artifacts: readonly unknown[]
+) {
+  return calculateCanonicalSha256(
+    canonicalizeQualificationEvidencePayload(readback, artifacts)
+  );
 }
 export function qualifyQualificationPointerCache(
   pointerCache: Readonly<{
@@ -127,10 +196,29 @@ export function calculateQualificationArtifactModuleListSha256(
   );
 }
 
+const qualificationArtifactVersionEndpointPattern =
+  /^\/accounts\/([^/?#]+)\/workers\/scripts\/([^/?#]+)\/versions\/([^/?#]+)$/;
+
+/** Builds the only endpoint accepted for a Scripts version-detail readback. */
+export function buildQualificationArtifactVersionEndpoint(
+  accountId: string,
+  scriptName: string,
+  versionId: string
+) {
+  return `/accounts/${accountId}/workers/scripts/${scriptName}/versions/${versionId}`;
+}
+
+export const QualificationArtifactVersionEndpointSchema = z
+  .string()
+  .regex(
+    qualificationArtifactVersionEndpointPattern,
+    'provider version readback must use the exact Scripts version-detail path'
+  );
+
 export const QualificationArtifactReadbackVersionSchema = z
   .object({
     versionId: z.string().min(1),
-    endpoint: z.string().min(1),
+    endpoint: QualificationArtifactVersionEndpointSchema,
     scriptEtag: Hash,
     moduleSha256: Hash,
     modules: QualificationArtifactModuleListSchema,
@@ -138,6 +226,17 @@ export const QualificationArtifactReadbackVersionSchema = z
     settingsSha256: Hash,
   })
   .strict()
+  .superRefine(({ endpoint, versionId }, context) => {
+    const endpointVersionId = endpoint.match(
+      qualificationArtifactVersionEndpointPattern
+    )?.[3];
+    if (endpointVersionId !== versionId)
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endpoint'],
+        message: 'provider version readback endpoint must bind versionId',
+      });
+  })
   .refine(
     ({ moduleListSha256, modules }) =>
       moduleListSha256 ===

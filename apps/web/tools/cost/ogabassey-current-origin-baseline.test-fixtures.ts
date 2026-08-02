@@ -85,6 +85,7 @@ const BASE_INPUT = {
     reducibleStaticOriginCostUsd: '10.00',
   },
   ownerApprovedPaybackMonths: 12,
+  verifiedUpfrontImplementationCostUsd: '16.00',
   paybackMonths: 2,
   expectedDailyWorkerInvocations: 143n,
   qualifiedLogEventsPerInvocation: 2n,

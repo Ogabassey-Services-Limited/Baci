@@ -2,27 +2,24 @@ import { constants as fsConstants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
+import type { QualificationArtifactAuthority } from './cloudflare-evidence-qualification-authority';
+import {
+  loadOwnerAcceptanceAuthority,
+  loadQualificationArtifactAuthority,
+} from './cloudflare-evidence-qualification-authority-loader';
 import {
   QUALIFICATION_WORKER_NAME,
   qualifyCloudflareEvidenceReadback,
   type ReviewedQualificationArtifact,
   ReviewedQualificationArtifactSchema,
 } from './cloudflare-evidence-qualification-schemas';
-import {
-  type CloudflareOwnerAcceptanceAuthorityResolver,
-  OwnerAcceptanceSchema,
-} from './cloudflare-evidence-qualification-traffic';
-import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
+import type { CloudflareOwnerAcceptanceAuthorityResolver } from './cloudflare-evidence-qualification-traffic';
 import {
   hasReceipt,
   isHash,
   loadEvidenceRunForCleanup,
   validDate,
 } from './cloudflare-evidence-run-journal';
-import {
-  type EvidenceRunnerModuleDescriptor,
-  verifyReviewedEvidenceRunnerModule,
-} from './cloudflare-evidence-runner-modules';
 
 const MAXIMUM_APPROVAL_ID_LENGTH = 128;
 
@@ -73,6 +70,7 @@ async function readCompletedRunBinding(stateDir: string, runId: string) {
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
   const cleanupReceipt = journal.cleanupVerificationReceiptSha256;
   const measurementReceipt = journal.measurementReceiptSha256;
+  const measurementPayload = journal.measurementPayloadSha256;
   if (
     journal.runId !== runId ||
     journal.phase !== 'proof_complete' ||
@@ -84,6 +82,8 @@ async function readCompletedRunBinding(stateDir: string, runId: string) {
     !measurementReceipt ||
     !isHash(cleanupReceipt) ||
     !isHash(measurementReceipt) ||
+    !measurementPayload ||
+    !isHash(measurementPayload) ||
     !hasReceipt(journal.writeTokenRevocationReceipt, journal.writeTokenId) ||
     !hasReceipt(journal.readTokenRevocationReceipt, journal.readTokenId) ||
     (journal.cleanupWriteTokenId !== undefined &&
@@ -100,6 +100,7 @@ async function readCompletedRunBinding(stateDir: string, runId: string) {
     toolingMergeSha: journal.toolingMergeSha,
     cleanupVerificationReceiptSha256: cleanupReceipt,
     measurementReceiptSha256: measurementReceipt,
+    measurementPayloadSha256: measurementPayload,
   } as const;
 }
 
@@ -160,59 +161,12 @@ async function readReviewedArtifact(path: string, label: string) {
   }
 }
 
-type OwnerAcceptanceAuthorityModule = Readonly<{
-  resolveOwnerAcceptanceAuthority: () => unknown | Promise<unknown>;
-}>;
-
-async function loadOwnerAcceptanceAuthority(
-  environment: Readonly<Record<string, string | undefined>>
-): Promise<CloudflareOwnerAcceptanceAuthorityResolver> {
-  const workspaceRoot = environment.EVIDENCE_WORKSPACE_ROOT;
-  const toolingMergeSha = environment.EVIDENCE_TOOLING_MERGE_SHA;
-  const path = environment.EVIDENCE_OWNER_ACCEPTANCE_AUTHORITY_MODULE;
-  const sha256 = environment.EVIDENCE_OWNER_ACCEPTANCE_AUTHORITY_MODULE_SHA256;
-  if (!workspaceRoot || !toolingMergeSha || !path || !sha256)
-    throw new Error(
-      'independently authenticated owner acceptance readback is required'
-    );
-  const descriptor: EvidenceRunnerModuleDescriptor = { path, sha256 };
-  const verified = await verifyReviewedEvidenceRunnerModule(
-    workspaceRoot,
-    toolingMergeSha,
-    descriptor
-  );
-  const authoritative = await importReviewedEvidenceModule(
-    workspaceRoot,
-    verified.path,
-    verified.files,
-    async (loaded) => {
-      if (
-        !loaded ||
-        typeof loaded !== 'object' ||
-        !('resolveOwnerAcceptanceAuthority' in loaded) ||
-        typeof (loaded as Partial<OwnerAcceptanceAuthorityModule>)
-          .resolveOwnerAcceptanceAuthority !== 'function'
-      )
-        throw new Error('owner acceptance authority module is invalid');
-      const value = await (
-        loaded as OwnerAcceptanceAuthorityModule
-      ).resolveOwnerAcceptanceAuthority();
-      const parsed = OwnerAcceptanceSchema.safeParse(value);
-      if (!parsed.success)
-        throw new Error(
-          'owner acceptance authority module returned invalid data'
-        );
-      return parsed.data;
-    }
-  );
-  return () => authoritative;
-}
-
 export async function runQualificationCli(
   args: readonly string[],
   environment: Readonly<Record<string, string | undefined>>,
   io: QualificationCliIo,
-  ownerAcceptanceAuthority?: CloudflareOwnerAcceptanceAuthorityResolver
+  ownerAcceptanceAuthority?: CloudflareOwnerAcceptanceAuthorityResolver,
+  artifactAuthority?: QualificationArtifactAuthority
 ) {
   try {
     if (args[0] === '--prepare') {
@@ -235,7 +189,16 @@ export async function runQualificationCli(
       );
       const authority =
         ownerAcceptanceAuthority ??
-        (await loadOwnerAcceptanceAuthority(environment));
+        (await loadOwnerAcceptanceAuthority(
+          environment,
+          expectedRunBinding.toolingMergeSha
+        ));
+      const reviewedArtifactAuthority =
+        artifactAuthority ??
+        (await loadQualificationArtifactAuthority(
+          environment,
+          expectedRunBinding.toolingMergeSha
+        ));
       const [value, ...artifactValues] = await Promise.all([
         readReviewedArtifact(receiptPath, 'readback'),
         ...expectedArtifactPaths.map((path, index) =>
@@ -263,6 +226,7 @@ export async function runQualificationCli(
         expectedOwnerApprovalId,
         ownerAcceptanceAuthority: authority,
         expectedRunBinding,
+        expectedArtifactAuthority: reviewedArtifactAuthority,
       });
       if (!result.ok) throw new Error(result.reason);
       io.stdout(`${JSON.stringify(result.qualification)}\n`);

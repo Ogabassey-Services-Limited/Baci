@@ -18,6 +18,7 @@ export type EvidenceMeasurementClient = TokenRevocationClient & {
     observedProbeCount: number;
     probeResults: readonly string[];
     providerReceiptSha256: string;
+    payloadSha256: string;
     observedAt: string;
   }>;
 };
@@ -144,6 +145,7 @@ export async function measureCloudflareEvidenceSources(
       throw new Error('Cloudflare evidence export is incomplete');
     if (
       !/^[a-f0-9]{64}$/.test(result.providerReceiptSha256) ||
+      !/^[a-f0-9]{64}$/.test(result.payloadSha256) ||
       Number.isNaN(new Date(result.observedAt).valueOf())
     )
       throw new Error('Cloudflare evidence export receipt is invalid');
@@ -154,6 +156,7 @@ export async function measureCloudflareEvidenceSources(
     );
     await recordEvidenceMeasurement(stateDir, runId, {
       providerReceiptSha256: result.providerReceiptSha256,
+      payloadSha256: result.payloadSha256,
       observedAt: result.observedAt,
     });
   } catch (error) {

@@ -64,11 +64,15 @@ export type TopologyResourceReadback = Readonly<{
 export type TopologyMutationAuditReceipt = Readonly<{
   family: TopologyFamily;
   action: TopologyAction;
+  restoreAction: TopologyAction;
   endpoint: string;
   requestSchemaSha256: string;
   responseSchemaSha256: string;
+  restoreRequestSchemaSha256: string;
+  restoreResponseSchemaSha256: string;
   operationId: string | null;
   lostResponse: boolean;
+  restored: true;
 }>;
 type TraceExpectation = Readonly<{
   cacheRuleId: string;
@@ -264,5 +268,7 @@ export async function executeDeepCloudflareEvidenceQualification(
   return {
     qualified: true as const,
     mutationReceipts: Object.freeze(mutationReceipts),
+    /** Serialized into the final readback's controlEvidence before CLI validation. */
+    topologyMutationReceipts: Object.freeze(mutationReceipts),
   };
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calculateCloudflareZeroWeightDeploymentProofSha256,
   validateCloudflareZeroWeightProof,
   ZeroWeightProofSchema,
 } from './cloudflare-evidence-qualification-traffic';
@@ -41,6 +42,8 @@ const proof = {
     approvalId: 'owner-approval',
     acceptedAt: '2026-07-31T00:00:00.000Z',
     receiptSha256: '1'.repeat(64),
+    deploymentProofSha256:
+      calculateCloudflareZeroWeightDeploymentProofSha256(deployment),
   },
 } as const;
 const ownerAcceptanceAuthority = () => proof.ownerAcceptance;
@@ -209,6 +212,49 @@ describe('Cloudflare zero-weight qualification proof', () => {
     ).toEqual({
       ok: false,
       reason: 'owner_acceptance_stale',
+    });
+  });
+
+  it('rejects an otherwise valid acceptance replayed against another deployment tuple', () => {
+    const otherDeployment = {
+      ...deployment,
+      deploymentId: 'another-deployment',
+    } as const;
+
+    expect(
+      validateCloudflareZeroWeightProof(
+        { ...proof, deployment: otherDeployment },
+        {
+          deployment: otherDeployment,
+          stableVersionId: 'a',
+          candidateVersionId: 'b',
+          expectedOwnerApprovalId: 'owner-approval',
+          ownerAcceptanceAuthority,
+          now: qualificationNow,
+        }
+      )
+    ).toEqual({
+      ok: false,
+      reason: 'owner_acceptance_mismatch',
+    });
+  });
+
+  it('rejects authoritative acceptance scoped to a different deployment tuple', () => {
+    expect(
+      validateCloudflareZeroWeightProof(proof, {
+        deployment,
+        stableVersionId: 'a',
+        candidateVersionId: 'b',
+        expectedOwnerApprovalId: 'owner-approval',
+        ownerAcceptanceAuthority: () => ({
+          ...proof.ownerAcceptance,
+          deploymentProofSha256: '2'.repeat(64),
+        }),
+        now: qualificationNow,
+      })
+    ).toEqual({
+      ok: false,
+      reason: 'owner_acceptance_mismatch',
     });
   });
 });

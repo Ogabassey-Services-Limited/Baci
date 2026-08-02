@@ -68,6 +68,7 @@ describe('measureCloudflareEvidenceSources', () => {
           observedProbeCount: 1,
           probeResults: ['probe-a', 'probe-b'],
           providerReceiptSha256: 'a'.repeat(64),
+          payloadSha256: 'b'.repeat(64),
           observedAt: '2026-07-31T00:00:00.000Z',
         }),
         revoke,
@@ -171,6 +172,7 @@ describe('measureCloudflareEvidenceSources', () => {
       observedProbeCount: 2,
       probeResults: ['probe-a', 'probe-b'],
       providerReceiptSha256: 'a'.repeat(64),
+      payloadSha256: 'b'.repeat(64),
       observedAt: '2026-07-31T00:00:00.000Z',
     }));
     const revoke = vi
