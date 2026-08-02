@@ -57,7 +57,9 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
     ).rejects.toThrow('active');
     await expect(
       recordEvidencePhase(dir, mutationInput.runId, 'closed_stop')
-    ).rejects.toThrow(/phase|revocation/);
+    ).rejects.toThrow(
+      'invalid evidence phase transition: cleanup_incomplete_stop -> closed_stop'
+    );
 
     const revoke = async (tokenId: string) => ({
       tokenId,
@@ -74,7 +76,9 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
     });
     await expect(
       recordEvidencePhase(dir, mutationInput.runId, 'closed_stop')
-    ).rejects.toThrow(/phase|revocation/);
+    ).rejects.toThrow(
+      'invalid evidence phase transition: write_token_revoked -> closed_stop'
+    );
     await expect(
       revokeEvidenceRunToken(dir, mutationInput.runId, 'read', {
         revoke: async (tokenId) => ({

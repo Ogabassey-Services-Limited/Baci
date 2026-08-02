@@ -8,6 +8,7 @@ import {
   qualificationInput,
   readback,
 } from './qualify-cloudflare-evidence-sources.test-fixtures';
+import type { CloudflarePurgeReadbackRequest } from './qualify-cloudflare-evidence-sources-contracts';
 
 describe('Cloudflare read-only qualification contracts', () => {
   it('executes Scripts Versions, Deployments, Trace, repeated pointers, and bounded purge through an injected client', async () => {
@@ -92,13 +93,7 @@ describe('Cloudflare read-only qualification contracts', () => {
         calls.push('purge-read');
         return 'lost_response' as const;
       },
-      readPurgeReadback: async (request: {
-        operationId: string;
-        endpoint: string;
-        zoneId: string;
-        requestSchemaSha256: string;
-        body: { hosts: readonly ['edge-evidence.ogabassey.com'] };
-      }) => {
+      readPurgeReadback: async (request: CloudflarePurgeReadbackRequest) => {
         calls.push('purge-readback');
         return { status: 'complete' as const, ...request };
       },

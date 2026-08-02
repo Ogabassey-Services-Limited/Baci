@@ -67,7 +67,7 @@ describe('CloudflareEvidenceRunJournal', () => {
     ).rejects.toThrow('active');
     await expect(
       recordEvidencePhase(dir, input.runId, 'proof_complete')
-    ).rejects.toThrow(/phase|revocation/);
+    ).rejects.toThrow('invalid evidence phase transition');
   });
   it('rejects an unknown persisted phase before applying a transition', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));

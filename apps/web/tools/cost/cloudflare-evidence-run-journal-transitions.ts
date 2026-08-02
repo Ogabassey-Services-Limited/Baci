@@ -136,24 +136,31 @@ export function createEvidenceJournalTransitionOperations(
     });
   }
 
+  function isCleanupVerificationClient(
+    value: unknown
+  ): value is CleanupVerificationClient {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'verifyCleanup' in value &&
+      typeof value.verifyCleanup === 'function'
+    );
+  }
+
   async function recordCleanupVerified(
     stateDir: string,
     runId: string,
-    client: CleanupVerificationClient | unknown
+    client: unknown
   ) {
     await Promise.resolve();
-    if (
-      !client ||
-      typeof client !== 'object' ||
-      typeof (client as CleanupVerificationClient).verifyCleanup !== 'function'
-    )
+    if (!isCleanupVerificationClient(client))
       throw new Error('cleanup verification requires provider readback');
     return transitionJournal(stateDir, runId, async (journal) => {
       if (journal.phase !== 'mutated')
         throw new Error('cleanup verification requires a mutated run');
       if (Object.keys(journal.mutations).length === 0)
         throw new Error('cleanup verification requires a journaled mutation');
-      const receipt = await (client as CleanupVerificationClient).verifyCleanup(
+      const receipt = await client.verifyCleanup(
         journal.runId,
         journal.preInventorySha256
       );

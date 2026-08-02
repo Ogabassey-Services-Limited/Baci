@@ -102,7 +102,12 @@ describe('Cloudflare evidence token revocation lifecycle', () => {
         }),
       }
     );
-    expect(secondResult.cleanupWriteTokenRevocations).toHaveLength(1);
+    expect(secondResult.cleanupWriteTokenRevocations).toEqual([
+      expect.objectContaining({
+        tokenId: 'replacement-write',
+        providerReceiptSha256: receiptHash,
+      }),
+    ]);
     expect(secondResult.cleanupWriteTokenId).toBe('replacement-write-2');
   });
 

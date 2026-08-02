@@ -23,7 +23,7 @@ const journal = {
 } satisfies CloudflareEvidenceRunJournal;
 
 describe('cloudflare evidence journal transition helpers', () => {
-  it('serializes a mutation through the injected journal transition', async () => {
+  it('delegates a mutation through the injected transition and mutates the journal', async () => {
     const current = structuredClone(journal);
     const transition = async <T>(
       _stateDir: string,
@@ -42,5 +42,44 @@ describe('cloudflare evidence journal transition helpers', () => {
       phase: 'mutated',
       mutations: { resource: 'provider' },
     });
+  });
+
+  it('rejects invalid mutation, phase, and replacement-token transitions', async () => {
+    const current = structuredClone(journal);
+    const transition = async <T>(
+      _stateDir: string,
+      _runId: string,
+      callback: (value: CloudflareEvidenceRunJournal) => Promise<T> | T
+    ) => callback(current);
+    const operations = createEvidenceJournalTransitionOperations(transition);
+
+    await expect(
+      operations.recordEvidenceMutation('state', journal.runId, 'other', 'id')
+    ).rejects.toThrow('resource name was not pre-journaled');
+    current.mutations.resource = 'existing';
+    await expect(
+      operations.recordEvidenceMutation(
+        'state',
+        journal.runId,
+        'resource',
+        'replacement'
+      )
+    ).rejects.toThrow('journaled resource ID cannot be replaced');
+    await expect(
+      operations.recordEvidencePhase(
+        'state',
+        journal.runId,
+        'write_token_revoked'
+      )
+    ).rejects.toThrow('token revocation requires an authenticated receipt');
+    await expect(
+      operations.recordEvidencePhase('state', journal.runId, 'cleanup_verified')
+    ).rejects.toThrow('cleanup verification requires an authenticated receipt');
+    await expect(
+      operations.recordCleanupWriteToken('state', journal.runId, 'write')
+    ).rejects.toThrow('cleanup replacement token must be distinct');
+    await expect(
+      operations.recordCleanupWriteToken('state', journal.runId, 'read')
+    ).rejects.toThrow('cleanup replacement token must be distinct');
   });
 });

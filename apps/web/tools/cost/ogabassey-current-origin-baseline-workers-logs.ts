@@ -8,6 +8,14 @@ import {
 const FORCED_SAMPLING_HEADROOM_MULTIPLIER = 4n;
 const MINIMUM_LOG_EVENTS_PER_INVOCATION = 2n;
 
+export type OwnerApprovedWorkersLogsHeadroomValue = bigint | number | string;
+export type OwnerApprovedWorkersLogsHeadroom = Readonly<{
+  /** Multiplier for the owner-approved traffic forecast (1 means no uplift). */
+  trafficMultiplier: OwnerApprovedWorkersLogsHeadroomValue;
+  /** Multiplier for the owner-approved error/event forecast (1 means no uplift). */
+  errorMultiplier: OwnerApprovedWorkersLogsHeadroomValue;
+}>;
+
 declare const retrievedWorkersLogsContractBrand: unique symbol;
 
 export type CloudflareWorkersLogsContractProvenance = Readonly<{
@@ -86,11 +94,51 @@ function positiveInteger(value: unknown): bigint | null {
   return null;
 }
 
+type HeadroomMultiplier = Readonly<{
+  numerator: bigint;
+  denominator: bigint;
+}>;
+
+function parseHeadroomMultiplier(value: unknown): HeadroomMultiplier | null {
+  const serialized =
+    typeof value === 'bigint'
+      ? value.toString()
+      : typeof value === 'number'
+        ? Number.isFinite(value)
+          ? value.toString()
+          : null
+        : typeof value === 'string'
+          ? value
+          : null;
+  if (serialized === null) return null;
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(serialized);
+  if (!match) return null;
+  const fraction = match[2] ?? '';
+  const denominator = 10n ** BigInt(fraction.length);
+  const numerator =
+    BigInt(match[1]) * denominator +
+    BigInt(fraction.length > 0 ? fraction : '0');
+  if (numerator < denominator) return null;
+  return { numerator, denominator };
+}
+
+function applyHeadroomMultiplier(
+  value: bigint,
+  multiplier: HeadroomMultiplier
+) {
+  const scaled = value * multiplier.numerator;
+  return (scaled + multiplier.denominator - 1n) / multiplier.denominator;
+}
+
 function deriveProjectedAccountLogEvents(
   expectedDailyWorkerInvocations: unknown,
   qualifiedLogEventsPerInvocation: unknown,
   allIngressRequests: number | undefined,
-  windowDays: number
+  windowDays: number,
+  headroom: Readonly<{
+    trafficMultiplier: HeadroomMultiplier;
+    errorMultiplier: HeadroomMultiplier;
+  }>
 ): bigint | null {
   const invocations = positiveInteger(expectedDailyWorkerInvocations);
   const qualifiedMultiplier = positiveInteger(qualifiedLogEventsPerInvocation);
@@ -110,7 +158,9 @@ function deriveProjectedAccountLogEvents(
     qualifiedMultiplier < MINIMUM_LOG_EVENTS_PER_INVOCATION
       ? MINIMUM_LOG_EVENTS_PER_INVOCATION
       : qualifiedMultiplier;
-  const projected = invocations * eventsPerInvocation;
+  const projected =
+    applyHeadroomMultiplier(invocations, headroom.trafficMultiplier) *
+    applyHeadroomMultiplier(eventsPerInvocation, headroom.errorMultiplier);
   if (projected < invocations || projected < eventsPerInvocation) return null;
   return projected;
 }
@@ -127,6 +177,10 @@ export function validateWorkersLogsEvidence(
   qualifiedLogEventsPerInvocation: unknown,
   allIngressRequests: number | undefined,
   windowDays: number,
+  ownerApprovedHeadroom: Readonly<{
+    trafficMultiplier: unknown;
+    errorMultiplier: unknown;
+  }>,
   now: Date
 ) {
   if (!isRetrievedCloudflareWorkersLogsContract(workersLogsContract))
@@ -135,11 +189,24 @@ export function validateWorkersLogsEvidence(
       verdict: 'NOT_PROVEN' as const,
       reason: 'workers_logs_contract_invalid',
     };
+  const trafficMultiplier = parseHeadroomMultiplier(
+    ownerApprovedHeadroom?.trafficMultiplier
+  );
+  const errorMultiplier = parseHeadroomMultiplier(
+    ownerApprovedHeadroom?.errorMultiplier
+  );
+  if (!trafficMultiplier || !errorMultiplier)
+    return {
+      ok: false as const,
+      verdict: 'NOT_PROVEN' as const,
+      reason: 'workers_logs_headroom_invalid',
+    };
   const projected = deriveProjectedAccountLogEvents(
     expectedDailyWorkerInvocations,
     qualifiedLogEventsPerInvocation,
     allIngressRequests,
-    windowDays
+    windowDays,
+    { trafficMultiplier, errorMultiplier }
   );
   if (projected === null)
     return {

@@ -67,6 +67,8 @@ export const readback = {
       aInvocationCount: 4,
       bInvocationCount: 0,
       visibilityBoundSeconds: 60,
+      observationStartedAt: '2026-07-31T00:00:00.000Z',
+      observationEndedAt: '2026-07-31T00:01:00.000Z',
     },
     protectedOverride: {
       requestSha256: '5'.repeat(64),
@@ -75,6 +77,8 @@ export const readback = {
       servedVersionId: 'b',
       versionMetadataVersionId: 'b',
       visibilityBoundSeconds: 60,
+      observationStartedAt: '2026-07-31T00:00:00.000Z',
+      observationEndedAt: '2026-07-31T00:01:00.000Z',
     },
     ownerAcceptance: {
       accepted: true,

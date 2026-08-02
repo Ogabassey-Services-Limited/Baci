@@ -1,5 +1,14 @@
 import { parseStrictUtcBoundary, UTC_DAY_MILLISECONDS } from '@baci/shared';
 import {
+  type OgabasseyOriginHostEvidence,
+  reconcileOgabasseyBaselineHostEvidence,
+} from './ogabassey-current-origin-baseline-traffic';
+import {
+  decimalToMinorUnits,
+  type OgabasseyTransformRuleCapability,
+  validateTransformRuleCapability,
+} from './ogabassey-current-origin-baseline-transform';
+import {
   type RetrievedCloudflareWorkersLogsContract,
   validateWorkersLogsEvidence,
 } from './ogabassey-current-origin-baseline-workers-logs';
@@ -15,6 +24,9 @@ export {
   CloudflareWorkersLogsPlanContractSchema,
   validateCloudflareWorkersLogsPlanContract,
 } from './cloudflare-workers-logs-contract';
+export type { OgabasseyOriginHostEvidence } from './ogabassey-current-origin-baseline-traffic';
+export { reconcileOgabasseyBaselineHostEvidence } from './ogabassey-current-origin-baseline-traffic';
+export type { OgabasseyTransformRuleCapability } from './ogabassey-current-origin-baseline-transform';
 export type {
   CloudflareWorkersLogsContractCapability,
   CloudflareWorkersLogsContractProvenance,
@@ -38,10 +50,12 @@ export type OgabasseyOriginBusinessCaseInput = {
   allIngressRequests?: number;
   allIngressOriginAttempts?: number;
   discoveredHostnames: readonly string[];
+  hostEvidence: readonly OgabasseyOriginHostEvidence[];
   completeHostEvidence: boolean;
   currentVercelAttributionUsd?: string;
   projectedEdgeCostUsd?: string;
   originCostProjection?: OgabasseyOriginCostProjection;
+  transformRuleCapability?: OgabasseyTransformRuleCapability;
   ownerApprovedPaybackMonths?: number;
   /** Independently verified one-time implementation cost, in USD. */
   verifiedUpfrontImplementationCostUsd?: string;
@@ -50,16 +64,14 @@ export type OgabasseyOriginBusinessCaseInput = {
   workersLogsContract: RetrievedCloudflareWorkersLogsContract;
   expectedDailyWorkerInvocations: bigint | number | string;
   qualifiedLogEventsPerInvocation: bigint | number | string;
+  /** Independently approved multiplier for traffic forecast headroom (>= 1). */
+  ownerApprovedTrafficHeadroomMultiplier: bigint | number | string;
+  ownerApprovedErrorHeadroomMultiplier: bigint | number | string;
 };
 export type OgabasseyOriginBusinessCaseOptions = Readonly<{
   now?: Date;
   maximumWindowAgeDays?: number;
 }>;
-function decimalToMinorUnits(value: string): bigint | null {
-  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value);
-  if (!match) return null;
-  return BigInt(match[1]) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'));
-}
 function validateOriginCostProjection(input: OgabasseyOriginBusinessCaseInput) {
   const dynamic = decimalToMinorUnits(
     input.originCostProjection?.irreducibleDynamicOriginCostUsd ?? ''
@@ -178,10 +190,26 @@ export function evaluateOgabasseyOriginBusinessCase(
     )
   )
     reasons.push('host_inventory_incomplete');
+  const trafficReconciliation = reconcileOgabasseyBaselineHostEvidence(
+    input.hostEvidence,
+    input.discoveredHostnames,
+    input.allIngressRequests,
+    input.allIngressOriginAttempts
+  );
+  if (!trafficReconciliation.ok) {
+    reasons.push(trafficReconciliation.reason);
+    return { verdict: 'NOT_PROVEN', reasonCodes: reasons };
+  }
   if (reasons.length) return { verdict: 'NOT_PROVEN', reasonCodes: reasons };
+  const { eligibleStaticRequests, eligibleStaticOriginAttempts } =
+    trafficReconciliation.projection;
+  if (eligibleStaticRequests === 0)
+    return {
+      verdict: 'NOT_PROVEN',
+      reasonCodes: ['host_traffic_evidence_invalid'],
+    };
   const originAvoidanceRate =
-    (input.allIngressOriginAttempts ?? 0) /
-    (input.allIngressRequests ?? Number.NaN);
+    eligibleStaticOriginAttempts / eligibleStaticRequests;
   if (originAvoidanceRate <= DEFAULT_ORIGIN_RATE_THRESHOLD)
     return {
       verdict: 'STOP',
@@ -199,12 +227,24 @@ export function evaluateOgabasseyOriginBusinessCase(
     input.qualifiedLogEventsPerInvocation,
     input.allIngressRequests,
     input.windowDays,
+    {
+      trafficMultiplier: input.ownerApprovedTrafficHeadroomMultiplier,
+      errorMultiplier: input.ownerApprovedErrorHeadroomMultiplier,
+    },
     now
   );
   if (!workersLogsEvidence.ok)
     return {
       verdict: workersLogsEvidence.verdict ?? 'NOT_PROVEN',
       reasonCodes: [workersLogsEvidence.reason],
+    };
+  const transformRuleCapability = validateTransformRuleCapability(
+    input.transformRuleCapability
+  );
+  if (!transformRuleCapability.ok)
+    return {
+      verdict: transformRuleCapability.verdict,
+      reasonCodes: [transformRuleCapability.reason],
     };
   if (
     !input.currentVercelAttributionUsd ||
@@ -219,11 +259,6 @@ export function evaluateOgabasseyOriginBusinessCase(
       input.ownerApprovedPaybackMonths < 0)
   )
     reasons.push('payback_approval_invalid');
-  if (
-    input.paybackMonths !== undefined &&
-    (!Number.isFinite(input.paybackMonths) || input.paybackMonths < 0)
-  )
-    reasons.push('payback_invalid');
   if (reasons.length) return { verdict: 'NOT_PROVEN', reasonCodes: reasons };
   const current = decimalToMinorUnits(input.currentVercelAttributionUsd ?? '');
   const projected = decimalToMinorUnits(input.projectedEdgeCostUsd ?? '');
@@ -238,7 +273,9 @@ export function evaluateOgabasseyOriginBusinessCase(
       reasonCodes: ['implementation_cost_invalid'],
     };
   const projectedWithWorkersLogs =
-    projected + workersLogsEvidence.projectedOverageCostMinorUnits;
+    projected +
+    transformRuleCapability.incrementalZonePlanCost +
+    workersLogsEvidence.projectedOverageCostMinorUnits;
   const projectedWithIrreducibleOrigin =
     projectedWithWorkersLogs + originCostProjection.dynamicMinorUnits;
   if (current <= projectedWithIrreducibleOrigin)

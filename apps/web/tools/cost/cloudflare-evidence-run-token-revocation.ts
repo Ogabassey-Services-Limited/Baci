@@ -7,10 +7,6 @@ type ReadJournal = (
   stateDir: string,
   runId: string
 ) => Promise<CloudflareEvidenceRunJournal>;
-type WriteJournal = (
-  stateDir: string,
-  journal: CloudflareEvidenceRunJournal
-) => Promise<void>;
 type TransitionJournal = <T>(
   stateDir: string,
   runId: string,
@@ -36,8 +32,7 @@ const hash = /^[a-f0-9]{64}$/;
 
 export function createTokenRevocationOperations(
   readJournal: ReadJournal,
-  writeJournal: WriteJournal,
-  transitionJournal?: TransitionJournal
+  transitionJournal: TransitionJournal
 ) {
   function expectedTokenId(
     journal: CloudflareEvidenceRunJournal,
@@ -75,9 +70,6 @@ export function createTokenRevocationOperations(
       providerReadBack.tokenId !== receipt.tokenId ||
       !['inactive', 'absent'].includes(providerReadBack.status) ||
       providerReadBack.auditReceiptSha256 !== receipt.providerReceiptSha256 ||
-      (kind !== 'cleanup_write' &&
-        providerReadBack.auditReceiptSha256 !==
-          receipt.providerReceiptSha256) ||
       providerReadBack.observedAt !== receipt.observedAt
     )
       throw new Error('serialized token revocation receipt is not verified');
@@ -142,21 +134,16 @@ export function createTokenRevocationOperations(
     return journal;
   }
 
-  async function recordTokenRevocation(
+  function recordTokenRevocation(
     stateDir: string,
     runId: string,
     kind: TokenRevocationKind,
     receipt: TokenRevocationReceipt,
     client: Pick<TokenRevocationClient, 'readBack'>
   ) {
-    if (transitionJournal)
-      return transitionJournal(stateDir, runId, (journal) =>
-        applyReceipt(journal, kind, receipt, client)
-      );
-    const journal = await readJournal(stateDir, runId);
-    const updated = await applyReceipt(journal, kind, receipt, client);
-    await writeJournal(stateDir, updated);
-    return updated;
+    return transitionJournal(stateDir, runId, (journal) =>
+      applyReceipt(journal, kind, receipt, client)
+    );
   }
 
   async function revokeEvidenceRunToken(

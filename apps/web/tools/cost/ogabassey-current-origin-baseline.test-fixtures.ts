@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { CloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
 import { retrieveCurrentCloudflareWorkersLogsContract } from './ogabassey-current-origin-baseline';
+import type { OgabasseyOriginHostEvidence } from './ogabassey-current-origin-baseline-traffic';
 
 const NOW = new Date('2026-08-01T12:00:00.000Z');
 const OFFICIAL_DOCS = 'current-workers-logs-docs';
@@ -77,6 +78,35 @@ const BASE_INPUT = {
     'ogabassey.usebaci.com',
     'www.ogabassey.com',
   ],
+  hostEvidence: [
+    {
+      hostname: 'ogabassey.com',
+      requestCount: 1_000,
+      originAttemptCount: 20,
+      eligibleStaticRequestCount: 1_000,
+      eligibleStaticOriginAttemptCount: 20,
+      dynamicRequestCount: 0,
+      dynamicOriginAttemptCount: 0,
+    },
+    {
+      hostname: 'ogabassey.usebaci.com',
+      requestCount: 0,
+      originAttemptCount: 0,
+      eligibleStaticRequestCount: 0,
+      eligibleStaticOriginAttemptCount: 0,
+      dynamicRequestCount: 0,
+      dynamicOriginAttemptCount: 0,
+    },
+    {
+      hostname: 'www.ogabassey.com',
+      requestCount: 0,
+      originAttemptCount: 0,
+      eligibleStaticRequestCount: 0,
+      eligibleStaticOriginAttemptCount: 0,
+      dynamicRequestCount: 0,
+      dynamicOriginAttemptCount: 0,
+    },
+  ] satisfies readonly OgabasseyOriginHostEvidence[],
   completeHostEvidence: true,
   currentVercelAttributionUsd: '12.00',
   projectedEdgeCostUsd: '2.00',
@@ -84,11 +114,19 @@ const BASE_INPUT = {
     irreducibleDynamicOriginCostUsd: '2.00',
     reducibleStaticOriginCostUsd: '10.00',
   },
+  transformRuleCapability: {
+    authenticated: true,
+    supported: true,
+    approved: true,
+    incrementalZonePlanCostUsd: '0.00',
+  },
   ownerApprovedPaybackMonths: 12,
   verifiedUpfrontImplementationCostUsd: '16.00',
   paybackMonths: 2,
   expectedDailyWorkerInvocations: 143n,
   qualifiedLogEventsPerInvocation: 2n,
+  ownerApprovedTrafficHeadroomMultiplier: '1.00',
+  ownerApprovedErrorHeadroomMultiplier: '1.00',
 };
 
 export const current = {

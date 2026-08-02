@@ -280,11 +280,10 @@ export function qualifyCloudflareEvidenceReadback(
     receipt.versions[0].settingsSha256 === receipt.versions[1].settingsSha256
   )
     return { ok: false, reason: 'artifacts_not_distinguishable' };
-  const maximumAgeSeconds = options.maximumAgeSeconds ?? 24 * 60 * 60;
   const pointerCacheValidation = qualifyQualificationPointerCache(
     receipt.pointerCache,
     options.now ?? new Date(),
-    maximumAgeSeconds
+    options.maximumAgeSeconds
   );
   if (!pointerCacheValidation.fresh)
     return { ok: false, reason: 'pointer_cache_qualification_expired' };

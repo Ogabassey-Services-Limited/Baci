@@ -6,6 +6,7 @@ import {
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 const NonEmpty = z.string().min(1);
+const ProviderTimestamp = z.string().datetime({ offset: true });
 const MAXIMUM_OWNER_ACCEPTANCE_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const ZeroWeightDeploymentTupleSchema = z
@@ -23,7 +24,6 @@ export const ZeroWeightDeploymentTupleSchema = z
       .length(2),
   })
   .strict();
-
 export const ZeroWeightContractSchema = z
   .object({
     zeroWeightDeploymentSupported: z.literal(true),
@@ -43,9 +43,10 @@ export const OrdinaryTrafficProofSchema = z
     aInvocationCount: z.number().int().nonnegative(),
     bInvocationCount: z.number().int().nonnegative(),
     visibilityBoundSeconds: z.number().int().positive(),
+    observationStartedAt: ProviderTimestamp,
+    observationEndedAt: ProviderTimestamp,
   })
   .strict();
-
 export const ProtectedOverrideProofSchema = z
   .object({
     requestSha256: Hash,
@@ -54,9 +55,10 @@ export const ProtectedOverrideProofSchema = z
     servedVersionId: NonEmpty,
     versionMetadataVersionId: NonEmpty,
     visibilityBoundSeconds: z.number().int().positive(),
+    observationStartedAt: ProviderTimestamp,
+    observationEndedAt: ProviderTimestamp,
   })
   .strict();
-
 export const OwnerAcceptanceSchema = z
   .object({
     accepted: z.literal(true),
@@ -107,6 +109,20 @@ export type CloudflareZeroWeightDeployment = Readonly<{
   deploymentId: string;
   versions: readonly Readonly<{ versionId: string; percentage: number }>[];
 }>;
+
+function spansVisibilityBound(
+  observation: Readonly<{
+    observationStartedAt: string;
+    observationEndedAt: string;
+    visibilityBoundSeconds: number;
+  }>
+) {
+  return (
+    Date.parse(observation.observationEndedAt) -
+      Date.parse(observation.observationStartedAt) >=
+    observation.visibilityBoundSeconds * 1000
+  );
+}
 
 /**
  * Hashes only the provider deployment tuple, with a domain-separated preimage.
@@ -204,6 +220,14 @@ export function validateCloudflareZeroWeightProof(
     return {
       ok: false as const,
       reason: 'zero_weight_visibility_bound_invalid',
+    };
+  if (
+    !spansVisibilityBound(proof.ordinaryTraffic) ||
+    !spansVisibilityBound(proof.protectedOverride)
+  )
+    return {
+      ok: false as const,
+      reason: 'zero_weight_observation_window_invalid',
     };
   if (typeof options.ownerAcceptanceAuthority !== 'function')
     return {

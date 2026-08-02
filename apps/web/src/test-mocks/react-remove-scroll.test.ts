@@ -7,4 +7,10 @@ describe('react-remove-scroll test adapter', () => {
 
     expect(element.props.children).toBe('content');
   });
+
+  it('renders without children', () => {
+    const element = RemoveScroll({});
+
+    expect(element.props.children).toBeUndefined();
+  });
 });

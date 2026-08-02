@@ -129,6 +129,8 @@ describe('mutation dependency loader', () => {
       'EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_RECEIPT_PATH',
       receiptPath
     );
+    vi.stubEnv('EVIDENCE_MUTATION_RUNNER_MODULE', '');
+    vi.stubEnv('CLOUDFLARE_WRITE_TOKEN', '');
     try {
       await expect(
         loadMutationDependencies(runId, dir, 'record_write_revocation')

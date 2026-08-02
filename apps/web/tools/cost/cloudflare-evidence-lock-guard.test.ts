@@ -93,6 +93,26 @@ describe('cloudflare evidence lock guard', () => {
     await rm(stateDir, { recursive: true, force: true });
   });
 
+  it('removes the arbitration record even when guard cleanup fails', async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-guard-'));
+    await chmod(stateDir, 0o700);
+    const lockPath = join(stateDir, '.active-run.lock');
+
+    await expect(
+      withEvidenceLockPathGuard(lockPath, async () => {
+        await writeFile(
+          `${lockPath}.reclaim-guard/owner`,
+          '{"pid":1,"processStartTime":"changed","token":"changed"}\n',
+          { mode: 0o600 }
+        );
+      })
+    ).rejects.toThrow('owner changed');
+    await expect(readdir(stateDir)).resolves.toEqual([
+      '.active-run.lock.reclaim-guard',
+    ]);
+    await rm(stateDir, { recursive: true, force: true });
+  });
+
   it('tolerates owner metadata disappearing during concurrent acquisition', async () => {
     const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-guard-'));
     await chmod(stateDir, 0o700);

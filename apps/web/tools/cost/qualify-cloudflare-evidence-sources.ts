@@ -262,28 +262,23 @@ export async function executeCloudflareEvidenceQualification(
     body: purgeBody,
   };
   const operation = await client.temporaryPurge(purgeRequest);
-  const purgeStatus = await client.readPurge(operation.operationId);
+  if (
+    typeof operation.operationId !== 'string' ||
+    operation.operationId.trim().length === 0
+  )
+    throw new Error('temporary purge did not return a nonempty operation ID');
+  const operationId = operation.operationId;
+  const purgeStatus = await client.readPurge(operationId);
   if (purgeStatus !== 'complete' && purgeStatus !== 'lost_response')
     throw new Error('temporary purge outcome is ambiguous');
-  if (purgeStatus === 'lost_response') {
-    if (!client.readPurgeReadback)
-      throw new Error(
-        'temporary purge lost response requires purge-specific readback or bound before/after cache probe'
-      );
-    const readback = await client.readPurgeReadback({
-      ...purgeRequest,
-      operationId: operation.operationId,
-    });
-    if (
-      !matchesCloudflarePurgeReadback(readback, {
-        ...purgeRequest,
-        operationId: operation.operationId,
-      })
-    )
-      throw new Error(
-        'temporary purge readback does not bind the purge request'
-      );
-  }
+  if (!client.readPurgeReadback)
+    throw new Error(
+      'temporary purge status requires purge-specific readback or bound before/after cache probe'
+    );
+  const purgeReadbackRequest = { ...purgeRequest, operationId };
+  const purgeReadback = await client.readPurgeReadback(purgeReadbackRequest);
+  if (!matchesCloudflarePurgeReadback(purgeReadback, purgeReadbackRequest))
+    throw new Error('temporary purge readback does not bind the purge request');
   for (const topology of parsedTopology.contract.endpoints)
     if (!(await client.topologyConverged(topology)))
       throw new Error('topology did not converge within the journaled bound');

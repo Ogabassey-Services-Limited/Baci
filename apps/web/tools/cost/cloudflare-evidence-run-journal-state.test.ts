@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { CloudflareEvidenceRunJournal } from './cloudflare-evidence-run-journal-state';
 import {
+  assertTerminalPrerequisites,
   assertTransition,
   createCleanupVerificationReceipt,
   verifyDirectory,
@@ -31,6 +32,60 @@ const journal = {
 } satisfies CloudflareEvidenceRunJournal;
 
 describe('cloudflare evidence journal state helpers', () => {
+  const terminalJournal = {
+    ...journal,
+    phase: 'read_token_revoked' as const,
+    mutations: { resource: 'provider' },
+    probeResults: ['probe-a', 'probe-b'],
+    cleanupVerifiedAt: '2026-07-31T00:00:00.000Z',
+    cleanupVerificationReceiptSha256: 'b'.repeat(64),
+    measurementVerifiedAt: '2026-07-31T00:00:01.000Z',
+    measurementReceiptSha256: 'c'.repeat(64),
+    measurementPayloadSha256: 'd'.repeat(64),
+    writeTokenRevocationReceipt: {
+      tokenId: 'write',
+      status: 'revoked' as const,
+      providerReceiptSha256: 'e'.repeat(64),
+      observedAt: '2026-07-31T00:00:02.000Z',
+    },
+    readTokenRevocationReceipt: {
+      tokenId: 'read',
+      status: 'revoked' as const,
+      providerReceiptSha256: 'f'.repeat(64),
+      observedAt: '2026-07-31T00:00:03.000Z',
+    },
+  } satisfies CloudflareEvidenceRunJournal;
+
+  it('enforces terminal evidence receipts directly', () => {
+    expect(() =>
+      assertTerminalPrerequisites(terminalJournal, 'proof_complete')
+    ).not.toThrow();
+    expect(() =>
+      assertTerminalPrerequisites(
+        { ...terminalJournal, writeTokenRevocationReceipt: undefined },
+        'proof_complete'
+      )
+    ).toThrow('terminal evidence phase requires verified token revocation');
+    expect(() =>
+      assertTerminalPrerequisites(
+        { ...terminalJournal, readTokenRevocationReceipt: undefined },
+        'proof_complete'
+      )
+    ).toThrow('terminal evidence phase requires verified token revocation');
+    expect(() =>
+      assertTerminalPrerequisites(
+        {
+          ...terminalJournal,
+          readTokenRevocationReceipt: {
+            ...terminalJournal.readTokenRevocationReceipt,
+            tokenId: 'forged',
+          },
+        },
+        'proof_complete'
+      )
+    ).toThrow('terminal evidence phase requires verified token revocation');
+  });
+
   it('keeps cleanup receipt construction separate from authenticated readback', () => {
     expect(
       createCleanupVerificationReceipt(

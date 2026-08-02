@@ -222,8 +222,15 @@ export async function withEvidenceLockPathGuard<T>(
     }
     return await operation();
   } finally {
-    if (acquired) await removeOwnedGuard(path, record);
-    await rm(metadataPath, { force: true });
+    if (acquired) {
+      try {
+        await removeOwnedGuard(path, record);
+      } finally {
+        await rm(metadataPath, { force: true });
+      }
+    } else {
+      await rm(metadataPath, { force: true });
+    }
   }
 }
 

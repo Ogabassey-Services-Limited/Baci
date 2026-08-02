@@ -36,6 +36,10 @@ const client = (
   readPurgeContract: async () => qualificationInput.purge,
   temporaryPurge: async () => ({ operationId: 'purge' }),
   readPurge: async () => 'complete',
+  readPurgeReadback: async (request) => ({
+    status: 'complete' as const,
+    ...request,
+  }),
   topologyConverged: async () => true,
   ...overrides,
 });

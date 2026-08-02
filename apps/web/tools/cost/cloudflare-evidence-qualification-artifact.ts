@@ -112,6 +112,8 @@ export function calculateQualificationEvidencePayloadSha256(
     canonicalizeQualificationEvidencePayload(readback, artifacts)
   );
 }
+/** Pointer-cache evidence cannot be accepted beyond the reviewed 24-hour window. */
+export const MAXIMUM_QUALIFICATION_POINTER_CACHE_AGE_SECONDS = 24 * 60 * 60;
 export function qualifyQualificationPointerCache(
   pointerCache: Readonly<{
     qualifiedAt: string;
@@ -119,19 +121,26 @@ export function qualifyQualificationPointerCache(
     canonicalSha256: string;
   }>,
   now: Date,
-  maximumAgeSeconds: number
+  maximumAgeSeconds = MAXIMUM_QUALIFICATION_POINTER_CACHE_AGE_SECONDS
 ) {
   const nowMs = now.valueOf();
   const qualifiedAt = new Date(pointerCache.qualifiedAt).valueOf();
   const expiresAt = new Date(pointerCache.expiresAt).valueOf();
   const { canonicalSha256: _ignored, ...withoutHash } = pointerCache;
+  const effectiveMaximumAgeSeconds =
+    Number.isFinite(maximumAgeSeconds) && maximumAgeSeconds >= 0
+      ? Math.min(
+          maximumAgeSeconds,
+          MAXIMUM_QUALIFICATION_POINTER_CACHE_AGE_SECONDS
+        )
+      : -1;
   return {
     fresh:
       [nowMs, qualifiedAt, expiresAt].every(Number.isFinite) &&
       expiresAt >= qualifiedAt &&
       qualifiedAt <= nowMs &&
       expiresAt > nowMs &&
-      nowMs - qualifiedAt <= maximumAgeSeconds * 1000,
+      nowMs - qualifiedAt <= effectiveMaximumAgeSeconds * 1000,
     fingerprintValid:
       pointerCache.canonicalSha256 ===
       calculatePointerCacheCanonicalSha256(withoutHash),

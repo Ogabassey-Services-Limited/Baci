@@ -5,6 +5,22 @@ import {
   currentWithWorkersLogsContract,
 } from './ogabassey-current-origin-baseline.test-fixtures';
 
+function withCanonicalOriginAttempts(originAttemptCount: number) {
+  return {
+    ...current,
+    allIngressOriginAttempts: originAttemptCount,
+    hostEvidence: current.hostEvidence.map((row, index) =>
+      index === 0
+        ? {
+            ...row,
+            originAttemptCount,
+            eligibleStaticOriginAttemptCount: originAttemptCount,
+          }
+        : row
+    ),
+  };
+}
+
 describe('evaluateOgabasseyOriginBusinessCase', () => {
   it('proceeds only on a current complete all-ingress seven-day baseline with positive savings', () =>
     expect(
@@ -17,8 +33,7 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(
         {
-          ...current,
-          allIngressOriginAttempts: 0,
+          ...withCanonicalOriginAttempts(0),
           currentVercelAttributionUsd: undefined,
           projectedEdgeCostUsd: undefined,
           ownerApprovedPaybackMonths: undefined,
@@ -33,9 +48,7 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(
         {
-          ...current,
-          allIngressRequests: 1000,
-          allIngressOriginAttempts: 1,
+          ...withCanonicalOriginAttempts(1),
           currentVercelAttributionUsd: undefined,
           projectedEdgeCostUsd: undefined,
           ownerApprovedPaybackMonths: undefined,
@@ -71,7 +84,7 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
       ).verdict
     ).toBe('NOT_PROVEN');
   });
-  it('rejects impossible origin-attempt aggregates and non-finite payback', () => {
+  it('rejects impossible origin-attempt aggregates and ignores legacy payback', () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(
         { ...current, allIngressOriginAttempts: -1 },
@@ -88,8 +101,8 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
       evaluateOgabasseyOriginBusinessCase(
         { ...current, paybackMonths: Number.NaN },
         { now: new Date('2026-08-01T12:00:00.000Z') }
-      ).reasonCodes
-    ).toContain('payback_invalid');
+      )
+    ).toEqual({ verdict: 'PROCEED', reasonCodes: [] });
   });
   it('does not treat malformed cost evidence as a savings STOP', () => {
     expect(
@@ -264,7 +277,7 @@ describe('evaluateOgabasseyOriginBusinessCase', () => {
         {
           ...current,
           verifiedUpfrontImplementationCostUsd: '104.00',
-          paybackMonths: 0,
+          paybackMonths: Number.NaN,
         },
         { now: new Date('2026-08-01T12:00:00.000Z') }
       )

@@ -99,6 +99,19 @@ function approvalFingerprint(approval: z.infer<typeof approvalArtifactSchema>) {
     )
     .digest('hex');
 }
+
+async function syncAuthorityScope(scope: string) {
+  let scopeHandle: FileHandle | undefined;
+  try {
+    scopeHandle = await open(scope, constants.O_RDONLY);
+    await scopeHandle.sync();
+  } catch {
+    throw new Error('approval consumption record could not be persisted');
+  } finally {
+    await scopeHandle?.close().catch(() => undefined);
+  }
+}
+
 async function consumeApproval(
   approvalPath: string,
   approval: z.infer<typeof approvalArtifactSchema>,
@@ -152,6 +165,7 @@ async function consumeApproval(
       existing.stateDir !== stateDir
     )
       throw new Error('approval is already consumed for another run');
+    await syncAuthorityScope(scope);
     return;
   }
   try {
@@ -174,15 +188,7 @@ async function consumeApproval(
   } finally {
     await handle.close().catch(() => undefined);
   }
-  let scopeHandle: FileHandle | undefined;
-  try {
-    scopeHandle = await open(scope, constants.O_RDONLY);
-    await scopeHandle.sync();
-  } catch {
-    throw new Error('approval consumption record could not be persisted');
-  } finally {
-    await scopeHandle?.close().catch(() => undefined);
-  }
+  await syncAuthorityScope(scope);
 }
 /** Verifies owner approval and the reviewed policy identity before journaling any run. */
 export async function verifyPrepareAuthority(

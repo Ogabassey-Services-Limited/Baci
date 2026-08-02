@@ -77,6 +77,10 @@ describe('Cloudflare read-only qualification rejection contracts', () => {
       readPurgeContract: async () => baseInput.purge,
       temporaryPurge: async () => ({ operationId: 'purge' }),
       readPurge: async () => 'complete' as const,
+      readPurgeReadback: async (request) => ({
+        status: 'complete' as const,
+        ...request,
+      }),
       topologyConverged: async () => true,
     };
     await expect(
@@ -200,9 +204,46 @@ describe('Cloudflare read-only qualification rejection contracts', () => {
         {
           ...baseClient,
           readPurge: async () => 'lost_response' as const,
+          readPurgeReadback: undefined,
         },
         baseInput
       )
     ).rejects.toThrow('purge-specific readback');
+
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...baseClient,
+          temporaryPurge: async () => ({ operationId: '   ' }),
+        },
+        baseInput
+      )
+    ).rejects.toThrow('nonempty operation ID');
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...baseClient,
+          readPurgeReadback: async (request) => ({
+            status: 'complete' as const,
+            ...request,
+            endpoint: '/zones/other-zone/purge_cache',
+          }),
+        },
+        baseInput
+      )
+    ).rejects.toThrow('does not bind the purge request');
+    await expect(
+      executeCloudflareEvidenceQualification(
+        {
+          ...baseClient,
+          readPurgeReadback: async (request) => ({
+            status: 'complete' as const,
+            ...request,
+            operationId: 'stale-operation',
+          }),
+        },
+        baseInput
+      )
+    ).rejects.toThrow('does not bind the purge request');
   });
 });

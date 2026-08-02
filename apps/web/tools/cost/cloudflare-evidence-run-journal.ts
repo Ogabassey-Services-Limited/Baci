@@ -86,6 +86,11 @@ export async function readJournal(stateDir: string, runId: string) {
   }
 }
 
+/**
+ * Runs a journal transition under the run lock and persists the object read
+ * from disk. Transition callbacks must mutate that journal in place; their
+ * return value is the operation result, not a replacement journal object.
+ */
 const transitionJournal = <T>(
   stateDir: string,
   runId: string,
@@ -161,7 +166,6 @@ export const {
 
 const tokenRevocationOperations = createTokenRevocationOperations(
   readJournal,
-  writeJournal,
   transitionJournal
 );
 export const { recordTokenRevocation, revokeEvidenceRunToken } =

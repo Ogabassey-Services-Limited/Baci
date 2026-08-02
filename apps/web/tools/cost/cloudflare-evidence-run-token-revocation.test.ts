@@ -23,13 +23,22 @@ const journal = {
   cleanupIncomplete: false,
 } satisfies CloudflareEvidenceRunJournal;
 
+function transitionFor(
+  readJournal: () => Promise<CloudflareEvidenceRunJournal>
+) {
+  return async <T>(
+    _stateDir: string,
+    _runId: string,
+    transition: (value: CloudflareEvidenceRunJournal) => Promise<T> | T
+  ): Promise<T> => transition(await readJournal());
+}
+
 describe('cloudflare evidence token revocation operations', () => {
   it('rejects a provider response for a different token before writing the journal', async () => {
     const readJournal = vi.fn(async () => journal);
-    const writeJournal = vi.fn(async () => undefined);
     const operations = createTokenRevocationOperations(
       readJournal,
-      writeJournal
+      transitionFor(readJournal)
     );
 
     await expect(
@@ -41,15 +50,13 @@ describe('cloudflare evidence token revocation operations', () => {
         readBack: vi.fn(),
       })
     ).rejects.toThrow('wrong token');
-    expect(writeJournal).not.toHaveBeenCalled();
   });
 
   it('rejects a revocation readback whose audit receipt differs from the revoke receipt', async () => {
     const readJournal = vi.fn(async () => journal);
-    const writeJournal = vi.fn(async () => undefined);
     const operations = createTokenRevocationOperations(
       readJournal,
-      writeJournal
+      transitionFor(readJournal)
     );
     await expect(
       operations.revokeEvidenceRunToken('state', journal.runId, 'write', {
@@ -65,7 +72,6 @@ describe('cloudflare evidence token revocation operations', () => {
         }),
       })
     ).rejects.toThrow('readback');
-    expect(writeJournal).not.toHaveBeenCalled();
   });
 
   it('rejects a serialized receipt when its provider readback changes the observation', async () => {
@@ -73,10 +79,9 @@ describe('cloudflare evidence token revocation operations', () => {
       ...journal,
       phase: 'cleanup_verified' as const,
     }));
-    const writeJournal = vi.fn(async () => undefined);
     const operations = createTokenRevocationOperations(
       readJournal,
-      writeJournal
+      transitionFor(readJournal)
     );
     await expect(
       operations.recordTokenRevocation(
@@ -99,7 +104,6 @@ describe('cloudflare evidence token revocation operations', () => {
         }
       )
     ).rejects.toThrow('serialized');
-    expect(writeJournal).not.toHaveBeenCalled();
   });
 
   it('does not append a cleanup-token receipt after a terminal phase', async () => {
@@ -108,10 +112,9 @@ describe('cloudflare evidence token revocation operations', () => {
       phase: 'closed_stop' as const,
       cleanupWriteTokenId: 'cleanup-write',
     }));
-    const writeJournal = vi.fn(async () => undefined);
     const operations = createTokenRevocationOperations(
       readJournal,
-      writeJournal
+      transitionFor(readJournal)
     );
     await expect(
       operations.revokeEvidenceRunToken(
@@ -132,6 +135,5 @@ describe('cloudflare evidence token revocation operations', () => {
         }
       )
     ).rejects.toThrow('terminal');
-    expect(writeJournal).not.toHaveBeenCalled();
   });
 });
