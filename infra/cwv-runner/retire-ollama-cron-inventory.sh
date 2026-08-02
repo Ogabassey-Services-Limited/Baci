@@ -112,6 +112,39 @@ cron_inventory_periodic_dir() {
     printf 'system-directory\t-\t%s\n' "$path" >>"$output" || return 1
   done
 }
+cron_inventory_command_targets() {
+  kind=$1 source=$2 snapshot=$3; anacron=$(cron_inventory_anacrontab)
+  case "$kind:$source" in system:"$anacron") format=anacron;; system:*) format=system;; user:*) format=user;; system-directory:*) return 0;; *) return 2;; esac
+  awk -v format="$format" '
+    function direct(field, command, i) {
+      if (NF < field) { bad=1; return }
+      command=$field
+      if (command !~ /^\/[-A-Za-z0-9._+@%=]+(\/[-A-Za-z0-9._+@%=]+)*$/ || command ~ /(^|\/)\.\.?($|\/)/ || command ~ /\/(sh|bash|dash|env|node|perl|php|python|python[0-9.]*|ruby)$/) { bad=1; return }
+      for (i=field+1; i<=NF; i++) if ($i ~ /[;&|<>()`$\\]/) { bad=1; return }
+      print command
+    }
+    /^[[:space:]]*($|#)/ { next }
+    /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { next }
+    /[;&|<>()`$\\]/ { bad=1; next }
+    {
+      if ($1 ~ /^@[A-Za-z]+$/) { direct(format == "system" ? 3 : 2); next }
+      direct(format == "system" ? 7 : (format == "anacron" ? 4 : 6))
+    }
+    END { exit bad ? 2 : 0 }
+  ' "$snapshot"
+}
+cron_inventory_record_wrapper_consumers() {
+  class=$1 kind=$2 source=$3 snapshot=$4; targets=$(temp_path)
+  cron_inventory_command_targets "$kind" "$source" "$snapshot" >"$targets" || { rm -f "$targets"; return 2; }
+  while IFS= read -r target || [ -n "$target" ]; do
+    target=$(consumer_canonical_regular "$target") || { rm -f "$targets"; return 2; }; [ -x "$target" ] || { rm -f "$targets"; return 2; }
+    captured=$(consumer_snapshot "$target") || { rm -f "$targets"; return 2; }; target_snapshot=${captured%%|*}; target_identity=${captured#*|}; target_content=$(sha "$target_snapshot") || { rm -f "$targets" "$target_snapshot"; return 2; }
+    records=$(jq -cn --argjson old "$records" --arg class "$class-command" --arg path "$target" --arg sha "$target_content" --arg identity "$target_identity" '$old + [{class:$class,realPath:$path,sha256:$sha,identitySha256:$identity}]') || { rm -f "$targets" "$target_snapshot"; return 2; }
+    record_consumers "$class" "$target_snapshot" cron-unapproved || { rm -f "$targets" "$target_snapshot"; return 2; }
+    consumer_canonical_regular "$target" >/dev/null && [ "$target_identity" = "$(consumer_source_identity "$target")" ] || { rm -f "$targets" "$target_snapshot"; return 2; }; rm -f "$target_snapshot"
+  done <"$targets"
+  rm -f "$targets"
+}
 cron_inventory_collect_external() {
   output=$1; : >"$output" || die 'cron inventory output failed'
   system=$(cron_inventory_system_file); cron_inventory_system_file_ok "$system" || die 'unsafe system crontab'
@@ -146,7 +179,7 @@ record_external_cron_sources() {
   while IFS="$(printf '\t')" read -r kind account path || [ -n "$kind$account$path" ]; do
     case "$kind" in system) class='system-crontab';; system-directory) class='system-cron-directory';; user) class='user-crontab';; *) rm -f "$manifest"; die 'invalid cron inventory entry';; esac
     [ -n "$path" ] || { rm -f "$manifest"; die 'invalid cron inventory entry'; }
-    load_consumer_scanners; real=$(consumer_canonical_regular "$path") || { rm -f "$manifest"; die 'unsafe cron source'; }; captured=$(consumer_snapshot "$path") || { rm -f "$manifest"; die 'cron source capture failed'; }; snapshot=${captured%%|*}; identity=${captured#*|}; [ "$identity" = "$(consumer_source_identity "$path")" ] && [ "$real" = "$(consumer_canonical_regular "$path")" ] || { rm -f "$manifest" "$snapshot"; die 'cron source changed during capture'; }; content=$(sha "$snapshot"); records=$(jq -cn --argjson old "$records" --arg class "$class" --arg path "$real" --arg sha "$content" --arg identity "$identity" '$old + [{class:$class,realPath:$path,sha256:$sha,identitySha256:$identity}]') || { rm -f "$manifest" "$snapshot"; die 'cron source record failed'; }; record_consumers "$class" "$snapshot" cron-unapproved; rm -f "$snapshot"
+    load_consumer_scanners; real=$(consumer_canonical_regular "$path") || { rm -f "$manifest"; die 'unsafe cron source'; }; captured=$(consumer_snapshot "$path") || { rm -f "$manifest"; die 'cron source capture failed'; }; snapshot=${captured%%|*}; identity=${captured#*|}; [ "$identity" = "$(consumer_source_identity "$path")" ] && [ "$real" = "$(consumer_canonical_regular "$path")" ] || { rm -f "$manifest" "$snapshot"; die 'cron source changed during capture'; }; content=$(sha "$snapshot"); records=$(jq -cn --argjson old "$records" --arg class "$class" --arg path "$real" --arg sha "$content" --arg identity "$identity" '$old + [{class:$class,realPath:$path,sha256:$sha,identitySha256:$identity}]') || { rm -f "$manifest" "$snapshot"; die 'cron source record failed'; }; record_consumers "$class" "$snapshot" cron-unapproved || { rm -f "$manifest" "$snapshot"; die 'cron source consumer scan failed'; }; cron_inventory_record_wrapper_consumers "$class" "$kind" "$path" "$snapshot" || { rm -f "$manifest" "$snapshot"; die 'unsafe cron command target'; }; [ "$identity" = "$(consumer_source_identity "$path")" ] && [ "$real" = "$(consumer_canonical_regular "$path")" ] || { rm -f "$manifest" "$snapshot"; die 'cron source changed during capture'; }; rm -f "$snapshot"
   done <"$manifest"
   rm -f "$manifest"
 }

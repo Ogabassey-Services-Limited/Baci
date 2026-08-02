@@ -13,7 +13,7 @@ RECOVERY_RECEIPTS_HELPER="$SCRIPT_DIR/retire-ollama-recovery-receipts.sh"
 recovery_dpkg_query() { dpkg-query "$@"; }
 recovery_systemctl() { systemctl "$@"; }
 recovery_docker() { docker --host "unix://$CANONICAL_DOCKER_SOCKET" "$@"; }
-recovery_ps() { ps -eo pid=,ppid=,args=; }
+recovery_ps() { ps -ww -eo pid=,ppid=,args=; }
 recovery_safe_int() { case "$1" in ''|*[!0-9]*) return 1;; esac; [ "$1" -gt 0 ] 2>/dev/null; }; recovery_nonnegative_int() { case "$1" in ''|*[!0-9]*) return 1;; esac; [ "$1" -ge 0 ] 2>/dev/null; }
 recovery_sha256() { /usr/bin/printf '%s\n' "$1" | /usr/bin/grep -Eq '^[0-9a-f]{64}$'; }
 recovery_source_identity() { /usr/bin/printf '%s' "$1" | /usr/bin/grep -Eq '^[0-9a-f]{40}$' || return 1; [ "$(id -u)" -ne 0 ] || [ "$SCRIPT_DIR" = "$RECOVERY_SOURCE_ROOT/$1" ]; }

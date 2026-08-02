@@ -159,31 +159,31 @@ test('binds a stopped systemd wrapper script containing the endpoint', async () 
   }
 });
 
-test('skips an unsupported interpreter unit while still finding a direct wrapper', async () => {
+test('binds a stopped systemd interpreter script and refuses shell evaluation', async () => {
   const root = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-systemd-interpreter-'))
   );
   const interpreted = join(root, 'interpreted.service');
-  const direct = join(root, 'direct.service');
   const wrapper = join(root, 'application-worker');
   try {
     await Promise.all([
-      writeFile(
-        interpreted,
-        '[Service]\nExecStart=/bin/sh -c /opt/application-worker\n'
-      ),
-      writeFile(direct, `[Service]\nExecStart=${wrapper}\n`),
+      writeFile(interpreted, `[Service]\nExecStart=/bin/sh ${wrapper}\n`),
       writeFile(wrapper, '#!/bin/sh\ncurl http://127.0.0.1:11434\n'),
     ]);
-    const { stdout } = await execFileAsync('sh', [
-      '-c',
-      `${prelude}getent() { return 2; }; systemctl() { return 0; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
-      'retire-ollama-systemd-interpreter-test',
-      script.pathname,
-      root,
-    ]);
-    binding(stdout, direct, wrapper);
-    assert.doesNotMatch(stdout, /interpreted\.service/);
+    const scan = () =>
+      execFileAsync('sh', [
+        '-c',
+        `${prelude}getent() { return 2; }; systemctl() { return 0; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
+        'retire-ollama-systemd-interpreter-test',
+        script.pathname,
+        root,
+      ]);
+    binding((await scan()).stdout, interpreted, wrapper);
+    await writeFile(
+      interpreted,
+      `[Service]\nExecStart=/bin/sh -c ${wrapper}\n`
+    );
+    await assert.rejects(scan(), (error) => error.code === 2);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

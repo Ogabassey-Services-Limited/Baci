@@ -118,7 +118,7 @@ test('includes the fixed periodic and anacron sources in a deterministic invento
       `system-directory\t-\t${join(fixture.periodic[3], 'month')}`,
     ]);
     const record = await shell(
-      `${fixtureFunctions()}; OWNER=bassey; load_cron_inventory_helper; CONSUMER_SCANNERS_LOADED=yes; consumer_canonical_regular() { [ -f "$1" ] && [ ! -L "$1" ] || return 2; printf '%s\\n' "$1"; }; consumer_snapshot() { snapshot=$(temp_path); cat "$1" >"$snapshot"; printf '%s|stable\\n' "$snapshot"; }; consumer_source_identity() { printf 'stable\\n'; }; record_consumers() { :; }; records='[]'; record_external_cron_sources; printf '%s\\n' "$records"`,
+      `${fixtureFunctions()}; OWNER=bassey; load_cron_inventory_helper; CONSUMER_SCANNERS_LOADED=yes; consumer_canonical_regular() { [ -f "$1" ] && [ ! -L "$1" ] || return 2; printf '%s\\n' "$1"; }; consumer_snapshot() { snapshot=$(temp_path); cat "$1" >"$snapshot"; printf '%s|stable\\n' "$snapshot"; }; consumer_source_identity() { printf 'stable\\n'; }; record_consumers() { :; }; cron_inventory_record_wrapper_consumers() { :; }; records='[]'; record_external_cron_sources; printf '%s\\n' "$records"`,
       [],
       inventoryEnv(fixture)
     );
