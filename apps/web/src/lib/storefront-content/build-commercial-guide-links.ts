@@ -26,6 +26,8 @@ const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
 };
 
 const MODEL_FAMILY_CONTEXT_EXCLUSIONS = new Set(['and', 'or']);
+const GAME_CATEGORY_PATTERN =
+  /^(?:gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
 
 function toPublishedTimestamp(value: string | null) {
   if (!value) {
@@ -173,12 +175,26 @@ export function buildCommercialGuideLinks(
         score += CONTENT_CLUSTER_SCORE.priceBandMatch;
       }
 
+      const shouldBindProductModelBrand =
+        normalizedBrands.length > 0 &&
+        !GAME_CATEGORY_PATTERN.test(input.context.categorySlug);
       const hasProductModelMatch = productModelIdentifiers.some((identifier) =>
-        matchesProductIdentifier(
-          post,
-          inferred.tokens,
-          tokenizeModelIdentifier(identifier),
-          hasBrandMatch
+        (shouldBindProductModelBrand ? normalizedBrands : [null]).some(
+          (brand) =>
+            matchesProductIdentifier(
+              post,
+              inferred.tokens,
+              tokenizeModelIdentifier(identifier),
+              hasBrandMatch,
+              brand
+                ? {
+                    brand,
+                    knownBrands: inferred.brands,
+                    brandAliases,
+                    requireBrandBeforeIdentifier: true,
+                  }
+                : undefined
+            )
         )
       );
       const hasModelFamilyMatch =
@@ -210,6 +226,10 @@ export function buildCommercialGuideLinks(
                 knownBrands: inferred.brands,
                 brandAliases,
                 discriminatorTokens,
+                requireBrandBeforeIdentifier: !GAME_CATEGORY_PATTERN.test(
+                  input.context.categorySlug
+                ),
+                allowBrandAliasOverlap: true,
               }
             )
         );

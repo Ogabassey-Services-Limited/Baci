@@ -10,4 +10,11 @@ describe('applyJoinedTitleCorrections', () => {
       'donkeykongx switch'
     );
   });
+
+  it('expands mixed-case joined titles from imported catalog names', () => {
+    const input = 'DonkeyKong Country Returns HD';
+    const result = applyJoinedTitleCorrections(input);
+
+    expect(result).toBe('donkey kong Country Returns HD');
+  });
 });

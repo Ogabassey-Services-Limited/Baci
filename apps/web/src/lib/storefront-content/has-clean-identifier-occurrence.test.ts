@@ -110,4 +110,88 @@ describe('hasCleanIdentifierOccurrence', () => {
       })
     ).toBe(true);
   });
+
+  it('accepts a brand that finishes before the identifier', () => {
+    const post = {
+      slug: 'apple-iphone-14-pro-guide',
+      title: 'Apple iPhone 14 Pro buyer guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    const result = hasCleanIdentifierOccurrence(post, ['14', 'pro'], {
+      brand: 'apple',
+      requireBrandBeforeIdentifier: true,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it('rejects a brand at or after the identifier when ordering is required', () => {
+    const post = {
+      slug: 'iphone-14-pro-apple-guide',
+      title: '14 Pro Apple buyer guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    const result = hasCleanIdentifierOccurrence(post, ['14', 'pro'], {
+      brand: 'apple',
+      requireBrandBeforeIdentifier: true,
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it('rejects a multi-token brand that overlaps the identifier', () => {
+    const post = {
+      slug: 'north-star-x-guide',
+      title: 'North Star X buyer guide',
+      excerpt: null,
+      category: 'Accessories',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    const result = hasCleanIdentifierOccurrence(post, ['star', 'x'], {
+      brand: 'north star',
+      requireBrandBeforeIdentifier: true,
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it('preserves after-identifier matching when ordering is disabled', () => {
+    const post = {
+      slug: 'iphone-14-pro-apple-guide',
+      title: '14 Pro Apple buyer guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    const result = hasCleanIdentifierOccurrence(post, ['14', 'pro'], {
+      brand: 'apple',
+      requireBrandBeforeIdentifier: false,
+    });
+
+    expect(result).toBe(true);
+  });
 });

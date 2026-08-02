@@ -29,6 +29,8 @@ interface IdentifierOccurrenceOptions {
   knownBrands?: string[];
   brandAliases?: Record<string, readonly string[]>;
   discriminatorTokens?: string[];
+  requireBrandBeforeIdentifier?: boolean;
+  allowBrandAliasOverlap?: boolean;
 }
 
 function matchesTokenSequence(
@@ -79,13 +81,19 @@ function isBrandQualifiedOccurrence(
   identifierEnd: number,
   requestedBrand: string,
   knownBrands: string[],
-  brandAliases: Record<string, readonly string[]>
+  brandAliases: Record<string, readonly string[]>,
+  requireBrandBeforeIdentifier: boolean,
+  allowBrandAliasOverlap: boolean
 ) {
   const brandCandidates = Array.from(
     new Set([requestedBrand, ...knownBrands])
   ).flatMap((brand) =>
     [brand, ...(brandAliases[brand] ?? [])]
-      .map((candidate) => ({ brand, tokens: tokenizeContentText(candidate) }))
+      .map((candidate, index) => ({
+        brand,
+        isAlias: index > 0,
+        tokens: tokenizeContentText(candidate),
+      }))
       .filter(({ tokens: brandTokens }) => brandTokens.length > 0)
   );
   let nearestBrand: string | null = null;
@@ -98,6 +106,17 @@ function isBrandQualifiedOccurrence(
       index += 1
     ) {
       if (!matchesTokenSequence(tokens, candidate.tokens, index)) {
+        continue;
+      }
+      if (
+        requireBrandBeforeIdentifier &&
+        index + candidate.tokens.length > identifierStart &&
+        !(
+          candidate.isAlias &&
+          allowBrandAliasOverlap &&
+          index < identifierStart
+        )
+      ) {
         continue;
       }
       const distance = getBrandDistance(
@@ -158,7 +177,9 @@ export function hasCleanIdentifierOccurrence(
             startIndex + identifierTokens.length,
             options.brand,
             options.knownBrands ?? [],
-            options.brandAliases ?? {}
+            options.brandAliases ?? {},
+            options.requireBrandBeforeIdentifier ?? false,
+            options.allowBrandAliasOverlap ?? false
           )
         : true;
     })
