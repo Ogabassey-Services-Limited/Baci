@@ -84,8 +84,6 @@ export const MOBILE_APPS = {
     appStoreUrl: '',
     deepLinkPaths: [
       '/product/*',
-      '/products/*',
-      '/blog/*',
       '/category/*',
       '/cart',
       '/receipts',
