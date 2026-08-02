@@ -110,4 +110,42 @@ describe('StorefrontCartProvider merchant switching', () => {
       'second-added',
     ]);
   });
+
+  it('clears the loaded merchant group deal before an immediate cart add', async () => {
+    localStorageMock.setItem(
+      'baci-cart-second-guest',
+      JSON.stringify([
+        {
+          ...product,
+          id: 'negotiated',
+          negotiatedPrice: 80,
+          negotiationStatus: 'accepted',
+          quantity: 1,
+        },
+      ])
+    );
+    localStorageMock.setItem('baci-cart-second-group-negotiation', 'true');
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="first">
+        {children}
+      </StorefrontCartProvider>
+    );
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.setMerchantSlug('second');
+      result.current.addToCart(product, 1);
+    });
+
+    expect(result.current.cartWideNegotiationActive).toBe(false);
+    expect(
+      result.current.cart.every(
+        (item) =>
+          item.negotiatedPrice === undefined &&
+          item.negotiationStatus === undefined
+      )
+    ).toBe(true);
+  });
 });

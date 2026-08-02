@@ -42,8 +42,13 @@ export function StorefrontCartProvider({
   const [cart, setCart] = useState<CartItem[]>([]);
   // True while a cart-wide (group) negotiation is applied. Removing a line
   // invalidates the proportional group total, so it is reset on removal.
-  const [cartWideNegotiationActive, setCartWideNegotiationActive] =
+  const [cartWideNegotiationActive, setCartWideNegotiationActiveState] =
     useState(false);
+  const cartWideNegotiationActiveRef = useRef(false);
+  const setCartWideNegotiationActive = (active: boolean) => {
+    cartWideNegotiationActiveRef.current = active;
+    setCartWideNegotiationActiveState(active);
+  };
   const [merchantSlug, setMerchantSlugState] = useState<string | null>(
     initialMerchantSlug
   );
@@ -254,7 +259,8 @@ export function StorefrontCartProvider({
         });
 
         if (resetGroup) {
-          setCartWideNegotiationActive(false);
+          cartWideNegotiationActiveRef.current = false;
+          setCartWideNegotiationActiveState(false);
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
@@ -353,7 +359,7 @@ export function StorefrontCartProvider({
       return;
     }
 
-    const wasGroupActive = cartWideNegotiationActive;
+    const wasGroupActive = cartWideNegotiationActiveRef.current;
     setCart((previousCart) => {
       const cartItemId = generateCartItemId(
         productForCart.id,
@@ -458,7 +464,7 @@ export function StorefrontCartProvider({
       // A cart-wide (group) negotiation distributes one negotiated total across
       // all lines; removing a line breaks that total, so reset the group deal
       // and revert remaining lines to catalog price.
-      if (cartWideNegotiationActive) {
+      if (cartWideNegotiationActiveRef.current) {
         return filtered.map((item) => ({
           ...item,
           negotiatedPrice: undefined,
@@ -468,7 +474,7 @@ export function StorefrontCartProvider({
 
       return filtered;
     });
-    if (cartWideNegotiationActive) {
+    if (cartWideNegotiationActiveRef.current) {
       setCartWideNegotiationActive(false);
     }
   };
@@ -497,7 +503,7 @@ export function StorefrontCartProvider({
         const filtered = previousCart.filter(
           (_, index) => index !== targetIndex
         );
-        if (cartWideNegotiationActive) {
+        if (cartWideNegotiationActiveRef.current) {
           return filtered.map((item) => ({
             ...item,
             negotiatedPrice: undefined,
@@ -518,7 +524,7 @@ export function StorefrontCartProvider({
       // A quantity change alters the cart total, so an active cart-wide
       // negotiation no longer represents the agreed total — clear the group
       // deal on every line (not only when the line is removed).
-      if (cartWideNegotiationActive) {
+      if (cartWideNegotiationActiveRef.current) {
         return nextCart.map((line) => ({
           ...line,
           negotiatedPrice: undefined,
@@ -527,7 +533,7 @@ export function StorefrontCartProvider({
       }
       return nextCart;
     });
-    if (cartWideNegotiationActive) {
+    if (cartWideNegotiationActiveRef.current) {
       setCartWideNegotiationActive(false);
     }
   };
@@ -564,7 +570,7 @@ export function StorefrontCartProvider({
 
   const applyNegotiatedPrice = (cartItemId: string, newPrice: number) => {
     if (!enableSmartCartPro) return;
-    const wasGroupActive = cartWideNegotiationActive;
+    const wasGroupActive = cartWideNegotiationActiveRef.current;
     setCart((previousCart) => {
       // If a cart-wide deal was active, clear the proportional group prices from
       // the other lines first so only this line keeps a negotiation.

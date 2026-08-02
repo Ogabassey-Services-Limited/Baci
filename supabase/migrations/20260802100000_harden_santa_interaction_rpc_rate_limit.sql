@@ -1,5 +1,5 @@
--- Record anonymous Santa analytics through a bounded, publication-gated RPC.
--- The route must not construct a service-role client for this user-facing write.
+-- Rate-limit Santa analytics by database identity and merchant, not by the
+-- caller-selected client_ip telemetry field.
 
 CREATE OR REPLACE FUNCTION public.record_santa_interaction(
   p_merchant_slug text,
@@ -20,6 +20,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_merchant_id uuid;
+  v_rate_allowed boolean;
 BEGIN
   IF p_merchant_slug IS NULL
     OR pg_catalog.length(pg_catalog.btrim(p_merchant_slug)) NOT BETWEEN 1 AND 100
@@ -43,6 +44,25 @@ BEGIN
     OR (p_approved_price IS NOT NULL AND (p_approved_price < 0 OR p_approved_price > 1000000000000))
     OR (p_discount_percentage IS NOT NULL AND (p_discount_percentage < 0 OR p_discount_percentage > 100))
   THEN
+    RETURN;
+  END IF;
+
+  -- p_client_ip is telemetry supplied by the caller, so it cannot be an
+  -- authorization or rate-limit identity. Anonymous calls share one bounded
+  -- bucket per merchant; authenticated calls use the database auth identity.
+  BEGIN
+    v_rate_allowed := public.check_rate_limit(
+      'santa-analytics:' || COALESCE(auth.uid()::text, 'anon') || ':' || pg_catalog.btrim(p_merchant_slug),
+      'santa_interaction_rpc',
+      60,
+      60
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_rate_allowed := false;
+  END;
+
+  IF v_rate_allowed IS DISTINCT FROM true THEN
     RETURN;
   END IF;
 
@@ -83,31 +103,3 @@ BEGIN
   );
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.record_santa_interaction(
-  text,
-  text,
-  text,
-  text,
-  text,
-  text,
-  text,
-  numeric,
-  numeric,
-  numeric
-)
-FROM PUBLIC;
-
-GRANT EXECUTE ON FUNCTION public.record_santa_interaction(
-  text,
-  text,
-  text,
-  text,
-  text,
-  text,
-  text,
-  numeric,
-  numeric,
-  numeric
-)
-TO anon, authenticated;

@@ -298,4 +298,14 @@ export const EXPECTED_PENDING_SOURCES = [
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3, 8),
   ...EXPECTED_PENDING_TAIL_SOURCES.paymentWebhookEvidence,
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(8),
+  {
+    repositoryPath:
+      'supabase/migrations/20260802090000_record_santa_interaction_rpc.sql',
+    sha256: '21985afe08c53af50c762240ba54b8ed604c96508e7cd2ff78a98778baa1abe4',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260802100000_harden_santa_interaction_rpc_rate_limit.sql',
+    sha256: '238c8e3df48c4551b9dea6ebd723b8fc2c0de98c18475094235a85b14721e75b',
+  },
 ];
