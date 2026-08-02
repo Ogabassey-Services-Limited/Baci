@@ -14,7 +14,25 @@ vi.mock('@/ai/chat-order-cancellation', () => ({
   handleCancelOrder: mocks.handleCancelOrder,
 }));
 
-import { executeAgenticChatToolForOllama } from '@/app/api/chat/ollama-chat-tool-runtime';
+import { executeAgenticChatToolForOllama as executeAgenticChatToolForOllamaWithMerchant } from '@/app/api/chat/ollama-chat-tool-runtime';
+
+const TEST_MERCHANT = {
+  id: 'merchant-1',
+  slug: 'winter-store',
+  businessName: 'Winter Store',
+} as const;
+
+const executeAgenticChatToolForOllama = (
+  name: string,
+  rawArguments: unknown,
+  sessionId: string
+) =>
+  executeAgenticChatToolForOllamaWithMerchant(
+    name,
+    rawArguments,
+    sessionId,
+    TEST_MERCHANT
+  );
 
 describe('ollama chat tool runtime', () => {
   beforeEach(() => {
@@ -45,10 +63,13 @@ describe('ollama chat tool runtime', () => {
       products: [{ id: 'p1', name: 'iPhone 11' }],
       total: 1,
     });
-    expect(mocks.handleSearchProducts).toHaveBeenCalledWith({
-      query: 'iPhone 11',
-      maxPrice: 200000,
-    });
+    expect(mocks.handleSearchProducts).toHaveBeenCalledWith(
+      {
+        query: 'iPhone 11',
+        maxPrice: 200000,
+      },
+      TEST_MERCHANT
+    );
   });
 
   it('returns a tool error for unknown Ollama tool names', async () => {
@@ -97,7 +118,8 @@ describe('ollama chat tool runtime', () => {
     });
     expect(mocks.handleCreateVirtualAccount).toHaveBeenCalledWith(
       args,
-      'session-42'
+      'session-42',
+      TEST_MERCHANT
     );
   });
 
@@ -119,7 +141,8 @@ describe('ollama chat tool runtime', () => {
     });
     expect(mocks.handleCheckPaymentStatus).toHaveBeenCalledWith(
       { orderId: 'order-1' },
-      'session-42'
+      'session-42',
+      TEST_MERCHANT
     );
   });
 
@@ -140,7 +163,7 @@ describe('ollama chat tool runtime', () => {
       status: 'cancelled',
       orderId: 'order-1',
     });
-    expect(mocks.handleCancelOrder).toHaveBeenCalledWith(args);
+    expect(mocks.handleCancelOrder).toHaveBeenCalledWith(args, TEST_MERCHANT);
   });
 
   it('does not execute cart mutation requests in the Ollama path', async () => {

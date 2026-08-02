@@ -81,7 +81,7 @@ async function requestChatReply(
     throw new Error('Chat service unavailable');
   }
 
-  const merchantSlug = isSanta ? readSantaMerchantSlug(response) : null;
+  const merchantSlug = readSantaMerchantSlug(response);
 
   // Parse streaming text response
   const reader = response.body?.getReader();

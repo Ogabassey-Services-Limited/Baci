@@ -45,6 +45,8 @@ import {
   getOllamaBaseUrl,
   getOllamaBasicAuth,
 } from '@/env';
+import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
 import type { OllamaToolCall } from '@/lib/ollama-chat';
@@ -226,6 +228,19 @@ export async function POST(req: Request) {
       }
     }
 
+    const agenticTenant = await resolveSantaTenant(req.signal);
+    if (!agenticTenant) {
+      return new Response(
+        JSON.stringify({
+          error: 'Chat is not configured for a published storefront.',
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     if (!triedLlmServer && shouldTryOllama) {
       const ollamaBaseUrl = getOllamaBaseUrl();
       if (ollamaBaseUrl) {
@@ -254,7 +269,8 @@ export async function POST(req: Request) {
               const result = await executeAgenticChatToolForOllama(
                 call.function.name,
                 call.function.arguments,
-                sessionId
+                sessionId,
+                agenticTenant
               );
 
               if (
@@ -277,7 +293,9 @@ export async function POST(req: Request) {
             signal: req.signal,
             timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
           });
-          return await bufferTextResponse(ollamaResponse);
+          const response = await bufferTextResponse(ollamaResponse);
+          response.headers.set(SANTA_MERCHANT_SLUG_HEADER, agenticTenant.slug);
+          return response;
         } catch (error) {
           if (isChatAbortError(error, req.signal)) {
             return createClientClosedRequestResponse();
@@ -289,7 +307,12 @@ export async function POST(req: Request) {
               '[Agentic Chat] Ollama request failed after executing commerce tools; returning static fallback:',
               safeErrorMessage
             );
-            return createStaticChatFallbackResponse();
+            const response = createStaticChatFallbackResponse();
+            response.headers.set(
+              SANTA_MERCHANT_SLUG_HEADER,
+              agenticTenant.slug
+            );
+            return response;
           }
 
           console.warn(
@@ -307,7 +330,7 @@ export async function POST(req: Request) {
         system: AGENTIC_SYSTEM_PROMPT,
         messages: sanitizedMessages,
         abortSignal: req.signal,
-        tools: createAiSdkAgenticChatTools(sessionId),
+        tools: createAiSdkAgenticChatTools(sessionId, agenticTenant),
       });
     } catch (error) {
       if (isChatAbortError(error, req.signal)) {
@@ -325,7 +348,10 @@ export async function POST(req: Request) {
     }
 
     return new Response(result.text, {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        [SANTA_MERCHANT_SLUG_HEADER]: agenticTenant.slug,
+      },
     });
   } catch (error) {
     if (isChatAbortError(error, req.signal)) {

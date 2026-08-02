@@ -60,6 +60,7 @@ export const CartSidebar: React.FC = () => {
     applyCartWideNegotiation,
     clearNegotiatedPrice,
     toggleAssurance,
+    merchantSlug: cartMerchantSlug,
   } = useCart();
 
   const [negotiationState, setNegotiationState] =
@@ -68,7 +69,10 @@ export const CartSidebar: React.FC = () => {
   // Get merchant context for slug
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
-  const basePath = merchantContext?.basePath;
+  const basePath =
+    cartMerchantSlug && cartMerchantSlug !== merchant?.slug
+      ? `/${cartMerchantSlug}`
+      : merchantContext?.basePath;
   const negotiationVatRate =
     merchant?.vat_registration_status === 'registered'
       ? (merchant.vat_rate ?? 7.5) / 100

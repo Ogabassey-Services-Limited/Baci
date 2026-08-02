@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { AgenticMerchantIdentity } from '@/lib/agentic/agentic-merchant-identity';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { searchStorefrontProducts } from '@/lib/storefront-search';
@@ -18,18 +19,15 @@ import type {
   SearchProductsParams,
 } from './chat-tools';
 
-// Ogabassey merchant ID (hardcoded for now, can be made dynamic)
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
-const OGABASSEY_MERCHANT_SLUG = 'ogabassey';
-
 type ChatToolSupabaseClient = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 function createChatToolSupabaseClient(
+  merchant: AgenticMerchantIdentity,
   sessionId?: string
 ): ChatToolSupabaseClient {
   return createAgenticScopedSupabaseClient({
-    merchantId: OGABASSEY_MERCHANT_ID,
-    merchantSlug: OGABASSEY_MERCHANT_SLUG,
+    merchantId: merchant.id,
+    merchantSlug: merchant.slug,
     sessionId,
   });
 }
@@ -71,9 +69,10 @@ function orderProductsByRankedIds<T extends { id: string }>(
 }
 
 export async function handleSearchProducts(
-  params: SearchProductsParams
+  params: SearchProductsParams,
+  merchant: AgenticMerchantIdentity
 ): Promise<{ products: ProductSearchResult[]; total: number }> {
-  const supabase = createChatToolSupabaseClient();
+  const supabase = createChatToolSupabaseClient(merchant);
   const searchText = buildChatSearchText(params);
   let ranked: Awaited<ReturnType<typeof searchStorefrontProducts>> | null =
     null;
@@ -87,7 +86,7 @@ export async function handleSearchProducts(
           minPrice: params.minPrice ?? null,
         },
         limit: 10,
-        merchantId: OGABASSEY_MERCHANT_ID,
+        merchantId: merchant.id,
         query: searchText,
         trackAnalytics: false,
       });
@@ -102,7 +101,7 @@ export async function handleSearchProducts(
     .select(
       'id, name, price, description, brand, category, images, stock, status'
     )
-    .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+    .eq('merchant_id', merchant.id)
     .eq('status', 'active')
     .order('price', { ascending: false })
     .limit(10);
@@ -153,9 +152,10 @@ export async function handleSearchProducts(
 // ============================================
 
 export async function handleGetProductDetails(
-  params: GetProductDetailsParams
+  params: GetProductDetailsParams,
+  merchant: AgenticMerchantIdentity
 ): Promise<ProductSearchResult | null> {
-  const supabase = createChatToolSupabaseClient();
+  const supabase = createChatToolSupabaseClient(merchant);
 
   try {
     const { data, error } = await supabase
@@ -164,7 +164,7 @@ export async function handleGetProductDetails(
         'id, name, price, description, brand, category, images, stock, status'
       )
       .eq('id', params.productId)
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchant.id)
       .eq('status', 'active')
       .single();
 
@@ -212,9 +212,10 @@ interface VirtualAccountResult {
 
 export async function handleCreateVirtualAccount(
   params: CreateVirtualAccountParams,
-  sessionId: string
+  sessionId: string,
+  merchant: AgenticMerchantIdentity
 ): Promise<VirtualAccountResult> {
-  const supabase = createChatToolSupabaseClient(sessionId);
+  const supabase = createChatToolSupabaseClient(merchant, sessionId);
 
   try {
     // 1. Create the chat order first
@@ -226,7 +227,7 @@ export async function handleCreateVirtualAccount(
     const { data: order, error: orderError } = await supabase
       .from('chat_orders')
       .insert({
-        merchant_id: OGABASSEY_MERCHANT_ID,
+        merchant_id: merchant.id,
         session_id: sessionId,
         customer_email: params.customerEmail,
         customer_name: params.customerName,
@@ -285,9 +286,10 @@ function getMetadataString(
 
 export async function handleCheckPaymentStatus(
   params: CheckPaymentStatusParams,
-  sessionId: string
+  sessionId: string,
+  merchant: AgenticMerchantIdentity
 ): Promise<PaymentStatusResult> {
-  const supabase = createChatToolSupabaseClient(sessionId);
+  const supabase = createChatToolSupabaseClient(merchant, sessionId);
 
   try {
     let order: {
@@ -309,7 +311,7 @@ export async function handleCheckPaymentStatus(
           'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
         )
         .eq('id', params.orderId)
-        .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+        .eq('merchant_id', merchant.id)
         .eq('session_id', sessionId)
         .maybeSingle();
 
@@ -326,7 +328,7 @@ export async function handleCheckPaymentStatus(
           'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
         )
         .eq('customer_email', params.customerEmail)
-        .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+        .eq('merchant_id', merchant.id)
         .eq('session_id', sessionId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -383,9 +385,10 @@ export async function handleCheckPaymentStatus(
 // ============================================
 
 export async function handleGetRecommendations(
-  params: GetRecommendationsParams
+  params: GetRecommendationsParams,
+  merchant: AgenticMerchantIdentity
 ): Promise<ProductSearchResult[]> {
-  const supabase = createChatToolSupabaseClient();
+  const supabase = createChatToolSupabaseClient(merchant);
 
   try {
     // First get the source product
@@ -393,7 +396,7 @@ export async function handleGetRecommendations(
       .from('products')
       .select('id, name, price, category, brand')
       .eq('id', params.productId)
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchant.id)
       .eq('status', 'active')
       .maybeSingle();
 
@@ -408,7 +411,7 @@ export async function handleGetRecommendations(
       .select(
         'id, name, price, description, brand, category, images, stock, status'
       )
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchant.id)
       .eq('status', 'active')
       .neq('id', params.productId)
       .limit(3);
@@ -479,8 +482,9 @@ function getComplementaryCategories(category: string | null): string[] {
 // ============================================
 
 export function handleAddToCart(
-  params: AddToCartParams
+  params: AddToCartParams,
+  merchant: AgenticMerchantIdentity
 ): Promise<ProductSearchResult | null> {
   // Just return the product details - actual cart management happens on frontend
-  return handleGetProductDetails({ productId: params.productId });
+  return handleGetProductDetails({ productId: params.productId }, merchant);
 }

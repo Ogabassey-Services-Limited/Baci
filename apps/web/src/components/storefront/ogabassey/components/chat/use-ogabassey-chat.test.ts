@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const chatMocks = vi.hoisted(() => ({
   addToCart: vi.fn(),
   parseSantaActions: vi.fn(),
+  setMerchantSlug: vi.fn(),
   setIsCartOpen: vi.fn(),
   stripSantaActions: vi.fn((content: string) => content),
 }));
@@ -11,6 +12,7 @@ const chatMocks = vi.hoisted(() => ({
 vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     addToCart: chatMocks.addToCart,
+    setMerchantSlug: chatMocks.setMerchantSlug,
     setIsCartOpen: chatMocks.setIsCartOpen,
   })),
 }));
@@ -22,9 +24,10 @@ vi.mock('@/components/storefront/santa-chat/types', () => ({
 }));
 
 import { useOgabasseyChat } from './use-ogabassey-chat';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 
 // Helper to create a streaming response body from a string
-function makeStreamingResponse(text: string) {
+function makeStreamingResponse(text: string, merchantSlug?: string) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -32,10 +35,15 @@ function makeStreamingResponse(text: string) {
       controller.close();
     },
   });
+  const headers = new Headers();
+  if (merchantSlug) {
+    headers.set(SANTA_MERCHANT_SLUG_HEADER, merchantSlug);
+  }
+
   return {
     ok: true,
     body: stream,
-    headers: new Headers(),
+    headers,
   };
 }
 
@@ -166,6 +174,23 @@ describe('useOgabasseyChat - handleSend', () => {
       '/api/chat',
       expect.objectContaining({ method: 'POST' })
     );
+  });
+
+  it('keeps the resolved tenant on standard chat responses', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('Winter Store response', 'winter-store')
+    );
+
+    const { result } = renderHook(() => useOgabasseyChat({ isSanta: false }));
+
+    await act(async () => {
+      await result.current.handleSend('Show me phones');
+    });
+
+    const modelMessage = result.current.messages.find(
+      (message) => message.role === 'model'
+    );
+    expect(modelMessage?.merchantSlug).toBe('winter-store');
   });
 
   it('includes a stable browser chat session id in standard chat requests', async () => {

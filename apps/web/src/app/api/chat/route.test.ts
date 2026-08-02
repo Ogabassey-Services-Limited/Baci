@@ -3,6 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // ---- Test fixtures ----
 const TEST_LLM_SERVER_URL = 'https://llm.example.com';
 const TEST_LLM_SERVER_BEARER = 'a'.repeat(64);
+const TEST_AGENTIC_TENANT = {
+  id: 'merchant-1',
+  slug: 'winter-store',
+  businessName: 'Winter Store',
+} as const;
 
 // ---- Module-scope mutable state for controlling mocks ----
 let rateLimitAllowed = true;
@@ -218,11 +223,17 @@ vi.mock('@/lib/sanitize', () => ({
   sanitizeHtml: vi.fn((input: string) => input),
 }));
 
+vi.mock('@/lib/agentic/resolve-santa-tenant', () => ({
+  resolveSantaTenant: vi.fn(async () => TEST_AGENTIC_TENANT),
+}));
+
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
 import { handleCreateVirtualAccount } from '@/ai/chat-tool-handlers';
 import { createVirtualAccountSchema } from '@/ai/chat-tools';
 import { getAiChatModel } from '@/env';
+import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -286,6 +297,7 @@ describe('POST /api/chat', () => {
     llmStreamError = null;
     llmResponseText = 'LLM response';
     chatProvider = 'auto';
+    vi.mocked(resolveSantaTenant).mockResolvedValue(TEST_AGENTIC_TENANT);
   });
 
   it('returns 429 when rate limited', async () => {
@@ -383,6 +395,9 @@ describe('POST /api/chat', () => {
     // Assert
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('Gemma response');
+    expect(response.headers.get(SANTA_MERCHANT_SLUG_HEADER)).toBe(
+      'winter-store'
+    );
     expect(createOllamaAgenticChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         baseUrl: 'https://ollama.example.com',
@@ -435,6 +450,26 @@ describe('POST /api/chat', () => {
     expect(createLlmChatResponse).not.toHaveBeenCalled();
     expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
     expect(generateText).toHaveBeenCalledOnce();
+    expect(response.headers.get(SANTA_MERCHANT_SLUG_HEADER)).toBe(
+      'winter-store'
+    );
+  });
+
+  it('fails closed before constructing commerce tools when no published tenant resolves', async () => {
+    // Arrange
+    vi.mocked(resolveSantaTenant).mockResolvedValue(null);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(503);
+    expect(createOllamaAgenticChatResponse).not.toHaveBeenCalled();
+    expect(generateText).not.toHaveBeenCalled();
   });
 
   it('falls back to Gemini when the Ollama request fails', async () => {
@@ -568,7 +603,8 @@ describe('POST /api/chat', () => {
     expect(handleCreateVirtualAccount).toHaveBeenCalledTimes(1);
     expect(handleCreateVirtualAccount).toHaveBeenCalledWith(
       args,
-      'og_chat_customer_session_1234'
+      'og_chat_customer_session_1234',
+      TEST_AGENTIC_TENANT
     );
     expect(result.firstResult).toEqual({
       success: false,

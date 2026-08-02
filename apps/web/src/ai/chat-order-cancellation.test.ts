@@ -8,10 +8,18 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: mocks.createAgenticScopedSupabaseClient,
 }));
 
-import { handleCancelOrder } from './chat-order-cancellation';
+import { handleCancelOrder as handleCancelOrderWithMerchant } from './chat-order-cancellation';
 
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
+const TEST_MERCHANT = {
+  id: 'merchant-1',
+  slug: 'winter-store',
+  businessName: 'Winter Store',
+} as const;
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
+
+const handleCancelOrder = (
+  params: Parameters<typeof handleCancelOrderWithMerchant>[0]
+) => handleCancelOrderWithMerchant(params, TEST_MERCHANT);
 
 type QueryResult = {
   data: unknown;
@@ -93,7 +101,7 @@ describe('handleCancelOrder', () => {
     });
     expect(lookupQuery.eq).toHaveBeenCalledWith(
       'merchant_id',
-      OGABASSEY_MERCHANT_ID
+      TEST_MERCHANT.id
     );
     expect(lookupQuery.in).toHaveBeenCalledWith('order_number', [
       '00001234',
@@ -106,7 +114,7 @@ describe('handleCancelOrder', () => {
     expect(updateQuery.eq).toHaveBeenCalledWith('id', 'order-1');
     expect(updateQuery.eq).toHaveBeenCalledWith(
       'merchant_id',
-      OGABASSEY_MERCHANT_ID
+      TEST_MERCHANT.id
     );
     expect(updateQuery.eq).toHaveBeenCalledWith(
       'customer_email',
@@ -118,8 +126,8 @@ describe('handleCancelOrder', () => {
     ]);
     expect(updateQuery.in).toHaveBeenCalledWith('shipping_status', ['pending']);
     expect(mocks.createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
-      merchantId: OGABASSEY_MERCHANT_ID,
-      merchantSlug: 'ogabassey',
+      merchantId: TEST_MERCHANT.id,
+      merchantSlug: TEST_MERCHANT.slug,
     });
   });
 

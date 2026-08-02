@@ -15,6 +15,7 @@ import {
   getRecommendationsSchema,
   searchProductsSchema,
 } from '@/ai/chat-tools';
+import type { AgenticMerchantIdentity } from '@/lib/agentic/agentic-merchant-identity';
 
 const AGENTIC_CHAT_TOOL_NAME_LIST = [
   'searchProducts',
@@ -57,32 +58,43 @@ function getToolErrorMessage(error: unknown): string {
 function executeAgenticChatTool(
   name: AgenticChatToolName,
   rawArguments: unknown,
-  sessionId: string
+  sessionId: string,
+  merchant: AgenticMerchantIdentity
 ): Promise<unknown> {
   const argumentsValue = normalizeToolArguments(rawArguments);
 
   switch (name) {
     case 'searchProducts':
-      return handleSearchProducts(searchProductsSchema.parse(argumentsValue));
+      return handleSearchProducts(
+        searchProductsSchema.parse(argumentsValue),
+        merchant
+      );
     case 'getProductDetails':
       return handleGetProductDetails(
-        getProductDetailsSchema.parse(argumentsValue)
+        getProductDetailsSchema.parse(argumentsValue),
+        merchant
       );
     case 'createVirtualAccount':
       return handleCreateVirtualAccount(
         createVirtualAccountSchema.parse(argumentsValue),
-        sessionId
+        sessionId,
+        merchant
       );
     case 'checkPaymentStatus':
       return handleCheckPaymentStatus(
         checkPaymentStatusSchema.parse(argumentsValue),
-        sessionId
+        sessionId,
+        merchant
       );
     case 'cancelOrder':
-      return handleCancelOrder(cancelOrderSchema.parse(argumentsValue));
+      return handleCancelOrder(
+        cancelOrderSchema.parse(argumentsValue),
+        merchant
+      );
     case 'getRecommendations':
       return handleGetRecommendations(
-        getRecommendationsSchema.parse(argumentsValue)
+        getRecommendationsSchema.parse(argumentsValue),
+        merchant
       );
   }
 }
@@ -90,14 +102,20 @@ function executeAgenticChatTool(
 export async function executeAgenticChatToolForOllama(
   name: string,
   rawArguments: unknown,
-  sessionId: string
+  sessionId: string,
+  merchant: AgenticMerchantIdentity
 ): Promise<string> {
   if (!isAgenticChatToolName(name)) {
     return JSON.stringify({ error: `Unknown tool: ${name}` });
   }
 
   try {
-    const result = await executeAgenticChatTool(name, rawArguments, sessionId);
+    const result = await executeAgenticChatTool(
+      name,
+      rawArguments,
+      sessionId,
+      merchant
+    );
     return JSON.stringify(result);
   } catch (error) {
     return JSON.stringify({ error: getToolErrorMessage(error) });
