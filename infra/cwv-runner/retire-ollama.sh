@@ -109,22 +109,22 @@ recovery_socket_snapshot() {
   fi
   for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do [ -f "$table" ] && [ ! -L "$table" ] || review_required 'unsafe recovery socket table'; done
   raw=$(temp_path)
-  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,a,":"); if ($4 == "0A" && a[2] == "2CAA") print family "|" a[1] "|" a[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
-  while IFS='|' read -r family address port inode || [ -n "$family$address$port$inode" ]; do
+  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,local_endpoint,":"); split($3,remote_endpoint,":"); if ($4 == "0A" && local_endpoint[2] == "2CAA") print family "|listener|" local_endpoint[1] "|" local_endpoint[2] "|" $10; else if ($4 == "01" && remote_endpoint[2] == "2CAA") print family "|client|" remote_endpoint[1] "|" remote_endpoint[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
+  while IFS='|' read -r family socket_role address port inode || [ -n "$family$socket_role$address$port$inode" ]; do
     [ -n "$inode" ] || continue; found=0
     while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
       [ -n "$pid" ] || continue; recovery_safe_int "$pid" || review_required 'invalid listener pid'; [ -d "$RECOVERY_PROC_ROOT/$pid/fd" ] && [ ! -L "$RECOVERY_PROC_ROOT/$pid/fd" ] || continue
-      for fd in "$RECOVERY_PROC_ROOT/$pid/fd"/*; do [ -L "$fd" ] || continue; link=$(readlink -- "$fd") || review_required 'listener fd target unavailable'; [ "$link" = "socket:[$inode]" ] || continue; case " $seen " in *" $pid/$inode "*) continue;; esac; seen="$seen $pid/$inode"; found=1; command=${args%% *}; base=${command##*/}; class=foreign-listener; executable=''
-        if [ -n "$container_pid" ] && [ "$pid" = "$container_pid" ]; then identity=$(recovery_process_identity "$pid"); IFS=' ' read -r cgroup namespace extra <<EOF
+      for fd in "$RECOVERY_PROC_ROOT/$pid/fd"/*; do [ -L "$fd" ] || continue; link=$(readlink -- "$fd") || review_required 'listener fd target unavailable'; [ "$link" = "socket:[$inode]" ] || continue; case " $seen " in *" $pid/$inode "*) continue;; esac; seen="$seen $pid/$inode"; found=1; command=${args%% *}; base=${command##*/}; class=foreign-listener; [ "$socket_role" = listener ] || class=foreign-client; executable=''
+        if [ "$socket_role" = listener ] && [ -n "$container_pid" ] && [ "$pid" = "$container_pid" ]; then identity=$(recovery_process_identity "$pid"); IFS=' ' read -r cgroup namespace extra <<EOF
 $identity
 EOF
           [ -z "${extra:-}" ] && [ "$cgroup" = "$container_cgroup" ] && [ "$namespace" = "$container_namespace" ] || review_required 'listener container identity drift'; class=container; executable=$(recovery_process_executable "$pid" "$RECOVERY_CONTAINER_COMMAND_PATH" ollama)
-        elif [ "$base" = docker-proxy ] && recovery_proxy_ports_ok "$args" "$ports"; then class=docker-proxy; executable=$(recovery_process_executable "$pid" docker-proxy docker-proxy); else executable=$(recovery_listener_executable "$pid"); fi
+        elif [ "$socket_role" = listener ] && [ "$base" = docker-proxy ] && recovery_proxy_ports_ok "$args" "$ports"; then class=docker-proxy; executable=$(recovery_process_executable "$pid" docker-proxy docker-proxy); else executable=$(recovery_listener_executable "$pid"); fi
         listeners=$(/usr/bin/jq -cn --argjson old "$listeners" --arg family "$family" --arg address "$address" --arg port "$port" --arg inode "$inode" --arg pid "$pid" --arg class "$class" --argjson executable "$executable" '$old + [{family:$family,localAddressHex:$address,port:11434,inode:$inode,pid:$pid,class:$class,executable:$executable}]') || die 'listener serialization failed'
-        [ "$class" != foreign-listener ] || review_required 'unreviewed port-11434 listener'
+        case "$class" in foreign-listener) review_required 'unreviewed port-11434 listener';; foreign-client) review_required 'unreviewed port-11434 client';; esac
       done
     done <"$processes"
-    [ "$found" -eq 1 ] || review_required 'unbound port-11434 listener'
+    [ "$found" -eq 1 ] || review_required "unbound port-11434 $socket_role"
   done <"$raw"
   # shellcheck disable=SC2034 # Exported through the recovery process snapshot.
   if [ -s "$raw" ]; then RECOVERY_SOCKET_SNAPSHOT_SHA=$(sha "$raw"); else RECOVERY_SOCKET_SNAPSHOT_SHA=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; fi

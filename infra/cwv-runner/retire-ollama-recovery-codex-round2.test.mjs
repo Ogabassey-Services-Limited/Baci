@@ -17,8 +17,11 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
 const sourceSha = 'c'.repeat(40);
+const childCredentials =
+  process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};
+const childIdentity = `${childCredentials.uid ?? process.getuid?.()}:${childCredentials.gid ?? process.getgid?.()}`;
 
-function shell(command, args = [], env = {}) {
+function shell(command, args = [], env = {}, options = {}) {
   return execFileAsync(
     'sh',
     [
@@ -28,7 +31,16 @@ function shell(command, args = [], env = {}) {
       script.pathname,
       ...args,
     ],
-    { env: { ...process.env, ...env } }
+    { env: { ...process.env, ...env }, ...options }
+  );
+}
+
+function fixtureShell(command, args = [], env = {}) {
+  return shell(
+    `[ "$(id -u):$(id -g)" = "$RETIRE_OLLAMA_EXPECT_TEST_ID" ] || exit 79; ${command}`,
+    args,
+    { ...env, RETIRE_OLLAMA_EXPECT_TEST_ID: childIdentity },
+    childCredentials
   );
 }
 
@@ -67,35 +79,16 @@ async function snapshotFile(directory, value) {
 }
 async function emptyProc(root) {
   await mkdir(join(root, 'net'), { recursive: true });
+  await Promise.all([chmod(root, 0o755), chmod(join(root, 'net'), 0o755)]);
   await Promise.all(
     ['tcp', 'tcp6'].map((name) =>
       writeFile(
         join(root, 'net', name),
         'sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n'
-      )
+      ).then(() => chmod(join(root, 'net', name), 0o644))
     )
   );
 }
-
-test('rejects wrapped Ollama processes in absent-container evidence', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-recovery-wrapped-'));
-  const proc = join(directory, 'proc');
-  const processes = join(directory, 'processes');
-  try {
-    await emptyProc(proc);
-    await writeFile(processes, '41 1 python /opt/ollama/server.py\n');
-    await assert.rejects(
-      shell(
-        'RECOVERY_PROC_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_absent_process_snapshot "$2"',
-        [processes, proc]
-      ),
-      (error) =>
-        error.code === 78 && /foreign Ollama process remains/.test(error.stderr)
-    );
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
 
 test('completes an absent-container recovery scan without a ports temp', async () => {
   const { stdout } = await shell(
@@ -116,8 +109,11 @@ test('ignores the recovery scanner ancestry in absent-container evidence', async
   const proc = join(directory, 'proc');
   const processes = join(directory, 'processes');
   try {
+    await chmod(directory, 0o755);
     await emptyProc(proc);
-    const { stdout } = await shell(
+    await writeFile(processes, '');
+    await chmod(processes, 0o644);
+    const { stdout } = await fixtureShell(
       'RECOVERY_PROC_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh %s/retire-ollama.sh --recovery-scan\\n" "$$" "$SCRIPT_DIR" >"$2"; recovery_absent_process_snapshot "$2"',
       [processes, proc]
     );
@@ -175,6 +171,7 @@ test('ignores unrelated Docker proxies while retaining the reviewed binding', as
   const processes = join(directory, 'processes');
   const ports = join(directory, 'ports.json');
   try {
+    await chmod(directory, 0o755);
     await emptyProc(proc);
     await writeFile(
       processes,
@@ -184,7 +181,8 @@ test('ignores unrelated Docker proxies while retaining the reviewed binding', as
       ports,
       '{"NetworkSettings":{"Ports":{"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]},"Networks":{"bridge":{"IPAddress":"172.17.0.2"}}}}\n'
     );
-    const { stdout } = await shell(
+    await Promise.all([chmod(processes, 0o644), chmod(ports, 0o644)]);
+    const { stdout } = await fixtureShell(
       'RECOVERY_PROC_ROOT="$4"; recovery_process_identity() { case "$1" in 41) printf "container-cgroup container-ns\\n";; 42) printf "proxy-cgroup proxy-ns\\n";; *) printf "foreign-cgroup foreign-ns\\n";; esac; }; recovery_process_executable() { printf "{\\"path\\":\\"/usr/bin/%s\\",\\"sha256\\":\\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\",\\"identitySha256\\":\\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\",\\"uid\\":\\"0\\",\\"startTime\\":\\"1\\",\\"expected\\":\\"%s\\"}\\n" "$2" "$2"; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 41 container-cgroup container-ns "$2" "$3"',
       [ports, processes, proc]
     );

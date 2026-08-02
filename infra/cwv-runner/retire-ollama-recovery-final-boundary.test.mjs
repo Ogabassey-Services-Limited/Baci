@@ -49,6 +49,27 @@ test('refuses a process and socket inventory that changes before receipt publica
   }
 });
 
+test('refuses a Compose definition added after the initial consumer scan', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-cwv-final-compose-'));
+  const receipt = join(directory, 'receipt.json');
+  try {
+    await assert.rejects(
+      shell(
+        `root() { :; }; assert_docker_socket() { CANONICAL_DOCKER_SOCKET=/run/docker.sock; }; recovery_source_identity() { :; }; recovery_collect_systemd() { :; }; compose_calls=0; recovery_surface() { class=$1; case "$class" in compose-definitions) compose_calls=$((compose_calls + 1)); value=before; [ "$compose_calls" -eq 1 ] || value=late-definition;; *) value=stable;; esac; RECOVERY_RECORDS=$(/usr/bin/jq -cn --argjson old "$RECOVERY_RECORDS" --arg class "$class" --arg value "$value" '$old + [{class:$class,sha256:$value}]'); }; recovery_container_snapshot() { RECOVERY_CONTAINER_STATE=absent; printf '%s\\n' '{"name":"ollama-loopback","state":"absent"}'; }; recovery_collect_processes() { : >"$1"; }; recovery_absent_process_snapshot() { /usr/bin/jq -cn '{state:"absent",matchingProcesses:[],listeningSockets:[],socketSnapshotSha256:"stable"}'; }; recovery_terminal_process_snapshot() { :; }; recovery_terminal_container_snapshot() { :; }; recovery_collect_crontab() { : >"$1"; RECOVERY_EXTERNAL_CRON_SOURCES=$(temp_path); : >"$RECOVERY_EXTERNAL_CRON_SOURCES"; }; recovery_record_external_cron_sources() { :; }; recovery_package_snapshot() { /usr/bin/jq -cn '{state:"absent"}'; }; recovery_unit_snapshot() { /usr/bin/jq -cn --arg name "$1" '{name:$name,state:"absent"}'; }; recovery_model_snapshot() { /usr/bin/jq -cn '{state:"absent"}'; }; recovery_cron_snapshot() { /usr/bin/jq -cn '{wholeSha256:"stable",lineCount:0,lines:[]}'; }; record_docker_socket() { :; }; recovery_write_receipt() { : >"$RECEIPT_MARKER"; }; RECEIPT_MARKER=$2; init_temp_root; recovery_scan`,
+        [receipt]
+      ),
+      (error) =>
+        error.code === 78 &&
+        /recovery mutable consumer inventory changed before receipt publication/.test(
+          error.stderr
+        )
+    );
+    await assert.rejects(access(receipt));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('changes the model tree identity when same-size content is restored to its mtime', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-cwv-model-tree-'));
   const store = join(directory, 'store');
