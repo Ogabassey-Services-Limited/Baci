@@ -40,7 +40,7 @@ test('classifies every non-environment consumer surface without retaining raw va
   assert.match(source, /record_consumers container-config "\$out" none/);
   assert.match(source, /assert_zero_consumers\(\)/);
   assert.match(source, /retirement requires zero classified consumers/);
-  assert.match(source, /\*:ollama\|\*:\/ollama\)/);
+  assert.match(source, /\|ollama\|\*\/ollama\) matched=1/);
   assert.doesNotMatch(source, /consumerPath|rawCommand|consumerValue/);
 });
 

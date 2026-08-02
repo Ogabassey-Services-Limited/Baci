@@ -52,14 +52,13 @@ test('refuses a systemd scan when its record accumulator is malformed', async ()
   );
 });
 
-test('classifies Ollama crontab consumers in recovery evidence', async () => {
+test('excludes Ollama serve cron jobs from recovery consumer evidence', async () => {
   const { stdout } = await shell(
     'RECOVERY_RECORDS="[]"; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; init_temp_root; trap cleanup_temp EXIT; cron=$(temp_path); printf "%s\\n%s\\n" "0 * * * * /usr/bin/ollama serve" "0 * * * * /usr/bin/other" >"$cron"; recovery_surface current-crontab cat "$cron"; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"'
   );
   const [counts, evidence] = stdout.trim().split('\n').map(JSON.parse);
-  assert.deepEqual(counts, [{ surface: 'current-crontab', matchCount: 1 }]);
-  assert.equal(evidence.length, 1);
-  assert.equal(evidence[0].surface, 'current-crontab');
+  assert.deepEqual(counts, [{ surface: 'current-crontab', matchCount: 0 }]);
+  assert.deepEqual(evidence, []);
 });
 
 test('rejects Ollama subcommand prefixes without a token boundary', async () => {

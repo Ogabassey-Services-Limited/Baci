@@ -23,6 +23,7 @@ const childIdentity = `${childCredentials.uid ?? process.getuid?.()}:${childCred
 async function provisionProcess(procRoot, pid) {
   const processRoot = join(procRoot, String(pid));
   await mkdir(join(processRoot, 'ns'), { recursive: true });
+  await chmod(join(processRoot, 'ns'), 0o755);
   await writeFile(join(processRoot, 'cgroup'), '0::/workers/python\n');
   await writeFile(join(processRoot, 'ns', 'pid:[4026533000]'), '');
   await symlink('pid:[4026533000]', join(processRoot, 'ns', 'pid'));

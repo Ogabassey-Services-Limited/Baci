@@ -16,6 +16,7 @@ test('classifies only an exact loopback Ollama authority as loopback', async () 
     'http://127.0.0.1:11434',
     'http://localhost:11434/api',
     'https://api.example.com/v1',
+    'http://127.attacker.example:11434',
     'http://127.0.0.1:11434@api.example.com',
     'https://127.0.0.1:11434',
   ]);
@@ -25,6 +26,7 @@ test('classifies only an exact loopback Ollama authority as loopback', async () 
     'ollama-loopback',
     'ollama-loopback',
     'external-provider',
+    'unknown',
     'unknown',
     'unknown',
   ]);

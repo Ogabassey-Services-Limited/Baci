@@ -15,7 +15,10 @@ test('classifies uppercase Ollama crontab variables without changing evidence by
   const cron = join(directory, 'cron');
   const line = 'OLLAMA_HOST=http://127.0.0.1:8080';
   try {
-    await writeFile(cron, `${line}\n0 * * * * /usr/bin/other\n`);
+    await writeFile(
+      cron,
+      `${line}\n0 * * * * /usr/bin/ollama serve\n0 * * * * /usr/bin/other\n`
+    );
     const { stdout } = await execFileAsync('sh', [
       '-c',
       '. "$1"; init_temp_root; trap cleanup_temp EXIT; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; record_consumers current-crontab "$2" cron; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"',

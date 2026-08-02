@@ -43,6 +43,7 @@ function shellWithSyntheticProc(command, args = [], env = {}) {
 
 async function receiptBin() {
   const directory = await mkdtemp(join(tmpdir(), 'baci-recovery-bin-'));
+  await chmod(directory, 0o755);
   await writeFile(
     join(directory, 'sha256sum'),
     '#!/bin/sh\nexec /usr/bin/shasum -a 256 "$@"\n'
@@ -101,6 +102,7 @@ test('accepts the merged-usr executable alias only after canonical resolution', 
     await mkdir(bin, { mode: 0o755 });
     await chmod(root, 0o755);
     await chmod(procRoot, 0o755);
+    await chmod(bin, 0o755);
     await writeFile(
       join(bin, 'readlink'),
       '#!/bin/sh\ncase "$1" in -f) case "$3" in */missing/ollama) exit 1;; esac; printf "/usr/bin/ollama\\n";; --) printf "/bin/ollama\\n";; *) exit 1;; esac\n'
@@ -233,7 +235,9 @@ test('rejects container executable paths that escape the container root', async 
     shell(
       `recovery_docker() { printf '%s\\n' '${inspected}'; }; init_temp_root; trap cleanup_temp EXIT; recovery_container_snapshot`
     ),
-    (error) => /invalid recovery container snapshot/.test(error.stderr)
+    (error) =>
+      error.code === 65 &&
+      /invalid recovery container snapshot/.test(error.stderr)
   );
 });
 

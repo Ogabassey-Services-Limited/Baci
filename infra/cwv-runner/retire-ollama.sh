@@ -41,7 +41,8 @@ fsync_file() { sync -f "$1" || die "cannot sync $1"; }
 fsync_dir() { sync -f "$1" || die "cannot sync directory $1"; }
 safe_file() { [ -f "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u:%a' "$1")" = '0:600' ]; }
 safe_dir() { [ -d "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u:%a' "$1")" = '0:700' ]; }
-classify_endpoint() { value=$1; case "$value" in ''|disabled|none) printf disabled; return;; http://*) scheme=http; rest=${value#http://};; https://*) scheme=https; rest=${value#https://};; *) printf unknown; return;; esac; authority=${rest%%\?*}; authority=${authority%%\#*}; authority=${authority%%/*}; case "$authority" in ''|*@*|*[[:space:]]*|*:) printf unknown; return;; esac; host=$authority; port=''; case "$authority" in \[*\]:*) host=${authority%%]*}; host=${host#\[}; port=${authority#*\]:};; \[*\]) host=${authority#\[}; host=${host%\]};; *:*) host=${authority%:*}; port=${authority##*:}; case "$host:$port" in *:*:*|*:*[!0-9]*) printf unknown; return;; esac;; esac; case "$host" in 127.*|::1|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt]|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt].) local_host=1;; *) local_host=0;; esac; if [ "$scheme:$local_host:$port" = http:1:11434 ]; then printf ollama-loopback; elif [ "$scheme:$local_host" = https:0 ]; then printf external-provider; else printf unknown; fi; }
+ipv4_loopback() { /usr/bin/printf '%s\n' "$1" | /usr/bin/awk -F. 'NF == 4 && $1 == "127" { for (i = 1; i <= 4; i++) if ($i !~ /^[0-9]+$/ || $i > 255) exit 1; exit 0 } { exit 1 }'; }
+classify_endpoint() { value=$1; case "$value" in ''|disabled|none) printf disabled; return;; http://*) scheme=http; rest=${value#http://};; https://*) scheme=https; rest=${value#https://};; *) printf unknown; return;; esac; authority=${rest%%\?*}; authority=${authority%%\#*}; authority=${authority%%/*}; case "$authority" in ''|*@*|*[[:space:]]*|*:) printf unknown; return;; esac; host=$authority; port=''; case "$authority" in \[*\]:*) host=${authority%%]*}; host=${host#\[}; port=${authority#*\]:};; \[*\]) host=${authority#\[}; host=${host%\]};; *:*) host=${authority%:*}; port=${authority##*:}; case "$host:$port" in *:*:*|*:*[!0-9]*) printf unknown; return;; esac;; esac; case "$host" in ::1|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt]|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt].) local_host=1;; *) if ipv4_loopback "$host"; then local_host=1; else local_host=0; fi;; esac; if [ "$scheme:$local_host:$port" = http:1:11434 ]; then printf ollama-loopback; elif [ "$scheme:$local_host" = https:0 ]; then printf external-provider; else printf unknown; fi; }
 sha() {
   input=$1; out=$(temp_path)
   sha256sum "$input" >"$out" || { rm -f "$out"; die "digest failed $input"; }
@@ -65,8 +66,18 @@ records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'
 record_consumers() {
   class=$1 file=$2 mode=${3:-matched}; count=0; unknown_sha=$(hash_text unknown)
   while IFS= read -r line || [ -n "$line" ]; do
-    case "$mode" in cron) match_line=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]');; *) match_line=$line;; esac
-    case "$mode:$match_line" in none:*) matched=0;; all:*) matched=1;; cron:*11434*|cron:*'/ollama '*|cron:*' ollama '*|cron:ollama|cron:ollama=*|cron:ollama_*=*|cron:/ollama) matched=1;; *:*'/ollama serve'*|*:*' ollama serve'*) matched=0;; *:*11434*|*:*'/ollama '*|*:*' ollama '*|*:ollama|*:/ollama) matched=1;; *) matched=0;; esac
+    case "$mode" in
+      cron)
+        match_line=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')
+        case "$match_line" in
+          *'/ollama serve'*|*' ollama serve'*) matched=0;;
+          *11434*|*'/ollama '*|*' ollama '*|ollama|ollama=*|ollama_*=*|/ollama) matched=1;;
+          *) matched=0;;
+        esac;;
+      none) matched=0;;
+      all) matched=1;;
+      *) case "$line" in *'/ollama serve'*|*' ollama serve'*) matched=0;; *11434*|*'/ollama '*|*' ollama '*|ollama|*/ollama) matched=1;; *) matched=0;; esac;;
+    esac
     [ "$matched" = 1 ] || continue; count=$((count + 1)); evidence=$(hash_text "$line")
     deps=$(jq -cn --argjson old "$deps" --arg key "$class:$count" --arg value "$unknown_sha" --arg source "$evidence" '$old + [{"key-name":$key,"endpoint-class":"unknown","normalized-value-sha256":$value,"source-path-sha256":$source,disposition:"consumer"}]') || die 'consumer dependency record failed'
     consumer_evidence=$(jq -cn --argjson old "$consumer_evidence" --arg surface "$class" --arg sha "$evidence" '$old + [{surface:$surface,classifiedPathSha256:$sha}]') || die 'consumer evidence record failed'

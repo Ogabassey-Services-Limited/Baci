@@ -133,8 +133,8 @@ test('does not exempt a generic container merely because another inspect field n
       `#!/bin/sh
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
-  *'{{.Name}}'*) printf '/generic-api\\n' ;;
-  *'{{.Id}}'*) printf 'generic-api /generic-api /usr/bin/ollama-loopback [] [] [{"Type":"bind","Source":"${source}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
+  *' inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
+  *' inspect -f {{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Mounts}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}} generic-api') printf 'generic-api /generic-api /usr/bin/ollama-loopback [] [] [{"Type":"bind","Source":"${source}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${source}","Destination":"/app/runtime.env"}]\\n' ;;
 esac
 `
@@ -156,6 +156,10 @@ esac
     assert.match(
       stdout,
       /container-bind-mount:generic-api:\/app\/runtime\.env\|/
+    );
+    assert.match(
+      stdout,
+      /generic-api \/generic-api \/usr\/bin\/ollama-loopback/
     );
   } finally {
     await rm(directory, { recursive: true, force: true });

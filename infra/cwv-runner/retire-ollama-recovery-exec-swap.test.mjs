@@ -44,7 +44,7 @@ async function createTestBin() {
     ),
     writeFile(
       join(directory, 'stat'),
-      `#!${process.execPath}\nconst fs=require('node:fs');const a=process.argv.slice(2),p=a.at(-1),s=(a.includes('-L')||a.includes('-Lc')?fs.statSync:fs.lstatSync)(p),m=s.mode&0o7777,f=(a[a.indexOf('-c')+1]??'%a');process.stdout.write(f.replaceAll('%u',String(s.uid)).replaceAll('%g',String(s.gid)).replaceAll('%a',m.toString(8)).replaceAll('%d',String(s.dev)).replaceAll('%i',String(s.ino))+'\\n');\n`
+      `#!${process.execPath}\nconst fs=require('node:fs');const a=process.argv.slice(2),p=a.at(-1),i=a.findIndex(v=>v==='-c'||v==='-Lc'),s=(a.includes('-L')||a.includes('-Lc')?fs.statSync:fs.lstatSync)(p),m=s.mode&0o7777,f=i<0?'%a':a[i+1];process.stdout.write(f.replaceAll('%u',String(s.uid)).replaceAll('%g',String(s.gid)).replaceAll('%a',m.toString(8)).replaceAll('%d',String(s.dev)).replaceAll('%i',String(s.ino))+'\\n');\n`
     ),
   ]);
   await Promise.all(
@@ -88,12 +88,13 @@ test('fails closed when a process exec changes at the executable hash boundary',
   try {
     await assert.rejects(
       shell(
-        'RECOVERY_PROC_ROOT="$2"; sha() { if [ "$1" = "$RECOVERY_PROC_ROOT/41/exe" ]; then rm -f -- "$1"; ln -s "$RECOVERY_PROC_ROOT/41/root/bin/replacement" "$1"; fi; sha256sum "$1" | awk \'{print $1}\'; }; recovery_process_executable 41 /bin/ollama ollama',
+        'RECOVERY_PROC_ROOT="$2"; init_temp_root; trap cleanup_temp EXIT; sha() { if [ "$1" = "$RECOVERY_PROC_ROOT/41/exe" ]; then rm -f -- "$1"; ln -s "$RECOVERY_PROC_ROOT/41/root/bin/replacement" "$1"; fi; sha256sum "$1" | awk \'{print $1}\'; }; recovery_process_executable 41 /bin/ollama ollama',
         [fixture.proc],
         { RETIRE_OLLAMA_TEST_BIN: bin }
       ),
       (error) =>
-        error.code === 78 && /process executable changed/.test(error.stderr)
+        error.code === 78 &&
+        /process executable (?:expectation )?changed/.test(error.stderr)
     );
   } finally {
     await rm(fixture.directory, { recursive: true, force: true });
@@ -101,19 +102,19 @@ test('fails closed when a process exec changes at the executable hash boundary',
   }
 });
 
-test('fails closed when the expected path rebinds at the executable hash boundary', async () => {
+test('fails closed when the expected path rebinds to a different inode at the executable hash boundary', async () => {
   const fixture = await createProcessFixture();
   const bin = await createTestBin();
   try {
     await assert.rejects(
       shell(
-        'expected_path="$2"; RECOVERY_PROC_ROOT="$3"; sha() { if [ "$1" = "$RECOVERY_PROC_ROOT/41/exe" ]; then rm -f -- "$expected_path"; ln -s "$RECOVERY_PROC_ROOT/41/root/bin/replacement" "$expected_path"; fi; sha256sum "$1" | awk \'{print $1}\'; }; recovery_process_executable 41 /bin/ollama ollama',
+        'expected_path="$2"; RECOVERY_PROC_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; sha() { if [ "$1" = "$RECOVERY_PROC_ROOT/41/exe" ]; then rm -f -- "$expected_path"; ln "$RECOVERY_PROC_ROOT/41/root/bin/replacement" "$expected_path"; fi; sha256sum "$1" | awk \'{print $1}\'; }; recovery_process_executable 41 /bin/ollama ollama',
         [fixture.expected, fixture.proc],
         { RETIRE_OLLAMA_TEST_BIN: bin }
       ),
       (error) =>
         error.code === 78 &&
-        /process executable expectation changed/.test(error.stderr)
+        /process executable (?:expectation )?changed/.test(error.stderr)
     );
   } finally {
     await rm(fixture.directory, { recursive: true, force: true });

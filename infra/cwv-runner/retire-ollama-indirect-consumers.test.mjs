@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -11,13 +19,18 @@ const script = new URL('./retire-ollama.sh', import.meta.url);
 const shellPrelude =
   'stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; ';
 
-function assertPair(output, first, second) {
+async function assertPair(output, first, second) {
   const fields = output.trim().split('\n')[0].split('|');
   assert.equal(fields[0], first);
   assert.match(fields[1], /^[0-9a-f]{64}$/);
   assert.match(fields[2], /^[0-9a-f]{64}$/);
   assert.equal(fields[3], second);
-  assert.match(fields[4], /^[0-9a-f]{64}$/);
+  assert.equal(
+    fields[4],
+    createHash('sha256')
+      .update(await readFile(second))
+      .digest('hex')
+  );
   assert.match(fields[5], /^[0-9a-f]{64}$/);
 }
 
@@ -35,7 +48,7 @@ test('reads and binds a loaded transient unit EnvironmentFile consumer', async (
       script.pathname,
       environment,
     ]);
-    assertPair(stdout, `transient.service:${environment}`, environment);
+    await assertPair(stdout, `transient.service:${environment}`, environment);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -61,8 +74,8 @@ test('expands every matched optional runtime EnvironmentFile wildcard', async ()
     ]);
     const records = stdout.trim().split('\n');
     assert.equal(records.length, 2);
-    assertPair(records[0], `transient.service:${first}`, first);
-    assertPair(records[1], `transient.service:${second}`, second);
+    await assertPair(records[0], `transient.service:${first}`, first);
+    await assertPair(records[1], `transient.service:${second}`, second);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -102,7 +115,7 @@ test('expands a static optional EnvironmentFile wildcard through the same safe p
       script.pathname,
       directory,
     ]);
-    assertPair(stdout.trim().split('\n').at(-1), definition, environment);
+    await assertPair(stdout.trim().split('\n').at(-1), definition, environment);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -149,7 +162,7 @@ test('resolves and binds a Compose env_file consumer', async () => {
       script.pathname,
       directory,
     ]);
-    assertPair(stdout, compose, environment);
+    await assertPair(stdout, compose, environment);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -174,7 +187,7 @@ test('resolves and binds an Nginx include outside its configuration root', async
       script.pathname,
       nginx,
     ]);
-    assertPair(stdout, definition, included);
+    await assertPair(stdout, definition, included);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

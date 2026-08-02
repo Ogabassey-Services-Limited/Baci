@@ -32,8 +32,10 @@ test('resolves a container listener through its container root', async () => {
       recursive: true,
     });
     await chmod(directory, 0o755);
+    await chmod(bin, 0o755);
     await chmod(procRoot, 0o755);
     await chmod(processRoot, 0o755);
+    await chmod(join(processRoot, 'ns'), 0o755);
     await writeFile(
       join(procRoot, 'net', 'tcp'),
       'sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2CAA 00000000:0000 0A 00000000:00000000 00:00000000 00000000 0 0 999\n'
