@@ -178,7 +178,7 @@ test('scans a stopped user unit when the owner user manager is unavailable', asy
     await symlink(target, definition);
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${prelude}home=$3; marker=$4; getent() { printf 'bassey:x:1001:1001::%s:/bin/sh\\n' "$home"; }; systemctl() { case "$1" in --user) : >"$marker"; return 1;; list-unit-files|list-units) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; systemd_user_manager_available() { return 1; }; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers; test ! -e "$marker" && printf stable`,
+      `${prelude}home=$3; marker=$4; availability=$marker.availability; getent() { printf 'bassey:x:1001:1001::%s:/bin/sh\\n' "$home"; }; systemctl() { case "$1" in --user) : >"$marker"; return 1;; list-unit-files|list-units) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; load_consumer_scanners; systemd_user_manager_available() { : >"$availability"; return 1; }; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers; test -e "$availability" && test ! -e "$marker" && printf stable`,
       'retire-ollama-user-stopped-test',
       script.pathname,
       systemRoots,
