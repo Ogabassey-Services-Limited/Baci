@@ -204,4 +204,15 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
 
     expect(identifiers).toEqual(['quantum 100']);
   });
+
+  it('strips a malformed numeric laptop processor suffix', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['HP'],
+      productNames: ['HP EliteBook 830 G7 13 inch 15-10310U 8GB 512GB'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['830 g7']);
+  });
 });

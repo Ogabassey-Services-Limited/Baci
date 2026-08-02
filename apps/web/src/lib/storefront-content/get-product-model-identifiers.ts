@@ -7,7 +7,11 @@ import { normalizeContentCurrencyTokens } from './normalize-content-currency-tok
 import { normalizeProductModelTokens } from './normalize-product-model-tokens';
 import { selectProductModelIdentifier } from './select-product-model-identifier';
 
-const { isConvertibleInConnector, isDimensionToken } = modelTokenMatchers;
+const {
+  isConvertibleInConnector,
+  isDimensionToken,
+  stripTrailingLaptopProcessorTier,
+} = modelTokenMatchers;
 
 function tokenize(value: string) {
   return normalizeContentCurrencyTokens(value)
@@ -123,19 +127,6 @@ function getExcludedTokensForSlug(
   }
   return excludedTokens;
 }
-function stripTrailingProcessorTier(tokens: string[], categorySlug: string) {
-  if (!LAPTOP_CATEGORY_SLUGS.has(categorySlug)) {
-    return tokens;
-  }
-  const processorIndex = tokens.findIndex(
-    (token, index) =>
-      ((token === 'ultra' || token === 'rtx') &&
-        /^\d+$/u.test(tokens[index + 1] ?? '')) ||
-      (token === 'core' && /^i[3579]$/u.test(tokens[index + 1] ?? '')) ||
-      /^i[3579]$/u.test(token)
-  );
-  return processorIndex > 0 ? tokens.slice(0, processorIndex) : tokens;
-}
 function stripLeadingFillerTokens(tokens: string[]) {
   const firstModelToken = tokens.findIndex(
     (token) => !LEADING_FILLER_TOKENS.has(token)
@@ -235,7 +226,7 @@ function getModelTokens(
         isConvertibleInConnector(tokens, index)) &&
       !isDimensionToken(tokens, index)
   );
-  return stripTrailingProcessorTier(
+  return stripTrailingLaptopProcessorTier(
     stripLeadingFillerTokens(modelTokens),
     categorySlug
   );

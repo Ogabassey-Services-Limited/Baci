@@ -12,12 +12,29 @@ type CompareProductMatchRequirement = {
 
 const VARIANT_DISCRIMINATOR_PATTERN =
   /^(?:\d+(?:gb|tb|mb|mm|inch)|(?:e)?sim|wifi|cellular|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
+const SPLIT_VARIANT_UNIT_TOKENS = new Set(['gb', 'tb', 'mb', 'mm', 'inch']);
 
 function tokenize(value: string) {
   return normalizeContentCurrencyTokens(value)
     .toLowerCase()
     .split(/[^a-z0-9]+/u)
     .filter(Boolean);
+}
+
+function tokenizeVariantSource(value: string) {
+  const tokens = tokenize(value);
+  const normalizedTokens: string[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? '';
+    const nextToken = tokens[index + 1] ?? '';
+    if (/^\d+$/u.test(token) && SPLIT_VARIANT_UNIT_TOKENS.has(nextToken)) {
+      normalizedTokens.push(`${token}${nextToken}`);
+      index += 1;
+      continue;
+    }
+    normalizedTokens.push(token);
+  }
+  return normalizedTokens;
 }
 
 function getBrandCandidates(context: BuildCommercialGuideLinksContext) {
@@ -52,10 +69,10 @@ function inferSourceBrand(
 }
 
 function getSourceDiscriminatorTokens(source: string, identifier: string) {
-  const identifierTokens = new Set(tokenize(identifier));
+  const identifierTokens = new Set(tokenizeVariantSource(identifier));
   const seen = new Set<string>();
   const discriminatorTokens: string[] = [];
-  for (const token of tokenize(source)) {
+  for (const token of tokenizeVariantSource(source)) {
     if (
       !identifierTokens.has(token) &&
       VARIANT_DISCRIMINATOR_PATTERN.test(token) &&

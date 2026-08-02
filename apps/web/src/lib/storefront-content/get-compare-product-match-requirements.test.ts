@@ -56,6 +56,29 @@ describe('getCompareProductMatchRequirements', () => {
     ]);
   });
 
+  it('normalizes split capacity units for same-model variants', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productNames: ['Apple iPhone 15 128 GB', 'Apple iPhone 15 256 GB'],
+      productSlugs: [],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: '15',
+        brand: 'apple',
+        discriminatorTokens: ['128gb'],
+      },
+      {
+        identifier: '15',
+        brand: 'apple',
+        discriminatorTokens: ['256gb'],
+      },
+    ]);
+  });
+
   it('preserves source brands for numeric identifiers with different models', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

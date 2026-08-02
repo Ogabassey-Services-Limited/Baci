@@ -13,4 +13,13 @@ describe('modelTokenMatchers', () => {
   it('returns false for an out-of-range dimension token', () => {
     expect(modelTokenMatchers.isDimensionToken(['model'], 4)).toBe(false);
   });
+
+  it('strips a numeric laptop processor suffix and its small prefix', () => {
+    const result = modelTokenMatchers.stripTrailingLaptopProcessorTier(
+      ['elitebook', '830', 'g7', '15', '10310u'],
+      'laptops'
+    );
+
+    expect(result).toEqual(['elitebook', '830', 'g7']);
+  });
 });
