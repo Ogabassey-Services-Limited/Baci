@@ -164,6 +164,10 @@ jobs:
               - '.github/scripts/resolve-ci-test-plan.mjs'
               - '.github/scripts/resolve-ci-test-plan-config.mjs'
               - '.github/scripts/resolve-ci-test-plan-config.test.mjs'
+              - '.github/scripts/resolve-ci-non-web-test-filters.mjs'
+              - '.github/scripts/resolve-ci-non-web-test-filters.test.mjs'
+              - '.github/scripts/run-ci-non-web-tests.mjs'
+              - '.github/scripts/run-ci-non-web-tests.test.mjs'
               - '.github/scripts/tools-worker-typecheck-contract.test.mjs'
               - '.github/scripts/web-build-timeout-contract.test.mjs'
               - '.github/scripts/resolve-ci-test-plan.test.mjs'
@@ -305,7 +309,9 @@ jobs:
         id: test-plan
         env:
           EVENT_NAME: ${{ github.event_name }}
-        run: node .github/scripts/resolve-ci-test-plan.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
+        run: |
+          node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs .github/scripts/resolve-ci-non-web-test-filters.test.mjs .github/scripts/run-ci-non-web-tests.test.mjs
+          node .github/scripts/resolve-ci-test-plan.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
       - name: Run Tests
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -340,18 +346,7 @@ jobs:
             exit 0
           fi
 
-          turbo_cache_args=("--cache=local:rw,remote:r")
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.
-            # Use --affected to test only impacted packages.
-            turbo_cache_args+=(--affected)
-          else
-            turbo_cache_args=("--cache=local:rw,remote:rw")
-          fi
-          # The web vitest suite (the ~12min long pole) runs sharded in the
-          # parallel quality-test-web matrix below; exclusion filters subtract
-          # from the affected set.
-          pnpm turbo run test --concurrency=3 --log-order=stream "${turbo_cache_args[@]}" --filter='!@baci/web'
+          node .github/scripts/run-ci-non-web-tests.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
 
   quality-test-web:
     name: Quality Gate - Test (web shard ${{ matrix.shard }})

@@ -2,10 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('the Quality Gate reaches the tools and worker TypeScript project', async () => {
-  const pkg = JSON.parse(await readFile('apps/web/package.json', 'utf8'));
-  const toolsTsconfig = JSON.parse(await readFile('apps/web/tsconfig.tools-workers.json', 'utf8'));
-  const configTest = await readFile('.github/scripts/resolve-ci-test-plan-config.test.mjs', 'utf8');
+async function readWebFilter() {
   const workflow = await readFile('.github/workflows/ci.yml', 'utf8');
   const workflowLines = workflow.split('\n');
   const webFilterIndex = workflowLines.findIndex((line) => line.trim() === 'web:');
@@ -23,6 +20,16 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
   const webFilter = webFilterLines
     .slice(0, webFilterEnd === -1 ? undefined : webFilterEnd)
     .map(({ value }) => value);
+
+  return { webFilter, webFilterIndex, workflow };
+}
+
+test('the Quality Gate reaches the tools and worker TypeScript project', async () => {
+  const pkg = JSON.parse(await readFile('apps/web/package.json', 'utf8'));
+  const toolsTsconfig = JSON.parse(await readFile('apps/web/tsconfig.tools-workers.json', 'utf8'));
+  const configTest = await readFile('.github/scripts/resolve-ci-test-plan-config.test.mjs', 'utf8');
+  const { webFilter, webFilterIndex, workflow } = await readWebFilter();
+
   assert.notEqual(webFilterIndex, -1);
   assert.equal(pkg.scripts.typecheck, 'tsc --noEmit && pnpm typecheck:tools-workers');
   assert.equal(pkg.scripts['typecheck:tools-workers'], 'tsc --noEmit -p tsconfig.tools-workers.json');
@@ -64,4 +71,20 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
   assert.match(configTest, /import '\.\/tools-worker-typecheck-contract\.test\.mjs';/);
   assert.match(workflow, /node --test [^\n]*resolve-ci-test-plan-config\.test\.mjs/);
   assert.match(workflow, /pnpm turbo typecheck/);
+});
+
+test('bugfix: CI runner script changes trigger the web quality gate', async () => {
+  const { webFilter } = await readWebFilter();
+
+  for (const file of [
+    '.github/scripts/resolve-ci-non-web-test-filters.mjs',
+    '.github/scripts/resolve-ci-non-web-test-filters.test.mjs',
+    '.github/scripts/run-ci-non-web-tests.mjs',
+    '.github/scripts/run-ci-non-web-tests.test.mjs',
+  ]) {
+    assert.ok(
+      webFilter.includes(`- '${file}'`),
+      `${file} must trigger the web quality gate`
+    );
+  }
 });
