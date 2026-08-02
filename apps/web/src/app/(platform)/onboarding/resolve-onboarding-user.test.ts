@@ -117,4 +117,100 @@ describe('resolveOnboardingUser', () => {
     });
     expect(client.auth.signUp).not.toHaveBeenCalled();
   });
+
+  it('does not mutate authentication when session verification fails', async () => {
+    const client = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: { message: 'session verification unavailable' },
+        }),
+        signInWithPassword: vi.fn(),
+        signUp: vi.fn(),
+        signOut: vi.fn(),
+      },
+    };
+
+    await expect(
+      resolveOnboardingUser({
+        supabase: client as never,
+        email: 'merchant@example.com',
+        password: 'StrongP@ss123!',
+        redirectUrl: 'https://usebaci.com/onboarding',
+        businessName: 'Merchant',
+        onNewSession: () => undefined,
+      })
+    ).resolves.toEqual({
+      status: 'message',
+      message: 'Could not verify your account. Please try again.',
+    });
+    expect(client.auth.signInWithPassword).not.toHaveBeenCalled();
+    expect(client.auth.signUp).not.toHaveBeenCalled();
+  });
+
+  it('returns generic verification guidance for a non-duplicate signup failure', async () => {
+    const client = {
+      auth: {
+        getUser: vi
+          .fn()
+          .mockResolvedValue({ data: { user: null }, error: null }),
+        signInWithPassword: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: { message: 'Invalid login credentials' },
+        }),
+        signUp: vi.fn().mockResolvedValue({
+          data: { user: null, session: null },
+          error: { message: 'signup provider unavailable' },
+        }),
+        signOut: vi.fn(),
+      },
+    };
+
+    await expect(
+      resolveOnboardingUser({
+        supabase: client as never,
+        email: 'merchant@example.com',
+        password: 'StrongP@ss123!',
+        redirectUrl: 'https://usebaci.com/onboarding',
+        businessName: 'Merchant',
+        onNewSession: () => undefined,
+      })
+    ).resolves.toEqual({
+      status: 'message',
+      message: 'Could not verify your account. Please try again.',
+    });
+  });
+
+  it('uses the stable duplicate-account code for existing-account guidance', async () => {
+    const client = {
+      auth: {
+        getUser: vi
+          .fn()
+          .mockResolvedValue({ data: { user: null }, error: null }),
+        signInWithPassword: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: { message: 'Invalid login credentials' },
+        }),
+        signUp: vi.fn().mockResolvedValue({
+          data: { user: null, session: null },
+          error: { code: 'user_already_exists', message: 'opaque error' },
+        }),
+        signOut: vi.fn(),
+      },
+    };
+
+    await expect(
+      resolveOnboardingUser({
+        supabase: client as never,
+        email: 'merchant@example.com',
+        password: 'StrongP@ss123!',
+        redirectUrl: 'https://usebaci.com/onboarding',
+        businessName: 'Merchant',
+        onNewSession: () => undefined,
+      })
+    ).resolves.toEqual({
+      status: 'message',
+      message: 'An account may already exist. Please log in to continue.',
+    });
+  });
 });

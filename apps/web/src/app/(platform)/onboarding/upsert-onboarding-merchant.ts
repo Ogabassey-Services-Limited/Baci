@@ -15,6 +15,8 @@ type OnboardingMerchantClient = Pick<
   'from' | 'rpc'
 >;
 
+const LEGACY_COMPLETED_BUSINESS_TYPE = 'general';
+
 interface UpsertOnboardingMerchantInput {
   brandColors: OnboardingBrandColors;
   brandColorsParsed: boolean;
@@ -109,7 +111,8 @@ export async function upsertOnboardingMerchant({
     return {
       status: 'completed',
       businessName: existing.business_name,
-      businessType: existing.business_type?.trim() || finalBusinessType,
+      businessType:
+        existing.business_type?.trim() || LEGACY_COMPLETED_BUSINESS_TYPE,
       merchant: existing,
     };
   }

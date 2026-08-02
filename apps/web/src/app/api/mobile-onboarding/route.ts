@@ -1,10 +1,10 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import { recordMobileOnboardingContractInvocation } from '@/lib/posthog/mobile-onboarding-contract-telemetry';
-import { DEFAULT_CURATED_BRAND_COLORS } from '@/lib/storefront-defaults/default-curated-brand-colors';
 import { provisionCuratedHomepage } from '@/lib/storefront-defaults/provision-curated-homepage';
 import { parseBrandColors } from '@/schemas/brand-colors';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
+import { loadMobileMerchantStarterFacts } from '../mobile/merchant-provisioning/load-mobile-merchant-starter-facts';
 import {
   MobileProvisioningError,
   provisionAuthenticatedMerchant,
@@ -28,6 +28,11 @@ function validationError(message: string) {
 }
 
 function provisioningErrorResponse(error: unknown, accountCreated: boolean) {
+  if (
+    error instanceof Error &&
+    error.name === 'MobileMerchantStarterFactsError'
+  )
+    console.error('mobile-onboarding %s', 'persisted_facts_read_failed');
   if (error instanceof MobileProvisioningError) {
     if (error.pgCode === 'PT409' && !accountCreated) {
       return NextResponse.json(
@@ -156,19 +161,16 @@ export async function POST(request: NextRequest) {
         brandColors: brandColors ?? undefined,
       },
     });
+    const starterFacts = await loadMobileMerchantStarterFacts({
+      supabase: auth.supabase,
+      merchantId: merchant.merchantId,
+      ownerUserId: auth.user.id,
+    });
 
     const homepage = await provisionCuratedHomepage({
       supabase: auth.supabase,
       expectedOwnerUserId: auth.user.id,
-      merchantId: merchant.merchantId,
-      merchantSlug: merchant.merchantSlug,
-      merchantLogoUrl: logoUrl,
-      businessName,
-      businessType:
-        businessType === 'other'
-          ? (otherBusinessType ?? businessType)
-          : businessType,
-      brandColors: brandColors ?? DEFAULT_CURATED_BRAND_COLORS,
+      ...starterFacts,
     });
     if (homepage.status === 'failed')
       return provisioningErrorResponse(
@@ -179,7 +181,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       user: { id: auth.user.id, email: auth.user.email ?? email },
-      merchant: { id: merchant.merchantId, slug: merchant.merchantSlug },
+      merchant: { id: merchant.merchantId, slug: starterFacts.merchantSlug },
       message: 'Account created successfully',
     });
   } catch (error) {

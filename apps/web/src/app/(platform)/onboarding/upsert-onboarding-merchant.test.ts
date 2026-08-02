@@ -78,4 +78,46 @@ describe('upsertOnboardingMerchant', () => {
     expect(rpc).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
   });
+
+  it.each([
+    null,
+    '   ',
+  ])('uses a legacy-neutral type for a completed merchant with persisted type %j', async (persistedBusinessType) => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: 'merchant-1',
+        business_name: 'Persisted Store',
+        business_type: persistedBusinessType,
+        slug: 'persisted-store',
+      },
+      error: null,
+    });
+    const rpc = vi.fn();
+    const supabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({ maybeSingle }),
+        }),
+      }),
+      rpc,
+    };
+
+    const result = await upsertOnboardingMerchant({
+      supabase: supabase as never,
+      user: { id: 'user-1' } as never,
+      email: 'merchant@example.com',
+      businessName: 'Conflicting Submission',
+      businessType: 'fashion',
+      country: 'NG',
+      brandColors: null,
+      brandColorsParsed: false,
+    });
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      businessName: 'Persisted Store',
+      businessType: 'general',
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

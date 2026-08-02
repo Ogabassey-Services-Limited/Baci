@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getMobileBearerUser: vi.fn(),
   provisionAuthenticatedMerchant: vi.fn(),
+  loadMobileMerchantStarterFacts: vi.fn(),
   provisionCuratedHomepage: vi.fn(),
   recordContract: vi.fn(),
 }));
@@ -23,6 +24,15 @@ vi.mock('./provision-authenticated-merchant', async () => {
 vi.mock('@/lib/storefront-defaults/provision-curated-homepage', () => ({
   provisionCuratedHomepage: mocks.provisionCuratedHomepage,
 }));
+vi.mock('./load-mobile-merchant-starter-facts', async () => {
+  const actual = await vi.importActual<
+    typeof import('./load-mobile-merchant-starter-facts')
+  >('./load-mobile-merchant-starter-facts');
+  return {
+    ...actual,
+    loadMobileMerchantStarterFacts: mocks.loadMobileMerchantStarterFacts,
+  };
+});
 vi.mock('@/lib/posthog/mobile-onboarding-contract-telemetry', () => ({
   recordMobileOnboardingContractInvocation: mocks.recordContract,
 }));
@@ -75,6 +85,14 @@ describe('authenticated mobile canonical provisioning', () => {
       merchantSlug: 'analytical-engines',
       created: true,
     });
+    mocks.loadMobileMerchantStarterFacts.mockResolvedValue({
+      merchantId: 'merchant-1',
+      merchantSlug: 'analytical-engines',
+      businessName: 'Analytical Engines',
+      businessType: 'technology',
+      merchantLogoUrl: null,
+      brandColors: validBody.brandColors,
+    });
     mocks.provisionCuratedHomepage.mockResolvedValue({
       status: 'created',
       updatedAt: null,
@@ -94,6 +112,18 @@ describe('authenticated mobile canonical provisioning', () => {
   });
 
   it('uses the shared fallback palette when the client omits one', async () => {
+    mocks.loadMobileMerchantStarterFacts.mockResolvedValue({
+      merchantId: 'merchant-1',
+      merchantSlug: 'analytical-engines',
+      businessName: 'Analytical Engines',
+      businessType: 'technology',
+      merchantLogoUrl: null,
+      brandColors: {
+        primary: '#000000',
+        background: '#ffffff',
+        accent: '#F59E0B',
+      },
+    });
     const { brandColors: _brandColors, ...bodyWithoutPalette } = validBody;
 
     const response = await POST(request(bodyWithoutPalette));
@@ -108,5 +138,63 @@ describe('authenticated mobile canonical provisioning', () => {
         },
       })
     );
+  });
+
+  it('rebuilds a missing authenticated home from persisted optional starter facts', async () => {
+    mocks.provisionAuthenticatedMerchant.mockResolvedValue({
+      merchantId: 'merchant-1',
+      merchantSlug: 'rpc-slug',
+      created: false,
+    });
+    mocks.loadMobileMerchantStarterFacts.mockResolvedValue({
+      merchantId: 'merchant-1',
+      merchantSlug: 'persisted-store',
+      businessName: 'Persisted Store',
+      businessType: 'technology',
+      merchantLogoUrl: 'https://cdn.example.com/persisted-logo.png',
+      brandColors: {
+        primary: '#112233',
+        background: '#ffffff',
+        accent: '#445566',
+      },
+    });
+    const { brandColors: _brandColors, ...omitted } = validBody;
+
+    const response = await POST(request(omitted));
+
+    expect(response.status).toBe(200);
+    expect(mocks.loadMobileMerchantStarterFacts).toHaveBeenCalledWith({
+      supabase,
+      merchantId: 'merchant-1',
+      ownerUserId: 'user-1',
+    });
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantSlug: 'persisted-store',
+        businessName: 'Persisted Store',
+        businessType: 'technology',
+        merchantLogoUrl: 'https://cdn.example.com/persisted-logo.png',
+      })
+    );
+  });
+
+  it('blocks success when the authenticated persisted fact read fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const starterFactsError = new Error(
+      'Could not load persisted store setup.'
+    );
+    starterFactsError.name = 'MobileMerchantStarterFactsError';
+    mocks.loadMobileMerchantStarterFacts.mockRejectedValue(starterFactsError);
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(500);
+    expect(mocks.provisionCuratedHomepage).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'mobile-merchant-provisioning %s',
+      'provisioning_failed',
+      JSON.stringify({ stage: 'facts_read', pgCode: null })
+    );
+    errorSpy.mockRestore();
   });
 });

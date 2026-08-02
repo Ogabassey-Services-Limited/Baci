@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   runLegacyMobileSignup: vi.fn(),
   provisionAuthenticatedMerchant: vi.fn(),
+  loadMobileMerchantStarterFacts: vi.fn(),
   provisionCuratedHomepage: vi.fn(),
   recordContract: vi.fn(),
   afterCallbacks: [] as Array<() => Promise<void>>,
@@ -15,6 +16,18 @@ vi.mock('./legacy-mobile-signup', () => ({
 vi.mock('@/lib/storefront-defaults/provision-curated-homepage', () => ({
   provisionCuratedHomepage: mocks.provisionCuratedHomepage,
 }));
+vi.mock(
+  '../mobile/merchant-provisioning/load-mobile-merchant-starter-facts',
+  async () => {
+    const actual = await vi.importActual<
+      typeof import('../mobile/merchant-provisioning/load-mobile-merchant-starter-facts')
+    >('../mobile/merchant-provisioning/load-mobile-merchant-starter-facts');
+    return {
+      ...actual,
+      loadMobileMerchantStarterFacts: mocks.loadMobileMerchantStarterFacts,
+    };
+  }
+);
 vi.mock(
   '../mobile/merchant-provisioning/provision-authenticated-merchant',
   async () => {
@@ -88,6 +101,18 @@ describe('POST /api/mobile-onboarding v1 compatibility', () => {
       merchantId: 'merchant-1',
       merchantSlug: 'analytical-engines',
       created: true,
+    });
+    mocks.loadMobileMerchantStarterFacts.mockResolvedValue({
+      merchantId: 'merchant-1',
+      merchantSlug: 'analytical-engines',
+      businessName: 'Analytical Engines',
+      businessType: 'fashion',
+      merchantLogoUrl: null,
+      brandColors: {
+        primary: '#111111',
+        background: '#ffffff',
+        accent: '#f59e0b',
+      },
     });
     mocks.provisionCuratedHomepage.mockResolvedValue({
       status: 'created',
@@ -221,6 +246,18 @@ describe('POST /api/mobile-onboarding v1 compatibility', () => {
   });
 
   it('uses the shared fallback palette when the legacy client has no usable palette', async () => {
+    mocks.loadMobileMerchantStarterFacts.mockResolvedValue({
+      merchantId: 'merchant-1',
+      merchantSlug: 'analytical-engines',
+      businessName: 'Analytical Engines',
+      businessType: 'fashion',
+      merchantLogoUrl: null,
+      brandColors: {
+        primary: '#000000',
+        background: '#ffffff',
+        accent: '#F59E0B',
+      },
+    });
     const response = await POST(request({ ...validBody, brandColors: 'null' }));
 
     expect(response.status).toBe(200);

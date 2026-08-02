@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getActionMocks,
   makeFormData,
@@ -36,6 +36,98 @@ describe('onboarding action starter storefront effects', () => {
         merchantLogoUrl: 'https://example.com/logo.png',
       })
     );
+    expect(
+      mocks.ensureOnboardingDomain.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      mocks.provisionCuratedHomepage.mock.invocationCallOrder[0] ?? 0
+    );
+  });
+  it('reuses the exact domain before retrying a transient page failure', async () => {
+    readyMerchant();
+    mocks.ensureOnboardingDomain.mockResolvedValue({
+      status: 'already_exists',
+    });
+    mocks.provisionCuratedHomepage.mockResolvedValue({
+      status: 'created',
+      updatedAt: '2026-08-02T00:00:00Z',
+    });
+
+    await expect(
+      submitOnboarding(prevState, makeFormData(validFields))
+    ).resolves.toMatchObject({ success: true });
+    expect(mocks.ensureOnboardingDomain).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId: 'merchant-1', slug: 'teststore' })
+    );
+    expect(
+      mocks.ensureOnboardingDomain.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      mocks.provisionCuratedHomepage.mock.invocationCallOrder[0] ?? 0
+    );
+  });
+  it('reuses the exact domain after a transient page failure before persisted-fact recovery', async () => {
+    const persistedPalette = {
+      primary: '#112233',
+      background: '#ffffff',
+      accent: '#445566',
+    };
+    mocks.adminMaybeSingle
+      .mockReset()
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'merchant-1',
+          business_name: 'Persisted Store',
+          business_type: 'technology',
+          slug: 'teststore',
+          logo_url: 'https://cdn.example.com/persisted-logo.png',
+          brand_colors: persistedPalette,
+        },
+        error: null,
+      });
+    setupChainedMock({
+      id: 'merchant-1',
+      slug: 'teststore',
+      logo_url: 'https://example.com/logo.png',
+    });
+    mocks.ensureOnboardingDomain
+      .mockResolvedValueOnce({ status: 'created' })
+      .mockResolvedValueOnce({ status: 'already_exists' });
+    mocks.provisionCuratedHomepage
+      .mockResolvedValueOnce({ status: 'failed', stage: 'insert' })
+      .mockResolvedValueOnce({ status: 'created', updatedAt: null });
+
+    await expect(
+      submitOnboarding(prevState, makeFormData(validFields))
+    ).resolves.toMatchObject({ success: false });
+    await expect(
+      submitOnboarding(
+        prevState,
+        makeFormData({
+          ...validFields,
+          businessName: 'Conflicting Submission',
+          businessType: 'fashion',
+          logoUrl: 'https://cdn.example.com/submitted-logo.png',
+          brandColors: JSON.stringify({
+            primary: '#abcdef',
+            background: '#000000',
+            accent: '#fedcba',
+          }),
+        })
+      )
+    ).resolves.toMatchObject({ success: true });
+
+    expect(mocks.ensureOnboardingDomain.mock.calls[1]?.[0]).toMatchObject({
+      merchantId: 'merchant-1',
+      slug: 'teststore',
+    });
+    expect(mocks.provisionCuratedHomepage.mock.calls[1]?.[0]).toMatchObject({
+      merchantSlug: 'teststore',
+      businessName: 'Persisted Store',
+      businessType: 'technology',
+      merchantLogoUrl: 'https://cdn.example.com/persisted-logo.png',
+      brandColors: persistedPalette,
+    });
+    expect(mocks.adminUpdate).not.toHaveBeenCalled();
   });
   it('blocks success and preserves a structured template failure log when canonical provisioning fails', async () => {
     readyMerchant();
@@ -79,6 +171,17 @@ describe('onboarding action starter storefront effects', () => {
       })
     );
     expect(JSON.stringify(result)).not.toContain('internal-only');
+  });
+  it('succeeds without an external provider call because canonical provisioning is deterministic', async () => {
+    readyMerchant();
+    const fetch = vi.fn().mockRejectedValue(new Error('provider unavailable'));
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      submitOnboarding(prevState, makeFormData(validFields))
+    ).resolves.toMatchObject({ success: true });
+    expect(fetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
   it('contains no privileged client, AI enqueue, server event, or hero-assignment dependency', () => {
     const source = readFileSync(

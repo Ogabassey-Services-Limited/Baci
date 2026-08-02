@@ -1,5 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MobileProvisioningError } from './provision-authenticated-merchant';
@@ -7,6 +5,7 @@ import { MobileProvisioningError } from './provision-authenticated-merchant';
 const mocks = vi.hoisted(() => ({
   getMobileBearerUser: vi.fn(),
   provisionAuthenticatedMerchant: vi.fn(),
+  loadMobileMerchantStarterFacts: vi.fn(),
   provisionCuratedHomepage: vi.fn(),
   recordContract: vi.fn(),
   afterCallbacks: [] as Array<() => Promise<void>>,
@@ -27,6 +26,15 @@ vi.mock('./provision-authenticated-merchant', async () => {
 vi.mock('@/lib/storefront-defaults/provision-curated-homepage', () => ({
   provisionCuratedHomepage: mocks.provisionCuratedHomepage,
 }));
+vi.mock('./load-mobile-merchant-starter-facts', async () => {
+  const actual = await vi.importActual<
+    typeof import('./load-mobile-merchant-starter-facts')
+  >('./load-mobile-merchant-starter-facts');
+  return {
+    ...actual,
+    loadMobileMerchantStarterFacts: mocks.loadMobileMerchantStarterFacts,
+  };
+});
 vi.mock('@/lib/posthog/mobile-onboarding-contract-telemetry', () => ({
   recordMobileOnboardingContractInvocation: mocks.recordContract,
 }));
@@ -94,6 +102,14 @@ describe('POST /api/mobile/merchant-provisioning', () => {
       merchantId: 'merchant-1',
       merchantSlug: 'analytical-engines',
       created: true,
+    });
+    mocks.loadMobileMerchantStarterFacts.mockResolvedValue({
+      merchantId: 'merchant-1',
+      merchantSlug: 'analytical-engines',
+      businessName: 'Analytical Engines',
+      businessType: 'technology',
+      merchantLogoUrl: null,
+      brandColors: validBody.brandColors,
     });
     mocks.provisionCuratedHomepage.mockResolvedValue({
       status: 'created',
@@ -251,28 +267,6 @@ describe('POST /api/mobile/merchant-provisioning', () => {
       JSON.stringify({ stage: 'rpc', pgCode: '42501' })
     );
     errorSpy.mockRestore();
-  });
-
-  it('contains no legacy signup, privileged client, preflight, or direct table writes', () => {
-    const source = fs.readFileSync(
-      path.resolve(
-        process.cwd(),
-        'src/app/api/mobile/merchant-provisioning/route.ts'
-      ),
-      'utf8'
-    );
-
-    for (const forbidden of [
-      'auth.signUp',
-      'checkPasswordBreach',
-      'createAdminClient',
-      'resolveMerchantIdBySlugOrAlias',
-      ".from('merchants')",
-      ".from('domains')",
-      ".from('staff_members')",
-    ]) {
-      expect(source).not.toContain(forbidden);
-    }
   });
 
   it('does not return success until canonical homepage provisioning succeeds', async () => {

@@ -201,12 +201,18 @@ describe('onboarding action merchant persistence', () => {
       },
       error: null,
     });
+    mocks.provisionCuratedHomepage.mockResolvedValue({
+      status: 'already_exists',
+      updatedAt: '2026-08-02T00:00:00Z',
+    });
 
     const result = await submitOnboarding(prevState, makeFormData(validFields));
 
     expect(result.success).toBe(true);
     expect(result.message).toContain('Welcome back');
     expect(mocks.adminUpdate).not.toHaveBeenCalled();
+    expect(mocks.adminInsert).not.toHaveBeenCalled();
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledOnce();
   });
 
   it('uses only persisted merchant facts when recovering a completed owner', async () => {

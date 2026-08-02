@@ -1,9 +1,9 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { recordMobileOnboardingContractInvocation } from '@/lib/posthog/mobile-onboarding-contract-telemetry';
-import { DEFAULT_CURATED_BRAND_COLORS } from '@/lib/storefront-defaults/default-curated-brand-colors';
 import { provisionCuratedHomepage } from '@/lib/storefront-defaults/provision-curated-homepage';
 import { mobileMerchantProvisioningSchema } from '@/schemas/mobile-merchant-provisioning';
 import { getMobileBearerUser } from './get-mobile-bearer-user';
+import { loadMobileMerchantStarterFacts } from './load-mobile-merchant-starter-facts';
 import {
   type MobilePlatform,
   MobileProvisioningError,
@@ -66,10 +66,14 @@ function provisioningFailureResponse(error: unknown) {
     return invalidInputResponse();
   }
 
+  const stage =
+    error instanceof Error && error.name === 'MobileMerchantStarterFactsError'
+      ? 'facts_read'
+      : 'rpc';
   console.error(
     'mobile-merchant-provisioning %s',
     'provisioning_failed',
-    JSON.stringify({ stage: 'rpc', pgCode })
+    JSON.stringify({ stage, pgCode })
   );
   return NextResponse.json(
     {
@@ -117,19 +121,16 @@ export async function POST(request: NextRequest) {
       input: parsed.data,
       platform,
     });
+    const starterFacts = await loadMobileMerchantStarterFacts({
+      supabase: auth.supabase,
+      merchantId: merchant.merchantId,
+      ownerUserId: auth.user.id,
+    });
 
     const homepage = await provisionCuratedHomepage({
       supabase: auth.supabase,
       expectedOwnerUserId: auth.user.id,
-      merchantId: merchant.merchantId,
-      merchantSlug: merchant.merchantSlug,
-      merchantLogoUrl: parsed.data.logoUrl,
-      businessName: parsed.data.businessName,
-      businessType:
-        parsed.data.businessType === 'other'
-          ? (parsed.data.otherBusinessType ?? parsed.data.businessType)
-          : parsed.data.businessType,
-      brandColors: parsed.data.brandColors ?? DEFAULT_CURATED_BRAND_COLORS,
+      ...starterFacts,
     });
     if (homepage.status === 'failed')
       return provisioningFailureResponse(new MobileProvisioningError(null));
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
       success: true,
       merchant: {
         id: merchant.merchantId,
-        slug: merchant.merchantSlug,
+        slug: starterFacts.merchantSlug,
       },
       created: merchant.created,
     });

@@ -28,6 +28,16 @@ function loginGuidance(): OnboardingUserResolution {
   return { status: 'message', message: LOGIN_GUIDANCE };
 }
 
+function isDuplicateSignupError(error: {
+  code?: string;
+  message: string;
+}): boolean {
+  return (
+    error.code === 'user_already_exists' ||
+    /already\s+(exists|registered)|user\s+already/i.test(error.message)
+  );
+}
+
 export async function resolveOnboardingUser({
   businessName: _businessName,
   email,
@@ -36,9 +46,10 @@ export async function resolveOnboardingUser({
   redirectUrl,
   supabase,
 }: ResolveOnboardingUserInput): Promise<OnboardingUserResolution> {
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const session = await supabase.auth.getUser();
+  if (session.error)
+    return { status: 'message', message: ACCOUNT_VERIFICATION_GUIDANCE };
+  const authUser = session.data.user;
   if (authUser) {
     if (authUser.email?.toLowerCase() === email.toLowerCase()) {
       return { status: 'resolved', user: authUser };
@@ -65,7 +76,10 @@ export async function resolveOnboardingUser({
     password,
     options: { emailRedirectTo: redirectUrl },
   });
-  if (signUpError) return loginGuidance();
+  if (signUpError)
+    return isDuplicateSignupError(signUpError)
+      ? loginGuidance()
+      : { status: 'message', message: ACCOUNT_VERIFICATION_GUIDANCE };
   if (!signUpData.session || !signUpData.user) return loginGuidance();
   onNewSession();
   return { status: 'resolved', user: signUpData.user };
