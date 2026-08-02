@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { logger } from '@/lib/logger';
 import { giglProvider } from '@/lib/shipping/providers/gigl';
 import type { TrackingResult } from '@/lib/shipping/types';
@@ -111,18 +110,6 @@ async function pauseMonitor(
   return data;
 }
 
-async function notifyDeliveredProtectionActivation(orderId: string) {
-  try {
-    await maybeNotifyActivateProtection(orderId);
-  } catch (error) {
-    logger.error({
-      message: 'Failed to send activate-protection push after GIGL delivery',
-      orderId,
-      error,
-    });
-  }
-}
-
 export async function processClaimedGiglTrackingMonitors(
   supabase: WorkerSupabase,
   monitors: ClaimedGiglTrackingMonitor[],
@@ -173,9 +160,6 @@ export async function processClaimedGiglTrackingMonitors(
         const applied = await applyResult(supabase, monitor, workerId, result);
         if (applied) {
           summary.applied += 1;
-          if (result.status === 'delivered') {
-            await notifyDeliveredProtectionActivation(monitor.order_id);
-          }
         } else {
           await releaseClaim(supabase, monitor, workerId);
         }

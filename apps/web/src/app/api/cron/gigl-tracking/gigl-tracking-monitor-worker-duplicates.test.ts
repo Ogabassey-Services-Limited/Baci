@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { TrackingResult } from '@/lib/shipping/types';
 
-vi.mock('@/lib/insurance/notify-activate-protection', () => ({
-  maybeNotifyActivateProtection: vi.fn(),
-}));
-
 import { processClaimedGiglTrackingMonitors } from './gigl-tracking-monitor-worker';
 
 const result: TrackingResult = {

@@ -163,4 +163,8 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '20260801142300_track_gigl_monitor_merchant_changes.sql',
     '59687ec25e15739a3a7e52030a64a60dd9ad9823c069f265501440e9a64b84c6',
   ],
+  [
+    '20260801142400_retry_gigl_definitive_notification_rejections.sql',
+    '398769a0e0a4ffdae8a763d48665c4f5efd27a2fe14405069abb7bafec84a776',
+  ],
 ] as const;

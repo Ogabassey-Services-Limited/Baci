@@ -5,6 +5,7 @@ import {
   notifyCustomer,
   notifyMerchant,
 } from '@/lib/expo-push';
+import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { logger } from '@/lib/logger';
 import type { Database } from '@/types/supabase';
 
@@ -65,7 +66,7 @@ async function complete(
   supabase: WorkerSupabase,
   id: string,
   workerId: string,
-  outcome: 'sent' | 'skipped' | 'failed',
+  outcome: 'sent' | 'skipped' | 'failed' | 'rejected',
   error?: string
 ) {
   const { error: rpcError } = await supabase.rpc(
@@ -95,6 +96,10 @@ async function processNotification(
 
   const copy = copyFor(notification.notification_kind, event.description);
   const payload = { orderId: notification.order_id, type: 'shipment_tracking' };
+  if (notification.notification_kind === 'delivered') {
+    await notifyDeliveredProtectionActivation(notification.order_id);
+  }
+  let deliveryRejected = false;
   const onDeliveryStart = async () => {
     const { data: started, error: beginError } = await supabase.rpc(
       'begin_shipment_tracking_notification_dispatch',
@@ -107,6 +112,9 @@ async function processNotification(
       );
     }
   };
+  const onDeliveryRejected = () => {
+    deliveryRejected = true;
+  };
   if (notification.audience === 'merchant') {
     const result = await notifyMerchant(
       notification.merchant_id,
@@ -116,6 +124,7 @@ async function processNotification(
       'orders',
       {
         onDeliveryStart,
+        onDeliveryRejected,
         requiredShipmentUpdateCapability: SHIPMENT_UPDATE_CAPABILITY,
       }
     );
@@ -123,7 +132,8 @@ async function processNotification(
       supabase,
       notification.id,
       workerId,
-      result
+      result,
+      deliveryRejected
     );
   }
 
@@ -168,6 +178,7 @@ async function processNotification(
     {
       merchantId: notification.merchant_id,
       onDeliveryStart,
+      onDeliveryRejected,
       requiredShipmentUpdateCapability: SHIPMENT_UPDATE_CAPABILITY,
     }
   );
@@ -175,15 +186,29 @@ async function processNotification(
     supabase,
     notification.id,
     workerId,
-    result
+    result,
+    deliveryRejected
   );
+}
+
+async function notifyDeliveredProtectionActivation(orderId: string) {
+  try {
+    await maybeNotifyActivateProtection(orderId);
+  } catch (error) {
+    logger.error({
+      message: 'Failed to send activate-protection push after GIGL delivery',
+      orderId,
+      error,
+    });
+  }
 }
 
 async function completeNotificationResult(
   supabase: WorkerSupabase,
   id: string,
   workerId: string,
-  result: NotificationSendResult
+  result: NotificationSendResult,
+  deliveryRejected: boolean
 ) {
   // A retry after any accepted ticket can duplicate a customer-visible update.
   if (result.sent > 0) {
@@ -191,7 +216,12 @@ async function completeNotificationResult(
     return 'sent' as const;
   }
   if (result.errors.length > 0 || result.failed > 0) {
-    await complete(supabase, id, workerId, 'failed');
+    await complete(
+      supabase,
+      id,
+      workerId,
+      deliveryRejected ? 'rejected' : 'failed'
+    );
     return 'failed' as const;
   }
   await complete(supabase, id, workerId, 'skipped', 'no_active_push_token');

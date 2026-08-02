@@ -68,6 +68,7 @@ describe('processClaimedGiglTrackingNotifications', () => {
       'orders',
       {
         onDeliveryStart: expect.any(Function),
+        onDeliveryRejected: expect.any(Function),
         requiredShipmentUpdateCapability: 1,
       }
     );
@@ -105,6 +106,7 @@ describe('processClaimedGiglTrackingNotifications', () => {
       expect.objectContaining({
         merchantId: notification.merchant_id,
         requiredShipmentUpdateCapability: 1,
+        onDeliveryRejected: expect.any(Function),
       })
     );
   });
@@ -264,6 +266,7 @@ describe('processClaimedGiglTrackingNotifications', () => {
     notifyMerchant.mockImplementation(
       async (_merchantId, _title, _body, _payload, _channel, options) => {
         await options?.onDeliveryStart?.();
+        await options?.onDeliveryRejected?.();
         return {
           errors: ['InvalidCredentials (1 failed): invalid token'],
           failed: 1,
@@ -284,7 +287,7 @@ describe('processClaimedGiglTrackingNotifications', () => {
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
       'complete_shipment_tracking_notification',
-      expect.objectContaining({ p_outcome: 'failed' })
+      expect.objectContaining({ p_outcome: 'rejected' })
     );
   });
 });

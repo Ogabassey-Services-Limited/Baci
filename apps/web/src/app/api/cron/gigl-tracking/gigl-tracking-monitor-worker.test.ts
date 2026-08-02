@@ -1,12 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { TrackingResult } from '@/lib/shipping/types';
-
-const mockMaybeNotifyActivateProtection = vi.hoisted(() => vi.fn());
-
-vi.mock('@/lib/insurance/notify-activate-protection', () => ({
-  maybeNotifyActivateProtection: (...args: unknown[]) =>
-    mockMaybeNotifyActivateProtection(...args),
-}));
 
 import {
   claimedGiglTrackingMonitorsSchema,
@@ -37,21 +30,6 @@ const result: TrackingResult = {
   trackingNumber: 'GIGL-1',
 };
 
-const deliveredResult: TrackingResult = {
-  ...result,
-  actualDelivery: new Date('2026-07-31T11:00:00.000Z'),
-  events: [
-    {
-      description: 'Delivered',
-      providerEventKey: 'event-delivered',
-      rawStatus: 'SHD',
-      status: 'delivered',
-      timestamp: new Date('2026-07-31T11:00:00.000Z'),
-    },
-  ],
-  status: 'delivered',
-};
-
 const unrecognizedResult: TrackingResult = {
   ...result,
   events: [
@@ -73,10 +51,6 @@ function createSupabase() {
 }
 
 describe('processClaimedGiglTrackingMonitors', () => {
-  beforeEach(() => {
-    mockMaybeNotifyActivateProtection.mockReset().mockResolvedValue(undefined);
-  });
-
   it('applies every returned tracking result through the epoch-safe RPC', async () => {
     const supabase = createSupabase();
     const summary = await processClaimedGiglTrackingMonitors(
@@ -107,56 +81,6 @@ describe('processClaimedGiglTrackingMonitors', () => {
     expect(
       claimedGiglTrackingMonitorsSchema.parse([{ ...monitor, state: 'paused' }])
     ).toEqual([{ ...monitor, state: 'paused' }]);
-  });
-
-  it('triggers protection activation after applying a delivered result', async () => {
-    const supabase = createSupabase();
-
-    const summary = await processClaimedGiglTrackingMonitors(
-      supabase as never,
-      [monitor],
-      'worker-1',
-      async () => new Map([['GIGL-1', deliveredResult]])
-    );
-
-    expect(summary.applied).toBe(1);
-    expect(mockMaybeNotifyActivateProtection).toHaveBeenCalledWith(
-      monitor.order_id
-    );
-  });
-
-  it('keeps the applied count when protection activation notification fails', async () => {
-    const supabase = createSupabase();
-    mockMaybeNotifyActivateProtection.mockRejectedValueOnce(
-      new Error('push unavailable')
-    );
-
-    const summary = await processClaimedGiglTrackingMonitors(
-      supabase as never,
-      [monitor],
-      'worker-1',
-      async () => new Map([['GIGL-1', deliveredResult]])
-    );
-
-    expect(summary.applied).toBe(1);
-    expect(summary.failed).toBe(0);
-    expect(mockMaybeNotifyActivateProtection).toHaveBeenCalledWith(
-      monitor.order_id
-    );
-  });
-
-  it('skips protection activation for a non-delivered result', async () => {
-    const supabase = createSupabase();
-
-    const summary = await processClaimedGiglTrackingMonitors(
-      supabase as never,
-      [monitor],
-      'worker-1',
-      async () => new Map([['GIGL-1', result]])
-    );
-
-    expect(summary.applied).toBe(1);
-    expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
   });
 
   it('records a failure when the batch response omits a claimed waybill', async () => {

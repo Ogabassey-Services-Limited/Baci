@@ -44,7 +44,17 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(155);
+    expect(result.manifest.pendingSources).toHaveLength(156);
+    expect(
+      result.manifest.pendingSources.find(
+        ({ repositoryPath }) =>
+          repositoryPath ===
+          'supabase/migrations/20260801142400_retry_gigl_definitive_notification_rejections.sql'
+      )
+    ).toMatchObject({
+      sha256:
+        '398769a0e0a4ffdae8a763d48665c4f5efd27a2fe14405069abb7bafec84a776',
+    });
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );
