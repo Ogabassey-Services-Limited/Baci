@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cloudflareTopologyEndpointParts,
+  qualifyCloudflareQualificationTopology,
   qualifyCloudflareTopologyEndpoint,
   qualifyCloudflareTopologyEndpoints,
+  verifyCloudflareTopologyEndpointFamily,
 } from './cloudflare-evidence-topology-contract';
 
 const endpoints = [
@@ -118,6 +121,45 @@ describe('Cloudflare topology contract', () => {
             : endpoint
         ),
       }).ok
+    ).toBe(false);
+  });
+
+  it.each([
+    ['a trailing slash', `${endpoints[2].endpoint}/`],
+    [
+      'a duplicate account separator',
+      endpoints[2].endpoint.replace(
+        '/accounts/account/',
+        '/accounts//account/'
+      ),
+    ],
+    [
+      'a duplicate resource separator',
+      endpoints[2].endpoint.replace('/r2/buckets/', '/r2//buckets/'),
+    ],
+  ] as const)('rejects %s instead of normalizing it', (_description, endpoint) => {
+    expect(cloudflareTopologyEndpointParts(endpoint)).toEqual([]);
+    expect(
+      verifyCloudflareTopologyEndpointFamily(endpoint, 'r2-custom-domain')
+    ).toBe(false);
+    expect(
+      qualifyCloudflareTopologyEndpoint(
+        { ...endpoints[2], endpoint },
+        'account'
+      ).ok
+    ).toBe(false);
+    expect(
+      qualifyCloudflareTopologyEndpoints({
+        endpoints: endpoints.map((candidate) =>
+          candidate === endpoints[2] ? { ...candidate, endpoint } : candidate
+        ),
+      }).ok
+    ).toBe(false);
+    expect(
+      qualifyCloudflareQualificationTopology(
+        [endpoints[0], endpoints[1], { ...endpoints[2], endpoint }],
+        'account'
+      ).ok
     ).toBe(false);
   });
 });

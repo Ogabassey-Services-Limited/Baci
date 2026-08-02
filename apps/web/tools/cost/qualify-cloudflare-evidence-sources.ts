@@ -33,6 +33,8 @@ import {
 export {
   buildClosedEvidenceProcessEnvironment,
   parseQualificationArguments,
+  REVIEWED_EVIDENCE_SYSTEM_PATH,
+  reviewedEvidenceLauncherSearchPath,
   runQualificationCliFromProcess,
 } from './cloudflare-evidence-qualification-cli';
 export {

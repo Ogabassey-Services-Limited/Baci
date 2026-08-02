@@ -20,7 +20,15 @@ export type CloudflareQualificationTopology = readonly [
 ];
 
 export function cloudflareTopologyEndpointParts(endpoint: string) {
-  return endpoint.split('/').filter(Boolean);
+  const rawParts = endpoint.split('/');
+  if (
+    rawParts[0] !== '' ||
+    rawParts.length < 2 ||
+    rawParts.at(-1) === '' ||
+    rawParts.slice(1).some((part) => part === '')
+  )
+    return [];
+  return rawParts.slice(1);
 }
 
 export function verifyCloudflareTopologyEndpointFamily(

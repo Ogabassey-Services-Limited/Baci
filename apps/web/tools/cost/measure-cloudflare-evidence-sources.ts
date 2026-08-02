@@ -1,16 +1,21 @@
 import {
   loadEvidenceRunForCleanup,
-  RUN_ID_PATTERN,
   recordEvidenceMeasurement,
   recordEvidenceMeasurementFailure,
   recordEvidencePhase,
   revokeEvidenceRunToken,
   type TokenRevocationClient,
 } from './cloudflare-evidence-run-journal';
-import { loadMeasurementDependencies } from './measure-cloudflare-evidence-sources-loader';
+import { runMeasurementEntrypoint } from './measure-cloudflare-evidence-command';
 import { hasVerifiedCleanupWriteTokenRevocation } from './measure-cloudflare-evidence-sources-requirements';
 import { assertMeasurementObservationWindow } from './measurement-observation-window';
 import type { VerifiedEvidenceReadCapability } from './verify-cloudflare-evidence-read-token-policy';
+
+export {
+  parseMeasurementArguments,
+  runMeasurementCommand,
+  runMeasurementEntrypoint,
+} from './measure-cloudflare-evidence-command';
 export type EvidenceMeasurementClient = TokenRevocationClient & {
   measure(runId: string): Promise<{
     complete: boolean;
@@ -26,66 +31,7 @@ export type EvidenceMeasurementDependencies = Readonly<{
   capability: VerifiedEvidenceReadCapability;
   client: EvidenceMeasurementClient;
 }>;
-type MeasurementCommand = Readonly<{
-  mode: 'measure' | 'revoke-read';
-  runId: string;
-}>;
 type MeasurementOptions = Readonly<{ now?: Date }>;
-export function parseMeasurementArguments(args: readonly string[]) {
-  if (
-    args.length !== 2 ||
-    !['--run', '--revoke-read'].includes(args[0]) ||
-    !args[1] ||
-    !RUN_ID_PATTERN.test(args[1])
-  )
-    throw new Error(
-      'measurement is read-only and accepts only --run <runId> or --revoke-read <runId>'
-    );
-  return {
-    mode:
-      args[0] === '--revoke-read'
-        ? ('revoke-read' as const)
-        : ('measure' as const),
-    runId: args[1],
-  } satisfies MeasurementCommand;
-}
-export function runMeasurementCommand(
-  args: readonly string[],
-  stateDir: string,
-  dependencies: EvidenceMeasurementDependencies
-) {
-  const parsed = parseMeasurementArguments(args);
-  return parsed.mode === 'revoke-read'
-    ? revokeCloudflareEvidenceReadToken(
-        stateDir,
-        parsed.runId,
-        dependencies.capability,
-        dependencies.client
-      )
-    : measureCloudflareEvidenceSources(
-        stateDir,
-        parsed.runId,
-        dependencies.capability,
-        dependencies.client
-      );
-}
-type MeasurementDependencyLoader = (
-  runId: string,
-  stateDir: string
-) => Promise<EvidenceMeasurementDependencies>;
-/** Keeps argument parsing inside the same rejection path as dependency loading. */
-export function runMeasurementEntrypoint(
-  args: readonly string[],
-  stateDir: string,
-  loadDependencies: MeasurementDependencyLoader = loadMeasurementDependencies
-) {
-  return Promise.resolve()
-    .then(() => parseMeasurementArguments(args))
-    .then((parsed) => loadDependencies(parsed.runId, stateDir))
-    .then((dependencies) =>
-      runMeasurementCommand(args, stateDir, dependencies)
-    );
-}
 export async function measureCloudflareEvidenceSources(
   stateDir: string,
   runId: string,

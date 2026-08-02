@@ -1,8 +1,8 @@
-import { calculateStorefrontDeliveryDailyEvidenceSha256 } from '../../../../packages/shared/src/storefront/delivery-evidence';
 import {
   calculateHostnameInventorySha256,
+  calculateStorefrontDeliveryDailyEvidenceSha256,
   calculateStorefrontDeliveryWindowFingerprintSha256,
-} from '../../../../packages/shared/src/storefront/delivery-evidence-manifest';
+} from '@baci/shared/storefront';
 import { summarizeStorefrontDelivery } from './storefront-origin-budget';
 
 const hash = (letter: string) => letter.repeat(64);

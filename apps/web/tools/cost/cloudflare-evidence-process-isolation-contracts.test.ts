@@ -50,6 +50,37 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
     ).rejects.toThrow('inherited');
   });
 
+  it('keeps receipt-only read-token recovery credentialless', async () => {
+    const spawn = vi.fn(async () => undefined);
+    for (const inherited of [
+      { CLOUDFLARE_READ_TOKEN: 'read' },
+      { CLOUDFLARE_WRITE_TOKEN: 'write' },
+    ])
+      await expect(
+        spawnIsolatedCloudflareEvidenceProcess(
+          { spawn },
+          'record-read-revocation',
+          'run',
+          inherited,
+          undefined,
+          '/workspace',
+          '/private/evidence-state'
+        )
+      ).rejects.toThrow('must not receive a Cloudflare credential');
+    await expect(
+      spawnIsolatedCloudflareEvidenceProcess(
+        { spawn },
+        'record-read-revocation',
+        'run',
+        {},
+        { name: 'CLOUDFLARE_READ_TOKEN', value: 'read' },
+        '/workspace',
+        '/private/evidence-state'
+      )
+    ).rejects.toThrow('command credential responsibility is invalid');
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
   it('rejects a changed transitive command import before spawning a credential', async () => {
     const root = await realpath(
       await mkdtemp(join(tmpdir(), 'baci-command-integrity-'))

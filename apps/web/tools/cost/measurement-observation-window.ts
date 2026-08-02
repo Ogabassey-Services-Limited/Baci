@@ -1,7 +1,7 @@
 import type { CloudflareEvidenceRunJournal } from './cloudflare-evidence-run-journal-state';
 
 // Read-token policy verification caps the authority lifetime at 24 hours.
-const MAX_MEASUREMENT_OBSERVATION_LAG_MS = 24 * 60 * 60 * 1000;
+export const MAX_MEASUREMENT_OBSERVATION_LAG_MS = 24 * 60 * 60 * 1000;
 
 export function assertMeasurementObservationWindow(
   journal: Pick<

@@ -39,6 +39,21 @@ describe('qualification source contract bindings', () => {
         trace
       )
     ).toBe(false);
+    expect(
+      matchesCloudflareTrace(
+        { matched: true, ...trace, rulesetVersion: 'other-version' },
+        trace
+      )
+    ).toBe(false);
+    expect(
+      matchesCloudflareTrace(
+        { matched: true, ...trace, expressionSha256: 'b'.repeat(64) },
+        trace
+      )
+    ).toBe(false);
+    expect(matchesCloudflareTrace({ matched: false, ...trace }, trace)).toBe(
+      false
+    );
     expect(matchesCloudflareTrace({ matched: true, ...trace }, undefined)).toBe(
       false
     );
@@ -55,6 +70,30 @@ describe('qualification source contract bindings', () => {
     expect(
       matchesCloudflarePurgeReadback(
         { ...readback, endpoint: '/zones/other/purge_cache' },
+        request
+      )
+    ).toBe(false);
+    expect(
+      matchesCloudflarePurgeReadback(
+        { ...readback, zoneId: 'other-zone' },
+        request
+      )
+    ).toBe(false);
+    expect(
+      matchesCloudflarePurgeReadback(
+        { ...readback, requestSchemaSha256: 'd'.repeat(64) },
+        request
+      )
+    ).toBe(false);
+    expect(
+      matchesCloudflarePurgeReadback(
+        { ...readback, status: 'incomplete' as never },
+        request
+      )
+    ).toBe(false);
+    expect(
+      matchesCloudflarePurgeReadback(
+        { ...readback, body: { hosts: ['other.example.com'] } },
         request
       )
     ).toBe(false);

@@ -23,6 +23,8 @@ export async function runMutationCli(
   command: MutationCommand
 ) {
   try {
+    if (environment.CLOUDFLARE_READ_TOKEN !== undefined)
+      throw new Error('mutation process inherited a read credential');
     const parsed = parseMutationArguments(args);
     const stateDir = environment.EVIDENCE_RUN_STATE_DIR;
     if (!stateDir)

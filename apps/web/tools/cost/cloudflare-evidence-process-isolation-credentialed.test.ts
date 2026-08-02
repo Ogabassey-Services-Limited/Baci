@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
 import {
@@ -9,6 +9,7 @@ import {
   readEvidenceDependencyManifestSha256,
   readEvidenceToolingHead,
 } from './cloudflare-evidence-process-isolation.test-fixtures';
+import { REVIEWED_EVIDENCE_SYSTEM_PATH } from './cloudflare-evidence-qualification-cli';
 import { openEvidenceRun } from './cloudflare-evidence-run-journal';
 
 type Spawn = (
@@ -23,8 +24,9 @@ const runnerModulePathFor = (workspaceRoot: string) =>
 describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
   it('uses separate children with one allowlisted credential and exact command ownership', async () => {
     const spawn = vi.fn<Spawn>(async () => undefined);
+    const untrustedPath = resolve(import.meta.dirname, 'untrusted-bin');
     const inherited = {
-      PATH: `${dirname(process.execPath)}${process.platform === 'win32' ? ';' : ':'}/bin`,
+      PATH: `${untrustedPath}${delimiter}${dirname(process.execPath)}`,
       SECRET: 'never-forward',
     };
     const workspaceRoot = resolve(import.meta.dirname, '../../../..');
@@ -121,6 +123,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
       );
     }
     for (const [, , { env }] of spawn.mock.calls.slice(0, 2)) {
+      expect(env.PATH).toBe(REVIEWED_EVIDENCE_SYSTEM_PATH);
       expect(env.SECRET).toBeUndefined();
       expect(env.EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST).toContain(
         'baci-evidence-closure-'
@@ -138,6 +141,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
       );
     }
     const measureEnvironment = spawn.mock.calls[2]?.[2].env;
+    expect(measureEnvironment.PATH).toBe(REVIEWED_EVIDENCE_SYSTEM_PATH);
     expect(measureEnvironment.EVIDENCE_MEASUREMENT_RUNNER_MODULE).toContain(
       'baci-evidence-closure-'
     );

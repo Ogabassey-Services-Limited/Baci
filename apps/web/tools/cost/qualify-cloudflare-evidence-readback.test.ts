@@ -4,6 +4,7 @@ import {
   qualifyCloudflareEvidenceReadback,
   qualifyCloudflareReleasePurgeContract,
   qualifyCloudflareTopologyEndpoints,
+  REVIEWED_EVIDENCE_SYSTEM_PATH,
 } from './qualify-cloudflare-evidence-sources';
 import {
   readback,
@@ -106,7 +107,10 @@ describe('Cloudflare read-only qualification contracts', () => {
       buildClosedEvidenceProcessEnvironment('CLOUDFLARE_READ_TOKEN', 'read', {
         PATH: '/bin',
       })
-    ).toEqual({ PATH: '/bin', CLOUDFLARE_READ_TOKEN: 'read' });
+    ).toEqual({
+      PATH: REVIEWED_EVIDENCE_SYSTEM_PATH,
+      CLOUDFLARE_READ_TOKEN: 'read',
+    });
     expect(() =>
       buildClosedEvidenceProcessEnvironment('CLOUDFLARE_READ_TOKEN', 'read', {
         CLOUDFLARE_READ_TOKEN: 'read',

@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
-import { z } from 'zod';
 import {
   parseStrictUtcBoundary,
   STRICT_UTC_BOUNDARY_PATTERN,
   UTC_DAY_MILLISECONDS,
-} from '../../../../packages/shared/src/storefront/utc-boundary';
+} from '@baci/shared';
+import { z } from 'zod';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const decimal = z.string().regex(/^\d+(?:\.\d{2})?$/);

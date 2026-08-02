@@ -17,19 +17,24 @@ import {
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
 import { preparePrivateCredentialedChild } from './cloudflare-evidence-private-closure';
 import { prepareEvidenceProcessEnvironment } from './cloudflare-evidence-process-environment';
+import { prepareReadTokenRevocationProcessEnvironment } from './cloudflare-evidence-read-revocation-environment';
 import {
   type EvidenceRunInput,
   loadEvidenceRunForCleanup,
 } from './cloudflare-evidence-run-journal';
 import { verifyReviewedEvidenceFile } from './cloudflare-evidence-runner-modules';
-import { buildClosedEvidenceProcessEnvironment } from './qualify-cloudflare-evidence-sources';
+import {
+  buildClosedEvidenceProcessEnvironment,
+  reviewedEvidenceLauncherSearchPath,
+} from './qualify-cloudflare-evidence-sources';
 
 export type EvidenceChildCommand =
   | 'prepare'
   | 'mutate'
   | 'cleanup'
   | 'measure'
-  | 'revoke-read';
+  | 'revoke-read'
+  | 'record-read-revocation';
 export type EvidenceProcessSpawner = Readonly<{
   spawn(
     executable: string,
@@ -54,12 +59,16 @@ const argumentsFor = (
   if (command === 'cleanup') return ['--cleanup-run', runId];
   if (command === 'mutate') return ['--run', runId, '--apply'];
   if (command === 'revoke-read') return ['--revoke-read', runId];
+  if (command === 'record-read-revocation')
+    return ['--record-read-revocation', runId];
   return ['--run', runId];
 };
 const scriptFor = (command: EvidenceChildCommand) =>
   command === 'prepare'
     ? 'qualify-cloudflare-evidence-sources.ts'
-    : command === 'measure' || command === 'revoke-read'
+    : command === 'measure' ||
+        command === 'revoke-read' ||
+        command === 'record-read-revocation'
       ? 'measure-cloudflare-evidence-sources.ts'
       : 'mutate-cloudflare-evidence-sources.ts';
 const pinnedTsx = (workspaceRoot: string) =>
@@ -162,7 +171,8 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
     throw new Error(
       'workspace root and evidence state directory must be absolute'
     );
-  const needsCredential = command !== 'prepare';
+  const needsCredential =
+    command !== 'prepare' && command !== 'record-read-revocation';
   if (needsCredential !== Boolean(credential))
     throw new Error('command credential responsibility is invalid');
   if (
@@ -175,6 +185,15 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
     credential?.name !== 'CLOUDFLARE_READ_TOKEN'
   )
     throw new Error('measurement requires only the read credential');
+  if (
+    command === 'record-read-revocation' &&
+    (credential !== undefined ||
+      inherited.CLOUDFLARE_WRITE_TOKEN !== undefined ||
+      inherited.CLOUDFLARE_READ_TOKEN !== undefined)
+  )
+    throw new Error(
+      'read-token revocation recovery must not receive a Cloudflare credential'
+    );
   const privateHome = await mkdtemp(join(tmpdir(), 'baci-evidence-home-'));
   let privateClosureRoot: string | undefined;
   try {
@@ -184,7 +203,9 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
           credential.value,
           inherited
         )
-      : prepareEvidenceProcessEnvironment(inherited);
+      : command === 'record-read-revocation'
+        ? prepareReadTokenRevocationProcessEnvironment(inherited)
+        : prepareEvidenceProcessEnvironment(inherited);
     env.HOME = privateHome;
     env.XDG_CONFIG_HOME = join(privateHome, 'config');
     env.XDG_DATA_HOME = join(privateHome, 'data');
@@ -227,7 +248,7 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
       const reviewedLauncher = await verifyReviewedTsxLauncher(
         workspaceRoot,
         reviewedDependencies.manifest,
-        env.PATH
+        reviewedEvidenceLauncherSearchPath()
       );
       // Invoke the reviewed runtime and resolved CLI target directly. The
       // checked symlink is not passed to the credentialed child, avoiding a

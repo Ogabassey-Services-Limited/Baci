@@ -25,7 +25,10 @@ import {
 
 describe('measureCloudflareEvidenceSources', () => {
   beforeEach(() =>
-    vi.useFakeTimers({ now: new Date('2026-07-31T00:05:00.000Z') })
+    vi.useFakeTimers({
+      now: new Date('2026-07-31T00:05:00.000Z'),
+      toFake: ['Date'],
+    })
   );
   afterEach(() => vi.useRealTimers());
   it('rejects a measurement that reports a client-controlled probe count', async () => {
@@ -256,6 +259,8 @@ describe('measureCloudflareEvidenceSources', () => {
 });
 
 describe('runMeasurementEntrypoint', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it('keeps invalid argument errors in the promise rejection path', async () => {
     const loadDependencies = vi.fn(
       async (
@@ -272,6 +277,19 @@ describe('runMeasurementEntrypoint', () => {
         loadDependencies
       )
     ).rejects.toThrow('read-only');
+    expect(loadDependencies).not.toHaveBeenCalled();
+  });
+
+  it('rejects an inherited write credential before loading measurement dependencies', async () => {
+    vi.stubEnv('CLOUDFLARE_WRITE_TOKEN', 'write-token');
+    const loadDependencies = vi.fn();
+    await expect(
+      runMeasurementEntrypoint(
+        ['--run', '0123456789abcdef0123456789abcdef'],
+        '/tmp/state',
+        loadDependencies
+      )
+    ).rejects.toThrow('measurement process inherited a write credential');
     expect(loadDependencies).not.toHaveBeenCalled();
   });
 });

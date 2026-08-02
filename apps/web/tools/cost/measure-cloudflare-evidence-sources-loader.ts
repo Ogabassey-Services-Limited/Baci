@@ -9,6 +9,10 @@ import {
   verifyReviewedEvidenceFile,
   verifyReviewedEvidenceRunnerModule,
 } from './cloudflare-evidence-runner-modules';
+import {
+  type EvidenceReadRevocationDependencies,
+  loadReadTokenRevocationDependencies,
+} from './measure-cloudflare-evidence-read-revocation';
 import type { EvidenceMeasurementDependencies } from './measure-cloudflare-evidence-sources';
 
 type MeasurementRunnerFactory = (
@@ -21,8 +25,13 @@ type MeasurementRunnerFactory = (
 
 export async function loadMeasurementDependencies(
   runId: string,
-  stateDir: string
-) {
+  stateDir: string,
+  mode: 'measure' | 'record-read-revocation' = 'measure'
+): Promise<
+  EvidenceMeasurementDependencies | EvidenceReadRevocationDependencies
+> {
+  if (mode === 'record-read-revocation')
+    return loadReadTokenRevocationDependencies(runId, stateDir);
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
   const workspaceRoot = evidenceExecutionRoot();
   const commandPath = resolve(

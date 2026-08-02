@@ -1,7 +1,4 @@
-import {
-  parseStrictUtcBoundary,
-  UTC_DAY_MILLISECONDS,
-} from '../../../../packages/shared/src/storefront/utc-boundary';
+import { parseStrictUtcBoundary, UTC_DAY_MILLISECONDS } from '@baci/shared';
 import {
   type RetrievedCloudflareWorkersLogsContract,
   validateWorkersLogsEvidence,

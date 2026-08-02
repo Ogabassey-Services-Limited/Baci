@@ -140,8 +140,7 @@ async function reviewedBytes(
     return Buffer.isBuffer(reviewed.stdout)
       ? reviewed.stdout
       : Buffer.from(reviewed.stdout);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes(label)) throw error;
+  } catch {
     throw new Error(`${label} is not present in the reviewed commit`);
   }
 }
@@ -162,11 +161,7 @@ async function verifyReviewedTrackedFile(
   relativePath(root, canonicalPath);
   await assertNoSymlinkPath(root, canonicalPath);
   if (!(await lstat(canonicalPath)).isFile())
-    throw new Error(
-      label === 'evidence tooling file'
-        ? 'evidence tooling file is not regular'
-        : `${label} is not a regular file`
-    );
+    throw new Error(`${label} is not a regular file`);
   const source = await readFile(canonicalPath);
   if (expectedSha256 && sha256(source) !== expectedSha256)
     throw new Error(`${label} bytes do not match its reviewed hash`);

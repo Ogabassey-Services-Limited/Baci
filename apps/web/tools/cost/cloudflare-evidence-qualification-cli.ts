@@ -1,6 +1,6 @@
 import { constants as fsConstants } from 'node:fs';
 import { open } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { delimiter, dirname, isAbsolute } from 'node:path';
 import { cloudflareEvidencePrepare } from './cloudflare-evidence-prepare';
 import type { QualificationArtifactAuthority } from './cloudflare-evidence-qualification-authority';
 import {
@@ -22,6 +22,19 @@ import {
 } from './cloudflare-evidence-run-journal';
 
 const MAXIMUM_APPROVAL_ID_LENGTH = 128;
+
+/** Only OS-owned directories may be searched by a credentialed child. */
+export const REVIEWED_EVIDENCE_SYSTEM_PATH =
+  process.platform === 'win32'
+    ? 'C:\\Windows\\System32;C:\\Windows'
+    : '/usr/bin:/bin';
+
+/** The reviewed runtime directory is used only to validate the Node shebang. */
+export function reviewedEvidenceLauncherSearchPath() {
+  return [dirname(process.execPath), REVIEWED_EVIDENCE_SYSTEM_PATH].join(
+    delimiter
+  );
+}
 
 function isBoundedApprovalId(value: string | undefined): value is string {
   return (
@@ -111,9 +124,10 @@ export function buildClosedEvidenceProcessEnvironment(
 ) {
   if (inherited.CLOUDFLARE_WRITE_TOKEN || inherited.CLOUDFLARE_READ_TOKEN)
     throw new Error('evidence process inherited a credential');
-  const environment: Record<string, string> = {};
-  for (const name of ['PATH', 'TMPDIR'] as const)
-    if (inherited[name]) environment[name] = inherited[name];
+  const environment: Record<string, string> = {
+    PATH: REVIEWED_EVIDENCE_SYSTEM_PATH,
+  };
+  if (inherited.TMPDIR) environment.TMPDIR = inherited.TMPDIR;
   environment[credentialName] = credential;
   return environment;
 }

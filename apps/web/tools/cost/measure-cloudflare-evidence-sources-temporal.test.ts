@@ -18,6 +18,7 @@ import {
   parseMeasurementArguments,
   revokeCloudflareEvidenceReadToken,
 } from './measure-cloudflare-evidence-sources';
+import { MAX_MEASUREMENT_OBSERVATION_LAG_MS } from './measurement-observation-window';
 
 describe('parseMeasurementArguments', () => {
   it('requires a fresh read-only measurement run and has no apply mode', () => {
@@ -80,7 +81,10 @@ const writeRevocationClient = {
     observedAt: '2026-07-31T00:00:00.000Z',
   }),
 };
-
+const beyondObservationLagNow =
+  Date.parse('2026-07-31T00:00:00.000Z') +
+  MAX_MEASUREMENT_OBSERVATION_LAG_MS +
+  60_000;
 async function createMeasuredRun() {
   const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
   await chmod(dir, 0o700);
@@ -168,7 +172,7 @@ describe('measurement observation timestamps', () => {
         input.runId,
         capability,
         measurementClient('2026-07-31T00:00:00.000Z'),
-        { now: new Date('2026-08-01T00:01:00.000Z') }
+        { now: new Date(beyondObservationLagNow) }
       )
     ).rejects.toThrow('outside the active run window');
   });
@@ -202,12 +206,12 @@ describe('measurement observation timestamps', () => {
     const client = measurementClient('2026-07-31T00:00:00.000Z');
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client, {
-        now: new Date('2026-08-01T00:01:00.000Z'),
+        now: new Date(beyondObservationLagNow),
       })
     ).rejects.toThrow('outside the active run window');
     await expect(
       revokeCloudflareEvidenceReadToken(dir, input.runId, capability, client, {
-        now: new Date('2026-08-01T00:01:00.000Z'),
+        now: new Date(beyondObservationLagNow),
       })
     ).resolves.toMatchObject({
       phase: 'closed_stop',

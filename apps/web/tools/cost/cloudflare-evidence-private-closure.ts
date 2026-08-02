@@ -15,13 +15,11 @@ import { promisify } from 'node:util';
 import type { EvidenceDependencyIntegrityManifest } from './cloudflare-evidence-dependency-integrity';
 import { EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST } from './cloudflare-evidence-dependency-integrity';
 import { verifyCredentialedEvidenceCommandImportClosure } from './cloudflare-evidence-import-closure';
+import { selectPrivateEvidenceRunnerDescriptor } from './cloudflare-evidence-private-closure-runner';
 import type { EvidenceChildCommand } from './cloudflare-evidence-process-isolation';
 import type { CloudflareEvidenceRunJournal } from './cloudflare-evidence-run-journal-state';
 import type { ReviewedEvidenceModuleSource } from './cloudflare-evidence-runner-modules';
-import {
-  evidenceRunnerModuleEnvironmentNames,
-  verifyReviewedEvidenceRunnerModule,
-} from './cloudflare-evidence-runner-modules';
+import { verifyReviewedEvidenceRunnerModule } from './cloudflare-evidence-runner-modules';
 
 const execFileAsync = promisify(execFile);
 
@@ -214,31 +212,24 @@ export async function preparePrivateCredentialedChild(
     input.commandPath,
     input.dependencies.manifest
   );
-  const runnerNames =
-    input.command === 'measure' || input.command === 'revoke-read'
-      ? evidenceRunnerModuleEnvironmentNames('measurement')
-      : evidenceRunnerModuleEnvironmentNames('mutation');
-  const descriptor =
-    input.command === 'measure' || input.command === 'revoke-read'
-      ? {
-          path: journal.measurementRunnerModulePath,
-          sha256: journal.measurementRunnerModuleSha256,
-        }
-      : {
-          path: journal.mutationRunnerModulePath,
-          sha256: journal.mutationRunnerModuleSha256,
-        };
-  if (!descriptor.path || !descriptor.sha256)
-    throw new Error('journal is missing the reviewed runner module descriptor');
+  const selectedRunner = selectPrivateEvidenceRunnerDescriptor(
+    input.command,
+    journal,
+    input.inherited
+  );
   const runner = await verifyReviewedEvidenceRunnerModule(
     input.workspaceRoot,
     journal.toolingMergeSha,
-    { path: descriptor.path, sha256: descriptor.sha256 }
+    selectedRunner.descriptor
   );
   const revocationPath =
-    input.inherited.EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_MODULE;
+    input.command === 'record-read-revocation'
+      ? undefined
+      : input.inherited.EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_MODULE;
   const revocationSha256 =
-    input.inherited.EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_MODULE_SHA256;
+    input.command === 'record-read-revocation'
+      ? undefined
+      : input.inherited.EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_MODULE_SHA256;
   const revocation =
     revocationPath || revocationSha256
       ? !revocationPath || !revocationSha256
@@ -258,7 +249,11 @@ export async function preparePrivateCredentialedChild(
     toolingMergeSha: journal.toolingMergeSha,
     commandPaths,
     runnerModules: [
-      { name: runnerNames.path, path: runner.path, files: runner.files },
+      {
+        name: selectedRunner.name,
+        path: runner.path,
+        files: runner.files,
+      },
       ...(revocation
         ? [
             {
@@ -280,7 +275,8 @@ export async function preparePrivateCredentialedChild(
     closure.dependencyManifestPath;
   for (const [name, path] of Object.entries(closure.runnerPaths))
     input.environment[name] = path;
-  input.environment[runnerNames.sha256] = descriptor.sha256;
+  input.environment[selectedRunner.sha256Name] =
+    selectedRunner.descriptor.sha256;
   if (revocationSha256)
     input.environment.EVIDENCE_WRITE_TOKEN_REVOCATION_READBACK_MODULE_SHA256 =
       revocationSha256;
