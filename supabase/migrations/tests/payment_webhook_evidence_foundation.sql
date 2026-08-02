@@ -13,7 +13,6 @@ DECLARE
   v_role text;
   v_missing_column text;
   v_missing_index text;
-  v_scope_value text;
   v_policy_name text;
 BEGIN
   FOREACH v_relation IN ARRAY ARRAY[
@@ -62,10 +61,6 @@ BEGIN
       RAISE EXCEPTION 'payment webhook evidence relation must have an explicit restrictive deny-all policy: %', v_relation;
     END IF;
 
-    IF (SELECT count(*) FROM pg_catalog.pg_class WHERE oid = ('private.' || v_relation)::regclass) <> 1 THEN
-      RAISE EXCEPTION 'payment webhook evidence relation catalog lookup failed: %', v_relation;
-    END IF;
-
     IF EXISTS (
       SELECT 1
       FROM pg_class relation
@@ -85,10 +80,6 @@ BEGIN
       END IF;
     END LOOP;
 
-    IF (SELECT count(*) FROM pg_catalog.pg_class WHERE oid = ('private.' || v_relation)::regclass) = 1
-      AND (SELECT count(*) FROM pg_catalog.pg_stat_user_tables WHERE relid = ('private.' || v_relation)::regclass) = 0 THEN
-      NULL;
-    END IF;
   END LOOP;
 
   SELECT expected.column_name
@@ -269,7 +260,7 @@ BEGIN
         ('payment_webhook_inbox', 'payment_webhook_inbox_replay_kind_check', 'c', '67d4880cc23e9131ab00e75d94c21b29'),
         ('payment_webhook_inbox', 'payment_webhook_inbox_replay_preimage_check', 'c', 'c54ae122bdde67ecdb6b4e80f23c968a'),
         ('payment_webhook_inbox', 'payment_webhook_inbox_signature_scope_check', 'c', '2ef1b16986b077f9e7a2b4f7edf0ad57'),
-        ('payment_webhook_inbox', 'payment_webhook_inbox_source_manifest_fkey', 'f', '55b8f19f4bb5fe8936200f9178cd6468'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_source_manifest_fkey', 'f', '106bb7891d156d1b64a03a7a7c4dd398'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_authority_key_check', 'c', '283be407002f5ef64b35a43086b56340'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_binding_uq', 'u', '4026adb937de716931ef6854f1c8007a'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_currency_target_uq', 'u', 'c1351995bc0b6fb0610b133f991bd890'),
@@ -277,7 +268,7 @@ BEGIN
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_endpoint_key_check', 'c', 'eb180c4427d944ed3f12db0a1953536b'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_generation_fkey', 'f', 'feef7f664ac028e4313c71ed0f59d9c7'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_fkey', 'f', 'ff7a88b64f22b186d43e4c211fad047b'),
-        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_target_uq', 'u', '377cf998821deb0252fbebb2a4095dc7'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_target_uq', 'u', '57fcbdd34b4de68d4ae1e81e3f043089'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_parent_identity_check', 'c', '27d0b7eb682d7620fc0963aa8d6d0465'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_pkey', 'p', '4c6419b3704337bbfe50f018842a9ad3'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_provider_check', 'c', '533b9fd90954f63e7c913430cd87d143'),
@@ -456,7 +447,7 @@ BEGIN
         ('payment_webhook_inbox_source_manifest_idx', 'payment_webhook_inbox', ARRAY['source_manifest_id', 'id']::text[], false, false, NULL::text),
         ('payment_webhook_source_manifests_pkey', 'payment_webhook_source_manifests', ARRAY['id']::text[], true, true, NULL::text),
         ('payment_webhook_source_manifests_replay_key_uq', 'payment_webhook_source_manifests', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, false, NULL::text),
-        ('payment_webhook_source_manifests_inbox_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_inbox_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version', 'child_manifest_sha256', 'child_count', 'capture_mode', 'amount_minor', 'currency']::text[], true, false, NULL::text),
         ('payment_webhook_source_manifests_binding_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version', 'currency']::text[], true, false, NULL::text),
         ('payment_webhook_source_manifests_currency_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'currency']::text[], true, false, NULL::text),
         ('payment_webhook_source_manifests_provider_account_idx', 'payment_webhook_source_manifests', ARRAY['provider', 'provider_account_scope', 'created_at', 'id']::text[], false, false, NULL::text),
@@ -584,6 +575,7 @@ DECLARE
   v_preimage jsonb;
   v_keys text[];
   v_key text;
+  v_scope_value text;
   v_scope jsonb := '{"merchant_id":"__unresolved__","provider_account_scope":"__unresolved__"}'::jsonb;
   v_envelope jsonb := '{"contract_version":"envelope-v1","event_type":"payment.received","receiver":{},"provider_customer":null,"assignment":{},"economics":{},"paid_time":null,"children":[]}'::jsonb;
   v_parent jsonb := '{"event_type":"payment.received","provider_reference":null}'::jsonb;
@@ -610,7 +602,7 @@ BEGIN
       VALUES
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_generation_fkey', 'FOREIGN KEY (ingress_contract_generation_id, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) REFERENCES private.payment_ingress_contract_generations(id, provider, endpoint_key, signature_key_scope, authority_key, signature_key_identity_id, generation, parser_contract_version, normalized_envelope_schema_version, replay_identity_contract_version) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
         ('payment_webhook_inbox', 'payment_webhook_inbox_generation_fkey', 'FOREIGN KEY (ingress_contract_generation_id, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) REFERENCES private.payment_ingress_contract_generations(id, provider, endpoint_key, signature_key_scope, authority_key, signature_key_identity_id, generation, parser_contract_version, normalized_envelope_schema_version, replay_identity_contract_version) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
-        ('payment_webhook_inbox', 'payment_webhook_inbox_source_manifest_fkey', 'FOREIGN KEY (source_manifest_id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) REFERENCES private.payment_webhook_source_manifests(id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
+        ('payment_webhook_inbox', 'payment_webhook_inbox_source_manifest_fkey', 'FOREIGN KEY (source_manifest_id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version, child_manifest_sha256, child_count, capture_mode, manifest_amount_minor, manifest_currency) REFERENCES private.payment_webhook_source_manifests(id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version, child_manifest_sha256, child_count, capture_mode, amount_minor, currency) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_fkey', 'FOREIGN KEY (inbox_id, id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) REFERENCES private.payment_webhook_inbox(id, source_manifest_id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version) ON DELETE SET NULL (inbox_id) DEFERRABLE INITIALLY DEFERRED'),
         ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_fkey', 'FOREIGN KEY (source_manifest_id) REFERENCES private.payment_webhook_source_manifests(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED'),
         ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_currency_fkey', 'FOREIGN KEY (source_manifest_id, currency) REFERENCES private.payment_webhook_source_manifests(id, currency) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED')
@@ -634,7 +626,7 @@ BEGIN
         ('payment_webhook_inbox', 'payment_webhook_inbox_replay_key_uq', 'UNIQUE (replay_key_kind, replay_key_digest)'),
         ('payment_webhook_inbox', 'payment_webhook_inbox_manifest_binding_uq', 'UNIQUE (id, source_manifest_id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version)'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_replay_key_uq', 'UNIQUE (replay_key_kind, replay_key_digest)'),
-        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_target_uq', 'UNIQUE (id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version)'),
+        ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_inbox_target_uq', 'UNIQUE (id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version, child_manifest_sha256, child_count, capture_mode, amount_minor, currency)'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_binding_uq', 'UNIQUE (id, replay_key_kind, replay_key_digest, provider, endpoint_key, signature_key_scope, completion_authority_key, signature_key_identity_id, ingress_contract_generation, adapter_schema_version, normalized_envelope_schema_version, replay_identity_contract_version, currency)'),
         ('payment_webhook_source_manifests', 'payment_webhook_source_manifests_currency_target_uq', 'UNIQUE (id, currency)'),
         ('payment_webhook_source_proofs', 'payment_webhook_source_proofs_manifest_child_uq', 'UNIQUE (source_manifest_id, child_identity)'),
@@ -720,6 +712,18 @@ BEGIN
   );
 
   SET CONSTRAINTS ALL IMMEDIATE;
+
+  BEGIN
+    UPDATE private.payment_webhook_inbox
+    SET manifest_amount_minor = 101
+    WHERE id = v_inbox_id;
+    RAISE EXCEPTION 'inbox manifest economics unexpectedly diverged from its source manifest';
+  EXCEPTION WHEN foreign_key_violation THEN
+    GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
+    IF v_constraint IS DISTINCT FROM 'payment_webhook_inbox_source_manifest_fkey' THEN
+      RAISE;
+    END IF;
+  END;
 
   BEGIN
     UPDATE private.payment_webhook_inbox
@@ -1063,7 +1067,7 @@ BEGIN
         ('payment_webhook_inbox_source_manifest_idx', 'payment_webhook_inbox', ARRAY['source_manifest_id', 'id']::text[], false, false, NULL::text),
         ('payment_webhook_source_manifests_pkey', 'payment_webhook_source_manifests', ARRAY['id']::text[], true, true, NULL::text),
         ('payment_webhook_source_manifests_replay_key_uq', 'payment_webhook_source_manifests', ARRAY['replay_key_kind', 'replay_key_digest']::text[], true, false, NULL::text),
-        ('payment_webhook_source_manifests_inbox_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version']::text[], true, false, NULL::text),
+        ('payment_webhook_source_manifests_inbox_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version', 'child_manifest_sha256', 'child_count', 'capture_mode', 'amount_minor', 'currency']::text[], true, false, NULL::text),
         ('payment_webhook_source_manifests_binding_uq', 'payment_webhook_source_manifests', ARRAY['id', 'replay_key_kind', 'replay_key_digest', 'provider', 'endpoint_key', 'signature_key_scope', 'completion_authority_key', 'signature_key_identity_id', 'ingress_contract_generation', 'adapter_schema_version', 'normalized_envelope_schema_version', 'replay_identity_contract_version', 'currency']::text[], true, false, NULL::text),
         ('payment_webhook_source_manifests_currency_target_uq', 'payment_webhook_source_manifests', ARRAY['id', 'currency']::text[], true, false, NULL::text),
         ('payment_webhook_source_manifests_provider_account_idx', 'payment_webhook_source_manifests', ARRAY['provider', 'provider_account_scope', 'created_at', 'id']::text[], false, false, NULL::text),

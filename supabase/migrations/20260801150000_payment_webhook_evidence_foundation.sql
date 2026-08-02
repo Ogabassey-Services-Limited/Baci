@@ -167,7 +167,8 @@ CREATE TABLE private.payment_webhook_source_manifests (
       id, replay_key_kind, replay_key_digest, provider, endpoint_key,
       signature_key_scope, completion_authority_key, signature_key_identity_id,
       ingress_contract_generation, adapter_schema_version,
-      normalized_envelope_schema_version, replay_identity_contract_version
+      normalized_envelope_schema_version, replay_identity_contract_version,
+      child_manifest_sha256, child_count, capture_mode, amount_minor, currency
     ),
   CONSTRAINT payment_webhook_source_manifests_binding_uq
     UNIQUE (
@@ -426,12 +427,14 @@ CREATE TABLE private.payment_webhook_inbox (
       endpoint_key, signature_key_scope, completion_authority_key,
       signature_key_identity_id, ingress_contract_generation,
       adapter_schema_version, normalized_envelope_schema_version,
-      replay_identity_contract_version
+      replay_identity_contract_version, child_manifest_sha256, child_count,
+      capture_mode, manifest_amount_minor, manifest_currency
     ) REFERENCES private.payment_webhook_source_manifests (
       id, replay_key_kind, replay_key_digest, provider, endpoint_key,
       signature_key_scope, completion_authority_key, signature_key_identity_id,
       ingress_contract_generation, adapter_schema_version,
-      normalized_envelope_schema_version, replay_identity_contract_version
+      normalized_envelope_schema_version, replay_identity_contract_version,
+      child_manifest_sha256, child_count, capture_mode, amount_minor, currency
     ) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED
 );
 

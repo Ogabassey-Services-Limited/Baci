@@ -5,7 +5,7 @@
 - `supabase/migrations/20260801150000_payment_webhook_evidence_foundation.sql`
   creates only the three sealed private evidence relations plus the approved
   generation binding unique target. The final SHA-256 is
-  `0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72`.
+  `640f72cd35c32b489409ffce05b76bf71730b9ec365bfb93989181e2ba85c2bc`.
 - `supabase/migrations/tests/payment_webhook_evidence_foundation.sql` provides
   the transactional catalog, ACL/RLS, closed-JSON, FK/cycle, uniqueness,
   retention, prerequisite, and rollback assertions without asserting
@@ -76,13 +76,12 @@
   asserts each evidence relation is empty. Relation and retained-index catalog
   checks remain private-schema scoped.
 - The migration SHA-256 was recomputed as
-  `0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72`;
+  `640f72cd35c32b489409ffce05b76bf71730b9ec365bfb93989181e2ba85c2bc`;
   both registry mirrors still match and the pending-source count remains 101.
-- Focused migration/replay Vitest contracts passed (29 tests), and a clean
+- Focused migration/replay Vitest contracts passed (24 tests), and a clean
   foundation-plus-companion disposable PostgreSQL replay passed. The full
-  `pnpm turbo test` run completed with 3,578 files and 26,406 tests passing,
-  but one unrelated builder CSRF test timed out; an isolated rerun passed all
-  9 builder route-mutation tests.
+  `pnpm turbo test` run passed all five workspace tasks; the web package alone
+  completed 3,608 files and 26,519 tests successfully.
 
 ## Primary-key and post-rollback oracle closure
 
@@ -96,7 +95,7 @@
 - The source contract carries the same exact index tuples (name, relation,
   ordered keys, uniqueness, primary flag, and predicate) and requires the
   post-rollback catalog oracle markers. The migration SHA and both registry
-  mirrors remain `0b3de22fbbf81eb1759e1559acaa0995a001f5db5eb4dc0e8bf1658bf66f3d72`;
+  mirrors remain `640f72cd35c32b489409ffce05b76bf71730b9ec365bfb93989181e2ba85c2bc`;
   the pending-source count remains 101.
 
 ## Limitations
@@ -106,10 +105,8 @@
   `20260525140048_quiz_authoritative_answer_scoring.sql` at
   `extract(epoch FROM ...)`; it occurs before either prerequisite. It is not
   counted as RED-B or as a migration failure.
-- The full `pnpm turbo test` run is not fully green because the unrelated
-  `src/app/api/builder/route-mutations.test.ts` CSRF case timed out once under
-  the 25-minute monorepo run; the isolated file rerun passed 9/9. The focused
-  webhook-evidence/replay Vitest contracts passed independently (29/29).
+- The full `pnpm turbo test` run and the focused webhook-evidence/replay Vitest
+  contracts are green.
 - This slice intentionally does not enforce digest equality, append-only
   behavior, cross-row child conservation/projection, status transitions,
   review binding, or any order/financial authority. Those remain guarded-writer

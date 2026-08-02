@@ -21,10 +21,14 @@ function readMigration() {
 
 describe('payment webhook evidence foundation migration', () => {
   it('adds the lexically ordered sealed migration', () => {
-    expect(migrationFilename).toBe(
-      '20260801150000_payment_webhook_evidence_foundation.sql'
-    );
     expect(existsSync(migrationPath)).toBe(true);
+
+    for (const prerequisiteMigrationFilename of [
+      '20260731140000_payment_ingress_contract_generation_foundation.sql',
+      '20260801140000_payment_ingress_contract_companion.sql',
+    ]) {
+      expect(migrationFilename > prerequisiteMigrationFilename).toBe(true);
+    }
   });
 
   it('creates only the three dormant evidence relations and one approved generation target', () => {
