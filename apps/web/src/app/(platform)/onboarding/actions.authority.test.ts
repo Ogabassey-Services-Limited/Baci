@@ -122,8 +122,19 @@ describe('onboarding action palette persistence', () => {
     );
 
     expect(result.success).toBe(true);
+    expect(mocks.adminInsert).not.toHaveBeenCalled();
+    const updatePayload = mocks.adminUpdate.mock.calls[0]?.[0];
+    expect(updatePayload).not.toHaveProperty('brand_colors');
+    expect(mocks.adminUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ brand_colors: null })
+    );
     expect(mocks.generateInitialTemplate).toHaveBeenCalledWith(
       expect.objectContaining({ brandColors: preservedPalette })
+    );
+    expect(mocks.aiJobsInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({ brandColors: preservedPalette }),
+      })
     );
   });
 
