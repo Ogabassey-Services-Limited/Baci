@@ -4,6 +4,8 @@ RECOVERY_PROC_ROOT=$(recovery_proc_root_for_uid "$(/usr/bin/id -u)" "${RETIRE_OL
 RECOVERY_CONTAINER_COMMAND_PATH=${RECOVERY_CONTAINER_COMMAND_PATH:-}
 RECOVERY_CONTAINER_PORTS_FILE=${RECOVERY_CONTAINER_PORTS_FILE:-}
 RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}; RECOVERY_SOURCE_ROOT=/srv/baci-cwv/source; RECOVERY_RECEIPT_ROOT=/srv/baci-cwv/retired-ollama/recovery-scan; : "${RECOVERY_RECEIPT_ROOT}"
+RECOVERY_CONSUMERS_HELPER="$SCRIPT_DIR/retire-ollama-consumers.sh"
+[ -f "$RECOVERY_CONSUMERS_HELPER" ] && [ ! -L "$RECOVERY_CONSUMERS_HELPER" ] || review_required 'recovery consumer scanner helper missing'
 RECOVERY_RECEIPTS_HELPER="$SCRIPT_DIR/retire-ollama-recovery-receipts.sh"
 [ -f "$RECOVERY_RECEIPTS_HELPER" ] && [ ! -L "$RECOVERY_RECEIPTS_HELPER" ] || review_required 'recovery receipts helper missing'
 # shellcheck disable=SC1090,SC1091 # Resolved beside this sealed recovery helper.
@@ -77,6 +79,9 @@ recovery_process_identity() {
 recovery_is_scanner_ancestor() {
   case " ${RECOVERY_SCANNER_PID_SET:-} " in *" $1 "*) return 0;; *) return 1;; esac
 }
+recovery_is_reviewed_scanner_command() {
+  base=$1; command=$2; rest=$3; if [ "$base" = retire-ollama.sh ] && [ "$command" = "$SCRIPT_DIR/retire-ollama.sh" ]; then [ "$rest" = ' --recovery-scan' ]; else case "$base" in sh|dash|bash) [ "$rest" = " $SCRIPT_DIR/retire-ollama.sh --recovery-scan" ];; *) return 1;; esac; fi
+}
 recovery_seen_flag() {
   case " ${2:-} " in *" $1 "*) return 0;; *) return 1;; esac
 }
@@ -107,6 +112,7 @@ recovery_process_executable() {
   observed=$(readlink -- "$exe") || review_required 'process executable target unavailable'; observed=${observed% (deleted)}
   case "$kind" in
     ollama)
+      case "/${expected#/}/" in *'/../'*|*'/./'*|*'//'*) review_required 'process executable expectation path unsafe';; esac; case "$expected" in /*) :;; *) review_required 'process executable expectation path unsafe';; esac
       expected_path="$RECOVERY_PROC_ROOT/$pid/root$expected"
       expected_real=$(readlink -f -- "$expected_path") || review_required 'process executable expectation unresolved'
       expected_identity=$(stat -Lc '%d:%i:%u:%g:%a' "$expected_path") || review_required 'process executable expectation identity failed'
@@ -165,7 +171,7 @@ recovery_process_snapshot() {
       ollama) case "$rest" in ' serve'|' serve '*) class=ollama-process;; ' runner'|' runner '*) class=ollama-process;; *) review_required 'unsupported Ollama process';; esac;;
       docker-proxy) class=docker-proxy;;
       *)
-        case "$args" in *ollama*|*11434*) recovery_is_scanner_ancestor "$pid" || review_required 'foreign Ollama process refused';; esac
+        case "$args" in *ollama*|*11434*) if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else review_required 'foreign Ollama process refused'; fi;; esac
         continue;;
     esac
     identity=$(recovery_process_identity "$pid"); IFS=' ' read -r cgroup namespace extra <<EOF
@@ -228,7 +234,7 @@ recovery_container_snapshot() {
     fi
     rm -f "$json" "$error"; die "recovery container inspection failed ($status)"
   fi; rm -f "$error"
-  /usr/bin/jq -e 'type == "object" and .Name == "/ollama-loopback" and (.Id|type == "string" and test("^[0-9a-f]{64}$")) and (.Image|type == "string" and test("^sha256:[0-9a-f]{64}$")) and (.Path|type == "string" and test("^/[A-Za-z0-9._+@/-]*ollama$")) and (.State|type == "object") and (.State.Running|type == "boolean") and (.State.Pid|type == "number" and floor == . and . >= 0) and ((.State.Running and .State.Pid > 0) or ((.State.Running|not) and .State.Pid == 0))' "$json" >/dev/null || { rm -f "$json"; die 'invalid recovery container snapshot'; }
+  /usr/bin/jq -e 'type == "object" and .Name == "/ollama-loopback" and (.Id|type == "string" and test("^[0-9a-f]{64}$")) and (.Image|type == "string" and test("^sha256:[0-9a-f]{64}$")) and (.Path|type == "string" and test("^/[A-Za-z0-9._+@/-]*ollama$")) and (.Path|split("/")|.[0] == "" and (.[1:]|length > 0) and all(.[1:][]; . != "" and . != "." and . != "..")) and (.State|type == "object") and (.State.Running|type == "boolean") and (.State.Pid|type == "number" and floor == . and . >= 0) and ((.State.Running and .State.Pid > 0) or ((.State.Running|not) and .State.Pid == 0))' "$json" >/dev/null || { rm -f "$json"; die 'invalid recovery container snapshot'; }
   id=$(/usr/bin/jq -er '.Id' "$json"); image=$(/usr/bin/jq -er '.Image' "$json"); path=$(/usr/bin/jq -er '.Path' "$json"); pid=$(/usr/bin/jq -er '.State.Pid' "$json"); running=$(/usr/bin/jq -r '.State.Running' "$json")
   config_file=$(temp_path); /usr/bin/jq -S -c '{Config,HostConfig,Mounts,Networks:.NetworkSettings.Networks}' "$json" >"$config_file" || die 'recovery container config failed'; config=$(sha "$config_file"); rm -f "$config_file"
   ports_file=$(temp_path); /usr/bin/jq -S '{HostConfig:{PortBindings:.HostConfig.PortBindings},NetworkSettings:{Ports:.NetworkSettings.Ports,Networks:.NetworkSettings.Networks}}' "$json" >"$ports_file" || die 'recovery container ports failed'; ports_sha=$(sha "$ports_file")
@@ -272,7 +278,7 @@ recovery_collect_systemd() {
   done; :
 }
 recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes cat "$processes"; }
-recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) recovery_is_scanner_ancestor "$pid" || review_required 'foreign Ollama process remains after container removal';; esac; recovery_is_scanner_ancestor "$pid" && continue; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
+recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; rest=${args#"$command"}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else review_required 'foreign Ollama process remains after container removal'; fi;; esac; recovery_is_scanner_ancestor "$pid" && continue; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
 recovery_scan() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$; RECOVERY_CONTAINER_PORTS_FILE=''
   if [ "$(id -u)" -ne 0 ] && [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi

@@ -271,6 +271,7 @@ test('publishes a source-bound, fixed-path receipt and ignores redirect variable
     assert.equal(receipt.sourceBinding.sourceSha, sourceSha);
     assert.match(receipt.sourceBinding.scriptSha256, /^[0-9a-f]{64}$/);
     assert.match(receipt.sourceBinding.helperSha256, /^[0-9a-f]{64}$/);
+    assert.match(receipt.sourceBinding.consumersSha256, /^[0-9a-f]{64}$/);
     assert.equal(
       (await readFile(`${receiptPath}.sha256`, 'utf8')).trim(),
       stdout.trim()

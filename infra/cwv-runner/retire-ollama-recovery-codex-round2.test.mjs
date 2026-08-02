@@ -118,7 +118,7 @@ test('ignores the recovery scanner ancestry in absent-container evidence', async
   try {
     await emptyProc(proc);
     const { stdout } = await shell(
-      'RECOVERY_PROC_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh /srv/retire-ollama.sh --recovery-scan\\n" "$$" >"$2"; recovery_absent_process_snapshot "$2"',
+      'RECOVERY_PROC_ROOT="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" $$"; }; printf "%s 1 /bin/sh %s/retire-ollama.sh --recovery-scan\\n" "$$" "$SCRIPT_DIR" >"$2"; recovery_absent_process_snapshot "$2"',
       [processes, proc]
     );
     const snapshot = JSON.parse(stdout);

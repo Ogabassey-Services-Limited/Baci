@@ -16,7 +16,11 @@ POST_CRON_SHA=603d5005ad4f7b7d8c535be7ac8b8379b69a83b550014a56b2dfa6bbdb51ba8f
 OLLAMA_CRON_ONE=4cee5cdc723001694bc0d2ea22be4db9ff91a1df5f969dc95d2483f55900519d
 OLLAMA_CRON_TWO=3b27b446d253183977b01ea6e94c09a0d5bb4ac7d2414ad162ddd7fb49a6fc81
 PACKAGE_FORMAT="\${Version}"
-COMPOSE_ROOTS='/srv /home/bassey'; NGINX_ROOT=/etc/nginx
+# shellcheck disable=SC2034 # Consumer scanners are loaded lazily after trusted primitives.
+COMPOSE_ROOTS='/srv /home/bassey'
+# shellcheck disable=SC2034 # Consumer scanners are loaded lazily after trusted primitives.
+NGINX_ROOT=/etc/nginx
+# shellcheck disable=SC2034 # Consumer scanners are loaded lazily after trusted primitives.
 SYSTEMD_ROOTS='/etc/systemd/system /lib/systemd/system'
 TEMP_ROOT=''
 EXIT_REVIEW_REQUIRED=78
@@ -38,7 +42,6 @@ fsync_dir() { sync -f "$1" || die "cannot sync directory $1"; }
 safe_file() { [ -f "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u:%a' "$1")" = '0:600' ]; }
 safe_dir() { [ -d "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u:%a' "$1")" = '0:700' ]; }
 classify_endpoint() { value=$1; case "$value" in ''|disabled|none) printf disabled; return;; http://*) scheme=http; rest=${value#http://};; https://*) scheme=https; rest=${value#https://};; *) printf unknown; return;; esac; authority=${rest%%\?*}; authority=${authority%%\#*}; authority=${authority%%/*}; case "$authority" in ''|*@*|*[[:space:]]*|*:) printf unknown; return;; esac; host=$authority; port=''; case "$authority" in \[*\]:*) host=${authority%%]*}; host=${host#\[}; port=${authority#*\]:};; \[*\]) host=${authority#\[}; host=${host%\]};; *:*) host=${authority%:*}; port=${authority##*:}; case "$host:$port" in *:*:*|*:*[!0-9]*) printf unknown; return;; esac;; esac; case "$host" in 127.*|::1|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt]|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt].) local_host=1;; *) local_host=0;; esac; if [ "$scheme:$local_host:$port" = http:1:11434 ]; then printf ollama-loopback; elif [ "$scheme:$local_host" = https:0 ]; then printf external-provider; else printf unknown; fi; }
-parse_systemd_words() { printf '%s\n' "$1" | awk 'BEGIN{sq=0;dq=0;esc=0;started=0;word=""}{for(i=1;i<=length($0);i++){c=substr($0,i,1);if(esc){word=word c;started=1;esc=0;continue}if(c=="\\"&&!sq){esc=1;continue}if(c=="\""&&!sq){dq=!dq;started=1;continue}if(c=="\047"&&!dq){sq=!sq;started=1;continue}if(c~/[ \t]/&&!sq&&!dq){if(started){print word;word="";started=0}continue}word=word c;started=1}}END{if(esc||sq||dq)exit 2;if(started)print word}'; }; consumer_file_fingerprint() { path=$1; [ -f "$path" ] && [ ! -L "$path" ] || return 2; real=$(readlink -f -- "$path") || return 2; [ "$real" = "$path" ] || return 2; raw=$(temp_path); { stat -c '%d:%i:%f:%s:%u:%g:%a' "$path"; findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS --target "$path"; } >"$raw" || { rm -f "$raw"; return 2; }; identity=$(sha "$raw"); rm -f "$raw"; printf '%s|%s|%s\n' "$path" "$(sha "$path")" "$identity"; }
 sha() {
   input=$1; out=$(temp_path)
   sha256sum "$input" >"$out" || { rm -f "$out"; die "digest failed $input"; }
@@ -155,20 +158,13 @@ record_environment() {
   # shellcheck disable=SC2094 # The EnvironmentFile is read only; record_dependency receives its path as data.
   while IFS= read -r line || [ -n "$line" ]; do case "$line" in ''|'#'*) continue;; *=*) record_dependency "${line%%=*}" "${line#*=}" "$file";; *) die 'malformed EnvironmentFile';; esac; done <"$file"
 }
+load_consumer_scanners() { [ "${CONSUMER_SCANNERS_LOADED:-}" = yes ] && return; helper=${RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER:-"$SCRIPT_DIR/retire-ollama-consumers.sh"}; [ -f "$helper" ] && [ ! -L "$helper" ] || die 'consumer scanner helper missing'; # shellcheck disable=SC1090,SC1091 # Sealed sibling or test-injected helper.
+. "$helper"; CONSUMER_SCANNERS_LOADED=yes; }
+scan_nginx_definitions() { load_consumer_scanners; scan_nginx_definitions "$@"; }
+scan_compose_definitions() { load_consumer_scanners; scan_compose_definitions "$@"; }
+scan_systemd_runtime_consumers() { load_consumer_scanners; scan_systemd_runtime_consumers "$@"; }
+scan_systemd_consumers() { load_consumer_scanners; scan_systemd_consumers "$@"; }
 unit_state() { out=$(temp_path); systemctl show "$1" -p LoadState -p UnitFileState -p ActiveState --value >"$out" || { rm -f "$out"; die "unit state failed $1"; }; tr '\n' ':' <"$out"; rm -f "$out"; }
-scan_nginx_definitions() { [ -d "$NGINX_ROOT" ] || return 0; list=$(temp_path); if grep -r -l -Ei 'ollama|11434' "$NGINX_ROOT" >"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; while IFS= read -r path || [ -n "$path" ]; do consumer_file_fingerprint "$path" || { status=$?; rm -f "$list"; return "$status"; }; done <"$list"; rm -f "$list"; }
-scan_compose_definitions() {
-  list=$(temp_path); for root in $COMPOSE_ROOTS; do [ -d "$root" ] || continue; find "$root" -maxdepth 5 -type f \( -name 'docker-compose*.yml' -o -name 'docker-compose*.yaml' -o -name 'compose*.yml' -o -name 'compose*.yaml' -o -name 'Containerfile' \) >>"$list" || { rm -f "$list"; return 2; }; done
-  # shellcheck disable=SC2094 # $list is only read after the find phase above has completed.
-  while IFS= read -r path || [ -n "$path" ]; do if grep -q -Ei 'ollama|11434' "$path"; then consumer_file_fingerprint "$path" || { status=$?; rm -f "$list"; return "$status"; }; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; done <"$list"; rm -f "$list"
-}
-# shellcheck disable=SC2094 # Error cleanup unlinks snapshots only while their open descriptors remain readable.
-scan_systemd_runtime_consumers() { units=$(temp_path); properties=$(temp_path); systemctl list-units --all --no-legend --plain --no-pager >"$units" || { status=$?; rm -f "$units" "$properties"; return "$status"; }; while read -r name _ || [ -n "$name" ]; do case "$name" in ''|"$UNIT"|"$TIMER") continue;; esac; systemctl show --property=Environment --property=EnvironmentFiles --property=ExecStart --no-pager -- "$name" >"$properties" || { status=$?; rm -f "$units" "$properties"; return "$status"; }; while IFS= read -r property || [ -n "$property" ]; do if printf '%s\n' "$property" | grep -q -Ei 'ollama|11434'; then printf '%s:%s\n' "$name" "$(hash_text "$property")"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$units" "$properties"; return "$status"; }; fi; done <"$properties"; done <"$units"; rm -f "$units" "$properties"; }
-scan_systemd_consumers() {
-  list=$(temp_path); environment_files=$(temp_path); for root in $SYSTEMD_ROOTS; do [ -d "$root" ] || continue; if grep -r -l -Ei 'ollama|11434' "$root" >>"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files"; return "$status"; }; fi; if grep -r -H -E '^[[:space:]]*EnvironmentFile=' "$root" >>"$environment_files"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files"; return "$status"; }; fi; done
-  while IFS= read -r path || [ -n "$path" ]; do case "$path" in */"$UNIT"|*/"$UNIT".d/*|*/"$TIMER"|*/"$TIMER".d/*) ;; *) consumer_file_fingerprint "$path" || { status=$?; rm -f "$list" "$environment_files"; return "$status"; };; esac; done <"$list"; rm -f "$list"
-  while IFS=: read -r definition directive || [ -n "$definition$directive" ]; do case "$definition" in */"$UNIT"|*/"$UNIT".d/*|*/"$TIMER"|*/"$TIMER".d/*) continue;; esac; value=${directive#*=}; parsed=$(temp_path); parse_systemd_words "$value" >"$parsed" || { status=$?; rm -f "$parsed"; return "$status"; }; while IFS= read -r item || [ -n "$item" ]; do optional=0; case "$item" in -*) optional=1; item=${item#-};; esac; case "$item" in /*) :;; *) rm -f "$parsed"; return 2;; esac; if [ ! -e "$item" ]; then [ "$optional" -eq 1 ] && continue; rm -f "$parsed"; return 2; fi; [ -f "$item" ] && [ ! -L "$item" ] || { rm -f "$parsed"; return 2; }; [ "${RECOVERY_RECORDS+x}" = x ] && recovery_record_environment "$item" "$optional"; if grep -q -Ei 'ollama|11434' "$item"; then definition_record=$(consumer_file_fingerprint "$definition") || { status=$?; rm -f "$parsed"; return "$status"; }; item_record=$(consumer_file_fingerprint "$item") || { status=$?; rm -f "$parsed"; return "$status"; }; printf '%s|%s\n' "$definition_record" "$item_record"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$parsed"; return "$status"; }; fi; done <"$parsed"; rm -f "$parsed"; done <"$environment_files"; rm -f "$environment_files"; scan_systemd_runtime_consumers
-}
 scan_container_rows() {
   scope=$1; raw=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$raw"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$raw"; fi || { status=$?; rm -f "$raw"; return "$status"; }
   # shellcheck disable=SC2094 # The open snapshot descriptor remains readable if error cleanup unlinks its pathname.

@@ -12,7 +12,7 @@ const script = new URL('./retire-ollama.sh', import.meta.url);
 async function capture(scanner, nginxRoot, composeRoot, systemdRoot) {
   const { stdout } = await execFileAsync('sh', [
     '-c',
-    'systemctl() { :; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; NGINX_ROOT="$2"; COMPOSE_ROOTS="$3"; SYSTEMD_ROOTS="$4"; init_temp_root; trap cleanup_temp EXIT; "$5"',
+    'systemctl() { :; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); NGINX_ROOT="$2"; COMPOSE_ROOTS="$3"; SYSTEMD_ROOTS="$4"; init_temp_root; trap cleanup_temp EXIT; "$5"',
     'retire-ollama-consumer-content-binding-test',
     script.pathname,
     nginxRoot,

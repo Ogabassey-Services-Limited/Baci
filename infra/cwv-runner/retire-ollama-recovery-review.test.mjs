@@ -18,7 +18,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
 const sourceSha = 'b'.repeat(40);
-function shellAt(pathname, command, args = [], env = {}) {
+function shellAt(pathname, command, args = [], env = {}, options = {}) {
   return execFileAsync(
     'sh',
     [
@@ -28,12 +28,17 @@ function shellAt(pathname, command, args = [], env = {}) {
       pathname,
       ...args,
     ],
-    { env: { ...process.env, ...env } }
+    { env: { ...process.env, ...env }, ...options }
   );
 }
 
 function shell(command, args = [], env = {}) {
   return shellAt(script.pathname, command, args, env);
+}
+
+function shellWithSyntheticProc(command, args = [], env = {}) {
+  const options = process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};
+  return shellAt(script.pathname, command, args, env, options);
 }
 
 async function receiptBin() {
@@ -72,6 +77,7 @@ test('derives the source identity from the sealed SHA directory', async () => {
       'retire-ollama.sh',
       'retire-ollama-recovery.sh',
       'retire-ollama-recovery-receipts.sh',
+      'retire-ollama-consumers.sh',
     ]) {
       await copyFile(new URL(`./${name}`, import.meta.url), join(sealed, name));
     }
@@ -91,8 +97,10 @@ test('accepts the merged-usr executable alias only after canonical resolution', 
   const procRoot = join(root, 'proc');
   const proc = join(procRoot, '41');
   try {
-    await mkdir(proc, { recursive: true });
-    await mkdir(bin);
+    await mkdir(proc, { mode: 0o755, recursive: true });
+    await mkdir(bin, { mode: 0o755 });
+    await chmod(root, 0o755);
+    await chmod(procRoot, 0o755);
     await writeFile(
       join(bin, 'readlink'),
       '#!/bin/sh\ncase "$1" in -f) case "$3" in */missing/ollama) exit 1;; esac; printf "/usr/bin/ollama\\n";; --) printf "/bin/ollama\\n";; *) exit 1;; esac\n'
@@ -116,22 +124,31 @@ test('accepts the merged-usr executable alias only after canonical resolution', 
       `41 (ollama) ${Array.from({ length: 20 }, () => '1').join(' ')}\n`
     );
     await writeFile(join(proc, 'status'), 'Uid:\t1000\t1000\t1000\t1000\n');
-    const { stdout } = await shell(
-      'RECOVERY_PROC_ROOT="$2"; init_temp_root; trap cleanup_temp EXIT; recovery_process_executable 41 /bin/ollama ollama',
+    const { stdout } = await shellWithSyntheticProc(
+      '[ "$RECOVERY_PROC_ROOT" = "$2" ] || exit 79; init_temp_root; trap cleanup_temp EXIT; recovery_process_executable 41 /bin/ollama ollama',
       [procRoot],
-      { RETIRE_OLLAMA_TEST_BIN: bin }
+      { RETIRE_OLLAMA_PROC_ROOT: procRoot, RETIRE_OLLAMA_TEST_BIN: bin }
     );
     const executable = JSON.parse(stdout);
     assert.equal(executable.path, '/bin/ollama');
     assert.equal(executable.realPath, '/usr/bin/ollama');
     await assert.rejects(
-      shell(
-        'RECOVERY_PROC_ROOT="$2"; init_temp_root; trap cleanup_temp EXIT; recovery_process_executable 41 /missing/ollama ollama',
+      shellWithSyntheticProc(
+        '[ "$RECOVERY_PROC_ROOT" = "$2" ] || exit 79; init_temp_root; trap cleanup_temp EXIT; recovery_process_executable 41 /missing/ollama ollama',
         [procRoot],
-        { RETIRE_OLLAMA_TEST_BIN: bin }
+        { RETIRE_OLLAMA_PROC_ROOT: procRoot, RETIRE_OLLAMA_TEST_BIN: bin }
       ),
       (error) =>
         error.code === 78 && /expectation unresolved/.test(error.stderr)
+    );
+    await assert.rejects(
+      shellWithSyntheticProc(
+        '[ "$RECOVERY_PROC_ROOT" = "$2" ] || exit 79; init_temp_root; trap cleanup_temp EXIT; recovery_process_executable 41 /../../usr/bin/ollama ollama',
+        [procRoot],
+        { RETIRE_OLLAMA_PROC_ROOT: procRoot, RETIRE_OLLAMA_TEST_BIN: bin }
+      ),
+      (error) =>
+        error.code === 78 && /expectation path unsafe/.test(error.stderr)
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -197,6 +214,26 @@ test('rejects a Docker transport error instead of recording container absence', 
       'recovery_docker() { printf "Cannot connect to Docker daemon\\n" >&2; return 1; }; init_temp_root; trap cleanup_temp EXIT; recovery_container_snapshot'
     ),
     (error) => error.code === 65 && /inspection failed/.test(error.stderr)
+  );
+});
+
+test('rejects container executable paths that escape the container root', async () => {
+  const inspected = JSON.stringify({
+    Name: '/ollama-loopback',
+    Id: 'b'.repeat(64),
+    Image: `sha256:${'c'.repeat(64)}`,
+    State: { Running: false, Pid: 0 },
+    Path: '/../../usr/bin/ollama',
+    Config: {},
+    HostConfig: {},
+    Mounts: [],
+    NetworkSettings: { Networks: {} },
+  });
+  await assert.rejects(
+    shell(
+      `recovery_docker() { printf '%s\\n' '${inspected}'; }; init_temp_root; trap cleanup_temp EXIT; recovery_container_snapshot`
+    ),
+    (error) => /invalid recovery container snapshot/.test(error.stderr)
   );
 });
 

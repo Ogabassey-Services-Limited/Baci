@@ -13,7 +13,7 @@ function shell(env = {}, options = {}) {
     'sh',
     [
       '-c',
-      '. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; id() { printf "%s\\n" "$RETIRE_OLLAMA_TEST_FAKE_UID"; }; sha() { /usr/bin/shasum -a 256 "$1" | /usr/bin/awk "{print \\$1}"; }; init_temp_root; trap cleanup_temp EXIT; recovery_source_digests; printf "%s:%s:%s\\n" "$RECOVERY_SCRIPT_SHA" "$RECOVERY_HELPER_SHA" "$RECOVERY_RECEIPTS_SHA"',
+      '. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; id() { printf "%s\\n" "$RETIRE_OLLAMA_TEST_FAKE_UID"; }; sha() { /usr/bin/shasum -a 256 "$1" | /usr/bin/awk "{print \\$1}"; }; init_temp_root; trap cleanup_temp EXIT; recovery_source_digests; printf "%s:%s:%s:%s\\n" "$RECOVERY_SCRIPT_SHA" "$RECOVERY_HELPER_SHA" "$RECOVERY_RECEIPTS_SHA" "$RECOVERY_CONSUMERS_SHA"',
       'recovery-receipts-authority-test',
       script.pathname,
     ],
@@ -30,6 +30,7 @@ async function sha256(file) {
 test('derives recovery source digests from sealed files for privileged execution', async () => {
   const overrides = {
     RECOVERY_HELPER_SHA: 'b'.repeat(64),
+    RECOVERY_CONSUMERS_SHA: 'd'.repeat(64),
     RECOVERY_RECEIPTS_SHA: 'c'.repeat(64),
     RECOVERY_SCRIPT_SHA: 'a'.repeat(64),
     RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
@@ -39,6 +40,7 @@ test('derives recovery source digests from sealed files for privileged execution
     sha256(script),
     sha256(new URL('./retire-ollama-recovery.sh', script)),
     sha256(new URL('./retire-ollama-recovery-receipts.sh', script)),
+    sha256(new URL('./retire-ollama-consumers.sh', script)),
   ]);
   const { stdout } = await shell(overrides);
   assert.deepEqual(stdout.trim().split(':'), expected);
@@ -47,6 +49,7 @@ test('derives recovery source digests from sealed files for privileged execution
 test('permits digest overrides only in the unprivileged test harness', async () => {
   const overrides = {
     RECOVERY_HELPER_SHA: 'b'.repeat(64),
+    RECOVERY_CONSUMERS_SHA: 'd'.repeat(64),
     RECOVERY_RECEIPTS_SHA: 'c'.repeat(64),
     RECOVERY_SCRIPT_SHA: 'a'.repeat(64),
     RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
@@ -57,5 +60,6 @@ test('permits digest overrides only in the unprivileged test harness', async () 
     overrides.RECOVERY_SCRIPT_SHA,
     overrides.RECOVERY_HELPER_SHA,
     overrides.RECOVERY_RECEIPTS_SHA,
+    overrides.RECOVERY_CONSUMERS_SHA,
   ]);
 });

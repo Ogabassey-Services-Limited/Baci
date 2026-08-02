@@ -174,6 +174,26 @@ test('rejects an Ollama executable even when it is a scanner ancestor', async ()
   }
 });
 
+test('rejects an Ollama wrapper even when it is a scanner ancestor', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-recovery-absent-wrapper-')
+  );
+  const processes = join(directory, 'processes');
+  try {
+    await writeFile(processes, '41 1 /usr/bin/python /opt/ollama/server.py\n');
+    await assert.rejects(
+      shell(
+        'init_temp_root; trap cleanup_temp EXIT; RECOVERY_SELF_PID=41; recovery_build_scanner_ancestors() { RECOVERY_SCANNER_PID_SET=" 41 "; }; recovery_absent_process_snapshot "$2"',
+        [processes]
+      ),
+      (error) =>
+        error.code === 78 && /foreign Ollama process remains/.test(error.stderr)
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('parses authentic installed dpkg status bytes without a leading version space', async () => {
   const { stdout } = await shell(
     "recovery_dpkg_query() { printf 'ii  0.1\\n'; }; init_temp_root; trap cleanup_temp EXIT; recovery_package_snapshot"

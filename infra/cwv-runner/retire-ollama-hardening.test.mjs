@@ -18,10 +18,10 @@ import { promisify } from 'node:util';
 
 const root = new URL('.', import.meta.url); const script = new URL('./retire-ollama.sh', root); const execFileAsync = promisify(execFile);
 test('keeps the scan finite when nginx is not installed', async () => {
-  const source = await readFile(script, 'utf8');
+  const source = await readFile(new URL('./retire-ollama-consumers.sh', root), 'utf8');
   assert.match(
     source,
-    /NGINX_ROOT=\/etc\/nginx.*scan_nginx_definitions\(\).*\[ -d "\$NGINX_ROOT" \] \|\| return 0/s
+    /scan_nginx_definitions\(\).*\[ ! -e "\$NGINX_ROOT" \] && return 0/s
   );
 });
 test('classifies every non-environment consumer surface without retaining raw values', async () => {
@@ -58,7 +58,7 @@ test('treats a compose.yaml consumer as a nonzero classified dependency', async 
         'sh',
         [
           '-c',
-          'copy=$(mktemp); sed \'$d\' "$1" >"$copy"; . "$copy"; rm -f "$copy"; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; readlink() { for path do :; done; printf "%s\\n" "$path"; }; COMPOSE_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; consumer_counts=$(jq -cn \'["systemd-definitions","reverse-proxy","running-processes","running-containers","container-definitions","container-config"] | map({surface:.,matchCount:0})\'); out=$(temp_path); scan_compose_definitions >"$out"; record_consumers compose-definitions "$out" all; jq -n --argjson counts "$consumer_counts" \'{scan:{consumerCounts:$counts}}\' >"$3"; RECEIPT="$3"; assert_zero_consumers',
+          'helper=$(dirname "$1")/retire-ollama-consumers.sh; copy=$(mktemp); sed \'$d\' "$1" >"$copy"; RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER="$helper"; . "$copy"; rm -f "$copy"; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; readlink() { for path do :; done; printf "%s\\n" "$path"; }; COMPOSE_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; consumer_counts=$(jq -cn \'["systemd-definitions","reverse-proxy","running-processes","running-containers","container-definitions","container-config"] | map({surface:.,matchCount:0})\'); out=$(temp_path); scan_compose_definitions >"$out"; record_consumers compose-definitions "$out" all; jq -n --argjson counts "$consumer_counts" \'{scan:{consumerCounts:$counts}}\' >"$3"; RECEIPT="$3"; assert_zero_consumers',
           'retire-compose-test',
           script.pathname,
           dir,
