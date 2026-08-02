@@ -87,6 +87,58 @@ test('refuses pending-pair recovery when either paired digest cannot be read', a
   }
 });
 
+test('syncs the receipt directory after removing an accepted pending digest', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-recovery-pending-sync-')
+  );
+  const json = join(directory, 'recovery-scan.json');
+  const digest = `${json}.sha256`;
+  const digestPending = `${digest}.pending`;
+  await Promise.all([
+    writeFile(json, '{}'),
+    writeFile(digest, 'a'.repeat(64)),
+    writeFile(digestPending, 'a'.repeat(64)),
+  ]);
+  try {
+    const { stdout } = await shell(
+      `expected=$2; recovery_reconcile_publish_temporaries() { :; }; recovery_validate_json() { :; }; recovery_pair_digest() { :; }; recovery_read_digest() { printf '%064d\\n' 0; }; recovery_no_pending() { :; }; synced=0; fsync_dir() { [ "$1" = "$expected" ] && [ ! -e "$expected/recovery-scan.json.sha256.pending" ] || return 1; synced=$((synced + 1)); }; recovery_reconcile_pair "$expected"; printf 'synced:%s\\n' "$synced"`,
+      [directory]
+    );
+    assert.equal(stdout, 'synced:1\n');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('refuses recovery when an accepted pending digest cannot be removed', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-recovery-pending-remove-')
+  );
+  const json = join(directory, 'recovery-scan.json');
+  const digest = `${json}.sha256`;
+  const digestPending = `${digest}.pending`;
+  await Promise.all([
+    writeFile(json, '{}'),
+    writeFile(digest, 'a'.repeat(64)),
+    writeFile(digestPending, 'a'.repeat(64)),
+  ]);
+  await chmod(directory, 0o500);
+  try {
+    await assert.rejects(
+      shell(
+        `recovery_reconcile_publish_temporaries() { :; }; recovery_validate_json() { :; }; recovery_pair_digest() { :; }; recovery_read_digest() { printf '%064d\\n' 0; }; recovery_no_pending() { :; }; fsync_dir() { :; }; recovery_reconcile_pair "$2"`,
+        [directory]
+      ),
+      (error) =>
+        error.code === 78 &&
+        /recovery pending digest cleanup failed/.test(error.stderr)
+    );
+  } finally {
+    await chmod(directory, 0o700);
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('refuses publication when a partial receipt digest comparison cannot be proven', async () => {
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-recovery-partial-pair-')

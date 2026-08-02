@@ -199,7 +199,7 @@ recovery_reconcile_pair() {
   if [ "$json_exists" -eq 1 ] && [ "$digest_exists" -eq 1 ]; then
     recovery_pair_digest "$json" "$digest" || review_required 'recovery receipt pair drift'
     if [ "$json_pending_exists" -eq 1 ]; then if [ "$digest_pending_exists" -eq 1 ]; then recovery_pair_digest "$json_pending" "$digest_pending" || review_required 'recovery pending JSON pair drift'; fi; recovery_reconcile_duplicate_link "$json_pending" "$json" || review_required 'recovery pending JSON residue'; fi
-    if [ "$digest_pending_exists" -eq 1 ]; then pending_digest=$(recovery_read_digest "$digest_pending") || review_required 'recovery pending digest drift'; digest_value=$(recovery_read_digest "$digest") || review_required 'recovery pending digest drift'; [ -n "$pending_digest" ] && [ -n "$digest_value" ] && [ "$pending_digest" = "$digest_value" ] || review_required 'recovery pending digest drift'; /bin/rm -f -- "$digest_pending"; fi
+    if [ "$digest_pending_exists" -eq 1 ]; then pending_digest=$(recovery_read_digest "$digest_pending") || review_required 'recovery pending digest drift'; digest_value=$(recovery_read_digest "$digest") || review_required 'recovery pending digest drift'; [ -n "$pending_digest" ] && [ -n "$digest_value" ] && [ "$pending_digest" = "$digest_value" ] || review_required 'recovery pending digest drift'; /bin/rm -f -- "$digest_pending" || review_required 'recovery pending digest cleanup failed'; fsync_dir "$directory"; fi
     recovery_no_pending "$directory" || review_required 'recovery receipt pending residue'; return 0
   fi
   if [ "$json_exists" -eq 1 ]; then
