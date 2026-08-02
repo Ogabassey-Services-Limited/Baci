@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { resolveOnboardingMerchantSlug } from './onboarding-slug';
+import {
+  hasEstablishedOnboardingSlug,
+  resolveOnboardingMerchantSlug,
+} from './onboarding-slug';
 
 describe('resolveOnboardingMerchantSlug', () => {
   it('uses the local normalized slug when the database resolver has no value', async () => {
@@ -8,6 +11,9 @@ describe('resolveOnboardingMerchantSlug', () => {
     await expect(
       resolveOnboardingMerchantSlug({ rpc }, 'Baci Food 123')
     ).resolves.toBe('baci-food-123');
+    expect(hasEstablishedOnboardingSlug('merchant-chosen-slug')).toBe(true);
+    expect(hasEstablishedOnboardingSlug('   ')).toBe(false);
+    expect(hasEstablishedOnboardingSlug(null)).toBe(false);
   });
 
   it('keeps the database-issued slug for a collision-safe result', async () => {

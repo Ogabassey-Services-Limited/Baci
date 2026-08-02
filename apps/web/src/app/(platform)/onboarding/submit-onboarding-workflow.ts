@@ -25,7 +25,6 @@ import type {
 } from './onboarding-action-types';
 import { resolveOnboardingUser } from './resolve-onboarding-user';
 import { upsertOnboardingMerchant } from './upsert-onboarding-merchant';
-
 export function buildOnboardingRedirectUrl(search = ''): string {
   const appUrl = getConfiguredAppUrl() ?? (isProduction() ? null : getAppUrl());
   if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL must be configured');
@@ -33,7 +32,6 @@ export function buildOnboardingRedirectUrl(search = ''): string {
   url.search = search;
   return url.toString();
 }
-
 function parseOnboardingBrandColors(value?: string): {
   brandColors: OnboardingBrandColors;
   brandColorsParsed: boolean;
@@ -49,7 +47,6 @@ function parseOnboardingBrandColors(value?: string): {
     return { brandColors: null, brandColorsParsed: false };
   }
 }
-
 function resolveStarterBrandColors(
   parsedBrandColors: OnboardingBrandColors,
   merchant: { brand_colors?: unknown } | null
@@ -63,7 +60,6 @@ function resolveStarterBrandColors(
     }
   );
 }
-
 export async function runSubmitOnboardingWorkflow(
   _prevState: ServerActionState,
   formData: FormData
@@ -106,7 +102,6 @@ export async function runSubmitOnboardingWorkflow(
   const businessName = normalizeBusinessName(rawBusinessName);
   const { brandColors, brandColorsParsed } =
     parseOnboardingBrandColors(rawBrandColors);
-
   try {
     const { data: existingMerchant } = await adminSupabase
       .from('merchants')
@@ -173,75 +168,86 @@ export async function runSubmitOnboardingWorkflow(
     if (domainError) {
       throw new Error(`Failed to create domain: ${domainError.message}`);
     }
-    const { generateInitialTemplate } = await import(
-      '@/lib/initial-template-generator'
-    );
-    const safeBrandColors = resolveStarterBrandColors(brandColors, merchant);
-    const config = await generateInitialTemplate({
-      businessName,
-      businessType: persisted.businessType,
-      brandColors: safeBrandColors,
-      merchant,
-    });
-    const { data: pageConfig, error: pageConfigError } = await adminSupabase
-      .from('page_configs')
-      .insert({
-        merchant_id: merchant.id,
-        page_slug: 'home',
-        page_name: 'Home',
-        draft_config: config,
-        published_config: config,
-        is_published: true,
-      })
-      .select('updated_at')
-      .single();
-    if (pageConfigError || !pageConfig) {
-      throw new Error(
-        `Failed to create starter page config: ${pageConfigError?.message ?? 'No page config returned'}`
+    try {
+      const { generateInitialTemplate } = await import(
+        '@/lib/initial-template-generator'
       );
-    }
-    if (isAiStorefrontGenerationEnabled()) {
-      const { error: aiJobError } = await adminSupabase.from('ai_jobs').insert({
-        merchant_id: merchant.id,
-        type: 'storefront_layout_generation',
-        status: 'pending',
-        idempotency_key: `storefront-layout:${merchant.id}:home:onboarding`,
-        input: {
-          pageSlug: 'home',
-          businessName,
-          businessType: persisted.businessType,
-          brandColors: safeBrandColors,
-          createdPageConfigUpdatedAt: pageConfig.updated_at,
-        },
-        model: getOllamaStorefrontModel(),
-        metadata: {
-          source: 'onboarding',
-          createdPageConfigUpdatedAt: pageConfig.updated_at,
-        },
+      const safeBrandColors = resolveStarterBrandColors(brandColors, merchant);
+      const config = await generateInitialTemplate({
+        businessName,
+        businessType: persisted.businessType,
+        brandColors: safeBrandColors,
+        merchant,
       });
-      if (aiJobError && aiJobError.code !== '23505') {
-        logger.error({
-          message: 'AI storefront generation job enqueue failed',
-          merchantId: merchant.id,
-          error: aiJobError,
-        });
+      const { data: pageConfig, error: pageConfigError } = await adminSupabase
+        .from('page_configs')
+        .insert({
+          merchant_id: merchant.id,
+          page_slug: 'home',
+          page_name: 'Home',
+          draft_config: config,
+          published_config: config,
+          is_published: true,
+        })
+        .select('updated_at')
+        .single();
+      if (pageConfigError || !pageConfig) {
+        throw new Error(
+          `Failed to create starter page config: ${pageConfigError?.message ?? 'No page config returned'}`
+        );
       }
-      if (!aiJobError || aiJobError.code === '23505') {
-        after(async () => {
-          try {
-            await triggerAiStorefrontWorker({
-              merchantId: merchant.id,
+      if (isAiStorefrontGenerationEnabled()) {
+        const { error: aiJobError } = await adminSupabase
+          .from('ai_jobs')
+          .insert({
+            merchant_id: merchant.id,
+            type: 'storefront_layout_generation',
+            status: 'pending',
+            idempotency_key: `storefront-layout:${merchant.id}:home:onboarding`,
+            input: {
+              pageSlug: 'home',
+              businessName,
+              businessType: persisted.businessType,
+              brandColors: safeBrandColors,
+              createdPageConfigUpdatedAt: pageConfig.updated_at,
+            },
+            model: getOllamaStorefrontModel(),
+            metadata: {
               source: 'onboarding',
-            });
-          } catch (error) {
-            logger.error({
-              message: 'AI storefront worker trigger failed',
-              merchantId: merchant.id,
-              error,
-            });
-          }
-        });
+              createdPageConfigUpdatedAt: pageConfig.updated_at,
+            },
+          });
+        if (aiJobError && aiJobError.code !== '23505') {
+          logger.error({
+            message: 'AI storefront generation job enqueue failed',
+            merchantId: merchant.id,
+            error: aiJobError,
+          });
+        }
+        if (!aiJobError || aiJobError.code === '23505') {
+          after(async () => {
+            try {
+              await triggerAiStorefrontWorker({
+                merchantId: merchant.id,
+                source: 'onboarding',
+              });
+            } catch (error) {
+              logger.error({
+                message: 'AI storefront worker trigger failed',
+                merchantId: merchant.id,
+                error,
+              });
+            }
+          });
+        }
       }
+    } catch (error) {
+      logger.error({
+        message: 'Template generation failed',
+        merchantId: merchant.id,
+        error,
+      });
+      throw error;
     }
     if (isEventPipelineEnqueueEnabled()) {
       try {

@@ -45,9 +45,10 @@ describe('onboarding action starter storefront effects', () => {
 
   it('does not enqueue an AI job or report success when starter page insert fails', async () => {
     readyMerchant();
+    const error = { message: 'insert failed' };
     mocks.pageConfigSingle.mockResolvedValueOnce({
       data: null,
-      error: { message: 'insert failed' },
+      error,
     });
     mocks.isAiStorefrontGenerationEnabled.mockReturnValue(true);
 
@@ -56,6 +57,13 @@ describe('onboarding action starter storefront effects', () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain('Failed to create starter page config');
     expect(mocks.aiJobsInsert).not.toHaveBeenCalled();
+    expect(mocks.loggerError).toHaveBeenCalledWith({
+      message: 'Template generation failed',
+      merchantId: 'merchant-1',
+      error: expect.objectContaining({
+        message: 'Failed to create starter page config: insert failed',
+      }),
+    });
   });
 
   it('enqueues a storefront generation job when the rollout flag is enabled', async () => {

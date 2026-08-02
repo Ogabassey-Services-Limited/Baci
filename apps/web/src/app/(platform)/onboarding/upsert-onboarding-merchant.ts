@@ -5,7 +5,10 @@ import type {
   OnboardingBrandColors,
   OnboardingMerchant,
 } from './onboarding-action-types';
-import { resolveOnboardingMerchantSlug } from './onboarding-slug';
+import {
+  hasEstablishedOnboardingSlug,
+  resolveOnboardingMerchantSlug,
+} from './onboarding-slug';
 
 type OnboardingMerchantClient = Pick<
   ReturnType<typeof createAdminClientFactory>,
@@ -59,7 +62,7 @@ export async function upsertOnboardingMerchant({
 
   let merchant: OnboardingMerchant | null;
   if (existing) {
-    const resolvedSlug = existing.slug?.trim()
+    const resolvedSlug = hasEstablishedOnboardingSlug(existing.slug)
       ? null
       : await resolveOnboardingMerchantSlug(supabase, businessName);
     const { data, error } = await supabase

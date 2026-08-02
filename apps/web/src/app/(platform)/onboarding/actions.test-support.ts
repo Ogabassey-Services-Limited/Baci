@@ -29,6 +29,7 @@ const mocks = {
   pageConfigSingle: vi.fn(),
   aiJobsInsert: vi.fn(),
   generateInitialTemplate: vi.fn(),
+  loggerError: vi.fn(),
 };
 
 export function getActionMocks() {
@@ -89,7 +90,7 @@ vi.doMock('@/lib/email', () => ({
   sendWelcomeEmail: vi.fn().mockResolvedValue(undefined),
 }));
 vi.doMock('@/lib/logger', () => ({
-  logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+  logger: { info: vi.fn(), error: mocks.loggerError, warn: vi.fn() },
 }));
 vi.doMock('@/lib/initial-template-generator', () => ({
   generateInitialTemplate: mocks.generateInitialTemplate,
