@@ -6,6 +6,7 @@ import {
   mkdir,
   mkdtemp,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -44,10 +45,11 @@ async function createFixture() {
 
 async function createProcess(procRoot, pid, withExecutable = false) {
   const root = join(procRoot, String(pid));
-  await mkdir(join(root, 'ns'), { recursive: true });
+  const namespace = join(root, 'ns');
+  await mkdir(namespace, { recursive: true });
   await writeFile(join(root, 'cgroup'), '0::/workers/ollama\n');
-  await writeFile(join(root, 'ns', 'pid:[4026533000]'), '');
-  await symlink('pid:[4026533000]', join(root, 'ns', 'pid'));
+  await writeFile(join(namespace, 'pid:[4026533000]'), '');
+  await symlink('pid:[4026533000]', join(namespace, 'pid'));
   await writeFile(
     join(root, 'status'),
     'Name:\tollama\nUid:\t1000\t1000\t1000\t1000\n'
@@ -57,12 +59,16 @@ async function createProcess(procRoot, pid, withExecutable = false) {
     `${pid} (ollama) S 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 99\n`
   );
   await writeFile(join(root, 'environ'), 'PATH=/usr/bin\0');
+  const directories = [root, namespace];
   if (withExecutable) {
-    await mkdir(join(root, 'root', 'bin'), { recursive: true });
-    await writeFile(join(root, 'root', 'bin', 'ollama'), 'ollama\n');
+    const processRoot = join(root, 'root');
+    const bin = join(processRoot, 'bin');
+    await mkdir(bin, { recursive: true });
+    await writeFile(join(bin, 'ollama'), 'ollama\n');
     await symlink('root/bin/ollama', join(root, 'exe'));
+    directories.push(processRoot, bin);
   }
-  await chmod(root, 0o755);
+  await Promise.all(directories.map((path) => chmod(path, 0o755)));
 }
 
 async function grantChildDeletion(procRoot, pid) {
@@ -123,6 +129,25 @@ test('omits a ps collector that vanished after the saved process scan', async ()
       snapshot.matchingProcesses.map((entry) => entry.pid),
       ['41']
     );
+  } finally {
+    await rm(fixture.directory, { recursive: true, force: true });
+  }
+});
+
+test('keeps nested proc fixture directories traversable for recovery probes', async () => {
+  const fixture = await createFixture();
+  const process = join(fixture.procRoot, '41');
+  try {
+    await createProcess(fixture.procRoot, 41, true);
+    const modes = await Promise.all(
+      [
+        process,
+        join(process, 'ns'),
+        join(process, 'root'),
+        join(process, 'root', 'bin'),
+      ].map(async (path) => (await stat(path)).mode & 0o777)
+    );
+    assert.deepEqual(modes, [0o755, 0o755, 0o755, 0o755]);
   } finally {
     await rm(fixture.directory, { recursive: true, force: true });
   }
