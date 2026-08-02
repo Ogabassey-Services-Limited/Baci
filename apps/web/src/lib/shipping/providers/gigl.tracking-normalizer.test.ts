@@ -81,6 +81,35 @@ describe('normalizeGiglTrackingShipment', () => {
     );
   });
 
+  it('distinguishes provider-id-less scans with the same status and timestamp', () => {
+    const observedAt = new Date('2026-03-02T12:00:00.000Z');
+    const common = {
+      Status: 'InTransit',
+      DateTimeUtc: '2026-03-02T11:00:00.000Z',
+    };
+
+    const first = normalizeGiglTrackingShipment(
+      {
+        Waybill: 'GIGL123',
+        MobileShipmentTrackings: [{ ...common, Location: 'Ikeja' }],
+      },
+      'GIGL123',
+      observedAt
+    );
+    const second = normalizeGiglTrackingShipment(
+      {
+        Waybill: 'GIGL123',
+        MobileShipmentTrackings: [{ ...common, Location: 'Port Harcourt' }],
+      },
+      'GIGL123',
+      observedAt
+    );
+
+    expect(first.events[0]?.providerEventKey).not.toBe(
+      second.events[0]?.providerEventKey
+    );
+  });
+
   it('keeps the newest recognized lifecycle state when a newer scan is unknown', () => {
     const result = normalizeGiglTrackingShipment(
       {

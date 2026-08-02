@@ -35,9 +35,17 @@ function parseGiglTrackingTimestamp(value: string, isUtc: boolean): Date {
 function fallbackProviderEventKey(
   waybill: string,
   rawStatus: string,
-  timestamp: Date
+  timestamp: Date,
+  location: string | undefined,
+  description: string | undefined
 ): string {
-  const tuple = JSON.stringify([waybill, rawStatus, timestamp.toISOString()]);
+  const tuple = JSON.stringify([
+    waybill,
+    rawStatus,
+    timestamp.toISOString(),
+    location ?? '',
+    description ?? '',
+  ]);
   return `fallback:${createHash('sha256').update(tuple).digest('hex')}`;
 }
 
@@ -89,6 +97,12 @@ export function normalizeGiglTrackingShipment(
         const notificationRawStatus = hasPickupEnRouteReason
           ? GIGL_PICKUP_EN_ROUTE_RAW_STATUS
           : rawStatus;
+        const location =
+          event.Location?.trim() ||
+          event.DepartureServiceCentre?.Name?.trim() ||
+          event.DepartureServiceCentre?.Address?.trim() ||
+          undefined;
+        const description = scanStatusReason || scanStatusIncident || rawStatus;
         const recognizedStatus =
           mapKnownGiglStatus(rawStatus) ??
           (scanStatusReason ? mapKnownGiglStatus(scanStatusReason) : null) ??
@@ -100,17 +114,19 @@ export function normalizeGiglTrackingShipment(
             ? `shipment:${String(event.ShipmentTrackingId)}`
             : event.MobileShipmentTrackingId != null
               ? `mobile:${String(event.MobileShipmentTrackingId)}`
-              : fallbackProviderEventKey(waybill, rawStatus, timestamp);
+              : fallbackProviderEventKey(
+                  waybill,
+                  rawStatus,
+                  timestamp,
+                  location,
+                  description
+                );
 
         return [
           {
             event: {
-              description: scanStatusReason || scanStatusIncident || rawStatus,
-              location:
-                event.Location?.trim() ||
-                event.DepartureServiceCentre?.Name?.trim() ||
-                event.DepartureServiceCentre?.Address?.trim() ||
-                undefined,
+              description,
+              location,
               providerEventId:
                 providerEventId != null ? String(providerEventId) : undefined,
               providerEventKey,

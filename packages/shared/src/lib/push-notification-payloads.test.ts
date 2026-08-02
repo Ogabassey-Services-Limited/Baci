@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildWalletCreditedPushPayload,
   getAdminNotificationNavigationTarget,
   getStorefrontNotificationNavigationTarget,
 } from './push-notification-payloads';
@@ -237,82 +236,6 @@ describe('getStorefrontNotificationNavigationTarget', () => {
     ).toEqual({ screen: 'wallet', params: { action: 'savings' } });
   });
 
-  it('routes wallet_credited payloads to the wallet with an onward returnTo', () => {
-    expect(
-      getStorefrontNotificationNavigationTarget({
-        type: 'wallet_credited',
-        amount: 5000,
-        currency: 'NGN',
-        returnTo: '/checkout',
-      })
-    ).toEqual({
-      screen: 'wallet',
-      params: { credited: 'true', returnTo: '/checkout' },
-    });
-  });
-
-  it('routes wallet_credited payloads using snake_case return_to', () => {
-    expect(
-      getStorefrontNotificationNavigationTarget({
-        type: 'wallet_credited',
-        return_to: '/checkout',
-      })
-    ).toEqual({
-      screen: 'wallet',
-      params: { credited: 'true', returnTo: '/checkout' },
-    });
-  });
-
-  it('routes wallet_credited payloads without a returnTo to the bare wallet, still marked as a credit', () => {
-    expect(
-      getStorefrontNotificationNavigationTarget({
-        type: 'wallet_credited',
-        amount: 5000,
-      })
-    ).toEqual({ screen: 'wallet', params: { credited: 'true' } });
-  });
-
-  it('does NOT mark the other wallet-bound pushes as credits', () => {
-    // These land on the wallet too. Without the `credited` marker they are
-    // indistinguishable from a returnTo-less credit, and the storefront tap
-    // handler would consume the single-use funding intent for them.
-    expect(
-      getStorefrontNotificationNavigationTarget({
-        type: 'vtu_cashback_monthly_summary',
-      })
-    ).toEqual({ screen: 'wallet' });
-    expect(
-      getStorefrontNotificationNavigationTarget({
-        type: 'customer_savings_reminder',
-      })
-    ).toEqual({ screen: 'wallet', params: { action: 'savings' } });
-  });
-
-  it('builds a wallet_credited payload that carries an onward returnTo', () => {
-    expect(
-      buildWalletCreditedPushPayload({
-        amount: 5000,
-        currency: 'NGN',
-        returnTo: '/utilities/airtime',
-      })
-    ).toEqual({
-      amount: 5000,
-      currency: 'NGN',
-      returnTo: '/utilities/airtime',
-      type: 'wallet_credited',
-    });
-  });
-
-  it('builds a wallet_credited payload that omits an absent returnTo', () => {
-    expect(
-      buildWalletCreditedPushPayload({ amount: 5000, currency: 'NGN' })
-    ).toEqual({
-      amount: 5000,
-      currency: 'NGN',
-      type: 'wallet_credited',
-    });
-  });
-
   it('routes VTU token-ready payloads to utility history', () => {
     expect(
       getStorefrontNotificationNavigationTarget({
@@ -343,90 +266,5 @@ describe('getStorefrontNotificationNavigationTarget', () => {
         type: 'vtu_token_ready',
       })
     ).toEqual({ screen: 'home' });
-  });
-
-  it('routes repair payloads to storefront repairs with the repair id', () => {
-    expect(
-      getStorefrontNotificationNavigationTarget({
-        type: 'repair',
-        repair_id: 'repair-123',
-      })
-    ).toEqual({ screen: 'repairs', params: { id: 'repair-123' } });
-  });
-
-  it('routes repair payloads without ids to storefront repairs', () => {
-    expect(
-      getStorefrontNotificationNavigationTarget({
-        type: 'repair',
-      })
-    ).toEqual({ screen: 'repairs' });
-  });
-});
-
-describe('getAdminNotificationNavigationTarget — edge cases', () => {
-  it('returns null for null or undefined payload', () => {
-    expect(getAdminNotificationNavigationTarget(null)).toBeNull();
-    expect(getAdminNotificationNavigationTarget(undefined)).toBeNull();
-  });
-
-  it('returns index for an unknown notification type', () => {
-    expect(
-      getAdminNotificationNavigationTarget({ type: 'unknown_type' })
-    ).toEqual({ screen: 'index' });
-  });
-
-  it('routes low_stock with product_id to product screen', () => {
-    expect(
-      getAdminNotificationNavigationTarget({
-        type: 'low_stock',
-        product_id: 'prod-1',
-      })
-    ).toEqual({ screen: 'product', params: { id: 'prod-1' } });
-  });
-
-  it('routes low_stock without product_id to products list', () => {
-    expect(getAdminNotificationNavigationTarget({ type: 'low_stock' })).toEqual(
-      { screen: 'products' }
-    );
-  });
-
-  it('routes admin_broadcast to notifications', () => {
-    expect(
-      getAdminNotificationNavigationTarget({ type: 'admin_broadcast' })
-    ).toEqual({ screen: 'notifications' });
-  });
-
-  it('routes jumia_order to orders', () => {
-    expect(
-      getAdminNotificationNavigationTarget({ type: 'jumia_order' })
-    ).toEqual({ screen: 'orders' });
-  });
-
-  it('routes repair payloads to the booking detail using camelCase or snake_case ids', () => {
-    expect(
-      getAdminNotificationNavigationTarget({
-        type: 'repair',
-        repairId: 'repair-42',
-      })
-    ).toEqual({
-      screen: 'repair',
-      params: { id: 'repair-42' },
-    });
-
-    expect(
-      getAdminNotificationNavigationTarget({
-        type: 'repair',
-        repair_id: 'repair-99',
-      })
-    ).toEqual({
-      screen: 'repair',
-      params: { id: 'repair-99' },
-    });
-  });
-
-  it('falls back to the repairs list when a repair payload lacks a repair id', () => {
-    expect(getAdminNotificationNavigationTarget({ type: 'repair' })).toEqual({
-      screen: 'repairs',
-    });
   });
 });

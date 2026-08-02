@@ -10,9 +10,10 @@ SET state = 'inactive',
   locked_at = NULL,
   locked_by = NULL,
   updated_at = now()
-FROM public.shipments AS shipment
-JOIN public.orders AS order_row ON order_row.id = monitor.order_id
+FROM public.shipments AS shipment,
+  public.orders AS order_row
 WHERE monitor.shipment_id = shipment.id
+  AND order_row.id = monitor.order_id
   AND monitor.provider = 'GIGL'
   AND shipment.merchant_id IS DISTINCT FROM order_row.merchant_id
   AND monitor.state <> 'inactive';

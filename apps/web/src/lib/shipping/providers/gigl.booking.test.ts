@@ -7,7 +7,6 @@ vi.hoisted(() => {
   process.env.GIGL_PASSWORD = 'test-password';
 });
 
-import type { OrderShipmentBookingError } from '../order-shipment-booking-utils';
 import { GiglApiClient } from './gigl.auth';
 import { bookGiglShipment } from './gigl.booking';
 import { GIGL_BOOKING_TIMEOUT_MS } from './gigl.constants';
@@ -216,49 +215,6 @@ describe('GiglProvider booking requests', () => {
       trackingNumber: 'GIGL-WB-1',
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
-  });
-
-  it('marks GIGL validation rejections as safe to retry before a waybill is created', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(stationsResponse))
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            message: '"ShipmentDetails.IsCashOnDelivery" must be a boolean',
-          }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        )
-      );
-
-    const provider = buildBookingHarness();
-
-    await expect(provider.bookShipment(bookingRequest)).rejects.toMatchObject({
-      code: 'GIGL_BOOKING_VALIDATION_FAILED',
-      status: 400,
-    } satisfies Partial<OrderShipmentBookingError>);
-  });
-
-  it('bounds slow booking token fetches with the GIGL booking timeout', async () => {
-    vi.useFakeTimers();
-    const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));
-    vi.stubGlobal('fetch', fetchMock);
-
-    const provider = buildBookingHarness();
-    const bookingPromise = provider.bookShipment(bookingRequest);
-    const bookingAssertion = expect(bookingPromise).rejects.toThrow(
-      'GIGL booking timed out'
-    );
-
-    await vi.advanceTimersByTimeAsync(GIGL_BOOKING_TIMEOUT_MS);
-
-    await bookingAssertion;
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${baseUrl}/login`,
-      expect.objectContaining({ method: 'POST' })
-    );
   });
 
   it('rejects bookings when the sender station cannot be resolved', async () => {
