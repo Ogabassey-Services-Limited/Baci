@@ -116,7 +116,8 @@ test('detects a stopped generic container consuming Ollama through a bind file',
       `#!/bin/sh
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
-  *'{{.Id}}'*) printf 'generic-api generic/app [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
+  *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
+  *'{{.Id}}'*) printf 'generic-api /generic-api [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}]\\n' ;;
 esac
 `
@@ -158,7 +159,8 @@ test('does not emit a blank consumer record for a nonmatching regular bind file'
       `#!/bin/sh
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
-  *'{{.Id}}'*) printf 'generic-api generic/app [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
+  *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
+  *'{{.Id}}'*) printf 'generic-api /generic-api [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}]\\n' ;;
 esac
 `
@@ -195,8 +197,8 @@ test('excludes the reviewed Ollama container and its bind file from consumer out
       `#!/bin/sh
 case "$*" in
   *' ps -a '*) printf 'ollama-loopback\\n' ;;
-  *'{{.Name}}'*) printf '/ollama-loopback\\n' ;;
-  *'{{.Id}}'*) printf 'ollama-id /ollama-loopback [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
+  *'inspect -f {{.Name}} ollama-loopback') printf '/ollama-loopback\\n' ;;
+  *'{{.Id}}'*) printf 'ollama-loopback /ollama-loopback [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
   *'{{json .Mounts}}'*) exit 99 ;;
 esac
 `

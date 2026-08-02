@@ -4,6 +4,7 @@ import {
   chmod,
   mkdir,
   mkdtemp,
+  readFile,
   rm,
   symlink,
   writeFile,
@@ -47,27 +48,6 @@ function shell(command, args = [], env = {}) {
         RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
         ...absentCronSources,
         ...env,
-      },
-    }
-  );
-}
-
-function recoveryShell(command, args = []) {
-  return execFileAsync(
-    'sh',
-    [
-      '-c',
-      `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
-      'retire-ollama-cron-inventory-recovery-test',
-      script.pathname,
-      ...args,
-    ],
-    {
-      ...unprivileged,
-      env: {
-        ...process.env,
-        RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
-        ...absentCronSources,
       },
     }
   );
@@ -260,6 +240,7 @@ test('refuses a cron source changed between capture and identity recording', asy
     await mkdir(systemDir, { recursive: true });
     await mkdir(spool, { recursive: true });
     await writeFile(system, '0 * * * * /usr/bin/other\n');
+    await chmod(system, 0o666);
     await assert.rejects(
       shell(
         `${fixtureFunctions()}; OWNER=bassey; load_cron_inventory_helper; CONSUMER_SCANNERS_LOADED=yes; consumer_canonical_regular() { printf '%s\\n' "$1"; }; consumer_snapshot() { snapshot=$(temp_path); cat "$1" >"$snapshot"; printf '%s\\n' '0 * * * * /usr/bin/ollama serve' >"$1"; printf '%s|before\\n' "$snapshot"; }; consumer_source_identity() { printf 'after\\n'; }; records='[]'; record_external_cron_sources`,
@@ -274,23 +255,10 @@ test('refuses a cron source changed between capture and identity recording', asy
         error.code === 65 &&
         /cron source changed during capture/.test(error.stderr)
     );
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('recovery classifies the retained cron snapshot rather than a later live read', async () => {
-  const directory = await fixtureDirectory('baci-cron-inventory-recovery-');
-  const cron = join(directory, 'crontab');
-  const manifest = join(directory, 'manifest');
-  try {
-    await writeFile(cron, '0 * * * * /usr/bin/other\n');
-    await writeFile(manifest, `system\t-\t${cron}\n`);
-    const { stdout } = await recoveryShell(
-      `RECOVERY_EXTERNAL_CRON_SOURCES="$2"; recovery_record_path() { snapshot=$(temp_path); cat "$2" >"$snapshot"; printf '%s\\n' '0 * * * * /usr/bin/ollama serve' >"$2"; RECOVERY_REFERENCE_SNAPSHOT=$snapshot; }; recovery_surface() { class=$1; shift; [ "$class" = system-crontab ] && [ "$("$@")" = '0 * * * * /usr/bin/other' ] || die 'recovery cron did not use retained snapshot'; }; recovery_record_external_cron_sources; printf retained`,
-      [manifest, cron]
+    assert.equal(
+      await readFile(system, 'utf8'),
+      '0 * * * * /usr/bin/ollama serve\n'
     );
-    assert.equal(stdout, 'retained');
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

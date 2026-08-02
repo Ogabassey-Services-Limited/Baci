@@ -37,8 +37,8 @@ async function scannedContainers(rows) {
         .join(' ')}' | tr ' ' '\\n';; *inspect*) case "$*" in ${rows
         // biome-ignore format: compact Docker fixture case table.
         .map(
-        ({ id, detail, mounts = '[]' }) =>
-          `*'{{.Id}}'*${id}*) printf '%s\\n' '${detail}' ;; *'{{json .Mounts}}'*${id}*) printf '%s\\n' '${mounts}' ;;`
+        ({ id, name, detail, mounts = '[]' }) =>
+          `*'{{.Id}}'*${id}*) printf '%s\\n' '${detail}' ;; *'{{.Name}}'*${id}*) printf '%s\\n' '/${name}' ;; *'{{json .Mounts}}'*${id}*) printf '%s\\n' '${mounts}' ;;`
       ).join(' ')} esac;; esac\n`
     );
     await execFileAsync('chmod', ['0755', docker]);
@@ -179,7 +179,11 @@ test('retains unrelated authority drift detection before model deletion', async 
 test('does not classify an unrelated Baci container as an Ollama consumer', async () => {
   assert.equal(
     await scannedContainers([
-      { id: 'baci-web', detail: 'baci-web baci/app [] [] {}' },
+      {
+        id: 'baci-web',
+        name: 'baci-web',
+        detail: 'baci-web /baci-web baci/app [] [] {} {} [] {} {} {}',
+      },
     ]),
     ''
   );
@@ -193,7 +197,7 @@ test('ignores an unrelated container that disappears during inspect', async () =
     await mkdir(bin);
     await writeFile(
       join(bin, 'docker'),
-      '#!/bin/sh\ncase "$*" in *\' ps \'*) if [ ! -e "$RETIRE_OLLAMA_TEST_STATE" ]; then : >"$RETIRE_OLLAMA_TEST_STATE"; printf "gone\\nkept\\n"; else printf "kept\\n"; fi;; *\'{{json .Mounts}}\'*) printf "[]\\n";; *\' inspect \'*gone) exit 1;; *\' inspect \'*kept) printf "kept image [] [] {} {}\\n";; esac\n'
+      '#!/bin/sh\ncase "$*" in *\' ps \'*) if [ ! -e "$RETIRE_OLLAMA_TEST_STATE" ]; then : >"$RETIRE_OLLAMA_TEST_STATE"; printf "gone\\nkept\\n"; else printf "kept\\n"; fi;; *\'{{.Id}}\'*kept) printf "kept /kept image [] [] {} {} [] {} {} {}\\n";; *\'{{.Name}}\'*kept) printf "/kept\\n";; *\'{{json .Mounts}}\'*kept) printf "[]\\n";; *\' inspect \'*gone) exit 1;; esac\n'
     );
     await execFileAsync('chmod', ['0755', join(bin, 'docker')]);
     await exposeFixture(dir, true);
@@ -257,8 +261,9 @@ test('classifies a container with an Ollama endpoint as a consumer', async () =>
     await scannedContainers([
       {
         id: 'baci-worker',
+        name: 'baci-worker',
         detail:
-          'baci-worker baci/app [OLLAMA_HOST=http://127.0.0.1:11434] [] {}',
+          'baci-worker /baci-worker baci/app [] [OLLAMA_HOST=http://127.0.0.1:11434] {} {} [] {} {} {}',
       },
     ]),
     /OLLAMA_HOST/
@@ -270,8 +275,9 @@ test('classifies a generic container that publishes port 11434 without an Ollama
     await scannedContainers([
       {
         id: 'generic-api',
+        name: 'generic-api',
         detail:
-          'generic-api generic/app [] [] {} {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {}',
+          'generic-api /generic-api generic/app [] [] {} {} [] {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {}',
       },
     ]),
     /11434/
