@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { type FileHandle, lstat, open } from 'node:fs/promises';
+import { type FileHandle, lstat, open, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 import { readAuthorityArtifact } from './cloudflare-evidence-authority-file';
@@ -194,6 +194,8 @@ async function consumeApproval(
     );
     await handle.sync();
   } catch {
+    await handle.close().catch(() => undefined);
+    await unlink(markerPath).catch(() => undefined);
     throw new Error('approval consumption record could not be persisted');
   } finally {
     await handle.close().catch(() => undefined);
