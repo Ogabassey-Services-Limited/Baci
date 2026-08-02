@@ -25,8 +25,12 @@ export function deriveCuratedTheme(
     getContrastRatio(background, '#FFFFFF')
       ? '#000000'
       : '#FFFFFF';
+  const foreground = contrastText(background);
   const primaryText = contrastText(primary);
+  const secondaryText = contrastText(secondary);
   const accentText = contrastText(accent);
+  const muted = '#F5F5F5';
+  const mutedForeground = contrastText(muted);
   return {
     ...defaultTheme,
     colors: {
@@ -34,14 +38,14 @@ export function deriveCuratedTheme(
       secondary,
       accent,
       background,
-      foreground: contrastText(background),
-      muted: '#F5F5F5',
-      mutedForeground: '#666666',
+      foreground,
+      muted,
+      mutedForeground,
       border: '#E0E0E0',
       header: {
         background,
-        text: contrastText(background),
-        iconColor: primary,
+        text: foreground,
+        iconColor: foreground,
         searchBorder: primary,
         searchBackground: '#FFFFFF',
       },
@@ -57,7 +61,11 @@ export function deriveCuratedTheme(
           text: primaryText,
           hover: primary,
         },
-        secondary: { background: '#F5F5F5', text: '#000000', hover: '#E0E0E0' },
+        secondary: {
+          background: secondary,
+          text: secondaryText,
+          hover: secondary,
+        },
         accent: {
           background: accent,
           text: accentText,

@@ -17,6 +17,15 @@ describe('getOnboardingPreviewThemeStyles', () => {
       colors: { primary: '#111111', background: '#fefefe', accent: '#336699' },
       businessType: 'other',
     },
+    {
+      colors: {
+        primary: '#ffffff',
+        secondary: '#123456',
+        background: '#000000',
+        accent: '#777777',
+      },
+      businessType: 'fashion',
+    },
   ])('maps Builder-consumed foreground and background tokens for $businessType', ({
     colors,
     businessType,
@@ -37,8 +46,16 @@ describe('getOnboardingPreviewThemeStyles', () => {
         '--primary-foreground': hexToHslComponents(
           theme.colors.button.primary.text
         ),
+        '--theme-secondary': theme.colors.secondary,
+        '--secondary': hexToHslComponents(
+          theme.colors.button.secondary.background
+        ),
+        '--secondary-foreground': hexToHslComponents(
+          theme.colors.button.secondary.text
+        ),
         '--card': hexToHslComponents(theme.colors.card.background),
         '--card-foreground': hexToHslComponents(theme.colors.card.text),
+        '--muted-foreground': hexToHslComponents(theme.colors.mutedForeground),
       }
     );
   });

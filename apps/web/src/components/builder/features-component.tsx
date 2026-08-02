@@ -44,9 +44,11 @@ export function FeaturesComponent({
             : (animationTrigger as 'scroll' | 'immediate'),
       }}
     >
-      <section className="py-12 container px-4 md:px-6 bg-muted/30">
+      <section className="py-12 container px-4 md:px-6 bg-muted">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">{title}</h2>
+          <h2 className="text-3xl font-bold text-muted-foreground mb-4">
+            {title}
+          </h2>
           {subtitle && (
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               {subtitle}
@@ -66,7 +68,7 @@ export function FeaturesComponent({
                 {renderIcon(feature.icon || 'check', { className: 'w-6 h-6' })}
               </div>
               <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-              <p className="text-muted-foreground">{feature.description}</p>
+              <p className="text-foreground">{feature.description}</p>
             </div>
           ))}
         </div>

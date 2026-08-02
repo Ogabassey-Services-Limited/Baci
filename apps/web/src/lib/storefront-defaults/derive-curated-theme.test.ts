@@ -29,6 +29,51 @@ it('keeps primary, foreground, and footer combinations at AA contrast', () => {
   ).toBeGreaterThanOrEqual(4.5);
 });
 
+it('derives muted foreground against the fixed muted surface for dark merchants', () => {
+  const theme = deriveCuratedTheme({
+    primary: '#ffffff',
+    background: '#000000',
+    accent: '#777777',
+  });
+
+  expect(
+    getContrastRatio(theme.colors.mutedForeground, theme.colors.muted)
+  ).toBeGreaterThanOrEqual(4.5);
+});
+
+it('keeps the header icon AA-safe against an adversarial normalized header background', () => {
+  const theme = deriveCuratedTheme({
+    primary: '#000000',
+    background: '#000000',
+    accent: '#777777',
+  });
+
+  expect(
+    getContrastRatio(
+      theme.colors.header.iconColor,
+      theme.colors.header.background
+    )
+  ).toBeGreaterThanOrEqual(4.5);
+});
+
+it('uses one normalized, AA-safe secondary pair when a distinct secondary is supplied', () => {
+  const theme = deriveCuratedTheme({
+    primary: '#ffffff',
+    secondary: '#123456',
+    background: '#000000',
+    accent: '#777777',
+  });
+
+  expect(theme.colors.secondary).toBe('#123456');
+  expect(theme.colors.secondary).toBe(theme.colors.button.secondary.background);
+  expect(
+    getContrastRatio(
+      theme.colors.button.secondary.text,
+      theme.colors.button.secondary.background
+    )
+  ).toBeGreaterThanOrEqual(4.5);
+});
+
 it('is complete enough for the builder theme consumer to apply', () => {
   const theme = deriveCuratedTheme({
     primary: '#009900',

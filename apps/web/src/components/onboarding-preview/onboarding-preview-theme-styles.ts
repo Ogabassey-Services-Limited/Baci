@@ -55,7 +55,7 @@ export function getOnboardingPreviewThemeStyles(
     '--primary-foreground': hexToHslComponents(
       theme.colors.button.primary.text
     ),
-    '--secondary': hexToHslComponents(theme.colors.secondary),
+    '--secondary': hexToHslComponents(theme.colors.button.secondary.background),
     '--secondary-foreground': hexToHslComponents(
       theme.colors.button.secondary.text
     ),
