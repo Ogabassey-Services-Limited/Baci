@@ -38,6 +38,8 @@ const input = {
   ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
   expectedOwnerApprovalId: 'owner-approval',
   expectedZeroWeightContract: qualificationInput.expectedZeroWeightContract,
+  expectedZeroWeightRequestMatrix:
+    qualificationInput.expectedZeroWeightRequestMatrix,
   now: new Date('2026-07-31T01:00:00.000Z'),
   trace: {
     cacheRuleId: readback.pointerCache.cacheRuleId,
