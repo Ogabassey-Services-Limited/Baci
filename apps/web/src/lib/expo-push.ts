@@ -11,13 +11,16 @@ import Expo, {
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
 import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
-import { createDeliveryStartBoundary } from '@/lib/push-delivery-boundary';
 import { filterPushTokensByShipmentUpdateCapability } from '@/lib/push-token-capability';
 import {
   getPushTokenDeactivationReason,
   shouldDeactivateForInvalidCredentials,
 } from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  type DeliveryStartOptions,
+  sendPushNotificationChunks,
+} from './expo-push-chunk-delivery';
 
 // Module-scope cache: locale + minimumFractionDigits are static; currency varies.
 const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
@@ -66,12 +69,6 @@ export interface NotificationSendResult {
   errors: string[];
 }
 
-type DeliveryStartOptions = {
-  onDeliveryStart?: () => void | Promise<void>;
-  onDeliveryRejected?: () => void | Promise<void>;
-  requiredShipmentUpdateCapability?: number;
-};
-
 /**
  * Notification channel types for Android
  */
@@ -118,144 +115,14 @@ export async function sendPushNotification(
  * - Chunks messages to stay within Expo API limits
  * - Returns a ticket per original message (invalid tokens get synthetic error tickets)
  */
-export async function sendPushNotifications(
+export function sendPushNotifications(
   messages: ExpoPushMessage[],
   options?: DeliveryStartOptions
 ): Promise<ExpoPushTicket[]> {
-  if (messages.length === 0) return [];
-
-  // Separate valid and invalid token messages, preserving original indices
-  const validMessages: ExpoPushMessage[] = [];
-  const resultMap: { index: number; ticket?: ExpoPushTicket }[] = [];
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const tokens = Array.isArray(msg.to) ? msg.to : [msg.to];
-    const allValid = tokens.every((t) => Expo.isExpoPushToken(t));
-
-    if (allValid) {
-      resultMap.push({ index: i });
-      validMessages.push(msg);
-    } else {
-      const invalidToken = tokens.find((t) => !Expo.isExpoPushToken(t));
-      resultMap.push({
-        index: i,
-        ticket: {
-          status: 'error',
-          message: `Invalid Expo push token: ${invalidToken}`,
-          details: { error: 'DeviceNotRegistered' },
-        },
-      });
-    }
-  }
-
-  if (validMessages.length === 0) {
-    return resultMap.map((r) => r.ticket as ExpoPushTicket);
-  }
-
-  // Chunk and send
-  const chunks = _getExpo().chunkPushNotifications(validMessages);
-  const sdkTickets: ExpoPushTicket[] = [];
-  const markDeliveryStarted = createDeliveryStartBoundary(
-    options?.onDeliveryStart
-  );
-  let allProviderResponsesDefinitive = true;
-
-  for (const chunk of chunks) {
-    await markDeliveryStarted();
-
-    let chunkTickets: ExpoPushTicket[];
-    try {
-      chunkTickets = await _getExpo().sendPushNotificationsAsync(chunk);
-    } catch (error) {
-      if (isMixedProjectPushError(error)) {
-        console.warn(
-          '[expo-push] Mixed-project token batch detected, retrying chunk per message'
-        );
-        const fallbackResult = await sendChunkIndividually(
-          chunk,
-          markDeliveryStarted
-        );
-        sdkTickets.push(...fallbackResult.tickets);
-        allProviderResponsesDefinitive &&=
-          fallbackResult.allProviderResponsesDefinitive;
-        continue;
-      }
-
-      // A thrown request has an unknown delivery outcome. Preserve the
-      // no-replay boundary while synthesizing retryable error tickets.
-      allProviderResponsesDefinitive = false;
-
-      // Synthesize error tickets for the failed chunk
-      for (const _ of chunk) {
-        sdkTickets.push({
-          status: 'error',
-          message: error instanceof Error ? error.message : 'Unknown error',
-          details: { error: 'ExpoError' },
-        });
-      }
-      continue;
-    }
-
-    sdkTickets.push(...chunkTickets);
-  }
-
-  if (
-    options?.onDeliveryRejected &&
-    allProviderResponsesDefinitive &&
-    sdkTickets.length === validMessages.length &&
-    sdkTickets.every((ticket) => ticket.status === 'error')
-  ) {
-    await options.onDeliveryRejected();
-  }
-
-  // Reassemble in original order
-  let sdkIndex = 0;
-  const finalTickets: ExpoPushTicket[] = [];
-
-  for (const entry of resultMap) {
-    if (entry.ticket) {
-      finalTickets.push(entry.ticket);
-    } else {
-      finalTickets.push(sdkTickets[sdkIndex++]);
-    }
-  }
-
-  return finalTickets;
-}
-
-function isMixedProjectPushError(error: unknown): boolean {
-  const message =
-    error instanceof Error ? error.message : String(error ?? 'Unknown error');
-  return message.includes('same request must be for the same project');
-}
-
-async function sendChunkIndividually(
-  chunk: ExpoPushMessage[],
-  markDeliveryStarted: () => Promise<void>
-): Promise<{
-  tickets: ExpoPushTicket[];
-  allProviderResponsesDefinitive: boolean;
-}> {
-  const tickets: ExpoPushTicket[] = [];
-  let allProviderResponsesDefinitive = true;
-
-  for (const message of chunk) {
-    await markDeliveryStarted();
-    try {
-      const [ticket] = await _getExpo().sendPushNotificationsAsync([message]);
-      tickets.push(ticket);
-    } catch (error) {
-      allProviderResponsesDefinitive = false;
-      tickets.push({
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: { error: 'ExpoError' },
-      });
-    }
-  }
-
-  return { tickets, allProviderResponsesDefinitive };
+  return sendPushNotificationChunks(_getExpo(), messages, {
+    onDeliveryStart: options?.onDeliveryStart,
+    onDeliveryRejected: options?.onDeliveryRejected,
+  });
 }
 
 // ── Merchant / Customer delivery ─────────────────────────────────────────────

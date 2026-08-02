@@ -85,4 +85,31 @@ describe('buildEditOrderPayload locality regressions', () => {
       state: null,
     });
   });
+
+  it('does not reuse locality after selecting a different customer with the same street address', () => {
+    const payload = buildPayload({
+      customer: {
+        address: '1 Baci Road',
+        email: 'new@example.com',
+        id: 'customer-2',
+        name: 'New Buyer',
+        phone: '08031111111',
+      },
+      customerSelectionChanged: true,
+      deliveryInfo: {
+        address: '1 Baci Road',
+        city: 'Old City',
+        name: 'Old Buyer',
+        phone: '08030000000',
+        state: 'Old State',
+      },
+      sameAsCustomer: true,
+    });
+
+    expect(payload.shipping_address).toMatchObject({
+      address: '1 Baci Road',
+      city: null,
+      state: null,
+    });
+  });
 });

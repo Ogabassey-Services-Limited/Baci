@@ -110,6 +110,40 @@ describe('normalizeGiglTrackingShipment', () => {
     );
   });
 
+  it('includes both scan detail fields in provider-id-less event identity', () => {
+    const observedAt = new Date('2026-03-02T12:00:00.000Z');
+    const common = {
+      Status: 'InTransit',
+      ScanStatusReason: 'Shipment moving',
+      DateTimeUtc: '2026-03-02T11:00:00.000Z',
+    };
+
+    const first = normalizeGiglTrackingShipment(
+      {
+        Waybill: 'GIGL123',
+        MobileShipmentTrackings: [
+          { ...common, ScanStatusIncident: 'Sorting complete' },
+        ],
+      },
+      'GIGL123',
+      observedAt
+    );
+    const second = normalizeGiglTrackingShipment(
+      {
+        Waybill: 'GIGL123',
+        MobileShipmentTrackings: [
+          { ...common, ScanStatusIncident: 'Held for inspection' },
+        ],
+      },
+      'GIGL123',
+      observedAt
+    );
+
+    expect(first.events[0]?.providerEventKey).not.toBe(
+      second.events[0]?.providerEventKey
+    );
+  });
+
   it('keeps the newest recognized lifecycle state when a newer scan is unknown', () => {
     const result = normalizeGiglTrackingShipment(
       {

@@ -46,9 +46,37 @@ const notificationCopy: Record<string, { title: string; body: string }> = {
     title: 'Rider en route',
     body: 'A GIG Logistics rider is heading to pickup.',
   },
+  pickup_delayed: {
+    title: 'Pickup delayed',
+    body: 'Your GIG Logistics pickup is taking longer than expected.',
+  },
   transit_started: {
     title: 'Order in transit',
     body: 'Your order is moving through GIG Logistics.',
+  },
+  delivery_attempt_failed: {
+    title: 'Delivery attempt unsuccessful',
+    body: 'GIG Logistics could not complete the delivery attempt.',
+  },
+  return_in_progress: {
+    title: 'Order being returned',
+    body: 'GIG Logistics is returning your order to the sender.',
+  },
+  shipment_exception: {
+    title: 'Shipment exception',
+    body: 'GIG Logistics reported an issue with your shipment.',
+  },
+  failed: {
+    title: 'Delivery issue',
+    body: 'GIG Logistics reported a delivery issue.',
+  },
+  returned: {
+    title: 'Order returned',
+    body: 'GIG Logistics has returned the order to the sender.',
+  },
+  cancelled: {
+    title: 'Shipment cancelled',
+    body: 'The GIG Logistics shipment has been cancelled.',
   },
 };
 

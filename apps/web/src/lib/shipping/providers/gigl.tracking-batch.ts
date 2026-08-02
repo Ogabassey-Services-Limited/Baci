@@ -35,7 +35,8 @@ function parseObservedBatchTrackingEnvelope(
   } | null
 ) {
   if (
-    envelope?.success !== true ||
+    !envelope ||
+    envelope.success === false ||
     envelope.status < 200 ||
     envelope.status >= 300
   ) {

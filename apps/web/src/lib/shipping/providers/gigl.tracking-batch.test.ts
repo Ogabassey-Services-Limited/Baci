@@ -78,6 +78,19 @@ describe('trackGiglShipmentBatch', () => {
     expect(request?.timeout).toBe(15_000);
   });
 
+  it('accepts a valid 2xx envelope when success is omitted', async () => {
+    const { apiClient, io } = setupApi({
+      status: 200,
+      data: [shipment('WB-OPTIONAL-SUCCESS')],
+    });
+
+    const results = await trackGiglShipmentBatch(apiClient, io, [
+      'WB-OPTIONAL-SUCCESS',
+    ]);
+
+    expect(results.get('WB-OPTIONAL-SUCCESS')?.status).toBe('delivered');
+  });
+
   it.each([
     [[], 'At least one GIGL waybill is required'],
     [
@@ -95,7 +108,7 @@ describe('trackGiglShipmentBatch', () => {
   });
 
   it.each([
-    [{ status: 200, data: [shipment('WB-1')] }],
+    [{ status: 200, success: false, data: [shipment('WB-1')] }],
   ])('rejects batch responses that drift from the observed successful contract', async (envelope) => {
     const { apiClient, io } = setupApi(envelope);
 

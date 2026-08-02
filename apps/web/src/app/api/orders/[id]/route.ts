@@ -19,45 +19,12 @@ import {
   claimOrderShipmentBooking,
   clearOrderShipmentBookingLock,
 } from '@/lib/shipping/order-shipment-booking-lock';
+import { shouldReleaseBookingLock } from '@/lib/shipping/order-shipment-booking-lock-errors';
 import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
 import { orderUpdateSchema } from '@/schemas/orders';
-
-const RELEASEABLE_BOOKING_ERROR_CODES = new Set([
-  'ORDER_NOT_FOUND',
-  'MISSING_SHIPPING_QUOTE',
-  'INVALID_SHIPPING_PROVIDER',
-  'MISSING_ORDER_ITEMS',
-  'QUOTE_NOT_FOUND',
-  'QUOTE_REFRESH_UNAVAILABLE',
-  'QUOTE_REFRESH_FAILED',
-  'MERCHANT_NOT_FOUND',
-  'INCOMPLETE_SHIPPING_ADDRESS',
-  'INTERNATIONAL_QUOTE_REQUEST_MISSING',
-  'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
-  'INTERNATIONAL_QUOTE_ITEM_METADATA_MISMATCH',
-  'GIGL_INTERNATIONAL_COUNTRY_LOOKUP_FAILED',
-  'GIGL_INTERNATIONAL_DESTINATION_COUNTRY_NOT_FOUND',
-  'GIGL_INTERNATIONAL_ITEM_HS_CODE_MISSING',
-  'GIGL_INTERNATIONAL_ITEM_PACKAGE_LIMIT',
-  'GIGL_INTERNATIONAL_SHIPMENT_PACKAGE_LIMIT',
-  'GIGL_INTERNATIONAL_RATE_INVALID',
-  'GIGL_BOOKING_VALIDATION_FAILED',
-  'SHIPPING_PROVIDER_DISABLED',
-  'EXISTING_SHIPMENT_LOOKUP_FAILED',
-  'INCOMPLETE_EXISTING_SHIPMENT',
-]);
-
-function shouldReleaseBookingLock(
-  error: unknown
-): error is OrderShipmentBookingError {
-  return (
-    error instanceof OrderShipmentBookingError &&
-    RELEASEABLE_BOOKING_ERROR_CODES.has(error.code)
-  );
-}
 
 function isPaidStatusUpdate(value: unknown): value is 'paid' | 'bnpl_approved' {
   return value === 'paid' || value === 'bnpl_approved';

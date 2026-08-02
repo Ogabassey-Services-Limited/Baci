@@ -70,6 +70,7 @@ export type EditableOrderRecord = Record<string, unknown> & {
 
 export interface EditOrderPayloadDraft {
   customer: CustomerInfo;
+  customerSelectionChanged?: boolean;
   deliveryInfo: DeliveryInfo;
   discount: number;
   notes: string;
@@ -115,6 +116,7 @@ export function isOrderFinanciallyLocked(
 
 export function buildEditOrderPayload({
   customer,
+  customerSelectionChanged = false,
   deliveryInfo,
   discount,
   notes,
@@ -140,6 +142,7 @@ export function buildEditOrderPayload({
   const deliveryAddress = sanitizeAddress(deliveryInfo.address);
   const preservesCustomerLocality =
     sameAsCustomer &&
+    !customerSelectionChanged &&
     sanitizedCustomerAddress.length > 0 &&
     deliveryAddress === sanitizedCustomerAddress;
   const shippingAddress = sameAsCustomer

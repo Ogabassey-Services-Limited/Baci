@@ -14,16 +14,6 @@ const copyWorkspace = replayManifestWorkspace.copyWorkspace;
 
 afterEach(replayManifestWorkspace.cleanUp);
 
-function expectPendingSourceSha(
-  pendingSources: readonly { repositoryPath: string; sha256: string }[],
-  repositoryPath: string,
-  sha256: string
-) {
-  expect(
-    pendingSources.find((source) => source.repositoryPath === repositoryPath)
-  ).toMatchObject({ sha256 });
-}
-
 describe('verifySupabaseHistoryReplayManifest', () => {
   it('keeps the historical quiz migration immutable and replay-transformable', async () => {
     const result = await verifySupabaseHistoryReplayManifest(WORKSPACE_ROOT, {
@@ -54,42 +44,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(163);
-    expectPendingSourceSha(
-      result.manifest.pendingSources,
-      'supabase/migrations/20260801142400_retry_gigl_definitive_notification_rejections.sql',
-      '398769a0e0a4ffdae8a763d48665c4f5efd27a2fe14405069abb7bafec84a776'
-    );
-    expectPendingSourceSha(
-      result.manifest.pendingSources,
-      'supabase/migrations/20260802000100_suppress_cross_audience_gigl_terminal_notifications.sql',
-      'c24fb135c16b06aa58913be1cbdd1473e4bcfa34ecdb978bf5e345a32248f099'
-    );
-    expectPendingSourceSha(
-      result.manifest.pendingSources,
-      'supabase/migrations/20260802000200_preserve_manual_gigl_order_terminal_status.sql',
-      'f3a2d5185449f78c46b86ea3a1db9d6c9084e442f423a030f51f70e75719a793'
-    );
-    expectPendingSourceSha(
-      result.manifest.pendingSources,
-      'supabase/migrations/20260802000300_revalidate_gigl_monitor_order_tenant.sql',
-      '771305cc3f999ef5975dc6394b1db964c5b9a4a9919611ee1a1d317d9782340b'
-    );
-    expectPendingSourceSha(
-      result.manifest.pendingSources,
-      'supabase/migrations/20260802000400_preserve_completed_gigl_order_status.sql',
-      'fa4837d54de7528f9dc4a6e1e6c85ad5a90259aca2425e79a8538aeadc99f7c0'
-    );
-    expectPendingSourceSha(
-      result.manifest.pendingSources,
-      'supabase/migrations/20260802000500_repair_gigl_monitor_tenant_revalidation.sql',
-      '79f8dbbe8646df9f6fb1b1c96bce0606a9426e72ea60bd051c2cae6458678cd5'
-    );
-    expectPendingSourceSha(
-      result.manifest.pendingSources,
-      'supabase/migrations/20260802000600_harden_gigl_monitor_tenant_revalidation.sql',
-      'bcd8a9af6b82c0214871d22fbdefe07933a6069800e1edc09d999b5afb8b51a9'
-    );
+    expect(result.manifest.pendingSources).toHaveLength(164);
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );

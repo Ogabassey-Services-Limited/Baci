@@ -37,14 +37,16 @@ function fallbackProviderEventKey(
   rawStatus: string,
   timestamp: Date,
   location: string | undefined,
-  description: string | undefined
+  scanStatusReason: string | undefined,
+  scanStatusIncident: string | undefined
 ): string {
   const tuple = JSON.stringify([
     waybill,
     rawStatus,
     timestamp.toISOString(),
     location ?? '',
-    description ?? '',
+    scanStatusReason ?? '',
+    scanStatusIncident ?? '',
   ]);
   return `fallback:${createHash('sha256').update(tuple).digest('hex')}`;
 }
@@ -119,7 +121,8 @@ export function normalizeGiglTrackingShipment(
                   rawStatus,
                   timestamp,
                   location,
-                  description
+                  scanStatusReason,
+                  scanStatusIncident
                 );
 
         return [
