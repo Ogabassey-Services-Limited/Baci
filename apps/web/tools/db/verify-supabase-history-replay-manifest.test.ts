@@ -54,7 +54,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(159);
+    expect(result.manifest.pendingSources).toHaveLength(160);
     expectPendingSourceSha(
       result.manifest.pendingSources,
       'supabase/migrations/20260801142400_retry_gigl_definitive_notification_rejections.sql',
@@ -79,6 +79,11 @@ describe('verifySupabaseHistoryReplayManifest', () => {
       result.manifest.pendingSources,
       'supabase/migrations/20260802000400_preserve_completed_gigl_order_status.sql',
       'fa4837d54de7528f9dc4a6e1e6c85ad5a90259aca2425e79a8538aeadc99f7c0'
+    );
+    expectPendingSourceSha(
+      result.manifest.pendingSources,
+      'supabase/migrations/20260802000500_repair_gigl_monitor_tenant_revalidation.sql',
+      '79f8dbbe8646df9f6fb1b1c96bce0606a9426e72ea60bd051c2cae6458678cd5'
     );
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31

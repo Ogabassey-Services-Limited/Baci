@@ -160,6 +160,45 @@ BEGIN
     RAISE EXCEPTION
       'reassigning an order must deactivate its previous merchant GIGL monitor';
   END IF;
+
+  UPDATE public.orders
+  SET merchant_id = v_merchant_id
+  WHERE id = v_order_id;
+  SELECT state INTO v_monitor_state
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = v_current_shipment_id;
+  IF v_monitor_state IS DISTINCT FROM 'final_poll' THEN
+    RAISE EXCEPTION
+      'returning an order to its shipment tenant must reactivate its GIGL monitor';
+  END IF;
+
+  UPDATE public.orders
+  SET merchant_id = v_attacker_merchant_id
+  WHERE id = v_order_id;
+  UPDATE public.shipments
+  SET merchant_id = v_attacker_merchant_id
+  WHERE id = v_current_shipment_id;
+  SELECT state INTO v_monitor_state
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = v_current_shipment_id;
+  IF v_monitor_state IS DISTINCT FROM 'final_poll' THEN
+    RAISE EXCEPTION
+      'moving shipment after its order must reactivate the owned GIGL monitor';
+  END IF;
+
+  UPDATE public.orders
+  SET merchant_id = v_merchant_id
+  WHERE id = v_order_id;
+  UPDATE public.shipments
+  SET merchant_id = v_merchant_id
+  WHERE id = v_current_shipment_id;
+  SELECT state INTO v_monitor_state
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = v_current_shipment_id;
+  IF v_monitor_state IS DISTINCT FROM 'final_poll' THEN
+    RAISE EXCEPTION
+      'moving order before shipment must still reactivate the owned GIGL monitor';
+  END IF;
 END;
 $test$;
 

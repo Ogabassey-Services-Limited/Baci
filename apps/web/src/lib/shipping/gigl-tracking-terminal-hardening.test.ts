@@ -91,6 +91,35 @@ describe('GIGL terminal tracking hardening', () => {
     );
   });
 
+  it('repairs existing tenant mismatches and revalidates both update orders', () => {
+    const migration = readMigration(
+      '20260802000500_repair_gigl_monitor_tenant_revalidation.sql'
+    );
+    const sqlRegression = readMigrationTest(
+      'gigl_tracking_order_status_generation.sql'
+    );
+
+    expect(migration).toContain("last_error = 'tracking_tenant_changed'");
+    expect(migration).toContain(
+      'AFTER UPDATE OF merchant_id ON public.shipments'
+    );
+    expect(migration).toContain(
+      "monitor.last_error = 'tracking_tenant_changed'"
+    );
+    expect(migration).toContain(
+      'Re-apply the ownership cleanup for monitors that predate the order trigger'
+    );
+    expect(sqlRegression).toContain(
+      'returning an order to its shipment tenant must reactivate its GIGL monitor'
+    );
+    expect(sqlRegression).toContain(
+      'moving shipment after its order must reactivate the owned GIGL monitor'
+    );
+    expect(sqlRegression).toContain(
+      'moving order before shipment must still reactivate the owned GIGL monitor'
+    );
+  });
+
   it('preserves manually completed orders across carrier terminal updates', () => {
     const migration = readMigration(
       '20260802000400_preserve_completed_gigl_order_status.sql'
