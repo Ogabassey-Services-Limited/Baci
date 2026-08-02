@@ -11,9 +11,6 @@ vi.mock('ai', () => ({
   generateObject: vi.fn(),
 }));
 
-// generateObjectWithChain (the real executor) constructs its default chain
-// via @/ai/provider — extend rather than replace this mock so construction
-// keeps working.
 vi.mock('@/ai/provider', () => ({
   ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
   activeTextModel: 'test-model',
@@ -54,8 +51,6 @@ describe('initial template fallback content', () => {
     vi.mocked(generateObject).mockResolvedValue(
       generatedAiContent as Awaited<ReturnType<typeof generateObject>>
     );
-    // Force the deterministic Gemini-only chain (no Cerebras/Groq keys) so
-    // provider-count assertions below are stable regardless of ambient env.
     vi.stubEnv('CEREBRAS_API_KEY', '');
     vi.stubEnv('GROQ_API_KEY', '');
     vi.stubEnv('OPENROUTER_API_KEY', '');
@@ -125,8 +120,6 @@ describe('initial template fallback content', () => {
     ['art', 'Unique Handmade'],
     ['food-beverage', 'Fresh Ingredients'],
     ['pharmaceuticals', 'Trusted Products'],
-    // Aliases handled by `normalizeBusinessType` — guard against regressions
-    // when the source alias map changes.
     ['cosmetics', 'Ingredient Focused'],
     ['restaurant', 'Fresh Ingredients'],
     ['fashion_apparel', 'Premium Quality'],
@@ -204,8 +197,6 @@ describe('initial template fallback content', () => {
       url: '/products',
     });
     expect(text?.props?.title).toBe('Fresh meals, simple ordering');
-    // Food storefronts are menu-first, so products should appear before trust
-    // features to match ordering-focused browsing.
     expect(productGridIndex).toBeLessThan(featuresIndex);
     expect(productGrid?.props?.title).toBe('Popular Dishes');
     expect(productGrid?.props?.columns).toBe(3);
@@ -263,8 +254,6 @@ describe('initial template fallback content', () => {
   });
 
   it('falls back to static content when every chain provider fails', async () => {
-    // Gemini-only chain in tests: both Gemini and Gemini-Lite must fail
-    // before generateAIContent's catch block degrades to static content.
     vi.mocked(generateObject).mockRejectedValue(new Error('ai down'));
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
       // Expected in this regression test.
@@ -279,8 +268,6 @@ describe('initial template fallback content', () => {
         accent: '#22c55e',
       },
       merchant: {
-        // Runtime merchant data is not guaranteed to be clean; non-string logos
-        // must be ignored rather than passed through to the storefront header.
         logo_url: 42,
       },
     });
