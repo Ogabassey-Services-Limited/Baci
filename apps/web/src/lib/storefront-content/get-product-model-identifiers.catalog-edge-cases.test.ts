@@ -126,6 +126,28 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
     expect(identifiers).toEqual(['15']);
   });
 
+  it('retains a laptop model after a leading decimal display size', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productNames: ['15.6” Dell Inspiron 3520'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['3520']);
+  });
+
+  it('strips concatenated capacity metadata from a phone model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productNames: ['iPhone 13 Pro Max 6GB512GB'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['13 pro max']);
+  });
+
   it('keeps currency discriminators for same-denomination gift cards', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'gift-cards',

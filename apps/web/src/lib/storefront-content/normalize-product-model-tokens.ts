@@ -160,7 +160,7 @@ function stripDecimalDisplaySuffix(
     );
   });
 
-  return decimalIndex >= 0 ? tokens.slice(0, decimalIndex) : tokens;
+  return decimalIndex > 0 ? tokens.slice(0, decimalIndex) : tokens;
 }
 function stripOptionalFeatureSuffix(tokens: string[]) {
   const touchBarIndex = tokens.findIndex(

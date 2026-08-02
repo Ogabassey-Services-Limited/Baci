@@ -22,7 +22,7 @@ function tokenize(value: string) {
     );
 }
 const MODEL_METADATA_TOKEN_PATTERN =
-  /^(?:ram|vram|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg)|\d{4,}[a-z]{2,})$/u;
+  /^(?:ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg)|\d{4,}[a-z]{2,})$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
@@ -159,19 +159,22 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
     displaySize >= 10 &&
     displaySize <= 20 &&
     !isDimensionToken(tokens, 1);
-  const isTabletDecimalDisplayPrefix =
-    categorySlug === 'tablets' &&
-    /^\d$/u.test(firstToken) &&
+  const isDecimalDisplayPrefix =
+    /^\d{1,2}$/u.test(firstToken) &&
     /^\d$/u.test(nextToken) &&
     Number(`${firstToken}.${nextToken}`) >= 7 &&
     Number(`${firstToken}.${nextToken}`) <= 20;
-  return (isIntegerDisplayPrefix || isTabletDecimalDisplayPrefix) &&
-    hasFollowingModelText &&
-    !hasConvertibleModel
-    ? tokens.slice(
-        isTabletDecimalDisplayPrefix || /^\d$/u.test(nextToken) ? 2 : 1
-      )
-    : tokens;
+  if (
+    !(isIntegerDisplayPrefix || isDecimalDisplayPrefix) ||
+    !hasFollowingModelText ||
+    hasConvertibleModel
+  ) {
+    return tokens;
+  }
+
+  const displayPrefixLength = isDecimalDisplayPrefix ? 2 : 1;
+  const hasExplicitDisplayMarker = tokens[displayPrefixLength] === 'inch';
+  return tokens.slice(displayPrefixLength + (hasExplicitDisplayMarker ? 1 : 0));
 }
 function isModelMetadataToken(token: string, categorySlug: string) {
   return (
