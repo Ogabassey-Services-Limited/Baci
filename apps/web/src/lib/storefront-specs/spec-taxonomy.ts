@@ -13,27 +13,57 @@ export interface ComparableProductKeySpecs {
   wireless_charging_watt?: number;
 }
 
+export { SUMMARY_SPEC_PRIORITIES } from './spec-summary-priorities';
+
 export type ProductSpecFamily = 'mobile' | 'computer' | 'camera' | 'general';
+
+const ACCESSORY_CATEGORY_MARKERS = [
+  'accessor',
+  'accessories',
+  'accessory',
+  'case',
+  'cases',
+  'keyboard',
+  'charger',
+  'cover',
+  'stand',
+  'cable',
+  'adapter',
+  'mouse',
+  'sleeve',
+  'bag',
+  'dock',
+  'hub',
+];
+
+function isAccessoryLikeCategory(categoryName: string) {
+  return ACCESSORY_CATEGORY_MARKERS.some((marker) =>
+    new RegExp(`(^|[^a-z])${marker}(s)?([^a-z]|$)`).test(categoryName)
+  );
+}
 
 export function getProductSpecFamily(
   categoryName: string | null | undefined
 ): ProductSpecFamily {
   const normalized = categoryName?.trim().toLowerCase() || '';
+  const isAccessory = isAccessoryLikeCategory(normalized);
 
-  if (normalized.includes('camera') && !normalized.includes('accessor')) {
+  if (!isAccessory && normalized.includes('camera')) {
     return 'camera';
   }
 
   if (
-    /(^|[^a-z])(phone|smartphone|tablet|smartwatch|wearable)(s)?([^a-z]|$)/.test(
+    !isAccessory &&
+    (/(^|[^a-z])(phone|smartphone|tablet|smartwatch|wearable)(s)?([^a-z]|$)/.test(
       normalized
     ) ||
-    normalized.includes('google pixel')
+      normalized.includes('google pixel'))
   ) {
     return 'mobile';
   }
 
   if (
+    !isAccessory &&
     /(^|[^a-z])(laptop|desktop|computer|notebook|macbook)(s)?([^a-z]|$)/.test(
       normalized
     )
@@ -254,90 +284,3 @@ export const KEY_SPEC_CATEGORIES: SpecCategory[] = [
     ],
   },
 ];
-
-export const SUMMARY_SPEC_PRIORITIES = [
-  {
-    label: 'Display',
-    candidates: [
-      ['Key Specs', 'Display'],
-      ['Key Specs', 'Screen'],
-      ['Display', 'Size'],
-      ['Display', 'Screen Size'],
-      ['Display and monitoring', 'Display'],
-      ['Design and handling', 'Display'],
-      ['General', 'Display'],
-    ],
-  },
-  {
-    label: 'Processor',
-    candidates: [
-      ['Key Specs', 'Processor'],
-      ['Key Specs', 'Chipset'],
-      ['Platform', 'Chipset'],
-      ['Processing', 'Processor'],
-      ['Imaging and recording', 'Processor'],
-      ['Camera & Video', 'Processor'],
-    ],
-  },
-  {
-    label: 'RAM',
-    candidates: [
-      ['Memory', 'RAM'],
-      ['General', 'RAM'],
-    ],
-  },
-  {
-    label: 'Storage',
-    candidates: [
-      ['Memory', 'Internal Storage'],
-      ['General', 'Storage'],
-      ['Storage', 'Card Slot'],
-      ['Storage and performance', 'Storage'],
-      ['Storage and media', 'Media'],
-      ['Power, storage and connectivity', 'Storage'],
-      ['Connectivity and power', 'Storage'],
-    ],
-  },
-  {
-    label: 'Camera',
-    candidates: [
-      ['Imaging and recording', 'Sensor'],
-      ['Camera & Video', 'Sensor'],
-      ['Imaging', 'Effective Resolution'],
-      ['Compatibility and use', 'Effective Megapixels'],
-      ['Key Specs', 'Camera'],
-      ['Main Camera', 'Quad Camera'],
-      ['Main Camera', 'Triple Camera'],
-      ['Main Camera', 'Dual Camera'],
-      ['Main Camera', 'Single Camera'],
-      ['General', 'Camera'],
-    ],
-  },
-  {
-    label: 'Battery',
-    candidates: [
-      ['Key Specs', 'Battery'],
-      ['Battery', 'Capacity'],
-      ['General', 'Battery'],
-      ['Power', 'Capacity'],
-      ['Battery and charging', 'Battery'],
-      ['Battery and Build', 'Playback time'],
-      ['Power, storage and connectivity', 'Battery'],
-    ],
-  },
-  {
-    label: 'SIM',
-    candidates: [
-      ['Body', 'SIM'],
-      ['General', 'SIM'],
-    ],
-  },
-  {
-    label: 'OS',
-    candidates: [
-      ['Key Specs', 'OS'],
-      ['Key Specs', 'Operating System'],
-      ['Platform', 'OS'],
-    ],
-  },
-] as const;

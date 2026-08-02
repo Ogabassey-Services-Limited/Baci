@@ -54,6 +54,12 @@ describe('shouldIncludeProductSchemaSpec', () => {
     ).toBe(true);
     expect(
       shouldIncludeProductSchemaSpec(product, {
+        key: 'card_slot_type',
+        value: 'CFexpress Type B / SD UHS-II',
+      })
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(product, {
         label: 'Sensor',
         value: '45MP full-frame CMOS',
       })

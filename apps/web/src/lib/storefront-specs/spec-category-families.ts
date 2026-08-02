@@ -116,6 +116,12 @@ const COMPUTER_EXCLUDED_KEYS = new Set([
   'sim_type',
   'android_version',
   'fingerprint_type',
+  'main_camera_mp',
+  'rear_camera_features',
+  'rear_camera_video',
+  'front_camera_mp',
+  'front_camera_features',
+  'front_camera_video',
 ]);
 
 const COMPUTER_KEY_SPEC_CATEGORIES = KEY_SPEC_CATEGORIES.map((category) => ({

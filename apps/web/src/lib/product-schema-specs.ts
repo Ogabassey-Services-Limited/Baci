@@ -139,9 +139,10 @@ function isUnsupportedSpecValue(value: unknown) {
 }
 
 /**
- * Keeps phone-shaped negative fields out of named non-phone product schemas.
+ * Keeps phone-shaped fields and labels out of named non-phone product schemas.
  * Phone, tablet, and laptop categories retain the legacy mapping behavior.
- * Positive/verified values from camera legacy specifications are preserved.
+ * Non-phone card-slot and OIS labels are retained only when their values are
+ * supported, while unrelated non-phone specification labels remain eligible.
  */
 export function shouldIncludeProductSchemaSpec(
   product: ProductCategorySource,

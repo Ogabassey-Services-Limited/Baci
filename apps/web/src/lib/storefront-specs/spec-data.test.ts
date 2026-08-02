@@ -289,6 +289,19 @@ describe('buildProductSpecData', () => {
     );
   });
 
+  it('includes camera internal storage in the summary when no card slot is present', () => {
+    const result = buildProductSpecData({
+      category: 'Instant Cameras',
+      product_key_specs: {
+        storage_gb: 8,
+      },
+    });
+
+    expect(result.specs).toEqual(
+      expect.arrayContaining([{ label: 'Storage', value: '8GB' }])
+    );
+  });
+
   it('does not turn generic accessory key specs into phone specifications', () => {
     const result = buildProductSpecData({
       category: 'Accessories',

@@ -27,6 +27,8 @@ describe('spec taxonomy', () => {
     expect(getProductSpecFamily('Smartphones')).toBe('mobile');
     expect(getProductSpecFamily('Laptops')).toBe('computer');
     expect(getProductSpecFamily('Accessories')).toBe('general');
+    expect(getProductSpecFamily('Smartphone Cases')).toBe('general');
+    expect(getProductSpecFamily('Laptop Keyboard')).toBe('general');
   });
 
   it('formats common unit-bearing fields', () => {
@@ -104,6 +106,10 @@ describe('spec taxonomy', () => {
         expect.objectContaining({
           label: 'Battery',
           candidates: expect.arrayContaining([['Battery', 'Capacity']]),
+        }),
+        expect.objectContaining({
+          label: 'Storage',
+          candidates: expect.arrayContaining([['Storage', 'Internal Storage']]),
         }),
       ])
     );

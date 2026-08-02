@@ -25,4 +25,21 @@ describe('category-specific key spec families', () => {
   it('returns no inferred key spec fields for unclassified accessory categories', () => {
     expect(getKeySpecCategoriesForFamily('general')).toEqual([]);
   });
+
+  it('removes phone camera placeholders from computer fields', () => {
+    const fields = getKeySpecCategoriesForFamily('computer').flatMap(
+      (category) => category.fields
+    );
+
+    expect(fields).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'main_camera_mp' }),
+        expect.objectContaining({ key: 'rear_camera_features' }),
+        expect.objectContaining({ key: 'rear_camera_video' }),
+        expect.objectContaining({ key: 'front_camera_mp' }),
+        expect.objectContaining({ key: 'front_camera_features' }),
+        expect.objectContaining({ key: 'front_camera_video' }),
+      ])
+    );
+  });
 });
