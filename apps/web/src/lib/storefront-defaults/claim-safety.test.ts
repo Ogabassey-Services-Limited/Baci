@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getInitialTemplateProfile } from '@/lib/initial-template-profiles';
 import { buildCuratedStorefront } from './build-curated-storefront';
 import { forbiddenCuratedStorefrontClaims } from './curated-claim-test-support';
+import { curatedProfileCases } from './curated-profile-cases.test-support';
 
 describe('curated starter claim safety', () => {
   it('keeps one representative from every prohibited claim class in the shared policy', () => {
@@ -21,13 +22,11 @@ describe('curated starter claim safety', () => {
       ])
     );
   });
-  it.each([
-    'fashion',
-    'food',
-    'electronics',
-    'pharmacy',
-    'unknown-type',
-  ])('keeps %s copy merchant-specific and claim-safe', (businessType) => {
+  it.each(
+    curatedProfileCases
+  )('keeps $businessType copy merchant-specific and claim-safe', ({
+    businessType,
+  }) => {
     const storefront = buildCuratedStorefront({
       businessName: 'North Star',
       businessType,

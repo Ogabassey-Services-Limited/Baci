@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { buildCuratedCopy } from './build-curated-copy';
 import { forbiddenCuratedStorefrontClaims } from './curated-claim-test-support';
+import { curatedProfileCases } from './curated-profile-cases.test-support';
 
 describe('buildCuratedCopy', () => {
-  it.each([
-    ['fashion', 'styles', 'Collections'],
-    ['food', 'menu items', 'Menu'],
-    ['electronics', 'devices', 'Gadgets'],
-    ['pharmacy', 'health products', 'Health Store'],
-    ['unknown-type', 'products', 'Shop'],
-  ])('uses the safe profile vocabulary for %s', (businessType, subject, shopNavLabel) => {
+  it.each(
+    curatedProfileCases
+  )('uses the safe profile vocabulary for $businessType', ({
+    businessType,
+    subject,
+    shopNavLabel,
+  }) => {
     const copy = buildCuratedCopy({
       businessName: 'North Star',
       businessType,
@@ -34,6 +35,12 @@ describe('buildCuratedCopy', () => {
     expect(copy.products.title).toBe('Explore products');
     expect(copy.newsletter.title).toBe('Updates from North Star');
     expect(copy.footer.quickLinks).toHaveLength(4);
+    expect(copy.footer).toMatchObject({
+      brandName: 'North Star',
+      copyrightText: '© North Star. All rights reserved.',
+      quickLinksLabel: 'Quick Links',
+      socialLinksLabel: 'Follow Us',
+    });
     expect(copy.features.items).toHaveLength(3);
     const serializedCopy = JSON.stringify(copy).toLowerCase();
     for (const claim of forbiddenCuratedStorefrontClaims)

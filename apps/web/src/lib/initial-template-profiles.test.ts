@@ -3,6 +3,7 @@ import {
   getInitialTemplateProfile,
   normalizeBusinessType,
 } from '@/lib/initial-template-profiles';
+import { curatedProfileCases } from './storefront-defaults/curated-profile-cases.test-support';
 
 describe('initial template profiles', () => {
   it.each([
@@ -31,68 +32,14 @@ describe('initial template profiles', () => {
     expect(normalizeBusinessType(input)).toBe(expected);
   });
 
-  it.each([
-    [
-      'fashion',
-      'styles',
-      'Collections',
-      ['hero', 'products', 'features', 'story', 'newsletter'],
-    ],
-    [
-      'food',
-      'menu items',
-      'Menu',
-      ['hero', 'products', 'story', 'features', 'newsletter'],
-    ],
-    [
-      'electronics',
-      'devices',
-      'Gadgets',
-      ['hero', 'features', 'products', 'story', 'newsletter'],
-    ],
-    [
-      'pharmacy',
-      'health products',
-      'Health Store',
-      ['hero', 'story', 'features', 'products', 'newsletter'],
-    ],
-    [
-      'beauty',
-      'beauty products',
-      'Beauty Shop',
-      ['hero', 'story', 'products', 'features', 'newsletter'],
-    ],
-    [
-      'hair',
-      'hair products',
-      'Hair Store',
-      ['hero', 'products', 'story', 'features', 'newsletter'],
-    ],
-    [
-      'home',
-      'home products',
-      'Home Finds',
-      ['hero', 'story', 'products', 'features', 'newsletter'],
-    ],
-    [
-      'art',
-      'handmade products',
-      'Craft Shop',
-      ['hero', 'story', 'products', 'features', 'newsletter'],
-    ],
-    [
-      'handmade',
-      'handmade products',
-      'Craft Shop',
-      ['hero', 'story', 'products', 'features', 'newsletter'],
-    ],
-    [
-      'unknown-type',
-      'products',
-      'Shop',
-      ['hero', 'story', 'features', 'products', 'newsletter'],
-    ],
-  ])('exposes only neutral vocabulary and layout for %s', (businessType, subject, shopNavLabel, contentOrder) => {
+  it.each(
+    curatedProfileCases
+  )('exposes only neutral vocabulary and layout for $businessType', ({
+    businessType,
+    subject,
+    shopNavLabel,
+    contentOrder,
+  }) => {
     expect(getInitialTemplateProfile(businessType)).toEqual({
       subject,
       shopNavLabel,

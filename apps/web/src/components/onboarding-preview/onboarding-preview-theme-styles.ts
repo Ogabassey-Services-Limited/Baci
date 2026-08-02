@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { hexToHslComponents } from '@/lib/color-utils';
 import { deriveCuratedTheme } from '@/lib/storefront-defaults/derive-curated-theme';
 import type { BrandColors } from '@/types';
 
@@ -44,6 +45,27 @@ export function getOnboardingPreviewThemeStyles(
     '--theme-input-text': theme.colors.input.text,
     '--theme-input-placeholder': theme.colors.input.placeholder,
     '--theme-input-focus-border': theme.colors.input.focusBorder,
+    '--background': hexToHslComponents(theme.colors.background),
+    '--foreground': hexToHslComponents(theme.colors.foreground),
+    '--card': hexToHslComponents(theme.colors.card.background),
+    '--card-foreground': hexToHslComponents(theme.colors.card.text),
+    '--popover': hexToHslComponents(theme.colors.card.background),
+    '--popover-foreground': hexToHslComponents(theme.colors.card.text),
+    '--primary': hexToHslComponents(theme.colors.primary),
+    '--primary-foreground': hexToHslComponents(
+      theme.colors.button.primary.text
+    ),
+    '--secondary': hexToHslComponents(theme.colors.secondary),
+    '--secondary-foreground': hexToHslComponents(
+      theme.colors.button.secondary.text
+    ),
+    '--muted': hexToHslComponents(theme.colors.muted),
+    '--muted-foreground': hexToHslComponents(theme.colors.mutedForeground),
+    '--accent': hexToHslComponents(theme.colors.accent),
+    '--accent-foreground': hexToHslComponents(theme.colors.button.accent.text),
+    '--border': hexToHslComponents(theme.colors.border),
+    '--input': hexToHslComponents(theme.colors.input.border),
+    '--ring': hexToHslComponents(theme.colors.primary),
     '--store-primary': theme.colors.primary,
     '--store-accent': theme.colors.accent,
     '--store-background': theme.colors.background,

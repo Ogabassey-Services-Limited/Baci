@@ -1,12 +1,18 @@
 import { expect, it } from 'vitest';
 import { buildCuratedCopy } from './build-curated-copy';
 import { buildCuratedFeatures } from './build-curated-features';
+import { forbiddenCuratedStorefrontClaims } from './curated-claim-test-support';
+import { curatedProfileCases } from './curated-profile-cases.test-support';
 
-it('returns neutral nonempty feature copy', () => {
+it.each(
+  curatedProfileCases
+)('returns neutral nonempty feature copy for $businessType', ({
+  businessType,
+}) => {
   const features = buildCuratedFeatures(
     buildCuratedCopy({
       businessName: 'North Star',
-      businessType: 'fashion',
+      businessType,
       country: 'Nigeria',
     }).features.items
   );
@@ -19,7 +25,7 @@ it('returns neutral nonempty feature copy', () => {
       }),
     ])
   );
-  expect(JSON.stringify(features).toLowerCase()).not.toMatch(
-    /delivery|trusted|quality|secure|reliable|warranty|expert|confidence/
-  );
+  const serialized = JSON.stringify(features).toLowerCase();
+  for (const claim of forbiddenCuratedStorefrontClaims)
+    expect(serialized).not.toContain(claim);
 });

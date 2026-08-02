@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildCuratedStorefront } from './build-curated-storefront';
+import {
+  blankCuratedProfileCase,
+  curatedProfileCases,
+} from './curated-profile-cases.test-support';
 
 describe('buildCuratedStorefront', () => {
   it('builds a provider-independent single-H1 hero for a normalized fashion store', () => {
@@ -52,13 +56,11 @@ describe('buildCuratedStorefront', () => {
   });
 });
 
-it.each([
-  'fashion',
-  'food',
-  'electronics',
-  'pharmacy',
-  'unknown-type',
-])('is repeatable and structurally complete for %s', (businessType) => {
+it.each(
+  curatedProfileCases
+)('is repeatable and structurally complete for $businessType', ({
+  businessType,
+}) => {
   const input = Object.freeze({
     businessName: 'North Star',
     businessType,
@@ -92,4 +94,23 @@ it.each([
       .filter((block) => block.type !== 'Hero')
       .every((block) => block.props?.headingLevel === undefined)
   ).toBe(true);
+});
+
+it('uses a neutral merchant name for a blank profile fixture', () => {
+  const storefront = buildCuratedStorefront({
+    businessName: blankCuratedProfileCase.businessName,
+    businessType: blankCuratedProfileCase.businessType,
+    country: 'Nigeria',
+    brandColors: {
+      primary: '#14532d',
+      background: '#fff7ed',
+      accent: '#f97316',
+    },
+  });
+  const header = storefront.content.find((block) => block.type === 'Header');
+  const footer = storefront.content.find((block) => block.type === 'Footer');
+  expect(header?.props?.storeName).toBe(blankCuratedProfileCase.expectedName);
+  expect(footer?.props?.copyrightText).toBe(
+    '© Your Store. All rights reserved.'
+  );
 });

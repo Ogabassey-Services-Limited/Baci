@@ -4,7 +4,6 @@ import {
   Facebook,
   Instagram,
   Linkedin,
-  Mail,
   Quote,
   Search as SearchIcon,
   Star,
@@ -46,16 +45,26 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { Input } from '@/components/ui/input';
-import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { AnimatedWrapper, type AnimationType } from './animated-wrapper';
+import {
+  CuratedFooter,
+  type CuratedFooterProps,
+} from './curated-footer-component';
+import {
+  FeaturesComponent,
+  type FeaturesComponentProps,
+} from './features-component';
 import { ColorPickerField } from './fields/color-picker-field';
 import { ImagePickerField } from './fields/image-picker-field';
 import { type HeroProps, heroComponent } from './hero-component';
 import { getIconOptions, renderIcon } from './icon-registry';
+import {
+  NewsletterComponent,
+  type NewsletterComponentProps,
+} from './newsletter-component';
 import { ScopedStorefrontLink } from './scoped-storefront-link';
-import { getStorefrontScopedHref } from './storefront-scoping';
 import { useStorefrontScopedRoute } from './use-storefront-scoped-route';
 
 // Helper to map config animation values to AnimationType
@@ -182,42 +191,8 @@ type TestimonialProps = {
   avatar?: string;
 };
 
-type FeaturesProps = {
-  title: string;
-  subtitle?: string;
-  features: { title: string; description: string; icon?: string }[];
-  columns?: number;
-  animationType?: string;
-  animationDuration?: string;
-  animationDelay?: number;
-  animationTrigger?: string;
-};
-
-type NewsletterProps = {
-  title: string;
-  description: string;
-  buttonText: string;
-  placeholder?: string;
-};
-
 type SpacerProps = {
   height: 'small' | 'medium' | 'large' | 'xlarge';
-};
-
-type FooterProps = {
-  copyrightText?: string;
-  showQuickLinks: boolean;
-  quickLinks: { label: string; url: string }[];
-  socialLinks: {
-    facebook?: string;
-    instagram?: string;
-    twitter?: string;
-    linkedin?: string;
-    youtube?: string;
-  };
-  showNewsletter?: boolean;
-  backgroundColor?: string;
-  textColor?: string;
 };
 
 type HeaderProps = {
@@ -455,112 +430,6 @@ function HeroCarouselComponent({
   );
 }
 
-// CustomHeader removed in favor of using the standard StorefrontHeader
-
-function CustomFooter({
-  copyrightText,
-  showQuickLinks,
-  quickLinks,
-  socialLinks,
-  showNewsletter,
-  backgroundColor,
-  textColor,
-}: FooterProps) {
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath;
-  const socialIcons: Record<
-    string,
-    React.ComponentType<{ className?: string }>
-  > = {
-    facebook: Facebook,
-    instagram: Instagram,
-    twitter: Twitter,
-    linkedin: Linkedin,
-    youtube: Youtube,
-  };
-
-  return (
-    <footer
-      className="mt-auto py-12"
-      style={{
-        backgroundColor: backgroundColor || 'var(--theme-footer-bg, #1A202C)',
-        color: textColor || 'var(--theme-footer-text, #FFFFFF)',
-      }}
-    >
-      <div className="container mx-auto px-4">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Your Store</h3>
-            <p className="text-sm opacity-80">
-              {copyrightText ||
-                `© ${new Date().getFullYear()} All rights reserved.`}
-            </p>
-          </div>
-
-          {showQuickLinks && quickLinks.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
-              <nav aria-label="Footer Navigation">
-                <ul className="flex flex-col gap-2 list-none p-0 m-0">
-                  {quickLinks.map((link) => (
-                    <li key={link.url}>
-                      <Link
-                        href={asRoute(
-                          getStorefrontScopedHref(link.url, basePath)
-                        )}
-                        className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
-                      >
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
-          )}
-
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Follow Us</h3>
-            <div className="flex gap-4">
-              {Object.entries(socialLinks).map(([platform, url]) => {
-                if (!url) return null;
-                const Icon = socialIcons[platform];
-                return (
-                  <Link
-                    key={platform}
-                    href={asRoute(url)}
-                    className="opacity-80 hover:opacity-100 transition-opacity"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Follow us on ${platform}`}
-                  >
-                    <Icon className="size-5" />
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
-          {showNewsletter && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Newsletter</h3>
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="Your email"
-                  className="flex-1"
-                  aria-label="Email address for newsletter"
-                />
-                <Button size="sm">Subscribe</Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 // ==================== PUCK CONFIGURATION ====================
 
 export const builderConfig: Config<
@@ -578,10 +447,10 @@ export const builderConfig: Config<
     Button: ButtonProps;
     ProductGrid: ProductGridProps;
     Testimonial: TestimonialProps;
-    Features: FeaturesProps;
-    Newsletter: NewsletterProps;
+    Features: FeaturesComponentProps;
+    Newsletter: NewsletterComponentProps;
     Spacer: SpacerProps;
-    Footer: FooterProps;
+    Footer: CuratedFooterProps;
     Video: VideoProps;
     Map: MapProps;
     InstagramFeed: InstagramFeedProps;
@@ -1306,7 +1175,10 @@ export const builderConfig: Config<
       label: 'Footer',
       permissions: { delete: false, duplicate: false },
       fields: {
+        brandName: { type: 'text', label: 'Brand Name' },
         copyrightText: { type: 'text', label: 'Copyright Text' },
+        quickLinksLabel: { type: 'text', label: 'Quick Links Label' },
+        socialLinksLabel: { type: 'text', label: 'Social Links Label' },
         showQuickLinks: {
           type: 'radio',
           options: [
@@ -1355,6 +1227,10 @@ export const builderConfig: Config<
         },
       },
       defaultProps: {
+        brandName: 'Store',
+        copyrightText: '© Store. All rights reserved.',
+        quickLinksLabel: 'Quick Links',
+        socialLinksLabel: 'Follow Us',
         showQuickLinks: true,
         quickLinks: [
           { label: 'About Us', url: '/about' },
@@ -1365,7 +1241,7 @@ export const builderConfig: Config<
         socialLinks: {},
         showNewsletter: false,
       },
-      render: (props) => <CustomFooter {...props} />,
+      render: (props) => <CuratedFooter {...props} />,
     },
     Testimonial: {
       label: 'Testimonial',
@@ -1484,64 +1360,7 @@ export const builderConfig: Config<
         animationDelay: 0,
         animationTrigger: 'scroll',
       },
-      render: ({
-        title,
-        subtitle,
-        features,
-        columns = 3,
-        animationType,
-        animationDuration,
-        animationDelay,
-        animationTrigger,
-      }) => {
-        return (
-          <AnimatedWrapper
-            animation={{
-              type: mapAnimationType(animationType),
-              duration: animationDuration as 'fast' | 'normal' | 'slow',
-              delay: animationDelay,
-              trigger:
-                animationTrigger === 'onload'
-                  ? 'immediate'
-                  : (animationTrigger as 'scroll' | 'immediate'),
-            }}
-          >
-            <section className="py-12 container px-4 md:px-6 bg-muted/30">
-              <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold mb-4">{title}</h2>
-                {subtitle && (
-                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                    {subtitle}
-                  </p>
-                )}
-              </div>
-              <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-8`}>
-                {features.map((feature) => (
-                  <div
-                    key={feature.title}
-                    className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm"
-                  >
-                    <div
-                      className="size-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary"
-                      aria-hidden="true"
-                    >
-                      {renderIcon((feature.icon as string) || 'check', {
-                        className: 'w-6 h-6',
-                      })}
-                    </div>
-                    <h3 className="text-xl font-semibold mb-2">
-                      {feature.title}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {feature.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </AnimatedWrapper>
-        );
-      },
+      render: (props) => <FeaturesComponent {...props} />,
     },
     Newsletter: {
       label: 'Newsletter Signup',
@@ -1559,31 +1378,7 @@ export const builderConfig: Config<
         placeholder: 'Enter your email',
         buttonText: 'Subscribe',
       },
-      render: ({ title, description, buttonText, placeholder }) => (
-        <section className="py-16 container px-4 md:px-6">
-          <div className="bg-primary text-primary-foreground rounded-2xl p-8 md:p-12 text-center max-w-4xl mx-auto">
-            <Mail
-              className="size-12 mx-auto mb-6 opacity-80"
-              aria-hidden="true"
-            />
-            <h2 className="text-3xl font-bold mb-4">{title}</h2>
-            <p className="text-lg opacity-90 mb-8 max-w-2xl mx-auto">
-              {description}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-              <Input
-                type="email"
-                placeholder={placeholder}
-                className="bg-background text-foreground border-0"
-                aria-label="Email address for newsletter"
-              />
-              <Button variant="secondary" size="lg">
-                {buttonText}
-              </Button>
-            </div>
-          </div>
-        </section>
-      ),
+      render: (props) => <NewsletterComponent {...props} />,
     },
     Spacer: {
       label: 'Spacer',

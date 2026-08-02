@@ -56,6 +56,10 @@ export function buildCuratedCopy(input: {
       placeholder: 'Enter your email',
     },
     footer: {
+      brandName: name,
+      copyrightText: `© ${name}. All rights reserved.`,
+      quickLinksLabel: 'Quick Links',
+      socialLinksLabel: 'Follow Us',
       quickLinks: [
         { label: 'About Us', url: '/about' },
         { label: 'Contact', url: '/contact' },

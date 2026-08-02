@@ -1,10 +1,25 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const { mockGenerateInitialTemplate } = vi.hoisted(() => ({
+  mockGenerateInitialTemplate: vi.fn(),
+}));
+
+vi.mock('./initial-template-generator', () => ({
+  generateInitialTemplate: mockGenerateInitialTemplate,
+}));
+
 import { generateDefaultConfig } from './builder-defaults';
-import { applyTheme } from './theme-manager';
 
 describe('generateDefaultConfig', () => {
-  it('returns the deterministic compatibility starter', async () => {
-    const config = await generateDefaultConfig({
+  it('forwards the exact legacy merchant mapping to the compatibility entry point', async () => {
+    const generated = {
+      content: [],
+      root: { props: { title: 'Home' } },
+      zones: {},
+      theme: {},
+    };
+    mockGenerateInitialTemplate.mockResolvedValue(generated);
+    const merchant = {
       business_name: 'Baci',
       business_type: 'fashion',
       brand_colors: {
@@ -12,15 +27,13 @@ describe('generateDefaultConfig', () => {
         background: '#ffffff',
         accent: '#f97316',
       },
+    };
+    await expect(generateDefaultConfig(merchant)).resolves.toBe(generated);
+    expect(mockGenerateInitialTemplate).toHaveBeenCalledWith({
+      businessName: 'Baci',
+      businessType: 'fashion',
+      brandColors: merchant.brand_colors,
+      merchant,
     });
-    expect(
-      config.content.find((block) => block.type === 'Hero')?.props?.id
-    ).toBe('Hero-home');
-    expect(() => applyTheme(config.theme)).not.toThrow();
-    expect(
-      document.documentElement.style.getPropertyValue(
-        '--theme-container-max-width'
-      )
-    ).not.toBe('');
   });
 });

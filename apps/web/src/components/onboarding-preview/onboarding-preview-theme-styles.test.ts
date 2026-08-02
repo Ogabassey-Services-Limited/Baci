@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { hexToHslComponents } from '@/lib/color-utils';
 import { deriveCuratedTheme } from '@/lib/storefront-defaults/derive-curated-theme';
 import { getOnboardingPreviewThemeStyles } from './onboarding-preview-theme-styles';
 
@@ -30,6 +31,14 @@ describe('getOnboardingPreviewThemeStyles', () => {
         '--theme-foreground': theme.colors.foreground,
         '--store-background': theme.colors.background,
         '--store-background-text': theme.colors.foreground,
+        '--background': hexToHslComponents(theme.colors.background),
+        '--foreground': hexToHslComponents(theme.colors.foreground),
+        '--primary': hexToHslComponents(theme.colors.primary),
+        '--primary-foreground': hexToHslComponents(
+          theme.colors.button.primary.text
+        ),
+        '--card': hexToHslComponents(theme.colors.card.background),
+        '--card-foreground': hexToHslComponents(theme.colors.card.text),
       }
     );
   });

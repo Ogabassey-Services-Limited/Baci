@@ -12,8 +12,9 @@ import { deriveCuratedTheme } from './derive-curated-theme';
 export function buildCuratedStorefront(
   input: CuratedStorefrontInput
 ): CuratedStorefrontData {
+  const businessName = input.businessName.trim() || 'Your Store';
   const profile = getInitialTemplateProfile(input.businessType);
-  const copy = buildCuratedCopy(input);
+  const copy = buildCuratedCopy({ ...input, businessName });
   const hero = buildCuratedHero(input.businessType, copy.hero);
   const blocks: Data['content'] = [
     {
@@ -27,7 +28,7 @@ export function buildCuratedStorefront(
         sticky: true,
         navigationLinks: copy.header.navigationLinks,
         ctaButton: copy.header.ctaButton,
-        storeName: input.businessName,
+        storeName: businessName,
         ...(input.logoUrl ? { logoUrl: input.logoUrl } : {}),
       },
     },
@@ -75,6 +76,10 @@ export function buildCuratedStorefront(
       type: 'Footer',
       props: {
         id: 'Footer-home',
+        brandName: copy.footer.brandName,
+        copyrightText: copy.footer.copyrightText,
+        quickLinksLabel: copy.footer.quickLinksLabel,
+        socialLinksLabel: copy.footer.socialLinksLabel,
         showQuickLinks: true,
         quickLinks: copy.footer.quickLinks,
         socialLinks: {},

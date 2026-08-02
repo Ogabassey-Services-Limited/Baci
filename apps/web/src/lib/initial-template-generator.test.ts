@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildCuratedStorefront } from '@/lib/storefront-defaults/build-curated-storefront';
+import { curatedProfileCases } from '@/lib/storefront-defaults/curated-profile-cases.test-support';
 import { generateInitialTemplate } from './initial-template-generator';
 
 const dependencyTraps = vi.hoisted(() => ({
@@ -171,19 +172,20 @@ describe('generateInitialTemplate', () => {
     clock.mockRestore();
     random.mockRestore();
   });
-  it.each([
-    'fashion',
-    'food',
-    'electronics',
-    'pharmacy',
-    'unknown-type',
-  ])('returns stable unique scaffold IDs for %s', async (businessType) => {
+  it.each(
+    curatedProfileCases
+  )('returns stable unique scaffold IDs for $businessType', async ({
+    businessType,
+  }) => {
     const result = await generateInitialTemplate({
       ...input,
       businessType,
       merchant: { logo_url: 'invalid' },
     });
     const ids = result.content.map((block) => block.props?.id);
+    expect(
+      ids.every((id) => typeof id === 'string' && id.trim().length > 0)
+    ).toBe(true);
     expect(new Set(ids).size).toBe(ids.length);
     expect(
       result.content.filter((block) => block.type === 'Header')

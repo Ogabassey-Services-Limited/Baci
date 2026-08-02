@@ -10,9 +10,10 @@ export async function generatePreviewTemplate(params: {
   businessType: string;
   logoDataUri: string | null;
 }): Promise<Data> {
+  const businessName = params.businessName.trim() || 'Your Store';
   const profile = getInitialTemplateProfile(params.businessType);
   const copy = buildCuratedCopy({
-    businessName: params.businessName,
+    businessName,
     businessType: params.businessType,
     country: '',
   });
@@ -28,7 +29,7 @@ export async function generatePreviewTemplate(params: {
       sticky: true,
       navigationLinks: [...copy.header.navigationLinks],
       ctaButton: copy.header.ctaButton,
-      storeName: params.businessName,
+      storeName: businessName,
       ...(params.logoDataUri ? { logoUrl: params.logoDataUri } : {}),
     },
   } as Data['content'][number];
@@ -81,6 +82,10 @@ export async function generatePreviewTemplate(params: {
     type: 'Footer',
     props: {
       id: 'Footer-home',
+      brandName: copy.footer.brandName,
+      copyrightText: copy.footer.copyrightText,
+      quickLinksLabel: copy.footer.quickLinksLabel,
+      socialLinksLabel: copy.footer.socialLinksLabel,
       showQuickLinks: true,
       quickLinks: copy.footer.quickLinks,
       socialLinks: {},
