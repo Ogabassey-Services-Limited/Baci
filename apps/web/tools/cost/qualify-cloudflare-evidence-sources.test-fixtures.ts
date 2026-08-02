@@ -7,6 +7,13 @@ import {
   calculatePointerCacheCanonicalSha256,
   QUALIFICATION_POINTER_URL,
 } from './qualify-cloudflare-evidence-sources';
+import {
+  pointerProbeReadback,
+  qualificationTopology,
+  reviewedZeroWeightRequestMatrix,
+} from './qualify-cloudflare-evidence-topology.test-fixtures';
+
+export { pointerProbeReadback };
 
 const modulesA = [
   { name: 'src/version-a.ts', bytesBase64: 'bW9kdWxlLWE=' },
@@ -213,6 +220,7 @@ export const reviewedArtifactAuthority = {
     openApiMinimumWeight: readback.zeroWeightProof.openApiMinimumWeight,
     visibilityBoundSeconds: readback.zeroWeightProof.visibilityBoundSeconds,
   },
+  zeroWeightRequestMatrix: reviewedZeroWeightRequestMatrix,
   artifacts: reviewedArtifacts.map(
     ({
       accountId,
@@ -250,15 +258,6 @@ export const qualificationAuthorityOptions = {
   },
 } as const;
 
-export const pointerProbeReadback = {
-  status: 204,
-  cfCacheStatus: 'DYNAMIC',
-  headers: {
-    'X-Baci-Evidence-Bundle': 'version-a-204',
-    'X-Baci-Evidence-Version': 'a',
-  },
-} as const;
-
 export const qualificationInput = {
   accountId: 'account',
   scriptName: readback.scriptName,
@@ -281,36 +280,14 @@ export const qualificationInput = {
       productionResourceState: 'present_verified' as const,
     },
   },
-  topology: [
-    {
-      family: 'worker-custom-domain' as const,
-      endpoint:
-        '/accounts/account/workers/scripts/baci-evidence-qualification/domains/custom/edge-evidence.ogabassey.com',
-      requestSchemaSha256: 'a'.repeat(64),
-      responseSchemaSha256: 'b'.repeat(64),
-      maximumVisibilitySeconds: 60,
-    },
-    {
-      family: 'r2-cors' as const,
-      endpoint: '/accounts/account/r2/buckets/bucket/cors',
-      requestSchemaSha256: 'c'.repeat(64),
-      responseSchemaSha256: 'd'.repeat(64),
-      maximumVisibilitySeconds: 60,
-    },
-    {
-      family: 'r2-custom-domain' as const,
-      endpoint:
-        '/accounts/account/r2/buckets/bucket/domains/custom/edge-evidence.ogabassey.com',
-      requestSchemaSha256: 'e'.repeat(64),
-      responseSchemaSha256: 'f'.repeat(64),
-      maximumVisibilitySeconds: 60,
-    },
-  ] as const,
+  topology: qualificationTopology,
   zoneId: 'zone',
   ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
   ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
   expectedOwnerApprovalId: 'owner-approval',
   expectedZeroWeightContract: reviewedArtifactAuthority.zeroWeightContract,
+  expectedZeroWeightRequestMatrix:
+    reviewedArtifactAuthority.zeroWeightRequestMatrix,
   now: new Date('2026-07-31T01:00:00.000Z'),
   trace: {
     cacheRuleId: readback.pointerCache.cacheRuleId,

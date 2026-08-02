@@ -59,19 +59,29 @@ export function reconcileStorefrontDeliveryEvidence(
     );
   });
   const trafficPartitionReconciled = days.every((day) =>
-    reconcileStorefrontDeliveryTrafficPartition({
-      rows: day.trafficPartition,
-      inventoryHostnames: manifest.inventoryHostnames,
-      canonicalHostname: manifest.canonicalHostname,
-      canonicalRawRequestCount:
-        day.workerInvocationCount - day.syntheticQualificationRequestCount,
-      aliasRawRequestCount: day.aliasRawRequestCount,
-      canonicalEligibleRequestCount: day.canonicalEligibleRequestCount,
-      aliasEligibleRequestCount: day.aliasEligibleRequestCount,
-      canonicalEligibleOriginAttemptCount:
-        day.canonicalEligibleOriginAttemptCount,
-      aliasEligibleOriginRequestCount: day.aliasEligibleOriginRequestCount,
-    })
+    (() => {
+      const canonicalRejectedMethodRequestCount = sum(
+        day.trafficPartition
+          .filter((row) => row.hostname === manifest.canonicalHostname)
+          .map((row) => row.rejectedMethodRequestCount)
+      );
+      return reconcileStorefrontDeliveryTrafficPartition({
+        rows: day.trafficPartition,
+        inventoryHostnames: manifest.inventoryHostnames,
+        canonicalHostname: manifest.canonicalHostname,
+        canonicalRawRequestCount:
+          day.workerInvocationCount -
+          day.syntheticQualificationRequestCount +
+          canonicalRejectedMethodRequestCount,
+        aliasRawRequestCount: day.aliasRawRequestCount,
+        canonicalEligibleRequestCount: day.canonicalEligibleRequestCount,
+        aliasEligibleRequestCount: day.aliasEligibleRequestCount,
+        canonicalEligibleOriginAttemptCount:
+          day.canonicalEligibleOriginAttemptCount,
+        aliasEligibleOriginRequestCount: day.aliasEligibleOriginRequestCount,
+        rejectedMethodRequestCount: day.rejectedMethodRequestCount,
+      });
+    })()
   );
   const independentSourceCountsReconciled = days.every(
     (day) =>

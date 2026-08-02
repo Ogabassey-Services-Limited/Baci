@@ -68,6 +68,7 @@ export function manifest(overrides: Record<string, unknown> = {}) {
           requestCount: 1000,
           eligibleRequestCount: 1000,
           eligibleOriginAttemptCount: 0,
+          rejectedMethodRequestCount: 0,
         },
         {
           hostname: 'ogabassey.usebaci.com',
@@ -77,6 +78,7 @@ export function manifest(overrides: Record<string, unknown> = {}) {
           requestCount: 0,
           eligibleRequestCount: 0,
           eligibleOriginAttemptCount: 0,
+          rejectedMethodRequestCount: 0,
         },
         {
           hostname: 'www.ogabassey.com',
@@ -86,6 +88,7 @@ export function manifest(overrides: Record<string, unknown> = {}) {
           requestCount: 0,
           eligibleRequestCount: 0,
           eligibleOriginAttemptCount: 0,
+          rejectedMethodRequestCount: 0,
         },
       ],
       sourceEvidence: {

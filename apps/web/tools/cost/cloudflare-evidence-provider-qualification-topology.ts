@@ -37,8 +37,7 @@ function verifyMutationResponse(
   if (
     typeof lostResponse !== 'boolean' ||
     (operationId !== undefined &&
-      (typeof operationId !== 'string' || operationId.trim().length === 0)) ||
-    (!lostResponse && operationId === undefined)
+      (typeof operationId !== 'string' || operationId.trim().length === 0))
   )
     throw new Error('topology mutation response is ambiguous');
   if (
@@ -61,6 +60,7 @@ function verifyMutationConvergence(
   if (readbacks.length < 2)
     throw new Error('topology polling did not prove bounded convergence');
   let reachedAfter = false;
+  let reachedIntermediate = false;
   let previousElapsed = -1;
   for (const readback of readbacks) {
     if (
@@ -72,9 +72,14 @@ function verifyMutationConvergence(
       throw new Error('topology convergence exceeded the visibility bound');
     previousElapsed = readback.elapsedSeconds;
     if (sameTopologyTuple(readback.tuple, topology.after)) reachedAfter = true;
-    else if (
-      reachedAfter ||
-      !sameTopologyTuple(readback.tuple, topology.intermediate)
+    else if (sameTopologyTuple(readback.tuple, topology.intermediate)) {
+      if (reachedAfter)
+        throw new Error('topology polling returned a mixed or unknown tuple');
+      reachedIntermediate = true;
+    } else if (
+      !sameTopologyTuple(readback.tuple, topology.before) ||
+      reachedIntermediate ||
+      reachedAfter
     )
       throw new Error('topology polling returned a mixed or unknown tuple');
   }

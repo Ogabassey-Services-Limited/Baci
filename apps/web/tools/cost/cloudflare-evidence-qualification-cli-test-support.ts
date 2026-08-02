@@ -163,6 +163,7 @@ export async function createReviewedQualificationAuthority(
   const artifactAuthority = {
     pointerCache: reviewedArtifactAuthority.pointerCache,
     zeroWeightContract: reviewedArtifactAuthority.zeroWeightContract,
+    zeroWeightRequestMatrix: reviewedArtifactAuthority.zeroWeightRequestMatrix,
     artifacts: reviewedArtifactAuthority.artifacts,
   };
   const source = `export function resolveOwnerAcceptanceAuthority() { return ${JSON.stringify(acceptance)}; }\nexport function resolveQualificationArtifactAuthority() { return { toolingMergeSha: process.env.EVIDENCE_TOOLING_MERGE_SHA, ...${JSON.stringify(artifactAuthority)} }; }\n`;

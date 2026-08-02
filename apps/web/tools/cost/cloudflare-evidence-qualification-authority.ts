@@ -13,6 +13,17 @@ export const QualificationPointerCacheAuthoritySchema = z
   })
   .strict();
 
+export const QualificationZeroWeightRequestMatrixSchema = z
+  .object({
+    ordinaryRequestSha256: Hash,
+    ordinaryResponseSha256: Hash,
+    ordinaryRequestCount: z.number().int().positive(),
+    protectedOverrideRequestSha256: Hash,
+    protectedOverrideResponseSha256: Hash,
+    protectedOverrideRequestCount: z.number().int().positive(),
+  })
+  .strict();
+
 export const QualificationArtifactReceiptSchema = z
   .object({
     canonicalSourceSha256: Hash,
@@ -46,6 +57,7 @@ export const QualificationArtifactAuthoritySchema = z
     pointerCache: QualificationPointerCacheAuthoritySchema,
     /** Provider contract fingerprints fixed by the reviewed authority module. */
     zeroWeightContract: ZeroWeightContractSchema,
+    zeroWeightRequestMatrix: QualificationZeroWeightRequestMatrixSchema,
     artifacts: z
       .array(QualificationArtifactAuthorityEntrySchema)
       .length(2)

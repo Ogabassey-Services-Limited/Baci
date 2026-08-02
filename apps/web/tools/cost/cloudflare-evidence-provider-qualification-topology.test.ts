@@ -40,6 +40,58 @@ function assertForwardAndRestoreRequests(
 }
 
 describe('Cloudflare topology mutation rollback', () => {
+  it('accepts a synchronous response without a provider operation ID', async () => {
+    const topology = topologyFor('r2-cors');
+    const base = client();
+    let forward = true;
+    const receipt = await executeTopologyMutationWithRollback(
+      {
+        ...base,
+        topologyMutate: async (request) => {
+          const response = await base.topologyMutate(request);
+          if (forward) {
+            forward = false;
+            return { ...response, operationId: undefined };
+          }
+          return response;
+        },
+      },
+      topology
+    );
+    expect(receipt.operationId).toBeNull();
+    expect(receipt.restored).toBe(true);
+  });
+
+  it('accepts monotonic before, intermediate, and after convergence', async () => {
+    const topology = topologyFor('worker-custom-domain');
+    const base = client();
+    await expect(
+      executeTopologyMutationWithRollback(
+        {
+          ...base,
+          topologyPoll: async () => [
+            {
+              tuple: topology.before,
+              pendingOperation: true,
+              elapsedSeconds: 0,
+            },
+            {
+              tuple: topology.intermediate,
+              pendingOperation: true,
+              elapsedSeconds: 1,
+            },
+            {
+              tuple: topology.after,
+              pendingOperation: false,
+              elapsedSeconds: 2,
+            },
+          ],
+        },
+        topology
+      )
+    ).resolves.toMatchObject({ restored: true });
+  });
+
   it.each(
     families
   )('restores %s after forward response validation fails', async (family) => {
@@ -61,7 +113,7 @@ describe('Cloudflare topology mutation rollback', () => {
 
     await expect(
       executeTopologyMutationWithRollback(injected, topology)
-    ).rejects.toThrow('ambiguous');
+    ).rejects.toThrow('schema');
     assertForwardAndRestoreRequests(requests, topology);
   });
 

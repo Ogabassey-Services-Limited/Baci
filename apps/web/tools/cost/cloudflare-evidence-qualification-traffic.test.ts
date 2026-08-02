@@ -1,65 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  calculateCloudflareZeroWeightDeploymentProofSha256,
   validateCloudflareZeroWeightProof,
   ZeroWeightProofSchema,
 } from './cloudflare-evidence-qualification-traffic';
-
-const deployment = {
-  deploymentId: 'deployment',
-  versions: [
-    { versionId: 'a', percentage: 100 },
-    { versionId: 'b', percentage: 0 },
-  ],
-} as const;
-
-const proof = {
-  zeroWeightDeploymentSupported: true,
-  zeroWeightOpenApiContradiction: true,
-  productDocumentSha256: 'a'.repeat(64),
-  openApiSha256: 'b'.repeat(64),
-  openApiMinimumWeight: 0.01,
-  visibilityBoundSeconds: 60,
+import {
   deployment,
-  ordinaryTraffic: {
-    requestSha256: 'c'.repeat(64),
-    responseSha256: 'd'.repeat(64),
-    requestCount: 4,
-    aInvocationCount: 4,
-    bInvocationCount: 0,
-    visibilityBoundSeconds: 60,
-    observationStartedAt: '2026-07-31T00:00:00.000Z',
-    observationEndedAt: '2026-07-31T00:01:00.000Z',
-  },
-  protectedOverride: {
-    requestSha256: 'e'.repeat(64),
-    responseSha256: 'f'.repeat(64),
-    requestCount: 1,
-    servedVersionId: 'b',
-    versionMetadataVersionId: 'b',
-    visibilityBoundSeconds: 60,
-    observationStartedAt: '2026-07-31T00:00:00.000Z',
-    observationEndedAt: '2026-07-31T00:01:00.000Z',
-  },
-  ownerAcceptance: {
-    accepted: true,
-    approvalId: 'owner-approval',
-    acceptedAt: '2026-07-31T00:00:00.000Z',
-    receiptSha256: '1'.repeat(64),
-    deploymentProofSha256:
-      calculateCloudflareZeroWeightDeploymentProofSha256(deployment),
-  },
-} as const;
-const ownerAcceptanceAuthority = () => proof.ownerAcceptance;
-const expectedContract = {
-  zeroWeightDeploymentSupported: proof.zeroWeightDeploymentSupported,
-  zeroWeightOpenApiContradiction: proof.zeroWeightOpenApiContradiction,
-  productDocumentSha256: proof.productDocumentSha256,
-  openApiSha256: proof.openApiSha256,
-  openApiMinimumWeight: proof.openApiMinimumWeight,
-  visibilityBoundSeconds: proof.visibilityBoundSeconds,
-};
-const qualificationNow = new Date('2026-07-31T01:00:00.000Z');
+  expectedContract,
+  expectedRequestMatrix,
+  ownerAcceptanceAuthority,
+  proof,
+  qualificationNow,
+} from './cloudflare-evidence-qualification-traffic.test-fixtures';
 
 describe('Cloudflare zero-weight qualification proof', () => {
   it('accepts exact ordinary, override, contradiction, and owner evidence', () => {
@@ -71,9 +22,34 @@ describe('Cloudflare zero-weight qualification proof', () => {
         expectedOwnerApprovalId: 'owner-approval',
         ownerAcceptanceAuthority,
         expectedContract,
+        expectedRequestMatrix,
         now: qualificationNow,
       })
     ).toMatchObject({ ok: true });
+  });
+
+  it('rejects traffic receipts outside the reviewed request matrix', () => {
+    expect(
+      validateCloudflareZeroWeightProof(
+        {
+          ...proof,
+          ordinaryTraffic: {
+            ...proof.ordinaryTraffic,
+            requestSha256: '9'.repeat(64),
+          },
+        },
+        {
+          deployment,
+          stableVersionId: 'a',
+          candidateVersionId: 'b',
+          expectedOwnerApprovalId: 'owner-approval',
+          ownerAcceptanceAuthority,
+          expectedContract,
+          expectedRequestMatrix,
+          now: qualificationNow,
+        }
+      )
+    ).toEqual({ ok: false, reason: 'zero_weight_request_matrix_mismatch' });
   });
 
   it('rejects ordinary traffic that records any candidate invocation', () => {
@@ -90,6 +66,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
           expectedContract,
+          expectedRequestMatrix,
           now: qualificationNow,
         }
       )
@@ -120,6 +97,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
           expectedContract,
+          expectedRequestMatrix,
           now: qualificationNow,
         }
       )
@@ -143,6 +121,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
           expectedContract,
+          expectedRequestMatrix,
           now: qualificationNow,
         }
       )
@@ -167,6 +146,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
           expectedContract,
+          expectedRequestMatrix,
           now: qualificationNow,
         }
       )
@@ -194,6 +174,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
         expectedOwnerApprovalId: 'owner-approval',
         ownerAcceptanceAuthority: undefined as never,
         expectedContract,
+        expectedRequestMatrix,
         now: qualificationNow,
       })
     ).toEqual({
@@ -219,6 +200,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
           expectedContract,
+          expectedRequestMatrix,
           now: qualificationNow,
         }
       )
@@ -245,6 +227,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
             acceptedAt: '2026-07-29T00:00:00.000Z',
           }),
           expectedContract,
+          expectedRequestMatrix,
           now: qualificationNow,
         }
       )
@@ -270,6 +253,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
           expectedContract,
+          expectedRequestMatrix,
           now: qualificationNow,
         }
       )
@@ -291,6 +275,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           deploymentProofSha256: '2'.repeat(64),
         }),
         expectedContract,
+        expectedRequestMatrix,
         now: qualificationNow,
       })
     ).toEqual({

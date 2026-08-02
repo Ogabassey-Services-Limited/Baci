@@ -46,6 +46,7 @@ export const dailyEvidence = {
       requestCount: 1000,
       eligibleRequestCount: 1000,
       eligibleOriginAttemptCount: 0,
+      rejectedMethodRequestCount: 0,
     },
     {
       hostname: 'ogabassey.usebaci.com',
@@ -55,6 +56,7 @@ export const dailyEvidence = {
       requestCount: 0,
       eligibleRequestCount: 0,
       eligibleOriginAttemptCount: 0,
+      rejectedMethodRequestCount: 0,
     },
     {
       hostname: 'www.ogabassey.com',
@@ -64,6 +66,7 @@ export const dailyEvidence = {
       requestCount: 0,
       eligibleRequestCount: 0,
       eligibleOriginAttemptCount: 0,
+      rejectedMethodRequestCount: 0,
     },
   ],
   sourceEvidence: {

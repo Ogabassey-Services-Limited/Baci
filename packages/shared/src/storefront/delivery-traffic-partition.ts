@@ -29,6 +29,7 @@ export const StorefrontDeliveryTrafficPartitionRowSchema = z
     requestCount: CountSchema,
     eligibleRequestCount: CountSchema,
     eligibleOriginAttemptCount: CountSchema,
+    rejectedMethodRequestCount: CountSchema,
   })
   .strict()
   .superRefine((row, context) => {
@@ -43,6 +44,12 @@ export const StorefrontDeliveryTrafficPartitionRowSchema = z
         code: 'custom',
         path: ['eligibleOriginAttemptCount'],
         message: 'eligible origin attempts cannot exceed eligible traffic',
+      });
+    if (row.rejectedMethodRequestCount > row.requestCount)
+      context.addIssue({
+        code: 'custom',
+        path: ['rejectedMethodRequestCount'],
+        message: 'rejected traffic cannot exceed raw traffic',
       });
   });
 
@@ -60,6 +67,7 @@ type TrafficPartitionReconciliationInput = Readonly<{
   aliasEligibleRequestCount: number;
   canonicalEligibleOriginAttemptCount: number;
   aliasEligibleOriginRequestCount: number;
+  rejectedMethodRequestCount: number;
 }>;
 
 const sum = (values: readonly number[]) =>
@@ -80,6 +88,7 @@ export function reconcileStorefrontDeliveryTrafficPartition({
   aliasEligibleRequestCount,
   canonicalEligibleOriginAttemptCount,
   aliasEligibleOriginRequestCount,
+  rejectedMethodRequestCount,
 }: TrafficPartitionReconciliationInput) {
   const expectedHosts = new Set(inventoryHostnames);
   if (
@@ -103,7 +112,8 @@ export function reconcileStorefrontDeliveryTrafficPartition({
     seenHosts.add(row.hostname);
     if (
       row.eligibleRequestCount > row.requestCount ||
-      row.eligibleOriginAttemptCount > row.eligibleRequestCount
+      row.eligibleOriginAttemptCount > row.eligibleRequestCount ||
+      row.rejectedMethodRequestCount > row.requestCount
     )
       return false;
     if (row.hostname === canonicalHostname) canonicalRows.push(row);
@@ -121,6 +131,8 @@ export function reconcileStorefrontDeliveryTrafficPartition({
     sum(canonicalRows.map((row) => row.eligibleOriginAttemptCount)) ===
       canonicalEligibleOriginAttemptCount &&
     sum(aliasRows.map((row) => row.eligibleOriginAttemptCount)) ===
-      aliasEligibleOriginRequestCount
+      aliasEligibleOriginRequestCount &&
+    sum(rows.map((row) => row.rejectedMethodRequestCount)) ===
+      rejectedMethodRequestCount
   );
 }

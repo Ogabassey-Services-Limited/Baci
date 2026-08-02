@@ -7,6 +7,29 @@ import {
 } from './storefront-origin-budget.test-fixtures';
 
 describe('storefront origin budget alias host partition', () => {
+  it('includes canonical pre-Worker WAF rejects in the raw host census', () => {
+    const evidence = manifest();
+    const day = evidence.days[0];
+    day.rejectedMethodRequestCount = 1;
+    day.sourceEvidence.wafRateLimit.rejectedMethodRequestCount = 1;
+    day.trafficPartition.push({
+      hostname: 'ogabassey.com',
+      methodClass: 'OTHER',
+      pathClass: 'mutation',
+      ruleId: 'waf-invalid-method',
+      requestCount: 1,
+      eligibleRequestCount: 0,
+      eligibleOriginAttemptCount: 0,
+      rejectedMethodRequestCount: 1,
+    });
+    expect(summarizeAtFixtureTime(seal(evidence))).toMatchObject({
+      trafficPartitionReconciled: true,
+      verdict: 'PASS',
+    });
+    day.trafficPartition.pop();
+    expect(summarizeAtFixtureTime(seal(evidence)).verdict).toBe('NOT_PROVEN');
+  });
+
   it('reconciles full alias raw traffic separately from static redirects', () => {
     const evidence = manifest();
     evidence.days[0] = {
@@ -63,6 +86,7 @@ describe('storefront origin budget alias host partition', () => {
       requestCount: 1,
       eligibleRequestCount: 0,
       eligibleOriginAttemptCount: 0,
+      rejectedMethodRequestCount: 0,
     });
     evidence.days[0].sourceEvidence.aliasRedirect.hostPartition[0] = {
       ...evidence.days[0].sourceEvidence.aliasRedirect.hostPartition[0],

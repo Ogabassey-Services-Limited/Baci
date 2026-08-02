@@ -19,6 +19,7 @@ const rows: StorefrontDeliveryTrafficPartitionRow[] = [
     requestCount: 10,
     eligibleRequestCount: 10,
     eligibleOriginAttemptCount: 0,
+    rejectedMethodRequestCount: 0,
   },
   {
     hostname: 'ogabassey.usebaci.com',
@@ -28,6 +29,7 @@ const rows: StorefrontDeliveryTrafficPartitionRow[] = [
     requestCount: 2,
     eligibleRequestCount: 2,
     eligibleOriginAttemptCount: 0,
+    rejectedMethodRequestCount: 0,
   },
   {
     hostname: 'www.ogabassey.com',
@@ -37,6 +39,7 @@ const rows: StorefrontDeliveryTrafficPartitionRow[] = [
     requestCount: 1,
     eligibleRequestCount: 0,
     eligibleOriginAttemptCount: 0,
+    rejectedMethodRequestCount: 0,
   },
 ];
 
@@ -53,6 +56,7 @@ describe('storefront delivery traffic partition', () => {
         aliasEligibleRequestCount: 2,
         canonicalEligibleOriginAttemptCount: 0,
         aliasEligibleOriginRequestCount: 0,
+        rejectedMethodRequestCount: 0,
       })
     ).toBe(true);
   });
@@ -69,6 +73,7 @@ describe('storefront delivery traffic partition', () => {
         aliasEligibleRequestCount: 2,
         canonicalEligibleOriginAttemptCount: 0,
         aliasEligibleOriginRequestCount: 0,
+        rejectedMethodRequestCount: 0,
       })
     ).toBe(false);
     const duplicate = [...rows, rows[0]];
@@ -83,6 +88,7 @@ describe('storefront delivery traffic partition', () => {
         aliasEligibleRequestCount: 2,
         canonicalEligibleOriginAttemptCount: 0,
         aliasEligibleOriginRequestCount: 0,
+        rejectedMethodRequestCount: 0,
       })
     ).toBe(false);
     expect(
@@ -96,8 +102,34 @@ describe('storefront delivery traffic partition', () => {
         aliasEligibleRequestCount: 2,
         canonicalEligibleOriginAttemptCount: 0,
         aliasEligibleOriginRequestCount: 0,
+        rejectedMethodRequestCount: 0,
       })
     ).toBe(false);
+  });
+
+  it('binds pre-Worker WAF rejects into the host-partitioned raw census', () => {
+    const rejectedRows = [
+      {
+        ...rows[0],
+        requestCount: 11,
+        rejectedMethodRequestCount: 1,
+      },
+      ...rows.slice(1),
+    ];
+    expect(
+      reconcileStorefrontDeliveryTrafficPartition({
+        rows: rejectedRows,
+        inventoryHostnames,
+        canonicalHostname: 'ogabassey.com',
+        canonicalRawRequestCount: 11,
+        aliasRawRequestCount: 3,
+        canonicalEligibleRequestCount: 10,
+        aliasEligibleRequestCount: 2,
+        canonicalEligibleOriginAttemptCount: 0,
+        aliasEligibleOriginRequestCount: 0,
+        rejectedMethodRequestCount: 1,
+      })
+    ).toBe(true);
   });
 
   it('rejects an unbounded path class at schema parse time', () => {

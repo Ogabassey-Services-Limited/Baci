@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import type { z } from 'zod';
 import { calculateQualificationArtifactModuleListSha256 } from './cloudflare-evidence-qualification-artifact';
+import type { QualificationArtifactAuthority } from './cloudflare-evidence-qualification-authority';
 import { runQualificationCliFromProcess } from './cloudflare-evidence-qualification-cli';
 import {
   PurgeContractSchema,
@@ -39,7 +40,6 @@ export {
   runQualificationCliFromProcess,
 } from './cloudflare-evidence-qualification-cli';
 export {
-  type CloudflareWorkerArtifactReadbackQualification,
   calculatePointerCacheCanonicalSha256,
   QUALIFICATION_POINTER_PROBE_COUNT,
   QUALIFICATION_POINTER_URL,
@@ -99,6 +99,7 @@ export async function executeCloudflareEvidenceQualification(
     trace: CloudflareTraceExpectation;
     expectedOwnerApprovalId: string;
     expectedZeroWeightContract: CloudflareZeroWeightContract;
+    expectedZeroWeightRequestMatrix: QualificationArtifactAuthority['zeroWeightRequestMatrix'];
     now?: Date;
     pointerProbeCount?: number;
   }>
@@ -215,6 +216,7 @@ export async function executeCloudflareEvidenceQualification(
     expectedOwnerApprovalId: input.expectedOwnerApprovalId,
     ownerAcceptanceAuthority: input.ownerAcceptanceAuthority,
     expectedContract: input.expectedZeroWeightContract,
+    expectedRequestMatrix: input.expectedZeroWeightRequestMatrix,
     now: input.now,
   });
   if (!zeroWeightQualification.ok)

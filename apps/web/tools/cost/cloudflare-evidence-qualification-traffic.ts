@@ -1,8 +1,9 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   calculateCanonicalSha256,
   canonicalizeJson,
 } from '../../../../packages/shared/src/storefront/delivery-evidence';
+import type { QualificationArtifactAuthority } from './cloudflare-evidence-qualification-authority';
 import {
   type CloudflareZeroWeightContract,
   matchesReviewedZeroWeightContract,
@@ -10,78 +11,19 @@ import {
   spansVisibilityBound,
   ZeroWeightContractSchema,
 } from './cloudflare-evidence-zero-weight-authority';
+import { ZeroWeightProofSchema } from './cloudflare-evidence-zero-weight-proof-schema';
 
-const Hash = z.string().regex(/^[a-f0-9]{64}$/);
-const NonEmpty = z.string().min(1);
-const ProviderTimestamp = z.string().datetime({ offset: true });
 const MAXIMUM_OWNER_ACCEPTANCE_AGE_MS = 24 * 60 * 60 * 1000;
 
-export const ZeroWeightDeploymentTupleSchema = z
-  .object({
-    deploymentId: NonEmpty,
-    versions: z
-      .array(
-        z
-          .object({
-            versionId: NonEmpty,
-            percentage: z.number().min(0).max(100),
-          })
-          .strict()
-      )
-      .length(2),
-  })
-  .strict();
-export { ZeroWeightContractSchema };
-
-export const OrdinaryTrafficProofSchema = z
-  .object({
-    requestSha256: Hash,
-    responseSha256: Hash,
-    requestCount: z.number().int().positive(),
-    aInvocationCount: z.number().int().nonnegative(),
-    bInvocationCount: z.number().int().nonnegative(),
-    visibilityBoundSeconds: z.number().int().positive(),
-    observationStartedAt: ProviderTimestamp,
-    observationEndedAt: ProviderTimestamp,
-  })
-  .strict();
-export const ProtectedOverrideProofSchema = z
-  .object({
-    requestSha256: Hash,
-    responseSha256: Hash,
-    requestCount: z.number().int().positive(),
-    servedVersionId: NonEmpty,
-    versionMetadataVersionId: NonEmpty,
-    visibilityBoundSeconds: z.number().int().positive(),
-    observationStartedAt: ProviderTimestamp,
-    observationEndedAt: ProviderTimestamp,
-  })
-  .strict();
-export const OwnerAcceptanceSchema = z
-  .object({
-    accepted: z.literal(true),
-    approvalId: NonEmpty,
-    acceptedAt: z.string().datetime({ offset: true }),
-    receiptSha256: Hash,
-    /** Canonical digest of the exact deployment tuple the owner accepted. */
-    deploymentProofSha256: Hash,
-  })
-  .strict();
-
-export const ZeroWeightProofSchema = z
-  .object({
-    zeroWeightDeploymentSupported: z.literal(true),
-    zeroWeightOpenApiContradiction: z.literal(true),
-    productDocumentSha256: Hash,
-    openApiSha256: Hash,
-    openApiMinimumWeight: z.literal(0.01),
-    visibilityBoundSeconds: z.number().int().positive(),
-    deployment: ZeroWeightDeploymentTupleSchema,
-    ordinaryTraffic: OrdinaryTrafficProofSchema,
-    protectedOverride: ProtectedOverrideProofSchema,
-    ownerAcceptance: OwnerAcceptanceSchema,
-  })
-  .strict();
+export { ZeroWeightContractSchema, ZeroWeightProofSchema };
+export const ZeroWeightDeploymentTupleSchema =
+  ZeroWeightProofSchema.shape.deployment;
+export const OrdinaryTrafficProofSchema =
+  ZeroWeightProofSchema.shape.ordinaryTraffic;
+export const ProtectedOverrideProofSchema =
+  ZeroWeightProofSchema.shape.protectedOverride;
+export const OwnerAcceptanceSchema =
+  ZeroWeightProofSchema.shape.ownerAcceptance;
 
 export type { CloudflareZeroWeightContract };
 export type CloudflareOrdinaryTrafficProof = z.infer<
@@ -128,6 +70,7 @@ export function validateCloudflareZeroWeightProof(
     expectedOwnerApprovalId: string;
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
     expectedContract: CloudflareZeroWeightContract;
+    expectedRequestMatrix: QualificationArtifactAuthority['zeroWeightRequestMatrix'];
     now?: Date;
   }>
 ) {
@@ -135,6 +78,27 @@ export function validateCloudflareZeroWeightProof(
   if (!parsed.success)
     return { ok: false as const, reason: 'zero_weight_proof_schema_invalid' };
   const proof = parsed.data;
+  const matrix = options.expectedRequestMatrix;
+  if (!matrix || typeof matrix !== 'object')
+    return {
+      ok: false as const,
+      reason: 'zero_weight_request_matrix_authority_required',
+    };
+  if (
+    proof.ordinaryTraffic.requestSha256 !== matrix.ordinaryRequestSha256 ||
+    proof.ordinaryTraffic.responseSha256 !== matrix.ordinaryResponseSha256 ||
+    proof.ordinaryTraffic.requestCount !== matrix.ordinaryRequestCount ||
+    proof.protectedOverride.requestSha256 !==
+      matrix.protectedOverrideRequestSha256 ||
+    proof.protectedOverride.responseSha256 !==
+      matrix.protectedOverrideResponseSha256 ||
+    proof.protectedOverride.requestCount !==
+      matrix.protectedOverrideRequestCount
+  )
+    return {
+      ok: false as const,
+      reason: 'zero_weight_request_matrix_mismatch',
+    };
   const contractAuthority = matchesReviewedZeroWeightContract(
     proof,
     options.expectedContract
@@ -278,6 +242,7 @@ export function qualifyCloudflareZeroWeightReadback(
     expectedOwnerApprovalId: string;
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
     expectedContract: CloudflareZeroWeightContract;
+    expectedRequestMatrix: QualificationArtifactAuthority['zeroWeightRequestMatrix'];
     now?: Date;
   }>
 ) {
@@ -295,6 +260,7 @@ export function qualifyCloudflareZeroWeightReadback(
     expectedOwnerApprovalId: input.expectedOwnerApprovalId,
     ownerAcceptanceAuthority: input.ownerAcceptanceAuthority,
     expectedContract: input.expectedContract,
+    expectedRequestMatrix: input.expectedRequestMatrix,
     now: input.now,
   });
 }

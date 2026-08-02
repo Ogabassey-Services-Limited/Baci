@@ -15,6 +15,14 @@ const expectedContract = {
   openApiMinimumWeight: proof.openApiMinimumWeight,
   visibilityBoundSeconds: proof.visibilityBoundSeconds,
 };
+const expectedRequestMatrix = {
+  ordinaryRequestSha256: proof.ordinaryTraffic.requestSha256,
+  ordinaryResponseSha256: proof.ordinaryTraffic.responseSha256,
+  ordinaryRequestCount: proof.ordinaryTraffic.requestCount,
+  protectedOverrideRequestSha256: proof.protectedOverride.requestSha256,
+  protectedOverrideResponseSha256: proof.protectedOverride.responseSha256,
+  protectedOverrideRequestCount: proof.protectedOverride.requestCount,
+};
 const options = {
   deployment,
   stableVersionId: 'a',
@@ -22,6 +30,7 @@ const options = {
   expectedOwnerApprovalId: 'owner-approval',
   ownerAcceptanceAuthority: () => proof.ownerAcceptance,
   expectedContract,
+  expectedRequestMatrix,
   now: new Date('2026-07-31T01:00:00.000Z'),
 } as const;
 

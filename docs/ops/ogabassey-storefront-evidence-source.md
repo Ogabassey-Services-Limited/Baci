@@ -17,3 +17,13 @@ files, matches both digests to owner approval before loading either adapter, and
 journals their paths and hashes. Mutation and measurement reload only those
 journaled bytes. A changed file, local/package import, symlink, unapproved hash,
 or cross-process descriptor mismatch is `STOP`.
+
+For the production origin-budget gate, use the checked-in
+`storefront-origin-budget-manifest-authority-provider.ts` as
+`STOREFRONT_MANIFEST_AUTHORITY_MODULE` and bind its reviewed SHA-256 through
+`STOREFRONT_MANIFEST_AUTHORITY_MODULE_SHA256`. The provider/audit system writes
+one mode-`0600` receipt outside the repository; set its absolute path and exact
+file digest through `STOREFRONT_MANIFEST_AUTHORITY_RECEIPT_PATH` and
+`STOREFRONT_MANIFEST_AUTHORITY_RECEIPT_FILE_SHA256`. A mutable, permissive,
+symlinked, malformed, or digest-mismatched receipt is rejected before the
+manifest can receive a production verdict.

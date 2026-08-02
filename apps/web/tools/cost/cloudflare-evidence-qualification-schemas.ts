@@ -48,6 +48,7 @@ export const PointerCacheSchema = z
     canonicalSha256: Hash,
   })
   .strict();
+
 export const ArtifactReadbackSchema = z
   .object({
     apiFamily: z.literal('scripts-versions'),
@@ -75,9 +76,6 @@ export const ArtifactReadbackSchema = z
     runBinding: QualificationRunBindingSchema,
   })
   .strict();
-export type CloudflareWorkerArtifactReadbackQualification = z.infer<
-  typeof ArtifactReadbackSchema
->;
 export const ReviewedQualificationArtifactSchema = z
   .object({
     accountId: z.string().min(1),
@@ -253,6 +251,8 @@ export function qualifyCloudflareEvidenceReadback(
       expectedOwnerApprovalId: options.expectedOwnerApprovalId,
       ownerAcceptanceAuthority: options.ownerAcceptanceAuthority,
       expectedContract: options.expectedArtifactAuthority.zeroWeightContract,
+      expectedRequestMatrix:
+        options.expectedArtifactAuthority.zeroWeightRequestMatrix,
       now: options.now,
     }
   );
