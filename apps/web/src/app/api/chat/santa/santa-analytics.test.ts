@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  createServiceClient: vi.fn(),
-  insert: vi.fn(),
+  createClient: vi.fn(),
+  rpc: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: mocks.createServiceClient,
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: mocks.createClient,
 }));
 
 import {
@@ -18,10 +18,8 @@ import {
 describe('Santa analytics helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.insert.mockResolvedValue({ error: null });
-    mocks.createServiceClient.mockReturnValue({
-      from: vi.fn(() => ({ insert: mocks.insert })),
-    });
+    mocks.rpc.mockResolvedValue({ error: null });
+    mocks.createClient.mockResolvedValue({ rpc: mocks.rpc });
   });
 
   it('generates a stable privacy-preserving session id', () => {
@@ -44,7 +42,7 @@ describe('Santa analytics helpers', () => {
 
   it('logs bounded interaction fields and discount percentage', async () => {
     await logSantaInteraction({
-      merchantId: 'merchant-1',
+      merchantSlug: 'winter-store',
       sessionId: 'session-1',
       clientIp: '1'.repeat(100),
       interactionType: 'wish_granted',
@@ -54,13 +52,17 @@ describe('Santa analytics helpers', () => {
       approvedPrice: 400,
     });
 
-    expect(mocks.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        client_ip: '1'.repeat(64),
-        user_message: 'u'.repeat(500),
-        santa_response: 's'.repeat(1000),
-        discount_percentage: 20,
-      })
-    );
+    expect(mocks.rpc).toHaveBeenCalledWith('record_santa_interaction', {
+      p_approved_price: 400,
+      p_client_ip: '1'.repeat(64),
+      p_discount_percentage: 20,
+      p_interaction_type: 'wish_granted',
+      p_merchant_slug: 'winter-store',
+      p_product_name: undefined,
+      p_requested_price: 500,
+      p_santa_response: 's'.repeat(1000),
+      p_session_id: 'session-1',
+      p_user_message: 'u'.repeat(500),
+    });
   });
 });

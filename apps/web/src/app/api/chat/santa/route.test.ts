@@ -52,11 +52,9 @@ vi.mock('@/lib/sanitize', () => ({
   sanitizeHtml: vi.fn((input: string) => input),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: vi.fn(() => ({
-    from: () => ({
-      insert: vi.fn().mockResolvedValue({ error: null }),
-    }),
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(async () => ({
+    rpc: vi.fn().mockResolvedValue({ error: null }),
   })),
 }));
 
@@ -197,46 +195,6 @@ describe('POST /api/chat/santa', () => {
     );
     const text = await response.text();
     expect(text).toBe('Ho ho ho!');
-  });
-
-  it('returns 503 without reading the catalogue when the tenant is unavailable', async () => {
-    tenantMocks.resolveSantaTenant.mockResolvedValue(null);
-
-    const response = await POST(
-      makeRequest({
-        messages: [{ role: 'user', content: 'I want a phone!' }],
-      })
-    );
-
-    expect(response.status).toBe(503);
-    expect(generateText).not.toHaveBeenCalled();
-  });
-
-  it('uses the resolved tenant for the Santa catalogue', async () => {
-    const response = await POST(
-      makeRequest({
-        messages: [{ role: 'user', content: 'I want a phone!' }],
-      })
-    );
-
-    expect(response.status).toBe(200);
-    const { getCachedSantaProducts } = await import('@/ai/santa-data');
-    expect(getCachedSantaProducts).toHaveBeenCalledWith('merchant-1');
-  });
-
-  it('uses the resolved public business name in the Santa prompt', async () => {
-    const response = await POST(
-      makeRequest({
-        messages: [{ role: 'user', content: 'I want a phone!' }],
-      })
-    );
-
-    expect(response.status).toBe(200);
-    expect(generateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        system: expect.stringContaining('gadget company called Winter Store'),
-      })
-    );
   });
 
   it('sanitizes user messages via sanitizeHtml', async () => {

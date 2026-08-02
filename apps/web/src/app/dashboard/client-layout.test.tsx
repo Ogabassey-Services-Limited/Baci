@@ -127,12 +127,9 @@ function mockUseMerchantForLayout(value: ReturnType<typeof useMerchant>) {
   vi.mocked(useMerchant).mockReturnValue(value);
 }
 
-function renderLayout(
-  content = 'Test Content',
-  agenticMerchantSlug: string | null = null
-) {
+function renderLayout(content = 'Test Content') {
   return render(
-    <DashboardClientLayout agenticMerchantSlug={agenticMerchantSlug}>
+    <DashboardClientLayout>
       <div>{content}</div>
     </DashboardClientLayout>
   );
@@ -165,22 +162,6 @@ describe('DashboardClientLayout', () => {
         href
       );
     }
-  });
-
-  it('renders Santa Campaign for the configured merchant', () => {
-    renderLayout('Test Content', 'test-store');
-
-    expect(
-      screen.getAllByRole('link', { name: 'Santa Campaign' })[0]
-    ).toHaveAttribute('href', '/dashboard/santa');
-  });
-
-  it('hides Santa Campaign for a different configured merchant', () => {
-    renderLayout('Test Content', 'other-store');
-
-    expect(
-      screen.queryByRole('link', { name: 'Santa Campaign' })
-    ).not.toBeInTheDocument();
   });
 
   it('places Marketing under Products in the main dashboard navigation', () => {

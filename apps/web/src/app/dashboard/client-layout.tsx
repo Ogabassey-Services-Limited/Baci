@@ -80,6 +80,7 @@ import { FEATURES, isPlanTier, type PlanTier } from '@/lib/feature-flags';
 import { isRepairsBusinessType } from '@/lib/repairs/repairs-feature';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
+import { isSantaCampaignVisible } from './santa-navigation';
 import {
   buildSmartNavStorageKey,
   getSmartShortcutItems,
@@ -599,7 +600,7 @@ export default function DashboardClientLayout({
     // Santa Campaign is available only to the configured agentic tenant.
     if (
       item.label === 'Santa Campaign' &&
-      merchant?.slug !== agenticMerchantSlug
+      !isSantaCampaignVisible(merchant?.slug, agenticMerchantSlug)
     ) {
       return false;
     }

@@ -2,7 +2,6 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { pruneExpiredVoucherCartLines } from '@/lib/checkout/quiz-voucher-expiry';
 import { runWhenPageActivated } from '@/lib/dom/run-when-page-activated';
 import { logger } from '@/lib/logger';
 import type { Product } from '@/lib/products';
@@ -12,14 +11,13 @@ import {
   DEFAULT_ASSURANCE_RATE,
   DEFAULT_DEFERRED_VALIDATION_TIMEOUT_MS,
   generateCartItemId,
-  getCartFromStorage,
-  getCartWideNegotiationFromStorage,
   getMerchantSlugFromStorage,
   saveCartToStorage,
   saveCartWideNegotiationToStorage,
   saveMerchantSlugToStorage,
 } from './cart-storage';
 import type { AddToCartOptions, CartContextType, CartItem } from './cart-types';
+import { getMerchantCartState } from './merchant-cart-storage';
 import {
   applyValidationResults,
   createCartHash,
@@ -74,15 +72,16 @@ export function StorefrontCartProvider({
   if (isHydrated && initialMerchantSlug !== prevInitialMerchantSlug) {
     setPrevInitialMerchantSlug(initialMerchantSlug);
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
+    const merchantCartState = getMerchantCartState(slugToUse);
     setMerchantSlugState(slugToUse);
     // Prune quiz-prize voucher lines whose signed token has already expired
     // (7-day window). An expired voucher line is forced to ₦0 and re-fails
     // every checkout until removed, so it must never survive rehydration.
-    setCart(pruneExpiredVoucherCartLines(getCartFromStorage(slugToUse)));
+    setCart(merchantCartState.cart);
     // Re-read the group flag for the new merchant too, so it stays consistent
     // with the freshly loaded cart (otherwise the previous merchant's flag
     // leaks onto this cart).
-    setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slugToUse));
+    setCartWideNegotiationActive(merchantCartState.cartWideNegotiationActive);
   }
 
   // Hydrate cart + merchant slug from localStorage after mount (storage is
@@ -97,8 +96,9 @@ export function StorefrontCartProvider({
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only hydration; initialMerchantSlug prop changes handled during render
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
-    setCart(pruneExpiredVoucherCartLines(getCartFromStorage(slugToUse)));
-    setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slugToUse));
+    const merchantCartState = getMerchantCartState(slugToUse);
+    setCart(merchantCartState.cart);
+    setCartWideNegotiationActive(merchantCartState.cartWideNegotiationActive);
     setMerchantSlugState(slugToUse);
     setIsHydrated(true);
   }, []);
@@ -545,9 +545,10 @@ export function StorefrontCartProvider({
   };
 
   const setMerchantSlug = (slug: string) => {
+    const merchantCartState = getMerchantCartState(slug);
     setMerchantSlugState(slug);
-    setCart(pruneExpiredVoucherCartLines(getCartFromStorage(slug)));
-    setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slug));
+    setCart(merchantCartState.cart);
+    setCartWideNegotiationActive(merchantCartState.cartWideNegotiationActive);
     saveMerchantSlugToStorage(slug);
   };
 

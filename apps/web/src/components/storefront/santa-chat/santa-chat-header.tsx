@@ -12,10 +12,7 @@ export function SantaChatHeader({
   cartCount,
 }: SantaChatHeaderProps) {
   return (
-    <header
-      className="bg-red-600 p-4 text-white shadow-lg sticky top-0 z-10 flex items-center justify-between"
-      style={{ borderBottom: '4px solid #a4171d' }}
-    >
+    <header className="sticky top-0 z-10 flex items-center justify-between border-b-4 border-store-primary/80 bg-store-primary p-4 text-store-primary-text shadow-lg">
       <div className="w-16">
         {onClose && (
           <button
@@ -75,7 +72,7 @@ export function SantaChatHeader({
             />
           </svg>
           {cartCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full size-5 flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-store-accent text-xs font-bold text-store-accent-text">
               {cartCount > 9 ? '9+' : cartCount}
             </span>
           )}

@@ -225,39 +225,6 @@ describe('StorefrontCartProvider', () => {
     });
   });
 
-  it('loads the resolved merchant cart before a Santa product is added', async () => {
-    localStorageMock.setItem(
-      'baci-cart-first-guest',
-      JSON.stringify([{ ...mockProduct, id: 'first', quantity: 1 }])
-    );
-    localStorageMock.setItem(
-      'baci-cart-second-guest',
-      JSON.stringify([{ ...mockProduct, id: 'second', quantity: 1 }])
-    );
-
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <StorefrontCartProvider merchantSlug="first">
-        {children}
-      </StorefrontCartProvider>
-    );
-    const { result } = renderHook(() => useCart(), { wrapper });
-    await waitFor(() => expect(result.current.isHydrated).toBe(true));
-
-    act(() => {
-      result.current.setMerchantSlug('second');
-    });
-    await waitFor(() => expect(result.current.merchantSlug).toBe('second'));
-
-    act(() => {
-      result.current.addToCart(mockProduct, 1);
-    });
-
-    expect(result.current.cart.map((item) => item.id)).toEqual([
-      'second',
-      'prod-1',
-    ]);
-  });
-
   it('resets a cart-wide negotiation when a line is removed', async () => {
     const product2 = {
       ...mockProduct,

@@ -18,6 +18,13 @@ const quoteScopeMigration = readFileSync(
   ),
   'utf8'
 );
+const bookingLockRepairMigration = readFileSync(
+  resolve(
+    currentDir,
+    '../../../../../supabase/migrations/20260730223000_fix_order_shipment_booking_lock_ambiguity.sql'
+  ),
+  'utf8'
+);
 
 function tableDefinition(tableName: string): string {
   const start = baselineMigration.indexOf(
@@ -71,6 +78,21 @@ describe('shipping database contract', () => {
     expect(quoteScopeMigration).toContain("sq.quote_request - 'sender'");
     expect(quoteScopeMigration).toMatch(
       /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.get_checkout_shipping_quote\(uuid,\s*uuid\)\s+TO\s+anon,\s+authenticated,\s+service_role/i
+    );
+  });
+
+  it('qualifies shipment booking lock columns that collide with RPC outputs', () => {
+    expect(bookingLockRepairMigration).toContain(
+      'UPDATE public.orders AS target'
+    );
+    expect(bookingLockRepairMigration).toContain(
+      'AND target.shipment_id IS NULL'
+    );
+    expect(bookingLockRepairMigration).toContain(
+      'AND target.tracking_number IS NULL'
+    );
+    expect(bookingLockRepairMigration).toContain(
+      'target.shipment_booking_lock_token IS NULL'
     );
   });
 });

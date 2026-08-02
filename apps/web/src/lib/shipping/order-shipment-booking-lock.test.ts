@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 import type { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 import {
   claimOrderShipmentBooking,
@@ -114,16 +115,98 @@ describe('claimOrderShipmentBooking', () => {
   });
 
   it('throws SHIPMENT_BOOKING_LOCK_FAILED when the claim RPC errors', async () => {
+    const logSpy = vi
+      .spyOn(logger, 'error')
+      .mockImplementation(() => undefined);
     const { supabase } = createSupabaseMock({
-      rpcResult: { data: null, error: { message: 'db offline' } },
+      rpcResult: {
+        data: null,
+        error: {
+          code: '42702',
+          message: 'private database detail',
+        },
+      },
     });
 
-    await expect(
-      claimOrderShipmentBooking(supabase, 'merchant-1', 'order-1')
-    ).rejects.toMatchObject({
-      code: 'SHIPMENT_BOOKING_LOCK_FAILED',
-      status: 500,
-    } satisfies Partial<OrderShipmentBookingError>);
+    try {
+      await expect(
+        claimOrderShipmentBooking(supabase, 'merchant-1', 'order-1')
+      ).rejects.toMatchObject({
+        code: 'SHIPMENT_BOOKING_LOCK_FAILED',
+        status: 500,
+      } satisfies Partial<OrderShipmentBookingError>);
+
+      expect(logSpy).toHaveBeenCalledWith({
+        message: 'Shipment booking lock claim failed',
+        rpcCode: '42702',
+      });
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.anything(),
+        })
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('logs UNKNOWN for malformed or oversized RPC error codes', async () => {
+    const logSpy = vi
+      .spyOn(logger, 'error')
+      .mockImplementation(() => undefined);
+    const { supabase } = createSupabaseMock({
+      rpcResult: {
+        data: null,
+        error: {
+          code: 'private database detail that must not be logged',
+          message: 'claim failed',
+        },
+      },
+    });
+
+    try {
+      await expect(
+        claimOrderShipmentBooking(supabase, 'merchant-1', 'order-1')
+      ).rejects.toMatchObject({
+        code: 'SHIPMENT_BOOKING_LOCK_FAILED',
+        status: 500,
+      } satisfies Partial<OrderShipmentBookingError>);
+
+      expect(logSpy).toHaveBeenCalledWith({
+        message: 'Shipment booking lock claim failed',
+        rpcCode: 'UNKNOWN',
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('logs valid PostgREST codes without classifying them as UNKNOWN', async () => {
+    const logSpy = vi
+      .spyOn(logger, 'error')
+      .mockImplementation(() => undefined);
+    const { supabase } = createSupabaseMock({
+      rpcResult: {
+        data: null,
+        error: { code: 'PGRST116', message: 'claim failed' },
+      },
+    });
+
+    try {
+      await expect(
+        claimOrderShipmentBooking(supabase, 'merchant-1', 'order-1')
+      ).rejects.toMatchObject({
+        code: 'SHIPMENT_BOOKING_LOCK_FAILED',
+        status: 500,
+      } satisfies Partial<OrderShipmentBookingError>);
+
+      expect(logSpy).toHaveBeenCalledWith({
+        message: 'Shipment booking lock claim failed',
+        rpcCode: 'PGRST116',
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 
   it('degrades gracefully when the claim RPC is unavailable in production', async () => {

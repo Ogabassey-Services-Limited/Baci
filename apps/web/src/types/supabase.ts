@@ -17974,6 +17974,21 @@ export type Database = {
         Args: { p_source: string; p_token_hash: string };
         Returns: undefined;
       };
+      record_santa_interaction: {
+        Args: {
+          p_approved_price?: number;
+          p_client_ip: string;
+          p_discount_percentage?: number;
+          p_interaction_type: string;
+          p_merchant_slug: string;
+          p_product_name?: string;
+          p_requested_price?: number;
+          p_santa_response?: string;
+          p_session_id: string;
+          p_user_message?: string;
+        };
+        Returns: undefined;
+      };
       record_shipment_inventory_reconciliation: {
         Args: {
           p_error_code: string;

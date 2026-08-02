@@ -237,7 +237,7 @@ export async function POST(req: Request) {
     // Log the interaction after response is complete (fire and forget)
     const wishResult = parseWishResult(text);
     logSantaInteraction({
-      merchantId: santaTenant.id,
+      merchantSlug: santaTenant.slug,
       sessionId,
       clientIp,
       interactionType: wishResult.type,
