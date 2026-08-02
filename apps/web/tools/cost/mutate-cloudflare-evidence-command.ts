@@ -65,3 +65,11 @@ export function dispatchMutationCommand(
     dependencies.client
   );
 }
+
+export function createMutationCommand(operations: MutationOperations) {
+  return (
+    args: readonly string[],
+    stateDir: string,
+    dependencies: EvidenceMutationDependencies
+  ) => dispatchMutationCommand(args, stateDir, dependencies, operations);
+}

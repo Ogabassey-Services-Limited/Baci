@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises';
 import { basename, isAbsolute, join, parse, sep } from 'node:path';
 import { releaseActiveRunLock } from './cloudflare-evidence-run-lock';
-import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
+import { areReviewedProbeCases } from './mutate-cloudflare-evidence-probes';
 
 export type { MeasurementReceipt } from './cloudflare-evidence-measurement-receipt';
+export { REVIEWED_PROBE_COUNT } from './mutate-cloudflare-evidence-probes';
 export const RUN_ID_PATTERN = /^[a-f0-9]{32}$/;
 export type EvidencePhase =
   | 'prepared'
@@ -15,7 +16,6 @@ export type EvidencePhase =
   | 'read_token_revoked'
   | 'proof_complete'
   | 'closed_stop';
-export const REVIEWED_PROBE_COUNT = REVIEWED_PROBE_CASE_IDS.length;
 const evidencePhases = new Set<EvidencePhase>([
   'prepared',
   'mutated',
@@ -159,14 +159,12 @@ export async function verifyDirectory(stateDir: string) {
       'EVIDENCE_RUN_STATE_DIR is not private durable operator storage'
     );
 }
-
 export async function writeJournalUnlocked(
   stateDir: string,
   journal: CloudflareEvidenceRunJournal
 ) {
   const target = journalPath(stateDir, journal.runId);
-  // A unique temp name prevents a crashed writer from blocking every future
-  // transition with a stale deterministic `<pid>.tmp` path.
+  // Unique temp names prevent stale writers from blocking future transitions.
   const temp = `${target}.${process.pid}.${randomUUID()}.tmp`;
   const handle = await open(temp, 'wx', 0o600);
   try {
@@ -234,17 +232,12 @@ export function assertTransition(
       `invalid evidence phase transition: ${journal.phase} -> ${next}`
     );
 }
-
 export function assertTerminalPrerequisites(
   journal: CloudflareEvidenceRunJournal,
   phase: EvidencePhase
 ) {
   if (phase === 'proof_complete') {
-    const hasReviewedProbeCases =
-      journal.probeResults.length === REVIEWED_PROBE_CASE_IDS.length &&
-      journal.probeResults.every(
-        (probeId, index) => probeId === REVIEWED_PROBE_CASE_IDS[index]
-      );
+    const hasReviewedProbeCases = areReviewedProbeCases(journal.probeResults);
     if (
       journal.phase !== 'read_token_revoked' ||
       Object.keys(journal.mutations).length === 0 ||

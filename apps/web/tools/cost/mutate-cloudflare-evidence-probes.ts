@@ -28,6 +28,16 @@ export const REVIEWED_EVIDENCE_PROBE_MATRIX = Object.freeze(
 export const REVIEWED_PROBE_CASE_IDS = Object.freeze(
   REVIEWED_EVIDENCE_PROBE_MATRIX.map(({ method, path }) => `${method} ${path}`)
 );
+export const REVIEWED_PROBE_COUNT = REVIEWED_PROBE_CASE_IDS.length;
+
+export function areReviewedProbeCases(probeResults: readonly string[]) {
+  return (
+    probeResults.length === REVIEWED_PROBE_COUNT &&
+    probeResults.every(
+      (probeId, index) => probeId === REVIEWED_PROBE_CASE_IDS[index]
+    )
+  );
+}
 
 function sameHeaders(
   actual: EvidenceProbeResult['headers'],

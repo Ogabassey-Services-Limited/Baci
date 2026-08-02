@@ -19,7 +19,7 @@ import {
   verifyInventoryBeforeCleanup,
   verifyInventoryBeforeMutation,
 } from './mutate-cloudflare-evidence-cleanup-support';
-import { dispatchMutationCommand } from './mutate-cloudflare-evidence-command';
+import { createMutationCommand } from './mutate-cloudflare-evidence-command';
 import { runMutationCliFromProcess } from './mutate-cloudflare-evidence-entrypoint';
 import { validateEvidenceProbeResults } from './mutate-cloudflare-evidence-probes';
 import type {
@@ -44,17 +44,11 @@ export type {
   EvidenceResource,
 };
 export { parseMutationArguments, SYNTHETIC_PATHS };
-export function runMutationCommand(
-  args: readonly string[],
-  stateDir: string,
-  dependencies: EvidenceMutationDependencies
-) {
-  return dispatchMutationCommand(args, stateDir, dependencies, {
-    apply: applyCloudflareEvidenceMutation,
-    cleanup: cleanupCloudflareEvidenceRun,
-    recordRevocation: recordCloudflareEvidenceWriteTokenRevocation,
-  });
-}
+export const runMutationCommand = createMutationCommand({
+  apply: applyCloudflareEvidenceMutation,
+  cleanup: cleanupCloudflareEvidenceRun,
+  recordRevocation: recordCloudflareEvidenceWriteTokenRevocation,
+});
 export function applyCloudflareEvidenceMutation(
   stateDir: string,
   runId: string,
