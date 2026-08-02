@@ -1,4 +1,3 @@
-import { isValidImageUrl } from '@/lib/image-utils';
 import { parseBrandColors } from '@/schemas/brand-colors';
 import type {
   CuratedStorefrontInput,
@@ -9,10 +8,21 @@ export function toCuratedStorefrontInput(
   params: GenerateInitialTemplateParams
 ): CuratedStorefrontInput {
   const merchant = params.merchant ?? {};
-  const logoUrl =
-    typeof merchant.logo_url === 'string' && isValidImageUrl(merchant.logo_url)
-      ? merchant.logo_url
-      : undefined;
+  let logoUrl: string | undefined;
+  if (typeof merchant.logo_url === 'string') {
+    try {
+      const url = new URL(merchant.logo_url);
+      if (
+        url.protocol === 'https:' &&
+        url.hostname &&
+        !url.username &&
+        !url.password
+      )
+        logoUrl = url.toString();
+    } catch {
+      logoUrl = undefined;
+    }
+  }
   return {
     businessName: params.businessName.trim() || 'Your Store',
     businessType: params.businessType.trim(),

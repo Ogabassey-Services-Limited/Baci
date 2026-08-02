@@ -24,6 +24,23 @@ describe('generateInitialTemplate', () => {
     expect(provider).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+  it('does not read clocks or random values while creating a starter', async () => {
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => {
+      throw new Error('clock must not run');
+    });
+    const random = vi.spyOn(Math, 'random').mockImplementation(() => {
+      throw new Error('random must not run');
+    });
+
+    await expect(generateInitialTemplate(input)).resolves.toEqual(
+      await generateInitialTemplate(input)
+    );
+
+    expect(clock).not.toHaveBeenCalled();
+    expect(random).not.toHaveBeenCalled();
+    clock.mockRestore();
+    random.mockRestore();
+  });
   it.each([
     'fashion',
     'food',

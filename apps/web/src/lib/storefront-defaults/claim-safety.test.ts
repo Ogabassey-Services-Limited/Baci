@@ -26,6 +26,27 @@ describe('curated starter claim safety', () => {
         (block) => block.type === 'Hero' && block.props?.headingLevel === 'h1'
       )
     ).toHaveLength(1);
+    expect(
+      storefront.content.find((block) => block.type === 'Header')?.props
+        ?.navigationLinks
+    ).toEqual([
+      { label: 'Home', url: '/' },
+      expect.objectContaining({ url: '/products' }),
+      { label: 'About', url: '/about' },
+    ]);
+    expect(
+      storefront.content.find((block) => block.type === 'Header')?.props
+        ?.ctaButton
+    ).toEqual({ show: false, text: 'Get Started', url: '/signup' });
+    expect(
+      storefront.content.find((block) => block.type === 'Footer')?.props
+        ?.quickLinks
+    ).toEqual([
+      { label: 'About Us', url: '/about' },
+      { label: 'Contact', url: '/contact' },
+      { label: 'Privacy Policy', url: '/privacy' },
+      { label: 'Terms', url: '/terms' },
+    ]);
     for (const claim of [
       'nationwide delivery',
       'flexible payment',
@@ -33,6 +54,15 @@ describe('curated starter claim safety', () => {
       'best seller',
       'expert',
       'warranty',
+      'fresh meals',
+      'popular',
+      'delivery-ready',
+      'fulfillment',
+      'confidence',
+      'quality products',
+      'secure checkout',
+      'reliable',
+      'exclusive offers',
     ])
       expect(content).not.toContain(claim);
   });

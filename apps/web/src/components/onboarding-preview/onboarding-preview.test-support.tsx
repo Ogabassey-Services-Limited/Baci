@@ -5,8 +5,8 @@ const mockPuckRenderState = vi.hoisted(() => ({
   errorMessage: null as string | null,
 }));
 
-vi.mock('@/lib/initial-template-preview-theme', () => ({
-  deriveThemeFromColors: vi.fn(() => ({
+vi.mock('@/lib/storefront-defaults/derive-curated-theme', () => ({
+  deriveCuratedTheme: vi.fn(() => ({
     colors: {
       primary: '#000000',
       secondary: '#111111',

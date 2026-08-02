@@ -1,5 +1,6 @@
 import type { Data } from '@puckeditor/core';
 import { getInitialTemplateProfile } from '@/lib/initial-template-profiles';
+import { buildCuratedCopy } from '@/lib/storefront-defaults/build-curated-copy';
 import { buildCuratedFeatures } from '@/lib/storefront-defaults/build-curated-features';
 import { buildCuratedHero } from '@/lib/storefront-defaults/build-curated-hero';
 
@@ -10,24 +11,23 @@ export async function generatePreviewTemplate(params: {
   logoDataUri: string | null;
 }): Promise<Data> {
   const profile = getInitialTemplateProfile(params.businessType);
-  const hero = buildCuratedHero(params.businessName, params.businessType);
-  const features = buildCuratedFeatures();
-  const timestamp = Date.now();
+  const copy = buildCuratedCopy({
+    businessName: params.businessName,
+    businessType: params.businessType,
+    country: '',
+  });
+  const hero = buildCuratedHero(params.businessType, copy.hero);
   const header = {
     type: 'Header',
     props: {
-      id: `Header-preview-${timestamp}`,
+      id: 'Header-home',
       showLogo: true,
       showSearch: true,
       showCart: true,
       showMenu: true,
       sticky: true,
-      navigationLinks: [
-        { label: 'Home', url: '/' },
-        { label: profile.shopNavLabel, url: '/products' },
-        { label: 'About', url: '/about' },
-      ],
-      ctaButton: { show: false, text: 'Get Started', url: '/signup' },
+      navigationLinks: [...copy.header.navigationLinks],
+      ctaButton: copy.header.ctaButton,
       storeName: params.businessName,
       ...(params.logoDataUri ? { logoUrl: params.logoDataUri } : {}),
     },
@@ -40,26 +40,26 @@ export async function generatePreviewTemplate(params: {
     story: {
       type: 'Text',
       props: {
-        id: `Text-preview-${timestamp}`,
-        title: profile.storyTitle,
-        content: profile.storyContent,
+        id: 'Text-story',
+        title: copy.story.title,
+        content: copy.story.content,
         align: profile.storyAlign,
       },
     },
     features: {
       type: 'Features',
       props: {
-        id: `Features-preview-${timestamp}`,
-        title: profile.featuresTitle,
-        features,
+        id: 'Features-trust',
+        title: copy.features.title,
+        features: buildCuratedFeatures(copy.features.items),
         columns: 3,
       },
     },
     products: {
       type: 'ProductGrid',
       props: {
-        id: `ProductGrid-preview-${timestamp}`,
-        title: profile.productGridTitle,
+        id: 'ProductGrid-featured',
+        title: copy.products.title,
         columns: profile.productGridColumns,
         limit: profile.productGridLimit,
         sortBy: 'newest',
@@ -69,25 +69,20 @@ export async function generatePreviewTemplate(params: {
     newsletter: {
       type: 'Newsletter',
       props: {
-        id: `Newsletter-preview-${timestamp}`,
-        title: profile.newsletterTitle,
-        description: profile.newsletterDescription,
-        buttonText: 'Subscribe',
-        placeholder: 'Enter your email',
+        id: 'Newsletter-home',
+        title: copy.newsletter.title,
+        description: copy.newsletter.description,
+        buttonText: copy.newsletter.buttonText,
+        placeholder: copy.newsletter.placeholder,
       },
     },
   } as Record<(typeof profile.contentOrder)[number], Data['content'][number]>;
   const footer = {
     type: 'Footer',
     props: {
-      id: `Footer-preview-${timestamp}`,
+      id: 'Footer-home',
       showQuickLinks: true,
-      quickLinks: [
-        { label: 'About Us', url: '/about' },
-        { label: 'Contact', url: '/contact' },
-        { label: 'Privacy Policy', url: '/privacy' },
-        { label: 'Terms', url: '/terms' },
-      ],
+      quickLinks: copy.footer.quickLinks,
       socialLinks: {},
       showNewsletter: false,
     },

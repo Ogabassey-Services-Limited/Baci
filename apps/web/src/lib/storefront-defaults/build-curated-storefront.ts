@@ -1,13 +1,20 @@
 import type { Data } from '@puckeditor/core';
 import { getInitialTemplateProfile } from '@/lib/initial-template-profiles';
+import { buildCuratedCopy } from './build-curated-copy';
 import { buildCuratedFeatures } from './build-curated-features';
 import { buildCuratedHero } from './build-curated-hero';
-import type { CuratedStorefrontInput } from './curated-storefront-types';
+import type {
+  CuratedStorefrontData,
+  CuratedStorefrontInput,
+} from './curated-storefront-types';
 import { deriveCuratedTheme } from './derive-curated-theme';
 
-export function buildCuratedStorefront(input: CuratedStorefrontInput): Data {
+export function buildCuratedStorefront(
+  input: CuratedStorefrontInput
+): CuratedStorefrontData {
   const profile = getInitialTemplateProfile(input.businessType);
-  const hero = buildCuratedHero(input.businessName, input.businessType);
+  const copy = buildCuratedCopy(input);
+  const hero = buildCuratedHero(input.businessType, copy.hero);
   const blocks: Data['content'] = [
     {
       type: 'Header',
@@ -18,12 +25,8 @@ export function buildCuratedStorefront(input: CuratedStorefrontInput): Data {
         showCart: true,
         showMenu: true,
         sticky: true,
-        navigationLinks: [
-          { label: 'Home', url: '/' },
-          { label: profile.shopNavLabel, url: '/products' },
-          { label: 'About', url: '/about' },
-        ],
-        ctaButton: { show: false, text: 'Get Started', url: '/signup' },
+        navigationLinks: copy.header.navigationLinks,
+        ctaButton: copy.header.ctaButton,
         storeName: input.businessName,
         ...(input.logoUrl ? { logoUrl: input.logoUrl } : {}),
       },
@@ -33,43 +36,39 @@ export function buildCuratedStorefront(input: CuratedStorefrontInput): Data {
       type: 'Text',
       props: {
         id: 'Text-story',
-        title: profile.storyTitle,
-        content: `Explore products from ${input.businessName}.`,
+        title: copy.story.title,
+        content: copy.story.content,
         align: profile.storyAlign,
-        headingLevel: 'h2',
       },
     },
     {
       type: 'Features',
       props: {
         id: 'Features-trust',
-        title: 'Explore the collection',
-        features: buildCuratedFeatures(),
+        title: copy.features.title,
+        features: buildCuratedFeatures(copy.features.items),
         columns: 3,
-        headingLevel: 'h3',
       },
     },
     {
       type: 'ProductGrid',
       props: {
         id: 'ProductGrid-featured',
-        title: profile.productGridTitle,
+        title: copy.products.title,
         columns: profile.productGridColumns,
         limit: profile.productGridLimit,
         sortBy: 'newest',
         showFilters: true,
-        headingLevel: 'h3',
       },
     },
     {
       type: 'Newsletter',
       props: {
         id: 'Newsletter-home',
-        title: 'Stay updated',
-        description: `Get updates from ${input.businessName}.`,
-        buttonText: 'Subscribe',
-        placeholder: 'Enter your email',
-        headingLevel: 'h3',
+        title: copy.newsletter.title,
+        description: copy.newsletter.description,
+        buttonText: copy.newsletter.buttonText,
+        placeholder: copy.newsletter.placeholder,
       },
     },
     {
@@ -77,19 +76,13 @@ export function buildCuratedStorefront(input: CuratedStorefrontInput): Data {
       props: {
         id: 'Footer-home',
         showQuickLinks: true,
-        quickLinks: [
-          { label: 'About Us', url: '/about' },
-          { label: 'Contact', url: '/contact' },
-          { label: 'Privacy Policy', url: '/privacy' },
-          { label: 'Terms', url: '/terms' },
-        ],
+        quickLinks: copy.footer.quickLinks,
         socialLinks: {},
         showNewsletter: false,
-        headingLevel: 'h4',
       },
     },
   ];
-  const config: Data = {
+  return {
     content: [
       blocks[0],
       ...profile.contentOrder.map(
@@ -106,9 +99,6 @@ export function buildCuratedStorefront(input: CuratedStorefrontInput): Data {
     ],
     root: { props: { title: 'Home' } },
     zones: {},
+    theme: deriveCuratedTheme(input.brandColors, input.businessType),
   };
-  (config as Record<string, unknown>).theme = deriveCuratedTheme(
-    input.brandColors
-  );
-  return config;
 }

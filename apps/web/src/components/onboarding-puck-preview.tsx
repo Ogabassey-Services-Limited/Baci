@@ -19,8 +19,11 @@ interface OnboardingPuckPreviewProps {
   data?: Data | null;
 }
 
-function getThemeStyles(brandColors: BrandColors): React.CSSProperties {
-  const theme = deriveCuratedTheme(brandColors);
+function getThemeStyles(
+  brandColors: BrandColors,
+  businessType: string
+): React.CSSProperties {
+  const theme = deriveCuratedTheme(brandColors, businessType);
   return {
     '--theme-primary': theme.colors.primary,
     '--theme-secondary': theme.colors.secondary,
@@ -113,7 +116,7 @@ export function OnboardingPuckPreview({
         Your store preview will appear here once your logo is uploaded.
       </div>
     );
-  const themeStyles = getThemeStyles(brandColors);
+  const themeStyles = getThemeStyles(brandColors, businessType);
   const resetKey = JSON.stringify({
     businessName,
     businessType,

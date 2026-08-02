@@ -35,6 +35,37 @@ describe('toCuratedStorefrontInput', () => {
         },
         merchant: { logo_url: 'javascript:alert(1)' },
       })
-    ).toMatchObject({ businessName: 'Your Store' });
+    ).toEqual(expect.objectContaining({ businessName: 'Your Store' }));
+    expect(
+      toCuratedStorefrontInput({
+        businessName: '',
+        businessType: '',
+        brandColors: {
+          primary: '#111111',
+          background: '#ffffff',
+          accent: '#f97316',
+        },
+        merchant: { logo_url: 'javascript:alert(1)' },
+      })
+    ).not.toHaveProperty('logoUrl');
+  });
+  it.each([
+    'https://',
+    'https://user:pass@example.com/logo.png',
+    '//cdn.example.com/logo.png',
+    'javascript:alert(1)',
+    'data:image/png;base64,logo',
+  ])('rejects an unsafe or malformed logo URL: %s', (logoUrl) => {
+    const result = toCuratedStorefrontInput({
+      businessName: 'Store',
+      businessType: 'fashion',
+      brandColors: {
+        primary: '#111111',
+        background: '#ffffff',
+        accent: '#f97316',
+      },
+      merchant: { logo_url: logoUrl },
+    });
+    expect(result).not.toHaveProperty('logoUrl');
   });
 });

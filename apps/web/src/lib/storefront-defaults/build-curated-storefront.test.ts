@@ -34,7 +34,7 @@ describe('buildCuratedStorefront', () => {
       ctaLink: '#products',
     });
     expect(hero?.props?.backgroundImage).toBeUndefined();
-    expect(hero?.props?.gradient).toContain('linear-gradient');
+    expect(hero?.props?.backgroundGradient).toContain('linear-gradient');
     expect(
       storefront.content.filter((block) => block.type === 'HeroCarousel')
     ).toHaveLength(0);
@@ -50,4 +50,46 @@ describe('buildCuratedStorefront', () => {
       logoUrl: 'https://cdn.example.com/threaded-logo.png',
     });
   });
+});
+
+it.each([
+  'fashion',
+  'food',
+  'electronics',
+  'pharmacy',
+  'unknown-type',
+])('is repeatable and structurally complete for %s', (businessType) => {
+  const input = Object.freeze({
+    businessName: 'North Star',
+    businessType,
+    country: 'Nigeria',
+    brandColors: Object.freeze({
+      primary: '#14532d',
+      background: '#fff7ed',
+      accent: '#f97316',
+    }),
+  });
+  const first = buildCuratedStorefront(input);
+  const second = buildCuratedStorefront(input);
+  expect(first).toEqual(second);
+  expect(first.content.map((block) => block.type)).toContain('Hero');
+  expect(first.content.filter((block) => block.type === 'Header')).toHaveLength(
+    1
+  );
+  expect(first.content.filter((block) => block.type === 'Footer')).toHaveLength(
+    1
+  );
+  expect(
+    first.content.filter((block) => block.type === 'ProductGrid')
+  ).toHaveLength(1);
+  expect(
+    first.content.filter(
+      (block) => block.type === 'Hero' && block.props?.headingLevel === 'h1'
+    )
+  ).toHaveLength(1);
+  expect(
+    first.content
+      .filter((block) => block.type !== 'Hero')
+      .every((block) => block.props?.headingLevel === undefined)
+  ).toBe(true);
 });

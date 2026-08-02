@@ -52,6 +52,7 @@ import { cn } from '@/lib/utils';
 import { AnimatedWrapper, type AnimationType } from './animated-wrapper';
 import { ColorPickerField } from './fields/color-picker-field';
 import { ImagePickerField } from './fields/image-picker-field';
+import { type HeroProps, heroComponent } from './hero-component';
 import { getIconOptions, renderIcon } from './icon-registry';
 import { ScopedStorefrontLink } from './scoped-storefront-link';
 import { getStorefrontScopedHref } from './storefront-scoping';
@@ -122,23 +123,6 @@ const animationFields = {
       { label: 'On Scroll Into View', value: 'scroll' },
     ],
   },
-};
-
-type HeroProps = {
-  title: string;
-  subtitle: string;
-  ctaText: string;
-  ctaLink: string;
-  align: 'left' | 'center' | 'right';
-  padding: 'small' | 'medium' | 'large';
-  backgroundImage?: string;
-  overlay?: boolean;
-  animationType?: string;
-  animationDuration?: string;
-  animationDelay?: number;
-  animationTrigger?: string;
-  // New SEO Prop
-  headingLevel?: 'h1' | 'h2' | 'div';
 };
 
 type HeroCarouselProps = {
@@ -810,174 +794,7 @@ export const builderConfig: Config<
       },
       render: (props) => <StorefrontHeader {...props} />,
     },
-    Hero: {
-      label: 'Hero Section',
-      permissions: { delete: true, duplicate: true },
-      fields: {
-        // biome-ignore lint/suspicious/noExplicitAny: Puck field types don't include inline/contentEditable
-        title: { type: 'text', inline: true, contentEditable: true } as any,
-        subtitle: {
-          type: 'textarea',
-          inline: true,
-          contentEditable: true,
-          // biome-ignore lint/suspicious/noExplicitAny: Puck field types don't include inline/contentEditable
-        } as any,
-        // biome-ignore lint/suspicious/noExplicitAny: Puck field types don't include inline/contentEditable
-        ctaText: { type: 'text', inline: true, contentEditable: true } as any,
-        ctaLink: { type: 'text' },
-        backgroundImage: {
-          type: 'custom',
-          label: 'Background Image (optional)',
-          render: ({
-            field,
-            onChange,
-            value,
-          }: {
-            field: { label?: string };
-            onChange: (value: string | undefined) => void;
-            value: string | undefined;
-          }) => {
-            return (
-              <ImagePickerField
-                field={field}
-                onChange={onChange}
-                value={value ?? ''}
-              />
-            );
-          },
-        },
-        overlay: {
-          type: 'radio',
-          options: [
-            { label: 'Yes', value: true },
-            { label: 'No', value: false },
-          ],
-        },
-        align: {
-          type: 'select',
-          options: [
-            { label: 'Left', value: 'left' },
-            { label: 'Center', value: 'center' },
-            { label: 'Right', value: 'right' },
-          ],
-        },
-        padding: {
-          type: 'select',
-          options: [
-            { label: 'Small', value: 'small' },
-            { label: 'Medium', value: 'medium' },
-            { label: 'Large', value: 'large' },
-          ],
-        },
-        // New SEO Field
-        headingLevel: {
-          type: 'select',
-          label: 'Heading Level (SEO)',
-          options: [
-            { label: 'H1 (Main Title)', value: 'h1' },
-            { label: 'H2 (Section Title)', value: 'h2' },
-            { label: 'Div (Decoration)', value: 'div' },
-          ],
-        },
-        ...animationFields,
-      },
-      defaultProps: {
-        title: 'Welcome to Our Store',
-        subtitle: 'Discover our amazing collection of products.',
-        ctaText: 'Shop Now',
-        ctaLink: '/products',
-        align: 'center',
-        padding: 'medium',
-        overlay: false,
-        headingLevel: 'h1',
-        animationType: 'fade-in',
-        animationDuration: 'normal',
-        animationDelay: 0,
-        animationTrigger: 'scroll',
-      },
-      render: ({
-        title,
-        subtitle,
-        ctaText,
-        ctaLink,
-        align,
-        padding,
-        backgroundImage,
-        overlay,
-        headingLevel,
-        animationType,
-        animationDuration,
-        animationDelay,
-        animationTrigger,
-      }) => {
-        const paddingClass = {
-          small: 'py-12',
-          medium: 'py-24',
-          large: 'py-32',
-        }[padding];
-
-        // Dynamic Heading Tag
-        const HeadingTag = (headingLevel || 'h1') as 'h1' | 'h2' | 'div';
-
-        return (
-          <AnimatedWrapper
-            animation={{
-              type: mapAnimationType(animationType),
-              duration: animationDuration as 'fast' | 'normal' | 'slow',
-              delay: animationDelay,
-              trigger:
-                animationTrigger === 'onload'
-                  ? 'immediate'
-                  : (animationTrigger as 'scroll' | 'immediate'),
-            }}
-          >
-            <section
-              className={cn('relative', paddingClass)}
-              style={
-                backgroundImage
-                  ? {
-                      backgroundImage: `url(${backgroundImage})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }
-                  : {}
-              }
-              aria-label="Hero Banner"
-            >
-              {overlay && backgroundImage && (
-                <div
-                  className="absolute inset-0 bg-black/40"
-                  aria-hidden="true"
-                />
-              )}
-              <div
-                className={cn(
-                  'container px-4 md:px-6 flex flex-col gap-4 relative z-10',
-                  {
-                    'items-start text-left': align === 'left',
-                    'items-center text-center': align === 'center',
-                    'items-end text-right': align === 'right',
-                  },
-                  {
-                    'text-white': backgroundImage && overlay,
-                  }
-                )}
-              >
-                <HeadingTag className="text-4xl md:text-6xl font-bold tracking-tighter">
-                  {title}
-                </HeadingTag>
-                <p className="text-xl max-w-[700px] opacity-90">{subtitle}</p>
-                <ThemedButton colorRole="primary" size="lg" asChild>
-                  <ScopedStorefrontLink href={ctaLink}>
-                    {ctaText}
-                  </ScopedStorefrontLink>
-                </ThemedButton>
-              </div>
-            </section>
-          </AnimatedWrapper>
-        );
-      },
-    },
+    Hero: heroComponent,
     OgabasseyHeader: {
       label: 'Ogabassey Header',
       permissions: { delete: true, duplicate: true },
