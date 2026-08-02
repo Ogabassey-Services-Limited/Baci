@@ -5,6 +5,7 @@ import { SantaChatDialog } from './santa-chat-dialog';
 const cartMocks = vi.hoisted(() => ({
   addToCart: vi.fn(),
   applyNegotiatedPrice: vi.fn(),
+  merchantSlug: null as string | null,
   setMerchantSlug: vi.fn(),
 }));
 
@@ -34,6 +35,7 @@ vi.mock('@/hooks/use-cart', () => ({
     addToCart: cartMocks.addToCart,
     applyNegotiatedPrice: cartMocks.applyNegotiatedPrice,
     cartCount: 0,
+    merchantSlug: cartMocks.merchantSlug,
     setMerchantSlug: cartMocks.setMerchantSlug,
   }),
 }));
@@ -81,7 +83,10 @@ vi.mock('./chat-message', () => ({
   ),
 }));
 
-function makeStreamingResponse(content: string): Response {
+function makeStreamingResponse(
+  content: string,
+  merchantSlug?: string
+): Response {
   return new Response(
     new ReadableStream({
       start(controller) {
@@ -89,11 +94,20 @@ function makeStreamingResponse(content: string): Response {
         controller.close();
       },
     }),
-    { status: 200 }
+    {
+      headers: merchantSlug
+        ? { 'x-baci-santa-merchant-slug': merchantSlug }
+        : undefined,
+      status: 200,
+    }
   );
 }
 
-function makeProductResponse(name: string, price: number): Response {
+function makeProductResponse(
+  name: string,
+  price: number,
+  merchantSlug?: string
+): Response {
   return new Response(
     JSON.stringify({
       product: {
@@ -103,7 +117,13 @@ function makeProductResponse(name: string, price: number): Response {
         price,
       },
     }),
-    { headers: { 'Content-Type': 'application/json' }, status: 200 }
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(merchantSlug ? { 'x-baci-santa-merchant-slug': merchantSlug } : {}),
+      },
+      status: 200,
+    }
   );
 }
 
@@ -125,6 +145,40 @@ describe('SantaChatDialog', () => {
   it('exports a valid component', () => {
     expect(SantaChatDialog).toBeDefined();
     expect(typeof SantaChatDialog).toBe('function');
+  });
+
+  it('adopts the resolved Santa tenant before processing cart actions', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url === '/api/chat/santa') {
+        return Promise.resolve(
+          makeStreamingResponse(
+            'ACTION:ADD_TO_CART|PRODUCT:Phone|PRICE:450000',
+            'winter-store'
+          )
+        );
+      }
+
+      if (url === '/api/chat/santa/product') {
+        const body = JSON.parse(String(init?.body)) as { name: string };
+        return Promise.resolve(
+          makeProductResponse(body.name, 450_000, 'winter-store')
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<SantaChatDialog />);
+
+    startChatAndSendWish();
+
+    await waitFor(() => {
+      expect(cartMocks.setMerchantSlug).toHaveBeenCalledWith('winter-store');
+      expect(cartMocks.addToCart).toHaveBeenCalled();
+    });
   });
 
   it('processes multiple cart directives concurrently and strips them from displayed text', async () => {

@@ -19,13 +19,6 @@ import { getConfiguredAgenticMerchantSlug } from './merchant-context';
 // and avoids re-deriving Supabase's deep builder generics here.
 type MerchantIdLookupClient = Pick<SupabaseClient, 'from'>;
 
-const merchantIdBySlug = new Map<string, string>();
-
-/** Test-only: clears the memoized slug -> id mapping. */
-export function resetAgenticMerchantIdCache(): void {
-  merchantIdBySlug.clear();
-}
-
 export async function resolveAgenticMerchantId(
   client: MerchantIdLookupClient
 ): Promise<string | null> {
@@ -34,13 +27,9 @@ export async function resolveAgenticMerchantId(
     return null;
   }
 
-  const cached = merchantIdBySlug.get(slug);
-  if (cached) {
-    return cached;
-  }
-
-  // Single-tenant and stable, so memoize per slug rather than hitting the DB on
-  // every copilot turn. Only `id` is selected — no secret columns.
+  // This lookup is also the publication check for unauthenticated callers.
+  // Do not cache it: a warm process must stop using a tenant immediately after
+  // its storefront is unpublished. Only `id` is selected — no secret columns.
   const { data, error } = await client
     .from('merchants')
     .select('id')
@@ -51,6 +40,5 @@ export async function resolveAgenticMerchantId(
     return null;
   }
 
-  merchantIdBySlug.set(slug, data.id);
   return data.id;
 }

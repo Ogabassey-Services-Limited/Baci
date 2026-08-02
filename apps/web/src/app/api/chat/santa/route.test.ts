@@ -5,6 +5,10 @@ let rateLimitAllowed = true;
 let rateLimitResetIn = 0;
 let mockProducts = 'Product List Here';
 
+const tenantMocks = vi.hoisted(() => ({
+  resolveSantaTenant: vi.fn(),
+}));
+
 // ---- Mocks ----
 
 vi.mock('ai', () => ({ generateText: vi.fn() }));
@@ -38,6 +42,10 @@ vi.mock('@/ai/provider', () => ({
 
 vi.mock('@/ai/santa-data', () => ({
   getCachedSantaProducts: vi.fn(async () => mockProducts),
+}));
+
+vi.mock('@/lib/agentic/resolve-santa-tenant', () => ({
+  resolveSantaTenant: tenantMocks.resolveSantaTenant,
 }));
 
 vi.mock('@/lib/sanitize', () => ({
@@ -101,6 +109,10 @@ describe('POST /api/chat/santa', () => {
     rateLimitAllowed = true;
     rateLimitResetIn = 0;
     mockProducts = 'Product List Here';
+    tenantMocks.resolveSantaTenant.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'winter-store',
+    });
     // Default: the leading (active) provider succeeds immediately.
     respondByModel({ 'mock-active-model': 'Ho ho ho!' });
   });
@@ -178,8 +190,36 @@ describe('POST /api/chat/santa', () => {
     expect(response.headers.get('Content-Type')).toBe(
       'text/plain; charset=utf-8'
     );
+    expect(response.headers.get('x-baci-santa-merchant-slug')).toBe(
+      'winter-store'
+    );
     const text = await response.text();
     expect(text).toBe('Ho ho ho!');
+  });
+
+  it('returns 503 without reading the catalogue when the tenant is unavailable', async () => {
+    tenantMocks.resolveSantaTenant.mockResolvedValue(null);
+
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'I want a phone!' }],
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('uses the resolved tenant for the Santa catalogue', async () => {
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'I want a phone!' }],
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const { getCachedSantaProducts } = await import('@/ai/santa-data');
+    expect(getCachedSantaProducts).toHaveBeenCalledWith('merchant-1');
   });
 
   it('sanitizes user messages via sanitizeHtml', async () => {

@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCachedSantaProductList } from '@/ai/santa-data';
-import { resolveAgenticMerchantId } from '@/lib/agentic/agentic-merchant-id';
+import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { logger } from '@/lib/logger';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { sanitizeForLog } from '@/lib/sanitize-core';
-import { createPublicClient } from '@/lib/supabase/public';
 import { createServiceClient } from '@/lib/supabase/service';
 
 const UNLIMITED_STOCK_QUANTITY = 9999;
@@ -16,8 +16,6 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
   // Sanitize for safe logging (prevent log injection)
   const safeProductName = sanitizeForLog(productName);
   try {
-    const supabase = createServiceClient();
-
     // Resolved from BACI_AGENTIC_MERCHANT_SLUG rather than a hardcoded UUID, so
     // this endpoint works outside production and can be repointed without a
     // deploy. Fail closed when the tenant is not configured.
@@ -28,16 +26,19 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     // an unpublished or draft store resolves to nothing here. Resolving it with
     // the service-role client would step over that gate and let this
     // UNAUTHENTICATED endpoint serve an unpublished merchant's catalogue.
-    const merchantId = await resolveAgenticMerchantId(
-      createPublicClient({ clientInfo: 'baci-santa-tenant-resolve' })
-    );
-    if (!merchantId) {
+    const santaTenant = await resolveSantaTenant();
+    if (!santaTenant) {
       logger.warn({ message: 'Santa Product tenant not configured' });
       return NextResponse.json(
         { error: 'Santa product lookup is not configured' },
         { status: 503 }
       );
     }
+    const { id: merchantId, slug: merchantSlug } = santaTenant;
+    const responseHeaders = {
+      [SANTA_MERCHANT_SLUG_HEADER]: merchantSlug,
+    };
+    const supabase = createServiceClient();
 
     // Get products directly (bypass cache to ensure consistency)
     const santaProducts = await getCachedSantaProductList(merchantId);
@@ -62,7 +63,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
         message: 'Santa Product no match found',
         productName: safeProductName,
       });
-      return NextResponse.json({ product: null });
+      return NextResponse.json({ product: null }, { headers: responseHeaders });
     }
 
     logger.info({
@@ -87,26 +88,29 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
         match: matchingProduct.name,
       });
       // Return basic product info from Santa data
-      return NextResponse.json({
-        product: {
-          id: '', // No ID available
-          name: matchingProduct.name,
-          slug: '',
-          description: '',
-          price: matchingProduct.price,
-          image: '',
-          imageLarge: '',
-          imageHint: matchingProduct.name,
-          status: 'active',
-          merchant_id: merchantId,
-          stock: UNLIMITED_STOCK_QUANTITY,
-          manage_stock: false,
-          brand: '',
-          sku: '',
-          gtin: '',
-          mpn: '',
+      return NextResponse.json(
+        {
+          product: {
+            id: '', // No ID available
+            name: matchingProduct.name,
+            slug: '',
+            description: '',
+            price: matchingProduct.price,
+            image: '',
+            imageLarge: '',
+            imageHint: matchingProduct.name,
+            status: 'active',
+            merchant_id: merchantId,
+            stock: UNLIMITED_STOCK_QUANTITY,
+            manage_stock: false,
+            brand: '',
+            sku: '',
+            gtin: '',
+            mpn: '',
+          },
         },
-      });
+        { headers: responseHeaders }
+      );
     }
 
     // Extract image from images array
@@ -125,26 +129,29 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
         ? UNLIMITED_STOCK_QUANTITY
         : getEffectiveStock(fullProduct);
 
-    return NextResponse.json({
-      product: {
-        id: fullProduct.id,
-        name: fullProduct.name,
-        slug: fullProduct.slug || '',
-        description: fullProduct.description || '',
-        price: fullProduct.price,
-        image: imageUrl,
-        imageLarge: imageUrl,
-        imageHint: fullProduct.name,
-        status: fullProduct.status,
-        merchant_id: fullProduct.merchant_id,
-        stock,
-        manage_stock: fullProduct.manage_stock ?? true,
-        brand: fullProduct.brand || '',
-        sku: fullProduct.sku || '',
-        gtin: '',
-        mpn: '',
+    return NextResponse.json(
+      {
+        product: {
+          id: fullProduct.id,
+          name: fullProduct.name,
+          slug: fullProduct.slug || '',
+          description: fullProduct.description || '',
+          price: fullProduct.price,
+          image: imageUrl,
+          imageLarge: imageUrl,
+          imageHint: fullProduct.name,
+          status: fullProduct.status,
+          merchant_id: fullProduct.merchant_id,
+          stock,
+          manage_stock: fullProduct.manage_stock ?? true,
+          brand: fullProduct.brand || '',
+          sku: fullProduct.sku || '',
+          gtin: '',
+          mpn: '',
+        },
       },
-    });
+      { headers: responseHeaders }
+    );
   } catch (err) {
     logger.error({
       message: 'Santa Product internal error',

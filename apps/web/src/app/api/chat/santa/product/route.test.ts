@@ -2,21 +2,17 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  resolveAgenticMerchantId: vi.fn(),
+  resolveSantaTenant: vi.fn(),
   getCachedSantaProductList: vi.fn(),
-  createPublicClient: vi.fn(),
   createServiceClient: vi.fn(),
   productSelect: vi.fn(),
 }));
 
-vi.mock('@/lib/agentic/agentic-merchant-id', () => ({
-  resolveAgenticMerchantId: mocks.resolveAgenticMerchantId,
+vi.mock('@/lib/agentic/resolve-santa-tenant', () => ({
+  resolveSantaTenant: mocks.resolveSantaTenant,
 }));
 vi.mock('@/ai/santa-data', () => ({
   getCachedSantaProductList: mocks.getCachedSantaProductList,
-}));
-vi.mock('@/lib/supabase/public', () => ({
-  createPublicClient: mocks.createPublicClient,
 }));
 vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: mocks.createServiceClient,
@@ -28,7 +24,7 @@ vi.mock('@/lib/logger', () => ({
 import { GET, POST } from './route';
 
 const MERCHANT_ID = 'merchant-1';
-const PUBLIC_CLIENT = { tag: 'public' };
+const MERCHANT_SLUG = 'winter-store';
 const SERVICE_CLIENT_TAG = { tag: 'service' };
 
 function serviceClientReturning(product: Record<string, unknown> | null) {
@@ -81,27 +77,30 @@ function getRequest(query: string) {
 describe('/api/chat/santa/product', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.createPublicClient.mockReturnValue(PUBLIC_CLIENT);
     mocks.createServiceClient.mockReturnValue(serviceClientReturning(PRODUCT));
-    mocks.resolveAgenticMerchantId.mockResolvedValue(MERCHANT_ID);
+    mocks.resolveSantaTenant.mockResolvedValue({
+      id: MERCHANT_ID,
+      slug: MERCHANT_SLUG,
+    });
     mocks.getCachedSantaProductList.mockResolvedValue([{ name: 'Lego Set' }]);
   });
 
-  describe('tenant resolution is RLS-bound', () => {
-    it('resolves the slug on the ANONYMOUS client, not the service-role one', async () => {
+  describe('tenant resolution', () => {
+    it('uses the single resolved tenant for catalogue and product reads', async () => {
       // The anon policy on `merchants` is `USING (is_published IS TRUE)`, so an
       // unpublished store resolves to nothing. Resolving with the service-role
       // client would step over that gate on an unauthenticated endpoint.
-      await POST(postRequest({ name: 'Lego Set' }));
+      const response = await POST(postRequest({ name: 'Lego Set' }));
 
-      expect(mocks.createPublicClient).toHaveBeenCalled();
-      expect(mocks.resolveAgenticMerchantId).toHaveBeenCalledWith(
-        PUBLIC_CLIENT
+      expect(mocks.resolveSantaTenant).toHaveBeenCalledTimes(1);
+      expect(mocks.getCachedSantaProductList).toHaveBeenCalledWith(MERCHANT_ID);
+      expect(response.headers.get('x-baci-santa-merchant-slug')).toBe(
+        MERCHANT_SLUG
       );
     });
 
     it('returns 503 when the tenant is not configured', async () => {
-      mocks.resolveAgenticMerchantId.mockResolvedValue(null);
+      mocks.resolveSantaTenant.mockResolvedValue(null);
 
       const response = await POST(postRequest({ name: 'Lego Set' }));
 
@@ -164,9 +163,7 @@ describe('/api/chat/santa/product', () => {
       const response = await GET(getRequest('?name=Lego%20Set'));
 
       expect((await response).status).toBe(200);
-      expect(mocks.resolveAgenticMerchantId).toHaveBeenCalledWith(
-        PUBLIC_CLIENT
-      );
+      expect(mocks.resolveSantaTenant).toHaveBeenCalledTimes(1);
     });
 
     it('returns 400 when no name is given', async () => {

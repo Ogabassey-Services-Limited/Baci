@@ -14,6 +14,7 @@ import { useCart } from '@/hooks/use-cart';
 import type { Product } from '@/lib/products';
 import { ChatInput } from './chat-input';
 import { ChatMessage } from './chat-message';
+import { readSantaMerchantSlug } from './read-santa-merchant-slug';
 import type { ChatMessage as ChatMessageType } from './types';
 import { parseSantaActions, stripSantaActions } from './types';
 import { WelcomeScreen } from './welcome-screen';
@@ -36,6 +37,7 @@ interface StreamSantaReplyOptions {
   processedActionsRef: { current: Set<string> };
   setMessages: Dispatch<SetStateAction<Message[]>>;
   onCartAction: (productName: string, price: number) => Promise<void>;
+  onMerchantSlug: (merchantSlug: string) => void;
 }
 
 // Module-scope helper: keeps throw-in-try out of the component body so
@@ -46,6 +48,7 @@ async function streamSantaReply({
   processedActionsRef,
   setMessages,
   onCartAction,
+  onMerchantSlug,
 }: StreamSantaReplyOptions): Promise<void> {
   // Cancel any previous in-flight request
   abortControllerRef.current?.abort();
@@ -67,6 +70,11 @@ async function streamSantaReply({
 
   if (!response.ok) {
     throw new Error('Failed to get response from Santa');
+  }
+
+  const merchantSlug = readSantaMerchantSlug(response);
+  if (merchantSlug) {
+    onMerchantSlug(merchantSlug);
   }
 
   // Handle streaming response
@@ -143,18 +151,22 @@ export function SantaChatDialog({
   );
 
   // Cart integration
-  const { addToCart, cartCount, applyNegotiatedPrice, setMerchantSlug } =
-    useCart();
+  const {
+    addToCart,
+    cartCount,
+    merchantSlug,
+    applyNegotiatedPrice,
+    setMerchantSlug,
+  } = useCart();
 
-  // Set merchant slug on mount + cleanup abort/timers on unmount
+  // Clean up in-flight requests and notification timers on unmount.
   useEffect(() => {
-    setMerchantSlug('ogabassey');
     return () => {
       abortControllerRef.current?.abort();
       if (notificationTimerRef.current)
         clearTimeout(notificationTimerRef.current);
     };
-  }, [setMerchantSlug]);
+  }, []);
 
   const showNotification = (msg: string) => {
     if (notificationTimerRef.current)
@@ -184,6 +196,11 @@ export function SantaChatDialog({
       if (!response.ok) {
         console.error('[Santa Cart] Failed to fetch product');
         return;
+      }
+
+      const resolvedMerchantSlug = readSantaMerchantSlug(response);
+      if (resolvedMerchantSlug) {
+        setMerchantSlug(resolvedMerchantSlug);
       }
 
       const { product } = (await response.json()) as {
@@ -249,6 +266,7 @@ export function SantaChatDialog({
       processedActionsRef,
       setMessages,
       onCartAction: handleAddToCart,
+      onMerchantSlug: setMerchantSlug,
     })
       .catch((err) => {
         console.error('Santa chat error:', err);
@@ -338,7 +356,7 @@ export function SantaChatDialog({
         {/* Right: Cart icon with count */}
         <div className="w-16 flex items-center justify-end gap-2">
           <Link
-            href="/ogabassey/cart"
+            href={merchantSlug ? `/${merchantSlug}/cart` : '/cart'}
             className="p-2 relative"
             aria-label={`View Cart (${cartCount} items)`}
           >
