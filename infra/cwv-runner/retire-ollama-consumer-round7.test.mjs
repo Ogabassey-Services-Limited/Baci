@@ -15,6 +15,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
+const unprivileged = process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};
 const prelude =
   'sha256sum() { if [ -x /usr/bin/sha256sum ]; then /usr/bin/sha256sum "$@"; elif [ -x /bin/sha256sum ]; then /bin/sha256sum "$@"; else /usr/bin/shasum -a 256 "$@"; fi; }; stat() { if [ "$1" = -c ] && [ "$2" = %F ]; then [ -d "$3" ] && printf "directory\\n" || printf "regular file\\n"; else printf "1:2:81a4:10:501:20:644\\n"; fi; }; findmnt() { printf "/ fixture apfs ro\\n"; }; ';
 
@@ -59,7 +60,11 @@ esac
 `
       ),
     ]);
-    await chmod(join(bin, 'docker'), 0o755);
+    await Promise.all([
+      chmod(join(bin, 'docker'), 0o755),
+      chmod(bin, 0o755),
+      chmod(root, 0o755),
+    ]);
     const { stdout } = await execFileAsync(
       'sh',
       [
@@ -70,6 +75,7 @@ esac
         root,
       ],
       {
+        ...unprivileged,
         env: {
           ...process.env,
           PATH: `${bin}:${process.env.PATH}`,
@@ -111,7 +117,11 @@ esac
 `
       ),
     ]);
-    await chmod(join(bin, 'docker'), 0o755);
+    await Promise.all([
+      chmod(join(bin, 'docker'), 0o755),
+      chmod(bin, 0o755),
+      chmod(root, 0o755),
+    ]);
     const { stdout } = await execFileAsync(
       'sh',
       [
@@ -122,6 +132,7 @@ esac
         root,
       ],
       {
+        ...unprivileged,
         env: {
           ...process.env,
           PATH: `${bin}:${process.env.PATH}`,
