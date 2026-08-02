@@ -171,7 +171,7 @@ test('binds a stopped Compose service local bind-mount source and confines it to
       compose,
       'services:\n  stopped:\n    volumes:\n      - data:/app/application.conf\n'
     );
-    assert.equal((await scanCompose(root)).stdout, '');
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
     await writeFile(
       compose,
       'services:\n  stopped:\n    image: busybox\n    volumes:\n      - type: bind\n        source: ./application.conf\n        target: /app/application.conf\n'

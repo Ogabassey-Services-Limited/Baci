@@ -233,9 +233,8 @@ recovery_container_snapshot() {
 # shellcheck disable=SC2153 # CONTAINER is defined by the sourced entrypoint.
   if recovery_docker inspect -f '{{json .}}' "$CONTAINER" >"$json" 2>"$error"; then :; else
     status=$?; if [ "$status" -eq 1 ] && grep -Fqx "Error: No such object: $CONTAINER" "$error"; then
-      listed=$(temp_path); recovery_docker ps -a --no-trunc --format '{{.Names}}' >"$listed" 2>/dev/null || { rm -f "$json" "$error" "$listed"; die 'recovery container absence verification failed'; }
-      grep -Fqx "$CONTAINER" "$listed" && { rm -f "$json" "$error" "$listed"; die 'recovery container changed during absence verification'; }
-      rm -f "$json" "$error" "$listed"; RECOVERY_CONTAINER_STATE=absent; /usr/bin/jq -cn '{name:"ollama-loopback",state:"absent"}'; return
+      listed=$(temp_path); stable=$(temp_path); fresh=$(temp_path); recovery_docker ps -a --no-trunc --format '{{.ID}} {{.Names}}' >"$listed" 2>/dev/null || { rm -f "$json" "$error" "$listed" "$stable" "$fresh"; die 'recovery container absence verification failed'; }; sort -u "$listed" >"$stable" || { rm -f "$json" "$error" "$listed" "$stable" "$fresh"; die 'recovery container absence verification failed'; }; awk -v name="$CONTAINER" 'NF != 2 || $1 !~ /^[0-9a-f]{64}$/ || $2 == "" { invalid=1 } $2 == name { found=1 } END { exit(invalid ? 1 : (found ? 2 : 0)) }' "$stable"; status=$?; [ "$status" -eq 0 ] || { rm -f "$json" "$error" "$listed" "$stable" "$fresh"; [ "$status" -eq 2 ] && review_required 'recovery container changed during absence verification'; die 'invalid recovery container absence inventory'; }; if recovery_docker ps -a --no-trunc --format '{{.ID}} {{.Names}}' >"$fresh" 2>/dev/null && sort -u "$fresh" >"$listed" && cmp -s "$stable" "$listed"; then :; else rm -f "$json" "$error" "$listed" "$stable" "$fresh"; review_required 'recovery container changed during absence verification'; fi
+      rm -f "$json" "$error" "$listed" "$stable" "$fresh"; RECOVERY_CONTAINER_STATE=absent; /usr/bin/jq -cn '{name:"ollama-loopback",state:"absent"}'; return
     fi
     rm -f "$json" "$error"; die "recovery container inspection failed ($status)"
   fi; rm -f "$error"
@@ -253,6 +252,7 @@ EOF
   /usr/bin/jq -cn --arg id "$id" --arg image "$image" --arg path "$path" --arg pid "$pid" --arg state "$state" --arg config "$config" --arg ports "$ports_sha" '{name:"ollama-loopback",state:$state,fullId:$id,imageId:$image,commandPath:$path,pid:$pid,configSha256:$config,portsSha256:$ports}'
   rm -f "$json"
 }
+recovery_terminal_container_absence() { [ "${RECOVERY_CONTAINER_STATE:-}" = absent ] || return 0; json=$(temp_path); error=$(temp_path); if recovery_docker inspect -f '{{.Id}}' "$CONTAINER" >"$json" 2>"$error"; then /bin/rm -f -- "$json" "$error"; review_required 'recovery container changed before receipt publication'; else status=$?; fi; if [ "$status" -ne 1 ] || [ -s "$json" ] || ! grep -Fqx "Error: No such object: $CONTAINER" "$error"; then /bin/rm -f -- "$json" "$error"; review_required 'recovery container terminal verification failed'; fi; /bin/rm -f -- "$json" "$error"; }
 recovery_record_environment_property() {
   file=$1; set -f; tokens=$(cat "$file") || die 'recovery EnvironmentFiles read failed'; # shellcheck disable=SC2086
   set -- $tokens; set +f
@@ -296,5 +296,5 @@ recovery_scan() {
   package=$(recovery_package_snapshot); unit=$(recovery_unit_snapshot "$UNIT"); timer=$(recovery_unit_snapshot "$TIMER"); model=$(recovery_model_snapshot); cron_json=$(recovery_cron_snapshot "$cron"); container_json=$(cat "$container")
   records=$RECOVERY_RECORDS; record_docker_socket; RECOVERY_RECORDS=$records; recovery_surface docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'
   /usr/bin/jq -S -n --argjson package "$package" --argjson unit "$unit" --argjson timer "$timer" --argjson container "$container_json" --argjson model "$model" --argjson cron "$cron_json" --argjson processes "$process_json" --argjson records "$RECOVERY_RECORDS" --argjson dependencies "$deps" --argjson consumerCounts "$consumer_counts" --argjson consumerEvidence "$consumer_evidence" '{package:$package,units:[$unit,$timer],container:$container,model:$model,crontab:$cron,processes:$processes,surfaces:$records,dependencies:$dependencies,consumerCounts:$consumerCounts,consumerEvidence:$consumerEvidence,dependencyTaxonomy:["disabled","external-provider","ollama-loopback","unknown"]}' >"$snapshot" || die 'recovery snapshot serialization failed'
-  recovery_write_receipt "$snapshot"; rm -f "$snapshot" "$cron" "$processes" "$container" "${RECOVERY_EXTERNAL_CRON_SOURCES:-}"; [ -z "${RECOVERY_CONTAINER_PORTS_FILE:-}" ] || rm -f "$RECOVERY_CONTAINER_PORTS_FILE"
+  recovery_terminal_container_absence; recovery_write_receipt "$snapshot"; rm -f "$snapshot" "$cron" "$processes" "$container" "${RECOVERY_EXTERNAL_CRON_SOURCES:-}"; [ -z "${RECOVERY_CONTAINER_PORTS_FILE:-}" ] || rm -f "$RECOVERY_CONTAINER_PORTS_FILE"
 }
