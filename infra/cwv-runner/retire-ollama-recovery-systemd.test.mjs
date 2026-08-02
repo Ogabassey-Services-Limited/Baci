@@ -54,7 +54,7 @@ test('refuses a systemd scan when its record accumulator is malformed', async ()
 
 test('excludes Ollama serve cron jobs from recovery consumer evidence', async () => {
   const { stdout } = await shell(
-    'RECOVERY_RECORDS="[]"; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; init_temp_root; trap cleanup_temp EXIT; cron=$(temp_path); printf "%s\\n%s\\n" "0 * * * * /usr/bin/ollama serve" "0 * * * * /usr/bin/other" >"$cron"; recovery_surface current-crontab cat "$cron"; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"'
+    'RECOVERY_RECORDS="[]"; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; init_temp_root; trap cleanup_temp EXIT; approved="0 * * * * /usr/bin/ollama serve"; OLLAMA_CRON_ONE=$(hash_text "$approved"); cron=$(temp_path); printf "%s\\n%s\\n" "$approved" "0 * * * * /usr/bin/other" >"$cron"; recovery_surface current-crontab cat "$cron"; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"'
   );
   const [counts, evidence] = stdout.trim().split('\n').map(JSON.parse);
   assert.deepEqual(counts, [{ surface: 'current-crontab', matchCount: 0 }]);
@@ -230,7 +230,7 @@ test('parses systemd EnvironmentFile comments, continuations, and quoted values'
       '; systemd comment\n# shell-style comment\nOLLAMA_HOST="http://127.0.0.1:11434"\nOLLAMA_MODELS=/var/lib/ollama\\\n/models\nOLLAMA_ARGS="serve \\\n--port=11434"\n'
     );
     const { stdout } = await shell(
-      'recovery_record_path() { :; }; record_dependency() { printf "%s=%s\\n" "$1" "$2"; }; init_temp_root; trap cleanup_temp EXIT; recovery_record_environment "$2" 0',
+      'recovery_record_path() { RECOVERY_REFERENCE_SNAPSHOT=$2; }; record_dependency() { printf "%s=%s\\n" "$1" "$2"; }; init_temp_root; trap cleanup_temp EXIT; recovery_record_environment "$2" 0',
       {},
       [environment]
     );

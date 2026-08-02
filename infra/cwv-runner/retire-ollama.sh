@@ -63,17 +63,21 @@ digest_command() {
 }
 
 records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'
+cron_line_approved() {
+  cron_sha=$(hash_text "$1") || die 'cron line digest failed'
+  case "$cron_sha" in "$OLLAMA_CRON_ONE"|"$OLLAMA_CRON_TWO") return 0;; *) return 1;; esac
+}
 record_consumers() {
   class=$1 file=$2 mode=${3:-matched}; count=0; unknown_sha=$(hash_text unknown)
   while IFS= read -r line || [ -n "$line" ]; do
     case "$mode" in
       cron)
         match_line=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')
-        case "$match_line" in
-          *'/ollama serve'*|*' ollama serve'*) matched=0;;
+        if cron_line_approved "$line"; then matched=0
+        else case "$match_line" in
           *11434*|*'/ollama '*|*' ollama '*|ollama|ollama=*|ollama_*=*|/ollama) matched=1;;
           *) matched=0;;
-        esac;;
+        esac; fi;;
       none) matched=0;;
       all) matched=1;;
       *) case "$line" in *'/ollama serve'*|*' ollama serve'*) matched=0;; *11434*|*'/ollama '*|*' ollama '*|ollama|*/ollama) matched=1;; *) matched=0;; esac;;

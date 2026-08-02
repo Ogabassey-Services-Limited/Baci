@@ -47,7 +47,7 @@ test('finds another unit whose EnvironmentFile consumes Ollama', async () => {
     );
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      'systemctl() { :; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; RECOVERY_RECORDS="[]"; deps="[]"; recovery_record_path() { :; }; scan_systemd_consumers; printf "deps=%s\\n" "$deps"',
+      'systemctl() { :; }; getent() { return 2; }; stat() { if [ "$1" = -c ] && [ "$2" = %F ]; then printf "regular file\\n"; else printf "1:2:81a4:10:501:20:644\\n"; fi; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; RECOVERY_RECORDS="[]"; deps="[]"; scan_systemd_consumers; printf "deps=%s\\n" "$deps"',
       'retire-ollama-systemd-consumers-test',
       script.pathname,
       units,

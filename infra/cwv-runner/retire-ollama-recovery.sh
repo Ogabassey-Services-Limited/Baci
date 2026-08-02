@@ -53,12 +53,15 @@ recovery_surface() {
   /bin/rm -f -- "$out" "$err"
 }
 recovery_record_path() {
-  class=$1; path=$2; optional=${3:-0}; case "$path" in /*) :;; *) die 'non-absolute recovery reference';; esac
+  class=$1; path=$2; optional=${3:-0}; retain=${4:-0}; RECOVERY_REFERENCE_SNAPSHOT=''; case "$path" in /*) :;; *) die 'non-absolute recovery reference';; esac
   [ ! -L "$path" ] || die 'symlinked recovery reference'
   if [ -e "$path" ]; then
     real=$(readlink -f -- "$path") || die 'recovery reference resolution failed'; [ "$real" = "$path" ] || die 'replaced recovery reference'
     raw=$(temp_path); { stat -c '%d:%i:%f:%s:%u:%g:%a' "$path"; findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS --target "$path"; } >"$raw" || { /bin/rm -f -- "$raw"; die 'recovery reference identity failed'; }
-    identity=$(sha "$raw"); /bin/rm -f -- "$raw"; case "$(stat -c '%F' "$path")" in 'regular file') content=$(sha "$path");; *) content=$identity;; esac
+    identity=$(sha "$raw"); /bin/rm -f -- "$raw"; case "$(stat -c '%F' "$path")" in 'regular file')
+      snapshot=$(temp_path); cat -- "$path" >"$snapshot" || { /bin/rm -f -- "$snapshot"; die 'recovery reference capture failed'; }; content=$(sha "$snapshot") || { /bin/rm -f -- "$snapshot"; die 'recovery reference digest failed'; }
+      raw=$(temp_path); { [ ! -L "$path" ]; final_real=$(readlink -f -- "$path"); [ "$final_real" = "$real" ]; stat -c '%d:%i:%f:%s:%u:%g:%a' "$path"; findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS --target "$path"; } >"$raw" || { /bin/rm -f -- "$snapshot" "$raw"; review_required 'recovery reference changed during capture'; }; identity_after=$(sha "$raw"); /bin/rm -f -- "$raw"; content_after=$(sha "$path") || { /bin/rm -f -- "$snapshot"; review_required 'recovery reference changed during capture'; }; raw=$(temp_path); { [ ! -L "$path" ]; final_real=$(readlink -f -- "$path"); [ "$final_real" = "$real" ]; stat -c '%d:%i:%f:%s:%u:%g:%a' "$path"; findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS --target "$path"; } >"$raw" || { /bin/rm -f -- "$snapshot" "$raw"; review_required 'recovery reference changed during capture'; }; identity_final=$(sha "$raw"); /bin/rm -f -- "$raw"; [ "$identity" = "$identity_after" ] && [ "$identity" = "$identity_final" ] && [ "$content" = "$content_after" ] || { /bin/rm -f -- "$snapshot"; review_required 'recovery reference changed during capture'; }
+      [ "$retain" -eq 1 ] && RECOVERY_REFERENCE_SNAPSHOT=$snapshot || /bin/rm -f -- "$snapshot";; *) content=$identity;; esac
     RECOVERY_RECORDS=$(/usr/bin/jq -cn --argjson old "$RECOVERY_RECORDS" --arg class "$class" --arg path "$real" --arg identity "$identity" --arg content "$content" '$old + [{class:$class,state:"present",realPath:$path,identitySha256:$identity,contentSha256:$content}]') || die 'recovery reference serialization failed'
   else
     [ "$optional" -eq 1 ] || die 'required recovery reference missing'
@@ -68,8 +71,8 @@ recovery_record_path() {
 recovery_environment_complete() { /usr/bin/printf '%s\n' "$1" | awk 'BEGIN{sq=0;dq=0;esc=0} {for(i=1;i<=length($0);i++){c=substr($0,i,1);if(esc){esc=0;continue};if(c=="\\"){esc=1;continue};if(c=="\""&&!sq)dq=!dq;else if(c=="\047"&&!dq)sq=!sq}} END{exit(sq||dq)}'; }
 recovery_environment_continues() { /usr/bin/printf '%s\n' "$1" | awk '{n=0;for(i=length($0);i>0&&substr($0,i,1)=="\\";i--)n++;exit(n%2?0:1)}'; }
 recovery_record_environment() {
-  path=$1; optional=$2; recovery_record_path environment-file "$path" "$optional"; [ -f "$path" ] && [ ! -L "$path" ] || [ "$optional" -eq 1 ] || die 'required recovery environment file missing'; [ -f "$path" ] || return 0; pending=''
-  while IFS= read -r line || [ -n "$line" ]; do [ -n "$pending" ] || { case "$line" in *[![:space:]]*) line=${line#"${line%%[![:space:]]*}"};; *) continue;; esac; case "$line" in '#'*|';'*) continue;; esac; }; pending=$pending$line; recovery_environment_continues "$line" && { pending=${pending%\\}; continue; }; recovery_environment_complete "$pending" && { case "$pending" in *=*) key=${pending%%=*}; value=${pending#*=};; *) die 'malformed recovery EnvironmentFile';; esac; case "$key" in ''|*[!A-Za-z_0-9]*|[0-9]*) die 'malformed recovery EnvironmentFile';; esac; case "$value" in \"*\") value=${value#\"}; value=${value%\"};; \'*\') value=${value#\'}; value=${value%\'};; esac; record_dependency "environment:$key" "$value" "$path"; pending=''; }; done <"$path"; [ -z "$pending" ] || die 'malformed recovery EnvironmentFile'
+  path=$1; optional=$2; recovery_record_path environment-file "$path" "$optional" 1; snapshot=${RECOVERY_REFERENCE_SNAPSHOT:-}; [ -n "$snapshot" ] || { [ ! -e "$path" ] && [ ! -L "$path" ] && return 0; die 'unsafe recovery EnvironmentFile'; }; pending=''
+  while IFS= read -r line || [ -n "$line" ]; do [ -n "$pending" ] || { case "$line" in *[![:space:]]*) line=${line#"${line%%[![:space:]]*}"};; *) continue;; esac; case "$line" in '#'*|';'*) continue;; esac; }; pending=$pending$line; recovery_environment_continues "$line" && { pending=${pending%\\}; continue; }; recovery_environment_complete "$pending" && { case "$pending" in *=*) key=${pending%%=*}; value=${pending#*=};; *) /bin/rm -f -- "$snapshot"; die 'malformed recovery EnvironmentFile';; esac; case "$key" in ''|*[!A-Za-z_0-9]*|[0-9]*) /bin/rm -f -- "$snapshot"; die 'malformed recovery EnvironmentFile';; esac; case "$value" in \"*\") value=${value#\"}; value=${value%\"};; \'*\') value=${value#\'}; value=${value%\'};; esac; record_dependency "environment:$key" "$value" "$path"; pending=''; }; done <"$snapshot"; /bin/rm -f -- "$snapshot"; RECOVERY_REFERENCE_SNAPSHOT=''; [ -z "$pending" ] || die 'malformed recovery EnvironmentFile'
 }
 recovery_process_identity() { pid=$1; recovery_safe_int "$pid" || die 'invalid process pid'; cgroup="$RECOVERY_PROC_ROOT/$pid/cgroup"; namespace="$RECOVERY_PROC_ROOT/$pid/ns/pid"; [ -f "$cgroup" ] && [ ! -L "$cgroup" ] && [ -e "$namespace" ] || die "process identity unavailable $pid"; namespace_value=$(readlink -- "$namespace") || die "process namespace unavailable $pid"; cgroup_sha=$(sha "$cgroup") || die 'process cgroup digest failed'; namespace_sha=$(hash_text "$namespace_value") || die 'process namespace digest failed'; if ! recovery_sha256 "$cgroup_sha" || ! recovery_sha256 "$namespace_sha"; then die 'invalid process identity digest'; fi; printf '%s %s\n' "$cgroup_sha" "$namespace_sha"; }
 recovery_is_scanner_ancestor() { case " ${RECOVERY_SCANNER_PID_SET:-} " in *" $1 "*) return 0;; *) return 1;; esac; }
@@ -254,10 +257,7 @@ recovery_record_environment_property() {
   set -- $tokens; set +f
   while [ "$#" -gt 0 ]; do item=$1; shift; optional=0; case "$item" in -/*) optional=1; item=${item#-};; /*) :;; *) die 'malformed recovery EnvironmentFiles path';; esac; [ "$#" -gt 0 ] || die 'missing recovery EnvironmentFiles annotation'; annotation=$1; shift; case "$annotation" in '(ignore_errors=no)') [ "$optional" -eq 0 ] || die 'recovery EnvironmentFiles optionality drift';; '(ignore_errors=yes)') optional=1;; *) die 'unknown recovery EnvironmentFiles annotation';; esac; recovery_record_environment "$item" "$optional"; done
 }
-recovery_collect_crontab() {
-  target=$1
-  if crontab -u "$OWNER" -l >"$target" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'recovery crontab scan failed'; : >"$target"; fi
-}
+recovery_collect_crontab() { target=$1; if crontab -u "$OWNER" -l >"$target" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'recovery crontab scan failed'; : >"$target"; fi; }
 recovery_collect_systemd() {
 # shellcheck disable=SC2153 # UNIT is defined by the sourced entrypoint.
   recovery_surface systemd-definitions recovery_systemctl cat "$UNIT"

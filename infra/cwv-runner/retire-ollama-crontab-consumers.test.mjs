@@ -21,10 +21,11 @@ test('classifies uppercase Ollama crontab variables without changing evidence by
     );
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      '. "$1"; init_temp_root; trap cleanup_temp EXIT; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; record_consumers current-crontab "$2" cron; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"',
+      '. "$1"; init_temp_root; trap cleanup_temp EXIT; OLLAMA_CRON_ONE=$(hash_text "$3"); deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; record_consumers current-crontab "$2" cron; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"',
       'retire-ollama-crontab-consumers-test',
       script.pathname,
       cron,
+      '0 * * * * /usr/bin/ollama serve',
     ]);
     const [counts, evidence] = stdout.trim().split('\n').map(JSON.parse);
     assert.deepEqual(counts, [{ surface: 'current-crontab', matchCount: 1 }]);
@@ -32,6 +33,38 @@ test('classifies uppercase Ollama crontab variables without changing evidence by
       {
         surface: 'current-crontab',
         classifiedPathSha256: createHash('sha256').update(line).digest('hex'),
+      },
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('keeps compound ollama serve cron consumers while exempting only a reviewed line', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-ollama-crontab-compound-')
+  );
+  const cron = join(directory, 'cron');
+  const approved = '0 * * * * /usr/bin/ollama serve';
+  const compound = '0 * * * * /usr/bin/ollama serve & /opt/worker';
+  try {
+    await writeFile(cron, `${approved}\n${compound}\n`);
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      '. "$1"; init_temp_root; trap cleanup_temp EXIT; OLLAMA_CRON_ONE=$(hash_text "$3"); deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; record_consumers current-crontab "$2" cron; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"',
+      'retire-ollama-crontab-consumers-test',
+      script.pathname,
+      cron,
+      approved,
+    ]);
+    const [counts, evidence] = stdout.trim().split('\n').map(JSON.parse);
+    assert.deepEqual(counts, [{ surface: 'current-crontab', matchCount: 1 }]);
+    assert.deepEqual(evidence, [
+      {
+        surface: 'current-crontab',
+        classifiedPathSha256: createHash('sha256')
+          .update(compound)
+          .digest('hex'),
       },
     ]);
   } finally {
