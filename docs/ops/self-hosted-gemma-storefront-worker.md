@@ -110,5 +110,8 @@ time, duration, model, and retry metadata.
   shared Ollama and storefront worker locks.
 - Web production has `AI_STOREFRONT_TRIGGER_URL` and the matching
   `AI_STOREFRONT_TRIGGER_SECRET`.
-- Queue depth and failed-job counts are monitored before enabling the onboarding
-  enqueue flag.
+- Monitor queue depth and failed-job counts while observing the explicit,
+  authenticated Builder legacy-job path for `storefront_layout_generation`.
+  Do not use onboarding as a trigger and do not enable or disable
+  `AI_STOREFRONT_GENERATION_ENABLED`: it is a compatibility-only no-op, not an
+  onboarding enqueue or worker-control switch.

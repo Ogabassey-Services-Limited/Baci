@@ -64,20 +64,29 @@ is opened:
    ```
 
 2. Complete one **full enforced native release window** with zero new
-   production `storefront_layout_generation` jobs. The owner defines and records
-   the release start/end, current required mobile version floors, web release
-   SHA, and the enforcement evidence that older native clients cannot continue
-   using an older producer. Start the window only after those floors are
-   actually enforced; a build upload, a staged rollout, or a merge alone does
-   not start it.
+   production `storefront_layout_generation` jobs. Before it starts, the owner
+   records and validates `:release_start` and `:release_end` as RFC 3339 UTC
+   timestamps with `release_start < release_end`, together with the current
+   required mobile version floors, web release SHA, and evidence that older
+   native clients cannot continue using an older producer. The audit uses the
+   half-open interval `[release_start, release_end)` (`created_at >= start` and
+   `created_at < end`), so adjacent windows neither overlap nor leave a boundary
+   timestamp ambiguous. Start only after the floors are actually enforced, and
+   set `release_end` only after enforcement has remained continuously in place;
+   a build upload, staged rollout, or merge alone does not start or complete the
+   window.
 
-3. During that whole window, the approved read-only audit must show zero new
-   jobs and no unresolved historical work: `pending = 0`, `processing = 0`,
-   `failed = 0`, and `completed_unapplied = 0` for every in-scope merchant. Any
-   new job, nonzero count, incomplete coverage, audit error, or RLS visibility
-   uncertainty aborts the gate. Preserve the redacted count receipts and reset
-   the window after the cause is corrected; do not retry, apply, delete, or
-   reassign jobs as part of the audit.
+3. During that whole window, the approved read-only audit must show
+   `new_in_window = 0` and no unresolved historical work: `pending = 0`,
+   `processing = 0`, `failed = 0`, and `completed_unapplied = 0` for every
+   in-scope merchant. `new_in_window` counts every job created in the window,
+   including a job that has already completed or been applied. Any nonzero
+   count, incomplete coverage, audit error, RLS visibility uncertainty, or
+   evidence that the release/version enforcement changed aborts the gate.
+   Preserve only redacted count receipts. After the cause is corrected and the
+   enforcement evidence is revalidated, discard the prior interval and reset
+   the window with a new validated `release_start`; do not retry, apply, delete,
+   or reassign jobs as part of the audit.
 
 4. Create an owner-approved, retention-bound backup before removal. It must
    preserve the database state needed to recover historical drafts and the
@@ -102,6 +111,10 @@ job IDs, customer data, or another merchant's rows.
 ```sql
 -- Read-only aggregate for one RLS-authorized merchant.
 SELECT
+  count(*) FILTER (
+    WHERE created_at >= :release_start::timestamptz
+      AND created_at < :release_end::timestamptz
+  ) AS new_in_window,
   count(*) FILTER (WHERE status = 'pending') AS pending,
   count(*) FILTER (WHERE status = 'processing') AS processing,
   count(*) FILTER (WHERE status = 'failed') AS failed,
@@ -113,8 +126,11 @@ WHERE merchant_id = :merchant_id::uuid
   AND type = 'storefront_layout_generation';
 ```
 
-Record only the merchant-safe aggregate counts, audit timestamp, release SHA,
-and the authorized audit scope. A platform-wide conclusion requires complete
+Bind only the validated release timestamps recorded for the complete window;
+the query's creation count is deliberately independent of final status so that
+completed or applied jobs cannot disappear from the gate. Record only the
+merchant-safe aggregate counts, audit timestamp, release SHA, validated interval,
+and authorized audit scope. A platform-wide conclusion requires complete
 coverage of the in-scope merchant set through an owner-approved read-only
 reporting mechanism; do not bypass RLS or infer missing merchants from an empty
 result. The status `completed_unapplied` is intentionally included because a
