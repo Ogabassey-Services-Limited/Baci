@@ -214,7 +214,9 @@ jobs:
         id: test-plan
         env:
           EVENT_NAME: ${{ github.event_name }}
-        run: node .github/scripts/resolve-ci-test-plan.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
+        run: |
+          node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
+          node .github/scripts/resolve-ci-test-plan.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
 
   cwv-runner-contracts:
     name: CWV Runner Contracts
@@ -312,6 +314,7 @@ jobs:
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
           EVENT_NAME: ${{ github.event_name }}
           TEST_PLAN_MODE: ${{ steps.test-plan.outputs.mode }}
+          TEST_PLAN_NON_WEB_FILTER_ARGS: ${{ steps.test-plan.outputs.non_web_test_filter_args }}
           TEST_PLAN_REASON: ${{ steps.test-plan.outputs.reason }}
         run: |
           if [ "$TEST_PLAN_MODE" = "config-smoke" ]; then
@@ -341,17 +344,18 @@ jobs:
           fi
 
           turbo_cache_args=("--cache=local:rw,remote:r")
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.
-            # Use --affected to test only impacted packages.
-            turbo_cache_args+=(--affected)
-          else
+          if [ "$EVENT_NAME" != "pull_request" ]; then
             turbo_cache_args=("--cache=local:rw,remote:rw")
           fi
-          # The web vitest suite (the ~12min long pole) runs sharded in the
-          # parallel quality-test-web matrix below; exclusion filters subtract
-          # from the affected set.
-          pnpm turbo run test --concurrency=3 --log-order=stream "${turbo_cache_args[@]}" --filter='!@baci/web'
+          read -r -a non_web_test_filter_args <<< "$TEST_PLAN_NON_WEB_FILTER_ARGS"
+          if [ "${#non_web_test_filter_args[@]}" -eq 0 ]; then
+            echo 'CI test plan did not produce non-web Turbo filters' >&2
+            exit 1
+          fi
+          # The web Vitest suite runs only in the parallel quality-test-web
+          # matrix. Use a range filter plus an exclusion instead of --affected:
+          # Turbo combines --affected with a negative filter incorrectly here.
+          pnpm turbo run test --concurrency=3 --log-order=stream "${turbo_cache_args[@]}" "${non_web_test_filter_args[@]}"
 
   quality-test-web:
     name: Quality Gate - Test (web shard ${{ matrix.shard }})

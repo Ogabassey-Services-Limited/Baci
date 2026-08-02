@@ -3,6 +3,7 @@ import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { ciTestPlanConfig } from './resolve-ci-test-plan-config.mjs';
 
+const NON_WEB_TEST_FILTER = '--filter=!@baci/web';
 const FULL_AFFECTED_COMMAND =
   'pnpm turbo run test --concurrency=3 --log-order=stream';
 
@@ -98,6 +99,26 @@ function targetedMobileStorefrontCommand(baseRef) {
   return `pnpm --filter @baci/mobile-storefront exec jest --changedSince ${baseRef} --runInBand --passWithNoTests`;
 }
 
+/**
+ * `--affected` adds a Turbo filter that can override a separate negative
+ * package filter. Keep the range and exclusion as explicit filter arguments
+ * so the sharded web suite cannot be selected by the non-web test job.
+ */
+export function resolveNonWebTestFilterArgs({ baseRef, eventName }) {
+  if (eventName !== 'pull_request') {
+    return [NON_WEB_TEST_FILTER];
+  }
+
+  return [`--filter=...[${baseRef}]`, NON_WEB_TEST_FILTER];
+}
+
+function fullAffectedCommand({ baseRef, eventName }) {
+  return [
+    FULL_AFFECTED_COMMAND,
+    ...resolveNonWebTestFilterArgs({ baseRef, eventName }),
+  ].join(' ');
+}
+
 export function resolveCiTestPlan({
   baseRef,
   changedFileContents = {},
@@ -107,12 +128,13 @@ export function resolveCiTestPlan({
   const normalizedFiles = changedFiles
     .map(normalizeChangedFile)
     .filter(Boolean);
+  const fullAffectedTestCommand = fullAffectedCommand({ baseRef, eventName });
 
   if (eventName !== 'pull_request') {
     return {
       mode: 'full-affected',
       reason: 'Non-pull-request events keep the full affected test path.',
-      command: FULL_AFFECTED_COMMAND,
+      command: fullAffectedTestCommand,
     };
   }
 
@@ -120,7 +142,7 @@ export function resolveCiTestPlan({
     return {
       mode: 'full-affected',
       reason: 'No changed files were detected, so CI keeps the safer full affected test path.',
-      command: FULL_AFFECTED_COMMAND,
+      command: fullAffectedTestCommand,
     };
   }
 
@@ -144,7 +166,7 @@ export function resolveCiTestPlan({
     return {
       mode: 'full-affected',
       reason: 'Shared, package, CI, or test setup changes require the full affected test path.',
-      command: FULL_AFFECTED_COMMAND,
+      command: fullAffectedTestCommand,
     };
   }
 
@@ -185,7 +207,7 @@ export function resolveCiTestPlan({
   return {
     mode: 'full-affected',
     reason: 'The diff includes files outside the targeted web test scope.',
-    command: FULL_AFFECTED_COMMAND,
+    command: fullAffectedTestCommand,
   };
 }
 
@@ -232,14 +254,20 @@ function getChangedFiles(baseRef, headRef) {
   }
 }
 
-function writeGithubOutput(plan) {
+function writeGithubOutput(plan, nonWebTestFilterArgs) {
   if (!process.env.GITHUB_OUTPUT) {
     return;
   }
 
   appendFileSync(
     process.env.GITHUB_OUTPUT,
-    `mode=${plan.mode}\nreason=${plan.reason}\ncommand=${plan.command}\n`
+    [
+      `mode=${plan.mode}`,
+      `reason=${plan.reason}`,
+      `command=${plan.command}`,
+      `non_web_test_filter_args=${nonWebTestFilterArgs.join(' ')}`,
+      '',
+    ].join('\n')
   );
 }
 
@@ -257,11 +285,15 @@ function main() {
     changedFiles,
     eventName: args.eventName,
   });
+  const nonWebTestFilterArgs = resolveNonWebTestFilterArgs({
+    baseRef: args.baseRef,
+    eventName: args.eventName,
+  });
 
   console.log(`CI test plan: ${plan.mode}`);
   console.log(plan.reason);
   console.log(plan.command);
-  writeGithubOutput(plan);
+  writeGithubOutput(plan, nonWebTestFilterArgs);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
