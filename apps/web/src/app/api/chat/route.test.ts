@@ -962,7 +962,7 @@ describe('POST /api/chat', () => {
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'mock-model',
-        system: expect.stringContaining('Ogabassey AI'),
+        system: expect.stringContaining('Winter Store AI'),
         tools: expect.objectContaining({
           searchProducts: expect.objectContaining({
             description: 'Search products',

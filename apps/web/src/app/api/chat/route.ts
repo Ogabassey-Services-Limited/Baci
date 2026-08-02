@@ -35,7 +35,7 @@ import {
   getSafeChatBackendErrorMessage,
   isChatAbortError,
 } from '@/app/api/chat/route-helpers';
-import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
+import { buildAgenticSystemPrompt } from '@/config/agentic-chat-system-prompt';
 import {
   getAiChatModel,
   getAiChatProvider,
@@ -193,6 +193,20 @@ export async function POST(req: Request) {
       chatProvider === 'auto' || chatProvider === 'ollama';
     const llmServerUrl = shouldTryLlm ? getLlmServerUrl() : undefined;
     const triedLlmServer = Boolean(llmServerUrl);
+    const agenticTenant = await resolveSantaTenant(req.signal);
+    if (!agenticTenant) {
+      return new Response(
+        JSON.stringify({
+          error: 'Chat is not configured for a published storefront.',
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+    const merchantName =
+      agenticTenant.businessName?.trim() || agenticTenant.slug;
 
     if (llmServerUrl) {
       // Resolve static config OUTSIDE the try so a misconfigured deployment
@@ -210,12 +224,15 @@ export async function POST(req: Request) {
           bearer,
           model: chatModel,
           messages: buildChatMessages(sanitizedMessages, chatModel, {
+            merchantName,
             toolsEnabled: false,
           }),
           signal: req.signal,
           timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
         });
-        return await bufferTextResponse(llmResponse);
+        const response = await bufferTextResponse(llmResponse);
+        response.headers.set(SANTA_MERCHANT_SLUG_HEADER, agenticTenant.slug);
+        return response;
       } catch (error) {
         if (isChatAbortError(error, req.signal)) {
           return createClientClosedRequestResponse();
@@ -226,19 +243,6 @@ export async function POST(req: Request) {
           getSafeChatBackendErrorMessage(error)
         );
       }
-    }
-
-    const agenticTenant = await resolveSantaTenant(req.signal);
-    if (!agenticTenant) {
-      return new Response(
-        JSON.stringify({
-          error: 'Chat is not configured for a published storefront.',
-        }),
-        {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
     }
 
     if (!triedLlmServer && shouldTryOllama) {
@@ -254,6 +258,7 @@ export async function POST(req: Request) {
             model: chatModel,
             basicAuth,
             messages: buildChatMessages(sanitizedMessages, chatModel, {
+              merchantName,
               toolsEnabled: true,
             }),
             tools: ollamaAgenticChatTools,
@@ -327,7 +332,7 @@ export async function POST(req: Request) {
     try {
       result = await generateText({
         model: activeTextModel,
-        system: AGENTIC_SYSTEM_PROMPT,
+        system: buildAgenticSystemPrompt(merchantName),
         messages: sanitizedMessages,
         abortSignal: req.signal,
         tools: createAiSdkAgenticChatTools(sessionId, agenticTenant),
@@ -344,7 +349,9 @@ export async function POST(req: Request) {
     }
 
     if (!result?.text.trim()) {
-      return createStaticChatFallbackResponse();
+      const response = createStaticChatFallbackResponse();
+      response.headers.set(SANTA_MERCHANT_SLUG_HEADER, agenticTenant.slug);
+      return response;
     }
 
     return new Response(result.text, {

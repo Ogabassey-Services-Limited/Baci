@@ -8,26 +8,47 @@ export const CUSTOMER_CHAT_TIMEOUT_MS = 60_000;
 export const CUSTOMER_CHAT_FALLBACK_TEXT =
   "I'm sorry, our AI assistant is temporarily busy. Please use the store search, checkout, or WhatsApp support and we'll help you from there.";
 
-const TOOLLESS_VPS_CHAT_SYSTEM_PROMPT =
-  "You are Ogabassey's shopping assistant. Keep replies brief, helpful, and honest. " +
-  'You cannot access live inventory, current prices, checkout actions, orders, or payment status in this mode. ' +
-  'Never claim that you searched stock, added an item, generated a bank account, or confirmed payment. ' +
-  'For current availability, pricing, checkout, or payments, direct the customer to the storefront or WhatsApp support.';
+const DEFAULT_CHAT_MERCHANT_NAME = 'Ogabassey';
 
-const TOOL_CAPABLE_VPS_CHAT_SYSTEM_PROMPT =
-  "You are Ogabassey's shopping assistant. Keep replies brief, helpful, and honest. " +
-  'You have commerce tools for product search, product details, recommendations, payment account requests, payment status checks, and unpaid order cancellation. ' +
-  'Use tools before answering questions about live inventory, current prices, availability, checkout, payment status, or order cancellation. ' +
-  'Never invent stock, pricing, order, bank-account, or payment information; if a tool cannot complete an action, explain the tool result and suggest checkout or WhatsApp support.';
+function normalizeMerchantName(merchantName?: string): string {
+  const normalized = merchantName?.trim().replace(/\s+/g, ' ').slice(0, 100);
+  return normalized || DEFAULT_CHAT_MERCHANT_NAME;
+}
+
+function buildVpsChatSystemPrompt(
+  merchantName: string,
+  toolsEnabled: boolean
+): string {
+  const merchantAttribution = `You are ${merchantName}'s shopping assistant. `;
+
+  if (!toolsEnabled) {
+    return (
+      merchantAttribution +
+      'Keep replies brief, helpful, and honest. ' +
+      'You cannot access live inventory, current prices, checkout actions, orders, or payment status in this mode. ' +
+      'Never claim that you searched stock, added an item, generated a bank account, or confirmed payment. ' +
+      'For current availability, pricing, checkout, or payments, direct the customer to the storefront or WhatsApp support.'
+    );
+  }
+
+  return (
+    merchantAttribution +
+    'Keep replies brief, helpful, and honest. ' +
+    'You have commerce tools for product search, product details, recommendations, payment account requests, payment status checks, and unpaid order cancellation. ' +
+    'Use tools before answering questions about live inventory, current prices, availability, checkout, payment status, or order cancellation. ' +
+    'Never invent stock, pricing, order, bank-account, or payment information; if a tool cannot complete an action, explain the tool result and suggest checkout or WhatsApp support.'
+  );
+}
 
 export function buildChatMessages(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   model: string,
-  options: { toolsEnabled?: boolean } = {}
+  options: { merchantName?: string; toolsEnabled?: boolean } = {}
 ) {
-  const systemPrompt = options.toolsEnabled
-    ? TOOL_CAPABLE_VPS_CHAT_SYSTEM_PROMPT
-    : TOOLLESS_VPS_CHAT_SYSTEM_PROMPT;
+  const systemPrompt = buildVpsChatSystemPrompt(
+    normalizeMerchantName(options.merchantName),
+    options.toolsEnabled === true
+  );
 
   return [
     {

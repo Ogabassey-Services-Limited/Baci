@@ -24,6 +24,7 @@ import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from './AdUnit';
 // import { ActionTooltip } from './Tooltip';
+import { hasCartMerchantContext } from './cart-sidebar-merchant-context';
 import { EmptyState } from './empty-state';
 import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import {
@@ -69,16 +70,21 @@ export const CartSidebar: React.FC = () => {
   // Get merchant context for slug
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
+  const cartMerchantContextMatches = hasCartMerchantContext(
+    cartMerchantSlug,
+    merchant?.slug
+  );
   const basePath =
-    cartMerchantSlug && cartMerchantSlug !== merchant?.slug
+    cartMerchantSlug && !cartMerchantContextMatches
       ? `/${cartMerchantSlug}`
       : merchantContext?.basePath;
   const negotiationVatRate =
-    merchant?.vat_registration_status === 'registered'
+    cartMerchantContextMatches && merchant?.vat_registration_status === 'registered'
       ? (merchant.vat_rate ?? 7.5) / 100
       : 0;
 
-  const hasPriceNegotiation = hasStorefrontPriceNegotiation(merchant);
+  const hasPriceNegotiation =
+    cartMerchantContextMatches && hasStorefrontPriceNegotiation(merchant);
 
   const displayCart = sanitizeCartItems(cart, hasPriceNegotiation);
 
@@ -114,12 +120,12 @@ export const CartSidebar: React.FC = () => {
       }));
 
       analytics.viewCart(analyticsProducts, 'NGN', {
-        merchantId: merchant?.id || '',
+        merchantId: cartMerchantContextMatches ? merchant?.id || '' : '',
         // If we had user data context, we would pass it here
         // userData: { email: user?.email, ... }
       });
     }
-  }, [isCartOpen, cart, merchant?.id]);
+  }, [isCartOpen, cart, cartMerchantContextMatches, merchant?.id]);
 
   if (!isCartOpen) return null;
 
@@ -416,7 +422,8 @@ export const CartSidebar: React.FC = () => {
                           </div>
 
                           {/* Assurance/Insurance Toggle */}
-                          {merchant?.feature_settings?.shipping_insurance_enabled && (
+                          {cartMerchantContextMatches &&
+                            merchant?.feature_settings?.shipping_insurance_enabled && (
                             <div className="mt-4 pt-3 border-t border-gray-50">
                               <label className="flex items-start gap-2 cursor-pointer group">
                                 <div className="relative flex items-center mt-0.5">
@@ -558,7 +565,7 @@ export const CartSidebar: React.FC = () => {
       </div>
 
       {/* Negotiation Modal — only render when merchant context is available */}
-      {negotiationState && merchant?.id && (
+      {negotiationState && cartMerchantContextMatches && merchant?.id && (
         <NegotiationModal
           isOpen={negotiationState.isOpen}
           onClose={() => setNegotiationState(null)}

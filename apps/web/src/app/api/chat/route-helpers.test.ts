@@ -46,6 +46,21 @@ describe('chat route helpers', () => {
     );
   });
 
+  it('uses the resolved merchant name in VPS prompts', () => {
+    const [systemMessage] = buildChatMessages(
+      [{ role: 'user', content: 'Show me phones' }],
+      'gemma4:e4b',
+      { merchantName: 'Winter Store', toolsEnabled: true }
+    );
+
+    expect(systemMessage.content).toContain(
+      "Winter Store's shopping assistant"
+    );
+    expect(systemMessage.content).not.toContain(
+      "Ogabassey's shopping assistant"
+    );
+  });
+
   it('keeps safe live-data guidance for toolless VPS backends', () => {
     const [systemMessage] = buildChatMessages(
       [{ role: 'user', content: 'Can I pay now?' }],
