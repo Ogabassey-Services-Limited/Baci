@@ -1,5 +1,6 @@
 import type { Product } from './products';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
+import { isCameraLikeCategory } from './storefront-specs/spec-taxonomy';
 
 type ProductCategorySource = Pick<Product, 'category' | 'categories'>;
 
@@ -8,22 +9,6 @@ interface ProductSchemaSpecCandidate {
   label?: string;
   value: unknown;
 }
-
-const CAMERA_CATEGORY_NAMES = new Set([
-  'camera',
-  'cameras',
-  'action cameras',
-  'instant cameras',
-  'lenses',
-  'drones',
-  'gimbals',
-  'microphones',
-  'monitors & transmitters',
-  'tripod stands',
-  'camera accessories',
-  'instant film',
-  'memory cards',
-]);
 
 const CAMERA_ONLY_SPEC_KEYS = new Set([
   'main_camera_mp',
@@ -164,12 +149,6 @@ function isPhoneTabletLaptopCategory(categoryName: string) {
   );
 }
 
-function isCameraCategory(categoryName: string) {
-  return (
-    CAMERA_CATEGORY_NAMES.has(categoryName) || categoryName.includes('camera')
-  );
-}
-
 function normalizeSpecLabel(value: string) {
   return value
     .trim()
@@ -217,7 +196,7 @@ export function shouldIncludeProductSchemaSpec(
 
   const hasNonPhoneCategory = categoryNames.some(
     (categoryName) =>
-      isCameraCategory(categoryName) ||
+      isCameraLikeCategory(categoryName) ||
       !isPhoneTabletLaptopCategory(categoryName)
   );
   if (!hasNonPhoneCategory) {
@@ -228,7 +207,7 @@ export function shouldIncludeProductSchemaSpec(
     return !isUnsupportedSpecValue(candidate.value);
   }
 
-  const hasCameraCategory = categoryNames.some(isCameraCategory);
+  const hasCameraCategory = categoryNames.some(isCameraLikeCategory);
   if (
     hasCameraCategory &&
     candidate.key &&

@@ -217,6 +217,13 @@ export function buildProductSpecData(source: SpecDataSource) {
           sourceCategoryName
         )
       : normalizedLegacySpecifications;
+  const descriptionSpecifications =
+    specFamily === 'camera'
+      ? filterCameraLegacySpecifications(
+          descriptionKeySpecs,
+          sourceCategoryName
+        )
+      : descriptionKeySpecs;
 
   const structuredSpecs =
     detailedSpecifications.length > 0
@@ -229,7 +236,10 @@ export function buildProductSpecData(source: SpecDataSource) {
             ? legacySpecifications
             : buildGeneralFallbackSpecs(source);
 
-  const detailedSpecs = mergeSpecSections(descriptionKeySpecs, structuredSpecs);
+  const detailedSpecs = mergeSpecSections(
+    descriptionSpecifications,
+    structuredSpecs
+  );
   const normalizedSummarySpecs = normalizeSpecItems(source.specs);
 
   const specs =

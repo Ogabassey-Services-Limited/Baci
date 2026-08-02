@@ -1071,38 +1071,41 @@ export function generateProductSchema(
     const sanitizedCustomSchema = sanitizeCustomProductSchemaMarkup(
       product.schema_markup
     );
-    const {
-      additionalProperty: customAdditionalProperty,
-      ...customSchemaFields
-    } = sanitizedCustomSchema;
+    const customAdditionalProperty = sanitizedCustomSchema.additionalProperty;
+    const customSchemaFields = Object.fromEntries(
+      Object.entries(sanitizedCustomSchema).filter(
+        ([key]) => key !== 'additionalProperty' && key !== 'description'
+      )
+    );
     Object.assign(schema, customSchemaFields);
 
-    if (Array.isArray(customAdditionalProperty)) {
-      for (const property of customAdditionalProperty) {
-        if (
-          !property ||
-          typeof property !== 'object' ||
-          Array.isArray(property)
-        ) {
-          continue;
-        }
-
-        const candidate = property as {
-          name?: unknown;
-          value?: unknown;
-        };
-        if (
-          !shouldIncludeProductSchemaSpec(product, {
-            label:
-              typeof candidate.name === 'string' ? candidate.name : undefined,
-            value: candidate.value,
-          })
-        ) {
-          continue;
-        }
-
-        additionalPropertyCollector.add(candidate.name, candidate.value);
+    const customProperties = Array.isArray(customAdditionalProperty)
+      ? customAdditionalProperty
+      : [customAdditionalProperty];
+    for (const property of customProperties) {
+      if (
+        !property ||
+        typeof property !== 'object' ||
+        Array.isArray(property)
+      ) {
+        continue;
       }
+
+      const candidate = property as {
+        name?: unknown;
+        value?: unknown;
+      };
+      if (
+        !shouldIncludeProductSchemaSpec(product, {
+          label:
+            typeof candidate.name === 'string' ? candidate.name : undefined,
+          value: candidate.value,
+        })
+      ) {
+        continue;
+      }
+
+      additionalPropertyCollector.addCustomProperty(property);
     }
   }
 

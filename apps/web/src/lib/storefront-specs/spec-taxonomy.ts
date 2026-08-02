@@ -17,6 +17,22 @@ export { SUMMARY_SPEC_PRIORITIES } from './spec-summary-priorities';
 
 export type ProductSpecFamily = 'mobile' | 'computer' | 'camera' | 'general';
 
+const CAMERA_CATEGORY_NAMES = new Set([
+  'camera',
+  'cameras',
+  'action cameras',
+  'instant cameras',
+  'lenses',
+  'drones',
+  'gimbals',
+  'microphones',
+  'monitors & transmitters',
+  'tripod stands',
+  'camera accessories',
+  'instant film',
+  'memory cards',
+]);
+
 const ACCESSORY_CATEGORY_MARKERS = [
   'accessor',
   'accessories',
@@ -42,13 +58,21 @@ export function isAccessoryLikeCategory(categoryName: string) {
   );
 }
 
+export function isCameraLikeCategory(categoryName: string) {
+  const normalized = categoryName.trim().toLowerCase().replace(/\s+/g, ' ');
+  return CAMERA_CATEGORY_NAMES.has(normalized) || normalized.includes('camera');
+}
+
 export function getProductSpecFamily(
   categoryName: string | null | undefined
 ): ProductSpecFamily {
   const normalized = categoryName?.trim().toLowerCase() || '';
   const isAccessory = isAccessoryLikeCategory(normalized);
 
-  if (!isAccessory && normalized.includes('camera')) {
+  // Camera families intentionally take precedence over the generic accessory
+  // guard. Camera accessories, lenses, drones, and gimbals still need the
+  // camera-safe projection rather than mobile/general device fields.
+  if (isCameraLikeCategory(normalized)) {
     return 'camera';
   }
 

@@ -1,7 +1,8 @@
 interface ProductSchemaAdditionalProperty {
   '@type': 'PropertyValue';
   name: string;
-  value: string;
+  value: unknown;
+  [key: string]: unknown;
 }
 
 const PROPERTY_NAME_ALIASES: Record<string, string> = {
@@ -30,6 +31,45 @@ function normalizePropertyText(value: unknown) {
   return null;
 }
 
+function normalizePropertyName(value: unknown) {
+  const normalized = normalizePropertyText(value);
+  return normalized?.replace(/\s+/g, ' ') || null;
+}
+
+function getCanonicalPropertyName(name: string) {
+  const normalizedName = name.toLowerCase().replace(/\s+/g, ' ');
+  return PROPERTY_NAME_ALIASES[normalizedName] || normalizedName;
+}
+
+function serializePropertyValue(value: unknown): string | null {
+  const normalized = normalizePropertyText(value);
+  if (normalized) {
+    return normalized.toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  if (value && typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return null;
+}
+
+function isValidCustomPropertyValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+
+  return true;
+}
+
 export function createProductSchemaAdditionalPropertyCollector() {
   const properties: ProductSchemaAdditionalProperty[] = [];
   const propertyKeys = new Set<string>();
@@ -42,11 +82,7 @@ export function createProductSchemaAdditionalPropertyCollector() {
         return;
       }
 
-      const canonicalName =
-        PROPERTY_NAME_ALIASES[
-          normalizedName.toLowerCase().replace(/\s+/g, ' ')
-        ] || normalizedName.toLowerCase().replace(/\s+/g, ' ');
-      const propertyKey = `${canonicalName}|${normalizedValue
+      const propertyKey = `${getCanonicalPropertyName(normalizedName)}|${normalizedValue
         .toLowerCase()
         .replace(/\s+/g, ' ')}`;
       if (propertyKeys.has(propertyKey)) {
@@ -58,6 +94,46 @@ export function createProductSchemaAdditionalPropertyCollector() {
         '@type': 'PropertyValue',
         name: normalizedName,
         value: normalizedValue,
+      });
+    },
+    addCustomProperty(property: unknown) {
+      if (
+        !property ||
+        typeof property !== 'object' ||
+        Array.isArray(property)
+      ) {
+        return;
+      }
+
+      const candidate = property as Record<string, unknown>;
+      const normalizedName = normalizePropertyName(candidate.name);
+      if (!normalizedName || !isValidCustomPropertyValue(candidate.value)) {
+        return;
+      }
+
+      if (
+        candidate['@type'] !== undefined &&
+        candidate['@type'] !== 'PropertyValue'
+      ) {
+        return;
+      }
+
+      const serializedValue = serializePropertyValue(candidate.value);
+      if (!serializedValue) {
+        return;
+      }
+
+      const propertyKey = `${getCanonicalPropertyName(normalizedName)}|${serializedValue}`;
+      if (propertyKeys.has(propertyKey)) {
+        return;
+      }
+
+      propertyKeys.add(propertyKey);
+      properties.push({
+        ...candidate,
+        '@type': 'PropertyValue',
+        name: normalizedName,
+        value: candidate.value,
       });
     },
     getProperties() {

@@ -1099,6 +1099,53 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     );
   });
 
+  it('preserves singleton custom PropertyValue metadata without overriding live description', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        category: 'Cameras',
+        description: 'Enriched camera description with current product facts.',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          description: 'Old persisted description that must not win.',
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            name: 'Focal Length',
+            value: {
+              '@type': 'QuantitativeValue',
+              value: 24,
+              unitCode: 'MMT',
+            },
+            propertyID: 'camera-focal-length',
+            unitCode: 'MMT',
+          },
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe(
+      'Enriched camera description with current product facts.'
+    );
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Focal Length',
+          value: {
+            '@type': 'QuantitativeValue',
+            value: 24,
+            unitCode: 'MMT',
+          },
+          propertyID: 'camera-focal-length',
+          unitCode: 'MMT',
+        },
+      ])
+    );
+  });
+
   it('keeps custom aggregate ratings when ratingCount is positive and reviewCount is zero', () => {
     const schema = generateProductSchema(
       makeProduct({
@@ -1204,7 +1251,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.aggregateRating).toBeUndefined();
   });
 
-  it('does not mutate merchant-provided custom schema markup while sanitizing', () => {
+  it('does not mutate merchant-provided custom schema markup or override live description', () => {
     const schemaMarkup = {
       '@context': 'https://schema.org',
       '@type': 'Product',
@@ -1226,7 +1273,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
       'NG'
     );
 
-    expect(schema.description).toBe('Premium foldable phone.');
+    expect(schema.description).toBe('A test product');
     expect(schema.aggregateRating).toBeUndefined();
     expect(schemaMarkup.description).toBe(
       'Premium foldable phone. Current listed price is NGN 2,500,000.'

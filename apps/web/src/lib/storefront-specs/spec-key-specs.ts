@@ -5,7 +5,7 @@ import type {
   ProductSpecFamily,
 } from './spec-taxonomy';
 
-const UNSUPPORTED_GENERAL_VALUES = new Set([
+const UNSUPPORTED_PLACEHOLDER_VALUES = new Set([
   '',
   '0',
   'false',
@@ -22,14 +22,14 @@ const UNSUPPORTED_GENERAL_VALUES = new Set([
   'unavailable',
 ]);
 
-function isUnsupportedGeneralValue(value: unknown) {
+function isUnsupportedPlaceholderValue(value: unknown) {
   if (typeof value === 'boolean') return !value;
   if (typeof value === 'number') return !Number.isFinite(value) || value === 0;
   if (typeof value !== 'string') return false;
 
   const normalized = value.trim().toLowerCase();
   return (
-    UNSUPPORTED_GENERAL_VALUES.has(normalized) ||
+    UNSUPPORTED_PLACEHOLDER_VALUES.has(normalized) ||
     normalized.startsWith('confirm exact')
   );
 }
@@ -49,7 +49,8 @@ export function buildDetailedSpecsFromKeySpecs(
             value !== null &&
             value !== undefined &&
             (typeof value !== 'string' || value.trim().length > 0) &&
-            (family !== 'general' || !isUnsupportedGeneralValue(value)) &&
+            ((family !== 'general' && family !== 'camera') ||
+              !isUnsupportedPlaceholderValue(value)) &&
             (!condition || condition(keySpecs))
           );
         })

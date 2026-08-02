@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type ComparableProductKeySpecs,
   getProductSpecFamily,
+  isCameraLikeCategory,
   KEY_SPEC_CATEGORIES,
   SUMMARY_SPEC_PRIORITIES,
 } from './spec-taxonomy';
@@ -23,7 +24,10 @@ describe('spec taxonomy', () => {
     expect(getProductSpecFamily('Cameras')).toBe('camera');
     expect(getProductSpecFamily('Action Cameras')).toBe('camera');
     expect(getProductSpecFamily('Instant Cameras')).toBe('camera');
-    expect(getProductSpecFamily('Camera Accessories')).toBe('general');
+    expect(getProductSpecFamily('Lenses')).toBe('camera');
+    expect(getProductSpecFamily('Drones')).toBe('camera');
+    expect(getProductSpecFamily('Gimbals')).toBe('camera');
+    expect(getProductSpecFamily('Camera Accessories')).toBe('camera');
     expect(getProductSpecFamily('Smartphones')).toBe('mobile');
     expect(getProductSpecFamily('iPhones')).toBe('mobile');
     expect(getProductSpecFamily('iPad')).toBe('mobile');
@@ -32,6 +36,12 @@ describe('spec taxonomy', () => {
     expect(getProductSpecFamily('Accessories')).toBe('general');
     expect(getProductSpecFamily('Smartphone Cases')).toBe('general');
     expect(getProductSpecFamily('Laptop Keyboard')).toBe('general');
+  });
+
+  it('shares the explicit camera category classifier with schema projections', () => {
+    expect(isCameraLikeCategory(' Camera  Accessories ')).toBe(true);
+    expect(isCameraLikeCategory('Drones')).toBe(true);
+    expect(isCameraLikeCategory('Smartphone Cases')).toBe(false);
   });
 
   it('formats common unit-bearing fields', () => {

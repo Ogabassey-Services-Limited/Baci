@@ -250,6 +250,29 @@ describe('buildProductSpecData', () => {
     );
   });
 
+  it('filters phone-only rows parsed from camera descriptions', () => {
+    const result = buildProductSpecData({
+      category: 'Drones',
+      description:
+        '<h2>Key Specs</h2><table><tr><td>5G Support</td><td>No</td></tr><tr><td>Sensor</td><td>1-inch CMOS</td></tr></table>',
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Key Specs',
+        items: [{ label: 'Sensor', value: '1-inch CMOS' }],
+      },
+      {
+        category: 'General',
+        items: [
+          { label: 'Brand', value: 'Generic' },
+          { label: 'Condition', value: 'New' },
+          { label: 'Category', value: 'Drones' },
+        ],
+      },
+    ]);
+  });
+
   it('builds safe camera key specs when legacy specifications are unavailable', () => {
     const result = buildProductSpecData({
       category: 'Action Cameras',

@@ -26,4 +26,48 @@ describe('createProductSchemaAdditionalPropertyCollector', () => {
 
     expect(collector.getProperties()).toEqual([]);
   });
+
+  it('preserves valid custom PropertyValue fields and deduplicates scalar overlap', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.add('Focal Length', '24mm');
+    collector.addCustomProperty({
+      '@type': 'PropertyValue',
+      name: 'Focal Length',
+      value: '24mm',
+      unitCode: 'MMT',
+      propertyID: 'camera-focal-length',
+    });
+    collector.addCustomProperty({
+      '@type': 'PropertyValue',
+      name: 'Sensor Size',
+      value: { '@type': 'QuantitativeValue', value: 1, unitCode: 'INH' },
+      propertyID: 'sensor-size',
+    });
+
+    expect(collector.getProperties()).toEqual([
+      { '@type': 'PropertyValue', name: 'Focal Length', value: '24mm' },
+      {
+        '@type': 'PropertyValue',
+        name: 'Sensor Size',
+        value: { '@type': 'QuantitativeValue', value: 1, unitCode: 'INH' },
+        propertyID: 'sensor-size',
+      },
+    ]);
+  });
+
+  it('accepts a singleton custom PropertyValue and rejects non-PropertyValue types', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.addCustomProperty({ name: 'Sensor', value: 'CMOS' });
+    collector.addCustomProperty({
+      '@type': 'Thing',
+      name: 'Ignored',
+      value: 'value',
+    });
+
+    expect(collector.getProperties()).toEqual([
+      { '@type': 'PropertyValue', name: 'Sensor', value: 'CMOS' },
+    ]);
+  });
 });

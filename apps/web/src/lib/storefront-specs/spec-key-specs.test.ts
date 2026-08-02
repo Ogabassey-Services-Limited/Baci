@@ -64,4 +64,43 @@ describe('buildDetailedSpecsFromKeySpecs', () => {
       },
     ]);
   });
+
+  it('omits zero placeholders from camera key specs without changing mobile behavior', () => {
+    const cameraSections = buildDetailedSpecsFromKeySpecs(
+      {
+        main_camera_mp: 0,
+        screen_size_inches: 0,
+        storage_gb: 0,
+        battery_mah: 0,
+        display_type: 'LCD',
+      },
+      'camera'
+    );
+
+    expect(cameraSections).toEqual([
+      {
+        category: 'Display',
+        items: [{ label: 'Type', value: 'LCD' }],
+      },
+    ]);
+
+    const mobileSections = buildDetailedSpecsFromKeySpecs(
+      { storage_gb: 0, battery_mah: 0 },
+      'mobile'
+    );
+    expect(mobileSections).toEqual(
+      expect.arrayContaining([
+        {
+          category: 'Memory',
+          items: expect.arrayContaining([
+            { label: 'Internal Storage', value: '0GB' },
+          ]),
+        },
+        {
+          category: 'Battery',
+          items: [{ label: 'Capacity', value: '0mAh' }],
+        },
+      ])
+    );
+  });
 });
