@@ -19,6 +19,8 @@ DECLARE
   v_poisoned_generation integer;
   v_order_status text;
   v_monitor_state text;
+  v_old_monitor_state text;
+  v_live_monitor_count integer;
 BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
@@ -150,6 +152,11 @@ BEGIN
       'a manually completed GIGL order must remain terminal after carrier updates';
   END IF;
 
+  UPDATE public.shipment_tracking_monitors
+  SET state = 'inactive', next_poll_at = NULL, stopped_at = now(),
+      last_error = 'tracking_tenant_changed'
+  WHERE shipment_id = v_old_shipment_id;
+
   UPDATE public.orders
   SET merchant_id = v_attacker_merchant_id
   WHERE id = v_order_id;
@@ -171,12 +178,40 @@ BEGIN
     RAISE EXCEPTION
       'returning an order to its shipment tenant must reactivate its GIGL monitor';
   END IF;
+  SELECT count(*) INTO v_live_monitor_count
+  FROM public.shipment_tracking_monitors
+  WHERE order_id = v_order_id
+    AND state IN ('active', 'paused', 'final_poll');
+  IF v_live_monitor_count IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION
+      'tenant recovery must reactivate only the newest GIGL monitor per order';
+  END IF;
+  SELECT state INTO v_old_monitor_state
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = v_old_shipment_id;
+  IF v_old_monitor_state IS DISTINCT FROM 'inactive' THEN
+    RAISE EXCEPTION
+      'tenant recovery must leave older GIGL monitors inactive';
+  END IF;
 
   UPDATE public.orders
   SET merchant_id = v_attacker_merchant_id
   WHERE id = v_order_id;
   UPDATE public.shipments
-  SET merchant_id = v_attacker_merchant_id
+  SET merchant_id = v_attacker_merchant_id,
+      provider = 'TOPSHIP', tracking_number = ''
+  WHERE id = v_current_shipment_id;
+  SELECT state INTO v_monitor_state
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = v_current_shipment_id;
+  IF v_monitor_state IS DISTINCT FROM 'inactive' THEN
+    RAISE EXCEPTION
+      'an ineligible combined shipment update must not reactivate a GIGL monitor';
+  END IF;
+
+  UPDATE public.shipments
+  SET merchant_id = v_attacker_merchant_id,
+      provider = 'GIGL', tracking_number = 'GIGL-GENERATION-CURRENT'
   WHERE id = v_current_shipment_id;
   SELECT state INTO v_monitor_state
   FROM public.shipment_tracking_monitors

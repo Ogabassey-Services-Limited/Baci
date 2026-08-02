@@ -120,6 +120,31 @@ describe('GIGL terminal tracking hardening', () => {
     );
   });
 
+  it('keeps tenant revalidation eligible and selects one newest monitor', () => {
+    const migration = readMigration(
+      '20260802000600_harden_gigl_monitor_tenant_revalidation.sql'
+    );
+    const sqlRegression = readMigrationTest(
+      'gigl_tracking_order_status_generation.sql'
+    );
+
+    expect(migration).toContain("NEW.provider IS DISTINCT FROM 'GIGL'");
+    expect(migration).toContain(
+      "NULLIF(btrim(NEW.tracking_number), '') IS NULL"
+    );
+    expect(migration).toContain(
+      'candidate_shipment.tracking_timeline_generation DESC'
+    );
+    expect(migration).toContain('candidate_shipment.created_at DESC');
+    expect(sqlRegression).toContain("provider = 'TOPSHIP'");
+    expect(sqlRegression).toContain(
+      'tenant recovery must reactivate only the newest GIGL monitor per order'
+    );
+    expect(sqlRegression).toContain(
+      'an ineligible combined shipment update must not reactivate a GIGL monitor'
+    );
+  });
+
   it('preserves manually completed orders across carrier terminal updates', () => {
     const migration = readMigration(
       '20260802000400_preserve_completed_gigl_order_status.sql'
