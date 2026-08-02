@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildCuratedStorefront } from '@/lib/storefront-defaults/build-curated-storefront';
+import { forbiddenCuratedStorefrontClaims } from '@/lib/storefront-defaults/curated-claim-test-support';
 import { generatePreviewTemplate } from './onboarding-preview-data';
 
 const categories = [
@@ -65,20 +66,6 @@ const categories = [
   ],
 ] as const;
 
-const unsupportedClaims = [
-  'nationwide delivery',
-  'flexible payment',
-  'trusted quality',
-  'best seller',
-  'expert',
-  'warranty',
-  'secure checkout',
-  'reliable fulfillment',
-  'delivery-ready',
-  'first access',
-  'exclusive offers',
-];
-
 describe('generatePreviewTemplate', () => {
   it.each(
     categories
@@ -112,7 +99,7 @@ describe('generatePreviewTemplate', () => {
 
     const serialized = JSON.stringify({ persisted, preview }).toLowerCase();
     expect(serialized).toContain('north star');
-    for (const claim of unsupportedClaims)
+    for (const claim of forbiddenCuratedStorefrontClaims)
       expect(serialized).not.toContain(claim);
   });
 });

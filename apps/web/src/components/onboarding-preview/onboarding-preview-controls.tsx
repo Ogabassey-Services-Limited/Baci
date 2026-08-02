@@ -31,7 +31,10 @@ export function OnboardingPreviewControls({
   );
   return (
     <>
-      <div className="absolute top-14 right-4 z-50 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+      <div
+        className="absolute top-14 right-4 z-50 flex items-center gap-2 opacity-100 pointer-events-auto [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:pointer-events-none [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-focus-within:pointer-events-auto transition-opacity duration-300"
+        data-testid="preview-expand-controls"
+      >
         {onExpand ? (
           expandButton
         ) : (
@@ -39,7 +42,10 @@ export function OnboardingPreviewControls({
         )}
       </div>
       {onEdit && (
-        <div className="absolute top-14 left-4 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div
+          className="absolute top-14 left-4 z-50 opacity-100 pointer-events-auto [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:pointer-events-none [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-focus-within:pointer-events-auto transition-opacity duration-300"
+          data-testid="preview-edit-controls"
+        >
           <Button
             size="sm"
             variant="secondary"

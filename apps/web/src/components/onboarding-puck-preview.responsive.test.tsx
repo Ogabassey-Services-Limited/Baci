@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { deriveCuratedTheme } from '@/lib/storefront-defaults/derive-curated-theme';
 import {
   previewProps,
   renderPreview,
@@ -81,6 +82,51 @@ describe('OnboardingPuckPreview responsive controls', () => {
       'data-merchant-id',
       'preview-merchant-id'
     );
+    expect(screen.getAllByTestId('puck-render')).toHaveLength(1);
+  });
+  it.each([
+    {
+      label: 'dark',
+      brandColors: {
+        primary: '#ffffff',
+        background: '#000000',
+        accent: '#ff0000',
+      },
+    },
+    {
+      label: 'light',
+      brandColors: {
+        primary: '#000000',
+        background: '#FFFFFF',
+        accent: '#00ff00',
+      },
+    },
+  ])('keeps $label theme tokens scoped after opening the portaled preview', async ({
+    brandColors,
+  }) => {
+    const user = userEvent.setup();
+    const theme = deriveCuratedTheme(brandColors, 'fashion');
+    renderPreview({ brandColors });
+    await screen.findByTestId('puck-render');
+    expect(screen.getByTestId('preview-inline-surface')).toHaveStyle({
+      '--store-background': theme.colors.background,
+      '--store-background-text': theme.colors.foreground,
+      color: 'var(--theme-foreground)',
+    });
+
+    await user.click(screen.getByRole('button', { name: /expand/i }));
+    const dialog = await screen.findByRole('dialog', {
+      name: /live store preview/i,
+    });
+    expect(within(dialog).getByTestId('preview-expanded-surface')).toHaveStyle({
+      '--store-background': theme.colors.background,
+      '--store-background-text': theme.colors.foreground,
+      color: 'var(--theme-foreground)',
+    });
+    expect(
+      screen.queryByTestId('preview-inline-surface')
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('puck-render')).toHaveLength(1);
   });
   it('shows the preview fallback for a cart context error', async () => {
     const errorSpy = vi

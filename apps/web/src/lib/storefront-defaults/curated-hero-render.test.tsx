@@ -1,3 +1,4 @@
+import type { PuckContext } from '@puckeditor/core';
 import { render, screen } from '@testing-library/react';
 import { colord } from 'colord';
 import type { ReactNode } from 'react';
@@ -18,6 +19,19 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 
 const { builderConfig } = await import('@/components/builder/config');
 
+type BuilderRenderProps<T> = T extends {
+  render?: (props: infer Props) => ReactNode;
+}
+  ? Props
+  : never;
+
+const puck = {
+  renderDropZone: () => null,
+  metadata: {},
+  isEditing: false,
+  dragRef: null,
+} satisfies PuckContext;
+
 it.each([
   'fashion',
   'food',
@@ -33,10 +47,10 @@ it.each([
       country: 'Nigeria',
     }).hero
   );
-  const renderHero = builderConfig.components.Hero.render as (
-    props: typeof hero
-  ) => ReactNode;
-  const { container } = render(renderHero(hero));
+  const heroProps = { ...hero, puck } satisfies BuilderRenderProps<
+    typeof builderConfig.components.Hero
+  >;
+  const { container } = render(builderConfig.components.Hero.render(heroProps));
   expect(container.querySelector('section')).toHaveStyle({
     backgroundImage: hero.backgroundGradient,
   });
@@ -124,9 +138,9 @@ it.each(
       country: 'Nigeria',
     }).hero
   );
-  const renderHero = builderConfig.components.Hero.render as (
-    props: typeof hero
-  ) => ReactNode;
+  const heroProps = { ...hero, puck } satisfies BuilderRenderProps<
+    typeof builderConfig.components.Hero
+  >;
   const { container } = render(
     <div
       style={
@@ -137,7 +151,7 @@ it.each(
         } as React.CSSProperties
       }
     >
-      {renderHero(hero)}
+      {builderConfig.components.Hero.render(heroProps)}
     </div>
   );
 
@@ -162,39 +176,35 @@ it.each(
 });
 
 it('renders the starter heading hierarchy through real Builder components', () => {
-  const renderHero = builderConfig.components.Hero.render as (
-    props: ReturnType<typeof buildCuratedHero>
-  ) => ReactNode;
-  const renderText = builderConfig.components.Text.render as (props: {
-    title: string;
-    content: string;
-    align: 'center';
-  }) => ReactNode;
-  const renderFeatures = builderConfig.components.Features.render as (props: {
-    title: string;
-    features: Array<{ title: string; description: string; icon: string }>;
-  }) => ReactNode;
+  const hero = buildCuratedHero(
+    'fashion',
+    buildCuratedCopy({
+      businessName: 'North Star',
+      businessType: 'fashion',
+      country: 'Nigeria',
+    }).hero
+  );
+  const heroProps = { ...hero, puck } satisfies BuilderRenderProps<
+    typeof builderConfig.components.Hero
+  >;
+  const text = {
+    id: 'Text-story',
+    title: 'About North Star',
+    content: 'Browse.',
+    align: 'center',
+    puck,
+  } satisfies BuilderRenderProps<typeof builderConfig.components.Text>;
+  const features = {
+    id: 'Features-trust',
+    title: 'Browse styles',
+    features: [{ title: 'Browse', description: 'Browse.', icon: 'search' }],
+    puck,
+  } satisfies BuilderRenderProps<typeof builderConfig.components.Features>;
   const { container } = render(
     <>
-      {renderHero(
-        buildCuratedHero(
-          'fashion',
-          buildCuratedCopy({
-            businessName: 'North Star',
-            businessType: 'fashion',
-            country: 'Nigeria',
-          }).hero
-        )
-      )}
-      {renderText({
-        title: 'About North Star',
-        content: 'Browse.',
-        align: 'center',
-      })}
-      {renderFeatures({
-        title: 'Browse styles',
-        features: [{ title: 'Browse', description: 'Browse.', icon: 'search' }],
-      })}
+      {builderConfig.components.Hero.render(heroProps)}
+      {builderConfig.components.Text.render(text)}
+      {builderConfig.components.Features.render(features)}
     </>
   );
 

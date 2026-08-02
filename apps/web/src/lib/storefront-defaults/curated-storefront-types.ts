@@ -20,10 +20,3 @@ export interface CuratedStorefrontInput {
 export interface CuratedStorefrontData extends Data {
   theme: ThemeConfiguration;
 }
-
-export type PuckBlock = Data['content'][number];
-
-export interface AiContent {
-  hero: Array<{ title: string; subtitle: string }>;
-  features: Array<{ title: string; description: string; icon: string }>;
-}

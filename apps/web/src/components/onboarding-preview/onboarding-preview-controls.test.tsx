@@ -47,4 +47,62 @@ describe('OnboardingPreviewControls', () => {
     await user.click(screen.getByRole('button', { name: /edit template/i }));
     expect(onEdit).toHaveBeenCalledWith(data);
   });
+
+  it('keeps non-hover touch-tablet actions discoverable and reveals keyboard focus on hover layouts', async () => {
+    const user = userEvent.setup();
+    render(
+      <div className="group">
+        <OnboardingPreviewControls
+          brandColors={colors}
+          data={data}
+          onEdit={vi.fn()}
+          onExpand={vi.fn()}
+        />
+      </div>
+    );
+
+    const expandControls = screen.getByTestId('preview-expand-controls');
+    const editControls = screen.getByTestId('preview-edit-controls');
+    expect(expandControls).toHaveClass('opacity-100');
+    expect(editControls).toHaveClass('opacity-100');
+    expect(screen.getByRole('button', { name: /expand/i })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: /edit template/i })
+    ).toBeVisible();
+    expect(expandControls).toHaveClass('[@media(hover:hover)]:opacity-0');
+    expect(editControls).toHaveClass('[@media(hover:hover)]:opacity-0');
+    expect(expandControls).toHaveClass('pointer-events-auto');
+    expect(editControls).toHaveClass('pointer-events-auto');
+    expect(expandControls).toHaveClass(
+      '[@media(hover:hover)]:pointer-events-none'
+    );
+    expect(editControls).toHaveClass(
+      '[@media(hover:hover)]:pointer-events-none'
+    );
+    expect(expandControls).toHaveClass(
+      '[@media(hover:hover)]:group-hover:pointer-events-auto'
+    );
+    expect(editControls).toHaveClass(
+      '[@media(hover:hover)]:group-hover:pointer-events-auto'
+    );
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: /expand/i })).toHaveFocus();
+    expect(expandControls).toHaveClass(
+      '[@media(hover:hover)]:group-focus-within:opacity-100'
+    );
+    expect(expandControls).toHaveClass(
+      '[@media(hover:hover)]:group-focus-within:pointer-events-auto'
+    );
+    await user.tab();
+    expect(
+      screen.getByRole('button', { name: /edit template/i })
+    ).toHaveFocus();
+    expect(editControls).toHaveClass(
+      '[@media(hover:hover)]:group-focus-within:opacity-100'
+    );
+    expect(editControls).toHaveClass(
+      '[@media(hover:hover)]:group-focus-within:pointer-events-auto'
+    );
+  });
 });

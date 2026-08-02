@@ -63,7 +63,7 @@ export async function generatePreviewTemplate(params: {
         columns: profile.productGridColumns,
         limit: profile.productGridLimit,
         sortBy: 'newest',
-        showFilters: true,
+        showFilters: false,
       },
     },
     newsletter: {

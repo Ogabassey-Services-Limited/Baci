@@ -12,9 +12,22 @@ describe('initial template profiles', () => {
     ['fashion-apparel', 'fashion'],
     ['tech', 'electronics'],
     ['health-beauty', 'beauty'],
+    ['cosmetics', 'beauty'],
+    ['hair-extensions', 'hair'],
+    ['home-goods', 'home'],
+    ['fashion_apparel', 'fashion'],
     ['handmade', 'art'],
     [null, ''],
+    [undefined, ''],
   ])('normalizes %s to %s', (input, expected) => {
+    expect(normalizeBusinessType(input)).toBe(expected);
+  });
+
+  it.each([
+    ['Food-BEVERAGE', 'food'],
+    ['  RESTAURANT  ', 'food'],
+    ['', ''],
+  ])('normalizes case and whitespace for %s', (input, expected) => {
     expect(normalizeBusinessType(input)).toBe(expected);
   });
 

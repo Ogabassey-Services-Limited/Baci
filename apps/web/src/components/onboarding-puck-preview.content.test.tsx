@@ -25,14 +25,36 @@ describe('OnboardingPuckPreview content', () => {
     expect(await screen.findByTestId('puck-render')).toBeInTheDocument();
   });
   it('renders preview with generated content and scoped theme values', async () => {
-    const { container } = renderPreview();
+    renderPreview({
+      brandColors: {
+        primary: '#ffffff',
+        background: '#000000',
+        accent: '#ff0000',
+      },
+    });
     await waitFor(() =>
       expect(screen.getByTestId('puck-render')).toBeInTheDocument()
     );
-    expect(screen.getAllByTestId('merchant-provider').length).toBeGreaterThan(
-      0
-    );
-    expect(container.querySelector('[style]')).toBeInTheDocument();
+    expect(screen.getByTestId('preview-inline-surface')).toHaveStyle({
+      '--store-background': '#000000',
+      '--store-background-text': '#FFFFFF',
+      color: 'var(--theme-foreground)',
+    });
+  });
+  it('uses the derived light foreground for a non-black dark background', async () => {
+    renderPreview({
+      brandColors: {
+        primary: '#ffffff',
+        background: '#111111',
+        accent: '#ff0000',
+      },
+    });
+
+    await screen.findByTestId('puck-render');
+    expect(screen.getByTestId('preview-inline-surface')).toHaveStyle({
+      '--store-background': '#111111',
+      '--store-background-text': '#FFFFFF',
+    });
   });
   it('renders the deterministic single-H1 hero in preview data', async () => {
     renderPreview();

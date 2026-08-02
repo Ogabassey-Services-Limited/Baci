@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import {
   DialogContent,
   DialogDescription,
@@ -10,9 +10,13 @@ import {
 
 interface Props {
   children: ReactNode;
+  themeStyles?: CSSProperties;
 }
 
-export function OnboardingPreviewExpandedDialog({ children }: Props) {
+export function OnboardingPreviewExpandedDialog({
+  children,
+  themeStyles,
+}: Props) {
   return (
     <DialogContent className="w-full h-full max-w-[1600px] overflow-hidden p-0 flex flex-col">
       <DialogHeader className="h-14 border-b flex flex-row items-center justify-between px-6 bg-muted/10">
@@ -23,7 +27,11 @@ export function OnboardingPreviewExpandedDialog({ children }: Props) {
           </DialogDescription>
         </div>
       </DialogHeader>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div
+        className="flex-1 overflow-y-auto overflow-x-hidden"
+        data-testid="preview-expanded-surface"
+        style={themeStyles}
+      >
         <div className="min-h-full">{children}</div>
       </div>
     </DialogContent>

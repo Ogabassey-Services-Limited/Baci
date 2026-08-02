@@ -4,6 +4,23 @@ import { buildCuratedStorefront } from './build-curated-storefront';
 import { forbiddenCuratedStorefrontClaims } from './curated-claim-test-support';
 
 describe('curated starter claim safety', () => {
+  it('keeps one representative from every prohibited claim class in the shared policy', () => {
+    expect(forbiddenCuratedStorefrontClaims).toEqual(
+      expect.arrayContaining([
+        'free shipping',
+        'nationwide delivery',
+        'easy payments',
+        'flexible payment',
+        'premium quality',
+        'trusted quality',
+        'trusted by',
+        'warranty',
+        'best seller',
+        'expert advice',
+        'expert',
+      ])
+    );
+  });
   it.each([
     'fashion',
     'food',

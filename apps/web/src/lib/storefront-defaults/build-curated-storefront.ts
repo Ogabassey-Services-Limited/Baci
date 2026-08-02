@@ -58,7 +58,7 @@ export function buildCuratedStorefront(
         columns: profile.productGridColumns,
         limit: profile.productGridLimit,
         sortBy: 'newest',
-        showFilters: true,
+        showFilters: false,
       },
     },
     {
