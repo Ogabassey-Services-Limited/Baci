@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 
 const mocks = vi.hoisted(() => ({
   resolveSantaTenant: vi.fn(),
@@ -94,7 +95,7 @@ describe('/api/chat/santa/product', () => {
 
       expect(mocks.resolveSantaTenant).toHaveBeenCalledTimes(1);
       expect(mocks.getCachedSantaProductList).toHaveBeenCalledWith(MERCHANT_ID);
-      expect(response.headers.get('x-baci-santa-merchant-slug')).toBe(
+      expect(response.headers.get(SANTA_MERCHANT_SLUG_HEADER)).toBe(
         MERCHANT_SLUG
       );
     });

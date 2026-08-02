@@ -68,6 +68,7 @@ vi.mock('@/ai/prompts/santa', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
@@ -190,7 +191,7 @@ describe('POST /api/chat/santa', () => {
     expect(response.headers.get('Content-Type')).toBe(
       'text/plain; charset=utf-8'
     );
-    expect(response.headers.get('x-baci-santa-merchant-slug')).toBe(
+    expect(response.headers.get(SANTA_MERCHANT_SLUG_HEADER)).toBe(
       'winter-store'
     );
     const text = await response.text();

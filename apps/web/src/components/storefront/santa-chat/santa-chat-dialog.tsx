@@ -345,12 +345,6 @@ export function SantaChatDialog({
           >
             Santa&apos;s Workshop
           </h1>
-          <p
-            className="text-xs text-red-100"
-            style={{ textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
-          >
-            by Ogabassey
-          </p>
         </div>
 
         {/* Right: Cart icon with count */}
