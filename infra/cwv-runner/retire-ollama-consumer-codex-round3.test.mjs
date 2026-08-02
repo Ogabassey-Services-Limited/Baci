@@ -134,7 +134,7 @@ test('does not exempt a generic container merely because another inspect field n
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *' inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
-  *' inspect -f {{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Config.Labels}} {{json .Config.Healthcheck}} {{json .Mounts}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}} generic-api') printf 'generic-api /generic-api /usr/bin/ollama-loopback [] [] {} null [{"Type":"bind","Source":"${source}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
+  *' inspect -f {{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Config.Labels}} {{json .Config.Healthcheck}} {{json .Mounts}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}} {{json .HostConfig.Links}} generic-api') printf 'generic-api /generic-api /usr/bin/ollama-loopback [] [] {} null [{"Type":"bind","Source":"${source}","Destination":"/app/runtime.env"}] {} {} {} []\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${source}","Destination":"/app/runtime.env"}]\\n' ;;
 esac
 `

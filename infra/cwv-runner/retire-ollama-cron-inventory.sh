@@ -113,9 +113,18 @@ cron_inventory_periodic_dir() {
   done
 }
 cron_inventory_command_targets() {
-  kind=$1 source=$2 snapshot=$3; anacron=$(cron_inventory_anacrontab)
+  kind=$1 source=$2 snapshot=$3; anacron=$(cron_inventory_anacrontab); system=$(cron_inventory_system_file); hourly=$(cron_inventory_hourly_dir); daily=$(cron_inventory_daily_dir); weekly=$(cron_inventory_weekly_dir); monthly=$(cron_inventory_monthly_dir)
   case "$kind:$source" in system:"$anacron") format=anacron;; system:*) format=system;; user:*) format=user;; system-directory:*) return 0;; *) return 2;; esac
-  awk -v format="$format" '
+  [ "$kind:$source" = "system:$system" ] && canonical_system=1 || canonical_system=0
+  awk -v format="$format" -v canonical_system="$canonical_system" -v hourly="$hourly" -v daily="$daily" -v weekly="$weekly" -v monthly="$monthly" '
+    function fixed_periodic(directory) {
+      return directory == hourly || directory == daily || directory == weekly || directory == monthly
+    }
+    function periodic_delegation(field, directory) {
+      if (!canonical_system || format != "system" || $(field - 1) != "root") return 0
+      if (NF == field + 5 && $field == "cd" && $(field + 1) == "/" && $(field + 2) == "&&" && $(field + 3) == "run-parts" && $(field + 4) == "--report") return fixed_periodic($(field + 5))
+      return NF == field + 11 && $field == "test" && $(field + 1) == "-x" && $(field + 2) == "/usr/sbin/anacron" && $(field + 3) == "||" && $(field + 4) == "(" && $(field + 5) == "cd" && $(field + 6) == "/" && $(field + 7) == "&&" && $(field + 8) == "run-parts" && $(field + 9) == "--report" && $(field + 11) == ")" && fixed_periodic($(field + 10))
+    }
     function direct(field, command, i) {
       if (NF < field) { bad=1; return }
       command=$field
@@ -125,8 +134,9 @@ cron_inventory_command_targets() {
     }
     /^[[:space:]]*($|#)/ { next }
     /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { next }
-    /[;&|<>()`$\\]/ { bad=1; next }
     {
+      if (periodic_delegation(7)) next
+      if ($0 ~ /[;&|<>()`$\\]/) { bad=1; next }
       if ($1 ~ /^@[A-Za-z]+$/) { direct(format == "system" ? 3 : 2); next }
       direct(format == "system" ? 7 : (format == "anacron" ? 4 : 6))
     }

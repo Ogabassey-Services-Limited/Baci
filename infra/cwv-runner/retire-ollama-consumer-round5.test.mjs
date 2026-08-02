@@ -18,7 +18,7 @@ async function directory(prefix) {
 function scanCompose(root) {
   return execFileAsync('sh', [
     '-c',
-    `${prelude}. "$1"; SCRIPT_DIR=$(dirname "$1"); COMPOSE_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_compose_definitions`,
+    `${prelude}docker() { case "$*" in *'image inspect -f '*) printf 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa [] {} null [] []\\n' ;; *) return 64 ;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); COMPOSE_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_compose_definitions`,
     'retire-ollama-compose-round5-test',
     script.pathname,
     root,
