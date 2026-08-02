@@ -21,15 +21,16 @@ import {
 } from './mutate-cloudflare-evidence-cleanup-support';
 import { dispatchMutationCommand } from './mutate-cloudflare-evidence-command';
 import { runMutationCliFromProcess } from './mutate-cloudflare-evidence-entrypoint';
+import { validateEvidenceProbeResults } from './mutate-cloudflare-evidence-probes';
 import type {
   EvidenceMutationClient,
   EvidenceMutationDependencies,
   EvidenceResource,
 } from './mutate-cloudflare-evidence-support';
 import {
+  createReviewedTemporaryRuleBinding,
   EVIDENCE_HOSTNAME,
   parseMutationArguments,
-  REVIEWED_TEMPORARY_RULE_BINDING,
   SYNTHETIC_PATHS,
   verifyCapability,
   verifyIdentity,
@@ -76,6 +77,7 @@ async function applyCloudflareEvidenceMutationUnlocked(
     throw new Error('mutation cannot run after cleanup or a terminal phase');
   verifyIdentity(await client.identity(), journal);
   const name = `baci-evidence-${runId}`;
+  const expectedTemporaryRule = createReviewedTemporaryRuleBinding(runId);
   if (!journal.plannedResources.includes(name))
     throw new Error('deterministic resource was not pre-journaled');
   let resource = await client.findByName(name);
@@ -84,7 +86,13 @@ async function applyCloudflareEvidenceMutationUnlocked(
     const journaledResourceId = journal.mutations[name];
     if (!journaledResourceId)
       throw new Error('pre-existing resource collision');
-    verifyResource(resource, journal, name, journaledResourceId);
+    verifyResource(
+      resource,
+      journal,
+      name,
+      journaledResourceId,
+      expectedTemporaryRule
+    );
   } else {
     let createdId: string | undefined;
     try {
@@ -92,14 +100,14 @@ async function applyCloudflareEvidenceMutationUnlocked(
         name,
         EVIDENCE_HOSTNAME,
         SYNTHETIC_PATHS,
-        REVIEWED_TEMPORARY_RULE_BINDING
+        expectedTemporaryRule
       );
       createdId = created.id;
       if (!createdId)
         throw new Error('provider create returned no resource ID');
       resource = await client.get(createdId);
       if (!resource) throw new Error('created resource was not readable');
-      verifyResource(resource, journal, name, createdId);
+      verifyResource(resource, journal, name, createdId, expectedTemporaryRule);
       await recordEvidenceMutation(stateDir, runId, name, resource.id);
     } catch (error) {
       const failures: unknown[] = [error];
@@ -129,13 +137,8 @@ async function applyCloudflareEvidenceMutationUnlocked(
   }
   try {
     const probes = await client.probe(resource);
-    if (probes.some((probe) => !probe.succeeded))
-      throw new Error('synthetic probe did not complete');
-    await recordEvidenceProbeResults(
-      stateDir,
-      runId,
-      probes.map((probe) => probe.id)
-    );
+    validateEvidenceProbeResults(runId, probes);
+    await recordEvidenceProbeResults(stateDir, runId, probes);
   } catch (error) {
     await cleanupCloudflareEvidenceRunUnlocked(
       stateDir,
@@ -171,6 +174,7 @@ async function cleanupCloudflareEvidenceRunUnlocked(
   const journal = await loadEvidenceRunForCleanup(stateDir, runId);
   verifyCapability(capability, journal, 'cleanup');
   verifyIdentity(await client.identity(), journal);
+  const expectedTemporaryRule = createReviewedTemporaryRuleBinding(runId);
   if (
     ![
       'prepared',
@@ -216,7 +220,7 @@ async function cleanupCloudflareEvidenceRunUnlocked(
     if (mutations.has(name)) continue;
     const recovered = await client.findByName(name);
     if (!recovered) continue;
-    verifyResource(recovered, journal, name);
+    verifyResource(recovered, journal, name, undefined, expectedTemporaryRule);
     await recordEvidenceMutation(stateDir, runId, name, recovered.id);
     mutations.set(name, recovered.id);
   }
@@ -226,7 +230,7 @@ async function cleanupCloudflareEvidenceRunUnlocked(
       throw new Error('journal mutation name is not planned');
     const resource = await client.get(id);
     if (!resource) continue;
-    verifyResource(resource, journal, name, id);
+    verifyResource(resource, journal, name, id, expectedTemporaryRule);
     if (!(await client.cleanup(name, id)))
       throw new Error('evidence cleanup read-back did not prove absence');
     if (await client.get(id))

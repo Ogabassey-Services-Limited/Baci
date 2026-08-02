@@ -14,6 +14,7 @@ import {
   mutationCapability,
   mutationInput,
   mutationResource,
+  reviewedProbeResults,
 } from './mutate-cloudflare-evidence-test-fixtures';
 
 describe('Cloudflare evidence token revocation lifecycle', () => {
@@ -121,10 +122,11 @@ describe('Cloudflare evidence token revocation lifecycle', () => {
       mutationResource.name,
       mutationResource.id
     );
-    await recordEvidenceProbeResults(dir, mutationInput.runId, [
-      'probe-a',
-      'probe-b',
-    ]);
+    await recordEvidenceProbeResults(
+      dir,
+      mutationInput.runId,
+      reviewedProbeResults()
+    );
     const revoke = vi
       .fn()
       .mockRejectedValueOnce(new Error('operator process stopped'))

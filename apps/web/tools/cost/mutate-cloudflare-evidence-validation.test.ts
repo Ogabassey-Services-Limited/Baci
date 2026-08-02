@@ -5,8 +5,8 @@ import {
   mutationInput,
 } from './mutate-cloudflare-evidence-test-fixtures';
 import {
+  createReviewedTemporaryRuleBinding,
   parseMutationArguments,
-  REVIEWED_TEMPORARY_RULE_BINDING,
   verifyCapability,
   verifyResource,
   verifyTemporaryRule,
@@ -30,7 +30,7 @@ const resource = {
   zoneId: 'zone',
   hostname: 'edge-evidence.ogabassey.com',
   paths: ['/__baci-evidence/a', '/__baci-evidence/b'],
-  temporaryRule: REVIEWED_TEMPORARY_RULE_BINDING,
+  temporaryRule: createReviewedTemporaryRuleBinding(runId),
 };
 
 describe('mutation validation helpers', () => {
@@ -91,6 +91,19 @@ describe('mutation validation helpers', () => {
     ).toThrow('temporary rule fields');
   });
 
+  it('rejects a provider rule bound to a different run nonce', () => {
+    expect(() =>
+      verifyResource(
+        {
+          ...resource,
+          temporaryRule: createReviewedTemporaryRuleBinding('f'.repeat(32)),
+        },
+        journal,
+        resource.name
+      )
+    ).toThrow('temporary rule fields');
+  });
+
   it('rejects a provider rule with a changed action', () => {
     expect(() =>
       verifyResource(
@@ -118,9 +131,10 @@ describe('mutation validation helpers', () => {
   });
 
   it('accepts an independently bound canonical hash when fields are unavailable', () => {
+    const binding = createReviewedTemporaryRuleBinding(runId);
     const hashOnlyBinding = {
-      id: REVIEWED_TEMPORARY_RULE_BINDING.id,
-      canonicalSha256: REVIEWED_TEMPORARY_RULE_BINDING.canonicalSha256,
+      id: binding.id,
+      canonicalSha256: binding.canonicalSha256,
     };
     expect(() =>
       verifyResource(

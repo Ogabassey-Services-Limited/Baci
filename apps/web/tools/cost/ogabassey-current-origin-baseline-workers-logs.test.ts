@@ -82,4 +82,69 @@ describe('Ogabassey Workers Logs capability', () => {
       });
     }
   });
+
+  it('applies operational headroom to the full account forecast', async () => {
+    const contract = await currentWithWorkersLogsContract({
+      plan: 'paid' as const,
+      allowanceEvents: 20_000_000n,
+      allowancePeriod: 'billing_month' as const,
+      allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+      allowancePeriodEndsAt: '2026-09-01T00:00:00.000Z',
+      currentAllowancePeriodAllAccountEvents: 0n,
+      overageAllowed: true,
+      overageUsdPerMillion: '0.60',
+      otherWorkersWorstCaseDailyLogEvents: 1_000_000_000n,
+    });
+    const now = new Date('2026-08-01T12:00:00.000Z');
+    const baseline = validateWorkersLogsEvidence(
+      contract,
+      143n,
+      2n,
+      1_000,
+      7,
+      { trafficMultiplier: '1.00', errorMultiplier: '1.00' },
+      now
+    );
+    expect(baseline).toMatchObject({ ok: true });
+
+    for (const headroom of [
+      { trafficMultiplier: '1.50', errorMultiplier: '1.00' },
+      { trafficMultiplier: '1.00', errorMultiplier: '1.50' },
+    ]) {
+      expect(
+        validateWorkersLogsEvidence(contract, 143n, 2n, 1_000, 7, headroom, now)
+      ).toEqual({
+        ok: false,
+        verdict: 'STOP',
+        reason: 'workers_logs_forced_sampling_headroom_insufficient',
+      });
+    }
+  });
+
+  it('prices a representative paid month after the current allowance resets', async () => {
+    const contract = await currentWithWorkersLogsContract({
+      plan: 'paid' as const,
+      allowanceEvents: 20_000_000n,
+      allowancePeriod: 'billing_month' as const,
+      allowancePeriodStartsAt: '2026-08-01T00:00:00.000Z',
+      allowancePeriodEndsAt: '2026-09-01T00:00:00.000Z',
+      currentAllowancePeriodAllAccountEvents: 18_000_000n,
+      overageAllowed: true,
+      overageUsdPerMillion: '0.60',
+    });
+    const result = validateWorkersLogsEvidence(
+      contract,
+      1_000_000n,
+      2n,
+      1_000_000,
+      7,
+      { trafficMultiplier: '1.00', errorMultiplier: '1.00' },
+      new Date('2026-08-31T00:00:00.000Z')
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      projectedOverageCostMinorUnits: 2_400n,
+    });
+  });
 });

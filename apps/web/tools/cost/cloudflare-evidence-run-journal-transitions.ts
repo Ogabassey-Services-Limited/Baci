@@ -9,6 +9,10 @@ import {
   terminal,
   validDate,
 } from './cloudflare-evidence-run-journal-state';
+import {
+  type EvidenceProbeResult,
+  validateEvidenceProbeResults,
+} from './mutate-cloudflare-evidence-probes';
 
 export type EvidenceRunTransition = <T>(
   stateDir: string,
@@ -52,22 +56,22 @@ export function createEvidenceJournalTransitionOperations(
   function recordEvidenceProbeResults(
     stateDir: string,
     runId: string,
-    probeResults: readonly string[]
+    probeResults: readonly EvidenceProbeResult[]
   ) {
     return transitionJournal(stateDir, runId, (journal) => {
-      if (
-        probeResults.length !== journal.expectedProbeCount ||
-        new Set(probeResults).size !== probeResults.length ||
-        probeResults.some((result) => !result)
-      )
+      const normalizedProbeIds = validateEvidenceProbeResults(
+        journal.runId,
+        probeResults
+      );
+      if (normalizedProbeIds.length !== journal.expectedProbeCount)
         throw new Error(
           'probe results do not match the expected bounded count'
         );
       if (journal.probeResults.length > 0) {
         if (
-          journal.probeResults.length === probeResults.length &&
+          journal.probeResults.length === normalizedProbeIds.length &&
           journal.probeResults.every(
-            (result, index) => result === probeResults[index]
+            (result, index) => result === normalizedProbeIds[index]
           )
         )
           return journal;
@@ -75,7 +79,7 @@ export function createEvidenceJournalTransitionOperations(
       }
       if (journal.phase !== 'mutated')
         throw new Error('probe results require a mutated run');
-      journal.probeResults = [...probeResults];
+      journal.probeResults = [...normalizedProbeIds];
       return journal;
     });
   }

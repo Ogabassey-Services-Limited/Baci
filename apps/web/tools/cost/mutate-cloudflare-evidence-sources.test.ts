@@ -7,6 +7,7 @@ import {
   openEvidenceRun,
   recordEvidenceMutation,
 } from './cloudflare-evidence-run-journal';
+import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
 import {
   applyCloudflareEvidenceMutation,
   cleanupCloudflareEvidenceRun,
@@ -17,6 +18,7 @@ import {
   mutationCapability,
   mutationInput,
   mutationResource,
+  reviewedProbeResults,
 } from './mutate-cloudflare-evidence-test-fixtures';
 
 describe('parseMutationArguments', () => {
@@ -48,10 +50,7 @@ describe('Cloudflare evidence mutation lifecycle', () => {
       findByName: async () => mutationResource,
       get: async () => (resourcePresent ? mutationResource : null),
       create,
-      probe: async () => [
-        { id: 'probe-a', succeeded: true },
-        { id: 'probe-b', succeeded: true },
-      ],
+      probe: async () => reviewedProbeResults(),
       cleanup: async () => {
         resourcePresent = false;
         return true;
@@ -70,7 +69,7 @@ describe('Cloudflare evidence mutation lifecycle', () => {
     expect(create).not.toHaveBeenCalled();
     expect(
       (await loadEvidenceRunForCleanup(dir, mutationInput.runId)).probeResults
-    ).toEqual(['probe-a', 'probe-b']);
+    ).toEqual(REVIEWED_PROBE_CASE_IDS);
   });
 
   it('cleans up and revokes the write token when a probe fails after creation', async () => {
@@ -92,6 +91,22 @@ describe('Cloudflare evidence mutation lifecycle', () => {
       auditReceiptSha256: 'f'.repeat(64),
       observedAt: '2026-08-01T00:00:00.000Z',
     }));
+    const create = vi.fn(
+      async (
+        _name: string,
+        _hostname: string,
+        _paths: readonly string[],
+        temporaryRule: typeof mutationResource.temporaryRule
+      ) => {
+        expect(temporaryRule).toEqual(mutationResource.temporaryRule);
+        resourcePresent = true;
+        return { id: mutationResource.id };
+      }
+    );
+    const probe = vi.fn(async (resource: typeof mutationResource) => {
+      expect(resource.temporaryRule).toEqual(mutationResource.temporaryRule);
+      return reviewedProbeResults(mutationInput.runId, [false, true]);
+    });
     await expect(
       applyCloudflareEvidenceMutation(
         dir,
@@ -101,14 +116,8 @@ describe('Cloudflare evidence mutation lifecycle', () => {
           identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
           findByName: async () => null,
           get: async () => (resourcePresent ? mutationResource : null),
-          create: async () => {
-            resourcePresent = true;
-            return { id: mutationResource.id };
-          },
-          probe: async () => [
-            { id: 'probe-a', succeeded: false },
-            { id: 'probe-b', succeeded: true },
-          ],
+          create,
+          probe,
           cleanup,
           inventorySha256: async () => 'a'.repeat(64),
           revoke,
@@ -238,10 +247,7 @@ describe('Cloudflare evidence mutation lifecycle', () => {
           }),
           get: async () => mutationResource,
           create,
-          probe: async () => [
-            { id: 'probe-a', succeeded: true },
-            { id: 'probe-b', succeeded: true },
-          ],
+          probe: async () => reviewedProbeResults(),
           cleanup: async () => true,
           inventorySha256: async () => 'a'.repeat(64),
         }

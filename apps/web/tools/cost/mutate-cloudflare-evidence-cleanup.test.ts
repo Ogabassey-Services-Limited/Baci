@@ -13,6 +13,7 @@ import {
   mutationCapability,
   mutationInput,
   mutationResource,
+  reviewedProbeResults,
 } from './mutate-cloudflare-evidence-test-fixtures';
 
 describe('Cloudflare evidence cleanup lifecycle', () => {
@@ -207,10 +208,11 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
       mutationResource.name,
       mutationResource.id
     );
-    await recordEvidenceProbeResults(dir, mutationInput.runId, [
-      'probe-a',
-      'probe-b',
-    ]);
+    await recordEvidenceProbeResults(
+      dir,
+      mutationInput.runId,
+      reviewedProbeResults()
+    );
     const cleanup = vi.fn();
     const client = {
       identity: async () => ({ accountId: 'account', zoneId: 'zone' }),
@@ -243,10 +245,11 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
       mutationResource.name,
       mutationResource.id
     );
-    await recordEvidenceProbeResults(dir, mutationInput.runId, [
-      'probe-a',
-      'probe-b',
-    ]);
+    await recordEvidenceProbeResults(
+      dir,
+      mutationInput.runId,
+      reviewedProbeResults()
+    );
     let resourcePresent = true;
     const cleanup = vi.fn(async () => {
       resourcePresent = false;

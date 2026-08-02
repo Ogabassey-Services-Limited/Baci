@@ -19,6 +19,8 @@ import {
   revokeCloudflareEvidenceReadToken,
 } from './measure-cloudflare-evidence-sources';
 import { MAX_MEASUREMENT_OBSERVATION_LAG_MS } from './measurement-observation-window';
+import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
+import { reviewedProbeResults } from './mutate-cloudflare-evidence-test-fixtures';
 
 describe('parseMeasurementArguments', () => {
   it('requires a fresh read-only measurement run and has no apply mode', () => {
@@ -95,7 +97,11 @@ async function createMeasuredRun() {
     input.plannedResources[0],
     'resource-id'
   );
-  await recordEvidenceProbeResults(dir, input.runId, ['probe-a', 'probe-b']);
+  await recordEvidenceProbeResults(
+    dir,
+    input.runId,
+    reviewedProbeResults(input.runId)
+  );
   await recordCleanupVerified(dir, input.runId, {
     verifyCleanup: async () => ({
       status: 'absent' as const,
@@ -119,7 +125,7 @@ function measurementClient(observedAt: string): EvidenceMeasurementClient {
       complete: true,
       expectedProbeCount: input.expectedProbeCount,
       observedProbeCount: input.expectedProbeCount,
-      probeResults: ['probe-a', 'probe-b'],
+      probeResults: [...REVIEWED_PROBE_CASE_IDS],
       providerReceiptSha256: 'a'.repeat(64),
       payloadSha256: 'b'.repeat(64),
       observedAt,
@@ -267,7 +273,7 @@ describe('incomplete-run read-token revocation', () => {
       complete: true,
       expectedProbeCount: input.expectedProbeCount,
       observedProbeCount: input.expectedProbeCount,
-      probeResults: ['probe-a', 'probe-b'],
+      probeResults: [...REVIEWED_PROBE_CASE_IDS],
       providerReceiptSha256: 'a'.repeat(64),
       payloadSha256: 'b'.repeat(64),
       observedAt: '2026-07-31T00:00:00.000Z',

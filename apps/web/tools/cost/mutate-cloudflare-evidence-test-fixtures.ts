@@ -1,4 +1,8 @@
-import { REVIEWED_TEMPORARY_RULE_BINDING } from './mutate-cloudflare-evidence-validation';
+import {
+  createReviewedTemporaryRuleBinding,
+  EVIDENCE_HOSTNAME,
+  SYNTHETIC_PATHS,
+} from './mutate-cloudflare-evidence-validation';
 
 export const mutationInput = {
   runId: '0123456789abcdef0123456789abcdef',
@@ -46,7 +50,7 @@ export const mutationResource = {
   zoneId: 'zone',
   hostname: 'edge-evidence.ogabassey.com',
   paths: ['/__baci-evidence/a', '/__baci-evidence/b'],
-  temporaryRule: REVIEWED_TEMPORARY_RULE_BINDING,
+  temporaryRule: createReviewedTemporaryRuleBinding(mutationInput.runId),
 };
 
 export const cleanupReceipt = {
@@ -57,3 +61,18 @@ export const cleanupReceipt = {
     observedAt: '2026-07-31T00:00:00.000Z',
   }),
 };
+
+export function reviewedProbeResults(
+  runId = mutationInput.runId,
+  succeeded: readonly boolean[] = [true, true]
+) {
+  const headers = createReviewedTemporaryRuleBinding(runId).headers;
+  return SYNTHETIC_PATHS.map((path, index) => ({
+    id: `probe-${index}`,
+    succeeded: succeeded[index] ?? false,
+    hostname: EVIDENCE_HOSTNAME,
+    method: 'GET' as const,
+    path,
+    headers,
+  }));
+}

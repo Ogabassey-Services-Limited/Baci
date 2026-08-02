@@ -134,11 +134,7 @@ function deriveProjectedAccountLogEvents(
   expectedDailyWorkerInvocations: unknown,
   qualifiedLogEventsPerInvocation: unknown,
   allIngressRequests: number | undefined,
-  windowDays: number,
-  headroom: Readonly<{
-    trafficMultiplier: HeadroomMultiplier;
-    errorMultiplier: HeadroomMultiplier;
-  }>
+  windowDays: number
 ): bigint | null {
   const invocations = positiveInteger(expectedDailyWorkerInvocations);
   const qualifiedMultiplier = positiveInteger(qualifiedLogEventsPerInvocation);
@@ -158,9 +154,7 @@ function deriveProjectedAccountLogEvents(
     qualifiedMultiplier < MINIMUM_LOG_EVENTS_PER_INVOCATION
       ? MINIMUM_LOG_EVENTS_PER_INVOCATION
       : qualifiedMultiplier;
-  const projected =
-    applyHeadroomMultiplier(invocations, headroom.trafficMultiplier) *
-    applyHeadroomMultiplier(eventsPerInvocation, headroom.errorMultiplier);
+  const projected = invocations * eventsPerInvocation;
   if (projected < invocations || projected < eventsPerInvocation) return null;
   return projected;
 }
@@ -170,6 +164,16 @@ function decimalToMinorUnits(value: string): bigint | null {
   if (!match) return null;
   return BigInt(match[1]) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'));
 }
+
+function overageEvents(projectedUse: bigint, allowance: bigint) {
+  return projectedUse > allowance ? projectedUse - allowance : 0n;
+}
+
+const INVALID_WORKERS_LOGS_PROJECTION = Object.freeze({
+  ok: false as const,
+  verdict: 'NOT_PROVEN' as const,
+  reason: 'workers_logs_projection_invalid' as const,
+});
 
 export function validateWorkersLogsEvidence(
   workersLogsContract: unknown,
@@ -205,30 +209,24 @@ export function validateWorkersLogsEvidence(
     expectedDailyWorkerInvocations,
     qualifiedLogEventsPerInvocation,
     allIngressRequests,
-    windowDays,
-    { trafficMultiplier, errorMultiplier }
+    windowDays
   );
-  if (projected === null)
-    return {
-      ok: false as const,
-      verdict: 'NOT_PROVEN' as const,
-      reason: 'workers_logs_projection_invalid',
-    };
+  if (projected === null) return INVALID_WORKERS_LOGS_PROJECTION;
   const contract = workersLogsContract;
-  // Workers Logs allowances and the forced-sampling ceiling are shared by all
-  // Workers in the account. The authenticated entitlement carries the
-  // measured worst-case daily volume for every other Worker; project that
-  // volume alongside Ogabassey's traffic on every remaining day.
+  // Add measured other-Worker volume before account-wide headroom.
   const projectedAccountLogEventsPerDay =
     projected + contract.otherWorkersWorstCaseDailyLogEvents;
   if (projectedAccountLogEventsPerDay < projected)
-    return {
-      ok: false as const,
-      verdict: 'NOT_PROVEN' as const,
-      reason: 'workers_logs_projection_invalid',
-    };
+    return INVALID_WORKERS_LOGS_PROJECTION;
+  const projectedAccountLogEventsWithTrafficHeadroomPerDay =
+    applyHeadroomMultiplier(projectedAccountLogEventsPerDay, trafficMultiplier);
+  const projectedAccountLogEventsWithHeadroomPerDay = applyHeadroomMultiplier(
+    projectedAccountLogEventsWithTrafficHeadroomPerDay,
+    errorMultiplier
+  );
   const projectedWithHeadroom =
-    projectedAccountLogEventsPerDay * FORCED_SAMPLING_HEADROOM_MULTIPLIER;
+    projectedAccountLogEventsWithHeadroomPerDay *
+    FORCED_SAMPLING_HEADROOM_MULTIPLIER;
   if (
     contract.currentUtcDayAllAccountEvents + projectedWithHeadroom >=
     contract.forcedSamplingDailyThreshold
@@ -249,26 +247,41 @@ export function validateWorkersLogsEvidence(
     nowMs < start ||
     nowMs >= end
   )
-    return {
-      ok: false as const,
-      verdict: 'NOT_PROVEN' as const,
-      reason: 'workers_logs_projection_invalid',
-    };
+    return INVALID_WORKERS_LOGS_PROJECTION;
   const remainingDaysNumber = Math.ceil((end - nowMs) / UTC_DAY_MILLISECONDS);
   if (!Number.isSafeInteger(remainingDaysNumber) || remainingDaysNumber <= 0)
-    return {
-      ok: false as const,
-      verdict: 'NOT_PROVEN' as const,
-      reason: 'workers_logs_projection_invalid',
-    };
+    return INVALID_WORKERS_LOGS_PROJECTION;
   const remainingDays = BigInt(remainingDaysNumber);
-  const projectedAllowanceUse =
-    allowanceUsage + projectedAccountLogEventsPerDay * remainingDays;
+  let projectedOverageEvents = overageEvents(
+    allowanceUsage +
+      projectedAccountLogEventsWithHeadroomPerDay * remainingDays,
+    contract.allowanceEvents
+  );
+  if (contract.plan === 'paid') {
+    const periodEnd = new Date(end);
+    const nextPeriodEnd = Date.UTC(
+      periodEnd.getUTCFullYear(),
+      periodEnd.getUTCMonth() + 1,
+      1
+    );
+    const fullPeriodDaysNumber = (nextPeriodEnd - end) / UTC_DAY_MILLISECONDS;
+    if (
+      !Number.isFinite(nextPeriodEnd) ||
+      !Number.isSafeInteger(fullPeriodDaysNumber) ||
+      fullPeriodDaysNumber <= 0
+    )
+      return INVALID_WORKERS_LOGS_PROJECTION;
+    const projectedNextPeriodUse =
+      projectedAccountLogEventsWithHeadroomPerDay *
+      BigInt(fullPeriodDaysNumber);
+    // Reset allowance; price the next month from zero.
+    projectedOverageEvents += overageEvents(
+      projectedNextPeriodUse,
+      contract.allowanceEvents
+    );
+  }
   let projectedOverageCostMinorUnits = 0n;
-  if (
-    allowanceUsage >= contract.allowanceEvents ||
-    projectedAllowanceUse > contract.allowanceEvents
-  ) {
+  if (projectedOverageEvents > 0n) {
     if (!contract.overageAllowed || contract.overageUsdPerMillion === null)
       return {
         ok: false as const,
@@ -278,9 +291,8 @@ export function validateWorkersLogsEvidence(
     const rate = decimalToMinorUnits(contract.overageUsdPerMillion);
     if (rate === null)
       throw new Error('Cloudflare overage price contract drifted');
-    const overageEvents = projectedAllowanceUse - contract.allowanceEvents;
     projectedOverageCostMinorUnits =
-      (overageEvents * rate + 1_000_000n - 1n) / 1_000_000n;
+      (projectedOverageEvents * rate + 1_000_000n - 1n) / 1_000_000n;
   }
   return { ok: true as const, projectedOverageCostMinorUnits };
 }

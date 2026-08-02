@@ -22,6 +22,8 @@ import {
   measurementCapability as capability,
   measurementInput as input,
 } from './measure-cloudflare-evidence-sources.test-fixtures';
+import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
+import { reviewedProbeResults } from './mutate-cloudflare-evidence-test-fixtures';
 
 describe('measureCloudflareEvidenceSources', () => {
   beforeEach(() =>
@@ -41,7 +43,11 @@ describe('measureCloudflareEvidenceSources', () => {
       input.plannedResources[0],
       'resource-id'
     );
-    await recordEvidenceProbeResults(dir, input.runId, ['probe-a', 'probe-b']);
+    await recordEvidenceProbeResults(
+      dir,
+      input.runId,
+      reviewedProbeResults(input.runId)
+    );
     await recordCleanupVerified(dir, input.runId, {
       verifyCleanup: async () => ({
         status: 'absent',
@@ -69,7 +75,7 @@ describe('measureCloudflareEvidenceSources', () => {
           complete: true,
           expectedProbeCount: 1,
           observedProbeCount: 1,
-          probeResults: ['probe-a', 'probe-b'],
+          probeResults: [...REVIEWED_PROBE_CASE_IDS],
           providerReceiptSha256: 'a'.repeat(64),
           payloadSha256: 'b'.repeat(64),
           observedAt: '2026-07-31T00:00:00.000Z',
@@ -94,7 +100,11 @@ describe('measureCloudflareEvidenceSources', () => {
       input.plannedResources[0],
       'resource-id'
     );
-    await recordEvidenceProbeResults(dir, input.runId, ['probe-a', 'probe-b']);
+    await recordEvidenceProbeResults(
+      dir,
+      input.runId,
+      reviewedProbeResults(input.runId)
+    );
     await recordCleanupVerified(dir, input.runId, {
       verifyCleanup: async () => ({
         status: 'absent',
@@ -119,7 +129,7 @@ describe('measureCloudflareEvidenceSources', () => {
       complete: true,
       expectedProbeCount: input.expectedProbeCount,
       observedProbeCount: input.expectedProbeCount,
-      probeResults: ['probe-a', 'probe-b'],
+      probeResults: [...REVIEWED_PROBE_CASE_IDS],
       observedAt: '2026-07-31T00:00:00.000Z',
     } as unknown as Awaited<ReturnType<EvidenceMeasurementClient['measure']>>;
     await expect(
@@ -148,7 +158,11 @@ describe('measureCloudflareEvidenceSources', () => {
       input.plannedResources[0],
       'resource-id'
     );
-    await recordEvidenceProbeResults(dir, input.runId, ['probe-a', 'probe-b']);
+    await recordEvidenceProbeResults(
+      dir,
+      input.runId,
+      reviewedProbeResults(input.runId)
+    );
     await recordCleanupVerified(dir, input.runId, {
       verifyCleanup: async () => ({
         status: 'absent',
@@ -173,7 +187,7 @@ describe('measureCloudflareEvidenceSources', () => {
       complete: true,
       expectedProbeCount: 2,
       observedProbeCount: 2,
-      probeResults: ['probe-a', 'probe-b'],
+      probeResults: [...REVIEWED_PROBE_CASE_IDS],
       providerReceiptSha256: 'a'.repeat(64),
       payloadSha256: 'b'.repeat(64),
       observedAt: '2026-07-31T00:00:00.000Z',
@@ -214,7 +228,11 @@ describe('measureCloudflareEvidenceSources', () => {
       input.plannedResources[0],
       'resource-id'
     );
-    await recordEvidenceProbeResults(dir, input.runId, ['probe-a', 'probe-b']);
+    await recordEvidenceProbeResults(
+      dir,
+      input.runId,
+      reviewedProbeResults(input.runId)
+    );
     await recordCleanupVerified(dir, input.runId, {
       verifyCleanup: async () => ({
         status: 'absent',

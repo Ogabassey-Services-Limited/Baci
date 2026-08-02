@@ -22,6 +22,8 @@ import {
   revokeEvidenceRunToken,
   writeJournal,
 } from './cloudflare-evidence-run-journal';
+import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
+import { reviewedProbeResults } from './mutate-cloudflare-evidence-test-fixtures';
 
 const runId = '0123456789abcdef0123456789abcdef';
 const alternateRunId = 'abcdef0123456789abcdef0123456789';
@@ -146,14 +148,29 @@ describe('CloudflareEvidenceRunJournal', () => {
       input.plannedResources[0],
       'provider-id'
     );
-    const probes = ['probe-a', 'probe-b'];
+    const probes = reviewedProbeResults(input.runId);
+    await expect(
+      recordEvidenceProbeResults(dir, input.runId, [
+        'arbitrary-a',
+        'arbitrary-b',
+      ] as never)
+    ).rejects.toThrow('IDs');
     await recordEvidenceProbeResults(dir, input.runId, probes);
     await expect(
       recordEvidenceProbeResults(dir, input.runId, probes)
-    ).resolves.toMatchObject({ probeResults: probes });
+    ).resolves.toMatchObject({ probeResults: REVIEWED_PROBE_CASE_IDS });
+    const persisted = await loadEvidenceRunForCleanup(dir, input.runId);
+    await writeJournal(dir, {
+      ...persisted,
+      probeResults: [REVIEWED_PROBE_CASE_IDS[0], 'tampered-case'],
+    });
     await expect(
-      recordEvidenceProbeResults(dir, input.runId, ['probe-c', 'probe-d'])
+      recordEvidenceProbeResults(dir, input.runId, probes)
     ).rejects.toThrow('append-only');
+    await writeJournal(dir, {
+      ...persisted,
+      probeResults: [...REVIEWED_PROBE_CASE_IDS],
+    });
     await recordCleanupVerified(dir, input.runId, {
       verifyCleanup: async () => ({
         status: 'absent',

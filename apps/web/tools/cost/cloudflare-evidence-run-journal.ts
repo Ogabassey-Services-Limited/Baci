@@ -33,6 +33,7 @@ export {
   writeJournalUnlocked,
 } from './cloudflare-evidence-run-journal-state';
 export type { TokenRevocationClient } from './cloudflare-evidence-run-token-revocation';
+export { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
 
 import type {
   CloudflareEvidenceRunJournal,

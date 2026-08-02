@@ -7,19 +7,21 @@ import {
   RUN_ID_PATTERN,
 } from './cloudflare-evidence-run-journal';
 import {
+  type EvidenceProbeResult,
+  SYNTHETIC_PATHS,
+} from './mutate-cloudflare-evidence-probes';
+import {
+  createReviewedTemporaryRuleBinding,
   EVIDENCE_HOSTNAME,
   type EvidenceTemporaryRuleBinding,
-  REVIEWED_TEMPORARY_RULE_BINDING,
   verifyTemporaryRule,
 } from './mutate-cloudflare-evidence-rule-binding';
 import type { VerifiedEvidenceTokenCapability } from './verify-cloudflare-evidence-token-policy';
 
-const HASH_PATTERN = /^[a-f0-9]{64}$/;
+export type { EvidenceProbeResult } from './mutate-cloudflare-evidence-probes';
+export { SYNTHETIC_PATHS } from './mutate-cloudflare-evidence-probes';
 
-export const SYNTHETIC_PATHS = [
-  '/__baci-evidence/a',
-  '/__baci-evidence/b',
-] as const;
+const HASH_PATTERN = /^[a-f0-9]{64}$/;
 
 export type {
   EvidenceRuleHeader,
@@ -27,8 +29,10 @@ export type {
 } from './mutate-cloudflare-evidence-rule-binding';
 export {
   calculateEvidenceTemporaryRuleCanonicalSha256,
+  createReviewedTemporaryRuleBinding,
   EVIDENCE_HOSTNAME,
-  REVIEWED_TEMPORARY_RULE_BINDING,
+  EVIDENCE_RUN_NONCE_PATTERN,
+  REVIEWED_TEMPORARY_RULE_BINDING_TEMPLATE,
   verifyTemporaryRule,
 } from './mutate-cloudflare-evidence-rule-binding';
 
@@ -42,7 +46,6 @@ export type EvidenceResource = Readonly<{
   paths: readonly string[];
   temporaryRule: EvidenceTemporaryRuleBinding;
 }>;
-export type EvidenceProbeResult = Readonly<{ id: string; succeeded: boolean }>;
 export type EvidenceMutationClient = {
   identity(): Promise<{ accountId: string; zoneId: string }>;
   findByName(name: string): Promise<EvidenceResource | null>;
@@ -198,7 +201,7 @@ export function verifyResource(
   journal: EvidenceJournal,
   name: string,
   expectedId?: string,
-  expectedTemporaryRule: EvidenceTemporaryRuleBinding = REVIEWED_TEMPORARY_RULE_BINDING
+  expectedTemporaryRule?: EvidenceTemporaryRuleBinding
 ) {
   if (
     !resource.id ||
@@ -214,5 +217,8 @@ export function verifyResource(
     throw new Error(
       'journaled resource identity does not match provider read-back'
     );
-  verifyTemporaryRule(resource.temporaryRule, expectedTemporaryRule);
+  verifyTemporaryRule(
+    resource.temporaryRule,
+    expectedTemporaryRule ?? createReviewedTemporaryRuleBinding(journal.runId)
+  );
 }

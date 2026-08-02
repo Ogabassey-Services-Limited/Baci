@@ -9,6 +9,7 @@ import {
 import { runMeasurementEntrypoint } from './measure-cloudflare-evidence-command';
 import { hasVerifiedCleanupWriteTokenRevocation } from './measure-cloudflare-evidence-sources-requirements';
 import { assertMeasurementObservationWindow } from './measurement-observation-window';
+import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
 import type { VerifiedEvidenceReadCapability } from './verify-cloudflare-evidence-read-token-policy';
 
 export {
@@ -59,7 +60,11 @@ export async function measureCloudflareEvidenceSources(
     !journal.cleanupVerificationReceiptSha256 ||
     journal.cleanupIncomplete ||
     Object.keys(journal.mutations).length === 0 ||
-    journal.probeResults.length !== journal.expectedProbeCount ||
+    journal.expectedProbeCount !== REVIEWED_PROBE_CASE_IDS.length ||
+    journal.probeResults.length !== REVIEWED_PROBE_CASE_IDS.length ||
+    journal.probeResults.some(
+      (probeId, index) => probeId !== REVIEWED_PROBE_CASE_IDS[index]
+    ) ||
     !hasVerifiedCleanupWriteTokenRevocation(journal)
   )
     throw new Error(
@@ -84,9 +89,11 @@ export async function measureCloudflareEvidenceSources(
       result.observedProbeCount !== journal.expectedProbeCount ||
       result.expectedProbeCount !== result.observedProbeCount ||
       !Array.isArray(result.probeResults) ||
-      result.probeResults.length !== journal.probeResults.length ||
+      result.probeResults.length !== REVIEWED_PROBE_CASE_IDS.length ||
       new Set(result.probeResults).size !== result.probeResults.length ||
-      result.probeResults.some((probe) => !journal.probeResults.includes(probe))
+      REVIEWED_PROBE_CASE_IDS.some(
+        (probeId) => !result.probeResults.includes(probeId)
+      )
     )
       throw new Error('Cloudflare evidence export is incomplete');
     if (

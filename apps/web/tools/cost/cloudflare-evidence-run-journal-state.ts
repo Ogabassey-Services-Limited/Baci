@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises';
 import { basename, isAbsolute, join, parse, sep } from 'node:path';
 import { releaseActiveRunLock } from './cloudflare-evidence-run-lock';
+import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
 
 export type { MeasurementReceipt } from './cloudflare-evidence-measurement-receipt';
 export const RUN_ID_PATTERN = /^[a-f0-9]{32}$/;
@@ -14,7 +15,7 @@ export type EvidencePhase =
   | 'read_token_revoked'
   | 'proof_complete'
   | 'closed_stop';
-export const REVIEWED_PROBE_COUNT = 2;
+export const REVIEWED_PROBE_COUNT = REVIEWED_PROBE_CASE_IDS.length;
 const evidencePhases = new Set<EvidencePhase>([
   'prepared',
   'mutated',
@@ -239,11 +240,16 @@ export function assertTerminalPrerequisites(
   phase: EvidencePhase
 ) {
   if (phase === 'proof_complete') {
+    const hasReviewedProbeCases =
+      journal.probeResults.length === REVIEWED_PROBE_CASE_IDS.length &&
+      journal.probeResults.every(
+        (probeId, index) => probeId === REVIEWED_PROBE_CASE_IDS[index]
+      );
     if (
       journal.phase !== 'read_token_revoked' ||
       Object.keys(journal.mutations).length === 0 ||
       journal.probeResults.length !== journal.expectedProbeCount ||
-      new Set(journal.probeResults).size !== journal.probeResults.length ||
+      !hasReviewedProbeCases ||
       !journal.cleanupVerifiedAt ||
       !journal.cleanupVerificationReceiptSha256 ||
       !hash.test(journal.cleanupVerificationReceiptSha256) ||

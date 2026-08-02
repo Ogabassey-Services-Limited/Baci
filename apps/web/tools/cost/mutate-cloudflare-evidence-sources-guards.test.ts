@@ -8,6 +8,7 @@ import {
   mutationCapability,
   mutationInput,
   mutationResource,
+  reviewedProbeResults,
 } from './mutate-cloudflare-evidence-test-fixtures';
 
 describe('Cloudflare evidence mutation guards', () => {
@@ -15,25 +16,21 @@ describe('Cloudflare evidence mutation guards', () => {
     const cases = [
       {
         inventorySha256: async () => 'b'.repeat(64),
-        probe: async () => [
-          { id: 'probe-a', succeeded: true },
-          { id: 'probe-b', succeeded: true },
-        ],
+        probe: async () => reviewedProbeResults(),
         error: 'before mutation',
       },
       {
         inventorySha256: async () => 'a'.repeat(64),
-        probe: async () => [{ id: 'probe-a', succeeded: true }],
-        error: 'expected',
+        probe: async () => reviewedProbeResults().slice(0, 1),
+        error: 'matrix',
       },
       {
         inventorySha256: async () => 'a'.repeat(64),
         probe: async () => [
-          { id: 'probe-a', succeeded: true },
-          { id: 'probe-b', succeeded: true },
-          { id: 'probe-c', succeeded: true },
+          ...reviewedProbeResults(),
+          { ...reviewedProbeResults()[0], id: 'probe-2' },
         ],
-        error: 'expected',
+        error: 'matrix',
       },
     ];
     for (const entry of cases) {

@@ -1,5 +1,7 @@
 import type { CloudflareEvidenceRunJournal } from './cloudflare-evidence-run-journal-state';
 import { createEvidenceJournalTransitionOperations } from './cloudflare-evidence-run-journal-transitions';
+import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
+import { reviewedProbeResults } from './mutate-cloudflare-evidence-test-fixtures';
 
 const journal = {
   runId: '0123456789abcdef0123456789abcdef',
@@ -81,5 +83,47 @@ describe('cloudflare evidence journal transition helpers', () => {
     await expect(
       operations.recordCleanupWriteToken('state', journal.runId, 'read')
     ).rejects.toThrow('cleanup replacement token must be distinct');
+  });
+
+  it('canonicalizes reviewed probe cases and rejects arbitrary, skipped, or duplicate receipts', async () => {
+    const current = structuredClone(journal);
+    const transition = async <T>(
+      _stateDir: string,
+      _runId: string,
+      callback: (value: CloudflareEvidenceRunJournal) => Promise<T> | T
+    ) => callback(current);
+    const operations = createEvidenceJournalTransitionOperations(transition);
+    await operations.recordEvidenceMutation(
+      'state',
+      journal.runId,
+      'resource',
+      'provider'
+    );
+    const probes = reviewedProbeResults(journal.runId);
+    await expect(
+      operations.recordEvidenceProbeResults(
+        'state',
+        journal.runId,
+        [...probes].reverse()
+      )
+    ).resolves.toMatchObject({ probeResults: REVIEWED_PROBE_CASE_IDS });
+    await expect(
+      operations.recordEvidenceProbeResults('state', journal.runId, [
+        'arbitrary-a',
+        'arbitrary-b',
+      ] as never)
+    ).rejects.toThrow('IDs');
+    await expect(
+      operations.recordEvidenceProbeResults('state', journal.runId, [
+        probes[0],
+        { ...probes[0], id: 'skipped-case' },
+      ])
+    ).rejects.toThrow('reviewed matrix');
+    await expect(
+      operations.recordEvidenceProbeResults('state', journal.runId, [
+        probes[0],
+        { ...probes[1], id: probes[0].id },
+      ])
+    ).rejects.toThrow('unique');
   });
 });

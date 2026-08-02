@@ -34,6 +34,7 @@ type EvidenceTemporaryRuleFields = Readonly<{
 }>;
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+export const EVIDENCE_RUN_NONCE_PATTERN = /^[a-f0-9]{32}$/;
 
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value === 'string' || typeof value === 'boolean')
@@ -74,26 +75,41 @@ export function calculateEvidenceTemporaryRuleCanonicalSha256(
     .digest('hex');
 }
 
-const reviewedHeaders = Object.freeze([
-  Object.freeze({ name: 'X-Baci-Evidence-Probe', value: '1' }),
-  Object.freeze({ name: 'X-Baci-Evidence-Run', value: 'run-scoped' }),
-]);
-const reviewedTemporaryRuleFields = Object.freeze({
-  id: 'baci-evidence-temporary-rule',
-  expression: `http.host eq "${EVIDENCE_HOSTNAME}"`,
-  action: 'block',
-  headers: reviewedHeaders,
-  methods: Object.freeze(['GET', 'HEAD']),
-  threshold: 100,
-});
+function headerExpression({ name, value }: EvidenceRuleHeader) {
+  return `http.request.headers[${JSON.stringify(name.toLowerCase())}][0] eq ${JSON.stringify(value)}`;
+}
 
-/** Exact rule contract reviewed for the isolated evidence mutation. */
-export const REVIEWED_TEMPORARY_RULE_BINDING = Object.freeze({
-  ...reviewedTemporaryRuleFields,
-  canonicalSha256: calculateEvidenceTemporaryRuleCanonicalSha256(
-    reviewedTemporaryRuleFields
-  ),
-});
+/** Exact rule contract reviewed for one isolated evidence run. */
+export function createReviewedTemporaryRuleBinding(runId: string) {
+  if (!EVIDENCE_RUN_NONCE_PATTERN.test(runId))
+    throw new Error('temporary rule run nonce is invalid');
+  const headers = Object.freeze([
+    Object.freeze({ name: 'X-Baci-Evidence-Probe', value: '1' }),
+    Object.freeze({ name: 'X-Baci-Evidence-Run', value: runId }),
+  ]);
+  const fields = Object.freeze({
+    id: 'baci-evidence-temporary-rule',
+    expression: [
+      `http.host eq "${EVIDENCE_HOSTNAME}"`,
+      ...headers.map(headerExpression),
+    ].join(' and '),
+    action: 'block',
+    headers,
+    methods: Object.freeze(['GET', 'HEAD']),
+    threshold: 100,
+  });
+  return Object.freeze({
+    ...fields,
+    canonicalSha256: calculateEvidenceTemporaryRuleCanonicalSha256(fields),
+  });
+}
+
+/**
+ * A deterministic template kept for direct helper tests. Production mutation
+ * paths must use createReviewedTemporaryRuleBinding(journal.runId).
+ */
+export const REVIEWED_TEMPORARY_RULE_BINDING_TEMPLATE =
+  createReviewedTemporaryRuleBinding('a'.repeat(32));
 
 function validateTemporaryRuleFields(
   binding: EvidenceTemporaryRuleBinding
@@ -173,7 +189,7 @@ function validateTemporaryRuleFields(
  */
 export function verifyTemporaryRule(
   actual: EvidenceTemporaryRuleBinding,
-  expected: EvidenceTemporaryRuleBinding = REVIEWED_TEMPORARY_RULE_BINDING
+  expected: EvidenceTemporaryRuleBinding = REVIEWED_TEMPORARY_RULE_BINDING_TEMPLATE
 ) {
   const expectedFields = validateTemporaryRuleFields(expected);
   const actualFields = validateTemporaryRuleFields(actual);

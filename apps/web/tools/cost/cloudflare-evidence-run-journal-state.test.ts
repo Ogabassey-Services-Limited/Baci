@@ -9,6 +9,7 @@ import {
   createCleanupVerificationReceipt,
   verifyDirectory,
 } from './cloudflare-evidence-run-journal-state';
+import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
 
 const journal = {
   runId: '0123456789abcdef0123456789abcdef',
@@ -36,7 +37,7 @@ describe('cloudflare evidence journal state helpers', () => {
     ...journal,
     phase: 'read_token_revoked' as const,
     mutations: { resource: 'provider' },
-    probeResults: ['probe-a', 'probe-b'],
+    probeResults: [...REVIEWED_PROBE_CASE_IDS],
     cleanupVerifiedAt: '2026-07-31T00:00:00.000Z',
     cleanupVerificationReceiptSha256: 'b'.repeat(64),
     measurementVerifiedAt: '2026-07-31T00:00:01.000Z',
@@ -84,6 +85,17 @@ describe('cloudflare evidence journal state helpers', () => {
         'proof_complete'
       )
     ).toThrow('terminal evidence phase requires verified token revocation');
+  });
+
+  it('rejects terminal evidence with arbitrary reviewed-probe IDs', () => {
+    expect(() =>
+      assertTerminalPrerequisites(
+        { ...terminalJournal, probeResults: ['probe-a', 'probe-b'] },
+        'proof_complete'
+      )
+    ).toThrow(
+      'proof_complete requires cleanup, probes, measurement, and revocation'
+    );
   });
 
   it('keeps cleanup receipt construction separate from authenticated readback', () => {

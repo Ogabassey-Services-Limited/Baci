@@ -30,10 +30,12 @@ export type {
   MutationMode,
 } from './mutate-cloudflare-evidence-validation';
 export {
+  createReviewedTemporaryRuleBinding,
   EVIDENCE_HOSTNAME,
+  EVIDENCE_RUN_NONCE_PATTERN,
   isEvidenceMutationClient,
   parseMutationArguments,
-  REVIEWED_TEMPORARY_RULE_BINDING,
+  REVIEWED_TEMPORARY_RULE_BINDING_TEMPLATE,
   SYNTHETIC_PATHS,
   verifyCapability,
   verifyIdentity,
