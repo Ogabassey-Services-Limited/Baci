@@ -1,46 +1,16 @@
-import { chmod, lstat, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
-
-const pathnameReplacementAttack = vi.hoisted(() => ({
-  armed: false,
-  maliciousPath: undefined as string | undefined,
-  safePath: undefined as string | undefined,
-  target: undefined as string | undefined,
-  triggered: false,
-}));
-
-vi.mock('node:fs/promises', async () => {
-  const actual =
-    await vi.importActual<typeof import('node:fs/promises')>(
-      'node:fs/promises'
-    );
-  return {
-    ...actual,
-    lstat: async (path: Parameters<typeof actual.lstat>[0]) => {
-      const stat = await actual.lstat(path);
-      if (
-        pathnameReplacementAttack.armed &&
-        typeof path === 'string' &&
-        path === pathnameReplacementAttack.target
-      ) {
-        pathnameReplacementAttack.armed = false;
-        pathnameReplacementAttack.triggered = true;
-        await actual.rename(path, pathnameReplacementAttack.safePath as string);
-        await actual.symlink(
-          pathnameReplacementAttack.maliciousPath as string,
-          path
-        );
-      }
-      return stat;
-    },
-  };
-});
-
+import { describe, expect, it } from 'vitest';
 import {
+  createCleanupVerificationReceipt,
   loadEvidenceRunForCleanup,
   openEvidenceRun,
+  recordCleanupVerified,
+  recordEvidenceMutation,
+  recordEvidencePhase,
+  recordTokenRevocation,
+  revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 
 const runId = '0123456789abcdef0123456789abcdef';
@@ -59,31 +29,107 @@ const input = {
   expectedProbeCount: 2,
 };
 
-describe('CloudflareEvidenceRunJournal pathname safety', () => {
-  it('reads the opened journal handle after pathname replacement with a symlink', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
-    const opened = await openEvidenceRun(dir, input);
-    const target = join(dir, `${runId}.json`);
-    const safePath = join(dir, 'journal-safe.json');
-    const maliciousPath = join(dir, 'journal-attacker.json');
-    await writeFile(
-      maliciousPath,
-      JSON.stringify({ ...opened, phase: 'closed_stop' }),
-      { mode: 0o600 }
+async function openedRun() {
+  const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+  await chmod(dir, 0o700);
+  await openEvidenceRun(dir, input);
+  return dir;
+}
+
+async function runWithMutation() {
+  const dir = await openedRun();
+  await recordEvidenceMutation(
+    dir,
+    input.runId,
+    input.plannedResources[0],
+    'provider-id'
+  );
+  return dir;
+}
+
+describe('Cloudflare evidence journal security boundaries', () => {
+  it('never follows traversal or symlink journal paths', async () => {
+    const dir = await openedRun();
+    await expect(
+      openEvidenceRun(dir, { ...input, runId: '../outside' })
+    ).rejects.toThrow('invalid');
+    const symlinkDir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    await chmod(symlinkDir, 0o700);
+    await symlink('/tmp', join(symlinkDir, `${runId}.json`));
+    await expect(
+      loadEvidenceRunForCleanup(symlinkDir, input.runId)
+    ).rejects.toThrow('regular');
+  });
+
+  it('accepts a serialized revocation receipt only after provider readback re-verifies it', async () => {
+    const dir = await runWithMutation();
+    await recordCleanupVerified(dir, input.runId, {
+      verifyCleanup: async () => ({
+        status: 'absent',
+        inventorySha256: input.preInventorySha256,
+        providerReceiptSha256: 'e'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
+    });
+    await expect(
+      recordEvidencePhase(dir, input.runId, 'write_token_revoked')
+    ).rejects.toThrow('receipt');
+    await expect(
+      recordTokenRevocation(
+        dir,
+        input.runId,
+        'write',
+        {
+          tokenId: 'write',
+          status: 'revoked',
+          providerReceiptSha256: 'd'.repeat(64),
+          observedAt: '2026-07-31T00:00:00.000Z',
+        },
+        {
+          readBack: async (tokenId) => ({
+            tokenId,
+            status: 'inactive',
+            auditReceiptSha256: 'd'.repeat(64),
+            observedAt: '2026-07-31T00:00:00.000Z',
+          }),
+        }
+      )
+    ).resolves.toMatchObject({ phase: 'write_token_revoked' });
+    await revokeEvidenceRunToken(dir, input.runId, 'write', {
+      revoke: async (tokenId) => ({
+        tokenId,
+        auditReceiptSha256: 'd'.repeat(64),
+      }),
+      readBack: async (tokenId) => ({
+        tokenId,
+        status: 'inactive',
+        auditReceiptSha256: 'd'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      }),
+    });
+    expect(
+      (await loadEvidenceRunForCleanup(dir, input.runId)).writeTokenRevokedAt
+    ).toBe('2026-07-31T00:00:00.000Z');
+  });
+
+  it('rejects the forgeable cleanup-receipt shape without provider readback', async () => {
+    const dir = await runWithMutation();
+    const forged = createCleanupVerificationReceipt(
+      input.preInventorySha256,
+      '2026-07-31T00:00:00.000Z'
     );
-    pathnameReplacementAttack.target = target;
-    pathnameReplacementAttack.safePath = safePath;
-    pathnameReplacementAttack.maliciousPath = maliciousPath;
-    pathnameReplacementAttack.triggered = false;
-    pathnameReplacementAttack.armed = true;
-
-    const journal = await loadEvidenceRunForCleanup(dir, runId);
-
-    pathnameReplacementAttack.armed = false;
-    expect(journal.phase).toBe('prepared');
-    expect(pathnameReplacementAttack.triggered).toBe(false);
-    expect((await lstat(target)).isSymbolicLink()).toBe(false);
-    expect(await readFile(target, 'utf8')).toContain('"phase":"prepared"');
+    await expect(
+      recordCleanupVerified(dir, input.runId, forged)
+    ).rejects.toThrow('provider readback');
+    await expect(
+      recordCleanupVerified(dir, input.runId, {
+        verifyCleanup: async () => ({
+          status: 'absent',
+          inventorySha256: input.preInventorySha256,
+          providerReceiptSha256: 'not-a-provider-hash',
+          observedAt: '2026-07-31T00:00:00.000Z',
+        }),
+      })
+    ).rejects.toThrow('readback');
   });
 });

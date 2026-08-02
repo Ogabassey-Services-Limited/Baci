@@ -19,7 +19,9 @@ describe('cloudflareEvidencePrepare runner validation', () => {
   it('validates both reviewed runner factories before consuming approval', async () => {
     vi.resetModules();
     const events: string[] = [];
-    const verifyPrepareAuthorityMock = vi.fn(async () => {
+    const verifyPrepareAuthorityMock = vi.fn(async (...args: unknown[]) => {
+      const beforeConsume = args[3];
+      if (typeof beforeConsume === 'function') await beforeConsume();
       events.push('authority');
       return {
         approvalId: input.approvalId,
@@ -68,8 +70,10 @@ describe('cloudflareEvidencePrepare runner validation', () => {
         path: `/workspace/${kind}.ts`,
         sha256: 'f'.repeat(64),
       })),
-      verifyReviewedEvidenceRunnerModule: vi.fn(
-        async (_workspaceRoot, _toolingMergeSha, descriptor) => ({
+    }));
+    vi.doMock('./cloudflare-evidence-authenticated-runner', () => ({
+      verifyAuthenticatedEvidenceRunnerModule: vi.fn(
+        async (_workspaceRoot, descriptor) => ({
           ...descriptor,
           files: [],
         })
@@ -109,7 +113,7 @@ describe('cloudflareEvidencePrepare runner validation', () => {
       'factory:/workspace/mutation.ts',
       'factory:/workspace/measurement.ts',
     ]);
-    expect(verifyPrepareAuthorityMock).not.toHaveBeenCalled();
+    expect(verifyPrepareAuthorityMock).toHaveBeenCalledOnce();
     expect(openEvidenceRunMock).not.toHaveBeenCalled();
     vi.resetModules();
   });

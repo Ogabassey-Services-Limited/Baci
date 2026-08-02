@@ -23,6 +23,11 @@ const input = {
   preInventorySha256: 'a'.repeat(64),
   expectedProbeCount: 2,
 };
+const runnerAuthority = {
+  mutationRunnerModuleSha256: 'd'.repeat(64),
+  measurementRunnerModuleSha256: 'e'.repeat(64),
+};
+const authorizedInput = { ...input, ...runnerAuthority };
 
 describe('cloudflareEvidencePrepare', () => {
   it('round-trips the bounded credentialless prepare options', () => {
@@ -76,6 +81,7 @@ describe('cloudflareEvidencePrepare', () => {
       policySha256: policy.policySha256,
       readTokenId: input.readTokenId,
       readPolicySha256: input.readPolicySha256,
+      ...runnerAuthority,
       approvedAt: '2026-08-01T11:00:00.000Z',
       expiresAt: '2026-08-01T13:00:00.000Z',
     };
@@ -89,7 +95,7 @@ describe('cloudflareEvidencePrepare', () => {
     });
     await expect(
       verifyPrepareAuthority(
-        input,
+        authorizedInput,
         {
           EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
           EVIDENCE_POLICY_ARTIFACT: policyPath,
@@ -104,7 +110,7 @@ describe('cloudflareEvidencePrepare', () => {
     });
     await expect(
       verifyPrepareAuthority(
-        { ...input, readPolicySha256: 'd'.repeat(64) },
+        { ...authorizedInput, readPolicySha256: 'd'.repeat(64) },
         {
           EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
           EVIDENCE_POLICY_ARTIFACT: policyPath,
@@ -118,7 +124,7 @@ describe('cloudflareEvidencePrepare', () => {
     );
     await expect(
       verifyPrepareAuthority(
-        input,
+        authorizedInput,
         {
           EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
           EVIDENCE_POLICY_ARTIFACT: policyPath,
@@ -134,7 +140,7 @@ describe('cloudflareEvidencePrepare', () => {
     );
     await expect(
       verifyPrepareAuthority(
-        input,
+        authorizedInput,
         {
           EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
           EVIDENCE_POLICY_ARTIFACT: policyPath,
@@ -146,7 +152,7 @@ describe('cloudflareEvidencePrepare', () => {
     await writeFile(policyPath, `${JSON.stringify(policy)}\n`);
     await expect(
       verifyPrepareAuthority(
-        { ...input, readTokenId: input.writeTokenId },
+        { ...authorizedInput, readTokenId: input.writeTokenId },
         {
           EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
           EVIDENCE_POLICY_ARTIFACT: policyPath,
@@ -158,7 +164,7 @@ describe('cloudflareEvidencePrepare', () => {
 
   it('binds an optional cleanup replacement policy fingerprint to owner approval', async () => {
     const cleanupPolicySha256 = 'd'.repeat(64);
-    const cleanupInput = { ...input, cleanupPolicySha256 };
+    const cleanupInput = { ...authorizedInput, cleanupPolicySha256 };
     const dir = await makePrivateTempDir('baci-evidence-cleanup-policy-');
     const policy = {
       id: cleanupInput.policyId,
@@ -185,6 +191,7 @@ describe('cloudflareEvidencePrepare', () => {
       policySha256: policy.policySha256,
       readTokenId: cleanupInput.readTokenId,
       readPolicySha256: cleanupInput.readPolicySha256,
+      ...runnerAuthority,
       cleanupPolicySha256,
       approvedAt: '2026-08-01T11:00:00.000Z',
       expiresAt: '2026-08-01T13:00:00.000Z',
@@ -210,7 +217,11 @@ describe('cloudflareEvidencePrepare', () => {
 
   it('rejects missing, mutable, or expired authority artifacts', async () => {
     await expect(
-      verifyPrepareAuthority(input, {}, new Date('2026-08-01T12:00:00.000Z'))
+      verifyPrepareAuthority(
+        authorizedInput,
+        {},
+        new Date('2026-08-01T12:00:00.000Z')
+      )
     ).rejects.toThrow('ARTIFACT');
     const dir = await makePrivateTempDir('baci-evidence-authority-');
     const policy = {
@@ -242,6 +253,7 @@ describe('cloudflareEvidencePrepare', () => {
         policySha256: policy.policySha256,
         readTokenId: input.readTokenId,
         readPolicySha256: input.readPolicySha256,
+        ...runnerAuthority,
         approvedAt: '2026-08-01T11:00:00.000Z',
         expiresAt: '2026-08-01T11:59:59.000Z',
       }),
@@ -251,7 +263,7 @@ describe('cloudflareEvidencePrepare', () => {
     await chmod(approvalPath, 0o644);
     await expect(
       verifyPrepareAuthority(
-        input,
+        authorizedInput,
         {
           EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
           EVIDENCE_POLICY_ARTIFACT: policyPath,
@@ -262,7 +274,7 @@ describe('cloudflareEvidencePrepare', () => {
     await chmod(approvalPath, 0o600);
     await expect(
       verifyPrepareAuthority(
-        input,
+        authorizedInput,
         {
           EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
           EVIDENCE_POLICY_ARTIFACT: policyPath,

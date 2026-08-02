@@ -51,7 +51,7 @@ export function reconcileStorefrontDeliveryEvidence(
           row.eligibleRequestCount <= row.requestCount &&
           row.eligibleOriginAttemptCount <= row.eligibleRequestCount
       ) &&
-      sum(rows.map((row) => row.requestCount)) === day.aliasEdgeRedirectCount &&
+      sum(rows.map((row) => row.requestCount)) === day.aliasRawRequestCount &&
       sum(rows.map((row) => row.eligibleRequestCount)) ===
         day.aliasEligibleRequestCount &&
       sum(rows.map((row) => row.eligibleOriginAttemptCount)) ===

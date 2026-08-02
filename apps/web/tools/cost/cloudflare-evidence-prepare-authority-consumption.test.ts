@@ -32,8 +32,14 @@ const input = {
   writeTokenId: 'write-token',
   readTokenId: 'read-token',
   readPolicySha256: 'c'.repeat(64),
+  mutationRunnerModuleSha256: 'd'.repeat(64),
+  measurementRunnerModuleSha256: 'e'.repeat(64),
   accountId: 'account-id',
   zoneId: 'zone-id',
+};
+const runnerApproval = {
+  mutationRunnerModuleSha256: input.mutationRunnerModuleSha256,
+  measurementRunnerModuleSha256: input.measurementRunnerModuleSha256,
 };
 
 async function makePrivateTempDir() {
@@ -102,6 +108,7 @@ describe('cloudflare evidence approval consumption scope', () => {
       policySha256: reviewed.policySha256,
       readTokenId: input.readTokenId,
       readPolicySha256: input.readPolicySha256,
+      ...runnerApproval,
       approvedAt: '2026-08-01T11:00:00.000Z',
       expiresAt,
     };
@@ -150,6 +157,7 @@ describe('cloudflare evidence approval consumption scope', () => {
       policySha256: reviewed.policySha256,
       readTokenId: input.readTokenId,
       readPolicySha256: input.readPolicySha256,
+      ...runnerApproval,
       approvedAt: '2026-08-01T11:00:00.000Z',
       expiresAt,
     };

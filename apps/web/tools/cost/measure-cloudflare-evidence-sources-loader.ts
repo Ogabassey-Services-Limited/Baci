@@ -1,14 +1,12 @@
 import { resolve } from 'node:path';
+import { verifyAuthenticatedEvidenceRunnerModule } from './cloudflare-evidence-authenticated-runner';
 import {
   evidenceExecutionRoot,
   mapEvidenceExecutionPath,
 } from './cloudflare-evidence-execution-path';
 import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
 import { loadEvidenceRunForCleanup } from './cloudflare-evidence-run-journal';
-import {
-  verifyReviewedEvidenceFile,
-  verifyReviewedEvidenceRunnerModule,
-} from './cloudflare-evidence-runner-modules';
+import { verifyReviewedEvidenceFile } from './cloudflare-evidence-runner-modules';
 import {
   type EvidenceReadRevocationDependencies,
   loadReadTokenRevocationDependencies,
@@ -71,9 +69,8 @@ export async function loadMeasurementDependencies(
     throw new Error(
       'measurement requires a provider runner module and the isolated read token'
     );
-  const verified = await verifyReviewedEvidenceRunnerModule(
+  const verified = await verifyAuthenticatedEvidenceRunnerModule(
     workspaceRoot,
-    journal.toolingMergeSha,
     {
       path: executionModulePath,
       sha256: journal.measurementRunnerModuleSha256,

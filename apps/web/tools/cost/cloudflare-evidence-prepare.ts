@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
+import { verifyAuthenticatedEvidenceRunnerModule } from './cloudflare-evidence-authenticated-runner';
 import {
   loadProtectedMergeIdentityAuthority,
   type ProtectedMergeIdentityAuthorityResolver,
@@ -19,10 +20,8 @@ import {
   openEvidenceRun,
   REVIEWED_PROBE_COUNT,
 } from './cloudflare-evidence-run-journal';
-import {
-  readEvidenceRunnerModuleDescriptor,
-  verifyReviewedEvidenceRunnerModule,
-} from './cloudflare-evidence-runner-modules';
+import { readEvidenceRunnerModuleDescriptor } from './cloudflare-evidence-runner-modules';
+import { assertToolingStatusAllowsOnlyAuthenticatedAdapters } from './cloudflare-evidence-tooling-status';
 
 export type {
   PrepareAuthorityInput,
@@ -198,44 +197,60 @@ async function run(
   ]);
   if (head.trim() !== input.toolingMergeSha)
     throw new Error('tooling merge SHA does not match the checked-out commit');
+  const runnerModuleDescriptors = {
+    mutation: readEvidenceRunnerModuleDescriptor(environment, 'mutation'),
+    measurement: readEvidenceRunnerModuleDescriptor(environment, 'measurement'),
+  };
   const { stdout: status } = await execFileAsync('git', [
     '-C',
     workspaceRoot,
     'status',
-    '--porcelain',
+    '--porcelain=v1',
+    '-z',
     '--untracked-files=all',
   ]);
-  if (status.trim()) throw new Error('tooling worktree is not clean');
+  assertToolingStatusAllowsOnlyAuthenticatedAdapters(
+    status,
+    workspaceRoot,
+    Object.values(runnerModuleDescriptors)
+  );
   const [mutation, measurement] = await Promise.all([
-    verifyReviewedEvidenceRunnerModule(
+    verifyAuthenticatedEvidenceRunnerModule(
       workspaceRoot,
-      input.toolingMergeSha,
-      readEvidenceRunnerModuleDescriptor(environment, 'mutation')
+      runnerModuleDescriptors.mutation
     ),
-    verifyReviewedEvidenceRunnerModule(
+    verifyAuthenticatedEvidenceRunnerModule(
       workspaceRoot,
-      input.toolingMergeSha,
-      readEvidenceRunnerModuleDescriptor(environment, 'measurement')
+      runnerModuleDescriptors.measurement
     ),
   ]);
   // Validate both reviewed runner entrypoints before consuming the one-use
   // owner approval. A malformed module must not burn approval or create a
   // journal that can never advance to mutation/measurement.
-  await Promise.all([
-    validateRunnerFactory(
-      workspaceRoot,
-      mutation,
-      'createMutationDependencies',
-      'mutation'
-    ),
-    validateRunnerFactory(
-      workspaceRoot,
-      measurement,
-      'createMeasurementDependencies',
-      'measurement'
-    ),
-  ]);
-  const reviewedAuthority = await verifyPrepareAuthority(input, environment);
+  const reviewedAuthority = await verifyPrepareAuthority(
+    {
+      ...input,
+      mutationRunnerModuleSha256: mutation.sha256,
+      measurementRunnerModuleSha256: measurement.sha256,
+    },
+    environment,
+    new Date(),
+    () =>
+      Promise.all([
+        validateRunnerFactory(
+          workspaceRoot,
+          mutation,
+          'createMutationDependencies',
+          'mutation'
+        ),
+        validateRunnerFactory(
+          workspaceRoot,
+          measurement,
+          'createMeasurementDependencies',
+          'measurement'
+        ),
+      ]).then(() => undefined)
+  );
   const runnerDescriptors = { mutation, measurement };
   const journal = await openEvidenceRun(stateDir, {
     ...input,
@@ -251,7 +266,9 @@ async function run(
 
 async function validateRunnerFactory(
   workspaceRoot: string,
-  descriptor: Awaited<ReturnType<typeof verifyReviewedEvidenceRunnerModule>>,
+  descriptor: Awaited<
+    ReturnType<typeof verifyAuthenticatedEvidenceRunnerModule>
+  >,
   exportName: 'createMutationDependencies' | 'createMeasurementDependencies',
   label: 'mutation' | 'measurement'
 ) {

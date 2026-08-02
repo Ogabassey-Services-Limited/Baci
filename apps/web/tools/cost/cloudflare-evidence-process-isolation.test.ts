@@ -14,7 +14,7 @@ import {
 const runnerModulePathFor = (workspaceRoot: string) =>
   resolve(
     workspaceRoot,
-    'apps/web/tools/cost/cloudflare-evidence-process-isolation.test-fixtures.ts'
+    'apps/web/tools/cost/cloudflare-evidence-authenticated-runner.test-fixture.ts'
   );
 
 describe('spawnIsolatedCloudflareEvidenceProcess', () => {
@@ -90,6 +90,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       policySha256: policy.policySha256,
       readTokenId: reviewedPrepareInput.readTokenId,
       readPolicySha256: reviewedPrepareInput.readPolicySha256,
+      mutationRunnerModuleSha256: runnerModuleSha256,
+      measurementRunnerModuleSha256: runnerModuleSha256,
       approvedAt,
       expiresAt,
     };

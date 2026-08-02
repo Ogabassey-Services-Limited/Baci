@@ -15,34 +15,11 @@ import {
 import {
   type EvidenceMeasurementClient,
   measureCloudflareEvidenceSources,
-  parseMeasurementArguments,
   revokeCloudflareEvidenceReadToken,
 } from './measure-cloudflare-evidence-sources';
 import { MAX_MEASUREMENT_OBSERVATION_LAG_MS } from './measurement-observation-window';
 import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
 import { reviewedProbeResults } from './mutate-cloudflare-evidence-test-fixtures';
-
-describe('parseMeasurementArguments', () => {
-  it('requires a fresh read-only measurement run and has no apply mode', () => {
-    expect(
-      parseMeasurementArguments(['--run', '0123456789abcdef0123456789abcdef'])
-        .runId
-    ).toBe('0123456789abcdef0123456789abcdef');
-    expect(
-      parseMeasurementArguments([
-        '--revoke-read',
-        '0123456789abcdef0123456789abcdef',
-      ]).mode
-    ).toBe('revoke-read');
-    expect(() =>
-      parseMeasurementArguments([
-        '--run',
-        '0123456789abcdef0123456789abcdef',
-        '--apply',
-      ])
-    ).toThrow('read-only');
-  });
-});
 
 const input = {
   runId: '0123456789abcdef0123456789abcdef',

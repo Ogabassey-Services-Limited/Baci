@@ -24,6 +24,8 @@ const approvalArtifactSchema = z
     readTokenId: boundedId,
     /** Separately reviewed read-only policy fingerprint used after cleanup. */
     readPolicySha256: sha256,
+    mutationRunnerModuleSha256: sha256,
+    measurementRunnerModuleSha256: sha256,
     /** Optional separately approved cleanup-only replacement policy fingerprint. */
     cleanupPolicySha256: sha256.optional(),
     approvedAt: z.iso.datetime({ offset: true }),
@@ -64,7 +66,13 @@ export type PrepareAuthorityInput = Pick<
   | 'cleanupPolicySha256'
   | 'accountId'
   | 'zoneId'
->;
+> &
+  Required<
+    Pick<
+      EvidenceRunInput,
+      'mutationRunnerModuleSha256' | 'measurementRunnerModuleSha256'
+    >
+  >;
 export type VerifiedPrepareAuthority = Readonly<{
   approvalId: string;
   policyId: string;
@@ -92,6 +100,8 @@ function approvalFingerprint(approval: z.infer<typeof approvalArtifactSchema>) {
         policySha256: approval.policySha256,
         readTokenId: approval.readTokenId,
         readPolicySha256: approval.readPolicySha256,
+        mutationRunnerModuleSha256: approval.mutationRunnerModuleSha256,
+        measurementRunnerModuleSha256: approval.measurementRunnerModuleSha256,
         cleanupPolicySha256: approval.cleanupPolicySha256,
         approvedAt: approval.approvedAt,
         expiresAt: approval.expiresAt,
@@ -194,7 +204,8 @@ async function consumeApproval(
 export async function verifyPrepareAuthority(
   input: PrepareAuthorityInput,
   environment: Readonly<Record<string, string | undefined>>,
-  now = new Date()
+  now = new Date(),
+  beforeConsume?: () => Promise<void>
 ): Promise<VerifiedPrepareAuthority> {
   const approvalPath = environment.EVIDENCE_APPROVAL_ARTIFACT;
   const policyPath = environment.EVIDENCE_POLICY_ARTIFACT;
@@ -224,6 +235,9 @@ export async function verifyPrepareAuthority(
     approval.toolingMergeSha !== input.toolingMergeSha ||
     approval.readTokenId !== input.readTokenId ||
     approval.readPolicySha256 !== input.readPolicySha256 ||
+    approval.mutationRunnerModuleSha256 !== input.mutationRunnerModuleSha256 ||
+    approval.measurementRunnerModuleSha256 !==
+      input.measurementRunnerModuleSha256 ||
     approval.cleanupPolicySha256 !== input.cleanupPolicySha256 ||
     policy.id !== approval.policyId ||
     policy.toolingMergeSha !== input.toolingMergeSha ||
@@ -259,6 +273,7 @@ export async function verifyPrepareAuthority(
     throw new Error(
       'owner approval or token policy is expired or not yet effective'
     );
+  await beforeConsume?.();
   await consumeApproval(approvalPath, approval, input, stateDir);
   return Object.freeze({
     approvalId: approval.id,

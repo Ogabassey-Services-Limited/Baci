@@ -64,6 +64,10 @@ describe('storefront origin budget alias host partition', () => {
       eligibleRequestCount: 0,
       eligibleOriginAttemptCount: 0,
     });
+    evidence.days[0].sourceEvidence.aliasRedirect.hostPartition[0] = {
+      ...evidence.days[0].sourceEvidence.aliasRedirect.hostPartition[0],
+      requestCount: 11,
+    };
     const summary = summarizeAtFixtureTime(seal(evidence));
     expect(summary.allEligibleIngress).toBe(30);
     expect(summary.trafficPartitionReconciled).toBe(true);

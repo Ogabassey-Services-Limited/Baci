@@ -2,6 +2,7 @@ import { constants } from 'node:fs';
 import { type FileHandle, open } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
+import { verifyAuthenticatedEvidenceRunnerModule } from './cloudflare-evidence-authenticated-runner';
 import {
   evidenceExecutionRoot,
   mapEvidenceExecutionPath,
@@ -254,9 +255,8 @@ async function loadAuthenticatedMutationDependencies(
       'mutation requires a provider runner module and the isolated write token'
     );
   const workspaceRoot = evidenceExecutionRoot();
-  const verified = await verifyReviewedEvidenceRunnerModule(
+  const verified = await verifyAuthenticatedEvidenceRunnerModule(
     workspaceRoot,
-    journal.toolingMergeSha,
     { path: executionModulePath, sha256: journal.mutationRunnerModuleSha256 }
   );
   return importReviewedEvidenceModule(
