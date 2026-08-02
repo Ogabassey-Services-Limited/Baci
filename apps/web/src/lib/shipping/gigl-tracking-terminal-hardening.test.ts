@@ -71,4 +71,40 @@ describe('GIGL terminal tracking hardening', () => {
       "IF v_order_status IS DISTINCT FROM 'delivered' THEN"
     );
   });
+
+  it('invalidates monitors when an order changes merchant', () => {
+    const migration = readMigration(
+      '20260802000300_revalidate_gigl_monitor_order_tenant.sql'
+    );
+    const sqlRegression = readMigrationTest(
+      'gigl_tracking_order_status_generation.sql'
+    );
+
+    expect(migration).toContain('AFTER UPDATE OF merchant_id ON public.orders');
+    expect(migration).toContain(
+      'shipment.merchant_id IS DISTINCT FROM NEW.merchant_id'
+    );
+    expect(migration).toContain("skip_reason = 'tracking_tenant_changed'");
+    expect(sqlRegression).toContain('SET merchant_id = v_attacker_merchant_id');
+    expect(sqlRegression).toContain(
+      "IF v_monitor_state IS DISTINCT FROM 'inactive' THEN"
+    );
+  });
+
+  it('preserves manually completed orders across carrier terminal updates', () => {
+    const migration = readMigration(
+      '20260802000400_preserve_completed_gigl_order_status.sql'
+    );
+    const sqlRegression = readMigrationTest(
+      'gigl_tracking_order_status_generation.sql'
+    );
+
+    expect(migration).toContain(
+      "orders.shipping_status IS DISTINCT FROM 'completed'"
+    );
+    expect(sqlRegression).toContain("SET shipping_status = 'completed'");
+    expect(sqlRegression).toContain(
+      'a manually completed GIGL order must remain terminal'
+    );
+  });
 });

@@ -18,6 +18,7 @@ DECLARE
   v_poisoned_shipment_id uuid;
   v_poisoned_generation integer;
   v_order_status text;
+  v_monitor_state text;
 BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
@@ -133,6 +134,31 @@ BEGIN
   IF v_order_status IS DISTINCT FROM 'failed' THEN
     RAISE EXCEPTION
       'a manual failure must override a manually delivered GIGL order';
+  END IF;
+
+  UPDATE public.orders
+  SET shipping_status = 'completed'
+  WHERE id = v_order_id;
+  UPDATE public.shipments
+  SET status = 'delivered', last_tracked_at = now()
+  WHERE id = v_current_shipment_id;
+  SELECT shipping_status INTO v_order_status
+  FROM public.orders
+  WHERE id = v_order_id;
+  IF v_order_status IS DISTINCT FROM 'completed' THEN
+    RAISE EXCEPTION
+      'a manually completed GIGL order must remain terminal after carrier updates';
+  END IF;
+
+  UPDATE public.orders
+  SET merchant_id = v_attacker_merchant_id
+  WHERE id = v_order_id;
+  SELECT state INTO v_monitor_state
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = v_current_shipment_id;
+  IF v_monitor_state IS DISTINCT FROM 'inactive' THEN
+    RAISE EXCEPTION
+      'reassigning an order must deactivate its previous merchant GIGL monitor';
   END IF;
 END;
 $test$;
