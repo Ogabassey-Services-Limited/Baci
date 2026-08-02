@@ -1,10 +1,4 @@
-import type { ExpoConfig } from 'expo/config';
-
-type AndroidIntentFilters = NonNullable<
-  NonNullable<ExpoConfig['android']>['intentFilters']
->;
-
-const STOREFRONT_HOSTS = ['ogabassey.com', 'ogabassey.usebaci.com'] as const;
+const STOREFRONT_HOSTS = ['ogabassey.com', 'ogabassey.usebaci.com'];
 
 const STOREFRONT_NATIVE_PATHS = [
   { pathPrefix: '/product/' },
@@ -15,9 +9,9 @@ const STOREFRONT_NATIVE_PATHS = [
   { pathPrefix: '/account/' },
   { path: '/cart' },
   { path: '/' },
-] as const;
+];
 
-export function buildStorefrontAndroidIntentFilters(): AndroidIntentFilters {
+function buildStorefrontAndroidIntentFilters() {
   return STOREFRONT_HOSTS.map((host) => ({
     action: 'VIEW',
     autoVerify: true,
@@ -29,3 +23,5 @@ export function buildStorefrontAndroidIntentFilters(): AndroidIntentFilters {
     category: ['BROWSABLE', 'DEFAULT'],
   }));
 }
+
+module.exports = { buildStorefrontAndroidIntentFilters };

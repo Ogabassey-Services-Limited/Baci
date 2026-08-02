@@ -13,7 +13,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 const { createExpoPlugins } =
   require('./config/expo-plugins.js') as typeof import('./config/expo-plugins');
 const { buildStorefrontAndroidIntentFilters } =
-  require('./config/android-intent-filters.ts') as typeof import('./config/android-intent-filters');
+  require('./config/android-intent-filters.js') as typeof import('./config/android-intent-filters');
 const { resolveUpdateChannel } =
   require('./config/resolve-update-channel.js') as typeof import('./config/resolve-update-channel');
 const {
