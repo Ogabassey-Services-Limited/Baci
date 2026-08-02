@@ -131,6 +131,8 @@ describe('storefrontShippingRatesPayloadSchema', () => {
         ' GIGL ',
         'topship',
         'TopShip',
+        'shiip',
+        'SHIIP',
         'future-carrier',
         42,
         'gigl',
@@ -138,6 +140,15 @@ describe('storefrontShippingRatesPayloadSchema', () => {
     });
 
     expect(result.shippingProviders).toEqual(['gigl', 'topship']);
+  });
+
+  it('treats a non-array legacy provider value as no carrier opt-in', () => {
+    const result = storefrontShippingRatesPayloadSchema.parse({
+      ...validPayload,
+      shipping_providers: 'gigl',
+    });
+
+    expect(result.shippingProviders).toEqual([]);
   });
 
   it('surfaces merchant payout currency and country when the RPC returns them', () => {

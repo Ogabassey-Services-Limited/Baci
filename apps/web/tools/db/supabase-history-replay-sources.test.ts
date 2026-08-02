@@ -116,4 +116,10 @@ describe('supabase-history-replay sources', () => {
       '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d 20260729100000_add_merchant_identity_verified_rpc.sql'
     );
   });
+
+  it('registers the shipping provider policy follow-up as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      'c0ec34bcd397263cf1f8d91fe94d0e3aa0edd4d600101dc9656ce261cd6bf2d1 20260802220000_centralize_shipping_provider_policy.sql'
+    );
+  });
 });

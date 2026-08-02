@@ -120,6 +120,26 @@ describe('StoreSetupStatusCard', () => {
     expect(mocks.push).toHaveBeenCalledWith('/(admin)/setup-checklist');
   });
 
+  it('hides while readiness is loading', () => {
+    render(
+      <StoreSetupStatusCard
+        isLive={false}
+        isLoading
+        readiness={buildReadiness({ isReady: false, overallProgress: 71 })}
+      />
+    );
+
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('hides when readiness is unavailable', () => {
+    render(
+      <StoreSetupStatusCard isLive={false} isLoading={false} readiness={null} />
+    );
+
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
   it('hides only after the published store reaches complete setup', () => {
     render(
       <StoreSetupStatusCard

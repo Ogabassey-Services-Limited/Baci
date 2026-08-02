@@ -11,7 +11,10 @@
  * closed instead of mistaking an unknown configuration for an explicit opt-out.
  */
 
-import type { CarrierProviderId } from '@baci/shared/constants';
+import {
+  CARRIER_PROVIDER_CODE_BY_ID,
+  isCarrierProviderId,
+} from '@baci/shared/constants';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { computeMerchantRates } from '@/lib/shipping/merchant-rates/compute-rates';
@@ -22,19 +25,14 @@ import { computedRatesToShippingQuotes } from '@/lib/shipping/merchant-rates/to-
 import type { MerchantShippingRate } from '@/lib/shipping/merchant-rates/types';
 import type { ShippingProviderCode, ShippingQuote } from '@/lib/shipping/types';
 
-const CARRIER_PROVIDER_CODE_BY_ID = {
-  gigl: 'GIGL',
-  topship: 'TOPSHIP',
-} as const satisfies Record<CarrierProviderId, ShippingProviderCode>;
-
 function getCarrierProviderCode(
   provider: string
 ): ShippingProviderCode | undefined {
-  if (!Object.hasOwn(CARRIER_PROVIDER_CODE_BY_ID, provider)) {
+  if (!isCarrierProviderId(provider)) {
     return undefined;
   }
 
-  return CARRIER_PROVIDER_CODE_BY_ID[provider as CarrierProviderId];
+  return CARRIER_PROVIDER_CODE_BY_ID[provider];
 }
 
 export interface MerchantRateQuoteInput {

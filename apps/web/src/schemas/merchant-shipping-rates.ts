@@ -9,11 +9,10 @@
 
 import {
   CARRIER_PROVIDER_IDS,
-  type CarrierProviderId,
+  normalizeCarrierProviderIds,
 } from '@baci/shared/constants';
 import { z } from 'zod';
 import type {
-  MerchantCarrierProviderId,
   MerchantPickupAddress,
   MerchantRateConditionType,
   MerchantRateKind,
@@ -76,24 +75,9 @@ const optionalMerchantTextSchema = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : undefined;
 }, z.string().optional().catch(undefined));
 
-const merchantCarrierProviderIds = new Set<string>(CARRIER_PROVIDER_IDS);
-
 const shippingProvidersSchema = z.preprocess(
-  (value) => (Array.isArray(value) ? value : []),
-  z.array(z.unknown()).transform((providers): MerchantCarrierProviderId[] => [
-    ...new Set(
-      providers.flatMap((provider) => {
-        if (typeof provider !== 'string') {
-          return [];
-        }
-
-        const normalized = provider.trim().toLowerCase();
-        return merchantCarrierProviderIds.has(normalized)
-          ? [normalized as CarrierProviderId]
-          : [];
-      })
-    ),
-  ])
+  normalizeCarrierProviderIds,
+  z.array(z.enum(CARRIER_PROVIDER_IDS))
 );
 
 // ---------------------------------------------------------------------------

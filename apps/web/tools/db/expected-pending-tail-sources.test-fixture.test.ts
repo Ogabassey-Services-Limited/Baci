@@ -49,6 +49,12 @@ describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
           sha256:
             '845c3dab7b48495c6e0ed88cd72033f4d736139f3ca6239bb8e8c61abe54dcda',
         },
+        {
+          repositoryPath:
+            'supabase/migrations/20260802220000_centralize_shipping_provider_policy.sql',
+          sha256:
+            'c0ec34bcd397263cf1f8d91fe94d0e3aa0edd4d600101dc9656ce261cd6bf2d1',
+        },
       ],
     });
   });

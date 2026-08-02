@@ -1,7 +1,8 @@
 -- =============================================
 -- VERIFICATION: merchant shipping provider opt-in
 --   Run against a Supabase branch after applying
---   20260802175837_harden_repair_booking_and_shipping_providers.sql.
+--   20260802175837_harden_repair_booking_and_shipping_providers.sql and
+--   20260802220000_centralize_shipping_provider_policy.sql.
 --
 -- USAGE:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -46,6 +47,14 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF private.supported_carrier_provider_ids()
+    IS DISTINCT FROM ARRAY['gigl', 'topship']::text[] THEN
+    RAISE EXCEPTION 'supported carrier helper must define the live catalog';
+  END IF;
+END $$;
+
 -- The storefront RPC returns only supported, enabled carrier ids.
 UPDATE public.merchant_feature_settings
 SET shipping_providers = '["gigl", "shiip", "gigl"]'::jsonb
@@ -62,6 +71,38 @@ BEGIN
 
   IF providers IS DISTINCT FROM '["gigl"]'::jsonb THEN
     RAISE EXCEPTION 'storefront carrier providers must be sanitized: %', providers;
+  END IF;
+END $$;
+
+-- A disabled carrier cannot bypass the opt-in guard by omitting the quote id.
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.orders (
+      id, merchant_id, order_number, total, shipping_provider
+    )
+    VALUES (
+      '00000000-0000-0000-0000-000000003015',
+      '00000000-0000-0000-0000-000000003008',
+      'shipping-provider-disabled-without-quote-test',
+      0,
+      'TOPSHIP'
+    );
+
+    RAISE EXCEPTION 'disabled provider must not create an order without a quote id';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%shipping_quote_required%' THEN
+        RAISE;
+      END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.orders
+    WHERE id = '00000000-0000-0000-0000-000000003015'
+  ) THEN
+    RAISE EXCEPTION 'disabled carrier order without quote id must not be inserted';
   END IF;
 END $$;
 

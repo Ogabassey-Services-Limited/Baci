@@ -78,6 +78,13 @@ describe('Metro configuration', () => {
         'analytics-config.test-support.ts'
       ),
       path.join(projectRoot, 'app', '(admin)', 'social-media.test-harness.ts'),
+      path.join(
+        projectRoot,
+        'app',
+        '(admin)',
+        '(tabs)',
+        'home.test-helper.tsx'
+      ),
     ];
 
     for (const testHelperPath of testHelperPaths) {
