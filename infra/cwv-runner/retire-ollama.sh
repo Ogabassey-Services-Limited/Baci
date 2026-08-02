@@ -158,30 +158,14 @@ record_environment() {
   # shellcheck disable=SC2094 # The EnvironmentFile is read only; record_dependency receives its path as data.
   while IFS= read -r line || [ -n "$line" ]; do case "$line" in ''|'#'*) continue;; *=*) record_dependency "${line%%=*}" "${line#*=}" "$file";; *) die 'malformed EnvironmentFile';; esac; done <"$file"
 }
-load_consumer_scanners() { [ "${CONSUMER_SCANNERS_LOADED:-}" = yes ] && return; helper=${RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER:-"$SCRIPT_DIR/retire-ollama-consumers.sh"}; [ -f "$helper" ] && [ ! -L "$helper" ] || die 'consumer scanner helper missing'; # shellcheck disable=SC1090,SC1091 # Sealed sibling or test-injected helper.
+load_consumer_scanners() { [ "${CONSUMER_SCANNERS_LOADED:-}" = yes ] && return; if [ "$(id -u)" = 0 ]; then [ -z "${RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER:-}" ] || die 'privileged consumer scanner override refused'; helper="$SCRIPT_DIR/retire-ollama-consumers.sh"; elif [ -n "${RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER:-}" ]; then [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] || die 'consumer scanner override requires test harness'; helper=$RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER; else helper="$SCRIPT_DIR/retire-ollama-consumers.sh"; fi; [ -f "$helper" ] && [ ! -L "$helper" ] || die 'consumer scanner helper missing'; # shellcheck disable=SC1090,SC1091 # Sealed sibling or unprivileged test-injected helper.
 . "$helper"; CONSUMER_SCANNERS_LOADED=yes; }
 scan_nginx_definitions() { load_consumer_scanners; scan_nginx_definitions "$@"; }
 scan_compose_definitions() { load_consumer_scanners; scan_compose_definitions "$@"; }
 scan_systemd_runtime_consumers() { load_consumer_scanners; scan_systemd_runtime_consumers "$@"; }
 scan_systemd_consumers() { load_consumer_scanners; scan_systemd_consumers "$@"; }
 unit_state() { out=$(temp_path); systemctl show "$1" -p LoadState -p UnitFileState -p ActiveState --value >"$out" || { rm -f "$out"; die "unit state failed $1"; }; tr '\n' ':' <"$out"; rm -f "$out"; }
-scan_container_rows() {
-  scope=$1; raw=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$raw"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$raw"; fi || { status=$?; rm -f "$raw"; return "$status"; }
-  # shellcheck disable=SC2094 # The open snapshot descriptor remains readable if error cleanup unlinks its pathname.
-  while IFS= read -r id || [ -n "$id" ]; do
-    [ -n "$id" ] || continue
-    attempt=0
-    while :; do
-      if line=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Mounts}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}}' "$id"); then
-        case "$line" in *" /$CONTAINER "*) ;; *) printf '%s' "$line" | /usr/bin/grep -Eqi 'ollama|11434' && printf '%s\n' "$line";; esac
-        break
-      else
-        status=$?
-      fi
-      [ "$attempt" -eq 0 ] || { fresh=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$fresh"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$fresh"; fi || { rm -f "$raw" "$fresh"; return "$status"; }; if grep -Fqx -- "$id" "$fresh"; then rm -f "$raw" "$fresh"; return "$status"; fi; rm -f "$fresh"; break; }; attempt=$((attempt + 1))
-    done
-  done <"$raw"; rm -f "$raw"
-}
+scan_container_rows() { load_consumer_scanners; scan_container_rows "$@"; }
 scan_container_definitions() { scan_container_rows all; }
 scan_running_containers() { scan_container_rows running; }
 model_identity() {

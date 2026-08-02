@@ -9,14 +9,22 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
 
-function shell(command, args = []) {
-  return execFileAsync('sh', [
-    '-c',
-    `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; ${command}`,
-    'recovery-receipts-fail-closed-test',
-    script.pathname,
-    ...args,
-  ]);
+function shell(command, args = [], options = {}) {
+  return execFileAsync(
+    'sh',
+    [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; ${command}`,
+      'recovery-receipts-fail-closed-test',
+      script.pathname,
+      ...args,
+    ],
+    options
+  );
+}
+
+function unprivilegedChildOptions() {
+  return process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};
 }
 
 async function pairFixture(prefix, content = 'a'.repeat(64)) {
@@ -122,12 +130,16 @@ test('refuses recovery when an accepted pending digest cannot be removed', async
     writeFile(digest, 'a'.repeat(64)),
     writeFile(digestPending, 'a'.repeat(64)),
   ]);
-  await chmod(directory, 0o500);
+  await chmod(directory, 0o555);
   try {
+    const options = unprivilegedChildOptions();
+    const uid = options.uid ?? process.getuid();
+    const gid = options.gid ?? process.getgid();
     await assert.rejects(
       shell(
-        `recovery_reconcile_publish_temporaries() { :; }; recovery_validate_json() { :; }; recovery_pair_digest() { :; }; recovery_read_digest() { printf '%064d\\n' 0; }; recovery_no_pending() { :; }; fsync_dir() { :; }; recovery_reconcile_pair "$2"`,
-        [directory]
+        `[ "$(/usr/bin/id -u)" = "$3" ] && [ "$(/usr/bin/id -g)" = "$4" ] && [ "$3" -ne 0 ] || exit 97; recovery_reconcile_publish_temporaries() { :; }; recovery_validate_json() { :; }; recovery_pair_digest() { :; }; recovery_read_digest() { printf '%064d\\n' 0; }; recovery_no_pending() { :; }; fsync_dir() { :; }; recovery_reconcile_pair "$2"`,
+        [directory, String(uid), String(gid)],
+        options
       ),
       (error) =>
         error.code === 78 &&

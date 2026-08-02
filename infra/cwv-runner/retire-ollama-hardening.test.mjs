@@ -64,7 +64,7 @@ test('treats a compose.yaml consumer as a nonzero classified dependency', async 
           dir,
           receipt,
         ],
-        { env: process.env }
+        { env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: process.env.PATH } }
       ),
       (error) =>
         error.code === 78 && /zero classified consumers/.test(error.stderr)

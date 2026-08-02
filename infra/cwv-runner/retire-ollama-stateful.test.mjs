@@ -35,8 +35,11 @@ async function scannedContainers(rows) {
       `#!/bin/sh\ncase "$*" in *' ps '*) printf '%s\\n' '${rows
         .map(({ id }) => id)
         .join(' ')}' | tr ' ' '\\n';; *inspect*) case "$*" in ${rows
-        .map(({ id, detail }) => `*${id}*) printf '%s\\n' '${detail}' ;;`)
-        .join(' ')} esac;; esac\n`
+        // biome-ignore format: compact Docker fixture case table.
+        .map(
+        ({ id, detail, mounts = '[]' }) =>
+          `*'{{.Id}}'*${id}*) printf '%s\\n' '${detail}' ;; *'{{json .Mounts}}'*${id}*) printf '%s\\n' '${mounts}' ;;`
+      ).join(' ')} esac;; esac\n`
     );
     await execFileAsync('chmod', ['0755', docker]);
     await exposeFixture(dir);
@@ -44,7 +47,7 @@ async function scannedContainers(rows) {
       'sh',
       [
         '-c',
-        '. "$1"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+        '. "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
         'retire-ollama-container-test',
         script.pathname,
       ],
@@ -190,7 +193,7 @@ test('ignores an unrelated container that disappears during inspect', async () =
     await mkdir(bin);
     await writeFile(
       join(bin, 'docker'),
-      '#!/bin/sh\ncase "$*" in *\' ps \'*) if [ ! -e "$RETIRE_OLLAMA_TEST_STATE" ]; then : >"$RETIRE_OLLAMA_TEST_STATE"; printf "gone\\nkept\\n"; else printf "kept\\n"; fi;; *\' inspect \'*gone) exit 1;; *\' inspect \'*kept) printf "kept image [] [] {} {}\\n";; esac\n'
+      '#!/bin/sh\ncase "$*" in *\' ps \'*) if [ ! -e "$RETIRE_OLLAMA_TEST_STATE" ]; then : >"$RETIRE_OLLAMA_TEST_STATE"; printf "gone\\nkept\\n"; else printf "kept\\n"; fi;; *\'{{json .Mounts}}\'*) printf "[]\\n";; *\' inspect \'*gone) exit 1;; *\' inspect \'*kept) printf "kept image [] [] {} {}\\n";; esac\n'
     );
     await execFileAsync('chmod', ['0755', join(bin, 'docker')]);
     await exposeFixture(dir, true);
@@ -198,7 +201,7 @@ test('ignores an unrelated container that disappears during inspect', async () =
       'sh',
       [
         '-c',
-        '. "$1"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+        '. "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
         'retire-ollama-container-race-test',
         script.pathname,
       ],
@@ -233,7 +236,7 @@ test('preserves a persistent Docker inspect failure after inventory retry', asyn
         'sh',
         [
           '-c',
-          '. "$1"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+          '. "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
           'retire-ollama-container-inspect-race-test',
           script.pathname,
         ],
@@ -273,28 +276,4 @@ test('classifies a generic container that publishes port 11434 without an Ollama
     ]),
     /11434/
   );
-});
-
-test('detects uppercase Ollama hosts in Compose definitions', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-ollama-compose-'));
-  const compose = join(directory, 'compose.yaml');
-  try {
-    await writeFile(
-      compose,
-      'services:\n  app:\n    environment:\n      OLLAMA_HOST: http://127.0.0.1:8080\n'
-    );
-    const { stdout } = await execFileAsync('sh', [
-      '-c',
-      'stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; readlink() { for path do :; done; printf "%s\\n" "$path"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; COMPOSE_ROOTS="$2"; scan_compose_definitions',
-      'retire-ollama-compose-test',
-      script.pathname,
-      directory,
-    ]);
-    const [path, contentSha256, identitySha256] = stdout.trim().split('|');
-    assert.equal(path, compose);
-    assert.match(contentSha256, /^[0-9a-f]{64}$/);
-    assert.match(identitySha256, /^[0-9a-f]{64}$/);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
 });

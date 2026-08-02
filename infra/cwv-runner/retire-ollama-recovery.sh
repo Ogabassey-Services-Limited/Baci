@@ -70,22 +70,20 @@ recovery_record_environment() {
   path=$1; optional=$2; recovery_record_path environment-file "$path" "$optional"; [ -f "$path" ] && [ ! -L "$path" ] || [ "$optional" -eq 1 ] || die 'required recovery environment file missing'; [ -f "$path" ] || return 0; pending=''
   while IFS= read -r line || [ -n "$line" ]; do [ -n "$pending" ] || { case "$line" in *[![:space:]]*) line=${line#"${line%%[![:space:]]*}"};; *) continue;; esac; case "$line" in '#'*|';'*) continue;; esac; }; pending=$pending$line; recovery_environment_continues "$line" && { pending=${pending%\\}; continue; }; recovery_environment_complete "$pending" && { case "$pending" in *=*) key=${pending%%=*}; value=${pending#*=};; *) die 'malformed recovery EnvironmentFile';; esac; case "$key" in ''|*[!A-Za-z_0-9]*|[0-9]*) die 'malformed recovery EnvironmentFile';; esac; case "$value" in \"*\") value=${value#\"}; value=${value%\"};; \'*\') value=${value#\'}; value=${value%\'};; esac; record_dependency "environment:$key" "$value" "$path"; pending=''; }; done <"$path"; [ -z "$pending" ] || die 'malformed recovery EnvironmentFile'
 }
-recovery_process_identity() {
-  pid=$1; recovery_safe_int "$pid" || die 'invalid process pid'
-  cgroup="$RECOVERY_PROC_ROOT/$pid/cgroup"; namespace="$RECOVERY_PROC_ROOT/$pid/ns/pid"
-  [ -f "$cgroup" ] && [ ! -L "$cgroup" ] && [ -e "$namespace" ] || die "process identity unavailable $pid"
-  namespace_value=$(readlink -- "$namespace") || die "process namespace unavailable $pid"; printf '%s %s\n' "$(sha "$cgroup")" "$(hash_text "$namespace_value")"
-}
-recovery_is_scanner_ancestor() {
-  case " ${RECOVERY_SCANNER_PID_SET:-} " in *" $1 "*) return 0;; *) return 1;; esac
-}
+recovery_process_identity() { pid=$1; recovery_safe_int "$pid" || die 'invalid process pid'; cgroup="$RECOVERY_PROC_ROOT/$pid/cgroup"; namespace="$RECOVERY_PROC_ROOT/$pid/ns/pid"; [ -f "$cgroup" ] && [ ! -L "$cgroup" ] && [ -e "$namespace" ] || die "process identity unavailable $pid"; namespace_value=$(readlink -- "$namespace") || die "process namespace unavailable $pid"; printf '%s %s\n' "$(sha "$cgroup")" "$(hash_text "$namespace_value")"; }
+recovery_is_scanner_ancestor() { case " ${RECOVERY_SCANNER_PID_SET:-} " in *" $1 "*) return 0;; *) return 1;; esac; }
 recovery_has_ollama_reference() { /usr/bin/printf '%s\n' "$1" | /usr/bin/grep -qiE 'ollama|11434'; }
-recovery_is_reviewed_scanner_command() {
-  base=$1; command=$2; rest=$3; if [ "$base" = retire-ollama.sh ] && [ "$command" = "$SCRIPT_DIR/retire-ollama.sh" ]; then [ "$rest" = ' --recovery-scan' ]; else case "$base" in sh|dash|bash) [ "$rest" = " $SCRIPT_DIR/retire-ollama.sh --recovery-scan" ];; *) return 1;; esac; fi
+recovery_is_reviewed_scanner_command() { base=$1; command=$2; rest=$3; if [ "$base" = retire-ollama.sh ] && [ "$command" = "$SCRIPT_DIR/retire-ollama.sh" ]; then [ "$rest" = ' --recovery-scan' ]; else case "$base" in sh|dash|bash) [ "$rest" = " $SCRIPT_DIR/retire-ollama.sh --recovery-scan" ];; *) return 1;; esac; fi; }
+recovery_seen_flag() { case " ${2:-} " in *" $1 "*) return 0;; *) return 1;; esac; }
+recovery_process_lifetime_marker() { pid=$1; identity=$(recovery_process_identity "$pid") || review_required 'process environment lifetime unavailable'; uid=$(awk '/^Uid:/{print $2; exit}' "$RECOVERY_PROC_ROOT/$pid/status"); start=$(sed 's/.*) //' "$RECOVERY_PROC_ROOT/$pid/stat" | awk '{print $20}'); { recovery_nonnegative_int "$uid" && recovery_safe_int "$start"; } || review_required 'process environment lifetime unavailable'; hash_text "$identity:$uid:$start"; }
+recovery_process_environment_evidence() {
+  pid=$1; environment="$RECOVERY_PROC_ROOT/$pid/environ"
+  if [ ! -f "$environment" ] || [ -L "$environment" ]; then if [ "$(id -u)" -ne 0 ] && [ "$RECOVERY_PROC_ROOT" != /proc ]; then /usr/bin/jq -cn '{}'; return; fi; review_required 'process environment unavailable'; fi
+  before=$(recovery_process_lifetime_marker "$pid") || review_required 'process environment lifetime unavailable'
+  matches=$(temp_path); /usr/bin/perl -0ne 'print if /^(?:OLLAMA(?:_[A-Za-z0-9_]*)?)=/i || /(?:^|[^[:alnum:]_])(?:ollama|11434)(?:[^[:alnum:]_]|$)/i' "$environment" >"$matches" || { rm -f "$matches"; review_required 'process environment scan failed'; }; if [ -s "$matches" ]; then matched=$(sha "$matches"); else matched=''; fi
+  after=$(recovery_process_lifetime_marker "$pid") || { rm -f "$matches"; review_required 'process environment lifetime unavailable'; }; [ "$before" = "$after" ] || { rm -f "$matches"; review_required 'process environment lifetime changed'; }; rm -f "$matches"; /usr/bin/jq -cn --arg lifetime "$after" --arg matched "$matched" '{lifetimeSha256:$lifetime} + (if $matched == "" then {} else {matchingEnvironmentSha256:$matched} end)'
 }
-recovery_seen_flag() {
-  case " ${2:-} " in *" $1 "*) return 0;; *) return 1;; esac
-}
+recovery_record_process_environment_consumer() { evidence=$1; digest=$(printf '%s\n' "$evidence" | /usr/bin/jq -er '.matchingEnvironmentSha256') || die 'invalid process environment evidence'; unknown=$(hash_text unknown); deps=$(/usr/bin/jq -cn --argjson old "$deps" --arg value "$unknown" --arg source "$digest" '$old + [{"key-name":("running-processes:environment:" + $source),"endpoint-class":"unknown","normalized-value-sha256":$value,"source-path-sha256":$source,disposition:"consumer"}]') || die 'process environment dependency record failed'; consumer_evidence=$(/usr/bin/jq -cn --argjson old "$consumer_evidence" --arg sha "$digest" '$old + [{surface:"running-processes",classifiedPathSha256:$sha}]') || die 'process environment evidence record failed'; consumer_counts=$(/usr/bin/jq -cn --argjson old "$consumer_counts" '$old as $counts | [$counts[] | select(.surface == "running-processes")] as $running | if ($running | length) == 1 then $counts | map(if .surface == "running-processes" then .matchCount += 1 else . end) else error("invalid running process consumer inventory") end') || die 'process environment count record failed'; }
 recovery_build_scanner_ancestors() {
   current=$RECOVERY_SELF_PID; hops=0; pids=''; entries='[]'
   while recovery_safe_int "$current" && [ "$hops" -lt 64 ]; do
@@ -163,16 +161,16 @@ recovery_process_snapshot() {
   RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; RECOVERY_SCANNER_ANCESTORS='[]'; RECOVERY_CONTAINER_PROCESS_UID=''
   if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi
   recovery_socket_snapshot "$container_pid" "$container_cgroup" "$container_namespace" "$ports" "$processes"
-  entries='[]'; count=0; container_count=0; proxy_count=0; container_pid_seen=0
+  entries='[]'; container_count=0; proxy_count=0; container_pid_seen=0
   while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
     [ -n "$pid" ] || continue
-    if ! recovery_safe_int "$pid" || ! recovery_nonnegative_int "$ppid"; then review_required 'invalid process pid binding'; fi
+    if ! recovery_safe_int "$pid" || ! recovery_nonnegative_int "$ppid"; then review_required 'invalid process pid binding'; fi; environment=$(recovery_process_environment_evidence "$pid"); environment_match=$(printf '%s\n' "$environment" | /usr/bin/jq -r '.matchingEnvironmentSha256 // empty')
     command=${args%% *}; rest=${args#"$command"}; base=${command##*/}; class=''
     case "$base" in
       ollama) case "$rest" in ' serve'|' serve '*) class=ollama-process;; ' runner'|' runner '*) class=ollama-process;; *) review_required 'unsupported Ollama process';; esac;;
       docker-proxy) class=docker-proxy;;
       *)
-        if recovery_has_ollama_reference "$args"; then if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else review_required 'foreign Ollama process refused'; fi; fi
+        if recovery_has_ollama_reference "$args" || [ -n "$environment_match" ]; then if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else [ -z "$environment_match" ] || recovery_record_process_environment_consumer "$environment"; review_required 'foreign Ollama process refused'; fi; fi
         continue;;
     esac
     identity=$(recovery_process_identity "$pid"); IFS=' ' read -r cgroup namespace extra <<EOF
@@ -191,8 +189,7 @@ EOF
 $executable
 EOF
 ); if [ -z "$RECOVERY_CONTAINER_PROCESS_UID" ]; then RECOVERY_CONTAINER_PROCESS_UID=$process_uid; elif [ "$RECOVERY_CONTAINER_PROCESS_UID" != "$process_uid" ]; then review_required 'container process uid drift'; fi; fi
-    entries=$(/usr/bin/jq -cn --argjson old "$entries" --argjson executable "$executable" --arg pid "$pid" --arg ppid "$ppid" --arg class "$class" --arg cgroup "$cgroup" --arg namespace "$namespace" --arg binding "$binding" --arg args "$(hash_text "$args")" '$old + [{pid:$pid,ppid:$ppid,class:$class,cgroupSha256:$cgroup,pidNamespaceSha256:$namespace,binding:$binding,executable:$executable,argsSha256:$args}]') || die 'process receipt serialization failed'
-    count=$((count + 1))
+    entries=$(/usr/bin/jq -cn --argjson old "$entries" --argjson executable "$executable" --argjson environment "$environment" --arg pid "$pid" --arg ppid "$ppid" --arg class "$class" --arg cgroup "$cgroup" --arg namespace "$namespace" --arg binding "$binding" --arg args "$(hash_text "$args")" '$old + ([{pid:$pid,ppid:$ppid,class:$class,cgroupSha256:$cgroup,pidNamespaceSha256:$namespace,binding:$binding,executable:$executable,argsSha256:$args}] | if ($environment.matchingEnvironmentSha256? // "") == "" then . else .[0] += {environmentEvidence:$environment} end)') || die 'process receipt serialization failed'
   done <"$processes"
   [ "$container_count" -gt 0 ] || review_required 'incomplete reviewed Ollama process set'; [ "$container_pid_seen" -eq 1 ] || review_required 'inspected container process missing'; [ "$proxy_count" -gt 0 ] || recovery_container_ports_ok "$ports" || review_required 'published Ollama binding is not loopback-bound'
   /usr/bin/jq -cn --arg pid "$container_pid" --arg cgroup "$container_cgroup" --arg namespace "$container_namespace" --arg uid "${RECOVERY_CONTAINER_PROCESS_UID:-}" --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson entries "$entries" --argjson ancestors "${RECOVERY_SCANNER_ANCESTORS:-[]}" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" --argjson containers "$container_count" --argjson proxies "$proxy_count" '{containerPid:$pid,containerCgroupSha256:$cgroup,containerPidNamespaceSha256:$namespace,containerUid:$uid,matchingProcesses:$entries,listeningSockets:$listeners,socketSnapshotSha256:$socketDigest,scannerAncestors:$ancestors,containerProcessCount:$containers,proxyProcessCount:$proxies}'
@@ -279,7 +276,7 @@ recovery_collect_systemd() {
   done; :
 }
 recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes cat "$processes"; }
-recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; rest=${args#"$command"}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; if recovery_has_ollama_reference "$args"; then if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else review_required 'foreign Ollama process remains after container removal'; fi; fi; recovery_is_scanner_ancestor "$pid" && continue; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
+recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; rest=${args#"$command"}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; environment=$(recovery_process_environment_evidence "$pid"); environment_match=$(printf '%s\n' "$environment" | /usr/bin/jq -r '.matchingEnvironmentSha256 // empty'); if recovery_has_ollama_reference "$args" || [ -n "$environment_match" ]; then if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else [ -z "$environment_match" ] || recovery_record_process_environment_consumer "$environment"; review_required 'foreign Ollama process remains after container removal'; fi; fi; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
 recovery_scan() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$; RECOVERY_CONTAINER_PORTS_FILE=''
   if [ "$(id -u)" -ne 0 ] && [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi

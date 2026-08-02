@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -121,6 +128,36 @@ test('finds a loaded transient unit whose runtime environment consumes Ollama', 
       stdout.trim(),
       `transient.service:${createHash('sha256').update(property).digest('hex')}`
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('canonicalizes a merged-usr systemd root before binding consumers', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-systemd-consumer-merged-usr-'))
+  );
+  const canonicalRoot = join(directory, 'usr', 'lib', 'systemd', 'system');
+  const configuredAlias = join(directory, 'lib', 'systemd', 'system');
+  const definition = join(canonicalRoot, 'foreign.service');
+  try {
+    await mkdir(canonicalRoot, { recursive: true });
+    await symlink('usr/lib', join(directory, 'lib'));
+    await writeFile(
+      definition,
+      '[Service]\nEnvironment=OLLAMA_HOST=http://127.0.0.1:11434\n'
+    );
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      'systemctl() { case "$1" in list-units) return 0;; esac; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2 $3"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      'retire-ollama-systemd-consumers-merged-usr-test',
+      script.pathname,
+      configuredAlias,
+      canonicalRoot,
+    ]);
+    const records = stdout.trim().split('\n');
+    assert.equal(records.length, 1);
+    assertFingerprint(records[0].split('|'), 0, definition);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
