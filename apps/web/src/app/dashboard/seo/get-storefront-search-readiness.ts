@@ -91,26 +91,26 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
       })
     : null;
   return buildStorefrontSearchReadinessAssessment({
-    homeIndexable: buildHomeSeoDecision({
+    homeDecision: buildHomeSeoDecision({
       isPublished: merchantFacts.is_published === true,
       canonicalUrl,
-      merchantName: merchantFacts.business_name,
-    }).index,
-    hasStoreCopy: Boolean(
+      merchantName: merchantFacts.business_name ?? null,
+    }),
+    hasCustomStoreDescription: Boolean(
       merchantFacts.site_description?.trim() ||
         merchantFacts.site_tagline?.trim()
     ),
-    hasSupportDetails: Boolean(
+    hasPublicSupportContact: Boolean(
       merchantFacts.support_email?.trim() || merchantFacts.support_phone?.trim()
     ),
-    hasPolicies: hasPublishableTrustPolicy(
+    hasPublishedTrustPolicy: hasPublishableTrustPolicy(
       buildMerchantTrustProfile({
         trust_profile: merchantFacts.trust_profile,
       })
     ),
     activeProductCount: activeProducts,
-    missingProductDescriptionCount: missingDescriptions,
-    missingProductImageCount: missingImages,
-    missingCategoryIntroductionCount: missingCategoryDescriptions,
+    productsMissingDescriptionCount: missingDescriptions,
+    productsMissingImageCount: missingImages,
+    categoriesMissingCustomIntroCount: missingCategoryDescriptions,
   });
 }

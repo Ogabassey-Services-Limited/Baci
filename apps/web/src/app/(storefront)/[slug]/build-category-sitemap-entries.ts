@@ -25,7 +25,7 @@ export function buildCategorySitemapEntries({
     const slug = category.slug?.trim();
     const url = slug ? `${storeUrl}/${slug}` : null;
     const decision = buildCategorySeoDecision({
-      isStorePublished,
+      isStorePublished: isStorePublished === true,
       isAvailable: category.is_active === true,
       querySucceeded: true,
       activeProductCount: categoryCounts[category.id] ?? 0,

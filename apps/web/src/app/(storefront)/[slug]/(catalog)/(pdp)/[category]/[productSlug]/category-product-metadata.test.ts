@@ -1,5 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildCategoryProductMetadata } from './category-product-metadata';
+
+vi.mock('@/lib/seo-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/seo-utils')>();
+  return {
+    ...actual,
+    getIndexableRobotsMetadata: () => ({
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-snippet': 42,
+      },
+    }),
+  };
+});
 
 describe('buildCategoryProductMetadata', () => {
   it('keeps the existing canonical product metadata shape', () => {
@@ -30,7 +46,11 @@ describe('buildCategoryProductMetadata', () => {
       alternates: {
         canonical: 'https://zorvexa.usebaci.com/fashion/linen-shirt',
       },
-      robots: { index: true, follow: true },
+      robots: {
+        index: true,
+        follow: true,
+        googleBot: { index: true, 'max-snippet': 42 },
+      },
       openGraph: {
         url: 'https://zorvexa.usebaci.com/fashion/linen-shirt',
       },
@@ -57,6 +77,10 @@ describe('buildCategoryProductMetadata', () => {
       storeSlug: 'zorvexa',
     });
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: { index: false, follow: true, 'max-snippet': 42 },
+    });
   });
 });

@@ -17,7 +17,7 @@ describe('StorefrontSearchReadinessCard', () => {
           tier: 'indexable',
           blockers: [],
           improvements: [
-            { code: 'product_images', href: '/dashboard/products' },
+            { code: 'products_missing_image', href: '/dashboard/products' },
           ],
         }}
       />
@@ -27,7 +27,7 @@ describe('StorefrontSearchReadinessCard', () => {
       screen.getByRole('heading', { name: 'Indexable foundation' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'product images' })
+      screen.getByRole('link', { name: 'products missing image' })
     ).toHaveAttribute('href', '/dashboard/products');
   });
 });

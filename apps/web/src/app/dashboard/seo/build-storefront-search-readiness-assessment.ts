@@ -1,50 +1,57 @@
-export type StorefrontSearchReadinessFindingCode =
-  | 'home_not_indexable'
-  | 'empty_active_catalog'
-  | 'store_copy'
-  | 'support_details'
-  | 'trust_policies'
-  | 'product_descriptions'
-  | 'product_images'
-  | 'category_introductions';
+import type { SeoIndexingDecision } from '@/lib/storefront-seo/seo-indexing-decision';
 
-export interface StorefrontSearchReadinessFinding {
-  code: StorefrontSearchReadinessFindingCode;
-  href:
-    | '/dashboard/settings'
-    | '/dashboard/settings/trust'
-    | '/dashboard/products'
-    | '/dashboard/categories';
+export type SearchReadinessHref =
+  | '/dashboard/settings'
+  | '/dashboard/products'
+  | '/dashboard/categories'
+  | '/dashboard/settings/trust';
+
+export type SearchReadinessFindingCode =
+  | 'home_not_indexable'
+  | 'missing_custom_store_description'
+  | 'missing_public_support_contact'
+  | 'missing_published_trust_policy'
+  | 'empty_active_catalog'
+  | 'products_missing_description'
+  | 'products_missing_image'
+  | 'categories_missing_custom_intro';
+
+export interface SearchReadinessFinding {
+  code: SearchReadinessFindingCode;
+  count?: number;
+  href: SearchReadinessHref;
 }
 
 export interface StorefrontSearchReadinessAssessment {
   tier: 'blocked' | 'indexable' | 'enhanced';
-  blockers: StorefrontSearchReadinessFinding[];
-  improvements: StorefrontSearchReadinessFinding[];
+  blockers: readonly SearchReadinessFinding[];
+  improvements: readonly SearchReadinessFinding[];
+}
+
+export interface StorefrontSearchReadinessInput {
+  homeDecision: SeoIndexingDecision;
+  hasCustomStoreDescription: boolean;
+  hasPublicSupportContact: boolean;
+  hasPublishedTrustPolicy: boolean;
+  activeProductCount: number;
+  productsMissingDescriptionCount: number;
+  productsMissingImageCount: number;
+  categoriesMissingCustomIntroCount: number;
 }
 
 export function buildStorefrontSearchReadinessAssessment({
-  homeIndexable,
-  hasStoreCopy,
-  hasSupportDetails,
-  hasPolicies,
+  homeDecision,
+  hasCustomStoreDescription,
+  hasPublicSupportContact,
+  hasPublishedTrustPolicy,
   activeProductCount,
-  missingProductDescriptionCount,
-  missingProductImageCount,
-  missingCategoryIntroductionCount,
-}: {
-  homeIndexable: boolean;
-  hasStoreCopy: boolean;
-  hasSupportDetails: boolean;
-  hasPolicies: boolean;
-  activeProductCount: number;
-  missingProductDescriptionCount: number;
-  missingProductImageCount: number;
-  missingCategoryIntroductionCount: number;
-}): StorefrontSearchReadinessAssessment {
-  const blockers: StorefrontSearchReadinessFinding[] = [];
-  const improvements: StorefrontSearchReadinessFinding[] = [];
-  if (!homeIndexable) {
+  productsMissingDescriptionCount,
+  productsMissingImageCount,
+  categoriesMissingCustomIntroCount,
+}: StorefrontSearchReadinessInput): StorefrontSearchReadinessAssessment {
+  const blockers: SearchReadinessFinding[] = [];
+  const improvements: SearchReadinessFinding[] = [];
+  if (!homeDecision.index) {
     blockers.push({ code: 'home_not_indexable', href: '/dashboard/settings' });
   }
   if (activeProductCount === 0) {
@@ -53,35 +60,47 @@ export function buildStorefrontSearchReadinessAssessment({
       href: '/dashboard/products',
     });
   }
-  if (!hasStoreCopy)
-    improvements.push({ code: 'store_copy', href: '/dashboard/settings' });
-  if (!hasSupportDetails) {
-    improvements.push({ code: 'support_details', href: '/dashboard/settings' });
-  }
-  if (!hasPolicies) {
+  if (!hasCustomStoreDescription)
     improvements.push({
-      code: 'trust_policies',
+      code: 'missing_custom_store_description',
+      href: '/dashboard/settings',
+    });
+  if (!hasPublicSupportContact) {
+    improvements.push({
+      code: 'missing_public_support_contact',
+      href: '/dashboard/settings',
+    });
+  }
+  if (!hasPublishedTrustPolicy) {
+    improvements.push({
+      code: 'missing_published_trust_policy',
       href: '/dashboard/settings/trust',
     });
   }
-  if (activeProductCount > 0 && missingProductDescriptionCount > 0) {
+  if (activeProductCount > 0 && productsMissingDescriptionCount > 0) {
     improvements.push({
-      code: 'product_descriptions',
+      code: 'products_missing_description',
+      count: productsMissingDescriptionCount,
       href: '/dashboard/products',
     });
   }
-  if (activeProductCount > 0 && missingProductImageCount > 0) {
-    improvements.push({ code: 'product_images', href: '/dashboard/products' });
-  }
-  if (missingCategoryIntroductionCount > 0) {
+  if (activeProductCount > 0 && productsMissingImageCount > 0) {
     improvements.push({
-      code: 'category_introductions',
+      code: 'products_missing_image',
+      count: productsMissingImageCount,
+      href: '/dashboard/products',
+    });
+  }
+  if (categoriesMissingCustomIntroCount > 0) {
+    improvements.push({
+      code: 'categories_missing_custom_intro',
+      count: categoriesMissingCustomIntroCount,
       href: '/dashboard/categories',
     });
   }
 
   return {
-    tier: homeIndexable
+    tier: homeDecision.index
       ? improvements.length === 0
         ? 'enhanced'
         : 'indexable'

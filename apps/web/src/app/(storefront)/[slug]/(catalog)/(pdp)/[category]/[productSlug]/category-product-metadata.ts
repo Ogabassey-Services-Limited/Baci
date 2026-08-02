@@ -107,6 +107,12 @@ export function buildCategoryProductMetadata({
     })
   );
   const baseRobots = getIndexableRobotsMetadata();
+  const baseGoogleBot =
+    typeof baseRobots === 'object' &&
+    baseRobots?.googleBot &&
+    typeof baseRobots.googleBot === 'object'
+      ? baseRobots.googleBot
+      : {};
 
   return {
     title: metadataTitle,
@@ -117,6 +123,7 @@ export function buildCategoryProductMetadata({
       ...(typeof baseRobots === 'object' ? baseRobots : {}),
       index: robots.index,
       follow: true,
+      googleBot: { ...baseGoogleBot, index: robots.index, follow: true },
     },
     openGraph: {
       title: metadataTitleText,

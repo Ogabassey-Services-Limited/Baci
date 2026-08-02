@@ -10,7 +10,7 @@ export function toProductIndexingFacts({
   canonicalUrl: string | null | undefined;
 }) {
   return {
-    isStorePublished,
+    isStorePublished: isStorePublished === true,
     isActive: status === 'active',
     name: name?.trim() || null,
     canonicalUrl: canonicalUrl?.trim() || null,

@@ -1,14 +1,14 @@
 import {
   buildSeoIndexingDecision,
   isValidStorefrontCanonicalUrl,
-  type SeoIndexingBlocker,
+  type SeoIndexBlocker,
   type SeoIndexingDecision,
 } from './seo-indexing-decision';
 
 export interface HomeIndexingFacts {
-  isPublished: boolean | null | undefined;
-  canonicalUrl: string | null | undefined;
-  merchantName: string | null | undefined;
+  isPublished: boolean;
+  canonicalUrl: string | null;
+  merchantName: string | null;
 }
 
 export function buildHomeSeoDecision({
@@ -16,7 +16,7 @@ export function buildHomeSeoDecision({
   canonicalUrl,
   merchantName,
 }: HomeIndexingFacts): SeoIndexingDecision {
-  const blockers: SeoIndexingBlocker[] = [];
+  const blockers: SeoIndexBlocker[] = [];
   if (isPublished !== true) blockers.push('store_unpublished');
   if (!isValidStorefrontCanonicalUrl(canonicalUrl)) {
     blockers.push('missing_canonical_url');

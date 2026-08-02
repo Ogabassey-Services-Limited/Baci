@@ -1,6 +1,8 @@
-export type SeoIndexingPageKind = 'home' | 'category' | 'product';
+export const SEO_PAGE_KINDS = ['home', 'category', 'product'] as const;
 
-export type SeoIndexingBlocker =
+export type SeoPageKind = (typeof SEO_PAGE_KINDS)[number];
+
+export type SeoIndexBlocker =
   | 'store_unpublished'
   | 'missing_canonical_url'
   | 'missing_merchant_name'
@@ -12,10 +14,10 @@ export type SeoIndexingBlocker =
   | 'missing_product_canonical_url';
 
 export interface SeoIndexingDecision {
-  pageKind: SeoIndexingPageKind;
+  pageKind: SeoPageKind;
   index: boolean;
   follow: true;
-  blockers: SeoIndexingBlocker[];
+  blockers: readonly SeoIndexBlocker[];
 }
 
 export function isValidStorefrontCanonicalUrl(
@@ -37,8 +39,8 @@ export function buildSeoIndexingDecision({
   pageKind,
   blockers,
 }: {
-  pageKind: SeoIndexingPageKind;
-  blockers: SeoIndexingBlocker[];
+  pageKind: SeoPageKind;
+  blockers: readonly SeoIndexBlocker[];
 }): SeoIndexingDecision {
   return {
     pageKind,

@@ -1,15 +1,15 @@
 import {
   buildSeoIndexingDecision,
   isValidStorefrontCanonicalUrl,
-  type SeoIndexingBlocker,
+  type SeoIndexBlocker,
   type SeoIndexingDecision,
 } from './seo-indexing-decision';
 
 export interface ProductIndexingFacts {
-  isStorePublished: boolean | null | undefined;
-  isActive: boolean | null | undefined;
-  name: string | null | undefined;
-  canonicalUrl: string | null | undefined;
+  isStorePublished: boolean;
+  isActive: boolean;
+  name: string | null;
+  canonicalUrl: string | null;
 }
 
 export function buildProductSeoDecision({
@@ -18,7 +18,7 @@ export function buildProductSeoDecision({
   name,
   canonicalUrl,
 }: ProductIndexingFacts): SeoIndexingDecision {
-  const blockers: SeoIndexingBlocker[] = [];
+  const blockers: SeoIndexBlocker[] = [];
   if (isStorePublished !== true) blockers.push('store_unpublished');
   if (isActive !== true) blockers.push('product_inactive');
   if (!name?.trim()) blockers.push('missing_product_name');

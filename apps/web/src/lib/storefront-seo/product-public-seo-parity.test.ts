@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildProductSitemapEntry } from '@/app/(storefront)/[slug]/build-product-sitemap-entry';
 import { generateGoogleMerchantFeed } from '@/app/api/feed/google-merchant/feed-builder';
-import { generateProductSchema } from '@/lib/seo-utils';
+import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
+import { generateProductSchema, getValidatedProductUrl } from '@/lib/seo-utils';
 import { buildProductSeoDecision } from './build-product-seo-decision';
 import { toProductIndexingFacts } from './to-product-indexing-facts';
 
@@ -74,6 +75,12 @@ describe('product public SEO parity', () => {
       updated_at: undefined,
     };
     const canonicalUrl = `${baseUrl}/fashion/linen-shirt`;
+    const visibleProduct = buildOgabasseyPdpCriticalProduct(product);
+    const visibleCanonicalUrl = getValidatedProductUrl(
+      product,
+      baseUrl,
+      'zorvexa'
+    );
     const schema = generateProductSchema(
       product as never,
       'Zorvexa',
@@ -113,6 +120,14 @@ describe('product public SEO parity', () => {
     );
 
     expect(pageDecision.index).toBe(true);
+    expect(visibleProduct).toMatchObject({
+      name: product.name,
+      image: 'https://cdn.example.com/linen-shirt.jpg',
+      price: product.price,
+      condition: 'new',
+      stockQuantity: stock,
+    });
+    expect(visibleCanonicalUrl).toBe(canonicalUrl);
     expect(sitemap.url).toBe(canonicalUrl);
     expect(sitemap.images).toEqual(['https://cdn.example.com/linen-shirt.jpg']);
     expect(schema).toMatchObject({

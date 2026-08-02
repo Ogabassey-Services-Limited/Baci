@@ -77,4 +77,24 @@ describe('homepage SEO indexing', () => {
     expect(metadata.openGraph?.title).toBe('Zorvexa | Buy Gadgets Pay Later');
     expect(metadata.description).toBe('Zorvexa storefront in NG.');
   });
+
+  it.each([
+    null,
+    '   ',
+  ])('uses only neutral merchant facts when site_title is %p', async (siteTitle) => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...merchant,
+      is_published: true,
+      site_title: siteTitle,
+    } as never);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'zorvexa' }),
+    });
+
+    expect(metadata.openGraph?.title).toBe('Zorvexa - Official Online Store');
+    expect(metadata.openGraph?.title).not.toMatch(
+      /pay later|premium|fresh food|secure checkout/i
+    );
+  });
 });

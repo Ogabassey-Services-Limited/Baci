@@ -156,6 +156,12 @@ export async function generateMetadata(
     })
   );
   const baseRobots = getIndexableRobotsMetadata();
+  const baseGoogleBot =
+    typeof baseRobots === 'object' &&
+    baseRobots?.googleBot &&
+    typeof baseRobots.googleBot === 'object'
+      ? baseRobots.googleBot
+      : {};
   return {
     title: metadataTitle,
     description: seoDescription,
@@ -167,6 +173,7 @@ export async function generateMetadata(
       ...(typeof baseRobots === 'object' ? baseRobots : {}),
       index: robots.index,
       follow: true,
+      googleBot: { ...baseGoogleBot, index: robots.index, follow: true },
     },
     openGraph: {
       title: metadataTitleText,

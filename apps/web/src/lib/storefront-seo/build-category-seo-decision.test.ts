@@ -22,11 +22,11 @@ describe('buildCategorySeoDecision', () => {
     });
   });
 
-  it('fails closed when publication or category activity is not explicitly true', () => {
+  it('blocks explicit unpublished and unavailable category facts', () => {
     expect(
       buildCategorySeoDecision({
-        isStorePublished: null,
-        isAvailable: null,
+        isStorePublished: false,
+        isAvailable: false,
         querySucceeded: true,
         activeProductCount: 1,
       })

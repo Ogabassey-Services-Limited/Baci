@@ -168,7 +168,7 @@ export async function generateMetadata({
 
   const { metadataTitle, title } = buildStorefrontMetadataTitle({
     title:
-      merchant.site_title ||
+      merchant.site_title?.trim() ||
       (merchant.business_name
         ? `${merchant.business_name} - Official Online Store`
         : 'Official Online Store'),
@@ -186,7 +186,7 @@ export async function generateMetadata({
     buildHomeSeoDecision({
       isPublished: merchant.is_published === true,
       canonicalUrl: baseUrl,
-      merchantName: merchant.business_name,
+      merchantName: merchant.business_name ?? null,
     })
   );
 

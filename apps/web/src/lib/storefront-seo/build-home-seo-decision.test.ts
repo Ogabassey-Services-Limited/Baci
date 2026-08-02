@@ -34,10 +34,10 @@ describe('buildHomeSeoDecision', () => {
     });
   });
 
-  it('fails closed for missing publication, canonical URL, or merchant name', () => {
+  it('blocks unpublished, missing canonical URL, or missing merchant name', () => {
     expect(
       buildHomeSeoDecision({
-        isPublished: undefined,
+        isPublished: false,
         canonicalUrl: null,
         merchantName: '   ',
       })

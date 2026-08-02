@@ -32,9 +32,9 @@ export function getStaticSitemapEntries({
   if (
     !isSeoSitemapEligible(
       buildHomeSeoDecision({
-        isPublished: merchant.is_published,
+        isPublished: merchant.is_published === true,
         canonicalUrl: storeUrl,
-        merchantName: merchant.business_name,
+        merchantName: merchant.business_name ?? null,
       })
     )
   ) {
