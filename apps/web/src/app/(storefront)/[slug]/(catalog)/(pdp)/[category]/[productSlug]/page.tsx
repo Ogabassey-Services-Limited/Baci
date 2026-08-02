@@ -357,7 +357,7 @@ type CategoryProductResult =
     }
   | null;
 
-interface LcpRouteProduct {
+export interface LcpRouteProduct {
   base_price?: number | null;
   baseImage?: string;
   brand: string;

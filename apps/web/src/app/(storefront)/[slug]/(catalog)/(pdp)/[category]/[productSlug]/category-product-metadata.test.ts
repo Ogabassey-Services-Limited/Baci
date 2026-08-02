@@ -9,7 +9,7 @@ describe('buildCategoryProductMetadata', () => {
         business_name: 'Zorvexa',
         country: 'NG',
         slug: 'zorvexa',
-      },
+      } as never,
       product: {
         name: 'Linen Shirt',
         slug: 'linen-shirt',
@@ -20,7 +20,7 @@ describe('buildCategoryProductMetadata', () => {
         categories: { name: 'Fashion', slug: 'fashion' },
         price: 12_000,
         images: ['https://cdn.example.com/linen-shirt.jpg'],
-      },
+      } as never,
       storeSlug: 'zorvexa',
     });
 

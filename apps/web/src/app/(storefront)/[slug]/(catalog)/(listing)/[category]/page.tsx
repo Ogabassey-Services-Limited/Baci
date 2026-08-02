@@ -20,6 +20,8 @@ import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
+import { buildCategorySeoDecision } from '@/lib/storefront-seo/build-category-seo-decision';
+import { buildFactualStorefrontDescription } from '@/lib/storefront-seo/build-factual-storefront-description';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import {
   getStorefrontOpenGraphImages,
@@ -190,7 +192,13 @@ export async function generateMetadata({
     suffix: merchant.business_name,
     fallback: categoryName,
   });
-  const fallbackDescription = `Explore ${categoryName} at ${merchant.business_name}. Compare trusted options, pricing, and key specs with nationwide delivery and flexible payment plans.`;
+  const fallbackDescription = buildFactualStorefrontDescription({
+    businessName: merchant.business_name,
+    siteDescription: null,
+    siteTagline: null,
+    categoryName,
+    country: merchant.country,
+  });
   const baseDescription =
     hubContent.intro.description.trim() || fallbackDescription;
   const pageAwareDescription =
@@ -207,6 +215,13 @@ export async function generateMetadata({
   });
   const firstProductImage = paginatedProducts[0]?.image || null;
   const socialImageCandidates = [firstProductImage, merchant.logo_url];
+  const existingRobots = getIndexableRobotsMetadata(resolvedSearchParams);
+  const categoryDecision = buildCategorySeoDecision({
+    isStorePublished: merchant.is_published === true,
+    isActive: data.isCollection || !data.isInactiveCategory,
+    hasProducts: (data.productCount ?? productSlots.length) > 0,
+    canonicalUrl: paginatedCategoryUrl,
+  });
 
   return {
     title: metadataTitle,
@@ -214,9 +229,14 @@ export async function generateMetadata({
     alternates: {
       canonical: paginatedCategoryUrl,
     },
-    robots: data.productsQueryFailed
-      ? { index: false, follow: true }
-      : getIndexableRobotsMetadata(resolvedSearchParams),
+    robots: {
+      index:
+        typeof existingRobots === 'object' &&
+        existingRobots?.index === true &&
+        !data.productsQueryFailed &&
+        categoryDecision.index,
+      follow: true,
+    },
     openGraph: {
       title,
       description,

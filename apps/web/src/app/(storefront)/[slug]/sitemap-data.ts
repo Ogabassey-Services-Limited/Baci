@@ -1,5 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
+import { getCachedCategoryProductCounts } from '@/lib/cached-category-product-counts';
 import {
   getCachedCategoryPageData,
   getMerchantByIdentifier,
@@ -14,6 +15,10 @@ import {
   resolveMerchantContextIdentifier,
   resolveRouteIdentifier,
 } from '@/lib/storefront-route-identifier';
+import { buildHomeSeoDecision } from '@/lib/storefront-seo/build-home-seo-decision';
+import { buildProductSeoDecision } from '@/lib/storefront-seo/build-product-seo-decision';
+import { isSeoSitemapEligible } from '@/lib/storefront-seo/seo-indexing-metadata';
+import { toProductIndexingFacts } from '@/lib/storefront-seo/to-product-indexing-facts';
 import {
   buildMerchantTrustProfile,
   hasPublishableReturnsPolicy,
@@ -22,6 +27,7 @@ import {
 } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
+import { buildCategorySitemapEntries } from './build-category-sitemap-entries';
 import {
   buildProductSitemapEntry,
   type ProductWithCategory,
@@ -200,6 +206,16 @@ export function getStaticSitemapEntries({
   StorefrontSitemapContext,
   'merchant' | 'storeUrl'
 >): MetadataRoute.Sitemap {
+  if (
+    !isSeoSitemapEligible(
+      buildHomeSeoDecision({
+        isStorePublished: merchant.is_published !== false,
+        canonicalUrl: storeUrl,
+      })
+    )
+  ) {
+    return [];
+  }
   const lastModified = getMerchantLastModified(merchant);
 
   return [
@@ -262,7 +278,7 @@ export async function getProductSitemapEntries({
     const { data, error } = (await supabase
       .from('products')
       .select(
-        'id, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug)'
+        'id, name, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug)'
       )
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
@@ -293,9 +309,19 @@ export async function getProductSitemapEntries({
     return [];
   }
 
-  return products.map((product) =>
-    buildProductSitemapEntry({ product, storeUrl })
-  );
+  return products.flatMap((product) => {
+    const entry = buildProductSitemapEntry({ product, storeUrl });
+    const decision = buildProductSeoDecision(
+      toProductIndexingFacts({
+        isStorePublished: merchant.is_published !== false,
+        status: 'active',
+        name: product.name ?? product.slug,
+        canonicalUrl: entry.url,
+      })
+    );
+
+    return isSeoSitemapEligible(decision) ? [entry] : [];
+  });
 }
 
 export async function getCategorySitemapEntries({
@@ -305,7 +331,7 @@ export async function getCategorySitemapEntries({
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
   const { data: categories, error } = await supabase
     .from('categories')
-    .select('slug, updated_at')
+    .select('id, slug, updated_at, is_active, parent_id')
     .eq('merchant_id', merchant.id);
 
   if (error) {
@@ -316,12 +342,67 @@ export async function getCategorySitemapEntries({
     throw new Error(`Failed to load category sitemap for ${merchant.id}`);
   }
 
-  return categories.map((cat) => ({
-    url: `${storeUrl}/${cat.slug}`,
-    lastModified: cat.updated_at ? new Date(cat.updated_at) : undefined,
-    changeFrequency: 'daily',
-    priority: 0.7,
-  }));
+  const activeCategories = categories.filter(
+    (category) => category.is_active !== false
+  );
+  if (typeof merchant.is_published !== 'boolean') {
+    return activeCategories.flatMap((category) => {
+      const slug = category.slug?.trim();
+      if (!slug) return [];
+      return [
+        {
+          url: `${storeUrl}/${slug}`,
+          lastModified: category.updated_at
+            ? new Date(category.updated_at)
+            : undefined,
+          changeFrequency: 'daily' as const,
+          priority: 0.7,
+        },
+      ];
+    });
+  }
+  const categoryCounts = await getCachedCategoryProductCounts(
+    merchant.id,
+    activeCategories
+  );
+
+  return buildCategorySitemapEntries({
+    categories: activeCategories,
+    categoryCounts,
+    isStorePublished: merchant.is_published !== false,
+    storeUrl,
+  });
+}
+
+async function getCommercialSupportCategorySitemapEntries({
+  supabase,
+  merchant,
+  storeUrl,
+}: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  const { data: categories, error } = await supabase
+    .from('categories')
+    .select('slug, updated_at')
+    .eq('merchant_id', merchant.id);
+
+  if (error) throw error;
+  if (!categories) {
+    throw new Error(`Failed to load category sitemap for ${merchant.id}`);
+  }
+
+  return categories.flatMap((category) => {
+    const slug = category.slug?.trim();
+    if (!slug) return [];
+    return [
+      {
+        url: `${storeUrl}/${slug}`,
+        lastModified: category.updated_at
+          ? new Date(category.updated_at)
+          : undefined,
+        changeFrequency: 'daily' as const,
+        priority: 0.7,
+      },
+    ];
+  });
 }
 
 export { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
@@ -432,7 +513,8 @@ function getRawProductCategorySlug(
 export async function getCommercialSupportSitemapEntries(
   context: StorefrontSitemapContext
 ): Promise<MetadataRoute.Sitemap> {
-  const categoryEntries = await getCategorySitemapEntries(context);
+  const categoryEntries =
+    await getCommercialSupportCategorySitemapEntries(context);
   const commercialEntries: MetadataRoute.Sitemap = [];
   const seenCommercialUrls = new Set<string>();
 

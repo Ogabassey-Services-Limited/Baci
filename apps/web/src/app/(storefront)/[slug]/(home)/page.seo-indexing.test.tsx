@@ -1,0 +1,51 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getRequestScopedMerchant } from '@/lib/cached-data';
+
+vi.mock('@/lib/cached-data', () => ({ getRequestScopedMerchant: vi.fn() }));
+vi.mock('@/lib/store-url', () => ({
+  buildStoreUrl: () => 'https://zorvexa.usebaci.com',
+}));
+vi.mock('@/lib/validation', () => ({ isValidMerchantIdentifier: () => true }));
+
+const { generateMetadata } = await import('./page');
+
+const merchant = {
+  business_name: 'Zorvexa',
+  slug: 'zorvexa',
+  site_title: null,
+  site_description: null,
+  site_tagline: null,
+  country: 'NG',
+  logo_url: null,
+  social_media: null,
+};
+
+describe('homepage SEO indexing', () => {
+  beforeEach(() => vi.mocked(getRequestScopedMerchant).mockReset());
+
+  it('emits noindex,follow for an unpublished merchant', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...merchant,
+      is_published: false,
+    } as never);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'zorvexa' }),
+    });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+  });
+
+  it('keeps a published merchant indexable without catalog prerequisites', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...merchant,
+      is_published: true,
+    } as never);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'zorvexa' }),
+    });
+
+    expect(metadata.robots).toEqual({ index: true, follow: true });
+  });
+});

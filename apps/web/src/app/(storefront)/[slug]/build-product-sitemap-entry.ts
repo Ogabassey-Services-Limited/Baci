@@ -3,6 +3,7 @@ import { getProductUrl } from '@/lib/seo-utils';
 
 export interface ProductWithCategory {
   id: string;
+  name?: string | null;
   slug: string | null;
   category: string | null;
   canonical_url: string | null;

@@ -11,9 +11,11 @@ import {
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getBrandMatchedTwitterHandle } from '@/lib/brand-matched-twitter-handle';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { buildFactualStorefrontDescription } from '@/lib/storefront-seo/build-factual-storefront-description';
+import { buildHomeSeoDecision } from '@/lib/storefront-seo/build-home-seo-decision';
+import { toNextRobotsMetadata } from '@/lib/storefront-seo/seo-indexing-metadata';
 import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 
@@ -172,16 +174,20 @@ export async function generateMetadata({
         : 'Official Online Store'),
     fallback: 'Official Online Store',
   });
-  const description = generateMetaDescription(
-    merchant.site_description || merchant.site_tagline || '',
-    160,
-    {
-      minLength: 110,
-      fallback: `Shop at ${merchant.business_name || merchant.slug}. Discover products and services with trusted quality, nationwide delivery, and flexible payment options.`,
-    }
-  );
-
   const baseUrl = buildStoreUrl(merchant);
+  const description = buildFactualStorefrontDescription({
+    businessName: merchant.business_name || merchant.slug,
+    siteDescription: merchant.site_description,
+    siteTagline: merchant.site_tagline,
+    categoryName: null,
+    country: merchant.country,
+  });
+  const robots = toNextRobotsMetadata(
+    buildHomeSeoDecision({
+      isStorePublished: merchant.is_published === true,
+      canonicalUrl: baseUrl,
+    })
+  );
 
   const socialMedia = merchant.social_media as Record<string, string> | null;
   const twitterHandle = getBrandMatchedTwitterHandle(
@@ -197,6 +203,7 @@ export async function generateMetadata({
       canonical: baseUrl,
       languages: buildStorefrontLanguageAlternates(baseUrl, merchant.country),
     },
+    robots,
     openGraph: {
       title: title,
       description: description,

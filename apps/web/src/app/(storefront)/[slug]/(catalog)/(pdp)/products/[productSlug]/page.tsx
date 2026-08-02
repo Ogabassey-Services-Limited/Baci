@@ -18,6 +18,8 @@ import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { normalizeSeoProductText } from '@/lib/storefront-product-slug-disambiguation';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
+import { buildProductSeoDecision } from '@/lib/storefront-seo/build-product-seo-decision';
+import { toProductIndexingFacts } from '@/lib/storefront-seo/to-product-indexing-facts';
 import {
   DEFAULT_STORE_NAME,
   DEFAULT_STOREFRONT_SEO_CATEGORY,
@@ -145,6 +147,15 @@ export async function generateMetadata(
     merchantDisplayName,
     socialMedia?.twitter
   );
+  const robots = buildProductSeoDecision(
+    toProductIndexingFacts({
+      isStorePublished: merchant.is_published !== false,
+      status: product.status ?? 'active',
+      name: product.name,
+      canonicalUrl,
+    })
+  );
+  const baseRobots = getIndexableRobotsMetadata();
   return {
     title: metadataTitle,
     description: seoDescription,
@@ -152,7 +163,11 @@ export async function generateMetadata(
     alternates: {
       canonical: canonicalUrl,
     },
-    robots: getIndexableRobotsMetadata(),
+    robots: {
+      ...(typeof baseRobots === 'object' ? baseRobots : {}),
+      index: robots.index,
+      follow: true,
+    },
     openGraph: {
       title: metadataTitleText,
       description: seoDescription,

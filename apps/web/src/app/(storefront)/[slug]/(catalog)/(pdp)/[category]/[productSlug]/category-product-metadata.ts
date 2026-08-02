@@ -12,12 +12,14 @@ import { stripVolatileProductPriceSentences } from '@/lib/storefront-product-des
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { normalizeSeoProductText } from '@/lib/storefront-product-slug-disambiguation';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
+import { buildProductSeoDecision } from '@/lib/storefront-seo/build-product-seo-decision';
+import { toProductIndexingFacts } from '@/lib/storefront-seo/to-product-indexing-facts';
 import {
   DEFAULT_STORE_NAME,
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
 import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
-import type { LcpRouteProduct } from './lcp-route-product-projection';
+import type { LcpRouteProduct } from './page';
 
 export function buildCategoryProductMetadata({
   baseUrl,
@@ -96,13 +98,26 @@ export function buildCategoryProductMetadata({
     merchantDisplayName,
     socialMedia?.twitter
   );
+  const robots = buildProductSeoDecision(
+    toProductIndexingFacts({
+      isStorePublished: merchant.is_published !== false,
+      status: product.status ?? 'active',
+      name: product.name,
+      canonicalUrl,
+    })
+  );
+  const baseRobots = getIndexableRobotsMetadata();
 
   return {
     title: metadataTitle,
     description: seoDescription,
     keywords: product.keywords ?? undefined,
     alternates: { canonical: canonicalUrl },
-    robots: getIndexableRobotsMetadata(),
+    robots: {
+      ...(typeof baseRobots === 'object' ? baseRobots : {}),
+      index: robots.index,
+      follow: true,
+    },
     openGraph: {
       title: metadataTitleText,
       description: seoDescription,
