@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -8,6 +15,20 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
+const unprivileged = process.getuid?.() === 0 ? { uid: 65534, gid: 65534 } : {};
+const absentCronSources = {
+  RETIRE_OLLAMA_ANACRONTAB: '/__baci_test_absent_anacrontab',
+  RETIRE_OLLAMA_CRON_HOURLY_DIR: '/__baci_test_absent_cron_hourly',
+  RETIRE_OLLAMA_CRON_DAILY_DIR: '/__baci_test_absent_cron_daily',
+  RETIRE_OLLAMA_CRON_WEEKLY_DIR: '/__baci_test_absent_cron_weekly',
+  RETIRE_OLLAMA_CRON_MONTHLY_DIR: '/__baci_test_absent_cron_monthly',
+};
+
+async function fixtureDirectory(prefix) {
+  const directory = await mkdtemp(join(tmpdir(), prefix));
+  await chmod(directory, 0o777);
+  return directory;
+}
 
 function shell(command, args = [], env = {}) {
   return execFileAsync(
@@ -19,18 +40,37 @@ function shell(command, args = [], env = {}) {
       script.pathname,
       ...args,
     ],
-    { env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: '/usr/bin', ...env } }
+    {
+      ...unprivileged,
+      env: {
+        ...process.env,
+        RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+        ...absentCronSources,
+        ...env,
+      },
+    }
   );
 }
 
 function recoveryShell(command, args = []) {
-  return execFileAsync('sh', [
-    '-c',
-    `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
-    'retire-ollama-cron-inventory-recovery-test',
-    script.pathname,
-    ...args,
-  ]);
+  return execFileAsync(
+    'sh',
+    [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
+      'retire-ollama-cron-inventory-recovery-test',
+      script.pathname,
+      ...args,
+    ],
+    {
+      ...unprivileged,
+      env: {
+        ...process.env,
+        RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+        ...absentCronSources,
+      },
+    }
+  );
 }
 
 function fixtureFunctions() {
@@ -40,8 +80,13 @@ stat() { format=; for arg do case "$arg" in -c) next=1;; *) if [ "\${next:-0}" =
 getent() { case "$1:$2" in group:crontab) printf 'crontab:x:123:'; [ "\${GETENT_MULTI_GROUP:-0}" = 1 ] && printf '\\ncrontab:x:123:'; printf '\\n';; passwd:root) printf 'root:x:0:0::/:/bin/sh\\n';; passwd:worker) printf 'worker:x:2001:2001::/:/bin/sh'; [ "\${GETENT_MULTI_USER:-0}" = 1 ] && printf '\\nworker:x:2001:2001::/:/bin/sh'; printf '\\n';; passwd:bassey) printf 'bassey:x:1000:1000::/:/bin/sh\\n';; *) return 2;; esac; }`;
 }
 
+test('runs cron inventory fixtures without root authority', async () => {
+  const { stdout } = await shell('id -u');
+  assert.notEqual(stdout.trim(), '0');
+});
+
 test('binds system, root, and other-user cron sources while excluding owner spool duplication', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-inventory-'));
+  const directory = await fixtureDirectory('baci-cron-inventory-');
   const system = join(directory, 'etc', 'crontab');
   const systemDir = join(directory, 'etc', 'cron.d');
   const spool = join(directory, 'spool', 'crontabs');
@@ -77,7 +122,7 @@ test('binds system, root, and other-user cron sources while excluding owner spoo
 });
 
 test('does not apply owner serve-line exemptions to system or other-user sources', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-inventory-scope-'));
+  const directory = await fixtureDirectory('baci-cron-inventory-scope-');
   const system = join(directory, 'etc', 'crontab');
   const systemDir = join(directory, 'etc', 'cron.d');
   const spool = join(directory, 'spool', 'crontabs');
@@ -108,9 +153,7 @@ test('does not apply owner serve-line exemptions to system or other-user sources
 });
 
 test('fails closed on an unbound per-user cron spool entry', async () => {
-  const directory = await mkdtemp(
-    join(tmpdir(), 'baci-cron-inventory-unbound-')
-  );
+  const directory = await fixtureDirectory('baci-cron-inventory-unbound-');
   const system = join(directory, 'etc', 'crontab');
   const systemDir = join(directory, 'etc', 'cron.d');
   const spool = join(directory, 'spool', 'crontabs');
@@ -140,7 +183,7 @@ test('fails closed on an unbound per-user cron spool entry', async () => {
 });
 
 test('requires the canonical root:crontab spool authority and a unique account binding', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-inventory-trust-'));
+  const directory = await fixtureDirectory('baci-cron-inventory-trust-');
   const system = join(directory, 'etc', 'crontab');
   const systemDir = join(directory, 'etc', 'cron.d');
   const spool = join(directory, 'spool', 'crontabs');
@@ -177,7 +220,7 @@ test('requires the canonical root:crontab spool authority and a unique account b
 });
 
 test('fails closed on symlinked system cron entries', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-inventory-link-'));
+  const directory = await fixtureDirectory('baci-cron-inventory-link-');
   const system = join(directory, 'etc', 'crontab');
   const systemDir = join(directory, 'etc', 'cron.d');
   const spool = join(directory, 'spool', 'crontabs');
@@ -209,7 +252,7 @@ test('fails closed on symlinked system cron entries', async () => {
 });
 
 test('refuses a cron source changed between capture and identity recording', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-inventory-race-'));
+  const directory = await fixtureDirectory('baci-cron-inventory-race-');
   const system = join(directory, 'etc', 'crontab');
   const systemDir = join(directory, 'etc', 'cron.d');
   const spool = join(directory, 'spool', 'crontabs');
@@ -237,9 +280,7 @@ test('refuses a cron source changed between capture and identity recording', asy
 });
 
 test('recovery classifies the retained cron snapshot rather than a later live read', async () => {
-  const directory = await mkdtemp(
-    join(tmpdir(), 'baci-cron-inventory-recovery-')
-  );
+  const directory = await fixtureDirectory('baci-cron-inventory-recovery-');
   const cron = join(directory, 'crontab');
   const manifest = join(directory, 'manifest');
   try {

@@ -85,7 +85,7 @@ esac
 `
       ),
     ]);
-    await chmod(join(bin, 'docker'), 0o755);
+    await Promise.all([chmod(join(bin, 'docker'), 0o755), chmod(root, 0o755)]);
     const scan = () =>
       execFileAsync(
         'sh',
@@ -139,6 +139,141 @@ test('binds stopped Compose config and secret file sources inside their project 
       'configs:\n  runner:\n    file: ../outside.conf\n'
     );
     await assert.rejects(scanCompose(root), (error) => error.code === 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('binds a stopped Compose service local bind-mount source and confines it to the project', async () => {
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-compose-bind-source-'))
+  );
+  const compose = join(root, 'compose.yaml');
+  const source = join(root, 'application.conf');
+  const relative = join(root, 'config', 'application.conf');
+  try {
+    await mkdir(join(root, 'config'));
+    await Promise.all([
+      writeFile(
+        compose,
+        'services:\n  stopped:\n    image: busybox\n    volumes:\n      - ./application.conf:/app/application.conf:ro\n'
+      ),
+      writeFile(source, 'OLLAMA_HOST=http://127.0.0.1:11434\n'),
+      writeFile(relative, 'OLLAMA_HOST=http://127.0.0.1:11434\n'),
+    ]);
+    assertBinding((await scanCompose(root)).stdout, compose, source);
+    await writeFile(
+      compose,
+      'services:\n  stopped:\n    volumes:\n      - config/application.conf:/app/application.conf\n'
+    );
+    assertBinding((await scanCompose(root)).stdout, compose, relative);
+    await writeFile(
+      compose,
+      'services:\n  stopped:\n    volumes:\n      - data:/app/application.conf\n'
+    );
+    assert.equal((await scanCompose(root)).stdout, '');
+    await writeFile(
+      compose,
+      'services:\n  stopped:\n    image: busybox\n    volumes:\n      - type: bind\n        source: ./application.conf\n        target: /app/application.conf\n'
+    );
+    assertBinding((await scanCompose(root)).stdout, compose, source);
+    await writeFile(
+      compose,
+      'services:\n  stopped:\n    volumes:\n      - source: ./application.conf\n        type: bind\n        target: /app/application.conf\n'
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+    await writeFile(
+      compose,
+      'services:\n  stopped:\n    volumes:\n      - "./application.conf:/app/application.conf"\n'
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+    await writeFile(
+      compose,
+      `services:\n  stopped:\n    volumes:\n      - \${CONFIG_FILE}:/app/application.conf\n`
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+    await writeFile(
+      compose,
+      'services:\n  stopped:\n    volumes:\n      - { type: bind, source: ./application.conf, target: /app/application.conf }\n'
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+    await writeFile(
+      compose,
+      'services:\n  stopped:\n    volumes: ["./application.conf:/app/application.conf"]\n'
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+    await writeFile(
+      compose,
+      'services:\n  stopped:\n    volumes:\n      - ../outside.conf:/app/application.conf\n'
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('preserves the parent Compose definition while recursing through sibling extends files', async () => {
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-compose-extends-siblings-'))
+  );
+  const compose = join(root, 'compose.yaml');
+  const first = join(root, 'fragments', 'first.yml');
+  const second = join(root, 'second.yml');
+  const shadow = join(root, 'fragments', 'second.yml');
+  try {
+    await mkdir(join(root, 'fragments'));
+    await Promise.all([
+      writeFile(
+        compose,
+        'services:\n  first:\n    extends:\n      file: ./fragments/first.yml\n      service: first\n  second:\n    extends:\n      file: ./second.yml\n      service: second\n'
+      ),
+      writeFile(first, 'services:\n  first:\n    image: busybox\n'),
+      writeFile(
+        second,
+        'services:\n  second:\n    environment:\n      OLLAMA_HOST: http://127.0.0.1:11434\n'
+      ),
+      writeFile(shadow, 'services:\n  second:\n    image: busybox\n'),
+    ]);
+    assert.match(
+      (await scanCompose(root)).stdout,
+      new RegExp(`^${second}\\|`, 'm')
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('finds a stopped generic container whose only Ollama endpoint is a label', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-container-label-'));
+  const bin = join(root, 'bin');
+  try {
+    await mkdir(bin);
+    await writeFile(
+      join(bin, 'docker'),
+      `#!/bin/sh
+case "$*" in
+  *' ps -a '*) printf 'generic-api\\n' ;;
+  *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
+  *'inspect -f {{.Id}} '*) printf 'generic-api /generic-api /bin/true [] [] {"traefik.http.services.api.loadbalancer.server.url":"http://127.0.0.1:11434"} null [] {} {} {}\\n' ;;
+  *'inspect -f {{json .Mounts}} generic-api') printf '[]\\n' ;;
+esac
+`
+    );
+    await Promise.all([chmod(join(bin, 'docker'), 0o755), chmod(root, 0o755)]);
+    const { stdout } = await execFileAsync(
+      'sh',
+      [
+        '-c',
+        `${prelude}. "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all`,
+        'retire-ollama-container-label-test',
+        script.pathname,
+      ],
+      {
+        ...unprivileged,
+        env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: bin },
+      }
+    );
+    assert.match(stdout, /traefik.*11434/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

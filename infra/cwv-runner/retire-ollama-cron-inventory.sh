@@ -11,8 +11,16 @@ cron_inventory_override_or_default() {
 cron_inventory_system_file() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_SYSTEM_FILE:-}" /etc/crontab; }
 cron_inventory_system_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_SYSTEM_DIR:-}" /etc/cron.d; }
 cron_inventory_spool_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_SPOOL_DIR:-}" /var/spool/cron/crontabs; }
+cron_inventory_anacrontab() { cron_inventory_override_or_default "${RETIRE_OLLAMA_ANACRONTAB:-}" /etc/anacrontab; }
+cron_inventory_hourly_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_HOURLY_DIR:-}" /etc/cron.hourly; }
+cron_inventory_daily_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_DAILY_DIR:-}" /etc/cron.daily; }
+cron_inventory_weekly_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_WEEKLY_DIR:-}" /etc/cron.weekly; }
+cron_inventory_monthly_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_MONTHLY_DIR:-}" /etc/cron.monthly; }
 cron_inventory_valid_name() {
   case "$1" in ''|.*|*[!A-Za-z0-9_.-]*) return 1;; *) return 0;; esac
+}
+cron_inventory_run_parts_name() {
+  case "$1" in ''|.*|*[!A-Za-z0-9_-]*) return 1;; *) return 0;; esac
 }
 cron_inventory_real_file() {
   path=$1; [ -f "$path" ] && [ ! -L "$path" ] || return 1
@@ -82,6 +90,28 @@ $identity
 EOF
   { [ "$uid" = "$expected" ] || [ "$uid" = 0 ]; } && [ "$mode" = 600 ]
 }
+cron_inventory_periodic_file_ok() {
+  path=$1; cron_inventory_system_file_ok "$path" && [ -x "$path" ]
+}
+cron_inventory_optional_system_file() {
+  path=$1 output=$2
+  [ ! -e "$path" ] && [ ! -L "$path" ] && return 0
+  cron_inventory_system_file_ok "$path" || return 1
+  printf 'system\t-\t%s\n' "$path" >>"$output"
+}
+cron_inventory_periodic_dir() {
+  directory=$1 output=$2
+  [ ! -e "$directory" ] && [ ! -L "$directory" ] && return 0
+  cron_inventory_system_dir_ok "$directory" || return 1
+  count=0
+  for path in "$directory"/*; do
+    [ -e "$path" ] || [ -L "$path" ] || continue
+    name=${path##*/}; cron_inventory_run_parts_name "$name" || return 1
+    cron_inventory_periodic_file_ok "$path" || return 1
+    count=$((count + 1)); [ "$count" -le 256 ] || return 1
+    printf 'system-directory\t-\t%s\n' "$path" >>"$output" || return 1
+  done
+}
 cron_inventory_collect_external() {
   output=$1; : >"$output" || die 'cron inventory output failed'
   system=$(cron_inventory_system_file); cron_inventory_system_file_ok "$system" || die 'unsafe system crontab'
@@ -95,6 +125,11 @@ cron_inventory_collect_external() {
     count=$((count + 1)); [ "$count" -le 256 ] || die 'too many system cron entries'
     printf 'system-directory\t-\t%s\n' "$path" >>"$output" || die 'cron inventory output failed'
   done
+  cron_inventory_optional_system_file "$(cron_inventory_anacrontab)" "$output" || die 'unsafe anacrontab'
+  cron_inventory_periodic_dir "$(cron_inventory_hourly_dir)" "$output" || die 'unsafe hourly cron directory'
+  cron_inventory_periodic_dir "$(cron_inventory_daily_dir)" "$output" || die 'unsafe daily cron directory'
+  cron_inventory_periodic_dir "$(cron_inventory_weekly_dir)" "$output" || die 'unsafe weekly cron directory'
+  cron_inventory_periodic_dir "$(cron_inventory_monthly_dir)" "$output" || die 'unsafe monthly cron directory'
   spool=$(cron_inventory_spool_dir); cron_inventory_spool_dir_ok "$spool" || die 'unsafe cron spool directory'
   count=0
   for path in "$spool"/*; do
