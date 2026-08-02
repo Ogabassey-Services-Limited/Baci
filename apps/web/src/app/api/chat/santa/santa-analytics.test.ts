@@ -9,35 +9,13 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createClient,
 }));
 
-import {
-  generateSessionId,
-  logSantaInteraction,
-  parseWishResult,
-} from './santa-analytics';
+import { logSantaInteraction } from './santa-analytics';
 
 describe('Santa analytics helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.rpc.mockResolvedValue({ error: null });
     mocks.createClient.mockResolvedValue({ rpc: mocks.rpc });
-  });
-
-  it('generates a stable privacy-preserving session id', () => {
-    expect(generateSessionId('127.0.0.1')).toBe(generateSessionId('127.0.0.1'));
-    expect(generateSessionId('127.0.0.1')).toHaveLength(16);
-    expect(generateSessionId('127.0.0.1')).not.toBe(
-      generateSessionId('127.0.0.2')
-    );
-  });
-
-  it('parses an approved wish and negotiated price', () => {
-    expect(
-      parseWishResult('ACTION:ADD_TO_CART|PRODUCT:Phone|PRICE:₦450,000')
-    ).toEqual({
-      type: 'wish_granted',
-      productName: 'Phone',
-      approvedPrice: 450000,
-    });
   });
 
   it('logs bounded interaction fields and discount percentage', async () => {

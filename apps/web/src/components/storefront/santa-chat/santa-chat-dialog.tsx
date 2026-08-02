@@ -7,11 +7,11 @@ import { useCart } from '@/hooks/use-cart';
 import { ChatInput } from './chat-input';
 import { ChatMessage } from './chat-message';
 import {
-  addSantaProductToCart,
   type SantaChatMessage,
   streamSantaReply,
 } from './santa-chat-controller';
 import { SantaChatHeader } from './santa-chat-header';
+import { addSantaProductToCart } from './santa-product-cart';
 import type { ChatMessage as ChatMessageType } from './types';
 import { stripSantaActions } from './types';
 import { WelcomeScreen } from './welcome-screen';

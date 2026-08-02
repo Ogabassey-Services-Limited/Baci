@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import type { Product } from '@/lib/products';
-import { addSantaProductToCart } from './santa-chat-controller';
+import { addSantaProductToCart } from './santa-product-cart';
 
 describe('addSantaProductToCart', () => {
   afterEach(() => {

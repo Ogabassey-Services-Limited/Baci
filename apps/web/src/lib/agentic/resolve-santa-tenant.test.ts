@@ -12,7 +12,7 @@ vi.mock('@/lib/supabase/public', () => ({
 vi.mock('./merchant-context', () => ({
   getConfiguredAgenticMerchantSlug: mocks.getConfiguredAgenticMerchantSlug,
 }));
-vi.mock('./agentic-merchant-id', () => ({
+vi.mock('./agentic-merchant-identity', () => ({
   resolveAgenticMerchantIdentity: mocks.resolveAgenticMerchantIdentity,
 }));
 

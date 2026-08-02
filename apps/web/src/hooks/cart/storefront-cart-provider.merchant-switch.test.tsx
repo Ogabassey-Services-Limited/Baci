@@ -86,4 +86,28 @@ describe('StorefrontCartProvider merchant switching', () => {
       'prod-1',
     ]);
   });
+
+  it('preserves current cart state when the active merchant is set again', async () => {
+    const firstProduct = { ...product, id: 'first-added' };
+    const secondProduct = { ...product, id: 'second-added' };
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="first">
+        {children}
+      </StorefrontCartProvider>
+    );
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.setMerchantSlug('second');
+      result.current.addToCart(firstProduct, 1);
+      result.current.setMerchantSlug('second');
+      result.current.addToCart(secondProduct, 1);
+    });
+
+    expect(result.current.cart.map((item) => item.id)).toEqual([
+      'first-added',
+      'second-added',
+    ]);
+  });
 });

@@ -20,6 +20,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_merchant_id uuid;
+  v_rate_allowed boolean;
 BEGIN
   IF p_merchant_slug IS NULL
     OR pg_catalog.length(pg_catalog.btrim(p_merchant_slug)) NOT BETWEEN 1 AND 100
@@ -43,6 +44,26 @@ BEGIN
     OR (p_approved_price IS NOT NULL AND (p_approved_price < 0 OR p_approved_price > 1000000000000))
     OR (p_discount_percentage IS NOT NULL AND (p_discount_percentage < 0 OR p_discount_percentage > 100))
   THEN
+    RETURN;
+  END IF;
+
+  -- The RPC is callable with the anon key, so keep direct /rest/v1/rpc calls
+  -- bounded even when they bypass the Next.js IP limiter. Fail closed if the
+  -- shared limiter is unavailable rather than turning this writer into an
+  -- unbounded anonymous insert path.
+  BEGIN
+    v_rate_allowed := public.check_rate_limit(
+      'santa-analytics:' || pg_catalog.btrim(p_merchant_slug) || ':' || p_client_ip,
+      'santa_interaction_rpc',
+      60,
+      60
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_rate_allowed := false;
+  END;
+
+  IF v_rate_allowed IS DISTINCT FROM true THEN
     RETURN;
   END IF;
 

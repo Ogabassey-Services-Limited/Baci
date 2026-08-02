@@ -7,11 +7,9 @@ import { getCachedSantaProducts } from '@/ai/santa-data';
 import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
 import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { sanitizeHtml } from '@/lib/sanitize';
-import {
-  generateSessionId,
-  logSantaInteraction,
-  parseWishResult,
-} from './santa-analytics';
+import { logSantaInteraction } from './santa-analytics';
+import { generateSessionId } from './santa-session-id';
+import { parseWishResult } from './santa-wish-result';
 
 export const maxDuration = 30;
 const SANTA_ROUTE_DEADLINE_MS = 29_000;

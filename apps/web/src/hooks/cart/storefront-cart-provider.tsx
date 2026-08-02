@@ -47,6 +47,7 @@ export function StorefrontCartProvider({
   const [merchantSlug, setMerchantSlugState] = useState<string | null>(
     initialMerchantSlug
   );
+  const merchantSlugRef = useRef<string | null>(initialMerchantSlug);
   const [isHydrated, setIsHydrated] = useState(false);
   // Tracks idle/interaction-driven activation only. The non-deferred case is
   // derived below so the activation effect never sets state synchronously.
@@ -73,6 +74,7 @@ export function StorefrontCartProvider({
     setPrevInitialMerchantSlug(initialMerchantSlug);
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     const merchantCartState = getMerchantCartState(slugToUse);
+    merchantSlugRef.current = slugToUse;
     setMerchantSlugState(slugToUse);
     // Prune quiz-prize voucher lines whose signed token has already expired
     // (7-day window). An expired voucher line is forced to ₦0 and re-fails
@@ -97,6 +99,7 @@ export function StorefrontCartProvider({
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     const merchantCartState = getMerchantCartState(slugToUse);
+    merchantSlugRef.current = slugToUse;
     setCart(merchantCartState.cart);
     setCartWideNegotiationActive(merchantCartState.cartWideNegotiationActive);
     setMerchantSlugState(slugToUse);
@@ -538,6 +541,7 @@ export function StorefrontCartProvider({
     saveCartToStorage([], slugToClear);
     saveCartWideNegotiationToStorage(false, slugToClear);
     setCart([]);
+    merchantSlugRef.current = null;
     setMerchantSlugState(null);
     saveMerchantSlugToStorage(null);
     setCartWideNegotiationActive(false);
@@ -545,6 +549,12 @@ export function StorefrontCartProvider({
   };
 
   const setMerchantSlug = (slug: string) => {
+    if (merchantSlugRef.current === slug) {
+      saveMerchantSlugToStorage(slug);
+      return;
+    }
+
+    merchantSlugRef.current = slug;
     const merchantCartState = getMerchantCartState(slug);
     setMerchantSlugState(slug);
     setCart(merchantCartState.cart);
