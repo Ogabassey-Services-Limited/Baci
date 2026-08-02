@@ -54,7 +54,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(162);
+    expect(result.manifest.pendingSources).toHaveLength(163);
     expectPendingSourceSha(
       result.manifest.pendingSources,
       'supabase/migrations/20260801142400_retry_gigl_definitive_notification_rejections.sql',
