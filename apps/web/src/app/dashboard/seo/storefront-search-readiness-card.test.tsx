@@ -15,7 +15,10 @@ describe('StorefrontSearchReadinessCard', () => {
       <StorefrontSearchReadinessCard
         assessment={{
           tier: 'indexable',
-          findings: [{ code: 'product_images', href: '/dashboard/products' }],
+          blockers: [],
+          improvements: [
+            { code: 'product_images', href: '/dashboard/products' },
+          ],
         }}
       />
     );

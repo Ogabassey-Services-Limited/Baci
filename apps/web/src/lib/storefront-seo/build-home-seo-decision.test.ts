@@ -7,6 +7,7 @@ describe('buildHomeSeoDecision', () => {
     const decision = buildHomeSeoDecision({
       isStorePublished: true,
       canonicalUrl: 'https://zorvexa.usebaci.com',
+      merchantName: 'Zorvexa',
     });
 
     expect(decision).toEqual({
@@ -23,12 +24,32 @@ describe('buildHomeSeoDecision', () => {
       buildHomeSeoDecision({
         isStorePublished: false,
         canonicalUrl: 'https://zorvexa.usebaci.com',
+        merchantName: 'Zorvexa',
       })
     ).toEqual({
       pageKind: 'home',
       index: false,
       follow: true,
       blockers: ['store_unpublished'],
+    });
+  });
+
+  it('fails closed for missing publication, canonical URL, or merchant name', () => {
+    expect(
+      buildHomeSeoDecision({
+        isStorePublished: undefined,
+        canonicalUrl: null,
+        merchantName: '   ',
+      })
+    ).toEqual({
+      pageKind: 'home',
+      index: false,
+      follow: true,
+      blockers: [
+        'store_unpublished',
+        'missing_home_canonical_url',
+        'missing_home_merchant_name',
+      ],
     });
   });
 });

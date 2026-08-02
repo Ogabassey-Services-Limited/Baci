@@ -26,7 +26,7 @@ export function buildProductSitemapEntry({
   const url = `${storeUrl}${getProductUrl({
     id: product.id,
     slug: product.slug ?? undefined,
-    name: product.slug || product.id,
+    name: product.name ?? '',
     category: product.category,
     categories: normalizedJoinedCategory,
     canonical_url: product.canonical_url,

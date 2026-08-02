@@ -4,7 +4,7 @@ export function toProductIndexingFacts({
   name,
   canonicalUrl,
 }: {
-  isStorePublished: boolean;
+  isStorePublished: boolean | null | undefined;
   status: string | null | undefined;
   name: string | null | undefined;
   canonicalUrl: string | null | undefined;

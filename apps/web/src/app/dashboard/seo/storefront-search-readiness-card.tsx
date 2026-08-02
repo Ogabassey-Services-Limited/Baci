@@ -12,13 +12,14 @@ export function StorefrontSearchReadinessCard({
       : assessment.tier === 'enhanced'
         ? 'Enhanced foundation'
         : 'Indexable foundation';
+  const findings = [...assessment.blockers, ...assessment.improvements];
 
   return (
     <section aria-labelledby="storefront-search-readiness-title">
       <h2 id="storefront-search-readiness-title">{title}</h2>
-      {assessment.findings.length > 0 ? (
+      {findings.length > 0 ? (
         <ul>
-          {assessment.findings.map((finding) => (
+          {findings.map((finding) => (
             <li key={finding.code}>
               <Link href={finding.href}>
                 {finding.code.replaceAll('_', ' ')}

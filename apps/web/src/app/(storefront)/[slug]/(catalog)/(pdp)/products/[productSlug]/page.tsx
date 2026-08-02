@@ -149,8 +149,8 @@ export async function generateMetadata(
   );
   const robots = buildProductSeoDecision(
     toProductIndexingFacts({
-      isStorePublished: merchant.is_published !== false,
-      status: product.status ?? 'active',
+      isStorePublished: merchant.is_published,
+      status: product.status,
       name: product.name,
       canonicalUrl,
     })

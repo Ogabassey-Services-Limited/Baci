@@ -1,4 +1,6 @@
 export type StorefrontSearchReadinessFindingCode =
+  | 'home_not_indexable'
+  | 'empty_active_catalog'
   | 'store_copy'
   | 'support_details'
   | 'trust_policies'
@@ -17,7 +19,8 @@ export interface StorefrontSearchReadinessFinding {
 
 export interface StorefrontSearchReadinessAssessment {
   tier: 'blocked' | 'indexable' | 'enhanced';
-  findings: StorefrontSearchReadinessFinding[];
+  blockers: StorefrontSearchReadinessFinding[];
+  improvements: StorefrontSearchReadinessFinding[];
 }
 
 export function buildStorefrontSearchReadinessAssessment({
@@ -39,29 +42,39 @@ export function buildStorefrontSearchReadinessAssessment({
   missingProductImageCount: number;
   missingCategoryIntroductionCount: number;
 }): StorefrontSearchReadinessAssessment {
-  const findings: StorefrontSearchReadinessFinding[] = [];
+  const blockers: StorefrontSearchReadinessFinding[] = [];
+  const improvements: StorefrontSearchReadinessFinding[] = [];
+  if (!homeIndexable) {
+    blockers.push({ code: 'home_not_indexable', href: '/dashboard/settings' });
+  }
+  if (activeProductCount === 0) {
+    improvements.push({
+      code: 'empty_active_catalog',
+      href: '/dashboard/products',
+    });
+  }
   if (!hasStoreCopy)
-    findings.push({ code: 'store_copy', href: '/dashboard/settings' });
+    improvements.push({ code: 'store_copy', href: '/dashboard/settings' });
   if (!hasSupportDetails) {
-    findings.push({ code: 'support_details', href: '/dashboard/settings' });
+    improvements.push({ code: 'support_details', href: '/dashboard/settings' });
   }
   if (!hasPolicies) {
-    findings.push({
+    improvements.push({
       code: 'trust_policies',
       href: '/dashboard/settings/trust',
     });
   }
   if (activeProductCount > 0 && missingProductDescriptionCount > 0) {
-    findings.push({
+    improvements.push({
       code: 'product_descriptions',
       href: '/dashboard/products',
     });
   }
   if (activeProductCount > 0 && missingProductImageCount > 0) {
-    findings.push({ code: 'product_images', href: '/dashboard/products' });
+    improvements.push({ code: 'product_images', href: '/dashboard/products' });
   }
   if (missingCategoryIntroductionCount > 0) {
-    findings.push({
+    improvements.push({
       code: 'category_introductions',
       href: '/dashboard/categories',
     });
@@ -69,10 +82,11 @@ export function buildStorefrontSearchReadinessAssessment({
 
   return {
     tier: homeIndexable
-      ? findings.length === 0
+      ? improvements.length === 0
         ? 'enhanced'
         : 'indexable'
       : 'blocked',
-    findings,
+    blockers,
+    improvements,
   };
 }

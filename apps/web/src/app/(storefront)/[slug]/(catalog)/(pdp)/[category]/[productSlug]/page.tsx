@@ -639,7 +639,7 @@ function mapCachedProductLcpHintToRouteProduct(
     sale_price: legacyPrices.salePrice,
     schema_markup: cachedProduct.schema_markup as Product['schema_markup'],
     slug: cachedProduct.slug ?? cachedProduct.id,
-    status: 'active',
+    status: cachedProduct.status === 'active' ? 'active' : 'archived',
     stock: effectiveStock,
     stock_quantity: effectiveStock,
     updated_at: cachedProduct.updated_at,

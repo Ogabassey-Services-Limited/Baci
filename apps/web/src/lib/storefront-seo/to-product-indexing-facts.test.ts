@@ -17,4 +17,15 @@ describe('toProductIndexingFacts', () => {
       canonicalUrl: 'https://zorvexa.usebaci.com/fashion/linen-shirt',
     });
   });
+
+  it('does not infer active status when the resolved product status is absent', () => {
+    expect(
+      toProductIndexingFacts({
+        isStorePublished: true,
+        status: undefined,
+        name: 'Linen Shirt',
+        canonicalUrl: 'https://zorvexa.usebaci.com/fashion/linen-shirt',
+      }).isActive
+    ).toBe(false);
+  });
 });

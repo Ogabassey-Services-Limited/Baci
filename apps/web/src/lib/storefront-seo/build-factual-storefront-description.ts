@@ -5,6 +5,21 @@ function clean(value: string | null | undefined): string | null {
   return trimmed ? sanitizeText(trimmed) || null : null;
 }
 
+const SUPPORTED_COUNTRY_CODES = new Set([
+  'NG',
+  'GH',
+  'KE',
+  'ZA',
+  'UG',
+  'TZ',
+  'RW',
+  'CI',
+  'SN',
+  'US',
+  'GB',
+  'CA',
+]);
+
 export function buildFactualStorefrontDescription({
   businessName,
   siteDescription,
@@ -27,7 +42,9 @@ export function buildFactualStorefrontDescription({
   const storeName = clean(businessName) || 'Store';
   const category = clean(categoryName);
   const normalizedCountry = clean(country)?.toUpperCase();
-  const location = normalizedCountry ? ` in ${normalizedCountry}` : '';
+  const location = SUPPORTED_COUNTRY_CODES.has(normalizedCountry ?? '')
+    ? ` in ${normalizedCountry}`
+    : '';
 
   return category
     ? `${storeName} offers ${category}${location}.`

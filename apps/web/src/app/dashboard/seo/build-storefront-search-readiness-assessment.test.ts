@@ -16,7 +16,8 @@ describe('buildStorefrontSearchReadinessAssessment', () => {
       })
     ).toEqual({
       tier: 'indexable',
-      findings: [
+      blockers: [],
+      improvements: [
         { code: 'store_copy', href: '/dashboard/settings' },
         { code: 'support_details', href: '/dashboard/settings' },
         { code: 'trust_policies', href: '/dashboard/settings/trust' },
@@ -38,7 +39,34 @@ describe('buildStorefrontSearchReadinessAssessment', () => {
         missingProductDescriptionCount: 0,
         missingProductImageCount: 0,
         missingCategoryIntroductionCount: 0,
-      }).tier
-    ).toBe('blocked');
+      })
+    ).toMatchObject({
+      tier: 'blocked',
+      blockers: [{ code: 'home_not_indexable', href: '/dashboard/settings' }],
+      improvements: [
+        { code: 'empty_active_catalog', href: '/dashboard/products' },
+      ],
+    });
+  });
+
+  it('keeps an empty active catalog out of the enhanced tier', () => {
+    expect(
+      buildStorefrontSearchReadinessAssessment({
+        homeIndexable: true,
+        hasStoreCopy: true,
+        hasSupportDetails: true,
+        hasPolicies: true,
+        activeProductCount: 0,
+        missingProductDescriptionCount: 0,
+        missingProductImageCount: 0,
+        missingCategoryIntroductionCount: 0,
+      })
+    ).toMatchObject({
+      tier: 'indexable',
+      blockers: [],
+      improvements: [
+        { code: 'empty_active_catalog', href: '/dashboard/products' },
+      ],
+    });
   });
 });

@@ -3,9 +3,12 @@ import {
   ensurePermission,
   MerchantAuthenticationRequiredError,
 } from '@/lib/merchant-server';
+import { buildStoreUrl } from '@/lib/store-url';
 import { buildHomeSeoDecision } from '@/lib/storefront-seo/build-home-seo-decision';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createClient } from '@/lib/supabase/server';
 import { buildStorefrontSearchReadinessAssessment } from './build-storefront-search-readiness-assessment';
+import { hasPublishableTrustPolicy } from './has-publishable-trust-policy';
 
 async function countRows(
   query: PromiseLike<{
@@ -39,7 +42,7 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
     supabase
       .from('merchants')
       .select(
-        'is_published, site_description, site_tagline, support_email, support_phone, trust_profile'
+        'business_name, is_published, slug, custom_domain, site_description, site_tagline, support_email, support_phone, trust_profile'
       )
       .eq('id', merchant.id)
       .maybeSingle(),
@@ -56,7 +59,7 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
         .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .is('description', null)
+        .or('description.is.null,description.eq.')
     ),
     countRows(
       supabase
@@ -64,7 +67,7 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
         .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .is('image', null)
+        .or('images.is.null,images.eq.[]')
     ),
     countRows(
       supabase
@@ -72,7 +75,7 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
         .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .eq('is_active', true)
-        .is('description', null)
+        .or('description.is.null,description.eq.')
     ),
   ]);
 
@@ -81,10 +84,17 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
   }
 
   const merchantFacts = merchantResult.data;
+  const canonicalUrl = merchantFacts.slug?.trim()
+    ? buildStoreUrl({
+        slug: merchantFacts.slug,
+        custom_domain: merchantFacts.custom_domain,
+      })
+    : null;
   return buildStorefrontSearchReadinessAssessment({
     homeIndexable: buildHomeSeoDecision({
       isStorePublished: merchantFacts.is_published === true,
-      canonicalUrl: 'https://storefront.invalid',
+      canonicalUrl,
+      merchantName: merchantFacts.business_name,
     }).index,
     hasStoreCopy: Boolean(
       merchantFacts.site_description?.trim() ||
@@ -93,7 +103,11 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
     hasSupportDetails: Boolean(
       merchantFacts.support_email?.trim() || merchantFacts.support_phone?.trim()
     ),
-    hasPolicies: Boolean(merchantFacts.trust_profile),
+    hasPolicies: hasPublishableTrustPolicy(
+      buildMerchantTrustProfile({
+        trust_profile: merchantFacts.trust_profile,
+      })
+    ),
     activeProductCount: activeProducts,
     missingProductDescriptionCount: missingDescriptions,
     missingProductImageCount: missingImages,

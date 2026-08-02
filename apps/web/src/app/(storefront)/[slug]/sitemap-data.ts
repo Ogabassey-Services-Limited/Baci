@@ -15,16 +15,9 @@ import {
   resolveMerchantContextIdentifier,
   resolveRouteIdentifier,
 } from '@/lib/storefront-route-identifier';
-import { buildHomeSeoDecision } from '@/lib/storefront-seo/build-home-seo-decision';
 import { buildProductSeoDecision } from '@/lib/storefront-seo/build-product-seo-decision';
 import { isSeoSitemapEligible } from '@/lib/storefront-seo/seo-indexing-metadata';
 import { toProductIndexingFacts } from '@/lib/storefront-seo/to-product-indexing-facts';
-import {
-  buildMerchantTrustProfile,
-  hasPublishableReturnsPolicy,
-  hasPublishableShippingPolicy,
-  hasPublishableWarrantyPolicy,
-} from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
 import { buildCategorySitemapEntries } from './build-category-sitemap-entries';
@@ -32,6 +25,15 @@ import {
   buildProductSitemapEntry,
   type ProductWithCategory,
 } from './build-product-sitemap-entry';
+import {
+  getStaticSitemapEntries,
+  getTrustPolicySitemapEntries,
+} from './storefront-static-sitemap-entries';
+
+export {
+  getStaticSitemapEntries,
+  getTrustPolicySitemapEntries,
+} from './storefront-static-sitemap-entries';
 
 const SITEMAP_QUERY_PAGE_SIZE = 1000;
 // Sitemap spec caps a single file at 50,000 URLs. Leave headroom so the
@@ -190,71 +192,6 @@ export async function resolveStorefrontSitemapContext(
   return result.status === 'found' ? result.context : null;
 }
 
-// lastmod must reflect real content changes — Google ignores it site-wide
-// once it sees request-time values. merchant.updated_at is the closest
-// DB-backed signal for static/policy pages; omit the field when absent.
-function getMerchantLastModified(
-  merchant: StorefrontSitemapContext['merchant']
-): Date | undefined {
-  return merchant.updated_at ? new Date(merchant.updated_at) : undefined;
-}
-
-export function getStaticSitemapEntries({
-  merchant,
-  storeUrl,
-}: Pick<
-  StorefrontSitemapContext,
-  'merchant' | 'storeUrl'
->): MetadataRoute.Sitemap {
-  if (
-    !isSeoSitemapEligible(
-      buildHomeSeoDecision({
-        isStorePublished: merchant.is_published !== false,
-        canonicalUrl: storeUrl,
-      })
-    )
-  ) {
-    return [];
-  }
-  const lastModified = getMerchantLastModified(merchant);
-
-  return [
-    {
-      url: storeUrl,
-      lastModified,
-      changeFrequency: 'daily',
-      priority: 1,
-    },
-    {
-      url: `${storeUrl}/faq`,
-      lastModified,
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-  ];
-}
-
-export function getTrustPolicySitemapEntries({
-  merchant,
-  storeUrl,
-}: StorefrontSitemapContext): MetadataRoute.Sitemap {
-  const trustProfile = buildMerchantTrustProfile(merchant, storeUrl);
-  const trustUrls = [
-    hasPublishableReturnsPolicy(trustProfile) ? `${storeUrl}/returns` : null,
-    hasPublishableShippingPolicy(trustProfile) ? `${storeUrl}/shipping` : null,
-    hasPublishableWarrantyPolicy(trustProfile) ? `${storeUrl}/warranty` : null,
-  ].filter((url): url is string => typeof url === 'string' && url.length > 0);
-
-  const lastModified = getMerchantLastModified(merchant);
-
-  return trustUrls.map((url) => ({
-    url,
-    lastModified,
-    changeFrequency: 'monthly',
-    priority: 0.5,
-  }));
-}
-
 export function getStaticAndTrustSitemapEntries(
   context: StorefrontSitemapContext
 ): MetadataRoute.Sitemap {
@@ -313,9 +250,9 @@ export async function getProductSitemapEntries({
     const entry = buildProductSitemapEntry({ product, storeUrl });
     const decision = buildProductSeoDecision(
       toProductIndexingFacts({
-        isStorePublished: merchant.is_published !== false,
+        isStorePublished: merchant.is_published,
         status: 'active',
-        name: product.name ?? product.slug,
+        name: product.name,
         canonicalUrl: entry.url,
       })
     );
@@ -343,23 +280,10 @@ export async function getCategorySitemapEntries({
   }
 
   const activeCategories = categories.filter(
-    (category) => category.is_active !== false
+    (category) => category.is_active === true
   );
-  if (typeof merchant.is_published !== 'boolean') {
-    return activeCategories.flatMap((category) => {
-      const slug = category.slug?.trim();
-      if (!slug) return [];
-      return [
-        {
-          url: `${storeUrl}/${slug}`,
-          lastModified: category.updated_at
-            ? new Date(category.updated_at)
-            : undefined,
-          changeFrequency: 'daily' as const,
-          priority: 0.7,
-        },
-      ];
-    });
+  if (activeCategories.length === 0) {
+    return [];
   }
   const categoryCounts = await getCachedCategoryProductCounts(
     merchant.id,
@@ -369,7 +293,7 @@ export async function getCategorySitemapEntries({
   return buildCategorySitemapEntries({
     categories: activeCategories,
     categoryCounts,
-    isStorePublished: merchant.is_published !== false,
+    isStorePublished: merchant.is_published,
     storeUrl,
   });
 }

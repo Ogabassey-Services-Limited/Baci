@@ -124,7 +124,7 @@ describe('getStorefrontSeoDescription', () => {
           site_tagline: '   ',
         })
       )
-    ).toBe('Shop Foodflow - order fresh food online with secure checkout.');
+    ).toBe('Foodflow storefront.');
   });
 
   it('sanitizes custom description fields before returning metadata', () => {
@@ -156,7 +156,7 @@ describe('getStorefrontSeoDescription', () => {
           business_type: 'food-beverage',
         })
       )
-    ).toBe('Shop Foodflow - order fresh food online with secure checkout.');
+    ).toBe('Foodflow storefront.');
   });
 
   it('removes dangerous HTML attributes from merchant names in default descriptions', () => {
@@ -167,9 +167,7 @@ describe('getStorefrontSeoDescription', () => {
       })
     );
 
-    expect(description).toBe(
-      'Shop Store - order fresh food online with secure checkout.'
-    );
+    expect(description).toBe('Store storefront.');
     expect(description).not.toContain('onerror');
   });
 
@@ -182,9 +180,7 @@ describe('getStorefrontSeoDescription', () => {
           country: 'NG',
         })
       )
-    ).toBe(
-      'Shop Foodflow - order fresh food online with secure checkout in Nigeria.'
-    );
+    ).toBe('Foodflow storefront in NG.');
   });
 
   it('uses other supported countries dynamically (no NG hardcoding)', () => {
@@ -196,9 +192,7 @@ describe('getStorefrontSeoDescription', () => {
           country: 'GH',
         })
       )
-    ).toBe(
-      'Shop CarePoint - shop pharmacy essentials online with secure checkout in Ghana.'
-    );
+    ).toBe('CarePoint storefront in GH.');
   });
 
   it('omits country phrasing when the merchant country is unknown / missing', () => {
@@ -210,9 +204,7 @@ describe('getStorefrontSeoDescription', () => {
           country: undefined,
         })
       )
-    ).toBe(
-      'Shop GlobalCo - shop fashion and style online with secure checkout.'
-    );
+    ).toBe('GlobalCo storefront.');
 
     expect(
       getStorefrontSeoDescription(
@@ -222,9 +214,7 @@ describe('getStorefrontSeoDescription', () => {
           country: 'XX',
         })
       )
-    ).toBe(
-      'Shop GlobalCo - shop fashion and style online with secure checkout.'
-    );
+    ).toBe('GlobalCo storefront.');
   });
 });
 

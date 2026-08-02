@@ -22,4 +22,18 @@ describe('buildCategorySeoDecision', () => {
       ],
     });
   });
+
+  it('fails closed when publication or category activity is not explicitly true', () => {
+    expect(
+      buildCategorySeoDecision({
+        isStorePublished: null,
+        isActive: null,
+        hasProducts: true,
+        canonicalUrl: 'https://zorvexa.usebaci.com/fashion',
+      })
+    ).toMatchObject({
+      index: false,
+      blockers: ['store_unpublished', 'inactive_category'],
+    });
+  });
 });

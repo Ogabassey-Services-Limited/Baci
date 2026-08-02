@@ -18,7 +18,7 @@ export function buildCategorySitemapEntries({
 }: {
   categories: SitemapCategory[];
   categoryCounts: Record<string, number>;
-  isStorePublished: boolean;
+  isStorePublished: boolean | null | undefined;
   storeUrl: string;
 }): MetadataRoute.Sitemap {
   return categories.flatMap((category) => {
@@ -26,7 +26,7 @@ export function buildCategorySitemapEntries({
     const url = slug ? `${storeUrl}/${slug}` : null;
     const decision = buildCategorySeoDecision({
       isStorePublished,
-      isActive: category.is_active !== false,
+      isActive: category.is_active === true,
       hasProducts: (categoryCounts[category.id] ?? 0) > 0,
       canonicalUrl: url,
     });

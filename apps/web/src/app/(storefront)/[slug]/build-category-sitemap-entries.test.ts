@@ -31,4 +31,23 @@ describe('buildCategorySitemapEntries', () => {
       }),
     ]);
   });
+
+  it('excludes null activity states instead of inferring active', () => {
+    expect(
+      buildCategorySitemapEntries({
+        categories: [
+          {
+            id: 'unknown-state',
+            slug: 'unknown-state',
+            updated_at: null,
+            is_active: null,
+            parent_id: null,
+          },
+        ],
+        categoryCounts: { 'unknown-state': 1 },
+        isStorePublished: true,
+        storeUrl: 'https://zorvexa.usebaci.com',
+      })
+    ).toEqual([]);
+  });
 });

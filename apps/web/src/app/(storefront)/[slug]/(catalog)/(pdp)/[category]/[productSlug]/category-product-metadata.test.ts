@@ -8,6 +8,7 @@ describe('buildCategoryProductMetadata', () => {
       merchant: {
         business_name: 'Zorvexa',
         country: 'NG',
+        is_published: true,
         slug: 'zorvexa',
       } as never,
       product: {
@@ -19,6 +20,7 @@ describe('buildCategoryProductMetadata', () => {
         category: 'Fashion',
         categories: { name: 'Fashion', slug: 'fashion' },
         price: 12_000,
+        status: 'active',
         images: ['https://cdn.example.com/linen-shirt.jpg'],
       } as never,
       storeSlug: 'zorvexa',

@@ -1,5 +1,6 @@
 import type { CachedMerchant } from '@/lib/cached-data';
 import { sanitizeText } from '@/lib/sanitize-core';
+import { buildFactualStorefrontDescription } from '@/lib/storefront-seo/build-factual-storefront-description';
 
 const DEFAULT_STORE_NAME = 'Store';
 
@@ -110,19 +111,13 @@ function cleanSeoField(value?: string | null): string | null {
 export function getStorefrontSeoDescription(
   merchant: StorefrontSeoMerchant
 ): string {
-  const customDescription = cleanSeoField(merchant.site_description);
-  const customTagline = cleanSeoField(merchant.site_tagline);
-  const businessName =
-    cleanSeoField(merchant.business_name) || DEFAULT_STORE_NAME;
-
-  if (customDescription || customTagline) {
-    return customDescription || customTagline || '';
-  }
-
-  const tagline = getStorefrontSeoTagline(merchant.business_type).toLowerCase();
-  const countryName = getStorefrontCountryDisplayName(merchant.country);
-  const suffix = countryName ? ` in ${countryName}` : '';
-  return `Shop ${businessName} - ${tagline} with secure checkout${suffix}.`;
+  return buildFactualStorefrontDescription({
+    businessName: merchant.business_name,
+    siteDescription: merchant.site_description,
+    siteTagline: merchant.site_tagline,
+    categoryName: null,
+    country: merchant.country,
+  });
 }
 
 export function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant): string {

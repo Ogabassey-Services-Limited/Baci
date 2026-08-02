@@ -10,6 +10,7 @@ describe('SEO indexing metadata adapters', () => {
     const decision = buildHomeSeoDecision({
       isStorePublished: false,
       canonicalUrl: 'https://zorvexa.usebaci.com',
+      merchantName: 'Zorvexa',
     });
 
     expect(toNextRobotsMetadata(decision)).toEqual({

@@ -270,6 +270,7 @@ describe('sitemap-data', () => {
       .mockResolvedValueOnce({
         id: 'merchant-1',
         slug: 'ogabassey',
+        is_published: true,
       });
     const { resolveStorefrontSitemapContext } = sitemapData;
 
@@ -305,6 +306,7 @@ describe('sitemap-data', () => {
       merchant: {
         id: 'merchant-1',
         slug: 'ogabassey',
+        is_published: true,
         updated_at: '2026-06-01T00:00:00Z',
       },
       storeUrl: 'https://ogabassey.com',
@@ -327,7 +329,7 @@ describe('sitemap-data', () => {
   it('omits lastmod from static entries when the merchant has no updated_at', () => {
     const { getStaticSitemapEntries } = sitemapData;
     const entries = getStaticSitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
       storeUrl: 'https://ogabassey.com',
     } as unknown as Parameters<typeof getStaticSitemapEntries>[0]);
 
@@ -380,10 +382,12 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      is_published: true,
     });
     mockProductsQuery([
       {
         id: 'p1',
+        name: 'iPhone 15',
         slug: 'iphone-15',
         category: 'Smartphones',
         images: ['https://img.example.com/iphone.jpg'],
@@ -416,11 +420,13 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      is_published: true,
     });
 
     mockProductsQuery(
       Array.from({ length: 1002 }, (_, index) => ({
         id: `p${index + 1}`,
+        name: `Product ${index + 1}`,
         slug: `product-${index + 1}`,
         category: 'Smartphones',
         images: [],
@@ -455,10 +461,12 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      is_published: true,
     });
     mockProductsQuery([
       {
         id: 'p2',
+        name: 'MacBook Pro M4 Max',
         slug: 'macbook-pro-m4-max-36gb-1tb-16-inch',
         category: 'Laptops',
         images: [],
@@ -1351,7 +1359,7 @@ describe('sitemap-data', () => {
     expect(body).toContain('<sitemapindex');
   });
 
-  it('omits lastmod from category entries when updated_at is missing', async () => {
+  it('omits categories with unknown active state', async () => {
     mockCategoriesQuery([{ slug: 'smartphones', updated_at: null }]);
     const { getCategorySitemapEntries } = sitemapData;
 
@@ -1365,10 +1373,7 @@ describe('sitemap-data', () => {
       },
     } as unknown as StorefrontSitemapContext);
 
-    expect(entries).toEqual([
-      expect.objectContaining({ url: 'https://ogabassey.com/smartphones' }),
-    ]);
-    expect(entries[0]?.lastModified).toBeUndefined();
+    expect(entries).toEqual([]);
   });
 
   it('lists only inventory-qualified curated brand authority hubs', async () => {

@@ -215,11 +215,18 @@ export async function generateMetadata({
   });
   const firstProductImage = paginatedProducts[0]?.image || null;
   const socialImageCandidates = [firstProductImage, merchant.logo_url];
+  const categoryQueryFailed =
+    'categoryQueryFailed' in data && data.categoryQueryFailed === true;
   const existingRobots = getIndexableRobotsMetadata(resolvedSearchParams);
   const categoryDecision = buildCategorySeoDecision({
     isStorePublished: merchant.is_published === true,
-    isActive: data.isCollection || !data.isInactiveCategory,
-    hasProducts: (data.productCount ?? productSlots.length) > 0,
+    isActive:
+      !categoryQueryFailed &&
+      (data.isCollection || data.isInactiveCategory === false),
+    hasProducts:
+      !data.productsQueryFailed &&
+      !categoryQueryFailed &&
+      (data.productCount ?? productSlots.length) > 0,
     canonicalUrl: paginatedCategoryUrl,
   });
 

@@ -186,6 +186,7 @@ export async function generateMetadata({
     buildHomeSeoDecision({
       isStorePublished: merchant.is_published === true,
       canonicalUrl: baseUrl,
+      merchantName: merchant.business_name || merchant.slug,
     })
   );
 
