@@ -55,22 +55,32 @@ describe('normalizeStorefrontBusinessType', () => {
 
 describe('getStorefrontSeoTagline', () => {
   it.each([
-    ['food-beverage', 'Order Fresh Food Online'],
-    ['pharmaceuticals', 'Shop Pharmacy Essentials Online'],
-    ['health-beauty', 'Shop Beauty and Wellness Essentials'],
-    ['hair-extensions', 'Shop Premium Hair Extensions'],
-    ['home-goods', 'Shop Home Essentials Online'],
-    ['fashion', 'Shop Fashion and Style Online'],
-    ['handmade', 'Shop Handmade Goods Online'],
-    ['electronics', 'Buy Gadgets Pay Later'],
-  ])('returns industry-specific copy for %s', (businessType, expected) => {
-    expect(getStorefrontSeoTagline(businessType)).toBe(expected);
+    'food-beverage',
+    'pharmaceuticals',
+    'health-beauty',
+    'hair-extensions',
+    'home-goods',
+    'fashion',
+    'handmade',
+    'electronics',
+  ])('uses neutral storefront copy for %s', (businessType) => {
+    expect(getStorefrontSeoTagline(businessType)).toBe('Storefront');
   });
 
-  it('returns generic copy for unknown / missing business types', () => {
-    expect(getStorefrontSeoTagline(undefined)).toBe('Shop Online');
-    expect(getStorefrontSeoTagline(null)).toBe('Shop Online');
-    expect(getStorefrontSeoTagline('unknown-type')).toBe('Shop Online');
+  it('uses neutral storefront copy for unknown / missing business types', () => {
+    expect(getStorefrontSeoTagline(undefined)).toBe('Storefront');
+    expect(getStorefrontSeoTagline(null)).toBe('Storefront');
+    expect(getStorefrontSeoTagline('unknown-type')).toBe('Storefront');
+  });
+
+  it.each([
+    'Buy Gadgets Pay Later',
+    'Premium Hair Extensions',
+    'Fresh Food',
+  ])('never infers the unsupported fallback claim %s', (claim) => {
+    expect(getStorefrontSeoTagline('electronics')).not.toContain(claim);
+    expect(getStorefrontSeoTagline('hair-extensions')).not.toContain(claim);
+    expect(getStorefrontSeoTagline('food-beverage')).not.toContain(claim);
   });
 });
 
@@ -231,19 +241,23 @@ describe('getStorefrontSeoTitle', () => {
     ).toBe('CarePoint Pharmacy');
   });
 
-  it('replaces the stale "Buy Gadgets Pay Later" title for non-electronics stores', () => {
+  it.each([
+    'Buy Gadgets Pay Later',
+    'Premium Hair Extensions',
+    'Fresh Food',
+  ])('replaces stale unsupported title claim %s', (claim) => {
     expect(
       getStorefrontSeoTitle(
         makeMerchant({
           business_name: 'Medplus',
           business_type: 'pharmaceuticals',
-          site_title: 'Medplus | Buy Gadgets Pay Later',
+          site_title: `Medplus | ${claim}`,
         })
       )
-    ).toBe('Medplus | Shop Pharmacy Essentials Online');
+    ).toBe('Medplus | Storefront');
   });
 
-  it('keeps the gadget title for electronics stores', () => {
+  it('replaces a stale claim even when its category appears to match', () => {
     expect(
       getStorefrontSeoTitle(
         makeMerchant({
@@ -252,7 +266,7 @@ describe('getStorefrontSeoTitle', () => {
           site_title: 'GadgetHub | Buy Gadgets Pay Later',
         })
       )
-    ).toBe('GadgetHub | Buy Gadgets Pay Later');
+    ).toBe('GadgetHub | Storefront');
   });
 
   it('composes a fallback title when site_title is missing', () => {
@@ -263,7 +277,7 @@ describe('getStorefrontSeoTitle', () => {
           business_type: 'food-beverage',
         })
       )
-    ).toBe('Foodflow | Order Fresh Food Online');
+    ).toBe('Foodflow | Storefront');
   });
 
   it('treats whitespace-only custom titles as missing', () => {
@@ -275,7 +289,7 @@ describe('getStorefrontSeoTitle', () => {
           site_title: '   ',
         })
       )
-    ).toBe('Foodflow | Order Fresh Food Online');
+    ).toBe('Foodflow | Storefront');
   });
 
   it('sanitizes custom titles before returning metadata', () => {

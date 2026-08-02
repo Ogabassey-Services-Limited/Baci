@@ -3,6 +3,8 @@ import { sanitizeText } from '@/lib/sanitize-core';
 import { buildFactualStorefrontDescription } from '@/lib/storefront-seo/build-factual-storefront-description';
 
 const DEFAULT_STORE_NAME = 'Store';
+const LEGACY_UNSUPPORTED_TITLE_CLAIMS =
+  /buy gadgets pay later|premium hair extensions|fresh food/i;
 
 /**
  * Pure SEO helpers for the storefront `[slug]` layout.
@@ -79,26 +81,8 @@ export function normalizeStorefrontBusinessType(
 }
 
 export function getStorefrontSeoTagline(businessType?: string | null): string {
-  switch (normalizeStorefrontBusinessType(businessType)) {
-    case 'food':
-      return 'Order Fresh Food Online';
-    case 'pharmacy':
-      return 'Shop Pharmacy Essentials Online';
-    case 'beauty':
-      return 'Shop Beauty and Wellness Essentials';
-    case 'hair':
-      return 'Shop Premium Hair Extensions';
-    case 'home':
-      return 'Shop Home Essentials Online';
-    case 'fashion':
-      return 'Shop Fashion and Style Online';
-    case 'handmade':
-      return 'Shop Handmade Goods Online';
-    case 'electronics':
-      return 'Buy Gadgets Pay Later';
-    default:
-      return 'Shop Online';
-  }
+  void businessType;
+  return 'Storefront';
 }
 
 function cleanSeoField(value?: string | null): string | null {
@@ -122,11 +106,11 @@ export function getStorefrontSeoDescription(
 
 export function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant): string {
   const customTitle = cleanSeoField(merchant.site_title);
-  const hasMismatchedGadgetTitle =
-    normalizeStorefrontBusinessType(merchant.business_type) !== 'electronics' &&
-    /buy gadgets pay later/i.test(customTitle || '');
+  const hasLegacyUnsupportedClaim = LEGACY_UNSUPPORTED_TITLE_CLAIMS.test(
+    customTitle || ''
+  );
 
-  if (customTitle && !hasMismatchedGadgetTitle) {
+  if (customTitle && !hasLegacyUnsupportedClaim) {
     return customTitle;
   }
 

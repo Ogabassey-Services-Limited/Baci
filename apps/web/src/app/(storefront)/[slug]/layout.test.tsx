@@ -718,9 +718,7 @@ describe('storefront layout metadata', () => {
     // and can become the first cached title seen by crawlers. Page routes own
     // HTML titles; the layout keeps shared description/icons/verification.
     expect(metadata.title).toBeUndefined();
-    expect(metadata.description).toBe(
-      'Shop Foodflow - order fresh food online with secure checkout in Nigeria.'
-    );
+    expect(metadata.description).toBe('Foodflow storefront in NG.');
   });
 
   it('replaces mismatched gadget fallback titles for non-electronics stores', async () => {
