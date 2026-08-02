@@ -546,6 +546,8 @@ export function StorefrontCartProvider({
 
   const setMerchantSlug = (slug: string) => {
     setMerchantSlugState(slug);
+    setCart(pruneExpiredVoucherCartLines(getCartFromStorage(slug)));
+    setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slug));
     saveMerchantSlugToStorage(slug);
   };
 

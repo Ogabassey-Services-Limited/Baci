@@ -14,6 +14,7 @@ function getPublicSupabaseCredentials() {
 export function createPublicClient(options: {
   clientInfo: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }): SupabaseClient {
   const { key, url } = getPublicSupabaseCredentials();
 
@@ -29,9 +30,15 @@ export function createPublicClient(options: {
       },
       fetch: (requestUrl, requestOptions = {}) => {
         const timeoutSignal = AbortSignal.timeout(options.timeoutMs ?? 10000);
-        const signal = requestOptions.signal
-          ? AbortSignal.any([requestOptions.signal, timeoutSignal])
-          : timeoutSignal;
+        const signal = options.signal
+          ? AbortSignal.any([
+              ...(requestOptions.signal ? [requestOptions.signal] : []),
+              options.signal,
+              timeoutSignal,
+            ])
+          : requestOptions.signal
+            ? AbortSignal.any([requestOptions.signal, timeoutSignal])
+            : timeoutSignal;
 
         return fetch(requestUrl, {
           ...requestOptions,

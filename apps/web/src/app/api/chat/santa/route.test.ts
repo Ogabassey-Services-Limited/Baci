@@ -113,6 +113,7 @@ describe('POST /api/chat/santa', () => {
     tenantMocks.resolveSantaTenant.mockResolvedValue({
       id: 'merchant-1',
       slug: 'winter-store',
+      businessName: 'Winter Store',
     });
     // Default: the leading (active) provider succeeds immediately.
     respondByModel({ 'mock-active-model': 'Ho ho ho!' });
@@ -221,6 +222,21 @@ describe('POST /api/chat/santa', () => {
     expect(response.status).toBe(200);
     const { getCachedSantaProducts } = await import('@/ai/santa-data');
     expect(getCachedSantaProducts).toHaveBeenCalledWith('merchant-1');
+  });
+
+  it('uses the resolved public business name in the Santa prompt', async () => {
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'I want a phone!' }],
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('gadget company called Winter Store'),
+      })
+    );
   });
 
   it('sanitizes user messages via sanitizeHtml', async () => {

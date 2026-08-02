@@ -288,8 +288,10 @@ const StoreLink = ({
 
 export default function DashboardClientLayout({
   children,
+  agenticMerchantSlug,
 }: {
   children: React.ReactNode;
+  agenticMerchantSlug?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -594,8 +596,11 @@ export default function DashboardClientLayout({
   };
 
   const canShowNavItem = (item: DashboardNavItem) => {
-    // Santa Campaign is special (only for ogabassey)
-    if (item.label === 'Santa Campaign' && merchant?.slug !== 'ogabassey') {
+    // Santa Campaign is available only to the configured agentic tenant.
+    if (
+      item.label === 'Santa Campaign' &&
+      merchant?.slug !== agenticMerchantSlug
+    ) {
       return false;
     }
 

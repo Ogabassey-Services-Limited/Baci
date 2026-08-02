@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import { headers } from 'next/headers';
 import z from 'zod';
 import { generateTextWithChain } from '@/ai/generate-text-with-chain';
@@ -8,106 +7,34 @@ import { getCachedSantaProducts } from '@/ai/santa-data';
 import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
 import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { createServiceClient } from '@/lib/supabase/service';
+import {
+  generateSessionId,
+  logSantaInteraction,
+  parseWishResult,
+} from './santa-analytics';
 
 export const maxDuration = 30;
+const SANTA_ROUTE_DEADLINE_MS = 29_000;
+const SANTA_CATALOG_TIMEOUT_MS = 4_000;
+const SANTA_GENERATION_TIMEOUT_MS = 20_000;
 
-/**
- * Generate a session ID from IP address (hashed for privacy)
- */
-function generateSessionId(ip: string): string {
-  return crypto
-    .createHash('sha256')
-    .update(`${ip}-santa-2024`)
-    .digest('hex')
-    .slice(0, 16);
-}
-
-/**
- * Parse Santa's response to detect granted wishes
- */
-function parseWishResult(response: string): {
-  type: 'wish_granted' | 'wish_denied' | 'chat';
-  productName?: string;
-  approvedPrice?: number;
-} {
-  // Check for ACTION:ADD_TO_CART pattern
-  if (response.includes('ACTION:ADD_TO_CART')) {
-    const productMatch = response.match(/PRODUCT:([^|]+)/);
-    const priceMatch = response.match(/PRICE:([^|\s]+)/);
-
-    return {
-      type: 'wish_granted',
-      productName: productMatch?.[1]?.trim(),
-      approvedPrice: priceMatch?.[1]
-        ? Number(priceMatch[1].replace(/[₦,N\s]/g, ''))
-        : undefined,
-    };
-  }
-
-  // Check for denial patterns using literal regex tests (avoid dynamic RegExp construction)
-  const isDenied =
-    /budget.*below/i.test(response) ||
-    /can't.*approve/i.test(response) ||
-    /cannot.*grant/i.test(response) ||
-    /workshop has costs/i.test(response) ||
-    /save up/i.test(response) ||
-    /payment plan/i.test(response);
-
-  return { type: isDenied ? 'wish_denied' : 'chat' };
-}
-
-/**
- * Log Santa interaction asynchronously (fire and forget)
- */
-async function logSantaInteraction(params: {
-  merchantId: string;
-  sessionId: string;
-  clientIp: string;
-  interactionType:
-    | 'chat'
-    | 'wish_granted'
-    | 'wish_denied'
-    | 'add_to_cart'
-    | 'checkout_started'
-    | 'checkout_completed';
-  userMessage?: string;
-  santaResponse?: string;
-  productName?: string;
-  requestedPrice?: number;
-  approvedPrice?: number;
-}): Promise<void> {
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
-    const serviceClient = createServiceClient();
-
-    // Calculate discount percentage if applicable
-    let discountPercentage: number | null = null;
-    if (
-      params.approvedPrice &&
-      params.requestedPrice &&
-      params.requestedPrice > params.approvedPrice
-    ) {
-      discountPercentage =
-        ((params.requestedPrice - params.approvedPrice) /
-          params.requestedPrice) *
-        100;
-    }
-
-    await serviceClient.from('santa_interactions').insert({
-      merchant_id: params.merchantId,
-      session_id: params.sessionId,
-      client_ip: params.clientIp.slice(0, 64), // Truncate for privacy
-      interaction_type: params.interactionType,
-      user_message: params.userMessage?.slice(0, 500), // Truncate for storage
-      santa_response: params.santaResponse?.slice(0, 1000), // Truncate
-      product_name: params.productName,
-      requested_price: params.requestedPrice,
-      approved_price: params.approvedPrice,
-      discount_percentage: discountPercentage,
-    });
-  } catch (error) {
-    // Log but don't fail the request
-    console.error('[Santa Analytics] Failed to log interaction:', error);
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error('Santa catalogue lookup timed out')),
+          timeoutMs
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
 }
 
@@ -130,16 +57,19 @@ const santaChatSchema = z.object({
  */
 async function generateSantaPrompt(
   merchantId: string,
-  merchantSlug: string
+  merchantName: string
 ): Promise<string> {
   try {
     // Use the optimized, cached data fetcher
-    const productList = await getCachedSantaProducts(merchantId);
+    const productList = await withTimeout(
+      getCachedSantaProducts(merchantId),
+      SANTA_CATALOG_TIMEOUT_MS
+    );
 
-    return `You are Santa Claus, partnering with a gadget company called ${merchantSlug}. Your personality is jolly, warm, kind, and a little bit whimsical.
+    return `You are Santa Claus, partnering with a gadget company called ${merchantName}. Your personality is jolly, warm, kind, and a little bit whimsical.
 
 **Your Core Purpose:**
-To receive Christmas wishes for gadgets and determine if the user's budget qualifies them for a special ${merchantSlug} discount, all while being a delightful Santa.
+To receive Christmas wishes for gadgets and determine if the user's budget qualifies them for a special ${merchantName} discount, all while being a delightful Santa.
 
 **IMPORTANT - Discount Logic:**
 Products are marked with either [HAS_COST] or [FLEX]:
@@ -171,7 +101,7 @@ ${productList}
   } catch (error) {
     console.error('[Santa] Error fetching products:', error);
     // Fallback to basic prompt
-    return `You are Santa Claus, partnering with ${merchantSlug} gadget store. Be jolly and warm. Help users with their Christmas gadget wishes. If they mention a budget, engage playfully about discounts.`;
+    return `You are Santa Claus, partnering with ${merchantName} gadget store. Be jolly and warm. Help users with their Christmas gadget wishes. If they mention a budget, engage playfully about discounts.`;
   }
 }
 
@@ -193,6 +123,11 @@ ${productList}
  */
 export async function POST(req: Request) {
   try {
+    const routeSignal = AbortSignal.any([
+      req.signal,
+      AbortSignal.timeout(SANTA_ROUTE_DEADLINE_MS),
+    ]);
+
     // Step 1: Get client identifier for rate limiting (IP-based for anonymous users)
     const headersList = await headers();
     const forwardedFor = headersList.get('x-forwarded-for');
@@ -247,7 +182,7 @@ export async function POST(req: Request) {
     // Resolve the same configured, published tenant used by the product route.
     // The anonymous client enforces the publication gate before the privileged
     // catalogue and analytics reads below.
-    const santaTenant = await resolveSantaTenant();
+    const santaTenant = await resolveSantaTenant(routeSignal);
     if (!santaTenant) {
       return new Response(
         JSON.stringify({ error: 'Santa chat is not configured' }),
@@ -281,7 +216,7 @@ export async function POST(req: Request) {
     // Step 5: Generate prompt with cached product data
     const systemPrompt = await generateSantaPrompt(
       santaTenant.id,
-      santaTenant.slug
+      santaTenant.businessName?.trim() || santaTenant.slug
     );
 
     // Buffered output replaces streaming so every provider in the chain
@@ -291,12 +226,12 @@ export async function POST(req: Request) {
     const { text } = await generateTextWithChain({
       system: systemPrompt,
       messages: sanitizedMessages,
-      abortSignal: req.signal,
+      abortSignal: routeSignal,
       perProviderTimeoutMs: 15_000,
-      // Cap the whole walk so it returns before the 30s maxDuration (4 × 15s
-      // per-provider would blow past it and hand the client an empty 504);
-      // 24s leaves slop for logging + serialization.
-      overallTimeoutMs: 24_000,
+      // The request-wide signal caps tenant resolution + catalogue loading at
+      // 29s, while this budget keeps the provider walk within the remaining
+      // time before the 30s platform maxDuration.
+      overallTimeoutMs: SANTA_GENERATION_TIMEOUT_MS,
     });
 
     // Log the interaction after response is complete (fire and forget)
