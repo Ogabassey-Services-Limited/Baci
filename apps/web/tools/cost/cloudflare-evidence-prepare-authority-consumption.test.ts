@@ -97,6 +97,47 @@ describe('cloudflare evidence approval consumption scope', () => {
     originalSync = undefined;
   });
 
+  it('rechecks approval and policy expiry after adapter validation', async () => {
+    const directory = await makePrivateTempDir();
+    const expiresAt = '2026-08-01T13:00:00.000Z';
+    const reviewed = makePolicy(expiresAt);
+    const approval = {
+      id: input.approvalId,
+      toolingMergeSha: input.toolingMergeSha,
+      policyId: input.policyId,
+      policySha256: reviewed.policySha256,
+      readTokenId: input.readTokenId,
+      readPolicySha256: input.readPolicySha256,
+      ...runnerApproval,
+      approvedAt: '2026-08-01T11:00:00.000Z',
+      expiresAt,
+    };
+    const approvalPath = join(directory, 'approval.json');
+    const policyPath = join(directory, 'policy.json');
+    await writeFile(approvalPath, JSON.stringify(approval), { mode: 0o600 });
+    await writeFile(policyPath, JSON.stringify(reviewed), { mode: 0o600 });
+    const environment = {
+      EVIDENCE_APPROVAL_ARTIFACT: approvalPath,
+      EVIDENCE_POLICY_ARTIFACT: policyPath,
+      EVIDENCE_RUN_STATE_DIR: join(directory, 'state'),
+    };
+    const clock = [new Date('2026-08-01T12:00:00.000Z'), new Date(expiresAt)];
+    try {
+      await expect(
+        verifyPrepareAuthority(input, environment, () => clock.shift() as Date)
+      ).rejects.toThrow('expired before approval consumption');
+      await expect(
+        verifyPrepareAuthority(
+          input,
+          environment,
+          new Date('2026-08-01T12:00:00.000Z')
+        )
+      ).resolves.toMatchObject({ approvalId: input.approvalId });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('keeps consumption when the complete authority scope is cloned', async () => {
     const directory = await makePrivateTempDir();
     const expiresAt = '2026-08-01T13:00:00.000Z';

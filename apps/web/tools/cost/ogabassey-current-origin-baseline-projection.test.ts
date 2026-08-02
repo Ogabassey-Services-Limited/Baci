@@ -218,11 +218,23 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
       overageUsdPerMillion: '0.60',
     });
     const atEnd = evaluateOgabasseyOriginBusinessCase(
-      { ...current, workersLogsContract: contract },
+      {
+        ...current,
+        windowStart: '2026-08-24T00:00:00.000Z',
+        windowEnd: '2026-08-31T00:00:00.000Z',
+        observedAt: '2026-08-31T22:00:00.000Z',
+        workersLogsContract: contract,
+      },
       { now: new Date('2026-09-01T00:00:00.000Z'), maximumWindowAgeDays: 40 }
     );
     expect(atEnd.verdict).toBe('NOT_PROVEN');
     expect(atEnd.reasonCodes).toContain('workers_logs_projection_invalid');
+
+    const widenedBaseline = evaluateOgabasseyOriginBusinessCase(current, {
+      now: new Date('2026-09-01T00:00:00.000Z'),
+      maximumWindowAgeDays: 40,
+    });
+    expect(widenedBaseline.reasonCodes).toContain('baseline_window_stale');
 
     const beforeStart = evaluateOgabasseyOriginBusinessCase(
       {

@@ -234,7 +234,7 @@ async function run(
       measurementRunnerModuleSha256: measurement.sha256,
     },
     environment,
-    new Date(),
+    () => new Date(),
     () =>
       Promise.all([
         validateRunnerFactory(

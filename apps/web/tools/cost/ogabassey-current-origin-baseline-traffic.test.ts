@@ -79,12 +79,6 @@ describe('Ogabassey baseline host traffic reconciliation', () => {
               }
             : row
         ),
-        transformRuleCapability: {
-          authenticated: true,
-          supported: true,
-          approved: true,
-          incrementalZonePlanCostUsd: '0.00',
-        },
         workersLogsContract: await currentWithWorkersLogsContract(),
       },
       { now }

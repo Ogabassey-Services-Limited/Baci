@@ -8,6 +8,7 @@ import {
   type OgabasseyTransformRuleCapability,
   validateTransformRuleCapability,
 } from './ogabassey-current-origin-baseline-transform';
+import { maximumBaselineAgeDays } from './ogabassey-current-origin-baseline-window';
 import {
   type RetrievedCloudflareWorkersLogsContract,
   validateWorkersLogsEvidence,
@@ -26,7 +27,6 @@ export {
 } from './cloudflare-workers-logs-contract';
 export type { OgabasseyOriginHostEvidence } from './ogabassey-current-origin-baseline-traffic';
 export { reconcileOgabasseyBaselineHostEvidence } from './ogabassey-current-origin-baseline-traffic';
-export type { OgabasseyTransformRuleCapability } from './ogabassey-current-origin-baseline-transform';
 export type {
   CloudflareWorkersLogsContractCapability,
   CloudflareWorkersLogsContractProvenance,
@@ -37,7 +37,6 @@ export {
   retrieveAuthenticatedCloudflareWorkersLogsContract as retrieveCurrentCloudflareWorkersLogsContract,
 } from './ogabassey-current-origin-baseline-workers-logs';
 
-const DEFAULT_MAXIMUM_BASELINE_AGE_DAYS = 7;
 export type OgabasseyOriginCostProjection = Readonly<{
   irreducibleDynamicOriginCostUsd: string;
   reducibleStaticOriginCostUsd: string;
@@ -117,8 +116,9 @@ export function evaluateOgabasseyOriginBusinessCase(
     : null;
   const now = options.now ?? new Date();
   const nowMs = now.valueOf();
-  const maximumWindowAgeDays =
-    options.maximumWindowAgeDays ?? DEFAULT_MAXIMUM_BASELINE_AGE_DAYS;
+  const maximumWindowAgeDays = maximumBaselineAgeDays(
+    options.maximumWindowAgeDays
+  );
   let baselineWindowValid = true;
   if (!windowStart || !windowEnd) {
     reasons.push('baseline_window_missing_or_invalid');

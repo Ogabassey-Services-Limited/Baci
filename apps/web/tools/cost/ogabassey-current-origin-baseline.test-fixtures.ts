@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { CloudflareWorkersLogsPlanContract } from './cloudflare-workers-logs-contract';
 import { retrieveCurrentCloudflareWorkersLogsContract } from './ogabassey-current-origin-baseline';
 import type { OgabasseyOriginHostEvidence } from './ogabassey-current-origin-baseline-traffic';
+import { retrieveAuthenticatedTransformRuleCapability } from './ogabassey-current-origin-baseline-transform';
 
 const NOW = new Date('2026-08-01T12:00:00.000Z');
 const OFFICIAL_DOCS = 'current-workers-logs-docs';
@@ -66,6 +67,32 @@ export function currentWithWorkersLogsContract(
   );
 }
 
+export function currentWithTransformRuleCapability(
+  overrides: Readonly<{
+    supported?: boolean;
+    approved?: boolean;
+    incrementalZonePlanCostUsd?: string;
+  }> = {}
+) {
+  const provider = JSON.stringify({ supported: overrides.supported ?? true });
+  const owner = JSON.stringify({
+    approved: overrides.approved ?? true,
+    incrementalZonePlanCostUsd: overrides.incrementalZonePlanCostUsd ?? '0.00',
+  });
+  return retrieveAuthenticatedTransformRuleCapability(
+    async () => provider,
+    async () => owner,
+    {
+      supported: overrides.supported ?? true,
+      approved: overrides.approved ?? true,
+      incrementalZonePlanCostUsd:
+        overrides.incrementalZonePlanCostUsd ?? '0.00',
+      providerCapabilitySha256: sha256(provider),
+      ownerApprovalSha256: sha256(owner),
+    }
+  );
+}
+
 const BASE_INPUT = {
   windowDays: 7,
   windowStart: '2026-07-25T00:00:00.000Z',
@@ -114,12 +141,6 @@ const BASE_INPUT = {
     irreducibleDynamicOriginCostUsd: '2.00',
     reducibleStaticOriginCostUsd: '10.00',
   },
-  transformRuleCapability: {
-    authenticated: true,
-    supported: true,
-    approved: true,
-    incrementalZonePlanCostUsd: '0.00',
-  },
   ownerApprovedPaybackMonths: 12,
   verifiedUpfrontImplementationCostUsd: '16.00',
   paybackMonths: 2,
@@ -131,5 +152,6 @@ const BASE_INPUT = {
 
 export const current = {
   ...BASE_INPUT,
+  transformRuleCapability: await currentWithTransformRuleCapability(),
   workersLogsContract: await currentWithWorkersLogsContract(),
 };

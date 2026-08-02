@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { delimiter, dirname, join, resolve } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
 import {
   createEvidenceDependencyIntegrityAuthority,
@@ -19,7 +19,14 @@ type Spawn = (
 ) => Promise<void>;
 
 const runnerModulePathFor = (workspaceRoot: string) =>
-  resolve(workspaceRoot, 'packages/shared/src/constants/countries.ts');
+  resolve(workspaceRoot, '.cloudflare-evidence-untracked-runner-fixture.ts');
+
+let untrackedRunnerPath: string | undefined;
+
+afterEach(async () => {
+  if (untrackedRunnerPath) await rm(untrackedRunnerPath, { force: true });
+  untrackedRunnerPath = undefined;
+});
 
 describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
   it('uses separate children with one allowlisted credential and exact command ownership', async () => {
@@ -33,6 +40,11 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
     const stateDir = await makePrivateTempDir('baci-evidence-isolation-');
     const toolingMergeSha = await readEvidenceToolingHead(workspaceRoot);
     const runnerModulePath = runnerModulePathFor(workspaceRoot);
+    untrackedRunnerPath = runnerModulePath;
+    await writeFile(
+      runnerModulePath,
+      'export const authenticatedPostMergeAdapter = true;\n'
+    );
     const runnerModuleSha256 = createHash('sha256')
       .update(await readFile(runnerModulePath))
       .digest('hex');

@@ -196,7 +196,10 @@ describe('verifyCloudflareEvidenceTokenPolicy', () => {
             issuedAt: '2026-07-31T12:00:00.000Z',
           }),
         },
-        { now: () => now }
+        {
+          now: () => now,
+          maximumLifetimeMs: 48 * 60 * 60 * 1000,
+        }
       )
     ).rejects.toThrow('maximum lifetime');
   });

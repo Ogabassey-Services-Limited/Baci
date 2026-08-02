@@ -204,9 +204,10 @@ async function consumeApproval(
 export async function verifyPrepareAuthority(
   input: PrepareAuthorityInput,
   environment: Readonly<Record<string, string | undefined>>,
-  now = new Date(),
+  now: Date | (() => Date) = () => new Date(),
   beforeConsume?: () => Promise<void>
 ): Promise<VerifiedPrepareAuthority> {
+  const currentTime = typeof now === 'function' ? now : () => now;
   const approvalPath = environment.EVIDENCE_APPROVAL_ARTIFACT;
   const policyPath = environment.EVIDENCE_POLICY_ARTIFACT;
   if (!approvalPath || !policyPath)
@@ -255,7 +256,7 @@ export async function verifyPrepareAuthority(
     }) !== policy.policySha256
   )
     throw new Error('approval and reviewed policy identities do not match');
-  const nowMs = now.valueOf();
+  const nowMs = currentTime().valueOf();
   const approvedAtMs = new Date(approval.approvedAt).valueOf();
   const expiresAtMs = new Date(approval.expiresAt).valueOf();
   const policyExpiresAtMs = new Date(policy.expiresAt).valueOf();
@@ -274,6 +275,15 @@ export async function verifyPrepareAuthority(
       'owner approval or token policy is expired or not yet effective'
     );
   await beforeConsume?.();
+  const consumptionTimeMs = currentTime().valueOf();
+  if (
+    !Number.isFinite(consumptionTimeMs) ||
+    expiresAtMs <= consumptionTimeMs ||
+    policyExpiresAtMs <= consumptionTimeMs
+  )
+    throw new Error(
+      'owner approval or token policy expired before approval consumption'
+    );
   await consumeApproval(approvalPath, approval, input, stateDir);
   return Object.freeze({
     approvalId: approval.id,

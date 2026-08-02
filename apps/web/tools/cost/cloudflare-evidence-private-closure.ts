@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
+import { verifyAuthenticatedEvidenceRunnerModule } from './cloudflare-evidence-authenticated-runner';
 import type { EvidenceDependencyIntegrityManifest } from './cloudflare-evidence-dependency-integrity';
 import { EVIDENCE_DEPENDENCY_INTEGRITY_MANIFEST } from './cloudflare-evidence-dependency-integrity';
 import { verifyCredentialedEvidenceCommandImportClosure } from './cloudflare-evidence-import-closure';
@@ -217,11 +218,17 @@ export async function preparePrivateCredentialedChild(
     journal,
     input.inherited
   );
-  const runner = await verifyReviewedEvidenceRunnerModule(
-    input.workspaceRoot,
-    journal.toolingMergeSha,
-    selectedRunner.descriptor
-  );
+  const runner =
+    input.command === 'record-read-revocation'
+      ? await verifyReviewedEvidenceRunnerModule(
+          input.workspaceRoot,
+          journal.toolingMergeSha,
+          selectedRunner.descriptor
+        )
+      : await verifyAuthenticatedEvidenceRunnerModule(
+          input.workspaceRoot,
+          selectedRunner.descriptor
+        );
   const revocationPath =
     input.command === 'record-read-revocation'
       ? undefined

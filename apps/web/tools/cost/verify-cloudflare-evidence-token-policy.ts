@@ -35,6 +35,8 @@ const tokenVerificationSchema = z
 // cleanup, provider readback, both revocations, and a bounded recovery margin.
 // The one-minute operation locks are not a workflow deadline.
 export const MINIMUM_REMAINING_LIFETIME_MS = 10 * 60 * 1000;
+export const MAXIMUM_WRITE_TOKEN_LIFETIME_MS = 2 * 60 * 60 * 1000;
+export const MAXIMUM_READ_TOKEN_LIFETIME_MS = 24 * 60 * 60 * 1000;
 
 export type CloudflareEvidenceTokenPolicy = z.infer<typeof policySchema>;
 export type CloudflareTokenVerification = z.infer<
@@ -84,13 +86,13 @@ export function calculateCloudflareEvidenceTokenPolicySha256(
   return calculateCanonicalSha256(canonicalizeJson(value));
 }
 
-/** Verifies a separately exported, reviewed least-privilege write policy against token status. */
-export async function verifyCloudflareEvidenceTokenPolicy(
+async function verifyCloudflareEvidenceTokenPolicyAtReviewedMaximum(
   liveToken: string,
   ownerExport: unknown,
   reviewedPolicy: unknown,
   client: CloudflareTokenVerificationClient,
-  options: TokenPolicyVerificationOptions = {}
+  options: TokenPolicyVerificationOptions,
+  reviewedMaximumLifetimeMs: number
 ): Promise<VerifiedEvidenceTokenCapability> {
   const [owner, reviewed] = [
     policySchema.parse(ownerExport),
@@ -127,7 +129,12 @@ export async function verifyCloudflareEvidenceTokenPolicy(
   const nowMs = now.valueOf();
   const issuedAtMs = new Date(live.issuedAt).valueOf();
   const expiresAtMs = new Date(owner.expiresAt).valueOf();
-  const maximumLifetimeMs = options.maximumLifetimeMs ?? 2 * 60 * 60 * 1000;
+  const requestedMaximumLifetimeMs =
+    options.maximumLifetimeMs ?? reviewedMaximumLifetimeMs;
+  const maximumLifetimeMs = Math.min(
+    requestedMaximumLifetimeMs,
+    reviewedMaximumLifetimeMs
+  );
   if (
     !Number.isFinite(nowMs) ||
     !Number.isFinite(expiresAtMs) ||
@@ -153,4 +160,40 @@ export async function verifyCloudflareEvidenceTokenPolicy(
     kind: 'write' as const,
     providerNegativeScopeUnverified: true as const,
   });
+}
+
+/** Verifies a separately exported, reviewed least-privilege write policy against token status. */
+export function verifyCloudflareEvidenceTokenPolicy(
+  liveToken: string,
+  ownerExport: unknown,
+  reviewedPolicy: unknown,
+  client: CloudflareTokenVerificationClient,
+  options: TokenPolicyVerificationOptions = {}
+) {
+  return verifyCloudflareEvidenceTokenPolicyAtReviewedMaximum(
+    liveToken,
+    ownerExport,
+    reviewedPolicy,
+    client,
+    options,
+    MAXIMUM_WRITE_TOKEN_LIFETIME_MS
+  );
+}
+
+/** Internal read-capability primitive; callers still need permission-metadata validation. */
+export function verifyCloudflareEvidenceReadTokenPolicyBase(
+  liveToken: string,
+  ownerExport: unknown,
+  reviewedPolicy: unknown,
+  client: CloudflareTokenVerificationClient,
+  options: TokenPolicyVerificationOptions = {}
+) {
+  return verifyCloudflareEvidenceTokenPolicyAtReviewedMaximum(
+    liveToken,
+    ownerExport,
+    reviewedPolicy,
+    client,
+    options,
+    MAXIMUM_READ_TOKEN_LIFETIME_MS
+  );
 }

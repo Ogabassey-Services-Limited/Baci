@@ -164,4 +164,26 @@ describe('verifyCloudflareEvidenceReadTokenPolicy', () => {
       )
     ).resolves.toMatchObject({ kind: 'read' });
   });
+
+  it('does not let a caller widen the reviewed 24-hour read-token lifetime', async () => {
+    await expect(
+      verifyCloudflareEvidenceReadTokenPolicy(
+        'token',
+        policy,
+        policy,
+        {
+          verify: async () => ({
+            id: 'read-id',
+            status: 'active',
+            issuedAt: '2026-07-31T12:00:00.000Z',
+          }),
+        },
+        readMetadata,
+        {
+          now: () => new Date('2026-08-01T12:00:00.000Z'),
+          maximumLifetimeMs: 7 * 24 * 60 * 60 * 1000,
+        }
+      )
+    ).rejects.toThrow('maximum lifetime');
+  });
 });

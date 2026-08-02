@@ -7,7 +7,7 @@ import type {
   CloudflareTokenVerificationClient,
   TokenPolicyVerificationOptions,
 } from './verify-cloudflare-evidence-token-policy';
-import { verifyCloudflareEvidenceTokenPolicy } from './verify-cloudflare-evidence-token-policy';
+import { verifyCloudflareEvidenceReadTokenPolicyBase } from './verify-cloudflare-evidence-token-policy';
 
 export type VerifiedEvidenceReadCapability = Readonly<
   CloudflareEvidenceTokenPolicy & {
@@ -38,15 +38,12 @@ export async function verifyCloudflareEvidenceReadTokenPolicy(
     permissionMetadataSha256?: string;
   } = {}
 ): Promise<VerifiedEvidenceReadCapability> {
-  const verified = await verifyCloudflareEvidenceTokenPolicy(
+  const verified = await verifyCloudflareEvidenceReadTokenPolicyBase(
     liveToken,
     ownerExport,
     reviewedPolicy,
     client,
-    {
-      ...options,
-      maximumLifetimeMs: options.maximumLifetimeMs ?? 24 * 60 * 60 * 1000,
-    }
+    options
   );
   const reviewedPermissionMetadataSha256 = verified.permissionMetadataSha256;
   if (

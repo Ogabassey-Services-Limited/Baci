@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateOgabasseyOriginBusinessCase } from './ogabassey-current-origin-baseline';
-import { current } from './ogabassey-current-origin-baseline.test-fixtures';
+import {
+  current,
+  currentWithTransformRuleCapability,
+} from './ogabassey-current-origin-baseline.test-fixtures';
 
 const options = { now: new Date('2026-08-01T12:00:00.000Z') };
 
 describe('Transform Rule capability gate', () => {
-  it('stops when exact cookie-map capability is missing, unauthenticated, or unsupported', () => {
+  it('stops when exact cookie-map capability is missing, unauthenticated, or unsupported', async () => {
     for (const transformRuleCapability of [
       undefined,
-      { ...current.transformRuleCapability, authenticated: false },
-      { ...current.transformRuleCapability, supported: false },
+      { ...current.transformRuleCapability },
+      await currentWithTransformRuleCapability({ supported: false }),
     ]) {
       expect(
         evaluateOgabasseyOriginBusinessCase(
@@ -23,15 +26,14 @@ describe('Transform Rule capability gate', () => {
     }
   });
 
-  it('stops when exact cookie-map capability lacks owner approval', () => {
+  it('stops when exact cookie-map capability lacks owner approval', async () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(
         {
           ...current,
-          transformRuleCapability: {
-            ...current.transformRuleCapability,
+          transformRuleCapability: await currentWithTransformRuleCapability({
             approved: false,
-          },
+          }),
         },
         options
       )
@@ -41,30 +43,28 @@ describe('Transform Rule capability gate', () => {
     });
   });
 
-  it('includes incremental zone-plan cost in the savings projection', () => {
+  it('includes incremental zone-plan cost in the savings projection', async () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(
         {
           ...current,
-          transformRuleCapability: {
-            ...current.transformRuleCapability,
+          transformRuleCapability: await currentWithTransformRuleCapability({
             incrementalZonePlanCostUsd: '8.00',
-          },
+          }),
         },
         options
       )
     ).toEqual({ verdict: 'STOP', reasonCodes: ['savings_not_positive'] });
   });
 
-  it('does not qualify an unparseable incremental zone-plan cost', () => {
+  it('does not qualify an unparseable incremental zone-plan cost', async () => {
     expect(
       evaluateOgabasseyOriginBusinessCase(
         {
           ...current,
-          transformRuleCapability: {
-            ...current.transformRuleCapability,
+          transformRuleCapability: await currentWithTransformRuleCapability({
             incrementalZonePlanCostUsd: '1.001',
-          },
+          }),
         },
         options
       )
