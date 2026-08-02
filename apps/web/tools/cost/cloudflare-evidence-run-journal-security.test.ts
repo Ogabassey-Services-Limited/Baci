@@ -1,7 +1,7 @@
-import { chmod, mkdtemp, symlink } from 'node:fs/promises';
+import { chmod, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   createCleanupVerificationReceipt,
   loadEvidenceRunForCleanup,
@@ -28,9 +28,11 @@ const input = {
   preInventorySha256: 'a'.repeat(64),
   expectedProbeCount: 2,
 };
+const temporaryDirectories: string[] = [];
 
 async function openedRun() {
   const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+  temporaryDirectories.push(dir);
   await chmod(dir, 0o700);
   await openEvidenceRun(dir, input);
   return dir;
@@ -48,12 +50,21 @@ async function runWithMutation() {
 }
 
 describe('Cloudflare evidence journal security boundaries', () => {
+  afterEach(async () => {
+    await Promise.all(
+      temporaryDirectories
+        .splice(0)
+        .map((directory) => rm(directory, { recursive: true, force: true }))
+    );
+  });
+
   it('never follows traversal or symlink journal paths', async () => {
     const dir = await openedRun();
     await expect(
       openEvidenceRun(dir, { ...input, runId: '../outside' })
     ).rejects.toThrow('invalid');
     const symlinkDir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+    temporaryDirectories.push(symlinkDir);
     await chmod(symlinkDir, 0o700);
     await symlink('/tmp', join(symlinkDir, `${runId}.json`));
     await expect(

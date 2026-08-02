@@ -29,27 +29,27 @@ describe('Cloudflare zero-weight qualification proof', () => {
   });
 
   it('rejects traffic receipts outside the reviewed request matrix', () => {
-    expect(
-      validateCloudflareZeroWeightProof(
-        {
-          ...proof,
-          ordinaryTraffic: {
-            ...proof.ordinaryTraffic,
-            requestSha256: '9'.repeat(64),
-          },
-        },
-        {
-          deployment,
-          stableVersionId: 'a',
-          candidateVersionId: 'b',
-          expectedOwnerApprovalId: 'owner-approval',
-          ownerAcceptanceAuthority,
-          expectedContract,
-          expectedRequestMatrix,
-          now: qualificationNow,
-        }
-      )
-    ).toEqual({ ok: false, reason: 'zero_weight_request_matrix_mismatch' });
+    const outsideMatrix = {
+      ...proof,
+      ordinaryTraffic: {
+        ...proof.ordinaryTraffic,
+        requestSha256: '9'.repeat(64),
+      },
+    };
+    const result = validateCloudflareZeroWeightProof(outsideMatrix, {
+      deployment,
+      stableVersionId: 'a',
+      candidateVersionId: 'b',
+      expectedOwnerApprovalId: 'owner-approval',
+      ownerAcceptanceAuthority,
+      expectedContract,
+      expectedRequestMatrix,
+      now: qualificationNow,
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'zero_weight_request_matrix_mismatch',
+    });
   });
 
   it('rejects ordinary traffic that records any candidate invocation', () => {

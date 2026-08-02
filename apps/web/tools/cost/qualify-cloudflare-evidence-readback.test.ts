@@ -17,25 +17,23 @@ const ownerAcceptanceOptions = {
   ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
   ...qualificationAuthorityOptions,
 };
+const readbackOptions = {
+  now: new Date('2026-07-31T00:01:00.000Z'),
+  expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]] as const,
+  expectedScriptName: readback.scriptName,
+  ...ownerAcceptanceOptions,
+};
 
 describe('Cloudflare read-only qualification contracts', () => {
   it('rejects swapped/latest-only script artifacts and cache hits', () => {
     expect(
       qualifyCloudflareEvidenceReadback(readback, {
-        now: new Date('2026-07-31T00:01:00.000Z'),
-        expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
-        expectedScriptName: readback.scriptName,
-        ...ownerAcceptanceOptions,
+        ...readbackOptions,
         expectedAccountId: 'other-account',
-      }).ok
-    ).toBe(false);
+      })
+    ).toEqual({ ok: false, reason: 'reviewed_artifacts_invalid' });
     expect(
-      qualifyCloudflareEvidenceReadback(readback, {
-        now: new Date('2026-07-31T00:01:00.000Z'),
-        expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
-        expectedScriptName: readback.scriptName,
-        ...ownerAcceptanceOptions,
-      }).ok
+      qualifyCloudflareEvidenceReadback(readback, readbackOptions).ok
     ).toBe(true);
     expect(
       qualifyCloudflareEvidenceReadback(
@@ -46,28 +44,18 @@ describe('Cloudflare read-only qualification contracts', () => {
             { ...readback.versions[1], moduleSha256: 'b'.repeat(64) },
           ],
         },
-        {
-          now: new Date('2026-07-31T00:01:00.000Z'),
-          expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
-          expectedScriptName: readback.scriptName,
-          ...ownerAcceptanceOptions,
-        }
-      ).ok
-    ).toBe(false);
+        readbackOptions
+      )
+    ).toEqual({ ok: false, reason: 'measurement_payload_mismatch' });
     expect(
       qualifyCloudflareEvidenceReadback(
         {
           ...readback,
           pointerCache: { ...readback.pointerCache, hitObserved: true },
         },
-        {
-          now: new Date('2026-07-31T00:01:00.000Z'),
-          expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
-          expectedScriptName: readback.scriptName,
-          ...ownerAcceptanceOptions,
-        }
-      ).ok
-    ).toBe(false);
+        readbackOptions
+      )
+    ).toEqual({ ok: false, reason: 'readback_schema_invalid' });
     expect(
       qualifyCloudflareEvidenceReadback(
         {
@@ -77,14 +65,9 @@ describe('Cloudflare read-only qualification contracts', () => {
             acceptedCfCacheStatuses: ['BYPASS'],
           },
         },
-        {
-          now: new Date('2026-07-31T00:01:00.000Z'),
-          expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
-          expectedScriptName: readback.scriptName,
-          ...ownerAcceptanceOptions,
-        }
-      ).ok
-    ).toBe(false);
+        readbackOptions
+      )
+    ).toEqual({ ok: false, reason: 'readback_schema_invalid' });
     expect(
       qualifyCloudflareEvidenceReadback(
         {
@@ -94,14 +77,9 @@ describe('Cloudflare read-only qualification contracts', () => {
             pointerUrl: 'https://edge-evidence.ogabassey.com/',
           },
         },
-        {
-          now: new Date('2026-07-31T00:01:00.000Z'),
-          expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]],
-          expectedScriptName: readback.scriptName,
-          ...ownerAcceptanceOptions,
-        }
-      ).ok
-    ).toBe(false);
+        readbackOptions
+      )
+    ).toEqual({ ok: false, reason: 'readback_schema_invalid' });
   });
 
   it('constructs a closed one-token environment and rejects inherited credentials', () => {

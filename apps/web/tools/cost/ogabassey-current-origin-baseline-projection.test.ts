@@ -230,12 +230,6 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
     expect(atEnd.verdict).toBe('NOT_PROVEN');
     expect(atEnd.reasonCodes).toContain('workers_logs_projection_invalid');
 
-    const widenedBaseline = evaluateOgabasseyOriginBusinessCase(current, {
-      now: new Date('2026-09-01T00:00:00.000Z'),
-      maximumWindowAgeDays: 40,
-    });
-    expect(widenedBaseline.reasonCodes).toContain('baseline_window_stale');
-
     const beforeStart = evaluateOgabasseyOriginBusinessCase(
       {
         ...current,
@@ -250,6 +244,22 @@ describe('evaluateOgabasseyOriginBusinessCase cost projection gate', () => {
     expect(beforeStart.reasonCodes).toContain(
       'workers_logs_projection_invalid'
     );
+  });
+
+  it('caps a caller-widened baseline age at the reviewed seven-day maximum', () => {
+    const result = evaluateOgabasseyOriginBusinessCase(
+      {
+        ...current,
+        windowStart: '2026-07-25T00:00:00.000Z',
+        windowEnd: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        now: new Date('2026-09-01T00:00:00.000Z'),
+        maximumWindowAgeDays: 40,
+      }
+    );
+
+    expect(result.reasonCodes).toContain('baseline_window_stale');
   });
 
   it('rejects an unparseable allowance period timestamp at contract retrieval', async () => {

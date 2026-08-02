@@ -11,7 +11,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   calculateReviewedPolicySha256,
   verifyPrepareAuthority,
@@ -121,11 +121,20 @@ describe('cloudflare evidence approval consumption scope', () => {
       EVIDENCE_POLICY_ARTIFACT: policyPath,
       EVIDENCE_RUN_STATE_DIR: join(directory, 'state'),
     };
-    const clock = [new Date('2026-08-01T12:00:00.000Z'), new Date(expiresAt)];
+    let currentTime = new Date('2026-08-01T12:00:00.000Z');
+    const validateAdapters = vi.fn(async () => {
+      currentTime = new Date(expiresAt);
+    });
     try {
       await expect(
-        verifyPrepareAuthority(input, environment, () => clock.shift() as Date)
+        verifyPrepareAuthority(
+          input,
+          environment,
+          () => currentTime,
+          validateAdapters
+        )
       ).rejects.toThrow('expired before approval consumption');
+      expect(validateAdapters).toHaveBeenCalledOnce();
       await expect(
         verifyPrepareAuthority(
           input,

@@ -122,7 +122,14 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
     await writeFile(tsxCli, '#!/usr/bin/env node\n');
     await symlink('../tsx/dist/cli.mjs', launcher);
     await writeFile(join(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n');
-    await execFileAsync('git', ['-C', root, 'init', '--quiet']);
+    await execFileAsync('git', [
+      '-C',
+      root,
+      '-c',
+      'init.defaultBranch=main',
+      'init',
+      '--quiet',
+    ]);
     await execFileAsync('git', ['-C', root, 'add', '--', '.']);
     await execFileAsync('git', [
       '-C',
@@ -131,6 +138,10 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential boundaries', () => {
       'user.email=baci-test@example.invalid',
       '-c',
       'user.name=Baci Test Fixture',
+      '-c',
+      'commit.gpgsign=false',
+      '-c',
+      'core.hooksPath=/dev/null',
       'commit',
       '--quiet',
       '-m',

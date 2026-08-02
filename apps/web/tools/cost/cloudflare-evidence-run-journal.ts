@@ -92,6 +92,7 @@ export async function readJournal(stateDir: string, runId: string) {
  * from disk. Transition callbacks must mutate that journal in place; their
  * return value is the operation result, not a replacement journal object.
  */
+/** Serializes a transition whose callback must mutate the supplied journal in place. */
 const transitionJournal = <T>(
   stateDir: string,
   runId: string,

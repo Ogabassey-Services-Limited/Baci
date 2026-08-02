@@ -279,6 +279,6 @@ describe('deep Cloudflare provider topology qualification', () => {
         }),
         input
       )
-    ).rejects.toThrow('ambiguous');
+    ).rejects.toThrow('response schema is unverified');
   });
 });

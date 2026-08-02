@@ -28,6 +28,26 @@ const zeroWeightDeployment = {
     { versionId: 'b', percentage: 0 },
   ],
 } as const;
+const pointerCacheWithoutHash = {
+  pointerUrl: QUALIFICATION_POINTER_URL,
+  cacheRuleId: 'rule',
+  cacheRulesetVersion: 'v1',
+  traceExpressionSha256: 'a'.repeat(64),
+  acceptedCfCacheStatuses: ['DYNAMIC'],
+  requestCacheMode: 'no-store',
+  repeatedProbeCount: 2,
+  ageObserved: false,
+  hitObserved: false,
+  missObserved: false,
+  qualifiedAt: '2026-07-31T00:00:00.000Z',
+  expiresAt: '2026-07-31T00:02:00.000Z',
+} as const;
+const pointerCache = {
+  ...pointerCacheWithoutHash,
+  canonicalSha256: calculatePointerCacheCanonicalSha256(
+    pointerCacheWithoutHash
+  ),
+};
 
 export const readback = {
   apiFamily: 'scripts-versions',
@@ -98,21 +118,7 @@ export const readback = {
         ),
     },
   } as const,
-  pointerCache: {
-    pointerUrl: QUALIFICATION_POINTER_URL,
-    cacheRuleId: 'rule',
-    cacheRulesetVersion: 'v1',
-    traceExpressionSha256: 'a'.repeat(64),
-    acceptedCfCacheStatuses: ['DYNAMIC'],
-    requestCacheMode: 'no-store',
-    repeatedProbeCount: 2,
-    ageObserved: false,
-    hitObserved: false,
-    missObserved: false,
-    qualifiedAt: '2026-07-31T00:00:00.000Z',
-    expiresAt: '2026-07-31T00:02:00.000Z',
-    canonicalSha256: '',
-  },
+  pointerCache,
   controlEvidence: {
     purge: {
       endpoint: '/zones/zone/purge_cache',
@@ -177,10 +183,6 @@ export const readback = {
     measurementPayloadSha256: '0'.repeat(64),
   },
 };
-const { canonicalSha256: _ignored, ...withoutHash } = readback.pointerCache;
-readback.pointerCache.canonicalSha256 =
-  calculatePointerCacheCanonicalSha256(withoutHash);
-
 export const reviewedArtifacts = readback.versions.map((version) => ({
   accountId: 'account',
   scriptName: readback.scriptName,

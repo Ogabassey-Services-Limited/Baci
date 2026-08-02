@@ -130,6 +130,23 @@ describe('storefront delivery traffic partition', () => {
         rejectedMethodRequestCount: 1,
       })
     ).toBe(true);
+    expect(
+      reconcileStorefrontDeliveryTrafficPartition({
+        rows: [
+          { ...rejectedRows[0], eligibleRequestCount: 11 },
+          ...rejectedRows.slice(1),
+        ],
+        inventoryHostnames,
+        canonicalHostname: 'ogabassey.com',
+        canonicalRawRequestCount: 11,
+        aliasRawRequestCount: 3,
+        canonicalEligibleRequestCount: 11,
+        aliasEligibleRequestCount: 2,
+        canonicalEligibleOriginAttemptCount: 0,
+        aliasEligibleOriginRequestCount: 0,
+        rejectedMethodRequestCount: 1,
+      })
+    ).toBe(false);
   });
 
   it('rejects an unbounded path class at schema parse time', () => {

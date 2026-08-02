@@ -1,7 +1,14 @@
-import { chmod, lstat, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   loadEvidenceRunForCleanup,
   openEvidenceRun,
@@ -32,10 +39,26 @@ const input = {
   preInventorySha256: 'a'.repeat(64),
   expectedProbeCount: 2,
 };
+const stateDirectories: string[] = [];
+
+async function createStateDirectory() {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
+  await chmod(directory, 0o700);
+  stateDirectories.push(directory);
+  return directory;
+}
+
 describe('CloudflareEvidenceRunJournal', () => {
+  afterEach(async () => {
+    await Promise.all(
+      stateDirectories
+        .splice(0)
+        .map((directory) => rm(directory, { recursive: true, force: true }))
+    );
+  });
+
   it('writes an atomic private journal without a token or nonce', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
+    const dir = await createStateDirectory();
     await openEvidenceRun(dir, input);
     await recordEvidenceMutation(
       dir,
@@ -52,8 +75,7 @@ describe('CloudflareEvidenceRunJournal', () => {
     );
   });
   it('rejects a second active run and terminal phases before both token revocations', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
+    const dir = await createStateDirectory();
     await openEvidenceRun(dir, input);
     await expect(
       openEvidenceRun(dir, { ...input, runId: alternateRunId })
@@ -63,8 +85,7 @@ describe('CloudflareEvidenceRunJournal', () => {
     ).rejects.toThrow('invalid evidence phase transition');
   });
   it('rejects an unknown persisted phase before applying a transition', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
+    const dir = await createStateDirectory();
     const opened = await openEvidenceRun(dir, input);
     await writeFile(
       join(dir, `${input.runId}.json`),
@@ -81,15 +102,13 @@ describe('CloudflareEvidenceRunJournal', () => {
     ).rejects.toThrow('journal phase is invalid');
   });
   it('requires a separately approved read-policy fingerprint before journaling', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
+    const dir = await createStateDirectory();
     await expect(
       openEvidenceRun(dir, { ...input, readPolicySha256: 'bad' })
     ).rejects.toThrow('read policy fingerprint');
   });
   it('serializes concurrent run creation before either journal is visible', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
+    const dir = await createStateDirectory();
     const results = await Promise.allSettled([
       openEvidenceRun(dir, input),
       openEvidenceRun(dir, { ...input, runId: alternateRunId }),
@@ -102,8 +121,7 @@ describe('CloudflareEvidenceRunJournal', () => {
     ).toHaveLength(1);
   });
   it('rejects reopening an existing run ID even after its journal is terminal', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
+    const dir = await createStateDirectory();
     const opened = await openEvidenceRun(dir, input);
     await writeJournal(dir, {
       ...opened,
@@ -113,8 +131,7 @@ describe('CloudflareEvidenceRunJournal', () => {
     await expect(openEvidenceRun(dir, input)).rejects.toThrow('already exists');
   });
   it('serializes concurrent mutations so one read-modify-write cannot erase another', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
+    const dir = await createStateDirectory();
     const plannedResources = ['evidence-a', 'evidence-b'];
     await openEvidenceRun(dir, { ...input, plannedResources });
     await Promise.all(
@@ -130,8 +147,7 @@ describe('CloudflareEvidenceRunJournal', () => {
     });
   });
   it('makes probe and measurement receipts append-only and idempotent', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
-    await chmod(dir, 0o700);
+    const dir = await createStateDirectory();
     await openEvidenceRun(dir, input);
     await recordEvidenceMutation(
       dir,

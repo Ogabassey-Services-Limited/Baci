@@ -51,6 +51,15 @@ export const StorefrontDeliveryTrafficPartitionRowSchema = z
         path: ['rejectedMethodRequestCount'],
         message: 'rejected traffic cannot exceed raw traffic',
       });
+    if (
+      row.eligibleRequestCount + row.rejectedMethodRequestCount >
+      row.requestCount
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['rejectedMethodRequestCount'],
+        message: 'eligible and rejected traffic cannot overlap raw traffic',
+      });
   });
 
 export type StorefrontDeliveryTrafficPartitionRow = z.infer<
@@ -113,7 +122,9 @@ export function reconcileStorefrontDeliveryTrafficPartition({
     if (
       row.eligibleRequestCount > row.requestCount ||
       row.eligibleOriginAttemptCount > row.eligibleRequestCount ||
-      row.rejectedMethodRequestCount > row.requestCount
+      row.rejectedMethodRequestCount > row.requestCount ||
+      row.eligibleRequestCount + row.rejectedMethodRequestCount >
+        row.requestCount
     )
       return false;
     if (row.hostname === canonicalHostname) canonicalRows.push(row);
