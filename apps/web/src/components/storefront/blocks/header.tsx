@@ -346,7 +346,7 @@ export function Header({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={handleLogout}
-                      className="cursor-pointer text-destructive focus:text-destructive"
+                      className="cursor-pointer text-destructive focus:bg-destructive focus:text-destructive-foreground"
                     >
                       <LogOut className="mr-2 size-4" />
                       Sign out
@@ -482,7 +482,7 @@ export function Header({
                         {customerSession?.authenticated &&
                         customerSession.customer ? (
                           <>
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-sm text-current">
                               Signed in as {customerSession.customer.email}
                             </div>
                             <Link
@@ -507,7 +507,7 @@ export function Header({
                                 handleLogout();
                                 mobilePanel.close();
                               }}
-                              className="flex items-center gap-2 text-destructive"
+                              className="flex items-center gap-2 rounded-md bg-destructive px-3 py-2 text-destructive-foreground"
                             >
                               <LogOut className="size-5" />
                               Sign out

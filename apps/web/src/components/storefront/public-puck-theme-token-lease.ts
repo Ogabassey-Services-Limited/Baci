@@ -2,13 +2,32 @@ interface PublicPuckThemeTokenLease {
   release: () => void;
 }
 
+interface InlineToken {
+  priority: string;
+  value: string;
+}
+
 interface RootLeaseState {
-  baseline: Map<string, string>;
+  baseline: Map<string, InlineToken>;
   leases: Map<symbol, Record<string, string>>;
-  lastApplied: Map<string, string>;
+  lastApplied: Map<string, InlineToken>;
 }
 
 const rootLeaseStates = new WeakMap<HTMLElement, RootLeaseState>();
+
+function readInlineToken(root: HTMLElement, name: string): InlineToken {
+  return {
+    priority: root.style.getPropertyPriority(name),
+    value: root.style.getPropertyValue(name),
+  };
+}
+
+function matchesInlineToken(
+  first: InlineToken | undefined,
+  second: InlineToken | undefined
+) {
+  return first?.value === second?.value && first?.priority === second?.priority;
+}
 
 function getLatestProjection(
   leases: Map<symbol, Record<string, string>>
@@ -27,22 +46,30 @@ function applyProjection(
   for (const [name, value] of Object.entries(projection)) {
     if (
       preserveNewerRootValues &&
-      root.style.getPropertyValue(name) !== state.lastApplied.get(name)
+      !matchesInlineToken(
+        readInlineToken(root, name),
+        state.lastApplied.get(name)
+      )
     ) {
       continue;
     }
     root.style.setProperty(name, value);
-    state.lastApplied.set(name, value);
+    state.lastApplied.set(name, readInlineToken(root, name));
   }
 }
 
 function restoreBaseline(root: HTMLElement, state: RootLeaseState) {
-  for (const [name, value] of state.baseline) {
-    if (root.style.getPropertyValue(name) !== state.lastApplied.get(name)) {
+  for (const [name, token] of state.baseline) {
+    if (
+      !matchesInlineToken(
+        readInlineToken(root, name),
+        state.lastApplied.get(name)
+      )
+    ) {
       continue;
     }
-    if (value) {
-      root.style.setProperty(name, value);
+    if (token.value) {
+      root.style.setProperty(name, token.value, token.priority);
     } else {
       root.style.removeProperty(name);
     }
@@ -63,7 +90,7 @@ export function leasePublicPuckThemeTokens(
       baseline: new Map(
         Object.keys(projection).map((name) => [
           name,
-          root.style.getPropertyValue(name),
+          readInlineToken(root, name),
         ])
       ),
       leases: new Map(),

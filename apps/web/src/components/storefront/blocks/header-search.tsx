@@ -14,7 +14,7 @@ interface HeaderSearchProps {
 }
 
 const searchClasses = {
-  outline: 'bg-transparent border-input',
+  outline: 'bg-transparent border-current!',
   filled: 'bg-muted border-transparent',
   minimal:
     'bg-transparent border-transparent border-b border-input rounded-none px-0',
@@ -42,7 +42,7 @@ export function HeaderSearch({
       <Input
         type="search"
         placeholder="Search products..."
-        className="w-full placeholder:!text-current"
+        className="w-full border-current! placeholder:!text-current"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />

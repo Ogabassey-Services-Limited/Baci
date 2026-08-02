@@ -10,7 +10,7 @@ afterEach(() => {
 describe('leasePublicPuckThemeTokens', () => {
   it('restores the prior root tokens after the last public lease releases', () => {
     const root = document.documentElement;
-    root.style.setProperty('--background', 'host-background');
+    root.style.setProperty('--background', 'host-background', 'important');
     root.style.setProperty('--destructive', 'host-destructive');
     const theme = deriveCuratedTheme({
       primary: '#ffffff',
@@ -29,6 +29,7 @@ describe('leasePublicPuckThemeTokens', () => {
     lease.release();
 
     expect(root.style.getPropertyValue('--background')).toBe('host-background');
+    expect(root.style.getPropertyPriority('--background')).toBe('important');
     expect(root.style.getPropertyValue('--destructive')).toBe(
       'host-destructive'
     );
@@ -118,5 +119,25 @@ describe('leasePublicPuckThemeTokens', () => {
       'newer-root-token'
     );
     first.release();
+  });
+
+  it('preserves an external priority change when its token value matches the lease', () => {
+    const root = document.documentElement;
+    const lease = leasePublicPuckThemeTokens(
+      root,
+      getCuratedThemeTokenProjection(
+        deriveCuratedTheme({
+          primary: '#ffffff',
+          background: '#000000',
+          accent: '#777777',
+        })
+      )
+    );
+    root.style.setProperty('--background', '0 0% 0%', 'important');
+
+    lease.release();
+
+    expect(root.style.getPropertyValue('--background')).toBe('0 0% 0%');
+    expect(root.style.getPropertyPriority('--background')).toBe('important');
   });
 });

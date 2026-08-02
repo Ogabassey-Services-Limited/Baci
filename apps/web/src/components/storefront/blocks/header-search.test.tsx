@@ -44,6 +44,8 @@ describe('HeaderSearch', () => {
     const icon = container.querySelector('svg');
     expect(icon).not.toBeNull();
     expect(icon).not.toHaveClass('opacity-50');
+    expect(desktop).toHaveClass('border-current!');
+    expect(mobile).toHaveClass('border-current!');
     expect(desktop).toHaveClass('placeholder:!text-current');
     expect(mobile).toHaveClass('placeholder:!text-current');
     expect(
