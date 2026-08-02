@@ -202,15 +202,12 @@ test('keeps colliding system and owner-user linked unit names in separate manife
   }
 });
 
-test('includes the runtime system unit root in the system manifest', async () => {
+test('delegates the system manifest to the fixed manager load-path helper', async () => {
   const source = await readFile(
     new URL('./retire-ollama-consumers.sh', import.meta.url),
     'utf8'
   );
-  assert.match(
-    source,
-    /systemd_root_manifest "\$system_roots" \$SYSTEMD_ROOTS \/run\/systemd\/system/
-  );
+  assert.match(source, /systemd_system_roots "\$system_roots"/);
 });
 
 test('skips a normal relative systemd alias while scanning its regular target', async () => {
