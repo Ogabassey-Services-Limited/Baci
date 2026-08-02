@@ -132,10 +132,15 @@ summaries, so inspect those persistent logs first. There is no verified pager
 or alert-delivery transport for these failures; configure and test one before
 treating logs as an active alert.
 
-The storefront worker also requires `OLLAMA_STOREFRONT_BASE_URL` in the worker
-`.env` for the private Ollama/Gemma endpoint, and
-`AI_STOREFRONT_GENERATION_ENABLED=true` to process queued storefront jobs. Keep
-the flag `false` to pause generation without changing web onboarding.
+The hosted Cerebras-first chain is the active Builder and shared-text path.
+The VPS Ollama/Gemma worker is retained only as a legacy full-layout
+compatibility path for historical and explicitly created
+`storefront_layout_generation` jobs. It still requires
+`OLLAMA_STOREFRONT_BASE_URL` in the worker `.env`; retain its signed trigger,
+shared locks, and 10-minute fallback sweep until a separately approved queue
+and usage audit permits retirement. `AI_STOREFRONT_GENERATION_ENABLED` remains
+parseable for compatibility only: onboarding no longer produces jobs from it,
+and the VPS processor never reads it as a pause switch.
 
 The trigger listener requires `AI_STOREFRONT_TRIGGER_SECRET` in the VPS worker
 environment. Keep `AI_STOREFRONT_TRIGGER_HOST=127.0.0.1` and expose only a
@@ -150,9 +155,10 @@ If `process-import-jobs.sh` or `sync-jumia-orders.sh` fails, inspect the matchin
 
 If `process-ai-storefront-jobs.sh` fails, inspect
 `/home/bassey/baci-workers/logs/ai-storefront-jobs.log` and confirm Ollama is
-reachable from the VPS at `OLLAMA_STOREFRONT_BASE_URL`. Keep
-`AI_STOREFRONT_GENERATION_ENABLED=false` until a manual run succeeds and queue
-metadata shows bounded duration, retry count, and validation errors.
+reachable from the VPS at `OLLAMA_STOREFRONT_BASE_URL`. The compatibility-only
+`AI_STOREFRONT_GENERATION_ENABLED` flag does not pause this processor; inspect
+queue metadata, trigger health, and the fallback sweep when historical jobs
+need attention.
 
 If web-created storefront jobs do not start immediately, check the trigger
 service first:
