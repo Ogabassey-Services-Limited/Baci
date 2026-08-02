@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
-const modelSnapshotCommand = `readlink() { [ "$1" = -f ] && { [ "$2" = -- ] && printf '%s\\n' "$3" || printf '%s\\n' "$2"; return; }; /usr/bin/readlink "$@"; }; stat() { printf '1:2:0:0:700\\n'; }; findmnt() { printf '/ model ext4 ro\\n'; }; find() { case " $* " in *" ! -type f "*) printf 'd:700:0:0:%s\\n' "$STORE";; *) digest=$(/sbin/sha256sum "$STORE/blob" | /usr/bin/awk '{print $1}'); printf 'f:600:4:0:%s:%s  %s\\n' "$STORE/blob" "$digest" "$STORE/blob";; esac; }; STORE="$2"; init_temp_root; trap cleanup_temp EXIT; recovery_model_snapshot`;
+const modelSnapshotCommand = `readlink() { [ "$1" = -f ] && { [ "$2" = -- ] && printf '%s\\n' "$3" || printf '%s\\n' "$2"; return; }; /usr/bin/readlink "$@"; }; stat() { printf '1:2:0:0:700\\n'; }; findmnt() { printf '/ model ext4 ro\\n'; }; find() { case " $* " in *" ! -type f "*) printf 'd:700:0:0:%s\\n' "$STORE";; *) digest=$(sha256sum "$STORE/blob" | /usr/bin/awk '{print $1}') || return 1; printf 'f:600:4:0:%s:%s  %s\\n' "$STORE/blob" "$digest" "$STORE/blob";; esac; }; STORE="$2"; init_temp_root; trap cleanup_temp EXIT; recovery_model_snapshot`;
 
 function shell(command, args = []) {
   return execFileAsync('sh', [
