@@ -983,7 +983,8 @@ hashes must equal those immutable generation rows. The proof hash is SHA-256 ove
 the UTF-8 RFC 8785 canonical JSON object containing exactly the scope, both
 generation IDs and artifact hashes, both equivalence-contract versions, verifier
 artifact hash, corpus-manifest hash, result, approver, and approval reference.
-Proofs are append-only, never deleted, forced-RLS private rows with no policy or
+Proofs are append-only, never deleted, forced-RLS private rows with one explicit
+restrictive deny-all policy and no
 direct `PUBLIC`/`anon`/`authenticated`/`service_role` privileges; their approved
 offline verifier artifact and corpus are retained at least as long as any proof,
 generation, acknowledged inbox row, or receipt references them.
@@ -1027,7 +1028,7 @@ lower-case hexadecimal characters, `metrics_snapshot` is a JSON object, and
 authorize parsing, acknowledgement, routing, or money.
 
 In its own slice, every generation, proof, receipt, and non-secret identity table
-enables and forces RLS, defines no policy, and revokes every table
+enables and forces RLS, defines one explicit restrictive deny-all policy, and revokes every table
 privilege from `PUBLIC`, `anon`, `authenticated`, and `service_role`. Existing
 private-schema privileges remain unchanged. Future narrowly granted
 `SECURITY DEFINER` functions are the only intended access path; Task 1 adds none,
@@ -1089,7 +1090,8 @@ the dedicated `private_payment_control_plane` schema, whose wrappers are the
 only role-executable entry points; the role has no `USAGE` on `private`. A later reviewed deployment
 credential may be granted membership in that role; the generic `service_role`
 and every user-facing edge remain unable to execute the functions. Every new
-table is private, forced-RLS, policy-free, and has all table privileges revoked
+table is private, forced-RLS, protected by one explicit restrictive deny-all policy,
+and has all table privileges revoked
 from `PUBLIC`, `anon`, `authenticated`, `service_role`, and
 `payment_control_plane`; only the named functions receive `EXECUTE` for that
 role. A reviewed privileged migration/DBA may repair history only through an
@@ -7683,3 +7685,542 @@ Before any code execution, planning must:
   completion-authority cutover;
 - preserve dirty roots and use isolated worktrees;
 - prohibit deployment until current-head code review and CI gates are clean.
+
+## Amendment — Schema-only durable webhook evidence foundation (2026-08-01)
+
+This dated amendment freezes the next append-only, schema-only ingress slice.
+It resolves the preflight blocker without authorizing a route, a writer, a
+seeded generation, a provider change, a financial command, or a deployment. It
+is additive to, and takes precedence over, earlier prose only
+where this amendment gives an exact name, type, bound, or enforcement boundary.
+The implementing migration is ordered after both
+`20260731140000_payment_ingress_contract_generation_foundation.sql` and
+`20260801140000_payment_ingress_contract_companion.sql`; it must fail its replay
+fixture before either prerequisite exists.
+
+### Scope and common primitives
+
+The migration creates exactly these empty relations:
+
+- `private.payment_webhook_inbox`;
+- `private.payment_webhook_source_manifests`; and
+- `private.payment_webhook_source_proofs`.
+
+It may add the one redundant unique target specified below to
+`private.payment_ingress_contract_generations`; it creates no other relation,
+role, function, trigger, grant, seed, runtime code, generated type, or provider
+behavior. Each of the three evidence relations receives exactly one explicit
+restrictive deny-all policy; no other policy is created. All UUID defaults below are `gen_random_uuid()` and all
+timestamps are `timestamptz`.
+
+Unless a more specific check is named, canonical ingress keys (`provider`,
+`endpoint_key`, `signature_key_scope`, and `completion_authority_key`) match
+`^[a-z][a-z0-9_.:-]{0,254}$`. A contract/version or normalised reference is
+byte-preserved, equals its `btrim` value, is non-empty, and has the stated
+maximum length. `sha256` values are lower-case 64-hex text matching
+`^[0-9a-f]{64}$`; no digest prefix, base64 value, or upper-case form is stored.
+Currencies are upper-case ISO-4217 text matching `^[A-Z]{3}$`. Integer money is
+minor-unit `bigint`; a non-positive amount is rejected. No table contains a raw
+body, signature, credential, secret, ciphertext, card data, full customer
+address, or provider response body.
+
+`private.payment_ingress_contract_generations` receives the redundant named
+unique constraint
+`payment_ingress_contract_generations_evidence_binding_key` on
+`(id, provider, endpoint_key, signature_key_scope, authority_key,
+signature_key_identity_id, generation, parser_contract_version,
+normalized_envelope_schema_version, replay_identity_contract_version)`. Every
+generation FK below is `DEFERRABLE INITIALLY DEFERRED`, has `ON DELETE RESTRICT`,
+and targets that exact key. This is the composite equality contract: a child
+cannot name a generation while changing its provider, endpoint, signature scope,
+authority classifier, signature-key identity, generation number, adapter/parser
+version, envelope version, or replay-identity version.
+
+### Replay identity — tagged union, canonical preimages, and sentinels
+
+Both parent relations copy the same immutable `replay_key_kind`,
+`replay_key_digest`, and `replay_key_preimage`. `replay_key_kind` is exactly
+`svix | account_reference | fallback_locator`; `replay_key_digest` is the
+SHA-256 of the UTF-8 RFC 8785 canonical JSON representation of the corresponding
+object below. The stored `replay_key_preimage` is that safe JSON object, not raw
+request payload. Its root must be a JSON object and its `v` value must be the
+JSON number `1`; the version-specific ingress validator computes the digest and
+compares it before insertion. PostgreSQL checks shape and digest syntax, not a
+false `jsonb::text` canonicalisation claim.
+
+The precise v1 preimages are:
+
+```json
+{"v":1,"kind":"svix","provider":"<provider>","endpoint_key":"<endpoint_key>","signature_key_scope":"<signature_key_scope>","completion_authority_key":"<completion_authority_key>","svix_id":"<verified svix-id>","event_type":"<event type>"}
+{"v":1,"kind":"account_reference","provider":"<provider>","completion_authority_key":"<completion_authority_key>","provider_account_scope":"<verified account scope or __unresolved__>","provider_reference":"<verified normalized reference>","event_type":"<event type>"}
+{"v":1,"kind":"fallback_locator","provider":"<provider>","endpoint_key":"<endpoint_key>","signature_key_scope":"<signature_key_scope>","completion_authority_key":"<completion_authority_key>","event_type":"<event type>","reference":"<normalized reference or __unresolved__>","amount_minor":"<base-10 integer>","currency":"<ISO-4217>","provider_paid_at":"<RFC3339 UTC instant or __unresolved__>","raw_body_sha256":"<64 lower hex>"}
+```
+
+The key order shown is only explanatory: the canonical bytes are RFC 8785 bytes.
+The `svix_id`, account scope, reference, and event type are verified/normalised
+adapter facts, not request-selected values. `amount_minor` is a JSON string in
+the preimage to avoid JSON-number implementation variance; it is the decimal
+rendering of the persisted positive bigint. `__unresolved__` is the exact
+sentinel, may appear only in the fields shown, and means "unknown at first
+acknowledgement". Merchant ID, adopted tenant/account data, a later routing
+decision, an attempt, a financial-routing generation, and a future parser
+enrichment never enter any digest preimage. A verified first-ack account scope
+may enter only the `account_reference` kind; an adopted account may not replace
+it. The fallback locator is operational replay identity only, never a confirmed
+money identity.
+
+`replay_key_preimage` must contain exactly the fields for its tagged kind (no
+extension fields). `svix_id` and `provider_reference` are trimmed non-empty text
+of at most 512 characters. A fallback reference is the same bound or the exact
+sentinel. An event type is trimmed non-empty text of at most 255 characters.
+The ingress-scope snapshot is separate JSON and must contain exactly
+`merchant_id` and `provider_account_scope`, each either a canonical first-ack
+value or `__unresolved__`; it is evidence only and is excluded from the fallback
+digest. This makes unscoped acknowledgement, later adoption, and post-pruning
+redelivery reload the same immutable manifest before applying newly learned
+scope.
+
+The table-level JSON predicates are frozen as follows. The inbox and manifest
+checks named `*_replay_preimage_check` must require
+`jsonb_typeof(replay_key_preimage) = 'object'`,
+`jsonb_typeof(replay_key_preimage->'v') = 'number'`,
+`replay_key_preimage->>'v' = '1'`,
+`replay_key_preimage->>'kind' = replay_key_kind`, and the exact key set for the
+tag: eight keys (`v, kind, provider, endpoint_key, signature_key_scope,
+completion_authority_key, svix_id, event_type`) for `svix`; seven keys
+(`v, kind, provider, completion_authority_key, provider_account_scope,
+provider_reference, event_type`) for `account_reference`; and twelve keys
+(`v, kind, provider, endpoint_key, signature_key_scope,
+completion_authority_key, event_type, reference, amount_minor, currency,
+provider_paid_at, raw_body_sha256`) for `fallback_locator`. The exact-key
+predicate is written with only native PostgreSQL operators: after the
+root/type checks, the required-key array must be present with `?&`, and
+subtracting that same array with the `jsonb - text[]` operator must equal
+`'{}'::jsonb`. The concrete arrays are frozen per tag. For `svix` the CHECK
+uses `ARRAY['v','kind','provider','endpoint_key','signature_key_scope',
+'completion_authority_key','svix_id','event_type']::text[]`; for
+`account_reference` it uses
+`ARRAY['v','kind','provider','completion_authority_key',
+'provider_account_scope','provider_reference','event_type']::text[]`; and for
+`fallback_locator` it uses
+`ARRAY['v','kind','provider','endpoint_key','signature_key_scope',
+'completion_authority_key','event_type','reference','amount_minor','currency',
+'provider_paid_at','raw_body_sha256']::text[]`. Each selected array appears
+once in `?&` and once in `-`; this proves both that every required key exists
+and that no extension key is present without relying on a nonexistent
+object-length function. Every non-`v` key in the selected array must also
+have an explicit `jsonb_typeof(replay_key_preimage->'<key>') = 'string'`
+conjunct in the table CHECK; the later adapter/writer checks tagged-field
+formats, RFC-8785 bytes, digest equality, and sentinel placement.
+
+The inbox and manifest checks named `*_ingress_scope_snapshot_check` must
+require a JSON object with exactly two keys (`merchant_id` and
+`provider_account_scope`), both JSON strings, each either the exact
+`__unresolved__` sentinel or its canonical trimmed value; the exact-key
+predicate is
+`ingress_scope_snapshot ?&
+ARRAY['merchant_id','provider_account_scope']::text[] AND
+ingress_scope_snapshot -
+ARRAY['merchant_id','provider_account_scope']::text[] = '{}'::jsonb`, with
+`jsonb_typeof(ingress_scope_snapshot->'merchant_id') = 'string'` and
+`jsonb_typeof(ingress_scope_snapshot->'provider_account_scope') = 'string'`.
+The inbox check named `payment_webhook_inbox_envelope_check` must require a JSON
+object with exactly eight top-level keys
+(`contract_version,event_type,receiver,provider_customer,assignment,economics,
+paid_time,children`), string `contract_version` and `event_type`, object-or-null
+values for the five named evidence objects, and an array `children`; its exact
+top-level predicate is
+`normalized_envelope ?& ARRAY['contract_version','event_type','receiver',
+'provider_customer','assignment','economics','paid_time','children']::text[]
+AND normalized_envelope - ARRAY['contract_version','event_type','receiver',
+'provider_customer','assignment','economics','paid_time','children']::text[]
+= '{}'::jsonb`, with
+`jsonb_typeof(normalized_envelope->'contract_version') = 'string'`,
+`jsonb_typeof(normalized_envelope->'event_type') = 'string'`,
+`jsonb_typeof(normalized_envelope->'receiver') IN ('object','null')`,
+`jsonb_typeof(normalized_envelope->'provider_customer') IN ('object','null')`,
+`jsonb_typeof(normalized_envelope->'assignment') IN ('object','null')`,
+`jsonb_typeof(normalized_envelope->'economics') IN ('object','null')`,
+`jsonb_typeof(normalized_envelope->'paid_time') IN ('object','null')`, and
+`jsonb_typeof(normalized_envelope->'children') = 'array'`. The manifest's
+`redacted_parent_source_identity_check` must require a JSON object whose keys
+are all drawn from the five safe v1 keys
+`event_type,provider_reference,receiver_reference,provider_customer_reference,
+provider_paid_at`; the native subtraction check
+`redacted_parent_source_identity - ARRAY['event_type','provider_reference',
+'receiver_reference','provider_customer_reference','provider_paid_at']::text[]
+= '{}'::jsonb` rejects every unknown key and therefore proves the at-most-five
+bound. For each allowed key, when present, the value must satisfy
+`jsonb_typeof(redacted_parent_source_identity->'<key>') IN ('string','null')`;
+missing allowed keys remain valid.
+These predicates protect the structural boundary only; recursive safe-field
+validation, prohibited nested data, and digest/replay comparisons remain the
+explicit adapter/guarded-writer enforcement locus.
+
+### `private.payment_webhook_inbox`
+
+The operational, prunable parent has exactly these columns:
+
+| Column | SQL type and nullability/default |
+| --- | --- |
+| `id` | `uuid primary key default gen_random_uuid()` |
+| `provider`, `endpoint_key`, `signature_key_scope`, `completion_authority_key` | `text not null` |
+| `signature_key_identity_id` | `uuid not null` |
+| `ingress_contract_generation_id` | `uuid not null` |
+| `ingress_contract_generation` | `bigint not null` |
+| `adapter_schema_version`, `normalized_envelope_schema_version`, `replay_identity_contract_version` | `text not null` |
+| `replay_key_kind` | `text not null` |
+| `replay_key_digest` | `text not null` |
+| `replay_key_preimage`, `ingress_scope_snapshot`, `normalized_envelope` | `jsonb not null` |
+| `normalized_envelope_sha256`, `raw_body_sha256` | `text not null` |
+| `event_type` | `text not null` |
+| `provider_reference` | `text` |
+| `amount_minor` | `bigint` |
+| `currency` | `text` |
+| `provider_paid_at`, `provider_received_at` | `timestamptz` |
+| `verified_at` | `timestamptz not null` |
+| `merchant_id` | `uuid` |
+| `provider_account_scope` | `text` |
+| `source_manifest_id` | `uuid not null` |
+| `capture_mode` | `text not null` |
+| `child_manifest_sha256` | `text not null` |
+| `child_count` | `integer not null` |
+| `manifest_amount_minor` | `bigint not null` |
+| `manifest_currency` | `text not null` |
+| `processing_status` | `text not null default 'received'` |
+| `processing_attempt_count` | `integer not null default 0` |
+| `last_error` | `text` |
+| `processed_at` | `timestamptz` |
+| `claim_installed_child_count`, `no_safe_order_claim_child_count`, `late_ingress_child_count`, `not_order_protecting_child_count` | `integer not null default 0` |
+| `intake_protection_complete` | `boolean not null default false` |
+| `received_at`, `created_at`, `updated_at` | `timestamptz not null default now()` |
+
+`provider_reference`, when present, is trimmed non-empty and at most 512
+characters. `provider_account_scope`, when present, is trimmed non-empty and at
+most 255 characters. `adapter_schema_version` is the copied
+`parser_contract_version` and has the common 255-character version bound.
+`normalized_envelope_sha256`, `raw_body_sha256`, and
+`child_manifest_sha256` use the common digest check. `amount_minor` and
+`currency` are both null or both non-null; the former is positive whenever
+present. `manifest_amount_minor` is positive. `child_count` is between 1 and 64.
+`capture_mode` is exactly `singleton | bounded_multi_capture`, and `singleton`
+requires `child_count = 1`. `manifest_currency` has the common currency check.
+
+`processing_status` is exactly `received | unscoped_quarantine |
+intake_protection_recorded | resolution_proposed |
+scope_adopted_receipt_pending | resolved | conflict_review | terminal_processed`.
+`processing_attempt_count` is 0 through 2,147,483,647. `last_error`, when
+present, is trimmed non-empty and at most 4096 characters. Every decision counter
+is non-negative and no greater than `child_count`; when
+`intake_protection_complete` is true their sum must equal `child_count`. The
+later writer slice, not a table CHECK, proves that these projections equal actual
+child rows and that status transitions/`processed_at` are legal.
+
+The named constraints are
+`payment_webhook_inbox_provider_check`,
+`payment_webhook_inbox_endpoint_key_check`,
+`payment_webhook_inbox_signature_scope_check`,
+`payment_webhook_inbox_authority_key_check`,
+`payment_webhook_inbox_generation_fkey`,
+`payment_webhook_inbox_replay_kind_check`,
+`payment_webhook_inbox_replay_digest_check`,
+`payment_webhook_inbox_replay_preimage_check`,
+`payment_webhook_inbox_ingress_scope_snapshot_check`,
+`payment_webhook_inbox_envelope_check`,
+`payment_webhook_inbox_hashes_check`,
+`payment_webhook_inbox_event_type_check`,
+`payment_webhook_inbox_reference_check`,
+`payment_webhook_inbox_amount_currency_check`,
+`payment_webhook_inbox_manifest_check`,
+`payment_webhook_inbox_processing_check`,
+`payment_webhook_inbox_error_check`,
+`payment_webhook_inbox_decision_projection_check`, and
+`payment_webhook_inbox_source_manifest_fkey`.
+
+The named indexes are unique
+`payment_webhook_inbox_replay_key_uq` on `(replay_key_kind, replay_key_digest)`,
+unique `payment_webhook_inbox_manifest_binding_uq` on
+`(id, source_manifest_id, replay_key_kind, replay_key_digest, provider,
+endpoint_key, signature_key_scope, completion_authority_key,
+signature_key_identity_id, ingress_contract_generation, adapter_schema_version,
+normalized_envelope_schema_version, replay_identity_contract_version)`, and
+non-unique `payment_webhook_inbox_processing_idx` on
+`(processing_status, received_at, id)`. The latter is operational only; it is not
+a financial-routing index.
+
+### `private.payment_webhook_source_manifests`
+
+The financially retained parent copies the verified ingress identity independently
+of the inbox. It has exactly these columns:
+
+| Column | SQL type and nullability/default |
+| --- | --- |
+| `id` | `uuid primary key default gen_random_uuid()` |
+| `inbox_id` | `uuid` |
+| `provider`, `endpoint_key`, `signature_key_scope`, `completion_authority_key` | `text not null` |
+| `signature_key_identity_id`, `ingress_contract_generation_id` | `uuid not null` |
+| `ingress_contract_generation` | `bigint not null` |
+| `adapter_schema_version`, `normalized_envelope_schema_version`, `replay_identity_contract_version` | `text not null` |
+| `replay_key_kind`, `replay_key_digest` | `text not null` |
+| `replay_key_preimage`, `ingress_scope_snapshot` | `jsonb not null` |
+| `merchant_id` | `uuid` |
+| `provider_account_scope` | `text` |
+| `capture_mode` | `text not null` |
+| `child_manifest_sha256` | `text not null` |
+| `child_count` | `integer not null` |
+| `amount_minor` | `bigint not null` |
+| `currency` | `text not null` |
+| `contract_bound_minor` | `bigint not null` |
+| `redacted_parent_source_identity` | `jsonb not null` |
+| `created_at` | `timestamptz not null default now()` |
+
+All shared scope, generation, replay, preimage, snapshot, hash, currency,
+reference, count, and capture-mode checks have the same values/bounds as the
+inbox. `amount_minor` and `contract_bound_minor` are positive; a singleton has
+one child. `redacted_parent_source_identity` is a JSON object and may contain
+only the safe v1 keys `event_type`, `provider_reference`, `receiver_reference`,
+`provider_customer_reference`, and `provider_paid_at`; values are scalars or
+null, never a raw payload or identity document. The later writer establishes the
+semantic equality of the manifest fields to its inbox and validates the complete
+redaction allowlist before write.
+
+Named constraints are
+`payment_webhook_source_manifests_provider_check`,
+`payment_webhook_source_manifests_endpoint_key_check`,
+`payment_webhook_source_manifests_signature_scope_check`,
+`payment_webhook_source_manifests_authority_key_check`,
+`payment_webhook_source_manifests_generation_fkey`,
+`payment_webhook_source_manifests_replay_kind_check`,
+`payment_webhook_source_manifests_replay_digest_check`,
+`payment_webhook_source_manifests_replay_preimage_check`,
+`payment_webhook_source_manifests_scope_snapshot_check`,
+`payment_webhook_source_manifests_economics_check`,
+`payment_webhook_source_manifests_parent_identity_check`, and
+`payment_webhook_source_manifests_inbox_fkey`.
+
+Named indexes are unique `payment_webhook_source_manifests_replay_key_uq` on
+`(replay_key_kind, replay_key_digest)`, unique
+`payment_webhook_source_manifests_inbox_target_uq` on
+`(id, replay_key_kind, replay_key_digest, provider, endpoint_key,
+signature_key_scope, completion_authority_key, signature_key_identity_id,
+ingress_contract_generation, adapter_schema_version,
+normalized_envelope_schema_version, replay_identity_contract_version,
+child_manifest_sha256, child_count, capture_mode, amount_minor, currency)`, unique
+`payment_webhook_source_manifests_binding_uq` on
+`(id, replay_key_kind, replay_key_digest, provider, endpoint_key,
+signature_key_scope, completion_authority_key, signature_key_identity_id,
+ingress_contract_generation, adapter_schema_version,
+normalized_envelope_schema_version, replay_identity_contract_version, currency)`,
+unique `payment_webhook_source_manifests_currency_target_uq` on `(id, currency)`,
+and `payment_webhook_source_manifests_provider_account_idx` on
+`(provider, provider_account_scope, created_at, id)`.
+
+### Inbox/manifest cycle and retention behaviour
+
+The cyclic link is intentional and fully specified. The inbox's
+`(source_manifest_id, replay_key_kind, replay_key_digest, provider,
+endpoint_key, signature_key_scope, completion_authority_key,
+signature_key_identity_id, ingress_contract_generation, adapter_schema_version,
+normalized_envelope_schema_version, replay_identity_contract_version,
+child_manifest_sha256, child_count, capture_mode, manifest_amount_minor,
+manifest_currency)` is a deferrable composite FK to
+`payment_webhook_source_manifests_inbox_target_uq`. The manifest's
+`(inbox_id, id, replay_key_kind, replay_key_digest, provider,
+endpoint_key, signature_key_scope, completion_authority_key,
+signature_key_identity_id, ingress_contract_generation, adapter_schema_version,
+normalized_envelope_schema_version, replay_identity_contract_version)` is a
+deferrable composite FK to
+`payment_webhook_inbox_manifest_binding_uq`, with
+`ON DELETE SET NULL` applied only to `inbox_id` (the remaining copied columns
+are retained). The first FK uses `ON DELETE RESTRICT`. Both are initially
+deferred.
+
+The sole valid insert sequence is: create the manifest with `inbox_id null`;
+create the inbox pointing at that manifest; then set the manifest's `inbox_id`
+before commit. A later retained-manifest replay may create a new inbox pointing
+to it and atomically replace the nullable operational link; the writer must not
+change a manifest's replay/evidence fields. Deleting an inbox nulls the manifest
+link and cannot delete, null, or cascade to a manifest/proof. A manifest cannot
+be deleted while referenced by an inbox or a proof. No financial command or
+financial authority may carry a required FK to the inbox.
+
+### `private.payment_webhook_source_proofs`
+
+Each immutable child proof has exactly these columns:
+
+| Column | SQL type and nullability/default |
+| --- | --- |
+| `id` | `uuid primary key default gen_random_uuid()` |
+| `source_manifest_id` | `uuid not null` |
+| `child_identity` | `text not null` |
+| `child_ordinal` | `integer not null` |
+| `child_reference` | `text` |
+| `capture_identity` | `text not null` |
+| `amount_minor` | `bigint not null` |
+| `currency` | `text not null` |
+| `provider_paid_at` | `timestamptz` |
+| `paid_time_precision` | `text not null` |
+| `child_sha256` | `text not null` |
+| `intake_decision` | `text not null` |
+| `decided_at` | `timestamptz not null` |
+| `decision_reason_code` | `text not null` |
+| `review_scope_kind` | `text not null` |
+| `review_id` | `uuid` |
+| `created_at` | `timestamptz not null default now()` |
+
+`child_identity` matches `^[a-z][a-z0-9_.:-]{0,254}$`; a singleton manifest's
+only child is named exactly `singleton` (enforced by the later cross-row writer).
+`child_ordinal` is 1 through 64. `child_reference`, when present, is trimmed
+non-empty and at most 512 characters; `capture_identity` is trimmed non-empty
+and at most 512 characters. `paid_time_precision` is exactly
+`exact | second | minute | day | unknown`. `decision_reason_code` matches
+`^[a-z][a-z0-9_]{0,63}$`.
+
+`intake_decision` is exactly `claim_installed | no_safe_order_claim |
+late_ingress | not_order_protecting`; there is deliberately no `claim_pending`.
+`review_scope_kind` is exactly `none | merchant_reconciliation |
+global_quarantine`. The named
+`payment_webhook_source_proofs_decision_shape_check` requires
+`claim_installed` and `not_order_protecting` to use `review_scope_kind='none'`
+with `review_id is null`; `no_safe_order_claim` and `late_ingress` to use either
+non-`none` scope with non-null `review_id`; and no other combination. The review
+ID is an opaque durable review reference in this slice: its target FK and the
+proof that its tenant/scope matches are deferred until the review registry and
+guarded writer land. `claim_installed` stores no order or claim ID here; that
+later child-only claim graph must be one-to-zero-or-one and can never grant
+financial routing, an attempt, a transaction, allocation, completion, or
+fulfilment authority.
+
+The named constraints are
+`payment_webhook_source_proofs_manifest_fkey`,
+`payment_webhook_source_proofs_child_identity_check`,
+`payment_webhook_source_proofs_ordinal_check`,
+`payment_webhook_source_proofs_reference_check`,
+`payment_webhook_source_proofs_capture_identity_check`,
+`payment_webhook_source_proofs_amount_check`,
+`payment_webhook_source_proofs_currency_fkey`,
+`payment_webhook_source_proofs_paid_precision_check`,
+`payment_webhook_source_proofs_hash_check`,
+`payment_webhook_source_proofs_decision_check`,
+`payment_webhook_source_proofs_reason_check`,
+`payment_webhook_source_proofs_review_scope_check`, and
+`payment_webhook_source_proofs_decision_shape_check`. The manifest FK is
+`ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED`; the currency FK is a
+deferrable composite FK `(source_manifest_id, currency)` to the named manifest
+unique target `payment_webhook_source_manifests_currency_target_uq`, preventing
+a child from changing the conserved currency.
+
+Named indexes are unique `payment_webhook_source_proofs_manifest_child_uq` on
+`(source_manifest_id, child_identity)`, unique
+`payment_webhook_source_proofs_manifest_ordinal_uq` on
+`(source_manifest_id, child_ordinal)`, unique
+`payment_webhook_source_proofs_manifest_capture_uq` on
+`(source_manifest_id, capture_identity)`, and
+`payment_webhook_source_proofs_decision_idx` on
+`(intake_decision, review_scope_kind, decided_at, id)`.
+
+### Cardinality, conservation, envelope boundary, and deliberate deferral
+
+The contract is singleton-or-bounded-multi-capture only. A singleton has exactly
+one `singleton` child with ordinal one. A bounded multi-capture manifest has 1 to
+64 distinct, contiguous, provider-derived child identities/ordinals. Each child
+has a positive canonical amount in the manifest currency. The sum of child
+amounts must exactly equal `payment_webhook_source_manifests.amount_minor`, and
+that amount must be less than or equal to `contract_bound_minor`; no upper-bound
+interpretation permits an unrecorded child. The manifest hash is SHA-256 of the
+RFC-8785 canonical JSON array of child objects sorted by ordinal, each exactly
+`{"child_identity":...,"capture_identity":...,"amount_minor":"...",
+"currency":...,"provider_paid_at":...,"paid_time_precision":...,"child_sha256":...}`.
+The singleton identity and this projection are deterministic replay facts.
+
+The v1 `normalized_envelope` is a closed, versioned worker contract. Its root
+has exactly `contract_version`, `event_type`, `receiver`, `provider_customer`,
+`assignment`, `economics`, `paid_time`, and `children`; values are safe scalar,
+null, or versioned safe objects only. It may not include `raw_body`, `signature`,
+`authorization`, `credential`, `secret`, `card`, `address`, or any unknown
+top-level key. The verified ingress adapter, before it starts the one
+acknowledgement transaction, is the enforcement locus: it validates the chosen
+generation's version-specific closed schema, normalises facts, rejects prohibited
+data, computes the envelope and manifest digests, and supplies only those frozen
+values. The later private guarded intake writer repeats the structural allowlist,
+generation equality, digest comparison, replay conflict comparison, and complete
+child decision checks under the acknowledgement transaction. Comments and API
+validation alone are insufficient and do not authorize a direct table write.
+
+This migration intentionally does **not** add triggers or writers. Therefore the
+following cross-row/temporal invariants are explicitly deferred to the next
+RED-first guarded intake-writer slice: RFC-8785 digest equality; exact
+inbox-to-manifest projection equality beyond the cyclic composite FKs; one active
+operational inbox link per retained manifest; contiguous children; singleton
+identity; full child count, child hash, and amount conservation; contract-bound
+evaluation; exactly one terminal decision per frozen child; decision-counter and
+`intake_protection_complete` truth; review target/tenant equality; append-only
+fields; legal processing-status transitions; allowed replay replacement after
+pruning; and all claim/order/financial-command authority. Until that writer and
+its direct-SQL denial tests exist, these tables are dormant retained evidence,
+not acknowledgement or financial authority.
+
+Each new relation enables and forces RLS, has one explicit restrictive deny-all
+policy, and revokes all table privileges from `PUBLIC`, `anon`, `authenticated`, and
+`payment_control_plane`; no application role receives a grant and schema-level
+`private` privileges are unchanged. Required comments are: inbox —
+"Operational webhook replay infrastructure, never completion or financial
+authority; raw bodies, signatures, credentials, secrets, card data, and full
+customer addresses are forbidden."; manifest — "Financial-retention ingress
+evidence independent of the prunable inbox, never completion authority."; and
+proof — "Immutable child ingress evidence and terminal intake-protection
+decision, never a financial routing, attempt, transaction, allocation, or
+completion authority." The migration/replay contract must prove exact catalog
+shape, forced RLS, exactly one explicit restrictive deny-all policy, zero rows, direct privilege denial, all named
+constraints/indexes/comments, cycle deletion behavior, valid/invalid tagged keys,
+and rollback cleanliness. Its negative replay fixtures must separately exercise
+each closed-object boundary: a missing required key, an unknown extension key,
+and a non-string value for every tagged replay preimage; a missing or unknown
+scope/envelope key; a non-string value for each of
+`merchant_id` and `provider_account_scope`; a non-string `contract_version` and
+`event_type`; a non-object/non-null value for each of `receiver`,
+`provider_customer`, `assignment`, `economics`, and `paid_time`; a non-array
+`children`; and an unknown or non-string/non-null redacted parent value. Each
+case must fail at its named table CHECK, while valid sentinel/scalar, object-or-
+null, and array forms pass. The migration must not claim deferred writer
+invariants as table CHECK coverage.
+
+## Amendment — Referencing-side FK indexes and exact replay assertions (2026-08-01)
+
+This follow-up amendment tightens the same schema-only evidence slice after
+implementation review. It authorizes four additional, non-authority indexes so
+every new foreign-key referencing path has a usable leading-key index for
+retention and generation checks. The implementing migration must create these
+exact named indexes in addition to the indexes already frozen above:
+
+- `payment_webhook_source_manifests_generation_idx` on
+  `private.payment_webhook_source_manifests
+  (ingress_contract_generation_id, id)`;
+- `payment_webhook_inbox_generation_idx` on
+  `private.payment_webhook_inbox (ingress_contract_generation_id, id)`;
+- `payment_webhook_inbox_source_manifest_idx` on
+  `private.payment_webhook_inbox (source_manifest_id, id)`; and
+- `payment_webhook_source_manifests_inbox_idx` on
+  `private.payment_webhook_source_manifests (inbox_id, id)` with the exact
+  predicate `WHERE inbox_id IS NOT NULL`.
+
+These are lookup/retention indexes only; they do not grant authority, change
+the deferred composite-FK graph, or replace any previously named unique target.
+The replay contract must scope every expected column to its relation and assert
+column order, `format_type`, `attnotnull`, and normalized default expression
+through `pg_attribute`, `pg_attrdef`, and `pg_get_expr`. It must scope every
+constraint by `conrelid` and assert the relevant normalized
+`pg_get_constraintdef`, including ordered FK columns, referenced relation,
+delete action, and deferrability. It must scope every index by schema and
+relation and assert uniqueness, ordered key columns, and the exact partial
+predicate for the nullable inbox link; name-only global existence checks are
+insufficient.
+
+The replay contract must construct a valid graph, force deferred constraints
+with `SET CONSTRAINTS ALL IMMEDIATE`, run its retention assertions, execute
+`ROLLBACK`, and then issue post-rollback assertions that the fixture identity,
+generation, inbox, manifest, and proof rows are absent while the migration's
+relations and catalog objects remain. This proves rollback cleanliness rather
+than inferring it from an unobserved transaction end. The slice remains
+schema-only: no writer, trigger, grant, seed, provider behavior, or
+financial/order authority is authorized by this amendment.
