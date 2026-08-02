@@ -13,6 +13,37 @@ export interface ComparableProductKeySpecs {
   wireless_charging_watt?: number;
 }
 
+export type ProductSpecFamily = 'mobile' | 'computer' | 'camera' | 'general';
+
+export function getProductSpecFamily(
+  categoryName: string | null | undefined
+): ProductSpecFamily {
+  const normalized = categoryName?.trim().toLowerCase() || '';
+
+  if (normalized.includes('camera') && !normalized.includes('accessor')) {
+    return 'camera';
+  }
+
+  if (
+    /(^|[^a-z])(phone|smartphone|tablet|smartwatch|wearable)(s)?([^a-z]|$)/.test(
+      normalized
+    ) ||
+    normalized.includes('google pixel')
+  ) {
+    return 'mobile';
+  }
+
+  if (
+    /(^|[^a-z])(laptop|desktop|computer|notebook|macbook)(s)?([^a-z]|$)/.test(
+      normalized
+    )
+  ) {
+    return 'computer';
+  }
+
+  return 'general';
+}
+
 export interface SpecField {
   key: string;
   label: string;
@@ -232,6 +263,8 @@ export const SUMMARY_SPEC_PRIORITIES = [
       ['Key Specs', 'Screen'],
       ['Display', 'Size'],
       ['Display', 'Screen Size'],
+      ['Display and monitoring', 'Display'],
+      ['Design and handling', 'Display'],
       ['General', 'Display'],
     ],
   },
@@ -241,6 +274,9 @@ export const SUMMARY_SPEC_PRIORITIES = [
       ['Key Specs', 'Processor'],
       ['Key Specs', 'Chipset'],
       ['Platform', 'Chipset'],
+      ['Processing', 'Processor'],
+      ['Imaging and recording', 'Processor'],
+      ['Camera & Video', 'Processor'],
     ],
   },
   {
@@ -255,11 +291,20 @@ export const SUMMARY_SPEC_PRIORITIES = [
     candidates: [
       ['Memory', 'Internal Storage'],
       ['General', 'Storage'],
+      ['Storage', 'Card Slot'],
+      ['Storage and performance', 'Storage'],
+      ['Storage and media', 'Media'],
+      ['Power, storage and connectivity', 'Storage'],
+      ['Connectivity and power', 'Storage'],
     ],
   },
   {
     label: 'Camera',
     candidates: [
+      ['Imaging and recording', 'Sensor'],
+      ['Camera & Video', 'Sensor'],
+      ['Imaging', 'Effective Resolution'],
+      ['Compatibility and use', 'Effective Megapixels'],
       ['Key Specs', 'Camera'],
       ['Main Camera', 'Quad Camera'],
       ['Main Camera', 'Triple Camera'],
@@ -274,6 +319,10 @@ export const SUMMARY_SPEC_PRIORITIES = [
       ['Key Specs', 'Battery'],
       ['Battery', 'Capacity'],
       ['General', 'Battery'],
+      ['Power', 'Capacity'],
+      ['Battery and charging', 'Battery'],
+      ['Battery and Build', 'Playback time'],
+      ['Power, storage and connectivity', 'Battery'],
     ],
   },
   {

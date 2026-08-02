@@ -293,6 +293,133 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema).not.toHaveProperty('google_product_category');
   });
 
+  it('omits phone-only negative specs for camera categories while retaining verified legacy camera specs', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        name: 'Canon EOS R5 Mark II',
+        category: 'Cameras',
+        product_key_specs: {
+          has_5g: false,
+          has_nfc: false,
+          has_stereo_speakers: false,
+          has_headphone_jack: false,
+          card_slot_type: 'No',
+        },
+        specifications: [
+          {
+            category: 'Key Features',
+            items: [
+              { label: 'Sensor', value: '45MP full-frame CMOS' },
+              { label: 'Video', value: '8K 60p RAW' },
+              { label: 'Card Slot', value: 'No' },
+            ],
+          },
+        ],
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    const additionalProperties = schema.additionalProperty as Record<
+      string,
+      unknown
+    >[];
+
+    for (const property of [
+      { '@type': 'PropertyValue', name: '5G Support', value: 'No' },
+      { '@type': 'PropertyValue', name: 'NFC', value: 'No' },
+      { '@type': 'PropertyValue', name: 'Card Slot', value: 'No' },
+    ]) {
+      expect(additionalProperties).not.toContainEqual(property);
+    }
+    expect(additionalProperties).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Sensor',
+          value: '45MP full-frame CMOS',
+        },
+        { '@type': 'PropertyValue', name: 'Video', value: '8K 60p RAW' },
+      ])
+    );
+  });
+
+  it('uses the enriched product description for Product schema instead of a generic meta description', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        category: 'Cameras',
+        description:
+          '<p>Canon EOS R5 Mark II has a 45MP stacked full-frame sensor and 8K RAW video.</p>',
+        meta_description:
+          'Shop Canon EOS R5 Mark II Mirrorless Camera Body in Nigeria.',
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toContain('45MP stacked full-frame sensor');
+    expect(schema.description).not.toBe(
+      'Shop Canon EOS R5 Mark II Mirrorless Camera Body in Nigeria.'
+    );
+  });
+
+  it('deduplicates overlapping key-spec and legacy Product properties', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        category: 'Cameras',
+        product_key_specs: {
+          rear_camera_video: '8K RAW',
+          has_5g: false,
+        },
+        specifications: [
+          {
+            category: 'Imaging',
+            items: [
+              { label: 'Video Recording', value: '8K RAW' },
+              { label: 'Sensor', value: '45MP full-frame CMOS' },
+            ],
+          },
+        ],
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    const additionalProperties = schema.additionalProperty as Record<
+      string,
+      unknown
+    >[];
+    const videoProperties = additionalProperties.filter(
+      (property) =>
+        property.name === 'Video Recording' && property.value === '8K RAW'
+    );
+
+    expect(videoProperties).toHaveLength(1);
+  });
+
+  it('retains the existing negative phone/tablet/laptop spec behavior', () => {
+    for (const category of ['Smartphones', 'Tablets', 'Laptops']) {
+      const schema = generateProductSchema(
+        makeProduct({
+          category,
+          product_key_specs: { has_5g: false },
+        }),
+        'TestStore',
+        'USD',
+        'NG'
+      );
+
+      expect(schema.additionalProperty).toEqual(
+        expect.arrayContaining([
+          { '@type': 'PropertyValue', name: '5G Support', value: 'No' },
+        ])
+      );
+    }
+  });
+
   it('outputs @type ProductGroup when variants exist', () => {
     const product = makeProduct({
       slug: 'test-product',

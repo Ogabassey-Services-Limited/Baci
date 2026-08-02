@@ -1,0 +1,186 @@
+import type { Product } from './products';
+
+type ProductCategorySource = Pick<Product, 'category' | 'categories'>;
+
+interface ProductSchemaSpecCandidate {
+  key?: string;
+  label?: string;
+  value: unknown;
+}
+
+const CAMERA_CATEGORY_NAMES = new Set([
+  'cameras',
+  'action cameras',
+  'instant cameras',
+  'lenses',
+  'drones',
+  'gimbals',
+  'microphones',
+  'monitors & transmitters',
+  'tripod stands',
+  'camera accessories',
+  'instant film',
+  'memory cards',
+]);
+
+const PHONE_TABLET_LAPTOP_CATEGORY_WORDS = new Set([
+  'cell',
+  'laptops',
+  'ipad',
+  'ipads',
+  'laptop',
+  'macbook',
+  'macbooks',
+  'mobile',
+  'phone',
+  'phones',
+  'smartphone',
+  'smartphones',
+  'tablet',
+  'tablets',
+  'smartwatch',
+  'smartwatches',
+  'wearable',
+  'wearables',
+  'watch',
+  'watches',
+  'pixel',
+]);
+
+const PHONE_ONLY_SPEC_KEYS = new Set([
+  'android_version',
+  'fingerprint_type',
+  'has_5g',
+  'has_card_slot',
+  'has_fm_radio',
+  'has_headphone_jack',
+  'has_nfc',
+  'has_stereo_speakers',
+  'sim_type',
+]);
+
+const PHONE_ONLY_SPEC_LABELS = new Set([
+  '3 5mm headphone jack',
+  '3 5mm jack',
+  'android',
+  'card slot',
+  'fingerprint sensor',
+  'fm radio',
+  'headphone jack',
+  'loudspeaker',
+  'nfc',
+  'operating system',
+  'os',
+  'sim',
+  'sim type',
+  'speakers',
+  '5g',
+  '5g support',
+  'ois',
+  'has ois',
+]);
+
+const UNSUPPORTED_SPEC_VALUES = new Set([
+  '',
+  '0',
+  'false',
+  'n/a',
+  'na',
+  'none',
+  'not applicable',
+  'not available',
+  'not supported',
+  'no',
+  'unsupported',
+  'unavailable',
+]);
+
+function normalizeCategoryName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getProductCategoryNames(product: ProductCategorySource) {
+  return [product.category, product.categories?.name]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map(normalizeCategoryName);
+}
+
+function isPhoneTabletLaptopCategory(categoryName: string) {
+  return (
+    categoryName.includes('google pixel') ||
+    categoryName
+      .split(/[^a-z0-9]+/)
+      .some((word) => PHONE_TABLET_LAPTOP_CATEGORY_WORDS.has(word))
+  );
+}
+
+function normalizeSpecLabel(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function isUnsupportedSpecValue(value: unknown) {
+  if (typeof value === 'boolean') {
+    return !value;
+  }
+
+  if (typeof value === 'number') {
+    return value === 0;
+  }
+
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return UNSUPPORTED_SPEC_VALUES.has(value.trim().toLowerCase());
+}
+
+/**
+ * Keeps phone-shaped negative fields out of named non-phone product schemas.
+ * Phone, tablet, and laptop categories retain the legacy mapping behavior.
+ * Positive/verified values from camera legacy specifications are preserved.
+ */
+export function shouldIncludeProductSchemaSpec(
+  product: ProductCategorySource,
+  candidate: ProductSchemaSpecCandidate
+) {
+  const categoryNames = getProductCategoryNames(product);
+  if (categoryNames.length === 0) {
+    return true;
+  }
+
+  const hasNonPhoneCategory = categoryNames.some(
+    (categoryName) =>
+      CAMERA_CATEGORY_NAMES.has(categoryName) ||
+      !isPhoneTabletLaptopCategory(categoryName)
+  );
+  if (!hasNonPhoneCategory) {
+    return true;
+  }
+
+  if (candidate.key === 'card_slot_type') {
+    return !isUnsupportedSpecValue(candidate.value);
+  }
+
+  if (candidate.key && PHONE_ONLY_SPEC_KEYS.has(candidate.key)) {
+    return false;
+  }
+
+  if (!candidate.label) {
+    return true;
+  }
+
+  const normalizedLabel = normalizeSpecLabel(candidate.label);
+  if (!PHONE_ONLY_SPEC_LABELS.has(normalizedLabel)) {
+    return true;
+  }
+
+  if (normalizedLabel === 'card slot' || normalizedLabel === 'ois') {
+    return !isUnsupportedSpecValue(candidate.value);
+  }
+
+  return false;
+}

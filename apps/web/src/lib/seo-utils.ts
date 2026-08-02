@@ -30,6 +30,7 @@ import {
   PLACEHOLDER_IMAGE,
 } from './image-utils';
 import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
+import { shouldIncludeProductSchemaSpec } from './product-schema-specs';
 import type {
   Product,
   ProductSchemaMarkup,
@@ -628,13 +629,15 @@ export function generateProductSchema(
   // at serialization time so structured-data parsers receive unmodified values.
   const safeName = product.name;
 
-  // Provide a smart fallback for description to prevent "Missing field description" errors
-  const rawDescription = product.meta_description || product.description;
-  const metaDescription = rawDescription
-    ? generateMetaDescription(rawDescription)
+  // Product schema should describe the product itself, not repeat a short
+  // search-snippet template. Prefer the enriched visible description and
+  // retain the meta description only as a fallback.
+  const rawDescription = product.description || product.meta_description;
+  const productDescription = rawDescription
+    ? generateMetaDescription(rawDescription, 500)
     : '';
-  const safeDescription = metaDescription
-    ? metaDescription
+  const safeDescription = productDescription
+    ? productDescription
     : `Buy ${safeName} from ${merchantName}. Best prices, fast delivery, and secure payments.`;
 
   const safeBrand = product.brand || merchantName;
@@ -776,7 +779,42 @@ export function generateProductSchema(
 
   // Detailed specifications for AI/Crawlers (additionalProperty)
   // This enables rich snippets and voice assistants to answer spec queries
-  const additionalProperties = [];
+  const additionalProperties: Record<string, unknown>[] = [];
+  const additionalPropertyKeys = new Set<string>();
+  const additionalPropertyNameAliases: Record<string, string> = {
+    '3.5mm headphone jack': '3.5mm jack',
+    '3.5mm jack': '3.5mm jack',
+    loudspeaker: 'speakers',
+    speakers: 'speakers',
+    video: 'video recording',
+    'video recording': 'video recording',
+  };
+
+  const addAdditionalProperty = (name: unknown, value: unknown) => {
+    if (typeof name !== 'string' || typeof value !== 'string') {
+      return;
+    }
+
+    const normalizedName = name.trim().toLowerCase().replace(/\s+/g, ' ');
+    const normalizedValue = value.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!normalizedName || !normalizedValue) {
+      return;
+    }
+
+    const canonicalName =
+      additionalPropertyNameAliases[normalizedName] || normalizedName;
+    const propertyKey = `${canonicalName}|${normalizedValue}`;
+    if (additionalPropertyKeys.has(propertyKey)) {
+      return;
+    }
+
+    additionalPropertyKeys.add(propertyKey);
+    additionalProperties.push({
+      '@type': 'PropertyValue',
+      name,
+      value,
+    });
+  };
 
   // Extract from product_key_specs (GSM Arena-level specs)
   const keySpecs = product.product_key_specs;
@@ -899,11 +937,10 @@ export function generateProductSchema(
           : keySpecs.has_dual_camera
             ? 'Dual'
             : 'Single';
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Main Camera',
-        value: `${cameraType} ${keySpecs.main_camera_mp}MP`,
-      });
+      addAdditionalProperty(
+        'Main Camera',
+        `${cameraType} ${keySpecs.main_camera_mp}MP`
+      );
     }
 
     // Process configuration-driven specs
@@ -917,12 +954,17 @@ export function generateProductSchema(
         ? mapping.check(value)
         : value !== null && value !== undefined;
 
-      if (shouldInclude) {
-        additionalProperties.push({
-          '@type': 'PropertyValue',
-          name: mapping.name,
-          value: mapping.format ? mapping.format(value) : String(value),
-        });
+      if (
+        shouldInclude &&
+        shouldIncludeProductSchemaSpec(product, {
+          key: mapping.key,
+          value,
+        })
+      ) {
+        addAdditionalProperty(
+          mapping.name,
+          mapping.format ? mapping.format(value) : String(value)
+        );
       }
     }
   }
@@ -932,11 +974,16 @@ export function generateProductSchema(
     for (const category of product.specifications) {
       if (category.items && Array.isArray(category.items)) {
         for (const item of category.items) {
-          additionalProperties.push({
-            '@type': 'PropertyValue',
-            name: item.label,
-            value: item.value,
-          });
+          if (
+            !shouldIncludeProductSchemaSpec(product, {
+              label: item.label,
+              value: item.value,
+            })
+          ) {
+            continue;
+          }
+
+          addAdditionalProperty(item.label, item.value);
         }
       }
     }

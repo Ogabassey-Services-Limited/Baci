@@ -1,7 +1,9 @@
 import { stripHtmlTags } from '@/lib/sanitize-core';
+import { getKeySpecCategoriesForFamily } from './spec-category-families';
 import {
   type ComparableProductKeySpecs,
-  KEY_SPEC_CATEGORIES,
+  getProductSpecFamily,
+  type ProductSpecFamily,
   SUMMARY_SPEC_PRIORITIES,
 } from './spec-taxonomy';
 import type { VariantAttributeSource } from './variant-attributes';
@@ -21,8 +23,8 @@ export interface ProductSpecSection {
 interface SpecDataSource {
   brand?: string | null;
   categories?:
-    | { name?: string | null }
-    | Array<{ name?: string | null }>
+    | { name?: string | null; slug?: string | null }
+    | Array<{ name?: string | null; slug?: string | null }>
     | null;
   category?: string | null;
   condition?: string | null;
@@ -43,6 +45,18 @@ function getSourceCategoryName(source: SpecDataSource) {
   }
 
   return source.categories?.name || source.category || 'General';
+}
+
+function hasSourceCategory(source: SpecDataSource) {
+  if (source.category?.trim()) {
+    return true;
+  }
+
+  if (Array.isArray(source.categories)) {
+    return Boolean(source.categories[0]?.name?.trim());
+  }
+
+  return Boolean(source.categories?.name?.trim());
 }
 
 const HTML_ENTITY_REPLACEMENTS: Record<string, string> = {
@@ -230,32 +244,35 @@ function isComparableProductKeySpecs(
 }
 
 function buildDetailedSpecsFromKeySpecs(
-  keySpecs: ComparableProductKeySpecs
+  keySpecs: ComparableProductKeySpecs,
+  family: ProductSpecFamily
 ): ProductSpecSection[] {
-  return KEY_SPEC_CATEGORIES.map(({ category, fields }) => ({
-    category,
-    items: fields
-      .filter(({ key, condition }) => {
-        const value = keySpecs[key];
-        return (
-          value !== null &&
-          value !== undefined &&
-          (typeof value !== 'string' || value.trim().length > 0) &&
-          (!condition || condition(keySpecs))
-        );
-      })
-      .map((field) => {
-        const value = keySpecs[field.key];
-        return {
-          label: field.dynamicLabel
-            ? field.dynamicLabel(keySpecs)
-            : field.label,
-          value: field.transform
-            ? field.transform(value, keySpecs)
-            : String(value),
-        };
-      }),
-  })).filter((section) => section.items.length > 0);
+  return getKeySpecCategoriesForFamily(family)
+    .map(({ category, fields }) => ({
+      category,
+      items: fields
+        .filter(({ key, condition }) => {
+          const value = keySpecs[key];
+          return (
+            value !== null &&
+            value !== undefined &&
+            (typeof value !== 'string' || value.trim().length > 0) &&
+            (!condition || condition(keySpecs))
+          );
+        })
+        .map((field) => {
+          const value = keySpecs[field.key];
+          return {
+            label: field.dynamicLabel
+              ? field.dynamicLabel(keySpecs)
+              : field.label,
+            value: field.transform
+              ? field.transform(value, keySpecs)
+              : String(value),
+          };
+        }),
+    }))
+    .filter((section) => section.items.length > 0);
 }
 
 function buildGeneralFallbackSpecs(
@@ -324,15 +341,27 @@ export function buildProductSpecData(source: SpecDataSource) {
   const normalizedLegacySpecifications = normalizeSpecSections(
     source.specifications
   );
+  const sourceCategoryName = getSourceCategoryName(source);
+  // Unknown categories fail closed instead of inheriting the phone taxonomy.
+  // This prevents a missing category join from turning camera or accessory
+  // rows into phone-shaped PDP content.
+  const specFamily = hasSourceCategory(source)
+    ? getProductSpecFamily(sourceCategoryName)
+    : 'general';
+  const keySpecSections = isComparableProductKeySpecs(source.product_key_specs)
+    ? buildDetailedSpecsFromKeySpecs(source.product_key_specs, specFamily)
+    : [];
 
   const structuredSpecs =
     normalizedDetailedSpecs.length > 0
       ? normalizedDetailedSpecs
-      : isComparableProductKeySpecs(source.product_key_specs)
-        ? buildDetailedSpecsFromKeySpecs(source.product_key_specs)
-        : normalizedLegacySpecifications.length > 0
-          ? normalizedLegacySpecifications
-          : buildGeneralFallbackSpecs(source);
+      : specFamily === 'camera' && normalizedLegacySpecifications.length > 0
+        ? mergeSpecSections(normalizedLegacySpecifications, keySpecSections)
+        : keySpecSections.length > 0
+          ? keySpecSections
+          : normalizedLegacySpecifications.length > 0
+            ? normalizedLegacySpecifications
+            : buildGeneralFallbackSpecs(source);
 
   const detailedSpecs = mergeSpecSections(descriptionKeySpecs, structuredSpecs);
   const normalizedSummarySpecs = normalizeSpecItems(source.specs);

@@ -1,8 +1,12 @@
+import { getKeySpecCategoriesForFamily } from '@/lib/storefront-specs/spec-category-families';
 import type {
   ComparableProductKeySpecs,
   SpecField,
 } from '@/lib/storefront-specs/spec-taxonomy';
-import { KEY_SPEC_CATEGORIES } from '@/lib/storefront-specs/spec-taxonomy';
+import {
+  getProductSpecFamily,
+  KEY_SPEC_CATEGORIES,
+} from '@/lib/storefront-specs/spec-taxonomy';
 import type {
   ProductSemanticCandidate,
   ProductSemanticModel,
@@ -21,12 +25,27 @@ const METADATA_SPEC_KEYS = new Set([
   'updated_at',
   'deleted_at',
 ]);
-const SPEC_FIELDS_BY_KEY = new Map<string, SpecField>(
+const ALL_SPEC_FIELDS_BY_KEY = new Map<string, SpecField>(
   KEY_SPEC_CATEGORIES.flatMap((category) => category.fields).map((field) => [
     field.key,
     field,
   ])
 );
+const GENERIC_UNSUPPORTED_VALUES = new Set([
+  '',
+  'false',
+  'no',
+  'n/a',
+  'na',
+  'none',
+  'not applicable',
+  'not available',
+  'not listed',
+  'not published',
+  'not supported',
+  'unsupported',
+  'unavailable',
+]);
 
 interface BuildProductContextParagraphsInput {
   categoryName: string;
@@ -73,6 +92,20 @@ function normalizeSpecValue(value: unknown): string | null {
   return null;
 }
 
+function isGenericUnsupportedValue(value: unknown) {
+  if (typeof value === 'boolean') return !value;
+  if (typeof value === 'number') return value === 0;
+  if (typeof value !== 'string') return false;
+
+  const normalized = value.trim().toLowerCase();
+  return (
+    GENERIC_UNSUPPORTED_VALUES.has(normalized) ||
+    normalized.startsWith('not published') ||
+    normalized.startsWith('not listed') ||
+    normalized.startsWith('confirm exact')
+  );
+}
+
 function humanizeSpecKey(key: string) {
   const normalizedKey = key.toLowerCase();
   const exactLabels: Record<string, string> = {
@@ -95,18 +128,28 @@ function humanizeSpecKey(key: string) {
 }
 
 function buildSpecFacts(
-  productKeySpecs: Record<string, unknown> | null | undefined
+  productKeySpecs: Record<string, unknown> | null | undefined,
+  categoryName: string
 ) {
   if (!productKeySpecs) return [];
 
   const comparableSpecs = productKeySpecs as ComparableProductKeySpecs;
+  const family = getProductSpecFamily(categoryName);
+  const fieldsByKey = new Map<string, SpecField>(
+    getKeySpecCategoriesForFamily(family)
+      .flatMap((category) => category.fields)
+      .map((field) => [field.key, field])
+  );
 
   return Object.entries(productKeySpecs)
     .flatMap(([key, value]) => {
       if (METADATA_SPEC_KEYS.has(key)) return [];
 
-      const field = SPEC_FIELDS_BY_KEY.get(key);
+      const field = fieldsByKey.get(key);
+      if (family !== 'general' && !field) return [];
+      if (family === 'general' && ALL_SPEC_FIELDS_BY_KEY.has(key)) return [];
       if (field?.condition && !field.condition(comparableSpecs)) return [];
+      if (family === 'general' && isGenericUnsupportedValue(value)) return [];
 
       const scalarValue = normalizeSpecValue(value);
       if (!scalarValue) return [];
@@ -223,7 +266,10 @@ export function buildProductContextParagraphs({
   const comparisonSubject = brandName
     ? `${brandName} options`
     : `${categoryLabel.toLowerCase()} alternatives`;
-  const specFacts = buildSpecFacts(currentProduct.product_key_specs);
+  const specFacts = buildSpecFacts(
+    currentProduct.product_key_specs,
+    categoryLabel
+  );
 
   const paragraphs = [
     `${productName} is listed by ${merchantName} in ${categoryLabel}, ${buildPricePhrase(

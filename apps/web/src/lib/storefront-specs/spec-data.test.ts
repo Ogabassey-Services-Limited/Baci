@@ -86,6 +86,7 @@ describe('buildProductSpecData', () => {
 
   it('omits null, undefined, and empty-string product key specs without throwing', () => {
     const result = buildProductSpecData({
+      category: 'Smartphones',
       product_key_specs: {
         display_type: '   ',
         chipset: 'Snapdragon 8 Elite',
@@ -115,6 +116,7 @@ describe('buildProductSpecData', () => {
 
   it('keeps zero-valued numeric specs and formats them consistently', () => {
     const result = buildProductSpecData({
+      category: 'Smartphones',
       product_key_specs: {
         ram_gb: 0,
         storage_gb: 0,
@@ -189,5 +191,126 @@ describe('buildProductSpecData', () => {
         ],
       },
     ]);
+  });
+
+  it('keeps camera PDPs on camera and legacy specification families', () => {
+    const result = buildProductSpecData({
+      category: 'Cameras',
+      product_key_specs: {
+        main_camera_mp: 45,
+        screen_size_inches: 3,
+        chipset: 'DIGIC X',
+        has_5g: false,
+        has_card_slot: false,
+      },
+      specifications: [
+        {
+          category: 'Imaging and recording',
+          items: [
+            { label: 'Sensor', value: '45MP full-frame CMOS' },
+            { label: 'Video', value: '8K RAW' },
+          ],
+        },
+        {
+          category: 'Storage and media',
+          items: [{ label: 'Media', value: 'CFexpress Type B and UHS-II SD' }],
+        },
+      ],
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: 'Imaging and recording' }),
+        expect.objectContaining({ category: 'Storage and media' }),
+      ])
+    );
+    expect(result.detailedSpecs.map((section) => section.category)).not.toEqual(
+      expect.arrayContaining(['Network', 'Platform', 'Memory', 'Sound'])
+    );
+    expect(
+      result.detailedSpecs.flatMap((section) => section.items)
+    ).not.toEqual(
+      expect.arrayContaining([
+        { label: '5G Support', value: 'No' },
+        { label: 'Card Slot', value: 'No' },
+      ])
+    );
+    expect(result.specs).toEqual(
+      expect.arrayContaining([
+        { label: 'Camera', value: '45MP full-frame CMOS' },
+        { label: 'Storage', value: 'CFexpress Type B and UHS-II SD' },
+      ])
+    );
+  });
+
+  it('builds safe camera key specs when legacy specifications are unavailable', () => {
+    const result = buildProductSpecData({
+      category: 'Action Cameras',
+      product_key_specs: {
+        main_camera_mp: 40,
+        screen_size_inches: 2.5,
+        display_type: 'OLED touchscreen',
+        battery_mah: 1950,
+        wifi_bands: 'Wi-Fi 6',
+        usb_type: 'USB-C',
+        has_5g: false,
+        has_headphone_jack: false,
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'Imaging',
+          items: [{ label: 'Effective Resolution', value: '40MP' }],
+        }),
+        expect.objectContaining({
+          category: 'Display',
+          items: expect.arrayContaining([
+            { label: 'Size', value: '2.5 inches' },
+            { label: 'Type', value: 'OLED touchscreen' },
+          ]),
+        }),
+        expect.objectContaining({
+          category: 'Power',
+          items: [{ label: 'Capacity', value: '1950mAh' }],
+        }),
+      ])
+    );
+    expect(result.detailedSpecs.map((section) => section.category)).not.toEqual(
+      expect.arrayContaining(['Network', 'Platform', 'Memory', 'Sound'])
+    );
+    expect(result.specs).toEqual(
+      expect.arrayContaining([
+        { label: 'Display', value: '2.5 inches' },
+        { label: 'Camera', value: '40MP' },
+        { label: 'Battery', value: '1950mAh' },
+      ])
+    );
+  });
+
+  it('does not turn generic accessory key specs into phone specifications', () => {
+    const result = buildProductSpecData({
+      category: 'Accessories',
+      product_key_specs: {
+        chipset: 'Apple U1',
+        battery_mah: 0,
+        has_5g: false,
+        has_nfc: true,
+      },
+    });
+
+    expect(result.detailedSpecs.map((section) => section.category)).toEqual([
+      'General',
+    ]);
+    expect(
+      result.detailedSpecs.flatMap((section) => section.items)
+    ).not.toEqual(
+      expect.arrayContaining([
+        { label: '5G Support', value: 'No' },
+        { label: 'Battery Capacity', value: '0mAh' },
+        { label: 'Chipset', value: 'Apple U1' },
+      ])
+    );
   });
 });

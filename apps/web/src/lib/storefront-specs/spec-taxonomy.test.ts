@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   type ComparableProductKeySpecs,
+  getProductSpecFamily,
   KEY_SPEC_CATEGORIES,
   SUMMARY_SPEC_PRIORITIES,
 } from './spec-taxonomy';
@@ -18,6 +19,16 @@ function getField(categoryName: string, key: string) {
 }
 
 describe('spec taxonomy', () => {
+  it('classifies camera families separately from mobile devices', () => {
+    expect(getProductSpecFamily('Cameras')).toBe('camera');
+    expect(getProductSpecFamily('Action Cameras')).toBe('camera');
+    expect(getProductSpecFamily('Instant Cameras')).toBe('camera');
+    expect(getProductSpecFamily('Camera Accessories')).toBe('general');
+    expect(getProductSpecFamily('Smartphones')).toBe('mobile');
+    expect(getProductSpecFamily('Laptops')).toBe('computer');
+    expect(getProductSpecFamily('Accessories')).toBe('general');
+  });
+
   it('formats common unit-bearing fields', () => {
     expect(getField('Display', 'screen_size_inches').transform?.(6.8, {})).toBe(
       '6.8 inches'

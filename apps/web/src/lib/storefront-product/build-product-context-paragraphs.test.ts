@@ -186,4 +186,41 @@ describe('buildProductContextParagraphs', () => {
     expect(copy).not.toContain('nullMP');
     expect(copy).not.toContain('Display resolution');
   });
+
+  it('uses camera taxonomy and omits phone-only negative facts from camera crawl copy', () => {
+    const paragraphs = buildProductContextParagraphs(
+      makeInput({
+        categorySlug: 'cameras',
+        categoryName: 'Cameras',
+        currentProduct: {
+          slug: 'canon-eos-r5-mark-ii',
+          name: 'Canon EOS R5 Mark II',
+          price: 4_899_000,
+          brand: 'Canon',
+          condition: 'new',
+          stock: 1,
+          category_slug: 'cameras',
+          product_key_specs: {
+            main_camera_mp: 45,
+            rear_camera_video: '8K RAW',
+            has_5g: false,
+            has_nfc: false,
+            has_headphone_jack: false,
+            has_ois: false,
+            card_slot_type: 'No',
+            usb_type: 'USB-C',
+          },
+        },
+      })
+    );
+
+    const copy = paragraphs.join(' ');
+    expect(copy).toContain('Effective Resolution: 45MP');
+    expect(copy).toContain('Video Recording: 8K RAW');
+    expect(copy).not.toContain('5G Support: No');
+    expect(copy).not.toContain('NFC: No');
+    expect(copy).not.toContain('3.5mm Jack: No');
+    expect(copy).not.toContain('has ois: No');
+    expect(copy).not.toContain('Card Slot: No');
+  });
 });
