@@ -129,6 +129,79 @@ describe('onboarding action starter storefront effects', () => {
     });
     expect(mocks.adminUpdate).not.toHaveBeenCalled();
   });
+  it('recovers a persisted owner after a transient domain failure before creating its homepage', async () => {
+    const persistedPalette = {
+      primary: '#112233',
+      background: '#ffffff',
+      accent: '#445566',
+    };
+    mocks.adminMaybeSingle
+      .mockReset()
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'merchant-1',
+          business_name: 'Persisted Store',
+          business_type: 'technology',
+          slug: 'persisted-store',
+          logo_url: 'https://cdn.example.com/persisted-logo.png',
+          brand_colors: persistedPalette,
+        },
+        error: null,
+      });
+    setupChainedMock({ id: 'merchant-1', slug: 'persisted-store' });
+    mocks.ensureOnboardingDomain
+      .mockResolvedValueOnce({ status: 'failed', stage: 'read' })
+      .mockResolvedValueOnce({ status: 'created' });
+
+    await expect(
+      submitOnboarding(
+        prevState,
+        makeFormData({ ...validFields, businessName: 'First Submission' })
+      )
+    ).resolves.toMatchObject({ success: false });
+    expect(mocks.provisionCuratedHomepage).not.toHaveBeenCalled();
+    const writesAfterFirstAttempt = mocks.adminInsert.mock.calls.length;
+
+    await expect(
+      submitOnboarding(
+        prevState,
+        makeFormData({
+          ...validFields,
+          businessName: 'Conflicting Submission',
+          businessType: 'fashion',
+          logoUrl: 'https://cdn.example.com/submitted-logo.png',
+          brandColors: JSON.stringify({
+            primary: '#abcdef',
+            background: '#000000',
+            accent: '#fedcba',
+          }),
+        })
+      )
+    ).resolves.toMatchObject({ success: true });
+
+    expect(mocks.ensureOnboardingDomain.mock.calls[1]?.[0]).toMatchObject({
+      merchantId: 'merchant-1',
+      slug: 'persisted-store',
+    });
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        merchantSlug: 'persisted-store',
+        businessName: 'Persisted Store',
+        businessType: 'technology',
+        merchantLogoUrl: 'https://cdn.example.com/persisted-logo.png',
+        brandColors: persistedPalette,
+      })
+    );
+    expect(
+      mocks.ensureOnboardingDomain.mock.invocationCallOrder[1]
+    ).toBeLessThan(
+      mocks.provisionCuratedHomepage.mock.invocationCallOrder[0] ?? 0
+    );
+    expect(mocks.adminUpdate).not.toHaveBeenCalled();
+    expect(mocks.adminInsert).toHaveBeenCalledTimes(writesAfterFirstAttempt);
+  });
   it('blocks success and preserves a structured template failure log when canonical provisioning fails', async () => {
     readyMerchant();
     mocks.provisionCuratedHomepage.mockResolvedValue({
