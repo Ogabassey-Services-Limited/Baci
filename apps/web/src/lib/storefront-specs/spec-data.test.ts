@@ -380,6 +380,32 @@ describe('buildProductSpecData', () => {
     ]);
   });
 
+  it('retains positive audio rows for general product PDPs', () => {
+    const result = buildProductSpecData({
+      category: 'Audio',
+      specifications: [
+        {
+          category: 'Sound',
+          items: [
+            { label: 'Speakers', value: 'Stereo' },
+            { label: 'Headphone Jack', value: 'Yes' },
+            { label: '5G Support', value: 'No' },
+          ],
+        },
+      ],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Sound',
+        items: [
+          { label: 'Speakers', value: 'Stereo' },
+          { label: 'Headphone Jack', value: 'Yes' },
+        ],
+      },
+    ]);
+  });
+
   it('retains safe key specs for general gaming products', () => {
     const result = buildProductSpecData({
       category: 'Gaming',

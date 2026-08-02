@@ -1,3 +1,4 @@
+import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import type { Product } from './products';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
 import { isCameraLikeCategory } from './storefront-specs/spec-taxonomy';
@@ -82,6 +83,11 @@ const PHONE_ONLY_SPEC_KEYS = new Set([
   'sim_type',
 ]);
 
+const AUDIO_CAPABILITY_SPEC_KEYS = new Set([
+  'has_headphone_jack',
+  'has_stereo_speakers',
+]);
+
 const PHONE_ONLY_SPEC_LABELS = new Set([
   '3 5mm headphone jack',
   '3 5mm jack',
@@ -103,52 +109,13 @@ const PHONE_ONLY_SPEC_LABELS = new Set([
   'has ois',
 ]);
 
-const SPEC_LABEL_TO_KEY: Record<string, string> = {
-  '3 5mm headphone jack': 'has_headphone_jack',
-  '3 5mm jack': 'has_headphone_jack',
-  android: 'android_version',
-  'battery capacity': 'battery_mah',
-  bluetooth: 'bluetooth_version',
-  build: 'build_materials',
-  'card slot': 'card_slot_type',
-  chipset: 'chipset',
-  charging: 'charging_watt',
-  colors: 'available_colors',
-  cpu: 'cpu_cores',
-  dimensions: 'dimensions_mm',
-  'display protection': 'display_protection',
-  'display resolution': 'display_resolution',
-  'display type': 'display_type',
-  'fast charging': 'charging_watt',
-  'fingerprint sensor': 'fingerprint_type',
-  'fm radio': 'has_fm_radio',
-  gpu: 'gpu',
-  'has ois': 'has_ois',
-  'internal storage': 'storage_gb',
-  'ip rating': 'ip_rating',
-  'main camera': 'main_camera_mp',
-  models: 'model_numbers',
-  nfc: 'has_nfc',
-  'network technology': 'network_technology',
-  'operating system': 'android_version',
-  os: 'android_version',
-  'peak brightness': 'display_peak_brightness',
-  'pixel density': 'display_ppi',
-  processing: 'cpu_cores',
-  ram: 'ram_gb',
-  resolution: 'display_resolution',
-  'screen size': 'screen_size_inches',
-  'selfie camera': 'front_camera_mp',
-  sim: 'sim_type',
-  'sim type': 'sim_type',
-  speakers: 'has_stereo_speakers',
-  storage: 'storage_gb',
-  'video recording': 'rear_camera_video',
-  wifi: 'wifi_bands',
-  wireless: 'wireless_charging_watt',
-  'wireless charging': 'wireless_charging_watt',
-  usb: 'usb_type',
-};
+const AUDIO_CAPABILITY_LABELS = new Set([
+  '3 5mm headphone jack',
+  '3 5mm jack',
+  'headphone jack',
+  'loudspeaker',
+  'speakers',
+]);
 
 const UNSUPPORTED_SPEC_VALUES = new Set([
   '',
@@ -258,7 +225,7 @@ export function shouldIncludeProductSchemaSpec(
   const hasCameraCategory = categoryNames.some(isCameraLikeCategory);
   const inferredCameraSpecKey =
     hasCameraCategory && candidate.label
-      ? SPEC_LABEL_TO_KEY[normalizeSpecLabel(candidate.label)]
+      ? getProductSchemaSpecKeyForLabel(candidate.label)
       : undefined;
   const cameraSpecKey = candidate.key || inferredCameraSpecKey;
   if (
@@ -280,6 +247,9 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   if (candidate.key && PHONE_ONLY_SPEC_KEYS.has(candidate.key)) {
+    if (AUDIO_CAPABILITY_SPEC_KEYS.has(candidate.key)) {
+      return !isUnsupportedSpecValue(candidate.value);
+    }
     return false;
   }
 
@@ -297,6 +267,10 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   if (normalizedLabel === 'operating system' || normalizedLabel === 'os') {
+    return !isUnsupportedSpecValue(candidate.value);
+  }
+
+  if (AUDIO_CAPABILITY_LABELS.has(normalizedLabel)) {
     return !isUnsupportedSpecValue(candidate.value);
   }
 

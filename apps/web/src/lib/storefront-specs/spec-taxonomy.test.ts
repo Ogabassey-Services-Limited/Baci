@@ -28,6 +28,8 @@ describe('spec taxonomy', () => {
     expect(getProductSpecFamily('Drones')).toBe('camera');
     expect(getProductSpecFamily('Gimbals')).toBe('camera');
     expect(getProductSpecFamily('Camera Accessories')).toBe('camera');
+    expect(getProductSpecFamily('instant-film')).toBe('camera');
+    expect(getProductSpecFamily('memory-cards')).toBe('camera');
     expect(getProductSpecFamily('Smartphones')).toBe('mobile');
     expect(getProductSpecFamily('iPhones')).toBe('mobile');
     expect(getProductSpecFamily('iPad')).toBe('mobile');

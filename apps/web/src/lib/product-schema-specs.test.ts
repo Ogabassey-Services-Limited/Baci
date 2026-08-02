@@ -92,6 +92,29 @@ describe('shouldIncludeProductSchemaSpec', () => {
     }
   });
 
+  it('retains positive audio capabilities for named non-phone products', () => {
+    for (const category of ['Audio', 'Gaming']) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category, categories: null },
+          { label: 'Speakers', value: 'Stereo' }
+        )
+      ).toBe(true);
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category, categories: null },
+          { key: 'has_headphone_jack', value: true }
+        )
+      ).toBe(true);
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category, categories: null },
+          { label: 'Headphone Jack', value: 'No' }
+        )
+      ).toBe(false);
+    }
+  });
+
   it('filters phone-only negative fields for other named non-phone categories', () => {
     expect(
       shouldIncludeProductSchemaSpec(
