@@ -49,6 +49,7 @@ recovery_surface() {
   case "$class" in
     systemd-consumers|reverse-proxy|compose-definitions|running-containers|container-definitions) record_consumers "$class" "$out" all || die "recovery consumer evidence failed $class";;
     current-crontab|running-processes) mode=matched; [ "$class" = current-crontab ] && mode=cron; record_consumers "$class" "$out" "$mode" || die "recovery consumer evidence failed $class";;
+    system-crontab|system-cron-directory|user-crontab) record_consumers "$class" "$out" cron-unapproved || die "recovery consumer evidence failed $class";;
   esac
   /bin/rm -f -- "$out" "$err"
 }
@@ -256,9 +257,8 @@ recovery_record_environment_property() {
   file=$1; set -f; tokens=$(cat "$file") || die 'recovery EnvironmentFiles read failed'; # shellcheck disable=SC2086
   set -- $tokens; set +f
   while [ "$#" -gt 0 ]; do item=$1; shift; optional=0; case "$item" in -/*) optional=1; item=${item#-};; /*) :;; *) die 'malformed recovery EnvironmentFiles path';; esac; [ "$#" -gt 0 ] || die 'missing recovery EnvironmentFiles annotation'; annotation=$1; shift; case "$annotation" in '(ignore_errors=no)') [ "$optional" -eq 0 ] || die 'recovery EnvironmentFiles optionality drift';; '(ignore_errors=yes)') optional=1;; *) die 'unknown recovery EnvironmentFiles annotation';; esac; recovery_record_environment "$item" "$optional"; done
-}
-recovery_collect_crontab() { target=$1; if crontab -u "$OWNER" -l >"$target" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'recovery crontab scan failed'; : >"$target"; fi; }
-recovery_collect_systemd() {
+}; recovery_collect_crontab() { target=$1; if crontab -u "$OWNER" -l >"$target" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'recovery crontab scan failed'; : >"$target"; fi; load_cron_inventory_helper; RECOVERY_EXTERNAL_CRON_SOURCES=$(temp_path); cron_inventory_collect_external "$RECOVERY_EXTERNAL_CRON_SOURCES"; }
+recovery_record_external_cron_sources() { manifest=${RECOVERY_EXTERNAL_CRON_SOURCES:-}; [ -f "$manifest" ] && [ ! -L "$manifest" ] || die 'recovery cron inventory missing'; while IFS="$(printf '\t')" read -r kind account path || [ -n "$kind$account$path" ]; do case "$kind" in system) class='system-crontab';; system-directory) class='system-cron-directory';; user) class='user-crontab';; *) die 'invalid recovery cron inventory entry';; esac; [ -n "$path" ] || die 'invalid recovery cron inventory entry'; recovery_record_path "$class" "$path" 0 1; captured=$RECOVERY_REFERENCE_SNAPSHOT; recovery_surface "$class" cat "$captured"; rm -f "$captured"; RECOVERY_REFERENCE_SNAPSHOT=''; done <"$manifest"; }; recovery_collect_systemd() {
 # shellcheck disable=SC2153 # UNIT is defined by the sourced entrypoint.
   recovery_surface systemd-definitions recovery_systemctl cat "$UNIT"
 # shellcheck disable=SC2153 # TIMER is defined by the sourced entrypoint.
@@ -292,9 +292,9 @@ recovery_scan() {
   recovery_container_snapshot >"$container"
   recovery_collect_processes "$processes"
   case "${RECOVERY_CONTAINER_STATE:-}" in absent|stopped) process_json=$(recovery_absent_process_snapshot "$processes");; running) process_json=$(recovery_process_snapshot "$RECOVERY_CONTAINER_PID" "$RECOVERY_CONTAINER_CGROUP" "$RECOVERY_CONTAINER_NAMESPACE" "$RECOVERY_CONTAINER_PORTS_FILE" "$processes");; *) die 'invalid recovery container state';; esac
-  recovery_collect_crontab "$cron"; recovery_surface current-crontab cat "$cron"
+  recovery_collect_crontab "$cron"; recovery_surface current-crontab cat "$cron"; recovery_record_external_cron_sources
   package=$(recovery_package_snapshot); unit=$(recovery_unit_snapshot "$UNIT"); timer=$(recovery_unit_snapshot "$TIMER"); model=$(recovery_model_snapshot); cron_json=$(recovery_cron_snapshot "$cron"); container_json=$(cat "$container")
   records=$RECOVERY_RECORDS; record_docker_socket; RECOVERY_RECORDS=$records; recovery_surface docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'
   /usr/bin/jq -S -n --argjson package "$package" --argjson unit "$unit" --argjson timer "$timer" --argjson container "$container_json" --argjson model "$model" --argjson cron "$cron_json" --argjson processes "$process_json" --argjson records "$RECOVERY_RECORDS" --argjson dependencies "$deps" --argjson consumerCounts "$consumer_counts" --argjson consumerEvidence "$consumer_evidence" '{package:$package,units:[$unit,$timer],container:$container,model:$model,crontab:$cron,processes:$processes,surfaces:$records,dependencies:$dependencies,consumerCounts:$consumerCounts,consumerEvidence:$consumerEvidence,dependencyTaxonomy:["disabled","external-provider","ollama-loopback","unknown"]}' >"$snapshot" || die 'recovery snapshot serialization failed'
-  recovery_write_receipt "$snapshot"; rm -f "$snapshot" "$cron" "$processes" "$container"; [ -z "${RECOVERY_CONTAINER_PORTS_FILE:-}" ] || rm -f "$RECOVERY_CONTAINER_PORTS_FILE"
+  recovery_write_receipt "$snapshot"; rm -f "$snapshot" "$cron" "$processes" "$container" "${RECOVERY_EXTERNAL_CRON_SOURCES:-}"; [ -z "${RECOVERY_CONTAINER_PORTS_FILE:-}" ] || rm -f "$RECOVERY_CONTAINER_PORTS_FILE"
 }

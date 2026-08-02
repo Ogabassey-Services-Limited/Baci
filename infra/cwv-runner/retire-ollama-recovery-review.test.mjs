@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   chmod,
   copyFile,
@@ -18,6 +19,12 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
 const sourceSha = 'b'.repeat(40);
+async function sha256(file) {
+  return createHash('sha256')
+    .update(await readFile(file))
+    .digest('hex');
+}
+
 function shellAt(pathname, command, args = [], env = {}, options = {}) {
   return execFileAsync(
     'sh',
@@ -79,14 +86,20 @@ test('derives the source identity from the sealed SHA directory', async () => {
       'retire-ollama-recovery.sh',
       'retire-ollama-recovery-receipts.sh',
       'retire-ollama-consumers.sh',
+      'retire-ollama-cron-inventory.sh',
     ]) {
       await copyFile(new URL(`./${name}`, import.meta.url), join(sealed, name));
     }
     const { stdout } = await shellAt(
       join(sealed, 'retire-ollama.sh'),
-      'printf "%s\\n" "$RECOVERY_SOURCE_SHA"'
+      'init_temp_root; trap cleanup_temp EXIT; recovery_source_digests; printf "%s:%s\\n" "$RECOVERY_SOURCE_SHA" "$RECOVERY_CRON_INVENTORY_SHA"'
     );
-    assert.equal(stdout.trim(), sourceSha);
+    assert.deepEqual(stdout.trim().split(':'), [
+      sourceSha,
+      await sha256(
+        new URL('./retire-ollama-cron-inventory.sh', import.meta.url)
+      ),
+    ]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

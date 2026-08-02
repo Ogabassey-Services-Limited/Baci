@@ -71,9 +71,9 @@ record_consumers() {
   class=$1 file=$2 mode=${3:-matched}; count=0; unknown_sha=$(hash_text unknown)
   while IFS= read -r line || [ -n "$line" ]; do
     case "$mode" in
-      cron)
+      cron|cron-unapproved)
         match_line=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')
-        if cron_line_approved "$line"; then matched=0
+        if [ "$mode" = cron ] && cron_line_approved "$line"; then matched=0
         else case "$match_line" in
           *11434*|*'/ollama '*|*' ollama '*|ollama|ollama=*|ollama_*=*|/ollama) matched=1;;
           *) matched=0;;
@@ -88,6 +88,8 @@ record_consumers() {
   done <"$file"
   consumer_counts=$(jq -cn --argjson old "$consumer_counts" --arg surface "$class" --argjson count "$count" '$old + [{surface:$surface,matchCount:$count}]') || die 'consumer count record failed'
 }
+# shellcheck disable=SC1090,SC1091 # Resolved beside this sealed privileged entrypoint.
+load_cron_inventory_helper() { helper="$SCRIPT_DIR/retire-ollama-cron-inventory.sh"; [ -f "$helper" ] && [ ! -L "$helper" ] || die 'cron inventory helper missing'; . "$helper"; }
 recovery_listener_executable() {
   pid=$1; exe="$RECOVERY_PROC_ROOT/$pid/exe"; [ -L "$exe" ] || review_required 'listener executable link missing'
   observed=$(readlink -- "$exe") || review_required 'listener executable target unavailable'; observed=${observed% (deleted)}
@@ -218,6 +220,7 @@ collect() {
   if crontab -u "$OWNER" -l >"$cron" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'crontab scan failed'; : >"$cron"; fi; cron_sha=$(sha "$cron")
   case "$phase:$cron_sha" in scan:"$PRE_CRON_SHA"|revalidate:"$PRE_CRON_SHA"|revalidate:"$POST_CRON_SHA"|delete_models:"$POST_CRON_SHA") :;; *) die 'crontab drift';; esac
   record_scan current-crontab cat "$cron"; record_scan running-processes ps -eo pid,ppid,user,args; record_scan running-containers scan_running_containers
+  load_cron_inventory_helper; record_external_cron_sources
   if package=$(dpkg-query -W "-f=$PACKAGE_FORMAT" ollama 2>/dev/null); then :; else die 'Ollama package missing'; fi; [ -n "$package" ] || die 'Ollama package missing'; record_scan package-identity dpkg-query -W "-f=$PACKAGE_FORMAT" ollama
   record_docker_socket; record_scan docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'
   if id=$(container_id 2>/dev/null); then image=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Image}}' "$CONTAINER") || die 'container image scan failed'; container_config; config=$CONTAINER_CONFIG_SHA; records=$(jq -cn --argjson old "$records" --arg id "$id" --arg image "$image" --arg config "$config" '$old + [{class:"container-config",fullId:$id,imageId:$image,configSha256:$config}]') || die 'container record failed'; elif [ "$phase" != delete_models ]; then die 'container missing'; else consumer_counts=$(jq -cn --argjson old "$consumer_counts" '$old + [{surface:"container-config",matchCount:0}]') || die 'container count record failed'; fi
@@ -251,7 +254,7 @@ assert_approved_dependency_classes() {
   jq -e --argjson allowed "$allowed" '.scan.dependencies | type == "array" and all(.[]; .["endpoint-class"] as $class | ($class | type == "string") and ($allowed | index($class) != null))' "$RECEIPT" >/dev/null || review_required 'unapproved dependency endpoint class'
 }
 assert_zero_consumers() {
-  jq -e --argjson required '["systemd-definitions","reverse-proxy","compose-definitions","running-processes","running-containers","container-definitions","container-config"]' '.scan.consumerCounts as $counts | ($counts | type == "array") and all($required[]; . as $surface | [$counts[] | select(.surface == $surface)] as $entries | ($entries | length == 1) and ($entries[0].matchCount == 0))' "$RECEIPT" >/dev/null || review_required 'retirement requires zero classified consumers'
+  jq -e --argjson required '["systemd-definitions","reverse-proxy","compose-definitions","running-processes","running-containers","container-definitions","container-config"]' '.scan.consumerCounts as $counts | ($counts | type == "array") and all($required[]; . as $surface | [$counts[] | select(.surface == $surface)] as $entries | ($entries | length == 1) and ($entries[0].matchCount == 0)) and all($counts[]; if .surface == "current-crontab" or (.surface | startswith("system-cron")) or .surface == "user-crontab" then .matchCount == 0 else true end)' "$RECEIPT" >/dev/null || review_required 'retirement requires zero classified consumers'
 }
 receipt_scan_snapshot() { source=$1 target=$2; jq -S -e '.scan | if type == "object" then . else error("receipt scan snapshot required") end' "$source" >"$target" || die 'receipt scan snapshot invalid'; }
 normalize_revalidation_snapshot() {

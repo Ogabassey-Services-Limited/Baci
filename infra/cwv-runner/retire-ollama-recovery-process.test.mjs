@@ -16,9 +16,9 @@ async function fixtureDirectory(prefix) {
   await chmod(directory, 0o755);
   return directory;
 }
-async function writeFixtureFile(path, contents) {
+async function writeFixtureFile(path, contents, mode = 0o644) {
   await writeFile(path, contents);
-  await chmod(path, 0o644);
+  await chmod(path, mode);
 }
 async function shell(command, args = [], env = {}) {
   const procRoot = await mkdtemp(join(tmpdir(), 'baci-recovery-proc-'));
@@ -84,10 +84,11 @@ test('records valid partial and reinst-required dpkg states explicitly', async (
     });
   }
 });
-test('uses one saved process surface instead of invoking ps twice', async () => {
+test('precreates the saved process surface for a root parent with a deprivileged child', async () => {
   const directory = await fixtureDirectory('baci-recovery-process-surface-');
   const processes = join(directory, 'processes');
   try {
+    await writeFixtureFile(processes, '', 0o666);
     const { stdout } = await shell(
       'calls=0; recovery_ps() { calls=$((calls + 1)); if [ "$calls" -eq 1 ]; then printf first; else printf changed; fi; }; recovery_surface() { class=$1; shift; [ "$class" = running-processes ] && "$@"; }; recovery_collect_processes "$2"; printf "\\n%s\\n" "$calls"',
       [processes]
@@ -185,7 +186,6 @@ test('rejects an Ollama executable even when it is a scanner ancestor', async ()
     await rm(directory, { recursive: true, force: true });
   }
 });
-
 test('rejects an Ollama wrapper even when it is a scanner ancestor', async () => {
   const directory = await fixtureDirectory('baci-recovery-absent-wrapper-');
   const processes = join(directory, 'processes');
