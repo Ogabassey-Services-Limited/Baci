@@ -7,7 +7,7 @@ import { OnboardingPreviewCanvas } from '@/components/onboarding-preview/onboard
 import { OnboardingPreviewControls } from '@/components/onboarding-preview/onboarding-preview-controls';
 import { generatePreviewTemplate } from '@/components/onboarding-preview/onboarding-preview-data';
 import { Button } from '@/components/ui/button';
-import { deriveThemeFromColors } from '@/lib/initial-template-preview-theme';
+import { deriveCuratedTheme } from '@/lib/storefront-defaults/derive-curated-theme';
 import type { BrandColors } from '@/types';
 
 interface OnboardingPuckPreviewProps {
@@ -20,7 +20,7 @@ interface OnboardingPuckPreviewProps {
 }
 
 function getThemeStyles(brandColors: BrandColors): React.CSSProperties {
-  const theme = deriveThemeFromColors(brandColors);
+  const theme = deriveCuratedTheme(brandColors);
   return {
     '--theme-primary': theme.colors.primary,
     '--theme-secondary': theme.colors.secondary,

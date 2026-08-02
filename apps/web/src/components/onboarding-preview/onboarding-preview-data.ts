@@ -1,21 +1,17 @@
 import type { Data } from '@puckeditor/core';
-import {
-  generateFeatures,
-  generateHeroSlides,
-} from '@/lib/initial-template-preview-content';
 import { getInitialTemplateProfile } from '@/lib/initial-template-profiles';
+import { buildCuratedFeatures } from '@/lib/storefront-defaults/build-curated-features';
+import { buildCuratedHero } from '@/lib/storefront-defaults/build-curated-hero';
 
+// biome-ignore lint/suspicious/useAwait: preview call contract remains awaitable
 export async function generatePreviewTemplate(params: {
   businessName: string;
   businessType: string;
   logoDataUri: string | null;
 }): Promise<Data> {
   const profile = getInitialTemplateProfile(params.businessType);
-  const slides = await generateHeroSlides(
-    params.businessName,
-    params.businessType
-  );
-  const features = generateFeatures(params.businessType);
+  const hero = buildCuratedHero(params.businessName, params.businessType);
+  const features = buildCuratedFeatures();
   const timestamp = Date.now();
   const header = {
     type: 'Header',
@@ -38,12 +34,8 @@ export async function generatePreviewTemplate(params: {
   } as Data['content'][number];
   const sections = {
     hero: {
-      type: 'HeroCarousel',
-      props: {
-        id: `HeroCarousel-preview-${timestamp}`,
-        slides,
-        autoplayDelay: 5000,
-      },
+      type: 'Hero',
+      props: hero,
     },
     story: {
       type: 'Text',

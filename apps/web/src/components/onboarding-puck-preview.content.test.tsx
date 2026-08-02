@@ -2,8 +2,6 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  mockGenerateFeatures,
-  mockGenerateHeroSlides,
   previewProps,
   renderPreview,
 } from './onboarding-preview/onboarding-preview.test-support';
@@ -25,15 +23,6 @@ describe('OnboardingPuckPreview content', () => {
   it('renders preview with generated content and scoped theme values', async () => {
     const { container } = renderPreview();
     await waitFor(() =>
-      expect(mockGenerateHeroSlides).toHaveBeenCalledWith(
-        'Test Store',
-        'fashion'
-      )
-    );
-    await waitFor(() =>
-      expect(mockGenerateFeatures).toHaveBeenCalledWith('fashion')
-    );
-    await waitFor(() =>
       expect(screen.getByTestId('puck-render')).toBeInTheDocument()
     );
     expect(screen.getAllByTestId('merchant-provider').length).toBeGreaterThan(
@@ -41,36 +30,16 @@ describe('OnboardingPuckPreview content', () => {
     );
     expect(container.querySelector('[style]')).toBeInTheDocument();
   });
-  it('keeps the fallback visible while hero generation is pending', async () => {
-    let resolvePromise: ((value: unknown) => void) | undefined;
-    mockGenerateHeroSlides.mockReturnValue(
-      new Promise((resolve) => {
-        resolvePromise = resolve;
-      }) as unknown as ReturnType<typeof mockGenerateHeroSlides>
-    );
+  it('renders the deterministic single-H1 hero in preview data', async () => {
     renderPreview();
     await waitFor(() =>
-      expect(
-        screen.getByText(/your store preview will appear here/i)
-      ).toBeInTheDocument()
+      expect(screen.getByTestId('puck-render').textContent).toContain(
+        '"type":"Hero"'
+      )
     );
-    resolvePromise?.([
-      { title: 'Test', subtitle: 'Test', ctaText: 'Test', ctaUrl: '/' },
-    ]);
-  });
-  it('handles template generation errors gracefully', async () => {
-    const errorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    mockGenerateHeroSlides.mockRejectedValue(new Error('Generation failed'));
-    renderPreview();
-    await waitFor(() =>
-      expect(
-        screen.getByText(/your store preview will appear here/i)
-      ).toBeInTheDocument()
+    expect(screen.getByTestId('puck-render').textContent).toContain(
+      '"headingLevel":"h1"'
     );
-    expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
   });
   it('calls onEdit with the displayed page', async () => {
     const user = userEvent.setup();
@@ -123,13 +92,7 @@ describe('OnboardingPuckPreview content', () => {
   });
   it('regenerates content for changed business inputs', async () => {
     const { rerender } = renderPreview({ businessName: 'Store One' });
-    await waitFor(() =>
-      expect(mockGenerateHeroSlides).toHaveBeenCalledWith(
-        'Store One',
-        'fashion'
-      )
-    );
-    vi.clearAllMocks();
+    await screen.findByTestId('puck-render');
     rerender(
       <OnboardingPuckPreview
         {...previewProps}
@@ -138,9 +101,8 @@ describe('OnboardingPuckPreview content', () => {
       />
     );
     await waitFor(() =>
-      expect(mockGenerateHeroSlides).toHaveBeenCalledWith(
-        'Store Two',
-        'electronics'
+      expect(screen.getByTestId('puck-render').textContent).toContain(
+        'Store Two'
       )
     );
   });

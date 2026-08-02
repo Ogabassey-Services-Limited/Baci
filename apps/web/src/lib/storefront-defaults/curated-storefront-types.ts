@@ -8,6 +8,14 @@ export interface GenerateInitialTemplateParams {
   merchant: Record<string, unknown>;
 }
 
+export interface CuratedStorefrontInput {
+  businessName: string;
+  businessType: string;
+  country: string;
+  brandColors: BrandColors;
+  logoUrl?: string;
+}
+
 export type PuckBlock = Data['content'][number];
 
 export interface AiContent {

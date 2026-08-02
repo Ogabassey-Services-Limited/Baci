@@ -45,10 +45,6 @@ vi.mock('@/lib/initial-template-preview-theme', () => ({
     },
   })),
 }));
-vi.mock('@/lib/initial-template-preview-content', () => ({
-  generateFeatures: vi.fn(),
-  generateHeroSlides: vi.fn(),
-}));
 vi.mock('@puckeditor/core', () => ({
   Render: ({ data }: { data: unknown }) => {
     if (mockPuckRenderState.errorMessage)
@@ -95,14 +91,8 @@ vi.mock('@/hooks/use-cart', () => ({
   }) => <div data-testid={`cart-provider:${merchantSlug}`}>{children}</div>,
 }));
 
-import {
-  generateFeatures,
-  generateHeroSlides,
-} from '@/lib/initial-template-preview-content';
 import { OnboardingPuckPreview } from '../onboarding-puck-preview';
 
-export const mockGenerateHeroSlides = vi.mocked(generateHeroSlides);
-export const mockGenerateFeatures = vi.mocked(generateFeatures);
 export const previewProps = {
   businessName: 'Test Store',
   businessType: 'fashion',
@@ -119,16 +109,4 @@ export const setPuckRenderError = (errorMessage: string | null) => {
 beforeEach(() => {
   vi.clearAllMocks();
   mockPuckRenderState.errorMessage = null;
-  mockGenerateHeroSlides.mockResolvedValue([
-    {
-      image: '/placeholder.png',
-      title: 'Welcome',
-      subtitle: 'Test Store',
-      ctaText: 'Shop Now',
-      ctaLink: '#products',
-    },
-  ]);
-  mockGenerateFeatures.mockReturnValue([
-    { icon: 'shield', title: 'Secure', description: 'Safe shopping' },
-  ]);
 });
