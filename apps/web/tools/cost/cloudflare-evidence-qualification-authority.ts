@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { canonicalizeJson } from '../../../../packages/shared/src/storefront/delivery-evidence';
+import { ZeroWeightContractSchema } from './cloudflare-evidence-zero-weight-authority';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 const ToolingMergeSha = z.string().regex(/^[a-f0-9]{40}$/);
@@ -43,6 +44,8 @@ export const QualificationArtifactAuthoritySchema = z
   .object({
     toolingMergeSha: ToolingMergeSha,
     pointerCache: QualificationPointerCacheAuthoritySchema,
+    /** Provider contract fingerprints fixed by the reviewed authority module. */
+    zeroWeightContract: ZeroWeightContractSchema,
     artifacts: z
       .array(QualificationArtifactAuthorityEntrySchema)
       .length(2)

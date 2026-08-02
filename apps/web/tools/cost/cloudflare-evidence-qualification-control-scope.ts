@@ -1,25 +1,41 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import type { QualificationControlEvidenceSchema } from './cloudflare-evidence-qualification-contracts';
 
 type QualificationControlEvidence = z.infer<
   typeof QualificationControlEvidenceSchema
 >;
+export const QualificationControlScopeSchema = z
+  .object({
+    accountId: z.string().min(1),
+    zoneId: z.string().min(1),
+    scriptName: z.string().min(1),
+    bucketName: z.string().min(1),
+  })
+  .strict();
+export type QualificationControlScope = z.infer<
+  typeof QualificationControlScopeSchema
+>;
+export const hasValidQualificationControlScope = (value: unknown) =>
+  QualificationControlScopeSchema.safeParse(value).success;
+const QUALIFICATION_EVIDENCE_HOST = 'edge-evidence.ogabassey.com';
 
 export function isQualificationControlEvidenceInScope(
   evidence: QualificationControlEvidence,
-  accountId: string,
-  scriptName: string
+  scope: QualificationControlScope | undefined
 ) {
-  const expectedPrefix = `/accounts/${accountId}/`;
-  return (
-    evidence.topology.every(({ endpoint }) =>
-      endpoint.startsWith(expectedPrefix)
-    ) &&
-    evidence.topology.every(
-      ({ family, endpoint }) =>
-        family !== 'worker-custom-domain' ||
-        endpoint.includes(`/workers/scripts/${scriptName}/domains/custom/`)
-    )
+  if (!scope) return false;
+  if (
+    evidence.purge.zoneId !== scope.zoneId ||
+    evidence.purge.endpoint !== `/zones/${scope.zoneId}/purge_cache`
+  )
+    return false;
+  const endpoints = {
+    'worker-custom-domain': `/accounts/${scope.accountId}/workers/scripts/${scope.scriptName}/domains/custom/${QUALIFICATION_EVIDENCE_HOST}`,
+    'r2-cors': `/accounts/${scope.accountId}/r2/buckets/${scope.bucketName}/cors`,
+    'r2-custom-domain': `/accounts/${scope.accountId}/r2/buckets/${scope.bucketName}/domains/custom/${QUALIFICATION_EVIDENCE_HOST}`,
+  } as const;
+  return evidence.topology.every(
+    ({ family, endpoint }) => endpoint === endpoints[family]
   );
 }
 

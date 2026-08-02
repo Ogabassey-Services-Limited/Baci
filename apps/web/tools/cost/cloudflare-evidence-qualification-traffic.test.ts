@@ -51,6 +51,14 @@ const proof = {
   },
 } as const;
 const ownerAcceptanceAuthority = () => proof.ownerAcceptance;
+const expectedContract = {
+  zeroWeightDeploymentSupported: proof.zeroWeightDeploymentSupported,
+  zeroWeightOpenApiContradiction: proof.zeroWeightOpenApiContradiction,
+  productDocumentSha256: proof.productDocumentSha256,
+  openApiSha256: proof.openApiSha256,
+  openApiMinimumWeight: proof.openApiMinimumWeight,
+  visibilityBoundSeconds: proof.visibilityBoundSeconds,
+};
 const qualificationNow = new Date('2026-07-31T01:00:00.000Z');
 
 describe('Cloudflare zero-weight qualification proof', () => {
@@ -62,6 +70,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
         candidateVersionId: 'b',
         expectedOwnerApprovalId: 'owner-approval',
         ownerAcceptanceAuthority,
+        expectedContract,
         now: qualificationNow,
       })
     ).toMatchObject({ ok: true });
@@ -80,6 +89,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           candidateVersionId: 'b',
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
+          expectedContract,
           now: qualificationNow,
         }
       )
@@ -109,6 +119,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           candidateVersionId: 'b',
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
+          expectedContract,
           now: qualificationNow,
         }
       )
@@ -116,6 +127,26 @@ describe('Cloudflare zero-weight qualification proof', () => {
       ok: false,
       reason: 'zero_weight_visibility_bound_invalid',
     });
+  });
+
+  it('rejects a self-consistent contract tuple that differs from reviewed authority', () => {
+    expect(
+      validateCloudflareZeroWeightProof(
+        {
+          ...proof,
+          productDocumentSha256: '9'.repeat(64),
+        },
+        {
+          deployment,
+          stableVersionId: 'a',
+          candidateVersionId: 'b',
+          expectedOwnerApprovalId: 'owner-approval',
+          ownerAcceptanceAuthority,
+          expectedContract,
+          now: qualificationNow,
+        }
+      )
+    ).toEqual({ ok: false, reason: 'zero_weight_contract_mismatch' });
   });
 
   it('rejects an override that lacks candidate Version Metadata', () => {
@@ -135,6 +166,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           candidateVersionId: 'b',
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
+          expectedContract,
           now: qualificationNow,
         }
       )
@@ -161,6 +193,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
         candidateVersionId: 'b',
         expectedOwnerApprovalId: 'owner-approval',
         ownerAcceptanceAuthority: undefined as never,
+        expectedContract,
         now: qualificationNow,
       })
     ).toEqual({
@@ -185,6 +218,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           candidateVersionId: 'b',
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
+          expectedContract,
           now: qualificationNow,
         }
       )
@@ -210,6 +244,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
             ...proof.ownerAcceptance,
             acceptedAt: '2026-07-29T00:00:00.000Z',
           }),
+          expectedContract,
           now: qualificationNow,
         }
       )
@@ -234,6 +269,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           candidateVersionId: 'b',
           expectedOwnerApprovalId: 'owner-approval',
           ownerAcceptanceAuthority,
+          expectedContract,
           now: qualificationNow,
         }
       )
@@ -254,6 +290,7 @@ describe('Cloudflare zero-weight qualification proof', () => {
           ...proof.ownerAcceptance,
           deploymentProofSha256: '2'.repeat(64),
         }),
+        expectedContract,
         now: qualificationNow,
       })
     ).toEqual({

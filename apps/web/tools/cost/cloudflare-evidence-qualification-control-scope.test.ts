@@ -4,6 +4,7 @@ import {
   isQualificationControlEvidenceInScope,
 } from './cloudflare-evidence-qualification-control-scope';
 import {
+  qualificationAuthorityOptions,
   readback,
   reviewedArtifacts,
 } from './qualify-cloudflare-evidence-sources.test-fixtures';
@@ -13,8 +14,7 @@ describe('qualification control scope', () => {
     expect(
       isQualificationControlEvidenceInScope(
         readback.controlEvidence,
-        'account',
-        readback.scriptName
+        qualificationAuthorityOptions.expectedControlScope
       )
     ).toBe(true);
     expect(
@@ -43,8 +43,7 @@ describe('qualification control scope', () => {
               : receipt
           ),
         },
-        'account',
-        readback.scriptName
+        qualificationAuthorityOptions.expectedControlScope
       )
     ).toBe(false);
     expect(
@@ -54,6 +53,38 @@ describe('qualification control scope', () => {
         ),
         readback.scriptName,
         'account'
+      )
+    ).toBe(false);
+  });
+
+  it('rejects a purge zone or R2 bucket outside the journaled run scope', () => {
+    expect(
+      isQualificationControlEvidenceInScope(
+        {
+          ...readback.controlEvidence,
+          purge: {
+            ...readback.controlEvidence.purge,
+            zoneId: 'other-zone',
+            endpoint: '/zones/other-zone/purge_cache',
+          },
+        },
+        qualificationAuthorityOptions.expectedControlScope
+      )
+    ).toBe(false);
+    expect(
+      isQualificationControlEvidenceInScope(
+        {
+          ...readback.controlEvidence,
+          topology: readback.controlEvidence.topology.map((receipt) =>
+            receipt.family === 'r2-cors'
+              ? {
+                  ...receipt,
+                  endpoint: receipt.endpoint.replace('/bucket/', '/other/'),
+                }
+              : receipt
+          ),
+        },
+        qualificationAuthorityOptions.expectedControlScope
       )
     ).toBe(false);
   });

@@ -9,6 +9,15 @@ type GuardRecord = Readonly<{
   processStartTime: string;
   token: string;
 }>;
+type OwnerRecordHandle = Readonly<{
+  writeFile(value: string): Promise<void>;
+  sync(): Promise<void>;
+  close(): Promise<void>;
+}>;
+type OwnerRecordIo = Readonly<{
+  open(path: string, flags: number, mode: number): Promise<OwnerRecordHandle>;
+  remove(path: string): Promise<void>;
+}>;
 
 const GUARD_TIMEOUT_MS = 60_000;
 const guardPath = (path: string) => `${path}.reclaim-guard`;
@@ -65,20 +74,46 @@ function isProcessLive(record: GuardRecord) {
   return observed === undefined || observed === record.processStartTime;
 }
 
-async function writeOwnerRecord(path: string, record: GuardRecord) {
-  const handle = await open(
-    path,
-    constants.O_WRONLY |
-      constants.O_CREAT |
-      constants.O_EXCL |
-      constants.O_NOFOLLOW,
-    0o600
-  );
+const ownerRecordIo: OwnerRecordIo = {
+  open,
+  remove: (path) => rm(path, { force: true }),
+};
+
+async function writeOwnerRecord(
+  path: string,
+  record: GuardRecord,
+  io: OwnerRecordIo
+) {
+  let handle: OwnerRecordHandle | undefined;
   try {
+    handle = await io.open(
+      path,
+      constants.O_WRONLY |
+        constants.O_CREAT |
+        constants.O_EXCL |
+        constants.O_NOFOLLOW,
+      0o600
+    );
     await handle.writeFile(`${JSON.stringify(record)}\n`);
     await handle.sync();
-  } finally {
     await handle.close();
+    handle = undefined;
+  } catch (error) {
+    if (handle) {
+      await handle.close().catch(() => undefined);
+      await io.remove(path).catch(() => undefined);
+    }
+    throw error;
+  }
+}
+
+function isPidLive(pid: number) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
   }
 }
 
@@ -105,10 +140,14 @@ async function readOwnerRecords(path: string) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
       throw error;
     }
-    records.push({
-      path: recordPath,
-      record: parseRecord(contents),
-    });
+    try {
+      records.push({ path: recordPath, record: parseRecord(contents) });
+    } catch (error) {
+      const suffix = entry.name.slice(ownerPrefix(path).length);
+      const filenamePid = Number(suffix.slice(0, suffix.indexOf('-')));
+      if (isPidLive(filenamePid)) throw error;
+      await rm(recordPath, { force: true });
+    }
   }
   return records;
 }
@@ -154,7 +193,8 @@ const waitForGuard = () =>
 /** Serializes lock-path mutation and lock acquisition across processes. */
 export async function withEvidenceLockPathGuard<T>(
   path: string,
-  operation: () => Promise<T>
+  operation: () => Promise<T>,
+  io: OwnerRecordIo = ownerRecordIo
 ) {
   const token = randomUUID();
   const record = Object.freeze({
@@ -163,7 +203,7 @@ export async function withEvidenceLockPathGuard<T>(
     token,
   });
   const metadataPath = ownerPath(path, token);
-  await writeOwnerRecord(metadataPath, record);
+  await writeOwnerRecord(metadataPath, record, io);
   const deadline = Date.now() + GUARD_TIMEOUT_MS;
   let acquired = false;
   try {
@@ -187,7 +227,7 @@ export async function withEvidenceLockPathGuard<T>(
       try {
         await mkdir(guardPath(path), { mode: 0o700 });
         guardCreated = true;
-        await writeOwnerRecord(guardOwnerPath(path), record);
+        await writeOwnerRecord(guardOwnerPath(path), record, io);
         acquired = true;
       } catch (error) {
         if (guardCreated) {

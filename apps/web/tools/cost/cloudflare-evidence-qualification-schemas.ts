@@ -6,7 +6,7 @@ import {
   matchesQualificationArtifactAuthority,
   matchesQualificationPointerCacheAuthority,
   matchesQualificationRunBindings,
-  type QualificationArtifactAuthoritySchema,
+  QualificationArtifactAuthoritySchema,
   QualificationArtifactModuleListSchema,
   QualificationArtifactReadbackVersionSchema,
   QualificationArtifactReceiptSchema,
@@ -16,7 +16,9 @@ import {
 import { QualificationControlEvidenceSchema } from './cloudflare-evidence-qualification-contracts';
 import {
   hasReviewedQualificationArtifactIdentity,
+  hasValidQualificationControlScope,
   isQualificationControlEvidenceInScope,
+  type QualificationControlScope,
 } from './cloudflare-evidence-qualification-control-scope';
 import {
   type CloudflareOwnerAcceptanceAuthorityResolver,
@@ -69,7 +71,6 @@ export const ArtifactReadbackSchema = z
       .strict(),
     zeroWeightProof: ZeroWeightProofSchema,
     pointerCache: PointerCacheSchema,
-    /** Authenticated purge and topology receipts from the provider qualification. */
     controlEvidence: QualificationControlEvidenceSchema,
     runBinding: QualificationRunBindingSchema,
   })
@@ -123,10 +124,11 @@ export function qualifyCloudflareEvidenceReadback(
     expectedAccountId?: string;
     expectedOwnerApprovalId: string;
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
-    expectedRunBinding?: z.infer<typeof QualificationRunBindingSchema>;
-    expectedArtifactAuthority?: z.infer<
+    expectedRunBinding: z.infer<typeof QualificationRunBindingSchema>;
+    expectedArtifactAuthority: z.infer<
       typeof QualificationArtifactAuthoritySchema
     >;
+    expectedControlScope: QualificationControlScope;
   }>
 ):
   | { ok: true; qualification: z.infer<typeof ArtifactReadbackSchema> }
@@ -146,49 +148,49 @@ export function qualifyCloudflareEvidenceReadback(
     )
   )
     return { ok: false, reason: 'reviewed_artifacts_invalid' };
-  if (options.expectedRunBinding) {
-    const expectedBinding = options.expectedRunBinding;
-    if (
-      !matchesQualificationRunBindings(
-        receipt.runBinding,
-        expectedArtifacts.map(({ runBinding }) => runBinding),
-        expectedBinding
-      )
-    )
-      return { ok: false, reason: 'qualification_run_binding_mismatch' };
-    if (
-      !options.expectedArtifactAuthority ||
-      !matchesQualificationArtifactAuthority(
-        expectedArtifacts,
-        options.expectedArtifactAuthority,
-        expectedBinding.toolingMergeSha
-      )
-    )
-      return { ok: false, reason: 'reviewed_artifact_authority_mismatch' };
-    if (
-      !options.expectedArtifactAuthority ||
-      !matchesQualificationPointerCacheAuthority(
-        receipt.pointerCache,
-        options.expectedArtifactAuthority
-      )
-    )
-      return { ok: false, reason: 'pointer_cache_authority_mismatch' };
-    if (
-      calculateQualificationEvidencePayloadSha256(
-        receipt,
-        expectedArtifacts
-      ) !== expectedBinding.measurementPayloadSha256
-    )
-      return { ok: false, reason: 'measurement_payload_mismatch' };
-  }
-  const controlAccountId =
-    options.expectedAccountId ?? expectedArtifacts[0]?.accountId;
+  const expectedBinding = options.expectedRunBinding;
+  if (!QualificationRunBindingSchema.safeParse(expectedBinding).success)
+    return { ok: false, reason: 'qualification_run_binding_required' };
   if (
-    !controlAccountId ||
+    !QualificationArtifactAuthoritySchema.safeParse(
+      options.expectedArtifactAuthority
+    ).success
+  )
+    return { ok: false, reason: 'reviewed_artifact_authority_required' };
+  if (!hasValidQualificationControlScope(options.expectedControlScope))
+    return { ok: false, reason: 'control_evidence_scope_invalid' };
+  if (
+    !matchesQualificationRunBindings(
+      receipt.runBinding,
+      expectedArtifacts.map(({ runBinding }) => runBinding),
+      expectedBinding
+    )
+  )
+    return { ok: false, reason: 'qualification_run_binding_mismatch' };
+  if (
+    !matchesQualificationArtifactAuthority(
+      expectedArtifacts,
+      options.expectedArtifactAuthority,
+      expectedBinding.toolingMergeSha
+    )
+  )
+    return { ok: false, reason: 'reviewed_artifact_authority_mismatch' };
+  if (
+    !matchesQualificationPointerCacheAuthority(
+      receipt.pointerCache,
+      options.expectedArtifactAuthority
+    )
+  )
+    return { ok: false, reason: 'pointer_cache_authority_mismatch' };
+  if (
+    calculateQualificationEvidencePayloadSha256(receipt, expectedArtifacts) !==
+    expectedBinding.measurementPayloadSha256
+  )
+    return { ok: false, reason: 'measurement_payload_mismatch' };
+  if (
     !isQualificationControlEvidenceInScope(
       receipt.controlEvidence,
-      controlAccountId,
-      receipt.scriptName
+      options.expectedControlScope
     )
   )
     return { ok: false, reason: 'control_evidence_scope_invalid' };
@@ -250,6 +252,7 @@ export function qualifyCloudflareEvidenceReadback(
       candidateVersionId: expectedArtifacts[1].versionId,
       expectedOwnerApprovalId: options.expectedOwnerApprovalId,
       ownerAcceptanceAuthority: options.ownerAcceptanceAuthority,
+      expectedContract: options.expectedArtifactAuthority.zeroWeightContract,
       now: options.now,
     }
   );

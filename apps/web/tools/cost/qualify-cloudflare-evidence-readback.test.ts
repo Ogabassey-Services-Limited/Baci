@@ -7,6 +7,7 @@ import {
   REVIEWED_EVIDENCE_SYSTEM_PATH,
 } from './qualify-cloudflare-evidence-sources';
 import {
+  qualificationAuthorityOptions,
   readback,
   reviewedArtifacts,
 } from './qualify-cloudflare-evidence-sources.test-fixtures';
@@ -14,6 +15,7 @@ import {
 const ownerAcceptanceOptions = {
   expectedOwnerApprovalId: 'owner-approval',
   ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
+  ...qualificationAuthorityOptions,
 };
 
 describe('Cloudflare read-only qualification contracts', () => {

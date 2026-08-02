@@ -1,7 +1,10 @@
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import {
   chmod,
   mkdir,
   mkdtemp,
+  open,
   readdir,
   readFile,
   rm,
@@ -73,6 +76,74 @@ describe('cloudflare evidence lock guard', () => {
     ).resolves.toBeUndefined();
 
     expect(entered).toBe(true);
+    await expect(readdir(stateDir)).resolves.toEqual([]);
+    await rm(stateDir, { recursive: true, force: true });
+  });
+
+  it('reclaims a malformed partial owner record after its writer dies', async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-guard-'));
+    await chmod(stateDir, 0o700);
+    const lockPath = join(stateDir, '.active-run.lock');
+    const child = spawn(process.execPath, ['-e', 'process.exit(0)']);
+    if (!child.pid) throw new Error('child PID is unavailable');
+    const deadPid = child.pid;
+    await once(child, 'exit');
+    await writeFile(
+      `${stateDir}/.active-run.lock.reclaim-owner-${deadPid}-partial`,
+      '{"pid":',
+      { mode: 0o600 }
+    );
+
+    let entered = false;
+    await withEvidenceLockPathGuard(lockPath, async () => {
+      entered = true;
+    });
+
+    expect(entered).toBe(true);
+    await expect(readdir(stateDir)).resolves.toEqual([]);
+    await rm(stateDir, { recursive: true, force: true });
+  });
+
+  it.each([
+    'writeFile',
+    'sync',
+    'close',
+  ] as const)('removes a partial owner record when %s fails after open', async (failure) => {
+    const stateDir = await mkdtemp(join(tmpdir(), 'baci-evidence-guard-'));
+    await chmod(stateDir, 0o700);
+    const lockPath = join(stateDir, '.active-run.lock');
+    let closed = false;
+
+    await expect(
+      withEvidenceLockPathGuard(lockPath, async () => undefined, {
+        open: async (path, flags, mode) => {
+          const handle = await open(path, flags, mode);
+          let closeAttempts = 0;
+          return {
+            writeFile: async (value) => {
+              if (failure === 'writeFile') throw new Error('write failed');
+              await handle.writeFile(value);
+            },
+            sync: async () => {
+              if (failure === 'sync') throw new Error('sync failed');
+              await handle.sync();
+            },
+            close: async () => {
+              closeAttempts += 1;
+              if (!closed) {
+                await handle.close();
+                closed = true;
+              }
+              if (failure === 'close' && closeAttempts === 1)
+                throw new Error('close failed');
+            },
+          };
+        },
+        remove: (path) => rm(path, { force: true }),
+      })
+    ).rejects.toThrow(`${failure.replace('File', '').toLowerCase()} failed`);
+
+    expect(closed).toBe(true);
     await expect(readdir(stateDir)).resolves.toEqual([]);
     await rm(stateDir, { recursive: true, force: true });
   });

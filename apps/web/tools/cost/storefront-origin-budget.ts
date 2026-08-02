@@ -7,6 +7,11 @@ import {
   validateStorefrontDeliveryManifest,
 } from '../../../../packages/shared/src/storefront/delivery-evidence-manifest';
 import { DEFAULT_ORIGIN_RATE_THRESHOLD } from './origin-rate-constants';
+import {
+  authenticateStorefrontDeliveryManifest,
+  loadStorefrontDeliveryManifestAuthority,
+  type StorefrontDeliveryManifestAuthorityResolver,
+} from './storefront-origin-budget-authority';
 import { reconcileStorefrontDeliveryEvidence } from './storefront-origin-budget-reconciliation';
 
 export type StorefrontDeliverySummary = {
@@ -195,6 +200,7 @@ export async function readSealedStorefrontDeliveryManifest(
     environment: 'production' | 'comparison';
     thresholdOverride?: number;
     now?: Date;
+    manifestAuthority?: StorefrontDeliveryManifestAuthorityResolver;
   } = {
     environment: 'production',
   }
@@ -223,6 +229,12 @@ export async function readSealedStorefrontDeliveryManifest(
   if (!validation.ok)
     throw new Error(
       `sealed manifest is invalid: ${validation.reasonCodes.join(',')}`
+    );
+  if (options.environment === 'production')
+    authenticateStorefrontDeliveryManifest(
+      validation.manifest,
+      options.manifestAuthority,
+      options.now ?? new Date()
     );
   return validation.manifest;
 }
@@ -272,9 +284,14 @@ if (
 ) {
   const { manifestPath, environment, thresholdOverride } =
     parseStorefrontOriginBudgetArguments(process.argv.slice(2));
+  const manifestAuthority =
+    environment === 'production'
+      ? await loadStorefrontDeliveryManifestAuthority(process.env)
+      : undefined;
   const manifest = await readSealedStorefrontDeliveryManifest(manifestPath, {
     environment,
     thresholdOverride,
+    manifestAuthority,
   });
   const summary = summarizeStorefrontDelivery(manifest, { thresholdOverride });
   process.stdout.write(`${JSON.stringify(summary)}\n`);

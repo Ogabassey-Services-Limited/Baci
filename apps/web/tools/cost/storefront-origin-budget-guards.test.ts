@@ -12,7 +12,22 @@ import {
   summarizeAtFixtureTime,
   validationNow,
 } from './storefront-origin-budget.test-fixtures';
+import {
+  calculateStorefrontDeliveryManifestAuthoritySha256,
+  type StorefrontDeliveryManifestAuthorityResolver,
+} from './storefront-origin-budget-authority';
 
+const authorityFor =
+  (
+    evidence: ReturnType<typeof seal>
+  ): StorefrontDeliveryManifestAuthorityResolver =>
+  () => ({
+    source: 'audit_verified',
+    manifestSha256:
+      calculateStorefrontDeliveryManifestAuthoritySha256(evidence),
+    authorityReceiptSha256: 'a'.repeat(64),
+    verifiedAt: validationNow.toISOString(),
+  });
 const production = { environment: 'production' as const };
 
 describe('storefront origin budget guards', () => {
@@ -132,11 +147,13 @@ describe('summarizeStorefrontDelivery guards', () => {
     const directory = await mkdtemp(join(tmpdir(), 'baci-manifest-'));
     await chmod(directory, 0o700);
     const path = join(directory, 'sealed.json');
-    await writeFile(path, JSON.stringify(manifest()), { mode: 0o600 });
+    const evidence = manifest();
+    await writeFile(path, JSON.stringify(evidence), { mode: 0o600 });
     await expect(
       readSealedStorefrontDeliveryManifest(path, {
         environment: 'production',
         now: validationNow,
+        manifestAuthority: authorityFor(evidence),
       })
     ).resolves.toMatchObject({ canonicalHostname: 'ogabassey.com' });
     await expect(
@@ -145,5 +162,30 @@ describe('summarizeStorefrontDelivery guards', () => {
         thresholdOverride: 0.1,
       })
     ).rejects.toThrow('overrides');
+  });
+
+  it('rejects a self-consistent production manifest without independent authority', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'baci-manifest-auth-'));
+    await chmod(directory, 0o700);
+    const path = join(directory, 'sealed.json');
+    const evidence = manifest();
+    await writeFile(path, JSON.stringify(evidence), { mode: 0o600 });
+
+    await expect(
+      readSealedStorefrontDeliveryManifest(path, {
+        environment: 'production',
+        now: validationNow,
+      })
+    ).rejects.toThrow('authority is required');
+    await expect(
+      readSealedStorefrontDeliveryManifest(path, {
+        environment: 'production',
+        now: validationNow,
+        manifestAuthority: authorityFor({
+          ...evidence,
+          deploymentId: 'fabricated',
+        }),
+      })
+    ).rejects.toThrow('does not match');
   });
 });

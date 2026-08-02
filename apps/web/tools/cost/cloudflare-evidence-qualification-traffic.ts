@@ -3,6 +3,13 @@ import {
   calculateCanonicalSha256,
   canonicalizeJson,
 } from '../../../../packages/shared/src/storefront/delivery-evidence';
+import {
+  type CloudflareZeroWeightContract,
+  matchesReviewedZeroWeightContract,
+  observationsAreWithinCurrentRun,
+  spansVisibilityBound,
+  ZeroWeightContractSchema,
+} from './cloudflare-evidence-zero-weight-authority';
 
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
 const NonEmpty = z.string().min(1);
@@ -24,16 +31,7 @@ export const ZeroWeightDeploymentTupleSchema = z
       .length(2),
   })
   .strict();
-export const ZeroWeightContractSchema = z
-  .object({
-    zeroWeightDeploymentSupported: z.literal(true),
-    zeroWeightOpenApiContradiction: z.literal(true),
-    productDocumentSha256: Hash,
-    openApiSha256: Hash,
-    openApiMinimumWeight: z.literal(0.01),
-    visibilityBoundSeconds: z.number().int().positive(),
-  })
-  .strict();
+export { ZeroWeightContractSchema };
 
 export const OrdinaryTrafficProofSchema = z
   .object({
@@ -85,9 +83,7 @@ export const ZeroWeightProofSchema = z
   })
   .strict();
 
-export type CloudflareZeroWeightContract = z.infer<
-  typeof ZeroWeightContractSchema
->;
+export type { CloudflareZeroWeightContract };
 export type CloudflareOrdinaryTrafficProof = z.infer<
   typeof OrdinaryTrafficProofSchema
 >;
@@ -110,27 +106,7 @@ export type CloudflareZeroWeightDeployment = Readonly<{
   versions: readonly Readonly<{ versionId: string; percentage: number }>[];
 }>;
 
-function spansVisibilityBound(
-  observation: Readonly<{
-    observationStartedAt: string;
-    observationEndedAt: string;
-    visibilityBoundSeconds: number;
-  }>
-) {
-  return (
-    Date.parse(observation.observationEndedAt) -
-      Date.parse(observation.observationStartedAt) >=
-    observation.visibilityBoundSeconds * 1000
-  );
-}
-
-/**
- * Hashes only the provider deployment tuple, with a domain-separated preimage.
- *
- * The owner acceptance is intentionally bound to the exact deployment
- * readback, rather than to the complete proof (which would be circular) or to
- * an approval ID that could be replayed against a different deployment.
- */
+/** Domain-separated digest of the exact provider deployment tuple. */
 export function calculateCloudflareZeroWeightDeploymentProofSha256(
   deployment: CloudflareZeroWeightDeployment
 ) {
@@ -151,6 +127,7 @@ export function validateCloudflareZeroWeightProof(
     candidateVersionId: string;
     expectedOwnerApprovalId: string;
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
+    expectedContract: CloudflareZeroWeightContract;
     now?: Date;
   }>
 ) {
@@ -158,6 +135,17 @@ export function validateCloudflareZeroWeightProof(
   if (!parsed.success)
     return { ok: false as const, reason: 'zero_weight_proof_schema_invalid' };
   const proof = parsed.data;
+  const contractAuthority = matchesReviewedZeroWeightContract(
+    proof,
+    options.expectedContract
+  );
+  if (contractAuthority === 'authority_required')
+    return {
+      ok: false as const,
+      reason: 'zero_weight_contract_authority_required',
+    };
+  if (contractAuthority === 'mismatch')
+    return { ok: false as const, reason: 'zero_weight_contract_mismatch' };
   if (
     proof.deployment.deploymentId !== options.deployment.deploymentId ||
     proof.deployment.versions.length !== options.deployment.versions.length ||
@@ -264,6 +252,17 @@ export function validateCloudflareZeroWeightProof(
     nowMs - acceptedAtMs > MAXIMUM_OWNER_ACCEPTANCE_AGE_MS
   )
     return { ok: false as const, reason: 'owner_acceptance_stale' };
+  if (
+    !observationsAreWithinCurrentRun(
+      [proof.ordinaryTraffic, proof.protectedOverride],
+      acceptedAtMs,
+      nowMs
+    )
+  )
+    return {
+      ok: false as const,
+      reason: 'zero_weight_observation_not_current_run',
+    };
   return { ok: true as const, proof };
 }
 
@@ -278,6 +277,7 @@ export function qualifyCloudflareZeroWeightReadback(
     candidateVersionId: string;
     expectedOwnerApprovalId: string;
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
+    expectedContract: CloudflareZeroWeightContract;
     now?: Date;
   }>
 ) {
@@ -294,6 +294,7 @@ export function qualifyCloudflareZeroWeightReadback(
     candidateVersionId: input.candidateVersionId,
     expectedOwnerApprovalId: input.expectedOwnerApprovalId,
     ownerAcceptanceAuthority: input.ownerAcceptanceAuthority,
+    expectedContract: input.expectedContract,
     now: input.now,
   });
 }

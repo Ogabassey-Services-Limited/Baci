@@ -203,6 +203,16 @@ export const reviewedArtifactAuthority = {
     cacheRulesetVersion: readback.pointerCache.cacheRulesetVersion,
     traceExpressionSha256: readback.pointerCache.traceExpressionSha256,
   },
+  zeroWeightContract: {
+    zeroWeightDeploymentSupported:
+      readback.zeroWeightProof.zeroWeightDeploymentSupported,
+    zeroWeightOpenApiContradiction:
+      readback.zeroWeightProof.zeroWeightOpenApiContradiction,
+    productDocumentSha256: readback.zeroWeightProof.productDocumentSha256,
+    openApiSha256: readback.zeroWeightProof.openApiSha256,
+    openApiMinimumWeight: readback.zeroWeightProof.openApiMinimumWeight,
+    visibilityBoundSeconds: readback.zeroWeightProof.visibilityBoundSeconds,
+  },
   artifacts: reviewedArtifacts.map(
     ({
       accountId,
@@ -228,6 +238,17 @@ export const reviewedArtifactAuthority = {
 
 readback.runBinding.measurementPayloadSha256 =
   calculateQualificationEvidencePayloadSha256(readback, reviewedArtifacts);
+
+export const qualificationAuthorityOptions = {
+  expectedRunBinding: readback.runBinding,
+  expectedArtifactAuthority: reviewedArtifactAuthority,
+  expectedControlScope: {
+    accountId: 'account',
+    zoneId: 'zone',
+    scriptName: readback.scriptName,
+    bucketName: 'bucket',
+  },
+} as const;
 
 export const pointerProbeReadback = {
   status: 204,
@@ -289,6 +310,7 @@ export const qualificationInput = {
   ownerAcceptance: readback.zeroWeightProof.ownerAcceptance,
   ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
   expectedOwnerApprovalId: 'owner-approval',
+  expectedZeroWeightContract: reviewedArtifactAuthority.zeroWeightContract,
   now: new Date('2026-07-31T01:00:00.000Z'),
   trace: {
     cacheRuleId: readback.pointerCache.cacheRuleId,

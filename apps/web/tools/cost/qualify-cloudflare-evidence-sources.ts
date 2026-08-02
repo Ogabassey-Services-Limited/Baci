@@ -11,6 +11,7 @@ import {
 import type {
   CloudflareOwnerAcceptance,
   CloudflareOwnerAcceptanceAuthorityResolver,
+  CloudflareZeroWeightContract,
 } from './cloudflare-evidence-qualification-traffic';
 import { qualifyCloudflareZeroWeightReadback } from './cloudflare-evidence-qualification-traffic';
 import {
@@ -97,6 +98,7 @@ export async function executeCloudflareEvidenceQualification(
     ownerAcceptanceAuthority: CloudflareOwnerAcceptanceAuthorityResolver;
     trace: CloudflareTraceExpectation;
     expectedOwnerApprovalId: string;
+    expectedZeroWeightContract: CloudflareZeroWeightContract;
     now?: Date;
     pointerProbeCount?: number;
   }>
@@ -212,6 +214,7 @@ export async function executeCloudflareEvidenceQualification(
     candidateVersionId: input.artifacts[1].versionId,
     expectedOwnerApprovalId: input.expectedOwnerApprovalId,
     ownerAcceptanceAuthority: input.ownerAcceptanceAuthority,
+    expectedContract: input.expectedZeroWeightContract,
     now: input.now,
   });
   if (!zeroWeightQualification.ok)

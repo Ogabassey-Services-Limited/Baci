@@ -99,6 +99,10 @@ async function readCompletedRunBinding(stateDir: string, runId: string) {
     !isHash(measurementPayload) ||
     !hasReceipt(journal.writeTokenRevocationReceipt, journal.writeTokenId) ||
     !hasReceipt(journal.readTokenRevocationReceipt, journal.readTokenId) ||
+    !journal.accountId ||
+    !journal.zoneId ||
+    journal.plannedResources.length !== 1 ||
+    !journal.plannedResources[0] ||
     (journal.cleanupWriteTokenId !== undefined &&
       !hasReceipt(
         journal.cleanupWriteTokenRevocationReceipt,
@@ -109,11 +113,19 @@ async function readCompletedRunBinding(stateDir: string, runId: string) {
       'qualification readback requires a completed proof_complete run journal'
     );
   return {
-    runId,
-    toolingMergeSha: journal.toolingMergeSha,
-    cleanupVerificationReceiptSha256: cleanupReceipt,
-    measurementReceiptSha256: measurementReceipt,
-    measurementPayloadSha256: measurementPayload,
+    runBinding: {
+      runId,
+      toolingMergeSha: journal.toolingMergeSha,
+      cleanupVerificationReceiptSha256: cleanupReceipt,
+      measurementReceiptSha256: measurementReceipt,
+      measurementPayloadSha256: measurementPayload,
+    },
+    controlScope: {
+      accountId: journal.accountId,
+      zoneId: journal.zoneId,
+      scriptName: QUALIFICATION_WORKER_NAME,
+      bucketName: journal.plannedResources[0],
+    },
   } as const;
 }
 
@@ -197,10 +209,8 @@ export async function runQualificationCli(
         runId,
       } = parseQualificationArguments(args);
       assertCredentiallessValidationEnvironment(environment);
-      const expectedRunBinding = await readCompletedRunBinding(
-        runStateDir,
-        runId
-      );
+      const { runBinding: expectedRunBinding, controlScope } =
+        await readCompletedRunBinding(runStateDir, runId);
       const authority =
         ownerAcceptanceAuthority ??
         (await loadOwnerAcceptanceAuthority(
@@ -241,6 +251,7 @@ export async function runQualificationCli(
         ownerAcceptanceAuthority: authority,
         expectedRunBinding,
         expectedArtifactAuthority: reviewedArtifactAuthority,
+        expectedControlScope: controlScope,
       });
       if (!result.ok) throw new Error(result.reason);
       io.stdout(`${JSON.stringify(result.qualification)}\n`);

@@ -17,8 +17,12 @@ import {
 const execFileAsync = promisify(execFile);
 
 export function currentQualificationReadback() {
-  const qualifiedAt = new Date(Date.now() - 1000).toISOString();
-  const expiresAt = new Date(Date.now() + 60_000).toISOString();
+  const now = Date.now();
+  const qualifiedAt = new Date(now - 1000).toISOString();
+  const expiresAt = new Date(now + 60_000).toISOString();
+  const acceptedAt = new Date(now - 61_000).toISOString();
+  const observationStartedAt = new Date(now - 60_000).toISOString();
+  const observationEndedAt = new Date(now).toISOString();
   const pointerCache = {
     ...readback.pointerCache,
     qualifiedAt,
@@ -32,9 +36,19 @@ export function currentQualificationReadback() {
     ...readback,
     zeroWeightProof: {
       ...readback.zeroWeightProof,
+      ordinaryTraffic: {
+        ...readback.zeroWeightProof.ordinaryTraffic,
+        observationStartedAt,
+        observationEndedAt,
+      },
+      protectedOverride: {
+        ...readback.zeroWeightProof.protectedOverride,
+        observationStartedAt,
+        observationEndedAt,
+      },
       ownerAcceptance: {
         ...readback.zeroWeightProof.ownerAcceptance,
-        acceptedAt: new Date(Date.now() - 1000).toISOString(),
+        acceptedAt,
       },
     },
     pointerCache,
@@ -110,6 +124,9 @@ export async function writeCompletedQualificationJournal(
       runId,
       phase: 'proof_complete',
       toolingMergeSha: runBinding.toolingMergeSha,
+      accountId: 'account',
+      zoneId: 'zone',
+      plannedResources: ['bucket'],
       cleanupVerifiedAt: observedAt,
       measurementVerifiedAt: observedAt,
       cleanupVerificationReceiptSha256:
@@ -145,6 +162,7 @@ export async function createReviewedQualificationAuthority(
   const modulePath = join(workspaceRoot, 'owner-acceptance-authority.mjs');
   const artifactAuthority = {
     pointerCache: reviewedArtifactAuthority.pointerCache,
+    zeroWeightContract: reviewedArtifactAuthority.zeroWeightContract,
     artifacts: reviewedArtifactAuthority.artifacts,
   };
   const source = `export function resolveOwnerAcceptanceAuthority() { return ${JSON.stringify(acceptance)}; }\nexport function resolveQualificationArtifactAuthority() { return { toolingMergeSha: process.env.EVIDENCE_TOOLING_MERGE_SHA, ...${JSON.stringify(artifactAuthority)} }; }\n`;

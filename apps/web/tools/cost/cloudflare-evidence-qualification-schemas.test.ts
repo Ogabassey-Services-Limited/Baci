@@ -9,6 +9,7 @@ import {
   ReviewedQualificationArtifactSchema,
 } from './cloudflare-evidence-qualification-schemas';
 import {
+  qualificationAuthorityOptions,
   readback,
   reviewedArtifactAuthority,
   reviewedArtifacts,
@@ -162,6 +163,7 @@ describe('cloudflare evidence qualification schemas', () => {
             readback.zeroWeightProof.ownerAcceptance.approvalId,
           ownerAcceptanceAuthority: () =>
             readback.zeroWeightProof.ownerAcceptance,
+          ...qualificationAuthorityOptions,
         }
       ).ok
     ).toBe(false);
@@ -204,11 +206,53 @@ describe('cloudflare evidence qualification schemas', () => {
           readback.zeroWeightProof.ownerAcceptance,
         expectedRunBinding: readback.runBinding,
         expectedArtifactAuthority: reviewedArtifactAuthority,
+        expectedControlScope:
+          qualificationAuthorityOptions.expectedControlScope,
       }
     );
     expect(result).toEqual({
       ok: false,
       reason: 'measurement_payload_mismatch',
+    });
+  });
+
+  it('fails closed when exported callers omit run or artifact authority', () => {
+    const base = {
+      now: new Date('2026-07-31T00:01:00.000Z'),
+      expectedArtifacts: [reviewedArtifacts[0], reviewedArtifacts[1]] as const,
+      expectedScriptName: readback.scriptName,
+      expectedAccountId: 'account',
+      expectedOwnerApprovalId:
+        readback.zeroWeightProof.ownerAcceptance.approvalId,
+      ownerAcceptanceAuthority: () => readback.zeroWeightProof.ownerAcceptance,
+      ...qualificationAuthorityOptions,
+    };
+    expect(
+      qualifyCloudflareEvidenceReadback(readback, {
+        ...base,
+        expectedRunBinding: undefined as never,
+      })
+    ).toEqual({
+      ok: false,
+      reason: 'qualification_run_binding_required',
+    });
+    expect(
+      qualifyCloudflareEvidenceReadback(readback, {
+        ...base,
+        expectedArtifactAuthority: undefined as never,
+      })
+    ).toEqual({
+      ok: false,
+      reason: 'reviewed_artifact_authority_required',
+    });
+    expect(
+      qualifyCloudflareEvidenceReadback(readback, {
+        ...base,
+        expectedControlScope: undefined as never,
+      })
+    ).toEqual({
+      ok: false,
+      reason: 'control_evidence_scope_invalid',
     });
   });
 
@@ -235,6 +279,7 @@ describe('cloudflare evidence qualification schemas', () => {
           reviewedArtifactAuthority.artifacts[1],
         ],
       },
+      expectedControlScope: qualificationAuthorityOptions.expectedControlScope,
     });
     expect(result).toEqual({
       ok: false,
@@ -259,6 +304,7 @@ describe('cloudflare evidence qualification schemas', () => {
           cacheRuleId: 'unreviewed-rule',
         },
       },
+      expectedControlScope: qualificationAuthorityOptions.expectedControlScope,
     });
     expect(result).toEqual({
       ok: false,
