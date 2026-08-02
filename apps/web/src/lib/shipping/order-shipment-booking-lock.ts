@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 
 const DEFAULT_LOCK_TIMEOUT_SECONDS = 15 * 60;
+const RPC_ERROR_CODE_PATTERN = /^(?:[0-9A-Z]{5}|PGRST\d{3})$/;
 
 type ClaimOrderShipmentBookingRow = {
   claimed: boolean;
@@ -48,7 +49,9 @@ function getRpcErrorCode(error: unknown): string {
   }
 
   const code = (error as RpcErrorLike).code;
-  return typeof code === 'string' && code.length > 0 ? code : 'UNKNOWN';
+  return typeof code === 'string' && RPC_ERROR_CODE_PATTERN.test(code)
+    ? code
+    : 'UNKNOWN';
 }
 
 function getClaimRow(

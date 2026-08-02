@@ -79,6 +79,30 @@ BEGIN
     RAISE EXCEPTION 'Expected a competing request to observe an in-progress lock';
   END IF;
 
+  SELECT * INTO v_claim
+  FROM public.claim_order_shipment_booking(
+    v_order_id,
+    v_merchant_id,
+    v_second_lock,
+    0
+  );
+
+  IF v_claim.claimed IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Expected a zero-second timeout to preserve the active booking lock';
+  END IF;
+
+  SELECT * INTO v_claim
+  FROM public.claim_order_shipment_booking(
+    v_order_id,
+    v_merchant_id,
+    v_second_lock,
+    NULL
+  );
+
+  IF v_claim.claimed IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Expected a NULL timeout to preserve the active booking lock';
+  END IF;
+
   UPDATE public.orders AS target
   SET shipment_booking_started_at = pg_catalog.now() - interval '20 minutes'
   WHERE target.id = v_order_id;

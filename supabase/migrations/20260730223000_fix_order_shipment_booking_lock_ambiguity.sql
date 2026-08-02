@@ -34,7 +34,7 @@ BEGIN
       OR target.shipment_booking_started_at IS NULL
       OR target.shipment_booking_started_at <
         pg_catalog.now() - pg_catalog.make_interval(
-          secs => greatest(p_lock_timeout_seconds, 0)
+          secs => greatest(coalesce(p_lock_timeout_seconds, 900), 900)
         )
     );
 
