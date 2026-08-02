@@ -17,6 +17,17 @@ interface Props {
   resetKey: string;
 }
 
+function markHeaderBlocksAsPreview(data: Data): Data {
+  return {
+    ...data,
+    content: data.content.map((block) =>
+      block.type === 'Header'
+        ? { ...block, props: { ...block.props, isPreview: true } }
+        : block
+    ),
+  };
+}
+
 class PreviewErrorBoundary extends Component<
   { children: ReactNode; resetKey: string },
   { hasError: boolean }
@@ -59,6 +70,7 @@ export function OnboardingPreviewCanvas({
   data,
   resetKey,
 }: Props) {
+  const previewData = markHeaderBlocksAsPreview(data);
   return (
     <PreviewErrorBoundary resetKey={resetKey}>
       <MerchantProvider
@@ -74,7 +86,7 @@ export function OnboardingPreviewCanvas({
         }
       >
         <CartProvider merchantSlug="preview-store" deferValidationUntilIdle>
-          <Render config={builderConfig} data={data} />
+          <Render config={builderConfig} data={previewData} />
         </CartProvider>
       </MerchantProvider>
     </PreviewErrorBoundary>

@@ -1,3 +1,4 @@
+import type { Data } from '@puckeditor/core';
 import { describe, expect, it } from 'vitest';
 import { buildCuratedStorefront } from '@/lib/storefront-defaults/build-curated-storefront';
 import { forbiddenCuratedStorefrontClaims } from '@/lib/storefront-defaults/curated-claim-test-support';
@@ -6,6 +7,14 @@ import {
   curatedProfileCases,
 } from '@/lib/storefront-defaults/curated-profile-cases.test-support';
 import { generatePreviewTemplate } from './onboarding-preview-data';
+
+function withoutPreviewOnlyHeaderFlag(content: Data['content']) {
+  return content.map((block) => {
+    if (block.type !== 'Header') return block;
+    const { isPreview: _isPreview, ...props } = block.props;
+    return { ...block, props };
+  });
+}
 
 describe('generatePreviewTemplate', () => {
   it.each(
@@ -30,7 +39,17 @@ describe('generatePreviewTemplate', () => {
       },
     });
 
-    expect(preview.content).toEqual(persisted.content);
+    const previewHeader = preview.content.find(
+      (block) => block.type === 'Header'
+    );
+    const persistedHeader = persisted.content.find(
+      (block) => block.type === 'Header'
+    );
+    expect(previewHeader?.props?.isPreview).toBe(true);
+    expect(persistedHeader?.props?.isPreview).toBeUndefined();
+    expect(withoutPreviewOnlyHeaderFlag(preview.content)).toEqual(
+      persisted.content
+    );
     expect(preview.content.map((block) => block.type)).toEqual([
       'Header',
       ...contentOrder.map(

@@ -59,6 +59,8 @@ export function getOnboardingPreviewThemeStyles(
     '--secondary-foreground': hexToHslComponents(
       theme.colors.button.secondary.text
     ),
+    '--destructive': hexToHslComponents('#B91C1C'),
+    '--destructive-foreground': hexToHslComponents('#FFFFFF'),
     '--muted': hexToHslComponents(theme.colors.muted),
     '--muted-foreground': hexToHslComponents(theme.colors.mutedForeground),
     '--accent': hexToHslComponents(theme.colors.accent),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hexToHslComponents } from '@/lib/color-utils';
+import { getContrastRatio, hexToHslComponents } from '@/lib/color-utils';
 import { deriveCuratedTheme } from '@/lib/storefront-defaults/derive-curated-theme';
 import { getOnboardingPreviewThemeStyles } from './onboarding-preview-theme-styles';
 
@@ -56,7 +56,10 @@ describe('getOnboardingPreviewThemeStyles', () => {
         '--card': hexToHslComponents(theme.colors.card.background),
         '--card-foreground': hexToHslComponents(theme.colors.card.text),
         '--muted-foreground': hexToHslComponents(theme.colors.mutedForeground),
+        '--destructive': hexToHslComponents('#B91C1C'),
+        '--destructive-foreground': hexToHslComponents('#FFFFFF'),
       }
     );
+    expect(getContrastRatio('#B91C1C', '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
   });
 });

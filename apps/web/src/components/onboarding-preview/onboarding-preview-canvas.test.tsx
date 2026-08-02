@@ -52,4 +52,33 @@ describe('OnboardingPreviewCanvas', () => {
       'preview-merchant-id'
     );
   });
+
+  it('forces supplied Header blocks into preview mode for the synthetic merchant', () => {
+    render(
+      <OnboardingPreviewCanvas
+        businessName="North Star"
+        businessType="fashion"
+        brandColors={{
+          primary: '#14532d',
+          background: '#fff7ed',
+          accent: '#f97316',
+        }}
+        data={{
+          content: [
+            {
+              type: 'Header',
+              props: { id: 'Header-home', isPreview: false },
+            },
+          ],
+          root: { props: {} },
+          zones: {},
+        }}
+        resetKey="north-star"
+      />
+    );
+
+    expect(screen.getByTestId('preview-render')).toHaveTextContent(
+      '"isPreview":true'
+    );
+  });
 });
