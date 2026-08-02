@@ -13,33 +13,99 @@ scan_nginx_file() {
   while IFS= read -r pattern || [ -n "$pattern" ]; do case "$pattern" in *'*'*|*'?'*|*'['*) wildcard=1;; *) wildcard=0;; esac; set +f; set -- $pattern; set -f; [ -e "$1" ] || { [ "$wildcard" -eq 1 ] && continue; rm -f "$includes"; return 2; }; for candidate do target=$(consumer_canonical_regular "$candidate") || { rm -f "$includes"; return 2; }; if consumer_matches "$target"; then definition_record=$(consumer_file_fingerprint "$path") || { rm -f "$includes"; return 2; }; target_record=$(consumer_file_fingerprint "$target") || { rm -f "$includes"; return 2; }; printf '%s|%s\n' "$definition_record" "$target_record"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$includes"; return "$status"; }; fi; scan_nginx_file "$target" || { status=$?; rm -f "$includes"; return "$status"; }; done; done <"$includes"; rm -f "$includes"
 }
 scan_nginx_definitions() { [ ! -e "$NGINX_ROOT" ] && return 0; [ -d "$NGINX_ROOT" ] && [ ! -L "$NGINX_ROOT" ] || return 2; NGINX_SEEN=$(temp_path); list=$(temp_path); find "$NGINX_ROOT" -type f >"$list" || { rm -f "$NGINX_SEEN" "$list"; return 2; }; while IFS= read -r path || [ -n "$path" ]; do scan_nginx_file "$path" || { status=$?; rm -f "$NGINX_SEEN" "$list"; return "$status"; }; done <"$list"; rm -f "$NGINX_SEEN" "$list"; }
-compose_env_file_refs() { awk 'function indent(s){sub(/[^ ].*$/, "", s);return length(s)}function trim(s){sub(/^[[:space:]]+/,"",s);sub(/[[:space:]]+$/, "",s);return s}{if($0~/^[[:space:]]*#/||$0~/^[[:space:]]*$/)next;n=indent($0);if($0~/^[[:space:]]*env_file:[[:space:]]*/){line=$0;sub(/^[[:space:]]*env_file:[[:space:]]*/,"",line);line=trim(line);level=n;if(line==""){inside=1;next}if(line~/^[\[{]/){bad=1;next}print line;inside=0;next}if(inside){if(n<=level){inside=0}else if($0~/^[[:space:]]*-[[:space:]]+/){line=$0;sub(/^[[:space:]]*-[[:space:]]+/,"",line);line=trim(line);if(line~/^[\[{]/||line=="")bad=1;else print line}else bad=1}}END{exit bad?2:0}' "$1"; }
-compose_env_file_path() { definition=$1; value=$2; parsed=$(temp_path); parse_systemd_words "$value" >"$parsed" || { rm -f "$parsed"; return 2; }; count=$(wc -l <"$parsed"); [ "$count" -eq 1 ] || { rm -f "$parsed"; return 2; }; IFS= read -r item <"$parsed" || { rm -f "$parsed"; return 2; }; rm -f "$parsed"; case "$item" in '') return 2;; /*) consumer_canonical_regular "$item"; return;; *'..'*) return 2;; esac; base=$(readlink -f -- "$(dirname "$definition")") || return 2; target=$(readlink -f -- "$base/$item") || return 2; case "$target" in "$base"/*) :;; *) return 2;; esac; consumer_canonical_regular "$target"; }
-scan_compose_environment_files() { definition=$1; refs=$(temp_path); compose_env_file_refs "$definition" >"$refs" || { status=$?; rm -f "$refs"; return "$status"; }; while IFS= read -r ref || [ -n "$ref" ]; do target=$(compose_env_file_path "$definition" "$ref") || { rm -f "$refs"; return 2; }; if consumer_matches "$target"; then definition_record=$(consumer_file_fingerprint "$definition") || { rm -f "$refs"; return 2; }; target_record=$(consumer_file_fingerprint "$target") || { rm -f "$refs"; return 2; }; printf '%s|%s\n' "$definition_record" "$target_record"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$refs"; return "$status"; }; fi; done <"$refs"; rm -f "$refs"; }
+compose_env_file_refs() {
+  awk '
+    function indent(s) { sub(/[^ ].*$/, "", s); return length(s) }
+    function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
+    function map_field(field, key, value) {
+      field=trim(field); if (field !~ /^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:/) return 0
+      key=field; sub(/[[:space:]]*:.*$/, "", key); value=field; sub(/^[^:]*:/, "", value); value=trim(value)
+      if (key == "path") { if (path != "" || value == "") return 0; path=value; return 1 }
+      if (key == "required") { if (required != "" || (value != "true" && value != "false")) return 0; required=value; return 1 }
+      if (key == "format") { if (format != "" || (value != "default" && value != "raw")) return 0; format=value; return 1 }
+      return 0
+    }
+    function map_fields(value, fields, count, i) { count=split(value, fields, /,/); for (i=1; i<=count; i++) if (!map_field(fields[i])) return 0; return 1 }
+    function emit_map() { if (path == "") return 0; print (required == "false" ? "1:" : "0:") path; path=""; required=""; format=""; return 1 }
+    function flow_maps(line, entries, count, i) {
+      if (line !~ /^\[[[:space:]]*\{.*\}[[:space:]]*\]$/) return 0
+      sub(/^\[[[:space:]]*\{/, "", line); sub(/\}[[:space:]]*\]$/, "", line); count=split(line, entries, /[[:space:]]*\}[[:space:]]*,[[:space:]]*\{[[:space:]]*/)
+      for (i=1; i<=count; i++) { path=""; required=""; format=""; if (!map_fields(entries[i]) || !emit_map()) return 0 }; return 1
+    }
+    {
+      if ($0 ~ /^[[:space:]]*#/ || $0 ~ /^[[:space:]]*$/) next; n=indent($0)
+      if ($0 ~ /^[[:space:]]*env_file:[[:space:]]*/) {
+        line=$0; sub(/^[[:space:]]*env_file:[[:space:]]*/, "", line); line=trim(line); level=n
+        if (line == "") { inside=1; mapped=0; path=""; required=""; format=""; next }
+        if (line ~ /^\[/) { if (!flow_maps(line)) bad=1; inside=0; next }
+        if (line ~ /^\{/) { bad=1; next }; print "0:" line; inside=0; next
+      }
+      if (!inside) next
+      if (n <= level) { if (mapped && !emit_map()) bad=1; inside=0; mapped=0; next }
+      line=trim($0)
+      if (line ~ /^-[[:space:]]+/) {
+        if (mapped && !emit_map()) bad=1; mapped=0; path=""; required=""; format=""; sub(/^-[[:space:]]+/, "", line)
+        if (line == "") { bad=1; next }
+        if (line ~ /^\{.*\}$/) { sub(/^\{/, "", line); sub(/\}$/, "", line); if (!map_fields(line) || !emit_map()) bad=1; next }
+        if (line ~ /^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:/) { mapped=1; if (!map_field(line)) bad=1; next }
+        if (line ~ /^[\[{]/) { bad=1; next }; print "0:" line; next
+      }
+      if (!mapped || !map_field(line)) bad=1
+    }
+    END { if (inside && mapped && !emit_map()) bad=1; exit bad ? 2 : 0 }
+  ' "$1"
+}
+compose_env_file_path() {
+  definition=$1; optional=$2; value=$3; parsed=$(temp_path); parse_systemd_words "$value" >"$parsed" || { rm -f "$parsed"; return 2; }; count=$(wc -l <"$parsed"); [ "$count" -eq 1 ] || { rm -f "$parsed"; return 2; }; IFS= read -r item <"$parsed" || { rm -f "$parsed"; return 2; }; rm -f "$parsed"
+  relative=0; base=''; case "$item" in '') return 2;; /*) target=/; item=${item#/}; while [ -n "$item" ]; do part=${item%%/*}; if [ "$item" = "$part" ]; then item=''; else item=${item#*/}; fi; [ -n "$part" ] && [ "$part" != . ] || return 2; case "$target" in /) target=/$part;; *) target=$target/$part;; esac; if [ -L "$target" ]; then link=$(readlink -- "$target") || return 2; case "$target:$link" in /var:private/var|/var:/private/var|/tmp:private/tmp|/tmp:/private/tmp|/bin:usr/bin|/bin:/usr/bin|/sbin:usr/sbin|/sbin:/usr/sbin|/lib:usr/lib|/lib:/usr/lib|/lib64:usr/lib64|/lib64:/usr/lib64) :;; *) return 2;; esac; fi; done;; *'..'*) return 2;; *) relative=1; base=$(readlink -f -- "$(dirname "$definition")") || return 2; item=${item#./}; target=$base; while [ -n "$item" ]; do part=${item%%/*}; if [ "$item" = "$part" ]; then item=''; else item=${item#*/}; fi; [ -n "$part" ] && [ "$part" != . ] || return 2; target="$target/$part"; [ ! -L "$target" ] || return 2; done;; esac
+  [ -L "$target" ] && return 2; [ -e "$target" ] || { [ "$optional" = 1 ] && return 0; return 2; }; target=$(consumer_canonical_regular "$target") || return 2; if [ "$relative" -eq 1 ]; then case "$target" in "$base"/*) :;; *) return 2;; esac; fi; printf '%s\n' "$target"
+}
+scan_compose_environment_files() { definition=$1; refs=$(temp_path); compose_env_file_refs "$definition" >"$refs" || { status=$?; rm -f "$refs"; return "$status"; }; while IFS=: read -r optional ref || [ -n "$optional$ref" ]; do case "$optional" in 0|1) :;; *) rm -f "$refs"; return 2;; esac; targets=$(temp_path); compose_env_file_path "$definition" "$optional" "$ref" >"$targets" || { rm -f "$refs" "$targets"; return 2; }; while IFS= read -r target || [ -n "$target" ]; do if consumer_matches "$target"; then definition_record=$(consumer_file_fingerprint "$definition") || { rm -f "$refs" "$targets"; return 2; }; target_record=$(consumer_file_fingerprint "$target") || { rm -f "$refs" "$targets"; return 2; }; printf '%s|%s\n' "$definition_record" "$target_record"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$refs" "$targets"; return "$status"; }; fi; done <"$targets"; rm -f "$targets"; done <"$refs"; rm -f "$refs"; }
 scan_compose_definitions() { list=$(temp_path); for root in $COMPOSE_ROOTS; do [ ! -e "$root" ] && continue; [ -d "$root" ] && [ ! -L "$root" ] || { rm -f "$list"; return 2; }; find "$root" -maxdepth 5 -type f \( -name 'docker-compose*.yml' -o -name 'docker-compose*.yaml' -o -name 'compose*.yml' -o -name 'compose*.yaml' -o -name 'Containerfile' \) >>"$list" || { rm -f "$list"; return 2; }; done; while IFS= read -r path || [ -n "$path" ]; do if consumer_matches "$path"; then consumer_file_fingerprint "$path" || { status=$?; rm -f "$list"; return "$status"; }; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; case "$path" in *Containerfile) ;; *) scan_compose_environment_files "$path" || { status=$?; rm -f "$list"; return "$status"; };; esac; done <"$list"; rm -f "$list"; }
-systemd_runtime_inventory() { systemctl list-units --all --full --no-legend --plain --no-pager >"$1"; }
+systemd_manager_call() { manager=$1; shift; case "$manager" in system) systemctl "$@";; user) systemctl --user --machine="$OWNER@.host" "$@";; *) return 2;; esac; }
+systemd_runtime_inventory() { if [ "$#" -eq 1 ]; then manager=system; output=$1; elif [ "$#" -eq 2 ]; then manager=$1; output=$2; else return 2; fi; systemd_manager_call "$manager" list-units --all --full --no-legend --plain --no-pager >"$output"; }
 systemd_runtime_has_unit() { awk -v unit="$2" '$1 == unit {found=1} END {exit !found}' "$1"; }
 systemd_canonical_directory() { root=$1; [ -d "$root" ] || return 1; canonical=$(readlink -f -- "$root") || return 2; [ -d "$canonical" ] && [ ! -L "$canonical" ] || return 2; printf '%s\n' "$canonical"; }
+systemd_owner_context() {
+  row=$(getent passwd "$OWNER") || return 1
+  printf '%s\n' "$row" | awk -F: -v owner="$OWNER" '$1 == owner && $3 ~ /^[0-9]+$/ && $3 != 0 && $4 ~ /^[0-9]+$/ && $6 ~ /^\// && $6 !~ /[[:space:]]/ && NF == 7 { valid++; uid=$3; home=$6 } END { if (NR == 1 && valid == 1) print uid ":" home; else exit 2 }'
+}
+systemd_user_roots() {
+  context=$1; uid=${context%%:*}; home=${context#*:}; [ -n "$uid" ] && [ -n "$home" ] && [ "$uid:$home" = "$context" ] || return 2
+  for root in "$home/.config/systemd/user" "$home/.local/share/systemd/user" /etc/systemd/user /run/systemd/user /usr/local/lib/systemd/user /usr/lib/systemd/user "/run/user/$uid/systemd/user"; do systemd_canonical_directory "$root" || { status=$?; [ "$status" -eq 1 ] && continue; return "$status"; }; done
+}
+systemd_user_manager_available() { context=$1; uid=${context%%:*}; runtime="/run/user/$uid"; bus="$runtime/bus"; if [ ! -e "$bus" ] && [ ! -L "$bus" ]; then return 1; fi; [ -d "$runtime" ] && [ ! -L "$runtime" ] && [ "$(stat -c '%u:%a' "$runtime")" = "$uid:700" ] || return 2; [ -S "$bus" ] && [ ! -L "$bus" ] && [ "$(stat -c '%u' "$bus")" = "$uid" ] || return 2; }
+systemd_root_manifest() { output=$1; shift; for configured_root do root=$(systemd_canonical_directory "$configured_root") || { status=$?; [ "$status" -eq 1 ] && continue; return "$status"; }; if grep -Fqx -- "$root" "$output" >/dev/null 2>&1; then continue; else status=$?; [ "$status" -eq 1 ] || return "$status"; fi; printf '%s\n' "$root" >>"$output" || return 2; done; }
+systemd_linked_definitions() {
+  environment_files=$1; roots=$2; inventory=$(temp_path)
+  while IFS= read -r root || [ -n "$root" ]; do find "$root" -maxdepth 1 -type l \( -name '*.service' -o -name '*.socket' -o -name '*.timer' \) >>"$inventory" || { status=$?; rm -f "$inventory"; return "$status"; }; done <"$roots"
+  while IFS= read -r candidate || [ -n "$candidate" ]; do
+    name=${candidate##*/}; case "$name" in ''|"$UNIT"|"$TIMER"|*[!A-Za-z0-9@_.-]*) rm -f "$inventory"; return 2;; esac
+    target=$(readlink -- "$candidate") || { rm -f "$inventory"; return 2; }; case "$target" in /*) :;; *'..'*) rm -f "$inventory"; return 2;; *) continue;; esac; definition=$(consumer_canonical_regular "$target") || { rm -f "$inventory"; return 2; }
+    if consumer_matches "$definition"; then consumer_file_fingerprint "$definition" || { rm -f "$inventory"; return 2; }; else status=$?; [ "$status" -eq 1 ] || { rm -f "$inventory"; return "$status"; }; fi
+    if grep -H -E '^[[:space:]]*EnvironmentFile=' "$definition" >>"$environment_files"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$inventory"; return "$status"; }; fi
+  done <"$inventory"
+  rm -f "$inventory"
+}
 systemd_environment_targets() { path=$1; optional=$2; case "$path" in *'*'*|*'?'*|*'['*) case "$path" in *[[:space:]]*) return 2;; esac; set +f; set -- $path; set -f;; *) set -- "$path";; esac; [ -e "$1" ] || { [ "$optional" -eq 1 ] && return 0; return 2; }; for candidate do consumer_canonical_regular "$candidate" || return 2; done; }
 scan_systemd_runtime_environment_files() { name=$1; value=$2; parsed=$(temp_path); parse_systemd_words "$value" >"$parsed" || { rm -f "$parsed"; return 2; }; while IFS= read -r item || [ -n "$item" ]; do optional=0; case "$item" in -/*) optional=1; item=${item#-};; /*) :;; *) rm -f "$parsed"; return 2;; esac; IFS= read -r annotation || { rm -f "$parsed"; return 2; }; case "$annotation" in '(ignore_errors=no)') [ "$optional" -eq 0 ] || { rm -f "$parsed"; return 2; };; '(ignore_errors=yes)') optional=1;; *) rm -f "$parsed"; return 2;; esac; targets=$(temp_path); systemd_environment_targets "$item" "$optional" >"$targets" || { rm -f "$parsed" "$targets"; return 2; }; while IFS= read -r target || [ -n "$target" ]; do [ "${RECOVERY_RECORDS+x}" = x ] && recovery_record_environment "$target" "$optional"; target_record=$(consumer_file_fingerprint "$target") || { rm -f "$parsed" "$targets"; return 2; }; if consumer_matches "$target" || printf '%s\n' "$value" | grep -q -Ei 'ollama|11434'; then printf '%s:%s|%s|%s|%s\n' "$name" "$target" "$(hash_text "EnvironmentFiles=$value")" "$(hash_text "$name")" "$target_record"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$parsed" "$targets"; return "$status"; }; fi; done <"$targets"; rm -f "$targets"; done <"$parsed"; rm -f "$parsed"; }
-scan_systemd_runtime_consumers() { units=$(temp_path); properties=$(temp_path); systemd_runtime_inventory "$units" || { status=$?; rm -f "$units" "$properties"; return "$status"; }; while read -r name _ || [ -n "$name" ]; do case "$name" in ''|"$UNIT"|"$TIMER") continue;; esac; if systemctl show --property=Environment --property=EnvironmentFiles --property=ExecStart --no-pager -- "$name" >"$properties"; then :; else status=$?; refreshed=$(temp_path); systemd_runtime_inventory "$refreshed" || { rm -f "$units" "$properties" "$refreshed"; return "$status"; }; if systemd_runtime_has_unit "$refreshed" "$name"; then rm -f "$units" "$properties" "$refreshed"; return "$status"; fi; rm -f "$refreshed"; continue; fi; while IFS= read -r property || [ -n "$property" ]; do case "$property" in EnvironmentFiles=*) scan_systemd_runtime_environment_files "$name" "${property#EnvironmentFiles=}" || { status=$?; rm -f "$units" "$properties"; return "$status"; };; *) if printf '%s\n' "$property" | grep -q -Ei 'ollama|11434'; then printf '%s:%s\n' "$name" "$(hash_text "$property")"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$units" "$properties"; return "$status"; }; fi;; esac; done <"$properties"; done <"$units"; rm -f "$units" "$properties"; }
+scan_systemd_runtime_consumers() { manager=${1:-system}; units=$(temp_path); properties=$(temp_path); systemd_runtime_inventory "$manager" "$units" || { status=$?; rm -f "$units" "$properties"; return "$status"; }; while read -r name _ || [ -n "$name" ]; do case "$name" in ''|"$UNIT"|"$TIMER") continue;; esac; if systemd_manager_call "$manager" show --property=Environment --property=EnvironmentFiles --property=ExecStart --no-pager -- "$name" >"$properties"; then :; else status=$?; refreshed=$(temp_path); systemd_runtime_inventory "$manager" "$refreshed" || { rm -f "$units" "$properties" "$refreshed"; return "$status"; }; if systemd_runtime_has_unit "$refreshed" "$name"; then rm -f "$units" "$properties" "$refreshed"; return "$status"; fi; rm -f "$refreshed"; continue; fi; while IFS= read -r property || [ -n "$property" ]; do case "$property" in EnvironmentFiles=*) scan_systemd_runtime_environment_files "$name" "${property#EnvironmentFiles=}" || { status=$?; rm -f "$units" "$properties"; return "$status"; };; *) if printf '%s\n' "$property" | grep -q -Ei 'ollama|11434'; then printf '%s:%s\n' "$name" "$(hash_text "$property")"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$units" "$properties"; return "$status"; }; fi;; esac; done <"$properties"; done <"$units"; rm -f "$units" "$properties"; }
 scan_systemd_consumers() {
-  list=$(temp_path); environment_files=$(temp_path); roots=$(temp_path)
-  for configured_root in $SYSTEMD_ROOTS; do
-    root=$(systemd_canonical_directory "$configured_root") || {
-      status=$?; [ "$status" -eq 1 ] && continue
-      rm -f "$list" "$environment_files" "$roots"; return "$status"
-    }
-    if grep -Fqx -- "$root" "$roots" >/dev/null 2>&1; then
-      continue
-    else
-      status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$roots"; return "$status"; }
-    fi
-    printf '%s\n' "$root" >>"$roots" || { rm -f "$list" "$environment_files" "$roots"; return 2; }
-    if grep -r -l -Ei 'ollama|11434' "$root" >>"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$roots"; return "$status"; }; fi
-    if grep -r -H -E '^[[:space:]]*EnvironmentFile=' "$root" >>"$environment_files"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$roots"; return "$status"; }; fi
-  done
-  rm -f "$roots"
+  list=$(temp_path); environment_files=$(temp_path); system_roots=$(temp_path); user_roots=$(temp_path); owner_context=''; user_runtime=0
+  systemd_root_manifest "$system_roots" $SYSTEMD_ROOTS /run/systemd/system || { status=$?; rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }
+  if owner_context=$(systemd_owner_context); then systemd_user_roots "$owner_context" >"$user_roots" || { status=$?; rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }; fi
+  while IFS= read -r root || [ -n "$root" ]; do
+    if grep -r -l -Ei 'ollama|11434' "$root" >>"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }; fi
+    if grep -r -H -E '^[[:space:]]*EnvironmentFile=' "$root" >>"$environment_files"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }; fi
+  done <"$system_roots"
+  while IFS= read -r root || [ -n "$root" ]; do
+    if grep -r -l -Ei 'ollama|11434' "$root" >>"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }; fi
+    if grep -r -H -E '^[[:space:]]*EnvironmentFile=' "$root" >>"$environment_files"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }; fi
+  done <"$user_roots"
+  systemd_linked_definitions "$environment_files" "$system_roots" || { status=$?; rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }
+  systemd_linked_definitions "$environment_files" "$user_roots" || { status=$?; rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }
+  if [ -n "$owner_context" ] && systemd_user_manager_available "$owner_context"; then user_runtime=1; else status=$?; [ -z "$owner_context" ] || [ "$status" -eq 1 ] || { rm -f "$list" "$environment_files" "$system_roots" "$user_roots"; return "$status"; }; fi
+  rm -f "$system_roots" "$user_roots"
   while IFS= read -r path || [ -n "$path" ]; do case "$path" in */"$UNIT"|*/"$UNIT".d/*|*/"$TIMER"|*/"$TIMER".d/*) ;; *) consumer_file_fingerprint "$path" || { status=$?; rm -f "$list" "$environment_files"; return "$status"; };; esac; done <"$list"
   rm -f "$list"
   while IFS=: read -r definition directive || [ -n "$definition$directive" ]; do
@@ -64,7 +130,8 @@ scan_systemd_consumers() {
     rm -f "$parsed"
   done <"$environment_files"
   rm -f "$environment_files"
-  scan_systemd_runtime_consumers
+  scan_systemd_runtime_consumers system
+  [ "$user_runtime" -eq 0 ] || scan_systemd_runtime_consumers user
 }
 # shellcheck disable=SC2094 # Snapshot names remain open only for read-before-cleanup.
 container_bind_mount_consumers() {

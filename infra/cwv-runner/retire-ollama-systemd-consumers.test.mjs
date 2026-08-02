@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import {
   mkdir,
   mkdtemp,
+  readFile,
   realpath,
   rm,
   symlink,
@@ -119,7 +120,7 @@ test('finds a loaded transient unit whose runtime environment consumes Ollama', 
     const property = 'Environment=OLLAMA_HOST=http://127.0.0.1:11434';
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      'systemctl() { case "$1" in list-units) printf "transient.service loaded active running transient\\n";; show) printf "Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nExecStart={}\\n";; *) return 64;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      'systemctl() { case "$1:$2" in list-units:*) printf "transient.service loaded active running transient\\n";; list-unit-files:*|--user:list-unit-files) return 0;; show:*) printf "Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nExecStart={}\\n";; *) return 64;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
       'retire-ollama-systemd-runtime-test',
       script.pathname,
       directory,
@@ -158,6 +159,79 @@ test('canonicalizes a merged-usr systemd root before binding consumers', async (
     const records = stdout.trim().split('\n');
     assert.equal(records.length, 1);
     assertFingerprint(records[0].split('|'), 0, definition);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('keeps colliding system and owner-user linked unit names in separate manifests', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-systemd-manifest-collision-'))
+  );
+  const systemRoot = join(directory, 'system');
+  const userHome = join(directory, 'home');
+  const userRoot = join(userHome, '.config', 'systemd', 'user');
+  const systemTarget = join(directory, 'system-target.service');
+  const userTarget = join(directory, 'user-target.service');
+  try {
+    await Promise.all([
+      mkdir(systemRoot),
+      mkdir(userRoot, { recursive: true }),
+    ]);
+    await writeFile(systemTarget, '[Service]\nEnvironment=OTHER=1\n');
+    await writeFile(
+      userTarget,
+      '[Service]\nEnvironment=OLLAMA_HOST=http://127.0.0.1:11434\n'
+    );
+    await Promise.all([
+      symlink(systemTarget, join(systemRoot, 'collision.service')),
+      symlink(userTarget, join(userRoot, 'collision.service')),
+    ]);
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      'home=$3; getent() { printf "bassey:x:1001:1001::%s:/bin/sh\\n" "$home"; }; systemctl() { return 0; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      'retire-ollama-systemd-manifest-collision-test',
+      script.pathname,
+      systemRoot,
+      userHome,
+    ]);
+    const fields = stdout.trim().split('|');
+    assertFingerprint(fields, 0, userTarget);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('includes the runtime system unit root in the system manifest', async () => {
+  const source = await readFile(
+    new URL('./retire-ollama-consumers.sh', import.meta.url),
+    'utf8'
+  );
+  assert.match(
+    source,
+    /systemd_root_manifest "\$system_roots" \$SYSTEMD_ROOTS \/run\/systemd\/system/
+  );
+});
+
+test('skips a normal relative systemd alias while scanning its regular target', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-systemd-relative-alias-'))
+  );
+  const definition = join(directory, 'canonical.service');
+  try {
+    await writeFile(
+      definition,
+      '[Service]\nEnvironment=OLLAMA_HOST=http://127.0.0.1:11434\n'
+    );
+    await symlink('canonical.service', join(directory, 'alias.service'));
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      'getent() { return 2; }; systemctl() { return 0; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      'retire-ollama-systemd-relative-alias-test',
+      script.pathname,
+      directory,
+    ]);
+    assertFingerprint(stdout.trim().split('|'), 0, definition);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

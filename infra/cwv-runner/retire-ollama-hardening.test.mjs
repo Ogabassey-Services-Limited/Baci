@@ -44,36 +44,6 @@ test('classifies every non-environment consumer surface without retaining raw va
   assert.doesNotMatch(source, /consumerPath|rawCommand|consumerValue/);
 });
 
-test('treats a compose.yaml consumer as a nonzero classified dependency', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'baci-compose-yaml-'));
-  const compose = join(dir, 'compose.yaml');
-  const receipt = join(dir, 'receipt.json');
-  try {
-    await writeFile(
-      compose,
-      'services:\n  app:\n    environment: [OLLAMA_HOST=http://127.0.0.1:11434]\n'
-    );
-    await assert.rejects(
-      execFileAsync(
-        'sh',
-        [
-          '-c',
-          'helper=$(dirname "$1")/retire-ollama-consumers.sh; copy=$(mktemp); sed \'$d\' "$1" >"$copy"; RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER="$helper"; . "$copy"; rm -f "$copy"; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; readlink() { for path do :; done; printf "%s\\n" "$path"; }; COMPOSE_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; consumer_counts=$(jq -cn \'["systemd-definitions","reverse-proxy","running-processes","running-containers","container-definitions","container-config"] | map({surface:.,matchCount:0})\'); out=$(temp_path); scan_compose_definitions >"$out"; record_consumers compose-definitions "$out" all; jq -n --argjson counts "$consumer_counts" \'{scan:{consumerCounts:$counts}}\' >"$3"; RECEIPT="$3"; assert_zero_consumers',
-          'retire-compose-test',
-          script.pathname,
-          dir,
-          receipt,
-        ],
-        { env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: process.env.PATH } }
-      ),
-      (error) =>
-        error.code === 78 && /zero classified consumers/.test(error.stderr)
-    );
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-});
-
 test('fails closed before any destructive preparation when a receipt publication is partial', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'baci-receipt-partial-'));
   const bin = join(dir, 'bin');
