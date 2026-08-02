@@ -36,4 +36,27 @@ describe('buildCategoryProductMetadata', () => {
       },
     });
   });
+
+  it('emits noindex for an unpublished resolved categorized product', () => {
+    const metadata = buildCategoryProductMetadata({
+      baseUrl: 'https://zorvexa.usebaci.com',
+      merchant: {
+        business_name: 'Zorvexa',
+        slug: 'zorvexa',
+        is_published: false,
+      } as never,
+      product: {
+        name: 'Linen Shirt',
+        slug: 'linen-shirt',
+        status: 'active',
+        category: 'Fashion',
+        categories: { name: 'Fashion', slug: 'fashion' },
+        description: 'A breathable linen shirt.',
+        images: [],
+      } as never,
+      storeSlug: 'zorvexa',
+    });
+
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+  });
 });

@@ -427,6 +427,10 @@ interface StartedKnownOgaBasseyPdpProductPreload {
   productSlug: string;
 }
 
+type CategorizedPdpLcpHint = CachedProductLcpHint & {
+  status?: string | null;
+};
+
 function hasCategoryMismatch(
   productCategorySlug: string | null | undefined,
   urlCategorySlug: string
@@ -567,7 +571,7 @@ function getCachedProductRoutePrimaryImage(
 }
 
 function mapCachedProductLcpHintToRouteProduct(
-  cachedProduct: CachedProductLcpHint
+  cachedProduct: CategorizedPdpLcpHint
 ): LcpRouteProduct {
   const rawCanonicalCategory = cachedProduct.categories;
   const canonicalCategory = Array.isArray(rawCanonicalCategory)

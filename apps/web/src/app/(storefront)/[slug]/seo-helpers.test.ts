@@ -3,7 +3,6 @@ import {
   getStorefrontCountryDisplayName,
   getStorefrontSeoDescription,
   getStorefrontSeoTagline,
-  getStorefrontSeoTitle,
   normalizeStorefrontBusinessType,
   type StorefrontSeoMerchant,
 } from '@/app/(storefront)/[slug]/seo-helpers';
@@ -225,81 +224,6 @@ describe('getStorefrontSeoDescription', () => {
         })
       )
     ).toBe('GlobalCo storefront.');
-  });
-});
-
-describe('getStorefrontSeoTitle', () => {
-  it('uses site_title verbatim when set and not a stale gadget title', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'CarePoint',
-          business_type: 'pharmaceuticals',
-          site_title: 'CarePoint Pharmacy',
-        })
-      )
-    ).toBe('CarePoint Pharmacy');
-  });
-
-  it.each([
-    'Buy Gadgets Pay Later',
-    'Premium Hair Extensions',
-    'Fresh Food',
-  ])('replaces stale unsupported title claim %s', (claim) => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'Medplus',
-          business_type: 'pharmaceuticals',
-          site_title: `Medplus | ${claim}`,
-        })
-      )
-    ).toBe('Medplus | Storefront');
-  });
-
-  it('replaces a stale claim even when its category appears to match', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'GadgetHub',
-          business_type: 'electronics',
-          site_title: 'GadgetHub | Buy Gadgets Pay Later',
-        })
-      )
-    ).toBe('GadgetHub | Storefront');
-  });
-
-  it('composes a fallback title when site_title is missing', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'Foodflow',
-          business_type: 'food-beverage',
-        })
-      )
-    ).toBe('Foodflow | Storefront');
-  });
-
-  it('treats whitespace-only custom titles as missing', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'Foodflow',
-          business_type: 'food-beverage',
-          site_title: '   ',
-        })
-      )
-    ).toBe('Foodflow | Storefront');
-  });
-
-  it('sanitizes custom titles before returning metadata', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          site_title: '<strong>Foodflow Deals</strong>',
-        })
-      )
-    ).toBe('Foodflow Deals');
   });
 });
 

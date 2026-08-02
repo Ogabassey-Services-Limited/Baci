@@ -1136,7 +1136,6 @@ export interface CachedProductLcpHint {
   slug?: string | null;
   stock?: number | null;
   stock_quantity?: number | null;
-  status?: string | null;
   updated_at?: string | null;
   variant_attributes?: unknown;
 }

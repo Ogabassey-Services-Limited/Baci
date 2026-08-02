@@ -176,7 +176,7 @@ export async function generateMetadata({
   });
   const baseUrl = buildStoreUrl(merchant);
   const description = buildFactualStorefrontDescription({
-    businessName: merchant.business_name || merchant.slug,
+    businessName: merchant.business_name,
     siteDescription: merchant.site_description,
     siteTagline: merchant.site_tagline,
     categoryName: null,
@@ -184,9 +184,9 @@ export async function generateMetadata({
   });
   const robots = toNextRobotsMetadata(
     buildHomeSeoDecision({
-      isStorePublished: merchant.is_published === true,
+      isPublished: merchant.is_published === true,
       canonicalUrl: baseUrl,
-      merchantName: merchant.business_name || merchant.slug,
+      merchantName: merchant.business_name,
     })
   );
 

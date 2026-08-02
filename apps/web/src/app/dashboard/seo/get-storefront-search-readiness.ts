@@ -92,7 +92,7 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
     : null;
   return buildStorefrontSearchReadinessAssessment({
     homeIndexable: buildHomeSeoDecision({
-      isStorePublished: merchantFacts.is_published === true,
+      isPublished: merchantFacts.is_published === true,
       canonicalUrl,
       merchantName: merchantFacts.business_name,
     }).index,

@@ -721,7 +721,7 @@ describe('storefront layout metadata', () => {
     expect(metadata.description).toBe('Foodflow storefront in NG.');
   });
 
-  it('replaces mismatched gadget fallback titles for non-electronics stores', async () => {
+  it('preserves an authored Open Graph title while using factual description fallback', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...baseMerchant,
       business_name: 'Medplus',
@@ -737,6 +737,8 @@ describe('storefront layout metadata', () => {
     });
 
     expect(metadata.title).toBeUndefined();
+    expect(metadata.openGraph?.title).toBe('Medplus | Buy Gadgets Pay Later');
+    expect(metadata.description).toBe('Medplus storefront in NG.');
   });
 
   it('reads google verification from published_config when feature settings omit it', async () => {

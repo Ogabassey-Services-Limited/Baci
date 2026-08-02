@@ -5,7 +5,7 @@ import { isSeoSitemapEligible } from './seo-indexing-metadata';
 describe('buildHomeSeoDecision', () => {
   it('keeps a published homepage indexable without catalog or commerce enrichment', () => {
     const decision = buildHomeSeoDecision({
-      isStorePublished: true,
+      isPublished: true,
       canonicalUrl: 'https://zorvexa.usebaci.com',
       merchantName: 'Zorvexa',
     });
@@ -22,7 +22,7 @@ describe('buildHomeSeoDecision', () => {
   it('blocks an unpublished homepage while preserving crawl following', () => {
     expect(
       buildHomeSeoDecision({
-        isStorePublished: false,
+        isPublished: false,
         canonicalUrl: 'https://zorvexa.usebaci.com',
         merchantName: 'Zorvexa',
       })
@@ -37,7 +37,7 @@ describe('buildHomeSeoDecision', () => {
   it('fails closed for missing publication, canonical URL, or merchant name', () => {
     expect(
       buildHomeSeoDecision({
-        isStorePublished: undefined,
+        isPublished: undefined,
         canonicalUrl: null,
         merchantName: '   ',
       })
@@ -47,8 +47,8 @@ describe('buildHomeSeoDecision', () => {
       follow: true,
       blockers: [
         'store_unpublished',
-        'missing_home_canonical_url',
-        'missing_home_merchant_name',
+        'missing_canonical_url',
+        'missing_merchant_name',
       ],
     });
   });

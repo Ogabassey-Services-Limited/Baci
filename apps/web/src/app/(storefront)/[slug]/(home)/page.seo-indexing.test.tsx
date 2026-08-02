@@ -48,4 +48,33 @@ describe('homepage SEO indexing', () => {
 
     expect(metadata.robots).toEqual({ index: true, follow: true });
   });
+
+  it('does not use a slug as a substitute for a missing merchant name', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...merchant,
+      business_name: ' ',
+      is_published: true,
+    } as never);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'zorvexa' }),
+    });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+  });
+
+  it('emits an authored title unchanged while neutral fallback copy remains factual', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...merchant,
+      is_published: true,
+      site_title: 'Zorvexa | Buy Gadgets Pay Later',
+    } as never);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'zorvexa' }),
+    });
+
+    expect(metadata.openGraph?.title).toBe('Zorvexa | Buy Gadgets Pay Later');
+    expect(metadata.description).toBe('Zorvexa storefront in NG.');
+  });
 });

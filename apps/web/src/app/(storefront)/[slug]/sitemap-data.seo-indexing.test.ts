@@ -14,10 +14,14 @@ describe('storefront sitemap SEO indexing', () => {
     ).toEqual([]);
   });
 
-  it('keeps the published home sitemap entry without product prerequisites', () => {
+  it('keeps the named published home sitemap entry without product prerequisites', () => {
     expect(
       getStaticSitemapEntries({
-        merchant: { is_published: true, slug: 'zorvexa' },
+        merchant: {
+          is_published: true,
+          business_name: 'Zorvexa',
+          slug: 'zorvexa',
+        },
         storeUrl: 'https://zorvexa.usebaci.com',
       } as never)
     ).toEqual(
@@ -25,6 +29,15 @@ describe('storefront sitemap SEO indexing', () => {
         expect.objectContaining({ url: 'https://zorvexa.usebaci.com' }),
       ])
     );
+  });
+
+  it('omits static URLs when the real merchant name is missing', () => {
+    expect(
+      getStaticSitemapEntries({
+        merchant: { is_published: true, business_name: ' ', slug: 'zorvexa' },
+        storeUrl: 'https://zorvexa.usebaci.com',
+      } as never)
+    ).toEqual([]);
   });
 
   it('omits a published active product when its persisted name is blank', async () => {

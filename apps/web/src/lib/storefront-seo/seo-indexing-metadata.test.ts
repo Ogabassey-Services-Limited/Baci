@@ -8,7 +8,7 @@ import {
 describe('SEO indexing metadata adapters', () => {
   it('uses the decision as the only sitemap and robots authority', () => {
     const decision = buildHomeSeoDecision({
-      isStorePublished: false,
+      isPublished: false,
       canonicalUrl: 'https://zorvexa.usebaci.com',
       merchantName: 'Zorvexa',
     });

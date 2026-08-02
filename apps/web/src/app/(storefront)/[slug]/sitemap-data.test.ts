@@ -271,6 +271,7 @@ describe('sitemap-data', () => {
         id: 'merchant-1',
         slug: 'ogabassey',
         is_published: true,
+        business_name: 'Ogabassey',
       });
     const { resolveStorefrontSitemapContext } = sitemapData;
 
@@ -307,6 +308,7 @@ describe('sitemap-data', () => {
         id: 'merchant-1',
         slug: 'ogabassey',
         is_published: true,
+        business_name: 'Ogabassey',
         updated_at: '2026-06-01T00:00:00Z',
       },
       storeUrl: 'https://ogabassey.com',
@@ -329,7 +331,12 @@ describe('sitemap-data', () => {
   it('omits lastmod from static entries when the merchant has no updated_at', () => {
     const { getStaticSitemapEntries } = sitemapData;
     const entries = getStaticSitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        is_published: true,
+        business_name: 'Ogabassey',
+      },
       storeUrl: 'https://ogabassey.com',
     } as unknown as Parameters<typeof getStaticSitemapEntries>[0]);
 

@@ -220,14 +220,11 @@ export async function generateMetadata({
   const existingRobots = getIndexableRobotsMetadata(resolvedSearchParams);
   const categoryDecision = buildCategorySeoDecision({
     isStorePublished: merchant.is_published === true,
-    isActive:
+    isAvailable:
       !categoryQueryFailed &&
       (data.isCollection || data.isInactiveCategory === false),
-    hasProducts:
-      !data.productsQueryFailed &&
-      !categoryQueryFailed &&
-      (data.productCount ?? productSlots.length) > 0,
-    canonicalUrl: paginatedCategoryUrl,
+    querySucceeded: !data.productsQueryFailed && !categoryQueryFailed,
+    activeProductCount: data.productCount ?? productSlots.length,
   });
 
   return {

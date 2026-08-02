@@ -26,9 +26,9 @@ export function buildCategorySitemapEntries({
     const url = slug ? `${storeUrl}/${slug}` : null;
     const decision = buildCategorySeoDecision({
       isStorePublished,
-      isActive: category.is_active === true,
-      hasProducts: (categoryCounts[category.id] ?? 0) > 0,
-      canonicalUrl: url,
+      isAvailable: category.is_active === true,
+      querySucceeded: true,
+      activeProductCount: categoryCounts[category.id] ?? 0,
     });
 
     if (!url || !isSeoSitemapEligible(decision)) return [];

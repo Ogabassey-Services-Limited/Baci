@@ -2,12 +2,12 @@ export type SeoIndexingPageKind = 'home' | 'category' | 'product';
 
 export type SeoIndexingBlocker =
   | 'store_unpublished'
-  | 'missing_home_canonical_url'
-  | 'missing_home_merchant_name'
-  | 'inactive_category'
-  | 'empty_category'
-  | 'missing_category_canonical_url'
-  | 'inactive_product'
+  | 'missing_canonical_url'
+  | 'missing_merchant_name'
+  | 'category_unavailable'
+  | 'category_data_unavailable'
+  | 'category_empty'
+  | 'product_inactive'
   | 'missing_product_name'
   | 'missing_product_canonical_url';
 

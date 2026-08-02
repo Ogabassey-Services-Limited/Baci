@@ -1,27 +1,28 @@
 import {
   buildSeoIndexingDecision,
-  isValidStorefrontCanonicalUrl,
   type SeoIndexingBlocker,
   type SeoIndexingDecision,
 } from './seo-indexing-decision';
 
+export interface CategoryIndexingFacts {
+  isStorePublished: boolean | null | undefined;
+  isAvailable: boolean | null | undefined;
+  querySucceeded: boolean;
+  activeProductCount: number | null | undefined;
+}
+
 export function buildCategorySeoDecision({
   isStorePublished,
-  isActive,
-  hasProducts,
-  canonicalUrl,
-}: {
-  isStorePublished: boolean | null | undefined;
-  isActive: boolean | null | undefined;
-  hasProducts: boolean;
-  canonicalUrl: string | null | undefined;
-}): SeoIndexingDecision {
+  isAvailable,
+  querySucceeded,
+  activeProductCount,
+}: CategoryIndexingFacts): SeoIndexingDecision {
   const blockers: SeoIndexingBlocker[] = [];
   if (isStorePublished !== true) blockers.push('store_unpublished');
-  if (isActive !== true) blockers.push('inactive_category');
-  if (!hasProducts) blockers.push('empty_category');
-  if (!isValidStorefrontCanonicalUrl(canonicalUrl)) {
-    blockers.push('missing_category_canonical_url');
+  if (isAvailable !== true) blockers.push('category_unavailable');
+  if (!querySucceeded) blockers.push('category_data_unavailable');
+  if (querySucceeded && (activeProductCount ?? 0) <= 0) {
+    blockers.push('category_empty');
   }
   return buildSeoIndexingDecision({ pageKind: 'category', blockers });
 }

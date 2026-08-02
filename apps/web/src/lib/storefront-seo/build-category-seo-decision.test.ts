@@ -6,9 +6,9 @@ describe('buildCategorySeoDecision', () => {
     expect(
       buildCategorySeoDecision({
         isStorePublished: false,
-        isActive: false,
-        hasProducts: false,
-        canonicalUrl: null,
+        isAvailable: false,
+        querySucceeded: false,
+        activeProductCount: 0,
       })
     ).toEqual({
       pageKind: 'category',
@@ -16,9 +16,8 @@ describe('buildCategorySeoDecision', () => {
       follow: true,
       blockers: [
         'store_unpublished',
-        'inactive_category',
-        'empty_category',
-        'missing_category_canonical_url',
+        'category_unavailable',
+        'category_data_unavailable',
       ],
     });
   });
@@ -27,13 +26,35 @@ describe('buildCategorySeoDecision', () => {
     expect(
       buildCategorySeoDecision({
         isStorePublished: null,
-        isActive: null,
-        hasProducts: true,
-        canonicalUrl: 'https://zorvexa.usebaci.com/fashion',
+        isAvailable: null,
+        querySucceeded: true,
+        activeProductCount: 1,
       })
     ).toMatchObject({
       index: false,
-      blockers: ['store_unpublished', 'inactive_category'],
+      blockers: ['store_unpublished', 'category_unavailable'],
     });
+  });
+
+  it('keeps query failure distinct from an empty successful category', () => {
+    expect(
+      buildCategorySeoDecision({
+        isStorePublished: true,
+        isAvailable: true,
+        querySucceeded: false,
+        activeProductCount: 0,
+      }).blockers
+    ).toEqual(['category_data_unavailable']);
+  });
+
+  it('emits category_empty only for a successful zero-count category', () => {
+    expect(
+      buildCategorySeoDecision({
+        isStorePublished: true,
+        isAvailable: true,
+        querySucceeded: true,
+        activeProductCount: 0,
+      }).blockers
+    ).toEqual(['category_empty']);
   });
 });

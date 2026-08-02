@@ -3,8 +3,6 @@ import { sanitizeText } from '@/lib/sanitize-core';
 import { buildFactualStorefrontDescription } from '@/lib/storefront-seo/build-factual-storefront-description';
 
 const DEFAULT_STORE_NAME = 'Store';
-const LEGACY_UNSUPPORTED_TITLE_CLAIMS =
-  /buy gadgets pay later|premium hair extensions|fresh food/i;
 
 /**
  * Pure SEO helpers for the storefront `[slug]` layout.
@@ -106,11 +104,7 @@ export function getStorefrontSeoDescription(
 
 export function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant): string {
   const customTitle = cleanSeoField(merchant.site_title);
-  const hasLegacyUnsupportedClaim = LEGACY_UNSUPPORTED_TITLE_CLAIMS.test(
-    customTitle || ''
-  );
-
-  if (customTitle && !hasLegacyUnsupportedClaim) {
+  if (customTitle) {
     return customTitle;
   }
 
