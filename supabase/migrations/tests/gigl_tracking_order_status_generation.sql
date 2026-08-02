@@ -92,6 +92,48 @@ BEGIN
   IF v_order_status IS DISTINCT FROM 'delivered' THEN
     RAISE EXCEPTION 'an unowned newer GIGL shipment must not block the victim order';
   END IF;
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_order_id;
+  UPDATE public.orders
+  SET shipping_status = 'delivered'
+  WHERE id = v_order_id;
+  UPDATE public.shipments
+  SET status = 'in_transit', last_tracked_at = now()
+  WHERE id = v_current_shipment_id;
+  SELECT shipping_status INTO v_order_status
+  FROM public.orders
+  WHERE id = v_order_id;
+  IF v_order_status IS DISTINCT FROM 'delivered' THEN
+    RAISE EXCEPTION
+      'carrier progress must not regress a manually delivered GIGL order';
+  END IF;
+
+  UPDATE public.shipments
+  SET status = 'failed', last_tracked_at = now()
+  WHERE id = v_current_shipment_id;
+  SELECT shipping_status INTO v_order_status
+  FROM public.orders
+  WHERE id = v_order_id;
+  IF v_order_status IS DISTINCT FROM 'delivered' THEN
+    RAISE EXCEPTION
+      'a worker failure must not regress a manually delivered GIGL order';
+  END IF;
+
+  UPDATE public.shipments
+  SET status = 'in_transit', last_tracked_at = NULL
+  WHERE id = v_current_shipment_id;
+  UPDATE public.shipments
+  SET status = 'failed'
+  WHERE id = v_current_shipment_id;
+  SELECT shipping_status INTO v_order_status
+  FROM public.orders
+  WHERE id = v_order_id;
+  IF v_order_status IS DISTINCT FROM 'failed' THEN
+    RAISE EXCEPTION
+      'a manual failure must override a manually delivered GIGL order';
+  END IF;
 END;
 $test$;
 

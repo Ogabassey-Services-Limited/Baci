@@ -258,36 +258,38 @@ describe('processClaimedGiglTrackingNotifications', () => {
     );
   });
 
-  it('lets completion retry after the provider explicitly rejects every push', async () => {
+  it('does not overwrite rejection completion when the provider fails afterward', async () => {
     const supabase = supabaseFor({
       description: 'Rider assigned',
       raw_status: 'RIDER EN ROUTE FOR PICKUP',
     });
+    supabase.rpc.mockResolvedValue({ data: true, error: null });
     notifyMerchant.mockImplementation(
       async (_merchantId, _title, _body, _payload, _channel, options) => {
         await options?.onDeliveryStart?.();
         await options?.onDeliveryRejected?.();
-        return {
-          errors: ['InvalidCredentials (1 failed): invalid token'],
-          failed: 1,
-          sent: 0,
-        };
+        throw new Error('provider bookkeeping failed');
       }
     );
 
-    await processClaimedGiglTrackingNotifications(
+    const summary = await processClaimedGiglTrackingNotifications(
       supabase as never,
       [notification],
       'worker'
     );
 
+    const completionCalls = supabase.rpc.mock.calls.filter(
+      ([name]) => name === 'complete_shipment_tracking_notification'
+    );
+    expect(summary.failed).toBe(1);
+    expect(completionCalls).toHaveLength(1);
+    expect(completionCalls[0]?.[1]).toMatchObject({
+      p_error: 'all_push_tickets_rejected',
+      p_outcome: 'rejected',
+    });
     expect(supabase.rpc).not.toHaveBeenCalledWith(
       'reset_shipment_tracking_notification_dispatch',
       expect.anything()
-    );
-    expect(supabase.rpc).toHaveBeenCalledWith(
-      'complete_shipment_tracking_notification',
-      expect.objectContaining({ p_outcome: 'rejected' })
     );
   });
 });

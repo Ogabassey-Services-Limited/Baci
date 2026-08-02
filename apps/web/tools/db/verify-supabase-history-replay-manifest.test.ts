@@ -44,7 +44,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(156);
+    expect(result.manifest.pendingSources).toHaveLength(157);
     expect(
       result.manifest.pendingSources.find(
         ({ repositoryPath }) =>
@@ -54,6 +54,26 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     ).toMatchObject({
       sha256:
         '398769a0e0a4ffdae8a763d48665c4f5efd27a2fe14405069abb7bafec84a776',
+    });
+    expect(
+      result.manifest.pendingSources.find(
+        ({ repositoryPath }) =>
+          repositoryPath ===
+          'supabase/migrations/20260802000100_suppress_cross_audience_gigl_terminal_notifications.sql'
+      )
+    ).toMatchObject({
+      sha256:
+        'c24fb135c16b06aa58913be1cbdd1473e4bcfa34ecdb978bf5e345a32248f099',
+    });
+    expect(
+      result.manifest.pendingSources.find(
+        ({ repositoryPath }) =>
+          repositoryPath ===
+          'supabase/migrations/20260802000200_preserve_manual_gigl_order_terminal_status.sql'
+      )
+    ).toMatchObject({
+      sha256:
+        'f3a2d5185449f78c46b86ea3a1db9d6c9084e442f423a030f51f70e75719a793',
     });
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31

@@ -26,6 +26,7 @@ export type ClaimedGiglTrackingNotification = z.infer<
 >;
 
 type WorkerSupabase = SupabaseClient<Database>;
+type NotificationProcessingState = { rejectionCompleted: boolean };
 
 const notificationCopy: Record<string, { title: string; body: string }> = {
   delivered: { title: 'Order delivered', body: 'Your delivery has arrived.' },
@@ -68,8 +69,8 @@ async function complete(
   workerId: string,
   outcome: 'sent' | 'skipped' | 'failed' | 'rejected',
   error?: string
-) {
-  const { error: rpcError } = await supabase.rpc(
+): Promise<boolean> {
+  const { data, error: rpcError } = await supabase.rpc(
     'complete_shipment_tracking_notification',
     {
       p_error: error ?? null,
@@ -79,12 +80,14 @@ async function complete(
     }
   );
   if (rpcError) throw rpcError;
+  return data === true;
 }
 
 async function processNotification(
   supabase: WorkerSupabase,
   notification: ClaimedGiglTrackingNotification,
-  workerId: string
+  workerId: string,
+  processingState: NotificationProcessingState
 ) {
   const { data: event, error: eventError } = await supabase
     .from('shipment_tracking_events')
@@ -112,8 +115,15 @@ async function processNotification(
       );
     }
   };
-  const onDeliveryRejected = () => {
+  const onDeliveryRejected = async () => {
     deliveryRejected = true;
+    processingState.rejectionCompleted = await complete(
+      supabase,
+      notification.id,
+      workerId,
+      'rejected',
+      'all_push_tickets_rejected'
+    );
   };
   if (notification.audience === 'merchant') {
     const result = await notifyMerchant(
@@ -133,7 +143,8 @@ async function processNotification(
       notification.id,
       workerId,
       result,
-      deliveryRejected
+      deliveryRejected,
+      processingState.rejectionCompleted
     );
   }
 
@@ -187,7 +198,8 @@ async function processNotification(
     notification.id,
     workerId,
     result,
-    deliveryRejected
+    deliveryRejected,
+    processingState.rejectionCompleted
   );
 }
 
@@ -208,8 +220,10 @@ async function completeNotificationResult(
   id: string,
   workerId: string,
   result: NotificationSendResult,
-  deliveryRejected: boolean
+  deliveryRejected: boolean,
+  rejectionCompleted: boolean
 ) {
+  if (rejectionCompleted) return 'failed' as const;
   // A retry after any accepted ticket can duplicate a customer-visible update.
   if (result.sent > 0) {
     await complete(supabase, id, workerId, 'sent');
@@ -241,11 +255,15 @@ export async function processClaimedGiglTrackingNotifications(
     success: true,
   };
   for (const notification of notifications) {
+    const processingState: NotificationProcessingState = {
+      rejectionCompleted: false,
+    };
     try {
       const outcome = await processNotification(
         supabase,
         notification,
-        workerId
+        workerId,
+        processingState
       );
       summary[outcome] += 1;
     } catch (error) {
@@ -254,20 +272,22 @@ export async function processClaimedGiglTrackingNotifications(
         notificationId: notification.id,
         error,
       });
-      try {
-        await complete(
-          supabase,
-          notification.id,
-          workerId,
-          'failed',
-          error instanceof Error ? error.message : 'unknown_error'
-        );
-      } catch (completionError) {
-        logger.error({
-          message: 'Failed to record GIGL tracking notification failure',
-          notificationId: notification.id,
-          error: completionError,
-        });
+      if (!processingState.rejectionCompleted) {
+        try {
+          await complete(
+            supabase,
+            notification.id,
+            workerId,
+            'failed',
+            error instanceof Error ? error.message : 'unknown_error'
+          );
+        } catch (completionError) {
+          logger.error({
+            message: 'Failed to record GIGL tracking notification failure',
+            notificationId: notification.id,
+            error: completionError,
+          });
+        }
       }
       summary.failed += 1;
     }

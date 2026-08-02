@@ -167,4 +167,12 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '20260801142400_retry_gigl_definitive_notification_rejections.sql',
     '398769a0e0a4ffdae8a763d48665c4f5efd27a2fe14405069abb7bafec84a776',
   ],
+  [
+    '20260802000100_suppress_cross_audience_gigl_terminal_notifications.sql',
+    'c24fb135c16b06aa58913be1cbdd1473e4bcfa34ecdb978bf5e345a32248f099',
+  ],
+  [
+    '20260802000200_preserve_manual_gigl_order_terminal_status.sql',
+    'f3a2d5185449f78c46b86ea3a1db9d6c9084e442f423a030f51f70e75719a793',
+  ],
 ] as const;
