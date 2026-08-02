@@ -226,15 +226,23 @@ test('scans unloaded user units for a second local account', async () => {
         '[Service]\nEnvironment=OLLAMA_HOST=http://127.0.0.1:11434\n'
       ),
     ]);
-    const { stdout } = await execFileAsync('sh', [
+    const { stderr, stdout } = await execFileAsync('sh', [
       '-c',
-      `${prelude}owner=$3; alice=$4; getent() { [ "$1" = passwd ] || return 2; case "\${2:-}" in '') printf 'bassey:x:1001:1001::%s:/bin/sh\\nalice:x:999:999::%s:/usr/sbin/nologin\\n' "$owner" "$alice";; *) return 2;; esac; }; systemctl() { return 0; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; systemd_user_roots() { home=\${1#*:}; printf '%s\\n' "$home/.config/systemd/user"; }; SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
+      `${prelude}owner=$3; alice=$4; getent() { [ "$1" = passwd ] || return 2; case "\${2:-}" in '') printf 'bassey:x:1001:1001::%s:/bin/sh\\nalice:x:999:999::%s:/usr/sbin/nologin\\n' "$owner" "$alice";; *) return 2;; esac; }; systemctl() { return 0; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; systemd_user_roots() { home=\${1#*:}; printf '%s\\n' "$home/.config/systemd/user"; }; systemd_user_manager_available() { printf '%s\\n' "$1" >&2; return 1; }; SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
       'retire-ollama-systemd-other-user-test',
       script.pathname,
       system,
       owner,
       alice,
     ]);
+    assert.match(
+      stderr,
+      new RegExp(`^1001:${owner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm')
+    );
+    assert.match(
+      stderr,
+      new RegExp(`^999:${alice.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm')
+    );
     assert.match(
       stdout,
       new RegExp(`^${ownerUnit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|`, 'm')
