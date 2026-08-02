@@ -12,4 +12,9 @@ describe('tokenizeContentText', () => {
       '50',
     ]);
   });
+
+  it('returns no tokens for nullish input', () => {
+    expect(tokenizeContentText(null)).toEqual([]);
+    expect(tokenizeContentText(undefined)).toEqual([]);
+  });
 });

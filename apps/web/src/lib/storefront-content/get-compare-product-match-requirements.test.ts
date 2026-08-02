@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
 
 describe('getCompareProductMatchRequirements', () => {
+  it('returns no requirements when both product sources are empty', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      productNames: [],
+      productSlugs: [],
+    });
+
+    expect(requirements).toEqual([]);
+  });
+
   it('keeps brand discriminators when compared models share an identifier', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

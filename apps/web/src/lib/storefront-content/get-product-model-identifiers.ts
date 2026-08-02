@@ -1,4 +1,5 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
+import { applyJoinedTitleCorrections } from './apply-joined-title-corrections';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
@@ -201,7 +202,7 @@ function getModelTokens(
   excludedTokens: ReadonlySet<string>,
   categorySlug: string
 ) {
-  const canonicalSlug = slug.replace(/\bdonkeykong\b/gu, 'donkey kong');
+  const canonicalSlug = applyJoinedTitleCorrections(slug);
   const rawTokens = normalizeProductModelTokens(
     tokenize(
       canonicalSlug

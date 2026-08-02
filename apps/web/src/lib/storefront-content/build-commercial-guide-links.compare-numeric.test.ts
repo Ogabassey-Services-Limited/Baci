@@ -41,4 +41,44 @@ describe('buildCommercialGuideLinks numeric compare brands', () => {
       'https://ogabassey.com/blog/samsung-galaxy-s25-15-reasons',
     ]);
   });
+
+  it('uses direct context brands for compare models outside configured aliases', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'nokia-buying-guide',
+          title: 'Nokia Phones Buyer Guide',
+          excerpt: 'How to choose a Nokia phone.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'nokia'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'nokia-6310-vs-8210-guide',
+          title: 'Nokia 6310 vs Nokia 8210 Buyer Guide',
+          excerpt: 'Compare the Nokia 6310 and Nokia 8210.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'nokia', 'comparison'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'compare',
+        categorySlug: 'smartphones',
+        brands: ['Nokia'],
+        productNames: ['Nokia 6310', 'Nokia 8210'],
+      },
+    });
+
+    expect(links[0]?.href).toBe(
+      'https://ogabassey.com/blog/nokia-6310-vs-8210-guide'
+    );
+  });
 });

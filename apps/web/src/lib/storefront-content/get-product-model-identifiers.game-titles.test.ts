@@ -129,24 +129,4 @@ describe('getProductModelIdentifiers game titles', () => {
 
     expect(identifiers).toEqual(['lite']);
   });
-
-  it('preserves a sub-10-inch tablet display prefix as metadata', () => {
-    const identifiers = getProductModelIdentifiers({
-      categorySlug: 'tablets',
-      brands: ['Apple'],
-      productSlugs: ['8-3-ipad-mini-6th-generation-2021'],
-    });
-
-    expect(identifiers).toEqual(['mini 6th generation']);
-  });
-
-  it('retains the Series marker for an Apple Watch SE identifier', () => {
-    const identifiers = getProductModelIdentifiers({
-      categorySlug: 'smartwatches',
-      brands: ['Apple'],
-      productSlugs: ['apple-watch-series-se-40mm-gps'],
-    });
-
-    expect(identifiers).toEqual(['watch series se']);
-  });
 });

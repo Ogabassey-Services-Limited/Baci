@@ -1,3 +1,7 @@
+import { modelTokenMatchers } from './model-token-matchers';
+
+const { isConvertibleInConnector } = modelTokenMatchers;
+
 const GENERIC_MODEL_MARKER_TOKENS = new Set([
   'edition',
   'model',
@@ -17,14 +21,6 @@ function expandCompactGameCodeTokens(
         (token) => token.match(COMPACT_GAME_CODE_PATTERN)?.slice(1) ?? [token]
       )
     : tokens;
-}
-
-function isConvertibleInConnector(tokens: string[], index: number) {
-  return (
-    tokens[index] === 'in' &&
-    /^\d+$/u.test(tokens[index - 1] ?? '') &&
-    /^\d+$/u.test(tokens[index + 1] ?? '')
-  );
 }
 
 function isMeaningfulModelToken(
@@ -96,12 +92,14 @@ function reorderGenerationModelTokens(tokens: string[]) {
     return tokens;
   }
 
-  const modelToken = tokens[generationIndex + 2];
+  const modelToken = tokens[generationIndex + 2] ?? '';
+  const generation = tokens[generationIndex] ?? '';
+  const generationNumber = tokens[generationIndex + 1] ?? '';
   return [
     ...tokens.slice(0, generationIndex),
     modelToken,
-    tokens[generationIndex],
-    tokens[generationIndex + 1],
+    generation,
+    generationNumber,
     ...tokens.slice(generationIndex + 3),
   ];
 }
@@ -109,10 +107,10 @@ function reorderGenerationModelTokens(tokens: string[]) {
 /** Selects a compact phrase from already-normalized model tokens. */
 export function selectProductModelIdentifier(
   inputTokens: string[],
-  preserveYearTokens = false
+  preserveGameTitleTokens = false
 ) {
   const tokens = reorderGenerationModelTokens(
-    expandCompactGameCodeTokens(inputTokens, preserveYearTokens)
+    expandCompactGameCodeTokens(inputTokens, preserveGameTitleTokens)
   );
   const hasNonYearAlphanumericModel = tokens.some(
     (token) =>
@@ -123,7 +121,7 @@ export function selectProductModelIdentifier(
   const numericIndex = tokens.findLastIndex(
     (token, index) =>
       /^\d+$/u.test(token) &&
-      (preserveYearTokens ||
+      (preserveGameTitleTokens ||
         !YEAR_TOKEN_PATTERN.test(token) ||
         !hasNonYearAlphanumericModel ||
         isGenerationYearToken(tokens, index))
@@ -134,10 +132,11 @@ export function selectProductModelIdentifier(
     );
     const phraseTokens = tokens.filter(
       (token, index) =>
-        ((hasConvertibleModel || preserveYearTokens) && /^\d+$/u.test(token)) ||
+        ((hasConvertibleModel || preserveGameTitleTokens) &&
+          /^\d+$/u.test(token)) ||
         isSignificantInterveningNumericToken(tokens, index, numericIndex) ||
         index === numericIndex ||
-        isMeaningfulModelToken(token, preserveYearTokens) ||
+        isMeaningfulModelToken(token, preserveGameTitleTokens) ||
         isSeriesPhraseToken(tokens, index)
     );
     return phraseTokens.join(' ');
@@ -150,17 +149,21 @@ export function selectProductModelIdentifier(
     const alphanumericIndex = tokens.indexOf(alphanumericToken);
     const prefixTokens = tokens
       .slice(0, alphanumericIndex)
-      .filter((token) => isMeaningfulModelToken(token, preserveYearTokens));
+      .filter((token) =>
+        isMeaningfulModelToken(token, preserveGameTitleTokens)
+      );
     const suffixTokens = tokens
       .slice(alphanumericIndex + 1)
-      .filter((token) => isMeaningfulModelToken(token, preserveYearTokens));
+      .filter((token) =>
+        isMeaningfulModelToken(token, preserveGameTitleTokens)
+      );
     const phraseTokens = [...prefixTokens, alphanumericToken, ...suffixTokens];
     return phraseTokens.join(' ');
   }
 
   const phraseTokens = tokens.filter((token, index) => {
     return (
-      isMeaningfulModelToken(token, preserveYearTokens) ||
+      isMeaningfulModelToken(token, preserveGameTitleTokens) ||
       isSeriesPhraseToken(tokens, index)
     );
   });

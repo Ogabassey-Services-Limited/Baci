@@ -11,6 +11,7 @@ import type {
   InformationalGuideLink,
 } from './content-cluster-types';
 import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
+import { getPostTokenGroups } from './get-post-token-groups';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { hasCleanIdentifierOccurrence } from './has-clean-identifier-occurrence';
 import { inferContentClusterContext } from './infer-content-cluster-context';
@@ -53,13 +54,11 @@ function hasContiguousTokenSequence(
   post: BuildCommercialGuideLinksInput['posts'][number],
   expectedTokens: string[]
 ) {
-  const postTokenGroups = [
-    post.title,
-    post.excerpt,
-    post.category,
-    ...(post.tags ?? []),
-    ...(post.keywords ?? []),
-  ].map(tokenizeContentText);
+  if (expectedTokens.length === 0) {
+    return false;
+  }
+
+  const postTokenGroups = getPostTokenGroups(post);
 
   return postTokenGroups.some((postTokens) =>
     postTokens.some((_, startIndex) =>
@@ -151,9 +150,12 @@ export function buildCommercialGuideLinks(
       const normalizedBrands = (input.context.brands ?? []).map((brand) =>
         generateSlug(brand)
       );
-      const hasDirectBrandMatch = normalizedBrands.some((brand) =>
-        hasContiguousTokenSequence(post, tokenizeModelIdentifier(brand))
+      const directBrandMatches = new Set(
+        normalizedBrands.filter((brand) =>
+          hasContiguousTokenSequence(post, tokenizeModelIdentifier(brand))
+        )
       );
+      const hasDirectBrandMatch = directBrandMatches.size > 0;
       const hasBrandMatch =
         normalizedBrands.length > 0 &&
         (hasDirectBrandMatch ||
@@ -195,7 +197,9 @@ export function buildCommercialGuideLinks(
         compareProductMatchRequirements.length > 0 &&
         compareProductMatchRequirements.every(
           ({ identifier, brand, discriminatorTokens }) =>
-            (!brand || inferred.brands.includes(brand)) &&
+            (!brand ||
+              inferred.brands.includes(brand) ||
+              directBrandMatches.has(generateSlug(brand))) &&
             matchesProductIdentifier(
               post,
               inferred.tokens,

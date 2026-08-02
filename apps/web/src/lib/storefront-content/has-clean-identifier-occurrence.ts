@@ -1,4 +1,5 @@
 import type { PublishedClusterPost } from './content-cluster-types';
+import { getPostTokenGroups } from './get-post-token-groups';
 import { tokenizeContentText } from './tokenize-content-text';
 
 const MODEL_VARIANT_MARKER_TOKENS = new Set([
@@ -121,13 +122,11 @@ export function hasCleanIdentifierOccurrence(
   identifierTokens: string[],
   options: IdentifierOccurrenceOptions = {}
 ) {
-  const postTokenGroups = [
-    post.title,
-    post.excerpt,
-    post.category,
-    ...(post.tags ?? []),
-    ...(post.keywords ?? []),
-  ].map(tokenizeContentText);
+  if (identifierTokens.length === 0) {
+    return false;
+  }
+
+  const postTokenGroups = getPostTokenGroups(post);
 
   return postTokenGroups.some((postTokens) =>
     postTokens.some((_, startIndex) => {

@@ -48,4 +48,25 @@ describe('buildCompareGuideContexts', () => {
       })
     ).toEqual({ guideLoadContext: null, guideBuildContext: null });
   });
+
+  it('keeps only the defined brand in both guide contexts', () => {
+    const contexts = buildCompareGuideContexts({
+      supportedClusterCategory: 'smartphones',
+      leftBrand: null,
+      rightBrand: 'Samsung',
+      leftName: 'Galaxy S25',
+      rightName: 'Galaxy S24',
+      leftLoadSlug: 'galaxy-s25-key',
+      rightLoadSlug: 'galaxy-s24-key',
+      leftBuildSlug: 'samsung-galaxy-s25',
+      rightBuildSlug: 'samsung-galaxy-s24',
+    });
+
+    expect(contexts.guideLoadContext?.brands).toEqual(['Samsung']);
+    expect(contexts.guideBuildContext?.brands).toEqual(['Samsung']);
+    expect(contexts.guideLoadContext?.productNames).toEqual([
+      'Galaxy S25',
+      'Galaxy S24',
+    ]);
+  });
 });

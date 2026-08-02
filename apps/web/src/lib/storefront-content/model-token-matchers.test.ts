@@ -9,4 +9,8 @@ describe('modelTokenMatchers', () => {
     expect(isDimensionToken(['14', 'in', '1'], 2)).toBe(false);
     expect(isConvertibleInConnector(['14', 'in', '1'], 1)).toBe(true);
   });
+
+  it('returns false for an out-of-range dimension token', () => {
+    expect(modelTokenMatchers.isDimensionToken(['model'], 4)).toBe(false);
+  });
 });

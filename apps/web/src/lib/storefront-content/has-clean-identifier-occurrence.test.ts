@@ -2,6 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { hasCleanIdentifierOccurrence } from './has-clean-identifier-occurrence';
 
 describe('hasCleanIdentifierOccurrence', () => {
+  it('returns false for an empty identifier token list', () => {
+    const post = {
+      slug: 'generic-guide',
+      title: 'Generic buyer guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    expect(hasCleanIdentifierOccurrence(post, [])).toBe(false);
+  });
+
   it('matches a clean model mention while excluding variant suffixes', () => {
     const post = {
       slug: 'iphone-15-variants',

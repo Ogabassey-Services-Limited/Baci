@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { normalizeProductModelTokens } from './normalize-product-model-tokens';
 
 describe('normalizeProductModelTokens', () => {
+  it('returns an empty list for empty input', () => {
+    expect(normalizeProductModelTokens([])).toEqual([]);
+  });
+
   it('removes merchandising suffixes', () => {
     const tokens = normalizeProductModelTokens([
       'iphone',
@@ -136,6 +140,14 @@ describe('normalizeProductModelTokens', () => {
     expect(lteTokens).toEqual(['apple', 'series', '9', '45mm']);
     expect(wifiTokens).toEqual(['iphone', '14']);
     expect(cellularTokens).toEqual(['ipad', 'pro', '13']);
+  });
+
+  it('preserves a model when connectivity metadata appears first', () => {
+    expect(normalizeProductModelTokens(['lte', 'router', 'x5'])).toEqual([
+      'lte',
+      'router',
+      'x5',
+    ]);
   });
 
   it('removes an optional Touch Bar feature suffix', () => {

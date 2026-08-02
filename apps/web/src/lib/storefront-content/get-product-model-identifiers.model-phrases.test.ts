@@ -227,6 +227,16 @@ describe('getProductModelIdentifiers model phrases', () => {
     expect(identifiers).toEqual(['pro m1']);
   });
 
+  it('removes multiple split capacity pairs from a tablet model phrase', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Apple'],
+      productSlugs: ['12-9-ipad-pro-2021-m1-1-tb-512-gb-wifi'],
+    });
+
+    expect(identifiers).toEqual(['pro m1']);
+  });
+
   it('preserves color words that are part of a game title', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'playstation-5',

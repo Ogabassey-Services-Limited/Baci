@@ -7,7 +7,7 @@ function isConvertibleInConnector(tokens: string[], index: number) {
 }
 
 function isDimensionToken(tokens: string[], index: number) {
-  const token = tokens[index];
+  const token = tokens[index] ?? '';
   if (!/^\d+$/u.test(token)) {
     return false;
   }

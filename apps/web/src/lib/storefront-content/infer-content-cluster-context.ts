@@ -9,6 +9,7 @@ import type {
   SupportedClusterCategory,
 } from './content-cluster-types';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
+import { tokenizeContentText } from './tokenize-content-text';
 
 interface InferContentClusterContextInput
   extends Pick<
@@ -21,18 +22,7 @@ function normalizeText(value: string | null | undefined) {
 }
 
 function tokenize(values: Array<string | null | undefined>) {
-  return Array.from(
-    new Set(
-      values
-        .map(normalizeText)
-        .join(' ')
-        .replace(/[’']s\b/gu, '')
-        .replace(/\+/gu, ' plus ')
-        .split(/[^a-z0-9]+/i)
-        .map((token) => token.trim())
-        .filter(Boolean)
-    )
-  );
+  return Array.from(new Set(values.flatMap(tokenizeContentText)));
 }
 
 function hasPhrase(haystack: string, needle: string) {

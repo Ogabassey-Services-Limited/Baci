@@ -1,42 +1,5 @@
-const MERCHANDISING_SUFFIX_TOKENS = new Set([
-  'beige',
-  'black',
-  'blue',
-  'bronze',
-  'brown',
-  'clearance',
-  'coral',
-  'cream',
-  'gold',
-  'graphite',
-  'gray',
-  'green',
-  'grey',
-  'jet',
-  'lavender',
-  'midnight',
-  'mint',
-  'new',
-  'nfid',
-  'open',
-  'orange',
-  'pink',
-  'platinum',
-  'premium',
-  'purple',
-  'red',
-  'refurb',
-  'refurbished',
-  'rose',
-  'sale',
-  'sealed',
-  'silver',
-  'starlight',
-  'used',
-  'violet',
-  'white',
-  'yellow',
-]);
+import { modelTokenMatchers } from './model-token-matchers';
+
 const COLOR_SUFFIX_TOKENS = new Set([
   'beige',
   'black',
@@ -66,9 +29,10 @@ const COLOR_SUFFIX_TOKENS = new Set([
   'white',
   'yellow',
 ]);
-const LEADING_CONDITION_TOKENS = new Set([
+const MERCHANDISING_ONLY_TOKENS = new Set([
   'clearance',
   'new',
+  'nfid',
   'open',
   'premium',
   'refurb',
@@ -77,6 +41,13 @@ const LEADING_CONDITION_TOKENS = new Set([
   'sealed',
   'used',
 ]);
+const MERCHANDISING_SUFFIX_TOKENS = new Set([
+  ...COLOR_SUFFIX_TOKENS,
+  ...MERCHANDISING_ONLY_TOKENS,
+]);
+const LEADING_CONDITION_TOKENS = new Set(
+  [...MERCHANDISING_ONLY_TOKENS].filter((token) => token !== 'nfid')
+);
 const REGION_OR_VARIANT_SUFFIX_TOKENS = new Set([
   'ca',
   'cn',
@@ -112,6 +83,8 @@ const DISPLAY_SUFFIX_MARKER_TOKENS = new Set([
   'touchscreen',
   'uhd',
 ]);
+
+const { isConvertibleInConnector } = modelTokenMatchers;
 
 function stripFirstMatchingSuffix(
   tokens: string[],
@@ -149,6 +122,9 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
     CONNECTIVITY_MARKER_TOKENS.has(tokens[markerIndex] ?? '')
   ) {
     markerIndex -= 1;
+  }
+  if (markerIndex < 0) {
+    return tokens;
   }
   return tokens.slice(0, markerIndex + 1);
 }
@@ -223,14 +199,19 @@ function stripOptionalOrdinalGenerationConnectorSuffix(tokens: string[]) {
 }
 
 function stripSplitCapacitySuffix(tokens: string[]) {
-  const capacityIndex = tokens.findIndex(
-    (token, index) =>
+  const normalizedTokens: string[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? '';
+    if (
       /^\d+$/u.test(token) &&
       ['gb', 'tb', 'mb'].includes(tokens[index + 1] ?? '')
-  );
-  return capacityIndex >= 0
-    ? [...tokens.slice(0, capacityIndex), ...tokens.slice(capacityIndex + 2)]
-    : tokens;
+    ) {
+      index += 1;
+      continue;
+    }
+    normalizedTokens.push(token);
+  }
+  return normalizedTokens;
 }
 
 function isInternalGameTitleToken(
@@ -247,13 +228,6 @@ function isInternalGameTitleToken(
   );
 }
 
-function isConvertibleInConnector(tokens: string[], index: number) {
-  return (
-    tokens[index] === 'in' &&
-    /^\d+$/u.test(tokens[index - 1] ?? '') &&
-    /^\d+$/u.test(tokens[index + 1] ?? '')
-  );
-}
 /** Removes catalog suffixes that describe merchandising, region, or connectivity. */
 export function normalizeProductModelTokens(
   tokens: string[],
