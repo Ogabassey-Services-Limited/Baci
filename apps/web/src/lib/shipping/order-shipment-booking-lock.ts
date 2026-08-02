@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 
 const DEFAULT_LOCK_TIMEOUT_SECONDS = 15 * 60;
@@ -41,6 +42,15 @@ function isMissingBookingLockInfrastructure(error: unknown): boolean {
   );
 }
 
+function getRpcErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return 'UNKNOWN';
+  }
+
+  const code = (error as RpcErrorLike).code;
+  return typeof code === 'string' && code.length > 0 ? code : 'UNKNOWN';
+}
+
 function getClaimRow(
   value: ClaimOrderShipmentBookingRow[] | ClaimOrderShipmentBookingRow | null
 ): ClaimOrderShipmentBookingRow | null {
@@ -78,6 +88,11 @@ export async function claimOrderShipmentBooking(
         lockToken: null,
       };
     }
+
+    logger.error({
+      message: 'Shipment booking lock claim failed',
+      rpcCode: getRpcErrorCode(error),
+    });
 
     throw new OrderShipmentBookingError(
       'Failed to reserve this order for shipment booking.',

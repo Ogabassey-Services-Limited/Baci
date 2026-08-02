@@ -287,6 +287,11 @@ export const EXPECTED_PENDING_SOURCES = [
   ...RECENT_PENDING_SOURCES.slice(0, 1),
   ...AUDIT_PENDING_SOURCES,
   ...RECENT_PENDING_SOURCES.slice(1, 6),
+  {
+    repositoryPath:
+      'supabase/migrations/20260730223000_fix_order_shipment_booking_lock_ambiguity.sql',
+    sha256: 'c7b67ae9314b186d9a7b6d0cdd262f4888786e8a601ddb14c815b68cb98a619d',
+  },
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(0, 2),
   ...EXPECTED_PENDING_TAIL_SOURCES.paymentIngressFoundation,
   ...RECENT_PENDING_SOURCES.slice(6),
