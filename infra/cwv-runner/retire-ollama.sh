@@ -190,7 +190,7 @@ model_identity() {
   [ -d "$STORE" ] && [ ! -L "$STORE" ] || die 'unsafe model store'; parent=$(dirname "$STORE"); [ ! -L "$parent" ] || die 'unsafe model parent'
   [ "$(stat -c '%u:%a' "$STORE")" = '0:755' ] || die 'model store owner or mode drift'; model_parent_mode=$(stat -c '%a' "$parent") || die 'model parent mode scan failed'; case "$model_parent_mode" in ''|*[!0-7]*) die 'invalid model parent mode';; esac; [ $((0$model_parent_mode & 022)) -eq 0 ] || die 'writable model parent'
   list=$(temp_path); sorted=$(temp_path); raw=$(temp_path)
-  find "$STORE" -xdev -printf '%y:%m:%s:%T@:%p\n' >"$list" || { rm -f "$list" "$sorted" "$raw"; die 'model listing failed'; }
+  if find "$STORE" -xdev -type f -printf '%y:%m:%s:%T@:%p:' -exec sha256sum -- {} \; >"$list" && find "$STORE" -xdev ! -type f -printf '%y:%m:%s:%T@:%p\n' >>"$list"; then :; else rm -f "$list" "$sorted" "$raw"; die 'model listing failed'; fi
   sort "$list" >"$sorted" || { rm -f "$list" "$sorted" "$raw"; die 'model sorting failed'; }
   { readlink -f "$STORE"; readlink -f "$parent"; stat -c '%d:%i:%f:%u:%g:%a' "$STORE" "$parent"; findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS --target "$STORE"; cat "$sorted"; } >"$raw" || { rm -f "$list" "$sorted" "$raw"; die 'model identity failed'; }
   sha "$raw"; status=$?; rm -f "$list" "$sorted" "$raw"; return "$status"
