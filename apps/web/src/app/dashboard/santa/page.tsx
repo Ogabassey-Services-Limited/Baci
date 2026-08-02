@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { getConfiguredAgenticMerchantSlug } from '@/lib/agentic/merchant-context';
+import { getConfiguredAgenticMerchantSlug } from '@/lib/agentic/agentic-merchant-slug';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import SantaClientPage from './client-page';
 

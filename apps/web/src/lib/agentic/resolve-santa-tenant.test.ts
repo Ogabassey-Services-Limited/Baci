@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/supabase/public', () => ({
   createPublicClient: mocks.createPublicClient,
 }));
-vi.mock('./merchant-context', () => ({
+vi.mock('./agentic-merchant-slug', () => ({
   getConfiguredAgenticMerchantSlug: mocks.getConfiguredAgenticMerchantSlug,
 }));
 vi.mock('./agentic-merchant-identity', () => ({

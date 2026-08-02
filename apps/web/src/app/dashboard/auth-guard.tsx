@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { getConfiguredAgenticMerchantSlug } from '@/lib/agentic/merchant-context';
+import { getConfiguredAgenticMerchantSlug } from '@/lib/agentic/agentic-merchant-slug';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { DashboardProviders } from './providers';
 

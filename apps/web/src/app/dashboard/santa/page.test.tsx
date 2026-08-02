@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock('@/lib/agentic/merchant-context', () => ({
+vi.mock('@/lib/agentic/agentic-merchant-slug', () => ({
   getConfiguredAgenticMerchantSlug: mocks.getConfiguredAgenticMerchantSlug,
 }));
 vi.mock('@/lib/merchant-server', () => ({

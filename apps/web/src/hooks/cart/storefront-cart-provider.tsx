@@ -446,6 +446,7 @@ export function StorefrontCartProvider({
     cartItemIdOrProductId: string,
     variantId?: string
   ) => {
+    const wasGroupActive = cartWideNegotiationActiveRef.current;
     setCart((previousCart) => {
       const filtered = previousCart.filter((item) => {
         if (variantId) {
@@ -464,7 +465,7 @@ export function StorefrontCartProvider({
       // A cart-wide (group) negotiation distributes one negotiated total across
       // all lines; removing a line breaks that total, so reset the group deal
       // and revert remaining lines to catalog price.
-      if (cartWideNegotiationActiveRef.current) {
+      if (wasGroupActive) {
         return filtered.map((item) => ({
           ...item,
           negotiatedPrice: undefined,
@@ -474,7 +475,7 @@ export function StorefrontCartProvider({
 
       return filtered;
     });
-    if (cartWideNegotiationActiveRef.current) {
+    if (wasGroupActive) {
       setCartWideNegotiationActive(false);
     }
   };
@@ -484,6 +485,7 @@ export function StorefrontCartProvider({
     quantity: number,
     variantId?: string
   ) => {
+    const wasGroupActive = cartWideNegotiationActiveRef.current;
     setCart((previousCart) => {
       const targetIndex = previousCart.findIndex((item) => {
         if (variantId) {
@@ -503,7 +505,7 @@ export function StorefrontCartProvider({
         const filtered = previousCart.filter(
           (_, index) => index !== targetIndex
         );
-        if (cartWideNegotiationActiveRef.current) {
+        if (wasGroupActive) {
           return filtered.map((item) => ({
             ...item,
             negotiatedPrice: undefined,
@@ -524,7 +526,7 @@ export function StorefrontCartProvider({
       // A quantity change alters the cart total, so an active cart-wide
       // negotiation no longer represents the agreed total — clear the group
       // deal on every line (not only when the line is removed).
-      if (cartWideNegotiationActiveRef.current) {
+      if (wasGroupActive) {
         return nextCart.map((line) => ({
           ...line,
           negotiatedPrice: undefined,
@@ -533,7 +535,7 @@ export function StorefrontCartProvider({
       }
       return nextCart;
     });
-    if (cartWideNegotiationActiveRef.current) {
+    if (wasGroupActive) {
       setCartWideNegotiationActive(false);
     }
   };

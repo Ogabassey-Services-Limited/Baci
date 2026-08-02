@@ -1,6 +1,6 @@
 import { createPublicClient } from '@/lib/supabase/public';
 import { resolveAgenticMerchantIdentity } from './agentic-merchant-identity';
-import { getConfiguredAgenticMerchantSlug } from './merchant-context';
+import { getConfiguredAgenticMerchantSlug } from './agentic-merchant-slug';
 
 export async function resolveSantaTenant(signal?: AbortSignal): Promise<{
   id: string;
