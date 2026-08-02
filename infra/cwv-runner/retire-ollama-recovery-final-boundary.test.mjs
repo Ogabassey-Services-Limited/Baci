@@ -50,7 +50,7 @@ test('refuses a process and socket inventory that changes before receipt publica
 });
 
 test('changes the model tree identity when same-size content is restored to its mtime', async () => {
-  const directory = await mkdtemp('/private/tmp/baci-cwv-model-tree-');
+  const directory = await mkdtemp(join(tmpdir(), 'baci-cwv-model-tree-'));
   const store = join(directory, 'store');
   const blob = join(store, 'blob');
   try {
