@@ -189,7 +189,7 @@ test('keeps colliding system and owner-user linked unit names in separate manife
     ]);
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      'home=$3; getent() { printf "bassey:x:1001:1001::%s:/bin/sh\\n" "$home"; }; systemctl() { return 0; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; load_consumer_scanners; systemd_user_manager_available() { return 1; }; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
+      'home=$3; getent() { printf "bassey:x:1001:1001::%s:/bin/sh\\n" "$home"; }; systemctl() { return 0; }; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; load_consumer_scanners; systemd_user_roots() { [ "$1" = "1001:$home" ] || return 2; printf "%s\\n" "$home/.config/systemd/user"; }; systemd_user_manager_available() { return 1; }; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers',
       'retire-ollama-systemd-manifest-collision-test',
       script.pathname,
       systemRoot,

@@ -178,7 +178,7 @@ test('scans a stopped user unit when the owner user manager is unavailable', asy
     await symlink(target, definition);
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${prelude}home=$3; marker=$4; availability=$marker.availability; getent() { printf 'bassey:x:1001:1001::%s:/bin/sh\\n' "$home"; }; systemctl() { case "$1" in --user) : >"$marker"; return 1;; list-unit-files|list-units) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; load_consumer_scanners; systemd_user_manager_available() { : >"$availability"; return 1; }; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers; test -e "$availability" && test ! -e "$marker" && printf stable`,
+      `${prelude}home=$3; marker=$4; availability=$marker.availability; getent() { printf 'bassey:x:1001:1001::%s:/bin/sh\\n' "$home"; }; systemctl() { case "$1" in --user) : >"$marker"; return 1;; list-unit-files|list-units) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; load_consumer_scanners; systemd_user_roots() { [ "$1" = "1001:$home" ] || return 2; printf '%s\\n' "$home/.config/systemd/user"; }; systemd_user_manager_available() { : >"$availability"; return 1; }; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers; test -e "$availability" && test ! -e "$marker" && printf stable`,
       'retire-ollama-user-stopped-test',
       script.pathname,
       systemRoots,
@@ -202,11 +202,14 @@ test('queries a live owner user manager through the fixed host-user bus', async 
   const systemRoots = join(directory, 'system');
   const userHome = join(directory, 'home');
   try {
-    await Promise.all([mkdir(systemRoots), mkdir(userHome)]);
+    await Promise.all([
+      mkdir(systemRoots),
+      mkdir(join(userHome, '.config', 'systemd', 'user'), { recursive: true }),
+    ]);
     const property = 'Environment=OLLAMA_HOST=http://127.0.0.1:11434';
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${prelude}home=$3; getent() { printf 'bassey:x:1001:1001::%s:/bin/sh\\n' "$home"; }; systemctl() { if [ "$1" = --user ]; then [ "$2" = --machine=bassey@.host ] || return 64; shift 2; case "$1" in list-unit-files) return 0;; list-units) printf 'user-transient.service loaded active running transient\\n';; show) printf 'Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nExecStart={}\\n';; *) return 64;; esac; else case "$1" in list-unit-files|list-units) return 0;; *) return 64;; esac; fi; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; load_consumer_scanners; systemd_user_manager_available() { return 0; }; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
+      `${prelude}home=$3; getent() { printf 'bassey:x:1001:1001::%s:/bin/sh\\n' "$home"; }; systemctl() { if [ "$1" = --user ]; then [ "$2" = --machine=bassey@.host ] || return 64; shift 2; case "$1" in list-unit-files) return 0;; list-units) printf 'user-transient.service loaded active running transient\\n';; show) printf 'Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nExecStart={}\\n';; *) return 64;; esac; else case "$1" in list-unit-files|list-units) return 0;; *) return 64;; esac; fi; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; load_consumer_scanners; systemd_user_roots() { [ "$1" = "1001:$home" ] || return 2; printf '%s\\n' "$home/.config/systemd/user"; }; systemd_user_manager_available() { return 0; }; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
       'retire-ollama-user-runtime-test',
       script.pathname,
       systemRoots,
