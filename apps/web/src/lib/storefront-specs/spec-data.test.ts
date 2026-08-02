@@ -406,6 +406,21 @@ describe('buildProductSpecData', () => {
     ]);
   });
 
+  it('filters stale phone rows from precomputed camera summary specs', () => {
+    const result = buildProductSpecData({
+      category: 'Cameras',
+      specs: [
+        { label: 'SIM', value: 'Nano-SIM' },
+        { label: 'Card Slot', value: 'Not listed by manufacturer' },
+        { label: 'Sensor', value: 'Full-frame CMOS' },
+      ],
+    });
+
+    expect(result.specs).toEqual([
+      { label: 'Sensor', value: 'Full-frame CMOS' },
+    ]);
+  });
+
   it('retains safe key specs for general gaming products', () => {
     const result = buildProductSpecData({
       category: 'Gaming',

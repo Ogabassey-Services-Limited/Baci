@@ -103,17 +103,24 @@ function mergeSpecSections(...sections: ProductSpecSection[][]) {
   return merged.filter((section) => section.items.length > 0);
 }
 
+function filterNonDeviceSpecItems(
+  items: ProductSpecItem[],
+  categoryName: string
+) {
+  return items.filter((item) =>
+    shouldIncludeProductSchemaSpec(
+      { category: categoryName, categories: null },
+      { label: item.label, value: item.value }
+    )
+  );
+}
+
 function filterNonDeviceLegacySpecifications(
   sections: ProductSpecSection[],
   categoryName: string
 ) {
   return sections.flatMap((section) => {
-    const items = section.items.filter((item) =>
-      shouldIncludeProductSchemaSpec(
-        { category: categoryName, categories: null },
-        { label: item.label, value: item.value }
-      )
-    );
+    const items = filterNonDeviceSpecItems(section.items, categoryName);
 
     return items.length > 0 ? [{ ...section, items }] : [];
   });
@@ -241,10 +248,14 @@ export function buildProductSpecData(source: SpecDataSource) {
     structuredSpecs
   );
   const normalizedSummarySpecs = normalizeSpecItems(source.specs);
+  const summarySpecifications =
+    specFamily === 'camera' || specFamily === 'general'
+      ? filterNonDeviceSpecItems(normalizedSummarySpecs, sourceCategoryName)
+      : normalizedSummarySpecs;
 
   const specs =
-    normalizedSummarySpecs.length > 0
-      ? normalizedSummarySpecs
+    summarySpecifications.length > 0
+      ? summarySpecifications
       : buildSummarySpecsFromSections(detailedSpecs);
 
   return {

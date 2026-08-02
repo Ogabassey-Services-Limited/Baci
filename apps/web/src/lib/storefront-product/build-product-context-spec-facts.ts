@@ -1,6 +1,8 @@
+import { isUnsupportedSpecValue } from '@/lib/storefront-specs/is-unsupported-spec-value';
 import { getKeySpecCategoriesForFamily } from '@/lib/storefront-specs/spec-category-families';
 import type {
   ComparableProductKeySpecs,
+  ProductSpecFamily,
   SpecField,
 } from '@/lib/storefront-specs/spec-taxonomy';
 import { getProductSpecFamily } from '@/lib/storefront-specs/spec-taxonomy';
@@ -14,33 +16,29 @@ const METADATA_SPEC_KEYS = new Set([
   'updated_at',
   'deleted_at',
 ]);
-const MOBILE_CONTEXT_SPEC_LABELS: Record<string, string> = {
-  has_ois: 'OIS',
-  announced_date: 'Announced',
-  release_date: 'Release date',
-  recommended_for: 'Recommended for',
+const FAMILY_CONTEXT_SPEC_LABELS: Record<
+  ProductSpecFamily,
+  Record<string, string>
+> = {
+  mobile: {
+    has_ois: 'OIS',
+    announced_date: 'Announced',
+    release_date: 'Release date',
+    recommended_for: 'Recommended for',
+  },
+  computer: {
+    processor: 'Processor',
+  },
+  camera: {
+    has_ois: 'OIS',
+  },
+  general: {},
 };
 const KNOWN_DEVICE_SPEC_FIELDS_BY_KEY = new Set(
   getKeySpecCategoriesForFamily('mobile')
     .flatMap((category) => category.fields)
     .map((field) => field.key)
 );
-const GENERIC_UNSUPPORTED_VALUES = new Set([
-  '',
-  'false',
-  'no',
-  'n/a',
-  'na',
-  'none',
-  'not applicable',
-  'not available',
-  'not listed',
-  'not published',
-  'not supported',
-  'unsupported',
-  'unavailable',
-]);
-
 function normalizeText(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.replace(/\s+/g, ' ').trim();
@@ -57,20 +55,6 @@ function normalizeSpecValue(value: unknown): string | null {
 
   const normalized = normalizeSpecValueText(value);
   return normalized || null;
-}
-
-function isGenericUnsupportedValue(value: unknown) {
-  if (typeof value === 'boolean') return !value;
-  if (typeof value === 'number') return value === 0;
-  if (typeof value !== 'string') return false;
-
-  const normalized = value.trim().toLowerCase();
-  return (
-    GENERIC_UNSUPPORTED_VALUES.has(normalized) ||
-    normalized.startsWith('not published') ||
-    normalized.startsWith('not listed') ||
-    normalized.startsWith('confirm exact')
-  );
 }
 
 function humanizeSpecKey(key: string) {
@@ -113,8 +97,7 @@ export function buildProductContextSpecFacts(
       if (METADATA_SPEC_KEYS.has(key)) return [];
 
       const field = fieldsByKey.get(key);
-      const contextLabel =
-        family === 'mobile' ? MOBILE_CONTEXT_SPEC_LABELS[key] : undefined;
+      const contextLabel = FAMILY_CONTEXT_SPEC_LABELS[family][key];
       if (
         !field &&
         !contextLabel &&
@@ -123,7 +106,12 @@ export function buildProductContextSpecFacts(
         return [];
       }
       if (field?.condition && !field.condition(comparableSpecs)) return [];
-      if (family === 'general' && isGenericUnsupportedValue(value)) return [];
+      if (
+        (family === 'general' || family === 'camera') &&
+        isUnsupportedSpecValue(value)
+      ) {
+        return [];
+      }
 
       const scalarValue = normalizeSpecValue(value);
       if (!scalarValue) return [];

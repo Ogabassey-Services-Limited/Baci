@@ -13,12 +13,10 @@ export interface ComparableProductKeySpecs {
   wireless_charging_watt?: number;
 }
 
+export { isAccessoryLikeCategory } from './spec-accessory-classifier';
+export { isCameraLikeCategory } from './spec-camera-classifier';
 export type { ProductSpecFamily } from './spec-family-classifier';
-export {
-  getProductSpecFamily,
-  isAccessoryLikeCategory,
-  isCameraLikeCategory,
-} from './spec-family-classifier';
+export { getProductSpecFamily } from './spec-family-classifier';
 export { SUMMARY_SPEC_PRIORITIES } from './spec-summary-priorities';
 
 export interface SpecField {

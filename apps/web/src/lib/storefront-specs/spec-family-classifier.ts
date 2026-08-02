@@ -1,54 +1,7 @@
+import { isAccessoryLikeCategory } from './spec-accessory-classifier';
+import { isCameraLikeCategory } from './spec-camera-classifier';
+
 export type ProductSpecFamily = 'mobile' | 'computer' | 'camera' | 'general';
-
-const CAMERA_CATEGORY_NAMES = new Set([
-  'camera',
-  'cameras',
-  'action cameras',
-  'instant cameras',
-  'lenses',
-  'drones',
-  'gimbals',
-  'microphones',
-  'monitors & transmitters',
-  'tripod stands',
-  'camera accessories',
-  'instant film',
-  'memory cards',
-]);
-
-const ACCESSORY_CATEGORY_MARKERS = [
-  'accessor',
-  'accessories',
-  'accessory',
-  'case',
-  'cases',
-  'keyboard',
-  'charger',
-  'cover',
-  'stand',
-  'cable',
-  'adapter',
-  'mouse',
-  'sleeve',
-  'bag',
-  'dock',
-  'hub',
-];
-
-export function isAccessoryLikeCategory(categoryName: string) {
-  return ACCESSORY_CATEGORY_MARKERS.some((marker) =>
-    new RegExp(`(^|[^a-z])${marker}(s)?([^a-z]|$)`).test(categoryName)
-  );
-}
-
-export function isCameraLikeCategory(categoryName: string) {
-  const normalized = categoryName
-    .trim()
-    .toLowerCase()
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ');
-  return CAMERA_CATEGORY_NAMES.has(normalized) || normalized.includes('camera');
-}
 
 export function getProductSpecFamily(
   categoryName: string | null | undefined

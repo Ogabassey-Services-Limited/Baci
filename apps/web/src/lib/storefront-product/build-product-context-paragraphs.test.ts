@@ -146,6 +146,7 @@ describe('buildProductContextParagraphs', () => {
     expect(copy).toContain('processor or panel class');
     expect(copy).toContain('Open Box condition');
     expect(copy).not.toContain('open_box condition');
+    expect(copy).toContain('Processor: AMD Ryzen 7');
     expect(copy).toContain('RAM: 32GB');
     expect(copy).toContain('Internal Storage: 1024GB');
     expect(copy).not.toContain('created at');
@@ -236,7 +237,7 @@ describe('buildProductContextParagraphs', () => {
             has_5g: false,
             has_nfc: false,
             has_headphone_jack: false,
-            has_ois: false,
+            has_ois: true,
             card_slot_type: 'No',
             usb_type: 'USB-C',
           },
@@ -250,7 +251,7 @@ describe('buildProductContextParagraphs', () => {
     expect(copy).not.toContain('5G Support: No');
     expect(copy).not.toContain('NFC: No');
     expect(copy).not.toContain('3.5mm Jack: No');
-    expect(copy).not.toContain('has ois: No');
+    expect(copy).toContain('OIS: Yes');
     expect(copy).not.toContain('Card Slot: No');
   });
 });
