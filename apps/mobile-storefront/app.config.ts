@@ -12,6 +12,8 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 const { createExpoPlugins } =
   require('./config/expo-plugins.js') as typeof import('./config/expo-plugins');
+const { buildStorefrontAndroidIntentFilters } =
+  require('./config/android-intent-filters.ts') as typeof import('./config/android-intent-filters');
 const { resolveUpdateChannel } =
   require('./config/resolve-update-channel.js') as typeof import('./config/resolve-update-channel');
 const {
@@ -233,23 +235,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         ],
         category: ['BROWSABLE', 'DEFAULT'],
       },
-      {
-        action: 'VIEW',
-        autoVerify: true,
-        data: [
-          {
-            scheme: 'https',
-            host: 'ogabassey.com',
-            pathPrefix: '/',
-          },
-          {
-            scheme: 'https',
-            host: 'ogabassey.usebaci.com',
-            pathPrefix: '/',
-          },
-        ],
-        category: ['BROWSABLE', 'DEFAULT'],
-      },
+      ...buildStorefrontAndroidIntentFilters(),
     ],
   },
   plugins: createExpoPlugins({

@@ -54,8 +54,27 @@
       </intent-filter>
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="https" android:host="ogabassey.com" android:pathPrefix="/"/>
-        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:pathPrefix="/"/>
+        <data android:scheme="https" android:host="ogabassey.com" android:pathPrefix="/product/"/>
+        <data android:scheme="https" android:host="ogabassey.com" android:pathPrefix="/category/"/>
+        <data android:scheme="https" android:host="ogabassey.com" android:path="/receipts"/>
+        <data android:scheme="https" android:host="ogabassey.com" android:pathPrefix="/receipts/claim/"/>
+        <data android:scheme="https" android:host="ogabassey.com" android:path="/account"/>
+        <data android:scheme="https" android:host="ogabassey.com" android:pathPrefix="/account/"/>
+        <data android:scheme="https" android:host="ogabassey.com" android:path="/cart"/>
+        <data android:scheme="https" android:host="ogabassey.com" android:path="/"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+      <intent-filter android:autoVerify="true" data-generated="true">
+        <action android:name="android.intent.action.VIEW"/>
+        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:pathPrefix="/product/"/>
+        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:pathPrefix="/category/"/>
+        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:path="/receipts"/>
+        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:pathPrefix="/receipts/claim/"/>
+        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:path="/account"/>
+        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:pathPrefix="/account/"/>
+        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:path="/cart"/>
+        <data android:scheme="https" android:host="ogabassey.usebaci.com" android:path="/"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>

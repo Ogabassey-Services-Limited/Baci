@@ -134,6 +134,17 @@ describe('buildAssetLinks', () => {
     });
   });
 
+  it('keeps unsupported blog and plural product paths out of storefront links', () => {
+    const components =
+      buildAssetLinks(storefrontConfig)[0].relation_extensions?.[
+        'delegate_permission/common.handle_all_urls'
+      ].dynamic_app_link_components;
+
+    expect(components).not.toContainEqual({ '/': '/blog/*' });
+    expect(components).not.toContainEqual({ '/': '/products/*' });
+    expect(components).toContainEqual({ '/': '/product/*' });
+  });
+
   it('returns admin entry without relation_extensions', () => {
     const result = buildAssetLinks(adminConfig);
     expect(result).toHaveLength(1);
@@ -196,6 +207,15 @@ describe('buildAASA', () => {
     const detail = result.applinks.details[0];
     expect(detail).not.toHaveProperty('paths');
     expect(detail.components[0]).toHaveProperty('/');
+  });
+
+  it('keeps unsupported blog and plural product paths out of storefront links', () => {
+    const components =
+      buildAASA(storefrontConfig).applinks.details[0].components;
+
+    expect(components).not.toContainEqual({ '/': '/blog/*' });
+    expect(components).not.toContainEqual({ '/': '/products/*' });
+    expect(components).toContainEqual({ '/': '/product/*' });
   });
 
   it('includes Apple Team ID in appIDs', () => {
