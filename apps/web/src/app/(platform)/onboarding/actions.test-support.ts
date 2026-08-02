@@ -3,13 +3,8 @@ import { vi } from 'vitest';
 const mocks = {
   getAppUrl: vi.fn(),
   getConfiguredAppUrl: vi.fn(),
-  getOllamaStorefrontModel: vi.fn(),
   getRootDomain: vi.fn(),
-  isAiStorefrontGenerationEnabled: vi.fn(),
-  isEventPipelineEnqueueEnabled: vi.fn(),
   isProduction: vi.fn(),
-  triggerAiStorefrontWorker: vi.fn(),
-  recordPlatformDomainEvent: vi.fn(),
   ensureActionRateLimit: vi.fn(),
   getUser: vi.fn(),
   signInWithPassword: vi.fn(),
@@ -24,18 +19,15 @@ const mocks = {
   adminEq: vi.fn(),
   adminFrom: vi.fn(),
   adminRpc: vi.fn(),
-  pageConfigInsert: vi.fn(),
-  pageConfigSelect: vi.fn(),
-  pageConfigSingle: vi.fn(),
-  aiJobsInsert: vi.fn(),
-  generateInitialTemplate: vi.fn(),
+  ensureOnboardingDomain: vi.fn(),
+  provisionCuratedHomepage: vi.fn(),
   loggerError: vi.fn(),
+  generateInitialTemplate: vi.fn(),
+  aiJobsInsert: vi.fn(),
 };
-
 export function getActionMocks() {
   return mocks;
 }
-
 const serverClient = {
   auth: {
     getUser: mocks.getUser,
@@ -44,20 +36,9 @@ const serverClient = {
     signOut: mocks.signOut,
     signInWithOtp: mocks.signInWithOtp,
   },
+  from: mocks.adminFrom,
+  rpc: mocks.adminRpc,
 };
-const adminClient = { from: mocks.adminFrom, rpc: mocks.adminRpc };
-
-vi.doMock('next/server', async () => {
-  const actual =
-    await vi.importActual<typeof import('next/server')>('next/server');
-  return {
-    ...actual,
-    after: (callback: () => void | Promise<void>) =>
-      void Promise.resolve()
-        .then(callback)
-        .catch(() => undefined),
-  };
-});
 vi.doMock('next/headers', () => ({
   cookies: vi
     .fn()
@@ -66,24 +47,13 @@ vi.doMock('next/headers', () => ({
 vi.doMock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => serverClient),
 }));
-vi.doMock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => adminClient),
-}));
 vi.doMock('@/lib/ensure-action-rate-limit', () => ({
   ensureActionRateLimit: mocks.ensureActionRateLimit,
-}));
-vi.doMock('@/lib/events/event-pipeline-config', () => ({
-  isEventPipelineEnqueueEnabled: mocks.isEventPipelineEnqueueEnabled,
-}));
-vi.doMock('@/lib/events/record-platform-domain-event', () => ({
-  recordPlatformDomainEvent: mocks.recordPlatformDomainEvent,
 }));
 vi.doMock('@/env', () => ({
   getAppUrl: mocks.getAppUrl,
   getConfiguredAppUrl: mocks.getConfiguredAppUrl,
-  getOllamaStorefrontModel: mocks.getOllamaStorefrontModel,
   getRootDomain: mocks.getRootDomain,
-  isAiStorefrontGenerationEnabled: mocks.isAiStorefrontGenerationEnabled,
   isProduction: mocks.isProduction,
 }));
 vi.doMock('@/lib/email', () => ({
@@ -92,16 +62,12 @@ vi.doMock('@/lib/email', () => ({
 vi.doMock('@/lib/logger', () => ({
   logger: { info: vi.fn(), error: mocks.loggerError, warn: vi.fn() },
 }));
-vi.doMock('@/lib/initial-template-generator', () => ({
-  generateInitialTemplate: mocks.generateInitialTemplate,
+vi.doMock('./ensure-onboarding-domain', () => ({
+  ensureOnboardingDomain: mocks.ensureOnboardingDomain,
 }));
-vi.doMock('@/lib/ai-storefront/trigger-storefront-worker', () => ({
-  triggerAiStorefrontWorker: mocks.triggerAiStorefrontWorker,
+vi.doMock('@/lib/storefront-defaults/provision-curated-homepage', () => ({
+  provisionCuratedHomepage: mocks.provisionCuratedHomepage,
 }));
-vi.doMock('@/services/hero-image-generator', () => ({
-  assignHeroImagesToMerchant: vi.fn().mockResolvedValue(undefined),
-}));
-
 export const validFields = {
   email: 'merchant@example.com',
   password: 'StrongP@ss123!',
@@ -118,42 +84,25 @@ export const validFields = {
 };
 export const prevState = { success: false, message: '' };
 const updatedAt = '2026-04-28T10:00:00.000Z';
-
-export function makeFormData(fields: Record<string, string>): FormData {
-  const formData = new FormData();
-  for (const [key, value] of Object.entries(fields)) formData.set(key, value);
-  return formData;
+export function makeFormData(fields: Record<string, string>) {
+  const data = new FormData();
+  for (const [key, value] of Object.entries(fields)) data.set(key, value);
+  return data;
 }
-
 export function setupActionMocks() {
   vi.resetModules();
   vi.clearAllMocks();
   mocks.ensureActionRateLimit.mockResolvedValue(true);
   mocks.getAppUrl.mockReturnValue('http://localhost:3000');
   mocks.getConfiguredAppUrl.mockReturnValue('https://usebaci.com');
-  mocks.getOllamaStorefrontModel.mockReturnValue('gemma4:e4b');
   mocks.getRootDomain.mockReturnValue('usebaci.com');
-  mocks.isAiStorefrontGenerationEnabled.mockReturnValue(false);
-  mocks.isEventPipelineEnqueueEnabled.mockReturnValue(false);
-  mocks.recordPlatformDomainEvent.mockResolvedValue({
-    already_enqueued: false,
-    domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234',
-    queue_message_id: 9,
-  });
   mocks.isProduction.mockReturnValue(false);
-  mocks.triggerAiStorefrontWorker.mockResolvedValue({
-    triggered: true,
-    status: 202,
+  mocks.ensureOnboardingDomain.mockResolvedValue({ status: 'created' });
+  mocks.provisionCuratedHomepage.mockResolvedValue({
+    status: 'created',
+    updatedAt,
   });
-  mocks.generateInitialTemplate.mockResolvedValue({});
   mocks.adminRpc.mockResolvedValue({ data: null, error: null });
-  mocks.pageConfigSingle.mockResolvedValue({
-    data: { updated_at: updatedAt },
-    error: null,
-  });
-  mocks.pageConfigSelect.mockReturnValue({ single: mocks.pageConfigSingle });
-  mocks.pageConfigInsert.mockReturnValue({ select: mocks.pageConfigSelect });
-  mocks.aiJobsInsert.mockResolvedValue({ data: null, error: null });
   mocks.getUser.mockResolvedValue({ data: { user: null } });
   mocks.signInWithPassword.mockResolvedValue({
     data: null,
@@ -167,56 +116,40 @@ export function setupActionMocks() {
     error: null,
   });
   mocks.signInWithOtp.mockResolvedValue({ error: null });
-  mocks.adminFrom.mockImplementation((table: string) => {
-    if (table === 'merchants')
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({ maybeSingle: mocks.adminMaybeSingle }),
-        }),
-        insert: mocks.adminInsert,
-        update: mocks.adminUpdate.mockReturnValue({ eq: mocks.adminEq }),
-      };
-    if (table === 'domains')
-      return { insert: vi.fn().mockResolvedValue({ error: null }) };
-    if (table === 'page_configs') return { insert: mocks.pageConfigInsert };
-    if (table === 'ai_jobs') return { insert: mocks.aiJobsInsert };
-    return {
-      insert: vi.fn().mockResolvedValue({ error: null }),
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-        }),
-      }),
-    };
-  });
+  mocks.adminFrom.mockImplementation((table: string) =>
+    table === 'merchants'
+      ? {
+          select: vi.fn().mockReturnValue({
+            eq: vi
+              .fn()
+              .mockReturnValue({ maybeSingle: mocks.adminMaybeSingle }),
+          }),
+          insert: mocks.adminInsert,
+          update: mocks.adminUpdate,
+        }
+      : {}
+  );
 }
-
 export async function submitOnboarding(
   prevState: { message: string; success: boolean },
   formData: FormData
 ) {
-  const actions = await import('./actions');
-  return actions.submitOnboarding(prevState, formData);
+  return (await import('./actions')).submitOnboarding(prevState, formData);
 }
-
 export async function sendMagicLink(email: string) {
-  const actions = await import('./actions');
-  return actions.sendMagicLink(email);
+  return (await import('./actions')).sendMagicLink(email);
 }
-
 export function setupChainedMock(
   finalData: unknown,
   finalError: unknown = null
-): void {
+) {
   mocks.adminSingle.mockResolvedValue({ data: finalData, error: finalError });
   mocks.adminSelect.mockReturnValue({ single: mocks.adminSingle });
   mocks.adminInsert.mockReturnValue({ select: mocks.adminSelect });
-  mocks.adminUpdate.mockReturnValue({ select: mocks.adminSelect });
-  mocks.adminEq.mockReturnValue({ select: mocks.adminSelect });
+  mocks.adminEq.mockReturnValue({
+    eq: vi.fn(() => ({ select: mocks.adminSelect })),
+    select: mocks.adminSelect,
+  });
+  mocks.adminUpdate.mockReturnValue({ eq: mocks.adminEq });
 }
-
-export async function flushAfterCallbacks() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-export { adminClient, updatedAt };
+export { updatedAt };

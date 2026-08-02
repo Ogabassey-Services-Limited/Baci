@@ -1,5 +1,6 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { recordMobileOnboardingContractInvocation } from '@/lib/posthog/mobile-onboarding-contract-telemetry';
+import { provisionCuratedHomepage } from '@/lib/storefront-defaults/provision-curated-homepage';
 import { mobileMerchantProvisioningSchema } from '@/schemas/mobile-merchant-provisioning';
 import { getMobileBearerUser } from './get-mobile-bearer-user';
 import {
@@ -7,7 +8,6 @@ import {
   MobileProvisioningError,
   provisionAuthenticatedMerchant,
 } from './provision-authenticated-merchant';
-import { runDeferredMerchantProvisioning } from './run-deferred-merchant-provisioning';
 
 export const maxDuration = 60;
 
@@ -117,19 +117,24 @@ export async function POST(request: NextRequest) {
       platform,
     });
 
-    after(() =>
-      runDeferredMerchantProvisioning({
-        supabase: auth.supabase,
-        merchantId: merchant.merchantId,
-        merchantSlug: merchant.merchantSlug,
-        businessName: parsed.data.businessName,
-        businessType:
-          parsed.data.businessType === 'other'
-            ? (parsed.data.otherBusinessType ?? parsed.data.businessType)
-            : parsed.data.businessType,
-        brandColors: parsed.data.brandColors ?? null,
-      })
-    );
+    const homepage = await provisionCuratedHomepage({
+      supabase: auth.supabase,
+      expectedOwnerUserId: auth.user.id,
+      merchantId: merchant.merchantId,
+      merchantSlug: merchant.merchantSlug,
+      businessName: parsed.data.businessName,
+      businessType:
+        parsed.data.businessType === 'other'
+          ? (parsed.data.otherBusinessType ?? parsed.data.businessType)
+          : parsed.data.businessType,
+      brandColors: parsed.data.brandColors ?? {
+        primary: '#000000',
+        background: '#ffffff',
+        accent: '#f59e0b',
+      },
+    });
+    if (homepage.status === 'failed')
+      return provisioningFailureResponse(new MobileProvisioningError(null));
 
     return NextResponse.json({
       success: true,

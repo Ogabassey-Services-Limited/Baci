@@ -129,12 +129,10 @@ describe('onboarding action merchant persistence', () => {
   });
 
   it('does not set signup_source when updating an incomplete merchant', async () => {
-    mocks.adminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({
-        data: { id: 'existing-1', business_name: null },
-        error: null,
-      });
+    mocks.adminMaybeSingle.mockReset().mockResolvedValue({
+      data: { id: 'existing-1', business_name: null },
+      error: null,
+    });
     setupChainedMock({ id: 'existing-1', slug: 'teststore' });
 
     const result = await submitOnboarding(prevState, makeFormData(validFields));
@@ -147,16 +145,14 @@ describe('onboarding action merchant persistence', () => {
   });
 
   it('does not rewrite an established slug when completing a pending merchant', async () => {
-    mocks.adminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({
-        data: {
-          id: 'existing-1',
-          business_name: null,
-          slug: '  merchant-chosen-slug  ',
-        },
-        error: null,
-      });
+    mocks.adminMaybeSingle.mockReset().mockResolvedValue({
+      data: {
+        id: 'existing-1',
+        business_name: null,
+        slug: '  merchant-chosen-slug  ',
+      },
+      error: null,
+    });
     setupChainedMock({ id: 'existing-1', slug: '  merchant-chosen-slug  ' });
 
     const result = await submitOnboarding(
@@ -178,12 +174,10 @@ describe('onboarding action merchant persistence', () => {
   });
 
   it('generates a unique slug when completing a pending merchant without an established slug', async () => {
-    mocks.adminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({
-        data: { id: 'existing-1', business_name: null, slug: null },
-        error: null,
-      });
+    mocks.adminMaybeSingle.mockReset().mockResolvedValue({
+      data: { id: 'existing-1', business_name: null, slug: null },
+      error: null,
+    });
     mocks.adminRpc.mockResolvedValueOnce({ data: 'teststore-2', error: null });
     setupChainedMock({ id: 'existing-1', slug: 'teststore-2' });
 
@@ -197,15 +191,21 @@ describe('onboarding action merchant persistence', () => {
     );
   });
 
-  it('returns early for existing completed merchant', async () => {
-    mocks.adminMaybeSingle.mockResolvedValueOnce({
-      data: { id: 'existing-1', business_name: 'Already Set Up' },
+  it('recovers an existing completed merchant through the insert-only starter path', async () => {
+    mocks.adminMaybeSingle.mockReset().mockResolvedValue({
+      data: {
+        id: 'existing-1',
+        business_name: 'Already Set Up',
+        business_type: 'fashion',
+        slug: 'already-set-up',
+      },
       error: null,
     });
 
     const result = await submitOnboarding(prevState, makeFormData(validFields));
 
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('already exists');
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Welcome back');
+    expect(mocks.adminUpdate).not.toHaveBeenCalled();
   });
 });

@@ -7,7 +7,7 @@ import { MobileProvisioningError } from './provision-authenticated-merchant';
 const mocks = vi.hoisted(() => ({
   getMobileBearerUser: vi.fn(),
   provisionAuthenticatedMerchant: vi.fn(),
-  runDeferredMerchantProvisioning: vi.fn(),
+  provisionCuratedHomepage: vi.fn(),
   recordContract: vi.fn(),
   afterCallbacks: [] as Array<() => Promise<void>>,
 }));
@@ -24,8 +24,8 @@ vi.mock('./provision-authenticated-merchant', async () => {
     provisionAuthenticatedMerchant: mocks.provisionAuthenticatedMerchant,
   };
 });
-vi.mock('./run-deferred-merchant-provisioning', () => ({
-  runDeferredMerchantProvisioning: mocks.runDeferredMerchantProvisioning,
+vi.mock('@/lib/storefront-defaults/provision-curated-homepage', () => ({
+  provisionCuratedHomepage: mocks.provisionCuratedHomepage,
 }));
 vi.mock('@/lib/posthog/mobile-onboarding-contract-telemetry', () => ({
   recordMobileOnboardingContractInvocation: mocks.recordContract,
@@ -95,7 +95,10 @@ describe('POST /api/mobile/merchant-provisioning', () => {
       merchantSlug: 'analytical-engines',
       created: true,
     });
-    mocks.runDeferredMerchantProvisioning.mockResolvedValue(undefined);
+    mocks.provisionCuratedHomepage.mockResolvedValue({
+      status: 'created',
+      updatedAt: '2026-08-02T00:00:00Z',
+    });
     mocks.recordContract.mockResolvedValue(undefined);
   });
 
@@ -187,13 +190,15 @@ describe('POST /api/mobile/merchant-provisioning', () => {
         country: 'NG',
       }),
     });
-    expect(mocks.afterCallbacks).toHaveLength(2);
+    expect(mocks.afterCallbacks).toHaveLength(1);
     await Promise.all(mocks.afterCallbacks.map((callback) => callback()));
     expect(mocks.recordContract).toHaveBeenCalledOnce();
-    expect(mocks.runDeferredMerchantProvisioning).toHaveBeenCalledWith(
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
       expect.objectContaining({
         supabase,
+        expectedOwnerUserId: 'user-1',
         merchantId: 'merchant-1',
+        merchantSlug: 'analytical-engines',
         businessName: 'Analytical Engines',
       })
     );
@@ -268,5 +273,27 @@ describe('POST /api/mobile/merchant-provisioning', () => {
     ]) {
       expect(source).not.toContain(forbidden);
     }
+  });
+
+  it('does not return success until canonical homepage provisioning succeeds', async () => {
+    mocks.provisionCuratedHomepage.mockResolvedValue({
+      status: 'failed',
+      stage: 'insert',
+    });
+
+    const response = await POST(
+      request(validBody, { authorization: 'Bearer token', platform: 'ios' })
+    );
+
+    expect(response.status).toBe(500);
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase,
+        expectedOwnerUserId: 'user-1',
+        merchantId: 'merchant-1',
+        merchantSlug: 'analytical-engines',
+        businessName: 'Analytical Engines',
+      })
+    );
   });
 });

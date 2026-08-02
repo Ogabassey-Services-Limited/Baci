@@ -138,7 +138,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
   ],
   authority: {
     // biome-ignore format: compact reviewed authority allowlist preserves the 300-line module gate.
-    adminImporters: ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts'],
+    adminImporters: ['apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts'],
     bareClientImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/api/analytics/conversion/route.ts',

@@ -1,8 +1,10 @@
 # Self-Hosted Gemma Storefront Worker
 
 The async storefront generator runs on the VPS, not in a Vercel Function. New
-merchants get a deterministic starter Puck storefront immediately; Gemma
-creates an optional AI draft in the background.
+merchants get a deterministic starter Puck storefront immediately. The hosted
+Cerebras-first chain is the active Builder/shared-text path; this Ollama/Gemma
+worker remains a separate legacy full-layout compatibility path for historical
+and explicitly created jobs only.
 
 ## Runtime Contract
 
@@ -37,8 +39,8 @@ AI_STOREFRONT_TRIGGER_HOST=127.0.0.1
 AI_STOREFRONT_TRIGGER_PORT=3917
 ```
 
-Set `AI_STOREFRONT_GENERATION_ENABLED=true` only after the worker is deployed,
-logs are visible, and manual processing succeeds.
+`AI_STOREFRONT_GENERATION_ENABLED` remains parseable only for compatibility. It
+does not enqueue onboarding jobs and is not a worker pause switch.
 
 The web deployment also needs:
 

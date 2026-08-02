@@ -4,13 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   runLegacyMobileSignup: vi.fn(),
   provisionAuthenticatedMerchant: vi.fn(),
-  runDeferredMerchantProvisioning: vi.fn(),
+  provisionCuratedHomepage: vi.fn(),
   recordContract: vi.fn(),
   afterCallbacks: [] as Array<() => Promise<void>>,
 }));
 
 vi.mock('./legacy-mobile-signup', () => ({
   runLegacyMobileSignup: mocks.runLegacyMobileSignup,
+}));
+vi.mock('@/lib/storefront-defaults/provision-curated-homepage', () => ({
+  provisionCuratedHomepage: mocks.provisionCuratedHomepage,
 }));
 vi.mock(
   '../mobile/merchant-provisioning/provision-authenticated-merchant',
@@ -23,12 +26,6 @@ vi.mock(
       provisionAuthenticatedMerchant: mocks.provisionAuthenticatedMerchant,
     };
   }
-);
-vi.mock(
-  '../mobile/merchant-provisioning/run-deferred-merchant-provisioning',
-  () => ({
-    runDeferredMerchantProvisioning: mocks.runDeferredMerchantProvisioning,
-  })
 );
 vi.mock('@/lib/posthog/mobile-onboarding-contract-telemetry', () => ({
   recordMobileOnboardingContractInvocation: mocks.recordContract,
@@ -92,8 +89,11 @@ describe('POST /api/mobile-onboarding v1 compatibility', () => {
       merchantSlug: 'analytical-engines',
       created: true,
     });
+    mocks.provisionCuratedHomepage.mockResolvedValue({
+      status: 'created',
+      updatedAt: '2026-08-02T00:00:00Z',
+    });
     mocks.recordContract.mockResolvedValue(undefined);
-    mocks.runDeferredMerchantProvisioning.mockResolvedValue(undefined);
   });
 
   it('counts invalid public v1 attempts before body validation', async () => {
@@ -155,12 +155,15 @@ describe('POST /api/mobile-onboarding v1 compatibility', () => {
         slugIsCustom: true,
       }),
     });
-    expect(mocks.afterCallbacks).toHaveLength(2);
+    expect(mocks.afterCallbacks).toHaveLength(1);
     await Promise.all(mocks.afterCallbacks.map((callback) => callback()));
     expect(mocks.recordContract).toHaveBeenCalledOnce();
-    expect(mocks.runDeferredMerchantProvisioning).toHaveBeenCalledWith(
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
       expect.objectContaining({
         supabase,
+        expectedOwnerUserId: 'user-1',
+        merchantId: 'merchant-1',
+        merchantSlug: 'analytical-engines',
         businessName: 'Analytical Engines',
       })
     );
@@ -181,6 +184,26 @@ describe('POST /api/mobile-onboarding v1 compatibility', () => {
     expect(mocks.provisionAuthenticatedMerchant).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({ slugIsCustom: false }),
+      })
+    );
+  });
+
+  it('waits for canonical homepage provisioning before returning success', async () => {
+    mocks.provisionCuratedHomepage.mockResolvedValue({
+      status: 'failed',
+      stage: 'insert',
+    });
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(500);
+    expect(mocks.provisionCuratedHomepage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase,
+        expectedOwnerUserId: 'user-1',
+        merchantId: 'merchant-1',
+        merchantSlug: 'analytical-engines',
+        businessName: 'Analytical Engines',
       })
     );
   });

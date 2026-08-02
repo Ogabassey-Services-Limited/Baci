@@ -1,6 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { getCountryByCode } from '@/lib/countries';
-import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
+import type { createClient as createServerClient } from '@/lib/supabase/server';
 import type {
   OnboardingBrandColors,
   OnboardingMerchant,
@@ -11,7 +11,7 @@ import {
 } from './onboarding-slug';
 
 type OnboardingMerchantClient = Pick<
-  ReturnType<typeof createAdminClientFactory>,
+  Awaited<ReturnType<typeof createServerClient>>,
   'from' | 'rpc'
 >;
 
@@ -29,8 +29,18 @@ interface UpsertOnboardingMerchantInput {
 }
 
 export type UpsertOnboardingMerchantResult =
-  | { status: 'completed'; businessName: string; merchantId: string }
-  | { status: 'saved'; businessType: string; merchant: OnboardingMerchant };
+  | {
+      status: 'completed';
+      businessName: string;
+      businessType: string;
+      merchant: OnboardingMerchant;
+    }
+  | {
+      status: 'saved';
+      businessName: string;
+      businessType: string;
+      merchant: OnboardingMerchant;
+    };
 
 export async function upsertOnboardingMerchant({
   brandColors,
@@ -47,16 +57,52 @@ export async function upsertOnboardingMerchant({
   const finalBusinessType =
     businessType === 'other' ? otherBusinessType || businessType : businessType;
   const payoutCurrency = getCountryByCode(country)?.currency ?? 'USD';
-  const { data: existing } = await supabase
-    .from('merchants')
-    .select('id, business_name, slug')
+  const merchants = supabase.from('merchants') as unknown as {
+    select: (columns: string) => {
+      eq: (
+        column: 'user_id',
+        value: string
+      ) => { maybeSingle: () => Promise<{ data: OnboardingMerchant | null }> };
+    };
+    update: (values: Record<string, unknown>) => {
+      eq: (
+        column: 'id',
+        value: string
+      ) => {
+        eq: (
+          column: 'user_id',
+          value: string
+        ) => {
+          select: (columns: string) => {
+            single: () => Promise<{
+              data: OnboardingMerchant | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+    };
+    insert: (values: Record<string, unknown>) => {
+      select: (columns: string) => {
+        single: () => Promise<{
+          data: OnboardingMerchant | null;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+  };
+  const { data: existing } = await merchants
+    .select(
+      'id, business_name, business_type, country, slug, brand_colors, logo_url'
+    )
     .eq('user_id', user.id)
     .maybeSingle();
   if (existing?.business_name) {
     return {
       status: 'completed',
       businessName: existing.business_name,
-      merchantId: existing.id,
+      businessType: existing.business_type?.trim() || finalBusinessType,
+      merchant: existing,
     };
   }
 
@@ -65,8 +111,7 @@ export async function upsertOnboardingMerchant({
     const resolvedSlug = hasEstablishedOnboardingSlug(existing.slug)
       ? null
       : await resolveOnboardingMerchantSlug(supabase, businessName);
-    const { data, error } = await supabase
-      .from('merchants')
+    const { data, error } = await merchants
       .update({
         email,
         business_name: businessName,
@@ -79,14 +124,14 @@ export async function upsertOnboardingMerchant({
         ...(resolvedSlug ? { slug: resolvedSlug } : {}),
       })
       .eq('id', existing.id)
+      .eq('user_id', user.id)
       .select('id, slug, brand_colors, hero_image_ids, logo_url')
       .single();
     if (error) throw new Error(`Failed to update merchant: ${error.message}`);
     merchant = data;
   } else {
     const slug = await resolveOnboardingMerchantSlug(supabase, businessName);
-    const { data, error } = await supabase
-      .from('merchants')
+    const { data, error } = await merchants
       .insert({
         user_id: user.id,
         email,
@@ -107,5 +152,10 @@ export async function upsertOnboardingMerchant({
     merchant = data;
   }
   if (!merchant) throw new Error('Failed to create merchant record.');
-  return { status: 'saved', businessType: finalBusinessType, merchant };
+  return {
+    status: 'saved',
+    businessName,
+    businessType: finalBusinessType,
+    merchant,
+  };
 }

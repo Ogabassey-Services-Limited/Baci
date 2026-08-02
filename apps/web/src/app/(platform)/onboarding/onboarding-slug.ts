@@ -1,5 +1,5 @@
 import { logger } from '@/lib/logger';
-import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
+import type { createClient as createServerClient } from '@/lib/supabase/server';
 
 function buildOnboardingMerchantSlug(businessName: string): string {
   return (
@@ -11,7 +11,7 @@ function buildOnboardingMerchantSlug(businessName: string): string {
 }
 
 type SlugResolverClient = Pick<
-  ReturnType<typeof createAdminClientFactory>,
+  Awaited<ReturnType<typeof createServerClient>>,
   'rpc'
 >;
 
