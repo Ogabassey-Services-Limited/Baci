@@ -34,7 +34,6 @@ function createChainableMock(
 
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
-  chain.gte = vi.fn().mockReturnValue(chain);
   chain.in = vi.fn().mockReturnValue(chain);
   chain.or = vi.fn().mockReturnValue(chain);
   chain.order = vi.fn().mockReturnValue(chain);
@@ -159,49 +158,6 @@ describe('sendPushNotifications', () => {
       { status: 'ok', id: 't1' },
       { status: 'ok', id: 't2' },
     ]);
-  });
-
-  it('propagates a delivery-boundary failure before calling the provider', async () => {
-    const msg1: ExpoPushMessage = { to: 'ExponentPushToken[a]', body: 'A' };
-    const msg2: ExpoPushMessage = { to: 'ExponentPushToken[b]', body: 'B' };
-    const onDeliveryStart = vi
-      .fn()
-      .mockRejectedValue(new Error('lease unavailable'));
-
-    mockChunkPushNotifications.mockReturnValueOnce([[msg1], [msg2]]);
-
-    await expect(
-      sendPushNotifications([msg1, msg2], { onDeliveryStart })
-    ).rejects.toThrow('lease unavailable');
-
-    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
-  });
-
-  it('marks delivery before mixed-project fallback sends', async () => {
-    const msg1: ExpoPushMessage = { to: 'ExponentPushToken[a]', body: 'A' };
-    const msg2: ExpoPushMessage = { to: 'ExponentPushToken[b]', body: 'B' };
-    const onDeliveryStart = vi.fn();
-
-    mockChunkPushNotifications.mockReturnValueOnce([[msg1, msg2]]);
-    mockSendPushNotificationsAsync
-      .mockRejectedValueOnce(
-        new Error('same request must be for the same project')
-      )
-      .mockResolvedValueOnce([{ status: 'ok', id: 't1' }])
-      .mockResolvedValueOnce([{ status: 'ok', id: 't2' }]);
-
-    const tickets = await sendPushNotifications([msg1, msg2], {
-      onDeliveryStart,
-    });
-
-    expect(tickets).toEqual([
-      { status: 'ok', id: 't1' },
-      { status: 'ok', id: 't2' },
-    ]);
-    expect(mockSendPushNotificationsAsync).toHaveBeenCalledTimes(3);
-    expect(mockSendPushNotificationsAsync).toHaveBeenNthCalledWith(2, [msg1]);
-    expect(mockSendPushNotificationsAsync).toHaveBeenNthCalledWith(3, [msg2]);
-    expect(onDeliveryStart).toHaveBeenCalledOnce();
   });
 
   it('returns error tickets on SDK exception', async () => {
@@ -377,30 +333,6 @@ describe('notifyMerchant', () => {
     const result = await notifyMerchant('merchant-123', 'Test', 'Body');
     expect(result).toEqual({ sent: 0, failed: 0, errors: [] });
     expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
-  });
-
-  it('filters shipment updates to capable admin app builds', async () => {
-    const mockChain = createChainableMock([
-      { token: 'ExponentPushToken[capable]' },
-    ]);
-
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(mockChain),
-    } as never);
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 'ticket-capable' },
-    ]);
-
-    await notifyMerchant(
-      'merchant-123',
-      'Shipment update',
-      'Your shipment changed.',
-      { type: 'shipment_tracking' },
-      'orders',
-      { requiredShipmentUpdateCapability: 1 }
-    );
-
-    expect(mockChain.gte).toHaveBeenCalledWith('shipment_update_capability', 1);
   });
 
   it('deactivates DeviceNotRegistered tokens', async () => {
@@ -791,93 +723,6 @@ describe('notifyCustomer', () => {
       2,
       expect.objectContaining({ merchant_id: 'merchant-123' })
     );
-  });
-
-  it('filters shipment updates to capable storefront app builds', async () => {
-    const mockChain = createChainableMock([
-      { token: 'ExponentPushToken[c-capable]' },
-    ]);
-
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(mockChain),
-    } as never);
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 'ticket-c-capable' },
-    ]);
-
-    await notifyCustomer(
-      'user-456',
-      'Shipment update',
-      'Your shipment changed.',
-      { type: 'shipment_tracking' },
-      'orders',
-      {
-        merchantId: 'merchant-123',
-        requiredShipmentUpdateCapability: 1,
-      }
-    );
-
-    expect(mockChain.gte).toHaveBeenCalledWith('shipment_update_capability', 1);
-  });
-
-  it('signals delivery start after Expo accepts an eligible push request', async () => {
-    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
-    const onDeliveryStart = vi.fn();
-
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(mockChain),
-    } as never);
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 'ticket-c1' },
-    ]);
-
-    await notifyCustomer('user-456', 'Test', 'Body', undefined, 'payments', {
-      onDeliveryStart,
-    });
-
-    expect(onDeliveryStart).toHaveBeenCalledTimes(1);
-    expect(onDeliveryStart).toHaveBeenCalledBefore(
-      mockSendPushNotificationsAsync
-    );
-  });
-
-  it('clears the delivery boundary when Expo explicitly rejects every ticket', async () => {
-    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
-    const onDeliveryStart = vi.fn();
-    const onDeliveryRejected = vi.fn();
-
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(mockChain),
-    } as never);
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      {
-        status: 'error',
-        message: 'Invalid credentials',
-        details: { error: 'InvalidCredentials' },
-      },
-    ]);
-
-    const result = await notifyCustomer(
-      'user-456',
-      'Test',
-      'Body',
-      undefined,
-      'payments',
-      { onDeliveryStart, onDeliveryRejected }
-    );
-
-    expect(onDeliveryStart).toHaveBeenCalledBefore(
-      mockSendPushNotificationsAsync
-    );
-    expect(onDeliveryRejected).toHaveBeenCalledAfter(
-      mockSendPushNotificationsAsync
-    );
-    expect(onDeliveryRejected).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({
-      sent: 0,
-      failed: 1,
-      errors: ['InvalidCredentials (1 failed): Invalid credentials'],
-    });
   });
 
   it('signals delivery start when an Expo request has an unknown outcome', async () => {

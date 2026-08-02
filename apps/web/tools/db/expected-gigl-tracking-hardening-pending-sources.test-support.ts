@@ -151,4 +151,12 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '20260801142000_harden_gigl_notification_recovery_edges.sql',
     'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e',
   ],
+  [
+    '20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql',
+    'f97c32889ae2e733d881bd7d6672cd91337936326f55e205d717bb972398ea73',
+  ],
+  [
+    '20260801142200_cleanup_unowned_gigl_monitor_backfill.sql',
+    '605a0d48a4f116e67ee626ff173b66c6c80cefa77ad606a3813aa1ea6deda62a',
+  ],
 ] as const;

@@ -162,4 +162,31 @@ describe('GIGL retry and generation hardening migrations', () => {
       'changing a GIGL shipment merchant must deactivate its monitor'
     );
   });
+
+  it('keeps manual failures terminal when only unknown scans are newer', () => {
+    const migration = readMigration(
+      '20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql'
+    );
+
+    expect(migration).toContain(
+      'v_latest_status_event_at <= v_manual_terminal_override_at'
+    );
+    expect(migration).toContain(
+      'GIGL manual failure terminality must use status events'
+    );
+  });
+
+  it('cleans unowned monitors created by the initial backfill', () => {
+    const migration = readMigration(
+      '20260801142200_cleanup_unowned_gigl_monitor_backfill.sql'
+    );
+
+    expect(migration).toContain(
+      'JOIN public.orders AS order_row ON order_row.id = monitor.order_id'
+    );
+    expect(migration).toContain(
+      'shipment.merchant_id IS DISTINCT FROM order_row.merchant_id'
+    );
+    expect(migration).toContain("SET state = 'inactive'");
+  });
 });
