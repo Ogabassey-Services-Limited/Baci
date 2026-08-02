@@ -41,6 +41,73 @@ test('reads and binds a loaded transient unit EnvironmentFile consumer', async (
   }
 });
 
+test('expands every matched optional runtime EnvironmentFile wildcard', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-runtime-environment-wildcard-'))
+  );
+  const first = join(directory, 'one.env');
+  const second = join(directory, 'two.env');
+  try {
+    await Promise.all([
+      writeFile(first, 'OLLAMA_HOST=http://127.0.0.1:11434\n'),
+      writeFile(second, 'OLLAMA_ORIGINS=*\n'),
+    ]);
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${shellPrelude}environment=$2; systemctl() { case "$1" in list-units) printf 'transient.service loaded active running transient\\n';; show) printf 'Environment=\\nEnvironmentFiles=-%s/*.env (ignore_errors=yes)\\nExecStart={}\\n' "$environment";; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; scan_systemd_runtime_consumers`,
+      'retire-ollama-runtime-environment-wildcard-test',
+      script.pathname,
+      directory,
+    ]);
+    const records = stdout.trim().split('\n');
+    assert.equal(records.length, 2);
+    assertPair(records[0], `transient.service:${first}`, first);
+    assertPair(records[1], `transient.service:${second}`, second);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('skips only an optional runtime EnvironmentFile wildcard with no matches', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-runtime-empty-environment-wildcard-'))
+  );
+  try {
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${shellPrelude}environment=$2; systemctl() { case "$1" in list-units) printf 'transient.service loaded active running transient\\n';; show) printf 'Environment=\\nEnvironmentFiles=-%s/*.env (ignore_errors=yes)\\nExecStart={}\\n' "$environment";; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; scan_systemd_runtime_consumers; printf 'stable\\n'`,
+      'retire-ollama-runtime-empty-environment-wildcard-test',
+      script.pathname,
+      directory,
+    ]);
+    assert.equal(stdout, 'stable\n');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('expands a static optional EnvironmentFile wildcard through the same safe projection', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-static-environment-wildcard-'))
+  );
+  const definition = join(directory, 'foreign.service');
+  const environment = join(directory, 'application.env');
+  try {
+    await writeFile(definition, `EnvironmentFile=-${directory}/*.env\n`);
+    await writeFile(environment, 'OLLAMA_HOST=http://127.0.0.1:11434\n');
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${shellPrelude}systemctl() { case "$1" in list-units) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
+      'retire-ollama-static-environment-wildcard-test',
+      script.pathname,
+      directory,
+    ]);
+    assertPair(stdout.trim().split('\n').at(-1), definition, environment);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('tolerates a loaded unit disappearing only after refreshed inventory proves absence', async () => {
   const { stdout } = await execFileAsync('sh', [
     '-c',

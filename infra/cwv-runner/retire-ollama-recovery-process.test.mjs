@@ -194,6 +194,36 @@ test('rejects an Ollama wrapper even when it is a scanner ancestor', async () =>
   }
 });
 
+test('rejects uppercase Ollama wrapper references while running or absent', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-recovery-uppercase-wrapper-')
+  );
+  const processes = join(directory, 'processes');
+  const ports = join(directory, 'ports.json');
+  try {
+    await writeFile(processes, '41 1 /usr/bin/python /opt/OLLAMA/server.py\n');
+    await writeFile(ports, '{}\n');
+    for (const [command, args] of [
+      [
+        'recovery_socket_snapshot() { :; }; init_temp_root; trap cleanup_temp EXIT; recovery_process_snapshot 40 container-cgroup container-ns "$2" "$3"',
+        [ports, processes],
+      ],
+      [
+        'recovery_socket_snapshot() { RECOVERY_SOCKET_SNAPSHOT_SHA=none; RECOVERY_LISTENING_SOCKETS="[]"; }; init_temp_root; trap cleanup_temp EXIT; recovery_absent_process_snapshot "$2"',
+        [processes],
+      ],
+    ]) {
+      await assert.rejects(
+        shell(command, args),
+        (error) =>
+          error.code === 78 && /foreign Ollama process/.test(error.stderr)
+      );
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('parses authentic installed dpkg status bytes without a leading version space', async () => {
   const { stdout } = await shell(
     "recovery_dpkg_query() { printf 'ii  0.1\\n'; }; init_temp_root; trap cleanup_temp EXIT; recovery_package_snapshot"

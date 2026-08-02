@@ -79,6 +79,7 @@ recovery_process_identity() {
 recovery_is_scanner_ancestor() {
   case " ${RECOVERY_SCANNER_PID_SET:-} " in *" $1 "*) return 0;; *) return 1;; esac
 }
+recovery_has_ollama_reference() { /usr/bin/printf '%s\n' "$1" | /usr/bin/grep -qiE 'ollama|11434'; }
 recovery_is_reviewed_scanner_command() {
   base=$1; command=$2; rest=$3; if [ "$base" = retire-ollama.sh ] && [ "$command" = "$SCRIPT_DIR/retire-ollama.sh" ]; then [ "$rest" = ' --recovery-scan' ]; else case "$base" in sh|dash|bash) [ "$rest" = " $SCRIPT_DIR/retire-ollama.sh --recovery-scan" ];; *) return 1;; esac; fi
 }
@@ -171,7 +172,7 @@ recovery_process_snapshot() {
       ollama) case "$rest" in ' serve'|' serve '*) class=ollama-process;; ' runner'|' runner '*) class=ollama-process;; *) review_required 'unsupported Ollama process';; esac;;
       docker-proxy) class=docker-proxy;;
       *)
-        case "$args" in *ollama*|*11434*) if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else review_required 'foreign Ollama process refused'; fi;; esac
+        if recovery_has_ollama_reference "$args"; then if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else review_required 'foreign Ollama process refused'; fi; fi
         continue;;
     esac
     identity=$(recovery_process_identity "$pid"); IFS=' ' read -r cgroup namespace extra <<EOF
@@ -278,7 +279,7 @@ recovery_collect_systemd() {
   done; :
 }
 recovery_collect_processes() { processes=$1; recovery_ps >"$processes" || die 'recovery process scan failed'; recovery_surface running-processes cat "$processes"; }
-recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; rest=${args#"$command"}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; case "$args" in *ollama*|*11434*) if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else review_required 'foreign Ollama process remains after container removal'; fi;; esac; recovery_is_scanner_ancestor "$pid" && continue; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
+recovery_absent_process_snapshot() { processes=$1; RECOVERY_PROCESS_FILE=$processes; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$processes"; then recovery_build_scanner_ancestors; fi; recovery_socket_snapshot '' '' '' '' "$processes"; while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do [ -n "$pid" ] || continue; command=${args%% *}; rest=${args#"$command"}; base=${command##*/}; case "$base" in ollama) review_required 'foreign Ollama process remains after container removal';; esac; if recovery_has_ollama_reference "$args"; then if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$base" "$command" "$rest"; then :; else review_required 'foreign Ollama process remains after container removal'; fi; fi; recovery_is_scanner_ancestor "$pid" && continue; done <"$processes"; /usr/bin/jq -cn --arg socketDigest "$RECOVERY_SOCKET_SNAPSHOT_SHA" --argjson listeners "$RECOVERY_LISTENING_SOCKETS" '{state:"absent",matchingProcesses:[],listeningSockets:$listeners,socketSnapshotSha256:$socketDigest}'; }
 recovery_scan() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; assert_docker_socket; RECOVERY_SELF_PID=$$; RECOVERY_CONTAINER_PORTS_FILE=''
   if [ "$(id -u)" -ne 0 ] && [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] && [ -n "${RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA:-}" ]; then RECOVERY_SOURCE_SHA=$RETIRE_OLLAMA_RECOVERY_TEST_SOURCE_SHA; fi

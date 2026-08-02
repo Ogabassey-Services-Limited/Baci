@@ -24,13 +24,16 @@ test('resolves a container listener through its container root', async () => {
   const processes = join(directory, 'processes');
   const ports = join(directory, 'ports.json');
   try {
-    await mkdir(bin);
+    await mkdir(bin, { mode: 0o755 });
     await mkdir(join(procRoot, 'net'), { recursive: true });
     await mkdir(join(processRoot, 'fd'), { recursive: true });
     await mkdir(join(processRoot, 'ns'), { recursive: true });
     await mkdir(join(processRoot, 'root', 'opt', 'ollama', 'bin'), {
       recursive: true,
     });
+    await chmod(directory, 0o755);
+    await chmod(procRoot, 0o755);
+    await chmod(processRoot, 0o755);
     await writeFile(
       join(procRoot, 'net', 'tcp'),
       'sl local_address rem_address st tx_queue tr tm->when retrnsmt uid timeout inode\n0: 0100007F:2CAA 00000000:0000 0A 00000000:00000000 00:00000000 00000000 0 0 999\n'
@@ -84,14 +87,21 @@ test('resolves a container listener through its container root', async () => {
       'sh',
       [
         '-c',
-        '. "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; RECOVERY_PROC_ROOT="$2"; ports=$3; processes=$4; RECOVERY_CONTAINER_COMMAND_PATH=/opt/ollama/bin/ollama; init_temp_root; trap cleanup_temp EXIT; identity=$(recovery_process_identity 41); set -- $identity; recovery_socket_snapshot 41 "$1" "$2" "$ports" "$processes"; printf "%s\\n" "$RECOVERY_LISTENING_SOCKETS"',
+        '. "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; [ "$RECOVERY_PROC_ROOT" = "$2" ] || exit 79; ports=$3; processes=$4; RECOVERY_CONTAINER_COMMAND_PATH=/opt/ollama/bin/ollama; init_temp_root; trap cleanup_temp EXIT; identity=$(recovery_process_identity 41); set -- $identity; recovery_socket_snapshot 41 "$1" "$2" "$ports" "$processes"; printf "%s\\n" "$RECOVERY_LISTENING_SOCKETS"',
         'retire-ollama-recovery-listener-resolution-test',
         script.pathname,
         procRoot,
         ports,
         processes,
       ],
-      { env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: bin } }
+      {
+        env: {
+          ...process.env,
+          RETIRE_OLLAMA_PROC_ROOT: procRoot,
+          RETIRE_OLLAMA_TEST_BIN: bin,
+        },
+        ...(process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {}),
+      }
     );
     const [listener] = JSON.parse(stdout);
     assert.equal(listener.class, 'container');
