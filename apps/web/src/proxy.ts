@@ -43,10 +43,16 @@ import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
+import {
+  getStorefrontDocumentHomePath,
+  getStorefrontPdpFirstSegmentGate,
+  hasUnsafeStorefrontPdpSegments,
+  isStorefrontDocumentNavigation,
+  type StorefrontDocumentHomePathRules,
+} from '@/lib/storefront-path-safety';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { getStorefrontPublicationCacheTag } from '@/lib/storefront-publication-cache-tag';
-import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -1626,6 +1632,17 @@ function isValidCustomDomain(hostname: string): boolean {
   return true;
 }
 
+const STOREFRONT_DOCUMENT_HOME_PATH_RULES: StorefrontDocumentHomePathRules = {
+  isSlugPrefixedHost: isPlatformHost,
+  extractMerchantSubdomain: (hostname) =>
+    extractSubdomain(hostname, ROOT_DOMAIN),
+  extractLocalhostSubdomain,
+  isValidCustomDomain,
+  isValidMerchantSlug: isValidSubdomain,
+  reservedSubdomains: RESERVED_SUBDOMAINS,
+  platformRootRouteSegments: PLATFORM_ROOT_ROUTE_SEGMENTS,
+};
+
 /**
  * Classify route type for selective security policies
  * - Admin routes: Dashboard, builder, onboarding (strict CSP with nonce)
@@ -1936,49 +1953,6 @@ function buildHardStatusStorefrontResponse(
 }
 
 /**
- * Returns the public storefront home URL only for an URL shape that can belong
- * to a merchant without consulting the tenant database. The proxy needs this
- * deterministic shape gate before it can reject a path that is provably not a
- * valid PDP, otherwise a repeated `%2525…` bot URL still reaches custom-domain
- * resolution and the application render.
- */
-function getStorefrontDocumentHomePath(
-  pathname: string,
-  hostname: string | undefined
-): string | null {
-  const normalizedHostname = normalizeHostname(hostname ?? '');
-  const pathSegments = pathname.split('/').filter(Boolean);
-
-  if (
-    isRootDomain(normalizedHostname, ROOT_DOMAIN) ||
-    isVercelPreview(normalizedHostname)
-  ) {
-    const merchantSlug = pathSegments[0]?.toLowerCase();
-    if (
-      !merchantSlug ||
-      !isValidSubdomain(merchantSlug) ||
-      RESERVED_SUBDOMAINS.has(merchantSlug) ||
-      PLATFORM_ROOT_ROUTE_SEGMENTS.has(merchantSlug)
-    ) {
-      return null;
-    }
-
-    return `/${merchantSlug}`;
-  }
-
-  const merchantSubdomain = extractSubdomain(normalizedHostname, ROOT_DOMAIN);
-  if (merchantSubdomain && !RESERVED_SUBDOMAINS.has(merchantSubdomain)) {
-    return '/';
-  }
-
-  if (extractLocalhostSubdomain(normalizedHostname)) {
-    return '/';
-  }
-
-  return isValidCustomDomain(normalizedHostname) ? '/' : null;
-}
-
-/**
  * Hard-reject deterministic malformed PDP paths before custom-domain, product,
  * or cached-storefront lookups. A bounded safety verdict is intentionally much
  * narrower than a generic URL validator: normal percent-encoded slugs and all
@@ -1990,7 +1964,7 @@ function resolveUnsafeStorefrontPdpPath(
   hostname: string | undefined,
   userAgent: string
 ): NextResponse | null {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
+  if (!isStorefrontDocumentNavigation(request.method, request.headers)) {
     return null;
   }
 
@@ -1999,7 +1973,11 @@ function resolveUnsafeStorefrontPdpPath(
     return null;
   }
 
-  const homePath = getStorefrontDocumentHomePath(pathname, hostname);
+  const homePath = getStorefrontDocumentHomePath(
+    pathname,
+    hostname,
+    STOREFRONT_DOCUMENT_HOME_PATH_RULES
+  );
   if (!homePath) {
     return null;
   }
@@ -2009,22 +1987,10 @@ function resolveUnsafeStorefrontPdpPath(
     hostname,
     routeType
   );
-  if (contentSegments.length !== 2) {
-    return null;
-  }
-
-  const firstSegment = safeDecodeSegment(contentSegments[0]).toLowerCase();
-  const isProductsFallbackPdp = firstSegment === 'products';
   if (
-    !isProductsFallbackPdp &&
-    (!firstSegment || NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment))
-  ) {
-    return null;
-  }
-
-  if (
-    contentSegments.every(
-      (segment) => evaluateStorefrontSlugSafety(segment).safe
+    !hasUnsafeStorefrontPdpSegments(
+      contentSegments,
+      NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS
     )
   ) {
     return null;
@@ -2058,24 +2024,12 @@ async function resolveStorefrontPdpHardNotFound(
   userAgent: string,
   identifier: string
 ): Promise<NextResponse | null> {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
+  if (!isStorefrontDocumentNavigation(request.method, request.headers)) {
     return null;
   }
   // Param URLs should not become hard 404s, but redirectable legacy aliases
   // should still canonicalize while preserving attribution/search params.
   const hasSearchParams = request.nextUrl.search.length > 0;
-  // Never hard-404 RSC/prefetch navigations Next expects to succeed.
-  if (
-    request.headers.get('rsc') === '1' ||
-    request.headers.has('next-router-prefetch') ||
-    request.headers.has('next-router-state-tree')
-  ) {
-    return null;
-  }
-  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
-  if (fetchDest && fetchDest !== 'document') {
-    return null;
-  }
 
   const routeType = getRouteType(pathname);
   if (routeType !== 'storefront') {
@@ -2095,23 +2049,24 @@ async function resolveStorefrontPdpHardNotFound(
   // Path segments arrive percent-encoded (e.g. `dell-%E2%80%93-xps`); the DB
   // slug is decoded, so we MUST decode before comparing membership/reserved —
   // otherwise an encoded-but-real slug looks absent and gets falsely 404ed.
-  const firstSegment = safeDecodeSegment(contentSegments[0]).toLowerCase();
+  const firstSegmentGate = getStorefrontPdpFirstSegmentGate(
+    contentSegments,
+    NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS
+  );
+  const { firstSegment, isNonPdpFirstSegment, isProductsFallbackPdp } =
+    firstSegmentGate;
   const productSlug = safeDecodeSegment(contentSegments[1]);
   // `/products/{slug}` (plural) is the categoryless PDP fallback that
   // getProductUrl emits and the `(pdp)/products/[productSlug]` route serves — a
   // real PDP surface, so it MUST be checked even though `products` is a reserved
   // first segment. (The singular `/product/{slug}` is a legacy redirect, not a
   // PDP, so it stays excluded below.)
-  const isProductsFallbackPdp = firstSegment === 'products';
   // Otherwise the first segment must be a real category — non-PDP first segments
   // (blog, account, my-account, receipts, pages, cart, checkout, …) have their
   // own App Router pages (incl. `/my-account/[...path]` catch-alls) and must
   // never be hard-404ed. Use the BROADER non-cacheable first-segment set, not
   // just RESERVED, so authenticated route groups are excluded too.
-  if (
-    !isProductsFallbackPdp &&
-    (!firstSegment || NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment))
-  ) {
+  if (isNonPdpFirstSegment) {
     return null;
   }
   if (
