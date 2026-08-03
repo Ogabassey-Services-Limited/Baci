@@ -23,6 +23,20 @@ describe('toCuratedStorefrontInput', () => {
     });
     expect(result).not.toHaveProperty('hero_image_ids');
   });
+  it('preserves a safe root-relative loaded logo', () => {
+    expect(
+      toCuratedStorefrontInput({
+        businessName: 'Store',
+        businessType: 'fashion',
+        brandColors: {
+          primary: '#111111',
+          background: '#ffffff',
+          accent: '#f97316',
+        },
+        merchant: { logo_url: '/media/logo.png' },
+      })
+    ).toMatchObject({ logoUrl: '/media/logo.png' });
+  });
   it('normalizes missing and invalid merchant values', () => {
     expect(
       toCuratedStorefrontInput({
@@ -55,6 +69,10 @@ describe('toCuratedStorefrontInput', () => {
     '//cdn.example.com/logo.png',
     'javascript:alert(1)',
     'data:image/png;base64,logo',
+    '/media/logo\n.png',
+    '/media/\u0000logo.png',
+    '/media/%0Alogo.png',
+    '/media/%ZZlogo.png',
   ])('rejects an unsafe or malformed logo URL: %s', (logoUrl) => {
     const result = toCuratedStorefrontInput({
       businessName: 'Store',
