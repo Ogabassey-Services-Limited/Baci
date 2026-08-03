@@ -30,10 +30,13 @@ test('re-enumerates stopped containers added after the initial inventory', async
 case "$*" in
   *'ps -a '*)
     if [ -e '${state}' ]; then printf 'first\\nsecond\\n'; else : >'${state}'; printf 'first\\n'; fi ;;
-  *'{{.Id}}'*first*) printf 'first /first /bin/true [] [] [] {} {} {} [] "bridge"\\n' ;;
-  *'{{.Id}}'*second*) printf 'second /second /bin/true [] ["OLLAMA_HOST=http://127.0.0.1:11434"] [] {} {} {} [] "bridge"\\n' ;;
+  *'{{.Id}}'*first*) printf 'first /first /bin/true [] [] "" {} null [] {} {} {} [] "bridge"\\n' ;;
+  *'{{.Id}}'*second*) printf 'second /second /bin/true [] ["OLLAMA_HOST=http://127.0.0.1:11434"] "" {} null [] {} {} {} [] "bridge"\\n' ;;
   *'{{.Name}}'*first*) printf '/first\\n' ;;
   *'{{.Name}}'*second*) printf '/second\\n' ;;
+  *'{{json .Config.Env}}'*first*) printf '[]\\n' ;;
+  *'{{json .Config.Env}}'*second*) printf '["OLLAMA_HOST=http://127.0.0.1:11434"]\\n' ;;
+  *'{{json .Config.WorkingDir}}'*) printf '""\\n' ;;
   *'{{json .State.Running}}'*) printf 'false\\n' ;;
   *' cp first:/bin/true '*|*' cp second:/bin/true '*) for destination do :; done; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;;
   *'{{json .Mounts}}'*) printf '[]\\n' ;;

@@ -9,6 +9,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -148,10 +149,10 @@ test('refuses a path substituted after the source-derived helper opens its descr
     );
     const instrumentedModule = join(directory, 'process-files-race.sh');
     const source = await readFile(processFileModule, 'utf8');
-    const boundary = 'my @opened = stat($file); exit 2 unless @opened;';
+    const boundary = 'if (sysopen($file, $candidate, $flags)) {';
     const instrumented = source.replace(
       boundary,
-      `${boundary}\n    exit 2 unless rename($ENV{PROCESS_FILE_RACE_REPLACEMENT}, $candidate);`
+      `${boundary}\n      exit 2 unless rename($ENV{PROCESS_FILE_RACE_REPLACEMENT}, $candidate);`
     );
     assert.notEqual(instrumented, source);
     await writeFile(instrumentedModule, instrumented);
@@ -164,6 +165,39 @@ test('refuses a path substituted after the source-derived helper opens its descr
         error.code === 78 &&
         /process file argument descriptor failed/.test(error.stderr)
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('accepts a defined zero result from Darwin F_GETPATH', async () => {
+  const { directory, proc, processFilesystem } = await fixture();
+  const configuration = join(processFilesystem, 'application.conf');
+  await writeFile(configuration, 'endpoint=http://127.0.0.1:11434\n');
+  try {
+    const processFileModule = join(
+      dirname(script),
+      'retire-ollama-process-files.sh'
+    );
+    const instrumentedModule = join(directory, 'process-files-fgetpath.sh');
+    const source = await readFile(processFileModule, 'utf8');
+    const instrumented = source
+      .replace(
+        'use strict; use warnings;',
+        'BEGIN { *CORE::GLOBAL::fcntl = sub { $_[2] = $ENV{PROCESS_FILE_FGETPATH_RESULT} . "\\0"; return 0; }; } use strict; use warnings;'
+      )
+      .replace('if ($^O eq "linux") {', 'if (0) {')
+      .replace('} elsif ($^O eq "darwin") {', '} elsif (1) {');
+    assert.notEqual(instrumented, source);
+    await writeFile(instrumentedModule, instrumented);
+
+    const { stdout } = await shell(
+      proc,
+      `. "${instrumentedModule}"; export PROCESS_FILE_FGETPATH_RESULT=${configuration}; recovery_open_process_file "${configuration}" "${processFilesystem}"`
+    );
+    const descriptor = JSON.parse(stdout);
+    assert.equal(descriptor.realPath, configuration);
+    assert.equal(descriptor.match, true);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -183,6 +217,41 @@ test('promptly refuses a FIFO environment candidate without opening it blocking'
         /process file argument descriptor failed/.test(error.stderr)
     );
   } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('skips a socket-valued environment path but refuses the same socket in argv', async () => {
+  const { directory, proc, processFilesystem, processRoot } = await fixture();
+  const socket = join(processFilesystem, 'agent.sock');
+  const server = createServer();
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(socket, resolve);
+  });
+  try {
+    await writeFile(
+      join(processRoot, 'environ'),
+      'SSH_AUTH_SOCK=/agent.sock\0'
+    );
+    const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
+    assert.deepEqual(JSON.parse(stdout).fileArguments, []);
+
+    await writeFile(join(processRoot, 'environ'), 'PATH=/usr/bin\0');
+    await writeFile(
+      join(processRoot, 'cmdline'),
+      '/usr/bin/generic-worker\0--socket=/agent.sock\0'
+    );
+    await assert.rejects(
+      shell(proc, 'recovery_process_file_evidence 41'),
+      (error) =>
+        error.code === 78 &&
+        /process file argument is a special target/.test(error.stderr)
+    );
+  } finally {
+    await new Promise((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
     await rm(directory, { recursive: true, force: true });
   }
 });

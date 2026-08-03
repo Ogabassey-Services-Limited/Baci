@@ -3,31 +3,36 @@
 
 recovery_open_process_file() {
   candidate=$1; process_root_real=$2
-  /usr/bin/perl -MDigest::SHA -MJSON::PP -MFcntl=:DEFAULT,:mode -e '
+  /usr/bin/perl -MCwd=abs_path -MDigest::SHA -MJSON::PP -MFcntl=:DEFAULT,:mode -e '
     use strict; use warnings;
     my ($candidate, $root) = @ARGV;
     my $flags = O_RDONLY | O_NOFOLLOW | O_NONBLOCK; my $file;
-    if (!sysopen($file, $candidate, $flags)) {
+    my (@opened, $kind, $descriptor_path);
+    if (sysopen($file, $candidate, $flags)) {
+      @opened = stat($file); exit 2 unless @opened;
+      $kind = S_ISREG($opened[2]) ? "file" : S_ISDIR($opened[2]) ? "directory" : ""; exit 2 unless $kind;
+      if ($^O eq "linux") {
+        $descriptor_path = readlink("/proc/$$/fd/" . fileno($file));
+        $descriptor_path =~ s/ \(deleted\)\z// if defined $descriptor_path;
+      } elsif ($^O eq "darwin") {
+        # Darwin F_GETPATH is the descriptor-bound equivalent of /proc/self/fd.
+        my $buffer = "\0" x 1024;
+        my $fcntl_result = fcntl($file, 50, $buffer);
+        exit 2 unless defined $fcntl_result;
+        $buffer =~ s/\0.*\z//s; $descriptor_path = $buffer;
+      } else { exit 2; }
+    } else {
       exit 1 if $!{ENOENT} || $!{ENOTDIR};
-      exit 2;
+      @opened = lstat($candidate); exit 2 unless @opened && S_ISSOCK($opened[2]) && !S_ISLNK($opened[2]);
+      $kind = "socket"; $descriptor_path = abs_path($candidate);
     }
-    my @opened = stat($file); exit 2 unless @opened;
-    my $kind = S_ISREG($opened[2]) ? "file" : S_ISDIR($opened[2]) ? "directory" : ""; exit 2 unless $kind;
-    my $descriptor_path;
-    if ($^O eq "linux") {
-      $descriptor_path = readlink("/proc/$$/fd/" . fileno($file));
-      $descriptor_path =~ s/ \(deleted\)\z// if defined $descriptor_path;
-    } elsif ($^O eq "darwin") {
-      # Darwin F_GETPATH is the descriptor-bound equivalent of /proc/self/fd.
-      my $buffer = "\0" x 1024;
-      exit 2 unless fcntl($file, 50, $buffer);
-      $buffer =~ s/\0.*\z//s; $descriptor_path = $buffer;
-    } else { exit 2; }
     exit 2 unless defined($descriptor_path) && $descriptor_path =~ m{^/} && $descriptor_path !~ /[\r\n\t]/;
     exit 2 unless $root eq "/" || $descriptor_path eq $root || index($descriptor_path, "$root/") == 0;
-    if ($kind eq "directory") {
+    if ($kind ne "file") {
       my @current_link = lstat($candidate); my @current = stat($candidate);
-      exit 2 unless @current_link && !S_ISLNK($current_link[2]) && @current && S_ISDIR($current[2]) && $opened[0] == $current[0] && $opened[1] == $current[1];
+      exit 2 unless @current_link && !S_ISLNK($current_link[2]) && @current;
+      my $same_kind = $kind eq "directory" ? S_ISDIR($current[2]) : S_ISSOCK($current[2]);
+      exit 2 unless $same_kind && $opened[0] == $current[0] && $opened[1] == $current[1];
       print JSON::PP->new->canonical->encode({kind => $kind, realPath => $descriptor_path}); exit 0;
     }
     my $digest = Digest::SHA->new(256); my $matched = 0; my $tail = "";
@@ -80,7 +85,7 @@ recovery_process_file_evidence() {
     process_root_anchor="$process_root/root"; [ -L "$process_root_anchor" ] && [ -L "$anchor" ] || { recovery_process_file_cleanup; review_required 'process file anchor unavailable'; }; process_root_before=$(readlink -- "$process_root_anchor") && anchor_before=$(readlink -- "$anchor") && process_root_real=$(readlink -f -- "$process_root_anchor") || { recovery_process_file_cleanup; review_required 'process file anchor unavailable'; }
     descriptor=$(temp_path); if recovery_open_process_file "$candidate" "$process_root_real" >"$descriptor"; then :; else status=$?; /bin/rm -f -- "$descriptor"; descriptor=''; [ "$status" -eq 1 ] && continue; recovery_process_file_cleanup; review_required 'process file argument descriptor failed'; fi
     descriptor_kind=$(/usr/bin/jq -er .kind "$descriptor") || { recovery_process_file_cleanup; review_required 'process file argument descriptor invalid'; }
-    if [ "$descriptor_kind" = directory ]; then [ "$origin" = environment ] || { recovery_process_file_cleanup; review_required 'process file argument is a directory'; }; [ "$process_root_before" = "$(readlink -- "$process_root_anchor")" ] && [ "$anchor_before" = "$(readlink -- "$anchor")" ] || { recovery_process_file_cleanup; review_required 'process environment directory anchor changed'; }; /bin/rm -f -- "$descriptor"; descriptor=''; continue; fi
+    case "$descriptor_kind" in directory|socket) [ "$origin" = environment ] || { recovery_process_file_cleanup; review_required 'process file argument is a special target'; }; [ "$process_root_before" = "$(readlink -- "$process_root_anchor")" ] && [ "$anchor_before" = "$(readlink -- "$anchor")" ] || { recovery_process_file_cleanup; review_required 'process environment special target anchor changed'; }; /bin/rm -f -- "$descriptor"; descriptor=''; continue;; esac
     [ "$descriptor_kind" = file ] || { recovery_process_file_cleanup; review_required 'process file argument descriptor invalid'; }; real=$(/usr/bin/jq -er .realPath "$descriptor") && argument_stat=$(/usr/bin/jq -er .identity "$descriptor") && argument_sha=$(/usr/bin/jq -er .sha256 "$descriptor") && argument_matched=$(/usr/bin/jq -er .match "$descriptor") || { recovery_process_file_cleanup; review_required 'process file argument descriptor invalid'; }; /bin/rm -f -- "$descriptor"; descriptor=''
     argument_match=''; [ "$argument_matched" = false ] || argument_match=$argument_sha
     [ "$process_root_before" = "$(readlink -- "$process_root_anchor")" ] && [ "$anchor_before" = "$(readlink -- "$anchor")" ] || { recovery_process_file_cleanup; review_required 'process file argument anchor changed'; }
