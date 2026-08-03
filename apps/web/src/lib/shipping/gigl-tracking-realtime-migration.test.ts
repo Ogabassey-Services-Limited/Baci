@@ -15,11 +15,24 @@ describe('GIGL tracking Realtime migration', () => {
       'utf8'
     );
 
-    expect(
-      migration.match(/pg_catalog\.substr\(realtime\.topic\(\), 16\)::uuid/g)
-    ).toHaveLength(2);
-    expect(migration).not.toContain(
-      'pg_catalog.substring(realtime.topic() FROM 16)'
-    );
+    const policyBodies = [
+      'authorized users receive shipment tracking wakeups',
+      'shipment tracking topics require order access',
+    ].map((policyName) => {
+      const policyBody = migration.match(
+        new RegExp(`CREATE POLICY "${policyName}"[\\s\\S]*?;`, 'i')
+      )?.[0];
+      expect(policyBody).toBeDefined();
+      return policyBody ?? '';
+    });
+
+    for (const policyBody of policyBodies) {
+      expect(
+        policyBody.match(/pg_catalog\.substr\(realtime\.topic\(\), 16\)::uuid/g)
+      ).toHaveLength(1);
+      expect(policyBody).not.toContain(
+        'pg_catalog.substring(realtime.topic() FROM 16)'
+      );
+    }
   });
 });
