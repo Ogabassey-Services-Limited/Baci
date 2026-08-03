@@ -125,11 +125,14 @@ cron_inventory_command_targets() {
       if (NF == field + 5 && $field == "cd" && $(field + 1) == "/" && $(field + 2) == "&&" && $(field + 3) == "run-parts" && $(field + 4) == "--report") return fixed_periodic($(field + 5))
       return NF == field + 11 && $field == "test" && $(field + 1) == "-x" && $(field + 2) == "/usr/sbin/anacron" && $(field + 3) == "||" && $(field + 4) == "(" && $(field + 5) == "cd" && $(field + 6) == "/" && $(field + 7) == "&&" && $(field + 8) == "run-parts" && $(field + 9) == "--report" && $(field + 11) == ")" && fixed_periodic($(field + 10))
     }
+    function safe_absolute(value) { return value ~ /^\/[-A-Za-z0-9._+@%=]+(\/[-A-Za-z0-9._+@%=]+)*$/ && value !~ /(^|\/)\.\.?($|\/)/ }
+    function unsafe_interpreter(value) { return value ~ /\/(sh|bash|dash|env|node|perl|php|python|python[0-9.]*|ruby)$/ }
     function direct(field, command, i) {
       if (NF < field) { bad=1; return }
       command=$field
-      if (command !~ /^\/[-A-Za-z0-9._+@%=]+(\/[-A-Za-z0-9._+@%=]+)*$/ || command ~ /(^|\/)\.\.?($|\/)/ || command ~ /\/(sh|bash|dash|env|node|perl|php|python|python[0-9.]*|ruby)$/) { bad=1; return }
+      if (!safe_absolute(command) || unsafe_interpreter(command)) { bad=1; return }
       for (i=field+1; i<=NF; i++) if ($i ~ /[;&|<>()`$\\]/) { bad=1; return }
+      if (command == "/usr/bin/flock") { if (NF != field + 3 || $(field + 1) != "-n" || $(field + 2) !~ /^\/run\// || !safe_absolute($(field + 2)) || !safe_absolute($(field + 3)) || unsafe_interpreter($(field + 3))) { bad=1; return }; print $(field + 3); return }
       print command
     }
     /^[[:space:]]*($|#)/ { next }

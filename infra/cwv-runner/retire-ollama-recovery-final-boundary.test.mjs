@@ -90,6 +90,28 @@ test('refuses package drift before immutable receipt publication', async () => {
   }
 });
 
+test('refuses unit enablement drift before immutable receipt publication', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-cwv-final-unit-'));
+  const receipt = join(directory, 'receipt.json');
+  const unitMarker = join(directory, 'unit-observed');
+  try {
+    await assert.rejects(
+      shell(
+        `root() { :; }; assert_docker_socket() { CANONICAL_DOCKER_SOCKET=/run/docker.sock; }; recovery_source_identity() { :; }; recovery_collect_mutable_consumers() { : >"$1"; : >"$2"; RECOVERY_MUTABLE_MODEL='{}'; RECOVERY_MUTABLE_CRON='{}'; }; recovery_collect_container_consumers() { : >"$1"; }; recovery_container_snapshot() { RECOVERY_CONTAINER_STATE=absent; printf '%s\\n' '{}'; }; recovery_collect_processes() { : >"$1"; }; recovery_absent_process_snapshot() { printf '%s\\n' '{"state":"absent"}'; }; recovery_terminal_process_snapshot() { :; }; recovery_terminal_container_snapshot() { :; }; recovery_terminal_mutable_consumers() { :; }; recovery_terminal_container_consumers() { :; }; recovery_package_snapshot() { printf '%s\\n' '{"name":"ollama","state":"absent","version":null}'; }; recovery_unit_snapshot() { if [ "$1" = "$UNIT" ]; then if [ -e "$UNIT_MARKER" ]; then printf '%s\\n' '{"name":"ollama.service","state":"present","loadState":"loaded","unitFileState":"enabled","activeState":"inactive","stateSha256":"changed"}'; else : >"$UNIT_MARKER"; printf '%s\\n' '{"name":"ollama.service","state":"absent"}'; fi; else printf '%s\\n' '{"name":"ollama-watchdog.timer","state":"absent"}'; fi; }; record_docker_socket() { :; }; recovery_surface() { :; }; recovery_write_receipt() { : >"$RECEIPT_MARKER"; }; UNIT_MARKER=$3; RECEIPT_MARKER=$2; init_temp_root; recovery_scan`,
+        [receipt, unitMarker]
+      ),
+      (error) =>
+        error.code === 78 &&
+        /recovery unit state changed before receipt publication/.test(
+          error.stderr
+        )
+    );
+    await assert.rejects(access(receipt));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('changes the model tree identity when same-size content is restored to its mtime', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-cwv-model-tree-'));
   const store = join(directory, 'store');
