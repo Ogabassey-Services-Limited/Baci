@@ -16,6 +16,7 @@ cron_inventory_hourly_dir() { cron_inventory_override_or_default "${RETIRE_OLLAM
 cron_inventory_daily_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_DAILY_DIR:-}" /etc/cron.daily; }
 cron_inventory_weekly_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_WEEKLY_DIR:-}" /etc/cron.weekly; }
 cron_inventory_monthly_dir() { cron_inventory_override_or_default "${RETIRE_OLLAMA_CRON_MONTHLY_DIR:-}" /etc/cron.monthly; }
+cron_inventory_require_empty_at_queue() { if [ "$(id -u)" -eq 0 ] || [ -z "${RETIRE_OLLAMA_TEST_BIN:-}" ]; then atq=/usr/bin/atq; [ -x "$atq" ] || return 1; else atq=${RETIRE_OLLAMA_ATQ:-/usr/bin/true}; cron_inventory_real_file "$atq" && [ -x "$atq" ] || return 1; fi; at_snapshot=$(temp_path); "$atq" >"$at_snapshot" 2>/dev/null || { rm -f "$at_snapshot"; return 1; }; [ ! -s "$at_snapshot" ]; at_status=$?; rm -f "$at_snapshot"; return "$at_status"; }
 cron_inventory_valid_name() {
   case "$1" in ''|.*|*[!A-Za-z0-9_.-]*) return 1;; *) return 0;; esac
 }
@@ -256,6 +257,7 @@ cron_inventory_record_wrapper_consumers() {
 }
 cron_inventory_collect_external() {
   output=$1; : >"$output" || die 'cron inventory output failed'
+  cron_inventory_require_empty_at_queue || die 'queued at work or unsafe at queue'
   system=$(cron_inventory_system_file); cron_inventory_system_file_ok "$system" || die 'unsafe system crontab'
   printf 'system\t-\t%s\n' "$system" >>"$output" || die 'cron inventory output failed'
   system_dir=$(cron_inventory_system_dir); cron_inventory_system_dir_ok "$system_dir" || die 'unsafe system cron directory'
@@ -282,6 +284,7 @@ cron_inventory_collect_external() {
     [ "$account" = "$OWNER" ] && continue
     printf 'user\t%s\t%s\n' "$account" "$path" >>"$output" || die 'cron inventory output failed'
   done
+  cron_inventory_require_empty_at_queue || die 'queued at work or unsafe at queue'
 }
 record_external_cron_sources() {
   supplied_manifest=${1:-}; manifest_owned=0; if [ -n "$supplied_manifest" ]; then manifest=$supplied_manifest; else manifest=$(temp_path); cron_inventory_collect_external "$manifest"; manifest_owned=1; fi
