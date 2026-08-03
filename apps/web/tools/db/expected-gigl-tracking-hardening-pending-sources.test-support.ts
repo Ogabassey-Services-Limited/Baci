@@ -195,4 +195,8 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '20260802000700_finalize_gigl_monitor_tenant_reconciliation.sql',
     '993db7de54f6d0ca7550abc54c4997ec00121e06100ceb9a8101c593c5d4cf7a',
   ],
+  [
+    '20260803000100_prevent_stale_gigl_monitor_reactivation.sql',
+    '8294ae2594cac9406df2367a644e3750d6ccf26d17c0784f8f3c776ca6d798eb',
+  ],
 ] as const;
