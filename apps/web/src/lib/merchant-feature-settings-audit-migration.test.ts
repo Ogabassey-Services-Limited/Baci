@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { extractSqlArrayFields } from '@/lib/test-helpers/extract-sql-array-fields';
+import { extractSqlFunction } from '@/lib/test-helpers/extract-sql-function';
 
 const migrationDirectory = resolve(process.cwd(), '../../supabase/migrations');
 const migrationPath = resolve(
@@ -105,41 +107,6 @@ const ignoredFields = 'created_at,custom_robots_txt,updated_at'.split(',');
 
 const forbiddenFields = ['id', 'merchant_id'] as const;
 
-function extractSqlFunction(
-  migrationSql: string,
-  functionName: string
-): string {
-  const escapedFunctionName = functionName.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    '\\$&'
-  );
-
-  return (
-    migrationSql.match(
-      new RegExp(
-        `CREATE OR REPLACE FUNCTION ${escapedFunctionName}` +
-          String.raw`[\s\S]*?\n\$\$;`
-      )
-    )?.[0] ?? ''
-  );
-}
-
-function extractDeclaredFields(
-  triggerFunctionSql: string,
-  fieldGroup: 'exact' | 'presence' | 'ignored' | 'forbidden'
-): string[] {
-  const declarationValues =
-    triggerFunctionSql.match(
-      new RegExp(
-        String.raw`v_${fieldGroup}_fields text\[\] := ARRAY\[([\s\S]*?)\]::text\[\];`
-      )
-    )?.[1] ?? '';
-
-  return [...declarationValues.matchAll(/'([^']+)'/g)].map(
-    ([, field]) => field
-  );
-}
-
 describe('merchant feature settings audit migration contract', () => {
   it('reserves the Task 5 migration version exactly once', () => {
     const matchingMigrationFiles = readdirSync(migrationDirectory).filter(
@@ -214,7 +181,7 @@ describe('merchant feature settings audit migration contract', () => {
       ['ignored', ignoredFields],
       ['forbidden', forbiddenFields],
     ] as const) {
-      expect(extractDeclaredFields(triggerFunctionSql, fieldGroup)).toEqual(
+      expect(extractSqlArrayFields(triggerFunctionSql, fieldGroup)).toEqual(
         fields
       );
     }

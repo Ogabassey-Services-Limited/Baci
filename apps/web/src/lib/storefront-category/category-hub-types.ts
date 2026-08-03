@@ -20,7 +20,7 @@ export interface ModelFamilyAuthorityEntry {
   displayName: string;
   familyKey: string;
   minimumProducts: number;
-  productNamePattern: string;
+  productNamePattern: RegExp;
 }
 
 export interface CategoryHubFaqItem {

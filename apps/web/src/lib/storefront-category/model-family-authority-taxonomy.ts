@@ -1,21 +1,23 @@
 import { generateSlug } from '@/lib/seo-utils';
 import type { ModelFamilyAuthorityEntry } from '@/lib/storefront-category/category-hub-types';
 
-const MODEL_FAMILY_ENTRIES: readonly ModelFamilyAuthorityEntry[] = [
-  ['samsung', 'galaxy-a', 'Samsung Galaxy A', '^(?:Samsung )?Galaxy A'],
-  ['samsung', 'galaxy-s', 'Samsung Galaxy S', '^(?:Samsung )?Galaxy S'],
-  ['samsung', 'galaxy-z', 'Samsung Galaxy Z', '^(?:Samsung )?Galaxy Z'],
-  ['infinix', 'hot', 'Infinix HOT', '^(?:Infinix )?Hot'],
-  ['infinix', 'note', 'Infinix Note', '^(?:Infinix )?Note'],
-  ['tecno', 'spark', 'Tecno Spark', '^(?:Tecno )?Spark'],
-  ['tecno', 'camon', 'Tecno Camon', '^(?:Tecno )?Camon'],
-  ['tecno', 'pop', 'Tecno Pop', '^(?:Tecno )?Pop'],
-  ['xiaomi', 'redmi-note', 'Redmi Note', '^(?:Xiaomi )?Redmi Note'],
-  ['xiaomi', 'redmi-a', 'Redmi A', '^(?:Xiaomi )?Redmi A'],
-  ['xiaomi', 'redmi-15', 'Redmi 15', '^(?:Xiaomi )?Redmi 15'],
-  ['xiaomi', 'xiaomi-t', 'Xiaomi T Series', '^(?:Xiaomi )?[0-9]+T'],
-  ['oppo', 'a-series', 'Oppo A Series', '^(?:Oppo\\s+)?A(?=\\s|\\d)'],
-].map(([brandKey, familyKey, displayName, productNamePattern]) => ({
+const MODEL_FAMILY_ENTRIES: readonly ModelFamilyAuthorityEntry[] = (
+  [
+    ['samsung', 'galaxy-a', 'Samsung Galaxy A', /^(?:Samsung )?Galaxy A/i],
+    ['samsung', 'galaxy-s', 'Samsung Galaxy S', /^(?:Samsung )?Galaxy S/i],
+    ['samsung', 'galaxy-z', 'Samsung Galaxy Z', /^(?:Samsung )?Galaxy Z/i],
+    ['infinix', 'hot', 'Infinix HOT', /^(?:Infinix )?Hot/i],
+    ['infinix', 'note', 'Infinix Note', /^(?:Infinix )?Note/i],
+    ['tecno', 'spark', 'Tecno Spark', /^(?:Tecno )?Spark/i],
+    ['tecno', 'camon', 'Tecno Camon', /^(?:Tecno )?Camon/i],
+    ['tecno', 'pop', 'Tecno Pop', /^(?:Tecno )?Pop/i],
+    ['xiaomi', 'redmi-note', 'Redmi Note', /^(?:Xiaomi )?Redmi Note/i],
+    ['xiaomi', 'redmi-a', 'Redmi A', /^(?:Xiaomi )?Redmi A/i],
+    ['xiaomi', 'redmi-15', 'Redmi 15', /^(?:Xiaomi )?Redmi 15/i],
+    ['xiaomi', 'xiaomi-t', 'Xiaomi T Series', /^(?:Xiaomi )?[0-9]+T/i],
+    ['oppo', 'a-series', 'Oppo A Series', /^(?:Oppo\s+)?A(?=\s|\d)/i],
+  ] as const
+).map(([brandKey, familyKey, displayName, productNamePattern]) => ({
   brandKey,
   categorySlug: 'smartphones',
   displayName,
@@ -44,7 +46,7 @@ function getEntry(categorySlug: string, brandSlug: string, familySlug: string) {
 }
 
 function matchesProduct(entry: ModelFamilyAuthorityEntry, productName: string) {
-  return new RegExp(entry.productNamePattern, 'i').test(productName.trim());
+  return entry.productNamePattern.test(productName.trim());
 }
 
 export const modelFamilyAuthorityTaxonomy = {
