@@ -1,4 +1,4 @@
-import type { User } from '@supabase/supabase-js';
+import { isAuthSessionMissingError, type User } from '@supabase/supabase-js';
 import type { createClient as createServerClient } from '@/lib/supabase/server';
 
 type OnboardingAuthClient = Pick<
@@ -47,7 +47,7 @@ export async function resolveOnboardingUser({
   supabase,
 }: ResolveOnboardingUserInput): Promise<OnboardingUserResolution> {
   const session = await supabase.auth.getUser();
-  if (session.error)
+  if (session.error && !isAuthSessionMissingError(session.error))
     return { status: 'message', message: ACCOUNT_VERIFICATION_GUIDANCE };
   const authUser = session.data.user;
   if (authUser) {
