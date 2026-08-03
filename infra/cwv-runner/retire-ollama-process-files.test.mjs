@@ -60,7 +60,7 @@ function shell(proc, command) {
     'sh',
     [
       '-c',
-      `sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { for path do :; done; /usr/bin/stat -f '%d:%i:%u:%g:%Lp:%z' "$path"; }; readlink() { for path do :; done; /usr/bin/readlink "$path"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
+      `sha256sum() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"; else /usr/bin/sha256sum "$@"; fi; }; stat() { for path do :; done; if /usr/bin/stat --version >/dev/null 2>&1; then /usr/bin/stat -Lc '%d:%i:%u:%g:%a:%s' "$path"; else /usr/bin/stat -f '%d:%i:%u:%g:%Lp:%z' "$path"; fi; }; readlink() { for path do :; done; /usr/bin/readlink "$path"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
       'retire-ollama-process-files-test',
       script,
     ],
