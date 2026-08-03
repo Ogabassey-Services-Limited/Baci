@@ -52,6 +52,10 @@ describe('GIGL retry and generation hardening migrations', () => {
     expect(repair).toContain(
       "|| E'        v_latest_persisted_event_at IS NULL\\n'"
     );
+    expect(repair).toContain(
+      "v_definition NOT LIKE '%newer_shipment.merchant_id = NEW.merchant_id%'"
+    );
+    expect(repair).toContain('pg_catalog.regexp_count');
   });
 
   it('ignores obsolete shipment generations when syncing order status', () => {

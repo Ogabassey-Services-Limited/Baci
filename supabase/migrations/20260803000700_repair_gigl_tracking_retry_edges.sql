@@ -36,6 +36,7 @@ DO $migration$
 DECLARE
   v_original_definition text;
   v_definition text;
+  v_expected_scope text;
 BEGIN
   SELECT pg_get_functiondef(
     'private.sync_gigl_tracking_order_status()'::regprocedure
@@ -48,7 +49,29 @@ BEGIN
       || E'        AND newer_shipment.tracking_timeline_generation\n'
       || '          > NEW.tracking_timeline_generation'
   );
-  IF v_definition = v_original_definition THEN
+  v_expected_scope :=
+    E'        AND newer_shipment.merchant_id = NEW.merchant_id\n'
+    || E'        AND newer_shipment.tracking_timeline_generation\n'
+    || '          > NEW.tracking_timeline_generation';
+  IF v_definition = v_original_definition
+    OR v_definition NOT LIKE '%newer_shipment.merchant_id = NEW.merchant_id%'
+    OR v_definition NOT LIKE '%newer_shipment.tracking_timeline_generation%'
+    OR v_definition NOT LIKE '%> NEW.tracking_timeline_generation%'
+    OR pg_catalog.strpos(v_definition, v_expected_scope) = 0
+    OR (
+      pg_catalog.length(v_definition)
+      - pg_catalog.length(
+        pg_catalog.replace(v_definition, v_expected_scope, '')
+      )
+    ) <> pg_catalog.length(v_expected_scope)
+    OR pg_catalog.regexp_count(
+      v_definition,
+      'newer_shipment[.]merchant_id = NEW[.]merchant_id'
+    ) <> 1
+    OR pg_catalog.regexp_count(
+      v_definition,
+      'newer_shipment[.]tracking_timeline_generation[[:space:]]+>[[:space:]]+NEW[.]tracking_timeline_generation'
+    ) <> 1 THEN
     RAISE EXCEPTION 'GIGL order status generation scope did not apply';
   END IF;
   EXECUTE v_definition;
