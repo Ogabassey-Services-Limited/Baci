@@ -44,26 +44,22 @@ vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateSlug: vi.fn((str: string) => str.toLowerCase().replace(/\s+/g, '-')),
-  getProductUrl: vi.fn(
-    (product: {
-      id: string;
-      slug?: string | null;
-      category_slug?: string | null;
-      categories?: { slug?: string | null } | null;
-      canonical_url?: string | null;
-    }) => {
-      if (product.canonical_url) {
-        try {
-          return new URL(product.canonical_url, 'https://storefront.invalid')
-            .pathname;
-        } catch {
-          // fall through to slug/category-based path
-        }
-      }
-
+  getValidatedProductUrl: vi.fn(
+    (
+      product: {
+        id: string;
+        slug?: string | null;
+        category_slug?: string | null;
+        categories?: { slug?: string | null } | null;
+      },
+      baseUrl: string
+    ) => {
       const slug = product.slug || product.id;
       const categorySlug = product.categories?.slug || product.category_slug;
-      return categorySlug ? `/${categorySlug}/${slug}` : `/products/${slug}`;
+      const productPath = categorySlug
+        ? `/${categorySlug}/${slug}`
+        : `/products/${slug}`;
+      return `${new URL(baseUrl).origin}${productPath}`;
     }
   ),
 }));

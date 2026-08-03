@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getProductUrl } from '@/lib/seo-utils';
+import { getValidatedProductUrl } from '@/lib/seo-utils';
 
 export interface ProductWithCategory {
   id: string;
@@ -23,14 +23,17 @@ export function buildProductSitemapEntry({
     product.categories?.slug && product.categories.slug.trim().length > 0
       ? { slug: product.categories.slug.trim() }
       : null;
-  const url = `${storeUrl}${getProductUrl({
-    id: product.id,
-    slug: product.slug ?? undefined,
-    name: product.name ?? '',
-    category: product.category,
-    categories: normalizedJoinedCategory,
-    canonical_url: product.canonical_url,
-  })}`;
+  const url = getValidatedProductUrl(
+    {
+      id: product.id,
+      slug: product.slug ?? undefined,
+      name: product.name ?? '',
+      category: product.category,
+      categories: normalizedJoinedCategory,
+      canonical_url: product.canonical_url,
+    },
+    storeUrl
+  );
   const images: string[] = [];
 
   if (Array.isArray(product.images)) {

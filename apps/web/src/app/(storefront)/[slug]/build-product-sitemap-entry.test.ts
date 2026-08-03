@@ -27,4 +27,22 @@ describe('buildProductSitemapEntry', () => {
       images: ['https://cdn.example.com/linen-shirt.jpg'],
     });
   });
+
+  it('derives the sitemap URL when the stored canonical path is stale', () => {
+    const entry = buildProductSitemapEntry({
+      product: {
+        id: 'product-1',
+        name: 'Linen Shirt',
+        slug: 'linen-shirt',
+        category: 'Fashion',
+        canonical_url: '/old/linen-shirt',
+        images: [],
+        updated_at: null,
+        categories: { slug: 'fashion' },
+      },
+      storeUrl: 'https://zorvexa.usebaci.com',
+    });
+
+    expect(entry.url).toBe('https://zorvexa.usebaci.com/fashion/linen-shirt');
+  });
 });
