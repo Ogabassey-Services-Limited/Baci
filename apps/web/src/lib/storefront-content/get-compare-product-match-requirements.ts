@@ -3,6 +3,7 @@ import { generateSlug } from '@/lib/seo-utils';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
+import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
 type CompareProductMatchRequirement = {
   identifier: string;
@@ -12,7 +13,6 @@ type CompareProductMatchRequirement = {
 
 const VARIANT_DISCRIMINATOR_PATTERN =
   /^(?:\d+(?:g|gb|tb|mb|mm|inch)|(?:e)?sim|wifi|cellular|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
-const SPLIT_VARIANT_UNIT_TOKENS = new Set(['gb', 'tb', 'mb', 'mm', 'inch']);
 
 function tokenize(value: string) {
   return normalizeContentCurrencyTokens(value)
@@ -22,19 +22,7 @@ function tokenize(value: string) {
 }
 
 function tokenizeVariantSource(value: string) {
-  const tokens = tokenize(value);
-  const normalizedTokens: string[] = [];
-  for (let index = 0; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? '';
-    const nextToken = tokens[index + 1] ?? '';
-    if (/^\d+$/u.test(token) && SPLIT_VARIANT_UNIT_TOKENS.has(nextToken)) {
-      normalizedTokens.push(`${token}${nextToken}`);
-      index += 1;
-      continue;
-    }
-    normalizedTokens.push(token);
-  }
-  return normalizedTokens;
+  return normalizeVariantDiscriminatorTokens(tokenize(value));
 }
 
 function getBrandCandidates(context: BuildCommercialGuideLinksContext) {

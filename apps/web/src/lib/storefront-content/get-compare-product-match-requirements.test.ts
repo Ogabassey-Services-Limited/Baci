@@ -94,6 +94,32 @@ describe('getCompareProductMatchRequirements', () => {
     ]);
   });
 
+  it('canonicalizes hyphenated Wi-Fi as a same-model discriminator', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'tablets',
+      brands: ['Apple'],
+      productNames: [
+        'Apple iPad Air 128GB Wi-Fi',
+        'Apple iPad Air 128GB Cellular',
+      ],
+      productSlugs: [],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: 'air',
+        brand: 'apple',
+        discriminatorTokens: ['wifi'],
+      },
+      {
+        identifier: 'air',
+        brand: 'apple',
+        discriminatorTokens: ['cellular'],
+      },
+    ]);
+  });
+
   it('preserves source brands for distinct compare model phrases', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

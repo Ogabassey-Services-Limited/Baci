@@ -1,5 +1,6 @@
 import type { PublishedClusterPost } from './content-cluster-types';
 import { getPostTokenGroups } from './get-post-token-groups';
+import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 import { tokenizeContentText } from './tokenize-content-text';
 
 const MODEL_VARIANT_MARKER_TOKENS = new Set([
@@ -80,9 +81,11 @@ function matchesDiscriminatorForIdentifierOccurrence(
     (token, index) =>
       index >= identifierEnd && COMPARISON_BOUNDARY_TOKENS.has(token)
   );
-  const occurrenceTokens = tokens.slice(
-    previousBoundary + 1,
-    nextBoundary >= 0 ? nextBoundary : tokens.length
+  const occurrenceTokens = normalizeVariantDiscriminatorTokens(
+    tokens.slice(
+      previousBoundary + 1,
+      nextBoundary >= 0 ? nextBoundary : tokens.length
+    )
   );
   return matchesOrderedTokenSequence(occurrenceTokens, discriminatorTokens);
 }

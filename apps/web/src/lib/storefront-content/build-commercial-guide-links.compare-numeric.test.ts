@@ -81,4 +81,45 @@ describe('buildCommercialGuideLinks numeric compare brands', () => {
       'https://ogabassey.com/blog/nokia-6310-vs-8210-guide'
     );
   });
+
+  it('ranks a split-capacity comparison above a newer single-variant guide', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'iphone-15-256gb-guide',
+          title: 'Apple iPhone 15 256 GB Buyer Guide',
+          excerpt: 'How to choose the 256 GB iPhone 15.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'apple', 'iphone 15'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'iphone-15-128gb-vs-256gb',
+          title: 'Apple iPhone 15 128 GB vs Apple iPhone 15 256 GB Buyer Guide',
+          excerpt: 'Compare the 128 GB and 256 GB iPhone 15.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'apple', 'iphone 15', 'comparison'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'compare',
+        categorySlug: 'smartphones',
+        brands: ['Apple'],
+        productNames: ['Apple iPhone 15 128 GB', 'Apple iPhone 15 256 GB'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/iphone-15-128gb-vs-256gb',
+      'https://ogabassey.com/blog/iphone-15-256gb-guide',
+    ]);
+  });
 });
