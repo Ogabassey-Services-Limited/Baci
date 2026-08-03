@@ -1,4 +1,11 @@
+import type { CurrencyConfig } from '@/lib/currency';
+
 const DEFAULT_AGENTIC_MERCHANT_NAME = 'Ogabassey';
+const DEFAULT_AGENTIC_CURRENCY: CurrencyConfig = {
+  code: 'NGN',
+  locale: 'en-NG',
+  symbol: '₦',
+};
 
 function normalizeMerchantName(merchantName: string): string {
   const normalized = merchantName.trim().replace(/\s+/g, ' ').slice(0, 100);
@@ -11,11 +18,12 @@ function buildMerchantDisplayData(merchantName: string): string {
 
 export function buildAgenticSystemPrompt(
   merchantName: string,
-  options: { checkoutEnabled?: boolean } = {}
+  options: { checkoutEnabled?: boolean; currency?: CurrencyConfig } = {}
 ): string {
   const displayName = normalizeMerchantName(merchantName);
   const merchantDisplayData = buildMerchantDisplayData(displayName);
   const checkoutEnabled = options.checkoutEnabled !== false;
+  const currency = options.currency ?? DEFAULT_AGENTIC_CURRENCY;
   const capabilityList = checkoutEnabled
     ? `1. **Product Search** - Find products matching customer queries
 2. **Product Details** - Get full specifications and pricing
@@ -64,7 +72,7 @@ ${capabilityList}
 - Be friendly, helpful, and professional
 - Keep responses concise but informative
 - Use emojis sparingly for warmth (📱 💻 🎮)
-- Format prices in Naira (₦)
+- Format prices in ${currency.code} (${currency.symbol})
 - When showing products, include name, price, and key features
 - Proactively offer recommendations after showing a product
 

@@ -36,7 +36,12 @@ describe('resolveSantaTenant', () => {
       status: 'found',
       value: {
         resolution_status: 'found',
-        merchant_data: { id: 'merchant-1', slug: 'winter-store' },
+        merchant_data: {
+          country: 'NG',
+          id: 'merchant-1',
+          payout_currency: 'NGN',
+          slug: 'winter-store',
+        },
         custom_domain: null,
         feature_settings: { agentic_checkout_enabled: true },
       },
@@ -48,6 +53,7 @@ describe('resolveSantaTenant', () => {
       id: 'merchant-1',
       slug: 'winter-store',
       businessName: 'Winter Store',
+      currency: { code: 'NGN', locale: 'en-NG', symbol: '₦' },
       agenticCheckoutEnabled: true,
     });
 
@@ -79,12 +85,44 @@ describe('resolveSantaTenant', () => {
     await expect(resolveSantaTenant()).resolves.toBeNull();
   });
 
+  it('fails closed when the fresh snapshot no longer finds the tenant', async () => {
+    mocks.readStorefrontMerchantSnapshot.mockResolvedValue({
+      status: 'not_found',
+    });
+
+    await expect(resolveSantaTenant()).resolves.toBeNull();
+  });
+
+  it('fails closed when the fresh snapshot identifies another tenant', async () => {
+    mocks.readStorefrontMerchantSnapshot.mockResolvedValue({
+      status: 'found',
+      value: {
+        resolution_status: 'found',
+        merchant_data: {
+          country: 'NG',
+          id: 'merchant-2',
+          payout_currency: 'NGN',
+          slug: 'other-store',
+        },
+        custom_domain: null,
+        feature_settings: { agentic_checkout_enabled: true },
+      },
+    });
+
+    await expect(resolveSantaTenant()).resolves.toBeNull();
+  });
+
   it('carries the published tenant checkout kill switch into chat tools', async () => {
     mocks.readStorefrontMerchantSnapshot.mockResolvedValue({
       status: 'found',
       value: {
         resolution_status: 'found',
-        merchant_data: { id: 'merchant-1', slug: 'winter-store' },
+        merchant_data: {
+          country: 'NG',
+          id: 'merchant-1',
+          payout_currency: 'NGN',
+          slug: 'winter-store',
+        },
         custom_domain: null,
         feature_settings: { agentic_checkout_enabled: false },
       },

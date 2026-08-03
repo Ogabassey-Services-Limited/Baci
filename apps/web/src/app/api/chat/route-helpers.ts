@@ -22,14 +22,17 @@ function buildMerchantDisplayData(merchantName: string): string {
 function buildVpsChatSystemPrompt(
   merchantName: string,
   toolsEnabled: boolean,
-  checkoutEnabled: boolean
+  checkoutEnabled: boolean,
+  currency: CurrencyConfig
 ): string {
   const merchantDisplayData = buildMerchantDisplayData(merchantName);
+  const currencyGuidance = `Prices and payment amounts use ${currency.code} (${currency.symbol}). `;
 
   if (!toolsEnabled) {
     return (
       merchantDisplayData +
       ' ' +
+      currencyGuidance +
       'Keep replies brief, helpful, and honest. ' +
       'You cannot access live inventory, current prices, checkout actions, orders, or payment status in this mode. ' +
       'Never claim that you searched stock, added an item, generated a bank account, or confirmed payment. ' +
@@ -40,6 +43,7 @@ function buildVpsChatSystemPrompt(
   return (
     merchantDisplayData +
     ' ' +
+    currencyGuidance +
     'Keep replies brief, helpful, and honest. ' +
     (checkoutEnabled
       ? 'You have commerce tools for product search, product details, recommendations, payment account requests, payment status checks, and unpaid order cancellation. '
@@ -56,12 +60,19 @@ export function buildChatMessages(
     checkoutEnabled?: boolean;
     merchantName?: string;
     toolsEnabled?: boolean;
+    currency?: CurrencyConfig;
   } = {}
 ) {
+  const currency = options.currency ?? {
+    code: 'NGN',
+    locale: 'en-NG',
+    symbol: '₦',
+  };
   const systemPrompt = buildVpsChatSystemPrompt(
     normalizeMerchantName(options.merchantName),
     options.toolsEnabled === true,
-    options.checkoutEnabled !== false
+    options.checkoutEnabled !== false,
+    currency
   );
 
   return [
@@ -132,3 +143,5 @@ export function createClientClosedRequestResponse(): Response {
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
+import type { CurrencyConfig } from '@/lib/currency';

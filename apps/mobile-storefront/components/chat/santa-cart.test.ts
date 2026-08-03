@@ -26,6 +26,7 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('./constants', () => ({
   API_BASE_URL: 'https://test.example',
   CHAT_REQUEST_TIMEOUT_MS: 1000,
+  SANTA_MERCHANT_SLUG_HEADER: 'x-baci-santa-merchant-slug',
 }));
 
 import { addSantaWishToCart } from './santa-cart';
@@ -40,6 +41,7 @@ function mockLookup(product: unknown, ok = true, status = 200) {
   global.fetch = jest.fn(async () => ({
     ok,
     status,
+    headers: new Headers({ 'x-baci-santa-merchant-slug': 'ogabassey' }),
     json: async () => ({ product }),
   })) as unknown as typeof fetch;
 }
@@ -223,5 +225,26 @@ describe('addSantaWishToCart', () => {
     expect(result).toBe(false);
     expect(mockAddItem).not.toHaveBeenCalled();
     expect(mockShowCartToast).toHaveBeenCalledWith(expect.any(String), 'error');
+  });
+
+  it('rejects a product lookup from a different storefront before mutating the cart', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'x-baci-santa-merchant-slug': 'winter-store' }),
+      json: async () => ({
+        product: {
+          id: 'prod-1',
+          name: 'iPhone 15',
+          price: 950_000,
+          manage_stock: false,
+        },
+      }),
+    })) as unknown as typeof fetch;
+
+    const result = await addSantaWishToCart(action);
+
+    expect(result).toBe(false);
+    expect(mockAddItem).not.toHaveBeenCalled();
   });
 });

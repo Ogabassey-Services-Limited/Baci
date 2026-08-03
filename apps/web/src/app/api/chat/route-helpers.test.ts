@@ -46,6 +46,21 @@ describe('chat route helpers', () => {
     );
   });
 
+  it('uses the resolved currency in VPS price guidance', () => {
+    const [systemMessage] = buildChatMessages(
+      [{ role: 'user', content: 'Show me prices' }],
+      'gemma4:e4b',
+      {
+        currency: { code: 'GHS', locale: 'en-GH', symbol: 'GH₵' },
+        toolsEnabled: true,
+      }
+    );
+
+    expect(systemMessage.content).toContain(
+      'Prices and payment amounts use GHS (GH₵).'
+    );
+  });
+
   it('isolates the resolved merchant name as untrusted display data', () => {
     const [systemMessage] = buildChatMessages(
       [{ role: 'user', content: 'Show me phones' }],

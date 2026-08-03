@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { readStorefrontMerchantSnapshot } from '@/lib/storefront-merchant-snapshot';
 import { createPublicClient } from '@/lib/supabase/public';
 import type { StorefrontDatabase } from '@/types/storefront-database';
@@ -19,6 +20,30 @@ function isAgenticCheckoutEnabled(featureSettings: unknown): boolean {
     (featureSettings as { agentic_checkout_enabled?: unknown })
       .agentic_checkout_enabled !== false
   );
+}
+
+function readSnapshotMerchantData(value: unknown): {
+  country: string | null;
+  id: string;
+  payout_currency: string | null;
+  slug: string;
+} | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const data = value as Record<string, unknown>;
+  if (typeof data.id !== 'string' || typeof data.slug !== 'string') {
+    return null;
+  }
+
+  return {
+    country: typeof data.country === 'string' ? data.country : null,
+    id: data.id,
+    payout_currency:
+      typeof data.payout_currency === 'string' ? data.payout_currency : null,
+    slug: data.slug,
+  };
 }
 
 export async function resolveSantaTenant(
@@ -49,13 +74,36 @@ export async function resolveSantaTenant(
     merchant.slug
   );
 
+  if (snapshot.status === 'not_found') {
+    return null;
+  }
+
+  if (snapshot.status === 'found') {
+    const snapshotMerchant = readSnapshotMerchantData(
+      snapshot.value.merchant_data
+    );
+    if (
+      !snapshotMerchant ||
+      snapshotMerchant.id !== merchant.id ||
+      snapshotMerchant.slug !== merchant.slug
+    ) {
+      return null;
+    }
+
+    return {
+      ...merchant,
+      currency: resolveMerchantCurrencyConfig(snapshotMerchant),
+      agenticCheckoutEnabled: isAgenticCheckoutEnabled(
+        snapshot.value.feature_settings
+      ),
+    };
+  }
+
   return {
     id: merchant.id,
     slug: merchant.slug,
     businessName: merchant.businessName,
-    agenticCheckoutEnabled:
-      snapshot.status === 'found'
-        ? isAgenticCheckoutEnabled(snapshot.value.feature_settings)
-        : false,
+    currency: merchant.currency,
+    agenticCheckoutEnabled: false,
   };
 }

@@ -91,7 +91,10 @@ describe('POST /api/chat/santa tenant resolution', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(getCachedSantaProducts).toHaveBeenCalledWith('merchant-1');
+    expect(getCachedSantaProducts).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.objectContaining({ code: 'NGN', symbol: '₦' })
+    );
   });
 
   it('uses the resolved public business name in the Santa prompt', async () => {

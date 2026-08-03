@@ -4,8 +4,11 @@ const mockAddSantaWishToCart = jest.fn();
 const mockRouterPush = jest.fn();
 
 jest.mock('./santa-cart', () => ({
-  addSantaWishToCart: (action: unknown, signal?: AbortSignal) =>
-    mockAddSantaWishToCart(action, signal),
+  addSantaWishToCart: (
+    action: unknown,
+    signal?: AbortSignal,
+    expectedMerchantSlug?: string
+  ) => mockAddSantaWishToCart(action, signal, expectedMerchantSlug),
 }));
 
 jest.mock('expo-router', () => ({
@@ -408,12 +411,14 @@ describe('useChat', () => {
     expect(mockAddSantaWishToCart).toHaveBeenNthCalledWith(
       1,
       { type: 'ADD_TO_CART', productName: 'Phone', price: 450000 },
-      expect.any(AbortSignal)
+      expect.any(AbortSignal),
+      'ogabassey'
     );
     expect(mockAddSantaWishToCart).toHaveBeenNthCalledWith(
       2,
       { type: 'ADD_TO_CART', productName: 'Case', price: 12000 },
-      expect.any(AbortSignal)
+      expect.any(AbortSignal),
+      'ogabassey'
     );
 
     await waitFor(() => {

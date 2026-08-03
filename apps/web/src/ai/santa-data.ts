@@ -1,8 +1,14 @@
 import { unstable_cache } from 'next/cache';
+import type { CurrencyConfig } from '@/lib/currency';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Cache duration: 5 minutes (matching CACHE_DURATIONS.products)
 const CACHE_TTL = 300;
+const DEFAULT_SANTA_CURRENCY: CurrencyConfig = {
+  code: 'NGN',
+  locale: 'en-NG',
+  symbol: '₦',
+};
 
 /**
  * Validated product shape from DB
@@ -88,7 +94,10 @@ export const getCachedSantaProductList = unstable_cache(
 /**
  * Formats the product list into the prompt string
  */
-const formatSantaCatalog = async (merchantId: string): Promise<string> => {
+const formatSantaCatalog = async (
+  merchantId: string,
+  currency: CurrencyConfig = DEFAULT_SANTA_CURRENCY
+): Promise<string> => {
   // Call the raw fetcher directly to avoid double-caching (this function is itself cached)
   const products = await fetchSantaProductList(merchantId);
 
@@ -99,6 +108,7 @@ const formatSantaCatalog = async (merchantId: string): Promise<string> => {
   return products
     .map((p) => {
       const price = Number(p.price) || 0;
+      const productName = JSON.stringify(p.name);
       if (p.cost_price) {
         const costPrice = Number(p.cost_price) || 0;
         const maxDiscountPct = Math.min(
@@ -106,9 +116,9 @@ const formatSantaCatalog = async (merchantId: string): Promise<string> => {
           40
         );
         const safeDiscount = Math.max(maxDiscountPct, 0);
-        return `*   ${p.name}: ₦${price.toLocaleString()} (Max Discount: ${safeDiscount}%) [HAS_COST]`;
+        return `*   ${productName}: ${currency.symbol}${price.toLocaleString(currency.locale)} (Max Discount: ${safeDiscount}%) [HAS_COST]`;
       }
-      return `*   ${p.name}: ₦${price.toLocaleString()} (Max Discount: 40%) [FLEX]`;
+      return `*   ${productName}: ${currency.symbol}${price.toLocaleString(currency.locale)} (Max Discount: 40%) [FLEX]`;
     })
     .join('\n');
 };

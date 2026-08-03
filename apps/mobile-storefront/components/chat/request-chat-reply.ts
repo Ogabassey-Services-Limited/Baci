@@ -113,7 +113,11 @@ export async function requestChatReply({
 
         if (resolvedMerchantMatches) {
           for (const action of santaActions) {
-            void addSantaWishToCart(action, controller.signal);
+            void addSantaWishToCart(
+              action,
+              controller.signal,
+              configuredMerchantSlug
+            );
           }
         } else if (santaActions.length > 0) {
           log.warn('Ignoring Santa cart actions for a different storefront', {

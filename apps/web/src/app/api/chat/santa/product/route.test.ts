@@ -4,19 +4,14 @@ import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-he
 
 const mocks = vi.hoisted(() => ({
   resolveSantaTenant: vi.fn(),
-  getCachedSantaProductList: vi.fn(),
-  createServiceClient: vi.fn(),
-  productSelect: vi.fn(),
+  createPublicClient: vi.fn(),
 }));
 
 vi.mock('@/lib/agentic/resolve-santa-tenant', () => ({
   resolveSantaTenant: mocks.resolveSantaTenant,
 }));
-vi.mock('@/ai/santa-data', () => ({
-  getCachedSantaProductList: mocks.getCachedSantaProductList,
-}));
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: mocks.createServiceClient,
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: mocks.createPublicClient,
 }));
 vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -26,22 +21,40 @@ import { GET, POST } from './route';
 
 const MERCHANT_ID = 'merchant-1';
 const MERCHANT_SLUG = 'winter-store';
-const SERVICE_CLIENT_TAG = { tag: 'service' };
 
-function serviceClientReturning(product: Record<string, unknown> | null) {
+function createProductQuery(result: { data: unknown; error: unknown }) {
+  const query = Object.assign(Promise.resolve(result), {
+    select: vi.fn(),
+    eq: vi.fn(),
+    order: vi.fn(),
+    limit: vi.fn(),
+    single: vi.fn(),
+  });
+
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.order.mockReturnValue(query);
+  query.limit.mockReturnValue(query);
+  query.single.mockResolvedValue(result);
+  return query;
+}
+
+function publicClientReturning(
+  product: Record<string, unknown> | null,
+  products: Array<{ name: string; price: number }> = [
+    { name: 'Lego Set', price: 1000 },
+  ]
+) {
+  const candidateQuery = createProductQuery({ data: products, error: null });
+  const detailQuery = createProductQuery({
+    data: product,
+    error: product ? null : {},
+  });
   return {
-    ...SERVICE_CLIENT_TAG,
-    from: vi.fn(() => ({
-      select: mocks.productSelect.mockReturnValue({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi
-              .fn()
-              .mockResolvedValue({ data: product, error: product ? null : {} }),
-          })),
-        })),
-      }),
-    })),
+    from: vi
+      .fn()
+      .mockReturnValueOnce(candidateQuery)
+      .mockReturnValueOnce(detailQuery),
   };
 }
 
@@ -78,12 +91,11 @@ function getRequest(query: string) {
 describe('/api/chat/santa/product', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.createServiceClient.mockReturnValue(serviceClientReturning(PRODUCT));
+    mocks.createPublicClient.mockReturnValue(publicClientReturning(PRODUCT));
     mocks.resolveSantaTenant.mockResolvedValue({
       id: MERCHANT_ID,
       slug: MERCHANT_SLUG,
     });
-    mocks.getCachedSantaProductList.mockResolvedValue([{ name: 'Lego Set' }]);
   });
 
   describe('tenant resolution', () => {
@@ -94,7 +106,10 @@ describe('/api/chat/santa/product', () => {
       const response = await POST(postRequest({ name: 'Lego Set' }));
 
       expect(mocks.resolveSantaTenant).toHaveBeenCalledTimes(1);
-      expect(mocks.getCachedSantaProductList).toHaveBeenCalledWith(MERCHANT_ID);
+      expect(mocks.createPublicClient).toHaveBeenCalledWith({
+        clientInfo: 'baci-santa-product-lookup',
+        timeoutMs: 4000,
+      });
       expect(response.headers.get(SANTA_MERCHANT_SLUG_HEADER)).toBe(
         MERCHANT_SLUG
       );
@@ -107,7 +122,7 @@ describe('/api/chat/santa/product', () => {
 
       expect(response.status).toBe(503);
       // Fail closed: no catalogue read at all.
-      expect(mocks.getCachedSantaProductList).not.toHaveBeenCalled();
+      expect(mocks.createPublicClient).not.toHaveBeenCalled();
     });
   });
 
@@ -124,11 +139,13 @@ describe('/api/chat/santa/product', () => {
     it('scopes the product query to the resolved merchant', async () => {
       await POST(postRequest({ name: 'Lego Set' }));
 
-      expect(mocks.getCachedSantaProductList).toHaveBeenCalledWith(MERCHANT_ID);
+      expect(mocks.createPublicClient).toHaveBeenCalled();
     });
 
     it('returns a null product when nothing matches', async () => {
-      mocks.getCachedSantaProductList.mockResolvedValue([{ name: 'Train' }]);
+      mocks.createPublicClient.mockReturnValue(
+        publicClientReturning(PRODUCT, [{ name: 'Train', price: 1000 }])
+      );
 
       const response = await POST(postRequest({ name: 'Lego Set' }));
 

@@ -226,6 +226,7 @@ export async function POST(req: Request) {
           bearer,
           model: chatModel,
           messages: buildChatMessages(sanitizedMessages, chatModel, {
+            currency: agenticTenant.currency,
             merchantName,
             toolsEnabled: false,
           }),
@@ -259,6 +260,7 @@ export async function POST(req: Request) {
             model: chatModel,
             basicAuth,
             messages: buildChatMessages(sanitizedMessages, chatModel, {
+              currency: agenticTenant.currency,
               merchantName,
               toolsEnabled: true,
               checkoutEnabled: agenticTenant.agenticCheckoutEnabled !== false,
@@ -333,6 +335,7 @@ export async function POST(req: Request) {
         model: activeTextModel,
         system: buildAgenticSystemPrompt(merchantName, {
           checkoutEnabled: agenticTenant.agenticCheckoutEnabled !== false,
+          currency: agenticTenant.currency,
         }),
         messages: sanitizedMessages,
         abortSignal: req.signal,

@@ -25,4 +25,13 @@ describe('buildAgenticSystemPrompt', () => {
     expect(prompt).not.toContain('Use createVirtualAccount');
     expect(prompt).not.toContain('Use cancelOrder');
   });
+
+  it('uses the resolved tenant currency for price guidance', () => {
+    const prompt = buildAgenticSystemPrompt('Ghana Store', {
+      currency: { code: 'GHS', locale: 'en-GH', symbol: 'GH₵' },
+    });
+
+    expect(prompt).toContain('Format prices in GHS (GH₵)');
+    expect(prompt).not.toContain('Format prices in Naira');
+  });
 });

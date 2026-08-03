@@ -1,13 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getCachedSantaProductList } from '@/ai/santa-data';
 import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
 import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { logger } from '@/lib/logger';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { sanitizeForLog } from '@/lib/sanitize-core';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createPublicClient } from '@/lib/supabase/public';
 
 const UNLIMITED_STOCK_QUANTITY = 9999;
+
+type SantaProductCandidate = {
+  name: string;
+  price: number;
+};
 
 /**
  * Common handler for product lookup
@@ -38,10 +42,24 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     const responseHeaders = {
       [SANTA_MERCHANT_SLUG_HEADER]: merchantSlug,
     };
-    const supabase = createServiceClient();
+    const supabase = createPublicClient({
+      clientInfo: 'baci-santa-product-lookup',
+      timeoutMs: 4000,
+    });
 
-    // Get products directly (bypass cache to ensure consistency)
-    const santaProducts = await getCachedSantaProductList(merchantId);
+    // Keep this anonymous lookup RLS-bound. The public products policy exposes
+    // only active rows, so this endpoint never needs a service-role client.
+    const { data: santaProducts, error: santaProductsError } = await supabase
+      .from('products')
+      .select('name, price')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .order('price', { ascending: false })
+      .limit(5000);
+
+    if (santaProductsError) {
+      throw santaProductsError;
+    }
 
     logger.info({
       message: 'Santa Product searching',
@@ -51,7 +69,9 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
 
     // Find the best match by name
     const normalizedSearch = productName.toLowerCase().trim();
-    const matchingProduct = santaProducts.find(
+    const matchingProduct = (
+      (santaProducts ?? []) as SantaProductCandidate[]
+    ).find(
       (p) =>
         p.name.toLowerCase() === normalizedSearch ||
         p.name.toLowerCase().includes(normalizedSearch) ||
@@ -79,6 +99,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
       )
       .eq('merchant_id', merchantId)
       .eq('name', matchingProduct.name)
+      .eq('status', 'active')
       .single();
 
     if (error || !fullProduct) {
