@@ -18,6 +18,10 @@ printf '%s\n' "$payload" >>"$FAKE_QUERY_LOG"
 if jq -e '.query | startswith("SELECT version, name")' >/dev/null <<<"$payload"; then
   printf '%s\n' "$FAKE_INITIAL_RESPONSE"
 else
+  if [ "${FAKE_FAIL_NON_SELECT:-0}" = '1' ]; then
+    printf '%s\n' "$FAKE_ERROR_RESPONSE"
+    exit 22
+  fi
   printf '%s\n' '[]'
 fi
 FAKE_CURL
@@ -194,6 +198,31 @@ if PATH="$fake_bin:$PATH" \
 fi
 grep -q "Repair migration 20260713140000 is recorded as 'unrelated'" \
   "$fixture_root/wrong-remote-repair-output.log"
+
+error_dir="$fixture_root/http-error"
+mkdir -p "$error_dir"
+printf '%s\n' "CREATE TABLE migration_error_probe (id integer);" \
+  >"$error_dir/20260101000000_error.sql"
+error_log="$fixture_root/http-error-queries.log"
+if PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$error_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$error_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  FAKE_FAIL_NON_SELECT=1 \
+  FAKE_ERROR_RESPONSE='{"message":"migration failed"}' \
+  bash "$applier" >"$fixture_root/http-error-output.log" 2>&1; then
+  echo 'Expected an HTTP migration error to fail' >&2
+  exit 1
+fi
+grep -q 'Response: {"message":"migration failed"}' "$fixture_root/http-error-output.log"
+if jq -e \
+  'select(.query | startswith("INSERT INTO supabase_migrations.schema_migrations"))' \
+  "$error_log" >/dev/null; then
+  echo 'Failed migrations must not write migration history' >&2
+  exit 1
+fi
 
 unrepaired_sibling_dir="$fixture_root/unrepaired-sibling"
 make_collision_fixture "$unrepaired_sibling_dir"

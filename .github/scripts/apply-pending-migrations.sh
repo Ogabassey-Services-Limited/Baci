@@ -46,7 +46,7 @@ readonly API="https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/datab
 readonly AUTH_HEADER="Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}"
 
 api_query() {
-  curl --fail --silent --show-error \
+  curl --fail-with-body --silent --show-error \
     -X POST \
     -H "$AUTH_HEADER" \
     -H "Content-Type: application/json" \
@@ -56,16 +56,15 @@ api_query() {
 
 api_query_payload() {
   local body="$1" response
-  # Capture the response so we can detect SQL errors. `api_query` (curl --fail)
-  # already aborts on HTTP >= 400, but the Management API can also report a
-  # failed statement with a 200 status and an error object in the body. The
-  # /database/query endpoint returns a JSON array of rows on success and a JSON
-  # object (with a `message`) on error, so treat anything that is not an array
-  # as a failure. Without this, a migration whose SQL errors could still have
-  # its schema_migrations row written and then be skipped on every future
-  # deploy (recorded-but-not-applied drift).
-  response="$(api_query <<<"$body")"
-  if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$response"; then
+  # Capture response for SQL errors; curl --fail-with-body preserves HTTP bodies.
+  # The Management API can also report a failed statement with a 200 status and
+  # an error object in the body. /database/query returns arrays on success and
+  # objects on error, so treat anything that is not an array as a failure. Without
+  # this, a migration whose SQL errors could still have its schema_migrations row
+  # written and then be skipped on every future deploy (recorded-but-not-applied
+  # drift).
+  if ! response="$(api_query <<<"$body")" || \
+    ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$response"; then
     echo "::error::Supabase query did not succeed; aborting before recording the migration." >&2
     printf 'Response: %s\n' "$response" | head -c 2000 >&2
     return 1
