@@ -5,7 +5,9 @@ import { serializeStorefrontProductPathSegment } from './serialize-storefront-pr
 type ProductCategory = string | null | { name?: string; slug?: string };
 
 function normalizeCategorySlug(slug: string | null | undefined): string | null {
-  const normalized = slug?.trim().toLowerCase();
+  const normalized = serializeStorefrontProductPathSegment(
+    slug ?? ''
+  ).toLowerCase();
   return normalized || null;
 }
 

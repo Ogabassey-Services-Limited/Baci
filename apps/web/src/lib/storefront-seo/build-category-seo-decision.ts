@@ -1,8 +1,6 @@
-import {
-  buildSeoIndexingDecision,
-  type SeoIndexBlocker,
-  type SeoIndexingDecision,
-} from './seo-indexing-decision';
+import { buildSeoIndexingDecision } from './build-seo-indexing-decision';
+import type { SeoIndexBlocker } from './seo-index-blocker';
+import type { SeoIndexingDecision } from './seo-indexing-decision';
 
 export interface CategoryIndexingFacts {
   isStorePublished: boolean;

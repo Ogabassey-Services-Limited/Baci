@@ -21,6 +21,22 @@ describe('getBrandAuthoritySitemapEntries', () => {
     mockCategory.mockResolvedValue({ id: 'category-1', name: 'Smartphones' });
   });
 
+  it('does not query brand authority inventory for an unpublished store', async () => {
+    const { getBrandAuthoritySitemapEntries } = await import(
+      './brand-authority-sitemap'
+    );
+
+    await expect(
+      getBrandAuthoritySitemapEntries({
+        merchant: { id: 'merchant-1', slug: 'store', is_published: false },
+        storeUrl: 'https://store.test',
+      } as never)
+    ).resolves.toEqual([]);
+
+    expect(mockCategory).not.toHaveBeenCalled();
+    expect(mockInventory).not.toHaveBeenCalled();
+  });
+
   it('emits eligible brand hubs and isolates inventory failures', async () => {
     mockInventory.mockImplementation(
       async (
@@ -40,7 +56,7 @@ describe('getBrandAuthoritySitemapEntries', () => {
       './brand-authority-sitemap'
     );
     const entries = await getBrandAuthoritySitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'store' },
+      merchant: { id: 'merchant-1', slug: 'store', is_published: true },
       storeUrl: 'https://store.test',
     } as never);
     expect(entries.map((entry) => entry.url)).toEqual([
@@ -74,7 +90,7 @@ describe('getBrandAuthoritySitemapEntries', () => {
       './brand-authority-sitemap'
     );
     const entries = await getBrandAuthoritySitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'store' },
+      merchant: { id: 'merchant-1', slug: 'store', is_published: true },
       storeUrl: 'https://store.test',
     } as never);
     expect(entries.map((entry) => entry.url)).toEqual([
@@ -108,7 +124,7 @@ describe('getBrandAuthoritySitemapEntries', () => {
       './brand-authority-sitemap'
     );
     const entries = await getBrandAuthoritySitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'store' },
+      merchant: { id: 'merchant-1', slug: 'store', is_published: true },
       storeUrl: 'https://store.test',
     } as never);
 
@@ -143,7 +159,7 @@ describe('getBrandAuthoritySitemapEntries', () => {
       './brand-authority-sitemap'
     );
     const entries = await getBrandAuthoritySitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'store' },
+      merchant: { id: 'merchant-1', slug: 'store', is_published: true },
       storeUrl: 'https://store.test',
     } as never);
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getCommercialSupportSitemapEntries,
+  getNamedSitemapEntries,
   getProductSitemapEntries,
+  getRepairsSitemapEntries,
+  getSitemapIndexLinks,
   getStaticSitemapEntries,
 } from './sitemap-data';
 
@@ -12,6 +16,90 @@ describe('storefront sitemap SEO indexing', () => {
         storeUrl: 'https://zorvexa.usebaci.com',
       } as never)
     ).toEqual([]);
+  });
+
+  it('omits every child sitemap link for an unpublished merchant', () => {
+    expect(
+      getSitemapIndexLinks({
+        merchant: {
+          id: 'merchant-1',
+          slug: 'zorvexa',
+          is_published: false,
+          feature_settings: {
+            blog_enabled: true,
+            repairs_catalog_enabled: true,
+          },
+        },
+        storeUrl: 'https://zorvexa.usebaci.com',
+      } as never)
+    ).toEqual([]);
+  });
+
+  it('blocks every named sitemap family before an unpublished store can query', async () => {
+    const context = {
+      merchant: {
+        id: 'merchant-1',
+        slug: 'zorvexa',
+        is_published: false,
+        feature_settings: {
+          blog_enabled: true,
+          repairs_catalog_enabled: true,
+        },
+      },
+      storeUrl: 'https://zorvexa.usebaci.com',
+      supabase: {
+        from: () => {
+          throw new Error('unpublished sitemap must not query');
+        },
+      },
+    } as never;
+
+    await expect(
+      Promise.all(
+        [
+          'static',
+          'products',
+          'categories',
+          'brand-authority',
+          'commercial-support',
+          'repairs',
+        ].map(async (id) => getNamedSitemapEntries(context, id))
+      )
+    ).resolves.toEqual([[], [], [], [], [], []]);
+  });
+
+  it('blocks direct commercial support entries for an unpublished store', async () => {
+    await expect(
+      getCommercialSupportSitemapEntries({
+        merchant: { id: 'merchant-1', slug: 'zorvexa', is_published: false },
+        storeUrl: 'https://zorvexa.usebaci.com',
+        supabase: {
+          from: () => {
+            throw new Error('unpublished commercial sitemap must not query');
+          },
+        },
+      } as never)
+    ).resolves.toEqual([]);
+  });
+
+  it('blocks direct repairs entries for an unpublished store', async () => {
+    await expect(
+      getRepairsSitemapEntries({
+        merchant: {
+          id: 'merchant-1',
+          slug: 'zorvexa',
+          is_published: false,
+          business_type: 'electronics',
+          feature_settings: { repairs_catalog_enabled: true },
+        },
+        storeUrl: 'https://zorvexa.usebaci.com',
+        supabase: {
+          from: () => {
+            throw new Error('unpublished repairs sitemap must not query');
+          },
+        },
+      } as never)
+    ).resolves.toEqual([]);
   });
 
   it('keeps the named published home sitemap entry without product prerequisites', () => {

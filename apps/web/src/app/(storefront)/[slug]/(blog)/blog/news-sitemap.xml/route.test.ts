@@ -69,6 +69,7 @@ describe('GET /blog/news-sitemap.xml', () => {
       business_name: 'Ogabassey Easybuy Gadgets',
       custom_domain: 'ogabassey.com',
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       feature_settings: { blog_enabled: true },
     });
@@ -129,6 +130,7 @@ describe('GET /blog/news-sitemap.xml', () => {
       business_name: 'Ogabassey Easybuy Gadgets',
       custom_domain: 'ogabassey.com',
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       feature_settings: { blog_enabled: false },
     });
@@ -146,11 +148,34 @@ describe('GET /blog/news-sitemap.xml', () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it('returns no public URLs for an unpublished storefront', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      business_name: 'Ogabassey Easybuy Gadgets',
+      custom_domain: 'ogabassey.com',
+      id: 'merchant-1',
+      is_published: false,
+      slug: 'ogabassey',
+      feature_settings: { blog_enabled: true },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      createNewsSitemapRequest(),
+      createNewsSitemapRouteContext()
+    );
+    const xml = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(xml).not.toContain('<url>');
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it('escapes XML text from titles and publication names', async () => {
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       business_name: 'Ogabassey & Sons',
       custom_domain: 'ogabassey.com',
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       feature_settings: { blog_enabled: true },
     });

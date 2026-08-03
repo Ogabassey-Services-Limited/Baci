@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildProductSeoDecision } from './build-product-seo-decision';
-import { isSeoSitemapEligible } from './seo-indexing-metadata';
+import { isSeoSitemapEligible } from './is-seo-sitemap-eligible';
 
 describe('buildProductSeoDecision', () => {
   it('keeps an active canonical product indexable despite enrichment gaps', () => {

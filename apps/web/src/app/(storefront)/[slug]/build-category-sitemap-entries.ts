@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { buildCategorySeoDecision } from '@/lib/storefront-seo/build-category-seo-decision';
-import { isSeoSitemapEligible } from '@/lib/storefront-seo/seo-indexing-metadata';
+import { isSeoSitemapEligible } from '@/lib/storefront-seo/is-seo-sitemap-eligible';
 
 interface SitemapCategory {
   id: string;

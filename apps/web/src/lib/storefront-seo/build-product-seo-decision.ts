@@ -1,9 +1,7 @@
-import {
-  buildSeoIndexingDecision,
-  isValidStorefrontCanonicalUrl,
-  type SeoIndexBlocker,
-  type SeoIndexingDecision,
-} from './seo-indexing-decision';
+import { buildSeoIndexingDecision } from './build-seo-indexing-decision';
+import { isValidStorefrontCanonicalUrl } from './is-valid-storefront-canonical-url';
+import type { SeoIndexBlocker } from './seo-index-blocker';
+import type { SeoIndexingDecision } from './seo-indexing-decision';
 
 export interface ProductIndexingFacts {
   isStorePublished: boolean;

@@ -6,6 +6,7 @@ import {
   filterPublicBlogPosts,
   isPublicBlogCategory,
 } from '@/lib/public-blog-content-quality';
+import { isStorefrontSitemapPublished } from '@/lib/storefront-seo/is-storefront-sitemap-published';
 import { resolveStorefrontSitemapContext } from '../../sitemap-data';
 import {
   canUseCleanBlogCategorySlug,
@@ -97,7 +98,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Mirror the blog feature flag guard used in getCachedBlogListing /
   // getCachedBlogPost so disabled storefronts don't expose a sitemap
   // pointing at routes that return 404.
-  if (!merchant.feature_settings?.blog_enabled) {
+  if (
+    !isStorefrontSitemapPublished(merchant) ||
+    !merchant.feature_settings?.blog_enabled
+  ) {
     return [];
   }
 

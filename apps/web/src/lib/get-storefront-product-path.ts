@@ -1,6 +1,7 @@
 import type { Route } from 'next';
 import { buildStorefrontProductPath } from './build-storefront-product-path';
 import { generateStorefrontProductSlug } from './generate-storefront-product-slug';
+import { serializeStorefrontProductPathSegment } from './serialize-storefront-product-path-segment';
 import type { StorefrontProductUrlInput } from './storefront-product-url-input';
 
 const STOREFRONT_ROOT_SEGMENTS = new Set([
@@ -102,7 +103,9 @@ export function getStorefrontProductPath(
   if (canonicalPath) return canonicalPath;
 
   const productSlug =
-    product.slug || generateStorefrontProductSlug(product.name) || product.id;
+    serializeStorefrontProductPathSegment(product.slug ?? '') ||
+    generateStorefrontProductSlug(product.name) ||
+    product.id;
   const categorySlug =
     product.categories?.slug || product.category_slug || product.categorySlug;
 

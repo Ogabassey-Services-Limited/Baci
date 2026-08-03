@@ -22,4 +22,19 @@ describe('getStorefrontProductPath', () => {
       })
     ).toBe('/smartwatches/watch');
   });
+
+  it.each([
+    ['raw whitespace', '   '],
+    ['encoded whitespace', '%20%20'],
+  ])('falls back before emitting a path segment for %s slugs', (_label, whitespaceSlug) => {
+    expect(
+      getStorefrontProductPath({
+        id: 'watch-1',
+        name: 'Watch',
+        slug: whitespaceSlug,
+        category_slug: whitespaceSlug,
+        categories: { slug: whitespaceSlug },
+      })
+    ).toBe('/products/watch');
+  });
 });

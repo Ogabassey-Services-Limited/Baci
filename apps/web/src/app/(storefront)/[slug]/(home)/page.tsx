@@ -15,7 +15,7 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { buildFactualStorefrontDescription } from '@/lib/storefront-seo/build-factual-storefront-description';
 import { buildHomeSeoDecision } from '@/lib/storefront-seo/build-home-seo-decision';
-import { toNextRobotsMetadata } from '@/lib/storefront-seo/seo-indexing-metadata';
+import { toNextRobotsMetadata } from '@/lib/storefront-seo/to-next-robots-metadata';
 import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 

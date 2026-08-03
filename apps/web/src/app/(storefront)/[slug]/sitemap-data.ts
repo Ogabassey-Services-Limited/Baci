@@ -16,7 +16,8 @@ import {
   resolveRouteIdentifier,
 } from '@/lib/storefront-route-identifier';
 import { buildProductSeoDecision } from '@/lib/storefront-seo/build-product-seo-decision';
-import { isSeoSitemapEligible } from '@/lib/storefront-seo/seo-indexing-metadata';
+import { isSeoSitemapEligible } from '@/lib/storefront-seo/is-seo-sitemap-eligible';
+import { isStorefrontSitemapPublished } from '@/lib/storefront-seo/is-storefront-sitemap-published';
 import { toProductIndexingFacts } from '@/lib/storefront-seo/to-product-indexing-facts';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
@@ -25,15 +26,11 @@ import {
   buildProductSitemapEntry,
   type ProductWithCategory,
 } from './build-product-sitemap-entry';
-import {
-  getStaticSitemapEntries,
-  getTrustPolicySitemapEntries,
-} from './storefront-static-sitemap-entries';
+import { getStaticSitemapEntries } from './get-static-sitemap-entries';
+import { getTrustPolicySitemapEntries } from './get-trust-policy-sitemap-entries';
 
-export {
-  getStaticSitemapEntries,
-  getTrustPolicySitemapEntries,
-} from './storefront-static-sitemap-entries';
+export { getStaticSitemapEntries } from './get-static-sitemap-entries';
+export { getTrustPolicySitemapEntries } from './get-trust-policy-sitemap-entries';
 
 const SITEMAP_QUERY_PAGE_SIZE = 1000;
 // Sitemap spec caps a single file at 50,000 URLs. Leave headroom so the
@@ -206,6 +203,10 @@ export async function getProductSitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   const products: ProductWithCategory[] = [];
   let from = 0;
 
@@ -266,6 +267,10 @@ export async function getCategorySitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   const { data: categories, error } = await supabase
     .from('categories')
     .select('id, slug, updated_at, is_active, parent_id')
@@ -360,6 +365,10 @@ export async function getRepairsSitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   if (!isRepairsCatalogEnabledForMerchant(merchant)) {
     return [];
   }
@@ -437,6 +446,10 @@ function getRawProductCategorySlug(
 export async function getCommercialSupportSitemapEntries(
   context: StorefrontSitemapContext
 ): Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(context.merchant)) {
+    return [];
+  }
+
   const categoryEntries =
     await getCommercialSupportCategorySitemapEntries(context);
   const commercialEntries: MetadataRoute.Sitemap = [];
@@ -530,6 +543,10 @@ export function getSitemapIndexLinks(
   context: StorefrontSitemapContext
 ): string[] {
   const { merchant, storeUrl } = context;
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   const links = [
     `${storeUrl}/sitemap/static.xml`,
     `${storeUrl}/sitemap/products.xml`,
@@ -560,6 +577,10 @@ export function getNamedSitemapEntries(
   context: StorefrontSitemapContext,
   id: string
 ): MetadataRoute.Sitemap | Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(context.merchant)) {
+    return [];
+  }
+
   switch (id) {
     case 'static':
       return getStaticAndTrustSitemapEntries(context);

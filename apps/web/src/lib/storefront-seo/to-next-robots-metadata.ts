@@ -6,7 +6,3 @@ export function toNextRobotsMetadata(
 ): Metadata['robots'] {
   return { index: decision.index, follow: true };
 }
-
-export function isSeoSitemapEligible(decision: SeoIndexingDecision): boolean {
-  return decision.index;
-}
