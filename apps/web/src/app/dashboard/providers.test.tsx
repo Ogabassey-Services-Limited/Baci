@@ -24,20 +24,6 @@ vi.mock('@/contexts/auth-context', () => ({
     authProviderMock(props),
 }));
 
-vi.mock('next-themes', () => ({
-  ThemeProvider: ({
-    children,
-    nonce,
-  }: {
-    children: React.ReactNode;
-    nonce?: string;
-  }) => (
-    <section aria-label="Theme Provider" data-nonce={nonce}>
-      {children}
-    </section>
-  ),
-}));
-
 vi.mock('@/contexts/NonceProvider', () => ({
   NonceProvider: ({
     children,
@@ -130,18 +116,6 @@ describe('DashboardProviders', () => {
     expect(nonceProvider).toContainElement(screen.getByText('Content'));
   });
 
-  it('forwards the nonce to ThemeProvider', () => {
-    render(
-      <DashboardProviders nonce="nonce-123">
-        <div>Content</div>
-      </DashboardProviders>
-    );
-
-    expect(
-      screen.getByRole('region', { name: 'Theme Provider' })
-    ).toHaveAttribute('data-nonce', 'nonce-123');
-  });
-
   it('mounts CsrfInitializer for CSRF token initialization', () => {
     render(
       <DashboardProviders>
@@ -188,18 +162,6 @@ describe('DashboardProviders', () => {
     expect(authProviderMock).toHaveBeenCalledWith(
       expect.objectContaining({ initialUser: undefined })
     );
-  });
-
-  it('wraps children in ThemeProvider', () => {
-    render(
-      <DashboardProviders>
-        <div>Content</div>
-      </DashboardProviders>
-    );
-
-    expect(
-      screen.getByRole('region', { name: 'Theme Provider' })
-    ).toBeInTheDocument();
   });
 
   it('opts the dashboard route into Framer nonce support', () => {
