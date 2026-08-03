@@ -50,6 +50,18 @@ describe('parseSantaAction', () => {
     });
   });
 
+  it('parses a non-NGN currency code suffix', () => {
+    const result = parseSantaAction(
+      'ACTION:ADD_TO_CART|PRODUCT:Phone|PRICE:1,000 GHS'
+    );
+
+    expect(result).toEqual({
+      type: 'ADD_TO_CART',
+      productName: 'Phone',
+      price: 1000,
+    });
+  });
+
   it('trims surrounding whitespace from the product name', () => {
     const result = parseSantaAction(
       'ACTION:ADD_TO_CART|PRODUCT:  MacBook Air  |PRICE:999000'

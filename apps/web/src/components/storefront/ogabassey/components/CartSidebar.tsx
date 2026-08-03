@@ -106,7 +106,11 @@ export const CartSidebar: React.FC = () => {
 
   // Track ViewCart event when sidebar opens
   useEffect(() => {
-    if (isCartOpen && displayCart.length > 0) {
+    if (
+      isCartOpen &&
+      displayCart.length > 0 &&
+      cartMerchantContextMatches
+    ) {
       // Map cart items to Product structure expected by analytics
       const analyticsProducts = displayCart.map((item) => ({
         product: {
@@ -119,13 +123,19 @@ export const CartSidebar: React.FC = () => {
         quantity: item.quantity,
       }));
 
-      analytics.viewCart(analyticsProducts, 'NGN', {
-        merchantId: cartMerchantContextMatches ? merchant?.id || '' : '',
+      analytics.viewCart(analyticsProducts, merchant?.payout_currency ?? 'NGN', {
+        merchantId: merchant?.id || '',
         // If we had user data context, we would pass it here
         // userData: { email: user?.email, ... }
       });
     }
-  }, [isCartOpen, cart, cartMerchantContextMatches, merchant?.id]);
+  }, [
+    isCartOpen,
+    cart,
+    cartMerchantContextMatches,
+    merchant?.id,
+    merchant?.payout_currency,
+  ]);
 
   if (!isCartOpen) return null;
 

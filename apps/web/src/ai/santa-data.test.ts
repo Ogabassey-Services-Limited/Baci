@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateSantaMaxDiscountPercentage,
+  formatSantaProductPrice,
   type ProductRow,
   selectSantaCatalogProducts,
 } from './santa-data';
@@ -28,5 +29,15 @@ describe('Santa catalog helpers', () => {
   it('keeps discount safety margins proportional across currencies', () => {
     expect(calculateSantaMaxDiscountPercentage(1000, 700)).toBe(29);
     expect(calculateSantaMaxDiscountPercentage(10_000_000, 7_000_000)).toBe(29);
+  });
+
+  it('formats action prices with a parser-safe currency code suffix', () => {
+    expect(
+      formatSantaProductPrice(1000, {
+        code: 'GHS',
+        locale: 'en-GH',
+        symbol: 'GH₵',
+      })
+    ).toBe('1,000 GHS');
   });
 });

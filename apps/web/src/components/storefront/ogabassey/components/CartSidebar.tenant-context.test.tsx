@@ -111,6 +111,7 @@ vi.mock('next/link', () => ({
 }));
 
 import { CartSidebar } from './CartSidebar';
+import { analytics } from '@/lib/analytics';
 
 describe('CartSidebar tenant context', () => {
   beforeEach(() => {
@@ -133,5 +134,6 @@ describe('CartSidebar tenant context', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^negotiate$/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/assurance|protection/i)).not.toBeInTheDocument();
+    expect(analytics.viewCart).not.toHaveBeenCalled();
   });
 });

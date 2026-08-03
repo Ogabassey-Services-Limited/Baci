@@ -54,6 +54,13 @@ export function calculateSantaMaxDiscountPercentage(
   return Math.max(Math.min(discountPercentage, 40), 0);
 }
 
+export function formatSantaProductPrice(
+  price: number,
+  currency: CurrencyConfig
+): string {
+  return `${price.toLocaleString(currency.locale)} ${currency.code}`;
+}
+
 /**
  * Fetch and bucket products returning raw array
  */
@@ -126,9 +133,9 @@ const formatSantaCatalog = async (
           price,
           costPrice
         );
-        return `*   ${productName}: ${currency.symbol}${price.toLocaleString(currency.locale)} (Max Discount: ${safeDiscount}%) [HAS_COST]`;
+        return `*   ${productName}: ${formatSantaProductPrice(price, currency)} (Max Discount: ${safeDiscount}%) [HAS_COST]`;
       }
-      return `*   ${productName}: ${currency.symbol}${price.toLocaleString(currency.locale)} (Max Discount: 40%) [FLEX]`;
+      return `*   ${productName}: ${formatSantaProductPrice(price, currency)} (Max Discount: 40%) [FLEX]`;
     })
     .join('\n');
 };
