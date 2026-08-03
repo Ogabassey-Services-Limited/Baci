@@ -1,3 +1,4 @@
+import { OrderShipmentBookingError } from '../order-shipment-booking-utils';
 import type { BookingRequest, ShipmentBookingResult } from '../types';
 import type { GiglApiClient } from './gigl.auth';
 import {
@@ -164,7 +165,7 @@ export async function bookGiglShipment(
               PickupOptions: selectedRate.pickupOption,
               IsPriorityShipment:
                 selectedRate.deliveryType === GiglDeliveryType.GoFaster,
-              IsCashOnDelivery: 0,
+              IsCashOnDelivery: false,
               CashOnDeliveryAmount: 0,
               PricingStrategy: GIGL_PRICING_STRATEGY,
               IsFromAgility: 0,
@@ -192,6 +193,14 @@ export async function bookGiglShipment(
         status: response.status,
         error,
       });
+      if (response.status === 400) {
+        throw new OrderShipmentBookingError(
+          'GIGL rejected the shipment booking request. Please correct the order details and try again.',
+          400,
+          'GIGL_BOOKING_VALIDATION_FAILED'
+        );
+      }
+
       throw new Error('Failed to book GIGL shipment');
     }
 

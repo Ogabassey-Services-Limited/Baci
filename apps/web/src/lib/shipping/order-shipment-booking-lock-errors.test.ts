@@ -1,0 +1,23 @@
+import { describe, expect, it } from 'vitest';
+import { shouldReleaseBookingLock } from './order-shipment-booking-lock-errors';
+import { OrderShipmentBookingError } from './order-shipment-booking-utils';
+
+describe('shouldReleaseBookingLock', () => {
+  it('releases a lock for recoverable booking errors only', () => {
+    expect(
+      shouldReleaseBookingLock(
+        new OrderShipmentBookingError(
+          'Requote required',
+          400,
+          'QUOTE_NOT_FOUND'
+        )
+      )
+    ).toBe(true);
+    expect(
+      shouldReleaseBookingLock(
+        new OrderShipmentBookingError('Provider failed', 500, 'PROVIDER_ERROR')
+      )
+    ).toBe(false);
+    expect(shouldReleaseBookingLock(new Error('Provider failed'))).toBe(false);
+  });
+});

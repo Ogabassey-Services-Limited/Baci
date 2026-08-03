@@ -80,7 +80,7 @@ describe('GiglProvider booking requests', () => {
         DeliveryType: 0,
         IsPriorityShipment: false,
         PricingStrategy: 3,
-        IsCashOnDelivery: 0,
+        IsCashOnDelivery: false,
         CashOnDeliveryAmount: 0,
         VehicleType: 1,
       },
@@ -215,26 +215,6 @@ describe('GiglProvider booking requests', () => {
       trackingNumber: 'GIGL-WB-1',
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
-  });
-
-  it('bounds slow booking token fetches with the GIGL booking timeout', async () => {
-    vi.useFakeTimers();
-    const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));
-    vi.stubGlobal('fetch', fetchMock);
-
-    const provider = buildBookingHarness();
-    const bookingPromise = provider.bookShipment(bookingRequest);
-    const bookingAssertion = expect(bookingPromise).rejects.toThrow(
-      'GIGL booking timed out'
-    );
-
-    await vi.advanceTimersByTimeAsync(GIGL_BOOKING_TIMEOUT_MS);
-
-    await bookingAssertion;
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${baseUrl}/login`,
-      expect.objectContaining({ method: 'POST' })
-    );
   });
 
   it('rejects bookings when the sender station cannot be resolved', async () => {

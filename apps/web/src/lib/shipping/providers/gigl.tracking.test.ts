@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { GIGL_TRACKING_RESPONSE_MAX_BYTES } from './gigl.constants';
 import {
   baseUrl,
   jsonResponse,
@@ -76,7 +77,7 @@ describe('GiglProvider tracking requests', () => {
       rawStatus: 'Shipment delivered',
     });
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${baseUrl}/track/mobileShipment?Waybill=GIGL123`
+      `${baseUrl}/track/mobileShipment?Waybill=GIGL123&fetchOption=2`
     );
   });
 
@@ -145,6 +146,29 @@ describe('GiglProvider tracking requests', () => {
     );
   });
 
+  it('rejects a tracking response that exceeds the configured response limit', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponse))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(trackingEnvelope), {
+          status: 200,
+          headers: {
+            'Content-Length': String(GIGL_TRACKING_RESPONSE_MAX_BYTES + 1),
+            'Content-Type': 'application/json',
+          },
+        })
+      );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.trackShipment('GIGL123')).rejects.toThrow(
+      'GIGL response exceeds maximum size'
+    );
+  });
+
   it('rejects unsuccessful tracking envelopes', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -192,7 +216,7 @@ describe('GiglProvider tracking requests', () => {
     );
   });
 
-  it('treats null tracking events as an empty tracking history', async () => {
+  it('rejects null tracking events instead of regressing shipment status', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
@@ -215,10 +239,9 @@ describe('GiglProvider tracking requests', () => {
     const { GiglProvider } = await import('./gigl');
     const provider = new GiglProvider();
 
-    await expect(provider.trackShipment('GIGL123')).resolves.toMatchObject({
-      status: 'pending',
-      events: [],
-    });
+    await expect(provider.trackShipment('GIGL123')).rejects.toThrow(
+      'GIGL tracking result has no valid tracking events'
+    );
   });
 
   it('bounds tracking token fetches with the GIGL tracking timeout', async () => {

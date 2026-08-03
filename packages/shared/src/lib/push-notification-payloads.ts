@@ -116,7 +116,8 @@ export function getAdminNotificationNavigationTarget(
 
   switch (type) {
     case 'new_order':
-    case 'payment_received': {
+    case 'payment_received':
+    case 'shipment_tracking': {
       const orderId = readString(payload, 'order_id', 'orderId');
       return orderId
         ? { screen: 'order', params: { id: orderId } }
@@ -167,7 +168,8 @@ export function getStorefrontNotificationNavigationTarget(
 
   switch (type) {
     case 'order_update':
-    case 'insurance_activation': {
+    case 'insurance_activation':
+    case 'shipment_tracking': {
       const orderId = readString(payload, 'orderId', 'order_id');
       return orderId
         ? { screen: 'order-details', params: { id: orderId } }

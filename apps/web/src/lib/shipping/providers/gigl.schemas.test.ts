@@ -2,6 +2,33 @@ import { describe, expect, it } from 'vitest';
 import { giglSchemas } from './gigl.schemas';
 
 describe('giglSchemas', () => {
+  it('preserves documented tracking identifiers and UTC timestamps', () => {
+    const event = giglSchemas.trackingEvent.parse({
+      MobileShipmentTrackingId: 3738770,
+      ShipmentTrackingId: 91234,
+      Status: 'MAPT',
+      DateTimeUtc: '2026-03-02T10:59:41.000Z',
+    });
+
+    expect(event.MobileShipmentTrackingId).toBe(3738770);
+    expect(event.ShipmentTrackingId).toBe(91234);
+    expect(event.DateTimeUtc).toBe('2026-03-02T10:59:41.000Z');
+  });
+
+  it('rejects tracking histories over the per-shipment event bound', () => {
+    const result = giglSchemas.trackingData.safeParse([
+      {
+        Waybill: 'GIGL123',
+        MobileShipmentTrackings: Array.from({ length: 501 }, (_, index) => ({
+          Status: 'MAPT',
+          DateTimeUtc: `2026-03-02T10:${String(index % 60).padStart(2, '0')}:00.000Z`,
+        })),
+      },
+    ]);
+
+    expect(result.success).toBe(false);
+  });
+
   it('accepts partial tracking shipments with nullable status reasons', () => {
     const data = giglSchemas.trackingData.parse([
       {

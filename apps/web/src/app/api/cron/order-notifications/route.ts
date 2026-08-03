@@ -4,6 +4,7 @@ import { getCronSecret } from '@/env';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
+import { createCronBatchSizeSchema } from '@/schemas/cron-batch-size';
 import {
   claimedOrderNotificationOutboxRowSchema,
   createOrderNotificationCronSummary,
@@ -13,12 +14,10 @@ import {
 export const maxDuration = 60;
 const DEFAULT_BATCH_SIZE = 1;
 const MAX_BATCH_SIZE = 10;
-const batchSizeSchema = z
-  .preprocess(
-    (value) => value ?? DEFAULT_BATCH_SIZE,
-    z.coerce.number().finite().transform(Math.trunc)
-  )
-  .transform((value) => Math.min(Math.max(value, 1), MAX_BATCH_SIZE));
+const batchSizeSchema = createCronBatchSizeSchema({
+  defaultSize: DEFAULT_BATCH_SIZE,
+  maxSize: MAX_BATCH_SIZE,
+});
 const claimedRowsSchema = z.array(claimedOrderNotificationOutboxRowSchema);
 
 export async function GET(request: Request) {

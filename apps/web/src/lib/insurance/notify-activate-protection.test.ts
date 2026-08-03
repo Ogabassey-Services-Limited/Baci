@@ -71,6 +71,25 @@ describe('maybeNotifyActivateProtection', () => {
     );
   });
 
+  it('passes the merchant scope to the protection push', async () => {
+    mockNotifyActivateProtection.mockResolvedValue(SENT_OK);
+    resultQueue = [
+      { data: ORDER },
+      { data: [PENDING_POLICY] },
+      { data: CUSTOMER },
+      { data: { id: 'policy-1' } },
+    ];
+
+    await maybeNotifyActivateProtection('order-1', 'merchant-1');
+
+    expect(mockNotifyActivateProtection).toHaveBeenCalledWith(
+      'user-1',
+      'order-1',
+      'OG-1001',
+      { merchantId: 'merchant-1' }
+    );
+  });
+
   it('does not nudge when the policy claim is already terminal (paid/declined)', async () => {
     resultQueue = [
       { data: ORDER },

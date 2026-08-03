@@ -44,6 +44,7 @@ export async function notifyWalletCredited({
 
   const resolvedCurrency = currency ?? DEFAULT_WALLET_CURRENCY;
   let deliveryStarted = false;
+  let deliveryRejected = false;
 
   try {
     const supabase = createAdminClient();
@@ -92,6 +93,9 @@ export async function notifyWalletCredited({
         onDeliveryStart: () => {
           deliveryStarted = true;
         },
+        onDeliveryRejected: () => {
+          deliveryRejected = true;
+        },
       }
     );
     if (result.sent > 0) {
@@ -106,9 +110,9 @@ export async function notifyWalletCredited({
       return { status: 'sent' };
     }
     if (result.failed > 0 || result.errors.length > 0) {
-      return deliveryStarted
-        ? { status: 'delivery_unknown' }
-        : { status: 'retryable_error' };
+      return deliveryRejected || !deliveryStarted
+        ? { status: 'retryable_error' }
+        : { status: 'delivery_unknown' };
     }
     return { status: 'not_applicable' };
   } catch (error) {
@@ -117,8 +121,8 @@ export async function notifyWalletCredited({
       customerId,
       error: error instanceof Error ? error.message : error,
     });
-    return deliveryStarted
-      ? { status: 'delivery_unknown' }
-      : { status: 'retryable_error' };
+    return deliveryRejected || !deliveryStarted
+      ? { status: 'retryable_error' }
+      : { status: 'delivery_unknown' };
   }
 }

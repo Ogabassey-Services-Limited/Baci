@@ -130,6 +130,9 @@ export function useEditOrderController() {
         orderId,
         payload: buildEditOrderPayload({
           customer: baseController.customer,
+          customerSelectionChanged: order
+            ? order.customer_id !== baseController.customer.id
+            : false,
           deliveryInfo: baseController.deliveryInfo,
           discount: baseController.discount,
           notes: baseController.notes,

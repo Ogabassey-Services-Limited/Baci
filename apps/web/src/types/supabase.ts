@@ -11059,6 +11059,7 @@ export type Database = {
           last_used_at: string | null;
           merchant_id: string;
           platform: string;
+          shipment_update_capability: number | null;
           token: string;
           updated_at: string | null;
           user_id: string | null;
@@ -11076,6 +11077,7 @@ export type Database = {
           last_used_at?: string | null;
           merchant_id: string;
           platform: string;
+          shipment_update_capability?: number | null;
           token: string;
           updated_at?: string | null;
           user_id?: string | null;
@@ -11093,6 +11095,7 @@ export type Database = {
           last_used_at?: string | null;
           merchant_id?: string;
           platform?: string;
+          shipment_update_capability?: number | null;
           token?: string;
           updated_at?: string | null;
           user_id?: string | null;
@@ -13301,6 +13304,62 @@ export type Database = {
         };
         Relationships: [];
       };
+      shipment_tracking_events: {
+        Row: {
+          created_at: string;
+          description: string;
+          id: string;
+          location: string | null;
+          normalized_status: string;
+          occurred_at: string;
+          provider: string;
+          provider_event_id: string | null;
+          provider_event_key: string;
+          raw_status: string;
+          shipment_id: string;
+          tracking_epoch_id: string;
+          tracking_number: string;
+        };
+        Insert: {
+          created_at?: string;
+          description: string;
+          id?: string;
+          location?: string | null;
+          normalized_status: string;
+          occurred_at: string;
+          provider: string;
+          provider_event_id?: string | null;
+          provider_event_key: string;
+          raw_status: string;
+          shipment_id: string;
+          tracking_epoch_id: string;
+          tracking_number: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          id?: string;
+          location?: string | null;
+          normalized_status?: string;
+          occurred_at?: string;
+          provider?: string;
+          provider_event_id?: string | null;
+          provider_event_key?: string;
+          raw_status?: string;
+          shipment_id?: string;
+          tracking_epoch_id?: string;
+          tracking_number?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shipment_tracking_events_shipment_id_fkey';
+            columns: ['shipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'shipments';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       shipping_quotes: {
         Row: {
           carrier_name: string | null;
@@ -15259,6 +15318,82 @@ export type Database = {
           metadata: Json;
           order_id: string;
         }[];
+      };
+      claim_due_gigl_tracking_monitors: {
+        Args: { p_limit: number; p_worker_id: string };
+        Returns: {
+          order_id: string;
+          shipment_id: string;
+          state: string;
+          tracking_epoch_id: string;
+          tracking_number: string;
+        }[];
+      };
+      release_gigl_tracking_claim: {
+        Args: {
+          p_shipment_id: string;
+          p_tracking_epoch_id: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
+      };
+      pause_gigl_tracking_monitor: {
+        Args: {
+          p_error: string;
+          p_shipment_id: string;
+          p_tracking_epoch_id: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
+      };
+      claim_shipment_tracking_notifications: {
+        Args: { p_limit: number; p_worker_id: string };
+        Returns: {
+          attempt_count: number;
+          audience: string;
+          id: string;
+          max_attempts: number;
+          merchant_id: string;
+          notification_kind: string;
+          order_id: string;
+          shipment_id: string;
+          tracking_epoch_id: string;
+          tracking_event_id: string;
+        }[];
+      };
+      begin_shipment_tracking_notification_dispatch: {
+        Args: { p_id: string; p_worker_id: string };
+        Returns: boolean;
+      };
+      complete_shipment_tracking_notification: {
+        Args: {
+          p_error?: string | null;
+          p_id: string;
+          p_outcome: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
+      };
+      apply_gigl_tracking_result: {
+        Args: {
+          p_actual_delivery: string | null;
+          p_current_location: string | null;
+          p_events: Json;
+          p_shipment_id: string;
+          p_status: string;
+          p_tracking_epoch_id: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
+      };
+      record_gigl_tracking_failure: {
+        Args: {
+          p_error: string;
+          p_shipment_id: string;
+          p_tracking_epoch_id: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
       };
       claim_order_shipment_booking: {
         Args: {
@@ -18192,6 +18327,7 @@ export type Database = {
           p_device_name?: string;
           p_merchant_id: string;
           p_platform: string;
+          p_shipment_update_capability?: number;
           p_token: string;
         };
         Returns: string;

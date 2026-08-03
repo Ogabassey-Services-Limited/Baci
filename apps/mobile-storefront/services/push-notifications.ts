@@ -152,6 +152,7 @@ export async function savePushTokenToServer(
       p_device_name: Device?.modelName || 'Unknown',
       p_app_type: 'storefront',
       p_build_number: resolveNativeBuildNumber(),
+      p_shipment_update_capability: 1,
     });
 
     if (error) {

@@ -1,3 +1,6 @@
+import { EXPECTED_CATALOG_CACHE_PENDING_SOURCES } from './expected-catalog-cache-pending-sources.test-support';
+import { EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES } from './expected-gigl-tracking-hardening-pending-sources.test-support';
+import { EXPECTED_GIGL_TRACKING_PENDING_SOURCES } from './expected-gigl-tracking-pending-sources.test-support';
 import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
 import { PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES } from './expected-pending-payment-ingress-sources.test-support';
 import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
@@ -208,71 +211,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260725164445_restore_merchant_owner_row_select_branch.sql',
     sha256: '9823a697f756bb2865a5de62d2a202d2bf348b284ead1d5cee9c6838a477ca27',
   },
-  {
-    repositoryPath:
-      'supabase/migrations/20260726103000_atomic_category_hierarchy_lifecycle.sql',
-    sha256: '0edb40c674e426a144b2ab9e7de455a307a0f3920193576867e4df8bc1041da2',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260726110000_add_merchant_signup_policy_health_rpc.sql',
-    sha256: '767937b88573d95bfaacb4777082d4955aca38c3c41b8aa2dee0e5787bcce6bb',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql',
-    sha256: '57037c2a309da200410ddbb167cd58183f9a3977a9c285815f5d81af99fbc5c3',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727033000_cache_invalidation_outbox.sql',
-    sha256: '429d8681f42744b359cde853299cc7d0272238848c5147e228dce86e2c570d81',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727090000_correct_cache_invalidation_outbox.sql',
-    sha256: '43c66d01aae976aa4c755cd591f8d22405da5aa0a4cd95d64f57501859e7e680',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727105959_archive_cross_tenant_product_category_memberships.sql',
-    sha256: '4ef89a73c4b71df4a7187ff61091de5447a3d500142c024fc82969cc79c5c1a6',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727110000_complete_cache_invalidation_trigger_coverage.sql',
-    sha256: 'fdb1e8751714cc7eff59ae88a1452e9c1cf62292bac817c30865fee716a0bbc3',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727150000_exact_product_and_feature_cache_invalidation.sql',
-    sha256: '5e32cabd902912727ade703ae12c5a9b563513cbf5e0659efeda662b0c622810',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727170000_fix_cache_invalidation_outbox_fairness.sql',
-    sha256: '95996acb8eeb804f8c63e817731fdd106955b5974cf83044784efe53b0891be8',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727170936_add_product_offer_and_key_spec_cache_invalidation.sql',
-    sha256: '0c08f39e96aaefad73ede1037402107c8944b19398eafcb88027e614b3c7b10d',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727184356_enforce_ordered_exact_cache_and_membership_ownership.sql',
-    sha256: 'd4c7e5484a34f6496bd749f381e8b647762e975bfd1e9598e2a58fd515b99d38',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727185139_preserve_exact_product_identifier_case.sql',
-    sha256: '35225e92f3841ea6a1e802efb3acae85ed2720ba6ddf33e5839976cda7c44a89',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260727195209_allow_platform_admin_read_product_category_archive.sql',
-    sha256: '2f3f56e70ad024272a6a0c3fc5b4c0ffc472f29e259319a4e1631acc4667c65a',
-  },
+  ...EXPECTED_CATALOG_CACHE_PENDING_SOURCES,
+  ...EXPECTED_GIGL_TRACKING_PENDING_SOURCES.map(([filename, sha256]) => ({
+    repositoryPath: `supabase/migrations/${filename}`,
+    sha256,
+  })),
   {
     repositoryPath:
       'supabase/migrations/20260728091958_provision_mobile_merchant_v2.sql',
@@ -293,9 +236,27 @@ export const EXPECTED_PENDING_SOURCES = [
     sha256: '93d4855c6b4a778c91f78b50ea1b83b74c9786dc7d4e97a99c90b97924a71620',
   },
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(0, 2),
+  {
+    repositoryPath:
+      'supabase/migrations/20260731134500_fix_shipment_booking_lock_column_ambiguity.sql',
+    sha256: '830515212cfa19d2aa38a5c33964ef5d06d149084c8fdd7054d7cc27d8653183',
+  },
   ...EXPECTED_PENDING_TAIL_SOURCES.paymentIngressFoundation,
+  ...EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES.slice(0, 3).map(
+    ([filename, sha256]) => ({
+      repositoryPath: `supabase/migrations/${filename}`,
+      sha256,
+    })
+  ),
   ...RECENT_PENDING_SOURCES.slice(6),
-  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3, 8),
+  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3),
   ...EXPECTED_PENDING_TAIL_SOURCES.paymentWebhookEvidence,
-  ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(8),
-];
+  ...EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES.slice(3).map(
+    ([filename, sha256]) => ({
+      repositoryPath: `supabase/migrations/${filename}`,
+      sha256,
+    })
+  ),
+].sort((left, right) =>
+  left.repositoryPath.localeCompare(right.repositoryPath)
+);

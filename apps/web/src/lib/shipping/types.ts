@@ -1,3 +1,18 @@
+import type { NormalizedShipmentStatus } from './tracking-types';
+
+export type { DeliveryTier, ProviderConfig } from './shipping-config';
+export {
+  mapToDeliveryTier,
+  PROVIDER_CONFIGS,
+  TIER_DISPLAY_NAMES,
+} from './shipping-config';
+export type {
+  NormalizedShipmentStatus,
+  TrackingEvent,
+  TrackingResult,
+} from './tracking-types';
+export { SHIPMENT_STATUS_LABELS } from './tracking-types';
+
 /**
  * Shipping Provider Types
  * Unified interfaces for GIGL and Topship integration
@@ -169,59 +184,13 @@ export interface ShipmentBookingResult {
 }
 
 // =============================================================================
-// TRACKING TYPES
+// DATABASE TYPES (matching Supabase schema)
 // =============================================================================
 
-export interface TrackingEvent {
-  status: string;
-  description: string;
-  location?: string;
-  timestamp: Date;
-  rawStatus?: string; // Original status from provider
-}
-
-export interface TrackingResult {
-  provider: ShippingProviderCode;
-  trackingNumber: string;
-  status: NormalizedShipmentStatus;
-  carrierName: string;
-  estimatedDelivery?: Date;
-  actualDelivery?: Date;
-  events: TrackingEvent[];
-  isStationPickup?: boolean;
-  pickupStationName?: string;
-  pickupStationAddress?: string;
-}
-
-// =============================================================================
-// STATUS TYPES
-// =============================================================================
-
-export type NormalizedShipmentStatus =
-  | 'pending'
-  | 'booked'
-  | 'pickup_scheduled'
-  | 'picked_up'
-  | 'in_transit'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'cancelled'
-  | 'failed'
-  | 'returned';
-
-export const SHIPMENT_STATUS_LABELS: Record<NormalizedShipmentStatus, string> =
-  {
-    pending: 'Pending',
-    booked: 'Booked',
-    pickup_scheduled: 'Pickup Scheduled',
-    picked_up: 'Picked Up',
-    in_transit: 'In Transit',
-    out_for_delivery: 'Out for Delivery',
-    delivered: 'Delivered',
-    cancelled: 'Cancelled',
-    failed: 'Failed',
-    returned: 'Returned',
-  };
+export type {
+  ShipmentRecord,
+  ShippingQuoteRecord,
+} from './shipping-record-types';
 
 // =============================================================================
 // CANCELLATION TYPES
@@ -245,172 +214,11 @@ export interface SelfFulfillmentData {
 }
 
 // =============================================================================
-// DATABASE TYPES (matching Supabase schema)
-// =============================================================================
-
-export interface ShipmentRecord {
-  id: string;
-  order_id: string;
-  merchant_id: string;
-  provider_code: ShippingProviderCode;
-  provider_shipment_id: string | null;
-  tracking_number: string | null;
-  carrier_name: string | null;
-  service_tier: string | null;
-  quoted_price: number | null;
-  currency: string;
-  status: NormalizedShipmentStatus;
-  estimated_delivery: string | null;
-  actual_delivery: string | null;
-  label_url: string | null;
-  is_station_pickup: boolean;
-  // Matches the baseline Supabase columns; pickup_station_* aliases do not exist in the database.
-  station_name: string | null;
-  station_address: string | null;
-  sender_address: ShippingAddress;
-  receiver_address: ShippingAddress;
-  items: ShipmentItem[];
-  provider_response: unknown;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ShippingQuoteRecord {
-  id: string;
-  session_id: string;
-  provider_code: ShippingProviderCode | 'FALLBACK';
-  service_tier: string | null;
-  carrier_name: string | null;
-  price: number;
-  estimated_days: number | null;
-  provider_rate_id: string | null;
-  sender_city: string | null;
-  sender_state: string | null;
-  receiver_city: string | null;
-  receiver_state: string | null;
-  receiver_country: string;
-  total_weight: number | null;
-  insurance_included: boolean;
-  is_station_pickup: boolean;
-  // Matches the baseline Supabase columns; pickup_station_* aliases do not exist in the database.
-  station_name: string | null;
-  station_address: string | null;
-  expires_at: string;
-  raw_response: unknown;
-  created_at: string;
-}
-
-// =============================================================================
 // LOCATION TYPES (for address lookup)
 // =============================================================================
 
-export interface NigerianState {
-  name: string;
-  code: string;
-  cities: NigerianCity[];
-}
-
-export interface NigerianCity {
-  name: string;
-  stationId?: number; // GIGL station ID
-  stationName?: string; // GIGL station name
-}
-
-export interface UnifiedLocation {
-  state: string;
-  city: string;
-  displayName?: string;
-  stationId?: number;
-  stationName?: string;
-  latitude?: number;
-  longitude?: number;
-}
-
-// =============================================================================
-// PROVIDER CONFIG TYPES
-// =============================================================================
-
-export interface ProviderConfig {
-  code: ShippingProviderCode;
-  name: string;
-  displayName: string; // What customers see
-  enabled: boolean;
-  supportsInternational: boolean;
-  supportsDomestic: boolean;
-}
-
-export const PROVIDER_CONFIGS: Record<ShippingProviderCode, ProviderConfig> = {
-  GIGL: {
-    code: 'GIGL',
-    name: 'GIGL',
-    displayName: 'GIG Logistics',
-    enabled: true,
-    supportsInternational: true,
-    supportsDomestic: true,
-  },
-  TOPSHIP: {
-    code: 'TOPSHIP',
-    name: 'Topship',
-    displayName: 'Topship', // Hidden from customers - show carrier name instead
-    enabled: true,
-    supportsInternational: true,
-    supportsDomestic: true,
-  },
-};
-
-// =============================================================================
-// TIER MAPPING (for customer-friendly display names)
-// =============================================================================
-
-export type DeliveryTier = 'express' | 'standard' | 'economy' | 'premium';
-
-export const TIER_DISPLAY_NAMES: Record<
-  DeliveryTier,
-  { name: string; icon: string }
-> = {
-  express: { name: 'Express Delivery', icon: '⚡' },
-  standard: { name: 'Standard Delivery', icon: '⭐' },
-  economy: { name: 'Economy Delivery', icon: '💰' },
-  premium: { name: 'Premium Delivery', icon: '🚀' },
-};
-
-// Map provider service tiers to unified tiers
-export function mapToDeliveryTier(
-  serviceTier: string,
-  estimatedDays: number
-): DeliveryTier {
-  const tier = serviceTier.toLowerCase();
-
-  // Express/fast options
-  if (
-    tier.includes('express') ||
-    tier.includes('fast') ||
-    tier.includes('priority') ||
-    estimatedDays <= 2
-  ) {
-    return 'express';
-  }
-
-  // Premium options (FedEx, DHL, etc.)
-  if (
-    tier.includes('fedex') ||
-    tier.includes('dhl') ||
-    tier.includes('ups') ||
-    tier.includes('premium')
-  ) {
-    return 'premium';
-  }
-
-  // Budget/economy options
-  if (
-    tier.includes('budget') ||
-    tier.includes('economy') ||
-    tier.includes('lastmile') ||
-    estimatedDays >= 5
-  ) {
-    return 'economy';
-  }
-
-  // Default to standard
-  return 'standard';
-}
+export type {
+  NigerianCity,
+  NigerianState,
+  UnifiedLocation,
+} from './shipping-location-types';

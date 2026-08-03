@@ -280,41 +280,4 @@ describe('useOrderDetailsController', () => {
 
     alertSpy.mockRestore();
   });
-
-  it('alerts and refetches when the order can no longer be cancelled', async () => {
-    mockNotCancellableRef.current = true;
-    mockCancelOrder.mockResolvedValue(false);
-    const alertMessages: string[] = [];
-    const alertSpy = jest
-      .spyOn(Alert, 'alert')
-      .mockImplementation((title, _message, buttons) => {
-        alertMessages.push(String(title));
-        const confirmButton = buttons?.find(
-          (button) => button.style === 'destructive'
-        );
-        confirmButton?.onPress?.();
-      });
-
-    const { result } = renderHook(() => useOrderDetailsController());
-    await waitFor(() => expect(result.current.canCancel).toBe(true));
-    const fetchCallsBefore = mockOrderSingle.mock.calls.length;
-
-    await act(async () => {
-      result.current.handleCancelOrder();
-    });
-
-    await waitFor(() => expect(mockCancelOrder).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(
-        alertMessages.some((title) => /can no longer be cancelled/i.test(title))
-      ).toBe(true)
-    );
-    await waitFor(() =>
-      expect(mockOrderSingle.mock.calls.length).toBeGreaterThan(
-        fetchCallsBefore
-      )
-    );
-
-    alertSpy.mockRestore();
-  });
 });

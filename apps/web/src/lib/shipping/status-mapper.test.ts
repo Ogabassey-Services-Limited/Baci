@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { mapGiglStatus } from './status-mapper';
 
 describe('mapGiglStatus', () => {
+  it('maps documented GIGL short codes to the shared lifecycle statuses', () => {
+    expect(mapGiglStatus('MAPT')).toBe('pickup_scheduled');
+  });
+
   it('normalizes human-readable GIGL delivered statuses', () => {
     expect(mapGiglStatus('Shipment delivered')).toBe('delivered');
     expect(mapGiglStatus('Shipment delivered.')).toBe('delivered');

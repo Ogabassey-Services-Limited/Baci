@@ -40,6 +40,7 @@ export function useOrderDetailsController() {
   const [error, setError] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const trackingChannelRef = useRef<RealtimeChannel | null>(null);
   const cancellation = useCancelOrder(id ?? '');
   const [cancelAttempted, setCancelAttempted] = useState(false);
   const conflictHandledRef = useRef(false);
@@ -142,6 +143,27 @@ export function useOrderDetailsController() {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
+      }
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`order-tracking:${id}`, { config: { private: true } })
+      .on('broadcast', { event: 'shipment_tracking_changed' }, () => {
+        setRefreshToken((token) => token + 1);
+      })
+      .subscribe((status) => {
+        log.debug('Tracking wakeup subscription status:', status);
+      });
+
+    trackingChannelRef.current = channel;
+    return () => {
+      if (trackingChannelRef.current) {
+        supabase.removeChannel(trackingChannelRef.current);
+        trackingChannelRef.current = null;
       }
     };
   }, [id]);
