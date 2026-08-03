@@ -16,7 +16,7 @@ const input = {
 };
 
 describe('cloudflareEvidencePrepare runner validation', () => {
-  it('validates both reviewed runner factories before consuming approval', async () => {
+  it('validates every reviewed runner factory before consuming approval', async () => {
     vi.resetModules();
     const events: string[] = [];
     const verifyPrepareAuthorityMock = vi.fn(async (...args: unknown[]) => {
@@ -84,9 +84,11 @@ describe('cloudflareEvidencePrepare runner validation', () => {
         async (_workspaceRoot, entrypoint, _files, use) => {
           events.push(`factory:${entrypoint}`);
           return use(
-            entrypoint.includes('measurement')
+            entrypoint.includes('readRevocation')
               ? {}
-              : { createMutationDependencies: () => undefined }
+              : entrypoint.includes('measurement')
+                ? { createMeasurementDependencies: () => undefined }
+                : { createMutationDependencies: () => undefined }
           );
         }
       ),
@@ -108,10 +110,11 @@ describe('cloudflareEvidencePrepare runner validation', () => {
         },
         vi.fn()
       )
-    ).rejects.toThrow('measurement runner module is invalid');
+    ).rejects.toThrow('authenticated read-token revocation module is invalid');
     expect(events).toEqual([
       'factory:/workspace/mutation.ts',
       'factory:/workspace/measurement.ts',
+      'factory:/workspace/readRevocation.ts',
     ]);
     expect(verifyPrepareAuthorityMock).toHaveBeenCalledOnce();
     expect(openEvidenceRunMock).not.toHaveBeenCalled();

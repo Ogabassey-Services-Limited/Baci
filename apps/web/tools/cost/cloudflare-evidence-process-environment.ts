@@ -19,6 +19,7 @@ export function prepareEvidenceProcessEnvironment(
     );
   readEvidenceRunnerModuleDescriptor(inherited, 'mutation');
   readEvidenceRunnerModuleDescriptor(inherited, 'measurement');
+  readEvidenceRunnerModuleDescriptor(inherited, 'readRevocation');
   readProtectedMergeIdentityAuthorityModuleDescriptor(inherited);
   const names = [
     'PATH',
@@ -32,6 +33,8 @@ export function prepareEvidenceProcessEnvironment(
     evidenceRunnerModuleEnvironmentNames('mutation').sha256,
     evidenceRunnerModuleEnvironmentNames('measurement').path,
     evidenceRunnerModuleEnvironmentNames('measurement').sha256,
+    evidenceRunnerModuleEnvironmentNames('readRevocation').path,
+    evidenceRunnerModuleEnvironmentNames('readRevocation').sha256,
   ] as const;
   return Object.fromEntries(
     names

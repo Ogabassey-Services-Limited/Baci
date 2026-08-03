@@ -11,6 +11,13 @@ import {
   sep,
 } from 'node:path';
 import { promisify } from 'node:util';
+import {
+  type EvidenceRunnerModuleKind,
+  evidenceRunnerModuleEnvironmentNames,
+} from './cloudflare-evidence-runner-module-environment';
+
+export type { EvidenceRunnerModuleKind } from './cloudflare-evidence-runner-module-environment';
+export { evidenceRunnerModuleEnvironmentNames } from './cloudflare-evidence-runner-module-environment';
 
 const execFileAsync = promisify(execFile);
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -30,7 +37,6 @@ const MODULE_EXTENSIONS = [
 ];
 const BUILTIN_MODULES = new Set(builtinModules);
 
-export type EvidenceRunnerModuleKind = 'mutation' | 'measurement';
 export type EvidenceRunnerModuleDescriptor = Readonly<{
   path: string;
   sha256: string;
@@ -39,20 +45,6 @@ export type ReviewedEvidenceModuleSource = Readonly<{
   path: string;
   source: Uint8Array;
 }>;
-
-const names = Object.freeze({
-  mutation: Object.freeze({
-    path: 'EVIDENCE_MUTATION_RUNNER_MODULE',
-    sha256: 'EVIDENCE_MUTATION_RUNNER_MODULE_SHA256',
-  }),
-  measurement: Object.freeze({
-    path: 'EVIDENCE_MEASUREMENT_RUNNER_MODULE',
-    sha256: 'EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256',
-  }),
-} satisfies Record<
-  EvidenceRunnerModuleKind,
-  Readonly<{ path: string; sha256: string }>
->);
 
 const sha256 = (value: Uint8Array) =>
   createHash('sha256').update(value).digest('hex');
@@ -215,7 +207,7 @@ export function readEvidenceRunnerModuleDescriptor(
   environment: Readonly<Record<string, string | undefined>>,
   kind: EvidenceRunnerModuleKind
 ): EvidenceRunnerModuleDescriptor {
-  const descriptorNames = names[kind];
+  const descriptorNames = evidenceRunnerModuleEnvironmentNames(kind);
   const path = environment[descriptorNames.path];
   const sha256Value = environment[descriptorNames.sha256];
   if (!path || !sha256Value)
@@ -223,12 +215,6 @@ export function readEvidenceRunnerModuleDescriptor(
   const descriptor = { path, sha256: sha256Value };
   assertDescriptor(descriptor);
   return Object.freeze(descriptor);
-}
-
-export function evidenceRunnerModuleEnvironmentNames(
-  kind: EvidenceRunnerModuleKind
-) {
-  return names[kind];
 }
 
 export async function verifyReviewedEvidenceRunnerModule(

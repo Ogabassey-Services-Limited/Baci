@@ -9,8 +9,8 @@ describe('parseMeasurementArguments', () => {
   it('requires a fresh read-only measurement run and has no apply mode', () => {
     const runId = '0123456789abcdef0123456789abcdef';
     expect(parseMeasurementArguments(['--run', runId]).runId).toBe(runId);
-    expect(parseMeasurementArguments(['--revoke-read', runId]).mode).toBe(
-      'revoke-read'
+    expect(() => parseMeasurementArguments(['--revoke-read', runId])).toThrow(
+      'read-only'
     );
     expect(() =>
       parseMeasurementArguments(['--run', runId, '--apply'])

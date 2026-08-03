@@ -215,20 +215,12 @@ export async function preparePrivateCredentialedChild(
   );
   const selectedRunner = selectPrivateEvidenceRunnerDescriptor(
     input.command,
-    journal,
-    input.inherited
+    journal
   );
-  const runner =
-    input.command === 'record-read-revocation'
-      ? await verifyReviewedEvidenceRunnerModule(
-          input.workspaceRoot,
-          journal.toolingMergeSha,
-          selectedRunner.descriptor
-        )
-      : await verifyAuthenticatedEvidenceRunnerModule(
-          input.workspaceRoot,
-          selectedRunner.descriptor
-        );
+  const runner = await verifyAuthenticatedEvidenceRunnerModule(
+    input.workspaceRoot,
+    selectedRunner.descriptor
+  );
   const revocationPath =
     input.command === 'record-read-revocation'
       ? undefined

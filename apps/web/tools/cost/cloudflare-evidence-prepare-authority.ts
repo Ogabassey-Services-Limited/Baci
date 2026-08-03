@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { type FileHandle, lstat, open, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -8,6 +7,7 @@ import {
   assertAuthorityAncestorsUnchanged,
   captureAuthorityAncestors,
 } from './cloudflare-evidence-authority-path';
+import { calculatePrepareApprovalFingerprint } from './cloudflare-evidence-prepare-approval-fingerprint';
 import type { EvidenceRunInput } from './cloudflare-evidence-run-journal';
 import { calculateCloudflareEvidenceTokenPolicySha256 } from './verify-cloudflare-evidence-token-policy';
 
@@ -26,6 +26,7 @@ const approvalArtifactSchema = z
     readPolicySha256: sha256,
     mutationRunnerModuleSha256: sha256,
     measurementRunnerModuleSha256: sha256,
+    readRevocationRunnerModuleSha256: sha256,
     /** Optional separately approved cleanup-only replacement policy fingerprint. */
     cleanupPolicySha256: sha256.optional(),
     approvedAt: z.iso.datetime({ offset: true }),
@@ -70,7 +71,9 @@ export type PrepareAuthorityInput = Pick<
   Required<
     Pick<
       EvidenceRunInput,
-      'mutationRunnerModuleSha256' | 'measurementRunnerModuleSha256'
+      | 'mutationRunnerModuleSha256'
+      | 'measurementRunnerModuleSha256'
+      | 'readRevocationRunnerModuleSha256'
     >
   >;
 export type VerifiedPrepareAuthority = Readonly<{
@@ -89,26 +92,6 @@ export function calculateReviewedPolicySha256(
   return calculateCloudflareEvidenceTokenPolicySha256(value);
 }
 export { readAuthorityArtifact } from './cloudflare-evidence-authority-file';
-
-function approvalFingerprint(approval: z.infer<typeof approvalArtifactSchema>) {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        id: approval.id,
-        toolingMergeSha: approval.toolingMergeSha,
-        policyId: approval.policyId,
-        policySha256: approval.policySha256,
-        readTokenId: approval.readTokenId,
-        readPolicySha256: approval.readPolicySha256,
-        mutationRunnerModuleSha256: approval.mutationRunnerModuleSha256,
-        measurementRunnerModuleSha256: approval.measurementRunnerModuleSha256,
-        cleanupPolicySha256: approval.cleanupPolicySha256,
-        approvedAt: approval.approvedAt,
-        expiresAt: approval.expiresAt,
-      })
-    )
-    .digest('hex');
-}
 
 async function syncAuthorityScope(scope: string) {
   let scopeHandle: FileHandle | undefined;
@@ -129,7 +112,7 @@ async function consumeApproval(
   stateDir: string | undefined
 ) {
   const scope = resolve(dirname(approvalPath));
-  const fingerprint = approvalFingerprint(approval);
+  const fingerprint = calculatePrepareApprovalFingerprint(approval);
   const markerPath = join(
     scope,
     `.baci-evidence-approval-${fingerprint}.consumed`
@@ -241,6 +224,8 @@ export async function verifyPrepareAuthority(
     approval.mutationRunnerModuleSha256 !== input.mutationRunnerModuleSha256 ||
     approval.measurementRunnerModuleSha256 !==
       input.measurementRunnerModuleSha256 ||
+    approval.readRevocationRunnerModuleSha256 !==
+      input.readRevocationRunnerModuleSha256 ||
     approval.cleanupPolicySha256 !== input.cleanupPolicySha256 ||
     policy.id !== approval.policyId ||
     policy.toolingMergeSha !== input.toolingMergeSha ||

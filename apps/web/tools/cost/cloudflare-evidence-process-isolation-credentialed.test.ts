@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { delimiter, dirname, join, resolve } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
 import {
   createEvidenceDependencyIntegrityAuthority,
@@ -9,6 +9,7 @@ import {
   readEvidenceDependencyManifestSha256,
   readEvidenceToolingHead,
 } from './cloudflare-evidence-process-isolation.test-fixtures';
+import { holdCloudflareEvidenceWorkspaceTestLock } from './cloudflare-evidence-process-isolation-workspace-lock.test-support';
 import { REVIEWED_EVIDENCE_SYSTEM_PATH } from './cloudflare-evidence-qualification-cli';
 import { openEvidenceRun } from './cloudflare-evidence-run-journal';
 
@@ -21,11 +22,26 @@ type Spawn = (
 const runnerModulePathFor = (workspaceRoot: string) =>
   resolve(workspaceRoot, '.cloudflare-evidence-untracked-runner-fixture.ts');
 
+const workspaceRoot = resolve(import.meta.dirname, '../../../..');
 let untrackedRunnerPath: string | undefined;
+let releaseWorkspaceLock: (() => Promise<void>) | undefined;
+
+beforeEach(async () => {
+  releaseWorkspaceLock =
+    await holdCloudflareEvidenceWorkspaceTestLock(workspaceRoot);
+}, 30_000);
 
 afterEach(async () => {
-  if (untrackedRunnerPath) await rm(untrackedRunnerPath, { force: true });
-  untrackedRunnerPath = undefined;
+  try {
+    if (untrackedRunnerPath) await rm(untrackedRunnerPath, { force: true });
+  } finally {
+    untrackedRunnerPath = undefined;
+    try {
+      await releaseWorkspaceLock?.();
+    } finally {
+      releaseWorkspaceLock = undefined;
+    }
+  }
 });
 
 describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
@@ -36,7 +52,6 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
       PATH: `${untrustedPath}${delimiter}${dirname(process.execPath)}`,
       SECRET: 'never-forward',
     };
-    const workspaceRoot = resolve(import.meta.dirname, '../../../..');
     const stateDir = await makePrivateTempDir('baci-evidence-isolation-');
     const toolingMergeSha = await readEvidenceToolingHead(workspaceRoot);
     const runnerModulePath = runnerModulePathFor(workspaceRoot);
@@ -186,7 +201,10 @@ describe('spawnIsolatedCloudflareEvidenceProcess credential handoff', () => {
 
     await writeFile(
       journalPath,
-      JSON.stringify({ ...journal, dependencyManifestSha256: 'f'.repeat(64) }),
+      JSON.stringify({
+        ...journal,
+        dependencyManifestSha256: 'f'.repeat(64),
+      }),
       { mode: 0o600 }
     );
     await expect(

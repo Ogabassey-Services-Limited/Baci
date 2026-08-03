@@ -2,6 +2,7 @@ import { chmod, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { externalReadTokenRevocationDependencies } from './cloudflare-evidence-read-revocation.test-fixtures';
 import {
   openEvidenceRun,
   recordCleanupVerified,
@@ -11,11 +12,8 @@ import {
   recordEvidenceProbeResults,
   revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
-import {
-  type EvidenceMeasurementClient,
-  measureCloudflareEvidenceSources,
-  revokeCloudflareEvidenceReadToken,
-} from './measure-cloudflare-evidence-sources';
+import { recordCloudflareEvidenceReadTokenRevocation } from './measure-cloudflare-evidence-read-revocation';
+import { measureCloudflareEvidenceSources } from './measure-cloudflare-evidence-sources';
 import {
   measurementCapability as capability,
   measurementInput as input,
@@ -25,7 +23,7 @@ import { reviewedProbeResults } from './mutate-cloudflare-evidence-test-fixtures
 
 const observedAt = '2026-07-31T00:00:00.000Z';
 
-function createMeasurementClient(): EvidenceMeasurementClient {
+function createMeasurementClient() {
   return {
     measure: vi.fn(async () => ({
       complete: true,
@@ -36,6 +34,11 @@ function createMeasurementClient(): EvidenceMeasurementClient {
       payloadSha256: 'b'.repeat(64),
       observedAt,
     })),
+  };
+}
+
+function createWriteRevocationClient() {
+  return {
     revoke: vi.fn(async (tokenId: string) => ({
       tokenId,
       auditReceiptSha256: 'd'.repeat(64),
@@ -77,7 +80,7 @@ async function createRunWithUnrevokedCleanupWriteToken() {
     dir,
     input.runId,
     'write',
-    createMeasurementClient()
+    createWriteRevocationClient()
   );
   return dir;
 }
@@ -97,27 +100,59 @@ describe('measureCloudflareEvidenceSources revocation', () => {
     ).rejects.toThrow('write process must exit, clean up, and revoke');
     expect(client.measure).not.toHaveBeenCalled();
 
-    await revokeEvidenceRunToken(dir, input.runId, 'cleanup_write', client);
+    await revokeEvidenceRunToken(
+      dir,
+      input.runId,
+      'cleanup_write',
+      createWriteRevocationClient()
+    );
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
+    ).resolves.toMatchObject({
+      phase: 'measurement_complete_pending_read_revocation',
+    });
+    await expect(
+      recordCloudflareEvidenceReadTokenRevocation(
+        dir,
+        input.runId,
+        externalReadTokenRevocationDependencies(
+          input.readTokenId,
+          '2026-07-31T00:00:01.000Z'
+        )
+      )
     ).resolves.toMatchObject({ phase: 'proof_complete' });
   });
 
-  it('blocks read-token revocation until a journaled cleanup replacement token is verified revoked', async () => {
+  it('blocks an external read-token receipt until a cleanup replacement token is verified revoked', async () => {
     const dir = await createRunWithUnrevokedCleanupWriteToken();
     await recordEvidenceMeasurementFailure(dir, input.runId);
-    const client = createMeasurementClient();
 
     await expect(
-      revokeCloudflareEvidenceReadToken(dir, input.runId, capability, client)
-    ).rejects.toThrow(
-      'read-token revocation requires a write-revoked incomplete run'
+      recordCloudflareEvidenceReadTokenRevocation(
+        dir,
+        input.runId,
+        externalReadTokenRevocationDependencies(
+          input.readTokenId,
+          '2026-07-31T00:00:01.000Z'
+        )
+      )
+    ).rejects.toThrow('cleanup replacement token revocation is required');
+
+    await revokeEvidenceRunToken(
+      dir,
+      input.runId,
+      'cleanup_write',
+      createWriteRevocationClient()
     );
-    expect(client.revoke).not.toHaveBeenCalled();
-
-    await revokeEvidenceRunToken(dir, input.runId, 'cleanup_write', client);
     await expect(
-      revokeCloudflareEvidenceReadToken(dir, input.runId, capability, client)
+      recordCloudflareEvidenceReadTokenRevocation(
+        dir,
+        input.runId,
+        externalReadTokenRevocationDependencies(
+          input.readTokenId,
+          '2026-07-31T00:00:01.000Z'
+        )
+      )
     ).resolves.toMatchObject({ phase: 'closed_stop' });
   });
 
@@ -144,7 +179,7 @@ describe('measureCloudflareEvidenceSources revocation', () => {
         observedAt: '2026-07-31T00:00:00.000Z',
       }),
     });
-    const client: EvidenceMeasurementClient = {
+    const client = {
       measure: async () => ({
         complete: true,
         expectedProbeCount: 2,
@@ -152,16 +187,6 @@ describe('measureCloudflareEvidenceSources revocation', () => {
         probeResults: [...REVIEWED_PROBE_CASE_IDS],
         providerReceiptSha256: 'a'.repeat(64),
         payloadSha256: 'b'.repeat(64),
-        observedAt: '2026-07-31T00:00:00.000Z',
-      }),
-      revoke: async (tokenId) => ({
-        tokenId,
-        auditReceiptSha256: 'c'.repeat(64),
-      }),
-      readBack: async () => ({
-        tokenId: 'wrong',
-        status: 'inactive',
-        auditReceiptSha256: 'c'.repeat(64),
         observedAt: '2026-07-31T00:00:00.000Z',
       }),
     };
@@ -192,35 +217,20 @@ describe('measureCloudflareEvidenceSources revocation', () => {
           payloadSha256: 'b'.repeat(64),
           observedAt: '2026-07-31T00:00:00.000Z',
         }),
-        revoke: async (tokenId) => ({
-          tokenId,
-          auditReceiptSha256: 'e'.repeat(64),
-        }),
-        readBack: async (tokenId) => ({
-          tokenId,
-          status: 'inactive',
-          auditReceiptSha256: 'e'.repeat(64),
-          observedAt: '2026-07-31T00:00:00.000Z',
-        }),
       })
     ).rejects.toThrow('incomplete');
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
     ).rejects.toThrow('terminal');
     await expect(
-      revokeCloudflareEvidenceReadToken(dir, input.runId, capability, {
-        ...client,
-        revoke: async (tokenId) => ({
-          tokenId,
-          auditReceiptSha256: 'e'.repeat(64),
-        }),
-        readBack: async (tokenId) => ({
-          tokenId,
-          status: 'inactive',
-          auditReceiptSha256: 'e'.repeat(64),
-          observedAt: '2026-07-31T00:00:00.000Z',
-        }),
-      })
+      recordCloudflareEvidenceReadTokenRevocation(
+        dir,
+        input.runId,
+        externalReadTokenRevocationDependencies(
+          input.readTokenId,
+          '2026-07-31T00:00:01.000Z'
+        )
+      )
     ).resolves.toMatchObject({ phase: 'closed_stop' });
   });
 });

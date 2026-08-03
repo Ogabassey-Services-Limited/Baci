@@ -85,6 +85,33 @@ describe('cloudflare evidence journal transition helpers', () => {
     ).rejects.toThrow('cleanup replacement token must be distinct');
   });
 
+  it('rejects a pending measurement phase without a verified measurement receipt', async () => {
+    const current = {
+      ...structuredClone(journal),
+      phase: 'write_token_revoked' as const,
+      writeTokenRevocationReceipt: {
+        tokenId: journal.writeTokenId,
+        status: 'revoked' as const,
+        providerReceiptSha256: 'b'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      },
+    };
+    const transition = async <T>(
+      _stateDir: string,
+      _runId: string,
+      callback: (value: CloudflareEvidenceRunJournal) => Promise<T> | T
+    ) => callback(current);
+    const operations = createEvidenceJournalTransitionOperations(transition);
+
+    await expect(
+      operations.recordEvidencePhase(
+        'state',
+        journal.runId,
+        'measurement_complete_pending_read_revocation'
+      )
+    ).rejects.toThrow('verified measurement receipt');
+  });
+
   it('canonicalizes reviewed probe cases and rejects arbitrary, skipped, or duplicate receipts', async () => {
     const current = structuredClone(journal);
     const transition = async <T>(

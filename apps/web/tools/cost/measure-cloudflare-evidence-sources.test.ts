@@ -74,13 +74,6 @@ describe('measureCloudflareEvidenceSources', () => {
           payloadSha256: 'b'.repeat(64),
           observedAt: '2026-07-31T00:00:00.000Z',
         }),
-        revoke,
-        readBack: async (tokenId) => ({
-          tokenId,
-          status: 'inactive' as const,
-          auditReceiptSha256: 'e'.repeat(64),
-          observedAt: '2026-07-31T00:00:00.000Z',
-        }),
       })
     ).rejects.toThrow('incomplete');
   });
@@ -129,20 +122,10 @@ describe('measureCloudflareEvidenceSources', () => {
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, {
         measure: async () => missingReceiptResult,
-        revoke: async (tokenId) => ({
-          tokenId,
-          auditReceiptSha256: 'e'.repeat(64),
-        }),
-        readBack: async (tokenId) => ({
-          tokenId,
-          status: 'inactive',
-          auditReceiptSha256: 'e'.repeat(64),
-          observedAt: '2026-07-31T00:00:00.000Z',
-        }),
       })
     ).rejects.toThrow('receipt');
   });
-  it('resumes read-token revocation from an already recorded measurement', async () => {
+  it('records a measurement without invoking read-token revocation authority', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'baci-evidence-'));
     await chmod(dir, 0o700);
     await openEvidenceRun(dir, input);
@@ -186,30 +169,23 @@ describe('measureCloudflareEvidenceSources', () => {
       payloadSha256: 'b'.repeat(64),
       observedAt: '2026-07-31T00:00:00.000Z',
     }));
-    const revoke = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('read revoke interrupted'))
-      .mockResolvedValue({
-        tokenId: 'read',
-        auditReceiptSha256: 'e'.repeat(64),
-      });
+    const revoke = vi.fn();
     const client = {
       measure,
       revoke,
-      readBack: async (tokenId: string) => ({
-        tokenId,
-        status: 'inactive' as const,
-        auditReceiptSha256: 'e'.repeat(64),
-        observedAt: '2026-07-31T00:00:00.000Z',
-      }),
     };
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
-    ).rejects.toThrow('read revoke interrupted');
+    ).resolves.toMatchObject({
+      phase: 'measurement_complete_pending_read_revocation',
+    });
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, client)
-    ).resolves.toMatchObject({ phase: 'proof_complete' });
+    ).resolves.toMatchObject({
+      phase: 'measurement_complete_pending_read_revocation',
+    });
     expect(measure).toHaveBeenCalledTimes(1);
+    expect(revoke).not.toHaveBeenCalled();
   });
 
   it('does not retry a run after measurement evidence is marked terminal', async () => {
@@ -254,16 +230,6 @@ describe('measureCloudflareEvidenceSources', () => {
     await expect(
       measureCloudflareEvidenceSources(dir, input.runId, capability, {
         measure,
-        revoke: async (tokenId) => ({
-          tokenId,
-          auditReceiptSha256: 'e'.repeat(64),
-        }),
-        readBack: async (tokenId) => ({
-          tokenId,
-          status: 'inactive' as const,
-          auditReceiptSha256: 'e'.repeat(64),
-          observedAt: '2026-07-31T00:00:00.000Z',
-        }),
       })
     ).rejects.toThrow('terminal');
     expect(measure).not.toHaveBeenCalled();

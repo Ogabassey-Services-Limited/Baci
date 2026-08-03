@@ -14,7 +14,7 @@ import {
   readAuthorityArtifact,
   verifyPrepareAuthority,
 } from './cloudflare-evidence-prepare-authority';
-import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
+import { validatePreparedEvidenceRunnerFactory } from './cloudflare-evidence-prepare-runner-validation';
 import {
   type EvidenceRunInput,
   openEvidenceRun,
@@ -145,6 +145,10 @@ const runnerFields = Object.freeze({
     path: 'measurementRunnerModulePath',
     sha256: 'measurementRunnerModuleSha256',
   },
+  readRevocation: {
+    path: 'readRevocationRunnerModulePath',
+    sha256: 'readRevocationRunnerModuleSha256',
+  },
 } as const);
 
 async function verifyProtectedMergeReceipt(
@@ -200,6 +204,10 @@ async function run(
   const runnerModuleDescriptors = {
     mutation: readEvidenceRunnerModuleDescriptor(environment, 'mutation'),
     measurement: readEvidenceRunnerModuleDescriptor(environment, 'measurement'),
+    readRevocation: readEvidenceRunnerModuleDescriptor(
+      environment,
+      'readRevocation'
+    ),
   };
   const { stdout: status } = await execFileAsync('git', [
     '-C',
@@ -214,7 +222,7 @@ async function run(
     workspaceRoot,
     Object.values(runnerModuleDescriptors)
   );
-  const [mutation, measurement] = await Promise.all([
+  const [mutation, measurement, readRevocation] = await Promise.all([
     verifyAuthenticatedEvidenceRunnerModule(
       workspaceRoot,
       runnerModuleDescriptors.mutation
@@ -223,35 +231,43 @@ async function run(
       workspaceRoot,
       runnerModuleDescriptors.measurement
     ),
+    verifyAuthenticatedEvidenceRunnerModule(
+      workspaceRoot,
+      runnerModuleDescriptors.readRevocation
+    ),
   ]);
-  // Validate both reviewed runner entrypoints before consuming the one-use
+  // Validate every reviewed runner entrypoint before consuming the one-use
   // owner approval. A malformed module must not burn approval or create a
-  // journal that can never advance to mutation/measurement.
+  // journal that can never advance to mutation, measurement, or recovery.
   const reviewedAuthority = await verifyPrepareAuthority(
     {
       ...input,
       mutationRunnerModuleSha256: mutation.sha256,
       measurementRunnerModuleSha256: measurement.sha256,
+      readRevocationRunnerModuleSha256: readRevocation.sha256,
     },
     environment,
     () => new Date(),
     () =>
       Promise.all([
-        validateRunnerFactory(
+        validatePreparedEvidenceRunnerFactory(
           workspaceRoot,
           mutation,
-          'createMutationDependencies',
           'mutation'
         ),
-        validateRunnerFactory(
+        validatePreparedEvidenceRunnerFactory(
           workspaceRoot,
           measurement,
-          'createMeasurementDependencies',
           'measurement'
+        ),
+        validatePreparedEvidenceRunnerFactory(
+          workspaceRoot,
+          readRevocation,
+          'readRevocation'
         ),
       ]).then(() => undefined)
   );
-  const runnerDescriptors = { mutation, measurement };
+  const runnerDescriptors = { mutation, measurement, readRevocation };
   const journal = await openEvidenceRun(stateDir, {
     ...input,
     ...reviewedAuthority,
@@ -260,31 +276,11 @@ async function run(
     [runnerFields.mutation.sha256]: runnerDescriptors.mutation.sha256,
     [runnerFields.measurement.path]: runnerDescriptors.measurement.path,
     [runnerFields.measurement.sha256]: runnerDescriptors.measurement.sha256,
+    [runnerFields.readRevocation.path]: runnerDescriptors.readRevocation.path,
+    [runnerFields.readRevocation.sha256]:
+      runnerDescriptors.readRevocation.sha256,
   });
   write(`${JSON.stringify({ runId: journal.runId, nextPhase: 'mutate' })}\n`);
-}
-
-async function validateRunnerFactory(
-  workspaceRoot: string,
-  descriptor: Awaited<
-    ReturnType<typeof verifyAuthenticatedEvidenceRunnerModule>
-  >,
-  exportName: 'createMutationDependencies' | 'createMeasurementDependencies',
-  label: 'mutation' | 'measurement'
-) {
-  await importReviewedEvidenceModule(
-    workspaceRoot,
-    descriptor.path,
-    descriptor.files,
-    (loaded) => {
-      const factory =
-        loaded && typeof loaded === 'object' && exportName in loaded
-          ? (loaded as Record<string, unknown>)[exportName]
-          : undefined;
-      if (typeof factory !== 'function')
-        throw new Error(`${label} runner module is invalid`);
-    }
-  );
 }
 
 /** Owns the credentialless prepare command's parsing, serialization, and execution. */
