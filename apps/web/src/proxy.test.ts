@@ -871,6 +871,161 @@ describe('Middleware Proxy', () => {
     );
     const compareHubStatusMock = vi.mocked(resolveStorefrontCompareHubStatus);
 
+    it('hard-rejects repeated percent-encoding before storefront lookups on every merchant URL shape', async () => {
+      const unsafeProductPath = `/smartphones/phone${'%2525252525'.repeat(30)}`;
+      const merchantUrls = [
+        `https://ogabassey.com${unsafeProductPath}`,
+        `https://ogabassey.${ROOT_DOMAIN}${unsafeProductPath}`,
+        `https://${ROOT_DOMAIN}/ogabassey${unsafeProductPath}`,
+      ];
+
+      for (const url of merchantUrls) {
+        const request = new NextRequest(url);
+        request.headers.set('host', new URL(url).host);
+
+        const response = await proxy(request);
+
+        expect(response.status).toBe(404);
+        expect(response.headers.get('X-Robots-Tag')).toBe('noindex, follow');
+        expect(response.headers.get('Cache-Control')).toContain('no-store');
+      }
+
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+    });
+
+    it('does not reject a non-GET storefront request solely because its path is over-encoded', async () => {
+      const unsafeProductPath = `/smartphones/phone${'%2525252525'.repeat(30)}`;
+      const request = new NextRequest(
+        `https://ogabassey.com${unsafeProductPath}`,
+        { method: 'POST' }
+      );
+      request.headers.set('host', 'ogabassey.com');
+
+      const response = await proxy(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('X-Robots-Tag')).toBeNull();
+    });
+
+    it('passes through a safely encoded two-segment PDP GET without the path gate 404', async () => {
+      // Arrange
+      const request = new NextRequest(
+        'https://ogabassey.com/smartphones/dell-%E2%80%93-xps'
+      );
+      request.headers.set('host', 'ogabassey.com');
+
+      // Act
+      const response = await proxy(request);
+
+      // Assert
+      expect(response.status).not.toBe(404);
+      expect(response.headers.get('X-Robots-Tag')).toBeNull();
+    });
+
+    it('normalizes recoverable encoded punctuation before the PDP hard-404 gate', async () => {
+      // Arrange
+      const recoverableProductPath = `/smartphones/phone${'%E2%80%93'.repeat(57)}case`;
+      const request = new NextRequest(
+        `https://ogabassey.com${recoverableProductPath}`
+      );
+      request.headers.set('host', 'ogabassey.com');
+
+      // Act
+      const response = await proxy(request);
+      const location = response.headers.get('location');
+
+      // Assert
+      expect(response.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/smartphones/phone-case');
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('passes an unsafe category with a safe product through to canonical routing', async () => {
+      // Arrange
+      const unsafeCategory = `phones${'%2525252525'.repeat(30)}`;
+      const request = new NextRequest(
+        `https://ogabassey.com/${unsafeCategory}/phone`
+      );
+      request.headers.set('host', 'ogabassey.com');
+
+      // Act
+      const response = await proxy(request);
+
+      // Assert
+      expect(response.status).not.toBe(404);
+      expect(response.headers.get('X-Robots-Tag')).toBeNull();
+      expect(resolutionMock).toHaveBeenCalled();
+    });
+
+    it('passes through an over-encoded reserved first-segment GET without the path gate 404', async () => {
+      // Arrange
+      const unsafeSlug = `login${'%2525252525'.repeat(30)}`;
+      const request = new NextRequest(
+        `https://ogabassey.com/account/${unsafeSlug}`
+      );
+      request.headers.set('host', 'ogabassey.com');
+
+      // Act
+      const response = await proxy(request);
+
+      // Assert
+      expect(response.status).not.toBe(404);
+      expect(response.headers.get('X-Robots-Tag')).toBeNull();
+    });
+
+    it('passes RSC requests with over-encoded PDP paths through without an HTML hard 404', async () => {
+      // Arrange
+      const unsafeProductPath = `/smartphones/phone${'%2525252525'.repeat(30)}`;
+      const request = new NextRequest(
+        `https://ogabassey.com${unsafeProductPath}`
+      );
+      request.headers.set('host', 'ogabassey.com');
+      request.headers.set('rsc', '1');
+
+      // Act
+      const response = await proxy(request);
+
+      // Assert
+      expect(response.status).not.toBe(404);
+      expect(response.headers.get('X-Robots-Tag')).toBeNull();
+    });
+
+    it('hard-rejects an over-encoded PDP path on the plain localhost slug-prefix shape', async () => {
+      // Arrange
+      const unsafeProductPath = `/smartphones/phone${'%2525252525'.repeat(30)}`;
+      const request = new NextRequest(
+        `http://localhost:3000/ogabassey${unsafeProductPath}`
+      );
+      request.headers.set('host', 'localhost:3000');
+
+      // Act
+      const response = await proxy(request);
+
+      // Assert
+      expect(response.status).toBe(404);
+      expect(response.headers.get('X-Robots-Tag')).toBe('noindex, follow');
+    });
+
+    it('does not treat a reserved platform subdomain as a custom-domain PDP', async () => {
+      // Arrange
+      const unsafeProductPath = `/smartphones/phone${'%2525252525'.repeat(30)}`;
+      const request = new NextRequest(
+        `https://support.${ROOT_DOMAIN}${unsafeProductPath}`
+      );
+      request.headers.set('host', `support.${ROOT_DOMAIN}`);
+
+      // Act
+      const response = await proxy(request);
+
+      // Assert
+      expect(response.status).not.toBe(404);
+      expect(response.headers.get('X-Robots-Tag')).toBeNull();
+    });
+
     it('308-redirects stale custom-domain category aliases before the App Router streams a 200 shell', async () => {
       canonicalRedirectMock.mockResolvedValue({
         kind: 'redirect',
