@@ -1,5 +1,5 @@
 import type { AgenticMerchantIdentity } from '@/lib/agentic/agentic-merchant-identity';
-import { createChatToolSupabaseClient } from './chat-tool-handler-support';
+import type { ChatToolSupabaseClient } from './chat-tool-handlers';
 import type {
   CheckPaymentStatusParams,
   CreateVirtualAccountParams,
@@ -19,10 +19,9 @@ interface VirtualAccountResult {
 export async function handleCreateVirtualAccount(
   params: CreateVirtualAccountParams,
   sessionId: string,
-  merchant: AgenticMerchantIdentity
+  merchant: AgenticMerchantIdentity,
+  supabase: ChatToolSupabaseClient
 ): Promise<VirtualAccountResult> {
-  const supabase = createChatToolSupabaseClient(merchant, sessionId);
-
   try {
     const subtotal = params.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
@@ -86,10 +85,9 @@ function getMetadataString(
 export async function handleCheckPaymentStatus(
   params: CheckPaymentStatusParams,
   sessionId: string,
-  merchant: AgenticMerchantIdentity
+  merchant: AgenticMerchantIdentity,
+  supabase: ChatToolSupabaseClient
 ): Promise<PaymentStatusResult> {
-  const supabase = createChatToolSupabaseClient(merchant, sessionId);
-
   try {
     let order: {
       id: string;

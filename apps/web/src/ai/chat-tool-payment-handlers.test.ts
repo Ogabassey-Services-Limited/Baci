@@ -1,12 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-
-const mocks = vi.hoisted(() => ({
-  createAgenticScopedSupabaseClient: vi.fn(),
-}));
-
-vi.mock('@/lib/agentic/scoped-supabase', () => ({
-  createAgenticScopedSupabaseClient: mocks.createAgenticScopedSupabaseClient,
-}));
+import type { ChatToolSupabaseClient } from './chat-tool-handlers';
 
 import { handleCheckPaymentStatus } from './chat-tool-payment-handlers';
 
@@ -24,14 +17,16 @@ describe('chat-tool-payment-handlers', () => {
     query.order.mockReturnValue(query);
     query.limit.mockReturnValue(query);
     query.maybeSingle.mockResolvedValue({ data: null, error: null });
-    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+    const supabase = {
       from: vi.fn(() => query),
-    });
+      rpc: vi.fn(),
+    } as unknown as ChatToolSupabaseClient;
 
     const result = await handleCheckPaymentStatus(
       { customerEmail: 'customer@example.com' },
       'session-1',
-      { id: 'merchant-1', slug: 'winter-store', businessName: 'Winter Store' }
+      { id: 'merchant-1', slug: 'winter-store', businessName: 'Winter Store' },
+      supabase
     );
 
     expect(result).toEqual({ status: 'not_found' });

@@ -1,7 +1,7 @@
 import type { AgenticMerchantIdentity } from '@/lib/agentic/agentic-merchant-identity';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { searchStorefrontProducts } from '@/lib/storefront-search';
-import { createChatToolSupabaseClient } from './chat-tool-handler-support';
+import type { ChatToolSupabaseClient } from './chat-tool-handlers';
 import type {
   AddToCartParams,
   GetProductDetailsParams,
@@ -43,9 +43,9 @@ function orderProductsByRankedIds<T extends { id: string }>(
 
 export async function handleSearchProducts(
   params: SearchProductsParams,
-  merchant: AgenticMerchantIdentity
+  merchant: AgenticMerchantIdentity,
+  supabase: ChatToolSupabaseClient
 ): Promise<{ products: ProductSearchResult[]; total: number }> {
-  const supabase = createChatToolSupabaseClient(merchant);
   const searchText = buildChatSearchText(params);
   let ranked: Awaited<ReturnType<typeof searchStorefrontProducts>> | null =
     null;
@@ -121,10 +121,9 @@ export async function handleSearchProducts(
 
 export async function handleGetProductDetails(
   params: GetProductDetailsParams,
-  merchant: AgenticMerchantIdentity
+  merchant: AgenticMerchantIdentity,
+  supabase: ChatToolSupabaseClient
 ): Promise<ProductSearchResult | null> {
-  const supabase = createChatToolSupabaseClient(merchant);
-
   try {
     const { data, error } = await supabase
       .from('products')
@@ -163,10 +162,9 @@ export async function handleGetProductDetails(
 
 export async function handleGetRecommendations(
   params: GetRecommendationsParams,
-  merchant: AgenticMerchantIdentity
+  merchant: AgenticMerchantIdentity,
+  supabase: ChatToolSupabaseClient
 ): Promise<ProductSearchResult[]> {
-  const supabase = createChatToolSupabaseClient(merchant);
-
   try {
     const { data: sourceProduct, error: sourceError } = await supabase
       .from('products')
@@ -247,7 +245,12 @@ function getComplementaryCategories(category: string | null): string[] {
 
 export function handleAddToCart(
   params: AddToCartParams,
-  merchant: AgenticMerchantIdentity
+  merchant: AgenticMerchantIdentity,
+  supabase: ChatToolSupabaseClient
 ): Promise<ProductSearchResult | null> {
-  return handleGetProductDetails({ productId: params.productId }, merchant);
+  return handleGetProductDetails(
+    { productId: params.productId },
+    merchant,
+    supabase
+  );
 }

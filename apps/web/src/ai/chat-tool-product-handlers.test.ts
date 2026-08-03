@@ -1,12 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-
-const mocks = vi.hoisted(() => ({
-  createAgenticScopedSupabaseClient: vi.fn(),
-}));
-
-vi.mock('@/lib/agentic/scoped-supabase', () => ({
-  createAgenticScopedSupabaseClient: mocks.createAgenticScopedSupabaseClient,
-}));
+import type { ChatToolSupabaseClient } from './chat-tool-handlers';
 
 import { handleAddToCart } from './chat-tool-product-handlers';
 
@@ -36,13 +29,15 @@ describe('chat-tool-product-handlers', () => {
     query.select.mockReturnValue(query);
     query.eq.mockReturnValue(query);
     query.single.mockResolvedValue(await query);
-    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+    const supabase = {
       from: vi.fn(() => query),
-    });
+      rpc: vi.fn(),
+    } as unknown as ChatToolSupabaseClient;
 
     const result = await handleAddToCart(
       { productId: 'product-1', quantity: 1 },
-      { id: 'merchant-1', slug: 'winter-store', businessName: 'Winter Store' }
+      { id: 'merchant-1', slug: 'winter-store', businessName: 'Winter Store' },
+      supabase
     );
 
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
