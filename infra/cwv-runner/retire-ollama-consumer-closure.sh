@@ -76,6 +76,18 @@ systemd_wrapper_exec_paths() {
     END{exit bad?2:0}' "$1"
 }
 
+systemd_rooted_regular_target() {
+  rooted_regular_root=$1; rooted_regular_path=$2
+  [ "$rooted_regular_root" = / ] && rooted_regular_candidate=$rooted_regular_path || rooted_regular_candidate=$rooted_regular_root$rooted_regular_path
+  if consumer_canonical_regular "$rooted_regular_candidate" >/dev/null 2>&1; then printf '%s\n' "$rooted_regular_candidate"; return 0; fi
+  case "$rooted_regular_path" in /bin/*) rooted_alias=/bin; rooted_usr=/usr/bin; rooted_rest=${rooted_regular_path#/bin/};; /sbin/*) rooted_alias=/sbin; rooted_usr=/usr/sbin; rooted_rest=${rooted_regular_path#/sbin/};; /lib/*) rooted_alias=/lib; rooted_usr=/usr/lib; rooted_rest=${rooted_regular_path#/lib/};; /lib64/*) rooted_alias=/lib64; rooted_usr=/usr/lib64; rooted_rest=${rooted_regular_path#/lib64/};; *) return 2;; esac
+  [ "$rooted_regular_root" = / ] && rooted_alias_path=$rooted_alias || rooted_alias_path=$rooted_regular_root$rooted_alias
+  [ -L "$rooted_alias_path" ] || return 2; rooted_link=$(readlink -- "$rooted_alias_path") || return 2
+  case "$rooted_link" in "${rooted_usr#/}"|"$rooted_usr") :;; *) return 2;; esac
+  [ "$rooted_regular_root" = / ] && rooted_expected=$rooted_usr/$rooted_rest || rooted_expected=$rooted_regular_root$rooted_usr/$rooted_rest
+  consumer_canonical_regular "$rooted_expected"
+}
+
 systemd_credential_file_directives() {
   awk 'function emit(s){sub(/^[[:space:]]*/,"",s);if(s~/^LoadCredential(Encrypted)?=/)print s}
     {line=$0;if(joined!="")line=joined " " line;if(line~/\\$/){sub(/\\$/,"",line);joined=line;next}emit(line);joined=""}
@@ -142,6 +154,26 @@ dockerfile_base_images() {
      if(at<=count){if(tolower(part[at])!="as"||at+1!=count||part[at+1]!~/^[A-Za-z0-9_.-]+$/){bad=1;next};alias=tolower(part[at+1])}
      key=tolower(image);if(key!="scratch"&&!stage[key])print image;if(alias!=""){if(stage[alias])bad=1;stage[alias]=1}}
     END{exit bad?2:0}' "$1"
+}
+
+compose_cron_command_lines() {
+  cron_kind=$1; cron_source=$2; cron_snapshot=$3; cron_anacron=$(cron_inventory_anacrontab); cron_system_dir=$(cron_inventory_system_dir)
+  case "$cron_kind:$cron_source" in system:"$cron_anacron") cron_field=4;; system:*) cron_field=7;; user:*) cron_field=6;; system-directory:*) [ "${cron_source%/*}" = "$cron_system_dir" ] || return 0; cron_field=7;; *) return 2;; esac
+  awk -v field="$cron_field" '/^[[:space:]]*($|#)/{next}/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/{next}{if(NF<field){bad=1;next};line=$field;for(i=field+1;i<=NF;i++)line=line " " $i;print line}END{exit bad?2:0}' "$cron_snapshot"
+}
+
+compose_cron_reference_inventory() {
+  cron_output=$1; cron_manifest=${RETIRE_OLLAMA_CRON_SOURCES:-${RECOVERY_EXTERNAL_CRON_SOURCES:-}}; [ -n "$cron_manifest" ] || return 0; cron_manifest_captured=$(consumer_snapshot "$cron_manifest") || return 2; cron_manifest_snapshot=${cron_manifest_captured%%|*}; cron_manifest_identity=${cron_manifest_captured#*|}; cron_targets=$(temp_path); cron_commands=$(temp_path); cron_tokens=$(temp_path)
+  while IFS="$(printf '\t')" read -r cron_kind _ cron_source || [ -n "$cron_kind$cron_source" ]; do cron_captured=$(consumer_snapshot "$cron_source") || { rm -f "$cron_manifest_snapshot" "$cron_targets" "$cron_commands" "$cron_tokens"; return 2; }; cron_snapshot=${cron_captured%%|*}; cron_identity=${cron_captured#*|}; cron_inventory_command_targets "$cron_kind" "$cron_source" "$cron_snapshot" >"$cron_targets" || { rm -f "$cron_manifest_snapshot" "$cron_targets" "$cron_commands" "$cron_tokens" "$cron_snapshot"; return 2; }; if [ -s "$cron_targets" ]; then compose_cron_command_lines "$cron_kind" "$cron_source" "$cron_snapshot" >"$cron_commands" || { rm -f "$cron_manifest_snapshot" "$cron_targets" "$cron_commands" "$cron_tokens" "$cron_snapshot"; return 2; }; while IFS= read -r cron_command || [ -n "$cron_command" ]; do parse_systemd_words "$cron_command" >"$cron_tokens" && compose_cli_file_refs "$cron_tokens" >>"$cron_output" || { rm -f "$cron_manifest_snapshot" "$cron_targets" "$cron_commands" "$cron_tokens" "$cron_snapshot"; return 2; }; done <"$cron_commands"; fi; consumer_canonical_regular "$cron_source" >/dev/null && [ "$cron_identity" = "$(consumer_source_identity "$cron_source")" ] || { rm -f "$cron_manifest_snapshot" "$cron_targets" "$cron_commands" "$cron_tokens" "$cron_snapshot"; return 2; }; rm -f "$cron_snapshot"; done <"$cron_manifest_snapshot"
+  consumer_canonical_regular "$cron_manifest" >/dev/null && [ "$cron_manifest_identity" = "$(consumer_source_identity "$cron_manifest")" ] || { rm -f "$cron_manifest_snapshot" "$cron_targets" "$cron_commands" "$cron_tokens"; return 2; }; rm -f "$cron_manifest_snapshot" "$cron_targets" "$cron_commands" "$cron_tokens"
+}
+
+container_argument_consumers() {
+  argument_id=$1; argument_configuration=$2; argument_rest=${argument_configuration#* }; argument_rest=${argument_rest#* }; argument_rest=${argument_rest#* }; case "$argument_rest" in '[] '*) return 0;; esac; argument_json=$(temp_path); argument_again=$(temp_path); argument_paths=$(temp_path)
+  docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .Args}}' "$argument_id" >"$argument_json" && docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .Args}}' "$argument_id" >"$argument_again" && cmp -s "$argument_json" "$argument_again" || { rm -f "$argument_json" "$argument_again" "$argument_paths"; return 2; }
+  /usr/bin/jq -er 'if type != "array" or any(.[]; type != "string") then error("invalid arguments") else [.[] | select(startswith("/")) | if test("^/[A-Za-z0-9._/-]+$") and (test("(^|/)\\.\\.?(/|$)")|not) then . else error("unsafe argument path") end] | unique[] end' "$argument_json" >"$argument_paths" || { rm -f "$argument_json" "$argument_again" "$argument_paths"; return 2; }
+  while IFS= read -r argument_path || [ -n "$argument_path" ]; do first=$(temp_path); second=$(temp_path); rm -f "$first" "$second"; [ "$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$argument_id")" = false ] || { rm -f "$argument_json" "$argument_again" "$argument_paths" "$first" "$second"; return 2; }; docker --host "unix://$CANONICAL_DOCKER_SOCKET" cp "$argument_id:$argument_path" "$first" >/dev/null 2>&1 && docker --host "unix://$CANONICAL_DOCKER_SOCKET" cp "$argument_id:$argument_path" "$second" >/dev/null 2>&1 || { rm -rf "$argument_json" "$argument_again" "$argument_paths" "$first" "$second"; return 2; }; consumer_canonical_regular "$first" >/dev/null && consumer_canonical_regular "$second" >/dev/null || { rm -rf "$argument_json" "$argument_again" "$argument_paths" "$first" "$second"; return 2; }; first_record="$(sha "$first")|$(stat -c '%f:%s:%u:%g:%a' "$first")"; second_record="$(sha "$second")|$(stat -c '%f:%s:%u:%g:%a' "$second")"; [ "$first_record" = "$second_record" ] && [ "$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$argument_id")" = false ] || { rm -f "$argument_json" "$argument_again" "$argument_paths" "$first" "$second"; return 2; }; if consumer_matches "$first"; then printf 'container-argument:%s:%s|%s\n' "$argument_id" "$argument_path" "$first_record"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$argument_json" "$argument_again" "$argument_paths" "$first" "$second"; return "$status"; }; fi; rm -f "$first" "$second"; done <"$argument_paths"
+  rm -f "$argument_json" "$argument_again" "$argument_paths"
 }
 
 scan_compose_build_images() {

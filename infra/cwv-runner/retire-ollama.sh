@@ -211,6 +211,7 @@ container_id() { docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.
 container_config() { out=$(temp_path); CONTAINER_CONFIG_SHA=$(digest_command "$out" container-config docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Image}} {{.Path}} {{json .Args}} {{json .HostConfig}} {{json .Mounts}} {{json .NetworkSettings.Networks}}' "$CONTAINER"); record_consumers container-config "$out" none; rm -f "$out"; }
 collect() {
   records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'; id='' image='' config=''; tmp=${1:?snapshot path}; phase=${2:-scan}; cron="$tmp.cron"
+  load_cron_inventory_helper; RETIRE_OLLAMA_CRON_SOURCES=$(temp_path); cron_inventory_collect_external "$RETIRE_OLLAMA_CRON_SOURCES"
   assert_docker_socket; record_scan container-definitions scan_container_definitions
   systemctl cat "$UNIT" >"$tmp.unit" || die 'systemd definition scan failed'; record_scan systemd-definitions scan_systemd_consumers
   fragment=$(systemctl show "$UNIT" -p FragmentPath --value) || die 'fragment scan failed'; record_path systemd-fragments "$fragment"
@@ -220,7 +221,7 @@ collect() {
   if crontab -u "$OWNER" -l >"$cron" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'crontab scan failed'; : >"$cron"; fi; cron_sha=$(sha "$cron")
   case "$phase:$cron_sha" in scan:"$PRE_CRON_SHA"|revalidate:"$PRE_CRON_SHA"|revalidate:"$POST_CRON_SHA"|delete_models:"$POST_CRON_SHA") :;; *) die 'crontab drift';; esac
   record_scan current-crontab cat "$cron"; review_ollama_service_process_begin; processes=$(temp_path); ps -ww -eo pid,ppid,user,args >"$processes" || { rm -f "$processes"; die 'process scan failed'; }; record_scan running-processes cat "$processes"; record_running_process_environments "$processes"; record_running_process_sockets "$processes"; review_ollama_service_process_finish; rm -f "$processes"; record_scan running-containers scan_running_containers
-  load_cron_inventory_helper; record_external_cron_sources
+  record_external_cron_sources "$RETIRE_OLLAMA_CRON_SOURCES"
   if package=$(dpkg-query -W "-f=$PACKAGE_FORMAT" ollama 2>/dev/null); then :; else die 'Ollama package missing'; fi; [ -n "$package" ] || die 'Ollama package missing'; record_scan package-identity dpkg-query -W "-f=$PACKAGE_FORMAT" ollama
   record_docker_socket; record_scan docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'
   if id=$(container_id 2>/dev/null); then image=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Image}}' "$CONTAINER") || die 'container image scan failed'; container_config; config=$CONTAINER_CONFIG_SHA; records=$(jq -cn --argjson old "$records" --arg id "$id" --arg image "$image" --arg config "$config" '$old + [{class:"container-config",fullId:$id,imageId:$image,configSha256:$config}]') || die 'container record failed'; elif [ "$phase" != delete_models ]; then die 'container missing'; else consumer_counts=$(jq -cn --argjson old "$consumer_counts" '$old + [{surface:"container-config",matchCount:0}]') || die 'container count record failed'; fi

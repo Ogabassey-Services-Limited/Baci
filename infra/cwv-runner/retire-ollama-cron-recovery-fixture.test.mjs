@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -11,7 +18,9 @@ const script = new URL('./retire-ollama.sh', import.meta.url);
 const unprivileged = process.getuid?.() === 0 ? { uid: 65534, gid: 65534 } : {};
 
 async function fixtureDirectory() {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-recovery-'));
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-cron-recovery-'))
+  );
   await chmod(directory, 0o777);
   return directory;
 }
@@ -21,7 +30,7 @@ function recoveryShell(command, args = []) {
     'sh',
     [
       '-c',
-      `. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
+      `sha256sum() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"; else command sha256sum "$@"; fi; }; stat() { printf '1:2:81a4:10:65534:65534:600\\n'; }; findmnt() { printf '/ fixture tmpfs rw\\n'; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
       'retire-ollama-cron-recovery-fixture-test',
       script.pathname,
       ...args,
