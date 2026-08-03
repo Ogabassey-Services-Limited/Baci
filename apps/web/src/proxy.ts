@@ -46,6 +46,7 @@ import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { getStorefrontPublicationCacheTag } from '@/lib/storefront-publication-cache-tag';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -1935,6 +1936,111 @@ function buildHardStatusStorefrontResponse(
 }
 
 /**
+ * Returns the public storefront home URL only for an URL shape that can belong
+ * to a merchant without consulting the tenant database. The proxy needs this
+ * deterministic shape gate before it can reject a path that is provably not a
+ * valid PDP, otherwise a repeated `%2525…` bot URL still reaches custom-domain
+ * resolution and the application render.
+ */
+function getStorefrontDocumentHomePath(
+  pathname: string,
+  hostname: string | undefined
+): string | null {
+  const normalizedHostname = normalizeHostname(hostname ?? '');
+  const pathSegments = pathname.split('/').filter(Boolean);
+
+  if (
+    isRootDomain(normalizedHostname, ROOT_DOMAIN) ||
+    isVercelPreview(normalizedHostname)
+  ) {
+    const merchantSlug = pathSegments[0]?.toLowerCase();
+    if (
+      !merchantSlug ||
+      !isValidSubdomain(merchantSlug) ||
+      RESERVED_SUBDOMAINS.has(merchantSlug) ||
+      PLATFORM_ROOT_ROUTE_SEGMENTS.has(merchantSlug)
+    ) {
+      return null;
+    }
+
+    return `/${merchantSlug}`;
+  }
+
+  const merchantSubdomain = extractSubdomain(normalizedHostname, ROOT_DOMAIN);
+  if (merchantSubdomain && !RESERVED_SUBDOMAINS.has(merchantSubdomain)) {
+    return '/';
+  }
+
+  if (extractLocalhostSubdomain(normalizedHostname)) {
+    return '/';
+  }
+
+  return isValidCustomDomain(normalizedHostname) ? '/' : null;
+}
+
+/**
+ * Hard-reject deterministic malformed PDP paths before custom-domain, product,
+ * or cached-storefront lookups. A bounded safety verdict is intentionally much
+ * narrower than a generic URL validator: normal percent-encoded slugs and all
+ * non-PDP routes retain their existing routing behavior.
+ */
+function resolveUnsafeStorefrontPdpPath(
+  request: NextRequest,
+  pathname: string,
+  hostname: string | undefined,
+  userAgent: string
+): NextResponse | null {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return null;
+  }
+
+  const routeType = getRouteType(pathname);
+  if (routeType !== 'storefront') {
+    return null;
+  }
+
+  const homePath = getStorefrontDocumentHomePath(pathname, hostname);
+  if (!homePath) {
+    return null;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length !== 2) {
+    return null;
+  }
+
+  const firstSegment = safeDecodeSegment(contentSegments[0]).toLowerCase();
+  const isProductsFallbackPdp = firstSegment === 'products';
+  if (
+    !isProductsFallbackPdp &&
+    (!firstSegment || NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment))
+  ) {
+    return null;
+  }
+
+  if (
+    contentSegments.every(
+      (segment) => evaluateStorefrontSlugSafety(segment).safe
+    )
+  ) {
+    return null;
+  }
+
+  return buildHardStatusStorefrontResponse(
+    404,
+    request,
+    pathname,
+    userAgent,
+    hostname,
+    homePath
+  );
+}
+
+/**
  * Crawl-budget pre-React status for storefront PDP product slugs (PR-B §3.2).
  *
  * Gated tightly to clean, non-prefetch, GET/HEAD HTML navigations to a
@@ -2839,6 +2945,20 @@ export async function proxy(request: NextRequest) {
     const newPath = cleanPath === '/' ? '' : cleanPath;
     const newUrl = `https://ogabassey.com/blog${newPath}`;
     return NextResponse.redirect(newUrl, { status: 301 });
+  }
+
+  // Repeatedly percent-encoded PDP slugs are deterministic bot/broken-link
+  // traffic, never merchant content. Reject them before custom-domain or
+  // product lookups can consume Vercel runtime and cache capacity. The legacy
+  // blog host above deliberately keeps ownership of its WordPress redirects.
+  const unsafeStorefrontPdpPath = resolveUnsafeStorefrontPdpPath(
+    request,
+    pathname,
+    hostname,
+    userAgent
+  );
+  if (unsafeStorefrontPdpPath) {
+    return unsafeStorefrontPdpPath;
   }
 
   // ==== SECURITY: BLOCK KNOWN SEO SPAM ====

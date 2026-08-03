@@ -871,6 +871,44 @@ describe('Middleware Proxy', () => {
     );
     const compareHubStatusMock = vi.mocked(resolveStorefrontCompareHubStatus);
 
+    it('hard-rejects repeated percent-encoding before storefront lookups on every merchant URL shape', async () => {
+      const unsafeProductPath = `/smartphones/phone${'%2525252525'.repeat(30)}`;
+      const merchantUrls = [
+        `https://ogabassey.com${unsafeProductPath}`,
+        `https://ogabassey.${ROOT_DOMAIN}${unsafeProductPath}`,
+        `https://${ROOT_DOMAIN}/ogabassey${unsafeProductPath}`,
+      ];
+
+      for (const url of merchantUrls) {
+        const request = new NextRequest(url);
+        request.headers.set('host', new URL(url).host);
+
+        const response = await proxy(request);
+
+        expect(response.status).toBe(404);
+        expect(response.headers.get('X-Robots-Tag')).toBe('noindex, follow');
+        expect(response.headers.get('Cache-Control')).toContain('no-store');
+      }
+
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+    });
+
+    it('does not reject a non-GET storefront request solely because its path is over-encoded', async () => {
+      const unsafeProductPath = `/smartphones/phone${'%2525252525'.repeat(30)}`;
+      const request = new NextRequest(
+        `https://ogabassey.com${unsafeProductPath}`,
+        { method: 'POST' }
+      );
+      request.headers.set('host', 'ogabassey.com');
+
+      const response = await proxy(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('X-Robots-Tag')).toBeNull();
+    });
+
     it('308-redirects stale custom-domain category aliases before the App Router streams a 200 shell', async () => {
       canonicalRedirectMock.mockResolvedValue({
         kind: 'redirect',
