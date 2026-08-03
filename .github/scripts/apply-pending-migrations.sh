@@ -98,6 +98,15 @@ historical_collision_repair_spec() {
   esac
 }
 
+historical_migration_repair_spec() {
+  case "$1:$2" in
+    20260727220050:shipment_tracking_realtime_broadcast)
+      printf '%s\t%s\t%s\n' '20260803000600' 'repair_gigl_tracking_realtime_broadcast' '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65'
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 historical_collision_version_is_known() {
   case "$1" in
     20260615120000 | 20260713130000) return 0 ;;
@@ -197,6 +206,22 @@ for file in "${sorted_files[@]}"; do
     continue
   fi
 
+  if repair_spec="$(historical_migration_repair_spec "$version" "$name")"; then
+    IFS=$'\t' read -r repair_version repair_name expected_sha <<<"$repair_spec"
+    repair_file="$migrations_dir/${repair_version}_${repair_name}.sql"
+    actual_sha="$(sha256sum "$file" | awk '{print $1}')"
+    if [ "$actual_sha" != "$expected_sha" ] || [ ! -f "$repair_file" ]; then
+      echo "::error::Historical migration $version requires the pinned append-only repair ${repair_version}_${repair_name}.sql and original source checksum" >&2
+      exit 1
+    fi
+    body="$(jq -n --arg query "$(build_register_migration_query "$version" "$name")" '{query: $query}')"
+    api_query_payload "$body"
+    echo "::warning::Historical migration $version is reconciled by append-only repair migration ${repair_version}_${repair_name}.sql"
+    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
+    skipped_count=$((skipped_count + 1))
+    continue
+  fi
+
   echo "→ applying:        $version  ${name}"
 
   if head -n 1 "$file" | grep -qx -- '-- disable-transaction'; then
@@ -227,15 +252,7 @@ for file in "${sorted_files[@]}"; do
     continue
   fi
 
-  # Transactional migrations must not contain statements that cannot run inside
-  # a BEGIN/COMMIT block. Those must opt out with the `-- disable-transaction`
-  # first-line marker (handled above); otherwise the explicit transaction
-  # wrapper below would fail.
-  #
-  # Strip SQL line comments (`-- ...`) before scanning so a keyword that appears
-  # only inside an explanatory comment — e.g. a migration that notes it
-  # deliberately avoids CONCURRENTLY — is not misread as an actual
-  # non-transactional statement (that false positive blocked a deploy once).
+  # Strip comments before checking for statements that require the marker.
   if sed 's/--.*//' "$file" | grep -qiE '\bconcurrently\b|\bvacuum\b|create[[:space:]]+database|drop[[:space:]]+database|reindex'; then
     echo "::error::$file contains a non-transactional statement but is missing the '-- disable-transaction' first-line marker"
     exit 1

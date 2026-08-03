@@ -19,6 +19,13 @@ type CurrentTreeSourceOptions = {
   workdir: string;
 };
 
+const replaySourceReplacements = new Map([
+  [
+    'supabase/migrations/20260727220050_shipment_tracking_realtime_broadcast.sql',
+    'supabase/migrations/20260803000600_repair_gigl_tracking_realtime_broadcast.sql',
+  ],
+]);
+
 export async function applySupabaseCurrentTreeSources(
   options: CurrentTreeSourceOptions
 ): Promise<void> {
@@ -30,8 +37,36 @@ export async function applySupabaseCurrentTreeSources(
     })),
   ];
 
-  for (const [index, source] of sources.entries()) {
-    const ordinal = options.startingOrdinal + index;
+  const appliedPaths = new Set<string>();
+  let ordinal = options.startingOrdinal;
+  for (const source of sources) {
+    const replacementPath = replaySourceReplacements.get(source.repositoryPath);
+    if (replacementPath) {
+      const replacement = sources.find(
+        ({ repositoryPath }) => repositoryPath === replacementPath
+      );
+      if (!replacement) {
+        throw new Error(
+          `Missing replay replacement source: ${replacementPath}`
+        );
+      }
+      if (appliedPaths.has(replacement.repositoryPath)) continue;
+      const sqlPath = await options.materializeSource(
+        options.repositoryRoot,
+        options.workdir,
+        replacement,
+        ordinal
+      );
+      await applySupabaseReplaySql(options.apply, {
+        kind: 'migration',
+        ordinal,
+        sqlPath,
+      });
+      appliedPaths.add(replacement.repositoryPath);
+      ordinal += 1;
+      continue;
+    }
+    if (appliedPaths.has(source.repositoryPath)) continue;
     const sqlPath = await options.materializeSource(
       options.repositoryRoot,
       options.workdir,
@@ -43,5 +78,7 @@ export async function applySupabaseCurrentTreeSources(
       ordinal,
       sqlPath,
     });
+    appliedPaths.add(source.repositoryPath);
+    ordinal += 1;
   }
 }

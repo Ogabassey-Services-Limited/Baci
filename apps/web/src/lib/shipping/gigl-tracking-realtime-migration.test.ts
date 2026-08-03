@@ -6,27 +6,51 @@ function resolveMigrationPath(relativePath: string) {
   return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
+const migrationFiles = {
+  historical: '20260727220050_shipment_tracking_realtime_broadcast.sql',
+  repair: '20260803000600_repair_gigl_tracking_realtime_broadcast.sql',
+} as const;
+
+const policyNames = [
+  'authorized users receive shipment tracking wakeups',
+  'shipment tracking topics require order access',
+] as const;
+
+function readMigration(filename: string) {
+  return readFileSync(
+    resolveMigrationPath(`../../../../../supabase/migrations/${filename}`),
+    'utf8'
+  );
+}
+
+function extractPolicyBody(migration: string, policyName: string) {
+  const policyBody = migration.match(
+    new RegExp(`CREATE POLICY "${policyName}"[\\s\\S]*?;`, 'i')
+  )?.[0];
+  expect(policyBody).toBeDefined();
+  return policyBody ?? '';
+}
+
 describe('GIGL tracking Realtime migration', () => {
-  it('uses valid qualified substring syntax in both order access policies', () => {
-    const migration = readFileSync(
-      resolveMigrationPath(
-        '../../../../../supabase/migrations/20260727220050_shipment_tracking_realtime_broadcast.sql'
-      ),
-      'utf8'
-    );
+  it('keeps the historical source and validates the append-only repair', () => {
+    const historicalMigration = readMigration(migrationFiles.historical);
+    const repairMigration = readMigration(migrationFiles.repair);
 
-    const policyBodies = [
-      'authorized users receive shipment tracking wakeups',
-      'shipment tracking topics require order access',
-    ].map((policyName) => {
-      const policyBody = migration.match(
-        new RegExp(`CREATE POLICY "${policyName}"[\\s\\S]*?;`, 'i')
-      )?.[0];
-      expect(policyBody).toBeDefined();
-      return policyBody ?? '';
-    });
+    for (const policyName of policyNames) {
+      const historicalPolicy = extractPolicyBody(
+        historicalMigration,
+        policyName
+      );
+      expect(
+        historicalPolicy.match(
+          /pg_catalog\.substring\(realtime\.topic\(\) FROM 16\)::uuid/g
+        )
+      ).toHaveLength(1);
+      expect(historicalPolicy).not.toContain(
+        'pg_catalog.substr(realtime.topic(), 16)::uuid'
+      );
 
-    for (const policyBody of policyBodies) {
+      const policyBody = extractPolicyBody(repairMigration, policyName);
       expect(
         policyBody.match(/pg_catalog\.substr\(realtime\.topic\(\), 16\)::uuid/g)
       ).toHaveLength(1);

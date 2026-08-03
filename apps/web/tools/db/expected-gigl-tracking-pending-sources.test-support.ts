@@ -9,7 +9,7 @@ export const EXPECTED_GIGL_TRACKING_PENDING_SOURCES = [
   ],
   [
     '20260727220050_shipment_tracking_realtime_broadcast.sql',
-    '209554a5e1042a8b0c45e1d7ed0dfedfe8622b8bb4f263ca01adf4507f720921',
+    '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65',
   ],
   [
     '20260727220060_push_token_compatibility_ledger.sql',

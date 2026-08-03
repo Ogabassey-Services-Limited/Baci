@@ -78,4 +78,40 @@ describe('applySupabaseCurrentTreeSources', () => {
       /^Replay migration application failed at ordinal 129: non-zero-exit \(line=7,sqlstate=42501\)$/
     );
   });
+
+  it('replays the failed historical source through its append-only repair', async () => {
+    const materializeSource = vi.fn(
+      async (
+        _root: string,
+        _workdir: string,
+        source: { repositoryPath: string },
+        ordinal: number
+      ) => `/owned/sql/${ordinal}-${source.repositoryPath.split('/').at(-1)}`
+    );
+    const apply = vi.fn(async () => undefined);
+    const historicalPath =
+      'supabase/migrations/20260727220050_shipment_tracking_realtime_broadcast.sql';
+    const repairPath =
+      'supabase/migrations/20260803000600_repair_gigl_tracking_realtime_broadcast.sql';
+
+    await applySupabaseCurrentTreeSources({
+      apply,
+      materializeSource,
+      pendingSources: [
+        { repositoryPath: historicalPath, sha256: 'a'.repeat(64) },
+        { repositoryPath: repairPath, sha256: 'b'.repeat(64) },
+      ],
+      postReplaySources: [],
+      repositoryRoot: '/repository',
+      startingOrdinal: 129,
+      workdir: '/owned',
+    });
+
+    expect(materializeSource.mock.calls.map((call) => call.slice(2))).toEqual([
+      [expect.objectContaining({ repositoryPath: repairPath }), 129],
+    ]);
+    expect(apply).toHaveBeenCalledWith(
+      `/owned/sql/129-${repairPath.split('/').at(-1)}`
+    );
+  });
 });

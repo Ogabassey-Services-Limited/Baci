@@ -1,3 +1,11 @@
+-- Append-only repair for the historical GIGL Realtime migration.
+--
+-- 20260727220050_shipment_tracking_realtime_broadcast.sql is retained byte-for-byte
+-- because it is a historical migration source. Its qualified PostgreSQL
+-- substring syntax was rejected during deployment before the migration could
+-- be applied, so the deployment applier reconciles that exact source and runs
+-- this corrected, idempotent final-state repair instead.
+
 -- Private, payload-free wakeups let clients refetch an authorized snapshot.
 
 CREATE OR REPLACE FUNCTION private.emit_shipment_tracking_wakeup(
@@ -127,7 +135,7 @@ CREATE POLICY "authorized users receive shipment tracking wakeups"
     AND EXISTS (
       SELECT 1
       FROM public.orders AS tracked_order
-      WHERE tracked_order.id = pg_catalog.substring(realtime.topic() FROM 16)::uuid
+      WHERE tracked_order.id = pg_catalog.substr(realtime.topic(), 16)::uuid
         AND (
           public.has_merchant_access(tracked_order.merchant_id)
           OR EXISTS (
@@ -154,7 +162,7 @@ CREATE POLICY "shipment tracking topics require order access"
       AND EXISTS (
       SELECT 1
       FROM public.orders AS tracked_order
-      WHERE tracked_order.id = pg_catalog.substring(realtime.topic() FROM 16)::uuid
+      WHERE tracked_order.id = pg_catalog.substr(realtime.topic(), 16)::uuid
         AND (
           public.has_merchant_access(tracked_order.merchant_id)
           OR EXISTS (
