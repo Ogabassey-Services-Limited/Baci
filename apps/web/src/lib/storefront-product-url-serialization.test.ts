@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest';
+import { buildProductSitemapEntry } from '@/app/(storefront)/[slug]/build-product-sitemap-entry';
+import { getValidatedProductUrl } from '@/lib/seo-utils';
+import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+
+describe('storefront public product URL serialization', () => {
+  it('preserves raw reserved delimiters as one encoded path segment across consumers', () => {
+    const product = {
+      id: 'watch-1',
+      name: 'Watch Pro',
+      slug: 'watch?pro#gps',
+      category: 'Smart Watches',
+      category_slug: 'smart?watches#gps',
+      canonical_url: null,
+    };
+    const expected =
+      'https://store.example/smart%3Fwatches%23gps/watch%3Fpro%23gps';
+
+    expect(getValidatedProductUrl(product, 'https://store.example')).toBe(
+      expected
+    );
+    expect(
+      buildAgentProductUrl({ baseUrl: 'https://store.example', product })
+    ).toBe(expected);
+    expect(
+      buildProductSitemapEntry({
+        product: {
+          ...product,
+          images: [],
+          updated_at: null,
+          categories: { slug: product.category_slug },
+        },
+        storeUrl: 'https://store.example',
+      }).url
+    ).toBe(expected);
+  });
+
+  it('converges raw and already-encoded product path segments without double encoding', () => {
+    const rawUrl = getValidatedProductUrl(
+      {
+        id: 'watch-1',
+        name: 'Watch Pro',
+        slug: 'watch?pro#gps',
+        category_slug: 'smart?watches#gps',
+      },
+      'https://store.example'
+    );
+    const encodedUrl = getValidatedProductUrl(
+      {
+        id: 'watch-1',
+        name: 'Watch Pro',
+        slug: 'watch%3Fpro%23gps',
+        category_slug: 'smart%3Fwatches%23gps',
+      },
+      'https://store.example'
+    );
+
+    expect(encodedUrl).toBe(rawUrl);
+  });
+});

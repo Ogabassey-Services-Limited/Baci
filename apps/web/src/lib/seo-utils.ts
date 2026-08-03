@@ -37,34 +37,22 @@ import type {
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaMarkup, sanitizeSchemaUrl } from './sanitize-json-ld';
 import { normalizeSocialUrl } from './social';
-import { normalizeStorefrontCanonicalUrl } from './storefront-canonical-url';
 import { stripVolatileProductPriceSentences } from './storefront-product-description';
+import {
+  buildProductUrl as buildSerializedProductUrl,
+  generateSlug,
+  getProductUrl as getSerializedProductUrl,
+} from './storefront-product-path';
+import { getValidatedProductUrl as getSerializedValidatedProductUrl } from './storefront-product-url-serialization';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileReturnFee,
   MerchantTrustProfileReturnMethod,
 } from './storefront-trust/merchant-trust-profile-types';
 
+export { generateSlug } from './storefront-product-path';
 // Re-export escapeHtml for use in other modules
 export { escapeHtml, getEffectiveProductStock };
-
-/**
- * Lightly normalizes a category slug for use in canonical product paths.
- *
- * Unlike the storefront `normalizeStorefrontCategorySlug` helper, this does
- * NOT remap legacy category aliases (e.g. `phones` -> `smartphones`).
- * Canonical product URLs must match the merchant's stored `category_slug`
- * exactly — otherwise the product route's `categoryMismatch` check (which
- * compares the raw DB slug to the URL segment) will trigger a permanent
- * redirect back to the normalized path, causing a self-redirect loop for
- * merchants whose products still use the legacy slug values.
- */
-function normalizeCanonicalCategorySlug(
-  slug: string | null | undefined
-): string | null {
-  const normalized = slug?.trim().toLowerCase();
-  return normalized ? normalized : null;
-}
 
 function getSchemaItemCondition(condition?: string | null) {
   if (!condition || condition.trim() === '') {
@@ -83,21 +71,6 @@ function getSchemaAvailability(product: {
   return getProductStockBucket(product) === 'out_of_stock'
     ? 'https://schema.org/OutOfStock'
     : 'https://schema.org/InStock';
-}
-
-/**
- * Generates a URL-friendly slug from a string
- */
-export function generateSlug(text: string): string {
-  return text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-') // Replace spaces with -
-    .replace(/[^\w-]+/g, '') // Remove all non-word chars
-    .replace(/--+/g, '-') // Replace multiple - with single -
-    .replace(/^-+/, '') // Trim - from start of text
-    .replace(/-+$/, ''); // Trim - from end of text
 }
 
 /**
@@ -148,32 +121,7 @@ export function buildProductUrl(
   category?: string | null | { name?: string; slug?: string },
   categorySlug?: string | null
 ): Route {
-  // IMPORTANT: Canonical product paths must match the merchant's stored
-  // `category_slug` exactly (after lowercase/trim). The storefront product
-  // route compares the raw DB slug against the URL segment to detect
-  // category mismatches and issues a permanent redirect when they differ.
-  // Applying alias normalization here (e.g. `phones` -> `smartphones`) would
-  // produce URLs that trigger a mismatch every request, creating a
-  // self-redirect loop for legacy-slug products.
-  if (typeof category === 'object' && category?.slug) {
-    const normalizedCategorySlug = normalizeCanonicalCategorySlug(
-      category.slug
-    );
-    if (normalizedCategorySlug) {
-      return `/${normalizedCategorySlug}/${productSlug}` as Route;
-    }
-  }
-  const normalizedCategorySlug = normalizeCanonicalCategorySlug(categorySlug);
-  if (normalizedCategorySlug) {
-    return `/${normalizedCategorySlug}/${productSlug}` as Route;
-  }
-  if (typeof category === 'string') {
-    const slug = normalizeCanonicalCategorySlug(generateSlug(category));
-    if (slug) {
-      return `/${slug}/${productSlug}` as Route;
-    }
-  }
-  return `/products/${productSlug}` as Route;
+  return buildSerializedProductUrl(productSlug, category, categorySlug);
 }
 
 /**
@@ -192,30 +140,7 @@ export function getProductUrl(product: {
   condition_detail?: string;
   id: string;
 }): Route {
-  const canonicalPath = extractCanonicalProductPath(product.canonical_url);
-  if (canonicalPath) {
-    return canonicalPath;
-  }
-
-  // Use existing slug or generate one
-  const productSlug =
-    product.slug ||
-    generateProductSlug(
-      product.name,
-      product.condition,
-      product.condition_detail
-    ) ||
-    product.id;
-
-  // Extract category slug from categories object if available
-  const categorySlug =
-    product.categories?.slug || product.category_slug || product.categorySlug;
-
-  return buildProductUrl(
-    productSlug,
-    product.categories?.name || product.category,
-    categorySlug
-  );
+  return getSerializedProductUrl(product);
 }
 
 export function getValidatedProductUrl(
@@ -223,213 +148,7 @@ export function getValidatedProductUrl(
   baseUrl: string,
   merchantSlug?: string | null
 ): string {
-  let storeOrigin = '';
-  try {
-    storeOrigin = new URL(baseUrl).origin;
-  } catch {
-    storeOrigin = '';
-  }
-
-  const finalProductPath = getProductUrl({
-    ...product,
-    canonical_url: null,
-  });
-  let canonicalUrl = normalizeStorefrontCanonicalUrl(
-    product.canonical_url,
-    storeOrigin,
-    merchantSlug
-  );
-
-  if (canonicalUrl) {
-    try {
-      const parsedCanonicalUrl = new URL(canonicalUrl, baseUrl);
-      const canonicalPath = normalizeSerializedProductPath(
-        parsedCanonicalUrl.pathname
-      );
-      const normalizedFinalPath =
-        normalizeSerializedProductPath(finalProductPath);
-      if (
-        parsedCanonicalUrl.search ||
-        parsedCanonicalUrl.hash ||
-        canonicalPath !== normalizedFinalPath
-      ) {
-        canonicalUrl = undefined;
-      }
-    } catch {
-      canonicalUrl = undefined;
-    }
-  }
-
-  return serializeProductUrl(
-    canonicalUrl || `${storeOrigin}${finalProductPath}`
-  );
-}
-
-function normalizeSerializedProductPath(path: string): string {
-  const normalizedPath = path.replace(/\/+$/, '') || '/';
-  return normalizedPath
-    .split('/')
-    .map((segment, index) => {
-      if (index === 0) return segment;
-
-      try {
-        return encodeURIComponent(decodeURIComponent(segment));
-      } catch {
-        return encodeURIComponent(segment);
-      }
-    })
-    .join('/');
-}
-
-function serializeProductUrl(url: string): string {
-  try {
-    const parsedUrl = new URL(url);
-    return `${parsedUrl.origin}${normalizeSerializedProductPath(parsedUrl.pathname)}`;
-  } catch {
-    return normalizeSerializedProductPath(url);
-  }
-}
-
-const STOREFRONT_ROOT_SEGMENTS = new Set([
-  'products',
-  'blog',
-  'smartphones',
-  'laptops',
-  'macbooks',
-  'gaming',
-  'accessories',
-  'audio',
-  'tablets',
-  'desktops',
-  'monitors',
-  'smartwatches',
-  'gaming-laptops',
-  'gift-cards',
-  'gaming-accessories',
-  'earbuds',
-  'headphones',
-  'wearables',
-  'printers',
-  'repair',
-  'repairs',
-  'swap',
-  'wallet',
-  'account',
-  'wishlist',
-  'faq',
-  'about',
-  'terms',
-  'privacy',
-]);
-
-const NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS = new Set([
-  'about',
-  'account',
-  'api',
-  'blog',
-  'faq',
-  'favicon',
-  'icon',
-  'manifest',
-  'opengraph-image',
-  'privacy',
-  'repair',
-  'repairs',
-  'robots',
-  'rss',
-  'sitemap',
-  'sitemaps',
-  'swap',
-  'terms',
-  'twitter-image',
-  'wallet',
-  'wishlist',
-]);
-
-function extractCanonicalProductPath(
-  canonicalUrl: string | null | undefined
-): Route | null {
-  const normalizedCanonical = canonicalUrl?.trim();
-  if (!normalizedCanonical) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(normalizedCanonical, 'https://storefront.invalid');
-    const canonicalSegments = parsed.pathname
-      .split('/')
-      .filter(Boolean)
-      .map((segment) => segment.trim())
-      .filter(Boolean);
-
-    if (canonicalSegments.length === 0) {
-      return null;
-    }
-
-    // For canonicals shaped like `/{merchantSlug}/{category}/{product}` we want
-    // to drop the merchant-slug prefix so the returned Route matches the app
-    // router's expected `/{category}/{product}` shape. Detect this by
-    // requiring the SECOND segment to be a known storefront root segment —
-    // i.e. only strip when we have positive evidence the leading segment is a
-    // merchant prefix. Previously we stripped for *any* first segment that
-    // wasn't in STOREFRONT_ROOT_SEGMENTS, which incorrectly rewrote legitimate
-    // 3-segment canonicals like `/phones/iphone-15/black` into bogus
-    // 2-segment paths.
-    if (
-      canonicalSegments.length >= 3 &&
-      !STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[0].toLowerCase()) &&
-      STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[1].toLowerCase())
-    ) {
-      canonicalSegments.shift();
-    }
-
-    if (canonicalSegments.length !== 2) {
-      return null;
-    }
-
-    // Do NOT apply alias normalization here. Merchant-authored canonical
-    // URLs must be returned as-is (after lowercasing) so the canonical
-    // matches the merchant's stored `category_slug`. Alias remapping would
-    // recreate the same self-redirect loop fixed in `buildProductUrl`.
-    const normalizedCategorySlug = normalizeCanonicalCategorySlug(
-      canonicalSegments[0]
-    );
-    if (normalizedCategorySlug) {
-      canonicalSegments[0] = normalizedCategorySlug;
-    }
-
-    const [rootSegment, productSlug] = canonicalSegments;
-    if (!productSlug) {
-      return null;
-    }
-
-    // Reject any segment with a file extension (e.g. sitemap.xml, robots.txt,
-    // opengraph-image.png) so metadata endpoints never masquerade as product
-    // routes.
-    if (rootSegment.includes('.') || productSlug.includes('.')) {
-      return null;
-    }
-
-    const rootSegmentLower = rootSegment.toLowerCase();
-    if (NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(rootSegmentLower)) {
-      return null;
-    }
-
-    if (rootSegmentLower === 'products') {
-      return `/products/${productSlug}` as Route;
-    }
-
-    if (
-      !normalizedCategorySlug ||
-      NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(normalizedCategorySlug)
-    ) {
-      return null;
-    }
-
-    return `/${normalizedCategorySlug}/${productSlug}` as Route;
-  } catch {
-    return null;
-  }
+  return getSerializedValidatedProductUrl(product, baseUrl, merchantSlug);
 }
 
 /**

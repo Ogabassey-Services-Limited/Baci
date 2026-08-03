@@ -107,6 +107,65 @@ describe('getStorefrontSearchReadiness', () => {
     );
   });
 
+  it('uses the authorized custom domain without projecting it from merchants', async () => {
+    const selections: string[] = [];
+    const terminalFor = (table: string, columns: string) => {
+      const result =
+        table === 'merchants' && columns.includes('custom_domain')
+          ? {
+              data: null,
+              error: {
+                message: 'column merchants.custom_domain does not exist',
+              },
+            }
+          : table === 'merchants'
+            ? {
+                data: {
+                  business_name: 'Zorvexa',
+                  is_published: true,
+                  slug: 'zorvexa',
+                  site_description: 'Store description',
+                  site_tagline: null,
+                  support_email: 'support@zorvexa.example',
+                  support_phone: null,
+                  trust_profile: {},
+                },
+                error: null,
+              }
+            : { count: 0, error: null };
+      const terminal = Object.assign(Promise.resolve(result), {
+        eq: () => terminal,
+        or: () => terminal,
+        maybeSingle: () => terminal,
+      });
+      return terminal;
+    };
+    Object.assign(mockSupabase, {
+      auth: { getUser: mockGetUser },
+      from: (table: string) => ({
+        select: (columns: string) => {
+          selections.push(columns);
+          return terminalFor(table, columns);
+        },
+      }),
+    });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    vi.mocked(ensurePermission).mockResolvedValue({
+      merchant: { id: 'merchant-1', custom_domain: 'shop.zorvexa.example' },
+    } as never);
+
+    await expect(getStorefrontSearchReadiness('merchant-1')).resolves.toEqual(
+      expect.any(Object)
+    );
+
+    expect(
+      selections.some((columns) => columns.includes('custom_domain'))
+    ).toBe(false);
+  });
+
   it('surfaces a bounded database count failure instead of presenting it as ready', async () => {
     const terminalFor = (table: string) => {
       const result =

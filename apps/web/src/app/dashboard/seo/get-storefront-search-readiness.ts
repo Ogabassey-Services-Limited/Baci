@@ -42,7 +42,7 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
     supabase
       .from('merchants')
       .select(
-        'business_name, is_published, slug, custom_domain, site_description, site_tagline, support_email, support_phone, trust_profile'
+        'business_name, is_published, slug, site_description, site_tagline, support_email, support_phone, trust_profile'
       )
       .eq('id', merchant.id)
       .maybeSingle(),
@@ -87,7 +87,7 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
   const canonicalUrl = merchantFacts.slug?.trim()
     ? buildStoreUrl({
         slug: merchantFacts.slug,
-        custom_domain: merchantFacts.custom_domain,
+        custom_domain: merchant.custom_domain,
       })
     : null;
   return buildStorefrontSearchReadinessAssessment({
