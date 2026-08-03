@@ -68,7 +68,10 @@ async function processNotification(
   const copy = copyFor(notification.notification_kind, event.description);
   const payload = { orderId: notification.order_id, type: 'shipment_tracking' };
   if (notification.notification_kind === 'delivered') {
-    await notifyDeliveredProtectionActivation(notification.order_id);
+    await notifyDeliveredProtectionActivation(
+      notification.order_id,
+      notification.merchant_id
+    );
   }
   let deliveryRejected = false;
   const onDeliveryStart = async () => {
@@ -171,9 +174,12 @@ async function processNotification(
   );
 }
 
-async function notifyDeliveredProtectionActivation(orderId: string) {
+async function notifyDeliveredProtectionActivation(
+  orderId: string,
+  merchantId: string
+) {
   try {
-    await maybeNotifyActivateProtection(orderId);
+    await maybeNotifyActivateProtection(orderId, merchantId);
   } catch (error) {
     logger.error({
       message: 'Failed to send activate-protection push after GIGL delivery',

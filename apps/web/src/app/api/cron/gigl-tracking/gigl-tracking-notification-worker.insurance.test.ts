@@ -48,7 +48,8 @@ describe('GIGL delivered notification protection fanout', () => {
 
     expect(summary).toMatchObject({ failed: 0, sent: 1 });
     expect(maybeNotifyActivateProtection).toHaveBeenCalledWith(
-      notification.order_id
+      notification.order_id,
+      notification.merchant_id
     );
     expect(notifyMerchant).toHaveBeenCalled();
   });

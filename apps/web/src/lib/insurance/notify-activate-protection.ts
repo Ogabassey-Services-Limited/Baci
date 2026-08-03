@@ -15,15 +15,19 @@ const DELIVERED_SHIPPING_STATUSES = new Set(['delivered', 'completed']);
  * if delivery is reported more than once.
  */
 export async function maybeNotifyActivateProtection(
-  orderId: string
+  orderId: string,
+  merchantId?: string
 ): Promise<void> {
   const supabase = createAdminClient();
 
-  const { data: order, error: orderError } = await supabase
+  let orderQuery = supabase
     .from('orders')
     .select('order_number, customer_id, shipping_status')
-    .eq('id', orderId)
-    .maybeSingle();
+    .eq('id', orderId);
+  if (merchantId) {
+    orderQuery = orderQuery.eq('merchant_id', merchantId);
+  }
+  const { data: order, error: orderError } = await orderQuery.maybeSingle();
 
   if (orderError) {
     console.error('[ActivateProtection] order lookup failed:', orderError);
@@ -108,11 +112,18 @@ export async function maybeNotifyActivateProtection(
 
   let result: Awaited<ReturnType<typeof notifyActivateProtection>>;
   try {
-    result = await notifyActivateProtection(
-      customer.user_id,
-      orderId,
-      order.order_number
-    );
+    result = merchantId
+      ? await notifyActivateProtection(
+          customer.user_id,
+          orderId,
+          order.order_number,
+          { merchantId }
+        )
+      : await notifyActivateProtection(
+          customer.user_id,
+          orderId,
+          order.order_number
+        );
   } catch (error) {
     console.error('[ActivateProtection] push send failed:', error);
     await releaseReminderClaims(

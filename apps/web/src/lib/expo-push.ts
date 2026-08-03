@@ -937,7 +937,8 @@ export async function notifyOrderStatusChange(
 export function notifyActivateProtection(
   userId: string,
   orderId: string,
-  orderNumber: string
+  orderNumber: string,
+  options?: { merchantId?: string }
 ): Promise<NotificationSendResult> {
   return notifyCustomer(
     userId,
@@ -948,7 +949,8 @@ export function notifyActivateProtection(
       orderId,
       orderNumber,
     },
-    'orders'
+    'orders',
+    options
   );
 }
 
