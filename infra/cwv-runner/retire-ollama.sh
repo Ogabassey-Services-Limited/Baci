@@ -288,10 +288,10 @@ apply() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; canonical_receipt; [ "$(jq -er '.reviewStatus' "$INVENTORY")" = approved ] || review_required 'reviewed active inventory required'; assert_approved_dependency_classes
   assert_zero_consumers; jq -e '.scan.dependencies | type == "array" and length == 0' "$RECEIPT" >/dev/null || review_required 'retirement requires zero dependencies'; approved=$(approved_dependency_sha) || review_required 'independent dependency review required'; [ "$approved" = "$(dependency_sha)" ] || review_required 'independent dependency review required'; ensure_receipt_dir
   [ ! -e "$RECEIPT_DIR/pre-destructive.json" ] && [ ! -e "$RECEIPT_DIR/pre-destructive.actions" ] && [ ! -e "$RECEIPT_DIR/completion.json" ] || die 'incomplete or completed retirement exists'; pre_pending=$(pending_for "$RECEIPT_DIR/pre-destructive.json"); printf '%s\n' '{"phase":"pre-destructive","rollbackNeeds":["reinstall Ollama package","redownload models"]}' >"$pre_pending" || { discard_pending "$pre_pending"; die 'pre-destructive receipt failed'; }; publish_pending "$pre_pending" "$RECEIPT_DIR/pre-destructive.json"; pre=$(completion_metrics)
-  revalidate_before install_crontab; record_action install_crontab; install_crontab
-  revalidate_before disable_unit; record_action disable_unit; disable_unit
-  revalidate_before remove_container; record_action remove_container; remove_container
-  revalidate_before delete_models; record_action delete_models; delete_models
+  revalidate_before install_crontab; record_action install_crontab; cron_inventory_require_empty_at_queue || die 'queued work or an unsafe queue'; install_crontab
+  revalidate_before disable_unit; record_action disable_unit; cron_inventory_require_empty_at_queue || die 'queued work or an unsafe queue'; disable_unit
+  revalidate_before remove_container; record_action remove_container; cron_inventory_require_empty_at_queue || die 'queued work or an unsafe queue'; remove_container
+  revalidate_before delete_models; record_action delete_models; cron_inventory_require_empty_at_queue || die 'queued work or an unsafe queue'; delete_models
   post=$(completion_metrics)
   ensure_receipt_dir; completion_pending=$(pending_for "$RECEIPT_DIR/completion.json"); jq -S -n --arg receiptSha256 "$(canonical_receipt_digest)" --argjson pre "$pre" --argjson post "$post" '{receiptSha256:$receiptSha256,prePostDeltas:{preDestructive:$pre,postDestructive:$post,deltas:{cgroupMemoryBytes:($post.cgroupMemoryBytes-$pre.cgroupMemoryBytes),hostAvailableMemoryBytes:($post.hostAvailableMemoryBytes-$pre.hostAvailableMemoryBytes),modelStoreBytes:($post.modelStoreBytes-$pre.modelStoreBytes)}},rollbackNeeds:["reinstall Ollama package","redownload models"]}' >"$completion_pending" || { discard_pending "$completion_pending"; die 'completion receipt failed'; }; publish_pending "$completion_pending" "$RECEIPT_DIR/completion.json"
 }

@@ -8,8 +8,41 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
-const prelude =
-  'sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { printf "1:2:81a4:10:0:0:600\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; ';
+const prelude = `
+sha256sum() { /usr/bin/shasum -a 256 "$@"; }
+stat() {
+  for last do :; done
+  [ -e "$last" ] && [ ! -L "$last" ] || return 1
+  case "$*" in
+    *'-c %F'*) [ -d "$last" ] && printf 'directory\\n' || { [ -f "$last" ] && printf 'regular file\\n'; } ;;
+    *'-c %d:%i:%f:%s:%u:%g:%a'*) printf '1:2:81a4:10:0:0:600\\n' ;;
+    *'-c %d'*) printf '1\\n' ;;
+    *'-c %s'*) [ -f "$last" ] && wc -c <"$last" | tr -d ' ' ;;
+    *) return 2 ;;
+  esac
+}
+findmnt() { printf '/ fixture apfs ro\\n'; }
+`;
+
+test('fixture stat models supported files and rejects missing or unknown queries', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-consumer-stat-fixture-'))
+  );
+  const file = join(directory, 'application.conf');
+  try {
+    await writeFile(file, '1234');
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${prelude}stat -c %F "$1"; stat -c %s "$1"; ! stat -c %F "$2"; ! stat --unsupported "$1"`,
+      'retire-ollama-consumer-stat-fixture-test',
+      file,
+      join(directory, 'missing.conf'),
+    ]);
+    assert.equal(stdout, 'regular file\n4\n');
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
 
 test('binds a RootDirectory option path consumed by a stopped unit', async () => {
   const directory = await realpath(

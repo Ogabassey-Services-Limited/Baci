@@ -78,8 +78,8 @@ systemd_quoted_command_path() {
 }
 
 systemd_wrapper_exec_paths() {
-  awk 'function trim(s){sub(/^[[:space:]]+/,"",s);sub(/[[:space:]]+$/,"",s);return s}
-    {line=trim($0);if(line==""||line~/^#/||line~/^(\.|source)[[:space:]]+/)next;explicit=(line~/^exec[[:space:]]+/);if(explicit)sub(/^exec[[:space:]]+/,"",line);if(explicit||line~/^\//){sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);target=parts[1];if(count<1||target!~/^\/[A-Za-z0-9._\/-]+$/||target~/(^|\/)\.\.?($|\/)/)bad=1;else print target}else if(line~/^[\047"`$]/||line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}
+  awk 'function trim(s){sub(/^[[:space:]]+/,"",s);sub(/[[:space:]]+$/,"",s);return s}function safe(path){return path~/^\/[A-Za-z0-9._\/-]+$/&&path!~/(^|\/)\.\.?($|\/)/}
+    {line=trim($0);if(line==""||line~/^#/||line~/^(\.|source)[[:space:]]+/)next;explicit=(line~/^exec[[:space:]]+/);if(explicit)sub(/^exec[[:space:]]+/,"",line);if(explicit||line~/^\//){sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);if(count<1||!safe(parts[1])){bad=1;next};print parts[1];for(i=2;i<=count;i++)if(parts[i]~/^\//){if(!safe(parts[i]))bad=1;else print parts[i]}else if(parts[i]~/^--?[A-Za-z0-9][A-Za-z0-9_.-]*=/){path=parts[i];sub(/^[^=]*=/,"",path);if(path~/^\//){if(!safe(path))bad=1;else print path}else if(path~/\//)bad=1}else if(parts[i]~/^\.\.?\//)bad=1}else if(line~/^[\047"`$]/||line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}
     END{exit bad?2:0}' "$1"
 }
 
