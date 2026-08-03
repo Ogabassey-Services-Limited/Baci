@@ -34,6 +34,22 @@ describe('hasCleanIdentifierOccurrence', () => {
     expect(hasCleanIdentifierOccurrence(post, ['15'])).toBe(true);
   });
 
+  it('keeps an exact laptop model before a split display-size suffix', () => {
+    const post = {
+      slug: 'dell-latitude-5410-14-inch-guide',
+      title: 'Dell Latitude 5410 14-inch Buyer Guide',
+      excerpt: null,
+      category: 'Laptops',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: 6,
+    };
+
+    expect(hasCleanIdentifierOccurrence(post, ['latitude', '5410'])).toBe(true);
+  });
+
   it('rejects an occurrence followed by a variant marker', () => {
     const post = {
       slug: 'iphone-15-pro-only',

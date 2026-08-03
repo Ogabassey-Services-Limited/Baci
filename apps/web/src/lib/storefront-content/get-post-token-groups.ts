@@ -13,5 +13,7 @@ export function getPostTokenGroups(post: PostTokenGroupSource) {
     post.category,
     ...(post.tags ?? []),
     ...(post.keywords ?? []),
-  ].map(tokenizeContentText);
+  ].map((value) =>
+    tokenizeContentText(value?.replace(/\//gu, ' versus ') ?? '')
+  );
 }

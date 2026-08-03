@@ -101,6 +101,28 @@ describe('hasCleanIdentifierOccurrence comparison discriminators', () => {
     ).toBe(false);
   });
 
+  it('treats slash-separated products as comparison boundaries', () => {
+    const post = {
+      slug: 'iphone-slash-galaxy',
+      title: 'Apple iPhone 15 128GB / Samsung Galaxy S25 256GB Comparison',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: 6,
+    };
+
+    expect(
+      hasCleanIdentifierOccurrence(post, ['15'], {
+        brand: 'apple',
+        knownBrands: ['apple', 'samsung'],
+        discriminatorTokens: ['256gb'],
+      })
+    ).toBe(false);
+  });
+
   it('keeps exact models before punctuation-separated listicle counts', () => {
     const post = {
       slug: 'iphone-15-reasons',

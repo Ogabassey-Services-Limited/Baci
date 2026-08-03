@@ -13,6 +13,16 @@ describe('getCompareProductMatchRequirements', () => {
     expect(requirements).toEqual([]);
   });
 
+  it('returns no requirements when one compared product has no model identifier', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      productNames: ['Apple iPhone 15', 'Samsung Smartphone'],
+    });
+
+    expect(requirements).toEqual([]);
+  });
+
   it('keeps brand discriminators when compared models share an identifier', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

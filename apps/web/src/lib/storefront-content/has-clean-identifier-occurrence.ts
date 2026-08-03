@@ -187,14 +187,20 @@ export function hasCleanIdentifierOccurrence(
         startIndex
       );
       const suffix = postTokens[startIndex + identifierTokens.length] ?? '';
+      const nextSuffix =
+        postTokens[startIndex + identifierTokens.length + 1] ?? '';
       const listicleSuffix = new RegExp(
         `${identifierTokens.join('\\s+')}\\s*[:—–-]\\s*\\d+`,
         'iu'
       ).test(post.title);
+      const displaySizeSuffix =
+        /^\d{1,2}$/u.test(suffix) && ['in', 'inch'].includes(nextSuffix);
       if (
         !matchesIdentifier ||
         MODEL_VARIANT_MARKER_TOKENS.has(suffix) ||
-        (MODEL_GENERATION_SUFFIX_PATTERN.test(suffix) && !listicleSuffix)
+        (MODEL_GENERATION_SUFFIX_PATTERN.test(suffix) &&
+          !listicleSuffix &&
+          !displaySizeSuffix)
       ) {
         return false;
       }

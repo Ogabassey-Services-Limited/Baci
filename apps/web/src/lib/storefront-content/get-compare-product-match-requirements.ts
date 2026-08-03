@@ -110,6 +110,10 @@ export function getCompareProductMatchRequirements(
       : [];
   });
 
+  if (candidates.length !== sources.length) {
+    return [];
+  }
+
   const candidateCounts = new Map<string, number>();
   for (const candidate of candidates) {
     const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
