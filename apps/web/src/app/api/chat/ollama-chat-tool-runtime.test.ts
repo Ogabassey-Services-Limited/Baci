@@ -166,6 +166,25 @@ describe('ollama chat tool runtime', () => {
     expect(mocks.handleCancelOrder).toHaveBeenCalledWith(args, TEST_MERCHANT);
   });
 
+  it('rejects disabled Ollama checkout mutations before invoking handlers', async () => {
+    const disabledMerchant = {
+      ...TEST_MERCHANT,
+      agenticCheckoutEnabled: false,
+    };
+
+    const result = await executeAgenticChatToolForOllamaWithMerchant(
+      'createVirtualAccount',
+      '{}',
+      'session-42',
+      disabledMerchant
+    );
+
+    expect(JSON.parse(result)).toEqual({
+      error: 'Agentic checkout disabled',
+    });
+    expect(mocks.handleCreateVirtualAccount).not.toHaveBeenCalled();
+  });
+
   it('does not execute cart mutation requests in the Ollama path', async () => {
     const result = await executeAgenticChatToolForOllama(
       'addToCart',

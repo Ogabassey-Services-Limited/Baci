@@ -962,7 +962,9 @@ describe('POST /api/chat', () => {
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'mock-model',
-        system: expect.stringContaining('Winter Store AI'),
+        system: expect.stringContaining(
+          '<storefront-display-name>"Winter Store"</storefront-display-name>'
+        ),
         tools: expect.objectContaining({
           searchProducts: expect.objectContaining({
             description: 'Search products',
@@ -988,6 +990,29 @@ describe('POST /api/chat', () => {
         }),
       })
     );
+  });
+
+  it('does not expose checkout mutations when the tenant disables agentic checkout', async () => {
+    vi.mocked(resolveSantaTenant).mockResolvedValue({
+      ...TEST_AGENTIC_TENANT,
+      agenticCheckoutEnabled: false,
+    });
+
+    await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Find a laptop' }],
+      })
+    );
+
+    const call = vi.mocked(generateText).mock.calls.at(-1);
+    expect(call?.[0]).toBeDefined();
+    const { tools } = call?.[0] as {
+      tools: Record<string, unknown>;
+    };
+    expect(tools).not.toHaveProperty('createVirtualAccount');
+    expect(tools).not.toHaveProperty('cancelOrder');
+    expect(tools).toHaveProperty('searchProducts');
+    expect(tools).toHaveProperty('checkPaymentStatus');
   });
 
   it('returns a static chat fallback when Gemini generation fails', async () => {

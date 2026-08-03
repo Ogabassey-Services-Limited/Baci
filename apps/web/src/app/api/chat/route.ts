@@ -23,9 +23,13 @@ import { generateText } from 'ai';
 import { headers } from 'next/headers';
 import z from 'zod';
 import { activeTextModel, checkRateLimit } from '@/ai/provider';
+import {
+  resolveChatTenant,
+  withChatTenantHeader,
+} from '@/app/api/chat/chat-tenant';
 import { createAiSdkAgenticChatTools } from '@/app/api/chat/chat-tool-runtime';
 import { executeAgenticChatToolForOllama } from '@/app/api/chat/ollama-chat-tool-runtime';
-import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
+import { getOllamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
 import {
   bufferTextResponse,
   buildChatMessages,
@@ -45,8 +49,6 @@ import {
   getOllamaBaseUrl,
   getOllamaBasicAuth,
 } from '@/env';
-import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
-import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
 import type { OllamaToolCall } from '@/lib/ollama-chat';
@@ -193,7 +195,7 @@ export async function POST(req: Request) {
       chatProvider === 'auto' || chatProvider === 'ollama';
     const llmServerUrl = shouldTryLlm ? getLlmServerUrl() : undefined;
     const triedLlmServer = Boolean(llmServerUrl);
-    const agenticTenant = await resolveSantaTenant(req.signal);
+    const agenticTenant = await resolveChatTenant(req.signal);
     if (!agenticTenant) {
       return new Response(
         JSON.stringify({
@@ -231,8 +233,7 @@ export async function POST(req: Request) {
           timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
         });
         const response = await bufferTextResponse(llmResponse);
-        response.headers.set(SANTA_MERCHANT_SLUG_HEADER, agenticTenant.slug);
-        return response;
+        return withChatTenantHeader(response, agenticTenant.slug);
       } catch (error) {
         if (isChatAbortError(error, req.signal)) {
           return createClientClosedRequestResponse();
@@ -260,8 +261,11 @@ export async function POST(req: Request) {
             messages: buildChatMessages(sanitizedMessages, chatModel, {
               merchantName,
               toolsEnabled: true,
+              checkoutEnabled: agenticTenant.agenticCheckoutEnabled !== false,
             }),
-            tools: ollamaAgenticChatTools,
+            tools: getOllamaAgenticChatTools(
+              agenticTenant.agenticCheckoutEnabled !== false
+            ),
             executeToolCall: async (call) => {
               const toolName = call.function.name;
               if (
@@ -299,8 +303,7 @@ export async function POST(req: Request) {
             timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
           });
           const response = await bufferTextResponse(ollamaResponse);
-          response.headers.set(SANTA_MERCHANT_SLUG_HEADER, agenticTenant.slug);
-          return response;
+          return withChatTenantHeader(response, agenticTenant.slug);
         } catch (error) {
           if (isChatAbortError(error, req.signal)) {
             return createClientClosedRequestResponse();
@@ -313,11 +316,7 @@ export async function POST(req: Request) {
               safeErrorMessage
             );
             const response = createStaticChatFallbackResponse();
-            response.headers.set(
-              SANTA_MERCHANT_SLUG_HEADER,
-              agenticTenant.slug
-            );
-            return response;
+            return withChatTenantHeader(response, agenticTenant.slug);
           }
 
           console.warn(
@@ -332,7 +331,9 @@ export async function POST(req: Request) {
     try {
       result = await generateText({
         model: activeTextModel,
-        system: buildAgenticSystemPrompt(merchantName),
+        system: buildAgenticSystemPrompt(merchantName, {
+          checkoutEnabled: agenticTenant.agenticCheckoutEnabled !== false,
+        }),
         messages: sanitizedMessages,
         abortSignal: req.signal,
         tools: createAiSdkAgenticChatTools(sessionId, agenticTenant),
@@ -350,16 +351,15 @@ export async function POST(req: Request) {
 
     if (!result?.text.trim()) {
       const response = createStaticChatFallbackResponse();
-      response.headers.set(SANTA_MERCHANT_SLUG_HEADER, agenticTenant.slug);
-      return response;
+      return withChatTenantHeader(response, agenticTenant.slug);
     }
 
-    return new Response(result.text, {
+    const response = new Response(result.text, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        [SANTA_MERCHANT_SLUG_HEADER]: agenticTenant.slug,
       },
     });
+    return withChatTenantHeader(response, agenticTenant.slug);
   } catch (error) {
     if (isChatAbortError(error, req.signal)) {
       return createClientClosedRequestResponse();

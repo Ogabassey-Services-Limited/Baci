@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createPublicClient: vi.fn(),
   getConfiguredAgenticMerchantSlug: vi.fn(),
+  readStorefrontMerchantSnapshot: vi.fn(),
   resolveAgenticMerchantIdentity: vi.fn(),
 }));
 
@@ -14,6 +15,9 @@ vi.mock('./agentic-merchant-slug', () => ({
 }));
 vi.mock('./agentic-merchant-identity', () => ({
   resolveAgenticMerchantIdentity: mocks.resolveAgenticMerchantIdentity,
+}));
+vi.mock('@/lib/storefront-merchant-snapshot', () => ({
+  readStorefrontMerchantSnapshot: mocks.readStorefrontMerchantSnapshot,
 }));
 
 import { resolveSantaTenant } from './resolve-santa-tenant';
@@ -28,6 +32,15 @@ describe('resolveSantaTenant', () => {
       slug: 'winter-store',
       businessName: 'Winter Store',
     });
+    mocks.readStorefrontMerchantSnapshot.mockResolvedValue({
+      status: 'found',
+      value: {
+        resolution_status: 'found',
+        merchant_data: { id: 'merchant-1', slug: 'winter-store' },
+        custom_domain: null,
+        feature_settings: { agentic_checkout_enabled: true },
+      },
+    });
   });
 
   it('resolves the tenant through the publication-gated public client', async () => {
@@ -35,6 +48,7 @@ describe('resolveSantaTenant', () => {
       id: 'merchant-1',
       slug: 'winter-store',
       businessName: 'Winter Store',
+      agenticCheckoutEnabled: true,
     });
 
     expect(mocks.createPublicClient).toHaveBeenCalledWith({
@@ -44,6 +58,10 @@ describe('resolveSantaTenant', () => {
     expect(mocks.resolveAgenticMerchantIdentity).toHaveBeenCalledWith({
       kind: 'public',
     });
+    expect(mocks.readStorefrontMerchantSnapshot).toHaveBeenCalledWith(
+      { kind: 'public' },
+      'winter-store'
+    );
   });
 
   it('fails closed when the tenant is not configured', async () => {
@@ -59,5 +77,32 @@ describe('resolveSantaTenant', () => {
     mocks.resolveAgenticMerchantIdentity.mockResolvedValue(null);
 
     await expect(resolveSantaTenant()).resolves.toBeNull();
+  });
+
+  it('carries the published tenant checkout kill switch into chat tools', async () => {
+    mocks.readStorefrontMerchantSnapshot.mockResolvedValue({
+      status: 'found',
+      value: {
+        resolution_status: 'found',
+        merchant_data: { id: 'merchant-1', slug: 'winter-store' },
+        custom_domain: null,
+        feature_settings: { agentic_checkout_enabled: false },
+      },
+    });
+
+    await expect(resolveSantaTenant()).resolves.toMatchObject({
+      agenticCheckoutEnabled: false,
+    });
+  });
+
+  it('fails closed for checkout tools when the feature snapshot is unavailable', async () => {
+    mocks.readStorefrontMerchantSnapshot.mockResolvedValue({
+      status: 'unavailable',
+      error: { kind: 'timeout' },
+    });
+
+    await expect(resolveSantaTenant()).resolves.toMatchObject({
+      agenticCheckoutEnabled: false,
+    });
   });
 });

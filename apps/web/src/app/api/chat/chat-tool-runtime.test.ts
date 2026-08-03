@@ -94,6 +94,18 @@ describe('chat tool runtime', () => {
     );
   });
 
+  it('withholds Gemini checkout mutations when the tenant disables agentic checkout', () => {
+    const tools = createAiSdkAgenticChatToolsWithMerchant('session-1', {
+      ...TEST_MERCHANT,
+      agenticCheckoutEnabled: false,
+    });
+
+    expect(tools).not.toHaveProperty('createVirtualAccount');
+    expect(tools).not.toHaveProperty('cancelOrder');
+    expect(tools).toHaveProperty('searchProducts');
+    expect(tools).toHaveProperty('checkPaymentStatus');
+  });
+
   it('executes order cancellation through the AI SDK tools', async () => {
     const tools = createAiSdkAgenticChatTools('session-1');
     const response = await tools.cancelOrder.execute({

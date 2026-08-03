@@ -9,6 +9,13 @@ const migration = readFileSync(
   ),
   'utf8'
 );
+const tenantRateLimitMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260802110000_harden_santa_interaction_rpc_tenant_rate_limit.sql'
+  ),
+  'utf8'
+);
 
 describe('Santa analytics RPC migration', () => {
   it('keeps direct anonymous RPC calls behind a database rate limit', () => {
@@ -19,5 +26,17 @@ describe('Santa analytics RPC migration', () => {
       "pg_catalog.btrim(p_merchant_slug) || ':' || p_client_ip"
     );
     expect(migration).toContain('IF v_rate_allowed IS DISTINCT FROM true THEN');
+  });
+
+  it('resolves a published merchant before consuming the limiter', () => {
+    const merchantLookup = tenantRateLimitMigration.indexOf('SELECT m.id');
+    const limiterCall = tenantRateLimitMigration.indexOf(
+      'v_rate_allowed := public.check_rate_limit'
+    );
+
+    expect(merchantLookup).toBeGreaterThanOrEqual(0);
+    expect(limiterCall).toBeGreaterThan(merchantLookup);
+    expect(tenantRateLimitMigration).toContain("':' || v_merchant_id::text");
+    expect(tenantRateLimitMigration).toContain('      60,\n      1');
   });
 });

@@ -60,7 +60,7 @@ export function createAiSdkAgenticChatTools(
     return pending;
   };
 
-  return {
+  const tools = {
     searchProducts: {
       description: TOOL_DESCRIPTIONS.searchProducts,
       inputSchema: searchProductsSchema,
@@ -131,4 +131,11 @@ export function createAiSdkAgenticChatTools(
       },
     },
   };
+
+  if (merchant.agenticCheckoutEnabled === false) {
+    Reflect.deleteProperty(tools, 'cancelOrder');
+    Reflect.deleteProperty(tools, 'createVirtualAccount');
+  }
+
+  return tools;
 }

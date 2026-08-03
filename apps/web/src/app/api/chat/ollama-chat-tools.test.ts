@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
+import {
+  getOllamaAgenticChatTools,
+  ollamaAgenticChatTools,
+} from '@/app/api/chat/ollama-chat-tools';
 
 describe('ollama chat tools', () => {
   it('exposes only server-verifiable commerce capabilities', () => {
@@ -76,5 +79,16 @@ describe('ollama chat tools', () => {
         customerEmail: { type: 'string' },
       },
     });
+  });
+
+  it('withholds checkout mutations when the tenant disables agentic checkout', () => {
+    expect(
+      getOllamaAgenticChatTools(false).map((tool) => tool.function.name)
+    ).toEqual([
+      'searchProducts',
+      'getProductDetails',
+      'checkPaymentStatus',
+      'getRecommendations',
+    ]);
   });
 });

@@ -4,6 +4,8 @@ import { getConfiguredAgenticMerchantSlug } from './agentic-merchant-slug';
 type MerchantIdentityLookupClient = Pick<SupabaseClient, 'from'>;
 
 export interface AgenticMerchantIdentity {
+  /** False when the tenant's agentic checkout feature is explicitly disabled. */
+  agenticCheckoutEnabled?: boolean;
   id: string;
   slug: string;
   businessName: string | null;
