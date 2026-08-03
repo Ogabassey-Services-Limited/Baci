@@ -16,6 +16,13 @@ const tenantRateLimitMigration = readFileSync(
   ),
   'utf8'
 );
+const eventTypeMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260803100000_restrict_santa_interaction_event_types.sql'
+  ),
+  'utf8'
+);
 
 describe('Santa analytics RPC migration', () => {
   it('keeps direct anonymous RPC calls behind a database rate limit', () => {
@@ -38,5 +45,11 @@ describe('Santa analytics RPC migration', () => {
     expect(limiterCall).toBeGreaterThan(merchantLookup);
     expect(tenantRateLimitMigration).toContain("':' || v_merchant_id::text");
     expect(tenantRateLimitMigration).toContain('      60,\n      1');
+  });
+
+  it('keeps conversion events out of the anonymous analytics RPC', () => {
+    expect(eventTypeMigration).toContain('p_interaction_type NOT IN (');
+    expect(eventTypeMigration).not.toContain("'checkout_completed'");
+    expect(eventTypeMigration).toContain('9999999999.99');
   });
 });

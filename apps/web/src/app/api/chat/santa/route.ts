@@ -8,6 +8,7 @@ import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
 import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import type { CurrencyConfig } from '@/lib/currency';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 import { logSantaInteraction } from './santa-analytics';
 import { generateSessionId } from './santa-session-id';
 import { parseWishResult } from './santa-wish-result';
@@ -194,7 +195,10 @@ export async function POST(req: Request) {
     // Resolve the same configured, published tenant used by the product route.
     // The anonymous client enforces the publication gate before the privileged
     // catalogue and analytics reads below.
-    const santaTenant = await resolveSantaTenant(routeSignal);
+    const santaTenant = await resolveSantaTenant(
+      routeSignal,
+      resolveMerchantContextIdentifier(headersList) || undefined
+    );
     if (!santaTenant) {
       return new Response(
         JSON.stringify({ error: 'Santa chat is not configured' }),

@@ -47,7 +47,8 @@ function readSnapshotMerchantData(value: unknown): {
 }
 
 export async function resolveSantaTenant(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  requestIdentifier?: string
 ): Promise<AgenticMerchantIdentity | null> {
   if (!getConfiguredAgenticMerchantSlug()) {
     return null;
@@ -64,6 +65,29 @@ export async function resolveSantaTenant(
 
   if (!merchant) {
     return null;
+  }
+
+  const normalizedRequestIdentifier = requestIdentifier?.trim().toLowerCase();
+  if (
+    normalizedRequestIdentifier &&
+    normalizedRequestIdentifier !== merchant.slug.toLowerCase()
+  ) {
+    const requestSnapshot = await readStorefrontMerchantSnapshot(
+      publicClient,
+      normalizedRequestIdentifier
+    );
+    const requestSnapshotMerchant =
+      requestSnapshot.status === 'found'
+        ? readSnapshotMerchantData(requestSnapshot.value.merchant_data)
+        : null;
+
+    if (
+      !requestSnapshotMerchant ||
+      requestSnapshotMerchant.id !== merchant.id ||
+      requestSnapshotMerchant.slug.toLowerCase() !== merchant.slug.toLowerCase()
+    ) {
+      return null;
+    }
   }
 
   // The base feature-settings table is intentionally not readable by anon.

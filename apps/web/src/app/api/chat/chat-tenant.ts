@@ -2,10 +2,13 @@ import type { AgenticMerchantIdentity } from '@/lib/agentic/agentic-merchant-ide
 import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
 import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 
-export async function resolveChatTenant(
-  signal?: AbortSignal
+export function resolveChatTenant(
+  signal?: AbortSignal,
+  requestIdentifier?: string
 ): Promise<AgenticMerchantIdentity | null> {
-  return await resolveSantaTenant(signal);
+  return requestIdentifier === undefined
+    ? resolveSantaTenant(signal)
+    : resolveSantaTenant(signal, requestIdentifier);
 }
 
 export function withChatTenantHeader(

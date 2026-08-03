@@ -4,6 +4,7 @@ import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-he
 import { logger } from '@/lib/logger';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { sanitizeForLog } from '@/lib/sanitize-core';
+import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 import { createPublicClient } from '@/lib/supabase/public';
 
 const UNLIMITED_STOCK_QUANTITY = 9999;
@@ -16,7 +17,10 @@ type SantaProductCandidate = {
 /**
  * Common handler for product lookup
  */
-async function handleProductLookup(productName: string): Promise<NextResponse> {
+async function handleProductLookup(
+  productName: string,
+  requestIdentifier?: string
+): Promise<NextResponse> {
   // Sanitize for safe logging (prevent log injection)
   const safeProductName = sanitizeForLog(productName);
   try {
@@ -30,7 +34,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     // an unpublished or draft store resolves to nothing here. Resolving it with
     // the service-role client would step over that gate and let this
     // UNAUTHENTICATED endpoint serve an unpublished merchant's catalogue.
-    const santaTenant = await resolveSantaTenant();
+    const santaTenant = await resolveSantaTenant(undefined, requestIdentifier);
     if (!santaTenant) {
       logger.warn({ message: 'Santa Product tenant not configured' });
       return NextResponse.json(
@@ -217,7 +221,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return handleProductLookup(productName.trim());
+  return handleProductLookup(
+    productName.trim(),
+    resolveMerchantContextIdentifier(request.headers)
+  );
 }
 
 /**
@@ -238,5 +245,8 @@ export function GET(request: NextRequest) {
     );
   }
 
-  return handleProductLookup(productName);
+  return handleProductLookup(
+    productName,
+    resolveMerchantContextIdentifier(request.headers)
+  );
 }

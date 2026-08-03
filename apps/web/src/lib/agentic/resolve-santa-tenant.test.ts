@@ -85,6 +85,63 @@ describe('resolveSantaTenant', () => {
     await expect(resolveSantaTenant()).resolves.toBeNull();
   });
 
+  it('accepts a storefront identifier that resolves to the configured tenant', async () => {
+    await expect(
+      resolveSantaTenant(undefined, 'winter-store')
+    ).resolves.toMatchObject({
+      id: 'merchant-1',
+      slug: 'winter-store',
+    });
+
+    expect(mocks.readStorefrontMerchantSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when the storefront identifier resolves to another tenant', async () => {
+    mocks.readStorefrontMerchantSnapshot.mockImplementation(
+      async (_client: unknown, identifier: string) => {
+        if (identifier === 'other-store') {
+          return {
+            status: 'found',
+            value: {
+              resolution_status: 'found',
+              merchant_data: {
+                country: 'GH',
+                id: 'merchant-2',
+                payout_currency: 'GHS',
+                slug: 'other-store',
+              },
+              custom_domain: null,
+              feature_settings: { agentic_checkout_enabled: true },
+            },
+          };
+        }
+
+        return {
+          status: 'found',
+          value: {
+            resolution_status: 'found',
+            merchant_data: {
+              country: 'NG',
+              id: 'merchant-1',
+              payout_currency: 'NGN',
+              slug: 'winter-store',
+            },
+            custom_domain: null,
+            feature_settings: { agentic_checkout_enabled: true },
+          },
+        };
+      }
+    );
+
+    await expect(
+      resolveSantaTenant(undefined, 'other-store')
+    ).resolves.toBeNull();
+    expect(mocks.readStorefrontMerchantSnapshot).toHaveBeenCalledWith(
+      { kind: 'public' },
+      'other-store'
+    );
+  });
+
   it('fails closed when the fresh snapshot no longer finds the tenant', async () => {
     mocks.readStorefrontMerchantSnapshot.mockResolvedValue({
       status: 'not_found',

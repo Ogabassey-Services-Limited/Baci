@@ -53,6 +53,7 @@ import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaAgenticChatResponse } from '@/lib/ollama-agentic-chat';
 import type { OllamaToolCall } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
 
 export const maxDuration = 120; // VPS-hosted Gemma can be slower on cold starts
 
@@ -195,7 +196,11 @@ export async function POST(req: Request) {
       chatProvider === 'auto' || chatProvider === 'ollama';
     const llmServerUrl = shouldTryLlm ? getLlmServerUrl() : undefined;
     const triedLlmServer = Boolean(llmServerUrl);
-    const agenticTenant = await resolveChatTenant(req.signal);
+    const requestIdentifier = resolveRouteIdentifier(headersList);
+    const agenticTenant = await resolveChatTenant(
+      req.signal,
+      requestIdentifier || undefined
+    );
     if (!agenticTenant) {
       return new Response(
         JSON.stringify({

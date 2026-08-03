@@ -25,6 +25,23 @@ describe('chat tenant helpers', () => {
     expect(mocks.resolveSantaTenant).toHaveBeenCalledWith(controller.signal);
   });
 
+  it('passes the trusted storefront identifier to the shared tenant resolver', async () => {
+    const tenant = {
+      id: 'merchant-1',
+      slug: 'winter-store',
+      businessName: 'Winter Store',
+    };
+    mocks.resolveSantaTenant.mockResolvedValueOnce(tenant);
+
+    await expect(resolveChatTenant(undefined, 'winter-store')).resolves.toEqual(
+      tenant
+    );
+    expect(mocks.resolveSantaTenant).toHaveBeenCalledWith(
+      undefined,
+      'winter-store'
+    );
+  });
+
   it('adds the resolved merchant slug to a response', () => {
     const response = withChatTenantHeader(new Response('ok'), 'winter-store');
 

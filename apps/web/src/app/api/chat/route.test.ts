@@ -29,6 +29,7 @@ let llmError: Error | null = null;
 let llmStreamError: Error | null = null;
 let llmResponseText = 'LLM response';
 let chatProvider: 'auto' | 'gemini' | 'llm' | 'ollama' = 'auto';
+let merchantContextIdentifier: string | null = null;
 
 // ---- Mocks ----
 
@@ -44,6 +45,7 @@ vi.mock('next/headers', () => ({
     get: (name: string) => {
       if (name === 'x-forwarded-for') return '127.0.0.1';
       if (name === 'x-real-ip') return '127.0.0.1';
+      if (name === 'x-merchant-slug') return merchantContextIdentifier;
       return null;
     },
   })),
@@ -297,7 +299,22 @@ describe('POST /api/chat', () => {
     llmStreamError = null;
     llmResponseText = 'LLM response';
     chatProvider = 'auto';
+    merchantContextIdentifier = null;
     vi.mocked(resolveSantaTenant).mockResolvedValue(TEST_AGENTIC_TENANT);
+  });
+
+  it('passes the trusted storefront identifier into tenant resolution', async () => {
+    merchantContextIdentifier = 'winter-store';
+
+    const response = await POST(
+      makeRequest({ messages: [{ role: 'user', content: 'Show me phones' }] })
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveSantaTenant).toHaveBeenCalledWith(
+      expect.any(AbortSignal),
+      'winter-store'
+    );
   });
 
   it('returns 429 when rate limited', async () => {
