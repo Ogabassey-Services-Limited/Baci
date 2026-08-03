@@ -223,7 +223,7 @@ describe('RepairsPage', () => {
     expect(mockOgabasseyV2Repairs).not.toHaveBeenCalled();
   });
 
-  it('throws notFound for every merchant when the catalogue flag is off', async () => {
+  it('throws notFound when the repairs catalogue flag is off', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValueOnce({
       ...merchant,
       template_id: 'ogabassey',

@@ -1,4 +1,8 @@
-import { CARRIER_PROVIDER_IDS, type CarrierProviderId } from '@baci/shared';
+import {
+  CARRIER_PROVIDER_IDS,
+  type CarrierProviderId,
+  normalizeCarrierProviderIds,
+} from '@baci/shared';
 import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import { z } from 'zod';
 
@@ -36,20 +40,6 @@ export const shippingSettingsSchema = z.object({
   free_shipping_threshold: z.number().nullable(),
 });
 
-function normalizeStoredProviderIds(value: unknown): unknown {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter(
-    (provider) =>
-      !(
-        typeof provider === 'string' &&
-        provider.trim().toLowerCase() === 'shiip'
-      )
-  );
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -58,7 +48,9 @@ export function parseShippingSettings(data: unknown) {
   const normalized = isRecord(data)
     ? {
         ...data,
-        shipping_providers: normalizeStoredProviderIds(data.shipping_providers),
+        shipping_providers: normalizeCarrierProviderIds(
+          data.shipping_providers
+        ),
       }
     : data;
   const parsed = shippingSettingsSchema.safeParse(normalized);

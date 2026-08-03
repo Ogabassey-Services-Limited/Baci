@@ -86,6 +86,7 @@ describe('StoreSetupStatusCard', () => {
     expect(
       screen.getByRole('button', { name: /Finish Setup/ })
     ).toHaveAttribute('data-progress', '71');
+    screen.getByText('Complete your store setup to start selling');
   });
 
   it('keeps setup available before publishing when required setup is complete', () => {
@@ -101,6 +102,9 @@ describe('StoreSetupStatusCard', () => {
       screen.getByRole('button', { name: /Finish setting up your store/ })
     );
 
+    screen.getByText(
+      'Your store is ready to launch. Finish the extras or publish now.'
+    );
     expect(mocks.push).toHaveBeenCalledWith('/(admin)/setup-checklist');
   });
 
@@ -117,6 +121,9 @@ describe('StoreSetupStatusCard', () => {
       screen.getByRole('button', { name: /Finish setting up your store/ })
     );
 
+    screen.getByText(
+      'Complete the remaining optional steps to get the most from your store.'
+    );
     expect(mocks.push).toHaveBeenCalledWith('/(admin)/setup-checklist');
   });
 

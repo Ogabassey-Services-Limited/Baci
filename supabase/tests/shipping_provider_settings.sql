@@ -2,7 +2,8 @@
 -- VERIFICATION: merchant shipping provider opt-in
 --   Run against a Supabase branch after applying
 --   20260802175837_harden_repair_booking_and_shipping_providers.sql and
---   20260802220000_centralize_shipping_provider_policy.sql.
+--   20260802220000_centralize_shipping_provider_policy.sql and
+--   20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql.
 --
 -- USAGE:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -227,6 +228,62 @@ BEGIN
       AND shipping_provider = 'GIGL'
   ) THEN
     RAISE EXCEPTION 'existing carrier order must remain mutable after opt-out';
+  END IF;
+END $$;
+
+-- Changing a carrier selection after opt-out must be rejected, even though
+-- unrelated updates and unchanged selections remain mutable.
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.orders
+    SET selected_quote_id = NULL
+    WHERE id = '00000000-0000-0000-0000-000000003011';
+
+    RAISE EXCEPTION 'changing a carrier selection after opt-out must be rejected';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%shipping_quote_required%' THEN
+        RAISE;
+      END IF;
+  END;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.orders
+    WHERE id = '00000000-0000-0000-0000-000000003011'
+      AND selected_quote_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'rejected carrier selection change must not persist';
+  END IF;
+END $$;
+
+-- Mixed-case persisted settings are normalized by the guard before comparing
+-- the supported provider selected by a new carrier-backed order.
+UPDATE public.merchant_feature_settings
+SET shipping_providers = '["GIGL"]'::jsonb
+WHERE merchant_id = '00000000-0000-0000-0000-000000003008';
+
+INSERT INTO public.orders (
+  id, merchant_id, order_number, total, selected_quote_id, shipping_provider
+)
+VALUES (
+  '00000000-0000-0000-0000-000000003016',
+  '00000000-0000-0000-0000-000000003008',
+  'shipping-provider-mixed-case-test',
+  0,
+  '00000000-0000-0000-0000-000000003009',
+  'gigl'
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.orders
+    WHERE id = '00000000-0000-0000-0000-000000003016'
+  ) THEN
+    RAISE EXCEPTION 'mixed-case stored carrier settings must authorize a new selection';
   END IF;
 END $$;
 

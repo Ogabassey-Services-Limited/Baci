@@ -128,4 +128,10 @@ describe('supabase-history-replay sources', () => {
       '846a37482ca4ea765f63c9ba1cf5bb747e81446f955c0c440dead034cd86fa11 20260803000000_add_repair_booking_rate_limit_index.sql'
     );
   });
+
+  it('registers the shipping and repair hardening follow-up as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      '2fcb90a7746d88841ed00c86e2d46a7525674bb4e7aea04393f53bca3c0fef1c 20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql'
+    );
+  });
 });

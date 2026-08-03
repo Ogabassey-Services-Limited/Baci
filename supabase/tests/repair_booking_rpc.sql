@@ -74,6 +74,29 @@ BEGIN
   END IF;
 END $$;
 
+-- The limiter counts and insert must be serialized for each merchant so
+-- concurrent valid bookings cannot both observe a below-limit count.
+DO $$
+DECLARE
+  definition text;
+  lock_offset integer;
+  first_count_offset integer;
+BEGIN
+  SELECT pg_get_functiondef(
+    'private.create_repair_booking(uuid, text, text, text, text, text, text, timestamptz, text, text, uuid, uuid)'::regprocedure
+  )
+  INTO definition;
+
+  lock_offset := strpos(definition, 'pg_advisory_xact_lock');
+  first_count_offset := strpos(definition, 'SELECT count(*) INTO v_per_email_count');
+
+  IF definition !~ 'pg_advisory_xact_lock\\s*\\(\\s*pg_catalog\\.hashtextextended\\s*\\(\\s*p_merchant_id::text\\s*,\\s*0\\s*\\)\\s*\\)'
+    OR lock_offset = 0
+    OR lock_offset > first_count_offset THEN
+    RAISE EXCEPTION 'private.create_repair_booking must lock a merchant before rate-limit counts';
+  END IF;
+END $$;
+
 -- Anon must have NO direct DML on repairs and the public INSERT policy must be gone.
 DO $$
 BEGIN

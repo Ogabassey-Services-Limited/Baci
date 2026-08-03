@@ -20,32 +20,29 @@ export function StoreSetupStatusCard({
     return null;
   }
 
-  if (!readiness.isReady) {
-    return (
-      <View style={styles.section}>
-        <ProgressCard
-          title="Finish Setup"
-          subtitle="Complete your store setup to start selling"
-          progress={readiness.overallProgress}
-          onPress={() => router.push('/(admin)/setup-checklist')}
-        />
-      </View>
-    );
-  }
-
-  if (isLive && readiness.overallProgress >= STORE_SETUP_COMPLETE_PROGRESS) {
+  const isRequiredSetupIncomplete = !readiness.isReady;
+  if (
+    !isRequiredSetupIncomplete &&
+    isLive &&
+    readiness.overallProgress >= STORE_SETUP_COMPLETE_PROGRESS
+  ) {
     return null;
   }
+
+  const title = isRequiredSetupIncomplete
+    ? 'Finish Setup'
+    : 'Finish setting up your store';
+  const subtitle = isRequiredSetupIncomplete
+    ? 'Complete your store setup to start selling'
+    : isLive
+      ? 'Complete the remaining optional steps to get the most from your store.'
+      : 'Your store is ready to launch. Finish the extras or publish now.';
 
   return (
     <View style={styles.section}>
       <ProgressCard
-        title="Finish setting up your store"
-        subtitle={
-          isLive
-            ? 'Complete the remaining optional steps to get the most from your store.'
-            : 'Your store is ready to launch. Finish the extras or publish now.'
-        }
+        title={title}
+        subtitle={subtitle}
         progress={readiness.overallProgress}
         onPress={() => router.push('/(admin)/setup-checklist')}
       />

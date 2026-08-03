@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
 
 describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
-  it('preserves the exact identity and payment-ingress migration bindings', () => {
+  it('lists the expected pending-tail migration sources with integrity hashes', () => {
     expect(EXPECTED_PENDING_TAIL_SOURCES).toEqual({
       identity: [
         {
@@ -60,6 +60,12 @@ describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
             'supabase/migrations/20260803000000_add_repair_booking_rate_limit_index.sql',
           sha256:
             '846a37482ca4ea765f63c9ba1cf5bb747e81446f955c0c440dead034cd86fa11',
+        },
+        {
+          repositoryPath:
+            'supabase/migrations/20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql',
+          sha256:
+            '2fcb90a7746d88841ed00c86e2d46a7525674bb4e7aea04393f53bca3c0fef1c',
         },
       ],
     });

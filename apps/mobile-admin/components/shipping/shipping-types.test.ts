@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   parseShippingSettings,
   shippingSettingsSchema,
@@ -19,21 +19,14 @@ describe('shipping-types', () => {
     });
   });
 
-  it('rejects invalid provider identifiers', () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {
-      // Silence expected schema validation noise in this test.
-    });
-
-    expect(() =>
-      parseShippingSettings({
+  it('keeps the settings schema strict for invalid provider identifiers', () => {
+    expect(
+      shippingSettingsSchema.safeParse({
         merchant_id: 'merchant-1',
         shipping_providers: ['dhl'],
         free_shipping_threshold: null,
-      })
-    ).toThrow('Invalid shipping settings payload');
-
-    expect(consoleError).toHaveBeenCalled();
-    consoleError.mockRestore();
+      }).success
+    ).toBe(false);
   });
 
   it('accepts an empty provider list for merchants using their own rates', () => {
@@ -56,11 +49,31 @@ describe('shipping-types', () => {
     ).toEqual([]);
   });
 
+  it('normalizes stored legacy provider values through the carrier catalog', () => {
+    expect(
+      parseShippingSettings({
+        merchant_id: 'merchant-1',
+        shipping_providers: [' GIGL ', 'shiip', 'topship', 'gigl', 'dhl', null],
+        free_shipping_threshold: null,
+      }).shipping_providers
+    ).toEqual(['gigl', 'topship']);
+  });
+
   it('rejects Shiip because it has no live carrier integration', () => {
     expect(
       shippingSettingsSchema.safeParse({
         merchant_id: 'merchant-1',
         shipping_providers: ['shiip'],
+        free_shipping_threshold: null,
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects duplicate shipping providers', () => {
+    expect(
+      shippingSettingsSchema.safeParse({
+        merchant_id: 'merchant-1',
+        shipping_providers: ['gigl', 'gigl'],
         free_shipping_threshold: null,
       }).success
     ).toBe(false);
