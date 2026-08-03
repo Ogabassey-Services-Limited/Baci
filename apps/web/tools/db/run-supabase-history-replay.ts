@@ -202,6 +202,7 @@ export async function runSupabaseHistoryReplay(
       await applySupabaseCurrentTreeSources({
         apply,
         materializeSource: runtime.materializeSource,
+        readSource: runtime.readSource,
         pendingSources: verified.manifest.pendingSources,
         postReplaySources: verified.postReplaySources,
         repositoryRoot: root,

@@ -150,6 +150,7 @@ export function createSupabaseReplayRuntimeFixture() {
         serverVersionNum: 170006 as const,
       })
     ),
+    readSource: vi.fn(() => Promise.resolve(Buffer.from(''))),
     readText: vi.fn(() => Promise.resolve('generated-config')),
     removeWorkdir: vi.fn((targetPath) => {
       removed.push(targetPath);
