@@ -1,8 +1,29 @@
 import { render, screen } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 const mockUseMerchantSafe = vi.hoisted(() => vi.fn());
+
+class IntersectionObserverStub {
+  disconnect() {}
+
+  observe() {}
+
+  unobserve() {}
+}
+
+beforeAll(() =>
+  vi.stubGlobal('IntersectionObserver', IntersectionObserverStub)
+);
+afterAll(() => vi.unstubAllGlobals());
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (

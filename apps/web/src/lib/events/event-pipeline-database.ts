@@ -169,7 +169,6 @@ export const EVENT_PIPELINE_BOUNDARY = {
     legacySdkImporters: ['apps/web/src/lib/events/event-ingress-capability.ts', 'apps/web/src/lib/events/event-pipeline-test-client.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
     serverImporters: [
       ...Object.keys(frozenRoutes),
-      'apps/web/src/app/(platform)/onboarding/actions.ts',
       'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts',
       'apps/web/src/app/api/admin/event-pipeline/replay/route.ts',
       'apps/web/src/app/api/analytics/conversion/route.ts',
