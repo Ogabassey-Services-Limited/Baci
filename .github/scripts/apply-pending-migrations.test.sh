@@ -52,6 +52,39 @@ if [ "$(grep -c "schema_migrations(version, name, statements).*20260713130000" "
   exit 1
 fi
 
+historical_repair_dir="$fixture_root/historical-repair"
+mkdir -p "$historical_repair_dir"
+cp \
+  "$script_dir/../../supabase/migrations/20260727220050_shipment_tracking_realtime_broadcast.sql" \
+  "$historical_repair_dir/20260727220050_shipment_tracking_realtime_broadcast.sql"
+cp \
+  "$script_dir/../../supabase/migrations/20260803000600_repair_gigl_tracking_realtime_broadcast.sql" \
+  "$historical_repair_dir/20260803000600_repair_gigl_tracking_realtime_broadcast.sql"
+historical_repair_log="$fixture_root/historical-repair-queries.log"
+historical_repair_output="$fixture_root/historical-repair-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$historical_repair_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$historical_repair_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$historical_repair_output"
+grep -q \
+  'reconciled by append-only repair migration 20260803000600_repair_gigl_tracking_realtime_broadcast.sql' \
+  "$historical_repair_output"
+grep -q \
+  'applied:         20260803000600  repair_gigl_tracking_realtime_broadcast' \
+  "$historical_repair_output"
+if grep -q 'pg_catalog.substring(realtime.topic() FROM 16)' "$historical_repair_log"; then
+  echo 'Historical failed migration SQL must not be sent to Supabase' >&2
+  exit 1
+fi
+if [ "$(grep -c "schema_migrations(version, name, statements).*20260727220050" "$historical_repair_log")" -ne 1 ]; then
+  echo 'Expected the historical failed migration to be reconciled exactly once' >&2
+  exit 1
+fi
+grep -q 'pg_catalog.substr(realtime.topic(), 16)' "$historical_repair_log"
+
 invalid_dir="$fixture_root/invalid"
 make_collision_fixture "$invalid_dir"
 invalid_log="$fixture_root/invalid-queries.log"
