@@ -6,12 +6,13 @@ recovery_open_process_file() {
   /usr/bin/perl -MDigest::SHA -MJSON::PP -MFcntl=:DEFAULT,:mode -e '
     use strict; use warnings;
     my ($candidate, $root) = @ARGV;
-    my $flags = O_RDONLY | O_NOFOLLOW; my $file;
+    my $flags = O_RDONLY | O_NOFOLLOW | O_NONBLOCK; my $file;
     if (!sysopen($file, $candidate, $flags)) {
       exit 1 if $!{ENOENT} || $!{ENOTDIR};
       exit 2;
     }
-    my @opened = stat($file); exit 2 unless @opened && S_ISREG($opened[2]);
+    my @opened = stat($file); exit 2 unless @opened;
+    my $kind = S_ISREG($opened[2]) ? "file" : S_ISDIR($opened[2]) ? "directory" : ""; exit 2 unless $kind;
     my $descriptor_path;
     if ($^O eq "linux") {
       $descriptor_path = readlink("/proc/$$/fd/" . fileno($file));
@@ -24,6 +25,11 @@ recovery_open_process_file() {
     } else { exit 2; }
     exit 2 unless defined($descriptor_path) && $descriptor_path =~ m{^/} && $descriptor_path !~ /[\r\n\t]/;
     exit 2 unless $root eq "/" || $descriptor_path eq $root || index($descriptor_path, "$root/") == 0;
+    if ($kind eq "directory") {
+      my @current_link = lstat($candidate); my @current = stat($candidate);
+      exit 2 unless @current_link && !S_ISLNK($current_link[2]) && @current && S_ISDIR($current[2]) && $opened[0] == $current[0] && $opened[1] == $current[1];
+      print JSON::PP->new->canonical->encode({kind => $kind, realPath => $descriptor_path}); exit 0;
+    }
     my $digest = Digest::SHA->new(256); my $matched = 0; my $tail = "";
     while (1) {
       my $count = sysread($file, my $chunk, 65536); exit 2 unless defined $count; last unless $count;
@@ -34,7 +40,7 @@ recovery_open_process_file() {
     my @current_link = lstat($candidate); my @current = stat($candidate);
     exit 2 unless @current_link && !S_ISLNK($current_link[2]) && @current && S_ISREG($current[2]) && $opened[0] == $current[0] && $opened[1] == $current[1];
     my $identity = join(":", $opened[0], $opened[1], $opened[4], $opened[5], sprintf("%o", $opened[2] & 07777), $opened[7]);
-    print JSON::PP->new->canonical->encode({identity => $identity, match => $matched ? JSON::PP::true : JSON::PP::false, realPath => $descriptor_path, sha256 => $digest->hexdigest});
+    print JSON::PP->new->canonical->encode({identity => $identity, kind => $kind, match => $matched ? JSON::PP::true : JSON::PP::false, realPath => $descriptor_path, sha256 => $digest->hexdigest});
   ' -- "$candidate" "$process_root_real"
 }
 
@@ -66,16 +72,19 @@ recovery_process_file_evidence() {
   executable_sha=$(sha "$executable") || { recovery_process_file_cleanup; review_required 'process executable digest failed'; }
   executable_match=''; if LC_ALL=C /usr/bin/grep -a -qiE 'ollama|11434' "$executable"; then executable_match=$executable_sha; else status=$?; [ "$status" -eq 1 ] || { recovery_process_file_cleanup; review_required 'process executable scan failed'; }; fi
   environment_snapshot=$(temp_path); environment_present=0; if [ -f "$environment" ] && [ ! -L "$environment" ]; then environment_present=1; /bin/cat -- "$environment" >"$environment_snapshot" || { recovery_process_file_cleanup; review_required 'process environment capture failed'; }; elif [ "$RECOVERY_PROC_ROOT" = /proc ]; then recovery_process_file_cleanup; review_required 'process environment unavailable'; else : >"$environment_snapshot"; fi
-  arguments=$(temp_path); /usr/bin/perl -0ne 'BEGIN{$i=0} for(split(/\0/)){next if $i++==0; $p=$_; $p=$1 if $p=~/^[^=]+=(.*)$/; next if $p=~/[\r\n\t]/ || $p=~/^-/ || $p eq ""; if($p=~m{^/}){print "root\t$p\n"}elsif($p!~m{(^|/)\.\.(/|$)} && $p=~m{^[A-Za-z0-9._+@%/-]+$}){print "cwd\t$p\n"}}' "$command_snapshot" >"$arguments" || { recovery_process_file_cleanup; review_required 'process file argument parse failed'; }
-  /usr/bin/perl -0ne 'for(split(/\0/)){next unless /^[A-Za-z_][A-Za-z0-9_]*=(\/[^\r\n\t]*)$/; print "root\t$1\n"}' "$environment_snapshot" >>"$arguments" || { recovery_process_file_cleanup; review_required 'process environment file parse failed'; }
-  argument_entries='[]'; tab=$(printf '\t'); while IFS="$tab" read -r scope argument || [ -n "$scope$argument" ]; do
+  arguments=$(temp_path); /usr/bin/perl -0ne 'BEGIN{$i=0} for(split(/\0/)){next if $i++==0; $p=$_; $p=$1 if $p=~/^[^=]+=(.*)$/; next if $p=~/[\r\n\t]/ || $p=~/^-/ || $p eq ""; if($p=~m{^/}){print "argument\troot\t$p\n"}elsif($p!~m{(^|/)\.\.(/|$)} && $p=~m{^[A-Za-z0-9._+@%/-]+$}){print "argument\tcwd\t$p\n"}}' "$command_snapshot" >"$arguments" || { recovery_process_file_cleanup; review_required 'process file argument parse failed'; }
+  /usr/bin/perl -0ne 'for(split(/\0/)){next unless /^[A-Za-z_][A-Za-z0-9_]*=(.*)$/; $p=$1; next if $p=~/[\r\n\t]/ || $p eq ""; if($p=~m{^/}){print "environment\troot\t$p\n"}elsif($p!~m{(^|/)\.\.(/|$)} && $p=~m{^[A-Za-z0-9._+@%/-]+$}){print "environment\tcwd\t$p\n"}}' "$environment_snapshot" >>"$arguments" || { recovery_process_file_cleanup; review_required 'process environment file parse failed'; }
+  argument_entries='[]'; tab=$(printf '\t'); while IFS="$tab" read -r origin scope argument || [ -n "$origin$scope$argument" ]; do
+    case "$origin" in argument|environment) :;; *) recovery_process_file_cleanup; review_required 'process file origin invalid';; esac
     case "$scope" in root) anchor="$process_root/root"; candidate="$anchor$argument";; cwd) anchor="$process_root/cwd"; candidate="$anchor/$argument";; *) recovery_process_file_cleanup; review_required 'process file scope invalid';; esac
     process_root_anchor="$process_root/root"; [ -L "$process_root_anchor" ] && [ -L "$anchor" ] || { recovery_process_file_cleanup; review_required 'process file anchor unavailable'; }; process_root_before=$(readlink -- "$process_root_anchor") && anchor_before=$(readlink -- "$anchor") && process_root_real=$(readlink -f -- "$process_root_anchor") || { recovery_process_file_cleanup; review_required 'process file anchor unavailable'; }
     descriptor=$(temp_path); if recovery_open_process_file "$candidate" "$process_root_real" >"$descriptor"; then :; else status=$?; /bin/rm -f -- "$descriptor"; descriptor=''; [ "$status" -eq 1 ] && continue; recovery_process_file_cleanup; review_required 'process file argument descriptor failed'; fi
-    real=$(/usr/bin/jq -er .realPath "$descriptor") && argument_stat=$(/usr/bin/jq -er .identity "$descriptor") && argument_sha=$(/usr/bin/jq -er .sha256 "$descriptor") && argument_matched=$(/usr/bin/jq -er .match "$descriptor") || { recovery_process_file_cleanup; review_required 'process file argument descriptor invalid'; }; /bin/rm -f -- "$descriptor"; descriptor=''
+    descriptor_kind=$(/usr/bin/jq -er .kind "$descriptor") || { recovery_process_file_cleanup; review_required 'process file argument descriptor invalid'; }
+    if [ "$descriptor_kind" = directory ]; then [ "$origin" = environment ] || { recovery_process_file_cleanup; review_required 'process file argument is a directory'; }; [ "$process_root_before" = "$(readlink -- "$process_root_anchor")" ] && [ "$anchor_before" = "$(readlink -- "$anchor")" ] || { recovery_process_file_cleanup; review_required 'process environment directory anchor changed'; }; /bin/rm -f -- "$descriptor"; descriptor=''; continue; fi
+    [ "$descriptor_kind" = file ] || { recovery_process_file_cleanup; review_required 'process file argument descriptor invalid'; }; real=$(/usr/bin/jq -er .realPath "$descriptor") && argument_stat=$(/usr/bin/jq -er .identity "$descriptor") && argument_sha=$(/usr/bin/jq -er .sha256 "$descriptor") && argument_matched=$(/usr/bin/jq -er .match "$descriptor") || { recovery_process_file_cleanup; review_required 'process file argument descriptor invalid'; }; /bin/rm -f -- "$descriptor"; descriptor=''
     argument_match=''; [ "$argument_matched" = false ] || argument_match=$argument_sha
     [ "$process_root_before" = "$(readlink -- "$process_root_anchor")" ] && [ "$anchor_before" = "$(readlink -- "$anchor")" ] || { recovery_process_file_cleanup; review_required 'process file argument anchor changed'; }
-    argument_entries=$(/usr/bin/jq -cn --argjson old "$argument_entries" --arg scope "$scope" --arg path "$(hash_text "$real")" --arg sha "$argument_sha" --arg identity "$(hash_text "$argument_stat")" --arg match "$argument_match" '$old + [{scope:$scope,realPathSha256:$path,sha256:$sha,identitySha256:$identity} + (if $match == "" then {} else {matchingSha256:$match} end)]') || { recovery_process_file_cleanup; die 'process file argument serialization failed'; }
+    argument_entries=$(/usr/bin/jq -cn --argjson old "$argument_entries" --arg origin "$origin" --arg scope "$scope" --arg path "$(hash_text "$real")" --arg sha "$argument_sha" --arg identity "$(hash_text "$argument_stat")" --arg match "$argument_match" '$old + [{origin:$origin,scope:$scope,realPathSha256:$path,sha256:$sha,identitySha256:$identity} + (if $match == "" then {} else {matchingSha256:$match} end)]') || { recovery_process_file_cleanup; die 'process file argument serialization failed'; }
   done <"$arguments"
   command_sha=$(sha "$cmdline") || { recovery_process_file_cleanup; review_required 'process command line digest failed'; }; environment_sha=$(sha "$environment_snapshot") || { recovery_process_file_cleanup; review_required 'process environment digest failed'; }
   after=$(recovery_process_lifetime_marker "$pid") || { recovery_process_file_cleanup; review_required 'process file lifetime unavailable'; }

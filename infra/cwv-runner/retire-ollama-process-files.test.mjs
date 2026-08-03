@@ -156,6 +156,7 @@ test('resolves absolute file arguments through the lifetime-bound process root',
   try {
     const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
     const evidence = JSON.parse(stdout);
+    assert.equal(evidence.fileArguments[0].origin, 'argument');
     assert.equal(evidence.fileArguments[0].scope, 'root');
     assert.equal(
       evidence.fileArguments[0].matchingSha256,
@@ -179,10 +180,63 @@ test('resolves safe absolute environment file values through the process root', 
   try {
     const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
     const evidence = JSON.parse(stdout);
+    assert.equal(evidence.fileArguments[0].origin, 'environment');
     assert.equal(evidence.fileArguments[0].scope, 'root');
     assert.equal(
       evidence.fileArguments[0].matchingSha256,
       endpointConfigurationSha256
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('resolves safe relative environment file values through the process cwd', async () => {
+  const { directory, proc, processRoot, processWorkingDirectory } =
+    await fixture(false);
+  const configuration = join(processWorkingDirectory, 'application.conf');
+  await writeFile(configuration, endpointConfiguration);
+  await writeFile(join(processRoot, 'environ'), 'CONFIG=application.conf\0');
+  try {
+    const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
+    const evidence = JSON.parse(stdout);
+    assert.equal(evidence.fileArguments[0].origin, 'environment');
+    assert.equal(evidence.fileArguments[0].scope, 'cwd');
+    assert.equal(
+      evidence.fileArguments[0].matchingSha256,
+      endpointConfigurationSha256
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('skips ordinary directory-valued environment entries', async () => {
+  const { directory, proc, processFilesystem, processRoot } =
+    await fixture(false);
+  await mkdir(join(processFilesystem, 'home', 'runner'), { recursive: true });
+  await writeFile(join(processRoot, 'environ'), 'HOME=/home/runner\0PWD=.\0');
+  try {
+    const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
+    assert.deepEqual(JSON.parse(stdout).fileArguments, []);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('fails closed for an unsafe environment file symlink', async () => {
+  const { directory, proc, processFilesystem, processRoot } =
+    await fixture(false);
+  const outside = join(directory, 'outside.conf');
+  await writeFile(outside, endpointConfiguration);
+  await symlink(outside, join(processFilesystem, 'unsafe.conf'));
+  await writeFile(join(processRoot, 'environ'), 'CONFIG=/unsafe.conf\0');
+  try {
+    await assert.rejects(
+      shell(proc, 'recovery_process_file_evidence 41'),
+      (error) =>
+        error.code === 78 &&
+        /process file argument descriptor failed/.test(error.stderr)
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -201,6 +255,7 @@ test('resolves safe relative file arguments through the lifetime-bound process c
   try {
     const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
     const evidence = JSON.parse(stdout);
+    assert.equal(evidence.fileArguments[0].origin, 'argument');
     assert.equal(evidence.fileArguments[0].scope, 'cwd');
     assert.equal(
       evidence.fileArguments[0].matchingSha256,

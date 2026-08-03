@@ -61,7 +61,7 @@ async function fixture() {
   return { directory, proc, processFilesystem, processRoot };
 }
 
-function shell(proc, command) {
+function shell(proc, command, options = {}) {
   return execFileAsync(
     'sh',
     [
@@ -72,6 +72,7 @@ function shell(proc, command) {
     ],
     {
       ...childCredentials,
+      ...options,
       env: {
         ...process.env,
         RETIRE_OLLAMA_PROC_ROOT: proc,
@@ -147,8 +148,7 @@ test('refuses a path substituted after the source-derived helper opens its descr
     );
     const instrumentedModule = join(directory, 'process-files-race.sh');
     const source = await readFile(processFileModule, 'utf8');
-    const boundary =
-      'my @opened = stat($file); exit 2 unless @opened && S_ISREG($opened[2]);';
+    const boundary = 'my @opened = stat($file); exit 2 unless @opened;';
     const instrumented = source.replace(
       boundary,
       `${boundary}\n    exit 2 unless rename($ENV{PROCESS_FILE_RACE_REPLACEMENT}, $candidate);`
@@ -162,6 +162,24 @@ test('refuses a path substituted after the source-derived helper opens its descr
       ),
       (error) =>
         error.code === 78 &&
+        /process file argument descriptor failed/.test(error.stderr)
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('promptly refuses a FIFO environment candidate without opening it blocking', async () => {
+  const { directory, proc, processFilesystem, processRoot } = await fixture();
+  const fifo = join(processFilesystem, 'ollama.pipe');
+  await execFileAsync('mkfifo', [fifo]);
+  await writeFile(join(processRoot, 'environ'), 'CONFIG=/ollama.pipe\0');
+  try {
+    await assert.rejects(
+      shell(proc, 'recovery_process_file_evidence 41', { timeout: 2000 }),
+      (error) =>
+        error.code === 78 &&
+        error.killed === false &&
         /process file argument descriptor failed/.test(error.stderr)
     );
   } finally {
