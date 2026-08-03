@@ -12,14 +12,14 @@ describe('getProductModelIdentifiers model phrases', () => {
     expect(identifiers).toEqual(['air m2']);
   });
 
-  it('retains a later numeric model code after a screen-size token', () => {
+  it('retains an XPS family and later model code after a screen-size token', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
       brands: ['Dell'],
       productSlugs: ['dell-xps-13-9350'],
     });
 
-    expect(identifiers).toEqual(['9350']);
+    expect(identifiers).toEqual(['xps 9350']);
   });
 
   it('keeps the laptop family and generation together', () => {
@@ -95,14 +95,14 @@ describe('getProductModelIdentifiers model phrases', () => {
     expect(identifiers).toEqual(['precision 7540']);
   });
 
-  it('strips a decimal display suffix before selecting the laptop model', () => {
+  it('strips a decimal display suffix while retaining the XPS laptop family', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
       brands: ['Dell'],
       productSlugs: ['dell-xps-15-9560-15-6-4k-touchscreen'],
     });
 
-    expect(identifiers).toEqual(['9560']);
+    expect(identifiers).toEqual(['xps 9560']);
   });
 
   it('strips a leading quoted display size from a laptop model', () => {

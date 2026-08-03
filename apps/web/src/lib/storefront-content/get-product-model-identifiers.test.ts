@@ -155,6 +155,17 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['legion pro 9']);
   });
 
+  it('retains Dell family aliases that distinguish same-number models', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productNames: ['Dell Latitude 5410', 'Dell Inspiron 14 5410'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['latitude 5410', 'inspiron 5410']);
+  });
+
   it('removes optional Touch Bar suffixes from MacBook identifiers', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',

@@ -33,12 +33,15 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'buds',
   'legion',
   'laserjet',
+  'latitude',
   'pavilion',
   'quest',
   'redmi',
   'series',
   'thinkpad',
   'watch',
+  'xps',
+  'inspiron',
 ]);
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
 const DISPLAY_SIZE_CATEGORY_SLUGS = new Set(LAPTOP_CATEGORY_SLUGS).add(

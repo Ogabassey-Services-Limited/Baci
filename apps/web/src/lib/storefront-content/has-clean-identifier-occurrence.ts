@@ -136,7 +136,7 @@ function isBrandQualifiedOccurrence(
         !(
           candidate.isAlias &&
           allowBrandAliasOverlap &&
-          index < identifierStart
+          index <= identifierStart
         )
       ) {
         continue;

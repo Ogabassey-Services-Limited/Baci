@@ -96,6 +96,41 @@ function isGenerationYearToken(tokens: string[], index: number) {
   );
 }
 
+function getPreferredNumericModelIndex(
+  tokens: string[],
+  preserveGameTitleTokens: boolean,
+  hasNonYearAlphanumericModel: boolean
+) {
+  const numericIndices = tokens
+    .map((token, index) => ({ token, index }))
+    .filter(
+      ({ token, index }) =>
+        /^\d+$/u.test(token) &&
+        (preserveGameTitleTokens ||
+          !YEAR_TOKEN_PATTERN.test(token) ||
+          !hasNonYearAlphanumericModel ||
+          isGenerationYearToken(tokens, index))
+    )
+    .map(({ index }) => index);
+  const latestNumericIndex = numericIndices.at(-1) ?? -1;
+  const latestToken = tokens[latestNumericIndex] ?? '';
+
+  if (
+    latestNumericIndex < 0 ||
+    !/^\d{1,2}$/u.test(latestToken) ||
+    ['gen', 'generation'].includes(tokens[latestNumericIndex - 1] ?? '')
+  ) {
+    return latestNumericIndex;
+  }
+
+  return (
+    numericIndices.findLast((index) => {
+      const token = tokens[index] ?? '';
+      return /^\d{3,}$/u.test(token) && !YEAR_TOKEN_PATTERN.test(token);
+    }) ?? latestNumericIndex
+  );
+}
+
 function isSignificantInterveningNumericToken(
   tokens: string[],
   index: number,
@@ -165,13 +200,10 @@ export function selectProductModelIdentifier(
       /[a-z]/u.test(token) &&
       /\d/u.test(token)
   );
-  const numericIndex = tokens.findLastIndex(
-    (token, index) =>
-      /^\d+$/u.test(token) &&
-      (preserveGameTitleTokens ||
-        !YEAR_TOKEN_PATTERN.test(token) ||
-        !hasNonYearAlphanumericModel ||
-        isGenerationYearToken(tokens, index))
+  const numericIndex = getPreferredNumericModelIndex(
+    tokens,
+    preserveGameTitleTokens,
+    hasNonYearAlphanumericModel
   );
   if (numericIndex >= 0) {
     const hasConvertibleModel = tokens.some((_, index) =>

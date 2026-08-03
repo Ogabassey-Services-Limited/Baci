@@ -28,7 +28,6 @@ const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
 const MODEL_FAMILY_CONTEXT_EXCLUSIONS = new Set(['and', 'or']);
 const GAME_CATEGORY_PATTERN =
   /^(?:gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
-
 function toPublishedTimestamp(value: string | null) {
   if (!value) {
     return 0;
@@ -119,6 +118,18 @@ function hasContextualFamilyMatch(
   );
 }
 
+function getContextBrandValues(
+  brands: string[],
+  brandAliases: Record<string, readonly string[]>
+) {
+  return Array.from(
+    new Set([
+      ...brands,
+      ...brands.flatMap((brand) => brandAliases[generateSlug(brand)] ?? []),
+    ])
+  );
+}
+
 function buildGuideHref(storeUrl: string, slug: string) {
   return `${storeUrl}/blog/${slug}`;
 }
@@ -198,6 +209,7 @@ export function buildCommercialGuideLinks(
                     knownBrands: inferred.brands,
                     brandAliases,
                     requireBrandBeforeIdentifier: true,
+                    allowBrandAliasOverlap: true,
                   }
                 : undefined
             )
@@ -210,7 +222,7 @@ export function buildCommercialGuideLinks(
         hasContextualFamilyMatch(
           post,
           modelFamilyTokens,
-          input.context.brands ?? []
+          getContextBrandValues(input.context.brands ?? [], brandAliases)
         );
       const hasRequiredCompareModelMatch =
         input.context.pageKind === 'compare' &&
