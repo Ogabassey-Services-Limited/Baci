@@ -1,7 +1,5 @@
-export default function registerResponsiveUtilities({
-  addUtilities,
-  addComponents,
-}) {
+/** @type {Parameters<typeof import('tailwindcss/plugin').default>[0]} */
+const registerResponsiveUtilities = ({ addUtilities, addComponents }) => {
   addUtilities({
     '.safe-top': {
       'padding-top': 'env(safe-area-inset-top)',
@@ -131,4 +129,6 @@ export default function registerResponsiveUtilities({
       'justify-content': 'center',
     },
   });
-}
+};
+
+export default registerResponsiveUtilities;
