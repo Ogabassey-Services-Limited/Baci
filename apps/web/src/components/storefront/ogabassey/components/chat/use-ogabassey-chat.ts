@@ -94,7 +94,12 @@ export function useOgabasseyChat({
     setIsLoading(true);
 
     try {
-      const chatReply = await requestChatReply(isSanta, history, messageText);
+      const chatReply = await requestChatReply(
+        isSanta,
+        history,
+        messageText,
+        storefrontMerchantSlug
+      );
       const aiResponseText = chatReply.text;
 
       // Check if Santa granted wishes (parse every ACTION directive).

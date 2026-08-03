@@ -215,6 +215,30 @@ describe('useOgabasseyChat - handleSend', () => {
     });
   });
 
+  it('includes the current storefront merchant slug in standard chat requests', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('Response text')
+    );
+
+    const { result } = renderHook(() =>
+      useOgabasseyChat({
+        isSanta: false,
+        storefrontMerchantSlug: 'winter-store',
+      })
+    );
+
+    await act(async () => {
+      await result.current.handleSend('Show me phones');
+    });
+
+    const requestInit = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[1] as RequestInit | undefined;
+    expect(requestInit?.headers).toEqual({
+      'Content-Type': 'application/json',
+      [SANTA_MERCHANT_SLUG_HEADER]: 'winter-store',
+    });
+  });
+
   it('calls fetch with /api/chat/santa endpoint in santa mode', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       makeStreamingResponse('Ho ho ho!')

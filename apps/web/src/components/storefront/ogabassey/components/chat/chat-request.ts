@@ -1,4 +1,5 @@
 import { readSantaMerchantSlug } from '@/components/storefront/santa-chat/read-santa-merchant-slug';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import type { ChatMessage } from './types';
 
 const OGABASSEY_CHAT_SESSION_STORAGE_KEY = 'ogabassey_chat_session_id';
@@ -31,7 +32,8 @@ function getOrCreateChatSessionId(): string {
 export async function requestChatReply(
   isSanta: boolean,
   history: ChatMessage[],
-  messageText: string
+  messageText: string,
+  storefrontMerchantSlug?: string
 ): Promise<{ text: string; merchantSlug?: string }> {
   const endpoint = isSanta ? '/api/chat/santa' : '/api/chat';
   const requestBody = {
@@ -47,7 +49,12 @@ export async function requestChatReply(
 
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(storefrontMerchantSlug
+        ? { [SANTA_MERCHANT_SLUG_HEADER]: storefrontMerchantSlug }
+        : {}),
+    },
     body: JSON.stringify(requestBody),
   });
 

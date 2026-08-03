@@ -27,4 +27,22 @@ describe('requestChatReply', () => {
       expect.objectContaining({ method: 'POST' })
     );
   });
+
+  it('sends the storefront merchant slug with chat requests', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('Chat reply'));
+
+    await requestChatReply(false, [], 'show me phones', 'winter-store');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/chat',
+      expect.objectContaining({
+        headers: {
+          'Content-Type': 'application/json',
+          [SANTA_MERCHANT_SLUG_HEADER]: 'winter-store',
+        },
+      })
+    );
+  });
 });
