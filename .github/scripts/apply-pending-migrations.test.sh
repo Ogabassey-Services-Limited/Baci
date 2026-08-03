@@ -89,6 +89,39 @@ if [ "$(grep -c "schema_migrations(version, name, statements).*20260727220050" "
 fi
 grep -q 'pg_catalog.substr(realtime.topic(), 16)' "$historical_repair_log"
 
+retry_repair_dir="$fixture_root/retry-repair"
+mkdir -p "$retry_repair_dir"
+cp \
+  "$script_dir/../../supabase/migrations/20260801141800_harden_gigl_tracking_retry_edges.sql" \
+  "$retry_repair_dir/20260801141800_harden_gigl_tracking_retry_edges.sql"
+cp \
+  "$script_dir/../../supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql" \
+  "$retry_repair_dir/20260803000700_repair_gigl_tracking_retry_edges.sql"
+retry_repair_log="$fixture_root/retry-repair-queries.log"
+retry_repair_output="$fixture_root/retry-repair-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$retry_repair_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$retry_repair_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$retry_repair_output"
+grep -q \
+  'reconciled by append-only repair migration 20260803000700_repair_gigl_tracking_retry_edges.sql' \
+  "$retry_repair_output"
+grep -q \
+  'applied:         20260803000700  repair_gigl_tracking_retry_edges' \
+  "$retry_repair_output"
+grep -q \
+  "v_current_status = ''failed''" \
+  "$retry_repair_log"
+if grep -q \
+  "tracking_timeline_generation\\\\n'\\\\n      '" \
+  "$retry_repair_log"; then
+  echo 'The malformed GIGL retry migration SQL must not be sent to Supabase' >&2
+  exit 1
+fi
+
 invalid_dir="$fixture_root/invalid"
 make_collision_fixture "$invalid_dir"
 invalid_log="$fixture_root/invalid-queries.log"

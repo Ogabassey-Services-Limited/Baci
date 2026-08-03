@@ -9,6 +9,12 @@ const repairPath =
   'supabase/migrations/20260803000600_repair_gigl_tracking_realtime_broadcast.sql';
 const historicalSha256 =
   '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65';
+const retryHistoricalPath =
+  'supabase/migrations/20260801141800_harden_gigl_tracking_retry_edges.sql';
+const retryRepairPath =
+  'supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql';
+const retryHistoricalSha256 =
+  '35bcfb114ccfdadbbb44f69b21b53dd91b8df7a9eaa875f364e3d22b354801d1';
 
 describe('applySupabaseCurrentTreeSources', () => {
   it('materializes verified post-replay and pending sources in suffix order', async () => {
@@ -151,5 +157,45 @@ describe('applySupabaseCurrentTreeSources', () => {
 
     expect(materializeSource).not.toHaveBeenCalled();
     expect(apply).not.toHaveBeenCalled();
+  });
+
+  it('replays the failed GIGL retry source through its append-only repair', async () => {
+    const materializeSource = vi.fn(
+      async (
+        _root: string,
+        _workdir: string,
+        source: { repositoryPath: string },
+        ordinal: number
+      ) => `/owned/sql/${ordinal}-${source.repositoryPath.split('/').at(-1)}`
+    );
+    const apply = vi.fn(async () => undefined);
+
+    await applySupabaseCurrentTreeSources({
+      apply,
+      materializeSource,
+      readSource: async () =>
+        readFile(
+          path.resolve(
+            import.meta.dirname,
+            '../../../../supabase/migrations',
+            path.basename(retryHistoricalPath)
+          )
+        ),
+      pendingSources: [
+        { repositoryPath: retryHistoricalPath, sha256: retryHistoricalSha256 },
+        { repositoryPath: retryRepairPath, sha256: 'c'.repeat(64) },
+      ],
+      postReplaySources: [],
+      repositoryRoot: '/repository',
+      startingOrdinal: 129,
+      workdir: '/owned',
+    });
+
+    expect(materializeSource.mock.calls.map((call) => call.slice(2))).toEqual([
+      [expect.objectContaining({ repositoryPath: retryRepairPath }), 129],
+    ]);
+    expect(apply).toHaveBeenCalledWith(
+      `/owned/sql/129-${retryRepairPath.split('/').at(-1)}`
+    );
   });
 });

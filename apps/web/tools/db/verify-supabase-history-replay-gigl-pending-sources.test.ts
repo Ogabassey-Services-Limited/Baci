@@ -23,7 +23,7 @@ describe('GIGL tracking pending replay sources', () => {
       pendingRepairState: 'materialized',
     });
 
-    expect(result.manifest.pendingSources).toHaveLength(170);
+    expect(result.manifest.pendingSources).toHaveLength(171);
     for (const [repositoryPath, sha256] of [
       [
         'supabase/migrations/20260801142400_retry_gigl_definitive_notification_rejections.sql',
@@ -80,6 +80,10 @@ describe('GIGL tracking pending replay sources', () => {
       [
         'supabase/migrations/20260803000600_repair_gigl_tracking_realtime_broadcast.sql',
         'effcd70e2aad319665eecc17c24a08340dc55db17adfaa86169c734c05b5a3b2',
+      ],
+      [
+        'supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql',
+        'c8a4a6ac169a0e2af08aa34d69f0a9126ae292c58a614c2bab508529ce7c7ad1',
       ],
     ] as const) {
       expectPendingSourceSha(

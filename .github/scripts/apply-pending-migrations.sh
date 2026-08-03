@@ -24,11 +24,8 @@
 #      CONCURRENTLY can run outside a transaction; their history row is written
 #      only after every statement succeeds.
 #
-# `statements` in schema_migrations is left as ARRAY[]::text[]. The CLI's
-# `migration list` only consults version + name; round-tripping the migration
-# SQL into the statements column would require fragile escaping for any SQL
-# containing `$$` or single quotes.
-
+# `statements` remains ARRAY[]::text[] because the CLI only consults version/name;
+# preserving SQL there would require fragile escaping of `$$` and single quotes.
 set -euo pipefail
 
 migrations_dir="${MIGRATIONS_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/supabase/migrations}"
@@ -101,6 +98,9 @@ historical_migration_repair_spec() {
   case "$1:$2" in
     20260727220050:shipment_tracking_realtime_broadcast)
       printf '%s\t%s\t%s\n' '20260803000600' 'repair_gigl_tracking_realtime_broadcast' '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65'
+      ;;
+    20260801141800:harden_gigl_tracking_retry_edges)
+      printf '%s\t%s\t%s\n' '20260803000700' 'repair_gigl_tracking_retry_edges' '35bcfb114ccfdadbbb44f69b21b53dd91b8df7a9eaa875f364e3d22b354801d1'
       ;;
     *) return 1 ;;
   esac
@@ -213,11 +213,12 @@ for file in "${sorted_files[@]}"; do
       echo "::error::Historical migration $version requires the pinned append-only repair ${repair_version}_${repair_name}.sql and original source checksum" >&2
       exit 1
     fi
-    body="$(jq -n --arg query "$(build_register_migration_query "$version" "$name")" '{query: $query}')"
+    body="$(bash "$(dirname "$0")/build-historical-repair-payload.sh" "$repair_file" "$(build_register_migration_query "$version" "$name")" "$(build_register_migration_query "$repair_version" "$repair_name")")"
     api_query_payload "$body"
+    echo "✓ applied:         $repair_version  $repair_name"
     echo "::warning::Historical migration $version is reconciled by append-only repair migration ${repair_version}_${repair_name}.sql"
-    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
-    skipped_count=$((skipped_count + 1))
+    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"$'\n'"${repair_version}"$'\t'"${repair_name}"
+    applied_count=$((applied_count + 1)); skipped_count=$((skipped_count + 1))
     continue
   fi
 

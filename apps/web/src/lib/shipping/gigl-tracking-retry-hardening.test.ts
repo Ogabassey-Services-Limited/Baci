@@ -43,6 +43,15 @@ describe('GIGL retry and generation hardening migrations', () => {
     expect(
       readMigrationTest('gigl_tracking_failure_transitions.sql')
     ).toContain('a newer GIGL failure must remain visible after transit');
+    const repair = readMigration(
+      '20260803000700_repair_gigl_tracking_retry_edges.sql'
+    );
+    expect(repair).toContain(
+      "|| '          > NEW.tracking_timeline_generation'"
+    );
+    expect(repair).toContain(
+      "|| E'        v_latest_persisted_event_at IS NULL\\n'"
+    );
   });
 
   it('ignores obsolete shipment generations when syncing order status', () => {

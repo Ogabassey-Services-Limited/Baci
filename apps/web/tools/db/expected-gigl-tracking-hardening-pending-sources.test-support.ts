@@ -219,4 +219,8 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '20260803000600_repair_gigl_tracking_realtime_broadcast.sql',
     'effcd70e2aad319665eecc17c24a08340dc55db17adfaa86169c734c05b5a3b2',
   ],
+  [
+    '20260803000700_repair_gigl_tracking_retry_edges.sql',
+    'c8a4a6ac169a0e2af08aa34d69f0a9126ae292c58a614c2bab508529ce7c7ad1',
+  ],
 ] as const;
