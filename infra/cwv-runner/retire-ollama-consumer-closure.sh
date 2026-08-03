@@ -180,7 +180,7 @@ compose_cron_reference_inventory() {
 }
 
 container_wrapper_exec_paths() {
-  awk 'function trim(value){sub(/^[[:space:]]+/,"",value);sub(/[[:space:]]+$/,"",value);return value}function safe(path){return path~/^\/[A-Za-z0-9._\/-]+$/&&path!~/(^|\/)\.\.?($|\/)/}{line=trim($0);if(line==""||line~/^#/)next;if(line~/^exec[[:space:]]+/){sub(/^exec[[:space:]]+/,"",line);sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);if(count<1||!safe(parts[1])){bad=1;next};for(i=1;i<=count;i++)if(parts[i]~/^\//){if(!safe(parts[i]))bad=1;else print parts[i]}else if(parts[i]~/^\.\.?\//)bad=1}else if(line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}END{exit bad?2:0}' "$1"
+  awk 'function trim(value){sub(/^[[:space:]]+/,"",value);sub(/[[:space:]]+$/,"",value);return value}function safe(path){return path~/^\/[A-Za-z0-9._\/-]+$/&&path!~/(^|\/)\.\.?($|\/)/}{line=trim($0);if(line==""||line~/^#/)next;explicit=(line~/^exec[[:space:]]+/);if(explicit)sub(/^exec[[:space:]]+/,"",line);if(explicit||line~/^\//){sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);if(count<1||!safe(parts[1])){bad=1;next};for(i=1;i<=count;i++)if(parts[i]~/^\//){if(!safe(parts[i]))bad=1;else print parts[i]}else if(parts[i]~/^\.\.?\//)bad=1}else if(line~/^[\047"`$]/||line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}END{exit bad?2:0}' "$1"
 }
 
 container_argument_consumers() {
