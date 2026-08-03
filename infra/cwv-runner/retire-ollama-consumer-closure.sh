@@ -70,6 +70,12 @@ systemd_quoted_command_path() {
   rm -f "$quoted_paths"; printf '%s\n' "$quoted_command"
 }
 
+systemd_wrapper_exec_paths() {
+  awk 'function trim(s){sub(/^[[:space:]]+/,"",s);sub(/[[:space:]]+$/,"",s);return s}
+    {line=trim($0);if(line==""||line~/^#/)next;if(line~/^exec[[:space:]]+/){sub(/^exec[[:space:]]+/,"",line);sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);target=parts[1];if(count<1||target!~/^\/[A-Za-z0-9._\/-]+$/||target~/(^|\/)\.\.?($|\/)/)bad=1;else print target}else if(line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}
+    END{exit bad?2:0}' "$1"
+}
+
 systemd_credential_file_directives() {
   awk 'function emit(s){sub(/^[[:space:]]*/,"",s);if(s~/^LoadCredential(Encrypted)?=/)print s}
     {line=$0;if(joined!="")line=joined " " line;if(line~/\\$/){sub(/\\$/,"",line);joined=line;next}emit(line);joined=""}
