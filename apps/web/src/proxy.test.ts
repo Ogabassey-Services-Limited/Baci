@@ -924,6 +924,43 @@ describe('Middleware Proxy', () => {
       expect(response.headers.get('X-Robots-Tag')).toBeNull();
     });
 
+    it('normalizes recoverable encoded punctuation before the PDP hard-404 gate', async () => {
+      // Arrange
+      const recoverableProductPath = `/smartphones/phone${'%E2%80%93'.repeat(57)}case`;
+      const request = new NextRequest(
+        `https://ogabassey.com${recoverableProductPath}`
+      );
+      request.headers.set('host', 'ogabassey.com');
+
+      // Act
+      const response = await proxy(request);
+      const location = response.headers.get('location');
+
+      // Assert
+      expect(response.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/smartphones/phone-case');
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('passes an unsafe category with a safe product through to canonical routing', async () => {
+      // Arrange
+      const unsafeCategory = `phones${'%2525252525'.repeat(30)}`;
+      const request = new NextRequest(
+        `https://ogabassey.com/${unsafeCategory}/phone`
+      );
+      request.headers.set('host', 'ogabassey.com');
+
+      // Act
+      const response = await proxy(request);
+
+      // Assert
+      expect(response.status).not.toBe(404);
+      expect(response.headers.get('X-Robots-Tag')).toBeNull();
+      expect(resolutionMock).toHaveBeenCalled();
+    });
+
     it('passes through an over-encoded reserved first-segment GET without the path gate 404', async () => {
       // Arrange
       const unsafeSlug = `login${'%2525252525'.repeat(30)}`;

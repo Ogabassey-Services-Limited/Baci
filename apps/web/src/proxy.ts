@@ -1966,13 +1966,19 @@ function resolveUnsafeStorefrontPdpPath(
     return null;
   }
 
-  const routeType = getRouteType(pathname);
+  // Imported smart punctuation has a safe, one-hop ASCII canonicalization.
+  // Judge that recoverable form so the later 308 remains available, while
+  // keeping the raw path for any terminal hard-404 response.
+  const safetyPathname =
+    normalizeCacheSafeStorefrontPathname(new URL(request.url).pathname) ??
+    pathname;
+  const routeType = getRouteType(safetyPathname);
   if (routeType !== 'storefront') {
     return null;
   }
 
   const homePath = getStorefrontDocumentHomePath(
-    pathname,
+    safetyPathname,
     hostname,
     STOREFRONT_DOCUMENT_HOME_PATH_RULES
   );
@@ -1981,7 +1987,7 @@ function resolveUnsafeStorefrontPdpPath(
   }
 
   const contentSegments = getStorefrontContentSegments(
-    pathname,
+    safetyPathname,
     hostname,
     routeType
   );

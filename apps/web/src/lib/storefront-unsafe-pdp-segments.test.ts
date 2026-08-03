@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hasUnsafeStorefrontPdpSegments } from '@/lib/storefront-unsafe-pdp-segments';
 
 describe('hasUnsafeStorefrontPdpSegments', () => {
-  it('recognizes unsafe PDP segments but leaves reserved route shapes alone', () => {
+  it('rejects unsafe product slugs but leaves unsafe categories and reserved routes to canonical routing', () => {
     // Arrange
     const unsafeSlug = `phone${'%2525252525'.repeat(30)}`;
     const nonCacheableFirstSegments = new Set(['account']);
@@ -23,7 +23,7 @@ describe('hasUnsafeStorefrontPdpSegments', () => {
 
     // Assert
     expect(unsafePdp).toBe(true);
-    expect(unsafeCategory).toBe(true);
+    expect(unsafeCategory).toBe(false);
     expect(reservedRoute).toBe(false);
   });
 });
