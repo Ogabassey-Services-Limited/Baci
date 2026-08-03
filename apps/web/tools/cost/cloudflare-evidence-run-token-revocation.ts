@@ -108,13 +108,15 @@ export function createTokenRevocationOperations(
       journal.writeTokenRevokedAt = receipt.observedAt;
       journal.phase = 'write_token_revoked';
     } else if (kind === 'read') {
-      if (
-        journal.phase === 'read_token_revoked' &&
-        journal.readTokenRevocationReceipt
-      ) {
+      if (journal.readTokenRevocationReceipt) {
         if (!hasSameReceipt(journal.readTokenRevocationReceipt, receipt))
           throw new Error('read token revocation receipt cannot be replaced');
-        return journal;
+        if (
+          ['read_token_revoked', 'proof_complete', 'closed_stop'].includes(
+            journal.phase
+          )
+        )
+          return journal;
       }
       if (!journal.writeTokenRevocationReceipt)
         throw new Error('write token revocation must be verified first');

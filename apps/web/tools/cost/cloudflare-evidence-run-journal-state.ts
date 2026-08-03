@@ -1,33 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises';
 import { basename, isAbsolute, join, parse, sep } from 'node:path';
+import {
+  type EvidencePhase,
+  evidenceJournalPhases,
+} from './cloudflare-evidence-run-journal-phases';
 import { releaseActiveRunLock } from './cloudflare-evidence-run-lock';
 import { areReviewedProbeCases } from './mutate-cloudflare-evidence-probes';
 
 export type { MeasurementReceipt } from './cloudflare-evidence-measurement-receipt';
+export type { EvidencePhase } from './cloudflare-evidence-run-journal-phases';
 export { REVIEWED_PROBE_COUNT } from './mutate-cloudflare-evidence-probes';
 export const RUN_ID_PATTERN = /^[a-f0-9]{32}$/;
-export type EvidencePhase =
-  | 'prepared'
-  | 'mutated'
-  | 'cleanup_verified'
-  | 'cleanup_incomplete_stop'
-  | 'write_token_revoked'
-  | 'measurement_complete_pending_read_revocation'
-  | 'read_token_revoked'
-  | 'proof_complete'
-  | 'closed_stop';
-const evidencePhases = new Set<EvidencePhase>([
-  'prepared',
-  'mutated',
-  'cleanup_verified',
-  'cleanup_incomplete_stop',
-  'write_token_revoked',
-  'measurement_complete_pending_read_revocation',
-  'read_token_revoked',
-  'proof_complete',
-  'closed_stop',
-]);
 export type TokenRevocationReceipt = Readonly<{
   tokenId: string;
   status: 'revoked';
@@ -114,15 +98,12 @@ export type EvidenceRunInput = Omit<
   | 'cleanupWriteTokenRevocationReceipt'
   | 'cleanupWriteTokenRevocations'
 >;
-export const terminal = new Set<EvidencePhase>([
-  'proof_complete',
-  'closed_stop',
-]);
+export const terminal = Object.freeze({
+  has: evidenceJournalPhases.isTerminal,
+});
 const hash = /^[a-f0-9]{64}$/;
 export function isEvidencePhase(value: unknown): value is EvidencePhase {
-  return (
-    typeof value === 'string' && evidencePhases.has(value as EvidencePhase)
-  );
+  return evidenceJournalPhases.has(value);
 }
 export function journalPath(stateDir: string, runId: string) {
   if (basename(runId) !== runId || !RUN_ID_PATTERN.test(runId))

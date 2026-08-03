@@ -240,7 +240,8 @@ export async function recordCloudflareEvidenceReadTokenRevocation(
     dependencies.revocationReceipt,
     dependencies.client
   );
-  if (journal.phase === 'closed_stop') return journal;
+  if (journal.phase === 'closed_stop' || journal.phase === 'proof_complete')
+    return journal;
   if (
     journal.phase !== 'read_token_revoked' ||
     !journal.measurementVerifiedAt ||

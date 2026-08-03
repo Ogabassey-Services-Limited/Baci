@@ -1,3 +1,4 @@
+import { assertPendingReadRevocationMeasurement } from './cloudflare-evidence-pending-measurement-transition';
 import {
   assertTerminalPrerequisites,
   assertTransition,
@@ -125,16 +126,8 @@ export function createEvidenceJournalTransitionOperations(
         throw new Error(
           'incomplete measurement evidence requires a verified receipt to clear'
         );
-      if (
-        phase === 'measurement_complete_pending_read_revocation' &&
-        (!journal.measurementVerifiedAt ||
-          !isHash(journal.measurementReceiptSha256 ?? '') ||
-          !isHash(journal.measurementPayloadSha256 ?? '') ||
-          !validDate(journal.measurementVerifiedAt))
-      )
-        throw new Error(
-          'pending read-token revocation requires a verified measurement receipt'
-        );
+      if (phase === 'measurement_complete_pending_read_revocation')
+        assertPendingReadRevocationMeasurement(journal);
       if (
         details.cleanupAttempts !== undefined &&
         (!Number.isInteger(details.cleanupAttempts) ||

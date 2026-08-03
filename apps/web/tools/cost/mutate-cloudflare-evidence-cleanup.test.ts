@@ -5,6 +5,7 @@ import {
   recordEvidenceMutation,
   recordEvidencePhase,
   recordEvidenceProbeResults,
+  recordTokenRevocation,
   revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 import { createCleanupRun } from './mutate-cloudflare-evidence-cleanup.test-support';
@@ -78,22 +79,29 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
     await expect(
       recordEvidencePhase(dir, mutationInput.runId, 'closed_stop')
     ).rejects.toThrow(
-      'invalid evidence phase transition: write_token_revoked -> closed_stop'
+      'terminal evidence phase requires verified token revocation'
     );
     await expect(
-      revokeEvidenceRunToken(dir, mutationInput.runId, 'read', {
-        revoke: async (tokenId) => ({
-          tokenId,
-          auditReceiptSha256: 'f'.repeat(64),
-        }),
-        readBack: async () => ({
-          tokenId: 'wrong',
-          status: 'inactive',
-          auditReceiptSha256: 'e'.repeat(64),
+      recordTokenRevocation(
+        dir,
+        mutationInput.runId,
+        'read',
+        {
+          tokenId: mutationInput.readTokenId,
+          status: 'revoked',
+          providerReceiptSha256: 'f'.repeat(64),
           observedAt: '2026-07-31T00:00:01.000Z',
-        }),
-      })
-    ).rejects.toThrow('readback');
+        },
+        {
+          readBack: async () => ({
+            tokenId: 'wrong',
+            status: 'inactive',
+            auditReceiptSha256: 'e'.repeat(64),
+            observedAt: '2026-07-31T00:00:01.000Z',
+          }),
+        }
+      )
+    ).rejects.toThrow('serialized token revocation receipt is not verified');
     await expect(
       openEvidenceRun(dir, {
         ...mutationInput,
@@ -102,18 +110,25 @@ describe('Cloudflare evidence cleanup lifecycle', () => {
     ).rejects.toThrow('active');
 
     await expect(
-      revokeEvidenceRunToken(dir, mutationInput.runId, 'read', {
-        revoke: async (tokenId) => ({
-          tokenId,
-          auditReceiptSha256: 'f'.repeat(64),
-        }),
-        readBack: async (tokenId) => ({
-          tokenId,
-          status: 'absent',
-          auditReceiptSha256: 'f'.repeat(64),
+      recordTokenRevocation(
+        dir,
+        mutationInput.runId,
+        'read',
+        {
+          tokenId: mutationInput.readTokenId,
+          status: 'revoked',
+          providerReceiptSha256: 'f'.repeat(64),
           observedAt: '2026-07-31T00:00:02.000Z',
-        }),
-      })
+        },
+        {
+          readBack: async (tokenId) => ({
+            tokenId,
+            status: 'absent',
+            auditReceiptSha256: 'f'.repeat(64),
+            observedAt: '2026-07-31T00:00:02.000Z',
+          }),
+        }
+      )
     ).resolves.toMatchObject({ phase: 'closed_stop' });
     await expect(
       openEvidenceRun(dir, {
