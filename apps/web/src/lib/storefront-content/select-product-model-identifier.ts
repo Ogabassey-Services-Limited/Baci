@@ -50,13 +50,32 @@ function isSeriesPhraseToken(tokens: string[], index: number) {
   return isSeriesMarker || followsSeriesMarker;
 }
 
-function isGenerationYearToken(tokens: string[], index: number) {
+function isAlphanumericModelCode(token: string) {
   return (
-    YEAR_TOKEN_PATTERN.test(tokens[index] ?? '') &&
-    ['gen', 'generation'].includes(tokens[index - 1] ?? '') &&
-    tokens
-      .slice(index + 1)
-      .some((token) => /[a-z]/u.test(token) && /\d/u.test(token))
+    /[a-z]/u.test(token) &&
+    /\d/u.test(token) &&
+    !/^\d+(?:st|nd|rd|th)$/u.test(token)
+  );
+}
+
+function isGenerationYearToken(tokens: string[], index: number) {
+  const token = tokens[index] ?? '';
+  if (!YEAR_TOKEN_PATTERN.test(token)) {
+    return false;
+  }
+
+  const previousToken = tokens[index - 1] ?? '';
+  const hasAlphanumericModelBefore = tokens
+    .slice(0, index)
+    .some(isAlphanumericModelCode);
+  return (
+    (['gen', 'generation'].includes(previousToken) &&
+      tokens
+        .slice(index + 1)
+        .some(
+          (suffixToken) => /[a-z]/u.test(suffixToken) && /\d/u.test(suffixToken)
+        )) ||
+    (hasAlphanumericModelBefore && index === tokens.length - 1)
   );
 }
 
@@ -71,13 +90,22 @@ function isSignificantInterveningNumericToken(
     .some(
       (prefixToken) => /[a-z]/u.test(prefixToken) && /\d/u.test(prefixToken)
     );
+  const followsExplicitGenerationMarker = tokens
+    .slice(index + 1, numericIndex)
+    .some(
+      (suffixToken, suffixIndex) =>
+        ['gen', 'generation'].includes(suffixToken) &&
+        /^\d+$/u.test(tokens[index + 2 + suffixIndex] ?? '')
+    );
+  const hasOnlyNumericSuffix = tokens
+    .slice(index + 1, numericIndex + 1)
+    .every((suffixToken) => /^\d+$/u.test(suffixToken));
   return (
     index < numericIndex &&
-    hasAlphanumericModelBefore &&
-    /^\d{1,2}$/u.test(token) &&
-    tokens
-      .slice(index + 1, numericIndex + 1)
-      .every((suffixToken) => /^\d+$/u.test(suffixToken))
+    ((hasAlphanumericModelBefore &&
+      /^\d{1,2}$/u.test(token) &&
+      hasOnlyNumericSuffix) ||
+      (followsExplicitGenerationMarker && /^\d+$/u.test(token)))
   );
 }
 

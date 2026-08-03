@@ -183,6 +183,28 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
     expect(identifiers).toEqual(['pro 5th generation 2024 m4']);
   });
 
+  it('retains a terminal tablet hardware revision year', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Samsung'],
+      productNames: ['Samsung Tab S6 Lite 2024 4GB 64GB LTE'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['tab s6 lite 2024']);
+  });
+
+  it('keeps an explicit numeric generation after a numeric model token', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'laptops',
+      brands: ['Lenovo'],
+      productNames: ['Lenovo ThinkPad 13 Yoga Gen 2 – 13.3”'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['thinkpad 13 yoga gen 2']);
+  });
+
   it('removes an embedded quote-only tablet dimension before capacities', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'tablets',
