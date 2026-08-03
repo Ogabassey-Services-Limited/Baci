@@ -158,6 +158,15 @@ describe('event pipeline authority manifest', () => {
     ]);
     expect(manifest.authority.credentialPaths).toEqual([
       [
+        'apps/web/src/app/(platform)/onboarding/actions.ts',
+        'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
         'apps/web/src/lib/storefront-product-purge-hostnames.ts',
         'apps/web/src/lib/cloudflare-purge.ts',
         'apps/web/src/env.ts',

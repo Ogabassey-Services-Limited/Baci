@@ -72,6 +72,8 @@ function resolveThemeVariable(element: Element, value: string): string {
   return document.documentElement.style.getPropertyValue(variable).trim();
 }
 
+const rootToken = (name: string) =>
+  document.documentElement.style.getPropertyValue(name);
 function createDeferred<T>() {
   let resolve: ((value: T) => void) | undefined;
   const promise = new Promise<T>((nextResolve) => {
@@ -161,11 +163,11 @@ describe('PuckStorefront', () => {
 
     render(<PuckStorefront />);
 
-    const portalSignOut = await screen.findByRole('button', {
+    await screen.findByRole('button', {
       name: 'Portal sign out',
     });
-    expect(resolveThemeVariable(portalSignOut, 'var(--destructive)')).toBe(
-      hexToHslComponents('#B91C1C')
+    await waitFor(() =>
+      expect(rootToken('--destructive')).toBe(hexToHslComponents('#B91C1C'))
     );
     expect(getContrastRatio('#B91C1C', '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
   });
@@ -189,9 +191,11 @@ describe('PuckStorefront', () => {
     const { rerender } = render(<PuckStorefront />);
 
     await screen.findByRole('status');
-    expect(
-      document.documentElement.style.getPropertyValue('--background')
-    ).toBe(hexToHslComponents(theme.colors.background));
+    await waitFor(() =>
+      expect(rootToken('--background')).toBe(
+        hexToHslComponents(theme.colors.background)
+      )
+    );
 
     mocks.merchantId = null;
     rerender(<PuckStorefront />);

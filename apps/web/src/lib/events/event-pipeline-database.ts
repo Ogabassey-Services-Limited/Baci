@@ -1,4 +1,5 @@
 import type { Database, Json } from '@/types/supabase';
+import { frozenEventPipelineAuthoritySources } from './event-pipeline-frozen-authority-sources';
 export function toEventPipelineJson(
   value: unknown,
   ancestors = new WeakSet<object>()
@@ -150,6 +151,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     // scheduler path; it cannot grant URL purging or Supabase authority.
     // biome-ignore format: reviewed full import paths preserve the 300-line module gate.
     credentialPaths: [
+      ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts', 'apps/web/src/env.ts'], ['apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts', 'apps/web/src/env.ts'],
       ['apps/web/src/lib/storefront-product-purge-hostnames.ts', 'apps/web/src/lib/cloudflare-purge.ts', 'apps/web/src/env.ts'],
       ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
       ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
@@ -169,6 +171,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     legacySdkImporters: ['apps/web/src/lib/events/event-ingress-capability.ts', 'apps/web/src/lib/events/event-pipeline-test-client.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
     serverImporters: [
       ...Object.keys(frozenRoutes),
+      'apps/web/src/app/(platform)/onboarding/actions.ts',
       'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts',
       'apps/web/src/app/api/admin/event-pipeline/replay/route.ts',
       'apps/web/src/app/api/analytics/conversion/route.ts',
@@ -188,6 +191,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     ],
   },
   callers: runtimeCallers,
+  frozenAuthoritySources: frozenEventPipelineAuthoritySources,
   frozenProjectionFiles: {},
   frozenRoutes,
   functions: {
