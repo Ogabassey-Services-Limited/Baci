@@ -158,7 +158,7 @@ describe('storefront agent URLs', () => {
       ).toBe('https://ogabassey.com/products/wireless-charger');
     });
 
-    it('returns predictable product URLs for base URLs without a protocol', () => {
+    it('returns relative product URLs for base URLs without a protocol', () => {
       expect(
         buildAgentProductUrl({
           baseUrl: 'ogabassey.com',
@@ -169,7 +169,7 @@ describe('storefront agent URLs', () => {
             category_slug: 'laptops',
           },
         })
-      ).toBe('ogabassey.com/laptops/hp-probook');
+      ).toBe('/laptops/hp-probook');
     });
 
     it('throws when the product input is missing', () => {

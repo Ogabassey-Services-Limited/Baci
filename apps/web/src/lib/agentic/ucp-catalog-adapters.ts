@@ -20,7 +20,9 @@ type StorefrontProductForUcp = {
 };
 
 export type UcpCatalogProductRow = {
+  canonical_url?: string | null;
   category?: string | null;
+  categories?: { slug?: string | null } | null;
   description?: string | null;
   id: string;
   images?: unknown;
@@ -101,7 +103,11 @@ export function mapUcpCatalogProductRow({
     product_url: buildAgentProductUrl({
       baseUrl,
       product: {
+        canonical_url: row.canonical_url ?? null,
         category: row.category ?? null,
+        categories: row.categories
+          ? { slug: row.categories.slug ?? undefined }
+          : null,
         id: row.id,
         name: row.name,
         slug: row.slug ?? undefined,

@@ -80,6 +80,25 @@ describe('ucp catalog adapters', () => {
     });
   });
 
+  it('uses the product canonical and joined category slug for UCP product URLs', () => {
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: {
+        canonical_url: '/smartphones/pixel-10',
+        categories: { slug: 'smartphones' },
+        id: 'product-canonical',
+        merchant_id: 'merchant-1',
+        name: 'Pixel 10',
+        price: 900_000,
+        slug: 'pixel-10',
+        status: 'active',
+      },
+    });
+
+    expect(product.url).toBe('https://ogabassey.com/smartphones/pixel-10');
+  });
+
   it('keeps unmanaged inventory available and filters inactive rows', () => {
     const rows = filterActiveUcpCatalogProductRows([
       {

@@ -22,6 +22,19 @@ function getMerchantLastModified(
   return merchant.updated_at ? new Date(merchant.updated_at) : undefined;
 }
 
+function isStorefrontSitemapEligible(
+  merchant: SitemapStaticMerchant,
+  storeUrl: string
+): boolean {
+  return isSeoSitemapEligible(
+    buildHomeSeoDecision({
+      isPublished: merchant.is_published === true,
+      canonicalUrl: storeUrl,
+      merchantName: merchant.business_name ?? null,
+    })
+  );
+}
+
 export function getStaticSitemapEntries({
   merchant,
   storeUrl,
@@ -29,15 +42,7 @@ export function getStaticSitemapEntries({
   merchant: SitemapStaticMerchant;
   storeUrl: string;
 }): MetadataRoute.Sitemap {
-  if (
-    !isSeoSitemapEligible(
-      buildHomeSeoDecision({
-        isPublished: merchant.is_published === true,
-        canonicalUrl: storeUrl,
-        merchantName: merchant.business_name ?? null,
-      })
-    )
-  ) {
+  if (!isStorefrontSitemapEligible(merchant, storeUrl)) {
     return [];
   }
 
@@ -60,6 +65,10 @@ export function getTrustPolicySitemapEntries({
   merchant: SitemapStaticMerchant;
   storeUrl: string;
 }): MetadataRoute.Sitemap {
+  if (!isStorefrontSitemapEligible(merchant, storeUrl)) {
+    return [];
+  }
+
   const trustProfile = buildMerchantTrustProfile(merchant, storeUrl);
   const trustUrls = [
     hasPublishableReturnsPolicy(trustProfile) ? `${storeUrl}/returns` : null,

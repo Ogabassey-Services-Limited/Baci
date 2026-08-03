@@ -19,6 +19,8 @@ describe('storefront static sitemap entries', () => {
       getTrustPolicySitemapEntries({
         merchant: {
           slug: 'zorvexa',
+          is_published: true,
+          business_name: 'Zorvexa',
           trust_profile: {
             return_policy: { summary: 'Returns within 14 days' },
           },
@@ -28,5 +30,20 @@ describe('storefront static sitemap entries', () => {
     ).toEqual([
       expect.objectContaining({ url: 'https://zorvexa.usebaci.com/returns' }),
     ]);
+  });
+
+  it('does not expose trust policy URLs when the storefront is unpublished', () => {
+    expect(
+      getTrustPolicySitemapEntries({
+        merchant: {
+          slug: 'zorvexa',
+          is_published: false,
+          trust_profile: {
+            return_policy: { summary: 'Returns within 14 days' },
+          },
+        },
+        storeUrl: 'https://zorvexa.usebaci.com',
+      })
+    ).toEqual([]);
   });
 });

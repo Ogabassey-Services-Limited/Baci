@@ -348,6 +348,8 @@ describe('sitemap-data', () => {
       merchant: {
         id: 'merchant-1',
         slug: 'ogabassey',
+        is_published: true,
+        business_name: 'Ogabassey',
         updated_at: '2026-06-01T00:00:00Z',
         trust_profile: {
           return_policy: { summary: 'Returns accepted within 7 days.' },

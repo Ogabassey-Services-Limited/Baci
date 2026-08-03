@@ -25,23 +25,6 @@ export function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
-function encodePathSegment(segment: string): string {
-  try {
-    return encodeURIComponent(decodeURIComponent(segment));
-  } catch {
-    return encodeURIComponent(segment);
-  }
-}
-
-function encodePathSegments(path: string): string {
-  return path
-    .split('/')
-    .map((segment, index) =>
-      index === 0 ? segment : encodePathSegment(segment)
-    )
-    .join('/');
-}
-
 export function buildAgentProductUrl({
   baseUrl,
   product,
@@ -68,14 +51,7 @@ export function buildAgentProductUrl({
         }
       : null,
   };
-  const validatedProductUrl = getValidatedProductUrl(productForUrl, baseUrl);
-
-  try {
-    const parsedUrl = new URL(validatedProductUrl);
-    return `${parsedUrl.origin}${encodePathSegments(parsedUrl.pathname)}`;
-  } catch {
-    return `${trimTrailingSlash(baseUrl)}${encodePathSegments(validatedProductUrl)}`;
-  }
+  return getValidatedProductUrl(productForUrl, baseUrl);
 }
 
 export function buildAgentPolicyUrls(baseUrl: string): AgentPolicyUrls {

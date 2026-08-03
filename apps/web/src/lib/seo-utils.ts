@@ -243,9 +243,11 @@ export function getValidatedProductUrl(
   if (canonicalUrl) {
     try {
       const parsedCanonicalUrl = new URL(canonicalUrl, baseUrl);
-      const canonicalPath =
-        parsedCanonicalUrl.pathname.replace(/\/+$/, '') || '/';
-      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
+      const canonicalPath = normalizeSerializedProductPath(
+        parsedCanonicalUrl.pathname
+      );
+      const normalizedFinalPath =
+        normalizeSerializedProductPath(finalProductPath);
       if (
         parsedCanonicalUrl.search ||
         parsedCanonicalUrl.hash ||
@@ -258,7 +260,34 @@ export function getValidatedProductUrl(
     }
   }
 
-  return canonicalUrl || `${storeOrigin}${finalProductPath}`;
+  return serializeProductUrl(
+    canonicalUrl || `${storeOrigin}${finalProductPath}`
+  );
+}
+
+function normalizeSerializedProductPath(path: string): string {
+  const normalizedPath = path.replace(/\/+$/, '') || '/';
+  return normalizedPath
+    .split('/')
+    .map((segment, index) => {
+      if (index === 0) return segment;
+
+      try {
+        return encodeURIComponent(decodeURIComponent(segment));
+      } catch {
+        return encodeURIComponent(segment);
+      }
+    })
+    .join('/');
+}
+
+function serializeProductUrl(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    return `${parsedUrl.origin}${normalizeSerializedProductPath(parsedUrl.pathname)}`;
+  } catch {
+    return normalizeSerializedProductPath(url);
+  }
 }
 
 const STOREFRONT_ROOT_SEGMENTS = new Set([

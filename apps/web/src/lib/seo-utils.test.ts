@@ -2058,6 +2058,28 @@ describe('getValidatedProductUrl', () => {
 
     expect(url).toBe(expectedPixelUrl);
   });
+
+  it('serializes raw and already-encoded path segments exactly once', () => {
+    const rawUrl = getValidatedProductUrl(
+      makeProduct({
+        slug: 'watch pro + gps',
+        category_slug: 'smart watches',
+      }),
+      'https://store.example.com'
+    );
+    const encodedUrl = getValidatedProductUrl(
+      makeProduct({
+        slug: 'watch%20pro%20%2B%20gps',
+        category_slug: 'smart%20watches',
+      }),
+      'https://store.example.com'
+    );
+
+    expect(rawUrl).toBe(
+      'https://store.example.com/smart%20watches/watch%20pro%20%2B%20gps'
+    );
+    expect(encodedUrl).toBe(rawUrl);
+  });
 });
 
 describe('generateBreadcrumbSchema', () => {
