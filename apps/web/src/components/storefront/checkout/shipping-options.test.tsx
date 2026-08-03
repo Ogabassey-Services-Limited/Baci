@@ -19,8 +19,8 @@ const merchantRateQuote: ShippingQuote = {
   carrierName: 'Standard Delivery',
   displayName: 'Standard Delivery',
   estimatedDays: 3,
-  price: 1500,
-  currency: 'INR',
+  price: 1000,
+  currency: 'NGN',
   pickupIncluded: false,
   insuranceIncluded: false,
 };

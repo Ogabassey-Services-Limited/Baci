@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { CARRIER_PROVIDER_IDS } from '@baci/shared/constants';
 import { describe, expect, it } from 'vitest';
+import { REPLAY_SOURCE_DATA } from './supabase-history-replay-sources';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../../..');
 const HARDENING_MIGRATION_PATH = path.join(
@@ -123,5 +124,25 @@ describe('shipping provider and repair booking hardening', () => {
     expect(repairBookingSqlTest).toContain(
       'ordinary email and phone values must pass the repair booking validator'
     );
+    expect(repairBookingSqlTest.match(/IF definition !~ '([^']+)'/)?.[1]).toBe(
+      String.raw`pg_advisory_xact_lock\s*\(\s*pg_catalog\.hashtextextended\s*\(\s*p_merchant_id::text\s*,\s*0\s*\)\s*\)`
+    );
+
+    const pendingMigrationNames = REPLAY_SOURCE_DATA.PENDING_SOURCES.trim()
+      .split('\n')
+      .map((row) => row.split(' ')[1]);
+    const hardeningMigrationIndex = pendingMigrationNames.indexOf(
+      '20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql'
+    );
+    expect(hardeningMigrationIndex).toBeGreaterThanOrEqual(0);
+    expect(
+      pendingMigrationNames.slice(
+        hardeningMigrationIndex,
+        hardeningMigrationIndex + 2
+      )
+    ).toEqual([
+      '20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql',
+      '20260803000200_fix_shipping_provider_and_repair_booking_regressions.sql',
+    ]);
   });
 });

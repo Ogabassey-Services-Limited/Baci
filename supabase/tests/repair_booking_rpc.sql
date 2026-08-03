@@ -90,7 +90,7 @@ BEGIN
   lock_offset := strpos(definition, 'pg_advisory_xact_lock');
   first_count_offset := strpos(definition, 'SELECT count(*) INTO v_per_email_count');
 
-  IF definition !~ 'pg_advisory_xact_lock\\s*\\(\\s*pg_catalog\\.hashtextextended\\s*\\(\\s*p_merchant_id::text\\s*,\\s*0\\s*\\)\\s*\\)'
+  IF definition !~ 'pg_advisory_xact_lock\s*\(\s*pg_catalog\.hashtextextended\s*\(\s*p_merchant_id::text\s*,\s*0\s*\)\s*\)'
     OR lock_offset = 0
     OR lock_offset > first_count_offset THEN
     RAISE EXCEPTION 'private.create_repair_booking must lock a merchant before rate-limit counts';
