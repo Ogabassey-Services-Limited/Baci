@@ -44,11 +44,21 @@ describe('GIGL definitive notification rejection migration', () => {
     const databaseTest = readDatabaseTest(
       'gigl_tracking_notification_rejections.sql'
     );
+    expect(databaseTest).toContain('SELECT plan(1);');
+    expect(databaseTest).toContain(
+      'public.claim_shipment_tracking_notifications('
+    );
+    expect(databaseTest).toContain(
+      'public.begin_shipment_tracking_notification_dispatch('
+    );
     expect(databaseTest).toContain(
       'public.complete_shipment_tracking_notification('
     );
     expect(databaseTest).toContain("'rejected'");
     expect(databaseTest).toContain("v_status IS DISTINCT FROM 'pending'");
     expect(databaseTest).toContain('v_delivery_started_at IS NOT NULL');
+    expect(databaseTest).toContain('v_next_attempt_at <= now()');
+    expect(databaseTest).toContain('SELECT * FROM finish();');
+    expect(databaseTest).toContain('ROLLBACK;');
   });
 });

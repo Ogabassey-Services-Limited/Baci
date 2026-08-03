@@ -180,16 +180,20 @@ describe('GIGL retry and generation hardening migrations', () => {
     const migration = readMigration(
       '20260801142200_cleanup_unowned_gigl_monitor_backfill.sql'
     );
+    const repair = readMigration(
+      '20260803000200_repair_unowned_gigl_monitor_backfill.sql'
+    );
 
     expect(migration).toContain('public.orders AS order_row');
-    expect(migration).toContain('order_row.id = monitor.order_id');
-    expect(migration).not.toContain(
+    expect(migration).toContain(
       'JOIN public.orders AS order_row ON order_row.id = monitor.order_id'
     );
     expect(migration).toContain(
       'shipment.merchant_id IS DISTINCT FROM order_row.merchant_id'
     );
     expect(migration).toContain("SET state = 'inactive'");
+    expect(repair).toContain('FROM public.shipments AS shipment,');
+    expect(repair).toContain('order_row.id = monitor.order_id');
   });
 
   it('revalidates monitor ownership when a shipment merchant changes', () => {

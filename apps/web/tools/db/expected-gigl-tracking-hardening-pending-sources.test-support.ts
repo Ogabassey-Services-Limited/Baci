@@ -157,7 +157,7 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
   ],
   [
     '20260801142200_cleanup_unowned_gigl_monitor_backfill.sql',
-    '2a89f98eca974a6612bfc492a5e047090f6a23d2ea26d38f047f201af123c657',
+    '605a0d48a4f116e67ee626ff173b66c6c80cefa77ad606a3813aa1ea6deda62a',
   ],
   [
     '20260801142300_track_gigl_monitor_merchant_changes.sql',
@@ -198,5 +198,9 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
   [
     '20260803000100_prevent_stale_gigl_monitor_reactivation.sql',
     '8294ae2594cac9406df2367a644e3750d6ccf26d17c0784f8f3c776ca6d798eb',
+  ],
+  [
+    '20260803000200_repair_unowned_gigl_monitor_backfill.sql',
+    'a5436eadd7450b9b25e6229d58ad18f0492f92fd6e6b5023cc3f9c9bf4c0dfc8',
   ],
 ] as const;

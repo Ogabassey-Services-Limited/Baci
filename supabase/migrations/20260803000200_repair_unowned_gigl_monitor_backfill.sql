@@ -1,5 +1,6 @@
--- The original monitor backfill ranked shipments by order only. Deactivate any
--- monitor it created where the shipment and order belong to different tenants.
+-- Re-run the unowned-monitor cleanup after the original backfill migration.
+-- Keep the timestamped migration history immutable while making the cleanup
+-- explicit for environments that already applied the earlier version.
 
 UPDATE public.shipment_tracking_monitors AS monitor
 SET state = 'inactive',
@@ -10,9 +11,10 @@ SET state = 'inactive',
   locked_at = NULL,
   locked_by = NULL,
   updated_at = now()
-FROM public.shipments AS shipment
-JOIN public.orders AS order_row ON order_row.id = monitor.order_id
+FROM public.shipments AS shipment,
+  public.orders AS order_row
 WHERE monitor.shipment_id = shipment.id
+  AND order_row.id = monitor.order_id
   AND monitor.provider = 'GIGL'
   AND shipment.merchant_id IS DISTINCT FROM order_row.merchant_id
   AND monitor.state <> 'inactive';
