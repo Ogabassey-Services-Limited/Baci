@@ -107,4 +107,39 @@ describe('generic PDP metadata SEO indexing', () => {
       googleBot: { index: false, follow: true },
     });
   });
+
+  it('fails closed when the resolved merchant publication state is unknown', async () => {
+    mockGetRequestScopedProduct.mockResolvedValue({
+      merchant: {
+        slug: 'zorvexa',
+        business_name: 'Zorvexa',
+        is_published: undefined,
+        country: 'NG',
+        payout_currency: 'NGN',
+        social_media: null,
+      },
+      product: {
+        id: 'product-1',
+        name: 'Linen Shirt',
+        slug: 'linen-shirt',
+        status: 'active',
+        description: 'A linen shirt.',
+        meta_description: null,
+        meta_title: null,
+        category: 'Fashion',
+        categories: { name: 'Fashion', slug: 'fashion' },
+        price: 12_000,
+        images: ['https://cdn.example.com/linen.jpg'],
+        keywords: [],
+      },
+    });
+
+    const metadata = await generateMetadata(pageProps, resolvingMetadata);
+
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: { index: false, follow: true },
+    });
+  });
 });

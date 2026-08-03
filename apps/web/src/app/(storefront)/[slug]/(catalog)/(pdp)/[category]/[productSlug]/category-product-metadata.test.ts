@@ -55,6 +55,12 @@ describe('buildCategoryProductMetadata', () => {
         url: 'https://zorvexa.usebaci.com/fashion/linen-shirt',
       },
     });
+    expect(metadata.openGraph?.images).toMatchObject([
+      { url: 'https://cdn.example.com/linen-shirt.jpg' },
+    ]);
+    expect(metadata.twitter?.images).toEqual([
+      'https://cdn.example.com/linen-shirt.jpg',
+    ]);
   });
 
   it('emits noindex for an unpublished resolved categorized product', () => {

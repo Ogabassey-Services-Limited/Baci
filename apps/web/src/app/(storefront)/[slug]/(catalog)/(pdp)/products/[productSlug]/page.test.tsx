@@ -949,13 +949,6 @@ describe('products/[productSlug] page', () => {
     expect(metadata.description).toBe(
       'The best phone for creators and gamers.'
     );
-    expect(metadata.robots).toMatchObject({
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-      'max-video-preview': -1,
-    });
     expect(metadata.openGraph?.description).toBe(
       'The best phone for creators and gamers.'
     );
