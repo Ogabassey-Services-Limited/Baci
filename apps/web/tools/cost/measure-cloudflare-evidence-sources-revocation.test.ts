@@ -2,6 +2,7 @@ import { chmod, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { externalReadTokenRevocationDependencies } from './cloudflare-evidence-read-revocation.test-fixtures';
 import {
   openEvidenceRun,
   recordCleanupVerified,
@@ -18,10 +19,7 @@ import {
   measurementInput as input,
 } from './measure-cloudflare-evidence-sources.test-fixtures';
 import { REVIEWED_PROBE_CASE_IDS } from './mutate-cloudflare-evidence-probes';
-import {
-  externalReadTokenRevocationDependencies,
-  reviewedProbeResults,
-} from './mutate-cloudflare-evidence-test-fixtures';
+import { reviewedProbeResults } from './mutate-cloudflare-evidence-test-fixtures';
 
 const observedAt = '2026-07-31T00:00:00.000Z';
 

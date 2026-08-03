@@ -6,25 +6,27 @@ The current public Workers Logs contract is checked live before use: Free includ
 
 The isolated fixture may use only the owner-approved `edge-evidence.ogabassey.com` resources, one credential per process, and the private run journal. It proves script-version artifact read-back using the version-specific endpoint and settings, not a latest-script download. Any leftover resource, unrevoked token, sampled source, unknown consumption, or incomplete deletion is `STOP`.
 
-The mutation and measurement provider adapters are produced after the tooling
-merge and must each be a single source file inside the clean tooling workspace.
-They may import only Node built-ins. Before `--prepare`, hash the exact adapter
-bytes and record the digests as `mutationRunnerModuleSha256` and
-`measurementRunnerModuleSha256` in the private owner-approval artifact; pass the
-same absolute paths and digests through the corresponding
+The mutation, measurement, and read-token-revocation provider adapters are
+produced after the tooling merge and must each be a single source file inside
+the clean tooling workspace. They may import only Node built-ins. Before
+`--prepare`, hash the exact adapter bytes and record the digests as
+`mutationRunnerModuleSha256`, `measurementRunnerModuleSha256`, and
+`readRevocationRunnerModuleSha256` in the private owner-approval artifact; pass
+the same absolute paths and digests through the corresponding
 `EVIDENCE_*_RUNNER_MODULE{,_SHA256}` variables. Prepare validates the closed
-files, matches both digests to owner approval before loading either adapter, and
-journals their paths and hashes. Mutation and measurement reload only those
-journaled bytes. A changed file, local/package import, symlink, unapproved hash,
-or cross-process descriptor mismatch is `STOP`.
+files, matches all three digests to owner approval before loading any adapter,
+and journals their paths and hashes. Each command reloads only its journaled
+bytes. A changed file, local/package import, symlink, unapproved hash, or
+cross-process descriptor mismatch is `STOP`.
 
 The measurement process receives only `CLOUDFLARE_READ_TOKEN` and has no token
 deletion operation. After it records the measurement receipt, the run remains
 pending until the owner revokes that token through a separate Cloudflare control
-surface. The credentialless `--record-read-revocation` command then verifies an
-authenticated readback receipt, finalizes only a timely measured run, and marks
-all delayed or incomplete runs `STOP`. A cleanup replacement write token must be
-revoked and verified before either outcome can close the run.
+surface. The credentialless `--record-read-revocation` command then receives
+only the journal-bound readback adapter and verifies an authenticated readback
+receipt, finalizes only a timely measured run, and marks all delayed or
+incomplete runs `STOP`. A cleanup replacement write token must be revoked and
+verified before either outcome can close the run.
 
 For the production origin-budget gate, use the checked-in
 `storefront-origin-budget-manifest-authority-provider.ts` as

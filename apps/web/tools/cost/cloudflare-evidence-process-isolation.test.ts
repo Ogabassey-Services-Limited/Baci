@@ -106,6 +106,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       readPolicySha256: reviewedPrepareInput.readPolicySha256,
       mutationRunnerModuleSha256: runnerModuleSha256,
       measurementRunnerModuleSha256: runnerModuleSha256,
+      readRevocationRunnerModuleSha256: runnerModuleSha256,
       approvedAt,
       expiresAt,
     };
@@ -156,6 +157,9 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
         EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: runnerModuleSha256,
         EVIDENCE_MEASUREMENT_RUNNER_MODULE: runnerModulePath,
         EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: runnerModuleSha256,
+        EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE: runnerModulePath,
+        EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256:
+          runnerModuleSha256,
       },
       undefined,
       workspaceRoot,
@@ -174,6 +178,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       mutationRunnerModuleSha256: runnerModuleSha256,
       measurementRunnerModulePath: runnerModulePath,
       measurementRunnerModuleSha256: runnerModuleSha256,
+      readRevocationRunnerModulePath: runnerModulePath,
+      readRevocationRunnerModuleSha256: runnerModuleSha256,
       phase: 'prepared',
       cleanupAttempts: 0,
     });
@@ -200,6 +206,9 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
           EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: runnerModuleSha256,
           EVIDENCE_MEASUREMENT_RUNNER_MODULE: runnerModulePath,
           EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: runnerModuleSha256,
+          EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE: runnerModulePath,
+          EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256:
+            runnerModuleSha256,
         },
         undefined,
         workspaceRoot,

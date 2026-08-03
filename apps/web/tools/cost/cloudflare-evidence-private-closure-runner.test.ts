@@ -6,13 +6,13 @@ const journal = {
   measurementRunnerModuleSha256: 'a'.repeat(64),
   mutationRunnerModulePath: '/workspace/mutation.ts',
   mutationRunnerModuleSha256: 'b'.repeat(64),
+  readRevocationRunnerModulePath: '/workspace/readback.ts',
+  readRevocationRunnerModuleSha256: 'c'.repeat(64),
 };
 
 describe('selectPrivateEvidenceRunnerDescriptor', () => {
   it('selects journaled measurement and mutation modules', () => {
-    expect(
-      selectPrivateEvidenceRunnerDescriptor('measure', journal, {})
-    ).toEqual({
+    expect(selectPrivateEvidenceRunnerDescriptor('measure', journal)).toEqual({
       name: 'EVIDENCE_MEASUREMENT_RUNNER_MODULE',
       sha256Name: 'EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256',
       descriptor: {
@@ -20,9 +20,7 @@ describe('selectPrivateEvidenceRunnerDescriptor', () => {
         sha256: 'a'.repeat(64),
       },
     });
-    expect(
-      selectPrivateEvidenceRunnerDescriptor('mutate', journal, {})
-    ).toEqual({
+    expect(selectPrivateEvidenceRunnerDescriptor('mutate', journal)).toEqual({
       name: 'EVIDENCE_MUTATION_RUNNER_MODULE',
       sha256Name: 'EVIDENCE_MUTATION_RUNNER_MODULE_SHA256',
       descriptor: {
@@ -32,13 +30,9 @@ describe('selectPrivateEvidenceRunnerDescriptor', () => {
     });
   });
 
-  it('selects the externally described readback module for receipt recovery', () => {
+  it('selects the journaled readback module for receipt recovery', () => {
     expect(
-      selectPrivateEvidenceRunnerDescriptor('record-read-revocation', journal, {
-        EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE:
-          '/workspace/readback.ts',
-        EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256: 'c'.repeat(64),
-      })
+      selectPrivateEvidenceRunnerDescriptor('record-read-revocation', journal)
     ).toEqual({
       name: 'EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE',
       sha256Name: 'EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256',
@@ -51,17 +45,16 @@ describe('selectPrivateEvidenceRunnerDescriptor', () => {
 
   it('rejects missing or malformed descriptors', () => {
     expect(() =>
-      selectPrivateEvidenceRunnerDescriptor(
-        'measure',
-        { ...journal, measurementRunnerModulePath: undefined },
-        {}
-      )
+      selectPrivateEvidenceRunnerDescriptor('measure', {
+        ...journal,
+        measurementRunnerModulePath: undefined,
+      })
     ).toThrow('journal is missing');
     expect(() =>
-      selectPrivateEvidenceRunnerDescriptor('record-read-revocation', journal, {
-        EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE: 'readback.ts',
-        EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256: 'invalid',
+      selectPrivateEvidenceRunnerDescriptor('record-read-revocation', {
+        ...journal,
+        readRevocationRunnerModulePath: undefined,
       })
-    ).toThrow('readback module descriptor is required');
+    ).toThrow('journal is missing the read-token revocation module descriptor');
   });
 });

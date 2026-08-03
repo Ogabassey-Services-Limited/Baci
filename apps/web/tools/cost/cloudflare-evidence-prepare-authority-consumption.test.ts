@@ -34,12 +34,14 @@ const input = {
   readPolicySha256: 'c'.repeat(64),
   mutationRunnerModuleSha256: 'd'.repeat(64),
   measurementRunnerModuleSha256: 'e'.repeat(64),
+  readRevocationRunnerModuleSha256: 'f'.repeat(64),
   accountId: 'account-id',
   zoneId: 'zone-id',
 };
 const runnerApproval = {
   mutationRunnerModuleSha256: input.mutationRunnerModuleSha256,
   measurementRunnerModuleSha256: input.measurementRunnerModuleSha256,
+  readRevocationRunnerModuleSha256: input.readRevocationRunnerModuleSha256,
 };
 
 async function makePrivateTempDir() {

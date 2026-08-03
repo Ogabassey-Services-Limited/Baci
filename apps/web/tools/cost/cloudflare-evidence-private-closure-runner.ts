@@ -3,11 +3,6 @@ import type { EvidenceChildCommand } from './cloudflare-evidence-process-isolati
 import type { CloudflareEvidenceRunJournal } from './cloudflare-evidence-run-journal-state';
 import { evidenceRunnerModuleEnvironmentNames } from './cloudflare-evidence-runner-modules';
 
-const READ_REVOCATION_MODULE_PATH =
-  'EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE';
-const READ_REVOCATION_MODULE_SHA256 =
-  'EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256';
-
 type PrivateEvidenceRunnerDescriptor = Readonly<{
   name: string;
   sha256Name: string;
@@ -22,8 +17,9 @@ export function selectPrivateEvidenceRunnerDescriptor(
     | 'measurementRunnerModuleSha256'
     | 'mutationRunnerModulePath'
     | 'mutationRunnerModuleSha256'
-  >,
-  inherited: Readonly<Record<string, string | undefined>>
+    | 'readRevocationRunnerModulePath'
+    | 'readRevocationRunnerModuleSha256'
+  >
 ): PrivateEvidenceRunnerDescriptor {
   const selected =
     command === 'measure'
@@ -38,11 +34,12 @@ export function selectPrivateEvidenceRunnerDescriptor(
         }
       : command === 'record-read-revocation'
         ? {
-            name: READ_REVOCATION_MODULE_PATH,
-            sha256Name: READ_REVOCATION_MODULE_SHA256,
+            name: evidenceRunnerModuleEnvironmentNames('readRevocation').path,
+            sha256Name:
+              evidenceRunnerModuleEnvironmentNames('readRevocation').sha256,
             descriptor: {
-              path: inherited[READ_REVOCATION_MODULE_PATH],
-              sha256: inherited[READ_REVOCATION_MODULE_SHA256],
+              path: journal.readRevocationRunnerModulePath,
+              sha256: journal.readRevocationRunnerModuleSha256,
             },
           }
         : {
@@ -58,7 +55,7 @@ export function selectPrivateEvidenceRunnerDescriptor(
   if (!path || !sha256 || !isAbsolute(path) || !/^[a-f0-9]{64}$/u.test(sha256))
     throw new Error(
       command === 'record-read-revocation'
-        ? 'read-token revocation readback module descriptor is required'
+        ? 'journal is missing the read-token revocation module descriptor'
         : 'journal is missing the reviewed runner module descriptor'
     );
   return {

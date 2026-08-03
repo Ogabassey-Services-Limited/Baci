@@ -2,6 +2,7 @@ import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { externalReadTokenRevocationDependencies } from './cloudflare-evidence-read-revocation.test-fixtures';
 import {
   openEvidenceRun,
   recordCleanupVerified,
@@ -17,10 +18,7 @@ import {
 } from './measure-cloudflare-evidence-read-revocation';
 import { parseMeasurementArguments } from './measure-cloudflare-evidence-sources';
 import { measurementInput as input } from './measure-cloudflare-evidence-sources.test-fixtures';
-import {
-  externalReadTokenRevocationDependencies,
-  reviewedProbeResults,
-} from './mutate-cloudflare-evidence-test-fixtures';
+import { reviewedProbeResults } from './mutate-cloudflare-evidence-test-fixtures';
 
 afterEach(() => vi.unstubAllEnvs());
 

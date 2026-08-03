@@ -74,6 +74,8 @@ export type CloudflareEvidenceRunJournal = {
   mutationRunnerModuleSha256?: string;
   measurementRunnerModulePath?: string;
   measurementRunnerModuleSha256?: string;
+  readRevocationRunnerModulePath?: string;
+  readRevocationRunnerModuleSha256?: string;
 };
 export type EvidenceRunInput = Omit<
   CloudflareEvidenceRunJournal,
