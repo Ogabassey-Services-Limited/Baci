@@ -95,11 +95,15 @@ function matchesProductIdentifier(
   );
 }
 
-function hasContextualSingleTokenFamilyMatch(
+function hasContextualFamilyMatch(
   post: BuildCommercialGuideLinksInput['posts'][number],
-  familyToken: string,
+  familyTokens: string[],
   brands: string[]
 ) {
+  if (familyTokens.length === 0) {
+    return false;
+  }
+
   const brandTokens = brands
     .flatMap(tokenizeContentText)
     .filter(
@@ -108,8 +112,10 @@ function hasContextualSingleTokenFamilyMatch(
 
   return brandTokens.some(
     (brandToken) =>
-      hasContiguousTokenSequence(post, [brandToken, familyToken]) ||
-      hasContiguousTokenSequence(post, [familyToken, brandToken])
+      (familyTokens.includes(brandToken) &&
+        hasContiguousTokenSequence(post, familyTokens)) ||
+      hasContiguousTokenSequence(post, [brandToken, ...familyTokens]) ||
+      hasContiguousTokenSequence(post, [...familyTokens, brandToken])
   );
 }
 
@@ -201,13 +207,11 @@ export function buildCommercialGuideLinks(
         modelFamilyTokens.length > 0 &&
         hasBrandMatch &&
         modelFamilyTokens.every((token) => inferred.tokens.includes(token)) &&
-        (modelFamilyTokens.length === 1
-          ? hasContextualSingleTokenFamilyMatch(
-              post,
-              modelFamilyTokens[0] ?? '',
-              input.context.brands ?? []
-            )
-          : hasContiguousTokenSequence(post, modelFamilyTokens));
+        hasContextualFamilyMatch(
+          post,
+          modelFamilyTokens,
+          input.context.brands ?? []
+        );
       const hasRequiredCompareModelMatch =
         input.context.pageKind === 'compare' &&
         compareProductMatchRequirements.length > 0 &&
