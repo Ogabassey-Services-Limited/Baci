@@ -88,17 +88,21 @@ test('content-binds a stopped container absolute Path when Args is empty', async
   try {
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${prelude}docker() { case "$*" in *' ps -a '*) printf 'generic-api\\n' ;; *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;; *'inspect -f {{json .State.Running}} generic-api') printf 'false\\n' ;; *'inspect -f {{.Id}} '*) printf 'generic-api /generic-api /opt/application-worker [] [] {} null [] {} {} {} [] "bridge"\\n' ;; *'inspect -f {{json .Mounts}} generic-api') printf '[]\\n' ;; *' cp generic-api:/opt/application-worker '*) for destination do :; done; printf '#!/bin/sh\\nexec /usr/bin/curl http://127.0.0.1:11434\\n' >"$destination" ;; *) return 2 ;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; CONTAINER=ollama-loopback; scan_container_rows all`,
+      `${prelude}docker() { case "$*" in *' ps -a '*) printf 'generic-api\\n' ;; *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;; *'inspect -f {{json .State.Running}} generic-api') printf 'false\\n' ;; *'inspect -f {{.Id}} '*) printf 'generic-api /generic-api /opt/application-worker [] [] {} null [] {} {} {} [] "bridge"\\n' ;; *'inspect -f {{json .Mounts}} generic-api') printf '[]\\n' ;; *' cp generic-api:/opt/application-worker '*) for destination do :; done; printf '#!/bin/sh\\nexec /usr/bin/curl http://127.0.0.1:11434\\n' >"$destination" ;; *' cp generic-api:/usr/bin/curl '*) for destination do :; done; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;; *) return 2 ;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; CONTAINER=ollama-loopback; scan_container_rows all`,
       'retire-ollama-container-path-test',
       script.pathname,
       directory,
     ]);
 
     const records = stdout.trim().split('\n');
-    assert.equal(records.length, 1);
+    assert.equal(records.length, 2);
     assert.match(
       records[0],
       /^container-argument:generic-api:.*application-worker/
+    );
+    assert.match(
+      records[1],
+      /^container-argument:generic-api:.*usr\/bin\/curl/
     );
   } finally {
     await rm(directory, { force: true, recursive: true });

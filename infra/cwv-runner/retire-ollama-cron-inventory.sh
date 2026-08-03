@@ -131,7 +131,7 @@ cron_inventory_command_targets() {
       if (NF < field) { bad=1; return }
       command=$field
       if (!safe_absolute(command) || unsafe_interpreter(command)) { bad=1; return }
-      for (i=field+1; i<=NF; i++) if ($i ~ /[;&|<>()`$\\]/) { bad=1; return }
+      for (i=field+1; i<=NF; i++) if ($i ~ /[;&|<>()`$\\%]/) { bad=1; return }
       if (command == "/usr/bin/flock") { if (NF < field + 3 || $(field + 1) != "-n" || $(field + 2) !~ /^\/run\// || !safe_absolute($(field + 2)) || !safe_absolute($(field + 3)) || unsafe_interpreter($(field + 3))) { bad=1; return }; print $(field + 3); return }
       print command
     }
@@ -139,7 +139,7 @@ cron_inventory_command_targets() {
     /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { next }
     {
       if (periodic_delegation(7)) next
-      if ($0 ~ /[;&|<>()`$\\]/) { bad=1; next }
+      if ($0 ~ /[;&|<>()`$\\%]/) { bad=1; next }
       if ($1 ~ /^@[A-Za-z]+$/) { direct(format == "system" ? 3 : 2); next }
       direct(format == "system" ? 7 : (format == "anacron" ? 4 : 6))
     }
@@ -163,7 +163,7 @@ cron_inventory_wrapper_source_paths() {
   ' "$1"
 }
 cron_inventory_wrapper_exec_paths() {
-  awk 'function trim(value){sub(/^[[:space:]]+/,"",value);sub(/[[:space:]]+$/,"",value);return value}{line=trim($0);if(line==""||line~/^#/)next;if(line~/^exec[[:space:]]+/){sub(/^exec[[:space:]]+/,"",line);sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);target=parts[1];if(count<1||target!~/^\/[A-Za-z0-9._\/-]+$/||target~/(^|\/)\.\.?($|\/)/)bad=1;else print target}else if(line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}END{exit bad?2:0}' "$1"
+  awk 'function trim(value){sub(/^[[:space:]]+/,"",value);sub(/[[:space:]]+$/,"",value);return value}function safe(path){return path~/^\/[A-Za-z0-9._\/-]+$/&&path!~/(^|\/)\.\.?($|\/)/}{line=trim($0);if(line==""||line~/^#/)next;if(line~/^exec[[:space:]]+/){sub(/^exec[[:space:]]+/,"",line);sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);if(count<1||!safe(parts[1])){bad=1;next};for(i=1;i<=count;i++)if(parts[i]~/^\//){if(!safe(parts[i]))bad=1;else print parts[i]}else if(parts[i]~/^\.\.?\//)bad=1}else if(line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}END{exit bad?2:0}' "$1"
 }
 cron_inventory_record_wrapper_closure() {
   cron_wrapper_class=$1 cron_wrapper_initial=$2; cron_wrapper_queue=$(temp_path); cron_wrapper_seen=$(temp_path); cron_wrapper_bound=$(temp_path)
