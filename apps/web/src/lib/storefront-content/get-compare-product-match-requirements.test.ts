@@ -79,7 +79,7 @@ describe('getCompareProductMatchRequirements', () => {
     ]);
   });
 
-  it('preserves source brands for numeric identifiers with different models', () => {
+  it('preserves source brands for distinct compare model phrases', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',
       categorySlug: 'smartphones',
@@ -88,7 +88,20 @@ describe('getCompareProductMatchRequirements', () => {
 
     expect(requirements).toEqual([
       { identifier: '15', brand: 'apple' },
-      { identifier: 's25', brand: null },
+      { identifier: 's25', brand: 'samsung' },
+    ]);
+  });
+
+  it('retains brands when nonnumeric model phrases collide by guide wording', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      productNames: ['Apple iPhone 14 Pro', 'Samsung Galaxy S25'],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: '14 pro', brand: 'apple' },
+      { identifier: 's25', brand: 'samsung' },
     ]);
   });
 });

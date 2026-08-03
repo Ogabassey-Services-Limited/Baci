@@ -85,11 +85,6 @@ function getSourceDiscriminatorTokens(source: string, identifier: string) {
   return discriminatorTokens;
 }
 
-function isNumericOnlyIdentifier(identifier: string) {
-  const tokens = tokenize(identifier);
-  return tokens.length > 0 && tokens.every((token) => /^\d+$/u.test(token));
-}
-
 /** Builds per-product compare requirements without collapsing brand collisions. */
 export function getCompareProductMatchRequirements(
   context: BuildCommercialGuideLinksContext
@@ -122,16 +117,6 @@ export function getCompareProductMatchRequirements(
       : [];
   });
 
-  const brandsByIdentifier = new Map<string, Set<string>>();
-  for (const candidate of candidates) {
-    if (!candidate.brand) {
-      continue;
-    }
-    const brands = brandsByIdentifier.get(candidate.identifier) ?? new Set();
-    brands.add(candidate.brand);
-    brandsByIdentifier.set(candidate.identifier, brands);
-  }
-
   const candidateCounts = new Map<string, number>();
   for (const candidate of candidates) {
     const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
@@ -150,11 +135,7 @@ export function getCompareProductMatchRequirements(
       const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
       const requirement: CompareProductMatchRequirement = {
         identifier: candidate.identifier,
-        brand:
-          isNumericOnlyIdentifier(candidate.identifier) ||
-          (brandsByIdentifier.get(candidate.identifier)?.size ?? 0) > 1
-            ? candidate.brand
-            : null,
+        brand: candidate.brand,
       };
       if ((candidateCounts.get(key) ?? 0) > 1) {
         const group = candidateGroups.get(key) ?? [];

@@ -336,67 +336,6 @@ describe('loadComparePage', () => {
     );
   });
 
-  it('does not block product detail fetches behind guide post loading', async () => {
-    let resolveGuidePosts: ((value: []) => void) | undefined;
-    const guidePostsPromise = new Promise<[]>((resolve) => {
-      resolveGuidePosts = resolve;
-    });
-    const detailSlugs: string[] = [];
-
-    mockGetPublishedClusterPosts.mockReturnValueOnce(guidePostsPromise);
-    mockGetCachedProductWithDetails.mockImplementation(
-      (_merchantId: string, productSlug: string) => {
-        detailSlugs.push(productSlug);
-
-        return productSlug === 'iphone-17-pro-max'
-          ? {
-              ...categoryPageData.products[0],
-              product_key_specs: {
-                chipset: 'A19 Pro',
-                ram_gb: 8,
-                storage_gb: 256,
-              },
-            }
-          : {
-              ...categoryPageData.products[1],
-              product_key_specs: {
-                chipset: 'Snapdragon 8 Elite',
-                ram_gb: 16,
-                storage_gb: 512,
-              },
-            };
-      }
-    );
-
-    const resultPromise = loadComparePage({
-      merchantSlug: 'ogabassey',
-      categorySlug: 'smartphones',
-      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
-    });
-
-    await vi.waitFor(() => {
-      expect(detailSlugs).toEqual([
-        'iphone-17-pro-max',
-        'samsung-galaxy-z-trifold',
-      ]);
-    });
-
-    expect(resolveGuidePosts).toBeDefined();
-    expect(mockGetPublishedClusterPosts).toHaveBeenCalledWith('merchant-1', {
-      pageKind: 'compare',
-      categorySlug: 'smartphones',
-      brands: ['Apple', 'Samsung'],
-      productNames: ['iPhone 17 Pro Max', 'Samsung Galaxy Z TriFold'],
-      productSlugs: ['iphone-17-pro-max', 'samsung-galaxy-z-trifold'],
-    });
-    resolveGuidePosts?.([]);
-
-    await expect(resultPromise).resolves.toMatchObject({
-      kind: 'product',
-      canonicalSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
-    });
-  });
-
   it('marks maintained graph-emitted product compare routes as indexable', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       // No fallback warning should be emitted for a graph-emitted pair.

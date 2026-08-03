@@ -111,6 +111,36 @@ describe('hasCleanIdentifierOccurrence', () => {
     ).toBe(true);
   });
 
+  it('does not borrow discriminators from the other side of a comparison', () => {
+    const post = {
+      slug: 'iphone-15-vs-galaxy-s25-configurations',
+      title:
+        'Apple iPhone 15 6GB 128GB eSIM vs Samsung Galaxy S25 8GB 256GB physical SIM',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: 6,
+    };
+
+    expect(
+      hasCleanIdentifierOccurrence(post, ['15'], {
+        brand: 'apple',
+        knownBrands: ['apple', 'samsung'],
+        discriminatorTokens: ['256gb', 'physical', 'sim'],
+      })
+    ).toBe(false);
+    expect(
+      hasCleanIdentifierOccurrence(post, ['15'], {
+        brand: 'apple',
+        knownBrands: ['apple', 'samsung'],
+        discriminatorTokens: ['128gb', 'esim'],
+      })
+    ).toBe(true);
+  });
+
   it('accepts a brand that finishes before the identifier', () => {
     const post = {
       slug: 'apple-iphone-14-pro-guide',

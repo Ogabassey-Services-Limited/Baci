@@ -50,6 +50,23 @@ function isSeriesPhraseToken(tokens: string[], index: number) {
   return isSeriesMarker || followsSeriesMarker;
 }
 
+function normalizeAppleWatchSeTokens(tokens: string[]) {
+  const normalizedTokens: string[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (
+      tokens[index] === 'watch' &&
+      tokens[index + 1] === 'series' &&
+      tokens[index + 2] === 'se'
+    ) {
+      normalizedTokens.push('watch', 'se');
+      index += 2;
+      continue;
+    }
+    normalizedTokens.push(tokens[index] ?? '');
+  }
+  return normalizedTokens;
+}
+
 function isAlphanumericModelCode(token: string) {
   return (
     /[a-z]/u.test(token) &&
@@ -138,7 +155,9 @@ export function selectProductModelIdentifier(
   preserveGameTitleTokens = false
 ) {
   const tokens = reorderGenerationModelTokens(
-    expandCompactGameCodeTokens(inputTokens, preserveGameTitleTokens)
+    normalizeAppleWatchSeTokens(
+      expandCompactGameCodeTokens(inputTokens, preserveGameTitleTokens)
+    )
   );
   const hasNonYearAlphanumericModel = tokens.some(
     (token) =>

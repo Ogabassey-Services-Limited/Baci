@@ -12,14 +12,39 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
     expect(identifiers).toEqual(['mini 6th generation']);
   });
 
-  it('retains the Series marker for an Apple Watch SE identifier', () => {
+  it('normalizes an Apple Watch SE family identifier', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartwatches',
       brands: ['Apple'],
       productSlugs: ['apple-watch-series-se-40mm-gps'],
     });
 
-    expect(identifiers).toEqual(['watch series se']);
+    expect(identifiers).toEqual(['watch se']);
+  });
+
+  it('normalizes Apple Watch Series SE catalog revisions to the guide name', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartwatches',
+      brands: ['Apple'],
+      productNames: [
+        'Apple Watch Series SE 44mm 2022 GPS',
+        'Apple Watch Series SE 40mm 2022 GPS',
+      ],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['watch se 2022']);
+  });
+
+  it('canonicalizes a singular AirPod catalog name', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'audio',
+      brands: ['Apple'],
+      productNames: ['Apple Airpod 2'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['airpods 2']);
   });
 
   it('removes a terminal quote-only display size from a laptop model', () => {

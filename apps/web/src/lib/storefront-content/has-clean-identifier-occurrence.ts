@@ -23,6 +23,7 @@ const MODEL_VARIANT_MARKER_TOKENS = new Set([
 ]);
 const MODEL_GENERATION_SUFFIX_PATTERN = /^\d{1,2}(?:st|nd|rd|th)?$/u;
 const MAX_BRAND_TOKEN_DISTANCE = 3;
+const COMPARISON_BOUNDARY_TOKENS = new Set(['against', 'versus', 'vs']);
 
 interface IdentifierOccurrenceOptions {
   brand?: string | null;
@@ -57,6 +58,27 @@ function matchesOrderedTokenSequence(
     }
   }
   return expectedTokens.length === 0;
+}
+
+function matchesDiscriminatorForIdentifierOccurrence(
+  tokens: string[],
+  identifierStart: number,
+  identifierEnd: number,
+  discriminatorTokens: string[]
+) {
+  const previousBoundary = tokens.findLastIndex(
+    (token, index) =>
+      index < identifierStart && COMPARISON_BOUNDARY_TOKENS.has(token)
+  );
+  const nextBoundary = tokens.findIndex(
+    (token, index) =>
+      index >= identifierEnd && COMPARISON_BOUNDARY_TOKENS.has(token)
+  );
+  const occurrenceTokens = tokens.slice(
+    previousBoundary + 1,
+    nextBoundary >= 0 ? nextBoundary : tokens.length
+  );
+  return matchesOrderedTokenSequence(occurrenceTokens, discriminatorTokens);
 }
 
 function getBrandDistance(
@@ -165,7 +187,12 @@ export function hasCleanIdentifierOccurrence(
 
       if (
         options.discriminatorTokens?.length &&
-        !matchesOrderedTokenSequence(postTokens, options.discriminatorTokens)
+        !matchesDiscriminatorForIdentifierOccurrence(
+          postTokens,
+          startIndex,
+          startIndex + identifierTokens.length,
+          options.discriminatorTokens
+        )
       ) {
         return false;
       }
