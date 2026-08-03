@@ -1,7 +1,5 @@
 import { parseSantaActions, stripSantaActions } from '@baci/shared/lib';
-import * as Haptics from 'expo-haptics';
 import type { Dispatch, SetStateAction } from 'react';
-import { Platform } from 'react-native';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
 import {
@@ -19,6 +17,7 @@ export type RequestChatReplyArgs = {
   createMessageId: (prefix: 'ai' | 'error') => string;
   history: ChatMessage[];
   messageText: string;
+  onSuccess?: () => void;
   santaMode: boolean;
   scrollToBottom: () => void;
   setIsLoading: Dispatch<SetStateAction<boolean>>;
@@ -29,6 +28,7 @@ export async function requestChatReply({
   createMessageId,
   history,
   messageText,
+  onSuccess,
   santaMode,
   scrollToBottom,
   setIsLoading,
@@ -134,12 +134,7 @@ export async function requestChatReply({
       };
 
       setMessages((prev) => [...prev, aiMessage]);
-
-      if (Platform.OS === 'ios') {
-        Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Success
-        ).catch(() => undefined);
-      }
+      onSuccess?.();
     } finally {
       clearTimeout(timeoutId);
     }

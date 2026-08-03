@@ -76,6 +76,13 @@ export function useChat(santaMode: boolean) {
       createMessageId: (prefix) => `${prefix}-${++_msgCounter.current}`,
       history: messages,
       messageText,
+      onSuccess: () => {
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success
+          ).catch(() => undefined);
+        }
+      },
       santaMode,
       scrollToBottom,
       setIsLoading,
