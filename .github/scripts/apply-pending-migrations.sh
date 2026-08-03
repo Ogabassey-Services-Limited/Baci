@@ -218,7 +218,7 @@ for file in "${sorted_files[@]}"; do
     echo "✓ applied:         $repair_version  $repair_name"
     echo "::warning::Historical migration $version is reconciled by append-only repair migration ${repair_version}_${repair_name}.sql"
     applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"$'\n'"${repair_version}"$'\t'"${repair_name}"
-    applied_count=$((applied_count + 1)); skipped_count=$((skipped_count + 1))
+    applied_count=$((applied_count + 1))
     continue
   fi
 

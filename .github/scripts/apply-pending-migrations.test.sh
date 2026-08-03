@@ -13,6 +13,28 @@ mkdir -p "$fake_bin"
 cat >"$fake_bin/curl" <<'FAKE_CURL'
 #!/usr/bin/env bash
 set -euo pipefail
+
+data_binary=''
+while (($#)); do
+  case "$1" in
+    --data-binary)
+      if (($# < 2)); then
+        echo 'Expected a value for --data-binary' >&2
+        exit 2
+      fi
+      data_binary="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [ "$data_binary" != '@-' ]; then
+  echo "Expected curl --data-binary @-, got ${data_binary:-<missing>}" >&2
+  exit 2
+fi
+
 payload="$(cat)"
 printf '%s\n' "$payload" >>"$FAKE_QUERY_LOG"
 if jq -e '.query | startswith("SELECT version, name")' >/dev/null <<<"$payload"; then
@@ -79,6 +101,7 @@ grep -q \
 grep -q \
   'applied:         20260803000600  repair_gigl_tracking_realtime_broadcast' \
   "$historical_repair_output"
+grep -q 'Migrations summary: 1 applied, 1 skipped.' "$historical_repair_output"
 if grep -q 'pg_catalog.substring(realtime.topic() FROM 16)' "$historical_repair_log"; then
   echo 'Historical failed migration SQL must not be sent to Supabase' >&2
   exit 1

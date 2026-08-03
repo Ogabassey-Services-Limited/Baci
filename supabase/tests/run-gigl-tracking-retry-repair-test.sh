@@ -13,7 +13,10 @@ trap cleanup EXIT
 
 wait_for_postgres() {
   for _ in $(seq 1 30); do
-    if docker exec "$container" pg_isready -U postgres >/dev/null 2>&1; then
+    logs="$(docker logs "$container" 2>&1 || true)"
+    if grep -Fq 'PostgreSQL init process complete; ready for start up.' <<<"$logs" &&
+      docker exec "$container" psql -X -qAt -U postgres -h 127.0.0.1 \
+        -c 'SELECT 1' >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
@@ -26,7 +29,7 @@ mkdir -p "$fixture_root/bin" "$fixture_root/migrations"
 docker run --name "$container" -e POSTGRES_PASSWORD=test -d postgres:17-alpine >/dev/null
 wait_for_postgres
 
-docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres \
+docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 \
   < "$repo_root/supabase/tests/gigl_tracking_retry_repair_fixture.sql"
 cp \
   "$repo_root/supabase/migrations/20260801141800_harden_gigl_tracking_retry_edges.sql" \
@@ -39,17 +42,38 @@ cat > "$fixture_root/bin/curl" <<'FAKE_CURL'
 #!/usr/bin/env bash
 set -euo pipefail
 
+data_binary=''
+while (($#)); do
+  case "$1" in
+    --data-binary)
+      if (($# < 2)); then
+        echo 'Expected a value for --data-binary' >&2
+        exit 2
+      fi
+      data_binary="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [ "$data_binary" != '@-' ]; then
+  echo "Expected curl --data-binary @-, got ${data_binary:-<missing>}" >&2
+  exit 2
+fi
+
 payload="$(cat)"
 query="$(jq -r '.query' <<<"$payload")"
 if [[ "$query" == 'SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version' ]]; then
-  rows="$(docker exec "$MIGRATION_TEST_CONTAINER" psql -X -qAt -F $'\t' -U postgres -c "$query")"
+  rows="$(docker exec "$MIGRATION_TEST_CONTAINER" psql -X -qAt -F $'\t' -U postgres -h 127.0.0.1 -c "$query")"
   if [[ -n "$rows" ]]; then
     jq -Rn '[inputs | split("\t") | {version: .[0], name: .[1]}]' <<<"$rows"
   else
     printf '[]\n'
   fi
 else
-  docker exec "$MIGRATION_TEST_CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U postgres -c "$query" >/dev/null
+  docker exec "$MIGRATION_TEST_CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 -c "$query" >/dev/null
   printf '[]\n'
 fi
 FAKE_CURL
@@ -62,7 +86,7 @@ PATH="$fixture_root/bin:$PATH" \
   SUPABASE_PROJECT_REF=test \
   bash "$repo_root/.github/scripts/apply-pending-migrations.sh"
 
-docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres \
+docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 \
   < "$repo_root/supabase/tests/gigl_tracking_retry_repair.sql"
 
 echo 'GIGL tracking retry repair PostgreSQL test passed'
