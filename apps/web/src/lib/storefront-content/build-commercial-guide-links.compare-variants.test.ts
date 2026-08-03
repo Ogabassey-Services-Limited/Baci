@@ -46,4 +46,45 @@ describe('buildCommercialGuideLinks same-brand compare variants', () => {
       'https://ogabassey.com/blog/iphone-15-buyer-guide',
     ]);
   });
+
+  it('does not boost one subset variant occurrence as both compared products', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'ipad-10-wifi-cellular-buyer-guide',
+          title: 'Apple iPad 10 Wi-Fi Cellular Buyer Guide',
+          excerpt: 'Buying advice for the Wi-Fi and cellular model.',
+          category: 'Tablets',
+          tags: ['tablets', 'apple'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'ipad-10-wifi-vs-cellular',
+          title: 'Apple iPad 10 Wi-Fi vs Apple iPad 10 Wi-Fi Cellular',
+          excerpt: 'Compare the two iPad 10 connectivity variants.',
+          category: 'Tablets',
+          tags: ['tablets', 'apple'],
+          keywords: ['comparison'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'compare',
+        categorySlug: 'tablets',
+        brands: ['Apple'],
+        productNames: ['Apple iPad 10 Wi-Fi', 'Apple iPad 10 Wi-Fi Cellular'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/ipad-10-wifi-vs-cellular',
+      'https://ogabassey.com/blog/ipad-10-wifi-cellular-buyer-guide',
+    ]);
+  });
 });

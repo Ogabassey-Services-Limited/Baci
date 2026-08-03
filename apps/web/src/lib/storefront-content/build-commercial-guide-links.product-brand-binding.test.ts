@@ -165,4 +165,45 @@ describe('buildCommercialGuideLinks product brand binding', () => {
       'https://ogabassey.com/blog/samsung-a15-lte-guide',
     ]);
   });
+
+  it('retains every PDP connectivity marker for Wi-Fi cellular models', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'ipad-10th-gen-wifi-guide',
+          title: 'Apple iPad 10th Gen Wi-Fi Buyer Guide',
+          excerpt: 'Buying advice for the Wi-Fi model.',
+          category: 'Tablets',
+          tags: ['tablets', 'apple'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'ipad-10th-gen-wifi-cellular-guide',
+          title: 'Apple iPad 10th Gen Wi-Fi Cellular Buyer Guide',
+          excerpt: 'Buying advice for the Wi-Fi and cellular model.',
+          category: 'Tablets',
+          tags: ['tablets', 'apple'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'tablets',
+        brands: ['Apple'],
+        productNames: ['Apple iPad 10th Gen 2022 256GB Wi-Fi + Cellular'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/ipad-10th-gen-wifi-cellular-guide',
+      'https://ogabassey.com/blog/ipad-10th-gen-wifi-guide',
+    ]);
+  });
 });

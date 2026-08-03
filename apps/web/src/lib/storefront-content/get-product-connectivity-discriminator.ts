@@ -9,8 +9,8 @@ const CONNECTIVITY_DISCRIMINATOR_TOKENS = new Set([
   'wifi',
 ]);
 
-/** Returns the connectivity token that distinguishes a PDP from sibling variants. */
-export function getProductConnectivityDiscriminator(
+/** Returns the connectivity tokens that distinguish a PDP from sibling variants. */
+export function getProductConnectivityDiscriminators(
   productNames: string[] | undefined,
   productSlugs: string[] | undefined
 ) {
@@ -23,5 +23,5 @@ export function getProductConnectivityDiscriminator(
         .filter(Boolean)
     )
   );
-  return tokens.find((token) => CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token));
+  return tokens.filter((token) => CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token));
 }

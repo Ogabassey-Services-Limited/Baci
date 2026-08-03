@@ -98,6 +98,16 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
     expect(identifiers).toEqual(['750']);
   });
 
+  it('retains a leading all-in-one desktop model identifier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'desktops',
+      brands: ['HP'],
+      productSlugs: ['hp-all-in-one-24'],
+    });
+
+    expect(identifiers).toEqual(['all in one 24']);
+  });
+
   it('removes retailer configuration SKUs while retaining convertible laptop family identifiers', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',

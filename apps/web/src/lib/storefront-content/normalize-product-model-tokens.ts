@@ -175,9 +175,12 @@ function stripOptionalFeatureSuffix(tokens: string[]) {
       tokens[index + 1] === 'in' &&
       tokens[index + 2] === 'one'
   );
-  const suffixIndex = [touchBarIndex, allInOneIndex].find(
-    (index) => index >= 0
-  );
+  const suffixIndex = [
+    touchBarIndex,
+    allInOneIndex >= 0 && tokens.slice(allInOneIndex + 3).includes('printer')
+      ? allInOneIndex
+      : -1,
+  ].find((index) => index >= 0);
   return suffixIndex !== undefined ? tokens.slice(0, suffixIndex) : tokens;
 }
 function stripOptionalOrdinalGenerationConnectorSuffix(tokens: string[]) {
@@ -271,6 +274,9 @@ export function normalizeProductModelTokens(
     (token, index) =>
       preserveGameTitleTokens ||
       !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token) ||
-      isConvertibleInConnector(withoutSplitCapacity, index)
+      isConvertibleInConnector(withoutSplitCapacity, index) ||
+      (token === 'in' &&
+        withoutSplitCapacity[index - 1] === 'all' &&
+        withoutSplitCapacity[index + 1] === 'one')
   );
 }

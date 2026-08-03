@@ -13,10 +13,11 @@ import type {
 import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
 import { getContextBrandKeys } from './get-context-brand-keys';
 import { getPostTokenGroups } from './get-post-token-groups';
-import { getProductConnectivityDiscriminator } from './get-product-connectivity-discriminator';
+import { getProductConnectivityDiscriminators } from './get-product-connectivity-discriminator';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
-import { hasCleanIdentifierOccurrence } from './has-clean-identifier-occurrence';
+import { hasDistinctCompareIdentifierOccurrences } from './has-distinct-compare-identifier-occurrences';
 import { inferContentClusterContext } from './infer-content-cluster-context';
+import { matchesProductGuideIdentifier } from './matches-product-guide-identifier';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { tokenizeContentText } from './tokenize-content-text';
 
@@ -70,29 +71,6 @@ function hasContiguousTokenSequence(
   );
 }
 
-function matchesProductIdentifier(
-  post: BuildCommercialGuideLinksInput['posts'][number],
-  inferredTokens: string[],
-  identifierTokens: string[],
-  hasBrandMatch: boolean,
-  occurrenceOptions?: Parameters<typeof hasCleanIdentifierOccurrence>[2]
-) {
-  if (
-    identifierTokens.length === 0 ||
-    (identifierTokens.every((token) => /^\d+$/u.test(token)) &&
-      !hasBrandMatch &&
-      !occurrenceOptions?.brand) ||
-    !identifierTokens.every((token) => inferredTokens.includes(token))
-  ) {
-    return false;
-  }
-  return hasCleanIdentifierOccurrence(
-    post,
-    identifierTokens,
-    occurrenceOptions
-  );
-}
-
 function hasContextualFamilyMatch(
   post: BuildCommercialGuideLinksInput['posts'][number],
   familyTokens: string[],
@@ -140,9 +118,9 @@ export function buildCommercialGuideLinks(
   const brandAliases =
     CONTENT_CLUSTER_SUPPORT[input.context.categorySlug].brandTokens;
   const productModelIdentifiers = getProductModelIdentifiers(input.context);
-  const productConnectivityDiscriminator =
+  const productConnectivityDiscriminators =
     input.context.pageKind === 'product'
-      ? getProductConnectivityDiscriminator(
+      ? getProductConnectivityDiscriminators(
           input.context.productNames,
           input.context.productSlugs
         )
@@ -206,7 +184,7 @@ export function buildCommercialGuideLinks(
       const hasProductModelMatch = productModelIdentifiers.some((identifier) =>
         (shouldBindProductModelBrand ? normalizedBrands : [null]).some(
           (brand) =>
-            matchesProductIdentifier(
+            matchesProductGuideIdentifier(
               post,
               inferred.tokens,
               tokenizeModelIdentifier(identifier),
@@ -216,9 +194,7 @@ export function buildCommercialGuideLinks(
                     brand,
                     knownBrands: inferred.brands,
                     brandAliases,
-                    discriminatorTokens: productConnectivityDiscriminator
-                      ? [productConnectivityDiscriminator]
-                      : undefined,
+                    discriminatorTokens: productConnectivityDiscriminators,
                     requireBrandBeforeIdentifier: true,
                     allowBrandAliasOverlap: true,
                   }
@@ -238,12 +214,16 @@ export function buildCommercialGuideLinks(
       const hasRequiredCompareModelMatch =
         input.context.pageKind === 'compare' &&
         compareProductMatchRequirements.length > 0 &&
+        hasDistinctCompareIdentifierOccurrences(
+          post,
+          compareProductMatchRequirements.map(({ identifier }) => identifier)
+        ) &&
         compareProductMatchRequirements.every(
           ({ identifier, brand, discriminatorTokens }) =>
             (!brand ||
               inferred.brands.includes(brand) ||
               directBrandMatches.has(generateSlug(brand))) &&
-            matchesProductIdentifier(
+            matchesProductGuideIdentifier(
               post,
               inferred.tokens,
               tokenizeModelIdentifier(identifier),

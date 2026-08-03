@@ -195,6 +195,18 @@ describe('normalizeProductModelTokens', () => {
     expect(tokens).toEqual(['hp', 'smart', 'tank', '750']);
   });
 
+  it('preserves a leading all-in-one desktop model phrase', () => {
+    const tokens = normalizeProductModelTokens([
+      'hp',
+      'all',
+      'in',
+      'one',
+      '24',
+    ]);
+
+    expect(tokens).toEqual(['hp', 'all', 'in', 'one', '24']);
+  });
+
   it('removes NFID condition metadata', () => {
     const tokens = normalizeProductModelTokens([
       'iphone',

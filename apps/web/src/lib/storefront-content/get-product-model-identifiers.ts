@@ -1,6 +1,7 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import { applyJoinedTitleCorrections } from './apply-joined-title-corrections';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
+import { filterProductModelSourceTokens } from './filter-product-model-source-tokens';
 import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
@@ -204,11 +205,14 @@ function getModelTokens(
 ) {
   const canonicalSlug = applyJoinedTitleCorrections(slug);
   const rawTokens = normalizeProductModelTokens(
-    tokenize(
-      canonicalSlug
-        .replace(/\bplay[\s-]+station\b/gu, 'playstation')
-        .replace(/([a-z]{3,})-s-(?=[a-z])/gu, '$1-')
-    ).filter((token) => !excludedTokens.has(token)),
+    filterProductModelSourceTokens(
+      tokenize(
+        canonicalSlug
+          .replace(/\bplay[\s-]+station\b/gu, 'playstation')
+          .replace(/([a-z]{3,})-s-(?=[a-z])/gu, '$1-')
+      ),
+      excludedTokens
+    ),
     GAME_CATEGORY_PATTERN.test(categorySlug),
     DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)
   );
@@ -229,7 +233,8 @@ function getModelTokens(
       token !== 'inch' &&
       (token !== 'in' ||
         GAME_CATEGORY_PATTERN.test(categorySlug) ||
-        isConvertibleInConnector(tokens, index)) &&
+        isConvertibleInConnector(tokens, index) ||
+        (tokens[index - 1] === 'all' && tokens[index + 1] === 'one')) &&
       !isDimensionToken(tokens, index)
   );
   return stripTrailingLaptopProcessorTier(
