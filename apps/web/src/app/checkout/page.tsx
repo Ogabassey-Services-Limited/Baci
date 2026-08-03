@@ -52,9 +52,11 @@ import { MerchantProvider, useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
+import { calculateCartCatalogSubtotal } from '@/lib/checkout/cart-entitlement-sanitizer';
 import { getCountryByCode } from '@/lib/countries';
 import { trackEvent } from '@/lib/event-tracking';
 import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
+import { hasStorefrontPriceNegotiation } from '@/lib/storefront-price-negotiation';
 import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
 import { buildCheckoutShippingSelectionPayload } from './checkout-order-shipping-payload';
@@ -725,6 +727,11 @@ function Step1_Shipping({
   const { merchant } = useMerchant();
   const { cart } = useCart();
 
+  const cartSubtotal = calculateCartCatalogSubtotal(
+    cart,
+    hasStorefrontPriceNegotiation(merchant)
+  );
+
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
   const isNigerian = country?.code === 'NG' || !country;
 
@@ -930,6 +937,7 @@ function Step1_Shipping({
               quantity: item.quantity,
               price: item.price,
             }))}
+            cartSubtotal={cartSubtotal}
             onSelect={onShippingSelect}
             selectedQuoteId={selectedQuote?.id}
           />

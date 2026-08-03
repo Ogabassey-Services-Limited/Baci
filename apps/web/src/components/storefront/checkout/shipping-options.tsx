@@ -28,9 +28,30 @@ interface ShippingOptionsProps {
     quantity: number;
     price: number;
   }[];
+  /** Canonical checkout subtotal, including assurance fees when selected. */
+  cartSubtotal: number;
   onSelect: (quote: ShippingQuote, sessionId: string) => void;
   selectedQuoteId?: string;
   className?: string;
+}
+
+export function formatShippingDeliveryTime(quote: ShippingQuote): string {
+  const deliveryRange = quote.deliveryRange?.trim();
+  if (deliveryRange) return deliveryRange;
+
+  if (!Number.isFinite(quote.estimatedDays) || quote.estimatedDays <= 0) {
+    return 'ETA unavailable';
+  }
+
+  if (
+    quote.minDays !== undefined &&
+    quote.maxDays !== undefined &&
+    quote.minDays !== quote.maxDays
+  ) {
+    return `${quote.minDays}-${quote.maxDays} days`;
+  }
+
+  return `${quote.estimatedDays} day${quote.estimatedDays !== 1 ? 's' : ''}`;
 }
 
 export function ShippingOptions({
@@ -41,6 +62,7 @@ export function ShippingOptions({
   receiverPhone,
   receiverName,
   cartItems,
+  cartSubtotal,
   onSelect,
   selectedQuoteId,
   className,
@@ -90,7 +112,7 @@ export function ShippingOptions({
     }
 
     // Create a key for this specific fetch request
-    const fetchKey = `${merchantId}-${receiverCity}-${receiverState}-${receiverAddress}-${serializedCartItems}`;
+    const fetchKey = `${merchantId}-${receiverCity}-${receiverState}-${receiverAddress}-${cartSubtotal}-${serializedCartItems}`;
 
     // Skip if we've already fetched for this exact configuration
     if (lastFetchKey.current === fetchKey && quotes.length > 0) {
@@ -117,11 +139,9 @@ export function ShippingOptions({
         },
         items: quoteItems,
         shipmentType: 'domestic',
-        // Lets free-over / price-tier merchant rates quote at their real price.
-        cart_subtotal: quoteItems.reduce(
-          (sum, item) => sum + item.value * item.quantity,
-          0
-        ),
+        // Lets free-over / price-tier merchant rates quote against the same
+        // canonical subtotal that order-time validation uses.
+        cart_subtotal: cartSubtotal,
         // This checkout threads selected merchant rates back to /api/orders as
         // a bare shipping_rate_id, so they are safe to offer alongside carriers.
         supports_merchant_rates: true,
@@ -163,16 +183,10 @@ export function ShippingOptions({
     receiverName,
     receiverPhone,
     serializedCartItems,
+    cartSubtotal,
     quotes.length,
     merchantId,
   ]);
-
-  const formatDeliveryTime = (quote: ShippingQuote) => {
-    if (quote.minDays && quote.maxDays && quote.minDays !== quote.maxDays) {
-      return `${quote.minDays}-${quote.maxDays} days`;
-    }
-    return `${quote.estimatedDays} day${quote.estimatedDays !== 1 ? 's' : ''}`;
-  };
 
   const getProviderLogo = (provider: string) => {
     switch (provider) {
@@ -271,7 +285,7 @@ export function ShippingOptions({
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="size-3" />
-                      {formatDeliveryTime(quote)}
+                      {formatShippingDeliveryTime(quote)}
                     </span>
                     {quote.isStationPickup && (
                       <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
@@ -336,6 +350,8 @@ export function SelectedShippingDisplay({
     );
   }
 
+  const deliveryTime = formatShippingDeliveryTime(quote);
+
   return (
     <Card className={className}>
       <CardContent className="p-4 flex items-center justify-between">
@@ -344,8 +360,9 @@ export function SelectedShippingDisplay({
           <div>
             <p className="font-semibold">{quote.carrierName}</p>
             <p className="text-sm text-muted-foreground">
-              Est. {quote.estimatedDays} business day
-              {quote.estimatedDays !== 1 ? 's' : ''}
+              {deliveryTime === 'ETA unavailable'
+                ? deliveryTime
+                : `Est. ${deliveryTime}`}
               {quote.isStationPickup && ' (Station Pickup)'}
             </p>
           </div>
