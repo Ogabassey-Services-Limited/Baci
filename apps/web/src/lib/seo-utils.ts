@@ -589,18 +589,6 @@ function sanitizeCustomProductSchemaMarkup(
 
   const sanitizedSchema = { ...sanitized } as Record<string, unknown>;
 
-  if (typeof sanitizedSchema.description === 'string') {
-    const description = stripVolatileProductPriceSentences(
-      sanitizedSchema.description
-    );
-
-    if (description) {
-      sanitizedSchema.description = description;
-    } else {
-      delete sanitizedSchema.description;
-    }
-  }
-
   if (
     'aggregateRating' in sanitizedSchema &&
     !hasValidAggregateRatingSchema(sanitizedSchema.aggregateRating)

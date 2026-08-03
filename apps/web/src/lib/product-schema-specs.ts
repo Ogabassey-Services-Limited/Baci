@@ -186,8 +186,13 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   const hasCameraCategory = categoryNames.some(isCameraLikeCategory);
+  const normalizedLabel = candidate.label
+    ? normalizeSpecLabel(candidate.label)
+    : undefined;
+  const isOperatingSystemLabel =
+    normalizedLabel === 'operating system' || normalizedLabel === 'os';
   const inferredCameraSpecKey =
-    hasCameraCategory && candidate.label
+    hasCameraCategory && candidate.label && !isOperatingSystemLabel
       ? getProductSchemaSpecKeyForLabel(candidate.label)
       : undefined;
   const cameraSpecKey = candidate.key || inferredCameraSpecKey;
@@ -217,11 +222,10 @@ export function shouldIncludeProductSchemaSpec(
     return false;
   }
 
-  if (!candidate.label) {
+  if (!normalizedLabel) {
     return true;
   }
 
-  const normalizedLabel = normalizeSpecLabel(candidate.label);
   if (!PHONE_ONLY_SPEC_LABELS.has(normalizedLabel)) {
     return true;
   }

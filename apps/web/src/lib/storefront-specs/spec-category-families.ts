@@ -4,6 +4,7 @@ import {
   KEY_SPEC_CATEGORIES,
   type ProductSpecFamily,
   type SpecCategory,
+  type SpecField,
 } from './spec-taxonomy';
 
 const UNSUPPORTED_SPEC_VALUES = new Set([
@@ -34,6 +35,19 @@ function isUnsupportedSpecValue(value: unknown) {
     normalized.startsWith('confirm exact')
   );
 }
+
+const VERIFIED_SOUND_FIELDS: SpecField[] = [
+  {
+    key: 'has_stereo_speakers',
+    label: 'Loudspeaker',
+    transform: () => 'Yes, with stereo speakers',
+  },
+  {
+    key: 'has_headphone_jack',
+    label: '3.5mm Jack',
+    transform: () => 'Yes',
+  },
+];
 
 const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
   {
@@ -127,6 +141,10 @@ const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
     ],
   },
   {
+    category: 'Sound',
+    fields: VERIFIED_SOUND_FIELDS,
+  },
+  {
     category: 'Misc',
     fields: [
       { key: 'available_colors', label: 'Colors' },
@@ -217,19 +235,7 @@ const GENERAL_KEY_SPEC_CATEGORIES: SpecCategory[] = [
   },
   {
     category: 'Sound',
-    fields: [
-      {
-        key: 'has_stereo_speakers',
-        label: 'Loudspeaker',
-        transform: (value) =>
-          value ? 'Yes, with stereo speakers' : 'Yes (mono)',
-      },
-      {
-        key: 'has_headphone_jack',
-        label: '3.5mm Jack',
-        transform: (value) => (value ? 'Yes' : 'No'),
-      },
-    ],
+    fields: VERIFIED_SOUND_FIELDS,
   },
   {
     category: 'Power',

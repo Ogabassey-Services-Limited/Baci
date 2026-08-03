@@ -18,4 +18,9 @@ describe('isCameraLikeCategory', () => {
     expect(isCameraLikeCategory('Smartphone Cases')).toBe(false);
     expect(isCameraLikeCategory('Laptop Keyboard')).toBe(false);
   });
+
+  it('does not classify mobile categories containing camera as cameras', () => {
+    expect(isCameraLikeCategory('Camera Phones')).toBe(false);
+    expect(isCameraLikeCategory('camera-phones')).toBe(false);
+  });
 });

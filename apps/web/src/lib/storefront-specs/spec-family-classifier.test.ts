@@ -21,4 +21,11 @@ describe('spec family classifier', () => {
     expect(getProductSpecFamily('Phone Accessories')).toBe('general');
     expect(getProductSpecFamily('Laptop Keyboard')).toBe('general');
   });
+
+  it('covers mobile, computer, and undefined category fallbacks', () => {
+    expect(getProductSpecFamily('Smartphones')).toBe('mobile');
+    expect(getProductSpecFamily('Camera Phones')).toBe('mobile');
+    expect(getProductSpecFamily('Laptops')).toBe('computer');
+    expect(getProductSpecFamily(undefined)).toBe('general');
+  });
 });

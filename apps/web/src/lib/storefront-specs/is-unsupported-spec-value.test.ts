@@ -6,6 +6,9 @@ describe('isUnsupportedSpecValue', () => {
     for (const value of [
       false,
       0,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
       '0GB',
       'No',
       'Not listed by manufacturer',

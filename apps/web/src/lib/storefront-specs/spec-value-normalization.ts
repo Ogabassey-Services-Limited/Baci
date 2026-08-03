@@ -16,6 +16,7 @@ function decodeHtmlEntities(value: string) {
       !Number.isFinite(codePoint) ||
       !Number.isInteger(codePoint) ||
       codePoint < 0 ||
+      (codePoint >= 0xd800 && codePoint <= 0xdfff) ||
       codePoint > 0x10ffff
     ) {
       return match;

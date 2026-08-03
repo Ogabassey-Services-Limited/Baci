@@ -36,15 +36,19 @@ function normalizePropertyName(value: unknown) {
   return normalized?.replace(/\s+/g, ' ') || null;
 }
 
+function canonicalizeText(value: string) {
+  return value.toLowerCase().replace(/\s+/g, ' ');
+}
+
 function getCanonicalPropertyName(name: string) {
-  const normalizedName = name.toLowerCase().replace(/\s+/g, ' ');
+  const normalizedName = canonicalizeText(name);
   return PROPERTY_NAME_ALIASES[normalizedName] || normalizedName;
 }
 
 function serializePropertyValue(value: unknown): string | null {
   const normalized = normalizePropertyText(value);
   if (normalized) {
-    return normalized.toLowerCase().replace(/\s+/g, ' ');
+    return canonicalizeText(normalized);
   }
 
   if (value && typeof value === 'object') {
@@ -82,9 +86,7 @@ export function createProductSchemaAdditionalPropertyCollector() {
         return;
       }
 
-      const propertyKey = `${getCanonicalPropertyName(normalizedName)}|${normalizedValue
-        .toLowerCase()
-        .replace(/\s+/g, ' ')}`;
+      const propertyKey = `${getCanonicalPropertyName(normalizedName)}|${canonicalizeText(normalizedValue)}`;
       if (propertyKeys.has(propertyKey)) {
         return;
       }

@@ -20,4 +20,10 @@ describe('normalizeSpecValueText', () => {
       normalizeSpecValueText('Sensor &#999999999; &#x110000; remains listed')
     ).toBe('Sensor &#999999999; &#x110000; remains listed');
   });
+
+  it('preserves numeric entities in the Unicode surrogate range', () => {
+    expect(normalizeSpecValueText('Hex &#xD800; decimal &#55296;')).toBe(
+      'Hex &#xD800; decimal &#55296;'
+    );
+  });
 });

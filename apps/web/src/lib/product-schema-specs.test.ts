@@ -233,6 +233,30 @@ describe('shouldIncludeProductSchemaSpec', () => {
     ).toBe(false);
   });
 
+  it('retains supported camera firmware labels without accepting placeholders', () => {
+    for (const category of ['Drones', 'Gimbals']) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category, categories: null },
+          { label: 'Operating System', value: 'DJI firmware 2.1' }
+        )
+      ).toBe(true);
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category, categories: null },
+          { label: 'OS', value: 'N/A' }
+        )
+      ).toBe(false);
+    }
+
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Drones', categories: null },
+        { key: 'android_version', label: 'Operating System', value: '16' }
+      )
+    ).toBe(false);
+  });
+
   it('applies the camera key allowlist and rejects card-slot placeholders', () => {
     expect(
       shouldIncludeProductSchemaSpec(
