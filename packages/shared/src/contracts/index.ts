@@ -1,3 +1,4 @@
+export * from './builder-ai-edit';
 export * from './customers';
 export * from './domain-event';
 export * from './ecommerce-analytics';
