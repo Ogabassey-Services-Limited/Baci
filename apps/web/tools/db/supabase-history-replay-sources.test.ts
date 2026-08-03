@@ -122,4 +122,10 @@ describe('supabase-history-replay sources', () => {
       'c0ec34bcd397263cf1f8d91fe94d0e3aa0edd4d600101dc9656ce261cd6bf2d1 20260802220000_centralize_shipping_provider_policy.sql'
     );
   });
+
+  it('registers the repair booking rate-limit index as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      '846a37482ca4ea765f63c9ba1cf5bb747e81446f955c0c440dead034cd86fa11 20260803000000_add_repair_booking_rate_limit_index.sql'
+    );
+  });
 });

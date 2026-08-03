@@ -55,6 +55,12 @@ describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
           sha256:
             'c0ec34bcd397263cf1f8d91fe94d0e3aa0edd4d600101dc9656ce261cd6bf2d1',
         },
+        {
+          repositoryPath:
+            'supabase/migrations/20260803000000_add_repair_booking_rate_limit_index.sql',
+          sha256:
+            '846a37482ca4ea765f63c9ba1cf5bb747e81446f955c0c440dead034cd86fa11',
+        },
       ],
     });
   });

@@ -151,6 +151,19 @@ describe('storefrontShippingRatesPayloadSchema', () => {
     expect(result.shippingProviders).toEqual([]);
   });
 
+  it('preserves legacy rates when a pre-policy RPC payload omits shipping providers', () => {
+    const result = parseStorefrontShippingRatesPayload(validPayload);
+
+    expect(result.shippingProviders).toEqual([]);
+    expect(result.zones).toContainEqual(expect.objectContaining({ id: 'z-1' }));
+    expect(result.locations).toContainEqual(
+      expect.objectContaining({ zoneId: 'z-1' })
+    );
+    expect(result.rates).toContainEqual(
+      expect.objectContaining({ id: 'r-1', baseAmount: 1500 })
+    );
+  });
+
   it('surfaces merchant payout currency and country when the RPC returns them', () => {
     const result = storefrontShippingRatesPayloadSchema.parse({
       ...validPayload,
