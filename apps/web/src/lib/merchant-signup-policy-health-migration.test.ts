@@ -17,27 +17,71 @@ const provisioningMigrationSql = readFileSync(
   'utf8'
 );
 
-function policyOwnershipRegex(invariant: string): RegExp {
-  const section = migrationSql.split(`'${invariant}'`)[1];
-  const pattern = section?.match(/~\* '([^']+)'/)?.[1];
-  if (!pattern) throw new Error(`Missing ownership regex for ${invariant}`);
+const POLICY_OWNERSHIP_PATTERNS = {
+  select_policy_is_expected:
+    'user_id[[:space:]]*=[[:space:]]*[(]?[[:space:]]*SELECT[[:space:]]+auth[.]uid[(][)]',
+  insert_policy_allows_owner:
+    'user_id[[:space:]]*=[[:space:]]*[(]?[[:space:]]*SELECT[[:space:]]+([(][[:space:]]*SELECT[[:space:]]+)?auth[.]uid[(][)]',
+} as const;
 
-  return new RegExp(
-    pattern
-      .replaceAll('[[:space:]]', '\\s')
-      .replaceAll('[.]', '\\.')
-      .replaceAll('[(]', '\\(')
-      .replaceAll('[)]', '\\)'),
-    'i'
+const POLICY_OWNERSHIP_REGEXES = {
+  select_policy_is_expected: /user_id\s*=\s*\(?\s*SELECT\s+auth\.uid\(\)/i,
+  insert_policy_allows_owner:
+    /user_id\s*=\s*\(?\s*SELECT\s+(?:\(\s*SELECT\s+)?auth\.uid\(\)/i,
+} as const;
+
+const POLICY_EXCLUSION_PATTERNS = {
+  select_policy_is_expected: '(^|[^[:alnum:]_])(NOT|AND)([^[:alnum:]_]|$)',
+  insert_policy_allows_owner: '(^|[^[:alnum:]_])(NOT|AND|OR)([^[:alnum:]_]|$)',
+} as const;
+
+const POLICY_EXCLUSION_REGEXES = {
+  select_policy_is_expected: /(^|[^A-Za-z0-9_])(NOT|AND)([^A-Za-z0-9_]|$)/i,
+  insert_policy_allows_owner: /(^|[^A-Za-z0-9_])(NOT|AND|OR)([^A-Za-z0-9_]|$)/i,
+} as const;
+
+type PolicyInvariant = keyof typeof POLICY_OWNERSHIP_PATTERNS;
+
+function extractPolicyRegexPattern(
+  invariant: string,
+  operator: '~*' | '!~*'
+): string {
+  const invariantMarker = `'${invariant}'`;
+  const invariantStart = migrationSql.indexOf(invariantMarker);
+  if (invariantStart === -1) {
+    throw new Error(`Missing policy invariant ${invariant}`);
+  }
+
+  const section = migrationSql.slice(invariantStart + invariantMarker.length);
+  const operatorMarker = `${operator} '`;
+  const patternStart = section.indexOf(operatorMarker);
+  if (patternStart === -1) {
+    throw new Error(`Missing ${operator} pattern for ${invariant}`);
+  }
+
+  const valueStart = patternStart + operatorMarker.length;
+  const valueEnd = section.indexOf("'", valueStart);
+  if (valueEnd === -1) {
+    throw new Error(`Unterminated ${operator} pattern for ${invariant}`);
+  }
+
+  return section.slice(valueStart, valueEnd);
+}
+
+function policyOwnershipRegex(invariant: string): RegExp {
+  const policyInvariant = invariant as PolicyInvariant;
+  expect(extractPolicyRegexPattern(invariant, '~*')).toBe(
+    POLICY_OWNERSHIP_PATTERNS[policyInvariant]
   );
+  return POLICY_OWNERSHIP_REGEXES[policyInvariant];
 }
 
 function policyExclusionRegex(invariant: string): RegExp {
-  const section = migrationSql.split(`'${invariant}'`)[1];
-  const pattern = section?.match(/!~\* '([^']+)'/)?.[1];
-  if (!pattern) throw new Error(`Missing exclusion regex for ${invariant}`);
-
-  return new RegExp(pattern.replaceAll('[:alnum:]', 'A-Za-z0-9'), 'i');
+  const policyInvariant = invariant as PolicyInvariant;
+  expect(extractPolicyRegexPattern(invariant, '!~*')).toBe(
+    POLICY_EXCLUSION_PATTERNS[policyInvariant]
+  );
+  return POLICY_EXCLUSION_REGEXES[policyInvariant];
 }
 
 function canonicalOwnerPredicate(expression: string): string {

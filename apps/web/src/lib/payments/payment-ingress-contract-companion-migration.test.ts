@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { extractPaymentIngressFunctionBody } from './extract-payment-ingress-function-body';
 
 const migrationFilename =
   '20260801140000_payment_ingress_contract_companion.sql';
@@ -29,20 +30,6 @@ const companionFunctions = [
   'rollback_payment_ingress_contract_generation(uuid, uuid, bigint, uuid, uuid)',
   'retire_payment_ingress_contract_generation(uuid, uuid, bigint, uuid)',
 ] as const;
-
-function functionBody(functionName: string) {
-  const match = migrationSql.match(
-    new RegExp(
-      `CREATE OR REPLACE FUNCTION private\\.${functionName}\\([\\s\\S]*?AS \\$\\$([\\s\\S]*?)\\$\\$;`
-    )
-  );
-
-  if (!match) {
-    throw new Error(`missing payment ingress function body: ${functionName}`);
-  }
-
-  return match[1];
-}
 
 describe('payment ingress control-plane companion migration', () => {
   it('is the exact timeout-guarded companion migration', () => {
@@ -119,12 +106,8 @@ describe('payment ingress control-plane companion migration', () => {
       expect(migrationSql).toContain(
         `CREATE OR REPLACE FUNCTION private.${functionName}`
       );
-      expect(migrationSql).toMatch(
-        new RegExp(
-          `ALTER FUNCTION private\\.${functionName}\\(${signature
-            .slice(signature.indexOf('(') + 1, -1)
-            .replaceAll(' ', '\\s*')}\\)\\s+OWNER TO postgres;`
-        )
+      expect(migrationSql).toContain(
+        `ALTER FUNCTION private.${signature}\n  OWNER TO postgres;`
       );
       expect(migrationSql).toContain(
         `CREATE OR REPLACE FUNCTION private_payment_control_plane.${functionName}`
@@ -245,7 +228,10 @@ describe('payment ingress control-plane companion migration', () => {
       'roll_forward_payment_ingress_contract_generation',
       'rollback_payment_ingress_contract_generation',
     ]) {
-      const body = functionBody(functionName);
+      const body = extractPaymentIngressFunctionBody(
+        migrationSql,
+        functionName
+      );
       const advisoryLock = body.indexOf('pg_catalog.pg_advisory_xact_lock');
       const operationLock = body.indexOf('payment-ingress-operation:');
       const scopeLock = body.indexOf("'payment-ingress:'");
@@ -265,16 +251,19 @@ describe('payment ingress control-plane companion migration', () => {
       'roll_forward_payment_ingress_contract_generation',
       'rollback_payment_ingress_contract_generation',
     ]) {
-      expect(functionBody(functionName)).toContain(
-        'EXCEPTION WHEN unique_violation'
-      );
+      expect(
+        extractPaymentIngressFunctionBody(migrationSql, functionName)
+      ).toContain('EXCEPTION WHEN unique_violation');
     }
 
     for (const functionName of [
       'roll_forward_payment_ingress_contract_generation',
       'rollback_payment_ingress_contract_generation',
     ]) {
-      const body = functionBody(functionName);
+      const body = extractPaymentIngressFunctionBody(
+        migrationSql,
+        functionName
+      );
       const outgoingLock = body.indexOf(
         'WHERE generation_row.id = p_outgoing_generation_id\n  FOR UPDATE'
       );
@@ -294,7 +283,10 @@ describe('payment ingress control-plane companion migration', () => {
       'roll_forward_payment_ingress_contract_generation',
       'rollback_payment_ingress_contract_generation',
     ]) {
-      const body = functionBody(functionName);
+      const body = extractPaymentIngressFunctionBody(
+        migrationSql,
+        functionName
+      );
 
       expect(body).toContain(
         'v_proof.approval_reference = binding.approval_reference'
