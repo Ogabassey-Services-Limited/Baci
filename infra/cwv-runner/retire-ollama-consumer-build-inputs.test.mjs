@@ -79,3 +79,30 @@ test('refuses a Dockerfile COPY source that escapes its build context', async ()
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('binds a Dockerfile RUN bind mount sourced from the build context', async () => {
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-compose-build-run-bind-'))
+  );
+  const compose = join(root, 'compose.yaml');
+  const dockerfile = join(root, 'Dockerfile');
+  const source = join(root, 'application.conf');
+  try {
+    await Promise.all([
+      writeFile(compose, 'services:\n  app:\n    build: .\n'),
+      writeFile(
+        dockerfile,
+        'FROM scratch\nRUN --mount=type=bind,source=application.conf,target=/tmp/application.conf cat /tmp/application.conf\n'
+      ),
+      writeFile(source, 'OLLAMA_HOST=http://127.0.0.1:11434\n'),
+    ]);
+    assertBinding((await scanCompose(root)).stdout, compose, source);
+    await writeFile(
+      dockerfile,
+      'FROM scratch\nRUN --mount=type=bind,source=../application.conf,target=/tmp/application.conf cat /tmp/application.conf\n'
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
