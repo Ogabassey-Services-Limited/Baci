@@ -141,7 +141,7 @@ Variable purposes:
 - `OLLAMA_STOREFRONT_BASE_URL`: Local/private Ollama base URL for async storefront generation. Use `http://localhost:11434` when Ollama runs on the same VPS.
 - `OLLAMA_STOREFRONT_MODEL`: Gemma model used for storefront layout generation.
 - `OLLAMA_STOREFRONT_TIMEOUT_MS`: Per-request Ollama timeout for the storefront worker.
-- `AI_STOREFRONT_GENERATION_ENABLED`: Rollout flag for enqueueing new storefront generation jobs during onboarding.
+- `AI_STOREFRONT_GENERATION_ENABLED`: Parseable compatibility no-op; it no longer enqueues onboarding jobs or pauses the worker.
 - `AI_STOREFRONT_TRIGGER_SECRET`: Bearer secret required by the local trigger listener before it starts the storefront worker.
 - `AI_STOREFRONT_TRIGGER_HOST`: Bind host for the trigger listener. Keep the default `127.0.0.1` and expose it only through an HTTPS reverse proxy.
 - `AI_STOREFRONT_TRIGGER_PORT`: Local trigger listener port. Default is `3917`.

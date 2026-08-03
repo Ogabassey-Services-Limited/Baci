@@ -20,12 +20,6 @@ vi.mock(
     return { ...actual, provisionAuthenticatedMerchant: mocks.provision };
   }
 );
-vi.mock(
-  '../mobile/merchant-provisioning/run-deferred-merchant-provisioning',
-  () => ({
-    runDeferredMerchantProvisioning: vi.fn(),
-  })
-);
 vi.mock('@/lib/posthog/mobile-onboarding-contract-telemetry', () => ({
   recordMobileOnboardingContractInvocation: vi.fn(),
 }));

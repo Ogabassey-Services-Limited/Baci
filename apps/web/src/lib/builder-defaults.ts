@@ -1,5 +1,5 @@
-import type { Data } from '@puckeditor/core';
 import { generateInitialTemplate } from './initial-template-generator';
+import type { CuratedStorefrontData } from './storefront-defaults/curated-storefront-types';
 
 /**
  * Generate default Puck config from merchant's existing template
@@ -8,7 +8,7 @@ import { generateInitialTemplate } from './initial-template-generator';
 // biome-ignore lint/suspicious/useAwait: Interface consistency
 export async function generateDefaultConfig(
   merchant: Record<string, unknown>
-): Promise<Data> {
+): Promise<CuratedStorefrontData> {
   return generateInitialTemplate({
     businessName: (merchant?.business_name as string) || 'Your Store',
     businessType: (merchant?.business_type as string) || 'other',

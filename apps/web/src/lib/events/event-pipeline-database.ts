@@ -1,4 +1,5 @@
 import type { Database, Json } from '@/types/supabase';
+import { frozenEventPipelineAuthoritySources } from './event-pipeline-frozen-authority-sources';
 export function toEventPipelineJson(
   value: unknown,
   ancestors = new WeakSet<object>()
@@ -138,7 +139,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
   ],
   authority: {
     // biome-ignore format: compact reviewed authority allowlist preserves the 300-line module gate.
-    adminImporters: ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts'],
+    adminImporters: ['apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts'],
     bareClientImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/api/analytics/conversion/route.ts',
@@ -150,6 +151,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     // scheduler path; it cannot grant URL purging or Supabase authority.
     // biome-ignore format: reviewed full import paths preserve the 300-line module gate.
     credentialPaths: [
+      ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts', 'apps/web/src/env.ts'], ['apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts', 'apps/web/src/env.ts'],
       ['apps/web/src/lib/storefront-product-purge-hostnames.ts', 'apps/web/src/lib/cloudflare-purge.ts', 'apps/web/src/env.ts'],
       ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
       ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
@@ -189,6 +191,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     ],
   },
   callers: runtimeCallers,
+  frozenAuthoritySources: frozenEventPipelineAuthoritySources,
   frozenProjectionFiles: {},
   frozenRoutes,
   functions: {

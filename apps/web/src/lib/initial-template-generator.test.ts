@@ -1,309 +1,203 @@
-import { generateObject } from 'ai';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  deriveThemeFromColors,
-  generateFeatures,
-  generateHeroSlides,
-  generateInitialTemplate,
-} from '@/lib/initial-template-generator';
+import { describe, expect, it, vi } from 'vitest';
+import { buildCuratedStorefront } from '@/lib/storefront-defaults/build-curated-storefront';
+import { curatedProfileCases } from '@/lib/storefront-defaults/curated-profile-cases.test-support';
+import { generateInitialTemplate } from './initial-template-generator';
 
-vi.mock('ai', () => ({
-  generateObject: vi.fn(),
+const dependencyTraps = vi.hoisted(() => ({
+  google: vi.fn(() => {
+    throw new Error('Google provider must not run');
+  }),
+  cerebras: vi.fn(() => {
+    throw new Error('Cerebras provider must not run');
+  }),
+  groq: vi.fn(() => {
+    throw new Error('Groq provider must not run');
+  }),
+  openAICompatible: vi.fn(() => {
+    throw new Error('OpenAI-compatible provider must not run');
+  }),
+  cookies: vi.fn(() => {
+    throw new Error('cookies must not run');
+  }),
+  serverSupabase: vi.fn(() => {
+    throw new Error('server Supabase must not run');
+  }),
+  browserSupabase: vi.fn(() => {
+    throw new Error('browser Supabase must not run');
+  }),
+  adminSupabase: vi.fn(() => {
+    throw new Error('admin Supabase must not run');
+  }),
+  serviceSupabase: vi.fn(() => {
+    throw new Error('service Supabase must not run');
+  }),
+  publicSupabase: vi.fn(() => {
+    throw new Error('public Supabase must not run');
+  }),
+  anonSupabase: vi.fn(() => {
+    throw new Error('anon Supabase must not run');
+  }),
+  fetch: vi.fn(() => {
+    throw new Error('fetch must not run');
+  }),
 }));
 
-// generateObjectWithChain (the real executor) constructs its default chain
-// via @/ai/provider — extend rather than replace this mock so construction
-// keeps working.
-vi.mock('@/ai/provider', () => ({
-  ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
-  activeTextModel: 'test-model',
-  FALLBACK_TEXT_MODEL_NAME: 'gemini-2.5-flash-lite',
-  fallbackTextModel: 'test-model-lite',
+vi.mock('@ai-sdk/google', () => ({
+  createGoogleGenerativeAI: dependencyTraps.google,
+}));
+vi.mock('@ai-sdk/cerebras', () => ({
+  createCerebras: dependencyTraps.cerebras,
+}));
+vi.mock('@ai-sdk/groq', () => ({ createGroq: dependencyTraps.groq }));
+vi.mock('@ai-sdk/openai-compatible', () => ({
+  createOpenAICompatible: dependencyTraps.openAICompatible,
+}));
+vi.mock('next/headers', () => ({ cookies: dependencyTraps.cookies }));
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: dependencyTraps.serverSupabase,
+}));
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: dependencyTraps.browserSupabase,
+}));
+vi.mock('@/lib/supabase/admin', () => ({
+  createClient: dependencyTraps.adminSupabase,
+  createAdminClient: dependencyTraps.adminSupabase,
+}));
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: dependencyTraps.serviceSupabase,
+}));
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: dependencyTraps.publicSupabase,
+}));
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: dependencyTraps.anonSupabase,
 }));
 
-const generatedAiContent = {
-  object: {
-    hero: [
-      { title: 'AI hero 1', subtitle: 'AI subtitle 1' },
-      { title: 'AI hero 2', subtitle: 'AI subtitle 2' },
-      { title: 'AI hero 3', subtitle: 'AI subtitle 3' },
-    ],
-    features: [
-      {
-        title: 'AI feature 1',
-        description: 'AI description 1',
-        icon: 'star',
-      },
-      {
-        title: 'AI feature 2',
-        description: 'AI description 2',
-        icon: 'truck',
-      },
-      {
-        title: 'AI feature 3',
-        description: 'AI description 3',
-        icon: 'shield-check',
-      },
-    ],
+const input = {
+  businessName: 'CarePoint',
+  businessType: 'pharmaceuticals',
+  brandColors: { primary: '#0f766e', background: '#ffffff', accent: '#22c55e' },
+  merchant: {
+    logo_url: 'https://example.com/logo.png',
+    hero_image_ids: ['ignored'],
   },
 };
 
-describe('initial template fallback content', () => {
-  beforeEach(() => {
-    vi.mocked(generateObject).mockReset();
-    vi.mocked(generateObject).mockResolvedValue(
-      generatedAiContent as Awaited<ReturnType<typeof generateObject>>
-    );
-    // Force the deterministic Gemini-only chain (no Cerebras/Groq keys) so
-    // provider-count assertions below are stable regardless of ambient env.
-    vi.stubEnv('CEREBRAS_API_KEY', '');
-    vi.stubEnv('GROQ_API_KEY', '');
-    vi.stubEnv('OPENROUTER_API_KEY', '');
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it('uses food-specific hero copy for food-beverage merchants', async () => {
-    const slides = await generateHeroSlides('Foodflow', 'food-beverage');
-
-    expect(slides[0]?.subtitle).toBe('Fresh flavors and quality ingredients.');
-    expect(slides[1]?.subtitle).toBe('Fresh ingredients, authentic recipes.');
-  });
-
-  it('uses pharmacy-specific hero copy for pharmaceuticals merchants', async () => {
-    const slides = await generateHeroSlides('CarePoint', 'pharmaceuticals');
-
-    expect(slides[0]?.subtitle).toBe(
-      'Trusted healthcare essentials and supplies.'
-    );
-    expect(slides[1]?.subtitle).toBe(
-      'Restock wellness products with confidence.'
-    );
-  });
-
-  it('returns fallback hero slides for unknown business types', async () => {
-    const slides = await generateHeroSlides('Fallback Store', 'unknown-type');
-
-    expect(slides.length).toBeGreaterThan(0);
-    for (const slide of slides) {
-      expect(slide).toEqual(
-        expect.objectContaining({
-          title: expect.any(String),
-          subtitle: expect.any(String),
-          image: expect.any(String),
-          ctaText: expect.any(String),
-          ctaLink: expect.any(String),
-        })
-      );
-    }
-  });
-
-  it('handles empty business names when generating hero slides', async () => {
-    const slides = await generateHeroSlides('', 'handmade');
-
-    expect(slides.length).toBeGreaterThan(0);
-    expect(slides[0]?.title).toContain('Welcome');
-  });
-
-  it('uses handmade-specific hero copy beyond the first slide', async () => {
-    const slides = await generateHeroSlides('Craft', 'handmade');
-
-    expect(slides.length).toBeGreaterThanOrEqual(3);
-    expect(slides[1].subtitle).toBe('Fresh artisan pieces from the maker.');
-    expect(slides[2].subtitle).toBe(
-      'Customer favorites with a personal touch.'
-    );
-  });
-
-  it.each([
-    ['health-beauty', 'Ingredient Focused'],
-    ['hair-extensions', 'Premium Textures'],
-    ['home-goods', 'Curated Style'],
-    ['handmade', 'Unique Handmade'],
-    ['art', 'Unique Handmade'],
-    ['food-beverage', 'Fresh Ingredients'],
-    ['pharmaceuticals', 'Trusted Products'],
-    // Aliases handled by `normalizeBusinessType` — guard against regressions
-    // when the source alias map changes.
-    ['cosmetics', 'Ingredient Focused'],
-    ['restaurant', 'Fresh Ingredients'],
-    ['fashion_apparel', 'Premium Quality'],
-    ['tech', 'Official Warranty'],
-  ])('uses industry-specific features for %s', (businessType, firstTitle) => {
-    expect(generateFeatures(businessType)[0]?.title).toBe(firstTitle);
-  });
-
-  it('returns fallback features synchronously for unknown business types', () => {
-    const features = generateFeatures('unknown-type');
-
-    expect(features).not.toBeInstanceOf(Promise);
-    expect(features.length).toBeGreaterThan(0);
-    for (const feature of features) {
-      expect(feature).toEqual(
-        expect.objectContaining({
-          title: expect.any(String),
-          description: expect.any(String),
-          icon: expect.any(String),
-        })
-      );
-    }
-  });
-
-  it('preserves an explicit secondary color in the generated theme', () => {
-    const theme = deriveThemeFromColors({
-      primary: '#14532d',
-      background: '#fff7ed',
-      accent: '#f97316',
-      secondary: '#0f766e',
-    });
-
-    expect(theme.colors.secondary).toBe('#0f766e');
-  });
-
-  it('falls back to the derived secondary color when none is provided', () => {
-    const theme = deriveThemeFromColors({
-      primary: '#14532d',
-      background: '#fff7ed',
-      accent: '#f97316',
-    });
-
-    expect(theme.colors.secondary).toBe('#14532d');
-  });
-
-  it('builds Puck content using the selected industry profile', async () => {
-    const config = await generateInitialTemplate({
-      businessName: 'Foodflow',
-      businessType: 'food-beverage',
-      brandColors: {
-        primary: '#14532d',
-        background: '#fff7ed',
-        accent: '#f97316',
-      },
-      merchant: {
-        logo_url: 'https://example.com/logo.png',
-      },
-    });
-
-    const header = config.content.find((block) => block.type === 'Header');
-    const text = config.content.find((block) => block.type === 'Text');
-    const productGridIndex = config.content.findIndex(
-      (block) => block.type === 'ProductGrid'
-    );
-    const featuresIndex = config.content.findIndex(
-      (block) => block.type === 'Features'
-    );
-    const productGrid = config.content[productGridIndex];
-    const newsletter = config.content.find(
-      (block) => block.type === 'Newsletter'
-    );
-
-    expect(header?.props?.navigationLinks).toContainEqual({
-      label: 'Menu',
-      url: '/products',
-    });
-    expect(text?.props?.title).toBe('Fresh meals, simple ordering');
-    // Food storefronts are menu-first, so products should appear before trust
-    // features to match ordering-focused browsing.
-    expect(productGridIndex).toBeLessThan(featuresIndex);
-    expect(productGrid?.props?.title).toBe('Popular Dishes');
-    expect(productGrid?.props?.columns).toBe(3);
-    expect(newsletter?.props?.title).toBe("Get today's specials");
-  });
-
-  it('returns default profile content for unknown initial template business types', async () => {
-    const config = await generateInitialTemplate({
-      businessName: 'Fallback Store',
-      businessType: 'unknown-type',
-      brandColors: {
-        primary: '#111111',
-        background: '#ffffff',
-        accent: '#f97316',
-      },
-      merchant: {},
-    });
-
-    const header = config.content.find((block) => block.type === 'Header');
-    const productGrid = config.content.find(
-      (block) => block.type === 'ProductGrid'
-    );
-
-    expect(header?.props?.navigationLinks).toContainEqual({
-      label: 'Shop',
-      url: '/products',
-    });
-    expect(productGrid?.props?.title).toBe('Our Products');
-  });
-
-  it('uses AI-generated hero copy when the first chain provider fails and the second succeeds', async () => {
-    vi.mocked(generateObject)
-      .mockRejectedValueOnce(new Error('429 rate limited'))
-      .mockResolvedValueOnce(
-        generatedAiContent as Awaited<ReturnType<typeof generateObject>>
-      );
-
-    const config = await generateInitialTemplate({
-      businessName: 'Foodflow',
-      businessType: 'food-beverage',
-      brandColors: {
-        primary: '#14532d',
-        background: '#fff7ed',
-        accent: '#f97316',
-      },
-      merchant: {},
-    });
-
-    const hero = config.content.find((block) => block.type === 'HeroCarousel');
-    expect(hero?.props?.slides?.[0]).toMatchObject({
-      title: 'AI hero 1',
-      subtitle: 'AI subtitle 1',
-    });
-    expect(generateObject).toHaveBeenCalledTimes(2);
-  });
-
-  it('falls back to static content when every chain provider fails', async () => {
-    // Gemini-only chain in tests: both Gemini and Gemini-Lite must fail
-    // before generateAIContent's catch block degrades to static content.
-    vi.mocked(generateObject).mockRejectedValue(new Error('ai down'));
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
-      // Expected in this regression test.
-    });
-
-    const config = await generateInitialTemplate({
+describe('generateInitialTemplate', () => {
+  it('keeps frozen starter inputs isolated from all configured runtime dependencies', async () => {
+    const frozenInput = Object.freeze({
       businessName: 'CarePoint',
       businessType: 'pharmaceuticals',
-      brandColors: {
+      brandColors: Object.freeze({
         primary: '#0f766e',
         background: '#ffffff',
         accent: '#22c55e',
-      },
-      merchant: {
-        // Runtime merchant data is not guaranteed to be clean; non-string logos
-        // must be ignored rather than passed through to the storefront header.
-        logo_url: 42,
-      },
+      }),
+      merchant: Object.freeze({
+        logo_url: 'https://example.com/logo.png',
+        hero_image_ids: Object.freeze(['ignored']),
+      }),
+    });
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => {
+      throw new Error('clock must not run');
+    });
+    const random = vi.spyOn(Math, 'random').mockImplementation(() => {
+      throw new Error('random must not run');
+    });
+    vi.stubGlobal('fetch', dependencyTraps.fetch);
+
+    try {
+      const first = await generateInitialTemplate(frozenInput);
+      const second = await generateInitialTemplate(frozenInput);
+      const direct = buildCuratedStorefront({
+        businessName: 'CarePoint',
+        businessType: 'pharmaceuticals',
+        country: '',
+        brandColors: frozenInput.brandColors,
+        logoUrl: 'https://example.com/logo.png',
+      });
+
+      expect(first).toEqual(second);
+      expect(first).toEqual(direct);
+      expect(frozenInput).toEqual({
+        businessName: 'CarePoint',
+        businessType: 'pharmaceuticals',
+        brandColors: {
+          primary: '#0f766e',
+          background: '#ffffff',
+          accent: '#22c55e',
+        },
+        merchant: {
+          logo_url: 'https://example.com/logo.png',
+          hero_image_ids: ['ignored'],
+        },
+      });
+      for (const trap of Object.values(dependencyTraps))
+        expect(trap).not.toHaveBeenCalled();
+      expect(clock).not.toHaveBeenCalled();
+      expect(random).not.toHaveBeenCalled();
+    } finally {
+      clock.mockRestore();
+      random.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('does not call configured AI providers while creating a starter', async () => {
+    const provider = vi.fn(() => {
+      throw new Error('provider must not run');
+    });
+    vi.stubGlobal('fetch', provider);
+    const result = await generateInitialTemplate(input);
+    expect(
+      result.content.find((block) => block.type === 'Hero')?.props?.headingLevel
+    ).toBe('h1');
+    expect(provider).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+  it('does not read clocks or random values while creating a starter', async () => {
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => {
+      throw new Error('clock must not run');
+    });
+    const random = vi.spyOn(Math, 'random').mockImplementation(() => {
+      throw new Error('random must not run');
     });
 
-    const hero = config.content.find((block) => block.type === 'HeroCarousel');
-    const header = config.content.find((block) => block.type === 'Header');
-    const features = config.content.find((block) => block.type === 'Features');
-    const productGrid = config.content.find(
-      (block) => block.type === 'ProductGrid'
+    await expect(generateInitialTemplate(input)).resolves.toEqual(
+      await generateInitialTemplate(input)
     );
-    const firstSlide = hero?.props?.slides?.[0];
 
-    expect(firstSlide?.subtitle).toBe(
-      'Trusted healthcare essentials and supplies.'
-    );
-    expect(features?.props?.title).toBe('Safe Healthcare Shopping');
-    expect(productGrid?.props?.title).toBe('Health Essentials');
-    expect(header?.props?.logoUrl).toBeUndefined();
-    expect(errorSpy).toHaveBeenCalledWith(
-      'AI Content Generation Failed:',
-      expect.any(Error)
-    );
-    expect(generateObject).toHaveBeenCalledTimes(2);
-    errorSpy.mockRestore();
+    expect(clock).not.toHaveBeenCalled();
+    expect(random).not.toHaveBeenCalled();
+    clock.mockRestore();
+    random.mockRestore();
+  });
+  it.each(
+    curatedProfileCases
+  )('returns stable unique scaffold IDs for $businessType', async ({
+    businessType,
+  }) => {
+    const result = await generateInitialTemplate({
+      ...input,
+      businessType,
+      merchant: { logo_url: 'invalid' },
+    });
+    const ids = result.content.map((block) => block.props?.id);
+    expect(
+      ids.every((id) => typeof id === 'string' && id.trim().length > 0)
+    ).toBe(true);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(
+      result.content.filter((block) => block.type === 'Header')
+    ).toHaveLength(1);
+    expect(
+      result.content.filter((block) => block.type === 'Footer')
+    ).toHaveLength(1);
+    expect(
+      result.content.filter((block) => block.type === 'ProductGrid')
+    ).toHaveLength(1);
+    expect(
+      result.content.find((block) => block.type === 'Header')?.props?.logoUrl
+    ).toBeUndefined();
   });
 });
