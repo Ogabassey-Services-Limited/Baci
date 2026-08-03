@@ -67,6 +67,7 @@ cron_line_approved() { cron_sha=$(hash_text "$1") || die 'cron line digest faile
 process_line_approved() {
   /usr/bin/printf '%s\n' "$1" | /usr/bin/awk 'NF == 5 && $4 == "/usr/bin/ollama" && $5 == "serve" { exit 0 } { exit 1 }'
 }
+record_running_process_environments() { file=$1; type recovery_process_environment_evidence >/dev/null 2>&1 || review_required 'process environment scanner missing'; while IFS=' ' read -r pid ppid user args || [ -n "$pid$ppid$user$args" ]; do case "$pid" in PID) continue;; ''|*[!0-9]*) review_required 'invalid running process pid';; esac; [ "$pid" = "$$" ] && continue; process_line_approved "$pid $ppid $user $args" && continue; evidence=$(recovery_process_environment_evidence "$pid"); state=$(printf '%s\n' "$evidence" | jq -r '.state // "present"') || review_required 'invalid process environment evidence'; [ "$state" = vanished ] && continue; [ "$state" = present ] || review_required 'invalid process environment evidence'; match=$(printf '%s\n' "$evidence" | jq -r '.matchingEnvironmentSha256 // empty') || review_required 'invalid process environment evidence'; [ -z "$match" ] || recovery_record_process_environment_consumer "$evidence"; done <"$file"; }
 record_consumers() {
   class=$1 file=$2 mode=${3:-matched}; count=0; unknown_sha=$(hash_text unknown)
   while IFS= read -r line || [ -n "$line" ]; do
@@ -219,7 +220,7 @@ collect() {
   record_scan systemd-timers systemctl list-timers --all; record_scan reverse-proxy scan_nginx_definitions; record_scan compose-definitions scan_compose_definitions
   if crontab -u "$OWNER" -l >"$cron" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'crontab scan failed'; : >"$cron"; fi; cron_sha=$(sha "$cron")
   case "$phase:$cron_sha" in scan:"$PRE_CRON_SHA"|revalidate:"$PRE_CRON_SHA"|revalidate:"$POST_CRON_SHA"|delete_models:"$POST_CRON_SHA") :;; *) die 'crontab drift';; esac
-  record_scan current-crontab cat "$cron"; record_scan running-processes ps -ww -eo pid,ppid,user,args; record_scan running-containers scan_running_containers
+  record_scan current-crontab cat "$cron"; processes=$(temp_path); ps -ww -eo pid,ppid,user,args >"$processes" || { rm -f "$processes"; die 'process scan failed'; }; record_scan running-processes cat "$processes"; record_running_process_environments "$processes"; rm -f "$processes"; record_scan running-containers scan_running_containers
   load_cron_inventory_helper; record_external_cron_sources
   if package=$(dpkg-query -W "-f=$PACKAGE_FORMAT" ollama 2>/dev/null); then :; else die 'Ollama package missing'; fi; [ -n "$package" ] || die 'Ollama package missing'; record_scan package-identity dpkg-query -W "-f=$PACKAGE_FORMAT" ollama
   record_docker_socket; record_scan docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'

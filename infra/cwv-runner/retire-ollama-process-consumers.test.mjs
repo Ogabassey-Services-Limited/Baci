@@ -46,10 +46,7 @@ test('uses untruncated ps args so a long compound process remains a consumer', a
   const approved = '42 1 root /usr/bin/ollama serve';
   const compound = `${approved} & /opt/worker --listen 127.0.0.1:11434`;
   const source = await readFile(script, 'utf8');
-  assert.match(
-    source,
-    /record_scan running-processes ps -ww -eo pid,ppid,user,args/
-  );
+  assert.match(source, /ps -ww -eo pid,ppid,user,args >"\$processes"/);
   const { stdout } = await execFileAsync(
     'sh',
     [

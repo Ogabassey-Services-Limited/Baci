@@ -113,8 +113,8 @@ cron_inventory_periodic_dir() {
   done
 }
 cron_inventory_command_targets() {
-  kind=$1 source=$2 snapshot=$3; anacron=$(cron_inventory_anacrontab); system=$(cron_inventory_system_file); hourly=$(cron_inventory_hourly_dir); daily=$(cron_inventory_daily_dir); weekly=$(cron_inventory_weekly_dir); monthly=$(cron_inventory_monthly_dir)
-  case "$kind:$source" in system:"$anacron") format=anacron;; system:*) format=system;; user:*) format=user;; system-directory:*) return 0;; *) return 2;; esac
+  kind=$1 source=$2 snapshot=$3; anacron=$(cron_inventory_anacrontab); system=$(cron_inventory_system_file); cron_target_system_dir=$(cron_inventory_system_dir); hourly=$(cron_inventory_hourly_dir); daily=$(cron_inventory_daily_dir); weekly=$(cron_inventory_weekly_dir); monthly=$(cron_inventory_monthly_dir)
+  case "$kind:$source" in system:"$anacron") format=anacron;; system:*) format=system;; user:*) format=user;; system-directory:*) [ "${source%/*}" = "$cron_target_system_dir" ] || return 0; format=system;; *) return 2;; esac
   [ "$kind:$source" = "system:$system" ] && canonical_system=1 || canonical_system=0
   awk -v format="$format" -v canonical_system="$canonical_system" -v hourly="$hourly" -v daily="$daily" -v weekly="$weekly" -v monthly="$monthly" '
     function fixed_periodic(directory) {
