@@ -18,6 +18,9 @@ export interface SmokeDependencies {
   }) => { error?: Error };
   now: () => number;
   runProvider: (provider: SmokeProvider, signal: AbortSignal) => Promise<boolean>;
+  validateEnvironmentSource: (
+    source: string | undefined
+  ) => Promise<{ path: string } | null>;
   write: (line: string) => void;
 }
 
@@ -65,6 +68,9 @@ export function createDependencies(
     loadEnvironment: vi.fn(() => ({})),
     now: vi.fn(() => 1_000),
     runProvider: vi.fn(async () => true),
+    validateEnvironmentSource: vi.fn(async (source) =>
+      source?.startsWith('/primary/apps/web/') ? { path: source } : null
+    ),
     write: vi.fn(),
   };
 }

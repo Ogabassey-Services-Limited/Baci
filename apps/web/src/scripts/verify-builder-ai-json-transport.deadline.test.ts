@@ -9,6 +9,8 @@ interface DefaultSmokeModule {
     environment: Record<string, string | undefined>;
     loadEnvironment: () => { error?: Error };
     materializeProviders: (signal: AbortSignal) => Promise<never[]>;
+    runWorkerCommand?: (command: { kind: string }) => Promise<unknown>;
+    validateEnvironmentSource: () => Promise<{ path: string } | null>;
     write: (line: string) => void;
   };
   verifyBuilderAiJsonTransport: (dependencies: {
@@ -28,26 +30,34 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
     return controller.signal;
   }
 
-  it('uses the default CLI deadline seam to return nonzero for a hung catalog', async () => {
-    vi.useFakeTimers();
+  it('uses the default CLI worker seam without loading provider credentials in-process', async () => {
     const module = (await loadSmokeModule()) as unknown as DefaultSmokeModule;
     const dependencies =
       module.createDefaultBuilderAiJsonTransportSmokeDependencies();
     dependencies.environment = {
       BACI_APPROVE_PAID_AI_SMOKE: '1',
       BACI_WEB_ENV_SOURCE: '/primary/apps/web/.env',
-      CEREBRAS_API_KEY: 'cerebras-test',
-      GROQ_API_KEY: 'groq-test',
     };
-    dependencies.loadEnvironment = () => ({});
-    dependencies.materializeProviders = () => new Promise(() => {});
+    dependencies.loadEnvironment = vi.fn(() => ({}));
+    dependencies.materializeProviders = vi.fn(async () => []);
+    dependencies.validateEnvironmentSource = vi.fn(async () => ({
+      path: '/primary/apps/web/.env',
+    }));
+    dependencies.runWorkerCommand = vi.fn(async (command) =>
+      command.kind === 'list'
+        ? {
+            kind: 'providers',
+            providers: [{ name: 'groq:openai/gpt-oss-120b' }],
+          }
+        : { kind: 'probe', passed: true }
+    );
     dependencies.write = vi.fn();
-    const completion = module.verifyBuilderAiJsonTransport(dependencies);
-    const expectation = expect(completion).resolves.toBe(1);
 
-    await vi.advanceTimersByTimeAsync(20_000);
+    await expect(module.verifyBuilderAiJsonTransport(dependencies)).resolves.toBe(0);
 
-    await expectation;
+    expect(dependencies.loadEnvironment).not.toHaveBeenCalled();
+    expect(dependencies.materializeProviders).not.toHaveBeenCalled();
+    expect(dependencies.runWorkerCommand).toHaveBeenCalledTimes(2);
   });
 
   it('bounds provider materialization and each configured probe by the whole-smoke deadline', async () => {

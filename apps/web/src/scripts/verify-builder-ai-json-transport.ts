@@ -1,33 +1,20 @@
 import { config as loadDotenv } from 'dotenv';
-import { generateText, Output } from 'ai';
-import { pathToFileURL } from 'node:url';
-import { builderAiEditContract, type BuilderData } from '@baci/shared/contracts';
-import { applyBuilderAiEditPlan } from '@/lib/builder-ai/apply-builder-ai-edit-plan';
-import { builderAiPlanOutputBudget } from '@/lib/builder-ai/builder-ai-plan-output-budget';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   builderAiJsonTransportContract,
   type BuilderAiJsonTransportProviderDescriptor,
 } from './builder-ai-json-transport-contract';
 import { settleBuilderAiSmokeBeforeDeadline } from './builder-ai-smoke-deadline';
-import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-builder-ai-provider-chain';
+import { validateBuilderAiSmokeEnvironmentSource } from './builder-ai-smoke-environment-source';
+import {
+  runBuilderAiSmokeWorkerCommand,
+  type BuilderAiSmokeWorkerCommand,
+  type BuilderAiSmokeWorkerResult,
+} from './builder-ai-smoke-supervisor';
 
-export const BUILDER_AI_JSON_SMOKE_PROMPT =
-  'Return only JSON with status "proposed", a summary string, and exactly one update_component operation for componentId "smoke-hero". Its patch must contain only componentType "Hero" and title "Smoke checked". Do not return markdown, extra keys, code, HTML, or explanations.';
-
-const SMOKE_CONFIG: BuilderData = {
-  content: [
-    {
-      props: { id: 'smoke-hero', title: 'Smoke' },
-      type: 'Hero',
-    },
-  ],
-  root: { title: 'Smoke' },
-};
-
-type SmokeProvider = BuilderAiJsonTransportProviderDescriptor & {
-  model: Parameters<typeof generateText>[0]['model'];
-};
+type SmokeProvider = BuilderAiJsonTransportProviderDescriptor & { model: object };
 type SmokeResult = 'fail' | 'pass' | 'refused';
+type WorkerRunner = (command: BuilderAiSmokeWorkerCommand, deadlineMs: number) => Promise<BuilderAiSmokeWorkerResult>;
 
 const PROVIDER_SMOKE_DEADLINE_MS = 5_000;
 const WHOLE_SMOKE_DEADLINE_MS = 20_000;
@@ -44,15 +31,9 @@ export interface BuilderAiJsonTransportSmokeDependencies {
   }) => { error?: unknown };
   now: () => number;
   runProvider: (provider: SmokeProvider, signal: AbortSignal) => Promise<boolean>;
+  runWorkerCommand?: WorkerRunner;
+  validateEnvironmentSource: (source: string | undefined) => Promise<{ path: string } | null>;
   write: (line: string) => void;
-}
-
-function isApprovedEnvironmentSource(source: string | undefined): boolean {
-  return Boolean(
-    source &&
-      (source.endsWith('/apps/web/.env') ||
-        source.endsWith('/apps/web/.env.local'))
-  );
 }
 
 function writeResult(
@@ -72,80 +53,23 @@ function refuse(dependencies: BuilderAiJsonTransportSmokeDependencies): number {
   return 1;
 }
 
-export function isValidBuilderAiJsonTransportSmokeResult(
-  output: unknown
-): boolean {
-  const parsed = builderAiEditContract.modelPlanSchema.safeParse(output);
-  if (!parsed.success || parsed.data.status !== 'proposed') return false;
-  const [operation] = parsed.data.operations;
-  if (
-    parsed.data.operations.length !== 1 ||
-    operation?.kind !== 'update_component' ||
-    operation.componentId !== 'smoke-hero' ||
-    operation.patch.componentType !== 'Hero' ||
-    operation.patch.title !== 'Smoke checked' ||
-    Object.keys(operation.patch).length !== 2
-  ) {
-    return false;
-  }
-  try {
-    const result = applyBuilderAiEditPlan(
-      SMOKE_CONFIG,
-      parsed.data,
-      (type) => `smoke-${type}`
-    );
-    return (
-      result.warnings.length === 0 &&
-      JSON.stringify(result.candidateConfig) ===
-        JSON.stringify({
-          ...SMOKE_CONFIG,
-          content: [
-            {
-              props: { id: 'smoke-hero', title: 'Smoke checked' },
-              type: 'Hero',
-            },
-          ],
-        })
-    );
-  } catch {
-    return false;
-  }
-}
-
-export async function runProviderSmoke(
-  provider: SmokeProvider,
-  signal: AbortSignal
-): Promise<boolean> {
-  if (
-    !builderAiPlanOutputBudget.isApproved(
-      builderAiPlanOutputBudget.maxOutputTokens
-    )
-  ) {
-    throw new Error('Builder AI output budget is not approved');
-  }
-  const result = await generateText({
-    abortSignal: signal,
-    maxOutputTokens: builderAiPlanOutputBudget.maxOutputTokens,
-    maxRetries: 0,
-    model: provider.model,
-    output: Output.json(),
-    prompt: BUILDER_AI_JSON_SMOKE_PROMPT,
-  });
-  return isValidBuilderAiJsonTransportSmokeResult(result.output);
-}
-
 export function createDefaultBuilderAiJsonTransportSmokeDependencies(): BuilderAiJsonTransportSmokeDependencies {
   return {
     combineSignals: AbortSignal.any,
     createDeadlineSignal: AbortSignal.timeout,
     environment: process.env,
-    materializeProviders: async (_signal) => {
-      const result = materializeBuilderAiProviderChain();
-      return result.providers;
-    },
+    materializeProviders: async () => [],
     loadEnvironment: loadDotenv,
     now: Date.now,
-    runProvider: runProviderSmoke,
+    runProvider: async () => false,
+    runWorkerCommand: (command, deadlineMs) =>
+      runBuilderAiSmokeWorkerCommand(command, {
+        deadlineMs,
+        workerPath: fileURLToPath(
+          new URL('./builder-ai-json-transport-worker.ts', import.meta.url)
+        ),
+      }),
+    validateEnvironmentSource: validateBuilderAiSmokeEnvironmentSource,
     write: console.log,
   };
 }
@@ -153,18 +77,24 @@ export function createDefaultBuilderAiJsonTransportSmokeDependencies(): BuilderA
 export async function verifyBuilderAiJsonTransport(
   dependencies: BuilderAiJsonTransportSmokeDependencies = createDefaultBuilderAiJsonTransportSmokeDependencies()
 ): Promise<number> {
-  const source = dependencies.environment.BACI_WEB_ENV_SOURCE;
+  const source = await dependencies.validateEnvironmentSource(
+    dependencies.environment.BACI_WEB_ENV_SOURCE
+  );
   if (
     dependencies.environment.BACI_APPROVE_PAID_AI_SMOKE !== '1' ||
-    !isApprovedEnvironmentSource(source)
+    !source
   ) {
     return refuse(dependencies);
+  }
+
+  if (dependencies.runWorkerCommand) {
+    return verifyWithCredentialWorker(dependencies, source.path);
   }
 
   try {
     const loaded = dependencies.loadEnvironment({
       override: false,
-      path: source,
+      path: source.path,
       quiet: true,
     });
     if (loaded.error) {
@@ -230,6 +160,54 @@ export async function verifyBuilderAiJsonTransport(
     if (wholeSmokeSignal.aborted) break;
   }
 
+  return requiredProviderFailed ? 1 : 0;
+}
+
+async function verifyWithCredentialWorker(
+  dependencies: BuilderAiJsonTransportSmokeDependencies,
+  sourcePath: string
+): Promise<number> {
+  const startedAt = dependencies.now();
+  const remaining = () =>
+    Math.max(0, WHOLE_SMOKE_DEADLINE_MS - (dependencies.now() - startedAt));
+  const list = await dependencies.runWorkerCommand?.(
+    { kind: 'list', sourcePath },
+    remaining()
+  );
+  if (
+    !list ||
+    list.kind !== 'providers' ||
+    !builderAiJsonTransportContract.hasCanonicalProviderOrder(list.providers)
+  ) {
+    return refuse(dependencies);
+  }
+
+  let requiredProviderFailed = false;
+  for (const provider of list.providers) {
+    const deadlineMs = Math.min(PROVIDER_SMOKE_DEADLINE_MS, remaining());
+    if (deadlineMs <= 0) {
+      requiredProviderFailed = true;
+      break;
+    }
+    const identity = builderAiJsonTransportContract.getProviderIdentity(
+      provider.name
+    );
+    const providerStartedAt = dependencies.now();
+    const result = await dependencies.runWorkerCommand?.(
+      { deadlineMs, kind: 'probe', providerName: provider.name, sourcePath },
+      deadlineMs
+    );
+    const passed = result?.kind === 'probe' && result.passed;
+    writeResult(
+      dependencies.write,
+      identity.alias,
+      identity.model,
+      passed ? 'pass' : 'fail',
+      Math.max(0, dependencies.now() - providerStartedAt)
+    );
+    if (!passed || remaining() <= 0) requiredProviderFailed = true;
+    if (remaining() <= 0) break;
+  }
   return requiredProviderFailed ? 1 : 0;
 }
 

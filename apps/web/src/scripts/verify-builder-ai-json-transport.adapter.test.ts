@@ -15,7 +15,7 @@ interface SmokeModule {
   ) => Promise<boolean>;
 }
 
-const smokeModulePath = './verify-builder-ai-json-transport';
+const smokeModulePath = './builder-ai-json-transport-worker';
 const provider = { model: { id: 'cerebras-model' }, name: 'cerebras:model' };
 const validOutput = {
   operations: [

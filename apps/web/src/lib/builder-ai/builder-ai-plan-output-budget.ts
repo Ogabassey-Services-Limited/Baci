@@ -1,6 +1,6 @@
 export const builderAiPlanOutputBudget = {
-  // The shared 4,096-byte aggregate plan cap supports this provider-safe
-  // ceiling while retaining 2,048 bytes of response headroom.
+  // Provider output tokens are an independent transport ceiling; the shared
+  // aggregate plan byte cap is enforced separately after structured parsing.
   maxOutputTokens: 6_144,
   isApproved: (value: unknown): value is number => value === 6_144,
   routeResponseMarginMs: 1_000,

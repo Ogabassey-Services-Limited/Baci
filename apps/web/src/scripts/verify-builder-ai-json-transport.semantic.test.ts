@@ -4,7 +4,7 @@ interface SmokeSemanticModule {
   isValidBuilderAiJsonTransportSmokeResult: (output: unknown) => boolean;
 }
 
-const smokeModulePath = './verify-builder-ai-json-transport';
+const smokeModulePath = './builder-ai-json-transport-worker';
 
 function loadSemanticModule(): Promise<SmokeSemanticModule> {
   return import(smokeModulePath) as Promise<SmokeSemanticModule>;
