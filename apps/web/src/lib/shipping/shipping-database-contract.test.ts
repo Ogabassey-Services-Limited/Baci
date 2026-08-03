@@ -25,6 +25,13 @@ const bookingLockRepairMigration = readFileSync(
   ),
   'utf8'
 );
+const bookingLockTimeoutRepairMigration = readFileSync(
+  resolve(
+    currentDir,
+    '../../../../../supabase/migrations/20260803000400_restore_booking_lock_timeout_floor.sql'
+  ),
+  'utf8'
+);
 
 function tableDefinition(tableName: string): string {
   const start = baselineMigration.indexOf(
@@ -93,6 +100,15 @@ describe('shipping database contract', () => {
     );
     expect(bookingLockRepairMigration).toContain(
       'target.shipment_booking_lock_token IS NULL'
+    );
+  });
+
+  it('keeps direct booking-lock claims behind the minimum timeout floor', () => {
+    expect(bookingLockTimeoutRepairMigration).toContain(
+      'greatest(coalesce(p_lock_timeout_seconds, 900), 900)'
+    );
+    expect(bookingLockTimeoutRepairMigration).toContain(
+      'pg_catalog.make_interval'
     );
   });
 });

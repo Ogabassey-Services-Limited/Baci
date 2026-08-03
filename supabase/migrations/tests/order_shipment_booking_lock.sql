@@ -1,6 +1,6 @@
 -- REGRESSION TEST: claim_order_shipment_booking must execute against a migrated
 -- database and return one claim followed by an in-progress result. This directly
--- catches the PL/pgSQL output-column ambiguity fixed by the forward migration.
+-- catches output-column ambiguity and attempts to bypass the lock timeout floor.
 --
 -- Usage:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/tests/order_shipment_booking_lock.sql
@@ -41,7 +41,7 @@ BEGIN
     v_order_id,
     v_merchant_id,
     '63a63d82-0000-4000-8000-000000000004',
-    900
+    0
   );
 
   IF v_first_claim.claimed IS DISTINCT FROM true

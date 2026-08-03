@@ -213,6 +213,20 @@ describe('GIGL retry and generation hardening migrations', () => {
     );
   });
 
+  it('indexes every state eligible for GIGL monitor claims', () => {
+    const migration = readMigration(
+      '20260803000500_index_gigl_monitor_claims.sql'
+    );
+
+    expect(migration).toContain(
+      'CREATE INDEX IF NOT EXISTS shipment_tracking_monitors_claimable_due_idx'
+    );
+    expect(migration).toContain(
+      "WHERE state IN ('active', 'final_poll', 'paused')"
+    );
+    expect(migration).toContain('next_poll_at IS NOT NULL');
+  });
+
   it('revalidates monitor ownership when a shipment merchant changes', () => {
     const migration = readMigration(
       '20260801142300_track_gigl_monitor_merchant_changes.sql'

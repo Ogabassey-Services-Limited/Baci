@@ -207,4 +207,12 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '20260803000300_harden_gigl_carrier_precedence.sql',
     'd8015b4fa54ad7f1523d3b7ef6ff452aca6dc4825da283c7c91a9c8a0bd266fd',
   ],
+  [
+    '20260803000400_restore_booking_lock_timeout_floor.sql',
+    'd1f1bd87e2e0daf2d1ef9d471558180d50e43de7827df24054455d8bddf8daee',
+  ],
+  [
+    '20260803000500_index_gigl_monitor_claims.sql',
+    '815a9b78f367cf0269a47a9908b2ff4a555ade9f10d3477248267792a4329f1f',
+  ],
 ] as const;
