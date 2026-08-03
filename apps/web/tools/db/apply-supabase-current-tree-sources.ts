@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { applySupabaseReplaySql } from './apply-supabase-replay-sql';
 import type {
   FrozenReplaySource,
@@ -6,6 +7,10 @@ import type {
 
 type CurrentTreeSourceOptions = {
   apply: (sqlPath: string) => Promise<unknown>;
+  readSource: (
+    repositoryRoot: string,
+    repositoryPath: string
+  ) => Promise<Buffer>;
   materializeSource: (
     repositoryRoot: string,
     workdir: string,
@@ -19,12 +24,25 @@ type CurrentTreeSourceOptions = {
   workdir: string;
 };
 
-const replaySourceReplacements = new Map([
+type ReplaySourceReplacement = {
+  replacementPath: string;
+  sourceSha256: string;
+};
+
+const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
   [
     'supabase/migrations/20260727220050_shipment_tracking_realtime_broadcast.sql',
-    'supabase/migrations/20260803000600_repair_gigl_tracking_realtime_broadcast.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260803000600_repair_gigl_tracking_realtime_broadcast.sql',
+      sourceSha256:
+        '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65',
+    },
   ],
 ]);
+
+const sha256 = (value: Buffer) =>
+  createHash('sha256').update(value).digest('hex');
 
 export async function applySupabaseCurrentTreeSources(
   options: CurrentTreeSourceOptions
@@ -40,21 +58,31 @@ export async function applySupabaseCurrentTreeSources(
   const appliedPaths = new Set<string>();
   let ordinal = options.startingOrdinal;
   for (const source of sources) {
-    const replacementPath = replaySourceReplacements.get(source.repositoryPath);
-    if (replacementPath) {
-      const replacement = sources.find(
-        ({ repositoryPath }) => repositoryPath === replacementPath
+    const replacement = replaySourceReplacements.get(source.repositoryPath);
+    if (replacement) {
+      if (source.sha256 !== replacement.sourceSha256) {
+        throw new Error('Replay source hash mismatch');
+      }
+      const historicalBytes = await options.readSource(
+        options.repositoryRoot,
+        source.repositoryPath
       );
-      if (!replacement) {
+      if (sha256(historicalBytes) !== replacement.sourceSha256) {
+        throw new Error('Replay source hash mismatch');
+      }
+      const replacementSource = sources.find(
+        ({ repositoryPath }) => repositoryPath === replacement.replacementPath
+      );
+      if (!replacementSource) {
         throw new Error(
-          `Missing replay replacement source: ${replacementPath}`
+          `Missing replay replacement source: ${replacement.replacementPath}`
         );
       }
-      if (appliedPaths.has(replacement.repositoryPath)) continue;
+      if (appliedPaths.has(replacementSource.repositoryPath)) continue;
       const sqlPath = await options.materializeSource(
         options.repositoryRoot,
         options.workdir,
-        replacement,
+        replacementSource,
         ordinal
       );
       await applySupabaseReplaySql(options.apply, {
@@ -62,7 +90,7 @@ export async function applySupabaseCurrentTreeSources(
         ordinal,
         sqlPath,
       });
-      appliedPaths.add(replacement.repositoryPath);
+      appliedPaths.add(replacementSource.repositoryPath);
       ordinal += 1;
       continue;
     }

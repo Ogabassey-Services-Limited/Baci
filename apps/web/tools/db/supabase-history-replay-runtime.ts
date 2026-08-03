@@ -40,6 +40,7 @@ export function createSupabaseHistoryReplayRuntimeDependencies() {
     readEffects: replayCommandRuntime.readBoundEffects as (
       options: Parameters<typeof replayCommandRuntime.readBoundEffects>[0]
     ) => Promise<unknown>,
+    readSource: replayRepository.readSource,
     readText: (target: string) => fs.readFile(target, 'utf8'),
     removeWorkdir: (target: string) =>
       fs.rm(target, { force: true, recursive: true }),
