@@ -98,6 +98,7 @@ config.resolver = {
 
     // Test files should not be bundled
     /\.test\.tsx?$/,
+    /\.test-[^.\\/]+\.tsx?$/,
     /\.spec\.tsx?$/,
     /\/__tests__\//,
     // Test configuration files

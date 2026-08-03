@@ -6,10 +6,15 @@
  * RPC, match the destination to a zone, compute applicable rates, and map
  * them onto the carrier `ShippingQuote` shape.
  *
- * Fails soft: any load/shape error resolves to an empty list so merchant
- * rates can never take down carrier quoting or checkout.
+ * A malformed rate configuration resolves to no merchant rates. A failed
+ * storefront RPC is flagged separately so callers can fail carrier quoting
+ * closed instead of mistaking an unknown configuration for an explicit opt-out.
  */
 
+import {
+  CARRIER_PROVIDER_CODE_BY_ID,
+  isCarrierProviderId,
+} from '@baci/shared/constants';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { computeMerchantRates } from '@/lib/shipping/merchant-rates/compute-rates';
@@ -18,7 +23,17 @@ import { matchShippingZone } from '@/lib/shipping/merchant-rates/match-zone';
 import { resolveSubdivisionCode } from '@/lib/shipping/merchant-rates/subdivisions';
 import { computedRatesToShippingQuotes } from '@/lib/shipping/merchant-rates/to-shipping-quotes';
 import type { MerchantShippingRate } from '@/lib/shipping/merchant-rates/types';
-import type { ShippingQuote } from '@/lib/shipping/types';
+import type { ShippingProviderCode, ShippingQuote } from '@/lib/shipping/types';
+
+function getCarrierProviderCode(
+  provider: string
+): ShippingProviderCode | undefined {
+  if (!isCarrierProviderId(provider)) {
+    return undefined;
+  }
+
+  return CARRIER_PROVIDER_CODE_BY_ID[provider];
+}
 
 export interface MerchantRateQuoteInput {
   merchantId: string;
@@ -54,6 +69,8 @@ export interface MerchantRateQuoteInput {
 export interface MerchantRateQuoteResult {
   /** Matched, current-currency merchant-rate quotes ([] on no match/failure). */
   quotes: ShippingQuote[];
+  /** Carrier integrations the merchant explicitly enabled for live rates. */
+  enabledCarrierProviderCodes: ShippingProviderCode[];
   /**
    * Canonical currency the RPC reported for THIS merchant
    * (`resolveMerchantCurrencyConfig(...).code`, upper-cased), or `undefined`
@@ -69,14 +86,10 @@ export interface MerchantRateQuoteResult {
   resolvedCountry?: string;
   /**
    * `true` when the merchant-rate LOAD FAILED (the SECURITY DEFINER RPC errored,
-   * the client threw, or the payload was malformed) and this result is the
-   * fail-soft empty set. On a load failure `resolvedCurrency`/`resolvedCountry`
-   * are both `undefined`, so the route cannot tell a non-NG merchant (defaulted
-   * to NGN on the body-only path) apart from a genuine NG one. The route reads
-   * this to FAIL CLOSED on that path — suppressing the NGN carrier quotes rather
-   * than risk one being charged in the merchant's now-unknown currency. Absent
-   * (`undefined`) on every successful RPC, so the successful NG-merge and non-NG
-   * suppress paths are unaffected.
+   * the client threw, or the payload was malformed). The route then fails
+   * carrier quoting closed before aggregation: an empty provider list is
+   * reserved for a successful explicit merchant opt-out. Absent (`undefined`)
+   * on every successful RPC.
    */
   loadFailed?: boolean;
 }
@@ -115,6 +128,12 @@ export async function getMerchantRateQuotes(
       input.merchantId
     );
     const { zones, locations, rates } = payload;
+    const enabledCarrierProviderCodes = (
+      payload.shippingProviders ?? []
+    ).flatMap((provider) => {
+      const providerCode = getCarrierProviderCode(provider);
+      return providerCode === undefined ? [] : [providerCode];
+    });
     // Drop stale-currency rates: only rates stamped in the store's current
     // canonical currency may be quoted (order-time verification rejects the
     // rest fail-closed, so surfacing them would only produce a re-quote).
@@ -149,6 +168,7 @@ export async function getMerchantRateQuotes(
       resolvedCurrency: rpcResolvedCurrency,
       resolvedCountry:
         payload.merchantCountry?.trim().toUpperCase() || undefined,
+      enabledCarrierProviderCodes,
     };
     const expectedCurrency = (rpcResolvedCurrency ?? input.merchantCurrency)
       .trim()
@@ -183,9 +203,12 @@ export async function getMerchantRateQuotes(
       merchantId: input.merchantId,
       error,
     });
-    // Fail closed: signal the load failure so the body-only quote path suppresses
-    // NGN carriers instead of merging them for a merchant whose currency this
-    // failure left unknown.
-    return { quotes: [], loadFailed: true };
+    // Signal the load failure separately from a successful empty provider list.
+    // The route fails carrier quoting closed before aggregation in this state.
+    return {
+      quotes: [],
+      enabledCarrierProviderCodes: [],
+      loadFailed: true,
+    };
   }
 }

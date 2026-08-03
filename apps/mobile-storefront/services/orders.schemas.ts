@@ -59,6 +59,7 @@ export const CreateOrderRequestSchema = z.object({
     notes: z.string().optional(),
   }),
   selected_quote_id: z.uuid().optional(),
+  shipping_rate_id: z.uuid().optional(),
   shipping_provider: z.string().optional(),
   source: z.string().default('mobile_app'),
   use_wallet_credit: z.boolean().optional(),

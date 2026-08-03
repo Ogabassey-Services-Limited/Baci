@@ -68,4 +68,36 @@ describe('Metro configuration', () => {
       expect(isBlocked(blockedPath)).toBe(true);
     }
   });
+
+  it('blocks colocated test helper modules from the Expo Router bundle', () => {
+    const testHelperPaths = [
+      path.join(
+        projectRoot,
+        'app',
+        '(admin)',
+        'analytics-config.test-support.ts'
+      ),
+      path.join(projectRoot, 'app', '(admin)', 'social-media.test-harness.ts'),
+      path.join(
+        projectRoot,
+        'app',
+        '(admin)',
+        '(tabs)',
+        'home.test-helper.tsx'
+      ),
+    ];
+
+    for (const testHelperPath of testHelperPaths) {
+      expect(isBlocked(testHelperPath)).toBe(true);
+    }
+
+    expect(
+      isBlocked(path.join(projectRoot, 'components', 'ShippingProvider.tsx'))
+    ).toBe(false);
+    expect(
+      isBlocked(
+        path.join(projectRoot, 'app', '(admin)', 'analytics-config.helper.ts')
+      )
+    ).toBe(false);
+  });
 });

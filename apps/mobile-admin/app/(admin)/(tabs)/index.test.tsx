@@ -3,9 +3,29 @@ import { router } from 'expo-router';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+type StoreReadinessMock = {
+  isReady: boolean;
+  isPublished: boolean;
+  overallProgress: number;
+};
+
+type StoreSetupStatusCardMockProps = {
+  isLive: boolean;
+  isLoading: boolean;
+  readiness: StoreReadinessMock | null | undefined;
+};
+
 const mocks = vi.hoisted(() => ({
   branchScope: { isAllLocations: true },
+  isLive: true,
+  isReadinessLoading: false,
+  readiness: {
+    isReady: true,
+    isPublished: true,
+    overallProgress: 100,
+  } as StoreReadinessMock | null,
   safeAreaEdges: null as null | readonly string[],
+  storeSetupStatusCardProps: null as StoreSetupStatusCardMockProps | null,
 }));
 
 vi.mock('react-native', async () => {
@@ -71,7 +91,6 @@ vi.mock('@/components/dashboard', async () => {
   return {
     BranchSwitcher: () => <Text>branch-switcher</Text>,
     InsightCard: () => <Text>insight-card</Text>,
-    ProgressCard: () => <Text>progress-card</Text>,
     QuickActionButton: ({
       label,
       onPress,
@@ -85,6 +104,10 @@ vi.mock('@/components/dashboard', async () => {
     ),
     RevenueChart: () => <Text>revenue-chart</Text>,
     StatCard: ({ label }: { label: string }) => <Text>{label}</Text>,
+    StoreSetupStatusCard: (props: StoreSetupStatusCardMockProps) => {
+      mocks.storeSetupStatusCardProps = props;
+      return <Text>store-setup-status-card</Text>;
+    },
     WelcomeHeader: () => <Text>welcome-header</Text>,
   };
 });
@@ -111,7 +134,7 @@ vi.mock('@/hooks/useBranchScope', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
-    isLive: true,
+    isLive: mocks.isLive,
     merchant: {
       business_name: 'Ogabassey Services Limited',
       favicon_png_192_url: null,
@@ -152,8 +175,8 @@ vi.mock('@/hooks/useSettingsStore', () => ({
 
 vi.mock('@/hooks/useStoreReadiness', () => ({
   useStoreReadiness: () => ({
-    isLoading: false,
-    readiness: { isReady: true, overallProgress: 100 },
+    isLoading: mocks.isReadinessLoading,
+    readiness: mocks.readiness,
   }),
 }));
 
@@ -204,12 +227,21 @@ vi.mock('@/lib/api-client', () => ({
   BASE_URL: 'https://example.com',
 }));
 
-import HomeScreen from '../../../app/(admin)/(tabs)/index';
+import HomeScreen from './index';
 
 describe('HomeScreen', () => {
   beforeEach(() => {
     mocks.branchScope = { isAllLocations: true };
+    mocks.isLive = true;
+    mocks.isReadinessLoading = false;
+    mocks.readiness = {
+      isReady: true,
+      isPublished: true,
+      overallProgress: 100,
+    };
     mocks.safeAreaEdges = null;
+    mocks.storeSetupStatusCardProps = null;
+    vi.clearAllMocks();
   });
 
   it('reserves the top safe area on the dashboard tab', () => {
@@ -230,6 +262,54 @@ describe('HomeScreen', () => {
     screen.getByText('New');
     expect(screen.queryByText('Visits (all stores)')).toBeNull();
     expect(screen.queryByText('New (all stores)')).toBeNull();
+  });
+
+  it('forwards completed setup readiness to the setup status card', () => {
+    render(<HomeScreen />);
+
+    expect(mocks.storeSetupStatusCardProps).toEqual({
+      isLive: true,
+      isLoading: false,
+      readiness: {
+        isReady: true,
+        isPublished: true,
+        overallProgress: 100,
+      },
+    });
+  });
+
+  it('forwards incomplete setup readiness to the setup status card', () => {
+    mocks.isLive = false;
+    mocks.readiness = {
+      isReady: false,
+      isPublished: false,
+      overallProgress: 71,
+    };
+
+    render(<HomeScreen />);
+
+    expect(mocks.storeSetupStatusCardProps).toEqual({
+      isLive: false,
+      isLoading: false,
+      readiness: {
+        isReady: false,
+        isPublished: false,
+        overallProgress: 71,
+      },
+    });
+  });
+
+  it('forwards loading state while setup readiness has not loaded', () => {
+    mocks.isReadinessLoading = true;
+    mocks.readiness = null;
+
+    render(<HomeScreen />);
+
+    expect(mocks.storeSetupStatusCardProps).toEqual({
+      isLive: true,
+      isLoading: true,
+      readiness: null,
+    });
   });
 
   it('navigates to negotiations when Negotiations quick action is pressed', () => {

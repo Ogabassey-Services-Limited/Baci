@@ -47,14 +47,8 @@ function isCatalogEnabledForMerchant(merchant: CachedMerchant): boolean {
   });
 }
 
-/**
- * Ogabassey keeps its existing static "Repair Lab" landing even when the
- * catalogue flag is off, so the page always renders for that template. Every
- * other template only renders once the merchant has opted into the
- * repairs catalogue (electronics/gadgets business type + feature flag on).
- */
 function shouldRenderRepairsPage(merchant: CachedMerchant): boolean {
-  return isOgabasseyMerchant(merchant) || isCatalogEnabledForMerchant(merchant);
+  return isCatalogEnabledForMerchant(merchant);
 }
 
 export async function generateMetadata({

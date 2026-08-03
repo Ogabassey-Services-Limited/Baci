@@ -189,10 +189,17 @@ export class QuoteAggregator {
    * Get aggregated quotes from all enabled providers
    */
   async getQuotes(request: QuoteRequest): Promise<QuoteResponse> {
-    const providers =
+    let providers =
       request.shipmentType === 'international'
         ? this.registry.getInternational()
         : this.registry.getDomestic();
+
+    if (request.enabledProviderCodes !== undefined) {
+      const enabledProviders = new Set(request.enabledProviderCodes);
+      providers = providers.filter((provider) =>
+        enabledProviders.has(provider.code)
+      );
+    }
 
     if (providers.length === 0) {
       // Surface the empty registry instead of serving a silent empty list —
@@ -201,7 +208,9 @@ export class QuoteAggregator {
         shipmentType: request.shipmentType ?? 'domestic',
       });
       return this.createFallbackResponse(request.sessionId, [
-        'No shipping providers are currently enabled',
+        request.enabledProviderCodes !== undefined
+          ? 'No shipping providers are enabled for this store'
+          : 'No shipping providers are currently enabled',
       ]);
     }
 

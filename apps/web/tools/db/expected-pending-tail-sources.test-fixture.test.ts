@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
 
 describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
-  it('preserves the exact identity and payment-ingress migration bindings', () => {
+  it('lists the expected pending-tail migration sources with integrity hashes', () => {
     expect(EXPECTED_PENDING_TAIL_SOURCES).toEqual({
       identity: [
         {
@@ -40,6 +40,44 @@ describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
             'supabase/migrations/20260731140000_payment_ingress_contract_generation_foundation.sql',
           sha256:
             '1a390474d12890e9f641c72f743b35669798eee56a887a87720f4bd8b53a1705',
+        },
+      ],
+      storefrontShippingAndRepairs: [
+        {
+          repositoryPath:
+            'supabase/migrations/20260802175837_harden_repair_booking_and_shipping_providers.sql',
+          sha256:
+            '845c3dab7b48495c6e0ed88cd72033f4d736139f3ca6239bb8e8c61abe54dcda',
+        },
+        {
+          repositoryPath:
+            'supabase/migrations/20260802220000_centralize_shipping_provider_policy.sql',
+          sha256:
+            'c0ec34bcd397263cf1f8d91fe94d0e3aa0edd4d600101dc9656ce261cd6bf2d1',
+        },
+        {
+          repositoryPath:
+            'supabase/migrations/20260803000000_add_repair_booking_rate_limit_index.sql',
+          sha256:
+            '846a37482ca4ea765f63c9ba1cf5bb747e81446f955c0c440dead034cd86fa11',
+        },
+        {
+          repositoryPath:
+            'supabase/migrations/20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql',
+          sha256:
+            '2fcb90a7746d88841ed00c86e2d46a7525674bb4e7aea04393f53bca3c0fef1c',
+        },
+        {
+          repositoryPath:
+            'supabase/migrations/20260803000200_fix_shipping_provider_and_repair_booking_regressions.sql',
+          sha256:
+            '068707fce641a6818521fcef448d8a35eccbeadad9ff785420a16be7133e3ceb',
+        },
+        {
+          repositoryPath:
+            'supabase/migrations/20260803000300_recover_repair_booking_rate_limit_index.sql',
+          sha256:
+            '1ac357cf5c224d23cb7c78760c30f8e04b2bd48bc83db439d5cdb68bb6bc5b42',
         },
       ],
     });

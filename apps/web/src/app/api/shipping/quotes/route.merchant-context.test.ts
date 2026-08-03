@@ -321,16 +321,16 @@ describe('POST /api/shipping/quotes merchant context', () => {
         (quote: { provider: string }) => quote.provider === 'GIGL'
       )
     ).toBe(false);
-    // Carriers were fetched (wasted) but nothing is read from or written to the
-    // merchants / shipping_quotes tables on the suppressed path.
-    expect(mockGetQuotes).toHaveBeenCalled();
+    // The provider settings resolve before carrier aggregation, so no Nigerian
+    // carrier is queried for a merchant whose rates resolve outside Nigeria.
+    expect(mockGetQuotes).not.toHaveBeenCalled();
     expect(adminClient.from).not.toHaveBeenCalled();
   });
 
   it('suppresses carriers and warns for a body-only non-NG merchant with no rates', async () => {
-    // Body-only non-NG merchant with NO configured rates. Carriers (Lagos NGN)
-    // are still fetched but must be suppressed via the RPC-revealed country, so
-    // the response is empty + the Nigerian-merchants-only warning, matching the
+    // Body-only non-NG merchant with NO configured rates. The RPC-revealed
+    // country stops Nigerian carrier aggregation before it starts, so the
+    // response is empty + the Nigerian-merchants-only warning, matching the
     // header-resolved non-NG path.
     const MERCHANT_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -409,17 +409,14 @@ describe('POST /api/shipping/quotes merchant context', () => {
         /Nigerian merchants only/i.test(warning)
       )
     ).toBe(true);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
     expect(adminClient.from).not.toHaveBeenCalled();
   });
 
   it('fails closed and suppresses NGN carriers when the rate RPC errors on the body-only path', async () => {
-    // Body-only path (no trusted header/auth), so the route defaulted the
-    // merchant currency to NGN and did NOT early-skip carriers. The rate RPC now
-    // ERRORS, so getMerchantRateQuotes can resolve neither currency nor country —
-    // the route cannot tell whether this merchant is non-NG. It must FAIL CLOSED:
-    // suppress the already-fetched Lagos NGN carrier quotes (which /api/orders
-    // could otherwise charge in the merchant's unknown currency) and return the
-    // merchant-only (empty + unavailable-warning) response.
+    // Body-only path (no trusted header/auth), so the route cannot establish the
+    // merchant's carrier opt-ins after the rate RPC errors. It must fail closed
+    // before carrier aggregation and return the retryable unavailable response.
     const MERCHANT_ID = '22222222-2222-4222-8222-222222222222';
 
     const errorSpy = vi
@@ -441,7 +438,8 @@ describe('POST /api/shipping/quotes merchant context', () => {
           .mockResolvedValue({ data: { user: null }, error: null }),
       },
     });
-    // Carriers return a Lagos NGN quote that must NOT survive the fail-closed.
+    // This result must remain unused: carrier aggregation never begins when
+    // provider settings cannot be loaded.
     mockGetQuotes.mockResolvedValue({
       quotes: {
         featured: [],
@@ -490,21 +488,17 @@ describe('POST /api/shipping/quotes merchant context', () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    // No carrier quote survives the fail-closed suppression.
+    // No carrier quote is requested or persisted on a failed provider lookup.
     expect(json.quotes.all).toEqual([]);
     expect(
       json.quotes.all.some(
         (quote: { provider: string }) => quote.provider === 'GIGL'
       )
     ).toBe(false);
-    // Empty merchant-only response carries the Nigerian-merchants-only warning.
-    expect(
-      json.warnings.some((warning: string) =>
-        /Nigerian merchants only/i.test(warning)
-      )
-    ).toBe(true);
-    // Carriers were fetched (wasted) but nothing is written to shipping_quotes.
-    expect(mockGetQuotes).toHaveBeenCalled();
+    expect(json.warnings).toEqual([
+      'Shipping rates are temporarily unavailable. Please try again.',
+    ]);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
     expect(adminClient.from).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
   });

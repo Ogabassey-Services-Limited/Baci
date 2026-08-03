@@ -116,4 +116,34 @@ describe('supabase-history-replay sources', () => {
       '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d 20260729100000_add_merchant_identity_verified_rpc.sql'
     );
   });
+
+  it('registers the shipping provider policy follow-up as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      'c0ec34bcd397263cf1f8d91fe94d0e3aa0edd4d600101dc9656ce261cd6bf2d1 20260802220000_centralize_shipping_provider_policy.sql'
+    );
+  });
+
+  it('registers the repair booking rate-limit index as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      '846a37482ca4ea765f63c9ba1cf5bb747e81446f955c0c440dead034cd86fa11 20260803000000_add_repair_booking_rate_limit_index.sql'
+    );
+  });
+
+  it('registers the shipping and repair hardening follow-up as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      '2fcb90a7746d88841ed00c86e2d46a7525674bb4e7aea04393f53bca3c0fef1c 20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql'
+    );
+  });
+
+  it('registers the shipping and repair regression repair as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      '068707fce641a6818521fcef448d8a35eccbeadad9ff785420a16be7133e3ceb 20260803000200_fix_shipping_provider_and_repair_booking_regressions.sql'
+    );
+  });
+
+  it('registers the repair rate-limit index recovery as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      '1ac357cf5c224d23cb7c78760c30f8e04b2bd48bc83db439d5cdb68bb6bc5b42 20260803000300_recover_repair_booking_rate_limit_index.sql'
+    );
+  });
 });

@@ -389,6 +389,20 @@ describe('POST /api/shipping/quotes merchant-configured rates', () => {
     expect(supabase.shippingQuotesTable.upsert).toHaveBeenCalledTimes(1);
   });
 
+  it('treats a blank trusted country as unknown for an NGN merchant', async () => {
+    const { json, response } = await postQuotes(
+      { ...NG_MERCHANT, country: '' },
+      lagosRatesPayload,
+      { supports_merchant_rates: true }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalled();
+    expect(json.quotes.all).toContainEqual(
+      expect.objectContaining({ id: GIGL_QUOTE_ID, provider: 'GIGL' })
+    );
+  });
+
   it('excludes merchant rates but keeps carrier quotes for an NG merchant when supports_merchant_rates is absent', async () => {
     // No flag: the caller cannot thread mrate_ ids back into order creation, so
     // merchant rates must not appear even though the merchant configured them.
@@ -437,11 +451,11 @@ describe('POST /api/shipping/quotes merchant-configured rates', () => {
     ).toBe(true);
   });
 
-  it('still returns carrier quotes for an NG merchant when the merchant-rate RPC errors', async () => {
-    // The rate RPC fails (load failure), but the NG merchant's currency/country
-    // came from trusted (authenticated) context, so the fail-closed guard does
-    // not fire: carriers are still merged and persisted, and no merchant rate
-    // leaks from the failed load.
+  it('fails closed before carrier aggregation when an NG merchant rate RPC errors', async () => {
+    // A failed rate RPC means the merchant's explicit carrier opt-ins are
+    // unknown, even when its trusted context resolves to Nigeria. The route
+    // therefore returns an empty retryable response rather than quote a carrier
+    // the merchant might have disabled.
     const { json, response, supabase } = await postQuotes(
       NG_MERCHANT,
       lagosRatesPayload,
@@ -450,23 +464,17 @@ describe('POST /api/shipping/quotes merchant-configured rates', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockGetQuotes).toHaveBeenCalled();
-    expect(json.quotes.all).toEqual([
-      expect.objectContaining({ id: GIGL_QUOTE_ID, provider: 'GIGL' }),
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+    expect(json.quotes).toEqual({ featured: [], all: [] });
+    expect(json.warnings).toEqual([
+      'Shipping rates are temporarily unavailable. Please try again.',
     ]);
-    expect(
-      json.quotes.all.some((quote: { id: string }) =>
-        quote.id.startsWith('mrate_')
-      )
-    ).toBe(false);
-    expect(json.warnings).toBeUndefined();
-    expect(supabase.shippingQuotesTable.upsert).toHaveBeenCalledTimes(1);
+    expect(supabase.shippingQuotesTable.upsert).not.toHaveBeenCalled();
   });
 
-  it('returns the empty + unavailable-rates response for a non-NG merchant when the merchant-rate RPC errors', async () => {
-    // A non-NG merchant already skips the Nigerian carriers, so a failed rate
-    // load leaves nothing to offer: the empty merchant-only response with the
-    // unavailable warning, and carriers are never called.
+  it('returns a retryable empty response for a non-NG merchant when the merchant-rate RPC errors', async () => {
+    // Provider opt-ins are unknown on a rate-RPC failure, so this path uses the
+    // same retryable response as an NG merchant and never calls a carrier.
     const { json, response } = await postQuotes(
       IN_MERCHANT,
       indiaRatesPayload,
@@ -477,13 +485,9 @@ describe('POST /api/shipping/quotes merchant-configured rates', () => {
     expect(response.status).toBe(200);
     expect(mockGetQuotes).not.toHaveBeenCalled();
     expect(json.quotes).toEqual({ featured: [], all: [] });
-    expect(
-      json.warnings.some(
-        (warning: string) =>
-          /Nigerian merchants only/i.test(warning) &&
-          /has not configured/i.test(warning)
-      )
-    ).toBe(true);
+    expect(json.warnings).toEqual([
+      'Shipping rates are temporarily unavailable. Please try again.',
+    ]);
   });
 });
 

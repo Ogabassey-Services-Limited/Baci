@@ -167,6 +167,88 @@ describe('POST /api/shipping/quotes', () => {
     );
   });
 
+  it('passes the merchant carrier selection into live quote generation', async () => {
+    const supabase = buildSupabaseMock({ id: 'user-1' });
+    supabase.rpc.mockResolvedValue({
+      data: {
+        locations: [],
+        rates: [],
+        shipping_providers: ['topship'],
+        zones: [],
+      },
+      error: null,
+    });
+    mockCreateAdminClient.mockReturnValue(supabase);
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledProviderCodes: ['TOPSHIP'],
+      })
+    );
+  });
+
+  it('does not invoke enabled carriers when a body-only merchant resolves outside Nigeria', async () => {
+    const supabase = buildSupabaseMock(null);
+    supabase.rpc.mockResolvedValue({
+      data: {
+        locations: [],
+        merchant_country: 'IN',
+        merchant_payout_currency: 'INR',
+        rates: [],
+        shipping_providers: ['gigl'],
+        zones: [],
+      },
+      error: null,
+    });
+    mockCreateAdminClient.mockReturnValue(supabase);
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        shipmentType: 'domestic',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('fails closed before carrier aggregation when merchant shipping settings cannot load', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      // The merchant-rate helper logs the expected RPC failure.
+    });
+    const supabase = buildSupabaseMock(null);
+    supabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'permission denied' },
+    });
+    mockCreateAdminClient.mockReturnValue(supabase);
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        shipmentType: 'domestic',
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.warnings).toEqual([
+      'Shipping rates are temporarily unavailable. Please try again.',
+    ]);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it('rejects public international quotes with an arbitrary merchant ID', async () => {
     const supabase = buildSupabaseMock(null);
     mockCreateAdminClient.mockReturnValue(supabase);

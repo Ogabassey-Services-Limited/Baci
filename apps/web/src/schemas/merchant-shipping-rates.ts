@@ -7,6 +7,10 @@
  * throwing, so a single bad row can never break checkout.
  */
 
+import {
+  CARRIER_PROVIDER_IDS,
+  normalizeCarrierProviderIds,
+} from '@baci/shared/constants';
 import { z } from 'zod';
 import type {
   MerchantPickupAddress,
@@ -70,6 +74,11 @@ const optionalMerchantTextSchema = z.preprocess((value) => {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }, z.string().optional().catch(undefined));
+
+const shippingProvidersSchema = z.preprocess(
+  normalizeCarrierProviderIds,
+  z.array(z.enum(CARRIER_PROVIDER_IDS))
+);
 
 // ---------------------------------------------------------------------------
 // Row schemas (snake_case in -> camelCase out).
@@ -197,6 +206,7 @@ export const storefrontShippingRatesPayloadSchema = z
     zones: dropInvalid(zoneSchema),
     locations: dropInvalid(locationSchema),
     rates: dropInvalid(rateSchema),
+    shipping_providers: shippingProvidersSchema,
     merchant_payout_currency: optionalMerchantTextSchema,
     merchant_country: optionalMerchantTextSchema,
   })
@@ -205,8 +215,13 @@ export const storefrontShippingRatesPayloadSchema = z
       zones: payload.zones,
       locations: payload.locations,
       rates: payload.rates,
-      merchantPayoutCurrency: payload.merchant_payout_currency,
-      merchantCountry: payload.merchant_country,
+      shippingProviders: payload.shipping_providers,
+      ...(payload.merchant_payout_currency !== undefined
+        ? { merchantPayoutCurrency: payload.merchant_payout_currency }
+        : {}),
+      ...(payload.merchant_country !== undefined
+        ? { merchantCountry: payload.merchant_country }
+        : {}),
     })
   );
 
@@ -218,5 +233,7 @@ export function parseStorefrontShippingRatesPayload(
   value: unknown
 ): StorefrontShippingRatesPayload {
   const parsed = storefrontShippingRatesPayloadSchema.safeParse(value ?? {});
-  return parsed.success ? parsed.data : { zones: [], locations: [], rates: [] };
+  return parsed.success
+    ? parsed.data
+    : { zones: [], locations: [], rates: [], shippingProviders: [] };
 }

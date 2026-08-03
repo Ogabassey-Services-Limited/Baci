@@ -127,7 +127,12 @@ describe('getMerchantShippingRates', () => {
     const payload = await getMerchantShippingRates(supabase, 'merchant-1');
 
     // Assert
-    expect(payload).toEqual({ zones: [], locations: [], rates: [] });
+    expect(payload).toEqual({
+      zones: [],
+      locations: [],
+      rates: [],
+      shippingProviders: [],
+    });
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
   });
@@ -140,7 +145,12 @@ describe('getMerchantShippingRates', () => {
     const payload = await getMerchantShippingRates(supabase, 'merchant-1');
 
     // Assert
-    expect(payload).toEqual({ zones: [], locations: [], rates: [] });
+    expect(payload).toEqual({
+      zones: [],
+      locations: [],
+      rates: [],
+      shippingProviders: [],
+    });
   });
 });
 
@@ -206,6 +216,11 @@ describe('getMerchantShippingRatesOrThrow', () => {
     );
 
     // Assert
-    expect(payload).toEqual({ zones: [], locations: [], rates: [] });
+    expect(payload).toEqual({
+      zones: [],
+      locations: [],
+      rates: [],
+      shippingProviders: [],
+    });
   });
 });

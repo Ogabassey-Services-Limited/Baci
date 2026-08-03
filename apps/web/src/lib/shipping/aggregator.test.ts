@@ -76,6 +76,69 @@ describe('QuoteAggregator', () => {
     expect(response.warnings).toBeUndefined();
   });
 
+  it('quotes only the carrier providers enabled by the merchant', async () => {
+    const registry = new ShippingProviderRegistry();
+    const giglQuotes = vi.fn(() => Promise.resolve([successfulQuote]));
+    const topshipQuotes = vi.fn(() =>
+      Promise.resolve([
+        {
+          ...successfulQuote,
+          id: 'topship-quote-1',
+          provider: 'TOPSHIP' as const,
+          carrierName: 'Topship',
+          displayName: 'Topship',
+        },
+      ])
+    );
+    registry.register(createProvider({ code: 'GIGL', getQuotes: giglQuotes }));
+    registry.register(
+      createProvider({
+        code: 'TOPSHIP',
+        name: 'Topship',
+        getQuotes: topshipQuotes,
+      })
+    );
+    const aggregator = new QuoteAggregator(registry);
+
+    const response = await aggregator.getQuotes({
+      ...quoteRequest,
+      enabledProviderCodes: ['TOPSHIP'],
+    });
+
+    expect(giglQuotes).not.toHaveBeenCalled();
+    expect(topshipQuotes).toHaveBeenCalledOnce();
+    expect(response.quotes.all.map((quote) => quote.provider)).toEqual([
+      'TOPSHIP',
+    ]);
+  });
+
+  it('does not query any carriers when the merchant opted out of all providers', async () => {
+    const registry = new ShippingProviderRegistry();
+    const giglQuotes = vi.fn(() => Promise.resolve([successfulQuote]));
+    const topshipQuotes = vi.fn(() => Promise.resolve([successfulQuote]));
+    registry.register(createProvider({ code: 'GIGL', getQuotes: giglQuotes }));
+    registry.register(
+      createProvider({
+        code: 'TOPSHIP',
+        name: 'Topship',
+        getQuotes: topshipQuotes,
+      })
+    );
+    const aggregator = new QuoteAggregator(registry);
+
+    const response = await aggregator.getQuotes({
+      ...quoteRequest,
+      enabledProviderCodes: [],
+    });
+
+    expect(giglQuotes).not.toHaveBeenCalled();
+    expect(topshipQuotes).not.toHaveBeenCalled();
+    expect(response.quotes.all).toEqual([]);
+    expect(response.warnings).toEqual([
+      'No shipping providers are enabled for this store',
+    ]);
+  });
+
   it('returns an explicit warning when the registry has no quote providers', async () => {
     const warnSpy = vi
       .spyOn(console, 'warn')

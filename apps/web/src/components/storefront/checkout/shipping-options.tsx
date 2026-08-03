@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { apiPost } from '@/lib/api-client';
 import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
-import { MERCHANT_PROVIDER_CODE } from '@/lib/shipping/types';
 import { cn } from '@/lib/utils';
 import type { ShippingQuote } from '@/types/shipping-quote';
 
@@ -29,9 +28,30 @@ interface ShippingOptionsProps {
     quantity: number;
     price: number;
   }[];
+  /** Canonical checkout subtotal, including assurance fees when selected. */
+  cartSubtotal: number;
   onSelect: (quote: ShippingQuote, sessionId: string) => void;
   selectedQuoteId?: string;
   className?: string;
+}
+
+export function formatShippingDeliveryTime(quote: ShippingQuote): string {
+  const deliveryRange = quote.deliveryRange?.trim();
+  if (deliveryRange) return deliveryRange;
+
+  if (!Number.isFinite(quote.estimatedDays) || quote.estimatedDays <= 0) {
+    return 'ETA unavailable';
+  }
+
+  if (
+    quote.minDays !== undefined &&
+    quote.maxDays !== undefined &&
+    quote.minDays !== quote.maxDays
+  ) {
+    return `${quote.minDays}-${quote.maxDays} days`;
+  }
+
+  return `${quote.estimatedDays} day${quote.estimatedDays !== 1 ? 's' : ''}`;
 }
 
 export function ShippingOptions({
@@ -42,6 +62,7 @@ export function ShippingOptions({
   receiverPhone,
   receiverName,
   cartItems,
+  cartSubtotal,
   onSelect,
   selectedQuoteId,
   className,
@@ -91,7 +112,7 @@ export function ShippingOptions({
     }
 
     // Create a key for this specific fetch request
-    const fetchKey = `${merchantId}-${receiverCity}-${receiverState}-${receiverAddress}-${serializedCartItems}`;
+    const fetchKey = `${merchantId}-${receiverCity}-${receiverState}-${receiverAddress}-${cartSubtotal}-${serializedCartItems}`;
 
     // Skip if we've already fetched for this exact configuration
     if (lastFetchKey.current === fetchKey && quotes.length > 0) {
@@ -118,25 +139,16 @@ export function ShippingOptions({
         },
         items: quoteItems,
         shipmentType: 'domestic',
-        // Lets free-over / price-tier merchant rates quote at their real price.
-        cart_subtotal: quoteItems.reduce(
-          (sum, item) => sum + item.value * item.quantity,
-          0
-        ),
+        // Lets free-over / price-tier merchant rates quote against the same
+        // canonical subtotal that order-time validation uses.
+        cart_subtotal: cartSubtotal,
+        // This checkout threads selected merchant rates back to /api/orders as
+        // a bare shipping_rate_id, so they are safe to offer alongside carriers.
+        supports_merchant_rates: true,
       })
         .then((response) => {
           const normalized = normalizeShippingQuoteResponse(response);
-          // The legacy checkout submit (app/checkout/page.tsx) posts
-          // selected_quote_id + shipping_provider and has no way to thread a
-          // shipping_rate_id, so a selected MERCHANT rate — whose synthetic
-          // `mrate_<uuid>` id is not a shipping_quotes row — would create a
-          // broken order. Until this path adopts the null-provider
-          // shipping_rate_id flow the OgaBassey checkout uses, drop
-          // merchant-configured rates here and keep only carrier quotes.
-          const carrierQuotes = normalized.quotes.filter(
-            (quote) => quote.provider !== MERCHANT_PROVIDER_CODE
-          );
-          setQuotes(carrierQuotes);
+          setQuotes(normalized.quotes);
           setSessionId(normalized.sessionId);
 
           if (normalized.warnings.length > 0) {
@@ -144,8 +156,8 @@ export function ShippingOptions({
           }
 
           // Auto-select cheapest only on first load
-          if (!hasAutoSelected.current && carrierQuotes.length > 0) {
-            const cheapest = carrierQuotes.reduce((min, q) =>
+          if (!hasAutoSelected.current && normalized.quotes.length > 0) {
+            const cheapest = normalized.quotes.reduce((min, q) =>
               q.price < min.price ? q : min
             );
             onSelectRef.current(cheapest, normalized.sessionId);
@@ -171,16 +183,10 @@ export function ShippingOptions({
     receiverName,
     receiverPhone,
     serializedCartItems,
+    cartSubtotal,
     quotes.length,
     merchantId,
   ]);
-
-  const formatDeliveryTime = (quote: ShippingQuote) => {
-    if (quote.minDays && quote.maxDays && quote.minDays !== quote.maxDays) {
-      return `${quote.minDays}-${quote.maxDays} days`;
-    }
-    return `${quote.estimatedDays} day${quote.estimatedDays !== 1 ? 's' : ''}`;
-  };
 
   const getProviderLogo = (provider: string) => {
     switch (provider) {
@@ -264,8 +270,7 @@ export function ShippingOptions({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {/* Provider badge (carrier quotes only — merchant rates are
-                    filtered out above for the legacy submit path). */}
+                {/* Carrier or merchant delivery provider badge. */}
                 <div className="size-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
                   {getProviderLogo(quote.provider)}
                 </div>
@@ -280,7 +285,7 @@ export function ShippingOptions({
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="size-3" />
-                      {formatDeliveryTime(quote)}
+                      {formatShippingDeliveryTime(quote)}
                     </span>
                     {quote.isStationPickup && (
                       <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
@@ -345,6 +350,8 @@ export function SelectedShippingDisplay({
     );
   }
 
+  const deliveryTime = formatShippingDeliveryTime(quote);
+
   return (
     <Card className={className}>
       <CardContent className="p-4 flex items-center justify-between">
@@ -353,8 +360,9 @@ export function SelectedShippingDisplay({
           <div>
             <p className="font-semibold">{quote.carrierName}</p>
             <p className="text-sm text-muted-foreground">
-              Est. {quote.estimatedDays} business day
-              {quote.estimatedDays !== 1 ? 's' : ''}
+              {deliveryTime === 'ETA unavailable'
+                ? deliveryTime
+                : `Est. ${deliveryTime}`}
               {quote.isStationPickup && ' (Station Pickup)'}
             </p>
           </div>
