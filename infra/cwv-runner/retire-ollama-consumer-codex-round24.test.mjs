@@ -87,3 +87,35 @@ test('fails closed on a variable-bearing Dockerfile RUN step', async () => {
     await rm(directory, { force: true, recursive: true });
   }
 });
+
+test('fails closed when Dockerfile ENV synthesizes an endpoint from ARG values', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-dockerfile-env-variable-'))
+  );
+  try {
+    await Promise.all([
+      writeFile(
+        join(directory, 'compose.yaml'),
+        'services:\n  app:\n    build: .\n'
+      ),
+      writeFile(
+        join(directory, 'Dockerfile'),
+        'FROM scratch\nARG PORT_A=11\nARG PORT_B=434\nENV ENDPOINT=http://127.0.0.1:$' +
+          '{PORT_A}$' +
+          '{PORT_B}\n'
+      ),
+    ]);
+    await assert.rejects(
+      execFileAsync('sh', [
+        '-c',
+        `${prelude}. "$1"; SCRIPT_DIR=$(dirname "$1"); COMPOSE_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_compose_definitions`,
+        'retire-ollama-dockerfile-env-variable-test',
+        script.pathname,
+        directory,
+      ]),
+      (error) => error.code === 2
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});

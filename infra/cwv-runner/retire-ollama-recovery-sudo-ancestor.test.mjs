@@ -89,6 +89,14 @@ async function fixture() {
         `${pid} (test) S ${Array(19).fill('1').join(' ')}\n`
       ),
       writeFile(join(root, 'cgroup'), `cgroup-${pid}\n`),
+      writeFile(
+        join(root, 'cmdline'),
+        pid === '100'
+          ? `/bin/sh\0${script.pathname}\0--recovery-scan\0`
+          : pid === '99'
+            ? `/usr/bin/sudo\0${script.pathname}\0--recovery-scan\0`
+            : 'init\0'
+      ),
       symlink(namespace, join(root, 'ns/pid')),
       symlink(executable, join(root, 'exe')),
     ]);

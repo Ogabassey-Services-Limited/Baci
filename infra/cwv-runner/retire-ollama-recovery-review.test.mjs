@@ -87,6 +87,7 @@ test('derives the source identity from the sealed SHA directory', async () => {
       'retire-ollama-recovery-receipts.sh',
       'retire-ollama-consumers.sh',
       'retire-ollama-consumer-closure.sh',
+      'retire-ollama-process-files.sh',
       'retire-ollama-cron-inventory.sh',
     ]) {
       await copyFile(new URL(`./${name}`, import.meta.url), join(sealed, name));

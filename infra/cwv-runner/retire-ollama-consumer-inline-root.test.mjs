@@ -135,7 +135,7 @@ test('resolves an active systemd wrapper inside its reported RootDirectory', asy
   try {
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${prelude}execution_root=$2; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; systemd_runtime_inventory() { printf 'application.service loaded active running fixture\\n' >"$2"; }; systemd_manager_call() { printf 'RootDirectory=%s\\nRootImage=\\nEnvironment=\\nEnvironmentFiles=\\nLoadCredential=\\nLoadCredentialEncrypted=\\nExecStart={ path=/usr/bin/application-worker ; argv[]=/usr/bin/application-worker ; }\\n' "$execution_root"; }; scan_systemd_runtime_consumers system`,
+      `${prelude}execution_root=$2; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; systemd_runtime_inventory() { printf 'application.service loaded active running fixture\\n' >"$2"; }; systemd_manager_call() { printf 'RootDirectory=%s\\nRootImage=\\nEnvironment=\\nEnvironmentFiles=\\nLoadCredential=\\nLoadCredentialEncrypted=\\nStandardInput=null\\nExecStart={ path=/usr/bin/application-worker ; argv[]=/usr/bin/application-worker ; }\\n' "$execution_root"; }; scan_systemd_runtime_consumers system`,
       'retire-ollama-systemd-runtime-root-test',
       script.pathname,
       fixture.executionRoot,

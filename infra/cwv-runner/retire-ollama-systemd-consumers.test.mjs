@@ -122,7 +122,7 @@ test('finds a loaded transient unit whose runtime environment consumes Ollama', 
     const property = 'Environment=OLLAMA_HOST=http://127.0.0.1:11434';
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `systemctl() { case "$1:$2" in list-units:*) printf "transient.service loaded active running transient\\n";; list-unit-files:*|--user:list-unit-files) return 0;; show:*) printf "Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nExecStart={}\\n";; *) return 64;; esac; }; ${emptyPasswdInventory} . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
+      `systemctl() { case "$1:$2" in list-units:*) printf "transient.service loaded active running transient\\n";; list-unit-files:*|--user:list-unit-files) return 0;; show:*) printf "Environment=OLLAMA_HOST=http://127.0.0.1:11434\\nEnvironmentFiles=\\nStandardInput=null\\nExecStart={}\\n";; *) return 64;; esac; }; ${emptyPasswdInventory} . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
       'retire-ollama-systemd-runtime-test',
       script.pathname,
       directory,

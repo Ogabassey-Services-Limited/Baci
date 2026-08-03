@@ -81,7 +81,7 @@ test('binds an exact runtime LoadCredential property and rejects a relative sour
     'baci-systemd-runtime-credential-'
   );
   const credential = join(directory, 'application.conf');
-  const command = `${prelude}credential=$3; relative=$4; getent() { return 2; }; systemctl() { case "$1" in list-units) printf 'application.service loaded active running application\\n';; show) printf 'Environment=\\nEnvironmentFiles=\\nLoadCredential=application.conf:%s\\nExecStart={}\\n' "$credential";; *) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`;
+  const command = `${prelude}credential=$3; relative=$4; getent() { return 2; }; systemctl() { case "$1" in list-units) printf 'application.service loaded active running application\\n';; show) printf 'Environment=\\nEnvironmentFiles=\\nLoadCredential=application.conf:%s\\nStandardInput=null\\nExecStart={}\\n' "$credential";; *) return 0;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`;
   try {
     await writeFile(credential, 'OLLAMA_HOST=http://127.0.0.1:11434\n');
 

@@ -43,7 +43,7 @@ test('reads and binds a loaded transient unit EnvironmentFile consumer', async (
     await writeFile(environment, 'OLLAMA_HOST=http://127.0.0.1:11434\n');
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${shellPrelude}environment=$2; systemctl() { case "$1" in list-units) printf 'transient.service loaded active running transient\\n';; show) printf 'Environment=\\nEnvironmentFiles=%s (ignore_errors=no)\\nExecStart={}\\n' "$environment";; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; scan_systemd_runtime_consumers`,
+      `${shellPrelude}environment=$2; systemctl() { case "$1" in list-units) printf 'transient.service loaded active running transient\\n';; show) printf 'Environment=\\nEnvironmentFiles=%s (ignore_errors=no)\\nStandardInput=null\\nExecStart={}\\n' "$environment";; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; scan_systemd_runtime_consumers`,
       'retire-ollama-runtime-environment-file-test',
       script.pathname,
       environment,
@@ -67,7 +67,7 @@ test('expands every matched optional runtime EnvironmentFile wildcard', async ()
     ]);
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${shellPrelude}environment=$2; systemctl() { case "$1" in list-units) printf 'transient.service loaded active running transient\\n';; show) printf 'Environment=\\nEnvironmentFiles=-%s/*.env (ignore_errors=yes)\\nExecStart={}\\n' "$environment";; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; scan_systemd_runtime_consumers`,
+      `${shellPrelude}environment=$2; systemctl() { case "$1" in list-units) printf 'transient.service loaded active running transient\\n';; show) printf 'Environment=\\nEnvironmentFiles=-%s/*.env (ignore_errors=yes)\\nStandardInput=null\\nExecStart={}\\n' "$environment";; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; scan_systemd_runtime_consumers`,
       'retire-ollama-runtime-environment-wildcard-test',
       script.pathname,
       directory,
@@ -88,7 +88,7 @@ test('skips only an optional runtime EnvironmentFile wildcard with no matches', 
   try {
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${shellPrelude}environment=$2; systemctl() { case "$1" in list-units) printf 'transient.service loaded active running transient\\n';; show) printf 'Environment=\\nEnvironmentFiles=-%s/*.env (ignore_errors=yes)\\nExecStart={}\\n' "$environment";; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; scan_systemd_runtime_consumers; printf 'stable\\n'`,
+      `${shellPrelude}environment=$2; systemctl() { case "$1" in list-units) printf 'transient.service loaded active running transient\\n';; show) printf 'Environment=\\nEnvironmentFiles=-%s/*.env (ignore_errors=yes)\\nStandardInput=null\\nExecStart={}\\n' "$environment";; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; scan_systemd_runtime_consumers; printf 'stable\\n'`,
       'retire-ollama-runtime-empty-environment-wildcard-test',
       script.pathname,
       directory,
