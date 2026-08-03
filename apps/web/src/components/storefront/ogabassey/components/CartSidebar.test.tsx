@@ -31,6 +31,8 @@ const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
 const mockClearNegotiatedPrice = vi.fn();
 const mockToggleAssurance = vi.fn();
+const mockRouterPush = vi.fn();
+let mockCartMerchantSlug: string | null = 'test-store';
 
 type MockCartItem = {
   id: string;
@@ -73,6 +75,7 @@ vi.mock('@/hooks/cart', () => ({
     applyCartWideNegotiation: mockApplyCartWideNegotiation,
     clearNegotiatedPrice: mockClearNegotiatedPrice,
     toggleAssurance: mockToggleAssurance,
+    merchantSlug: mockCartMerchantSlug,
     cartTotal: 10000,
   }),
 }));
@@ -86,7 +89,7 @@ vi.mock('@/lib/routes', () => ({
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockRouterPush }),
 }));
 
 vi.mock('next/image', () => ({
@@ -164,6 +167,7 @@ describe('CartSidebar', () => {
     vi.clearAllMocks();
     vi.mocked(hasStorefrontPriceNegotiation).mockReturnValue(true);
     mockMerchant = { id: 'merchant-abc', slug: 'test-store' };
+    mockCartMerchantSlug = 'test-store';
     mockCartItems = [
       {
         id: 'p1',
@@ -208,6 +212,17 @@ describe('CartSidebar', () => {
       'href',
       '/test-store/shoes/test-shoe'
     );
+  });
+
+  it('navigates checkout using the active cart merchant after a chat tenant switch', () => {
+    mockMerchant = { id: 'merchant-abc', slug: 'ogabassey' };
+    mockCartMerchantSlug = 'winter-store';
+
+    render(<CartSidebar />);
+
+    fireEvent.click(screen.getByRole('button', { name: /proceed to checkout/i }));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/winter-store/checkout');
   });
 
   it('renders Negotiate Total Amount button', () => {

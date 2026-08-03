@@ -88,6 +88,35 @@ describe('createPublicClient', () => {
     });
   });
 
+  it('includes a configured request signal in the public client timeout', async () => {
+    const requestSignal = new AbortController().signal;
+    const timeoutSignal = new AbortController().signal;
+    const combinedSignal = new AbortController().signal;
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutSignal);
+    const anySpy = vi.spyOn(AbortSignal, 'any').mockReturnValue(combinedSignal);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null));
+
+    createPublicClient({
+      clientInfo: 'baci-santa-tenant-resolve',
+      timeoutMs: 4000,
+      signal: requestSignal,
+    });
+    const options = mockCreateClient.mock.calls[0][2] as {
+      global: {
+        fetch: (url: string, requestOptions?: RequestInit) => Promise<Response>;
+      };
+    };
+
+    await options.global.fetch('https://example.com/data');
+
+    expect(anySpy).toHaveBeenCalledWith([requestSignal, timeoutSignal]);
+    expect(fetchSpy).toHaveBeenCalledWith('https://example.com/data', {
+      signal: combinedSignal,
+    });
+  });
+
   it('propagates fetch failures while preserving timeout-only behavior', async () => {
     const timeoutSignal = new AbortController().signal;
     const timeoutSpy = vi

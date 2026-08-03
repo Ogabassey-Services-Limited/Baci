@@ -24,8 +24,12 @@ import {
   searchProductsSchema,
   TOOL_DESCRIPTIONS,
 } from '@/ai/chat-tools';
+import type { AgenticMerchantIdentity } from '@/lib/agentic/agentic-merchant-identity';
 
-export function createAiSdkAgenticChatTools(sessionId: string) {
+export function createAiSdkAgenticChatTools(
+  sessionId: string,
+  merchant: AgenticMerchantIdentity
+) {
   // The AI SDK executes a single step's tool calls concurrently (Promise.all).
   // A model that emits the SAME side-effecting call twice in one step (a common
   // uncertainty pattern) would otherwise run each independently — inserting a
@@ -56,12 +60,12 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
     return pending;
   };
 
-  return {
+  const tools = {
     searchProducts: {
       description: TOOL_DESCRIPTIONS.searchProducts,
       inputSchema: searchProductsSchema,
       execute: async (params: SearchProductsParams) => {
-        const result = await handleSearchProducts(params);
+        const result = await handleSearchProducts(params, merchant);
         return JSON.stringify(result);
       },
     },
@@ -69,7 +73,7 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
       description: TOOL_DESCRIPTIONS.getProductDetails,
       inputSchema: getProductDetailsSchema,
       execute: async (params: GetProductDetailsParams) => {
-        const result = await handleGetProductDetails(params);
+        const result = await handleGetProductDetails(params, merchant);
         return JSON.stringify(result);
       },
     },
@@ -81,14 +85,20 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
         dedupeSideEffect(
           `createVirtualAccount:${JSON.stringify(params)}`,
           async () =>
-            JSON.stringify(await handleCreateVirtualAccount(params, sessionId))
+            JSON.stringify(
+              await handleCreateVirtualAccount(params, sessionId, merchant)
+            )
         ),
     },
     checkPaymentStatus: {
       description: TOOL_DESCRIPTIONS.checkPaymentStatus,
       inputSchema: checkPaymentStatusSchema,
       execute: async (params: CheckPaymentStatusParams) => {
-        const result = await handleCheckPaymentStatus(params, sessionId);
+        const result = await handleCheckPaymentStatus(
+          params,
+          sessionId,
+          merchant
+        );
         return JSON.stringify(result);
       },
     },
@@ -101,14 +111,14 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
       // Side-effecting: dedupe concurrent duplicate cancels of the same order.
       execute: (params: CancelOrderParams) =>
         dedupeSideEffect(`cancelOrder:${JSON.stringify(params)}`, async () =>
-          JSON.stringify(await handleCancelOrder(params))
+          JSON.stringify(await handleCancelOrder(params, merchant))
         ),
     },
     getRecommendations: {
       description: TOOL_DESCRIPTIONS.getRecommendations,
       inputSchema: getRecommendationsSchema,
       execute: async (params: GetRecommendationsParams) => {
-        const result = await handleGetRecommendations(params);
+        const result = await handleGetRecommendations(params, merchant);
         return JSON.stringify(result);
       },
     },
@@ -116,9 +126,16 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
       description: TOOL_DESCRIPTIONS.addToCart,
       inputSchema: addToCartSchema,
       execute: async (params: AddToCartParams) => {
-        const result = await handleAddToCart(params);
+        const result = await handleAddToCart(params, merchant);
         return JSON.stringify(result);
       },
     },
   };
+
+  if (merchant.agenticCheckoutEnabled === false) {
+    Reflect.deleteProperty(tools, 'cancelOrder');
+    Reflect.deleteProperty(tools, 'createVirtualAccount');
+  }
+
+  return tools;
 }

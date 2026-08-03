@@ -15,7 +15,16 @@ vi.mock('@/ai/chat-order-cancellation', () => ({
   handleCancelOrder: mocks.handleCancelOrder,
 }));
 
-import { createAiSdkAgenticChatTools } from '@/app/api/chat/chat-tool-runtime';
+import { createAiSdkAgenticChatTools as createAiSdkAgenticChatToolsWithMerchant } from '@/app/api/chat/chat-tool-runtime';
+
+const TEST_MERCHANT = {
+  id: 'merchant-1',
+  slug: 'winter-store',
+  businessName: 'Winter Store',
+} as const;
+
+const createAiSdkAgenticChatTools = (sessionId: string) =>
+  createAiSdkAgenticChatToolsWithMerchant(sessionId, TEST_MERCHANT);
 
 describe('chat tool runtime', () => {
   beforeEach(() => {
@@ -63,7 +72,8 @@ describe('chat tool runtime', () => {
           { productId: 'p1', name: 'iPhone 11', price: 150000, quantity: 1 },
         ],
       },
-      'session-1'
+      'session-1',
+      TEST_MERCHANT
     );
   });
 
@@ -79,8 +89,21 @@ describe('chat tool runtime', () => {
     });
     expect(mocks.handleCheckPaymentStatus).toHaveBeenCalledWith(
       { orderId: 'order-1' },
-      'session-1'
+      'session-1',
+      TEST_MERCHANT
     );
+  });
+
+  it('withholds Gemini checkout mutations when the tenant disables agentic checkout', () => {
+    const tools = createAiSdkAgenticChatToolsWithMerchant('session-1', {
+      ...TEST_MERCHANT,
+      agenticCheckoutEnabled: false,
+    });
+
+    expect(tools).not.toHaveProperty('createVirtualAccount');
+    expect(tools).not.toHaveProperty('cancelOrder');
+    expect(tools).toHaveProperty('searchProducts');
+    expect(tools).toHaveProperty('checkPaymentStatus');
   });
 
   it('executes order cancellation through the AI SDK tools', async () => {
@@ -95,10 +118,13 @@ describe('chat tool runtime', () => {
       status: 'cancelled',
       orderId: 'order-1',
     });
-    expect(mocks.handleCancelOrder).toHaveBeenCalledWith({
-      orderNumber: '#00001234',
-      customerEmail: 'buyer@example.com',
-    });
+    expect(mocks.handleCancelOrder).toHaveBeenCalledWith(
+      {
+        orderNumber: '#00001234',
+        customerEmail: 'buyer@example.com',
+      },
+      TEST_MERCHANT
+    );
   });
 
   describe('bugfix: concurrent duplicate side-effecting tool calls', () => {

@@ -14,13 +14,31 @@ vi.mock('@/lib/storefront-search', () => ({
 }));
 
 import {
-  handleCheckPaymentStatus,
-  handleGetProductDetails,
-  handleGetRecommendations,
-  handleSearchProducts,
+  handleCheckPaymentStatus as handleCheckPaymentStatusWithMerchant,
+  handleGetProductDetails as handleGetProductDetailsWithMerchant,
+  handleGetRecommendations as handleGetRecommendationsWithMerchant,
+  handleSearchProducts as handleSearchProductsWithMerchant,
 } from './chat-tool-handlers';
 
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
+const TEST_MERCHANT = {
+  id: 'merchant-1',
+  slug: 'winter-store',
+  businessName: 'Winter Store',
+} as const;
+
+const handleSearchProducts = (
+  params: Parameters<typeof handleSearchProductsWithMerchant>[0]
+) => handleSearchProductsWithMerchant(params, TEST_MERCHANT);
+const handleGetProductDetails = (
+  params: Parameters<typeof handleGetProductDetailsWithMerchant>[0]
+) => handleGetProductDetailsWithMerchant(params, TEST_MERCHANT);
+const handleGetRecommendations = (
+  params: Parameters<typeof handleGetRecommendationsWithMerchant>[0]
+) => handleGetRecommendationsWithMerchant(params, TEST_MERCHANT);
+const handleCheckPaymentStatus = (
+  params: Parameters<typeof handleCheckPaymentStatusWithMerchant>[0],
+  sessionId: string
+) => handleCheckPaymentStatusWithMerchant(params, sessionId, TEST_MERCHANT);
 
 type QueryResult = {
   data: unknown;
@@ -103,7 +121,7 @@ describe('chat tool handlers', () => {
       maxPrice: 1_400_000,
     });
 
-    expect(query.eq).toHaveBeenCalledWith('merchant_id', OGABASSEY_MERCHANT_ID);
+    expect(query.eq).toHaveBeenCalledWith('merchant_id', TEST_MERCHANT.id);
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
     expect(mocks.searchStorefrontProducts).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -112,7 +130,7 @@ describe('chat tool handlers', () => {
           minPrice: 1_200_000,
         }),
         limit: 10,
-        merchantId: OGABASSEY_MERCHANT_ID,
+        merchantId: TEST_MERCHANT.id,
         query: 'laptop',
         trackAnalytics: false,
       })
@@ -160,7 +178,7 @@ describe('chat tool handlers', () => {
 
     expect(mocks.searchStorefrontProducts).toHaveBeenCalledWith(
       expect.objectContaining({
-        merchantId: OGABASSEY_MERCHANT_ID,
+        merchantId: TEST_MERCHANT.id,
         query: 'MacBook Laptops',
         trackAnalytics: false,
       })
@@ -190,7 +208,7 @@ describe('chat tool handlers', () => {
 
     expect(mocks.searchStorefrontProducts).toHaveBeenCalledWith(
       expect.objectContaining({
-        merchantId: OGABASSEY_MERCHANT_ID,
+        merchantId: TEST_MERCHANT.id,
         query: 'Laptops',
         trackAnalytics: false,
       })
@@ -251,7 +269,7 @@ describe('chat tool handlers', () => {
           minPrice: 100_000,
         }),
         limit: 10,
-        merchantId: OGABASSEY_MERCHANT_ID,
+        merchantId: TEST_MERCHANT.id,
         query: 'iphnoe',
         trackAnalytics: false,
       })
@@ -329,7 +347,7 @@ describe('chat tool handlers', () => {
 
     expect(mocks.searchStorefrontProducts).toHaveBeenCalledWith(
       expect.objectContaining({
-        merchantId: OGABASSEY_MERCHANT_ID,
+        merchantId: TEST_MERCHANT.id,
         query: 'Laptops',
         trackAnalytics: false,
       })
@@ -363,7 +381,7 @@ describe('chat tool handlers', () => {
     await handleGetProductDetails({ productId: 'product-1' });
 
     expect(query.eq).toHaveBeenCalledWith('id', 'product-1');
-    expect(query.eq).toHaveBeenCalledWith('merchant_id', OGABASSEY_MERCHANT_ID);
+    expect(query.eq).toHaveBeenCalledWith('merchant_id', TEST_MERCHANT.id);
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
   });
 
@@ -413,11 +431,11 @@ describe('chat tool handlers', () => {
     await handleCheckPaymentStatus({ orderId: 'order-1' }, 'session-1');
 
     expect(query.eq).toHaveBeenCalledWith('id', 'order-1');
-    expect(query.eq).toHaveBeenCalledWith('merchant_id', OGABASSEY_MERCHANT_ID);
+    expect(query.eq).toHaveBeenCalledWith('merchant_id', TEST_MERCHANT.id);
     expect(query.eq).toHaveBeenCalledWith('session_id', 'session-1');
     expect(mocks.createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
-      merchantId: OGABASSEY_MERCHANT_ID,
-      merchantSlug: 'ogabassey',
+      merchantId: TEST_MERCHANT.id,
+      merchantSlug: TEST_MERCHANT.slug,
       sessionId: 'session-1',
     });
   });
@@ -466,7 +484,7 @@ describe('chat tool handlers', () => {
       'customer_email',
       'buyer@example.com'
     );
-    expect(query.eq).toHaveBeenCalledWith('merchant_id', OGABASSEY_MERCHANT_ID);
+    expect(query.eq).toHaveBeenCalledWith('merchant_id', TEST_MERCHANT.id);
     expect(query.eq).toHaveBeenCalledWith('session_id', 'session-1');
   });
 
@@ -569,12 +587,12 @@ describe('chat tool handlers', () => {
     expect(sourceQuery.eq).toHaveBeenCalledWith('id', 'source-product');
     expect(sourceQuery.eq).toHaveBeenCalledWith(
       'merchant_id',
-      OGABASSEY_MERCHANT_ID
+      TEST_MERCHANT.id
     );
     expect(sourceQuery.eq).toHaveBeenCalledWith('status', 'active');
     expect(recommendationQuery.eq).toHaveBeenCalledWith(
       'merchant_id',
-      OGABASSEY_MERCHANT_ID
+      TEST_MERCHANT.id
     );
     expect(recommendationQuery.eq).toHaveBeenCalledWith('status', 'active');
     expect(recommendationQuery.neq).toHaveBeenCalledWith(

@@ -298,4 +298,34 @@ export const EXPECTED_PENDING_SOURCES = [
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(3, 8),
   ...EXPECTED_PENDING_TAIL_SOURCES.paymentWebhookEvidence,
   ...PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES.slice(8),
+  {
+    repositoryPath:
+      'supabase/migrations/20260802090000_record_santa_interaction_rpc.sql',
+    sha256: '21985afe08c53af50c762240ba54b8ed604c96508e7cd2ff78a98778baa1abe4',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260802100000_harden_santa_interaction_rpc_rate_limit.sql',
+    sha256: '238c8e3df48c4551b9dea6ebd723b8fc2c0de98c18475094235a85b14721e75b',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260802110000_harden_santa_interaction_rpc_tenant_rate_limit.sql',
+    sha256: '664a9f08dae7d9a133ab2d61944cd601c1b69402b7c8392bc6dfa8e7f9f17d09',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260803080000_bound_santa_interaction_prices.sql',
+    sha256: 'e2f7532bb40ddc3f1910aabb865c066a9c68e0cb7e60c930e36ff452736bce0c',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260803100000_restrict_santa_interaction_event_types.sql',
+    sha256: '4c4dce9e7a5731c8f273800965c0c985c7a0450f55b71be292d7ecb18ef67721',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260803110000_restrict_santa_funnel_event_types.sql',
+    sha256: '754a790bfa0de2333125d255601075fc62f937b660a7df261dd4a9e2f306cdad',
+  },
 ];

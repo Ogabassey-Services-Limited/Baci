@@ -1,25 +1,69 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getCachedSantaProductList } from '@/ai/santa-data';
+import { resolveSantaTenant } from '@/lib/agentic/resolve-santa-tenant';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 import { logger } from '@/lib/logger';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { sanitizeForLog } from '@/lib/sanitize-core';
-import { createServiceClient } from '@/lib/supabase/service';
+import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
+import { createPublicClient } from '@/lib/supabase/public';
 
-// Ogabassey merchant ID — single source of truth across all chat endpoints
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 const UNLIMITED_STOCK_QUANTITY = 9999;
+
+type SantaProductCandidate = {
+  name: string;
+  price: number;
+};
 
 /**
  * Common handler for product lookup
  */
-async function handleProductLookup(productName: string): Promise<NextResponse> {
+async function handleProductLookup(
+  productName: string,
+  requestIdentifier?: string
+): Promise<NextResponse> {
   // Sanitize for safe logging (prevent log injection)
   const safeProductName = sanitizeForLog(productName);
   try {
-    // Get products directly (bypass cache to ensure consistency)
-    const santaProducts = await getCachedSantaProductList(
-      OGABASSEY_MERCHANT_ID
-    );
+    // Resolved from BACI_AGENTIC_MERCHANT_SLUG rather than a hardcoded UUID, so
+    // this endpoint works outside production and can be repointed without a
+    // deploy. Fail closed when the tenant is not configured.
+    //
+    // Deliberately resolved on the ANONYMOUS client, not the service-role one:
+    // the anon policy on `merchants` is `USING (is_published IS TRUE)` since
+    // 20260713150000_s0a_merchants_anon_containment.sql, so a slug pointing at
+    // an unpublished or draft store resolves to nothing here. Resolving it with
+    // the service-role client would step over that gate and let this
+    // UNAUTHENTICATED endpoint serve an unpublished merchant's catalogue.
+    const santaTenant = await resolveSantaTenant(undefined, requestIdentifier);
+    if (!santaTenant) {
+      logger.warn({ message: 'Santa Product tenant not configured' });
+      return NextResponse.json(
+        { error: 'Santa product lookup is not configured' },
+        { status: 503 }
+      );
+    }
+    const { id: merchantId, slug: merchantSlug } = santaTenant;
+    const responseHeaders = {
+      [SANTA_MERCHANT_SLUG_HEADER]: merchantSlug,
+    };
+    const supabase = createPublicClient({
+      clientInfo: 'baci-santa-product-lookup',
+      timeoutMs: 4000,
+    });
+
+    // Keep this anonymous lookup RLS-bound. The public products policy exposes
+    // only active rows, so this endpoint never needs a service-role client.
+    const { data: santaProducts, error: santaProductsError } = await supabase
+      .from('products')
+      .select('name, price')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .order('price', { ascending: false })
+      .limit(5000);
+
+    if (santaProductsError) {
+      throw santaProductsError;
+    }
 
     logger.info({
       message: 'Santa Product searching',
@@ -29,7 +73,9 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
 
     // Find the best match by name
     const normalizedSearch = productName.toLowerCase().trim();
-    const matchingProduct = santaProducts.find(
+    const matchingProduct = (
+      (santaProducts ?? []) as SantaProductCandidate[]
+    ).find(
       (p) =>
         p.name.toLowerCase() === normalizedSearch ||
         p.name.toLowerCase().includes(normalizedSearch) ||
@@ -41,7 +87,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
         message: 'Santa Product no match found',
         productName: safeProductName,
       });
-      return NextResponse.json({ product: null });
+      return NextResponse.json({ product: null }, { headers: responseHeaders });
     }
 
     logger.info({
@@ -50,14 +96,14 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     });
 
     // Now get the full product details from database
-    const supabase = createServiceClient();
     const { data: fullProduct, error } = await supabase
       .from('products')
       .select(
         'id, name, slug, description, price, images, status, merchant_id, stock, stock_quantity, manage_stock, brand, sku'
       )
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchantId)
       .eq('name', matchingProduct.name)
+      .eq('status', 'active')
       .single();
 
     if (error || !fullProduct) {
@@ -67,26 +113,29 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
         match: matchingProduct.name,
       });
       // Return basic product info from Santa data
-      return NextResponse.json({
-        product: {
-          id: '', // No ID available
-          name: matchingProduct.name,
-          slug: '',
-          description: '',
-          price: matchingProduct.price,
-          image: '',
-          imageLarge: '',
-          imageHint: matchingProduct.name,
-          status: 'active',
-          merchant_id: OGABASSEY_MERCHANT_ID,
-          stock: UNLIMITED_STOCK_QUANTITY,
-          manage_stock: false,
-          brand: '',
-          sku: '',
-          gtin: '',
-          mpn: '',
+      return NextResponse.json(
+        {
+          product: {
+            id: '', // No ID available
+            name: matchingProduct.name,
+            slug: '',
+            description: '',
+            price: matchingProduct.price,
+            image: '',
+            imageLarge: '',
+            imageHint: matchingProduct.name,
+            status: 'active',
+            merchant_id: merchantId,
+            stock: UNLIMITED_STOCK_QUANTITY,
+            manage_stock: false,
+            brand: '',
+            sku: '',
+            gtin: '',
+            mpn: '',
+          },
         },
-      });
+        { headers: responseHeaders }
+      );
     }
 
     // Extract image from images array
@@ -105,26 +154,29 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
         ? UNLIMITED_STOCK_QUANTITY
         : getEffectiveStock(fullProduct);
 
-    return NextResponse.json({
-      product: {
-        id: fullProduct.id,
-        name: fullProduct.name,
-        slug: fullProduct.slug || '',
-        description: fullProduct.description || '',
-        price: fullProduct.price,
-        image: imageUrl,
-        imageLarge: imageUrl,
-        imageHint: fullProduct.name,
-        status: fullProduct.status,
-        merchant_id: fullProduct.merchant_id,
-        stock,
-        manage_stock: fullProduct.manage_stock ?? true,
-        brand: fullProduct.brand || '',
-        sku: fullProduct.sku || '',
-        gtin: '',
-        mpn: '',
+    return NextResponse.json(
+      {
+        product: {
+          id: fullProduct.id,
+          name: fullProduct.name,
+          slug: fullProduct.slug || '',
+          description: fullProduct.description || '',
+          price: fullProduct.price,
+          image: imageUrl,
+          imageLarge: imageUrl,
+          imageHint: fullProduct.name,
+          status: fullProduct.status,
+          merchant_id: fullProduct.merchant_id,
+          stock,
+          manage_stock: fullProduct.manage_stock ?? true,
+          brand: fullProduct.brand || '',
+          sku: fullProduct.sku || '',
+          gtin: '',
+          mpn: '',
+        },
       },
-    });
+      { headers: responseHeaders }
+    );
   } catch (err) {
     logger.error({
       message: 'Santa Product internal error',
@@ -169,7 +221,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return handleProductLookup(productName.trim());
+  return handleProductLookup(
+    productName.trim(),
+    resolveMerchantContextIdentifier(request.headers)
+  );
 }
 
 /**
@@ -190,5 +245,8 @@ export function GET(request: NextRequest) {
     );
   }
 
-  return handleProductLookup(productName);
+  return handleProductLookup(
+    productName,
+    resolveMerchantContextIdentifier(request.headers)
+  );
 }

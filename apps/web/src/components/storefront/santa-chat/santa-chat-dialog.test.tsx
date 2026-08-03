@@ -5,7 +5,6 @@ import { SantaChatDialog } from './santa-chat-dialog';
 const cartMocks = vi.hoisted(() => ({
   addToCart: vi.fn(),
   applyNegotiatedPrice: vi.fn(),
-  setMerchantSlug: vi.fn(),
 }));
 
 vi.mock('next/link', () => ({
@@ -34,7 +33,6 @@ vi.mock('@/hooks/use-cart', () => ({
     addToCart: cartMocks.addToCart,
     applyNegotiatedPrice: cartMocks.applyNegotiatedPrice,
     cartCount: 0,
-    setMerchantSlug: cartMocks.setMerchantSlug,
   }),
 }));
 

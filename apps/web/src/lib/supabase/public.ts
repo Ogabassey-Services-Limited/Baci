@@ -15,6 +15,7 @@ function getPublicSupabaseCredentials() {
 export function createPublicClient(options: {
   clientInfo: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }): SupabaseClient {
   const { key, url } = getPublicSupabaseCredentials();
 
@@ -28,7 +29,27 @@ export function createPublicClient(options: {
       headers: {
         'X-Client-Info': options.clientInfo,
       },
-      fetch: createStorefrontPublicReadFetch(options.timeoutMs),
+      fetch: (() => {
+        const publicReadFetch = createStorefrontPublicReadFetch(
+          options.timeoutMs
+        );
+
+        return (
+          requestUrl: RequestInfo | URL,
+          requestOptions: RequestInit = {}
+        ) => {
+          const signal = options.signal
+            ? requestOptions.signal
+              ? AbortSignal.any([requestOptions.signal, options.signal])
+              : options.signal
+            : requestOptions.signal;
+
+          return publicReadFetch(
+            requestUrl,
+            signal ? { ...requestOptions, signal } : requestOptions
+          );
+        };
+      })(),
     },
   });
 }

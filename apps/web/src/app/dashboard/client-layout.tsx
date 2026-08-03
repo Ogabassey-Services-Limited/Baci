@@ -80,6 +80,7 @@ import { FEATURES, isPlanTier, type PlanTier } from '@/lib/feature-flags';
 import { isRepairsBusinessType } from '@/lib/repairs/repairs-feature';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
+import { isSantaCampaignVisible } from './santa-navigation';
 import {
   buildSmartNavStorageKey,
   getSmartShortcutItems,
@@ -288,8 +289,10 @@ const StoreLink = ({
 
 export default function DashboardClientLayout({
   children,
+  agenticMerchantSlug,
 }: {
   children: React.ReactNode;
+  agenticMerchantSlug?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -594,8 +597,11 @@ export default function DashboardClientLayout({
   };
 
   const canShowNavItem = (item: DashboardNavItem) => {
-    // Santa Campaign is special (only for ogabassey)
-    if (item.label === 'Santa Campaign' && merchant?.slug !== 'ogabassey') {
+    // Santa Campaign is available only to the configured agentic tenant.
+    if (
+      item.label === 'Santa Campaign' &&
+      !isSantaCampaignVisible(merchant?.slug, agenticMerchantSlug)
+    ) {
       return false;
     }
 

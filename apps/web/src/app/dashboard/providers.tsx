@@ -33,6 +33,7 @@ interface DashboardProvidersProps {
   initialUser?: User | null;
   initialMerchant?: MerchantData | null;
   initialStaffAccess?: StaffAccess;
+  agenticMerchantSlug?: string | null;
   nonce?: string;
 }
 
@@ -43,6 +44,7 @@ export function DashboardProviders({
   initialUser,
   initialMerchant,
   initialStaffAccess,
+  agenticMerchantSlug,
   nonce,
 }: DashboardProvidersProps) {
   return (
@@ -51,6 +53,7 @@ export function DashboardProviders({
         initialUser={initialUser}
         initialMerchant={initialMerchant}
         initialStaffAccess={initialStaffAccess}
+        agenticMerchantSlug={agenticMerchantSlug}
       >
         {children}
       </DashboardProvidersContent>
@@ -63,6 +66,7 @@ function DashboardProvidersContent({
   initialUser,
   initialMerchant,
   initialStaffAccess,
+  agenticMerchantSlug,
 }: DashboardProvidersContentProps) {
   const { nonce } = useNonce();
 
@@ -83,7 +87,9 @@ function DashboardProvidersContent({
           >
             <ProductProvider>
               <UpgradeModalProvider>
-                <DashboardClientLayout>
+                <DashboardClientLayout
+                  agenticMerchantSlug={agenticMerchantSlug}
+                >
                   <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
                 </DashboardClientLayout>
               </UpgradeModalProvider>

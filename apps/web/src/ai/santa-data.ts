@@ -1,8 +1,17 @@
 import { unstable_cache } from 'next/cache';
-import { createAdminClient } from '@/lib/supabase/admin';
+import type { CurrencyConfig } from '@/lib/currency';
+import { createPublicClient } from '@/lib/supabase/public';
 
 // Cache duration: 5 minutes (matching CACHE_DURATIONS.products)
 const CACHE_TTL = 300;
+const DEFAULT_SANTA_CURRENCY: CurrencyConfig = {
+  code: 'NGN',
+  locale: 'en-NG',
+  symbol: '₦',
+};
+
+const SANTA_BUCKET_LIMITS = [30, 50, 80, 100, 80, 80, 50, 30] as const;
+const SANTA_DISCOUNT_SAFETY_MARGIN_RATIO = 0.01;
 
 /**
  * Validated product shape from DB
@@ -13,6 +22,45 @@ export type ProductRow = {
   cost_price: number | null;
 };
 
+export function selectSantaCatalogProducts(
+  products: ProductRow[]
+): ProductRow[] {
+  if (!products.length) return [];
+
+  const bucketSize = Math.ceil(products.length / SANTA_BUCKET_LIMITS.length);
+  const selectedProducts = SANTA_BUCKET_LIMITS.flatMap((limit, index) =>
+    products.slice(index * bucketSize, (index + 1) * bucketSize).slice(0, limit)
+  );
+
+  return Array.from(
+    new Map(selectedProducts.map((product) => [product.name, product])).values()
+  );
+}
+
+export function calculateSantaMaxDiscountPercentage(
+  price: number,
+  costPrice: number
+): number {
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(costPrice)) {
+    return 0;
+  }
+
+  const discountPercentage = Math.floor(
+    ((price - costPrice - price * SANTA_DISCOUNT_SAFETY_MARGIN_RATIO) / price) *
+      100 +
+      1e-9
+  );
+
+  return Math.max(Math.min(discountPercentage, 40), 0);
+}
+
+export function formatSantaProductPrice(
+  price: number,
+  currency: CurrencyConfig
+): string {
+  return `${String(price)} ${currency.code}`;
+}
+
 /**
  * Fetch and bucket products returning raw array
  */
@@ -20,7 +68,10 @@ const fetchSantaProductList = async (
   merchantId: string
 ): Promise<ProductRow[]> => {
   try {
-    const supabase = createAdminClient();
+    const supabase = createPublicClient({
+      clientInfo: 'baci-santa-catalog',
+      timeoutMs: 4000,
+    });
 
     // 1. Single DB Query: Fetch ALL active products for this merchant
     const { data: allProducts, error } = await supabase
@@ -38,35 +89,8 @@ const fetchSantaProductList = async (
 
     const products = (allProducts as unknown as ProductRow[]) || [];
 
-    // 2. Define Price Ranges (Buckets)
-    const priceRanges = [
-      { min: 5000000, max: 999999999, limit: 30 },
-      { min: 2000000, max: 5000000, limit: 50 },
-      { min: 1200000, max: 2000000, limit: 80 },
-      { min: 800000, max: 1200000, limit: 100 },
-      { min: 500000, max: 800000, limit: 80 },
-      { min: 200000, max: 500000, limit: 80 },
-      { min: 50000, max: 200000, limit: 50 },
-      { min: 0, max: 50000, limit: 30 },
-    ];
-
-    const selectedProducts: ProductRow[] = [];
-
-    // 3. In-Memory Bucketing & Selection
-    for (const range of priceRanges) {
-      const productsInRange = products.filter(
-        (p) => (p.price ?? 0) >= range.min && (p.price ?? 0) < range.max
-      );
-      const topProducts = productsInRange.slice(0, range.limit);
-      selectedProducts.push(...topProducts);
-    }
-
-    // 4. Deduplicate
-    const uniqueProducts = Array.from(
-      new Map(selectedProducts.map((p) => [p.name, p])).values()
-    );
-
-    return uniqueProducts;
+    // Select representative price ranks rather than currency-specific ranges.
+    return selectSantaCatalogProducts(products);
   } catch (err) {
     console.error('[Santa Data] Unexpected error:', err);
     return [];
@@ -88,7 +112,10 @@ export const getCachedSantaProductList = unstable_cache(
 /**
  * Formats the product list into the prompt string
  */
-const formatSantaCatalog = async (merchantId: string): Promise<string> => {
+const formatSantaCatalog = async (
+  merchantId: string,
+  currency: CurrencyConfig = DEFAULT_SANTA_CURRENCY
+): Promise<string> => {
   // Call the raw fetcher directly to avoid double-caching (this function is itself cached)
   const products = await fetchSantaProductList(merchantId);
 
@@ -99,16 +126,16 @@ const formatSantaCatalog = async (merchantId: string): Promise<string> => {
   return products
     .map((p) => {
       const price = Number(p.price) || 0;
-      if (p.cost_price) {
+      const productName = JSON.stringify(p.name);
+      if (p.cost_price !== null) {
         const costPrice = Number(p.cost_price) || 0;
-        const maxDiscountPct = Math.min(
-          Math.floor(((price - costPrice - 10000) / price) * 100),
-          40
+        const safeDiscount = calculateSantaMaxDiscountPercentage(
+          price,
+          costPrice
         );
-        const safeDiscount = Math.max(maxDiscountPct, 0);
-        return `*   ${p.name}: ₦${price.toLocaleString()} (Max Discount: ${safeDiscount}%) [HAS_COST]`;
+        return `*   ${productName}: ${formatSantaProductPrice(price, currency)} (Max Discount: ${safeDiscount}%) [HAS_COST]`;
       }
-      return `*   ${p.name}: ₦${price.toLocaleString()} (Max Discount: 40%) [FLEX]`;
+      return `*   ${productName}: ${formatSantaProductPrice(price, currency)} (Max Discount: 40%) [FLEX]`;
     })
     .join('\n');
 };

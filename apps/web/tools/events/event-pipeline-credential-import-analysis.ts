@@ -13,6 +13,7 @@ const ENV_PATH = 'apps/web/src/env.ts';
 // authority closure. Secret accessors like getSupabaseServiceRoleKey are
 // deliberately absent, so any import that also pulls one still fails closed.
 const SAFE_ENV_BINDINGS = new Set([
+  'getAgenticMerchantSlug',
   'getAppUrl',
   'getSupabaseAnonKey',
   'getSupabaseUrl',

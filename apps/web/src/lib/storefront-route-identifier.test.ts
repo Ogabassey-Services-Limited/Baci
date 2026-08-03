@@ -104,6 +104,14 @@ describe('resolveMerchantContextIdentifier', () => {
     ).toBe('ogabassey');
   });
 
+  it('accepts the mobile chat merchant header', () => {
+    expect(
+      resolveMerchantContextIdentifier(
+        createHeaders([['x-baci-santa-merchant-slug', 'Winter-Store']])
+      )
+    ).toBe('winter-store');
+  });
+
   it('falls back to the merchant domain header used by proxy rewrites', () => {
     expect(
       resolveMerchantContextIdentifier(
