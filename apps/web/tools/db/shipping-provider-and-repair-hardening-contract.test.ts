@@ -8,9 +8,17 @@ const HARDENING_MIGRATION_PATH = path.join(
   REPOSITORY_ROOT,
   'supabase/migrations/20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql'
 );
+const CODEX_FOLLOW_UP_MIGRATION_PATH = path.join(
+  REPOSITORY_ROOT,
+  'supabase/migrations/20260803000200_fix_shipping_provider_and_repair_booking_regressions.sql'
+);
 const SHIPPING_POLICY_SQL_TEST_PATH = path.join(
   REPOSITORY_ROOT,
   'supabase/tests/shipping_provider_settings.sql'
+);
+const REPAIR_BOOKING_SQL_TEST_PATH = path.join(
+  REPOSITORY_ROOT,
+  'supabase/tests/repair_booking_rpc.sql'
 );
 
 function functionDefinition(source: string, signature: string): string {
@@ -71,6 +79,49 @@ describe('shipping provider and repair booking hardening', () => {
     );
     expect(sqlTest).toContain(
       'mixed-case stored carrier settings must authorize a new selection'
+    );
+  });
+
+  it('uses a forward migration to preserve merchant/self fulfillment stamps and valid repair inputs', () => {
+    expect(existsSync(CODEX_FOLLOW_UP_MIGRATION_PATH)).toBe(true);
+    if (!existsSync(CODEX_FOLLOW_UP_MIGRATION_PATH)) {
+      return;
+    }
+
+    const migration = readFileSync(CODEX_FOLLOW_UP_MIGRATION_PATH, 'utf8');
+    const providerGuard = functionDefinition(
+      migration,
+      'CREATE OR REPLACE FUNCTION private.enforce_merchant_shipping_provider_enabled()'
+    );
+    const privateBookingFunction = functionDefinition(
+      migration,
+      'CREATE OR REPLACE FUNCTION private.create_repair_booking('
+    );
+
+    expect(providerGuard).toContain(
+      "v_provider IN ('merchant', 'merchant_pickup')"
+    );
+    expect(providerGuard).toContain("NEW.fulfillment_type = 'self'");
+    expect(privateBookingFunction).toContain(
+      String.raw`IF v_normalized_email !~* '^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$' THEN`
+    );
+    expect(privateBookingFunction).toContain(
+      String.raw`IF v_customer_phone !~ '^\+?[0-9[:space:]-]{10,}$' THEN`
+    );
+
+    const shippingPolicySqlTest = readFileSync(
+      SHIPPING_POLICY_SQL_TEST_PATH,
+      'utf8'
+    );
+    expect(shippingPolicySqlTest).toContain(
+      'merchant and self-fulfillment provider stamps must remain allowed'
+    );
+    const repairBookingSqlTest = readFileSync(
+      REPAIR_BOOKING_SQL_TEST_PATH,
+      'utf8'
+    );
+    expect(repairBookingSqlTest).toContain(
+      'ordinary email and phone values must pass the repair booking validator'
     );
   });
 });

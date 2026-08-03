@@ -389,6 +389,20 @@ describe('POST /api/shipping/quotes merchant-configured rates', () => {
     expect(supabase.shippingQuotesTable.upsert).toHaveBeenCalledTimes(1);
   });
 
+  it('treats a blank trusted country as unknown for an NGN merchant', async () => {
+    const { json, response } = await postQuotes(
+      { ...NG_MERCHANT, country: '' },
+      lagosRatesPayload,
+      { supports_merchant_rates: true }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalled();
+    expect(json.quotes.all).toContainEqual(
+      expect.objectContaining({ id: GIGL_QUOTE_ID, provider: 'GIGL' })
+    );
+  });
+
   it('excludes merchant rates but keeps carrier quotes for an NG merchant when supports_merchant_rates is absent', async () => {
     // No flag: the caller cannot thread mrate_ ids back into order creation, so
     // merchant rates must not appear even though the merchant configured them.

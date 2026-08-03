@@ -3,7 +3,8 @@
 --   Run against a Supabase branch after applying
 --   20260802175837_harden_repair_booking_and_shipping_providers.sql and
 --   20260802220000_centralize_shipping_provider_policy.sql and
---   20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql.
+--   20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql and
+--   20260803000200_fix_shipping_provider_and_repair_booking_regressions.sql.
 --
 -- USAGE:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -72,6 +73,52 @@ BEGIN
 
   IF providers IS DISTINCT FROM '["gigl"]'::jsonb THEN
     RAISE EXCEPTION 'storefront carrier providers must be sanitized: %', providers;
+  END IF;
+END $$;
+
+-- merchant and self-fulfillment provider stamps must remain allowed without
+-- enabling a carrier: they are durable order metadata, not carrier selections.
+INSERT INTO public.orders (
+  id, merchant_id, order_number, total, shipping_provider, fulfillment_type
+)
+VALUES
+  (
+    '00000000-0000-0000-0000-000000003017',
+    '00000000-0000-0000-0000-000000003008',
+    'shipping-provider-merchant-rate-test',
+    0,
+    'MERCHANT',
+    NULL
+  ),
+  (
+    '00000000-0000-0000-0000-000000003018',
+    '00000000-0000-0000-0000-000000003008',
+    'shipping-provider-merchant-pickup-test',
+    0,
+    'MERCHANT_PICKUP',
+    NULL
+  ),
+  (
+    '00000000-0000-0000-0000-000000003019',
+    '00000000-0000-0000-0000-000000003008',
+    'shipping-provider-self-fulfillment-test',
+    0,
+    'Self-Delivery',
+    'self'
+  );
+
+DO $$
+BEGIN
+  IF (
+    SELECT count(*)
+    FROM public.orders
+    WHERE id IN (
+      '00000000-0000-0000-0000-000000003017',
+      '00000000-0000-0000-0000-000000003018',
+      '00000000-0000-0000-0000-000000003019'
+    )
+  ) <> 3 THEN
+    RAISE EXCEPTION 'merchant and self-fulfillment provider stamps must remain allowed';
   END IF;
 END $$;
 

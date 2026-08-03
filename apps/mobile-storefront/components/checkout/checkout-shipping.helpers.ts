@@ -166,6 +166,11 @@ export const fetchShippingQuotes = async ({
         ...(merchantId ? { merchantId } : {}),
         deliveryPreference,
         supports_merchant_rates: true,
+        cart_subtotal: items.reduce(
+          (total, item) =>
+            total + (item.negotiatedPrice ?? item.price) * item.quantity,
+          0
+        ),
         receiver: {
           name:
             `${watchedFirstName} ${watchedLastName}`.trim() ||

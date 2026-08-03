@@ -100,9 +100,8 @@ export async function POST(request: NextRequest) {
     // Canonical merchant currency (payout_currency -> country -> NGN). Resolved
     // before quoting because it both gates the NGN-only carriers below AND
     // filters stale-currency merchant rates inside getMerchantRateQuotes.
-    const merchantCountry = merchantContext.merchantCountry
-      ?.trim()
-      .toUpperCase();
+    const merchantCountry =
+      merchantContext.merchantCountry?.trim().toUpperCase() || undefined;
     const merchantCurrency = resolveMerchantCurrencyConfig({
       country: merchantCountry,
       payout_currency: merchantContext.merchantPayoutCurrency,

@@ -134,4 +134,10 @@ describe('supabase-history-replay sources', () => {
       '2fcb90a7746d88841ed00c86e2d46a7525674bb4e7aea04393f53bca3c0fef1c 20260803000100_harden_shipping_provider_policy_and_repair_rate_limits.sql'
     );
   });
+
+  it('registers the shipping and repair regression repair as a pending source', () => {
+    expect(rows(PENDING_SOURCES)).toContain(
+      '068707fce641a6818521fcef448d8a35eccbeadad9ff785420a16be7133e3ceb 20260803000200_fix_shipping_provider_and_repair_booking_regressions.sql'
+    );
+  });
 });

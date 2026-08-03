@@ -172,6 +172,8 @@ EXCEPTION
     END IF;
 END $$;
 
+-- ordinary email and phone values must pass the repair booking validator;
+-- dollar-quoted function bodies use single regex escapes.
 DO $$
 DECLARE
   created record;

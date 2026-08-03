@@ -123,6 +123,7 @@ describe('ShippingOptions', () => {
       shipmentType: 'domestic',
       // Advisory subtotal (2 x ₦5,000) so free-over merchant rates quote right.
       cart_subtotal: 10000,
+      supports_merchant_rates: true,
     });
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(cheapQuote, 'session-1');
@@ -147,10 +148,7 @@ describe('ShippingOptions', () => {
     expect(mockApiPost).toHaveBeenCalledTimes(1);
   });
 
-  it('filters out merchant-configured rates the legacy submit path cannot thread', async () => {
-    // The legacy checkout submit posts selected_quote_id + shipping_provider
-    // with no shipping_rate_id, so a merchant rate (mrate_<uuid> id, not a
-    // shipping_quotes row) would produce a broken order — it must be dropped.
+  it('shows and selects merchant-configured rates the checkout can now submit', async () => {
     mockApiPost.mockResolvedValue({
       quotes: { featured: [cheapQuote], all: [merchantRateQuote, cheapQuote] },
       sessionId: 'session-mixed',
@@ -163,17 +161,13 @@ describe('ShippingOptions', () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
 
-    // Carrier quotes still render with their currency-aware price…
     expect(screen.getByText('GIG Logistics')).toBeInTheDocument();
-    // …but the merchant rate is not rendered at all.
-    expect(screen.queryByText('Standard Delivery')).not.toBeInTheDocument();
-    expect(screen.queryByText(/₹\s?1,500/)).not.toBeInTheDocument();
-    // Auto-selection never lands on the filtered merchant rate.
+    expect(screen.getByText('Standard Delivery')).toBeInTheDocument();
     expect(onSelect).toHaveBeenCalledTimes(1);
-    expect(onSelect).toHaveBeenCalledWith(cheapQuote, 'session-mixed');
+    expect(onSelect).toHaveBeenCalledWith(merchantRateQuote, 'session-mixed');
   });
 
-  it('shows the empty state when every quote is a merchant rate', async () => {
+  it('renders a merchant-configured rate when it is the only available option', async () => {
     mockApiPost.mockResolvedValue({
       quotes: { featured: [merchantRateQuote], all: [merchantRateQuote] },
       sessionId: 'session-merchant',
@@ -186,8 +180,11 @@ describe('ShippingOptions', () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
 
-    expect(screen.queryByText('Standard Delivery')).not.toBeInTheDocument();
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByText('Standard Delivery')).toBeInTheDocument();
+    expect(onSelect).toHaveBeenCalledWith(
+      merchantRateQuote,
+      'session-merchant'
+    );
   });
 
   it('shows a retry message when the quote request fails', async () => {
