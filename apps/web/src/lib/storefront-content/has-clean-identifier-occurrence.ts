@@ -23,7 +23,7 @@ const MODEL_VARIANT_MARKER_TOKENS = new Set([
 ]);
 const MODEL_GENERATION_SUFFIX_PATTERN = /^\d{1,2}(?:st|nd|rd|th)?$/u;
 const MAX_BRAND_TOKEN_DISTANCE = 3;
-const COMPARISON_BOUNDARY_TOKENS = new Set(['against', 'versus', 'vs']);
+const COMPARISON_BOUNDARY_TOKENS = new Set(['against', 'or', 'versus', 'vs']);
 
 interface IdentifierOccurrenceOptions {
   brand?: string | null;

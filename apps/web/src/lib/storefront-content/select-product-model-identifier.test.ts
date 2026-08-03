@@ -38,4 +38,10 @@ describe('selectProductModelIdentifier', () => {
 
     expect(identifier).toBe('1 2');
   });
+
+  it('keeps USB connector letters in accessory identifiers', () => {
+    expect(selectProductModelIdentifier(['apple', 'usb', 'c', '20w'])).toBe(
+      'apple usb c 20w'
+    );
+  });
 });

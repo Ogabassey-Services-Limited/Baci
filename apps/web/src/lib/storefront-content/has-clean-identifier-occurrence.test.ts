@@ -141,6 +141,28 @@ describe('hasCleanIdentifierOccurrence', () => {
     ).toBe(true);
   });
 
+  it('treats or as a comparison boundary for discriminators', () => {
+    const post = {
+      slug: 'iphone-15-or-galaxy-s25',
+      title: 'Apple iPhone 15 128GB or Samsung Galaxy S25 256GB Buyer Guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: 6,
+    };
+
+    expect(
+      hasCleanIdentifierOccurrence(post, ['15'], {
+        brand: 'apple',
+        knownBrands: ['apple', 'samsung'],
+        discriminatorTokens: ['256gb'],
+      })
+    ).toBe(false);
+  });
+
   it('accepts a brand that finishes before the identifier', () => {
     const post = {
       slug: 'apple-iphone-14-pro-guide',

@@ -35,6 +35,12 @@ function isMeaningfulModelToken(
   );
 }
 
+function isUsbConnectorToken(tokens: string[], index: number) {
+  return (
+    tokens[index - 1] === 'usb' && ['a', 'c'].includes(tokens[index] ?? '')
+  );
+}
+
 function isSeriesPhraseToken(tokens: string[], index: number) {
   const token = tokens[index] ?? '';
   const nextToken = tokens[index + 1] ?? '';
@@ -216,6 +222,7 @@ export function selectProductModelIdentifier(
         isSignificantInterveningNumericToken(tokens, index, numericIndex) ||
         index === numericIndex ||
         isMeaningfulModelToken(token, preserveGameTitleTokens) ||
+        isUsbConnectorToken(tokens, index) ||
         isSeriesPhraseToken(tokens, index)
     );
     return phraseTokens.join(' ');
@@ -228,13 +235,17 @@ export function selectProductModelIdentifier(
     const alphanumericIndex = tokens.indexOf(alphanumericToken);
     const prefixTokens = tokens
       .slice(0, alphanumericIndex)
-      .filter((token) =>
-        isMeaningfulModelToken(token, preserveGameTitleTokens)
+      .filter(
+        (token) =>
+          isMeaningfulModelToken(token, preserveGameTitleTokens) ||
+          isUsbConnectorToken(tokens, tokens.indexOf(token))
       );
     const suffixTokens = tokens
       .slice(alphanumericIndex + 1)
-      .filter((token) =>
-        isMeaningfulModelToken(token, preserveGameTitleTokens)
+      .filter(
+        (token) =>
+          isMeaningfulModelToken(token, preserveGameTitleTokens) ||
+          isUsbConnectorToken(tokens, tokens.indexOf(token))
       );
     const phraseTokens = [...prefixTokens, alphanumericToken, ...suffixTokens];
     return phraseTokens.join(' ');
@@ -243,6 +254,7 @@ export function selectProductModelIdentifier(
   const phraseTokens = tokens.filter((token, index) => {
     return (
       isMeaningfulModelToken(token, preserveGameTitleTokens) ||
+      isUsbConnectorToken(tokens, index) ||
       isSeriesPhraseToken(tokens, index)
     );
   });
