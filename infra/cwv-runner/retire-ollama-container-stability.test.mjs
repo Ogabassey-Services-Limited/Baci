@@ -34,6 +34,8 @@ case "$*" in
   *'{{.Id}}'*second*) printf 'second /second /bin/true [] ["OLLAMA_HOST=http://127.0.0.1:11434"] [] {} {} {} [] "bridge"\\n' ;;
   *'{{.Name}}'*first*) printf '/first\\n' ;;
   *'{{.Name}}'*second*) printf '/second\\n' ;;
+  *'{{json .State.Running}}'*) printf 'false\\n' ;;
+  *' cp first:/bin/true '*|*' cp second:/bin/true '*) for destination do :; done; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;;
   *'{{json .Mounts}}'*) printf '[]\\n' ;;
 esac
 printf '%s\\n' "$*" >>'${log}'
@@ -47,7 +49,7 @@ printf '%s\\n' "$*" >>'${log}'
       'sh',
       [
         '-c',
-        '. "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+        'sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { printf "1:2:81a4:17:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
         'retire-ollama-container-stability-test',
         script.pathname,
       ],

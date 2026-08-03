@@ -133,6 +133,8 @@ test('finds a stopped generic container whose only dependency is a legacy link',
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
+  *'inspect -f {{json .State.Running}} generic-api') printf 'false\\n' ;;
+  *' cp generic-api:/bin/true '*) for destination do :; done; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;;
   *'inspect -f {{json .Mounts}} generic-api') printf '[]\\n' ;;
   *'inspect -f {{.Id}} '*'.HostConfig.Links'*' generic-api') printf 'generic-api /generic-api /bin/true [] [] {} null [] {} {} {} ["/ollama-loopback:ollama"] "bridge"\\n' ;;
   *'inspect -f {{.Id}} '*' generic-api') printf 'generic-api /generic-api /bin/true [] [] {} null [] {} {} {} [] "bridge"\\n' ;;

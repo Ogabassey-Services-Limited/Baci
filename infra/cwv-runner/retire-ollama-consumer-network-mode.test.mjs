@@ -23,6 +23,8 @@ async function withDocker(networkMode, callback, { changing = false } = {}) {
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
+  *'inspect -f {{json .State.Running}} generic-api') printf 'false\\n' ;;
+  *' cp generic-api:/bin/true '*) for destination do :; done; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;;
   *'inspect -f {{json .Mounts}} generic-api') printf '[]\\n' ;;
   *'inspect -f {{.Id}} '*'.HostConfig.NetworkMode'*' generic-api')
     mode='${networkMode}'
