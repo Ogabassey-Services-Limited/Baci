@@ -16,6 +16,9 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Cart } from '@/components/cart';
 import { Logo } from '@/components/logo';
+import { HeaderNavigation } from '@/components/storefront/blocks/header-navigation';
+import { HeaderSearch } from '@/components/storefront/blocks/header-search';
+import { useMobileHeaderPanel } from '@/components/storefront/blocks/use-mobile-header-panel';
 import { LoyaltyBadge } from '@/components/storefront/loyalty/loyalty-badge';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
@@ -27,7 +30,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { useCart } from '@/hooks/use-cart';
@@ -87,7 +89,7 @@ export function Header({
   const auth = useAuthSafe();
   const user = auth?.user ?? null;
   const [isScrolled, setIsScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobilePanel = useMobileHeaderPanel();
   const [searchQuery, setSearchQuery] = useState('');
 
   const getHref = (path: string) =>
@@ -150,20 +152,6 @@ export function Header({
     sm: 'py-2',
     md: 'py-4',
     lg: 'py-6',
-  };
-
-  const searchClasses = {
-    outline: 'bg-transparent border-input',
-    filled: 'bg-muted border-transparent',
-    minimal:
-      'bg-transparent border-transparent border-b border-input rounded-none px-0',
-  };
-
-  const radiusClasses = {
-    none: 'rounded-none',
-    sm: 'rounded-sm',
-    md: 'rounded-md',
-    full: 'rounded-full',
   };
 
   // Determine effective text color based on scroll state and glass effect
@@ -236,51 +224,24 @@ export function Header({
 
           {/* Desktop Navigation */}
           {showMenu && navigationLinks.length > 0 && (
-            <nav
-              className={cn('hidden md:flex items-center gap-6', {
-                'order-2 mx-auto': layout === 'logo-left-nav-center',
-                'order-2 ml-auto mr-4': layout === 'logo-left-nav-right',
-                'order-1 mr-auto': layout === 'logo-center',
-              })}
-            >
-              {navigationLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={asRoute(getHref(link.url))}
-                  className="text-sm font-medium hover:opacity-70 transition-opacity"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
+            <HeaderNavigation
+              getHref={getHref}
+              layout={layout}
+              links={navigationLinks}
+            />
           )}
 
           {/* Search Bar (Desktop) */}
           {showSearch && (
-            <div
-              className={cn('hidden md:block relative max-w-xs w-full', {
-                'order-3': true,
-                'ml-auto': layout === 'logo-left-nav-center',
-              })}
-            >
-              <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 opacity-50 group-focus-within:opacity-100 transition-opacity" />
-                <Input
-                  type="search"
-                  placeholder="Search..."
-                  className={cn(
-                    'pl-9 transition-all focus-visible:ring-1',
-                    searchClasses[searchStyle],
-                    radiusClasses[searchRadius],
-                    glassEffect && !isScrolled
-                      ? 'bg-white/10 border-white/20 text-white placeholder:text-white/70'
-                      : ''
-                  )}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
+            <HeaderSearch
+              glassEffect={glassEffect}
+              isScrolled={isScrolled}
+              layout={layout}
+              onChange={setSearchQuery}
+              radius={searchRadius}
+              style={searchStyle}
+              value={searchQuery}
+            />
           )}
 
           {/* Actions (Cart, Mobile Menu, CTA) */}
@@ -308,6 +269,7 @@ export function Header({
                 size="icon"
                 className="md:hidden"
                 aria-label="Search"
+                onClick={mobilePanel.openSearch}
               >
                 <Search className="size-5" />
               </Button>
@@ -384,7 +346,7 @@ export function Header({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={handleLogout}
-                      className="cursor-pointer text-destructive focus:text-destructive"
+                      className="cursor-pointer text-destructive focus:bg-destructive focus:text-destructive-foreground"
                     >
                       <LogOut className="mr-2 size-4" />
                       Sign out
@@ -423,10 +385,14 @@ export function Header({
               <button
                 type="button"
                 aria-label="Toggle menu"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                onClick={
+                  mobilePanel.mode === 'menu'
+                    ? mobilePanel.close
+                    : mobilePanel.openMenu
+                }
                 className="md:hidden p-2 hover:bg-black/5 rounded-full transition-colors"
               >
-                {mobileMenuOpen ? (
+                {mobilePanel.mode === 'menu' ? (
                   <X className="size-6" />
                 ) : (
                   <Menu className="size-6" />
@@ -439,7 +405,7 @@ export function Header({
 
       {/* Mobile Menu Overlay */}
       <AnimatePresence>
-        {mobileMenuOpen && (
+        {mobilePanel.mode !== 'closed' && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -447,96 +413,121 @@ export function Header({
             className="fixed inset-0 z-40 bg-background pt-24 px-6 md:hidden"
           >
             <div className="flex flex-col gap-6">
-              {showSearch && (
-                <Input
-                  type="search"
-                  placeholder="Search products..."
-                  className="w-full"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              )}
-              <nav className="flex flex-col gap-4 text-lg font-medium">
-                <Link
-                  href={asRoute(getHref('/'))}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Home
-                </Link>
-                {navigationLinks.map((link) => (
-                  <Link
-                    key={link.label}
-                    href={asRoute(getHref(link.url))}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-                {user && merchant?.id && (
-                  <button
-                    type="button"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="w-full text-left"
-                  >
-                    <LoyaltyBadge
-                      merchantId={merchant.id}
-                      customerId={user.id}
-                      showPoints
-                      rewardsHref={getHref('/pages/rewards')}
-                    />
-                  </button>
-                )}
-
-                {/* Mobile Account Links */}
-                {showAccount && (
-                  <div className="pt-4 border-t space-y-4">
-                    {customerSession?.authenticated &&
-                    customerSession.customer ? (
-                      <>
-                        <div className="text-sm text-muted-foreground">
-                          Signed in as {customerSession.customer.email}
-                        </div>
-                        <Link
-                          href={asRoute(getHref('/account'))}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center gap-2"
-                        >
-                          <User className="size-5" />
-                          My Account
-                        </Link>
-                        <Link
-                          href={asRoute(getHref('/account/orders'))}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center gap-2"
-                        >
-                          <Package className="size-5" />
-                          Orders
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleLogout();
-                            setMobileMenuOpen(false);
-                          }}
-                          className="flex items-center gap-2 text-destructive"
-                        >
-                          <LogOut className="size-5" />
-                          Sign out
-                        </button>
-                      </>
-                    ) : (
-                      <Link
-                        href={asRoute(getHref('/account/login'))}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2"
-                      >
-                        <User className="size-5" />
-                        Sign in
-                      </Link>
-                    )}
+              {mobilePanel.mode === 'search' ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-medium">Search</h2>
+                    <button
+                      type="button"
+                      aria-label="Close search"
+                      onClick={mobilePanel.close}
+                      className="p-2 hover:bg-black/5 rounded-full transition-colors"
+                    >
+                      <X className="size-5" />
+                    </button>
                   </div>
-                )}
-              </nav>
+                  <HeaderSearch
+                    mobile
+                    onChange={setSearchQuery}
+                    radius={searchRadius}
+                    style={searchStyle}
+                    value={searchQuery}
+                  />
+                </>
+              ) : (
+                <>
+                  {showSearch && (
+                    <HeaderSearch
+                      mobile
+                      onChange={setSearchQuery}
+                      radius={searchRadius}
+                      style={searchStyle}
+                      value={searchQuery}
+                    />
+                  )}
+                  <nav className="flex flex-col gap-4 text-lg font-medium">
+                    <Link
+                      href={asRoute(getHref('/'))}
+                      onClick={mobilePanel.close}
+                    >
+                      Home
+                    </Link>
+                    {navigationLinks.map((link) => (
+                      <Link
+                        key={link.label}
+                        href={asRoute(getHref(link.url))}
+                        onClick={mobilePanel.close}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                    {user && merchant?.id && (
+                      <button
+                        type="button"
+                        onClick={mobilePanel.close}
+                        className="w-full text-left"
+                      >
+                        <LoyaltyBadge
+                          merchantId={merchant.id}
+                          customerId={user.id}
+                          showPoints
+                          rewardsHref={getHref('/pages/rewards')}
+                        />
+                      </button>
+                    )}
+
+                    {/* Mobile Account Links */}
+                    {showAccount && (
+                      <div className="pt-4 border-t space-y-4">
+                        {customerSession?.authenticated &&
+                        customerSession.customer ? (
+                          <>
+                            <div className="text-sm text-current">
+                              Signed in as {customerSession.customer.email}
+                            </div>
+                            <Link
+                              href={asRoute(getHref('/account'))}
+                              onClick={mobilePanel.close}
+                              className="flex items-center gap-2"
+                            >
+                              <User className="size-5" />
+                              My Account
+                            </Link>
+                            <Link
+                              href={asRoute(getHref('/account/orders'))}
+                              onClick={mobilePanel.close}
+                              className="flex items-center gap-2"
+                            >
+                              <Package className="size-5" />
+                              Orders
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleLogout();
+                                mobilePanel.close();
+                              }}
+                              className="flex items-center gap-2 rounded-md bg-destructive px-3 py-2 text-destructive-foreground"
+                            >
+                              <LogOut className="size-5" />
+                              Sign out
+                            </button>
+                          </>
+                        ) : (
+                          <Link
+                            href={asRoute(getHref('/account/login'))}
+                            onClick={mobilePanel.close}
+                            className="flex items-center gap-2"
+                          >
+                            <User className="size-5" />
+                            Sign in
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </nav>
+                </>
+              )}
             </div>
           </motion.div>
         )}

@@ -13,10 +13,10 @@ import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
 import { sortCategories } from '@/lib/category-sorting';
-import { findDarkestColor } from '@/lib/color-utils';
 import { getSampleProductsForBusinessType, type Product } from '@/lib/products';
 import { DidYouMeanBanner } from './did-you-mean-banner';
 import { StorefrontProductCard } from './product-card';
+import { ProductGridHeading } from './product-grid-heading';
 import { QuickViewModal, useQuickView } from './quick-view-modal';
 
 interface StorefrontProductGridProps {
@@ -351,15 +351,6 @@ export function StorefrontProductGrid({
     });
   };
 
-  const brandColors = merchant?.brand_colors
-    ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
-    : ['#3F51B5'];
-  const darkestColor = findDarkestColor(brandColors as string[]);
-
   // Quick view modal state
   const {
     product: quickViewProduct,
@@ -438,12 +429,7 @@ export function StorefrontProductGrid({
           </div>
         ) : (
           <>
-            <h2
-              className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10"
-              style={{ color: darkestColor }}
-            >
-              {title}
-            </h2>
+            <ProductGridHeading title={title} />
             {categories.length > 1 && (
               <div className="flex justify-center gap-2 mb-8 flex-wrap">
                 {categories.map((category) => (

@@ -2,14 +2,26 @@
 
 import { type Data, Render } from '@puckeditor/core';
 import { Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
+import { leasePublicPuckThemeTokens } from '@/components/storefront/public-puck-theme-token-lease';
 import { useMerchant } from '@/hooks/use-merchant-client';
+import { getCuratedThemeTokenProjection } from '@/lib/storefront-defaults/curated-theme-token-projection';
 import { createClient } from '@/lib/supabase/client';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 
 interface PuckStorefrontProps {
   onNoConfig?: () => void;
+}
+
+interface MerchantPuckData {
+  data: Data;
+  merchantId: string;
+}
+
+interface MerchantPuckTheme {
+  merchantId: string;
+  theme: ThemeConfiguration;
 }
 
 function isThemeObject(value: unknown): value is Record<string, unknown> {
@@ -73,6 +85,7 @@ interface LoadPuckConfigParams {
   merchantId: string;
   onNoConfig?: () => void;
   setPuckData: (data: Data) => void;
+  setPuckTheme: (theme: ThemeConfiguration | null) => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -82,6 +95,7 @@ async function loadPuckConfig({
   merchantId,
   onNoConfig,
   setPuckData,
+  setPuckTheme,
   setLoading,
 }: LoadPuckConfigParams): Promise<void> {
   try {
@@ -110,15 +124,13 @@ async function loadPuckConfig({
         theme?: Partial<ThemeConfiguration>;
       };
       if (configWithTheme.theme) {
-        const { applyTheme, validateTheme } = await import(
-          '@/lib/theme-manager'
-        );
+        const { validateTheme } = await import('@/lib/theme-manager');
         const normalizedTheme = normalizeThemeConfiguration(
           defaultTheme,
           configWithTheme.theme
         );
         if (validateTheme(normalizedTheme)) {
-          applyTheme(normalizedTheme);
+          setPuckTheme(normalizedTheme);
         }
       }
     } else {
@@ -135,19 +147,56 @@ async function loadPuckConfig({
 
 export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
   const { merchant } = useMerchant();
-  const [puckData, setPuckData] = useState<Data | null>(null);
+  const onNoConfigRef = useRef(onNoConfig);
+  const [puckData, setPuckData] = useState<MerchantPuckData | null>(null);
+  const [puckTheme, setPuckTheme] = useState<MerchantPuckTheme | null>(null);
   const [loading, setLoading] = useState(true);
+  const merchantId = merchant?.id ?? null;
+  const activePuckData =
+    puckData?.merchantId === merchantId ? puckData.data : null;
+  const activePuckTheme =
+    puckTheme?.merchantId === merchantId ? puckTheme.theme : null;
+  onNoConfigRef.current = onNoConfig;
 
   useEffect(() => {
-    if (!merchant?.id) return;
+    let active = true;
+    setPuckData(null);
+    setPuckTheme(null);
+    if (!merchantId) {
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+    setLoading(true);
 
     loadPuckConfig({
-      merchantId: merchant.id,
-      onNoConfig,
-      setPuckData,
-      setLoading,
+      merchantId,
+      onNoConfig: () => {
+        if (active) onNoConfigRef.current?.();
+      },
+      setPuckData: (data) => {
+        if (active) setPuckData({ data, merchantId });
+      },
+      setPuckTheme: (theme) => {
+        if (active && theme) setPuckTheme({ merchantId, theme });
+      },
+      setLoading: (nextLoading) => {
+        if (active) setLoading(nextLoading);
+      },
     });
-  }, [merchant?.id, onNoConfig]);
+    return () => {
+      active = false;
+    };
+  }, [merchantId]);
+
+  useEffect(() => {
+    if (!activePuckTheme) return;
+    return leasePublicPuckThemeTokens(
+      document.documentElement,
+      getCuratedThemeTokenProjection(activePuckTheme)
+    ).release;
+  }, [activePuckTheme]);
 
   if (loading) {
     return (
@@ -167,10 +216,24 @@ export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
   }
 
   // If no Puck data, return null (fallback will be shown)
-  if (!puckData) {
+  if (!activePuckData) {
     return null;
   }
 
   // Render using Puck
-  return <Render config={builderConfig} data={puckData} />;
+  return (
+    <div
+      style={
+        activePuckTheme
+          ? ({
+              backgroundColor: 'var(--theme-background)',
+              color: 'var(--theme-foreground)',
+              ...getCuratedThemeTokenProjection(activePuckTheme),
+            } as CSSProperties)
+          : undefined
+      }
+    >
+      <Render config={builderConfig} data={activePuckData} />
+    </div>
+  );
 }

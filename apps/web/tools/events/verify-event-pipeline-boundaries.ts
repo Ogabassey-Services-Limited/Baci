@@ -200,6 +200,7 @@ function sourceViewFindings(
     findings.push('fixture: event-pipeline path inventory hash mismatch');
   }
   const frozenFiles = {
+    ...eventPipelineBoundaryManifest.frozenAuthoritySources,
     ...eventPipelineBoundaryManifest.frozenProjectionFiles,
     ...eventPipelineBoundaryManifest.frozenRoutes,
     ...eventPipelineBoundaryManifest.sdkConstructorHashes,
