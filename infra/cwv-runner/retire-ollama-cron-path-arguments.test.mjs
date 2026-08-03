@@ -171,3 +171,39 @@ test('binds a direct cron command absolute file argument', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('binds absolute file arguments trailing an exact flock launcher', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-flock-argument-'));
+  const cron = join(directory, 'crontab');
+  const worker = join(directory, 'application-worker');
+  const configuration = join(directory, 'application.conf');
+  try {
+    await Promise.all([
+      writeFile(
+        cron,
+        `* * * * * root /usr/bin/flock -n /run/application.lock ${worker} --config ${configuration}\n`
+      ),
+      writeFile(worker, '#!/bin/sh\nexit 0\n'),
+      writeFile(configuration, 'OLLAMA_HOST=http://127.0.0.1:11434\n'),
+    ]);
+    await chmod(worker, 0o755);
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${harness}; cron_inventory_record_wrapper_consumers system-crontab system "$2" "$2"; printf "%s\\n%s\\n" "$records" "$consumer_counts"`,
+      'retire-ollama-cron-flock-argument-test',
+      script.pathname,
+      cron,
+    ]);
+    const [records, counts] = stdout.trim().split('\n').map(JSON.parse);
+    assert.deepEqual(
+      records.map(({ realPath }) => realPath),
+      [worker, configuration]
+    );
+    assert.deepEqual(
+      counts.map(({ matchCount }) => matchCount),
+      [0, 1]
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

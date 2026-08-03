@@ -52,13 +52,20 @@ systemd_quoted_command_paths() {
   printf '%s\n' "$command" || { rm -f "$words"; return 2; }
   sed '1d' "$words" | while IFS= read -r argument || [ -n "$argument" ]; do
     case "$argument" in
-      /*)
-        if [ -e "$argument" ] || [ -L "$argument" ]; then
-          canonical_argument=$(consumer_canonical_regular "$argument") || exit 2
-          printf '%s\n' "$canonical_argument" || exit 2
-        fi
+      /*) argument_path=$argument;;
+      --*=*)
+        argument_name=${argument%%=*}; argument_path=${argument#*=}
+        printf '%s\n' "$argument_name" | grep -Eq '^--[A-Za-z0-9][A-Za-z0-9_.-]*$' || exit 2
+        case "$argument_path" in /*) :;; *) continue;; esac
         ;;
+      *) continue;;
     esac
+    printf '%s\n' "$argument_path" | grep -Eq '^/[A-Za-z0-9._/-]+$' || exit 2
+    case "$argument_path" in */../*|*/..|*/./*|*/.) exit 2;; esac
+    if [ -e "$argument_path" ] || [ -L "$argument_path" ]; then
+          canonical_argument=$(consumer_canonical_regular "$argument_path") || exit 2
+          printf '%s\n' "$canonical_argument" || exit 2
+    fi
   done
   status=$?; rm -f "$words"; return "$status"
 }

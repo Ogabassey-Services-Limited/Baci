@@ -118,3 +118,54 @@ test('enumerates a safe absolute regular-file ExecStart argument with its execut
     await rm(directory, { force: true, recursive: true });
   }
 });
+
+test('binds a stopped unit config embedded in an ExecStart option', async () => {
+  const { directory, root } = await systemdFixture(
+    'baci-systemd-embedded-config-'
+  );
+  const unit = join(root, 'application.service');
+  const wrapper = join(directory, 'application-worker');
+  const configuration = join(directory, 'application.conf');
+  try {
+    await Promise.all([
+      writeFile(
+        unit,
+        `[Service]\nExecStart=${wrapper} --config=${configuration}\n`
+      ),
+      writeFile(wrapper, '#!/bin/sh\nexec /bin/true\n'),
+      writeFile(configuration, 'OLLAMA_HOST=http://127.0.0.1:11434\n'),
+    ]);
+
+    const { stdout } = await scanSystemd(root);
+
+    assert.match(
+      stdout,
+      new RegExp(`^${unit}\\|.*\\|${configuration}\\|`, 'm')
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('rejects a dynamic absolute path embedded in an ExecStart option', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-systemd-dynamic-config-'))
+  );
+  const wrapper = join(directory, 'application-worker');
+  try {
+    await writeFile(wrapper, '#!/bin/sh\nexec /bin/true\n');
+
+    await assert.rejects(
+      execFileAsync('sh', [
+        '-c',
+        `${prelude}. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; systemd_quoted_command_paths "$2"`,
+        'retire-ollama-systemd-dynamic-argument-test',
+        script.pathname,
+        `${wrapper} --config=/etc/$CONFIG`,
+      ]),
+      (error) => error.code === 2
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});

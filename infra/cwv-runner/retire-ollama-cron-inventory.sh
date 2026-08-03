@@ -114,7 +114,7 @@ cron_inventory_periodic_dir() {
 }
 cron_inventory_command_targets() {
   kind=$1 source=$2 snapshot=$3; anacron=$(cron_inventory_anacrontab); system=$(cron_inventory_system_file); cron_target_system_dir=$(cron_inventory_system_dir); hourly=$(cron_inventory_hourly_dir); daily=$(cron_inventory_daily_dir); weekly=$(cron_inventory_weekly_dir); monthly=$(cron_inventory_monthly_dir)
-  case "$kind:$source" in system:"$anacron") format=anacron;; system:*) format=system;; user:*) format=user;; system-directory:*) [ "${source%/*}" = "$cron_target_system_dir" ] || return 0; format=system;; *) return 2;; esac
+  case "$kind:$source" in system:"$anacron") format=anacron;; system:*) format=system;; user:*) format=user;; system-directory:*) cron_parent=${source%/*}; if [ "$cron_parent" = "$cron_target_system_dir" ]; then format=system; else case "$cron_parent" in "$hourly"|"$daily"|"$weekly"|"$monthly") printf 'command\t%s\n' "$source"; return 0;; *) return 0;; esac; fi;; *) return 2;; esac
   [ "$kind:$source" = "system:$system" ] && canonical_system=1 || canonical_system=0
   awk -v format="$format" -v canonical_system="$canonical_system" -v hourly="$hourly" -v daily="$daily" -v weekly="$weekly" -v monthly="$monthly" '
     function fixed_periodic(directory) {
@@ -137,7 +137,7 @@ cron_inventory_command_targets() {
       command=$field
       if (!safe_absolute(command) || unsafe_interpreter(command)) { bad=1; return }
       for (i=field+1; i<=NF; i++) if ($i ~ /[;&|<>()`$\\%]/) { bad=1; return }
-      if (command == "/usr/bin/flock") { if (NF < field + 3 || $(field + 1) != "-n" || $(field + 2) !~ /^\/run\// || !safe_absolute($(field + 2)) || !safe_absolute($(field + 3)) || unsafe_interpreter($(field + 3))) { bad=1; return }; print "command\t" $(field + 3); return }
+      if (command == "/usr/bin/flock") { if (NF < field + 3 || $(field + 1) != "-n" || $(field + 2) !~ /^\/run\// || !safe_absolute($(field + 2)) || !safe_absolute($(field + 3)) || unsafe_interpreter($(field + 3))) { bad=1; return }; print "command\t" $(field + 3); for (i=field+4; i<=NF; i++) argument($i); return }
       print "command\t" command
       for (i=field+1; i<=NF; i++) argument($i)
     }
