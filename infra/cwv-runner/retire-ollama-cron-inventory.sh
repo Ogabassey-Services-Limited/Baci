@@ -128,7 +128,7 @@ cron_inventory_command_targets() {
     function safe_absolute(value) { return value ~ /^\/[-A-Za-z0-9._+@%=]+(\/[-A-Za-z0-9._+@%=]+)*$/ && value !~ /(^|\/)\.\.?($|\/)/ }
     function unsafe_interpreter(value) { return value ~ /\/(sh|bash|dash|env|node|perl|php|python|python[0-9.]*|ruby)$/ }
     function argument(value, path) {
-      path=value; if (value ~ /^--[A-Za-z0-9][A-Za-z0-9-]*=/) sub(/^[^=]*=/, "", path)
+      path=value; if (value ~ /^--?[A-Za-z0-9][A-Za-z0-9-]*=/) sub(/^[^=]*=/, "", path)
       if (path ~ /^\//) { if (!safe_absolute(path)) bad=1; else print "file\t" path }
       else if (path ~ /^\.\.?\//) bad=1
     }
@@ -173,7 +173,7 @@ cron_inventory_wrapper_exec_paths() {
     function trim(value) { sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value); return value }
     function safe(path) { return path ~ /^\/[A-Za-z0-9._\/-]+$/ && path !~ /(^|\/)\.\.?($|\/)/ }
     function emit(token, path) {
-      path=token; if (token ~ /^--[A-Za-z0-9][A-Za-z0-9-]*=/) sub(/^[^=]*=/, "", path)
+      path=token; if (token ~ /^--?[A-Za-z0-9][A-Za-z0-9-]*=/) sub(/^[^=]*=/, "", path)
       if (path ~ /^\//) { if (!safe(path)) bad=1; else print path }
       else if (path ~ /^\.\.?\//) bad=1
     }

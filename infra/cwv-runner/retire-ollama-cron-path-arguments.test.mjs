@@ -46,6 +46,73 @@ test('binds an absolute file in a wrapper option value', async () => {
   }
 });
 
+test('binds an absolute file in a single-dash option value', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-short-option-'));
+  const cron = join(directory, 'crontab');
+  const wrapper = join(directory, 'cron-wrapper');
+  const worker = join(directory, 'application-worker');
+  const configuration = join(directory, 'application.conf');
+  try {
+    await Promise.all([
+      writeFile(cron, `* * * * * root ${wrapper}\n`),
+      writeFile(wrapper, `#!/bin/sh\n${worker} -c=${configuration}\n`),
+      writeFile(worker, '#!/bin/sh\nexit 0\n'),
+      writeFile(configuration, 'OLLAMA_HOST=http://127.0.0.1:11434\n'),
+    ]);
+    await Promise.all([chmod(wrapper, 0o755), chmod(worker, 0o755)]);
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${harness}; cron_inventory_record_wrapper_consumers system-crontab system "$2" "$2"; printf "%s\\n%s\\n" "$records" "$consumer_counts"`,
+      'retire-ollama-cron-short-option-test',
+      script.pathname,
+      cron,
+    ]);
+    const [records, counts] = stdout.trim().split('\n').map(JSON.parse);
+    assert.deepEqual(
+      records.map(({ realPath }) => realPath),
+      [wrapper, worker, configuration]
+    );
+    assert.deepEqual(
+      counts.map(({ matchCount }) => matchCount),
+      [0, 0, 1]
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+for (const [label, option] of [
+  ['dynamic', '-c="$CONFIG"'],
+  ['unsafe', '-c=/tmp/../application.conf'],
+]) {
+  test(`fails closed on a ${label} single-dash option value`, async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), `baci-cron-${label}-short-option-`)
+    );
+    const cron = join(directory, 'crontab');
+    const wrapper = join(directory, 'cron-wrapper');
+    const worker = join(directory, 'application-worker');
+    try {
+      await Promise.all([
+        writeFile(cron, `* * * * * root ${wrapper}\n`),
+        writeFile(wrapper, `#!/bin/sh\n${worker} ${option}\n`),
+        writeFile(worker, '#!/bin/sh\nexit 0\n'),
+      ]);
+      await Promise.all([chmod(wrapper, 0o755), chmod(worker, 0o755)]);
+      const { stdout } = await execFileAsync('sh', [
+        '-c',
+        `${harness}; if cron_inventory_record_wrapper_consumers system-crontab system "$2" "$2"; then printf "0\\n"; else printf "%s\\n" "$?"; fi`,
+        `retire-ollama-cron-${label}-short-option-test`,
+        script.pathname,
+        cron,
+      ]);
+      assert.equal(stdout.trim(), '2');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}
+
 test('fails closed on a relative child behind a cd compound', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-cron-relative-child-'));
   const cron = join(directory, 'crontab');

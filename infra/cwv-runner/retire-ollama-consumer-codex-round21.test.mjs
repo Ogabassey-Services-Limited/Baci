@@ -68,3 +68,31 @@ test('binds a Compose endpoint assembled from interpolation defaults', async () 
     await rm(root, { force: true, recursive: true });
   }
 });
+
+test('binds a Compose endpoint assembled from strict project environment values', async () => {
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-compose-project-environment-'))
+  );
+  const compose = join(root, 'compose.yaml');
+  const environment = join(root, '.env');
+  try {
+    await writeFile(
+      compose,
+      `services:\n  app:\n    environment:\n      MODEL_URL: http://127.0.0.1:\${PORT}\${TAIL}\n`
+    );
+    await writeFile(environment, 'PORT=11\nTAIL=434\n');
+
+    const { stdout } = await scanCompose(root);
+    assert.match(
+      stdout,
+      new RegExp(
+        `^compose-interpolation:${compose.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|.*\\|${environment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|`,
+        'm'
+      )
+    );
+    await writeFile(environment, 'PORT=11\nPORT=11\nTAIL=434\n');
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
