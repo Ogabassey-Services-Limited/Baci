@@ -15,6 +15,7 @@ import type {
 } from 'schema-dts';
 import { filterBrandMatchedSocialProfiles } from '@/lib/brand-matched-social-profiles';
 import type { JsonLdStructuredData } from '@/lib/json-ld-types';
+import { buildStorefrontProductPath } from './build-storefront-product-path';
 import {
   type CheckoutPaymentMerchant,
   isBankTransferCheckoutAvailable,
@@ -22,6 +23,8 @@ import {
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from './checkout/payment-gateway-availability';
+import { generateStorefrontSlug } from './generate-storefront-slug';
+import { getStorefrontProductPath } from './get-storefront-product-path';
 import {
   isExternalPlaceholderImageUrl,
   PLACEHOLDER_IMAGE,
@@ -38,11 +41,6 @@ import { escapeHtml, stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaMarkup, sanitizeSchemaUrl } from './sanitize-json-ld';
 import { normalizeSocialUrl } from './social';
 import { stripVolatileProductPriceSentences } from './storefront-product-description';
-import {
-  buildProductUrl as buildSerializedProductUrl,
-  generateSlug,
-  getProductUrl as getSerializedProductUrl,
-} from './storefront-product-path';
 import { getValidatedProductUrl as getSerializedValidatedProductUrl } from './storefront-product-url-serialization';
 import type {
   MerchantTrustProfile,
@@ -50,7 +48,7 @@ import type {
   MerchantTrustProfileReturnMethod,
 } from './storefront-trust/merchant-trust-profile-types';
 
-export { generateSlug } from './storefront-product-path';
+export { generateStorefrontSlug as generateSlug } from './generate-storefront-slug';
 // Re-export escapeHtml for use in other modules
 export { escapeHtml, getEffectiveProductStock };
 
@@ -99,7 +97,7 @@ export function generateProductSlug(
   else if (lowerName.endsWith(' new')) cleanName = name.slice(0, -4);
   else if (lowerName.endsWith(' used')) cleanName = name.slice(0, -5);
 
-  return generateSlug(cleanName);
+  return generateStorefrontSlug(cleanName);
 }
 
 /**
@@ -121,7 +119,7 @@ export function buildProductUrl(
   category?: string | null | { name?: string; slug?: string },
   categorySlug?: string | null
 ): Route {
-  return buildSerializedProductUrl(productSlug, category, categorySlug);
+  return buildStorefrontProductPath(productSlug, category, categorySlug);
 }
 
 /**
@@ -140,7 +138,7 @@ export function getProductUrl(product: {
   condition_detail?: string;
   id: string;
 }): Route {
-  return getSerializedProductUrl(product);
+  return getStorefrontProductPath(product);
 }
 
 export function getValidatedProductUrl(
@@ -2215,7 +2213,7 @@ export function generateBlogPostSchema(
     ? sanitizeSchemaEntityId(data.author.id)
     : data.author.url
       ? sanitizeSchemaEntityId(
-          `${data.author.url}#author-${generateSlug(data.author.name)}`
+          `${data.author.url}#author-${generateStorefrontSlug(data.author.name)}`
         )
       : '';
   const publisherId = data.publisher.id

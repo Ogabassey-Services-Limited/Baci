@@ -8,6 +8,7 @@ process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 let mockHeaders = new Map<string, string>();
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockGetCachedCategoryProductCounts = vi.fn();
 const mockGetBrandAuthorityCategory = vi.fn();
 const mockGetCachedBrandAuthorityInventory = vi.fn();
 const mockBuildCommercialSupportDiscoveryLinks = vi.fn();
@@ -23,6 +24,10 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
+}));
+vi.mock('@/lib/cached-category-product-counts', () => ({
+  getCachedCategoryProductCounts: (...args: unknown[]) =>
+    mockGetCachedCategoryProductCounts(...args),
 }));
 vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
   brandAuthorityPublicData: {
@@ -159,6 +164,7 @@ describe('sitemap-data', () => {
     });
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockGetCachedCategoryProductCounts.mockReset();
     mockGetBrandAuthorityCategory.mockReset();
     mockGetBrandAuthorityCategory.mockResolvedValue(null);
     mockGetCachedBrandAuthorityInventory.mockReset();
@@ -1364,12 +1370,27 @@ describe('sitemap-data', () => {
     expect(body).toContain('<sitemapindex');
   });
 
-  it('omits categories with unknown active state', async () => {
-    mockCategoriesQuery([{ slug: 'smartphones', updated_at: null }]);
+  it('omits lastmod from category entries when updated_at is missing', async () => {
+    mockCategoriesQuery([
+      {
+        id: 'category-smartphones',
+        slug: 'smartphones',
+        updated_at: null,
+        is_active: true,
+        parent_id: null,
+      },
+    ]);
+    mockGetCachedCategoryProductCounts.mockResolvedValueOnce({
+      'category-smartphones': 1,
+    });
     const { getCategorySitemapEntries } = sitemapData;
 
     const entries = await getCategorySitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        is_published: true,
+      },
       storeUrl: 'https://ogabassey.com',
       supabase: {
         from: (table: string) => ({
@@ -1378,7 +1399,10 @@ describe('sitemap-data', () => {
       },
     } as unknown as StorefrontSitemapContext);
 
-    expect(entries).toEqual([]);
+    expect(entries).toEqual([
+      expect.objectContaining({ url: 'https://ogabassey.com/smartphones' }),
+    ]);
+    expect(entries[0]?.lastModified).toBeUndefined();
   });
 
   it('lists only inventory-qualified curated brand authority hubs', async () => {

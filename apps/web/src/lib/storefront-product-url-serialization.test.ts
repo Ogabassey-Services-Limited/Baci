@@ -57,4 +57,28 @@ describe('storefront public product URL serialization', () => {
 
     expect(encodedUrl).toBe(rawUrl);
   });
+
+  it('converges decoded whitespace before serializing category and product segments', () => {
+    const rawUrl = getValidatedProductUrl(
+      {
+        id: 'watch-2',
+        name: 'Watch',
+        slug: ' watch ',
+        category_slug: ' smart watches ',
+      },
+      'https://store.example'
+    );
+    const encodedUrl = getValidatedProductUrl(
+      {
+        id: 'watch-2',
+        name: 'Watch',
+        slug: '%20watch%20',
+        category_slug: '%20smart%20watches%20',
+      },
+      'https://store.example'
+    );
+
+    expect(rawUrl).toBe('https://store.example/smart%20watches/watch');
+    expect(encodedUrl).toBe(rawUrl);
+  });
 });

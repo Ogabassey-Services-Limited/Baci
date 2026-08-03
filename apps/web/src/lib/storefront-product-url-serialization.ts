@@ -1,12 +1,8 @@
+import { getStorefrontProductPath } from './get-storefront-product-path';
+import { serializeStorefrontProductPath } from './serialize-storefront-product-path';
+import { serializeStorefrontProductUrl } from './serialize-storefront-product-url';
 import { normalizeStorefrontCanonicalUrl } from './storefront-canonical-url';
-import {
-  getProductUrl,
-  type StorefrontProductUrlInput,
-} from './storefront-product-path';
-import {
-  serializeStorefrontProductPath,
-  serializeStorefrontProductUrl,
-} from './storefront-product-path-serialization';
+import type { StorefrontProductUrlInput } from './storefront-product-url-input';
 
 export function getValidatedProductUrl(
   product: StorefrontProductUrlInput,
@@ -20,7 +16,10 @@ export function getValidatedProductUrl(
     storeOrigin = '';
   }
 
-  const finalProductPath = getProductUrl({ ...product, canonical_url: null });
+  const finalProductPath = getStorefrontProductPath({
+    ...product,
+    canonical_url: null,
+  });
   let canonicalUrl = normalizeStorefrontCanonicalUrl(
     product.canonical_url,
     storeOrigin,
