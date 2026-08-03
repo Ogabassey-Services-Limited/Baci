@@ -323,4 +323,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260803100000_restrict_santa_interaction_event_types.sql',
     sha256: '4c4dce9e7a5731c8f273800965c0c985c7a0450f55b71be292d7ecb18ef67721',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260803110000_restrict_santa_funnel_event_types.sql',
+    sha256: '754a790bfa0de2333125d255601075fc62f937b660a7df261dd4a9e2f306cdad',
+  },
 ];

@@ -31,13 +31,13 @@ describe('Santa catalog helpers', () => {
     expect(calculateSantaMaxDiscountPercentage(10_000_000, 7_000_000)).toBe(29);
   });
 
-  it('formats action prices with a parser-safe currency code suffix', () => {
+  it('formats action prices as ungrouped parser-safe currency code suffixes', () => {
     expect(
       formatSantaProductPrice(1000, {
         code: 'GHS',
-        locale: 'en-GH',
+        locale: 'de-DE',
         symbol: 'GH₵',
       })
-    ).toBe('1,000 GHS');
+    ).toBe('1000 GHS');
   });
 });

@@ -23,6 +23,13 @@ const eventTypeMigration = readFileSync(
   ),
   'utf8'
 );
+const funnelEventTypeMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260803110000_restrict_santa_funnel_event_types.sql'
+  ),
+  'utf8'
+);
 
 describe('Santa analytics RPC migration', () => {
   it('keeps direct anonymous RPC calls behind a database rate limit', () => {
@@ -51,5 +58,12 @@ describe('Santa analytics RPC migration', () => {
     expect(eventTypeMigration).toContain('p_interaction_type NOT IN (');
     expect(eventTypeMigration).not.toContain("'checkout_completed'");
     expect(eventTypeMigration).toContain('9999999999.99');
+  });
+
+  it('keeps spoofable funnel events out of the anonymous analytics RPC', () => {
+    expect(funnelEventTypeMigration).not.toContain("'add_to_cart'");
+    expect(funnelEventTypeMigration).not.toContain("'checkout_started'");
+    expect(funnelEventTypeMigration).toContain("'wish_granted'");
+    expect(funnelEventTypeMigration).toContain("'wish_denied'");
   });
 });

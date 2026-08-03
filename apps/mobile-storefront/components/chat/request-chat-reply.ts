@@ -63,6 +63,7 @@ export async function requestChatReply({
             'Content-Type': 'application/json',
             Accept: 'text/plain',
             'Cache-Control': 'no-cache',
+            [SANTA_MERCHANT_SLUG_HEADER]: CONFIG.MERCHANT_SLUG.trim(),
           },
           signal: controller.signal,
           body: JSON.stringify(requestBody),

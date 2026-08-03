@@ -15,6 +15,7 @@ jest.mock('./santa-cart', () => ({
   addSantaWishToCart: jest.fn(),
 }));
 
+import { SANTA_MERCHANT_SLUG_HEADER } from './constants';
 import { requestChatReply } from './request-chat-reply';
 
 describe('requestChatReply', () => {
@@ -42,7 +43,12 @@ describe('requestChatReply', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/chat'),
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          [SANTA_MERCHANT_SLUG_HEADER]: 'ogabassey',
+        }),
+      })
     );
     expect(setMessages).toHaveBeenCalledWith(expect.any(Function));
     expect(setIsLoading).toHaveBeenLastCalledWith(false);

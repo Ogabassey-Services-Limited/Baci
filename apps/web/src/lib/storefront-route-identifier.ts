@@ -1,5 +1,6 @@
 import type { headers } from 'next/headers';
 import { getRootDomain } from '@/env';
+import { SANTA_MERCHANT_SLUG_HEADER } from '@/lib/agentic/santa-merchant-slug-header';
 
 export function resolveMerchantContextIdentifier(
   headersList: Awaited<ReturnType<typeof headers>>
@@ -17,6 +18,13 @@ export function resolveMerchantContextIdentifier(
   const merchantSlug = headersList.get('x-merchant-slug')?.toLowerCase();
   if (merchantSlug) {
     return merchantSlug;
+  }
+
+  const santaMerchantSlug = headersList
+    .get(SANTA_MERCHANT_SLUG_HEADER)
+    ?.toLowerCase();
+  if (santaMerchantSlug) {
+    return santaMerchantSlug;
   }
 
   return '';

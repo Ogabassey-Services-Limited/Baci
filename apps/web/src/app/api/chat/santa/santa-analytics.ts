@@ -4,13 +4,7 @@ export async function logSantaInteraction(params: {
   merchantSlug: string;
   sessionId: string;
   clientIp: string;
-  interactionType:
-    | 'chat'
-    | 'wish_granted'
-    | 'wish_denied'
-    | 'add_to_cart'
-    | 'checkout_started'
-    | 'checkout_completed';
+  interactionType: 'chat' | 'wish_granted' | 'wish_denied';
   userMessage?: string;
   santaResponse?: string;
   productName?: string;

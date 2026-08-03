@@ -58,7 +58,7 @@ export function formatSantaProductPrice(
   price: number,
   currency: CurrencyConfig
 ): string {
-  return `${price.toLocaleString(currency.locale)} ${currency.code}`;
+  return `${String(price)} ${currency.code}`;
 }
 
 /**
