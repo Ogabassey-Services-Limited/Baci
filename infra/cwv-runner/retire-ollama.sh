@@ -62,11 +62,11 @@ digest_command() {
   sha "$out"
 }
 
-records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'
+records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'; APPROVED_OLLAMA_PID=''; APPROVED_OLLAMA_PROCESS_IDENTITY=''
 cron_line_approved() { cron_sha=$(hash_text "$1") || die 'cron line digest failed'; case "$cron_sha" in "$OLLAMA_CRON_ONE"|"$OLLAMA_CRON_TWO") return 0;; *) return 1;; esac; }
-process_line_approved() {
-  /usr/bin/printf '%s\n' "$1" | /usr/bin/awk 'NF == 5 && $4 == "/usr/bin/ollama" && $5 == "serve" { exit 0 } { exit 1 }'
-}
+process_line_approved() { [ -n "$APPROVED_OLLAMA_PID" ] && [ -n "$APPROVED_OLLAMA_PROCESS_IDENTITY" ] || return 1; /usr/bin/printf '%s\n' "$1" | /usr/bin/awk -v approved="$APPROVED_OLLAMA_PID" 'NF == 5 && $1 == approved && $4 == "/usr/bin/ollama" && $5 == "serve" { exit 0 } { exit 1 }'; }
+review_ollama_service_process_begin() { APPROVED_OLLAMA_PID=''; APPROVED_OLLAMA_PROCESS_IDENTITY=''; pid=$(systemctl show "$UNIT" -p MainPID --value) || die 'Ollama service MainPID scan failed'; case "$pid" in ''|*[!0-9]*) review_required 'invalid Ollama service MainPID';; 0) return;; esac; identity=$(recovery_process_lifetime_marker "$pid") || review_required 'Ollama service process identity unavailable'; recovery_sha256 "$identity" || review_required 'invalid Ollama service process identity'; APPROVED_OLLAMA_PID=$pid; APPROVED_OLLAMA_PROCESS_IDENTITY=$identity; }
+review_ollama_service_process_finish() { [ -n "$APPROVED_OLLAMA_PID" ] || return 0; pid=$(systemctl show "$UNIT" -p MainPID --value) || die 'Ollama service MainPID recheck failed'; [ "$pid" = "$APPROVED_OLLAMA_PID" ] || review_required 'Ollama service MainPID changed'; identity=$(recovery_process_lifetime_marker "$pid") || review_required 'Ollama service process identity unavailable'; [ "$identity" = "$APPROVED_OLLAMA_PROCESS_IDENTITY" ] || review_required 'Ollama service process identity changed'; }
 record_running_process_environments() { file=$1; type recovery_process_environment_evidence >/dev/null 2>&1 || review_required 'process environment scanner missing'; while IFS=' ' read -r pid ppid user args || [ -n "$pid$ppid$user$args" ]; do case "$pid" in PID) continue;; ''|*[!0-9]*) review_required 'invalid running process pid';; esac; [ "$pid" = "$$" ] && continue; process_line_approved "$pid $ppid $user $args" && continue; evidence=$(recovery_process_environment_evidence "$pid"); state=$(printf '%s\n' "$evidence" | jq -r '.state // "present"') || review_required 'invalid process environment evidence'; [ "$state" = vanished ] && continue; [ "$state" = present ] || review_required 'invalid process environment evidence'; match=$(printf '%s\n' "$evidence" | jq -r '.matchingEnvironmentSha256 // empty') || review_required 'invalid process environment evidence'; [ -z "$match" ] || recovery_record_process_environment_consumer "$evidence"; done <"$file"; }
 record_consumers() {
   class=$1 file=$2 mode=${3:-matched}; count=0; unknown_sha=$(hash_text unknown)
@@ -102,15 +102,15 @@ recovery_listener_executable() {
 }
 recovery_socket_snapshot() {
   container_pid=$1; container_cgroup=$2; container_namespace=$3; ports=$4; processes=$5; listeners='[]'; seen=''
-  socket_directory="$RECOVERY_PROC_ROOT/net"
-  if [ -L "$socket_directory" ]; then
-    [ "$RECOVERY_PROC_ROOT" = /proc ] && [ "$(readlink -- "$socket_directory")" = self/net ] || review_required 'unsafe recovery socket directory'
-  else
-    [ -d "$socket_directory" ] || review_required 'recovery socket directory unavailable'
-  fi
+  socket_directory="$RECOVERY_PROC_ROOT/net"; if [ -L "$socket_directory" ]; then [ "$RECOVERY_PROC_ROOT" = /proc ] && [ "$(readlink -- "$socket_directory")" = self/net ] || review_required 'unsafe recovery socket directory'; else [ -d "$socket_directory" ] || review_required 'recovery socket directory unavailable'; fi
   for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do [ -f "$table" ] && [ ! -L "$table" ] || review_required 'unsafe recovery socket table'; done
-  raw=$(temp_path)
-  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,local_endpoint,":"); split($3,remote_endpoint,":"); if ($4 == "0A" && local_endpoint[2] == "2CAA") print family "|listener|" local_endpoint[1] "|" local_endpoint[2] "|" $10; else if ($4 == "01" && remote_endpoint[2] == "2CAA") print family "|client|" remote_endpoint[1] "|" remote_endpoint[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
+  raw=$(temp_path); for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" 'NR > 1 { split($2,local_endpoint,":"); split($3,remote_endpoint,":"); if ($4 == "0A" && local_endpoint[2] == "2CAA") print family "|listener|" local_endpoint[1] "|" local_endpoint[2] "|" $10; else if ($4 == "01" && remote_endpoint[2] == "2CAA") print family "|client|" remote_endpoint[1] "|" remote_endpoint[2] "|" $10 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
+  while IFS=' ' read -r pid _ || [ -n "$pid" ]; do
+    [ -n "$pid" ] || continue; recovery_safe_int "$pid" || review_required 'invalid socket process pid'; process_root="$RECOVERY_PROC_ROOT/$pid"; [ -e "$process_root" ] || [ -L "$process_root" ] || continue; process_net="$process_root/net"; if [ ! -d "$process_net" ] || [ -L "$process_net" ]; then [ "$RECOVERY_PROC_ROOT" != /proc ] && continue; review_required 'unsafe process socket directory'; fi; network_link="$process_root/ns/net"; [ -L "$network_link" ] || review_required 'process network namespace unavailable'; network_before=$(readlink -- "$network_link") || review_required 'process network namespace unavailable'; printf '%s\n' "$network_before" | grep -Eq '^net:\[[0-9]+\]$' || review_required 'invalid process network namespace'; before=$(recovery_process_lifetime_marker "$pid") || review_required 'socket process lifetime unavailable'; process_raw=$(temp_path)
+    for name in tcp tcp6; do table="$process_net/$name"; [ -f "$table" ] && [ ! -L "$table" ] || { rm -f "$process_raw"; review_required 'unsafe process socket table'; }; family=$name; awk -v family="$family" 'NR > 1 { split($2,local_endpoint,":"); split($3,remote_endpoint,":"); if ($4 == "0A" && local_endpoint[2] == "2CAA") print family "|listener|" local_endpoint[1] "|" local_endpoint[2] "|" $10; else if ($4 == "01" && remote_endpoint[2] == "2CAA") print family "|client|" remote_endpoint[1] "|" remote_endpoint[2] "|" $10 }' "$table" >>"$process_raw" || { rm -f "$process_raw"; die 'process socket table scan failed'; }; done
+    after=$(recovery_process_lifetime_marker "$pid") || { rm -f "$process_raw"; review_required 'socket process lifetime unavailable'; }; network_after=$(readlink -- "$network_link") || { rm -f "$process_raw"; review_required 'process network namespace unavailable'; }; [ "$before" = "$after" ] && [ "$network_before" = "$network_after" ] || { rm -f "$process_raw"; review_required 'socket process lifetime changed'; }; cat "$process_raw" >>"$raw" || { rm -f "$process_raw"; die 'process socket snapshot merge failed'; }; rm -f "$process_raw"
+  done <"$processes"
+  sorted=$(temp_path); sort -u "$raw" >"$sorted" || { rm -f "$raw" "$sorted"; die 'recovery socket snapshot sort failed'; }; rm -f "$raw"; raw=$sorted
   while IFS='|' read -r family socket_role address port inode || [ -n "$family$socket_role$address$port$inode" ]; do
     [ -n "$inode" ] || continue; found=0
     while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
@@ -220,7 +220,7 @@ collect() {
   record_scan systemd-timers systemctl list-timers --all; record_scan reverse-proxy scan_nginx_definitions; record_scan compose-definitions scan_compose_definitions
   if crontab -u "$OWNER" -l >"$cron" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'crontab scan failed'; : >"$cron"; fi; cron_sha=$(sha "$cron")
   case "$phase:$cron_sha" in scan:"$PRE_CRON_SHA"|revalidate:"$PRE_CRON_SHA"|revalidate:"$POST_CRON_SHA"|delete_models:"$POST_CRON_SHA") :;; *) die 'crontab drift';; esac
-  record_scan current-crontab cat "$cron"; processes=$(temp_path); ps -ww -eo pid,ppid,user,args >"$processes" || { rm -f "$processes"; die 'process scan failed'; }; record_scan running-processes cat "$processes"; record_running_process_environments "$processes"; rm -f "$processes"; record_scan running-containers scan_running_containers
+  record_scan current-crontab cat "$cron"; review_ollama_service_process_begin; processes=$(temp_path); ps -ww -eo pid,ppid,user,args >"$processes" || { rm -f "$processes"; die 'process scan failed'; }; record_scan running-processes cat "$processes"; record_running_process_environments "$processes"; review_ollama_service_process_finish; rm -f "$processes"; record_scan running-containers scan_running_containers
   load_cron_inventory_helper; record_external_cron_sources
   if package=$(dpkg-query -W "-f=$PACKAGE_FORMAT" ollama 2>/dev/null); then :; else die 'Ollama package missing'; fi; [ -n "$package" ] || die 'Ollama package missing'; record_scan package-identity dpkg-query -W "-f=$PACKAGE_FORMAT" ollama
   record_docker_socket; record_scan docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'

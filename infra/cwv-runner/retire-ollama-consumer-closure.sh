@@ -1,6 +1,27 @@
 #!/bin/sh
 # Focused immutable closure helpers sourced by retire-ollama-consumers.sh.
 
+systemd_default_binary_directories() {
+  printf '%s\n' /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin
+}
+
+systemd_simple_command_path() {
+  command=$1
+  case "$command" in ''|.|..|*/*) return 2;; esac
+  directories=$(temp_path)
+  systemd_default_binary_directories >"$directories" || { rm -f "$directories"; return 2; }
+  while IFS= read -r directory || [ -n "$directory" ]; do
+    case "$directory" in /*) :;; *) rm -f "$directories"; return 2;; esac
+    candidate=$directory/$command
+    if [ ! -e "$candidate" ] && [ ! -L "$candidate" ]; then continue; fi
+    resolved=$(readlink -f -- "$candidate") || { rm -f "$directories"; return 2; }
+    resolved=$(consumer_canonical_regular "$resolved") || { rm -f "$directories"; return 2; }
+    [ -x "$resolved" ] || continue
+    rm -f "$directories"; printf '%s\n' "$resolved"; return 0
+  done <"$directories"
+  rm -f "$directories"; return 2
+}
+
 systemd_quoted_command_path() {
   value=$1
   while case "$value" in [-+!:@]*) :;; *) false;; esac; do value=${value#?}; done
@@ -8,6 +29,10 @@ systemd_quoted_command_path() {
   words=$(temp_path)
   parse_systemd_words "$value" >"$words" || { rm -f "$words"; return 2; }
   IFS= read -r command <"$words" || { rm -f "$words"; return 1; }
+  case "$command" in
+    /*) :;;
+    *) command=$(systemd_simple_command_path "$command") || { rm -f "$words"; return 2; };;
+  esac
   case "$command" in
     */sh|*/bash|*/dash|*/env|*/node|*/perl|*/php|*/python|*/python[0-9.]*|*/ruby)
       [ "$(wc -l <"$words")" -eq 2 ] || { rm -f "$words"; return 2; }
@@ -17,7 +42,7 @@ systemd_quoted_command_path() {
   rm -f "$words"
   case "$command" in
     /*) consumer_canonical_regular "$command" >/dev/null 2>&1 || return 1; printf '%s\n' "$command";;
-    *) return 1;;
+    *) return 2;;
   esac
 }
 

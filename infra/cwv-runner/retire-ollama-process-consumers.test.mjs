@@ -22,7 +22,7 @@ test('keeps compound process consumers while exempting only the reviewed Ollama 
     await writeFile(processes, `${approved}\n${compound}\n`);
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      '. "$1"; init_temp_root; trap cleanup_temp EXIT; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; record_consumers running-processes "$2"; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"',
+      '. "$1"; init_temp_root; trap cleanup_temp EXIT; APPROVED_OLLAMA_PID=42; APPROVED_OLLAMA_PROCESS_IDENTITY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; record_consumers running-processes "$2"; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"',
       'retire-ollama-process-consumers-test',
       script.pathname,
       processes,
