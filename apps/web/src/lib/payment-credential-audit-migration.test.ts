@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { extractSqlArrayFields } from '@/lib/test-helpers/extract-sql-array-fields';
+import { extractSqlFunction } from '@/lib/test-helpers/extract-sql-function';
 
 const migrationDirectory = resolve(process.cwd(), '../../supabase/migrations');
 const migrationPath = resolve(
@@ -44,41 +46,6 @@ const forbiddenFields = [
   'last_validation_error',
   'merchant_id',
 ] as const;
-
-function extractSqlFunction(
-  migrationSql: string,
-  functionName: string
-): string {
-  const escapedFunctionName = functionName.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    '\\$&'
-  );
-
-  return (
-    migrationSql.match(
-      new RegExp(
-        `CREATE OR REPLACE FUNCTION ${escapedFunctionName}` +
-          String.raw`[\s\S]*?\n\$\$;`
-      )
-    )?.[0] ?? ''
-  );
-}
-
-function extractDeclaredFields(
-  triggerFunctionSql: string,
-  fieldGroup: 'exact' | 'presence' | 'ignored' | 'forbidden'
-): string[] {
-  const declarationValues =
-    triggerFunctionSql.match(
-      new RegExp(
-        String.raw`v_${fieldGroup}_fields text\[\] := ARRAY\[([\s\S]*?)\]::text\[\];`
-      )
-    )?.[1] ?? '';
-
-  return [...declarationValues.matchAll(/'([^']+)'/g)].map(
-    ([, field]) => field
-  );
-}
 
 describe('payment credential audit migration contract', () => {
   it('reserves the Task 6 migration version exactly once', () => {
@@ -139,16 +106,16 @@ describe('payment credential audit migration contract', () => {
 
     expect(new Set(classifiedFields).size).toBe(classifiedFields.length);
     expect(classifiedFields).toHaveLength(15);
-    expect(extractDeclaredFields(triggerFunctionSql, 'exact')).toEqual(
+    expect(extractSqlArrayFields(triggerFunctionSql, 'exact')).toEqual(
       exactFields
     );
-    expect(extractDeclaredFields(triggerFunctionSql, 'presence')).toEqual(
+    expect(extractSqlArrayFields(triggerFunctionSql, 'presence')).toEqual(
       presenceOnlyFields
     );
-    expect(extractDeclaredFields(triggerFunctionSql, 'ignored')).toEqual(
+    expect(extractSqlArrayFields(triggerFunctionSql, 'ignored')).toEqual(
       ignoredFields
     );
-    expect(extractDeclaredFields(triggerFunctionSql, 'forbidden')).toEqual(
+    expect(extractSqlArrayFields(triggerFunctionSql, 'forbidden')).toEqual(
       forbiddenFields
     );
     expect(triggerFunctionSql).toContain(
