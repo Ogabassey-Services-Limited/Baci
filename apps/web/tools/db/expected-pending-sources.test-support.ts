@@ -313,4 +313,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260802110000_harden_santa_interaction_rpc_tenant_rate_limit.sql',
     sha256: '664a9f08dae7d9a133ab2d61944cd601c1b69402b7c8392bc6dfa8e7f9f17d09',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260803080000_bound_santa_interaction_prices.sql',
+    sha256: 'e2f7532bb40ddc3f1910aabb865c066a9c68e0cb7e60c930e36ff452736bce0c',
+  },
 ];
