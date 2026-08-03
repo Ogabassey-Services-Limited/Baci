@@ -216,6 +216,22 @@ const GENERAL_KEY_SPEC_CATEGORIES: SpecCategory[] = [
     ],
   },
   {
+    category: 'Sound',
+    fields: [
+      {
+        key: 'has_stereo_speakers',
+        label: 'Loudspeaker',
+        transform: (value) =>
+          value ? 'Yes, with stereo speakers' : 'Yes (mono)',
+      },
+      {
+        key: 'has_headphone_jack',
+        label: '3.5mm Jack',
+        transform: (value) => (value ? 'Yes' : 'No'),
+      },
+    ],
+  },
+  {
     category: 'Power',
     fields: [
       {

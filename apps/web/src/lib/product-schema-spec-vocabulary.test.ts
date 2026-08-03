@@ -6,6 +6,9 @@ describe('getProductSchemaSpecKeyForLabel', () => {
     expect(getProductSchemaSpecKeyForLabel(' Network Technology ')).toBe(
       'network_technology'
     );
+    expect(getProductSchemaSpecKeyForLabel('Technology')).toBe(
+      'network_technology'
+    );
     expect(getProductSchemaSpecKeyForLabel('Selfie Camera')).toBe(
       'front_camera_mp'
     );

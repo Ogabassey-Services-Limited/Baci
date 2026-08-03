@@ -115,6 +115,27 @@ describe('shouldIncludeProductSchemaSpec', () => {
     }
   });
 
+  it('retains verified audio capabilities for camera products', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { key: 'has_stereo_speakers', value: true }
+      )
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { key: 'has_headphone_jack', value: true }
+      )
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { key: 'has_headphone_jack', value: false }
+      )
+    ).toBe(false);
+  });
+
   it('filters phone-only negative fields for other named non-phone categories', () => {
     expect(
       shouldIncludeProductSchemaSpec(

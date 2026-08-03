@@ -194,7 +194,8 @@ export function shouldIncludeProductSchemaSpec(
   if (
     hasCameraCategory &&
     cameraSpecKey &&
-    (!CAMERA_KEY_SPEC_KEYS.has(cameraSpecKey) ||
+    ((!CAMERA_KEY_SPEC_KEYS.has(cameraSpecKey) &&
+      !AUDIO_CAPABILITY_SPEC_KEYS.has(cameraSpecKey)) ||
       isUnsupportedSpecValue(candidate.value))
   ) {
     return false;

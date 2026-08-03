@@ -25,6 +25,7 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   models: 'model_numbers',
   nfc: 'has_nfc',
   'network technology': 'network_technology',
+  technology: 'network_technology',
   'operating system': 'android_version',
   os: 'android_version',
   'peak brightness': 'display_peak_brightness',

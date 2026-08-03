@@ -406,6 +406,46 @@ describe('buildProductSpecData', () => {
     ]);
   });
 
+  it('retains positive audio key specs for general product PDPs', () => {
+    const result = buildProductSpecData({
+      category: 'Audio',
+      product_key_specs: {
+        has_stereo_speakers: true,
+        has_headphone_jack: true,
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Sound',
+        items: [
+          { label: 'Loudspeaker', value: 'Yes, with stereo speakers' },
+          { label: '3.5mm Jack', value: 'Yes' },
+        ],
+      },
+    ]);
+  });
+
+  it('uses the trimmed legacy category when a joined category name is blank', () => {
+    const result = buildProductSpecData({
+      category: ' Smartphones ',
+      categories: { name: '   ', slug: 'smartphones' },
+      product_key_specs: { ram_gb: 8, storage_gb: 256 },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'Memory',
+          items: expect.arrayContaining([
+            { label: 'RAM', value: '8GB' },
+            { label: 'Internal Storage', value: '256GB' },
+          ]),
+        }),
+      ])
+    );
+  });
+
   it('filters stale phone rows from precomputed camera summary specs', () => {
     const result = buildProductSpecData({
       category: 'Cameras',

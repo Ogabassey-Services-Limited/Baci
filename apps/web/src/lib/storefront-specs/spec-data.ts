@@ -41,24 +41,22 @@ interface SpecDataSource {
   variant_attributes?: VariantAttributeSource;
 }
 
-function getSourceCategoryName(source: SpecDataSource) {
-  if (Array.isArray(source.categories)) {
-    return source.categories[0]?.name || source.category || 'General';
-  }
+function resolveSourceCategory(source: SpecDataSource) {
+  const relation = Array.isArray(source.categories)
+    ? source.categories.find(
+        (category) => category.name?.trim() || category.slug?.trim()
+      )
+    : source.categories;
+  const rawCategoryName = [
+    relation?.name,
+    source.category,
+    relation?.slug,
+  ].find((value) => value?.trim());
 
-  return source.categories?.name || source.category || 'General';
-}
-
-function hasSourceCategory(source: SpecDataSource) {
-  if (source.category?.trim()) {
-    return true;
-  }
-
-  if (Array.isArray(source.categories)) {
-    return Boolean(source.categories[0]?.name?.trim());
-  }
-
-  return Boolean(source.categories?.name?.trim());
+  return {
+    hasCategory: Boolean(rawCategoryName),
+    name: rawCategoryName?.trim() || 'General',
+  };
 }
 
 function getFirstVariantValue(
@@ -127,7 +125,8 @@ function filterNonDeviceLegacySpecifications(
 }
 
 function buildGeneralFallbackSpecs(
-  source: SpecDataSource
+  source: SpecDataSource,
+  categoryName: string
 ): ProductSpecSection[] {
   const storageValue = Array.isArray(source.storage)
     ? source.storage[0]
@@ -142,7 +141,7 @@ function buildGeneralFallbackSpecs(
     { label: 'Condition', value: source.condition || 'New' },
     {
       label: 'Category',
-      value: getSourceCategoryName(source),
+      value: categoryName,
     },
   ];
 
@@ -192,11 +191,12 @@ export function buildProductSpecData(source: SpecDataSource) {
   const normalizedLegacySpecifications = normalizeSpecSections(
     source.specifications
   );
-  const sourceCategoryName = getSourceCategoryName(source);
+  const { hasCategory: hasSourceCategory, name: sourceCategoryName } =
+    resolveSourceCategory(source);
   // Unknown categories fail closed instead of inheriting the phone taxonomy.
   // This prevents a missing category join from turning camera or accessory
   // rows into phone-shaped PDP content.
-  const specFamily = hasSourceCategory(source)
+  const specFamily = hasSourceCategory
     ? getProductSpecFamily(sourceCategoryName)
     : 'general';
   const keySpecSections =
@@ -206,7 +206,7 @@ export function buildProductSpecData(source: SpecDataSource) {
       ? buildDetailedSpecsFromKeySpecs(
           source.product_key_specs,
           specFamily,
-          hasSourceCategory(source) ? sourceCategoryName : undefined
+          hasSourceCategory ? sourceCategoryName : undefined
         )
       : [];
 
@@ -241,7 +241,7 @@ export function buildProductSpecData(source: SpecDataSource) {
           ? keySpecSections
           : legacySpecifications.length > 0
             ? legacySpecifications
-            : buildGeneralFallbackSpecs(source);
+            : buildGeneralFallbackSpecs(source, sourceCategoryName);
 
   const detailedSpecs = mergeSpecSections(
     descriptionSpecifications,
