@@ -23,7 +23,13 @@ const MODEL_VARIANT_MARKER_TOKENS = new Set([
 ]);
 const MODEL_GENERATION_SUFFIX_PATTERN = /^\d{1,2}(?:st|nd|rd|th)?$/u;
 const MAX_BRAND_TOKEN_DISTANCE = 3;
-const COMPARISON_BOUNDARY_TOKENS = new Set(['against', 'or', 'versus', 'vs']);
+const COMPARISON_BOUNDARY_TOKENS = new Set([
+  'against',
+  'and',
+  'or',
+  'versus',
+  'vs',
+]);
 
 interface IdentifierOccurrenceOptions {
   brand?: string | null;
@@ -111,6 +117,7 @@ function isBrandQualifiedOccurrence(
     new Set([requestedBrand, ...knownBrands])
   ).flatMap((brand) =>
     [brand, ...(brandAliases[brand] ?? [])]
+      .filter((candidate, index) => index === 0 || !(candidate in brandAliases))
       .map((candidate, index) => ({
         brand,
         isAlias: index > 0,
@@ -177,10 +184,14 @@ export function hasCleanIdentifierOccurrence(
         startIndex
       );
       const suffix = postTokens[startIndex + identifierTokens.length] ?? '';
+      const listicleSuffix = new RegExp(
+        `${identifierTokens.join('\\s+')}:\\s*\\d+`,
+        'iu'
+      ).test(post.title);
       if (
         !matchesIdentifier ||
         MODEL_VARIANT_MARKER_TOKENS.has(suffix) ||
-        MODEL_GENERATION_SUFFIX_PATTERN.test(suffix)
+        (MODEL_GENERATION_SUFFIX_PATTERN.test(suffix) && !listicleSuffix)
       ) {
         return false;
       }

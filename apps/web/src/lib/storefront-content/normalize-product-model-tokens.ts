@@ -106,6 +106,8 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
       token === 'esim' ||
       token === 'lte' ||
       token === 'cellular' ||
+      token === 'bluetooth' ||
+      token === 'bt' ||
       token === 'gps' ||
       token === 'wifi' ||
       (token === 'wi' && tokens[index + 1] === 'fi') ||

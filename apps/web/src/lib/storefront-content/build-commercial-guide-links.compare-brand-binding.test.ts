@@ -83,4 +83,45 @@ describe('buildCommercialGuideLinks compare brand binding', () => {
       'https://ogabassey.com/blog/samsung-galaxy-watch-ultra-guide',
     ]);
   });
+
+  it('does not treat the canonical Redmi brand as a Xiaomi alias in comparisons', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'redmi-14t-vs-galaxy-s25-guide',
+          title: 'Redmi 14T vs Samsung Galaxy S25 Buyer Guide',
+          excerpt: 'Compare Redmi 14T with Samsung Galaxy S25.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'redmi', 'samsung', 'comparison'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'xiaomi-14t-vs-galaxy-s25-guide',
+          title: 'Xiaomi 14T vs Samsung Galaxy S25 Buyer Guide',
+          excerpt: 'Compare Xiaomi 14T with Samsung Galaxy S25.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'xiaomi', 'samsung', 'comparison'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'compare',
+        categorySlug: 'smartphones',
+        brands: ['Xiaomi', 'Samsung'],
+        productNames: ['Xiaomi 14T', 'Samsung Galaxy S25'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/xiaomi-14t-vs-galaxy-s25-guide',
+      'https://ogabassey.com/blog/redmi-14t-vs-galaxy-s25-guide',
+    ]);
+  });
 });

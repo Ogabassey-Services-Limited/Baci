@@ -163,6 +163,43 @@ describe('hasCleanIdentifierOccurrence', () => {
     ).toBe(false);
   });
 
+  it('treats and as a comparison boundary for discriminators', () => {
+    const post = {
+      slug: 'iphone-and-galaxy',
+      title:
+        'Apple iPhone 15 128GB eSIM and Samsung Galaxy S25 256GB physical SIM',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: 6,
+    };
+    expect(
+      hasCleanIdentifierOccurrence(post, ['15'], {
+        brand: 'apple',
+        knownBrands: ['apple', 'samsung'],
+        discriminatorTokens: ['256gb', 'physical', 'sim'],
+      })
+    ).toBe(false);
+  });
+
+  it('keeps exact models before colon-separated listicle counts', () => {
+    const post = {
+      slug: 'iphone-15-reasons',
+      title: 'Apple iPhone 15: 7 Reasons to Buy',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: 6,
+    };
+    expect(hasCleanIdentifierOccurrence(post, ['iphone', '15'])).toBe(true);
+  });
+
   it('accepts a brand that finishes before the identifier', () => {
     const post = {
       slug: 'apple-iphone-14-pro-guide',

@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { normalizeProductModelTokens } from './normalize-product-model-tokens';
 
 describe('normalizeProductModelTokens', () => {
+  it('strips Bluetooth connectivity suffixes', () => {
+    expect(
+      normalizeProductModelTokens(['samsung', 'watch', '7', '40mm', 'bt'])
+    ).toEqual(['samsung', 'watch', '7', '40mm']);
+  });
   it('returns an empty list for empty input', () => {
     expect(normalizeProductModelTokens([])).toEqual([]);
   });
