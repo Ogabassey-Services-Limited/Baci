@@ -44,12 +44,7 @@ function normalizeIndexCompatibleSearchTerm(value: string): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
     .split(/\s+/u)
-    .filter(
-      (word) =>
-        word.length > 0 &&
-        word.length <= MAX_SEARCH_TERM_LENGTH &&
-        !WEBSEARCH_OPERATOR_WORDS.has(word)
-    );
+    .filter((word) => word.length > 0 && word.length <= MAX_SEARCH_TERM_LENGTH);
   return words.join(' ');
 }
 

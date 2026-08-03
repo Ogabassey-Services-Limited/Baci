@@ -59,12 +59,17 @@ function inferSourceBrand(
   context: BuildCommercialGuideLinksContext
 ) {
   const sourceTokens = new Set(tokenize(source));
+  const candidates = getBrandCandidates(context);
   return (
-    getBrandCandidates(context).find(({ markers }) =>
+    candidates.find(({ brand }) =>
+      tokenize(brand).every((token) => sourceTokens.has(token))
+    )?.brand ??
+    candidates.find(({ markers }) =>
       markers.some((marker) =>
         tokenize(marker).every((token) => sourceTokens.has(token))
       )
-    )?.brand ?? null
+    )?.brand ??
+    null
   );
 }
 

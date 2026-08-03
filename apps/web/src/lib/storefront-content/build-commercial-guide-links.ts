@@ -11,6 +11,7 @@ import type {
   InformationalGuideLink,
 } from './content-cluster-types';
 import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
+import { getContextBrandKeys } from './get-context-brand-keys';
 import { getPostTokenGroups } from './get-post-token-groups';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { hasCleanIdentifierOccurrence } from './has-clean-identifier-occurrence';
@@ -32,7 +33,6 @@ function toPublishedTimestamp(value: string | null) {
   if (!value) {
     return 0;
   }
-
   const timestamp = new Date(value).getTime();
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
@@ -60,7 +60,6 @@ function hasContiguousTokenSequence(
   }
 
   const postTokenGroups = getPostTokenGroups(post);
-
   return postTokenGroups.some((postTokens) =>
     postTokens.some((_, startIndex) =>
       expectedTokens.every(
@@ -86,7 +85,6 @@ function matchesProductIdentifier(
   ) {
     return false;
   }
-
   return hasCleanIdentifierOccurrence(
     post,
     identifierTokens,
@@ -166,8 +164,10 @@ export function buildCommercialGuideLinks(
         score += CONTENT_CLUSTER_SCORE.kindMatch;
       }
 
-      const normalizedBrands = (input.context.brands ?? []).map((brand) =>
-        generateSlug(brand)
+      const normalizedBrands = getContextBrandKeys(
+        input.context.brands,
+        input.context.productNames,
+        brandAliases
       );
       const directBrandMatches = new Set(
         normalizedBrands.filter((brand) =>

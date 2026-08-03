@@ -129,6 +129,24 @@ describe('getPublishedClusterPosts', () => {
     );
   });
 
+  it('preserves stop-word positions in product-name fallbacks sent to the candidate RPC', async () => {
+    await getPublishedClusterPosts('merchant-1', {
+      pageKind: 'product',
+      categorySlug: 'playstation-4',
+      brands: ['PlayStation'],
+      productNames: ['PS4 Fast and Furious Spy Racers'],
+      productSlugs: [],
+    });
+
+    expect(mockRpc.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        p_search_query: expect.stringContaining(
+          '"ps4 fast and furious spy racers"'
+        ),
+      })
+    );
+  });
+
   it('returns an empty candidate set when the RPC succeeds without rows', async () => {
     mockRpc.mockReturnValueOnce(createRpcQuery({ data: null, error: null }));
 

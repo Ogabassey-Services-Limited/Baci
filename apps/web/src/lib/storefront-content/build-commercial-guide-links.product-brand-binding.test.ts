@@ -83,4 +83,44 @@ describe('buildCommercialGuideLinks product brand binding', () => {
       'https://ogabassey.com/blog/apple-watch-ultra-vs-samsung-watch-ultra-guide'
     );
   });
+
+  it('derives a missing PDP brand from a branded product name for numeric models', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'generic-smartphone-guide',
+          title: 'Smartphone Buyer Guide',
+          excerpt: 'How to choose a smartphone.',
+          category: 'Smartphones',
+          tags: ['smartphones'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'apple-iphone-15-buyer-guide',
+          title: 'Apple iPhone 15 Buyer Guide',
+          excerpt: 'Apple iPhone 15 buying advice.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'apple', 'iphone 15'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'smartphones',
+        productNames: ['Apple iPhone 15'],
+        productSlugs: [],
+      },
+    });
+
+    expect(links[0]?.href).toBe(
+      'https://ogabassey.com/blog/apple-iphone-15-buyer-guide'
+    );
+  });
 });

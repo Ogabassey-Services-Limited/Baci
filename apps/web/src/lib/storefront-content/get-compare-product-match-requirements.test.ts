@@ -104,4 +104,18 @@ describe('getCompareProductMatchRequirements', () => {
       { identifier: 's25', brand: 'samsung' },
     ]);
   });
+
+  it('prefers a direct Xiaomi source brand over the overlapping Redmi alias', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Xiaomi', 'Samsung'],
+      productNames: ['Xiaomi 14T', 'Samsung Galaxy S25'],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: '14t', brand: 'xiaomi' },
+      { identifier: 's25', brand: 'samsung' },
+    ]);
+  });
 });

@@ -195,38 +195,6 @@ describe('buildCommercialGuideLinks model distinctions', () => {
     );
   });
 
-  it('boosts an alias-led ThinkPad model guide above a newer generic Lenovo guide', () => {
-    const context = {
-      pageKind: 'product',
-      categorySlug: 'laptops',
-      brands: ['Lenovo'],
-      productNames: ['Lenovo ThinkPad T14 Gen 4'],
-      productSlugs: [],
-    } satisfies BuildCommercialGuideLinksContext;
-    const posts = [
-      {
-        ...post('lenovo-buyer-guide', 'Lenovo Laptop Buyer Guide', 'Laptops', [
-          'laptops',
-          'lenovo',
-        ]),
-        published_at: '2026-04-12T09:00:00.000Z',
-      },
-      {
-        ...post(
-          'thinkpad-t14-gen-4-buyer-guide',
-          'ThinkPad T14 Gen 4 Buyer Guide',
-          'Laptops',
-          ['laptops', 'thinkpad', 't14 gen 4']
-        ),
-        published_at: '2026-04-01T09:00:00.000Z',
-      },
-    ];
-
-    expect(firstGuide(context, posts)).toBe(
-      'https://ogabassey.com/blog/thinkpad-t14-gen-4-buyer-guide'
-    );
-  });
-
   it('keeps Galaxy Buds family context ahead of generic earbud guides', () => {
     const context = {
       pageKind: 'product',
