@@ -40,6 +40,7 @@ describe('addSantaProductToCart', () => {
     await addSantaProductToCart({
       productName: 'Phone',
       negotiatedPrice: 450,
+      expectedMerchantSlug: 'winter-store',
       addToCart,
       setMerchantSlug,
       applyNegotiatedPrice,
@@ -49,5 +50,39 @@ describe('addSantaProductToCart', () => {
     expect(invocationOrder).toEqual(['setMerchantSlug', 'addToCart']);
     expect(applyNegotiatedPrice).toHaveBeenCalledWith('phone-1', 450);
     expect(showNotification).toHaveBeenCalledWith('Phone added to cart!');
+  });
+
+  it('rejects a product resolved for a different storefront', async () => {
+    const addToCart = vi.fn();
+    const setMerchantSlug = vi.fn();
+    const showNotification = vi.fn();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ product: { id: 'phone-1' } }), {
+          headers: {
+            'Content-Type': 'application/json',
+            [SANTA_MERCHANT_SLUG_HEADER]: 'winter-store',
+          },
+          status: 200,
+        })
+      )
+    );
+
+    await addSantaProductToCart({
+      productName: 'Phone',
+      negotiatedPrice: 450,
+      expectedMerchantSlug: 'ogabassey',
+      addToCart,
+      setMerchantSlug,
+      showNotification,
+    });
+
+    expect(setMerchantSlug).not.toHaveBeenCalled();
+    expect(addToCart).not.toHaveBeenCalled();
+    expect(showNotification).toHaveBeenCalledWith(
+      'Open the resolved storefront before adding this wish'
+    );
   });
 });

@@ -11,9 +11,14 @@ import {
 } from 'react';
 import { Platform, type TextInput } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
+import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
 import { useUIStore } from '@/stores/ui-store';
-import { API_BASE_URL, CHAT_REQUEST_TIMEOUT_MS } from './constants';
+import {
+  API_BASE_URL,
+  CHAT_REQUEST_TIMEOUT_MS,
+  SANTA_MERCHANT_SLUG_HEADER,
+} from './constants';
 import { readChatResponseText } from './read-chat-response';
 import { addSantaWishToCart } from './santa-cart';
 import type { ChatMessage } from './types';
@@ -92,32 +97,53 @@ async function requestChatReply({
         }
 
         const text = await readChatResponseText(response);
+        const merchantSlug = response.headers
+          .get(SANTA_MERCHANT_SLUG_HEADER)
+          ?.trim();
         log.info('Chat response received', {
           endpoint,
           status: response.status,
           length: text.length,
         });
 
-        return text;
+        return {
+          text,
+          ...(merchantSlug ? { merchantSlug } : {}),
+        };
       };
 
-      let aiResponseText = await sendRequest();
+      let chatReply = await sendRequest();
 
-      if (!aiResponseText) {
+      if (!chatReply.text) {
         log.warn('Empty chat response, retrying once', { endpoint });
-        aiResponseText = await sendRequest();
+        chatReply = await sendRequest();
       }
 
-      if (!aiResponseText) {
+      if (!chatReply.text) {
         throw new Error('Empty chat response');
       }
+
+      const aiResponseText = chatReply.text;
 
       // In Santa mode, fulfil any ADD_TO_CART wish before the directive is
       // stripped from the displayed text. Fire-and-forget so the reply renders
       // immediately; addSantaWishToCart surfaces its own success/error toast.
       if (santaMode) {
-        for (const action of parseSantaActions(aiResponseText)) {
-          void addSantaWishToCart(action, controller.signal);
+        const santaActions = parseSantaActions(aiResponseText);
+        const configuredMerchantSlug = CONFIG.MERCHANT_SLUG.trim();
+        const resolvedMerchantMatches =
+          Boolean(chatReply.merchantSlug) &&
+          chatReply.merchantSlug === configuredMerchantSlug;
+
+        if (resolvedMerchantMatches) {
+          for (const action of santaActions) {
+            void addSantaWishToCart(action, controller.signal);
+          }
+        } else if (santaActions.length > 0) {
+          log.warn('Ignoring Santa cart actions for a different storefront', {
+            configuredMerchantSlug,
+            resolvedMerchantSlug: chatReply.merchantSlug,
+          });
         }
       }
 

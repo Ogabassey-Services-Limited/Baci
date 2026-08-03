@@ -108,7 +108,13 @@ async function requestChatReply(
   };
 }
 
-export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasseyChat {
+export function useOgabasseyChat({
+  isSanta,
+  storefrontMerchantSlug,
+}: {
+  isSanta: boolean;
+  storefrontMerchantSlug?: string;
+}): UseOgabasseyChat {
   const { addToCart, setIsCartOpen, setMerchantSlug } = useCart();
 
   const [isOpen, setIsOpenState] = useState(false);
@@ -231,6 +237,14 @@ export function useOgabasseyChat({ isSanta }: { isSanta: boolean }): UseOgabasse
     const merchantSlug = message.merchantSlug;
     if (!merchantSlug) {
       console.error('[Santa Cart] Missing resolved merchant slug');
+      return;
+    }
+
+    if (storefrontMerchantSlug && storefrontMerchantSlug !== merchantSlug) {
+      console.error('[Santa Cart] Resolved tenant differs from storefront', {
+        storefrontMerchantSlug,
+        merchantSlug,
+      });
       return;
     }
 

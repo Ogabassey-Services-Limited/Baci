@@ -102,4 +102,28 @@ describe('useOgabasseyChat resolved Santa tenant', () => {
     expect(chatMocks.setMerchantSlug).not.toHaveBeenCalled();
     expect(chatMocks.addToCart).not.toHaveBeenCalled();
   });
+
+  it('rejects a Santa action resolved for a different storefront', async () => {
+    chatMocks.parseSantaActions.mockReturnValueOnce([
+      { type: 'ADD_TO_CART', productName: 'iPhone 15', price: 600000 },
+    ]);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeStreamingResponse('raw Santa directive', 'winter-store')
+    );
+
+    const { result } = renderHook(() =>
+      useOgabasseyChat({
+        isSanta: true,
+        storefrontMerchantSlug: 'ogabassey',
+      })
+    );
+
+    await act(async () => {
+      await result.current.handleSend('I want a phone');
+    });
+    act(() => result.current.handleAddSantaWishToCart(1));
+
+    expect(chatMocks.setMerchantSlug).not.toHaveBeenCalled();
+    expect(chatMocks.addToCart).not.toHaveBeenCalled();
+  });
 });

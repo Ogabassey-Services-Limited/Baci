@@ -4,6 +4,7 @@ import { readSantaMerchantSlug } from './read-santa-merchant-slug';
 interface AddSantaProductToCartOptions {
   productName: string;
   negotiatedPrice: number;
+  expectedMerchantSlug?: string;
   addToCart: (product: Product, quantity?: number) => void;
   setMerchantSlug: (merchantSlug: string) => void;
   applyNegotiatedPrice?: (cartItemId: string, newPrice: number) => void;
@@ -13,6 +14,7 @@ interface AddSantaProductToCartOptions {
 export async function addSantaProductToCart({
   productName,
   negotiatedPrice,
+  expectedMerchantSlug,
   addToCart,
   setMerchantSlug,
   applyNegotiatedPrice,
@@ -32,6 +34,18 @@ export async function addSantaProductToCart({
     }
 
     const resolvedMerchantSlug = readSantaMerchantSlug(response);
+    if (
+      expectedMerchantSlug &&
+      (!resolvedMerchantSlug || resolvedMerchantSlug !== expectedMerchantSlug)
+    ) {
+      console.error('[Santa Cart] Resolved tenant differs from storefront', {
+        expectedMerchantSlug,
+        resolvedMerchantSlug,
+      });
+      showNotification('Open the resolved storefront before adding this wish');
+      return;
+    }
+
     if (resolvedMerchantSlug) {
       setMerchantSlug(resolvedMerchantSlug);
     }

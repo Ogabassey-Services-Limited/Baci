@@ -12,6 +12,7 @@ jest.mock('expo-router', () => ({
   router: { push: (...args: unknown[]) => mockRouterPush(...args) },
 }));
 
+import { SANTA_MERCHANT_SLUG_HEADER } from './constants';
 import { useChat } from './use-chat';
 
 // Mock the UI store
@@ -71,7 +72,11 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 // Create a helper to build a mock streaming response
-function makeMockResponse(text: string, ok = true) {
+function makeMockResponse(
+  text: string,
+  ok = true,
+  headers: Record<string, string> = {}
+) {
   const encoder = new TextEncoder();
   const encoded = encoder.encode(text);
   const stream = new ReadableStream({
@@ -84,6 +89,7 @@ function makeMockResponse(text: string, ok = true) {
   return {
     ok,
     body: stream,
+    headers: new Headers(headers),
     text: async () => text,
   };
 }
@@ -379,7 +385,9 @@ describe('useChat', () => {
       .fn()
       .mockResolvedValue(
         makeMockResponse(
-          'Granted ACTION:ADD_TO_CART|PRODUCT:Phone|PRICE:450000 and ACTION:ADD_TO_CART|PRODUCT:Case|PRICE:12,000NGN.'
+          'Granted ACTION:ADD_TO_CART|PRODUCT:Phone|PRICE:450000 and ACTION:ADD_TO_CART|PRODUCT:Case|PRICE:12,000NGN.',
+          true,
+          { [SANTA_MERCHANT_SLUG_HEADER]: 'ogabassey' }
         )
       );
     mockIsChatOpen = true;
@@ -414,6 +422,34 @@ describe('useChat', () => {
       );
       expect(aiMsg?.text).toBe('Granted and');
     });
+  });
+
+  it('does not add Santa actions from a different resolved storefront', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        makeMockResponse(
+          'ACTION:ADD_TO_CART|PRODUCT:Phone|PRICE:450000',
+          true,
+          { [SANTA_MERCHANT_SLUG_HEADER]: 'winter-store' }
+        )
+      );
+    mockIsChatOpen = true;
+    const { result } = renderHook(() => useChat(true));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    await act(async () => {
+      result.current.handleSend('Add the phone');
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(mockAddSantaWishToCart).not.toHaveBeenCalled();
   });
 
   it('sets isLoading to false after successful response', async () => {

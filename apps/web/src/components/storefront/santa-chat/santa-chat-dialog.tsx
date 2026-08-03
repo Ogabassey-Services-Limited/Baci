@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { SANTA_GREETING } from '@/ai/prompts/santa';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { ChatInput } from './chat-input';
 import { ChatMessage } from './chat-message';
 import {
@@ -53,6 +54,7 @@ export function SantaChatDialog({
     applyNegotiatedPrice,
     setMerchantSlug,
   } = useCart();
+  const storefrontMerchantSlug = useMerchantSafe()?.merchant?.slug;
 
   // Clean up in-flight requests and notification timers on unmount.
   useEffect(() => {
@@ -77,11 +79,24 @@ export function SantaChatDialog({
     addSantaProductToCart({
       productName,
       negotiatedPrice,
+      expectedMerchantSlug: storefrontMerchantSlug,
       addToCart,
       setMerchantSlug,
       applyNegotiatedPrice,
       showNotification,
     });
+
+  const handleMerchantSlug = (resolvedMerchantSlug: string) => {
+    if (
+      storefrontMerchantSlug &&
+      storefrontMerchantSlug !== resolvedMerchantSlug
+    ) {
+      showNotification('Open the resolved storefront before adding this wish');
+      return;
+    }
+
+    setMerchantSlug(resolvedMerchantSlug);
+  };
 
   // Scroll to bottom on new messages
   // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally trigger scroll when messages array changes
@@ -123,7 +138,7 @@ export function SantaChatDialog({
       processedActionsRef,
       setMessages,
       onCartAction: handleAddToCart,
-      onMerchantSlug: setMerchantSlug,
+      onMerchantSlug: handleMerchantSlug,
     })
       .catch((err) => {
         console.error('Santa chat error:', err);

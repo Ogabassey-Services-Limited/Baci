@@ -102,7 +102,9 @@ describe('POST /api/chat/santa tenant resolution', () => {
     expect(response.status).toBe(200);
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('gadget company called Winter Store'),
+        system: expect.stringContaining(
+          '<storefront-display-name>"Winter Store"</storefront-display-name>'
+        ),
       })
     );
   });
