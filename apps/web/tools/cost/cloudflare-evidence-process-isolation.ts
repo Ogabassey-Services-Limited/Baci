@@ -33,7 +33,6 @@ export type EvidenceChildCommand =
   | 'mutate'
   | 'cleanup'
   | 'measure'
-  | 'revoke-read'
   | 'record-read-revocation';
 export type EvidenceProcessSpawner = Readonly<{
   spawn(
@@ -58,7 +57,6 @@ const argumentsFor = (
   }
   if (command === 'cleanup') return ['--cleanup-run', runId];
   if (command === 'mutate') return ['--run', runId, '--apply'];
-  if (command === 'revoke-read') return ['--revoke-read', runId];
   if (command === 'record-read-revocation')
     return ['--record-read-revocation', runId];
   return ['--run', runId];
@@ -66,9 +64,7 @@ const argumentsFor = (
 const scriptFor = (command: EvidenceChildCommand) =>
   command === 'prepare'
     ? 'qualify-cloudflare-evidence-sources.ts'
-    : command === 'measure' ||
-        command === 'revoke-read' ||
-        command === 'record-read-revocation'
+    : command === 'measure' || command === 'record-read-revocation'
       ? 'measure-cloudflare-evidence-sources.ts'
       : 'mutate-cloudflare-evidence-sources.ts';
 const pinnedTsx = (workspaceRoot: string) =>
@@ -180,10 +176,7 @@ export async function spawnIsolatedCloudflareEvidenceProcess(
     credential?.name !== 'CLOUDFLARE_WRITE_TOKEN'
   )
     throw new Error('write command requires only the write credential');
-  if (
-    (command === 'measure' || command === 'revoke-read') &&
-    credential?.name !== 'CLOUDFLARE_READ_TOKEN'
-  )
+  if (command === 'measure' && credential?.name !== 'CLOUDFLARE_READ_TOKEN')
     throw new Error('measurement requires only the read credential');
   if (
     command === 'record-read-revocation' &&

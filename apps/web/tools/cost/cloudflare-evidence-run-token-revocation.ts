@@ -2,6 +2,10 @@ import type {
   CloudflareEvidenceRunJournal,
   TokenRevocationReceipt,
 } from './cloudflare-evidence-run-journal';
+import {
+  assertTerminalPrerequisites,
+  assertTransition,
+} from './cloudflare-evidence-run-journal-state';
 
 type ReadJournal = (
   stateDir: string,
@@ -29,6 +33,18 @@ export type TokenRevocationClient = Readonly<{
 }>;
 
 const hash = /^[a-f0-9]{64}$/;
+
+function hasSameReceipt(
+  first: TokenRevocationReceipt,
+  second: TokenRevocationReceipt
+) {
+  return (
+    first.tokenId === second.tokenId &&
+    first.status === second.status &&
+    first.providerReceiptSha256 === second.providerReceiptSha256 &&
+    first.observedAt === second.observedAt
+  );
+}
 
 export function createTokenRevocationOperations(
   readJournal: ReadJournal,
@@ -78,37 +94,62 @@ export function createTokenRevocationOperations(
       if (
         journal.phase === 'write_token_revoked' &&
         journal.writeTokenRevocationReceipt
-      )
+      ) {
+        if (!hasSameReceipt(journal.writeTokenRevocationReceipt, receipt))
+          throw new Error('write token revocation receipt cannot be replaced');
         return journal;
+      }
       if (
         !['cleanup_verified', 'cleanup_incomplete_stop'].includes(journal.phase)
       )
         throw new Error('write token can be revoked only after cleanup');
+      assertTransition(journal, 'write_token_revoked');
       journal.writeTokenRevocationReceipt = receipt;
       journal.writeTokenRevokedAt = receipt.observedAt;
       journal.phase = 'write_token_revoked';
     } else if (kind === 'read') {
-      if (
-        journal.phase === 'read_token_revoked' &&
-        journal.readTokenRevocationReceipt
-      )
-        return journal;
-      if (journal.phase !== 'write_token_revoked')
-        throw new Error('read token revocation requires write revocation');
+      if (journal.readTokenRevocationReceipt) {
+        if (!hasSameReceipt(journal.readTokenRevocationReceipt, receipt))
+          throw new Error('read token revocation receipt cannot be replaced');
+        if (
+          ['read_token_revoked', 'proof_complete', 'closed_stop'].includes(
+            journal.phase
+          )
+        )
+          return journal;
+      }
       if (!journal.writeTokenRevocationReceipt)
         throw new Error('write token revocation must be verified first');
       if (
-        journal.cleanupIncomplete &&
         journal.cleanupWriteTokenId &&
         !journal.cleanupWriteTokenRevocationReceipt
       )
         throw new Error('cleanup replacement token revocation is required');
+      const completedMeasurement =
+        journal.phase === 'measurement_complete_pending_read_revocation' &&
+        !journal.measurementIncomplete &&
+        Boolean(
+          journal.measurementVerifiedAt &&
+            journal.measurementReceiptSha256 &&
+            journal.measurementPayloadSha256
+        );
+      const incompleteMeasurementOrCleanup =
+        journal.phase === 'write_token_revoked' &&
+        (journal.cleanupIncomplete || journal.measurementIncomplete === true);
+      if (!completedMeasurement && !incompleteMeasurementOrCleanup)
+        throw new Error(
+          'read token revocation requires recorded measurement or terminal incomplete evidence'
+        );
       journal.readTokenRevocationReceipt = receipt;
       journal.readTokenRevokedAt = receipt.observedAt;
-      journal.phase =
-        journal.cleanupIncomplete || journal.measurementIncomplete
-          ? 'closed_stop'
-          : 'read_token_revoked';
+      if (incompleteMeasurementOrCleanup) {
+        assertTransition(journal, 'closed_stop');
+        assertTerminalPrerequisites(journal, 'closed_stop');
+        journal.phase = 'closed_stop';
+      } else {
+        assertTransition(journal, 'read_token_revoked');
+        journal.phase = 'read_token_revoked';
+      }
     } else {
       if (!journal.cleanupWriteTokenId)
         throw new Error('cleanup replacement token is not journaled');
@@ -152,6 +193,10 @@ export function createTokenRevocationOperations(
     kind: TokenRevocationKind,
     client: TokenRevocationClient
   ) {
+    if (kind === 'read')
+      throw new Error(
+        'read token revocation must be recorded from an external owner receipt'
+      );
     const journal = await readJournal(stateDir, runId);
     const tokenId = expectedTokenId(journal, kind);
     const revoked = await client.revoke(tokenId);

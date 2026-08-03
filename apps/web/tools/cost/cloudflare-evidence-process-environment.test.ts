@@ -14,6 +14,8 @@ const validEnvironment = () => ({
   EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: 'b'.repeat(64),
   EVIDENCE_MEASUREMENT_RUNNER_MODULE: '/workspace/measurement.ts',
   EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: 'c'.repeat(64),
+  EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE: '/workspace/readback.ts',
+  EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256: 'd'.repeat(64),
 });
 
 describe('prepareEvidenceProcessEnvironment', () => {
@@ -32,6 +34,8 @@ describe('prepareEvidenceProcessEnvironment', () => {
       EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: 'b'.repeat(64),
       EVIDENCE_MEASUREMENT_RUNNER_MODULE: '/workspace/measurement.ts',
       EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: 'c'.repeat(64),
+      EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE: '/workspace/readback.ts',
+      EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256: 'd'.repeat(64),
     });
   });
 

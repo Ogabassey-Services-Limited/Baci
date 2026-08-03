@@ -177,3 +177,9 @@ export function createMutationDependencies() {
 export function createMeasurementDependencies() {
   throw new Error('test measurement runner must not be invoked during prepare');
 }
+
+export function createRevocationReadbackClient() {
+  throw new Error(
+    'test read-token revocation runner must not be invoked during prepare'
+  );
+}

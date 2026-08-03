@@ -2,25 +2,30 @@ import { constants } from 'node:fs';
 import { type FileHandle, open } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
-import { evidenceExecutionRoot } from './cloudflare-evidence-execution-path';
+import { verifyAuthenticatedEvidenceRunnerModule } from './cloudflare-evidence-authenticated-runner';
+import {
+  evidenceExecutionRoot,
+  mapEvidenceExecutionPath,
+} from './cloudflare-evidence-execution-path';
+import { getReadTokenRevocationReadbackFactory } from './cloudflare-evidence-read-revocation-factory';
 import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
 import {
+  type CloudflareEvidenceRunJournal,
   loadEvidenceRunForCleanup,
+  recordEvidencePhase,
   recordTokenRevocation,
   type TokenRevocationClient,
   type TokenRevocationReceipt,
 } from './cloudflare-evidence-run-journal';
 import {
+  evidenceRunnerModuleEnvironmentNames,
   verifyReviewedEvidenceFile,
-  verifyReviewedEvidenceRunnerModule,
 } from './cloudflare-evidence-runner-modules';
+import { assertMeasurementObservationWindow } from './measurement-observation-window';
 
 const hash = /^[a-f0-9]{64}$/u;
 const receiptPathEnvironment =
   'EVIDENCE_READ_TOKEN_REVOCATION_READBACK_RECEIPT_PATH';
-const modulePathEnvironment = 'EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE';
-const moduleShaEnvironment =
-  'EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256';
 
 const externalReadTokenRevocationReceiptSchema = z
   .object({
@@ -91,7 +96,10 @@ async function loadReadbackClient(
   runId: string,
   stateDir: string,
   receipt: TokenRevocationReceipt,
-  journalToolingMergeSha: string
+  journal: Pick<
+    CloudflareEvidenceRunJournal,
+    'readRevocationRunnerModulePath' | 'readRevocationRunnerModuleSha256'
+  >
 ): Promise<Pick<TokenRevocationClient, 'readBack'>> {
   if (
     process.env.CLOUDFLARE_WRITE_TOKEN !== undefined ||
@@ -100,55 +108,42 @@ async function loadReadbackClient(
     throw new Error(
       'external read-token revocation must not receive a Cloudflare token'
     );
-  const modulePath = process.env[modulePathEnvironment];
-  const moduleSha256 = process.env[moduleShaEnvironment];
+  const modulePath = journal.readRevocationRunnerModulePath;
+  const moduleSha256 = journal.readRevocationRunnerModuleSha256;
   if (!modulePath || !moduleSha256)
     throw new Error(
-      'external read-token revocation requires an authenticated readback module'
+      'read-token revocation readback module descriptor is missing from the journal'
     );
   if (!isAbsolute(modulePath) || !hash.test(moduleSha256))
     throw new Error(
-      'authenticated read-token revocation module descriptor is invalid'
+      'journaled read-token revocation module descriptor is invalid'
     );
-  const verified = await verifyReviewedEvidenceRunnerModule(
+  const executionModulePath = mapEvidenceExecutionPath(modulePath);
+  const names = evidenceRunnerModuleEnvironmentNames('readRevocation');
+  const configuredPath = process.env[names.path];
+  const configuredSha256 = process.env[names.sha256];
+  if (
+    configuredPath &&
+    resolve(configuredPath) !== resolve(executionModulePath)
+  )
+    throw new Error(
+      'read-token revocation readback module does not match the journal'
+    );
+  if (configuredSha256 && configuredSha256 !== moduleSha256)
+    throw new Error(
+      'read-token revocation readback module hash does not match the journal'
+    );
+  const verified = await verifyAuthenticatedEvidenceRunnerModule(
     evidenceExecutionRoot(),
-    journalToolingMergeSha,
-    { path: resolve(modulePath), sha256: moduleSha256 }
+    { path: executionModulePath, sha256: moduleSha256 }
   );
   return importReviewedEvidenceModule(
     evidenceExecutionRoot(),
     verified.path,
     verified.files,
     async (loaded) => {
-      const factory =
-        loaded &&
-        typeof loaded === 'object' &&
-        'createRevocationReadbackClient' in loaded
-          ? (loaded as { createRevocationReadbackClient?: unknown })
-              .createRevocationReadbackClient
-          : loaded &&
-              typeof loaded === 'object' &&
-              'createReadTokenRevocationReadback' in loaded
-            ? (loaded as { createReadTokenRevocationReadback?: unknown })
-                .createReadTokenRevocationReadback
-            : loaded &&
-                typeof loaded === 'object' &&
-                'createRevocationReadbackDependencies' in loaded
-              ? (
-                  loaded as {
-                    createRevocationReadbackDependencies?: unknown;
-                  }
-                ).createRevocationReadbackDependencies
-              : undefined;
-      if (typeof factory !== 'function')
-        throw new Error(
-          'authenticated read-token revocation module is invalid'
-        );
-      const client = await (
-        factory as (
-          input: Readonly<{ runId: string; stateDir: string }>
-        ) => Promise<unknown>
-      )({ runId, stateDir });
+      const factory = getReadTokenRevocationReadbackFactory(loaded);
+      const client = await factory({ runId, stateDir });
       const readBack =
         client && typeof client === 'object'
           ? (client as { readBack?: unknown }).readBack
@@ -212,25 +207,54 @@ export async function loadReadTokenRevocationDependencies(
     throw new Error(
       'external read-token revocation receipt does not match the journal'
     );
-  const client = await loadReadbackClient(
-    runId,
-    stateDir,
-    receipt,
-    journal.toolingMergeSha
-  );
+  const client = await loadReadbackClient(runId, stateDir, receipt, journal);
   return { revocationReceipt: receipt, client };
 }
 
-export function recordCloudflareEvidenceReadTokenRevocation(
+/**
+ * A read-only measurement token cannot delete API tokens. The owner revokes it
+ * on a separate control surface, then this credentialless recovery command
+ * verifies the external receipt and closes the journal.
+ */
+export async function recordCloudflareEvidenceReadTokenRevocation(
   stateDir: string,
   runId: string,
   dependencies: EvidenceReadRevocationDependencies
 ) {
-  return recordTokenRevocation(
+  const journal = await recordTokenRevocation(
     stateDir,
     runId,
     'read',
     dependencies.revocationReceipt,
     dependencies.client
   );
+  if (journal.phase === 'closed_stop' || journal.phase === 'proof_complete')
+    return journal;
+  if (
+    journal.phase !== 'read_token_revoked' ||
+    !journal.measurementVerifiedAt ||
+    !journal.readTokenRevocationReceipt
+  )
+    throw new Error(
+      'read-token revocation did not produce a measured revocation receipt'
+    );
+
+  try {
+    assertMeasurementObservationWindow(
+      journal,
+      journal.measurementVerifiedAt,
+      new Date(journal.readTokenRevocationReceipt.observedAt)
+    );
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.message : 'unknown observation error';
+    return recordEvidencePhase(stateDir, runId, 'closed_stop', {
+      measurementIncomplete: true,
+      readBackEvidence: [
+        ...journal.readBackEvidence,
+        `measurement evidence outside active run window; STOP: ${reason}`,
+      ],
+    });
+  }
+  return recordEvidencePhase(stateDir, runId, 'proof_complete');
 }

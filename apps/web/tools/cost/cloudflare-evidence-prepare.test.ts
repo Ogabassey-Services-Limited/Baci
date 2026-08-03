@@ -26,6 +26,7 @@ const input = {
 const runnerAuthority = {
   mutationRunnerModuleSha256: 'd'.repeat(64),
   measurementRunnerModuleSha256: 'e'.repeat(64),
+  readRevocationRunnerModuleSha256: 'f'.repeat(64),
 };
 const authorizedInput = { ...input, ...runnerAuthority };
 

@@ -3,19 +3,23 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { calculateReviewedPolicySha256 } from './cloudflare-evidence-prepare';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
 import {
   makePrivateTempDir,
   writeProtectedMergeIdentity,
 } from './cloudflare-evidence-process-isolation.test-fixtures';
+import { holdCloudflareEvidenceWorkspaceTestLock } from './cloudflare-evidence-process-isolation-workspace-lock.test-support';
 
 const runnerModulePathFor = (workspaceRoot: string) =>
   resolve(
     workspaceRoot,
     'apps/web/tools/cost/cloudflare-evidence-authenticated-runner.test-fixture.ts'
   );
+
+const workspaceRoot = resolve(import.meta.dirname, '../../../..');
+let releaseWorkspaceLock: (() => Promise<void>) | undefined;
 
 describe('spawnIsolatedCloudflareEvidenceProcess', () => {
   const runId = 'b'.repeat(32);
@@ -33,8 +37,18 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     preInventorySha256: 'a'.repeat(64),
     expectedProbeCount: 2,
   };
+  beforeEach(async () => {
+    releaseWorkspaceLock =
+      await holdCloudflareEvidenceWorkspaceTestLock(workspaceRoot);
+  }, 30_000);
+  afterEach(async () => {
+    try {
+      await releaseWorkspaceLock?.();
+    } finally {
+      releaseWorkspaceLock = undefined;
+    }
+  });
   it('creates a private initial journal and prints only its bounded handoff', async () => {
-    const workspaceRoot = resolve(import.meta.dirname, '../../../..');
     const { stdout: toolingMergeSha } = await promisify(execFile)('git', [
       '-C',
       workspaceRoot,
@@ -92,6 +106,7 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       readPolicySha256: reviewedPrepareInput.readPolicySha256,
       mutationRunnerModuleSha256: runnerModuleSha256,
       measurementRunnerModuleSha256: runnerModuleSha256,
+      readRevocationRunnerModuleSha256: runnerModuleSha256,
       approvedAt,
       expiresAt,
     };
@@ -142,6 +157,9 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
         EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: runnerModuleSha256,
         EVIDENCE_MEASUREMENT_RUNNER_MODULE: runnerModulePath,
         EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: runnerModuleSha256,
+        EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE: runnerModulePath,
+        EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256:
+          runnerModuleSha256,
       },
       undefined,
       workspaceRoot,
@@ -160,6 +178,8 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
       mutationRunnerModuleSha256: runnerModuleSha256,
       measurementRunnerModulePath: runnerModulePath,
       measurementRunnerModuleSha256: runnerModuleSha256,
+      readRevocationRunnerModulePath: runnerModulePath,
+      readRevocationRunnerModuleSha256: runnerModuleSha256,
       phase: 'prepared',
       cleanupAttempts: 0,
     });
@@ -186,6 +206,9 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
           EVIDENCE_MUTATION_RUNNER_MODULE_SHA256: runnerModuleSha256,
           EVIDENCE_MEASUREMENT_RUNNER_MODULE: runnerModulePath,
           EVIDENCE_MEASUREMENT_RUNNER_MODULE_SHA256: runnerModuleSha256,
+          EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE: runnerModulePath,
+          EVIDENCE_READ_TOKEN_REVOCATION_READBACK_MODULE_SHA256:
+            runnerModuleSha256,
         },
         undefined,
         workspaceRoot,
@@ -193,5 +216,5 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
         reviewedPrepareInput
       )
     ).rejects.toThrow('active');
-  });
+  }, 30_000);
 });

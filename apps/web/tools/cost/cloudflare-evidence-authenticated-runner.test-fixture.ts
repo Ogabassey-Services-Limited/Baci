@@ -6,3 +6,9 @@ export function createMutationDependencies() {
 export function createMeasurementDependencies() {
   throw new Error('test measurement runner must not execute during prepare');
 }
+
+export function createRevocationReadbackClient() {
+  throw new Error(
+    'test read revocation runner must not execute during prepare'
+  );
+}
