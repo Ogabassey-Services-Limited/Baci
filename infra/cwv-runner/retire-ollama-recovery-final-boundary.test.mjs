@@ -70,6 +70,26 @@ test('refuses a Compose definition added after the initial consumer scan', async
   }
 });
 
+test('refuses package drift before immutable receipt publication', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-cwv-final-package-'));
+  const receipt = join(directory, 'receipt.json');
+  const packageMarker = join(directory, 'package-observed');
+  try {
+    await assert.rejects(
+      shell(
+        `root() { :; }; assert_docker_socket() { CANONICAL_DOCKER_SOCKET=/run/docker.sock; }; recovery_source_identity() { :; }; recovery_collect_mutable_consumers() { : >"$1"; : >"$2"; RECOVERY_MUTABLE_MODEL='{}'; RECOVERY_MUTABLE_CRON='{}'; }; recovery_collect_container_consumers() { : >"$1"; }; recovery_container_snapshot() { RECOVERY_CONTAINER_STATE=absent; printf '%s\\n' '{}'; }; recovery_collect_processes() { : >"$1"; }; recovery_absent_process_snapshot() { printf '%s\\n' '{"state":"absent"}'; }; recovery_terminal_process_snapshot() { :; }; recovery_terminal_container_snapshot() { :; }; recovery_terminal_mutable_consumers() { :; }; recovery_terminal_container_consumers() { :; }; recovery_package_snapshot() { if [ -e "$PACKAGE_MARKER" ]; then printf '%s\\n' '{"name":"ollama","state":"present","version":"1.0"}'; else : >"$PACKAGE_MARKER"; printf '%s\\n' '{"name":"ollama","state":"absent","version":null}'; fi; }; recovery_unit_snapshot() { printf '%s\\n' '{}'; }; record_docker_socket() { :; }; recovery_surface() { :; }; recovery_write_receipt() { : >"$RECEIPT_MARKER"; }; PACKAGE_MARKER=$3; RECEIPT_MARKER=$2; init_temp_root; recovery_scan`,
+        [receipt, packageMarker]
+      ),
+      (error) =>
+        error.code === 78 &&
+        /recovery package changed before receipt publication/.test(error.stderr)
+    );
+    await assert.rejects(access(receipt));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('changes the model tree identity when same-size content is restored to its mtime', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-cwv-model-tree-'));
   const store = join(directory, 'store');

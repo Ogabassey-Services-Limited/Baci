@@ -22,7 +22,7 @@ systemd_simple_command_path() {
   rm -f "$directories"; return 2
 }
 
-systemd_quoted_command_path() {
+systemd_quoted_command_paths() {
   value=$1
   while case "$value" in [-+!:@]*) :;; *) false;; esac; do value=${value#?}; done
   [ -n "$value" ] || return 1
@@ -37,17 +37,41 @@ systemd_quoted_command_path() {
     */sh|*/bash|*/dash|*/env|*/node|*/perl|*/php|*/python|*/python[0-9.]*|*/ruby)
       [ "$(wc -l <"$words")" -eq 2 ] || { rm -f "$words"; return 2; }
       { IFS= read -r _; IFS= read -r command; } <"$words" || { rm -f "$words"; return 2; }
+      rm -f "$words"
+      case "$command" in
+        /*) consumer_canonical_regular "$command" >/dev/null 2>&1 || return 1; printf '%s\n' "$command";;
+        *) return 2;;
+      esac
+      return
       ;;
   esac
-  rm -f "$words"
   case "$command" in
-    /*) consumer_canonical_regular "$command" >/dev/null 2>&1 || return 1; printf '%s\n' "$command";;
-    *) return 2;;
+    /*) command=$(consumer_canonical_regular "$command") || { rm -f "$words"; return 1; };;
+    *) rm -f "$words"; return 2;;
   esac
+  printf '%s\n' "$command" || { rm -f "$words"; return 2; }
+  sed '1d' "$words" | while IFS= read -r argument || [ -n "$argument" ]; do
+    case "$argument" in
+      /*)
+        if [ -e "$argument" ] || [ -L "$argument" ]; then
+          canonical_argument=$(consumer_canonical_regular "$argument") || exit 2
+          printf '%s\n' "$canonical_argument" || exit 2
+        fi
+        ;;
+    esac
+  done
+  status=$?; rm -f "$words"; return "$status"
+}
+
+systemd_quoted_command_path() {
+  quoted_paths=$(temp_path)
+  systemd_quoted_command_paths "$1" >"$quoted_paths" || { status=$?; rm -f "$quoted_paths"; return "$status"; }
+  IFS= read -r quoted_command <"$quoted_paths" || { rm -f "$quoted_paths"; return 1; }
+  rm -f "$quoted_paths"; printf '%s\n' "$quoted_command"
 }
 
 systemd_credential_file_directives() {
-  awk 'function emit(s){sub(/^[[:space:]]*/,"",s);if(s~/^LoadCredential=/)print s}
+  awk 'function emit(s){sub(/^[[:space:]]*/,"",s);if(s~/^LoadCredential(Encrypted)?=/)print s}
     {line=$0;if(joined!="")line=joined " " line;if(line~/\\$/){sub(/\\$/,"",line);joined=line;next}emit(line);joined=""}
     END{if(joined!="")exit 2}' "$1"
 }
@@ -68,9 +92,14 @@ systemd_static_credentials() {
   definition=$1; directives=$(temp_path)
   systemd_credential_file_directives "$definition" >"$directives" || { status=$?; rm -f "$directives"; return "$status"; }
   while IFS= read -r directive || [ -n "$directive" ]; do
+    credential_directive=${directive%%=*}
     targets=$(temp_path); systemd_credential_targets "${directive#*=}" >"$targets" || { rm -f "$directives" "$targets"; return 2; }
     while IFS= read -r target || [ -n "$target" ]; do
-      if target_record=$(consumer_matched_fingerprint "$target"); then
+      if [ "$credential_directive" = LoadCredentialEncrypted ]; then
+        target_record=$(consumer_file_fingerprint "$target") || { rm -f "$directives" "$targets"; return 2; }
+        definition_record=$(consumer_file_fingerprint "$definition") || { rm -f "$directives" "$targets"; return 2; }
+        printf '%s|%s\n' "$definition_record" "$target_record"
+      elif target_record=$(consumer_matched_fingerprint "$target"); then
         definition_record=$(consumer_file_fingerprint "$definition") || { rm -f "$directives" "$targets"; return 2; }
         printf '%s|%s\n' "$definition_record" "$target_record"
       else status=$?; [ "$status" -eq 1 ] || { rm -f "$directives" "$targets"; return "$status"; }; fi
@@ -85,6 +114,15 @@ scan_systemd_runtime_credentials() {
     if target_record=$(consumer_matched_fingerprint "$target"); then
       printf '%s:%s|%s\n' "$name" "$(hash_text "LoadCredential=$value")" "$target_record"
     else status=$?; [ "$status" -eq 1 ] || { rm -f "$targets"; return "$status"; }; fi
+  done <"$targets"; rm -f "$targets"
+}
+
+scan_systemd_runtime_encrypted_credentials() {
+  name=$1; value=$2; targets=$(temp_path)
+  systemd_credential_targets "$value" >"$targets" || { rm -f "$targets"; return 2; }
+  while IFS= read -r target || [ -n "$target" ]; do
+    target_record=$(consumer_file_fingerprint "$target") || { rm -f "$targets"; return 2; }
+    printf '%s:%s|%s\n' "$name" "$(hash_text "LoadCredentialEncrypted=$value")" "$target_record"
   done <"$targets"; rm -f "$targets"
 }
 
