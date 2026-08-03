@@ -11,7 +11,7 @@ type CompareProductMatchRequirement = {
 };
 
 const VARIANT_DISCRIMINATOR_PATTERN =
-  /^(?:\d+(?:gb|tb|mb|mm|inch)|(?:e)?sim|wifi|cellular|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
+  /^(?:\d+(?:g|gb|tb|mb|mm|inch)|(?:e)?sim|wifi|cellular|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
 const SPLIT_VARIANT_UNIT_TOKENS = new Set(['gb', 'tb', 'mb', 'mm', 'inch']);
 
 function tokenize(value: string) {

@@ -111,6 +111,35 @@ describe('loadBrandAuthorityPage', () => {
     );
   });
 
+  it('passes grouped authority aliases to commercial guide matching', async () => {
+    mockGetCachedBrandAuthorityProducts.mockResolvedValue(
+      Array.from({ length: 6 }, (_, index) => makeProduct(index, 'Redmi'))
+    );
+    const { brandAuthorityPageLoader } = await import(
+      './load-brand-authority-page'
+    );
+
+    await brandAuthorityPageLoader.load(
+      {
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        brandSlug: 'xiaomi',
+      },
+      { includeRequestPathPrefix: false }
+    );
+
+    expect(mockLoadPublishedClusterPostsSafely).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.objectContaining({
+        brands: ['Xiaomi and Redmi', 'xiaomi', 'Redmi'],
+        productNames: Array.from(
+          { length: 6 },
+          (_, index) => `Redmi Phone ${index}`
+        ),
+      })
+    );
+  });
+
   it('rejects uncurated and thin brand pages', async () => {
     const { brandAuthorityPageLoader } = await import(
       './load-brand-authority-page'

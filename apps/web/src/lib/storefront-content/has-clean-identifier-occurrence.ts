@@ -185,7 +185,7 @@ export function hasCleanIdentifierOccurrence(
       );
       const suffix = postTokens[startIndex + identifierTokens.length] ?? '';
       const listicleSuffix = new RegExp(
-        `${identifierTokens.join('\\s+')}:\\s*\\d+`,
+        `${identifierTokens.join('\\s+')}\\s*[:—–-]\\s*\\d+`,
         'iu'
       ).test(post.title);
       if (

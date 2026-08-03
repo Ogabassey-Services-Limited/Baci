@@ -79,6 +79,21 @@ describe('getCompareProductMatchRequirements', () => {
     ]);
   });
 
+  it('keeps cellular generations as same-model variant discriminators', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productNames: ['Samsung A15 5G 4GB 128GB', 'Samsung A15 LTE 4GB 128GB'],
+      productSlugs: [],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: 'a15', brand: 'samsung', discriminatorTokens: ['5g'] },
+      { identifier: 'a15', brand: 'samsung', discriminatorTokens: ['lte'] },
+    ]);
+  });
+
   it('preserves source brands for distinct compare model phrases', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

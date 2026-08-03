@@ -163,7 +163,11 @@ async function loadBrandAuthorityPage(
     ? {
         pageKind: 'category' as const,
         categorySlug: supportedCategory,
-        brands: [authorityEntry.displayName, authorityEntry.brandKey],
+        brands: [
+          authorityEntry.displayName,
+          authorityEntry.brandKey,
+          ...(authorityEntry.brandAliases ?? []),
+        ],
         productNames: normalizedProducts.map((product) => product.name),
         productSlugs: normalizedProducts.map((product) => product.slug),
       }
