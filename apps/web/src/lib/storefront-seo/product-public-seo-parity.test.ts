@@ -151,4 +151,67 @@ describe('product public SEO parity', () => {
     );
     expect(feed).toContain('<g:condition>new</g:condition>');
   });
+
+  it('keeps a stale stored canonical from splitting PDP, sitemap, schema, and Google feed URLs', () => {
+    const baseUrl = 'https://zorvexa.usebaci.com';
+    const expectedUrl = `${baseUrl}/fashion/linen-shirt`;
+    const product = {
+      id: 'product-stale-canonical',
+      name: 'Linen Shirt',
+      description: 'Breathable linen shirt.',
+      slug: 'linen-shirt',
+      canonical_url: '/old/linen-shirt',
+      category: 'Fashion',
+      categories: { slug: 'fashion', name: 'Fashion' },
+      images: ['https://cdn.example.com/linen-shirt.jpg'],
+      price: 12_000,
+      stock: 3,
+      stock_quantity: 3,
+      manage_stock: true,
+      condition: 'new' as const,
+      updated_at: undefined,
+    };
+    const visibleCanonicalUrl = getValidatedProductUrl(
+      product,
+      baseUrl,
+      'zorvexa'
+    );
+    const schema = generateProductSchema(
+      product as never,
+      'Zorvexa',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      { productUrl: expectedUrl }
+    );
+    const sitemap = buildProductSitemapEntry({
+      product: { ...product, updated_at: null },
+      storeUrl: baseUrl,
+    });
+    const feed = generateGoogleMerchantFeed(
+      [product],
+      { id: 'merchant-1', business_name: 'Zorvexa', slug: 'zorvexa' },
+      baseUrl,
+      {
+        [product.id]: [
+          {
+            verified_url: 'https://cdn.example.com/linen-shirt.jpg',
+            verified_format: 'jpeg',
+            status: 'verified',
+            is_primary: true,
+            position: 0,
+          },
+        ],
+      }
+    );
+
+    expect(visibleCanonicalUrl).toBe(expectedUrl);
+    expect(sitemap.url).toBe(expectedUrl);
+    expect(schema.url).toBe(expectedUrl);
+    expect(feed).toContain(`<g:link>${expectedUrl}</g:link>`);
+    expect(feed).not.toContain(
+      '<g:link>https://zorvexa.usebaci.com/old/linen-shirt</g:link>'
+    );
+  });
 });

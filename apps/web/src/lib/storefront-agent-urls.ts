@@ -1,5 +1,5 @@
 import { STOREFRONT_POLICY_ROUTES } from '@/config/storefront-policy-routes';
-import { getProductUrl } from '@/lib/seo-utils';
+import { getValidatedProductUrl } from '@/lib/seo-utils';
 
 type AgentProductUrlInput = {
   baseUrl: string;
@@ -54,7 +54,7 @@ export function buildAgentProductUrl({
     throw new TypeError('Agent product URL requires product id and name.');
   }
 
-  const productPath = getProductUrl({
+  const productForUrl = {
     id: product.id,
     name: product.name,
     slug: product.slug ?? undefined,
@@ -67,9 +67,15 @@ export function buildAgentProductUrl({
           slug: product.categories.slug ?? undefined,
         }
       : null,
-  });
+  };
+  const validatedProductUrl = getValidatedProductUrl(productForUrl, baseUrl);
 
-  return `${trimTrailingSlash(baseUrl)}${encodePathSegments(productPath)}`;
+  try {
+    const parsedUrl = new URL(validatedProductUrl);
+    return `${parsedUrl.origin}${encodePathSegments(parsedUrl.pathname)}`;
+  } catch {
+    return `${trimTrailingSlash(baseUrl)}${encodePathSegments(validatedProductUrl)}`;
+  }
 }
 
 export function buildAgentPolicyUrls(baseUrl: string): AgentPolicyUrls {

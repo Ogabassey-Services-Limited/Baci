@@ -78,7 +78,7 @@ describe('generateGoogleMerchantFeed canonical URLs', () => {
     expect(xml).not.toContain('<g:link>https://ogabassey.com//');
   });
 
-  it('prefers stored canonical URLs over category-derived paths', () => {
+  it('falls back to the category-derived path when a stored canonical URL is stale', () => {
     const xml = generateGoogleMerchantFeed(
       [
         {
@@ -105,10 +105,10 @@ describe('generateGoogleMerchantFeed canonical URLs', () => {
     );
 
     expect(xml).toContain(
-      '<g:link>https://ogabassey.com/gift-cards/nintendo-e-shop-card</g:link>'
+      '<g:link>https://ogabassey.com/nintendo-switch/nintendo-e-shop-card</g:link>'
     );
     expect(xml).not.toContain(
-      '<g:link>https://ogabassey.com/nintendo-switch/nintendo-e-shop-card</g:link>'
+      '<g:link>https://ogabassey.com/gift-cards/nintendo-e-shop-card</g:link>'
     );
   });
 
