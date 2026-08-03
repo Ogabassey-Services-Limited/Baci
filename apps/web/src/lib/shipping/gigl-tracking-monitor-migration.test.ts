@@ -1,10 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-
-function resolveMigrationPath(relativePath: string) {
-  return fileURLToPath(new URL(relativePath, import.meta.url));
-}
+import { resolveGiglTrackingMigrationPath } from './gigl-tracking-migration-path';
 
 const migrationFiles = {
   monitor: '20260727220000_gigl_tracking_monitor_tables.sql',
@@ -17,10 +13,10 @@ const migrationFiles = {
 } as const;
 
 function readMigration(filename: string) {
-  const path = resolveMigrationPath(
-    `../../../../../supabase/migrations/${filename}`
+  const path = resolveGiglTrackingMigrationPath(
+    `../../../../../supabase/migrations/${filename}`,
+    filename
   );
-  expect(path).toMatch(new RegExp(`${filename.replace('.', '\\.')}$`));
   return readFileSync(path, 'utf8');
 }
 
