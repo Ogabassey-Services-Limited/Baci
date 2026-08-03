@@ -203,4 +203,8 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '20260803000200_repair_unowned_gigl_monitor_backfill.sql',
     'a5436eadd7450b9b25e6229d58ad18f0492f92fd6e6b5023cc3f9c9bf4c0dfc8',
   ],
+  [
+    '20260803000300_harden_gigl_carrier_precedence.sql',
+    'd8015b4fa54ad7f1523d3b7ef6ff452aca6dc4825da283c7c91a9c8a0bd266fd',
+  ],
 ] as const;

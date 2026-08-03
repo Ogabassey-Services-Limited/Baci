@@ -196,6 +196,23 @@ describe('GIGL retry and generation hardening migrations', () => {
     expect(repair).toContain('order_row.id = monitor.order_id');
   });
 
+  it('keeps carrier precedence fixes append-only', () => {
+    const migration = readMigration(
+      '20260803000300_harden_gigl_carrier_precedence.sql'
+    );
+
+    expect(migration).toContain(
+      'CREATE OR REPLACE FUNCTION private.reconcile_gigl_monitor_tenant('
+    );
+    expect(migration).toContain(
+      'z_prevent_gigl_monitor_reactivation_after_carrier'
+    );
+    expect(migration).toContain('newer_shipment.tracking_timeline_generation');
+    expect(migration).toContain(
+      'PERFORM private.reconcile_gigl_monitor_tenant(v_order_id)'
+    );
+  });
+
   it('revalidates monitor ownership when a shipment merchant changes', () => {
     const migration = readMigration(
       '20260801142300_track_gigl_monitor_merchant_changes.sql'

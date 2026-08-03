@@ -94,4 +94,30 @@ describe('GIGL tenant reconciliation migration', () => {
       'newer non-GIGL shipments prevent stale GIGL monitor reactivation'
     );
   });
+
+  it('skips superseded notifications and terminal monitor recovery', () => {
+    const migration = readMigration(
+      '20260803000300_harden_gigl_carrier_precedence.sql'
+    );
+    const databaseTest = readMigrationTest(
+      'gigl_tracking_monitor_carrier_precedence.sql'
+    );
+
+    expect(migration).toContain("skip_reason = 'tracking_carrier_superseded'");
+    expect(migration).toContain(
+      'outbox.shipment_id IS DISTINCT FROM v_shipment_id'
+    );
+    expect(migration).toContain(
+      'CREATE OR REPLACE FUNCTION private.prevent_gigl_monitor_reactivation_after_carrier()'
+    );
+    expect(migration).toContain(
+      'z_prevent_gigl_monitor_reactivation_after_carrier'
+    );
+    expect(databaseTest).toContain(
+      'pending notifications from a superseded GIGL shipment must be skipped'
+    );
+    expect(databaseTest).toContain(
+      'a superseded GIGL monitor must not revive after terminal status recovery'
+    );
+  });
 });

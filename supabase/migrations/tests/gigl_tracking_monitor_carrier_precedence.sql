@@ -14,6 +14,8 @@ DECLARE
   v_gigl_generation integer;
   v_topship_generation integer;
   v_monitor_state text;
+  v_outbox_status text;
+  v_event_id uuid;
 BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
@@ -53,6 +55,28 @@ BEGIN
       last_error = NULL
   WHERE shipment_id = v_gigl_shipment_id;
 
+  INSERT INTO public.shipment_tracking_events (
+    shipment_id, tracking_epoch_id, tracking_number, provider,
+    provider_event_key, raw_status, normalized_status, description,
+    occurred_at
+  )
+  SELECT monitor.shipment_id, monitor.tracking_epoch_id,
+    'GIGL-CARRIER-PRECEDENCE-OLD', 'GIGL',
+    'gigl-carrier-precedence-pending-event', 'DELIVERED', 'delivered',
+    'Old GIGL delivery event', now()
+  FROM public.shipment_tracking_monitors AS monitor
+  WHERE monitor.shipment_id = v_gigl_shipment_id
+  RETURNING id INTO v_event_id;
+
+  INSERT INTO public.shipment_tracking_notification_outbox (
+    shipment_id, tracking_epoch_id, order_id, merchant_id, tracking_event_id,
+    audience, notification_kind
+  )
+  SELECT monitor.shipment_id, monitor.tracking_epoch_id, v_order_id,
+    v_merchant_id, v_event_id, 'merchant', 'delivered'
+  FROM public.shipment_tracking_monitors AS monitor
+  WHERE monitor.shipment_id = v_gigl_shipment_id;
+
   PERFORM private.reconcile_gigl_monitor_tenant(v_order_id);
 
   SELECT state
@@ -63,6 +87,34 @@ BEGIN
   IF v_monitor_state IS DISTINCT FROM 'inactive' THEN
     RAISE EXCEPTION
       'an older GIGL monitor must stay inactive when a newer carrier supersedes it';
+  END IF;
+
+  SELECT status
+  INTO v_outbox_status
+  FROM public.shipment_tracking_notification_outbox
+  WHERE tracking_event_id = v_event_id;
+  IF v_outbox_status IS DISTINCT FROM 'skipped' THEN
+    RAISE EXCEPTION
+      'pending notifications from a superseded GIGL shipment must be skipped';
+  END IF;
+
+  UPDATE public.shipment_tracking_monitors
+  SET state = 'terminal'
+  WHERE shipment_id = v_gigl_shipment_id;
+  UPDATE public.shipments
+  SET status = 'delivered'
+  WHERE id = v_gigl_shipment_id;
+  UPDATE public.shipments
+  SET status = 'in_transit'
+  WHERE id = v_gigl_shipment_id;
+
+  SELECT state
+  INTO v_monitor_state
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = v_gigl_shipment_id;
+  IF v_monitor_state IS DISTINCT FROM 'inactive' THEN
+    RAISE EXCEPTION
+      'a superseded GIGL monitor must not revive after terminal status recovery';
   END IF;
 END;
 $test$;
