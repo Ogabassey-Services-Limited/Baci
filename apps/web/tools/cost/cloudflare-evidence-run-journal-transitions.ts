@@ -126,6 +126,16 @@ export function createEvidenceJournalTransitionOperations(
           'incomplete measurement evidence requires a verified receipt to clear'
         );
       if (
+        phase === 'measurement_complete_pending_read_revocation' &&
+        (!journal.measurementVerifiedAt ||
+          !isHash(journal.measurementReceiptSha256 ?? '') ||
+          !isHash(journal.measurementPayloadSha256 ?? '') ||
+          !validDate(journal.measurementVerifiedAt))
+      )
+        throw new Error(
+          'pending read-token revocation requires a verified measurement receipt'
+        );
+      if (
         details.cleanupAttempts !== undefined &&
         (!Number.isInteger(details.cleanupAttempts) ||
           details.cleanupAttempts < journal.cleanupAttempts)
@@ -211,10 +221,12 @@ export function createEvidenceJournalTransitionOperations(
         );
       if (journal.phase !== 'write_token_revoked')
         throw new Error('measurement requires write-token revocation');
+      assertTransition(journal, 'measurement_complete_pending_read_revocation');
       journal.measurementVerifiedAt = receipt.observedAt;
       journal.measurementReceiptSha256 = receipt.providerReceiptSha256;
       journal.measurementPayloadSha256 = receipt.payloadSha256;
       journal.measurementIncomplete = false;
+      journal.phase = 'measurement_complete_pending_read_revocation';
       return journal;
     });
   }

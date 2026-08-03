@@ -18,6 +18,14 @@ journals their paths and hashes. Mutation and measurement reload only those
 journaled bytes. A changed file, local/package import, symlink, unapproved hash,
 or cross-process descriptor mismatch is `STOP`.
 
+The measurement process receives only `CLOUDFLARE_READ_TOKEN` and has no token
+deletion operation. After it records the measurement receipt, the run remains
+pending until the owner revokes that token through a separate Cloudflare control
+surface. The credentialless `--record-read-revocation` command then verifies an
+authenticated readback receipt, finalizes only a timely measured run, and marks
+all delayed or incomplete runs `STOP`. A cleanup replacement write token must be
+revoked and verified before either outcome can close the run.
+
 For the production origin-budget gate, use the checked-in
 `storefront-origin-budget-manifest-authority-provider.ts` as
 `STOREFRONT_MANIFEST_AUTHORITY_MODULE` and bind its reviewed SHA-256 through

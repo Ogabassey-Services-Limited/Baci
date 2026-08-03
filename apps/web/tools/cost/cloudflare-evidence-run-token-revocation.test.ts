@@ -74,6 +74,69 @@ describe('cloudflare evidence token revocation operations', () => {
     ).rejects.toThrow('readback');
   });
 
+  it('never grants a read-only measurement process in-process revocation authority', async () => {
+    const readJournal = vi.fn(async () => journal);
+    const operations = createTokenRevocationOperations(
+      readJournal,
+      transitionFor(readJournal)
+    );
+    const revoke = vi.fn();
+
+    await expect(
+      operations.revokeEvidenceRunToken('state', journal.runId, 'read', {
+        revoke,
+        readBack: vi.fn(),
+      })
+    ).rejects.toThrow('external owner receipt');
+
+    expect(revoke).not.toHaveBeenCalled();
+  });
+
+  it('does not replace an already journaled read-token receipt', async () => {
+    const existingReceipt = {
+      tokenId: 'read',
+      status: 'revoked' as const,
+      providerReceiptSha256: 'c'.repeat(64),
+      observedAt: '2026-07-31T00:00:01.000Z',
+    };
+    const readJournal = vi.fn(async () => ({
+      ...journal,
+      phase: 'read_token_revoked' as const,
+      writeTokenRevocationReceipt: {
+        tokenId: 'write',
+        status: 'revoked' as const,
+        providerReceiptSha256: 'b'.repeat(64),
+        observedAt: '2026-07-31T00:00:00.000Z',
+      },
+      readTokenRevocationReceipt: existingReceipt,
+    }));
+    const operations = createTokenRevocationOperations(
+      readJournal,
+      transitionFor(readJournal)
+    );
+    const replacementReceipt = {
+      ...existingReceipt,
+      providerReceiptSha256: 'd'.repeat(64),
+    };
+
+    await expect(
+      operations.recordTokenRevocation(
+        'state',
+        journal.runId,
+        'read',
+        replacementReceipt,
+        {
+          readBack: async (tokenId) => ({
+            tokenId,
+            status: 'inactive' as const,
+            auditReceiptSha256: replacementReceipt.providerReceiptSha256,
+            observedAt: replacementReceipt.observedAt,
+          }),
+        }
+      )
+    ).rejects.toThrow('cannot be replaced');
+  });
+
   it('rejects a serialized receipt when its provider readback changes the observation', async () => {
     const readJournal = vi.fn(async () => ({
       ...journal,

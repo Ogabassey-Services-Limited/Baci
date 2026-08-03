@@ -13,6 +13,7 @@ export type EvidencePhase =
   | 'cleanup_verified'
   | 'cleanup_incomplete_stop'
   | 'write_token_revoked'
+  | 'measurement_complete_pending_read_revocation'
   | 'read_token_revoked'
   | 'proof_complete'
   | 'closed_stop';
@@ -22,6 +23,7 @@ const evidencePhases = new Set<EvidencePhase>([
   'cleanup_verified',
   'cleanup_incomplete_stop',
   'write_token_revoked',
+  'measurement_complete_pending_read_revocation',
   'read_token_revoked',
   'proof_complete',
   'closed_stop',
@@ -217,7 +219,11 @@ export function assertTransition(
     mutated: ['mutated', 'cleanup_verified', 'cleanup_incomplete_stop'],
     cleanup_verified: ['write_token_revoked'],
     cleanup_incomplete_stop: ['mutated', 'write_token_revoked'],
-    write_token_revoked: ['read_token_revoked'],
+    write_token_revoked: [
+      'measurement_complete_pending_read_revocation',
+      'closed_stop',
+    ],
+    measurement_complete_pending_read_revocation: ['read_token_revoked'],
     read_token_revoked: ['proof_complete', 'closed_stop'],
     proof_complete: [],
     closed_stop: [],

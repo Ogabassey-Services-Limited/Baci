@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   openEvidenceRun,
   recordCleanupVerified,
+  recordEvidenceMeasurement,
   recordEvidenceMutation,
+  recordEvidenceProbeResults,
   revokeEvidenceRunToken,
 } from './cloudflare-evidence-run-journal';
 import {
@@ -14,10 +16,14 @@ import {
 } from './measure-cloudflare-evidence-read-revocation';
 import { parseMeasurementArguments } from './measure-cloudflare-evidence-sources';
 import { measurementInput as input } from './measure-cloudflare-evidence-sources.test-fixtures';
+import {
+  externalReadTokenRevocationDependencies,
+  reviewedProbeResults,
+} from './mutate-cloudflare-evidence-test-fixtures';
 
 afterEach(() => vi.unstubAllEnvs());
 
-async function writeRevokedRun() {
+async function writeRevokedRun(options: Readonly<{ measured?: boolean }> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'baci-read-revocation-'));
   await chmod(directory, 0o700);
   await openEvidenceRun(directory, input);
@@ -26,6 +32,11 @@ async function writeRevokedRun() {
     input.runId,
     input.plannedResources[0],
     'resource-id'
+  );
+  await recordEvidenceProbeResults(
+    directory,
+    input.runId,
+    reviewedProbeResults(input.runId)
   );
   await recordCleanupVerified(directory, input.runId, {
     verifyCleanup: async () => ({
@@ -47,6 +58,12 @@ async function writeRevokedRun() {
       observedAt: '2026-07-31T00:00:00.000Z',
     }),
   });
+  if (options.measured !== false)
+    await recordEvidenceMeasurement(directory, input.runId, {
+      providerReceiptSha256: 'd'.repeat(64),
+      payloadSha256: 'e'.repeat(64),
+      observedAt: '2026-07-31T00:00:00.000Z',
+    });
   return directory;
 }
 
@@ -57,30 +74,39 @@ describe('read-token revocation receipt recovery', () => {
     ).toEqual({ mode: 'record-read-revocation', runId: input.runId });
   });
 
-  it('records an already-revoked read token without invoking revoke again', async () => {
+  it('finalizes a measured run from an external read-token receipt', async () => {
     const directory = await writeRevokedRun();
-    const receipt = {
-      tokenId: input.readTokenId,
-      status: 'revoked' as const,
-      providerReceiptSha256: 'c'.repeat(64),
-      observedAt: '2026-07-31T00:00:01.000Z',
-    };
+    const dependencies = externalReadTokenRevocationDependencies(
+      input.readTokenId,
+      '2026-07-31T00:00:01.000Z',
+      'c'.repeat(64)
+    );
     await expect(
-      recordCloudflareEvidenceReadTokenRevocation(directory, input.runId, {
-        revocationReceipt: receipt,
-        client: {
-          readBack: async (tokenId) => ({
-            tokenId,
-            status: 'absent' as const,
-            auditReceiptSha256: receipt.providerReceiptSha256,
-            observedAt: receipt.observedAt,
-          }),
-        },
-      })
+      recordCloudflareEvidenceReadTokenRevocation(
+        directory,
+        input.runId,
+        dependencies
+      )
     ).resolves.toMatchObject({
-      phase: 'read_token_revoked',
-      readTokenRevocationReceipt: receipt,
+      phase: 'proof_complete',
+      readTokenRevocationReceipt: dependencies.revocationReceipt,
     });
+  });
+
+  it('rejects an external read-token receipt without a recorded measurement', async () => {
+    const directory = await writeRevokedRun({ measured: false });
+    const dependencies = externalReadTokenRevocationDependencies(
+      input.readTokenId,
+      '2026-07-31T00:00:01.000Z',
+      'c'.repeat(64)
+    );
+    await expect(
+      recordCloudflareEvidenceReadTokenRevocation(
+        directory,
+        input.runId,
+        dependencies
+      )
+    ).rejects.toThrow('recorded measurement');
   });
 
   it('rejects provider credentials before loading the receipt-only authority', async () => {

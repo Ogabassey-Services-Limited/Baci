@@ -6,6 +6,7 @@ import { evidenceExecutionRoot } from './cloudflare-evidence-execution-path';
 import { importReviewedEvidenceModule } from './cloudflare-evidence-reviewed-module-loader';
 import {
   loadEvidenceRunForCleanup,
+  recordEvidencePhase,
   recordTokenRevocation,
   type TokenRevocationClient,
   type TokenRevocationReceipt,
@@ -14,6 +15,7 @@ import {
   verifyReviewedEvidenceFile,
   verifyReviewedEvidenceRunnerModule,
 } from './cloudflare-evidence-runner-modules';
+import { assertMeasurementObservationWindow } from './measurement-observation-window';
 
 const hash = /^[a-f0-9]{64}$/u;
 const receiptPathEnvironment =
@@ -221,16 +223,49 @@ export async function loadReadTokenRevocationDependencies(
   return { revocationReceipt: receipt, client };
 }
 
-export function recordCloudflareEvidenceReadTokenRevocation(
+/**
+ * A read-only measurement token cannot delete API tokens. The owner revokes it
+ * on a separate control surface, then this credentialless recovery command
+ * verifies the external receipt and closes the journal.
+ */
+export async function recordCloudflareEvidenceReadTokenRevocation(
   stateDir: string,
   runId: string,
   dependencies: EvidenceReadRevocationDependencies
 ) {
-  return recordTokenRevocation(
+  const journal = await recordTokenRevocation(
     stateDir,
     runId,
     'read',
     dependencies.revocationReceipt,
     dependencies.client
   );
+  if (journal.phase === 'closed_stop') return journal;
+  if (
+    journal.phase !== 'read_token_revoked' ||
+    !journal.measurementVerifiedAt ||
+    !journal.readTokenRevocationReceipt
+  )
+    throw new Error(
+      'read-token revocation did not produce a measured revocation receipt'
+    );
+
+  try {
+    assertMeasurementObservationWindow(
+      journal,
+      journal.measurementVerifiedAt,
+      new Date(journal.readTokenRevocationReceipt.observedAt)
+    );
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.message : 'unknown observation error';
+    return recordEvidencePhase(stateDir, runId, 'closed_stop', {
+      measurementIncomplete: true,
+      readBackEvidence: [
+        ...journal.readBackEvidence,
+        `measurement evidence outside active run window; STOP: ${reason}`,
+      ],
+    });
+  }
+  return recordEvidencePhase(stateDir, runId, 'proof_complete');
 }

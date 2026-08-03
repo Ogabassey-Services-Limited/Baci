@@ -4,14 +4,11 @@ import {
   recordCloudflareEvidenceReadTokenRevocation,
 } from './measure-cloudflare-evidence-read-revocation';
 import type { EvidenceMeasurementDependencies } from './measure-cloudflare-evidence-sources';
-import {
-  measureCloudflareEvidenceSources,
-  revokeCloudflareEvidenceReadToken,
-} from './measure-cloudflare-evidence-sources';
+import { measureCloudflareEvidenceSources } from './measure-cloudflare-evidence-sources';
 import { loadMeasurementDependencies } from './measure-cloudflare-evidence-sources-loader';
 
 export type MeasurementCommand = Readonly<{
-  mode: 'measure' | 'revoke-read' | 'record-read-revocation';
+  mode: 'measure' | 'record-read-revocation';
   runId: string;
 }>;
 type MeasurementDependencyLoader = (
@@ -25,20 +22,18 @@ type MeasurementDependencyLoader = (
 export function parseMeasurementArguments(args: readonly string[]) {
   if (
     args.length !== 2 ||
-    !['--run', '--revoke-read', '--record-read-revocation'].includes(args[0]) ||
+    !['--run', '--record-read-revocation'].includes(args[0]) ||
     !args[1] ||
     !RUN_ID_PATTERN.test(args[1])
   )
     throw new Error(
-      'measurement is read-only and accepts only --run <runId>, --revoke-read <runId>, or --record-read-revocation <runId>'
+      'measurement is read-only and accepts only --run <runId> or --record-read-revocation <runId>'
     );
   return {
     mode:
-      args[0] === '--revoke-read'
-        ? ('revoke-read' as const)
-        : args[0] === '--record-read-revocation'
-          ? ('record-read-revocation' as const)
-          : ('measure' as const),
+      args[0] === '--record-read-revocation'
+        ? ('record-read-revocation' as const)
+        : ('measure' as const),
     runId: args[1],
   } satisfies MeasurementCommand;
 }
@@ -62,19 +57,12 @@ export function runMeasurementCommand(
   }
   if (!('capability' in dependencies))
     throw new Error('a verified read capability is required');
-  return parsed.mode === 'revoke-read'
-    ? revokeCloudflareEvidenceReadToken(
-        stateDir,
-        parsed.runId,
-        dependencies.capability,
-        dependencies.client
-      )
-    : measureCloudflareEvidenceSources(
-        stateDir,
-        parsed.runId,
-        dependencies.capability,
-        dependencies.client
-      );
+  return measureCloudflareEvidenceSources(
+    stateDir,
+    parsed.runId,
+    dependencies.capability,
+    dependencies.client
+  );
 }
 
 /** Keeps argument parsing inside the same rejection path as dependency loading. */

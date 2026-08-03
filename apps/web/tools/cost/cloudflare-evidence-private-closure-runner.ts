@@ -26,7 +26,7 @@ export function selectPrivateEvidenceRunnerDescriptor(
   inherited: Readonly<Record<string, string | undefined>>
 ): PrivateEvidenceRunnerDescriptor {
   const selected =
-    command === 'measure' || command === 'revoke-read'
+    command === 'measure'
       ? {
           name: evidenceRunnerModuleEnvironmentNames('measurement').path,
           sha256Name:
