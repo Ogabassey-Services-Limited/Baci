@@ -123,4 +123,46 @@ describe('buildCommercialGuideLinks product brand binding', () => {
       'https://ogabassey.com/blog/apple-iphone-15-buyer-guide'
     );
   });
+
+  it('ranks the matching PDP connectivity variant above a newer sibling guide', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'samsung-a15-lte-guide',
+          title: 'Samsung A15 LTE Buyer Guide',
+          excerpt: 'A guide to the LTE variant.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung', 'a15'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'samsung-a15-5g-guide',
+          title: 'Samsung A15 5G Buyer Guide',
+          excerpt: 'A guide to the 5G variant.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung', 'a15'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'smartphones',
+        brands: ['Samsung'],
+        productNames: ['Samsung A15 5G 4GB 128GB'],
+        productSlugs: ['samsung-a15-5g-4gb-128gb'],
+      },
+    });
+
+    expect(links.map((link) => link.href)).toEqual([
+      'https://ogabassey.com/blog/samsung-a15-5g-guide',
+      'https://ogabassey.com/blog/samsung-a15-lte-guide',
+    ]);
+  });
 });

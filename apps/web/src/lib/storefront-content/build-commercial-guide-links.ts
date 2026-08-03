@@ -13,6 +13,7 @@ import type {
 import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
 import { getContextBrandKeys } from './get-context-brand-keys';
 import { getPostTokenGroups } from './get-post-token-groups';
+import { getProductConnectivityDiscriminator } from './get-product-connectivity-discriminator';
 import { getProductModelIdentifiers } from './get-product-model-identifiers';
 import { hasCleanIdentifierOccurrence } from './has-clean-identifier-occurrence';
 import { inferContentClusterContext } from './infer-content-cluster-context';
@@ -139,6 +140,13 @@ export function buildCommercialGuideLinks(
   const brandAliases =
     CONTENT_CLUSTER_SUPPORT[input.context.categorySlug].brandTokens;
   const productModelIdentifiers = getProductModelIdentifiers(input.context);
+  const productConnectivityDiscriminator =
+    input.context.pageKind === 'product'
+      ? getProductConnectivityDiscriminator(
+          input.context.productNames,
+          input.context.productSlugs
+        )
+      : undefined;
   const compareProductMatchRequirements =
     input.context.pageKind === 'compare'
       ? getCompareProductMatchRequirements(input.context)
@@ -208,6 +216,9 @@ export function buildCommercialGuideLinks(
                     brand,
                     knownBrands: inferred.brands,
                     brandAliases,
+                    discriminatorTokens: productConnectivityDiscriminator
+                      ? [productConnectivityDiscriminator]
+                      : undefined,
                     requireBrandBeforeIdentifier: true,
                     allowBrandAliasOverlap: true,
                   }

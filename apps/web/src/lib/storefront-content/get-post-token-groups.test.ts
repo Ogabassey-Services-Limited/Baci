@@ -20,9 +20,9 @@ describe('getPostTokenGroups', () => {
     ]);
   });
 
-  it('normalizes slash-separated post phrases into comparison boundaries', () => {
+  it('normalizes slash and ampersand-separated post phrases into comparison boundaries', () => {
     const [titleTokens] = getPostTokenGroups({
-      title: 'Apple iPhone 15 / Samsung Galaxy S25',
+      title: 'Apple iPhone 15 & Samsung Galaxy S25',
       excerpt: null,
       category: null,
       tags: null,
