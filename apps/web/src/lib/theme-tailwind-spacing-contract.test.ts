@@ -28,6 +28,10 @@ async function compileThemeUtilities() {
   const candidates = [
     ...containerTokens.map(([token]) => `max-w-${token}`),
     ...themeSpacingTokens.map((token) => `p-${token}`),
+    'safe-all',
+    'touch-manipulation',
+    'touch-target',
+    'touch-target-lg',
   ].join(' ');
   const configPath = join(process.cwd(), 'tailwind.config.mjs');
   const stylesheet = `@config "${configPath}";\n@import "tailwindcss" source(none);\n@source inline("${candidates}");`;
@@ -71,5 +75,20 @@ describe('theme spacing namespace', () => {
         `.p-${token}{padding:var(--theme-space-${token.replace('theme-', '')});}`
       );
     }
+  });
+
+  it('preserves custom responsive utility output', async () => {
+    const css = (await compileThemeUtilities()).replace(/\s+/g, '');
+
+    expect(css).toContain(
+      '.safe-all{padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);}'
+    );
+    expect(css).toContain('.touch-manipulation{touch-action:manipulation;}');
+    expect(css).toContain(
+      '.touch-target{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;}'
+    );
+    expect(css).toContain(
+      '.touch-target-lg{min-width:48px;min-height:48px;display:inline-flex;align-items:center;justify-content:center;}'
+    );
   });
 });
