@@ -163,7 +163,50 @@ cron_inventory_wrapper_source_paths() {
   ' "$1"
 }
 cron_inventory_wrapper_exec_paths() {
-  awk 'function trim(value){sub(/^[[:space:]]+/,"",value);sub(/[[:space:]]+$/,"",value);return value}function safe(path){return path~/^\/[A-Za-z0-9._\/-]+$/&&path!~/(^|\/)\.\.?($|\/)/}function paths(line,count,parts,i){sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;return};count=split(line,parts,/[[:space:]]+/);if(count<1||!safe(parts[1])){bad=1;return};for(i=1;i<=count;i++)if(parts[i]~/^\//){if(!safe(parts[i]))bad=1;else print parts[i]}else if(parts[i]~/^\.\.?\//)bad=1}function guarded(line,count,parts,target){count=split(line,parts,/[[:space:]]+/);target=parts[7];if(target!~/;$/){bad=1;return};sub(/;$/,"",target);if(count!=8||parts[1]!="if"||parts[2]!="["||parts[3]!="-f"||parts[5]!="];"||parts[6]!="then"||parts[8]!="fi"||!safe(parts[4])||!safe(target)){bad=1;return};print target}{line=trim($0);if(line==""||line~/^#/)next;if(line~/^exec[[:space:]]+/){sub(/^exec[[:space:]]+/,"",line);paths(line)}else if(line~/^\//)paths(line);else if(line~/^if([[:space:]]|$)/)guarded(line);else if(line~/(^|;)[[:space:]]*exec[[:space:]]/||line~/^(then|else|elif|fi|case|esac|for|while|until|do|done)([[:space:]]|$)/||line~/[\\\047"`$|&;<>(){}]/)bad=1}END{exit bad?2:0}' "$1"
+  awk '
+    function trim(value) { sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value); return value }
+    function safe(path) { return path ~ /^\/[A-Za-z0-9._\/-]+$/ && path !~ /(^|\/)\.\.?($|\/)/ }
+    function paths(line, count, parts, i) {
+      sub(/[[:space:]]+#.*$/, "", line)
+      if (line ~ /[\\\047"`$|&;<>(){}]/) { bad=1; return }
+      count=split(line, parts, /[[:space:]]+/)
+      if (count < 1 || !safe(parts[1])) { bad=1; return }
+      for (i=1; i<=count; i++) {
+        if (parts[i] ~ /^\//) { if (!safe(parts[i])) bad=1; else print parts[i] }
+        else if (parts[i] ~ /^\.\.?\//) bad=1
+      }
+    }
+    function assigned(line, count, parts, i) {
+      sub(/[[:space:]]+#.*$/, "", line)
+      if (line ~ /[\\\047"`$|&;<>(){}]/) { bad=1; return }
+      count=split(line, parts, /[[:space:]]+/)
+      i=1
+      while (i<=count && parts[i] ~ /^[A-Za-z_][A-Za-z0-9_]*=[-A-Za-z0-9._+@%\/:,=]*$/) i++
+      if (i == 1) { bad=1; return }
+      if (i > count) return
+      if (!safe(parts[i])) { bad=1; return }
+      for (; i<=count; i++) {
+        if (parts[i] ~ /^\//) { if (!safe(parts[i])) bad=1; else print parts[i] }
+        else if (parts[i] ~ /^\.\.?\//) bad=1
+      }
+    }
+    function guarded(line, count, parts, target) {
+      count=split(line, parts, /[[:space:]]+/); target=parts[7]
+      if (target !~ /;$/) { bad=1; return }; sub(/;$/, "", target)
+      if (count != 8 || parts[1] != "if" || parts[2] != "[" || parts[3] != "-f" || parts[5] != "];" || parts[6] != "then" || parts[8] != "fi" || !safe(parts[4]) || !safe(target)) { bad=1; return }
+      print target
+    }
+    {
+      line=trim($0)
+      if (line == "" || line ~ /^#/) next
+      if (line ~ /^exec[[:space:]]+/) { sub(/^exec[[:space:]]+/, "", line); paths(line) }
+      else if (line ~ /^\//) paths(line)
+      else if (line ~ /^[A-Za-z_][A-Za-z0-9_]*=/) assigned(line)
+      else if (line ~ /^if([[:space:]]|$)/) guarded(line)
+      else if (line ~ /(^|;)[[:space:]]*exec[[:space:]]/ || line ~ /^(then|else|elif|fi|case|esac|for|while|until|do|done)([[:space:]]|$)/ || line ~ /[\\\047"`$|&;<>(){}]/) bad=1
+    }
+    END { exit bad ? 2 : 0 }
+  ' "$1"
 }
 cron_inventory_record_wrapper_closure() {
   cron_wrapper_class=$1 cron_wrapper_initial=$2; cron_wrapper_queue=$(temp_path); cron_wrapper_seen=$(temp_path); cron_wrapper_bound=$(temp_path)
