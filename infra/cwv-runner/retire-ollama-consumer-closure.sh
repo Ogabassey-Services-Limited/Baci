@@ -53,9 +53,9 @@ systemd_quoted_command_paths() {
   sed '1d' "$words" | while IFS= read -r argument || [ -n "$argument" ]; do
     case "$argument" in
       /*) argument_path=$argument;;
-      --*=*)
+      -*=*)
         argument_name=${argument%%=*}; argument_path=${argument#*=}
-        printf '%s\n' "$argument_name" | grep -Eq '^--[A-Za-z0-9][A-Za-z0-9_.-]*$' || exit 2
+        printf '%s\n' "$argument_name" | grep -Eq '^--?[A-Za-z0-9][A-Za-z0-9_.-]*$' || exit 2
         case "$argument_path" in /*) :;; *) continue;; esac
         ;;
       *) continue;;
@@ -79,7 +79,7 @@ systemd_quoted_command_path() {
 
 systemd_wrapper_exec_paths() {
   awk 'function trim(s){sub(/^[[:space:]]+/,"",s);sub(/[[:space:]]+$/,"",s);return s}
-    {line=trim($0);if(line==""||line~/^#/)next;if(line~/^exec[[:space:]]+/){sub(/^exec[[:space:]]+/,"",line);sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);target=parts[1];if(count<1||target!~/^\/[A-Za-z0-9._\/-]+$/||target~/(^|\/)\.\.?($|\/)/)bad=1;else print target}else if(line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}
+    {line=trim($0);if(line==""||line~/^#/||line~/^(\.|source)[[:space:]]+/)next;explicit=(line~/^exec[[:space:]]+/);if(explicit)sub(/^exec[[:space:]]+/,"",line);if(explicit||line~/^\//){sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);target=parts[1];if(count<1||target!~/^\/[A-Za-z0-9._\/-]+$/||target~/(^|\/)\.\.?($|\/)/)bad=1;else print target}else if(line~/^[\047"`$]/||line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}
     END{exit bad?2:0}' "$1"
 }
 
