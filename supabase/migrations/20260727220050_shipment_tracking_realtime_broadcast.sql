@@ -127,7 +127,7 @@ CREATE POLICY "authorized users receive shipment tracking wakeups"
     AND EXISTS (
       SELECT 1
       FROM public.orders AS tracked_order
-      WHERE tracked_order.id = pg_catalog.substring(realtime.topic() FROM 16)::uuid
+      WHERE tracked_order.id = pg_catalog.substr(realtime.topic(), 16)::uuid
         AND (
           public.has_merchant_access(tracked_order.merchant_id)
           OR EXISTS (
@@ -154,7 +154,7 @@ CREATE POLICY "shipment tracking topics require order access"
       AND EXISTS (
       SELECT 1
       FROM public.orders AS tracked_order
-      WHERE tracked_order.id = pg_catalog.substring(realtime.topic() FROM 16)::uuid
+      WHERE tracked_order.id = pg_catalog.substr(realtime.topic(), 16)::uuid
         AND (
           public.has_merchant_access(tracked_order.merchant_id)
           OR EXISTS (
