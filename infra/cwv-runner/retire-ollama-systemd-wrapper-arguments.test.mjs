@@ -8,10 +8,11 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
+const closure = new URL('./retire-ollama-consumer-closure.sh', import.meta.url);
 const prelude =
   'sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { printf "1:2:81a4:10:0:0:600\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; ';
 
-test('binds an option-embedded config passed to a systemd wrapper child', async () => {
+test('binds config passed by an assignment-prefixed systemd wrapper', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-systemd-wrapper-argument-'))
   );
@@ -33,7 +34,7 @@ test('binds an option-embedded config passed to a systemd wrapper child', async 
       ),
       writeFile(
         wrapper,
-        '#!/bin/sh\nexec /usr/bin/worker --config=/etc/application.conf\n',
+        '#!/bin/sh\nMODE=prod exec /usr/bin/worker --config=/etc/application.conf\n',
         { mode: 0o755 }
       ),
       writeFile(worker, '#!/bin/sh\nexit 0\n', { mode: 0o755 }),
@@ -49,6 +50,33 @@ test('binds an option-embedded config passed to a systemd wrapper child', async 
     ]);
 
     assert.match(stdout, new RegExp(`\\|${config}\\|`));
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('fails closed on unmodeled slash tokens in a systemd wrapper', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-systemd-wrapper-slash-token-'))
+  );
+  const wrapper = join(directory, 'wrapper');
+  try {
+    for (const line of [
+      'exec /usr/bin/worker config/application.conf',
+      'exec /usr/bin/worker --bad@=/etc/secret',
+    ]) {
+      await writeFile(wrapper, `#!/bin/sh\n${line}\n`, { mode: 0o755 });
+      await assert.rejects(
+        execFileAsync('sh', [
+          '-c',
+          '. "$1"; systemd_wrapper_exec_paths "$2"',
+          'retire-ollama-systemd-wrapper-slash-token-test',
+          closure.pathname,
+          wrapper,
+        ]),
+        (error) => error.code === 2
+      );
+    }
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
