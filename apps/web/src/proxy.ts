@@ -43,16 +43,14 @@ import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
-import {
-  getStorefrontDocumentHomePath,
-  getStorefrontPdpFirstSegmentGate,
-  hasUnsafeStorefrontPdpSegments,
-  isStorefrontDocumentNavigation,
-  type StorefrontDocumentHomePathRules,
-} from '@/lib/storefront-path-safety';
+import { getStorefrontDocumentHomePath } from '@/lib/storefront-document-home-path';
+import type { StorefrontDocumentHomePathRules } from '@/lib/storefront-document-home-path-rules';
+import { isStorefrontDocumentNavigation } from '@/lib/storefront-document-navigation';
+import { getStorefrontPdpFirstSegmentGate } from '@/lib/storefront-pdp-first-segment-gate';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { getStorefrontPublicationCacheTag } from '@/lib/storefront-publication-cache-tag';
+import { hasUnsafeStorefrontPdpSegments } from '@/lib/storefront-unsafe-pdp-segments';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
