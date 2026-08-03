@@ -3,19 +3,23 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { calculateReviewedPolicySha256 } from './cloudflare-evidence-prepare';
 import { spawnIsolatedCloudflareEvidenceProcess } from './cloudflare-evidence-process-isolation';
 import {
   makePrivateTempDir,
   writeProtectedMergeIdentity,
 } from './cloudflare-evidence-process-isolation.test-fixtures';
+import { holdCloudflareEvidenceWorkspaceTestLock } from './cloudflare-evidence-process-isolation-workspace-lock.test-support';
 
 const runnerModulePathFor = (workspaceRoot: string) =>
   resolve(
     workspaceRoot,
     'apps/web/tools/cost/cloudflare-evidence-authenticated-runner.test-fixture.ts'
   );
+
+const workspaceRoot = resolve(import.meta.dirname, '../../../..');
+let releaseWorkspaceLock: (() => Promise<void>) | undefined;
 
 describe('spawnIsolatedCloudflareEvidenceProcess', () => {
   const runId = 'b'.repeat(32);
@@ -33,8 +37,18 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
     preInventorySha256: 'a'.repeat(64),
     expectedProbeCount: 2,
   };
+  beforeEach(async () => {
+    releaseWorkspaceLock =
+      await holdCloudflareEvidenceWorkspaceTestLock(workspaceRoot);
+  }, 30_000);
+  afterEach(async () => {
+    try {
+      await releaseWorkspaceLock?.();
+    } finally {
+      releaseWorkspaceLock = undefined;
+    }
+  });
   it('creates a private initial journal and prints only its bounded handoff', async () => {
-    const workspaceRoot = resolve(import.meta.dirname, '../../../..');
     const { stdout: toolingMergeSha } = await promisify(execFile)('git', [
       '-C',
       workspaceRoot,
@@ -193,5 +207,5 @@ describe('spawnIsolatedCloudflareEvidenceProcess', () => {
         reviewedPrepareInput
       )
     ).rejects.toThrow('active');
-  });
+  }, 30_000);
 });
