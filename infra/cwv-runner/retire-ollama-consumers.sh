@@ -263,14 +263,14 @@ container_bind_mount_consumers() {
 }
 # shellcheck disable=SC2094 # The open inventory snapshot remains readable after error cleanup unlinks it.
 container_inventory() { scope=$1; output=$2; if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$output"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$output"; fi; }
-container_configuration() { docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Config.Labels}} {{json .Config.Healthcheck}} {{json .Mounts}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}} {{json .HostConfig.Links}}' "$1"; }
+container_configuration() { docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Config.Labels}} {{json .Config.Healthcheck}} {{json .Mounts}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}} {{json .HostConfig.Links}} {{json .HostConfig.NetworkMode}}' "$1"; }
 scan_container_snapshot() {
   scope=$1; raw=$2
   while IFS= read -r id || [ -n "$id" ]; do [ -n "$id" ] || continue; attempt=0; while :; do
     if name=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Name}}' "$id"); then
-      if [ "$name" = "/$CONTAINER" ]; then line=$(container_configuration "$id") && again=$(container_configuration "$id") && [ "$line" = "$again" ] && [ "${line%% *}" = "$id" ] && rest=${line#* } && [ "${rest%% *}" = "$name" ] && final_name=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Name}}' "$id") && [ "$final_name" = "$name" ] && bound='' && status=0 || status=2
+      if [ "$name" = "/$CONTAINER" ]; then line=$(container_configuration "$id") && again=$(container_configuration "$id") && [ "$line" = "$again" ] && container_configuration_network_mode "$line" && [ "${line%% *}" = "$id" ] && rest=${line#* } && [ "${rest%% *}" = "$name" ] && final_name=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Name}}' "$id") && [ "$final_name" = "$name" ] && bound='' && status=0 || status=2
       elif line=$(container_configuration "$id"); then
-        status=0; rest=${line#* }; [ "${line%% *}" = "$id" ] && [ "${rest%% *}" = "$name" ] || status=2
+        status=0; again=$(container_configuration "$id") && [ "$line" = "$again" ] && container_configuration_network_mode "$line" || status=2; rest=${line#* }; [ "${line%% *}" = "$id" ] && [ "${rest%% *}" = "$name" ] || status=2
         if [ "$status" -eq 0 ]; then
           if bound=$(container_bind_mount_consumers "$id"); then
             if final_name=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Name}}' "$id") && [ "$final_name" = "$name" ]; then printf '%s' "$line" | /usr/bin/grep -Eqi 'ollama|11434' && printf '%s\n' "$line"; status=0; else status=2; fi

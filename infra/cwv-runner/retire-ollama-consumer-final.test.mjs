@@ -37,7 +37,7 @@ async function scanVolume(directory, mounts, volume) {
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
-  *'inspect -f {{.Id}} '* ) printf 'generic-api /generic-api /bin/true [] [] '; cat '${state}/mounts.json'; printf ' {} {} {}\\n' ;;
+  *'inspect -f {{.Id}} '* ) printf 'generic-api /generic-api /bin/true [] [] '; cat '${state}/mounts.json'; printf ' {} {} {} [] "bridge"\\n' ;;
   *'inspect -f {{json .Mounts}} generic-api') cat '${state}/mounts.json' ;;
   *'volume inspect -f {{json .}} '*) cat '${state}/volume.json' ;;
 esac

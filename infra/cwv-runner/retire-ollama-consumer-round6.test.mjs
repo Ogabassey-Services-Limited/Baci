@@ -117,7 +117,7 @@ test('fails closed when a stopped container changes from the reviewed name', asy
 case "$*" in
   *' ps -a '*) printf 'container-id\\n' ;;
   *'inspect -f {{.Name}} container-id') count=$(cat '${state}' 2>/dev/null || printf 0); count=$((count + 1)); printf '%s' "$count" >'${state}'; [ "$count" -eq 1 ] && printf '/ollama-loopback\\n' || printf '/generic-api\\n' ;;
-  *'inspect -f {{.Id}} '*) printf 'container-id /ollama-loopback /bin/true [] [] {} null [] {} {} {}\\n' ;;
+  *'inspect -f {{.Id}} '*) printf 'container-id /ollama-loopback /bin/true [] [] {} null [] {} {} {} [] "bridge"\\n' ;;
   *'inspect -f {{json .Mounts}} container-id') printf '[]\\n' ;;
 esac
 `

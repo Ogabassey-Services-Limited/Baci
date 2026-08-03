@@ -79,7 +79,7 @@ test('accepts source-less Docker tmpfs mounts but rejects a tmpfs carrying host 
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
-  *'inspect -f {{.Id}} '* ) printf 'generic-api /generic-api /bin/true [] [] [] '; cat '${mounts}'; printf ' {} {} {}\\n' ;;
+  *'inspect -f {{.Id}} '* ) printf 'generic-api /generic-api /bin/true [] [] [] '; cat '${mounts}'; printf ' {} {} {} [] "bridge"\\n' ;;
   *'inspect -f {{json .Mounts}} generic-api') cat '${mounts}' ;;
 esac
 `
@@ -254,7 +254,7 @@ test('finds a stopped generic container whose only Ollama endpoint is a label', 
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
-  *'inspect -f {{.Id}} '*) printf 'generic-api /generic-api /bin/true [] [] {"traefik.http.services.api.loadbalancer.server.url":"http://127.0.0.1:11434"} null [] {} {} {}\\n' ;;
+  *'inspect -f {{.Id}} '*) printf 'generic-api /generic-api /bin/true [] [] {"traefik.http.services.api.loadbalancer.server.url":"http://127.0.0.1:11434"} null [] {} {} {} [] "bridge"\\n' ;;
   *'inspect -f {{json .Mounts}} generic-api') printf '[]\\n' ;;
 esac
 `

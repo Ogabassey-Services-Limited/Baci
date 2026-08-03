@@ -143,15 +143,51 @@ cron_inventory_command_targets() {
     END { exit bad ? 2 : 0 }
   ' "$snapshot"
 }
+cron_inventory_wrapper_source_paths() {
+  awk '
+    function trim(value) { sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value); return value }
+    {
+      line=trim($0)
+      if (line == "" || line ~ /^#/) next
+      if (line ~ /^(\.|source)([[:space:]]|$)/) {
+        sub(/^(\.|source)[[:space:]]+/, "", line)
+        sub(/[[:space:]]+#.*$/, "", line)
+        if (line !~ /^\/[A-Za-z0-9._\/-]+$/ || line ~ /(^|\/)\.\.?($|\/)/) bad=1
+        else print line
+      }
+    }
+    END { exit bad ? 2 : 0 }
+  ' "$1"
+}
+cron_inventory_record_wrapper_closure() {
+  cron_wrapper_class=$1 cron_wrapper_initial=$2; cron_wrapper_queue=$(temp_path); cron_wrapper_seen=$(temp_path); cron_wrapper_bound=$(temp_path)
+  printf '%s\n' "$cron_wrapper_initial" >"$cron_wrapper_queue" || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound"; return 2; }
+  cron_wrapper_count=0
+  while IFS= read -r cron_wrapper_path || [ -n "$cron_wrapper_path" ]; do
+    cron_wrapper_path=$(consumer_canonical_regular "$cron_wrapper_path") || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound"; return 2; }
+    if grep -Fqx -- "$cron_wrapper_path" "$cron_wrapper_seen" >/dev/null 2>&1; then continue; else cron_wrapper_status=$?; [ "$cron_wrapper_status" -eq 1 ] || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound"; return "$cron_wrapper_status"; }; fi
+    printf '%s\n' "$cron_wrapper_path" >>"$cron_wrapper_seen" || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound"; return 2; }
+    cron_wrapper_count=$((cron_wrapper_count + 1)); [ "$cron_wrapper_count" -le 256 ] || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound"; return 2; }
+    cron_wrapper_captured=$(consumer_snapshot "$cron_wrapper_path") || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound"; return 2; }; cron_wrapper_snapshot=${cron_wrapper_captured%%|*}; cron_wrapper_identity=${cron_wrapper_captured#*|}
+    cron_wrapper_content=$(sha "$cron_wrapper_snapshot") || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound" "$cron_wrapper_snapshot"; return 2; }
+    records=$(jq -cn --argjson old "$records" --arg class "$cron_wrapper_class-command" --arg path "$cron_wrapper_path" --arg sha "$cron_wrapper_content" --arg identity "$cron_wrapper_identity" '$old + [{class:$class,realPath:$path,sha256:$sha,identitySha256:$identity}]') || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound" "$cron_wrapper_snapshot"; return 2; }
+    record_consumers "$cron_wrapper_class" "$cron_wrapper_snapshot" cron-unapproved || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound" "$cron_wrapper_snapshot"; return 2; }
+    cron_wrapper_sources=$(temp_path); cron_inventory_wrapper_source_paths "$cron_wrapper_snapshot" >"$cron_wrapper_sources" || { cron_wrapper_status=$?; rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound" "$cron_wrapper_snapshot" "$cron_wrapper_sources"; return "$cron_wrapper_status"; }
+    while IFS= read -r cron_wrapper_source || [ -n "$cron_wrapper_source" ]; do cron_wrapper_source=$(consumer_canonical_regular "$cron_wrapper_source") || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound" "$cron_wrapper_snapshot" "$cron_wrapper_sources"; return 2; }; printf '%s\n' "$cron_wrapper_source" >>"$cron_wrapper_queue" || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound" "$cron_wrapper_snapshot" "$cron_wrapper_sources"; return 2; }; done <"$cron_wrapper_sources"
+    consumer_canonical_regular "$cron_wrapper_path" >/dev/null && [ "$cron_wrapper_identity" = "$(consumer_source_identity "$cron_wrapper_path")" ] || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound" "$cron_wrapper_snapshot" "$cron_wrapper_sources"; return 2; }
+    printf '%s\t%s\n' "$cron_wrapper_path" "$cron_wrapper_identity" >>"$cron_wrapper_bound" || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound" "$cron_wrapper_snapshot" "$cron_wrapper_sources"; return 2; }
+    rm -f "$cron_wrapper_snapshot" "$cron_wrapper_sources"
+  done <"$cron_wrapper_queue"
+  cron_wrapper_tab=$(printf '\t')
+  while IFS="$cron_wrapper_tab" read -r cron_wrapper_path cron_wrapper_identity || [ -n "$cron_wrapper_path$cron_wrapper_identity" ]; do consumer_canonical_regular "$cron_wrapper_path" >/dev/null && [ "$cron_wrapper_identity" = "$(consumer_source_identity "$cron_wrapper_path")" ] || { rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound"; return 2; }; done <"$cron_wrapper_bound"
+  rm -f "$cron_wrapper_queue" "$cron_wrapper_seen" "$cron_wrapper_bound"
+}
 cron_inventory_record_wrapper_consumers() {
   class=$1 kind=$2 source=$3 snapshot=$4; targets=$(temp_path)
   cron_inventory_command_targets "$kind" "$source" "$snapshot" >"$targets" || { rm -f "$targets"; return 2; }
   while IFS= read -r target || [ -n "$target" ]; do
     target=$(consumer_canonical_regular "$target") || { rm -f "$targets"; return 2; }; [ -x "$target" ] || { rm -f "$targets"; return 2; }
-    captured=$(consumer_snapshot "$target") || { rm -f "$targets"; return 2; }; target_snapshot=${captured%%|*}; target_identity=${captured#*|}; target_content=$(sha "$target_snapshot") || { rm -f "$targets" "$target_snapshot"; return 2; }
-    records=$(jq -cn --argjson old "$records" --arg class "$class-command" --arg path "$target" --arg sha "$target_content" --arg identity "$target_identity" '$old + [{class:$class,realPath:$path,sha256:$sha,identitySha256:$identity}]') || { rm -f "$targets" "$target_snapshot"; return 2; }
-    record_consumers "$class" "$target_snapshot" cron-unapproved || { rm -f "$targets" "$target_snapshot"; return 2; }
-    consumer_canonical_regular "$target" >/dev/null && [ "$target_identity" = "$(consumer_source_identity "$target")" ] || { rm -f "$targets" "$target_snapshot"; return 2; }; rm -f "$target_snapshot"
+    cron_inventory_record_wrapper_closure "$class" "$target" || { cron_wrapper_status=$?; rm -f "$targets"; return "$cron_wrapper_status"; }
   done <"$targets"
   rm -f "$targets"
 }

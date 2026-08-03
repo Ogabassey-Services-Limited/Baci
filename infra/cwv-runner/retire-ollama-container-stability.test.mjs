@@ -30,8 +30,8 @@ test('re-enumerates stopped containers added after the initial inventory', async
 case "$*" in
   *'ps -a '*)
     if [ -e '${state}' ]; then printf 'first\\nsecond\\n'; else : >'${state}'; printf 'first\\n'; fi ;;
-  *'{{.Id}}'*first*) printf 'first /first /bin/true [] [] [] {} {} {}\\n' ;;
-  *'{{.Id}}'*second*) printf 'second /second /bin/true [] ["OLLAMA_HOST=http://127.0.0.1:11434"] [] {} {} {}\\n' ;;
+  *'{{.Id}}'*first*) printf 'first /first /bin/true [] [] [] {} {} {} [] "bridge"\\n' ;;
+  *'{{.Id}}'*second*) printf 'second /second /bin/true [] ["OLLAMA_HOST=http://127.0.0.1:11434"] [] {} {} {} [] "bridge"\\n' ;;
   *'{{.Name}}'*first*) printf '/first\\n' ;;
   *'{{.Name}}'*second*) printf '/second\\n' ;;
   *'{{json .Mounts}}'*) printf '[]\\n' ;;
@@ -81,7 +81,7 @@ case "$*" in
     [ "$count" -lt 7 ] || exit 79
     printf '%s' "$count" >'${state}'
     /usr/bin/awk -v count="$count" 'BEGIN { for (item = 1; item <= count; item++) printf "container-%s\\n", item }' ;;
-  *'{{.Id}}'*) printf '%s /%s /bin/true [] [] [] {} {} {}\\n' "$last" "$last" ;;
+  *'{{.Id}}'*) printf '%s /%s /bin/true [] [] [] {} {} {} [] "bridge"\\n' "$last" "$last" ;;
   *'{{.Name}}'*) printf '/%s\\n' "$last" ;;
   *'{{json .Mounts}}'*) printf '[]\\n' ;;
 esac

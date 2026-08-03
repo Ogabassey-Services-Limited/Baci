@@ -88,3 +88,11 @@ scan_compose_build_images() {
     else status=$?; [ "$status" -eq 1 ] || { rm -f "$refs"; return "$status"; }; fi
   done <"$refs"; rm -f "$refs"
 }
+
+container_configuration_network_mode() {
+  configuration=$1; network_mode=${configuration##* }
+  [ "$network_mode" != "$configuration" ] || return 2
+  printf '%s\n' "$network_mode" | /usr/bin/jq -er '
+    if type == "string" and test("^(default|bridge|host|none|container:[A-Za-z0-9][A-Za-z0-9_.-]{0,127}|[A-Za-z0-9][A-Za-z0-9_.-]{0,127})$")
+    then . else error("invalid network mode") end' >/dev/null || return 2
+}

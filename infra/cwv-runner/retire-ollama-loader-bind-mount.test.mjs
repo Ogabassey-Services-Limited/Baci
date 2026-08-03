@@ -117,7 +117,7 @@ test('detects a stopped generic container consuming Ollama through a bind file',
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
-  *'{{.Id}}'*) printf 'generic-api /generic-api [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
+  *'{{.Id}}'*) printf 'generic-api /generic-api [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}]\\n' ;;
 esac
 `
@@ -160,7 +160,7 @@ test('does not emit a blank consumer record for a nonmatching regular bind file'
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
-  *'{{.Id}}'*) printf 'generic-api /generic-api [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
+  *'{{.Id}}'*) printf 'generic-api /generic-api [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}]\\n' ;;
 esac
 `
@@ -198,7 +198,7 @@ test('excludes the reviewed Ollama container and its bind file from consumer out
 case "$*" in
   *' ps -a '*) printf 'ollama-loopback\\n' ;;
   *'inspect -f {{.Name}} ollama-loopback') printf '/ollama-loopback\\n' ;;
-  *'{{.Id}}'*) printf 'ollama-loopback /ollama-loopback [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {}\\n' ;;
+  *'{{.Id}}'*) printf 'ollama-loopback /ollama-loopback [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
   *'{{json .Mounts}}'*) exit 99 ;;
 esac
 `
@@ -234,7 +234,7 @@ test('fails closed for a directory bind mount that cannot be a config source', a
       `#!/bin/sh
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
-  *'{{.Id}}'*) printf 'generic-api generic/app [] [] [{"Type":"bind","Source":"${canonicalSource}","Destination":"/app/config"}] {} {} {}\\n' ;;
+  *'{{.Id}}'*) printf 'generic-api generic/app [] [] [{"Type":"bind","Source":"${canonicalSource}","Destination":"/app/config"}] {} {} {} [] "bridge"\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${canonicalSource}","Destination":"/app/config"}]\\n' ;;
 esac
 `

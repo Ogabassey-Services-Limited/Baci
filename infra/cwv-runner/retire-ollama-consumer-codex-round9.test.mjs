@@ -134,8 +134,8 @@ case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
   *'inspect -f {{json .Mounts}} generic-api') printf '[]\\n' ;;
-  *'inspect -f {{.Id}} '*'.HostConfig.Links'*' generic-api') printf 'generic-api /generic-api /bin/true [] [] {} null [] {} {} {} ["/ollama-loopback:ollama"]\\n' ;;
-  *'inspect -f {{.Id}} '*' generic-api') printf 'generic-api /generic-api /bin/true [] [] {} null [] {} {} {}\\n' ;;
+  *'inspect -f {{.Id}} '*'.HostConfig.Links'*' generic-api') printf 'generic-api /generic-api /bin/true [] [] {} null [] {} {} {} ["/ollama-loopback:ollama"] "bridge"\\n' ;;
+  *'inspect -f {{.Id}} '*' generic-api') printf 'generic-api /generic-api /bin/true [] [] {} null [] {} {} {} [] "bridge"\\n' ;;
   *) exit 64 ;;
 esac
 `

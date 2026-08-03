@@ -182,7 +182,8 @@ test('does not classify an unrelated Baci container as an Ollama consumer', asyn
       {
         id: 'baci-web',
         name: 'baci-web',
-        detail: 'baci-web /baci-web baci/app [] [] {} {} [] {} {} {}',
+        detail:
+          'baci-web /baci-web baci/app [] [] {} {} [] {} {} {} [] "bridge"',
       },
     ]),
     ''
@@ -197,7 +198,7 @@ test('ignores an unrelated container that disappears during inspect', async () =
     await mkdir(bin);
     await writeFile(
       join(bin, 'docker'),
-      '#!/bin/sh\ncase "$*" in *\' ps \'*) if [ ! -e "$RETIRE_OLLAMA_TEST_STATE" ]; then : >"$RETIRE_OLLAMA_TEST_STATE"; printf "gone\\nkept\\n"; else printf "kept\\n"; fi;; *\'{{.Id}}\'*kept) printf "kept /kept image [] [] {} {} [] {} {} {}\\n";; *\'{{.Name}}\'*kept) printf "/kept\\n";; *\'{{json .Mounts}}\'*kept) printf "[]\\n";; *\' inspect \'*gone) exit 1;; esac\n'
+      '#!/bin/sh\ncase "$*" in *\' ps \'*) if [ ! -e "$RETIRE_OLLAMA_TEST_STATE" ]; then : >"$RETIRE_OLLAMA_TEST_STATE"; printf "gone\\nkept\\n"; else printf "kept\\n"; fi;; *\'{{.Id}}\'*kept) printf "kept /kept image [] [] {} {} [] {} {} {} [] \\"bridge\\"\\n";; *\'{{.Name}}\'*kept) printf "/kept\\n";; *\'{{json .Mounts}}\'*kept) printf "[]\\n";; *\' inspect \'*gone) exit 1;; esac\n'
     );
     await execFileAsync('chmod', ['0755', join(bin, 'docker')]);
     await exposeFixture(dir, true);
@@ -263,7 +264,7 @@ test('classifies a container with an Ollama endpoint as a consumer', async () =>
         id: 'baci-worker',
         name: 'baci-worker',
         detail:
-          'baci-worker /baci-worker baci/app [] [OLLAMA_HOST=http://127.0.0.1:11434] {} {} [] {} {} {}',
+          'baci-worker /baci-worker baci/app [] [OLLAMA_HOST=http://127.0.0.1:11434] {} {} [] {} {} {} [] "bridge"',
       },
     ]),
     /OLLAMA_HOST/
@@ -277,7 +278,7 @@ test('classifies a generic container that publishes port 11434 without an Ollama
         id: 'generic-api',
         name: 'generic-api',
         detail:
-          'generic-api /generic-api generic/app [] [] {} {} [] {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {}',
+          'generic-api /generic-api generic/app [] [] {} {} [] {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {"11434/tcp":[{"HostIp":"127.0.0.1","HostPort":"11434"}]} {} [] "bridge"',
       },
     ]),
     /11434/
