@@ -99,7 +99,22 @@ test('binds a Dockerfile RUN bind mount sourced from the build context', async (
     assertBinding((await scanCompose(root)).stdout, compose, source);
     await writeFile(
       dockerfile,
+      'FROM scratch\nRUN --network=none --mount=type=bind,source=application.conf,target=/tmp/application.conf cat /tmp/application.conf\n'
+    );
+    assertBinding((await scanCompose(root)).stdout, compose, source);
+    await writeFile(
+      dockerfile,
       'FROM scratch\nRUN --mount=type=bind,source=../application.conf,target=/tmp/application.conf cat /tmp/application.conf\n'
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+    await writeFile(
+      dockerfile,
+      `FROM scratch\nRUN --network=\${BUILD_NETWORK} --mount=type=bind,source=application.conf,target=/tmp/application.conf cat /tmp/application.conf\n`
+    );
+    await assert.rejects(scanCompose(root), (error) => error.code === 2);
+    await writeFile(
+      dockerfile,
+      'FROM scratch\nRUN --device=vendor.com/device --mount=type=bind,source=application.conf,target=/tmp/application.conf cat /tmp/application.conf\n'
     );
     await assert.rejects(scanCompose(root), (error) => error.code === 2);
   } finally {

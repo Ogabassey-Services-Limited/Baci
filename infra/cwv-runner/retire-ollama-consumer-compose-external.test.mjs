@@ -29,7 +29,7 @@ test('binds an external config used by a stopped Compose service', async () => {
   const data = Buffer.from('OLLAMA_HOST=http://127.0.0.1:11434\n').toString(
     'base64'
   );
-  const id = 'a'.repeat(64);
+  const id = 'eo7jnzguqgtpdah3cm5srfb97';
   const inspect = JSON.stringify({
     ID: id,
     Spec: { Data: data, Name: 'shared-runtime' },
@@ -89,7 +89,7 @@ test('fails closed when an external Compose config changes between inspections',
     await assert.rejects(
       scanCompose(
         root,
-        `count=$(cat '${counter}'); count=$((count + 1)); printf '%s\\n' "$count" >'${counter}'; printf '{"ID":"%064d","Version":{"Index":%s},"Spec":{"Name":"runtime","Data":"${data}"}}\\n' "$count" "$count"`
+        `count=$(cat '${counter}'); count=$((count + 1)); printf '%s\\n' "$count" >'${counter}'; if [ "$count" -eq 1 ]; then id=eo7jnzguqgtpdah3cm5srfb97; else id=6697bflskwj1998km1gnnjr38; fi; printf '{"ID":"%s","Version":{"Index":%s},"Spec":{"Name":"runtime","Data":"${data}"}}\\n' "$id" "$count"`
       ),
       (error) => error.code === 2
     );
