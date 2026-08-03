@@ -2,6 +2,7 @@ import {
   filterByLocationPhrase,
   resolveLocationStateLabel,
 } from '@baci/shared/lib';
+import { getCartItemEffectivePrice } from '@/lib/cart-pricing';
 import { CONFIG } from '@/lib/config';
 import {
   getPreferredShippingQuoteId,
@@ -168,7 +169,7 @@ export const fetchShippingQuotes = async ({
         supports_merchant_rates: true,
         cart_subtotal: items.reduce(
           (total, item) =>
-            total + (item.negotiatedPrice ?? item.price) * item.quantity,
+            total + getCartItemEffectivePrice(item) * item.quantity,
           0
         ),
         receiver: {
@@ -188,7 +189,7 @@ export const fetchShippingQuotes = async ({
         items: items.map((item) => ({
           name: item.name,
           quantity: item.quantity,
-          value: item.negotiatedPrice ?? item.price,
+          value: getCartItemEffectivePrice(item),
           // Cart lines do not currently persist package weight; backend quotes
           // expect a numeric value, so we keep the existing conservative default.
           weight: 1,

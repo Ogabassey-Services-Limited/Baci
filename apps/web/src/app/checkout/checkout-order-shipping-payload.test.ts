@@ -42,6 +42,24 @@ describe('buildCheckoutShippingSelectionPayload', () => {
     });
   });
 
+  it('threads UUIDv7 merchant rates as a bare shipping_rate_id', () => {
+    expect(
+      buildCheckoutShippingSelectionPayload(
+        {
+          ...merchantQuote,
+          id: 'mrate_01989d89-5b1d-7000-8000-000000000001',
+        },
+        'session-merchant-v7'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        selected_quote_id: null,
+        shipping_provider: null,
+        shipping_rate_id: '01989d89-5b1d-7000-8000-000000000001',
+      })
+    );
+  });
+
   it('keeps persisted carrier quote identifiers intact', () => {
     expect(
       buildCheckoutShippingSelectionPayload(carrierQuote, 'session-carrier')
