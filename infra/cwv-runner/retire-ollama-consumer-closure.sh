@@ -183,27 +183,46 @@ container_wrapper_exec_paths() {
   awk 'function trim(value){sub(/^[[:space:]]+/,"",value);sub(/[[:space:]]+$/,"",value);return value}function safe(path){return path~/^\/[A-Za-z0-9._\/-]+$/&&path!~/(^|\/)\.\.?($|\/)/}{line=trim($0);if(line==""||line~/^#/)next;explicit=(line~/^exec[[:space:]]+/);if(explicit)sub(/^exec[[:space:]]+/,"",line);if(explicit||line~/^\//){sub(/[[:space:]]+#.*$/,"",line);if(line~/[\\\047"`$|&;<>(){}]/){bad=1;next};count=split(line,parts,/[[:space:]]+/);if(count<1||!safe(parts[1])){bad=1;next};for(i=1;i<=count;i++)if(parts[i]~/^\//){if(!safe(parts[i]))bad=1;else print parts[i]}else if(parts[i]~/^--?[A-Za-z0-9][A-Za-z0-9_.-]*=/){path=parts[i];sub(/^[^=]*=/,"",path);if(path~/^\//){if(!safe(path))bad=1;else print path}else if(path~/\//)bad=1}else if(parts[i]~/^\.\.?\//)bad=1}else if(line~/^[\047"`$]/||line~/(^|;)[[:space:]]*exec[[:space:]]/)bad=1}END{exit bad?2:0}' "$1"
 }
 
-container_argument_consumers() {
+container_wrapper_source_paths() {
+  awk 'function trim(value){sub(/^[[:space:]]+/,"",value);sub(/[[:space:]]+$/,"",value);return value}function safe(path){return path~/^\/[A-Za-z0-9._\/-]+$/&&path!~/(^|\/)\.\.?($|\/)/}function inspect(value,line,source_like){line=trim(value);if(line==""||line~/^#/)return;sub(/[[:space:]]+#.*$/,"",line);line=trim(line);source_like=line~/(^|[^A-Za-z0-9_])source([^A-Za-z0-9_]|$)/||line~/(^|[^A-Za-z0-9_])\.[[:space:]]/;if(source_like&&line~/[\\\047"`$]/){bad=1;return}if(line~/^\.[[:space:]]+/)sub(/^\.[[:space:]]+/,"",line);else if(line~/^source[[:space:]]+/)sub(/^source[[:space:]]+/,"",line);else{if(line~/(^|[[:space:];&|(){}])(\.|source)([[:space:]]|$)/)bad=1;return}line=trim(line);if(!safe(line))bad=1;else print line}{line=$0;if(continuing)line=joined line;slashes=0;for(i=length(line);i>0&&substr(line,i,1)=="\\";i--)slashes++;if(slashes%2){sub(/\\$/,"",line);joined=line;continuing=1;next}joined="";continuing=0;inspect(line)}END{if(continuing)bad=1;exit bad?2:0}' "$1"
+}
+
+container_argument_cleanup() {
+  cleanup_status=0
+  for cleanup_path in "${argument_json:-}" "${argument_again:-}" "${argument_roots:-}" "${argument_emitted:-}" "${argument_queue:-}" "${argument_seen:-}" "${argument_bound:-}" "${first:-}" "${second:-}" "${argument_execs:-}" "${argument_sources:-}"; do [ -z "$cleanup_path" ] || rm -f -- "$cleanup_path" || cleanup_status=2; done
+  return "$cleanup_status"
+}
+
+container_argument_consumers_run() {
   argument_id=$1; argument_configuration=$2; argument_rest=${argument_configuration#* }; argument_rest=${argument_rest#* }; argument_path=${argument_rest%% *}; [ "$argument_path" != "$argument_rest" ] || return 2; argument_rest=${argument_rest#* }; argument_json=$(temp_path); argument_again=$(temp_path); argument_roots=$(temp_path); argument_emitted=$(temp_path); case "$argument_path" in /*) printf '%s\n' "$argument_path" | grep -Eq '^/[A-Za-z0-9._/-]+$' && ! printf '%s\n' "$argument_path" | grep -Eq '(^|/)\.\.?($|/)' || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted"; return 2; }; printf '%s\n' "$argument_path" >>"$argument_roots";; esac
   case "$argument_rest" in '[] '*) :;; *) docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .Args}}' "$argument_id" >"$argument_json" && docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .Args}}' "$argument_id" >"$argument_again" && cmp -s "$argument_json" "$argument_again" || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted"; return 2; }; /usr/bin/jq -er 'if type != "array" or any(.[]; type != "string") then error("invalid arguments") else [.[] | select(startswith("/")) | if test("^/[A-Za-z0-9._/-]+$") and (test("(^|/)\\.\\.?(/|$)")|not) then . else error("unsafe argument path") end] | unique[] end' "$argument_json" >>"$argument_roots" || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted"; return 2; };; esac; sort -u "$argument_roots" -o "$argument_roots" || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted"; return 2; }
   argument_root_count=0
   while IFS= read -r argument_root || [ -n "$argument_root" ]; do
     argument_root_count=$((argument_root_count + 1)); [ "$argument_root_count" -le 256 ] || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted"; return 2; }
-    argument_queue=$(temp_path); argument_seen=$(temp_path); argument_bound=$(temp_path); printf '%s\n' "$argument_root" >"$argument_queue" || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted" "$argument_queue" "$argument_seen" "$argument_bound"; return 2; }; argument_count=0; argument_matches=0
-    while IFS= read -r argument_path || [ -n "$argument_path" ]; do
-      if grep -Fqx -- "$argument_path" "$argument_seen" >/dev/null 2>&1; then continue; else argument_status=$?; [ "$argument_status" -eq 1 ] || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted" "$argument_queue" "$argument_seen" "$argument_bound"; return "$argument_status"; }; fi
-      printf '%s\n' "$argument_path" >>"$argument_seen" || return 2; argument_count=$((argument_count + 1)); [ "$argument_count" -le 256 ] || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted" "$argument_queue" "$argument_seen" "$argument_bound"; return 2; }
+    argument_queue=$(temp_path); argument_seen=$(temp_path); argument_bound=$(temp_path); printf 'exec\t%s\n' "$argument_root" >"$argument_queue" || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted" "$argument_queue" "$argument_seen" "$argument_bound"; return 2; }; argument_count=0; argument_matches=0; argument_queue_tab=$(printf '\t')
+    while IFS="$argument_queue_tab" read -r argument_origin argument_path || [ -n "$argument_origin$argument_path" ]; do
+      case "$argument_origin" in exec|source) :;; *) return 2;; esac; argument_seen_key=$argument_origin:$argument_path
+      if grep -Fqx -- "$argument_seen_key" "$argument_seen" >/dev/null 2>&1; then continue; else argument_status=$?; [ "$argument_status" -eq 1 ] || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted" "$argument_queue" "$argument_seen" "$argument_bound"; return "$argument_status"; }; fi
+      printf '%s\n' "$argument_seen_key" >>"$argument_seen" || return 2; argument_count=$((argument_count + 1)); [ "$argument_count" -le 256 ] || { rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted" "$argument_queue" "$argument_seen" "$argument_bound"; return 2; }
       first=$(temp_path); second=$(temp_path); first=$(readlink -f -- "$first") && second=$(readlink -f -- "$second") || { rm -f "$first" "$second"; return 2; }; rm -f "$first" "$second"; [ "$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$argument_id")" = false ] || return 2
       docker --host "unix://$CANONICAL_DOCKER_SOCKET" cp "$argument_id:$argument_path" "$first" >/dev/null 2>&1 && docker --host "unix://$CANONICAL_DOCKER_SOCKET" cp "$argument_id:$argument_path" "$second" >/dev/null 2>&1 || return 2
       consumer_canonical_regular "$first" >/dev/null && consumer_canonical_regular "$second" >/dev/null || return 2; first_record="$(sha "$first")|$(stat -c '%f:%s:%u:%g:%a' "$first")"; second_record="$(sha "$second")|$(stat -c '%f:%s:%u:%g:%a' "$second")"; [ "$first_record" = "$second_record" ] && [ "$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$argument_id")" = false ] || return 2
       printf '%s\t%s\n' "$argument_path" "$first_record" >>"$argument_bound" || return 2
       if consumer_matches "$first"; then argument_matches=$((argument_matches + 1)); else argument_status=$?; [ "$argument_status" -eq 1 ] || return "$argument_status"; fi
-      argument_execs=$(temp_path); if [ "$(dd if="$first" bs=2 count=1 2>/dev/null)" = '#!' ]; then container_wrapper_exec_paths "$first" >"$argument_execs" || return 2; while IFS= read -r argument_exec || [ -n "$argument_exec" ]; do printf '%s\n' "$argument_exec" >>"$argument_queue" || return 2; done <"$argument_execs"; fi; rm -f "$first" "$second" "$argument_execs"
+      argument_execs=$(temp_path); argument_sources=$(temp_path); argument_shebang=0; [ "$(dd if="$first" bs=2 count=1 2>/dev/null)" = '#!' ] && argument_shebang=1; if [ "$argument_shebang" -eq 1 ]; then container_wrapper_exec_paths "$first" >"$argument_execs" || { rm -f "$first" "$second" "$argument_execs" "$argument_sources"; return 2; }; fi; if [ "$argument_shebang" -eq 1 ] || [ "$argument_origin" = source ]; then container_wrapper_source_paths "$first" >"$argument_sources" || { rm -f "$first" "$second" "$argument_execs" "$argument_sources"; return 2; }; fi; while IFS= read -r argument_exec || [ -n "$argument_exec" ]; do printf 'exec\t%s\n' "$argument_exec" >>"$argument_queue" || return 2; done <"$argument_execs"; while IFS= read -r argument_source || [ -n "$argument_source" ]; do printf 'source\t%s\n' "$argument_source" >>"$argument_queue" || return 2; done <"$argument_sources"; rm -f "$first" "$second" "$argument_execs" "$argument_sources"
     done <"$argument_queue"
     if [ "$argument_matches" -gt 0 ]; then argument_tab=$(printf '\t'); while IFS="$argument_tab" read -r argument_path argument_record || [ -n "$argument_path$argument_record" ]; do if grep -Fqx -- "$argument_path" "$argument_emitted" >/dev/null 2>&1; then continue; else argument_status=$?; [ "$argument_status" -eq 1 ] || return "$argument_status"; fi; printf 'container-argument:%s:%s|%s\n' "$argument_id" "$argument_path" "$argument_record"; printf '%s\n' "$argument_path" >>"$argument_emitted" || return 2; done <"$argument_bound"; fi
     rm -f "$argument_queue" "$argument_seen" "$argument_bound"
   done <"$argument_roots"
   rm -f "$argument_json" "$argument_again" "$argument_roots" "$argument_emitted"
+}
+
+container_argument_consumers() {
+  argument_json=''; argument_again=''; argument_roots=''; argument_emitted=''; argument_queue=''; argument_seen=''; argument_bound=''; first=''; second=''; argument_execs=''; argument_sources=''
+  if container_argument_consumers_run "$@"; then argument_run_status=0; else argument_run_status=$?; fi
+  if container_argument_cleanup; then argument_cleanup_status=0; else argument_cleanup_status=$?; fi
+  [ "$argument_run_status" -eq 0 ] || return "$argument_run_status"
+  return "$argument_cleanup_status"
 }
 
 scan_compose_build_images() {

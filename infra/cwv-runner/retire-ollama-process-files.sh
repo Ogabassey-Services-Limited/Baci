@@ -1,43 +1,86 @@
 #!/bin/sh
 # shellcheck disable=SC2034 # Module state is consumed by recovery scanner functions after sourcing.
 
+recovery_open_process_file() {
+  candidate=$1; process_root_real=$2
+  /usr/bin/perl -MDigest::SHA -MJSON::PP -MFcntl=:DEFAULT,:mode -e '
+    use strict; use warnings;
+    my ($candidate, $root) = @ARGV;
+    my $flags = O_RDONLY | O_NOFOLLOW; my $file;
+    if (!sysopen($file, $candidate, $flags)) {
+      exit 1 if $!{ENOENT} || $!{ENOTDIR};
+      exit 2;
+    }
+    my @opened = stat($file); exit 2 unless @opened && S_ISREG($opened[2]);
+    my $descriptor_path;
+    if ($^O eq "linux") {
+      $descriptor_path = readlink("/proc/$$/fd/" . fileno($file));
+      $descriptor_path =~ s/ \(deleted\)\z// if defined $descriptor_path;
+    } elsif ($^O eq "darwin") {
+      # Darwin F_GETPATH is the descriptor-bound equivalent of /proc/self/fd.
+      my $buffer = "\0" x 1024;
+      exit 2 unless fcntl($file, 50, $buffer);
+      $buffer =~ s/\0.*\z//s; $descriptor_path = $buffer;
+    } else { exit 2; }
+    exit 2 unless defined($descriptor_path) && $descriptor_path =~ m{^/} && $descriptor_path !~ /[\r\n\t]/;
+    exit 2 unless $root eq "/" || $descriptor_path eq $root || index($descriptor_path, "$root/") == 0;
+    my $digest = Digest::SHA->new(256); my $matched = 0; my $tail = "";
+    while (1) {
+      my $count = sysread($file, my $chunk, 65536); exit 2 unless defined $count; last unless $count;
+      $digest->add($chunk); my $scan = $tail . $chunk; $matched ||= $scan =~ /ollama|11434/i; $tail = substr($scan, -16);
+    }
+    my @after_read = stat($file); exit 2 unless @after_read;
+    for my $field (0, 1, 2, 4, 5, 7, 9, 10) { exit 2 unless $opened[$field] == $after_read[$field]; }
+    my @current_link = lstat($candidate); my @current = stat($candidate);
+    exit 2 unless @current_link && !S_ISLNK($current_link[2]) && @current && S_ISREG($current[2]) && $opened[0] == $current[0] && $opened[1] == $current[1];
+    my $identity = join(":", $opened[0], $opened[1], $opened[4], $opened[5], sprintf("%o", $opened[2] & 07777), $opened[7]);
+    print JSON::PP->new->canonical->encode({identity => $identity, match => $matched ? JSON::PP::true : JSON::PP::false, realPath => $descriptor_path, sha256 => $digest->hexdigest});
+  ' -- "$candidate" "$process_root_real"
+}
+
+recovery_process_file_cleanup() {
+  for tracked in "$command_snapshot" "$environment_snapshot" "$arguments" "$descriptor"; do [ -z "$tracked" ] || /bin/rm -f -- "$tracked"; done
+  command_snapshot=''; environment_snapshot=''; arguments=''; descriptor=''
+}
+
 recovery_process_file_evidence() {
-  pid=$1; process_root="$RECOVERY_PROC_ROOT/$pid"
+  pid=$1; process_root="$RECOVERY_PROC_ROOT/$pid"; command_snapshot=''; environment_snapshot=''; arguments=''; descriptor=''
   [ -e "$process_root" ] || [ -L "$process_root" ] || { /usr/bin/jq -cn '{state:"vanished"}'; return; }
   before=$(recovery_process_lifetime_marker "$pid") || review_required 'process file lifetime unavailable'
-  cmdline="$process_root/cmdline"; executable="$process_root/exe"
+  cmdline="$process_root/cmdline"; environment="$process_root/environ"; executable="$process_root/exe"
   [ -f "$cmdline" ] && [ ! -L "$cmdline" ] || review_required 'process command line unavailable'
-  command_snapshot=$(temp_path); /bin/cat -- "$cmdline" >"$command_snapshot" || { /bin/rm -f -- "$command_snapshot"; review_required 'process command line capture failed'; }
+  command_snapshot=$(temp_path); /bin/cat -- "$cmdline" >"$command_snapshot" || { recovery_process_file_cleanup; review_required 'process command line capture failed'; }
   if [ ! -L "$executable" ]; then
     state=$(sed 's/.*) //' "$process_root/stat" | awk '{print $1}')
     kthread=$(awk '/^Kthread:/{print $2; exit}' "$process_root/status")
     if [ ! -s "$command_snapshot" ] && { [ "$state" = Z ] || [ "$kthread" = 1 ]; }; then
-      after=$(recovery_process_lifetime_marker "$pid") || { /bin/rm -f -- "$command_snapshot"; review_required 'process file lifetime unavailable'; }
-      [ "$before" = "$after" ] || { /bin/rm -f -- "$command_snapshot"; review_required 'process file lifetime changed'; }
-      /bin/rm -f -- "$command_snapshot"; /usr/bin/jq -cn --arg lifetime "$after" '{lifetimeSha256:$lifetime,state:"inert"}'; return
+      after=$(recovery_process_lifetime_marker "$pid") || { recovery_process_file_cleanup; review_required 'process file lifetime unavailable'; }
+      [ "$before" = "$after" ] || { recovery_process_file_cleanup; review_required 'process file lifetime changed'; }
+      recovery_process_file_cleanup; /usr/bin/jq -cn --arg lifetime "$after" '{lifetimeSha256:$lifetime,state:"inert"}'; return
     fi
-    /bin/rm -f -- "$command_snapshot"; review_required 'process executable link missing'
+    recovery_process_file_cleanup; review_required 'process executable link missing'
   fi
-  observed=$(readlink -- "$executable") || { /bin/rm -f -- "$command_snapshot"; review_required 'process executable target unavailable'; }
-  observed=${observed% (deleted)}; case "$observed" in /*) :;; *) /bin/rm -f -- "$command_snapshot"; review_required 'process executable path invalid';; esac
-  executable_stat=$(stat -Lc '%d:%i:%u:%g:%a:%s' "$executable") || { /bin/rm -f -- "$command_snapshot"; review_required 'process executable identity failed'; }
-  executable_sha=$(sha "$executable") || { /bin/rm -f -- "$command_snapshot"; review_required 'process executable digest failed'; }
-  executable_match=''; if LC_ALL=C /usr/bin/grep -a -qiE 'ollama|11434' "$executable"; then executable_match=$executable_sha; else status=$?; [ "$status" -eq 1 ] || { /bin/rm -f -- "$command_snapshot"; review_required 'process executable scan failed'; }; fi
-  arguments=$(temp_path); /usr/bin/perl -0ne 'BEGIN{$i=0} for(split(/\0/)){next if $i++==0; $p=$_; $p=$1 if $p=~/^[^=]+=((?:\/).*)$/; print "$p\n" if $p=~m{^/} && $p!~/[\r\n]/}' "$command_snapshot" >"$arguments" || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file argument parse failed'; }
-  argument_entries='[]'; while IFS= read -r argument || [ -n "$argument" ]; do
-    [ -e "$argument" ] || [ -L "$argument" ] || continue; [ -f "$argument" ] || continue
-    real=$(readlink -f -- "$argument") || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file argument resolution failed'; }
-    [ -f "$real" ] && [ ! -L "$real" ] || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file argument unsafe'; }
-    argument_stat=$(stat -Lc '%d:%i:%u:%g:%a:%s' "$argument") || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file argument identity failed'; }
-    argument_sha=$(sha "$argument") || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file argument digest failed'; }
-    argument_match=''; if LC_ALL=C /usr/bin/grep -a -qiE 'ollama|11434' "$argument"; then argument_match=$argument_sha; else status=$?; [ "$status" -eq 1 ] || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file argument scan failed'; }; fi
-    [ "$argument_stat" = "$(stat -Lc '%d:%i:%u:%g:%a:%s' "$argument")" ] && [ "$argument_sha" = "$(sha "$argument")" ] || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file argument changed'; }
-    argument_entries=$(/usr/bin/jq -cn --argjson old "$argument_entries" --arg path "$(hash_text "$real")" --arg sha "$argument_sha" --arg identity "$(hash_text "$argument_stat")" --arg match "$argument_match" '$old + [{realPathSha256:$path,sha256:$sha,identitySha256:$identity} + (if $match == "" then {} else {matchingSha256:$match} end)]') || { /bin/rm -f -- "$command_snapshot" "$arguments"; die 'process file argument serialization failed'; }
+  observed=$(readlink -- "$executable") || { recovery_process_file_cleanup; review_required 'process executable target unavailable'; }
+  observed=${observed% (deleted)}; case "$observed" in /*) :;; *) recovery_process_file_cleanup; review_required 'process executable path invalid';; esac
+  executable_stat=$(stat -Lc '%d:%i:%u:%g:%a:%s' "$executable") || { recovery_process_file_cleanup; review_required 'process executable identity failed'; }
+  executable_sha=$(sha "$executable") || { recovery_process_file_cleanup; review_required 'process executable digest failed'; }
+  executable_match=''; if LC_ALL=C /usr/bin/grep -a -qiE 'ollama|11434' "$executable"; then executable_match=$executable_sha; else status=$?; [ "$status" -eq 1 ] || { recovery_process_file_cleanup; review_required 'process executable scan failed'; }; fi
+  environment_snapshot=$(temp_path); environment_present=0; if [ -f "$environment" ] && [ ! -L "$environment" ]; then environment_present=1; /bin/cat -- "$environment" >"$environment_snapshot" || { recovery_process_file_cleanup; review_required 'process environment capture failed'; }; elif [ "$RECOVERY_PROC_ROOT" = /proc ]; then recovery_process_file_cleanup; review_required 'process environment unavailable'; else : >"$environment_snapshot"; fi
+  arguments=$(temp_path); /usr/bin/perl -0ne 'BEGIN{$i=0} for(split(/\0/)){next if $i++==0; $p=$_; $p=$1 if $p=~/^[^=]+=(.*)$/; next if $p=~/[\r\n\t]/ || $p=~/^-/ || $p eq ""; if($p=~m{^/}){print "root\t$p\n"}elsif($p!~m{(^|/)\.\.(/|$)} && $p=~m{^[A-Za-z0-9._+@%/-]+$}){print "cwd\t$p\n"}}' "$command_snapshot" >"$arguments" || { recovery_process_file_cleanup; review_required 'process file argument parse failed'; }
+  /usr/bin/perl -0ne 'for(split(/\0/)){next unless /^[A-Za-z_][A-Za-z0-9_]*=(\/[^\r\n\t]*)$/; print "root\t$1\n"}' "$environment_snapshot" >>"$arguments" || { recovery_process_file_cleanup; review_required 'process environment file parse failed'; }
+  argument_entries='[]'; tab=$(printf '\t'); while IFS="$tab" read -r scope argument || [ -n "$scope$argument" ]; do
+    case "$scope" in root) anchor="$process_root/root"; candidate="$anchor$argument";; cwd) anchor="$process_root/cwd"; candidate="$anchor/$argument";; *) recovery_process_file_cleanup; review_required 'process file scope invalid';; esac
+    process_root_anchor="$process_root/root"; [ -L "$process_root_anchor" ] && [ -L "$anchor" ] || { recovery_process_file_cleanup; review_required 'process file anchor unavailable'; }; process_root_before=$(readlink -- "$process_root_anchor") && anchor_before=$(readlink -- "$anchor") && process_root_real=$(readlink -f -- "$process_root_anchor") || { recovery_process_file_cleanup; review_required 'process file anchor unavailable'; }
+    descriptor=$(temp_path); if recovery_open_process_file "$candidate" "$process_root_real" >"$descriptor"; then :; else status=$?; /bin/rm -f -- "$descriptor"; descriptor=''; [ "$status" -eq 1 ] && continue; recovery_process_file_cleanup; review_required 'process file argument descriptor failed'; fi
+    real=$(/usr/bin/jq -er .realPath "$descriptor") && argument_stat=$(/usr/bin/jq -er .identity "$descriptor") && argument_sha=$(/usr/bin/jq -er .sha256 "$descriptor") && argument_matched=$(/usr/bin/jq -er .match "$descriptor") || { recovery_process_file_cleanup; review_required 'process file argument descriptor invalid'; }; /bin/rm -f -- "$descriptor"; descriptor=''
+    argument_match=''; [ "$argument_matched" = false ] || argument_match=$argument_sha
+    [ "$process_root_before" = "$(readlink -- "$process_root_anchor")" ] && [ "$anchor_before" = "$(readlink -- "$anchor")" ] || { recovery_process_file_cleanup; review_required 'process file argument anchor changed'; }
+    argument_entries=$(/usr/bin/jq -cn --argjson old "$argument_entries" --arg scope "$scope" --arg path "$(hash_text "$real")" --arg sha "$argument_sha" --arg identity "$(hash_text "$argument_stat")" --arg match "$argument_match" '$old + [{scope:$scope,realPathSha256:$path,sha256:$sha,identitySha256:$identity} + (if $match == "" then {} else {matchingSha256:$match} end)]') || { recovery_process_file_cleanup; die 'process file argument serialization failed'; }
   done <"$arguments"
-  command_sha=$(sha "$cmdline") || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process command line digest failed'; }
-  after=$(recovery_process_lifetime_marker "$pid") || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file lifetime unavailable'; }
-  [ "$before" = "$after" ] && [ "$observed" = "$(readlink -- "$executable" | sed 's/ (deleted)$//')" ] && [ "$executable_stat" = "$(stat -Lc '%d:%i:%u:%g:%a:%s' "$executable")" ] && [ "$executable_sha" = "$(sha "$executable")" ] && [ "$command_sha" = "$(sha "$command_snapshot")" ] || { /bin/rm -f -- "$command_snapshot" "$arguments"; review_required 'process file evidence changed'; }
-  /bin/rm -f -- "$command_snapshot" "$arguments"
+  command_sha=$(sha "$cmdline") || { recovery_process_file_cleanup; review_required 'process command line digest failed'; }; environment_sha=$(sha "$environment_snapshot") || { recovery_process_file_cleanup; review_required 'process environment digest failed'; }
+  after=$(recovery_process_lifetime_marker "$pid") || { recovery_process_file_cleanup; review_required 'process file lifetime unavailable'; }
+  environment_current=$environment_snapshot; if [ "$environment_present" -eq 1 ]; then [ -f "$environment" ] && [ ! -L "$environment" ] || { recovery_process_file_cleanup; review_required 'process environment changed'; }; environment_current=$environment; fi; [ "$before" = "$after" ] && [ "$observed" = "$(readlink -- "$executable" | sed 's/ (deleted)$//')" ] && [ "$executable_stat" = "$(stat -Lc '%d:%i:%u:%g:%a:%s' "$executable")" ] && [ "$executable_sha" = "$(sha "$executable")" ] && [ "$command_sha" = "$(sha "$command_snapshot")" ] && [ "$environment_sha" = "$(sha "$environment_current")" ] || { recovery_process_file_cleanup; review_required 'process file evidence changed'; }
+  recovery_process_file_cleanup
   /usr/bin/jq -cn --arg lifetime "$after" --arg path "$(hash_text "$observed")" --arg sha "$executable_sha" --arg identity "$(hash_text "$executable_stat")" --arg match "$executable_match" --argjson arguments "$argument_entries" '{lifetimeSha256:$lifetime,executable:({pathSha256:$path,sha256:$sha,identitySha256:$identity} + (if $match == "" then {} else {matchingSha256:$match} end)),fileArguments:$arguments}'
 }
 
@@ -51,12 +94,17 @@ recovery_record_process_file_consumer() {
 }
 
 record_running_process_files() {
-  file=$1; process_rows=$(temp_path)
-  awk 'NR==1 { if ($1=="PID" && $2=="PPID" && $3=="USER") next; bad=1; next } { pid=$1; ppid=$2; if (pid!~/^[0-9]+$/ || ppid!~/^[0-9]+$/ || NF<4) { bad=1; next } sub(/^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+/,""); print pid " " ppid " " $0 } END { exit bad?2:0 }' "$file" >"$process_rows" || { /bin/rm -f -- "$process_rows"; review_required 'invalid process file inventory'; }
-  RECOVERY_PROCESS_FILE=$process_rows; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$process_rows"; then recovery_build_scanner_ancestors; fi
-  while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
-    [ -n "$pid" ] || continue; [ "$pid" = "$RECOVERY_SELF_PID" ] && continue; command=${args%% *}; rest=${args#"$command"}; base=${command##*/}
-    evidence=$(recovery_process_file_evidence "$pid"); state=$(printf '%s\n' "$evidence" | /usr/bin/jq -r '.state // "present"') || { /bin/rm -f -- "$process_rows"; review_required 'invalid process file evidence'; }; [ "$state" = vanished ] && continue
+  file=$1; process_rows=$(temp_path); ancestry_rows=$(temp_path)
+  # Strip the three ps identity fields once; preserve the complete argv suffix.
+  awk 'NR==1 { if ($1=="PID" && $2=="PPID" && $3=="USER") next; bad=1; next } { pid=$1; ppid=$2; user=$3; if (pid!~/^[0-9]+$/ || ppid!~/^[0-9]+$/ || user=="" || NF<4) { bad=1; next } sub(/^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+/,""); print pid " " ppid " " user " " $0 } END { exit bad?2:0 }' "$file" >"$process_rows" || { /bin/rm -f -- "$process_rows" "$ancestry_rows"; review_required 'invalid process file inventory'; }
+  # Remove the retained user field for the ancestry parser's pid/ppid/argv shape.
+  awk '{ pid=$1; ppid=$2; sub(/^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+/,""); print pid " " ppid " " $0 }' "$process_rows" >"$ancestry_rows" || { /bin/rm -f -- "$process_rows" "$ancestry_rows"; review_required 'invalid process ancestry inventory'; }
+  RECOVERY_PROCESS_FILE=$ancestry_rows; RECOVERY_SELF_PID=${RECOVERY_SELF_PID:-$$}; RECOVERY_SCANNER_PID_SET=''; if awk -v pid="$RECOVERY_SELF_PID" '$1 == pid { found=1 } END { exit(found ? 0 : 1) }' "$ancestry_rows"; then recovery_build_scanner_ancestors; fi
+  while IFS=' ' read -r pid ppid user args || [ -n "$pid$ppid$user$args" ]; do
+    case "$pid" in PID) continue;; '') continue;; esac; [ "$pid" = "$RECOVERY_SELF_PID" ] && continue
+    if process_line_approved "$pid $ppid $user $args"; then approved_live=$(recovery_process_lifetime_marker "$pid") || { /bin/rm -f -- "$process_rows" "$ancestry_rows"; review_required 'approved Ollama process identity unavailable'; }; [ "$approved_live" = "$APPROVED_OLLAMA_PROCESS_IDENTITY" ] && continue; fi
+    command=${args%% *}; rest=${args#"$command"}; base=${command##*/}
+    evidence=$(recovery_process_file_evidence "$pid"); state=$(printf '%s\n' "$evidence" | /usr/bin/jq -r '.state // "present"') || { /bin/rm -f -- "$process_rows" "$ancestry_rows"; review_required 'invalid process file evidence'; }; [ "$state" = vanished ] && continue
     if recovery_process_files_match "$evidence"; then if recovery_is_scanner_ancestor "$pid" && recovery_is_reviewed_scanner_command "$pid" "$base" "$command" "$rest"; then :; else recovery_record_process_file_consumer "$evidence"; fi; fi
-  done <"$process_rows"; /bin/rm -f -- "$process_rows"
+  done <"$process_rows"; /bin/rm -f -- "$process_rows" "$ancestry_rows"
 }

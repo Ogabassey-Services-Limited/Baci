@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   chmod,
   mkdir,
@@ -20,13 +21,22 @@ const script = join(
 );
 const childCredentials =
   process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};
-
+const endpointConfiguration = 'endpoint=http://127.0.0.1:11434\n';
+const endpointConfigurationSha256 = createHash('sha256')
+  .update(endpointConfiguration)
+  .digest('hex');
 async function fixture(endpointInExecutable = true) {
   const directory = await mkdtemp(join(tmpdir(), 'baci-process-files-'));
   const proc = join(directory, 'proc');
   const processRoot = join(proc, '41');
   const executable = join(directory, 'generic-worker');
+  const processFilesystem = join(directory, 'process-root');
+  const processWorkingDirectory = join(processFilesystem, 'work');
   await mkdir(join(processRoot, 'ns'), { recursive: true });
+  await mkdir(processFilesystem);
+  await mkdir(processWorkingDirectory);
+  await chmod(processFilesystem, 0o755);
+  await chmod(processWorkingDirectory, 0o755);
   await writeFile(
     executable,
     `#!/bin/sh\n# ${endpointInExecutable ? 'http://127.0.0.1:11434' : 'ordinary worker'}\nexit 0\n`
@@ -49,10 +59,18 @@ async function fixture(endpointInExecutable = true) {
     '/usr/bin/generic-worker\0--quiet\0'
   );
   await symlink(executable, join(processRoot, 'exe'));
+  await symlink(processFilesystem, join(processRoot, 'root'));
+  await symlink(processWorkingDirectory, join(processRoot, 'cwd'));
   await chmod(directory, 0o755);
   await chmod(proc, 0o755);
   await chmod(processRoot, 0o755);
-  return { directory, proc };
+  return {
+    directory,
+    proc,
+    processFilesystem,
+    processRoot,
+    processWorkingDirectory,
+  };
 }
 
 function shell(proc, command) {
@@ -60,7 +78,7 @@ function shell(proc, command) {
     'sh',
     [
       '-c',
-      `sha256sum() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"; else /usr/bin/sha256sum "$@"; fi; }; stat() { for path do :; done; if /usr/bin/stat --version >/dev/null 2>&1; then /usr/bin/stat -Lc '%d:%i:%u:%g:%a:%s' "$path"; else /usr/bin/stat -f '%d:%i:%u:%g:%Lp:%z' "$path"; fi; }; readlink() { for path do :; done; /usr/bin/readlink "$path"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
+      `sha256sum() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"; else /usr/bin/sha256sum "$@"; fi; }; stat() { for path do :; done; if /usr/bin/stat --version >/dev/null 2>&1; then /usr/bin/stat -Lc '%d:%i:%u:%g:%a:%s' "$path"; else /usr/bin/stat -f '%d:%i:%u:%g:%Lp:%z' "$path"; fi; }; readlink() { option=$1; for path do :; done; if [ "$option" = -f ]; then realpath "$path"; else command readlink "$path"; fi; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); . "$SCRIPT_DIR/retire-ollama-recovery.sh"; init_temp_root; trap cleanup_temp EXIT; ${command}`,
       'retire-ollama-process-files-test',
       script,
     ],
@@ -74,7 +92,6 @@ function shell(proc, command) {
     }
   );
 }
-
 test('fingerprints an idle generic executable whose bytes contain the Ollama endpoint', async () => {
   const { directory, proc } = await fixture();
   try {
@@ -121,6 +138,74 @@ test('destructive inventory classifies an idle foreign process matched only by e
     const result = JSON.parse(stdout);
     assert.equal(result.counts[0].matchCount, 1);
     assert.match(result.deps[0]['key-name'], /^running-processes:files:/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('resolves absolute file arguments through the lifetime-bound process root', async () => {
+  const { directory, proc, processFilesystem, processRoot } =
+    await fixture(false);
+  const configuration = join(processFilesystem, 'etc', 'application.conf');
+  await mkdir(dirname(configuration), { recursive: true });
+  await writeFile(configuration, endpointConfiguration);
+  await writeFile(
+    join(processRoot, 'cmdline'),
+    '/usr/bin/generic-worker\0--config=/etc/application.conf\0'
+  );
+  try {
+    const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
+    const evidence = JSON.parse(stdout);
+    assert.equal(evidence.fileArguments[0].scope, 'root');
+    assert.equal(
+      evidence.fileArguments[0].matchingSha256,
+      endpointConfigurationSha256
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('resolves safe absolute environment file values through the process root', async () => {
+  const { directory, proc, processFilesystem, processRoot } =
+    await fixture(false);
+  const configuration = join(processFilesystem, 'etc', 'application.conf');
+  await mkdir(dirname(configuration), { recursive: true });
+  await writeFile(configuration, endpointConfiguration);
+  await writeFile(
+    join(processRoot, 'environ'),
+    'CONFIG=/etc/application.conf\0'
+  );
+  try {
+    const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
+    const evidence = JSON.parse(stdout);
+    assert.equal(evidence.fileArguments[0].scope, 'root');
+    assert.equal(
+      evidence.fileArguments[0].matchingSha256,
+      endpointConfigurationSha256
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('resolves safe relative file arguments through the lifetime-bound process cwd', async () => {
+  const { directory, proc, processRoot, processWorkingDirectory } =
+    await fixture(false);
+  const configuration = join(processWorkingDirectory, 'application.conf');
+  await writeFile(configuration, endpointConfiguration);
+  await writeFile(
+    join(processRoot, 'cmdline'),
+    '/usr/bin/generic-worker\0--config=./application.conf\0'
+  );
+  try {
+    const { stdout } = await shell(proc, 'recovery_process_file_evidence 41');
+    const evidence = JSON.parse(stdout);
+    assert.equal(evidence.fileArguments[0].scope, 'cwd');
+    assert.equal(
+      evidence.fileArguments[0].matchingSha256,
+      endpointConfigurationSha256
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
