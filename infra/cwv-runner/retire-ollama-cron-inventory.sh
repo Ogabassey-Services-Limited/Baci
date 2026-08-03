@@ -127,13 +127,19 @@ cron_inventory_command_targets() {
     }
     function safe_absolute(value) { return value ~ /^\/[-A-Za-z0-9._+@%=]+(\/[-A-Za-z0-9._+@%=]+)*$/ && value !~ /(^|\/)\.\.?($|\/)/ }
     function unsafe_interpreter(value) { return value ~ /\/(sh|bash|dash|env|node|perl|php|python|python[0-9.]*|ruby)$/ }
+    function argument(value, path) {
+      path=value; if (value ~ /^--[A-Za-z0-9][A-Za-z0-9-]*=/) sub(/^[^=]*=/, "", path)
+      if (path ~ /^\//) { if (!safe_absolute(path)) bad=1; else print "file\t" path }
+      else if (path ~ /^\.\.?\//) bad=1
+    }
     function direct(field, command, i) {
       if (NF < field) { bad=1; return }
       command=$field
       if (!safe_absolute(command) || unsafe_interpreter(command)) { bad=1; return }
       for (i=field+1; i<=NF; i++) if ($i ~ /[;&|<>()`$\\%]/) { bad=1; return }
-      if (command == "/usr/bin/flock") { if (NF < field + 3 || $(field + 1) != "-n" || $(field + 2) !~ /^\/run\// || !safe_absolute($(field + 2)) || !safe_absolute($(field + 3)) || unsafe_interpreter($(field + 3))) { bad=1; return }; print $(field + 3); return }
-      print command
+      if (command == "/usr/bin/flock") { if (NF < field + 3 || $(field + 1) != "-n" || $(field + 2) !~ /^\/run\// || !safe_absolute($(field + 2)) || !safe_absolute($(field + 3)) || unsafe_interpreter($(field + 3))) { bad=1; return }; print "command\t" $(field + 3); return }
+      print "command\t" command
+      for (i=field+1; i<=NF; i++) argument($i)
     }
     /^[[:space:]]*($|#)/ { next }
     /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { next }
@@ -166,29 +172,33 @@ cron_inventory_wrapper_exec_paths() {
   awk '
     function trim(value) { sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value); return value }
     function safe(path) { return path ~ /^\/[A-Za-z0-9._\/-]+$/ && path !~ /(^|\/)\.\.?($|\/)/ }
+    function emit(token, path) {
+      path=token; if (token ~ /^--[A-Za-z0-9][A-Za-z0-9-]*=/) sub(/^[^=]*=/, "", path)
+      if (path ~ /^\//) { if (!safe(path)) bad=1; else print path }
+      else if (path ~ /^\.\.?\//) bad=1
+    }
     function paths(line, count, parts, i) {
       sub(/[[:space:]]+#.*$/, "", line)
       if (line ~ /[\\\047"`$|&;<>(){}]/) { bad=1; return }
       count=split(line, parts, /[[:space:]]+/)
       if (count < 1 || !safe(parts[1])) { bad=1; return }
-      for (i=1; i<=count; i++) {
-        if (parts[i] ~ /^\//) { if (!safe(parts[i])) bad=1; else print parts[i] }
-        else if (parts[i] ~ /^\.\.?\//) bad=1
-      }
+      for (i=1; i<=count; i++) emit(parts[i])
     }
-    function assigned(line, count, parts, i) {
+    function assigned(line, count, parts, i, value) {
       sub(/[[:space:]]+#.*$/, "", line)
       if (line ~ /[\\\047"`$|&;<>(){}]/) { bad=1; return }
       count=split(line, parts, /[[:space:]]+/)
       i=1
-      while (i<=count && parts[i] ~ /^[A-Za-z_][A-Za-z0-9_]*=[-A-Za-z0-9._+@%\/:,=]*$/) i++
+      while (i<=count && parts[i] ~ /^[A-Za-z_][A-Za-z0-9_]*=[-A-Za-z0-9._+@%\/:,=]*$/) {
+        value=parts[i]; sub(/^[^=]*=/, "", value)
+        if (value ~ /^\//) { if (!safe(value)) bad=1; else print value }
+        else if (value ~ /^\.\.?\//) bad=1
+        i++
+      }
       if (i == 1) { bad=1; return }
       if (i > count) return
       if (!safe(parts[i])) { bad=1; return }
-      for (; i<=count; i++) {
-        if (parts[i] ~ /^\//) { if (!safe(parts[i])) bad=1; else print parts[i] }
-        else if (parts[i] ~ /^\.\.?\//) bad=1
-      }
+      for (; i<=count; i++) emit(parts[i])
     }
     function guarded(line, count, parts, target) {
       count=split(line, parts, /[[:space:]]+/); target=parts[7]
@@ -236,8 +246,10 @@ cron_inventory_record_wrapper_closure() {
 cron_inventory_record_wrapper_consumers() {
   class=$1 kind=$2 source=$3 snapshot=$4; targets=$(temp_path)
   cron_inventory_command_targets "$kind" "$source" "$snapshot" >"$targets" || { rm -f "$targets"; return 2; }
-  while IFS= read -r target || [ -n "$target" ]; do
-    target=$(consumer_canonical_regular "$target") || { rm -f "$targets"; return 2; }; [ -x "$target" ] || { rm -f "$targets"; return 2; }
+  cron_target_tab=$(printf '\t')
+  while IFS="$cron_target_tab" read -r target_kind target || [ -n "$target_kind$target" ]; do
+    [ -n "$target" ] || { target=$target_kind; target_kind='command'; }; case "$target_kind" in command|file) :;; *) rm -f "$targets"; return 2;; esac
+    target=$(consumer_canonical_regular "$target") || { rm -f "$targets"; return 2; }; [ "$target_kind" = file ] || [ -x "$target" ] || { rm -f "$targets"; return 2; }
     cron_inventory_record_wrapper_closure "$class" "$target" || { cron_wrapper_status=$?; rm -f "$targets"; return "$cron_wrapper_status"; }
   done <"$targets"
   rm -f "$targets"

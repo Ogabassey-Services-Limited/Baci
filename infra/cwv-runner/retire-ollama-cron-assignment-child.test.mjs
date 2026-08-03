@@ -44,6 +44,44 @@ test('binds an absolute child after a literal assignment prefix', async () => {
   }
 });
 
+test('binds a safe absolute file used as an assignment value', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-assignment-file-'));
+  const cron = join(directory, 'crontab');
+  const wrapper = join(directory, 'cron-wrapper');
+  const configuration = join(directory, 'application.conf');
+  const worker = join(directory, 'application-worker');
+  try {
+    await Promise.all([
+      writeFile(cron, `* * * * * root ${wrapper}\n`),
+      writeFile(
+        wrapper,
+        `#!/bin/sh\nCONFIG=${configuration} MODE=prod ${worker}\n`
+      ),
+      writeFile(configuration, 'OLLAMA_HOST=http://127.0.0.1:11434\n'),
+      writeFile(worker, '#!/bin/sh\nexit 0\n'),
+    ]);
+    await Promise.all([chmod(wrapper, 0o755), chmod(worker, 0o755)]);
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${harness}; cron_inventory_record_wrapper_consumers system-crontab system "$2" "$2"; printf "%s\\n%s\\n" "$records" "$consumer_counts"`,
+      'retire-ollama-cron-assignment-file-test',
+      script.pathname,
+      cron,
+    ]);
+    const [records, counts] = stdout.trim().split('\n').map(JSON.parse);
+    assert.deepEqual(
+      records.map(({ realPath }) => realPath),
+      [wrapper, configuration, worker]
+    );
+    assert.deepEqual(
+      counts.map(({ matchCount }) => matchCount),
+      [0, 1, 0]
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('fails closed on a dynamic assignment-prefixed target', async () => {
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-cron-dynamic-assignment-')
@@ -68,3 +106,35 @@ test('fails closed on a dynamic assignment-prefixed target', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+for (const [label, assignment] of [
+  ['dynamic', 'CONFIG="$CONFIG"'],
+  ['unsafe', 'CONFIG=/tmp/../application.conf'],
+]) {
+  test(`fails closed on a ${label} assignment value`, async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), `baci-cron-${label}-assignment-value-`)
+    );
+    const cron = join(directory, 'crontab');
+    const wrapper = join(directory, 'cron-wrapper');
+    const worker = join(directory, 'application-worker');
+    try {
+      await Promise.all([
+        writeFile(cron, `* * * * * root ${wrapper}\n`),
+        writeFile(wrapper, `#!/bin/sh\n${assignment} ${worker}\n`),
+        writeFile(worker, '#!/bin/sh\nexit 0\n'),
+      ]);
+      await Promise.all([chmod(wrapper, 0o755), chmod(worker, 0o755)]);
+      const { stdout } = await execFileAsync('sh', [
+        '-c',
+        `${harness}; if cron_inventory_record_wrapper_consumers system-crontab system "$2" "$2"; then printf "0\\n"; else printf "%s\\n" "$?"; fi`,
+        `retire-ollama-cron-${label}-assignment-value-test`,
+        script.pathname,
+        cron,
+      ]);
+      assert.equal(stdout.trim(), '2');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}

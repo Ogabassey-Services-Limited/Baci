@@ -81,7 +81,7 @@ record_consumers() {
         esac; fi;;
       none) matched=0;;
       all) matched=1;;
-      *) if process_line_approved "$line"; then matched=0; else case "$line" in *11434*|*'/ollama '*|*' ollama '*|ollama|*/ollama) matched=1;; *) matched=0;; esac; fi;;
+      *) if process_line_approved "$line"; then matched=0; else match_line=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]'); case "$match_line" in *11434*|*'/ollama '*|*' ollama '*|ollama|*/ollama) matched=1;; *) matched=0;; esac; fi;;
     esac
     [ "$matched" = 1 ] || continue; count=$((count + 1)); evidence=$(hash_text "$line")
     deps=$(jq -cn --argjson old "$deps" --arg key "$class:$count" --arg value "$unknown_sha" --arg source "$evidence" '$old + [{"key-name":$key,"endpoint-class":"unknown","normalized-value-sha256":$value,"source-path-sha256":$source,disposition:"consumer"}]') || die 'consumer dependency record failed'

@@ -42,6 +42,37 @@ test('keeps compound process consumers while exempting only the reviewed Ollama 
   }
 });
 
+test('classifies an uppercase Ollama marker in a foreign running process', async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-ollama-uppercase-process-')
+  );
+  const processes = join(directory, 'processes');
+  const foreign = '43 1 worker /opt/OLLAMA';
+  try {
+    await writeFile(processes, `${foreign}\n`);
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      '. "$1"; init_temp_root; trap cleanup_temp EXIT; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; record_consumers running-processes "$2"; printf "%s\\n%s\\n" "$consumer_counts" "$consumer_evidence"',
+      'retire-ollama-uppercase-process-test',
+      script.pathname,
+      processes,
+    ]);
+
+    const [counts, evidence] = stdout.trim().split('\n').map(JSON.parse);
+    assert.deepEqual(counts, [{ surface: 'running-processes', matchCount: 1 }]);
+    assert.deepEqual(evidence, [
+      {
+        surface: 'running-processes',
+        classifiedPathSha256: createHash('sha256')
+          .update(foreign)
+          .digest('hex'),
+      },
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('uses untruncated ps args so a long compound process remains a consumer', async () => {
   const approved = '42 1 root /usr/bin/ollama serve';
   const compound = `${approved} & /opt/worker --listen 127.0.0.1:11434`;
