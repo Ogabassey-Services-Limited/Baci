@@ -3,6 +3,7 @@
 import typography from '@tailwindcss/typography';
 import plugin from 'tailwindcss/plugin';
 import tailwindcssAnimate from 'tailwindcss-animate';
+import registerResponsiveUtilities from './tailwind-responsive-utilities.mjs';
 
 /** @type {import('tailwindcss').Config} */
 const config = {
@@ -76,13 +77,13 @@ const config = {
         full: 'var(--theme-radius-full)',
       },
       spacing: {
-        xs: 'var(--theme-space-xs)',
-        sm: 'var(--theme-space-sm)',
-        md: 'var(--theme-space-md)',
-        lg: 'var(--theme-space-lg)',
-        xl: 'var(--theme-space-xl)',
-        '2xl': 'var(--theme-space-2xl)',
-        '3xl': 'var(--theme-space-3xl)',
+        'theme-xs': 'var(--theme-space-xs)',
+        'theme-sm': 'var(--theme-space-sm)',
+        'theme-md': 'var(--theme-space-md)',
+        'theme-lg': 'var(--theme-space-lg)',
+        'theme-xl': 'var(--theme-space-xl)',
+        'theme-2xl': 'var(--theme-space-2xl)',
+        'theme-3xl': 'var(--theme-space-3xl)',
         // Touch target minimum (44px for WCAG 2.5.5)
         touch: '2.75rem',
         'touch-lg': '3rem',
@@ -227,146 +228,7 @@ const config = {
   plugins: [
     tailwindcssAnimate,
     typography,
-    // Custom plugin for 2025 responsive best practices
-    plugin(({ addUtilities, addComponents }) => {
-      // Safe area insets for notched devices (iPhone, etc.)
-      addUtilities({
-        '.safe-top': {
-          'padding-top': 'env(safe-area-inset-top)',
-        },
-        '.safe-bottom': {
-          'padding-bottom': 'env(safe-area-inset-bottom)',
-        },
-        '.safe-left': {
-          'padding-left': 'env(safe-area-inset-left)',
-        },
-        '.safe-right': {
-          'padding-right': 'env(safe-area-inset-right)',
-        },
-        '.safe-x': {
-          'padding-left': 'env(safe-area-inset-left)',
-          'padding-right': 'env(safe-area-inset-right)',
-        },
-        '.safe-y': {
-          'padding-top': 'env(safe-area-inset-top)',
-          'padding-bottom': 'env(safe-area-inset-bottom)',
-        },
-        '.safe-all': {
-          'padding-top': 'env(safe-area-inset-top)',
-          'padding-right': 'env(safe-area-inset-right)',
-          'padding-bottom': 'env(safe-area-inset-bottom)',
-          'padding-left': 'env(safe-area-inset-left)',
-        },
-        // Margin variants
-        '.m-safe-top': {
-          'margin-top': 'env(safe-area-inset-top)',
-        },
-        '.m-safe-bottom': {
-          'margin-bottom': 'env(safe-area-inset-bottom)',
-        },
-        // CSS Logical Properties utilities
-        '.p-inline-4': {
-          'padding-inline': '1rem',
-        },
-        '.p-inline-6': {
-          'padding-inline': '1.5rem',
-        },
-        '.p-inline-8': {
-          'padding-inline': '2rem',
-        },
-        '.p-block-4': {
-          'padding-block': '1rem',
-        },
-        '.p-block-6': {
-          'padding-block': '1.5rem',
-        },
-        '.p-block-8': {
-          'padding-block': '2rem',
-        },
-        '.m-inline-auto': {
-          'margin-inline': 'auto',
-        },
-        '.m-inline-4': {
-          'margin-inline': '1rem',
-        },
-        '.m-block-4': {
-          'margin-block': '1rem',
-        },
-        '.m-block-8': {
-          'margin-block': '2rem',
-        },
-        // Scroll snap utilities
-        '.snap-x-mandatory': {
-          'scroll-snap-type': 'x mandatory',
-        },
-        '.snap-y-mandatory': {
-          'scroll-snap-type': 'y mandatory',
-        },
-        '.snap-x-proximity': {
-          'scroll-snap-type': 'x proximity',
-        },
-        '.snap-center': {
-          'scroll-snap-align': 'center',
-        },
-        '.snap-start': {
-          'scroll-snap-align': 'start',
-        },
-        '.snap-end': {
-          'scroll-snap-align': 'end',
-        },
-        // CSS Containment for performance
-        '.contain-layout': {
-          contain: 'layout',
-        },
-        '.contain-paint': {
-          contain: 'paint',
-        },
-        '.contain-strict': {
-          contain: 'strict',
-        },
-        '.contain-content': {
-          contain: 'content',
-        },
-        // Content visibility for lazy rendering
-        '.content-auto': {
-          'content-visibility': 'auto',
-        },
-        '.content-hidden': {
-          'content-visibility': 'hidden',
-        },
-        // Touch action utilities
-        '.touch-pan-x': {
-          'touch-action': 'pan-x',
-        },
-        '.touch-pan-y': {
-          'touch-action': 'pan-y',
-        },
-        '.touch-pinch-zoom': {
-          'touch-action': 'pinch-zoom',
-        },
-        '.touch-manipulation': {
-          'touch-action': 'manipulation',
-        },
-      });
-
-      // Touch-friendly component variants
-      addComponents({
-        '.touch-target': {
-          'min-width': '44px',
-          'min-height': '44px',
-          display: 'inline-flex',
-          'align-items': 'center',
-          'justify-content': 'center',
-        },
-        '.touch-target-lg': {
-          'min-width': '48px',
-          'min-height': '48px',
-          display: 'inline-flex',
-          'align-items': 'center',
-          'justify-content': 'center',
-        },
-      });
-    }),
+    plugin(registerResponsiveUtilities),
   ],
 };
 
