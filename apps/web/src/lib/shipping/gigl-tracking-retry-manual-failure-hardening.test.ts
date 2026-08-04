@@ -114,6 +114,20 @@ describe('GIGL manual failure hardening migrations', () => {
     );
   });
 
+  it('does not require the skipped hardening output before applying its successor', () => {
+    const terminalityRepair = readMigration(
+      '20260804000400_repair_gigl_notification_terminality_cardinality.sql'
+    );
+
+    expect(terminalityRepair).toContain('v_manual_terminal_assignment :=');
+    expect(terminalityRepair).toContain(
+      'v_latest_incoming_event_at <= v_manual_terminal_override_at'
+    );
+    expect(terminalityRepair).not.toContain(
+      'GIGL manual failure terminality scope is missing'
+    );
+  });
+
   it('keeps manual failures terminal when only unknown scans are newer', () => {
     const migration = readMigration(
       '20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql'
