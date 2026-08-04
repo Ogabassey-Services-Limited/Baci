@@ -170,9 +170,9 @@ cron_inventory_wrapper_source_paths() {
   ' "$1"
 }
 cron_inventory_wrapper_exec_paths() {
-  awk '
-    function trim(value) { sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value); return value }
-    function safe(path) { return path ~ /^\/[A-Za-z0-9._\/-]+$/ && path !~ /(^|\/)\.\.?($|\/)/ }
+  if grep -q -Ei 'ollama|11434' "$1"; then wrapper_bound=1; else status=$?; [ "$status" -eq 1 ] || return "$status"; wrapper_bound=0; fi
+  awk -v wrapper_bound="$wrapper_bound" '
+    function trim(value) { sub(/^[[:space:]]+/, "", value); sub(/[[:space:]]+$/, "", value); return value } function safe(path) { return path ~ /^\/[A-Za-z0-9._\/-]+$/ && path !~ /(^|\/)\.\.?($|\/)/ } function builtin(line) { return line ~ /^(exit([[:space:]]+[0-9]+)?|true|false|:|set[[:space:]]+-[A-Za-z]+)$/ }
     function emit(token, path) {
       path=token; if (token ~ /^--?[A-Za-z0-9][A-Za-z0-9-]*=/) sub(/^[^=]*=/, "", path)
       if (path ~ /^\//) { if (!safe(path)) bad=1; else print path }
@@ -214,7 +214,8 @@ cron_inventory_wrapper_exec_paths() {
       else if (line ~ /^\//) paths(line)
       else if (line ~ /^[A-Za-z_][A-Za-z0-9_]*=/) assigned(line)
       else if (line ~ /^if([[:space:]]|$)/) guarded(line)
-      else if (line ~ /(^|;)[[:space:]]*exec[[:space:]]/ || line ~ /^(then|else|elif|fi|case|esac|for|while|until|do|done)([[:space:]]|$)/ || line ~ /[\\\047"`$|&;<>(){}]/) bad=1
+      else if (line ~ /^(\.|source)([[:space:]]|$)/ || builtin(line)) next
+      else if (line ~ /(^|;)[[:space:]]*exec[[:space:]]/ || line ~ /^(then|else|elif|fi|case|esac|for|while|until|do|done)([[:space:]]|$)/ || line ~ /[\\\047"`$|&;<>(){}]/ || !wrapper_bound) bad=1
     }
     END { exit bad ? 2 : 0 }
   ' "$1"

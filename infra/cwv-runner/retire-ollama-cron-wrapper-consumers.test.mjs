@@ -108,6 +108,32 @@ test('fails closed when a direct cron command target cannot be resolved safely',
   }
 });
 
+test('fails closed on a bare cron wrapper executable without arguments', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-cron-wrapper-bare-'));
+  const cron = join(directory, 'crontab');
+  const wrapper = join(directory, 'application-worker');
+  try {
+    await Promise.all([
+      writeFile(cron, `* * * * * root ${wrapper}\n`),
+      writeFile(wrapper, '#!/bin/sh\nworker\n'),
+    ]);
+    await chmod(wrapper, 0o755);
+
+    await assert.rejects(
+      execFileAsync('sh', [
+        '-c',
+        '. "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; sha256sum() { /usr/bin/shasum -a 256 "$@"; }; load_cron_inventory_helper; consumer_canonical_regular() { [ -f "$1" ] && [ ! -L "$1" ] || return 2; printf "%s\\n" "$1"; }; consumer_snapshot() { snapshot=$(temp_path); cat "$1" >"$snapshot"; printf "%s|stable\\n" "$snapshot"; }; consumer_source_identity() { printf "stable\\n"; }; records="[]"; deps="[]"; consumer_counts="[]"; consumer_evidence="[]"; cron_inventory_record_wrapper_consumers system-crontab system "$2" "$2"',
+        'retire-ollama-cron-wrapper-bare-test',
+        script.pathname,
+        cron,
+      ]),
+      (error) => error.code === 2
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('skips the canonical root run-parts delegation after periodic binding', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-cron-run-parts-'));
   const cron = join(directory, 'crontab');

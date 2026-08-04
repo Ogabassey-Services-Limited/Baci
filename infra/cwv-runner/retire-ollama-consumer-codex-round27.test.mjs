@@ -50,6 +50,52 @@ test('fails closed before accepting a quoted Compose services key', async () => 
   );
 });
 
+test('fails closed before accepting whitespace before a Compose services colon', async () => {
+  await assert.rejects(
+    execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf 'services :\\n  app:\\n    image: hidden-image\\n' | compose_image_refs /dev/stdin`,
+      'retire-ollama-compose-services-spacing-test',
+      script.pathname,
+    ]),
+    (error) => error.code === 2
+  );
+});
+
+test('fails closed before accepting whitespace before a Compose build colon', async () => {
+  await assert.rejects(
+    execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf 'services:\\n  app:\\n    build : ./app\\n' | compose_build_refs /dev/stdin`,
+      'retire-ollama-compose-build-spacing-test',
+      script.pathname,
+    ]),
+    (error) => error.code === 2
+  );
+});
+
+test('discovers images beneath a consistently indented Compose root', async () => {
+  const { stdout } = await execFileAsync('sh', [
+    '-c',
+    `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf '  services:\\n    app:\\n      image: hidden-image\\n' | compose_image_refs /dev/stdin`,
+    'retire-ollama-compose-indented-root-test',
+    script.pathname,
+  ]);
+  assert.equal(stdout, 'hidden-image\n');
+});
+
+test('fails closed before accepting a quoted Compose image key', async () => {
+  await assert.rejects(
+    execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf 'services:\\n  app:\\n    "image": hidden-image\\n' | compose_image_refs /dev/stdin`,
+      'retire-ollama-compose-quoted-image-test',
+      script.pathname,
+    ]),
+    (error) => error.code === 2
+  );
+});
+
 test('binds a static systemd BindReadOnlyPaths source', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-systemd-static-bind-path-'))
@@ -62,7 +108,7 @@ test('binds a static systemd BindReadOnlyPaths source', async () => {
       writeFile(source, 'endpoint=http://127.0.0.1:11434\n'),
       writeFile(
         join(units, 'application.service'),
-        `[Service]\nBindReadOnlyPaths=${source}:/etc/application.conf\nExecStart=/bin/true\n`
+        `[Service]\nBindReadOnlyPaths=${source}:/etc/application.conf:rbind\nExecStart=/bin/true\n`
       ),
     ]);
     const { stdout } = await execFileAsync('sh', [
@@ -87,7 +133,7 @@ test('binds a runtime systemd BindPaths source', async () => {
     await writeFile(source, 'endpoint=http://127.0.0.1:11434\n');
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `${prelude}source=$2; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; systemd_runtime_inventory() { printf 'application.service loaded inactive dead fixture\\n' >"$2"; }; systemd_manager_call() { printf 'RootDirectory=\\nRootImage=\\nWorkingDirectory=\\nEnvironment=\\nEnvironmentFiles=\\nPassEnvironment=\\nLoadCredential=\\nLoadCredentialEncrypted=\\nStandardInput=null\\nBindPaths=%s:/etc/application.conf\\nBindReadOnlyPaths=\\nExecStart={}\\n' "$source"; }; scan_systemd_runtime_consumers system`,
+      `${prelude}source=$2; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; systemd_runtime_inventory() { printf 'application.service loaded inactive dead fixture\\n' >"$2"; }; systemd_manager_call() { printf 'RootDirectory=\\nRootImage=\\nWorkingDirectory=\\nEnvironment=\\nEnvironmentFiles=\\nPassEnvironment=\\nLoadCredential=\\nLoadCredentialEncrypted=\\nStandardInput=null\\nBindPaths=%s:/etc/application.conf:norbind\\nBindReadOnlyPaths=\\nExecStart={}\\n' "$source"; }; scan_systemd_runtime_consumers system`,
       'retire-ollama-runtime-bind-path-test',
       script.pathname,
       source,
@@ -99,4 +145,16 @@ test('binds a runtime systemd BindPaths source', async () => {
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
+});
+
+test('rejects an unsupported systemd bind recursion mode', async () => {
+  await assert.rejects(
+    execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; systemd_bind_path_targets '/srv/config:/etc/config:recursive'`,
+      'retire-ollama-bind-recursion-mode-test',
+      script.pathname,
+    ]),
+    (error) => error.code === 2
+  );
 });
