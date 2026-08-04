@@ -42,6 +42,21 @@ fi
 grep -q 'historical_migration_repair_spec not defined' \
   "$fixture_root/missing-function-output.log"
 
+missing_supersession_dir="$fixture_root/missing-supersession"
+make_applier_fixture "$missing_supersession_dir"
+printf 'historical_migration_repair_spec() { return 1; }\n' \
+  >"$missing_supersession_dir/historical-migration-repair-spec.sh"
+if MIGRATIONS_DIR="$missing_supersession_dir/migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  bash "$missing_supersession_dir/apply-pending-migrations.sh" \
+  >"$fixture_root/missing-supersession-output.log" 2>&1; then
+  echo 'Expected a missing supersession resolver to fail closed' >&2
+  exit 1
+fi
+grep -q 'historical_migration_repair_supersession_spec not defined' \
+  "$fixture_root/missing-supersession-output.log"
+
 . "$script_dir/historical-migration-repair-spec.sh"
 . "$script_dir/historical-migration-repair-handler.sh"
 

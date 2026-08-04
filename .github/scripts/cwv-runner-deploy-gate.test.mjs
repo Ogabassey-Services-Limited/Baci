@@ -21,9 +21,10 @@ function step(job, name) {
 }
 
 test('runs CWV contracts and production deployment for runner-only main changes', async () => {
-  const [ci, deploy, deployFilters] = await Promise.all([
+  const [ci, deploy, ciFilters, deployFilters] = await Promise.all([
     workflow('.github/workflows/ci.yml'),
     workflow('.github/workflows/deploy.yml'),
+    readFile(new URL('.github/filters/ci.yml', root), 'utf8'),
     readFile(new URL('.github/filters/deploy.yml', root), 'utf8'),
   ]);
 
@@ -37,7 +38,10 @@ test('runs CWV contracts and production deployment for runner-only main changes'
     ciChanges.outputs.cwv_runner,
     '${{ steps.gate.outputs.cwv_runner }}',
   );
-  const ciFilters = ciChanges.steps.find((step) => step.id === 'filter').with.filters;
+  assert.equal(
+    ciChanges.steps.find((step) => step.id === 'filter').with.filters,
+    '.github/filters/ci.yml',
+  );
   assert.match(filterPaths(ciFilters, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
   assert.match(filterPaths(ciFilters, 'cwv_runner'), /'package\.json'/);
   assert.match(filterPaths(ciFilters, 'cwv_runner'), /'pnpm-lock\.yaml'/);

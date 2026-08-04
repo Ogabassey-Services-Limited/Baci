@@ -39,6 +39,7 @@ const readRepositorySources = async () => {
       runtime: await readFile(new URL('.github/scripts/cwv-runner-authority-runtime.mjs', root), 'utf8'),
       stable: await readFile(new URL('.github/scripts/cwv-runner-stable-attestation-builder.mjs', root), 'utf8'),
     },
+    ciFilter: await readFile(new URL('.github/filters/ci.yml', root), 'utf8'),
     deploy: workflows['deploy.yml'],
     deployFilter: await readFile(new URL('.github/filters/deploy.yml', root), 'utf8'),
     workflows,
@@ -59,7 +60,7 @@ test('YAML workflow contract parser declares its direct runtime dependency', asy
 });
 
 test('CI and deploy gate every direct CWV dependency and aggregate its contract result', async () => {
-  const { deployFilter, workflows } = await readRepositorySources();
+  const { ciFilter, deployFilter, workflows } = await readRepositorySources();
   const ci = YAML.parse(workflows['ci.yml']);
   const deploy = YAML.parse(workflows['deploy.yml']);
   const requiredPaths = [
@@ -77,10 +78,11 @@ test('CI and deploy gate every direct CWV dependency and aggregate its contract 
     deploy.jobs.changes.steps.find((step) => step.id === 'filter').with.filters,
     '.github/filters/deploy.yml',
   );
-  for (const source of [
+  assert.equal(
     ci.jobs.changes.steps.find((step) => step.id === 'filter').with.filters,
-    deployFilter,
-  ]) {
+    '.github/filters/ci.yml',
+  );
+  for (const source of [ciFilter, deployFilter]) {
     const paths = filterPaths(source, 'cwv_runner');
     for (const path of requiredPaths) assert.ok(paths.includes(`'${path}'`), `${path} must trigger the CWV contract gate`);
   }

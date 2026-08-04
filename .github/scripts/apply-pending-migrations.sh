@@ -35,8 +35,13 @@ if [ ! -d "$migrations_dir" ]; then
   exit 1
 fi
 
-. "$script_dir/historical-migration-repair-handler.sh"
-load_historical_migration_repair_handler "$script_dir"
+if ! . "$script_dir/historical-migration-repair-handler.sh"; then
+  echo "::error::historical migration repair handler could not be loaded" >&2
+  exit 1
+fi
+if ! load_historical_migration_repair_handler "$script_dir"; then
+  exit 1
+fi
 
 bash "$script_dir/check-migration-versions.sh" "$migrations_dir"
 
@@ -198,12 +203,16 @@ for file in "${sorted_files[@]}"; do
   fi
 
   if supersession_spec="$(historical_migration_repair_supersession_spec "$version" "$name")"; then
-    skip_superseded_historical_migration_repair "$version" "$name" "$supersession_spec"
+    if ! skip_superseded_historical_migration_repair "$version" "$name" "$supersession_spec"; then
+      exit 1
+    fi
     continue
   fi
 
   if repair_spec="$(historical_migration_repair_spec "$version" "$name")"; then
-    apply_historical_migration_repair "$version" "$name" "$file" "$repair_spec"
+    if ! apply_historical_migration_repair "$version" "$name" "$file" "$repair_spec"; then
+      exit 1
+    fi
     continue
   fi
 

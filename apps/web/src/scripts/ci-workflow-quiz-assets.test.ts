@@ -12,6 +12,10 @@ const deployWorkflowPath = resolve(
   currentDirectory,
   '../../../../.github/workflows/deploy.yml'
 );
+const ciFilterPath = resolve(
+  currentDirectory,
+  '../../../../.github/filters/ci.yml'
+);
 const deployFilterPath = resolve(
   currentDirectory,
   '../../../../.github/filters/deploy.yml'
@@ -31,20 +35,38 @@ const androidReleaseWorkflowPath = resolve(
 const webPackageJsonPath = resolve(currentDirectory, '../../package.json');
 const workflow = readFileSync(workflowPath, 'utf8');
 const deployWorkflow = readFileSync(deployWorkflowPath, 'utf8');
+const ciFilters = readFileSync(ciFilterPath, 'utf8');
 const deployFilters = readFileSync(deployFilterPath, 'utf8');
 const securityWorkflow = readFileSync(securityWorkflowPath, 'utf8');
 const bundleAnalysisWorkflow = readFileSync(bundleAnalysisWorkflowPath, 'utf8');
 const androidReleaseWorkflow = readFileSync(androidReleaseWorkflowPath, 'utf8');
-const webPackageJson = JSON.parse(readFileSync(webPackageJsonPath, 'utf8')) as {
-  scripts?: Record<string, string>;
-};
-const WEB_FILTER_REGEX = /^\s{12}web:\n(?<body>(?:\s{14}- .+\n)+)/m;
+
+function parseWebPackageJson(source: string): { scripts: Record<string, string> } {
+  const parsed: unknown = JSON.parse(source);
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    !('scripts' in parsed) ||
+    typeof parsed.scripts !== 'object' ||
+    parsed.scripts === null ||
+    Array.isArray(parsed.scripts) ||
+    !Object.values(parsed.scripts).every((value) => typeof value === 'string')
+  ) {
+    throw new Error('apps/web/package.json must define string-valued scripts');
+  }
+  return { scripts: parsed.scripts as Record<string, string> };
+}
+
+const webPackageJson = parseWebPackageJson(
+  readFileSync(webPackageJsonPath, 'utf8')
+);
+const WEB_FILTER_REGEX = /^web:\n(?<body>(?:\s{2}- .+\n)+)/m;
 const DEPLOY_WEB_FILTER_REGEX = /^web:\n(?<body>(?:\s{2}- .+\n)+)/m;
 const DEPLOY_MIGRATIONS_FILTER_REGEX =
   /^migrations:\n(?<body>(?:\s{2}- .+\n)+)/m;
 
-function getWebFilter(workflowContent = workflow) {
-  return workflowContent.match(WEB_FILTER_REGEX)?.groups?.body;
+function getWebFilter(filterContent = ciFilters) {
+  return filterContent.match(WEB_FILTER_REGEX)?.groups?.body;
 }
 
 function getDeployWebFilter() {
@@ -56,6 +78,12 @@ function getDeployMigrationsFilter() {
 }
 
 describe('CI workflow quiz asset coverage', () => {
+  it('rejects a malformed web package scripts map', () => {
+    expect(() => parseWebPackageJson('{"scripts":{"test":false}}')).toThrow(
+      'apps/web/package.json must define string-valued scripts'
+    );
+  });
+
   it('runs quiz asset verification when mobile quiz assets change', () => {
     const webFilter = getWebFilter();
 
@@ -86,6 +114,7 @@ describe('CI workflow quiz asset coverage', () => {
 
     expect(ciWebFilter).toContain("- 'next.config.ts'");
     expect(ciWebFilter).toContain("- 'next.config.test.ts'");
+    expect(workflow).toContain('filters: .github/filters/ci.yml');
     expect(deployWorkflow).toContain('filters: .github/filters/deploy.yml');
     expect(deployWebFilter).toContain("- 'next.config.ts'");
     expect(deployWebFilter).toContain("- 'next.config.test.ts'");
@@ -119,6 +148,18 @@ describe('CI workflow quiz asset coverage', () => {
     );
   });
 
+  it('runs affected web, deploy, and CWV checks when the deploy filter changes', () => {
+    expect(ciFilters).toMatch(
+      /^web:\n(?:(?:  - .+\n))*  - '\.github\/filters\/deploy\.yml'/m
+    );
+    expect(ciFilters).toMatch(
+      /^deploy_scripts:\n(?:(?:  - .+\n))*  - '\.github\/filters\/deploy\.yml'/m
+    );
+    expect(ciFilters).toMatch(
+      /^cwv_runner:\n(?:(?:  - .+\n))*  - '\.github\/filters\/deploy\.yml'/m
+    );
+  });
+
   it('deploys migration-applier dependencies', () => {
     const deployMigrationsFilter = getDeployMigrationsFilter();
 
@@ -147,7 +188,7 @@ describe('CI workflow quiz asset coverage', () => {
   });
 
   it('uses the Turbopack-compatible Next bundle analyzer script', () => {
-    expect(webPackageJson.scripts?.analyze).toBe(
+    expect(webPackageJson.scripts.analyze).toBe(
       'next experimental-analyze --output'
     );
   });
