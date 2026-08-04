@@ -12,6 +12,10 @@ const deployWorkflowPath = resolve(
   currentDirectory,
   '../../../../.github/workflows/deploy.yml'
 );
+const deployFilterPath = resolve(
+  currentDirectory,
+  '../../../../.github/filters/deploy.yml'
+);
 const securityWorkflowPath = resolve(
   currentDirectory,
   '../../../../.github/workflows/security.yml'
@@ -27,6 +31,7 @@ const androidReleaseWorkflowPath = resolve(
 const webPackageJsonPath = resolve(currentDirectory, '../../package.json');
 const workflow = readFileSync(workflowPath, 'utf8');
 const deployWorkflow = readFileSync(deployWorkflowPath, 'utf8');
+const deployFilters = readFileSync(deployFilterPath, 'utf8');
 const securityWorkflow = readFileSync(securityWorkflowPath, 'utf8');
 const bundleAnalysisWorkflow = readFileSync(bundleAnalysisWorkflowPath, 'utf8');
 const androidReleaseWorkflow = readFileSync(androidReleaseWorkflowPath, 'utf8');
@@ -34,9 +39,14 @@ const webPackageJson = JSON.parse(readFileSync(webPackageJsonPath, 'utf8')) as {
   scripts?: Record<string, string>;
 };
 const WEB_FILTER_REGEX = /^\s{12}web:\n(?<body>(?:\s{14}- .+\n)+)/m;
+const DEPLOY_WEB_FILTER_REGEX = /^web:\n(?<body>(?:\s{2}- .+\n)+)/m;
 
 function getWebFilter(workflowContent = workflow) {
   return workflowContent.match(WEB_FILTER_REGEX)?.groups?.body;
+}
+
+function getDeployWebFilter() {
+  return deployFilters.match(DEPLOY_WEB_FILTER_REGEX)?.groups?.body;
 }
 
 describe('CI workflow quiz asset coverage', () => {
@@ -66,12 +76,27 @@ describe('CI workflow quiz asset coverage', () => {
 
   it('runs web quality and deploy workflows when root Next config changes', () => {
     const ciWebFilter = getWebFilter();
-    const deployWebFilter = getWebFilter(deployWorkflow);
+    const deployWebFilter = getDeployWebFilter();
 
     expect(ciWebFilter).toContain("- 'next.config.ts'");
     expect(ciWebFilter).toContain("- 'next.config.test.ts'");
+    expect(deployWorkflow).toContain('filters: .github/filters/deploy.yml');
     expect(deployWebFilter).toContain("- 'next.config.ts'");
     expect(deployWebFilter).toContain("- 'next.config.test.ts'");
+  });
+
+  it('deploys executable storefront release-coherence dependencies', () => {
+    const deployWebFilter = getDeployWebFilter();
+
+    expect(deployWebFilter).toContain(
+      "- '.github/scripts/storefront-release-coherence.mjs'"
+    );
+    expect(deployWebFilter).toContain(
+      "- '.github/scripts/storefront-release-config.mjs'"
+    );
+    expect(deployWebFilter).toContain(
+      "- '.github/scripts/storefront-release-marker.mjs'"
+    );
   });
 
   it('keeps root Next config in targeted security scans', () => {
