@@ -27,6 +27,17 @@ BEGIN
     OR apply_definition NOT LIKE '%v_manual_terminal_failed boolean := false%'
     OR pg_catalog.strpos(
       apply_definition,
+      E'  v_manual_terminal_failed := v_effective_status = ''failed''\n'
+      || E'    AND v_manual_terminal_override_at IS NOT NULL\n'
+      || E'    AND (\n'
+      || E'      v_latest_status_event_at IS NULL\n'
+      || E'      OR v_latest_status_event_at <= v_manual_terminal_override_at\n'
+      || E'    );\n'
+      || E'  v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      || E'      OR v_manual_terminal_failed)'
+    ) = 0
+    OR pg_catalog.strpos(
+      apply_definition,
       E'v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
     ) = 0

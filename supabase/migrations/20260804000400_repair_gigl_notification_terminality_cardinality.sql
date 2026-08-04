@@ -63,14 +63,14 @@ BEGIN
   );
   v_definition := replace(
     v_definition,
-    E'  v_should_update_location := v_current_location IS NOT NULL\n',
+    E'  v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
     E'  v_manual_terminal_failed := v_effective_status = ''failed''\n'
       || E'    AND v_manual_terminal_override_at IS NOT NULL\n'
       || E'    AND (\n'
       || E'      v_latest_incoming_event_at IS NULL\n'
       || E'      OR v_latest_incoming_event_at <= v_manual_terminal_override_at\n'
       || E'    );\n'
-      || E'  v_should_update_location := v_current_location IS NOT NULL\n'
+      || E'  v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')'
   );
   v_definition := replace(
     v_definition,
@@ -98,7 +98,8 @@ BEGIN
     || E'    AND (\n'
     || E'      v_latest_incoming_event_at IS NULL\n'
     || E'      OR v_latest_incoming_event_at <= v_manual_terminal_override_at\n'
-    || E'    );\n';
+    || E'    );\n'
+    || E'  v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')';
   v_expected_monitor_terminality :=
     E'v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
     || E'      OR v_manual_terminal_failed)';
