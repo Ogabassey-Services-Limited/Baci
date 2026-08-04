@@ -30,6 +30,7 @@ const baseMerchant = {
   logo_url: 'https://cdn.example.com/logo.svg',
   social_media: {},
   country: 'NG',
+  is_published: true,
 };
 
 const { generateMetadata } = await import('./page');
@@ -37,6 +38,11 @@ const { generateMetadata } = await import('./page');
 describe('storefront homepage metadata', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
   });
 
   it('emits the static OgaBassey metadata from the dynamic home route', async () => {
@@ -44,7 +50,8 @@ describe('storefront homepage metadata', () => {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
-    expect(getRequestScopedMerchant).not.toHaveBeenCalled();
+    expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+    expect(metadata.robots).toEqual({ index: true, follow: true });
     expect(metadata.title).toEqual({ absolute: OGABASSEY_TITLE });
     expect(metadata.description).toBe(OGABASSEY_DESCRIPTION);
     expect(metadata.alternates).toEqual({
@@ -84,7 +91,7 @@ describe('storefront homepage metadata', () => {
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     });
 
-    expect(getRequestScopedMerchant).not.toHaveBeenCalled();
+    expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
     expect(metadata.alternates).toEqual(
       expect.objectContaining({
         canonical: OGABASSEY_URL,

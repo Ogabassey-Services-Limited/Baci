@@ -36,6 +36,21 @@ describe('homepage SEO indexing', () => {
     expect(metadata.robots).toEqual({ index: false, follow: true });
   });
 
+  it('emits noindex,follow for the static OgaBassey home when unpublished', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...merchant,
+      business_name: 'OgaBassey',
+      is_published: false,
+      slug: 'ogabassey',
+    } as never);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+  });
+
   it('keeps a published merchant indexable without catalog prerequisites', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...merchant,

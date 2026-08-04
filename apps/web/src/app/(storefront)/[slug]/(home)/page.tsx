@@ -61,7 +61,9 @@ async function renderOgabasseyStaticHomePage(slug: string) {
   );
 }
 
-function buildOgabasseyStaticHomeMetadata(): Metadata {
+function buildOgabasseyStaticHomeMetadata(
+  robots: Metadata['robots']
+): Metadata {
   const other = mergeStorefrontSmartAppBannerOther(OGABASSEY_TEMPLATE_ID);
   const { metadataTitle, title } = buildStorefrontMetadataTitle({
     fallback: 'OgaBassey',
@@ -72,6 +74,7 @@ function buildOgabasseyStaticHomeMetadata(): Metadata {
     metadataBase: new URL(OGABASSEY_URL),
     title: metadataTitle,
     description: OGABASSEY_DESCRIPTION,
+    robots,
     keywords: [
       'Showmax Subscription',
       'Buy Showmax Online',
@@ -145,7 +148,16 @@ export async function generateMetadata({
   const { slug } = await params;
 
   if (isOgabasseyIdentifier(slug)) {
-    return buildOgabasseyStaticHomeMetadata();
+    const merchant = await getRequestScopedMerchant(slug);
+    const robots = toNextRobotsMetadata(
+      buildHomeSeoDecision({
+        isPublished: merchant?.is_published === true,
+        canonicalUrl: OGABASSEY_URL,
+        merchantName: merchant?.business_name ?? null,
+      })
+    );
+
+    return buildOgabasseyStaticHomeMetadata(robots);
   }
 
   // Skip database query for invalid identifiers (like static asset requests)
