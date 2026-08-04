@@ -270,7 +270,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260804130000_harden_storefront_order_private_schema_boundary.sql',
-    sha256: '1e367cfc1ae404ec94e58479e092aecac11ff60eac22e026fc8f4c25d98cba77',
+    sha256: '74b0b7298e13cbe0f2ace84dc4b24c7d1d414b024057834f5ee1d5267db831e2',
   },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)

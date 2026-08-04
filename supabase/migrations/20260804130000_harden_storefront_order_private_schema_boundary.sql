@@ -17,7 +17,7 @@ ALTER FUNCTION public.create_storefront_order(
   uuid, text, text, jsonb, text, numeric, numeric, numeric, text, text,
   text, jsonb, text, text, jsonb, uuid, text, text, uuid, text, numeric,
   numeric, text, text
-) SET search_path = public;
+) SET search_path = '';
 
 -- The same invoker-wrapper pattern is used by savings, voucher, order reuse,
 -- inventory, and storefront read RPCs. Harden every authenticated public
@@ -67,7 +67,7 @@ BEGIN
   LOOP
     EXECUTE format('ALTER FUNCTION %s OWNER TO postgres', v_wrapper);
     EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER', v_wrapper);
-    EXECUTE format('ALTER FUNCTION %s SET search_path = public', v_wrapper);
+    EXECUTE format('ALTER FUNCTION %s SET search_path = %L', v_wrapper, '');
   END LOOP;
 END;
 $migration$;

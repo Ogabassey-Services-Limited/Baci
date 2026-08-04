@@ -99,7 +99,7 @@ describe('bugfix: public checkout wrappers lost private-schema usage', () => {
       /ALTER\s+FUNCTION\s+public\.create_storefront_order\([\s\S]*?\)\s+SECURITY\s+DEFINER/i
     );
     expect(migrationSql).toMatch(
-      /ALTER\s+FUNCTION\s+public\.create_storefront_order\([\s\S]*?\)\s+SET\s+search_path\s*=\s*public/i
+      /ALTER\s+FUNCTION\s+public\.create_storefront_order\([\s\S]*?\)\s+SET\s+search_path\s*=\s*''/i
     );
     expect(migrationSql).toMatch(
       /REVOKE\s+USAGE\s+ON\s+SCHEMA\s+private\s+FROM\s+authenticated\s*;/i
@@ -113,6 +113,7 @@ describe('bugfix: public checkout wrappers lost private-schema usage', () => {
     expect(migrationSql).toMatch(
       /CASE\s+function_language\.lanname[\s\S]*WHEN\s+'sql'[\s\S]*WHEN\s+'plpgsql'[\s\S]*ELSE\s+FALSE/i
     );
+    expect(migrationSql).toContain("SET search_path = %L', v_wrapper, ''");
     expect(migrationSql).toMatch(
       /has_function_privilege\(\s*'authenticated',\s*function_definition\.oid,\s*'EXECUTE'/
     );
