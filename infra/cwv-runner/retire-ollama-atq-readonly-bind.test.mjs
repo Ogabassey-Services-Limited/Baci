@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { platform } from 'node:process';
@@ -19,6 +19,59 @@ async function rootShellAvailable() {
     return false;
   }
 }
+
+test('audits default VFS options to classify exact read-write and read-only mounts', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-atq-findmnt-'));
+  const findmnt = join(directory, 'findmnt');
+  const helperCopy = join(directory, 'retire-ollama-at-quiescence.sh');
+  try {
+    await writeFile(
+      findmnt,
+      `#!/bin/sh
+seen_vfs_all=no
+target=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --vfs-all) seen_vfs_all=yes;;
+    --mountpoint) shift; target=$1;;
+  esac
+  shift
+done
+[ -n "$target" ] || exit 64
+if [ "$seen_vfs_all" != yes ]; then
+  printf '%s relatime\n' "$target"
+  exit 0
+fi
+case "$AUDITED_MOUNT_MODE" in
+  ro|rw) printf '%s %s,relatime\n' "$target" "$AUDITED_MOUNT_MODE";;
+  *) exit 64;;
+esac
+`
+    );
+    await chmod(findmnt, 0o755);
+    await writeFile(
+      helperCopy,
+      (await readFile(helper, 'utf8')).replaceAll('/usr/bin/findmnt', findmnt)
+    );
+
+    const { stdout } = await execFileAsync('/bin/sh', [
+      '-c',
+      `. "$1"
+die() { printf '%s\n' "$1" >&2; exit 65; }
+AT_JOB_DIR=$2
+AUDITED_MOUNT_MODE=rw; export AUDITED_MOUNT_MODE
+at_submission_mount_state
+AUDITED_MOUNT_MODE=ro; export AUDITED_MOUNT_MODE
+at_submission_mount_state`,
+      'retire-ollama-atq-findmnt-test',
+      helperCopy,
+      join(directory, 'atjobs'),
+    ]);
+    assert.equal(stdout, 'rw\nro\n');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test('kernel read-only bind blocks a root submission after the final queue check', {
   skip: platform !== 'linux',

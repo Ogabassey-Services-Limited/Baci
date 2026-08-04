@@ -1,9 +1,9 @@
 #!/bin/sh
 
 at_submission_mount_state() {
-  if value=$(/usr/bin/findmnt -rn --mountpoint "$AT_JOB_DIR" -o TARGET,VFS-OPTIONS 2>/dev/null); then
+  if value=$(/usr/bin/findmnt -rn --vfs-all --mountpoint "$AT_JOB_DIR" -o TARGET,VFS-OPTIONS 2>/dev/null); then
     case "$value" in
-      "$AT_JOB_DIR "*) options=${value#"$AT_JOB_DIR ";} ;;
+      "$AT_JOB_DIR "*) options=${value#"$AT_JOB_DIR "} ;;
       *) die 'at submission mount state invalid' ;;
     esac
     case ",$options," in
