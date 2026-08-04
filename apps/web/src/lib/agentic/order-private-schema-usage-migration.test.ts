@@ -60,6 +60,20 @@ function readUsageRepairMigration() {
   return readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
 }
 
+function readBoundaryRepairMigration() {
+  const fileName = readdirSync(migrationsDirectory).find((file) =>
+    file.endsWith('_harden_storefront_order_private_schema_boundary.sql')
+  );
+
+  if (!fileName) {
+    throw new Error(
+      'Storefront private-schema boundary repair migration is missing'
+    );
+  }
+
+  return readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
+}
+
 describe('bugfix: public checkout wrappers lost private-schema usage', () => {
   it('replays usage-only schema revocations as access removal', () => {
     const usage = new Map([['anon', true]]);
@@ -72,12 +86,26 @@ describe('bugfix: public checkout wrappers lost private-schema usage', () => {
     expect(usage.get('anon')).toBe(false);
   });
 
-  it('leaves storefront roles able to resolve private order implementations after migration replay', () => {
+  it('keeps anonymous compatibility while preserving the authenticated private-schema boundary', () => {
     const usage = replayPrivateSchemaUsage();
 
     expect(usage.get('anon')).toBe(true);
-    expect(usage.get('authenticated')).toBe(true);
+    expect(usage.get('authenticated')).toBe(false);
     expect(usage.get('service_role')).toBe(true);
+  });
+
+  it('moves the authenticated checkout wrapper behind the function-owner boundary', () => {
+    const migrationSql = readBoundaryRepairMigration();
+
+    expect(migrationSql).toMatch(
+      /ALTER\s+FUNCTION\s+public\.create_storefront_order\([\s\S]*?\)\s+SECURITY\s+DEFINER/i
+    );
+    expect(migrationSql).toMatch(
+      /ALTER\s+FUNCTION\s+public\.create_storefront_order\([\s\S]*?\)\s+SET\s+search_path\s*=\s*public/i
+    );
+    expect(migrationSql).toMatch(
+      /REVOKE\s+USAGE\s+ON\s+SCHEMA\s+private\s+FROM\s+authenticated\s*;/i
+    );
   });
 
   it('keeps direct browser and service-role access to the credential vault revoked', () => {
