@@ -10,6 +10,9 @@ export interface ProductWithCategory {
   images: unknown;
   updated_at: string | null;
   categories: { slug: string | null } | null;
+  product_categories?: Array<{
+    categories: { slug: string | null } | null;
+  }> | null;
 }
 
 export function buildProductSitemapEntry({
@@ -19,10 +22,7 @@ export function buildProductSitemapEntry({
   product: ProductWithCategory;
   storeUrl: string;
 }): MetadataRoute.Sitemap[number] {
-  const normalizedJoinedCategory =
-    product.categories?.slug && product.categories.slug.trim().length > 0
-      ? { slug: product.categories.slug.trim() }
-      : null;
+  const normalizedJoinedCategory = getProductCategorySlug(product);
   const url = getValidatedProductUrl(
     {
       id: product.id,
@@ -55,4 +55,19 @@ export function buildProductSitemapEntry({
     priority: 0.8,
     ...(images.length > 0 && { images }),
   };
+}
+
+function getProductCategorySlug(product: ProductWithCategory): {
+  slug: string;
+} | null {
+  const directSlug = product.categories?.slug?.trim();
+  if (directSlug) {
+    return { slug: directSlug };
+  }
+
+  const junctionSlug = product.product_categories
+    ?.map((entry) => entry.categories?.slug?.trim())
+    .find((slug): slug is string => Boolean(slug));
+
+  return junctionSlug ? { slug: junctionSlug } : null;
 }

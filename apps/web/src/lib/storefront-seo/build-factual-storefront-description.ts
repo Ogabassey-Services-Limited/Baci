@@ -1,8 +1,14 @@
 import { sanitizeText } from '@/lib/sanitize-core';
+import { generateMetaDescription } from '@/lib/seo-utils';
 
 function clean(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? sanitizeText(trimmed) || null : null;
+}
+
+function cleanMetadata(value: string | null | undefined): string | null {
+  const sanitized = clean(value);
+  return sanitized ? generateMetaDescription(sanitized) || null : null;
 }
 
 const SUPPORTED_COUNTRY_CODES = new Set([
@@ -33,8 +39,8 @@ export function buildFactualStorefrontDescription({
   categoryName: string | null | undefined;
   country: string | null | undefined;
 }): string {
-  const authoredDescription = clean(siteDescription);
-  const authoredTagline = clean(siteTagline);
+  const authoredDescription = cleanMetadata(siteDescription);
+  const authoredTagline = cleanMetadata(siteTagline);
   if (authoredDescription || authoredTagline) {
     return authoredDescription || authoredTagline || '';
   }

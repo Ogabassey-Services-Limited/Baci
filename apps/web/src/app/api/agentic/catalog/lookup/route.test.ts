@@ -38,9 +38,11 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 type ProductRow = {
+  categories?: { slug?: string | null } | null;
   id: string;
   name: string;
   price?: number;
+  product_categories?: Array<{ categories?: { slug?: string | null } | null }>;
   slug?: string;
   status?: string;
 };
@@ -120,5 +122,24 @@ describe('POST /api/agentic/catalog/lookup', () => {
 
     expect(response.status).toBe(400);
     expect(query.in).not.toHaveBeenCalled();
+  });
+
+  it('selects junction categories for legacy category-only products', async () => {
+    const select = vi.fn(() => query);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
+      from: vi.fn(() => ({ select })),
+    } as never);
+
+    const { POST } = await import('./route');
+    await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/lookup', {
+        body: JSON.stringify({ ids: ['product-1'] }),
+        method: 'POST',
+      })
+    );
+
+    expect(select).toHaveBeenCalledWith(
+      expect.stringContaining('product_categories:product_categories')
+    );
   });
 });

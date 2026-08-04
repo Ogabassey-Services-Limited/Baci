@@ -12,12 +12,14 @@ const {
   mockSendEmail,
   mockCreateGiglShipment,
   mockAfter,
+  mockCreateAdminClient,
 } = vi.hoisted(() => ({
   mockNotifyNewOrder: vi.fn(() => Promise.resolve()),
   mockNotifyPaymentReceived: vi.fn(() => Promise.resolve()),
   mockSendEmail: vi.fn(() => Promise.resolve({ success: true })),
   mockCreateGiglShipment: vi.fn(),
   mockAfter: vi.fn((callback: () => unknown) => callback()),
+  mockCreateAdminClient: vi.fn(),
 }));
 
 // Mock env
@@ -138,6 +140,25 @@ const mockSupabase = {
   ),
 };
 
+// The route reads the persisted order currency with an admin client after the
+// creation RPC. Keep that post-create read local to this security suite: the
+// test's Supabase URL is deliberately fake, and allowing this query to use a
+// real client makes an auth regression test wait for network retries.
+const adminOrderReadQuery = {
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  maybeSingle: vi.fn().mockResolvedValue({
+    data: { currency: 'NGN', shipping_provider: null },
+    error: null,
+  }),
+};
+
+const mockAdminSupabase = {
+  from: vi.fn(() => adminOrderReadQuery),
+};
+
+mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
+
 function mockAuthUser(id: string) {
   return {
     id,
@@ -150,6 +171,10 @@ function mockAuthUser(id: string) {
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: mockCreateAdminClient,
 }));
 
 // B3.5 round 7 (PR #1622): the route's server-side tax recompute

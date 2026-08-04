@@ -508,7 +508,7 @@ describe('sitemap-data', () => {
     const { getProductSitemapEntries } = sitemapData;
 
     await getProductSitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
       storeUrl: 'https://ogabassey.com',
       supabase: {
         from: (table: string) => ({
@@ -521,6 +521,9 @@ describe('sitemap-data', () => {
     } as unknown as Parameters<typeof getProductSitemapEntries>[0]);
 
     expect(mockSelectCalls.join('\n')).not.toMatch(/\bcategory_slug\b/);
+    expect(mockSelectCalls.join('\n')).toContain(
+      'product_categories:product_categories(categories(slug))'
+    );
   });
 
   it('includes blog child sitemaps in the sitemap index when the blog is enabled', async () => {

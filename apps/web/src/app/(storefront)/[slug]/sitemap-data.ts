@@ -26,6 +26,7 @@ import {
   buildProductSitemapEntry,
   type ProductWithCategory,
 } from './build-product-sitemap-entry';
+import { getCommercialSupportCategorySitemapEntries } from './get-commercial-support-category-sitemap-entries';
 import { getStaticSitemapEntries } from './get-static-sitemap-entries';
 import { getTrustPolicySitemapEntries } from './get-trust-policy-sitemap-entries';
 
@@ -216,7 +217,7 @@ export async function getProductSitemapEntries({
     const { data, error } = (await supabase
       .from('products')
       .select(
-        'id, name, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug)'
+        'id, name, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug), product_categories:product_categories(categories(slug))'
       )
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
@@ -300,37 +301,6 @@ export async function getCategorySitemapEntries({
     categoryCounts,
     isStorePublished: merchant.is_published,
     storeUrl,
-  });
-}
-
-async function getCommercialSupportCategorySitemapEntries({
-  supabase,
-  merchant,
-  storeUrl,
-}: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
-  const { data: categories, error } = await supabase
-    .from('categories')
-    .select('slug, updated_at')
-    .eq('merchant_id', merchant.id);
-
-  if (error) throw error;
-  if (!categories) {
-    throw new Error(`Failed to load category sitemap for ${merchant.id}`);
-  }
-
-  return categories.flatMap((category) => {
-    const slug = category.slug?.trim();
-    if (!slug) return [];
-    return [
-      {
-        url: `${storeUrl}/${slug}`,
-        lastModified: category.updated_at
-          ? new Date(category.updated_at)
-          : undefined,
-        changeFrequency: 'daily' as const,
-        priority: 0.7,
-      },
-    ];
   });
 }
 
@@ -450,8 +420,11 @@ export async function getCommercialSupportSitemapEntries(
     return [];
   }
 
-  const categoryEntries =
-    await getCommercialSupportCategorySitemapEntries(context);
+  const categoryEntries = await getCommercialSupportCategorySitemapEntries({
+    merchantId: context.merchant.id,
+    storeUrl: context.storeUrl,
+    supabase: context.supabase,
+  });
   const commercialEntries: MetadataRoute.Sitemap = [];
   const seenCommercialUrls = new Set<string>();
 

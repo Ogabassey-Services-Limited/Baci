@@ -30,6 +30,9 @@ export type UcpCatalogProductRow = {
   merchant_id: string;
   name: string;
   price?: number | string | null;
+  product_categories?: Array<{
+    categories?: { slug?: string | null } | null;
+  }> | null;
   slug?: string | null;
   status?: string | null;
   stock?: number | string | null;
@@ -105,15 +108,28 @@ export function mapUcpCatalogProductRow({
       product: {
         canonical_url: row.canonical_url ?? null,
         category: row.category ?? null,
-        categories: row.categories
-          ? { slug: row.categories.slug ?? undefined }
-          : null,
+        categories: getProductCategory(row),
         id: row.id,
         name: row.name,
         slug: row.slug ?? undefined,
       },
     }),
   });
+}
+
+function getProductCategory(row: UcpCatalogProductRow): {
+  slug?: string;
+} | null {
+  const directSlug = row.categories?.slug?.trim();
+  if (directSlug) {
+    return { slug: directSlug };
+  }
+
+  const junctionSlug = row.product_categories
+    ?.map((entry) => entry.categories?.slug?.trim())
+    .find((slug): slug is string => Boolean(slug));
+
+  return junctionSlug ? { slug: junctionSlug } : null;
 }
 
 export function filterActiveUcpCatalogProductRows<

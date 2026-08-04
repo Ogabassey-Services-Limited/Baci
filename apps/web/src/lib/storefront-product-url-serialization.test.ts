@@ -81,4 +81,19 @@ describe('storefront public product URL serialization', () => {
     expect(rawUrl).toBe('https://store.example/smart%20watches/watch');
     expect(encodedUrl).toBe(rawUrl);
   });
+
+  it('preserves a development storefront path prefix for fallback product URLs', () => {
+    const url = getValidatedProductUrl(
+      {
+        id: 'laptop-1',
+        name: 'Laptop',
+        slug: 'laptop',
+        category_slug: 'laptops',
+        canonical_url: null,
+      },
+      'http://localhost:3000/ogabassey/?preview=true#products'
+    );
+
+    expect(url).toBe('http://localhost:3000/ogabassey/laptops/laptop');
+  });
 });

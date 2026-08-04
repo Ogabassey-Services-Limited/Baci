@@ -45,4 +45,44 @@ describe('buildProductSitemapEntry', () => {
 
     expect(entry.url).toBe('https://zorvexa.usebaci.com/fashion/linen-shirt');
   });
+
+  it('uses a junction category when legacy products have no direct category', () => {
+    const entry = buildProductSitemapEntry({
+      product: {
+        id: 'product-legacy-category',
+        name: 'Legacy Laptop',
+        slug: 'legacy-laptop',
+        category: null,
+        canonical_url: '/laptops/legacy-laptop',
+        images: [],
+        updated_at: null,
+        categories: null,
+        product_categories: [{ categories: { slug: 'laptops' } }],
+      },
+      storeUrl: 'https://zorvexa.usebaci.com',
+    });
+
+    expect(entry.url).toBe('https://zorvexa.usebaci.com/laptops/legacy-laptop');
+  });
+
+  it('keeps the direct category ahead of the junction category', () => {
+    const entry = buildProductSitemapEntry({
+      product: {
+        id: 'product-direct-category',
+        name: 'Direct Laptop',
+        slug: 'direct-laptop',
+        category: null,
+        canonical_url: null,
+        images: [],
+        updated_at: null,
+        categories: { slug: 'featured-laptops' },
+        product_categories: [{ categories: { slug: 'laptops' } }],
+      },
+      storeUrl: 'https://zorvexa.usebaci.com',
+    });
+
+    expect(entry.url).toBe(
+      'https://zorvexa.usebaci.com/featured-laptops/direct-laptop'
+    );
+  });
 });

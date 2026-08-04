@@ -99,6 +99,26 @@ describe('ucp catalog adapters', () => {
     expect(product.url).toBe('https://ogabassey.com/smartphones/pixel-10');
   });
 
+  it('uses a junction category for legacy rows with no direct category', () => {
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: {
+        canonical_url: '/laptops/legacy-laptop',
+        categories: null,
+        id: 'legacy-product-category',
+        merchant_id: 'merchant-1',
+        name: 'Legacy Laptop',
+        price: 900_000,
+        product_categories: [{ categories: { slug: 'laptops' } }],
+        slug: 'legacy-laptop',
+        status: 'active',
+      },
+    });
+
+    expect(product.url).toBe('https://ogabassey.com/laptops/legacy-laptop');
+  });
+
   it('keeps unmanaged inventory available and filters inactive rows', () => {
     const rows = filterActiveUcpCatalogProductRows([
       {

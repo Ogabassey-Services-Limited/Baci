@@ -10,10 +10,17 @@ export function getValidatedProductUrl(
   merchantSlug?: string | null
 ): string {
   let storeOrigin = '';
+  let storeFallbackBaseUrl = '';
   try {
-    storeOrigin = new URL(baseUrl).origin;
+    const parsedBaseUrl = new URL(baseUrl);
+    storeOrigin = parsedBaseUrl.origin;
+    storeFallbackBaseUrl = `${storeOrigin}${parsedBaseUrl.pathname.replace(
+      /\/+$/,
+      ''
+    )}`;
   } catch {
     storeOrigin = '';
+    storeFallbackBaseUrl = '';
   }
 
   const finalProductPath = getStorefrontProductPath({
@@ -43,6 +50,6 @@ export function getValidatedProductUrl(
   }
 
   return serializeStorefrontProductUrl(
-    canonicalUrl || `${storeOrigin}${finalProductPath}`
+    canonicalUrl || `${storeFallbackBaseUrl}${finalProductPath}`
   );
 }
