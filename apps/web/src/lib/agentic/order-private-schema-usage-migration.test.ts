@@ -107,6 +107,12 @@ describe('bugfix: public checkout wrappers lost private-schema usage', () => {
     expect(migrationSql).toContain(
       "function_definition.prosrc LIKE '%private.%'"
     );
+    expect(migrationSql).toContain(
+      'Functions with declarations or other statements require'
+    );
+    expect(migrationSql).toMatch(
+      /CASE\s+function_language\.lanname[\s\S]*WHEN\s+'sql'[\s\S]*WHEN\s+'plpgsql'[\s\S]*ELSE\s+FALSE/i
+    );
     expect(migrationSql).toMatch(
       /has_function_privilege\(\s*'authenticated',\s*function_definition\.oid,\s*'EXECUTE'/
     );

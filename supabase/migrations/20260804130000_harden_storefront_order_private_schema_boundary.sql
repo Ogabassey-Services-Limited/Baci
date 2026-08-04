@@ -31,10 +31,34 @@ BEGIN
     FROM pg_catalog.pg_proc AS function_definition
     JOIN pg_catalog.pg_namespace AS function_schema
       ON function_schema.oid = function_definition.pronamespace
+    JOIN pg_catalog.pg_language AS function_language
+      ON function_language.oid = function_definition.prolang
     WHERE function_schema.nspname = 'public'
       AND function_definition.prokind = 'f'
       AND function_definition.prosecdef IS FALSE
       AND function_definition.prosrc LIKE '%private.%'
+      -- Only promote wrappers whose entire body is a direct private-function
+      -- delegation. Functions with declarations or other statements require
+      -- an explicit security audit before their execution context can change.
+      AND CASE function_language.lanname
+        WHEN 'sql' THEN btrim(
+          pg_catalog.regexp_replace(
+            function_definition.prosrc,
+            '[[:space:]]+',
+            ' ',
+            'g'
+          )
+        ) ~ '^SELECT (private\.|.+ FROM private\.).*;$'
+        WHEN 'plpgsql' THEN btrim(
+          pg_catalog.regexp_replace(
+            function_definition.prosrc,
+            '[[:space:]]+',
+            ' ',
+            'g'
+          )
+        ) ~ '^BEGIN RETURN( QUERY)? (SELECT .+ FROM )?private\..*; END;?$'
+        ELSE FALSE
+      END
       AND pg_catalog.has_function_privilege(
         'authenticated',
         function_definition.oid,
