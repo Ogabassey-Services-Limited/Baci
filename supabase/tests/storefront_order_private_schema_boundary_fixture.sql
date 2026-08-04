@@ -3,11 +3,12 @@
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE ROLE service_role NOLOGIN;
+CREATE ROLE storefront_order_fixture_owner NOLOGIN;
 
 CREATE SCHEMA private;
 CREATE TABLE private.merchant_payment_credentials (id integer);
 
-REVOKE ALL ON SCHEMA private FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON SCHEMA private FROM PUBLIC, anon, authenticated, storefront_order_fixture_owner;
 GRANT USAGE ON SCHEMA private TO service_role;
 
 CREATE OR REPLACE FUNCTION private.create_storefront_order(
@@ -106,6 +107,12 @@ BEGIN
   );
 END;
 $$;
+
+ALTER FUNCTION public.create_storefront_order(
+  uuid, text, text, jsonb, text, numeric, numeric, numeric, text, text,
+  text, jsonb, text, text, jsonb, uuid, text, text, uuid, text, numeric,
+  numeric, text, text
+) OWNER TO storefront_order_fixture_owner;
 
 REVOKE ALL ON FUNCTION public.create_storefront_order(
   uuid, text, text, jsonb, text, numeric, numeric, numeric, text, text,

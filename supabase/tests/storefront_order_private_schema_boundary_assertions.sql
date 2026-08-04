@@ -13,8 +13,9 @@ BEGIN
     FROM pg_catalog.pg_proc
     WHERE oid = 'public.create_storefront_order(uuid, text, text, jsonb, text, numeric, numeric, numeric, text, text, text, jsonb, text, text, jsonb, uuid, text, text, uuid, text, numeric, numeric, text, text)'::regprocedure
       AND prosecdef
+      AND proowner = 'postgres'::regrole
   ) THEN
-    RAISE EXCEPTION 'storefront order wrapper is not SECURITY DEFINER';
+    RAISE EXCEPTION 'storefront order wrapper is not SECURITY DEFINER owned by postgres';
   END IF;
 
   SET LOCAL ROLE authenticated;
@@ -28,7 +29,7 @@ BEGIN
   );
   RESET ROLE;
 
-  IF v_result <> '00000000-0000-0000-0000-000000000001'::uuid THEN
+  IF v_result IS DISTINCT FROM '00000000-0000-0000-0000-000000000001'::uuid THEN
     RAISE EXCEPTION 'authenticated storefront checkout RPC returned the wrong result';
   END IF;
 END;
@@ -49,7 +50,7 @@ BEGIN
   );
   RESET ROLE;
 
-  IF v_result <> '00000000-0000-0000-0000-000000000001'::uuid THEN
+  IF v_result IS DISTINCT FROM '00000000-0000-0000-0000-000000000001'::uuid THEN
     RAISE EXCEPTION 'anonymous storefront checkout RPC returned the wrong result';
   END IF;
 END;
