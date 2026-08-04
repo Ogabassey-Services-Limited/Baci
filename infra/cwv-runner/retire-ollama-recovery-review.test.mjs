@@ -89,12 +89,13 @@ test('derives the source identity from the sealed SHA directory', async () => {
       'retire-ollama-consumer-closure.sh',
       'retire-ollama-process-files.sh',
       'retire-ollama-cron-inventory.sh',
+      'retire-ollama-at-quiescence.sh',
     ]) {
       await copyFile(new URL(`./${name}`, import.meta.url), join(sealed, name));
     }
     const { stdout } = await shellAt(
       join(sealed, 'retire-ollama.sh'),
-      'init_temp_root; trap cleanup_temp EXIT; recovery_source_digests; printf "%s:%s:%s\\n" "$RECOVERY_SOURCE_SHA" "$RECOVERY_CONSUMER_CLOSURE_SHA" "$RECOVERY_CRON_INVENTORY_SHA"'
+      'init_temp_root; trap cleanup_temp EXIT; recovery_source_digests; printf "%s:%s:%s:%s\\n" "$RECOVERY_SOURCE_SHA" "$RECOVERY_CONSUMER_CLOSURE_SHA" "$RECOVERY_CRON_INVENTORY_SHA" "$RECOVERY_AT_QUIESCENCE_SHA"'
     );
     assert.deepEqual(stdout.trim().split(':'), [
       sourceSha,
@@ -103,6 +104,9 @@ test('derives the source identity from the sealed SHA directory', async () => {
       ),
       await sha256(
         new URL('./retire-ollama-cron-inventory.sh', import.meta.url)
+      ),
+      await sha256(
+        new URL('./retire-ollama-at-quiescence.sh', import.meta.url)
       ),
     ]);
   } finally {

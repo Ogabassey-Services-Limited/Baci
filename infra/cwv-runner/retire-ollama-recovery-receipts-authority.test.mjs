@@ -13,7 +13,7 @@ function shell(env = {}, options = {}) {
     'sh',
     [
       '-c',
-      '. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; id() { printf "%s\\n" "$RETIRE_OLLAMA_TEST_FAKE_UID"; }; sha() { /usr/bin/shasum -a 256 "$1" | /usr/bin/awk "{print \\$1}"; }; init_temp_root; trap cleanup_temp EXIT; recovery_source_digests; printf "%s:%s:%s:%s:%s:%s:%s\\n" "$RECOVERY_SCRIPT_SHA" "$RECOVERY_HELPER_SHA" "$RECOVERY_RECEIPTS_SHA" "$RECOVERY_CONSUMERS_SHA" "$RECOVERY_CONSUMER_CLOSURE_SHA" "$RECOVERY_PROCESS_FILES_SHA" "$RECOVERY_CRON_INVENTORY_SHA"',
+      '. "$1"; SCRIPT_DIR=$(dirname "$1"); RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"; . "$RECOVERY_HELPER"; id() { printf "%s\\n" "$RETIRE_OLLAMA_TEST_FAKE_UID"; }; sha() { /usr/bin/shasum -a 256 "$1" | /usr/bin/awk "{print \\$1}"; }; init_temp_root; trap cleanup_temp EXIT; recovery_source_digests; printf "%s:%s:%s:%s:%s:%s:%s:%s\\n" "$RECOVERY_SCRIPT_SHA" "$RECOVERY_HELPER_SHA" "$RECOVERY_RECEIPTS_SHA" "$RECOVERY_CONSUMERS_SHA" "$RECOVERY_CONSUMER_CLOSURE_SHA" "$RECOVERY_PROCESS_FILES_SHA" "$RECOVERY_CRON_INVENTORY_SHA" "$RECOVERY_AT_QUIESCENCE_SHA"',
       'recovery-receipts-authority-test',
       script.pathname,
     ],
@@ -36,6 +36,7 @@ test('derives recovery source digests from sealed files for privileged execution
     RECOVERY_CRON_INVENTORY_SHA: 'e'.repeat(64),
     RECOVERY_RECEIPTS_SHA: 'c'.repeat(64),
     RECOVERY_SCRIPT_SHA: 'a'.repeat(64),
+    RECOVERY_AT_QUIESCENCE_SHA: '2'.repeat(64),
     RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
     RETIRE_OLLAMA_TEST_FAKE_UID: '0',
   };
@@ -47,6 +48,7 @@ test('derives recovery source digests from sealed files for privileged execution
     sha256(new URL('./retire-ollama-consumer-closure.sh', script)),
     sha256(new URL('./retire-ollama-process-files.sh', script)),
     sha256(new URL('./retire-ollama-cron-inventory.sh', script)),
+    sha256(new URL('./retire-ollama-at-quiescence.sh', script)),
   ]);
   const { stdout } = await shell(overrides);
   assert.deepEqual(stdout.trim().split(':'), expected);
@@ -61,6 +63,7 @@ test('permits digest overrides only in the unprivileged test harness', async () 
     RECOVERY_CRON_INVENTORY_SHA: 'e'.repeat(64),
     RECOVERY_RECEIPTS_SHA: 'c'.repeat(64),
     RECOVERY_SCRIPT_SHA: 'a'.repeat(64),
+    RECOVERY_AT_QUIESCENCE_SHA: '2'.repeat(64),
     RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
     RETIRE_OLLAMA_TEST_FAKE_UID: '65534',
   };
@@ -73,5 +76,6 @@ test('permits digest overrides only in the unprivileged test harness', async () 
     overrides.RECOVERY_CONSUMER_CLOSURE_SHA,
     overrides.RECOVERY_PROCESS_FILES_SHA,
     overrides.RECOVERY_CRON_INVENTORY_SHA,
+    overrides.RECOVERY_AT_QUIESCENCE_SHA,
   ]);
 });
