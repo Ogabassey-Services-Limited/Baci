@@ -127,3 +127,44 @@ test('fails closed on a bare wrapper command with a file argument', async () => 
     await rm(directory, { force: true, recursive: true });
   }
 });
+
+test('fails closed on a bare wrapper executable without arguments', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-systemd-wrapper-bare-worker-'))
+  );
+  const units = join(directory, 'units');
+  const root = join(directory, 'root');
+  try {
+    await Promise.all([
+      mkdir(units),
+      mkdir(join(root, 'usr/bin'), { recursive: true }),
+    ]);
+    await Promise.all([
+      writeFile(
+        join(units, 'application.service'),
+        `[Service]\nRootDirectory=${root}\nExecStart=/usr/bin/wrapper\n`
+      ),
+      writeFile(join(root, 'usr/bin/wrapper'), '#!/bin/sh\nworker\n', {
+        mode: 0o755,
+      }),
+      writeFile(
+        join(root, 'usr/bin/worker'),
+        '#!/bin/sh\nOLLAMA_HOST=http://127.0.0.1:11434\n',
+        { mode: 0o755 }
+      ),
+    ]);
+
+    await assert.rejects(
+      execFileAsync('sh', [
+        '-c',
+        `${prelude}getent() { return 2; }; systemctl() { return 0; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); SYSTEMD_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; scan_systemd_consumers`,
+        'retire-ollama-systemd-wrapper-bare-worker-test',
+        script.pathname,
+        units,
+      ]),
+      (error) => error.code === 2
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});

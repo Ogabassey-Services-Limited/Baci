@@ -82,3 +82,23 @@ test('fails closed on unmodeled slash tokens in a container wrapper', async () =
     await rm(directory, { force: true, recursive: true });
   }
 });
+
+test('fails closed on a stopped-container bare wrapper executable', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-container-wrapper-bare-worker-'))
+  );
+  try {
+    await assert.rejects(
+      execFileAsync('sh', [
+        '-c',
+        `${prelude}docker() { case "$*" in *' ps -a '*) printf 'generic-api\\n' ;; *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;; *'inspect -f {{json .State.Running}} generic-api') printf 'false\\n' ;; *'inspect -f {{.Id}} '*) printf 'generic-api /generic-api /usr/bin/wrapper [] [] {} null [] {} {} {} [] "bridge"\\n' ;; *'inspect -f {{json .Mounts}} generic-api') printf '[]\\n' ;; *' cp generic-api:/usr/bin/wrapper '*) for destination do :; done; printf '#!/bin/sh\\nworker\\n' >"$destination" ;; *' cp generic-api:/usr/bin/worker '*) for destination do :; done; printf '#!/bin/sh\\nOLLAMA_HOST=http://127.0.0.1:11434\\n' >"$destination" ;; *) return 2 ;; esac; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; CONTAINER=ollama-loopback; scan_container_rows all`,
+        'retire-ollama-container-wrapper-bare-worker-test',
+        script.pathname,
+        directory,
+      ]),
+      (error) => error.code === 2
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
