@@ -96,6 +96,45 @@ test('fails closed before accepting a quoted Compose image key', async () => {
   );
 });
 
+test('keeps scanning services after a root-level blank line', async () => {
+  const { stdout } = await execFileAsync('sh', [
+    '-c',
+    `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf 'services:\\n\\n  app:\\n    image: hidden-image\\n' | compose_image_refs /dev/stdin`,
+    'retire-ollama-compose-services-blank-test',
+    script.pathname,
+  ]);
+  assert.equal(stdout, 'hidden-image\n');
+});
+
+test('keeps scanning dockerfile_inline after a leading blank line', async () => {
+  const { stdout } = await execFileAsync('sh', [
+    '-c',
+    `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf 'services:\\n  app:\\n    build:\\n      dockerfile_inline: |\\n\\n        FROM hidden-image\\n' | compose_inline_dockerfiles /dev/stdin`,
+    'retire-ollama-compose-inline-blank-test',
+    script.pathname,
+  ]);
+  assert.equal(stdout, 'FROM hidden-image\n');
+});
+
+test('does not treat dockerfile_inline payload as a spaced YAML key', async () => {
+  await execFileAsync('sh', [
+    '-c',
+    `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf 'services:\\n  app:\\n    build:\\n      dockerfile_inline: |\\n        RUN : hidden-command\\n' | compose_mapping_key_spacing_guard /dev/stdin`,
+    'retire-ollama-compose-inline-payload-test',
+    script.pathname,
+  ]);
+});
+
+test('discovers an include beneath a consistently indented Compose root', async () => {
+  const { stdout } = await execFileAsync('sh', [
+    '-c',
+    `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf '  include: child.yaml\\n' | compose_include_refs /dev/stdin`,
+    'retire-ollama-compose-indented-include-test',
+    script.pathname,
+  ]);
+  assert.equal(stdout, 'child.yaml\n');
+});
+
 test('binds a static systemd BindReadOnlyPaths source', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-systemd-static-bind-path-'))

@@ -62,6 +62,43 @@ test('traverses a custom Compose file selected directly by system cron', async (
   }
 });
 
+test('unwraps env before traversing a custom Compose file from cron', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-cron-env-compose-reference-'))
+  );
+  const units = join(directory, 'units');
+  const project = join(directory, 'application');
+  const compose = join(project, 'workload.yml');
+  const cron = join(directory, 'crontab');
+  const manifest = join(directory, 'cron-manifest.tsv');
+  try {
+    await Promise.all([mkdir(units), mkdir(project)]);
+    await Promise.all([
+      writeFile(compose, 'services:\n  app:\n    image: hidden-image\n'),
+      writeFile(
+        cron,
+        `* * * * * root /usr/bin/env docker compose -f ${compose} up\n`
+      ),
+      writeFile(manifest, `system\t-\t${cron}\n`),
+    ]);
+
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${prelude}. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; SYSTEMD_ROOTS="$2"; COMPOSE_ROOTS="$3"; CRON_SOURCE="$4"; RETIRE_OLLAMA_CRON_SOURCES="$5"; cron_inventory_anacrontab() { printf '/not-anacron\\n'; }; cron_inventory_system_file() { printf '%s\\n' "$CRON_SOURCE"; }; cron_inventory_system_dir() { printf '/etc/cron.d\\n'; }; cron_inventory_command_targets() { printf '/usr/bin/env\\n'; }; compose_image_configuration() { printf 'sha256:%064d {"Env":["OLLAMA_HOST=http://127.0.0.1:11434"]}\\n' 0; }; scan_compose_definitions`,
+      'retire-ollama-cron-env-compose-test',
+      script.pathname,
+      units,
+      project,
+      cron,
+      manifest,
+    ]);
+
+    assert.match(stdout, /compose-image:/);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('does not consult ambient cron without a caller-owned manifest', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-compose-no-ambient-cron-'))

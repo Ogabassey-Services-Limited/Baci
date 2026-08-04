@@ -117,8 +117,10 @@ test('detects a stopped generic container consuming Ollama through a bind file',
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
-  *'{{.Id}}'*) printf 'generic-api /generic-api [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
+  *'{{.Id}}'*) printf 'generic-api /generic-api /bin/true [] [] "" {} null [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}]\\n' ;;
+  *'{{json .State.Running}}'*) printf 'false\\n' ;;
+  *' cp '*':/bin/true '*) destination=$5; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;;
 esac
 `
     );
@@ -160,8 +162,10 @@ test('does not emit a blank consumer record for a nonmatching regular bind file'
 case "$*" in
   *' ps -a '*) printf 'generic-api\\n' ;;
   *'inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
-  *'{{.Id}}'*) printf 'generic-api /generic-api [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
+  *'{{.Id}}'*) printf 'generic-api /generic-api /bin/true [] [] "" {} null [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}]\\n' ;;
+  *'{{json .State.Running}}'*) printf 'false\\n' ;;
+  *' cp '*':/bin/true '*) destination=$5; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;;
 esac
 `
     );
