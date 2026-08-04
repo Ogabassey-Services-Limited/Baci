@@ -450,9 +450,8 @@ BEGIN
   FOR v_product_id, v_manage_stock IN
     SELECT p.id, COALESCE(p.manage_stock, true)
     FROM public.products AS p
-    JOIN jsonb_array_elements(v_items) AS item
-      ON p.id = NULLIF(item ->> 'product_id', '')::uuid
-    WHERE p.merchant_id = v_order.merchant_id
+    WHERE p.id = NULLIF(v_added_item ->> 'product_id', '')::uuid
+      AND p.merchant_id = v_order.merchant_id
     FOR UPDATE OF p
   LOOP
     IF v_manage_stock THEN
@@ -515,14 +514,20 @@ BEGIN
 
   UPDATE public.orders
   SET
-    branch_id = NULLIF(p_payload ->> 'branch_id', '')::uuid,
-    customer_id = NULLIF(p_payload #>> '{customer,id}', '')::uuid,
+    branch_id = COALESCE(
+      NULLIF(p_payload ->> 'branch_id', '')::uuid,
+      v_order.branch_id
+    ),
+    customer_id = COALESCE(
+      NULLIF(p_payload #>> '{customer,id}', '')::uuid,
+      v_order.customer_id
+    ),
     customer_name = v_customer_name,
     customer_email = v_customer_email,
     customer_phone = v_customer_phone,
     shipping_address = v_new_shipping_address,
-    source = v_order_source,
-    notes = NULLIF(p_payload ->> 'notes', ''),
+    source = COALESCE(v_order_source, v_order.source),
+    notes = COALESCE(NULLIF(p_payload ->> 'notes', ''), v_order.notes),
     shipping_fee = v_shipping_fee,
     gift_wrapping_fee = v_gift_wrapping_fee,
     discount_amount = v_discount_amount,
@@ -620,10 +625,10 @@ BEGIN
   FROM public.order_tax_subtotals AS ots
   WHERE ots.order_id = p_order_id;
 
-  DELETE FROM public.order_tax_subtotals
-  WHERE order_id = p_order_id;
-
   IF v_vat_registration_status = 'registered' THEN
+    DELETE FROM public.order_tax_subtotals
+    WHERE order_id = p_order_id;
+
     WITH item_tax AS (
       SELECT
         COALESCE(NULLIF(oi.vat_category_code, ''), 'S') AS vat_category_code,
@@ -678,6 +683,10 @@ BEGIN
         gt.taxable_amount,
         gt.tax_weight,
         SUM(gt.tax_weight) OVER () AS total_tax_weight,
+        ROW_NUMBER() OVER (
+          ORDER BY gt.vat_category_code, gt.vat_rate
+        ) AS group_row_number,
+        COUNT(*) OVER () AS group_row_count,
         SUM(CASE WHEN gt.tax_weight > 0 THEN 1 ELSE 0 END) OVER (
           ORDER BY gt.vat_category_code, gt.vat_rate
           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
@@ -693,13 +702,13 @@ BEGIN
         metadata.exemption_reason,
         metadata.exemption_reason_code,
         CASE
-          WHEN allocated.tax_weight <= 0 THEN 0
-          WHEN allocated.allocation_row_count = 1 THEN v_tax_amount
           WHEN allocated.total_tax_weight = 0
             THEN CASE
-              WHEN allocated.allocation_row_number = allocated.allocation_row_count THEN v_tax_amount
+              WHEN allocated.group_row_number = allocated.group_row_count THEN v_tax_amount
               ELSE 0
             END
+          WHEN allocated.tax_weight <= 0 THEN 0
+          WHEN allocated.allocation_row_count = 1 THEN v_tax_amount
           WHEN allocated.allocation_row_number = allocated.allocation_row_count THEN
             v_tax_amount - COALESCE(
               SUM(ROUND(v_tax_amount * allocated.tax_weight / allocated.total_tax_weight, 2))

@@ -38,7 +38,10 @@ describe('safe admin order item append migration', () => {
     expect(appendFunctionSql).toContain('FOR UPDATE OF p');
     expect(appendFunctionSql).toContain('COALESCE(p.manage_stock, true)');
     expect(appendFunctionSql).toContain(
-      "ON p.id = NULLIF(item ->> 'product_id', '')::uuid"
+      "WHERE p.id = NULLIF(v_added_item ->> 'product_id', '')::uuid"
+    );
+    expect(appendFunctionSql).toContain(
+      'AND p.merchant_id = v_order.merchant_id'
     );
     expect(appendFunctionSql).toContain(
       "v_tax_amount := (p_payload ->> 'tax_amount')::numeric;"
@@ -50,8 +53,36 @@ describe('safe admin order item append migration', () => {
       'SUM(gt.tax_weight) OVER () AS total_tax_weight'
     );
     expect(appendFunctionSql).toContain(
+      'ROW_NUMBER() OVER (\n          ORDER BY gt.vat_category_code, gt.vat_rate\n        ) AS group_row_number'
+    );
+    const zeroWeightIndex = appendFunctionSql.indexOf(
+      'WHEN allocated.total_tax_weight = 0'
+    );
+    const nonPositiveWeightIndex = appendFunctionSql.indexOf(
+      'WHEN allocated.tax_weight <= 0'
+    );
+    expect(zeroWeightIndex).toBeGreaterThanOrEqual(0);
+    expect(zeroWeightIndex).toBeLessThan(nonPositiveWeightIndex);
+    expect(appendFunctionSql).toContain(
       'WHEN allocated.tax_weight <= 0 THEN 0'
     );
+    expect(appendFunctionSql).toContain(
+      "branch_id = COALESCE(\n      NULLIF(p_payload ->> 'branch_id', '')::uuid,\n      v_order.branch_id\n    )"
+    );
+    expect(appendFunctionSql).toContain(
+      'source = COALESCE(v_order_source, v_order.source)'
+    );
+    expect(appendFunctionSql).toContain(
+      "notes = COALESCE(NULLIF(p_payload ->> 'notes', ''), v_order.notes)"
+    );
+    const vatRebuildIndex = appendFunctionSql.indexOf(
+      "IF v_vat_registration_status = 'registered' THEN"
+    );
+    const taxSubtotalDeleteIndex = appendFunctionSql.indexOf(
+      'DELETE FROM public.order_tax_subtotals'
+    );
+    expect(vatRebuildIndex).toBeGreaterThanOrEqual(0);
+    expect(taxSubtotalDeleteIndex).toBeGreaterThan(vatRebuildIndex);
     expect(appendFunctionSql).toContain(
       "'exemption_reason', ots.exemption_reason"
     );

@@ -295,3 +295,6 @@ END;
 $test$ LANGUAGE plpgsql;
 
 RESET ROLE;
+
+\ir 003_negative_scenarios.sql
+\ir 004_metadata_and_tax_scenarios.sql
