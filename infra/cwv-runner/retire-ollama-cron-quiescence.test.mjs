@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
+const rootShellName = new URL('./cron-quiescence-root-test', script).pathname;
 
 const runner = () => (process.getuid?.() === 0 ? [] : ['/usr/bin/sudo', '-n']);
 
@@ -143,7 +144,7 @@ test('read-only cron boundaries block concurrent owner-spool and system-cron wri
       '/bin/sh',
       '-ceu',
       rootRegression,
-      'cron-quiescence-root-test',
+      rootShellName,
       script.pathname,
       directory,
     ]);
