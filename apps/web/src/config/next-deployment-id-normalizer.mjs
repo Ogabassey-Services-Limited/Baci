@@ -5,6 +5,9 @@ const RESERVED_VERCEL_DEPLOYMENT_ID_PREFIX = /^dpl_/i;
  * Normalize a value for Vercel's custom deployment-id contract. This stays
  * Node-compatible because the prebuilt deployment configuration and the
  * post-deploy storefront verifier must bind to the same marker.
+ *
+ * @param {unknown} value
+ * @returns {string | undefined}
  */
 export function normalizeNextDeploymentId(value) {
   const trimmed = typeof value === 'string' ? value.trim() : '';

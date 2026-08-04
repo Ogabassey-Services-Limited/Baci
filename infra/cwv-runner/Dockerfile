@@ -196,7 +196,7 @@ RUN set -euo pipefail; \
     rm -rf /var/lib/apt/lists/* "$work"
 
 COPY infra/cwv-runner/entrypoint.sh infra/cwv-runner/isolation-probe.sh /opt/baci-cwv/
-COPY infra/cwv-runner/entrypoint.mjs infra/cwv-runner/entrypoint-runtime.mjs infra/cwv-runner/normal-release.mjs infra/cwv-runner/process-inventory.mjs infra/cwv-runner/registration-release.mjs infra/cwv-runner/direct-listener-conformance.mjs infra/cwv-runner/runner-identity-gate.mjs infra/cwv-runner/cwv-runner-authority.mjs infra/cwv-runner/cwv-runner-authority-core.mjs infra/cwv-runner/cwv-runner-authority-runtime.mjs infra/cwv-runner/cwv-runner-stable-attestation-builder.mjs infra/cwv-runner/sealed-runner.mjs infra/cwv-runner/registration-egress-probe.mjs /opt/baci-cwv/
+COPY infra/cwv-runner/entrypoint.mjs infra/cwv-runner/entrypoint-runtime.mjs infra/cwv-runner/normal-release.mjs infra/cwv-runner/process-inventory.mjs infra/cwv-runner/registration-release.mjs infra/cwv-runner/direct-listener-conformance.mjs infra/cwv-runner/runner-identity-gate.mjs infra/cwv-runner/cwv-runner-authority.mjs infra/cwv-runner/cwv-runner-authority-core.mjs infra/cwv-runner/cwv-runner-authority-filters.mjs infra/cwv-runner/cwv-runner-authority-runtime.mjs infra/cwv-runner/cwv-runner-stable-attestation-builder.mjs infra/cwv-runner/sealed-runner.mjs infra/cwv-runner/registration-egress-probe.mjs /opt/baci-cwv/
 COPY infra/cwv-runner/container-attest-runtime.mjs /opt/baci-cwv/container-attest-runtime.mjs
 
 RUN set -euo pipefail; \
@@ -265,7 +265,7 @@ RUN set -euo pipefail; \
     baci_paths=(canonical-json.mjs command-settings-contract.mjs command-settings-receipt.json \
       container-attest-runtime.mjs \
       direct-listener-conformance.mjs entrypoint-runtime.mjs entrypoint.mjs entrypoint.sh \
-      cwv-runner-authority.mjs cwv-runner-authority-core.mjs cwv-runner-authority-runtime.mjs cwv-runner-stable-attestation-builder.mjs image-process-map.json isolation-probe.sh normal-release.mjs policy.json policy.schema.mjs process-inventory.mjs rootfs-source-inventory.json rootfs-source-membership.json \
+      cwv-runner-authority.mjs cwv-runner-authority-core.mjs cwv-runner-authority-filters.mjs cwv-runner-authority-runtime.mjs cwv-runner-stable-attestation-builder.mjs image-process-map.json isolation-probe.sh normal-release.mjs policy.json policy.schema.mjs process-inventory.mjs rootfs-source-inventory.json rootfs-source-membership.json \
       registration-egress-probe.mjs registration-release.mjs runner-identity-gate.mjs sealed-runner.mjs \
       provenance/base-tools.json provenance/chrome.json provenance/node.json provenance/owner-cli.json \
       provenance/pnpm.json provenance/runner.json provenance/ubuntu.json); \

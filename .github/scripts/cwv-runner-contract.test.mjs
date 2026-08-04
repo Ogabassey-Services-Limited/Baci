@@ -35,6 +35,7 @@ const readRepositorySources = async () => {
       authority: await readFile(new URL('.github/scripts/cwv-runner-authority.mjs', root), 'utf8'),
       canonical: await readFile(new URL('.github/scripts/canonical-json.mjs', root), 'utf8'),
       core: await readFile(new URL('.github/scripts/cwv-runner-authority-core.mjs', root), 'utf8'),
+      filters: await readFile(new URL('.github/scripts/cwv-runner-authority-filters.mjs', root), 'utf8'),
       policy: await readFile(new URL('.github/scripts/policy.schema.mjs', root), 'utf8'),
       runtime: await readFile(new URL('.github/scripts/cwv-runner-authority-runtime.mjs', root), 'utf8'),
       stable: await readFile(new URL('.github/scripts/cwv-runner-stable-attestation-builder.mjs', root), 'utf8'),

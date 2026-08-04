@@ -7,6 +7,7 @@ import { request as httpsRequest } from 'node:https';
 import { dirname, join } from 'node:path';
 
 import { canonicalJson, projectPublicAttestation, verifyPublicArtifact, verifyRunnerAuthority } from './cwv-runner-authority-core.mjs';
+import { assertDeployFilterContract } from './cwv-runner-authority-filters.mjs';
 import { readStableAttestation } from './cwv-runner-stable-attestation-builder.mjs';
 import { parseRunnerPolicy } from './policy.schema.mjs';
 
@@ -86,60 +87,15 @@ function parseWorkflow(text) {
 function scalar(value) { if (value === 'true') return true; if (value === 'false') return false; if (/^\d+$/.test(value)) return Number(value); if (/^\[[A-Za-z0-9_.-]+(?:, [A-Za-z0-9_.-]+)*\]$/.test(value)) return value.slice(1, -1).split(', '); if (/^"[^"\\]*"$/.test(value)) return value.slice(1, -1); if (!/^[-A-Za-z0-9_./:@${}=()]+(?: [-A-Za-z0-9_./:@${}=()]+)*$/.test(value)) fail('workflow schema refused'); return value; }
 
 function localImports(source) { return [...source.matchAll(/(?:import|export)[^'"`]*['"](\.\/[^'"]+)['"]/g)].map((match) => match[1]).sort(); }
-function parsePathFilters(text) {
-  if (typeof text !== 'string') fail('deploy filter refused');
-  const filters = {};
-  let current;
-  for (const raw of text.split('\n')) {
-    const line = raw.replace(/\r$/, '');
-    if (line.trim() === '' || line.trim().startsWith('#')) continue;
-    const section = /^(?<name>[A-Za-z_][A-Za-z0-9_-]*):$/.exec(line);
-    if (section) {
-      if (Object.hasOwn(filters, section.groups.name)) fail('deploy filter refused');
-      current = section.groups.name;
-      filters[current] = [];
-      continue;
-    }
-    const path = /^ {2}- '(?<value>[^']+)'$/.exec(line);
-    if (!path || !current) fail('deploy filter refused');
-    filters[current].push(path.groups.value);
-  }
-  return filters;
-}
-function activeDeployFilterReferences(text) {
-  if (typeof text !== 'string') fail('deploy filter refused');
-  const references = [];
-  const lines = text.split('\n');
-  for (let index = 0; index < lines.length; index += 1) {
-    const uses = /^(?<indent> *)- uses: dorny\/paths-filter@/.exec(lines[index]);
-    if (!uses) continue;
-    const baseIndent = uses.groups.indent.length;
-    for (let nested = index + 1; nested < lines.length; nested += 1) {
-      const line = lines[nested];
-      if (line.trim() === '' || line.trim().startsWith('#')) continue;
-      const indent = line.search(/\S/);
-      if (indent <= baseIndent) break;
-      const filter = /^ *filters: (?<path>[^\s#]+)$/.exec(line);
-      if (filter) references.push(filter.groups.path);
-    }
-  }
-  return references;
-}
 function assertRepositoryClosure(sources, workflowText) {
   if (!object(sources) || typeof sources.actionlint !== 'string' || typeof sources.actionlintWorkflow !== 'string' || typeof sources.deploy !== 'string' || typeof sources.deployFilter !== 'string' || !object(sources.workflows) || !object(sources.authoritySources)) fail('source closure refused');
   if (sources.actionlint.trim() !== 'self-hosted-runner:\n  labels:\n    - baci-android\n    - baci-deploy\n    - baci-lighthouse\n    - baci-cwv-measurement' || !sources.actionlintWorkflow.includes('.github/actionlint.yaml')) fail('actionlint refused');
   const selectorCount = Object.values(sources.workflows).join('').split('baci-cwv-measurement').length - 1;
   if (sources.workflows['cwv-runner-attestation.yml'] !== workflowText || selectorCount !== 1) fail('measurement selector refused');
-  const deployFilterReferences = activeDeployFilterReferences(sources.deploy);
-  const deployFilters = parsePathFilters(sources.deployFilter);
-  const runnerPath = 'infra/cwv-runner/**';
-  if (deployFilterReferences.length !== 1 || deployFilterReferences[0] !== '.github/filters/deploy.yml') fail('deploy filter refused');
-  for (const name of ['web', 'cwv_runner']) {
-    if ((deployFilters[name] ?? []).filter((path) => path === runnerPath).length !== 1) fail('deploy filter refused');
-  }
-  if (Object.entries(deployFilters).some(([name, paths]) => !['web', 'cwv_runner'].includes(name) && paths.includes(runnerPath))) fail('deploy filter refused');
+  assertDeployFilterContract(sources.deploy, sources.deployFilter);
   const { authority, canonical, core, policy, runtime, stable } = sources.authoritySources;
-  if (![authority, canonical, core, policy, runtime, stable].every((source) => typeof source === 'string') || !same(localImports(authority), ['./cwv-runner-authority-core.mjs', './cwv-runner-authority-runtime.mjs']) || !same(localImports(canonical), []) || !same(localImports(core), []) || !same(localImports(policy), ['./canonical-json.mjs']) || !same(localImports(runtime), ['./cwv-runner-authority-core.mjs', './cwv-runner-stable-attestation-builder.mjs', './policy.schema.mjs']) || !same(localImports(stable), ['./cwv-runner-authority-core.mjs'])) fail('source closure refused');
+  const filters = sources.authoritySources.filters;
+  if (![authority, canonical, core, filters, policy, runtime, stable].every((source) => typeof source === 'string') || !same(localImports(authority), ['./cwv-runner-authority-core.mjs', './cwv-runner-authority-runtime.mjs']) || !same(localImports(canonical), []) || !same(localImports(core), []) || !same(localImports(filters), []) || !same(localImports(policy), ['./canonical-json.mjs']) || !same(localImports(runtime), ['./cwv-runner-authority-core.mjs', './cwv-runner-authority-filters.mjs', './cwv-runner-stable-attestation-builder.mjs', './policy.schema.mjs']) || !same(localImports(stable), ['./cwv-runner-authority-core.mjs'])) fail('source closure refused');
 }
 
 async function checkedRepositorySources(fs, workspace) {
@@ -147,7 +103,7 @@ async function checkedRepositorySources(fs, workspace) {
   const read = async (path) => { try { const bytes = await fs.readFile(join(workspace, path), 'utf8'); if (typeof bytes !== 'string' || bytes.length > 1_048_576) fail('checked source refused'); return bytes; } catch { fail('checked source refused'); } };
   const workflowNames = await fs.readdir(join(workspace, '.github/workflows'));
   const workflows = Object.fromEntries(await Promise.all(workflowNames.filter((name) => /\.ya?ml$/i.test(name)).map(async (name) => [name, await read(`.github/workflows/${name}`)])));
-  return { actionlint: await read('.github/actionlint.yaml'), actionlintWorkflow: await read('.github/workflows/actionlint.yml'), authoritySources: { authority: await read('.github/scripts/cwv-runner-authority.mjs'), canonical: await read('.github/scripts/canonical-json.mjs'), core: await read('.github/scripts/cwv-runner-authority-core.mjs'), policy: await read('.github/scripts/policy.schema.mjs'), runtime: await read('.github/scripts/cwv-runner-authority-runtime.mjs'), stable: await read('.github/scripts/cwv-runner-stable-attestation-builder.mjs') }, deploy: await read('.github/workflows/deploy.yml'), deployFilter: await read('.github/filters/deploy.yml'), workflows };
+  return { actionlint: await read('.github/actionlint.yaml'), actionlintWorkflow: await read('.github/workflows/actionlint.yml'), authoritySources: { authority: await read('.github/scripts/cwv-runner-authority.mjs'), canonical: await read('.github/scripts/canonical-json.mjs'), core: await read('.github/scripts/cwv-runner-authority-core.mjs'), filters: await read('.github/scripts/cwv-runner-authority-filters.mjs'), policy: await read('.github/scripts/policy.schema.mjs'), runtime: await read('.github/scripts/cwv-runner-authority-runtime.mjs'), stable: await read('.github/scripts/cwv-runner-stable-attestation-builder.mjs') }, deploy: await read('.github/workflows/deploy.yml'), deployFilter: await read('.github/filters/deploy.yml'), workflows };
 }
 
 export function createGithubTransport({ request: requestImpl = httpsRequest, setTimeout: setDeadline = setTimeout, clearTimeout: clearDeadline = clearTimeout } = {}) {
