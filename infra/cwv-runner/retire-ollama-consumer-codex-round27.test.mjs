@@ -125,6 +125,27 @@ test('does not treat dockerfile_inline payload as a spaced YAML key', async () =
   ]);
 });
 
+for (const header of ['|2', '>2-', '|+2']) {
+  test(`recognizes ${header} as a Compose block scalar header`, async () => {
+    const input = `services:\n  app:\n    build:\n      dockerfile_inline: ${header}\n        RUN : hidden-command\n    image: visible-image\n`;
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf '%s' "$2" | compose_image_refs /dev/stdin`,
+      'retire-ollama-compose-block-indicator-image-test',
+      script.pathname,
+      input,
+    ]);
+    assert.equal(stdout, 'visible-image\n');
+    await execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf '%s' "$2" | compose_mapping_key_spacing_guard /dev/stdin`,
+      'retire-ollama-compose-block-indicator-guard-test',
+      script.pathname,
+      input,
+    ]);
+  });
+}
+
 test('discovers an include beneath a consistently indented Compose root', async () => {
   const { stdout } = await execFileAsync('sh', [
     '-c',
