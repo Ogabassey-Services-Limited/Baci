@@ -8,6 +8,7 @@ import { buildHomeSeoDecision } from '@/lib/storefront-seo/build-home-seo-decisi
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createClient } from '@/lib/supabase/server';
 import { buildStorefrontSearchReadinessAssessment } from './build-storefront-search-readiness-assessment';
+import { countProductsMissingEffectivePublicImagesInPages } from './count-products-missing-effective-public-images-in-pages';
 import { hasPublishableTrustPolicy } from './has-publishable-trust-policy';
 
 async function countRows(
@@ -19,6 +20,33 @@ async function countRows(
   const { count, error } = await query;
   if (error) throw new Error(error.message);
   return count ?? 0;
+}
+
+const CATEGORY_INTRO_PAGE_SIZE = 250;
+
+async function countCategoriesMissingCustomIntro(
+  getPage: (range: { from: number; to: number }) => PromiseLike<{
+    data: Array<{
+      seo_description: string | null;
+      seo_heading: string | null;
+    }> | null;
+    error: { message: string } | null;
+  }>
+): Promise<number> {
+  let count = 0;
+  for (let from = 0; ; from += CATEGORY_INTRO_PAGE_SIZE) {
+    const { data, error } = await getPage({
+      from,
+      to: from + CATEGORY_INTRO_PAGE_SIZE - 1,
+    });
+    if (error) throw new Error(error.message);
+    const categories = data ?? [];
+    count += categories.filter(
+      (category) =>
+        !category.seo_heading?.trim() && !category.seo_description?.trim()
+    ).length;
+    if (categories.length < CATEGORY_INTRO_PAGE_SIZE) return count;
+  }
 }
 
 export async function getStorefrontSearchReadiness(merchantId: string) {
@@ -61,28 +89,31 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
         .eq('status', 'active')
         .or('description.is.null,description.eq.')
     ),
-    countRows(
+    countProductsMissingEffectivePublicImagesInPages(({ from, to }) =>
       supabase
         .from('products')
-        .select('id', { count: 'exact', head: true })
+        .select(
+          'images, product_variants!product_variants_product_id_fkey(primary_image, images, is_inventory_anchor)'
+        )
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .or('images.is.null,images.eq.[]')
+        .order('id', { ascending: true })
+        .range(from, to)
     ),
-    countRows(
+    countCategoriesMissingCustomIntro(({ from, to }) =>
       supabase
         .from('categories')
-        .select('id', { count: 'exact', head: true })
+        .select('seo_heading, seo_description')
         .eq('merchant_id', merchant.id)
         .eq('is_active', true)
-        .or('description.is.null,description.eq.')
+        .order('id', { ascending: true })
+        .range(from, to)
     ),
   ]);
 
   if (merchantResult.error || !merchantResult.data) {
     throw new Error(merchantResult.error?.message ?? 'Merchant not found');
   }
-
   const merchantFacts = merchantResult.data;
   const canonicalUrl = merchantFacts.slug?.trim()
     ? buildStoreUrl({

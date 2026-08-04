@@ -4,9 +4,57 @@ import { sanitizeSocialMedia, settingsSchema } from './settings-utils';
 describe('settingsSchema', () => {
   it('accepts a valid business name and country', () => {
     expect(
-      settingsSchema.safeParse({ business_name: 'My Store', country: 'NG' })
-        .success
+      settingsSchema.safeParse({
+        business_name: 'My Store',
+        country: 'NG',
+        site_description: 'Thoughtful products for everyday life.',
+        support_email: ' support@example.com ',
+        support_phone: ' +234 800 000 0000 ',
+      }).success
     ).toBe(true);
+  });
+
+  it('normalizes the storefront description and public support contacts', () => {
+    const result = settingsSchema.safeParse({
+      business_name: 'My Store',
+      country: 'NG',
+      site_description: '  Thoughtful products for everyday life.  ',
+      support_email: ' SUPPORT@EXAMPLE.COM ',
+      support_phone: ' +234 800 000 0000 ',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        site_description: 'Thoughtful products for everyday life.',
+        support_email: 'support@example.com',
+        support_phone: '+234 800 000 0000',
+      });
+    }
+  });
+
+  it('rejects a malformed public support email', () => {
+    expect(
+      settingsSchema.safeParse({
+        business_name: 'My Store',
+        country: 'NG',
+        site_description: '',
+        support_email: 'not-an-email',
+        support_phone: '',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects an oversized storefront description', () => {
+    expect(
+      settingsSchema.safeParse({
+        business_name: 'My Store',
+        country: 'NG',
+        site_description: 'a'.repeat(321),
+        support_email: '',
+        support_phone: '',
+      }).success
+    ).toBe(false);
   });
 
   it('trims surrounding whitespace on business_name', () => {

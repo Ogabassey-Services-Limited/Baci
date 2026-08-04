@@ -42,7 +42,7 @@ describe('getStorefrontSearchReadiness', () => {
     );
   });
 
-  it('counts missing catalog media through images rather than a nonexistent image column', async () => {
+  it('loads variant media when determining which products are missing public images', async () => {
     const calls: Array<{ table: string; columns: string; operation?: string }> =
       [];
     const createTerminal = (table: string, columns: string) => {
@@ -73,6 +73,14 @@ describe('getStorefrontSearchReadiness', () => {
           calls.push({ table, columns, operation: `or:${filter}` });
           return terminal;
         },
+        order: (column: string) => {
+          calls.push({ table, columns, operation: `order:${column}` });
+          return terminal;
+        },
+        range: (from: number, to: number) => {
+          calls.push({ table, columns, operation: `range:${from}-${to}` });
+          return terminal;
+        },
         maybeSingle: () => terminal,
       });
       return terminal;
@@ -99,11 +107,21 @@ describe('getStorefrontSearchReadiness', () => {
     expect(calls).toContainEqual(
       expect.objectContaining({
         table: 'products',
-        operation: 'or:images.is.null,images.eq.[]',
+        columns:
+          'images, product_variants!product_variants_product_id_fkey(primary_image, images, is_inventory_anchor)',
       })
     );
-    expect(calls).not.toContainEqual(
-      expect.objectContaining({ table: 'products', operation: 'or:image.' })
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        table: 'products',
+        operation: 'order:id',
+      })
+    );
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        table: 'products',
+        operation: 'range:0-249',
+      })
     );
   });
 
@@ -136,6 +154,8 @@ describe('getStorefrontSearchReadiness', () => {
       const terminal = Object.assign(Promise.resolve(result), {
         eq: () => terminal,
         or: () => terminal,
+        order: () => terminal,
+        range: () => terminal,
         maybeSingle: () => terminal,
       });
       return terminal;
@@ -188,6 +208,8 @@ describe('getStorefrontSearchReadiness', () => {
       const terminal = Object.assign(Promise.resolve(result), {
         eq: () => terminal,
         or: () => terminal,
+        order: () => terminal,
+        range: () => terminal,
         maybeSingle: () => terminal,
       });
       return terminal;
@@ -231,6 +253,8 @@ describe('getStorefrontSearchReadiness', () => {
       const terminal = Object.assign(Promise.resolve(result), {
         eq: () => terminal,
         or: () => terminal,
+        order: () => terminal,
+        range: () => terminal,
         maybeSingle: () => terminal,
       });
       return terminal;

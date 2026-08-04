@@ -127,4 +127,27 @@ describe('POST /api/agentic/catalog/product', () => {
       expect.stringContaining('product_categories:product_categories')
     );
   });
+
+  it('keeps the canonical category path for a junction-only product', async () => {
+    mockProductRow({
+      id: 'product-1',
+      name: 'Laptop',
+      product_categories: [{ categories: { slug: 'laptops' } }],
+      slug: 'thin-laptop',
+      status: 'active',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/product', {
+        body: JSON.stringify({ id: 'product-1' }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(body.product.url).toBe(
+      'https://ogabassey.usebaci.com/laptops/thin-laptop'
+    );
+  });
 });

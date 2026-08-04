@@ -25,11 +25,11 @@ describe('buildStorefrontSearchReadinessAssessment', () => {
       improvements: [
         {
           code: 'missing_custom_store_description',
-          href: '/dashboard/settings',
+          href: '/dashboard/settings#storefront-profile',
         },
         {
           code: 'missing_public_support_contact',
-          href: '/dashboard/settings',
+          href: '/dashboard/settings#storefront-profile',
         },
         {
           code: 'missing_published_trust_policy',

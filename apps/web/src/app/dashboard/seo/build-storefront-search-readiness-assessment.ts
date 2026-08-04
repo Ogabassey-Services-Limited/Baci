@@ -2,6 +2,7 @@ import type { SeoIndexingDecision } from '@/lib/storefront-seo/seo-indexing-deci
 
 export type SearchReadinessHref =
   | '/dashboard/settings'
+  | '/dashboard/settings#storefront-profile'
   | '/dashboard/products'
   | '/dashboard/categories'
   | '/dashboard/settings/trust';
@@ -63,12 +64,12 @@ export function buildStorefrontSearchReadinessAssessment({
   if (!hasCustomStoreDescription)
     improvements.push({
       code: 'missing_custom_store_description',
-      href: '/dashboard/settings',
+      href: '/dashboard/settings#storefront-profile',
     });
   if (!hasPublicSupportContact) {
     improvements.push({
       code: 'missing_public_support_contact',
-      href: '/dashboard/settings',
+      href: '/dashboard/settings#storefront-profile',
     });
   }
   if (!hasPublishedTrustPolicy) {
