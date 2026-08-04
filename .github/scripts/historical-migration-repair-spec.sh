@@ -20,6 +20,9 @@ historical_migration_repair_spec() {
     20260801142100:preserve_manual_gigl_failures_after_unknown_scans)
       printf '%s\t%s\t%s\n' '20260804000300' 'repair_gigl_manual_failure_status_scope' 'f97c32889ae2e733d881bd7d6672cd91337936326f55e205d717bb972398ea73'
       ;;
+    20260801142200:cleanup_unowned_gigl_monitor_backfill)
+      printf '%s\t%s\t%s\n' '20260804000500' 'repair_gigl_monitor_backfill_join' '605a0d48a4f116e67ee626ff173b66c6c80cefa77ad606a3813aa1ea6deda62a'
+      ;;
     *) return 1 ;;
   esac
 }

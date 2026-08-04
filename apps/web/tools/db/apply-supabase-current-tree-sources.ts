@@ -79,6 +79,15 @@ const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
         'f97c32889ae2e733d881bd7d6672cd91337936326f55e205d717bb972398ea73',
     },
   ],
+  [
+    'supabase/migrations/20260801142200_cleanup_unowned_gigl_monitor_backfill.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260804000500_repair_gigl_monitor_backfill_join.sql',
+      sourceSha256:
+        '605a0d48a4f116e67ee626ff173b66c6c80cefa77ad606a3813aa1ea6deda62a',
+    },
+  ],
 ]);
 
 const replaySourceSupersessions = new Map<string, ReplaySourceSupersession>([

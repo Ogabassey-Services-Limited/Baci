@@ -262,7 +262,9 @@ jobs:
         run: >-
           bash .github/scripts/apply-pending-migrations.test.sh &&
           bash .github/scripts/historical-migration-repair-spec.test.sh &&
+          bash .github/scripts/historical-migration-repair-backfill.test.sh &&
           bash supabase/tests/run-gigl-tracking-retry-repair-test.sh &&
+          bash supabase/tests/run-gigl-monitor-backfill-repair-test.sh &&
           node --test .github/scripts/split-sql-statements.test.mjs
       - name: Verify Migration Versions
         run: bash .github/scripts/check-migration-versions.sh

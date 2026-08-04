@@ -54,6 +54,16 @@ const repairCases = [
       'supabase/migrations/20260804000300_repair_gigl_manual_failure_status_scope.sql',
     ordinal: 129,
   },
+  {
+    label: 'GIGL monitor backfill join',
+    historicalPath:
+      'supabase/migrations/20260801142200_cleanup_unowned_gigl_monitor_backfill.sql',
+    historicalSha256:
+      '605a0d48a4f116e67ee626ff173b66c6c80cefa77ad606a3813aa1ea6deda62a',
+    repairPath:
+      'supabase/migrations/20260804000500_repair_gigl_monitor_backfill_join.sql',
+    ordinal: 129,
+  },
 ] as const;
 
 describe('applySupabaseCurrentTreeSources', () => {
