@@ -4,10 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
-const migrationsDirectory = resolve(
-  currentDirectory,
-  '../../../../../supabase/migrations'
-);
+const repositoryRoot = resolve(currentDirectory, '../../../../../');
+const migrationsDirectory = resolve(repositoryRoot, 'supabase/migrations');
 const migrationFilePattern = /^\d{14}.*\.sql$/;
 const statementPattern =
   /(GRANT\s+USAGE\s+ON\s+SCHEMA\s+private\s+TO|REVOKE\s+(?:ALL|USAGE)\s+ON\s+SCHEMA\s+private\s+FROM)\s+([^;]+);/gi;
@@ -117,5 +115,29 @@ describe('bugfix: public checkout wrappers lost private-schema usage', () => {
     expect(migrationSql).not.toMatch(
       /GRANT[^;]*ON\s+TABLE\s+private\.merchant_payment_credentials/i
     );
+  });
+
+  it('runs the replay regression whenever quiz database files change', () => {
+    const workflow = readFileSync(
+      resolve(repositoryRoot, '.github/workflows/ci.yml'),
+      'utf8'
+    );
+
+    expect(workflow).toMatch(
+      /- name: Run migration replay regression test\s+if: needs\.changes\.outputs\.quiz_db == 'true'\s+run: pnpm --filter @baci\/web exec vitest run src\/lib\/agentic\/order-private-schema-usage-migration\.test\.ts/
+    );
+  });
+
+  it('authenticates every TCP psql command in the PostgreSQL boundary runner', () => {
+    const runner = readFileSync(
+      resolve(
+        repositoryRoot,
+        'supabase/tests/run-storefront-order-private-schema-boundary-test.sh'
+      ),
+      'utf8'
+    );
+
+    expect(runner).toContain('postgres_password="test"');
+    expect(runner).not.toMatch(/docker exec(?! -e PGPASSWORD=)/);
   });
 });
