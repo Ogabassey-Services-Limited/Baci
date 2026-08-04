@@ -258,6 +258,7 @@ describe('PATCH /api/orders/[id]/edit', () => {
     ['order_item_replacement_has_accounting_metadata', 409],
     ['order_item_replacement_has_managed_stock', 409],
     ['order_item_replacement_has_serialized_reservations', 409],
+    ['order_item_append_supports_one_new_line', 409],
     ['order_total_negative', 400],
     ['order_notify_customer_invalid', 400],
     ['order_item_product_forbidden', 403],
@@ -275,6 +276,51 @@ describe('PATCH /api/orders/[id]/edit', () => {
     const response = await callPatch(createRequest(validPayload));
 
     expect(response.status).toBe(status);
+  });
+
+  it('explains when protected line-item history blocks replacement edits', async () => {
+    const { supabase } = createSupabaseMock({
+      rpcError: {
+        message: 'order_item_replacement_has_accounting_metadata',
+      },
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      supabase,
+      user: createMockUser(),
+    });
+
+    const response = await callPatch(createRequest(validPayload));
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload).toEqual({
+      code: 'order_not_editable',
+      error:
+        'This order contains protected line-item history. Existing items cannot be changed or removed.',
+    });
+  });
+
+  it('tells merchants to add only one new item per edit', async () => {
+    const { supabase } = createSupabaseMock({
+      rpcError: {
+        message: 'order_item_append_supports_one_new_line',
+      },
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      supabase,
+      user: createMockUser(),
+    });
+
+    const response = await callPatch(createRequest(validPayload));
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload).toEqual({
+      code: 'order_item_append_limit',
+      error: 'Add only one new item per edit.',
+    });
   });
 
   it('returns degraded success when the updated order cannot be refreshed', async () => {
