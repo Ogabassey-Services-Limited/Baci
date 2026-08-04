@@ -28,6 +28,13 @@ CREATE TABLE public.shipments (
   tracking_timeline_generation integer NOT NULL
 );
 
+CREATE TABLE public.shipment_tracking_monitors (
+  shipment_id uuid PRIMARY KEY,
+  state text NOT NULL,
+  next_poll_at timestamptz,
+  stopped_at timestamptz
+);
+
 CREATE TABLE public.gigl_tracking_sync_probe (
   result text NOT NULL
 );
@@ -100,9 +107,6 @@ DECLARE
   v_latest_incoming_event_at timestamptz := '2026-01-01 00:00:00+00';
   v_effective_status text;
   v_current_location text := 'Warehouse';
-  v_monitor_state text;
-  v_next_poll_at timestamptz;
-  v_stopped_at timestamptz;
   v_should_update_location boolean := false;
   v_should_update_delivery boolean := false;
 BEGIN
@@ -112,21 +116,27 @@ BEGIN
       THEN v_current_status
     ELSE p_status
   END;
-  -- These three predicates deliberately model the historical pre-repair
-  -- function. 20260804000400 replaces each named monitor-field predicate.
-  v_monitor_state := CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
-    THEN 'terminal' ELSE 'active' END;
-  v_next_poll_at := CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
-    THEN NULL ELSE now() + interval '15 minutes' END;
-  v_stopped_at := CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
-    THEN now() ELSE NULL END;
-  v_should_update_location := v_current_location IS NOT NULL
-    AND v_monitor_state <> 'terminal';
+  -- These direct monitor assignments match the historical production
+  -- function. 20260804000400 must rewrite all three terminality predicates.
+  v_should_update_location := v_current_location IS NOT NULL;
   v_should_update_delivery := p_actual_delivery IS NOT NULL;
+  UPDATE public.shipment_tracking_monitors AS monitor
+  SET state = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+      THEN 'terminal' ELSE 'active' END,
+    next_poll_at = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+      THEN NULL ELSE now() + interval '15 minutes' END,
+    stopped_at = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+      THEN now() ELSE NULL END
+  WHERE monitor.shipment_id = p_shipment_id;
   RETURN jsonb_build_object(
     'effective_status', v_effective_status,
     'should_update_location', v_should_update_location,
-    'should_update_delivery', v_should_update_delivery
+    'should_update_delivery', v_should_update_delivery,
+    'monitor_state', (
+      SELECT state
+      FROM public.shipment_tracking_monitors
+      WHERE shipment_id = p_shipment_id
+    )
   );
 END;
 $function$;

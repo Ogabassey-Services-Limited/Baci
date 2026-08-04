@@ -63,31 +63,31 @@ BEGIN
   );
   v_definition := replace(
     v_definition,
-    E'  v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
+    E'  SET state = CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
     E'  v_manual_terminal_failed := v_effective_status = ''failed''\n'
       || E'    AND v_manual_terminal_override_at IS NOT NULL\n'
       || E'    AND (\n'
       || E'      v_latest_incoming_event_at IS NULL\n'
       || E'      OR v_latest_incoming_event_at <= v_manual_terminal_override_at\n'
       || E'    );\n'
-      || E'  v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')'
+      || E'  SET state = CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')'
   );
   v_definition := replace(
     v_definition,
-    E'v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
-    E'v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    E'SET state = CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
+    E'SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
   );
   v_definition := replace(
     v_definition,
-    E'v_next_poll_at := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
-    E'v_next_poll_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    E'next_poll_at = CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
+    E'next_poll_at = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
   );
   v_definition := replace(
     v_definition,
-    E'v_stopped_at := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
-    E'v_stopped_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    E'stopped_at = CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
+    E'stopped_at = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
   );
   v_expected_declaration :=
@@ -99,16 +99,16 @@ BEGIN
     || E'      v_latest_incoming_event_at IS NULL\n'
     || E'      OR v_latest_incoming_event_at <= v_manual_terminal_override_at\n'
     || E'    );\n'
-    || E'  v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    || E'  SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
     || E'      OR v_manual_terminal_failed)';
   v_expected_monitor_terminality :=
-    E'v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    E'SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
     || E'      OR v_manual_terminal_failed)';
   v_expected_next_poll_terminality :=
-    E'v_next_poll_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    E'next_poll_at = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
     || E'      OR v_manual_terminal_failed)';
   v_expected_stopped_terminality :=
-    E'v_stopped_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    E'stopped_at = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
     || E'      OR v_manual_terminal_failed)';
   IF v_definition = v_original_definition
     OR (

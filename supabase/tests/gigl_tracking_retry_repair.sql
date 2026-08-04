@@ -33,22 +33,22 @@ BEGIN
       || E'      v_latest_status_event_at IS NULL\n'
       || E'      OR v_latest_status_event_at <= v_manual_terminal_override_at\n'
       || E'    );\n'
-      || E'  v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      || E'  SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
     ) = 0
     OR pg_catalog.strpos(
       apply_definition,
-      E'v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      E'SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
     ) = 0
     OR pg_catalog.strpos(
       apply_definition,
-      E'v_next_poll_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      E'next_poll_at = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
     ) = 0
     OR pg_catalog.strpos(
       apply_definition,
-      E'v_stopped_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      E'stopped_at = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
     ) = 0
     OR apply_definition NOT LIKE '%v_latest_status_event_at <= v_manual_terminal_override_at%'
@@ -70,6 +70,8 @@ BEGIN
     '00000000-0000-0000-0000-000000000021',
     1
   );
+  INSERT INTO public.shipment_tracking_monitors(shipment_id, state)
+  VALUES ('00000000-0000-0000-0000-000000000002', 'active');
 
   SELECT result
   INTO sync_result
@@ -104,9 +106,7 @@ BEGIN
     '[]'::jsonb
   ) INTO manual_failure_result;
   IF manual_failure_result->>'effective_status' IS DISTINCT FROM 'failed'
-    OR (
-      manual_failure_result->>'should_update_location'
-    )::boolean IS DISTINCT FROM false THEN
+    OR manual_failure_result->>'monitor_state' IS DISTINCT FROM 'terminal' THEN
     RAISE EXCEPTION 'manual failed GIGL status must remain terminal';
   END IF;
 END;

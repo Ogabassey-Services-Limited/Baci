@@ -77,17 +77,29 @@ describe('GIGL manual failure hardening migrations', () => {
     const terminalityRepair = readMigration(
       '20260804000400_repair_gigl_notification_terminality_cardinality.sql'
     );
+    const historicalFunction = readMigration(
+      '20260801141100_preserve_manual_gigl_terminal_overrides.sql'
+    );
 
     expect(
-      readMigration(
-        '20260801141100_preserve_manual_gigl_terminal_overrides.sql'
-      ).match(/v_effective_status IN \('delivered', 'cancelled', 'returned'\)/g)
+      historicalFunction.match(
+        /v_effective_status IN \('delivered', 'cancelled', 'returned'\)/g
+      )
     ).toHaveLength(3);
+    expect(historicalFunction).toContain(
+      "SET state = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')"
+    );
+    expect(historicalFunction).toContain(
+      "next_poll_at = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')"
+    );
+    expect(historicalFunction).toContain(
+      "stopped_at = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')"
+    );
     expect(terminalityRepair).toContain('v_expected_monitor_terminality');
     expect(terminalityRepair).toContain('v_expected_next_poll_terminality');
     expect(terminalityRepair).toContain('v_expected_stopped_terminality');
     expect(terminalityRepair).toContain(
-      "|| E'  v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\\n'"
+      "|| E'  SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\\n'"
     );
     expect(
       readMigrationTest('gigl_tracking_manual_failure_order_status.sql')

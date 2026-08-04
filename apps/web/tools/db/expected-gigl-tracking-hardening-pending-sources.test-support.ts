@@ -237,6 +237,6 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
   ],
   [
     '20260804000400_repair_gigl_notification_terminality_cardinality.sql',
-    '04bc79d12fa058624923a1d1d003b0655ebf3b67cd6aa99dc1d55422ff04765d',
+    '1eb09f7fb74f3a16920e24eda4269ff5c2ff4ee25cecc287a288ed87bde824fe',
   ],
 ] as const;
