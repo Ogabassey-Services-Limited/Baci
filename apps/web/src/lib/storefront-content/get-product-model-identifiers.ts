@@ -2,6 +2,7 @@ import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import { applyJoinedTitleCorrections } from './apply-joined-title-corrections';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { filterProductModelSourceTokens } from './filter-product-model-source-tokens';
+import { getProductModelIdentifiersFromSources } from './get-product-model-identifiers-from-sources';
 import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
@@ -274,26 +275,22 @@ export function getProductModelIdentifiers(
     )
   );
   const brandAliasGroups = getBrandAliasGroups(context);
-  const productSources = context.productNames?.length
-    ? context.productNames
-    : (context.productSlugs ?? []);
-  return Array.from(
-    new Set(
-      productSources
-        .map((slug) =>
-          getModelTokens(
-            slug,
-            getExcludedTokensForSlug(
-              slug,
-              baseExcludedTokens,
-              brandAliasGroups,
-              protectedFamilyTokens
-            ),
-            context.categorySlug
-          )
-        )
-        .map((tokens) => selectProductModelIdentifier(tokens, isGameCategory))
-        .filter((token): token is string => Boolean(token))
-    )
+  return getProductModelIdentifiersFromSources(
+    context.productNames,
+    context.productSlugs,
+    (source) =>
+      selectProductModelIdentifier(
+        getModelTokens(
+          source,
+          getExcludedTokensForSlug(
+            source,
+            baseExcludedTokens,
+            brandAliasGroups,
+            protectedFamilyTokens
+          ),
+          context.categorySlug
+        ),
+        isGameCategory
+      )
   );
 }

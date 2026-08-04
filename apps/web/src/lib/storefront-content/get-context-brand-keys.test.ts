@@ -28,4 +28,13 @@ describe('getContextBrandKeys', () => {
 
     expect(brandKeys).toEqual(['google']);
   });
+
+  it('preserves unconfigured explicit brands alongside canonicalized brands', () => {
+    const brandKeys = getContextBrandKeys(['Apple', 'Nothing'], undefined, {
+      apple: ['apple', 'iphone'],
+      samsung: ['samsung', 'galaxy'],
+    });
+
+    expect(brandKeys).toEqual(['apple', 'nothing']);
+  });
 });

@@ -108,6 +108,17 @@ describe('getProductModelIdentifiers catalog edge cases', () => {
     expect(identifiers).toEqual(['all in one 24']);
   });
 
+  it('falls back to a custom slug when a product name has no model identifier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'smartphones',
+      brands: ['Samsung'],
+      productNames: ['Samsung Smartphone'],
+      productSlugs: ['samsung-galaxy-s25'],
+    });
+
+    expect(identifiers).toEqual(['s25']);
+  });
+
   it('removes retailer configuration SKUs while retaining convertible laptop family identifiers', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',

@@ -1,6 +1,31 @@
 import { generateSlug } from '@/lib/seo-utils';
 import { tokenizeContentText } from './tokenize-content-text';
 
+function resolveExplicitBrandKey(
+  brand: string,
+  brandAliases: Record<string, readonly string[]>
+) {
+  if (Object.hasOwn(brandAliases, brand)) {
+    return brand;
+  }
+
+  const brandTokens = new Set(tokenizeContentText(brand));
+  const canonicalBrand = Object.keys(brandAliases).find((candidate) =>
+    tokenizeContentText(candidate).every((token) => brandTokens.has(token))
+  );
+  if (canonicalBrand) {
+    return canonicalBrand;
+  }
+
+  return (
+    Object.entries(brandAliases).find(([, aliases]) =>
+      aliases.some((alias) =>
+        tokenizeContentText(alias).every((token) => brandTokens.has(token))
+      )
+    )?.[0] ?? brand
+  );
+}
+
 /** Resolves configured canonical brands from explicit context or product names. */
 export function getContextBrandKeys(
   brands: readonly string[] | undefined,
@@ -11,37 +36,13 @@ export function getContextBrandKeys(
     new Set((brands ?? []).map(generateSlug).filter(Boolean))
   );
   if (explicitBrandKeys.length > 0) {
-    const exactCanonicalKeys = explicitBrandKeys.filter((brand) =>
-      Object.hasOwn(brandAliases, brand)
-    );
-    if (exactCanonicalKeys.length > 0) {
-      return exactCanonicalKeys;
-    }
-
-    const explicitBrandTokens = new Set(
-      explicitBrandKeys.flatMap(tokenizeContentText)
-    );
-    const compositeCanonicalKeys = Object.keys(brandAliases).filter((brand) =>
-      tokenizeContentText(brand).every((token) =>
-        explicitBrandTokens.has(token)
-      )
-    );
-    if (compositeCanonicalKeys.length > 0) {
-      return compositeCanonicalKeys;
-    }
-
-    const aliasCanonicalKeys = Object.entries(brandAliases)
-      .filter(([, aliases]) =>
-        aliases.some((alias) =>
-          tokenizeContentText(alias).every((token) =>
-            explicitBrandTokens.has(token)
-          )
+    return Array.from(
+      new Set(
+        explicitBrandKeys.map((brand) =>
+          resolveExplicitBrandKey(brand, brandAliases)
         )
       )
-      .map(([brand]) => brand);
-    return aliasCanonicalKeys.length > 0
-      ? aliasCanonicalKeys
-      : explicitBrandKeys;
+    );
   }
 
   const productNameTokens = new Set(
