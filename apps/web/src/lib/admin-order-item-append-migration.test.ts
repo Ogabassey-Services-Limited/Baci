@@ -67,13 +67,16 @@ describe('safe admin order item append migration', () => {
       'WHEN allocated.tax_weight <= 0 THEN 0'
     );
     expect(appendFunctionSql).toContain(
-      "branch_id = COALESCE(\n      NULLIF(p_payload ->> 'branch_id', '')::uuid,\n      v_order.branch_id\n    )"
+      "WHEN p_payload ? 'branch_id'\n        THEN NULLIF(p_payload ->> 'branch_id', '')::uuid"
     );
     expect(appendFunctionSql).toContain(
-      'source = COALESCE(v_order_source, v_order.source)'
+      "WHEN (p_payload -> 'customer') ? 'id'\n        THEN NULLIF(p_payload #>> '{customer,id}', '')::uuid"
     );
     expect(appendFunctionSql).toContain(
-      "notes = COALESCE(NULLIF(p_payload ->> 'notes', ''), v_order.notes)"
+      "WHEN p_payload ? 'source' THEN v_order_source"
+    );
+    expect(appendFunctionSql).toContain(
+      "WHEN p_payload ? 'notes' THEN NULLIF(p_payload ->> 'notes', '')"
     );
     const vatRebuildIndex = appendFunctionSql.indexOf(
       "IF v_vat_registration_status = 'registered' THEN"
@@ -110,8 +113,24 @@ describe('safe admin order item append migration', () => {
     const itemInsertIndex = appendFunctionSql.indexOf(
       'INSERT INTO public.order_items ('
     );
+    const taxMetadataSnapshotIndex = appendFunctionSql.indexOf(
+      'INTO v_existing_tax_subtotals'
+    );
     expect(vatLockIndex).toBeGreaterThanOrEqual(0);
     expect(vatLockIndex).toBeLessThan(itemInsertIndex);
+    expect(taxMetadataSnapshotIndex).toBeLessThan(itemInsertIndex);
+    expect(appendFunctionSql).toContain(
+      'INSERT INTO public.order_tax_subtotals AS existing_tax_subtotal ('
+    );
+    expect(appendFunctionSql).toContain(
+      'FULL OUTER JOIN existing_tax_metadata'
+    );
+    expect(appendFunctionSql).toContain(
+      'taxable_amount = EXCLUDED.taxable_amount'
+    );
+    expect(appendFunctionSql).toContain(
+      "IF NULLIF(v_added_item ->> 'product_id', '') IS NULL"
+    );
     expect(appendFunctionSql).toContain(
       "'variant_name', NULLIF(btrim(oi.variant_name), '')"
     );
@@ -119,7 +138,7 @@ describe('safe admin order item append migration', () => {
     expect(appendFunctionSql).not.toContain('DELETE FROM public.order_items');
   });
 
-  it('keeps the existing RPC contract and only falls back for accounting metadata', () => {
+  it('keeps the existing RPC contract and falls back for protected append cases', () => {
     expect(migrationSql).toContain(
       "IF to_regprocedure('public.update_admin_order_replace(uuid,jsonb)') IS NULL"
     );
@@ -130,7 +149,10 @@ describe('safe admin order item append migration', () => {
       'ALTER FUNCTION public.update_admin_order(uuid, jsonb)\n      RENAME TO update_admin_order_replace;'
     );
     expect(migrationSql).toContain(
-      "IF SQLERRM NOT LIKE '%order_item_replacement_has_accounting_metadata%'"
+      'EXCEPTION WHEN check_violation OR foreign_key_violation THEN'
+    );
+    expect(migrationSql).toContain(
+      "SQLERRM NOT LIKE '%order_item_product_required%'"
     );
     expect(migrationSql).toContain(
       "RAISE EXCEPTION 'order_item_append_supports_one_new_line'"

@@ -11,6 +11,12 @@ DECLARE
   v_owner_user_id uuid := '00000000-0000-4000-8000-00000000c001';
   v_product_id uuid := '00000000-0000-4000-8000-00000000c201';
   v_existing_items jsonb;
+  v_explicit_null_line jsonb := jsonb_build_object(
+    'condition', null, 'image_url', null, 'item_description', null,
+    'name', 'Explicit Null Metadata Custom Line', 'price', 1000,
+    'product_id', null, 'product_match_status', 'custom', 'quantity', 1,
+    'variant_id', null, 'variant_attributes', '{}'::jsonb, 'variant_name', null
+  );
   v_payload jsonb;
   v_omitted_payload jsonb;
   v_new_line jsonb := jsonb_build_object(
@@ -88,7 +94,14 @@ BEGIN
     exemption_reason, exemption_reason_code
   ) VALUES (
     v_order_id, 'E', 0, 1234, 0, 'Outside scope', 'VAT-OUTSIDE-SCOPE'
-  );
+  ), (
+    v_order_id, 'S', 7.5, 1001000, 0, 'Standard supply', 'VAT-STANDARD'
+  )
+  ON CONFLICT (order_id, vat_category_code, vat_rate) DO UPDATE
+  SET taxable_amount = EXCLUDED.taxable_amount,
+    tax_amount = EXCLUDED.tax_amount,
+    exemption_reason = EXCLUDED.exemption_reason,
+    exemption_reason_code = EXCLUDED.exemption_reason_code;
 
   PERFORM public.update_admin_order(
     v_order_id,
@@ -102,8 +115,18 @@ BEGIN
     WHERE order_id = v_order_id AND vat_category_code = 'E'
       AND exemption_reason = 'Outside scope'
       AND exemption_reason_code = 'VAT-OUTSIDE-SCOPE'
+      AND taxable_amount = 1234
   ) THEN
     RAISE EXCEPTION 'unregistered append discarded tax subtotal metadata';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.order_tax_subtotals
+    WHERE order_id = v_order_id AND vat_category_code = 'S' AND vat_rate = 7.5
+      AND taxable_amount = 1002000
+      AND exemption_reason = 'Standard supply'
+      AND exemption_reason_code = 'VAT-STANDARD'
+  ) THEN
+    RAISE EXCEPTION 'unregistered append did not rebuild taxable subtotal';
   END IF;
   v_existing_items := v_existing_items || jsonb_build_array(v_new_line);
 
@@ -128,6 +151,28 @@ BEGIN
     RAISE EXCEPTION 'append did not preserve omitted order metadata';
   END IF;
   v_existing_items := v_existing_items || jsonb_build_array(v_omitted_line);
+
+  PERFORM public.update_admin_order(
+    v_order_id,
+    v_omitted_payload || jsonb_build_object(
+      'branch_id', null,
+      'customer', jsonb_build_object(
+        'id', null, 'name', 'Append Buyer',
+        'email', 'append-buyer@example.com', 'phone', '+2348012345678'
+      ),
+      'notes', null,
+      'source', null,
+      'items', v_existing_items || jsonb_build_array(v_explicit_null_line)
+    )
+  );
+  IF NOT EXISTS (
+    SELECT 1 FROM public.orders
+    WHERE id = v_order_id AND branch_id IS NULL AND customer_id IS NULL
+      AND source IS NULL AND notes IS NULL
+  ) THEN
+    RAISE EXCEPTION 'append did not apply explicit null order metadata';
+  END IF;
+  v_existing_items := v_existing_items || jsonb_build_array(v_explicit_null_line);
 
   UPDATE public.merchants
   SET vat_registration_status = 'registered'
@@ -156,3 +201,5 @@ END;
 $test$ LANGUAGE plpgsql;
 
 RESET ROLE;
+
+\ir 005_unreviewed_scenarios.sql

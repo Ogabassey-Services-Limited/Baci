@@ -260,7 +260,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260803120000_allow_safe_admin_order_item_append.sql',
-    sha256: 'd5bc2aa0a30bfeff0bba34e38d4f00217b5607a1d6623003c8ee4bb75190db4b',
+    sha256: 'f2b640bac8c3f3d41158313bc910aec6de0058cf652c47f0595c635bd98ecee1',
   },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)

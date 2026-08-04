@@ -400,18 +400,12 @@ BEGIN
     RAISE EXCEPTION 'customer_not_found' USING ERRCODE = '23503';
   END IF;
 
-  IF EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(v_items) AS item
-    WHERE NULLIF(item ->> 'product_id', '') IS NULL
-      AND COALESCE(
-        NULLIF(item ->> 'product_match_status', ''),
-        CASE
-          WHEN NULLIF(item ->> 'product_id', '') IS NULL THEN 'custom'
-          ELSE 'linked'
-        END
-      ) <> 'custom'
-  ) THEN
+  IF NULLIF(v_added_item ->> 'product_id', '') IS NULL
+    AND COALESCE(
+      NULLIF(v_added_item ->> 'product_match_status', ''),
+      'custom'
+    ) <> 'custom'
+  THEN
     RAISE EXCEPTION 'order_item_product_required' USING ERRCODE = '23503';
   END IF;
 
@@ -514,25 +508,50 @@ BEGIN
 
   UPDATE public.orders
   SET
-    branch_id = COALESCE(
-      NULLIF(p_payload ->> 'branch_id', '')::uuid,
-      v_order.branch_id
-    ),
-    customer_id = COALESCE(
-      NULLIF(p_payload #>> '{customer,id}', '')::uuid,
-      v_order.customer_id
-    ),
+    branch_id = CASE
+      WHEN p_payload ? 'branch_id'
+        THEN NULLIF(p_payload ->> 'branch_id', '')::uuid
+      ELSE v_order.branch_id
+    END,
+    customer_id = CASE
+      WHEN (p_payload -> 'customer') ? 'id'
+        THEN NULLIF(p_payload #>> '{customer,id}', '')::uuid
+      ELSE v_order.customer_id
+    END,
     customer_name = v_customer_name,
     customer_email = v_customer_email,
     customer_phone = v_customer_phone,
     shipping_address = v_new_shipping_address,
-    source = COALESCE(v_order_source, v_order.source),
-    notes = COALESCE(NULLIF(p_payload ->> 'notes', ''), v_order.notes),
+    source = CASE
+      WHEN p_payload ? 'source' THEN v_order_source
+      ELSE v_order.source
+    END,
+    notes = CASE
+      WHEN p_payload ? 'notes' THEN NULLIF(p_payload ->> 'notes', '')
+      ELSE v_order.notes
+    END,
     shipping_fee = v_shipping_fee,
     gift_wrapping_fee = v_gift_wrapping_fee,
     discount_amount = v_discount_amount,
     updated_at = now()
   WHERE id = p_order_id;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'vat_category_code', ots.vat_category_code,
+        'vat_rate', ots.vat_rate,
+        'taxable_amount', ots.taxable_amount,
+        'exemption_reason', ots.exemption_reason,
+        'exemption_reason_code', ots.exemption_reason_code
+      )
+      ORDER BY ots.vat_category_code, ots.vat_rate
+    ),
+    '[]'::jsonb
+  )
+    INTO v_existing_tax_subtotals
+  FROM public.order_tax_subtotals AS ots
+  WHERE ots.order_id = p_order_id;
 
   INSERT INTO public.order_items (
     order_id,
@@ -609,22 +628,6 @@ BEGIN
     updated_at = now()
   WHERE id = p_order_id;
 
-  SELECT COALESCE(
-    jsonb_agg(
-      jsonb_build_object(
-        'vat_category_code', ots.vat_category_code,
-        'vat_rate', ots.vat_rate,
-        'exemption_reason', ots.exemption_reason,
-        'exemption_reason_code', ots.exemption_reason_code
-      )
-      ORDER BY ots.vat_category_code, ots.vat_rate
-    ),
-    '[]'::jsonb
-  )
-    INTO v_existing_tax_subtotals
-  FROM public.order_tax_subtotals AS ots
-  WHERE ots.order_id = p_order_id;
-
   IF v_vat_registration_status = 'registered' THEN
     DELETE FROM public.order_tax_subtotals
     WHERE order_id = p_order_id;
@@ -667,11 +670,13 @@ BEGIN
       SELECT
         metadata.vat_category_code,
         metadata.vat_rate,
+        metadata.taxable_amount,
         metadata.exemption_reason,
         metadata.exemption_reason_code
       FROM jsonb_to_recordset(v_existing_tax_subtotals) AS metadata(
         vat_category_code text,
         vat_rate numeric,
+        taxable_amount numeric,
         exemption_reason text,
         exemption_reason_code text
       )
@@ -743,6 +748,85 @@ BEGIN
       bt.exemption_reason,
       bt.exemption_reason_code
     FROM balanced_tax bt;
+  ELSE
+    WITH grouped_taxable AS (
+      SELECT
+        COALESCE(NULLIF(oi.vat_category_code, ''), 'S') AS vat_category_code,
+        COALESCE(oi.vat_rate, 7.5) AS vat_rate,
+        COALESCE(
+          SUM(
+            COALESCE(
+              oi.line_extension_amount,
+              ROUND(oi.quantity * oi.price, 2)
+            )
+          ),
+          0
+        ) AS taxable_amount
+      FROM public.order_items AS oi
+      WHERE oi.order_id = p_order_id
+      GROUP BY
+        COALESCE(NULLIF(oi.vat_category_code, ''), 'S'),
+        COALESCE(oi.vat_rate, 7.5)
+    ),
+    existing_tax_metadata AS (
+      SELECT
+        metadata.vat_category_code,
+        metadata.vat_rate,
+        metadata.taxable_amount,
+        metadata.exemption_reason,
+        metadata.exemption_reason_code
+      FROM jsonb_to_recordset(v_existing_tax_subtotals) AS metadata(
+        vat_category_code text,
+        vat_rate numeric,
+        taxable_amount numeric,
+        exemption_reason text,
+        exemption_reason_code text
+      )
+    ),
+    rebuilt_tax AS (
+      SELECT
+        COALESCE(gt.vat_category_code, metadata.vat_category_code)
+          AS vat_category_code,
+        COALESCE(gt.vat_rate, metadata.vat_rate) AS vat_rate,
+        COALESCE(gt.taxable_amount, metadata.taxable_amount, 0)
+          AS taxable_amount,
+        metadata.exemption_reason,
+        metadata.exemption_reason_code
+      FROM grouped_taxable AS gt
+      FULL OUTER JOIN existing_tax_metadata AS metadata
+        ON metadata.vat_category_code = gt.vat_category_code
+        AND metadata.vat_rate = gt.vat_rate
+    )
+    INSERT INTO public.order_tax_subtotals AS existing_tax_subtotal (
+      order_id,
+      vat_category_code,
+      vat_rate,
+      taxable_amount,
+      tax_amount,
+      exemption_reason,
+      exemption_reason_code
+    )
+    SELECT
+      p_order_id,
+      rt.vat_category_code,
+      rt.vat_rate,
+      rt.taxable_amount,
+      0,
+      rt.exemption_reason,
+      rt.exemption_reason_code
+    FROM rebuilt_tax AS rt
+    ON CONFLICT (order_id, vat_category_code, vat_rate) DO UPDATE
+    SET
+      taxable_amount = EXCLUDED.taxable_amount,
+      tax_amount = EXCLUDED.tax_amount,
+      exemption_reason = COALESCE(
+        EXCLUDED.exemption_reason,
+        existing_tax_subtotal.exemption_reason
+      ),
+      exemption_reason_code = COALESCE(
+        EXCLUDED.exemption_reason_code,
+        existing_tax_subtotal.exemption_reason_code
+      );
   END IF;
 
   SELECT
@@ -877,8 +961,10 @@ AS $$
 BEGIN
   BEGIN
     RETURN public.update_admin_order_replace(p_order_id, p_payload);
-  EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%order_item_replacement_has_accounting_metadata%' THEN
+  EXCEPTION WHEN check_violation OR foreign_key_violation THEN
+    IF SQLERRM NOT LIKE '%order_item_replacement_has_accounting_metadata%'
+      AND SQLERRM NOT LIKE '%order_item_product_required%'
+    THEN
       RAISE;
     END IF;
   END;
