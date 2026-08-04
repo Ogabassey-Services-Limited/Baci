@@ -139,7 +139,7 @@ BEGIN
     )
   );
 
-  IF v_result ->> 'change_category' <> 'financial'
+  IF (v_result ->> 'change_category') IS DISTINCT FROM 'financial'
     OR ((v_result -> 'changed_fields') ? 'items') IS NOT TRUE
   THEN
     RAISE EXCEPTION 'append did not report a financial item change: %', v_result;
