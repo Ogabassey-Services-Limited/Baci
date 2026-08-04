@@ -99,7 +99,7 @@ describe('GIGL manual failure hardening migrations', () => {
     expect(terminalityRepair).toContain('v_expected_next_poll_terminality');
     expect(terminalityRepair).toContain('v_expected_stopped_terminality');
     expect(terminalityRepair).toContain(
-      "|| E'  SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\\n'"
+      "E'  UPDATE public.shipment_tracking_monitors AS monitor\\n'\n      || E'  SET state = CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')'"
     );
     expect(
       readMigrationTest('gigl_tracking_manual_failure_order_status.sql')

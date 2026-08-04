@@ -5,6 +5,9 @@ DECLARE
   apply_definition text;
   apply_result jsonb;
   manual_failure_result jsonb;
+  monitor_state text;
+  monitor_next_poll_at timestamptz;
+  monitor_stopped_at timestamptz;
   sync_result text;
 BEGIN
   SELECT pg_catalog.pg_get_functiondef(
@@ -33,6 +36,7 @@ BEGIN
       || E'      v_latest_status_event_at IS NULL\n'
       || E'      OR v_latest_status_event_at <= v_manual_terminal_override_at\n'
       || E'    );\n'
+      || E'  UPDATE public.shipment_tracking_monitors AS monitor\n'
       || E'  SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
     ) = 0
@@ -105,8 +109,15 @@ BEGIN
     NULL,
     '[]'::jsonb
   ) INTO manual_failure_result;
+  SELECT state, next_poll_at, stopped_at
+  INTO monitor_state, monitor_next_poll_at, monitor_stopped_at
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = '00000000-0000-0000-0000-000000000002';
   IF manual_failure_result->>'effective_status' IS DISTINCT FROM 'failed'
-    OR manual_failure_result->>'monitor_state' IS DISTINCT FROM 'terminal' THEN
+    OR manual_failure_result->>'monitor_state' IS DISTINCT FROM 'terminal'
+    OR monitor_state IS DISTINCT FROM 'terminal'
+    OR monitor_next_poll_at IS NOT NULL
+    OR monitor_stopped_at IS NULL THEN
     RAISE EXCEPTION 'manual failed GIGL status must remain terminal';
   END IF;
 END;
