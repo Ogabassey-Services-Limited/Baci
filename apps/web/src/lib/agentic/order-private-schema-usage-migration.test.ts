@@ -104,6 +104,12 @@ describe('bugfix: public checkout wrappers lost private-schema usage', () => {
     expect(migrationSql).toMatch(
       /REVOKE\s+USAGE\s+ON\s+SCHEMA\s+private\s+FROM\s+authenticated\s*;/i
     );
+    expect(migrationSql).toContain(
+      "function_definition.prosrc LIKE '%private.%'"
+    );
+    expect(migrationSql).toMatch(
+      /has_function_privilege\(\s*'authenticated',\s*function_definition\.oid,\s*'EXECUTE'/
+    );
   });
 
   it('keeps direct browser and service-role access to the credential vault revoked', () => {
@@ -122,9 +128,19 @@ describe('bugfix: public checkout wrappers lost private-schema usage', () => {
       resolve(repositoryRoot, '.github/workflows/ci.yml'),
       'utf8'
     );
+    const filters = readFileSync(
+      resolve(repositoryRoot, '.github/filters/ci.yml'),
+      'utf8'
+    );
 
     expect(workflow).toMatch(
       /- name: Run migration replay regression test\s+if: needs\.changes\.outputs\.quiz_db == 'true'\s+run: pnpm --filter @baci\/web exec vitest run src\/lib\/agentic\/order-private-schema-usage-migration\.test\.ts/
+    );
+    expect(filters).toContain(
+      "'supabase/tests/storefront_order_private_schema_boundary*.sql'"
+    );
+    expect(filters).toContain(
+      "'supabase/tests/run-storefront-order-private-schema-boundary-test.sh'"
     );
   });
 

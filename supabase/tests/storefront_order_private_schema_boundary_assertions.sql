@@ -41,6 +41,24 @@ BEGIN
     RAISE EXCEPTION 'storefront order wrapper is not SECURITY DEFINER owned by postgres';
   END IF;
 
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_proc AS function_definition
+    JOIN pg_catalog.pg_namespace AS function_schema
+      ON function_schema.oid = function_definition.pronamespace
+    WHERE function_schema.nspname = 'public'
+      AND function_definition.prokind = 'f'
+      AND function_definition.prosecdef IS FALSE
+      AND function_definition.prosrc LIKE '%private.%'
+      AND pg_catalog.has_function_privilege(
+        'authenticated',
+        function_definition.oid,
+        'EXECUTE'
+      )
+  ) THEN
+    RAISE EXCEPTION 'authenticated invoker wrapper still depends on private schema access';
+  END IF;
+
   SET LOCAL ROLE authenticated;
   SELECT id
     INTO v_result
