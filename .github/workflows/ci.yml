@@ -102,6 +102,8 @@ jobs:
               - 'supabase/migrations/**'
               - 'supabase/tests/cache_invalidation_outbox*.sql'
               - 'supabase/tests/run-cache-invalidation-outbox-test*.sh'
+              - 'supabase/tests/gigl_tracking_retry_repair*.sql'
+              - 'supabase/tests/run-gigl-tracking-retry-repair-test.sh'
               - '.github/scripts/apply-pending-migrations.sh'
               - '.github/scripts/apply-pending-migrations.test.sh'
               - '.github/scripts/split-sql-statements.mjs'
@@ -388,6 +390,7 @@ jobs:
       - name: Test Migration Applier Collision Handling
         run: >-
           bash .github/scripts/apply-pending-migrations.test.sh &&
+          bash supabase/tests/run-gigl-tracking-retry-repair-test.sh &&
           node --test .github/scripts/split-sql-statements.test.mjs
       - name: Verify Migration Versions
         run: bash .github/scripts/check-migration-versions.sh
@@ -421,10 +424,9 @@ jobs:
       # A migration-only (quiz_db) PR would otherwise satisfy this required gate
       # with no real work, because every other step is web/mobile/production-only.
       # Run the quiz + orders suites (which exercise the RPC-dependent route
-      # logic) so a DB-only change is actually validated here. True SQL-level
-      # migration testing runs out of band (prod txn+rollback verification and
-      # the deploy pipeline) — a from-scratch apply in CI is blocked by
-      # Supabase-specific schema/roles.
+      # logic) so a DB-only change is actually validated here. Migration-specific
+      # PostgreSQL fixtures run above; a full from-scratch Supabase apply remains
+      # out of scope because it depends on Supabase-specific schema and roles.
       - name: Run Quiz Suite for DB-only Changes
         if: needs.changes.outputs.quiz_db == 'true' && needs.changes.outputs.web != 'true'
         run: >-

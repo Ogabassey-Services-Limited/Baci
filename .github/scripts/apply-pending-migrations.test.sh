@@ -13,11 +13,37 @@ mkdir -p "$fake_bin"
 cat >"$fake_bin/curl" <<'FAKE_CURL'
 #!/usr/bin/env bash
 set -euo pipefail
+
+data_binary=''
+while (($#)); do
+  case "$1" in
+    --data-binary)
+      if (($# < 2)); then
+        echo 'Expected a value for --data-binary' >&2
+        exit 2
+      fi
+      data_binary="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [ "$data_binary" != '@-' ]; then
+  echo "Expected curl --data-binary @-, got ${data_binary:-<missing>}" >&2
+  exit 2
+fi
+
 payload="$(cat)"
 printf '%s\n' "$payload" >>"$FAKE_QUERY_LOG"
 if jq -e '.query | startswith("SELECT version, name")' >/dev/null <<<"$payload"; then
   printf '%s\n' "$FAKE_INITIAL_RESPONSE"
 else
+  if [ "${FAKE_FAIL_NON_SELECT:-0}" = '1' ]; then
+    printf '%s\n' "$FAKE_ERROR_RESPONSE"
+    exit 22
+  fi
   printf '%s\n' '[]'
 fi
 FAKE_CURL
@@ -75,6 +101,7 @@ grep -q \
 grep -q \
   'applied:         20260803000600  repair_gigl_tracking_realtime_broadcast' \
   "$historical_repair_output"
+grep -q 'Migrations summary: 1 applied, 1 skipped.' "$historical_repair_output"
 if grep -q 'pg_catalog.substring(realtime.topic() FROM 16)' "$historical_repair_log"; then
   echo 'Historical failed migration SQL must not be sent to Supabase' >&2
   exit 1
@@ -84,6 +111,39 @@ if [ "$(grep -c "schema_migrations(version, name, statements).*20260727220050" "
   exit 1
 fi
 grep -q 'pg_catalog.substr(realtime.topic(), 16)' "$historical_repair_log"
+
+retry_repair_dir="$fixture_root/retry-repair"
+mkdir -p "$retry_repair_dir"
+cp \
+  "$script_dir/../../supabase/migrations/20260801141800_harden_gigl_tracking_retry_edges.sql" \
+  "$retry_repair_dir/20260801141800_harden_gigl_tracking_retry_edges.sql"
+cp \
+  "$script_dir/../../supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql" \
+  "$retry_repair_dir/20260803000700_repair_gigl_tracking_retry_edges.sql"
+retry_repair_log="$fixture_root/retry-repair-queries.log"
+retry_repair_output="$fixture_root/retry-repair-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$retry_repair_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$retry_repair_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$retry_repair_output"
+grep -q \
+  'reconciled by append-only repair migration 20260803000700_repair_gigl_tracking_retry_edges.sql' \
+  "$retry_repair_output"
+grep -q \
+  'applied:         20260803000700  repair_gigl_tracking_retry_edges' \
+  "$retry_repair_output"
+grep -q \
+  "v_current_status = ''failed''" \
+  "$retry_repair_log"
+if grep -q \
+  "tracking_timeline_generation\\\\n'\\\\n      '" \
+  "$retry_repair_log"; then
+  echo 'The malformed GIGL retry migration SQL must not be sent to Supabase' >&2
+  exit 1
+fi
 
 invalid_dir="$fixture_root/invalid"
 make_collision_fixture "$invalid_dir"
@@ -194,6 +254,31 @@ if PATH="$fake_bin:$PATH" \
 fi
 grep -q "Repair migration 20260713140000 is recorded as 'unrelated'" \
   "$fixture_root/wrong-remote-repair-output.log"
+
+error_dir="$fixture_root/http-error"
+mkdir -p "$error_dir"
+printf '%s\n' "CREATE TABLE migration_error_probe (id integer);" \
+  >"$error_dir/20260101000000_error.sql"
+error_log="$fixture_root/http-error-queries.log"
+if PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$error_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$error_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  FAKE_FAIL_NON_SELECT=1 \
+  FAKE_ERROR_RESPONSE='{"message":"migration failed"}' \
+  bash "$applier" >"$fixture_root/http-error-output.log" 2>&1; then
+  echo 'Expected an HTTP migration error to fail' >&2
+  exit 1
+fi
+grep -q 'Response: {"message":"migration failed"}' "$fixture_root/http-error-output.log"
+if jq -e \
+  'select(.query | startswith("INSERT INTO supabase_migrations.schema_migrations"))' \
+  "$error_log" >/dev/null; then
+  echo 'Failed migrations must not write migration history' >&2
+  exit 1
+fi
 
 unrepaired_sibling_dir="$fixture_root/unrepaired-sibling"
 make_collision_fixture "$unrepaired_sibling_dir"

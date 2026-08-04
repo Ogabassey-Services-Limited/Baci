@@ -39,6 +39,15 @@ const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
         '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65',
     },
   ],
+  [
+    'supabase/migrations/20260801141800_harden_gigl_tracking_retry_edges.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql',
+      sourceSha256:
+        '35bcfb114ccfdadbbb44f69b21b53dd91b8df7a9eaa875f364e3d22b354801d1',
+    },
+  ],
 ]);
 
 const sha256 = (value: Buffer) =>
