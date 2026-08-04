@@ -257,6 +257,7 @@ export const EXPECTED_PENDING_SOURCES = [
       sha256,
     })
   ),
+  ...EXPECTED_PENDING_TAIL_SOURCES.storefrontSearchReadiness,
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

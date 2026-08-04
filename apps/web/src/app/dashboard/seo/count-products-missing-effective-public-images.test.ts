@@ -73,4 +73,26 @@ describe('countProductsMissingEffectivePublicImages', () => {
 
     expect(result).toBe(1);
   });
+
+  it.each([
+    { is_active: false },
+    { status: 'inactive' },
+    { deleted_at: '2026-08-04T00:00:00.000Z' },
+    { archived_at: '2026-08-04T00:00:00.000Z' },
+  ])('ignores non-public variant media for %o', (visibility) => {
+    const result = countProductsMissingEffectivePublicImages([
+      {
+        images: [],
+        product_variants: [
+          {
+            primary_image: 'https://cdn.example.com/private.webp',
+            images: [],
+            ...visibility,
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toBe(1);
+  });
 });

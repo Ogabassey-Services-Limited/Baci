@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
 
 describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
-  it('preserves the exact identity and payment-ingress migration bindings', () => {
+  it('preserves the exact tail migration bindings', () => {
     expect(EXPECTED_PENDING_TAIL_SOURCES).toEqual({
       identity: [
         {
@@ -40,6 +40,20 @@ describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
             'supabase/migrations/20260731140000_payment_ingress_contract_generation_foundation.sql',
           sha256:
             '1a390474d12890e9f641c72f743b35669798eee56a887a87720f4bd8b53a1705',
+        },
+      ],
+      storefrontSearchReadiness: [
+        {
+          repositoryPath:
+            'supabase/migrations/20260804000800_extend_merchant_identity_settings_storefront_profile.sql',
+          sha256:
+            '5b7a2d4e2d5788601abcb60aa9ba4d91d17fb2affb53ce0841bbd8126b45301a',
+        },
+        {
+          repositoryPath:
+            'supabase/migrations/20260804000900_add_agentic_catalog_category_read_policy.sql',
+          sha256:
+            '227b17a420e0f9ebea6d5dd1d8f993a9b3b68da9f50888918126321557f360b6',
         },
       ],
     });

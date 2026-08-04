@@ -96,4 +96,29 @@ describe('storefront public product URL serialization', () => {
 
     expect(url).toBe('http://localhost:3000/ogabassey/laptops/laptop');
   });
+
+  it('preserves a development storefront path prefix for accepted stored canonicals', () => {
+    const product = {
+      id: 'laptop-1',
+      name: 'Laptop',
+      slug: 'laptop',
+      category_slug: 'laptops',
+    };
+
+    expect(
+      getValidatedProductUrl(
+        { ...product, canonical_url: '/laptops/laptop' },
+        'http://localhost:3000/ogabassey'
+      )
+    ).toBe('http://localhost:3000/ogabassey/laptops/laptop');
+    expect(
+      getValidatedProductUrl(
+        {
+          ...product,
+          canonical_url: 'http://localhost:3000/laptops/laptop',
+        },
+        'http://localhost:3000/ogabassey'
+      )
+    ).toBe('http://localhost:3000/ogabassey/laptops/laptop');
+  });
 });

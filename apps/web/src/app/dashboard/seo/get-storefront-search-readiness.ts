@@ -9,6 +9,7 @@ import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant
 import { createClient } from '@/lib/supabase/server';
 import { buildStorefrontSearchReadinessAssessment } from './build-storefront-search-readiness-assessment';
 import { countProductsMissingEffectivePublicImagesInPages } from './count-products-missing-effective-public-images-in-pages';
+import { countProductsMissingUsableDescriptionsInPages } from './count-products-missing-usable-descriptions-in-pages';
 import { hasPublishableTrustPolicy } from './has-publishable-trust-policy';
 
 async function countRows(
@@ -81,19 +82,20 @@ export async function getStorefrontSearchReadiness(merchantId: string) {
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
     ),
-    countRows(
+    countProductsMissingUsableDescriptionsInPages(({ from, to }) =>
       supabase
         .from('products')
-        .select('id', { count: 'exact', head: true })
+        .select('description')
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .or('description.is.null,description.eq.')
+        .order('id', { ascending: true })
+        .range(from, to)
     ),
     countProductsMissingEffectivePublicImagesInPages(({ from, to }) =>
       supabase
         .from('products')
         .select(
-          'images, product_variants!product_variants_product_id_fkey(primary_image, images, is_inventory_anchor)'
+          'images, product_variants!product_variants_product_id_fkey(primary_image, images, is_inventory_anchor, is_active, status, deleted_at, archived_at)'
         )
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')

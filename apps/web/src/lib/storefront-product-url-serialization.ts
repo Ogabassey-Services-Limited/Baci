@@ -10,16 +10,16 @@ export function getValidatedProductUrl(
   merchantSlug?: string | null
 ): string {
   let storeOrigin = '';
+  let storePathPrefix = '';
   let storeFallbackBaseUrl = '';
   try {
     const parsedBaseUrl = new URL(baseUrl);
     storeOrigin = parsedBaseUrl.origin;
-    storeFallbackBaseUrl = `${storeOrigin}${parsedBaseUrl.pathname.replace(
-      /\/+$/,
-      ''
-    )}`;
+    storePathPrefix = parsedBaseUrl.pathname.replace(/\/+$/, '');
+    storeFallbackBaseUrl = `${storeOrigin}${storePathPrefix}`;
   } catch {
     storeOrigin = '';
+    storePathPrefix = '';
     storeFallbackBaseUrl = '';
   }
 
@@ -36,13 +36,26 @@ export function getValidatedProductUrl(
   if (canonicalUrl) {
     try {
       const parsedCanonicalUrl = new URL(canonicalUrl, baseUrl);
+      const canonicalProductPath =
+        storePathPrefix &&
+        (parsedCanonicalUrl.pathname === storePathPrefix ||
+          parsedCanonicalUrl.pathname.startsWith(`${storePathPrefix}/`))
+          ? parsedCanonicalUrl.pathname.slice(storePathPrefix.length) || '/'
+          : parsedCanonicalUrl.pathname;
       if (
         parsedCanonicalUrl.search ||
         parsedCanonicalUrl.hash ||
-        serializeStorefrontProductPath(parsedCanonicalUrl.pathname) !==
+        serializeStorefrontProductPath(canonicalProductPath) !==
           serializeStorefrontProductPath(finalProductPath)
       ) {
         canonicalUrl = undefined;
+      } else if (
+        storePathPrefix &&
+        parsedCanonicalUrl.pathname !== storePathPrefix &&
+        !parsedCanonicalUrl.pathname.startsWith(`${storePathPrefix}/`)
+      ) {
+        parsedCanonicalUrl.pathname = `${storePathPrefix}${parsedCanonicalUrl.pathname}`;
+        canonicalUrl = parsedCanonicalUrl.toString();
       }
     } catch {
       canonicalUrl = undefined;

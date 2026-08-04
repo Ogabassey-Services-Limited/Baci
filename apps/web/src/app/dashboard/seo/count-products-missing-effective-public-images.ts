@@ -1,7 +1,13 @@
+import { isStorefrontProductVariantPublic } from '@/lib/is-storefront-product-variant-public';
+
 type ProductVariantImageSource = {
+  archived_at?: string | null;
+  deleted_at?: string | null;
   images: unknown;
+  is_active?: boolean | null;
   is_inventory_anchor?: boolean | null;
   primary_image: string | null;
+  status?: string | null;
 };
 
 type ProductImageSource = {
@@ -32,7 +38,7 @@ function hasEffectivePublicImage(product: ProductImageSource): boolean {
     hasPublicImage(product.images) ||
     product.product_variants?.some(
       (variant) =>
-        variant.is_inventory_anchor !== true &&
+        isStorefrontProductVariantPublic(variant) &&
         (Boolean(variant.primary_image?.trim()) ||
           hasPublicImage(variant.images))
     ) === true
