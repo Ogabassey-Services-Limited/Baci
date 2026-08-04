@@ -28,6 +28,13 @@ CREATE TABLE public.shipments (
   tracking_timeline_generation integer NOT NULL
 );
 
+CREATE TABLE public.shipment_tracking_monitors (
+  shipment_id uuid PRIMARY KEY,
+  state text NOT NULL,
+  next_poll_at timestamptz,
+  stopped_at timestamptz
+);
+
 CREATE TABLE public.gigl_tracking_sync_probe (
   result text NOT NULL
 );
@@ -62,6 +69,21 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION private.activate_gigl_tracking_monitor()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $function$
+BEGIN
+  -- Deliberately omit merchant_id here: 20260804000400 must add it to the
+  -- pre-repair trigger identity guard.
+  IF TG_OP = 'UPDATE'
+     AND NEW.order_id IS NOT DISTINCT FROM OLD.order_id THEN
+    RETURN NEW;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.apply_gigl_tracking_result(
   p_order_id uuid,
   p_shipment_id uuid,
@@ -76,10 +98,17 @@ LANGUAGE plpgsql
 AS $function$
 DECLARE
   v_current_status text := 'failed';
-  v_latest_status_event_at timestamptz := now();
+  -- Keep both event clocks before the manual override so the final repair's
+  -- status-event comparison exercises the terminal manual-failure branch.
+  v_latest_status_event_at timestamptz := '2026-01-01 00:00:00+00';
   v_latest_persisted_event_at timestamptz;
+  v_latest_persisted_status_event_at timestamptz;
+  v_manual_terminal_override_at timestamptz := '2026-01-02 00:00:00+00';
+  v_latest_incoming_event_at timestamptz := '2026-01-01 00:00:00+00';
   v_effective_status text;
-  v_should_update_delivery boolean;
+  v_current_location text := 'Warehouse';
+  v_should_update_location boolean := false;
+  v_should_update_delivery boolean := false;
 BEGIN
   v_effective_status := CASE
     WHEN private.gigl_tracking_status_rank(p_status)
@@ -87,10 +116,27 @@ BEGIN
       THEN v_current_status
     ELSE p_status
   END;
+  -- These direct monitor assignments match the historical production
+  -- function. 20260804000400 must rewrite all three terminality predicates.
+  v_should_update_location := v_current_location IS NOT NULL;
   v_should_update_delivery := p_actual_delivery IS NOT NULL;
+  UPDATE public.shipment_tracking_monitors AS monitor
+  SET state = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+      THEN 'terminal' ELSE 'active' END,
+    next_poll_at = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+      THEN NULL ELSE now() + interval '15 minutes' END,
+    stopped_at = CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+      THEN now() ELSE NULL END
+  WHERE monitor.shipment_id = p_shipment_id;
   RETURN jsonb_build_object(
     'effective_status', v_effective_status,
-    'should_update_delivery', v_should_update_delivery
+    'should_update_location', v_should_update_location,
+    'should_update_delivery', v_should_update_delivery,
+    'monitor_state', (
+      SELECT state
+      FROM public.shipment_tracking_monitors
+      WHERE shipment_id = p_shipment_id
+    )
   );
 END;
 $function$;

@@ -10,8 +10,8 @@ import { runAuthorityCli } from './cwv-runner-authority-runtime.mjs';
 const sha = 'a'.repeat(64); const temp = '/runner-temp'; const scratch = `${temp}/cwv-runner-private`; const projection = `${temp}/cwv-runner-projection`; const policyPath = '/opt/baci-cwv/policy.json';
 const workspace = '/workspace'; const root = new URL('../..', import.meta.url);
 const checkedSources = Object.fromEntries([
-  '.github/actionlint.yaml',
-  '.github/scripts/cwv-runner-authority.mjs', '.github/scripts/canonical-json.mjs', '.github/scripts/cwv-runner-authority-core.mjs', '.github/scripts/cwv-runner-authority-runtime.mjs', '.github/scripts/policy.schema.mjs', '.github/scripts/cwv-runner-stable-attestation-builder.mjs',
+  '.github/actionlint.yaml', '.github/filters/deploy.yml',
+  '.github/scripts/cwv-runner-authority.mjs', '.github/scripts/canonical-json.mjs', '.github/scripts/cwv-runner-authority-core.mjs', '.github/scripts/cwv-runner-authority-filters.mjs', '.github/scripts/cwv-runner-authority-runtime.mjs', '.github/scripts/policy.schema.mjs', '.github/scripts/cwv-runner-stable-attestation-builder.mjs',
   ...readdirSync(new URL('.github/workflows/', root)).filter((name) => /^[a-z0-9][a-z0-9-]*\.ya?ml$/.test(name)).map((name) => `.github/workflows/${name}`),
 ].map((path) => [`${workspace}/${path}`, readFileSync(new URL(path, root), 'utf8')]));
 const pins = { checkout: 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0', uploadArtifact: 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02', downloadArtifact: 'actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0', createGithubAppToken: 'actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1' };

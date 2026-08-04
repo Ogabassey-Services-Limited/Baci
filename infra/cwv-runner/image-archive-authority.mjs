@@ -14,7 +14,7 @@ const mode = ({ mode: value }) => value.toString(8).padStart(4, '0');
 const canonicalArchivePath = (path) =>
   path.replace(/^\.\//, '').replace(/\/$/, '');
 // biome-ignore format: only these reviewed source files survive into the sealed runtime image.
-const runtimeSourcePaths = new Set(['canonical-json.mjs', 'command-settings-contract.mjs', 'container-attest-runtime.mjs', 'cwv-runner-authority.mjs', 'cwv-runner-authority-core.mjs', 'cwv-runner-authority-runtime.mjs', 'cwv-runner-stable-attestation-builder.mjs', 'direct-listener-conformance.mjs', 'entrypoint-runtime.mjs', 'entrypoint.mjs', 'entrypoint.sh', 'isolation-probe.sh', 'normal-release.mjs', 'policy.json', 'policy.schema.mjs', 'process-inventory.mjs', 'registration-egress-probe.mjs', 'registration-release.mjs', 'runner-identity-gate.mjs', 'sealed-runner.mjs']);
+const runtimeSourcePaths = new Set(['canonical-json.mjs', 'command-settings-contract.mjs', 'container-attest-runtime.mjs', 'cwv-runner-authority.mjs', 'cwv-runner-authority-core.mjs', 'cwv-runner-authority-filters.mjs', 'cwv-runner-authority-runtime.mjs', 'cwv-runner-stable-attestation-builder.mjs', 'direct-listener-conformance.mjs', 'entrypoint-runtime.mjs', 'entrypoint.mjs', 'entrypoint.sh', 'isolation-probe.sh', 'normal-release.mjs', 'policy.json', 'policy.schema.mjs', 'process-inventory.mjs', 'registration-egress-probe.mjs', 'registration-release.mjs', 'runner-identity-gate.mjs', 'sealed-runner.mjs']);
 const sourcePrefix = 'infra/cwv-runner/';
 export function configureImageArchiveAuthority({
   exactLayerMember,

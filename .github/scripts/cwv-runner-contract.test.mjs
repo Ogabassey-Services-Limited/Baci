@@ -21,8 +21,7 @@ const expressionPaths = (value, expression, path = '') => {
   if (value === null || typeof value !== 'object') return [];
   return Object.entries(value).flatMap(([key, nested]) => expressionPaths(nested, expression, path ? `${path}.${key}` : key));
 };
-const filterPaths = (workflow, name) => {
-  const source = workflow.jobs.changes.steps.find((step) => step.id === 'filter').with.filters;
+const filterPaths = (source, name) => {
   const match = source.match(new RegExp(`^${name}:\\n(?<paths>(?:  - .+\\n?)+)`, 'm'));
 
   return match?.groups?.paths ?? '';
@@ -36,11 +35,14 @@ const readRepositorySources = async () => {
       authority: await readFile(new URL('.github/scripts/cwv-runner-authority.mjs', root), 'utf8'),
       canonical: await readFile(new URL('.github/scripts/canonical-json.mjs', root), 'utf8'),
       core: await readFile(new URL('.github/scripts/cwv-runner-authority-core.mjs', root), 'utf8'),
+      filters: await readFile(new URL('.github/scripts/cwv-runner-authority-filters.mjs', root), 'utf8'),
       policy: await readFile(new URL('.github/scripts/policy.schema.mjs', root), 'utf8'),
       runtime: await readFile(new URL('.github/scripts/cwv-runner-authority-runtime.mjs', root), 'utf8'),
       stable: await readFile(new URL('.github/scripts/cwv-runner-stable-attestation-builder.mjs', root), 'utf8'),
     },
+    ciFilter: await readFile(new URL('.github/filters/ci.yml', root), 'utf8'),
     deploy: workflows['deploy.yml'],
+    deployFilter: await readFile(new URL('.github/filters/deploy.yml', root), 'utf8'),
     workflows,
   };
 };
@@ -59,7 +61,7 @@ test('YAML workflow contract parser declares its direct runtime dependency', asy
 });
 
 test('CI and deploy gate every direct CWV dependency and aggregate its contract result', async () => {
-  const { workflows } = await readRepositorySources();
+  const { ciFilter, deployFilter, workflows } = await readRepositorySources();
   const ci = YAML.parse(workflows['ci.yml']);
   const deploy = YAML.parse(workflows['deploy.yml']);
   const requiredPaths = [
@@ -73,9 +75,19 @@ test('CI and deploy gate every direct CWV dependency and aggregate its contract 
     'pnpm-workspace.yaml',
   ];
 
-  for (const workflow of [ci, deploy]) {
-    const paths = filterPaths(workflow, 'cwv_runner');
+  assert.equal(
+    deploy.jobs.changes.steps.find((step) => step.id === 'filter').with.filters,
+    '.github/filters/deploy.yml',
+  );
+  assert.equal(
+    ci.jobs.changes.steps.find((step) => step.id === 'filter').with.filters,
+    '.github/filters/ci.yml',
+  );
+  for (const source of [ciFilter, deployFilter]) {
+    const paths = filterPaths(source, 'cwv_runner');
     for (const path of requiredPaths) assert.ok(paths.includes(`'${path}'`), `${path} must trigger the CWV contract gate`);
+  }
+  for (const workflow of [ci, deploy]) {
     assert.match(
       workflow.jobs['cwv-runner-contracts'].steps.find((step) => step.name === 'Run CWV runner contract tests').run,
       /\.github\/scripts\/actionlint-runner-label-contract\.test\.mjs/,
@@ -246,7 +258,11 @@ test('repository closure rejects a missing actionlint label, block-list selector
   await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, actionlint: repositorySources.actionlint.replace('    - baci-cwv-measurement\n', '') } }), /actionlint/);
   for (const name of ['.hidden.yml', 'release candidate (v2)!.yaml', 'café 日本語.yml'])
     await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, workflows: { ...repositorySources.workflows, [name]: 'jobs:\n  other:\n    runs-on:\n      - self-hosted\n      - baci-cwv-measurement' } } }), /selector/);
-  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deploy: repositorySources.deploy.replace("              - 'infra/cwv-runner/**'\n", '') } }), /deploy filter/);
+  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deploy: repositorySources.deploy.replace('filters: .github/filters/deploy.yml', 'filters: .github/filters/other.yml') } }), /deploy filter/);
+  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deploy: repositorySources.deploy.replace('filters: .github/filters/deploy.yml', '# filters: .github/filters/deploy.yml') } }), /deploy filter/);
+  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deployFilter: repositorySources.deployFilter.replace("  - 'infra/cwv-runner/**'\n", '') } }), /deploy filter/);
+  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deployFilter: repositorySources.deployFilter.replace("cwv_runner:\n  - 'infra/cwv-runner/**'", "cwv_runner:\n  - 'infra/cwv-runner/**'\n  - 'infra/cwv-runner/**'") } }), /deploy filter/);
+  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deployFilter: repositorySources.deployFilter.replace("migrations:\n", "migrations:\n  - 'infra/cwv-runner/**'\n") } }), /deploy filter/);
 });
 
 test('owned authority transport does not construct an immutable Authorization string', async () => {

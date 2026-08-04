@@ -23,6 +23,7 @@ const authorityModules = [
   'canonical-json.mjs',
   'cwv-runner-authority.mjs',
   'cwv-runner-authority-core.mjs',
+  'cwv-runner-authority-filters.mjs',
   'cwv-runner-authority-runtime.mjs',
   'cwv-runner-stable-attestation-builder.mjs',
   'policy.schema.mjs',

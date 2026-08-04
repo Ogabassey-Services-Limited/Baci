@@ -29,6 +29,10 @@ type ReplaySourceReplacement = {
   sourceSha256: string;
 };
 
+type ReplaySourceSupersession = {
+  replacementPath: string;
+};
+
 const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
   [
     'supabase/migrations/20260727220050_shipment_tracking_realtime_broadcast.sql',
@@ -46,6 +50,43 @@ const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
         'supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql',
       sourceSha256:
         '35bcfb114ccfdadbbb44f69b21b53dd91b8df7a9eaa875f364e3d22b354801d1',
+    },
+  ],
+  [
+    'supabase/migrations/20260801141900_scope_gigl_recovery_to_failed_event.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260804000100_repair_gigl_failed_event_recovery_scope.sql',
+      sourceSha256:
+        '972030071dbeea262fdd1ccc20f4f62c07c90299d00e5fd70335617c4dd9a91d',
+    },
+  ],
+  [
+    'supabase/migrations/20260801142000_harden_gigl_notification_recovery_edges.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql',
+      sourceSha256:
+        'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e',
+    },
+  ],
+  [
+    'supabase/migrations/20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260804000300_repair_gigl_manual_failure_status_scope.sql',
+      sourceSha256:
+        'f97c32889ae2e733d881bd7d6672cd91337936326f55e205d717bb972398ea73',
+    },
+  ],
+]);
+
+const replaySourceSupersessions = new Map<string, ReplaySourceSupersession>([
+  [
+    'supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql',
     },
   ],
 ]);
@@ -67,6 +108,15 @@ export async function applySupabaseCurrentTreeSources(
   const appliedPaths = new Set<string>();
   let ordinal = options.startingOrdinal;
   for (const source of sources) {
+    const supersession = replaySourceSupersessions.get(source.repositoryPath);
+    if (supersession) {
+      if (!appliedPaths.has(supersession.replacementPath)) {
+        throw new Error(
+          `Superseded replay source requires its replacement to be applied first: ${supersession.replacementPath}`
+        );
+      }
+      continue;
+    }
     const replacement = replaySourceReplacements.get(source.repositoryPath);
     if (replacement) {
       if (source.sha256 !== replacement.sourceSha256) {

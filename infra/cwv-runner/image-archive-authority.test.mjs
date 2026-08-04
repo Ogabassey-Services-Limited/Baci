@@ -137,6 +137,7 @@ test('requires every authority source exactly once in the source manifest', () =
   const authoritySources = [
     'cwv-runner-authority.mjs',
     'cwv-runner-authority-core.mjs',
+    'cwv-runner-authority-filters.mjs',
     'cwv-runner-authority-runtime.mjs',
     'cwv-runner-stable-attestation-builder.mjs',
   ];
