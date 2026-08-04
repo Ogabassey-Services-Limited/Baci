@@ -96,6 +96,9 @@ DECLARE
   v_latest_incoming_event_at timestamptz := now();
   v_effective_status text;
   v_current_location text := 'Warehouse';
+  v_monitor_state text;
+  v_next_poll_at timestamptz;
+  v_stopped_at timestamptz;
   v_should_update_location boolean := false;
   v_should_update_delivery boolean := false;
 BEGIN
@@ -105,11 +108,14 @@ BEGIN
       THEN v_current_status
     ELSE p_status
   END;
+  v_monitor_state := CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+    THEN 'terminal' ELSE 'active' END;
+  v_next_poll_at := CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+    THEN NULL ELSE now() + interval '15 minutes' END;
+  v_stopped_at := CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
+    THEN now() ELSE NULL END;
   v_should_update_location := v_current_location IS NOT NULL
-    AND true;
-  IF v_effective_status IN ('delivered', 'cancelled', 'returned') THEN
-    v_should_update_location := false;
-  END IF;
+    AND v_monitor_state <> 'terminal';
   v_should_update_delivery := p_actual_delivery IS NOT NULL;
   RETURN jsonb_build_object(
     'effective_status', v_effective_status,

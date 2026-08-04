@@ -29,6 +29,10 @@ type ReplaySourceReplacement = {
   sourceSha256: string;
 };
 
+type ReplaySourceSupersession = {
+  replacementPath: string;
+};
+
 const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
   [
     'supabase/migrations/20260727220050_shipment_tracking_realtime_broadcast.sql',
@@ -61,7 +65,7 @@ const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
     'supabase/migrations/20260801142000_harden_gigl_notification_recovery_edges.sql',
     {
       replacementPath:
-        'supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql',
+        'supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql',
       sourceSha256:
         'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e',
     },
@@ -73,6 +77,16 @@ const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
         'supabase/migrations/20260804000300_repair_gigl_manual_failure_status_scope.sql',
       sourceSha256:
         'f97c32889ae2e733d881bd7d6672cd91337936326f55e205d717bb972398ea73',
+    },
+  ],
+]);
+
+const replaySourceSupersessions = new Map<string, ReplaySourceSupersession>([
+  [
+    'supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql',
     },
   ],
 ]);
@@ -94,6 +108,15 @@ export async function applySupabaseCurrentTreeSources(
   const appliedPaths = new Set<string>();
   let ordinal = options.startingOrdinal;
   for (const source of sources) {
+    const supersession = replaySourceSupersessions.get(source.repositoryPath);
+    if (supersession) {
+      if (!appliedPaths.has(supersession.replacementPath)) {
+        throw new Error(
+          `Superseded replay source requires its replacement to be applied first: ${supersession.replacementPath}`
+        );
+      }
+      continue;
+    }
     const replacement = replaySourceReplacements.get(source.repositoryPath);
     if (replacement) {
       if (source.sha256 !== replacement.sourceSha256) {

@@ -40,6 +40,8 @@ const webPackageJson = JSON.parse(readFileSync(webPackageJsonPath, 'utf8')) as {
 };
 const WEB_FILTER_REGEX = /^\s{12}web:\n(?<body>(?:\s{14}- .+\n)+)/m;
 const DEPLOY_WEB_FILTER_REGEX = /^web:\n(?<body>(?:\s{2}- .+\n)+)/m;
+const DEPLOY_MIGRATIONS_FILTER_REGEX =
+  /^migrations:\n(?<body>(?:\s{2}- .+\n)+)/m;
 
 function getWebFilter(workflowContent = workflow) {
   return workflowContent.match(WEB_FILTER_REGEX)?.groups?.body;
@@ -47,6 +49,10 @@ function getWebFilter(workflowContent = workflow) {
 
 function getDeployWebFilter() {
   return deployFilters.match(DEPLOY_WEB_FILTER_REGEX)?.groups?.body;
+}
+
+function getDeployMigrationsFilter() {
+  return deployFilters.match(DEPLOY_MIGRATIONS_FILTER_REGEX)?.groups?.body;
 }
 
 describe('CI workflow quiz asset coverage', () => {
@@ -96,6 +102,23 @@ describe('CI workflow quiz asset coverage', () => {
     );
     expect(deployWebFilter).toContain(
       "- '.github/scripts/storefront-release-marker.mjs'"
+    );
+  });
+
+  it('deploys migration-applier dependencies', () => {
+    const deployMigrationsFilter = getDeployMigrationsFilter();
+
+    expect(deployMigrationsFilter).toContain(
+      "- '.github/scripts/apply-pending-migrations.sh'"
+    );
+    expect(deployMigrationsFilter).toContain(
+      "- '.github/scripts/build-historical-repair-payload.sh'"
+    );
+    expect(deployMigrationsFilter).toContain(
+      "- '.github/scripts/historical-migration-repair-handler.sh'"
+    );
+    expect(deployMigrationsFilter).toContain(
+      "- '.github/scripts/historical-migration-repair-spec.sh'"
     );
   });
 

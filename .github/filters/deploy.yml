@@ -33,6 +33,10 @@ migrations:
   - 'supabase/migrations/**'
   - '.github/filters/deploy.yml'
   - '.github/workflows/deploy.yml'
+  - '.github/scripts/apply-pending-migrations.sh'
+  - '.github/scripts/build-historical-repair-payload.sh'
+  - '.github/scripts/historical-migration-repair-handler.sh'
+  - '.github/scripts/historical-migration-repair-spec.sh'
 cwv_runner:
   - 'infra/cwv-runner/**'
   - '.github/filters/deploy.yml'

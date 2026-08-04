@@ -26,6 +26,20 @@ BEGIN
     OR apply_definition LIKE '%v_latest_status_event_at >= v_latest_persisted_event_at%'
     OR apply_definition NOT LIKE '%v_manual_terminal_failed boolean := false%'
     OR apply_definition NOT LIKE '%OR v_manual_terminal_failed)%'
+    OR (
+      pg_catalog.length(apply_definition)
+      - pg_catalog.length(
+        pg_catalog.replace(
+          apply_definition,
+          '(v_effective_status IN (''delivered'', ''cancelled'', ''returned'')'
+          || E'\n      OR v_manual_terminal_failed)',
+          ''
+        )
+      )
+    ) <> 3 * pg_catalog.length(
+      '(v_effective_status IN (''delivered'', ''cancelled'', ''returned'')'
+      || E'\n      OR v_manual_terminal_failed)'
+    )
     OR apply_definition NOT LIKE '%v_latest_status_event_at <= v_manual_terminal_override_at%'
     OR apply_definition LIKE '%v_latest_incoming_event_at <= v_manual_terminal_override_at%'
     OR to_regprocedure(

@@ -199,6 +199,16 @@ describe('GIGL retry and generation hardening migrations', () => {
       "pg_catalog.replace(v_definition, v_expected_terminality, '')"
     );
     expect(
+      readMigration(
+        '20260801141100_preserve_manual_gigl_terminal_overrides.sql'
+      ).match(/v_effective_status IN \('delivered', 'cancelled', 'returned'\)/g)
+    ).toHaveLength(3);
+    expect(
+      readMigration(
+        '20260804000400_repair_gigl_notification_terminality_cardinality.sql'
+      )
+    ).toContain(') <> 3 * pg_catalog.length(v_expected_terminality) THEN');
+    expect(
       readMigrationTest('gigl_tracking_manual_failure_order_status.sql')
     ).toContain('manual failed final polls must remain terminal');
     expect(

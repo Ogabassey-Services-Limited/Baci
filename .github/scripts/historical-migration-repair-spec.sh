@@ -15,10 +15,21 @@ historical_migration_repair_spec() {
       printf '%s\t%s\t%s\n' '20260804000100' 'repair_gigl_failed_event_recovery_scope' '972030071dbeea262fdd1ccc20f4f62c07c90299d00e5fd70335617c4dd9a91d'
       ;;
     20260801142000:harden_gigl_notification_recovery_edges)
-      printf '%s\t%s\t%s\n' '20260804000200' 'repair_gigl_notification_recovery_edges' 'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e'
+      printf '%s\t%s\t%s\n' '20260804000400' 'repair_gigl_notification_terminality_cardinality' 'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e'
       ;;
     20260801142100:preserve_manual_gigl_failures_after_unknown_scans)
       printf '%s\t%s\t%s\n' '20260804000300' 'repair_gigl_manual_failure_status_scope' 'f97c32889ae2e733d881bd7d6672cd91337936326f55e205d717bb972398ea73'
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+# An unpublished repair can itself be malformed. Keep it immutable and skip it
+# only after the historical source and its corrected replacement are recorded.
+historical_migration_repair_supersession_spec() {
+  case "$1:$2" in
+    20260804000200:repair_gigl_notification_recovery_edges)
+      printf '%s\t%s\t%s\t%s\n' '20260801142000' 'harden_gigl_notification_recovery_edges' '20260804000400' 'repair_gigl_notification_terminality_cardinality'
       ;;
     *) return 1 ;;
   esac

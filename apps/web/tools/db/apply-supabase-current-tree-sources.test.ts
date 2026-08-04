@@ -41,7 +41,7 @@ const repairCases = [
     historicalSha256:
       'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e',
     repairPath:
-      'supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql',
+      'supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql',
     ordinal: 129,
   },
   {
@@ -208,5 +208,79 @@ describe('applySupabaseCurrentTreeSources', () => {
 
     expect(materializeSource).not.toHaveBeenCalled();
     expect(apply).not.toHaveBeenCalled();
+  });
+
+  it('skips the superseded GIGL recovery repair after its successor is applied', async () => {
+    const historicalPath =
+      'supabase/migrations/20260801142000_harden_gigl_notification_recovery_edges.sql';
+    const successorPath =
+      'supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql';
+    const supersededPath =
+      'supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql';
+    const materializeSource = vi.fn(
+      async (
+        _root: string,
+        _workdir: string,
+        source: { repositoryPath: string },
+        ordinal: number
+      ) => `/owned/sql/${ordinal}-${source.repositoryPath.split('/').at(-1)}`
+    );
+    const apply = vi.fn(async () => undefined);
+
+    await applySupabaseCurrentTreeSources({
+      apply,
+      materializeSource,
+      readSource: async () =>
+        readFile(
+          path.resolve(
+            import.meta.dirname,
+            '../../../../supabase/migrations',
+            path.basename(historicalPath)
+          )
+        ),
+      pendingSources: [
+        {
+          repositoryPath: historicalPath,
+          sha256:
+            'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e',
+        },
+        { repositoryPath: supersededPath, sha256: 'a'.repeat(64) },
+        { repositoryPath: successorPath, sha256: 'b'.repeat(64) },
+      ],
+      postReplaySources: [],
+      repositoryRoot: '/repository',
+      startingOrdinal: 129,
+      workdir: '/owned',
+    });
+
+    expect(materializeSource.mock.calls.map((call) => call.slice(2))).toEqual([
+      [expect.objectContaining({ repositoryPath: successorPath }), 129],
+    ]);
+    expect(apply).toHaveBeenCalledWith(
+      `/owned/sql/129-${successorPath.split('/').at(-1)}`
+    );
+  });
+
+  it('fails closed when a superseded repair reaches replay before its successor', async () => {
+    await expect(
+      applySupabaseCurrentTreeSources({
+        apply: async () => undefined,
+        materializeSource: async () => '/owned/sql/129-superseded.sql',
+        readSource: async () => Buffer.from(''),
+        pendingSources: [
+          {
+            repositoryPath:
+              'supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql',
+            sha256: 'a'.repeat(64),
+          },
+        ],
+        postReplaySources: [],
+        repositoryRoot: '/repository',
+        startingOrdinal: 129,
+        workdir: '/owned',
+      })
+    ).rejects.toThrow(
+      'Superseded replay source requires its replacement to be applied first'
+    );
   });
 });

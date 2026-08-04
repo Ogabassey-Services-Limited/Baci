@@ -24,6 +24,10 @@ const GIGL_RECOVERY_EDGE_REPAIRS = [
     'supabase/migrations/20260804000300_repair_gigl_manual_failure_status_scope.sql',
     '893c97221351a03a058dfa208f33c80fd718e5b0f4d5fca4ca4ac832e7ac9cd0',
   ],
+  [
+    'supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql',
+    'dff62ee676c731c9ff1b5a1a297144531db5d18b0d0ce070c681ba01b63452fe',
+  ],
 ] as const;
 
 afterEach(replayManifestWorkspace.cleanUp);
@@ -54,7 +58,7 @@ describe('GIGL tracking pending replay sources', () => {
       pendingRepairState: 'materialized',
     });
 
-    expect(result.manifest.pendingSources).toHaveLength(174);
+    expect(result.manifest.pendingSources).toHaveLength(175);
     for (const [repositoryPath, sha256] of [
       [
         'supabase/migrations/20260801142400_retry_gigl_definitive_notification_rejections.sql',

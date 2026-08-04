@@ -50,6 +50,9 @@ cp \
   "$repo_root/supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql" \
   "$fixture_root/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql"
 cp \
+  "$repo_root/supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql" \
+  "$fixture_root/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql"
+cp \
   "$repo_root/supabase/migrations/20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql" \
   "$fixture_root/migrations/20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql"
 cp \

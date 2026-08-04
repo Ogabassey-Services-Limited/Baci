@@ -35,16 +35,8 @@ if [ ! -d "$migrations_dir" ]; then
   exit 1
 fi
 
-repair_spec_file="$script_dir/historical-migration-repair-spec.sh"
-if [ ! -r "$repair_spec_file" ]; then
-  echo "::error::historical repair specification not found at $repair_spec_file"
-  exit 1
-fi
-. "$repair_spec_file"
-if ! declare -F historical_migration_repair_spec >/dev/null; then
-  echo "::error::historical_migration_repair_spec not defined by $repair_spec_file"
-  exit 1
-fi
+. "$script_dir/historical-migration-repair-handler.sh"
+load_historical_migration_repair_handler "$script_dir"
 
 bash "$script_dir/check-migration-versions.sh" "$migrations_dir"
 
@@ -205,20 +197,13 @@ for file in "${sorted_files[@]}"; do
     continue
   fi
 
+  if supersession_spec="$(historical_migration_repair_supersession_spec "$version" "$name")"; then
+    skip_superseded_historical_migration_repair "$version" "$name" "$supersession_spec"
+    continue
+  fi
+
   if repair_spec="$(historical_migration_repair_spec "$version" "$name")"; then
-    IFS=$'\t' read -r repair_version repair_name expected_sha <<<"$repair_spec"
-    repair_file="$migrations_dir/${repair_version}_${repair_name}.sql"
-    actual_sha="$(sha256sum "$file" | awk '{print $1}')"
-    if [ "$actual_sha" != "$expected_sha" ] || [ ! -f "$repair_file" ]; then
-      echo "::error::Historical migration $version requires the pinned append-only repair ${repair_version}_${repair_name}.sql and original source checksum" >&2
-      exit 1
-    fi
-    body="$(bash "$script_dir/build-historical-repair-payload.sh" "$repair_file" "$(build_register_migration_query "$version" "$name")" "$(build_register_migration_query "$repair_version" "$repair_name")")"
-    api_query_payload "$body"
-    echo "✓ applied:         $repair_version  $repair_name"
-    echo "::warning::Historical migration $version is reconciled by append-only repair migration ${repair_version}_${repair_name}.sql"
-    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"$'\n'"${repair_version}"$'\t'"${repair_name}"
-    applied_count=$((applied_count + 1))
+    apply_historical_migration_repair "$version" "$name" "$file" "$repair_spec"
     continue
   fi
 
