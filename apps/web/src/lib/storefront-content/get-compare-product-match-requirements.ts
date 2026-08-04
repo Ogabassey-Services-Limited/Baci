@@ -127,35 +127,24 @@ export function getCompareProductMatchRequirements(
     candidateGroups.set(key, group);
   }
 
-  return candidates
-    .map((candidate) => {
-      const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
-      const requirement: CompareProductMatchRequirement = {
-        identifier: candidate.identifier,
-        brand: candidate.brand,
-      };
-      if ((candidateCounts.get(key) ?? 0) > 1) {
-        const group = candidateGroups.get(key) ?? [];
-        const discriminatorTokens = candidate.discriminatorTokens.filter(
-          (token) =>
-            group
-              .filter((other) => other !== candidate)
-              .every((other) => !other.discriminatorTokens.includes(token))
-        );
-        if (discriminatorTokens.length > 0) {
-          requirement.discriminatorTokens = discriminatorTokens;
-        }
+  return candidates.map((candidate) => {
+    const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
+    const requirement: CompareProductMatchRequirement = {
+      identifier: candidate.identifier,
+      brand: candidate.brand,
+    };
+    if ((candidateCounts.get(key) ?? 0) > 1) {
+      const group = candidateGroups.get(key) ?? [];
+      const discriminatorTokens = candidate.discriminatorTokens.filter(
+        (token) =>
+          group
+            .filter((other) => other !== candidate)
+            .every((other) => !other.discriminatorTokens.includes(token))
+      );
+      if (discriminatorTokens.length > 0) {
+        requirement.discriminatorTokens = discriminatorTokens;
       }
-      return requirement;
-    })
-    .filter(
-      (candidate, index, all) =>
-        all.findIndex(
-          (other) =>
-            other.identifier === candidate.identifier &&
-            other.brand === candidate.brand &&
-            other.discriminatorTokens?.join('\u0000') ===
-              candidate.discriminatorTokens?.join('\u0000')
-        ) === index
-    );
+    }
+    return requirement;
+  });
 }

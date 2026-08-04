@@ -22,4 +22,13 @@ describe('modelTokenMatchers', () => {
 
     expect(result).toEqual(['elitebook', '830', 'g7']);
   });
+
+  it('strips the complete Intel Core Ultra processor suffix', () => {
+    const result = modelTokenMatchers.stripTrailingLaptopProcessorTier(
+      ['xps', '13', '9340', 'intel', 'core', 'ultra', '7', '32gb'],
+      'laptops'
+    );
+
+    expect(result).toEqual(['xps', '13', '9340']);
+  });
 });

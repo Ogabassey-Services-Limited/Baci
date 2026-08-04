@@ -53,11 +53,21 @@ function stripTrailingLaptopProcessorTier(
   if (processorIndex < 1) {
     return tokens;
   }
-  const processorStartIndex =
+  let processorStartIndex = processorIndex;
+  if (
+    tokens[processorIndex] === 'ultra' &&
+    tokens[processorIndex - 1] === 'core'
+  ) {
+    processorStartIndex =
+      tokens[processorIndex - 2] === 'intel'
+        ? processorIndex - 2
+        : processorIndex - 1;
+  } else if (
     isNumericLaptopProcessorSuffix(tokens, processorIndex) &&
     /^\d{1,2}$/u.test(tokens[processorIndex - 1] ?? '')
-      ? processorIndex - 1
-      : processorIndex;
+  ) {
+    processorStartIndex = processorIndex - 1;
+  }
   return tokens.slice(0, processorStartIndex);
 }
 

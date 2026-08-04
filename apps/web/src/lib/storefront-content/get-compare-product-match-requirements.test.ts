@@ -169,4 +169,18 @@ describe('getCompareProductMatchRequirements', () => {
       { identifier: 's25', brand: 'samsung' },
     ]);
   });
+
+  it('preserves duplicate requirements for color-only sibling variants', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productNames: ['Apple iPhone 15 Black', 'Apple iPhone 15 Blue'],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: '15', brand: 'apple' },
+      { identifier: '15', brand: 'apple' },
+    ]);
+  });
 });

@@ -5,12 +5,15 @@ const CONNECTIVITY_DISCRIMINATOR_TOKENS = new Set([
   '4g',
   '5g',
   'cellular',
+  'esim',
   'lte',
+  'physical',
+  'sim',
   'wifi',
 ]);
 const STORAGE_DISCRIMINATOR_PATTERN = /^(?:[6-9]\d|\d{3,})(?:gb|tb)$/u;
 
-/** Returns the strongest PDP variant discriminator without over-constraining guide titles. */
+/** Returns PDP variant discriminators for group-aware guide matching. */
 export function getProductConnectivityDiscriminators(
   productNames: string[] | undefined,
   productSlugs: string[] | undefined
@@ -24,10 +27,9 @@ export function getProductConnectivityDiscriminators(
         .filter(Boolean)
     )
   );
-  const connectivityTokens = tokens.filter((token) =>
-    CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token)
+  return tokens.filter(
+    (token) =>
+      CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token) ||
+      STORAGE_DISCRIMINATOR_PATTERN.test(token)
   );
-  return connectivityTokens.length > 0
-    ? connectivityTokens
-    : tokens.filter((token) => STORAGE_DISCRIMINATOR_PATTERN.test(token));
 }

@@ -83,4 +83,45 @@ describe('buildCommercialGuideLinks game titles', () => {
       'https://ogabassey.com/blog/best-ps4-games',
     ]);
   });
+
+  it('preserves an ampersand inside the exact game title', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'best-ps5-games',
+          title: 'Best PS5 Games Buyer Guide',
+          excerpt: 'A current shortlist for console buyers.',
+          category: 'PlayStation 5',
+          tags: ['playstation', 'ps5', 'games'],
+          keywords: ['buying guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'ratchet-clank-rift-apart-guide',
+          title: 'Ratchet & Clank: Rift Apart Buyer Guide',
+          excerpt: 'What to know before buying Ratchet & Clank.',
+          category: 'PlayStation 5',
+          tags: ['playstation', 'ratchet and clank'],
+          keywords: ['buying guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'playstation-5',
+        brands: ['PlayStation'],
+        productNames: ['Ratchet & Clank: Rift Apart'],
+        productSlugs: ['ps5-ratchet-clank-rift-apart'],
+      },
+    });
+
+    expect(links[0]?.href).toBe(
+      'https://ogabassey.com/blog/ratchet-clank-rift-apart-guide'
+    );
+  });
 });

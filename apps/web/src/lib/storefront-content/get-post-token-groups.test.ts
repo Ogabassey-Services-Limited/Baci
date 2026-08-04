@@ -39,4 +39,23 @@ describe('getPostTokenGroups', () => {
       's25',
     ]);
   });
+
+  it('preserves ampersands inside a product model name', () => {
+    const [titleTokens] = getPostTokenGroups({
+      title: 'Ratchet & Clank: Rift Apart Buyer Guide',
+      excerpt: null,
+      category: 'Games',
+      tags: null,
+      keywords: null,
+    });
+
+    expect(titleTokens).toEqual([
+      'ratchet',
+      'clank',
+      'rift',
+      'apart',
+      'buyer',
+      'guide',
+    ]);
+  });
 });

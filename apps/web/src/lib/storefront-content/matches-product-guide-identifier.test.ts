@@ -22,4 +22,26 @@ describe('matchesProductGuideIdentifier', () => {
 
     expect(result).toBe(false);
   });
+
+  it('matches a numeric laptop family between its family name and model code', () => {
+    const result = matchesProductGuideIdentifier(
+      {
+        slug: 'dell-xps-13-9340-guide',
+        title: 'Dell XPS 13 9340 Buyer Guide',
+        excerpt: null,
+        category: 'Laptops',
+        tags: ['dell'],
+        keywords: ['buyer guide'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['dell', 'xps', '13', '9340', 'buyer', 'guide'],
+      ['xps', '9340'],
+      true,
+      { brand: 'dell', knownBrands: ['dell'] }
+    );
+
+    expect(result).toBe(true);
+  });
 });

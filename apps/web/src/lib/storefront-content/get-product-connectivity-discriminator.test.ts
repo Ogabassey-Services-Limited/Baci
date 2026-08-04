@@ -17,7 +17,7 @@ describe('getProductConnectivityDiscriminators', () => {
       []
     );
 
-    expect(connectivity).toEqual(['wifi', 'cellular']);
+    expect(connectivity).toEqual(['256gb', 'wifi', 'cellular']);
   });
 
   it('uses storage while excluding ordinary RAM markers when connectivity is absent', () => {
@@ -27,5 +27,14 @@ describe('getProductConnectivityDiscriminators', () => {
     );
 
     expect(discriminators).toEqual(['256gb']);
+  });
+
+  it('retains SIM mode markers with storage and connectivity variants', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPhone 15 256GB 5G physical SIM'],
+      []
+    );
+
+    expect(discriminators).toEqual(['256gb', '5g', 'physical', 'sim']);
   });
 });

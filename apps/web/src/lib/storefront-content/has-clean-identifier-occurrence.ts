@@ -1,6 +1,6 @@
 import type { PublishedClusterPost } from './content-cluster-types';
 import { getPostTokenGroups } from './get-post-token-groups';
-import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
+import { matchesVariantDiscriminatorTokens } from './matches-variant-discriminator-tokens';
 import { tokenizeContentText } from './tokenize-content-text';
 
 const MODEL_VARIANT_MARKER_TOKENS = new Set([
@@ -36,6 +36,7 @@ interface IdentifierOccurrenceOptions {
   knownBrands?: string[];
   brandAliases?: Record<string, readonly string[]>;
   discriminatorTokens?: string[];
+  allowPartialDiscriminatorGroups?: boolean;
   requireBrandBeforeIdentifier?: boolean;
   allowBrandAliasOverlap?: boolean;
 }
@@ -50,27 +51,12 @@ function matchesTokenSequence(
   );
 }
 
-function matchesOrderedTokenSequence(
-  tokens: string[],
-  expectedTokens: string[]
-) {
-  let expectedIndex = 0;
-  for (const token of tokens) {
-    if (token === expectedTokens[expectedIndex]) {
-      expectedIndex += 1;
-      if (expectedIndex === expectedTokens.length) {
-        return true;
-      }
-    }
-  }
-  return expectedTokens.length === 0;
-}
-
 function matchesDiscriminatorForIdentifierOccurrence(
   tokens: string[],
   identifierStart: number,
   identifierEnd: number,
-  discriminatorTokens: string[]
+  discriminatorTokens: string[],
+  allowPartialGroups: boolean
 ) {
   const previousBoundary = tokens.findLastIndex(
     (token, index) =>
@@ -80,13 +66,15 @@ function matchesDiscriminatorForIdentifierOccurrence(
     (token, index) =>
       index >= identifierEnd && COMPARISON_BOUNDARY_TOKENS.has(token)
   );
-  const occurrenceTokens = normalizeVariantDiscriminatorTokens(
-    tokens.slice(
-      previousBoundary + 1,
-      nextBoundary >= 0 ? nextBoundary : tokens.length
-    )
+  const occurrenceTokens = tokens.slice(
+    previousBoundary + 1,
+    nextBoundary >= 0 ? nextBoundary : tokens.length
   );
-  return matchesOrderedTokenSequence(occurrenceTokens, discriminatorTokens);
+  return matchesVariantDiscriminatorTokens(
+    occurrenceTokens,
+    discriminatorTokens,
+    allowPartialGroups
+  );
 }
 
 function getBrandDistance(
@@ -215,7 +203,8 @@ export function hasCleanIdentifierOccurrence(
           postTokens,
           startIndex,
           startIndex + identifierTokens.length,
-          options.discriminatorTokens
+          options.discriminatorTokens,
+          options.allowPartialDiscriminatorGroups ?? false
         )
       ) {
         return false;

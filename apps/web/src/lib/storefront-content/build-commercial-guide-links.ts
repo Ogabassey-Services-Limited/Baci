@@ -195,6 +195,7 @@ export function buildCommercialGuideLinks(
                     knownBrands: inferred.brands,
                     brandAliases,
                     discriminatorTokens: productConnectivityDiscriminators,
+                    allowPartialDiscriminatorGroups: true,
                     requireBrandBeforeIdentifier: true,
                     allowBrandAliasOverlap: true,
                   }
