@@ -62,6 +62,8 @@ grep -q 'historical_migration_repair_supersession_spec not defined' \
 
 expected_repair=$'20260804000400\trepair_gigl_notification_terminality_cardinality\tb373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e'
 [ "$(historical_migration_repair_spec 20260801142000 harden_gigl_notification_recovery_edges)" = "$expected_repair" ]
+expected_monitor_repair=$'20260804000500\trepair_gigl_monitor_backfill_join\t605a0d48a4f116e67ee626ff173b66c6c80cefa77ad606a3813aa1ea6deda62a'
+[ "$(historical_migration_repair_spec 20260801142200 cleanup_unowned_gigl_monitor_backfill)" = "$expected_monitor_repair" ]
 supersession="$(historical_migration_repair_supersession_spec 20260804000200 repair_gigl_notification_recovery_edges)"
 applied_migrations=$'20260801142000\tharden_gigl_notification_recovery_edges\n20260804000400\trepair_gigl_notification_terminality_cardinality'
 skipped_count=0

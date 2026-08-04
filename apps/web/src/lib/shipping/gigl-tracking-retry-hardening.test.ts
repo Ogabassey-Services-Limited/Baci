@@ -195,6 +195,9 @@ describe('GIGL retry and generation hardening migrations', () => {
     const repair = readMigration(
       '20260803000200_repair_unowned_gigl_monitor_backfill.sql'
     );
+    const retryRepair = readMigration(
+      '20260804000500_repair_gigl_monitor_backfill_join.sql'
+    );
 
     expect(migration).toContain('public.orders AS order_row');
     expect(migration).toContain(
@@ -206,6 +209,11 @@ describe('GIGL retry and generation hardening migrations', () => {
     expect(migration).toContain("SET state = 'inactive'");
     expect(repair).toContain('FROM public.shipments AS shipment,');
     expect(repair).toContain('order_row.id = monitor.order_id');
+    expect(retryRepair).toContain('FROM public.shipments AS shipment,');
+    expect(retryRepair).toContain('order_row.id = monitor.order_id');
+    expect(retryRepair).not.toContain(
+      'JOIN public.orders AS order_row ON order_row.id = monitor.order_id'
+    );
   });
 
   it('keeps carrier precedence fixes append-only', () => {
