@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { getValidatedProductUrl } from '@/lib/seo-utils';
+import { resolveStorefrontProductCategory } from '@/lib/storefront-product-category-precedence';
 
 export interface ProductWithCategory {
   id: string;
@@ -22,7 +23,7 @@ export function buildProductSitemapEntry({
   product: ProductWithCategory;
   storeUrl: string;
 }): MetadataRoute.Sitemap[number] {
-  const normalizedJoinedCategory = getProductCategorySlug(product);
+  const normalizedJoinedCategory = resolveStorefrontProductCategory(product);
   const url = getValidatedProductUrl(
     {
       id: product.id,
@@ -55,19 +56,4 @@ export function buildProductSitemapEntry({
     priority: 0.8,
     ...(images.length > 0 && { images }),
   };
-}
-
-function getProductCategorySlug(product: ProductWithCategory): {
-  slug: string;
-} | null {
-  const directSlug = product.categories?.slug?.trim();
-  if (directSlug) {
-    return { slug: directSlug };
-  }
-
-  const junctionSlug = product.product_categories
-    ?.map((entry) => entry.categories?.slug?.trim())
-    .find((slug): slug is string => Boolean(slug));
-
-  return junctionSlug ? { slug: junctionSlug } : null;
 }

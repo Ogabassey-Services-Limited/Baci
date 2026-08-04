@@ -3,6 +3,7 @@ import {
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+import { resolveStorefrontProductCategory } from '@/lib/storefront-product-category-precedence';
 import { UCP_PROFILE_VERSION } from './ucp-discovery-profile';
 
 export const UCP_CATALOG_SEARCH_CAPABILITY = 'dev.ucp.shopping.catalog.search';
@@ -108,28 +109,13 @@ export function mapUcpCatalogProductRow({
       product: {
         canonical_url: row.canonical_url ?? null,
         category: row.category ?? null,
-        categories: getProductCategory(row),
+        categories: resolveStorefrontProductCategory(row),
         id: row.id,
         name: row.name,
         slug: row.slug ?? undefined,
       },
     }),
   });
-}
-
-function getProductCategory(row: UcpCatalogProductRow): {
-  slug?: string;
-} | null {
-  const directSlug = row.categories?.slug?.trim();
-  if (directSlug) {
-    return { slug: directSlug };
-  }
-
-  const junctionSlug = row.product_categories
-    ?.map((entry) => entry.categories?.slug?.trim())
-    .find((slug): slug is string => Boolean(slug));
-
-  return junctionSlug ? { slug: junctionSlug } : null;
 }
 
 export function filterActiveUcpCatalogProductRows<

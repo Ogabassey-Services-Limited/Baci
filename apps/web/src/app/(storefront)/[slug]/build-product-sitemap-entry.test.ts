@@ -85,4 +85,25 @@ describe('buildProductSitemapEntry', () => {
       'https://zorvexa.usebaci.com/featured-laptops/direct-laptop'
     );
   });
+
+  it('keeps legacy category text ahead of a junction category without a direct join', () => {
+    const entry = buildProductSitemapEntry({
+      product: {
+        id: 'product-legacy-text-category',
+        name: 'Legacy Category Laptop',
+        slug: 'legacy-category-laptop',
+        category: 'Laptops',
+        canonical_url: null,
+        images: [],
+        updated_at: null,
+        categories: null,
+        product_categories: [{ categories: { slug: 'featured-laptops' } }],
+      },
+      storeUrl: 'https://zorvexa.usebaci.com',
+    });
+
+    expect(entry.url).toBe(
+      'https://zorvexa.usebaci.com/laptops/legacy-category-laptop'
+    );
+  });
 });

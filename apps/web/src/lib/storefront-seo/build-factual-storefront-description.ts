@@ -52,7 +52,9 @@ export function buildFactualStorefrontDescription({
     ? ` in ${normalizedCountry}`
     : '';
 
-  return category
+  const fallbackDescription = category
     ? `${storeName} offers ${category}${location}.`
     : `${storeName} storefront${location}.`;
+
+  return generateMetaDescription(fallbackDescription);
 }

@@ -42,6 +42,20 @@ describe('buildFactualStorefrontDescription', () => {
     expect(result).toBe(`${'b'.repeat(157)}...`);
   });
 
+  it('truncates an overlong synthesized fallback to the metadata limit', () => {
+    const input = {
+      businessName: 'm'.repeat(120),
+      siteDescription: null,
+      siteTagline: null,
+      categoryName: 'c'.repeat(80),
+      country: 'NG',
+    };
+
+    const result = buildFactualStorefrontDescription(input);
+
+    expect(result).toBe(`${'m'.repeat(120)} offers ${'c'.repeat(29)}...`);
+  });
+
   it('uses neutral factual fallback copy without unsupported commerce claims', () => {
     const description = buildFactualStorefrontDescription({
       businessName: 'Zorvexa',

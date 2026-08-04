@@ -119,6 +119,29 @@ describe('ucp catalog adapters', () => {
     expect(product.url).toBe('https://ogabassey.com/laptops/legacy-laptop');
   });
 
+  it('keeps legacy category text ahead of a junction category without a direct join', () => {
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: {
+        canonical_url: null,
+        category: 'Laptops',
+        categories: null,
+        id: 'legacy-text-category',
+        merchant_id: 'merchant-1',
+        name: 'Legacy Category Laptop',
+        price: 900_000,
+        product_categories: [{ categories: { slug: 'featured-laptops' } }],
+        slug: 'legacy-category-laptop',
+        status: 'active',
+      },
+    });
+
+    expect(product.url).toBe(
+      'https://ogabassey.com/laptops/legacy-category-laptop'
+    );
+  });
+
   it('keeps unmanaged inventory available and filters inactive rows', () => {
     const rows = filterActiveUcpCatalogProductRows([
       {
