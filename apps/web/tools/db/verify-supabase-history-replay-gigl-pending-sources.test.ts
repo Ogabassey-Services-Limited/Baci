@@ -1,9 +1,16 @@
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createReplayManifestTestWorkspace } from './replay-manifest-test-workspace.test-support';
 import { verifySupabaseHistoryReplayManifest } from './verify-supabase-history-replay-manifest';
 
 const replayManifestWorkspace = createReplayManifestTestWorkspace();
 const WORKSPACE_ROOT = replayManifestWorkspace.workspaceRoot;
+const GIGL_TRACKING_RETRY_REPAIR_PATH =
+  'supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql';
+const GIGL_TRACKING_RETRY_REPAIR_SHA256 =
+  '281fa23f379abccdd1366f6354f107e43692c44c89a9b4bc80eb77a20efc704d';
 
 afterEach(replayManifestWorkspace.cleanUp);
 
@@ -18,6 +25,16 @@ function expectPendingSourceSha(
 }
 
 describe('GIGL tracking pending replay sources', () => {
+  it('pins the retry-edge repair to its checked-in bytes', async () => {
+    const bytes = await readFile(
+      path.join(WORKSPACE_ROOT, GIGL_TRACKING_RETRY_REPAIR_PATH)
+    );
+
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(
+      GIGL_TRACKING_RETRY_REPAIR_SHA256
+    );
+  });
+
   it('keeps the tenant and notification hardening migrations in the manifest', async () => {
     const result = await verifySupabaseHistoryReplayManifest(WORKSPACE_ROOT, {
       pendingRepairState: 'materialized',
@@ -81,10 +98,7 @@ describe('GIGL tracking pending replay sources', () => {
         'supabase/migrations/20260803000600_repair_gigl_tracking_realtime_broadcast.sql',
         'effcd70e2aad319665eecc17c24a08340dc55db17adfaa86169c734c05b5a3b2',
       ],
-      [
-        'supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql',
-        'c8a4a6ac169a0e2af08aa34d69f0a9126ae292c58a614c2bab508529ce7c7ad1',
-      ],
+      [GIGL_TRACKING_RETRY_REPAIR_PATH, GIGL_TRACKING_RETRY_REPAIR_SHA256],
     ] as const) {
       expectPendingSourceSha(
         result.manifest.pendingSources,
