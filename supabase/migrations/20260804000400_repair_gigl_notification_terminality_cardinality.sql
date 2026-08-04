@@ -99,7 +99,8 @@ BEGIN
     || E'      v_latest_incoming_event_at IS NULL\n'
     || E'      OR v_latest_incoming_event_at <= v_manual_terminal_override_at\n'
     || E'    );\n'
-    || E'  v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')';
+    || E'  v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    || E'      OR v_manual_terminal_failed)';
   v_expected_monitor_terminality :=
     E'v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
     || E'      OR v_manual_terminal_failed)';

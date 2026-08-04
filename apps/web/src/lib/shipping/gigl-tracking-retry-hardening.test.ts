@@ -223,7 +223,7 @@ describe('GIGL retry and generation hardening migrations', () => {
         '20260804000400_repair_gigl_notification_terminality_cardinality.sql'
       )
     ).toContain(
-      "|| E'  v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')';"
+      "|| E'  v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\\n'"
     );
     expect(
       readMigrationTest('gigl_tracking_manual_failure_order_status.sql')
