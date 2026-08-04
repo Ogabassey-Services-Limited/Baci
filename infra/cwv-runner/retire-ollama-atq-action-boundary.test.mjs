@@ -92,6 +92,9 @@ revalidate_before() { if [ "$1" = "$TARGET" ]; then printf 'queued\\n' >"$QUEUE"
 cron_inventory_require_empty_at_queue() { [ ! -s "$QUEUE" ]; }
 at_submission_state() { printf '{}\\n'; }; quiesce_at_submissions() { :; }
 assert_at_submissions_quiesced() { cron_inventory_require_empty_at_queue || die 'queued work or an unsafe queue'; }
+cron_mutation_state() { printf '[]\\n'; }; quiesce_cron_mutations() { [ "$TARGET" != post_bind_crontab ] || printf 'changed after install\\n' >"$QUEUE.cron-race"; }
+assert_scheduled_mutations_quiesced() { assert_at_submissions_quiesced "$1"; }
+assert_postcondition() { [ "$1" != install_crontab ] || [ ! -s "$QUEUE.cron-race" ] || die 'crontab postcondition drift'; }
 install_crontab() { printf '%s\\n' install_crontab >>"$ACTIONS"; }
 disable_unit() { printf '%s\\n' disable_unit >>"$ACTIONS"; }
 remove_container() { printf '%s\\n' remove_container >>"$ACTIONS"; }
@@ -136,6 +139,14 @@ for (const action of [
   });
 }
 
+test('refuses a crontab replacement after install and before the cron bind', async () => {
+  const result = await runApplyWithLateAtJob('post_bind_crontab');
+  assert.equal(result.error?.code, 65);
+  assert.match(result.error?.stderr ?? '', /crontab postcondition drift/);
+  assert.match(result.actions, /^install_crontab$/m);
+  assert.doesNotMatch(result.actions, /^disable_unit$/m);
+});
+
 test('blocks an at submission after the terminal queue check and before model deletion', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-atq-quiescence-'))
@@ -176,6 +187,10 @@ at_submission_mount_state() { cat "$MOUNT_STATE"; }
 at_create_bind_mount() { printf 'rw\\n' >"$MOUNT_STATE"; }
 at_remount_bind_readonly() { printf 'ro\\n' >"$MOUNT_STATE"; }
 at_unmount_submission_spool() { printf 'absent\\n' >"$MOUNT_STATE"; }
+cron_mutation_state() { printf '[]\\n'; }
+quiesce_cron_mutations() { :; }
+assert_scheduled_mutations_quiesced() { assert_at_submissions_quiesced "$1"; }
+assert_postcondition() { :; }
 install_crontab() { printf '%s\\n' install_crontab >>"$ACTIONS"; }
 disable_unit() { printf '%s\\n' disable_unit >>"$ACTIONS"; }
 remove_container() { printf '%s\\n' remove_container >>"$ACTIONS"; }
