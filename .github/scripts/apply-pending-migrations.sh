@@ -24,11 +24,8 @@
 #      CONCURRENTLY can run outside a transaction; their history row is written
 #      only after every statement succeeds.
 #
-# `statements` in schema_migrations is left as ARRAY[]::text[]. The CLI's
-# `migration list` only consults version + name; round-tripping the migration
-# SQL into the statements column would require fragile escaping for any SQL
-# containing `$$` or single quotes.
-
+# `statements` remains ARRAY[]::text[] because the CLI only consults version/name;
+# preserving SQL there would require fragile escaping of `$$` and single quotes.
 set -euo pipefail
 
 migrations_dir="${MIGRATIONS_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/supabase/migrations}"
@@ -46,7 +43,7 @@ readonly API="https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/datab
 readonly AUTH_HEADER="Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}"
 
 api_query() {
-  curl --fail --silent --show-error \
+  curl --fail-with-body --silent --show-error \
     -X POST \
     -H "$AUTH_HEADER" \
     -H "Content-Type: application/json" \
@@ -56,16 +53,15 @@ api_query() {
 
 api_query_payload() {
   local body="$1" response
-  # Capture the response so we can detect SQL errors. `api_query` (curl --fail)
-  # already aborts on HTTP >= 400, but the Management API can also report a
-  # failed statement with a 200 status and an error object in the body. The
-  # /database/query endpoint returns a JSON array of rows on success and a JSON
-  # object (with a `message`) on error, so treat anything that is not an array
-  # as a failure. Without this, a migration whose SQL errors could still have
-  # its schema_migrations row written and then be skipped on every future
-  # deploy (recorded-but-not-applied drift).
-  response="$(api_query <<<"$body")"
-  if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$response"; then
+  # Capture response for SQL errors; curl --fail-with-body preserves HTTP bodies.
+  # The Management API can also report a failed statement with a 200 status and
+  # an error object in the body. /database/query returns arrays on success and
+  # objects on error, so treat anything that is not an array as a failure. Without
+  # this, a migration whose SQL errors could still have its schema_migrations row
+  # written and then be skipped on every future deploy (recorded-but-not-applied
+  # drift).
+  if ! response="$(api_query <<<"$body")" || \
+    ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$response"; then
     echo "::error::Supabase query did not succeed; aborting before recording the migration." >&2
     printf 'Response: %s\n' "$response" | head -c 2000 >&2
     return 1
@@ -102,6 +98,9 @@ historical_migration_repair_spec() {
   case "$1:$2" in
     20260727220050:shipment_tracking_realtime_broadcast)
       printf '%s\t%s\t%s\n' '20260803000600' 'repair_gigl_tracking_realtime_broadcast' '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65'
+      ;;
+    20260801141800:harden_gigl_tracking_retry_edges)
+      printf '%s\t%s\t%s\n' '20260803000700' 'repair_gigl_tracking_retry_edges' '35bcfb114ccfdadbbb44f69b21b53dd91b8df7a9eaa875f364e3d22b354801d1'
       ;;
     *) return 1 ;;
   esac
@@ -214,11 +213,12 @@ for file in "${sorted_files[@]}"; do
       echo "::error::Historical migration $version requires the pinned append-only repair ${repair_version}_${repair_name}.sql and original source checksum" >&2
       exit 1
     fi
-    body="$(jq -n --arg query "$(build_register_migration_query "$version" "$name")" '{query: $query}')"
+    body="$(bash "$(dirname "$0")/build-historical-repair-payload.sh" "$repair_file" "$(build_register_migration_query "$version" "$name")" "$(build_register_migration_query "$repair_version" "$repair_name")")"
     api_query_payload "$body"
+    echo "✓ applied:         $repair_version  $repair_name"
     echo "::warning::Historical migration $version is reconciled by append-only repair migration ${repair_version}_${repair_name}.sql"
-    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
-    skipped_count=$((skipped_count + 1))
+    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"$'\n'"${repair_version}"$'\t'"${repair_name}"
+    applied_count=$((applied_count + 1))
     continue
   fi
 
