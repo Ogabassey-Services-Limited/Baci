@@ -108,7 +108,7 @@ describe('getStorefrontSearchReadiness', () => {
       expect.objectContaining({
         table: 'products',
         columns:
-          'images, product_variants!product_variants_product_id_fkey(primary_image, images, is_inventory_anchor)',
+          'images, product_variants!product_variants_product_id_fkey(primary_image, images, is_inventory_anchor, is_active, status, deleted_at, archived_at)',
       })
     );
     expect(calls).toContainEqual(
