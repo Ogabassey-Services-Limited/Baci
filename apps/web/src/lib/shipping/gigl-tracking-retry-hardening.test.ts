@@ -159,6 +159,23 @@ describe('GIGL retry and generation hardening migrations', () => {
     );
   });
 
+  it('keeps the superseded GIGL repair mapped to its corrected successor', () => {
+    const repairSpec = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url).replace(/^\/@fs(?=\/)/, '')),
+        '../../../../../.github/scripts/historical-migration-repair-spec.sh'
+      ),
+      'utf8'
+    );
+
+    expect(repairSpec).toMatch(
+      /20260801142000:harden_gigl_notification_recovery_edges[\s\S]*'20260804000400' 'repair_gigl_notification_terminality_cardinality'/
+    );
+    expect(repairSpec).toMatch(
+      /20260804000200:repair_gigl_notification_recovery_edges[\s\S]*'20260804000400' 'repair_gigl_notification_terminality_cardinality'/
+    );
+  });
+
   it('provides a service-only reset for definitively rejected push dispatches', () => {
     const dispatchMigration = readMigration(
       '20260801141700_reset_gigl_notification_dispatch_boundary.sql'
