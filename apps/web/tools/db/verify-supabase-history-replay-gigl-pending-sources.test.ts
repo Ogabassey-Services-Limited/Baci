@@ -26,7 +26,7 @@ const GIGL_RECOVERY_EDGE_REPAIRS = [
   ],
   [
     'supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql',
-    '8ddbe0548e51a50e6920a87fa924714e451fb6882c5ac1f3af1f2a82095e6027',
+    'c661651ad75fbb9000556db4742878538dc31b366f0ad5ab5e51c0d4a7d1c9e7',
   ],
 ] as const;
 
