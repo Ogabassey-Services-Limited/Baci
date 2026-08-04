@@ -229,7 +229,7 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
   ],
   [
     '20260804000200_repair_gigl_notification_recovery_edges.sql',
-    '3119466177dbd0a2692c46f6a916b8366d8bb50ef9c9e8c12eaa726811762b51',
+    'dd09ef7cd898336c6424274b17891619c0b87b6c07bb8726f61e931cb67b6a19',
   ],
   [
     '20260804000300_repair_gigl_manual_failure_status_scope.sql',

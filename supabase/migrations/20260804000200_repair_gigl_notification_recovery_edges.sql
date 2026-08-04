@@ -88,9 +88,24 @@ BEGIN
     E'(v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
     || E'      OR v_manual_terminal_failed)';
   IF v_definition = v_original_definition
-    OR pg_catalog.strpos(v_definition, v_expected_declaration) = 0
-    OR pg_catalog.strpos(v_definition, v_expected_assignment) = 0
-    OR pg_catalog.strpos(v_definition, v_expected_terminality) = 0 THEN
+    OR (
+      pg_catalog.length(v_definition)
+      - pg_catalog.length(
+        pg_catalog.replace(v_definition, v_expected_declaration, '')
+      )
+    ) <> pg_catalog.length(v_expected_declaration)
+    OR (
+      pg_catalog.length(v_definition)
+      - pg_catalog.length(
+        pg_catalog.replace(v_definition, v_expected_assignment, '')
+      )
+    ) <> pg_catalog.length(v_expected_assignment)
+    OR (
+      pg_catalog.length(v_definition)
+      - pg_catalog.length(
+        pg_catalog.replace(v_definition, v_expected_terminality, '')
+      )
+    ) <> pg_catalog.length(v_expected_terminality) THEN
     RAISE EXCEPTION 'GIGL manual failed terminal state hardening did not apply';
   END IF;
   EXECUTE v_definition;

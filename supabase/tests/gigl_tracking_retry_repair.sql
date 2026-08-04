@@ -4,6 +4,7 @@ DECLARE
   monitor_definition text;
   apply_definition text;
   apply_result jsonb;
+  manual_failure_result jsonb;
   sync_result text;
 BEGIN
   SELECT pg_catalog.pg_get_functiondef(
@@ -24,6 +25,7 @@ BEGIN
     OR apply_definition NOT LIKE '%v_latest_status_event_at >= v_latest_persisted_status_event_at%'
     OR apply_definition LIKE '%v_latest_status_event_at >= v_latest_persisted_event_at%'
     OR apply_definition NOT LIKE '%v_manual_terminal_failed boolean := false%'
+    OR apply_definition NOT LIKE '%OR v_manual_terminal_failed)%'
     OR apply_definition NOT LIKE '%v_latest_status_event_at <= v_manual_terminal_override_at%'
     OR apply_definition LIKE '%v_latest_incoming_event_at <= v_manual_terminal_override_at%'
     OR to_regprocedure(
@@ -65,6 +67,22 @@ BEGIN
   IF apply_result->>'effective_status' IS DISTINCT FROM 'in_transit'
     OR (apply_result->>'should_update_delivery')::boolean IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'GIGL tracking retry repair did not change runtime behavior';
+  END IF;
+
+  SELECT public.apply_gigl_tracking_result(
+    '00000000-0000-0000-0000-000000000010',
+    '00000000-0000-0000-0000-000000000002',
+    'failed',
+    'WB-REPAIR-TEST',
+    'GIGL',
+    NULL,
+    '[]'::jsonb
+  ) INTO manual_failure_result;
+  IF manual_failure_result->>'effective_status' IS DISTINCT FROM 'failed'
+    OR (
+      manual_failure_result->>'should_update_location'
+    )::boolean IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'manual failed GIGL status must remain terminal';
   END IF;
 END;
 $$;

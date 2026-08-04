@@ -25,6 +25,16 @@ function readMigrationTest(filename: string) {
   );
 }
 
+function expectReplacementDirection(
+  source: string,
+  original: string,
+  replacement: string
+) {
+  const originalOffset = source.indexOf(original);
+  expect(originalOffset).toBeGreaterThanOrEqual(0);
+  expect(source.indexOf(replacement)).toBeGreaterThan(originalOffset);
+}
+
 describe('GIGL retry and generation hardening migrations', () => {
   it('preserves failures and allows newer nonterminal recovery observations', () => {
     expect(
@@ -135,11 +145,13 @@ describe('GIGL retry and generation hardening migrations', () => {
     );
 
     expect(migration).toContain('v_latest_persisted_status_event_at');
-    expect(
+    expectReplacementDirection(
       readMigration(
         '20260804000100_repair_gigl_failed_event_recovery_scope.sql'
-      )
-    ).toContain('v_latest_persisted_status_event_at');
+      ),
+      'v_latest_persisted_event_at IS NULL',
+      'v_latest_persisted_status_event_at IS NULL'
+    );
     expect(
       readMigrationTest('gigl_tracking_failure_transitions.sql')
     ).toContain(
@@ -171,11 +183,21 @@ describe('GIGL retry and generation hardening migrations', () => {
       'NEW.merchant_id IS NOT DISTINCT FROM OLD.merchant_id'
     );
     expect(followUp).toContain('v_manual_terminal_failed');
-    expect(
-      readMigration(
-        '20260804000200_repair_gigl_notification_recovery_edges.sql'
-      )
-    ).toContain('NEW.merchant_id IS NOT DISTINCT FROM OLD.merchant_id');
+    const repair = readMigration(
+      '20260804000200_repair_gigl_notification_recovery_edges.sql'
+    );
+    expect(repair).toContain(
+      "v_expected_scope :=\n    E'     AND NEW.order_id IS NOT DISTINCT FROM OLD.order_id\\n'\n    || E'     AND NEW.merchant_id IS NOT DISTINCT FROM OLD.merchant_id THEN';"
+    );
+    expect(repair).toContain(
+      "pg_catalog.replace(v_definition, v_expected_declaration, '')"
+    );
+    expect(repair).toContain(
+      "pg_catalog.replace(v_definition, v_expected_assignment, '')"
+    );
+    expect(repair).toContain(
+      "pg_catalog.replace(v_definition, v_expected_terminality, '')"
+    );
     expect(
       readMigrationTest('gigl_tracking_manual_failure_order_status.sql')
     ).toContain('manual failed final polls must remain terminal');
@@ -194,11 +216,13 @@ describe('GIGL retry and generation hardening migrations', () => {
     expect(migration).toContain(
       'v_latest_status_event_at <= v_manual_terminal_override_at'
     );
-    expect(
+    expectReplacementDirection(
       readMigration(
         '20260804000300_repair_gigl_manual_failure_status_scope.sql'
-      )
-    ).toContain('v_latest_status_event_at <= v_manual_terminal_override_at');
+      ),
+      'v_latest_incoming_event_at <= v_manual_terminal_override_at',
+      'v_latest_status_event_at <= v_manual_terminal_override_at'
+    );
     expect(migration).toContain(
       'GIGL manual failure terminality must use status events'
     );

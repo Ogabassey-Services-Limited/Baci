@@ -35,8 +35,18 @@ if [ ! -d "$migrations_dir" ]; then
   exit 1
 fi
 
+repair_spec_file="$script_dir/historical-migration-repair-spec.sh"
+if [ ! -r "$repair_spec_file" ]; then
+  echo "::error::historical repair specification not found at $repair_spec_file"
+  exit 1
+fi
+. "$repair_spec_file"
+if ! declare -F historical_migration_repair_spec >/dev/null; then
+  echo "::error::historical_migration_repair_spec not defined by $repair_spec_file"
+  exit 1
+fi
+
 bash "$script_dir/check-migration-versions.sh" "$migrations_dir"
-. "$script_dir/historical-migration-repair-spec.sh"
 
 : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN is required}"
 : "${SUPABASE_PROJECT_REF:?SUPABASE_PROJECT_REF is required}"

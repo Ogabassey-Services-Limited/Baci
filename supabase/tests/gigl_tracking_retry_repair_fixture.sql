@@ -95,7 +95,7 @@ DECLARE
   v_manual_terminal_override_at timestamptz := now();
   v_latest_incoming_event_at timestamptz := now();
   v_effective_status text;
-  v_current_location text;
+  v_current_location text := 'Warehouse';
   v_should_update_location boolean := false;
   v_should_update_delivery boolean := false;
 BEGIN
@@ -113,6 +113,7 @@ BEGIN
   v_should_update_delivery := p_actual_delivery IS NOT NULL;
   RETURN jsonb_build_object(
     'effective_status', v_effective_status,
+    'should_update_location', v_should_update_location,
     'should_update_delivery', v_should_update_delivery
   );
 END;
