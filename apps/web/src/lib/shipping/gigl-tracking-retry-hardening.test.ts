@@ -25,6 +25,16 @@ function readMigrationTest(filename: string) {
   );
 }
 
+function expectReplacementDirection(
+  source: string,
+  original: string,
+  replacement: string
+) {
+  const originalOffset = source.indexOf(original);
+  expect(originalOffset).toBeGreaterThanOrEqual(0);
+  expect(source.indexOf(replacement)).toBeGreaterThan(originalOffset);
+}
+
 describe('GIGL retry and generation hardening migrations', () => {
   it('preserves failures and allows newer nonterminal recovery observations', () => {
     expect(
@@ -135,10 +145,34 @@ describe('GIGL retry and generation hardening migrations', () => {
     );
 
     expect(migration).toContain('v_latest_persisted_status_event_at');
+    expectReplacementDirection(
+      readMigration(
+        '20260804000100_repair_gigl_failed_event_recovery_scope.sql'
+      ),
+      'v_latest_persisted_event_at IS NULL',
+      'v_latest_persisted_status_event_at IS NULL'
+    );
     expect(
       readMigrationTest('gigl_tracking_failure_transitions.sql')
     ).toContain(
       'a recovery between a failed event and newer unknown scan must replace the failure'
+    );
+  });
+
+  it('keeps the superseded GIGL repair mapped to its corrected successor', () => {
+    const repairSpec = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url).replace(/^\/@fs(?=\/)/, '')),
+        '../../../../../.github/scripts/historical-migration-repair-spec.sh'
+      ),
+      'utf8'
+    );
+
+    expect(repairSpec).toMatch(
+      /20260801142000:harden_gigl_notification_recovery_edges[\s\S]*'20260804000400' 'repair_gigl_notification_terminality_cardinality'/
+    );
+    expect(repairSpec).toMatch(
+      /20260804000200:repair_gigl_notification_recovery_edges[\s\S]*'20260804000400' 'repair_gigl_notification_terminality_cardinality'/
     );
   });
 
@@ -152,41 +186,6 @@ describe('GIGL retry and generation hardening migrations', () => {
     );
     expect(dispatchMigration).toContain('delivery_started_at = NULL');
     expect(dispatchMigration).toContain('TO service_role');
-  });
-
-  it('removes the reset RPC and hardens manual failure and tenant boundaries', () => {
-    const followUp = readMigration(
-      '20260801142000_harden_gigl_notification_recovery_edges.sql'
-    );
-
-    expect(followUp).toContain(
-      'DROP FUNCTION IF EXISTS public.reset_shipment_tracking_notification_dispatch'
-    );
-    expect(followUp).toContain(
-      'NEW.merchant_id IS NOT DISTINCT FROM OLD.merchant_id'
-    );
-    expect(followUp).toContain('v_manual_terminal_failed');
-    expect(
-      readMigrationTest('gigl_tracking_manual_failure_order_status.sql')
-    ).toContain('manual failed final polls must remain terminal');
-    expect(
-      readMigrationTest('gigl_tracking_monitor_tenant_scope.sql')
-    ).toContain(
-      'changing a GIGL shipment merchant must deactivate its monitor'
-    );
-  });
-
-  it('keeps manual failures terminal when only unknown scans are newer', () => {
-    const migration = readMigration(
-      '20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql'
-    );
-
-    expect(migration).toContain(
-      'v_latest_status_event_at <= v_manual_terminal_override_at'
-    );
-    expect(migration).toContain(
-      'GIGL manual failure terminality must use status events'
-    );
   });
 
   it('cleans unowned monitors created by the initial backfill', () => {

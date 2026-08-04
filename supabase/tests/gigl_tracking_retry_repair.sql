@@ -1,22 +1,66 @@
 DO $$
 DECLARE
   sync_definition text;
+  monitor_definition text;
   apply_definition text;
   apply_result jsonb;
+  manual_failure_result jsonb;
+  monitor_state text;
+  monitor_next_poll_at timestamptz;
+  monitor_stopped_at timestamptz;
   sync_result text;
 BEGIN
   SELECT pg_catalog.pg_get_functiondef(
     'private.sync_gigl_tracking_order_status()'::regprocedure
   ) INTO sync_definition;
   SELECT pg_catalog.pg_get_functiondef(
+    'private.activate_gigl_tracking_monitor()'::regprocedure
+  ) INTO monitor_definition;
+  SELECT pg_catalog.pg_get_functiondef(
     'public.apply_gigl_tracking_result(uuid,uuid,text,text,text,timestamptz,jsonb)'::regprocedure
   ) INTO apply_definition;
 
   IF sync_definition NOT LIKE '%newer_shipment.merchant_id = NEW.merchant_id%'
     OR sync_definition NOT LIKE '%newer_shipment.tracking_timeline_generation%'
+    OR monitor_definition NOT LIKE '%NEW.merchant_id IS NOT DISTINCT FROM OLD.merchant_id%'
     OR apply_definition NOT LIKE '%v_current_status = ''failed''%'
-    OR apply_definition NOT LIKE '%v_effective_status = ''delivered''%' THEN
-    RAISE EXCEPTION 'GIGL retry repair did not install both function definitions';
+    OR apply_definition NOT LIKE '%v_effective_status = ''delivered''%'
+    OR apply_definition NOT LIKE '%v_latest_status_event_at >= v_latest_persisted_status_event_at%'
+    OR apply_definition LIKE '%v_latest_status_event_at >= v_latest_persisted_event_at%'
+    OR apply_definition NOT LIKE '%v_manual_terminal_failed boolean := false%'
+    OR pg_catalog.strpos(
+      apply_definition,
+      E'  v_manual_terminal_failed := v_effective_status = ''failed''\n'
+      || E'    AND v_manual_terminal_override_at IS NOT NULL\n'
+      || E'    AND (\n'
+      || E'      v_latest_status_event_at IS NULL\n'
+      || E'      OR v_latest_status_event_at <= v_manual_terminal_override_at\n'
+      || E'    );\n'
+      || E'  UPDATE public.shipment_tracking_monitors AS monitor\n'
+      || E'  SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      || E'      OR v_manual_terminal_failed)'
+    ) = 0
+    OR pg_catalog.strpos(
+      apply_definition,
+      E'SET state = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      || E'      OR v_manual_terminal_failed)'
+    ) = 0
+    OR pg_catalog.strpos(
+      apply_definition,
+      E'next_poll_at = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      || E'      OR v_manual_terminal_failed)'
+    ) = 0
+    OR pg_catalog.strpos(
+      apply_definition,
+      E'stopped_at = CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      || E'      OR v_manual_terminal_failed)'
+    ) = 0
+    OR apply_definition NOT LIKE '%v_latest_status_event_at <= v_manual_terminal_override_at%'
+    OR apply_definition LIKE '%v_latest_incoming_event_at <= v_manual_terminal_override_at%'
+    OR to_regprocedure(
+      'public.reset_shipment_tracking_notification_dispatch(uuid,text)'
+    ) IS NOT NULL THEN
+    RAISE EXCEPTION 'GIGL recovery-edge repairs did not install the expected definitions';
   END IF;
 
   INSERT INTO public.shipments(
@@ -30,6 +74,8 @@ BEGIN
     '00000000-0000-0000-0000-000000000021',
     1
   );
+  INSERT INTO public.shipment_tracking_monitors(shipment_id, state)
+  VALUES ('00000000-0000-0000-0000-000000000002', 'active');
 
   SELECT result
   INTO sync_result
@@ -52,6 +98,27 @@ BEGIN
   IF apply_result->>'effective_status' IS DISTINCT FROM 'in_transit'
     OR (apply_result->>'should_update_delivery')::boolean IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'GIGL tracking retry repair did not change runtime behavior';
+  END IF;
+
+  SELECT public.apply_gigl_tracking_result(
+    '00000000-0000-0000-0000-000000000010',
+    '00000000-0000-0000-0000-000000000002',
+    'failed',
+    'WB-REPAIR-TEST',
+    'GIGL',
+    NULL,
+    '[]'::jsonb
+  ) INTO manual_failure_result;
+  SELECT state, next_poll_at, stopped_at
+  INTO monitor_state, monitor_next_poll_at, monitor_stopped_at
+  FROM public.shipment_tracking_monitors
+  WHERE shipment_id = '00000000-0000-0000-0000-000000000002';
+  IF manual_failure_result->>'effective_status' IS DISTINCT FROM 'failed'
+    OR manual_failure_result->>'monitor_state' IS DISTINCT FROM 'terminal'
+    OR monitor_state IS DISTINCT FROM 'terminal'
+    OR monitor_next_poll_at IS NOT NULL
+    OR monitor_stopped_at IS NULL THEN
+    RAISE EXCEPTION 'manual failed GIGL status must remain terminal';
   END IF;
 END;
 $$;

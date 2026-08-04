@@ -4,22 +4,23 @@ import {
   buildCanaryUrls,
   discoverPdpPath,
   extractDeploymentMarker,
-  readReleaseConfig,
   RELEASE_USER_AGENTS,
   runReleaseCoherence,
   warmAndAssertCanaries,
 } from './storefront-release-coherence.mjs';
+import { readReleaseConfig } from './storefront-release-config.mjs';
 
+const MARKER = 'release_123';
 const ENV = {
   CLOUDFLARE_API_TOKEN: 'token',
   CLOUDFLARE_ZONE_ID: 'zone-123',
+  BACI_NEXT_DEPLOYMENT_ID_SOURCE: MARKER,
   STOREFRONT_RELEASE_ATTEMPTS: '2',
   STOREFRONT_RELEASE_BASE_URL: 'https://ogabassey.com',
   STOREFRONT_RELEASE_RETRY_DELAY_MS: '1',
   STOREFRONT_RELEASE_TIMEOUT_MS: '1000',
 };
 const BASE_URL = ENV.STOREFRONT_RELEASE_BASE_URL;
-const MARKER = 'release_123';
 const PDP_PATH = '/smartphones/pixel-9-pro';
 
 function html(marker = MARKER, extra = '') {
@@ -111,46 +112,7 @@ test('delegates whole-site purge then verifies browser and Googlebot canaries', 
   );
 });
 
-test('retries a stale warm response within the configured bound', async () => {
-  let staleResponses = 0;
-  let sleepCalls = 0;
-  const { calls, fetchImpl } = makeSuccessfulFetch({
-    fetchImpl: async (url, options) => {
-      const parsed = new URL(url);
-      const isWarmBrowserProducts =
-        !parsed.search &&
-        parsed.pathname === '/products' &&
-        options.headers['user-agent'] === RELEASE_USER_AGENTS.browser;
-      if (isWarmBrowserProducts && staleResponses++ === 0) return response(html('old_release'));
-      const extra = parsed.pathname === '/products' ? `<a href="${PDP_PATH}">Phone</a>` : '';
-      return response(html(MARKER, extra));
-    },
-  });
-
-  await runReleaseCoherence({
-    env: ENV,
-    fetchImpl,
-    logger: { log: () => {}, warn: () => {} },
-    releasePurgeImpl: successfulReleasePurge,
-    requestId: 'request-2',
-    sleep: async () => {
-      sleepCalls += 1;
-    },
-  });
-
-  assert.equal(sleepCalls, 1);
-  assert.equal(
-    calls.filter(
-      ({ options, url }) =>
-        !new URL(url).search &&
-        new URL(url).pathname === '/products' &&
-        options.headers['user-agent'] === RELEASE_USER_AGENTS.browser
-    ).length,
-    2
-  );
-});
-
-test('aborts before purge when cache-busted home and products markers differ', async () => {
+test('fails after purge when a stale products response does not reach the configured marker', async () => {
   let purgeCalls = 0;
   const { fetchImpl } = makeSuccessfulFetch({
     fetchImpl: async (url) => {
@@ -172,9 +134,9 @@ test('aborts before purge when cache-busted home and products markers differ', a
         },
         requestId: 'request-marker-skew',
       }),
-    /Mixed promoted dpl markers: home=release_123, products=other_release/
+    /browser https:\/\/ogabassey\.com\/products: expected release_123, received other_release/
   );
-  assert.equal(purgeCalls, 0);
+  assert.equal(purgeCalls, 1);
 });
 
 test('fails after bounded retries when a canonical response keeps an old marker', async () => {
@@ -277,6 +239,14 @@ test('fails before network work when Cloudflare credentials are missing', async 
   await assert.rejects(
     () => runReleaseCoherence({ env: { ...ENV, CLOUDFLARE_ZONE_ID: '' }, fetchImpl }),
     /CLOUDFLARE_ZONE_ID is required/
+  );
+  await assert.rejects(
+    () =>
+      runReleaseCoherence({
+        env: { ...ENV, BACI_NEXT_DEPLOYMENT_ID_SOURCE: '' },
+        fetchImpl,
+      }),
+    /BACI_NEXT_DEPLOYMENT_ID_SOURCE must yield a safe storefront release marker/
   );
   assert.equal(fetchCalls, 0);
 });

@@ -223,4 +223,20 @@ export const EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES = [
     '20260803000700_repair_gigl_tracking_retry_edges.sql',
     '281fa23f379abccdd1366f6354f107e43692c44c89a9b4bc80eb77a20efc704d',
   ],
+  [
+    '20260804000100_repair_gigl_failed_event_recovery_scope.sql',
+    'a63725b099429a1ed8fd71042ef601651b4468625c8c2a630f6783bd485a6e76',
+  ],
+  [
+    '20260804000200_repair_gigl_notification_recovery_edges.sql',
+    'dd09ef7cd898336c6424274b17891619c0b87b6c07bb8726f61e931cb67b6a19',
+  ],
+  [
+    '20260804000300_repair_gigl_manual_failure_status_scope.sql',
+    '893c97221351a03a058dfa208f33c80fd718e5b0f4d5fca4ca4ac832e7ac9cd0',
+  ],
+  [
+    '20260804000400_repair_gigl_notification_terminality_cardinality.sql',
+    '866b13c1167d32cb7049e45ddf1dc886e186b8b750a550f2d33f6107de946a74',
+  ],
 ] as const;

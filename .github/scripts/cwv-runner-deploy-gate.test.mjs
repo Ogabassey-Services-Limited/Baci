@@ -10,9 +10,7 @@ async function workflow(path) {
   return YAML.parse(await readFile(new URL(path, root), 'utf8'));
 }
 
-function filterPaths(job, name) {
-  const filter = job.steps.find((step) => step.id === 'filter');
-  const source = filter.with.filters;
+function filterPaths(source, name) {
   const match = source.match(new RegExp(`^${name}:\\n(?<paths>(?:  - .+\\n?)+)`, 'm'));
 
   return match?.groups?.paths ?? '';
@@ -23,9 +21,11 @@ function step(job, name) {
 }
 
 test('runs CWV contracts and production deployment for runner-only main changes', async () => {
-  const [ci, deploy] = await Promise.all([
+  const [ci, deploy, ciFilters, deployFilters] = await Promise.all([
     workflow('.github/workflows/ci.yml'),
     workflow('.github/workflows/deploy.yml'),
+    readFile(new URL('.github/filters/ci.yml', root), 'utf8'),
+    readFile(new URL('.github/filters/deploy.yml', root), 'utf8'),
   ]);
 
   const ciChanges = ci.jobs.changes;
@@ -38,20 +38,29 @@ test('runs CWV contracts and production deployment for runner-only main changes'
     ciChanges.outputs.cwv_runner,
     '${{ steps.gate.outputs.cwv_runner }}',
   );
-  assert.match(filterPaths(ciChanges, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
-  assert.match(filterPaths(ciChanges, 'cwv_runner'), /'package\.json'/);
-  assert.match(filterPaths(ciChanges, 'cwv_runner'), /'pnpm-lock\.yaml'/);
-  assert.doesNotMatch(filterPaths(ciChanges, 'web'), /'infra\/cwv-runner\/\*\*'/);
+  assert.equal(
+    ciChanges.steps.find((step) => step.id === 'filter').with.filters,
+    '.github/filters/ci.yml',
+  );
+  assert.match(filterPaths(ciFilters, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
+  assert.match(filterPaths(ciFilters, 'cwv_runner'), /'package\.json'/);
+  assert.match(filterPaths(ciFilters, 'cwv_runner'), /'pnpm-lock\.yaml'/);
+  assert.match(
+    filterPaths(ciFilters, 'deploy_scripts'),
+    /'\.github\/scripts\/pnpm-install-with-retry\.sh'/,
+  );
+  assert.doesNotMatch(filterPaths(ciFilters, 'web'), /'infra\/cwv-runner\/\*\*'/);
   assert.equal(ciGate.if, "needs.changes.outputs.cwv_runner == 'true'");
 
   assert.equal(
     deployChanges.outputs.cwv_runner,
     '${{ steps.filter.outputs.cwv_runner }}',
   );
-  assert.match(filterPaths(deployChanges, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
-  assert.match(filterPaths(deployChanges, 'cwv_runner'), /'package\.json'/);
-  assert.match(filterPaths(deployChanges, 'cwv_runner'), /'pnpm-lock\.yaml'/);
-  assert.match(filterPaths(deployChanges, 'web'), /'infra\/cwv-runner\/\*\*'/);
+  assert.equal(deployChanges.steps.find((step) => step.id === 'filter').with.filters, '.github/filters/deploy.yml');
+  assert.match(filterPaths(deployFilters, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
+  assert.match(filterPaths(deployFilters, 'cwv_runner'), /'package\.json'/);
+  assert.match(filterPaths(deployFilters, 'cwv_runner'), /'pnpm-lock\.yaml'/);
+  assert.match(filterPaths(deployFilters, 'web'), /'infra\/cwv-runner\/\*\*'/);
   assert.equal(deployGate.if, "needs.changes.outputs.cwv_runner == 'true'");
 
   for (const gate of [ciGate, deployGate]) {

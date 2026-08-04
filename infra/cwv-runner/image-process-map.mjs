@@ -22,6 +22,7 @@ export const sealedPaths = Object.freeze([
   '/opt/baci-cwv/container-attest-runtime.mjs',
   '/opt/baci-cwv/cwv-runner-authority.mjs',
   '/opt/baci-cwv/cwv-runner-authority-core.mjs',
+  '/opt/baci-cwv/cwv-runner-authority-filters.mjs',
   '/opt/baci-cwv/cwv-runner-authority-runtime.mjs',
   '/opt/baci-cwv/cwv-runner-stable-attestation-builder.mjs',
   '/opt/baci-cwv/direct-listener-conformance.mjs',

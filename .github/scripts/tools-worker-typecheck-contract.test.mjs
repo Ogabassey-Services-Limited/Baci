@@ -3,14 +3,17 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 async function readWebFilter() {
-  const workflow = await readFile('.github/workflows/ci.yml', 'utf8');
-  const workflowLines = workflow.split('\n');
-  const webFilterIndex = workflowLines.findIndex((line) => line.trim() === 'web:');
-  const webFilterIndent = webFilterIndex === -1 ? -1 : workflowLines[webFilterIndex].search(/\S/);
+  const [workflow, filters] = await Promise.all([
+    readFile('.github/workflows/ci.yml', 'utf8'),
+    readFile('.github/filters/ci.yml', 'utf8'),
+  ]);
+  const filterLines = filters.split('\n');
+  const webFilterIndex = filterLines.findIndex((line) => line.trim() === 'web:');
+  const webFilterIndent = webFilterIndex === -1 ? -1 : filterLines[webFilterIndex].search(/\S/);
   const webFilterLines =
     webFilterIndex === -1
       ? []
-      : workflowLines.slice(webFilterIndex + 1).map((line) => ({
+      : filterLines.slice(webFilterIndex + 1).map((line) => ({
           indent: line.search(/\S/),
           value: line.trim(),
         }));
@@ -68,6 +71,7 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
   assert.ok(
     webFilter.includes("- '.github/scripts/tools-worker-typecheck-contract.test.mjs'")
   );
+  assert.match(workflow, /filters: \.github\/filters\/ci\.yml/);
   assert.match(configTest, /import '\.\/tools-worker-typecheck-contract\.test\.mjs';/);
   assert.match(workflow, /node --test [^\n]*resolve-ci-test-plan-config\.test\.mjs/);
   assert.match(workflow, /pnpm turbo typecheck/);

@@ -33,54 +33,7 @@ jobs:
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
-          # Root Next config changes affect the web deployment even when
-          # apps/web/** is untouched; keep them in the web deploy filter.
-          filters: |
-            web:
-              - 'apps/web/**'
-              - 'infra/cwv-runner/**'
-              - 'public/badges/**'
-              - 'packages/shared/**'
-              - 'next.config.ts'
-              - 'next.config.test.ts'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'turbo.json'
-              - 'tsconfig*.json'
-              - 'biome.json'
-              - '.github/workflows/deploy.yml'
-              - '.github/scripts/blog-smoke-check.mjs'
-              - '.github/scripts/cloudflare-purge-cache.mjs'
-              - '.github/scripts/sync-cloudflare-vercel-production-env.sh'
-              - '.github/scripts/sync-cloudflare-vercel-production-env.test.mjs'
-              - '.github/scripts/storefront-release-coherence.mjs'
-              - '.github/scripts/storefront-sitemap-purge.mjs'
-              - '.github/scripts/deploy-with-retry.sh'
-              - '.github/scripts/inject-prebuilt-env-secret.mjs'
-              - '.github/scripts/merge-static-union.sh'
-              - '.github/scripts/merge-static-union.test.sh'
-              - '.github/scripts/pnpm-install-with-retry.sh'
-              - '.npmrc'
-              - 'pnpm-workspace.yaml'
-            migrations:
-              - 'supabase/migrations/**'
-              - '.github/workflows/deploy.yml'
-            cwv_runner:
-              - 'infra/cwv-runner/**'
-              - '.github/workflows/**'
-              - '.github/scripts/cwv-runner-*.mjs'
-              - '.github/scripts/canonical-json.mjs'
-              - '.github/scripts/policy.json'
-              - '.github/scripts/policy.schema.mjs'
-              - '.github/scripts/actionlint-runner-label-contract.test.mjs'
-              - 'biome.json'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'pnpm-workspace.yaml'
-              - '.github/workflows/actionlint.yml'
-              - '.github/workflows/cwv-runner-attestation.yml'
-              - '.github/workflows/deploy.yml'
-              - '.github/actionlint.yaml'
+          filters: .github/filters/deploy.yml
 
   cwv-runner-contracts:
     name: CWV Runner Contracts

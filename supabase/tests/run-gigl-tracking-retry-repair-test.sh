@@ -37,6 +37,27 @@ cp \
 cp \
   "$repo_root/supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql" \
   "$fixture_root/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql"
+cp \
+  "$repo_root/supabase/migrations/20260801141900_scope_gigl_recovery_to_failed_event.sql" \
+  "$fixture_root/migrations/20260801141900_scope_gigl_recovery_to_failed_event.sql"
+cp \
+  "$repo_root/supabase/migrations/20260804000100_repair_gigl_failed_event_recovery_scope.sql" \
+  "$fixture_root/migrations/20260804000100_repair_gigl_failed_event_recovery_scope.sql"
+cp \
+  "$repo_root/supabase/migrations/20260801142000_harden_gigl_notification_recovery_edges.sql" \
+  "$fixture_root/migrations/20260801142000_harden_gigl_notification_recovery_edges.sql"
+cp \
+  "$repo_root/supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql" \
+  "$fixture_root/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql"
+cp \
+  "$repo_root/supabase/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql" \
+  "$fixture_root/migrations/20260804000400_repair_gigl_notification_terminality_cardinality.sql"
+cp \
+  "$repo_root/supabase/migrations/20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql" \
+  "$fixture_root/migrations/20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql"
+cp \
+  "$repo_root/supabase/migrations/20260804000300_repair_gigl_manual_failure_status_scope.sql" \
+  "$fixture_root/migrations/20260804000300_repair_gigl_manual_failure_status_scope.sql"
 
 cat > "$fixture_root/bin/curl" <<'FAKE_CURL'
 #!/usr/bin/env bash
