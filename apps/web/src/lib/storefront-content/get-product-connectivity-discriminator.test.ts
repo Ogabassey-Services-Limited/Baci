@@ -19,4 +19,13 @@ describe('getProductConnectivityDiscriminators', () => {
 
     expect(connectivity).toEqual(['wifi', 'cellular']);
   });
+
+  it('uses storage while excluding ordinary RAM markers when connectivity is absent', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPhone 15 6GB 256GB'],
+      []
+    );
+
+    expect(discriminators).toEqual(['256gb']);
+  });
 });

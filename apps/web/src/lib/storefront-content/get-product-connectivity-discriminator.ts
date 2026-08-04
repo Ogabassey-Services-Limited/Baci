@@ -8,8 +8,9 @@ const CONNECTIVITY_DISCRIMINATOR_TOKENS = new Set([
   'lte',
   'wifi',
 ]);
+const STORAGE_DISCRIMINATOR_PATTERN = /^(?:[6-9]\d|\d{3,})(?:gb|tb)$/u;
 
-/** Returns the connectivity tokens that distinguish a PDP from sibling variants. */
+/** Returns the strongest PDP variant discriminator without over-constraining guide titles. */
 export function getProductConnectivityDiscriminators(
   productNames: string[] | undefined,
   productSlugs: string[] | undefined
@@ -23,5 +24,10 @@ export function getProductConnectivityDiscriminators(
         .filter(Boolean)
     )
   );
-  return tokens.filter((token) => CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token));
+  const connectivityTokens = tokens.filter((token) =>
+    CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token)
+  );
+  return connectivityTokens.length > 0
+    ? connectivityTokens
+    : tokens.filter((token) => STORAGE_DISCRIMINATOR_PATTERN.test(token));
 }
