@@ -67,6 +67,8 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 BEGIN
+  -- Deliberately omit merchant_id here: 20260804000400 must add it to the
+  -- pre-repair trigger identity guard.
   IF TG_OP = 'UPDATE'
      AND NEW.order_id IS NOT DISTINCT FROM OLD.order_id THEN
     RETURN NEW;
@@ -89,11 +91,13 @@ LANGUAGE plpgsql
 AS $function$
 DECLARE
   v_current_status text := 'failed';
-  v_latest_status_event_at timestamptz := now();
+  -- Keep both event clocks before the manual override so the final repair's
+  -- status-event comparison exercises the terminal manual-failure branch.
+  v_latest_status_event_at timestamptz := '2026-01-01 00:00:00+00';
   v_latest_persisted_event_at timestamptz;
   v_latest_persisted_status_event_at timestamptz;
-  v_manual_terminal_override_at timestamptz := now();
-  v_latest_incoming_event_at timestamptz := now();
+  v_manual_terminal_override_at timestamptz := '2026-01-02 00:00:00+00';
+  v_latest_incoming_event_at timestamptz := '2026-01-01 00:00:00+00';
   v_effective_status text;
   v_current_location text := 'Warehouse';
   v_monitor_state text;
@@ -108,6 +112,8 @@ BEGIN
       THEN v_current_status
     ELSE p_status
   END;
+  -- These three predicates deliberately model the historical pre-repair
+  -- function. 20260804000400 replaces each named monitor-field predicate.
   v_monitor_state := CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')
     THEN 'terminal' ELSE 'active' END;
   v_next_poll_at := CASE WHEN v_effective_status IN ('delivered', 'cancelled', 'returned')

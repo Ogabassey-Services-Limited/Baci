@@ -207,7 +207,17 @@ describe('GIGL retry and generation hardening migrations', () => {
       readMigration(
         '20260804000400_repair_gigl_notification_terminality_cardinality.sql'
       )
-    ).toContain(') <> 3 * pg_catalog.length(v_expected_terminality) THEN');
+    ).toContain('v_expected_monitor_terminality');
+    expect(
+      readMigration(
+        '20260804000400_repair_gigl_notification_terminality_cardinality.sql'
+      )
+    ).toContain('v_expected_next_poll_terminality');
+    expect(
+      readMigration(
+        '20260804000400_repair_gigl_notification_terminality_cardinality.sql'
+      )
+    ).toContain('v_expected_stopped_terminality');
     expect(
       readMigrationTest('gigl_tracking_manual_failure_order_status.sql')
     ).toContain('manual failed final polls must remain terminal');

@@ -13,6 +13,7 @@ web:
   - 'tsconfig*.json'
   - 'biome.json'
   - '.github/filters/deploy.yml'
+  - '.github/actions/pnpm-install-cached/**'
   - '.github/workflows/deploy.yml'
   - '.github/scripts/blog-smoke-check.mjs'
   - '.github/scripts/cloudflare-purge-cache.mjs'
@@ -27,6 +28,7 @@ web:
   - '.github/scripts/merge-static-union.sh'
   - '.github/scripts/merge-static-union.test.sh'
   - '.github/scripts/pnpm-install-with-retry.sh'
+  - '.github/scripts/run-pinned-vercel.sh'
   - '.npmrc'
   - 'pnpm-workspace.yaml'
 migrations:
@@ -39,6 +41,7 @@ migrations:
   - '.github/scripts/historical-migration-repair-spec.sh'
 cwv_runner:
   - 'infra/cwv-runner/**'
+  - '.github/actions/pnpm-install-cached/**'
   - '.github/filters/deploy.yml'
   - '.github/workflows/**'
   - '.github/scripts/cwv-runner-*.mjs'

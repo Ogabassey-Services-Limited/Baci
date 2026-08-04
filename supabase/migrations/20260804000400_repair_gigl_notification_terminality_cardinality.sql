@@ -48,7 +48,9 @@ DECLARE
   v_definition text;
   v_expected_declaration text;
   v_expected_assignment text;
-  v_expected_terminality text;
+  v_expected_monitor_terminality text;
+  v_expected_next_poll_terminality text;
+  v_expected_stopped_terminality text;
 BEGIN
   SELECT pg_get_functiondef(
     'public.apply_gigl_tracking_result(uuid, uuid, text, text, text, timestamptz, jsonb)'::regprocedure
@@ -72,8 +74,20 @@ BEGIN
   );
   v_definition := replace(
     v_definition,
-    E'v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
-    E'(v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    E'v_monitor_state := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
+    E'v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      || E'      OR v_manual_terminal_failed)'
+  );
+  v_definition := replace(
+    v_definition,
+    E'v_next_poll_at := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
+    E'v_next_poll_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+      || E'      OR v_manual_terminal_failed)'
+  );
+  v_definition := replace(
+    v_definition,
+    E'v_stopped_at := CASE WHEN v_effective_status IN (''delivered'', ''cancelled'', ''returned'')',
+    E'v_stopped_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
       || E'      OR v_manual_terminal_failed)'
   );
   v_expected_declaration :=
@@ -85,8 +99,14 @@ BEGIN
     || E'      v_latest_incoming_event_at IS NULL\n'
     || E'      OR v_latest_incoming_event_at <= v_manual_terminal_override_at\n'
     || E'    );\n';
-  v_expected_terminality :=
-    E'(v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+  v_expected_monitor_terminality :=
+    E'v_monitor_state := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    || E'      OR v_manual_terminal_failed)';
+  v_expected_next_poll_terminality :=
+    E'v_next_poll_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
+    || E'      OR v_manual_terminal_failed)';
+  v_expected_stopped_terminality :=
+    E'v_stopped_at := CASE WHEN (v_effective_status IN (''delivered'', ''cancelled'', ''returned'')\n'
     || E'      OR v_manual_terminal_failed)';
   IF v_definition = v_original_definition
     OR (
@@ -104,9 +124,21 @@ BEGIN
     OR (
       pg_catalog.length(v_definition)
       - pg_catalog.length(
-        pg_catalog.replace(v_definition, v_expected_terminality, '')
+        pg_catalog.replace(v_definition, v_expected_monitor_terminality, '')
       )
-    ) <> 3 * pg_catalog.length(v_expected_terminality) THEN
+    ) <> pg_catalog.length(v_expected_monitor_terminality)
+    OR (
+      pg_catalog.length(v_definition)
+      - pg_catalog.length(
+        pg_catalog.replace(v_definition, v_expected_next_poll_terminality, '')
+      )
+    ) <> pg_catalog.length(v_expected_next_poll_terminality)
+    OR (
+      pg_catalog.length(v_definition)
+      - pg_catalog.length(
+        pg_catalog.replace(v_definition, v_expected_stopped_terminality, '')
+      )
+    ) <> pg_catalog.length(v_expected_stopped_terminality) THEN
     RAISE EXCEPTION 'GIGL manual failed terminal state hardening did not apply';
   END IF;
   EXECUTE v_definition;

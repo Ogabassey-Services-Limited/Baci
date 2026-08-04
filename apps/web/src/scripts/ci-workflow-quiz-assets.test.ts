@@ -105,6 +105,20 @@ describe('CI workflow quiz asset coverage', () => {
     );
   });
 
+  it('deploys and validates prebuilt runner dependencies', () => {
+    const deployWebFilter = getDeployWebFilter();
+
+    expect(deployWebFilter).toContain(
+      "- '.github/actions/pnpm-install-cached/**'"
+    );
+    expect(deployWebFilter).toContain(
+      "- '.github/scripts/run-pinned-vercel.sh'"
+    );
+    expect(deployFilters).toMatch(
+      /^cwv_runner:\n(?:(?:  - .+\n))*  - '\.github\/actions\/pnpm-install-cached\/\*\*'/m
+    );
+  });
+
   it('deploys migration-applier dependencies', () => {
     const deployMigrationsFilter = getDeployMigrationsFilter();
 
