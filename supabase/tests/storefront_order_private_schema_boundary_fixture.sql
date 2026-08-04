@@ -7,6 +7,8 @@ CREATE ROLE storefront_order_fixture_owner NOLOGIN;
 
 CREATE SCHEMA private;
 CREATE TABLE private.merchant_payment_credentials (id integer);
+GRANT SELECT ON TABLE private.merchant_payment_credentials
+  TO PUBLIC, anon, authenticated, service_role;
 
 REVOKE ALL ON SCHEMA private FROM PUBLIC, anon, authenticated, storefront_order_fixture_owner;
 GRANT USAGE ON SCHEMA private TO service_role;

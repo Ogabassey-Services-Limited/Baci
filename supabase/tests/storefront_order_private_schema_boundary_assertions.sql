@@ -8,6 +8,29 @@ BEGIN
     RAISE EXCEPTION 'authenticated still has direct private schema access';
   END IF;
 
+  IF NOT pg_catalog.has_schema_privilege('anon', 'private', 'USAGE')
+    OR NOT pg_catalog.has_schema_privilege('service_role', 'private', 'USAGE') THEN
+    RAISE EXCEPTION 'storefront execution roles lost private schema access';
+  END IF;
+
+  IF pg_catalog.has_table_privilege(
+      'anon',
+      'private.merchant_payment_credentials',
+      'SELECT'
+    )
+    OR pg_catalog.has_table_privilege(
+      'authenticated',
+      'private.merchant_payment_credentials',
+      'SELECT'
+    )
+    OR pg_catalog.has_table_privilege(
+      'service_role',
+      'private.merchant_payment_credentials',
+      'SELECT'
+    ) THEN
+    RAISE EXCEPTION 'Data API role retained direct credential vault access';
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc
