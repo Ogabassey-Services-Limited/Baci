@@ -45,6 +45,10 @@ test('runs CWV contracts and production deployment for runner-only main changes'
   assert.match(filterPaths(ciFilters, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
   assert.match(filterPaths(ciFilters, 'cwv_runner'), /'package\.json'/);
   assert.match(filterPaths(ciFilters, 'cwv_runner'), /'pnpm-lock\.yaml'/);
+  assert.match(
+    filterPaths(ciFilters, 'deploy_scripts'),
+    /'\.github\/scripts\/pnpm-install-with-retry\.sh'/,
+  );
   assert.doesNotMatch(filterPaths(ciFilters, 'web'), /'infra\/cwv-runner\/\*\*'/);
   assert.equal(ciGate.if, "needs.changes.outputs.cwv_runner == 'true'");
 

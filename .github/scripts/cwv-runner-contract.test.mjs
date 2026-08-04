@@ -258,7 +258,10 @@ test('repository closure rejects a missing actionlint label, block-list selector
   for (const name of ['.hidden.yml', 'release candidate (v2)!.yaml', 'café 日本語.yml'])
     await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, workflows: { ...repositorySources.workflows, [name]: 'jobs:\n  other:\n    runs-on:\n      - self-hosted\n      - baci-cwv-measurement' } } }), /selector/);
   await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deploy: repositorySources.deploy.replace('filters: .github/filters/deploy.yml', 'filters: .github/filters/other.yml') } }), /deploy filter/);
+  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deploy: repositorySources.deploy.replace('filters: .github/filters/deploy.yml', '# filters: .github/filters/deploy.yml') } }), /deploy filter/);
   await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deployFilter: repositorySources.deployFilter.replace("  - 'infra/cwv-runner/**'\n", '') } }), /deploy filter/);
+  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deployFilter: repositorySources.deployFilter.replace("cwv_runner:\n  - 'infra/cwv-runner/**'", "cwv_runner:\n  - 'infra/cwv-runner/**'\n  - 'infra/cwv-runner/**'") } }), /deploy filter/);
+  await assert.rejects(assertWorkflowContract(source, { workflowActions: pins, repositorySources: { ...repositorySources, deployFilter: repositorySources.deployFilter.replace("migrations:\n", "migrations:\n  - 'infra/cwv-runner/**'\n") } }), /deploy filter/);
 });
 
 test('owned authority transport does not construct an immutable Authorization string', async () => {

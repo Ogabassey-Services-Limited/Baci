@@ -47,10 +47,12 @@ async function successfulReleasePurge({ canaryUrls }) {
 
 test('uses the configured deployment marker after cache-busted discovery sees stale responses', async () => {
   let purgeCalls = 0;
+  let staleDiscoveryCalls = 0;
   const { fetchImpl } = makeSuccessfulFetch({
     fetchImpl: async (url) => {
       const parsed = new URL(url);
       const isCacheBustedDiscovery = Boolean(parsed.search);
+      if (isCacheBustedDiscovery) staleDiscoveryCalls += 1;
       const marker = isCacheBustedDiscovery
         ? parsed.pathname === '/products'
           ? 'stale_products_release'
@@ -74,12 +76,14 @@ test('uses the configured deployment marker after cache-busted discovery sees st
   });
 
   assert.equal(result.marker, MARKER);
+  assert.ok(staleDiscoveryCalls > 0);
   assert.equal(purgeCalls, 1);
 });
 
 test('retries a stale warm response within the configured bound', async () => {
   let staleResponses = 0;
   let sleepCalls = 0;
+  const sleepDelays = [];
   const { calls, fetchImpl } = makeSuccessfulFetch({
     fetchImpl: async (url, options) => {
       const parsed = new URL(url);
@@ -99,12 +103,14 @@ test('retries a stale warm response within the configured bound', async () => {
     logger: { log: () => {}, warn: () => {} },
     releasePurgeImpl: successfulReleasePurge,
     requestId: 'request-2',
-    sleep: async () => {
+    sleep: async (delayMs) => {
       sleepCalls += 1;
+      sleepDelays.push(delayMs);
     },
   });
 
   assert.equal(sleepCalls, 1);
+  assert.deepEqual(sleepDelays, [1]);
   assert.equal(
     calls.filter(
       ({ options, url }) =>
@@ -114,4 +120,40 @@ test('retries a stale warm response within the configured bound', async () => {
     ).length,
     2
   );
+});
+
+test('stops after the configured warm retry bound when stale responses persist', async () => {
+  let warmBrowserCalls = 0;
+  let sleepCalls = 0;
+  const { fetchImpl } = makeSuccessfulFetch({
+    fetchImpl: async (url, options) => {
+      const parsed = new URL(url);
+      const isWarmBrowserRequest =
+        !parsed.search &&
+        options.headers['user-agent'] === RELEASE_USER_AGENTS.browser;
+      if (isWarmBrowserRequest) {
+        warmBrowserCalls += 1;
+        return response(html('old_release'));
+      }
+      const extra = parsed.pathname === '/products' ? `<a href="${PDP_PATH}">Phone</a>` : '';
+      return response(html(MARKER, extra));
+    },
+  });
+
+  await assert.rejects(
+    runReleaseCoherence({
+      env: ENV,
+      fetchImpl,
+      logger: { log: () => {}, warn: () => {} },
+      releasePurgeImpl: successfulReleasePurge,
+      requestId: 'request-retry-exhaustion',
+      sleep: async () => {
+        sleepCalls += 1;
+      },
+    }),
+    /Storefront release coherence failed/,
+  );
+
+  assert.equal(warmBrowserCalls, 10);
+  assert.equal(sleepCalls, 1);
 });
