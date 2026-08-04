@@ -7,7 +7,11 @@ function isConvertibleInConnector(tokens: string[], index: number) {
 }
 
 function expandMixedGameCodeToken(token: string) {
-  return token.match(/^([a-z]{2,})(\d[a-z]\d{1,4})$/u)?.slice(1) ?? [token];
+  return (
+    token.match(/^([a-z]{2,})(\d(?:[a-z]\d{1,4}|\d{0,3}))$/u)?.slice(1) ?? [
+      token,
+    ]
+  );
 }
 
 function isDimensionToken(tokens: string[], index: number) {

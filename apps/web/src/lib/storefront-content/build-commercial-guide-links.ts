@@ -14,7 +14,7 @@ import { getCompareProductMatchRequirements } from './get-compare-product-match-
 import { getContextBrandKeys } from './get-context-brand-keys';
 import { getPostTokenGroups } from './get-post-token-groups';
 import { getProductConnectivityDiscriminators } from './get-product-connectivity-discriminator';
-import { getProductModelIdentifiers } from './get-product-model-identifiers';
+import { getProductGuideModelIdentifiers } from './get-product-guide-model-identifiers';
 import { hasDistinctCompareIdentifierOccurrences } from './has-distinct-compare-identifier-occurrences';
 import { inferContentClusterContext } from './infer-content-cluster-context';
 import { matchesProductGuideIdentifier } from './matches-product-guide-identifier';
@@ -117,12 +117,15 @@ export function buildCommercialGuideLinks(
   const preferredKinds = KIND_PREFERENCE[input.context.pageKind];
   const brandAliases =
     CONTENT_CLUSTER_SUPPORT[input.context.categorySlug].brandTokens;
-  const productModelIdentifiers = getProductModelIdentifiers(input.context);
+  const productModelIdentifiers = getProductGuideModelIdentifiers(
+    input.context
+  );
   const productConnectivityDiscriminators =
     input.context.pageKind === 'product'
       ? getProductConnectivityDiscriminators(
           input.context.productNames,
-          input.context.productSlugs
+          input.context.productSlugs,
+          input.context.categorySlug
         )
       : undefined;
   const compareProductMatchRequirements =

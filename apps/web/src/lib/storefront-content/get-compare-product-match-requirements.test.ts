@@ -183,4 +183,20 @@ describe('getCompareProductMatchRequirements', () => {
       { identifier: '15', brand: 'apple' },
     ]);
   });
+
+  it('uses aligned product brands when names and slugs omit the brand', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Apple', 'Nothing'],
+      productBrands: ['Apple', 'Nothing'],
+      productNames: ['iPhone 15', 'Phone 2'],
+      productSlugs: ['iphone-15', 'phone-2'],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: '15', brand: 'apple' },
+      { identifier: '2', brand: 'nothing' },
+    ]);
+  });
 });

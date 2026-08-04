@@ -13,4 +13,15 @@ describe('normalizeVariantDiscriminatorTokens', () => {
 
     expect(tokens).toEqual(['ipad', '128gb', 'wifi']);
   });
+
+  it('canonicalizes a hyphenated e-SIM marker', () => {
+    const tokens = normalizeVariantDiscriminatorTokens([
+      'iphone',
+      '15',
+      'e',
+      'sim',
+    ]);
+
+    expect(tokens).toEqual(['iphone', '15', 'esim']);
+  });
 });

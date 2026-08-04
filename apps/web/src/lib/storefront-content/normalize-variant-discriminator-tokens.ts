@@ -16,6 +16,11 @@ export function normalizeVariantDiscriminatorTokens(tokens: string[]) {
       index += 1;
       continue;
     }
+    if (token === 'e' && nextToken === 'sim') {
+      normalizedTokens.push('esim');
+      index += 1;
+      continue;
+    }
     normalizedTokens.push(token);
   }
   return normalizedTokens;

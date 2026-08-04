@@ -58,4 +58,16 @@ describe('getPostTokenGroups', () => {
       'guide',
     ]);
   });
+
+  it('normalizes an unspaced slash when the title has comparison evidence', () => {
+    const [titleTokens] = getPostTokenGroups({
+      title: 'Apple iPhone 15 128GB/Apple iPhone 15 256GB Comparison',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+    });
+
+    expect(titleTokens).toContain('versus');
+  });
 });

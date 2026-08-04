@@ -124,4 +124,42 @@ describe('buildCommercialGuideLinks game titles', () => {
       'https://ogabassey.com/blog/ratchet-clank-rift-apart-guide'
     );
   });
+
+  it('matches a compact game code in the guide title', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'generic-ps5-games-guide',
+          title: 'Best PS5 Games Buyer Guide',
+          excerpt: 'A current shortlist for console buyers.',
+          category: 'PlayStation 5',
+          tags: ['playstation', 'ps5', 'games'],
+          keywords: ['buying guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'fifa23-ps5-guide',
+          title: 'FIFA23 Buyer Guide for PS5',
+          excerpt: 'What to know before buying FIFA23.',
+          category: 'PlayStation 5',
+          tags: ['playstation', 'ps5', 'fifa'],
+          keywords: ['buying guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'playstation-5',
+        brands: ['PlayStation'],
+        productNames: ['PS5 FIFA23'],
+      },
+    });
+
+    expect(links[0]?.href).toBe('https://ogabassey.com/blog/fifa23-ps5-guide');
+  });
 });

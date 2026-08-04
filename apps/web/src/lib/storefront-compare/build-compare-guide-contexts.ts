@@ -32,12 +32,14 @@ export function buildCompareGuideContexts(
     (brand): brand is string => Boolean(brand)
   );
   const productNames = [input.leftName, input.rightName];
+  const productBrands = [input.leftBrand ?? null, input.rightBrand ?? null];
 
   return {
     guideLoadContext: {
       pageKind: 'compare',
       categorySlug: input.supportedClusterCategory,
       brands: guideBrands,
+      productBrands,
       productNames,
       productSlugs: [input.leftLoadSlug, input.rightLoadSlug],
     },
@@ -45,6 +47,7 @@ export function buildCompareGuideContexts(
       pageKind: 'compare',
       categorySlug: input.supportedClusterCategory,
       brands: guideBrands,
+      productBrands,
       productNames,
       productSlugs: [input.leftBuildSlug, input.rightBuildSlug],
     },

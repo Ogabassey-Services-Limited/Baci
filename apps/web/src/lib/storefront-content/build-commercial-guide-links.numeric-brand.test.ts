@@ -42,4 +42,42 @@ describe('buildCommercialGuideLinks supplied numeric brands', () => {
       'https://ogabassey.com/blog/nokia-phones-buying-guide',
     ]);
   });
+
+  it('uses a retained requested brand token to qualify its model', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'generic-redmi-guide',
+          title: 'Redmi Smartphone Buyer Guide',
+          excerpt: 'General Redmi buying advice.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'redmi'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'redmi-15-guide',
+          title: 'Redmi 15 Buyer Guide',
+          excerpt: 'What to know before buying Redmi 15.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'redmi'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'smartphones',
+        brands: ['Redmi'],
+        productNames: ['Redmi 15'],
+      },
+    });
+
+    expect(links[0]?.href).toBe('https://ogabassey.com/blog/redmi-15-guide');
+  });
 });

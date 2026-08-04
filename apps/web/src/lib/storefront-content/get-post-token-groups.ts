@@ -11,11 +11,13 @@ const MODEL_TOKEN_PATTERN = /\b(?:\d+[a-z]+|[a-z]+\d+|\d+)\b/iu;
 
 function normalizeComparisonSeparators(value: string) {
   const hasComparisonCue = COMPARISON_CUE_PATTERN.test(value);
-  return value.replace(/\s+[&/]\s+/gu, (separator, offset: number) => {
+  return value.replace(/\s*[&/]\s*/gu, (separator, offset: number) => {
     const left = value.slice(0, offset);
     const right = value.slice(offset + separator.length);
-    return hasComparisonCue ||
-      (MODEL_TOKEN_PATTERN.test(left) && MODEL_TOKEN_PATTERN.test(right))
+    const hasModelOnBothSides =
+      MODEL_TOKEN_PATTERN.test(left) && MODEL_TOKEN_PATTERN.test(right);
+    const hasSeparatorWhitespace = /\s/u.test(separator);
+    return hasModelOnBothSides && (hasSeparatorWhitespace || hasComparisonCue)
       ? ' versus '
       : separator;
   });

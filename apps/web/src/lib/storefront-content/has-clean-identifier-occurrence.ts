@@ -127,6 +127,10 @@ function isBrandQualifiedOccurrence(
       if (!matchesTokenSequence(tokens, candidate.tokens, index)) {
         continue;
       }
+      const isRetainedRequestedBrand =
+        candidate.brand === requestedBrand &&
+        index === identifierStart &&
+        index + candidate.tokens.length <= identifierEnd;
       if (
         requireBrandBeforeIdentifier &&
         index + candidate.tokens.length > identifierStart &&
@@ -134,7 +138,8 @@ function isBrandQualifiedOccurrence(
           candidate.isAlias &&
           allowBrandAliasOverlap &&
           index <= identifierStart
-        )
+        ) &&
+        !isRetainedRequestedBrand
       ) {
         continue;
       }

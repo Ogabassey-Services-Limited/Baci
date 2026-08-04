@@ -141,6 +141,7 @@ describe('loadComparePage guide context', () => {
       pageKind: 'compare',
       categorySlug: 'smartphones',
       brands: ['Apple', 'Samsung'],
+      productBrands: ['Apple', 'Samsung'],
       productNames: ['iPhone 17 Pro Max', 'Samsung Galaxy Z TriFold'],
       productSlugs: ['iphone-17-pro-max', 'samsung-galaxy-z-trifold'],
     });

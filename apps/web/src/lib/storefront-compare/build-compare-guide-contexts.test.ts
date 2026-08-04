@@ -20,6 +20,7 @@ describe('buildCompareGuideContexts', () => {
         pageKind: 'compare',
         categorySlug: 'smartphones',
         brands: ['Apple', 'Samsung'],
+        productBrands: ['Apple', 'Samsung'],
         productNames: ['iPhone 15', 'Galaxy S25'],
         productSlugs: ['iphone-15-key', 'galaxy-s25-key'],
       },
@@ -27,6 +28,7 @@ describe('buildCompareGuideContexts', () => {
         pageKind: 'compare',
         categorySlug: 'smartphones',
         brands: ['Apple', 'Samsung'],
+        productBrands: ['Apple', 'Samsung'],
         productNames: ['iPhone 15', 'Galaxy S25'],
         productSlugs: ['iphone-15', 'samsung-galaxy-s25'],
       },
@@ -68,5 +70,6 @@ describe('buildCompareGuideContexts', () => {
       'Galaxy S25',
       'Galaxy S24',
     ]);
+    expect(contexts.guideLoadContext?.productBrands).toEqual([null, 'Samsung']);
   });
 });

@@ -86,7 +86,7 @@ export function getCompareProductMatchRequirements(
   const slugs = context.productSlugs ?? [];
   const sources = (names.length ? names : slugs).map((source, index) => ({
     identifierSource: source,
-    brandSource: `${source} ${slugs[index] ?? ''}`,
+    brandSource: `${context.productBrands?.[index] ?? ''} ${source} ${slugs[index] ?? ''}`,
   }));
 
   const candidates = sources.flatMap(({ identifierSource, brandSource }) => {

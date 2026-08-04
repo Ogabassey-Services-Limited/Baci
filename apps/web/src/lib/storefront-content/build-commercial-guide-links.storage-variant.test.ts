@@ -43,4 +43,44 @@ describe('buildCommercialGuideLinks PDP storage variants', () => {
       'https://ogabassey.com/blog/apple-iphone-15-128gb-buyer-guide',
     ]);
   });
+
+  it('ranks a 32GB phone guide above a newer 64GB sibling guide', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'samsung-a05-64gb-guide',
+          title: 'Samsung A05 64GB Buyer Guide',
+          excerpt: 'Buying advice for the 64GB model.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung', 'a05'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'samsung-a05-32gb-guide',
+          title: 'Samsung A05 32GB Buyer Guide',
+          excerpt: 'Buying advice for the 32GB model.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'samsung', 'a05'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'smartphones',
+        brands: ['Samsung'],
+        productNames: ['Samsung A05 4GB 32GB'],
+      },
+    });
+
+    expect(links[0]?.href).toBe(
+      'https://ogabassey.com/blog/samsung-a05-32gb-guide'
+    );
+  });
 });

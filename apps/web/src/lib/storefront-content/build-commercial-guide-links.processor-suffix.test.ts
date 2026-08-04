@@ -7,6 +7,17 @@ describe('buildCommercialGuideLinks laptop processor suffixes', () => {
       storeUrl: 'https://ogabassey.com',
       posts: [
         {
+          slug: 'dell-xps-14-9340-guide',
+          title: 'Dell XPS 14 9340 Buyer Guide',
+          excerpt: 'Buying advice for the sibling Dell XPS 14 9340.',
+          category: 'Laptops',
+          tags: ['laptops', 'dell', 'xps'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-18T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
           slug: 'dell-laptop-buyer-guide',
           title: 'Dell Laptop Buyer Guide',
           excerpt: 'General advice for choosing a Dell laptop.',

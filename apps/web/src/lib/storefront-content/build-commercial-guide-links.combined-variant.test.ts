@@ -71,7 +71,7 @@ describe('buildCommercialGuideLinks combined PDP variants', () => {
         pageKind: 'product',
         categorySlug: 'smartphones',
         brands: ['Apple'],
-        productNames: ['Apple iPhone 15 eSIM'],
+        productNames: ['Apple iPhone 15 e-SIM'],
       },
     });
 

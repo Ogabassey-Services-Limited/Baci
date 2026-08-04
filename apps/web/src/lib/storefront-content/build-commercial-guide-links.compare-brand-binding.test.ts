@@ -124,4 +124,46 @@ describe('buildCommercialGuideLinks compare brand binding', () => {
       'https://ogabassey.com/blog/redmi-14t-vs-galaxy-s25-guide',
     ]);
   });
+
+  it('binds a brand omitted from its aligned product name and slug', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'iphone-15-vs-samsung-phone-2',
+          title: 'Apple iPhone 15 vs Samsung Phone 2 Buyer Guide',
+          excerpt: 'Compare the two phones.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'apple', 'samsung'],
+          keywords: ['comparison'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'iphone-15-vs-nothing-phone-2',
+          title: 'Apple iPhone 15 vs Nothing Phone 2 Buyer Guide',
+          excerpt: 'Compare Apple iPhone 15 with Nothing Phone 2.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'apple', 'nothing'],
+          keywords: ['comparison'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'compare',
+        categorySlug: 'smartphones',
+        brands: ['Apple', 'Nothing'],
+        productBrands: ['Apple', 'Nothing'],
+        productNames: ['iPhone 15', 'Phone 2'],
+        productSlugs: ['iphone-15', 'phone-2'],
+      },
+    });
+
+    expect(links[0]?.href).toBe(
+      'https://ogabassey.com/blog/iphone-15-vs-nothing-phone-2'
+    );
+  });
 });

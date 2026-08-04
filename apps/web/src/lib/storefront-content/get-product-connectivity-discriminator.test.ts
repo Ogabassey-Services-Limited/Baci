@@ -37,4 +37,23 @@ describe('getProductConnectivityDiscriminators', () => {
 
     expect(discriminators).toEqual(['256gb', '5g', 'physical', 'sim']);
   });
+
+  it('retains 32GB storage while excluding the smaller RAM marker', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Samsung A05 4GB 32GB'],
+      []
+    );
+
+    expect(discriminators).toEqual(['32gb']);
+  });
+
+  it('does not treat a lone 32GB laptop memory suffix as storage', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Dell XPS 13 9340 Intel Core Ultra 7 32GB'],
+      [],
+      'laptops'
+    );
+
+    expect(discriminators).toEqual([]);
+  });
 });

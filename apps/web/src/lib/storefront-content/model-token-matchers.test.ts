@@ -31,4 +31,11 @@ describe('modelTokenMatchers', () => {
 
     expect(result).toEqual(['xps', '13', '9340']);
   });
+
+  it('expands a simple compact game code for shared tokenization', () => {
+    expect(modelTokenMatchers.expandMixedGameCodeToken('fifa23')).toEqual([
+      'fifa',
+      '23',
+    ]);
+  });
 });
