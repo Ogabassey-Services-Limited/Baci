@@ -151,6 +151,25 @@ scan_systemd_runtime_encrypted_credentials() {
   done <"$targets"; rm -f "$targets"
 }
 
+systemd_pass_environment_names() {
+  value=$1; output=$2; parsed=$(temp_path)
+  parse_systemd_words "$value" >"$parsed" || { rm -f "$parsed"; return 2; }
+  awk '/^[A-Za-z_][A-Za-z0-9_]*$/{if(seen[$0]++||++count>256)bad=1;else print;next}{bad=1}END{exit bad?2:0}' "$parsed" >"$output"
+  status=$?; rm -f "$parsed"; return "$status"
+}
+
+scan_systemd_pass_environment() {
+  manager=$1; name=$2; value=$3; names=$(temp_path); before=$(temp_path); after=$(temp_path); projection=$(temp_path)
+  systemd_pass_environment_names "$value" "$names" || { rm -f "$names" "$before" "$after" "$projection"; return 2; }
+  [ -s "$names" ] || { rm -f "$names" "$before" "$after" "$projection"; return 0; }
+  systemd_manager_call "$manager" show-environment >"$before" || { status=$?; rm -f "$names" "$before" "$after" "$projection"; return "$status"; }
+  awk 'FNR==NR{wanted[$0]=1;next}{if(length($0)>4096||$0~/[\r\t]/||index($0,"=")==0){bad=1;next};key=$0;sub(/=.*/,"",key);if(key!~/^[A-Za-z_][A-Za-z0-9_]*$/||seen[key]++||++count>1024){bad=1;next};if(key in wanted)print}END{exit bad?2:0}' "$names" "$before" >"$projection" || { rm -f "$names" "$before" "$after" "$projection"; return 2; }
+  systemd_manager_call "$manager" show-environment >"$after" || { status=$?; rm -f "$names" "$before" "$after" "$projection"; return "$status"; }
+  cmp -s "$before" "$after" || { rm -f "$names" "$before" "$after" "$projection"; return 2; }
+  if consumer_matches "$projection"; then manager_sha=$(sha "$before") || { rm -f "$names" "$before" "$after" "$projection"; return 2; }; projection_sha=$(sha "$projection") || { rm -f "$names" "$before" "$after" "$projection"; return 2; }; printf '%s:manager-environment|%s|%s\n' "$name" "$manager_sha" "$projection_sha"; else status=$?; [ "$status" -eq 1 ] || { rm -f "$names" "$before" "$after" "$projection"; return "$status"; }; fi
+  rm -f "$names" "$before" "$after" "$projection"
+}
+
 dockerfile_base_images() {
   awk '
     /^[[:space:]]*#/ || /^[[:space:]]*$/ {next}
