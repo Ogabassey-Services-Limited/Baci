@@ -4,6 +4,10 @@ import { config } from 'dotenv';
 const REQUIRED_ENV = [
   'BACI_REPO_DIR',
   'BACI_WEB_BASE_URL',
+  'EXPO_ACCESS_TOKEN',
+  'GIGL_BASE_URL',
+  'GIGL_EMAIL',
+  'GIGL_PASSWORD',
   'IMEI_IDENTIFIER_ENCRYPTION_KEY',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   'NEXT_PUBLIC_SUPABASE_URL',
@@ -44,6 +48,12 @@ export function getDirectWorkerPreflightProblems(env) {
     !isCredentialFreeHttpsUrl(env.BACI_WEB_BASE_URL)
   ) {
     problems.push('BACI_WEB_BASE_URL must be credential-free HTTPS');
+  }
+  if (
+    isConfigured(env, 'GIGL_BASE_URL') &&
+    !isCredentialFreeHttpsUrl(env.GIGL_BASE_URL)
+  ) {
+    problems.push('GIGL_BASE_URL must be credential-free HTTPS');
   }
 
   for (const name of [
@@ -92,7 +102,7 @@ function runDirectWorkerPreflight({
   }
 
   logger.log(
-    '[direct-worker-preflight] Petrock and quiz environment is configured'
+    '[direct-worker-preflight] direct worker environment is configured'
   );
   return 0;
 }

@@ -5,6 +5,10 @@ import { getDirectWorkerPreflightProblems } from './preflight-direct-web-workers
 const commonEnv = {
   BACI_REPO_DIR: '/opt/baci/app',
   BACI_WEB_BASE_URL: 'https://usebaci.com',
+  EXPO_ACCESS_TOKEN: 'expo-token',
+  GIGL_BASE_URL: 'https://gigl.example.com',
+  GIGL_EMAIL: 'worker@example.com',
+  GIGL_PASSWORD: 'provider-password',
   IMEI_IDENTIFIER_ENCRYPTION_KEY: 'encryption-key',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
   NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
@@ -55,6 +59,19 @@ describe('direct worker environment preflight', () => {
     assert.deepEqual(problems, ['ZEPTOMAIL_TOKEN is required']);
   });
 
+  it('requires the direct GIGL provider and notification environment', () => {
+    const problems = getDirectWorkerPreflightProblems({
+      ...commonEnv,
+      EXPO_ACCESS_TOKEN: '',
+      GIGL_BASE_URL: '',
+    });
+
+    assert.deepEqual(problems, [
+      'EXPO_ACCESS_TOKEN is required',
+      'GIGL_BASE_URL is required',
+    ]);
+  });
+
   it('requires the full quiz production gate', () => {
     const problems = getDirectWorkerPreflightProblems({
       ...commonEnv,
@@ -91,4 +108,19 @@ describe('direct worker environment preflight', () => {
       ['BACI_WEB_BASE_URL must be credential-free HTTPS']
     );
   });
+
+  for (const baseUrl of [
+    'https://user:password@gigl.example.com',
+    'http://gigl.example.com',
+  ]) {
+    it(`rejects the unsafe GIGL provider origin ${baseUrl}`, () => {
+      assert.deepEqual(
+        getDirectWorkerPreflightProblems({
+          ...commonEnv,
+          GIGL_BASE_URL: baseUrl,
+        }),
+        ['GIGL_BASE_URL must be credential-free HTTPS']
+      );
+    });
+  }
 });

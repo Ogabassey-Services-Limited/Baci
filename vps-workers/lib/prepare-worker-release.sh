@@ -26,7 +26,7 @@ prepare_worker_release() {
   NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
   echo "    Using Node: $NODE_BIN"
 
-  echo "==> Validating direct Petrock and quiz worker environment"
+  echo "==> Validating direct worker environment"
   if ! ssh "$VPS" "cd '$STAGING_DIR' && $NODE_BIN '$STAGING_DIR/jobs/preflight-direct-web-workers.mjs'"; then
     echo "Direct-worker environment preflight failed; live worker files and crontab were not changed." >&2
     exit 1
@@ -72,6 +72,8 @@ if [ "$actual_sha" != "$expected_sha" ]; then
 fi
 
 for script_path in \
+  apps/web/src/scripts/process-gigl-tracking.ts \
+  apps/web/src/scripts/process-gigl-tracking-notifications.ts \
   apps/web/src/scripts/process-petrock-reconciliation.ts \
   apps/web/src/scripts/process-quiz-finalization.ts
 do
@@ -82,6 +84,8 @@ do
 done
 
 for wrapper_path in \
+  "$remote_dir/bin/process-gigl-tracking.sh" \
+  "$remote_dir/bin/process-gigl-tracking-notifications.sh" \
   "$remote_dir/bin/process-petrock-reconciliation.sh" \
   "$remote_dir/bin/process-quiz-finalization.sh"
 do

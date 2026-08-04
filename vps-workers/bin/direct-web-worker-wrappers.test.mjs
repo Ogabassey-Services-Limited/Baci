@@ -8,6 +8,16 @@ const directory = dirname(fileURLToPath(import.meta.url));
 
 for (const [wrapper, label, script] of [
   [
+    'process-gigl-tracking.sh',
+    'gigl-tracking',
+    'src/scripts/process-gigl-tracking.ts',
+  ],
+  [
+    'process-gigl-tracking-notifications.sh',
+    'gigl-tracking-notifications',
+    'src/scripts/process-gigl-tracking-notifications.ts',
+  ],
+  [
     'process-petrock-reconciliation.sh',
     'petrock-reconciliation',
     'src/scripts/process-petrock-reconciliation.ts',

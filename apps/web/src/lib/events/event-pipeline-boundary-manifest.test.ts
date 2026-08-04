@@ -155,7 +155,49 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
+      'apps/web/src/scripts/process-gigl-tracking-notifications.ts',
+      'apps/web/src/scripts/process-gigl-tracking.ts',
     ]);
+    const notificationWorker =
+      'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts';
+    const notificationBatch =
+      'apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts';
+    const notificationCredentialPrefixes = [
+      [notificationWorker],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
+        notificationBatch,
+        notificationWorker,
+      ],
+      [notificationBatch, notificationWorker],
+      [
+        'apps/web/src/scripts/process-gigl-tracking-notifications.ts',
+        notificationBatch,
+        notificationWorker,
+      ],
+    ];
+    const notificationCredentialTails = [
+      ['apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
+      [
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/insurance/notify-activate-protection.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/insurance/notify-activate-protection.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+    ];
+    const notificationCredentialPaths = notificationCredentialPrefixes.flatMap(
+      (prefix) =>
+        notificationCredentialTails.map((tail) => [...prefix, ...tail])
+    );
     expect(manifest.authority.credentialPaths).toEqual([
       [
         'apps/web/src/app/(platform)/onboarding/actions.ts',
@@ -171,56 +213,7 @@ describe('event pipeline authority manifest', () => {
         'apps/web/src/lib/cloudflare-purge.ts',
         'apps/web/src/env.ts',
       ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/lib/supabase/admin.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/lib/supabase/admin.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/insurance/notify-activate-protection.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/insurance/notify-activate-protection.ts',
-        'apps/web/src/lib/supabase/admin.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/insurance/notify-activate-protection.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/insurance/notify-activate-protection.ts',
-        'apps/web/src/lib/supabase/admin.ts',
-        'apps/web/src/env.ts',
-      ],
+      ...notificationCredentialPaths,
     ]);
   });
 

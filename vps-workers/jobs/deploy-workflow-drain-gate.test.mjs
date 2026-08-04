@@ -29,6 +29,10 @@ describe('production cache-invalidation drain rollout gate', () => {
       readiness,
       /vps-workers\/bin\/verify-cache-invalidation-drain-installed\.sh/
     );
+    assert.match(
+      readiness,
+      /^\s+run: vps-workers\/bin\/verify-gigl-direct-workers-installed\.sh$/m
+    );
     assert.doesNotMatch(readiness, /VPS_WORKER_SSH_TARGET|\bssh\b/);
     assert.doesNotMatch(readiness, /continue-on-error:\s*true/);
     assert.match(migrations, /needs: \[vps-drain-readiness\]/);
