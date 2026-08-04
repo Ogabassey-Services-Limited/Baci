@@ -17,4 +17,13 @@ describe('tokenizeContentText', () => {
     expect(tokenizeContentText(null)).toEqual([]);
     expect(tokenizeContentText(undefined)).toEqual([]);
   });
+
+  it('splits mixed alphanumeric game codes like conventional guide titles', () => {
+    expect(tokenizeContentText('NBA2K24 Buyer Guide')).toEqual([
+      'nba',
+      '2k24',
+      'buyer',
+      'guide',
+    ]);
+  });
 });

@@ -130,6 +130,27 @@ describe('hasCleanIdentifierOccurrence', () => {
     expect(result).toBe(true);
   });
 
+  it('accepts an unambiguous model after descriptive words from its brand', () => {
+    const post = {
+      slug: 'tecno-spark-40-buyer-guide',
+      title: "Tecno's Latest Affordable Smartphone: The Spark 40 Buyer Guide",
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    expect(
+      hasCleanIdentifierOccurrence(post, ['spark', '40'], {
+        brand: 'tecno',
+        requireBrandBeforeIdentifier: true,
+      })
+    ).toBe(true);
+  });
+
   it('rejects a brand at or after the identifier when ordering is required', () => {
     const post = {
       slug: 'iphone-14-pro-apple-guide',

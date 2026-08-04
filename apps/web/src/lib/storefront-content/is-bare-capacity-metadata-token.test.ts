@@ -9,4 +9,8 @@ describe('isBareCapacityMetadataToken', () => {
   it('does not classify a short model number as storage metadata', () => {
     expect(isBareCapacityMetadataToken(['g3', '15', '3579'], 1)).toBe(false);
   });
+
+  it('recognizes a terminal common storage capacity after an established model', () => {
+    expect(isBareCapacityMetadataToken(['s25', '256'], 1)).toBe(true);
+  });
 });

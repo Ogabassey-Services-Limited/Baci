@@ -2,6 +2,14 @@ import type { PublishedClusterPost } from './content-cluster-types';
 import { getPostTokenGroups } from './get-post-token-groups';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 
+const COMPARISON_BOUNDARY_TOKENS = new Set([
+  'against',
+  'and',
+  'or',
+  'versus',
+  'vs',
+]);
+
 function tokenizeIdentifier(identifier: string) {
   return normalizeContentCurrencyTokens(identifier)
     .toLowerCase()
@@ -20,6 +28,20 @@ function countIdentifierOccurrences(tokens: string[], identifier: string) {
   ).length;
 }
 
+function getComparisonSegments(tokens: string[]) {
+  return tokens.reduce<string[][]>(
+    (segments, token) => {
+      if (COMPARISON_BOUNDARY_TOKENS.has(token)) {
+        segments.push([]);
+      } else {
+        segments.at(-1)?.push(token);
+      }
+      return segments;
+    },
+    [[]]
+  );
+}
+
 /** Ensures same-model compare variants are represented by separate occurrences. */
 export function hasDistinctCompareIdentifierOccurrences(
   post: PublishedClusterPost,
@@ -30,10 +52,13 @@ export function hasDistinctCompareIdentifierOccurrences(
     requiredCounts.set(identifier, (requiredCounts.get(identifier) ?? 0) + 1);
   }
 
-  return getPostTokenGroups(post).some((tokens) =>
-    Array.from(requiredCounts).every(
+  return getPostTokenGroups(post).some((tokens) => {
+    const comparisonSegments = getComparisonSegments(tokens);
+    return Array.from(requiredCounts).every(
       ([identifier, count]) =>
-        countIdentifierOccurrences(tokens, identifier) >= count
-    )
-  );
+        comparisonSegments.filter(
+          (segment) => countIdentifierOccurrences(segment, identifier) > 0
+        ).length >= count
+    );
+  });
 }

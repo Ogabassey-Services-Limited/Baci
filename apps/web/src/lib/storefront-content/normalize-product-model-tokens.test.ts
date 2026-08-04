@@ -85,6 +85,19 @@ describe('normalizeProductModelTokens', () => {
     expect(tokens).toEqual(['dell', 'precision', '5540']);
   });
 
+  it('removes a phone-sized decimal display suffix', () => {
+    const tokens = normalizeProductModelTokens([
+      'apple',
+      'iphone',
+      '15',
+      '6',
+      '1',
+      'inch',
+    ]);
+
+    expect(tokens).toEqual(['apple', 'iphone', '15']);
+  });
+
   it('removes a terminal quote-only decimal display size', () => {
     const tokens = normalizeProductModelTokens(
       ['msi', 'modern', '15', 'b13m', 'laptop', '15', '6'],

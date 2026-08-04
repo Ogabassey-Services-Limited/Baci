@@ -134,20 +134,20 @@ function stripDecimalDisplaySuffix(
   tokens: string[],
   stripTerminalDisplay = false
 ) {
-  const decimalIndex = tokens.findIndex((token, index) => {
+  const decimalIndex = tokens.findLastIndex((token, index) => {
     const nextToken = tokens[index + 1] ?? '';
-    if (!/^\d{2}$/u.test(token) || !/^\d$/u.test(nextToken)) {
+    if (!/^\d{1,2}$/u.test(token) || !/^\d$/u.test(nextToken)) {
       return false;
     }
 
-    const displaySize = Number(token);
+    const displaySize = Number(`${token}.${nextToken}`);
     const isTerminalDisplay =
       stripTerminalDisplay &&
       index + 2 === tokens.length &&
       displaySize >= 10 &&
       displaySize <= 20;
     return (
-      displaySize >= 10 &&
+      displaySize >= 5 &&
       displaySize <= 20 &&
       (isTerminalDisplay ||
         tokens

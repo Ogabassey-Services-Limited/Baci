@@ -33,6 +33,12 @@ describe('selectProductModelIdentifier', () => {
     expect(identifier).toBe('fc 24');
   });
 
+  it('expands mixed alphanumeric game codes when preserving game titles', () => {
+    const identifier = selectProductModelIdentifier(['nba2k24'], true);
+
+    expect(identifier).toBe('nba 2k24');
+  });
+
   it('keeps consecutive numeric game-title tokens', () => {
     const identifier = selectProductModelIdentifier(['1', '2'], true);
 

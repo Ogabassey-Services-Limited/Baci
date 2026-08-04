@@ -58,4 +58,24 @@ describe('hasDistinctCompareIdentifierOccurrences', () => {
 
     expect(result).toBe(false);
   });
+
+  it('rejects repeated same-model mentions inside one standalone title', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'ipad-10-wifi-cellular-review',
+        title:
+          'Apple iPad 10 Wi-Fi Cellular Review: Is the iPad 10 Worth Buying?',
+        excerpt: null,
+        category: 'Tablets',
+        tags: ['tablets'],
+        keywords: ['buyer guide'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['10', '10']
+    );
+
+    expect(result).toBe(false);
+  });
 });

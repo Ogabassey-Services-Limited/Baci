@@ -18,7 +18,9 @@ function expandCompactGameCodeTokens(
 ) {
   return preserveGameTitleTokens
     ? tokens.flatMap(
-        (token) => token.match(COMPACT_GAME_CODE_PATTERN)?.slice(1) ?? [token]
+        (token) =>
+          token.match(COMPACT_GAME_CODE_PATTERN)?.slice(1) ??
+          modelTokenMatchers.expandMixedGameCodeToken(token)
       )
     : tokens;
 }
