@@ -46,8 +46,8 @@ if grep -q '^→ applying:        20260804000200' "$output_log"; then
   echo 'The superseded repair must never be sent to the Management API' >&2
   exit 1
 fi
-grep -q ') <> pg_catalog.length(v_expected_monitor_terminality) THEN' "$query_log"
-grep -q ') <> pg_catalog.length(v_expected_next_poll_terminality) THEN' "$query_log"
+grep -q ') <> pg_catalog.length(v_expected_monitor_terminality)' "$query_log"
+grep -q ') <> pg_catalog.length(v_expected_next_poll_terminality)' "$query_log"
 grep -q ') <> pg_catalog.length(v_expected_stopped_terminality) THEN' "$query_log"
 if grep -q ') <> pg_catalog.length(v_expected_terminality) THEN' "$query_log"; then
   echo 'The malformed single-replacement guard must never reach the Management API' >&2
@@ -68,8 +68,8 @@ grep -q 'Superseded append-only repair 20260804000200 is skipped; 20260804000400
 grep -q 'applied:         20260804000400  repair_gigl_notification_terminality_cardinality' "$pending_successor_output"
 if grep -q '^→ applying:        20260804000200' "$pending_successor_output" || \
   grep -q ') <> pg_catalog.length(v_expected_terminality) THEN' "$pending_successor_log" || \
-  ! grep -q ') <> pg_catalog.length(v_expected_monitor_terminality) THEN' "$pending_successor_log" || \
-  ! grep -q ') <> pg_catalog.length(v_expected_next_poll_terminality) THEN' "$pending_successor_log" || \
+  ! grep -q ') <> pg_catalog.length(v_expected_monitor_terminality)' "$pending_successor_log" || \
+  ! grep -q ') <> pg_catalog.length(v_expected_next_poll_terminality)' "$pending_successor_log" || \
   ! grep -q ') <> pg_catalog.length(v_expected_stopped_terminality) THEN' "$pending_successor_log"; then
   echo 'A recorded historical source must skip the malformed repair and apply its successor' >&2
   exit 1
