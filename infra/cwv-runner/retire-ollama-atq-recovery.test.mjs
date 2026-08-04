@@ -24,7 +24,10 @@ async function writeStatShim(bin) {
   await writeFile(
     join(bin, 'stat'),
     `#!/bin/sh
-if [ "$(uname -s)" = Linux ]; then exec /usr/bin/stat "$@"; fi
+if [ "$(uname -s)" = Linux ]; then
+  if [ "$1:$2" = '-c:%u:%a' ]; then printf '0:'; exec /usr/bin/stat -c %a "$3"; fi
+  exec /usr/bin/stat "$@"
+fi
 [ "$1" = -c ] || exit 64
 format=$2; path=$3
 case "$format" in

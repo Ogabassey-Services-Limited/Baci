@@ -53,9 +53,41 @@ test('kernel read-only bind blocks a root submission after the final queue check
     );
     assert.match(stdout, /^root-write-blocked$/m);
   } finally {
+    await execFileAsync(
+      runner[0] ?? '/bin/sh',
+      runner.length
+        ? [
+            ...runner.slice(1),
+            '/bin/sh',
+            '-c',
+            rootCleanupScript,
+            'retire-ollama-root-bind-cleanup',
+            directory,
+          ]
+        : [
+            '-c',
+            rootCleanupScript,
+            'retire-ollama-root-bind-cleanup',
+            directory,
+          ]
+    );
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+const rootCleanupScript = `set -eu
+[ "$(id -u)" = 0 ]
+AT_JOB_DIR=$1/atjobs
+if [ -d "$AT_JOB_DIR" ]; then
+  if /usr/bin/findmnt -rn --mountpoint "$AT_JOB_DIR" >/dev/null; then
+    /usr/bin/umount "$AT_JOB_DIR"
+  else
+    [ "$?" -eq 1 ]
+  fi
+  /bin/chmod 0700 "$AT_JOB_DIR"
+  /bin/rm -rf -- "$AT_JOB_DIR"
+fi
+`;
 
 const rootRegressionScript = `set -eu
 [ "$(id -u)" = 0 ]
@@ -64,7 +96,11 @@ mkdir "$AT_JOB_DIR"; chmod 1770 "$AT_JOB_DIR"
 printf '0\n' >"$AT_JOB_DIR/.SEQ"; chmod 0600 "$AT_JOB_DIR/.SEQ"
 mounted=no
 cleanup() {
-  [ "$mounted" = no ] || /usr/bin/umount "$AT_JOB_DIR"
+  trap - EXIT HUP INT TERM
+  if [ "$mounted" != no ] && /usr/bin/findmnt -rn --mountpoint "$AT_JOB_DIR" >/dev/null; then
+    /usr/bin/umount "$AT_JOB_DIR"
+    mounted=no
+  fi
 }
 trap cleanup EXIT HUP INT TERM
 die() { printf '%s\n' "$1" >&2; exit 65; }
