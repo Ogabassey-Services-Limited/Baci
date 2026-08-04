@@ -255,3 +255,33 @@ test('skips a socket-valued environment path but refuses the same socket in argv
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('refuses a cmdline mutation after its first terminal digest', async () => {
+  const { directory, proc } = await fixture();
+  try {
+    const processFileModule = join(
+      dirname(script),
+      'retire-ollama-process-files.sh'
+    );
+    const instrumentedModule = join(directory, 'process-files-cmdline-race.sh');
+    const source = await readFile(processFileModule, 'utf8');
+    const boundary = `command_sha=$(sha "$cmdline") || { recovery_process_file_cleanup; review_required 'process command line digest failed'; };`;
+    const instrumented = source.replace(
+      boundary,
+      `${boundary}\n  /usr/bin/printf '/usr/bin/replaced-worker\\0--new\\0' >"$cmdline";`
+    );
+    assert.notEqual(instrumented, source);
+    await writeFile(instrumentedModule, instrumented);
+
+    await assert.rejects(
+      shell(
+        proc,
+        `. "${instrumentedModule}"; recovery_process_file_evidence 41`
+      ),
+      (error) =>
+        error.code === 78 && /process file evidence changed/.test(error.stderr)
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
