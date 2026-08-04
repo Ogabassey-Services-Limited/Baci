@@ -19,4 +19,13 @@ describe('getContextBrandKeys', () => {
 
     expect(brandKeys).toEqual(['xiaomi']);
   });
+
+  it('resolves an explicit composite brand to its canonical key', () => {
+    const brandKeys = getContextBrandKeys(['Google Pixel'], undefined, {
+      google: ['google', 'pixel'],
+      samsung: ['samsung', 'galaxy'],
+    });
+
+    expect(brandKeys).toEqual(['google']);
+  });
 });

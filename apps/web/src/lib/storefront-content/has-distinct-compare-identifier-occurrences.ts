@@ -9,25 +9,15 @@ function tokenizeIdentifier(identifier: string) {
     .filter(Boolean);
 }
 
-function countIdentifierOccurrences(
-  post: PublishedClusterPost,
-  identifier: string
-) {
+function countIdentifierOccurrences(tokens: string[], identifier: string) {
   const identifierTokens = tokenizeIdentifier(identifier);
   if (identifierTokens.length === 0) {
     return 0;
   }
 
-  return getPostTokenGroups(post).reduce(
-    (count, tokens) =>
-      count +
-      tokens.filter((_, index) =>
-        identifierTokens.every(
-          (token, offset) => tokens[index + offset] === token
-        )
-      ).length,
-    0
-  );
+  return tokens.filter((_, index) =>
+    identifierTokens.every((token, offset) => tokens[index + offset] === token)
+  ).length;
 }
 
 /** Ensures same-model compare variants are represented by separate occurrences. */
@@ -40,8 +30,10 @@ export function hasDistinctCompareIdentifierOccurrences(
     requiredCounts.set(identifier, (requiredCounts.get(identifier) ?? 0) + 1);
   }
 
-  return Array.from(requiredCounts).every(
-    ([identifier, count]) =>
-      countIdentifierOccurrences(post, identifier) >= count
+  return getPostTokenGroups(post).some((tokens) =>
+    Array.from(requiredCounts).every(
+      ([identifier, count]) =>
+        countIdentifierOccurrences(tokens, identifier) >= count
+    )
   );
 }

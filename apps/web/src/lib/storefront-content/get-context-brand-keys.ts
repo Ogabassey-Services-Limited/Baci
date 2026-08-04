@@ -11,7 +11,37 @@ export function getContextBrandKeys(
     new Set((brands ?? []).map(generateSlug).filter(Boolean))
   );
   if (explicitBrandKeys.length > 0) {
-    return explicitBrandKeys;
+    const exactCanonicalKeys = explicitBrandKeys.filter((brand) =>
+      Object.hasOwn(brandAliases, brand)
+    );
+    if (exactCanonicalKeys.length > 0) {
+      return exactCanonicalKeys;
+    }
+
+    const explicitBrandTokens = new Set(
+      explicitBrandKeys.flatMap(tokenizeContentText)
+    );
+    const compositeCanonicalKeys = Object.keys(brandAliases).filter((brand) =>
+      tokenizeContentText(brand).every((token) =>
+        explicitBrandTokens.has(token)
+      )
+    );
+    if (compositeCanonicalKeys.length > 0) {
+      return compositeCanonicalKeys;
+    }
+
+    const aliasCanonicalKeys = Object.entries(brandAliases)
+      .filter(([, aliases]) =>
+        aliases.some((alias) =>
+          tokenizeContentText(alias).every((token) =>
+            explicitBrandTokens.has(token)
+          )
+        )
+      )
+      .map(([brand]) => brand);
+    return aliasCanonicalKeys.length > 0
+      ? aliasCanonicalKeys
+      : explicitBrandKeys;
   }
 
   const productNameTokens = new Set(

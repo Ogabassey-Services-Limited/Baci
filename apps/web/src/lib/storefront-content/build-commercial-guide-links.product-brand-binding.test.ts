@@ -206,4 +206,44 @@ describe('buildCommercialGuideLinks product brand binding', () => {
       'https://ogabassey.com/blog/ipad-10th-gen-wifi-guide',
     ]);
   });
+
+  it('matches singular Airpod catalog names with singular guide titles', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'apple-earbuds-buyer-guide',
+          title: 'Apple Earbuds Buyer Guide',
+          excerpt: 'Buying advice for Apple earbuds.',
+          category: 'Earbuds',
+          tags: ['earbuds', 'apple'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'apple-airpod-2-buyer-guide',
+          title: 'Apple AirPod 2 Buyer Guide',
+          excerpt: 'Buying advice for Apple AirPod 2.',
+          category: 'Earbuds',
+          tags: ['earbuds', 'apple'],
+          keywords: ['buyer guide'],
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'earbuds',
+        brands: ['Apple'],
+        productNames: ['Apple Airpod 2'],
+      },
+    });
+
+    expect(links[0]?.href).toBe(
+      'https://ogabassey.com/blog/apple-airpod-2-buyer-guide'
+    );
+  });
 });

@@ -39,4 +39,23 @@ describe('hasDistinctCompareIdentifierOccurrences', () => {
 
     expect(result).toBe(true);
   });
+
+  it('rejects repeated standalone metadata as separate compared products', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'ipad-10-wifi-cellular-guide',
+        title: 'Apple iPad 10 Wi-Fi Cellular Buyer Guide',
+        excerpt: 'Apple iPad 10 Wi-Fi Cellular buying advice.',
+        category: 'Tablets',
+        tags: ['tablets'],
+        keywords: ['buyer guide'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['10', '10']
+    );
+
+    expect(result).toBe(false);
+  });
 });
