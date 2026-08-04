@@ -24,6 +24,36 @@ const repairCases = [
       'supabase/migrations/20260803000700_repair_gigl_tracking_retry_edges.sql',
     ordinal: 129,
   },
+  {
+    label: 'GIGL failed-event recovery scope',
+    historicalPath:
+      'supabase/migrations/20260801141900_scope_gigl_recovery_to_failed_event.sql',
+    historicalSha256:
+      '972030071dbeea262fdd1ccc20f4f62c07c90299d00e5fd70335617c4dd9a91d',
+    repairPath:
+      'supabase/migrations/20260804000100_repair_gigl_failed_event_recovery_scope.sql',
+    ordinal: 129,
+  },
+  {
+    label: 'GIGL notification recovery edges',
+    historicalPath:
+      'supabase/migrations/20260801142000_harden_gigl_notification_recovery_edges.sql',
+    historicalSha256:
+      'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e',
+    repairPath:
+      'supabase/migrations/20260804000200_repair_gigl_notification_recovery_edges.sql',
+    ordinal: 129,
+  },
+  {
+    label: 'GIGL manual failure status scope',
+    historicalPath:
+      'supabase/migrations/20260801142100_preserve_manual_gigl_failures_after_unknown_scans.sql',
+    historicalSha256:
+      'f97c32889ae2e733d881bd7d6672cd91337936326f55e205d717bb972398ea73',
+    repairPath:
+      'supabase/migrations/20260804000300_repair_gigl_manual_failure_status_scope.sql',
+    ordinal: 129,
+  },
 ] as const;
 
 describe('applySupabaseCurrentTreeSources', () => {

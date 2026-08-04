@@ -62,6 +62,19 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION private.activate_gigl_tracking_monitor()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $function$
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND NEW.order_id IS NOT DISTINCT FROM OLD.order_id THEN
+    RETURN NEW;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.apply_gigl_tracking_result(
   p_order_id uuid,
   p_shipment_id uuid,
@@ -78,8 +91,13 @@ DECLARE
   v_current_status text := 'failed';
   v_latest_status_event_at timestamptz := now();
   v_latest_persisted_event_at timestamptz;
+  v_latest_persisted_status_event_at timestamptz;
+  v_manual_terminal_override_at timestamptz := now();
+  v_latest_incoming_event_at timestamptz := now();
   v_effective_status text;
-  v_should_update_delivery boolean;
+  v_current_location text;
+  v_should_update_location boolean := false;
+  v_should_update_delivery boolean := false;
 BEGIN
   v_effective_status := CASE
     WHEN private.gigl_tracking_status_rank(p_status)
@@ -87,6 +105,11 @@ BEGIN
       THEN v_current_status
     ELSE p_status
   END;
+  v_should_update_location := v_current_location IS NOT NULL
+    AND true;
+  IF v_effective_status IN ('delivered', 'cancelled', 'returned') THEN
+    v_should_update_location := false;
+  END IF;
   v_should_update_delivery := p_actual_delivery IS NOT NULL;
   RETURN jsonb_build_object(
     'effective_status', v_effective_status,

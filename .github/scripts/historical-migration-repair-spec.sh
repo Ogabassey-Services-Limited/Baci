@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# The applier sources this exact source/repair/checksum mapping before it can
+# register any historical migration. Each entry is immutable by checksum so a
+# later edit cannot silently substitute a repair for different failed bytes.
+historical_migration_repair_spec() {
+  case "$1:$2" in
+    20260727220050:shipment_tracking_realtime_broadcast)
+      printf '%s\t%s\t%s\n' '20260803000600' 'repair_gigl_tracking_realtime_broadcast' '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65'
+      ;;
+    20260801141800:harden_gigl_tracking_retry_edges)
+      printf '%s\t%s\t%s\n' '20260803000700' 'repair_gigl_tracking_retry_edges' '35bcfb114ccfdadbbb44f69b21b53dd91b8df7a9eaa875f364e3d22b354801d1'
+      ;;
+    20260801141900:scope_gigl_recovery_to_failed_event)
+      printf '%s\t%s\t%s\n' '20260804000100' 'repair_gigl_failed_event_recovery_scope' '972030071dbeea262fdd1ccc20f4f62c07c90299d00e5fd70335617c4dd9a91d'
+      ;;
+    20260801142000:harden_gigl_notification_recovery_edges)
+      printf '%s\t%s\t%s\n' '20260804000200' 'repair_gigl_notification_recovery_edges' 'b373ae3f70d7311004e7e4400c2b3a3c8534300e82ee01c2c9e0d3df2680b81e'
+      ;;
+    20260801142100:preserve_manual_gigl_failures_after_unknown_scans)
+      printf '%s\t%s\t%s\n' '20260804000300' 'repair_gigl_manual_failure_status_scope' 'f97c32889ae2e733d881bd7d6672cd91337936326f55e205d717bb972398ea73'
+      ;;
+    *) return 1 ;;
+  esac
+}

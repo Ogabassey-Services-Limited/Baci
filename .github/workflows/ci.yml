@@ -106,6 +106,7 @@ jobs:
               - 'supabase/tests/run-gigl-tracking-retry-repair-test.sh'
               - '.github/scripts/apply-pending-migrations.sh'
               - '.github/scripts/apply-pending-migrations.test.sh'
+              - '.github/scripts/historical-migration-repair-spec.sh'
               - '.github/scripts/split-sql-statements.mjs'
               - '.github/scripts/split-sql-statements.test.mjs'
               - '.github/scripts/check-migration-versions.sh'

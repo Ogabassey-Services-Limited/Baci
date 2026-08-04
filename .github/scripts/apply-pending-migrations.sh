@@ -28,13 +28,15 @@
 # preserving SQL there would require fragile escaping of `$$` and single quotes.
 set -euo pipefail
 
-migrations_dir="${MIGRATIONS_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/supabase/migrations}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+migrations_dir="${MIGRATIONS_DIR:-$(cd "$script_dir/../.." && pwd)/supabase/migrations}"
 if [ ! -d "$migrations_dir" ]; then
   echo "::error::supabase/migrations directory not found at $migrations_dir"
   exit 1
 fi
 
-bash "$(dirname "$0")/check-migration-versions.sh" "$migrations_dir"
+bash "$script_dir/check-migration-versions.sh" "$migrations_dir"
+. "$script_dir/historical-migration-repair-spec.sh"
 
 : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN is required}"
 : "${SUPABASE_PROJECT_REF:?SUPABASE_PROJECT_REF is required}"
@@ -69,7 +71,7 @@ api_query_payload() {
 }
 
 split_sql_statements() {
-  node "$(dirname "$0")/split-sql-statements.mjs" "$1"
+  node "$script_dir/split-sql-statements.mjs" "$1"
 }
 
 build_register_migration_query() {
@@ -89,18 +91,6 @@ historical_collision_repair_spec() {
       ;;
     20260713130000:add_storefront_paystack_subaccount_configured_rpc)
       printf '%s\t%s\n' '20260713140000' 'quiz_finalize_rank_winners_reapply'
-      ;;
-    *) return 1 ;;
-  esac
-}
-
-historical_migration_repair_spec() {
-  case "$1:$2" in
-    20260727220050:shipment_tracking_realtime_broadcast)
-      printf '%s\t%s\t%s\n' '20260803000600' 'repair_gigl_tracking_realtime_broadcast' '89b2dafdf9de92770d8a20151444a6c34602f78cb83bcc79cb20ed3ea9c21b65'
-      ;;
-    20260801141800:harden_gigl_tracking_retry_edges)
-      printf '%s\t%s\t%s\n' '20260803000700' 'repair_gigl_tracking_retry_edges' '35bcfb114ccfdadbbb44f69b21b53dd91b8df7a9eaa875f364e3d22b354801d1'
       ;;
     *) return 1 ;;
   esac
@@ -213,7 +203,7 @@ for file in "${sorted_files[@]}"; do
       echo "::error::Historical migration $version requires the pinned append-only repair ${repair_version}_${repair_name}.sql and original source checksum" >&2
       exit 1
     fi
-    body="$(bash "$(dirname "$0")/build-historical-repair-payload.sh" "$repair_file" "$(build_register_migration_query "$version" "$name")" "$(build_register_migration_query "$repair_version" "$repair_name")")"
+    body="$(bash "$script_dir/build-historical-repair-payload.sh" "$repair_file" "$(build_register_migration_query "$version" "$name")" "$(build_register_migration_query "$repair_version" "$repair_name")")"
     api_query_payload "$body"
     echo "✓ applied:         $repair_version  $repair_name"
     echo "::warning::Historical migration $version is reconciled by append-only repair migration ${repair_version}_${repair_name}.sql"

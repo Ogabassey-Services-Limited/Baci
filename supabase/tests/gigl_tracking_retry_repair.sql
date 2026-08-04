@@ -1,6 +1,7 @@
 DO $$
 DECLARE
   sync_definition text;
+  monitor_definition text;
   apply_definition text;
   apply_result jsonb;
   sync_result text;
@@ -9,14 +10,26 @@ BEGIN
     'private.sync_gigl_tracking_order_status()'::regprocedure
   ) INTO sync_definition;
   SELECT pg_catalog.pg_get_functiondef(
+    'private.activate_gigl_tracking_monitor()'::regprocedure
+  ) INTO monitor_definition;
+  SELECT pg_catalog.pg_get_functiondef(
     'public.apply_gigl_tracking_result(uuid,uuid,text,text,text,timestamptz,jsonb)'::regprocedure
   ) INTO apply_definition;
 
   IF sync_definition NOT LIKE '%newer_shipment.merchant_id = NEW.merchant_id%'
     OR sync_definition NOT LIKE '%newer_shipment.tracking_timeline_generation%'
+    OR monitor_definition NOT LIKE '%NEW.merchant_id IS NOT DISTINCT FROM OLD.merchant_id%'
     OR apply_definition NOT LIKE '%v_current_status = ''failed''%'
-    OR apply_definition NOT LIKE '%v_effective_status = ''delivered''%' THEN
-    RAISE EXCEPTION 'GIGL retry repair did not install both function definitions';
+    OR apply_definition NOT LIKE '%v_effective_status = ''delivered''%'
+    OR apply_definition NOT LIKE '%v_latest_status_event_at >= v_latest_persisted_status_event_at%'
+    OR apply_definition LIKE '%v_latest_status_event_at >= v_latest_persisted_event_at%'
+    OR apply_definition NOT LIKE '%v_manual_terminal_failed boolean := false%'
+    OR apply_definition NOT LIKE '%v_latest_status_event_at <= v_manual_terminal_override_at%'
+    OR apply_definition LIKE '%v_latest_incoming_event_at <= v_manual_terminal_override_at%'
+    OR to_regprocedure(
+      'public.reset_shipment_tracking_notification_dispatch(uuid,text)'
+    ) IS NOT NULL THEN
+    RAISE EXCEPTION 'GIGL recovery-edge repairs did not install the expected definitions';
   END IF;
 
   INSERT INTO public.shipments(

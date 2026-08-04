@@ -136,6 +136,11 @@ describe('GIGL retry and generation hardening migrations', () => {
 
     expect(migration).toContain('v_latest_persisted_status_event_at');
     expect(
+      readMigration(
+        '20260804000100_repair_gigl_failed_event_recovery_scope.sql'
+      )
+    ).toContain('v_latest_persisted_status_event_at');
+    expect(
       readMigrationTest('gigl_tracking_failure_transitions.sql')
     ).toContain(
       'a recovery between a failed event and newer unknown scan must replace the failure'
@@ -167,6 +172,11 @@ describe('GIGL retry and generation hardening migrations', () => {
     );
     expect(followUp).toContain('v_manual_terminal_failed');
     expect(
+      readMigration(
+        '20260804000200_repair_gigl_notification_recovery_edges.sql'
+      )
+    ).toContain('NEW.merchant_id IS NOT DISTINCT FROM OLD.merchant_id');
+    expect(
       readMigrationTest('gigl_tracking_manual_failure_order_status.sql')
     ).toContain('manual failed final polls must remain terminal');
     expect(
@@ -184,6 +194,11 @@ describe('GIGL retry and generation hardening migrations', () => {
     expect(migration).toContain(
       'v_latest_status_event_at <= v_manual_terminal_override_at'
     );
+    expect(
+      readMigration(
+        '20260804000300_repair_gigl_manual_failure_status_scope.sql'
+      )
+    ).toContain('v_latest_status_event_at <= v_manual_terminal_override_at');
     expect(migration).toContain(
       'GIGL manual failure terminality must use status events'
     );
