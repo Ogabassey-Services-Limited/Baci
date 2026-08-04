@@ -38,6 +38,18 @@ test('fails closed before accepting a flow-style Compose services map', async ()
   }
 });
 
+test('fails closed before accepting a quoted Compose services key', async () => {
+  await assert.rejects(
+    execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; printf '"services":\\n  app:\\n    image: hidden-image\\n' | compose_image_refs /dev/stdin`,
+      'retire-ollama-compose-quoted-services-test',
+      script.pathname,
+    ]),
+    (error) => error.code === 2
+  );
+});
+
 test('binds a static systemd BindReadOnlyPaths source', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-systemd-static-bind-path-'))
