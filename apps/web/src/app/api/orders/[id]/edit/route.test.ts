@@ -144,6 +144,14 @@ function callPatch(request: NextRequest) {
   });
 }
 
+function mockAuthenticated(supabase: SupabaseClient) {
+  vi.mocked(authenticateApiRequest).mockResolvedValue({
+    error: null,
+    supabase,
+    user: createMockUser(),
+  });
+}
+
 describe('PATCH /api/orders/[id]/edit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -170,11 +178,7 @@ describe('PATCH /api/orders/[id]/edit', () => {
 
   it('returns 403 when CSRF validation fails', async () => {
     const { supabase } = createSupabaseMock();
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      error: null,
-      supabase,
-      user: createMockUser(),
-    });
+    mockAuthenticated(supabase);
     vi.mocked(checkCsrfProtection).mockResolvedValue({
       valid: false,
       response: undefined,
@@ -189,12 +193,7 @@ describe('PATCH /api/orders/[id]/edit', () => {
 
   it('returns 400 for invalid JSON', async () => {
     const { supabase } = createSupabaseMock();
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      error: null,
-      supabase,
-      user: createMockUser(),
-    });
-
+    mockAuthenticated(supabase);
     const response = await callPatch(createThrowingJsonRequest());
 
     expect(response.status).toBe(400);
@@ -202,12 +201,7 @@ describe('PATCH /api/orders/[id]/edit', () => {
 
   it('returns 400 for invalid schema payloads', async () => {
     const { supabase } = createSupabaseMock();
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      error: null,
-      supabase,
-      user: createMockUser(),
-    });
-
+    mockAuthenticated(supabase);
     const response = await callPatch(
       createRequest({ ...validPayload, customer: { name: '' } })
     );
@@ -219,12 +213,7 @@ describe('PATCH /api/orders/[id]/edit', () => {
 
   it('calls the checked RPC and returns the refreshed mobile order', async () => {
     const { rpc, select, supabase } = createSupabaseMock();
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      error: null,
-      supabase,
-      user: createMockUser(),
-    });
-
+    mockAuthenticated(supabase);
     const response = await callPatch(createRequest(validPayload));
     const payload = await response.json();
 
@@ -249,43 +238,54 @@ describe('PATCH /api/orders/[id]/edit', () => {
   });
 
   it.each([
-    ['order_not_found', 404],
-    ['order_edit_forbidden', 403],
-    ['order_financial_edit_has_payments', 409],
-    ['order_financial_edit_after_fulfillment', 409],
-    ['order_terminal_not_editable', 409],
-    ['order_item_replacement_has_historical_state', 409],
-    ['order_item_replacement_has_accounting_metadata', 409],
-    ['order_item_replacement_has_managed_stock', 409],
-    ['order_item_replacement_has_serialized_reservations', 409],
-    ['order_total_negative', 400],
-    ['order_notify_customer_invalid', 400],
-    ['order_item_product_forbidden', 403],
-    ['order_item_variant_forbidden', 403],
-  ])('maps RPC error %s to %i', async (message, status) => {
+    ['order_not_found', 404, undefined],
+    ['order_edit_forbidden', 403, undefined],
+    ['order_financial_edit_has_payments', 409, undefined],
+    ['order_financial_edit_after_fulfillment', 409, undefined],
+    ['order_terminal_not_editable', 409, undefined],
+    ['order_item_replacement_has_historical_state', 409, undefined],
+    [
+      'order_item_replacement_has_accounting_metadata',
+      409,
+      {
+        code: 'order_not_editable',
+        error:
+          'This order contains protected line-item history. Existing items cannot be changed or removed.',
+      },
+    ],
+    ['order_item_replacement_has_managed_stock', 409, undefined],
+    ['order_item_replacement_has_serialized_reservations', 409, undefined],
+    [
+      'order_item_append_supports_one_new_line',
+      409,
+      {
+        code: 'order_item_append_limit',
+        error: 'Add only one new item per edit.',
+      },
+    ],
+    ['order_total_negative', 400, undefined],
+    ['order_notify_customer_invalid', 400, undefined],
+    ['order_item_product_forbidden', 403, undefined],
+    ['order_item_variant_forbidden', 403, undefined],
+  ] as const)('maps RPC error %s to %i', async (message, status, body) => {
     const { supabase } = createSupabaseMock({
       rpcError: { message },
     });
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      error: null,
-      supabase,
-      user: createMockUser(),
-    });
+    mockAuthenticated(supabase);
 
     const response = await callPatch(createRequest(validPayload));
 
     expect(response.status).toBe(status);
+    if (body) {
+      expect(await response.json()).toEqual(body);
+    }
   });
 
   it('returns degraded success when the updated order cannot be refreshed', async () => {
     const { supabase } = createSupabaseMock({
       refreshError: { message: 'refresh failed' },
     });
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      error: null,
-      supabase,
-      user: createMockUser(),
-    });
+    mockAuthenticated(supabase);
 
     const response = await callPatch(createRequest(validPayload));
     const payload = await response.json();
