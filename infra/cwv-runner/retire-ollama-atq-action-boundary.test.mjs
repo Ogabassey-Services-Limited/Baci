@@ -22,13 +22,27 @@ const quiescenceHelper = new URL(
   import.meta.url
 );
 
-function testEnvironment(bin) {
-  return {
+function testEnvironment(bin, uid = process.getuid?.()) {
+  const environment = {
     ...process.env,
     RETIRE_OLLAMA_TEST_BIN: bin,
-    RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: quiescenceHelper.pathname,
   };
+  delete environment.RETIRE_OLLAMA_AT_QUIESCENCE_HELPER;
+  if (uid !== 0)
+    environment.RETIRE_OLLAMA_AT_QUIESCENCE_HELPER = quiescenceHelper.pathname;
+  return environment;
 }
+
+test('uses the sealed quiescence helper when the fixture runs as root', () => {
+  assert.equal(
+    testEnvironment('/usr/bin', 0).RETIRE_OLLAMA_AT_QUIESCENCE_HELPER,
+    undefined
+  );
+  assert.equal(
+    testEnvironment('/usr/bin', 1000).RETIRE_OLLAMA_AT_QUIESCENCE_HELPER,
+    quiescenceHelper.pathname
+  );
+});
 
 async function writeStatShim(bin) {
   await writeFile(

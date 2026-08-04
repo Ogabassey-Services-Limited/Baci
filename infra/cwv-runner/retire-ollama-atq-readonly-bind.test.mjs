@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { platform } from 'node:process';
@@ -10,15 +17,77 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const helper = new URL('./retire-ollama-at-quiescence.sh', import.meta.url);
 
-async function rootShellAvailable() {
-  if (process.getuid?.() === 0) return true;
+async function rootBindMountAvailable(
+  effectiveUid = process.getuid?.(),
+  execute = execFileAsync
+) {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-atq-mount-probe-'));
+  const source = join(directory, 'source');
+  const target = join(directory, 'target');
+  await Promise.all([mkdir(source), mkdir(target)]);
+  const runner = effectiveUid === 0 ? [] : ['/usr/bin/sudo', '-n'];
   try {
-    await execFileAsync('/usr/bin/sudo', ['-n', '/bin/true']);
+    await execute(
+      runner[0] ?? '/bin/sh',
+      runner.length
+        ? [
+            ...runner.slice(1),
+            '/bin/sh',
+            '-c',
+            rootMountCapabilityProbe,
+            'retire-ollama-root-mount-probe',
+            source,
+            target,
+          ]
+        : [
+            '-c',
+            rootMountCapabilityProbe,
+            'retire-ollama-root-mount-probe',
+            source,
+            target,
+          ]
+    );
     return true;
   } catch {
     return false;
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 }
+
+const rootMountCapabilityProbe = `set -eu
+[ "$(id -u)" = 0 ]
+source=$1; target=$2; mounted=no
+cleanup() {
+  status=$?
+  trap - EXIT HUP INT TERM
+  if [ "$mounted" = yes ]; then
+    /usr/bin/umount "$target" || status=1
+    mounted=no
+  fi
+  exit "$status"
+}
+trap cleanup EXIT HUP INT TERM
+/usr/bin/mount --bind "$source" "$target"
+mounted=yes
+/usr/bin/mount -o remount,bind,ro "$target" "$target"
+value=$(/usr/bin/findmnt -rn --vfs-all --mountpoint "$target" -o TARGET,VFS-OPTIONS)
+[ "\${value%% *}" = "$target" ]
+case ",\${value#* }," in *,ro,*) :;; *) exit 1;; esac
+/usr/bin/umount "$target"
+mounted=no
+if /usr/bin/findmnt -rn --mountpoint "$target" >/dev/null; then
+  exit 1
+else
+  [ "$?" -eq 1 ]
+fi
+`;
+
+test('does not assume uid zero has bind-mount authority', async () => {
+  const mountDenied = () =>
+    Promise.reject(new Error('mount permission denied'));
+  assert.equal(await rootBindMountAvailable(0, mountDenied), false);
+});
 
 test('audits default VFS options to classify exact read-write and read-only mounts', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-atq-findmnt-'));
@@ -75,12 +144,11 @@ at_submission_mount_state`,
 
 test('kernel read-only bind blocks a root submission after the final queue check', {
   skip: platform !== 'linux',
-}, async () => {
-  assert.equal(
-    await rootShellAvailable(),
-    true,
-    'Linux CI must provide root or passwordless sudo for the production barrier regression'
-  );
+}, async (context) => {
+  if (!(await rootBindMountAvailable())) {
+    context.skip('exact bind-mount authority is unavailable');
+    return;
+  }
   const directory = await mkdtemp(join(tmpdir(), 'baci-atq-root-bind-'));
   const runner = process.getuid?.() === 0 ? [] : ['/usr/bin/sudo', '-n'];
   try {
