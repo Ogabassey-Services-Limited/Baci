@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { readReleaseConfig } from './storefront-release-config.mjs';
 import { buildReleaseProbeUrl, purgeSitemapBackedHtml } from './storefront-sitemap-purge.mjs';
 
-const DEFAULT_ATTEMPTS = 4;
-const DEFAULT_RETRY_DELAY_MS = 3_000;
-const DEFAULT_TIMEOUT_MS = 20_000;
 const RESERVED_ROUTE_ROOTS = new Set([
   '_next',
   'about',
@@ -40,51 +38,6 @@ export const RELEASE_USER_AGENTS = Object.freeze({
   googlebot:
     'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
 });
-
-function parseBoundedInteger(value, fallback, name, maximum) {
-  const parsed = value === undefined || value === '' ? fallback : Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > maximum) {
-    throw new Error(`${name} must be an integer between 1 and ${maximum}`);
-  }
-  return parsed;
-}
-
-export function readReleaseConfig(env = process.env) {
-  const token = env.CLOUDFLARE_API_TOKEN?.trim();
-  const zoneId = env.CLOUDFLARE_ZONE_ID?.trim();
-  if (!token) throw new Error('CLOUDFLARE_API_TOKEN is required for release coherence');
-  if (!zoneId) throw new Error('CLOUDFLARE_ZONE_ID is required for release coherence');
-
-  const baseUrl = new URL(env.STOREFRONT_RELEASE_BASE_URL || 'https://ogabassey.com');
-  if (baseUrl.protocol !== 'https:' || baseUrl.pathname !== '/' || baseUrl.search || baseUrl.hash) {
-    throw new Error('STOREFRONT_RELEASE_BASE_URL must be an HTTPS origin');
-  }
-
-  return {
-    attempts: parseBoundedInteger(
-      env.STOREFRONT_RELEASE_ATTEMPTS,
-      DEFAULT_ATTEMPTS,
-      'STOREFRONT_RELEASE_ATTEMPTS',
-      10
-    ),
-    baseUrl: baseUrl.origin,
-    pdpPath: env.STOREFRONT_RELEASE_PDP_PATH?.trim() || '',
-    retryDelayMs: parseBoundedInteger(
-      env.STOREFRONT_RELEASE_RETRY_DELAY_MS,
-      DEFAULT_RETRY_DELAY_MS,
-      'STOREFRONT_RELEASE_RETRY_DELAY_MS',
-      30_000
-    ),
-    timeoutMs: parseBoundedInteger(
-      env.STOREFRONT_RELEASE_TIMEOUT_MS,
-      DEFAULT_TIMEOUT_MS,
-      'STOREFRONT_RELEASE_TIMEOUT_MS',
-      60_000
-    ),
-    token,
-    zoneId,
-  };
-}
 
 export function extractDeploymentMarker(html, label = 'HTML response') {
   const markers = new Set();
@@ -177,14 +130,14 @@ async function fetchMarkedHtml({ fetchImpl, label, timeoutMs, url, userAgent }) 
   }
 }
 
-export async function probePromotedRelease({
+async function probeReleaseDocumentRoutes({
   baseUrl,
   fetchImpl = fetch,
   pdpPath,
   requestId = randomUUID(),
   timeoutMs,
 }) {
-  const home = await fetchMarkedHtml({
+  await fetchMarkedHtml({
     fetchImpl,
     label: 'cache-busted canonical home',
     timeoutMs,
@@ -198,11 +151,7 @@ export async function probePromotedRelease({
     url: buildReleaseProbeUrl(baseUrl, '/products', `${requestId}-products`),
     userAgent: RELEASE_USER_AGENTS.browser,
   });
-  if (products.marker !== home.marker) {
-    throw new Error(`Mixed promoted dpl markers: home=${home.marker}, products=${products.marker}`);
-  }
   return {
-    marker: home.marker,
     pdpPath: pdpPath ? normalizePdpPath(pdpPath, baseUrl) : discoverPdpPath(products.html, baseUrl),
   };
 }
@@ -264,10 +213,12 @@ export async function warmAndAssertCanaries({
 export async function runReleaseCoherence(options = {}) {
   const config = readReleaseConfig(options.env);
   const requestId = options.requestId || randomUUID();
-  const probe = await probePromotedRelease({ ...config, ...options, requestId });
+  const probe = await probeReleaseDocumentRoutes({ ...config, ...options, requestId });
   const urls = buildCanaryUrls(config.baseUrl, probe.pdpPath);
   const logger = options.logger || console;
-  logger.log(`Promoted storefront dpl ${probe.marker}; discovering canonical sitemap URLs.`);
+  logger.log(
+    `Expected storefront dpl ${config.expectedMarker}; discovering canonical sitemap URLs.`
+  );
   const purge = await (options.releasePurgeImpl || purgeSitemapBackedHtml)({
     baseUrl: config.baseUrl,
     canaryUrls: urls,
@@ -284,8 +235,19 @@ export async function runReleaseCoherence(options = {}) {
     zoneId: config.zoneId,
   });
   if (purge.skipped) throw new Error(`Storefront HTML purge was skipped: ${purge.reason}`);
-  await warmAndAssertCanaries({ ...config, ...options, expectedMarker: probe.marker, logger, urls });
-  return { marker: probe.marker, pdpPath: probe.pdpPath, purgedUrls: purge.urls, urls };
+  await warmAndAssertCanaries({
+    ...config,
+    ...options,
+    expectedMarker: config.expectedMarker,
+    logger,
+    urls,
+  });
+  return {
+    marker: config.expectedMarker,
+    pdpPath: probe.pdpPath,
+    purgedUrls: purge.urls,
+    urls,
+  };
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);

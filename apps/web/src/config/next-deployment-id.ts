@@ -1,44 +1,15 @@
+import { normalizeNextDeploymentId } from './next-deployment-id-normalizer.mjs';
+
 /**
  * Lookup priority is array order: the neutral prebuilt source wins and
  * GITHUB_SHA is the fallback for non-Vercel prebuilt builds. Do not read
  * NEXT_DEPLOYMENT_ID as an input source: Next/Vercel also observe that exact
  * env var directly, so unnormalized manual values can bypass this helper.
- *
- * Vercel's prebuilt Skew Protection custom deployment IDs must not use the
- * reserved dpl_ prefix, must be at most 32 characters, and may only contain
- * alphanumeric characters, hyphens, and underscores. Keep those rules here so
- * a future deploy cannot silently emit an ID that Vercel refuses or ignores.
  */
 const DEPLOYMENT_ID_ENV_KEYS = [
   'BACI_NEXT_DEPLOYMENT_ID_SOURCE',
   'GITHUB_SHA',
 ] as const;
-
-const DEPLOYMENT_ID_MAX_LENGTH = 32;
-const RESERVED_VERCEL_DEPLOYMENT_ID_PREFIX = /^dpl_/i;
-
-function normalizeDeploymentId(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const normalized = trimmed
-    .replace(/[^A-Za-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, DEPLOYMENT_ID_MAX_LENGTH);
-
-  if (!/[A-Za-z0-9]/.test(normalized)) {
-    return undefined;
-  }
-
-  if (RESERVED_VERCEL_DEPLOYMENT_ID_PREFIX.test(normalized)) {
-    return `baci_${normalized}`.slice(0, DEPLOYMENT_ID_MAX_LENGTH);
-  }
-
-  return normalized;
-}
 
 type DeploymentIdEnvKey =
   | (typeof DEPLOYMENT_ID_ENV_KEYS)[number]
@@ -61,7 +32,7 @@ export function getNextDeploymentId(
   env: DeploymentIdEnv = DEFAULT_DEPLOYMENT_ID_ENV
 ): string | undefined {
   for (const key of DEPLOYMENT_ID_ENV_KEYS) {
-    const deploymentId = normalizeDeploymentId(env[key]);
+    const deploymentId = normalizeNextDeploymentId(env[key]);
 
     if (deploymentId) {
       return deploymentId;
