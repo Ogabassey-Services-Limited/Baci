@@ -222,10 +222,26 @@ describe('vercel error remediator worker', () => {
     writeFileSync(
       logPath,
       [
-        JSON.stringify({ level: 'error', message: 'Error: first', route: '/a' }),
-        JSON.stringify({ level: 'error', message: 'Error: first', route: '/a' }),
-        JSON.stringify({ level: 'error', message: 'Error: second', route: '/b' }),
-        JSON.stringify({ level: 'error', message: 'Error: second', route: '/b' }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: first',
+          route: '/a',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: first',
+          route: '/a',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: second',
+          route: '/b',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: second',
+          route: '/b',
+        }),
       ].join('\n')
     );
     let calls = 0;
@@ -266,9 +282,8 @@ describe('vercel error remediator worker', () => {
       logger: silentLogger,
     });
 
-    assert.equal(retry.candidates.length, 1);
-    assert.equal(retry.candidates[0].sample.route, '/b');
-    assert.equal(calls, 1);
+    assert.equal(retry.candidates.length, 0);
+    assert.equal(calls, 0);
   });
 
   it('reports email failures without failing the worker', async () => {

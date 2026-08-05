@@ -72,6 +72,24 @@ describe('remediation state', () => {
     assert.deepEqual(state.pending([candidate]), [candidate]);
   });
 
+  it('backs off a failed observation before making it eligible for retry', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
+    const path = join(directory, 'handled.json');
+    let nowMs = Date.parse('2026-08-04T15:46:50Z');
+    const state = createRemediationState({
+      now: () => nowMs,
+      path,
+      retryDelayMs: 6 * 60 * 60 * 1_000,
+    });
+
+    assert.deepEqual(state.pending([candidate]), [candidate]);
+    assert.equal(state.complete({ deferCandidates: [candidate] }), true);
+    assert.deepEqual(state.pending([candidate]), []);
+
+    nowMs += 6 * 60 * 60 * 1_000 + 1;
+    assert.deepEqual(state.pending([candidate]), [candidate]);
+  });
+
   it('ignores malformed handled records instead of suppressing incidents', () => {
     const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
     const path = join(directory, 'handled.json');

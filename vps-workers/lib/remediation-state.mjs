@@ -12,6 +12,7 @@ import { dirname } from 'node:path';
 
 const MAX_ENTRIES = 2_000;
 const DEFAULT_RESERVATION_TTL_MS = 15 * 60 * 1_000;
+const DEFAULT_RETRY_DELAY_MS = 6 * 60 * 60 * 1_000;
 const STALE_LOCK_MS = 2 * 60 * 1_000;
 
 const observationFor = (candidate) =>
@@ -118,6 +119,7 @@ export function createRemediationState({
   now = () => Date.now(),
   path,
   reservationTtlMs = DEFAULT_RESERVATION_TTL_MS,
+  retryDelayMs = DEFAULT_RETRY_DELAY_MS,
 }) {
   return {
     pending(candidates) {
@@ -151,7 +153,12 @@ export function createRemediationState({
         return selected;
       });
     },
-    complete({ handledCandidates = [], notification, releaseCandidates = [] }) {
+    complete({
+      deferCandidates = [],
+      handledCandidates = [],
+      notification,
+      releaseCandidates = [],
+    }) {
       const nowMs = now();
       return withStateLock(path, nowMs, false, (state) => {
         const recordedAt = new Date(nowMs).toISOString();
@@ -164,6 +171,14 @@ export function createRemediationState({
         }
         for (const candidate of releaseCandidates) {
           delete state.reservations[candidate.fingerprint];
+        }
+        const retryAt = new Date(nowMs + retryDelayMs).toISOString();
+        for (const candidate of deferCandidates) {
+          state.reservations[candidate.fingerprint] = {
+            expiresAt: retryAt,
+            observation: observationFor(candidate),
+            recordedAt,
+          };
         }
         state.handled = Object.fromEntries(
           Object.entries(state.handled)

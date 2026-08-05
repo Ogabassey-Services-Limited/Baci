@@ -64,7 +64,7 @@ describe('vercel error remediator retries', () => {
     assert.equal(autofixCalls, 1);
   });
 
-  it('retries a candidate after an autofix configuration block', async () => {
+  it('backs off a candidate after an autofix configuration block', async () => {
     const { directory, logPath } = makeRepeatedErrorFixture(
       'Error: configuration retry'
     );
@@ -94,8 +94,8 @@ describe('vercel error remediator retries', () => {
 
     assert.equal(blocked.candidates.length, 1);
     assert.equal(blocked.actions.at(-1).type, 'configuration_blocked');
-    assert.equal(retried.candidates.length, 1);
-    assert.equal(retried.actions.at(-1).type, 'no_changes');
-    assert.equal(autofixCalls, 2);
+    assert.equal(retried.candidates.length, 0);
+    assert.equal(retried.actions.length, 0);
+    assert.equal(autofixCalls, 1);
   });
 });

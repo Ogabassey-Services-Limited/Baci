@@ -91,6 +91,10 @@ export async function runVercelErrorRemediator({
       env.BACI_REMEDIATION_STATE_PATH || join(outputDir, 'handled-state.json'),
       mode
     ),
+    retryDelayMs: readPositiveInt(
+      env.BACI_REMEDIATION_RETRY_DELAY_MS,
+      6 * 60 * 60 * 1_000
+    ),
   });
   const actions = [];
   const handledCandidates = [];
@@ -132,7 +136,7 @@ export async function runVercelErrorRemediator({
           if (!state.complete({ handledCandidates: [candidate] })) {
             throw new Error('remediation state is busy');
           }
-        } else if (!state.complete({ releaseCandidates: [candidate] })) {
+        } else if (!state.complete({ deferCandidates: [candidate] })) {
           throw new Error('remediation state is busy');
         }
       } catch (error) {
@@ -141,7 +145,7 @@ export async function runVercelErrorRemediator({
           fingerprint: candidate.fingerprint,
           type: 'autofix_failed',
         });
-        if (!state.complete({ releaseCandidates: [candidate] })) {
+        if (!state.complete({ deferCandidates: [candidate] })) {
           throw new Error('remediation state is busy');
         }
         logger.error(`[${workerName}] autofix failed:`, error);
