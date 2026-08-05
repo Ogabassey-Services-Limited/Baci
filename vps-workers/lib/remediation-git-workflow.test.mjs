@@ -86,6 +86,10 @@ describe('remediation git workflow', () => {
       true
     );
     assert.equal(
+      calls.some((call) => call.includes('use_legacy_landlock')),
+      true
+    );
+    assert.equal(
       calls.some((call) => call.includes('--draft')),
       true
     );
@@ -245,6 +249,34 @@ describe('remediation git workflow', () => {
     assert.match(
       readFileSync(result.resultPath, 'utf8'),
       /successful HTTP 200/
+    );
+  });
+
+  it('rejects a sandbox-blocked investigation before marking it handled', () => {
+    const outputDir = mkdtempSync(join(tmpdir(), 'baci-remediation-output-'));
+    const { runner: baseRunner } = makeRunner({ statusOutput: '' });
+    const runner = (command, args, options) =>
+      command === 'codex'
+        ? {
+            status: 0,
+            stdout:
+              'bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted',
+            stderr: '',
+          }
+        : baseRunner(command, args, options);
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {
+            BACI_REMEDIATION_OUTPUT_DIR: outputDir,
+            BACI_REPO_DIR: '/repo',
+            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+          },
+          runner,
+        }),
+      /sandbox failed before repository inspection/
     );
   });
 

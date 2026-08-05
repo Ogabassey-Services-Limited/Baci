@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
+import { assertCodexExecutionUsable } from './remediation-codex-output.mjs';
 import {
   buildCodexRemediationPrompt,
   evaluateMergePolicy,
@@ -179,6 +180,8 @@ export function runRemediationAutofix({
       codexBin,
       [
         '--search',
+        '--enable',
+        'use_legacy_landlock',
         'exec',
         '--ephemeral',
         '--skip-git-repo-check',
@@ -195,6 +198,7 @@ export function runRemediationAutofix({
       output: codexOutput,
       outputDir: env.BACI_REMEDIATION_OUTPUT_DIR,
     });
+    assertCodexExecutionUsable(codexOutput);
     const status = runChecked(
       'git',
       ['status', '--porcelain'],
