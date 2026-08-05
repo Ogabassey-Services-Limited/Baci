@@ -9,13 +9,20 @@ const builderEntrypoints = [
 ];
 
 const forbiddenSourceFragments = [
+  '@/env',
   '@/ai/copilot-provider-chain',
   '@/ai/provider',
   '@ai-sdk/google',
   '@ai-sdk/google-vertex',
   '@google/generative-ai',
+  'GEMINI_API_KEY',
+  'GOOGLE_GENERATIVE_AI_API_KEY',
+  'createGoogleGenerativeAI',
+  'generativelanguage.googleapis.com',
   'generateObjectWithChain',
   'getCopilotTextProviderChain',
+  'process-ai-storefront-jobs',
+  'storefront_layout_generation',
   'trigger-storefront-worker',
   'ollama-storefront-client',
 ];
@@ -55,9 +62,18 @@ function collectExecutableClosure(entrypoints: string[]): string[] {
     visited.add(file);
     const source = readFileSync(file, 'utf8');
     for (const match of source.matchAll(
-      /from\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g
+      /from\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]/g
     )) {
-      const dependency = resolveLocalImport(file, match[1] ?? match[2] ?? '');
+      const lineStart = source.lastIndexOf('\n', match.index) + 1;
+      const sourceLine = source.slice(
+        lineStart,
+        source.indexOf('\n', lineStart)
+      );
+      if (/^\s*import\s+type\b/.test(sourceLine)) continue;
+      const dependency = resolveLocalImport(
+        file,
+        match[1] ?? match[2] ?? match[3] ?? ''
+      );
       if (dependency) pending.push(dependency);
     }
   }
@@ -78,6 +94,8 @@ describe('builder AI import closure', () => {
         '/app/api/builder/gemini/route-provider-errors'
       );
       const source = readFileSync(file, 'utf8');
+      expect(source).not.toMatch(/^\s*import\s+['"]/m);
+      expect(file).not.toContain('/src/scripts/');
       for (const forbiddenFragment of forbiddenSourceFragments) {
         expect(source).not.toContain(forbiddenFragment);
       }

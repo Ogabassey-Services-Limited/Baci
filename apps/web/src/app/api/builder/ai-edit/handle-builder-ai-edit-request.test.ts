@@ -244,6 +244,35 @@ describe('handleBuilderAiEditRequest', () => {
     expect(materializeProviders).not.toHaveBeenCalled();
   });
 
+  it('rejects an oversized prompt projection before provider materialization', async () => {
+    const materializeProviders = vi.fn();
+    const currentConfig = {
+      ...builderAiEditTestFixture.request.currentConfig,
+      content: Array.from({ length: 101 }, (_, index) => ({
+        props: { id: `hero-${index}`, title: 'Title' },
+        type: 'Hero',
+      })),
+    };
+    const response = await handleBuilderAiEditRequest(
+      new Request('http://localhost/api/builder/ai-edit', { method: 'POST' }),
+      {
+        dependencies: permittedDependencies({
+          materializeProviders,
+          readBody: async () => ({
+            body: { ...builderAiEditTestFixture.request, currentConfig },
+            ok: true as const,
+          }),
+        }) as never,
+      }
+    );
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({ code: 'builder_ai_prompt_too_large' })
+    );
+    expect(materializeProviders).not.toHaveBeenCalled();
+  });
+
   it('returns a redacted 500 when merchant resolution fails', async () => {
     const response = await handleBuilderAiEditRequest(
       new Request('http://localhost/api/builder/ai-edit', { method: 'POST' }),

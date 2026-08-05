@@ -2,6 +2,7 @@ type BuilderAiEvent =
   | 'builder_ai_candidate_created'
   | 'builder_ai_candidate_rejected'
   | 'builder_ai_edit_requested'
+  | 'builder_ai_legacy_contract_used'
   | 'builder_ai_provider_fallback'
   | 'builder_ai_timeout';
 

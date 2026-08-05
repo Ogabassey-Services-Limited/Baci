@@ -12,6 +12,7 @@ import {
 import { builderAiProviderCooldown } from './builder-ai-provider-cooldown';
 
 const RESPONSE_MARGIN_MS = builderAiPlanOutputBudget.routeResponseMarginMs;
+const RELIABLE_PROVIDER_TAIL_RESERVE_MS = 8_000;
 
 export interface BuilderAiProviderCooldown {
   isCoolingDown: (providerName: string) => boolean;
@@ -45,7 +46,7 @@ function rateLimited(): { code: 'ai_provider_rate_limited' } {
   return { code: 'ai_provider_rate_limited' };
 }
 
-function isTransportFailure(error: unknown): boolean {
+function isInvalidOutputFailure(error: unknown): boolean {
   return NoObjectGeneratedError.isInstance(error);
 }
 
@@ -82,7 +83,7 @@ function reliableProviderTailMs(
   const remainingReliableProviders = providerChain
     .slice(currentIndex + 1)
     .filter((provider) => !provider.opportunistic).length;
-  return remainingReliableProviders * 2_000;
+  return remainingReliableProviders > 0 ? RELIABLE_PROVIDER_TAIL_RESERVE_MS : 0;
 }
 
 async function requestPlan(
@@ -121,7 +122,7 @@ export async function runBuilderAiProviderChain({
   }
 
   let sawInvalidOutput = false;
-  let sawOperationalFailure = false;
+  let sawNonQuotaOperationalFailure = false;
   let sawQuotaFailure = false;
   const availableProviders = providerChain.filter(
     (provider) => !cooldown?.isCoolingDown(provider.name)
@@ -145,24 +146,31 @@ export async function runBuilderAiProviderChain({
         const parsed = builderAiEditContract.modelPlanSchema.safeParse(output);
         if (!parsed.success || !validateSemantics(parsed.data, currentConfig)) {
           sawInvalidOutput = true;
+          logSafeFailure(logger, provider, new Error('BuilderAiInvalidOutput'));
           break;
         }
         return parsed.data;
       } catch (error) {
         const quotaFailure = builderAiProviderCooldown.isRateLimitError(error);
+        const invalidOutputFailure = isInvalidOutputFailure(error);
         sawQuotaFailure ||= quotaFailure;
-        sawOperationalFailure ||= !isTransportFailure(error);
+        sawInvalidOutput ||= invalidOutputFailure;
+        sawNonQuotaOperationalFailure ||=
+          !quotaFailure && !invalidOutputFailure;
         cooldown?.recordFailure?.(provider.name, error);
         logSafeFailure(logger, provider, error);
         // Malformed SDK JSON is a model-output failure: fall through rather
         // than burning a duplicate request to the same model.
-        if (isTransportFailure(error) || quotaFailure) break;
+        if (invalidOutputFailure || quotaFailure) break;
         if (signalForAttempt.aborted || signal.aborted) break;
       }
     }
   }
+  // A provider outage remains more actionable than a capacity signal: mixed
+  // quota/outage exhaustion is retryable service unavailability (503). A 429
+  // is emitted only when every operational failure was capacity-related.
+  if (sawNonQuotaOperationalFailure) throw unavailable();
   if (sawQuotaFailure) throw rateLimited();
-  if (sawOperationalFailure) throw unavailable();
   if (sawInvalidOutput) throw invalidOutput();
   throw unavailable();
 }

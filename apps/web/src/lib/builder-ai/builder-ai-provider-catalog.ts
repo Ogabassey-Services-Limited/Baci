@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { LanguageModel } from 'ai';
 
 export const BUILDER_AI_CEREBRAS_MODEL = 'gemma-4-31b';
@@ -22,13 +23,20 @@ export interface BuilderAiProviderFactories {
 export interface BuilderAiProviderEnvironment {
   CEREBRAS_API_KEY?: string;
   CEREBRAS_BUILDER_ACCOUNT_REF?: string;
-  CEREBRAS_BUILDER_TIER_ATTESTED_AT?: string;
+  CEREBRAS_BUILDER_CREDENTIAL_BINDING_TAG?: string;
+  CEREBRAS_BUILDER_DEPLOYMENT_TIER?: string;
+  CEREBRAS_BUILDER_APPROVED_MODEL?: string;
+  CEREBRAS_BUILDER_RELEASE_ATTESTED_AT?: string;
   GROQ_API_KEY?: string;
   GROQ_BUILDER_ACCOUNT_REF?: string;
-  GROQ_BUILDER_TIER_ATTESTED_AT?: string;
+  GROQ_BUILDER_CREDENTIAL_BINDING_TAG?: string;
+  GROQ_BUILDER_DEPLOYMENT_TIER?: string;
+  GROQ_BUILDER_APPROVED_MODEL?: string;
+  GROQ_BUILDER_RELEASE_ATTESTED_AT?: string;
   OPENROUTER_API_KEY?: string;
   OPENROUTER_BUILDER_TRANSPORT_APPROVED_AT?: string;
   OPENROUTER_BUILDER_TRANSPORT_APPROVED_MODEL?: string;
+  BUILDER_AI_PROVIDER_BINDING_PEPPER?: string;
 }
 
 export type BuilderAiMaterializationPurpose = 'runtime' | 'smoke';
@@ -50,18 +58,44 @@ function hasFreshIsoTimestamp(
 }
 
 function hasReliableAttestation(
+  providerName: string,
   key: string | null,
   accountRef: string | null,
-  attestedAt: string | undefined,
+  credentialBindingTag: string | null,
+  bindingPepper: string | null,
+  deploymentTier: string | null,
+  approvedModel: string | null,
+  expectedModel: string,
+  releaseAttestedAt: string | undefined,
   now: number
 ): boolean {
-  // The account reference is intentionally non-secret and is bound to the
-  // credential-bearing deployment configuration out-of-band. A key without it
-  // is never enough to turn on a billed provider.
+  if (
+    !key ||
+    !accountRef ||
+    !credentialBindingTag ||
+    !bindingPepper ||
+    !deploymentTier ||
+    approvedModel !== expectedModel
+  ) {
+    return false;
+  }
+  const expectedTag = createHmac('sha256', bindingPepper)
+    .update(`baci-builder-ai-provider-binding:v1:${providerName}:${key}`)
+    .digest('hex');
+  const suppliedTag = credentialBindingTag.toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(suppliedTag)) return false;
+  const bindingMatches = timingSafeEqual(
+    Buffer.from(expectedTag, 'hex'),
+    Buffer.from(suppliedTag, 'hex')
+  );
+  // No offline SDK/API metadata proves account ownership or tier. The
+  // non-secret deployment record is therefore a release attestation, bound to
+  // the configured credential with a domain-separated HMAC tag. A mismatch
+  // fails closed; provider account/tier truth requires separate dated
+  // management-plane evidence and is deliberately not claimed here.
   return Boolean(
-    key &&
-      accountRef &&
-      hasFreshIsoTimestamp(attestedAt, now, ATTESTATION_MAX_AGE_MS)
+    bindingMatches &&
+      hasFreshIsoTimestamp(releaseAttestedAt, now, ATTESTATION_MAX_AGE_MS)
   );
 }
 
@@ -74,16 +108,31 @@ export function materializeBuilderAiProviders(
   const purpose = options.purpose ?? 'runtime';
   const cerebrasKey = configured(environment.CEREBRAS_API_KEY);
   const groqKey = configured(environment.GROQ_API_KEY);
+  const bindingPepper = configured(
+    environment.BUILDER_AI_PROVIDER_BINDING_PEPPER
+  );
   const cerebrasApproved = hasReliableAttestation(
+    'cerebras',
     cerebrasKey,
     configured(environment.CEREBRAS_BUILDER_ACCOUNT_REF),
-    environment.CEREBRAS_BUILDER_TIER_ATTESTED_AT,
+    configured(environment.CEREBRAS_BUILDER_CREDENTIAL_BINDING_TAG),
+    bindingPepper,
+    configured(environment.CEREBRAS_BUILDER_DEPLOYMENT_TIER),
+    configured(environment.CEREBRAS_BUILDER_APPROVED_MODEL),
+    BUILDER_AI_CEREBRAS_MODEL,
+    environment.CEREBRAS_BUILDER_RELEASE_ATTESTED_AT,
     now
   );
   const groqApproved = hasReliableAttestation(
+    'groq',
     groqKey,
     configured(environment.GROQ_BUILDER_ACCOUNT_REF),
-    environment.GROQ_BUILDER_TIER_ATTESTED_AT,
+    configured(environment.GROQ_BUILDER_CREDENTIAL_BINDING_TAG),
+    bindingPepper,
+    configured(environment.GROQ_BUILDER_DEPLOYMENT_TIER),
+    configured(environment.GROQ_BUILDER_APPROVED_MODEL),
+    BUILDER_AI_GROQ_MODEL,
+    environment.GROQ_BUILDER_RELEASE_ATTESTED_AT,
     now
   );
 

@@ -54,8 +54,9 @@ describe('runBuilderAiProviderChain resilience', () => {
     vi.restoreAllMocks();
   });
 
-  it('reserves a reliable-provider tail so Cerebras cannot consume Groq deadline', async () => {
+  it('reserves an eight-second reliable tail while a hung primary advances the clock', async () => {
     const timeouts: number[] = [];
+    const clock = [0, 12_000, 12_000];
     vi.spyOn(AbortSignal, 'timeout').mockImplementation((milliseconds) => {
       timeouts.push(milliseconds);
       return new AbortController().signal;
@@ -66,9 +67,18 @@ describe('runBuilderAiProviderChain resilience', () => {
       } as never)
       .mockResolvedValueOnce({ output: validPlan } as never);
 
-    await expect(run()).resolves.toEqual(validPlan);
+    await expect(
+      runBuilderAiProviderChain({
+        currentConfig: builderAiEditTestFixture.request.currentConfig,
+        deadlineAt: 25_000,
+        now: () => clock.shift() ?? 12_000,
+        prompt: 'Update the hero',
+        providerChain: providers,
+        signal: new AbortController().signal,
+      })
+    ).resolves.toEqual(validPlan);
 
-    expect(timeouts).toEqual([2_000, 4_000]);
+    expect(timeouts).toEqual([4_000, 12_000]);
   });
 
   it('recognizes a structured SDK 429, skips duplicate retries, and falls through', async () => {
@@ -92,6 +102,78 @@ describe('runBuilderAiProviderChain resilience', () => {
       .mockRejectedValue(new Error('upstream outage'));
 
     await expect(run()).rejects.toEqual({ code: 'ai_provider_unavailable' });
+  });
+
+  it('returns invalid output only when every attempted provider is schema or semantic invalid', async () => {
+    vi.mocked(generateText)
+      .mockResolvedValueOnce({
+        output: { operations: [], status: 'proposed', summary: '' },
+      } as never)
+      .mockResolvedValueOnce({ output: validPlan } as never);
+
+    await expect(
+      runBuilderAiProviderChain({
+        currentConfig: builderAiEditTestFixture.request.currentConfig,
+        deadlineAt: 20_000,
+        now: () => 0,
+        prompt: 'Update the hero',
+        providerChain: providers,
+        signal: new AbortController().signal,
+        validateSemantics: () => false,
+      })
+    ).rejects.toEqual({ code: 'ai_builder_invalid_output' });
+  });
+
+  it('returns invalid output when every provider raises NoObjectGeneratedError', async () => {
+    vi.mocked(generateText).mockRejectedValue(new ai.NoObject('invalid JSON'));
+
+    await expect(run()).rejects.toEqual({ code: 'ai_builder_invalid_output' });
+    expect(generateText).toHaveBeenCalledTimes(2);
+  });
+
+  it('prefers unavailable for a mixed quota and outage exhaustion', async () => {
+    vi.mocked(generateText)
+      .mockRejectedValueOnce(
+        Object.assign(new Error('quota exhausted'), { status: 429 })
+      )
+      .mockRejectedValueOnce(new Error('provider refused connection'));
+
+    await expect(run()).rejects.toEqual({ code: 'ai_provider_unavailable' });
+  });
+
+  it('logs safe fallback events for both schema-invalid and semantic-invalid results', async () => {
+    const warn = vi.fn();
+    vi.mocked(generateText)
+      .mockResolvedValueOnce({
+        output: { operations: [], status: 'proposed', summary: '' },
+      } as never)
+      .mockResolvedValueOnce({ output: validPlan } as never);
+
+    await expect(
+      runBuilderAiProviderChain({
+        currentConfig: builderAiEditTestFixture.request.currentConfig,
+        deadlineAt: 20_000,
+        logger: { warn },
+        now: () => 0,
+        prompt: 'Update the hero',
+        providerChain: providers,
+        signal: new AbortController().signal,
+        validateSemantics: () => false,
+      })
+    ).rejects.toEqual({ code: 'ai_builder_invalid_output' });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'builder_ai_provider_fallback',
+        provider: providers[0]?.name,
+      })
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'builder_ai_provider_fallback',
+        provider: providers[1]?.name,
+      })
+    );
   });
 
   it('does not retry a provider after a structured quota rejection', async () => {
