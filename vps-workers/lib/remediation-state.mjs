@@ -15,17 +15,14 @@ const NOTIFICATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 const DEFAULT_RESERVATION_TTL_MS = 15 * 60 * 1_000;
 const DEFAULT_RETRY_DELAY_MS = 6 * 60 * 60 * 1_000;
 const STALE_LOCK_MS = 2 * 60 * 1_000;
-
 const observationFor = (candidate) =>
   String(candidate.lastSeen || candidate.occurrences || 'observed');
-
 function fallbackMarkerPath(path, candidate) {
   const key = Buffer.from(String(candidate.fingerprint || 'unknown'))
     .toString('hex')
     .slice(0, 160);
   return `${path}.handled-fallback/${key}.json`;
 }
-
 function readFallbackObservation(path, candidate) {
   try {
     const marker = JSON.parse(
@@ -36,7 +33,6 @@ function readFallbackObservation(path, candidate) {
     return null;
   }
 }
-
 function persistFallbackObservation(path, candidate, recordedAt) {
   const markerPath = fallbackMarkerPath(path, candidate);
   mkdirSync(dirname(markerPath), { recursive: true });
@@ -48,7 +44,6 @@ function persistFallbackObservation(path, candidate, recordedAt) {
   );
   renameSync(temporaryPath, markerPath);
 }
-
 function clearFallbackObservation(path, candidate) {
   try {
     unlinkSync(fallbackMarkerPath(path, candidate));
@@ -56,17 +51,17 @@ function clearFallbackObservation(path, candidate) {
     if (error?.code !== 'ENOENT') throw error;
   }
 }
-
 function reconcileFallbackObservations(path, state, candidates, recordedAt) {
+  const reconciledCandidates = [];
   for (const candidate of candidates) {
     const observation = readFallbackObservation(path, candidate);
     if (!observation) continue;
     state.handled[candidate.fingerprint] = { observation, recordedAt };
     delete state.reservations[candidate.fingerprint];
-    clearFallbackObservation(path, candidate);
+    reconciledCandidates.push(candidate);
   }
+  return reconciledCandidates;
 }
-
 function capHandledEntries(handled) {
   return Object.fromEntries(
     Object.entries(handled)
@@ -76,7 +71,6 @@ function capHandledEntries(handled) {
       .slice(0, MAX_ENTRIES)
   );
 }
-
 const isIsoDate = (value) =>
   typeof value === 'string' && Number.isFinite(Date.parse(value));
 
@@ -185,7 +179,12 @@ export function createRemediationState({
       const nowMs = now();
       return withStateLock(path, nowMs, [], (state) => {
         const recordedAt = new Date(nowMs).toISOString();
-        reconcileFallbackObservations(path, state, candidates, recordedAt);
+        const reconciledCandidates = reconcileFallbackObservations(
+          path,
+          state,
+          candidates,
+          recordedAt
+        );
         state.handled = capHandledEntries(state.handled);
         for (const [fingerprint, reservation] of Object.entries(
           state.reservations
@@ -215,6 +214,9 @@ export function createRemediationState({
           };
         }
         persistState(path, state);
+        for (const candidate of reconciledCandidates) {
+          clearFallbackObservation(path, candidate);
+        }
         return selected;
       });
     },

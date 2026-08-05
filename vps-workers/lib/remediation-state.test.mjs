@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -35,6 +42,21 @@ describe('remediation state', () => {
     assert.deepEqual(createRemediationState({ path }).pending([newer]), [
       newer,
     ]);
+  });
+
+  it('keeps fallback evidence until reconciled state is persisted', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
+    const path = join(directory, 'handled.json');
+    const state = createRemediationState({ path });
+    state.recordHandledFallback([candidate]);
+    mkdirSync(path);
+
+    assert.throws(() => state.pending([candidate]));
+    assert.equal(readdirSync(`${path}.handled-fallback`).length, 1);
+
+    rmdirSync(path);
+    assert.deepEqual(state.pending([candidate]), []);
+    assert.equal(readdirSync(`${path}.handled-fallback`).length, 0);
   });
 
   it('recovers from a corrupt state file without dropping new incidents', () => {

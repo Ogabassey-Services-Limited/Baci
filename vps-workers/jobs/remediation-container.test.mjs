@@ -15,6 +15,14 @@ describe('remediation container', () => {
 
     assert.match(dockerfile, /^FROM node:24-bookworm-slim@sha256:/);
     assert.doesNotMatch(dockerfile, /alpine|apk add/);
+    assert.match(
+      dockerfile,
+      /^ENV COREPACK_HOME=\/usr\/local\/share\/corepack$/m
+    );
+    assert.match(dockerfile, /chmod -R a\+rX "\$COREPACK_HOME"/);
+    assert.match(dockerfile, /bash=5\.2\.15-2\+b13/);
+    assert.match(dockerfile, /ca-certificates=20230311\+deb12u1/);
+    assert.match(dockerfile, /git=1:2\.39\.5-0\+deb12u3/);
   });
 
   it('excludes staged environment secrets from the Docker build context', () => {
