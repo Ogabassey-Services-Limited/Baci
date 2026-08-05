@@ -12,6 +12,51 @@ if [ ! -x "$wrapper" ]; then
   exit 1
 fi
 
+deployed_sha_file="$remote_dir/app-checkout.sha"
+if [ ! -f "$deployed_sha_file" ]; then
+  echo "Missing GIGL direct-worker deployment SHA: $deployed_sha_file" >&2
+  exit 1
+fi
+deployed_sha="$(tr -d '\r\n' < "$deployed_sha_file")"
+if [[ ! "$deployed_sha" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Invalid GIGL direct-worker deployment SHA." >&2
+  exit 1
+fi
+
+repo_dir="$(
+  awk '
+    /^BACI_REPO_DIR=/ {
+      sub(/^BACI_REPO_DIR=/, "")
+      print
+      exit
+    }
+  ' "$remote_dir/.env"
+)"
+repo_dir="${repo_dir%\"}"
+repo_dir="${repo_dir#\"}"
+repo_dir="${repo_dir%\'}"
+repo_dir="${repo_dir#\'}"
+case "$repo_dir" in
+  /*) ;;
+  *)
+    echo "BACI_REPO_DIR must identify the delegated application checkout." >&2
+    exit 1
+    ;;
+esac
+
+if ! checkout_sha="$(git -C "$repo_dir" rev-parse --verify HEAD 2>/dev/null)"; then
+  echo "Unable to verify the delegated application checkout." >&2
+  exit 1
+fi
+if [ -n "$(git -C "$repo_dir" status --porcelain=v1 --untracked-files=all)" ]; then
+  echo "Delegated application checkout is dirty." >&2
+  exit 1
+fi
+if [ "$checkout_sha" != "$deployed_sha" ]; then
+  echo "Delegated application checkout does not match the deployed worker SHA." >&2
+  exit 1
+fi
+
 if ! installed_crontab="$(crontab -l 2>/dev/null)"; then
   echo "The VPS worker crontab is not installed." >&2
   exit 1

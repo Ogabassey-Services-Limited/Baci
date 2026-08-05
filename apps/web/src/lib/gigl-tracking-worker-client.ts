@@ -9,6 +9,12 @@ type GiglTrackingRpcClient = Pick<SupabaseClient<Database>, 'rpc'>;
 
 const EXPECTED_DATABASE_USER_PREFIX = 'gigl_tracking_worker.';
 const EXPECTED_POOLER_SUFFIX = '.pooler.supabase.com';
+const SSL_CONNECTION_PARAMETERS = new Set([
+  'sslcert',
+  'sslkey',
+  'sslmode',
+  'sslrootcert',
+]);
 const SUPABASE_CA_SHA256 =
   '700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7';
 
@@ -48,8 +54,13 @@ function getValidatedDatabaseUrl(
     ) {
       return null;
     }
-    // The Pool's explicit verified-TLS configuration is authoritative.
-    url.searchParams.delete('sslmode');
+    // node-postgres lets connection-string SSL parameters replace the Pool's
+    // ssl object, so remove every supported override before pooling.
+    for (const key of [...url.searchParams.keys()]) {
+      if (SSL_CONNECTION_PARAMETERS.has(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
     return url.toString();
   } catch {
     return null;

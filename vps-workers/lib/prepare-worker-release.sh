@@ -18,6 +18,7 @@ prepare_worker_release() {
     exit 1
   fi
   ssh "$VPS" "cp '$REMOTE_DIR/.env' '$STAGING_DIR/.env'"
+  ssh "$VPS" "printf '%s' '$APP_SHA' > '$STAGING_DIR/app-checkout.sha'"
 
   echo "==> Installing staged dependencies on VPS"
   ssh "$VPS" "cd '$STAGING_DIR' && CI=true pnpm install --frozen-lockfile --prod"

@@ -73,6 +73,27 @@ describe('createGiglTrackingWorkerClient', () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it('removes connection-string SSL overrides before creating the pool', () => {
+    createGiglTrackingWorkerClient({
+      ...configuredEnv,
+      GIGL_TRACKING_DATABASE_URL:
+        `${configuredEnv.GIGL_TRACKING_DATABASE_URL}` +
+        '&sslcert=client.crt&sslkey=client.key&sslrootcert=other-ca.crt',
+    });
+
+    expect(Pool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectionString: expect.not.stringMatching(
+          /ssl(?:cert|key|mode|rootcert)=/i
+        ),
+        ssl: {
+          ca: expect.stringContaining('BEGIN CERTIFICATE'),
+          rejectUnauthorized: true,
+        },
+      })
+    );
+  });
+
   it('returns a bounded error and rolls back a failed operation', async () => {
     query
       .mockResolvedValueOnce({ rows: [] })

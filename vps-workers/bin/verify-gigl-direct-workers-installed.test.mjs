@@ -23,7 +23,9 @@ afterEach(() => {
 });
 
 function fixture({
+  dirtyCheckout = false,
   duplicateTracking = false,
+  staleCheckout = false,
   staleTrackingCommand = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'baci-gigl-readiness-'));
@@ -31,8 +33,14 @@ function fixture({
   const remote = join(root, 'workers');
   const fakeBin = join(root, 'bin');
   const crontab = join(root, 'crontab');
+  const repo = join(root, 'repo');
   mkdirSync(join(remote, 'bin'), { recursive: true });
   mkdirSync(fakeBin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+
+  const deployedSha = 'a'.repeat(40);
+  writeFileSync(join(remote, '.env'), `BACI_REPO_DIR=${repo}\n`);
+  writeFileSync(join(remote, 'app-checkout.sha'), `${deployedSha}\n`);
 
   const wrapper = join(remote, 'bin', 'process-gigl-tracking.sh');
   writeFileSync(wrapper, '#!/usr/bin/env bash\nexit 0\n');
@@ -54,16 +62,40 @@ function fixture({
   const fakeCrontab = join(fakeBin, 'crontab');
   writeFileSync(fakeCrontab, '#!/usr/bin/env bash\ncat "$FAKE_CRONTAB"\n');
   chmodSync(fakeCrontab, 0o755);
-  return { crontab, fakeBin, remote };
+
+  const fakeGit = join(fakeBin, 'git');
+  writeFileSync(
+    fakeGit,
+    `#!/usr/bin/env bash
+case "$*" in
+  *"rev-parse --verify HEAD"*) printf '%s\\n' "$FAKE_REPO_SHA" ;;
+  *"status --porcelain=v1 --untracked-files=all"*)
+    if [ "$FAKE_REPO_DIRTY" = "1" ]; then printf '%s\\n' ' M worker.ts'; fi
+    ;;
+  *) exit 1 ;;
+esac
+`
+  );
+  chmodSync(fakeGit, 0o755);
+  return {
+    crontab,
+    deployedSha,
+    dirtyCheckout,
+    fakeBin,
+    remote,
+    repoSha: staleCheckout ? 'b'.repeat(40) : deployedSha,
+  };
 }
 
 function verify(options) {
-  const { crontab, fakeBin, remote } = fixture(options);
+  const { crontab, dirtyCheckout, fakeBin, remote, repoSha } = fixture(options);
   return spawnSync('bash', [verifier], {
     encoding: 'utf8',
     env: {
       ...process.env,
       FAKE_CRONTAB: crontab,
+      FAKE_REPO_DIRTY: dirtyCheckout ? '1' : '0',
+      FAKE_REPO_SHA: repoSha,
       PATH: `${fakeBin}:${process.env.PATH}`,
       VPS_WORKER_REMOTE_DIR: remote,
     },
@@ -82,19 +114,30 @@ describe('GIGL direct-worker deployment gate', () => {
     const result = verify({ duplicateTracking: true });
 
     assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /2 total\/1 canonical/
-    );
+    assert.match(result.stderr, /2 total\/1 canonical/);
   });
 
   it('blocks deployment when the tracking command omits its production runtime contract', () => {
     const result = verify({ staleTrackingCommand: true });
 
     assert.equal(result.status, 1);
+    assert.match(result.stderr, /1 total\/0 canonical/);
+  });
+
+  it('blocks deployment when the delegated checkout is not the deployed worker SHA', () => {
+    const result = verify({ staleCheckout: true });
+
+    assert.equal(result.status, 1);
     assert.match(
       result.stderr,
-      /1 total\/0 canonical/
+      /checkout does not match the deployed worker SHA/
     );
+  });
+
+  it('blocks deployment when the delegated checkout has uncommitted code', () => {
+    const result = verify({ dirtyCheckout: true });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /checkout is dirty/);
   });
 });
