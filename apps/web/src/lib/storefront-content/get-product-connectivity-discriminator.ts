@@ -26,7 +26,8 @@ const SIM_MODE_DISCRIMINATOR_TOKENS = new Set([
   'sim',
   'single',
 ]);
-const DIMENSION_DISCRIMINATOR_PATTERN = /^\d+(?:mm|inch)$/u;
+const DIMENSION_DISCRIMINATOR_PATTERN = /^\d+(?:\.\d+)?(?:mm|inch)$/u;
+const REFRESH_RATE_DISCRIMINATOR_PATTERN = /^\d+hz$/u;
 const COMMON_STORAGE_CAPACITIES_GB = new Set([
   16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
 ]);
@@ -64,6 +65,9 @@ function getDiscriminatorGroup(token: string) {
   if (DIMENSION_DISCRIMINATOR_PATTERN.test(token)) {
     return 'dimension';
   }
+  if (REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) {
+    return 'refresh-rate';
+  }
   if (getStorageCapacityGb(token) !== null) {
     return 'storage';
   }
@@ -73,15 +77,16 @@ function getDiscriminatorGroup(token: string) {
   return null;
 }
 
-function isLikelyLaptopRamToken(
+function isLikelyRamToken(
   token: string,
-  categorySlug: SupportedClusterCategory | undefined
+  categorySlug: SupportedClusterCategory | undefined,
+  nextToken = ''
 ) {
   const capacity = getStorageCapacityGb(token);
   return (
     capacity !== null &&
     capacity <= 32 &&
-    RAM_DOMINANT_CATEGORIES.has(categorySlug ?? '')
+    (nextToken === 'ram' || RAM_DOMINANT_CATEGORIES.has(categorySlug ?? ''))
   );
 }
 
@@ -96,7 +101,14 @@ export function getProductConnectivityDiscriminators(
         const nameTokens = tokenizeVariantSource(name);
         const namedGroups = new Set(
           nameTokens
-            .filter((token) => !isLikelyLaptopRamToken(token, categorySlug))
+            .filter(
+              (token, tokenIndex) =>
+                !isLikelyRamToken(
+                  token,
+                  categorySlug,
+                  nameTokens[tokenIndex + 1]
+                )
+            )
             .map(getDiscriminatorGroup)
         );
         const supplementalSlugTokens = tokenizeVariantSource(
@@ -109,13 +121,15 @@ export function getProductConnectivityDiscriminators(
       })
     : (productSlugs ?? []).flatMap(tokenizeVariantSource);
   const strongestStorageToken = tokens.reduce<string | null>(
-    (strongest, token) => {
+    (strongest, token, tokenIndex) => {
       const tokenCapacity = getStorageCapacityGb(token);
       const strongestCapacity = getStorageCapacityGb(strongest ?? '') ?? 0;
-      const isLikelyLaptopRam = isLikelyLaptopRamToken(token, categorySlug);
-      return tokenCapacity &&
-        !isLikelyLaptopRam &&
-        tokenCapacity > strongestCapacity
+      const isLikelyRam = isLikelyRamToken(
+        token,
+        categorySlug,
+        tokens[tokenIndex + 1]
+      );
+      return tokenCapacity && !isLikelyRam && tokenCapacity > strongestCapacity
         ? token
         : strongest;
     },
@@ -125,6 +139,8 @@ export function getProductConnectivityDiscriminators(
     (token) =>
       CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token) ||
       DIMENSION_DISCRIMINATOR_PATTERN.test(token) ||
+      (categorySlug === 'monitors' &&
+        REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||
       token === strongestStorageToken
   );

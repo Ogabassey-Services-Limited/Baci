@@ -1,34 +1,6 @@
+import { PRODUCT_VARIANT_COLOR_TOKENS } from '@/config/product-variant-color-tokens';
 import { modelTokenMatchers } from './model-token-matchers';
 
-const COLOR_SUFFIX_TOKENS = new Set([
-  'beige',
-  'black',
-  'blue',
-  'bronze',
-  'brown',
-  'coral',
-  'cream',
-  'gold',
-  'graphite',
-  'gray',
-  'green',
-  'grey',
-  'jet',
-  'lavender',
-  'midnight',
-  'mint',
-  'orange',
-  'pink',
-  'platinum',
-  'purple',
-  'red',
-  'rose',
-  'silver',
-  'starlight',
-  'violet',
-  'white',
-  'yellow',
-]);
 const MERCHANDISING_ONLY_TOKENS = new Set([
   'clearance',
   'new',
@@ -42,7 +14,7 @@ const MERCHANDISING_ONLY_TOKENS = new Set([
   'used',
 ]);
 const MERCHANDISING_SUFFIX_TOKENS = new Set([
-  ...COLOR_SUFFIX_TOKENS,
+  ...PRODUCT_VARIANT_COLOR_TOKENS,
   ...MERCHANDISING_ONLY_TOKENS,
 ]);
 const LEADING_CONDITION_TOKENS = new Set(
@@ -255,7 +227,7 @@ export function normalizeProductModelTokens(
         index,
         preserveGameTitleTokens
       ) &&
-      (!COLOR_SUFFIX_TOKENS.has(token) ||
+      (!PRODUCT_VARIANT_COLOR_TOKENS.has(token) ||
         (!preserveGameTitleTokens &&
           isTerminalColorSuffix(withoutLeadingCondition, index)))
   );

@@ -129,4 +129,44 @@ describe('getProductConnectivityDiscriminators', () => {
 
     expect(discriminators).toEqual(['blue']);
   });
+
+  it('retains decimal display sizes as PDP discriminators', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPad Pro 12.9 inch'],
+      [],
+      'tablets'
+    );
+
+    expect(discriminators).toEqual(['12.9inch']);
+  });
+
+  it('retains stripped catalog color suffixes as PDP discriminators', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPhone 15 Midnight'],
+      [],
+      'smartphones'
+    );
+
+    expect(discriminators).toEqual(['midnight']);
+  });
+
+  it('uses aligned tablet slug storage when the name labels RAM', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Samsung Galaxy Tab A9 4GB RAM'],
+      ['samsung-galaxy-tab-a9-64gb'],
+      'tablets'
+    );
+
+    expect(discriminators).toEqual(['64gb']);
+  });
+
+  it('retains monitor refresh rates as PDP discriminators', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Samsung Odyssey G5 144Hz'],
+      [],
+      'monitors'
+    );
+
+    expect(discriminators).toEqual(['144hz']);
+  });
 });
