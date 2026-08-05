@@ -44,4 +44,14 @@ describe('builder AI edit persisted wire contract', () => {
       }).success
     ).toBe(false);
   });
+
+  it('defaults props for legacy persisted builder blocks', () => {
+    const result = builderAiEditContract.requestSchema.safeParse({
+      ...request,
+      currentConfig: { ...request.currentConfig, content: [{ type: 'Hero' }] },
+    });
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.currentConfig.content[0]?.props).toEqual({});
+  });
 });

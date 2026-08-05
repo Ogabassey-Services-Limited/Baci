@@ -10,6 +10,7 @@ import {
   hasCanonicalBuilderAiProviderOrder,
 } from './builder-ai-provider-catalog';
 import { builderAiProviderCooldown } from './builder-ai-provider-cooldown';
+import { getBuilderAiRawPlanMediaWarning } from './get-builder-ai-raw-plan-media-warning';
 import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
 
 const RESPONSE_MARGIN_MS = builderAiPlanOutputBudget.routeResponseMarginMs;
@@ -148,6 +149,9 @@ export async function runBuilderAiProviderChain({
       if (signal.aborted || signalForAttempt.aborted) break;
       try {
         const output = await requestPlan(provider, prompt, signalForAttempt);
+        if (getBuilderAiRawPlanMediaWarning(output)) {
+          return output as BuilderAiEditPlan;
+        }
         const parsed = builderAiEditContract.modelPlanSchema.safeParse(
           normalizeBuilderAiModelPlan(output)
         );

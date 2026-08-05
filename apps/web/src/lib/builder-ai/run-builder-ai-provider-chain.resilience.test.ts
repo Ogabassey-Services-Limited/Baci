@@ -264,4 +264,20 @@ describe('runBuilderAiProviderChain resilience', () => {
       providers[0]?.model
     );
   });
+
+  it('passes raw media plans to the deterministic manual-asset warning path', async () => {
+    const rawPlan = {
+      operations: [
+        {
+          componentId: 'hero-1',
+          kind: 'update_component',
+          patch: { componentType: 'Hero', backgroundImage: 'asset' },
+        },
+      ],
+      status: 'proposed',
+      summary: 'Change the image',
+    };
+    vi.mocked(generateText).mockResolvedValueOnce({ output: rawPlan } as never);
+    await expect(run()).resolves.toEqual(rawPlan);
+  });
 });

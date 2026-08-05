@@ -197,7 +197,8 @@ function applyOperation(
       assertMutable(component);
       if (
         isRenderedH1Hero(component) &&
-        content.filter(isRenderedH1Hero).length === 1
+        getBuilderAiContentCollections(config).flat().filter(isRenderedH1Hero)
+          .length === 1
       ) {
         throw new BuilderAiEditPlanError('Cannot remove the final H1 Hero');
       }

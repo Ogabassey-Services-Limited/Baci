@@ -43,4 +43,23 @@ describe('applyBuilderAiEditPlan legacy Hero heading semantics', () => {
       'Cannot remove the final H1 Hero'
     );
   });
+
+  it('does not remove the final rendered H1 stored in a zone', () => {
+    const config: BuilderData = {
+      content: [],
+      root: { title: 'Home' },
+      zones: {
+        aside: [{ props: { id: 'zone-hero', title: 'Welcome' }, type: 'Hero' }],
+      },
+    };
+    const plan: BuilderAiProposedPlan = {
+      operations: [{ componentId: 'zone-hero', kind: 'remove_component' }],
+      status: 'proposed',
+      summary: 'Remove the hero',
+    };
+
+    expect(() => applyBuilderAiEditPlan(config, plan)).toThrow(
+      'Cannot remove the final H1 Hero'
+    );
+  });
 });
