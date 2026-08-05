@@ -55,4 +55,20 @@ describe('native Sentry initialization boundary', () => {
       }
     }
   });
+
+  it('composes the generated iOS Sentry and fixed PostHog wrappers', () => {
+    const project = readFileSync(
+      path.resolve(__dirname, '../../ios/Ogabassey.xcodeproj/project.pbxproj'),
+      'utf8'
+    );
+
+    const sentryWrapperIndex = project.indexOf('sentry-xcode.sh');
+    const postHogWrapperIndex = project.indexOf('posthog-xcode.sh');
+
+    expect(sentryWrapperIndex).toBeGreaterThan(-1);
+    expect(postHogWrapperIndex).toBeGreaterThan(sentryWrapperIndex);
+    expect(
+      project.slice(sentryWrapperIndex, postHogWrapperIndex)
+    ).not.toContain('/bin/sh');
+  });
 });

@@ -33,6 +33,12 @@ function getOutputDir(env) {
   return env.BACI_REMEDIATION_OUTPUT_DIR || 'logs/vercel-error-remediator';
 }
 
+function statePathForMode(path, mode) {
+  return path.endsWith('.json')
+    ? `${path.slice(0, -'.json'.length)}.${mode}.json`
+    : `${path}.${mode}`;
+}
+
 function writePrompt({ candidate, outputDir }) {
   mkdirSync(outputDir, { recursive: true });
   const path = join(outputDir, `${candidate.fingerprint}.prompt.md`);
@@ -78,12 +84,14 @@ export async function runVercelErrorRemediator({
     });
   }
   const outputDir = getOutputDir(env);
-  const state = createRemediationState({
-    path:
-      env.BACI_REMEDIATION_STATE_PATH || join(outputDir, 'handled-state.json'),
-  });
   const mode =
     env.BACI_REMEDIATION_AUTOFIX_ENABLED === '1' ? 'autofix' : 'dry-run';
+  const state = createRemediationState({
+    path: statePathForMode(
+      env.BACI_REMEDIATION_STATE_PATH || join(outputDir, 'handled-state.json'),
+      mode
+    ),
+  });
   const actions = [];
   const handledCandidates = [];
   let email = { reason: 'no candidates', skipped: true };

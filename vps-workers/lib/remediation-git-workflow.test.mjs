@@ -59,6 +59,7 @@ describe('remediation git workflow', () => {
         BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
         GH_TOKEN: 'git-provider-token',
         GIT_SSH_COMMAND: 'ssh -i /run/secrets/deploy-key',
+        SSH_AUTH_SOCK: '/run/agent.sock',
         SENTRY_AUTH_TOKEN: 'must-not-reach-child-processes',
       },
       prompt: 'Fix this production error.',
@@ -103,6 +104,7 @@ describe('remediation git workflow', () => {
       fetchEnvironment.env.GIT_SSH_COMMAND,
       'ssh -i /run/secrets/deploy-key'
     );
+    assert.equal(fetchEnvironment.env.SSH_AUTH_SOCK, '/run/agent.sock');
     const pushEnvironment = environments.find(
       ({ args, command }) => command === 'git' && args.includes('push')
     );
@@ -137,7 +139,9 @@ describe('remediation git workflow', () => {
       environments.some(
         ({ command, env }) =>
           command === 'codex' &&
-          ('GH_TOKEN' in env || 'GIT_SSH_COMMAND' in env)
+          ('GH_TOKEN' in env ||
+            'GIT_SSH_COMMAND' in env ||
+            'SSH_AUTH_SOCK' in env)
       ),
       false
     );

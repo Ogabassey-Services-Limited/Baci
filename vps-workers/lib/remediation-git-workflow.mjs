@@ -54,7 +54,6 @@ const CHILD_ENV_ALLOWLIST = new Set([
   'LOGNAME',
   'PATH',
   'SHELL',
-  'SSH_AUTH_SOCK',
   'TEMP',
   'TMP',
   'TMPDIR',
@@ -67,6 +66,7 @@ const GIT_AUTH_ENV_ALLOWLIST = new Set([
   'GITHUB_TOKEN',
   'GIT_ASKPASS',
   'GIT_SSH_COMMAND',
+  'SSH_AUTH_SOCK',
 ]);
 
 function buildChildEnvironment(commandEnv) {

@@ -136,8 +136,8 @@ export DOTENV_CONFIG_PATH="$ENV_FILE"
 # bootstrap from failing when pnpm validates a checkout with no browser cache.
 export PUPPETEER_SKIP_DOWNLOAD="${PUPPETEER_SKIP_DOWNLOAD:-1}"
 
-cd "$REPO_DIR" || {
-  echo "[$LABEL] Failed to change directory to: $REPO_DIR" >&2
+cd "$WEB_DIR" || {
+  echo "[$LABEL] Failed to change directory to: $WEB_DIR" >&2
   exit 1
 }
 TSX_BIN="$REPO_DIR/node_modules/.bin/tsx"

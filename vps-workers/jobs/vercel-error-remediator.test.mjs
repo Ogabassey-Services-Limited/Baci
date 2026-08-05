@@ -63,6 +63,49 @@ describe('vercel error remediator worker', () => {
     assert.deepEqual(repeated.actions, []);
   });
 
+  it('does not let a dry run consume a candidate before autofix is enabled', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
+    const logPath = join(directory, 'vercel.jsonl');
+    const outputDir = join(directory, 'out');
+    writeFileSync(
+      logPath,
+      [
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: approved',
+          route: '/a',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: approved',
+          route: '/a',
+        }),
+      ].join('\n')
+    );
+    const baseEnv = {
+      VERCEL_ERROR_LOG_PATH: logPath,
+      BACI_REMEDIATION_OUTPUT_DIR: outputDir,
+    };
+    let autofixCalls = 0;
+
+    await runVercelErrorRemediator({ env: baseEnv, logger: silentLogger });
+    const autofix = await runVercelErrorRemediator({
+      autofixRunner() {
+        autofixCalls += 1;
+        return { type: 'no_changes' };
+      },
+      env: { ...baseEnv, BACI_REMEDIATION_AUTOFIX_ENABLED: '1' },
+      logger: silentLogger,
+    });
+
+    assert.equal(autofix.candidates.length, 1);
+    assert.equal(autofixCalls, 1);
+    assert.equal(
+      autofix.actions.some((action) => action.type === 'no_changes'),
+      true
+    );
+  });
+
   it('does not generate work for one-off events below threshold', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
     const logPath = join(directory, 'vercel.jsonl');
