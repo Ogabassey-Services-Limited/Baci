@@ -1,0 +1,67 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { runGiglTrackingCapabilityVerification } from './verify-gigl-tracking-worker-capability';
+
+const { createClient, verifyCapability } = vi.hoisted(() => ({
+  createClient: vi.fn(() => ({ rpc: vi.fn() })),
+  verifyCapability: vi.fn(),
+}));
+
+vi.mock('@/lib/gigl-tracking-worker-client', () => ({
+  createGiglTrackingWorkerClient: createClient,
+}));
+vi.mock('@/lib/verify-gigl-tracking-worker-capability', () => ({
+  verifyGiglTrackingWorkerCapability: verifyCapability,
+}));
+
+describe('runGiglTrackingCapabilityVerification', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('passes only after the live restricted wrapper smoke succeeds', async () => {
+    verifyCapability.mockResolvedValue(true);
+    const logger = { error: vi.fn(), info: vi.fn() };
+
+    await expect(
+      runGiglTrackingCapabilityVerification({ env: {}, logger })
+    ).resolves.toBe(0);
+
+    expect(createClient).toHaveBeenCalledOnce();
+    expect(verifyCapability).toHaveBeenCalledOnce();
+    expect(logger.info).toHaveBeenCalledWith(
+      '[gigl-capability] restricted wrapper verified'
+    );
+  });
+
+  it('fails closed without exposing the credential error', async () => {
+    createClient.mockImplementationOnce(() => {
+      throw new Error('secret credential detail');
+    });
+    const logger = { error: vi.fn(), info: vi.fn() };
+
+    await expect(
+      runGiglTrackingCapabilityVerification({ env: {}, logger })
+    ).resolves.toBe(1);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[gigl-capability] verification failed'
+    );
+    expect(JSON.stringify(logger.error.mock.calls)).not.toContain(
+      'secret credential detail'
+    );
+  });
+
+  it('does not require credentials when GIGL is explicitly disabled', async () => {
+    const logger = { error: vi.fn(), info: vi.fn() };
+
+    await expect(
+      runGiglTrackingCapabilityVerification({
+        env: { GIGL_ENABLED: 'off' },
+        logger,
+      })
+    ).resolves.toBe(0);
+
+    expect(createClient).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      '[gigl-capability] skipped while GIGL is disabled'
+    );
+  });
+});

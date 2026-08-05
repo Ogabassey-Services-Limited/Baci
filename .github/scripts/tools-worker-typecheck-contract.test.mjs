@@ -64,6 +64,10 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
     'src/lib/quiz/finalize-due-quiz-events.test.ts',
     'src/scripts/process-petrock-reconciliation.ts',
     'src/scripts/process-petrock-reconciliation.test.ts',
+    'src/scripts/process-gigl-tracking.ts',
+    'src/scripts/process-gigl-tracking.test.ts',
+    'src/scripts/verify-gigl-tracking-worker-capability.ts',
+    'src/scripts/verify-gigl-tracking-worker-capability.test.ts',
     'src/scripts/process-quiz-finalization.ts',
     'src/scripts/process-quiz-finalization.test.ts',
   ]);
@@ -71,6 +75,7 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
   assert.ok(
     webFilter.includes("- '.github/scripts/tools-worker-typecheck-contract.test.mjs'")
   );
+  assert.ok(webFilter.includes("- 'vercel.json'"));
   assert.match(workflow, /filters: \.github\/filters\/ci\.yml/);
   assert.match(configTest, /import '\.\/tools-worker-typecheck-contract\.test\.mjs';/);
   assert.match(workflow, /node --test [^\n]*resolve-ci-test-plan-config\.test\.mjs/);

@@ -18,6 +18,7 @@ prepare_worker_release() {
     exit 1
   fi
   ssh "$VPS" "cp '$REMOTE_DIR/.env' '$STAGING_DIR/.env'"
+  ssh "$VPS" "printf '%s' '$APP_SHA' > '$STAGING_DIR/app-checkout.sha'"
 
   echo "==> Installing staged dependencies on VPS"
   ssh "$VPS" "cd '$STAGING_DIR' && CI=true pnpm install --frozen-lockfile --prod"
@@ -26,7 +27,7 @@ prepare_worker_release() {
   NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
   echo "    Using Node: $NODE_BIN"
 
-  echo "==> Validating direct Petrock and quiz worker environment"
+  echo "==> Validating direct worker environment"
   if ! ssh "$VPS" "cd '$STAGING_DIR' && $NODE_BIN '$STAGING_DIR/jobs/preflight-direct-web-workers.mjs'"; then
     echo "Direct-worker environment preflight failed; live worker files and crontab were not changed." >&2
     exit 1
@@ -72,6 +73,7 @@ if [ "$actual_sha" != "$expected_sha" ]; then
 fi
 
 for script_path in \
+  apps/web/src/scripts/process-gigl-tracking.ts \
   apps/web/src/scripts/process-petrock-reconciliation.ts \
   apps/web/src/scripts/process-quiz-finalization.ts
 do
@@ -82,6 +84,8 @@ do
 done
 
 for wrapper_path in \
+  "$remote_dir/bin/process-gigl-tracking.sh" \
+  "$remote_dir/bin/verify-gigl-tracking-worker-capability.sh" \
   "$remote_dir/bin/process-petrock-reconciliation.sh" \
   "$remote_dir/bin/process-quiz-finalization.sh"
 do
@@ -99,6 +103,12 @@ if ! (
   exit 1
 fi
 REMOTE_SH
+
+  echo "==> Verifying the live GIGL database capability"
+  if ! ssh "$VPS" "NODE_ENV=production BACI_WORKER_PROFILE=gigl-tracking BACI_WORKER_ENV='$STAGING_DIR/.env' '$STAGING_DIR/bin/verify-gigl-tracking-worker-capability.sh'"; then
+    echo "GIGL database capability verification failed; live worker files and crontab were not changed." >&2
+    exit 1
+  fi
 
   echo "==> Promoting validated worker files to $VPS:$REMOTE_DIR"
   ssh "$VPS" "flock -x /tmp/baci-workers-deploy.lock bash -s -- '$STAGING_DIR' '$REMOTE_DIR'" <<'REMOTE_SH'

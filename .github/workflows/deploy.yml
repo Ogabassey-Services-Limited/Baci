@@ -55,11 +55,10 @@ jobs:
       - name: Run CWV workflow actionlint
         uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
-  # Enqueue-capable migrations must never land until the production VPS has
-  # the matching cache-invalidation drain schedule. Verify live crontab state
-  # on the VPS-hosted deploy runner first; missing worker files and
-  # missing/duplicate entries fail closed before database credentials are
-  # exposed to a job.
+  # Enqueue-capable migrations and Vercel cron removals must never land until
+  # its matching VPS schedule is live. Verify it on the VPS-hosted deploy
+  # runner first; missing worker files or schedule entries fail closed before
+  # database credentials are exposed to a job.
   vps-drain-readiness:
     if: github.ref == 'refs/heads/main'
     runs-on: baci-deploy
@@ -74,6 +73,11 @@ jobs:
         env:
           VPS_WORKER_REMOTE_DIR: ${{ vars.VPS_WORKER_REMOTE_DIR || '/home/bassey/baci-workers' }}
         run: vps-workers/bin/verify-cache-invalidation-drain-installed.sh
+      - name: Verify production GIGL direct-worker installation
+        env:
+          BACI_EXPECTED_APP_SHA: ${{ github.sha }}
+          VPS_WORKER_REMOTE_DIR: ${{ vars.VPS_WORKER_REMOTE_DIR || '/home/bassey/baci-workers' }}
+        run: vps-workers/bin/verify-gigl-direct-workers-installed.sh
 
   # Apply any pending Supabase migrations AFTER drain readiness and BEFORE the
   # Vercel deploy so application code never lands ahead of the schema it depends on. Closes
@@ -175,6 +179,8 @@ jobs:
       # Bumping the pin requires re-checking that the new CLI's bundled
       # esbuild version is still on the allow list.
       - run: .github/scripts/run-pinned-vercel.sh pull --yes --environment=production
+      - name: Verify GIGL fallback capability in Vercel Production
+        run: node .github/scripts/inject-prebuilt-env-secret.mjs GIGL_TRACKING_WORKER_TOKEN .vercel/.env.production.local 'build-time-presence-stand-in-not-used-at-runtime-000000000000'
       - name: Synchronize Cloudflare runtime credentials to Vercel Production
         run: .github/scripts/sync-cloudflare-vercel-production-env.sh .github/scripts/run-pinned-vercel.sh
       - name: Ensure build-time presence of runtime-only quiz RPC secret

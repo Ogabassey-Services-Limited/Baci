@@ -29,6 +29,10 @@ describe('production cache-invalidation drain rollout gate', () => {
       readiness,
       /vps-workers\/bin\/verify-cache-invalidation-drain-installed\.sh/
     );
+    assert.match(
+      readiness,
+      /^\s+run: vps-workers\/bin\/verify-gigl-direct-workers-installed\.sh$/m
+    );
     assert.doesNotMatch(readiness, /VPS_WORKER_SSH_TARGET|\bssh\b/);
     assert.doesNotMatch(readiness, /continue-on-error:\s*true/);
     assert.match(migrations, /needs: \[vps-drain-readiness\]/);
@@ -42,5 +46,9 @@ describe('production cache-invalidation drain rollout gate', () => {
     assert.match(deployment, /needs\.db-migrations\.result == 'success'/);
     assert.match(deployment, /deploy --prebuilt --prod/);
     assert.doesNotMatch(deployment, /run-pinned-vercel\.sh deploy --prod/);
+    assert.match(
+      deployment,
+      /inject-prebuilt-env-secret\.mjs GIGL_TRACKING_WORKER_TOKEN \.vercel\/\.env\.production\.local/
+    );
   });
 });

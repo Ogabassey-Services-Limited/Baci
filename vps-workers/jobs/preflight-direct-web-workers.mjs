@@ -16,7 +16,15 @@ const REQUIRED_ENV = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'ZEPTOMAIL_TOKEN',
 ];
+const GIGL_REQUIRED_ENV = [
+  'GIGL_BASE_URL',
+  'GIGL_EMAIL',
+  'GIGL_PASSWORD',
+  'GIGL_TRACKING_WORKER_TOKEN',
+];
 const ENV_BOOLEAN_VALUES = new Set(['0', '1', 'false', 'no', 'true', 'yes']);
+const DISABLED_GIGL_VALUES = new Set(['0', 'false', 'off']);
+const SUPPORTED_GIGL_TOKEN_ALGORITHMS = new Set(['ES256', 'HS256']);
 
 function isConfigured(env, name) {
   return typeof env[name] === 'string' && env[name].trim().length > 0;
@@ -31,6 +39,36 @@ function isCredentialFreeHttpsUrl(value) {
   }
 }
 
+function isGiglExplicitlyDisabled(env) {
+  return DISABLED_GIGL_VALUES.has(env.GIGL_ENABLED?.trim().toLowerCase() ?? '');
+}
+
+function parseJwtPart(token, index) {
+  const value = token.split('.')[index];
+  if (!value) throw new Error('JWT part is missing');
+  const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('JWT part is invalid');
+  }
+  return parsed;
+}
+
+function isRestrictedGiglWorkerToken(value, now = Date.now()) {
+  try {
+    if (value.split('.').length !== 3) return false;
+    const header = parseJwtPart(value, 0);
+    const claims = parseJwtPart(value, 1);
+    return (
+      SUPPORTED_GIGL_TOKEN_ALGORITHMS.has(header.alg) &&
+      claims.role === 'gigl_tracking_worker' &&
+      typeof claims.exp === 'number' &&
+      claims.exp * 1000 > now + 24 * 60 * 60 * 1000
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function getDirectWorkerPreflightProblems(env) {
   const problems = [];
   for (const name of REQUIRED_ENV) {
@@ -39,11 +77,36 @@ export function getDirectWorkerPreflightProblems(env) {
     }
   }
 
+  const isGiglDisabled = isGiglExplicitlyDisabled(env);
+  if (!isGiglDisabled) {
+    for (const name of GIGL_REQUIRED_ENV) {
+      if (!isConfigured(env, name)) {
+        problems.push(`${name} is required`);
+      }
+    }
+  }
+
   if (
     isConfigured(env, 'BACI_WEB_BASE_URL') &&
     !isCredentialFreeHttpsUrl(env.BACI_WEB_BASE_URL)
   ) {
     problems.push('BACI_WEB_BASE_URL must be credential-free HTTPS');
+  }
+  if (
+    !isGiglDisabled &&
+    isConfigured(env, 'GIGL_BASE_URL') &&
+    !isCredentialFreeHttpsUrl(env.GIGL_BASE_URL)
+  ) {
+    problems.push('GIGL_BASE_URL must be credential-free HTTPS');
+  }
+  if (
+    !isGiglDisabled &&
+    isConfigured(env, 'GIGL_TRACKING_WORKER_TOKEN') &&
+    !isRestrictedGiglWorkerToken(env.GIGL_TRACKING_WORKER_TOKEN)
+  ) {
+    problems.push(
+      'GIGL_TRACKING_WORKER_TOKEN must be a current restricted worker token'
+    );
   }
 
   for (const name of [
@@ -92,7 +155,7 @@ function runDirectWorkerPreflight({
   }
 
   logger.log(
-    '[direct-worker-preflight] Petrock and quiz environment is configured'
+    '[direct-worker-preflight] direct worker environment is configured'
   );
   return 0;
 }

@@ -280,6 +280,26 @@ export const EXPECTED_PENDING_SOURCES = [
     sha256: '62201972e14cbafc34feb0584697b92d402eea9c15890a6ec4bbcfc3d5c7e0c5',
   },
   ...EXPECTED_QUIZ_LIVE_PENDING_SOURCES,
+  {
+    repositoryPath:
+      'supabase/migrations/20260805090000_add_least_privilege_gigl_tracking_worker.sql',
+    sha256: '65a27f2ef3df4ce71ad532745f748f63f69a0cdc8e69d8e5ec59372233db91ad',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260805091000_enable_least_privilege_gigl_tracking_login.sql',
+    sha256: '67e35ce36d63d9026492bf25335492df816600f202c4904c725a90debf217b62',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260805113000_restore_gigl_tracking_postgrest_capability.sql',
+    sha256: '5868d844b7b0dc18dcd9f5cfd3e2069e92c2c1e7f6597a46d8e76309c659e56f',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260805150000_isolate_gigl_tracking_postgrest_capability.sql',
+    sha256: '4d350220de45208790bee1e94bc7a09ca99bbbab078e338e2cac3f35cda89feb',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );
