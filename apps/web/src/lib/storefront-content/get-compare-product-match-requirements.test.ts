@@ -235,4 +235,26 @@ describe('getCompareProductMatchRequirements', () => {
       },
     ]);
   });
+
+  it('retains monitor refresh rates as compare discriminators', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'monitors',
+      brands: ['Samsung'],
+      productNames: ['Samsung Odyssey G5 144Hz', 'Samsung Odyssey G5 240Hz'],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: 'odyssey g5',
+        brand: 'samsung',
+        discriminatorTokens: ['144hz'],
+      },
+      {
+        identifier: 'odyssey g5',
+        brand: 'samsung',
+        discriminatorTokens: ['240hz'],
+      },
+    ]);
+  });
 });

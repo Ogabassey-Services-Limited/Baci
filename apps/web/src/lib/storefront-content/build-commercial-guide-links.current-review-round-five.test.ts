@@ -147,4 +147,31 @@ describe('buildCommercialGuideLinks current review round five', () => {
 
     expect(result).toBe('https://ogabassey.com/blog/odyssey-g5-144hz');
   });
+
+  it('ranks the exact monitor refresh-rate comparison with shorthand', () => {
+    const result = firstGuide(
+      {
+        pageKind: 'compare',
+        categorySlug: 'monitors',
+        brands: ['Samsung'],
+        productNames: ['Samsung Odyssey G5 144Hz', 'Samsung Odyssey G5 240Hz'],
+      },
+      [
+        post(
+          'odyssey-g5-240-vs-360',
+          'Samsung Odyssey G5 240Hz vs Samsung Odyssey G5 360Hz Comparison',
+          'Monitors',
+          NEWER
+        ),
+        post(
+          'odyssey-g5-144-vs-240',
+          'Samsung Odyssey G5 144Hz vs 240Hz Comparison',
+          'Monitors',
+          OLDER
+        ),
+      ]
+    );
+
+    expect(result).toBe('https://ogabassey.com/blog/odyssey-g5-144-vs-240');
+  });
 });

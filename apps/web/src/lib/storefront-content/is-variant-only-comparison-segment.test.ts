@@ -35,4 +35,10 @@ describe('isVariantOnlyComparisonSegment', () => {
 
     expect(result).toBe(true);
   });
+
+  it('accepts a refresh-rate-only compare continuation', () => {
+    const result = isVariantOnlyComparisonSegment(['240hz', 'comparison']);
+
+    expect(result).toBe(true);
+  });
 });

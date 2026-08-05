@@ -13,7 +13,7 @@ type CompareProductMatchRequirement = {
 };
 
 const VARIANT_DISCRIMINATOR_PATTERN =
-  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch)|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
+  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch)|\d+hz|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
 const RAM_DOMINANT_CATEGORIES = new Set([
   'desktops',
   'gaming-laptops',
