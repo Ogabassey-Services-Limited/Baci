@@ -19,6 +19,64 @@ const STALE_LOCK_MS = 2 * 60 * 1_000;
 const observationFor = (candidate) =>
   String(candidate.lastSeen || candidate.occurrences || 'observed');
 
+function fallbackMarkerPath(path, candidate) {
+  const key = Buffer.from(String(candidate.fingerprint || 'unknown'))
+    .toString('hex')
+    .slice(0, 160);
+  return `${path}.handled-fallback/${key}.json`;
+}
+
+function readFallbackObservation(path, candidate) {
+  try {
+    const marker = JSON.parse(
+      readFileSync(fallbackMarkerPath(path, candidate), 'utf8')
+    );
+    return typeof marker?.observation === 'string' ? marker.observation : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistFallbackObservation(path, candidate, recordedAt) {
+  const markerPath = fallbackMarkerPath(path, candidate);
+  mkdirSync(dirname(markerPath), { recursive: true });
+  const temporaryPath = `${markerPath}.${process.pid}.tmp`;
+  writeFileSync(
+    temporaryPath,
+    `${JSON.stringify({ observation: observationFor(candidate), recordedAt })}\n`,
+    { mode: 0o600 }
+  );
+  renameSync(temporaryPath, markerPath);
+}
+
+function clearFallbackObservation(path, candidate) {
+  try {
+    unlinkSync(fallbackMarkerPath(path, candidate));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
+function reconcileFallbackObservations(path, state, candidates, recordedAt) {
+  for (const candidate of candidates) {
+    const observation = readFallbackObservation(path, candidate);
+    if (!observation) continue;
+    state.handled[candidate.fingerprint] = { observation, recordedAt };
+    delete state.reservations[candidate.fingerprint];
+    clearFallbackObservation(path, candidate);
+  }
+}
+
+function capHandledEntries(handled) {
+  return Object.fromEntries(
+    Object.entries(handled)
+      .sort(([, left], [, right]) =>
+        right.recordedAt.localeCompare(left.recordedAt)
+      )
+      .slice(0, MAX_ENTRIES)
+  );
+}
+
 const isIsoDate = (value) =>
   typeof value === 'string' && Number.isFinite(Date.parse(value));
 
@@ -126,6 +184,9 @@ export function createRemediationState({
     pending(candidates, { limit = Number.POSITIVE_INFINITY } = {}) {
       const nowMs = now();
       return withStateLock(path, nowMs, [], (state) => {
+        const recordedAt = new Date(nowMs).toISOString();
+        reconcileFallbackObservations(path, state, candidates, recordedAt);
+        state.handled = capHandledEntries(state.handled);
         for (const [fingerprint, reservation] of Object.entries(
           state.reservations
         )) {
@@ -145,7 +206,6 @@ export function createRemediationState({
             selected.push(candidate);
           }
         }
-        const recordedAt = new Date(nowMs).toISOString();
         const expiresAt = new Date(nowMs + reservationTtlMs).toISOString();
         for (const candidate of selected) {
           state.reservations[candidate.fingerprint] = {
@@ -185,13 +245,7 @@ export function createRemediationState({
             recordedAt,
           };
         }
-        state.handled = Object.fromEntries(
-          Object.entries(state.handled)
-            .sort(([, left], [, right]) =>
-              right.recordedAt.localeCompare(left.recordedAt)
-            )
-            .slice(0, MAX_ENTRIES)
-        );
+        state.handled = capHandledEntries(state.handled);
         if (notification) {
           state.notifications[notification.id] = {
             recordedAt,
@@ -210,8 +264,17 @@ export function createRemediationState({
             .slice(0, MAX_ENTRIES)
         );
         persistState(path, state);
+        for (const candidate of handledCandidates) {
+          clearFallbackObservation(path, candidate);
+        }
         return true;
       });
+    },
+    recordHandledFallback(candidates) {
+      const recordedAt = new Date(now()).toISOString();
+      for (const candidate of candidates) {
+        persistFallbackObservation(path, candidate, recordedAt);
+      }
     },
     mark(candidates) {
       return this.complete({ handledCandidates: candidates });

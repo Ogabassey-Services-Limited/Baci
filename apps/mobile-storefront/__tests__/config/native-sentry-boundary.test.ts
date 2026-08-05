@@ -74,6 +74,30 @@ describe('native Sentry initialization boundary', () => {
     );
   });
 
+  it('forces Android release uploads to use the workflow Sentry token', () => {
+    const workflowSource = readFileSync(
+      path.resolve(
+        __dirname,
+        '../../../../.github/workflows/android-storefront-release.yml'
+      ),
+      'utf8'
+    );
+
+    const prebuildStep = workflowSource.slice(
+      workflowSource.indexOf(
+        '- name: Generate Android project via Expo prebuild'
+      ),
+      workflowSource.indexOf('- name: Fix splash screen resource reference')
+    );
+    const bundleStep = workflowSource.slice(
+      workflowSource.indexOf('- name: Build Android App Bundle (storefront)'),
+      workflowSource.indexOf('- name: Upload AAB artifact')
+    );
+
+    expect(prebuildStep).toContain("SENTRY_FORCE_ENV_TOKEN: '1'");
+    expect(bundleStep).toContain("SENTRY_FORCE_ENV_TOKEN: '1'");
+  });
+
   it('composes the generated iOS Sentry and fixed PostHog wrappers', () => {
     const project = readFileSync(
       path.resolve(__dirname, '../../ios/Ogabassey.xcodeproj/project.pbxproj'),

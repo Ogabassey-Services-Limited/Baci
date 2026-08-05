@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -30,6 +36,7 @@ describe('vercel remediator state lock', () => {
       BACI_REMEDIATION_STATE_PATH: configuredStatePath,
       VERCEL_ERROR_LOG_PATH: logPath,
     };
+    let nowMs = Date.parse('2026-08-05T21:00:00Z');
     let autofixCalls = 0;
     const autofixRunner = () => {
       autofixCalls += 1;
@@ -38,17 +45,31 @@ describe('vercel remediator state lock', () => {
     };
 
     await assert.rejects(
-      runVercelErrorRemediator({ autofixRunner, env, logger: silentLogger }),
+      runVercelErrorRemediator({
+        autofixRunner,
+        env,
+        logger: silentLogger,
+        now: () => nowMs,
+      }),
       /remediation state is busy/
     );
     unlinkSync(lockPath);
+    nowMs += 16 * 60 * 1_000;
 
     const retry = await runVercelErrorRemediator({
       autofixRunner,
       env,
       logger: silentLogger,
+      now: () => nowMs,
     });
     assert.equal(retry.candidates.length, 0);
     assert.equal(autofixCalls, 1);
+    const autofixStatePath = configuredStatePath.replace(
+      /\.json$/,
+      '.autofix.json'
+    );
+    const state = JSON.parse(readFileSync(autofixStatePath, 'utf8'));
+    assert.equal(Object.keys(state.handled).length, 1);
+    assert.equal(readdirSync(`${autofixStatePath}.handled-fallback`).length, 0);
   });
 });

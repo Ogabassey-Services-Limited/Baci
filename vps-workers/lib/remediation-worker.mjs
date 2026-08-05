@@ -147,6 +147,9 @@ export async function runRemediationWorker({
         : { deferCandidates: [candidate] }
     );
     if (!completed) {
+      if (result.type === 'pr_opened') {
+        state.recordHandledFallback([candidate]);
+      }
       throw new Error('remediation state is busy');
     }
   }
