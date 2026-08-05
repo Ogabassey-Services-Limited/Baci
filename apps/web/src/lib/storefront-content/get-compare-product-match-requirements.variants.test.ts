@@ -96,4 +96,27 @@ describe('getCompareProductMatchRequirements variant preservation', () => {
       { identifier: 'xps 14 9340', brand: 'dell' },
     ]);
   });
+
+  it('excludes laptop RAM while retaining aligned slug storage variants', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productNames: ['Dell XPS 13 16GB', 'Dell XPS 14 32GB'],
+      productSlugs: ['dell-xps-13-512gb', 'dell-xps-14-1tb'],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: 'xps 13',
+        brand: 'dell',
+        discriminatorTokens: ['512gb'],
+      },
+      {
+        identifier: 'xps 14',
+        brand: 'dell',
+        discriminatorTokens: ['1tb'],
+      },
+    ]);
+  });
 });

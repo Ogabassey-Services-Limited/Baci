@@ -2,7 +2,7 @@ import { isProductVariantColorToken } from './is-product-variant-color-token';
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
 const VARIANT_TOKEN_PATTERN =
-  /^(?:\d+(?:g|gb|tb|mb|mm|inch)|4g|5g|active|bluetooth|cellular|classic|dual|edge|esim|fe|flip|fold|gps|lite|lte|max|mini|nano|neo|physical|plus|power|prime|pro|s|se|sim|single|ultra|wifi|x|xl)$/u;
+  /^(?:\d+(?:g|gb|tb|mb|mm|inch)|4g|5g|active|bluetooth|cellular|classic|digital|disc|dual|edge|esim|fe|flip|fold|gps|lite|lte|max|mini|nano|neo|physical|plus|power|prime|pro|s|se|sim|single|ultra|wifi|x|xl)$/u;
 const CONTEXT_TOKENS = new Set([
   'buyer',
   'compare',

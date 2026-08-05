@@ -14,6 +14,11 @@ type CompareProductMatchRequirement = {
 
 const VARIANT_DISCRIMINATOR_PATTERN =
   /^(?:\d+(?:g|gb|tb|mb|mm|inch)|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
+const RAM_DOMINANT_CATEGORIES = new Set([
+  'desktops',
+  'gaming-laptops',
+  'laptops',
+]);
 
 function tokenize(value: string) {
   return normalizeContentCurrencyTokens(value)
@@ -62,13 +67,23 @@ function inferSourceBrand(
   );
 }
 
-function getSourceDiscriminatorTokens(source: string, identifier: string) {
+function getSourceDiscriminatorTokens(
+  source: string,
+  identifier: string,
+  categorySlug: BuildCommercialGuideLinksContext['categorySlug']
+) {
   const identifierTokens = new Set(tokenizeVariantSource(identifier));
   const seen = new Set<string>();
   const discriminatorTokens: string[] = [];
   for (const token of tokenizeVariantSource(source)) {
+    const storageCapacity = Number(token.match(/^(\d+)gb$/u)?.[1] ?? 0);
+    const isLikelyRam =
+      storageCapacity > 0 &&
+      storageCapacity <= 32 &&
+      RAM_DOMINANT_CATEGORIES.has(categorySlug);
     if (
       !identifierTokens.has(token) &&
+      !isLikelyRam &&
       (VARIANT_DISCRIMINATOR_PATTERN.test(token) ||
         isProductVariantColorToken(token)) &&
       !seen.has(token)
@@ -132,7 +147,8 @@ export function getCompareProductMatchRequirements(
               brand: inferSourceBrand(brandSource, context),
               discriminatorTokens: getSourceDiscriminatorTokens(
                 variantSource,
-                identifier
+                identifier,
+                context.categorySlug
               ),
               hasExplicitVariantSource,
             },

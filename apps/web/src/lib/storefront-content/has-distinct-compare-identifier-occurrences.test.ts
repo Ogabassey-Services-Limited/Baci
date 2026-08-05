@@ -154,4 +154,23 @@ describe('hasDistinctCompareIdentifierOccurrences', () => {
 
     expect(result).toBe(true);
   });
+
+  it('inherits console edition identifiers across disc and digital shorthand', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'xbox-series-x-digital-vs-disc',
+        title: 'Xbox Series X Digital vs Disc Comparison',
+        excerpt: null,
+        category: 'Xbox',
+        tags: ['xbox'],
+        keywords: ['comparison'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['series x digital', 'series x disc']
+    );
+
+    expect(result).toBe(true);
+  });
 });

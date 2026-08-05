@@ -35,6 +35,10 @@ export function normalizeVariantDiscriminatorTokens(tokens: string[]) {
       normalizedTokens.push('bluetooth');
       continue;
     }
+    if (/^\d{2,}g$/u.test(token)) {
+      normalizedTokens.push(`${token.slice(0, -1)}gb`);
+      continue;
+    }
     normalizedTokens.push(token);
   }
   return normalizedTokens;

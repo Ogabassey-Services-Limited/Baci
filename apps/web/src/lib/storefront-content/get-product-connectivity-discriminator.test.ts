@@ -47,6 +47,15 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual(['32gb']);
   });
 
+  it('normalizes compact G storage suffixes as GB variants', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPhone 15 256G'],
+      []
+    );
+
+    expect(discriminators).toEqual(['256gb']);
+  });
+
   it('does not treat a lone 32GB laptop memory suffix as storage', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Dell XPS 13 9340 Intel Core Ultra 7 32GB'],
