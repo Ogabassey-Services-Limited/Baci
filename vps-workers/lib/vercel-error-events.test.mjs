@@ -73,6 +73,22 @@ describe('vercel error events', () => {
     );
   });
 
+  it('ignores firewall blocks that never reached application code', () => {
+    const groups = groupErrorEvents([
+      {
+        deploymentId: 'dpl_test',
+        level: 'error',
+        message: '',
+        requestId: 'request-test',
+        route: '/api/cron/agentic-commerce-health',
+        source: 'firewall',
+        statusCode: 403,
+      },
+    ]);
+
+    assert.deepEqual(groups, []);
+  });
+
   it('builds stable fingerprints across ids and line numbers', () => {
     const left = normalizeVercelLogEvent({
       message:

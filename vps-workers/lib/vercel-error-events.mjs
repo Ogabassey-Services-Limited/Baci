@@ -73,6 +73,9 @@ export function isErrorEvent(event) {
   if (!event) {
     return false;
   }
+  if (String(event.source || '').toLowerCase() === 'firewall') {
+    return false;
+  }
   if (ERROR_LEVELS.has(String(event.level || '').toLowerCase())) {
     return true;
   }
