@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { runGiglTrackingMonitorBatch } from '@/app/api/cron/gigl-tracking/run-gigl-tracking-monitor-batch';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createGiglTrackingWorkerClient } from '@/lib/gigl-tracking-worker-client';
 
 interface CliLogger {
   error(message: string): void;
@@ -19,9 +19,9 @@ const REQUIRED_ENV = [
   'GIGL_BASE_URL',
   'GIGL_EMAIL',
   'GIGL_PASSWORD',
+  'GIGL_TRACKING_WORKER_TOKEN',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   'NEXT_PUBLIC_SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
 ] as const;
 
 function hasRequiredEnv(env: NodeJS.ProcessEnv) {
@@ -44,7 +44,7 @@ function isExplicitlyDisabled(value: string | undefined) {
 async function runBatchDirectly({ batchSize }: { batchSize: number }) {
   return runGiglTrackingMonitorBatch({
     batchSize,
-    client: createServiceClient('event-pipeline'),
+    client: createGiglTrackingWorkerClient(process.env),
     workerId: `gigl-tracking-vps-${randomUUID()}`,
   });
 }

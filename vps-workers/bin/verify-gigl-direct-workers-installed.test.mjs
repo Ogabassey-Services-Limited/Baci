@@ -24,8 +24,6 @@ afterEach(() => {
 
 function fixture({
   duplicateTracking = false,
-  includeNotifications = true,
-  staleNotificationCommand = false,
   staleTrackingCommand = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'baci-gigl-readiness-'));
@@ -36,14 +34,9 @@ function fixture({
   mkdirSync(join(remote, 'bin'), { recursive: true });
   mkdirSync(fakeBin, { recursive: true });
 
-  for (const wrapper of [
-    'process-gigl-tracking.sh',
-    'process-gigl-tracking-notifications.sh',
-  ]) {
-    const path = join(remote, 'bin', wrapper);
-    writeFileSync(path, '#!/usr/bin/env bash\nexit 0\n');
-    chmodSync(path, 0o755);
-  }
+  const wrapper = join(remote, 'bin', 'process-gigl-tracking.sh');
+  writeFileSync(wrapper, '#!/usr/bin/env bash\nexit 0\n');
+  chmodSync(wrapper, 0o755);
 
   const trackingCommand = staleTrackingCommand
     ? `${remote}/bin/process-gigl-tracking.sh`
@@ -54,14 +47,6 @@ function fixture({
   if (duplicateTracking) {
     lines.push(
       `0 * * * * ${remote}/bin/process-gigl-tracking.sh >> ${remote}/logs/extra-gigl.log 2>&1`
-    );
-  }
-  if (includeNotifications) {
-    const notificationCommand = staleNotificationCommand
-      ? `${remote}/bin/process-gigl-tracking-notifications.sh`
-      : `flock -n ${remote}/locks/gigl-tracking-notifications.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=gigl-tracking-notifications && cd ${remote} && timeout --signal=TERM --kill-after=30s 2m ${remote}/bin/process-gigl-tracking-notifications.sh'`;
-    lines.push(
-      `*/10 * * * * ${notificationCommand} >> ${remote}/logs/gigl-tracking-notifications.log 2>&1`
     );
   }
   writeFileSync(crontab, `${lines.join('\n')}\n`);
@@ -86,21 +71,11 @@ function verify(options) {
 }
 
 describe('GIGL direct-worker deployment gate', () => {
-  it('accepts exactly one installed schedule for each direct worker', () => {
+  it('accepts exactly one installed tracking schedule', () => {
     const result = verify();
 
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /GIGL direct workers are installed/);
-  });
-
-  it('blocks deployment when the notification schedule is absent', () => {
-    const result = verify({ includeNotifications: false });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /tracking 1 total\/1 canonical and notifications 0 total\/0 canonical/
-    );
+    assert.match(result.stdout, /GIGL direct tracking worker is installed/);
   });
 
   it('blocks deployment when a direct-worker schedule is duplicated', () => {
@@ -109,7 +84,7 @@ describe('GIGL direct-worker deployment gate', () => {
     assert.equal(result.status, 1);
     assert.match(
       result.stderr,
-      /tracking 2 total\/1 canonical and notifications 1 total\/1 canonical/
+      /2 total\/1 canonical/
     );
   });
 
@@ -119,17 +94,7 @@ describe('GIGL direct-worker deployment gate', () => {
     assert.equal(result.status, 1);
     assert.match(
       result.stderr,
-      /tracking 1 total\/0 canonical and notifications 1 total\/1 canonical/
-    );
-  });
-
-  it('blocks deployment when the notification command omits its production runtime contract', () => {
-    const result = verify({ staleNotificationCommand: true });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /tracking 1 total\/1 canonical and notifications 1 total\/0 canonical/
+      /1 total\/0 canonical/
     );
   });
 });

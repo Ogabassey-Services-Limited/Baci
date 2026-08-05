@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { getDirectWorkerPreflightProblems } from './preflight-direct-web-workers.mjs';
 
+function workerToken(role = 'gigl_tracking_worker', exp = 4_102_444_800) {
+  const payload = Buffer.from(JSON.stringify({ exp, role })).toString('base64url');
+  return `header.${payload}.signature`;
+}
+
 const commonEnv = {
   BACI_REPO_DIR: '/opt/baci/app',
   BACI_WEB_BASE_URL: 'https://usebaci.com',
@@ -9,6 +14,7 @@ const commonEnv = {
   GIGL_BASE_URL: 'https://gigl.example.com',
   GIGL_EMAIL: 'worker@example.com',
   GIGL_PASSWORD: 'provider-password',
+  GIGL_TRACKING_WORKER_TOKEN: workerToken(),
   IMEI_IDENTIFIER_ENCRYPTION_KEY: 'encryption-key',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
   NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
@@ -70,6 +76,18 @@ describe('direct worker environment preflight', () => {
       'EXPO_ACCESS_TOKEN is required',
       'GIGL_BASE_URL is required',
     ]);
+  });
+
+  it('rejects a broad service-role token for the GIGL poller', () => {
+    assert.deepEqual(
+      getDirectWorkerPreflightProblems({
+        ...commonEnv,
+        GIGL_TRACKING_WORKER_TOKEN: workerToken('service_role'),
+      }),
+      [
+        'GIGL_TRACKING_WORKER_TOKEN must be a current restricted worker token',
+      ]
+    );
   });
 
   for (const disabledValue of ['0', 'false', 'off', ' OFF ']) {

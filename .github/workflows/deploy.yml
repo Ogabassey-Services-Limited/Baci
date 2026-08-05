@@ -56,7 +56,7 @@ jobs:
         uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
   # Enqueue-capable migrations and Vercel cron removals must never land until
-  # their matching VPS schedules are live. Verify both on the VPS-hosted deploy
+  # its matching VPS schedule is live. Verify it on the VPS-hosted deploy
   # runner first; missing worker files or schedule entries fail closed before
   # database credentials are exposed to a job.
   vps-drain-readiness:

@@ -155,8 +155,6 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
-      'apps/web/src/scripts/process-gigl-tracking-notifications.ts',
-      'apps/web/src/scripts/process-gigl-tracking.ts',
     ]);
     const notificationWorker =
       'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts';
@@ -170,11 +168,6 @@ describe('event pipeline authority manifest', () => {
         notificationWorker,
       ],
       [notificationBatch, notificationWorker],
-      [
-        'apps/web/src/scripts/process-gigl-tracking-notifications.ts',
-        notificationBatch,
-        notificationWorker,
-      ],
     ];
     const notificationCredentialTails = [
       ['apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],

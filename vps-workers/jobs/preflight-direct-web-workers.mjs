@@ -17,7 +17,12 @@ const REQUIRED_ENV = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'ZEPTOMAIL_TOKEN',
 ];
-const GIGL_REQUIRED_ENV = ['GIGL_BASE_URL', 'GIGL_EMAIL', 'GIGL_PASSWORD'];
+const GIGL_REQUIRED_ENV = [
+  'GIGL_BASE_URL',
+  'GIGL_EMAIL',
+  'GIGL_PASSWORD',
+  'GIGL_TRACKING_WORKER_TOKEN',
+];
 const ENV_BOOLEAN_VALUES = new Set(['0', '1', 'false', 'no', 'true', 'yes']);
 const DISABLED_GIGL_VALUES = new Set(['0', 'false', 'off']);
 
@@ -36,6 +41,21 @@ function isCredentialFreeHttpsUrl(value) {
 
 function isGiglExplicitlyDisabled(env) {
   return DISABLED_GIGL_VALUES.has(env.GIGL_ENABLED?.trim().toLowerCase() ?? '');
+}
+
+function isRestrictedGiglWorkerToken(value, now = Date.now()) {
+  try {
+    const payload = value.split('.')[1];
+    if (!payload) return false;
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return (
+      claims?.role === 'gigl_tracking_worker' &&
+      typeof claims.exp === 'number' &&
+      claims.exp * 1000 > now + 24 * 60 * 60 * 1000
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function getDirectWorkerPreflightProblems(env) {
@@ -67,6 +87,13 @@ export function getDirectWorkerPreflightProblems(env) {
     !isCredentialFreeHttpsUrl(env.GIGL_BASE_URL)
   ) {
     problems.push('GIGL_BASE_URL must be credential-free HTTPS');
+  }
+  if (
+    !isGiglDisabled &&
+    isConfigured(env, 'GIGL_TRACKING_WORKER_TOKEN') &&
+    !isRestrictedGiglWorkerToken(env.GIGL_TRACKING_WORKER_TOKEN)
+  ) {
+    problems.push('GIGL_TRACKING_WORKER_TOKEN must be a current restricted worker token');
   }
 
   for (const name of [

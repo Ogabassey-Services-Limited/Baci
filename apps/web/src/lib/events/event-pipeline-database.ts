@@ -159,8 +159,6 @@ export const EVENT_PIPELINE_BOUNDARY = {
       ['apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts', 'apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'], ['apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts', 'apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
       ['apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'], ['apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
       ['apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'], ['apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/scripts/process-gigl-tracking-notifications.ts', 'apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'], ['apps/web/src/scripts/process-gigl-tracking-notifications.ts', 'apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/scripts/process-gigl-tracking-notifications.ts', 'apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'], ['apps/web/src/scripts/process-gigl-tracking-notifications.ts', 'apps/web/src/app/api/cron/gigl-tracking-notifications/run-gigl-tracking-notification-batch.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
     ],
     factoryModules: [
       'apps/web/src/lib/supabase/admin.ts',
@@ -168,7 +166,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/supabase/service.ts',
     ],
     // biome-ignore format: compact compatibility allowlist preserves the 300-line verifier gate.
-    legacySdkImporters: ['apps/web/src/lib/events/event-ingress-capability.ts', 'apps/web/src/lib/events/event-pipeline-test-client.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
+    legacySdkImporters: ['apps/web/src/lib/events/event-ingress-capability.ts', 'apps/web/src/lib/events/event-pipeline-test-client.ts', 'apps/web/src/lib/gigl-tracking-worker-client.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
     serverImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/(platform)/onboarding/actions.ts',
@@ -185,7 +183,6 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/app/api/cron/gigl-tracking/route.ts', 'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts', 'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/scripts/process-domain-events.ts', 'apps/web/src/scripts/process-event-deliveries.ts',
-      'apps/web/src/scripts/process-gigl-tracking-notifications.ts', 'apps/web/src/scripts/process-gigl-tracking.ts',
     ],
   },
   callers: runtimeCallers,

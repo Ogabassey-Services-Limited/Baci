@@ -73,7 +73,6 @@ fi
 
 for script_path in \
   apps/web/src/scripts/process-gigl-tracking.ts \
-  apps/web/src/scripts/process-gigl-tracking-notifications.ts \
   apps/web/src/scripts/process-petrock-reconciliation.ts \
   apps/web/src/scripts/process-quiz-finalization.ts
 do
@@ -85,7 +84,6 @@ done
 
 for wrapper_path in \
   "$remote_dir/bin/process-gigl-tracking.sh" \
-  "$remote_dir/bin/process-gigl-tracking-notifications.sh" \
   "$remote_dir/bin/process-petrock-reconciliation.sh" \
   "$remote_dir/bin/process-quiz-finalization.sh"
 do

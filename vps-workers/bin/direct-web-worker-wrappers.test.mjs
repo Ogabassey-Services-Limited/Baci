@@ -13,11 +13,6 @@ for (const [wrapper, label, script] of [
     'src/scripts/process-gigl-tracking.ts',
   ],
   [
-    'process-gigl-tracking-notifications.sh',
-    'gigl-tracking-notifications',
-    'src/scripts/process-gigl-tracking-notifications.ts',
-  ],
-  [
     'process-petrock-reconciliation.sh',
     'petrock-reconciliation',
     'src/scripts/process-petrock-reconciliation.ts',

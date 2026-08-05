@@ -7,8 +7,8 @@
 This package is intentionally installed outside the root pnpm workspace, so it
 keeps its own `pnpm-lock.yaml` for frozen production installs.
 
-The Jumia order sync, import queue, AI storefront generation, GIGL tracking,
-and GIGL notification wrappers do not run TypeScript from this production-only
+The Jumia order sync, import queue, AI storefront generation, and GIGL tracking
+wrappers do not run TypeScript from this production-only
 worker install. They delegate to a separate full Baci monorepo checkout,
 resolved from `BACI_REPO_DIR` or `/opt/baci/app`, via `bin/run-web-script.sh`.
 
@@ -43,8 +43,7 @@ pnpm install --frozen-lockfile
 The VPS wrappers run `apps/web/src/scripts/process-import-jobs.ts`,
 `apps/web/src/scripts/sync-jumia-orders.ts`, and
 `apps/web/src/scripts/process-ai-storefront-jobs.ts`,
-`apps/web/src/scripts/process-gigl-tracking.ts`, and
-`apps/web/src/scripts/process-gigl-tracking-notifications.ts` directly through
+and `apps/web/src/scripts/process-gigl-tracking.ts` directly through
 the `tsx` runtime dependency in the full checkout, with no prior compilation
 step.
 That dependency is not part of the standalone `/home/bassey/baci-workers`
@@ -88,6 +87,7 @@ PETROCK_REMEDIATION_ENABLED=true
 GIGL_BASE_URL=...
 GIGL_EMAIL=...
 GIGL_PASSWORD=...
+GIGL_TRACKING_WORKER_TOKEN=...
 QUIZ_PHASE=1a
 QUIZ_PRODUCTION_APPROVED=false
 # Required when QUIZ_PHASE=production:
@@ -139,6 +139,7 @@ Variable purposes:
 - `PETROCK_API_BASE_URL`: Optional Petrock reseller API base; defaults to the production reseller endpoint.
 - `PETROCK_ENABLED`, `PETROCK_ENABLED_TIERS`, `PETROCK_REMEDIATION_ENABLED`: Explicit Petrock rollout values copied from the reviewed web production configuration. The direct-worker preflight requires all three to prevent an accidental configuration mismatch.
 - `GIGL_BASE_URL`, `GIGL_EMAIL`, `GIGL_PASSWORD`: GIGL provider configuration used by the direct shipment-tracking worker. The base URL must be credential-free HTTPS.
+- `GIGL_TRACKING_WORKER_TOKEN`: Time-bounded JWT with the `gigl_tracking_worker` database role. It can invoke the five lease-bound tracking wrappers but has no table grants or RLS bypass.
 - `QUIZ_PHASE`, `QUIZ_PRODUCTION_APPROVED`: Explicit quiz launch gate values copied from web production. They must be present even for the fail-closed `1a`/`false` state.
 - `QUIZ_RPC_SERVER_SECRET`, `QUIZ_DEVICE_HASH_PEPPER`: Required by the shared environment schema when `QUIZ_PHASE=production`; the device pepper must be at least 32 characters.
 - `EXPO_ACCESS_TOKEN`: Expo token used for push notification delivery and related mobile app operations.
@@ -182,7 +183,7 @@ secret value.
 
 `deploy.sh` runs `jobs/preflight-direct-web-workers.mjs` before installing the
 crontab. The preflight checks the Supabase values, credential-free HTTPS web
-and GIGL origins, GIGL and notification credentials, Petrock
+and GIGL origins, the restricted GIGL tracking credential, Petrock
 token/encryption-key/rollout flags, explicit quiz gates, and the two additional
 quiz production secrets. It prints only variable names and fixed validation
 reasons, never values. Each direct TypeScript CLI repeats its essential
@@ -216,15 +217,17 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 - `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
 
-Petrock reconciliation, GIGL tracking, GIGL tracking notifications, and quiz
-finalization are deliberately absent from this allowlist. Their schedules
+Petrock reconciliation, GIGL tracking, and quiz finalization are deliberately
+absent from this allowlist. Their schedules
 invoke the matching `bin/process-*.sh` wrapper directly against the full Baci
-checkout. Those scripts use the server-side Supabase/admin and job-specific
-environment; they do not send `CRON_SECRET` or make HTTP calls to the web
-deployment. The GIGL API routes remain available as authenticated manual
-fallbacks, but Vercel Cron no longer schedules them. Removing the five-minute
-and ten-minute Vercel schedules avoids 3,024 scheduled function executions per
-week. A nonzero exit is retained in the matching persistent cron log, but no
+checkout. The GIGL poller uses its restricted database role rather than the
+Supabase service role. These scripts do not send `CRON_SECRET` or make HTTP
+calls to the web deployment. The GIGL tracking API route remains an
+authenticated manual fallback, but Vercel Cron no longer schedules it. The
+notification route remains on Vercel until its legacy admin-client graph is
+capability-split. Removing the five-minute tracking schedule avoids 2,016
+scheduled function executions per week. A nonzero exit is retained in the
+matching persistent cron log, but no
 verified pager transport is configured.
 
 Merchant cancellation refund and email outbox work uses the trusted
