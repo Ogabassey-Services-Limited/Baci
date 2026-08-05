@@ -114,6 +114,28 @@ describe('vercel error events', () => {
     );
   });
 
+  it('normalizes numeric and string timestamps to ISO observations', () => {
+    assert.equal(
+      normalizeVercelLogEvent({ timestamp: 1_775_563_200_000 }).timestamp,
+      '2026-04-07T12:00:00.000Z'
+    );
+    assert.equal(
+      normalizeVercelLogEvent({ timestamp: '2026-08-04T16:46:50+01:00' })
+        .timestamp,
+      '2026-08-04T15:46:50.000Z'
+    );
+  });
+
+  it('skips out-of-range numeric timestamps instead of throwing', () => {
+    assert.equal(
+      normalizeVercelLogEvent({
+        timestamp: Number.MAX_VALUE,
+        time: '2026-08-04T15:46:50Z',
+      }).timestamp,
+      '2026-08-04T15:46:50.000Z'
+    );
+  });
+
   it('does not let empty timestamps replace observed group bounds', () => {
     const [group] = groupErrorEvents([
       { level: 'error', message: 'Error: stable', timestamp: '' },
@@ -125,8 +147,8 @@ describe('vercel error events', () => {
       { level: 'error', message: 'Error: stable', timestamp: '' },
     ]);
 
-    assert.equal(group.firstSeen, '2026-08-04T15:46:50Z');
-    assert.equal(group.lastSeen, '2026-08-04T15:46:50Z');
+    assert.equal(group.firstSeen, '2026-08-04T15:46:50.000Z');
+    assert.equal(group.lastSeen, '2026-08-04T15:46:50.000Z');
   });
 
   it('groups repeated errors and selects candidates over the threshold', () => {

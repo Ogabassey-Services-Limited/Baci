@@ -49,7 +49,7 @@ updated: 2026-08-05T00:10:33Z
 
 ## Resolution
 
-- root_cause: Infinite Reanimated scale updates around the ChatWidget SVG FAB can target Fabric view tags after their SurfaceMountingManager is removed, producing an unbounded main-thread exception/logging loop. Build 761 additionally enabled an unproven release-only Worklets bundle mode. Native ANR capture and source-map uploads were disabled or absent, hiding the failure.
+- root_cause: The leading hypothesis is that infinite Reanimated scale updates around the ChatWidget FAB targeted Fabric view tags after their SurfaceMountingManager was removed, producing an unbounded main-thread exception/logging loop. The fixed build also removed an unproven release-only Worklets bundle mode, so the FAB pulse has not been isolated as the sole cause with that setting held constant. Native ANR capture and source-map uploads were disabled or absent, hiding the failure.
 - fix: Remove the infinite FAB pulse and animated SVG wrapper; remove the release-only Worklets opt-in; add early native Sentry ANR/crash initialization and release uploads; re-enable PostHog Android uploads; poll Sentry from the VPS with deduplicated, sandboxed, secret-isolated draft-PR automation and no auto-merge.
 - verification: Focused mobile tests 77/77 and the earlier typecheck pass; build 761 reproduces 5,965/5,958 Reanimated/Fabric failures, while the fixed supported emulator build produces 0/0 and remains resumed. Full repository gates remain.
 - files_changed: Mobile chat FAB, Expo/Sentry/Metro/Gradle/release workflow, PostHog upload plugin, VPS remediation workers/policy/state/docs/tests.

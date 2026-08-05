@@ -12,6 +12,20 @@ const silentLogger = {
 };
 
 describe('vercel error remediator worker', () => {
+  it('returns a rejected promise when required setup is missing', async () => {
+    const result = runVercelErrorRemediator({
+      env: {
+        BACI_REMEDIATION_OUTPUT_DIR: mkdtempSync(
+          join(tmpdir(), 'baci-remediator-')
+        ),
+      },
+      logger: silentLogger,
+    });
+
+    assert.equal(typeof result?.then, 'function');
+    await assert.rejects(result, /VERCEL_ERROR_LOG_PATH is required/);
+  });
+
   it('writes prompts for repeated error candidates in dry-run mode', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
     const logPath = join(directory, 'vercel.jsonl');
@@ -60,7 +74,10 @@ describe('vercel error remediator worker', () => {
       logger: silentLogger,
     });
     assert.equal(repeated.candidates.length, 0);
-    assert.deepEqual(repeated.actions, []);
+    assert.deepEqual(
+      repeated.actions.map((action) => action.type),
+      ['email_skipped']
+    );
   });
 
   it('does not let a dry run consume a candidate before autofix is enabled', async () => {

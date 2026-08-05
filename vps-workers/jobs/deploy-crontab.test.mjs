@@ -223,12 +223,13 @@ describe('deploy crontab', () => {
     );
     assert.match(
       releaseHelper,
-      /tsx_bin="\$repo_dir\/node_modules\/\.bin\/tsx"/
+      /tsx_bin="\$repo_dir\/apps\/web\/node_modules\/\.bin\/tsx"/
     );
     assert.doesNotMatch(
       releaseHelper,
-      /pnpm .*exec tsx/
+      /tsx_bin="\$repo_dir\/node_modules\/\.bin\/tsx"/
     );
+    assert.doesNotMatch(releaseHelper, /pnpm .*exec tsx/);
     assert.match(
       releaseHelper,
       /Direct-worker checkout is missing \$script_path\.[\s\S]*?exit 1/

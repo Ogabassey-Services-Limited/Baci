@@ -21,4 +21,25 @@ describe('app entrypoint', () => {
 
     expect(callOrder).toEqual(['monitoring', 'router']);
   });
+
+  it('still loads Expo Router when error monitoring is disabled', () => {
+    const routerEntry = jest.fn();
+    jest.resetModules();
+    jest.doMock('react-native-gesture-handler', () => ({}));
+    jest.doMock('react-native-reanimated', () => ({}));
+    jest.doMock('expo-crypto', () => ({ getRandomValues: jest.fn() }));
+    jest.doMock('./services/error-monitoring', () => ({
+      initializeErrorMonitoring: () => false,
+    }));
+    jest.doMock('expo-router/entry', () => {
+      routerEntry();
+      return {};
+    });
+
+    jest.isolateModules(() => {
+      require('./index.js');
+    });
+
+    expect(routerEntry).toHaveBeenCalledTimes(1);
+  });
 });

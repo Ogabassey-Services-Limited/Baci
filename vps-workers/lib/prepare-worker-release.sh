@@ -91,7 +91,7 @@ do
   fi
 done
 
-tsx_bin="$repo_dir/node_modules/.bin/tsx"
+tsx_bin="$repo_dir/apps/web/node_modules/.bin/tsx"
 if [ ! -x "$tsx_bin" ] || ! "$tsx_bin" --version >/dev/null; then
   echo "Direct-worker checkout is missing the reviewed web toolchain." >&2
   exit 1

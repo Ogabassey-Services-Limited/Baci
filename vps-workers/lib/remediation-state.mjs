@@ -11,6 +11,7 @@ import {
 import { dirname } from 'node:path';
 
 const MAX_ENTRIES = 2_000;
+const NOTIFICATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 const DEFAULT_RESERVATION_TTL_MS = 15 * 60 * 1_000;
 const DEFAULT_RETRY_DELAY_MS = 6 * 60 * 60 * 1_000;
 const STALE_LOCK_MS = 2 * 60 * 1_000;
@@ -193,6 +194,17 @@ export function createRemediationState({
             report: notification.report,
           };
         }
+        const notificationCutoff = nowMs - NOTIFICATION_RETENTION_MS;
+        state.notifications = Object.fromEntries(
+          Object.entries(state.notifications)
+            .filter(
+              ([, entry]) => Date.parse(entry.recordedAt) >= notificationCutoff
+            )
+            .sort(([, left], [, right]) =>
+              right.recordedAt.localeCompare(left.recordedAt)
+            )
+            .slice(0, MAX_ENTRIES)
+        );
         persistState(path, state);
         return true;
       });

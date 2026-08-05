@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
+import { runRemediationWorker } from '../lib/remediation-worker.mjs';
 import { fetchSentryRemediationCandidates } from '../lib/sentry-error-events.mjs';
-import { runVercelErrorRemediator } from './vercel-error-remediator.mjs';
 
 export function runSentryMobileErrorRemediator({
   autofixRunner,
@@ -20,7 +20,7 @@ export function runSentryMobileErrorRemediator({
       `${outputDir}/handled-state.json`,
   };
 
-  return runVercelErrorRemediator({
+  return runRemediationWorker({
     autofixRunner,
     candidateLoader: fetchSentryRemediationCandidates,
     env: remediatorEnvironment,

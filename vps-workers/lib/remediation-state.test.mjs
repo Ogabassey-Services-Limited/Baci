@@ -57,6 +57,28 @@ describe('remediation state', () => {
     assert.deepEqual(secondWorker.pending([candidate]), []);
   });
 
+  it('fails closed while another process holds the state lock', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
+    const path = join(directory, 'handled.json');
+    const state = createRemediationState({ path });
+    writeFileSync(`${path}.lock`, 'busy');
+
+    assert.deepEqual(state.pending([candidate]), []);
+    assert.equal(state.complete({ handledCandidates: [candidate] }), false);
+  });
+
+  it('recovers a candidate after a state lock becomes stale', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
+    const path = join(directory, 'handled.json');
+    writeFileSync(`${path}.lock`, 'stale');
+    const state = createRemediationState({
+      now: () => Date.now() + 2 * 60 * 1_000 + 1,
+      path,
+    });
+
+    assert.deepEqual(state.pending([candidate]), [candidate]);
+  });
+
   it('releases an abandoned reservation after its lease expires', () => {
     const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
     const path = join(directory, 'handled.json');
@@ -127,5 +149,48 @@ describe('remediation state', () => {
     ]);
     assert.equal(state.acknowledgeNotification('report-1'), true);
     assert.deepEqual(createRemediationState({ path }).notifications(), []);
+  });
+
+  it('expires and caps notifications after inserting a new report', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
+    const path = join(directory, 'handled.json');
+    const nowMs = Date.parse('2026-08-05T12:00:00Z');
+    const report = { html: '<p>incident</p>', subject: 'Incident', text: 'x' };
+    const notifications = Object.fromEntries([
+      [
+        'expired',
+        {
+          recordedAt: '2026-06-01T00:00:00Z',
+          report,
+        },
+      ],
+      ...Array.from({ length: 2_000 }, (_, index) => [
+        `existing-${index}`,
+        {
+          recordedAt: new Date(nowMs - index - 1).toISOString(),
+          report,
+        },
+      ]),
+    ]);
+    writeFileSync(
+      path,
+      JSON.stringify({
+        handled: {},
+        notifications,
+        reservations: {},
+        version: 2,
+      })
+    );
+
+    const state = createRemediationState({ now: () => nowMs, path });
+    assert.equal(
+      state.complete({ notification: { id: 'newest', report } }),
+      true
+    );
+    const persisted = JSON.parse(readFileSync(path, 'utf8')).notifications;
+    assert.equal(Object.keys(persisted).length, 2_000);
+    assert.ok(persisted.newest);
+    assert.equal(persisted.expired, undefined);
+    assert.equal(persisted['existing-1999'], undefined);
   });
 });

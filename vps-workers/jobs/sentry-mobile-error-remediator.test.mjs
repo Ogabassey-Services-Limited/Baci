@@ -47,6 +47,69 @@ describe('Sentry mobile error remediator', () => {
     assert.equal(first.candidates.length, 1);
     assert.equal(first.actions[0].type, 'prompt_written');
     assert.equal(second.candidates.length, 0);
-    assert.deepEqual(second.actions, []);
+    assert.deepEqual(
+      second.actions.map((action) => action.type),
+      ['email_skipped']
+    );
+  });
+
+  it('rejects when the dedicated Sentry credentials are missing', async () => {
+    await assert.rejects(
+      runSentryMobileErrorRemediator({
+        env: {
+          BACI_SENTRY_REMEDIATION_OUTPUT_DIR: mkdtempSync(
+            join(tmpdir(), 'sentry-remediator-')
+          ),
+          SENTRY_ORG: 'ogabassey',
+          SENTRY_PROJECT: 'storefront',
+        },
+        fetchFn: () => {
+          throw new Error('fetch must not run without credentials');
+        },
+        logger: silentLogger,
+      }),
+      /SENTRY_REMEDIATION_AUTH_TOKEN/
+    );
+  });
+
+  it('reports the event:read requirement when Sentry returns 403', async () => {
+    await assert.rejects(
+      runSentryMobileErrorRemediator({
+        env: {
+          BACI_SENTRY_REMEDIATION_OUTPUT_DIR: mkdtempSync(
+            join(tmpdir(), 'sentry-remediator-')
+          ),
+          SENTRY_REMEDIATION_AUTH_TOKEN: 'token',
+          SENTRY_ORG: 'ogabassey',
+          SENTRY_PROJECT: 'storefront',
+        },
+        fetchFn: async () => new Response('forbidden', { status: 403 }),
+        logger: silentLogger,
+      }),
+      /HTTP 403; SENTRY_REMEDIATION_AUTH_TOKEN requires event:read/
+    );
+  });
+
+  it('rejects an unsafe Sentry pagination URL through the worker', async () => {
+    await assert.rejects(
+      runSentryMobileErrorRemediator({
+        env: {
+          BACI_SENTRY_REMEDIATION_OUTPUT_DIR: mkdtempSync(
+            join(tmpdir(), 'sentry-remediator-')
+          ),
+          SENTRY_REMEDIATION_AUTH_TOKEN: 'token',
+          SENTRY_ORG: 'ogabassey',
+          SENTRY_PROJECT: 'storefront',
+        },
+        fetchFn: async () =>
+          new Response('[]', {
+            headers: {
+              link: '<https://attacker.example/api/0/issues/>; rel="next"; results="true"',
+            },
+          }),
+        logger: silentLogger,
+      }),
+      /unsafe next-page URL/
+    );
   });
 });

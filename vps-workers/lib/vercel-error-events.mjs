@@ -30,6 +30,24 @@ function firstNumber(...values) {
   return null;
 }
 
+function firstTimestamp(...values) {
+  for (const value of values) {
+    const parsed =
+      typeof value === 'number' && Number.isFinite(value)
+        ? value
+        : typeof value === 'string' && value.trim()
+          ? Date.parse(value.trim())
+          : Number.NaN;
+    if (Number.isFinite(parsed)) {
+      const date = new Date(parsed);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+  }
+  return '';
+}
+
 export function normalizeVercelLogEvent(raw) {
   const entry = raw && typeof raw === 'object' ? raw : {};
   const error =
@@ -65,7 +83,7 @@ export function normalizeVercelLogEvent(raw) {
       entry.status,
       entry.response?.statusCode
     ),
-    timestamp: firstString(entry.timestamp, entry.time, entry.createdAt),
+    timestamp: firstTimestamp(entry.timestamp, entry.time, entry.createdAt),
   };
 }
 

@@ -72,7 +72,10 @@ describe('vercel error remediator retries', () => {
       VERCEL_ERROR_LOG_PATH: logPath,
       BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
       BACI_REMEDIATION_OUTPUT_DIR: join(directory, 'out'),
+      BACI_REMEDIATION_RETRY_DELAY_MS: '50',
     };
+    let nowMs = Date.parse('2026-08-05T00:00:00.000Z');
+    const now = () => nowMs;
     let autofixCalls = 0;
     const autofixRunner = () => {
       autofixCalls += 1;
@@ -85,17 +88,38 @@ describe('vercel error remediator retries', () => {
       autofixRunner,
       env,
       logger: silentLogger,
+      now,
     });
+    nowMs += 49;
     const retried = await runVercelErrorRemediator({
       autofixRunner,
       env,
       logger: silentLogger,
+      now,
+    });
+    nowMs += 2;
+    const eligibleAgain = await runVercelErrorRemediator({
+      autofixRunner,
+      env,
+      logger: silentLogger,
+      now,
     });
 
     assert.equal(blocked.candidates.length, 1);
-    assert.equal(blocked.actions.at(-1).type, 'configuration_blocked');
+    assert.equal(
+      blocked.actions.some((action) => action.type === 'configuration_blocked'),
+      true
+    );
     assert.equal(retried.candidates.length, 0);
-    assert.equal(retried.actions.length, 0);
-    assert.equal(autofixCalls, 1);
+    assert.equal(
+      retried.actions.some((action) => action.type === 'email_skipped'),
+      true
+    );
+    assert.equal(eligibleAgain.candidates.length, 1);
+    assert.equal(
+      eligibleAgain.actions.some((action) => action.type === 'no_changes'),
+      true
+    );
+    assert.equal(autofixCalls, 2);
   });
 });

@@ -187,7 +187,14 @@ describe('deploy source guards', () => {
   it('validates the direct worker toolchain without allowing pnpm to mutate it', () => {
     const source = readFileSync(releaseHelper, 'utf8');
 
-    assert.match(source, /tsx_bin="\$repo_dir\/node_modules\/\.bin\/tsx"/);
+    assert.match(
+      source,
+      /tsx_bin="\$repo_dir\/apps\/web\/node_modules\/\.bin\/tsx"/
+    );
+    assert.doesNotMatch(
+      source,
+      /tsx_bin="\$repo_dir\/node_modules\/\.bin\/tsx"/
+    );
     assert.doesNotMatch(source, /pnpm .*exec tsx/);
   });
 });
