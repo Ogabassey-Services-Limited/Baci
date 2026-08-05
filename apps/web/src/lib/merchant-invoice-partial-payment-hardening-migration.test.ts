@@ -77,6 +77,9 @@ describe('merchant invoice partial payment hardening migration', () => {
 
   it('rechecks the webhook-completed transaction but exempts its applied replay', () => {
     expect(completedTransactionRepairMigration).toContain(
+      'CREATE OR REPLACE FUNCTION public.complete_order_gateway_payment(\n  p_transaction_id uuid,'
+    );
+    expect(completedTransactionRepairMigration).toContain(
       "v_txn_status IN ('pending', 'completed')"
     );
     expect(completedTransactionRepairMigration).toMatch(

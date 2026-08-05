@@ -1,6 +1,7 @@
 -- Recheck marked exact merchant-invoice payments even after the webhook has
 -- flipped the transaction, while exempting the applied transaction's retry.
 
+CREATE OR REPLACE FUNCTION public.complete_order_gateway_payment(
   p_transaction_id uuid,
   p_order_id uuid,
   p_gateway_response jsonb DEFAULT NULL,
