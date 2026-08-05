@@ -39,6 +39,8 @@ describe('remediation Codex command', () => {
     assert.equal(result.command, 'docker');
     assert.equal(result.args.includes('ALL'), true);
     assert.equal(result.args.includes('no-new-privileges'), true);
+    assert.equal(result.args.includes('2'), true);
+    assert.equal(result.args.filter((value) => value === '4g').length, 2);
     assert.equal(
       result.args.includes('--dangerously-bypass-approvals-and-sandbox'),
       true
