@@ -37,6 +37,17 @@ describe('remediation Codex command', () => {
     });
 
     assert.equal(result.command, 'docker');
+    assert.deepEqual(result.cleanup, {
+      args: ['rm', '-f', 'baci-remediation-worktree'],
+      command: 'docker',
+    });
+    assert.deepEqual(result.args.slice(0, 5), [
+      'run',
+      '--rm',
+      '--name',
+      'baci-remediation-worktree',
+      '--cap-drop',
+    ]);
     assert.equal(result.args.includes('ALL'), true);
     assert.equal(result.args.includes('no-new-privileges'), true);
     assert.equal(result.args.includes('1'), true);

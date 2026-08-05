@@ -215,6 +215,62 @@ describe('vercel error remediator worker', () => {
     );
   });
 
+  it('checkpoints each completed candidate before a later candidate aborts the run', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
+    const logPath = join(directory, 'vercel.jsonl');
+    const outputDir = join(directory, 'out');
+    writeFileSync(
+      logPath,
+      [
+        JSON.stringify({ level: 'error', message: 'Error: first', route: '/a' }),
+        JSON.stringify({ level: 'error', message: 'Error: first', route: '/a' }),
+        JSON.stringify({ level: 'error', message: 'Error: second', route: '/b' }),
+        JSON.stringify({ level: 'error', message: 'Error: second', route: '/b' }),
+      ].join('\n')
+    );
+    let calls = 0;
+
+    await assert.rejects(
+      runVercelErrorRemediator({
+        autofixRunner() {
+          calls += 1;
+          if (calls === 1) return { type: 'no_changes' };
+          throw new Error('codex failed');
+        },
+        env: {
+          BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+          BACI_REMEDIATION_OUTPUT_DIR: outputDir,
+          VERCEL_ERROR_LOG_PATH: logPath,
+        },
+        logger: {
+          ...silentLogger,
+          error() {
+            throw new Error('worker interrupted');
+          },
+        },
+      }),
+      /worker interrupted/
+    );
+
+    calls = 0;
+    const retry = await runVercelErrorRemediator({
+      autofixRunner() {
+        calls += 1;
+        return { type: 'no_changes' };
+      },
+      env: {
+        BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: outputDir,
+        VERCEL_ERROR_LOG_PATH: logPath,
+      },
+      logger: silentLogger,
+    });
+
+    assert.equal(retry.candidates.length, 1);
+    assert.equal(retry.candidates[0].sample.route, '/b');
+    assert.equal(calls, 1);
+  });
+
   it('reports email failures without failing the worker', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
     const logPath = join(directory, 'vercel.jsonl');

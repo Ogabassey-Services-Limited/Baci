@@ -129,17 +129,28 @@ export async function runVercelErrorRemediator({
           ['no_changes', 'policy_blocked', 'pr_opened'].includes(result.type)
         ) {
           handledCandidates.push(candidate);
+          if (!state.complete({ handledCandidates: [candidate] })) {
+            throw new Error('remediation state is busy');
+          }
+        } else if (!state.complete({ releaseCandidates: [candidate] })) {
+          throw new Error('remediation state is busy');
         }
       } catch (error) {
-        logger.error(`[${workerName}] autofix failed:`, error);
         actions.push({
           detail: error instanceof Error ? error.message : String(error),
           fingerprint: candidate.fingerprint,
           type: 'autofix_failed',
         });
+        if (!state.complete({ releaseCandidates: [candidate] })) {
+          throw new Error('remediation state is busy');
+        }
+        logger.error(`[${workerName}] autofix failed:`, error);
       }
     } else {
       handledCandidates.push(candidate);
+      if (!state.complete({ handledCandidates: [candidate] })) {
+        throw new Error('remediation state is busy');
+      }
     }
   }
   const policy = evaluateMergePolicy({
@@ -159,16 +170,9 @@ export async function runVercelErrorRemediator({
     return { actions, candidates, email, mode, policy, report };
   }
 
-  const handledFingerprints = new Set(
-    handledCandidates.map((candidate) => candidate.fingerprint)
-  );
   const notificationId = notificationIdFor(workerName, candidates);
   const completed = state.complete({
-    handledCandidates,
     notification: { id: notificationId, report },
-    releaseCandidates: candidates.filter(
-      (candidate) => !handledFingerprints.has(candidate.fingerprint)
-    ),
   });
   if (!completed) {
     throw new Error('remediation state is busy');

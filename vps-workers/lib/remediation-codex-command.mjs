@@ -1,8 +1,17 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 function bindMount(source, destination, { readonly = false } = {}) {
   return `type=bind,src=${source},dst=${destination}${readonly ? ',readonly' : ''}`;
+}
+
+function containerNameFor(worktreeDir) {
+  const suffix = basename(worktreeDir)
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, '-')
+    .replace(/^[^a-z0-9]+/, '')
+    .slice(0, 42);
+  return `baci-remediation-${suffix || process.pid}`;
 }
 
 export function buildRemediationCodexCommand({
@@ -35,9 +44,13 @@ export function buildRemediationCodexCommand({
       'BACI_CODEX_CONTAINER_BIN is required for Docker execution'
     );
   }
+  const dockerBin = env.DOCKER_BIN || 'docker';
+  const containerName = containerNameFor(worktreeDir);
   const dockerArgs = [
     'run',
     '--rm',
+    '--name',
+    containerName,
     '--cap-drop',
     'ALL',
     '--security-opt',
@@ -109,5 +122,9 @@ export function buildRemediationCodexCommand({
     prompt
   );
 
-  return { args: dockerArgs, command: env.DOCKER_BIN || 'docker' };
+  return {
+    args: dockerArgs,
+    cleanup: { args: ['rm', '-f', containerName], command: dockerBin },
+    command: dockerBin,
+  };
 }

@@ -199,10 +199,21 @@ export function runRemediationAutofix({
       repoDir,
       worktreeDir,
     });
-    const codexOutput = runChecked(codexCommand.command, codexCommand.args, {
-      ...worktreeCommandOptions,
-      timeout: readPositiveInt(env.BACI_CODEX_TIMEOUT_MS, 6 * 60 * 1000),
-    });
+    let codexOutput;
+    try {
+      codexOutput = runChecked(codexCommand.command, codexCommand.args, {
+        ...worktreeCommandOptions,
+        timeout: readPositiveInt(env.BACI_CODEX_TIMEOUT_MS, 6 * 60 * 1000),
+      });
+    } finally {
+      if (codexCommand.cleanup) {
+        runner(codexCommand.cleanup.command, codexCommand.cleanup.args, {
+          cwd: worktreeDir,
+          env: childEnv,
+          shell: false,
+        });
+      }
+    }
     const resultPath = writeRemediationResultArtifact({
       candidate,
       output: codexOutput,

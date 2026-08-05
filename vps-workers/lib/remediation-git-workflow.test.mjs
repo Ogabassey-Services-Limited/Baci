@@ -275,5 +275,52 @@ describe('remediation git workflow', () => {
       dockerCall.includes('--dangerously-bypass-approvals-and-sandbox'),
       true
     );
+    assert.equal(
+      calls.some(
+        (call) =>
+          call.slice(0, 3).join(' ') === 'docker rm -f' &&
+          call[3]?.startsWith('baci-remediation-abc123-')
+      ),
+      true
+    );
+  });
+
+  it('force-removes a Docker container when Codex times out', () => {
+    const { calls, runner: baseRunner } = makeRunner({ statusOutput: '' });
+    const runner = (command, args, options) => {
+      const result = baseRunner(command, args, options);
+      if (command === 'docker' && args[0] === 'run') {
+        return { error: new Error('spawnSync docker ETIMEDOUT') };
+      }
+      return result;
+    };
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {
+            BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+            BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
+            BACI_REMEDIATION_RUN_ID: 'timeout-run',
+            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+            BACI_REPO_DIR: '/repo',
+            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+            CODEX_HOME: '/home/worker/.codex',
+            HOME: '/home/worker',
+          },
+          runner,
+        }),
+      /ETIMEDOUT/
+    );
+
+    assert.equal(
+      calls.some(
+        (call) =>
+          call.join(' ') ===
+          'docker rm -f baci-remediation-abc123-timeout-run'
+      ),
+      true
+    );
   });
 });
