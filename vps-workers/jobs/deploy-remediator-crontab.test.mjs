@@ -33,5 +33,11 @@ describe('remediation deploy crontab', () => {
       )?.length,
       2
     );
+    assert.match(deployScript, /CODEX_CONTAINER_BIN=.*find/);
+    assert.equal(
+      deployScript.match(/BACI_CODEX_CONTAINER_BIN=\$CODEX_CONTAINER_BIN/g)
+        ?.length,
+      2
+    );
   });
 });

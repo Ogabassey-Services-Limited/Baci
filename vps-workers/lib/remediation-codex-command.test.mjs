@@ -27,6 +27,7 @@ describe('remediation Codex command', () => {
       codexBin: '/opt/host/codex',
       env: {
         BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+        BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
         CODEX_HOME: '/home/worker/.codex',
         HOME: '/home/worker',
       },
@@ -57,6 +58,29 @@ describe('remediation Codex command', () => {
     assert.equal(
       result.args.includes('type=bind,src=/repo/.git,dst=/repo/.git,readonly'),
       true
+    );
+    assert.equal(
+      result.args.includes(
+        'type=bind,src=/opt/host/codex-native,dst=/opt/codex/bin/codex,readonly'
+      ),
+      true
+    );
+  });
+
+  it('fails closed without an explicit native Codex binary', () => {
+    assert.throws(
+      () =>
+        buildRemediationCodexCommand({
+          codexBin: '/opt/host/codex',
+          env: {
+            BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+            HOME: '/home/worker',
+          },
+          prompt: 'Investigate safely.',
+          repoDir: '/repo',
+          worktreeDir: '/worktree',
+        }),
+      /BACI_CODEX_CONTAINER_BIN is required/
     );
   });
 });

@@ -287,6 +287,7 @@ describe('remediation git workflow', () => {
       candidate,
       env: {
         BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+        BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
         BACI_REMEDIATION_OUTPUT_DIR: mkdtempSync(
           join(tmpdir(), 'baci-remediation-output-')
         ),

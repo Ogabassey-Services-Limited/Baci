@@ -29,6 +29,12 @@ export function buildRemediationCodexCommand({
   }
 
   const codexHome = env.CODEX_HOME || join(env.HOME, '.codex');
+  const containerCodexBin = env.BACI_CODEX_CONTAINER_BIN;
+  if (!containerCodexBin) {
+    throw new Error(
+      'BACI_CODEX_CONTAINER_BIN is required for Docker execution'
+    );
+  }
   const dockerArgs = [
     'run',
     '--rm',
@@ -59,7 +65,7 @@ export function buildRemediationCodexCommand({
       readonly: true,
     }),
     '--mount',
-    bindMount(codexBin, '/opt/codex/bin/codex', { readonly: true }),
+    bindMount(containerCodexBin, '/opt/codex/bin/codex', { readonly: true }),
   ];
 
   const dependencyRoot = env.BACI_REMEDIATION_DEPENDENCY_ROOT || repoDir;
