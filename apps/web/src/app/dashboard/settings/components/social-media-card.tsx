@@ -62,6 +62,7 @@ const SOCIAL_FIELDS = [
 interface SocialMediaCardProps {
   initialSocialMedia: Record<string, string>;
   merchantId: string;
+  onMerchantMutationSaved?: (merchantId: string) => Promise<void> | void;
   onSocialMediaChange: (socialMedia: Record<string, string>) => void;
 }
 
@@ -81,6 +82,7 @@ export function SocialMediaCard({
 function SocialMediaCardContents({
   initialSocialMedia,
   merchantId,
+  onMerchantMutationSaved,
   onSocialMediaChange,
 }: SocialMediaCardProps) {
   const { toast } = useToast();
@@ -121,6 +123,8 @@ function SocialMediaCardContents({
         // generic updateMerchant hook (which now throws on it). Persist via the
         // dedicated, server-allowlisted /api/merchant/settings PATCH route.
         await updateSocial(merchantId, dataToSave);
+        if (saveGeneration !== saveGenerationRef.current) return;
+        await onMerchantMutationSaved?.(merchantId);
         if (saveGeneration !== saveGenerationRef.current) return;
         setSaveStatus('saved');
         if (resetStatusTimeoutRef.current) {

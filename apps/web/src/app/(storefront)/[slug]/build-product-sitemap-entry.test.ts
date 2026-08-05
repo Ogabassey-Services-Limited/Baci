@@ -106,4 +106,24 @@ describe('buildProductSitemapEntry', () => {
       'https://zorvexa.usebaci.com/laptops/legacy-category-laptop'
     );
   });
+
+  it('uses the resolvable product id when an active sitemap product has no slug', () => {
+    const entry = buildProductSitemapEntry({
+      product: {
+        id: '937e9a42-2169-48cc-8094-e228841bc23e',
+        name: 'Red Phone',
+        slug: null,
+        category: 'Phones',
+        canonical_url: null,
+        images: [],
+        updated_at: null,
+        categories: { slug: 'phones' },
+      },
+      storeUrl: 'https://zorvexa.usebaci.com',
+    });
+
+    expect(entry.url).toBe(
+      'https://zorvexa.usebaci.com/phones/937e9a42-2169-48cc-8094-e228841bc23e'
+    );
+  });
 });

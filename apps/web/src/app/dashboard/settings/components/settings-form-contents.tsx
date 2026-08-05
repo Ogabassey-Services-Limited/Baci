@@ -280,6 +280,7 @@ export function SettingsFormContents({
         <SocialMediaCard
           initialSocialMedia={buildSocialMediaDraft(initialMerchant)}
           merchantId={initialMerchant.id}
+          onMerchantMutationSaved={refreshProfileBaseline}
           onSocialMediaChange={(socialMedia) => {
             socialDraftRevisionRef.current += 1;
             setSocialMediaEdits(socialMedia);

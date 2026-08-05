@@ -4,6 +4,7 @@ import type { CachedMerchant } from '@/lib/cached-data';
 
 const updateMerchant = vi.hoisted(() => vi.fn());
 const saveSettings = vi.hoisted(() => vi.fn());
+const refreshMerchantSettingsSnapshot = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({ reloadMerchant: vi.fn(), updateMerchant }),
@@ -31,17 +32,28 @@ vi.mock('./hero-carousel-card', () => ({
 }));
 vi.mock('./social-media-card', () => ({
   SocialMediaCard: ({
+    merchantId,
+    onMerchantMutationSaved,
     onSocialMediaChange,
   }: {
+    merchantId: string;
+    onMerchantMutationSaved: (merchantId: string) => Promise<void>;
     onSocialMediaChange: (socialMedia: Record<string, string>) => void;
   }) => (
     <button
       type="button"
-      onClick={() => onSocialMediaChange({ twitter: '@newer-draft' })}
+      onClick={() => {
+        onSocialMediaChange({ twitter: '@newer-draft' });
+        void onMerchantMutationSaved(merchantId);
+      }}
     >
       Edit social links
     </button>
   ),
+}));
+vi.mock('./refresh-merchant-settings-snapshot', () => ({
+  refreshMerchantSettingsSnapshot: (...args: unknown[]) =>
+    refreshMerchantSettingsSnapshot(...args),
 }));
 vi.mock('./save-settings', () => ({
   saveSettings: (...args: unknown[]) => saveSettings(...args),
@@ -88,6 +100,7 @@ const merchant: CachedMerchant = {
 describe('SettingsFormContents', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    refreshMerchantSettingsSnapshot.mockResolvedValue(undefined);
   });
 
   it('preserves newer profile, social, and hero drafts after an in-flight save resolves', async () => {
@@ -245,5 +258,42 @@ describe('SettingsFormContents', () => {
         { merchantId: 'merchant-a', skipReload: true }
       );
     });
+  });
+
+  it('uses the refreshed OCC baseline after its own social autosave', async () => {
+    refreshMerchantSettingsSnapshot.mockResolvedValueOnce({
+      business_name: 'Merchant A',
+      country: 'NG',
+      site_description: '',
+      support_email: '',
+      support_phone: '',
+      updated_at: '2026-08-05T08:00:00.000Z',
+    });
+    saveSettings.mockResolvedValueOnce({ snapshot: undefined });
+    render(
+      <SettingsFormContents
+        initialMerchant={merchant}
+        initialBlogEnabled={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit social links' }));
+    await waitFor(() =>
+      expect(refreshMerchantSettingsSnapshot).toHaveBeenCalledWith('merchant-a')
+    );
+    fireEvent.change(screen.getByLabelText('Store description'), {
+      target: { value: 'Updated after social save' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() =>
+      expect(saveSettings).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          profileBaseline: expect.objectContaining({
+            updated_at: '2026-08-05T08:00:00.000Z',
+          }),
+        })
+      )
+    );
   });
 });

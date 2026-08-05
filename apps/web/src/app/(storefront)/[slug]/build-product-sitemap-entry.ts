@@ -28,7 +28,7 @@ export function buildProductSitemapEntry({
     {
       id: product.id,
       slug: product.slug ?? undefined,
-      name: product.name ?? '',
+      name: product.slug ? (product.name ?? '') : product.id,
       category: product.category,
       categories: normalizedJoinedCategory,
       canonical_url: product.canonical_url,
