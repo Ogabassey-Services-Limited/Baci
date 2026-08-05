@@ -29,6 +29,16 @@ if [[ ! "$deployed_sha" =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
+expected_workflow_sha="${BACI_EXPECTED_APP_SHA:-${GITHUB_SHA:-}}"
+if [[ ! "$expected_workflow_sha" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Missing or invalid expected workflow SHA." >&2
+  exit 1
+fi
+if [ "$deployed_sha" != "$expected_workflow_sha" ]; then
+  echo "Deployed GIGL worker does not match the current workflow SHA." >&2
+  exit 1
+fi
+
 repo_dir="$(
   awk '
     /^BACI_REPO_DIR=/ {

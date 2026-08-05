@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
+import { createGiglTrackingWorkerClient } from '@/lib/gigl-tracking-worker-client';
 import { logger } from '@/lib/logger';
 import { isGiglRuntimeConfigured } from '@/lib/shipping/providers/gigl.constants';
-import { createServiceClient } from '@/lib/supabase/service';
 import { createCronBatchSizeSchema } from '@/schemas/cron-batch-size';
 import { runGiglTrackingMonitorBatch } from './run-gigl-tracking-monitor-batch';
 
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     });
   }
 
-  const supabase = createServiceClient('event-pipeline');
+  const supabase = createGiglTrackingWorkerClient(process.env);
   const workerId = `gigl-tracking-${crypto.randomUUID()}`;
   const result = await runGiglTrackingMonitorBatch({
     batchSize: parsedBatchSize.data,

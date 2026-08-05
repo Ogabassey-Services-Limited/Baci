@@ -26,6 +26,7 @@ function fixture({
   dirtyCheckout = false,
   duplicateTracking = false,
   staleCheckout = false,
+  staleWorkflowSha = false,
   staleTrackingCommand = false,
   unusableCapability = false,
 } = {}) {
@@ -96,15 +97,18 @@ esac
     fakeBin,
     remote,
     repoSha: staleCheckout ? 'b'.repeat(40) : deployedSha,
+    workflowSha: staleWorkflowSha ? 'b'.repeat(40) : deployedSha,
   };
 }
 
 function verify(options) {
-  const { crontab, dirtyCheckout, fakeBin, remote, repoSha } = fixture(options);
+  const { crontab, dirtyCheckout, fakeBin, remote, repoSha, workflowSha } =
+    fixture(options);
   return spawnSync('bash', [verifier], {
     encoding: 'utf8',
     env: {
       ...process.env,
+      BACI_EXPECTED_APP_SHA: workflowSha,
       FAKE_CRONTAB: crontab,
       FAKE_REPO_DIRTY: dirtyCheckout ? '1' : '0',
       FAKE_REPO_SHA: repoSha,
@@ -144,6 +148,13 @@ describe('GIGL direct-worker deployment gate', () => {
       result.stderr,
       /checkout does not match the deployed worker SHA/
     );
+  });
+
+  it('blocks deployment when the installed worker is older than the workflow checkout', () => {
+    const result = verify({ staleWorkflowSha: true });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /does not match the current workflow SHA/);
   });
 
   it('blocks deployment when the delegated checkout has uncommitted code', () => {

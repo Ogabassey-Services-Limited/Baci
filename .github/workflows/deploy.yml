@@ -75,6 +75,7 @@ jobs:
         run: vps-workers/bin/verify-cache-invalidation-drain-installed.sh
       - name: Verify production GIGL direct-worker installation
         env:
+          BACI_EXPECTED_APP_SHA: ${{ github.sha }}
           VPS_WORKER_REMOTE_DIR: ${{ vars.VPS_WORKER_REMOTE_DIR || '/home/bassey/baci-workers' }}
         run: vps-workers/bin/verify-gigl-direct-workers-installed.sh
 
