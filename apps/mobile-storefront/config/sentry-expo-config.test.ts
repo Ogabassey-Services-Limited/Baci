@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { buildSentryExpoConfiguration } from './sentry-expo-config';
 
 const completeEnvironment = {
@@ -48,5 +50,21 @@ describe('buildSentryExpoConfiguration', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/disabled/));
 
     warn.mockRestore();
+  });
+
+  it('keeps generated native Sentry credentials out of git on both platforms', () => {
+    const ignoreRules = readFileSync(
+      resolve(__dirname, '../.gitignore'),
+      'utf8'
+    )
+      .split('\n')
+      .map((rule) => rule.trim());
+
+    expect(ignoreRules).toEqual(
+      expect.arrayContaining([
+        'android/sentry.properties',
+        'ios/sentry.properties',
+      ])
+    );
   });
 });

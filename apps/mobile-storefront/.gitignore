@@ -19,6 +19,7 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 android/sentry.properties
+ios/sentry.properties
 
 # Metro
 .metro-health-check*
