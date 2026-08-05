@@ -225,7 +225,11 @@ describe('runPasswordSignUp', () => {
 
     const result = await runPasswordSignUp(makeOptions());
 
-    expect(result).toEqual({ error: null, needsEmailConfirmation: true });
+    expect(result).toEqual({
+      error: null,
+      needsEmailConfirmation: true,
+      signupAttemptId: '123e4567-e89b-42d3-a456-426614174000',
+    });
     expect(mocks.captureMobileSignupLifecycle).toHaveBeenCalledWith(
       expect.objectContaining({
         attemptId: '123e4567-e89b-42d3-a456-426614174000',

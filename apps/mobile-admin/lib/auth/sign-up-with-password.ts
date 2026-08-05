@@ -1,9 +1,6 @@
 /**
- * Account-only email/password sign-up.
- *
- * Shared by merchant and staff registration. It creates only the Supabase Auth
- * identity/session; merchant provisioning remains a separate authenticated step.
- * This relies on handle_new_user() remaining a no-op. See the regression tests.
+ * Account-only email/password signup for merchant and staff registration.
+ * Merchant provisioning remains separate; handle_new_user() must stay a no-op.
  */
 
 import { isAuthApiError, type Session, type User } from '@supabase/supabase-js';
@@ -24,6 +21,7 @@ export interface PasswordSignUpResult {
   needsEmailConfirmation?: boolean;
   /** A native session was committed to the global auth store. */
   sessionEstablished?: boolean;
+  signupAttemptId?: string;
 }
 
 interface SignUpStateUpdate {
@@ -256,7 +254,11 @@ export async function runPasswordSignUp({
         retryAttempted: dnsRetryAttempted,
       }
     );
-    return { error: null, needsEmailConfirmation: true };
+    return {
+      error: null,
+      needsEmailConfirmation: true,
+      signupAttemptId: attemptId,
+    };
   } catch (caught) {
     const isConnectivityFailure = isConnectivityError(caught);
     const message = isConnectivityFailure

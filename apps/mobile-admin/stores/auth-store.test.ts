@@ -206,7 +206,11 @@ describe('useAuthStore verifySignupOtp', () => {
 
     const result = await useAuthStore
       .getState()
-      .verifySignupOtp('merchant@example.test', '123456');
+      .verifySignupOtp(
+        'merchant@example.test',
+        '123456',
+        '123e4567-e89b-42d3-a456-426614174000'
+      );
 
     expect(result).toEqual({ error: null, sessionEstablished: true });
     expect(useAuthStore.getState()).toMatchObject({
@@ -217,5 +221,11 @@ describe('useAuthStore verifySignupOtp', () => {
       user: session.user,
     });
     expect(mocks.clearAdminQueryCache).toHaveBeenCalledOnce();
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attemptId: '123e4567-e89b-42d3-a456-426614174000',
+        eventCode: 'signup_verification_started',
+      })
+    );
   });
 });

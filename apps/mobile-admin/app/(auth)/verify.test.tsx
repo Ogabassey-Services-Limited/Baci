@@ -18,53 +18,28 @@ const mocks = vi.hoisted(() => ({
   resend: vi.fn(),
 }));
 
-interface TextInputHandle {
-  focus: () => void;
-}
-
 interface TextInputProps {
   accessibilityLabel?: string;
-  maxLength?: number;
   onChangeText?: (text: string) => void;
   onFocus?: () => void;
   onKeyPress?: (event: { nativeEvent: { key: string } }) => void;
-  placeholder?: string;
   value?: string;
 }
 
 vi.mock('react-native', async () => {
   const React = await import('react');
 
-  const TextInput = React.forwardRef<TextInputHandle, TextInputProps>(
-    (
-      {
-        accessibilityLabel,
-        maxLength,
-        onChangeText,
-        onFocus,
-        onKeyPress,
-        placeholder,
-        value,
-      },
-      ref
-    ) => {
-      const inputRef = React.useRef<HTMLInputElement>(null);
-
-      React.useImperativeHandle(ref, () => ({
-        focus: () => inputRef.current?.focus(),
-      }));
-
+  const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(
+    ({ accessibilityLabel, onChangeText, onFocus, onKeyPress, value }, ref) => {
       return React.createElement('input', {
         'aria-label': accessibilityLabel,
-        maxLength,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value),
         onFocus,
         onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
           onKeyPress?.({ nativeEvent: { key: event.key } });
         },
-        placeholder,
-        ref: inputRef,
+        ref,
         value: value ?? '',
       });
     }
@@ -136,7 +111,10 @@ vi.mock('expo-router', async () => {
   return {
     Redirect: ({ href }: { href: string }) =>
       React.createElement('span', { 'data-href': href }, 'redirect'),
-    useLocalSearchParams: () => ({ email: 'merchant@example.com' }),
+    useLocalSearchParams: () => ({
+      attemptId: '123e4567-e89b-42d3-a456-426614174000',
+      email: 'merchant@example.com',
+    }),
     useRouter: () => ({
       back: mocks.back,
       replace: mocks.replace,
@@ -179,6 +157,14 @@ vi.mock('@/hooks/useAuth', () => ({
 
 import VerifyScreen from './verify';
 
+function enterVerificationCode() {
+  for (const [index, digit] of ['1', '2', '3', '4', '5', '6'].entries()) {
+    fireEvent.change(screen.getByLabelText(`Digit ${index + 1} of 6`), {
+      target: { value: digit },
+    });
+  }
+}
+
 describe('VerifyScreen OTP keyboard controls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -213,11 +199,7 @@ describe('VerifyScreen OTP keyboard controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next code digit' }));
     expect(screen.getByLabelText('Digit 2 of 6')).toHaveFocus();
 
-    for (const [index, digit] of ['1', '2', '3', '4', '5', '6'].entries()) {
-      fireEvent.change(screen.getByLabelText(`Digit ${index + 1} of 6`), {
-        target: { value: digit },
-      });
-    }
+    enterVerificationCode();
 
     expect(screen.getByLabelText('Digit 6 of 6')).toHaveFocus();
     fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
@@ -225,7 +207,8 @@ describe('VerifyScreen OTP keyboard controls', () => {
     await waitFor(() => {
       expect(mocks.verifySignupOtp).toHaveBeenCalledWith(
         'merchant@example.com',
-        '123456'
+        '123456',
+        '123e4567-e89b-42d3-a456-426614174000'
       );
     });
   });
@@ -238,11 +221,7 @@ describe('VerifyScreen OTP keyboard controls', () => {
     mocks.verifySignupOtp.mockReturnValue(verification.promise);
     render(<VerifyScreen />);
 
-    for (const [index, digit] of ['1', '2', '3', '4', '5', '6'].entries()) {
-      fireEvent.change(screen.getByLabelText(`Digit ${index + 1} of 6`), {
-        target: { value: digit },
-      });
-    }
+    enterVerificationCode();
     fireEvent.click(screen.getByRole('button', { name: 'Verify Email' }));
 
     expect(screen.queryByRole('button', { name: 'Continue setup' })).toBeNull();
@@ -270,11 +249,7 @@ describe('VerifyScreen OTP keyboard controls', () => {
     });
     render(<VerifyScreen />);
 
-    for (const [index, digit] of ['1', '2', '3', '4', '5', '6'].entries()) {
-      fireEvent.change(screen.getByLabelText(`Digit ${index + 1} of 6`), {
-        target: { value: digit },
-      });
-    }
+    enterVerificationCode();
     fireEvent.click(screen.getByRole('button', { name: 'Verify Email' }));
 
     await waitFor(() => {

@@ -106,6 +106,7 @@ describe('runSignupOtpVerification', () => {
 
     await expect(
       runSignupOtpVerification({
+        attemptId: '123e4567-e89b-42d3-a456-426614174000',
         email: 'merchant@example.com',
         getCurrentUserId: () => undefined,
         onResetUserStores: vi.fn(),
@@ -119,6 +120,7 @@ describe('runSignupOtpVerification', () => {
     expect(setState).not.toHaveBeenCalled();
     expect(mocks.captureMobileSignupLifecycle).toHaveBeenCalledWith(
       expect.objectContaining({
+        attemptId: '123e4567-e89b-42d3-a456-426614174000',
         eventCode: 'signup_verification_incomplete',
         failureClass: 'incomplete_response',
         outcome: 'failed',
@@ -149,6 +151,39 @@ describe('runSignupOtpVerification', () => {
         eventCode: 'signup_verification_failed',
         failureClass: 'invalid_verification',
         outcome: 'failed',
+      })
+    );
+  });
+
+  it('preserves the signup attempt across verification start and provider failure', async () => {
+    const attemptId = '123e4567-e89b-42d3-a456-426614174000';
+    const verificationOptions = {
+      attemptId,
+      email: 'merchant@example.com',
+      getCurrentUserId: () => undefined,
+      onResetUserStores: vi.fn(),
+      setState: vi.fn(),
+      token: '000000',
+    };
+    mocks.verifyOtp.mockResolvedValue({
+      data: { session: null, user: null },
+      error: new Error('Token has expired'),
+    });
+
+    await runSignupOtpVerification(verificationOptions);
+
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        attemptId,
+        eventCode: 'signup_verification_started',
+      })
+    );
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        attemptId,
+        eventCode: 'signup_verification_failed',
       })
     );
   });

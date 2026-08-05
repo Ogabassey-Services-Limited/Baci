@@ -152,7 +152,12 @@ export default function RegisterScreen() {
         return;
       }
       if (result.needsEmailConfirmation) {
-        router.replace(`/(auth)/verify?email=${encodeURIComponent(email)}`);
+        const attemptIdQuery = result.signupAttemptId
+          ? `&attemptId=${encodeURIComponent(result.signupAttemptId)}`
+          : '';
+        router.replace(
+          `/(auth)/verify?email=${encodeURIComponent(email)}${attemptIdQuery}`
+        );
         return;
       }
       if (result.sessionEstablished) {

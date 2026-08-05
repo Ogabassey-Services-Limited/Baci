@@ -67,7 +67,8 @@ interface AuthActions {
   }>;
   verifySignupOtp: (
     email: string,
-    token: string
+    token: string,
+    attemptId?: string
   ) => Promise<VerifySignupOtpResult>;
   signOut: (onBeforeSignOut?: () => Promise<void>) => Promise<void>;
 }
@@ -214,8 +215,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       });
     },
 
-    verifySignupOtp: (email: string, token: string) =>
+    verifySignupOtp: (email: string, token: string, attemptId?: string) =>
       runSignupOtpVerification({
+        attemptId,
         email,
         token,
         getCurrentUserId: () => get().user?.id,

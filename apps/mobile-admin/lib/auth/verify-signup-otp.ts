@@ -22,6 +22,7 @@ interface VerificationStateUpdate {
 }
 
 interface RunSignupOtpVerificationOptions {
+  attemptId?: string;
   email: string;
   getCurrentUserId: () => string | undefined;
   onResetUserStores: () => Promise<void>;
@@ -50,7 +51,10 @@ function verificationFailureClass(error: unknown): SignupFailureClass {
     : 'auth_provider';
 }
 
-function getSignupContext(user: User): {
+function getSignupContext(
+  user: User,
+  fallbackAttemptId: string | null
+): {
   attemptId: string | null;
   flow: SignupFlow;
 } {
@@ -60,12 +64,15 @@ function getSignupContext(user: User): {
   );
   const flow = metadata?.signup_flow;
   return {
-    attemptId: parsedAttemptId.success ? parsedAttemptId.data : null,
+    attemptId: parsedAttemptId.success
+      ? parsedAttemptId.data
+      : fallbackAttemptId,
     flow: flow === 'staff' ? 'staff' : 'merchant',
   };
 }
 
 export async function runSignupOtpVerification({
+  attemptId,
   email,
   getCurrentUserId,
   onResetUserStores,
@@ -73,10 +80,14 @@ export async function runSignupOtpVerification({
   token,
 }: RunSignupOtpVerificationOptions): Promise<VerifySignupOtpResult> {
   const startedAt = Date.now();
+  const parsedAttemptId = signupAttemptIdSchema.safeParse(attemptId);
+  const verificationContext = {
+    attemptId: parsedAttemptId.success ? parsedAttemptId.data : null,
+    flow: 'merchant' as const,
+  };
   void captureMobileSignupLifecycle({
-    attemptId: null,
+    ...verificationContext,
     eventCode: 'signup_verification_started',
-    flow: 'merchant',
     outcome: 'started',
     stage: 'verification',
   });
@@ -90,12 +101,11 @@ export async function runSignupOtpVerification({
 
     if (error) {
       void captureMobileSignupLifecycle({
-        attemptId: null,
+        ...verificationContext,
         durationMs: Date.now() - startedAt,
         error,
         eventCode: 'signup_verification_failed',
         failureClass: verificationFailureClass(error),
-        flow: 'merchant',
         outcome: 'failed',
         stage: 'verification',
       });
@@ -103,11 +113,10 @@ export async function runSignupOtpVerification({
     }
     if (!data.session || !data.user) {
       void captureMobileSignupLifecycle({
-        attemptId: null,
+        ...verificationContext,
         durationMs: Date.now() - startedAt,
         eventCode: 'signup_verification_incomplete',
         failureClass: 'incomplete_response',
-        flow: 'merchant',
         outcome: 'failed',
         stage: 'verification',
       });
@@ -128,7 +137,7 @@ export async function runSignupOtpVerification({
       user: data.user,
     });
 
-    const context = getSignupContext(data.user);
+    const context = getSignupContext(data.user, verificationContext.attemptId);
     void captureMobileSignupLifecycle({
       ...context,
       durationMs: Date.now() - startedAt,
@@ -140,14 +149,13 @@ export async function runSignupOtpVerification({
     return { error: null, sessionEstablished: true };
   } catch (error) {
     void captureMobileSignupLifecycle({
-      attemptId: null,
+      ...verificationContext,
       durationMs: Date.now() - startedAt,
       error,
       eventCode: 'signup_verification_failed',
       failureClass: isConnectivityError(error)
         ? 'connectivity_transport'
         : 'unexpected',
-      flow: 'merchant',
       outcome: 'failed',
       stage: 'verification',
     });

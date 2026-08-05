@@ -39,7 +39,8 @@ export interface UseAuthReturn {
   }>;
   verifySignupOtp: (
     email: string,
-    token: string
+    token: string,
+    attemptId?: string
   ) => Promise<VerifySignupOtpResult>;
   signOut: (onBeforeSignOut?: () => Promise<void>) => Promise<void>;
 }
