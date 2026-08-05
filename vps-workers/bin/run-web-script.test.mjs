@@ -10,8 +10,13 @@ const runWebScript = readFileSync(join(scriptDir, 'run-web-script.sh'), 'utf8');
 test('runs web scripts with the React Server condition', () => {
   assert.match(
     runWebScript,
-    /pnpm --filter @baci\/web exec tsx --conditions react-server "\$SCRIPT_FILE" "\$@"/
+    /"\$TSX_BIN" --conditions react-server "\$SCRIPT_FILE" "\$@"/
   );
+});
+
+test('uses the installed tsx binary without triggering pnpm dependency mutation', () => {
+  assert.match(runWebScript, /TSX_BIN="\$REPO_DIR\/node_modules\/\.bin\/tsx"/);
+  assert.doesNotMatch(runWebScript, /pnpm .*exec tsx/);
 });
 
 test('passes optional worker arguments through to the TypeScript entrypoint', () => {

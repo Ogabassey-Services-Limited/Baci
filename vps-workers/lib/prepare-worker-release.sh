@@ -91,10 +91,8 @@ do
   fi
 done
 
-if ! (
-  cd "$repo_dir"
-  CI=true PUPPETEER_SKIP_DOWNLOAD=1 pnpm --filter @baci/web exec tsx --version >/dev/null
-); then
+tsx_bin="$repo_dir/node_modules/.bin/tsx"
+if [ ! -x "$tsx_bin" ] || ! "$tsx_bin" --version >/dev/null; then
   echo "Direct-worker checkout is missing the reviewed web toolchain." >&2
   exit 1
 fi

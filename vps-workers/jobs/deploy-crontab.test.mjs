@@ -223,7 +223,11 @@ describe('deploy crontab', () => {
     );
     assert.match(
       releaseHelper,
-      /pnpm --filter @baci\/web exec tsx --version >\/dev\/null/
+      /tsx_bin="\$repo_dir\/node_modules\/\.bin\/tsx"/
+    );
+    assert.doesNotMatch(
+      releaseHelper,
+      /pnpm .*exec tsx/
     );
     assert.match(
       releaseHelper,
