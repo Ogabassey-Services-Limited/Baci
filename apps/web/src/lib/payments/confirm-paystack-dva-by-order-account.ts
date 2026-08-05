@@ -219,10 +219,12 @@ export async function confirmPaystackDvaByOrderAccount({
   // Single match → reserve a pending transaction inside the locked RPC.
   const winner = match.candidate;
   const currency = getPaystackDvaOrderCurrency(rows, winner.order_id) ?? 'NGN';
-  const reservationFees =
-    match.allocation === 'partial' || winner.payment_status === 'partially_paid'
-      ? calculatePlatformFee(Math.round(verifiedAmount.amount * 100))
-      : null;
+  const requiresPartialInvoiceBalanceCheck =
+    match.allocation === 'partial' ||
+    winner.payment_status === 'partially_paid';
+  const reservationFees = requiresPartialInvoiceBalanceCheck
+    ? calculatePlatformFee(Math.round(verifiedAmount.amount * 100))
+    : null;
 
   const { data: transactionId, error: reserveError } = await supabase.rpc(
     'create_payment_transaction',
@@ -239,7 +241,7 @@ export async function confirmPaystackDvaByOrderAccount({
       p_metadata: {
         dva_account_number: accountNumber,
         dva_lookup_path: 'order_payment_accounts',
-        ...(match.allocation === 'partial' && {
+        ...(requiresPartialInvoiceBalanceCheck && {
           order_payment_allocation: 'merchant_invoice_partial',
           order_payment_outstanding_before:
             (winner.outstanding_amount_kobo ?? winner.total_kobo) / 100,

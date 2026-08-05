@@ -168,7 +168,7 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
     );
   });
 
-  it('matches the remaining balance exactly after an earlier partial payment', async () => {
+  it('marks an exact remaining-balance payment for the locked partial-invoice recheck', async () => {
     const { supabase, state } = createSupabaseMock({
       accountRows: [
         {
@@ -196,11 +196,10 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
       metadata: {
         dva_account_number: ctxBase.accountNumber,
         dva_lookup_path: 'order_payment_accounts',
+        order_payment_allocation: 'merchant_invoice_partial',
+        order_payment_outstanding_before: 535_000,
       },
     });
-    expect(state.insertCalls[0]?.metadata).not.toHaveProperty(
-      'order_payment_allocation'
-    );
     expect(supabase.rpc).toHaveBeenCalledWith(
       'create_payment_transaction',
       expect.objectContaining({
