@@ -108,7 +108,35 @@ describe('merchant invoice partial payment hardening migration', () => {
     expect(completedTransactionRepairMigration).toContain(
       "'order_cancelled', true"
     );
+    expect(completedTransactionRepairMigration).toMatch(
+      /IF v_txn_status = 'pending' THEN[\s\S]*UPDATE public\.transactions AS t[\s\S]*SET status = 'completed'/
+    );
     expect(completionIndex).toBeGreaterThan(terminalGuardIndex);
+  });
+
+  it('validates identifiers and stops an applied strict partial before delegation', () => {
+    const partialReplayIndex = completedTransactionRepairMigration.indexOf(
+      "= 'merchant_invoice_partial_recorded'"
+    );
+    const completionIndex = completedTransactionRepairMigration.indexOf(
+      'complete_order_gateway_payment_v1(',
+      partialReplayIndex
+    );
+
+    expect(completedTransactionRepairMigration).toContain(
+      "'error_code', 'TRANSACTION_NOT_FOUND'"
+    );
+    expect(completedTransactionRepairMigration).toContain(
+      "'error_code', 'ORDER_TRANSACTION_MISMATCH'"
+    );
+    expect(completedTransactionRepairMigration).toContain(
+      "'error_code', 'ORDER_NOT_FOUND'"
+    );
+    expect(partialReplayIndex).toBeGreaterThan(-1);
+    expect(completedTransactionRepairMigration).toContain(
+      "'merchant_invoice_partial_recorded', true"
+    );
+    expect(completionIndex).toBeGreaterThan(partialReplayIndex);
   });
 
   it('keeps implementation functions private and wrappers service-only', () => {

@@ -134,7 +134,7 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
     );
   });
 
-  it('keeps a credited DVA amount exact after setup updates the order timestamp', async () => {
+  it('marks an exact unpaid merchant invoice for the locked balance recheck', async () => {
     const { supabase, state } = createSupabaseMock({
       accountRows: [
         {
@@ -161,10 +161,16 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
       metadata: {
         dva_account_number: ctxBase.accountNumber,
         dva_lookup_path: 'order_payment_accounts',
+        order_payment_allocation: 'merchant_invoice_partial',
+        order_payment_outstanding_before: 350_000,
       },
     });
-    expect(state.insertCalls[0]?.metadata).not.toHaveProperty(
-      'order_payment_allocation'
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.objectContaining({
+        p_merchant_amount: 347_950,
+        p_platform_fee: 2050,
+      })
     );
   });
 

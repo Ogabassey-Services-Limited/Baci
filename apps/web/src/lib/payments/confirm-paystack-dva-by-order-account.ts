@@ -219,10 +219,7 @@ export async function confirmPaystackDvaByOrderAccount({
   // Single match → reserve a pending transaction inside the locked RPC.
   const winner = match.candidate;
   const currency = getPaystackDvaOrderCurrency(rows, winner.order_id) ?? 'NGN';
-  const requiresPartialInvoiceBalanceCheck =
-    winner.merchant_created === true &&
-    (match.allocation === 'partial' ||
-      winner.payment_status === 'partially_paid');
+  const requiresPartialInvoiceBalanceCheck = winner.merchant_created === true;
   const reservationFees = requiresPartialInvoiceBalanceCheck
     ? calculatePlatformFee(Math.round(verifiedAmount.amount * 100))
     : null;

@@ -272,6 +272,37 @@ describe('POST /api/payments/verify — finalizer outcomes', () => {
     );
   });
 
+  it('returns success without paid-order side effects for an applied strict partial', async () => {
+    const supabase = buildSupabase({
+      completion: {
+        already_completed: true,
+        merchant_invoice_partial_recorded: true,
+        order_already_paid: false,
+        order_cancelled: false,
+        order_number: 'ORD-1',
+        order_updated: false,
+        payment_status: 'partially_paid',
+        previous_payment_status: 'partially_paid',
+        shipping_status: 'pending',
+        transaction_status: 'completed',
+      },
+      existingOrderStatus: 'partially_paid',
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      orderNumber: 'ORD-1',
+      status: 'success',
+      success: true,
+    });
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+    expect(mockReconciliationInsert).not.toHaveBeenCalled();
+  });
+
   it('fires push and the outbox side effects when the order is NOT cancelled', async () => {
     const supabase = buildSupabase({
       completion: {

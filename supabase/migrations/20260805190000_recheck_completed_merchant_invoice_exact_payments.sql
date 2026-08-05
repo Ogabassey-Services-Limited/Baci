@@ -65,6 +65,19 @@ BEGIN
   WHERE t.id = p_transaction_id
   FOR UPDATE;
 
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error_code', 'TRANSACTION_NOT_FOUND');
+  END IF;
+  IF v_txn_order_id IS DISTINCT FROM p_order_id THEN
+    RETURN jsonb_build_object('error_code', 'ORDER_TRANSACTION_MISMATCH');
+  END IF;
+  IF v_txn_status NOT IN ('completed', 'pending') THEN
+    RETURN jsonb_build_object(
+      'error_code', 'TRANSACTION_IN_UNEXPECTED_STATE',
+      'transaction_status', v_txn_status
+    );
+  END IF;
+
   SELECT
     o.merchant_id,
     COALESCE(o.total, 0),
@@ -89,9 +102,42 @@ BEGIN
   WHERE o.id = p_order_id
   FOR UPDATE;
 
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error_code', 'ORDER_NOT_FOUND');
+  END IF;
+
+  IF v_txn_metadata ->> 'merchant_invoice_partial_applied' = 'true'
+    AND v_txn_metadata ->> 'wedge_sweep_resolution'
+      = 'merchant_invoice_partial_recorded' THEN
+    RETURN jsonb_build_object(
+      'actor', p_actor,
+      'already_completed', true,
+      'cancelled_at', v_order_cancelled_at,
+      'merchant_invoice_partial_recorded', true,
+      'order_already_paid', false,
+      'order_cancelled', false,
+      'order_number', v_order_number,
+      'order_skipped_status', NULL,
+      'order_updated', false,
+      'payment_status', v_order_payment_status,
+      'previous_payment_status', v_order_payment_status,
+      'previous_shipping_status', v_order_shipping_status,
+      'shipping_status', v_order_shipping_status,
+      'transaction_status', v_txn_status
+    );
+  END IF;
+
   IF v_order_cancelled_at IS NOT NULL
     OR lower(COALESCE(v_order_shipping_status, '')) IN ('canceled', 'cancelled')
     OR lower(COALESCE(v_order_payment_status, '')) IN ('canceled', 'cancelled') THEN
+    IF v_txn_status = 'pending' THEN
+      UPDATE public.transactions AS t
+      SET status = 'completed',
+          gateway_response = COALESCE(p_gateway_response, t.gateway_response),
+          updated_at = now()
+      WHERE t.id = p_transaction_id;
+    END IF;
+
     RETURN jsonb_build_object(
       'actor', p_actor,
       'already_completed', v_txn_status = 'completed',
@@ -105,7 +151,10 @@ BEGIN
       'previous_payment_status', v_order_payment_status,
       'previous_shipping_status', v_order_shipping_status,
       'shipping_status', v_order_shipping_status,
-      'transaction_status', v_txn_status
+      'transaction_status', CASE
+        WHEN v_txn_status = 'pending' THEN 'completed'
+        ELSE v_txn_status
+      END
     );
   END IF;
 
