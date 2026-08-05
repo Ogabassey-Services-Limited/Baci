@@ -111,12 +111,12 @@ describe('paystack DVA order alias helpers', () => {
     ).toBe(false);
   });
 
-  it('treats a canceled partially-paid alias as inactive inside the window', () => {
+  it('treats a canceled order alias as inactive even when unpaid and in-window', () => {
     expect(
       isActiveOrderDvaAlias(
         orderAliasRow({
           orders: {
-            payment_status: 'partially_paid',
+            payment_status: 'unpaid',
             shipping_status: 'canceled',
           },
         }),
