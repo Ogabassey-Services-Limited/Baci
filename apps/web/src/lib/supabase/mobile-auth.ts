@@ -40,7 +40,7 @@ export async function getAuthenticatedUser(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!error && user) {
-      return { user, supabase };
+      return { authMode: 'bearer' as const, user, supabase };
     }
   }
 
@@ -61,7 +61,7 @@ export async function getAuthenticatedUser(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!error && user) {
-      return { user, supabase };
+      return { authMode: 'cookie' as const, user, supabase };
     }
   } catch {
     // Cookie access may fail in certain contexts

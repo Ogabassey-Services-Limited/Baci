@@ -19,6 +19,16 @@ export interface BuilderAiStructuralBaseline {
   requiresProductGrid: boolean;
 }
 
+function contentCollections(
+  config: BuilderData | BuilderData['content']
+): BuilderData['content'][] {
+  if (Array.isArray(config)) return [config];
+  return [
+    config.content,
+    ...Object.values(config.zones ?? {}).filter(Array.isArray),
+  ] as BuilderData['content'][];
+}
+
 function getProtectedAnchorSnapshot(content: BuilderData['content']): {
   componentAnchorRegions: Map<string, number>;
   protectedAnchors: ProtectedAnchor[];
@@ -58,25 +68,29 @@ function hasSameProtectedAnchors(
 }
 
 export function getBuilderAiStructuralBaseline(
-  content: BuilderData['content']
+  config: BuilderData | BuilderData['content']
 ): BuilderAiStructuralBaseline {
+  const content = Array.isArray(config) ? config : config.content;
+  const collections = contentCollections(config);
   const anchors = getProtectedAnchorSnapshot(content);
   return {
     ...anchors,
     footers: content.filter((component) => component.type === 'Footer').length,
     headers: content.filter((component) => component.type === 'Header').length,
-    requiresProductGrid: content.some(
-      (component) => component.type === 'ProductGrid'
-    ),
+    requiresProductGrid: collections
+      .flat()
+      .some((component) => component.type === 'ProductGrid'),
   };
 }
 
 export function getBuilderAiStructuralFailure(
-  content: BuilderData['content'],
+  config: BuilderData | BuilderData['content'],
   baseline: BuilderAiStructuralBaseline
 ): string | undefined {
+  const content = Array.isArray(config) ? config : config.content;
+  const collections = contentCollections(config);
   const count = (type: string) =>
-    content.filter((component) => component.type === type).length;
+    collections.flat().filter((component) => component.type === type).length;
   if (
     count('Header') !== baseline.headers ||
     count('Footer') !== baseline.footers
@@ -114,7 +128,7 @@ export function validateBuilderAiCandidate(
     return { failure: 'Duplicate component id' };
   }
   const structureFailure = getBuilderAiStructuralFailure(
-    candidateConfig.content,
+    candidateConfig,
     baseline
   );
   if (structureFailure) return { failure: structureFailure };

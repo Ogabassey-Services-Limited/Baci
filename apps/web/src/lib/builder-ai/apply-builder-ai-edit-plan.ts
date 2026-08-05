@@ -179,8 +179,15 @@ function applyOperation(
         componentType,
         sanitized.props
       );
-      content.splice(
-        destinationIndex(config, content, operation.placement),
+      const destinationContent =
+        operation.placement.position === 'after'
+          ? (findBuilderAiComponent(
+              config,
+              operation.placement.componentId ?? ''
+            )?.content ?? content)
+          : content;
+      destinationContent.splice(
+        destinationIndex(config, destinationContent, operation.placement),
         0,
         {
           props: { ...props, id },
@@ -255,7 +262,7 @@ export function applyBuilderAiEditPlan(
   createId: (componentType: string) => string = createBuilderComponentId
 ): ApplyBuilderAiEditPlanResult {
   const candidateConfig = cloneConfig(currentConfig);
-  const baseline = getBuilderAiStructuralBaseline(candidateConfig.content);
+  const baseline = getBuilderAiStructuralBaseline(candidateConfig);
   const rawMediaWarning = getBuilderAiRawPlanMediaWarning(plan);
   if (rawMediaWarning) {
     return {
@@ -281,7 +288,7 @@ export function applyBuilderAiEditPlan(
     }
     assertUniqueIds(candidateConfig);
     const structureFailure = getBuilderAiStructuralFailure(
-      candidateConfig.content,
+      candidateConfig,
       baseline
     );
     if (structureFailure) throw new BuilderAiEditPlanError(structureFailure);

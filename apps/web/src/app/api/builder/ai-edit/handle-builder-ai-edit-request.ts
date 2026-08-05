@@ -4,10 +4,11 @@ import {
   builderAiEditContract,
   validateBuilderAiEditComplexity,
 } from '@baci/shared/contracts';
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-permissions';
 import { applyBuilderAiEditPlan } from '@/lib/builder-ai/apply-builder-ai-edit-plan';
 import { checkBuilderAiRateLimit } from '@/lib/builder-ai/builder-ai-rate-limit';
+import { getBuilderAiRawPlanMediaWarning } from '@/lib/builder-ai/get-builder-ai-raw-plan-media-warning';
 import { logBuilderAiEvent } from '@/lib/builder-ai/log-builder-ai-event';
 import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-builder-ai-provider-chain';
 import { prepareBuilderAiEditPromptResponse } from '@/lib/builder-ai/prepare-builder-ai-edit-prompt-response';
@@ -21,14 +22,14 @@ import {
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderGeminiRequestSchema } from '@/schemas/builder-gemini-request';
 
-type Authentication = NonNullable<
-  Awaited<ReturnType<typeof getAuthenticatedUser>>
->;
+type Authentication = Omit<
+  NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>,
+  'authMode'
+> & { authMode?: 'bearer' | 'cookie' };
 type MerchantContext = NonNullable<
   Awaited<ReturnType<typeof getMerchantForApiRequest>>
 >;
 type BodyResult = Awaited<ReturnType<typeof readBoundedJsonBody>>;
-
 export interface BuilderAiEditHandlerDependencies {
   authenticate: (request: Request) => Promise<Authentication | null>;
   checkCsrf: (request: NextRequest) => ReturnType<typeof checkCsrfProtection>;
@@ -44,12 +45,10 @@ export interface BuilderAiEditHandlerDependencies {
   readBody: (request: Request, maxBytes: number) => Promise<BodyResult>;
   runProviderChain: typeof runBuilderAiProviderChain;
 }
-
 export interface BuilderAiEditHandlerOptions {
   dependencies?: BuilderAiEditHandlerDependencies;
   mode?: 'legacy' | 'v1';
 }
-
 function dependencies(): BuilderAiEditHandlerDependencies {
   return {
     authenticate: getAuthenticatedUser,
@@ -133,7 +132,15 @@ export async function handleBuilderAiEditRequest(
   const auth = await seams.authenticate(request);
   if (!auth)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const csrf = await seams.checkCsrf(request as NextRequest);
+  const csrfRequest =
+    auth.authMode === 'cookie' && request.headers.has('Authorization')
+      ? new NextRequest(request, {
+          headers: new Headers(
+            [...request.headers].filter(([name]) => name !== 'authorization')
+          ),
+        })
+      : (request as NextRequest);
+  const csrf = await seams.checkCsrf(csrfRequest);
   if (!csrf.valid) return csrf.response as Response;
   const body = await seams.readBody(request, 1_048_576);
   if (!body.ok) {
@@ -260,11 +267,12 @@ export async function handleBuilderAiEditRequest(
     );
   }
   const result = applyBuilderAiEditPlan(parsed.currentConfig, plan);
+  const rawMediaWarning = getBuilderAiRawPlanMediaWarning(plan);
   const candidate = builderAiEditContract.candidateSchema.parse({
     candidateConfig: result.candidateConfig,
     clientRequestId: parsed.clientRequestId,
     contractVersion: builderAiEditContract.version,
-    operations: plan.operations,
+    operations: rawMediaWarning ? [] : plan.operations,
     summary: plan.summary,
     warnings: result.warnings,
   });
