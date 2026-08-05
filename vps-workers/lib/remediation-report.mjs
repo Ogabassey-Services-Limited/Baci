@@ -13,6 +13,13 @@ function parseRecipients(value) {
     .filter(Boolean);
 }
 
+function buildZeptoMailAuthorization(token) {
+  const trimmedToken = String(token || '').trim();
+  return trimmedToken.startsWith('Zoho-enczapikey ')
+    ? trimmedToken
+    : `Zoho-enczapikey ${trimmedToken}`;
+}
+
 export function buildRemediationReport({
   actions = [],
   candidates = [],
@@ -75,9 +82,9 @@ export async function sendRemediationReportEmail({
   report,
 }) {
   const recipients = parseRecipients(env.BACI_REMEDIATION_NOTIFY_EMAILS);
-  const token = env.ZEPTOMAIL_TOKEN;
+  const token = String(env.ZEPTOMAIL_TOKEN || '').trim();
   const fromDomain = env.ZEPTOMAIL_FROM_DOMAIN || 'usebaci.com';
-  if (recipients.length === 0 || !token) {
+  if (recipients.length === 0 || token.length === 0) {
     return { skipped: true, reason: 'email not configured' };
   }
 
@@ -95,7 +102,7 @@ export async function sendRemediationReportEmail({
       })),
     }),
     headers: {
-      Authorization: `Zoho-enczapikey ${token}`,
+      Authorization: buildZeptoMailAuthorization(token),
       'Content-Type': 'application/json',
     },
     method: 'POST',
