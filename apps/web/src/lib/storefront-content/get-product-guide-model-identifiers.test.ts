@@ -23,4 +23,16 @@ describe('getProductGuideModelIdentifiers', () => {
 
     expect(identifiers).not.toContain('xps 14 9340');
   });
+
+  it('proves a numeric laptop family from an aligned product slug', () => {
+    const identifiers = getProductGuideModelIdentifiers({
+      pageKind: 'product',
+      categorySlug: 'laptops',
+      brands: ['Dell'],
+      productNames: ['Dell XPS'],
+      productSlugs: ['dell-xps-13-9340'],
+    });
+
+    expect(identifiers).toContain('xps 13 9340');
+  });
 });

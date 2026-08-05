@@ -135,4 +135,23 @@ describe('hasDistinctCompareIdentifierOccurrences', () => {
 
     expect(result).toBe(true);
   });
+
+  it('preserves conjunctions inside compared game identifiers', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'fast-and-furious-vs-gta-v',
+        title: 'Fast and Furious Spy Racers vs GTA V Comparison',
+        excerpt: null,
+        category: 'PlayStation Games',
+        tags: ['playstation'],
+        keywords: ['comparison'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['fast and furious spy racers', 'gta v']
+    );
+
+    expect(result).toBe(true);
+  });
 });

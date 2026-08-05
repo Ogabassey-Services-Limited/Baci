@@ -32,36 +32,37 @@ export function getContextBrandKeys(
   productNames: readonly string[] | undefined,
   brandAliases: Record<string, readonly string[]>
 ) {
+  const productNameTokens = new Set(
+    (productNames ?? []).flatMap(tokenizeContentText)
+  );
+  const canonicalProductNameKeys = Object.keys(brandAliases).filter((brand) =>
+    tokenizeContentText(brand).every((token) => productNameTokens.has(token))
+  );
+  const productNameBrandKeys =
+    canonicalProductNameKeys.length > 0
+      ? canonicalProductNameKeys
+      : Object.entries(brandAliases)
+          .filter(([, aliases]) =>
+            aliases.some((alias) =>
+              tokenizeContentText(alias).every((token) =>
+                productNameTokens.has(token)
+              )
+            )
+          )
+          .map(([brand]) => brand);
   const explicitBrandKeys = Array.from(
     new Set((brands ?? []).map(generateSlug).filter(Boolean))
   );
   if (explicitBrandKeys.length > 0) {
     return Array.from(
-      new Set(
-        explicitBrandKeys.map((brand) =>
+      new Set([
+        ...explicitBrandKeys.map((brand) =>
           resolveExplicitBrandKey(brand, brandAliases)
-        )
-      )
+        ),
+        ...productNameBrandKeys,
+      ])
     );
   }
 
-  const productNameTokens = new Set(
-    (productNames ?? []).flatMap(tokenizeContentText)
-  );
-  const canonicalKeys = Object.keys(brandAliases).filter((brand) =>
-    tokenizeContentText(brand).every((token) => productNameTokens.has(token))
-  );
-  if (canonicalKeys.length > 0) {
-    return canonicalKeys;
-  }
-
-  return Object.entries(brandAliases)
-    .filter(([, aliases]) =>
-      aliases.some((alias) =>
-        tokenizeContentText(alias).every((token) =>
-          productNameTokens.has(token)
-        )
-      )
-    )
-    .map(([brand]) => brand);
+  return productNameBrandKeys;
 }

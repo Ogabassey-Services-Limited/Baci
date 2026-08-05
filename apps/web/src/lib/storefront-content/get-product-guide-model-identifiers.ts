@@ -19,9 +19,10 @@ export function getProductGuideModelIdentifiers(
     return identifiers;
   }
 
-  const sources = context.productNames?.length
-    ? context.productNames
-    : (context.productSlugs ?? []);
+  const sources = [
+    ...(context.productNames ?? []),
+    ...(context.productSlugs ?? []),
+  ];
   const sourceTokenGroups = sources.map(tokenizeContentText);
   const provenIdentifiers = identifiers.flatMap((identifier) => {
     const identifierTokens = tokenizeContentText(identifier);

@@ -20,6 +20,15 @@ describe('getContextBrandKeys', () => {
     expect(brandKeys).toEqual(['xiaomi']);
   });
 
+  it('includes a configured sibling brand found in an explicit-brand product name', () => {
+    const brandKeys = getContextBrandKeys(['Xiaomi'], ['Redmi Note 13'], {
+      redmi: ['redmi'],
+      xiaomi: ['xiaomi', 'redmi'],
+    });
+
+    expect(brandKeys).toEqual(['xiaomi', 'redmi']);
+  });
+
   it('resolves an explicit composite brand to its canonical key', () => {
     const brandKeys = getContextBrandKeys(['Google Pixel'], undefined, {
       google: ['google', 'pixel'],

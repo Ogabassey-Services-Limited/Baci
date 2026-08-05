@@ -73,6 +73,18 @@ function getDiscriminatorGroup(token: string) {
   return null;
 }
 
+function isLikelyLaptopRamToken(
+  token: string,
+  categorySlug: SupportedClusterCategory | undefined
+) {
+  const capacity = getStorageCapacityGb(token);
+  return (
+    capacity !== null &&
+    capacity <= 32 &&
+    RAM_DOMINANT_CATEGORIES.has(categorySlug ?? '')
+  );
+}
+
 /** Returns PDP variant discriminators for group-aware guide matching. */
 export function getProductConnectivityDiscriminators(
   productNames: string[] | undefined,
@@ -82,7 +94,11 @@ export function getProductConnectivityDiscriminators(
   const tokens = productNames?.length
     ? productNames.flatMap((name, index) => {
         const nameTokens = tokenizeVariantSource(name);
-        const namedGroups = new Set(nameTokens.map(getDiscriminatorGroup));
+        const namedGroups = new Set(
+          nameTokens
+            .filter((token) => !isLikelyLaptopRamToken(token, categorySlug))
+            .map(getDiscriminatorGroup)
+        );
         const supplementalSlugTokens = tokenizeVariantSource(
           productSlugs?.[index]
         ).filter((token) => {
@@ -96,10 +112,7 @@ export function getProductConnectivityDiscriminators(
     (strongest, token) => {
       const tokenCapacity = getStorageCapacityGb(token);
       const strongestCapacity = getStorageCapacityGb(strongest ?? '') ?? 0;
-      const isLikelyLaptopRam =
-        tokenCapacity !== null &&
-        tokenCapacity <= 32 &&
-        RAM_DOMINANT_CATEGORIES.has(categorySlug ?? '');
+      const isLikelyLaptopRam = isLikelyLaptopRamToken(token, categorySlug);
       return tokenCapacity &&
         !isLikelyLaptopRam &&
         tokenCapacity > strongestCapacity

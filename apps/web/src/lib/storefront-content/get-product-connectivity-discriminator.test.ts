@@ -57,6 +57,16 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual([]);
   });
 
+  it('uses aligned slug storage when a laptop name only contains RAM', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Dell XPS 13 16GB'],
+      ['dell-xps-13-512gb'],
+      'laptops'
+    );
+
+    expect(discriminators).toEqual(['512gb']);
+  });
+
   it('retains normalized Bluetooth and GPS markers stripped from model names', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Samsung Watch 9 45mm BT GPS'],

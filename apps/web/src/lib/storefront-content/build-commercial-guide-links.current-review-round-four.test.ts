@@ -174,4 +174,54 @@ describe('buildCommercialGuideLinks current review round four', () => {
 
     expect(result).toBe('https://ogabassey.com/blog/xps-13-vs-14-9340');
   });
+
+  it('uses an aligned slug to rank a numeric laptop-family guide', () => {
+    const result = firstGuide(
+      {
+        pageKind: 'product',
+        categorySlug: 'laptops',
+        brands: ['Dell'],
+        productNames: ['Dell XPS'],
+        productSlugs: ['dell-xps-13-9340'],
+      },
+      [
+        post('generic-dell-guide', 'Dell Laptop Buyer Guide', 'Laptops', NEWER),
+        post(
+          'dell-xps-13-9340-guide',
+          'Dell XPS 13 9340 Buyer Guide',
+          'Laptops',
+          OLDER
+        ),
+      ]
+    );
+
+    expect(result).toBe('https://ogabassey.com/blog/dell-xps-13-9340-guide');
+  });
+
+  it('ranks a configured sibling-brand guide from the product name', () => {
+    const result = firstGuide(
+      {
+        pageKind: 'product',
+        categorySlug: 'smartphones',
+        brands: ['Xiaomi'],
+        productNames: ['Redmi Note 13'],
+      },
+      [
+        post(
+          'generic-xiaomi-guide',
+          'Xiaomi Phones Buyer Guide',
+          'Smartphones',
+          NEWER
+        ),
+        post(
+          'redmi-note-13-guide',
+          'Redmi Note 13 Buyer Guide',
+          'Smartphones',
+          OLDER
+        ),
+      ]
+    );
+
+    expect(result).toBe('https://ogabassey.com/blog/redmi-note-13-guide');
+  });
 });

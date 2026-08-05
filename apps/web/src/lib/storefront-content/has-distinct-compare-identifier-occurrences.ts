@@ -29,10 +29,31 @@ function countIdentifierOccurrences(tokens: string[], identifier: string) {
   ).length;
 }
 
-function getComparisonSegments(tokens: string[]) {
+function isIdentifierInternalBoundary(
+  tokens: string[],
+  boundaryIndex: number,
+  identifiers: string[]
+) {
+  return identifiers.some((identifier) => {
+    const identifierTokens = tokenizeIdentifier(identifier);
+    return identifierTokens.some(
+      (token, offset) =>
+        token === tokens[boundaryIndex] &&
+        identifierTokens.every(
+          (expected, identifierOffset) =>
+            tokens[boundaryIndex - offset + identifierOffset] === expected
+        )
+    );
+  });
+}
+
+function getComparisonSegments(tokens: string[], identifiers: string[]) {
   return tokens.reduce<string[][]>(
-    (segments, token) => {
-      if (COMPARISON_BOUNDARY_TOKENS.has(token)) {
+    (segments, token, index) => {
+      if (
+        COMPARISON_BOUNDARY_TOKENS.has(token) &&
+        !isIdentifierInternalBoundary(tokens, index, identifiers)
+      ) {
         segments.push([]);
       } else {
         segments.at(-1)?.push(token);
@@ -89,7 +110,7 @@ export function hasDistinctCompareIdentifierOccurrences(
   }
 
   return getPostTokenGroups(post).some((tokens) => {
-    const comparisonSegments = getComparisonSegments(tokens);
+    const comparisonSegments = getComparisonSegments(tokens, identifiers);
     return Array.from(requiredCounts).every(
       ([identifier, count]) =>
         countComparisonSegmentsForIdentifier(comparisonSegments, identifier) >=
