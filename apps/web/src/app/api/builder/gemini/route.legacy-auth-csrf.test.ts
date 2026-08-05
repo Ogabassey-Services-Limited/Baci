@@ -145,6 +145,34 @@ describe('legacy builder route auth and CSRF boundary', () => {
     });
   });
 
+  it('retries Cerebras before using Groq and preserves the legacy config response', async () => {
+    ai.generateText
+      .mockRejectedValueOnce(new Error('cerebras transient failure'))
+      .mockRejectedValueOnce(new Error('cerebras transient failure'))
+      .mockResolvedValueOnce(fallbackPlan());
+
+    const response = await POST(
+      legacyRequest({
+        Cookie: 'csrf-token=csrf-value',
+        'x-csrf-token': 'csrf-value',
+      })
+    );
+
+    expect(ai.generateText).toHaveBeenCalledTimes(3);
+    expect(
+      ai.generateText.mock.calls.map(([request]) => request.model)
+    ).toEqual([providers[0].model, providers[0].model, providers[1].model]);
+    await expect(response.json()).resolves.toEqual({
+      config: expect.objectContaining({
+        content: expect.arrayContaining([
+          expect.objectContaining({
+            props: expect.objectContaining({ title: 'Fallback title' }),
+          }),
+        ]),
+      }),
+    });
+  });
+
   it('rejects a cookie caller when the real session validation has no user', async () => {
     lower.cookieUser.mockResolvedValue({ data: { user: null }, error: null });
 
@@ -157,6 +185,28 @@ describe('legacy builder route auth and CSRF boundary', () => {
 
     expect(response.status).toBe(401);
     expect(lower.createServerClient).toHaveBeenCalledOnce();
+    expect(ai.generateText).not.toHaveBeenCalled();
+  });
+
+  it('rejects cookie callers with missing or mismatched CSRF before providers run', async () => {
+    const missingTokenResponse = await POST(
+      legacyRequest({ Cookie: 'csrf-token=csrf-value' })
+    );
+    const mismatchedTokenResponse = await POST(
+      legacyRequest({
+        Cookie: 'csrf-token=csrf-value',
+        'x-csrf-token': 'different-value',
+      })
+    );
+
+    expect(missingTokenResponse.status).toBe(403);
+    expect(mismatchedTokenResponse.status).toBe(403);
+    await expect(missingTokenResponse.json()).resolves.toEqual(
+      expect.objectContaining({ error: expect.any(String) })
+    );
+    await expect(mismatchedTokenResponse.json()).resolves.toEqual(
+      expect.objectContaining({ error: expect.any(String) })
+    );
     expect(ai.generateText).not.toHaveBeenCalled();
   });
 
