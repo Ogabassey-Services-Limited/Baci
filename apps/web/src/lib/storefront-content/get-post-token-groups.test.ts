@@ -102,4 +102,23 @@ describe('getPostTokenGroups', () => {
       'comparison',
     ]);
   });
+
+  it('normalizes an official pipe-separated Xbox Series shorthand comparison', () => {
+    const [titleTokens] = getPostTokenGroups({
+      title: 'Xbox Series X|S Comparison',
+      excerpt: null,
+      category: 'Xbox',
+      tags: null,
+      keywords: null,
+    });
+
+    expect(titleTokens).toEqual([
+      'xbox',
+      'series',
+      'x',
+      'versus',
+      's',
+      'comparison',
+    ]);
+  });
 });

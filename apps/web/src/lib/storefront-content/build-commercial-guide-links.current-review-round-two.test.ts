@@ -129,7 +129,7 @@ describe('buildCommercialGuideLinks current review round two', () => {
         ),
         post(
           'rog-ally-x-guide',
-          'ASUS ROG Ally X Buyer Guide',
+          'ROG Ally X Buyer Guide',
           'Portable Gaming',
           OLDER
         ),

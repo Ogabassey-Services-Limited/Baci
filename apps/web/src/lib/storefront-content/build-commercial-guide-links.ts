@@ -31,7 +31,7 @@ const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
 
 const MODEL_FAMILY_CONTEXT_EXCLUSIONS = new Set(['and', 'or']);
 const GAME_CATEGORY_PATTERN =
-  /^(?:gaming(?:-accessories)?|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
+  /^(?:gaming(?:-accessories)?|portable-gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
 function toPublishedTimestamp(value: string | null) {
   if (!value) {
     return 0;
@@ -195,6 +195,8 @@ export function buildCommercialGuideLinks(
         bindBrand: shouldBindProductModelBrand,
         hasBrandMatch,
         discriminatorTokens: productConnectivityDiscriminators,
+        requireBrandBeforeIdentifier:
+          input.context.categorySlug !== 'gift-cards',
       });
       const hasModelFamilyMatch =
         modelFamilyTokens.length > 0 &&

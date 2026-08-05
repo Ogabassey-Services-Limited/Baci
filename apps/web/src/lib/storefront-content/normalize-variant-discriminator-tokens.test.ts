@@ -24,4 +24,15 @@ describe('normalizeVariantDiscriminatorTokens', () => {
 
     expect(tokens).toEqual(['iphone', '15', 'esim']);
   });
+
+  it('joins a split decimal display dimension into one discriminator', () => {
+    const tokens = normalizeVariantDiscriminatorTokens([
+      'ipad',
+      '12',
+      '9',
+      'inch',
+    ]);
+
+    expect(tokens).toEqual(['ipad', '12.9inch']);
+  });
 });

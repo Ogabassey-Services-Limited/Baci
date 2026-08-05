@@ -29,4 +29,10 @@ describe('isVariantOnlyComparisonSegment', () => {
     expect(isVariantOnlyComparisonSegment(['s', 'comparison'])).toBe(true);
     expect(isVariantOnlyComparisonSegment(['x', 'comparison'])).toBe(true);
   });
+
+  it('accepts a color-only compare continuation', () => {
+    const result = isVariantOnlyComparisonSegment(['blue', 'comparison']);
+
+    expect(result).toBe(true);
+  });
 });

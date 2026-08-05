@@ -6,6 +6,16 @@ export function normalizeVariantDiscriminatorTokens(tokens: string[]) {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index] ?? '';
     const nextToken = tokens[index + 1] ?? '';
+    const unitToken = tokens[index + 2] ?? '';
+    if (
+      /^\d+$/u.test(token) &&
+      /^\d+$/u.test(nextToken) &&
+      ['inch', 'mm'].includes(unitToken)
+    ) {
+      normalizedTokens.push(`${token}.${nextToken}${unitToken}`);
+      index += 2;
+      continue;
+    }
     if (/^\d+$/u.test(token) && SPLIT_VARIANT_UNIT_TOKENS.has(nextToken)) {
       normalizedTokens.push(`${token}${nextToken}`);
       index += 1;

@@ -30,4 +30,14 @@ describe('hasShorthandIdentifierOccurrence', () => {
 
     expect(result).toBe(false);
   });
+
+  it('rejects a shorthand segment that names a superset model tier', () => {
+    const result = hasShorthandIdentifierOccurrence(
+      ['apple', 'iphone', '15', 'versus', 'pro', 'max', 'comparison'],
+      ['15', 'pro'],
+      () => true
+    );
+
+    expect(result).toBe(false);
+  });
 });

@@ -88,10 +88,16 @@ export function getCompareProductMatchRequirements(
     identifierSource: source,
     pairedSlug: slugs[index],
     brandSource: `${context.productBrands?.[index] ?? ''} ${source} ${slugs[index] ?? ''}`,
+    hasExplicitVariantSource: names.length > 0,
   }));
 
   const candidates = sources.flatMap(
-    ({ identifierSource, pairedSlug, brandSource }) => {
+    ({
+      identifierSource,
+      pairedSlug,
+      brandSource,
+      hasExplicitVariantSource,
+    }) => {
       const identifier = getProductModelIdentifiers({
         ...context,
         productNames: names.length ? [identifierSource] : undefined,
@@ -108,9 +114,10 @@ export function getCompareProductMatchRequirements(
               identifier,
               brand: inferSourceBrand(brandSource, context),
               discriminatorTokens: getSourceDiscriminatorTokens(
-                brandSource,
+                identifierSource,
                 identifier
               ),
+              hasExplicitVariantSource,
             },
           ]
         : [];
@@ -121,36 +128,42 @@ export function getCompareProductMatchRequirements(
     return [];
   }
 
-  const candidateCounts = new Map<string, number>();
-  for (const candidate of candidates) {
-    const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
-    candidateCounts.set(key, (candidateCounts.get(key) ?? 0) + 1);
-  }
   const candidateGroups = new Map<string, typeof candidates>();
   for (const candidate of candidates) {
     const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
-    const group = candidateGroups.get(key) ?? [];
-    group.push(candidate);
-    candidateGroups.set(key, group);
+    candidateGroups.set(key, [...(candidateGroups.get(key) ?? []), candidate]);
   }
 
   return candidates.map((candidate) => {
     const key = `${candidate.identifier}\u0000${candidate.brand ?? ''}`;
+    const group = candidateGroups.get(key) ?? [];
     const requirement: CompareProductMatchRequirement = {
       identifier: candidate.identifier,
       brand: candidate.brand,
     };
-    if ((candidateCounts.get(key) ?? 0) > 1) {
-      const group = candidateGroups.get(key) ?? [];
-      const discriminatorTokens = candidate.discriminatorTokens.filter(
-        (token) =>
-          group
-            .filter((other) => other !== candidate)
-            .every((other) => !other.discriminatorTokens.includes(token))
-      );
-      if (discriminatorTokens.length > 0) {
-        requirement.discriminatorTokens = discriminatorTokens;
-      }
+    const hasSubsetVariants = group.some((left) =>
+      group.some(
+        (right) =>
+          left !== right &&
+          left.discriminatorTokens.length < right.discriminatorTokens.length &&
+          left.discriminatorTokens.every((token) =>
+            right.discriminatorTokens.includes(token)
+          )
+      )
+    );
+    const discriminatorTokens =
+      (group.length === 1 && candidate.hasExplicitVariantSource) ||
+      hasSubsetVariants
+        ? candidate.discriminatorTokens
+        : group.length > 1
+          ? candidate.discriminatorTokens.filter((token) =>
+              group
+                .filter((other) => other !== candidate)
+                .every((other) => !other.discriminatorTokens.includes(token))
+            )
+          : [];
+    if (discriminatorTokens.length > 0) {
+      requirement.discriminatorTokens = discriminatorTokens;
     }
     return requirement;
   });

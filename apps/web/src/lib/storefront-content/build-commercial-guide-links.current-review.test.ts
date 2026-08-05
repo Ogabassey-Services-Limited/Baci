@@ -56,7 +56,7 @@ describe('buildCommercialGuideLinks current review regressions', () => {
         ),
         post(
           'psn-usd-50-guide',
-          'PSN Card USD 50 Buyer Guide',
+          'USD 50 PSN Card Buyer Guide',
           'Gift Cards',
           OLDER
         ),
@@ -81,7 +81,7 @@ describe('buildCommercialGuideLinks current review regressions', () => {
           'Xbox',
           NEWER
         ),
-        post('xbox-series-x-vs-s', 'Xbox Series X/S Comparison', 'Xbox', OLDER),
+        post('xbox-series-x-vs-s', 'Xbox Series X|S Comparison', 'Xbox', OLDER),
       ]
     );
 

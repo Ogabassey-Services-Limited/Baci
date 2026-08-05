@@ -37,7 +37,7 @@ function hasXboxSeriesShorthand(left: string, right: string) {
 
 function normalizeComparisonSeparators(value: string) {
   const hasComparisonCue = COMPARISON_CUE_PATTERN.test(value);
-  return value.replace(/\s*[&/]\s*/gu, (separator, offset: number) => {
+  return value.replace(/\s*[&/|]\s*/gu, (separator, offset: number) => {
     const left = value.slice(0, offset);
     const right = value.slice(offset + separator.length);
     const hasModelOnBothSides =

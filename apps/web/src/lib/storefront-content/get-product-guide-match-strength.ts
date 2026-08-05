@@ -12,6 +12,7 @@ interface ProductGuideMatchStrengthInput {
   bindBrand: boolean;
   hasBrandMatch: boolean;
   discriminatorTokens?: string[];
+  requireBrandBeforeIdentifier?: boolean;
 }
 
 function tokenizeIdentifier(identifier: string) {
@@ -34,7 +35,8 @@ export function getProductGuideMatchStrength(
             brand,
             knownBrands: input.inferredBrands,
             brandAliases: input.brandAliases,
-            requireBrandBeforeIdentifier: true,
+            requireBrandBeforeIdentifier:
+              input.requireBrandBeforeIdentifier ?? true,
             allowBrandAliasOverlap: true,
           }
         : undefined;

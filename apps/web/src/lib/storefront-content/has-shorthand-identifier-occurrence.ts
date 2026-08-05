@@ -7,6 +7,25 @@ const COMPARISON_BOUNDARY_TOKENS = new Set([
   'versus',
   'vs',
 ]);
+const MODEL_TIER_TOKENS = new Set([
+  'active',
+  'classic',
+  'edge',
+  'fe',
+  'flip',
+  'fold',
+  'lite',
+  'max',
+  'mini',
+  'neo',
+  'plus',
+  'power',
+  'prime',
+  'pro',
+  'se',
+  'ultra',
+  'xl',
+]);
 
 function matchesTokenSequence(
   tokens: string[],
@@ -60,6 +79,12 @@ export function hasShorthandIdentifierOccurrence(
       const prefix = identifierTokens.slice(0, splitIndex);
       const suffix = identifierTokens.slice(splitIndex);
       if (!matchesTokenSequence(rightSegment, suffix, 0)) {
+        return false;
+      }
+      const hasUnexpectedTierSuffix = rightSegment
+        .slice(suffix.length)
+        .some((token) => MODEL_TIER_TOKENS.has(token));
+      if (hasUnexpectedTierSuffix) {
         return false;
       }
       const prefixStart = postTokens.findIndex(

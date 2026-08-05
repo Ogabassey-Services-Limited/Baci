@@ -39,6 +39,7 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'pavilion',
   'quest',
   'redmi',
+  'rog',
   'series',
   'thinkpad',
   'watch',
