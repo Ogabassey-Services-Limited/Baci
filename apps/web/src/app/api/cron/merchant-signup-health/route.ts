@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
+import { recordMerchantSignupHealthTelemetry } from '@/lib/posthog/merchant-signup-health-telemetry';
 import { createPublicClient } from '@/lib/supabase/public';
 
 interface MerchantSignupPolicyHealth {
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const startedAt = Date.now();
   let result: Awaited<ReturnType<typeof readMerchantSignupPolicyHealth>>;
   try {
     result = await readMerchantSignupPolicyHealth();
@@ -130,7 +132,13 @@ export async function GET(request: NextRequest) {
       message: DEPLOYMENT_FAULT_LOG_TAG,
       component: 'merchant_signup_policy_health',
       reason: 'health_rpc_threw',
-      error: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
+    await recordMerchantSignupHealthTelemetry({
+      durationMs: Date.now() - startedAt,
+      error,
+      outcome: 'unavailable',
+      reason: 'health_rpc_threw',
     });
     return NextResponse.json(
       { error: 'Merchant signup health check failed' },
@@ -140,11 +148,19 @@ export async function GET(request: NextRequest) {
   const { data, error } = result;
 
   if (error || !isMerchantSignupPolicyHealth(data)) {
+    const reason = error ? 'health_rpc_failed' : 'invalid_health_result';
     logger.error({
       message: DEPLOYMENT_FAULT_LOG_TAG,
       component: 'merchant_signup_policy_health',
-      reason: error ? 'health_rpc_failed' : 'invalid_health_result',
+      reason,
       pgCode: error?.code,
+    });
+    await recordMerchantSignupHealthTelemetry({
+      durationMs: Date.now() - startedAt,
+      ...(error ? { error } : {}),
+      outcome: 'unavailable',
+      ...(error?.code ? { postgresCode: error.code } : {}),
+      reason,
     });
     return NextResponse.json(
       { error: 'Merchant signup health check failed' },
@@ -160,11 +176,23 @@ export async function GET(request: NextRequest) {
       reason: 'policy_drift_detected',
       failedInvariants: failed,
     });
+    await recordMerchantSignupHealthTelemetry({
+      durationMs: Date.now() - startedAt,
+      failedInvariants: failed,
+      outcome: 'degraded',
+      reason: 'policy_drift_detected',
+    });
     return NextResponse.json(
       { healthy: false, failed_invariants: failed },
       { status: 503 }
     );
   }
 
+  await recordMerchantSignupHealthTelemetry({
+    durationMs: Date.now() - startedAt,
+    failedInvariants: [],
+    outcome: 'healthy',
+    reason: 'all_invariants_healthy',
+  });
   return NextResponse.json({ healthy: true });
 }

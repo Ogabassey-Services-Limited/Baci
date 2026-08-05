@@ -30,6 +30,7 @@ import {
 import { clearAdminQueryCache } from '@/lib/query-client';
 import { supabase, supabaseAuthStorageKey } from '@/lib/supabase';
 import { trackAuthTelemetry } from '@/services/auth-telemetry';
+import type { SignupFlow } from '@/services/signup-lifecycle-telemetry';
 import { useRevenueCatStore } from '@/stores/revenueCatStore';
 
 type AuthProvider = 'password' | SocialAuthProvider;
@@ -57,6 +58,7 @@ interface AuthActions {
     firstName?: string;
     lastName?: string;
     fullName?: string;
+    signupFlow?: SignupFlow;
   }) => Promise<PasswordSignUpResult>;
   signInWithApple: () => Promise<{ cancelled?: boolean; error: string | null }>;
   signInWithGoogle: () => Promise<{
@@ -181,6 +183,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         getCurrentUserId: () => get().user?.id,
         onResetUserStores: () => resetUserStores(),
         setState: (state) => set(state),
+        signupFlow: params.signupFlow ?? 'merchant',
       }),
 
     signInWithGoogle: () => {

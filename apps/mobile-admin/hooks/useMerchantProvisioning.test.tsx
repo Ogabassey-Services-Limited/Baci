@@ -5,17 +5,37 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   apiClient: vi.fn(),
+  captureMobileSignupLifecycle: vi.fn().mockResolvedValue(undefined),
+  generateUUID: vi.fn(() => '123e4567-e89b-42d3-a456-426614174099'),
   getRuntimePlatform: vi.fn(),
   invalidateQueries: vi.fn(),
+  user: {
+    id: 'user-1',
+    user_metadata: {
+      signup_attempt_id: '123e4567-e89b-42d3-a456-426614174000',
+      signup_flow: 'merchant',
+    },
+  },
 }));
 
-vi.mock('@/lib/api-client', () => ({ apiClient: mocks.apiClient }));
+vi.mock('@/lib/api-client', () => ({
+  apiClient: mocks.apiClient,
+  NetworkError: class NetworkError extends Error {
+    readonly isOffline = false;
+    readonly isTimeout = false;
+    readonly statusCode = undefined;
+  },
+}));
 vi.mock('@/config/runtime-platform', () => ({
   getRuntimePlatform: mocks.getRuntimePlatform,
 }));
 vi.mock('@/hooks/useAuth', () => ({
-  useAuth: () => ({ user: { id: 'user-1' } }),
+  useAuth: () => ({ user: mocks.user }),
 }));
+vi.mock('@/services/signup-lifecycle-telemetry', () => ({
+  captureMobileSignupLifecycle: mocks.captureMobileSignupLifecycle,
+}));
+vi.mock('@/utils/uuid', () => ({ generateUUID: mocks.generateUUID }));
 
 import { useMerchantProvisioning } from './useMerchantProvisioning';
 
@@ -48,6 +68,8 @@ describe('useMerchantProvisioning', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getRuntimePlatform.mockReturnValue('ios');
+    mocks.user.user_metadata.signup_attempt_id =
+      '123e4567-e89b-42d3-a456-426614174000';
     mocks.apiClient.mockResolvedValue({
       success: true,
       merchant: { id: 'merchant-1', slug: 'analytical-engines' },
@@ -84,7 +106,10 @@ describe('useMerchantProvisioning', () => {
       {
         method: 'POST',
         body: JSON.stringify(payload),
-        headers: { 'X-Baci-Platform': platform },
+        headers: {
+          'X-Baci-Platform': platform,
+          'X-Baci-Signup-Attempt-Id': '123e4567-e89b-42d3-a456-426614174000',
+        },
       }
     );
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
@@ -103,6 +128,43 @@ describe('useMerchantProvisioning', () => {
     ]) {
       expect(serialized).not.toContain(forbidden);
     }
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attemptId: '123e4567-e89b-42d3-a456-426614174000',
+        eventCode: 'merchant_provisioning_started',
+        flow: 'merchant',
+        outcome: 'started',
+        stage: 'provisioning',
+      })
+    );
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventCode: 'merchant_signup_completed',
+        outcome: 'completed',
+      })
+    );
+  });
+
+  it('replaces untrusted metadata with a fresh opaque request correlation id', async () => {
+    mocks.user.user_metadata.signup_attempt_id = 'owner@example.com';
+    const { result } = renderHook(() => useMerchantProvisioning(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync(payload);
+    });
+
+    expect(mocks.generateUUID).toHaveBeenCalledOnce();
+    expect(mocks.apiClient).toHaveBeenCalledWith(
+      '/api/mobile/merchant-provisioning',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Baci-Signup-Attempt-Id': '123e4567-e89b-42d3-a456-426614174099',
+        }),
+      })
+    );
+    expect(JSON.stringify(mocks.apiClient.mock.calls)).not.toContain(
+      'owner@example.com'
+    );
   });
 
   it.each([
@@ -132,5 +194,12 @@ describe('useMerchantProvisioning', () => {
       );
     });
     expect(mocks.apiClient).toHaveBeenCalledOnce();
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventCode: 'merchant_provisioning_failed',
+        failureClass: 'unexpected',
+        outcome: 'failed',
+      })
+    );
   });
 });

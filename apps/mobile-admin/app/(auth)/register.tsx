@@ -130,6 +130,7 @@ export default function RegisterScreen() {
         firstName,
         lastName,
         fullName: `${firstName} ${lastName}`,
+        signupFlow: 'merchant',
       });
 
       if (result.error) {

@@ -1,6 +1,12 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { isConnectivityError } from '@/lib/api-errors';
 import { supabase } from '@/lib/supabase';
+import { signupAttemptIdSchema } from '@/schemas/signup-attempt-id';
+import {
+  captureMobileSignupLifecycle,
+  type SignupFailureClass,
+  type SignupFlow,
+} from '@/services/signup-lifecycle-telemetry';
 
 export interface VerifySignupOtpResult {
   error: string | null;
@@ -34,6 +40,31 @@ function verificationErrorMessage(error: unknown): string {
   return 'Email verification failed. Request a new code and try again.';
 }
 
+function verificationFailureClass(error: unknown): SignupFailureClass {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/expired|invalid|token.*not found|otp/i.test(message)) {
+    return 'invalid_verification';
+  }
+  return isConnectivityError(error)
+    ? 'connectivity_transport'
+    : 'auth_provider';
+}
+
+function getSignupContext(user: User): {
+  attemptId: string | null;
+  flow: SignupFlow;
+} {
+  const metadata = user.user_metadata;
+  const parsedAttemptId = signupAttemptIdSchema.safeParse(
+    metadata?.signup_attempt_id
+  );
+  const flow = metadata?.signup_flow;
+  return {
+    attemptId: parsedAttemptId.success ? parsedAttemptId.data : null,
+    flow: flow === 'staff' ? 'staff' : 'merchant',
+  };
+}
+
 export async function runSignupOtpVerification({
   email,
   getCurrentUserId,
@@ -41,6 +72,15 @@ export async function runSignupOtpVerification({
   setState,
   token,
 }: RunSignupOtpVerificationOptions): Promise<VerifySignupOtpResult> {
+  const startedAt = Date.now();
+  void captureMobileSignupLifecycle({
+    attemptId: null,
+    eventCode: 'signup_verification_started',
+    flow: 'merchant',
+    outcome: 'started',
+    stage: 'verification',
+  });
+
   try {
     const { data, error } = await supabase.auth.verifyOtp({
       email,
@@ -49,9 +89,28 @@ export async function runSignupOtpVerification({
     });
 
     if (error) {
+      void captureMobileSignupLifecycle({
+        attemptId: null,
+        durationMs: Date.now() - startedAt,
+        error,
+        eventCode: 'signup_verification_failed',
+        failureClass: verificationFailureClass(error),
+        flow: 'merchant',
+        outcome: 'failed',
+        stage: 'verification',
+      });
       return { error: verificationErrorMessage(error) };
     }
     if (!data.session || !data.user) {
+      void captureMobileSignupLifecycle({
+        attemptId: null,
+        durationMs: Date.now() - startedAt,
+        eventCode: 'signup_verification_incomplete',
+        failureClass: 'incomplete_response',
+        flow: 'merchant',
+        outcome: 'failed',
+        stage: 'verification',
+      });
       return {
         error:
           'Email verification did not finish. Request a new code and try again.',
@@ -69,8 +128,29 @@ export async function runSignupOtpVerification({
       user: data.user,
     });
 
+    const context = getSignupContext(data.user);
+    void captureMobileSignupLifecycle({
+      ...context,
+      durationMs: Date.now() - startedAt,
+      eventCode: 'signup_verification_succeeded',
+      outcome: 'succeeded',
+      stage: 'verification',
+    });
+
     return { error: null, sessionEstablished: true };
   } catch (error) {
+    void captureMobileSignupLifecycle({
+      attemptId: null,
+      durationMs: Date.now() - startedAt,
+      error,
+      eventCode: 'signup_verification_failed',
+      failureClass: isConnectivityError(error)
+        ? 'connectivity_transport'
+        : 'unexpected',
+      flow: 'merchant',
+      outcome: 'failed',
+      stage: 'verification',
+    });
     return { error: verificationErrorMessage(error) };
   }
 }

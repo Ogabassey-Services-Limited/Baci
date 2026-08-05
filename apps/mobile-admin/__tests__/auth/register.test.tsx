@@ -53,6 +53,7 @@ describe('RegisterScreen', () => {
       firstName: 'Test',
       lastName: 'User',
       fullName: 'Test User',
+      signupFlow: 'merchant',
     });
   });
 
