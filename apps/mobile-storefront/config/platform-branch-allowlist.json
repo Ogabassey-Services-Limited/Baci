@@ -261,6 +261,10 @@
       "justification": "Reviewed web guard and Android notification channel setup."
     },
     {
+      "path": "services/quiz.ts",
+      "justification": "Reviewed quiz request metadata normalization to the backend-supported android, ios, and web platform values."
+    },
+    {
       "path": "services/savings-reminder-notifications.ts",
       "justification": "Reviewed web guard and Android notification channel setup for savings reminders."
     }
