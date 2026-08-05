@@ -16,6 +16,10 @@ interface UseQuizQuestionTimerParams {
   timeLimitSeconds: number;
   /** Server-issued deadline for the current question window. */
   deadlineAt?: string | null;
+  /** Universal event end; the question can never outlive this instant. */
+  eventEndsAt?: string | null;
+  /** Difference between the server clock and the local device clock. */
+  serverClockOffsetMs?: number;
   /** True only while the player can still answer (status === 'question'). */
   isActive: boolean;
   /**
@@ -34,18 +38,47 @@ interface QuizQuestionTimerState {
   isExpiring: boolean;
 }
 
-function resolveDeadlineMs(
+type ResolvedQuestionDeadline = {
+  eventEndMs: number | null;
+  fallbackDeadlineMs: number | null;
+  serverDeadlineMs: number | null;
+};
+
+function resolveDeadline(
   deadlineAt: string | null | undefined,
+  eventEndsAt: string | null | undefined,
   timeLimitSeconds: number
-): number {
+): ResolvedQuestionDeadline {
   const parsedDeadline = deadlineAt ? Date.parse(deadlineAt) : Number.NaN;
-  return Number.isFinite(parsedDeadline)
-    ? parsedDeadline
-    : Date.now() + timeLimitSeconds * 1000;
+  const parsedEventEnd = eventEndsAt ? Date.parse(eventEndsAt) : Number.NaN;
+  return {
+    eventEndMs: Number.isFinite(parsedEventEnd) ? parsedEventEnd : null,
+    // A fallback is generated on the device, so it must remain in the device
+    // clock domain. Applying a later server-clock correction to it would grant
+    // or remove time that the server never issued.
+    fallbackDeadlineMs: Number.isFinite(parsedDeadline)
+      ? null
+      : Date.now() + timeLimitSeconds * 1000,
+    serverDeadlineMs: Number.isFinite(parsedDeadline) ? parsedDeadline : null,
+  };
 }
 
-function getRemainingMs(deadlineMs: number): number {
-  return Math.max(0, deadlineMs - Date.now());
+function getRemainingMs(
+  deadline: ResolvedQuestionDeadline,
+  serverClockOffsetMs: number
+): number {
+  const deviceNow = Date.now();
+  const serverNow = deviceNow + serverClockOffsetMs;
+  const candidates = [
+    deadline.fallbackDeadlineMs === null
+      ? null
+      : deadline.fallbackDeadlineMs - deviceNow,
+    deadline.serverDeadlineMs === null
+      ? null
+      : deadline.serverDeadlineMs - serverNow,
+    deadline.eventEndMs === null ? null : deadline.eventEndMs - serverNow,
+  ].filter((candidate): candidate is number => candidate !== null);
+  return Math.max(0, Math.min(...candidates));
 }
 
 /**
@@ -58,14 +91,18 @@ export function useQuizQuestionTimer({
   questionId,
   timeLimitSeconds,
   deadlineAt,
+  eventEndsAt,
+  serverClockOffsetMs = 0,
   isActive,
   hasSelection,
   onExpire,
 }: UseQuizQuestionTimerParams): QuizQuestionTimerState {
-  const deadlineRef = useRef(resolveDeadlineMs(deadlineAt, timeLimitSeconds));
+  const deadlineRef = useRef(
+    resolveDeadline(deadlineAt, eventEndsAt, timeLimitSeconds)
+  );
   const firedRef = useRef(false);
   const [remainingMs, setRemainingMs] = useState(() =>
-    getRemainingMs(deadlineRef.current)
+    getRemainingMs(deadlineRef.current, serverClockOffsetMs)
   );
 
   // Latest onExpire/hasSelection without retriggering the interval effect on
@@ -77,21 +114,31 @@ export function useQuizQuestionTimer({
 
   // Reset the countdown the moment a new question arrives (render-time compare
   // avoids a stale first frame from an effect).
-  const questionTimerKey = `${questionId ?? 'none'}:${deadlineAt ?? ''}:${timeLimitSeconds}`;
+  // Clock calibration can change while the same question remains mounted. It
+  // changes how remaining time is measured, but it must not make an already
+  // expired question eligible to fire again.
+  const questionTimerKey = `${questionId ?? 'none'}:${deadlineAt ?? ''}:${eventEndsAt ?? ''}:${timeLimitSeconds}`;
   const [trackedQuestionTimerKey, setTrackedQuestionTimerKey] =
     useState(questionTimerKey);
   if (questionTimerKey !== trackedQuestionTimerKey) {
     setTrackedQuestionTimerKey(questionTimerKey);
-    deadlineRef.current = resolveDeadlineMs(deadlineAt, timeLimitSeconds);
+    deadlineRef.current = resolveDeadline(
+      deadlineAt,
+      eventEndsAt,
+      timeLimitSeconds
+    );
     firedRef.current = false;
-    setRemainingMs(getRemainingMs(deadlineRef.current));
+    setRemainingMs(getRemainingMs(deadlineRef.current, serverClockOffsetMs));
   }
 
   useEffect(() => {
     if (!isActive || questionId === null) return;
 
     const evaluate = () => {
-      const remaining = getRemainingMs(deadlineRef.current);
+      const remaining = getRemainingMs(
+        deadlineRef.current,
+        serverClockOffsetMs
+      );
       setRemainingMs(remaining);
 
       // Selected answer: fire early (lead) to beat network latency. No
@@ -118,7 +165,7 @@ export function useQuizQuestionTimer({
       clearInterval(intervalId);
       appStateSubscription?.remove?.();
     };
-  }, [deadlineAt, isActive, questionId, timeLimitSeconds]);
+  }, [isActive, questionId, serverClockOffsetMs]);
 
   return {
     remainingSeconds: Math.ceil(remainingMs / 1000),

@@ -13,10 +13,12 @@ type QuizDraftRpcArgs = {
   p_merchant_id: string;
   p_settings: {
     prize_name: string;
+    prize_condition: string;
     prize_product_id: string;
     prize_product_image_url: string | null;
     prize_product_name: string;
     prize_variant_id: string | null;
+    quiz_mode: string;
     time_limit_seconds: number;
   };
   p_slug: string;
@@ -112,7 +114,13 @@ function hashAnswerKey(answer: string): string {
 
 function createRequest(body: Record<string, unknown>): NextRequest {
   return new Request('http://localhost/api/merchant/quiz/generate', {
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      mode: 'test',
+      prizeCondition: 'unspecified',
+      prizeEffectiveStock: null,
+      prizeImageUrl: 'https://cdn.example.com/iphone-15-pro-max.png',
+      ...body,
+    }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   }) as unknown as NextRequest;
@@ -145,10 +153,16 @@ describe('POST /api/merchant/quiz/generate', () => {
     });
     mockPrizeProductMaybeSingle.mockResolvedValue({
       data: {
+        condition: null,
         default_variant_id: null,
+        has_variants: false,
         id: PRIZE_PRODUCT_ID,
         images: [{ url: 'https://cdn.example.com/iphone-15-pro-max.png' }],
+        manage_stock: false,
+        merchant_id: 'merchant-1',
         name: 'iPhone 15 Pro Max',
+        stock: null,
+        stock_quantity: null,
       },
       error: null,
     });
@@ -211,11 +225,13 @@ describe('POST /api/merchant/quiz/generate', () => {
       p_merchant_id: 'merchant-1',
       p_settings: {
         prize_name: 'iPhone 15 Pro Max',
+        prize_condition: 'unspecified',
         prize_product_id: PRIZE_PRODUCT_ID,
         prize_product_image_url:
           'https://cdn.example.com/iphone-15-pro-max.png',
         prize_product_name: 'iPhone 15 Pro Max',
         prize_variant_id: null,
+        quiz_mode: 'test',
         time_limit_seconds: 30,
       },
       p_slug: expect.stringMatching(/^daily-phone-quiz-[0-9a-f]{8}$/),
@@ -270,7 +286,7 @@ describe('POST /api/merchant/quiz/generate', () => {
     // Generating a draft must never auto-open the event.
     expect(mockQuizEventUpdate).not.toHaveBeenCalled();
     expect(mockPrizeProductBuilder.select).toHaveBeenCalledWith(
-      'id, name, images, default_variant_id'
+      'id, merchant_id, name, images, condition, default_variant_id, has_variants, manage_stock, stock, stock_quantity'
     );
     expect(mockPrizeProductBuilder.eq).toHaveBeenCalledWith(
       'id',

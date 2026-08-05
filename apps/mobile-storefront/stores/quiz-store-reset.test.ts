@@ -1,4 +1,5 @@
 import { act } from '@testing-library/react-native';
+import { asyncStorage } from '@/lib/storage';
 import { useQuizStore } from './quiz-store';
 import { attempt, events, result } from './quiz-store.test-utils';
 
@@ -45,6 +46,47 @@ describe('useQuizStore reset and explicit errors', () => {
       selectedOptionId: null,
       result: null,
       error: null,
+    });
+  });
+
+  it('resets every v2 field even if recovery storage rejects cleanup', async () => {
+    jest
+      .spyOn(asyncStorage, 'removeItem')
+      .mockRejectedValueOnce(new Error('disk'));
+    useQuizStore.setState({
+      lockedOptionId: 'option-1',
+      recoveryUserId: 'user-1',
+      selectedEventId: 'event-1',
+      startRequestId: '11111111-1111-4111-8111-111111111111',
+      status: 'submitting',
+      v2Attempt: {
+        attemptId: 'attempt-v2',
+        eventEndsAt: '2026-08-04T12:05:00.000Z',
+        eventId: 'event-1',
+        resultsAvailableAt: null,
+        serverNow: '2026-08-04T12:00:00.000Z',
+        status: 'in_progress',
+      },
+      v2LifecycleStatus: 'in_progress',
+      v2Result: {
+        attemptId: 'attempt-v2',
+        availability: 'pending',
+        availableAt: null,
+      },
+    });
+
+    act(() => useQuizStore.getState().reset());
+    await Promise.resolve();
+
+    expect(useQuizStore.getState()).toMatchObject({
+      lockedOptionId: null,
+      recoveryUserId: null,
+      selectedEventId: null,
+      startRequestId: null,
+      status: 'idle',
+      v2Attempt: null,
+      v2LifecycleStatus: 'idle',
+      v2Result: null,
     });
   });
 });

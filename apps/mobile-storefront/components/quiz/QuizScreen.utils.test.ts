@@ -1,8 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
 import type { QuizEvent } from '@/services/quiz';
 import {
+  formatRemainingTime,
   formatTimeRange,
   getEventStartButtonText,
+  getPrizeMomentLabel,
   getQuizErrorMessage,
   shouldShowEventList,
 } from './QuizScreen.utils';
@@ -40,7 +42,67 @@ describe('QuizScreen utils', () => {
   });
 
   it('advertises free entry on the start button for an open event', () => {
-    expect(getEventStartButtonText('open', false)).toBe('Start free exam');
+    expect(getEventStartButtonText('open', false)).toBe('Play for free');
+    expect(getEventStartButtonText('active', false, true)).toBe('Resume quiz');
+  });
+
+  it('uses the event timezone and server clock for the prize moment', () => {
+    const event: QuizEvent = {
+      endsAt: '2026-08-03T21:00:00Z',
+      id: 'event-1',
+      prizeName: 'Phone',
+      questionCount: 20,
+      startsAt: '2026-08-03T19:00:00Z',
+      status: 'scheduled',
+      timeZone: 'Africa/Lagos',
+      title: 'Tonight quiz',
+    };
+
+    expect(getPrizeMomentLabel(event, '2026-08-03T08:00:00Z')).toBe(
+      "Tonight's Prize"
+    );
+    expect(
+      getPrizeMomentLabel(
+        { ...event, startsAt: '2026-08-04T08:00:00Z' },
+        '2026-08-03T08:00:00Z'
+      )
+    ).toBe("Tomorrow's Prize");
+    expect(
+      getPrizeMomentLabel(
+        { ...event, startsAt: '2026-08-02T08:00:00Z' },
+        '2026-08-03T08:00:00Z'
+      )
+    ).toBe("Today's Prize");
+    expect(
+      getPrizeMomentLabel(
+        { ...event, startsAt: '2026-08-03T08:00:00Z', status: 'active' },
+        '2026-08-03T18:00:00Z'
+      )
+    ).toBe("Tonight's Prize");
+  });
+
+  it('uses a Gregorian timezone date key across a local calendar boundary', () => {
+    const event: QuizEvent = {
+      endsAt: '2026-08-04T01:00:00Z',
+      id: 'event-gregorian',
+      prizeName: 'Phone',
+      questionCount: 1,
+      startsAt: '2026-08-04T00:30:00Z',
+      status: 'scheduled',
+      timeZone: 'America/Los_Angeles',
+      title: 'Calendar-safe prize',
+    };
+
+    expect(
+      getPrizeMomentLabel(event, '2026-08-04T00:00:00Z', 'ar-EG-u-ca-islamic')
+    ).toBe("Tonight's Prize");
+  });
+
+  it('formats the universal countdown with tabular minutes and seconds', () => {
+    expect(formatRemainingTime(65)).toBe('01:05');
+    expect(formatRemainingTime(3661)).toBe('61:01');
+    expect(formatRemainingTime(1.9)).toBe('00:01');
+    expect(formatRemainingTime(-1)).toBe('00:00');
   });
 
   it('formats start button text for the other event states', () => {

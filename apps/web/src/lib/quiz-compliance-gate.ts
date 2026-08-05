@@ -1,10 +1,32 @@
-import { getQuizPhaseEnv, getQuizProductionApprovedEnv } from '@/env';
 import { logger } from '@/lib/logger';
+import {
+  getQuizPhaseEnv,
+  getQuizProductionApprovedEnv,
+} from '@/lib/quiz/quiz-runtime-env';
 
 export type QuizPhase = '1a' | 'production';
 
+export const quizComplianceBases = [
+  'free_skill_competition',
+  'state_permit',
+  'fccpc_registration',
+] as const;
+
+export type QuizComplianceBasis = (typeof quizComplianceBases)[number];
+
+export type QuizComplianceEvidence = {
+  regulatory_basis: QuizComplianceBasis;
+  regulatory_evidence_ref: string;
+  regulatory_jurisdiction: string;
+};
+
 export type QuizProductionGuardEvent = {
+  // Deprecated historical field retained only for compatibility with existing
+  // row shapes. The guard never reads it.
   nlrc_permit_ref?: string | null;
+  regulatory_basis?: string | null;
+  regulatory_evidence_ref?: string | null;
+  regulatory_jurisdiction?: string | null;
 };
 
 // Env contract (server-only):
@@ -100,6 +122,48 @@ export function assertQuizPhaseMatchesDeployment(
   }
 }
 
+function isQuizComplianceBasis(value: unknown): value is QuizComplianceBasis {
+  return (
+    typeof value === 'string' &&
+    quizComplianceBases.some((basis) => basis === value)
+  );
+}
+
+function getNonblankString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+// The first-class regulatory columns are the sole live-prize eligibility
+// boundary. `compliance_flags` and `nlrc_permit_ref` remain historical data;
+// neither is interpreted here. The required data is:
+// { regulatory_basis: 'free_skill_competition' | 'state_permit' |
+//     'fccpc_registration', regulatory_jurisdiction: '...',
+//   regulatory_evidence_ref: 'counsel-opinion-or-registration-reference' }
+//
+// Do not infer a basis from a title, prize, or entry price. An operator must
+// explicitly record it and its evidence before a live prize can be claimed.
+export function getQuizComplianceEvidence(
+  eventRow: QuizProductionGuardEvent
+): QuizComplianceEvidence | null {
+  const jurisdiction = getNonblankString(eventRow.regulatory_jurisdiction);
+  const evidenceReference = getNonblankString(eventRow.regulatory_evidence_ref);
+  if (
+    isQuizComplianceBasis(eventRow.regulatory_basis) &&
+    jurisdiction &&
+    evidenceReference
+  ) {
+    return {
+      regulatory_basis: eventRow.regulatory_basis,
+      regulatory_evidence_ref: evidenceReference,
+      regulatory_jurisdiction: jurisdiction,
+    };
+  }
+
+  return null;
+}
+
 export function enforcePrizeProductionGuard(
   eventRow: QuizProductionGuardEvent,
   complianceVerified: boolean
@@ -119,16 +183,16 @@ export function enforcePrizeProductionGuard(
   }
 
   const hasComplianceApproval = getQuizProductionApprovedEnv();
-  const hasPermitReference = (eventRow.nlrc_permit_ref ?? '').trim().length > 0;
+  const complianceEvidence = getQuizComplianceEvidence(eventRow);
   const hasComplianceEvidence = complianceVerified;
   const canClaimProductionPrize =
     isProductionPhase &&
     hasComplianceApproval &&
-    hasPermitReference &&
+    complianceEvidence !== null &&
     hasComplianceEvidence;
 
   // Fail closed until operations has approved production prizes and the event
-  // row carries permit/compliance evidence.
+  // row has an explicit jurisdiction-aware compliance basis and evidence.
   if (!canClaimProductionPrize) {
     throw new QuizProductionNotApprovedError();
   }

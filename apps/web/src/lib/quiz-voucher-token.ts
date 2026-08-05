@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
-import { getQuizRpcServerSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { getQuizRpcServerSecret } from '@/lib/quiz/quiz-runtime-env';
 
 const QUIZ_VOUCHER_TOKEN_VERSION = 'qv1';
 

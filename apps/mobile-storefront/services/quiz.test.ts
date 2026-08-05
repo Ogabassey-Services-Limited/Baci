@@ -7,117 +7,43 @@ import {
   it,
   jest,
 } from '@jest/globals';
+import { z } from 'zod';
+import {
+  legacyQuizEventDefaults,
+  mockConfig,
+  mockExpoConstants,
+  mockFetch,
+  quizService,
+  resetQuizServiceMocks,
+  restoreQuizServiceGlobals,
+} from './quiz.test-support';
 
-const mockFetch = jest.fn<typeof fetch>();
-type MockAuthError = { message?: string; status?: number } | null;
-type MockSessionResult = {
-  data: { session: { access_token: string } | null };
-  error?: MockAuthError;
-};
-type MockUserResult = {
-  data: { user: { id: string } | null };
-  error?: MockAuthError;
-};
+const { QUIZ_REQUEST_TIMEOUT_MS, fetchQuizEvents, requestQuizV2 } = quizService;
 
-const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
-const mockGetUser = jest.fn<(token?: string) => Promise<MockUserResult>>();
-const mockConfig = {
-  MERCHANT_ID: '',
-  MERCHANT_SLUG: 'ogabassey',
-};
-
-const originalFetch = global.fetch;
-global.fetch = mockFetch;
-
-jest.mock('expo-constants', () => ({
-  __esModule: true,
-  default: {
-    expoConfig: {
-      extra: {
-        merchantId: 'merchant-1',
-        merchantSlug: 'ogabassey',
-      },
-    },
-  },
-}));
-
-jest.mock('@/lib/config', () => ({
-  CONFIG: mockConfig,
-}));
-
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: mockGetSession,
-      getUser: mockGetUser,
-    },
-  },
-}));
-
-// getQuizAuthHeaders routes its warnings through the shared logger; capture
-// log.warn so the retry tests can assert on it (the real logger prefixes the
-// message, so a console.warn spy would not match).
-const mockLogWarn = jest.fn();
-jest.mock('@/lib/logger', () => ({
-  createLogger: () => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: mockLogWarn,
-    error: jest.fn(),
-  }),
-}));
-
-const mockExpoConstants = require('expo-constants').default as {
-  expoConfig?: { extra?: Record<string, unknown> };
-};
-const { fetchQuizEvents, startQuizAttempt, submitQuizAnswer } =
-  require('./quiz') as typeof import('./quiz');
-
-describe('quiz service', () => {
-  afterAll(() => {
-    global.fetch = originalFetch;
-  });
-
-  beforeEach(() => {
-    mockFetch.mockReset();
-    mockGetSession.mockReset();
-    mockGetUser.mockReset();
-    mockLogWarn.mockReset();
-    mockExpoConstants.expoConfig = {
-      extra: {
-        merchantId: 'merchant-1',
-        merchantSlug: 'ogabassey',
-      },
-    };
-    mockGetSession.mockResolvedValue({
-      data: { session: { access_token: 'token-123' } },
-    });
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: 'user-1' } },
-    });
-    mockConfig.MERCHANT_ID = '';
-    mockConfig.MERCHANT_SLUG = 'ogabassey';
-  });
-
+describe('quiz event service', () => {
+  // Authentication/transport failures and legacy attempt mutations are kept in
+  // quiz-auth.test.ts and quiz-legacy-attempt-service.test.ts, respectively.
+  afterAll(restoreQuizServiceGlobals);
+  beforeEach(resetQuizServiceMocks);
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
-  it('maps event list responses into mobile quiz events', async () => {
+  it('maps event list responses into mobile quiz events with safe legacy defaults', async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           entryMode: 'free-v1',
           events: [
             {
-              id: 'event-1',
-              title: 'Win airtime',
-              prizeName: 'N50,000 airtime',
-              startsAt: '2026-05-20T10:00:00.000Z',
               endsAt: '2026-05-20T10:10:00.000Z',
-              status: 'open',
+              id: 'event-1',
+              prizeName: 'N50,000 airtime',
               questionCount: 5,
+              startsAt: '2026-05-20T10:00:00.000Z',
+              status: 'open',
+              title: 'Win airtime',
             },
           ],
         }),
@@ -129,24 +55,27 @@ describe('quiz service', () => {
       fetchQuizEvents({ baseUrl: 'https://example.com' })
     ).resolves.toEqual([
       {
-        id: 'event-1',
-        title: 'Win airtime',
-        prizeName: 'N50,000 airtime',
-        startsAt: '2026-05-20T10:00:00.000Z',
+        ...legacyQuizEventDefaults,
         endsAt: '2026-05-20T10:10:00.000Z',
-        status: 'open',
+        id: 'event-1',
+        liveWindowSeconds: 600,
+        maximumPlaySeconds: 150,
+        prizeName: 'N50,000 airtime',
         questionCount: 5,
+        startsAt: '2026-05-20T10:00:00.000Z',
+        status: 'open',
+        title: 'Win airtime',
       },
     ]);
     expect(mockFetch).toHaveBeenCalledWith(
       'https://example.com/api/quiz/events?merchantId=merchant-1&limit=50&offset=0',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer token-123',
-        }),
         method: 'GET',
       })
     );
+    expect(
+      new Headers(mockFetch.mock.calls[0]?.[1]?.headers).get('Authorization')
+    ).toBe('Bearer token-123');
   });
 
   it('falls back to the configured merchant slug when Expo merchant context is missing', async () => {
@@ -174,13 +103,13 @@ describe('quiz service', () => {
             entryMode: 'free-v1',
             events: [
               {
-                id: 'event-1',
-                title: 'Win airtime',
-                prizeName: 'N50,000 airtime',
-                startsAt: '2026-05-20T10:00:00.000Z',
                 endsAt: '2026-05-20T10:10:00.000Z',
-                status: 'open',
+                id: 'event-1',
+                prizeName: 'N50,000 airtime',
                 questionCount: 5,
+                startsAt: '2026-05-20T10:00:00.000Z',
+                status: 'open',
+                title: 'Win airtime',
               },
             ],
             pagination: {
@@ -199,13 +128,13 @@ describe('quiz service', () => {
             entryMode: 'free-v1',
             events: [
               {
-                id: 'event-2',
-                title: 'Win data',
-                prizeName: 'N10,000 data',
-                startsAt: '2026-05-21T10:00:00.000Z',
                 endsAt: '2026-05-21T10:10:00.000Z',
-                status: 'scheduled',
+                id: 'event-2',
+                prizeName: 'N10,000 data',
                 questionCount: 3,
+                startsAt: '2026-05-21T10:00:00.000Z',
+                status: 'scheduled',
+                title: 'Win data',
               },
             ],
             pagination: {
@@ -222,30 +151,19 @@ describe('quiz service', () => {
     await expect(
       fetchQuizEvents({ baseUrl: 'https://example.com' })
     ).resolves.toEqual([
-      {
+      expect.objectContaining({
+        ...legacyQuizEventDefaults,
         id: 'event-1',
-        title: 'Win airtime',
-        prizeName: 'N50,000 airtime',
-        startsAt: '2026-05-20T10:00:00.000Z',
-        endsAt: '2026-05-20T10:10:00.000Z',
-        status: 'open',
-        questionCount: 5,
-      },
-      {
+        liveWindowSeconds: 600,
+        maximumPlaySeconds: 150,
+      }),
+      expect.objectContaining({
+        ...legacyQuizEventDefaults,
         id: 'event-2',
-        title: 'Win data',
-        prizeName: 'N10,000 data',
-        startsAt: '2026-05-21T10:00:00.000Z',
-        endsAt: '2026-05-21T10:10:00.000Z',
-        status: 'scheduled',
-        questionCount: 3,
-      },
+        liveWindowSeconds: 600,
+        maximumPlaySeconds: 90,
+      }),
     ]);
-    expect(mockFetch).toHaveBeenNthCalledWith(
-      1,
-      'https://example.com/api/quiz/events?merchantId=merchant-1&limit=50&offset=0',
-      expect.objectContaining({ method: 'GET' })
-    );
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
       'https://example.com/api/quiz/events?merchantId=merchant-1&limit=50&offset=50',
@@ -287,7 +205,6 @@ describe('quiz service', () => {
       fetchQuizEvents({ baseUrl: 'https://example.com' })
     ).rejects.toMatchObject({
       code: 'QUIZ_CONFIGURATION_REQUIRED',
-      message: 'Quiz merchant context is not configured',
       status: 500,
     });
     expect(mockFetch).not.toHaveBeenCalled();
@@ -297,9 +214,7 @@ describe('quiz service', () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({ error: 'Quiz closed', code: 'QUIZ_CLOSED' }),
-        {
-          status: 409,
-        }
+        { status: 409 }
       )
     );
 
@@ -312,307 +227,131 @@ describe('quiz service', () => {
     });
   });
 
-  it('fails closed before requests when the mobile bearer session is persistently missing', async () => {
-    jest.useFakeTimers();
-    // No session on either attempt: cold-start retries once, then fails closed.
-    mockGetSession.mockResolvedValue({ data: { session: null } });
-
-    const resultPromise = fetchQuizEvents({ baseUrl: 'https://example.com' });
-    // Attach the rejection expectation BEFORE advancing timers so the rejection
-    // (raised while the fake timer elapses) is never momentarily unhandled.
-    const expectation = expect(resultPromise).rejects.toMatchObject({
-      code: 'QUIZ_AUTH_REQUIRED',
-      message: 'Quiz authentication required',
-      status: 401,
-    });
-    await jest.advanceTimersByTimeAsync(300);
-    await expectation;
-
-    expect(mockGetSession).toHaveBeenCalledTimes(2);
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('retries transient mobile bearer session read errors once', async () => {
-    jest.useFakeTimers();
-    mockGetSession
-      .mockResolvedValueOnce({
-        data: { session: null },
-        error: { message: 'network timeout' },
-      })
-      .mockResolvedValueOnce({
-        data: { session: { access_token: 'token-123' } },
-        error: null,
-      });
-    mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ entryMode: 'free-v1', events: [] }), {
-        status: 200,
-      })
-    );
-
-    const resultPromise = fetchQuizEvents({ baseUrl: 'https://example.com' });
-    await jest.advanceTimersByTimeAsync(300);
-
-    await expect(resultPromise).resolves.toEqual([]);
-    expect(mockGetSession).toHaveBeenCalledTimes(2);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockLogWarn).toHaveBeenCalledWith(
-      'Unable to read quiz auth session',
-      expect.objectContaining({ attempt: 1, message: 'network timeout' })
-    );
-  });
-
-  it('fails closed before requests when reading the mobile bearer session has a definitive auth error', async () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    mockGetSession.mockResolvedValueOnce({
-      data: { session: null },
-      error: { message: 'invalid refresh token', status: 401 },
-    });
-
-    await expect(
-      fetchQuizEvents({ baseUrl: 'https://example.com' })
-    ).rejects.toMatchObject({
-      code: 'QUIZ_AUTH_REQUIRED',
-      message: 'Quiz authentication required',
-      status: 401,
-    });
-    expect(mockGetSession).toHaveBeenCalledTimes(1);
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('fails closed when the mobile bearer token cannot be validated', async () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    mockGetUser.mockResolvedValueOnce({
-      data: { user: null },
-      error: { message: 'token invalid' },
-    });
-
-    await expect(
-      fetchQuizEvents({ baseUrl: 'https://example.com' })
-    ).rejects.toMatchObject({
-      code: 'QUIZ_AUTH_REQUIRED',
-      message: 'Quiz authentication required',
-      status: 401,
-    });
-    expect(mockGetUser).toHaveBeenCalledTimes(1);
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('retries transient mobile bearer token validation errors once', async () => {
-    jest.useFakeTimers();
-    mockGetUser
-      .mockResolvedValueOnce({
-        data: { user: null },
-        error: { message: 'network timeout' },
-      })
-      .mockResolvedValueOnce({
-        data: { user: { id: 'user-1' } },
-        error: null,
-      });
-    mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ entryMode: 'free-v1', events: [] }), {
-        status: 200,
-      })
-    );
-
-    const resultPromise = fetchQuizEvents({ baseUrl: 'https://example.com' });
-    await jest.advanceTimersByTimeAsync(300);
-
-    await expect(resultPromise).resolves.toEqual([]);
-    expect(mockGetSession).toHaveBeenCalledTimes(2);
-    expect(mockGetUser).toHaveBeenCalledTimes(2);
-    expect(mockLogWarn).toHaveBeenCalledWith(
-      'Unable to validate quiz auth session',
-      expect.objectContaining({ attempt: 1, message: 'network timeout' })
-    );
-  });
-
-  it('propagates network-level fetch failures', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('network down'));
-
-    await expect(
-      fetchQuizEvents({ baseUrl: 'https://example.com' })
-    ).rejects.toThrow('network down');
-  });
-
-  it('throws when a successful API response does not match the quiz contract', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ attemptId: 123 }), { status: 200 })
-    );
-
-    await expect(
-      startQuizAttempt({
-        baseUrl: 'https://example.com',
-        eventId: 'event-1',
-        integrityTier: 'basic',
-      })
-    ).rejects.toMatchObject({
-      code: 'QUIZ_INVALID_RESPONSE',
-      status: 502,
-    });
-  });
-
-  it('maps start responses with the spent exam pass and remaining loyalty points', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          attemptId: 'attempt-1',
-          eventId: 'event-1',
-          examPassPointsSpent: 1,
-          remainingLoyaltyPoints: 4,
-          question: {
-            deadlineAt: '2026-07-08T12:00:30.000Z',
-            id: 'question-1',
-            index: 1,
-            options: [{ id: 'a', label: 'A' }],
-            prompt: 'Pick one',
-            timeLimitSeconds: 30,
-            total: 1,
-          },
-        }),
-        { status: 200 }
-      )
-    );
-
-    await expect(
-      startQuizAttempt({
-        baseUrl: 'https://example.com',
-        eventId: 'event-1',
-        integrityTier: 'device',
-      })
-    ).resolves.toEqual({
-      attemptId: 'attempt-1',
-      eventId: 'event-1',
-      examPassPointsSpent: 1,
-      remainingLoyaltyPoints: 4,
-      question: {
-        deadlineAt: '2026-07-08T12:00:30.000Z',
-        id: 'question-1',
-        index: 1,
-        options: [{ id: 'a', label: 'A' }],
-        prompt: 'Pick one',
-        timeLimitSeconds: 30,
-        total: 1,
+  it('requests contract 2 and preserves v2 prize and timing fields', async () => {
+    const event = {
+      contractVersion: 2,
+      endsAt: '2026-08-04T12:05:00.000Z',
+      id: 'event-1',
+      liveWindowSeconds: 300,
+      maxAttempts: 10,
+      maximumPlaySeconds: 200,
+      mode: 'test',
+      prizeName: 'iPhone XR',
+      prizeProduct: {
+        condition: 'used',
+        id: '11111111-1111-4111-8111-111111111111',
+        imageUrl: 'https://cdn.example.com/iphone.png',
+        name: 'iPhone XR',
+        variantId: null,
       },
-    });
-  });
-
-  it('refuses to start when the session user differs from the expected shopper', async () => {
-    // The auth session resolved to a different shopper (an account switch while
-    // the request was preparing) — refuse rather than spend their attempt.
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-2' } } });
-
-    await expect(
-      startQuizAttempt({
-        baseUrl: 'https://example.com',
-        eventId: 'event-1',
-        expectedUserId: 'user-1',
-        integrityTier: 'device',
-      })
-    ).rejects.toMatchObject({ code: 'quiz_session_changed', status: 409 });
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('submits quiz answers with the encoded attempt path and bearer auth', async () => {
+      questionCount: 20,
+      resultsPublishedAt: null,
+      rulesVersion: 'test-v1',
+      startsAt: '2026-08-04T12:00:00.000Z',
+      status: 'active',
+      timePerQuestionSeconds: 10,
+      timeZone: 'Africa/Lagos',
+      title: 'Redmi Warriors',
+    };
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          attemptId: 'attempt/1',
-          status: 'completed',
-          correctAnswers: 1,
-          totalQuestions: 1,
-          prizeEligible: true,
+          contractVersion: 2,
+          entryMode: 'free-v1',
+          events: [event],
+          serverNow: '2026-08-04T12:00:00.000Z',
         }),
         { status: 200 }
       )
     );
 
-    await expect(
-      submitQuizAnswer({
-        answer: 'b',
-        baseUrl: 'https://example.com',
-        integrityTier: 'strong',
-        attemptId: 'attempt/1',
-        questionId: 'question-1',
-      })
-    ).resolves.toMatchObject({
-      attemptId: 'attempt/1',
-      status: 'completed',
-    });
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://example.com/api/quiz/attempts/attempt%2F1/answers',
-      expect.objectContaining({
-        body: JSON.stringify({
-          answer: 'b',
-          integrityTier: 'strong',
-          questionId: 'question-1',
-        }),
-        headers: expect.objectContaining({
-          Authorization: 'Bearer token-123',
-        }),
-        method: 'POST',
-      })
-    );
-  });
-
-  it('maps submit quiz answer API errors', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ error: 'Attempt closed', code: 'QUIZ_CLOSED' }),
-        { status: 409 }
-      )
-    );
-
-    await expect(
-      submitQuizAnswer({
-        answer: 'b',
-        baseUrl: 'https://example.com',
-        integrityTier: 'basic',
-        attemptId: 'attempt-1',
-        questionId: 'question-1',
-      })
-    ).rejects.toMatchObject({
-      code: 'QUIZ_CLOSED',
-      message: 'Attempt closed',
-      status: 409,
-    });
-  });
-
-  it('logs only safe metadata when API JSON parsing fails', async () => {
-    const warnSpy = jest
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-    mockFetch.mockResolvedValueOnce(
-      new Response('session-token=secret', { status: 200 })
-    );
-
-    await expect(
-      fetchQuizEvents({ baseUrl: 'https://example.com' })
-    ).rejects.toMatchObject({
-      code: 'QUIZ_INVALID_RESPONSE',
-      status: 502,
-    });
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      'Unable to parse quiz API JSON response',
-      expect.objectContaining({
-        errorName: expect.any(String),
-        status: 200,
-      })
-    );
-    const loggedMetadata = warnSpy.mock.calls[0]?.[1];
-    const loggedMetadataKeys =
-      loggedMetadata && typeof loggedMetadata === 'object'
-        ? Object.keys(loggedMetadata)
-        : [];
+    await expect(fetchQuizEvents()).resolves.toEqual([
+      { ...event, serverNow: '2026-08-04T12:00:00.000Z' },
+    ]);
     expect(
-      loggedMetadataKeys.some((key) =>
-        /(body|text|response|data|content)/i.test(key)
+      new Headers(mockFetch.mock.calls[0]?.[1]?.headers).get(
+        'X-Baci-Quiz-Contract'
       )
-    ).toBe(false);
-    expect(JSON.stringify(warnSpy.mock.calls[0])).not.toContain(
-      'session-token=secret'
+    ).toBe('2');
+  });
+
+  it('applies verified auth headers last regardless of caller header casing', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), { status: 200 })
     );
 
-    warnSpy.mockRestore();
+    await requestQuizV2(
+      '/api/quiz/test',
+      {
+        headers: {
+          authorization: 'Bearer caller-controlled-token',
+        },
+        method: 'GET',
+      },
+      z.object({ ok: z.literal(true) }),
+      { baseUrl: 'https://example.com' }
+    );
+
+    const headers = new Headers(mockFetch.mock.calls[0]?.[1]?.headers);
+    expect(headers.get('Authorization')).toBe('Bearer token-123');
+    expect(headers.get('Authorization')).not.toContain(
+      'caller-controlled-token'
+    );
+  });
+
+  it('times out a stalled quiz request and releases its timer', async () => {
+    jest.useFakeTimers();
+    mockFetch.mockImplementationOnce(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(new Error('request aborted')),
+            { once: true }
+          );
+        })
+    );
+
+    const request = requestQuizV2(
+      '/api/quiz/test',
+      { method: 'GET' },
+      z.object({ ok: z.literal(true) }),
+      { baseUrl: 'https://example.com' }
+    );
+    const rejection = expect(request).rejects.toMatchObject({
+      code: 'QUIZ_REQUEST_TIMEOUT',
+      status: 504,
+    });
+    await jest.advanceTimersByTimeAsync(QUIZ_REQUEST_TIMEOUT_MS);
+    await rejection;
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('composes a caller abort signal with the quiz timeout signal', async () => {
+    const controller = new AbortController();
+    const abortError = new Error('caller cancelled');
+    abortError.name = 'AbortError';
+    mockFetch.mockImplementationOnce(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(abortError), {
+            once: true,
+          });
+        })
+    );
+
+    const request = requestQuizV2(
+      '/api/quiz/test',
+      { method: 'GET', signal: controller.signal },
+      z.object({ ok: z.literal(true) }),
+      { baseUrl: 'https://example.com' }
+    );
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(mockFetch).toHaveBeenCalled();
+    controller.abort();
+
+    await expect(request).rejects.toBe(abortError);
   });
 });

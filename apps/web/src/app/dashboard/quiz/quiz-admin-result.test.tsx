@@ -1,7 +1,36 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { QuizAdminResult } from './quiz-admin-result';
+
+const configuration = {
+  difficulty: 'standard' as const,
+  liveWindowMinutes: 5,
+  mode: 'test' as const,
+  prizeProduct: {
+    available: true,
+    condition: 'new',
+    defaultVariantId: null,
+    effectiveStock: 1,
+    hasVariants: false,
+    id: '55555555-5555-4555-8555-555555555555',
+    imageUrl: null,
+    manageStock: true,
+    name: 'iPhone XR',
+    price: 1,
+    requiresVariantSelection: false,
+    selectionId: 'prize:product',
+    variantId: null,
+    variantLabel: null,
+  },
+  questionCountPerTopic: 1,
+  scheduledEnd: '2026-08-05T09:05',
+  scheduledStart: '2026-08-05T09:00',
+  timePerQuestionSeconds: 10,
+  timingKind: 'immediate' as const,
+  title: 'Daily Phone Quiz',
+  topics: ['Android buying advice'],
+};
 
 function draftResult() {
   return {
@@ -29,7 +58,9 @@ function draftResult() {
 
 describe('QuizAdminResult', () => {
   it('shows the AI-marked correct answer and explanation for a draft', () => {
-    render(<QuizAdminResult result={draftResult()} />);
+    render(
+      <QuizAdminResult configuration={configuration} result={draftResult()} />
+    );
 
     expect(screen.getByText('Draft saved')).toBeInTheDocument();
     expect(
@@ -46,31 +77,47 @@ describe('QuizAdminResult', () => {
     // pre-authorize opening a subsequently generated draft B.
     const user = userEvent.setup();
     const { rerender } = render(
-      <QuizAdminResult onActivate={vi.fn()} result={draftResult()} />
+      <QuizAdminResult
+        configuration={configuration}
+        onActivate={vi.fn()}
+        result={draftResult()}
+      />
     );
 
     await user.click(
       screen.getByRole('checkbox', { name: /reviewed every correct answer/i })
     );
-    expect(screen.getByRole('button', { name: /open now/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /launch quiz/i })).toBeEnabled();
 
     const nextDraft = draftResult();
     nextDraft.event = { ...nextDraft.event, id: 'event-2', title: 'New Draft' };
-    rerender(<QuizAdminResult onActivate={vi.fn()} result={nextDraft} />);
+    rerender(
+      <QuizAdminResult
+        configuration={configuration}
+        onActivate={vi.fn()}
+        result={nextDraft}
+      />
+    );
 
     expect(
       screen.getByRole('checkbox', { name: /reviewed every correct answer/i })
     ).not.toBeChecked();
-    expect(screen.getByRole('button', { name: /open now/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /launch quiz/i })).toBeDisabled();
   });
 
   it('gates the open action behind an explicit review confirmation', async () => {
     const onActivate = vi.fn();
     const user = userEvent.setup();
 
-    render(<QuizAdminResult onActivate={onActivate} result={draftResult()} />);
+    render(
+      <QuizAdminResult
+        configuration={configuration}
+        onActivate={onActivate}
+        result={draftResult()}
+      />
+    );
 
-    const openButton = screen.getByRole('button', { name: /open now/i });
+    const openButton = screen.getByRole('button', { name: /launch quiz/i });
     expect(openButton).toBeDisabled();
 
     await user.click(
@@ -79,14 +126,21 @@ describe('QuizAdminResult', () => {
     expect(openButton).toBeEnabled();
 
     await user.click(openButton);
-    expect(onActivate).toHaveBeenCalledWith({
-      questions: [{ correctOptionId: 'a', position: 1 }],
-    });
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: /launch quiz/i,
+      })
+    );
+    expect(onActivate).toHaveBeenCalledWith(
+      { questions: [{ correctOptionId: 'a', position: 1 }] },
+      undefined
+    );
   });
 
   it('renders a live state without the open action once active', () => {
     render(
       <QuizAdminResult
+        configuration={configuration}
         result={{
           ...draftResult(),
           event: { ...draftResult().event, status: 'active' },
@@ -94,10 +148,39 @@ describe('QuizAdminResult', () => {
       />
     );
 
-    expect(screen.getByText('Quiz open')).toBeInTheDocument();
+    expect(screen.getByText('Quiz launched')).toBeInTheDocument();
     expect(screen.getByText('Status: active')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /open now/i })
+      screen.queryByRole('button', { name: /launch quiz/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('closes the confirmation dialog when the quiz becomes launched', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <QuizAdminResult
+        configuration={configuration}
+        onActivate={vi.fn()}
+        result={draftResult()}
+      />
+    );
+    await user.click(
+      screen.getByRole('checkbox', { name: /reviewed every correct answer/i })
+    );
+    await user.click(screen.getByRole('button', { name: /launch quiz/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    rerender(
+      <QuizAdminResult
+        configuration={configuration}
+        onActivate={vi.fn()}
+        result={{
+          ...draftResult(),
+          event: { ...draftResult().event, status: 'active' },
+        }}
+      />
+    );
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

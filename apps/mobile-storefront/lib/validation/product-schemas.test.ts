@@ -149,6 +149,18 @@ describe('parseApiResponse', () => {
     ).toEqual(validCustomer);
   });
 
+  it('preserves the typed username cooldown timestamp on customer rows', () => {
+    const usernameChangedAt = '2026-08-04T12:00:00.000Z';
+
+    expect(
+      CustomerRowSchema.parse({
+        ...validCustomer,
+        username: 'ogafan',
+        username_changed_at: usernameChangedAt,
+      }).username_changed_at
+    ).toBe(usernameChangedAt);
+  });
+
   it('returns null and logs warning for invalid payload', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const invalidOrder = { ...validOrder, id: 'invalid-id' };

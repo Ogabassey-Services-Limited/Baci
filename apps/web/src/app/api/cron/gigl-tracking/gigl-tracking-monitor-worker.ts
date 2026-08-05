@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { giglProvider } from '@/lib/shipping/providers/gigl';
 import type { TrackingResult } from '@/lib/shipping/types';
 import type { Database, Json } from '@/types/supabase';
+import { nullableSupabaseRpcArgument } from './nullable-supabase-rpc-argument';
 
 const claimedMonitorSchema = z.object({
   order_id: z.string().uuid(),
@@ -70,8 +71,12 @@ async function applyResult(
   result: TrackingResult
 ) {
   const { data, error } = await supabase.rpc('apply_gigl_tracking_result', {
-    p_actual_delivery: result.actualDelivery?.toISOString() ?? null,
-    p_current_location: result.events[0]?.location ?? null,
+    p_actual_delivery: nullableSupabaseRpcArgument(
+      result.actualDelivery?.toISOString() ?? null
+    ),
+    p_current_location: nullableSupabaseRpcArgument(
+      result.events[0]?.location ?? null
+    ),
     p_events: serializeEvents(result.events),
     p_shipment_id: monitor.shipment_id,
     p_status: result.status,

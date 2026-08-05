@@ -30,7 +30,6 @@ function eventRow(overrides: Record<string, unknown> = {}) {
     compliance_verified: true,
     ends_at: '2026-05-16T12:00:00.000Z',
     id: EVENT_ID,
-    nlrc_permit_ref: 'NLRC-123',
     quiz_question_slots: [
       {
         active: true,
@@ -43,6 +42,9 @@ function eventRow(overrides: Record<string, unknown> = {}) {
         ],
       },
     ],
+    regulatory_basis: 'free_skill_competition',
+    regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+    regulatory_jurisdiction: 'NG-LA',
     settings: { prize_name: 'N50,000 store credit' },
     starts_at: '2026-05-16T10:00:00.000Z',
     status: 'active',
@@ -735,7 +737,7 @@ describe('quiz events route', () => {
     expect(customerBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
     expect(from).toHaveBeenCalledWith('quiz_events');
     expect(queryBuilder.select).toHaveBeenCalledWith(
-      'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id, active)'
+      'id, title, status, starts_at, ends_at, settings, regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified, quiz_question_slots!inner(id, active)'
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     expect(queryBuilder.eq).toHaveBeenCalledWith(
@@ -792,5 +794,45 @@ describe('quiz events route', () => {
       },
     });
     expect(queryBuilder.range).toHaveBeenCalledWith(0, 49);
+  });
+});
+
+describe('quiz events dispatcher', () => {
+  afterEach(() => {
+    vi.doUnmock('./legacy-route');
+    vi.doUnmock('./v2-route');
+    vi.resetModules();
+  });
+
+  it('dispatches requests without the v2 contract header to the legacy handler', async () => {
+    const legacyResponse = Response.json({ contract: 'legacy' });
+    const getLegacyQuizEvents = vi.fn().mockResolvedValue(legacyResponse);
+    const getQuizEventsV2 = vi.fn();
+    vi.resetModules();
+    vi.doMock('./legacy-route', () => ({ getLegacyQuizEvents }));
+    vi.doMock('./v2-route', () => ({ getQuizEventsV2 }));
+
+    const request = eventsRequest();
+    const { GET } = await import('./route');
+    expect(await GET(request)).toBe(legacyResponse);
+    expect(getLegacyQuizEvents).toHaveBeenCalledWith(request);
+    expect(getQuizEventsV2).not.toHaveBeenCalled();
+  });
+
+  it('dispatches contract version 2 requests to the v2 handler', async () => {
+    const v2Response = Response.json({ contract: 2 });
+    const getLegacyQuizEvents = vi.fn();
+    const getQuizEventsV2 = vi.fn().mockResolvedValue(v2Response);
+    vi.resetModules();
+    vi.doMock('./legacy-route', () => ({ getLegacyQuizEvents }));
+    vi.doMock('./v2-route', () => ({ getQuizEventsV2 }));
+
+    const request = new NextRequest(eventsRequest().url, {
+      headers: { 'X-Baci-Quiz-Contract': '2' },
+    });
+    const { GET } = await import('./route');
+    expect(await GET(request)).toBe(v2Response);
+    expect(getQuizEventsV2).toHaveBeenCalledWith(request);
+    expect(getLegacyQuizEvents).not.toHaveBeenCalled();
   });
 });

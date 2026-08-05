@@ -111,9 +111,6 @@ describe('quiz service attempt lifecycle', () => {
           eventId: 'event-1',
           integrityTier: 'basic',
         }),
-        headers: expect.objectContaining({
-          Authorization: 'Bearer token-123',
-        }),
         method: 'POST',
       })
     );
@@ -126,12 +123,15 @@ describe('quiz service attempt lifecycle', () => {
           integrityTier: 'basic',
           questionId: 'question-1',
         }),
-        headers: expect.objectContaining({
-          Authorization: 'Bearer token-123',
-        }),
         method: 'POST',
       })
     );
+    expect(
+      new Headers(mockFetch.mock.calls[0]?.[1]?.headers).get('Authorization')
+    ).toBe('Bearer token-123');
+    expect(
+      new Headers(mockFetch.mock.calls[1]?.[1]?.headers).get('Authorization')
+    ).toBe('Bearer token-123');
   });
 
   it('accepts an in-progress submit response with the next question', async () => {

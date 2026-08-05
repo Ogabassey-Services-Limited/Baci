@@ -55,6 +55,21 @@ describe('useQuizStore', () => {
     });
   });
 
+  it('returns a recoverable error when a legacy submit outlives its attempt', async () => {
+    useQuizStore.setState({ selectedOptionId: 'b', status: 'question' });
+    const submitter = jest.fn(async () => result);
+
+    await act(async () => {
+      await useQuizStore.getState().submitSelectedAnswer(submitter);
+    });
+
+    expect(submitter).not.toHaveBeenCalled();
+    expect(useQuizStore.getState()).toMatchObject({
+      error: 'No active quiz attempt. Start a quiz to continue.',
+      status: 'ready',
+    });
+  });
+
   it('clears stale attempts while a new event is starting', async () => {
     const nextAttempt = {
       ...attempt,

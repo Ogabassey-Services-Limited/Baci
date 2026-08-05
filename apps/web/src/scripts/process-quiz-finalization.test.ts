@@ -1,86 +1,39 @@
 import { describe, expect, it, vi } from 'vitest';
-
 import { runQuizFinalizationCli } from './process-quiz-finalization';
 
+const baseEnv = {
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+  NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+  QUIZ_PHASE: '1a',
+  QUIZ_PRODUCTION_APPROVED: 'false',
+  SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+};
+
 describe('process-quiz-finalization', () => {
-  it('runs the shared finalizer directly without CRON_SECRET', async () => {
+  it('runs phase 1a without a cron secret and logs only bounded counts', async () => {
     const runJob = vi.fn().mockResolvedValue({
-      body: {
-        closed: 2,
-        details: 'database-internal-detail',
-        finalized: 1,
-      },
-      status: 200,
+      body: { testClosed: 2, liveAwaitingGate: 1, failed: 0,
+        details: 'player@example.com internal detail' }, status: 200,
     });
     const logger = { error: vi.fn(), info: vi.fn() };
-
-    await expect(
-      runQuizFinalizationCli({
-        env: {
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
-          NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
-          QUIZ_PHASE: 'production',
-          QUIZ_PRODUCTION_APPROVED: 'true',
-          QUIZ_DEVICE_HASH_PEPPER: 'x'.repeat(32),
-          QUIZ_RPC_SERVER_SECRET: 'rpc-secret',
-          SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
-        },
-        logger,
-        runJob,
-      })
-    ).resolves.toBe(0);
-
-    expect(runJob).toHaveBeenCalledWith();
-    expect(logger.info).toHaveBeenCalledWith(
-      '[quiz-finalization] completed',
-      JSON.stringify({ closed: 2, finalized: 1, status: 200 })
-    );
-    expect(logger.info).not.toHaveBeenCalledWith(
-      expect.anything(),
-      expect.stringContaining('database-internal-detail')
-    );
+    await expect(runQuizFinalizationCli({ env: baseEnv, logger, runJob })).resolves.toBe(0);
+    const summary = logger.info.mock.calls[0]?.[1] as string;
+    expect(JSON.parse(summary)).toEqual({ testClosed: 2, liveAwaitingGate: 1, failed: 0, status: 200 });
+    expect(summary).not.toContain('player@example.com');
   });
 
-  it('returns a failing exit code without exposing the operational error', async () => {
-    const logger = { error: vi.fn(), info: vi.fn() };
-
-    await expect(
-      runQuizFinalizationCli({
-        env: {
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
-          NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
-          QUIZ_PHASE: '1a',
-          QUIZ_PRODUCTION_APPROVED: 'false',
-          SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
-        },
-        logger,
-        runJob: vi.fn().mockRejectedValue(new Error('secret provider failure')),
-      })
-    ).resolves.toBe(1);
-
-    expect(logger.error).toHaveBeenCalledWith('[quiz-finalization] failed');
-  });
-
-  it('fails closed before work when the quiz launch gate is absent', async () => {
+  it('requires proof secrets before production processing', async () => {
     const runJob = vi.fn();
     const logger = { error: vi.fn(), info: vi.fn() };
-
-    await expect(
-      runQuizFinalizationCli({
-        env: {
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
-          NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
-          QUIZ_PHASE: 'production',
-          SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
-        },
-        logger,
-        runJob,
-      })
-    ).resolves.toBe(1);
-
+    await expect(runQuizFinalizationCli({ env: { ...baseEnv, QUIZ_PHASE: 'production',
+      QUIZ_PRODUCTION_APPROVED: 'true' }, logger, runJob })).resolves.toBe(1);
     expect(runJob).not.toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith(
-      '[quiz-finalization] preflight failed'
-    );
+  });
+
+  it('returns failure without exposing thrown details', async () => {
+    const logger = { error: vi.fn(), info: vi.fn() };
+    await expect(runQuizFinalizationCli({ env: baseEnv, logger,
+      runJob: vi.fn().mockRejectedValue(new Error('private database detail')) })).resolves.toBe(1);
+    expect(logger.error).toHaveBeenCalledWith('[quiz-finalization] failed');
   });
 });

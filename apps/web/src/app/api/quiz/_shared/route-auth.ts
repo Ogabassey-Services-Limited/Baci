@@ -7,6 +7,7 @@ import {
 } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
+import { mapQuizRpcClientError } from './quiz-rpc-client-errors';
 import type { ServerSupabaseClient } from './route-helpers-guards';
 
 // Read-path auth and response helpers. Kept apart from route-helpers.ts so that
@@ -161,111 +162,8 @@ export function rpcErrorResponse() {
   return NextResponse.json({ error: 'Quiz request failed' }, { status: 500 });
 }
 
-function getQuizRpcErrorCode(error: unknown): string | null {
-  if (!error || typeof error !== 'object') return null;
-  return 'code' in error && typeof error.code === 'string' ? error.code : null;
-}
-
-const QUIZ_RPC_CLIENT_ERRORS: Record<
-  string,
-  { code: string; error: string; status: number }
-> = {
-  QZ001: {
-    code: 'QUIZ_CUSTOMER_NOT_FOUND',
-    error: 'Quiz customer profile not found',
-    status: 404,
-  },
-  QZ002: {
-    code: 'QUIZ_EVENT_NOT_OPEN',
-    error: 'Quiz event is not open',
-    status: 409,
-  },
-  QZ003: {
-    code: 'QUIZ_QUESTION_NOT_FOUND',
-    error: 'Quiz has no available questions',
-    status: 409,
-  },
-  QZ004: {
-    code: 'QUIZ_ATTEMPT_NOT_READY',
-    error: 'Quiz attempt is not ready for this action',
-    status: 409,
-  },
-  QZ010: {
-    code: 'QUIZ_ROUTE_PROOF_REQUIRED',
-    error: 'Quiz request is not authorized',
-    status: 403,
-  },
-  QZ020: {
-    code: 'QUIZ_PRIZE_FINALIZATION_NOT_APPROVED',
-    error: 'Quiz prize finalization is not approved',
-    status: 403,
-  },
-  QZ021: {
-    code: 'QUIZ_GRAND_PRIZE_CLAIM_NOT_APPROVED',
-    error: 'Grand prize claim is not approved',
-    status: 403,
-  },
-  QZ022: {
-    code: 'QUIZ_CASH_AWARD_CLAIM_NOT_APPROVED',
-    error: 'Cash award claim is not approved',
-    status: 403,
-  },
-  QZ023: {
-    code: 'QUIZ_GRAND_AWARD_NOT_CLAIMABLE',
-    error: 'No approved grand prize is available to claim',
-    status: 409,
-  },
-  QZ024: {
-    code: 'QUIZ_CASH_AWARD_NOT_CLAIMABLE',
-    error: 'No approved cash award is available to claim',
-    status: 409,
-  },
-  QZ027: {
-    code: 'QUIZ_QUESTION_NOT_ISSUED',
-    error: 'Quiz question is not ready for answers',
-    status: 409,
-  },
-  QZ028: {
-    code: 'QUIZ_ANSWER_TOO_FAST',
-    error: 'Quiz answer was submitted too quickly',
-    status: 409,
-  },
-  QZ029: {
-    code: 'QUIZ_ANSWER_TOO_LATE',
-    error: 'Quiz answer was submitted after the question window',
-    status: 409,
-  },
-  QZ030: {
-    code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
-    error: "You've reached the maximum number of attempts for this quiz.",
-    status: 409,
-  },
-  // Anti multi-accounting. Both caps count across ACCOUNTS, so the message must
-  // not imply the player can simply sign up again — that is exactly what these
-  // prevent. Deliberately vague about WHICH signal matched: naming it would tell
-  // an abuser precisely what to rotate next.
-  QZ040: {
-    code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
-    error: "You've reached the maximum number of attempts for this quiz.",
-    status: 409,
-  },
-  QZ041: {
-    code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
-    error: "You've reached the maximum number of attempts for this quiz.",
-    status: 409,
-  },
-  QZ031: {
-    code: 'QUIZ_LEADERBOARD_NOT_AUTHORIZED',
-    error: 'You are not authorized to view this leaderboard',
-    status: 403,
-  },
-};
-
 export function quizRpcClientErrorResponse(error: unknown) {
-  const code = getQuizRpcErrorCode(error);
-  if (!code) return null;
-
-  const mapped = QUIZ_RPC_CLIENT_ERRORS[code];
+  const mapped = mapQuizRpcClientError(error);
   if (!mapped) return null;
 
   return NextResponse.json(

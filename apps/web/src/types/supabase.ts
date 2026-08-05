@@ -3098,6 +3098,7 @@ export type Database = {
           updated_at: string | null;
           user_id: string | null;
           username: string | null;
+          username_changed_at: string | null;
         };
         Insert: {
           address?: string | null;
@@ -3123,6 +3124,7 @@ export type Database = {
           updated_at?: string | null;
           user_id?: string | null;
           username?: string | null;
+          username_changed_at?: string | null;
         };
         Update: {
           address?: string | null;
@@ -3148,6 +3150,7 @@ export type Database = {
           updated_at?: string | null;
           user_id?: string | null;
           username?: string | null;
+          username_changed_at?: string | null;
         };
         Relationships: [
           {
@@ -6648,7 +6651,7 @@ export type Database = {
           tiktok_pixel_id: string | null;
           trust_profile: Json;
           twitter_pixel_id: string | null;
-          updated_at: string | null;
+          updated_at: string;
           user_id: string | null;
           vat_rate: number | null;
           vat_registration_status: string | null;
@@ -6745,7 +6748,7 @@ export type Database = {
           tiktok_pixel_id?: string | null;
           trust_profile?: Json;
           twitter_pixel_id?: string | null;
-          updated_at?: string | null;
+          updated_at?: string;
           user_id?: string | null;
           vat_rate?: number | null;
           vat_registration_status?: string | null;
@@ -6842,7 +6845,7 @@ export type Database = {
           tiktok_pixel_id?: string | null;
           trust_profile?: Json;
           twitter_pixel_id?: string | null;
-          updated_at?: string | null;
+          updated_at?: string;
           user_id?: string | null;
           vat_rate?: number | null;
           vat_registration_status?: string | null;
@@ -11204,6 +11207,7 @@ export type Database = {
           created_at: string;
           id: string;
           issued_at: string | null;
+          option_order: Json;
           position: number;
           slot_id: string;
           time_limit_ms: number | null;
@@ -11214,6 +11218,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           issued_at?: string | null;
+          option_order?: Json;
           position: number;
           slot_id: string;
           time_limit_ms?: number | null;
@@ -11224,6 +11229,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           issued_at?: string | null;
+          option_order?: Json;
           position?: number;
           slot_id?: string;
           time_limit_ms?: number | null;
@@ -11290,43 +11296,61 @@ export type Database = {
       };
       quiz_attempts: {
         Row: {
+          app_version: string | null;
           attempt_number: number;
           created_at: string;
           customer_id: string;
           event_id: string;
           id: string;
           integrity_tier: string;
+          leaderboard_username: string | null;
+          platform: string | null;
           route_proof_id: string | null;
+          rules_version: string | null;
           score: number;
+          start_request_id: string | null;
           started_at: string;
           status: string;
           submitted_at: string | null;
+          terms_accepted_at: string | null;
         };
         Insert: {
+          app_version?: string | null;
           attempt_number?: number;
           created_at?: string;
           customer_id: string;
           event_id: string;
           id?: string;
           integrity_tier?: string;
+          leaderboard_username?: string | null;
+          platform?: string | null;
           route_proof_id?: string | null;
+          rules_version?: string | null;
           score?: number;
+          start_request_id?: string | null;
           started_at?: string;
           status?: string;
           submitted_at?: string | null;
+          terms_accepted_at?: string | null;
         };
         Update: {
+          app_version?: string | null;
           attempt_number?: number;
           created_at?: string;
           customer_id?: string;
           event_id?: string;
           id?: string;
           integrity_tier?: string;
+          leaderboard_username?: string | null;
+          platform?: string | null;
           route_proof_id?: string | null;
+          rules_version?: string | null;
           score?: number;
+          start_request_id?: string | null;
           started_at?: string;
           status?: string;
           submitted_at?: string | null;
+          terms_accepted_at?: string | null;
         };
         Relationships: [
           {
@@ -11371,13 +11395,16 @@ export type Database = {
           amount: number | null;
           approved_at: string | null;
           attempt_id: string | null;
+          award_source: string | null;
           award_type: string;
+          claim_expires_at: string | null;
           claimed_at: string | null;
           condition: string | null;
           created_at: string;
           currency: string;
           customer_id: string;
           event_id: string;
+          expired_at: string | null;
           id: string;
           product_id: string | null;
           reserved_order_id: string | null;
@@ -11390,13 +11417,16 @@ export type Database = {
           amount?: number | null;
           approved_at?: string | null;
           attempt_id?: string | null;
+          award_source?: string | null;
           award_type: string;
+          claim_expires_at?: string | null;
           claimed_at?: string | null;
           condition?: string | null;
           created_at?: string;
           currency?: string;
           customer_id: string;
           event_id: string;
+          expired_at?: string | null;
           id?: string;
           product_id?: string | null;
           reserved_order_id?: string | null;
@@ -11409,13 +11439,16 @@ export type Database = {
           amount?: number | null;
           approved_at?: string | null;
           attempt_id?: string | null;
+          award_source?: string | null;
           award_type?: string;
+          claim_expires_at?: string | null;
           claimed_at?: string | null;
           condition?: string | null;
           created_at?: string;
           currency?: string;
           customer_id?: string;
           event_id?: string;
+          expired_at?: string | null;
           id?: string;
           product_id?: string | null;
           reserved_order_id?: string | null;
@@ -11554,55 +11587,168 @@ export type Database = {
         };
         Relationships: [];
       };
+      quiz_event_testers: {
+        Row: {
+          created_at: string;
+          event_id: string;
+          id: string;
+          invited_by: string | null;
+          merchant_id: string;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          event_id: string;
+          id?: string;
+          invited_by?: string | null;
+          merchant_id: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          event_id?: string;
+          id?: string;
+          invited_by?: string | null;
+          merchant_id?: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'quiz_event_testers_event_merchant_fkey';
+            columns: ['event_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'quiz_events';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+          {
+            foreignKeyName: 'quiz_event_testers_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'quiz_event_testers_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_event_testers_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+        ];
+      };
       quiz_events: {
         Row: {
+          attempts_terminalized_at: string | null;
           award_finalized_at: string | null;
+          claim_window_seconds: number | null;
           compliance_flags: Json;
           compliance_verified: boolean;
+          contract_version: number;
           created_at: string;
           ends_at: string | null;
+          finalization_error_code: string | null;
+          finalization_state: string;
           id: string;
+          live_window_seconds: number;
+          max_attempts: number;
+          maximum_play_seconds: number;
           merchant_id: string;
+          mode: string;
           nlrc_permit_ref: string | null;
           published_odds: Json;
+          question_count: number;
+          regulatory_basis: string | null;
+          regulatory_evidence_ref: string | null;
+          regulatory_jurisdiction: string | null;
+          results_published_at: string | null;
+          rules_version: string | null;
           settings: Json;
           slug: string;
           starts_at: string | null;
           status: string;
+          time_per_question_seconds: number;
+          time_zone: string;
           title: string;
           updated_at: string;
         };
         Insert: {
+          attempts_terminalized_at?: string | null;
           award_finalized_at?: string | null;
+          claim_window_seconds?: number | null;
           compliance_flags?: Json;
           compliance_verified?: boolean;
+          contract_version?: number;
           created_at?: string;
           ends_at?: string | null;
+          finalization_error_code?: string | null;
+          finalization_state?: string;
           id?: string;
+          live_window_seconds?: number;
+          max_attempts?: number;
+          maximum_play_seconds?: number;
           merchant_id: string;
+          mode?: string;
           nlrc_permit_ref?: string | null;
           published_odds?: Json;
+          question_count?: number;
+          regulatory_basis?: string | null;
+          regulatory_evidence_ref?: string | null;
+          regulatory_jurisdiction?: string | null;
+          results_published_at?: string | null;
+          rules_version?: string | null;
           settings?: Json;
           slug: string;
           starts_at?: string | null;
           status?: string;
+          time_per_question_seconds?: number;
+          time_zone?: string;
           title: string;
           updated_at?: string;
         };
         Update: {
+          attempts_terminalized_at?: string | null;
           award_finalized_at?: string | null;
+          claim_window_seconds?: number | null;
           compliance_flags?: Json;
           compliance_verified?: boolean;
+          contract_version?: number;
           created_at?: string;
           ends_at?: string | null;
+          finalization_error_code?: string | null;
+          finalization_state?: string;
           id?: string;
+          live_window_seconds?: number;
+          max_attempts?: number;
+          maximum_play_seconds?: number;
           merchant_id?: string;
+          mode?: string;
           nlrc_permit_ref?: string | null;
           published_odds?: Json;
+          question_count?: number;
+          regulatory_basis?: string | null;
+          regulatory_evidence_ref?: string | null;
+          regulatory_jurisdiction?: string | null;
+          results_published_at?: string | null;
+          rules_version?: string | null;
           settings?: Json;
           slug?: string;
           starts_at?: string | null;
           status?: string;
+          time_per_question_seconds?: number;
+          time_zone?: string;
           title?: string;
           updated_at?: string;
         };
@@ -11667,6 +11813,248 @@ export type Database = {
             columns: ['attempt_id'];
             isOneToOne: false;
             referencedRelation: 'quiz_attempts';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      quiz_leaderboard_identity_suppressions: {
+        Row: {
+          attempt_id: string;
+          customer_id: string;
+          event_id: string;
+          id: string;
+          merchant_id: string;
+          reason: string;
+          suppressed_at: string;
+          suppressed_by: string;
+        };
+        Insert: {
+          attempt_id: string;
+          customer_id: string;
+          event_id: string;
+          id?: string;
+          merchant_id: string;
+          reason: string;
+          suppressed_at?: string;
+          suppressed_by: string;
+        };
+        Update: {
+          attempt_id?: string;
+          customer_id?: string;
+          event_id?: string;
+          id?: string;
+          merchant_id?: string;
+          reason?: string;
+          suppressed_at?: string;
+          suppressed_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_attempt_id_fkey';
+            columns: ['attempt_id'];
+            isOneToOne: true;
+            referencedRelation: 'quiz_attempts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'priority_winback_customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'secure_customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'quiz_events';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_leaderboard_identity_suppressions_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+        ];
+      };
+      quiz_prize_reservations: {
+        Row: {
+          award_id: string | null;
+          condition: string | null;
+          created_at: string;
+          event_id: string;
+          id: string;
+          inventory_kind: string;
+          inventory_unit_id: string | null;
+          merchant_id: string;
+          product_id: string;
+          quantity: number;
+          release_reason: string | null;
+          released_at: string | null;
+          reserved_at: string;
+          state: string;
+          transferred_at: string | null;
+          updated_at: string;
+          variant_id: string | null;
+        };
+        Insert: {
+          award_id?: string | null;
+          condition?: string | null;
+          created_at?: string;
+          event_id: string;
+          id?: string;
+          inventory_kind: string;
+          inventory_unit_id?: string | null;
+          merchant_id: string;
+          product_id: string;
+          quantity?: number;
+          release_reason?: string | null;
+          released_at?: string | null;
+          reserved_at?: string;
+          state?: string;
+          transferred_at?: string | null;
+          updated_at?: string;
+          variant_id?: string | null;
+        };
+        Update: {
+          award_id?: string | null;
+          condition?: string | null;
+          created_at?: string;
+          event_id?: string;
+          id?: string;
+          inventory_kind?: string;
+          inventory_unit_id?: string | null;
+          merchant_id?: string;
+          product_id?: string;
+          quantity?: number;
+          release_reason?: string | null;
+          released_at?: string | null;
+          reserved_at?: string;
+          state?: string;
+          transferred_at?: string | null;
+          updated_at?: string;
+          variant_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'quiz_prize_reservations_award_id_fkey';
+            columns: ['award_id'];
+            isOneToOne: false;
+            referencedRelation: 'quiz_awards';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: true;
+            referencedRelation: 'quiz_events';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_event_merchant_fkey';
+            columns: ['event_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'quiz_events';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_inventory_unit_id_fkey';
+            columns: ['inventory_unit_id'];
+            isOneToOne: false;
+            referencedRelation: 'variant_inventory';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'low_stock_products';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'product_performance';
+            referencedColumns: ['product_id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'products';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'secure_product_performance';
+            referencedColumns: ['product_id'];
+          },
+          {
+            foreignKeyName: 'quiz_prize_reservations_variant_id_fkey';
+            columns: ['variant_id'];
+            isOneToOne: false;
+            referencedRelation: 'product_variants';
             referencedColumns: ['id'];
           },
         ];
@@ -11792,6 +12180,77 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'quiz_question_slots';
             referencedColumns: ['id'];
+          },
+        ];
+      };
+      quiz_test_invites: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          event_id: string;
+          expires_at: string;
+          id: string;
+          merchant_id: string;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          token_digest: string;
+          used_at: string | null;
+          used_by: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          event_id: string;
+          expires_at: string;
+          id?: string;
+          merchant_id: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          token_digest: string;
+          used_at?: string | null;
+          used_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          event_id?: string;
+          expires_at?: string;
+          id?: string;
+          merchant_id?: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          token_digest?: string;
+          used_at?: string | null;
+          used_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'quiz_test_invites_event_merchant_fkey';
+            columns: ['event_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'quiz_events';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+          {
+            foreignKeyName: 'quiz_test_invites_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'quiz_test_invites_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_test_invites_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
           },
         ];
       };
@@ -13128,6 +13587,270 @@ export type Database = {
           },
         ];
       };
+      shipment_tracking_events: {
+        Row: {
+          created_at: string;
+          description: string;
+          id: string;
+          location: string | null;
+          normalized_status: string;
+          occurred_at: string;
+          provider: string;
+          provider_event_id: string | null;
+          provider_event_key: string;
+          raw_status: string;
+          shipment_id: string;
+          tracking_epoch_id: string;
+          tracking_number: string;
+        };
+        Insert: {
+          created_at?: string;
+          description: string;
+          id?: string;
+          location?: string | null;
+          normalized_status: string;
+          occurred_at: string;
+          provider: string;
+          provider_event_id?: string | null;
+          provider_event_key: string;
+          raw_status: string;
+          shipment_id: string;
+          tracking_epoch_id: string;
+          tracking_number: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          id?: string;
+          location?: string | null;
+          normalized_status?: string;
+          occurred_at?: string;
+          provider?: string;
+          provider_event_id?: string | null;
+          provider_event_key?: string;
+          raw_status?: string;
+          shipment_id?: string;
+          tracking_epoch_id?: string;
+          tracking_number?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shipment_tracking_events_shipment_id_fkey';
+            columns: ['shipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'shipments';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      shipment_tracking_monitors: {
+        Row: {
+          consecutive_failures: number;
+          created_at: string;
+          last_error: string | null;
+          last_event_at: string | null;
+          last_polled_at: string | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          manual_terminal_override_at: string | null;
+          next_poll_at: string | null;
+          notification_events_not_before: string | null;
+          order_id: string;
+          provider: string;
+          shipment_id: string;
+          started_at: string;
+          state: string;
+          stopped_at: string | null;
+          storefront_refresh_lease_until: string | null;
+          storefront_refresh_requested_at: string | null;
+          tracking_epoch_id: string;
+          tracking_number: string;
+          tracking_timeline_generation: number;
+          unchanged_poll_count: number;
+          updated_at: string;
+        };
+        Insert: {
+          consecutive_failures?: number;
+          created_at?: string;
+          last_error?: string | null;
+          last_event_at?: string | null;
+          last_polled_at?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          manual_terminal_override_at?: string | null;
+          next_poll_at?: string | null;
+          notification_events_not_before?: string | null;
+          order_id: string;
+          provider: string;
+          shipment_id: string;
+          started_at?: string;
+          state?: string;
+          stopped_at?: string | null;
+          storefront_refresh_lease_until?: string | null;
+          storefront_refresh_requested_at?: string | null;
+          tracking_epoch_id?: string;
+          tracking_number: string;
+          tracking_timeline_generation: number;
+          unchanged_poll_count?: number;
+          updated_at?: string;
+        };
+        Update: {
+          consecutive_failures?: number;
+          created_at?: string;
+          last_error?: string | null;
+          last_event_at?: string | null;
+          last_polled_at?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          manual_terminal_override_at?: string | null;
+          next_poll_at?: string | null;
+          notification_events_not_before?: string | null;
+          order_id?: string;
+          provider?: string;
+          shipment_id?: string;
+          started_at?: string;
+          state?: string;
+          stopped_at?: string | null;
+          storefront_refresh_lease_until?: string | null;
+          storefront_refresh_requested_at?: string | null;
+          tracking_epoch_id?: string;
+          tracking_number?: string;
+          tracking_timeline_generation?: number;
+          unchanged_poll_count?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shipment_tracking_monitors_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shipment_tracking_monitors_shipment_id_fkey';
+            columns: ['shipment_id'];
+            isOneToOne: true;
+            referencedRelation: 'shipments';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      shipment_tracking_notification_outbox: {
+        Row: {
+          attempt_count: number;
+          audience: string;
+          created_at: string;
+          delivery_started_at: string | null;
+          id: string;
+          last_error: string | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          max_attempts: number;
+          merchant_id: string;
+          next_attempt_at: string;
+          notification_kind: string;
+          order_id: string;
+          sent_at: string | null;
+          shipment_id: string;
+          skip_reason: string | null;
+          skipped_at: string | null;
+          status: string;
+          tracking_epoch_id: string;
+          tracking_event_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempt_count?: number;
+          audience: string;
+          created_at?: string;
+          delivery_started_at?: string | null;
+          id?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          merchant_id: string;
+          next_attempt_at?: string;
+          notification_kind: string;
+          order_id: string;
+          sent_at?: string | null;
+          shipment_id: string;
+          skip_reason?: string | null;
+          skipped_at?: string | null;
+          status?: string;
+          tracking_epoch_id: string;
+          tracking_event_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempt_count?: number;
+          audience?: string;
+          created_at?: string;
+          delivery_started_at?: string | null;
+          id?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          merchant_id?: string;
+          next_attempt_at?: string;
+          notification_kind?: string;
+          order_id?: string;
+          sent_at?: string | null;
+          shipment_id?: string;
+          skip_reason?: string | null;
+          skipped_at?: string | null;
+          status?: string;
+          tracking_epoch_id?: string;
+          tracking_event_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shipment_tracking_notification_outbox_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'shipment_tracking_notification_outbox_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shipment_tracking_notification_outbox_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'shipment_tracking_notification_outbox_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shipment_tracking_notification_outbox_shipment_id_fkey';
+            columns: ['shipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'shipments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shipment_tracking_notification_outbox_tracking_event_id_fkey';
+            columns: ['tracking_event_id'];
+            isOneToOne: false;
+            referencedRelation: 'shipment_tracking_events';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       shipments: {
         Row: {
           cancelled_at: string | null;
@@ -13159,6 +13882,8 @@ export type Database = {
           status: string;
           tracking_events: Json | null;
           tracking_number: string | null;
+          tracking_snapshot_version: number;
+          tracking_timeline_generation: number;
           updated_at: string | null;
         };
         Insert: {
@@ -13191,6 +13916,8 @@ export type Database = {
           status?: string;
           tracking_events?: Json | null;
           tracking_number?: string | null;
+          tracking_snapshot_version?: number;
+          tracking_timeline_generation?: number;
           updated_at?: string | null;
         };
         Update: {
@@ -13223,6 +13950,8 @@ export type Database = {
           status?: string;
           tracking_events?: Json | null;
           tracking_number?: string | null;
+          tracking_snapshot_version?: number;
+          tracking_timeline_generation?: number;
           updated_at?: string | null;
         };
         Relationships: [
@@ -13303,62 +14032,6 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
-      };
-      shipment_tracking_events: {
-        Row: {
-          created_at: string;
-          description: string;
-          id: string;
-          location: string | null;
-          normalized_status: string;
-          occurred_at: string;
-          provider: string;
-          provider_event_id: string | null;
-          provider_event_key: string;
-          raw_status: string;
-          shipment_id: string;
-          tracking_epoch_id: string;
-          tracking_number: string;
-        };
-        Insert: {
-          created_at?: string;
-          description: string;
-          id?: string;
-          location?: string | null;
-          normalized_status: string;
-          occurred_at: string;
-          provider: string;
-          provider_event_id?: string | null;
-          provider_event_key: string;
-          raw_status: string;
-          shipment_id: string;
-          tracking_epoch_id: string;
-          tracking_number: string;
-        };
-        Update: {
-          created_at?: string;
-          description?: string;
-          id?: string;
-          location?: string | null;
-          normalized_status?: string;
-          occurred_at?: string;
-          provider?: string;
-          provider_event_id?: string | null;
-          provider_event_key?: string;
-          raw_status?: string;
-          shipment_id?: string;
-          tracking_epoch_id?: string;
-          tracking_number?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'shipment_tracking_events_shipment_id_fkey';
-            columns: ['shipment_id'];
-            isOneToOne: false;
-            referencedRelation: 'shipments';
-            referencedColumns: ['id'];
-          },
-        ];
       };
       shipping_quotes: {
         Row: {
@@ -15019,6 +15692,18 @@ export type Database = {
           updated_at: string;
         }[];
       };
+      apply_gigl_tracking_result: {
+        Args: {
+          p_actual_delivery: string;
+          p_current_location: string;
+          p_events: Json;
+          p_shipment_id: string;
+          p_status: string;
+          p_tracking_epoch_id: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
+      };
       apply_provider_shipment_webhook_status: {
         Args: {
           p_event_timestamp?: string;
@@ -15100,6 +15785,10 @@ export type Database = {
           p_order_id: string;
           p_reference_id: string;
         };
+        Returns: boolean;
+      };
+      begin_shipment_tracking_notification_dispatch: {
+        Args: { p_id: string; p_worker_id: string };
         Returns: boolean;
       };
       bind_quiz_attempt_device: {
@@ -15258,6 +15947,16 @@ export type Database = {
         };
         Returns: string;
       };
+      claim_due_gigl_tracking_monitors: {
+        Args: { p_limit: number; p_worker_id: string };
+        Returns: {
+          order_id: string;
+          shipment_id: string;
+          state: string;
+          tracking_epoch_id: string;
+          tracking_number: string;
+        }[];
+      };
       claim_event_deliveries_v1: {
         Args: {
           p_batch_size: number;
@@ -15318,82 +16017,6 @@ export type Database = {
           metadata: Json;
           order_id: string;
         }[];
-      };
-      claim_due_gigl_tracking_monitors: {
-        Args: { p_limit: number; p_worker_id: string };
-        Returns: {
-          order_id: string;
-          shipment_id: string;
-          state: string;
-          tracking_epoch_id: string;
-          tracking_number: string;
-        }[];
-      };
-      release_gigl_tracking_claim: {
-        Args: {
-          p_shipment_id: string;
-          p_tracking_epoch_id: string;
-          p_worker_id: string;
-        };
-        Returns: boolean;
-      };
-      pause_gigl_tracking_monitor: {
-        Args: {
-          p_error: string;
-          p_shipment_id: string;
-          p_tracking_epoch_id: string;
-          p_worker_id: string;
-        };
-        Returns: boolean;
-      };
-      claim_shipment_tracking_notifications: {
-        Args: { p_limit: number; p_worker_id: string };
-        Returns: {
-          attempt_count: number;
-          audience: string;
-          id: string;
-          max_attempts: number;
-          merchant_id: string;
-          notification_kind: string;
-          order_id: string;
-          shipment_id: string;
-          tracking_epoch_id: string;
-          tracking_event_id: string;
-        }[];
-      };
-      begin_shipment_tracking_notification_dispatch: {
-        Args: { p_id: string; p_worker_id: string };
-        Returns: boolean;
-      };
-      complete_shipment_tracking_notification: {
-        Args: {
-          p_error?: string | null;
-          p_id: string;
-          p_outcome: string;
-          p_worker_id: string;
-        };
-        Returns: boolean;
-      };
-      apply_gigl_tracking_result: {
-        Args: {
-          p_actual_delivery: string | null;
-          p_current_location: string | null;
-          p_events: Json;
-          p_shipment_id: string;
-          p_status: string;
-          p_tracking_epoch_id: string;
-          p_worker_id: string;
-        };
-        Returns: boolean;
-      };
-      record_gigl_tracking_failure: {
-        Args: {
-          p_error: string;
-          p_shipment_id: string;
-          p_tracking_epoch_id: string;
-          p_worker_id: string;
-        };
-        Returns: boolean;
       };
       claim_order_shipment_booking: {
         Args: {
@@ -15578,6 +16201,21 @@ export type Database = {
           terminal: boolean;
         }[];
       };
+      claim_shipment_tracking_notifications: {
+        Args: { p_limit: number; p_worker_id: string };
+        Returns: {
+          attempt_count: number;
+          audience: string;
+          id: string;
+          max_attempts: number;
+          merchant_id: string;
+          notification_kind: string;
+          order_id: string;
+          shipment_id: string;
+          tracking_epoch_id: string;
+          tracking_event_id: string;
+        }[];
+      };
       claim_variant_inventory_units_for_order_item: {
         Args: {
           p_merchant_id: string;
@@ -15710,6 +16348,15 @@ export type Database = {
       };
       complete_petrock_remediation_notification: {
         Args: { p_channel: string; p_claim_token: string; p_order_id: string };
+        Returns: boolean;
+      };
+      complete_shipment_tracking_notification: {
+        Args: {
+          p_error?: string;
+          p_id: string;
+          p_outcome: string;
+          p_worker_id: string;
+        };
         Returns: boolean;
       };
       complete_wallet_withdrawal: {
@@ -16188,6 +16835,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      deactivate_push_token: { Args: { p_token: string }; Returns: boolean };
       dead_letter_ingress_event_v1: {
         Args: {
           p_domain_event_id: string;
@@ -16305,6 +16953,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      expire_unclaimed_ranked_quiz_awards_v2: { Args: never; Returns: Json };
       extract_primary_image_from_jsonb: {
         Args: { p_images: Json };
         Returns: string;
@@ -16339,7 +16988,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      finalize_due_live_quiz_events_v2: {
+        Args: { p_production_approved: boolean; p_production_phase: boolean };
+        Returns: Json;
+      };
       finalize_due_quiz_events: { Args: never; Returns: number };
+      finalize_due_test_quiz_events_v2: { Args: never; Returns: Json };
       finalize_petrock_imei_lookup: {
         Args: {
           p_cached_response: Json;
@@ -16661,6 +17315,10 @@ export type Database = {
         Args: { p_fulfillment: Json };
         Returns: Json;
       };
+      get_merchant_analytics_config: {
+        Args: { p_merchant_id: string };
+        Returns: Json;
+      };
       get_merchant_balance: {
         Args: { currency_param: string; merchant_id_param: string };
         Returns: number;
@@ -16953,6 +17611,10 @@ export type Database = {
           total_count: number;
         }[];
       };
+      get_quiz_attempt_result_v2: {
+        Args: { p_attempt_id: string };
+        Returns: Json;
+      };
       get_quiz_event_question_counts: {
         Args: { p_event_ids: string[] };
         Returns: {
@@ -16985,6 +17647,10 @@ export type Database = {
           submitted_at: string;
           total_time_seconds: number;
         }[];
+      };
+      get_quiz_leaderboard_public_v2: {
+        Args: { p_event_id: string };
+        Returns: Json;
       };
       get_receipt_claim_campaign_stats: {
         Args: { p_import_job_id: string; p_merchant_id: string };
@@ -17465,6 +18131,25 @@ export type Database = {
           source: string;
         }[];
       };
+      list_quiz_events_v2: {
+        Args: { p_limit?: number; p_merchant_id: string; p_offset?: number };
+        Returns: Json;
+      };
+      launch_quiz_event_v2: {
+        Args: {
+          p_ends_at: string;
+          p_event_id: string;
+          p_question_count: number;
+          p_regulatory_basis: string;
+          p_regulatory_evidence_ref: string;
+          p_regulatory_jurisdiction: string;
+          p_rules_version: string;
+          p_starts_at: string;
+          p_time_per_question_seconds: number;
+          p_time_zone: string;
+        };
+        Returns: Json;
+      };
       list_variant_inventory_units: {
         Args: {
           p_branch_id?: string;
@@ -17567,26 +18252,6 @@ export type Database = {
           title: string;
         }[];
       };
-      mutate_merchant_blog_post_with_product_links: {
-        Args: {
-          p_merchant_id: string;
-          p_post_data: Json;
-          p_post_id: string | null;
-          p_product_ids?: string[] | null;
-        };
-        Returns: {
-          category: string | null;
-          content: string;
-          excerpt: string | null;
-          featured_image_url: string | null;
-          id: string;
-          merchant_id: string;
-          published_at: string | null;
-          slug: string;
-          status: string;
-          title: string;
-        }[];
-      };
       merchant_feature_settings_public_cache_projection: {
         Args: {
           p_settings: Database['public']['Tables']['merchant_feature_settings']['Row'];
@@ -17596,6 +18261,46 @@ export type Database = {
       mint_quiz_event_ranked_awards: {
         Args: { p_event_id: string };
         Returns: number;
+      };
+      mutate_merchant_blog_post_with_product_links: {
+        Args: {
+          p_merchant_id: string;
+          p_post_data: Json;
+          p_post_id: string;
+          p_product_ids?: string[];
+        };
+        Returns: {
+          category: string;
+          content: string;
+          excerpt: string;
+          featured_image_url: string;
+          id: string;
+          merchant_id: string;
+          published_at: string;
+          slug: string;
+          status: string;
+          title: string;
+        }[];
+      };
+      mutate_merchant_blog_post_with_product_links_base: {
+        Args: {
+          p_merchant_id: string;
+          p_post_data: Json;
+          p_post_id: string;
+          p_product_ids?: string[];
+        };
+        Returns: {
+          category: string;
+          content: string;
+          excerpt: string;
+          featured_image_url: string;
+          id: string;
+          merchant_id: string;
+          published_at: string;
+          slug: string;
+          status: string;
+          title: string;
+        }[];
       };
       normalize_inventory_identifier: {
         Args: { p_value: string };
@@ -17620,6 +18325,15 @@ export type Database = {
           goal_status: string;
           success: boolean;
         }[];
+      };
+      pause_gigl_tracking_monitor: {
+        Args: {
+          p_error: string;
+          p_shipment_id: string;
+          p_tracking_epoch_id: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
       };
       petrock_model_scope_matches: {
         Args: { p_device_model: string; p_model_scope: Json };
@@ -17789,6 +18503,14 @@ export type Database = {
         };
         Returns: unknown;
       };
+      promote_due_scheduled_quiz_events: {
+        Args: { p_event_id?: string; p_merchant_id?: string };
+        Returns: number;
+      };
+      promote_due_scheduled_quiz_events_service_v2: {
+        Args: never;
+        Returns: number;
+      };
       provision_mobile_merchant_v2: {
         Args: {
           p_brand_colors: Json;
@@ -17832,6 +18554,14 @@ export type Database = {
         Args: { p_device_hash: string; p_scope_id: string };
         Returns: string;
       };
+      quiz_effective_question_deadline_v2: {
+        Args: {
+          p_event_ends_at: string;
+          p_issued_at: string;
+          p_time_limit_seconds: number;
+        };
+        Returns: string;
+      };
       quiz_event_max_attempts: {
         Args: { p_event_id: string };
         Returns: number;
@@ -17858,6 +18588,7 @@ export type Database = {
             Returns: boolean;
           };
       quiz_rpc_server_secret_configured: { Args: never; Returns: boolean };
+      quiz_runtime_contract_version: { Args: never; Returns: number };
       read_domain_events_v1: {
         Args: {
           p_batch_size?: number;
@@ -17958,6 +18689,15 @@ export type Database = {
           p_units: Json;
         };
         Returns: Json;
+      };
+      record_gigl_tracking_failure: {
+        Args: {
+          p_error: string;
+          p_shipment_id: string;
+          p_tracking_epoch_id: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
       };
       record_juicyway_usdt_deposit_address: {
         Args: {
@@ -18214,6 +18954,10 @@ export type Database = {
           success: boolean;
         }[];
       };
+      redeem_quiz_test_invite_v2: {
+        Args: { p_token: string };
+        Returns: string;
+      };
       redeem_receipt_claim: { Args: { p_token_hash: string }; Returns: Json };
       redeem_receipt_claim_v2: {
         Args: { p_source: string; p_token_hash: string };
@@ -18340,6 +19084,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      release_gigl_tracking_claim: {
+        Args: {
+          p_shipment_id: string;
+          p_tracking_epoch_id: string;
+          p_worker_id: string;
+        };
+        Returns: boolean;
+      };
       release_order_inventory_units: {
         Args: {
           p_merchant_id: string;
@@ -18462,9 +19214,9 @@ export type Database = {
       };
       request_product_description_attestation_grant: {
         Args: {
-          p_expected_old_description: string | null;
-          p_expected_old_sha256: string | null;
-          p_expected_old_source_type: string | null;
+          p_expected_old_description: string;
+          p_expected_old_sha256: string;
+          p_expected_old_source_type: string;
           p_full_replacement: boolean;
           p_merchant_id: string;
           p_operation_id: string;
@@ -18477,6 +19229,9 @@ export type Database = {
           grant_id: string;
         }[];
       };
+      require_recent_merchant_settings_auth:
+        | { Args: never; Returns: undefined }
+        | { Args: { p_require_mfa: boolean }; Returns: undefined };
       reschedule_petrock_imei_lookup_poll: {
         Args: {
           p_lease_token: string;
@@ -18570,6 +19325,10 @@ export type Database = {
           goal_status: string;
           success: boolean;
         }[];
+      };
+      resume_quiz_attempt_v2: {
+        Args: { p_device_hash?: string; p_event_id: string };
+        Returns: Json;
       };
       reverse_savings_redemption_for_order: {
         Args: {
@@ -18832,6 +19591,10 @@ export type Database = {
         Args: { p_merchant_id: string; p_username: string };
         Returns: string;
       };
+      set_customer_username_v2: {
+        Args: { p_merchant_id: string; p_username: string };
+        Returns: Json;
+      };
       set_merchant_email_domain_enabled: {
         Args: {
           p_actor_user_id: string;
@@ -18921,6 +19684,20 @@ export type Database = {
         };
         Returns: Json;
       };
+      start_quiz_attempt_v2: {
+        Args: {
+          p_accepted_rules_version: string;
+          p_app_version: string;
+          p_event_id: string;
+          p_integrity_tier: string;
+          p_platform: string;
+          p_route_proof: Json;
+          p_start_request_id: string;
+          p_terms_accepted: boolean;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
       start_quiz_attempt_with_device: {
         Args: {
           p_device_hash: string;
@@ -18928,6 +19705,22 @@ export type Database = {
           p_event_id: string;
           p_integrity_tier: string;
           p_start_route_proof: Json;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      start_quiz_attempt_with_device_v2: {
+        Args: {
+          p_accepted_rules_version: string;
+          p_app_version: string;
+          p_device_hash: string;
+          p_device_route_proof: Json;
+          p_event_id: string;
+          p_integrity_tier: string;
+          p_platform: string;
+          p_start_request_id: string;
+          p_start_route_proof: Json;
+          p_terms_accepted: boolean;
           p_user_id: string;
         };
         Returns: Json;
@@ -18945,6 +19738,17 @@ export type Database = {
           p_question_id: string;
           p_route_proof?: Json;
           p_user_id?: string;
+        };
+        Returns: Json;
+      };
+      submit_quiz_answer_v2: {
+        Args: {
+          p_answer: string;
+          p_attempt_id: string;
+          p_client_answered_at?: string;
+          p_question_id: string;
+          p_route_proof: Json;
+          p_user_id: string;
         };
         Returns: Json;
       };
@@ -18996,6 +19800,7 @@ export type Database = {
         };
         Returns: string;
       };
+      terminalize_due_live_quiz_events_v2: { Args: never; Returns: Json };
       unsubscribe_newsletter: {
         Args: { p_email: string; p_merchant_id?: string };
         Returns: boolean;
@@ -19022,6 +19827,15 @@ export type Database = {
         Returns: Json;
       };
       update_merchant_social_media: {
+        Args: {
+          p_clear?: boolean;
+          p_merchant_id: string;
+          p_settings?: Json;
+          p_social_media?: Json;
+        };
+        Returns: Json;
+      };
+      update_merchant_social_media_internal: {
         Args: {
           p_clear?: boolean;
           p_merchant_id: string;

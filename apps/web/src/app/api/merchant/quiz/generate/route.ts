@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getPrimaryProductImage } from '@/lib/product-image';
 import {
   generateQuizQuestionsWithGemma,
   QuizQuestionGenerationUnavailableError,
@@ -14,9 +13,9 @@ import {
   createVariantRows,
   isQuizDraftEvent,
   type MerchantAuthContext,
-  resolvePrizeProduct,
   slugifyTitle,
 } from './quiz-generate-helpers';
+import { resolveQuizPrizeSelection } from './quiz-prize-selection';
 
 export const maxDuration = 120;
 
@@ -32,10 +31,10 @@ async function handleGeneration(
     );
   }
 
-  const prizeProduct = await resolvePrizeProduct(
+  const prizeProduct = await resolveQuizPrizeSelection(
     context.supabase,
     context.merchantId,
-    parsed.data.prizeProductId
+    parsed.data
   );
   if (!prizeProduct) {
     return NextResponse.json(
@@ -70,18 +69,17 @@ async function handleGeneration(
 
   const slots = createSlotRows(questions);
   const variantRows = createVariantRows(questions, slots);
-  const prizeVariantId =
-    parsed.data.prizeVariantId ?? prizeProduct.default_variant_id ?? null;
-  const prizeProductImageUrl = getPrimaryProductImage(prizeProduct.images);
   const { data: event, error: eventError } = await context.supabase
     .rpc('create_merchant_quiz_draft', {
       p_merchant_id: context.merchantId,
       p_settings: {
         prize_name: prizeProduct.name,
-        prize_product_id: prizeProduct.id,
-        prize_product_image_url: prizeProductImageUrl,
+        prize_condition: prizeProduct.condition,
+        prize_product_id: prizeProduct.productId,
+        prize_product_image_url: prizeProduct.imageUrl,
         prize_product_name: prizeProduct.name,
-        prize_variant_id: prizeVariantId,
+        prize_variant_id: prizeProduct.variantId,
+        quiz_mode: parsed.data.mode,
         time_limit_seconds: parsed.data.timeLimitSeconds,
       },
       p_slug: slugifyTitle(parsed.data.title),

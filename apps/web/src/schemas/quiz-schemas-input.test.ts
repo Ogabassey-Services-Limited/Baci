@@ -3,19 +3,18 @@ import { describe, expect, it } from 'vitest';
 import {
   claimQuizCashAwardSchema,
   claimQuizGrandPrizeSchema,
+  claimQuizTestInviteSchema,
   finalizeQuizAwardsSchema,
-  merchantQuizActivationRequestSchema,
-  merchantQuizGenerationRequestSchema,
   startQuizAttemptSchema,
+  startQuizAttemptV2RouteSchema,
   submitQuizAnswerSchema,
+  submitQuizAnswerV2Schema,
 } from '@/schemas/quiz';
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
 const AWARD_ID = '44444444-4444-4444-8444-444444444444';
-const PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
-const VARIANT_ID = '66666666-6666-4666-8666-666666666666';
 
 describe('quiz route input schemas', () => {
   it('validates start attempt payloads', () => {
@@ -187,168 +186,51 @@ describe('quiz route input schemas', () => {
     ).toThrow();
   });
 
-  it('validates merchant quiz generation payloads', () => {
-    const basePayload = {
-      prizeProductId: PRODUCT_ID,
-      questionCountPerTopic: 1,
-      timeLimitSeconds: 30,
-      title: 'Daily Phone Quiz',
-      topics: ['iPhone buying advice'],
-    };
-    const parsePayload = (overrides: Record<string, unknown>) =>
-      merchantQuizGenerationRequestSchema.parse({
-        ...basePayload,
-        ...overrides,
-      });
-
-    expect(
-      merchantQuizGenerationRequestSchema.parse({
-        difficulty: 'hard',
-        prizeProductId: PRODUCT_ID,
-        prizeVariantId: VARIANT_ID,
-        questionCountPerTopic: '2',
-        timeLimitSeconds: '45',
-        title: 'Daily Phone Quiz',
-        topics: [' iPhone buying advice ', 'Android trade-in'],
-      })
-    ).toEqual({
-      difficulty: 'hard',
-      prizeProductId: PRODUCT_ID,
-      prizeVariantId: VARIANT_ID,
-      questionCountPerTopic: 2,
-      timeLimitSeconds: 45,
-      title: 'Daily Phone Quiz',
-      topics: ['iPhone buying advice', 'Android trade-in'],
+  it('accepts only bounded strict test-invite tokens', () => {
+    const token = 'a'.repeat(48);
+    expect(claimQuizTestInviteSchema.parse({ token })).toEqual({ token });
+    expect(claimQuizTestInviteSchema.parse({ token: 'a'.repeat(32) })).toEqual({
+      token: 'a'.repeat(32),
     });
-
-    expect(() =>
-      merchantQuizGenerationRequestSchema.parse({
-        prizeProductId: PRODUCT_ID,
-        title: 'No',
-        topics: ['iPhone buying advice'],
-      })
-    ).toThrow();
-    expect(() =>
-      merchantQuizGenerationRequestSchema.parse({
-        prizeProductId: PRODUCT_ID,
-        title: 'Daily Phone Quiz',
-        topics: [],
-      })
-    ).toThrow();
-    expect(() =>
-      merchantQuizGenerationRequestSchema.parse({
-        difficulty: 'expert',
-        prizeProductId: PRODUCT_ID,
-        title: 'Daily Phone Quiz',
-        topics: ['iPhone buying advice'],
-      })
-    ).toThrow();
-
-    expect(parsePayload({ title: 'T'.repeat(120) }).title).toBe(
-      'T'.repeat(120)
+    expect(claimQuizTestInviteSchema.parse({ token: 'a'.repeat(512) })).toEqual(
+      { token: 'a'.repeat(512) }
     );
-    expect(() => parsePayload({ title: 'T'.repeat(121) })).toThrow();
-
-    expect(parsePayload({ topics: [' abc '] }).topics).toEqual(['abc']);
-    expect(parsePayload({ topics: ['a'.repeat(80)] }).topics).toEqual([
-      'a'.repeat(80),
-    ]);
-    expect(() => parsePayload({ topics: ['ab'] })).toThrow();
-    expect(() => parsePayload({ topics: ['a'.repeat(81)] })).toThrow();
-    expect(
-      parsePayload({
-        topics: Array.from({ length: 10 }, (_, index) => `topic ${index}`),
-      }).topics
-    ).toHaveLength(10);
+    expect(() => claimQuizTestInviteSchema.parse({ token: 'short' })).toThrow();
     expect(() =>
-      parsePayload({
-        topics: Array.from({ length: 11 }, (_, index) => `topic ${index}`),
-      })
-    ).toThrow();
-
-    expect(
-      parsePayload({ questionCountPerTopic: 1 }).questionCountPerTopic
-    ).toBe(1);
-    expect(
-      parsePayload({ questionCountPerTopic: 5 }).questionCountPerTopic
-    ).toBe(5);
-    expect(() => parsePayload({ questionCountPerTopic: 0 })).toThrow();
-    expect(() => parsePayload({ questionCountPerTopic: 6 })).toThrow();
-
-    expect(parsePayload({ timeLimitSeconds: 5 }).timeLimitSeconds).toBe(5);
-    expect(parsePayload({ timeLimitSeconds: 60 }).timeLimitSeconds).toBe(60);
-    expect(() => parsePayload({ timeLimitSeconds: 4 })).toThrow();
-    expect(() => parsePayload({ timeLimitSeconds: 61 })).toThrow();
-
-    expect(parsePayload({ prizeProductId: PRODUCT_ID }).prizeProductId).toBe(
-      PRODUCT_ID
-    );
-    expect(parsePayload({ prizeVariantId: VARIANT_ID }).prizeVariantId).toBe(
-      VARIANT_ID
-    );
-    expect(() =>
-      parsePayload({ prizeProductId: 'not-a-product-id' })
+      claimQuizTestInviteSchema.parse({ token: 'a'.repeat(513) })
     ).toThrow();
     expect(() =>
-      parsePayload({ prizeVariantId: 'not-a-variant-id' })
+      claimQuizTestInviteSchema.parse({ token, userId: EVENT_ID })
     ).toThrow();
   });
 
-  it('requires an explicit confirmation flag to activate a draft quiz', () => {
-    expect(
-      merchantQuizActivationRequestSchema.parse({
-        answerKeyReview: {
-          questions: [{ correctOptionId: 'a', position: 1 }],
-        },
-        confirmActivation: true,
-        eventId: EVENT_ID,
-      })
-    ).toEqual({
-      answerKeyReview: {
-        questions: [{ correctOptionId: 'a', position: 1 }],
-      },
-      confirmActivation: true,
+  it('keeps v2 device identity out of request bodies', () => {
+    const start = {
+      acceptedRulesVersion: 'rules-v1',
+      appVersion: '1.2.3',
+      entryMode: QUIZ_FREE_ENTRY_MODE,
       eventId: EVENT_ID,
-    });
-
-    // Must not activate without the explicit confirmation flag.
+      expectedUserId: 'user-1',
+      integrityTier: 'device' as const,
+      platform: 'ios' as const,
+      startRequestId: ATTEMPT_ID,
+      termsAccepted: true as const,
+    };
+    expect(startQuizAttemptV2RouteSchema.parse(start)).toEqual(start);
     expect(() =>
-      merchantQuizActivationRequestSchema.parse({
-        answerKeyReview: {
-          questions: [{ correctOptionId: 'a', position: 1 }],
-        },
-        eventId: EVENT_ID,
+      startQuizAttemptV2RouteSchema.parse({
+        ...start,
+        deviceFingerprint: 'a'.repeat(64),
       })
     ).toThrow();
+    expect(
+      submitQuizAnswerV2Schema.parse({ answer: 'A', questionId: QUESTION_ID })
+    ).toEqual({ answer: 'A', questionId: QUESTION_ID });
     expect(() =>
-      merchantQuizActivationRequestSchema.parse({
-        answerKeyReview: {
-          questions: [{ correctOptionId: 'a', position: 1 }],
-        },
-        confirmActivation: false,
-        eventId: EVENT_ID,
-      })
-    ).toThrow();
-    expect(() =>
-      merchantQuizActivationRequestSchema.parse({
-        confirmActivation: true,
-        eventId: EVENT_ID,
-      })
-    ).toThrow();
-    expect(() =>
-      merchantQuizActivationRequestSchema.parse({
-        answerKeyReview: { questions: [] },
-        confirmActivation: true,
-        eventId: EVENT_ID,
-      })
-    ).toThrow();
-    expect(() =>
-      merchantQuizActivationRequestSchema.parse({
-        answerKeyReview: {
-          questions: [{ correctOptionId: 'a', position: 1 }],
-        },
-        confirmActivation: true,
-        eventId: 'not-a-uuid',
+      submitQuizAnswerV2Schema.parse({
+        answer: 'A',
+        integrityTier: 'device',
+        questionId: QUESTION_ID,
       })
     ).toThrow();
   });

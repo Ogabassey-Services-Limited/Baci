@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { EXPECTED_PENDING_SOURCES } from './expected-pending-sources.test-support';
 import { createReplayManifestTestWorkspace } from './replay-manifest-test-workspace.test-support';
 import { verifySupabaseHistoryReplayManifest } from './verify-supabase-history-replay-manifest';
 
@@ -62,7 +63,9 @@ describe('GIGL tracking pending replay sources', () => {
       pendingRepairState: 'materialized',
     });
 
-    expect(result.manifest.pendingSources).toHaveLength(182);
+    expect(result.manifest.pendingSources).toHaveLength(
+      EXPECTED_PENDING_SOURCES.length
+    );
     for (const [repositoryPath, sha256] of [
       [
         'supabase/migrations/20260801142400_retry_gigl_definitive_notification_rejections.sql',

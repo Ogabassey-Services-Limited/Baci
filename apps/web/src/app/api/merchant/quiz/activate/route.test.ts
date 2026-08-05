@@ -1,4 +1,8 @@
 import crypto from 'node:crypto';
+import {
+  QUIZ_LIVE_RULES_VERSION,
+  QUIZ_TEST_RULES_VERSION,
+} from '@baci/shared/constants';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,7 +43,11 @@ const mockQuizEventUpdate = vi.fn((_payload: Record<string, unknown>) => ({
 }));
 // Idempotent active-lookup chain: select → eq(id) → eq(merchant) → eq(status='active') → maybeSingle
 const mockActiveLookupMaybeSingle = vi.fn();
+const mockActiveStatusIn = vi.fn(() => ({
+  maybeSingle: mockActiveLookupMaybeSingle,
+}));
 const mockActiveEqThird = vi.fn(() => ({
+  in: mockActiveStatusIn,
   maybeSingle: mockActiveLookupMaybeSingle,
 }));
 const mockActiveEqSecond = vi.fn(() => ({ eq: mockActiveEqThird }));
@@ -177,6 +185,120 @@ describe('POST /api/merchant/quiz/activate', () => {
     // Only drafts can be activated.
     expect(mockQuizEventEqThird).toHaveBeenCalledWith('status', 'draft');
     expect(body.event.status).toBe('active');
+  });
+
+  it('launches a reviewed test draft with the v2 universal window', async () => {
+    const response = await POST(
+      createRequest({
+        eventId: EVENT_ID,
+        maxAttempts: 10,
+        mode: 'test',
+        rulesVersion: QUIZ_TEST_RULES_VERSION,
+        timePerQuestionSeconds: 10,
+        timeZone: 'Africa/Lagos',
+        timing: { kind: 'immediate', liveWindowSeconds: 300 },
+        variantsPerQuestion: 1,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockQuizEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contract_version: 2,
+        live_window_seconds: 300,
+        maximum_play_seconds: 10,
+        mode: 'test',
+        question_count: 1,
+        rules_version: QUIZ_TEST_RULES_VERSION,
+        status: 'active',
+        time_per_question_seconds: 10,
+      })
+    );
+  });
+
+  it('launches a reviewed live prize through the atomic reservation RPC', async () => {
+    mockRpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          id: EVENT_ID,
+          slug: 'daily-phone-quiz',
+          status: 'active',
+          title: 'Daily Phone Quiz',
+        },
+        error: null,
+      });
+    const response = await POST(
+      createRequest({
+        eventId: EVENT_ID,
+        maxAttempts: 1,
+        mode: 'live',
+        regulatoryCompliance: {
+          basis: 'free_skill_competition',
+          evidenceReference: 'Free-entry rules and counsel note 2026-08',
+          jurisdiction: 'NG-LA',
+        },
+        rulesVersion: QUIZ_LIVE_RULES_VERSION,
+        timePerQuestionSeconds: 10,
+        timeZone: 'Africa/Lagos',
+        timing: { kind: 'immediate', liveWindowSeconds: 60 },
+        variantsPerQuestion: 3,
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      event: { id: EVENT_ID, status: 'active' },
+    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'launch_quiz_event_v2',
+      expect.objectContaining({
+        p_event_id: EVENT_ID,
+        p_regulatory_basis: 'free_skill_competition',
+        p_regulatory_jurisdiction: 'NG-LA',
+      })
+    );
+    expect(mockQuizEventUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns a previously launched v2 event when the admin retries after a lost response', async () => {
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
+    mockActiveLookupMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: EVENT_ID,
+        slug: 'daily-phone-quiz',
+        status: 'scheduled',
+        title: 'Daily Phone Quiz',
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      createRequest({
+        eventId: EVENT_ID,
+        maxAttempts: 10,
+        mode: 'test',
+        rulesVersion: QUIZ_TEST_RULES_VERSION,
+        timePerQuestionSeconds: 10,
+        timeZone: 'Africa/Lagos',
+        timing: {
+          endsAt: '2026-08-06T09:05:00.000Z',
+          kind: 'scheduled',
+          startsAt: '2026-08-06T09:00:00.000Z',
+        },
+        variantsPerQuestion: 1,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      event: { id: EVENT_ID, status: 'scheduled' },
+    });
+    expect(mockActiveEqThird).toHaveBeenCalledWith('contract_version', 2);
+    expect(mockActiveStatusIn).toHaveBeenCalledWith('status', [
+      'active',
+      'scheduled',
+    ]);
+    expect(mockQuizEventUpdate).not.toHaveBeenCalled();
   });
 
   it('rejects activation when the reviewed answer key does not match the stored draft', async () => {

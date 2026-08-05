@@ -4,6 +4,7 @@ import { EXPECTED_GIGL_TRACKING_PENDING_SOURCES } from './expected-gigl-tracking
 import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
 import { PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES } from './expected-pending-payment-ingress-sources.test-support';
 import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
+import { EXPECTED_QUIZ_LIVE_PENDING_SOURCES } from './expected-quiz-live-pending-sources.test-support';
 import { RECENT_PENDING_SOURCES } from './recent-pending-sources.test-fixture';
 export const EXPECTED_PENDING_SOURCES = [
   {
@@ -278,6 +279,7 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260804140000_harden_authenticated_private_schema_delegates.sql',
     sha256: '62201972e14cbafc34feb0584697b92d402eea9c15890a6ec4bbcfc3d5c7e0c5',
   },
+  ...EXPECTED_QUIZ_LIVE_PENDING_SOURCES,
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

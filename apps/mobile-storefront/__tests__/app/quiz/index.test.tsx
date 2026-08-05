@@ -48,9 +48,26 @@ const mockCreateQuizAttempt = () => ({
   },
 });
 
-jest.mock('expo-router', () => ({
-  Stack: { Screen: () => null },
-}));
+jest.mock('expo-router', () => {
+  const { Text, View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    Stack: {
+      Screen: ({
+        options,
+      }: {
+        options: { title: string; headerRight?: () => React.ReactNode };
+      }) => (
+        <View>
+          <Text accessibilityRole="header">{options.title}</Text>
+          {options.headerRight?.()}
+        </View>
+      ),
+    },
+    useRouter: () => ({ push: jest.fn() }),
+  };
+});
+jest.mock('@react-native-vector-icons/ionicons', () => 'Ionicons');
 
 // This route test exercises the start flow directly, so the customer already
 // has a username AND a date of birth — the username and 18+ date-of-birth gates
@@ -103,15 +120,29 @@ describe('/quiz screen', () => {
     });
   });
 
+  async function acceptRulesAndStart() {
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Play for free Daily Prize Quiz',
+      })
+    );
+    fireEvent.press(
+      screen.getByRole('checkbox', { name: 'Accept quiz rules and terms' })
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Accept and play quiz' })
+    );
+  }
+
   it('renders an accessible event list and start CTA', async () => {
     render(<QuizRoute />);
 
     expect(
-      await screen.findByRole('header', { name: 'Super Quiz' })
+      await screen.findByRole('header', { name: 'Quiz' })
     ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
+        name: 'Play for free Daily Prize Quiz',
       })
     ).toBeOnTheScreen();
     expect(
@@ -124,11 +155,7 @@ describe('/quiz screen', () => {
   it('starts the selected event and renders accessible answer controls', async () => {
     render(<QuizRoute />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
 
     expect(await screen.findByLabelText('Question 1 of 3')).toHaveProp(
       'accessibilityRole',
@@ -176,11 +203,7 @@ describe('/quiz screen', () => {
 
     render(<QuizRoute />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Start unavailable'
@@ -194,11 +217,7 @@ describe('/quiz screen', () => {
 
     render(<QuizRoute />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
     fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));
 

@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   invalidInputResponse,
   quizRpcClientErrorResponse,
@@ -9,8 +8,8 @@ import {
 import { logger } from '@/lib/logger';
 import { mapQuizLeaderboardRows } from '@/lib/quiz/map-quiz-leaderboard-rows';
 import {
+  quizLeaderboardProjectionSchema,
   quizLeaderboardQuerySchema,
-  quizLeaderboardRowSchema,
 } from '@/schemas/quiz-leaderboard';
 
 export async function GET(request: NextRequest) {
@@ -27,13 +26,8 @@ export async function GET(request: NextRequest) {
     return invalidInputResponse(parsed.error.flatten().fieldErrors);
   }
 
-  // get_quiz_leaderboard_public orders by rank, caps to the top 100, and flags
-  // the caller's own row in the database (see 20260721150000), so the route no
-  // longer sorts, slices, or resolves the caller's identity itself. It is the
-  // scrubbed wrapper — the richer get_quiz_leaderboard (which also returns the
-  // internal customer_id/attempt_id) is service_role only.
   const { data, error } = await auth.supabase.rpc(
-    'get_quiz_leaderboard_public',
+    'get_quiz_leaderboard_public_v2',
     {
       p_event_id: parsed.data.eventId,
     }
@@ -53,10 +47,10 @@ export async function GET(request: NextRequest) {
     return rpcErrorResponse();
   }
 
-  const rows = z.array(quizLeaderboardRowSchema).safeParse(data ?? []);
-  if (!rows.success) {
+  const projection = quizLeaderboardProjectionSchema.safeParse(data);
+  if (!projection.success) {
     logger.error({
-      error: rows.error.flatten(),
+      error: projection.error.flatten(),
       event: 'get_quiz_leaderboard',
       eventId: parsed.data.eventId,
       message: 'get_quiz_leaderboard returned an unexpected shape',
@@ -65,7 +59,13 @@ export async function GET(request: NextRequest) {
     return rpcErrorResponse();
   }
 
+  const currentPlayer = projection.data.current_player
+    ? (mapQuizLeaderboardRows([projection.data.current_player])[0] ?? null)
+    : null;
+
   return NextResponse.json({
-    entries: mapQuizLeaderboardRows(rows.data),
+    currentPlayer,
+    entries: mapQuizLeaderboardRows(projection.data.entries),
+    status: projection.data.status,
   });
 }

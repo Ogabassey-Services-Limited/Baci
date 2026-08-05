@@ -1,4 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
+import type {
+  QuizActiveAttemptResponse,
+  QuizEvent,
+  QuizV2Result,
+} from './quiz-types';
 import { QuizServiceError } from './quiz-types';
 
 describe('QuizServiceError', () => {
@@ -40,5 +45,42 @@ describe('QuizServiceError', () => {
     expect(error.code).toBe('ERR_EDGE');
     expect(error.status).toBe(418);
     expect(typeof error.stack).toBe('string');
+  });
+});
+
+describe('quiz v2 mobile types', () => {
+  it('represents full prize, timing, recovery, and pending result states', () => {
+    const event: QuizEvent = {
+      contractVersion: 2,
+      endsAt: '2026-08-04T12:05:00.000Z',
+      id: 'event-1',
+      mode: 'test',
+      prizeName: 'iPhone XR',
+      prizeProduct: {
+        condition: 'used',
+        id: 'product-1',
+        imageUrl: 'https://cdn.example.com/iphone.png',
+        name: 'iPhone XR',
+        variantId: null,
+      },
+      questionCount: 20,
+      startsAt: '2026-08-04T12:00:00.000Z',
+      status: 'active',
+      title: 'Redmi Warriors',
+    };
+    const recovery: QuizActiveAttemptResponse = {
+      availability: 'pending_results',
+      eventEndsAt: event.endsAt,
+      serverNow: event.endsAt ?? '',
+    };
+    const result: QuizV2Result = {
+      attemptId: 'attempt-1',
+      availability: 'pending',
+      availableAt: null,
+    };
+
+    expect(event.prizeProduct?.imageUrl).toContain('iphone.png');
+    expect(recovery.availability).toBe('pending_results');
+    expect(result.availability).toBe('pending');
   });
 });

@@ -1,6 +1,11 @@
 import type { User } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { enforcePrizeProductionGuard } from '@/lib/quiz-compliance-gate';
+import {
+  calculateQuizAgeYears,
+  parseQuizDateOfBirth,
+  QUIZ_MINIMUM_AGE_YEARS,
+} from './route-helpers-age';
 
 type QuizSupabaseQueryResult<TData = unknown> = {
   data: TData;
@@ -36,7 +41,9 @@ export type ServerSupabaseClient = {
 type QuizAwardPrizeGuardEventRow = {
   compliance_verified?: boolean | null;
   merchant_id?: string | null;
-  nlrc_permit_ref?: string | null;
+  regulatory_basis?: string | null;
+  regulatory_evidence_ref?: string | null;
+  regulatory_jurisdiction?: string | null;
 };
 
 type QuizAwardPrizeGuardRow = {
@@ -45,8 +52,6 @@ type QuizAwardPrizeGuardRow = {
     | QuizAwardPrizeGuardEventRow[]
     | null;
 };
-
-const QUIZ_MINIMUM_AGE_YEARS = 18;
 
 export class QuizAgeGateError extends Error {
   readonly code = 'quiz_age_restricted';
@@ -58,45 +63,15 @@ export class QuizUsernameRequiredError extends Error {
   readonly status = 409;
 }
 
-function parseDateOfBirth(dateOfBirth: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOfBirth);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month - 1 ||
-    parsed.getUTCDate() !== day
-  ) {
-    return null;
-  }
-
-  return parsed;
-}
-
-function calculateAgeYears(dateOfBirth: Date, now: Date): number {
-  let age = now.getUTCFullYear() - dateOfBirth.getUTCFullYear();
-  const monthDelta = now.getUTCMonth() - dateOfBirth.getUTCMonth();
-  const dayDelta = now.getUTCDate() - dateOfBirth.getUTCDate();
-
-  if (monthDelta < 0 || (monthDelta === 0 && dayDelta < 0)) {
-    age -= 1;
-  }
-
-  return age;
-}
-
 export async function enforceEventPrizeGuard(
   supabase: ServerSupabaseClient,
   eventId: string
 ) {
   const { data, error } = await supabase
     .from('quiz_events')
-    .select('merchant_id, nlrc_permit_ref, compliance_verified')
+    .select(
+      'merchant_id, regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified'
+    )
     .eq('id', eventId)
     .maybeSingle();
 
@@ -121,10 +96,9 @@ export async function enforceEventPrizeGuard(
   // compliance evidence from the event row.
   enforcePrizeProductionGuard(
     {
-      nlrc_permit_ref:
-        typeof eventRow?.nlrc_permit_ref === 'string'
-          ? eventRow.nlrc_permit_ref
-          : null,
+      regulatory_basis: eventRow?.regulatory_basis,
+      regulatory_evidence_ref: eventRow?.regulatory_evidence_ref,
+      regulatory_jurisdiction: eventRow?.regulatory_jurisdiction,
     },
     eventRow?.compliance_verified === true
   );
@@ -169,7 +143,7 @@ export async function enforceQuizAgeGate(
   const customer = data as { date_of_birth?: string | null } | null;
   const dateOfBirth =
     typeof customer?.date_of_birth === 'string' ? customer.date_of_birth : null;
-  const parsedDate = dateOfBirth ? parseDateOfBirth(dateOfBirth) : null;
+  const parsedDate = dateOfBirth ? parseQuizDateOfBirth(dateOfBirth) : null;
 
   if (!parsedDate) {
     logger.warn({
@@ -180,7 +154,7 @@ export async function enforceQuizAgeGate(
     throw new QuizAgeGateError('Quiz participation requires date of birth');
   }
 
-  if (calculateAgeYears(parsedDate, new Date()) < QUIZ_MINIMUM_AGE_YEARS) {
+  if (calculateQuizAgeYears(parsedDate, new Date()) < QUIZ_MINIMUM_AGE_YEARS) {
     logger.warn({
       merchantId,
       message: 'Quiz age gate blocked underage customer',
@@ -249,7 +223,9 @@ export async function enforceCashAwardPrizeGuard(
 ) {
   const { data, error } = await supabase
     .from('quiz_awards')
-    .select('quiz_events(nlrc_permit_ref, compliance_verified)')
+    .select(
+      'quiz_events(regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified)'
+    )
     .eq('id', awardId)
     .maybeSingle();
   if (error) {
@@ -287,10 +263,9 @@ export async function enforceCashAwardPrizeGuard(
   // Fail closed: nullable event fields cannot satisfy production guard checks.
   enforcePrizeProductionGuard(
     {
-      nlrc_permit_ref:
-        typeof eventRow?.nlrc_permit_ref === 'string'
-          ? eventRow.nlrc_permit_ref
-          : null,
+      regulatory_basis: eventRow?.regulatory_basis,
+      regulatory_evidence_ref: eventRow?.regulatory_evidence_ref,
+      regulatory_jurisdiction: eventRow?.regulatory_jurisdiction,
     },
     eventRow?.compliance_verified === true
   );

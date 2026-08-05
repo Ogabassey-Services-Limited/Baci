@@ -35,7 +35,23 @@ const RPC_ERROR_RESPONSES: Record<
     error: 'Please sign in to choose a username.',
     status: 401,
   },
+  username_change_active_attempt: {
+    code: 'USERNAME_CHANGE_ACTIVE_ATTEMPT',
+    error: 'Finish your active quiz before changing your username.',
+    status: 409,
+  },
+  username_change_cooldown: {
+    code: 'USERNAME_CHANGE_COOLDOWN',
+    error: 'You can change your username once every 30 days.',
+    status: 409,
+  },
 };
+
+function readTimestamp(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
 
 export async function POST(request: NextRequest) {
   // 1. Auth first — bearer-aware so both mobile (Authorization header) and web
@@ -70,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   // 4. Set (RPC re-derives the customer from auth.uid() + merchant and enforces
   // per-merchant case-insensitive uniqueness).
-  const { data, error } = await supabase.rpc('set_customer_username', {
+  const { data, error } = await supabase.rpc('set_customer_username_v2', {
     p_merchant_id: parsed.data.merchantId,
     p_username: parsed.data.username,
   });
@@ -78,13 +94,21 @@ export async function POST(request: NextRequest) {
   if (error) {
     const mapped = RPC_ERROR_RESPONSES[error.message];
     if (mapped) {
+      const nextEligibleAt =
+        error.message === 'username_change_cooldown'
+          ? readTimestamp(error.details)
+          : null;
       return NextResponse.json(
-        { code: mapped.code, error: mapped.error },
+        {
+          code: mapped.code,
+          error: mapped.error,
+          ...(nextEligibleAt ? { nextEligibleAt } : {}),
+        },
         { status: mapped.status }
       );
     }
     logger.error({
-      message: 'set_customer_username RPC failed',
+      message: 'set_customer_username_v2 RPC failed',
       error,
       userId: user.id,
     });
@@ -94,5 +118,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ username: data });
+  if (!data || typeof data !== 'object' || typeof data.username !== 'string') {
+    logger.error({
+      message: 'set_customer_username_v2 returned an invalid projection',
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: 'Could not set username' },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    nextEligibleAt: readTimestamp(data.nextEligibleAt),
+    username: data.username,
+    usernameChangedAt: readTimestamp(data.usernameChangedAt),
+  });
 }

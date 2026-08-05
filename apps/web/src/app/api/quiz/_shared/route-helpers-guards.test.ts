@@ -49,7 +49,12 @@ describe('quiz route helper prize guards', () => {
 
   it('checks event compliance evidence for event prize guards', async () => {
     const { queryBuilder, supabase } = mockSupabaseResult({
-      data: { compliance_verified: true, nlrc_permit_ref: 'NLRC-123' },
+      data: {
+        compliance_verified: true,
+        regulatory_basis: 'free_skill_competition',
+        regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+        regulatory_jurisdiction: 'NG-LA',
+      },
       error: null,
     });
 
@@ -57,11 +62,15 @@ describe('quiz route helper prize guards', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('quiz_events');
     expect(queryBuilder.select).toHaveBeenCalledWith(
-      'merchant_id, nlrc_permit_ref, compliance_verified'
+      'merchant_id, regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified'
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'event-1');
     expect(enforcePrizeProductionGuard).toHaveBeenCalledWith(
-      { nlrc_permit_ref: 'NLRC-123' },
+      {
+        regulatory_basis: 'free_skill_competition',
+        regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+        regulatory_jurisdiction: 'NG-LA',
+      },
       true
     );
   });
@@ -92,7 +101,11 @@ describe('quiz route helper prize guards', () => {
       message: 'Quiz event prize guard missing event row',
     });
     expect(enforcePrizeProductionGuard).toHaveBeenCalledWith(
-      { nlrc_permit_ref: null },
+      {
+        regulatory_basis: undefined,
+        regulatory_evidence_ref: undefined,
+        regulatory_jurisdiction: undefined,
+      },
       false
     );
   });
@@ -100,7 +113,12 @@ describe('quiz route helper prize guards', () => {
   it('checks cash award joined event compliance evidence', async () => {
     const { queryBuilder, supabase } = mockSupabaseResult({
       data: {
-        quiz_events: { compliance_verified: true, nlrc_permit_ref: 'NLRC-456' },
+        quiz_events: {
+          compliance_verified: true,
+          regulatory_basis: 'fccpc_registration',
+          regulatory_evidence_ref: 'FCCPC-REG-456',
+          regulatory_jurisdiction: 'NG-FCT',
+        },
       },
       error: null,
     });
@@ -109,11 +127,15 @@ describe('quiz route helper prize guards', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('quiz_awards');
     expect(queryBuilder.select).toHaveBeenCalledWith(
-      'quiz_events(nlrc_permit_ref, compliance_verified)'
+      'quiz_events(regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified)'
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'award-1');
     expect(enforcePrizeProductionGuard).toHaveBeenCalledWith(
-      { nlrc_permit_ref: 'NLRC-456' },
+      {
+        regulatory_basis: 'fccpc_registration',
+        regulatory_evidence_ref: 'FCCPC-REG-456',
+        regulatory_jurisdiction: 'NG-FCT',
+      },
       true
     );
   });
@@ -144,7 +166,11 @@ describe('quiz route helper prize guards', () => {
       message: 'Quiz cash award prize guard missing award row',
     });
     expect(enforcePrizeProductionGuard).toHaveBeenCalledWith(
-      { nlrc_permit_ref: null },
+      {
+        regulatory_basis: undefined,
+        regulatory_evidence_ref: undefined,
+        regulatory_jurisdiction: undefined,
+      },
       false
     );
   });
@@ -163,14 +189,23 @@ describe('quiz route helper prize guards', () => {
       message: 'Quiz cash award prize guard unexpected event join shape',
     });
     expect(enforcePrizeProductionGuard).toHaveBeenLastCalledWith(
-      { nlrc_permit_ref: null },
+      {
+        regulatory_basis: undefined,
+        regulatory_evidence_ref: undefined,
+        regulatory_jurisdiction: undefined,
+      },
       false
     );
 
     const arrayJoin = mockSupabaseResult({
       data: {
         quiz_events: [
-          { compliance_verified: true, nlrc_permit_ref: 'NLRC-789' },
+          {
+            compliance_verified: true,
+            regulatory_basis: 'state_permit',
+            regulatory_evidence_ref: 'LAGOS-789',
+            regulatory_jurisdiction: 'NG-LA',
+          },
         ],
       },
       error: null,
@@ -179,7 +214,11 @@ describe('quiz route helper prize guards', () => {
     await enforceCashAwardPrizeGuard(arrayJoin.supabase, 'award-array');
 
     expect(enforcePrizeProductionGuard).toHaveBeenLastCalledWith(
-      { nlrc_permit_ref: 'NLRC-789' },
+      {
+        regulatory_basis: 'state_permit',
+        regulatory_evidence_ref: 'LAGOS-789',
+        regulatory_jurisdiction: 'NG-LA',
+      },
       true
     );
   });

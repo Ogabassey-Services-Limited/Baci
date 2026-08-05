@@ -103,7 +103,9 @@ function mockAuthenticatedSupabase({
     data: {
       compliance_verified: true,
       merchant_id: 'merchant-1',
-      nlrc_permit_ref: 'NLRC-123',
+      regulatory_basis: 'free_skill_competition',
+      regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+      regulatory_jurisdiction: 'NG-LA',
     },
     error: null,
   },
@@ -748,12 +750,17 @@ describe('start quiz attempt route', () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it('fails closed before starting prize play in production when permit evidence is missing', async () => {
+  it('fails closed before starting prize play in production when compliance evidence is missing', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
     const { eventGuardBuilder, from, rpc } = mockAuthenticatedSupabase({
       eventGuardResult: {
-        data: { compliance_verified: true, nlrc_permit_ref: '   ' },
+        data: {
+          compliance_verified: true,
+          regulatory_basis: null,
+          regulatory_evidence_ref: null,
+          regulatory_jurisdiction: null,
+        },
         error: null,
       },
     });
@@ -770,7 +777,7 @@ describe('start quiz attempt route', () => {
     });
     expect(from).toHaveBeenCalledWith('quiz_events');
     expect(eventGuardBuilder.select).toHaveBeenCalledWith(
-      'merchant_id, nlrc_permit_ref, compliance_verified'
+      'merchant_id, regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified'
     );
     expect(eventGuardBuilder.eq).toHaveBeenCalledWith('id', EVENT_ID);
     expect(rpc).not.toHaveBeenCalled();
@@ -902,5 +909,53 @@ describe('start quiz attempt route', () => {
         p_user_id: USER_ID,
       })
     );
+  });
+});
+
+describe('quiz start dispatcher', () => {
+  afterEach(() => {
+    vi.doUnmock('./legacy-route');
+    vi.doUnmock('./v2-route');
+    vi.resetModules();
+  });
+
+  it('dispatches requests without the v2 contract header to the legacy handler', async () => {
+    const legacyResponse = Response.json({ contract: 'legacy' });
+    const postLegacyQuizStart = vi.fn().mockResolvedValue(legacyResponse);
+    const postQuizStartV2 = vi.fn();
+    vi.resetModules();
+    vi.doMock('./legacy-route', () => ({ postLegacyQuizStart }));
+    vi.doMock('./v2-route', () => ({ postQuizStartV2 }));
+
+    const request = jsonRequest({ eventId: EVENT_ID });
+    const { POST } = await import('./route');
+    expect(await POST(request)).toBe(legacyResponse);
+    expect(postLegacyQuizStart).toHaveBeenCalledWith(request);
+    expect(postQuizStartV2).not.toHaveBeenCalled();
+  });
+
+  it('dispatches contract version 2 requests to the v2 handler', async () => {
+    const v2Response = Response.json({ contract: 2 });
+    const postLegacyQuizStart = vi.fn();
+    const postQuizStartV2 = vi.fn().mockResolvedValue(v2Response);
+    vi.resetModules();
+    vi.doMock('./legacy-route', () => ({ postLegacyQuizStart }));
+    vi.doMock('./v2-route', () => ({ postQuizStartV2 }));
+
+    const request = new NextRequest(
+      'http://localhost/api/quiz/attempts/start',
+      {
+        body: JSON.stringify({ eventId: EVENT_ID }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Baci-Quiz-Contract': '2',
+        },
+        method: 'POST',
+      }
+    );
+    const { POST } = await import('./route');
+    expect(await POST(request)).toBe(v2Response);
+    expect(postQuizStartV2).toHaveBeenCalledWith(request);
+    expect(postLegacyQuizStart).not.toHaveBeenCalled();
   });
 });

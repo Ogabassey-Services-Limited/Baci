@@ -1,6 +1,14 @@
-export type QuizEventStatus = 'open' | 'scheduled' | 'closed';
+export type QuizEventStatus =
+  | 'open'
+  | 'scheduled'
+  | 'closed'
+  | 'active'
+  | 'finalizing'
+  | 'completed'
+  | 'cancelled';
 
 export interface QuizEvent {
+  contractVersion?: 1 | 2;
   id: string;
   title: string;
   prizeName: string;
@@ -8,6 +16,24 @@ export interface QuizEvent {
   endsAt: string | null;
   status: QuizEventStatus;
   questionCount: number;
+  liveWindowSeconds?: number | null;
+  maxAttempts?: number;
+  maximumPlaySeconds?: number;
+  mode?: 'test' | 'live';
+  prizeProduct?: QuizPrizeProduct;
+  resultsPublishedAt?: string | null;
+  rulesVersion?: string | null;
+  serverNow?: string;
+  timePerQuestionSeconds?: number;
+  timeZone?: string;
+}
+
+export interface QuizPrizeProduct {
+  condition: QuizPrizeCondition | null;
+  id: string;
+  imageUrl: string | null;
+  name: string;
+  variantId: string | null;
 }
 
 export interface QuizOption {
@@ -23,6 +49,7 @@ export interface QuizQuestion {
   timeLimitSeconds: number;
   index: number;
   total: number;
+  issuedAt?: string;
 }
 
 export interface QuizAttempt {
@@ -31,6 +58,37 @@ export interface QuizAttempt {
   examPassPointsSpent: number;
   remainingLoyaltyPoints: number;
   question: QuizQuestion;
+}
+
+export type QuizV2AttemptStatus =
+  | 'in_progress'
+  | 'submitted_pending_results'
+  | 'completed'
+  | 'event_cancelled';
+
+export interface QuizV2Attempt {
+  attemptId: string;
+  eventEndsAt: string;
+  eventId: string;
+  question?: QuizQuestion;
+  resultsAvailableAt: string | null;
+  resumed?: boolean;
+  serverNow: string;
+  status: QuizV2AttemptStatus;
+}
+
+export type QuizActiveAttemptAvailability =
+  | 'none'
+  | 'active'
+  | 'pending_results'
+  | 'cancelled'
+  | 'unavailable';
+
+export interface QuizActiveAttemptResponse {
+  attempt?: QuizV2Attempt;
+  availability: QuizActiveAttemptAvailability;
+  eventEndsAt: string | null;
+  serverNow: string;
 }
 
 export type QuizPrizeCondition = 'new' | 'used' | 'open_box' | 'refurbished';
@@ -84,6 +142,17 @@ export interface StartQuizAttemptInput extends QuizServiceOptions {
   integrityTier: QuizIntegrityTier;
 }
 
+export interface StartQuizAttemptV2Input extends QuizServiceOptions {
+  acceptedRulesVersion: string;
+  deviceFingerprint?: string | null;
+  eventId: string;
+  expectedUserId: string;
+  integrityTier: QuizIntegrityTier;
+  mode: 'test' | 'live';
+  startRequestId: string;
+  termsAccepted: true;
+}
+
 export interface SubmitQuizAnswerInput extends QuizServiceOptions {
   attemptId: string;
   questionId: string;
@@ -94,6 +163,51 @@ export interface SubmitQuizAnswerInput extends QuizServiceOptions {
    * server accepts it as an optional informational field for timing parity.
    */
   clientAnsweredAt?: string;
+}
+
+export interface SubmitQuizAnswerV2Input extends QuizServiceOptions {
+  answer: string;
+  attemptId: string;
+  clientAnsweredAt?: string;
+  expectedUserId: string;
+  questionId: string;
+}
+
+export type QuizV2Result =
+  | {
+      attemptId: string;
+      availability: 'pending';
+      availableAt: string | null;
+    }
+  | {
+      attemptId: string;
+      availability: 'final';
+      availableAt: string;
+      claim?: { expiresAt: string; token: string };
+      rank: number;
+      score: number;
+      totalQuestions: number;
+    }
+  | {
+      attemptId: string;
+      availability: 'unavailable';
+      reason?: 'event_cancelled' | 'not_found' | 'tester_revoked';
+    };
+
+export interface QuizLeaderboardEntry {
+  displayName: string;
+  isCurrentCustomer: boolean;
+  rank: number;
+  score: number;
+  status: string;
+  submittedAt: string | null;
+  totalTimeSeconds: number | null;
+}
+
+export interface QuizLeaderboard {
+  currentPlayer: QuizLeaderboardEntry | null;
+  entries: QuizLeaderboardEntry[];
+  status: 'published' | 'live_hidden' | 'unavailable';
 }
 
 type ErrorConstructorWithStackTrace = typeof Error & {

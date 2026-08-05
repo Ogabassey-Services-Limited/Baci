@@ -145,7 +145,7 @@ describe('evaluateQuizProductionApproval', () => {
     );
   });
 
-  it('fails production mode when active prize events lack permit or odds evidence', () => {
+  it('fails production mode when active prize events lack compliance or odds evidence', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
@@ -155,10 +155,11 @@ describe('evaluateQuizProductionApproval', () => {
         {
           compliance_verified: true,
           id: 'event-1',
+          regulatory_basis: null,
+          regulatory_evidence_ref: null,
+          regulatory_jurisdiction: null,
           status: 'active',
-          nlrc_permit_ref: '',
           published_odds: null,
-          compliance_flags: {},
         },
       ],
       trackerRows: [],
@@ -167,7 +168,7 @@ describe('evaluateQuizProductionApproval', () => {
     expect(result.ok).toBe(false);
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        'Quiz event event-1 is missing nlrc_permit_ref',
+        'Quiz event event-1 is missing a supported regulatory_basis, regulatory_jurisdiction, or regulatory_evidence_ref',
         'Quiz event event-1 is missing published_odds',
       ])
     );
@@ -183,10 +184,11 @@ describe('evaluateQuizProductionApproval', () => {
         {
           compliance_verified: false,
           id: 'event-1',
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
           status: 'active',
-          nlrc_permit_ref: 'NLRC-123',
           published_odds: { tiers: [{ rank: 1, odds: '1/1000' }] },
-          compliance_flags: {},
         },
       ],
       trackerRows: [],
@@ -208,10 +210,11 @@ describe('evaluateQuizProductionApproval', () => {
         {
           compliance_verified: false,
           id: 'event-draft',
+          regulatory_basis: null,
+          regulatory_evidence_ref: null,
+          regulatory_jurisdiction: null,
           status: 'draft',
-          nlrc_permit_ref: null,
           published_odds: null,
-          compliance_flags: {},
         },
       ],
       trackerRows: [
@@ -262,10 +265,11 @@ describe('evaluateQuizProductionApproval', () => {
         {
           compliance_verified: true,
           id: 'event-2',
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
           status: 'active',
-          nlrc_permit_ref: 'NLRC-123',
           published_odds: { note: 'TBD_COUNSEL_CONFIRMED_RATE' },
-          compliance_flags: {},
         },
       ],
       trackerRows: [
@@ -300,10 +304,11 @@ describe('evaluateQuizProductionApproval', () => {
         {
           compliance_verified: true,
           id: 'event-circular',
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
           status: 'active',
-          nlrc_permit_ref: 'NLRC-123',
           published_odds: circularOdds,
-          compliance_flags: {},
         },
       ],
       trackerRows: [
@@ -334,7 +339,7 @@ describe('evaluateQuizProductionApproval', () => {
     );
   });
 
-  it('passes production mode when events and compliance tracker are verified', () => {
+  it('passes production mode for a verified free skill competition without an NLRC reference', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
@@ -344,15 +349,16 @@ describe('evaluateQuizProductionApproval', () => {
         {
           compliance_verified: true,
           id: 'event-3',
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
           status: 'active',
-          nlrc_permit_ref: 'NLRC-123',
           published_odds: { tiers: [{ rank: 1, odds: '1/1000' }] },
-          compliance_flags: { baseline_v2_signed: true },
         },
       ],
       trackerRows: [
         {
-          item: 'NLRC permit',
+          item: 'Free skill counsel opinion',
           verification_status: 'verified',
           approved_at: '2026-05-16T09:00:00Z',
         },

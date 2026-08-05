@@ -9,10 +9,16 @@ type QuizResponseQuestion = {
 
 type QuizResponseWithQuestion = {
   attemptId?: unknown;
+  eventEndsAt?: unknown;
   question?: QuizResponseQuestion | null;
 };
 
+export type QuizQuestionIdentityColumn = 'id' | 'slot_id';
+
 type QuizAttemptQuestionDeadlineRow = {
+  attempt?: {
+    event?: { ends_at?: string | null } | { ends_at?: string | null }[] | null;
+  } | null;
   issued_at?: string | null;
   time_limit_ms?: number | string | null;
 };
@@ -20,7 +26,8 @@ type QuizAttemptQuestionDeadlineRow = {
 const FALLBACK_QUIZ_QUESTION_TIME_LIMIT_MS = 30_000;
 
 function getQuizQuestionDeadlineAt(
-  row: QuizAttemptQuestionDeadlineRow
+  row: QuizAttemptQuestionDeadlineRow,
+  responseEventEndsAt: unknown
 ): string | null {
   if (typeof row.issued_at !== 'string') return null;
   const issuedAtMs = Date.parse(row.issued_at);
@@ -28,17 +35,37 @@ function getQuizQuestionDeadlineAt(
   if (!Number.isFinite(issuedAtMs) || !Number.isFinite(timeLimitMs)) {
     return null;
   }
-  return new Date(issuedAtMs + timeLimitMs).toISOString();
+  const event = Array.isArray(row.attempt?.event)
+    ? row.attempt.event[0]
+    : row.attempt?.event;
+  const eventEndsAt = event?.ends_at ?? responseEventEndsAt;
+  const eventEndsAtMs =
+    typeof eventEndsAt === 'string' ? Date.parse(eventEndsAt) : Number.NaN;
+  const questionDeadlineMs = issuedAtMs + timeLimitMs;
+
+  return new Date(
+    Number.isFinite(eventEndsAtMs)
+      ? Math.min(questionDeadlineMs, eventEndsAtMs)
+      : questionDeadlineMs
+  ).toISOString();
 }
 
 function getFallbackQuizQuestionDeadlineAt(
-  question: QuizResponseQuestion
+  question: QuizResponseQuestion,
+  eventEndsAt: unknown
 ): string {
+  const eventEndsAtMs =
+    typeof eventEndsAt === 'string' ? Date.parse(eventEndsAt) : Number.NaN;
   if (
     typeof question.deadlineAt === 'string' &&
     Number.isFinite(Date.parse(question.deadlineAt))
   ) {
-    return question.deadlineAt;
+    const deadlineAtMs = Date.parse(question.deadlineAt);
+    return new Date(
+      Number.isFinite(eventEndsAtMs)
+        ? Math.min(deadlineAtMs, eventEndsAtMs)
+        : deadlineAtMs
+    ).toISOString();
   }
 
   const questionTimeLimitSeconds = Number(question.timeLimitSeconds);
@@ -47,7 +74,12 @@ function getFallbackQuizQuestionDeadlineAt(
       ? questionTimeLimitSeconds * 1000
       : FALLBACK_QUIZ_QUESTION_TIME_LIMIT_MS;
 
-  return new Date(Date.now() + fallbackTimeLimitMs).toISOString();
+  const fallbackDeadlineMs = Date.now() + fallbackTimeLimitMs;
+  return new Date(
+    Number.isFinite(eventEndsAtMs)
+      ? Math.min(fallbackDeadlineMs, eventEndsAtMs)
+      : fallbackDeadlineMs
+  ).toISOString();
 }
 
 function attachDeadlineToPayload<T>(payload: T, deadlineAt: string): T {
@@ -64,7 +96,8 @@ function attachDeadlineToPayload<T>(payload: T, deadlineAt: string): T {
 
 export async function attachQuizQuestionDeadline<T>(
   supabase: ServerSupabaseClient,
-  payload: T
+  payload: T,
+  questionIdentityColumn: QuizQuestionIdentityColumn
 ): Promise<{ data: T; response: null }> {
   if (!payload || typeof payload !== 'object') {
     return { data: payload, response: null };
@@ -82,9 +115,11 @@ export async function attachQuizQuestionDeadline<T>(
 
   const { data, error } = await supabase
     .from('quiz_attempt_questions')
-    .select('issued_at, time_limit_ms')
+    .select(
+      'issued_at, time_limit_ms, attempt:quiz_attempts!inner(event:quiz_events!inner(ends_at))'
+    )
     .eq('attempt_id', responsePayload.attemptId)
-    .eq('slot_id', responsePayload.question.id)
+    .eq(questionIdentityColumn, responsePayload.question.id)
     .maybeSingle();
 
   if (error || !data) {
@@ -97,14 +132,18 @@ export async function attachQuizQuestionDeadline<T>(
     return {
       data: attachDeadlineToPayload(
         payload,
-        getFallbackQuizQuestionDeadlineAt(responsePayload.question)
+        getFallbackQuizQuestionDeadlineAt(
+          responsePayload.question,
+          responsePayload.eventEndsAt
+        )
       ),
       response: null,
     };
   }
 
   const deadlineAt = getQuizQuestionDeadlineAt(
-    data as QuizAttemptQuestionDeadlineRow
+    data as QuizAttemptQuestionDeadlineRow,
+    responsePayload.eventEndsAt
   );
   if (!deadlineAt) {
     logger.error({
@@ -115,7 +154,10 @@ export async function attachQuizQuestionDeadline<T>(
     return {
       data: attachDeadlineToPayload(
         payload,
-        getFallbackQuizQuestionDeadlineAt(responsePayload.question)
+        getFallbackQuizQuestionDeadlineAt(
+          responsePayload.question,
+          responsePayload.eventEndsAt
+        )
       ),
       response: null,
     };

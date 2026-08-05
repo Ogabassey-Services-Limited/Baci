@@ -169,6 +169,22 @@ describe('QuizScreen date-of-birth gate', () => {
     jest.clearAllMocks();
   });
 
+  async function acceptRulesAndPlay() {
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Play for free Daily Prize Quiz',
+      })
+    );
+    fireEvent.press(
+      await screen.findByRole('checkbox', {
+        name: 'Accept quiz rules and terms',
+      })
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Accept and play quiz' })
+    );
+  }
+
   // This is the first render in the file, so it absorbs React Native's one-time
   // cold-start cost. Under `jest --runInBand` memory pressure (560+ suites) that
   // can exceed the default 5s per-test timeout even though the flow itself is
@@ -183,11 +199,7 @@ describe('QuizScreen date-of-birth gate', () => {
     });
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndPlay();
 
     // Username is already set, so the 18+ gate is what blocks the start.
     expect(
@@ -217,11 +229,7 @@ describe('QuizScreen date-of-birth gate', () => {
     mockDateOfBirth = null;
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndPlay();
     fireEvent.press(
       await screen.findByRole('button', {
         name: 'Cancel date of birth setup',
@@ -251,11 +259,7 @@ describe('QuizScreen date-of-birth gate', () => {
       );
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndPlay();
 
     expect(
       await screen.findByRole('header', { name: 'Confirm your date of birth' })

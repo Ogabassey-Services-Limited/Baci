@@ -68,6 +68,26 @@ describe('useQuizQuestionTimer', () => {
     expect(result.current.remainingSeconds).toBe(5);
   });
 
+  it('caps a late-join question at the universal event end using server time', () => {
+    jest.setSystemTime(new Date('2026-08-04T09:04:50.000Z'));
+    const onExpire = jest.fn();
+    const { result } = renderHook(() =>
+      useQuizQuestionTimer({
+        deadlineAt: '2026-08-04T09:05:05.000Z',
+        eventEndsAt: '2026-08-04T09:05:00.000Z',
+        hasSelection: false,
+        isActive: true,
+        onExpire,
+        questionId: 'q-late',
+        serverClockOffsetMs: 5000,
+        timeLimitSeconds: 10,
+      })
+    );
+    expect(result.current.remainingSeconds).toBe(5);
+    act(() => jest.advanceTimersByTime(5000));
+    expect(onExpire).toHaveBeenCalledTimes(1);
+  });
+
   it('auto-submits a SELECTED answer exactly once, at the early lead', () => {
     const onExpire = jest.fn();
     renderHook(() =>
@@ -90,6 +110,57 @@ describe('useQuizQuestionTimer', () => {
     act(() => {
       jest.advanceTimersByTime(5_000);
     });
+    expect(onExpire).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fire again for the same question when the server clock offset changes', () => {
+    const onExpire = jest.fn();
+    const { rerender } = renderHook(
+      ({ serverClockOffsetMs }: { serverClockOffsetMs: number }) =>
+        useQuizQuestionTimer({
+          deadlineAt: new Date(1000).toISOString(),
+          hasSelection: false,
+          isActive: true,
+          onExpire,
+          questionId: 'q1',
+          serverClockOffsetMs,
+          timeLimitSeconds: 5,
+        }),
+      { initialProps: { serverClockOffsetMs: 1000 } }
+    );
+
+    expect(onExpire).toHaveBeenCalledTimes(1);
+
+    rerender({ serverClockOffsetMs: 1500 });
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(onExpire).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a local fallback window stable when the server clock recalibrates', () => {
+    const onExpire = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ serverClockOffsetMs }: { serverClockOffsetMs: number }) =>
+        useQuizQuestionTimer({
+          hasSelection: false,
+          isActive: true,
+          onExpire,
+          questionId: 'q-local-fallback',
+          serverClockOffsetMs,
+          timeLimitSeconds: 10,
+        }),
+      { initialProps: { serverClockOffsetMs: 0 } }
+    );
+
+    act(() => jest.advanceTimersByTime(3000));
+    expect(result.current.remainingSeconds).toBe(7);
+
+    rerender({ serverClockOffsetMs: 5000 });
+    expect(result.current.remainingSeconds).toBe(7);
+
+    act(() => jest.advanceTimersByTime(7000));
     expect(onExpire).toHaveBeenCalledTimes(1);
   });
 

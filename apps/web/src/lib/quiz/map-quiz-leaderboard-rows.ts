@@ -5,8 +5,14 @@ import type {
 
 const ANONYMOUS_DISPLAY_NAME = 'Anonymous player';
 
+function canonicalizeTimestamp(value: string | null): string | null {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
 /**
- * Projects raw `get_quiz_leaderboard` rows into the public shape.
+ * Projects rows from the privacy-safe v2 leaderboard RPC into the API shape.
  *
  * The RPC already returns rows in rank order, bounded, with `is_current_customer`
  * computed per row — so this is a pure field rename with no caller-side identity
@@ -18,17 +24,20 @@ export function mapQuizLeaderboardRows(
 ): QuizLeaderboardEntry[] {
   return rows.map((row) => {
     const rank = Number(row.rank);
-    const displayName = row.customer_name?.trim();
+    const displayName =
+      typeof row.customer_name === 'string' && row.customer_name.trim()
+        ? row.customer_name.trim()
+        : ANONYMOUS_DISPLAY_NAME;
 
     return {
-      // A blank name would render an empty row. Never fall back to an email or
-      // an id — the leaderboard promises players are announced by username.
-      displayName: displayName || ANONYMOUS_DISPLAY_NAME,
+      // The database always supplies either the immutable attempt snapshot or
+      // a stable event-scoped alias. Never derive a name from customer PII here.
+      displayName,
       isCurrentCustomer: row.is_current_customer ?? false,
       rank: Number.isFinite(rank) && rank > 0 ? rank : 0,
       score: row.score ?? 0,
       status: row.status ?? 'unknown',
-      submittedAt: row.submitted_at ?? null,
+      submittedAt: canonicalizeTimestamp(row.submitted_at),
       totalTimeSeconds: row.total_time_seconds ?? null,
     };
   });

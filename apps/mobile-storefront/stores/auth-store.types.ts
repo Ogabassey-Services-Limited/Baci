@@ -10,6 +10,9 @@ export interface Customer {
   phone?: string;
   loyalty_points?: number;
   username?: string | null;
+  username_changed_at?: string | null;
+  /** Authoritative username cooldown returned by the username RPC. */
+  username_next_eligible_at?: string | null;
   date_of_birth?: string | null;
 }
 

@@ -99,6 +99,9 @@ jest.mock('../lib/validation', () => ({
             last_name: d.last_name ?? null,
             phone: d.phone ?? null,
             loyalty_points: d.loyalty_points ?? null,
+            username: d.username ?? null,
+            username_changed_at: d.username_changed_at ?? null,
+            date_of_birth: d.date_of_birth ?? null,
           },
         };
       }
@@ -220,6 +223,7 @@ async function emitAuthStateChange(event: string, session: unknown) {
 
 const MERCHANT_ID = 'merchant-uuid-1';
 const USER_ID = 'user-uuid-1';
+const OTHER_USER_ID = 'user-uuid-2';
 
 const mockMerchantRow = { id: MERCHANT_ID, slug: 'ogabassey' };
 
@@ -242,6 +246,7 @@ const mockCustomerRow = {
   last_name: 'Okonkwo',
   phone: null,
   loyalty_points: 100,
+  username_changed_at: '2026-08-04T12:00:00.000Z',
 };
 
 // ---------------------------------------------------------------------------
@@ -400,6 +405,9 @@ describe('useAuthStore', () => {
       expect(state.customer).not.toBeNull();
       expect(state.customer?.id).toBe('customer-uuid-1');
       expect(state.customer?.email).toBe('test@example.com');
+      expect(state.customer?.username_changed_at).toBe(
+        '2026-08-04T12:00:00.000Z'
+      );
       expect(state.merchantId).toBe(MERCHANT_ID);
     });
 
@@ -1505,7 +1513,11 @@ describe('useAuthStore', () => {
 
     it('updates customer.username in state when the RPC succeeds', async () => {
       (supabase.rpc as jest.Mock).mockResolvedValue({
-        data: 'OgaFan',
+        data: {
+          username: 'OgaFan',
+          usernameChangedAt: '2026-08-04T12:00:00.000Z',
+          nextEligibleAt: '2026-09-03T12:00:00.000Z',
+        },
         error: null,
       });
 
@@ -1514,12 +1526,18 @@ describe('useAuthStore', () => {
         result = await useAuthStore.getState().setUsername('OgaFan');
       });
 
-      expect(supabase.rpc).toHaveBeenCalledWith('set_customer_username', {
+      expect(supabase.rpc).toHaveBeenCalledWith('set_customer_username_v2', {
         p_merchant_id: MERCHANT_ID,
         p_username: 'OgaFan',
       });
       expect(result).toEqual({ success: true, username: 'OgaFan' });
       expect(useAuthStore.getState().customer?.username).toBe('OgaFan');
+      expect(useAuthStore.getState().customer?.username_changed_at).toBe(
+        '2026-08-04T12:00:00.000Z'
+      );
+      expect(useAuthStore.getState().customer?.username_next_eligible_at).toBe(
+        '2026-09-03T12:00:00.000Z'
+      );
     });
 
     it('returns the friendly taken-username message and leaves state unchanged when the RPC reports username_taken', async () => {
@@ -1548,7 +1566,14 @@ describe('useAuthStore', () => {
         (useAuthStore.setState as (state: object) => void)({
           customer: { ...mockCustomerRow, phone: '+2348099999999' },
         });
-        return { data: 'OgaFan', error: null };
+        return {
+          data: {
+            username: 'OgaFan',
+            usernameChangedAt: '2026-08-04T12:00:00.000Z',
+            nextEligibleAt: '2026-09-03T12:00:00.000Z',
+          },
+          error: null,
+        };
       });
 
       let result!: { success: boolean; error?: string; username?: string };
@@ -1561,6 +1586,169 @@ describe('useAuthStore', () => {
       expect(finalCustomer?.username).toBe('OgaFan');
       // The concurrent phone change survives — not overwritten by the snapshot.
       expect(finalCustomer?.phone).toBe('+2348099999999');
+    });
+
+    it('reports success when the username RPC commits before customer hydration completes', async () => {
+      (useAuthStore.setState as (state: object) => void)({
+        customer: null,
+        merchantId: MERCHANT_ID,
+      });
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: {
+          username: 'OgaFan',
+          usernameChangedAt: '2026-08-04T12:00:00.000Z',
+          nextEligibleAt: '2026-09-03T12:00:00.000Z',
+        },
+        error: null,
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
+
+      expect(result).toEqual({ success: true, username: 'OgaFan' });
+      expect(useAuthStore.getState().customer).toBeNull();
+    });
+
+    it('reports committed username success when the initiating customer hydrates away while the RPC is pending', async () => {
+      let resolveRpc!: (value: {
+        data: {
+          username: string;
+          usernameChangedAt: string;
+          nextEligibleAt: string;
+        };
+        error: null;
+      }) => void;
+      (supabase.rpc as jest.Mock).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRpc = resolve;
+          })
+      );
+
+      const pending = useAuthStore.getState().setUsername('OgaFan');
+      await _flushPromises();
+      (useAuthStore.setState as (state: object) => void)({ customer: null });
+
+      await act(async () => {
+        resolveRpc({
+          data: {
+            username: 'OgaFan',
+            usernameChangedAt: '2026-08-04T12:00:00.000Z',
+            nextEligibleAt: '2026-09-03T12:00:00.000Z',
+          },
+          error: null,
+        });
+        await expect(pending).resolves.toEqual({
+          success: true,
+          username: 'OgaFan',
+        });
+      });
+
+      expect(useAuthStore.getState().customer).toBeNull();
+    });
+
+    it('does not apply a pending username response to a customer who switched accounts', async () => {
+      let resolveRpc!: (value: {
+        data: {
+          username: string;
+          usernameChangedAt: string;
+          nextEligibleAt: string;
+        };
+        error: null;
+      }) => void;
+      (supabase.rpc as jest.Mock).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRpc = resolve;
+          })
+      );
+
+      const pending = useAuthStore.getState().setUsername('OgaFan');
+      await _flushPromises();
+      const switchedCustomer = {
+        ...mockCustomerRow,
+        id: 'customer-uuid-2',
+        email: 'other@example.com',
+        username: 'OtherShopper',
+      };
+      (useAuthStore.setState as (state: object) => void)({
+        user: { ...mockUser, id: OTHER_USER_ID, email: 'other@example.com' },
+        customer: switchedCustomer,
+      });
+
+      await act(async () => {
+        resolveRpc({
+          data: {
+            username: 'OgaFan',
+            usernameChangedAt: '2026-08-04T12:00:00.000Z',
+            nextEligibleAt: '2026-09-03T12:00:00.000Z',
+          },
+          error: null,
+        });
+        await expect(pending).resolves.toEqual({
+          success: true,
+          username: 'OgaFan',
+        });
+      });
+
+      expect(useAuthStore.getState().customer).toEqual(switchedCustomer);
+    });
+
+    it('shows the server next-eligible date when cooldown blocks a rename', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: {
+          details: '2026-09-03T12:00:00.000Z',
+          message: 'username_change_cooldown',
+        },
+      });
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('NewName');
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('2026');
+      expect(useAuthStore.getState().customer?.username_next_eligible_at).toBe(
+        '2026-09-03T12:00:00.000Z'
+      );
+    });
+
+    it('returns a friendly active-attempt guard message', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'username_change_active_attempt' },
+      });
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('NewName');
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Finish your active quiz before changing your username.',
+      });
+    });
+
+    it('fails closed when the v2 RPC returns the legacy string shape', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: 'OgaFan',
+        error: null,
+      });
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Invalid data received from server',
+      });
     });
 
     it('does not let a stale updateProfile response clobber a username set mid-flight', async () => {
@@ -1601,6 +1789,80 @@ describe('useAuthStore', () => {
       expect(finalCustomer?.user_id).toBe(USER_ID);
       // Live username preserved — not clobbered by the stale NULL.
       expect(finalCustomer?.username).toBe('OgaFan');
+    });
+
+    it('keeps the returned username change timestamp when no newer customer value exists', async () => {
+      const chain: Record<string, jest.Mock> = {};
+      for (const method of ['select', 'eq', 'update']) {
+        chain[method] = jest.fn(() => chain);
+      }
+      chain.single = jest.fn(async () => ({
+        data: {
+          ...mockCustomerRow,
+          username_changed_at: '2026-09-01T12:00:00.000Z',
+        },
+        error: null,
+      }));
+      (supabase.from as jest.Mock).mockImplementation(() => chain);
+      (useAuthStore.setState as (state: object) => void)({
+        customer: { ...mockCustomerRow, username_changed_at: undefined },
+      });
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore
+          .getState()
+          .updateProfile({ phone: '+2348011111111' });
+      });
+
+      expect(result).toEqual({ success: true });
+      expect(useAuthStore.getState().customer?.username_changed_at).toBe(
+        '2026-09-01T12:00:00.000Z'
+      );
+    });
+
+    it('does not apply a pending profile response to a customer who switched accounts', async () => {
+      let resolveUpdate!: (value: { data: unknown; error: null }) => void;
+      const chain: Record<string, jest.Mock> = {};
+      for (const method of ['select', 'eq', 'update']) {
+        chain[method] = jest.fn(() => chain);
+      }
+      chain.single = jest.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveUpdate = resolve;
+          })
+      );
+      (supabase.from as jest.Mock).mockImplementation(() => chain);
+
+      const pending = useAuthStore
+        .getState()
+        .updateProfile({ phone: '+2348011111111' });
+      await _flushPromises();
+      const switchedCustomer = {
+        ...mockCustomerRow,
+        id: 'customer-uuid-2',
+        email: 'other@example.com',
+        phone: '+2348022222222',
+      };
+      (useAuthStore.setState as (state: object) => void)({
+        user: { ...mockUser, id: OTHER_USER_ID, email: 'other@example.com' },
+        customer: switchedCustomer,
+      });
+
+      await act(async () => {
+        resolveUpdate({
+          data: {
+            ...mockCustomerRow,
+            user_id: USER_ID,
+            phone: '+2348011111111',
+          },
+          error: null,
+        });
+        await expect(pending).resolves.toEqual({ success: true });
+      });
+
+      expect(useAuthStore.getState().customer).toEqual(switchedCustomer);
     });
 
     it('returns an error without calling the RPC when not logged in', async () => {

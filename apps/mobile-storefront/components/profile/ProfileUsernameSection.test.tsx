@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
+import { useAuthStore } from '@/stores/auth-store';
 import { ProfileUsernameSection } from './ProfileUsernameSection';
 
 // Stub UsernamePrompt so this suite exercises the section's own display/label
@@ -46,5 +47,63 @@ describe('ProfileUsernameSection', () => {
     expect(screen.getByText('Not set yet')).toBeTruthy();
     expect(screen.getByText('prompt:Save username:')).toBeTruthy();
     expect(screen.queryByText('@null')).toBeNull();
+  });
+
+  it('shows the next eligible date and hides rename controls during cooldown', () => {
+    render(
+      <ProfileUsernameSection
+        colors={Colors.light}
+        onSaved={jest.fn()}
+        username="ogafan"
+        nextEligibleAt="2099-01-01T00:00:00.000Z"
+      />
+    );
+
+    expect(
+      screen.getByText(/You can change this username again on/)
+    ).toBeTruthy();
+    expect(screen.queryByText(/prompt:Update username/)).toBeNull();
+  });
+
+  it('shows rename controls after the cooldown has elapsed', () => {
+    render(
+      <ProfileUsernameSection
+        colors={Colors.light}
+        onSaved={jest.fn()}
+        username="ogafan"
+        nextEligibleAt="2020-01-01T00:00:00.000Z"
+      />
+    );
+
+    expect(screen.getByText('prompt:Update username:ogafan')).toBeTruthy();
+    expect(
+      screen.queryByText(/You can change this username again on/)
+    ).toBeNull();
+  });
+
+  it('uses the server cooldown stored on the hydrated customer when no prop is passed', () => {
+    act(() => {
+      useAuthStore.setState({
+        customer: {
+          email: 'player@example.test',
+          id: 'customer-1',
+          username: 'ogafan',
+          username_next_eligible_at: '2099-01-01T00:00:00.000Z',
+        },
+      });
+    });
+
+    render(
+      <ProfileUsernameSection
+        colors={Colors.light}
+        onSaved={jest.fn()}
+        username="ogafan"
+      />
+    );
+
+    expect(
+      screen.getByText(/You can change this username again on/)
+    ).toBeTruthy();
+    act(() => useAuthStore.setState({ customer: null }));
   });
 });

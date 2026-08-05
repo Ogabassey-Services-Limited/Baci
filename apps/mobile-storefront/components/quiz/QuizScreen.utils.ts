@@ -17,6 +17,29 @@ function getFallbackLocale() {
   return fallbackLocale;
 }
 
+function getGregorianDateKey(date: Date, timeZone?: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA-u-ca-gregory', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone,
+    year: 'numeric',
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+function getZonedHour(date: Date, timeZone?: string): number {
+  const hour = new Intl.DateTimeFormat('en-US-u-ca-gregory-nu-latn', {
+    hour: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  })
+    .formatToParts(date)
+    .find((part) => part.type === 'hour')?.value;
+  return hour ? Number.parseInt(hour, 10) : Number.NaN;
+}
+
 export function formatTimeRange(
   event: QuizEvent,
   locale: string | undefined,
@@ -53,12 +76,63 @@ export function getQuizErrorMessage(
 
 export function getEventStartButtonText(
   eventStatus: QuizEvent['status'],
-  isStarting: boolean
+  isStarting: boolean,
+  isResume = false
 ): string {
   if (eventStatus === 'scheduled') return 'Scheduled';
-  if (eventStatus === 'closed') return 'Closed';
+  if (['closed', 'completed', 'cancelled', 'finalizing'].includes(eventStatus))
+    return eventStatus === 'cancelled' ? 'Cancelled' : 'Closed';
   if (isStarting) return 'Starting...';
-  return 'Start free exam';
+  if (isResume) return 'Resume quiz';
+  return 'Play for free';
+}
+
+export function formatQuizClock(
+  value: string | null,
+  locale?: string,
+  timeZone?: string
+): string {
+  if (!value || Number.isNaN(Date.parse(value))) return 'Time not set';
+  return new Date(value).toLocaleTimeString(locale || getFallbackLocale(), {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+  });
+}
+
+export function getPrizeMomentLabel(
+  event: QuizEvent,
+  serverNow = new Date().toISOString(),
+  _locale = 'en-CA'
+): "Today's Prize" | "Tonight's Prize" | "Tomorrow's Prize" {
+  void _locale;
+  const now = new Date(serverNow);
+  const start = event.startsAt ? new Date(event.startsAt) : now;
+  if (Number.isNaN(now.getTime()) || Number.isNaN(start.getTime())) {
+    return "Today's Prize";
+  }
+  let hour: number;
+  let nowHour: number;
+  let startsAfterToday: boolean;
+  try {
+    const dateKey = (date: Date) => getGregorianDateKey(date, event.timeZone);
+    startsAfterToday = dateKey(start) > dateKey(now);
+    hour = getZonedHour(start, event.timeZone);
+    nowHour = getZonedHour(now, event.timeZone);
+  } catch {
+    return "Today's Prize";
+  }
+
+  if (startsAfterToday) return "Tomorrow's Prize";
+  if (event.status === 'active' && nowHour >= 17) return "Tonight's Prize";
+  return hour >= 17 ? "Tonight's Prize" : "Today's Prize";
+}
+
+export function formatRemainingTime(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
 }
 
 export function shouldShowEventList(status: QuizScreenStatus): boolean {

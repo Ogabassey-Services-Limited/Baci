@@ -81,6 +81,9 @@ function createRawRequest(body: string): NextRequest {
 function validPayload() {
   return {
     difficulty: 'standard',
+    prizeCondition: 'new',
+    prizeEffectiveStock: 8,
+    prizeImageUrl: 'https://cdn.example.com/iphone.png',
     prizeProductId: PRIZE_PRODUCT_ID,
     questionCountPerTopic: 1,
     timeLimitSeconds: 30,
@@ -115,10 +118,16 @@ describe('POST /api/merchant/quiz/generate errors', () => {
     });
     mockPrizeProductMaybeSingle.mockResolvedValue({
       data: {
+        condition: 'new',
         default_variant_id: null,
+        has_variants: false,
         id: PRIZE_PRODUCT_ID,
-        images: [],
+        images: [{ url: 'https://cdn.example.com/iphone.png' }],
+        manage_stock: true,
+        merchant_id: 'merchant-1',
         name: 'iPhone 15 Pro Max',
+        stock: 8,
+        stock_quantity: 0,
       },
       error: null,
     });

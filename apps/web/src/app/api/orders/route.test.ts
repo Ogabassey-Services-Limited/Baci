@@ -318,7 +318,9 @@ function buildMockSupabase(
           reserved_order_id: quizAwardOverrides[id]?.reserved_order_id ?? null,
           quiz_events: {
             compliance_verified: true,
-            nlrc_permit_ref: 'NLRC-1',
+            regulatory_basis: 'free_skill_competition',
+            regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+            regulatory_jurisdiction: 'NG-LA',
           },
         }));
       return Promise.resolve({ data: rows, error: null });
@@ -666,10 +668,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(403);
-    expect(mockEnforcePrizeProductionGuard).toHaveBeenCalledWith(
-      { nlrc_permit_ref: null },
-      false
-    );
+    expect(mockEnforcePrizeProductionGuard).toHaveBeenCalledWith({}, false);
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
@@ -719,7 +718,11 @@ describe('POST /api/orders — quiz voucher guard', () => {
 
     expect(response.status).toBe(201);
     expect(mockEnforcePrizeProductionGuard).toHaveBeenCalledWith(
-      { nlrc_permit_ref: 'NLRC-1' },
+      {
+        regulatory_basis: 'free_skill_competition',
+        regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+        regulatory_jurisdiction: 'NG-LA',
+      },
       true
     );
     expect(supabase.rpc).toHaveBeenCalledWith(

@@ -2,10 +2,12 @@ import { apiPost } from '@/lib/api-client';
 import {
   type MerchantQuizActivationInput,
   type MerchantQuizActivationResponse,
+  type MerchantQuizActivationV2Input,
   type MerchantQuizGenerationResponse,
   merchantQuizActivationResponseSchema,
   merchantQuizGenerationResponseSchema,
 } from '@/schemas/quiz';
+import type { QuizPrizeProduct } from '@/schemas/quiz-prize-product';
 
 const QUIZ_GENERATE_ENDPOINT = '/api/merchant/quiz/generate';
 // Activation is a separate, cheap request; it posts to its own path so it is
@@ -53,11 +55,25 @@ function formatValidationSummary(
 
 export interface GenerateQuizDraftInput {
   difficulty: 'easy' | 'standard' | 'hard';
-  prizeProductId: string;
+  mode: 'test' | 'live';
+  prizeProduct: QuizPrizeProduct;
   questionCountPerTopic: number;
   timeLimitSeconds: number;
   title: string;
-  topics: string;
+  topics: string[];
+}
+
+export interface QuizLaunchInput {
+  maxAttempts: number;
+  mode: 'test' | 'live';
+  regulatoryCompliance?: MerchantQuizActivationV2Input['regulatoryCompliance'];
+  rulesVersion: string;
+  timePerQuestionSeconds: number;
+  timeZone: string;
+  timing:
+    | { kind: 'immediate'; liveWindowSeconds: number }
+    | { kind: 'scheduled'; startsAt: string; endsAt: string };
+  variantsPerQuestion: number;
 }
 
 export type QuizAnswerKeyReview =
@@ -77,18 +93,27 @@ export function buildQuizAnswerKeyReview(
 export async function generateQuizDraft(
   input: GenerateQuizDraftInput
 ): Promise<MerchantQuizGenerationResponse> {
-  const normalizedTopics = topicsFromTextarea(input.topics);
+  const normalizedTopics = input.topics
+    .map((topic) => topic.trim())
+    .filter(Boolean);
   if (normalizedTopics.length === 0) {
     throw new Error('Add at least one quiz topic before generating.');
   }
-  if (!input.prizeProductId) {
+  if (!input.prizeProduct.available) {
     throw new Error('Select an active product prize before generating.');
   }
 
   const parsed = merchantQuizGenerationResponseSchema.safeParse(
     await apiPost(QUIZ_GENERATE_ENDPOINT, {
       difficulty: input.difficulty,
-      prizeProductId: input.prizeProductId,
+      mode: input.mode,
+      prizeCondition: input.prizeProduct.condition,
+      prizeEffectiveStock: input.prizeProduct.effectiveStock,
+      prizeImageUrl: input.prizeProduct.imageUrl,
+      prizeProductId: input.prizeProduct.id,
+      ...(input.prizeProduct.variantId
+        ? { prizeVariantId: input.prizeProduct.variantId }
+        : {}),
       questionCountPerTopic: input.questionCountPerTopic,
       timeLimitSeconds: input.timeLimitSeconds,
       title: input.title,
@@ -106,16 +131,14 @@ export async function generateQuizDraft(
 export async function activateQuizEvent(
   eventId: string,
   answerKeyReview: QuizAnswerKeyReview,
-  // Optional close deadline (ISO-8601 UTC). Ranked-prize quizzes require one so
-  // the winner-mint cron can finalize them; omitted -> open-ended.
-  endsAt?: string
+  launch: QuizLaunchInput
 ): Promise<MerchantQuizActivationResponse> {
   const parsed = merchantQuizActivationResponseSchema.safeParse(
     await apiPost(QUIZ_ACTIVATE_ENDPOINT, {
       answerKeyReview,
       confirmActivation: true,
       eventId,
-      ...(endsAt ? { endsAt } : {}),
+      ...launch,
     })
   );
   if (!parsed.success) {

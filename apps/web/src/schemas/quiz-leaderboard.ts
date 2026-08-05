@@ -5,23 +5,14 @@ export const quizLeaderboardQuerySchema = z.object({
   eventId: z.uuid(),
 });
 
-/**
- * Public leaderboard for a quiz event.
- *
- * The route calls the `get_quiz_leaderboard_public` RPC (see 20260721150000):
- * the top 100 rows in rank order with the caller's own row flagged
- * (`is_current_customer`). The richer `get_quiz_leaderboard` RPC also returns
- * the internal `customer_id`/`attempt_id`, but that one is service_role only —
- * the public wrapper scrubs those ids, so this schema never has to. Loyalty
- * points (wallet-like PII) are neither projected nor ranked; standing is skill
- * and speed only, and the board is announced by username.
- *
- * `displayName` is the customer-chosen username where one is set, falling back
- * to the legacy full name for attempts that predate the username requirement.
- */
+export const quizLeaderboardStatusSchema = z.enum([
+  'published',
+  'live_hidden',
+  'unavailable',
+]);
+
 export const quizLeaderboardEntrySchema = z.object({
-  displayName: z.string().min(1),
-  /** True for the signed-in player's own rows, so the UI can highlight them. */
+  displayName: z.string().trim().min(1),
   isCurrentCustomer: z.boolean(),
   rank: z.number().int().positive(),
   score: z.number().int().nonnegative(),
@@ -33,19 +24,19 @@ export const quizLeaderboardEntrySchema = z.object({
 export type QuizLeaderboardEntry = z.infer<typeof quizLeaderboardEntrySchema>;
 
 export const quizLeaderboardResponseSchema = z.object({
-  entries: z.array(quizLeaderboardEntrySchema),
+  currentPlayer: quizLeaderboardEntrySchema.nullable(),
+  entries: z.array(quizLeaderboardEntrySchema).max(100),
+  status: quizLeaderboardStatusSchema,
 });
 
 export type QuizLeaderboardResponse = z.infer<
   typeof quizLeaderboardResponseSchema
 >;
 
-/** Raw row shape returned by the `get_quiz_leaderboard` RPC. */
+/** Safe row returned inside get_quiz_leaderboard_public_v2's JSON projection. */
 export const quizLeaderboardRowSchema = z.object({
-  customer_name: z.string().nullable(),
-  // The RPC computes this per row (the row's customer belongs to the caller).
+  customer_name: z.string().trim().min(1),
   is_current_customer: z.boolean().nullable(),
-  // bigint over PostgREST arrives as a number or a string depending on size.
   rank: z.union([z.number(), z.string()]),
   score: z.number().nullable(),
   status: z.string().nullable(),
@@ -54,3 +45,9 @@ export const quizLeaderboardRowSchema = z.object({
 });
 
 export type QuizLeaderboardRow = z.infer<typeof quizLeaderboardRowSchema>;
+
+export const quizLeaderboardProjectionSchema = z.object({
+  current_player: quizLeaderboardRowSchema.nullable(),
+  entries: z.array(quizLeaderboardRowSchema).max(100),
+  status: quizLeaderboardStatusSchema,
+});

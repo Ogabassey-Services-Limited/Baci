@@ -5,6 +5,7 @@ const apiGetMock = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-client', () => ({ apiGet: apiGetMock }));
 
 const VALID_RESPONSE = {
+  currentPlayer: null,
   entries: [
     {
       displayName: 'quizking',
@@ -16,6 +17,7 @@ const VALID_RESPONSE = {
       totalTimeSeconds: 30.5,
     },
   ],
+  status: 'published',
 };
 
 describe('fetchQuizLeaderboard', () => {

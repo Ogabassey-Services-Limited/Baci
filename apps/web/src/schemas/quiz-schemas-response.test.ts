@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  merchantQuizActivationResponseSchema,
-  merchantQuizGenerationResponseSchema,
   quizAttemptResponseSchema,
+  quizEventResponseSchema,
   quizEventsResponseSchema,
   quizResultResponseSchema,
+  quizV2EventSchema,
+  quizV2ResultResponseSchema,
 } from '@/schemas/quiz';
 
 const question = {
@@ -132,65 +133,132 @@ describe('quiz client response schemas', () => {
     ).toThrow();
   });
 
-  it('keeps the AI answer key in the admin generation response', () => {
-    const generationResponse = {
-      event: {
-        id: 'event-1',
-        slug: 'daily-phone-quiz',
-        status: 'draft',
-        title: 'Daily Phone Quiz',
+  it('requires complete v2 timing and rules metadata but normalizes legacy events', () => {
+    const v2Event = {
+      contractVersion: 2,
+      endsAt: '2026-08-04T12:05:00.000Z',
+      id: 'event-v2',
+      liveWindowSeconds: 300,
+      maxAttempts: 1,
+      maximumPlaySeconds: 200,
+      mode: 'live' as const,
+      prizeName: 'MacBook USB',
+      prizeProduct: {
+        condition: 'used' as const,
+        id: '55555555-5555-4555-8555-555555555555',
+        imageUrl: 'https://cdn.example.com/macbook.png',
+        name: 'MacBook USB',
+        variantId: null,
       },
-      questions: [
-        {
-          correctOptionId: 'b',
-          difficulty: 'standard',
-          explanation: 'USB-C arrived on iPhone 15.',
-          options: [
-            { id: 'a', label: 'iPhone 13' },
-            { id: 'b', label: 'iPhone 15' },
-          ],
-          prompt: 'Which iPhone introduced USB-C?',
-          topic: 'iPhone buying advice',
-        },
-      ],
+      questionCount: 20,
+      resultsPublishedAt: null,
+      rulesVersion: 'test-v1',
+      startsAt: '2026-08-04T12:00:00.000Z',
+      status: 'scheduled' as const,
+      timePerQuestionSeconds: 10,
+      timeZone: 'Africa/Lagos',
+      title: 'Daily devices quiz',
     };
 
+    expect(quizV2EventSchema.parse(v2Event)).toEqual(v2Event);
     expect(
-      merchantQuizGenerationResponseSchema.parse(generationResponse)
+      quizEventResponseSchema.parse({
+        endsAt: '2026-08-04T12:05:00.000Z',
+        id: 'legacy-event',
+        prizeName: 'Legacy prize',
+        questionCount: 2,
+        startsAt: '2026-08-04T12:04:00.000Z',
+        status: 'scheduled',
+        title: 'Legacy quiz',
+      })
     ).toMatchObject({
-      questions: [{ correctOptionId: 'b', explanation: expect.any(String) }],
+      contractVersion: 1,
+      liveWindowSeconds: 60,
+      maximumPlaySeconds: 60,
+      timeZone: 'Africa/Lagos',
     });
-
-    // The admin answer key is mandatory so it can be reviewed pre-activation.
-    expect(() =>
-      merchantQuizGenerationResponseSchema.parse({
-        ...generationResponse,
-        questions: [
+    expect(
+      quizEventsResponseSchema.parse({
+        contractVersion: 2,
+        entryMode: 'free-v1',
+        events: [v2Event],
+        serverNow: '2026-08-04T12:01:00.000Z',
+      })
+    ).toMatchObject({ events: [v2Event] });
+    expect(
+      quizV2EventSchema.safeParse({ ...v2Event, mode: 'live', maxAttempts: 2 })
+        .success
+    ).toBe(false);
+    expect(
+      quizEventsResponseSchema.safeParse({
+        contractVersion: 2,
+        entryMode: 'free-v1',
+        events: [
           {
-            difficulty: 'standard',
-            options: generationResponse.questions[0].options,
-            prompt: 'Which iPhone introduced USB-C?',
-            topic: 'iPhone buying advice',
+            ...v2Event,
+            complianceVerified: true,
           },
         ],
-      })
-    ).toThrow();
+        serverNow: '2026-08-04T12:01:00.000Z',
+      }).success
+    ).toBe(false);
+    expect(
+      quizEventResponseSchema.safeParse({
+        ...v2Event,
+        complianceVerified: true,
+      }).success
+    ).toBe(false);
+    expect(
+      quizEventResponseSchema.safeParse({
+        ...v2Event,
+        contractVersion: undefined,
+      }).success
+    ).toBe(false);
+    expect(
+      quizEventResponseSchema.safeParse({
+        endsAt: '2026-08-04T12:03:00.000Z',
+        id: 'inverted-legacy-event',
+        prizeName: 'Legacy prize',
+        questionCount: 2,
+        startsAt: '2026-08-04T12:04:00.000Z',
+        status: 'scheduled',
+        title: 'Legacy quiz',
+      }).success
+    ).toBe(false);
   });
 
-  it('validates the activation response contract', () => {
+  it('uses a separate owner-result contract for pending and published v2 results', () => {
     expect(
-      merchantQuizActivationResponseSchema.parse({
-        event: {
-          id: 'event-1',
-          slug: 'daily-phone-quiz',
-          status: 'active',
-          title: 'Daily Phone Quiz',
-        },
+      quizV2ResultResponseSchema.parse({
+        attemptId: 'attempt-v2',
+        availability: 'pending',
+        availableAt: null,
       })
-    ).toMatchObject({ event: { status: 'active' } });
-
-    expect(() =>
-      merchantQuizActivationResponseSchema.parse({ event: { id: 'event-1' } })
-    ).toThrow();
+    ).not.toHaveProperty('score');
+    expect(
+      quizV2ResultResponseSchema.parse({
+        attemptId: 'attempt-v2',
+        availability: 'final',
+        availableAt: '2026-08-04T12:05:00.000Z',
+        rank: 1,
+        score: 20,
+        totalQuestions: 20,
+      })
+    ).toMatchObject({ availability: 'final', rank: 1 });
+    expect(
+      quizV2ResultResponseSchema.safeParse({
+        attemptId: 'attempt-v2',
+        availability: 'pending',
+        availableAt: null,
+        claim: { token: 'not-allowed' },
+      }).success
+    ).toBe(false);
+    expect(
+      quizV2ResultResponseSchema.safeParse({
+        attemptId: 'attempt-v2',
+        availability: 'final',
+        availableAt: '2026-08-04T12:05:00.000Z',
+      }).success
+    ).toBe(false);
   });
 });

@@ -55,18 +55,9 @@ function sanitizeQuizSummary({
   body,
   status,
 }: Awaited<ReturnType<typeof finalizeDueQuizEvents>>) {
-  const summary: Record<string, number | string> = {};
-  if ('closed' in body && typeof body.closed === 'number') {
-    summary.closed = body.closed;
-  }
-  if ('finalized' in body && typeof body.finalized === 'number') {
-    summary.finalized = body.finalized;
-  }
-  if (
-    'skipped' in body &&
-    body.skipped === 'production_not_approved'
-  ) {
-    summary.skipped = body.skipped;
+  const summary: Record<string, number> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (typeof value === 'number') summary[key] = value;
   }
   summary.status = status;
   return JSON.stringify(summary);
