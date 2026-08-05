@@ -15,10 +15,11 @@ import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 //   the generic `Ogabassey` title seen for Googlebot. Non-static tenants render
 //   dynamically, so their metadata may read searchParams to keep query-specific
 //   noindex/self-canonical variants (search/pagination/category).
-// - The listing content reads searchParams, so it renders behind Suspense for
-//   all tenants. The Suspense fallback is the prerenderable static shell (fixing
-//   "did not produce a static shell"), while page/search/category content
-//   streams — so pagination/search keep working, including on the static tenant.
+// - The listing content reads params and searchParams, so it renders behind
+//   Suspense for all tenants. The Suspense fallback is the prerenderable static
+//   shell (fixing "did not produce a static shell"), while tenant-specific
+//   page/search/category content streams — so pagination/search keep working,
+//   including on the static tenant.
 
 export function generateStaticParams(): Array<{ slug: string }> {
   return OGABASSEY_BLOG_STATIC_TENANTS.map((slug) => ({ slug }));
@@ -37,18 +38,10 @@ export async function generateMetadata({
   return buildBlogListingMetadata({ slug, searchParams: await searchParams });
 }
 
-export default async function BlogPage({
-  params,
-  searchParams,
-}: BlogPageProps) {
-  const { slug } = await params;
-
+export default function BlogPage({ params, searchParams }: BlogPageProps) {
   return (
     <Suspense fallback={<BlogListingFallback />}>
-      <BlogPageContent
-        params={Promise.resolve({ slug })}
-        searchParams={searchParams}
-      />
+      <BlogPageContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
