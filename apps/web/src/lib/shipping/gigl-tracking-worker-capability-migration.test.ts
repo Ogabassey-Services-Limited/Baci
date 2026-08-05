@@ -9,6 +9,13 @@ const migration = readFileSync(
   ),
   'utf8'
 );
+const loginMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260805091000_enable_least_privilege_gigl_tracking_login.sql'
+  ),
+  'utf8'
+);
 
 describe('GIGL tracking worker capability migration', () => {
   it('creates a non-login role that cannot bypass RLS', () => {
@@ -39,5 +46,18 @@ describe('GIGL tracking worker capability migration', () => {
         /set_config\('request\.jwt\.claim\.role', 'service_role', true\)/g
       )
     ).toHaveLength(5);
+  });
+
+  it('enables only the restricted role as a connection-limited login', () => {
+    expect(loginMigration).toMatch(
+      /REVOKE gigl_tracking_worker FROM authenticator/
+    );
+    expect(loginMigration).toMatch(
+      /ALTER ROLE gigl_tracking_worker LOGIN CONNECTION LIMIT 2/
+    );
+    expect(loginMigration).not.toMatch(/ALTER ROLE[\s\S]*PASSWORD\s+'/i);
+    expect(loginMigration).not.toMatch(
+      /GRANT (?:SELECT|INSERT|UPDATE|DELETE|ALL)/
+    );
   });
 });

@@ -87,7 +87,7 @@ PETROCK_REMEDIATION_ENABLED=true
 GIGL_BASE_URL=...
 GIGL_EMAIL=...
 GIGL_PASSWORD=...
-GIGL_TRACKING_WORKER_TOKEN=...
+GIGL_TRACKING_DATABASE_URL=...
 QUIZ_PHASE=1a
 QUIZ_PRODUCTION_APPROVED=false
 # Required when QUIZ_PHASE=production:
@@ -139,7 +139,7 @@ Variable purposes:
 - `PETROCK_API_BASE_URL`: Optional Petrock reseller API base; defaults to the production reseller endpoint.
 - `PETROCK_ENABLED`, `PETROCK_ENABLED_TIERS`, `PETROCK_REMEDIATION_ENABLED`: Explicit Petrock rollout values copied from the reviewed web production configuration. The direct-worker preflight requires all three to prevent an accidental configuration mismatch.
 - `GIGL_BASE_URL`, `GIGL_EMAIL`, `GIGL_PASSWORD`: GIGL provider configuration used by the direct shipment-tracking worker. The base URL must be credential-free HTTPS.
-- `GIGL_TRACKING_WORKER_TOKEN`: Time-bounded JWT with the `gigl_tracking_worker` database role. It can invoke the five lease-bound tracking wrappers but has no table grants or RLS bypass.
+- `GIGL_TRACKING_DATABASE_URL`: TLS connection string for the `gigl_tracking_worker` role through the Supavisor session pooler on port 5432. This login has no table grants or RLS bypass and can execute only the five lease-bound tracking wrappers. Provision and rotate its password outside migrations at least every 90 days; never reuse the project database password. The worker verifies Supabase with the pinned public CA at `vps-workers/certs/supabase-prod-ca-2021.crt` and fails closed if that file changes.
 - `QUIZ_PHASE`, `QUIZ_PRODUCTION_APPROVED`: Explicit quiz launch gate values copied from web production. They must be present even for the fail-closed `1a`/`false` state.
 - `QUIZ_RPC_SERVER_SECRET`, `QUIZ_DEVICE_HASH_PEPPER`: Required by the shared environment schema when `QUIZ_PHASE=production`; the device pepper must be at least 32 characters.
 - `EXPO_ACCESS_TOKEN`: Expo token used for push notification delivery and related mobile app operations.

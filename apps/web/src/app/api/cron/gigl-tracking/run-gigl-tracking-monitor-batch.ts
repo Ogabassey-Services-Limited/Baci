@@ -14,7 +14,7 @@ export async function runGiglTrackingMonitorBatch({
   workerId,
 }: {
   batchSize: number;
-  client: SupabaseClient<Database>;
+  client: Pick<SupabaseClient<Database>, 'rpc'>;
   processMonitors?: ProcessMonitors;
   workerId: string;
 }) {

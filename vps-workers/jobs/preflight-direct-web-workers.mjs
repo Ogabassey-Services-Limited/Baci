@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
 
@@ -21,10 +24,12 @@ const GIGL_REQUIRED_ENV = [
   'GIGL_BASE_URL',
   'GIGL_EMAIL',
   'GIGL_PASSWORD',
-  'GIGL_TRACKING_WORKER_TOKEN',
+  'GIGL_TRACKING_DATABASE_URL',
 ];
 const ENV_BOOLEAN_VALUES = new Set(['0', '1', 'false', 'no', 'true', 'yes']);
 const DISABLED_GIGL_VALUES = new Set(['0', 'false', 'off']);
+const SUPABASE_CA_SHA256 =
+  '700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7';
 
 function isConfigured(env, name) {
   return typeof env[name] === 'string' && env[name].trim().length > 0;
@@ -43,15 +48,35 @@ function isGiglExplicitlyDisabled(env) {
   return DISABLED_GIGL_VALUES.has(env.GIGL_ENABLED?.trim().toLowerCase() ?? '');
 }
 
-function isRestrictedGiglWorkerToken(value, now = Date.now()) {
+function hasPinnedSupabaseCa(repoDir) {
   try {
-    const payload = value.split('.')[1];
-    if (!payload) return false;
-    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    const certificate = readFileSync(
+      join(repoDir, 'vps-workers/certs/supabase-prod-ca-2021.crt')
+    );
     return (
-      claims?.role === 'gigl_tracking_worker' &&
-      typeof claims.exp === 'number' &&
-      claims.exp * 1000 > now + 24 * 60 * 60 * 1000
+      createHash('sha256').update(certificate).digest('hex') ===
+      SUPABASE_CA_SHA256
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isRestrictedGiglDatabaseUrl(value, supabaseUrlValue) {
+  try {
+    const url = new URL(value);
+    const supabaseUrl = new URL(supabaseUrlValue);
+    const projectRef = supabaseUrl.hostname.match(
+      /^([a-z0-9]+)\.supabase\.co$/
+    )?.[1];
+    return (
+      Boolean(projectRef) &&
+      ['postgres:', 'postgresql:'].includes(url.protocol) &&
+      url.username === `gigl_tracking_worker.${projectRef}` &&
+      Boolean(url.password) &&
+      url.hostname.endsWith('.pooler.supabase.com') &&
+      url.port === '5432' &&
+      url.pathname === '/postgres'
     );
   } catch {
     return false;
@@ -83,6 +108,13 @@ export function getDirectWorkerPreflightProblems(env) {
   }
   if (
     !isGiglDisabled &&
+    isConfigured(env, 'BACI_REPO_DIR') &&
+    !hasPinnedSupabaseCa(env.BACI_REPO_DIR)
+  ) {
+    problems.push('Supabase database CA certificate is missing or invalid');
+  }
+  if (
+    !isGiglDisabled &&
     isConfigured(env, 'GIGL_BASE_URL') &&
     !isCredentialFreeHttpsUrl(env.GIGL_BASE_URL)
   ) {
@@ -90,10 +122,15 @@ export function getDirectWorkerPreflightProblems(env) {
   }
   if (
     !isGiglDisabled &&
-    isConfigured(env, 'GIGL_TRACKING_WORKER_TOKEN') &&
-    !isRestrictedGiglWorkerToken(env.GIGL_TRACKING_WORKER_TOKEN)
+    isConfigured(env, 'GIGL_TRACKING_DATABASE_URL') &&
+    !isRestrictedGiglDatabaseUrl(
+      env.GIGL_TRACKING_DATABASE_URL,
+      env.NEXT_PUBLIC_SUPABASE_URL
+    )
   ) {
-    problems.push('GIGL_TRACKING_WORKER_TOKEN must be a current restricted worker token');
+    problems.push(
+      'GIGL_TRACKING_DATABASE_URL must use the restricted session-pooler role'
+    );
   }
 
   for (const name of [

@@ -5,9 +5,9 @@ const configuredEnv = {
   GIGL_BASE_URL: 'https://gigl.example.com',
   GIGL_EMAIL: 'worker@example.com',
   GIGL_PASSWORD: 'provider-password',
-  GIGL_TRACKING_WORKER_TOKEN: 'worker-token',
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
-  NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+  GIGL_TRACKING_DATABASE_URL:
+    'postgresql://gigl_tracking_worker.projectref:password@aws-1-eu-west-1.pooler.supabase.com:5432/postgres',
+  NEXT_PUBLIC_SUPABASE_URL: 'https://projectref.supabase.co',
 };
 
 describe('process-gigl-tracking', () => {

@@ -1,23 +1,20 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { getDirectWorkerPreflightProblems } from './preflight-direct-web-workers.mjs';
 
-function workerToken(role = 'gigl_tracking_worker', exp = 4_102_444_800) {
-  const payload = Buffer.from(JSON.stringify({ exp, role })).toString('base64url');
-  return `header.${payload}.signature`;
-}
-
 const commonEnv = {
-  BACI_REPO_DIR: '/opt/baci/app',
+  BACI_REPO_DIR: fileURLToPath(new URL('../..', import.meta.url)),
   BACI_WEB_BASE_URL: 'https://usebaci.com',
   EXPO_ACCESS_TOKEN: 'expo-token',
   GIGL_BASE_URL: 'https://gigl.example.com',
   GIGL_EMAIL: 'worker@example.com',
   GIGL_PASSWORD: 'provider-password',
-  GIGL_TRACKING_WORKER_TOKEN: workerToken(),
+  GIGL_TRACKING_DATABASE_URL:
+    'postgresql://gigl_tracking_worker.projectref:password@aws-1-eu-west-1.pooler.supabase.com:5432/postgres',
   IMEI_IDENTIFIER_ENCRYPTION_KEY: 'encryption-key',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
-  NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+  NEXT_PUBLIC_SUPABASE_URL: 'https://projectref.supabase.co',
   PETROCK_API_TOKEN: 'petrock-token',
   PETROCK_ENABLED: 'true',
   PETROCK_ENABLED_TIERS: 'blacklist',
@@ -78,15 +75,14 @@ describe('direct worker environment preflight', () => {
     ]);
   });
 
-  it('rejects a broad service-role token for the GIGL poller', () => {
+  it('rejects an admin database role for the GIGL poller', () => {
     assert.deepEqual(
       getDirectWorkerPreflightProblems({
         ...commonEnv,
-        GIGL_TRACKING_WORKER_TOKEN: workerToken('service_role'),
+        GIGL_TRACKING_DATABASE_URL:
+          'postgresql://postgres.projectref:password@aws-1-eu-west-1.pooler.supabase.com:5432/postgres',
       }),
-      [
-        'GIGL_TRACKING_WORKER_TOKEN must be a current restricted worker token',
-      ]
+      ['GIGL_TRACKING_DATABASE_URL must use the restricted session-pooler role']
     );
   });
 
