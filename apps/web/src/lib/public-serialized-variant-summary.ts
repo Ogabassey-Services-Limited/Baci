@@ -60,6 +60,17 @@ function isSerializedInventoryPolicy(
   );
 }
 
+function isTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const { message, details } = error as Record<string, unknown>;
+  return [message, details].some(
+    (value) => typeof value === 'string' && value.includes('TimeoutError')
+  );
+}
+
 /**
  * Resolves the effective tracking policy for a variant based on the product policy and the variant policy.
  */
@@ -232,16 +243,24 @@ export async function getPublicSerializedVariantSummariesByProductId(
       // for those products keeps public HTML rendering out of Supabase timeouts.
       // Supabase PostgREST v2 exposes overrideTypes() on RPC builders and marks
       // returns() as deprecated; replace the stale generated RPC result type here.
-      const { data: rawCounts, error: countsError } = await supabase
-        .rpc('get_public_serialized_variant_availability_counts', {
-          p_merchant_id: merchantId,
-          p_product_ids: serializedProductIds,
-          p_branch_id: branchId || null,
-        })
-        .overrideTypes<
-          PublicSerializedAvailabilityCountRow[],
-          { merge: false }
-        >();
+      const fetchAvailabilityCounts = () =>
+        supabase
+          .rpc('get_public_serialized_variant_availability_counts', {
+            p_merchant_id: merchantId,
+            p_product_ids: serializedProductIds,
+            p_branch_id: branchId || null,
+          })
+          .overrideTypes<
+            PublicSerializedAvailabilityCountRow[],
+            { merge: false }
+          >();
+
+      let { data: rawCounts, error: countsError } =
+        await fetchAvailabilityCounts();
+      if (isTimeoutError(countsError)) {
+        ({ data: rawCounts, error: countsError } =
+          await fetchAvailabilityCounts());
+      }
 
       if (countsError) {
         throw countsError;
