@@ -233,11 +233,19 @@ function applyOperation(
       return;
     }
     case 'update_root': {
-      if (config.root.title === operation.title) {
+      const props = config.root.props as Record<string, unknown> | undefined;
+      if (
+        config.root.title === operation.title &&
+        (!props || props.title === operation.title)
+      ) {
         pushWarnings(warnings, ['No safe changes for page title.']);
         return;
       }
-      config.root = { ...config.root, title: operation.title };
+      config.root = {
+        ...config.root,
+        props: props ? { ...props, title: operation.title } : config.root.props,
+        title: operation.title,
+      };
       return;
     }
     case 'update_theme': {

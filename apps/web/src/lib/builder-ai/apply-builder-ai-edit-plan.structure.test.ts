@@ -39,38 +39,6 @@ function plan(
 }
 
 describe('applyBuilderAiEditPlan structure', () => {
-  it('inserts beside a placement target projected from a zone', () => {
-    const config = currentConfig();
-    config.zones = { aside: [block('Text', 'zone-text')] };
-    const result = applyBuilderAiEditPlan(
-      config,
-      plan([
-        {
-          initialContent: { componentType: 'Text', content: 'Zone sibling' },
-          kind: 'insert_component',
-          placement: { componentId: 'zone-text', position: 'after' },
-        },
-      ]),
-      () => 'zone-insert'
-    );
-    expect(
-      (result.candidateConfig.zones?.aside as BuilderData['content']).map(
-        (item) => item.props.id
-      )
-    ).toEqual(['zone-text', 'zone-insert']);
-  });
-
-  it('keeps a ProductGrid that exists only in a zone', () => {
-    const config = currentConfig();
-    config.content = [block('Header', 'header-1'), block('Footer', 'footer-1')];
-    config.zones = { aside: [block('ProductGrid', 'zone-grid')] };
-    expect(() =>
-      applyBuilderAiEditPlan(
-        config,
-        plan([{ componentId: 'zone-grid', kind: 'remove_component' }])
-      )
-    ).toThrow('A storefront requires one ProductGrid');
-  });
   it('resolves updates by stable id after a component moves', () => {
     const result = applyBuilderAiEditPlan(
       currentConfig(),

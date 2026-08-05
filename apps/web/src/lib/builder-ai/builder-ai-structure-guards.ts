@@ -75,8 +75,12 @@ export function getBuilderAiStructuralBaseline(
   const anchors = getProtectedAnchorSnapshot(content);
   return {
     ...anchors,
-    footers: content.filter((component) => component.type === 'Footer').length,
-    headers: content.filter((component) => component.type === 'Header').length,
+    footers: collections
+      .flat()
+      .filter((component) => component.type === 'Footer').length,
+    headers: collections
+      .flat()
+      .filter((component) => component.type === 'Header').length,
     requiresProductGrid: collections
       .flat()
       .some((component) => component.type === 'ProductGrid'),
