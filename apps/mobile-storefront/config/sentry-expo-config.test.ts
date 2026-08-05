@@ -18,6 +18,9 @@ describe('buildSentryExpoConfiguration', () => {
     expect(result.plugin).toEqual([
       '@sentry/react-native/expo',
       expect.objectContaining({
+        experimental_android: {
+          enableAndroidGradlePlugin: true,
+        },
         organization: 'ogabassey',
         project: 'storefront',
         useNativeInit: true,

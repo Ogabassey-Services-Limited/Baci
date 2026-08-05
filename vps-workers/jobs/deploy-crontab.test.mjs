@@ -194,6 +194,28 @@ describe('deploy crontab', () => {
       'the fail-closed preflight must run before live promotion'
     );
     assert.ok(deployScript.indexOf('prepare_worker_release') < crontabIndex);
+    assert.ok(
+      deployScript.indexOf('docker build') <
+        deployScript.indexOf('promote_worker_release')
+    );
+    assert.ok(deployScript.indexOf('promote_worker_release') < crontabIndex);
+  });
+
+  it('builds the remediator image from staging before live promotion', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const buildIndex = deployScript.indexOf(
+      'docker build -f $STAGING_DIR/Dockerfile.codex-remediator -t $CODEX_REMEDIATOR_IMAGE $STAGING_DIR'
+    );
+    const promotionIndex = deployScript.indexOf('promote_worker_release');
+
+    assert.notEqual(buildIndex, -1);
+    assert.notEqual(promotionIndex, -1);
+    assert.ok(buildIndex < promotionIndex);
+    assert.doesNotMatch(deployScript, /docker build -f \$REMOTE_DIR/);
+    assert.doesNotMatch(
+      deployScript,
+      /docker build -f \$STAGING_DIR\/Dockerfile\.codex-remediator .* \$REMOTE_DIR/
+    );
   });
 
   it('requires the remote worker checkout to match the deploying commit', () => {

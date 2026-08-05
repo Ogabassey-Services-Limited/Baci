@@ -34,6 +34,9 @@ function buildSentryExpoConfiguration(env, { required }) {
     plugin: [
       '@sentry/react-native/expo',
       {
+        experimental_android: {
+          enableAndroidGradlePlugin: true,
+        },
         organization,
         project,
         url: optionalValue(env.SENTRY_URL) || 'https://sentry.io/',

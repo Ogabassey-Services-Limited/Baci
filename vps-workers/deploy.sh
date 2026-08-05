@@ -32,7 +32,9 @@ if [ -z "$CODEX_CONTAINER_BIN" ]; then
 fi
 
 echo "==> Building isolated Codex remediator image"
-ssh "$VPS" "docker build -f $REMOTE_DIR/Dockerfile.codex-remediator -t $CODEX_REMEDIATOR_IMAGE $REMOTE_DIR"
+ssh "$VPS" "docker build -f $STAGING_DIR/Dockerfile.codex-remediator -t $CODEX_REMEDIATOR_IMAGE $STAGING_DIR"
+
+promote_worker_release
 
 echo "==> Installing Vercel drain receiver user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-vercel-log-drain-receiver.service"

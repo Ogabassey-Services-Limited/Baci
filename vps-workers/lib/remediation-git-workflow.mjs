@@ -9,6 +9,7 @@ import {
 } from './remediation-policy.mjs';
 import { buildRemediationPrBody } from './remediation-pr-body.mjs';
 import { writeRemediationResultArtifact } from './remediation-result-artifact.mjs';
+import { parseRemediationStatusFiles } from './remediation-status-files.mjs';
 
 function defaultRunner(command, args, options) {
   return spawnSync(command, args, {
@@ -119,14 +120,6 @@ function buildGitEnvironment(commandEnv, gitIdentityEnv) {
   };
 }
 
-function parseStatusFiles(status) {
-  return String(status || '')
-    .split(/\r?\n/)
-    .map((line) => line.slice(3).trim())
-    .flatMap((line) => line.split(' -> '))
-    .filter(Boolean);
-}
-
 function cleanupWorktree({ childEnv, repoDir, runner, worktreeDir }) {
   if (!worktreeDir) {
     return;
@@ -230,7 +223,7 @@ export function runRemediationAutofix({
       return { branch, resultPath, type: 'no_changes', worktreeDir };
     }
 
-    const changedFiles = parseStatusFiles(status);
+    const changedFiles = parseRemediationStatusFiles(status);
     const policy = evaluateMergePolicy({
       changedFiles,
       checksPassed: true,

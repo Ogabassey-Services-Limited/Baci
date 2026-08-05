@@ -62,7 +62,7 @@ esac
       join(binDirectory, 'rsync'),
       `#!/usr/bin/env bash
 touch "\${TEST_RSYNC_MARKER}"
-if [ "\${TEST_SCENARIO:-}" = "remote-preflight-failure" ] || [ "\${TEST_SCENARIO:-}" = "missing-remote-env" ]; then
+if [ "\${TEST_SCENARIO:-}" = "remote-preflight-failure" ] || [ "\${TEST_SCENARIO:-}" = "missing-remote-env" ] || [ "\${TEST_SCENARIO:-}" = "docker-build-failure" ]; then
   exit 0
 fi
 exit 73
@@ -100,6 +100,24 @@ if [ "\${TEST_SCENARIO:-}" = "missing-remote-env" ]; then
       exit 0
       ;;
   esac
+fi
+if [ "\${TEST_SCENARIO:-}" = "docker-build-failure" ]; then
+  payload="$(cat)"
+  case "$* $payload" in
+    *"command -v node"*)
+      echo /usr/bin/node
+      ;;
+    *"find /home/bassey/.local"*)
+      echo /opt/codex/bin/codex
+      ;;
+    *"docker build"*)
+      exit 76
+      ;;
+    *"rsync -a --delete"*)
+      touch "\${TEST_PROMOTION_MARKER}"
+      ;;
+  esac
+  exit 0
 fi
 exit 74
 `
@@ -168,6 +186,15 @@ describe('deploy source guards', () => {
     assert.equal(outcome.result.status, 1);
     assert.match(outcome.result.stderr, /Missing .*\.env; create it before/);
     assert.equal(outcome.rsyncCalled, true);
+    assert.equal(outcome.promotionCalled, false);
+  });
+
+  it('does not replace live workers when the remediator image build fails', () => {
+    const outcome = runDeployGuardScenario('docker-build-failure');
+
+    assert.equal(outcome.result.status, 76);
+    assert.equal(outcome.rsyncCalled, true);
+    assert.equal(outcome.sshCalled, true);
     assert.equal(outcome.promotionCalled, false);
   });
 

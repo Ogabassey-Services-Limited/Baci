@@ -97,7 +97,9 @@ if [ ! -x "$tsx_bin" ] || ! "$tsx_bin" --version >/dev/null; then
   exit 1
 fi
 REMOTE_SH
+}
 
+promote_worker_release() {
   echo "==> Promoting validated worker files to $VPS:$REMOTE_DIR"
   ssh "$VPS" "flock -x /tmp/baci-workers-deploy.lock bash -s -- '$STAGING_DIR' '$REMOTE_DIR'" <<'REMOTE_SH'
 set -euo pipefail

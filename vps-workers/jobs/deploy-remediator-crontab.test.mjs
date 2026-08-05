@@ -25,7 +25,7 @@ describe('remediation deploy crontab', () => {
 
     assert.match(
       deployScript,
-      /docker build -f \$REMOTE_DIR\/Dockerfile\.codex-remediator -t \$CODEX_REMEDIATOR_IMAGE/
+      /docker build -f \$STAGING_DIR\/Dockerfile\.codex-remediator -t \$CODEX_REMEDIATOR_IMAGE \$STAGING_DIR/
     );
     assert.equal(
       deployScript.match(
