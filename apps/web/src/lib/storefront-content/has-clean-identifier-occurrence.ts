@@ -1,5 +1,6 @@
 import type { PublishedClusterPost } from './content-cluster-types';
 import { getPostTokenGroups } from './get-post-token-groups';
+import { isVariantOnlyComparisonSegment } from './is-variant-only-comparison-segment';
 import { matchesVariantDiscriminatorTokens } from './matches-variant-discriminator-tokens';
 import { tokenizeContentText } from './tokenize-content-text';
 
@@ -56,7 +57,8 @@ function matchesDiscriminatorForIdentifierOccurrence(
   identifierStart: number,
   identifierEnd: number,
   discriminatorTokens: string[],
-  allowPartialGroups: boolean
+  allowPartialGroups: boolean,
+  allowMissingGroups: boolean
 ) {
   const previousBoundary = tokens.findLastIndex(
     (token, index) =>
@@ -70,10 +72,30 @@ function matchesDiscriminatorForIdentifierOccurrence(
     previousBoundary + 1,
     nextBoundary >= 0 ? nextBoundary : tokens.length
   );
-  return matchesVariantDiscriminatorTokens(
+  const matchesCurrentSegment = matchesVariantDiscriminatorTokens(
     occurrenceTokens,
     discriminatorTokens,
-    allowPartialGroups
+    allowPartialGroups,
+    allowMissingGroups
+  );
+  if (matchesCurrentSegment || allowPartialGroups || nextBoundary < 0) {
+    return matchesCurrentSegment;
+  }
+
+  const followingBoundary = tokens.findIndex(
+    (token, index) =>
+      index > nextBoundary && COMPARISON_BOUNDARY_TOKENS.has(token)
+  );
+  const followingSegment = tokens.slice(
+    nextBoundary + 1,
+    followingBoundary >= 0 ? followingBoundary : tokens.length
+  );
+  if (!isVariantOnlyComparisonSegment(followingSegment)) {
+    return false;
+  }
+  return matchesVariantDiscriminatorTokens(
+    followingSegment,
+    discriminatorTokens
   );
 }
 
@@ -171,7 +193,7 @@ export function hasCleanIdentifierOccurrence(
 
   const postTokenGroups = getPostTokenGroups(post);
 
-  return postTokenGroups.some((postTokens) =>
+  return postTokenGroups.some((postTokens, groupIndex) =>
     postTokens.some((_, startIndex) => {
       const matchesIdentifier = matchesTokenSequence(
         postTokens,
@@ -209,7 +231,8 @@ export function hasCleanIdentifierOccurrence(
           startIndex,
           startIndex + identifierTokens.length,
           options.discriminatorTokens,
-          options.allowPartialDiscriminatorGroups ?? false
+          options.allowPartialDiscriminatorGroups ?? false,
+          groupIndex === 0
         )
       ) {
         return false;

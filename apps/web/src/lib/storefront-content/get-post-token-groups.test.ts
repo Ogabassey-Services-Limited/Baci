@@ -70,4 +70,17 @@ describe('getPostTokenGroups', () => {
 
     expect(titleTokens).toContain('versus');
   });
+
+  it('normalizes text-only repeated model comparison separators', () => {
+    const [titleTokens] = getPostTokenGroups({
+      title:
+        'Samsung Galaxy Buds Pro Black & Samsung Galaxy Buds Pro White Comparison',
+      excerpt: null,
+      category: 'Earbuds',
+      tags: null,
+      keywords: null,
+    });
+
+    expect(titleTokens).toContain('versus');
+  });
 });

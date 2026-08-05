@@ -8,6 +8,25 @@ type PostTokenGroupSource = Pick<
 
 const COMPARISON_CUE_PATTERN = /\b(?:compare|comparison|versus|vs)\b/iu;
 const MODEL_TOKEN_PATTERN = /\b(?:\d+[a-z]+|[a-z]+\d+|\d+)\b/iu;
+const GENERIC_COMPARISON_TOKENS = new Set([
+  'buyer',
+  'compare',
+  'comparison',
+  'guide',
+  'review',
+]);
+
+function hasRepeatedTextModel(left: string, right: string) {
+  const leftTokens = new Set(
+    tokenizeContentText(left).filter(
+      (token) => token.length > 2 && !GENERIC_COMPARISON_TOKENS.has(token)
+    )
+  );
+  const sharedTokens = new Set(
+    tokenizeContentText(right).filter((token) => leftTokens.has(token))
+  );
+  return sharedTokens.size >= 2;
+}
 
 function normalizeComparisonSeparators(value: string) {
   const hasComparisonCue = COMPARISON_CUE_PATTERN.test(value);
@@ -16,8 +35,11 @@ function normalizeComparisonSeparators(value: string) {
     const right = value.slice(offset + separator.length);
     const hasModelOnBothSides =
       MODEL_TOKEN_PATTERN.test(left) && MODEL_TOKEN_PATTERN.test(right);
+    const hasTextModelOnBothSides =
+      hasComparisonCue && hasRepeatedTextModel(left, right);
     const hasSeparatorWhitespace = /\s/u.test(separator);
-    return hasModelOnBothSides && (hasSeparatorWhitespace || hasComparisonCue)
+    return (hasModelOnBothSides || hasTextModelOnBothSides) &&
+      (hasSeparatorWhitespace || hasComparisonCue)
       ? ' versus '
       : separator;
   });

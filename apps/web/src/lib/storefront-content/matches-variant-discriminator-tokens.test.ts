@@ -36,4 +36,14 @@ describe('matchesVariantDiscriminatorTokens', () => {
 
     expect(result).toBe(false);
   });
+
+  it('rejects a superset connectivity group in partial PDP mode', () => {
+    const result = matchesVariantDiscriminatorTokens(
+      ['ipad', '10', 'wifi', 'cellular'],
+      ['wifi'],
+      true
+    );
+
+    expect(result).toBe(false);
+  });
 });

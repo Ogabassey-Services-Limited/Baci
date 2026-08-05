@@ -1,5 +1,6 @@
 import type { PublishedClusterPost } from './content-cluster-types';
 import { getPostTokenGroups } from './get-post-token-groups';
+import { isVariantOnlyComparisonSegment } from './is-variant-only-comparison-segment';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 
 const COMPARISON_BOUNDARY_TOKENS = new Set([
@@ -42,6 +43,28 @@ function getComparisonSegments(tokens: string[]) {
   );
 }
 
+function countComparisonSegmentsForIdentifier(
+  segments: string[][],
+  identifier: string
+) {
+  let count = 0;
+  let canInheritIdentifier = false;
+  for (const segment of segments) {
+    const hasIdentifier = countIdentifierOccurrences(segment, identifier) > 0;
+    const isVariantOnlyContinuation =
+      canInheritIdentifier &&
+      !hasIdentifier &&
+      isVariantOnlyComparisonSegment(segment);
+    if (hasIdentifier || isVariantOnlyContinuation) {
+      count += 1;
+      canInheritIdentifier = true;
+    } else {
+      canInheritIdentifier = false;
+    }
+  }
+  return count;
+}
+
 /** Ensures same-model compare variants are represented by separate occurrences. */
 export function hasDistinctCompareIdentifierOccurrences(
   post: PublishedClusterPost,
@@ -56,9 +79,8 @@ export function hasDistinctCompareIdentifierOccurrences(
     const comparisonSegments = getComparisonSegments(tokens);
     return Array.from(requiredCounts).every(
       ([identifier, count]) =>
-        comparisonSegments.filter(
-          (segment) => countIdentifierOccurrences(segment, identifier) > 0
-        ).length >= count
+        countComparisonSegmentsForIdentifier(comparisonSegments, identifier) >=
+        count
     );
   });
 }

@@ -1,7 +1,22 @@
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
-const CONNECTIVITY_TOKENS = new Set(['4g', '5g', 'cellular', 'lte', 'wifi']);
-const SIM_MODE_TOKENS = new Set(['esim', 'physical', 'sim']);
+const CONNECTIVITY_TOKENS = new Set([
+  '4g',
+  '5g',
+  'bluetooth',
+  'cellular',
+  'gps',
+  'lte',
+  'wifi',
+]);
+const SIM_MODE_TOKENS = new Set([
+  'dual',
+  'esim',
+  'nano',
+  'physical',
+  'sim',
+  'single',
+]);
 const STORAGE_TOKEN_PATTERN = /^\d+(?:gb|tb|mb)$/u;
 
 function matchesOrderedTokenSequence(tokens: string[], expected: string[]) {
@@ -43,18 +58,21 @@ function groupExpectedTokens(discriminatorTokens: string[]) {
 export function matchesVariantDiscriminatorTokens(
   occurrenceTokens: string[],
   discriminatorTokens: string[],
-  allowPartialGroups = false
+  allowPartialGroups = false,
+  allowMissingGroups = false
 ) {
   const normalizedOccurrence =
     normalizeVariantDiscriminatorTokens(occurrenceTokens);
+  const normalizedDiscriminators =
+    normalizeVariantDiscriminatorTokens(discriminatorTokens);
   if (!allowPartialGroups) {
     return matchesOrderedTokenSequence(
       normalizedOccurrence,
-      discriminatorTokens
+      normalizedDiscriminators
     );
   }
 
-  const expectedGroups = groupExpectedTokens(discriminatorTokens);
+  const expectedGroups = groupExpectedTokens(normalizedDiscriminators);
   let matchedGroup = false;
   for (const [group, expected] of expectedGroups) {
     const occurrenceMentionsGroup = normalizedOccurrence.some(
@@ -63,10 +81,16 @@ export function matchesVariantDiscriminatorTokens(
     if (!occurrenceMentionsGroup) {
       continue;
     }
-    if (!matchesOrderedTokenSequence(normalizedOccurrence, expected)) {
+    const occurrenceGroupTokens = normalizedOccurrence.filter(
+      (token) => getTokenGroup(token) === group
+    );
+    if (
+      occurrenceGroupTokens.length !== expected.length ||
+      !matchesOrderedTokenSequence(occurrenceGroupTokens, expected)
+    ) {
       return false;
     }
     matchedGroup = true;
   }
-  return matchedGroup;
+  return matchedGroup || allowMissingGroups;
 }

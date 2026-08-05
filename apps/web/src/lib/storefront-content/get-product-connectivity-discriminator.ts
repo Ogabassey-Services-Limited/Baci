@@ -5,11 +5,16 @@ import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discrim
 const CONNECTIVITY_DISCRIMINATOR_TOKENS = new Set([
   '4g',
   '5g',
+  'bluetooth',
   'cellular',
+  'dual',
   'esim',
+  'gps',
   'lte',
+  'nano',
   'physical',
   'sim',
+  'single',
   'wifi',
 ]);
 const COMMON_STORAGE_CAPACITIES_GB = new Set([

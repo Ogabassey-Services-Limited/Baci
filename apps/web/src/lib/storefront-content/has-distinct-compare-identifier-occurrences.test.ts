@@ -78,4 +78,42 @@ describe('hasDistinctCompareIdentifierOccurrences', () => {
 
     expect(result).toBe(false);
   });
+
+  it('inherits the model for a shorthand variant-only comparison segment', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'iphone-15-128gb-vs-256gb',
+        title: 'Apple iPhone 15 128GB vs 256GB Comparison',
+        excerpt: null,
+        category: 'Smartphones',
+        tags: ['smartphones'],
+        keywords: ['comparison'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['15', '15']
+    );
+
+    expect(result).toBe(true);
+  });
+
+  it('does not inherit the model across a different branded product segment', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'iphone-15-vs-galaxy-s25',
+        title: 'Apple iPhone 15 128GB vs Samsung Galaxy S25 256GB',
+        excerpt: null,
+        category: 'Smartphones',
+        tags: ['smartphones'],
+        keywords: ['comparison'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['15', '15']
+    );
+
+    expect(result).toBe(false);
+  });
 });

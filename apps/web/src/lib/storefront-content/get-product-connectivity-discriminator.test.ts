@@ -56,4 +56,22 @@ describe('getProductConnectivityDiscriminators', () => {
 
     expect(discriminators).toEqual([]);
   });
+
+  it('retains normalized Bluetooth and GPS markers stripped from model names', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Samsung Watch 9 45mm BT GPS'],
+      []
+    );
+
+    expect(discriminators).toEqual(['bluetooth', 'gps']);
+  });
+
+  it('retains detailed SIM mode markers stripped from model names', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPhone 15 dual nano SIM'],
+      []
+    );
+
+    expect(discriminators).toEqual(['dual', 'nano', 'sim']);
+  });
 });
