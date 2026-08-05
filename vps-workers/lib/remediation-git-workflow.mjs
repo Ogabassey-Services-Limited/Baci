@@ -69,6 +69,13 @@ const GIT_AUTH_ENV_ALLOWLIST = new Set([
   'SSH_AUTH_SOCK',
 ]);
 
+const GIT_IDENTITY_ENV_ALLOWLIST = new Set([
+  'GIT_AUTHOR_EMAIL',
+  'GIT_AUTHOR_NAME',
+  'GIT_COMMITTER_EMAIL',
+  'GIT_COMMITTER_NAME',
+]);
+
 function buildChildEnvironment(commandEnv) {
   return Object.fromEntries(
     Object.entries(commandEnv).filter(
@@ -78,9 +85,21 @@ function buildChildEnvironment(commandEnv) {
   );
 }
 
-function buildGitEnvironment(commandEnv, childEnv) {
+function buildGitIdentityEnvironment(commandEnv, childEnv) {
   return {
     ...childEnv,
+    ...Object.fromEntries(
+      Object.entries(commandEnv).filter(
+        ([key, value]) =>
+          GIT_IDENTITY_ENV_ALLOWLIST.has(key) && typeof value === 'string'
+      )
+    ),
+  };
+}
+
+function buildGitEnvironment(commandEnv, gitIdentityEnv) {
+  return {
+    ...gitIdentityEnv,
     ...Object.fromEntries(
       Object.entries(commandEnv).filter(
         ([key, value]) =>
@@ -145,7 +164,8 @@ export function runRemediationAutofix({
   const branch = branchNameFor(candidate, runId);
   const commandEnv = { ...process.env, ...env };
   const childEnv = buildChildEnvironment(commandEnv);
-  const gitEnv = buildGitEnvironment(commandEnv, childEnv);
+  const gitIdentityEnv = buildGitIdentityEnvironment(commandEnv, childEnv);
+  const gitEnv = buildGitEnvironment(commandEnv, gitIdentityEnv);
   const worktreeRoot =
     env.BACI_REMEDIATION_WORKTREE_ROOT ||
     join(dirname(repoDir), 'baci-remediation-worktrees');
@@ -153,6 +173,11 @@ export function runRemediationAutofix({
   const rootCommandOptions = { cwd: repoDir, env: childEnv, runner };
   const rootRemoteCommandOptions = { cwd: repoDir, env: gitEnv, runner };
   const worktreeCommandOptions = { cwd: worktreeDir, env: childEnv, runner };
+  const worktreeGitCommandOptions = {
+    cwd: worktreeDir,
+    env: gitIdentityEnv,
+    runner,
+  };
   const worktreeRemoteCommandOptions = {
     cwd: worktreeDir,
     env: gitEnv,
@@ -189,7 +214,7 @@ export function runRemediationAutofix({
     const status = runChecked(
       'git',
       ['status', '--porcelain'],
-      worktreeCommandOptions
+      worktreeGitCommandOptions
     );
     if (!status.trim()) {
       return { branch, type: 'no_changes', worktreeDir };
@@ -226,7 +251,7 @@ export function runRemediationAutofix({
     }
     runChecked('bash', ['-lc', verifyCommand], worktreeCommandOptions);
 
-    runChecked('git', ['add', '-A'], worktreeCommandOptions);
+    runChecked('git', ['add', '-A'], worktreeGitCommandOptions);
     runChecked(
       'git',
       [
@@ -234,7 +259,7 @@ export function runRemediationAutofix({
         '-m',
         `Fix ${candidate.sample?.source || 'production'} error ${candidate.fingerprint}`,
       ],
-      worktreeCommandOptions
+      worktreeGitCommandOptions
     );
     runChecked(
       'git',

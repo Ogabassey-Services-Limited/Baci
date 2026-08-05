@@ -56,6 +56,24 @@ describe('native Sentry initialization boundary', () => {
     }
   });
 
+  it('scrubs generated Android Sentry credentials on persistent runners', () => {
+    const workflowSource = readFileSync(
+      path.resolve(
+        __dirname,
+        '../../../../.github/workflows/android-storefront-release.yml'
+      ),
+      'utf8'
+    );
+    const cleanupStep = workflowSource.slice(
+      workflowSource.indexOf('- name: Clean up release credentials')
+    );
+
+    expect(cleanupStep).toContain('if: always()');
+    expect(cleanupStep).toContain(
+      'apps/mobile-storefront/android/sentry.properties'
+    );
+  });
+
   it('composes the generated iOS Sentry and fixed PostHog wrappers', () => {
     const project = readFileSync(
       path.resolve(__dirname, '../../ios/Ogabassey.xcodeproj/project.pbxproj'),

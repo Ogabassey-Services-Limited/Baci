@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { fetchSentryRemediationCandidates } from './sentry-error-events.mjs';
 
 const environment = {
-  SENTRY_AUTH_TOKEN: 'token',
+  SENTRY_REMEDIATION_AUTH_TOKEN: 'token',
   SENTRY_ORG: 'ogabassey',
   SENTRY_PROJECT: 'storefront',
 };
@@ -45,7 +45,7 @@ describe('Sentry remediation candidates', () => {
   it('fails closed when credentials are incomplete', async () => {
     await assert.rejects(
       fetchSentryRemediationCandidates({ env: {} }),
-      /SENTRY_AUTH_TOKEN/
+      /SENTRY_REMEDIATION_AUTH_TOKEN/
     );
   });
 
@@ -103,6 +103,51 @@ describe('Sentry remediation candidates', () => {
         fetchFn: async () => new Response('secret body', { status: 503 }),
       }),
       /HTTP 503/
+    );
+  });
+
+  it('explores later issue pages before applying the repeat threshold', async () => {
+    const requestedUrls = [];
+    const candidates = await fetchSentryRemediationCandidates({
+      env: environment,
+      fetchFn: (url) => {
+        requestedUrls.push(String(url));
+        if (requestedUrls.length === 1) {
+          return new Response(
+            JSON.stringify([{ id: 'new-one-off', count: '1' }]),
+            {
+              headers: {
+                Link: `<${String(url)}&cursor=next>; rel="next"; results="true"; cursor="next"`,
+              },
+            }
+          );
+        }
+        return new Response(
+          JSON.stringify([
+            { id: 'older-repeated-anr', count: '8', title: 'ANR' },
+          ]),
+          {
+            headers: {
+              Link: `<${String(url)}>; rel="next"; results="false"; cursor="done"`,
+            },
+          }
+        );
+      },
+    });
+
+    assert.equal(requestedUrls.length, 2);
+    assert.match(requestedUrls[1], /cursor=next/);
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].occurrences, 8);
+  });
+
+  it('identifies the required read scope without exposing response bodies', async () => {
+    await assert.rejects(
+      fetchSentryRemediationCandidates({
+        env: environment,
+        fetchFn: async () => new Response('provider-secret', { status: 403 }),
+      }),
+      /HTTP 403; SENTRY_REMEDIATION_AUTH_TOKEN requires event:read/
     );
   });
 });

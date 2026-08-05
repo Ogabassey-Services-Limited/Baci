@@ -59,8 +59,12 @@ describe('remediation git workflow', () => {
         BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
         GH_TOKEN: 'git-provider-token',
         GIT_SSH_COMMAND: 'ssh -i /run/secrets/deploy-key',
+        GIT_AUTHOR_EMAIL: 'remediator@example.com',
+        GIT_AUTHOR_NAME: 'Baci Remediator',
+        GIT_COMMITTER_EMAIL: 'remediator@example.com',
+        GIT_COMMITTER_NAME: 'Baci Remediator',
         SSH_AUTH_SOCK: '/run/agent.sock',
-        SENTRY_AUTH_TOKEN: 'must-not-reach-child-processes',
+        SENTRY_REMEDIATION_AUTH_TOKEN: 'must-not-reach-child-processes',
       },
       prompt: 'Fix this production error.',
       runner,
@@ -84,13 +88,15 @@ describe('remediation git workflow', () => {
     );
     assert.equal(
       environments.some(
-        ({ command, env }) => command === 'codex' && 'SENTRY_AUTH_TOKEN' in env
+        ({ command, env }) =>
+          command === 'codex' && 'SENTRY_REMEDIATION_AUTH_TOKEN' in env
       ),
       false
     );
     assert.equal(
       environments.some(
-        ({ command, env }) => command === 'git' && 'SENTRY_AUTH_TOKEN' in env
+        ({ command, env }) =>
+          command === 'git' && 'SENTRY_REMEDIATION_AUTH_TOKEN' in env
       ),
       false
     );
@@ -105,6 +111,20 @@ describe('remediation git workflow', () => {
       'ssh -i /run/secrets/deploy-key'
     );
     assert.equal(fetchEnvironment.env.SSH_AUTH_SOCK, '/run/agent.sock');
+    const commitEnvironment = environments.find(
+      ({ args, command }) => command === 'git' && args.includes('commit')
+    );
+    assert.ok(commitEnvironment);
+    assert.equal(commitEnvironment.env.GIT_AUTHOR_NAME, 'Baci Remediator');
+    assert.equal(
+      commitEnvironment.env.GIT_AUTHOR_EMAIL,
+      'remediator@example.com'
+    );
+    assert.equal(commitEnvironment.env.GIT_COMMITTER_NAME, 'Baci Remediator');
+    assert.equal(
+      commitEnvironment.env.GIT_COMMITTER_EMAIL,
+      'remediator@example.com'
+    );
     const pushEnvironment = environments.find(
       ({ args, command }) => command === 'git' && args.includes('push')
     );
@@ -141,7 +161,11 @@ describe('remediation git workflow', () => {
           command === 'codex' &&
           ('GH_TOKEN' in env ||
             'GIT_SSH_COMMAND' in env ||
-            'SSH_AUTH_SOCK' in env)
+            'SSH_AUTH_SOCK' in env ||
+            'GIT_AUTHOR_NAME' in env ||
+            'GIT_AUTHOR_EMAIL' in env ||
+            'GIT_COMMITTER_NAME' in env ||
+            'GIT_COMMITTER_EMAIL' in env)
       ),
       false
     );

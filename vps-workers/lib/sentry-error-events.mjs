@@ -8,6 +8,29 @@ const positiveInteger = (value, fallback) => {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const nextPageFromLink = (linkHeader, currentUrl) => {
+  if (!linkHeader) return null;
+
+  for (const part of linkHeader.split(',')) {
+    if (!/\brel="?next"?/i.test(part) || !/\bresults="?true"?/i.test(part)) {
+      continue;
+    }
+    const match = part.match(/<([^>]+)>/);
+    if (!match) continue;
+
+    const nextUrl = new URL(match[1], currentUrl);
+    if (
+      nextUrl.origin !== currentUrl.origin ||
+      nextUrl.pathname !== currentUrl.pathname
+    ) {
+      throw new Error('Sentry pagination returned an unsafe next-page URL');
+    }
+    return nextUrl;
+  }
+
+  return null;
+};
+
 const classifyIssueTitle = (value) => {
   const title = boundedString(value, 1_000);
   if (/application not responding|\banr\b/i.test(title)) {
@@ -31,12 +54,12 @@ export async function fetchSentryRemediationCandidates({
   env = process.env,
   fetchFn = fetch,
 } = {}) {
-  const token = boundedString(env.SENTRY_AUTH_TOKEN, 2_000);
+  const token = boundedString(env.SENTRY_REMEDIATION_AUTH_TOKEN, 2_000);
   const organization = boundedString(env.SENTRY_ORG, 120);
   const project = boundedString(env.SENTRY_PROJECT, 120);
   if (!token || !organization || !project) {
     throw new Error(
-      'SENTRY_AUTH_TOKEN, SENTRY_ORG, and SENTRY_PROJECT are required'
+      'SENTRY_REMEDIATION_AUTH_TOKEN (with event:read), SENTRY_ORG, and SENTRY_PROJECT are required'
     );
   }
 
@@ -45,25 +68,48 @@ export async function fetchSentryRemediationCandidates({
     `/api/0/projects/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/issues/`,
     baseUrl
   );
-  endpoint.searchParams.set('limit', '50');
+  endpoint.searchParams.set('limit', '100');
   endpoint.searchParams.set('query', 'is:unresolved');
   endpoint.searchParams.set('sort', 'date');
 
-  const response = await fetchFn(endpoint, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Sentry issues request failed with HTTP ${response.status}`
-    );
+  const maximumPages = Math.min(
+    positiveInteger(env.BACI_SENTRY_REMEDIATION_MAX_PAGES, 10),
+    50
+  );
+  const issues = [];
+  let pageUrl = endpoint;
+  for (let page = 0; page < maximumPages; page += 1) {
+    const response = await fetchFn(pageUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      const scopeHint =
+        response.status === 401 || response.status === 403
+          ? '; SENTRY_REMEDIATION_AUTH_TOKEN requires event:read'
+          : '';
+      throw new Error(
+        `Sentry issues request failed with HTTP ${response.status}${scopeHint}`
+      );
+    }
+
+    const pageIssues = await response.json();
+    if (!Array.isArray(pageIssues)) {
+      throw new Error('Sentry issues response was not an array');
+    }
+    issues.push(...pageIssues);
+
+    const nextPage = nextPageFromLink(response.headers.get('link'), pageUrl);
+    if (!nextPage) return selectCandidates(issues, env);
+    pageUrl = nextPage;
   }
 
-  const issues = await response.json();
-  if (!Array.isArray(issues)) {
-    throw new Error('Sentry issues response was not an array');
-  }
+  throw new Error(
+    `Sentry issue pagination exceeded ${maximumPages} pages; raise BACI_SENTRY_REMEDIATION_MAX_PAGES to avoid a measurement gap`
+  );
+}
 
+const selectCandidates = (issues, env) => {
   const minimum = positiveInteger(env.BACI_REMEDIATION_MIN_OCCURRENCES, 2);
   return issues.flatMap((issue) => {
     const id = boundedString(issue?.id, 120);
@@ -91,4 +137,4 @@ export async function fetchSentryRemediationCandidates({
       },
     ];
   });
-}
+};

@@ -16,7 +16,7 @@ describe('Sentry mobile error remediator', () => {
     const directory = mkdtempSync(join(tmpdir(), 'sentry-remediator-'));
     const env = {
       BACI_SENTRY_REMEDIATION_OUTPUT_DIR: directory,
-      SENTRY_AUTH_TOKEN: 'token',
+      SENTRY_REMEDIATION_AUTH_TOKEN: 'token',
       SENTRY_ORG: 'ogabassey',
       SENTRY_PROJECT: 'storefront',
     };

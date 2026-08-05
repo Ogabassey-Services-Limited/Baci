@@ -112,7 +112,7 @@ PUPPETEER_SKIP_DOWNLOAD=1
 BACI_REMEDIATION_WORKTREE_ROOT=/opt/baci/remediation-worktrees
 BACI_REMEDIATION_VERIFY_COMMAND="pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test"
 BACI_REMEDIATION_NOTIFY_EMAILS=owner@example.com
-SENTRY_AUTH_TOKEN=...
+SENTRY_REMEDIATION_AUTH_TOKEN=...
 SENTRY_ORG=...
 SENTRY_PROJECT=...
 SENTRY_URL=https://sentry.io/
@@ -165,7 +165,8 @@ Variable purposes:
 - `BACI_REMEDIATION_WORKTREE_ROOT`: Directory where isolated remediation worktrees are created. Defaults beside `BACI_REPO_DIR`.
 - `BACI_REMEDIATION_VERIFY_COMMAND`: Shell command run before commit/push in autofix mode.
 - `BACI_REMEDIATION_NOTIFY_EMAILS`: Comma-separated report recipients. Requires `ZEPTOMAIL_TOKEN`; `ZEPTOMAIL_FROM_DOMAIN` defaults to `usebaci.com`.
-- `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_URL`: Server-only Sentry issue API configuration used by the mobile remediator. These values are deliberately removed from the Codex and test subprocess environments.
+- `SENTRY_REMEDIATION_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_URL`: Server-only Sentry issue API configuration used by the mobile remediator. Use a dedicated token with `event:read`; release/source-map upload credentials are not sufficient. These values are deliberately removed from the Codex and test subprocess environments.
+- `BACI_SENTRY_REMEDIATION_MAX_PAGES`: Maximum Sentry issue pages inspected before failing closed. Each page requests Sentry's maximum 100 issues; default is `10` and the hard cap is `50`.
 - `VERCEL_LOG_DRAIN_SECRET`: Shared secret used to verify Vercel Drain HMAC signatures before appending log events.
 - `VERCEL_LOG_DRAIN_RECEIVER_PORT`: Local receiver port proxied by nginx. Default is `8787`.
 - `IMPORT_JOB_RETENTION_DAYS`: Days to keep terminal import job previews and migration CSVs before cleanup. Default is `30`.
