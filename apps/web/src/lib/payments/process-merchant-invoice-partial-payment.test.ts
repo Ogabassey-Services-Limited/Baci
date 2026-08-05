@@ -33,11 +33,7 @@ const partialCompletion = {
 
 function buildSupabaseMock(
   rpcResult: { data: unknown; error: unknown },
-  reviewError: unknown = null,
-  orderResult: { data: unknown; error: unknown } = {
-    data: { payment_status: 'cancelled' },
-    error: null,
-  }
+  reviewError: unknown = null
 ) {
   const reviewInsert = vi
     .fn()
@@ -45,15 +41,6 @@ function buildSupabaseMock(
   const from = vi.fn((table: string) => {
     if (table === 'reconciliation_review') {
       return { insert: reviewInsert };
-    }
-    if (table === 'orders') {
-      return {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            maybeSingle: vi.fn().mockResolvedValue(orderResult),
-          })),
-        })),
-      };
     }
     throw new Error(`Unexpected table ${table}`);
   });
@@ -182,50 +169,6 @@ describe('processMerchantInvoicePartialPayment', () => {
       })
     );
     expect(result).toMatchObject({ kind: 'review', status: 409 });
-  });
-
-  it('hands an already-paid exact-final retry to idempotent standard completion', async () => {
-    const db = buildSupabaseMock(
-      {
-        data: {
-          outcome: 'standard_completion',
-          reason: 'order_terminal',
-        },
-        error: null,
-      },
-      null,
-      { data: { payment_status: 'paid' }, error: null }
-    );
-
-    const result = await processMerchantInvoicePartialPayment({
-      ...baseArgs,
-      supabase: db.supabase,
-    });
-
-    expect(db.reviewInsert).not.toHaveBeenCalled();
-    expect(result).toEqual({ kind: 'none' });
-  });
-
-  it('fails closed when the terminal-order idempotency lookup fails', async () => {
-    const db = buildSupabaseMock(
-      {
-        data: {
-          outcome: 'standard_completion',
-          reason: 'order_terminal',
-        },
-        error: null,
-      },
-      null,
-      { data: null, error: { message: 'order lookup failed' } }
-    );
-
-    const result = await processMerchantInvoicePartialPayment({
-      ...baseArgs,
-      supabase: db.supabase,
-    });
-
-    expect(db.reviewInsert).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ kind: 'error', status: 500 });
   });
 
   it('fails closed when a terminal-order review cannot be filed', async () => {

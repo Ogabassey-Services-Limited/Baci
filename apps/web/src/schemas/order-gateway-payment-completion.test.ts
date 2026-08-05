@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { orderGatewayPaymentCompletionSchema } from '@/schemas/order-gateway-payment-completion';
 
 describe('orderGatewayPaymentCompletionSchema', () => {
+  it('accepts a locked merchant invoice balance-change conflict', () => {
+    expect(
+      orderGatewayPaymentCompletionSchema.safeParse({
+        error_code: 'MERCHANT_INVOICE_PARTIAL_BALANCE_CHANGED',
+        transaction_status: 'pending',
+      }).success
+    ).toBe(true);
+  });
+
   it('parses a successful fresh completion payload', () => {
     const result = orderGatewayPaymentCompletionSchema.safeParse({
       actor: 'webhook:BAC-REF',
