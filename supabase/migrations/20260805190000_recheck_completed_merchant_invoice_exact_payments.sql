@@ -24,6 +24,10 @@ DECLARE
   v_order_amount_paid numeric := 0;
   v_order_wallet_used numeric := 0;
   v_order_recorded_by uuid;
+  v_order_payment_status text;
+  v_order_shipping_status text;
+  v_order_cancelled_at timestamptz;
+  v_order_number text;
   v_completed_transaction_paid numeric := 0;
   v_completed_wallet_paid numeric := 0;
   v_savings_paid numeric := 0;
@@ -66,16 +70,44 @@ BEGIN
     COALESCE(o.total, 0),
     COALESCE(o.amount_paid, 0),
     COALESCE(o.wallet_amount_used, 0),
-    o.recorded_by_user_id
+    o.recorded_by_user_id,
+    o.payment_status,
+    o.shipping_status,
+    o.cancelled_at,
+    o.order_number
   INTO
     v_order_merchant_id,
     v_order_total,
     v_order_amount_paid,
     v_order_wallet_used,
-    v_order_recorded_by
+    v_order_recorded_by,
+    v_order_payment_status,
+    v_order_shipping_status,
+    v_order_cancelled_at,
+    v_order_number
   FROM public.orders AS o
   WHERE o.id = p_order_id
   FOR UPDATE;
+
+  IF v_order_cancelled_at IS NOT NULL
+    OR lower(COALESCE(v_order_shipping_status, '')) IN ('canceled', 'cancelled')
+    OR lower(COALESCE(v_order_payment_status, '')) IN ('canceled', 'cancelled') THEN
+    RETURN jsonb_build_object(
+      'actor', p_actor,
+      'already_completed', v_txn_status = 'completed',
+      'cancelled_at', v_order_cancelled_at,
+      'order_already_paid', false,
+      'order_cancelled', true,
+      'order_number', v_order_number,
+      'order_skipped_status', NULL,
+      'order_updated', false,
+      'payment_status', v_order_payment_status,
+      'previous_payment_status', v_order_payment_status,
+      'previous_shipping_status', v_order_shipping_status,
+      'shipping_status', v_order_shipping_status,
+      'transaction_status', v_txn_status
+    );
+  END IF;
 
   IF v_txn_status IN ('pending', 'completed')
     AND v_txn_metadata ->> 'merchant_invoice_partial_applied'

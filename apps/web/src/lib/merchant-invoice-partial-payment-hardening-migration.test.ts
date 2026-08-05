@@ -93,6 +93,24 @@ describe('merchant invoice partial payment hardening migration', () => {
     );
   });
 
+  it('stops both canceled spellings under the lock before exact completion', () => {
+    const terminalGuardIndex = completedTransactionRepairMigration.indexOf(
+      "IN ('canceled', 'cancelled')"
+    );
+    const completionIndex = completedTransactionRepairMigration.indexOf(
+      'complete_order_gateway_payment_v1(',
+      terminalGuardIndex
+    );
+
+    expect(completedTransactionRepairMigration).toContain('o.shipping_status');
+    expect(completedTransactionRepairMigration).toContain('o.cancelled_at');
+    expect(terminalGuardIndex).toBeGreaterThan(-1);
+    expect(completedTransactionRepairMigration).toContain(
+      "'order_cancelled', true"
+    );
+    expect(completionIndex).toBeGreaterThan(terminalGuardIndex);
+  });
+
   it('keeps implementation functions private and wrappers service-only', () => {
     expect(migration).toMatch(
       /REVOKE ALL ON FUNCTION public\.complete_merchant_invoice_partial_payment_v1\([\s\S]*FROM PUBLIC, anon, authenticated, service_role;/
