@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import YAML from 'yaml';
+
 import { verifyCurrentMainDeployment } from './current-main-deploy-guard.mjs';
 
 const expectedSha = 'a'.repeat(40);
+const currentSha = 'b'.repeat(40);
 
 function response(body, { ok = true, status = 200 } = {}) {
   return {
@@ -14,6 +17,25 @@ function response(body, { ok = true, status = 200 } = {}) {
       return body;
     },
   };
+}
+
+async function verifySupersededFile(filename) {
+  let call = 0;
+  return verifyCurrentMainDeployment({
+    expectedSha,
+    fetchImpl: async () => {
+      call += 1;
+      if (call === 1) return response({ object: { sha: currentSha } });
+      return response({
+        files: [{ filename }],
+        merge_base_commit: { sha: expectedSha },
+        status: 'ahead',
+        total_commits: 1,
+      });
+    },
+    repository: 'ogabasseyy/Baci',
+    token: 'test-token',
+  });
 }
 
 test('accepts only when the deployment SHA is the current main ref', async () => {
@@ -37,15 +59,88 @@ test('accepts only when the deployment SHA is the current main ref', async () =>
 });
 
 test('rejects a superseded deployment SHA', async () => {
+  let call = 0;
   await assert.rejects(
     verifyCurrentMainDeployment({
       expectedSha,
-      fetchImpl: async () => response({ object: { sha: 'b'.repeat(40) } }),
+      fetchImpl: async () => {
+        call += 1;
+        if (call === 1) return response({ object: { sha: currentSha } });
+        return response({
+          files: [{ filename: 'apps/web/src/app/page.tsx' }],
+          merge_base_commit: { sha: expectedSha },
+          status: 'ahead',
+          total_commits: 1,
+        });
+      },
       repository: 'ogabasseyy/Baci',
       token: 'test-token',
     }),
     /superseded deployment SHA/
   );
+});
+
+test('accepts an ancestor when only non-web paths supersede it', async () => {
+  const urls = [];
+  const result = await verifyCurrentMainDeployment({
+    expectedSha,
+    fetchImpl: async (url) => {
+      urls.push(url);
+      if (urls.length === 1) return response({ object: { sha: currentSha } });
+      return response({
+        files: [{ filename: 'docs/operations.md' }],
+        merge_base_commit: { sha: expectedSha },
+        status: 'ahead',
+        total_commits: 1,
+      });
+    },
+    repository: 'ogabasseyy/Baci',
+    token: 'test-token',
+  });
+
+  assert.deepEqual(result, { currentSha, expectedSha });
+  assert.match(
+    urls[1],
+    new RegExp(`/compare/${expectedSha}\\.\\.\\.${currentSha}`)
+  );
+});
+
+test('fails closed when the superseding comparison is incomplete', async () => {
+  let call = 0;
+  await assert.rejects(
+    verifyCurrentMainDeployment({
+      expectedSha,
+      fetchImpl: async () => {
+        call += 1;
+        if (call === 1) return response({ object: { sha: currentSha } });
+        return response({
+          files: [],
+          merge_base_commit: { sha: expectedSha },
+          status: 'ahead',
+          total_commits: 101,
+        });
+      },
+      repository: 'ogabasseyy/Baci',
+      token: 'test-token',
+    }),
+    /incomplete or non-ancestral superseding comparison/
+  );
+});
+
+test('rejects every web path declared by the deploy filter', async () => {
+  const filters = YAML.parse(
+    readFileSync(new URL('../filters/deploy.yml', import.meta.url), 'utf8')
+  );
+  for (const pattern of filters.web) {
+    const representative = pattern
+      .replaceAll('**', 'nested/example.js')
+      .replaceAll('*', 'example');
+    await assert.rejects(
+      verifySupersededFile(representative),
+      /superseded deployment SHA/,
+      pattern
+    );
+  }
 });
 
 test('fails closed on malformed identity and GitHub API responses', async () => {
@@ -65,7 +160,7 @@ test('fails closed on malformed identity and GitHub API responses', async () => 
       repository: 'ogabasseyy/Baci',
       token: 'test-token',
     }),
-    /GitHub main-ref lookup failed with status 503/
+    /GitHub lookup failed with status 503/
   );
   await assert.rejects(
     verifyCurrentMainDeployment({
@@ -97,6 +192,11 @@ test('production deploy is staged and binds the exact-main guard', () => {
     '- name: Verify exact-main deployment authority before build'
   );
   assert.ok(prebuildGuard > 0, 'missing prebuild exact-main guard');
+  const nodeSetup = deployJob.indexOf(
+    '- name: Setup Node.js for deployment authority guard'
+  );
+  assert.ok(nodeSetup > 0, 'missing Node setup for exact-main guard');
+  assert.ok(nodeSetup < prebuildGuard, 'Node must be set up before the guard');
   assert.ok(
     prebuildGuard <
       deployJob.indexOf('- uses: ./.github/actions/pnpm-install-cached'),

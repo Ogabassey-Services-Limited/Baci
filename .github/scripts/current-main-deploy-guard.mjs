@@ -3,6 +3,42 @@ import { fileURLToPath } from 'node:url';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const ROOT_WEB_FILES = new Set([
+  '.npmrc',
+  'biome.json',
+  'next.config.test.ts',
+  'next.config.ts',
+  'package.json',
+  'pnpm-lock.yaml',
+  'pnpm-workspace.yaml',
+  'turbo.json',
+]);
+const WEB_PREFIXES = [
+  '.github/actions/pnpm-install-cached/',
+  'apps/web/',
+  'infra/cwv-runner/',
+  'packages/shared/',
+  'public/badges/',
+];
+const WEB_WORKFLOW_FILES = new Set([
+  '.github/filters/deploy.yml',
+  '.github/scripts/blog-smoke-check.mjs',
+  '.github/scripts/cloudflare-purge-cache.mjs',
+  '.github/scripts/current-main-deploy-guard.mjs',
+  '.github/scripts/deploy-with-retry.sh',
+  '.github/scripts/inject-prebuilt-env-secret.mjs',
+  '.github/scripts/merge-static-union.sh',
+  '.github/scripts/merge-static-union.test.sh',
+  '.github/scripts/pnpm-install-with-retry.sh',
+  '.github/scripts/run-pinned-vercel.sh',
+  '.github/scripts/storefront-release-coherence.mjs',
+  '.github/scripts/storefront-release-config.mjs',
+  '.github/scripts/storefront-release-marker.mjs',
+  '.github/scripts/storefront-sitemap-purge.mjs',
+  '.github/scripts/sync-cloudflare-vercel-production-env.sh',
+  '.github/scripts/sync-cloudflare-vercel-production-env.test.mjs',
+  '.github/workflows/deploy.yml',
+]);
 
 function required(value, label) {
   if (typeof value !== 'string' || value.length === 0) {
@@ -17,6 +53,65 @@ function safeApiUrl(value) {
     throw new Error('invalid GitHub API URL');
   }
   return url.href.replace(/\/$/, '');
+}
+
+function isWebDeployPath(path) {
+  return (
+    ROOT_WEB_FILES.has(path) ||
+    WEB_WORKFLOW_FILES.has(path) ||
+    /^tsconfig[^/]*\.json$/.test(path) ||
+    WEB_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
+}
+
+async function githubJson(fetchImpl, url, token) {
+  const response = await fetchImpl(url, {
+    headers: {
+      accept: 'application/vnd.github+json',
+      authorization: `Bearer ${token}`,
+      'user-agent': 'baci-current-main-deploy-guard',
+      'x-github-api-version': '2022-11-28',
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub lookup failed with status ${response.status}`);
+  }
+  return response.json();
+}
+
+async function supersedingChangesAreNonWeb({
+  apiRoot,
+  currentSha,
+  expectedSha,
+  fetchImpl,
+  repository,
+  token,
+}) {
+  const comparison = await githubJson(
+    fetchImpl,
+    `${apiRoot}/repos/${repository}/compare/${expectedSha}...${currentSha}?per_page=100&page=1`,
+    token
+  );
+  if (
+    comparison?.status !== 'ahead' ||
+    comparison?.merge_base_commit?.sha?.toLowerCase() !==
+      expectedSha.toLowerCase() ||
+    !Number.isSafeInteger(comparison?.total_commits) ||
+    comparison.total_commits < 1 ||
+    comparison.total_commits > 100 ||
+    !Array.isArray(comparison?.files) ||
+    comparison.files.length >= 300
+  ) {
+    throw new Error('incomplete or non-ancestral superseding comparison');
+  }
+  for (const file of comparison.files) {
+    const paths = [file?.filename, file?.previous_filename].filter(Boolean);
+    if (paths.length === 0 || paths.some((path) => isWebDeployPath(path))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export async function verifyCurrentMainDeployment({
@@ -37,33 +132,30 @@ export async function verifyCurrentMainDeployment({
     throw new Error('fetch is unavailable');
   }
 
-  const response = await fetchImpl(
-    `${safeApiUrl(apiUrl)}/repos/${repository}/git/ref/heads/main`,
-    {
-      headers: {
-        accept: 'application/vnd.github+json',
-        authorization: `Bearer ${token}`,
-        'user-agent': 'baci-current-main-deploy-guard',
-        'x-github-api-version': '2022-11-28',
-      },
-      signal: AbortSignal.timeout(15_000),
-    }
+  const apiRoot = safeApiUrl(apiUrl);
+  const body = await githubJson(
+    fetchImpl,
+    `${apiRoot}/repos/${repository}/git/ref/heads/main`,
+    token
   );
-  if (!response.ok) {
-    throw new Error(
-      `GitHub main-ref lookup failed with status ${response.status}`
-    );
-  }
-
-  const body = await response.json();
   const currentSha = body?.object?.sha;
   if (typeof currentSha !== 'string' || !SHA_PATTERN.test(currentSha)) {
     throw new Error('invalid current main SHA');
   }
   if (currentSha.toLowerCase() !== expectedSha.toLowerCase()) {
-    throw new Error(
-      `superseded deployment SHA ${expectedSha}; current main is ${currentSha}`
-    );
+    const nonWebOnly = await supersedingChangesAreNonWeb({
+      apiRoot,
+      currentSha,
+      expectedSha,
+      fetchImpl,
+      repository,
+      token,
+    });
+    if (!nonWebOnly) {
+      throw new Error(
+        `superseded deployment SHA ${expectedSha}; current main is ${currentSha}`
+      );
+    }
   }
 
   return { currentSha, expectedSha };

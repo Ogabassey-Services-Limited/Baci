@@ -291,6 +291,8 @@ jobs:
         run: >-
           pnpm --dir vps-workers test &&
           node --test
+          .github/scripts/current-main-deploy-guard.test.mjs
+          .github/scripts/deploy-with-retry-current-main.test.mjs
           .github/scripts/deploy-with-retry.test.mjs
           .github/scripts/run-pinned-vercel.test.mjs
           .github/scripts/inject-prebuilt-env-secret.jwk.test.mjs
