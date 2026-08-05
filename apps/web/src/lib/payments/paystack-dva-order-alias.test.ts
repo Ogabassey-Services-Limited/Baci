@@ -111,6 +111,20 @@ describe('paystack DVA order alias helpers', () => {
     ).toBe(false);
   });
 
+  it('treats a canceled partially-paid alias as inactive inside the window', () => {
+    expect(
+      isActiveOrderDvaAlias(
+        orderAliasRow({
+          orders: {
+            payment_status: 'partially_paid',
+            shipping_status: 'canceled',
+          },
+        }),
+        new Date('2026-05-22T11:30:00.000Z')
+      )
+    ).toBe(false);
+  });
+
   it('ignores a cancelled order alias when scanning Supabase rows', async () => {
     const cancelledSupabase = createSupabaseResult({
       data: [

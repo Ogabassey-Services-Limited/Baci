@@ -215,6 +215,23 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
     }
   });
 
+  it('does not auto-allocate a late underpayment to a stale merchant invoice', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          merchant_created: true,
+          outstanding_amount_kobo: 83_500_000,
+        }),
+      ],
+      ctx({
+        paidAt: new Date('2026-05-09T12:53:00Z'),
+        verifiedAmountKobo: 30_000_000,
+      })
+    );
+
+    expect(result.kind).toBe('none');
+  });
+
   it('uses the unique late-match fallback when account_expires_at is beyond the grace window', () => {
     const c = candidate({
       account_expires_at: new Date('2026-05-09T13:00:00Z'),

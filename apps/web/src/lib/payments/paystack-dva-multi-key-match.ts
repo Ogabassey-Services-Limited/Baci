@@ -124,10 +124,6 @@ export function matchPaystackDvaCandidates(
     return resultFor(partialInWindow, 'partial', 'in_window');
   }
 
-  if (partialMatches.length > 0) {
-    return resultFor(partialMatches, 'partial', 'late');
-  }
-
   return { kind: 'none' };
 }
 

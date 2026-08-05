@@ -30,7 +30,8 @@ export function isActiveOrderDvaAlias(
   // A cancelled order's alias is never active, even if its payment_status is
   // still 'unpaid' and it is inside the 90-minute window. Otherwise a lingering
   // alias on a cancelled order would block wallet DVA top-up reconciliation.
-  if (getOrderShippingStatus(row) === 'cancelled') {
+  const shippingStatus = getOrderShippingStatus(row);
+  if (shippingStatus === 'cancelled' || shippingStatus === 'canceled') {
     return false;
   }
 
