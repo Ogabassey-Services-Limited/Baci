@@ -92,4 +92,14 @@ test('production deploy is staged and binds the exact-main guard', () => {
     workflow,
     /deploy --yes --prebuilt --prod --skip-domain --archive=tgz/
   );
+  const deployJob = workflow.slice(workflow.indexOf('  deploy-production:'));
+  const prebuildGuard = deployJob.indexOf(
+    '- name: Verify exact-main deployment authority before build'
+  );
+  assert.ok(prebuildGuard > 0, 'missing prebuild exact-main guard');
+  assert.ok(
+    prebuildGuard <
+      deployJob.indexOf('- uses: ./.github/actions/pnpm-install-cached'),
+    'exact-main guard must run before dependency installation and build'
+  );
 });

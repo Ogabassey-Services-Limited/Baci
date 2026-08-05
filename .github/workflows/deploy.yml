@@ -168,6 +168,10 @@ jobs:
       - name: Pre-run cleanup of stale secrets
         run: |
           rm -rf .vercel
+      - name: Verify exact-main deployment authority before build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: .github/scripts/current-main-deploy-guard.mjs
       - uses: ./.github/actions/pnpm-install-cached
       # Pin Vercel CLI + allow esbuild postinstall in an isolated runner-temp
       # package so pnpm 10's strict ERR_PNPM_IGNORED_BUILDS does not block
