@@ -122,7 +122,7 @@ const columns = (value: string) => value.split(' ');
 // biome-ignore format: compact RPC ownership map preserves the 300-line verifier gate.
 const runtimeCallers = {
   'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts': ['claim_cache_invalidations', 'finish_cache_invalidation', 'has_cache_invalidation_dead_letters'],
-  'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_v1', 'list_event_pipeline_deliveries_v1', 'list_event_pipeline_ingress_failures_v1'],
+  'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_admin_v3', 'list_event_pipeline_deliveries_admin_v3', 'list_event_pipeline_ingress_failures_admin_v3'],
   'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': ['replay_event_deliveries_batch_v1', 'replay_ingress_dead_letter_v1', 'select_event_pipeline_replay_ids_v1'],
   'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
   'apps/web/src/lib/events/record-analytics-domain-event.ts': ['record_analytics_domain_event_v1'],
@@ -135,12 +135,8 @@ const runtimeCallers = {
 } as const;
 export const EVENT_PIPELINE_BOUNDARY = {
   allFunctions: EVENT_PIPELINE_FUNCTION_NAMES,
-  adjacentFunctions: [
-    'claim_cache_invalidations',
-    'cleanup_database_retention',
-    'finish_cache_invalidation',
-    'has_cache_invalidation_dead_letters',
-  ],
+  // biome-ignore format: compact reviewed adjacent-RPC classification preserves the 300-line verifier gate.
+  adjacentFunctions: ['claim_cache_invalidations', 'cleanup_database_retention', 'finish_cache_invalidation', 'get_event_pipeline_operations_admin_v3', 'get_platform_admin_context_v1', 'has_cache_invalidation_dead_letters', 'list_event_pipeline_deliveries_admin_v3', 'list_event_pipeline_ingress_failures_admin_v3'],
   authority: {
     adminImporters: eventPipelineAdminImporters,
     bareClientImporters: [

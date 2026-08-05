@@ -16,55 +16,14 @@ const defaultLedgers: CredentialReaderLedgers = {
       '13e10a25092e1a53c8f091b3576e804f6e1268f55d63393d2a2231ddc46cc5bc',
   },
   // These are pre-existing factory, worker, or route readers. They are not part
-  // of the temporary three-edge Task 6 analytics exception. Tracked operational
-  // scripts and MCP utilities are recorded here too, as pre-existing authority.
+  // of the temporary three-edge Task 6 analytics exception.
   preExistingReaderHashes: {
     'apps/web/mcp-server/migrate_images.ts':
       'bd69a87ccb7c68ecef2a49eaaf059465cef2b0a5de45a2dab9bc988381615bd7',
     'apps/web/mcp-server/server.ts':
       'b616e48f8a83fd45ae7d12337398a2755d04b4abe929276ac3df2ebfb16b76fe',
-    'apps/web/scripts-tmp/bulk-fix-macbooks.ts':
-      'b68336dba5c2cb670b48599657f635870aa75786d243fe65568c080ddf82372d',
-    'apps/web/scripts-tmp/check-blog-images.ts':
-      '1fb9446df0f9bdac7c56423ec18b10c0dbaf0c3990aefa26762b944f43146dc5',
-    'apps/web/scripts-tmp/check-cdn-access.ts':
-      'a2d1896f28a50ba065b33f2b0666116f77bfd46a8b5f15110446550bfc29b647',
-    'apps/web/scripts-tmp/check-macbooks.ts':
-      '84399ebbe739c46d603fea9e141f1ca57e828271c446513985af20e2a358b6ca',
-    'apps/web/scripts-tmp/cleanup-and-research.ts':
-      '1a977ce5fcb75dcdfca88a7a7001717bfcca1171172275688f5277b812ae5fe3',
-    'apps/web/scripts-tmp/fix-macbook-image.ts':
-      '3ec4f17fdc221b1014d611c74dee1249a45cb8b75480c5dd21bf5eb16dffbb05',
-    'apps/web/scripts-tmp/list-missing-parents.ts':
-      '00c181f224df20546ce0bc2237941c5f93f5a5553c33e2536f7389b7fce23b31',
-    'apps/web/scripts-tmp/list-remaining-parents.ts':
-      'e4907b2c49facff84cce3e84f24e1e226c8d4a010e3603cc0028d87071d60e9c',
-    'apps/web/scripts-tmp/rename-overwatch.ts':
-      '59df1361ab27c749d07870397f2b371a2545f44f2afff792ec351160ff4b07cf',
-    'apps/web/scripts-tmp/set-ogabassey-favicon.ts':
-      'ac43f9ca8a769aaa326611369fc65483abcf549fe08b5c4b2cf8383b1e08485e',
-    'apps/web/scripts-tmp/smart-fix-blog-images.ts':
-      'a3dc962c3c49f29718be13c72d1268a62081e9dbcaea686d64761d861decb5e0',
-    'apps/web/scripts-tmp/sync-gaming-variants.ts':
-      '12718e1eeb83c1cfa237341c1a52bdabf0258e3d93822c84995ab09ce814ebcb',
-    'apps/web/scripts-tmp/update-blog-image.ts':
-      'f7218389f78d41b9075e6594419fb218b0a5beaafc29f7aec5d92f266a7014f7',
-    'apps/web/scripts-tmp/update-cdn-urls.ts':
-      '734059ab6295a9ad5585e157755df1276b968fb06834c84c2b76520c1a3eead1',
-    'apps/web/scripts-tmp/update-phase1-parents.ts':
-      '653955c1048c50365045426adbfe2f4b28b03fcae479aadf045f139986e009a6',
-    'apps/web/scripts-tmp/update-phase2-parents.ts':
-      'e834e6d5aedb0b5e8c76784c26cf6a08f259d536c893476e7e55c617159fbc24',
-    'apps/web/scripts-tmp/upload-batch-a-part2.ts':
-      '93663105b1118b011ec9c4dd16d86629c2cbc0f7898a64cf810a6f228d6eac3f',
-    'apps/web/scripts-tmp/upload-batch-a.ts':
-      '50ea52ec3d47b6c8afb6cf36c2273bbd6c203bc2f9d3af60f00c96c94768560f',
-    'apps/web/scripts-tmp/upload-game-covers.ts':
-      '5a05fb0b5bcfb445c8527cce70d02912fb050db2fb98604d91c2d43b9c566377',
     'apps/web/src/app/api/ai-jobs/worker/route.ts':
       '3cd51c9f0c4aeba362afd3d37e1a4b2d29107bedb6bdf2f75c9860cdc28fa42a',
-    'apps/web/src/app/api/platform/analytics-config/route.ts':
-      '28a184d0112fcb9d27e9f451252dfddcad8d893a3efe5eb1502e21c95b1587a7',
     'apps/web/src/app/api/shipping/self-fulfill/route.ts':
       'cb7a3220da0b16017bd9d56c5d1aeeb87438088a0603e03f88bd10958b0209da',
     'apps/web/src/app/api/shipping/webhooks/[provider]/route.ts':
@@ -85,24 +44,6 @@ const defaultLedgers: CredentialReaderLedgers = {
       'fd260d7c9e8fa080ed938d659e009402554bbcf2915ad26823daa97b3d0f9595',
     'vps-workers/jobs/sync-gigl-service-centres.mjs':
       'f25ef9f60e7297033e1d8b42f71ceba82cee4fe42c7cbce1b201f5ff8f8e72e8',
-    'scripts-tmp/check-cdn-access.ts':
-      'a2d1896f28a50ba065b33f2b0666116f77bfd46a8b5f15110446550bfc29b647',
-    'scripts-tmp/list-missing-parents.ts':
-      '00c181f224df20546ce0bc2237941c5f93f5a5553c33e2536f7389b7fce23b31',
-    'scripts-tmp/list-remaining-parents.ts':
-      'e4907b2c49facff84cce3e84f24e1e226c8d4a010e3603cc0028d87071d60e9c',
-    'scripts-tmp/sync-gaming-variants.ts':
-      '12718e1eeb83c1cfa237341c1a52bdabf0258e3d93822c84995ab09ce814ebcb',
-    'scripts-tmp/update-cdn-urls.ts':
-      '734059ab6295a9ad5585e157755df1276b968fb06834c84c2b76520c1a3eead1',
-    'scripts-tmp/update-phase1-parents.ts':
-      '653955c1048c50365045426adbfe2f4b28b03fcae479aadf045f139986e009a6',
-    'scripts-tmp/update-phase2-parents.ts':
-      'e834e6d5aedb0b5e8c76784c26cf6a08f259d536c893476e7e55c617159fbc24',
-    'scripts-tmp/upload-game-covers.ts':
-      'c54726f6a965a6f318d36d6168e5528cd3722f5db30feff63492ba9d0a482738',
-    'scripts/backfill-feed-images.ts':
-      '20a87b3ad4b928ac65efc9d39b0b1ad3f8d1e944c56ac13dc6918baafe1195c6',
   },
   testSupportReaderHashes: {
     'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts':

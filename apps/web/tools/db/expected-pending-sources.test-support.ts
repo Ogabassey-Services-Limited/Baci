@@ -1,3 +1,4 @@
+import { ADMIN_PLATFORM_PENDING_SOURCES } from './expected-admin-platform-pending-sources.test-support';
 import { EXPECTED_CATALOG_CACHE_PENDING_SOURCES } from './expected-catalog-cache-pending-sources.test-support';
 import { EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES } from './expected-gigl-tracking-hardening-pending-sources.test-support';
 import { EXPECTED_GIGL_TRACKING_PENDING_SOURCES } from './expected-gigl-tracking-pending-sources.test-support';
@@ -226,6 +227,7 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_QUIZ_LIVE_PENDING_SOURCES,
   ...EXPECTED_MERCHANT_INVOICE_PENDING_SOURCES,
   ...EXPECTED_PAYSTACK_PENDING_SOURCES,
+  ...ADMIN_PLATFORM_PENDING_SOURCES,
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

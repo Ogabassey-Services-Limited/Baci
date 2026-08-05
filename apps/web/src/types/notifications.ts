@@ -15,6 +15,12 @@ export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type TargetType = 'all' | 'specific' | 'segment';
 export type NotificationChannel = 'in_app' | 'banner' | 'push';
 export type TargetSegment = 'new' | 'active' | 'at_risk';
+export type NotificationDeliveryState =
+  | 'pending'
+  | 'processing'
+  | 'sent'
+  | 'expired'
+  | 'failed';
 
 // ============================================================================
 // DATABASE MODELS
@@ -40,6 +46,9 @@ export interface Notification {
   expires_at: string | null;
   created_by: string;
   created_at: string;
+  delivery_attempts: number;
+  delivery_last_error: string | null;
+  delivery_state: NotificationDeliveryState;
   sent_at: string | null;
   is_system: boolean;
 }
@@ -173,29 +182,6 @@ export interface ActiveBanner {
 }
 
 // ============================================================================
-// REALTIME BROADCAST TYPES
-// ============================================================================
-
-/**
- * Payload sent via Supabase Broadcast when a new notification arrives
- */
-export interface NotificationBroadcastPayload {
-  event: 'new_notification';
-  merchant_notification_id: string;
-  notification: {
-    id: string;
-    title: string;
-    message: string;
-    notification_type: NotificationType;
-    priority: NotificationPriority;
-    channels: NotificationChannel[];
-    action_url: string | null;
-    action_label: string | null;
-  };
-  created_at: string;
-}
-
-// ============================================================================
 // COMPONENT PROPS TYPES
 // ============================================================================
 
@@ -207,7 +193,14 @@ export interface NotificationBroadcastPayload {
  * Filters for admin notification list
  */
 export interface AdminNotificationFilters {
-  status?: 'all' | 'sent' | 'scheduled' | 'draft';
+  status?:
+    | 'all'
+    | 'sent'
+    | 'scheduled'
+    | 'queued'
+    | 'processing'
+    | 'failed'
+    | 'expired';
   type?: NotificationType;
   priority?: NotificationPriority;
   date_from?: string;

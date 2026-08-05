@@ -15,7 +15,7 @@ const timeStringSchema = z
   .nullable();
 
 const preferencesSchema = z
-  .object({
+  .strictObject({
     in_app_enabled: z.boolean().optional(),
     banner_enabled: z.boolean().optional(),
     quiet_hours_start: timeStringSchema.optional(),
@@ -33,6 +33,14 @@ const preferencesSchema = z
       message: 'Both quiet hours start and end must be set together',
       path: ['quiet_hours_start'],
     }
+  )
+  .refine(
+    (data) =>
+      data.in_app_enabled !== undefined ||
+      data.banner_enabled !== undefined ||
+      data.quiet_hours_start !== undefined ||
+      data.quiet_hours_end !== undefined,
+    { message: 'At least one preference must be updated' }
   );
 
 /**
@@ -112,20 +120,11 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    // CSRF protection
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Authentication check
+    // Authenticate before evaluating CSRF so an unauthenticated request cannot
+    // distinguish CSRF policy details from a protected endpoint.
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -147,6 +146,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     // Parse request body
     const json = await request.json();
     const validation = preferencesSchema.safeParse(json);
@@ -155,7 +163,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request',
-          details: validation.error.flatten().fieldErrors,
+          details: z.flattenError(validation.error),
         },
         { status: 400 }
       );
@@ -181,7 +189,9 @@ export async function PATCH(request: NextRequest) {
     const { data: updated, error: updateError } = await supabase
       .from('notification_preferences')
       .upsert(updates, { onConflict: 'merchant_id' })
-      .select()
+      .select(
+        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, updated_at'
+      )
       .single();
 
     if (updateError) {

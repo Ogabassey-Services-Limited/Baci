@@ -1,7 +1,11 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { walletSettingsSchema } from '@/schemas/wallet';
 
@@ -30,68 +34,25 @@ export async function GET() {
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'analytics', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const merchantId = merchantContext.merchantId;
 
-    // Get or create wallet
-    const { error: walletCreateError } = await supabase.rpc(
-      'get_or_create_merchant_wallet',
-      {
-        p_merchant_id: merchantId,
-      }
-    );
-    if (walletCreateError) {
-      console.error('Failed to get or create wallet:', walletCreateError);
-      return NextResponse.json(
-        { error: 'Failed to initialize wallet' },
-        { status: 500 }
-      );
-    }
-
-    // Get wallet details with summary (includes upcoming settlements)
+    // Reading a wallet must not initialize one: an otherwise harmless GET was
+    // previously a staff-reachable write through a SECURITY DEFINER RPC.
     const { data: walletSummary, error: summaryError } = await supabase.rpc(
       'get_wallet_summary',
       { p_merchant_id: merchantId }
     );
 
-    // Fallback to basic wallet if function doesn't exist yet
     if (summaryError) {
-      const { data: wallet, error: walletError } = await supabase
-        .from('merchant_wallets')
-        .select(
-          'id, available_balance, pending_balance, upcoming_balance, upcoming_count, total_earned, total_withdrawn, auto_payout_enabled, auto_payout_day, min_payout_amount, last_payout_at, last_payout_amount'
-        )
-        .eq('merchant_id', merchantId)
-        .single();
-
-      if (walletError) {
-        console.error('Failed to get wallet:', walletError);
-        return NextResponse.json(
-          { error: 'Failed to get wallet' },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        wallet: {
-          id: wallet.id,
-          availableBalance: Number(wallet.available_balance),
-          pendingBalance: Number(wallet.pending_balance),
-          upcomingBalance: Number(wallet.upcoming_balance || 0),
-          upcomingCount: wallet.upcoming_count || 0,
-          totalEarned: Number(wallet.total_earned),
-          totalWithdrawn: Number(wallet.total_withdrawn),
-          autoPayoutEnabled: wallet.auto_payout_enabled,
-          autoPayoutDay: wallet.auto_payout_day,
-          minPayoutAmount: Number(wallet.min_payout_amount),
-          lastPayoutAt: wallet.last_payout_at,
-          lastPayoutAmount: wallet.last_payout_amount
-            ? Number(wallet.last_payout_amount)
-            : null,
-          canWithdraw: Number(wallet.available_balance) >= 1000,
-          nextSettlementDate: null,
-          nextSettlementAmount: null,
-        },
-      });
+      console.error('Failed to get wallet summary:', summaryError);
+      return NextResponse.json(
+        { error: 'Failed to get wallet summary' },
+        { status: 500 }
+      );
     }
 
     const summary = walletSummary?.[0];
@@ -172,15 +133,6 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    // CSRF protection - prevents cross-site request forgery attacks
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -192,6 +144,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // CSRF protection - prevents cross-site request forgery attacks
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     // Get merchant (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
@@ -201,6 +162,9 @@ export async function PATCH(request: NextRequest) {
       );
     }
     const merchantId = merchantContext.merchantId;
+    if (!merchantContext.staffAccess.isOwner) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     let body: unknown;
     try {

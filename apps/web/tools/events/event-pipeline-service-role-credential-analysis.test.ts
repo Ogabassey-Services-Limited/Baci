@@ -69,4 +69,19 @@ describe('serviceRoleCredentialAuthority', () => {
       })
     ).toEqual([]);
   });
+
+  it('does not retain credential-reader entries for retired scripts or the RLS analytics route', () => {
+    const paths = Object.keys(
+      serviceRoleCredentialAuthority.ledgers.preExistingReaderHashes
+    );
+
+    expect(paths).not.toEqual(
+      expect.arrayContaining([
+        'apps/web/scripts-tmp/check-cdn-access.ts',
+        'scripts-tmp/check-cdn-access.ts',
+        'scripts/backfill-feed-images.ts',
+        'apps/web/src/app/api/platform/analytics-config/route.ts',
+      ])
+    );
+  });
 });

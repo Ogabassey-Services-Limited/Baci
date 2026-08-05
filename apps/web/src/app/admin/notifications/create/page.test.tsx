@@ -30,8 +30,7 @@ describe('CreateNotificationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiPost.mockResolvedValue({
-      merchants_notified: 3,
-      status: 'sent',
+      status: 'queued',
     });
     vi.stubGlobal(
       'ResizeObserver',
@@ -50,7 +49,7 @@ describe('CreateNotificationPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
-        json: async () => ({ merchants_notified: 3, status: 'sent' }),
+        json: async () => ({ status: 'queued' }),
         ok: true,
       }) as unknown as typeof fetch
     );
@@ -69,7 +68,9 @@ describe('CreateNotificationPage', () => {
     fireEvent.change(screen.getByLabelText(/message/i), {
       target: { value: 'Baci will run maintenance tonight.' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /send now/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /queue for delivery/i })
+    );
 
     await waitFor(() => {
       expect(mockApiPost).toHaveBeenCalledWith('/api/admin/notifications', {
@@ -89,6 +90,10 @@ describe('CreateNotificationPage', () => {
       expect.objectContaining({ method: 'POST' })
     );
     expect(mockRouterPush).toHaveBeenCalledWith('/admin/notifications');
+    expect(mockToast).toHaveBeenCalledWith({
+      description: 'Notification has been queued for delivery',
+      title: 'Notification Queued',
+    });
   });
 
   it('shows an error toast and does not navigate when notification creation fails', async () => {
@@ -102,7 +107,9 @@ describe('CreateNotificationPage', () => {
     fireEvent.change(screen.getByLabelText(/message/i), {
       target: { value: 'Baci will run maintenance tonight.' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /send now/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /queue for delivery/i })
+    );
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
@@ -113,5 +120,70 @@ describe('CreateNotificationPage', () => {
     });
 
     expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  it('uses the shared schema to reject whitespace-only content', async () => {
+    render(<CreateNotificationPage />);
+
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: '   ' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'A valid message' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /queue for delivery/i })
+    );
+
+    expect(mockToast).toHaveBeenCalledWith({
+      description: 'Title is required',
+      title: 'Error',
+      variant: 'destructive',
+    });
+    expect(mockApiPost).not.toHaveBeenCalled();
+  });
+
+  it('converts scheduled datetime-local input to an explicit UTC timestamp', async () => {
+    render(<CreateNotificationPage />);
+
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: 'Maintenance window' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'Baci will run maintenance tonight.' },
+    });
+    fireEvent.click(screen.getByLabelText(/schedule for later/i));
+    fireEvent.change(screen.getByLabelText(/schedule date and time/i), {
+      target: { value: '2026-12-01T09:30' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /schedule notification/i })
+    );
+
+    await waitFor(() => {
+      const payload = mockApiPost.mock.calls[0]?.[1] as {
+        scheduled_for?: string;
+      };
+      expect(payload.scheduled_for).toBe(
+        new Date('2026-12-01T09:30').toISOString()
+      );
+    });
+  });
+
+  it('does not submit when an action label is clicked in the preview', () => {
+    render(<CreateNotificationPage />);
+
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: 'Maintenance window' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'Baci will run maintenance tonight.' },
+    });
+    fireEvent.change(screen.getByLabelText(/action label/i), {
+      target: { value: 'Learn more' },
+    });
+    fireEvent.click(screen.getByText('Learn more'));
+
+    expect(mockApiPost).not.toHaveBeenCalled();
   });
 });

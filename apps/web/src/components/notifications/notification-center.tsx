@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNotifications } from '@/hooks/use-notifications';
+import { notificationActionUrl } from '@/lib/notification-action-url';
 import { cn } from '@/lib/utils';
 import type {
   MerchantNotificationWithDetails,
@@ -68,9 +69,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     }
 
     // If there's an action URL, navigate to it
-    if (notification.notification?.action_url) {
-      window.open(notification.notification.action_url, '_blank');
-    }
+    notificationActionUrl.open(notification.notification?.action_url);
   };
 
   const handleMarkAllAsRead = async (e: React.MouseEvent) => {
@@ -160,6 +159,9 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
   const isUnread = !notification.read_at;
   const notificationType =
     notification.notification?.notification_type || 'info';
+  const actionUrl = notificationActionUrl.parse(
+    notification.notification?.action_url
+  );
 
   return (
     <button
@@ -211,7 +213,7 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
               })}
             </span>
 
-            {notification.notification?.action_url && (
+            {actionUrl && (
               <span className="text-xs text-primary flex items-center">
                 <ExternalLink className="size-3 mr-0.5" />
                 View

@@ -1,3 +1,5 @@
+import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
+
 // Raw frozen replay-source and production-mapping data for the Supabase
 // history-replay manifest, extracted from `supabase-history-replay-manifest.ts`
 // so that module stays under the 300-line modularity gate as PENDING_SOURCES
@@ -48,7 +50,7 @@ e8aab2aed87c3ae93090db6343ac125210d1fd90f80de1cff51772ef33b29750 20260718070005_
 // PayPal/Korapay BYOK migrations added by this branch land in PENDING (newest
 // batch, not yet attested to POST_REPLAY). They are version-earlier than the
 // existing 20260721 cancellation batch, so they sort ahead of it here.
-const PENDING_SOURCES = `e8398b0b10a5e9d199707bcceb5835f865bfce85dd4732e9bc46fc4e13d16d29 20260721093205_harden_paid_order_completion_and_side_effect_retries.sql
+const PENDING_SOURCES_BASE = `e8398b0b10a5e9d199707bcceb5835f865bfce85dd4732e9bc46fc4e13d16d29 20260721093205_harden_paid_order_completion_and_side_effect_retries.sql
 b36447107978f1612b0f158bbd3331f635bf8bd940ec0ff01545ecba765a753b 20260721093206_merchant_order_cancellation_audit.sql
 399dfc28247c2f3d3c720783eeb13c3376a1b207f7ea1095e66366e919f1e5ea 20260721093207_order_cancellation_side_effect_claims.sql
 46efbde5a4a1f241ad0bc829edac60ecbbee156187f5d4f7975f3b6aabb9693b 20260721140000_forward_harden_merchant_order_cancellation.sql
@@ -274,6 +276,12 @@ a812eecb51e63a390599169e922739244587c6eeb6a5bab6bd0e2ee3b8934ce2 20260813144355_
 646271ab9d7519e8260d547ffc74b850c4fc19ba76a9f4ca20014aa16e27a97e 20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql
 7ef50c43690f895f5778d48c9715b450a866a1fd72af23f2e34b702d33e09ca1 20260814230000_repair_quiz_materialized_final_rankings_v2.sql
 6992ec9ddf3e5432869385a2e0c4ca2aa7058319841d071330135d1cb25680f1 20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql`;
+
+const PENDING_SOURCES = [
+  PENDING_SOURCES_BASE,
+  ADMIN_PLATFORM_PENDING_SOURCES,
+].join('\n');
+
 const PRODUCTION_MAPPINGS = `20260623190041\t20260623190000_enable_realtime_negotiation_requests.sql\tbc2165173828d7a5c667e5a7415fb37b9ba7762aad2e12268b70eab6dcc94526\tcanonical
 20260624211416\t20260624200000_merchant_email_domains.sql\t120e16cb8768fdec2e36ce041dc5049e299594d271e1f900a4abd0ac3c775ad6\tcanonical
 20260625173604\t20260714010000_scope_feature_settings_read_policies.sql\t31091717a01f66c683c87e77a2f62245732df023b6dd61055855cf7ff78cff9f\tsuperseded-final-state
