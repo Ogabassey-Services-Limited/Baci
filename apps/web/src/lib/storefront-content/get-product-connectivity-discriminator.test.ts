@@ -101,4 +101,13 @@ describe('getProductConnectivityDiscriminators', () => {
 
     expect(discriminators).toEqual(['45mm']);
   });
+
+  it('retains a terminal PDP color as a variant discriminator', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPhone 15 Blue'],
+      []
+    );
+
+    expect(discriminators).toEqual(['blue']);
+  });
 });

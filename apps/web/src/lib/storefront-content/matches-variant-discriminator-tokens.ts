@@ -1,3 +1,4 @@
+import { isProductVariantColorToken } from './is-product-variant-color-token';
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
 const CONNECTIVITY_TOKENS = new Set([
@@ -20,19 +21,6 @@ const SIM_MODE_TOKENS = new Set([
 const STORAGE_TOKEN_PATTERN = /^\d+(?:gb|tb|mb)$/u;
 const DIMENSION_TOKEN_PATTERN = /^\d+(?:mm|inch)$/u;
 
-function matchesOrderedTokenSequence(tokens: string[], expected: string[]) {
-  let expectedIndex = 0;
-  for (const token of tokens) {
-    if (token === expected[expectedIndex]) {
-      expectedIndex += 1;
-      if (expectedIndex === expected.length) {
-        return true;
-      }
-    }
-  }
-  return expected.length === 0;
-}
-
 function matchesTokenMultiset(tokens: string[], expected: string[]) {
   const sortedTokens = [...tokens].sort();
   const sortedExpected = [...expected].sort();
@@ -40,6 +28,17 @@ function matchesTokenMultiset(tokens: string[], expected: string[]) {
     sortedTokens.length === sortedExpected.length &&
     sortedTokens.every((token, index) => token === sortedExpected[index])
   );
+}
+
+function matchesExpectedGroup(
+  group: string,
+  occurrenceTokens: string[],
+  expectedTokens: string[]
+) {
+  if (['connectivity', 'sim', 'color'].includes(group)) {
+    return matchesTokenMultiset(occurrenceTokens, expectedTokens);
+  }
+  return expectedTokens.every((token) => occurrenceTokens.includes(token));
 }
 
 function getTokenGroup(token: string) {
@@ -54,6 +53,9 @@ function getTokenGroup(token: string) {
   }
   if (DIMENSION_TOKEN_PATTERN.test(token)) {
     return 'dimension';
+  }
+  if (isProductVariantColorToken(token)) {
+    return 'color';
   }
   return 'other';
 }
@@ -79,9 +81,15 @@ export function matchesVariantDiscriminatorTokens(
   const normalizedDiscriminators =
     normalizeVariantDiscriminatorTokens(discriminatorTokens);
   if (!allowPartialGroups) {
-    return matchesOrderedTokenSequence(
-      normalizedOccurrence,
-      normalizedDiscriminators
+    return Array.from(groupExpectedTokens(normalizedDiscriminators)).every(
+      ([group, expected]) =>
+        matchesExpectedGroup(
+          group,
+          normalizedOccurrence.filter(
+            (token) => getTokenGroup(token) === group
+          ),
+          expected
+        )
     );
   }
 
@@ -97,10 +105,7 @@ export function matchesVariantDiscriminatorTokens(
     const occurrenceGroupTokens = normalizedOccurrence.filter(
       (token) => getTokenGroup(token) === group
     );
-    if (
-      occurrenceGroupTokens.length !== expected.length ||
-      !matchesTokenMultiset(occurrenceGroupTokens, expected)
-    ) {
+    if (!matchesExpectedGroup(group, occurrenceGroupTokens, expected)) {
       return false;
     }
     matchedGroup = true;

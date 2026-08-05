@@ -56,4 +56,22 @@ describe('matchesVariantDiscriminatorTokens', () => {
 
     expect(result).toBe(true);
   });
+
+  it('rejects a superset connectivity group in strict compare mode', () => {
+    const result = matchesVariantDiscriminatorTokens(
+      ['ipad', '10', 'wifi', 'cellular'],
+      ['wifi']
+    );
+
+    expect(result).toBe(false);
+  });
+
+  it('requires every discriminator group in strict PDP mode', () => {
+    const result = matchesVariantDiscriminatorTokens(
+      ['ipad', '10', '256gb'],
+      ['256gb', 'wifi']
+    );
+
+    expect(result).toBe(false);
+  });
 });

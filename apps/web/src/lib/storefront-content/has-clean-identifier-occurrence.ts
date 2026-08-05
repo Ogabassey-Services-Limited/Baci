@@ -39,6 +39,7 @@ interface IdentifierOccurrenceOptions {
   brandAliases?: Record<string, readonly string[]>;
   discriminatorTokens?: string[];
   allowPartialDiscriminatorGroups?: boolean;
+  allowMissingDiscriminatorGroups?: boolean;
   requireBrandBeforeIdentifier?: boolean;
   allowBrandAliasOverlap?: boolean;
 }
@@ -218,7 +219,7 @@ export function hasCleanIdentifierOccurrence(
                 occurrenceTokens,
                 options.discriminatorTokens,
                 options.allowPartialDiscriminatorGroups ?? false,
-                false
+                options.allowMissingDiscriminatorGroups ?? false
               )
             : true;
           return hasBrandQualification && hasDiscriminatorQualification;
@@ -268,7 +269,7 @@ export function hasCleanIdentifierOccurrence(
           startIndex + identifierTokens.length,
           options.discriminatorTokens,
           options.allowPartialDiscriminatorGroups ?? false,
-          false
+          options.allowMissingDiscriminatorGroups ?? false
         )
       ) {
         return false;

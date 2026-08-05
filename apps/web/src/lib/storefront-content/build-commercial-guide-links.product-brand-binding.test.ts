@@ -75,7 +75,7 @@ describe('buildCommercialGuideLinks product brand binding', () => {
         categorySlug: 'smartwatches',
         brands: ['Apple', 'Samsung'],
         productNames: ['Apple Watch Ultra', 'Samsung Watch Ultra'],
-        productSlugs: ['apple-watch-ultra-49mm', 'samsung-watch-ultra'],
+        productSlugs: ['apple-watch-ultra', 'samsung-watch-ultra'],
       },
     });
 

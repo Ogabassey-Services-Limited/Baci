@@ -121,4 +121,34 @@ describe('getPostTokenGroups', () => {
       'comparison',
     ]);
   });
+
+  it('normalizes a separator before a variant-only model tier', () => {
+    const [titleTokens] = getPostTokenGroups({
+      title: 'AirPods Pro/Max Comparison',
+      excerpt: null,
+      category: 'Earbuds',
+      tags: null,
+      keywords: null,
+    });
+
+    expect(titleTokens).toEqual([
+      'airpods',
+      'pro',
+      'versus',
+      'max',
+      'comparison',
+    ]);
+  });
+
+  it('normalizes a separator before a color-only continuation', () => {
+    const [titleTokens] = getPostTokenGroups({
+      title: 'Apple iPhone 15 Black & Blue Comparison',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+    });
+
+    expect(titleTokens).toContain('versus');
+  });
 });

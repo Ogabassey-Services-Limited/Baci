@@ -1,4 +1,5 @@
 import type { PublishedClusterPost } from './content-cluster-types';
+import { isVariantOnlyComparisonSegment } from './is-variant-only-comparison-segment';
 import { tokenizeContentText } from './tokenize-content-text';
 
 type PostTokenGroupSource = Pick<
@@ -46,10 +47,14 @@ function normalizeComparisonSeparators(value: string) {
       hasComparisonCue && hasRepeatedTextModel(left, right);
     const hasSingleLetterModelOnBothSides =
       hasComparisonCue && hasXboxSeriesShorthand(left, right);
+    const hasVariantOnlyRightSide =
+      hasComparisonCue &&
+      isVariantOnlyComparisonSegment(tokenizeContentText(right));
     const hasSeparatorWhitespace = /\s/u.test(separator);
     return (hasModelOnBothSides ||
       hasTextModelOnBothSides ||
-      hasSingleLetterModelOnBothSides) &&
+      hasSingleLetterModelOnBothSides ||
+      hasVariantOnlyRightSide) &&
       (hasSeparatorWhitespace || hasComparisonCue)
       ? ' versus '
       : separator;

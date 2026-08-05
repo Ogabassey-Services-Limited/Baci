@@ -1,4 +1,5 @@
 import type { SupportedClusterCategory } from './content-cluster-types';
+import { isProductVariantColorToken } from './is-product-variant-color-token';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
@@ -66,6 +67,9 @@ function getDiscriminatorGroup(token: string) {
   if (getStorageCapacityGb(token) !== null) {
     return 'storage';
   }
+  if (isProductVariantColorToken(token)) {
+    return 'color';
+  }
   return null;
 }
 
@@ -108,6 +112,7 @@ export function getProductConnectivityDiscriminators(
     (token) =>
       CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token) ||
       DIMENSION_DISCRIMINATOR_PATTERN.test(token) ||
+      isProductVariantColorToken(token) ||
       token === strongestStorageToken
   );
 }

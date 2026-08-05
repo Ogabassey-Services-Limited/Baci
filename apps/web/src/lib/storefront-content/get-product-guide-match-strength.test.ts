@@ -41,4 +41,16 @@ describe('getProductGuideMatchStrength', () => {
     expect(exact).toBe(2);
     expect(base).toBe(1);
   });
+
+  it('does not give exact strength when a PDP guide omits a variant group', () => {
+    const strength = getProductGuideMatchStrength({
+      ...baseInput,
+      post: post('Apple iPad 10 256GB Buyer Guide'),
+      inferredTokens: ['apple', 'ipad', '10', '256gb', 'buyer', 'guide'],
+      identifiers: ['10'],
+      discriminatorTokens: ['256gb', 'wifi'],
+    });
+
+    expect(strength).toBe(1);
+  });
 });

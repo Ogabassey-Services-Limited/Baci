@@ -44,7 +44,6 @@ export function getProductGuideMatchStrength(
         ? {
             ...(baseOptions ?? {}),
             discriminatorTokens: input.discriminatorTokens,
-            allowPartialDiscriminatorGroups: true,
           }
         : baseOptions;
       if (
@@ -59,13 +58,21 @@ export function getProductGuideMatchStrength(
         return 2;
       }
       const hasVariantRequirement = Boolean(input.discriminatorTokens?.length);
+      const compatibleOptions = hasVariantRequirement
+        ? {
+            ...(baseOptions ?? {}),
+            discriminatorTokens: input.discriminatorTokens,
+            allowPartialDiscriminatorGroups: true,
+            allowMissingDiscriminatorGroups: true,
+          }
+        : baseOptions;
       return hasVariantRequirement &&
         matchesProductGuideIdentifier(
           input.post,
           input.inferredTokens,
           identifierTokens,
           input.hasBrandMatch,
-          baseOptions
+          compatibleOptions
         )
         ? Math.max(bestBrandStrength, 1)
         : bestBrandStrength;

@@ -25,4 +25,12 @@ describe('normalizeContentCurrencyTokens', () => {
 
     expect(normalized).toBe('PSN usd 50 and Steam usd 100 Gift Cards');
   });
+
+  it('canonicalizes compact ISO currency denominations', () => {
+    const normalized = normalizeContentCurrencyTokens(
+      'PSN USD50 and Xbox GBP50 Gift Cards'
+    );
+
+    expect(normalized).toBe('PSN USD 50 and Xbox GBP 50 Gift Cards');
+  });
 });

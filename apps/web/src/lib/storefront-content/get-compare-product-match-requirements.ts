@@ -1,7 +1,8 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import { generateSlug } from '@/lib/seo-utils';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
-import { getProductModelIdentifiers } from './get-product-model-identifiers';
+import { getProductGuideModelIdentifiers } from './get-product-guide-model-identifiers';
+import { isProductVariantColorToken } from './is-product-variant-color-token';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
@@ -68,7 +69,8 @@ function getSourceDiscriminatorTokens(source: string, identifier: string) {
   for (const token of tokenizeVariantSource(source)) {
     if (
       !identifierTokens.has(token) &&
-      VARIANT_DISCRIMINATOR_PATTERN.test(token) &&
+      (VARIANT_DISCRIMINATOR_PATTERN.test(token) ||
+        isProductVariantColorToken(token)) &&
       !seen.has(token)
     ) {
       seen.add(token);
@@ -76,6 +78,19 @@ function getSourceDiscriminatorTokens(source: string, identifier: string) {
     }
   }
   return discriminatorTokens;
+}
+
+function getMostSpecificProductIdentifier(
+  context: BuildCommercialGuideLinksContext
+) {
+  return getProductGuideModelIdentifiers(context).reduce<string | undefined>(
+    (mostSpecific, identifier) =>
+      !mostSpecific ||
+      tokenize(identifier).length > tokenize(mostSpecific).length
+        ? identifier
+        : mostSpecific,
+    undefined
+  );
 }
 
 /** Builds per-product compare requirements without collapsing brand collisions. */
@@ -88,6 +103,7 @@ export function getCompareProductMatchRequirements(
     identifierSource: source,
     pairedSlug: slugs[index],
     brandSource: `${context.productBrands?.[index] ?? ''} ${source} ${slugs[index] ?? ''}`,
+    variantSource: `${source} ${names.length ? (slugs[index] ?? '') : ''}`,
     hasExplicitVariantSource: names.length > 0,
   }));
 
@@ -96,9 +112,10 @@ export function getCompareProductMatchRequirements(
       identifierSource,
       pairedSlug,
       brandSource,
+      variantSource,
       hasExplicitVariantSource,
     }) => {
-      const identifier = getProductModelIdentifiers({
+      const identifier = getMostSpecificProductIdentifier({
         ...context,
         productNames: names.length ? [identifierSource] : undefined,
         productSlugs: names.length
@@ -106,7 +123,7 @@ export function getCompareProductMatchRequirements(
             ? [pairedSlug]
             : []
           : [identifierSource],
-      })[0];
+      });
 
       return identifier
         ? [
@@ -114,7 +131,7 @@ export function getCompareProductMatchRequirements(
               identifier,
               brand: inferSourceBrand(brandSource, context),
               discriminatorTokens: getSourceDiscriminatorTokens(
-                identifierSource,
+                variantSource,
                 identifier
               ),
               hasExplicitVariantSource,

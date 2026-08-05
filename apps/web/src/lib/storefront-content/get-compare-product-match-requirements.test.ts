@@ -179,8 +179,8 @@ describe('getCompareProductMatchRequirements', () => {
     });
 
     expect(requirements).toEqual([
-      { identifier: '15', brand: 'apple' },
-      { identifier: '15', brand: 'apple' },
+      { identifier: '15', brand: 'apple', discriminatorTokens: ['black'] },
+      { identifier: '15', brand: 'apple', discriminatorTokens: ['blue'] },
     ]);
   });
 
