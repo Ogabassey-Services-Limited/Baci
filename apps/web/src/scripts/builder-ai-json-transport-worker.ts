@@ -1,20 +1,17 @@
 import { config as loadDotenv } from 'dotenv';
-import { generateText, Output } from 'ai';
-import { builderAiEditContract, type BuilderData } from '@baci/shared/contracts';
-import { applyBuilderAiEditPlan } from '@/lib/builder-ai/apply-builder-ai-edit-plan';
 import { builderAiPlanOutputBudget } from '@/lib/builder-ai/builder-ai-plan-output-budget';
 import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-builder-ai-provider-chain';
+import {
+  BUILDER_AI_JSON_SMOKE_PROMPT,
+  isValidBuilderAiJsonTransportSmokeResult,
+  runBuilderAiJsonTransportSmoke,
+} from '@/lib/builder-ai/run-builder-ai-json-transport-smoke';
 import { validateBuilderAiSmokeEnvironmentSource } from './builder-ai-smoke-environment-source';
 import { clearBuilderAiSmokeProviderEnvironment } from './clear-builder-ai-smoke-provider-environment';
 
-export const BUILDER_AI_JSON_SMOKE_PROMPT =
-  'Return only JSON with status "proposed", a summary string, and exactly one update_component operation for componentId "smoke-hero". Its patch must contain only componentType "Hero" and title "Smoke checked". Do not return markdown, extra keys, code, HTML, or explanations.';
-
-const config: BuilderData = {
-  content: [
-    { props: { id: 'smoke-hero', title: 'Smoke' }, type: 'Hero' },
-  ],
-  root: { title: 'Smoke' },
+export {
+  BUILDER_AI_JSON_SMOKE_PROMPT,
+  isValidBuilderAiJsonTransportSmokeResult,
 };
 
 interface WorkerCommand {
@@ -24,66 +21,11 @@ interface WorkerCommand {
   sourcePath: string;
 }
 
-export function isValidBuilderAiJsonTransportSmokeResult(
-  output: unknown
-): boolean {
-  const parsed = builderAiEditContract.modelPlanSchema.safeParse(output);
-  if (!parsed.success || parsed.data.status !== 'proposed') return false;
-  const [operation] = parsed.data.operations;
-  if (
-    parsed.data.operations.length !== 1 ||
-    operation?.kind !== 'update_component' ||
-    operation.componentId !== 'smoke-hero' ||
-    operation.patch.componentType !== 'Hero' ||
-    operation.patch.title !== 'Smoke checked' ||
-    Object.keys(operation.patch).length !== 2
-  ) {
-    return false;
-  }
-  try {
-    const result = applyBuilderAiEditPlan(
-      config,
-      parsed.data,
-      (type) => `smoke-${type}`
-    );
-    return (
-      result.warnings.length === 0 &&
-      JSON.stringify(result.candidateConfig) ===
-        JSON.stringify({
-          ...config,
-          content: [
-            {
-              props: { id: 'smoke-hero', title: 'Smoke checked' },
-              type: 'Hero',
-            },
-          ],
-        })
-    );
-  } catch {
-    return false;
-  }
-}
-
 export async function runProviderSmoke(
-  provider: { model: Parameters<typeof generateText>[0]['model'] },
+  provider: Parameters<typeof runBuilderAiJsonTransportSmoke>[0],
   signal: AbortSignal
 ): Promise<boolean> {
-  if (
-    !builderAiPlanOutputBudget.isApproved(
-      builderAiPlanOutputBudget.maxOutputTokens
-    )
-  ) {
-    throw new Error('Builder AI output budget is not approved');
-  }
-  const result = await generateText({
-    abortSignal: signal,
-    maxOutputTokens: builderAiPlanOutputBudget.maxOutputTokens,
-    maxRetries: 0,
-    model: provider.model,
-    output: Output.json(),
-    prompt: BUILDER_AI_JSON_SMOKE_PROMPT,
-  });
-  return isValidBuilderAiJsonTransportSmokeResult(result.output);
+  return runBuilderAiJsonTransportSmoke(provider, signal);
 }
 
 async function loadProviders(sourcePath: string) {
