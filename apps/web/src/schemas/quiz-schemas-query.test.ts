@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { quizAttemptParamsSchema, quizEventsQuerySchema } from '@/schemas/quiz';
+import {
+  quizActiveAttemptQuerySchema,
+  quizAttemptParamsSchema,
+  quizContractVersionHeaderSchema,
+  quizEventsQuerySchema,
+} from '@/schemas/quiz';
 
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const MERCHANT_ID = '55555555-5555-4555-8555-555555555555';
@@ -65,5 +70,32 @@ describe('quiz query schemas', () => {
       quizAttemptParamsSchema.parse({ attemptId: 'not-a-uuid' })
     ).toThrow();
     expect(() => quizAttemptParamsSchema.parse({})).toThrow();
+  });
+
+  it('accepts only the explicit v2 client contract header', () => {
+    expect(
+      quizContractVersionHeaderSchema.parse({ 'x-baci-quiz-contract': '2' })
+    ).toEqual({ 'x-baci-quiz-contract': 2 });
+    expect(() =>
+      quizContractVersionHeaderSchema.parse({ 'x-baci-quiz-contract': '1' })
+    ).toThrow();
+    expect(() => quizContractVersionHeaderSchema.parse({})).toThrow();
+  });
+
+  it('accepts only a UUID active-attempt selector', () => {
+    expect(quizActiveAttemptQuerySchema.parse({ eventId: ATTEMPT_ID })).toEqual(
+      {
+        eventId: ATTEMPT_ID,
+      }
+    );
+    expect(() =>
+      quizActiveAttemptQuerySchema.parse({ eventId: 'bad' })
+    ).toThrow();
+    expect(() =>
+      quizActiveAttemptQuerySchema.parse({
+        eventId: ATTEMPT_ID,
+        deviceFingerprint: 'leak',
+      })
+    ).toThrow();
   });
 });

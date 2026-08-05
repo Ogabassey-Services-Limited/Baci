@@ -1,5 +1,6 @@
 import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import type { z } from 'zod';
 import { resolveApiBaseUrl } from '@/lib/api-url';
 import { CONFIG } from '@/lib/config';
@@ -28,10 +29,25 @@ import { QuizServiceError } from '@/services/quiz-types';
 export * from '@/services/quiz-types';
 
 const QUIZ_EVENTS_PAGE_LIMIT = 50;
+export const QUIZ_REQUEST_TIMEOUT_MS = 15_000;
+export const QUIZ_CONTRACT_HEADER = 'X-Baci-Quiz-Contract';
+export const QUIZ_CONTRACT_VERSION = '2';
 
-function getApiBaseUrl(configuredUrl?: string): string {
+export function getQuizApiBaseUrl(configuredUrl?: string): string {
   const extra = getExpoExtraConfig(Constants.expoConfig?.extra);
   return resolveApiBaseUrl(configuredUrl ?? extra?.apiBaseUrl ?? extra?.apiUrl);
+}
+
+export function getQuizAppMetadata(): {
+  appVersion: string;
+  platform: 'android' | 'ios' | 'web';
+} {
+  const platform =
+    Platform.OS === 'android' || Platform.OS === 'ios' ? Platform.OS : 'web';
+  return {
+    appVersion: Constants.expoConfig?.version?.trim() || 'unknown',
+    platform,
+  };
 }
 
 function getExpoExtraConfig(value: unknown):
@@ -84,6 +100,37 @@ function getQuizEventsPath(
   return `/api/quiz/events?${query}`;
 }
 
+type QuizRequestSignal = {
+  cleanup: () => void;
+  isTimedOut: () => boolean;
+  signal: AbortSignal;
+};
+
+function createQuizRequestSignal(
+  callerSignal?: AbortSignal | null
+): QuizRequestSignal {
+  const controller = new AbortController();
+  let timedOut = false;
+  const abortForCaller = () => controller.abort();
+
+  if (callerSignal?.aborted) abortForCaller();
+  else callerSignal?.addEventListener('abort', abortForCaller, { once: true });
+
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, QUIZ_REQUEST_TIMEOUT_MS);
+
+  return {
+    cleanup: () => {
+      clearTimeout(timeoutId);
+      callerSignal?.removeEventListener('abort', abortForCaller);
+    },
+    isTimedOut: () => timedOut,
+    signal: controller.signal,
+  };
+}
+
 async function requestQuiz<T>(
   path: string,
   init: RequestInit,
@@ -102,15 +149,39 @@ async function requestQuiz<T>(
       409
     );
   }
-  const response = await fetch(`${getApiBaseUrl(baseUrl)}${path}`, {
-    ...init,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...init.headers,
-      ...authHeaders,
-    },
+  const requestHeaders = new Headers({
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
   });
+  new Headers(init.headers).forEach((value, key) => {
+    requestHeaders.set(key, value);
+  });
+  // Authentication is authoritative and must be applied last with the
+  // case-insensitive Headers API. A caller-supplied `authorization` spelling
+  // must never coexist with or override the verified bearer token.
+  new Headers(authHeaders).forEach((value, key) => {
+    requestHeaders.set(key, value);
+  });
+  const requestSignal = createQuizRequestSignal(init.signal);
+  let response: Response;
+  try {
+    response = await fetch(`${getQuizApiBaseUrl(baseUrl)}${path}`, {
+      ...init,
+      headers: requestHeaders,
+      signal: requestSignal.signal,
+    });
+  } catch (error) {
+    if (requestSignal.isTimedOut()) {
+      throw new QuizServiceError(
+        'Quiz request timed out. Please try again.',
+        'QUIZ_REQUEST_TIMEOUT',
+        504
+      );
+    }
+    throw error;
+  } finally {
+    requestSignal.cleanup();
+  }
   const payload = await readQuizJson(response);
 
   if (!response.ok) {
@@ -133,6 +204,32 @@ async function requestQuiz<T>(
   return parsed.data;
 }
 
+export function requestQuizV2<T>(
+  path: string,
+  init: RequestInit,
+  responseSchema: z.ZodType<T>,
+  options: QuizServiceOptions & {
+    expectedUserId?: string;
+    deviceFingerprint?: string | null;
+  } = {}
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set(QUIZ_CONTRACT_HEADER, QUIZ_CONTRACT_VERSION);
+  if (options.deviceFingerprint) {
+    headers.set('X-Baci-Quiz-Device-Fingerprint', options.deviceFingerprint);
+  }
+  return requestQuiz(
+    path,
+    {
+      ...init,
+      headers,
+    },
+    responseSchema,
+    options.baseUrl,
+    options.expectedUserId
+  );
+}
+
 export async function fetchQuizEvents(
   options: QuizServiceOptions = {}
 ): Promise<QuizEvent[]> {
@@ -140,13 +237,18 @@ export async function fetchQuizEvents(
   let offset = 0;
 
   for (;;) {
-    const payload = await requestQuiz(
+    const payload = await requestQuizV2(
       getQuizEventsPath({ limit: QUIZ_EVENTS_PAGE_LIMIT, offset }),
       { method: 'GET' },
       quizEventsResponseSchema,
-      options.baseUrl
+      options
     );
-    events.push(...payload.events);
+    events.push(
+      ...payload.events.map((event) => ({
+        ...event,
+        serverNow: payload.serverNow,
+      }))
+    );
 
     if (
       !payload.pagination?.hasMore ||

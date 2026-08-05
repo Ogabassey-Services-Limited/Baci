@@ -1,7 +1,11 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { QuizEventsList } from './QuizEventsList';
-import { createQuizStyles, type QuizThemeColors } from './QuizScreen.styles';
+import { createQuizLobbyStyles } from './QuizLobby.styles';
+import type { QuizThemeColors } from './QuizScreen.styles';
+
+jest.mock('expo-image', () => ({ Image: 'Image' }));
+jest.mock('@react-native-vector-icons/ionicons', () => 'Ionicons');
 
 const themeColors: QuizThemeColors = {
   background: '#fff',
@@ -30,20 +34,29 @@ describe('QuizEventsList', () => {
             prizeName: 'Smartphone',
             startsAt: null,
             endsAt: null,
-            status: 'open',
+            status: 'active',
             questionCount: 10,
+            mode: 'test',
+            timePerQuestionSeconds: 10,
+            timeZone: 'Africa/Lagos',
           },
         ]}
         isStarting={false}
         onStart={onStart}
-        styles={createQuizStyles(themeColors)}
-        timeNotSetLabel="Time not set"
+        styles={createQuizLobbyStyles(themeColors)}
       />
     );
 
-    fireEvent.press(screen.getByLabelText(/Start free exam Open Quiz/i));
+    fireEvent.press(screen.getByLabelText(/Play for free Open Quiz/i));
+    expect(screen.getByRole('header', { name: 'How to play' })).toBeTruthy();
+    fireEvent.press(
+      screen.getByRole('checkbox', { name: 'Accept quiz rules and terms' })
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Accept and play quiz' })
+    );
 
-    expect(onStart).toHaveBeenCalledWith('event-1');
+    expect(onStart).toHaveBeenCalledWith('event-1', true);
   });
 
   it('disables non-open events', () => {
@@ -63,8 +76,7 @@ describe('QuizEventsList', () => {
         ]}
         isStarting={false}
         onStart={onStart}
-        styles={createQuizStyles(themeColors)}
-        timeNotSetLabel="Time not set"
+        styles={createQuizLobbyStyles(themeColors)}
       />
     );
 

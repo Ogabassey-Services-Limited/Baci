@@ -2,9 +2,15 @@ import { useEffect, useRef } from 'react';
 import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import {
   type QuizAttempt,
+  type QuizEvent,
   type QuizIntegrityTier,
   startQuizAttempt,
 } from '@/services/quiz';
+import {
+  createQuizStartRequestId,
+  startQuizAttemptV2,
+} from '@/services/quiz-attempts';
+import type { QuizV2Attempt } from '@/services/quiz-types';
 import { QuizServiceError } from '@/services/quiz-types';
 import { useAuthStore } from '@/stores/auth-store';
 import { getQuizErrorMessage } from './QuizScreen.utils';
@@ -17,10 +23,28 @@ import { useQuizStartGate } from './useQuizStartGate';
 const QUIZ_AGE_RESTRICTED_CODE = 'quiz_age_restricted';
 const START_FAILED_FALLBACK = 'Quiz action failed';
 
+function createQuizSessionChangedError(): QuizServiceError {
+  return new QuizServiceError(
+    'Your session changed. Please try again.',
+    'quiz_session_changed',
+    409
+  );
+}
+
 type StartEvent = (
   eventId: string,
   integrityTier: QuizIntegrityTier,
   starter: () => Promise<QuizAttempt>
+) => Promise<void>;
+
+type StartEventV2 = (
+  context: {
+    eventId: string;
+    integrityTier: QuizIntegrityTier;
+    startRequestId: string;
+    userId: string | null;
+  },
+  starter: (startRequestId: string) => Promise<QuizV2Attempt>
 ) => Promise<void>;
 
 /**
@@ -36,11 +60,15 @@ type StartEvent = (
  * creates no attempt.
  */
 export function useQuizStartFlow({
+  events = [],
   integrityTier,
   startEvent,
+  startEventV2,
 }: {
+  events?: QuizEvent[];
   integrityTier: QuizIntegrityTier;
   startEvent: StartEvent;
+  startEventV2?: StartEventV2;
 }) {
   // Bridges the declaration cycle: handleStart reopens the DOB gate on an age
   // rejection, but dobGate is created after it. Synced via an effect so the
@@ -48,8 +76,90 @@ export function useQuizStartFlow({
   const reopenDobForCorrectionRef = useRef<
     ((eventId: string, message: string) => void) | null
   >(null);
+  // Rules are explicitly acknowledged in the lobby, before either profile
+  // gate can delay the start. Keep that acknowledgement scoped to the event
+  // and this mounted flow; never manufacture acceptance for a v2 request.
+  const acceptedTermsEventIdsRef = useRef(new Set<string>());
 
   const handleStart = async (eventId: string) => {
+    const event = events.find((candidate) => candidate.id === eventId);
+    if (event?.contractVersion === 2) {
+      if (!startEventV2) {
+        // Do not fall back to the v1 endpoint when the server declared v2.
+        // The legacy store action owns the visible error state without making
+        // a network start request.
+        await startEvent(eventId, integrityTier, () =>
+          Promise.reject(
+            new QuizServiceError(
+              'This version of the app cannot start this quiz.',
+              'QUIZ_CONTRACT_UNSUPPORTED',
+              409
+            )
+          )
+        );
+        return;
+      }
+      const startUserId = useAuthStore.getState().user?.id ?? null;
+      await startEventV2(
+        {
+          eventId,
+          integrityTier,
+          startRequestId: createQuizStartRequestId(),
+          userId: startUserId,
+        },
+        async (startRequestId) => {
+          // Keep every v2 failure inside the store-owned async transition.
+          // In particular, a signed-out shopper must not create an unhandled
+          // rejection before the v2 action can expose its error state.
+          if (!startUserId) throw createQuizSessionChangedError();
+          if (!event.rulesVersion || !event.mode) {
+            throw new QuizServiceError(
+              'This quiz is missing required rules information.',
+              'QUIZ_CONTRACT_INVALID',
+              502
+            );
+          }
+          if (!acceptedTermsEventIdsRef.current.has(eventId)) {
+            throw new QuizServiceError(
+              'Please read and accept the quiz rules before playing.',
+              'QUIZ_TERMS_ACCEPTANCE_REQUIRED',
+              409
+            );
+          }
+          const deviceFingerprint = await getQuizDeviceFingerprint().catch(
+            () => null
+          );
+          if (useAuthStore.getState().user?.id !== startUserId) {
+            throw createQuizSessionChangedError();
+          }
+          try {
+            return await startQuizAttemptV2({
+              acceptedRulesVersion: event.rulesVersion,
+              deviceFingerprint,
+              eventId,
+              expectedUserId: startUserId,
+              integrityTier,
+              mode: event.mode,
+              startRequestId,
+              termsAccepted: true,
+            });
+          } catch (error) {
+            if (
+              error instanceof QuizServiceError &&
+              error.code === QUIZ_AGE_RESTRICTED_CODE &&
+              useAuthStore.getState().user?.id === startUserId
+            ) {
+              reopenDobForCorrectionRef.current?.(
+                eventId,
+                getQuizErrorMessage(error, START_FAILED_FALLBACK)
+              );
+            }
+            throw error;
+          }
+        }
+      );
+      return;
+    }
     // startEvent owns the in-flight/error state and swallows starter failures
     // into the store, so the age-gate recovery lives inside the starter (the
     // only place the thrown error is observable).
@@ -71,11 +181,7 @@ export function useQuizStartFlow({
         startUserId === null ||
         useAuthStore.getState().user?.id !== startUserId
       ) {
-        throw new QuizServiceError(
-          'Your session changed. Please try again.',
-          'quiz_session_changed',
-          409
-        );
+        throw createQuizSessionChangedError();
       }
       try {
         return await startQuizAttempt({
@@ -110,11 +216,16 @@ export function useQuizStartFlow({
     dobGate.requestStart(eventId);
   });
 
+  const requestStart = (eventId: string, termsAccepted?: true) => {
+    if (termsAccepted) acceptedTermsEventIdsRef.current.add(eventId);
+    usernameGate.requestStart(eventId);
+  };
+
   // Keep the reopen handler reachable from handleStart, which is defined above
   // dobGate to break the declaration cycle.
   useEffect(() => {
     reopenDobForCorrectionRef.current = dobGate.reopenForCorrection;
   });
 
-  return { dobGate, usernameGate };
+  return { dobGate, requestStart, usernameGate };
 }

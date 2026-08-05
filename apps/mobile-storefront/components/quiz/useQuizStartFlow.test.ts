@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+import type { QuizIntegrityTier, QuizV2Attempt } from '@/services/quiz-types';
 import { QuizServiceError } from '@/services/quiz-types';
 import { useQuizStartFlow } from './useQuizStartFlow';
 
@@ -7,6 +8,7 @@ const mockReopenForCorrection = jest.fn();
 const mockDobRequestStart = jest.fn();
 const mockUsernameRequestStart = jest.fn();
 const mockStartQuizAttempt = jest.fn<(args: unknown) => Promise<unknown>>();
+const mockStartQuizAttemptV2 = jest.fn<(args: unknown) => Promise<unknown>>();
 const mockGetFingerprint = jest.fn<() => Promise<string | null>>();
 
 // Captured so the test can drive the gate callbacks the flow wires up.
@@ -30,6 +32,10 @@ jest.mock('@/stores/auth-store', () => ({
 
 jest.mock('@/services/quiz', () => ({
   startQuizAttempt: (args: unknown) => mockStartQuizAttempt(args),
+}));
+jest.mock('@/services/quiz-attempts', () => ({
+  createQuizStartRequestId: () => 'start-request-1',
+  startQuizAttemptV2: (args: unknown) => mockStartQuizAttemptV2(args),
 }));
 
 jest.mock('./useQuizDateOfBirthGate', () => ({
@@ -72,6 +78,7 @@ describe('useQuizStartFlow', () => {
     mockAuthUserId = 'user-a';
     mockGetFingerprint.mockImplementation(async () => 'fp');
     mockStartQuizAttempt.mockResolvedValue({ attemptId: 'attempt-1' });
+    mockStartQuizAttemptV2.mockResolvedValue({ attemptId: 'attempt-v2' });
   });
 
   it('hands the username gate off to the date-of-birth gate', () => {
@@ -150,5 +157,353 @@ describe('useQuizStartFlow', () => {
     await Promise.resolve();
     expect(mockStartQuizAttempt).not.toHaveBeenCalled();
     expect(mockReopenForCorrection).not.toHaveBeenCalled();
+  });
+
+  it('starts contract v2 with accepted rules and a stable start request', async () => {
+    const startEventV2 = jest.fn(
+      async (
+        _context: {
+          eventId: string;
+          integrityTier: QuizIntegrityTier;
+          startRequestId: string;
+          userId: string | null;
+        },
+        starter: (startRequestId: string) => Promise<QuizV2Attempt>
+      ) => {
+        await starter('start-request-1');
+      }
+    );
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        events: [
+          {
+            contractVersion: 2,
+            endsAt: '2026-08-03T20:05:00Z',
+            id: 'event-v2',
+            mode: 'test',
+            prizeName: 'Phone',
+            questionCount: 20,
+            rulesVersion: 'quiz-rules-2026-08',
+            startsAt: '2026-08-03T20:00:00Z',
+            status: 'active',
+            title: 'Live quiz',
+          },
+        ],
+        integrityTier: 'device',
+        startEvent,
+        startEventV2,
+      })
+    );
+
+    act(() => result.current.requestStart('event-v2', true));
+    dobOnStart('event-v2');
+
+    await waitFor(() => expect(mockStartQuizAttemptV2).toHaveBeenCalled());
+    expect(startEventV2).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: 'event-v2',
+        startRequestId: 'start-request-1',
+        userId: 'user-a',
+      }),
+      expect.any(Function)
+    );
+    expect(mockStartQuizAttemptV2).toHaveBeenCalledWith(
+      expect.objectContaining({
+        acceptedRulesVersion: 'quiz-rules-2026-08',
+        mode: 'test',
+        startRequestId: 'start-request-1',
+        termsAccepted: true,
+      })
+    );
+  });
+
+  it('reopens the DOB gate when a v2 start rejects the stored date of birth', async () => {
+    mockStartQuizAttemptV2.mockRejectedValueOnce(
+      new QuizServiceError(
+        'Quiz participation requires an adult profile (18+)',
+        'quiz_age_restricted',
+        403
+      )
+    );
+    const startEventV2 = jest.fn(
+      async (
+        _context: unknown,
+        starter: (startRequestId: string) => Promise<QuizV2Attempt>
+      ) => {
+        await starter('start-request-1').catch(() => undefined);
+      }
+    );
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        events: [
+          {
+            contractVersion: 2,
+            endsAt: '2026-08-03T20:05:00Z',
+            id: 'event-v2-age',
+            mode: 'test',
+            prizeName: 'Phone',
+            questionCount: 3,
+            rulesVersion: 'quiz-rules-2026-08',
+            startsAt: '2026-08-03T20:00:00Z',
+            status: 'active',
+            title: 'V2 age gate',
+          },
+        ],
+        integrityTier: 'device',
+        startEvent,
+        startEventV2,
+      })
+    );
+
+    act(() => result.current.requestStart('event-v2-age', true));
+    dobOnStart('event-v2-age');
+    await waitFor(() =>
+      expect(mockReopenForCorrection).toHaveBeenCalledWith(
+        'event-v2-age',
+        'Quiz participation requires an adult profile (18+)'
+      )
+    );
+  });
+
+  it('reports the standard session-changed error when v2 identity changes during fingerprint lookup', async () => {
+    let capturedError: unknown;
+    const startEventV2 = jest.fn(
+      async (
+        _context: {
+          eventId: string;
+          integrityTier: QuizIntegrityTier;
+          startRequestId: string;
+          userId: string | null;
+        },
+        starter: (startRequestId: string) => Promise<QuizV2Attempt>
+      ) => {
+        try {
+          await starter('start-request-1');
+        } catch (error) {
+          capturedError = error;
+        }
+      }
+    );
+    mockGetFingerprint.mockImplementationOnce(async () => {
+      mockAuthUserId = 'user-b';
+      return 'fp';
+    });
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        events: [
+          {
+            contractVersion: 2,
+            endsAt: '2026-08-03T20:05:00Z',
+            id: 'event-v2',
+            mode: 'test',
+            prizeName: 'Phone',
+            questionCount: 20,
+            rulesVersion: 'quiz-rules-2026-08',
+            startsAt: '2026-08-03T20:00:00Z',
+            status: 'active',
+            title: 'Live quiz',
+          },
+        ],
+        integrityTier: 'device',
+        startEvent,
+        startEventV2,
+      })
+    );
+
+    act(() => result.current.requestStart('event-v2', true));
+    dobOnStart('event-v2');
+
+    await waitFor(() => expect(capturedError).toBeInstanceOf(QuizServiceError));
+    expect(capturedError).toMatchObject({
+      code: 'quiz_session_changed',
+      message: 'Your session changed. Please try again.',
+      status: 409,
+    });
+    expect(mockStartQuizAttemptV2).not.toHaveBeenCalled();
+  });
+
+  it('fails closed through the v2 action when the session is missing', async () => {
+    mockAuthUserId = null;
+    let capturedError: unknown;
+    const startEventV2 = jest.fn(
+      async (
+        _context: unknown,
+        starter: (startRequestId: string) => Promise<QuizV2Attempt>
+      ) => {
+        try {
+          await starter('start-request-1');
+        } catch (error) {
+          capturedError = error;
+        }
+      }
+    );
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        events: [
+          {
+            contractVersion: 2,
+            endsAt: '2026-08-03T20:05:00Z',
+            id: 'event-v2-missing-user',
+            mode: 'test',
+            prizeName: 'Phone',
+            questionCount: 20,
+            rulesVersion: 'quiz-rules-2026-08',
+            startsAt: '2026-08-03T20:00:00Z',
+            status: 'active',
+            title: 'Live quiz',
+          },
+        ],
+        integrityTier: 'device',
+        startEvent,
+        startEventV2,
+      })
+    );
+
+    act(() => result.current.requestStart('event-v2-missing-user', true));
+    dobOnStart('event-v2-missing-user');
+
+    await waitFor(() => expect(startEventV2).toHaveBeenCalled());
+    expect(capturedError).toMatchObject({
+      code: 'quiz_session_changed',
+      status: 409,
+    });
+    expect(mockStartQuizAttemptV2).not.toHaveBeenCalled();
+  });
+
+  it('does not fall back to the legacy endpoint when a v2 action is unavailable', async () => {
+    let capturedError: unknown;
+    const captureStartEvent = jest.fn(
+      async (
+        _eventId: string,
+        _tier: string,
+        starter: () => Promise<unknown>
+      ) => {
+        try {
+          await starter();
+        } catch (error) {
+          capturedError = error;
+        }
+      }
+    );
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        events: [
+          {
+            contractVersion: 2,
+            endsAt: '2026-08-03T20:05:00Z',
+            id: 'event-v2-no-action',
+            mode: 'test',
+            prizeName: 'Phone',
+            questionCount: 20,
+            rulesVersion: 'quiz-rules-2026-08',
+            startsAt: '2026-08-03T20:00:00Z',
+            status: 'active',
+            title: 'Live quiz',
+          },
+        ],
+        integrityTier: 'device',
+        startEvent: captureStartEvent,
+      })
+    );
+
+    act(() => result.current.requestStart('event-v2-no-action', true));
+    dobOnStart('event-v2-no-action');
+
+    await waitFor(() => expect(captureStartEvent).toHaveBeenCalled());
+    expect(capturedError).toMatchObject({
+      code: 'QUIZ_CONTRACT_UNSUPPORTED',
+      status: 409,
+    });
+    expect(mockStartQuizAttempt).not.toHaveBeenCalled();
+  });
+
+  it('requires recorded terms before calling the v2 start API', async () => {
+    let capturedError: unknown;
+    const startEventV2 = jest.fn(
+      async (
+        _context: unknown,
+        starter: (startRequestId: string) => Promise<QuizV2Attempt>
+      ) => {
+        try {
+          await starter('start-request-1');
+        } catch (error) {
+          capturedError = error;
+        }
+      }
+    );
+    renderHook(() =>
+      useQuizStartFlow({
+        events: [
+          {
+            contractVersion: 2,
+            endsAt: '2026-08-03T20:05:00Z',
+            id: 'event-v2-terms',
+            mode: 'test',
+            prizeName: 'Phone',
+            questionCount: 20,
+            rulesVersion: 'quiz-rules-2026-08',
+            startsAt: '2026-08-03T20:00:00Z',
+            status: 'active',
+            title: 'Live quiz',
+          },
+        ],
+        integrityTier: 'device',
+        startEvent,
+        startEventV2,
+      })
+    );
+
+    dobOnStart('event-v2-terms');
+    await waitFor(() => expect(startEventV2).toHaveBeenCalled());
+    expect(capturedError).toMatchObject({
+      code: 'QUIZ_TERMS_ACCEPTANCE_REQUIRED',
+      status: 409,
+    });
+    expect(mockStartQuizAttemptV2).not.toHaveBeenCalled();
+  });
+
+  it('requires the declared v2 rules version and mode instead of defaulting them', async () => {
+    let capturedError: unknown;
+    const startEventV2 = jest.fn(
+      async (
+        _context: unknown,
+        starter: (startRequestId: string) => Promise<QuizV2Attempt>
+      ) => {
+        try {
+          await starter('start-request-1');
+        } catch (error) {
+          capturedError = error;
+        }
+      }
+    );
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        events: [
+          {
+            contractVersion: 2,
+            endsAt: '2026-08-03T20:05:00Z',
+            id: 'event-v2-incomplete',
+            prizeName: 'Phone',
+            questionCount: 20,
+            startsAt: '2026-08-03T20:00:00Z',
+            status: 'active',
+            title: 'Live quiz',
+          },
+        ],
+        integrityTier: 'device',
+        startEvent,
+        startEventV2,
+      })
+    );
+
+    act(() => result.current.requestStart('event-v2-incomplete', true));
+    dobOnStart('event-v2-incomplete');
+
+    await waitFor(() => expect(startEventV2).toHaveBeenCalled());
+    expect(capturedError).toMatchObject({
+      code: 'QUIZ_CONTRACT_INVALID',
+      status: 502,
+    });
+    expect(mockStartQuizAttemptV2).not.toHaveBeenCalled();
   });
 });

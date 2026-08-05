@@ -1,10 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { merchantQuizActivationRequestSchema } from '@/schemas/quiz';
+import {
+  merchantQuizActivationRequestSchema,
+  merchantQuizActivationV2RequestSchema,
+} from '@/schemas/quiz';
 import {
   activateMerchantQuizDraft,
   authorizeMerchantQuizRequest,
   recordMerchantQuizAnswerKeyReview,
 } from '../generate/quiz-generate-helpers';
+import {
+  findLaunchedMerchantQuizV2,
+  launchMerchantQuizDraftV2,
+} from './quiz-launch-v2';
 
 /**
  * Opens a reviewed quiz DRAFT into an active event. Deliberately a separate
@@ -24,6 +31,45 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const parsedV2 = merchantQuizActivationV2RequestSchema.safeParse(body);
+  if (parsedV2.success) {
+    const reviewRecorded = await recordMerchantQuizAnswerKeyReview(
+      context.supabase,
+      parsedV2.data.eventId,
+      context.merchantId,
+      parsedV2.data.answerKeyReview.questions
+    );
+    if (!reviewRecorded) {
+      const alreadyLaunched = await findLaunchedMerchantQuizV2({
+        eventId: parsedV2.data.eventId,
+        merchantId: context.merchantId,
+        supabase: context.supabase,
+      });
+      if (alreadyLaunched) {
+        return NextResponse.json({ event: alreadyLaunched }, { status: 200 });
+      }
+      return NextResponse.json(
+        {
+          code: 'QUIZ_ANSWER_KEY_REVIEW_REQUIRED',
+          error: 'Review every correct answer before launching this quiz',
+        },
+        { status: 400 }
+      );
+    }
+    const launched = await launchMerchantQuizDraftV2({
+      input: parsedV2.data,
+      merchantId: context.merchantId,
+      supabase: context.supabase,
+    });
+    if (!launched.ok) {
+      return NextResponse.json(
+        { code: launched.code, error: launched.message },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ event: launched.event }, { status: 200 });
   }
 
   const parsed = merchantQuizActivationRequestSchema.safeParse(body);

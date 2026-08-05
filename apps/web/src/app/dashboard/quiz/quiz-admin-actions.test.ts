@@ -44,11 +44,27 @@ function validGenerationResponse() {
 function validGenerationInput() {
   return {
     difficulty: 'standard' as const,
-    prizeProductId: PRIZE_PRODUCT_ID,
+    mode: 'test' as const,
+    prizeProduct: {
+      available: true,
+      condition: 'new',
+      defaultVariantId: null,
+      effectiveStock: 2,
+      hasVariants: false,
+      id: PRIZE_PRODUCT_ID,
+      imageUrl: 'https://cdn.example.com/iphone.png',
+      manageStock: true,
+      name: 'iPhone 15 Pro Max',
+      price: 2100000,
+      requiresVariantSelection: false,
+      selectionId: `${PRIZE_PRODUCT_ID}:product`,
+      variantId: null,
+      variantLabel: null,
+    },
     questionCountPerTopic: 1,
     timeLimitSeconds: 30,
     title: 'Daily Phone Quiz',
-    topics: 'iPhone buying advice\nAndroid tips',
+    topics: ['iPhone buying advice', 'Android tips'],
   };
 }
 
@@ -100,6 +116,10 @@ describe('generateQuizDraft', () => {
 
     expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/quiz/generate', {
       difficulty: 'standard',
+      mode: 'test',
+      prizeCondition: 'new',
+      prizeEffectiveStock: 2,
+      prizeImageUrl: 'https://cdn.example.com/iphone.png',
       prizeProductId: PRIZE_PRODUCT_ID,
       questionCountPerTopic: 1,
       timeLimitSeconds: 30,
@@ -112,14 +132,20 @@ describe('generateQuizDraft', () => {
 
   it('throws before calling the API when no topics are provided', async () => {
     await expect(
-      generateQuizDraft({ ...validGenerationInput(), topics: '   ' })
+      generateQuizDraft({ ...validGenerationInput(), topics: [] })
     ).rejects.toThrow('Add at least one quiz topic before generating.');
     expect(mockApiPost).not.toHaveBeenCalled();
   });
 
   it('throws before calling the API when no prize product is selected', async () => {
     await expect(
-      generateQuizDraft({ ...validGenerationInput(), prizeProductId: '' })
+      generateQuizDraft({
+        ...validGenerationInput(),
+        prizeProduct: {
+          ...validGenerationInput().prizeProduct,
+          available: false,
+        },
+      })
     ).rejects.toThrow('Select an active product prize before generating.');
     expect(mockApiPost).not.toHaveBeenCalled();
   });
@@ -150,6 +176,15 @@ describe('generateQuizDraft', () => {
 });
 
 describe('activateQuizEvent', () => {
+  const launch = {
+    maxAttempts: 10,
+    mode: 'test' as const,
+    rulesVersion: 'test-v1',
+    timePerQuestionSeconds: 10,
+    timeZone: 'Africa/Lagos',
+    timing: { kind: 'immediate' as const, liveWindowSeconds: 300 },
+    variantsPerQuestion: 1,
+  };
   beforeEach(() => {
     mockApiPost.mockReset();
   });
@@ -168,7 +203,7 @@ describe('activateQuizEvent', () => {
       questions: [{ correctOptionId: 'b', position: 1 }],
     };
 
-    const result = await activateQuizEvent('event-1', answerKeyReview);
+    const result = await activateQuizEvent('event-1', answerKeyReview, launch);
 
     // Activation posts to its OWN path so it is not throttled by the expensive
     // Gemma-generation rate-limit bucket.
@@ -176,11 +211,12 @@ describe('activateQuizEvent', () => {
       answerKeyReview,
       confirmActivation: true,
       eventId: 'event-1',
+      ...launch,
     });
     expect(result.event.status).toBe('active');
   });
 
-  it('includes the close deadline (endsAt) in the payload when provided', async () => {
+  it('includes scheduled universal timing in the payload', async () => {
     mockApiPost.mockResolvedValue({
       event: {
         id: 'event-1',
@@ -193,15 +229,20 @@ describe('activateQuizEvent', () => {
     const answerKeyReview = {
       questions: [{ correctOptionId: 'b', position: 1 }],
     };
-    const endsAt = '2999-01-01T00:00:00.000Z';
+    const timing = {
+      endsAt: '2999-01-01T00:05:00.000Z',
+      kind: 'scheduled' as const,
+      startsAt: '2999-01-01T00:00:00.000Z',
+    };
 
-    await activateQuizEvent('event-1', answerKeyReview, endsAt);
+    await activateQuizEvent('event-1', answerKeyReview, { ...launch, timing });
 
     expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/quiz/activate', {
       answerKeyReview,
       confirmActivation: true,
       eventId: 'event-1',
-      endsAt,
+      ...launch,
+      timing,
     });
   });
 
@@ -209,9 +250,11 @@ describe('activateQuizEvent', () => {
     mockApiPost.mockRejectedValue(new Error('Failed to open quiz event'));
 
     await expect(
-      activateQuizEvent('event-1', {
-        questions: [{ correctOptionId: 'b', position: 1 }],
-      })
+      activateQuizEvent(
+        'event-1',
+        { questions: [{ correctOptionId: 'b', position: 1 }] },
+        launch
+      )
     ).rejects.toThrow('Failed to open quiz event');
   });
 
@@ -222,9 +265,11 @@ describe('activateQuizEvent', () => {
       .mockImplementation(() => undefined);
 
     await expect(
-      activateQuizEvent('event-1', {
-        questions: [{ correctOptionId: 'b', position: 1 }],
-      })
+      activateQuizEvent(
+        'event-1',
+        { questions: [{ correctOptionId: 'b', position: 1 }] },
+        launch
+      )
     ).rejects.toThrow(/Invalid quiz activation response:/);
     expect(consoleError).toHaveBeenCalledWith(
       'Invalid quiz activation response',

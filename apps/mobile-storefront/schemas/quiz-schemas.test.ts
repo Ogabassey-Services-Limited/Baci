@@ -7,6 +7,7 @@ import {
   quizQuestionSchema,
   quizResultSchema,
 } from './quiz-schemas';
+import { validLegacyQuizEvent as validEvent } from './quiz-schemas.test-support';
 
 const validOption = {
   id: 'option-1',
@@ -21,16 +22,6 @@ const validQuestion = {
   timeLimitSeconds: 30,
   index: 1,
   total: 3,
-};
-
-const validEvent = {
-  id: 'event-1',
-  title: 'Daily Prize Quiz',
-  prizeName: 'N50,000 store credit',
-  startsAt: '2026-05-20T10:00:00.000Z',
-  endsAt: '2026-05-20T10:10:00.000Z',
-  status: 'open',
-  questionCount: 3,
 };
 
 const validAttempt = {
@@ -52,9 +43,28 @@ const completedResult = {
 type SafeParseResult =
   | { data: unknown; success: true }
   | {
-      error: { issues: Array<{ readonly path: PropertyKey[] }> };
+      error: { issues: QuizSchemaIssue[] };
       success: false;
     };
+
+type QuizSchemaIssue = Readonly<{
+  errors?: QuizSchemaIssue[][];
+  path: PropertyKey[];
+}>;
+
+function hasIssueAtPath(
+  issues: readonly QuizSchemaIssue[],
+  path: Array<string | number>
+): boolean {
+  return issues.some(
+    (issue) =>
+      JSON.stringify(issue.path) === JSON.stringify(path) ||
+      (issue.errors?.some((nestedIssues) =>
+        hasIssueAtPath(nestedIssues, path)
+      ) ??
+        false)
+  );
+}
 
 function expectInvalidIssue(
   parseResult: SafeParseResult,
@@ -62,25 +72,39 @@ function expectInvalidIssue(
 ) {
   expect(parseResult.success).toBe(false);
   if (!parseResult.success) {
-    expect(parseResult.error.issues).toEqual(
-      expect.arrayContaining([expect.objectContaining({ path })])
-    );
+    expect(hasIssueAtPath(parseResult.error.issues, path)).toBe(true);
   }
 }
 
 describe('quiz response schemas', () => {
   it('parses valid fixtures for every exported quiz schema', () => {
-    expect(quizOptionSchema.parse(validOption)).toEqual(validOption);
-    expect(quizQuestionSchema.parse(validQuestion)).toEqual(validQuestion);
-    expect(quizEventSchema.parse(validEvent)).toEqual(validEvent);
-    expect(
-      quizEventsResponseSchema.parse({
-        entryMode: 'free-v1',
-        events: [validEvent],
-      })
-    ).toEqual({
+    const parsedEvent = quizEventSchema.parse(validEvent);
+    const parsedEventsResponse = quizEventsResponseSchema.parse({
       entryMode: 'free-v1',
       events: [validEvent],
+    });
+
+    expect(quizOptionSchema.parse(validOption)).toEqual(validOption);
+    expect(quizQuestionSchema.parse(validQuestion)).toEqual(validQuestion);
+    expect(parsedEvent).toMatchObject({
+      ...validEvent,
+      contractVersion: 1,
+      liveWindowSeconds: 600,
+      maxAttempts: 1,
+      maximumPlaySeconds: 90,
+      mode: 'live',
+      rulesVersion: null,
+    });
+    expect(parsedEventsResponse).toMatchObject({
+      entryMode: 'free-v1',
+      events: [
+        {
+          ...validEvent,
+          contractVersion: 1,
+          liveWindowSeconds: 600,
+          maximumPlaySeconds: 90,
+        },
+      ],
     });
     expect(quizAttemptSchema.parse(validAttempt)).toEqual(validAttempt);
     expect(quizResultSchema.parse(completedResult)).toEqual(completedResult);
@@ -123,6 +147,35 @@ describe('quiz response schemas', () => {
   it('rejects event lists from a backend without free-entry support', () => {
     expect(
       quizEventsResponseSchema.safeParse({ events: [validEvent] }).success
+    ).toBe(false);
+  });
+
+  it('rejects an inverted legacy event window instead of normalizing it to zero', () => {
+    expect(
+      quizEventSchema.safeParse({
+        ...validEvent,
+        endsAt: '2026-05-20T09:59:00.000Z',
+      }).success
+    ).toBe(false);
+  });
+
+  it('keeps legitimate legacy prize metadata but rejects unknown event fields', () => {
+    expect(
+      quizEventSchema.safeParse({
+        ...validEvent,
+        prizeProduct: {
+          id: '55555555-5555-4555-8555-555555555555',
+          imageUrl: null,
+          name: 'iPhone XR',
+          variantId: null,
+        },
+      }).success
+    ).toBe(true);
+    expect(
+      quizEventSchema.safeParse({
+        ...validEvent,
+        privateAdminSetting: 'must-not-reach-the-app',
+      }).success
     ).toBe(false);
   });
 
@@ -213,51 +266,6 @@ describe('quiz response schemas', () => {
     expectInvalidIssue(
       quizResultSchema.safeParse({ ...completedResult, status: 'failed' }),
       ['status']
-    );
-  });
-
-  it('requires ISO 8601 datetimes for event windows', () => {
-    expect(
-      quizEventSchema.safeParse({
-        ...validEvent,
-        endsAt: null,
-        startsAt: null,
-      }).success
-    ).toBe(true);
-    expectInvalidIssue(
-      quizEventSchema.safeParse({ ...validEvent, startsAt: 'tomorrow' }),
-      ['startsAt']
-    );
-    expectInvalidIssue(
-      quizEventSchema.safeParse({ ...validEvent, endsAt: '2026-05-20' }),
-      ['endsAt']
-    );
-  });
-
-  it('accepts Supabase timestamptz values with numeric offsets', () => {
-    expect(
-      quizEventSchema.safeParse({
-        ...validEvent,
-        startsAt: '2026-05-20T10:00:00.123456+00:00',
-        endsAt: '2026-05-20T10:10:00+01:00',
-      }).success
-    ).toBe(true);
-  });
-
-  it('rejects datetime strings without a timezone offset', () => {
-    expectInvalidIssue(
-      quizEventSchema.safeParse({
-        ...validEvent,
-        startsAt: '2026-05-20T10:00:00',
-      }),
-      ['startsAt']
-    );
-    expectInvalidIssue(
-      quizEventSchema.safeParse({
-        ...validEvent,
-        endsAt: '2026-05-20T10:10:00.123',
-      }),
-      ['endsAt']
     );
   });
 

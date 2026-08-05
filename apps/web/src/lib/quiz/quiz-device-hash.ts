@@ -1,7 +1,10 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { getQuizDeviceHashPepper, isProduction } from '@/env';
 import { logger } from '@/lib/logger';
+import {
+  getQuizDeviceHashPepper,
+  isProductionDeployment,
+} from '@/lib/quiz/quiz-runtime-env';
 
 /**
  * Resolves the device identity used by the per-device attempt cap (QZ041).
@@ -98,7 +101,7 @@ export function resolveQuizDevice(
       value: minted,
       httpOnly: true,
       sameSite: 'lax',
-      secure: isProduction(),
+      secure: isProductionDeployment(),
       path: '/',
       maxAge: QUIZ_DEVICE_COOKIE_MAX_AGE_SECONDS,
     },

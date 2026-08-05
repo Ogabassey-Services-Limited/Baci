@@ -1,3 +1,4 @@
+import { getEffectiveProductStock } from '@baci/shared';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -7,7 +8,10 @@ import {
 } from '@/lib/merchant-server';
 import { getPrimaryProductImage } from '@/lib/product-image';
 import { createClient } from '@/lib/supabase/server';
-import { merchantQuizPrizeProductsResponseSchema } from '@/schemas/quiz';
+import {
+  quizPrizeProductSchema,
+  quizPrizeProductsResponseSchema,
+} from '@/schemas/quiz-prize-product';
 import { QuizAdminClient } from './quiz-admin-client';
 
 export const metadata: Metadata = {
@@ -17,54 +21,103 @@ export const metadata: Metadata = {
 
 type PrizeProductRow = {
   default_variant_id: string | null;
+  condition: string | null;
+  has_variants: boolean | null;
   id: string;
   images: Array<string | { url?: string | null }> | null;
   name: string;
+  manage_stock: boolean | null;
   price: number | string | null;
+  stock: number | string | null;
+  stock_quantity: number | string | null;
 };
 
-async function loadPrizeProducts(merchantId: string) {
+const INITIAL_PRIZE_PRODUCT_LIMIT = 100;
+
+function productOffsetCursor(productOffset: number): string {
+  // Matches the product-offset/zero-variant cursor consumed by the prize API.
+  return String((productOffset * (productOffset + 1)) / 2);
+}
+
+function isPrizeProductRow(value: unknown): value is PrizeProductRow {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Partial<PrizeProductRow>;
+  return typeof row.id === 'string' && typeof row.name === 'string';
+}
+
+export async function loadPrizeProducts(merchantId: string) {
   const supabase = createClient(await cookies());
-  const { data, error } = await supabase
+  const { count, data, error } = await supabase
     .from('products')
-    .select('id, name, price, images, default_variant_id')
+    .select(
+      'id, name, price, images, condition, default_variant_id, has_variants, manage_stock, stock, stock_quantity',
+      { count: 'exact' }
+    )
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
-    .limit(100);
+    .limit(INITIAL_PRIZE_PRODUCT_LIMIT);
 
   if (error) {
     return {
       error: 'Failed to load prize products',
+      nextCursor: null,
       products: [],
+      total: null,
     };
   }
 
-  const products = (Array.isArray(data) ? data : [])
-    .filter((row): row is PrizeProductRow => {
-      if (!row || typeof row !== 'object') return false;
-      const product = row as Partial<PrizeProductRow>;
-      return typeof product.id === 'string' && typeof product.name === 'string';
+  const rows = (Array.isArray(data) ? data : []).filter(isPrizeProductRow);
+  const products = rows
+    .map((row) => {
+      const manageStock = row.manage_stock === true;
+      const effectiveStock = manageStock ? getEffectiveProductStock(row) : null;
+      const hasVariants = row.has_variants === true;
+      return {
+        available: !hasVariants && (!manageStock || (effectiveStock ?? 0) > 0),
+        condition: row.condition?.trim() || 'unspecified',
+        defaultVariantId: row.default_variant_id ?? null,
+        effectiveStock,
+        hasVariants,
+        id: row.id,
+        imageUrl: getPrimaryProductImage(row.images),
+        manageStock,
+        name: row.name,
+        price: Number(row.price ?? 0),
+        requiresVariantSelection: hasVariants,
+        selectionId: `${row.id}:product`,
+        variantId: null,
+        variantLabel: null,
+      };
     })
-    .map((row) => ({
-      defaultVariantId: row.default_variant_id,
-      id: row.id,
-      imageUrl: getPrimaryProductImage(row.images),
-      name: row.name,
-      price: Number(row.price ?? 0),
-    }));
+    .flatMap((product) => {
+      const parsed = quizPrizeProductSchema.safeParse(product);
+      return parsed.success ? [parsed.data] : [];
+    });
 
-  const response = merchantQuizPrizeProductsResponseSchema.safeParse({
+  const total = typeof count === 'number' && count >= 0 ? count : null;
+  const nextCursor =
+    total !== null &&
+    rows.length === INITIAL_PRIZE_PRODUCT_LIMIT &&
+    total > rows.length
+      ? productOffsetCursor(rows.length)
+      : null;
+
+  const response = quizPrizeProductsResponseSchema.safeParse({
+    nextCursor,
     products,
+    total,
   });
   if (!response.success) {
     return {
       error: 'Failed to load prize products',
+      nextCursor: null,
       products: [],
+      total: null,
     };
   }
 
-  return { error: null, products: response.data.products };
+  return { error: null, ...response.data };
 }
 
 export default async function QuizDashboardPage() {

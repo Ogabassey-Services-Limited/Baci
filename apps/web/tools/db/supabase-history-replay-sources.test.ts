@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { EXPECTED_QUIZ_LIVE_PENDING_SOURCES } from './expected-quiz-live-pending-sources.test-support';
 import { REPLAY_SOURCE_DATA } from './supabase-history-replay-sources';
 
 const {
@@ -115,5 +116,28 @@ describe('supabase-history-replay sources', () => {
     expect(rows(PENDING_SOURCES)).toContain(
       '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d 20260729100000_add_merchant_identity_verified_rpc.sql'
     );
+  });
+
+  it('keeps the quiz-live pending-source cohort unique and lexically ordered', () => {
+    const repositoryPaths = EXPECTED_QUIZ_LIVE_PENDING_SOURCES.map(
+      ({ repositoryPath }) => repositoryPath
+    );
+
+    expect(repositoryPaths.length).toBeGreaterThan(0);
+    expect(new Set(repositoryPaths).size).toBe(repositoryPaths.length);
+    expect(repositoryPaths).toEqual([...repositoryPaths].sort());
+
+    const pendingByPath = new Map(
+      rows(PENDING_SOURCES).map((row) => {
+        const [sha256, filename] = row.trim().split(/\s+/);
+        return [`supabase/migrations/${filename}`, sha256] as const;
+      })
+    );
+    for (const {
+      repositoryPath,
+      sha256,
+    } of EXPECTED_QUIZ_LIVE_PENDING_SOURCES) {
+      expect(pendingByPath.get(repositoryPath)).toBe(sha256);
+    }
   });
 });

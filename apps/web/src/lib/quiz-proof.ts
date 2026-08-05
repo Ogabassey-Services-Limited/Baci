@@ -1,6 +1,6 @@
 import { createHash, createHmac } from 'node:crypto';
-import { getQuizRpcServerSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { getQuizRpcServerSecret } from '@/lib/quiz/quiz-runtime-env';
 
 export interface QuizRpcServerProof {
   action: string;

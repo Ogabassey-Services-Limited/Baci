@@ -1,5 +1,8 @@
-import { getQuizPhaseEnv, getQuizProductionApprovedEnv } from '@/env';
 import { logger } from '@/lib/logger';
+import {
+  getQuizPhaseEnv,
+  getQuizProductionApprovedEnv,
+} from '@/lib/quiz/quiz-runtime-env';
 
 export type QuizPhase = '1a' | 'production';
 

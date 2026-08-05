@@ -1,18 +1,16 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetQuizDeviceHashPepper = vi.hoisted(() => vi.fn());
-const mockGetQuizRpcServerSecret = vi.hoisted(() => vi.fn());
-const mockIsProduction = vi.hoisted(() => vi.fn());
+const mockIsProductionDeployment = vi.hoisted(() => vi.fn());
 const mockLogger = vi.hoisted(() => ({
   error: vi.fn(),
   warn: vi.fn(),
 }));
 
-vi.mock('@/env', () => ({
+vi.mock('@/lib/quiz/quiz-runtime-env', () => ({
   getQuizDeviceHashPepper: mockGetQuizDeviceHashPepper,
-  getQuizRpcServerSecret: mockGetQuizRpcServerSecret,
-  isProduction: mockIsProduction,
+  isProductionDeployment: mockIsProductionDeployment,
 }));
 
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
@@ -33,9 +31,10 @@ describe('resolveQuizDevice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetQuizDeviceHashPepper.mockReturnValue('quiz-device-pepper');
-    mockGetQuizRpcServerSecret.mockReturnValue('rpc-secret-v1');
-    mockIsProduction.mockReturnValue(false);
+    mockIsProductionDeployment.mockReturnValue(false);
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it('peppers the mobile fingerprint instead of storing what the client sent', async () => {
     const { resolveQuizDevice } = await import('./quiz-device-hash');
@@ -71,14 +70,13 @@ describe('resolveQuizDevice', () => {
       requestWithCookie(),
       NATIVE_FINGERPRINT
     );
-    mockGetQuizRpcServerSecret.mockReturnValue('rpc-secret-v2');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'rpc-secret-v2');
     const afterRotation = resolveQuizDevice(
       requestWithCookie(),
       NATIVE_FINGERPRINT
     );
 
     expect(afterRotation.deviceHash).toBe(beforeRotation.deviceHash);
-    expect(mockGetQuizRpcServerSecret).not.toHaveBeenCalled();
   });
 
   it('mints an httpOnly cookie for a web client that has none', async () => {
@@ -99,7 +97,7 @@ describe('resolveQuizDevice', () => {
   });
 
   it('marks the web device cookie secure in production', async () => {
-    mockIsProduction.mockReturnValue(true);
+    mockIsProductionDeployment.mockReturnValue(true);
     const { resolveQuizDevice } = await import('./quiz-device-hash');
 
     const { cookieToSet } = resolveQuizDevice(requestWithCookie());

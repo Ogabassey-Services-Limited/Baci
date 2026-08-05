@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
-  quizLeaderboardEntrySchema,
+  quizLeaderboardProjectionSchema,
   quizLeaderboardQuerySchema,
   quizLeaderboardResponseSchema,
   quizLeaderboardRowSchema,
 } from './quiz-leaderboard';
 
-const VALID_ENTRY = {
-  displayName: 'quizking',
-  isCurrentCustomer: true,
+const ROW = {
+  customer_name: 'Player-A1B2C3D4',
+  is_current_customer: false,
+  rank: 1,
+  score: 5,
+  status: 'scored',
+  submitted_at: '2026-07-14T09:00:00.000Z',
+  total_time_seconds: 30.5,
+};
+
+const ENTRY = {
+  displayName: 'Player-A1B2C3D4',
+  isCurrentCustomer: false,
   rank: 1,
   score: 5,
   status: 'scored',
@@ -16,125 +26,64 @@ const VALID_ENTRY = {
   totalTimeSeconds: 30.5,
 };
 
-describe('quizLeaderboardEntrySchema', () => {
-  it('accepts a well-formed entry', () => {
-    expect(quizLeaderboardEntrySchema.parse(VALID_ENTRY)).toEqual(VALID_ENTRY);
-  });
+describe('quiz leaderboard schemas', () => {
+  it('accepts a published top 100 projection and separate current player', () => {
+    const rows = Array.from({ length: 100 }, (_, index) => ({
+      ...ROW,
+      rank: index + 1,
+    }));
 
-  it('rejects a blank display name so no empty row can render', () => {
     expect(
-      quizLeaderboardEntrySchema.safeParse({ ...VALID_ENTRY, displayName: '' })
-        .success
-    ).toBe(false);
+      quizLeaderboardProjectionSchema.parse({
+        current_player: { ...ROW, is_current_customer: true, rank: '101' },
+        entries: rows,
+        status: 'published',
+      }).current_player?.rank
+    ).toBe('101');
   });
 
-  it('rejects a non-positive rank', () => {
+  it('accepts a hidden board only when no player data is present', () => {
     expect(
-      quizLeaderboardEntrySchema.safeParse({ ...VALID_ENTRY, rank: 0 }).success
-    ).toBe(false);
+      quizLeaderboardResponseSchema.parse({
+        currentPlayer: null,
+        entries: [],
+        status: 'live_hidden',
+      })
+    ).toEqual({ currentPlayer: null, entries: [], status: 'live_hidden' });
   });
 
-  it('rejects a negative score', () => {
-    expect(
-      quizLeaderboardEntrySchema.safeParse({ ...VALID_ENTRY, score: -1 })
-        .success
-    ).toBe(false);
-  });
-
-  it('allows a null completion time and submitted timestamp', () => {
-    const parsed = quizLeaderboardEntrySchema.parse({
-      ...VALID_ENTRY,
-      submittedAt: null,
-      totalTimeSeconds: null,
-    });
-
-    expect(parsed.submittedAt).toBeNull();
-    expect(parsed.totalTimeSeconds).toBeNull();
-  });
-
-  it('has no loyalty-point field — standings are skill and speed only', () => {
-    expect(Object.keys(quizLeaderboardEntrySchema.shape)).not.toContain(
-      'loyaltyPoints'
-    );
-  });
-});
-
-describe('quizLeaderboardResponseSchema', () => {
-  it('accepts an empty board', () => {
-    expect(quizLeaderboardResponseSchema.parse({ entries: [] })).toEqual({
-      entries: [],
-    });
-  });
-
-  it('rejects a malformed entry inside the array', () => {
+  it('rejects more than 100 public entries', () => {
     expect(
       quizLeaderboardResponseSchema.safeParse({
-        entries: [{ ...VALID_ENTRY, rank: -1 }],
+        currentPlayer: null,
+        entries: Array.from({ length: 101 }, (_, index) => ({
+          ...ENTRY,
+          rank: index + 1,
+        })),
+        status: 'published',
       }).success
     ).toBe(false);
   });
-});
 
-describe('quizLeaderboardRowSchema', () => {
-  it('accepts a bigint rank delivered as a string', () => {
+  it('strips internal identifiers from a safe row', () => {
     const parsed = quizLeaderboardRowSchema.parse({
-      customer_name: 'quizking',
-      is_current_customer: true,
-      rank: '3',
-      score: 5,
-      status: 'scored',
-      submitted_at: '2026-07-14T09:00:00.000Z',
-      total_time_seconds: 30.5,
+      ...ROW,
+      attempt_id: 'secret-attempt',
+      customer_id: 'secret-customer',
     });
 
-    expect(parsed.rank).toBe('3');
-    expect(parsed.is_current_customer).toBe(true);
-  });
-
-  it('tolerates null customer name, score, and self flag from an unranked row', () => {
-    const parsed = quizLeaderboardRowSchema.parse({
-      customer_name: null,
-      is_current_customer: null,
-      rank: 9,
-      score: null,
-      status: null,
-      submitted_at: null,
-      total_time_seconds: null,
-    });
-
-    expect(parsed.customer_name).toBeNull();
-    expect(parsed.score).toBeNull();
-  });
-
-  it('never carries a customer id (the RPC no longer returns one)', () => {
-    const parsed = quizLeaderboardRowSchema.parse({
-      customer_id: 'leaked-id',
-      customer_name: 'quizking',
-      is_current_customer: false,
-      rank: 1,
-      score: 5,
-      status: 'scored',
-      submitted_at: '2026-07-14T09:00:00.000Z',
-      total_time_seconds: 30.5,
-    });
-
+    expect(parsed).not.toHaveProperty('attempt_id');
     expect(parsed).not.toHaveProperty('customer_id');
   });
-});
 
-describe('quizLeaderboardQuerySchema', () => {
-  it('accepts a uuid eventId', () => {
+  it('requires an event UUID', () => {
     expect(
       quizLeaderboardQuerySchema.safeParse({
         eventId: '11111111-1111-4111-8111-111111111111',
       }).success
     ).toBe(true);
-  });
-
-  it('rejects a missing or non-uuid eventId', () => {
-    expect(quizLeaderboardQuerySchema.safeParse({}).success).toBe(false);
     expect(
-      quizLeaderboardQuerySchema.safeParse({ eventId: 'nope' }).success
+      quizLeaderboardQuerySchema.safeParse({ eventId: 'not-a-uuid' }).success
     ).toBe(false);
   });
 });

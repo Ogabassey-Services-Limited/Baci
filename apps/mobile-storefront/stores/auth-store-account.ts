@@ -8,7 +8,12 @@ import { getStoredPushToken } from '../lib/push-token-storage';
 import { queryClient } from '../lib/query-client';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
-import { CUSTOMER_SELECT_COLUMNS } from './auth-helpers';
+import {
+  CUSTOMER_SELECT_COLUMNS,
+  getUsernameCooldownNextEligibleAt,
+  getUsernamePolicyError,
+  parseUsernameWriteResult,
+} from './auth-helpers';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
 import { profileRpcErrorMessages } from './auth-store-error-messages';
 import { clearLocalAndDeactivatePushToken } from './auth-store-push';
@@ -18,6 +23,47 @@ import { useQuizStore } from './quiz-store';
 import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
+
+type AccountIdentity = {
+  merchantId: string;
+  userId: string | null;
+  customerId: string | null;
+};
+
+function getAccountUserId(state: ReturnType<AuthStoreGet>) {
+  return state.user?.id ?? state.customer?.user_id ?? null;
+}
+
+function captureAccountIdentity(
+  state: ReturnType<AuthStoreGet>,
+  merchantId: string,
+  customer: Customer | null
+): AccountIdentity {
+  return {
+    merchantId,
+    userId: getAccountUserId(state),
+    customerId: customer?.id ?? null,
+  };
+}
+
+function isSameInitiatingAccount(
+  identity: AccountIdentity,
+  state: ReturnType<AuthStoreGet>
+) {
+  if (state.merchantId !== identity.merchantId) return false;
+
+  const currentUserId = getAccountUserId(state);
+  if (identity.userId && currentUserId !== identity.userId) return false;
+
+  // A temporarily missing customer row is expected during hydration. A present
+  // row with a different id, however, belongs to a different account and must
+  // never receive the previous account's asynchronous response.
+  return !(
+    identity.customerId &&
+    state.customer &&
+    state.customer.id !== identity.customerId
+  );
+}
 
 function clearUserStores() {
   queryClient.clear();
@@ -104,16 +150,31 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
     },
     updateProfile: async (data: Partial<Customer>) => {
       try {
-        const { customer, merchantId } = get();
+        const initialState = get();
+        const { customer, merchantId } = initialState;
         if (!customer || !merchantId) {
           return { success: false, error: 'Not logged in' };
         }
+        const initiatingAccount = captureAccountIdentity(
+          initialState,
+          merchantId,
+          customer
+        );
 
         const {
           data: { user: verifiedUser },
           error: authError,
         } = await supabase.auth.getUser();
         if (authError || !verifiedUser) {
+          return {
+            success: false,
+            error: 'Session expired. Please sign in again.',
+          };
+        }
+        if (
+          initiatingAccount.userId &&
+          verifiedUser.id !== initiatingAccount.userId
+        ) {
           return {
             success: false,
             error: 'Session expired. Please sign in again.',
@@ -143,33 +204,44 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           return { success: false, error: 'Invalid data received from server' };
         }
 
+        if (!isSameInitiatingAccount(initiatingAccount, get())) {
+          // The update committed for the initiating account, but the app has
+          // since switched accounts. Keep the new account's local state intact.
+          return { success: true };
+        }
+
         // updateProfile never writes username, so the response's username is a
         // point-in-time read that can be STALE if a concurrent setUsername
         // resolved while this update was in flight (the mirror of the race
         // handled in setUsername below). Prefer the live store value — it can
         // only be newer, since this action cannot legitimately change it.
-        const liveUsername = get().customer?.username;
+        const liveCustomer = get().customer;
         // Same stale-read race as username: updateProfile never writes
         // date_of_birth, so a concurrent setDateOfBirth could have resolved
         // while this update was in flight. Prefer the live store value.
-        const liveDateOfBirth = get().customer?.date_of_birth;
-        set({
-          customer: {
-            id: updateValidation.data.id,
-            user_id: updateValidation.data.user_id,
-            email: updateValidation.data.email,
-            first_name: updateValidation.data.first_name ?? undefined,
-            last_name: updateValidation.data.last_name ?? undefined,
-            phone: updateValidation.data.phone ?? undefined,
-            loyalty_points: updateValidation.data.loyalty_points ?? undefined,
-            username:
-              liveUsername ?? updateValidation.data.username ?? undefined,
-            date_of_birth:
-              liveDateOfBirth ??
-              updateValidation.data.date_of_birth ??
-              undefined,
-          },
-        });
+        const liveDateOfBirth = liveCustomer?.date_of_birth;
+        const nextCustomer: Customer = {
+          id: updateValidation.data.id,
+          user_id: updateValidation.data.user_id,
+          email: updateValidation.data.email,
+          first_name: updateValidation.data.first_name ?? undefined,
+          last_name: updateValidation.data.last_name ?? undefined,
+          phone: updateValidation.data.phone ?? undefined,
+          loyalty_points: updateValidation.data.loyalty_points ?? undefined,
+          username:
+            liveCustomer?.username ??
+            updateValidation.data.username ??
+            undefined,
+          username_changed_at:
+            liveCustomer?.username_changed_at ??
+            updateValidation.data.username_changed_at ??
+            undefined,
+          username_next_eligible_at:
+            liveCustomer?.username_next_eligible_at ?? undefined,
+          date_of_birth:
+            liveDateOfBirth ?? updateValidation.data.date_of_birth ?? undefined,
+        };
+        set({ customer: nextCustomer });
         return { success: true };
       } catch (error) {
         const message =
@@ -180,10 +252,16 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
 
     setUsername: async (username: string) => {
       try {
-        const { customer, merchantId } = get();
-        if (!customer || !merchantId) {
+        const initialState = get();
+        const { merchantId } = initialState;
+        if (!merchantId) {
           return { success: false, error: 'Not logged in' };
         }
+        const initiatingAccount = captureAccountIdentity(
+          initialState,
+          merchantId,
+          initialState.customer
+        );
 
         const {
           data: { user: verifiedUser },
@@ -195,35 +273,60 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
             error: 'Session expired. Please sign in again.',
           };
         }
+        if (
+          initiatingAccount.userId &&
+          verifiedUser.id !== initiatingAccount.userId
+        ) {
+          return {
+            success: false,
+            error: 'Session expired. Please sign in again.',
+          };
+        }
 
-        // Normalize (NFKC + zero-width strip + trim) at the RPC boundary, the
-        // same way the web API route does, so both clients send identical input.
         const cleaned = cleanUsername(username);
-
-        // The RPC re-derives the customer from auth.uid() + merchant, enforces
-        // per-merchant case-insensitive uniqueness, and raises friendly codes.
-        const { data, error } = await supabase.rpc('set_customer_username', {
+        const { data, error } = await supabase.rpc('set_customer_username_v2', {
           p_merchant_id: merchantId,
           p_username: cleaned,
         });
         if (error) {
+          const nextEligibleAt = getUsernameCooldownNextEligibleAt(error);
+          const latestCustomer = get().customer;
+          if (
+            nextEligibleAt &&
+            latestCustomer &&
+            isSameInitiatingAccount(initiatingAccount, get())
+          ) {
+            set({
+              customer: {
+                ...latestCustomer,
+                username_next_eligible_at: nextEligibleAt,
+              },
+            });
+          }
           return {
             success: false,
-            error: profileRpcErrorMessages.username(error.message),
+            error: getUsernamePolicyError(error),
           };
         }
 
-        const stored = typeof data === 'string' ? data : cleaned;
-        // Re-read the customer instead of spreading the top-of-function
-        // snapshot: two awaits (getUser + the RPC) ran since, during which a
-        // concurrent updateProfile could have replaced `customer`. Spreading the
-        // stale copy would silently clobber that change.
-        const latestCustomer = get().customer;
-        if (!latestCustomer) {
-          return { success: false, error: 'Not logged in' };
+        const result = parseUsernameWriteResult(data);
+        if (!result) {
+          return { success: false, error: 'Invalid data received from server' };
         }
-        set({ customer: { ...latestCustomer, username: stored } });
-        return { success: true, username: stored };
+        const latestCustomer = get().customer;
+        if (
+          latestCustomer &&
+          isSameInitiatingAccount(initiatingAccount, get())
+        ) {
+          const nextCustomer: Customer = {
+            ...latestCustomer,
+            username: result.username,
+            username_changed_at: result.usernameChangedAt,
+            username_next_eligible_at: result.nextEligibleAt,
+          };
+          set({ customer: nextCustomer });
+        }
+        return { success: true, username: result.username };
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Could not set username';

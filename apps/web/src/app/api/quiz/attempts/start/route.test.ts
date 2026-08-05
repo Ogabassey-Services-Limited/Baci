@@ -904,3 +904,51 @@ describe('start quiz attempt route', () => {
     );
   });
 });
+
+describe('quiz start dispatcher', () => {
+  afterEach(() => {
+    vi.doUnmock('./legacy-route');
+    vi.doUnmock('./v2-route');
+    vi.resetModules();
+  });
+
+  it('dispatches requests without the v2 contract header to the legacy handler', async () => {
+    const legacyResponse = Response.json({ contract: 'legacy' });
+    const postLegacyQuizStart = vi.fn().mockResolvedValue(legacyResponse);
+    const postQuizStartV2 = vi.fn();
+    vi.resetModules();
+    vi.doMock('./legacy-route', () => ({ postLegacyQuizStart }));
+    vi.doMock('./v2-route', () => ({ postQuizStartV2 }));
+
+    const request = jsonRequest({ eventId: EVENT_ID });
+    const { POST } = await import('./route');
+    expect(await POST(request)).toBe(legacyResponse);
+    expect(postLegacyQuizStart).toHaveBeenCalledWith(request);
+    expect(postQuizStartV2).not.toHaveBeenCalled();
+  });
+
+  it('dispatches contract version 2 requests to the v2 handler', async () => {
+    const v2Response = Response.json({ contract: 2 });
+    const postLegacyQuizStart = vi.fn();
+    const postQuizStartV2 = vi.fn().mockResolvedValue(v2Response);
+    vi.resetModules();
+    vi.doMock('./legacy-route', () => ({ postLegacyQuizStart }));
+    vi.doMock('./v2-route', () => ({ postQuizStartV2 }));
+
+    const request = new NextRequest(
+      'http://localhost/api/quiz/attempts/start',
+      {
+        body: JSON.stringify({ eventId: EVENT_ID }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Baci-Quiz-Contract': '2',
+        },
+        method: 'POST',
+      }
+    );
+    const { POST } = await import('./route');
+    expect(await POST(request)).toBe(v2Response);
+    expect(postQuizStartV2).toHaveBeenCalledWith(request);
+    expect(postLegacyQuizStart).not.toHaveBeenCalled();
+  });
+});

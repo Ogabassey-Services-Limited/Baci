@@ -9,18 +9,54 @@ import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
 import type { Customer } from './auth-store';
+import { profileRpcErrorMessages } from './auth-store-error-messages';
 
 const log = createLogger('AuthHelpers');
 
-// Single source of truth for the customer columns hydrated into the auth store.
-// Reused by every customers select here and in auth-store-account so the shape
-// stays in sync with the Customer type / CustomerRowSchema.
-export const CUSTOMER_SELECT_COLUMNS =
-  'id, user_id, email, first_name, last_name, phone, loyalty_points, username, date_of_birth';
+export function getUsernamePolicyError(error: {
+  details?: string;
+  message: string;
+}) {
+  if (error.message === 'username_change_active_attempt')
+    return 'Finish your active quiz before changing your username.';
+  if (error.message !== 'username_change_cooldown')
+    return profileRpcErrorMessages.username(error.message);
+  const timestamp = Date.parse(error.details ?? '');
+  return Number.isFinite(timestamp)
+    ? `You can change your username again on ${new Intl.DateTimeFormat(
+        undefined,
+        { dateStyle: 'medium' }
+      ).format(timestamp)}.`
+    : 'You can change your username once every 30 days.';
+}
 
-// ---------------------------------------------------------------------------
-// Timeout helper
-// ---------------------------------------------------------------------------
+export function getUsernameCooldownNextEligibleAt(error: {
+  details?: string;
+  message: string;
+}) {
+  if (error.message !== 'username_change_cooldown') return null;
+  return Number.isFinite(Date.parse(error.details ?? ''))
+    ? (error.details ?? null)
+    : null;
+}
+
+export function parseUsernameWriteResult(data: unknown) {
+  if (!data || typeof data !== 'object') return null;
+  const value = data as Record<string, unknown>;
+  if (typeof value.username !== 'string') return null;
+  return {
+    username: value.username,
+    usernameChangedAt:
+      typeof value.usernameChangedAt === 'string'
+        ? value.usernameChangedAt
+        : null,
+    nextEligibleAt:
+      typeof value.nextEligibleAt === 'string' ? value.nextEligibleAt : null,
+  };
+}
+
+export const CUSTOMER_SELECT_COLUMNS =
+  'id, user_id, email, first_name, last_name, phone, loyalty_points, username, username_changed_at, date_of_birth';
 
 /** Timeout (ms) for each Supabase query during initialization.
  *  Android on poor cellular can stall indefinitely without a client-side limit. */
@@ -51,10 +87,6 @@ export function initTimeout<T>(
     }
   });
 }
-
-// ---------------------------------------------------------------------------
-// Error helpers
-// ---------------------------------------------------------------------------
 
 export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -241,7 +273,7 @@ export async function hydrateCustomer({
   const validation = CustomerRowSchema.safeParse(resolvedCustomer);
   if (!validation.success) return null;
 
-  return {
+  const customerWithUsernamePolicy: Customer = {
     id: validation.data.id,
     user_id: validation.data.user_id,
     email: validation.data.email,
@@ -250,13 +282,11 @@ export async function hydrateCustomer({
     phone: validation.data.phone ?? undefined,
     loyalty_points: validation.data.loyalty_points ?? undefined,
     username: validation.data.username ?? undefined,
+    username_changed_at: validation.data.username_changed_at ?? undefined,
     date_of_birth: validation.data.date_of_birth ?? undefined,
   };
+  return customerWithUsernamePolicy;
 }
-
-// ---------------------------------------------------------------------------
-// Internal: wrap a query with optional timeout + catch
-// ---------------------------------------------------------------------------
 
 function wrapQuery<T>(
   query: PromiseLike<T>,

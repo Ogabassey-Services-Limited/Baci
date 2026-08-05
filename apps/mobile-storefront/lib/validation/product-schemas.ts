@@ -45,6 +45,7 @@ export const CustomerRowSchema = z.object({
   phone: z.string().nullable().optional(),
   loyalty_points: z.number().nullable().optional(),
   username: z.string().nullable().optional(),
+  username_changed_at: z.string().nullable().optional(),
   date_of_birth: z.string().nullable().optional(),
 });
 

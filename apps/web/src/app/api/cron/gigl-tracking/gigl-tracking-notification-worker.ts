@@ -41,7 +41,7 @@ async function complete(
   const { data, error: rpcError } = await supabase.rpc(
     'complete_shipment_tracking_notification',
     {
-      p_error: error ?? null,
+      ...(error ? { p_error: error } : {}),
       p_id: id,
       p_outcome: outcome,
       p_worker_id: workerId,

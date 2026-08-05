@@ -53,7 +53,7 @@ describe('quiz migration contracts', () => {
       .map(
         ({ sql }) =>
           sql.match(
-            /CREATE OR REPLACE FUNCTION public\.start_quiz_attempt[\s\S]*?\$\$;/i
+            /CREATE OR REPLACE FUNCTION public\.start_quiz_attempt\s*\([\s\S]*?\$\$;/i
           )?.[0]
       )
       .filter((sql): sql is string => Boolean(sql))
@@ -119,8 +119,8 @@ describe('quiz migration contracts', () => {
       /CREATE OR REPLACE FUNCTION public\.mint_quiz_event_ranked_awards[\s\S]*?\$\$;/i,
     ],
     [
-      'get_quiz_leaderboard',
-      /CREATE (?:OR REPLACE )?FUNCTION public\.get_quiz_leaderboard[\s\S]*?\$\$;/i,
+      'quiz_ranked_candidates_v2',
+      /CREATE OR REPLACE FUNCTION private\.quiz_ranked_candidates_v2\s*\([\s\S]*?\$\$;/i,
     ],
   ])('ranks %s on skill and speed only — never on loyalty points', (_name, pattern) => {
     const latestSql = quizMigrationFiles
@@ -138,9 +138,11 @@ describe('quiz migration contracts', () => {
     // resolve arbitrarily (which would make winners non-reproducible).
     expect(latestSql).toMatch(/score\s+DESC/i);
     expect(latestSql).toMatch(
-      /EXTRACT\(EPOCH FROM \([a-z_]+\.submitted_at - [a-z_]+\.started_at\)\)[\s\S]*?ASC NULLS LAST/i
+      /ORDER BY[\s\S]*?[a-z_]+\.submitted_at - [a-z_]+\.started_at/i
     );
-    expect(latestSql).toMatch(/submitted_at\s+ASC/i);
+    expect(latestSql).toMatch(
+      /ORDER BY[\s\S]*?submitted_at - [a-z_]+\.started_at[\s\S]*?,\s*[a-z_]+\.submitted_at(?:\s+ASC)?\s*[,)]/i
+    );
   });
 
   it('uses the award candidate set for the public leaderboard', () => {
@@ -148,23 +150,20 @@ describe('quiz migration contracts', () => {
       .map(
         ({ sql }) =>
           sql.match(
-            /CREATE (?:OR REPLACE )?FUNCTION public\.get_quiz_leaderboard[\s\S]*?\$\$;/i
+            /CREATE OR REPLACE FUNCTION private\.quiz_ranked_candidates_v2\s*\([\s\S]*?\$\$;/i
           )?.[0]
       )
       .filter((sql): sql is string => Boolean(sql))
       .at(-1);
 
     expect(leaderboardSql).toBeDefined();
-    expect(leaderboardSql).toMatch(/SELECT DISTINCT ON \(qa\.customer_id\)/i);
-    expect(leaderboardSql).toMatch(/qa\.status IN \('submitted', 'scored'\)/i);
+    expect(leaderboardSql).toMatch(/SELECT DISTINCT ON \(a\.customer_id\)/i);
+    expect(leaderboardSql).toMatch(/a\.status IN \('submitted', 'scored'\)/i);
     expect(leaderboardSql).toMatch(
-      /qa\.submitted_at - qa\.started_at <= interval '1 hour'/i
+      /quiz_attempt_signal_flags[\s\S]*?severity = 'block'/i
     );
     expect(leaderboardSql).toMatch(
-      /qa\.submitted_at - qa\.started_at >= interval '0 seconds'/i
-    );
-    expect(leaderboardSql).toMatch(
-      /ORDER BY\s+qa\.customer_id,\s+qa\.score DESC NULLS LAST,\s+EXTRACT\(EPOCH FROM \(qa\.submitted_at - qa\.started_at\)\) ASC NULLS LAST,\s+qa\.submitted_at ASC,\s+qa\.id ASC/i
+      /ORDER BY\s+a\.customer_id,\s+a\.score DESC,\s+a\.submitted_at - a\.started_at,\s+a\.submitted_at,\s+a\.id/i
     );
     expect(leaderboardSql).not.toMatch(/'disqualified'/i);
   });

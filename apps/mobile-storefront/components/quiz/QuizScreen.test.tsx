@@ -14,6 +14,7 @@ import {
   startQuizAttempt,
   submitQuizAnswer,
 } from '@/services/quiz';
+import { submitQuizAnswerV2 } from '@/services/quiz-attempts';
 import { useQuizStore } from '@/stores/quiz-store';
 
 // The username gate pulls in additional modules (UsernamePrompt, the zod
@@ -26,6 +27,7 @@ jest.setTimeout(15000);
 // start-flow tests below are unaffected by the username gate. The gate
 // itself is covered by the dedicated test further down.
 let mockUsername: string | null = 'ogafan';
+let mockAuthUserId: string | null = 'quiz-shopper';
 // Start-flow tests default to an adult DOB so the 18+ gate passes; the
 // dedicated date-of-birth gate tests below set it to null.
 let mockDateOfBirth: string | null = '1990-06-15';
@@ -53,7 +55,7 @@ jest.mock('@/stores/auth-store', () => {
     setDateOfBirth: mockSetDateOfBirth,
     // useQuizStartFlow reads getState().user?.id to guard against account
     // switches, so the mock must expose the static getState method too.
-    user: { id: 'quiz-shopper' },
+    user: mockAuthUserId ? { id: mockAuthUserId } : null,
   });
   const useAuthStore = (
     selector: (state: ReturnType<typeof getState>) => unknown
@@ -140,6 +142,18 @@ function createDeferred<T>() {
   return { promise, reject, resolve };
 }
 
+async function acceptRulesAndStart() {
+  fireEvent.press(
+    await screen.findByRole('button', {
+      name: 'Play for free Daily Prize Quiz',
+    })
+  );
+  fireEvent.press(
+    screen.getByRole('checkbox', { name: 'Accept quiz rules and terms' })
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Accept and play quiz' }));
+}
+
 // Anti multi-accounting: QuizScreen sends a device fingerprint so the server can
 // share one attempt budget across every account started from this device.
 jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
@@ -151,11 +165,17 @@ jest.mock('@/services/quiz', () => ({
   startQuizAttempt: jest.fn(),
   submitQuizAnswer: jest.fn(),
 }));
+jest.mock('@/services/quiz-attempts', () => ({
+  createQuizStartRequestId: () => 'start-request-1',
+  startQuizAttemptV2: jest.fn(),
+  submitQuizAnswerV2: jest.fn(),
+}));
 
 describe('QuizScreen', () => {
   beforeEach(() => {
     useQuizStore.getState().reset();
     mockUsername = 'ogafan';
+    mockAuthUserId = 'quiz-shopper';
     mockDateOfBirth = '1990-06-15';
     mockSetUsername.mockReset();
     mockSetDateOfBirth.mockReset();
@@ -195,16 +215,12 @@ describe('QuizScreen', () => {
   it('renders fetched quiz events', async () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    expect(await screen.findByText('Super Quiz')).toBeTruthy();
-    expect(screen.getByText('Free to enter.')).toBeTruthy();
-    expect(
-      screen.getByText('No loyalty points required. No purchase necessary.')
-    ).toBeTruthy();
     expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
-    expect(screen.getByText('N50,000 store credit')).toBeTruthy();
+    expect(screen.getByText('Win N50,000 store credit')).toBeTruthy();
+    expect(screen.getByText('Every second counts.')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
+        name: 'Play for free Daily Prize Quiz',
       })
     ).toBeTruthy();
   });
@@ -233,11 +249,7 @@ describe('QuizScreen', () => {
     jest.mocked(startQuizAttempt).mockReturnValueOnce(startDeferred.promise);
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
 
     expect(await screen.findByText('Starting...')).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
@@ -266,11 +278,7 @@ describe('QuizScreen', () => {
       .mockReturnValueOnce(fingerprintDeferred.promise);
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
 
     expect(await screen.findByText('Starting...')).toBeTruthy();
     expect(startQuizAttempt).not.toHaveBeenCalled();
@@ -298,11 +306,7 @@ describe('QuizScreen', () => {
     jest.mocked(startQuizAttempt).mockReturnValueOnce(startDeferred.promise);
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
 
     await act(async () => {
       startDeferred.resolve(
@@ -324,11 +328,7 @@ describe('QuizScreen', () => {
     jest.mocked(submitQuizAnswer).mockReturnValueOnce(submitDeferred.promise);
     render(<QuizScreen integrityTier="strong" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
 
     const submitButton = screen.getByRole('button', { name: 'Submit answer' });
@@ -364,18 +364,14 @@ describe('QuizScreen', () => {
   it('keeps available events reachable after a completed attempt result', async () => {
     render(<QuizScreen integrityTier="strong" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
     fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));
 
     expect(await screen.findByText('Result')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
+        name: 'Play for free Daily Prize Quiz',
       })
     ).toBeTruthy();
   });
@@ -384,16 +380,12 @@ describe('QuizScreen', () => {
     jest.mocked(startQuizAttempt).mockRejectedValue(new Error('Start failed'));
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Start failed');
     expect(
       screen.getByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
+        name: 'Play for free Daily Prize Quiz',
       })
     ).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
@@ -408,11 +400,7 @@ describe('QuizScreen', () => {
     jest.mocked(submitQuizAnswer).mockRejectedValue(new Error('Submit failed'));
     render(<QuizScreen integrityTier="strong" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
     fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));
 
@@ -433,11 +421,7 @@ describe('QuizScreen', () => {
     mockSetUsername.mockResolvedValue({ success: true, username: 'ogafan' });
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
 
     expect(
       await screen.findByRole('header', {
@@ -467,11 +451,7 @@ describe('QuizScreen', () => {
     mockUsername = null;
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
+    await acceptRulesAndStart();
     fireEvent.press(
       await screen.findByRole('button', { name: 'Cancel username setup' })
     );
@@ -482,5 +462,87 @@ describe('QuizScreen', () => {
       })
     ).toBeNull();
     expect(startQuizAttempt).not.toHaveBeenCalled();
+  });
+
+  it('submits a contract-v2 answer immediately when tapped', async () => {
+    const now = Date.now();
+    jest.mocked(submitQuizAnswerV2).mockResolvedValue({
+      attemptId: 'attempt-v2',
+      eventEndsAt: new Date(now + 30_000).toISOString(),
+      eventId: 'event-v2',
+      resultsAvailableAt: new Date(now + 35_000).toISOString(),
+      serverNow: new Date(now).toISOString(),
+      status: 'submitted_pending_results',
+    });
+    useQuizStore.setState({
+      lockedOptionId: null,
+      status: 'question',
+      v2Attempt: {
+        attemptId: 'attempt-v2',
+        eventEndsAt: new Date(now + 30_000).toISOString(),
+        eventId: 'event-v2',
+        question: {
+          deadlineAt: new Date(now + 10_000).toISOString(),
+          id: 'question-v2',
+          index: 1,
+          options: [{ id: 'answer-v2', label: 'Abuja' }],
+          prompt: 'Capital of Nigeria?',
+          timeLimitSeconds: 10,
+          total: 20,
+        },
+        resultsAvailableAt: null,
+        serverNow: new Date(now).toISOString(),
+        status: 'in_progress',
+      },
+    });
+
+    render(<QuizScreen integrityTier="device" />);
+    fireEvent.press(screen.getByRole('button', { name: 'Answer Abuja' }));
+
+    await waitFor(() =>
+      expect(submitQuizAnswerV2).toHaveBeenCalledWith(
+        expect.objectContaining({
+          answer: 'answer-v2',
+          attemptId: 'attempt-v2',
+          expectedUserId: 'quiz-shopper',
+          questionId: 'question-v2',
+        })
+      )
+    );
+    expect(await screen.findByText('Results are being finalized')).toBeTruthy();
+  });
+
+  it('shows a session error instead of silently dropping a v2 answer without a user', async () => {
+    const now = Date.now();
+    mockAuthUserId = null;
+    useQuizStore.setState({
+      lockedOptionId: null,
+      status: 'question',
+      v2Attempt: {
+        attemptId: 'attempt-v2-no-user',
+        eventEndsAt: new Date(now + 30_000).toISOString(),
+        eventId: 'event-v2',
+        question: {
+          deadlineAt: new Date(now + 10_000).toISOString(),
+          id: 'question-v2',
+          index: 1,
+          options: [{ id: 'answer-v2', label: 'Abuja' }],
+          prompt: 'Capital of Nigeria?',
+          timeLimitSeconds: 10,
+          total: 20,
+        },
+        resultsAvailableAt: null,
+        serverNow: new Date(now).toISOString(),
+        status: 'in_progress',
+      },
+    });
+
+    render(<QuizScreen integrityTier="device" />);
+    fireEvent.press(screen.getByRole('button', { name: 'Answer Abuja' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Your session changed. Please try again.'
+    );
+    expect(submitQuizAnswerV2).not.toHaveBeenCalled();
   });
 });

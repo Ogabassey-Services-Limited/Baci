@@ -3,6 +3,7 @@ import { readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
+import { EXPECTED_PENDING_SOURCES } from './expected-pending-sources.test-support';
 import { createReplayManifestTestWorkspace } from './replay-manifest-test-workspace.test-support';
 import { supabaseHistoryReplayManifest } from './supabase-history-replay-manifest';
 import { verifySupabaseHistoryReplayManifest } from './verify-supabase-history-replay-manifest';
@@ -44,7 +45,9 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(176);
+    expect(result.manifest.pendingSources).toHaveLength(
+      EXPECTED_PENDING_SOURCES.length
+    );
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );

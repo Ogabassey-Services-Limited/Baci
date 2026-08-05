@@ -1,43 +1,152 @@
-import { getQuizPhaseEnv, getQuizProductionApprovedEnv } from '@/env';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
+import {
+  getQuizPhaseEnv,
+  getQuizProductionApprovedEnv,
+} from '@/lib/quiz/quiz-runtime-env';
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { Database } from '@/types/supabase';
+
+const COUNT_KEYS = [
+  'scheduledPromoted',
+  'testClosed',
+  'zeroPlayerClosed',
+  'liveTerminalized',
+  'liveAwaitingGate',
+  'awarded',
+  'noWinner',
+  'expired',
+  'released',
+  'skippedLive',
+  'failed',
+] as const;
+
+type CountKey = (typeof COUNT_KEYS)[number];
+type Summary = Record<CountKey, number>;
+type QuizFinalizationClient = SupabaseClient<Database>;
+
+type FinalizationStep =
+  | {
+      name:
+        | 'close_due_product_quiz_events'
+        | 'expire_unclaimed_ranked_quiz_awards_v2'
+        | 'finalize_due_quiz_events'
+        | 'finalize_due_test_quiz_events_v2'
+        | 'promote_due_scheduled_quiz_events_service_v2'
+        | 'terminalize_due_live_quiz_events_v2';
+    }
+  | {
+      args: Database['public']['Functions']['finalize_due_live_quiz_events_v2']['Args'];
+      name: 'finalize_due_live_quiz_events_v2';
+    };
+
+function emptySummary(): Summary {
+  return Object.fromEntries(COUNT_KEYS.map((key) => [key, 0])) as Summary;
+}
+
+function addPayload(summary: Summary, payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
+  for (const key of COUNT_KEYS) {
+    const value = (payload as Record<string, unknown>)[key];
+    if (
+      typeof value === 'number' &&
+      Number.isSafeInteger(value) &&
+      value >= 0
+    ) {
+      summary[key] += value;
+    }
+  }
+}
+
+function logRpcFailure(name: FinalizationStep['name'], error: PostgrestError) {
+  // PostgREST's message, details, and hint may embed a rejected value. Do not
+  // log any of them: finalization is a privileged worker and its errors can
+  // include shopper PII or provider credentials. The stable RPC name and
+  // database code are sufficient for operators to correlate the failure.
+  logger.error({
+    code: error.code || 'UNKNOWN',
+    error: '[REDACTED]',
+    message: 'Quiz finalization RPC failed',
+    rpc: name,
+  });
+}
+
+function runStep(client: QuizFinalizationClient, step: FinalizationStep) {
+  switch (step.name) {
+    case 'promote_due_scheduled_quiz_events_service_v2':
+      return client.rpc('promote_due_scheduled_quiz_events_service_v2');
+    case 'finalize_due_test_quiz_events_v2':
+      return client.rpc('finalize_due_test_quiz_events_v2');
+    case 'terminalize_due_live_quiz_events_v2':
+      return client.rpc('terminalize_due_live_quiz_events_v2');
+    case 'expire_unclaimed_ranked_quiz_awards_v2':
+      return client.rpc('expire_unclaimed_ranked_quiz_awards_v2');
+    case 'finalize_due_live_quiz_events_v2':
+      return client.rpc('finalize_due_live_quiz_events_v2', step.args);
+    case 'close_due_product_quiz_events':
+      return client.rpc('close_due_product_quiz_events');
+    case 'finalize_due_quiz_events':
+      return client.rpc('finalize_due_quiz_events');
+  }
+}
 
 export async function finalizeDueQuizEvents() {
-  const supabase = createAdminClient();
-  const { data: closed, error: closureError } = await supabase.rpc(
-    'close_due_product_quiz_events'
-  );
+  const summary = emptySummary();
+  const client: QuizFinalizationClient = createAdminClient();
+  const phaseIsProduction = getQuizPhaseEnv() === 'production';
+  const productionApproved = getQuizProductionApprovedEnv();
 
-  if (closureError) {
-    console.error('Quiz product closure failed');
+  const steps: FinalizationStep[] = [
+    { name: 'promote_due_scheduled_quiz_events_service_v2' },
+    { name: 'finalize_due_test_quiz_events_v2' },
+    { name: 'terminalize_due_live_quiz_events_v2' },
+    { name: 'expire_unclaimed_ranked_quiz_awards_v2' },
+    {
+      name: 'finalize_due_live_quiz_events_v2',
+      args: {
+        p_production_approved: productionApproved,
+        p_production_phase: phaseIsProduction,
+      },
+    },
+    { name: 'close_due_product_quiz_events' },
+  ];
+  if (phaseIsProduction && productionApproved) {
+    steps.push({ name: 'finalize_due_quiz_events' });
+  }
+
+  for (const step of steps) {
+    const { data, error } = await runStep(client, step);
+    if (error) {
+      logRpcFailure(step.name, error);
+      summary.failed += 1;
+      // These RPCs work on separate, idempotent queues. Continue so one bad
+      // operation cannot strand scheduled promotions, test closure, or award
+      // expiry until the next worker run.
+      continue;
+    }
+    if (step.name === 'promote_due_scheduled_quiz_events_service_v2') {
+      if (typeof data === 'number' && Number.isSafeInteger(data) && data >= 0) {
+        summary.scheduledPromoted += data;
+      }
+    } else {
+      addPayload(summary, data);
+    }
+  }
+
+  if (!phaseIsProduction || !productionApproved) {
+    summary.skippedLive = summary.liveAwaitingGate;
+  }
+
+  if (summary.failed > 0) {
     return {
       body: {
-        error: 'Quiz product closure failed',
-        code: 'QUIZ_PRODUCT_CLOSURE_FAILED',
+        error: 'Quiz finalization failed',
+        code: 'QUIZ_FINALIZATION_FAILED',
+        ...summary,
       },
       status: 500,
     };
   }
 
-  if (getQuizPhaseEnv() !== 'production' || !getQuizProductionApprovedEnv()) {
-    return {
-      body: {
-        closed: closed ?? 0,
-        finalized: 0,
-        skipped: 'production_not_approved',
-      },
-      status: 200,
-    };
-  }
-
-  const { data, error } = await supabase.rpc('finalize_due_quiz_events');
-
-  if (error) {
-    console.error('Quiz finalize cron failed');
-    return {
-      body: { error: 'Quiz finalize failed', details: error.message },
-      status: 500,
-    };
-  }
-
-  return { body: { closed: closed ?? 0, finalized: data ?? 0 }, status: 200 };
+  return { body: summary, status: 200 };
 }

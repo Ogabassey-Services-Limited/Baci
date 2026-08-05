@@ -794,3 +794,43 @@ describe('quiz events route', () => {
     expect(queryBuilder.range).toHaveBeenCalledWith(0, 49);
   });
 });
+
+describe('quiz events dispatcher', () => {
+  afterEach(() => {
+    vi.doUnmock('./legacy-route');
+    vi.doUnmock('./v2-route');
+    vi.resetModules();
+  });
+
+  it('dispatches requests without the v2 contract header to the legacy handler', async () => {
+    const legacyResponse = Response.json({ contract: 'legacy' });
+    const getLegacyQuizEvents = vi.fn().mockResolvedValue(legacyResponse);
+    const getQuizEventsV2 = vi.fn();
+    vi.resetModules();
+    vi.doMock('./legacy-route', () => ({ getLegacyQuizEvents }));
+    vi.doMock('./v2-route', () => ({ getQuizEventsV2 }));
+
+    const request = eventsRequest();
+    const { GET } = await import('./route');
+    expect(await GET(request)).toBe(legacyResponse);
+    expect(getLegacyQuizEvents).toHaveBeenCalledWith(request);
+    expect(getQuizEventsV2).not.toHaveBeenCalled();
+  });
+
+  it('dispatches contract version 2 requests to the v2 handler', async () => {
+    const v2Response = Response.json({ contract: 2 });
+    const getLegacyQuizEvents = vi.fn();
+    const getQuizEventsV2 = vi.fn().mockResolvedValue(v2Response);
+    vi.resetModules();
+    vi.doMock('./legacy-route', () => ({ getLegacyQuizEvents }));
+    vi.doMock('./v2-route', () => ({ getQuizEventsV2 }));
+
+    const request = new NextRequest(eventsRequest().url, {
+      headers: { 'X-Baci-Quiz-Contract': '2' },
+    });
+    const { GET } = await import('./route');
+    expect(await GET(request)).toBe(v2Response);
+    expect(getQuizEventsV2).toHaveBeenCalledWith(request);
+    expect(getLegacyQuizEvents).not.toHaveBeenCalled();
+  });
+});

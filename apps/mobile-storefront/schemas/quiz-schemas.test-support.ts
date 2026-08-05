@@ -1,0 +1,35 @@
+export const validLegacyQuizEvent = {
+  endsAt: '2026-05-20T10:10:00.000Z',
+  id: 'event-1',
+  prizeName: 'N50,000 store credit',
+  questionCount: 3,
+  startsAt: '2026-05-20T10:00:00.000Z',
+  status: 'open' as const,
+  title: 'Daily Prize Quiz',
+};
+
+export const validV2QuizEvent = {
+  contractVersion: 2,
+  endsAt: '2026-05-20T10:05:00.000Z',
+  id: 'event-v2',
+  liveWindowSeconds: 300,
+  maxAttempts: 10,
+  maximumPlaySeconds: 30,
+  mode: 'test' as const,
+  prizeName: 'MacBook USB',
+  prizeProduct: {
+    condition: 'used' as const,
+    id: '55555555-5555-4555-8555-555555555555',
+    imageUrl: 'https://cdn.example.com/macbook.png',
+    name: 'MacBook USB',
+    variantId: null,
+  },
+  questionCount: 3,
+  resultsPublishedAt: null,
+  rulesVersion: 'test-v1',
+  startsAt: '2026-05-20T10:00:00.000Z',
+  status: 'scheduled' as const,
+  timePerQuestionSeconds: 10,
+  timeZone: 'Africa/Lagos',
+  title: 'Private device quiz',
+};
