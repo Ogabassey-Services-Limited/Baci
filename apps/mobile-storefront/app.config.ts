@@ -18,6 +18,8 @@ const { resolveUpdateChannel } =
   require('./config/resolve-update-channel.js') as typeof import('./config/resolve-update-channel');
 const { buildSentryExpoConfiguration } =
   require('./config/sentry-expo-config') as typeof import('./config/sentry-expo-config');
+const { isSentryConfigurationRequired } =
+  require('./config/sentry-required-environment') as typeof import('./config/sentry-required-environment');
 const {
   DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID,
   DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID,
@@ -130,10 +132,7 @@ const isRequiredEnv =
   process.env.EAS_BUILD === 'true' ||
   process.env.NODE_ENV === 'production' ||
   process.env.NODE_ENV === 'test';
-const isSentryRequiredEnv =
-  isContinuousIntegration ||
-  process.env.EAS_BUILD === 'true' ||
-  process.env.NODE_ENV === 'production';
+const isSentryRequiredEnv = isSentryConfigurationRequired(process.env);
 
 if (!facebookAppId || !facebookClientToken) {
   if (isRequiredEnv) {
