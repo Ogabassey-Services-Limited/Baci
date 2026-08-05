@@ -514,7 +514,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     });
   });
 
-  it('fails the cron response when attention actions are present by default', async () => {
+  it('reports attention without failing the scheduled cron response by default', async () => {
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [attentionAction],
       generated_at: '2026-05-22T03:00:00.000Z',
@@ -522,7 +522,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {
@@ -543,6 +543,23 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         message: 'Agentic commerce health monitor needs attention',
       })
     );
+  });
+
+  it('fails the response when an explicit diagnostic request opts in', async () => {
+    vi.mocked(loadAgenticActionHealth).mockResolvedValue({
+      actions: [attentionAction],
+      generated_at: '2026-05-22T03:00:00.000Z',
+    });
+
+    const response = await GET(
+      createCronRequest({ search: '?fail_on_attention=true' })
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [{ status: 'attention' }],
+      status: 'attention',
+    });
   });
 
   it('keeps monitor-only actions as a successful cron response', async () => {
