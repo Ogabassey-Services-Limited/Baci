@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
+import { buildRemediationCodexCommand } from './remediation-codex-command.mjs';
 import { assertCodexExecutionUsable } from './remediation-codex-output.mjs';
 import {
   buildCodexRemediationPrompt,
@@ -176,21 +177,16 @@ export function runRemediationAutofix({
       rootCommandOptions
     );
     worktreeCreated = true;
-    const codexOutput = runChecked(
+    const codexCommand = buildRemediationCodexCommand({
       codexBin,
-      [
-        '--search',
-        '--enable',
-        'use_legacy_landlock',
-        'exec',
-        '--ephemeral',
-        '--skip-git-repo-check',
-        '--sandbox',
-        'workspace-write',
-        '-C',
-        worktreeDir,
-        prompt,
-      ],
+      env: commandEnv,
+      prompt,
+      repoDir,
+      worktreeDir,
+    });
+    const codexOutput = runChecked(
+      codexCommand.command,
+      codexCommand.args,
       worktreeCommandOptions
     );
     const resultPath = writeRemediationResultArtifact({

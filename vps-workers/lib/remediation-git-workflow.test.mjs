@@ -87,7 +87,7 @@ describe('remediation git workflow', () => {
     );
     assert.equal(
       calls.some((call) => call.includes('use_legacy_landlock')),
-      true
+      false
     );
     assert.equal(
       calls.some((call) => call.includes('--draft')),
@@ -277,6 +277,36 @@ describe('remediation git workflow', () => {
           runner,
         }),
       /sandbox failed before repository inspection/
+    );
+  });
+
+  it('runs Codex in Docker when the VPS backend is configured', () => {
+    const { calls, runner } = makeRunner({ statusOutput: '' });
+
+    const result = runRemediationAutofix({
+      candidate,
+      env: {
+        BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+        BACI_REMEDIATION_OUTPUT_DIR: mkdtempSync(
+          join(tmpdir(), 'baci-remediation-output-')
+        ),
+        BACI_REPO_DIR: '/repo',
+        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+        CODEX_BIN: '/opt/host/codex',
+        CODEX_HOME: '/home/worker/.codex',
+        HOME: '/home/worker',
+      },
+      runner,
+    });
+
+    assert.equal(result.type, 'no_changes');
+    const dockerCall = calls.find(([command]) => command === 'docker');
+    assert.ok(dockerCall);
+    assert.equal(dockerCall.includes('--cap-drop'), true);
+    assert.equal(dockerCall.includes('ALL'), true);
+    assert.equal(
+      dockerCall.includes('--dangerously-bypass-approvals-and-sandbox'),
+      true
     );
   });
 

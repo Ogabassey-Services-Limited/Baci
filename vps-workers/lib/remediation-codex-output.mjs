@@ -1,5 +1,6 @@
 const EXECUTION_FAILURES = [
   /bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted/i,
+  /permission profiles requiring direct runtime enforcement are incompatible with --use-legacy-landlock/i,
 ];
 
 export function assertCodexExecutionUsable(output) {
