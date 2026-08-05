@@ -1,4 +1,5 @@
 import { isProductVariantColorToken } from './is-product-variant-color-token';
+import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
 const VARIANT_TOKEN_PATTERN =
@@ -17,7 +18,9 @@ const CONTEXT_TOKENS = new Set([
 export function isVariantOnlyComparisonSegment(tokens: string[]) {
   const normalized = normalizeVariantDiscriminatorTokens(tokens);
   const isVariantToken = (token: string) =>
-    VARIANT_TOKEN_PATTERN.test(token) || isProductVariantColorToken(token);
+    VARIANT_TOKEN_PATTERN.test(token) ||
+    isProductVariantColorToken(token) ||
+    (token !== 'in' && isProductVariantRegionToken(token));
   return (
     normalized.some(isVariantToken) &&
     normalized.every(

@@ -35,4 +35,15 @@ describe('normalizeVariantDiscriminatorTokens', () => {
 
     expect(tokens).toEqual(['ipad', '12.9inch']);
   });
+
+  it('normalizes a known terminal bare storage capacity', () => {
+    const tokens = normalizeVariantDiscriminatorTokens([
+      'samsung',
+      'galaxy',
+      's25',
+      '256',
+    ]);
+
+    expect(tokens).toEqual(['samsung', 'galaxy', 's25', '256gb']);
+  });
 });

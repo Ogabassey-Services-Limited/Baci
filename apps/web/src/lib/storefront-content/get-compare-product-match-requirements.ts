@@ -3,6 +3,7 @@ import { generateSlug } from '@/lib/seo-utils';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { getProductGuideModelIdentifiers } from './get-product-guide-model-identifiers';
 import { isProductVariantColorToken } from './is-product-variant-color-token';
+import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
@@ -50,10 +51,25 @@ function getBrandCandidates(context: BuildCommercialGuideLinksContext) {
 
 function inferSourceBrand(
   source: string,
-  context: BuildCommercialGuideLinksContext
+  context: BuildCommercialGuideLinksContext,
+  explicitBrand?: string | null
 ) {
-  const sourceTokens = new Set(tokenize(source));
   const candidates = getBrandCandidates(context);
+  if (explicitBrand) {
+    const explicitTokens = new Set(tokenize(explicitBrand));
+    return (
+      candidates.find(({ brand }) =>
+        tokenize(brand).every((token) => explicitTokens.has(token))
+      )?.brand ??
+      candidates.find(({ markers }) =>
+        markers.some((marker) =>
+          tokenize(marker).every((token) => explicitTokens.has(token))
+        )
+      )?.brand ??
+      generateSlug(explicitBrand)
+    );
+  }
+  const sourceTokens = new Set(tokenize(source));
   return (
     candidates.find(({ brand }) =>
       tokenize(brand).every((token) => sourceTokens.has(token))
@@ -87,7 +103,9 @@ function getSourceDiscriminatorTokens(
       !identifierTokens.has(token) &&
       !isLikelyRam &&
       (VARIANT_DISCRIMINATOR_PATTERN.test(token) ||
-        isProductVariantColorToken(token)) &&
+        isProductVariantColorToken(token) ||
+        (index === sourceTokens.length - 1 &&
+          isProductVariantRegionToken(token))) &&
       !seen.has(token)
     ) {
       seen.add(token);
@@ -119,7 +137,8 @@ export function getCompareProductMatchRequirements(
   const sources = (names.length ? names : slugs).map((source, index) => ({
     identifierSource: source,
     pairedSlug: slugs[index],
-    brandSource: `${context.productBrands?.[index] ?? ''} ${source} ${slugs[index] ?? ''}`,
+    explicitBrand: context.productBrands?.[index],
+    brandSource: `${source} ${slugs[index] ?? ''}`,
     variantSource: `${source} ${names.length ? (slugs[index] ?? '') : ''}`,
     hasExplicitVariantSource: names.length > 0,
   }));
@@ -128,6 +147,7 @@ export function getCompareProductMatchRequirements(
     ({
       identifierSource,
       pairedSlug,
+      explicitBrand,
       brandSource,
       variantSource,
       hasExplicitVariantSource,
@@ -146,7 +166,7 @@ export function getCompareProductMatchRequirements(
         ? [
             {
               identifier,
-              brand: inferSourceBrand(brandSource, context),
+              brand: inferSourceBrand(brandSource, context, explicitBrand),
               discriminatorTokens: getSourceDiscriminatorTokens(
                 variantSource,
                 identifier,

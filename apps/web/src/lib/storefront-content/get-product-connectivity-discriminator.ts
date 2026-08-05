@@ -1,5 +1,6 @@
 import type { SupportedClusterCategory } from './content-cluster-types';
 import { isProductVariantColorToken } from './is-product-variant-color-token';
+import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
@@ -55,7 +56,7 @@ function tokenizeVariantSource(source: string | undefined) {
   );
 }
 
-function getDiscriminatorGroup(token: string) {
+function getDiscriminatorGroup(token: string, isTerminal = false) {
   if (SIM_MODE_DISCRIMINATOR_TOKENS.has(token)) {
     return 'sim';
   }
@@ -73,6 +74,9 @@ function getDiscriminatorGroup(token: string) {
   }
   if (isProductVariantColorToken(token)) {
     return 'color';
+  }
+  if (isTerminal && isProductVariantRegionToken(token)) {
+    return 'region';
   }
   return null;
 }
@@ -109,12 +113,17 @@ export function getProductConnectivityDiscriminators(
                   nameTokens[tokenIndex + 1]
                 )
             )
-            .map(getDiscriminatorGroup)
+            .map((token, tokenIndex) =>
+              getDiscriminatorGroup(token, tokenIndex === nameTokens.length - 1)
+            )
         );
         const supplementalSlugTokens = tokenizeVariantSource(
           productSlugs?.[index]
-        ).filter((token) => {
-          const group = getDiscriminatorGroup(token);
+        ).filter((token, tokenIndex, slugTokens) => {
+          const group = getDiscriminatorGroup(
+            token,
+            tokenIndex === slugTokens.length - 1
+          );
           return group && !namedGroups.has(group);
         });
         return [...nameTokens, ...supplementalSlugTokens];
@@ -136,12 +145,14 @@ export function getProductConnectivityDiscriminators(
     null
   );
   return tokens.filter(
-    (token) =>
+    (token, tokenIndex) =>
       CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token) ||
       DIMENSION_DISCRIMINATOR_PATTERN.test(token) ||
       (categorySlug === 'monitors' &&
         REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||
+      (tokenIndex === tokens.length - 1 &&
+        isProductVariantRegionToken(token)) ||
       token === strongestStorageToken
   );
 }

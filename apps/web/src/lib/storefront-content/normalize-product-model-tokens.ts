@@ -1,4 +1,5 @@
 import { PRODUCT_VARIANT_COLOR_TOKENS } from '@/config/product-variant-color-tokens';
+import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { modelTokenMatchers } from './model-token-matchers';
 
 const MERCHANDISING_ONLY_TOKENS = new Set([
@@ -20,21 +21,6 @@ const MERCHANDISING_SUFFIX_TOKENS = new Set([
 const LEADING_CONDITION_TOKENS = new Set(
   [...MERCHANDISING_ONLY_TOKENS].filter((token) => token !== 'nfid')
 );
-const REGION_OR_VARIANT_SUFFIX_TOKENS = new Set([
-  'ca',
-  'cn',
-  'eu',
-  'gb',
-  'global',
-  'in',
-  'international',
-  'jp',
-  'ng',
-  'nigeria',
-  'uae',
-  'uk',
-  'us',
-]);
 const CONNECTIVITY_MARKER_TOKENS = new Set([
   'dual',
   'e',
@@ -245,7 +231,7 @@ export function normalizeProductModelTokens(
   return withoutSplitCapacity.filter(
     (token, index) =>
       preserveGameTitleTokens ||
-      !REGION_OR_VARIANT_SUFFIX_TOKENS.has(token) ||
+      !isProductVariantRegionToken(token) ||
       isConvertibleInConnector(withoutSplitCapacity, index) ||
       (token === 'in' &&
         withoutSplitCapacity[index - 1] === 'all' &&

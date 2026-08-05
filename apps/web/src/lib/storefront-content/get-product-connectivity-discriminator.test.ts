@@ -169,4 +169,24 @@ describe('getProductConnectivityDiscriminators', () => {
 
     expect(discriminators).toEqual(['144hz']);
   });
+
+  it('retains a terminal regional PDP variant', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPhone 15 US'],
+      [],
+      'smartphones'
+    );
+
+    expect(discriminators).toEqual(['us']);
+  });
+
+  it('normalizes a terminal bare storage capacity as a PDP variant', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Samsung Galaxy S25 256'],
+      [],
+      'smartphones'
+    );
+
+    expect(discriminators).toEqual(['256gb']);
+  });
 });

@@ -1,3 +1,5 @@
+import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
+
 const SPLIT_VARIANT_UNIT_TOKENS = new Set(['gb', 'tb', 'mb', 'mm', 'inch']);
 
 /** Normalizes tokenized capacity and connectivity variants for guide matching. */
@@ -7,6 +9,10 @@ export function normalizeVariantDiscriminatorTokens(tokens: string[]) {
     const token = tokens[index] ?? '';
     const nextToken = tokens[index + 1] ?? '';
     const unitToken = tokens[index + 2] ?? '';
+    if (isBareCapacityMetadataToken(tokens, index)) {
+      normalizedTokens.push(`${token}gb`);
+      continue;
+    }
     if (
       /^\d+$/u.test(token) &&
       /^\d+$/u.test(nextToken) &&

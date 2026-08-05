@@ -41,4 +41,10 @@ describe('isVariantOnlyComparisonSegment', () => {
 
     expect(result).toBe(true);
   });
+
+  it('accepts a region-only compare continuation', () => {
+    const result = isVariantOnlyComparisonSegment(['uk', 'comparison']);
+
+    expect(result).toBe(true);
+  });
 });
