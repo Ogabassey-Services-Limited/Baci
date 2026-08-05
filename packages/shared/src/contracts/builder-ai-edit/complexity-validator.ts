@@ -23,7 +23,8 @@ function failure(message: string): ComplexityFailure {
 function inspect(
   value: unknown,
   depth = 0,
-  enforceArrayLimit = true
+  enforceArrayLimit = true,
+  zoneCollection = false
 ): ComplexityResult {
   if (depth > MAX_BUILDER_DATA_DEPTH)
     return failure('Document nesting is too deep');
@@ -44,7 +45,8 @@ function inspect(
       const result = inspect(
         child,
         depth + 1,
-        !(depth === 0 && key === 'content')
+        !(depth === 0 && key === 'content') && !zoneCollection,
+        depth === 0 && key === 'zones'
       );
       if (!result.success) return result;
     }

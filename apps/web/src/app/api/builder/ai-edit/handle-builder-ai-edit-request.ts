@@ -4,7 +4,7 @@ import {
   builderAiEditContract,
   validateBuilderAiEditComplexity,
 } from '@baci/shared/contracts';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-permissions';
 import { applyBuilderAiEditPlan } from '@/lib/builder-ai/apply-builder-ai-edit-plan';
 import { checkBuilderAiRateLimit } from '@/lib/builder-ai/builder-ai-rate-limit';
@@ -21,6 +21,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderGeminiRequestSchema } from '@/schemas/builder-gemini-request';
+import { getBuilderAiCsrfRequest } from './get-builder-ai-csrf-request';
 
 type Authentication = Omit<
   NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>,
@@ -60,7 +61,6 @@ function dependencies(): BuilderAiEditHandlerDependencies {
     runProviderChain: runBuilderAiProviderChain,
   };
 }
-
 function responseForProviderError(error: unknown, requestId: string): Response {
   const code =
     error && typeof error === 'object' && 'code' in error
@@ -91,7 +91,6 @@ function responseForProviderError(error: unknown, requestId: string): Response {
     { status: 503 }
   );
 }
-
 function isSemanticallyExecutable(
   plan: BuilderAiEditPlan,
   request: BuilderAiEditRequest
@@ -104,7 +103,6 @@ function isSemanticallyExecutable(
     return false;
   }
 }
-
 function parseRequest(
   body: unknown,
   mode: 'legacy' | 'v1'
@@ -129,18 +127,20 @@ export async function handleBuilderAiEditRequest(
 ): Promise<Response> {
   const seams = options.dependencies ?? dependencies();
   const mode = options.mode ?? 'v1';
-  const auth = await seams.authenticate(request);
+  let auth: Authentication | null;
+  try {
+    auth = await seams.authenticate(request);
+  } catch {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
   if (!auth)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const csrfRequest =
-    auth.authMode === 'cookie' && request.headers.has('Authorization')
-      ? new NextRequest(request, {
-          headers: new Headers(
-            [...request.headers].filter(([name]) => name !== 'authorization')
-          ),
-        })
-      : (request as NextRequest);
-  const csrf = await seams.checkCsrf(csrfRequest);
+  const csrf = await seams.checkCsrf(
+    getBuilderAiCsrfRequest(request, auth.authMode)
+  );
   if (!csrf.valid) return csrf.response as Response;
   const body = await seams.readBody(request, 1_048_576);
   if (!body.ok) {
