@@ -12,12 +12,6 @@ VPS="bassey@82.29.190.219"
 REMOTE_DIR="/home/bassey/baci-workers"
 APP_SHA=$(git rev-parse HEAD)
 CODEX_REMEDIATOR_IMAGE="baci-codex-remediator:$APP_SHA"
-CODEX_CONTAINER_BIN=$(ssh "$VPS" "find /home/bassey/.local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor -path '*/bin/codex' -type f -print -quit")
-
-if [ -z "$CODEX_CONTAINER_BIN" ]; then
-  echo "Unable to resolve the native Codex binary on $VPS." >&2
-  exit 1
-fi
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Refusing worker deployment from a dirty tracked checkout." >&2
@@ -29,6 +23,13 @@ if [ -n "$(git ls-files --others --exclude-standard)" ]; then
 fi
 
 prepare_worker_release
+
+CODEX_CONTAINER_BIN=$(ssh "$VPS" "find /home/bassey/.local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor -path '*/bin/codex' -type f -print -quit")
+
+if [ -z "$CODEX_CONTAINER_BIN" ]; then
+  echo "Unable to resolve the native Codex binary on $VPS." >&2
+  exit 1
+fi
 
 echo "==> Building isolated Codex remediator image"
 ssh "$VPS" "docker build -f $REMOTE_DIR/Dockerfile.codex-remediator -t $CODEX_REMEDIATOR_IMAGE $REMOTE_DIR"

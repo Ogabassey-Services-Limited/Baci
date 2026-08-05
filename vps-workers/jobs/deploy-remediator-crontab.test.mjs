@@ -34,6 +34,10 @@ describe('remediation deploy crontab', () => {
       2
     );
     assert.match(deployScript, /CODEX_CONTAINER_BIN=.*find/);
+    assert.ok(
+      deployScript.indexOf('prepare_worker_release') <
+        deployScript.indexOf('CODEX_CONTAINER_BIN=$(ssh')
+    );
     assert.equal(
       deployScript.match(/BACI_CODEX_CONTAINER_BIN=\$CODEX_CONTAINER_BIN/g)
         ?.length,
