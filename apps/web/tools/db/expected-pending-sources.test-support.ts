@@ -257,6 +257,7 @@ export const EXPECTED_PENDING_SOURCES = [
       sha256,
     })
   ),
+  ...EXPECTED_PENDING_TAIL_SOURCES.storefrontSearchReadiness,
   {
     repositoryPath:
       'supabase/migrations/20260803120000_allow_safe_admin_order_item_append.sql',

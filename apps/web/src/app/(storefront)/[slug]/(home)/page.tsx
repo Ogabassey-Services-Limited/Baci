@@ -11,9 +11,11 @@ import {
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getBrandMatchedTwitterHandle } from '@/lib/brand-matched-twitter-handle';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { buildFactualStorefrontDescription } from '@/lib/storefront-seo/build-factual-storefront-description';
+import { buildHomeSeoDecision } from '@/lib/storefront-seo/build-home-seo-decision';
+import { toNextRobotsMetadata } from '@/lib/storefront-seo/to-next-robots-metadata';
 import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 
@@ -59,7 +61,9 @@ async function renderOgabasseyStaticHomePage(slug: string) {
   );
 }
 
-function buildOgabasseyStaticHomeMetadata(): Metadata {
+function buildOgabasseyStaticHomeMetadata(
+  robots: Metadata['robots']
+): Metadata {
   const other = mergeStorefrontSmartAppBannerOther(OGABASSEY_TEMPLATE_ID);
   const { metadataTitle, title } = buildStorefrontMetadataTitle({
     fallback: 'OgaBassey',
@@ -70,6 +74,7 @@ function buildOgabasseyStaticHomeMetadata(): Metadata {
     metadataBase: new URL(OGABASSEY_URL),
     title: metadataTitle,
     description: OGABASSEY_DESCRIPTION,
+    robots,
     keywords: [
       'Showmax Subscription',
       'Buy Showmax Online',
@@ -143,7 +148,16 @@ export async function generateMetadata({
   const { slug } = await params;
 
   if (isOgabasseyIdentifier(slug)) {
-    return buildOgabasseyStaticHomeMetadata();
+    const merchant = await getRequestScopedMerchant(slug);
+    const robots = toNextRobotsMetadata(
+      buildHomeSeoDecision({
+        isPublished: merchant?.is_published === true,
+        canonicalUrl: OGABASSEY_URL,
+        merchantName: merchant?.business_name ?? null,
+      })
+    );
+
+    return buildOgabasseyStaticHomeMetadata(robots);
   }
 
   // Skip database query for invalid identifiers (like static asset requests)
@@ -166,22 +180,27 @@ export async function generateMetadata({
 
   const { metadataTitle, title } = buildStorefrontMetadataTitle({
     title:
-      merchant.site_title ||
+      merchant.site_title?.trim() ||
       (merchant.business_name
         ? `${merchant.business_name} - Official Online Store`
         : 'Official Online Store'),
     fallback: 'Official Online Store',
   });
-  const description = generateMetaDescription(
-    merchant.site_description || merchant.site_tagline || '',
-    160,
-    {
-      minLength: 110,
-      fallback: `Shop at ${merchant.business_name || merchant.slug}. Discover products and services with trusted quality, nationwide delivery, and flexible payment options.`,
-    }
-  );
-
   const baseUrl = buildStoreUrl(merchant);
+  const description = buildFactualStorefrontDescription({
+    businessName: merchant.business_name,
+    siteDescription: merchant.site_description,
+    siteTagline: merchant.site_tagline,
+    categoryName: null,
+    country: merchant.country,
+  });
+  const robots = toNextRobotsMetadata(
+    buildHomeSeoDecision({
+      isPublished: merchant.is_published === true,
+      canonicalUrl: baseUrl,
+      merchantName: merchant.business_name ?? null,
+    })
+  );
 
   const socialMedia = merchant.social_media as Record<string, string> | null;
   const twitterHandle = getBrandMatchedTwitterHandle(
@@ -197,6 +216,7 @@ export async function generateMetadata({
       canonical: baseUrl,
       languages: buildStorefrontLanguageAlternates(baseUrl, merchant.country),
     },
+    robots,
     openGraph: {
       title: title,
       description: description,

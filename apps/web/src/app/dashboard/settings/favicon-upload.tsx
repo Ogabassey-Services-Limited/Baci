@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 interface SubmitFaviconContext {
   file: File;
   merchantId: string;
+  onMerchantMutationSaved?: (merchantId: string) => Promise<void>;
   toast: ReturnType<typeof useToast>['toast'];
   setPreview: (preview: string | null) => void;
   setUploading: (uploading: boolean) => void;
@@ -22,6 +23,7 @@ interface SubmitFaviconContext {
 async function submitFavicon({
   file,
   merchantId,
+  onMerchantMutationSaved,
   toast,
   setPreview,
   setUploading,
@@ -36,6 +38,8 @@ async function submitFavicon({
     if (!response.success || !response.result) {
       throw new Error(response.error || 'Upload failed');
     }
+
+    await onMerchantMutationSaved?.(merchantId);
 
     toast({
       title: 'Favicon updated',
@@ -60,9 +64,13 @@ async function submitFavicon({
 
 interface FaviconUploadProps {
   merchantId: string;
+  onMerchantMutationSaved?: (merchantId: string) => Promise<void>;
 }
 
-export function FaviconUpload({ merchantId }: FaviconUploadProps) {
+export function FaviconUpload({
+  merchantId,
+  onMerchantMutationSaved,
+}: FaviconUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const { toast } = useToast();
@@ -96,6 +104,7 @@ export function FaviconUpload({ merchantId }: FaviconUploadProps) {
     await submitFavicon({
       file,
       merchantId,
+      onMerchantMutationSaved,
       toast,
       setPreview,
       setUploading,

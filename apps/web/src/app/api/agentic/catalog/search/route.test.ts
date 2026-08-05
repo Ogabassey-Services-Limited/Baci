@@ -41,9 +41,11 @@ vi.mock('@/lib/supabase/admin', () => ({
 import { POST } from './route';
 
 type ProductRow = {
+  categories?: { slug?: string | null } | null;
   id: string;
   name: string;
   price?: number;
+  product_categories?: Array<{ categories?: { slug?: string | null } | null }>;
   slug?: string;
   status?: string;
 };
@@ -284,5 +286,18 @@ describe('POST /api/agentic/catalog/search', () => {
     );
 
     expect(mockSelect).not.toHaveBeenCalledWith('*');
+  });
+
+  it('selects junction categories for legacy category-only products', async () => {
+    await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'phone' }),
+        method: 'POST',
+      })
+    );
+
+    expect(mockSelect).toHaveBeenCalledWith(
+      expect.stringContaining('product_categories:product_categories')
+    );
   });
 });

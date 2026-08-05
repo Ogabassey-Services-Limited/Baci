@@ -2,6 +2,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
+import { isStorefrontSitemapPublished } from '@/lib/storefront-seo/is-storefront-sitemap-published';
 import {
   createSitemapUnavailableResponse,
   resolveStorefrontSitemapContext,
@@ -140,7 +141,10 @@ export async function GET(
   }
 
   const { merchant, storeUrl, supabase } = sitemapContext;
-  if (!merchant.feature_settings?.blog_enabled) {
+  if (
+    !isStorefrontSitemapPublished(merchant) ||
+    !merchant.feature_settings?.blog_enabled
+  ) {
     return createNewsSitemapResponse([]);
   }
 

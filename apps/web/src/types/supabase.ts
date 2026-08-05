@@ -19013,6 +19013,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      update_merchant_identity_settings: {
+        Args: {
+          p_expected_updated_at: string;
+          p_merchant_id: string;
+          p_settings: Json;
+        };
+        Returns: Json;
+      };
       update_merchant_social_media: {
         Args: {
           p_clear?: boolean;

@@ -40,6 +40,7 @@ describe('uploadLogoWithColors', () => {
     const setMerchantState = vi.fn();
     const setIsUploading = vi.fn();
     const updateMerchant = vi.fn().mockResolvedValue(undefined);
+    const onMerchantMutationSaved = vi.fn().mockResolvedValue(undefined);
     const toast = vi.fn();
     const startTransition = vi.fn((callback: () => void) => callback());
     const colors = { primary: '#111', background: '#222', accent: '#333' };
@@ -55,6 +56,7 @@ describe('uploadLogoWithColors', () => {
       setMerchantState,
       setIsUploading,
       startTransition,
+      onMerchantMutationSaved,
     });
 
     expect(updateMerchant).toHaveBeenCalledWith(
@@ -68,6 +70,7 @@ describe('uploadLogoWithColors', () => {
       title: 'Logo and Colors Updated!',
       description: 'Your new brand identity is saved.',
     });
+    expect(onMerchantMutationSaved).toHaveBeenCalledWith('merchant-1');
     expect(setIsUploading).toHaveBeenNthCalledWith(1, true);
     expect(setIsUploading).toHaveBeenLastCalledWith(false);
   });

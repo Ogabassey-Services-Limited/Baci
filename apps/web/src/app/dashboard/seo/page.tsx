@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
 import { ensurePermission } from '@/lib/merchant-server';
 import { getSEOStatus } from './actions';
+import { getStorefrontSearchReadiness } from './get-storefront-search-readiness';
 import SEOClient from './seo-client';
+import { StorefrontSearchReadinessCard } from './storefront-search-readiness-card';
 
 export const metadata = {
   title: 'SEO Optimizer | Dashboard',
@@ -24,6 +26,9 @@ export default async function SEOOptimizerPage() {
   // Fetch initial data with error handling
   let products: Awaited<ReturnType<typeof getSEOStatus>>['products'] = [];
   let summary: Awaited<ReturnType<typeof getSEOStatus>>['summary'] = null;
+  let storefrontSearchReadiness: Awaited<
+    ReturnType<typeof getStorefrontSearchReadiness>
+  > | null = null;
 
   try {
     const result = await getSEOStatus(merchantId);
@@ -34,11 +39,22 @@ export default async function SEOOptimizerPage() {
     // Products and summary remain at default values
   }
 
+  try {
+    storefrontSearchReadiness = await getStorefrontSearchReadiness(merchantId);
+  } catch (error) {
+    console.error('Failed to load storefront search readiness:', error);
+  }
+
   return (
-    <SEOClient
-      initialProducts={products}
-      initialSummary={summary}
-      merchantId={merchantId}
-    />
+    <>
+      {storefrontSearchReadiness ? (
+        <StorefrontSearchReadinessCard assessment={storefrontSearchReadiness} />
+      ) : null}
+      <SEOClient
+        initialProducts={products}
+        initialSummary={summary}
+        merchantId={merchantId}
+      />
+    </>
   );
 }

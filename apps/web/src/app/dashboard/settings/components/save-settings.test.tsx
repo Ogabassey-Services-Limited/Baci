@@ -47,6 +47,9 @@ vi.mock('./settings-utils', () => {
     settingsSchema: z.object({
       business_name: z.string().min(2),
       country: z.string().min(2),
+      site_description: z.string().default(''),
+      support_email: z.string().default(''),
+      support_phone: z.string().default(''),
     }),
     extractColorsFromImage: vi.fn(),
     sanitizeSocialMedia: (socialMedia: Record<string, string>) => socialMedia,
@@ -65,6 +68,15 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 const mockUpdateSocial = vi.fn();
 vi.mock('@/hooks/merchant/update-social', () => ({
   updateSocial: (...args: unknown[]) => mockUpdateSocial(...args),
+}));
+
+vi.mock('./update-storefront-profile', () => ({
+  updateStorefrontProfile: vi.fn(),
+}));
+const mockGetMerchantSettingsSnapshot = vi.fn();
+vi.mock('./get-merchant-settings-snapshot', () => ({
+  getMerchantSettingsSnapshot: (...args: unknown[]) =>
+    mockGetMerchantSettingsSnapshot(...args),
 }));
 
 const mockToast = vi.fn();
@@ -117,6 +129,14 @@ function submitSettingsForm() {
 describe('SettingsForm social save orchestration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetMerchantSettingsSnapshot.mockResolvedValue({
+      business_name: 'Test Store',
+      country: 'NG',
+      site_description: '',
+      support_email: '',
+      support_phone: '',
+      updated_at: '2026-08-04T06:00:00.000Z',
+    });
   });
 
   it('saves edited social media before generic fields without an implicit context reload', async () => {
@@ -132,27 +152,14 @@ describe('SettingsForm social save orchestration', () => {
     submitSettingsForm();
 
     await waitFor(() => {
-      expect(mockUpdateMerchant).toHaveBeenCalledWith(
-        expect.objectContaining({
-          business_name: 'Test Store',
-          country: 'NG',
-          hero_slides: [],
-        }),
-        { merchantId: 'merchant-1', skipReload: true }
-      );
+      expect(mockUpdateMerchant).not.toHaveBeenCalled();
     });
-    expect(mockUpdateMerchant.mock.calls[0]?.[0]).not.toHaveProperty(
-      'social_media'
-    );
     await waitFor(() => {
       expect(mockUpdateSocial).toHaveBeenCalledWith(
         'merchant-1',
         expect.objectContaining({ twitter: '@test' })
       );
     });
-    expect(mockUpdateSocial.mock.invocationCallOrder[0]).toBeLessThan(
-      mockUpdateMerchant.mock.invocationCallOrder[0] ?? 0
-    );
     expect(mockReloadMerchant).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
@@ -170,9 +177,8 @@ describe('SettingsForm social save orchestration', () => {
 
     submitSettingsForm();
 
-    await waitFor(() => {
-      expect(mockUpdateMerchant).toHaveBeenCalledTimes(1);
-    });
+    await waitFor(() => expect(mockToast).toHaveBeenCalledTimes(1));
+    expect(mockUpdateMerchant).not.toHaveBeenCalled();
     expect(mockUpdateSocial).not.toHaveBeenCalled();
     expect(mockReloadMerchant).not.toHaveBeenCalled();
   });
@@ -195,7 +201,8 @@ describe('SettingsForm social save orchestration', () => {
     );
     submitSettingsForm();
 
-    await waitFor(() => expect(mockUpdateMerchant).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockToast).toHaveBeenCalledTimes(1));
+    expect(mockUpdateMerchant).not.toHaveBeenCalled();
     expect(mockUpdateSocial).not.toHaveBeenCalled();
   });
 
@@ -224,12 +231,8 @@ describe('SettingsForm social save orchestration', () => {
     );
     resolveSocial?.();
 
-    await waitFor(() =>
-      expect(mockUpdateMerchant).toHaveBeenCalledWith(
-        expect.objectContaining({ business_name: 'Test Store' }),
-        { merchantId: 'merchant-1', skipReload: true }
-      )
-    );
+    await waitFor(() => expect(mockUpdateSocial).toHaveBeenCalledTimes(1));
+    expect(mockUpdateMerchant).not.toHaveBeenCalled();
     expect(mockReloadMerchant).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalled();
   });

@@ -24,7 +24,7 @@ import { ucpCatalogSearchRequestSchema } from '@/schemas/ucp-catalog-request';
 
 const CATALOG_CURRENCY = 'NGN';
 const PRODUCT_SELECT =
-  'id, merchant_id, name, description, price, images, slug, stock, stock_quantity, manage_stock, status, category, created_at';
+  'id, merchant_id, name, description, price, images, slug, canonical_url, stock, stock_quantity, manage_stock, status, category, categories:category_id(slug), product_categories:product_categories(categories(slug)), created_at';
 
 export async function POST(request: NextRequest) {
   if (!verifyAgenticApiKey(request)) {

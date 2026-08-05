@@ -1,9 +1,14 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CachedMerchant } from '@/lib/cached-data';
 import { SettingsForm } from './settings-form';
 
-// Mock child components to avoid deep rendering
 vi.mock('./branding-card', () => ({
   BrandingCard: ({
     onColorChange,
@@ -24,7 +29,19 @@ vi.mock('./branding-card', () => ({
 }));
 
 vi.mock('./hero-carousel-card', () => ({
-  HeroCarouselCard: () => <div data-testid="hero-carousel-card" />,
+  HeroCarouselCard: ({
+    onSlidesChange,
+  }: {
+    onSlidesChange: (slides: Array<{ id: string }>) => void;
+  }) => (
+    <button
+      data-testid="hero-carousel-card"
+      type="button"
+      onClick={() => onSlidesChange([{ id: 'hero-1' }])}
+    >
+      Edit hero carousel
+    </button>
+  ),
 }));
 
 vi.mock('./social-media-card', () => ({
@@ -56,19 +73,19 @@ vi.mock('@/components/dashboard/dashboard-ad-unit', () => ({
 }));
 
 vi.mock('colord/plugins/a11y', () => ({
-  default: () => {
-    // Mock a11y plugin
-  },
+  default: () => {},
 }));
 vi.mock('colord', () => ({ extend: vi.fn() }));
 
 vi.mock('./settings-utils', () => {
-  // Fully mock to avoid transitive sharp/native dependency in CI
   const z = require('zod');
   return {
     settingsSchema: z.object({
       business_name: z.string().min(2),
       country: z.string().min(2),
+      site_description: z.string(),
+      support_email: z.string(),
+      support_phone: z.string(),
     }),
     extractColorsFromImage: vi.fn(),
     sanitizeSocialMedia: (sm: Record<string, string>) => sm,
@@ -82,7 +99,17 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-// Mock useMerchant
+vi.mock('./get-merchant-settings-snapshot', () => ({
+  getMerchantSettingsSnapshot: vi.fn().mockResolvedValue({
+    business_name: 'Test Store',
+    country: 'NG',
+    site_description: '',
+    support_email: '',
+    support_phone: '',
+    updated_at: '2026-08-04T10:01:00.000Z',
+  }),
+}));
+
 const mockUpdateMerchant = vi.fn();
 const mockReloadMerchant = vi.fn();
 vi.mock('@/hooks/use-merchant-client', () => ({
@@ -99,7 +126,6 @@ vi.mock('@/hooks/merchant/update-social', () => ({
   updateSocial: (data: Record<string, string>) => mockUpdateSocial(data),
 }));
 
-// Mock useToast
 const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
@@ -124,6 +150,9 @@ const mockMerchant: CachedMerchant = {
   premium_features: null,
   brand_colors: { primary: '#000', background: '#FFF', accent: '#F00' },
   country: 'NG',
+  support_email: '',
+  support_phone: '',
+  updated_at: '2026-08-04T10:00:00.000Z',
   hero_slides: [],
   mobile_hero_slides: [],
   social_media: {
@@ -144,12 +173,10 @@ describe('SettingsForm', () => {
   });
 
   it('renders the form with all child components', () => {
-    // Arrange & Act
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
 
-    // Assert
     expect(screen.getByTestId('branding-card')).toBeInTheDocument();
     expect(screen.getByTestId('store-features-card')).toBeInTheDocument();
     expect(screen.getByTestId('favicon-upload')).toBeInTheDocument();
@@ -159,34 +186,30 @@ describe('SettingsForm', () => {
   });
 
   it('renders Save Changes button', () => {
-    // Arrange & Act
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
 
-    // Assert
     expect(
       screen.getByRole('button', { name: /save changes/i })
     ).toBeInTheDocument();
   });
 
   it('shows error toast when updateMerchant rejects', async () => {
-    // Arrange
     const error = new Error('Update failed');
     mockUpdateMerchant.mockRejectedValueOnce(error);
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit hero carousel' }));
     const form = screen
       .getByRole('button', { name: /save changes/i })
       .closest('form');
 
     if (!form) throw new Error('Form not found');
 
-    // Act
     fireEvent.submit(form);
 
-    // Assert
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Error Saving Settings',
@@ -197,33 +220,35 @@ describe('SettingsForm', () => {
   });
 
   it('save button shows loading state during submission', async () => {
-    // Arrange
+    let resolveUpdate: (() => void) | undefined;
     mockUpdateMerchant.mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 100))
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUpdate = resolve;
+        })
     );
     render(
       <SettingsForm initialMerchant={mockMerchant} initialBlogEnabled={false} />
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit hero carousel' }));
     const saveButton = screen.getByRole('button', { name: /save changes/i });
     const form = saveButton.closest('form');
 
     if (!form) throw new Error('Form not found');
 
-    // Act
     fireEvent.submit(form);
 
-    // Assert - button disabled during submission
     await waitFor(() => {
       expect(saveButton).toBeDisabled();
     });
 
-    // Assert - button enabled after submission
-    await waitFor(
-      () => {
-        expect(saveButton).not.toBeDisabled();
-      },
-      { timeout: 200 }
-    );
+    await act(async () => {
+      resolveUpdate?.();
+    });
+
+    await waitFor(() => {
+      expect(saveButton).not.toBeDisabled();
+    });
   });
 
   it('writes branding changes to the selected merchant after switching stores', async () => {

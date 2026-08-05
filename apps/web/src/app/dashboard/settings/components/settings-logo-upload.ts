@@ -15,6 +15,7 @@ type Toast = (options: {
 interface LogoUploadContext {
   dataUri: string;
   merchantId: string;
+  onMerchantMutationSaved?: (merchantId: string) => Promise<void>;
   previousState: CachedMerchant;
   updateMerchant: UpdateMerchant;
   toast: Toast;
@@ -26,6 +27,7 @@ interface LogoUploadContext {
 export async function uploadLogoWithColors({
   dataUri,
   merchantId,
+  onMerchantMutationSaved,
   previousState,
   updateMerchant,
   toast,
@@ -55,6 +57,7 @@ export async function uploadLogoWithColors({
       },
       { merchantId, skipReload: true }
     );
+    await onMerchantMutationSaved?.(merchantId);
 
     startTransition(() => {
       setMerchantState((previousMerchant) => ({

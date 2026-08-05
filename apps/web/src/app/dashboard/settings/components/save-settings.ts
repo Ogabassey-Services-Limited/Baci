@@ -3,17 +3,27 @@ import { updateSocial } from '@/hooks/merchant/update-social';
 import type { useMerchant } from '@/hooks/use-merchant-client';
 import type { useToast } from '@/hooks/use-toast';
 import type { HeroSlide } from '@/lib/cached-data';
+import {
+  getMerchantSettingsSnapshot,
+  type MerchantSettingsSnapshot,
+} from './get-merchant-settings-snapshot';
 import { type SettingsFormValues, sanitizeSocialMedia } from './settings-utils';
+import { updateStorefrontProfile } from './update-storefront-profile';
 
 type UpdateMerchantFn = ReturnType<typeof useMerchant>['updateMerchant'];
 type ToastFn = (
   props: Parameters<ReturnType<typeof useToast>['toast']>[0]
 ) => unknown;
+type MerchantSettingsBaseline = Omit<MerchantSettingsSnapshot, 'updated_at'> & {
+  updated_at: string | null | undefined;
+};
 
 interface SaveSettingsContext {
   data: SettingsFormValues;
   heroSlides: HeroSlide[];
+  heroSlidesEdited: boolean;
   merchantId: string;
+  profileBaseline?: MerchantSettingsBaseline;
   socialMedia: Record<string, string> | null;
   updateMerchant: UpdateMerchantFn;
   /** Deliberately not invoked: this callback reloads the implicit merchant. */
@@ -23,51 +33,142 @@ interface SaveSettingsContext {
   setIsSaving: Dispatch<SetStateAction<boolean>>;
 }
 
+export interface SaveSettingsResult {
+  error?: Error;
+  heroSaved: boolean;
+  profileSaved: boolean;
+  snapshot?: MerchantSettingsSnapshot;
+  socialSaved: boolean;
+}
+
+function getStorefrontProfilePatch(
+  data: SettingsFormValues,
+  profileBaseline: SaveSettingsContext['profileBaseline']
+) {
+  if (!profileBaseline) return null;
+  const settings = {
+    business_name: data.business_name,
+    country: data.country,
+    site_description: data.site_description,
+    support_email: data.support_email,
+    support_phone: data.support_phone,
+  };
+  const changedSettings = Object.fromEntries(
+    Object.entries(settings).filter(
+      ([key, value]) => value !== profileBaseline[key as keyof typeof settings]
+    )
+  );
+
+  return Object.keys(changedSettings).length > 0 ? changedSettings : null;
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+function describeSavedChannels(result: SaveSettingsResult): string {
+  const channels = [
+    result.profileSaved ? 'storefront profile' : null,
+    result.socialSaved ? 'social media' : null,
+    result.heroSaved ? 'hero carousel' : null,
+  ].filter((channel): channel is string => channel !== null);
+  return channels.join(', ');
+}
+
+function showSaveToast({
+  error,
+  isCurrentSave,
+  result,
+  toast,
+}: {
+  error?: Error;
+  isCurrentSave: () => boolean;
+  result: SaveSettingsResult;
+  toast: ToastFn;
+}) {
+  if (!isCurrentSave()) return;
+  if (!error) {
+    toast({
+      title: 'Settings Saved!',
+      description: 'Your store settings have been updated.',
+    });
+    return;
+  }
+
+  const savedChannels = describeSavedChannels(result);
+  toast(
+    savedChannels
+      ? {
+          title: 'Settings Partially Saved',
+          description: `Saved your ${savedChannels}, but ${error.message}`,
+          variant: 'destructive',
+        }
+      : {
+          title: 'Error Saving Settings',
+          description: error.message,
+          variant: 'destructive',
+        }
+  );
+}
+
 export async function saveSettings({
   data,
   heroSlides,
+  heroSlidesEdited,
   merchantId,
+  profileBaseline,
   socialMedia,
   updateMerchant,
   isCurrentSave,
   toast,
   setIsSaving,
-}: SaveSettingsContext) {
+}: SaveSettingsContext): Promise<SaveSettingsResult> {
+  const result: SaveSettingsResult = {
+    heroSaved: false,
+    profileSaved: false,
+    socialSaved: false,
+  };
   setIsSaving(true);
+
   try {
-    // Commit the guarded identity write first. If reauthentication or server
-    // validation rejects it, no generic settings have been partially saved.
-    // A null draft means the user did not edit social links, so no identity
-    // request is needed at all.
-    if (socialMedia !== null) {
-      await updateSocial(merchantId, sanitizeSocialMedia(socialMedia));
+    const profilePatch = getStorefrontProfilePatch(data, profileBaseline);
+    if (profilePatch) {
+      if (!profileBaseline?.updated_at) {
+        throw new Error('Store settings changed. Reload before saving again.');
+      }
+      await updateStorefrontProfile({
+        merchantId,
+        expectedUpdatedAt: profileBaseline.updated_at,
+        settings: profilePatch,
+      });
+      result.profileSaved = true;
     }
 
-    // Generic settings use the captured merchant target. The explicit update
-    // patches only a matching context, so selected merchant B can never be
-    // replaced by the implicit owner's merchant A after the save completes.
-    await updateMerchant(
-      {
-        ...data,
-        hero_slides: heroSlides,
-      } as Parameters<UpdateMerchantFn>[0],
-      { merchantId, skipReload: true }
-    );
-    if (isCurrentSave()) {
-      toast({
-        title: 'Settings Saved!',
-        description: 'Your store settings have been updated.',
-      });
+    if (socialMedia !== null) {
+      await updateSocial(merchantId, sanitizeSocialMedia(socialMedia));
+      result.socialSaved = true;
+    }
+
+    if (heroSlidesEdited) {
+      await updateMerchant(
+        { hero_slides: heroSlides } as Parameters<UpdateMerchantFn>[0],
+        { merchantId, skipReload: true }
+      );
+      result.heroSaved = true;
     }
   } catch (error) {
-    if (isCurrentSave()) {
-      toast({
-        title: 'Error Saving Settings',
-        description: (error as Error).message,
-        variant: 'destructive',
-      });
-    }
-  } finally {
-    if (isCurrentSave()) setIsSaving(false);
+    result.error = toError(error);
   }
+
+  if (result.profileSaved || result.socialSaved || result.heroSaved) {
+    try {
+      result.snapshot = await getMerchantSettingsSnapshot(merchantId);
+    } catch (error) {
+      result.error ??= toError(error);
+    }
+  }
+
+  showSaveToast({ error: result.error, isCurrentSave, result, toast });
+  if (isCurrentSave()) setIsSaving(false);
+  return result;
 }

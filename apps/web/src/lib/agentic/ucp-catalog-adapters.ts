@@ -3,6 +3,7 @@ import {
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+import { resolveStorefrontProductCategory } from '@/lib/storefront-product-category-precedence';
 import { UCP_PROFILE_VERSION } from './ucp-discovery-profile';
 
 export const UCP_CATALOG_SEARCH_CAPABILITY = 'dev.ucp.shopping.catalog.search';
@@ -20,7 +21,9 @@ type StorefrontProductForUcp = {
 };
 
 export type UcpCatalogProductRow = {
+  canonical_url?: string | null;
   category?: string | null;
+  categories?: { slug?: string | null } | null;
   description?: string | null;
   id: string;
   images?: unknown;
@@ -28,6 +31,9 @@ export type UcpCatalogProductRow = {
   merchant_id: string;
   name: string;
   price?: number | string | null;
+  product_categories?: Array<{
+    categories?: { slug?: string | null } | null;
+  }> | null;
   slug?: string | null;
   status?: string | null;
   stock?: number | string | null;
@@ -101,7 +107,9 @@ export function mapUcpCatalogProductRow({
     product_url: buildAgentProductUrl({
       baseUrl,
       product: {
+        canonical_url: row.canonical_url ?? null,
         category: row.category ?? null,
+        categories: resolveStorefrontProductCategory(row),
         id: row.id,
         name: row.name,
         slug: row.slug ?? undefined,

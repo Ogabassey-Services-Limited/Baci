@@ -76,6 +76,7 @@ vi.mock('../../sitemap-data', () => ({
     return {
       merchant: {
         ...merchant,
+        is_published: merchant.is_published ?? true,
         feature_settings: { blog_enabled: mockBlogEnabled },
       },
       storeUrl,

@@ -38,9 +38,11 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 type ProductRow = {
+  categories?: { slug?: string | null } | null;
   id: string;
   name: string;
   price?: number;
+  product_categories?: Array<{ categories?: { slug?: string | null } | null }>;
   slug?: string;
   status?: string;
 };
@@ -105,5 +107,47 @@ describe('POST /api/agentic/catalog/product', () => {
     );
 
     expect(response.status).toBe(404);
+  });
+
+  it('selects junction categories for legacy category-only products', async () => {
+    const select = vi.fn(() => query);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
+      from: vi.fn(() => ({ select })),
+    } as never);
+
+    const { POST } = await import('./route');
+    await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/product', {
+        body: JSON.stringify({ id: 'product-1' }),
+        method: 'POST',
+      })
+    );
+
+    expect(select).toHaveBeenCalledWith(
+      expect.stringContaining('product_categories:product_categories')
+    );
+  });
+
+  it('keeps the canonical category path for a junction-only product', async () => {
+    mockProductRow({
+      id: 'product-1',
+      name: 'Laptop',
+      product_categories: [{ categories: { slug: 'laptops' } }],
+      slug: 'thin-laptop',
+      status: 'active',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/product', {
+        body: JSON.stringify({ id: 'product-1' }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(body.product.url).toBe(
+      'https://ogabassey.usebaci.com/laptops/thin-laptop'
+    );
   });
 });
