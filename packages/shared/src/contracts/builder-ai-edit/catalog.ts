@@ -8,15 +8,17 @@ function requiresEditableField<T extends { componentType: string }>(
   return Object.keys(value).some((key) => key !== 'componentType');
 }
 
+const productGridFields = {
+  columns: z.number().int().min(1).max(4).optional(),
+  componentType: z.literal('ProductGrid'),
+  limit: z.number().int().min(1).max(24).optional(),
+  showFilters: z.boolean().optional(),
+  sortBy: z.enum(['newest', 'price-low', 'price-high', 'name']).optional(),
+  title: z.string().trim().min(1).max(MAX_AI_LABEL_LENGTH).optional(),
+};
+
 export const productGridPatchSchema = z
-  .strictObject({
-    columns: z.number().int().min(1).max(4).optional(),
-    componentType: z.literal('ProductGrid'),
-    limit: z.number().int().min(1).max(24).optional(),
-    showFilters: z.boolean().optional(),
-    sortBy: z.enum(['newest', 'price-low', 'price-high', 'name']).optional(),
-    title: z.string().trim().min(1).max(MAX_AI_LABEL_LENGTH).optional(),
-  })
+  .strictObject(productGridFields)
   .refine(
     requiresEditableField,
     'Expected at least one editable product grid field'
@@ -24,5 +26,5 @@ export const productGridPatchSchema = z
 
 export const insertableComponentSchema = z.discriminatedUnion('componentType', [
   componentPatchSchema,
-  productGridPatchSchema,
+  z.strictObject(productGridFields),
 ]);

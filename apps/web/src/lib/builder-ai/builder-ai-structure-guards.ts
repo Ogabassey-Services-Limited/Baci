@@ -11,6 +11,26 @@ interface ProtectedAnchor {
   type: 'Footer' | 'Header';
 }
 
+function isBuilderComponent(
+  value: unknown
+): value is BuilderData['content'][number] {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as { type?: unknown }).type === 'string' &&
+    typeof (value as { props?: unknown }).props === 'object' &&
+    (value as { props?: unknown }).props !== null &&
+    !Array.isArray((value as { props?: unknown }).props)
+  );
+}
+
+function isBuilderComponentList(
+  value: unknown
+): value is BuilderData['content'] {
+  return Array.isArray(value) && value.every(isBuilderComponent);
+}
+
 export interface BuilderAiStructuralBaseline {
   componentAnchorRegions: Map<string, number>;
   footers: number;
@@ -25,8 +45,8 @@ function contentCollections(
   if (Array.isArray(config)) return [config];
   return [
     config.content,
-    ...Object.values(config.zones ?? {}).filter(Array.isArray),
-  ] as BuilderData['content'][];
+    ...Object.values(config.zones ?? {}).filter(isBuilderComponentList),
+  ];
 }
 
 function getProtectedAnchorSnapshot(content: BuilderData['content']): {
@@ -89,7 +109,8 @@ export function getBuilderAiStructuralBaseline(
 
 export function getBuilderAiStructuralFailure(
   config: BuilderData | BuilderData['content'],
-  baseline: BuilderAiStructuralBaseline
+  baseline: BuilderAiStructuralBaseline,
+  enforceRequiredProductGrid = true
 ): string | undefined {
   const content = Array.isArray(config) ? config : config.content;
   const collections = contentCollections(config);
@@ -116,7 +137,11 @@ export function getBuilderAiStructuralFailure(
       return 'Component moved across a protected anchor';
     }
   }
-  if (baseline.requiresProductGrid && count('ProductGrid') === 0) {
+  if (
+    enforceRequiredProductGrid &&
+    baseline.requiresProductGrid &&
+    count('ProductGrid') === 0
+  ) {
     return 'A storefront requires one ProductGrid';
   }
   return content.length > 500

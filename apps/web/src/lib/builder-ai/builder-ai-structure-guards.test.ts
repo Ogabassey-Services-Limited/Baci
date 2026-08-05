@@ -1,3 +1,4 @@
+import type { BuilderData } from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   getBuilderAiStructuralBaseline,
@@ -7,6 +8,17 @@ import {
 const text = (id: string) => ({ props: { id }, type: 'Text' });
 
 describe('getBuilderAiStructuralFailure', () => {
+  it('ignores preserved zone arrays that are not renderable component lists', () => {
+    const config = {
+      content: [text('one')],
+      root: { title: 'Home' },
+      zones: { legacy: [null] },
+    } as BuilderData;
+    const baseline = getBuilderAiStructuralBaseline(config);
+
+    expect(getBuilderAiStructuralFailure(config, baseline)).toBeUndefined();
+  });
+
   it('preserves structural counts, catalog availability, and the block budget', () => {
     const oneBlockBaseline = getBuilderAiStructuralBaseline([text('one')]);
     expect(

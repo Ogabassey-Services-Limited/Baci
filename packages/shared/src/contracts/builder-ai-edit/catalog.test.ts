@@ -22,11 +22,22 @@ describe('builder AI edit ProductGrid patch', () => {
   });
 
   it('keeps ProductGrid in the complete safe insertion union', () => {
-    expect(
-      insertableComponentSchema.safeParse({
-        componentType: 'ProductGrid',
-        title: 'Featured products',
-      }).success
-    ).toBe(true);
+    // Arrange
+    const explicit = {
+      componentType: 'ProductGrid',
+      title: 'Featured products',
+    };
+    const defaultOnly = { componentType: 'ProductGrid' };
+    const invalid = { columns: 5, componentType: 'ProductGrid' };
+
+    // Act
+    const explicitResult = insertableComponentSchema.safeParse(explicit);
+    const defaultResult = insertableComponentSchema.safeParse(defaultOnly);
+    const invalidResult = insertableComponentSchema.safeParse(invalid);
+
+    // Assert
+    expect(explicitResult.success).toBe(true);
+    expect(defaultResult.success).toBe(true);
+    expect(invalidResult.success).toBe(false);
   });
 });

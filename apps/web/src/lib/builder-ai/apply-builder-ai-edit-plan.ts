@@ -274,7 +274,8 @@ export function applyBuilderAiEditPlan(
     assertUniqueIds(candidateConfig);
     const structureFailure = getBuilderAiStructuralFailure(
       candidateConfig,
-      baseline
+      baseline,
+      false
     );
     if (structureFailure) throw new BuilderAiEditPlanError(structureFailure);
   }

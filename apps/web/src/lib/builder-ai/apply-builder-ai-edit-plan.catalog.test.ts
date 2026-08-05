@@ -67,6 +67,29 @@ describe('applyBuilderAiEditPlan catalog parity', () => {
     expect(result.candidateConfig.content[1].props.sortBy).toBe(sortBy);
   });
 
+  it('allows replacing the only ProductGrid with a default-only insert', () => {
+    const result = applyBuilderAiEditPlan(
+      config,
+      {
+        operations: [
+          { componentId: 'grid', kind: 'remove_component' },
+          {
+            initialContent: { componentType: 'ProductGrid' },
+            kind: 'insert_component',
+            placement: { position: 'first_content' },
+          },
+        ],
+        status: 'proposed',
+        summary: 'Replace the product grid',
+      } as BuilderAiProposedPlan,
+      () => 'replacement-grid'
+    );
+
+    expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
+      ['header', 'replacement-grid']
+    );
+  });
+
   it('applies a Features update using the real default registry icon', () => {
     const result = applyBuilderAiEditPlan(
       {
