@@ -38,6 +38,16 @@ function mapOrderEditError(error: { code?: string; message?: string }) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  if (message.includes('order_item_append_supports_one_new_line')) {
+    return NextResponse.json(
+      {
+        code: 'order_item_append_limit',
+        error: 'Add only one new item per edit.',
+      },
+      { status: 409 }
+    );
+  }
+
   if (message.includes('order_edit_forbidden') || error.code === '42501') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -57,11 +67,16 @@ function mapOrderEditError(error: { code?: string; message?: string }) {
       'cannot_delete_order_item_with_historical_inventory_events'
     )
   ) {
+    const hasProtectedLineItemHistory = message.includes(
+      'order_item_replacement_has_accounting_metadata'
+    );
+
     return NextResponse.json(
       {
         code: 'order_not_editable',
-        error:
-          'This order has payments or fulfillment history. Financial edits are locked.',
+        error: hasProtectedLineItemHistory
+          ? 'This order contains protected line-item history. Existing items cannot be changed or removed.'
+          : 'This order has payments or fulfillment history. Financial edits are locked.',
       },
       { status: 409 }
     );
