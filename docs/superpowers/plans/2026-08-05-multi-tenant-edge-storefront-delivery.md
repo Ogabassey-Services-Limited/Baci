@@ -1,6 +1,6 @@
 # Baci Multi-Tenant Edge Storefront Delivery Implementation Plan
 
-> **Status:** Revision 3, upgraded on 2026-08-05 against `origin/main@33e8c0e80ef80891be4ac809362cf59781b758cf`. Execute each task as a separately reviewed PR unless a task explicitly says it is an operational evidence step. This plan does not authorize production mutations, Cloudflare provisioning, a `proxy.ts` change, or a new privileged database boundary by itself.
+> **Status:** Revision 4, upgraded on 2026-08-05 against `origin/main@33e8c0e80ef80891be4ac809362cf59781b758cf`. Execute each task as a separately reviewed PR unless a task explicitly says it is an operational evidence step. This plan does not authorize production mutations, Cloudflare provisioning, a `proxy.ts` change, or a new privileged database boundary by itself.
 
 **Goal:** Remove eligible anonymous storefront browsing from Vercel for Baci's standard storefronts, then Ogabassey's custom theme, by publishing immutable merchant releases to private R2 and serving them through one shared public Cloudflare Worker plus one shared private reader Worker. Keep checkout, accounts, payments, orders, inventory validation, quiz, repairs, and other stateful commerce operations authoritative and dynamic.
 
@@ -20,6 +20,8 @@
 8. Use Cloudflare for SaaS for merchant custom-hostname/TLS onboarding when the exact-host pilots are proven. Do not adopt Workers for Platforms unless Baci later permits merchants to execute arbitrary custom code; one shared public serving Worker is sufficient for the current product.
 9. Keep both R2 buckets private. Use one additional unrouted, service-bound release-reader Worker so the public serving Worker cannot mutate or directly expose either bucket. This is still one shared multi-tenant serving plane, not per-merchant infrastructure.
 10. Treat a storefront view as the complete browser request waterfall, not only the document request. An eligible passive browse is not origin-free if delayed analytics, component hydration, Supabase, image optimization, or same-origin API requests still reach Vercel.
+11. Make terminal control monotonic and non-replayable. Each enrolled hostname references an immutable terminal-control epoch; genesis, disable, and route-tombstone records are write-once, signed, and protected from overwrite/deletion by provider-read-back R2 bucket locks. Clearing an override creates a successor epoch and never deletes or overwrites prior evidence.
+12. For the synthetic and first real pilot, emit no passive browser page-view request. Require explicit merchant/owner acceptance of that temporary analytics gap. Cohort expansion requires a separately reviewed edge-safe analytics policy or continued explicit opt-out; authoritative conversion and commerce events stay dynamic.
 
 ## Current PR and Mainline Impact
 
@@ -48,7 +50,7 @@ flowchart LR
   Queue --> Publisher["Least-privilege VPS publisher"]
   Publisher --> Releases["Immutable R2 releases"]
   Publisher --> Pointer["Uncached hostname pointer"]
-  Terminal["Separate terminal-control operator"] --> Control["Private signed host control"]
+  Terminal["Separate terminal-control operator"] --> Control["Private WORM host-control epochs"]
   Browser["Anonymous browser"] --> Worker["One shared Cloudflare Worker"]
   Worker --> Reader["Private release-reader Worker"]
   Reader --> Control
@@ -70,21 +72,25 @@ merchants/{merchant-id}/releases/{release-id}/assets/{content-hash}.{ext}
 renderers/{renderer-version}/assets/{content-hash}.{ext}
 ```
 
-Use a separate private terminal-control bucket with one strongly consistent object per hostname:
+Use a separate private terminal-control bucket with immutable, strongly consistent epoch records per hostname:
 
 ```text
-controls/hosts/{normalized-hostname}.json
+controls/hosts/{normalized-hostname}/epochs/{epoch-id}/genesis.json
+controls/hosts/{normalized-hostname}/epochs/{epoch-id}/disabled.json
+controls/hosts/{normalized-hostname}/epochs/{epoch-id}/tombstones/{route-hash}.json
 ```
 
-- A release-bucket hostname pointer contains `schemaVersion`, normalized hostname, merchant ID, mode (`origin` or `edge`), monotonically increasing publication generation, immutable release ID, manifest key/hash, and activation time.
-- The reader checks the terminal-control object before the release pointer on every request. A signed `disabled` host state or exact route tombstone overrides every release generation. Only a later, higher terminal-control generation signed by the terminal key can clear it; clearing the override does not activate content by itself and still requires a valid release pointer. Missing control means no prior override; malformed, stale, rollback, or unreadable control fails closed.
+- A release-bucket hostname pointer contains `schemaVersion`, normalized hostname, merchant ID, mode (`origin` or `edge`), monotonically increasing publication generation, immutable release ID, manifest key/hash, activation time, terminal epoch ID, and signed genesis hash.
+- Every edge activation requires a terminal-signed epoch genesis. The reader rejects a missing, malformed, cross-host, rollback, or hash-mismatched genesis with a bounded `503`; absence never means "no prior override."
+- Inside an epoch, `disabled.json` and exact route-tombstone objects are terminal-signed, created with `If-None-Match: *`, and never cleared, overwritten, or deleted. Their prefixes are covered by an indefinite R2 bucket-lock rule whose configuration and separate administration authority are part of provider topology readback. A valid marker overrides every release in that epoch.
+- Re-enabling a host or route requires the terminal operator to create a successor genesis that binds the predecessor epoch and terminal-record hashes. The publisher may then activate a separately signed release pointer referencing that successor. All older epoch records remain locked and discoverable, so replaying an older pointer still encounters its durable disable/tombstone. Neither the normal publisher nor a release-bucket credential can create a successor terminal epoch.
 - Release IDs and object keys are immutable. A publisher uploads and reads back every object, then the manifest, and commits the pointer last with compare-and-swap generation fencing.
 - Renderer CSS/JavaScript/font assets are immutable and shared across compatible merchant releases. Merchant-specific generated assets stay inside the merchant namespace.
-- The pointer bypasses CDN caching. Immutable release objects receive long edge caching. This uses R2's strong read-after-write consistency without pretending the CDN cache is strongly consistent.
+- The pointer, epoch genesis, disable marker, and applicable route tombstone bypass CDN caching. Immutable release objects receive long edge caching. This uses R2's strong read-after-write consistency without pretending the CDN cache is strongly consistent.
 - Both R2 buckets are private: no public custom domain and no `r2.dev` endpoint. The normal publisher credential has no control-bucket authority; terminal-control credentials have no release-bucket authority. The public serving Worker has no R2 binding, Supabase, payment, AI, email, write, or service-role credential.
-- A second global Worker, `storefront-release-reader`, has no public route, no custom domain, and `workers_dev = false`. It is reachable only through a service binding from `storefront-edge`, accepts only bounded `GET`/`HEAD` reads for validated control/pointer/manifest/object keys, and exposes no list, put, delete, multipart, or arbitrary-key surface. One focused module owns both raw R2 bindings and exports frozen `head`/`get` facades; AST and built-bundle negative-capability tests fail if mutation methods, dynamic raw-binding access, or binding re-exports appear.
+- A second global Worker, `storefront-release-reader`, has no public route, custom domain, `fetch` handler, preview URL, or `workers.dev` URL. Both `"workers_dev": false` and `"preview_urls": false` are explicit in its checked-in `wrangler.jsonc`. It is reachable only through a typed RPC service binding from `storefront-edge` and exposes closed, bounded control/pointer/manifest/object read methods rather than an HTTP or arbitrary-key surface. One focused module owns both raw R2 bindings and exports frozen `head`/`get` facades; AST and built-bundle negative-capability tests fail if mutation methods, dynamic raw-binding access, binding re-exports, or a public event handler appear.
 - The reader's R2 bindings are platform-capable of mutation even though the deployed code is read-only. Therefore its code, deployment identity, and token are isolated from the public Worker and both writers; provider readback must prove that it has no public route. Task 0 records the current service-binding price contract (Cloudflare currently documents no added binding cost) and includes both buckets' R2 operations plus any reader error logs in the model rather than double-counting a second public invocation.
-- Missing, malformed, or cross-tenant pointers do not silently flood Vercel. They return a bounded edge error and alert. Origin rollback is an explicit pointer mode change or exact route detachment.
+- Missing, malformed, replayed, or cross-tenant terminal/pointer state does not silently flood Vercel. It returns a bounded edge error and alert. Origin rollback is an explicit pointer mode change or exact route detachment.
 
 ### Publication input
 
@@ -121,6 +127,8 @@ Always dynamic in the first release:
 
 Known static routes do not become origin-bound merely because they contain cookies or tracking parameters. Unknown routes for an enrolled edge hostname receive the immutable release 404; they do not fall through to Vercel. Released links use ordinary document navigation rather than depending on Next.js RSC/prefetch requests.
 
+The route matrix is a closed inventory, not a best-effort matcher. At this Revision 4 snapshot, `apps/web/src/app/(storefront)/[slug]/**` contains 74 `page.tsx`/`route.ts` entrypoints. Task 1 records every current entrypoint, alias, rewrite, proxy path class, and machine route as `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`. A source-tree contract test fails when a later storefront route or relevant rewrite is added, removed, or renamed without an explicit classification and parity fixture. CI maps storefront route files, `proxy.ts`, Next routing configuration, and the shared route inventory to both web and edge gates so an enrolled hostname can never silently receive a new edge 404 after an application-only change.
+
 ### Release component capability contract
 
 The builder catalog is broader than the first edge-safe catalog. Every component type receives one versioned capability row containing:
@@ -141,23 +149,26 @@ The release manifest binds `componentContractVersion`. Any builder-catalog PR, i
 
 Origin avoidance is measured over a complete browser waterfall. The document request alone is not sufficient because current storefront code can schedule `/api/events`, `/baci-relay`, Vercel Analytics/Speed Insights, Supabase reads, image optimization, and component API requests after load or interaction.
 
-Use the Codex in-app Browser's Chrome DevTools Protocol capability for real-browser operational evidence; do not add a standalone Playwright dependency for this gate. The operator procedure:
+Use the Codex in-app Browser's Chrome DevTools Protocol capability for real-browser operational evidence; do not add a standalone Playwright dependency for this gate. Reuse the #3250 process-isolation and artifact-authority pattern: an isolated credentialed runner emits bounded authenticated pre-capture provider/release readback and revocation receipts, then exits. The credentialless run creator consumes those reviewed receipts and issues a random single-use `evidenceRunId` and nonce bound to the candidate public/reader Worker version IDs and bundle digests, topology-manifest hash, normalized hostname, release/pointer/manifest hashes, eligibility-policy hash, scripted-flow version, and allowed capture window. The operator procedure:
 
-1. Open or claim a fresh in-app Browser tab against a unique synthetic hostname/release, navigate once to establish the target origin, enable the CDP `Network` domain, capture an event cursor, and reload into the measured run.
+1. Open or claim a fresh in-app Browser tab against the run-bound unique synthetic hostname/release, navigate once to establish the target origin, enable the CDP `Network` domain, capture an event cursor, and reload into the measured run.
 2. Record `Network.requestWillBeSent`, `Network.responseReceived`, loading completion/failure, redirect, initiator, method, resource type, status, and destination host/path class through document load, at least twenty seconds of idle time, scroll, pointer activation, keyboard activation, and an eligible same-site navigation.
 3. Mark each scripted phase before performing it so the validator distinguishes `automatic_browse`, `explicit_dynamic_action`, and `approved_third_party` traffic.
-4. Keep raw headers, bodies, cookies, query values, full URLs, customer identifiers, and browser-profile data in memory only. Immediately transform events into bounded host/method/path-class/resource-type/initiator aggregates, hash the sanitized artifact, and discard raw events.
-5. Run both a first-navigation/cold-cache pass and a repeat-navigation/warm-cache pass. Run the repository validator over each sanitized ledger. `automatic_browse` must contain zero Vercel, Supabase, same-origin dynamic API, `/_next/image`, `/_next/static`, `/api/events`, `/baci-relay`, or other unapproved origin attempts. Approved third-party requests are still counted in the cost/privacy inventory. Explicit dynamic actions must match the route contract exactly.
+4. Keep raw headers, bodies, cookies, query values, full URLs, customer identifiers, and browser-profile data in memory only. Immediately transform events into bounded host/method/path-class/resource-type/initiator aggregates, bind the sanitized artifact to the run nonce and exact candidate identities, hash it, and discard raw events.
+5. Run both a first-navigation/cold-cache pass and a repeat-navigation/warm-cache pass under one pair ID. Run the repository validator over each sanitized ledger. `automatic_browse` must contain zero Vercel, Supabase, same-origin dynamic API, `/_next/image`, `/_next/static`, `/api/events`, `/baci-relay`, or other unapproved origin attempts. Approved third-party requests are still counted in the cost/privacy inventory. Explicit dynamic actions must match the route contract exactly.
+6. After capture, a new isolated credentialed runner produces bounded authenticated post-capture provider/release readback and revocation receipts. The credentialless qualifier rejects either provider token in its environment, a reused nonce, stale or future capture, capture outside the active run, mismatched pre/post hostname/release/version/topology/policy, incomplete cold/warm pair, unknown scripted-flow version, or caller-authored candidate identity before accepting the signed run receipt.
 
 CI validates the sanitizer, policy, fixture ledgers, and Worker-runtime integration tests. The in-app Browser supplies the operator-controlled, real-browser pilot census and visual interaction evidence that CI cannot reproduce. This replaces a standalone Playwright dependency for the operational census, but not reproducible CI fixtures or Worker-runtime integration tests. A Browser capture is necessary but not sufficient for the seven-day provider census.
 
-Passive page-view analytics must not call Vercel. Before canary, choose and prove either a privacy-bounded edge ingestion path or direct approved analytics-provider delivery. Conversion, checkout, and other authoritative user actions may remain dynamic, but they must not expand the temporary service-role allowlist or expose merchant credentials.
+Passive page-view analytics must not call Vercel. The synthetic pilot and first consenting standard-merchant canary use the explicit `disabled_for_edge_pilot` policy: released pages emit no passive browser analytics request, operational Worker decision records are not silently repurposed as merchant analytics, and the merchant/owner accepts the bounded reporting gap before routing traffic. Conversion, checkout, and other authoritative user actions remain dynamic and must not expand the temporary service-role allowlist or expose merchant credentials.
+
+Before Task 8 cohort expansion, a separate reviewed decision chooses either continued per-merchant opt-out or a versioned `edge_aggregate`/`direct_provider` analytics capability. Any enabled path must preserve consent and deletion semantics, define the minimum event fields and retention, authenticate without browser-held merchant credentials, deduplicate retries, bound batching/backpressure and provider failure, prove attribution parity, and enter the Cloudflare cost model. Until that implementation and its complete-browser ledger are green, the only edge-eligible analytics policy is `disabled_for_edge_pilot`; merchants requiring passive page-view parity remain on origin.
 
 ### Release authenticity and key separation
 
-Hashes detect corruption but do not authenticate caller-authored R2 bytes. Every activation therefore includes an Ed25519-signed authority envelope. A `release` envelope binds the normalized hostname, merchant ID, publication generation, release ID, projection hash, manifest hash, renderer version, component-contract version, issued time, signing-key ID, and schema version. A separately typed `terminal_control` envelope can authorize only a durable disabled/enabled host override or exact route tombstone and binds its reason class, target, monotonic control generation, issued time, operator receipt hash, signing-key ID, and schema version.
+Hashes detect corruption but do not authenticate caller-authored R2 bytes. Every activation therefore includes an Ed25519-signed authority envelope. A `release` envelope binds the normalized hostname, merchant ID, publication generation, release ID, projection hash, manifest hash, renderer version, component-contract version, terminal epoch/genesis hash, issued time, signing-key ID, and schema version. Disjoint `terminal_epoch_genesis`, `terminal_host_disable`, and `terminal_route_tombstone` envelopes bind their hostname, epoch/predecessor, exact target, monotonic control generation, reason class, issued time, operator receipt hash, signing-key ID, and schema version. No terminal envelope directly activates release content.
 
-- The Worker pins separate allowlists for current/retiring release-signing and terminal-control public keys, verifies the exact envelope type before acting, and never accepts a terminal key for an `edge` release or a release key for an emergency tombstone.
+- The Worker pins separate allowlists for current/retiring release-signing and terminal-control public keys, verifies the exact envelope type before acting, and never accepts a terminal key for an `edge` release or a release key for an epoch genesis, disable marker, or emergency tombstone.
 - Each signing private key is separate from its corresponding R2 write credential and stored as a mode-`0600`, dedicated secret outside ordinary application/Vercel environments. An R2-token leak alone cannot forge an accepted release or terminal action.
 - Key rotation overlaps old/new verification keys for a bounded window. Revocation, rotation, and recovery are tested; a revoked key cannot activate a new generation.
 - Publisher-host compromise remains a documented residual risk because that host can use the release-bucket credential and release-signing key together to forge content. It still cannot write or clear the separate control bucket. Incident response uses the isolated terminal operator to disable the exact hostname, then rotates the publisher's R2 and signing authorities independently.
@@ -166,12 +177,12 @@ Hashes detect corruption but do not authenticate caller-authored R2 bytes. Every
 
 The manifest labels every route dependency with a freshness class. Proposed defaults become authoritative only after owner approval in Task 0:
 
-- `terminal_control`: merchant deletion, domain disablement, legal takedown, or product recall. The operation is not acknowledged until a separate break-glass control path has committed and read back a signed disabled host override or exact route tombstone from the control bucket. Target: 60 seconds; breach freezes edge enrollment.
+- `terminal_control`: merchant deletion, domain disablement, legal takedown, or product recall. The operation is not acknowledged until a separate break-glass control path has created with `If-None-Match: *`, read back, and serving-path-verified a signed write-once host-disable or exact route-tombstone record in the active locked epoch. Target: 60 seconds; breach freezes edge enrollment.
 - `offer_critical`: product unpublish, price, promotion, or purchasability changes. Priority generation target: two minutes p95, ten-minute hard breach. A breach triggers bounded exact-host/route origin rollback or an edge terminal response; the Worker never silently serves a known-expired offer.
 - `inventory_advisory`: snapshot stock may be displayed with a freshness label, but checkout always revalidates authoritative stock and price. Target: five minutes p95.
 - `content_standard`: brand, blog, policy, and ordinary copy changes. Target: five minutes p95.
 
-The primary publisher credentials cannot be the break-glass credentials. Terminal control has a separate least-privilege R2 identity and terminal-only signing key, dual confirmation, exact-target readback, audit receipt, and revocation procedure. Publisher outage behavior is explicit per freshness class; "serve the last release forever" is not a valid universal fallback.
+The primary publisher credentials cannot be the break-glass credentials. Terminal control has a separate least-privilege R2 identity and terminal-only signing key, dual confirmation, exact-target readback, audit receipt, and revocation procedure. A terminal record is never erased to restore service; a successor epoch requires a new terminal-signed genesis and explicit re-enrollment approval. Publisher outage behavior is explicit per freshness class; "serve the last release forever" is not a valid universal fallback.
 
 ## Success and Stop Gates
 
@@ -182,7 +193,7 @@ Before Task 2 starts, collect a sealed seven-day baseline from Vercel and Cloudf
 - Vercel invocations, active CPU, provisioned memory, origin transfer, cache writes/reads, and billed amount attributable to storefront hosts and paths;
 - eligible anonymous browsing requests by hostname, method, path class, status, and origin decision;
 - current cost per 1,000 complete eligible browser views, including document and automatic subrequests; and
-- projected public Worker, current service-binding price contract, R2 Class A/B, storage, signatures, provider-generated invocation logs, one custom public-decision log per request, bounded reader error/security logs, custom-hostname, and egress costs at current traffic plus 2x headroom. Do not assume that suppressing `console` output removes provider-generated log events; use provider readback and measured event counts.
+- projected public Worker, current service-binding price contract, R2 Class A/B, locked control-record storage, signatures, provider-generated invocation logs, one custom public-decision log per request, bounded reader error/security logs, any approved edge-analytics path, custom-hostname, and egress costs at current traffic plus 2x headroom. Do not assume that suppressing `console` output removes provider-generated log events; use provider readback and measured event counts.
 
 The 20% attribution, 80% normalized-runtime reduction, and 2x Cloudflare-cost multiple are proposed defaults, not implied owner approval. Task 0 records explicit owner acceptance or replacements plus an absolute monthly net-savings floor in USD and NGN. Stop this work and prioritize remaining dynamic/VPS offloads if the accepted gate fails. Do not infer savings from request count alone.
 
@@ -194,11 +205,15 @@ Expansion beyond one standard merchant requires:
 
 - at least 99.9% origin avoidance for eligible requests over a complete seven-day census;
 - zero automatic Vercel/Supabase/dynamic-origin requests in each sanitized in-app Browser CDP acceptance ledger;
+- every Browser ledger bound to a single-use current run, exact public/reader Worker versions, topology, release, manifest, policy, capture window, and complete cold/warm pair;
 - zero unknown or rejected-method origin attempts;
+- a complete source-tree route inventory in which every storefront entrypoint and relevant rewrite is classified, with CI rejecting unclassified drift;
 - zero cross-tenant object, pointer, hostname, cache-key, or redirect leakage;
-- a private R2 topology with no public endpoint or `r2.dev` access on either bucket, no public reader route, and provider readback matching the reviewed topology;
+- a private R2 topology with no public endpoint or `r2.dev` access on either bucket, no public reader route, explicit `"workers_dev": false` and `"preview_urls": false`, no reader `fetch` handler, and provider readback matching the reviewed topology;
 - valid signed release authority for every served generation, plus successful rotation/revocation recovery drills;
-- exact dynamic preservation of method, body, query, cookies, host, `Origin`, and CSRF behavior;
+- exact dynamic preservation of method, body, query, all pre-existing cookies/application headers, host, `Origin`, and CSRF behavior, with the edge-owned affinity cookie and Worker version-selection headers stripped before origin forwarding;
+- a signed, locked terminal epoch genesis for every active hostname; write-once disable/tombstone behavior; replay/deletion/out-of-order rejection; and no mutable clear operation;
+- explicit pilot acceptance of `disabled_for_edge_pilot` analytics, or a separately approved and costed edge-safe analytics capability before broader enrollment;
 - SEO, accessibility, responsive, checkout-handoff, and visual parity for the pilot merchant;
 - freshness and terminal-control SLOs for every approved data class, with no known-expired offer served silently;
 - tested pointer rollback in five minutes or less without a code deployment;
@@ -209,7 +224,7 @@ If the 99.9% gate passes but the total Baci Vercel invoice does not materially f
 
 ### Fast execution order
 
-- Run Task 0 and Task 1 in parallel; neither mutates production. Task 1 includes the component, browser-waterfall, release-authority, and freshness contracts.
+- Run Task 0 and Task 1 in parallel; neither mutates production. Task 1 includes the component, closed route inventory, run-bound browser-waterfall, release/terminal authority, analytics-policy, and freshness contracts.
 - Start the pure Task 2 renderer only after Task 0 returns `PROCEED` and Task 1's schemas are stable. Its tests consume bounded projection fixtures, not the Task 3 RPC.
 - Build Task 3 after Task 1. Start Task 4 only after both the Task 2 renderer and Task 3 claim/ledger contract are green.
 - Task 5 may build against signed fixtures while Tasks 2-4 build the production projection/publisher path, but Task 6 requires all of them.
@@ -232,15 +247,20 @@ Run each task's focused checks first. Every code or migration PR then runs `pnpm
 - Create: `apps/web/tools/cost/storefront-cohort-cost-baseline.test.ts`
 - Create: `apps/web/tools/cost/validate-storefront-browser-waterfall.ts`
 - Create: `apps/web/tools/cost/validate-storefront-browser-waterfall.test.ts`
+- Create: `apps/web/tools/cost/create-storefront-browser-evidence-run.ts`
+- Create: `apps/web/tools/cost/create-storefront-browser-evidence-run.test.ts`
+- Create: `apps/web/tools/cost/qualify-storefront-browser-evidence-run.ts`
+- Create: `apps/web/tools/cost/qualify-storefront-browser-evidence-run.test.ts`
 - Modify: `docs/ops/storefront-origin-budget.md`
 
 - [ ] Parameterize the existing Ogabassey evidence manifest with an explicit cohort ID and complete hostname inventory while preserving exact per-host/method/path-class/rule reconciliation.
-- [ ] Add Vercel billed-unit inputs and Cloudflare incremental-cost inputs; keep credentials and raw URLs out of artifacts.
+- [ ] Add Vercel billed-unit inputs and Cloudflare incremental-cost inputs, including WORM control records/bucket-lock operations and any proposed analytics capability; keep credentials and raw URLs out of artifacts.
 - [ ] Collect provider data in isolated credentialed processes using dedicated read-only Vercel and Cloudflare tokens with exact account/zone scopes. Never reuse the production cache-purge token. Write only bounded signed aggregates, then run qualification/readback in a separate process that rejects all provider credentials from its environment; rotate or revoke collection tokens after the sealed window.
 - [ ] Reuse the #3250 account-wide Workers Logs capacity contract. Require provider readback of `head_sampling_rate = 1`, reconcile projected storefront plus all other-Worker volume with approved headroom, and prove the account will remain below forced-sampling limits throughout the evidence window.
 - [ ] Reconcile independent Cloudflare request/log aggregates, R2 operations, enrolled-host inventory, and Vercel/origin attempts by host, method, path class, decision/rule ID, and day. Workers Logs are never the sole authority for a 99.9% result.
 - [ ] Make missing, sampled, capacity-uncertain, stale, unauthenticated, or unreconciled inputs produce `NOT_PROVEN`, never `PASS`.
-- [ ] Add a credentialless validator for sanitized in-app Browser CDP waterfall aggregates. The validator rejects raw URLs, query values, headers, bodies, cookies, identifiers, unknown hosts/path classes, missing scripted phases, and automatic origin attempts.
+- [ ] Extend the #3250 isolated authenticated runner and artifact authority to emit bounded pre/post-capture provider/release readback plus token-revocation receipts. Add a separate credentialless Browser evidence-run creator and qualifier. The creator consumes only the authenticated pre-capture artifact and issues a single-use random nonce bound to public/reader version IDs and bundle digests, topology hash, hostname, release/pointer/manifest hashes, policy hash, scripted-flow version, and bounded capture window. The qualifier consumes the pre/post authority artifacts, rejects provider credentials from its environment, and rejects reused nonces, stale/future or out-of-run timestamps, caller-selected candidate identity, mismatched provider/release readback, incomplete cold/warm pairs, raw URLs/query values/headers/bodies/cookies/identifiers, unknown hosts/path classes, missing scripted phases, and automatic origin attempts.
+- [ ] Sign and seal only the sanitized run authority, aggregate ledgers, qualification result, provider/release readback hashes, and verified token-revocation receipts. The Browser, creator, and qualifier processes never receive provider credentials or provider-client imports; the two credentialed collectors exit and revoke/rotate their read tokens before their artifacts can qualify the run.
 - [ ] Record owner-approved relative thresholds and an absolute monthly net-savings floor in USD and NGN. Until signed, the 20%/80%/2x defaults are proposals and Task 2 remains blocked.
 - [ ] Capture an authenticated seven-day production baseline as a non-executable evidence artifact after the tooling PR merges.
 - [ ] Record a `PROCEED` or `STOP` business decision using the approved bill-attribution and absolute-savings gates.
@@ -249,7 +269,7 @@ Run each task's focused checks first. Every code or migration PR then runs `pnpm
 
 ```bash
 pnpm --filter @baci/shared test
-pnpm --filter @baci/web test -- storefront-origin-budget storefront-cohort-cost-baseline storefront-browser-waterfall
+pnpm --filter @baci/web test -- storefront-origin-budget storefront-cohort-cost-baseline storefront-browser-waterfall storefront-browser-evidence-run
 pnpm --filter @baci/shared typecheck
 pnpm --filter @baci/web typecheck:tools-workers
 ```
@@ -266,28 +286,40 @@ pnpm --filter @baci/web typecheck:tools-workers
 - Create: `packages/shared/src/storefront-release/public-projection-schema.test.ts`
 - Create: `packages/shared/src/storefront-release/release-authority-envelope-schema.ts`
 - Create: `packages/shared/src/storefront-release/release-authority-envelope-schema.test.ts`
-- Create: `packages/shared/src/storefront-release/terminal-control-authority-envelope-schema.ts`
-- Create: `packages/shared/src/storefront-release/terminal-control-authority-envelope-schema.test.ts`
+- Create: `packages/shared/src/storefront-release/terminal-epoch-genesis-envelope-schema.ts`
+- Create: `packages/shared/src/storefront-release/terminal-epoch-genesis-envelope-schema.test.ts`
+- Create: `packages/shared/src/storefront-release/terminal-host-disable-envelope-schema.ts`
+- Create: `packages/shared/src/storefront-release/terminal-host-disable-envelope-schema.test.ts`
+- Create: `packages/shared/src/storefront-release/terminal-route-tombstone-envelope-schema.ts`
+- Create: `packages/shared/src/storefront-release/terminal-route-tombstone-envelope-schema.test.ts`
 - Create: `packages/shared/src/storefront-release/release-component-capability-schema.ts`
 - Create: `packages/shared/src/storefront-release/release-component-capability-schema.test.ts`
 - Create: `packages/shared/src/storefront-release/browser-waterfall-evidence-schema.ts`
 - Create: `packages/shared/src/storefront-release/browser-waterfall-evidence-schema.test.ts`
+- Create: `packages/shared/src/storefront-release/browser-waterfall-run-authority-schema.ts`
+- Create: `packages/shared/src/storefront-release/browser-waterfall-run-authority-schema.test.ts`
+- Create: `packages/shared/src/storefront-release/storefront-edge-analytics-policy.ts`
+- Create: `packages/shared/src/storefront-release/storefront-edge-analytics-policy.test.ts`
 - Create: `packages/shared/src/storefront-release/storefront-release-freshness-policy.ts`
 - Create: `packages/shared/src/storefront-release/storefront-release-freshness-policy.test.ts`
 - Create: `packages/shared/src/storefront-release/classify-storefront-edge-request.ts`
 - Create: `packages/shared/src/storefront-release/classify-storefront-edge-request.test.ts`
+- Create: `packages/shared/src/storefront-release/storefront-edge-route-inventory.ts`
+- Create: `packages/shared/src/storefront-release/storefront-edge-route-inventory.test.ts`
 - Create: `apps/web/src/lib/storefront-release/standard-component-capabilities.ts`
 - Create: `apps/web/src/lib/storefront-release/standard-component-capabilities.test.ts`
 - Create: `apps/web/src/lib/storefront-release/storefront-edge-route-parity.test.ts`
+- Create: `apps/web/src/lib/storefront-release/storefront-edge-route-inventory-parity.test.ts`
 
 - [ ] Define strict, versioned Zod schemas with bounded route counts, object sizes, aggregate release bytes, path lengths, content types, and hashes.
-- [ ] Bind the signed release-authority envelope, component-contract version, projection hash, renderer version, and per-route freshness class into the manifest/pointer schemas. Define a disjoint terminal-control envelope whose keys can authorize only durable disabled/enabled overrides or exact route tombstones in the control bucket; it cannot activate a release.
+- [ ] Bind the signed release-authority envelope, component-contract version, projection hash, renderer version, per-route freshness class, terminal epoch ID, and terminal genesis hash into the manifest/pointer schemas. Define disjoint terminal genesis, host-disable, and route-tombstone envelopes. A terminal key can create a successor epoch but cannot activate a release; a release key cannot create, disable, or advance a terminal epoch.
 - [ ] Build a versioned row for every currently publishable builder component. Mark it `static`, `client_island`, `origin_action`, or `unsupported`; enumerate data dependencies, scripts, allowed destinations/methods, CSP, size, and fallback. A catalog diff without a capability decision fails CI.
-- [ ] Define sanitized Browser-CDP evidence rows and scripted phases without raw URLs, query values, headers, cookies, bodies, or customer/browser identifiers.
+- [ ] Define sanitized Browser-CDP evidence rows and scripted phases without raw URLs, query values, headers, cookies, bodies, or customer/browser identifiers. Define a separate run-authority schema that requires the single-use nonce, current capture interval, exact public/reader versions and digests, topology/release/pointer/manifest/policy hashes, scripted-flow version, and cold/warm pair ID.
+- [ ] Define the first-pilot analytics policy as `disabled_for_edge_pilot`. Reserve versioned `edge_aggregate` and `direct_provider` variants but keep them ineligible until their own reviewed implementation, privacy, consent, reliability, attribution, and cost contracts exist; unknown policies fail to origin.
 - [ ] Normalize hostnames, routes, and queries once; reject encoded separators, dot segments, control characters, unsupported Unicode ambiguity, cross-tenant keys, and JavaScript-number generation overflow.
-- [ ] Encode the static/dynamic/terminal matrix above as data and pure functions, not Worker-only string checks.
-- [ ] Add parity tests against current storefront route and path-safety behavior, including the #3260 over-encoding cases.
-- [ ] Define failure behavior: unsupported component/configuration keeps the merchant on origin; terminal-control failures block acknowledgement; an offer-freshness breach can only select the reviewed exact-route/host rollback or terminal policy.
+- [ ] Encode the static/dynamic/terminal matrix above as one closed route inventory plus pure classifier functions, not Worker-only string checks. Enumerate every current storefront `page.tsx`/`route.ts`, alias, rewrite, Proxy path class, and machine route at the implementation head.
+- [ ] Add a source-tree completeness test and parity tests against current storefront route and path-safety behavior, including the #3260 over-encoding cases. Adding, deleting, or renaming a storefront route or relevant rewrite without a classification must fail CI rather than deploy an edge-only 404.
+- [ ] Define failure behavior: unsupported component/configuration or analytics policy keeps the merchant on origin; a missing or invalid terminal epoch genesis returns `503`; terminal-control failures block acknowledgement; a write-once disable/tombstone cannot be cleared in place; and an offer-freshness breach can only select the reviewed exact-route/host rollback or terminal policy.
 - [ ] Keep `apps/web/src/proxy.ts` unchanged. If parity cannot be achieved without changing it, stop for explicit owner approval and isolate that change in its own PR.
 
 **Validation:**
@@ -324,12 +356,12 @@ pnpm --filter @baci/web typecheck
 - [ ] Render through a bounded library/CLI call; never run a full `next build`, create a Vercel deployment, or compile a separate application per merchant or publication generation.
 - [ ] Emit a deterministic route-dependency index and per-route input/content hashes without accepting a prior manifest. Task 4 may use those hashes to reuse verified immutable objects when renderer compatibility is known; reuse changes work performed, never output bytes.
 - [ ] Ensure Puck components that currently fetch at runtime receive release projection data instead. Do not serialize live Supabase calls into the browser.
-- [ ] Replace root/storefront automatic `/api/events`, `/baci-relay`, Vercel Analytics/Speed Insights, Puck-config, product-grid, and image-optimization calls with no request or the approved edge/direct-provider equivalent. Preserve explicit user-action semantics separately.
+- [ ] Under `disabled_for_edge_pilot`, remove root/storefront automatic `/api/events`, `/baci-relay`, Vercel Analytics/Speed Insights, Puck-config, product-grid, and image-optimization calls without substituting another passive browser request. Preserve explicit user-action semantics separately. Any future edge/direct-provider analytics capability is a separate reviewed adapter and cannot silently replace this policy.
 - [ ] Emit only capability-declared client islands. Every island has a content-addressed bundle, bounded hydration props, CSP entry, and test proving its automatic network ledger is empty or exactly allowlisted.
 - [ ] Match #3269 canonical/indexing decisions and preserve accessible landmarks, product links, image dimensions, responsive behavior, and checkout/cart handoff URLs.
 - [ ] Emit no `/_next/image`, `/_next/static`, Vercel Analytics, or request-time image-optimization dependency. External media URLs must be immutable/versioned and approved by capability policy; otherwise publish content-addressed release derivatives with explicit dimensions.
 - [ ] Prove byte-for-byte determinism for the same projection and renderer version.
-- [ ] Emit the unsigned authority-envelope payload and projection/manifest hashes for Task 4 signing; renderer code never receives the private signing key.
+- [ ] Emit the unsigned authority-envelope payload, terminal epoch/genesis binding, and projection/manifest hashes for Task 4 signing; renderer code never receives either private signing key.
 
 **Validation:**
 
@@ -369,8 +401,8 @@ pnpm --filter @baci/web typecheck
 - [ ] Pin `search_path = ''`, schema-qualify every object, revoke wrapper execution from `PUBLIC`/`authenticated`, grant only the minimum callable wrappers to `anon`, and keep the secret-derived authority inside those wrappers. Prove the worker token adds no authority to unrelated `PUBLIC` functions, cannot spoof `auth.uid()`/role claims, and cannot read private tables.
 - [ ] Before cutover, run a disposable real PostgREST integration probe proving the exact custom header reaches only the intended wrapper, is absent from provider/application logs and error bodies, and can be rate-limited on the three exact RPC paths. Seal only redacted results and revoke the probe token.
 - [ ] Version and bound the projection JSON. SQL tests prove one-snapshot coherence under concurrent product/config/domain updates, complete explicit-column coverage, tenant isolation, replay rejection, lease expiry, token rotation/revocation, and negative capability closure.
-- [ ] Make merchant deletion/takedown win over publication and prevent an older release from being reactivated.
-- [ ] Record freshness class and priority on each generation. A terminal-control operation cannot be acknowledged solely because a database row changed; it requires the separate Cloudflare control receipt/readback defined in Task 4.
+- [ ] Make merchant deletion/takedown win over publication and prevent an older release or terminal epoch from being reactivated. Persist the active terminal epoch/genesis hash in the release ledger for reconciliation, but never give the database worker authority to create or clear terminal records.
+- [ ] Record freshness class and priority on each generation. A terminal-control operation cannot be acknowledged solely because a database row changed; it requires the separate write-once Cloudflare control receipt, bucket-lock readback, and serving-path verification defined in Task 4.
 
 **Validation:**
 
@@ -395,8 +427,10 @@ pnpm --filter @baci/web typecheck:tools-workers
 - Create: `apps/web/src/lib/storefront-release/publish-storefront-release.test.ts`
 - Create: `apps/web/src/lib/storefront-release/reconcile-storefront-release.ts`
 - Create: `apps/web/src/lib/storefront-release/reconcile-storefront-release.test.ts`
-- Create: `apps/web/src/lib/storefront-release/write-storefront-terminal-control.ts`
-- Create: `apps/web/src/lib/storefront-release/write-storefront-terminal-control.test.ts`
+- Create: `apps/web/src/lib/storefront-release/create-storefront-terminal-epoch.ts`
+- Create: `apps/web/src/lib/storefront-release/create-storefront-terminal-epoch.test.ts`
+- Create: `apps/web/src/lib/storefront-release/write-storefront-terminal-marker.ts`
+- Create: `apps/web/src/lib/storefront-release/write-storefront-terminal-marker.test.ts`
 - Create: `apps/web/src/scripts/execute-storefront-terminal-control.ts`
 - Create: `apps/web/src/scripts/execute-storefront-terminal-control.test.ts`
 - Create: `apps/web/src/schemas/storefront-release-publisher-env.ts`
@@ -414,15 +448,17 @@ pnpm --filter @baci/web typecheck:tools-workers
 - Modify: `docs/ops/vps-workers.md`
 
 - [ ] Use a release-bucket-scoped Cloudflare credential available only to the publisher process; it has no control-bucket authority. Start the process with an allowlisted environment and no AI/payment/email/service-role secrets.
-- [ ] Keep four authorities separate: the normal publisher's release-bucket R2 credential and release-signing key, plus the break-glass command's terminal-control R2 parent credential and terminal-only signing key. The normal process receives only its pair. After dual confirmation and exact-target display, use trusted operator-side local signing to mint an R2 temporary credential restricted to the one control object, shortest practical TTL, and only `GetObject`, `HeadObject`, and `PutObject` (Cloudflare's API-minted temporary credentials do not yet support explicit action lists). Never permit list, delete, multipart, release-bucket, or bucket-administration actions, and never place the parent credential on the publisher or ordinary command process.
+- [ ] Keep five authorities separate: the normal publisher's release-bucket R2 credential and release-signing key; the break-glass command's terminal-control R2 parent credential and terminal-only signing key; and a topology-only bucket-lock administration token that is unavailable to both writers. The normal process receives only its pair. After dual confirmation and exact-target display, use trusted operator-side local signing to mint an R2 temporary credential restricted to one new genesis/disable/tombstone object, shortest practical TTL, and only `GetObject`, `HeadObject`, and `PutObject` (Cloudflare's API-minted temporary credentials do not yet support explicit action lists). Never permit list, delete, overwrite, multipart, release-bucket, or bucket-administration actions, and never place either parent/control-plane credential on the publisher or ordinary command process.
 - [ ] Load the terminal parent credential and signing key only from separate mode-`0600` secret descriptors or an approved OS secret store in the isolated operator environment, never argv, ordinary environment files, CI artifacts, shell history, logs, or command output. Pass only the path-scoped temporary session to the writer child and close the session on every exit path.
-- [ ] Claim the bounded one-snapshot projection, coalesce a merchant generation, build its release, upload content-addressed objects, verify metadata and hashes, upload/read back the manifest, sign the exact authority envelope, verify the signature locally, then compare-and-swap the hostname pointer.
+- [ ] Claim the bounded one-snapshot projection, coalesce a merchant generation, build its release, require and read back the active terminal epoch genesis, upload content-addressed objects, verify metadata and hashes, upload/read back the manifest, sign the exact authority envelope including epoch/genesis hash, verify the signature locally, then compare-and-swap the hostname pointer.
 - [ ] Prove R2 conditional pointer writes with a disposable non-production provider probe before implementation depends on them. Pin the API/SDK operation and precondition headers; a failed precondition returns reconciliation, never an unconditional overwrite.
 - [ ] Reuse unchanged content-addressed pages and shared renderer assets across releases. A burst of catalog events coalesces to the latest generation rather than producing one full release per event.
 - [ ] Make every step idempotent. A timeout or crash enters read-only reconciliation before any write is retried.
-- [ ] Preserve the active release plus at least two verified rollback releases. Garbage collection never deletes a pointer target, live build, deletion proof, or protected rollback.
+- [ ] Preserve the active release plus at least two verified rollback releases. Garbage collection never deletes a pointer target, live build, deletion proof, protected rollback, or any terminal epoch/marker. Control records are outside ordinary garbage collection and remain under the reviewed indefinite bucket lock.
 - [ ] Process `offer_critical` ahead of ordinary content and measure queue-to-pointer readback against the approved freshness SLO. `terminal_control` bypasses the ordinary publisher queue and uses only the isolated control command/bucket; the normal publisher never receives terminal credentials. Freeze enrollment on either SLO breach.
-- [ ] Implement an isolated terminal-control command that can sign and write only the typed `terminal_control` envelope plus a disabled/enabled host override or exact route tombstone in the control bucket. It reads the result back through the serving path, verifies target/control-generation/receipt hash, emits a redacted audit receipt, destroys the temporary session, and proves expiry. If early invalidation is required, revoke the isolated parent R2 token. The offline terminal signing key is unmounted after use and rotated only through its separate reviewed procedure. A terminal key can clear an override but can never activate an `edge` release.
+- [ ] Before any enrollment, use the isolated terminal-control command to create with `If-None-Match: *` and read back a signed epoch genesis. For a takedown, it can create only a write-once typed host-disable or exact route-tombstone object in that epoch. It rejects an existing key instead of overwriting it, reads the result back through the serving path, verifies target/epoch/predecessor/control-generation/receipt hash, emits a redacted audit receipt, destroys the temporary session, and proves expiry.
+- [ ] Clearing an override never mutates or deletes a control object. The isolated command may create a successor epoch genesis only after it reads and binds the predecessor genesis plus every applicable disable/tombstone hash and receives fresh dual confirmation. The normal publisher can then activate a separately signed release in that successor epoch; the terminal key alone cannot activate content. The offline terminal signing key is unmounted after use and rotated only through its separate reviewed procedure.
+- [ ] Provision the control-prefix indefinite bucket lock through the separate topology workflow, not either writer. Provider readback must prove the exact prefix, enabled indefinite retention, no conflicting lifecycle deletion, and separate token scope before genesis creation, after every terminal write, and throughout each evidence window. Drift freezes enrollment and promotion; deletion/overwrite/replay/out-of-order probes must fail closed.
 - [ ] Install one `flock`-guarded worker schedule with bounded batch, deadline, retry/backoff, dead-letter alerting, release SHA verification, and readiness smoke.
 - [ ] Keep `vps-workers/deploy.sh` below 300 lines by putting the new file installation, canonical cron rendering, and verification logic in the focused installer module; the root deploy script only invokes it.
 - [ ] Add both new scripts and their tests to `tsconfig.tools-workers.json`; the normal web project excludes `src/scripts/**`. Extract the touched non-agentic worker-profile list from the 1,600-line `env.ts` into the focused config module, then keep `env.ts` as a thin consumer. Define and test a separate strict `storefront-release-publisher` env schema that requires only the reviewed projection token, release-bucket, signing, and provider settings and rejects unrelated AI/payment/email/service-role secrets. The terminal command is not a publisher profile and rejects publisher, service-role, AI, payment, and email credentials.
@@ -432,7 +468,7 @@ pnpm --filter @baci/web typecheck:tools-workers
 **Validation:**
 
 ```bash
-pnpm --filter @baci/web test -- process-storefront-releases publish-storefront-release reconcile-storefront-release storefront-terminal-control storefront-release-publisher-env non-agentic-worker-profiles
+pnpm --filter @baci/web test -- process-storefront-releases publish-storefront-release reconcile-storefront-release storefront-terminal-epoch storefront-terminal-marker storefront-release-publisher-env non-agentic-worker-profiles
 pnpm --filter @baci/web lint
 pnpm --filter @baci/web typecheck:tools-workers
 shellcheck vps-workers/bin/process-storefront-releases.sh
@@ -469,21 +505,22 @@ bash vps-workers/lib/install-storefront-release-worker.test.sh
 
 - [ ] Parse and validate the request hostname before pointer lookup. Only an exact enrolled hostname can select a pointer.
 - [ ] Import the shared route classifier; define no second method/path vocabulary in Worker code.
-- [ ] Bind the public Worker to the private reader through a service binding. Give only the reader the release- and terminal-control-bucket R2 bindings. Both Workers disable `workers.dev`; the reader has zero routes/custom domains and fails provider readback if any public ingress exists.
-- [ ] Make the reader accept only `GET`/`HEAD`, a closed typed service-binding request, and normalized pointer/manifest/object keys. Reject direct/unbound ingress, arbitrary prefixes, mutation, range abuse, cross-tenant keys, and oversized responses. One module owns the raw binding and exposes a frozen read-only facade. Test the AST and built bundle for mutation symbols, computed raw-binding access, and binding re-export paths; provider topology readback proves that only the reviewed public Worker holds the service binding.
-- [ ] Fetch and verify the uncached terminal-control object first. A valid disabled override/tombstone terminates before any release lookup; only a higher valid terminal-control generation clears it. Then fetch the uncached release pointer, validate its Ed25519 authority envelope, tenant/release/generation binding and manifest hash, and serve only manifest-listed immutable objects. Unknown/revoked signing keys fail closed.
+- [ ] Bind the public Worker to the private reader through a typed RPC service binding. Give only the reader the release- and terminal-control-bucket R2 bindings. Both checked-in `wrangler.jsonc` files explicitly set `"workers_dev": false` and `"preview_urls": false`; the reader exports no `fetch`, scheduled, queue, or other public event handler, has zero routes/custom domains/preview aliases, and fails provider readback if any public ingress exists. Pin a Wrangler version that supports explicit preview-URL configuration.
+- [ ] Make the reader expose only closed RPC methods for bounded normalized epoch genesis, disable/tombstone, pointer, manifest, and immutable-object reads. Reject arbitrary prefixes, mutation, range abuse, cross-tenant keys, and oversized responses. One module owns the raw bindings and exposes a frozen read-only facade. Test the AST and built bundle for mutation symbols, computed raw-binding access, binding re-export paths, and public event handlers; provider topology readback proves that only the reviewed public Worker holds the service binding.
+- [ ] Fetch and verify the uncached signed terminal epoch genesis first, then the epoch's write-once host-disable and applicable route-tombstone keys. Missing/invalid genesis returns `503`; a valid marker terminates before release lookup and is never cleared in place. Then fetch the uncached release pointer, require an exact epoch/genesis binding, validate its Ed25519 authority envelope, tenant/release/generation binding and manifest hash, and serve only manifest-listed immutable objects whose bytes match the signed expected hash before cache insertion or response. Unknown/revoked signing keys, older disabled epochs, and replayed/out-of-order state fail closed.
 - [ ] Use cache keys containing hostname, merchant ID, release ID, route, encoding, and content variant. Never vary release HTML by cookies or unbounded query strings.
 - [ ] Preserve `HEAD`, conditional requests, range behavior for approved assets, content type, CSP, HSTS, robots, canonical headers, and a bounded release 404.
 - [ ] Before relying on origin forwarding, run a disposable non-production exact-route probe. For the Baci-subdomain pilot, prove that a Cloudflare Route in front of the existing DNS application origin can call `fetch()` on the incoming request without recursion and preserve host, method, body, headers, cookies, query, and `Origin`. Delete the probe route and seal its readback receipt.
 - [ ] Forward only `origin_dynamic` requests through that proven exact topology. The later Cloudflare-for-SaaS wildcard topology is a separate Task 8 gate and may not assume that same-host forwarding still reaches the prior origin.
+- [ ] Set `baci_edge_affinity` only on successful eligible edge-document responses. Before any origin fetch, reconstruct the outbound `Cookie` header by removing only the edge-owned affinity pair while preserving every pre-existing cookie's value, order, and semantics, and remove edge-only Worker version-selection headers; do not add an affinity cookie to dynamic, asset, redirect, terminal, or error responses. The Cloudflare rule overwrites/removes any client-supplied version-key header and derives it only from the validated affinity cookie. Regression tests prove Vercel never receives the edge-owned cookie/version key and still receives all original cookies and application headers unchanged.
 - [ ] Return edge `404`, `405`, or `400` for terminal decisions without origin access. Control/pointer/manifest failure returns a bounded `503` and alert, not automatic origin fallback.
 - [ ] Emit exactly one custom privacy-bounded decision record per public request, compatible with the existing delivery-evidence schema; the reader emits no custom success record and only bounded error/security events. Inventory and cost provider-generated invocation events separately so the model does not mistake one custom log for one total log event. Never log raw URLs, queries, cookies, tokens, customer identifiers, or bodies. Read back 100% head sampling and account-capacity qualification before any evidence window.
-- [ ] Keep both R2 buckets entirely private. Prove no public custom domain or `r2.dev` endpoint exists, terminal-control and pointer paths bypass cache, immutable objects use the reviewed cache policy, publisher/control credentials are bucket-disjoint, and the public Worker cannot address objects outside a validated control/pointer/manifest request.
-- [ ] Check in a declarative topology manifest covering Worker names/digests, compatibility dates, service binding, both R2 bindings, exact routes/exclusions, cache rules, log sampling, custom domains, `workers.dev`, gradual-deployment/version-affinity rules, and token permission/resource scopes. A credentialless validator compares provider readback to the manifest and returns `NOT_PROVEN` on drift.
+- [ ] Keep both R2 buckets entirely private. Prove no public custom domain or `r2.dev` endpoint exists, terminal epoch/marker and pointer paths bypass cache, immutable objects use the reviewed cache policy, publisher/control/lock-administration credentials are mutually disjoint, the indefinite control-prefix bucket lock is enabled, and the public Worker cannot address objects outside a validated typed reader request.
+- [ ] Check in a declarative topology manifest covering Worker names/digests, pinned Wrangler/compatibility dates, service binding, both R2 bindings, exact routes/exclusions, cache rules, control bucket-lock/lifecycle rules, log sampling, custom domains, `workers_dev`, `preview_urls`, preview aliases, exported event handlers, gradual-deployment/version-affinity rules, and token permission/resource scopes. A credentialless validator compares provider readback to the manifest and returns `NOT_PROVEN` on drift.
 - [ ] Pull requests compile, test, statically inspect, and preview bundles without provider credentials or deployment. A protected main workflow uploads immutable Worker versions only after green exact-head CI. Production traffic-weight/route promotion is a separate environment-approved job bound to the reviewed SHA, artifact digests, signed release-schema compatibility, provider readback, and rollback version.
 - [ ] Promote the private reader before a public Worker version that depends on it. Smoke a candidate reader through a service-binding version override, keep reader/public request schemas backward-compatible across adjacent versions, and roll back either deployment independently.
 - [ ] Separate code-version upload authority from route/traffic promotion authority where Cloudflare token scoping permits it. Tokens are environment-scoped, never exposed to fork/PR code, have documented rotation/revocation, and are rejected by credentialless readback/evidence commands.
-- [ ] Add a dedicated `storefront_edge` CI change flag and lightweight Worker jobs. A Worker-only PR must not run the unrelated full web suite; shared release contracts and web topology adapters deliberately trigger both web and edge gates. Prove Worker, reader, Wrangler, topology, shared-contract, lockfile/workspace, workflow, and filter-file mappings in the CI filter contract test.
+- [ ] Add a dedicated `storefront_edge` CI change flag and lightweight Worker jobs. A Worker-only PR must not run the unrelated full web suite; shared release contracts and web topology adapters deliberately trigger both web and edge gates. Every change under `apps/web/src/app/(storefront)/**`, `apps/web/src/proxy.ts`, relevant Next route/redirect configuration, or the shared route inventory triggers the route-inventory parity test and edge gate. Prove Worker, reader, Wrangler, topology, route-tree, shared-contract, lockfile/workspace, workflow, and filter-file mappings in the CI filter contract test.
 - [ ] Keep the oversized root CI workflow as a thin caller: put edge lint/typecheck/test/bundle logic in the focused reusable `storefront-edge-quality.yml` workflow rather than adding another large inline job graph to `.github/workflows/ci.yml`.
 - [ ] Require the existing repository Actionlint workflow to pass on the exact head for every workflow change; its path filter already covers `.github/workflows/**` and must remain pinned in the workflow contract test.
 
@@ -507,14 +544,14 @@ pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test
 ### Task 6: Prove a Synthetic Standard Store Without Production Routing
 
 - [ ] Generate bounded fixture merchants using the curated standard theme, products, categories, policies, blog, SEO, and every component capability mode. Include an unsupported-component fixture that stays on origin without publication regression.
-- [ ] Publish it to non-production release/control buckets and a synthetic hostname, then test with the real Worker runtime, not a Node-only mock.
-- [ ] Prove neither bucket has a public endpoint, the reader has no public ingress, direct known-object URLs are unreachable, signed release/control envelope verification succeeds, and tampered control/pointer/manifest/object/key/signature cases fail closed.
+- [ ] Publish it to non-production release/control buckets and a synthetic hostname only after a signed epoch genesis and control-prefix bucket-lock readback exist, then test with the real Worker runtime, not a Node-only mock.
+- [ ] Prove neither bucket has a public endpoint, both Workers have `"workers_dev": false` and `"preview_urls": false`, the reader has no public event handler/route/custom domain/versioned or aliased preview ingress, direct known-object URLs are unreachable, signed release/terminal envelope verification succeeds, and tampered control/pointer/manifest/object/key/signature cases fail closed.
 - [ ] Compare origin and release outputs for route inventory, status, canonical/robots/sitemap/JSON-LD, security headers, accessibility, responsive screenshots, links, image behavior, and 404s.
 - [ ] Exercise malformed hosts, cross-tenant object keys, over-encoded paths, traversal, tracking queries, RSC/prefetch headers, unsupported methods, stale pointers, partial uploads, and pointer rollback.
-- [ ] Prove dynamic handoff for checkout/account/quiz/order/repair paths with cookies and CSRF; use mocks or isolated test systems, never real payments or customer data.
-- [ ] Use a fresh Codex in-app Browser tab with CDP Network events to capture first-navigation/cold and repeat-navigation/warm document load, twenty-second idle, scroll, pointer, keyboard, and eligible navigation phases against a unique synthetic hostname/release. Sanitize in memory, discard raw events, and seal only aggregate artifacts. Require zero automatic Vercel/Supabase/dynamic-origin requests and exact classification of explicit actions.
+- [ ] Prove dynamic handoff for checkout/account/quiz/order/repair paths with cookies and CSRF; use mocks or isolated test systems, never real payments or customer data. Assert that every original cookie/application header reaches the application unchanged while `baci_edge_affinity` and Worker version-selection headers never do.
+- [ ] Use a fresh Codex in-app Browser tab with CDP Network events to capture first-navigation/cold and repeat-navigation/warm document load, twenty-second idle, scroll, pointer, keyboard, and eligible navigation phases against the run-bound unique synthetic hostname/release. Sanitize in memory, discard raw events, and seal only the run authority, aggregate artifacts, hashes, and independent qualification receipt. Require zero automatic Vercel/Supabase/dynamic-origin requests, no passive analytics request under `disabled_for_edge_pilot`, and exact classification of explicit actions.
 - [ ] Exercise the current delayed-risk inventory explicitly: `/api/events`, `/baci-relay`, Vercel Analytics/Speed Insights, Puck config, product-grid data, `/_next/image`, `/_next/static`, prefetch/RSC, WebMCP, newsletter/form, and approved third parties.
-- [ ] Drill signer-key rotation/revocation, terminal-control receipt/readback, offer-freshness breach behavior, publisher outage, reader outage, and exact-host rollback without a code deployment.
+- [ ] Drill signer-key rotation/revocation, terminal epoch genesis, write-once disable/tombstone, missing genesis, deletion/overwrite rejection, old-valid-record replay, successor-epoch recovery, bucket-lock drift, offer-freshness breach behavior, publisher outage, reader outage, and exact-host rollback without a code deployment.
 - [ ] Load-test at 2x observed peak and prove Worker/R2/log capacity and cost headroom.
 
 **Validation:**
@@ -528,25 +565,26 @@ pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test
 
 ### Task 7: Canary One Real Standard-Theme Merchant
 
-**Operational approval gate:** Require merchant consent, exact hostname inventory, production token readback, owner approval, green exact-head CI/review, and tested rollback before routing traffic.
+**Operational approval gate:** Require merchant consent including the temporary `disabled_for_edge_pilot` passive-analytics gap, exact hostname inventory, signed terminal epoch genesis and bucket-lock readback, production token/topology readback, owner approval, green exact-head CI/review, and tested rollback before routing traffic.
 
 - [ ] Enroll one low-risk standard-theme Baci subdomain through an exact hostname route; do not use `*.usebaci.com` for the pilot.
 - [ ] Publish and owner-review the exact candidate release before traffic.
-- [ ] Configure version affinity before percentage rollout. On an unpinned first response, the Worker creates a cryptographically random, non-identifying `baci_edge_affinity` value and sets a bounded `Secure; HttpOnly; SameSite=Lax; Path=/` cookie; a reviewed Cloudflare request-header rule derives `Cloudflare-Workers-Version-Key` from that cookie on later requests. Append each new cookie only after retrieving/building the cacheable response: never store `Set-Cookie` in an immutable cache object or reuse one visitor's affinity value. Propagate the same version key on service-binding subrequests whenever the reader is under gradual deployment. Do not use customer, account, order, email, phone, or other business identifiers. Test the unpinned first request, distinct cookies for two fresh clients, cached-response isolation, subresources, reader pairing, repeat navigation, cookie refusal, rotation, and expiry.
+- [ ] Configure version affinity before percentage rollout. On an unpinned successful edge-document response, the Worker creates a cryptographically random, non-identifying `baci_edge_affinity` value and sets a bounded `Secure; HttpOnly; SameSite=Lax; Path=/` cookie; a reviewed Cloudflare request-header rule overwrites/removes any client-supplied version-key header and derives `Cloudflare-Workers-Version-Key` only from that cookie on later requests. Append each new cookie only after retrieving/building the cacheable response: never store `Set-Cookie` in an immutable cache object or reuse one visitor's affinity value. Strip the affinity pair and edge-only version-selection headers before every origin request while preserving all pre-existing cookies/application headers. Propagate the same version key on service-binding subrequests whenever the reader is under gradual deployment. Do not use customer, account, order, email, phone, or other business identifiers. Test the unpinned first request, distinct cookies for two fresh clients, cached-response isolation, no cookie on dynamic/asset/error responses, origin stripping, original-cookie/header preservation, subresources, reader pairing, repeat navigation, cookie refusal, rotation, and expiry.
 - [ ] Keep adjacent Worker versions backward-compatible with the active pointer/manifest/component schemas so first-request or cookieless version skew remains harmless. A schema-breaking version cannot share a gradual deployment.
 - [ ] Roll out `1% -> 10% -> 50% -> 100%` with reviewed Cloudflare version weights, affinity/readback proof, and a hold at each step. Freeze or roll back on correctness, hidden-origin, freshness, cost, error, or performance regression.
 - [ ] Keep custom domains outside this first canary. Keep all non-enrolled hosts on the current path.
-- [ ] At each weight, run the sanitized in-app Browser CDP acceptance census against both assigned versions and reconcile it with provider counters.
+- [ ] At each weight, issue fresh evidence-run nonces, run the sanitized in-app Browser CDP acceptance census against both assigned versions, reject stale/mismatched ledgers, and reconcile exact run/version/release bindings with provider counters.
 - [ ] Run a complete seven-day 100% window and seal the technical/business gate evidence.
 
 ### Task 8: Expand the Standard Multi-Tenant Plane
 
 - [ ] Enroll a small standard-theme cohort by exact hostname, then expand only after each seven-day gate.
-- [ ] Add automated hostname enrollment, ownership validation, certificate status, release-pointer creation, signed control override, takedown, and deletion workflows without merging the ordinary and terminal authority paths.
+- [ ] Add automated hostname enrollment, ownership validation, certificate status, terminal-signed epoch-genesis creation, bucket-lock readback, release-pointer creation, write-once takedown/deletion markers, and explicitly approved successor-epoch recovery without merging the ordinary, terminal, or lock-administration authority paths.
 - [ ] Introduce Cloudflare for SaaS for merchant custom hostnames and TLS after Baci subdomain proof. Before any wildcard route, prove and seal a topology in which explicit exclusions protect Baci-owned subdomains and each hostname's dynamic traffic reaches the intended application origin without recursion. A matching Worker route bypasses per-host `custom_origin_server`, so origin selection belongs in the reviewed Worker/topology rather than an assumption.
-- [ ] Preserve zero-downtime validation, exact-host enable/disable readback, terminal-control SLA, and per-host origin rollback. Removing a hostname disables edge selection before asynchronous release-object retention cleanup.
+- [ ] Preserve zero-downtime validation, exact-host epoch-enrollment/write-once-terminal-marker readback, terminal-control SLA, and per-host origin rollback. Removing a hostname disables edge selection before asynchronous release-object retention cleanup.
 - [ ] Add quotas for release bytes, routes, products, media references, builds/hour, retained releases, and log volume so free merchants cannot create unbounded infrastructure cost.
-- [ ] Require a supported component-contract version and clean Browser waterfall before enrollment. Merchants that later publish unsupported components remain/revert to explicit origin mode without losing their accepted origin publication.
+- [ ] Require a supported component-contract version, classified route inventory, fresh run-bound clean Browser waterfall, and approved analytics policy before enrollment. Merchants that require passive analytics but have no approved edge-safe capability, or later publish unsupported components, remain/revert to explicit origin mode without losing their accepted origin publication.
+- [ ] Before enrolling merchants that do not explicitly accept `disabled_for_edge_pilot`, implement and separately review the chosen `edge_aggregate` or `direct_provider` analytics adapter. Prove consent/deletion behavior, minimal fields, authentication, deduplication, bounded retries/backpressure, attribution parity, provider failure, privacy, and incremental cost; otherwise do not expand that cohort.
 - [ ] Maintain one shared serving/reader Worker pair and one release schema. Merchant data changes create releases; they do not deploy Worker code.
 
 ### Task 9: Add the Ogabassey Custom-Theme Adapter
@@ -575,15 +613,15 @@ pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test
 
 ## Rollout PR Boundaries
 
-1. Evidence/baseline tooling.
-2. Shared release/authority/component/browser/freshness schemas and route contract.
+1. Evidence/baseline tooling plus run-bound Browser authority/qualification.
+2. Shared release/terminal-epoch/component/browser/analytics/freshness schemas, closed route inventory, and source-tree drift gate.
 3. Standard renderer and parity fixtures.
 4. Release ledger migration and narrow authority.
 5. VPS publisher/reconciler.
-6. Terminal-control tooling and authority tests, with no ordinary publisher credential.
-7. Shared serving Worker, private reader Worker, declarative deployment workflow, and non-production topology.
+6. Terminal epoch/marker tooling and authority tests, with no ordinary publisher or bucket-lock administration credential.
+7. Shared serving Worker, RPC-only private reader Worker, declarative deployment workflow, explicit preview-URL closure, locked control-prefix topology, and non-production topology proof.
 8. Synthetic preview, in-app Browser CDP, private-storage, signature, and failure-drill evidence.
-9. Standard merchant canary operations plus a separate evidence-only PR.
+9. Standard merchant canary operations, explicit passive-analytics suppression acceptance, plus a separate run-bound evidence-only PR.
 10. Multi-tenant/custom-hostname enrollment.
 11. Ogabassey adapter and canary operations plus a separate evidence-only PR.
 
@@ -591,12 +629,12 @@ Never combine a privileged migration, provider control-plane mutation, Worker co
 
 ## Rollback and Failure Policy
 
-- **Bad content but healthy Worker:** compare-and-swap the pointer to the last verified release.
+- **Bad content but healthy Worker:** compare-and-swap the pointer to the last verified release within the same active terminal epoch/genesis. Never roll back across a disabled epoch.
 - **Worker or routing fault:** set the exact hostname to explicit `origin` mode or detach its exact route; never wait for a code deployment.
 - **Reader/storage fault:** edge `503`, alert, and use the reviewed exact-host origin route only after the bounded rollback gate. The private reader never becomes public as an outage workaround.
-- **Pointer/manifest/signature corruption or revoked key:** edge `503`, alert, and reconcile. Do not automatically send unbounded traffic to Vercel or accept a self-consistent unsigned replacement.
+- **Terminal genesis/pointer/manifest/signature corruption, replay, missing authority, or revoked key:** edge `503`, alert, and reconcile. Do not automatically send unbounded traffic to Vercel or accept a self-consistent unsigned replacement.
 - **Publisher outage:** apply the manifest's freshness-class policy. Ordinary content may continue within its approved window; terminal-control and offer-critical breaches require exact-route/host origin rollback or a bounded terminal response. Checkout still validates authoritative state.
-- **Deletion/takedown:** do not acknowledge the operation until the separate terminal-control authorities commit and read back a signed disabled override or exact tombstone from the control bucket and the enrolled hostname no longer selects the release. The normal publisher cannot clear that override. Because R2 and the reader are private, retained release objects may then be cleaned asynchronously; purge and lifecycle completion are proven separately.
+- **Deletion/takedown:** do not acknowledge the operation until the separate terminal-control authorities create with `If-None-Match: *`, read back, and serving-path-verify a signed write-once disable or exact tombstone in the active locked epoch and the enrolled hostname no longer selects the release. The normal publisher cannot clear it, and recovery requires a separately approved successor epoch whose signed genesis binds the predecessor terminal records. Because R2 and the reader are private, retained release objects may then be cleaned asynchronously; purge and lifecycle completion are proven separately while terminal records remain locked.
 - **Cost anomaly:** freeze enrollment and promotion. Route removal is preferable to allowing a Worker limit or log bill to become the rollback mechanism.
 
 ## Definition of Done
@@ -604,26 +642,31 @@ Never combine a privileged migration, provider control-plane mutation, Worker co
 - [ ] The current Vercel bill attribution proves this work is worth doing.
 - [ ] A standard merchant and Ogabassey both serve eligible anonymous browsing from the same shared serving/reader Worker pair and release plane.
 - [ ] Seven complete days show at least 99.9% eligible origin avoidance with zero unknown/rejected origin attempts.
-- [ ] Sanitized in-app Browser CDP ledgers show zero automatic Vercel, Supabase, same-origin dynamic API, Next asset/image, or unapproved analytics requests for every eligible pilot flow.
+- [ ] Fresh single-use, run-bound sanitized in-app Browser CDP ledger pairs show zero automatic Vercel, Supabase, same-origin dynamic API, Next asset/image, or unapproved analytics requests for every eligible pilot flow and match the exact independently read public/reader versions, topology, release, manifest, and policy.
 - [ ] The enrolled cohort passes the owner-approved normalized Vercel browse-runtime reduction and both relative and absolute monthly net-savings gates in USD and NGN.
 - [ ] Dynamic checkout, payment, order, inventory, account, quiz, repair, and other stateful flows retain current authority and security.
 - [ ] SEO, accessibility, responsive UI, performance, path safety, and custom-domain behavior pass parity gates.
 - [ ] Every published standard-theme component has a versioned capability decision; unsupported configurations remain safely on origin.
+- [ ] Every current storefront route/rewrite has one explicit edge decision, source-tree drift fails CI, and storefront routing changes trigger both web and edge gates.
 - [ ] Publication uses one transactionally coherent projection, is durable, idempotent, generation-fenced, signed, observable, and meets each approved freshness-class SLO.
 - [ ] Rollback works in five minutes or less without a code deployment.
-- [ ] R2 is private, `r2.dev` is disabled, the reader has no public ingress or mutating code path, its only caller is the reviewed service binding, and the public serving Worker has no R2 or privileged credential.
+- [ ] R2 is private, `r2.dev` is disabled, both Workers explicitly disable `workers.dev` and preview URLs, the reader has no public event handler/route/custom domain/preview ingress or mutating code path, its only caller is the reviewed typed RPC service binding, and the public serving Worker has no R2 or privileged credential.
 - [ ] Every served pointer has independently verifiable release authority; key rotation and revocation drills pass; no release contains private/draft/customer/credential data.
 - [ ] Exact provider counts remain unsampled and reconciled throughout the evidence window, or the result is `NOT_PROVEN`.
-- [ ] Merchant deletion/takedown prevents direct or indirect old-release access/reactivation before acknowledgement and completes cache/object cleanup within the approved lifecycle SLA.
+- [ ] Every active hostname has a signed locked terminal epoch genesis. Merchant deletion/takedown creates a write-once locked marker, rejects deletion/overwrite/replay/out-of-order state, prevents direct or indirect old-release access/reactivation before acknowledgement, and completes cache/release-object cleanup within the approved lifecycle SLA without deleting terminal evidence.
+- [ ] The pilot has explicit merchant/owner acceptance of passive analytics suppression; broader merchants either retain an explicit opt-out or use a separately approved, consent-aware, costed edge-safe analytics capability.
+- [ ] Dynamic origin requests preserve every pre-existing cookie/application header and never forward the edge affinity cookie or Worker version-selection headers; `baci_edge_affinity` is set only on eligible edge-document responses.
 - [ ] A post-rollout cost report identifies whether any AWS/VPS control-plane migration is still economically justified.
 
 ## Current Platform References
 
 - [Cloudflare R2 consistency model](https://developers.cloudflare.com/r2/reference/consistency/) — R2 object operations are strongly consistent, while CDN-cached access can remain stale; therefore use immutable release objects and an uncached pointer.
+- [Cloudflare R2 bucket locks](https://developers.cloudflare.com/r2/buckets/bucket-locks/) — retention rules prevent protected objects from being deleted or overwritten; terminal epoch records use an indefinite locked prefix and separate lock-administration authority.
 - [Cloudflare R2 public buckets](https://developers.cloudflare.com/r2/buckets/public-buckets/) — public buckets expose objects to the Internet and `r2.dev` is an independent access path; this revision therefore keeps R2 private.
 - [Cloudflare R2 Workers API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/) — one binding exposes read and mutation methods and conditional writes; therefore isolate the binding in an unrouted reader and prove the deployed reader code has no mutator path.
 - [Cloudflare R2 temporary credentials](https://developers.cloudflare.com/r2/api/s3/temporary-credentials/) — short-lived credentials can be restricted to exact objects/prefixes; explicit S3 action lists currently require trusted local signing, which the terminal operator uses instead of sharing the publisher credential.
-- [Cloudflare Worker service bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/) — the intended private Worker-to-Worker read path between the public serving Worker and the unrouted R2 reader.
+- [Cloudflare Worker service bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/) — the intended typed RPC Worker-to-Worker read path between the public serving Worker and the unrouted R2 reader.
+- [Cloudflare Worker Preview URLs](https://developers.cloudflare.com/workers/versions-and-deployments/preview-urls/) — preview URLs are a separate public ingress surface when enabled; both Workers set and read back `"preview_urls": false`, and the reader exposes no public event handler.
 - [Cloudflare Worker Routes](https://developers.cloudflare.com/workers/configuration/routing/routes/) — an exact Route can run in front of the existing DNS application server and `fetch()` the incoming request to that origin; prove the non-recursive topology before relying on it.
 - [Cloudflare Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) — head sampling and the account-wide forced-sampling limit make capacity/readback qualification mandatory for exact evidence.
 - [Cloudflare Version Affinity](https://developers.cloudflare.com/workers/versions-and-deployments/gradual-deployments/version-affinity/) — weighted deployments are random per request without a stable version key; use a non-identifying affinity cookie plus schema-compatible adjacent versions.
