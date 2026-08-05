@@ -35,7 +35,11 @@ export function isActiveOrderDvaAlias(
   }
 
   const status = getOrderStatus(row);
-  if (status !== 'unpaid' && status !== 'pending') {
+  if (
+    status !== 'unpaid' &&
+    status !== 'pending' &&
+    status !== 'partially_paid'
+  ) {
     return false;
   }
 

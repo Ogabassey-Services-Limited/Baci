@@ -280,6 +280,11 @@ export const EXPECTED_PENDING_SOURCES = [
     sha256: '62201972e14cbafc34feb0584697b92d402eea9c15890a6ec4bbcfc3d5c7e0c5',
   },
   ...EXPECTED_QUIZ_LIVE_PENDING_SOURCES,
+  {
+    repositoryPath:
+      'supabase/migrations/20260805090000_complete_merchant_invoice_partial_payments.sql',
+    sha256: '9e7f9046665fba3fcc570f053b191bcbf03caea6c42178a58915a9a921142c34',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

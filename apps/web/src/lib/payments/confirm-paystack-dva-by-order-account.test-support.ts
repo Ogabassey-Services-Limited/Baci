@@ -5,12 +5,14 @@ export const baseAccountRow = {
   created_at: '2026-05-09T10:00:00Z',
   expires_at: '2026-05-09T11:30:00Z',
   orders: {
+    amount_paid: '0',
     id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
     merchant_id: 'merchant-1',
     customer_email: 'customer@example.com',
     total: '835000',
     currency: 'NGN',
     payment_status: 'pending',
+    recorded_by_user_id: null,
     shipping_status: 'pending',
   },
 };

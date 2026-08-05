@@ -83,7 +83,7 @@ export async function confirmPaystackDvaByOrderAccount({
   const { data: rows, error: lookupError } = await supabase
     .from('order_payment_accounts')
     .select(
-      'order_id, payable_amount, created_at, assigned_at, expires_at, orders!inner(id, merchant_id, customer_email, total, currency, payment_status, shipping_status)'
+      'order_id, payable_amount, created_at, assigned_at, expires_at, orders!inner(id, merchant_id, customer_email, total, amount_paid, currency, payment_status, shipping_status, recorded_by_user_id)'
     )
     .eq('provider', 'paystack')
     .eq('account_number', accountNumber);
@@ -127,7 +127,7 @@ export async function confirmPaystackDvaByOrderAccount({
   // A reusable Paystack account may later become the customer's wallet DVA.
   // Once the order alias is outside its protected window, wallet ownership
   // wins so a top-up cannot be consumed by an expired invoice alias.
-  if (match.timing === 'late') {
+  if (match.timing === 'late' || match.allocation === 'partial') {
     try {
       const walletAccount = await findCustomerWalletPaymentAccountByReceiver({
         receiverAccountNumber: accountNumber,
@@ -164,13 +164,15 @@ export async function confirmPaystackDvaByOrderAccount({
     const reviewRow = {
       issue_type: 'payment_match_ambiguous',
       paystack_ref: gatewayReference,
-      reason: `${match.candidates.length} DVA candidates matched the B0 6-key tighten for account ${accountNumber}`,
+      reason: `${match.candidates.length} DVA candidates matched the ${match.allocation} allocation rules for account ${accountNumber}`,
       candidates: match.candidates.map((c) => ({
         order_id: c.order_id,
         merchant_id: c.merchant_id,
         customer_email: c.customer_email,
         total_kobo: c.total_kobo,
         payable_amount_kobo: c.payable_amount_kobo ?? null,
+        outstanding_amount_kobo: c.outstanding_amount_kobo ?? null,
+        merchant_created: c.merchant_created === true,
       })),
       metadata: {
         account_number: accountNumber,
@@ -215,7 +217,6 @@ export async function confirmPaystackDvaByOrderAccount({
 
   // Single match → reserve a pending transaction inside the locked RPC.
   const winner = match.candidate;
-  const candidateRow = candidates.find((c) => c.order_id === winner.order_id);
   const currency = getPaystackDvaOrderCurrency(rows, winner.order_id) ?? 'NGN';
 
   const { data: transactionId, error: reserveError } = await supabase.rpc(
@@ -231,6 +232,11 @@ export async function confirmPaystackDvaByOrderAccount({
       p_metadata: {
         dva_account_number: accountNumber,
         dva_lookup_path: 'order_payment_accounts',
+        ...(match.allocation === 'partial' && {
+          order_payment_allocation: 'merchant_invoice_partial',
+          order_payment_outstanding_before:
+            (winner.outstanding_amount_kobo ?? winner.total_kobo) / 100,
+        }),
       },
       p_order_id: winner.order_id,
       p_platform_fee: 0,
@@ -274,10 +280,6 @@ export async function confirmPaystackDvaByOrderAccount({
       status: 500,
     };
   }
-  // Silence unused-variable noise — candidateRow is for future logging
-  // hooks and assertion clarity; keep the reference so the matcher's
-  // winner round-trips with the candidate metadata intact.
-  void candidateRow;
   return {
     kind: 'match',
     transaction: inserted as ConfirmPaystackDvaByOrderAccountTransaction,

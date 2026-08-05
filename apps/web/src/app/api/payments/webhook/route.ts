@@ -42,6 +42,7 @@ import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import { processMerchantInvoicePartialPayment } from '@/lib/payments/process-merchant-invoice-partial-payment';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
 import { scheduleWalletTopUpCreditNotification } from '@/lib/payments/schedule-wallet-top-up-credit-notification';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
@@ -1301,6 +1302,20 @@ export async function POST(request: NextRequest) {
         message: 'Could not verify payment amount',
         reference,
         gateway,
+      });
+    }
+
+    const merchantInvoicePartialPayment =
+      await processMerchantInvoicePartialPayment({
+        gateway,
+        gatewayResponse,
+        reference,
+        supabase,
+        transaction,
+      });
+    if (merchantInvoicePartialPayment.kind !== 'none') {
+      return NextResponse.json(merchantInvoicePartialPayment.body, {
+        status: merchantInvoicePartialPayment.status,
       });
     }
 

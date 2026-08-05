@@ -33,6 +33,12 @@ export type DvaMatchCandidate = {
   total_kobo: number;
   // Residual amount after wallet/savings credits, when persisted.
   payable_amount_kobo?: number | null;
+  // Current collectible balance. Candidate normalization prefers the order
+  // ledger once any amount has been recorded, otherwise the persisted DVA
+  // payable amount remains the checkout fallback.
+  outstanding_amount_kobo?: number | null;
+  // Only merchant-created invoices may infer an underpayment as intentional.
+  merchant_created?: boolean;
   account_created_at: Date;
   account_assigned_at?: Date | null;
   account_expires_at: Date | null;
@@ -51,11 +57,13 @@ export type DvaMatchResult =
   | {
       kind: 'single';
       candidate: DvaMatchCandidate;
+      allocation: 'exact' | 'partial';
       timing: 'in_window' | 'late';
     }
   | {
       kind: 'ambiguous';
       candidates: DvaMatchCandidate[];
+      allocation: 'exact' | 'partial';
       timing: 'in_window' | 'late';
     }
   | { kind: 'none' };
@@ -67,14 +75,7 @@ export function matchPaystackDvaCandidates(
   const normalizedContextEmail = normalizeEmail(context.customerEmail);
   const paidAtMs = context.paidAt.getTime();
 
-  const exactMatches = candidates.filter((candidate) => {
-    const expectedAmountKobo =
-      candidate.payable_amount_kobo ?? candidate.total_kobo;
-    if (
-      Math.abs(expectedAmountKobo - context.verifiedAmountKobo) > KOBO_TOLERANCE
-    ) {
-      return false;
-    }
+  const identityMatches = candidates.filter((candidate) => {
     if (normalizeEmail(candidate.customer_email) !== normalizedContextEmail) {
       return false;
     }
@@ -87,28 +88,75 @@ export function matchPaystackDvaCandidates(
     return true;
   });
 
-  const inWindowMatches = exactMatches.filter((candidate) => {
-    const assignedAt =
-      candidate.account_assigned_at ?? candidate.account_created_at;
-    const upperBoundFromGrace = assignedAt.getTime() + NINETY_MINUTES_MS;
-    const upperBound = candidate.account_expires_at
-      ? Math.min(candidate.account_expires_at.getTime(), upperBoundFromGrace)
-      : upperBoundFromGrace;
-    return paidAtMs <= upperBound;
+  const exactMatches = identityMatches.filter(
+    (candidate) =>
+      Math.abs(expectedAmountKobo(candidate) - context.verifiedAmountKobo) <=
+      KOBO_TOLERANCE
+  );
+  const partialMatches = identityMatches.filter((candidate) => {
+    const expected = expectedAmountKobo(candidate);
+    return (
+      candidate.merchant_created === true &&
+      context.verifiedAmountKobo > 0 &&
+      context.verifiedAmountKobo < expected - KOBO_TOLERANCE
+    );
   });
 
-  // Prefer the short-window candidates when available. This preserves the
-  // original sequential-order disambiguation while allowing a bank transfer
-  // that settles late to reach one uniquely identified active invoice.
-  const usesInWindowMatch = inWindowMatches.length > 0;
-  const matched = usesInWindowMatch ? inWindowMatches : exactMatches;
-  const timing = usesInWindowMatch ? 'in_window' : 'late';
-
-  if (matched.length === 0) return { kind: 'none' };
-  if (matched.length === 1) {
-    return { kind: 'single', candidate: matched[0], timing };
+  const exactInWindow = exactMatches.filter((candidate) =>
+    isInsideProtectedWindow(candidate, paidAtMs)
+  );
+  if (exactInWindow.length > 0) {
+    return resultFor(exactInWindow, 'exact', 'in_window');
   }
-  return { kind: 'ambiguous', candidates: matched, timing };
+
+  const partialInWindow = partialMatches.filter((candidate) =>
+    isInsideProtectedWindow(candidate, paidAtMs)
+  );
+  if (partialInWindow.length > 0) {
+    return resultFor(partialInWindow, 'partial', 'in_window');
+  }
+
+  if (exactMatches.length > 0) {
+    return resultFor(exactMatches, 'exact', 'late');
+  }
+
+  if (partialMatches.length > 0) {
+    return resultFor(partialMatches, 'partial', 'late');
+  }
+
+  return { kind: 'none' };
+}
+
+function expectedAmountKobo(candidate: DvaMatchCandidate): number {
+  return (
+    candidate.outstanding_amount_kobo ??
+    candidate.payable_amount_kobo ??
+    candidate.total_kobo
+  );
+}
+
+function isInsideProtectedWindow(
+  candidate: DvaMatchCandidate,
+  paidAtMs: number
+): boolean {
+  const assignedAt =
+    candidate.account_assigned_at ?? candidate.account_created_at;
+  const upperBoundFromGrace = assignedAt.getTime() + NINETY_MINUTES_MS;
+  const upperBound = candidate.account_expires_at
+    ? Math.min(candidate.account_expires_at.getTime(), upperBoundFromGrace)
+    : upperBoundFromGrace;
+  return paidAtMs <= upperBound;
+}
+
+function resultFor(
+  matched: DvaMatchCandidate[],
+  allocation: 'exact' | 'partial',
+  timing: 'in_window' | 'late'
+): DvaMatchResult {
+  if (matched.length === 1) {
+    return { allocation, candidate: matched[0], kind: 'single', timing };
+  }
+  return { allocation, candidates: matched, kind: 'ambiguous', timing };
 }
 
 function normalizeEmail(value: string | null): string {

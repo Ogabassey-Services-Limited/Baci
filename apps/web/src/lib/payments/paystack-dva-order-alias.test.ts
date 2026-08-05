@@ -47,7 +47,7 @@ describe('paystack DVA order alias helpers', () => {
     expect(getOrderStatus(orderAliasRow({ orders: null }))).toBeNull();
   });
 
-  it('treats unpaid and pending aliases inside the 90-minute window as active', () => {
+  it('treats unpaid, pending, and partially-paid aliases inside the 90-minute window as active', () => {
     expect(
       isActiveOrderDvaAlias(
         orderAliasRow(),
@@ -57,6 +57,12 @@ describe('paystack DVA order alias helpers', () => {
     expect(
       isActiveOrderDvaAlias(
         orderAliasRow({ orders: { payment_status: 'pending' } }),
+        new Date('2026-05-22T11:30:00.000Z')
+      )
+    ).toBe(true);
+    expect(
+      isActiveOrderDvaAlias(
+        orderAliasRow({ orders: { payment_status: 'partially_paid' } }),
         new Date('2026-05-22T11:30:00.000Z')
       )
     ).toBe(true);

@@ -13,10 +13,12 @@ const row = {
   order_id: 'order-1',
   payable_amount: '350000',
   orders: {
+    amount_paid: '0',
     currency: 'NGN',
     customer_email: 'customer@example.com',
     merchant_id: 'merchant-1',
     payment_status: 'unpaid',
+    recorded_by_user_id: null,
     shipping_status: 'pending',
     total: '835000',
   },
@@ -27,7 +29,9 @@ describe('paystack DVA order candidate', () => {
     expect(normalizePaystackDvaOrderCandidate(row)).toMatchObject({
       customer_email: 'customer@example.com',
       merchant_id: 'merchant-1',
+      merchant_created: false,
       order_id: 'order-1',
+      outstanding_amount_kobo: 35_000_000,
       payable_amount_kobo: 35_000_000,
       total_kobo: 83_500_000,
     });
@@ -46,6 +50,47 @@ describe('paystack DVA order candidate', () => {
         orders: { ...row.orders, shipping_status: 'canceled' },
       })
     ).toBeNull();
+  });
+
+  it('normalizes a partially-paid merchant invoice to its current balance', () => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        orders: {
+          ...row.orders,
+          amount_paid: '300000',
+          payment_status: 'partially_paid',
+          recorded_by_user_id: 'merchant-user-1',
+        },
+      })
+    ).toMatchObject({
+      merchant_created: true,
+      outstanding_amount_kobo: 53_500_000,
+    });
+  });
+
+  it('uses the live order balance instead of a stale DVA amount for merchant-created invoices', () => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        orders: {
+          ...row.orders,
+          recorded_by_user_id: 'merchant-user-1',
+        },
+      })
+    ).toMatchObject({
+      merchant_created: true,
+      outstanding_amount_kobo: 83_500_000,
+    });
+  });
+
+  it('marks customer-created orders as ineligible for automatic partial allocation', () => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        orders: { ...row.orders, recorded_by_user_id: null },
+      })
+    ).toMatchObject({ merchant_created: false });
   });
 
   it('returns the winner currency and converts NGN to kobo', () => {
