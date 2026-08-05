@@ -20,6 +20,7 @@ import { QuizResultsPanel } from './QuizResultsPanel';
 import { createQuizStyles } from './QuizScreen.styles';
 import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
 import { QuizUsernameGateModal } from './QuizUsernameGateModal';
+import { createQuizAnswerHandlers } from './quiz-answer-handlers';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
 import { useQuizStartFlow } from './useQuizStartFlow';
 
@@ -29,10 +30,6 @@ const QUIZ_COPY = {
   actionFailed: 'Quiz action failed',
 } as const;
 
-// Sentinel answer submitted when the question window closes with nothing
-// selected. The server records an unmatched answer as incorrect and advances
-// the attempt (the too-late path no longer fails), so the quiz never stalls.
-const QUIZ_FORFEIT_ANSWER = '__timeout_no_answer__';
 interface QuizScreenProps {
   integrityTier?: QuizIntegrityTier;
   locale?: string;
@@ -122,63 +119,24 @@ export function QuizScreen({
     },
   });
 
-  const submitAnswerValue = async (answer: string, viaForfeit: boolean) => {
-    if (!attempt) return;
-
-    const submitter = () =>
-      submitQuizAnswer({
-        answer,
-        integrityTier: attemptIntegrityTier ?? 'basic',
-        attemptId: attempt.attemptId,
-        questionId: attempt.question.id,
-        clientAnsweredAt: new Date().toISOString(),
-      });
-
-    try {
-      await (viaForfeit
-        ? forfeitAnswer(submitter, answer)
-        : submitSelectedAnswer(submitter));
-    } catch (error) {
-      log.warn('Failed to submit quiz answer', error);
-      setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
-    }
-  };
-
-  const handleSubmit = async () => {
-    // Defensive guard: the submit button is disabled until these values exist.
-    if (!attempt || !selectedOptionId) return;
-    await submitAnswerValue(selectedOptionId, false);
-  };
-
-  // When the countdown reaches the auto-submit lead, submit the current
-  // selection or a forfeit sentinel so the attempt always advances. The store's
-  // in-flight guard makes this safe against a simultaneous manual submit.
-  const handleTimeExpired = () => {
-    if (!attempt || status !== 'question') return;
-    void submitAnswerValue(selectedOptionId ?? QUIZ_FORFEIT_ANSWER, true);
-  };
-
-  const handleV2Answer = (optionId: string) => {
-    const userId = useAuthStore.getState().user?.id;
-    const question = v2Attempt?.question;
-    if (!userId) {
-      setError('Your session changed. Please try again.');
-      return;
-    }
-    if (!v2Attempt || !question) {
-      setError('No active quiz question is available. Please try again.');
-      return;
-    }
-    void lockAndSubmitAnswer(optionId, (answer) =>
-      submitQuizAnswerV2({
-        answer,
-        attemptId: v2Attempt.attemptId,
-        clientAnsweredAt: new Date().toISOString(),
-        expectedUserId: userId,
-        questionId: question.id,
-      })
-    );
-  };
+  const { handleSubmit, handleTimeExpired, handleV2Answer } =
+    createQuizAnswerHandlers({
+      attempt,
+      attemptIntegrityTier,
+      forfeitAnswer,
+      getErrorMessage: getQuizErrorMessage,
+      getUserId: () => useAuthStore.getState().user?.id,
+      lockAndSubmitAnswer,
+      logSubmitFailure: (error) =>
+        log.warn('Failed to submit quiz answer', error),
+      selectedOptionId,
+      setError,
+      status,
+      submitLegacyAnswer: submitQuizAnswer,
+      submitSelectedAnswer,
+      submitV2Answer: submitQuizAnswerV2,
+      v2Attempt,
+    });
 
   const { remainingSeconds } = useQuizQuestionTimer({
     questionId: attempt?.question.id ?? null,

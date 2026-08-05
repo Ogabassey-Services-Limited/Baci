@@ -261,7 +261,7 @@
       "justification": "Reviewed web guard and Android notification channel setup."
     },
     {
-      "path": "services/quiz.ts",
+      "path": "services/quiz-request.ts",
       "justification": "Reviewed quiz request metadata normalization to the backend-supported android, ios, and web platform values."
     },
     {
