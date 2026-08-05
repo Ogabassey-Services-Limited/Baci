@@ -18,8 +18,9 @@ export function buildRemediationReport({
   candidates = [],
   mode = 'dry-run',
   policy = { allowed: false, reasons: [] },
+  source = 'production-error-remediator',
 } = {}) {
-  const subject = `Baci Vercel remediation ${mode}: ${candidates.length} candidate(s)`;
+  const subject = `Baci ${source} ${mode}: ${candidates.length} candidate(s)`;
   const candidateLines = candidates.map((candidate) => {
     const sample = candidate.sample || {};
     return [
@@ -34,8 +35,8 @@ export function buildRemediationReport({
     `${action.type}: ${action.path || action.detail || ''}`.trim()
   );
   const policyLines = policy.allowed
-    ? ['auto-merge policy: allowed']
-    : ['auto-merge policy: blocked', ...policy.reasons];
+    ? ['automated PR policy: allowed']
+    : ['automated PR policy: blocked', ...policy.reasons];
 
   const text = [
     `Mode: ${mode}`,
@@ -51,7 +52,7 @@ export function buildRemediationReport({
   ].join('\n');
 
   const html = `
-    <h1>Baci Vercel remediation</h1>
+    <h1>Baci ${escapeHtml(source)}</h1>
     <p><strong>Mode:</strong> ${escapeHtml(mode)}</p>
     <h2>Candidates</h2>
     <ul>${(candidateLines.length ? candidateLines : ['none'])

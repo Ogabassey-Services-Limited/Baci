@@ -41,7 +41,34 @@ function sanitizeRunId(value) {
 }
 
 function branchNameFor(candidate, runId) {
-  return `codex/vercel-remediation-${candidate.fingerprint}-${runId}`;
+  const source = sanitizeRunId(candidate.sample?.source || 'vercel');
+  return `codex/${source}-remediation-${candidate.fingerprint}-${runId}`;
+}
+
+const CHILD_ENV_ALLOWLIST = new Set([
+  'CI',
+  'CODEX_HOME',
+  'HOME',
+  'LANG',
+  'LC_ALL',
+  'LOGNAME',
+  'PATH',
+  'SHELL',
+  'SSH_AUTH_SOCK',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'USER',
+  'XDG_CONFIG_HOME',
+]);
+
+function buildChildEnvironment(commandEnv) {
+  return Object.fromEntries(
+    Object.entries(commandEnv).filter(
+      ([key, value]) =>
+        CHILD_ENV_ALLOWLIST.has(key) && typeof value === 'string'
+    )
+  );
 }
 
 function parseStatusFiles(status) {
@@ -52,27 +79,33 @@ function parseStatusFiles(status) {
     .filter(Boolean);
 }
 
-function cleanupWorktree({ commandEnv, repoDir, runner, worktreeDir }) {
+function cleanupWorktree({ childEnv, repoDir, runner, worktreeDir }) {
   if (!worktreeDir) {
     return;
   }
   runner('git', ['worktree', 'remove', '--force', worktreeDir], {
     cwd: repoDir,
-    env: commandEnv,
+    env: childEnv,
     shell: false,
   });
 }
 
 function prBodyFor(candidate) {
   const sample = candidate.sample || {};
+  const safe = (value, length = 160) =>
+    String(value || '(unknown)')
+      .replace(/[\r\n<>]/g, ' ')
+      .slice(0, length);
   return [
-    'Automated remediation PR from the Vercel error remediator.',
+    'Automated draft PR from the Baci production error remediator.',
     '',
-    `Fingerprint: ${candidate.fingerprint}`,
-    `Occurrences: ${candidate.occurrences}`,
-    `Route: ${sample.route || '(unknown)'}`,
-    `Deployment: ${sample.deploymentId || '(unknown)'}`,
-    `Request: ${sample.requestId || '(unknown)'}`,
+    `Fingerprint: ${safe(candidate.fingerprint, 80)}`,
+    `Occurrences: ${Number(candidate.occurrences) || 0}`,
+    `Route: ${safe(sample.route, 240)}`,
+    `Deployment: ${safe(sample.deploymentId)}`,
+    `Request: ${safe(sample.requestId)}`,
+    `Source: ${safe(sample.source || 'vercel', 80)}`,
+    `Release: ${safe(sample.release)}`,
     '',
     'The worker is policy-gated. Protected files require human handling.',
   ].join('\n');
@@ -92,12 +125,13 @@ export function runRemediationAutofix({
   const runId = sanitizeRunId(env.BACI_REMEDIATION_RUN_ID);
   const branch = branchNameFor(candidate, runId);
   const commandEnv = { ...process.env, ...env };
+  const childEnv = buildChildEnvironment(commandEnv);
   const worktreeRoot =
     env.BACI_REMEDIATION_WORKTREE_ROOT ||
     join(dirname(repoDir), 'baci-remediation-worktrees');
   const worktreeDir = join(worktreeRoot, `${candidate.fingerprint}-${runId}`);
-  const rootCommandOptions = { cwd: repoDir, env: commandEnv, runner };
-  const worktreeCommandOptions = { cwd: worktreeDir, env: commandEnv, runner };
+  const rootCommandOptions = { cwd: repoDir, env: childEnv, runner };
+  const worktreeCommandOptions = { cwd: worktreeDir, env: childEnv, runner };
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
   let worktreeCreated = false;
@@ -115,6 +149,7 @@ export function runRemediationAutofix({
       [
         '--search',
         'exec',
+        '--ephemeral',
         '--skip-git-repo-check',
         '--sandbox',
         'workspace-write',
@@ -168,7 +203,11 @@ export function runRemediationAutofix({
     runChecked('git', ['add', '-A'], worktreeCommandOptions);
     runChecked(
       'git',
-      ['commit', '-m', `Fix Vercel error ${candidate.fingerprint}`],
+      [
+        'commit',
+        '-m',
+        `Fix ${candidate.sample?.source || 'production'} error ${candidate.fingerprint}`,
+      ],
       worktreeCommandOptions
     );
     runChecked('git', ['push', '-u', 'origin', branch], worktreeCommandOptions);
@@ -182,32 +221,26 @@ export function runRemediationAutofix({
         '--head',
         branch,
         '--title',
-        `Fix Vercel error ${candidate.fingerprint}`,
+        `Fix ${candidate.sample?.source || 'production'} error ${candidate.fingerprint}`,
         '--body',
         prBodyFor(candidate),
+        '--draft',
       ],
-      worktreeCommandOptions
+      {
+        ...worktreeCommandOptions,
+        env: {
+          ...childEnv,
+          ...(typeof commandEnv.GH_TOKEN === 'string'
+            ? { GH_TOKEN: commandEnv.GH_TOKEN }
+            : {}),
+        },
+      }
     ).trim();
-
-    if (env.BACI_REMEDIATION_REQUEST_AUTO_MERGE === '1') {
-      runChecked(
-        ghBin,
-        ['pr', 'merge', prUrl, '--auto', '--squash'],
-        worktreeCommandOptions
-      );
-      return {
-        branch,
-        changedFiles,
-        prUrl,
-        type: 'auto_merge_requested',
-        worktreeDir,
-      };
-    }
 
     return { branch, changedFiles, prUrl, type: 'pr_opened', worktreeDir };
   } finally {
     if (worktreeCreated) {
-      cleanupWorktree({ commandEnv, repoDir, runner, worktreeDir });
+      cleanupWorktree({ childEnv, repoDir, runner, worktreeDir });
     }
   }
 }

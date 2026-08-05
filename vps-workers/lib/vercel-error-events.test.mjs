@@ -90,6 +90,29 @@ describe('vercel error events', () => {
     assert.equal(fingerprintErrorEvent(left), fingerprintErrorEvent(right));
   });
 
+  it('does not invent a new observation time for timestamp-free drain data', () => {
+    assert.equal(
+      normalizeVercelLogEvent({ level: 'error', message: 'Error: stable' })
+        .timestamp,
+      ''
+    );
+  });
+
+  it('does not let empty timestamps replace observed group bounds', () => {
+    const [group] = groupErrorEvents([
+      { level: 'error', message: 'Error: stable', timestamp: '' },
+      {
+        level: 'error',
+        message: 'Error: stable',
+        timestamp: '2026-08-04T15:46:50Z',
+      },
+      { level: 'error', message: 'Error: stable', timestamp: '' },
+    ]);
+
+    assert.equal(group.firstSeen, '2026-08-04T15:46:50Z');
+    assert.equal(group.lastSeen, '2026-08-04T15:46:50Z');
+  });
+
   it('groups repeated errors and selects candidates over the threshold', () => {
     const groups = groupErrorEvents([
       {

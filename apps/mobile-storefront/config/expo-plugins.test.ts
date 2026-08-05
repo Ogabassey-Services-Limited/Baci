@@ -6,6 +6,7 @@ describe('createExpoPlugins', () => {
   it('configures minification, resource shrinking, and class repackaging for Android release builds', () => {
     const plugins = createExpoPlugins({
       facebookSdkPlugin: null,
+      sentryPlugin: null,
       tiktokBusinessPlugin: null,
     });
     const buildPropertiesPlugin = plugins.find(
@@ -38,24 +39,41 @@ describe('createExpoPlugins', () => {
         },
       },
     ];
+    const sentryPlugin: NonNullable<ExpoConfig['plugins']>[number] = [
+      '@sentry/react-native/expo',
+      { useNativeInit: true },
+    ];
 
-    expect(
-      createExpoPlugins({
+    const configuredPlugins = createExpoPlugins({
+      facebookSdkPlugin,
+      sentryPlugin,
+      tiktokBusinessPlugin,
+    });
+
+    expect(configuredPlugins).toEqual(
+      expect.arrayContaining([
         facebookSdkPlugin,
+        sentryPlugin,
         tiktokBusinessPlugin,
-      })
-    ).toEqual(
-      expect.arrayContaining([facebookSdkPlugin, tiktokBusinessPlugin])
+      ])
     );
 
     const unconfiguredPlugins = createExpoPlugins({
       facebookSdkPlugin: null,
+      sentryPlugin: null,
       tiktokBusinessPlugin: null,
     });
+    expect(unconfiguredPlugins).not.toContain(null);
     expect(
       unconfiguredPlugins.some(
         (plugin) =>
           Array.isArray(plugin) && plugin[0] === 'react-native-fbsdk-next'
+      )
+    ).toBe(false);
+    expect(
+      unconfiguredPlugins.some(
+        (plugin) =>
+          Array.isArray(plugin) && plugin[0] === '@sentry/react-native/expo'
       )
     ).toBe(false);
     expect(

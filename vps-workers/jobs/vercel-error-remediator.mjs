@@ -3,6 +3,7 @@
  * Converts Vercel log-drain JSONL into Codex remediation prompts and reports.
  */
 
+import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -16,6 +17,7 @@ import {
   buildRemediationReport,
   sendRemediationReportEmail,
 } from '../lib/remediation-report.mjs';
+import { createRemediationState } from '../lib/remediation-state.mjs';
 import {
   groupErrorEvents,
   readJsonlLogEvents,
@@ -38,67 +40,146 @@ function writePrompt({ candidate, outputDir }) {
   return path;
 }
 
+function notificationIdFor(workerName, candidates) {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        candidates: candidates.map((candidate) => [
+          candidate.fingerprint,
+          candidate.lastSeen || candidate.occurrences,
+        ]),
+        workerName,
+      })
+    )
+    .digest('hex')
+    .slice(0, 20);
+}
+
 export async function runVercelErrorRemediator({
   autofixRunner = runRemediationAutofix,
+  candidateLoader,
   env = process.env,
   fetchFn = fetch,
   logger = console,
+  workerName = 'vercel-error-remediator',
 } = {}) {
-  const logPath = env.VERCEL_ERROR_LOG_PATH;
-  if (!logPath) {
-    throw new Error('VERCEL_ERROR_LOG_PATH is required');
+  let loadedCandidates;
+  if (candidateLoader) {
+    loadedCandidates = await candidateLoader({ env, fetchFn });
+  } else {
+    const logPath = env.VERCEL_ERROR_LOG_PATH;
+    if (!logPath) {
+      throw new Error('VERCEL_ERROR_LOG_PATH is required');
+    }
+    const rawEvents = readJsonlLogEvents(logPath);
+    const groups = groupErrorEvents(rawEvents);
+    loadedCandidates = selectRemediationCandidates(groups, {
+      minOccurrences: readPositiveInt(env.BACI_REMEDIATION_MIN_OCCURRENCES, 2),
+    });
   }
-
-  const rawEvents = readJsonlLogEvents(logPath);
-  const groups = groupErrorEvents(rawEvents);
-  const candidates = selectRemediationCandidates(groups, {
-    minOccurrences: readPositiveInt(env.BACI_REMEDIATION_MIN_OCCURRENCES, 2),
-  });
   const outputDir = getOutputDir(env);
+  const state = createRemediationState({
+    path:
+      env.BACI_REMEDIATION_STATE_PATH || join(outputDir, 'handled-state.json'),
+  });
   const mode =
     env.BACI_REMEDIATION_AUTOFIX_ENABLED === '1' ? 'autofix' : 'dry-run';
   const actions = [];
+  const handledCandidates = [];
+  let email = { reason: 'no candidates', skipped: true };
+
+  for (const notification of state.notifications()) {
+    try {
+      email = await sendRemediationReportEmail({
+        env,
+        fetchFn,
+        report: notification.report,
+      });
+      state.acknowledgeNotification(notification.id);
+      actions.push({ detail: notification.id, type: 'email_retried' });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      logger.error(`[${workerName}] report email retry failed:`, error);
+      actions.push({ detail, type: 'email_retry_failed' });
+      email = { error: detail, skipped: true };
+    }
+  }
+
+  const candidates = state.pending(loadedCandidates);
 
   for (const candidate of candidates) {
     const prompt = buildCodexRemediationPrompt({ candidate });
     const path = writePrompt({ candidate, outputDir });
     actions.push({ path, type: 'prompt_written' });
-    logger.log(`[vercel-error-remediator] wrote ${path}`);
+    logger.log(`[${workerName}] wrote ${path}`);
 
     if (mode === 'autofix') {
       try {
         const result = await autofixRunner({ candidate, env, prompt });
         actions.push(result);
+        if (
+          ['no_changes', 'policy_blocked', 'pr_opened'].includes(result.type)
+        ) {
+          handledCandidates.push(candidate);
+        }
       } catch (error) {
-        logger.error('[vercel-error-remediator] autofix failed:', error);
+        logger.error(`[${workerName}] autofix failed:`, error);
         actions.push({
           detail: error instanceof Error ? error.message : String(error),
           fingerprint: candidate.fingerprint,
           type: 'autofix_failed',
         });
       }
+    } else {
+      handledCandidates.push(candidate);
     }
   }
-
   const policy = evaluateMergePolicy({
     changedFiles: [],
     checksPassed: false,
     hasHighSeverityReview: false,
     hasUnresolvedThreads: false,
   });
-  let report = buildRemediationReport({ actions, candidates, mode, policy });
-  let email = { reason: 'no candidates', skipped: true };
+  let report = buildRemediationReport({
+    actions,
+    candidates,
+    mode,
+    policy,
+    source: workerName,
+  });
   if (candidates.length === 0) {
     return { actions, candidates, email, mode, policy, report };
   }
 
+  const handledFingerprints = new Set(
+    handledCandidates.map((candidate) => candidate.fingerprint)
+  );
+  const notificationId = notificationIdFor(workerName, candidates);
+  const completed = state.complete({
+    handledCandidates,
+    notification: { id: notificationId, report },
+    releaseCandidates: candidates.filter(
+      (candidate) => !handledFingerprints.has(candidate.fingerprint)
+    ),
+  });
+  if (!completed) {
+    throw new Error('remediation state is busy');
+  }
+
   try {
     email = await sendRemediationReportEmail({ env, fetchFn, report });
+    state.acknowledgeNotification(notificationId);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    logger.error('[vercel-error-remediator] report email failed:', error);
+    logger.error(`[${workerName}] report email failed:`, error);
     actions.push({ detail, type: 'email_failed' });
-    report = buildRemediationReport({ actions, candidates, mode, policy });
+    report = buildRemediationReport({
+      actions,
+      candidates,
+      mode,
+      policy,
+      source: workerName,
+    });
     email = { error: detail, skipped: true };
   }
 

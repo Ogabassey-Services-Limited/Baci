@@ -65,9 +65,7 @@ export function normalizeVercelLogEvent(raw) {
       entry.status,
       entry.response?.statusCode
     ),
-    timestamp:
-      firstString(entry.timestamp, entry.time, entry.createdAt) ||
-      new Date().toISOString(),
+    timestamp: firstString(entry.timestamp, entry.time, entry.createdAt),
   };
 }
 
@@ -128,8 +126,8 @@ export function groupErrorEvents(rawEvents) {
       deploymentIds: new Set(),
       events: [],
       fingerprint,
-      firstSeen: event.timestamp,
-      lastSeen: event.timestamp,
+      firstSeen: '',
+      lastSeen: '',
       requestIds: new Set(),
       sample: event,
     };
@@ -140,11 +138,13 @@ export function groupErrorEvents(rawEvents) {
     if (event.requestId) {
       group.requestIds.add(event.requestId);
     }
-    if (event.timestamp < group.firstSeen) {
-      group.firstSeen = event.timestamp;
-    }
-    if (event.timestamp > group.lastSeen) {
-      group.lastSeen = event.timestamp;
+    if (event.timestamp) {
+      if (!group.firstSeen || event.timestamp < group.firstSeen) {
+        group.firstSeen = event.timestamp;
+      }
+      if (!group.lastSeen || event.timestamp > group.lastSeen) {
+        group.lastSeen = event.timestamp;
+      }
     }
     groups.set(fingerprint, group);
   }

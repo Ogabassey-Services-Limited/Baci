@@ -1,0 +1,86 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { fetchSentryRemediationCandidates } from './sentry-error-events.mjs';
+
+const environment = {
+  SENTRY_AUTH_TOKEN: 'token',
+  SENTRY_ORG: 'ogabassey',
+  SENTRY_PROJECT: 'storefront',
+};
+
+describe('Sentry remediation candidates', () => {
+  it('returns bounded issue metadata without event payloads or users', async () => {
+    const candidates = await fetchSentryRemediationCandidates({
+      env: environment,
+      fetchFn: (url, options) => {
+        assert.match(String(url), /query=is%3Aunresolved/);
+        assert.equal(options.headers.Authorization, 'Bearer token');
+        return new Response(
+          JSON.stringify([
+            {
+              id: '987',
+              count: '4',
+              title: 'Application Not Responding',
+              culprit: 'com.ogabassey.store.MainActivity',
+              firstSeen: '2026-08-04T15:45:25Z',
+              lastSeen: '2026-08-04T15:46:50Z',
+              lastRelease: { version: 'com.ogabassey.store@2.0.1+761' },
+              user: { email: 'must-not-be-copied@example.com' },
+            },
+          ])
+        );
+      },
+    });
+
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].sample.source, 'sentry');
+    assert.equal(candidates[0].sample.message, 'Application Not Responding');
+    assert.equal('user' in candidates[0].sample, false);
+    assert.equal(
+      JSON.stringify(candidates).includes('must-not-be-copied'),
+      false
+    );
+  });
+
+  it('fails closed when credentials are incomplete', async () => {
+    await assert.rejects(
+      fetchSentryRemediationCandidates({ env: {} }),
+      /SENTRY_AUTH_TOKEN/
+    );
+  });
+
+  it('does not serialize sensitive provider-controlled issue text', async () => {
+    const candidates = await fetchSentryRemediationCandidates({
+      env: environment,
+      fetchFn: async () =>
+        new Response(
+          JSON.stringify([
+            {
+              id: 'sensitive-1',
+              count: '1',
+              title: 'Crash for alice@example.com token=secret-value',
+              culprit: '/users/alice/private/customer-2348012345678',
+              lastSeen: '2026-08-04T15:46:50Z',
+            },
+          ])
+        ),
+    });
+    const serialized = JSON.stringify(candidates);
+
+    assert.equal(candidates[0].sample.message, 'Sentry mobile issue');
+    assert.equal(candidates[0].sample.route, '(redacted native location)');
+    assert.equal(serialized.includes('alice'), false);
+    assert.equal(serialized.includes('secret-value'), false);
+    assert.equal(serialized.includes('2348012345678'), false);
+  });
+
+  it('does not expose provider response bodies on HTTP failure', async () => {
+    await assert.rejects(
+      fetchSentryRemediationCandidates({
+        env: environment,
+        fetchFn: async () => new Response('secret body', { status: 503 }),
+      }),
+      /HTTP 503/
+    );
+  });
+});

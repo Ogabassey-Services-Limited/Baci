@@ -13,10 +13,13 @@ const candidate = {
 
 function makeRunner({ changedFiles, statusOutput } = {}) {
   const calls = [];
+  const environments = [];
   return {
     calls,
-    runner(command, args) {
+    environments,
+    runner(command, args, options) {
       calls.push([command, ...args]);
+      environments.push({ command, env: options?.env || {} });
       const joined = [command, ...args].join(' ');
       if (joined.includes('status --porcelain')) {
         return {
@@ -45,7 +48,7 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
 
 describe('remediation git workflow', () => {
   it('runs codex, verifies, pushes, and opens a PR for safe files', () => {
-    const { calls, runner } = makeRunner();
+    const { calls, environments, runner } = makeRunner();
 
     const result = runRemediationAutofix({
       candidate,
@@ -54,6 +57,7 @@ describe('remediation git workflow', () => {
         BACI_REMEDIATION_RUN_ID: 'run-1',
         BACI_REPO_DIR: '/repo',
         BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+        SENTRY_AUTH_TOKEN: 'must-not-reach-child-processes',
       },
       prompt: 'Fix this production error.',
       runner,
@@ -66,6 +70,26 @@ describe('remediation git workflow', () => {
     assert.equal(
       calls.some((call) => call.includes('codex')),
       true
+    );
+    assert.equal(
+      calls.some((call) => call.includes('--ephemeral')),
+      true
+    );
+    assert.equal(
+      calls.some((call) => call.includes('--draft')),
+      true
+    );
+    assert.equal(
+      environments.some(
+        ({ command, env }) => command === 'codex' && 'SENTRY_AUTH_TOKEN' in env
+      ),
+      false
+    );
+    assert.equal(
+      environments.some(
+        ({ command, env }) => command === 'git' && 'SENTRY_AUTH_TOKEN' in env
+      ),
+      false
     );
     assert.equal(
       calls.some((call) => call.includes('push')),
@@ -86,6 +110,27 @@ describe('remediation git workflow', () => {
           'git worktree remove --force /worktrees/abc123-run-1'
       ),
       true
+    );
+  });
+
+  it('never requests automatic merge even when legacy configuration asks for it', () => {
+    const { calls, runner } = makeRunner();
+
+    const result = runRemediationAutofix({
+      candidate,
+      env: {
+        BACI_REMEDIATION_REQUEST_AUTO_MERGE: '1',
+        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+        BACI_REPO_DIR: '/repo',
+        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+      },
+      runner,
+    });
+
+    assert.equal(result.type, 'pr_opened');
+    assert.equal(
+      calls.some((call) => call.join(' ').includes('pr merge')),
+      false
     );
   });
 

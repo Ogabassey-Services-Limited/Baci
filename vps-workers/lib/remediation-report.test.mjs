@@ -26,7 +26,7 @@ describe('remediation report', () => {
       policy: { allowed: false, reasons: ['dry run'] },
     });
 
-    assert.match(report.subject, /Baci Vercel remediation/);
+    assert.match(report.subject, /Baci production-error-remediator/);
     assert.match(report.text, /abc123/);
     assert.match(report.text, /prompt_written/);
     assert.match(report.html, /TypeError/);

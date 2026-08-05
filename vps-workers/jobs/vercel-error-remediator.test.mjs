@@ -50,6 +50,17 @@ describe('vercel error remediator worker', () => {
     assert.equal(result.actions[0].type, 'prompt_written');
     assert.match(readFileSync(result.actions[0].path, 'utf8'), /TypeError/);
     assert.equal(result.email.skipped, true);
+
+    const repeated = await runVercelErrorRemediator({
+      env: {
+        VERCEL_ERROR_LOG_PATH: logPath,
+        BACI_REMEDIATION_OUTPUT_DIR: outputDir,
+        BACI_REMEDIATION_MIN_OCCURRENCES: '2',
+      },
+      logger: silentLogger,
+    });
+    assert.equal(repeated.candidates.length, 0);
+    assert.deepEqual(repeated.actions, []);
   });
 
   it('does not generate work for one-off events below threshold', async () => {
@@ -200,5 +211,61 @@ describe('vercel error remediator worker', () => {
       true
     );
     assert.match(result.report.text, /email_failed/);
+  });
+
+  it('retries failed email delivery without repeating autofix', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
+    const logPath = join(directory, 'vercel.jsonl');
+    const outputDir = join(directory, 'out');
+    writeFileSync(
+      logPath,
+      [
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: retry',
+          route: '/a',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: retry',
+          route: '/a',
+        }),
+      ].join('\n')
+    );
+    const env = {
+      VERCEL_ERROR_LOG_PATH: logPath,
+      BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+      BACI_REMEDIATION_OUTPUT_DIR: outputDir,
+      BACI_REMEDIATION_NOTIFY_EMAILS: 'ops@example.com',
+      ZEPTOMAIL_TOKEN: 'token',
+    };
+    let autofixCalls = 0;
+    const autofixRunner = () => {
+      autofixCalls += 1;
+      return { type: 'no_changes' };
+    };
+
+    const failed = await runVercelErrorRemediator({
+      autofixRunner,
+      env,
+      logger: silentLogger,
+      fetchFn: () => new Response('down', { status: 503 }),
+    });
+    const delivered = await runVercelErrorRemediator({
+      autofixRunner,
+      env,
+      logger: silentLogger,
+      fetchFn: () => new Response('', { status: 200 }),
+    });
+    const deduplicated = await runVercelErrorRemediator({
+      env,
+      logger: silentLogger,
+    });
+
+    assert.equal(failed.candidates.length, 1);
+    assert.equal(delivered.candidates.length, 0);
+    assert.equal(delivered.email.skipped, false);
+    assert.equal(deduplicated.candidates.length, 0);
+    assert.equal(autofixCalls, 1);
   });
 });
