@@ -53,6 +53,7 @@ export function buildCodexRemediationPrompt({ candidate }) {
       deploymentId: String(sample.deploymentId || '').slice(0, 120),
       requestId: String(sample.requestId || '').slice(0, 120),
       release: String(sample.release || '').slice(0, 120),
+      issueId: String(sample.issueId || '').slice(0, 120),
       message: String(sample.message || '').slice(0, 1_000),
     },
     null,

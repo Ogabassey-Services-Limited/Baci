@@ -35,6 +35,7 @@ export function buildRemediationReport({
       `occurrences=${candidate.occurrences}`,
       `route=${sample.route || '(unknown)'}`,
       `deployment=${sample.deploymentId || '(unknown)'}`,
+      `sentryIssue=${sample.issueId || '(unknown)'}`,
       `message=${sample.message || '(empty)'}`,
     ].join(' | ');
   });

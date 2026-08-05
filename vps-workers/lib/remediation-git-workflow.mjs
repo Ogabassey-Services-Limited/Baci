@@ -1,8 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
-import { buildRemediationCodexCommand } from './remediation-codex-command.mjs';
+import {
+  buildRemediationCodexCommand,
+  buildRemediationVerificationCommand,
+} from './remediation-codex-command.mjs';
 import { assertCodexExecutionUsable } from './remediation-codex-output.mjs';
+import { buildRemediationEnvironments } from './remediation-environments.mjs';
 import {
   buildCodexRemediationPrompt,
   evaluateMergePolicy,
@@ -56,70 +60,6 @@ function branchNameFor(candidate, runId) {
   return `codex/${source}-remediation-${candidate.fingerprint}-${runId}`;
 }
 
-const CHILD_ENV_ALLOWLIST = new Set([
-  'CI',
-  'CODEX_HOME',
-  'HOME',
-  'LANG',
-  'LC_ALL',
-  'LOGNAME',
-  'PATH',
-  'SHELL',
-  'TEMP',
-  'TMP',
-  'TMPDIR',
-  'USER',
-  'XDG_CONFIG_HOME',
-]);
-
-const GIT_AUTH_ENV_ALLOWLIST = new Set([
-  'GH_TOKEN',
-  'GITHUB_TOKEN',
-  'GIT_ASKPASS',
-  'GIT_SSH_COMMAND',
-  'SSH_AUTH_SOCK',
-]);
-
-const GIT_IDENTITY_ENV_ALLOWLIST = new Set([
-  'GIT_AUTHOR_EMAIL',
-  'GIT_AUTHOR_NAME',
-  'GIT_COMMITTER_EMAIL',
-  'GIT_COMMITTER_NAME',
-]);
-
-function buildChildEnvironment(commandEnv) {
-  return Object.fromEntries(
-    Object.entries(commandEnv).filter(
-      ([key, value]) =>
-        CHILD_ENV_ALLOWLIST.has(key) && typeof value === 'string'
-    )
-  );
-}
-
-function buildGitIdentityEnvironment(commandEnv, childEnv) {
-  return {
-    ...childEnv,
-    ...Object.fromEntries(
-      Object.entries(commandEnv).filter(
-        ([key, value]) =>
-          GIT_IDENTITY_ENV_ALLOWLIST.has(key) && typeof value === 'string'
-      )
-    ),
-  };
-}
-
-function buildGitEnvironment(commandEnv, gitIdentityEnv) {
-  return {
-    ...gitIdentityEnv,
-    ...Object.fromEntries(
-      Object.entries(commandEnv).filter(
-        ([key, value]) =>
-          GIT_AUTH_ENV_ALLOWLIST.has(key) && typeof value === 'string'
-      )
-    ),
-  };
-}
-
 function cleanupWorktree({ childEnv, repoDir, runner, worktreeDir }) {
   if (!worktreeDir) {
     return;
@@ -153,9 +93,11 @@ export function runRemediationAutofix({
   const runId = sanitizeRunId(env.BACI_REMEDIATION_RUN_ID);
   const branch = branchNameFor(candidate, runId);
   const commandEnv = { ...process.env, ...env };
-  const childEnv = buildChildEnvironment(commandEnv);
-  const gitIdentityEnv = buildGitIdentityEnvironment(commandEnv, childEnv);
-  const gitEnv = buildGitEnvironment(commandEnv, gitIdentityEnv);
+  const {
+    child: childEnv,
+    gitIdentity: gitIdentityEnv,
+    gitRemote: gitEnv,
+  } = buildRemediationEnvironments(commandEnv);
   const worktreeRoot =
     env.BACI_REMEDIATION_WORKTREE_ROOT ||
     join(dirname(repoDir), 'baci-remediation-worktrees');
@@ -241,7 +183,29 @@ export function runRemediationAutofix({
       };
     }
 
-    runChecked('bash', ['-lc', verifyCommand], worktreeCommandOptions);
+    const verificationCommand = buildRemediationVerificationCommand({
+      env: commandEnv,
+      repoDir,
+      verifyCommand,
+      worktreeDir,
+    });
+    try {
+      runChecked(verificationCommand.command, verificationCommand.args, {
+        ...worktreeCommandOptions,
+        timeout: readPositiveInt(
+          env.BACI_REMEDIATION_VERIFY_TIMEOUT_MS,
+          30 * 60 * 1_000
+        ),
+      });
+    } finally {
+      if (verificationCommand.cleanup) {
+        runner(
+          verificationCommand.cleanup.command,
+          verificationCommand.cleanup.args,
+          { cwd: worktreeDir, env: childEnv, shell: false }
+        );
+      }
+    }
 
     runChecked('git', ['add', '-A'], worktreeGitCommandOptions);
     runChecked(

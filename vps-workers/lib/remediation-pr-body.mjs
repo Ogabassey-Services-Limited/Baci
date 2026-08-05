@@ -12,6 +12,7 @@ export function buildRemediationPrBody(candidate) {
     `Route: ${safe(sample.route, 240)}`,
     `Deployment: ${safe(sample.deploymentId)}`,
     `Request: ${safe(sample.requestId)}`,
+    `Sentry issue: ${safe(sample.issueId, 120)}`,
     `Source: ${safe(sample.source || 'vercel', 80)}`,
     `Release: ${safe(sample.release)}`,
     '',

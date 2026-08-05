@@ -100,7 +100,13 @@ export async function runRemediationWorker({
     }
   }
 
-  const candidates = state.pending(loadedCandidates);
+  const maximumCandidates = Math.min(
+    readPositiveInt(env.BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN, 1),
+    10
+  );
+  const candidates = state.pending(loadedCandidates, {
+    limit: mode === 'autofix' ? maximumCandidates : Number.POSITIVE_INFINITY,
+  });
 
   for (const candidate of candidates) {
     const prompt = buildCodexRemediationPrompt({ candidate });

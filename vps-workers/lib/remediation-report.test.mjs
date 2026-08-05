@@ -19,6 +19,7 @@ describe('remediation report', () => {
             route: '/api/products',
             message: 'TypeError: Cannot read properties of undefined',
             deploymentId: 'dpl_123',
+            issueId: '987654321',
           },
         },
       ],
@@ -28,6 +29,7 @@ describe('remediation report', () => {
 
     assert.match(report.subject, /Baci production-error-remediator/);
     assert.match(report.text, /abc123/);
+    assert.match(report.text, /sentryIssue=987654321/);
     assert.match(report.text, /prompt_written/);
     assert.match(report.html, /TypeError/);
   });

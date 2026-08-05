@@ -206,6 +206,7 @@ describe('vercel error remediator worker', () => {
       env: {
         VERCEL_ERROR_LOG_PATH: logPath,
         BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN: '2',
         BACI_REMEDIATION_OUTPUT_DIR: join(directory, 'out'),
       },
       logger: silentLogger,
@@ -272,6 +273,7 @@ describe('vercel error remediator worker', () => {
         },
         env: {
           BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+          BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN: '2',
           BACI_REMEDIATION_OUTPUT_DIR: outputDir,
           VERCEL_ERROR_LOG_PATH: logPath,
         },

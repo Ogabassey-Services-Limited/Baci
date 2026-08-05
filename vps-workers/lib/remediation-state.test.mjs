@@ -57,6 +57,26 @@ describe('remediation state', () => {
     assert.deepEqual(secondWorker.pending([candidate]), []);
   });
 
+  it('reserves only the configured number of pending candidates', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
+    const path = join(directory, 'handled.json');
+    const candidates = [
+      candidate,
+      { ...candidate, fingerprint: 'issue-2' },
+      { ...candidate, fingerprint: 'issue-3' },
+    ];
+    const state = createRemediationState({ path });
+
+    assert.deepEqual(
+      state.pending(candidates, { limit: 2 }),
+      candidates.slice(0, 2)
+    );
+    assert.deepEqual(
+      createRemediationState({ path }).pending(candidates, { limit: 2 }),
+      [candidates[2]]
+    );
+  });
+
   it('fails closed while another process holds the state lock', () => {
     const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
     const path = join(directory, 'handled.json');

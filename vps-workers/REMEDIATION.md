@@ -29,8 +29,10 @@ runs Codex in an ephemeral Docker container with all Linux capabilities dropped,
 temporary worktree writable. The deploy script builds the pinned
 `Dockerfile.codex-remediator` image and injects its immutable commit tag into
 both remediation cron entries. The worker then inspects changed files, runs
-`BACI_REMEDIATION_VERIFY_COMMAND` on the host without provider secrets, pushes a
-`codex/<source>-remediation-*` branch, and opens a draft pull request.
+`BACI_REMEDIATION_VERIFY_COMMAND` without provider secrets in the same
+dependency-mounted remediator image, pushes a `codex/<source>-remediation-*`
+branch, and opens a draft pull request. Each tick handles a bounded candidate
+batch so a noisy incident backlog cannot monopolize the worker.
 
 The worker blocks protected changes to `proxy.ts`, payment/auth/webhook routes,
 payment libraries, migrations, GitHub workflows, and secret files. It never

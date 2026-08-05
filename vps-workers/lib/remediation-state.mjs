@@ -123,7 +123,7 @@ export function createRemediationState({
   retryDelayMs = DEFAULT_RETRY_DELAY_MS,
 }) {
   return {
-    pending(candidates) {
+    pending(candidates, { limit = Number.POSITIVE_INFINITY } = {}) {
       const nowMs = now();
       return withStateLock(path, nowMs, [], (state) => {
         for (const [fingerprint, reservation] of Object.entries(
@@ -133,14 +133,18 @@ export function createRemediationState({
             delete state.reservations[fingerprint];
           }
         }
-        const selected = candidates.filter((candidate) => {
+        const selected = [];
+        for (const candidate of candidates) {
+          if (selected.length >= limit) break;
           const observation = observationFor(candidate);
-          return (
+          if (
             state.handled[candidate.fingerprint]?.observation !== observation &&
             state.reservations[candidate.fingerprint]?.observation !==
               observation
-          );
-        });
+          ) {
+            selected.push(candidate);
+          }
+        }
         const recordedAt = new Date(nowMs).toISOString();
         const expiresAt = new Date(nowMs + reservationTtlMs).toISOString();
         for (const candidate of selected) {

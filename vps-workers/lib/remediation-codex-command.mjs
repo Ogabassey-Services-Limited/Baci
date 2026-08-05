@@ -14,6 +14,58 @@ function containerNameFor(worktreeDir) {
   return `baci-remediation-${suffix || process.pid}`;
 }
 
+function buildDockerRuntimeArgs({ containerName, repoDir, worktreeDir }) {
+  return [
+    'run',
+    '--rm',
+    '--name',
+    containerName,
+    '--cap-drop',
+    'ALL',
+    '--security-opt',
+    'no-new-privileges',
+    '--pids-limit',
+    '512',
+    '--cpus',
+    '1',
+    '--memory',
+    '2g',
+    '--memory-swap',
+    '2g',
+    '--tmpfs',
+    '/tmp:rw,nosuid,nodev,size=1g',
+    '--user',
+    `${process.getuid()}:${process.getgid()}`,
+    '--env',
+    'HOME=/tmp',
+    '--env',
+    'GIT_OPTIONAL_LOCKS=0',
+    '--mount',
+    bindMount(worktreeDir, worktreeDir),
+    '--mount',
+    bindMount(join(repoDir, '.git'), join(repoDir, '.git'), {
+      readonly: true,
+    }),
+  ];
+}
+
+function addDependencyMounts({ args, dependencyRoot, worktreeDir }) {
+  for (const relativePath of [
+    'node_modules',
+    'apps/web/node_modules',
+    'apps/mobile-admin/node_modules',
+    'apps/mobile-storefront/node_modules',
+  ]) {
+    const source = join(dependencyRoot, relativePath);
+    if (existsSync(source)) {
+      args.push(
+        '--mount',
+        bindMount(source, join(worktreeDir, relativePath), { readonly: true })
+      );
+    }
+  }
+}
+
 export function buildRemediationCodexCommand({
   codexBin,
   env,
@@ -46,62 +98,28 @@ export function buildRemediationCodexCommand({
   }
   const dockerBin = env.DOCKER_BIN || 'docker';
   const containerName = containerNameFor(worktreeDir);
-  const dockerArgs = [
-    'run',
-    '--rm',
-    '--name',
+  const dockerArgs = buildDockerRuntimeArgs({
     containerName,
-    '--cap-drop',
-    'ALL',
-    '--security-opt',
-    'no-new-privileges',
-    '--pids-limit',
-    '512',
-    '--cpus',
-    '1',
-    '--memory',
-    '2g',
-    '--memory-swap',
-    '2g',
-    '--tmpfs',
-    '/tmp:rw,nosuid,nodev,size=1g',
-    '--user',
-    `${process.getuid()}:${process.getgid()}`,
+    repoDir,
+    worktreeDir,
+  });
+  dockerArgs.push(
     '--env',
     'CODEX_HOME=/tmp/codex-home',
-    '--env',
-    'HOME=/tmp',
-    '--env',
-    'GIT_OPTIONAL_LOCKS=0',
-    '--mount',
-    bindMount(worktreeDir, worktreeDir),
-    '--mount',
-    bindMount(join(repoDir, '.git'), join(repoDir, '.git'), {
-      readonly: true,
-    }),
     '--mount',
     bindMount(join(codexHome, 'auth.json'), '/codex-auth/auth.json', {
       readonly: true,
     }),
     '--mount',
-    bindMount(containerCodexBin, '/opt/codex/bin/codex', { readonly: true }),
-  ];
+    bindMount(containerCodexBin, '/opt/codex/bin/codex', { readonly: true })
+  );
 
   const dependencyRoot = env.BACI_REMEDIATION_DEPENDENCY_ROOT || repoDir;
-  for (const relativePath of [
-    'node_modules',
-    'apps/web/node_modules',
-    'apps/mobile-admin/node_modules',
-    'apps/mobile-storefront/node_modules',
-  ]) {
-    const source = join(dependencyRoot, relativePath);
-    if (existsSync(source)) {
-      dockerArgs.push(
-        '--mount',
-        bindMount(source, join(worktreeDir, relativePath), { readonly: true })
-      );
-    }
-  }
+  addDependencyMounts({
+    args: dockerArgs,
+    dependencyRoot,
+    worktreeDir,
+  });
 
   dockerArgs.push(
     '--workdir',
@@ -121,6 +139,38 @@ export function buildRemediationCodexCommand({
     worktreeDir,
     prompt
   );
+
+  return {
+    args: dockerArgs,
+    cleanup: { args: ['rm', '-f', containerName], command: dockerBin },
+    command: dockerBin,
+  };
+}
+
+export function buildRemediationVerificationCommand({
+  env,
+  repoDir,
+  verifyCommand,
+  worktreeDir,
+}) {
+  const image = env.BACI_CODEX_DOCKER_IMAGE;
+  if (!image) {
+    return { args: ['-lc', verifyCommand], command: 'bash' };
+  }
+
+  const dockerBin = env.DOCKER_BIN || 'docker';
+  const containerName = `${containerNameFor(worktreeDir)}-verify`;
+  const dockerArgs = buildDockerRuntimeArgs({
+    containerName,
+    repoDir,
+    worktreeDir,
+  });
+  addDependencyMounts({
+    args: dockerArgs,
+    dependencyRoot: env.BACI_REMEDIATION_DEPENDENCY_ROOT || repoDir,
+    worktreeDir,
+  });
+  dockerArgs.push('--workdir', worktreeDir, image, 'sh', '-lc', verifyCommand);
 
   return {
     args: dockerArgs,

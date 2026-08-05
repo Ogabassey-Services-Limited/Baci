@@ -9,6 +9,7 @@ describe('remediation PR body', () => {
       occurrences: 3,
       sample: {
         message: 'not included',
+        issueId: '987654321',
         route: '/products\n<script>alert(1)</script>',
         source: 'vercel',
       },
@@ -16,6 +17,7 @@ describe('remediation PR body', () => {
 
     assert.match(body, /Fingerprint: abc123/);
     assert.match(body, /Occurrences: 3/);
+    assert.match(body, /Sentry issue: 987654321/);
     assert.match(body, /Route: \/products {2}script alert\(1\) \/script/);
     assert.doesNotMatch(body, /[<>]/);
     assert.doesNotMatch(body, /not included/);
