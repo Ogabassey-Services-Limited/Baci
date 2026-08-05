@@ -19,7 +19,7 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
     environments,
     runner(command, args, options) {
       calls.push([command, ...args]);
-      environments.push({ command, env: options?.env || {} });
+      environments.push({ args, command, env: options?.env || {} });
       const joined = [command, ...args].join(' ');
       if (joined.includes('status --porcelain')) {
         return {
@@ -57,6 +57,8 @@ describe('remediation git workflow', () => {
         BACI_REMEDIATION_RUN_ID: 'run-1',
         BACI_REPO_DIR: '/repo',
         BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+        GH_TOKEN: 'git-provider-token',
+        GIT_SSH_COMMAND: 'ssh -i /run/secrets/deploy-key',
         SENTRY_AUTH_TOKEN: 'must-not-reach-child-processes',
       },
       prompt: 'Fix this production error.',
@@ -91,6 +93,54 @@ describe('remediation git workflow', () => {
       ),
       false
     );
+    const fetchEnvironment = environments.find(
+      ({ args, command }) =>
+        command === 'git' && args.join(' ') === 'fetch origin main'
+    );
+    assert.ok(fetchEnvironment);
+    assert.equal(fetchEnvironment.env.GH_TOKEN, 'git-provider-token');
+    assert.equal(
+      fetchEnvironment.env.GIT_SSH_COMMAND,
+      'ssh -i /run/secrets/deploy-key'
+    );
+    const pushEnvironment = environments.find(
+      ({ args, command }) => command === 'git' && args.includes('push')
+    );
+    assert.ok(pushEnvironment);
+    assert.equal(pushEnvironment.env.GH_TOKEN, 'git-provider-token');
+    assert.equal(
+      pushEnvironment.env.GIT_SSH_COMMAND,
+      'ssh -i /run/secrets/deploy-key'
+    );
+    assert.equal(
+      environments
+        .filter(
+          ({ args, command }) =>
+            command === 'git' &&
+            !args.includes('fetch') &&
+            !args.includes('push')
+        )
+        .every(
+          ({ env }) => !('GH_TOKEN' in env) && !('GIT_SSH_COMMAND' in env)
+        ),
+      true
+    );
+    assert.equal(
+      calls.some(
+        (call) =>
+          call.join(' ') ===
+          'git -c core.hooksPath=/dev/null push -u origin codex/vercel-remediation-abc123-run-1'
+      ),
+      true
+    );
+    assert.equal(
+      environments.some(
+        ({ command, env }) =>
+          command === 'codex' &&
+          ('GH_TOKEN' in env || 'GIT_SSH_COMMAND' in env)
+      ),
+      false
+    );
     assert.equal(
       calls.some((call) => call.includes('push')),
       true
@@ -101,7 +151,7 @@ describe('remediation git workflow', () => {
     );
     assert.ok(
       calls.findIndex((call) => call.join(' ') === 'bash -lc pnpm turbo lint') <
-        calls.findIndex((call) => call.join(' ').includes('git push'))
+        calls.findIndex((call) => call.includes('push'))
     );
     assert.equal(
       calls.some(

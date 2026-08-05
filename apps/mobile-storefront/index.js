@@ -16,4 +16,4 @@ const { initializeErrorMonitoring } = require('./services/error-monitoring');
 
 initializeErrorMonitoring();
 
-import 'expo-router/entry';
+require('expo-router/entry');

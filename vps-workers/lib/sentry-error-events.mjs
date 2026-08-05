@@ -64,7 +64,7 @@ export async function fetchSentryRemediationCandidates({
     throw new Error('Sentry issues response was not an array');
   }
 
-  const minimum = positiveInteger(env.BACI_REMEDIATION_MIN_OCCURRENCES, 1);
+  const minimum = positiveInteger(env.BACI_REMEDIATION_MIN_OCCURRENCES, 2);
   return issues.flatMap((issue) => {
     const id = boundedString(issue?.id, 120);
     const occurrences = positiveInteger(issue?.count, 0);

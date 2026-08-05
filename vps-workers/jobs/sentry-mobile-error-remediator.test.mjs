@@ -12,7 +12,7 @@ const silentLogger = {
 };
 
 describe('Sentry mobile error remediator', () => {
-  it('writes one prompt for an unresolved native issue and deduplicates it', async () => {
+  it('writes one prompt for a repeated native issue and deduplicates it', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'sentry-remediator-'));
     const env = {
       BACI_SENTRY_REMEDIATION_OUTPUT_DIR: directory,
@@ -25,7 +25,7 @@ describe('Sentry mobile error remediator', () => {
         JSON.stringify([
           {
             id: 'anr-1',
-            count: '1',
+            count: '2',
             title: 'Application Not Responding',
             culprit: 'MainActivity',
             lastSeen: '2026-08-04T15:46:50Z',

@@ -49,6 +49,28 @@ describe('Sentry remediation candidates', () => {
     );
   });
 
+  it('ignores one-off issues unless the operator lowers the threshold', async () => {
+    const response = () =>
+      new Response(JSON.stringify([{ id: 'one-off', count: '1' }]));
+
+    assert.deepEqual(
+      await fetchSentryRemediationCandidates({
+        env: environment,
+        fetchFn: response,
+      }),
+      []
+    );
+    assert.equal(
+      (
+        await fetchSentryRemediationCandidates({
+          env: { ...environment, BACI_REMEDIATION_MIN_OCCURRENCES: '1' },
+          fetchFn: response,
+        })
+      ).length,
+      1
+    );
+  });
+
   it('does not serialize sensitive provider-controlled issue text', async () => {
     const candidates = await fetchSentryRemediationCandidates({
       env: environment,
@@ -57,7 +79,7 @@ describe('Sentry remediation candidates', () => {
           JSON.stringify([
             {
               id: 'sensitive-1',
-              count: '1',
+              count: '2',
               title: 'Crash for alice@example.com token=secret-value',
               culprit: '/users/alice/private/customer-2348012345678',
               lastSeen: '2026-08-04T15:46:50Z',

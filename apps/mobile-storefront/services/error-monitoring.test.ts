@@ -54,6 +54,40 @@ describe('initializeErrorMonitoring', () => {
     expect(mockInit).not.toHaveBeenCalled();
   });
 
+  it('initializes from the bundled Expo public environment', () => {
+    const previousDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+    const previousEnvironment = process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT;
+    process.env.EXPO_PUBLIC_SENTRY_DSN = 'https://bundled@example.invalid/2';
+    process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT = 'preview';
+
+    try {
+      jest.resetModules();
+      const { initializeErrorMonitoring } =
+        jest.requireActual<typeof import('./error-monitoring')>(
+          './error-monitoring'
+        );
+
+      expect(initializeErrorMonitoring()).toBe(true);
+      expect(mockInit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dsn: 'https://bundled@example.invalid/2',
+          environment: 'preview',
+        })
+      );
+    } finally {
+      if (previousDsn === undefined) {
+        delete process.env.EXPO_PUBLIC_SENTRY_DSN;
+      } else {
+        process.env.EXPO_PUBLIC_SENTRY_DSN = previousDsn;
+      }
+      if (previousEnvironment === undefined) {
+        delete process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT;
+      } else {
+        process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT = previousEnvironment;
+      }
+    }
+  });
+
   it('initializes at most once per application process', () => {
     const { initializeErrorMonitoring } =
       jest.requireActual<typeof import('./error-monitoring')>(

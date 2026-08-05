@@ -2,10 +2,13 @@ import * as Sentry from '@sentry/react-native';
 
 let initialized = false;
 
+const bundledDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+const bundledEnvironment = process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT;
+
 export function initializeErrorMonitoring(
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env?: Readonly<Record<string, string | undefined>>
 ): boolean {
-  const dsn = env.EXPO_PUBLIC_SENTRY_DSN?.trim();
+  const dsn = (env?.EXPO_PUBLIC_SENTRY_DSN ?? bundledDsn)?.trim();
   if (!dsn || initialized) {
     return false;
   }
@@ -22,7 +25,9 @@ export function initializeErrorMonitoring(
     enableNative: true,
     enableNativeCrashHandling: true,
     enableTombstone: true,
-    environment: env.EXPO_PUBLIC_SENTRY_ENVIRONMENT?.trim() || 'production',
+    environment:
+      (env?.EXPO_PUBLIC_SENTRY_ENVIRONMENT ?? bundledEnvironment)?.trim() ||
+      'production',
     sendDefaultPii: false,
     tracesSampleRate: 0,
   });

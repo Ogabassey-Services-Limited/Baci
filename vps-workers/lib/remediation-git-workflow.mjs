@@ -62,6 +62,13 @@ const CHILD_ENV_ALLOWLIST = new Set([
   'XDG_CONFIG_HOME',
 ]);
 
+const GIT_AUTH_ENV_ALLOWLIST = new Set([
+  'GH_TOKEN',
+  'GITHUB_TOKEN',
+  'GIT_ASKPASS',
+  'GIT_SSH_COMMAND',
+]);
+
 function buildChildEnvironment(commandEnv) {
   return Object.fromEntries(
     Object.entries(commandEnv).filter(
@@ -69,6 +76,18 @@ function buildChildEnvironment(commandEnv) {
         CHILD_ENV_ALLOWLIST.has(key) && typeof value === 'string'
     )
   );
+}
+
+function buildGitEnvironment(commandEnv, childEnv) {
+  return {
+    ...childEnv,
+    ...Object.fromEntries(
+      Object.entries(commandEnv).filter(
+        ([key, value]) =>
+          GIT_AUTH_ENV_ALLOWLIST.has(key) && typeof value === 'string'
+      )
+    ),
+  };
 }
 
 function parseStatusFiles(status) {
@@ -126,18 +145,25 @@ export function runRemediationAutofix({
   const branch = branchNameFor(candidate, runId);
   const commandEnv = { ...process.env, ...env };
   const childEnv = buildChildEnvironment(commandEnv);
+  const gitEnv = buildGitEnvironment(commandEnv, childEnv);
   const worktreeRoot =
     env.BACI_REMEDIATION_WORKTREE_ROOT ||
     join(dirname(repoDir), 'baci-remediation-worktrees');
   const worktreeDir = join(worktreeRoot, `${candidate.fingerprint}-${runId}`);
   const rootCommandOptions = { cwd: repoDir, env: childEnv, runner };
+  const rootRemoteCommandOptions = { cwd: repoDir, env: gitEnv, runner };
   const worktreeCommandOptions = { cwd: worktreeDir, env: childEnv, runner };
+  const worktreeRemoteCommandOptions = {
+    cwd: worktreeDir,
+    env: gitEnv,
+    runner,
+  };
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
   let worktreeCreated = false;
 
   try {
-    runChecked('git', ['fetch', 'origin', 'main'], rootCommandOptions);
+    runChecked('git', ['fetch', 'origin', 'main'], rootRemoteCommandOptions);
     runChecked(
       'git',
       ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
@@ -210,7 +236,11 @@ export function runRemediationAutofix({
       ],
       worktreeCommandOptions
     );
-    runChecked('git', ['push', '-u', 'origin', branch], worktreeCommandOptions);
+    runChecked(
+      'git',
+      ['-c', 'core.hooksPath=/dev/null', 'push', '-u', 'origin', branch],
+      worktreeRemoteCommandOptions
+    );
     const prUrl = runChecked(
       ghBin,
       [
@@ -229,10 +259,7 @@ export function runRemediationAutofix({
       {
         ...worktreeCommandOptions,
         env: {
-          ...childEnv,
-          ...(typeof commandEnv.GH_TOKEN === 'string'
-            ? { GH_TOKEN: commandEnv.GH_TOKEN }
-            : {}),
+          ...gitEnv,
         },
       }
     ).trim();
