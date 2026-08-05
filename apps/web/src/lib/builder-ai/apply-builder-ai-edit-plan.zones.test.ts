@@ -53,4 +53,36 @@ describe('applyBuilderAiEditPlan zones', () => {
       )
     ).toThrow('A storefront requires one ProductGrid');
   });
+
+  it('moves a component into the zone that contains the destination target', () => {
+    const config: BuilderData = {
+      content: [
+        block('Header', 'header-1'),
+        block('Text', 'root-text'),
+        block('Footer', 'footer-1'),
+      ],
+      root: { title: 'Home' },
+      zones: { aside: [block('Text', 'zone-text')] },
+    };
+
+    const result = applyBuilderAiEditPlan(
+      config,
+      plan([
+        {
+          componentId: 'root-text',
+          destination: { componentId: 'zone-text', position: 'after' },
+          kind: 'move_component',
+        },
+      ])
+    );
+
+    expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
+      ['header-1', 'footer-1']
+    );
+    expect(
+      (result.candidateConfig.zones?.aside as BuilderData['content']).map(
+        (item) => item.props.id
+      )
+    ).toEqual(['zone-text', 'root-text']);
+  });
 });

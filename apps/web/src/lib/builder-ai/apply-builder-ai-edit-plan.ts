@@ -28,6 +28,7 @@ import {
   getBuilderAiContentCollections,
   hasDuplicateBuilderAiComponentIds,
 } from './get-builder-ai-content-collections';
+import { getBuilderAiDestinationIndex } from './get-builder-ai-destination-index';
 import { getBuilderAiRawPlanMediaWarning } from './get-builder-ai-raw-plan-media-warning';
 import { getBuilderComponentId } from './get-builder-component-id';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
@@ -61,39 +62,6 @@ function getValidCandidate(
     throw new BuilderAiEditPlanError(validation.failure);
   }
   return validation.candidateConfig;
-}
-function destinationIndex(
-  config: BuilderData,
-  content: BuilderComponent[],
-  placement: { componentId?: string; position: 'after' | 'first_content' }
-): number {
-  const bounds = {
-    first: content[0]?.type === 'Header' ? 1 : 0,
-    last:
-      content.at(-1)?.type === 'Footer' ? content.length - 1 : content.length,
-  };
-  const index =
-    placement.position === 'first_content'
-      ? bounds.first
-      : (() => {
-          const target = findBuilderAiComponent(
-            config,
-            placement.componentId ?? ''
-          );
-          if (!target) {
-            throw new BuilderAiEditPlanError('Component target was not found');
-          }
-          if (target.content !== content) {
-            throw new BuilderAiEditPlanError(
-              'Placement crosses a zone boundary'
-            );
-          }
-          return target.index + 1;
-        })();
-  if (index < bounds.first || index > bounds.last) {
-    throw new BuilderAiEditPlanError('Placement crosses a protected anchor');
-  }
-  return index;
 }
 function pushWarnings(target: string[], warnings: string[]): void {
   for (const warning of warnings) {
@@ -188,7 +156,12 @@ function applyOperation(
             )?.content ?? content)
           : content;
       destinationContent.splice(
-        destinationIndex(config, destinationContent, operation.placement),
+        getBuilderAiDestinationIndex(
+          config,
+          destinationContent,
+          operation.placement,
+          (message) => new BuilderAiEditPlanError(message)
+        ),
         0,
         {
           props: { ...props, id },
@@ -226,10 +199,11 @@ function applyOperation(
           : ''
       );
       const destinationContent = destinationTarget?.content ?? source.content;
-      let destination = destinationIndex(
+      let destination = getBuilderAiDestinationIndex(
         config,
         destinationContent,
-        operation.destination
+        operation.destination,
+        (message) => new BuilderAiEditPlanError(message)
       );
       if (source.content === destinationContent && source.index < destination)
         destination -= 1;
