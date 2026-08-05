@@ -283,7 +283,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260805090000_complete_merchant_invoice_partial_payments.sql',
-    sha256: '9e7f9046665fba3fcc570f053b191bcbf03caea6c42178a58915a9a921142c34',
+    sha256: '3919731ca694ee4a6f9e974455e0e50f598673ad663ede5f815442c3620246c6',
   },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)

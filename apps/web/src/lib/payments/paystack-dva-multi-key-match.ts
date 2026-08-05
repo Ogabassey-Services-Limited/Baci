@@ -109,15 +109,19 @@ export function matchPaystackDvaCandidates(
     return resultFor(exactInWindow, 'exact', 'in_window');
   }
 
+  // A verified exact amount is stronger evidence than recency. Reused DVAs
+  // can leave an older order outside the protected window while a newer
+  // merchant invoice is eligible for a partial allocation. Prefer the exact
+  // candidate so the newer invoice cannot absorb the older order's transfer.
+  if (exactMatches.length > 0) {
+    return resultFor(exactMatches, 'exact', 'late');
+  }
+
   const partialInWindow = partialMatches.filter((candidate) =>
     isInsideProtectedWindow(candidate, paidAtMs)
   );
   if (partialInWindow.length > 0) {
     return resultFor(partialInWindow, 'partial', 'in_window');
-  }
-
-  if (exactMatches.length > 0) {
-    return resultFor(exactMatches, 'exact', 'late');
   }
 
   if (partialMatches.length > 0) {

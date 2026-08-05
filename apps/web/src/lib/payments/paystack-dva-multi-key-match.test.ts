@@ -263,6 +263,32 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
 });
 
 describe('matchPaystackDvaCandidates — ambiguity + zero candidates', () => {
+  it('prefers an exact late match over an in-window merchant invoice partial', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          account_created_at: new Date('2026-05-09T08:00:00Z'),
+          account_expires_at: new Date('2026-05-09T09:30:00Z'),
+          order_id: 'older-exact-order',
+          outstanding_amount_kobo: 30_000_000,
+        }),
+        candidate({
+          merchant_created: true,
+          order_id: 'fresh-partial-invoice',
+          outstanding_amount_kobo: 83_500_000,
+        }),
+      ],
+      ctx({ verifiedAmountKobo: 30_000_000 })
+    );
+
+    expect(result).toMatchObject({
+      allocation: 'exact',
+      candidate: { order_id: 'older-exact-order' },
+      kind: 'single',
+      timing: 'late',
+    });
+  });
+
   it('returns ambiguous when 2+ candidates all match', () => {
     const a = candidate({ order_id: 'order-a' });
     const b = candidate({ order_id: 'order-b' });

@@ -43,6 +43,7 @@ CREATE UNIQUE INDEX reconciliation_review_open_by_order_idx
       'payment_received_after_cancellation',
       'payment_received_after_refund',
       'merchant_settlement_failed',
+      'gateway_payment_wedge_requires_review',
       'merchant_invoice_partial_payment_conflict'
     );
 

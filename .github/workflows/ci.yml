@@ -264,6 +264,7 @@ jobs:
           bash .github/scripts/historical-migration-repair-spec.test.sh &&
           bash .github/scripts/historical-migration-repair-backfill.test.sh &&
           bash supabase/tests/run-storefront-order-private-schema-boundary-test.sh &&
+          bash supabase/tests/run-merchant-invoice-partial-payment-review-index-test.sh &&
           bash supabase/tests/run-gigl-tracking-retry-repair-test.sh &&
           bash supabase/tests/run-gigl-monitor-backfill-repair-test-runner.test.sh &&
           bash supabase/tests/run-gigl-monitor-backfill-repair-test.sh &&
