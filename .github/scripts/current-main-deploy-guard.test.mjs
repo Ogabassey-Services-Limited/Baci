@@ -143,6 +143,20 @@ test('rejects every web path declared by the deploy filter', async () => {
   }
 });
 
+test('gates Vercel deployment configuration in deploy and CI filters', () => {
+  const deployFilters = YAML.parse(
+    readFileSync(new URL('../filters/deploy.yml', import.meta.url), 'utf8')
+  );
+  const ciFilters = YAML.parse(
+    readFileSync(new URL('../filters/ci.yml', import.meta.url), 'utf8')
+  );
+
+  for (const path of ['.vercelignore', 'vercel.json']) {
+    assert.ok(deployFilters.web.includes(path), `deploy filter: ${path}`);
+    assert.ok(ciFilters.web.includes(path), `CI web filter: ${path}`);
+  }
+});
+
 test('fails closed on malformed identity and GitHub API responses', async () => {
   await assert.rejects(
     verifyCurrentMainDeployment({

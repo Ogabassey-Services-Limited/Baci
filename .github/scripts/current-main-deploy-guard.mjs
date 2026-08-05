@@ -5,6 +5,7 @@ const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const ROOT_WEB_FILES = new Set([
   '.npmrc',
+  '.vercelignore',
   'biome.json',
   'next.config.test.ts',
   'next.config.ts',
