@@ -54,6 +54,7 @@ export async function OgabasseyPdpSemanticSections({
       categorySlug,
       String(product.id || ''),
       product.slug || String(product.id || ''),
+      product.name,
       product.brand,
       Boolean(merchant.feature_settings?.blog_enabled)
     );

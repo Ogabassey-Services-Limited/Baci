@@ -46,4 +46,17 @@ describe('getContextBrandKeys', () => {
 
     expect(brandKeys).toEqual(['apple', 'nothing']);
   });
+
+  it('does not promote a compatibility brand from an explicitly branded product name', () => {
+    const brandKeys = getContextBrandKeys(
+      ['Samsung'],
+      ['Samsung Case for Apple iPhone 15'],
+      {
+        apple: ['apple', 'iphone'],
+        samsung: ['samsung', 'galaxy'],
+      }
+    );
+
+    expect(brandKeys).toEqual(['samsung']);
+  });
 });

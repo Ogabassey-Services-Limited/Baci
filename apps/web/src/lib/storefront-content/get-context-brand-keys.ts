@@ -54,12 +54,23 @@ export function getContextBrandKeys(
     new Set((brands ?? []).map(generateSlug).filter(Boolean))
   );
   if (explicitBrandKeys.length > 0) {
+    const resolvedExplicitBrandKeys = explicitBrandKeys.map((brand) =>
+      resolveExplicitBrandKey(brand, brandAliases)
+    );
+    const approvedProductNameKeys = new Set(
+      resolvedExplicitBrandKeys.flatMap((brand) => [
+        brand,
+        ...(brandAliases[brand] ?? []).map((alias) =>
+          resolveExplicitBrandKey(generateSlug(alias), brandAliases)
+        ),
+      ])
+    );
     return Array.from(
       new Set([
-        ...explicitBrandKeys.map((brand) =>
-          resolveExplicitBrandKey(brand, brandAliases)
+        ...resolvedExplicitBrandKeys,
+        ...productNameBrandKeys.filter((brand) =>
+          approvedProductNameKeys.has(brand)
         ),
-        ...productNameBrandKeys,
       ])
     );
   }

@@ -28,6 +28,7 @@ const SIM_MODE_DISCRIMINATOR_TOKENS = new Set([
   'single',
 ]);
 const DIMENSION_DISCRIMINATOR_PATTERN = /^\d+(?:\.\d+)?(?:mm|inch)$/u;
+const BATTERY_CAPACITY_DISCRIMINATOR_PATTERN = /^\d+mah$/u;
 const REFRESH_RATE_DISCRIMINATOR_PATTERN = /^\d+hz$/u;
 const COMMON_STORAGE_CAPACITIES_GB = new Set([
   16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
@@ -65,6 +66,9 @@ function getDiscriminatorGroup(token: string, isTerminal = false) {
   }
   if (DIMENSION_DISCRIMINATOR_PATTERN.test(token)) {
     return 'dimension';
+  }
+  if (BATTERY_CAPACITY_DISCRIMINATOR_PATTERN.test(token)) {
+    return 'battery-capacity';
   }
   if (REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) {
     return 'refresh-rate';
@@ -148,6 +152,7 @@ export function getProductConnectivityDiscriminators(
     (token, tokenIndex) =>
       CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token) ||
       DIMENSION_DISCRIMINATOR_PATTERN.test(token) ||
+      BATTERY_CAPACITY_DISCRIMINATOR_PATTERN.test(token) ||
       (categorySlug === 'monitors' &&
         REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||

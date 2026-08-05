@@ -189,4 +189,14 @@ describe('getProductConnectivityDiscriminators', () => {
 
     expect(discriminators).toEqual(['256gb']);
   });
+
+  it('retains power-bank battery capacity as a PDP variant', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Xiaomi 10000mAh Power Bank'],
+      [],
+      'accessories'
+    );
+
+    expect(discriminators).toEqual(['10000mah']);
+  });
 });
