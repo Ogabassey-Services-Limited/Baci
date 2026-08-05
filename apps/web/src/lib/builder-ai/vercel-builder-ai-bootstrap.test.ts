@@ -56,6 +56,51 @@ describe('createBuilderAiVercelBootstrapClient', () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
+  it('claims a matching token row from a later Vercel environment page', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            envs: [],
+            pagination: { next: 1710000100000 },
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            envs: [
+              {
+                id: 'later-row',
+                key: 'BUILDER_AI_ATTEST_SMOKE_TOKEN_SHA256',
+                comment: builderAiBootstrapComment(runId),
+                target: ['production'],
+              },
+            ],
+            pagination: { next: null },
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const client = createBuilderAiVercelBootstrapClient(environment, fetcher);
+
+    await expect(client?.claimToken(runId)).resolves.toBe(true);
+
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      'https://api.vercel.com/v10/projects/project/env?until=1710000100000&teamId=team',
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(fetcher).toHaveBeenNthCalledWith(
+      3,
+      'https://api.vercel.com/v9/projects/project/env/later-row?teamId=team',
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
+
   it('does not claim a matching hash row outside production', async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(

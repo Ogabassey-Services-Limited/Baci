@@ -18,12 +18,18 @@ cannot claim that row.
 ## Ceremony
 
 1. Deploy this code with the bootstrap disabled.
-2. Arm `attest` through the Vercel CLI with a new token hash and run ID, then
-   perform the normal VPS prebuilt production deployment. Environment changes
-   are deployment snapshots and do not alter a running function.
-3. Call the route once. It atomically claims the token by deleting its exact
-   Vercel environment row, makes bounded provider JSON smoke calls, then writes
-   the fixed C/G binding data only if every included provider passes.
+2. Arm `attest` with a new token hash and run ID using the Vercel dashboard or
+   the project-environment REST API (the CLI cannot set the required metadata
+   comment). Create the production-only sensitive
+   `BUILDER_AI_ATTEST_SMOKE_TOKEN_SHA256` row with comment exactly
+   `baci-builder-ai-bootstrap:<runId>`, then set the matching control values.
+   Perform the normal VPS prebuilt production deployment afterward. Environment
+   changes are deployment snapshots and do not alter a running function.
+3. Call the route once with `POST`, `Content-Type: application/json`, the raw
+   token in `x-baci-builder-bootstrap`, and body `{ "runId": "<runId>" }`.
+   It atomically claims the token by deleting its exact Vercel environment row,
+   makes bounded provider JSON smoke calls, then writes the fixed C/G binding
+   data only if every included provider passes.
 4. Arm a new `verify` token/run ID and deploy normally again. The route now
    materializes providers from actual runtime environment values, smokes them,
    and writes disabled/expired bootstrap controls for the next deployment.

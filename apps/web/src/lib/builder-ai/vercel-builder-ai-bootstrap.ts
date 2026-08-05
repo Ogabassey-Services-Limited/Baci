@@ -35,6 +35,11 @@ interface BootstrapConfig {
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
+interface EnvironmentPage {
+  envs: unknown[];
+  next: string | null;
+}
+
 function config(environment: Environment): BootstrapConfig | null {
   const projectId = environment.VERCEL_PROJECT_ID?.trim();
   const teamId = environment.VERCEL_TEAM_ID?.trim();
@@ -61,6 +66,29 @@ function request(client: BootstrapConfig, init: RequestInit): RequestInit {
 
 function isSuccess(response: Response): boolean {
   return response.status >= 200 && response.status < 300;
+}
+
+function environmentPage(payload: unknown): EnvironmentPage | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const { envs, pagination } = payload as {
+    envs?: unknown;
+    pagination?: { next?: unknown };
+  };
+  if (!Array.isArray(envs)) return null;
+  if (
+    !pagination ||
+    pagination.next === null ||
+    pagination.next === undefined
+  ) {
+    return { envs, next: null };
+  }
+  if (
+    typeof pagination.next !== 'string' &&
+    typeof pagination.next !== 'number'
+  ) {
+    return null;
+  }
+  return { envs, next: String(pagination.next) };
 }
 
 function targetsProduction(target: unknown): boolean {
@@ -105,17 +133,27 @@ export function createBuilderAiVercelBootstrapClient(
   return {
     async claimToken(runId) {
       try {
-        const listed = await fetcher(
-          url(`/v10/projects/${client.projectId}/env`, client),
-          request(client, { method: 'GET' })
-        );
-        if (!isSuccess(listed)) return false;
-        const payload: unknown = await listed.json();
-        const rows =
-          payload && typeof payload === 'object' && 'envs' in payload
-            ? (payload as { envs?: unknown }).envs
-            : null;
-        if (!Array.isArray(rows)) return false;
+        const rows: unknown[] = [];
+        const seenCursors = new Set<string>();
+        let cursor: string | null = null;
+
+        do {
+          const cursorQuery = cursor
+            ? `?until=${encodeURIComponent(cursor)}`
+            : '';
+          const listed = await fetcher(
+            url(`/v10/projects/${client.projectId}/env${cursorQuery}`, client),
+            request(client, { method: 'GET' })
+          );
+          if (!isSuccess(listed)) return false;
+          const page = environmentPage(await listed.json());
+          if (!page) return false;
+          rows.push(...page.envs);
+          cursor = page.next;
+          if (cursor && seenCursors.has(cursor)) return false;
+          if (cursor) seenCursors.add(cursor);
+        } while (cursor);
+
         const matches = rows.filter(
           (
             row
