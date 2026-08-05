@@ -23,11 +23,23 @@ fi
 
 tracking_counts="$(
   printf '%s\n' "$installed_crontab" | awk -v remote_dir="$remote_dir" '
+    function command_after_schedule(line, field_index) {
+      for (field_index = 0; field_index < 5; field_index += 1) {
+        sub(/^[[:space:]]*[^[:space:]]+[[:space:]]+/, "", line)
+      }
+      return line
+    }
+    BEGIN {
+      quote = sprintf("%c", 39)
+      expected_command = "flock -n " remote_dir "/locks/gigl-tracking.lock bash -lc " quote \
+        "export NODE_ENV=production && export BACI_WORKER_PROFILE=gigl-tracking && cd " remote_dir \
+        " && timeout --signal=TERM --kill-after=30s 2m " remote_dir "/bin/process-gigl-tracking.sh" quote \
+        " >> " remote_dir "/logs/gigl-tracking.log 2>&1"
+    }
     $1 !~ /^#/ && index($0, remote_dir "/bin/process-gigl-tracking.sh") {
       total += 1
       if ($1 == "*/5" && $2 == "*" && $3 == "*" && $4 == "*" && $5 == "*" &&
-          index($0, "flock -n " remote_dir "/locks/gigl-tracking.lock") &&
-          index($0, ">> " remote_dir "/logs/gigl-tracking.log 2>&1")) {
+          command_after_schedule($0) == expected_command) {
         canonical += 1
       }
     }
@@ -39,11 +51,23 @@ tracking_canonical="${tracking_counts##* }"
 
 notification_counts="$(
   printf '%s\n' "$installed_crontab" | awk -v remote_dir="$remote_dir" '
+    function command_after_schedule(line, field_index) {
+      for (field_index = 0; field_index < 5; field_index += 1) {
+        sub(/^[[:space:]]*[^[:space:]]+[[:space:]]+/, "", line)
+      }
+      return line
+    }
+    BEGIN {
+      quote = sprintf("%c", 39)
+      expected_command = "flock -n " remote_dir "/locks/gigl-tracking-notifications.lock bash -lc " quote \
+        "export NODE_ENV=production && export BACI_WORKER_PROFILE=gigl-tracking-notifications && cd " remote_dir \
+        " && timeout --signal=TERM --kill-after=30s 2m " remote_dir "/bin/process-gigl-tracking-notifications.sh" quote \
+        " >> " remote_dir "/logs/gigl-tracking-notifications.log 2>&1"
+    }
     $1 !~ /^#/ && index($0, remote_dir "/bin/process-gigl-tracking-notifications.sh") {
       total += 1
       if ($1 == "*/10" && $2 == "*" && $3 == "*" && $4 == "*" && $5 == "*" &&
-          index($0, "flock -n " remote_dir "/locks/gigl-tracking-notifications.lock") &&
-          index($0, ">> " remote_dir "/logs/gigl-tracking-notifications.log 2>&1")) {
+          command_after_schedule($0) == expected_command) {
         canonical += 1
       }
     }

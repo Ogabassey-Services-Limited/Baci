@@ -5,9 +5,6 @@ const REQUIRED_ENV = [
   'BACI_REPO_DIR',
   'BACI_WEB_BASE_URL',
   'EXPO_ACCESS_TOKEN',
-  'GIGL_BASE_URL',
-  'GIGL_EMAIL',
-  'GIGL_PASSWORD',
   'IMEI_IDENTIFIER_ENCRYPTION_KEY',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   'NEXT_PUBLIC_SUPABASE_URL',
@@ -20,7 +17,9 @@ const REQUIRED_ENV = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'ZEPTOMAIL_TOKEN',
 ];
+const GIGL_REQUIRED_ENV = ['GIGL_BASE_URL', 'GIGL_EMAIL', 'GIGL_PASSWORD'];
 const ENV_BOOLEAN_VALUES = new Set(['0', '1', 'false', 'no', 'true', 'yes']);
+const DISABLED_GIGL_VALUES = new Set(['0', 'false', 'off']);
 
 function isConfigured(env, name) {
   return typeof env[name] === 'string' && env[name].trim().length > 0;
@@ -35,11 +34,24 @@ function isCredentialFreeHttpsUrl(value) {
   }
 }
 
+function isGiglExplicitlyDisabled(env) {
+  return DISABLED_GIGL_VALUES.has(env.GIGL_ENABLED?.trim().toLowerCase() ?? '');
+}
+
 export function getDirectWorkerPreflightProblems(env) {
   const problems = [];
   for (const name of REQUIRED_ENV) {
     if (!isConfigured(env, name)) {
       problems.push(`${name} is required`);
+    }
+  }
+
+  const isGiglDisabled = isGiglExplicitlyDisabled(env);
+  if (!isGiglDisabled) {
+    for (const name of GIGL_REQUIRED_ENV) {
+      if (!isConfigured(env, name)) {
+        problems.push(`${name} is required`);
+      }
     }
   }
 
@@ -50,6 +62,7 @@ export function getDirectWorkerPreflightProblems(env) {
     problems.push('BACI_WEB_BASE_URL must be credential-free HTTPS');
   }
   if (
+    !isGiglDisabled &&
     isConfigured(env, 'GIGL_BASE_URL') &&
     !isCredentialFreeHttpsUrl(env.GIGL_BASE_URL)
   ) {

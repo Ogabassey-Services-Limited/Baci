@@ -25,6 +25,8 @@ afterEach(() => {
 function fixture({
   duplicateTracking = false,
   includeNotifications = true,
+  staleNotificationCommand = false,
+  staleTrackingCommand = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'baci-gigl-readiness-'));
   temporaryDirectories.push(root);
@@ -43,8 +45,11 @@ function fixture({
     chmodSync(path, 0o755);
   }
 
+  const trackingCommand = staleTrackingCommand
+    ? `${remote}/bin/process-gigl-tracking.sh`
+    : `flock -n ${remote}/locks/gigl-tracking.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=gigl-tracking && cd ${remote} && timeout --signal=TERM --kill-after=30s 2m ${remote}/bin/process-gigl-tracking.sh'`;
   const lines = [
-    `*/5 * * * * flock -n ${remote}/locks/gigl-tracking.lock bash -lc '${remote}/bin/process-gigl-tracking.sh' >> ${remote}/logs/gigl-tracking.log 2>&1`,
+    `*/5 * * * * ${trackingCommand} >> ${remote}/logs/gigl-tracking.log 2>&1`,
   ];
   if (duplicateTracking) {
     lines.push(
@@ -52,8 +57,11 @@ function fixture({
     );
   }
   if (includeNotifications) {
+    const notificationCommand = staleNotificationCommand
+      ? `${remote}/bin/process-gigl-tracking-notifications.sh`
+      : `flock -n ${remote}/locks/gigl-tracking-notifications.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=gigl-tracking-notifications && cd ${remote} && timeout --signal=TERM --kill-after=30s 2m ${remote}/bin/process-gigl-tracking-notifications.sh'`;
     lines.push(
-      `*/10 * * * * flock -n ${remote}/locks/gigl-tracking-notifications.lock bash -lc '${remote}/bin/process-gigl-tracking-notifications.sh' >> ${remote}/logs/gigl-tracking-notifications.log 2>&1`
+      `*/10 * * * * ${notificationCommand} >> ${remote}/logs/gigl-tracking-notifications.log 2>&1`
     );
   }
   writeFileSync(crontab, `${lines.join('\n')}\n`);
@@ -102,6 +110,26 @@ describe('GIGL direct-worker deployment gate', () => {
     assert.match(
       result.stderr,
       /tracking 2 total\/1 canonical and notifications 1 total\/1 canonical/
+    );
+  });
+
+  it('blocks deployment when the tracking command omits its production runtime contract', () => {
+    const result = verify({ staleTrackingCommand: true });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /tracking 1 total\/0 canonical and notifications 1 total\/1 canonical/
+    );
+  });
+
+  it('blocks deployment when the notification command omits its production runtime contract', () => {
+    const result = verify({ staleNotificationCommand: true });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /tracking 1 total\/1 canonical and notifications 1 total\/0 canonical/
     );
   });
 });

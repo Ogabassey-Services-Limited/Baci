@@ -72,6 +72,20 @@ describe('direct worker environment preflight', () => {
     ]);
   });
 
+  for (const disabledValue of ['0', 'false', 'off', ' OFF ']) {
+    it(`does not require provider credentials when GIGL is disabled with ${disabledValue}`, () => {
+      const problems = getDirectWorkerPreflightProblems({
+        ...commonEnv,
+        GIGL_BASE_URL: '',
+        GIGL_EMAIL: '',
+        GIGL_ENABLED: disabledValue,
+        GIGL_PASSWORD: '',
+      });
+
+      assert.deepEqual(problems, []);
+    });
+  }
+
   it('requires the full quiz production gate', () => {
     const problems = getDirectWorkerPreflightProblems({
       ...commonEnv,

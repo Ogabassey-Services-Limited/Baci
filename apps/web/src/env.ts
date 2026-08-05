@@ -2,6 +2,7 @@
 import z from 'zod';
 import { DEFAULT_ROOT_DOMAIN } from '@/lib/default-root-domain';
 import { normalizeEnvBoolean } from '@/lib/env-boolean';
+import { isNonAgenticWorkerProfile } from '@/lib/is-non-agentic-worker-profile';
 import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
 import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-agentic-jwt-private-jwk';
 
@@ -399,12 +400,9 @@ const serverSchema = z
       Boolean(process.env.GITHUB_REPOSITORY);
     // These bounded VPS workers never sign agentic JWTs, so they should not
     // fail boot on unrelated signing material.
-    const isNonAgenticWorker = [
-      'ai-storefront-jobs',
-      'event-pipeline',
-      'petrock-reconciliation',
-      'quiz-finalization',
-    ].includes(process.env.BACI_WORKER_PROFILE ?? '');
+    const isNonAgenticWorker = isNonAgenticWorkerProfile(
+      process.env.BACI_WORKER_PROFILE
+    );
 
     if (
       value.NODE_ENV !== 'production' ||
