@@ -8,6 +8,7 @@ web:
   - 'next.config.ts'
   - 'next.config.test.ts'
   - 'package.json'
+  - 'vercel.json'
   - 'pnpm-lock.yaml'
   - 'turbo.json'
   - 'tsconfig*.json'

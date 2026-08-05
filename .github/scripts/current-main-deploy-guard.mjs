@@ -12,6 +12,7 @@ const ROOT_WEB_FILES = new Set([
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
   'turbo.json',
+  'vercel.json',
 ]);
 const WEB_PREFIXES = [
   '.github/actions/pnpm-install-cached/',
