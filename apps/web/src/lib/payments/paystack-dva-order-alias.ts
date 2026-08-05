@@ -54,6 +54,12 @@ export function isActiveOrderDvaAlias(
     return false;
   }
 
+  const assignedAtRaw = row.assigned_at;
+  const assignedAt =
+    typeof assignedAtRaw === 'string' ? new Date(assignedAtRaw) : null;
+  const windowAnchor =
+    assignedAt && !Number.isNaN(assignedAt.getTime()) ? assignedAt : createdAt;
+
   const expiresAtRaw = row.expires_at;
   const expiresAt =
     typeof expiresAtRaw === 'string' ? new Date(expiresAtRaw) : null;
@@ -63,11 +69,11 @@ export function isActiveOrderDvaAlias(
       : Number.POSITIVE_INFINITY;
   const upperBound = Math.min(
     expiresAtMs,
-    createdAt.getTime() + NINETY_MINUTES_MS
+    windowAnchor.getTime() + NINETY_MINUTES_MS
   );
   const asOfMs = asOf.getTime();
 
-  return asOfMs >= createdAt.getTime() && asOfMs <= upperBound;
+  return asOfMs >= windowAnchor.getTime() && asOfMs <= upperBound;
 }
 
 export async function hasActivePaystackOrderDvaAlias({
@@ -82,7 +88,7 @@ export async function hasActivePaystackOrderDvaAlias({
   const { data, error } = await supabase
     .from('order_payment_accounts')
     .select(
-      'order_id, created_at, expires_at, orders!inner(id, payment_status, shipping_status)'
+      'order_id, created_at, assigned_at, expires_at, orders!inner(id, payment_status, shipping_status)'
     )
     .eq('provider', 'paystack')
     .eq('account_number', accountNumber);

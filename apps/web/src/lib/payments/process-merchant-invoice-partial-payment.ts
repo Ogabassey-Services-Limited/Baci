@@ -98,10 +98,12 @@ export async function processMerchantInvoicePartialPayment({
 
   const grossAmount = Number(transaction.amount);
   const gatewayFee = extractVerifiedGatewayFeeNgn('paystack', gatewayResponse);
+  const storedPlatformFee =
+    transaction.platform_fee == null ? null : Number(transaction.platform_fee);
   const platformFee =
-    transaction.platform_fee == null
+    storedPlatformFee == null || storedPlatformFee === 0
       ? calculatePlatformFee(grossAmount * 100).platformFee / 100
-      : Number(transaction.platform_fee);
+      : storedPlatformFee;
   if (
     !Number.isFinite(grossAmount) ||
     grossAmount <= 0 ||
@@ -166,6 +168,31 @@ export async function processMerchantInvoicePartialPayment({
 
   const completion = parsed.data;
   if (completion.outcome === 'standard_completion') {
+    if (completion.reason === 'order_terminal') {
+      const filed = await fileReview({
+        errorCode: 'ORDER_TERMINAL',
+        issueType: 'merchant_invoice_partial_payment_conflict',
+        orderId: transaction.order_id,
+        reason: `Paystack partial payment ${reference} targets a terminal order`,
+        reference,
+        supabase,
+        transactionId: transaction.id,
+      });
+      return filed
+        ? {
+            body: {
+              code: 'MERCHANT_INVOICE_PARTIAL_PAYMENT_REVIEW_REQUIRED',
+              error: 'Invoice payment requires manual reconciliation',
+            },
+            kind: 'review',
+            status: 409,
+          }
+        : {
+            body: { error: 'Payment reconciliation review unavailable' },
+            kind: 'error',
+            status: 500,
+          };
+    }
     return { kind: 'none' };
   }
   if (completion.outcome === 'review_required') {

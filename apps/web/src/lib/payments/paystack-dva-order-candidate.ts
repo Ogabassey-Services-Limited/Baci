@@ -34,16 +34,30 @@ export function normalizePaystackDvaOrderCandidate(
   const merchantCreated =
     typeof order.recorded_by_user_id === 'string' &&
     order.recorded_by_user_id.trim().length > 0;
-  const outstandingAmount =
-    merchantCreated || amountPaid > 0
-      ? Math.max(total - amountPaid, 0)
-      : (normalizedPayableAmount ?? total);
   const createdAt =
     typeof row.created_at === 'string' ? new Date(row.created_at) : null;
   if (!createdAt || Number.isNaN(createdAt.getTime())) return null;
 
   const assignedAt =
     typeof row.assigned_at === 'string' ? new Date(row.assigned_at) : null;
+  const validAssignedAt =
+    assignedAt && !Number.isNaN(assignedAt.getTime()) ? assignedAt : null;
+  const orderUpdatedAt =
+    typeof order.updated_at === 'string' ? new Date(order.updated_at) : null;
+  const validOrderUpdatedAt =
+    orderUpdatedAt && !Number.isNaN(orderUpdatedAt.getTime())
+      ? orderUpdatedAt
+      : null;
+  const assignmentAnchor = validAssignedAt ?? createdAt;
+  const payableAmountIsCurrent =
+    normalizedPayableAmount != null &&
+    (!validOrderUpdatedAt || validOrderUpdatedAt <= assignmentAnchor);
+  const outstandingAmount =
+    amountPaid > 0
+      ? Math.max(total - amountPaid, 0)
+      : payableAmountIsCurrent
+        ? normalizedPayableAmount
+        : total;
   const expiresAt =
     typeof row.expires_at === 'string' ? new Date(row.expires_at) : null;
   return {
@@ -59,8 +73,7 @@ export function normalizePaystackDvaOrderCandidate(
         : null,
     outstanding_amount_kobo: toPaystackKobo(outstandingAmount),
     account_created_at: createdAt,
-    account_assigned_at:
-      assignedAt && !Number.isNaN(assignedAt.getTime()) ? assignedAt : null,
+    account_assigned_at: validAssignedAt,
     account_expires_at:
       expiresAt && !Number.isNaN(expiresAt.getTime()) ? expiresAt : null,
   };

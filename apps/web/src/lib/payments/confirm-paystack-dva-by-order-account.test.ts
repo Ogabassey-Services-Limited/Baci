@@ -125,6 +125,13 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
         order_payment_outstanding_before: 835_000,
       },
     });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.objectContaining({
+        p_merchant_amount: 297_950,
+        p_platform_fee: 2050,
+      })
+    );
   });
 
   it('does not mark a merchant invoice paid from a stale exact DVA amount after its total increases', async () => {
@@ -136,6 +143,7 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
           orders: {
             ...baseAccountRow.orders,
             recorded_by_user_id: 'merchant-user-1',
+            updated_at: '2026-05-09T10:05:00Z',
           },
         },
       ],

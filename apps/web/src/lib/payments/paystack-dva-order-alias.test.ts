@@ -77,6 +77,21 @@ describe('paystack DVA order alias helpers', () => {
     ).toBe(true);
   });
 
+  it('anchors a refreshed partially-paid alias window to assigned_at', () => {
+    const alias = orderAliasRow({
+      assigned_at: '2026-05-22T11:00:00.000Z',
+      expires_at: '2026-05-22T12:30:00.000Z',
+      orders: { payment_status: 'partially_paid' },
+    });
+
+    const isActive = isActiveOrderDvaAlias(
+      alias,
+      new Date('2026-05-22T12:00:00.000Z')
+    );
+
+    expect(isActive).toBe(true);
+  });
+
   it('treats expired, malformed, and paid aliases as inactive', () => {
     const asOf = new Date('2026-05-22T10:30:00.000Z');
 

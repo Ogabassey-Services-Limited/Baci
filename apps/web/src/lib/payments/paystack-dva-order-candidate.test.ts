@@ -21,6 +21,7 @@ const row = {
     recorded_by_user_id: null,
     shipping_status: 'pending',
     total: '835000',
+    updated_at: '2026-05-09T09:55:00Z',
   },
 };
 
@@ -81,13 +82,29 @@ describe('paystack DVA order candidate', () => {
     ).toBeNull();
   });
 
-  it('uses the live order balance instead of a stale DVA amount for merchant-created invoices', () => {
+  it('preserves the assigned payable residual for a merchant-created invoice without recorded payments', () => {
     expect(
       normalizePaystackDvaOrderCandidate({
         ...row,
         orders: {
           ...row.orders,
           recorded_by_user_id: 'merchant-user-1',
+        },
+      })
+    ).toMatchObject({
+      merchant_created: true,
+      outstanding_amount_kobo: 35_000_000,
+    });
+  });
+
+  it('uses the live order balance when a merchant invoice changes after DVA assignment', () => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        orders: {
+          ...row.orders,
+          recorded_by_user_id: 'merchant-user-1',
+          updated_at: '2026-05-09T10:05:00Z',
         },
       })
     ).toMatchObject({

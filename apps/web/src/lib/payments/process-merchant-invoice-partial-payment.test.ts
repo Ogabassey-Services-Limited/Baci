@@ -31,8 +31,13 @@ const partialCompletion = {
   shipping_status: 'pending',
 };
 
-function buildSupabaseMock(rpcResult: { data: unknown; error: unknown }) {
-  const reviewInsert = vi.fn().mockResolvedValue({ data: null, error: null });
+function buildSupabaseMock(
+  rpcResult: { data: unknown; error: unknown },
+  reviewError: unknown = null
+) {
+  const reviewInsert = vi
+    .fn()
+    .mockResolvedValue({ data: null, error: reviewError });
   const from = vi.fn((table: string) => {
     if (table === 'reconciliation_review') {
       return { insert: reviewInsert };
@@ -89,7 +94,7 @@ describe('processMerchantInvoicePartialPayment', () => {
         p_actor: 'webhook:PSK-REF-1',
         p_gateway_response: baseArgs.gatewayResponse,
         p_order_id: 'order-1',
-        p_payment_platform_fee: 0,
+        p_payment_platform_fee: 2050,
         p_settlement_reference: 'PSK-REF-1',
         p_transaction_id: 'txn-1',
         p_verified_gateway_fee: 10,
@@ -140,6 +145,51 @@ describe('processMerchantInvoicePartialPayment', () => {
       })
     ).resolves.toEqual({ kind: 'none' });
     expect(db.supabase.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('files review instead of handing a terminal order to paid-order completion', async () => {
+    const db = buildSupabaseMock({
+      data: {
+        outcome: 'standard_completion',
+        reason: 'order_terminal',
+      },
+      error: null,
+    });
+
+    const result = await processMerchantInvoicePartialPayment({
+      ...baseArgs,
+      supabase: db.supabase,
+    });
+
+    expect(db.reviewInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { error_code: 'ORDER_TERMINAL' },
+        order_id: 'order-1',
+        txn_id: 'txn-1',
+      })
+    );
+    expect(result).toMatchObject({ kind: 'review', status: 409 });
+  });
+
+  it('fails closed when a terminal-order review cannot be filed', async () => {
+    const db = buildSupabaseMock(
+      {
+        data: {
+          outcome: 'standard_completion',
+          reason: 'order_terminal',
+        },
+        error: null,
+      },
+      { message: 'review insert failed' }
+    );
+
+    const result = await processMerchantInvoicePartialPayment({
+      ...baseArgs,
+      supabase: db.supabase,
+    });
+
+    expect(db.reviewInsert).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ kind: 'error', status: 500 });
   });
 
   it('files a durable review instead of guessing after a concurrent balance change', async () => {
