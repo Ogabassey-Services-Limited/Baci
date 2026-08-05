@@ -90,7 +90,7 @@ async function loadProviders(sourcePath: string) {
   if (!source) return null;
   const loaded = loadDotenv({ override: false, path: source.path, quiet: true });
   if (loaded.error) return null;
-  return materializeBuilderAiProviderChain().providers;
+  return materializeBuilderAiProviderChain(undefined, undefined, 'smoke').providers;
 }
 
 async function handle(command: WorkerCommand): Promise<void> {

@@ -27,23 +27,18 @@ function hasApprovedModelIdentity(
 function hasCanonicalProviderOrder(
   providers: BuilderAiJsonTransportProviderDescriptor[]
 ): boolean {
-  let previous = -1;
-  const approved = [
-    ['cerebras', APPROVED_CEREBRAS_MODEL_NAME],
-    ['groq', APPROVED_GROQ_MODEL_NAME],
-    ['openrouter', PINNED_OPENROUTER_NAME.slice('openrouter:'.length)],
-  ] as const;
+  const reliableProviders = [
+    `cerebras:${APPROVED_CEREBRAS_MODEL_NAME}`,
+    `groq:${APPROVED_GROQ_MODEL_NAME}`,
+  ];
   return (
-    providers.length > 0 &&
-    providers.every((provider) => {
-      const identity = getProviderIdentity(provider.name);
-      const index = approved.findIndex(
-        ([alias, model]) => identity.alias === alias && identity.model === model
-      );
-      if (index < 0 || index <= previous) return false;
-      previous = index;
-      return index !== 2 || provider.opportunistic === true;
-    })
+    reliableProviders.every(
+      (name, index) => providers[index]?.name === name
+    ) &&
+    (providers.length === 2 ||
+      (providers.length === 3 &&
+        providers[2]?.name === PINNED_OPENROUTER_NAME &&
+        providers[2]?.opportunistic === true))
   );
 }
 

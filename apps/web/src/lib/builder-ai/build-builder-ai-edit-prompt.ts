@@ -91,7 +91,9 @@ export function buildBuilderAiEditPrompt({
     throw new Error('Builder AI prompt projection exceeds safety limit');
   }
   return [
-    'Return a proposed semantic operations plan; never return a full config.',
+    'Return JSON only; never return a full config, Markdown, code, or explanations.',
+    'For a supported request use exactly the top-level shape {"status":"proposed","summary":"...","operations":[...]}.',
+    'For unsupported executable code, HTML, script, or payment requests use exactly {"status":"refused","reason":"...","operations":[]}.',
     'Preserve unspecified content. Use only listed ids, types, and safe properties.',
     `<operation-guide>${operationGuidance}</operation-guide>`,
     `<safe-components>${componentProjection}</safe-components>`,

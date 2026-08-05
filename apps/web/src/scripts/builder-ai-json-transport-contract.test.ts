@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { builderAiJsonTransportContract } from './builder-ai-json-transport-contract';
 
 describe('builder AI JSON transport contract', () => {
-  it('accepts each configured approved provider independently in canonical order', () => {
+  it('requires both reliable providers in canonical order', () => {
     expect(
       builderAiJsonTransportContract.hasCanonicalProviderOrder([
+        { name: 'cerebras:gemma-4-31b' },
+        { name: 'groq:openai/gpt-oss-120b' },
+      ])
+    ).toBe(true);
+    expect(
+      builderAiJsonTransportContract.hasCanonicalProviderOrder([
+        { name: 'cerebras:gemma-4-31b' },
         { name: 'groq:openai/gpt-oss-120b' },
         {
           name: 'openrouter:google/gemma-4-31b-it:free',
@@ -17,6 +24,7 @@ describe('builder AI JSON transport contract', () => {
   it('rejects zero providers, reordered links, direct Google, and unpinned models', () => {
     for (const providers of [
       [],
+      [{ name: 'cerebras:gemma-4-31b' }],
       [
         { name: 'groq:openai/gpt-oss-120b' },
         { name: 'cerebras:gemma-4-31b' },

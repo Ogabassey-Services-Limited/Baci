@@ -1,3 +1,4 @@
+import { builderAiEditTestFixture } from '@baci/shared/test-fixtures/builder-ai-edit';
 import { describe, expect, it } from 'vitest';
 import {
   buildBuilderAiEditPrompt,
@@ -6,6 +7,17 @@ import {
 } from './build-builder-ai-edit-prompt';
 
 describe('buildBuilderAiEditPrompt', () => {
+  it('describes the complete proposed and refused response envelopes', () => {
+    const prompt = buildBuilderAiEditPrompt({
+      currentConfig: builderAiEditTestFixture.request.currentConfig,
+      prompt: 'Write JavaScript for the storefront',
+    });
+
+    expect(prompt).toContain('"status":"proposed"');
+    expect(prompt).toContain('"status":"refused"');
+    expect(prompt).toContain('"operations":[]');
+    expect(prompt).toContain('unsupported executable code');
+  });
   it('projects only safe component ids, types, and editable properties', () => {
     const prompt = buildBuilderAiEditPrompt({
       currentConfig: {

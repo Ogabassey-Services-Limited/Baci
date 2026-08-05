@@ -152,3 +152,23 @@ Cerebras applies rate limits at the *organization* level and its Acceptable Use
 Policy forbids imposing "disproportionately large load" and transferring API
 keys; multi-account free-tier farming is rate-limit circumvention and risks
 suspension of every account, including the one serving production.
+
+## Builder semantic editor
+
+`/api/builder/ai-edit` is intentionally separate from the general chain. It
+generates a validated, non-persisted edit plan rather than a complete storefront
+configuration. Its required, credential-attested order is Cerebras
+`gemma-4-31b`, then Groq `openai/gpt-oss-120b`; a pinned OpenRouter
+`google/gemma-4-31b-it:free` transport may be appended only after an explicit,
+dated approval for that exact model.
+
+Both reliable provider keys require a non-secret account reference and a recent
+tier attestation in the deployment environment. If either attestation is absent
+or stale, the Builder route and the paid-provider smoke test refuse before a
+provider request. The smoke test is externally owner-approved with
+`BACI_APPROVE_PAID_AI_SMOKE=1`; it is not an automatic deployment check.
+
+The Builder path uses `generateText` with JSON transport plus local Zod and
+semantic validation. It never imports the legacy Gemini, generic provider, or
+Ollama chains. The legacy `/api/builder/gemini` endpoint is only a compatibility
+adapter that returns `{ config }` from the same validated candidate handler.

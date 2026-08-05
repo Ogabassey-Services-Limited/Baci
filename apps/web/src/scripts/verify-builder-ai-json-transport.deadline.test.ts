@@ -47,7 +47,10 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
       command.kind === 'list'
         ? {
             kind: 'providers',
-            providers: [{ name: 'groq:openai/gpt-oss-120b' }],
+            providers: [
+              { name: 'cerebras:gemma-4-31b' },
+              { name: 'groq:openai/gpt-oss-120b' },
+            ],
           }
         : { kind: 'probe', passed: true }
     );
@@ -57,7 +60,7 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
 
     expect(dependencies.loadEnvironment).not.toHaveBeenCalled();
     expect(dependencies.materializeProviders).not.toHaveBeenCalled();
-    expect(dependencies.runWorkerCommand).toHaveBeenCalledTimes(2);
+    expect(dependencies.runWorkerCommand).toHaveBeenCalledTimes(3);
   });
 
   it('bounds provider materialization and each configured probe by the whole-smoke deadline', async () => {

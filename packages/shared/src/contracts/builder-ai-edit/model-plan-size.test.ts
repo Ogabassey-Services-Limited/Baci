@@ -56,6 +56,15 @@ describe('builder AI model plan aggregate UTF-8 limit', () => {
     expect(builderAiModelPlanSchema.safeParse(plan).success).toBe(true);
   });
 
+  it('accepts a structurally valid plan at exactly 4,096 UTF-8 bytes', () => {
+    const plan = planAtUtf8Size(MAX_AI_PLAN_SERIALIZED_UTF8_BYTES);
+
+    expect(new TextEncoder().encode(JSON.stringify(plan)).byteLength).toBe(
+      MAX_AI_PLAN_SERIALIZED_UTF8_BYTES
+    );
+    expect(builderAiModelPlanSchema.safeParse(plan).success).toBe(true);
+  });
+
   it('rejects a structurally valid plan at 4,097 UTF-8 bytes', () => {
     const plan = planAtUtf8Size(MAX_AI_PLAN_SERIALIZED_UTF8_BYTES + 1);
 

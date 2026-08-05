@@ -156,7 +156,9 @@ export async function verifyBuilderAiJsonTransport(
       passed ? 'pass' : 'fail',
       Math.max(0, dependencies.now() - startedAt)
     );
-    if (!passed || wholeSmokeSignal.aborted) requiredProviderFailed = true;
+    if ((!passed && !provider.opportunistic) || wholeSmokeSignal.aborted) {
+      requiredProviderFailed = true;
+    }
     if (wholeSmokeSignal.aborted) break;
   }
 
@@ -205,7 +207,9 @@ async function verifyWithCredentialWorker(
       passed ? 'pass' : 'fail',
       Math.max(0, dependencies.now() - providerStartedAt)
     );
-    if (!passed || remaining() <= 0) requiredProviderFailed = true;
+    if ((!passed && !provider.opportunistic) || remaining() <= 0) {
+      requiredProviderFailed = true;
+    }
     if (remaining() <= 0) break;
   }
   return requiredProviderFailed ? 1 : 0;
