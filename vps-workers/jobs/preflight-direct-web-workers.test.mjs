@@ -6,12 +6,10 @@ import { getDirectWorkerPreflightProblems } from './preflight-direct-web-workers
 const commonEnv = {
   BACI_REPO_DIR: fileURLToPath(new URL('../..', import.meta.url)),
   BACI_WEB_BASE_URL: 'https://usebaci.com',
-  EXPO_ACCESS_TOKEN: 'expo-token',
   GIGL_BASE_URL: 'https://gigl.example.com',
   GIGL_EMAIL: 'worker@example.com',
   GIGL_PASSWORD: 'provider-password',
-  GIGL_TRACKING_DATABASE_URL:
-    'postgresql://gigl_tracking_worker.projectref:password@aws-1-eu-west-1.pooler.supabase.com:5432/postgres',
+  GIGL_TRACKING_WORKER_TOKEN: token('gigl_tracking_worker'),
   IMEI_IDENTIFIER_ENCRYPTION_KEY: 'encryption-key',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
   NEXT_PUBLIC_SUPABASE_URL: 'https://projectref.supabase.co',
@@ -24,6 +22,16 @@ const commonEnv = {
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
   ZEPTOMAIL_TOKEN: 'zeptomail-token',
 };
+
+function token(role, alg = 'ES256') {
+  const header = Buffer.from(JSON.stringify({ alg, typ: 'JWT' })).toString(
+    'base64url'
+  );
+  const payload = Buffer.from(
+    JSON.stringify({ exp: 4_102_444_800, role })
+  ).toString('base64url');
+  return `${header}.${payload}.signature`;
+}
 
 describe('direct worker environment preflight', () => {
   it('accepts an explicitly configured pre-launch environment', () => {
@@ -62,27 +70,23 @@ describe('direct worker environment preflight', () => {
     assert.deepEqual(problems, ['ZEPTOMAIL_TOKEN is required']);
   });
 
-  it('requires the direct GIGL provider and notification environment', () => {
+  it('requires the direct GIGL provider environment without requiring optional Expo credentials', () => {
     const problems = getDirectWorkerPreflightProblems({
       ...commonEnv,
       EXPO_ACCESS_TOKEN: '',
       GIGL_BASE_URL: '',
     });
 
-    assert.deepEqual(problems, [
-      'EXPO_ACCESS_TOKEN is required',
-      'GIGL_BASE_URL is required',
-    ]);
+    assert.deepEqual(problems, ['GIGL_BASE_URL is required']);
   });
 
-  it('rejects an admin database role for the GIGL poller', () => {
+  it('rejects a token for an elevated database role', () => {
     assert.deepEqual(
       getDirectWorkerPreflightProblems({
         ...commonEnv,
-        GIGL_TRACKING_DATABASE_URL:
-          'postgresql://postgres.projectref:password@aws-1-eu-west-1.pooler.supabase.com:5432/postgres',
+        GIGL_TRACKING_WORKER_TOKEN: token('service_role'),
       }),
-      ['GIGL_TRACKING_DATABASE_URL must use the restricted session-pooler role']
+      ['GIGL_TRACKING_WORKER_TOKEN must be a current restricted worker token']
     );
   });
 

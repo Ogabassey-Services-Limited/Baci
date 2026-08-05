@@ -290,6 +290,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260805091000_enable_least_privilege_gigl_tracking_login.sql',
     sha256: '67e35ce36d63d9026492bf25335492df816600f202c4904c725a90debf217b62',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260805113000_restore_gigl_tracking_postgrest_capability.sql',
+    sha256: '5868d844b7b0dc18dcd9f5cfd3e2069e92c2c1e7f6597a46d8e76309c659e56f',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

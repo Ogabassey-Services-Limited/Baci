@@ -87,13 +87,13 @@ PETROCK_REMEDIATION_ENABLED=true
 GIGL_BASE_URL=...
 GIGL_EMAIL=...
 GIGL_PASSWORD=...
-GIGL_TRACKING_DATABASE_URL=...
+GIGL_TRACKING_WORKER_TOKEN=...
 QUIZ_PHASE=1a
 QUIZ_PRODUCTION_APPROVED=false
 # Required when QUIZ_PHASE=production:
 QUIZ_RPC_SERVER_SECRET=...
 QUIZ_DEVICE_HASH_PEPPER=...
-EXPO_ACCESS_TOKEN=...
+EXPO_ACCESS_TOKEN=... # optional; authenticated Expo delivery when configured
 JUMIA_CLIENT_ID=...
 BACI_WEB_BASE_URL=...
 CRON_SECRET=...
@@ -139,10 +139,10 @@ Variable purposes:
 - `PETROCK_API_BASE_URL`: Optional Petrock reseller API base; defaults to the production reseller endpoint.
 - `PETROCK_ENABLED`, `PETROCK_ENABLED_TIERS`, `PETROCK_REMEDIATION_ENABLED`: Explicit Petrock rollout values copied from the reviewed web production configuration. The direct-worker preflight requires all three to prevent an accidental configuration mismatch.
 - `GIGL_BASE_URL`, `GIGL_EMAIL`, `GIGL_PASSWORD`: GIGL provider configuration used by the direct shipment-tracking worker. The base URL must be credential-free HTTPS.
-- `GIGL_TRACKING_DATABASE_URL`: TLS connection string for the `gigl_tracking_worker` role through the Supavisor session pooler on port 5432. This login has no table grants or RLS bypass and can execute only the five lease-bound tracking wrappers. Provision and rotate its password outside migrations at least every 90 days; never reuse the project database password. The worker verifies Supabase with the pinned public CA at `vps-workers/certs/supabase-prod-ca-2021.crt` and fails closed if that file changes.
+- `GIGL_TRACKING_WORKER_TOKEN`: Signed, time-bounded PostgREST token whose `role` is exactly `gigl_tracking_worker`. Mint it outside the VPS with a trusted Supabase signing key, store only the scoped token on the VPS, and rotate it before its expiry. Never copy a JWT signing key or service-role credential to the worker host. Release and readiness gates perform a non-mutating live call to one of the five lease-bound wrappers before accepting the credential.
 - `QUIZ_PHASE`, `QUIZ_PRODUCTION_APPROVED`: Explicit quiz launch gate values copied from web production. They must be present even for the fail-closed `1a`/`false` state.
 - `QUIZ_RPC_SERVER_SECRET`, `QUIZ_DEVICE_HASH_PEPPER`: Required by the shared environment schema when `QUIZ_PHASE=production`; the device pepper must be at least 32 characters.
-- `EXPO_ACCESS_TOKEN`: Expo token used for push notification delivery and related mobile app operations.
+- `EXPO_ACCESS_TOKEN`: Optional Expo token used for authenticated push delivery. Receipt polling and unrelated direct workers remain deployable when it is absent.
 - `JUMIA_CLIENT_ID`: Jumia application/client identifier used when refreshing integration credentials.
 - `BACI_WEB_BASE_URL`: HTTPS base URL for retained web cron endpoint calls and direct Petrock remediation URLs, for example `https://ogabassey.com`. Direct Petrock execution rejects credentials and non-HTTPS values.
 - `CRON_SECRET`: Shared secret that must match the web deployment and protect cron endpoints.
@@ -190,7 +190,8 @@ reasons, never values. Each direct TypeScript CLI repeats its essential
 preflight at runtime so later configuration drift exits nonzero instead of
 returning a successful skip.
 
-Worker deployment also refuses a dirty local checkout and requires the
+Worker deployment also refuses a dirty local checkout, proves the restricted
+GIGL token can execute its reviewed wrapper without claiming work, and requires the
 configured `BACI_REPO_DIR` checkout on the VPS to be at the exact same Git SHA
 as the deploying repository, with both direct scripts and `tsx` present. Update
 and install that full checkout first; the crontab is not replaced when this

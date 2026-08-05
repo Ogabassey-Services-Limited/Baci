@@ -16,6 +16,13 @@ const loginMigration = readFileSync(
   ),
   'utf8'
 );
+const postgrestRepairMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260805113000_restore_gigl_tracking_postgrest_capability.sql'
+  ),
+  'utf8'
+);
 
 describe('GIGL tracking worker capability migration', () => {
   it('creates a non-login role that cannot bypass RLS', () => {
@@ -48,7 +55,7 @@ describe('GIGL tracking worker capability migration', () => {
     ).toHaveLength(5);
   });
 
-  it('enables only the restricted role as a connection-limited login', () => {
+  it('records the temporary connection-limited login without embedding a password', () => {
     expect(loginMigration).toMatch(
       /REVOKE gigl_tracking_worker FROM authenticator/
     );
@@ -57,6 +64,18 @@ describe('GIGL tracking worker capability migration', () => {
     );
     expect(loginMigration).not.toMatch(/ALTER ROLE[\s\S]*PASSWORD\s+'/i);
     expect(loginMigration).not.toMatch(
+      /GRANT (?:SELECT|INSERT|UPDATE|DELETE|ALL)/
+    );
+  });
+
+  it('removes direct login and restores only signed PostgREST role switching', () => {
+    expect(postgrestRepairMigration).toMatch(
+      /ALTER ROLE gigl_tracking_worker NOLOGIN CONNECTION LIMIT -1 PASSWORD NULL/
+    );
+    expect(postgrestRepairMigration).toMatch(
+      /GRANT gigl_tracking_worker TO authenticator/
+    );
+    expect(postgrestRepairMigration).not.toMatch(
       /GRANT (?:SELECT|INSERT|UPDATE|DELETE|ALL)/
     );
   });

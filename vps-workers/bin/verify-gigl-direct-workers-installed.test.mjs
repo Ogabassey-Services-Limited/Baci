@@ -27,6 +27,7 @@ function fixture({
   duplicateTracking = false,
   staleCheckout = false,
   staleTrackingCommand = false,
+  unusableCapability = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'baci-gigl-readiness-'));
   temporaryDirectories.push(root);
@@ -45,6 +46,17 @@ function fixture({
   const wrapper = join(remote, 'bin', 'process-gigl-tracking.sh');
   writeFileSync(wrapper, '#!/usr/bin/env bash\nexit 0\n');
   chmodSync(wrapper, 0o755);
+
+  const capabilityWrapper = join(
+    remote,
+    'bin',
+    'verify-gigl-tracking-worker-capability.sh'
+  );
+  writeFileSync(
+    capabilityWrapper,
+    `#!/usr/bin/env bash\nexit ${unusableCapability ? '1' : '0'}\n`
+  );
+  chmodSync(capabilityWrapper, 0o755);
 
   const trackingCommand = staleTrackingCommand
     ? `${remote}/bin/process-gigl-tracking.sh`
@@ -139,5 +151,12 @@ describe('GIGL direct-worker deployment gate', () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stderr, /checkout is dirty/);
+  });
+
+  it('blocks deployment when the restricted database credential is unusable', () => {
+    const result = verify({ unusableCapability: true });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /failed its live wrapper smoke/);
   });
 });

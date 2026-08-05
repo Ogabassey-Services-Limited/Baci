@@ -85,6 +85,7 @@ done
 
 for wrapper_path in \
   "$remote_dir/bin/process-gigl-tracking.sh" \
+  "$remote_dir/bin/verify-gigl-tracking-worker-capability.sh" \
   "$remote_dir/bin/process-petrock-reconciliation.sh" \
   "$remote_dir/bin/process-quiz-finalization.sh"
 do
@@ -102,6 +103,12 @@ if ! (
   exit 1
 fi
 REMOTE_SH
+
+  echo "==> Verifying the live GIGL database capability"
+  if ! ssh "$VPS" "NODE_ENV=production BACI_WORKER_PROFILE=gigl-tracking BACI_WORKER_ENV='$STAGING_DIR/.env' '$STAGING_DIR/bin/verify-gigl-tracking-worker-capability.sh'"; then
+    echo "GIGL database capability verification failed; live worker files and crontab were not changed." >&2
+    exit 1
+  fi
 
   echo "==> Promoting validated worker files to $VPS:$REMOTE_DIR"
   ssh "$VPS" "flock -x /tmp/baci-workers-deploy.lock bash -s -- '$STAGING_DIR' '$REMOTE_DIR'" <<'REMOTE_SH'

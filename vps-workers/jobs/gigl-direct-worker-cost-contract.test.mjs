@@ -63,5 +63,9 @@ describe('GIGL direct worker cost contract', () => {
       releaseHelper,
       /"\$remote_dir\/bin\/process-gigl-tracking\.sh"/
     );
+    assert.match(
+      releaseHelper,
+      /verify-gigl-tracking-worker-capability\.sh/
+    );
   });
 });

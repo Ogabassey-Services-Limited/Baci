@@ -12,6 +12,12 @@ if [ ! -x "$wrapper" ]; then
   exit 1
 fi
 
+capability_wrapper="$remote_dir/bin/verify-gigl-tracking-worker-capability.sh"
+if [ ! -x "$capability_wrapper" ]; then
+  echo "Missing or non-executable GIGL capability verifier: $capability_wrapper" >&2
+  exit 1
+fi
+
 deployed_sha_file="$remote_dir/app-checkout.sha"
 if [ ! -f "$deployed_sha_file" ]; then
   echo "Missing GIGL direct-worker deployment SHA: $deployed_sha_file" >&2
@@ -93,6 +99,15 @@ tracking_canonical="${tracking_counts##* }"
 if [ "$tracking_total" -ne 1 ] || [ "$tracking_canonical" -ne 1 ]; then
   echo "Expected one canonical GIGL tracking schedule; found $tracking_total total/$tracking_canonical canonical." >&2
   echo "Run bash vps-workers/deploy.sh from a clean exact-SHA checkout, then rerun production deployment." >&2
+  exit 1
+fi
+
+if ! NODE_ENV=production \
+  BACI_WORKER_PROFILE=gigl-tracking \
+  BACI_WORKER_ENV="$remote_dir/.env" \
+  "$capability_wrapper"
+then
+  echo "GIGL restricted database capability failed its live wrapper smoke." >&2
   exit 1
 fi
 

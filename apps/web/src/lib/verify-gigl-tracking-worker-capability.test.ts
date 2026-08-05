@@ -1,0 +1,33 @@
+import { describe, expect, it, vi } from 'vitest';
+import { verifyGiglTrackingWorkerCapability } from './verify-gigl-tracking-worker-capability';
+
+describe('verifyGiglTrackingWorkerCapability', () => {
+  it('accepts the reviewed invalid-limit response without claiming work', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: '22023', message: 'bounded validation failure' },
+    });
+
+    await expect(
+      verifyGiglTrackingWorkerCapability({ rpc } as never)
+    ).resolves.toBe(true);
+    expect(rpc).toHaveBeenCalledWith('claim_due_gigl_tracking_monitors', {
+      p_limit: 0,
+      p_worker_id: 'gigl-capability-preflight',
+    });
+  });
+
+  it('fails closed when credentials or wrapper authority are rejected', async () => {
+    for (const error of [
+      { code: '42501', message: 'permission denied' },
+      { code: 'PGRST301', message: 'invalid JWT' },
+      null,
+    ]) {
+      const rpc = vi.fn().mockResolvedValue({ data: null, error });
+
+      await expect(
+        verifyGiglTrackingWorkerCapability({ rpc } as never)
+      ).resolves.toBe(false);
+    }
+  });
+});

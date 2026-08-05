@@ -1,13 +1,9 @@
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
 
 const REQUIRED_ENV = [
   'BACI_REPO_DIR',
   'BACI_WEB_BASE_URL',
-  'EXPO_ACCESS_TOKEN',
   'IMEI_IDENTIFIER_ENCRYPTION_KEY',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   'NEXT_PUBLIC_SUPABASE_URL',
@@ -24,12 +20,11 @@ const GIGL_REQUIRED_ENV = [
   'GIGL_BASE_URL',
   'GIGL_EMAIL',
   'GIGL_PASSWORD',
-  'GIGL_TRACKING_DATABASE_URL',
+  'GIGL_TRACKING_WORKER_TOKEN',
 ];
 const ENV_BOOLEAN_VALUES = new Set(['0', '1', 'false', 'no', 'true', 'yes']);
 const DISABLED_GIGL_VALUES = new Set(['0', 'false', 'off']);
-const SUPABASE_CA_SHA256 =
-  '700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7';
+const SUPPORTED_GIGL_TOKEN_ALGORITHMS = new Set(['ES256', 'HS256']);
 
 function isConfigured(env, name) {
   return typeof env[name] === 'string' && env[name].trim().length > 0;
@@ -48,35 +43,26 @@ function isGiglExplicitlyDisabled(env) {
   return DISABLED_GIGL_VALUES.has(env.GIGL_ENABLED?.trim().toLowerCase() ?? '');
 }
 
-function hasPinnedSupabaseCa(repoDir) {
-  try {
-    const certificate = readFileSync(
-      join(repoDir, 'vps-workers/certs/supabase-prod-ca-2021.crt')
-    );
-    return (
-      createHash('sha256').update(certificate).digest('hex') ===
-      SUPABASE_CA_SHA256
-    );
-  } catch {
-    return false;
+function parseJwtPart(token, index) {
+  const value = token.split('.')[index];
+  if (!value) throw new Error('JWT part is missing');
+  const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('JWT part is invalid');
   }
+  return parsed;
 }
 
-function isRestrictedGiglDatabaseUrl(value, supabaseUrlValue) {
+function isRestrictedGiglWorkerToken(value, now = Date.now()) {
   try {
-    const url = new URL(value);
-    const supabaseUrl = new URL(supabaseUrlValue);
-    const projectRef = supabaseUrl.hostname.match(
-      /^([a-z0-9]+)\.supabase\.co$/
-    )?.[1];
+    if (value.split('.').length !== 3) return false;
+    const header = parseJwtPart(value, 0);
+    const claims = parseJwtPart(value, 1);
     return (
-      Boolean(projectRef) &&
-      ['postgres:', 'postgresql:'].includes(url.protocol) &&
-      url.username === `gigl_tracking_worker.${projectRef}` &&
-      Boolean(url.password) &&
-      url.hostname.endsWith('.pooler.supabase.com') &&
-      url.port === '5432' &&
-      url.pathname === '/postgres'
+      SUPPORTED_GIGL_TOKEN_ALGORITHMS.has(header.alg) &&
+      claims.role === 'gigl_tracking_worker' &&
+      typeof claims.exp === 'number' &&
+      claims.exp * 1000 > now + 24 * 60 * 60 * 1000
     );
   } catch {
     return false;
@@ -108,13 +94,6 @@ export function getDirectWorkerPreflightProblems(env) {
   }
   if (
     !isGiglDisabled &&
-    isConfigured(env, 'BACI_REPO_DIR') &&
-    !hasPinnedSupabaseCa(env.BACI_REPO_DIR)
-  ) {
-    problems.push('Supabase database CA certificate is missing or invalid');
-  }
-  if (
-    !isGiglDisabled &&
     isConfigured(env, 'GIGL_BASE_URL') &&
     !isCredentialFreeHttpsUrl(env.GIGL_BASE_URL)
   ) {
@@ -122,14 +101,11 @@ export function getDirectWorkerPreflightProblems(env) {
   }
   if (
     !isGiglDisabled &&
-    isConfigured(env, 'GIGL_TRACKING_DATABASE_URL') &&
-    !isRestrictedGiglDatabaseUrl(
-      env.GIGL_TRACKING_DATABASE_URL,
-      env.NEXT_PUBLIC_SUPABASE_URL
-    )
+    isConfigured(env, 'GIGL_TRACKING_WORKER_TOKEN') &&
+    !isRestrictedGiglWorkerToken(env.GIGL_TRACKING_WORKER_TOKEN)
   ) {
     problems.push(
-      'GIGL_TRACKING_DATABASE_URL must use the restricted session-pooler role'
+      'GIGL_TRACKING_WORKER_TOKEN must be a current restricted worker token'
     );
   }
 
