@@ -40,6 +40,9 @@ docker exec -e PGPASSWORD="$postgres_password" -i "$container" \
   < "$repo_root/supabase/migrations/20260804130000_harden_storefront_order_private_schema_boundary.sql"
 docker exec -e PGPASSWORD="$postgres_password" -i "$container" \
   psql -X -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 \
+  < "$repo_root/supabase/migrations/20260804140000_harden_authenticated_private_schema_delegates.sql"
+docker exec -e PGPASSWORD="$postgres_password" -i "$container" \
+  psql -X -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 \
   < "$repo_root/supabase/tests/storefront_order_private_schema_boundary_assertions.sql"
 
 echo 'Storefront order private-schema boundary PostgreSQL test passed'

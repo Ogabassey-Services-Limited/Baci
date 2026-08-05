@@ -58,18 +58,26 @@ function readUsageRepairMigration() {
   return readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
 }
 
-function readBoundaryRepairMigration() {
-  const fileName = readdirSync(migrationsDirectory).find((file) =>
-    file.endsWith('_harden_storefront_order_private_schema_boundary.sql')
-  );
+function readBoundaryRepairMigrations() {
+  const fileNames = readdirSync(migrationsDirectory)
+    .filter(
+      (file) =>
+        file.endsWith('_harden_storefront_order_private_schema_boundary.sql') ||
+        file.endsWith('_harden_authenticated_private_schema_delegates.sql')
+    )
+    .sort();
 
-  if (!fileName) {
+  if (fileNames.length === 0) {
     throw new Error(
       'Storefront private-schema boundary repair migration is missing'
     );
   }
 
-  return readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
+  return fileNames
+    .map((fileName) =>
+      readFileSync(resolve(migrationsDirectory, fileName), 'utf8')
+    )
+    .join('\n');
 }
 
 describe('bugfix: public checkout wrappers lost private-schema usage', () => {
@@ -93,7 +101,7 @@ describe('bugfix: public checkout wrappers lost private-schema usage', () => {
   });
 
   it('moves the authenticated checkout wrapper behind the function-owner boundary', () => {
-    const migrationSql = readBoundaryRepairMigration();
+    const migrationSql = readBoundaryRepairMigrations();
 
     expect(migrationSql).toMatch(
       /ALTER\s+FUNCTION\s+public\.create_storefront_order\([\s\S]*?\)\s+SECURITY\s+DEFINER/i
