@@ -101,6 +101,50 @@ describe('buildBuilderAiEditPrompt', () => {
     );
   });
 
+  it('projects safe existing carousel slides for targeted slide edits', () => {
+    const prompt = buildBuilderAiEditPrompt({
+      currentConfig: {
+        content: [
+          {
+            props: {
+              id: 'carousel-1',
+              slides: [
+                { image: 'private' },
+                { title: 'Second slide', ctaLink: 'javascript:alert(1)' },
+              ],
+            },
+            type: 'HeroCarousel',
+          },
+        ],
+        root: { title: 'Home' },
+      },
+      prompt: 'Update the second slide',
+    });
+
+    expect(prompt).toContain('Second slide');
+    expect(prompt).toContain('"slides":[{},{"title":"Second slide"}]');
+    expect(prompt).not.toContain('private');
+    expect(prompt).not.toContain('javascript:');
+  });
+
+  it('projects editable components stored in a component zone', () => {
+    const prompt = buildBuilderAiEditPrompt({
+      currentConfig: {
+        content: [],
+        root: { title: 'Home' },
+        zones: {
+          aside: [
+            { props: { id: 'zone-text', title: 'Zone title' }, type: 'Text' },
+          ],
+        },
+      },
+      prompt: 'Update the zone title',
+    });
+
+    expect(prompt).toContain('zone-text');
+    expect(prompt).toContain('Zone title');
+  });
+
   it('rejects component and serialized projection budgets before prompt construction', () => {
     const block = (id: string) => ({
       props: { id, title: 'Safe' },

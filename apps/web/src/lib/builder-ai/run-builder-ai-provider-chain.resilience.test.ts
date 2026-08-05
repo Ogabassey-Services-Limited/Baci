@@ -1,6 +1,7 @@
 import { builderAiEditTestFixture } from '@baci/shared/test-fixtures/builder-ai-edit';
 import { generateText } from 'ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BUILDER_AI_OPENROUTER_MODEL } from './builder-ai-provider-catalog';
 import { builderAiProviderCooldown } from './builder-ai-provider-cooldown';
 import { runBuilderAiProviderChain } from './run-builder-ai-provider-chain';
 
@@ -134,6 +135,28 @@ describe('runBuilderAiProviderChain resilience', () => {
     expect(generateText).toHaveBeenCalledTimes(2);
   });
 
+  it('normalizes model-selected insert ids before classifying a provider response', async () => {
+    vi.mocked(generateText).mockResolvedValueOnce({
+      output: {
+        operations: [
+          {
+            initialContent: {
+              componentType: 'Text',
+              content: 'Safe supporting copy',
+              id: 'model-selected-id',
+            },
+            kind: 'insert_component',
+            placement: { position: 'first_content' },
+          },
+        ],
+        status: 'proposed',
+        summary: 'Add supporting copy',
+      },
+    } as never);
+
+    await expect(run()).resolves.toMatchObject({ status: 'proposed' });
+  });
+
   it('prefers unavailable for a mixed quota and outage exhaustion', async () => {
     vi.mocked(generateText)
       .mockRejectedValueOnce(
@@ -205,6 +228,40 @@ describe('runBuilderAiProviderChain resilience', () => {
     expect(generateText).toHaveBeenCalledTimes(3);
     expect(vi.mocked(generateText).mock.calls[2]?.[0]?.model).toBe(
       providers[1]?.model
+    );
+  });
+
+  it('retries the reliable chain when only an opportunistic provider is available', async () => {
+    const providerChain = [
+      ...providers,
+      {
+        model: { id: 'openrouter' } as never,
+        name: `openrouter:${BUILDER_AI_OPENROUTER_MODEL}`,
+        opportunistic: true,
+      },
+    ];
+    const cooldown = {
+      isCoolingDown: (name: string) =>
+        name !== `openrouter:${BUILDER_AI_OPENROUTER_MODEL}`,
+    };
+    vi.mocked(generateText).mockResolvedValueOnce({
+      output: validPlan,
+    } as never);
+
+    await expect(
+      runBuilderAiProviderChain({
+        cooldown,
+        currentConfig: builderAiEditTestFixture.request.currentConfig,
+        deadlineAt: 20_000,
+        now: () => 0,
+        prompt: 'Update the hero',
+        providerChain,
+        signal: new AbortController().signal,
+      })
+    ).resolves.toEqual(validPlan);
+
+    expect(vi.mocked(generateText).mock.calls[0]?.[0]?.model).toBe(
+      providers[0]?.model
     );
   });
 });

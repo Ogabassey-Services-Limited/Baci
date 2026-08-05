@@ -41,6 +41,29 @@ function plan(operation: unknown): BuilderAiProposedPlan {
 }
 
 describe('applyBuilderAiEditPlan no-op behavior', () => {
+  it('updates an editable component stored in a zone', () => {
+    const zonedConfig: BuilderData = {
+      content: [],
+      root: { title: 'Home' },
+      zones: {
+        aside: [{ props: { id: 'zone-text', title: 'Before' }, type: 'Text' }],
+      },
+    };
+
+    const result = applyBuilderAiEditPlan(
+      zonedConfig,
+      plan({
+        componentId: 'zone-text',
+        kind: 'update_component',
+        patch: { componentType: 'Text', title: 'After' },
+      })
+    );
+
+    expect(result.candidateConfig.zones).toMatchObject({
+      aside: [{ props: { id: 'zone-text', title: 'After' }, type: 'Text' }],
+    });
+  });
+
   it.each([
     [
       {

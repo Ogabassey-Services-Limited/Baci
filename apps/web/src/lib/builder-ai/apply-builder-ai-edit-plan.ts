@@ -4,7 +4,10 @@ import {
   type BuilderData,
   builderAiEditContract,
 } from '@baci/shared/contracts';
-import { areBuilderAiPropValuesEqual } from './are-builder-ai-prop-values-equal';
+import {
+  applyBuilderAiCarouselPatch,
+  applyBuilderAiComponentPatch,
+} from './apply-builder-ai-component-patches';
 import {
   createInsertableComponentProps,
   isAiEditableComponent,
@@ -18,14 +21,19 @@ import {
 } from './builder-ai-structure-guards';
 import { applyBuilderAiTheme } from './builder-ai-theme-presets';
 import { createBuilderComponentId } from './create-builder-component-id';
+import {
+  type BuilderAiComponent,
+  findBuilderAiComponent,
+  getBuilderAiContentCollections,
+  hasDuplicateBuilderAiComponentIds,
+} from './get-builder-ai-content-collections';
 import { getBuilderAiRawPlanMediaWarning } from './get-builder-ai-raw-plan-media-warning';
 import { getBuilderComponentId } from './get-builder-component-id';
-import { getDuplicateBuilderAiComponentId } from './get-duplicate-builder-ai-component-id';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
 import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
 import { sanitizeBuilderAiProps } from './sanitize-builder-ai-props';
 
-type BuilderComponent = BuilderData['content'][number];
+type BuilderComponent = BuilderAiComponent;
 export class BuilderAiEditPlanError extends Error {}
 export interface ApplyBuilderAiEditPlanResult {
   candidateConfig: BuilderData;
@@ -38,16 +46,8 @@ function cloneConfig(config: BuilderData): BuilderData {
     throw new BuilderAiEditPlanError('Builder configuration cannot be cloned');
   }
 }
-function findIndex(content: BuilderComponent[], id: string): number {
-  const index = content.findIndex(
-    (component) => getBuilderComponentId(component) === id
-  );
-  if (index < 0)
-    throw new BuilderAiEditPlanError('Component target was not found');
-  return index;
-}
-function assertUniqueIds(content: BuilderComponent[]): void {
-  if (getDuplicateBuilderAiComponentId(content)) {
+function assertUniqueIds(config: BuilderData): void {
+  if (hasDuplicateBuilderAiComponentIds(config)) {
     throw new BuilderAiEditPlanError('Duplicate component id');
   }
 }
@@ -62,6 +62,7 @@ function getValidCandidate(
   return validation.candidateConfig;
 }
 function destinationIndex(
+  config: BuilderData,
   content: BuilderComponent[],
   placement: { componentId?: string; position: 'after' | 'first_content' }
 ): number {
@@ -73,7 +74,21 @@ function destinationIndex(
   const index =
     placement.position === 'first_content'
       ? bounds.first
-      : findIndex(content, placement.componentId ?? '') + 1;
+      : (() => {
+          const target = findBuilderAiComponent(
+            config,
+            placement.componentId ?? ''
+          );
+          if (!target) {
+            throw new BuilderAiEditPlanError('Component target was not found');
+          }
+          if (target.content !== content) {
+            throw new BuilderAiEditPlanError(
+              'Placement crosses a zone boundary'
+            );
+          }
+          return target.index + 1;
+        })();
   if (index < bounds.first || index > bounds.last) {
     throw new BuilderAiEditPlanError('Placement crosses a protected anchor');
   }
@@ -93,63 +108,6 @@ function assertMutable(component: BuilderComponent): void {
     throw new BuilderAiEditPlanError('Component is protected or unsupported');
   }
 }
-function applyComponentPatch(
-  component: BuilderComponent,
-  patch: Record<string, unknown>,
-  warnings: string[]
-): void {
-  const sanitized = sanitizeBuilderAiProps(component.type, patch);
-  pushWarnings(warnings, sanitized.warnings);
-  const changed = Object.entries(sanitized.props).some(
-    ([key, value]) => !areBuilderAiPropValuesEqual(component.props[key], value)
-  );
-  if (!changed) {
-    pushWarnings(warnings, [`No safe changes for ${component.type}.`]);
-    return;
-  }
-  component.props = { ...component.props, ...sanitized.props };
-}
-function applyCarouselPatch(
-  component: BuilderComponent,
-  operation: Extract<
-    BuilderAiModelOperation,
-    { kind: 'update_carousel_slide' }
-  >,
-  warnings: string[]
-): void {
-  if (
-    component.type !== 'HeroCarousel' ||
-    !Array.isArray(component.props.slides)
-  ) {
-    throw new BuilderAiEditPlanError('Carousel target was not found');
-  }
-  const slide = component.props.slides[operation.slideIndex];
-  if (!slide || typeof slide !== 'object' || Array.isArray(slide)) {
-    throw new BuilderAiEditPlanError('Carousel slide was not found');
-  }
-  const patch = Object.fromEntries(
-    ['ctaLink', 'ctaText', 'subtitle', 'title'].flatMap((key) =>
-      operation[key as keyof typeof operation] === undefined
-        ? []
-        : [[key, operation[key as keyof typeof operation]]]
-    )
-  );
-  const sanitized = sanitizeBuilderAiProps('Hero', patch);
-  pushWarnings(warnings, sanitized.warnings);
-  if (
-    !Object.entries(sanitized.props).some(
-      ([key, value]) => (slide as Record<string, unknown>)[key] !== value
-    )
-  ) {
-    pushWarnings(warnings, ['No safe changes for HeroCarousel.']);
-    return;
-  }
-  component.props.slides = component.props.slides.map((item, index) =>
-    index === operation.slideIndex
-      ? { ...(item as Record<string, unknown>), ...sanitized.props }
-      : item
-  );
-}
 function applyOperation(
   config: BuilderData,
   operation: BuilderAiModelOperation,
@@ -159,7 +117,10 @@ function applyOperation(
   const { content } = config;
   switch (operation.kind) {
     case 'update_component': {
-      const component = content[findIndex(content, operation.componentId)];
+      const target = findBuilderAiComponent(config, operation.componentId);
+      if (!target)
+        throw new BuilderAiEditPlanError('Component target was not found');
+      const component = target.content[target.index];
       if (
         !isAiEditableComponent(component.type) ||
         !isAiEditableComponent(operation.patch.componentType) ||
@@ -169,14 +130,31 @@ function applyOperation(
           'Component type does not match target'
         );
       }
-      applyComponentPatch(component, operation.patch, warnings);
+      pushWarnings(
+        warnings,
+        applyBuilderAiComponentPatch(component, operation.patch)
+      );
       return;
     }
     case 'update_carousel_slide':
-      applyCarouselPatch(
-        content[findIndex(content, operation.componentId)],
-        operation,
-        warnings
+      pushWarnings(
+        warnings,
+        applyBuilderAiCarouselPatch(
+          (() => {
+            const target = findBuilderAiComponent(
+              config,
+              operation.componentId
+            );
+            if (!target) {
+              throw new BuilderAiEditPlanError(
+                'Component target was not found'
+              );
+            }
+            return target.content[target.index];
+          })(),
+          operation,
+          (message) => new BuilderAiEditPlanError(message)
+        )
       );
       return;
     case 'insert_component': {
@@ -187,7 +165,9 @@ function applyOperation(
       }
       const id = createId(componentType);
       if (
-        content.some((component) => getBuilderComponentId(component) === id)
+        getBuilderAiContentCollections(config).some((items) =>
+          items.some((component) => getBuilderComponentId(component) === id)
+        )
       ) {
         throw new BuilderAiEditPlanError('Generated component id collides');
       }
@@ -199,15 +179,21 @@ function applyOperation(
         componentType,
         sanitized.props
       );
-      content.splice(destinationIndex(content, operation.placement), 0, {
-        props: { ...props, id },
-        type: componentType,
-      });
+      content.splice(
+        destinationIndex(config, content, operation.placement),
+        0,
+        {
+          props: { ...props, id },
+          type: componentType,
+        }
+      );
       return;
     }
     case 'remove_component': {
-      const index = findIndex(content, operation.componentId);
-      const component = content[index];
+      const target = findBuilderAiComponent(config, operation.componentId);
+      if (!target)
+        throw new BuilderAiEditPlanError('Component target was not found');
+      const component = target.content[target.index];
       assertMutable(component);
       if (
         isRenderedH1Hero(component) &&
@@ -215,21 +201,27 @@ function applyOperation(
       ) {
         throw new BuilderAiEditPlanError('Cannot remove the final H1 Hero');
       }
-      content.splice(index, 1);
+      target.content.splice(target.index, 1);
       return;
     }
     case 'move_component': {
-      const source = findIndex(content, operation.componentId);
-      const component = content[source];
+      const source = findBuilderAiComponent(config, operation.componentId);
+      if (!source)
+        throw new BuilderAiEditPlanError('Component target was not found');
+      const component = source.content[source.index];
       assertMutable(component);
-      let destination = destinationIndex(content, operation.destination);
-      if (source < destination) destination -= 1;
-      if (source === destination) {
+      let destination = destinationIndex(
+        config,
+        source.content,
+        operation.destination
+      );
+      if (source.index < destination) destination -= 1;
+      if (source.index === destination) {
         pushWarnings(warnings, ['No safe changes for move.']);
         return;
       }
-      content.splice(source, 1);
-      content.splice(destination, 0, component);
+      source.content.splice(source.index, 1);
+      source.content.splice(destination, 0, component);
       return;
     }
     case 'update_root': {
@@ -276,7 +268,7 @@ export function applyBuilderAiEditPlan(
   if (!parsedPlan.success || parsedPlan.data.status !== 'proposed') {
     throw new BuilderAiEditPlanError('Invalid builder AI edit plan');
   }
-  assertUniqueIds(candidateConfig.content);
+  assertUniqueIds(candidateConfig);
   const warnings: string[] = [];
 
   for (const operation of parsedPlan.data.operations) {
@@ -286,7 +278,7 @@ export function applyBuilderAiEditPlan(
       if (error instanceof BuilderAiEditPlanError) throw error;
       throw new BuilderAiEditPlanError('Unable to apply builder AI edit plan');
     }
-    assertUniqueIds(candidateConfig.content);
+    assertUniqueIds(candidateConfig);
     const structureFailure = getBuilderAiStructuralFailure(
       candidateConfig.content,
       baseline

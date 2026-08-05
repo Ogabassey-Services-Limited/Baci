@@ -7,6 +7,7 @@ import {
   getBuilderAiCatalogProjection,
   isAiEditableComponent,
 } from './builder-ai-component-catalog';
+import { getBuilderAiContentCollections } from './get-builder-ai-content-collections';
 import { sanitizeBuilderAiProps } from './sanitize-builder-ai-props';
 
 interface PromptInput {
@@ -68,14 +69,45 @@ function serializeQuotedData(value: unknown): string {
     .replaceAll('&', '\\u0026');
 }
 
-function project(currentConfig: BuilderData) {
-  return currentConfig.content.flatMap((component) => {
-    if (!isAiEditableComponent(component.type)) return [];
-    const id = component.props.id;
-    if (typeof id !== 'string' || id.length === 0) return [];
-    const { props } = sanitizeBuilderAiProps(component.type, component.props);
-    return [{ id, props, type: component.type }];
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function projectCarouselSlides(props: Record<string, unknown>): unknown[] {
+  if (!Array.isArray(props.slides)) return [];
+  return props.slides.slice(0, 5).map((slide) => {
+    if (!isRecord(slide)) return {};
+    const { props: safeSlide } = sanitizeBuilderAiProps('Hero', slide);
+    return safeSlide;
   });
+}
+
+function project(
+  currentConfig: BuilderData
+): Array<{ id: string; props: Record<string, unknown>; type: string }> {
+  const projection: Array<{
+    id: string;
+    props: Record<string, unknown>;
+    type: string;
+  }> = [];
+  for (const content of getBuilderAiContentCollections(currentConfig)) {
+    for (const component of content) {
+      if (!isAiEditableComponent(component.type)) continue;
+      const id = component.props.id;
+      if (typeof id !== 'string' || id.length === 0) continue;
+      const { props } = sanitizeBuilderAiProps(component.type, component.props);
+      if (component.type === 'HeroCarousel') {
+        projection.push({
+          id,
+          props: { slides: projectCarouselSlides(component.props) },
+          type: component.type,
+        });
+        continue;
+      }
+      projection.push({ id, props, type: component.type });
+    }
+  }
+  return projection;
 }
 
 export function buildBuilderAiEditPrompt({

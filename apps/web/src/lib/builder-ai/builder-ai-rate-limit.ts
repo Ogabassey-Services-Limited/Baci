@@ -12,6 +12,9 @@ export function checkBuilderAiRateLimit(
   identifier: string,
   now: number = Date.now()
 ): BuilderAiRateLimitResult {
+  for (const [key, value] of usage) {
+    if (value.resetAt <= now) usage.delete(key);
+  }
   const existing = usage.get(identifier);
   if (!existing || existing.resetAt <= now) {
     usage.set(identifier, { count: 1, resetAt: now + WINDOW_MS });

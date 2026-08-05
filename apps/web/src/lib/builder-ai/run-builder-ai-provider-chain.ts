@@ -10,6 +10,7 @@ import {
   hasCanonicalBuilderAiProviderOrder,
 } from './builder-ai-provider-catalog';
 import { builderAiProviderCooldown } from './builder-ai-provider-cooldown';
+import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
 
 const RESPONSE_MARGIN_MS = builderAiPlanOutputBudget.routeResponseMarginMs;
 const RELIABLE_PROVIDER_TAIL_RESERVE_MS = 8_000;
@@ -127,8 +128,12 @@ export async function runBuilderAiProviderChain({
   const availableProviders = providerChain.filter(
     (provider) => !cooldown?.isCoolingDown(provider.name)
   );
-  const providersToAttempt =
-    availableProviders.length > 0 ? availableProviders : providerChain;
+  const hasAvailableReliableProvider = availableProviders.some(
+    (provider) => !provider.opportunistic
+  );
+  const providersToAttempt = hasAvailableReliableProvider
+    ? availableProviders
+    : providerChain;
   for (const [providerIndex, provider] of providersToAttempt.entries()) {
     const remainingMs = deadlineAt - now();
     if (remainingMs <= RESPONSE_MARGIN_MS) break;
@@ -143,7 +148,9 @@ export async function runBuilderAiProviderChain({
       if (signal.aborted || signalForAttempt.aborted) break;
       try {
         const output = await requestPlan(provider, prompt, signalForAttempt);
-        const parsed = builderAiEditContract.modelPlanSchema.safeParse(output);
+        const parsed = builderAiEditContract.modelPlanSchema.safeParse(
+          normalizeBuilderAiModelPlan(output)
+        );
         if (!parsed.success || !validateSemantics(parsed.data, currentConfig)) {
           sawInvalidOutput = true;
           logSafeFailure(logger, provider, new Error('BuilderAiInvalidOutput'));
