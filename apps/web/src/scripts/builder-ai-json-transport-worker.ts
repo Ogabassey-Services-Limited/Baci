@@ -88,7 +88,7 @@ export async function runProviderSmoke(
 async function loadProviders(sourcePath: string) {
   const source = await validateBuilderAiSmokeEnvironmentSource(sourcePath);
   if (!source) return null;
-  const loaded = loadDotenv({ override: false, path: source.path, quiet: true });
+  const loaded = loadDotenv({ override: true, path: source.path, quiet: true });
   if (loaded.error) return null;
   return materializeBuilderAiProviderChain(undefined, undefined, 'smoke').providers;
 }

@@ -7,6 +7,7 @@ import { getBuilderComponentId } from './get-builder-component-id';
 import { getDuplicateBuilderAiComponentId } from './get-duplicate-builder-ai-component-id';
 
 interface ProtectedAnchor {
+  collection: number;
   id: string | undefined;
   type: 'Footer' | 'Header';
 }
@@ -32,7 +33,7 @@ function isBuilderComponentList(
 }
 
 export interface BuilderAiStructuralBaseline {
-  componentAnchorRegions: Map<string, number>;
+  componentAnchorRegions: Map<string, string>;
   footers: number;
   headers: number;
   protectedAnchors: ProtectedAnchor[];
@@ -49,25 +50,27 @@ function contentCollections(
   ];
 }
 
-function getProtectedAnchorSnapshot(content: BuilderData['content']): {
-  componentAnchorRegions: Map<string, number>;
+function getProtectedAnchorSnapshot(content: BuilderData['content'][]): {
+  componentAnchorRegions: Map<string, string>;
   protectedAnchors: ProtectedAnchor[];
 } {
-  const componentAnchorRegions = new Map<string, number>();
+  const componentAnchorRegions = new Map<string, string>();
   const protectedAnchors: ProtectedAnchor[] = [];
-  let region = 0;
-
-  for (const component of content) {
-    if (component.type === 'Footer' || component.type === 'Header') {
-      protectedAnchors.push({
-        id: getBuilderComponentId(component),
-        type: component.type,
-      });
-      region += 1;
-      continue;
+  for (const [collection, components] of content.entries()) {
+    let region = 0;
+    for (const component of components) {
+      if (component.type === 'Footer' || component.type === 'Header') {
+        protectedAnchors.push({
+          collection,
+          id: getBuilderComponentId(component),
+          type: component.type,
+        });
+        region += 1;
+        continue;
+      }
+      const id = getBuilderComponentId(component);
+      if (id) componentAnchorRegions.set(id, `${collection}:${region}`);
     }
-    const id = getBuilderComponentId(component);
-    if (id) componentAnchorRegions.set(id, region);
   }
 
   return { componentAnchorRegions, protectedAnchors };
@@ -82,6 +85,7 @@ function hasSameProtectedAnchors(
     current.every(
       (anchor, index) =>
         anchor.id === baseline[index]?.id &&
+        anchor.collection === baseline[index]?.collection &&
         anchor.type === baseline[index]?.type
     )
   );
@@ -90,9 +94,8 @@ function hasSameProtectedAnchors(
 export function getBuilderAiStructuralBaseline(
   config: BuilderData | BuilderData['content']
 ): BuilderAiStructuralBaseline {
-  const content = Array.isArray(config) ? config : config.content;
   const collections = contentCollections(config);
-  const anchors = getProtectedAnchorSnapshot(content);
+  const anchors = getProtectedAnchorSnapshot(collections);
   return {
     ...anchors,
     footers: collections
@@ -112,7 +115,6 @@ export function getBuilderAiStructuralFailure(
   baseline: BuilderAiStructuralBaseline,
   enforceRequiredProductGrid = true
 ): string | undefined {
-  const content = Array.isArray(config) ? config : config.content;
   const collections = contentCollections(config);
   const count = (type: string) =>
     collections.flat().filter((component) => component.type === type).length;
@@ -122,7 +124,7 @@ export function getBuilderAiStructuralFailure(
   ) {
     return 'Protected component cardinality changed';
   }
-  const anchors = getProtectedAnchorSnapshot(content);
+  const anchors = getProtectedAnchorSnapshot(collections);
   if (
     !hasSameProtectedAnchors(
       anchors.protectedAnchors,
@@ -133,7 +135,13 @@ export function getBuilderAiStructuralFailure(
   }
   for (const [id, region] of baseline.componentAnchorRegions) {
     const currentRegion = anchors.componentAnchorRegions.get(id);
-    if (currentRegion !== undefined && currentRegion !== region) {
+    const [baselineCollection] = region.split(':');
+    const [currentCollection] = currentRegion?.split(':') ?? [];
+    if (
+      currentRegion !== undefined &&
+      baselineCollection === currentCollection &&
+      currentRegion !== region
+    ) {
       return 'Component moved across a protected anchor';
     }
   }
@@ -144,7 +152,7 @@ export function getBuilderAiStructuralFailure(
   ) {
     return 'A storefront requires one ProductGrid';
   }
-  return content.length > 500
+  return collections.flat().length > 500
     ? 'Builder document has too many blocks'
     : undefined;
 }

@@ -198,7 +198,11 @@ function applyOperation(
           ? operation.destination.componentId
           : ''
       );
-      const destinationContent = destinationTarget?.content ?? source.content;
+      const destinationContent =
+        destinationTarget?.content ??
+        (operation.destination.position === 'first_content'
+          ? content
+          : source.content);
       let destination = getBuilderAiDestinationIndex(
         config,
         destinationContent,

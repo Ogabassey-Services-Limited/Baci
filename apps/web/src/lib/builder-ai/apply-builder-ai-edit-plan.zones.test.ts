@@ -85,4 +85,28 @@ describe('applyBuilderAiEditPlan zones', () => {
       )
     ).toEqual(['zone-text', 'root-text']);
   });
+
+  it('moves zoned content to root first_content', () => {
+    const config: BuilderData = {
+      content: [block('Header', 'header-1'), block('Footer', 'footer-1')],
+      root: { title: 'Home' },
+      zones: { aside: [block('Text', 'zone-text')] },
+    };
+
+    const result = applyBuilderAiEditPlan(
+      config,
+      plan([
+        {
+          componentId: 'zone-text',
+          destination: { position: 'first_content' },
+          kind: 'move_component',
+        },
+      ])
+    );
+
+    expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
+      ['header-1', 'zone-text', 'footer-1']
+    );
+    expect(result.candidateConfig.zones?.aside).toEqual([]);
+  });
 });

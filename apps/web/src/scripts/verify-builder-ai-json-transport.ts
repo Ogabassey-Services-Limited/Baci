@@ -93,7 +93,7 @@ export async function verifyBuilderAiJsonTransport(
 
   try {
     const loaded = dependencies.loadEnvironment({
-      override: false,
+      override: true,
       path: source.path,
       quiet: true,
     });

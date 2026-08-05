@@ -26,4 +26,17 @@ describe('verifyBuilderAiJsonTransport refusal contract', () => {
     await expect(verifyBuilderAiJsonTransport(dependencies)).resolves.toBe(1);
     expect(dependencies.runProvider).not.toHaveBeenCalled();
   });
+
+  it('loads the approved environment over inherited credentials', async () => {
+    const dependencies = createDependencies();
+    delete dependencies.runWorkerCommand;
+    const { verifyBuilderAiJsonTransport } = await loadSmokeModule();
+
+    await expect(verifyBuilderAiJsonTransport(dependencies)).resolves.toBe(0);
+    expect(dependencies.loadEnvironment).toHaveBeenCalledWith({
+      override: true,
+      path: '/primary/apps/web/.env',
+      quiet: true,
+    });
+  });
 });

@@ -11,6 +11,7 @@ import { checkBuilderAiRateLimit } from '@/lib/builder-ai/builder-ai-rate-limit'
 import { getBuilderAiRawPlanMediaWarning } from '@/lib/builder-ai/get-builder-ai-raw-plan-media-warning';
 import { logBuilderAiEvent } from '@/lib/builder-ai/log-builder-ai-event';
 import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-builder-ai-provider-chain';
+import { normalizeBuilderAiComponentIds } from '@/lib/builder-ai/normalize-builder-ai-component-ids';
 import { prepareBuilderAiEditPromptResponse } from '@/lib/builder-ai/prepare-builder-ai-edit-prompt-response';
 import { runBuilderAiProviderChain } from '@/lib/builder-ai/run-builder-ai-provider-chain';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -21,6 +22,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderGeminiRequestSchema } from '@/schemas/builder-gemini-request';
+import { createBuilderAiRateLimitResponse } from './create-builder-ai-rate-limit-response';
 import { getBuilderAiCsrfRequest } from './get-builder-ai-csrf-request';
 
 type Authentication = Omit<
@@ -164,6 +166,7 @@ export async function handleBuilderAiEditRequest(
       { status: 400 }
     );
   }
+  parsed.currentConfig = normalizeBuilderAiComponentIds(parsed.currentConfig);
   let merchant: MerchantContext | null;
   try {
     merchant = await seams.getMerchant(auth.supabase, auth.user.id, {
@@ -182,14 +185,7 @@ export async function handleBuilderAiEditRequest(
   }
   const rate = seams.rateLimit(`builder:${auth.user.id}`);
   if (!rate.allowed) {
-    return NextResponse.json(
-      {
-        code: 'rate_limited',
-        error: 'Rate limit exceeded',
-        requestId: parsed.clientRequestId,
-      },
-      { headers: { 'X-RateLimit-Remaining': '0' }, status: 429 }
-    );
+    return createBuilderAiRateLimitResponse(mode, parsed.clientRequestId);
   }
   const promptResult = prepareBuilderAiEditPromptResponse({
     currentConfig: parsed.currentConfig,

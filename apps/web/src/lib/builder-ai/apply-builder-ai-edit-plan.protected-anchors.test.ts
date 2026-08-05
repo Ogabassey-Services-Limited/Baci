@@ -33,6 +33,36 @@ function ids(result: ReturnType<typeof applyBuilderAiEditPlan>): string[] {
 }
 
 describe('applyBuilderAiEditPlan protected anchors', () => {
+  it('rejects moving zoned content across a zoned protected anchor', () => {
+    const input: BuilderData = {
+      content: [block('Header', 'root-header'), block('Footer', 'root-footer')],
+      root: { title: 'Home' },
+      zones: {
+        aside: [
+          block('Text', 'before-zone-header'),
+          block('Header', 'zone-header'),
+          block('Text', 'after-zone-header'),
+        ],
+      },
+    };
+
+    expect(() =>
+      applyBuilderAiEditPlan(
+        input,
+        plan([
+          {
+            componentId: 'before-zone-header',
+            destination: {
+              componentId: 'after-zone-header',
+              position: 'after',
+            },
+            kind: 'move_component',
+          },
+        ])
+      )
+    ).toThrow('Component moved across a protected anchor');
+  });
+
   it('allows inserts immediately before and after a non-leading Header', () => {
     const result = applyBuilderAiEditPlan(
       config([

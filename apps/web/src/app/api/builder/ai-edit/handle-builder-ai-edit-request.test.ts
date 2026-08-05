@@ -244,6 +244,67 @@ describe('handleBuilderAiEditRequest', () => {
     expect(materializeProviders).not.toHaveBeenCalled();
   });
 
+  it('seeds a missing component id before projecting the AI prompt', async () => {
+    const runProviderChain = vi.fn().mockResolvedValue({
+      operations: [],
+      reason: 'No edit',
+      status: 'refused',
+    });
+    const currentConfig = {
+      ...builderAiEditTestFixture.request.currentConfig,
+      content: builderAiEditTestFixture.request.currentConfig.content.map(
+        (component) =>
+          component.type === 'Hero'
+            ? { ...component, props: { ...component.props, id: undefined } }
+            : component
+      ),
+    };
+    const response = await handleBuilderAiEditRequest(
+      new Request('http://localhost/api/builder/ai-edit', { method: 'POST' }),
+      {
+        dependencies: permittedDependencies({
+          readBody: async () => ({
+            body: { ...builderAiEditTestFixture.request, currentConfig },
+            ok: true as const,
+          }),
+          runProviderChain,
+        }) as never,
+      }
+    );
+
+    expect(response.status).toBe(422);
+    expect(runProviderChain).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringMatching(/"id":"hero-/) })
+    );
+  });
+
+  it('preserves retry guidance for a rate-limited legacy builder request', async () => {
+    const response = await handleBuilderAiEditRequest(
+      new Request('http://localhost/api/builder/gemini', { method: 'POST' }),
+      {
+        dependencies: permittedDependencies({
+          rateLimit: () => ({ allowed: false, remaining: 0, resetIn: 60_000 }),
+          readBody: async () => ({
+            body: {
+              currentConfig: builderAiEditTestFixture.request.currentConfig,
+              merchantId: builderAiEditTestFixture.request.merchantId,
+              prompt: builderAiEditTestFixture.request.prompt,
+            },
+            ok: true as const,
+          }),
+        }) as never,
+        mode: 'legacy',
+      }
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        details: 'Rate limit exceeded. Please try again later.',
+      })
+    );
+  });
+
   it('rejects an oversized prompt projection before provider materialization', async () => {
     const materializeProviders = vi.fn();
     const currentConfig = {
