@@ -20,6 +20,8 @@ const SIM_MODE_TOKENS = new Set([
 ]);
 const STORAGE_TOKEN_PATTERN = /^\d+(?:gb|tb|mb)$/u;
 const DIMENSION_TOKEN_PATTERN = /^\d+(?:mm|inch)$/u;
+const HARDWARE_TIER_TOKEN_PATTERN =
+  /^(?:coreultra\d+|rtx\d+|corei[3579]|i[3579]|\d{4,}[uhtpkgfy])$/u;
 
 function matchesTokenMultiset(tokens: string[], expected: string[]) {
   const sortedTokens = [...tokens].sort();
@@ -35,7 +37,7 @@ function matchesExpectedGroup(
   occurrenceTokens: string[],
   expectedTokens: string[]
 ) {
-  if (['connectivity', 'sim', 'color'].includes(group)) {
+  if (['connectivity', 'sim', 'color', 'hardware'].includes(group)) {
     return matchesTokenMultiset(occurrenceTokens, expectedTokens);
   }
   return expectedTokens.every((token) => occurrenceTokens.includes(token));
@@ -53,6 +55,9 @@ function getTokenGroup(token: string) {
   }
   if (DIMENSION_TOKEN_PATTERN.test(token)) {
     return 'dimension';
+  }
+  if (HARDWARE_TIER_TOKEN_PATTERN.test(token)) {
+    return 'hardware';
   }
   if (isProductVariantColorToken(token)) {
     return 'color';

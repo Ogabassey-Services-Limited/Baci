@@ -183,7 +183,7 @@ function stripGeneratedCollisionSuffix(tokens: string[]) {
   if (tokens.length < 2 || !/^\d$/u.test(lastToken)) {
     return tokens;
   }
-  if (['gen', 'generation'].includes(previousToken)) {
+  if (['gen', 'generation', 'rtx', 'ultra'].includes(previousToken)) {
     return tokens;
   }
   if (previousToken === 'in' && /^\d+$/u.test(tokens.at(-3) ?? '')) {

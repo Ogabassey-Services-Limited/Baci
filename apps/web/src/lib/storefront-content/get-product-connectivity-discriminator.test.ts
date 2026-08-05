@@ -56,14 +56,14 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual(['256gb']);
   });
 
-  it('does not treat a lone 32GB laptop memory suffix as storage', () => {
+  it('retains the CPU tier while excluding a lone 32GB laptop memory suffix', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Dell XPS 13 9340 Intel Core Ultra 7 32GB'],
       [],
       'laptops'
     );
 
-    expect(discriminators).toEqual([]);
+    expect(discriminators).toEqual(['coreultra7']);
   });
 
   it('uses aligned slug storage when a laptop name only contains RAM', () => {
@@ -208,5 +208,32 @@ describe('getProductConnectivityDiscriminators', () => {
     );
 
     expect(discriminators).toEqual(['14inch']);
+  });
+
+  it('retains stripped laptop CPU and GPU tiers as PDP variants', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Dell XPS 13 9340 Core Ultra 7'],
+        [],
+        'laptops'
+      )
+    ).toEqual(['coreultra7']);
+    expect(
+      getProductConnectivityDiscriminators(
+        ['ASUS ROG G16 RTX 4060'],
+        [],
+        'gaming-laptops'
+      )
+    ).toEqual(['rtx4060']);
+  });
+
+  it('canonicalizes bare terabyte-equivalent PDP storage', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Samsung Galaxy S25 Ultra 1024'],
+      [],
+      'smartphones'
+    );
+
+    expect(discriminators).toEqual(['1tb']);
   });
 });

@@ -1,4 +1,5 @@
 import type { SupportedClusterCategory } from './content-cluster-types';
+import { getLaptopHardwareDiscriminatorTokens } from './get-laptop-hardware-discriminator-tokens';
 import { isProductVariantColorToken } from './is-product-variant-color-token';
 import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
@@ -150,6 +151,9 @@ export function getProductConnectivityDiscriminators(
     },
     null
   );
+  const laptopHardwareTokens = new Set(
+    getLaptopHardwareDiscriminatorTokens(tokens, categorySlug)
+  );
   return tokens.filter(
     (token, tokenIndex) =>
       CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token) ||
@@ -158,6 +162,7 @@ export function getProductConnectivityDiscriminators(
       (categorySlug === 'monitors' &&
         REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||
+      laptopHardwareTokens.has(token) ||
       (tokenIndex === tokens.length - 1 &&
         isProductVariantRegionToken(token)) ||
       token === strongestStorageToken

@@ -1,6 +1,7 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import { generateSlug } from '@/lib/seo-utils';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
+import { getLaptopHardwareDiscriminatorTokens } from './get-laptop-hardware-discriminator-tokens';
 import { getProductGuideModelIdentifiers } from './get-product-guide-model-identifiers';
 import { isProductVariantColorToken } from './is-product-variant-color-token';
 import { isProductVariantRegionToken } from './is-product-variant-region-token';
@@ -94,6 +95,9 @@ function getSourceDiscriminatorTokens(
   const seen = new Set<string>();
   const discriminatorTokens: string[] = [];
   const sourceTokens = tokenizeVariantSource(source);
+  const laptopHardwareTokens = new Set(
+    getLaptopHardwareDiscriminatorTokens(sourceTokens, categorySlug)
+  );
   for (const [index, token] of sourceTokens.entries()) {
     const storageCapacity = Number(token.match(/^(\d+)gb$/u)?.[1] ?? 0);
     const isLikelyRam =
@@ -105,6 +109,7 @@ function getSourceDiscriminatorTokens(
       !identifierTokens.has(token) &&
       !isLikelyRam &&
       (VARIANT_DISCRIMINATOR_PATTERN.test(token) ||
+        laptopHardwareTokens.has(token) ||
         isProductVariantColorToken(token) ||
         (index === sourceTokens.length - 1 &&
           isProductVariantRegionToken(token))) &&

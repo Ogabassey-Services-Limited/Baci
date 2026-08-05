@@ -46,4 +46,27 @@ describe('normalizeVariantDiscriminatorTokens', () => {
 
     expect(tokens).toEqual(['samsung', 'galaxy', 's25', '256gb']);
   });
+
+  it('canonicalizes equivalent GB and TB storage capacities', () => {
+    expect(normalizeVariantDiscriminatorTokens(['1024gb', '2', 'tb'])).toEqual([
+      '1tb',
+      '2tb',
+    ]);
+  });
+
+  it('canonicalizes a bare terabyte-equivalent terminal capacity', () => {
+    const tokens = normalizeVariantDiscriminatorTokens([
+      's25',
+      'ultra',
+      '1024',
+    ]);
+
+    expect(tokens).toEqual(['s25', 'ultra', '1tb']);
+  });
+
+  it('canonicalizes multi-token laptop hardware tiers', () => {
+    expect(
+      normalizeVariantDiscriminatorTokens(['core', 'ultra', '7', 'rtx', '4060'])
+    ).toEqual(['coreultra7', 'rtx4060']);
+  });
 });

@@ -13,4 +13,8 @@ describe('isBareCapacityMetadataToken', () => {
   it('recognizes a terminal common storage capacity after an established model', () => {
     expect(isBareCapacityMetadataToken(['s25', '256'], 1)).toBe(true);
   });
+
+  it('recognizes terminal storage after an established numeric model family', () => {
+    expect(isBareCapacityMetadataToken(['iphone', '15', '256'], 2)).toBe(true);
+  });
 });
