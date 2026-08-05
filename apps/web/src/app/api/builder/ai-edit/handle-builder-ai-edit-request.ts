@@ -10,7 +10,7 @@ import { applyBuilderAiEditPlan } from '@/lib/builder-ai/apply-builder-ai-edit-p
 import { checkBuilderAiRateLimit } from '@/lib/builder-ai/builder-ai-rate-limit';
 import { logBuilderAiEvent } from '@/lib/builder-ai/log-builder-ai-event';
 import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-builder-ai-provider-chain';
-import { prepareBuilderAiEditPrompt } from '@/lib/builder-ai/prepare-builder-ai-edit-prompt';
+import { prepareBuilderAiEditPromptResponse } from '@/lib/builder-ai/prepare-builder-ai-edit-prompt-response';
 import { runBuilderAiProviderChain } from '@/lib/builder-ai/run-builder-ai-provider-chain';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
@@ -184,20 +184,12 @@ export async function handleBuilderAiEditRequest(
       { headers: { 'X-RateLimit-Remaining': '0' }, status: 429 }
     );
   }
-  const preparedPrompt = prepareBuilderAiEditPrompt({
+  const promptResult = prepareBuilderAiEditPromptResponse({
     currentConfig: parsed.currentConfig,
     prompt: parsed.prompt,
+    requestId: parsed.clientRequestId,
   });
-  if (!preparedPrompt.ok) {
-    return NextResponse.json(
-      {
-        code: preparedPrompt.code,
-        error: preparedPrompt.error,
-        requestId: parsed.clientRequestId,
-      },
-      { status: 413 }
-    );
-  }
+  if ('response' in promptResult) return promptResult.response;
   const materialized = seams.materializeProviders();
   if (materialized.providers.length === 0) {
     return responseForProviderError(
@@ -238,7 +230,7 @@ export async function handleBuilderAiEditRequest(
           );
         },
       },
-      prompt: preparedPrompt.prompt,
+      prompt: promptResult.prompt,
       providerChain: materialized.providers,
       signal: AbortSignal.timeout(24_000),
       validateSemantics: (candidate) =>
@@ -284,7 +276,7 @@ export async function handleBuilderAiEditRequest(
     warningCount: candidate.warnings.length,
   });
   if (mode === 'legacy') {
-    logBuilderAiEvent('builder_ai_legacy_contract_used', {
+    logBuilderAiEvent('legacy_contract_used', {
       merchantId: merchant.merchantId,
       requestId: parsed.clientRequestId,
       userId: auth.user.id,

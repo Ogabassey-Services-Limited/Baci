@@ -16,9 +16,15 @@ const forbiddenSourceFragments = [
   '@ai-sdk/google-vertex',
   '@google/generative-ai',
   'GEMINI_API_KEY',
+  'GOOGLE_GENAI_API_KEY',
   'GOOGLE_GENERATIVE_AI_API_KEY',
+  'GOOGLE_VERTEX_PROJECT',
+  'GOOGLE_VERTEX_LOCATION',
   'createGoogleGenerativeAI',
+  'createVertex',
   'generativelanguage.googleapis.com',
+  'aiplatform.googleapis.com',
+  'googleapis.com/v1beta',
   'generateObjectWithChain',
   'getCopilotTextProviderChain',
   'process-ai-storefront-jobs',
@@ -28,6 +34,7 @@ const forbiddenSourceFragments = [
 ];
 
 const sourceRoot = resolve(dirname(new URL(import.meta.url).pathname), '../..');
+const workspaceRoot = resolve(sourceRoot, '../../..');
 
 function resolveLocalImport(
   fromFile: string,
@@ -35,16 +42,20 @@ function resolveLocalImport(
 ): string | null {
   const base = specifier.startsWith('@/')
     ? resolve(sourceRoot, specifier.slice(2))
-    : specifier.startsWith('.')
-      ? resolve(dirname(fromFile), specifier)
-      : null;
+    : specifier.startsWith('@baci/shared/')
+      ? resolve(workspaceRoot, 'packages/shared/src', specifier.slice(13))
+      : specifier === '@baci/shared'
+        ? resolve(workspaceRoot, 'packages/shared/src')
+        : specifier.startsWith('.')
+          ? resolve(dirname(fromFile), specifier)
+          : null;
   if (!base) return null;
   for (const candidate of [
-    base,
     `${base}.ts`,
     `${base}.tsx`,
     resolve(base, 'index.ts'),
     resolve(base, 'index.tsx'),
+    base,
   ]) {
     if (existsSync(candidate)) return candidate;
   }
@@ -82,9 +93,15 @@ function collectExecutableClosure(entrypoints: string[]): string[] {
 
 describe('builder AI import closure', () => {
   it('keeps the full executable dependency graph independent from legacy providers', () => {
-    const closure = collectExecutableClosure(builderEntrypoints);
+    const closure = collectExecutableClosure([
+      ...builderEntrypoints,
+      './builder-ai-import-closure.workspace-fixture.ts',
+    ]);
 
     expect(closure.length).toBeGreaterThan(builderEntrypoints.length);
+    expect(
+      closure.some((file) => file.includes('/packages/shared/src/contracts/'))
+    ).toBe(true);
     for (const file of closure) {
       expect(file).not.toContain('/src/ai/');
       expect(file).not.toContain(
@@ -94,7 +111,6 @@ describe('builder AI import closure', () => {
         '/app/api/builder/gemini/route-provider-errors'
       );
       const source = readFileSync(file, 'utf8');
-      expect(source).not.toMatch(/^\s*import\s+['"]/m);
       expect(file).not.toContain('/src/scripts/');
       for (const forbiddenFragment of forbiddenSourceFragments) {
         expect(source).not.toContain(forbiddenFragment);

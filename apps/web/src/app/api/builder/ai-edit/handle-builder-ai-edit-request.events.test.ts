@@ -119,7 +119,7 @@ describe('handleBuilderAiEditRequest event logging', () => {
     expect(info).toHaveBeenCalledWith(
       'builder_ai_event',
       expect.objectContaining({
-        event: 'builder_ai_legacy_contract_used',
+        event: 'legacy_contract_used',
         requestId: expect.any(String),
       })
     );

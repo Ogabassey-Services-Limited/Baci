@@ -56,29 +56,32 @@ describe('runBuilderAiProviderChain resilience', () => {
 
   it('reserves an eight-second reliable tail while a hung primary advances the clock', async () => {
     const timeouts: number[] = [];
-    const clock = [0, 12_000, 12_000];
+    let now = 0;
     vi.spyOn(AbortSignal, 'timeout').mockImplementation((milliseconds) => {
       timeouts.push(milliseconds);
       return new AbortController().signal;
     });
     vi.mocked(generateText)
-      .mockResolvedValueOnce({
-        output: { operations: [], status: 'proposed', summary: '' },
-      } as never)
+      .mockImplementationOnce(async () => {
+        now = 16_000;
+        return {
+          output: { operations: [], status: 'proposed', summary: '' },
+        } as never;
+      })
       .mockResolvedValueOnce({ output: validPlan } as never);
 
     await expect(
       runBuilderAiProviderChain({
         currentConfig: builderAiEditTestFixture.request.currentConfig,
         deadlineAt: 25_000,
-        now: () => clock.shift() ?? 12_000,
+        now: () => now,
         prompt: 'Update the hero',
         providerChain: providers,
         signal: new AbortController().signal,
       })
     ).resolves.toEqual(validPlan);
 
-    expect(timeouts).toEqual([4_000, 12_000]);
+    expect(timeouts).toEqual([16_000, 8_000]);
   });
 
   it('recognizes a structured SDK 429, skips duplicate retries, and falls through', async () => {

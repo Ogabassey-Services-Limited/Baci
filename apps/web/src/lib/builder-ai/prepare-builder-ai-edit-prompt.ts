@@ -1,5 +1,8 @@
 import type { BuilderData } from '@baci/shared/contracts';
-import { buildBuilderAiEditPrompt } from './build-builder-ai-edit-prompt';
+import {
+  BuilderAiPromptProjectionTooLargeError,
+  buildBuilderAiEditPrompt,
+} from './build-builder-ai-edit-prompt';
 
 type PreparedBuilderAiEditPrompt =
   | { ok: true; prompt: string }
@@ -21,7 +24,8 @@ export function prepareBuilderAiEditPrompt({
       ok: true,
       prompt: buildBuilderAiEditPrompt({ currentConfig, prompt }),
     };
-  } catch {
+  } catch (error) {
+    if (!(error instanceof BuilderAiPromptProjectionTooLargeError)) throw error;
     return {
       code: 'builder_ai_prompt_too_large',
       error: 'Builder AI request is too large',

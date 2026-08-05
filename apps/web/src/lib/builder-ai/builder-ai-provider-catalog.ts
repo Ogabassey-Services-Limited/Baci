@@ -7,6 +7,9 @@ export const BUILDER_AI_OPENROUTER_MODEL = 'google/gemma-4-31b-it:free';
 
 const ATTESTATION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 const OPENROUTER_APPROVAL_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const PROVIDER_BINDING_DOMAIN = 'baci-builder-ai-provider-binding';
+const PROVIDER_BINDING_VERSION = 'v1';
+const MINIMUM_BINDING_PEPPER_BYTES = 32;
 
 export interface BuilderAiProvider {
   model: LanguageModel;
@@ -79,8 +82,21 @@ function hasReliableAttestation(
   ) {
     return false;
   }
+  if (Buffer.byteLength(bindingPepper, 'utf8') < MINIMUM_BINDING_PEPPER_BYTES) {
+    return false;
+  }
+  const canonicalPayload = JSON.stringify([
+    PROVIDER_BINDING_DOMAIN,
+    PROVIDER_BINDING_VERSION,
+    providerName,
+    key,
+    accountRef,
+    deploymentTier,
+    approvedModel,
+    releaseAttestedAt,
+  ]);
   const expectedTag = createHmac('sha256', bindingPepper)
-    .update(`baci-builder-ai-provider-binding:v1:${providerName}:${key}`)
+    .update(canonicalPayload)
     .digest('hex');
   const suppliedTag = credentialBindingTag.toLowerCase();
   if (!/^[a-f0-9]{64}$/.test(suppliedTag)) return false;

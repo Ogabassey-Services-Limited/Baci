@@ -162,10 +162,14 @@ configuration. Its required, credential-attested order is Cerebras
 `google/gemma-4-31b-it:free` transport may be appended only after an explicit,
 dated approval for that exact model.
 
-Both reliable provider keys require a non-secret account reference and a recent
-tier attestation in the deployment environment. If either attestation is absent
-or stale, the Builder route and the paid-provider smoke test refuse before a
-provider request. The smoke test is externally owner-approved with
+Both reliable provider keys require a fresh deployment-bundle attestation:
+non-secret account reference, deployment tier label, exact approved model,
+release timestamp, and a provider-domain-separated HMAC binding tag derived
+from the active key and a deployment-only pepper. This is an integrity binding,
+not provider-verified account or tier truth; confirming provider account/tier
+requires separate, dated management-plane evidence. If either deployment
+attestation is absent, invalid, or stale, the Builder route and the
+paid-provider smoke test refuse before a provider request. The smoke test is externally owner-approved with
 `BACI_APPROVE_PAID_AI_SMOKE=1`; it is not an automatic deployment check.
 
 The Builder path uses `generateText` with JSON transport plus local Zod and

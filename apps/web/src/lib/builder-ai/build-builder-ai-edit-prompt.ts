@@ -44,6 +44,13 @@ const operationExamples = [
 export const MAX_PROMPT_PROJECTED_COMPONENTS = 100;
 export const MAX_PROMPT_PROJECTION_CHARS = 16_384;
 
+export class BuilderAiPromptProjectionTooLargeError extends Error {
+  constructor() {
+    super('Builder AI prompt projection exceeds safety limit');
+    this.name = 'BuilderAiPromptProjectionTooLargeError';
+  }
+}
+
 function clean(value: string): string {
   return Array.from(value, (character) => {
     const code = character.charCodeAt(0);
@@ -88,7 +95,7 @@ export function buildBuilderAiEditPrompt({
     new TextEncoder().encode(componentProjection).length >
       MAX_PROMPT_PROJECTION_CHARS
   ) {
-    throw new Error('Builder AI prompt projection exceeds safety limit');
+    throw new BuilderAiPromptProjectionTooLargeError();
   }
   return [
     'Return JSON only; never return a full config, Markdown, code, or explanations.',
