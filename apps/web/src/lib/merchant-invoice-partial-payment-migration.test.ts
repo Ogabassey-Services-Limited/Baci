@@ -32,6 +32,12 @@ describe('merchant invoice partial payment migration', () => {
   it('records only a strict underpayment and hands an exact balance to full completion', () => {
     expect(migration).toContain("'amount_now_completes_order'");
     expect(migration).toContain("'AMOUNT_EXCEEDS_REMAINING_BALANCE'");
+    expect(migration).toContain(
+      'v_balance_due := greatest(0, v_order_total - v_new_paid)'
+    );
+    expect(migration).toMatch(
+      /UPDATE public\.order_payment_accounts AS account\s+SET payable_amount = v_balance_due\s+WHERE account\.order_id = p_order_id\s+AND account\.provider = 'paystack';/
+    );
     expect(migration).toContain("payment_status = 'partially_paid'");
     expect(migration).not.toMatch(
       /payment_status = 'partially_paid'[\s\S]{0,300}shipping_status = 'processing'/

@@ -69,6 +69,18 @@ describe('paystack DVA order candidate', () => {
     });
   });
 
+  it.each([
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('rejects a non-finite amount paid value of %s', (amountPaid) => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        orders: { ...row.orders, amount_paid: amountPaid },
+      })
+    ).toBeNull();
+  });
+
   it('uses the live order balance instead of a stale DVA amount for merchant-created invoices', () => {
     expect(
       normalizePaystackDvaOrderCandidate({
