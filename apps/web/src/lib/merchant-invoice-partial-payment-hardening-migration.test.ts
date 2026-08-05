@@ -22,6 +22,22 @@ const completedTransactionRepairMigration = readFileSync(
   'utf8'
 );
 
+const reviewedPartialCaptureMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260806000100_retire_reviewed_merchant_invoice_partial_captures.sql'
+  ),
+  'utf8'
+);
+
+const serializedExactClaimMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260806000200_serialize_merchant_invoice_exact_claims.sql'
+  ),
+  'utf8'
+);
+
 describe('merchant invoice partial payment hardening migration', () => {
   it('wraps both payment writers under the shared advisory lock', () => {
     expect(migration).toContain('complete_merchant_invoice_partial_payment_v1');
@@ -151,6 +167,40 @@ describe('merchant invoice partial payment hardening migration', () => {
     );
     expect(migration).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.complete_order_gateway_payment\([\s\S]*TO service_role;/
+    );
+  });
+
+  it('records reviewed strict partial captures and retires generated DVA placeholders', () => {
+    expect(reviewedPartialCaptureMigration).toContain(
+      "v_error_code = 'AMOUNT_EXCEEDS_REMAINING_BALANCE'"
+    );
+    expect(reviewedPartialCaptureMigration).toContain("status = 'completed'");
+    expect(reviewedPartialCaptureMigration).toContain(
+      "'wedge_sweep_resolution', 'merchant_invoice_partial_conflict_reviewed'"
+    );
+    expect(reviewedPartialCaptureMigration).toMatch(
+      /UPDATE public\.transactions AS placeholder[\s\S]*status = 'cancelled'/
+    );
+    expect(reviewedPartialCaptureMigration).toContain(
+      "placeholder.gateway_reference LIKE 'BAC-%'"
+    );
+    expect(reviewedPartialCaptureMigration).toContain(
+      "placeholder.metadata ->> 'dva_account_number' IS NULL"
+    );
+  });
+
+  it('counts only applied marked peers when serializing exact invoice claims', () => {
+    expect(serializedExactClaimMigration).toMatch(
+      /t\.status = 'completed'[\s\S]*t\.id <> p_transaction_id[\s\S]*t\.metadata ->> 'order_payment_allocation'[\s\S]*IS DISTINCT FROM 'merchant_invoice_partial'[\s\S]*OR t\.metadata ->> 'merchant_invoice_partial_applied' = 'true'/
+    );
+    expect(serializedExactClaimMigration).toContain(
+      "'wedge_sweep_resolution', 'merchant_invoice_partial_conflict_reviewed'"
+    );
+    expect(serializedExactClaimMigration).toMatch(
+      /IF abs\(v_txn_amount - v_remaining_before\) > 0\.01 THEN[\s\S]*UPDATE public\.transactions AS t[\s\S]*status = 'completed'/
+    );
+    expect(serializedExactClaimMigration).toContain(
+      "'transaction_status', 'completed'"
     );
   });
 });
