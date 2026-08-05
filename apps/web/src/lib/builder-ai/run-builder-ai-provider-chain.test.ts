@@ -1,6 +1,7 @@
 import { builderAiEditTestFixture } from '@baci/shared/test-fixtures/builder-ai-edit';
 import { generateText, Output } from 'ai';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { builderAiProviderCooldown } from './builder-ai-provider-cooldown';
 import { runBuilderAiProviderChain } from './run-builder-ai-provider-chain';
 
 const ai = vi.hoisted(() => {
@@ -35,7 +36,10 @@ const validPlan = {
 };
 
 describe('runBuilderAiProviderChain', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    builderAiProviderCooldown.resetForTests();
+    vi.clearAllMocks();
+  });
 
   it('falls through malformed JSON and sends schema-free JSON transport', async () => {
     vi.mocked(generateText)
@@ -100,7 +104,6 @@ describe('runBuilderAiProviderChain', () => {
   it('falls through reliable-provider quota failures before accepting the next provider', async () => {
     vi.mocked(generateText)
       .mockRejectedValueOnce(new Error('quota exceeded'))
-      .mockRejectedValueOnce(new Error('quota exceeded'))
       .mockResolvedValueOnce({ output: validPlan } as never);
 
     await expect(
@@ -113,7 +116,7 @@ describe('runBuilderAiProviderChain', () => {
       })
     ).resolves.toEqual(validPlan);
 
-    expect(generateText).toHaveBeenCalledTimes(3);
+    expect(generateText).toHaveBeenCalledTimes(2);
   });
 
   it('reports quota exhaustion when every provider fails for capacity', async () => {
@@ -129,6 +132,6 @@ describe('runBuilderAiProviderChain', () => {
       })
     ).rejects.toEqual({ code: 'ai_provider_rate_limited' });
 
-    expect(generateText).toHaveBeenCalledTimes(4);
+    expect(generateText).toHaveBeenCalledTimes(2);
   });
 });

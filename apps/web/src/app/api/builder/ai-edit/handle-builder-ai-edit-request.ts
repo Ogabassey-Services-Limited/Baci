@@ -9,6 +9,7 @@ import { hasPermission } from '@/lib/api-auth';
 import { applyBuilderAiEditPlan } from '@/lib/builder-ai/apply-builder-ai-edit-plan';
 import { buildBuilderAiEditPrompt } from '@/lib/builder-ai/build-builder-ai-edit-prompt';
 import { checkBuilderAiRateLimit } from '@/lib/builder-ai/builder-ai-rate-limit';
+import { logBuilderAiEvent } from '@/lib/builder-ai/log-builder-ai-event';
 import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-builder-ai-provider-chain';
 import { runBuilderAiProviderChain } from '@/lib/builder-ai/run-builder-ai-provider-chain';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -105,13 +106,6 @@ function isSemanticallyExecutable(
   }
 }
 
-function logEvent(
-  event: string,
-  metadata: Record<string, string | number>
-): void {
-  console.info('builder_ai_event', { event, ...metadata });
-}
-
 function parseRequest(
   body: unknown,
   mode: 'legacy' | 'v1'
@@ -197,8 +191,9 @@ export async function handleBuilderAiEditRequest(
       parsed.clientRequestId
     );
   }
-  logEvent('builder_ai_edit_requested', {
+  logBuilderAiEvent('builder_ai_edit_requested', {
     merchantId: merchant.merchantId,
+    requestId: parsed.clientRequestId,
     userId: auth.user.id,
   });
   let plan: BuilderAiEditPlan;
@@ -207,7 +202,27 @@ export async function handleBuilderAiEditRequest(
       currentConfig: parsed.currentConfig,
       deadlineAt: Date.now() + 25_000,
       logger: {
-        warn: (metadata) => console.warn('builder_ai_provider', metadata),
+        warn: (metadata) => {
+          const errorClass =
+            typeof metadata.errorClass === 'string'
+              ? metadata.errorClass
+              : 'UnknownProviderError';
+          logBuilderAiEvent(
+            errorClass === 'AbortError' || errorClass === 'TimeoutError'
+              ? 'builder_ai_timeout'
+              : 'builder_ai_provider_fallback',
+            {
+              errorClass,
+              merchantId: merchant.merchantId,
+              provider:
+                typeof metadata.provider === 'string'
+                  ? metadata.provider
+                  : 'unknown',
+              requestId: parsed.clientRequestId,
+              userId: auth.user.id,
+            }
+          );
+        },
       },
       prompt: buildBuilderAiEditPrompt({
         currentConfig: parsed.currentConfig,
@@ -219,13 +234,19 @@ export async function handleBuilderAiEditRequest(
         isSemanticallyExecutable(candidate, parsed),
     });
   } catch (error) {
-    logEvent('builder_ai_candidate_rejected', {
+    logBuilderAiEvent('builder_ai_candidate_rejected', {
       merchantId: merchant.merchantId,
+      requestId: parsed.clientRequestId,
       userId: auth.user.id,
     });
     return responseForProviderError(error, parsed.clientRequestId);
   }
   if (plan.status === 'refused') {
+    logBuilderAiEvent('builder_ai_candidate_rejected', {
+      merchantId: merchant.merchantId,
+      requestId: parsed.clientRequestId,
+      userId: auth.user.id,
+    });
     return NextResponse.json(
       {
         code: 'builder_ai_request_not_supported',
@@ -244,17 +265,14 @@ export async function handleBuilderAiEditRequest(
     summary: plan.summary,
     warnings: result.warnings,
   });
-  logEvent('builder_ai_candidate_created', {
+  logBuilderAiEvent('builder_ai_candidate_created', {
     merchantId: merchant.merchantId,
     operationCount: candidate.operations.length,
+    requestId: parsed.clientRequestId,
     userId: auth.user.id,
     warningCount: candidate.warnings.length,
   });
   if (mode === 'legacy') {
-    logEvent('legacy_contract_used', {
-      merchantId: merchant.merchantId,
-      userId: auth.user.id,
-    });
     return NextResponse.json(
       { config: candidate.candidateConfig },
       { headers: { 'X-RateLimit-Remaining': String(rate.remaining) } }

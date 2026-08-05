@@ -9,6 +9,7 @@ import {
   type BuilderAiProvider,
   hasCanonicalBuilderAiProviderOrder,
 } from './builder-ai-provider-catalog';
+import { builderAiProviderCooldown } from './builder-ai-provider-cooldown';
 
 const RESPONSE_MARGIN_MS = builderAiPlanOutputBudget.routeResponseMarginMs;
 
@@ -48,13 +49,6 @@ function isTransportFailure(error: unknown): boolean {
   return NoObjectGeneratedError.isInstance(error);
 }
 
-function isQuotaFailure(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    /(?:quota|rate[ -]?limit|too many requests|\b429\b)/i.test(error.message)
-  );
-}
-
 function logSafeFailure(
   logger: RunBuilderAiProviderChainOptions['logger'],
   provider: BuilderAiProvider,
@@ -68,11 +62,27 @@ function logSafeFailure(
   });
 }
 
-function attemptSignal(source: AbortSignal, remainingMs: number): AbortSignal {
+function attemptSignal(
+  source: AbortSignal,
+  remainingMs: number,
+  reservedTailMs: number
+): AbortSignal {
   return AbortSignal.any([
     source,
-    AbortSignal.timeout(Math.max(1, remainingMs - RESPONSE_MARGIN_MS)),
+    AbortSignal.timeout(
+      Math.max(1, remainingMs - RESPONSE_MARGIN_MS - reservedTailMs)
+    ),
   ]);
+}
+
+function reliableProviderTailMs(
+  providerChain: BuilderAiProvider[],
+  currentIndex: number
+): number {
+  const remainingReliableProviders = providerChain
+    .slice(currentIndex + 1)
+    .filter((provider) => !provider.opportunistic).length;
+  return remainingReliableProviders * 2_000;
 }
 
 async function requestPlan(
@@ -92,7 +102,7 @@ async function requestPlan(
 }
 
 export async function runBuilderAiProviderChain({
-  cooldown,
+  cooldown = builderAiProviderCooldown,
   currentConfig,
   deadlineAt,
   logger,
@@ -111,12 +121,21 @@ export async function runBuilderAiProviderChain({
   }
 
   let sawInvalidOutput = false;
+  let sawOperationalFailure = false;
   let sawQuotaFailure = false;
-  for (const provider of providerChain) {
-    if (cooldown?.isCoolingDown(provider.name)) continue;
+  const availableProviders = providerChain.filter(
+    (provider) => !cooldown?.isCoolingDown(provider.name)
+  );
+  const providersToAttempt =
+    availableProviders.length > 0 ? availableProviders : providerChain;
+  for (const [providerIndex, provider] of providersToAttempt.entries()) {
     const remainingMs = deadlineAt - now();
     if (remainingMs <= RESPONSE_MARGIN_MS) break;
-    const signalForAttempt = attemptSignal(signal, remainingMs);
+    const signalForAttempt = attemptSignal(
+      signal,
+      remainingMs,
+      reliableProviderTailMs(providersToAttempt, providerIndex)
+    );
     const attempts = provider.opportunistic ? 1 : 2;
 
     for (let attempt = 0; attempt < attempts; attempt++) {
@@ -130,17 +149,20 @@ export async function runBuilderAiProviderChain({
         }
         return parsed.data;
       } catch (error) {
-        sawQuotaFailure ||= isQuotaFailure(error);
+        const quotaFailure = builderAiProviderCooldown.isRateLimitError(error);
+        sawQuotaFailure ||= quotaFailure;
+        sawOperationalFailure ||= !isTransportFailure(error);
         cooldown?.recordFailure?.(provider.name, error);
         logSafeFailure(logger, provider, error);
         // Malformed SDK JSON is a model-output failure: fall through rather
         // than burning a duplicate request to the same model.
-        if (isTransportFailure(error)) break;
+        if (isTransportFailure(error) || quotaFailure) break;
         if (signalForAttempt.aborted || signal.aborted) break;
       }
     }
   }
-  if (sawInvalidOutput) throw invalidOutput();
   if (sawQuotaFailure) throw rateLimited();
+  if (sawOperationalFailure) throw unavailable();
+  if (sawInvalidOutput) throw invalidOutput();
   throw unavailable();
 }
