@@ -75,6 +75,7 @@ test('campaign state paths are root-private and restore has one atomic owner', a
 });
 test('Ollama retirement is scan-first, identity-bound, and never emits raw environment values', async () => {
   const source = await read('./retire-ollama.sh');
+  const consumers = await read('./retire-ollama-consumers.sh');
   assert.match(source, /--scan/);
   assert.match(source, /--apply/);
   assert.match(
@@ -95,7 +96,8 @@ test('Ollama retirement is scan-first, identity-bound, and never emits raw envir
   );
   assert.match(source, /normalized-value-sha256/);
   assert.doesNotMatch(source, /printenv|\/proc\/[^ ]*\/environ/);
-  assert.match(source, /json \.Config\.Env/);
+  assert.match(source, /scan_container_rows\(\).*load_consumer_scanners/);
+  assert.match(consumers, /json \.Config\.Env/);
   assert.doesNotMatch(source, /command=.*sha256sum/);
   assert.match(source, /while IFS= read -r line/);
 });
@@ -106,7 +108,6 @@ test('watchdog resolves only sibling receipt-bound scripts', async () => {
   assert.match(source, /RESTORE="\$SCRIPT_DIR\/campaign-restore\.sh"/);
   assert.doesNotMatch(source, /\/srv\/baci-cwv\/bin|\/current\//);
 });
-
 test('inventories are closed, reviewed, and pause every surviving cron command', async () => {
   const cron = JSON.parse(await read('./cron-inventory.json'));
   const ollama = JSON.parse(await read('./ollama-active-inventory.json'));
@@ -131,7 +132,6 @@ test('inventories are closed, reviewed, and pause every surviving cron command',
   ]);
   assert.equal(ollama.reviewStatus, 'pending-privileged-scan');
 });
-
 test('prior state binds exact reversible resource and network values', () => {
   assert.equal(typeof state.validatePriorState, 'function');
   const prior = {

@@ -4,25 +4,28 @@ set -eu
 if [ "$(/usr/bin/id -u)" -ne 0 ] && [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ]; then PATH="$RETIRE_OLLAMA_TEST_BIN:/usr/bin:/bin"; else PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; fi
 export PATH LC_ALL=C.UTF-8 TZ=Etc/UTC
 umask 077
-
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 INVENTORY=${RETIRE_OLLAMA_INVENTORY:-"$SCRIPT_DIR/ollama-active-inventory.json"}
 RECEIPT_DIR=${RETIRE_OLLAMA_RECEIPT_DIR:-/srv/baci-cwv/retired-ollama}
 RECEIPT="$RECEIPT_DIR/receipt.json"; RECEIPT_SHA="$RECEIPT_DIR/receipt.sha256"
-UNIT=ollama.service; TIMER=ollama-watchdog.timer; CONTAINER=ollama-loopback
+UNIT=ollama.service; TIMER=ollama-watchdog.timer; CONTAINER=ollama-loopback; AT_JOB_DIR=/var/spool/cron/atjobs; export AT_JOB_DIR
 DOCKER_SOCKET_ALIAS=/var/run/docker.sock; CANONICAL_DOCKER_SOCKET=''; STORE=/usr/share/ollama/.ollama; OWNER=bassey
 PRE_CRON_SHA=a57aee33c02252e61943639c292e96a695ee75a33d92f730fd1be830a67a747b
 POST_CRON_SHA=603d5005ad4f7b7d8c535be7ac8b8379b69a83b550014a56b2dfa6bbdb51ba8f
 OLLAMA_CRON_ONE=4cee5cdc723001694bc0d2ea22be4db9ff91a1df5f969dc95d2483f55900519d
 OLLAMA_CRON_TWO=3b27b446d253183977b01ea6e94c09a0d5bb4ac7d2414ad162ddd7fb49a6fc81
 PACKAGE_FORMAT="\${Version}"
+# shellcheck disable=SC2034 # Consumer scanners are loaded lazily after trusted primitives.
 COMPOSE_ROOTS='/srv /home/bassey'
+# shellcheck disable=SC2034 # Consumer scanners are loaded lazily after trusted primitives.
+NGINX_ROOT=/etc/nginx
+# shellcheck disable=SC2034 # Consumer scanners are loaded lazily after trusted primitives.
+SYSTEMD_ROOTS='/etc/systemd/system /lib/systemd/system'
 TEMP_ROOT=''
 EXIT_REVIEW_REQUIRED=78
-
 die() { printf '%s\n' "$1" >&2; exit "${2:-65}"; }
 review_required() { die "$1" "$EXIT_REVIEW_REQUIRED"; }
-usage() { die 'usage: retire-ollama.sh --scan|--apply' 64; }
+usage() { die 'usage: retire-ollama.sh --scan|--apply|--recovery-scan' 64; }
 root() { [ "$(id -u)" = 0 ] || die 'root required' 77; }
 cleanup_temp() { [ -n "$TEMP_ROOT" ] && [ -d "$TEMP_ROOT" ] && [ ! -L "$TEMP_ROOT" ] && rm -rf -- "$TEMP_ROOT"; TEMP_ROOT=''; }
 init_temp_root() {
@@ -36,8 +39,8 @@ fsync_file() { sync -f "$1" || die "cannot sync $1"; }
 fsync_dir() { sync -f "$1" || die "cannot sync directory $1"; }
 safe_file() { [ -f "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u:%a' "$1")" = '0:600' ]; }
 safe_dir() { [ -d "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u:%a' "$1")" = '0:700' ]; }
-classify_endpoint() { case "$1" in ''|disabled|none) printf disabled;; http://127.0.0.1:11434*|http://localhost:11434*) printf ollama-loopback;; https://*) printf external-provider;; *) printf unknown;; esac; }
-
+ipv4_loopback() { /usr/bin/printf '%s\n' "$1" | /usr/bin/awk -F. 'NF == 4 && $1 == "127" { for (i = 1; i <= 4; i++) if ($i !~ /^[0-9]+$/ || $i > 255) exit 1; exit 0 } { exit 1 }'; }
+classify_endpoint() { value=$1; case "$value" in ''|disabled|none) printf disabled; return;; http://*) scheme=http; rest=${value#http://};; https://*) scheme=https; rest=${value#https://};; *) printf unknown; return;; esac; authority=${rest%%\?*}; authority=${authority%%\#*}; authority=${authority%%/*}; case "$authority" in ''|*@*|*[[:space:]]*|*:) printf unknown; return;; esac; host=$authority; port=''; case "$authority" in \[*\]:*) host=${authority%%]*}; host=${host#\[}; port=${authority#*\]:};; \[*\]) host=${authority#\[}; host=${host%\]};; *:*) host=${authority%:*}; port=${authority##*:}; case "$host:$port" in *:*:*|*:*[!0-9]*) printf unknown; return;; esac;; esac; case "$host" in ::1|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt]|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt].) local_host=1;; *) if ipv4_loopback "$host"; then local_host=1; else local_host=0; fi;; esac; if [ "$scheme:$local_host:$port" = http:1:11434 ]; then printf ollama-loopback; elif [ "$scheme:$local_host" = https:0 ]; then printf external-provider; else printf unknown; fi; }
 sha() {
   input=$1; out=$(temp_path)
   sha256sum "$input" >"$out" || { rm -f "$out"; die "digest failed $input"; }
@@ -46,22 +49,88 @@ sha() {
   printf '%s\n' "$digest"
 }
 hash_text() { out=$(temp_path); printf %s "$1" >"$out" || { rm -f "$out"; die 'text digest write failed'; }; sha "$out"; status=$?; rm -f "$out"; return "$status"; }
+RECOVERY_HELPER="$SCRIPT_DIR/retire-ollama-recovery.sh"
+if [ -f "$RECOVERY_HELPER" ] && [ ! -L "$RECOVERY_HELPER" ]; then
+  # shellcheck disable=SC1090,SC1091 # Resolved beside this script at runtime.
+  . "$RECOVERY_HELPER"
+fi
 digest_command() {
   out=$1; class=$2; shift 2
   if "$@" >"$out"; then :; else status=$?; rm -f "$out"; die "scan failed $class ($status)"; fi
   sha "$out"
 }
-
-records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'
+records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'; APPROVED_OLLAMA_PID=''; APPROVED_OLLAMA_PROCESS_IDENTITY=''
+cron_line_approved() { cron_sha=$(hash_text "$1") || die 'cron line digest failed'; case "$cron_sha" in "$OLLAMA_CRON_ONE"|"$OLLAMA_CRON_TWO") return 0;; *) return 1;; esac; }
+process_line_approved() { [ -n "$APPROVED_OLLAMA_PID" ] && [ -n "$APPROVED_OLLAMA_PROCESS_IDENTITY" ] || return 1; /usr/bin/printf '%s\n' "$1" | /usr/bin/awk -v approved="$APPROVED_OLLAMA_PID" 'NF == 5 && $1 == approved && $4 == "/usr/bin/ollama" && $5 == "serve" { exit 0 } { exit 1 }'; }
+review_ollama_service_process_begin() { APPROVED_OLLAMA_PID=''; APPROVED_OLLAMA_PROCESS_IDENTITY=''; pid=$(systemctl show "$UNIT" -p MainPID --value) || die 'Ollama service MainPID scan failed'; case "$pid" in ''|*[!0-9]*) review_required 'invalid Ollama service MainPID';; 0) return;; esac; identity=$(recovery_process_lifetime_marker "$pid") || review_required 'Ollama service process identity unavailable'; recovery_sha256 "$identity" || review_required 'invalid Ollama service process identity'; APPROVED_OLLAMA_PID=$pid; APPROVED_OLLAMA_PROCESS_IDENTITY=$identity; }
+review_ollama_service_process_finish() { [ -n "$APPROVED_OLLAMA_PID" ] || return 0; pid=$(systemctl show "$UNIT" -p MainPID --value) || die 'Ollama service MainPID recheck failed'; [ "$pid" = "$APPROVED_OLLAMA_PID" ] || review_required 'Ollama service MainPID changed'; identity=$(recovery_process_lifetime_marker "$pid") || review_required 'Ollama service process identity unavailable'; [ "$identity" = "$APPROVED_OLLAMA_PROCESS_IDENTITY" ] || review_required 'Ollama service process identity changed'; }
+record_running_process_environments() { file=$1; type recovery_process_environment_evidence >/dev/null 2>&1 || review_required 'process environment scanner missing'; while IFS=' ' read -r pid ppid user args || [ -n "$pid$ppid$user$args" ]; do case "$pid" in PID) continue;; ''|*[!0-9]*) review_required 'invalid running process pid';; esac; [ "$pid" = "$$" ] && continue; process_line_approved "$pid $ppid $user $args" && continue; evidence=$(recovery_process_environment_evidence "$pid"); state=$(printf '%s\n' "$evidence" | jq -r '.state // "present"') || review_required 'invalid process environment evidence'; [ "$state" = vanished ] && continue; [ "$state" = present ] || review_required 'invalid process environment evidence'; match=$(printf '%s\n' "$evidence" | jq -r '.matchingEnvironmentSha256 // empty') || review_required 'invalid process environment evidence'; [ -z "$match" ] || recovery_record_process_environment_consumer "$evidence"; done <"$file"; }
+record_running_process_sockets() { file=$1; socket_processes=$(temp_path); awk 'NR==1 { if ($1=="PID" && $2=="PPID" && $3=="USER") next; bad=1; next } { pid=$1; ppid=$2; if (pid!~/^[0-9]+$/ || ppid!~/^[0-9]+$/ || NF<4) { bad=1; next } sub(/^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+/,""); print pid " " ppid " " $0 } END { exit bad?2:0 }' "$file" >"$socket_processes" || { rm -f "$socket_processes"; review_required 'invalid socket process inventory'; }; RECOVERY_CLIENT_SOCKETS_ONLY=yes; recovery_socket_snapshot '' '' '' '' "$socket_processes"; records=$(jq -cn --argjson old "$records" --arg sha "$RECOVERY_SOCKET_SNAPSHOT_SHA" '$old + [{class:"running-process-sockets",sha256:$sha}]') || die 'socket record failed'; RECOVERY_CLIENT_SOCKETS_ONLY=''; rm -f "$socket_processes"; }
 record_consumers() {
   class=$1 file=$2 mode=${3:-matched}; count=0; unknown_sha=$(hash_text unknown)
   while IFS= read -r line || [ -n "$line" ]; do
-    case "$mode:$line" in none:*) matched=0;; all:*) matched=1;; *:*'/ollama serve'*|*:*' ollama serve'*) matched=0;; *:*11434*|*:*'/ollama '*|*:*' ollama '*|*:ollama|*:/ollama) matched=1;; *) matched=0;; esac
+    case "$mode" in
+      cron|cron-unapproved)
+        match_line=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')
+        if [ "$mode" = cron ] && cron_line_approved "$line"; then matched=0
+        else case "$match_line" in
+          *11434*|*'/ollama '*|*' ollama '*|ollama|ollama=*|ollama_*=*|/ollama) matched=1;;
+          *) matched=0;;
+        esac; fi;;
+      none) matched=0;;
+      all) matched=1;;
+      *) if process_line_approved "$line"; then matched=0; else match_line=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]'); case "$match_line" in *11434*|*'/ollama '*|*' ollama '*|ollama|*/ollama) matched=1;; *) matched=0;; esac; fi;;
+    esac
     [ "$matched" = 1 ] || continue; count=$((count + 1)); evidence=$(hash_text "$line")
     deps=$(jq -cn --argjson old "$deps" --arg key "$class:$count" --arg value "$unknown_sha" --arg source "$evidence" '$old + [{"key-name":$key,"endpoint-class":"unknown","normalized-value-sha256":$value,"source-path-sha256":$source,disposition:"consumer"}]') || die 'consumer dependency record failed'
     consumer_evidence=$(jq -cn --argjson old "$consumer_evidence" --arg surface "$class" --arg sha "$evidence" '$old + [{surface:$surface,classifiedPathSha256:$sha}]') || die 'consumer evidence record failed'
   done <"$file"
   consumer_counts=$(jq -cn --argjson old "$consumer_counts" --arg surface "$class" --argjson count "$count" '$old + [{surface:$surface,matchCount:$count}]') || die 'consumer count record failed'
+}
+# shellcheck disable=SC1090,SC1091 # Resolved beside this sealed privileged entrypoint.
+load_cron_inventory_helper() { helper="$SCRIPT_DIR/retire-ollama-cron-inventory.sh"; [ -f "$helper" ] && [ ! -L "$helper" ] || die 'cron inventory helper missing'; . "$helper"; }
+# shellcheck disable=SC1090,SC1091 # Sealed sibling or unprivileged test-injected helper.
+load_at_quiescence_helper() { [ "${AT_QUIESCENCE_LOADED:-}" = yes ] && return; if [ "$(id -u)" = 0 ]; then [ -z "${RETIRE_OLLAMA_AT_QUIESCENCE_HELPER:-}" ] || die 'privileged at quiescence helper override refused'; helper="$SCRIPT_DIR/retire-ollama-at-quiescence.sh"; elif [ -n "${RETIRE_OLLAMA_AT_QUIESCENCE_HELPER:-}" ]; then [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] || die 'at quiescence helper override requires test harness'; helper=$RETIRE_OLLAMA_AT_QUIESCENCE_HELPER; else helper="$SCRIPT_DIR/retire-ollama-at-quiescence.sh"; fi; [ -f "$helper" ] && [ ! -L "$helper" ] || die 'at quiescence helper missing'; . "$helper"; AT_QUIESCENCE_LOADED=yes; }
+recovery_listener_executable() {
+  pid=$1; exe="$RECOVERY_PROC_ROOT/$pid/exe"; [ -L "$exe" ] || review_required 'listener executable link missing'
+  observed=$(readlink -- "$exe") || review_required 'listener executable target unavailable'; observed=${observed% (deleted)}
+  real=$(readlink -f -- "$exe") || review_required 'listener executable resolution failed'; case "$real" in /*) :;; *) review_required 'listener executable path invalid';; esac
+  [ -f "$real" ] && [ -x "$real" ] && [ ! -L "$real" ] || review_required 'listener executable unsafe'
+  stat_value=$(stat -Lc '%d:%i:%u:%g:%a' "$exe") || review_required 'listener executable identity failed'; start_value=$(sed 's/.*) //' "$RECOVERY_PROC_ROOT/$pid/stat" | awk '{print $20}'); uid_value=$(awk '/^Uid:/{print $2; exit}' "$RECOVERY_PROC_ROOT/$pid/status")
+  if ! recovery_safe_int "$start_value" || ! recovery_nonnegative_int "$uid_value"; then review_required 'listener executable lifetime identity failed'; fi
+  /usr/bin/jq -cn --arg path "$observed" --arg real "$real" --arg digest "$(sha "$exe")" --arg identity "$(hash_text "$stat_value")" --arg uid "$uid_value" --arg start "$start_value" '{path:$path,realPath:$real,sha256:$digest,identitySha256:$identity,uid:$uid,startTime:$start}'
+}; recovery_socket_table_has_client() { pending_table=$1; pending_address=$2; pending_port=$3; pending_inode=$4; [ -f "$pending_table" ] && [ ! -L "$pending_table" ] || return 2; awk -v address="$pending_address" -v port="$pending_port" -v inode="$pending_inode" 'NR>1{split($3,remote_endpoint,":");if(($4=="01"||$4=="02")&&remote_endpoint[1]==address&&remote_endpoint[2]==port&&$10==inode)found=1}END{exit found?0:1}' "$pending_table"; }; recovery_pending_socket_present() { pending_family=$1; pending_address=$2; pending_port=$3; pending_inode=$4; pending_processes=$5; case "$pending_family" in tcp|tcp6) :;; *) return 2;; esac; if recovery_socket_table_has_client "$RECOVERY_PROC_ROOT/net/$pending_family" "$pending_address" "$pending_port" "$pending_inode"; then return 0; else pending_status=$?; [ "$pending_status" -eq 1 ] || return "$pending_status"; fi; while IFS=' ' read -r pending_pid _ || [ -n "$pending_pid" ]; do [ -n "$pending_pid" ] || continue; recovery_safe_int "$pending_pid" || return 2; pending_root="$RECOVERY_PROC_ROOT/$pending_pid"; [ -e "$pending_root" ] || [ -L "$pending_root" ] || continue; if recovery_socket_table_has_client "$pending_root/net/$pending_family" "$pending_address" "$pending_port" "$pending_inode"; then return 0; else pending_status=$?; [ "$pending_status" -eq 1 ] || return "$pending_status"; fi; done <"$pending_processes"; return 1; }
+recovery_socket_snapshot() {
+  container_pid=$1; container_cgroup=$2; container_namespace=$3; ports=$4; processes=$5; listeners='[]'; seen=''
+  socket_directory="$RECOVERY_PROC_ROOT/net"; if [ -L "$socket_directory" ]; then [ "$RECOVERY_PROC_ROOT" = /proc ] && [ "$(readlink -- "$socket_directory")" = self/net ] || review_required 'unsafe recovery socket directory'; else [ -d "$socket_directory" ] || review_required 'recovery socket directory unavailable'; fi
+  for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do [ -f "$table" ] && [ ! -L "$table" ] || review_required 'unsafe recovery socket table'; done
+  raw=$(temp_path); for table in "$RECOVERY_PROC_ROOT/net/tcp" "$RECOVERY_PROC_ROOT/net/tcp6"; do family=tcp; case "$table" in *tcp6) family=tcp6;; esac; awk -v family="$family" -v clientsOnly="${RECOVERY_CLIENT_SOCKETS_ONLY:-}" 'NR > 1 { split($2,local_endpoint,":"); split($3,remote_endpoint,":"); if (clientsOnly != "yes" && $4 == "0A" && local_endpoint[2] == "2CAA") print family "|listener|" local_endpoint[1] "|" local_endpoint[2] "|" $10 "|" $4; else if (($4 == "01" || $4 == "02" || $4 == "08") && remote_endpoint[2] == "2CAA") print family "|client|" remote_endpoint[1] "|" remote_endpoint[2] "|" $10 "|" $4 }' "$table" >>"$raw" || die 'recovery socket table scan failed'; done
+  while IFS=' ' read -r pid _ || [ -n "$pid" ]; do
+    [ -n "$pid" ] || continue; recovery_safe_int "$pid" || review_required 'invalid socket process pid'; process_root="$RECOVERY_PROC_ROOT/$pid"; [ -e "$process_root" ] || [ -L "$process_root" ] || continue; process_net="$process_root/net"; if [ ! -d "$process_net" ] || [ -L "$process_net" ]; then [ "$RECOVERY_PROC_ROOT" != /proc ] && continue; review_required 'unsafe process socket directory'; fi; network_link="$process_root/ns/net"; [ -L "$network_link" ] || review_required 'process network namespace unavailable'; network_before=$(readlink -- "$network_link") || review_required 'process network namespace unavailable'; printf '%s\n' "$network_before" | grep -Eq '^net:\[[0-9]+\]$' || review_required 'invalid process network namespace'; before=$(recovery_process_lifetime_marker "$pid") || review_required 'socket process lifetime unavailable'; process_raw=$(temp_path)
+    for name in tcp tcp6; do table="$process_net/$name"; [ -f "$table" ] && [ ! -L "$table" ] || { rm -f "$process_raw"; review_required 'unsafe process socket table'; }; family=$name; awk -v family="$family" -v clientsOnly="${RECOVERY_CLIENT_SOCKETS_ONLY:-}" 'NR > 1 { split($2,local_endpoint,":"); split($3,remote_endpoint,":"); if (clientsOnly != "yes" && $4 == "0A" && local_endpoint[2] == "2CAA") print family "|listener|" local_endpoint[1] "|" local_endpoint[2] "|" $10 "|" $4; else if (($4 == "01" || $4 == "02" || $4 == "08") && remote_endpoint[2] == "2CAA") print family "|client|" remote_endpoint[1] "|" remote_endpoint[2] "|" $10 "|" $4 }' "$table" >>"$process_raw" || { rm -f "$process_raw"; die 'process socket table scan failed'; }; done
+    after=$(recovery_process_lifetime_marker "$pid") || { rm -f "$process_raw"; review_required 'socket process lifetime unavailable'; }; network_after=$(readlink -- "$network_link") || { rm -f "$process_raw"; review_required 'process network namespace unavailable'; }; [ "$before" = "$after" ] && [ "$network_before" = "$network_after" ] || { rm -f "$process_raw"; review_required 'socket process lifetime changed'; }; cat "$process_raw" >>"$raw" || { rm -f "$process_raw"; die 'process socket snapshot merge failed'; }; rm -f "$process_raw"
+  done <"$processes"
+  sorted=$(temp_path); reconciled=$(temp_path); sort -u "$raw" >"$sorted" || { rm -f "$raw" "$sorted" "$reconciled"; die 'recovery socket snapshot sort failed'; }; rm -f "$raw"; raw=$sorted
+  while IFS='|' read -r family socket_role address port inode socket_state || [ -n "$family$socket_role$address$port$inode$socket_state" ]; do
+    [ -n "$inode" ] || continue; found=0
+    while IFS=' ' read -r pid ppid args || [ -n "$pid$ppid$args" ]; do
+      [ -n "$pid" ] || continue; recovery_safe_int "$pid" || review_required 'invalid listener pid'; [ -d "$RECOVERY_PROC_ROOT/$pid/fd" ] && [ ! -L "$RECOVERY_PROC_ROOT/$pid/fd" ] || continue
+      for fd in "$RECOVERY_PROC_ROOT/$pid/fd"/*; do [ -L "$fd" ] || continue; link=$(readlink -- "$fd") || review_required 'listener fd target unavailable'; [ "$link" = "socket:[$inode]" ] || continue; case " $seen " in *" $pid/$inode "*) continue;; esac; seen="$seen $pid/$inode"; found=1; command=${args%% *}; base=${command##*/}; class=foreign-listener; [ "$socket_role" = listener ] || class=foreign-client; executable=''
+        if [ "$socket_role" = listener ] && [ -n "$container_pid" ] && [ "$pid" = "$container_pid" ]; then identity=$(recovery_process_identity "$pid"); IFS=' ' read -r cgroup namespace extra <<EOF
+$identity
+EOF
+          [ -z "${extra:-}" ] && [ "$cgroup" = "$container_cgroup" ] && [ "$namespace" = "$container_namespace" ] || review_required 'listener container identity drift'; class=container; executable=$(recovery_process_executable "$pid" "$RECOVERY_CONTAINER_COMMAND_PATH" ollama)
+        elif [ "$socket_role" = listener ] && [ "$base" = docker-proxy ] && recovery_proxy_ports_ok "$args" "$ports"; then class=docker-proxy; executable=$(recovery_process_executable "$pid" docker-proxy docker-proxy); else executable=$(recovery_listener_executable "$pid"); fi
+        listeners=$(/usr/bin/jq -cn --argjson old "$listeners" --arg family "$family" --arg address "$address" --arg port "$port" --arg inode "$inode" --arg pid "$pid" --arg class "$class" --argjson executable "$executable" '$old + [{family:$family,localAddressHex:$address,port:11434,inode:$inode,pid:$pid,class:$class,executable:$executable}]') || die 'listener serialization failed'
+        case "$class" in foreign-listener) review_required 'unreviewed port-11434 listener';; foreign-client) review_required 'unreviewed port-11434 client';; esac
+      done
+    done <"$processes"
+    if [ "$found" -ne 1 ] && [ "$socket_role:$socket_state" = client:02 ]; then if recovery_pending_socket_present "$family" "$address" "$port" "$inode" "$processes"; then :; else pending_status=$?; [ "$pending_status" -eq 1 ] && continue; review_required 'pending port-11434 client recheck failed'; fi; fi; [ "$found" -eq 1 ] || review_required "unbound port-11434 $socket_role"; printf '%s|%s|%s|%s|%s|%s\n' "$family" "$socket_role" "$address" "$port" "$inode" "$socket_state" >>"$reconciled" || die 'socket reconciliation failed'
+  done <"$raw"; rm -f "$raw"; raw=$reconciled
+  # shellcheck disable=SC2034 # Exported through the recovery process snapshot.
+  if [ -s "$raw" ]; then RECOVERY_SOCKET_SNAPSHOT_SHA=$(sha "$raw"); else RECOVERY_SOCKET_SNAPSHOT_SHA=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; fi
+  # shellcheck disable=SC2034 # Exported through the recovery process snapshot.
+  RECOVERY_LISTENING_SOCKETS=$listeners; rm -f "$raw"
 }
 record_scan() {
   class=$1; shift; out=$(temp_path); value=$(digest_command "$out" "$class" "$@")
@@ -108,29 +177,21 @@ record_environment() {
   # shellcheck disable=SC2094 # The EnvironmentFile is read only; record_dependency receives its path as data.
   while IFS= read -r line || [ -n "$line" ]; do case "$line" in ''|'#'*) continue;; *=*) record_dependency "${line%%=*}" "${line#*=}" "$file";; *) die 'malformed EnvironmentFile';; esac; done <"$file"
 }
+load_consumer_scanners() { [ "${CONSUMER_SCANNERS_LOADED:-}" = yes ] && return; if [ "$(id -u)" = 0 ]; then [ -z "${RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER:-}" ] || die 'privileged consumer scanner override refused'; helper="$SCRIPT_DIR/retire-ollama-consumers.sh"; elif [ -n "${RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER:-}" ]; then [ -n "${RETIRE_OLLAMA_TEST_BIN:-}" ] || die 'consumer scanner override requires test harness'; helper=$RETIRE_OLLAMA_CONSUMER_SCANNER_HELPER; else helper="$SCRIPT_DIR/retire-ollama-consumers.sh"; fi; [ -f "$helper" ] && [ ! -L "$helper" ] || die 'consumer scanner helper missing'; # shellcheck disable=SC1090,SC1091 # Sealed sibling or unprivileged test-injected helper.
+. "$helper"; CONSUMER_SCANNERS_LOADED=yes; }
+scan_nginx_definitions() { load_consumer_scanners; scan_nginx_definitions "$@"; }
+scan_compose_definitions() { load_consumer_scanners; scan_compose_definitions "$@"; }
+scan_systemd_runtime_consumers() { load_consumer_scanners; scan_systemd_runtime_consumers "$@"; }
+scan_systemd_consumers() { load_consumer_scanners; scan_systemd_consumers "$@"; }
 unit_state() { out=$(temp_path); systemctl show "$1" -p LoadState -p UnitFileState -p ActiveState --value >"$out" || { rm -f "$out"; die "unit state failed $1"; }; tr '\n' ':' <"$out"; rm -f "$out"; }
-scan_nginx_definitions() { [ -d /etc/nginx ] || return 0; if grep -R -l -E 'ollama|11434' /etc/nginx; then return 0; else status=$?; [ "$status" -eq 1 ] && return 0; return "$status"; fi; }
-scan_compose_definitions() {
-  list=$(temp_path); for root in $COMPOSE_ROOTS; do [ -d "$root" ] || continue; find "$root" -maxdepth 5 -type f \( -name 'docker-compose*.yml' -o -name 'docker-compose*.yaml' -o -name 'compose*.yml' -o -name 'compose*.yaml' -o -name 'Containerfile' \) >>"$list" || { rm -f "$list"; return 2; }; done
-  # shellcheck disable=SC2094 # $list is only read after the find phase above has completed.
-  while IFS= read -r path || [ -n "$path" ]; do if grep -l -E 'ollama|11434' "$path"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; done <"$list"; rm -f "$list"
-}
-scan_systemd_consumers() {
-  list=$(temp_path); for root in /etc/systemd/system /lib/systemd/system; do [ -d "$root" ] || continue; if grep -R -l -E 'ollama|11434' "$root" >>"$list"; then :; else status=$?; [ "$status" -eq 1 ] || { rm -f "$list"; return "$status"; }; fi; done
-  while IFS= read -r path || [ -n "$path" ]; do case "$path" in */"$UNIT"|*/"$UNIT".d/*|*/"$TIMER"|*/"$TIMER".d/*) ;; *) printf '%s\n' "$path";; esac; done <"$list"; rm -f "$list"
-}
-scan_container_rows() {
-  scope=$1; raw=$(temp_path); if [ "$scope" = all ]; then docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps -a --no-trunc --format '{{.ID}}' >"$raw"; else docker --host "unix://$CANONICAL_DOCKER_SOCKET" ps --no-trunc --format '{{.ID}}' >"$raw"; fi || { status=$?; rm -f "$raw"; return "$status"; }
-  # shellcheck disable=SC2094 # The open snapshot descriptor remains readable if error cleanup unlinks its pathname.
-  while IFS= read -r id || [ -n "$id" ]; do [ -n "$id" ] || continue; line=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Mounts}} {{json .NetworkSettings.Networks}}' "$id") || { status=$?; rm -f "$raw"; return "$status"; }; case "$line" in *" /$CONTAINER "*) ;; *) printf '%s' "$line" | /usr/bin/grep -Eqi 'ollama|11434' && printf '%s\n' "$line";; esac; done <"$raw"; rm -f "$raw"
-}
+scan_container_rows() { load_consumer_scanners; scan_container_rows "$@"; }
 scan_container_definitions() { scan_container_rows all; }
 scan_running_containers() { scan_container_rows running; }
 model_identity() {
   [ -d "$STORE" ] && [ ! -L "$STORE" ] || die 'unsafe model store'; parent=$(dirname "$STORE"); [ ! -L "$parent" ] || die 'unsafe model parent'
   [ "$(stat -c '%u:%a' "$STORE")" = '0:755' ] || die 'model store owner or mode drift'; model_parent_mode=$(stat -c '%a' "$parent") || die 'model parent mode scan failed'; case "$model_parent_mode" in ''|*[!0-7]*) die 'invalid model parent mode';; esac; [ $((0$model_parent_mode & 022)) -eq 0 ] || die 'writable model parent'
   list=$(temp_path); sorted=$(temp_path); raw=$(temp_path)
-  find "$STORE" -xdev -printf '%y:%m:%s:%T@:%p\n' >"$list" || { rm -f "$list" "$sorted" "$raw"; die 'model listing failed'; }
+  if find "$STORE" -xdev -type f -printf '%y:%m:%s:%T@:%p:' -exec sha256sum -- {} \; >"$list" && find "$STORE" -xdev ! -type f -printf '%y:%m:%s:%T@:%p\n' >>"$list"; then :; else rm -f "$list" "$sorted" "$raw"; die 'model listing failed'; fi
   sort "$list" >"$sorted" || { rm -f "$list" "$sorted" "$raw"; die 'model sorting failed'; }
   { readlink -f "$STORE"; readlink -f "$parent"; stat -c '%d:%i:%f:%u:%g:%a' "$STORE" "$parent"; findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS --target "$STORE"; cat "$sorted"; } >"$raw" || { rm -f "$list" "$sorted" "$raw"; die 'model identity failed'; }
   sha "$raw"; status=$?; rm -f "$list" "$sorted" "$raw"; return "$status"
@@ -148,9 +209,9 @@ host_available_memory_bytes() { out=$(temp_path); awk '/^MemAvailable:/{print $2
 completion_metrics() { jq -cn --argjson cgroup "$(cgroup_memory_bytes)" --argjson host "$(host_available_memory_bytes)" --argjson model "$(model_store_bytes)" '{cgroupMemoryBytes:$cgroup,hostAvailableMemoryBytes:$host,modelStoreBytes:$model}'; }
 container_id() { docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}}' "$CONTAINER"; }
 container_config() { out=$(temp_path); CONTAINER_CONFIG_SHA=$(digest_command "$out" container-config docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Id}} {{.Image}} {{.Path}} {{json .Args}} {{json .HostConfig}} {{json .Mounts}} {{json .NetworkSettings.Networks}}' "$CONTAINER"); record_consumers container-config "$out" none; rm -f "$out"; }
-
 collect() {
   records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'; id='' image='' config=''; tmp=${1:?snapshot path}; phase=${2:-scan}; cron="$tmp.cron"
+  load_cron_inventory_helper; RETIRE_OLLAMA_CRON_SOURCES=$(temp_path); cron_inventory_collect_external "$RETIRE_OLLAMA_CRON_SOURCES"
   assert_docker_socket; record_scan container-definitions scan_container_definitions
   systemctl cat "$UNIT" >"$tmp.unit" || die 'systemd definition scan failed'; record_scan systemd-definitions scan_systemd_consumers
   fragment=$(systemctl show "$UNIT" -p FragmentPath --value) || die 'fragment scan failed'; record_path systemd-fragments "$fragment"
@@ -159,7 +220,8 @@ collect() {
   record_scan systemd-timers systemctl list-timers --all; record_scan reverse-proxy scan_nginx_definitions; record_scan compose-definitions scan_compose_definitions
   if crontab -u "$OWNER" -l >"$cron" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'crontab scan failed'; : >"$cron"; fi; cron_sha=$(sha "$cron")
   case "$phase:$cron_sha" in scan:"$PRE_CRON_SHA"|revalidate:"$PRE_CRON_SHA"|revalidate:"$POST_CRON_SHA"|delete_models:"$POST_CRON_SHA") :;; *) die 'crontab drift';; esac
-  record_scan current-crontab cat "$cron"; record_scan running-processes ps -eo pid,ppid,user,args; record_scan running-containers scan_running_containers
+  record_scan current-crontab cat "$cron"; review_ollama_service_process_begin; processes=$(temp_path); ps -ww -eo pid,ppid,user,args >"$processes" || { rm -f "$processes"; die 'process scan failed'; }; record_scan running-processes cat "$processes"; record_running_process_environments "$processes"; record_running_process_files "$processes"; record_running_process_sockets "$processes"; review_ollama_service_process_finish; rm -f "$processes"; record_scan running-containers scan_running_containers
+  record_external_cron_sources "$RETIRE_OLLAMA_CRON_SOURCES"
   if package=$(dpkg-query -W "-f=$PACKAGE_FORMAT" ollama 2>/dev/null); then :; else die 'Ollama package missing'; fi; [ -n "$package" ] || die 'Ollama package missing'; record_scan package-identity dpkg-query -W "-f=$PACKAGE_FORMAT" ollama
   record_docker_socket; record_scan docker-daemon docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}} {{.DockerRootDir}}'
   if id=$(container_id 2>/dev/null); then image=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Image}}' "$CONTAINER") || die 'container image scan failed'; container_config; config=$CONTAINER_CONFIG_SHA; records=$(jq -cn --argjson old "$records" --arg id "$id" --arg image "$image" --arg config "$config" '$old + [{class:"container-config",fullId:$id,imageId:$image,configSha256:$config}]') || die 'container record failed'; elif [ "$phase" != delete_models ]; then die 'container missing'; else consumer_counts=$(jq -cn --argjson old "$consumer_counts" '$old + [{surface:"container-config",matchCount:0}]') || die 'container count record failed'; fi
@@ -170,7 +232,6 @@ collect() {
   daemon_out=$(temp_path); daemon=$(digest_command "$daemon_out" docker-daemon-identity docker --host "unix://$CANONICAL_DOCKER_SOCKET" info --format '{{.ServerVersion}} {{.Driver}}'); rm -f "$daemon_out"
   jq -S -n --arg unit "$UNIT" --arg timer "$TIMER" --arg unitState "$(unit_state "$UNIT")" --arg timerState "$(unit_state "$TIMER")" --arg package "$package" --arg cron "$cron_sha" --arg container "${id:-removed}" --arg image "${image:-removed}" --arg config "${config:-removed}" --arg socket "$CANONICAL_DOCKER_SOCKET" --arg daemon "$daemon" --arg model "$tree" --arg modelBytes "$bytes" --argjson records "$records" --argjson dependencies "$deps" --argjson consumerCounts "$consumer_counts" --argjson consumerEvidence "$consumer_evidence" '{units:[{name:$unit,state:$unitState},{name:$timer,state:$timerState}],packageVersion:$package,cronSha256:$cron,container:{name:"ollama-loopback",fullId:$container,imageId:$image,configSha256:$config},docker:{socketPath:$socket,daemonSha256:$daemon},model:{treeSha256:$model,byteCount:$modelBytes},records:$records,dependencies:$dependencies,consumerCounts:$consumerCounts,consumerEvidence:$consumerEvidence}' >"$tmp" || die 'snapshot serialization failed'
 }
-
 safe_receipt_parent() { [ -d "$1" ] && [ ! -L "$1" ] || die 'unsafe receipt parent'; mode=$(stat -c '%a' "$1") || die 'receipt parent mode scan failed'; case "$mode" in ''|*[!0-7]*) die 'invalid receipt parent mode';; esac; [ $((0$mode & 022)) -eq 0 ] || die 'writable receipt parent'; }
 ensure_receipt_dir() { if [ -e "$RECEIPT_DIR" ] || [ -L "$RECEIPT_DIR" ]; then safe_dir "$RECEIPT_DIR" || die 'unsafe receipt directory'; return; fi; parent=$(dirname "$RECEIPT_DIR"); safe_receipt_parent "$parent"; mkdir "$RECEIPT_DIR" || die 'receipt directory creation failed'; chmod 0700 "$RECEIPT_DIR" || die 'receipt directory protection failed'; safe_dir "$RECEIPT_DIR" || die 'unsafe receipt directory'; fsync_dir "$parent"; }
 pending_for() { target=$1; [ ! -L "$target" ] || die 'unsafe receipt target'; [ ! -e "$target" ] || safe_file "$target" || die 'unsafe receipt target'; pending="$target.pending"; [ ! -e "$pending" ] && [ ! -L "$pending" ] || die 'partial receipt publication'; printf '%s\n' "$pending"; }
@@ -178,11 +239,10 @@ publish_pending() { pending=$1 target=$2; chmod 0600 "$pending" || die 'receipt 
 discard_pending() { rm -f "$1" || die 'receipt cleanup failed'; fsync_dir "$RECEIPT_DIR"; }
 assert_no_pending_receipts() { for target in "$RECEIPT" "$RECEIPT_SHA" "$RECEIPT_DIR/pre-destructive.json" "$RECEIPT_DIR/pre-destructive.actions" "$RECEIPT_DIR/completion.json"; do [ ! -e "$target.pending" ] && [ ! -L "$target.pending" ] || die 'partial receipt publication'; done; }
 write_receipt() {
-  snapshot=$1; ensure_receipt_dir; assert_no_pending_receipts; receipt_pending=$(pending_for "$RECEIPT"); jq -S -n --slurpfile snapshot "$snapshot" '{schemaVersion:2,scan:$snapshot[0],rollbackNeeds:["reinstall Ollama package","redownload models"],prePostDeltas:{preDestructive:null,postDestructive:null}}' >"$receipt_pending" || { discard_pending "$receipt_pending"; die 'receipt serialization failed'; }
+  snapshot=$1; ensure_receipt_dir; assert_no_pending_receipts; receipt_pending=$(pending_for "$RECEIPT"); jq -S -n --slurpfile snapshot "$snapshot" '{schemaVersion:2,scan:$snapshot[0],rollbackNeeds:["unmount scheduled-work read-only binds","reinstall Ollama package","redownload models"],prePostDeltas:{preDestructive:null,postDestructive:null}}' >"$receipt_pending" || { discard_pending "$receipt_pending"; die 'receipt serialization failed'; }
   receipt_sha=$(sha "$receipt_pending"); sha_pending=$(pending_for "$RECEIPT_SHA"); printf '%s\n' "$receipt_sha" >"$sha_pending" || { discard_pending "$receipt_pending"; discard_pending "$sha_pending"; die 'receipt digest write failed'; }; publish_pending "$receipt_pending" "$RECEIPT"; publish_pending "$sha_pending" "$RECEIPT_SHA"; printf '%s\n' "$receipt_sha"
 }
 scan() { root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; tmp=$(temp_path); collect "$tmp"; write_receipt "$tmp"; }
-
 canonical_receipt_digest() { safe_dir "$RECEIPT_DIR" || die 'unsafe receipt directory'; assert_no_pending_receipts; if ! safe_file "$RECEIPT" || ! safe_file "$RECEIPT_SHA"; then die 'immutable canonical receipt required'; fi; digest=$(cat "$RECEIPT_SHA") || die 'receipt digest read failed'; case "$digest" in *[!0-9a-f]*|'') die 'receipt digest malformed';; esac; [ "${#digest}" -eq 64 ] || die 'receipt digest malformed'; [ "$(sha "$RECEIPT")" = "$digest" ] || die 'receipt drift'; printf '%s\n' "$digest"; }
 canonical_receipt() { safe_file "$INVENTORY" || die 'immutable reviewed inventory required'; digest=$(canonical_receipt_digest); [ "$(jq -er '.receiptSha256' "$INVENTORY")" = "$digest" ] || die 'inventory does not bind receipt'; }
 dependency_sha() { out=$(temp_path); jq -S -c '.scan.dependencies' "$RECEIPT" >"$out" || { rm -f "$out"; die 'dependency canonicalization failed'; }; sha "$out"; status=$?; rm -f "$out"; return "$status"; }
@@ -193,7 +253,7 @@ assert_approved_dependency_classes() {
   jq -e --argjson allowed "$allowed" '.scan.dependencies | type == "array" and all(.[]; .["endpoint-class"] as $class | ($class | type == "string") and ($allowed | index($class) != null))' "$RECEIPT" >/dev/null || review_required 'unapproved dependency endpoint class'
 }
 assert_zero_consumers() {
-  jq -e --argjson required '["systemd-definitions","reverse-proxy","compose-definitions","running-processes","running-containers","container-definitions","container-config"]' '.scan.consumerCounts as $counts | ($counts | type == "array") and all($required[]; . as $surface | [$counts[] | select(.surface == $surface)] as $entries | ($entries | length == 1) and ($entries[0].matchCount == 0))' "$RECEIPT" >/dev/null || review_required 'retirement requires zero classified consumers'
+  jq -e --argjson required '["systemd-definitions","reverse-proxy","compose-definitions","running-processes","running-containers","container-definitions","container-config"]' '.scan.consumerCounts as $counts | ($counts | type == "array") and all($required[]; . as $surface | [$counts[] | select(.surface == $surface)] as $entries | ($entries | length == 1) and ($entries[0].matchCount == 0)) and all($counts[]; if .surface == "current-crontab" or (.surface | startswith("system-cron")) or .surface == "user-crontab" then .matchCount == 0 else true end)' "$RECEIPT" >/dev/null || review_required 'retirement requires zero classified consumers'
 }
 receipt_scan_snapshot() { source=$1 target=$2; jq -S -e '.scan | if type == "object" then . else error("receipt scan snapshot required") end' "$source" >"$target" || die 'receipt scan snapshot invalid'; }
 normalize_revalidation_snapshot() {
@@ -219,20 +279,19 @@ assert_postcondition() {
 record_action() { action=$1; ensure_receipt_dir; target="$RECEIPT_DIR/pre-destructive.actions"; action_pending=$(pending_for "$target"); [ ! -e "$target" ] || cat "$target" >"$action_pending" || { discard_pending "$action_pending"; die 'action receipt read failed'; }; printf '%s\n' "$action" >>"$action_pending" || { discard_pending "$action_pending"; die 'action receipt write failed'; }; publish_pending "$action_pending" "$target"; }
 revalidate_before() { action=$1; case "$action" in delete_models) phase=delete_models;; *) phase=revalidate;; esac; tmp=$(temp_path); baseline=$(temp_path); collect "$tmp" "$phase"; receipt_scan_snapshot "$RECEIPT" "$baseline"; normalize_revalidation_snapshot "$baseline" "$tmp.old" "$action"; normalize_revalidation_snapshot "$tmp" "$tmp.new" "$action"; cmp -s "$tmp.old" "$tmp.new" || die "drift before $action"; rm -f "$tmp" "$baseline" "$tmp.old" "$tmp.new"; }
 install_crontab() { tmp=$(temp_path); if crontab -u "$OWNER" -l >"$tmp.before" 2>/dev/null; then :; else status=$?; [ "$status" -eq 1 ] || die 'crontab read failed'; : >"$tmp.before"; fi; while IFS= read -r line || [ -n "$line" ]; do h=$(hash_text "$line"); case "$h" in "$OLLAMA_CRON_ONE"|"$OLLAMA_CRON_TWO") continue;; esac; printf '%s\n' "$line" >>"$tmp"; done <"$tmp.before"; [ "$(sha "$tmp")" = "$POST_CRON_SHA" ] || die 'unexpected post-retirement crontab'; crontab -u "$OWNER" "$tmp" || die 'crontab install failed'; rm -f "$tmp" "$tmp.before"; assert_postcondition install_crontab; }
-disable_unit() { systemctl stop "$TIMER" "$UNIT" || die 'unit stop failed'; systemctl disable "$TIMER" "$UNIT" || die 'unit disable failed'; assert_postcondition disable_unit; }
+disable_unit() { revalidate_before disable_unit; assert_scheduled_mutations_quiesced "$at_state" "$cron_state"; systemctl stop "$TIMER" "$UNIT" || die 'unit stop failed'; systemctl disable "$TIMER" "$UNIT" || die 'unit disable failed'; assert_postcondition disable_unit; }
 remove_container() { id=$(jq -er '.scan.container.fullId' "$RECEIPT") || die 'container receipt missing'; [ "$(container_id)" = "$id" ] || die 'container replacement'; docker --host "unix://$CANONICAL_DOCKER_SOCKET" rm -f "$id" >/dev/null || die 'container removal failed'; assert_postcondition remove_container; }
 delete_models() { [ "$(model_identity)" = "$(jq -er '.scan.model.treeSha256' "$RECEIPT")" ] || die 'model tree drift'; (cd "$(dirname "$STORE")" && find "./$(basename "$STORE")" -xdev -depth -delete) || die 'model deletion failed'; assert_postcondition delete_models; }
 apply() {
   root; init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; canonical_receipt; [ "$(jq -er '.reviewStatus' "$INVENTORY")" = approved ] || review_required 'reviewed active inventory required'; assert_approved_dependency_classes
-  assert_zero_consumers; jq -e '.scan.dependencies | type == "array" and length == 0' "$RECEIPT" >/dev/null || review_required 'retirement requires zero dependencies'; approved=$(approved_dependency_sha) || review_required 'independent dependency review required'; [ "$approved" = "$(dependency_sha)" ] || review_required 'independent dependency review required'; ensure_receipt_dir
-  [ ! -e "$RECEIPT_DIR/pre-destructive.json" ] && [ ! -e "$RECEIPT_DIR/pre-destructive.actions" ] && [ ! -e "$RECEIPT_DIR/completion.json" ] || die 'incomplete or completed retirement exists'; pre_pending=$(pending_for "$RECEIPT_DIR/pre-destructive.json"); printf '%s\n' '{"phase":"pre-destructive","rollbackNeeds":["reinstall Ollama package","redownload models"]}' >"$pre_pending" || { discard_pending "$pre_pending"; die 'pre-destructive receipt failed'; }; publish_pending "$pre_pending" "$RECEIPT_DIR/pre-destructive.json"; pre=$(completion_metrics)
-  revalidate_before install_crontab; record_action install_crontab; install_crontab
-  revalidate_before disable_unit; record_action disable_unit; disable_unit
-  revalidate_before remove_container; record_action remove_container; remove_container
-  revalidate_before delete_models; record_action delete_models; delete_models
+  assert_zero_consumers; jq -e '.scan.dependencies | type == "array" and length == 0' "$RECEIPT" >/dev/null || review_required 'retirement requires zero dependencies'; approved=$(approved_dependency_sha) || review_required 'independent dependency review required'; [ "$approved" = "$(dependency_sha)" ] || review_required 'independent dependency review required'; ensure_receipt_dir; load_at_quiescence_helper; reconcile_interrupted_at_quiescence
+  [ ! -e "$RECEIPT_DIR/pre-destructive.json" ] && [ ! -e "$RECEIPT_DIR/pre-destructive.actions" ] && [ ! -e "$RECEIPT_DIR/completion.json" ] || die 'incomplete or completed retirement exists'; at_state=$(at_submission_state); pre_pending=$(pending_for "$RECEIPT_DIR/pre-destructive.json"); jq -S -n --argjson at "$at_state" '{phase:"pre-destructive",atSubmissionRollback:$at,rollbackNeeds:["unmount scheduled-work read-only binds","reinstall Ollama package","redownload models"]}' >"$pre_pending" || { discard_pending "$pre_pending"; die 'pre-destructive receipt failed'; }; publish_pending "$pre_pending" "$RECEIPT_DIR/pre-destructive.json"; pre=$(completion_metrics); record_action quiesce_at_submissions; quiesce_at_submissions "$at_state"
+  revalidate_before install_crontab; record_action install_crontab; assert_at_submissions_quiesced "$at_state"; install_crontab; cron_state=$(cron_mutation_state); pre_pending=$(pending_for "$RECEIPT_DIR/pre-destructive.json"); jq -S --argjson cron "$cron_state" '. + {cronMutationRollback:$cron}' "$RECEIPT_DIR/pre-destructive.json" >"$pre_pending" || { discard_pending "$pre_pending"; die 'cron mutation receipt failed'; }; publish_pending "$pre_pending" "$RECEIPT_DIR/pre-destructive.json"; record_action quiesce_cron_mutations; quiesce_cron_mutations "$cron_state"; assert_postcondition install_crontab
+  revalidate_before disable_unit; record_action disable_unit; assert_scheduled_mutations_quiesced "$at_state" "$cron_state"; disable_unit
+  revalidate_before remove_container; record_action remove_container; assert_scheduled_mutations_quiesced "$at_state" "$cron_state"; remove_container
+  revalidate_before delete_models; record_action delete_models; assert_scheduled_mutations_quiesced "$at_state" "$cron_state"; delete_models
   post=$(completion_metrics)
-  ensure_receipt_dir; completion_pending=$(pending_for "$RECEIPT_DIR/completion.json"); jq -S -n --arg receiptSha256 "$(canonical_receipt_digest)" --argjson pre "$pre" --argjson post "$post" '{receiptSha256:$receiptSha256,prePostDeltas:{preDestructive:$pre,postDestructive:$post,deltas:{cgroupMemoryBytes:($post.cgroupMemoryBytes-$pre.cgroupMemoryBytes),hostAvailableMemoryBytes:($post.hostAvailableMemoryBytes-$pre.hostAvailableMemoryBytes),modelStoreBytes:($post.modelStoreBytes-$pre.modelStoreBytes)}},rollbackNeeds:["reinstall Ollama package","redownload models"]}' >"$completion_pending" || { discard_pending "$completion_pending"; die 'completion receipt failed'; }; publish_pending "$completion_pending" "$RECEIPT_DIR/completion.json"
+  ensure_receipt_dir; completion_pending=$(pending_for "$RECEIPT_DIR/completion.json"); jq -S -n --arg receiptSha256 "$(canonical_receipt_digest)" --argjson at "$at_state" --argjson cron "$cron_state" --argjson pre "$pre" --argjson post "$post" '{receiptSha256:$receiptSha256,atSubmissionRollback:$at,cronMutationRollback:$cron,prePostDeltas:{preDestructive:$pre,postDestructive:$post,deltas:{cgroupMemoryBytes:($post.cgroupMemoryBytes-$pre.cgroupMemoryBytes),hostAvailableMemoryBytes:($post.hostAvailableMemoryBytes-$pre.hostAvailableMemoryBytes),modelStoreBytes:($post.modelStoreBytes-$pre.modelStoreBytes)}},rollbackNeeds:["unmount scheduled-work read-only binds","reinstall Ollama package","redownload models"]}' >"$completion_pending" || { discard_pending "$completion_pending"; die 'completion receipt failed'; }; publish_pending "$completion_pending" "$RECEIPT_DIR/completion.json"
 }
-main() { case "${1:-}" in --scan) scan;; --apply) apply;; *) usage;; esac; }
-# Sourcing exposes helpers; execute only when this file is the CLI entrypoint.
+main() { case "${1:-}" in --scan) scan;; --apply) apply;; --recovery-scan) type recovery_scan >/dev/null 2>&1 || review_required 'recovery helper missing'; recovery_scan;; *) usage;; esac; }
 case "$0" in */retire-ollama.sh|retire-ollama.sh) main "$@";; esac
