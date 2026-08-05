@@ -134,12 +134,12 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
     );
   });
 
-  it('does not mark a merchant invoice paid from a stale exact DVA amount after its total increases', async () => {
+  it('keeps a credited DVA amount exact after setup updates the order timestamp', async () => {
     const { supabase, state } = createSupabaseMock({
       accountRows: [
         {
           ...baseAccountRow,
-          payable_amount: '500000',
+          payable_amount: '350000',
           orders: {
             ...baseAccountRow.orders,
             recorded_by_user_id: 'merchant-user-1',
@@ -152,16 +152,20 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
     const result = await confirmPaystackDvaByOrderAccount({
       supabase: supabase as never,
       ...ctxBase,
-      verifiedAmount: { amount: 500_000, currency: 'NGN' },
+      verifiedAmount: { amount: 350_000, currency: 'NGN' },
     });
 
     expect(result.kind).toBe('match');
     expect(state.insertCalls[0]).toMatchObject({
+      amount: '350000',
       metadata: {
-        order_payment_allocation: 'merchant_invoice_partial',
-        order_payment_outstanding_before: 835_000,
+        dva_account_number: ctxBase.accountNumber,
+        dva_lookup_path: 'order_payment_accounts',
       },
     });
+    expect(state.insertCalls[0]?.metadata).not.toHaveProperty(
+      'order_payment_allocation'
+    );
   });
 
   it('matches the remaining balance exactly after an earlier partial payment', async () => {
@@ -196,6 +200,13 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
     });
     expect(state.insertCalls[0]?.metadata).not.toHaveProperty(
       'order_payment_allocation'
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.objectContaining({
+        p_merchant_amount: 532_950,
+        p_platform_fee: 2050,
+      })
     );
   });
 });

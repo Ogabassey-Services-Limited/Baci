@@ -97,7 +97,7 @@ describe('paystack DVA order candidate', () => {
     });
   });
 
-  it('uses the live order balance when a merchant invoice changes after DVA assignment', () => {
+  it('preserves the assigned payable residual after DVA setup updates the order timestamp', () => {
     expect(
       normalizePaystackDvaOrderCandidate({
         ...row,
@@ -109,7 +109,7 @@ describe('paystack DVA order candidate', () => {
       })
     ).toMatchObject({
       merchant_created: true,
-      outstanding_amount_kobo: 83_500_000,
+      outstanding_amount_kobo: 35_000_000,
     });
   });
 

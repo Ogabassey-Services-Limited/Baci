@@ -39,6 +39,7 @@ export type DvaMatchCandidate = {
   outstanding_amount_kobo?: number | null;
   // Only merchant-created invoices may infer an underpayment as intentional.
   merchant_created?: boolean;
+  payment_status?: 'pending' | 'unpaid' | 'partially_paid';
   account_created_at: Date;
   account_assigned_at?: Date | null;
   account_expires_at: Date | null;
