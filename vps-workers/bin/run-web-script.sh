@@ -140,14 +140,14 @@ cd "$WEB_DIR" || {
   echo "[$LABEL] Failed to change directory to: $WEB_DIR" >&2
   exit 1
 }
-TSX_BIN="$REPO_DIR/node_modules/.bin/tsx"
+TSX_BIN="$WEB_DIR/node_modules/.bin/tsx"
 if [ ! -x "$TSX_BIN" ]; then
-  echo "[$LABEL] Missing executable tsx in $REPO_DIR. Run pnpm install --frozen-lockfile for the Baci checkout; do not use a production-only install until the worker entrypoints are compiled." >&2
+  echo "[$LABEL] Missing executable tsx in $WEB_DIR. Run pnpm install --frozen-lockfile for the Baci checkout; do not use a production-only install until the worker entrypoints are compiled." >&2
   exit 1
 fi
 if ! tsx_output=$("$TSX_BIN" --version 2>&1); then
   echo "[$LABEL] tsx check output: $tsx_output" >&2
-  echo "[$LABEL] Missing tsx in $REPO_DIR. Run pnpm install --frozen-lockfile for the Baci checkout; do not use a production-only install until the worker entrypoints are compiled." >&2
+  echo "[$LABEL] Missing tsx in $WEB_DIR. Run pnpm install --frozen-lockfile for the Baci checkout; do not use a production-only install until the worker entrypoints are compiled." >&2
   exit 1
 fi
 

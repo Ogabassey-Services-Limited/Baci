@@ -24,7 +24,7 @@ test('runs web scripts with the React Server condition', () => {
 });
 
 test('uses the installed tsx binary without triggering pnpm dependency mutation', () => {
-  assert.match(runWebScript, /TSX_BIN="\$REPO_DIR\/node_modules\/\.bin\/tsx"/);
+  assert.match(runWebScript, /TSX_BIN="\$WEB_DIR\/node_modules\/\.bin\/tsx"/);
   assert.doesNotMatch(runWebScript, /pnpm .*exec tsx/);
 });
 
@@ -36,7 +36,7 @@ test('passes optional worker arguments through to the TypeScript entrypoint', ()
 test('runs tsx from apps/web so web tsconfig aliases resolve', () => {
   const repoDir = mkdtempSync(join(tmpdir(), 'baci-web-worker-'));
   const webDir = join(repoDir, 'apps/web');
-  const tsxBin = join(repoDir, 'node_modules/.bin/tsx');
+  const tsxBin = join(webDir, 'node_modules/.bin/tsx');
   const envFile = join(repoDir, 'worker.env');
   const capturedCwd = join(repoDir, 'cwd.txt');
   mkdirSync(join(webDir, 'src/scripts'), { recursive: true });

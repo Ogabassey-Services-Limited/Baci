@@ -74,7 +74,8 @@ Task:
 2. Write or update regression tests first.
 3. Make the smallest production fix that addresses the root cause.
 4. Run focused tests, then wider repo gates if the change crosses shared code.
-5. Create a draft pull request with the incident evidence and validation output.
+5. Leave the verified changes in the worktree for the outer remediator to commit,
+   push, and open as a draft pull request.
 
 Safety boundaries:
 - Do not modify protected files: proxy.ts, payment routes, webhook routes, auth routes, existing migrations, GitHub workflows, or secrets.

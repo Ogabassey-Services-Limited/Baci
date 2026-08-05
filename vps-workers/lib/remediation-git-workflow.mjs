@@ -143,6 +143,14 @@ export function runRemediationAutofix({
     throw new Error('BACI_REPO_DIR is required for autofix mode');
   }
 
+  const verifyCommand = env.BACI_REMEDIATION_VERIFY_COMMAND;
+  if (!verifyCommand) {
+    return {
+      reasons: ['BACI_REMEDIATION_VERIFY_COMMAND is required for autofix mode'],
+      type: 'configuration_blocked',
+    };
+  }
+
   const runId = sanitizeRunId(env.BACI_REMEDIATION_RUN_ID);
   const branch = branchNameFor(candidate, runId);
   const commandEnv = { ...process.env, ...env };
@@ -224,19 +232,6 @@ export function runRemediationAutofix({
       };
     }
 
-    const verifyCommand = env.BACI_REMEDIATION_VERIFY_COMMAND;
-    if (!verifyCommand) {
-      return {
-        branch,
-        changedFiles,
-        reasons: [
-          'BACI_REMEDIATION_VERIFY_COMMAND is required for autofix mode',
-        ],
-        resultPath,
-        type: 'policy_blocked',
-        worktreeDir,
-      };
-    }
     runChecked('bash', ['-lc', verifyCommand], worktreeCommandOptions);
 
     runChecked('git', ['add', '-A'], worktreeGitCommandOptions);

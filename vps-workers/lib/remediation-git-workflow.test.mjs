@@ -4,50 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
+import { remediationGitWorkflowTestFixtures } from './remediation-git-workflow.test-helpers.mjs';
 
-const candidate = {
-  fingerprint: 'abc123',
-  occurrences: 3,
-  sample: {
-    message: 'TypeError: Cannot read properties of undefined',
-    route: '/api/products',
-  },
-};
-
-function makeRunner({ changedFiles, statusOutput } = {}) {
-  const calls = [];
-  const environments = [];
-  return {
-    calls,
-    environments,
-    runner(command, args, options) {
-      calls.push([command, ...args]);
-      environments.push({ args, command, env: options?.env || {} });
-      const joined = [command, ...args].join(' ');
-      if (joined.includes('status --porcelain')) {
-        return {
-          status: 0,
-          stdout:
-            statusOutput ??
-            (changedFiles ?? 'apps/web/src/components/cart.tsx\n')
-              .split('\n')
-              .filter(Boolean)
-              .map((path) => ` M ${path}`)
-              .join('\n'),
-          stderr: '',
-        };
-      }
-      if (joined.includes('pr create')) {
-        return {
-          status: 0,
-          stdout: 'https://github.com/ogabasseyy/Baci/pull/999\n',
-          stderr: '',
-        };
-      }
-      return { status: 0, stdout: '', stderr: '' };
-    },
-  };
-}
+const { candidate, makeRunner } = remediationGitWorkflowTestFixtures;
 
 describe('remediation git workflow', () => {
   it('runs codex, verifies, pushes, and opens a PR for safe files', () => {
@@ -236,6 +195,7 @@ describe('remediation git workflow', () => {
     const result = runRemediationAutofix({
       candidate,
       env: {
+        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
         BACI_REMEDIATION_OUTPUT_DIR: outputDir,
         BACI_REPO_DIR: '/repo',
         BACI_REMEDIATION_RUN_ID: 'report-run',
@@ -270,6 +230,7 @@ describe('remediation git workflow', () => {
         runRemediationAutofix({
           candidate,
           env: {
+            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
             BACI_REMEDIATION_OUTPUT_DIR: outputDir,
             BACI_REPO_DIR: '/repo',
             BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
@@ -288,6 +249,7 @@ describe('remediation git workflow', () => {
       env: {
         BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
         BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
+        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
         BACI_REMEDIATION_OUTPUT_DIR: mkdtempSync(
           join(tmpdir(), 'baci-remediation-output-')
         ),
@@ -308,125 +270,6 @@ describe('remediation git workflow', () => {
     assert.equal(
       dockerCall.includes('--dangerously-bypass-approvals-and-sandbox'),
       true
-    );
-  });
-
-  it('blocks PR creation when protected files changed', () => {
-    const { calls, runner } = makeRunner({
-      changedFiles: 'apps/web/src/proxy.ts\n',
-    });
-
-    const result = runRemediationAutofix({
-      candidate,
-      env: {
-        BACI_REPO_DIR: '/repo',
-        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
-      },
-      prompt: 'Fix this production error.',
-      runner,
-    });
-
-    assert.equal(result.type, 'policy_blocked');
-    assert.match(result.reasons.join('\n'), /protected path/);
-    assert.equal(
-      calls.some((call) => call.includes('push')),
-      false
-    );
-    assert.equal(
-      calls.some((call) => call.includes('remove')),
-      false
-    );
-  });
-
-  it('blocks protected rename sources before PR creation', () => {
-    const { calls, runner } = makeRunner({
-      statusOutput: 'R  apps/web/src/proxy.ts -> apps/web/src/proxy-safe.ts',
-    });
-
-    const result = runRemediationAutofix({
-      candidate,
-      env: {
-        BACI_REPO_DIR: '/repo',
-        BACI_REMEDIATION_RUN_ID: 'rename-run',
-        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
-      },
-      prompt: 'Fix this production error.',
-      runner,
-    });
-
-    assert.equal(result.type, 'policy_blocked');
-    assert.deepEqual(result.changedFiles, [
-      'apps/web/src/proxy.ts',
-      'apps/web/src/proxy-safe.ts',
-    ]);
-    assert.match(result.reasons.join('\n'), /protected path/);
-    assert.equal(
-      calls.some((call) => call.includes('push')),
-      false
-    );
-  });
-
-  it('blocks safe changes when no verification command is configured', () => {
-    const { calls, runner } = makeRunner();
-
-    const result = runRemediationAutofix({
-      candidate,
-      env: {
-        BACI_REPO_DIR: '/repo',
-        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
-      },
-      prompt: 'Fix this production error.',
-      runner,
-    });
-
-    assert.equal(result.type, 'policy_blocked');
-    assert.match(result.reasons.join('\n'), /VERIFY_COMMAND/);
-    assert.equal(
-      calls.some((call) => call.includes('push')),
-      false
-    );
-    assert.equal(
-      calls.some((call) => call.includes('remove')),
-      false
-    );
-  });
-
-  it('preserves a changed worktree when verification fails', () => {
-    const { calls, runner: baseRunner } = makeRunner();
-    const runner = (command, args, options) =>
-      command === 'bash'
-        ? { status: 1, stdout: '', stderr: 'focused regression failed' }
-        : baseRunner(command, args, options);
-
-    assert.throws(
-      () =>
-        runRemediationAutofix({
-          candidate,
-          env: {
-            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo test',
-            BACI_REPO_DIR: '/repo',
-            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
-          },
-          runner,
-        }),
-      /focused regression failed/
-    );
-    assert.equal(
-      calls.some((call) => call.includes('remove')),
-      false
-    );
-  });
-
-  it('requires an explicit repo checkout', () => {
-    assert.throws(
-      () =>
-        runRemediationAutofix({
-          candidate,
-          env: {},
-          prompt: 'Fix this production error.',
-          runner: makeRunner().runner,
-        }),
-      /BACI_REPO_DIR is required/
     );
   });
 });
