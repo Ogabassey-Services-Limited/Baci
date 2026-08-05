@@ -169,6 +169,28 @@ export async function processMerchantInvoicePartialPayment({
   const completion = parsed.data;
   if (completion.outcome === 'standard_completion') {
     if (completion.reason === 'order_terminal') {
+      const { data: orderState, error: orderStateError } = await supabase
+        .from('orders')
+        .select('payment_status')
+        .eq('id', transaction.order_id)
+        .maybeSingle();
+      if (orderStateError) {
+        logger.error({
+          error: orderStateError,
+          message: 'Failed to verify terminal merchant invoice payment state',
+          orderId: transaction.order_id,
+          reference,
+          transactionId: transaction.id,
+        });
+        return {
+          body: { error: 'Merchant invoice partial payment processing failed' },
+          kind: 'error',
+          status: 500,
+        };
+      }
+      if (orderState?.payment_status === 'paid') {
+        return { kind: 'none' };
+      }
       const filed = await fileReview({
         errorCode: 'ORDER_TERMINAL',
         issueType: 'merchant_invoice_partial_payment_conflict',

@@ -208,4 +208,31 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
       })
     );
   });
+
+  it('does not mark a storefront exact balance as a merchant invoice partial', async () => {
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [
+        {
+          ...baseAccountRow,
+          orders: {
+            ...baseAccountRow.orders,
+            amount_paid: '300000',
+            payment_status: 'partially_paid',
+            recorded_by_user_id: null,
+          },
+        },
+      ],
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+      verifiedAmount: { amount: 535_000, currency: 'NGN' },
+    });
+
+    expect(result.kind).toBe('match');
+    expect(state.insertCalls[0]?.metadata).not.toHaveProperty(
+      'order_payment_allocation'
+    );
+  });
 });

@@ -220,8 +220,9 @@ export async function confirmPaystackDvaByOrderAccount({
   const winner = match.candidate;
   const currency = getPaystackDvaOrderCurrency(rows, winner.order_id) ?? 'NGN';
   const requiresPartialInvoiceBalanceCheck =
-    match.allocation === 'partial' ||
-    winner.payment_status === 'partially_paid';
+    winner.merchant_created === true &&
+    (match.allocation === 'partial' ||
+      winner.payment_status === 'partially_paid');
   const reservationFees = requiresPartialInvoiceBalanceCheck
     ? calculatePlatformFee(Math.round(verifiedAmount.amount * 100))
     : null;
