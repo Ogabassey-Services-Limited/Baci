@@ -1,5 +1,6 @@
 import type { PublishedClusterPost } from './content-cluster-types';
 import { getPostTokenGroups } from './get-post-token-groups';
+import { hasShorthandIdentifierOccurrence } from './has-shorthand-identifier-occurrence';
 import { isVariantOnlyComparisonSegment } from './is-variant-only-comparison-segment';
 import { matchesVariantDiscriminatorTokens } from './matches-variant-discriminator-tokens';
 import { tokenizeContentText } from './tokenize-content-text';
@@ -192,6 +193,30 @@ export function hasCleanIdentifierOccurrence(
   }
 
   const postTokenGroups = getPostTokenGroups(post);
+
+  if (
+    postTokenGroups.some((postTokens) =>
+      hasShorthandIdentifierOccurrence(
+        postTokens,
+        identifierTokens,
+        (prefixStart, prefixEnd) =>
+          options.brand
+            ? isBrandQualifiedOccurrence(
+                postTokens,
+                prefixStart,
+                prefixEnd,
+                options.brand,
+                options.knownBrands ?? [],
+                options.brandAliases ?? {},
+                options.requireBrandBeforeIdentifier ?? false,
+                options.allowBrandAliasOverlap ?? false
+              )
+            : true
+      )
+    )
+  ) {
+    return true;
+  }
 
   return postTokenGroups.some((postTokens, groupIndex) =>
     postTokens.some((_, startIndex) => {

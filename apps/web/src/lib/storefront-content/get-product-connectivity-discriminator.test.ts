@@ -63,7 +63,7 @@ describe('getProductConnectivityDiscriminators', () => {
       []
     );
 
-    expect(discriminators).toEqual(['bluetooth', 'gps']);
+    expect(discriminators).toEqual(['45mm', 'bluetooth', 'gps']);
   });
 
   it('retains detailed SIM mode markers stripped from model names', () => {
@@ -73,5 +73,23 @@ describe('getProductConnectivityDiscriminators', () => {
     );
 
     expect(discriminators).toEqual(['dual', 'nano', 'sim']);
+  });
+
+  it('merges variant metadata from an aligned PDP slug', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple iPhone 15'],
+      ['apple-iphone-15-256gb']
+    );
+
+    expect(discriminators).toEqual(['256gb']);
+  });
+
+  it('retains watch case dimensions as PDP discriminators', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple Watch Series 9 45mm'],
+      []
+    );
+
+    expect(discriminators).toEqual(['45mm']);
   });
 });

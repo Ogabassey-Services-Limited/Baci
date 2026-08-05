@@ -12,7 +12,7 @@ type CompareProductMatchRequirement = {
 };
 
 const VARIANT_DISCRIMINATOR_PATTERN =
-  /^(?:\d+(?:g|gb|tb|mb|mm|inch)|(?:e)?sim|wifi|cellular|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
+  /^(?:\d+(?:g|gb|tb|mb|mm|inch)|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
 
 function tokenize(value: string) {
   return normalizeContentCurrencyTokens(value)
@@ -86,29 +86,36 @@ export function getCompareProductMatchRequirements(
   const slugs = context.productSlugs ?? [];
   const sources = (names.length ? names : slugs).map((source, index) => ({
     identifierSource: source,
+    pairedSlug: slugs[index],
     brandSource: `${context.productBrands?.[index] ?? ''} ${source} ${slugs[index] ?? ''}`,
   }));
 
-  const candidates = sources.flatMap(({ identifierSource, brandSource }) => {
-    const identifier = getProductModelIdentifiers({
-      ...context,
-      productNames: names.length ? [identifierSource] : undefined,
-      productSlugs: names.length ? [] : [identifierSource],
-    })[0];
+  const candidates = sources.flatMap(
+    ({ identifierSource, pairedSlug, brandSource }) => {
+      const identifier = getProductModelIdentifiers({
+        ...context,
+        productNames: names.length ? [identifierSource] : undefined,
+        productSlugs: names.length
+          ? pairedSlug
+            ? [pairedSlug]
+            : []
+          : [identifierSource],
+      })[0];
 
-    return identifier
-      ? [
-          {
-            identifier,
-            brand: inferSourceBrand(brandSource, context),
-            discriminatorTokens: getSourceDiscriminatorTokens(
-              brandSource,
-              identifier
-            ),
-          },
-        ]
-      : [];
-  });
+      return identifier
+        ? [
+            {
+              identifier,
+              brand: inferSourceBrand(brandSource, context),
+              discriminatorTokens: getSourceDiscriminatorTokens(
+                brandSource,
+                identifier
+              ),
+            },
+          ]
+        : [];
+    }
+  );
 
   if (candidates.length !== sources.length) {
     return [];

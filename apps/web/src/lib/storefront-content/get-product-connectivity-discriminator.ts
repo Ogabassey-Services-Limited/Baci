@@ -17,6 +17,7 @@ const CONNECTIVITY_DISCRIMINATOR_TOKENS = new Set([
   'single',
   'wifi',
 ]);
+const DIMENSION_DISCRIMINATOR_PATTERN = /^\d+(?:mm|inch)$/u;
 const COMMON_STORAGE_CAPACITIES_GB = new Set([
   16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
 ]);
@@ -35,21 +36,47 @@ function getStorageCapacityGb(token: string) {
   return COMMON_STORAGE_CAPACITIES_GB.has(capacity) ? capacity : null;
 }
 
+function tokenizeVariantSource(source: string | undefined) {
+  return normalizeVariantDiscriminatorTokens(
+    normalizeContentCurrencyTokens(source ?? '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/u)
+      .filter(Boolean)
+  );
+}
+
+function getDiscriminatorGroup(token: string) {
+  if (CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token)) {
+    return 'connectivity';
+  }
+  if (DIMENSION_DISCRIMINATOR_PATTERN.test(token)) {
+    return 'dimension';
+  }
+  if (getStorageCapacityGb(token) !== null) {
+    return 'storage';
+  }
+  return null;
+}
+
 /** Returns PDP variant discriminators for group-aware guide matching. */
 export function getProductConnectivityDiscriminators(
   productNames: string[] | undefined,
   productSlugs: string[] | undefined,
   categorySlug?: SupportedClusterCategory
 ) {
-  const sources = productNames?.length ? productNames : productSlugs;
-  const tokens = normalizeVariantDiscriminatorTokens(
-    (sources ?? []).flatMap((source) =>
-      normalizeContentCurrencyTokens(source)
-        .toLowerCase()
-        .split(/[^a-z0-9]+/u)
-        .filter(Boolean)
-    )
-  );
+  const tokens = productNames?.length
+    ? productNames.flatMap((name, index) => {
+        const nameTokens = tokenizeVariantSource(name);
+        const namedGroups = new Set(nameTokens.map(getDiscriminatorGroup));
+        const supplementalSlugTokens = tokenizeVariantSource(
+          productSlugs?.[index]
+        ).filter((token) => {
+          const group = getDiscriminatorGroup(token);
+          return group && !namedGroups.has(group);
+        });
+        return [...nameTokens, ...supplementalSlugTokens];
+      })
+    : (productSlugs ?? []).flatMap(tokenizeVariantSource);
   const strongestStorageToken = tokens.reduce<string | null>(
     (strongest, token) => {
       const tokenCapacity = getStorageCapacityGb(token);
@@ -69,6 +96,7 @@ export function getProductConnectivityDiscriminators(
   return tokens.filter(
     (token) =>
       CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token) ||
+      DIMENSION_DISCRIMINATOR_PATTERN.test(token) ||
       token === strongestStorageToken
   );
 }

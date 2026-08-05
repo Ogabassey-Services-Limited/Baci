@@ -21,4 +21,14 @@ describe('getProductModelIdentifiersFromSources', () => {
 
     expect(identifiers).toEqual(['15 pro']);
   });
+
+  it('prefers a paired slug that adds a model-family prefix', () => {
+    const identifiers = getProductModelIdentifiersFromSources(
+      ['HP 15'],
+      ['hp-pavilion-15'],
+      (source) => (source.includes('pavilion') ? 'pavilion 15' : '15')
+    );
+
+    expect(identifiers).toEqual(['pavilion 15']);
+  });
 });

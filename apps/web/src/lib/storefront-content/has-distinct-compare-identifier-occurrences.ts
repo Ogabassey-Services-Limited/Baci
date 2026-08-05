@@ -47,19 +47,32 @@ function countComparisonSegmentsForIdentifier(
   segments: string[][],
   identifier: string
 ) {
+  const identifierTokens = tokenizeIdentifier(identifier);
   let count = 0;
-  let canInheritIdentifier = false;
-  for (const segment of segments) {
+  let previousSegmentCounted = false;
+  for (const [index, segment] of segments.entries()) {
     const hasIdentifier = countIdentifierOccurrences(segment, identifier) > 0;
+    const previousSegment = segments[index - 1] ?? [];
+    const hasSplitIdentifier = identifierTokens.some((_, splitIndex) => {
+      if (splitIndex === 0) {
+        return false;
+      }
+      const prefix = identifierTokens.slice(0, splitIndex).join(' ');
+      const suffix = identifierTokens.slice(splitIndex).join(' ');
+      return (
+        countIdentifierOccurrences(previousSegment, prefix) > 0 &&
+        countIdentifierOccurrences(segment, suffix) > 0
+      );
+    });
     const isVariantOnlyContinuation =
-      canInheritIdentifier &&
       !hasIdentifier &&
-      isVariantOnlyComparisonSegment(segment);
+      isVariantOnlyComparisonSegment(segment) &&
+      (previousSegmentCounted || hasSplitIdentifier);
     if (hasIdentifier || isVariantOnlyContinuation) {
       count += 1;
-      canInheritIdentifier = true;
+      previousSegmentCounted = true;
     } else {
-      canInheritIdentifier = false;
+      previousSegmentCounted = false;
     }
   }
   return count;

@@ -18,6 +18,7 @@ const SIM_MODE_TOKENS = new Set([
   'single',
 ]);
 const STORAGE_TOKEN_PATTERN = /^\d+(?:gb|tb|mb)$/u;
+const DIMENSION_TOKEN_PATTERN = /^\d+(?:mm|inch)$/u;
 
 function matchesOrderedTokenSequence(tokens: string[], expected: string[]) {
   let expectedIndex = 0;
@@ -41,6 +42,9 @@ function getTokenGroup(token: string) {
   }
   if (STORAGE_TOKEN_PATTERN.test(token)) {
     return 'storage';
+  }
+  if (DIMENSION_TOKEN_PATTERN.test(token)) {
+    return 'dimension';
   }
   return 'other';
 }

@@ -116,4 +116,23 @@ describe('hasDistinctCompareIdentifierOccurrences', () => {
 
     expect(result).toBe(false);
   });
+
+  it('inherits a model prefix for a tier-only comparison segment', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'iphone-15-vs-pro',
+        title: 'Apple iPhone 15 vs Pro Comparison',
+        excerpt: null,
+        category: 'Smartphones',
+        tags: ['smartphones'],
+        keywords: ['comparison'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['15', '15 pro']
+    );
+
+    expect(result).toBe(true);
+  });
 });

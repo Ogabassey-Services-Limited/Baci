@@ -11,10 +11,16 @@ function selectMostSpecificIdentifier(
     }
     const selectedTokens = selected.split(/\s+/u);
     const candidateTokens = candidate.split(/\s+/u);
-    const extendsSelected = selectedTokens.every(
-      (token, index) => candidateTokens[index] === token
+    let selectedIndex = 0;
+    for (const token of candidateTokens) {
+      if (token === selectedTokens[selectedIndex]) {
+        selectedIndex += 1;
+      }
+    }
+    const extendsSelected = selectedIndex === selectedTokens.length;
+    const extensionTokens = candidateTokens.filter(
+      (token) => !selectedTokens.includes(token)
     );
-    const extensionTokens = candidateTokens.slice(selectedTokens.length);
     const addsModelSpecificity = extensionTokens.some(
       (token) => !VARIANT_METADATA_TOKEN_PATTERN.test(token)
     );

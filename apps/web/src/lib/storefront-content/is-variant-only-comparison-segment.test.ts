@@ -18,4 +18,10 @@ describe('isVariantOnlyComparisonSegment', () => {
 
     expect(result).toBe(false);
   });
+
+  it('accepts product-tier shorthand segments', () => {
+    const result = isVariantOnlyComparisonSegment(['pro', 'comparison']);
+
+    expect(result).toBe(true);
+  });
 });

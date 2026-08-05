@@ -199,4 +199,40 @@ describe('getCompareProductMatchRequirements', () => {
       { identifier: '2', brand: 'nothing' },
     ]);
   });
+
+  it('uses a paired slug when a compare display name has no model', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      productNames: ['Apple iPhone 15', 'Samsung Smartphone'],
+      productSlugs: ['apple-iphone-15', 'samsung-galaxy-s25'],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: '15', brand: 'apple' },
+      { identifier: 's25', brand: 'samsung' },
+    ]);
+  });
+
+  it('retains GPS and Bluetooth as compare discriminators', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartwatches',
+      brands: ['Samsung'],
+      productNames: ['Samsung Watch 9 GPS', 'Samsung Watch 9 BT'],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: 'watch 9',
+        brand: 'samsung',
+        discriminatorTokens: ['gps'],
+      },
+      {
+        identifier: 'watch 9',
+        brand: 'samsung',
+        discriminatorTokens: ['bluetooth'],
+      },
+    ]);
+  });
 });
