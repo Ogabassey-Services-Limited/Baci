@@ -23,6 +23,13 @@ const postgrestRepairMigration = readFileSync(
   ),
   'utf8'
 );
+const requestScopeMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260805150000_isolate_gigl_tracking_postgrest_capability.sql'
+  ),
+  'utf8'
+);
 
 describe('GIGL tracking worker capability migration', () => {
   it('creates a non-login role that cannot bypass RLS', () => {
@@ -78,5 +85,25 @@ describe('GIGL tracking worker capability migration', () => {
     expect(postgrestRepairMigration).not.toMatch(
       /GRANT (?:SELECT|INSERT|UPDATE|DELETE|ALL)/
     );
+  });
+
+  it('confines the worker JWT to the five reviewed PostgREST RPC paths', () => {
+    expect(requestScopeMigration).toMatch(
+      /auth\.role\(\) IS DISTINCT FROM 'gigl_tracking_worker'/
+    );
+    expect(requestScopeMigration).toMatch(
+      /request_method IS DISTINCT FROM 'POST'/
+    );
+    expect(requestScopeMigration).toMatch(/request_path IS NULL/);
+    expect(
+      requestScopeMigration.match(/'rpc\/gigl_worker_[a-z_]+'/g)
+    ).toHaveLength(5);
+    expect(requestScopeMigration).toMatch(
+      /ALTER ROLE authenticator\s+SET pgrst\.db_pre_request = 'public\.enforce_gigl_tracking_worker_request_scope'/
+    );
+    expect(requestScopeMigration).toMatch(
+      /setting <> 'pgrst\.db_pre_request=public\.enforce_gigl_tracking_worker_request_scope'/
+    );
+    expect(requestScopeMigration).toMatch(/NOTIFY pgrst, 'reload config'/);
   });
 });

@@ -75,6 +75,7 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
   assert.ok(
     webFilter.includes("- '.github/scripts/tools-worker-typecheck-contract.test.mjs'")
   );
+  assert.ok(webFilter.includes("- 'vercel.json'"));
   assert.match(workflow, /filters: \.github\/filters\/ci\.yml/);
   assert.match(configTest, /import '\.\/tools-worker-typecheck-contract\.test\.mjs';/);
   assert.match(workflow, /node --test [^\n]*resolve-ci-test-plan-config\.test\.mjs/);

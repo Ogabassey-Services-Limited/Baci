@@ -179,6 +179,8 @@ jobs:
       # Bumping the pin requires re-checking that the new CLI's bundled
       # esbuild version is still on the allow list.
       - run: .github/scripts/run-pinned-vercel.sh pull --yes --environment=production
+      - name: Verify GIGL fallback capability in Vercel Production
+        run: node .github/scripts/inject-prebuilt-env-secret.mjs GIGL_TRACKING_WORKER_TOKEN .vercel/.env.production.local 'build-time-presence-stand-in-not-used-at-runtime-000000000000'
       - name: Synchronize Cloudflare runtime credentials to Vercel Production
         run: .github/scripts/sync-cloudflare-vercel-production-env.sh .github/scripts/run-pinned-vercel.sh
       - name: Ensure build-time presence of runtime-only quiz RPC secret

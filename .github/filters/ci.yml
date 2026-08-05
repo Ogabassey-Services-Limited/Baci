@@ -130,6 +130,7 @@ web:
   - 'packages/shared/**'
   - 'next.config.ts'
   - 'next.config.test.ts'
+  - 'vercel.json'
   - '.github/actions/pnpm-install-cached/**'
   - '.github/actions/setup-pnpm-store/**'
   - '.github/filters/ci.yml'

@@ -29,6 +29,7 @@ function fixture({
   staleWorkflowSha = false,
   staleTrackingCommand = false,
   unusableCapability = false,
+  unusableProviderEnvironment = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'baci-gigl-readiness-'));
   temporaryDirectories.push(root);
@@ -37,6 +38,7 @@ function fixture({
   const crontab = join(root, 'crontab');
   const repo = join(root, 'repo');
   mkdirSync(join(remote, 'bin'), { recursive: true });
+  mkdirSync(join(remote, 'jobs'), { recursive: true });
   mkdirSync(fakeBin, { recursive: true });
   mkdirSync(repo, { recursive: true });
 
@@ -58,6 +60,11 @@ function fixture({
     `#!/usr/bin/env bash\nexit ${unusableCapability ? '1' : '0'}\n`
   );
   chmodSync(capabilityWrapper, 0o755);
+
+  writeFileSync(
+    join(remote, 'jobs', 'preflight-direct-web-workers.mjs'),
+    `process.exit(${unusableProviderEnvironment ? '1' : '0'});\n`
+  );
 
   const trackingCommand = staleTrackingCommand
     ? `${remote}/bin/process-gigl-tracking.sh`
@@ -169,5 +176,12 @@ describe('GIGL direct-worker deployment gate', () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stderr, /failed its live wrapper smoke/);
+  });
+
+  it('blocks deployment when the installed provider environment has drifted', () => {
+    const result = verify({ unusableProviderEnvironment: true });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /environment failed its production preflight/);
   });
 });

@@ -180,8 +180,8 @@ export const EVENT_PIPELINE_BOUNDARY = {
     // biome-ignore format: compact reviewed authority allowlist preserves the 300-line module gate.
     serviceImporters: [
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts', 'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-      'apps/web/src/app/api/cron/gigl-tracking/route.ts', 'apps/web/src/app/api/analytics/conversion/route.ts',
-      'apps/web/src/app/api/events/route.ts', 'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
+      'apps/web/src/app/api/analytics/conversion/route.ts', 'apps/web/src/app/api/events/route.ts',
+      'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/scripts/process-domain-events.ts', 'apps/web/src/scripts/process-event-deliveries.ts',
     ],
   },
