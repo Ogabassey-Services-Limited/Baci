@@ -1,5 +1,5 @@
 import { STOREFRONT_POLICY_ROUTES } from '@/config/storefront-policy-routes';
-import { getProductUrl } from '@/lib/seo-utils';
+import { getValidatedProductUrl } from '@/lib/seo-utils';
 
 type AgentProductUrlInput = {
   baseUrl: string;
@@ -25,23 +25,6 @@ export function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
-function encodePathSegment(segment: string): string {
-  try {
-    return encodeURIComponent(decodeURIComponent(segment));
-  } catch {
-    return encodeURIComponent(segment);
-  }
-}
-
-function encodePathSegments(path: string): string {
-  return path
-    .split('/')
-    .map((segment, index) =>
-      index === 0 ? segment : encodePathSegment(segment)
-    )
-    .join('/');
-}
-
 export function buildAgentProductUrl({
   baseUrl,
   product,
@@ -54,7 +37,7 @@ export function buildAgentProductUrl({
     throw new TypeError('Agent product URL requires product id and name.');
   }
 
-  const productPath = getProductUrl({
+  const productForUrl = {
     id: product.id,
     name: product.name,
     slug: product.slug ?? undefined,
@@ -67,9 +50,8 @@ export function buildAgentProductUrl({
           slug: product.categories.slug ?? undefined,
         }
       : null,
-  });
-
-  return `${trimTrailingSlash(baseUrl)}${encodePathSegments(productPath)}`;
+  };
+  return getValidatedProductUrl(productForUrl, baseUrl);
 }
 
 export function buildAgentPolicyUrls(baseUrl: string): AgentPolicyUrls {

@@ -4,12 +4,17 @@ import { brandAuthorityPublicData } from '@/lib/storefront-category/brand-author
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import { getCachedBrandAuthorityInventory } from '@/lib/storefront-category/get-cached-brand-authority-inventory';
 import { modelFamilyAuthorityTaxonomy } from '@/lib/storefront-category/model-family-authority-taxonomy';
+import { isStorefrontSitemapPublished } from '@/lib/storefront-seo/is-storefront-sitemap-published';
 import type { StorefrontSitemapContext } from './sitemap-data';
 
 export async function getBrandAuthoritySitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   const eligibleCategories = await Promise.all(
     brandAuthorityTaxonomy
       .getSupportedCategories()

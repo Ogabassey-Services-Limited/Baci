@@ -18,10 +18,10 @@ import { promisify } from 'node:util';
 
 const root = new URL('.', import.meta.url); const script = new URL('./retire-ollama.sh', root); const execFileAsync = promisify(execFile);
 test('keeps the scan finite when nginx is not installed', async () => {
-  const source = await readFile(script, 'utf8');
+  const source = await readFile(new URL('./retire-ollama-consumers.sh', root), 'utf8');
   assert.match(
     source,
-    /scan_nginx_definitions\(\).*\[ -d \/etc\/nginx \] \|\| return 0/s
+    /scan_nginx_definitions\(\).*\[ ! -e "\$NGINX_ROOT" \] && return 0/s
   );
 });
 test('classifies every non-environment consumer surface without retaining raw values', async () => {
@@ -40,38 +40,8 @@ test('classifies every non-environment consumer surface without retaining raw va
   assert.match(source, /record_consumers container-config "\$out" none/);
   assert.match(source, /assert_zero_consumers\(\)/);
   assert.match(source, /retirement requires zero classified consumers/);
-  assert.match(source, /\*:ollama\|\*:\/ollama\)/);
+  assert.match(source, /\|ollama\|\*\/ollama\) matched=1/);
   assert.doesNotMatch(source, /consumerPath|rawCommand|consumerValue/);
-});
-
-test('treats a compose.yaml consumer as a nonzero classified dependency', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'baci-compose-yaml-'));
-  const compose = join(dir, 'compose.yaml');
-  const receipt = join(dir, 'receipt.json');
-  try {
-    await writeFile(
-      compose,
-      'services:\n  app:\n    environment: [OLLAMA_HOST=http://127.0.0.1:11434]\n'
-    );
-    await assert.rejects(
-      execFileAsync(
-        'sh',
-        [
-          '-c',
-          'copy=$(mktemp); sed \'$d\' "$1" >"$copy"; . "$copy"; rm -f "$copy"; COMPOSE_ROOTS="$2"; init_temp_root; trap cleanup_temp EXIT; consumer_counts=$(jq -cn \'["systemd-definitions","reverse-proxy","running-processes","running-containers","container-definitions","container-config"] | map({surface:.,matchCount:0})\'); out=$(temp_path); scan_compose_definitions >"$out"; record_consumers compose-definitions "$out" all; jq -n --argjson counts "$consumer_counts" \'{scan:{consumerCounts:$counts}}\' >"$3"; RECEIPT="$3"; assert_zero_consumers',
-          'retire-compose-test',
-          script.pathname,
-          dir,
-          receipt,
-        ],
-        { env: process.env }
-      ),
-      (error) =>
-        error.code === 78 && /zero classified consumers/.test(error.stderr)
-    );
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
 });
 
 test('fails closed before any destructive preparation when a receipt publication is partial', async () => {

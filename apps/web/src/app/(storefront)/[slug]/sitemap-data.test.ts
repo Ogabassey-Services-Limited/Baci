@@ -8,6 +8,7 @@ process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 let mockHeaders = new Map<string, string>();
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockGetCachedCategoryProductCounts = vi.fn();
 const mockGetBrandAuthorityCategory = vi.fn();
 const mockGetCachedBrandAuthorityInventory = vi.fn();
 const mockBuildCommercialSupportDiscoveryLinks = vi.fn();
@@ -23,6 +24,10 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
+}));
+vi.mock('@/lib/cached-category-product-counts', () => ({
+  getCachedCategoryProductCounts: (...args: unknown[]) =>
+    mockGetCachedCategoryProductCounts(...args),
 }));
 vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
   brandAuthorityPublicData: {
@@ -44,26 +49,22 @@ vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateSlug: vi.fn((str: string) => str.toLowerCase().replace(/\s+/g, '-')),
-  getProductUrl: vi.fn(
-    (product: {
-      id: string;
-      slug?: string | null;
-      category_slug?: string | null;
-      categories?: { slug?: string | null } | null;
-      canonical_url?: string | null;
-    }) => {
-      if (product.canonical_url) {
-        try {
-          return new URL(product.canonical_url, 'https://storefront.invalid')
-            .pathname;
-        } catch {
-          // fall through to slug/category-based path
-        }
-      }
-
+  getValidatedProductUrl: vi.fn(
+    (
+      product: {
+        id: string;
+        slug?: string | null;
+        category_slug?: string | null;
+        categories?: { slug?: string | null } | null;
+      },
+      baseUrl: string
+    ) => {
       const slug = product.slug || product.id;
       const categorySlug = product.categories?.slug || product.category_slug;
-      return categorySlug ? `/${categorySlug}/${slug}` : `/products/${slug}`;
+      const productPath = categorySlug
+        ? `/${categorySlug}/${slug}`
+        : `/products/${slug}`;
+      return `${new URL(baseUrl).origin}${productPath}`;
     }
   ),
 }));
@@ -163,6 +164,7 @@ describe('sitemap-data', () => {
     });
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockGetCachedCategoryProductCounts.mockReset();
     mockGetBrandAuthorityCategory.mockReset();
     mockGetBrandAuthorityCategory.mockResolvedValue(null);
     mockGetCachedBrandAuthorityInventory.mockReset();
@@ -270,6 +272,8 @@ describe('sitemap-data', () => {
       .mockResolvedValueOnce({
         id: 'merchant-1',
         slug: 'ogabassey',
+        is_published: true,
+        business_name: 'Ogabassey',
       });
     const { resolveStorefrontSitemapContext } = sitemapData;
 
@@ -305,6 +309,8 @@ describe('sitemap-data', () => {
       merchant: {
         id: 'merchant-1',
         slug: 'ogabassey',
+        is_published: true,
+        business_name: 'Ogabassey',
         updated_at: '2026-06-01T00:00:00Z',
       },
       storeUrl: 'https://ogabassey.com',
@@ -327,7 +333,12 @@ describe('sitemap-data', () => {
   it('omits lastmod from static entries when the merchant has no updated_at', () => {
     const { getStaticSitemapEntries } = sitemapData;
     const entries = getStaticSitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        is_published: true,
+        business_name: 'Ogabassey',
+      },
       storeUrl: 'https://ogabassey.com',
     } as unknown as Parameters<typeof getStaticSitemapEntries>[0]);
 
@@ -343,6 +354,8 @@ describe('sitemap-data', () => {
       merchant: {
         id: 'merchant-1',
         slug: 'ogabassey',
+        is_published: true,
+        business_name: 'Ogabassey',
         updated_at: '2026-06-01T00:00:00Z',
         trust_profile: {
           return_policy: { summary: 'Returns accepted within 7 days.' },
@@ -380,10 +393,12 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      is_published: true,
     });
     mockProductsQuery([
       {
         id: 'p1',
+        name: 'iPhone 15',
         slug: 'iphone-15',
         category: 'Smartphones',
         images: ['https://img.example.com/iphone.jpg'],
@@ -416,11 +431,13 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      is_published: true,
     });
 
     mockProductsQuery(
       Array.from({ length: 1002 }, (_, index) => ({
         id: `p${index + 1}`,
+        name: `Product ${index + 1}`,
         slug: `product-${index + 1}`,
         category: 'Smartphones',
         images: [],
@@ -455,10 +472,12 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      is_published: true,
     });
     mockProductsQuery([
       {
         id: 'p2',
+        name: 'MacBook Pro M4 Max',
         slug: 'macbook-pro-m4-max-36gb-1tb-16-inch',
         category: 'Laptops',
         images: [],
@@ -489,7 +508,7 @@ describe('sitemap-data', () => {
     const { getProductSitemapEntries } = sitemapData;
 
     await getProductSitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
       storeUrl: 'https://ogabassey.com',
       supabase: {
         from: (table: string) => ({
@@ -502,12 +521,16 @@ describe('sitemap-data', () => {
     } as unknown as Parameters<typeof getProductSitemapEntries>[0]);
 
     expect(mockSelectCalls.join('\n')).not.toMatch(/\bcategory_slug\b/);
+    expect(mockSelectCalls.join('\n')).toContain(
+      'product_categories:product_categories(categories(slug))'
+    );
   });
 
   it('includes blog child sitemaps in the sitemap index when the blog is enabled', async () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
       feature_settings: { blog_enabled: true },
@@ -538,6 +561,7 @@ describe('sitemap-data', () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
       business_type: 'electronics',
@@ -571,6 +595,7 @@ describe('sitemap-data', () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
       business_type: 'electronics',
@@ -597,6 +622,7 @@ describe('sitemap-data', () => {
     const entries = await getRepairsSitemapEntries({
       merchant: {
         id: 'merchant-1',
+        is_published: true,
         slug: 'ogabassey',
         business_type: 'electronics',
         feature_settings: { repairs_catalog_enabled: true },
@@ -641,6 +667,7 @@ describe('sitemap-data', () => {
       getRepairsSitemapEntries({
         merchant: {
           id: 'merchant-1',
+          is_published: true,
           slug: 'ogabassey',
           business_type: 'electronics',
           feature_settings: { repairs_catalog_enabled: false },
@@ -660,6 +687,7 @@ describe('sitemap-data', () => {
       getRepairsSitemapEntries({
         merchant: {
           id: 'merchant-1',
+          is_published: true,
           slug: 'ogabassey',
           business_type: 'electronics',
           feature_settings: { repairs_catalog_enabled: true },
@@ -687,6 +715,7 @@ describe('sitemap-data', () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
       feature_settings: { blog_enabled: false },
@@ -716,7 +745,7 @@ describe('sitemap-data', () => {
     const { getSitemapIndexLinks } = sitemapData;
 
     const links = getSitemapIndexLinks({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
       storeUrl: 'https://ogabassey.com',
       supabase: {},
     } as unknown as StorefrontSitemapContext);
@@ -755,6 +784,7 @@ describe('sitemap-data', () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
@@ -863,7 +893,7 @@ describe('sitemap-data', () => {
     const { getCommercialSupportSitemapEntries } = sitemapData;
 
     const entries = await getCommercialSupportSitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
       storeUrl: 'https://ogabassey.com',
       supabase: {
         from: (table: string) => ({
@@ -919,6 +949,7 @@ describe('sitemap-data', () => {
     } = sitemapData;
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
@@ -979,6 +1010,7 @@ describe('sitemap-data', () => {
     } = sitemapData;
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
@@ -1052,6 +1084,7 @@ describe('sitemap-data', () => {
     } = sitemapData;
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
@@ -1110,6 +1143,7 @@ describe('sitemap-data', () => {
     } = sitemapData;
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
@@ -1190,6 +1224,7 @@ describe('sitemap-data', () => {
     } = sitemapData;
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
+      is_published: true,
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
@@ -1352,11 +1387,26 @@ describe('sitemap-data', () => {
   });
 
   it('omits lastmod from category entries when updated_at is missing', async () => {
-    mockCategoriesQuery([{ slug: 'smartphones', updated_at: null }]);
+    mockCategoriesQuery([
+      {
+        id: 'category-smartphones',
+        slug: 'smartphones',
+        updated_at: null,
+        is_active: true,
+        parent_id: null,
+      },
+    ]);
+    mockGetCachedCategoryProductCounts.mockResolvedValueOnce({
+      'category-smartphones': 1,
+    });
     const { getCategorySitemapEntries } = sitemapData;
 
     const entries = await getCategorySitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        is_published: true,
+      },
       storeUrl: 'https://ogabassey.com',
       supabase: {
         from: (table: string) => ({
@@ -1390,7 +1440,7 @@ describe('sitemap-data', () => {
     const { getBrandAuthoritySitemapEntries } = sitemapData;
 
     const entries = await getBrandAuthoritySitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
       storeUrl: 'https://ogabassey.com',
       supabase: {},
     } as unknown as StorefrontSitemapContext);
@@ -1422,7 +1472,7 @@ describe('sitemap-data', () => {
     const { getBrandAuthoritySitemapEntries } = sitemapData;
 
     const entries = await getBrandAuthoritySitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
       storeUrl: 'https://ogabassey.com',
       supabase: {},
     } as unknown as StorefrontSitemapContext);
@@ -1440,7 +1490,7 @@ describe('sitemap-data', () => {
 
     await expect(
       getBrandAuthoritySitemapEntries({
-        merchant: { id: 'merchant-1', slug: 'ogabassey' },
+        merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
         storeUrl: 'https://ogabassey.com',
         supabase: {},
       } as unknown as StorefrontSitemapContext)
@@ -1468,7 +1518,7 @@ describe('sitemap-data', () => {
     const { getCommercialSupportSitemapEntries } = sitemapData;
 
     const entries = await getCommercialSupportSitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: { id: 'merchant-1', slug: 'ogabassey', is_published: true },
       storeUrl: 'https://ogabassey.com',
       supabase: {
         from: (table: string) => ({

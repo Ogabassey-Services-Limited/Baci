@@ -1,5 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
+import { getCachedCategoryProductCounts } from '@/lib/cached-category-product-counts';
 import {
   getCachedCategoryPageData,
   getMerchantByIdentifier,
@@ -8,32 +9,29 @@ import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { isRawDbProductRecord, type RawDbProduct } from '@/lib/raw-db-product';
 import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { escapeHtml } from '@/lib/sanitize-core';
-import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildCommercialSupportDiscoveryLinks } from '@/lib/storefront-compare/build-compare-discovery-links';
 import {
   resolveMerchantContextIdentifier,
   resolveRouteIdentifier,
 } from '@/lib/storefront-route-identifier';
-import {
-  buildMerchantTrustProfile,
-  hasPublishableReturnsPolicy,
-  hasPublishableShippingPolicy,
-  hasPublishableWarrantyPolicy,
-} from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { buildProductSeoDecision } from '@/lib/storefront-seo/build-product-seo-decision';
+import { isSeoSitemapEligible } from '@/lib/storefront-seo/is-seo-sitemap-eligible';
+import { isStorefrontSitemapPublished } from '@/lib/storefront-seo/is-storefront-sitemap-published';
+import { toProductIndexingFacts } from '@/lib/storefront-seo/to-product-indexing-facts';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
+import { buildCategorySitemapEntries } from './build-category-sitemap-entries';
+import {
+  buildProductSitemapEntry,
+  type ProductWithCategory,
+} from './build-product-sitemap-entry';
+import { getCommercialSupportCategorySitemapEntries } from './get-commercial-support-category-sitemap-entries';
+import { getStaticSitemapEntries } from './get-static-sitemap-entries';
+import { getTrustPolicySitemapEntries } from './get-trust-policy-sitemap-entries';
 
-export interface ProductWithCategory {
-  id: string;
-  slug: string | null;
-  category: string | null;
-  canonical_url: string | null;
-  images: Array<string | { url: string }> | null;
-  updated_at: string | null;
-  category_id: string | null;
-  categories: { slug: string | null } | null;
-}
+export { getStaticSitemapEntries } from './get-static-sitemap-entries';
+export { getTrustPolicySitemapEntries } from './get-trust-policy-sitemap-entries';
 
 const SITEMAP_QUERY_PAGE_SIZE = 1000;
 // Sitemap spec caps a single file at 50,000 URLs. Leave headroom so the
@@ -192,61 +190,6 @@ export async function resolveStorefrontSitemapContext(
   return result.status === 'found' ? result.context : null;
 }
 
-// lastmod must reflect real content changes — Google ignores it site-wide
-// once it sees request-time values. merchant.updated_at is the closest
-// DB-backed signal for static/policy pages; omit the field when absent.
-function getMerchantLastModified(
-  merchant: StorefrontSitemapContext['merchant']
-): Date | undefined {
-  return merchant.updated_at ? new Date(merchant.updated_at) : undefined;
-}
-
-export function getStaticSitemapEntries({
-  merchant,
-  storeUrl,
-}: Pick<
-  StorefrontSitemapContext,
-  'merchant' | 'storeUrl'
->): MetadataRoute.Sitemap {
-  const lastModified = getMerchantLastModified(merchant);
-
-  return [
-    {
-      url: storeUrl,
-      lastModified,
-      changeFrequency: 'daily',
-      priority: 1,
-    },
-    {
-      url: `${storeUrl}/faq`,
-      lastModified,
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-  ];
-}
-
-export function getTrustPolicySitemapEntries({
-  merchant,
-  storeUrl,
-}: StorefrontSitemapContext): MetadataRoute.Sitemap {
-  const trustProfile = buildMerchantTrustProfile(merchant, storeUrl);
-  const trustUrls = [
-    hasPublishableReturnsPolicy(trustProfile) ? `${storeUrl}/returns` : null,
-    hasPublishableShippingPolicy(trustProfile) ? `${storeUrl}/shipping` : null,
-    hasPublishableWarrantyPolicy(trustProfile) ? `${storeUrl}/warranty` : null,
-  ].filter((url): url is string => typeof url === 'string' && url.length > 0);
-
-  const lastModified = getMerchantLastModified(merchant);
-
-  return trustUrls.map((url) => ({
-    url,
-    lastModified,
-    changeFrequency: 'monthly',
-    priority: 0.5,
-  }));
-}
-
 export function getStaticAndTrustSitemapEntries(
   context: StorefrontSitemapContext
 ): MetadataRoute.Sitemap {
@@ -261,6 +204,10 @@ export async function getProductSitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   const products: ProductWithCategory[] = [];
   let from = 0;
 
@@ -270,7 +217,7 @@ export async function getProductSitemapEntries({
     const { data, error } = (await supabase
       .from('products')
       .select(
-        'id, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug)'
+        'id, name, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug), product_categories:product_categories(categories(slug))'
       )
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
@@ -301,41 +248,18 @@ export async function getProductSitemapEntries({
     return [];
   }
 
-  return products.map((product) => {
-    const normalizedJoinedCategory =
-      product.categories?.slug && product.categories.slug.trim().length > 0
-        ? { slug: product.categories.slug.trim() }
-        : null;
+  return products.flatMap((product) => {
+    const entry = buildProductSitemapEntry({ product, storeUrl });
+    const decision = buildProductSeoDecision(
+      toProductIndexingFacts({
+        isStorePublished: merchant.is_published,
+        status: 'active',
+        name: product.name,
+        canonicalUrl: entry.url,
+      })
+    );
 
-    const url = `${storeUrl}${getProductUrl({
-      id: product.id,
-      slug: product.slug ?? undefined,
-      name: product.slug || product.id,
-      category: product.category,
-      categories: normalizedJoinedCategory,
-      canonical_url: product.canonical_url,
-    })}`;
-
-    const images: string[] = [];
-    if (Array.isArray(product.images)) {
-      product.images.forEach((img: unknown) => {
-        const url =
-          typeof img === 'string' ? img : (img as Record<string, unknown>)?.url;
-        if (typeof url === 'string' && url.startsWith('http')) {
-          images.push(url);
-        }
-      });
-    }
-
-    return {
-      url,
-      lastModified: product.updated_at
-        ? new Date(product.updated_at)
-        : undefined,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-      ...(images.length > 0 && { images }),
-    };
+    return isSeoSitemapEligible(decision) ? [entry] : [];
   });
 }
 
@@ -344,9 +268,13 @@ export async function getCategorySitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   const { data: categories, error } = await supabase
     .from('categories')
-    .select('slug, updated_at')
+    .select('id, slug, updated_at, is_active, parent_id')
     .eq('merchant_id', merchant.id);
 
   if (error) {
@@ -357,12 +285,23 @@ export async function getCategorySitemapEntries({
     throw new Error(`Failed to load category sitemap for ${merchant.id}`);
   }
 
-  return categories.map((cat) => ({
-    url: `${storeUrl}/${cat.slug}`,
-    lastModified: cat.updated_at ? new Date(cat.updated_at) : undefined,
-    changeFrequency: 'daily',
-    priority: 0.7,
-  }));
+  const activeCategories = categories.filter(
+    (category) => category.is_active === true
+  );
+  if (activeCategories.length === 0) {
+    return [];
+  }
+  const categoryCounts = await getCachedCategoryProductCounts(
+    merchant.id,
+    activeCategories
+  );
+
+  return buildCategorySitemapEntries({
+    categories: activeCategories,
+    categoryCounts,
+    isStorePublished: merchant.is_published,
+    storeUrl,
+  });
 }
 
 export { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
@@ -396,6 +335,10 @@ export async function getRepairsSitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   if (!isRepairsCatalogEnabledForMerchant(merchant)) {
     return [];
   }
@@ -473,7 +416,15 @@ function getRawProductCategorySlug(
 export async function getCommercialSupportSitemapEntries(
   context: StorefrontSitemapContext
 ): Promise<MetadataRoute.Sitemap> {
-  const categoryEntries = await getCategorySitemapEntries(context);
+  if (!isStorefrontSitemapPublished(context.merchant)) {
+    return [];
+  }
+
+  const categoryEntries = await getCommercialSupportCategorySitemapEntries({
+    merchantId: context.merchant.id,
+    storeUrl: context.storeUrl,
+    supabase: context.supabase,
+  });
   const commercialEntries: MetadataRoute.Sitemap = [];
   const seenCommercialUrls = new Set<string>();
 
@@ -565,6 +516,10 @@ export function getSitemapIndexLinks(
   context: StorefrontSitemapContext
 ): string[] {
   const { merchant, storeUrl } = context;
+  if (!isStorefrontSitemapPublished(merchant)) {
+    return [];
+  }
+
   const links = [
     `${storeUrl}/sitemap/static.xml`,
     `${storeUrl}/sitemap/products.xml`,
@@ -595,6 +550,10 @@ export function getNamedSitemapEntries(
   context: StorefrontSitemapContext,
   id: string
 ): MetadataRoute.Sitemap | Promise<MetadataRoute.Sitemap> {
+  if (!isStorefrontSitemapPublished(context.merchant)) {
+    return [];
+  }
+
   switch (id) {
     case 'static':
       return getStaticAndTrustSitemapEntries(context);

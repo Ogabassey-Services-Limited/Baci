@@ -3,7 +3,6 @@ import {
   getStorefrontCountryDisplayName,
   getStorefrontSeoDescription,
   getStorefrontSeoTagline,
-  getStorefrontSeoTitle,
   normalizeStorefrontBusinessType,
   type StorefrontSeoMerchant,
 } from '@/app/(storefront)/[slug]/seo-helpers';
@@ -55,22 +54,32 @@ describe('normalizeStorefrontBusinessType', () => {
 
 describe('getStorefrontSeoTagline', () => {
   it.each([
-    ['food-beverage', 'Order Fresh Food Online'],
-    ['pharmaceuticals', 'Shop Pharmacy Essentials Online'],
-    ['health-beauty', 'Shop Beauty and Wellness Essentials'],
-    ['hair-extensions', 'Shop Premium Hair Extensions'],
-    ['home-goods', 'Shop Home Essentials Online'],
-    ['fashion', 'Shop Fashion and Style Online'],
-    ['handmade', 'Shop Handmade Goods Online'],
-    ['electronics', 'Buy Gadgets Pay Later'],
-  ])('returns industry-specific copy for %s', (businessType, expected) => {
-    expect(getStorefrontSeoTagline(businessType)).toBe(expected);
+    'food-beverage',
+    'pharmaceuticals',
+    'health-beauty',
+    'hair-extensions',
+    'home-goods',
+    'fashion',
+    'handmade',
+    'electronics',
+  ])('uses neutral storefront copy for %s', (businessType) => {
+    expect(getStorefrontSeoTagline(businessType)).toBe('Storefront');
   });
 
-  it('returns generic copy for unknown / missing business types', () => {
-    expect(getStorefrontSeoTagline(undefined)).toBe('Shop Online');
-    expect(getStorefrontSeoTagline(null)).toBe('Shop Online');
-    expect(getStorefrontSeoTagline('unknown-type')).toBe('Shop Online');
+  it('uses neutral storefront copy for unknown / missing business types', () => {
+    expect(getStorefrontSeoTagline(undefined)).toBe('Storefront');
+    expect(getStorefrontSeoTagline(null)).toBe('Storefront');
+    expect(getStorefrontSeoTagline('unknown-type')).toBe('Storefront');
+  });
+
+  it.each([
+    'Buy Gadgets Pay Later',
+    'Premium Hair Extensions',
+    'Fresh Food',
+  ])('never infers the unsupported fallback claim %s', (claim) => {
+    expect(getStorefrontSeoTagline('electronics')).not.toContain(claim);
+    expect(getStorefrontSeoTagline('hair-extensions')).not.toContain(claim);
+    expect(getStorefrontSeoTagline('food-beverage')).not.toContain(claim);
   });
 });
 
@@ -124,7 +133,7 @@ describe('getStorefrontSeoDescription', () => {
           site_tagline: '   ',
         })
       )
-    ).toBe('Shop Foodflow - order fresh food online with secure checkout.');
+    ).toBe('Foodflow storefront.');
   });
 
   it('sanitizes custom description fields before returning metadata', () => {
@@ -156,7 +165,7 @@ describe('getStorefrontSeoDescription', () => {
           business_type: 'food-beverage',
         })
       )
-    ).toBe('Shop Foodflow - order fresh food online with secure checkout.');
+    ).toBe('Foodflow storefront.');
   });
 
   it('removes dangerous HTML attributes from merchant names in default descriptions', () => {
@@ -167,9 +176,7 @@ describe('getStorefrontSeoDescription', () => {
       })
     );
 
-    expect(description).toBe(
-      'Shop Store - order fresh food online with secure checkout.'
-    );
+    expect(description).toBe('Store storefront.');
     expect(description).not.toContain('onerror');
   });
 
@@ -182,9 +189,7 @@ describe('getStorefrontSeoDescription', () => {
           country: 'NG',
         })
       )
-    ).toBe(
-      'Shop Foodflow - order fresh food online with secure checkout in Nigeria.'
-    );
+    ).toBe('Foodflow storefront in NG.');
   });
 
   it('uses other supported countries dynamically (no NG hardcoding)', () => {
@@ -196,9 +201,7 @@ describe('getStorefrontSeoDescription', () => {
           country: 'GH',
         })
       )
-    ).toBe(
-      'Shop CarePoint - shop pharmacy essentials online with secure checkout in Ghana.'
-    );
+    ).toBe('CarePoint storefront in GH.');
   });
 
   it('omits country phrasing when the merchant country is unknown / missing', () => {
@@ -210,9 +213,7 @@ describe('getStorefrontSeoDescription', () => {
           country: undefined,
         })
       )
-    ).toBe(
-      'Shop GlobalCo - shop fashion and style online with secure checkout.'
-    );
+    ).toBe('GlobalCo storefront.');
 
     expect(
       getStorefrontSeoDescription(
@@ -222,80 +223,7 @@ describe('getStorefrontSeoDescription', () => {
           country: 'XX',
         })
       )
-    ).toBe(
-      'Shop GlobalCo - shop fashion and style online with secure checkout.'
-    );
-  });
-});
-
-describe('getStorefrontSeoTitle', () => {
-  it('uses site_title verbatim when set and not a stale gadget title', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'CarePoint',
-          business_type: 'pharmaceuticals',
-          site_title: 'CarePoint Pharmacy',
-        })
-      )
-    ).toBe('CarePoint Pharmacy');
-  });
-
-  it('replaces the stale "Buy Gadgets Pay Later" title for non-electronics stores', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'Medplus',
-          business_type: 'pharmaceuticals',
-          site_title: 'Medplus | Buy Gadgets Pay Later',
-        })
-      )
-    ).toBe('Medplus | Shop Pharmacy Essentials Online');
-  });
-
-  it('keeps the gadget title for electronics stores', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'GadgetHub',
-          business_type: 'electronics',
-          site_title: 'GadgetHub | Buy Gadgets Pay Later',
-        })
-      )
-    ).toBe('GadgetHub | Buy Gadgets Pay Later');
-  });
-
-  it('composes a fallback title when site_title is missing', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'Foodflow',
-          business_type: 'food-beverage',
-        })
-      )
-    ).toBe('Foodflow | Order Fresh Food Online');
-  });
-
-  it('treats whitespace-only custom titles as missing', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          business_name: 'Foodflow',
-          business_type: 'food-beverage',
-          site_title: '   ',
-        })
-      )
-    ).toBe('Foodflow | Order Fresh Food Online');
-  });
-
-  it('sanitizes custom titles before returning metadata', () => {
-    expect(
-      getStorefrontSeoTitle(
-        makeMerchant({
-          site_title: '<strong>Foodflow Deals</strong>',
-        })
-      )
-    ).toBe('Foodflow Deals');
+    ).toBe('GlobalCo storefront.');
   });
 });
 

@@ -494,7 +494,7 @@ git commit -m "feat(quiz): finalize live standings and product winner"
 
 **Files:**
 
-- Create: `supabase/migrations/20260804120000_quiz_leaderboard_username_snapshots.sql`
+- Create: `supabase/migrations/20260804120500_quiz_leaderboard_username_snapshots.sql`
 - Create: `supabase/migrations/tests/quiz_leaderboard_username_snapshots.sql`
 - Create: `supabase/migrations/20260804121000_quiz_safe_player_projections_v2.sql`
 - Create: `supabase/migrations/tests/quiz_safe_player_projections_v2.sql`

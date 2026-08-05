@@ -34,7 +34,16 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 }));
 
 vi.mock('@/app/dashboard/settings/components/settings-form', () => ({
-  SettingsForm: () => <div data-testid="settings-form" />,
+  SettingsForm: ({
+    initialMerchant,
+  }: {
+    initialMerchant: { site_description: string };
+  }) => (
+    <div
+      data-testid="settings-form"
+      data-description={initialMerchant.site_description}
+    />
+  ),
 }));
 
 import { cookies } from 'next/headers';
@@ -42,7 +51,7 @@ import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 import SettingsPage from './page';
 
-function createFeatureSettingsQueryMock(blogEnabled: boolean) {
+function createQueryMock(data: Record<string, unknown>) {
   const query = {
     select: vi.fn(),
     eq: vi.fn(),
@@ -51,10 +60,20 @@ function createFeatureSettingsQueryMock(blogEnabled: boolean) {
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
   query.maybeSingle.mockResolvedValue({
-    data: { blog_enabled: blogEnabled },
+    data,
     error: null,
   });
   return query;
+}
+
+function createSettingsClientMock(siteDescription = '') {
+  const featureQuery = createQueryMock({ blog_enabled: false });
+  const profileQuery = createQueryMock({ site_description: siteDescription });
+  return {
+    from: vi.fn((table: string) =>
+      table === 'merchants' ? profileQuery : featureQuery
+    ),
+  };
 }
 
 describe('dashboard settings page', () => {
@@ -64,13 +83,12 @@ describe('dashboard settings page', () => {
   });
 
   it('renders the trust and policies navigation card', async () => {
-    const query = createFeatureSettingsQueryMock(false);
     vi.mocked(getMerchantForUser).mockResolvedValue({
       merchant: { id: 'merchant-1', country: 'NG' },
     } as never);
-    vi.mocked(createClient).mockReturnValue({
-      from: vi.fn(() => query),
-    } as never);
+    vi.mocked(createClient).mockReturnValue(
+      createSettingsClientMock() as never
+    );
 
     render(await SettingsPage());
 
@@ -87,13 +105,12 @@ describe('dashboard settings page', () => {
   });
 
   it('hides Nigerian KYC settings for India merchants', async () => {
-    const query = createFeatureSettingsQueryMock(false);
     vi.mocked(getMerchantForUser).mockResolvedValue({
       merchant: { id: 'merchant-1', country: 'IN' },
     } as never);
-    vi.mocked(createClient).mockReturnValue({
-      from: vi.fn(() => query),
-    } as never);
+    vi.mocked(createClient).mockReturnValue(
+      createSettingsClientMock() as never
+    );
 
     render(await SettingsPage());
 
@@ -103,5 +120,21 @@ describe('dashboard settings page', () => {
     expect(
       screen.queryByText(/business verification/i)
     ).not.toBeInTheDocument();
+  });
+
+  it('loads an existing storefront description into the settings form', async () => {
+    vi.mocked(getMerchantForUser).mockResolvedValue({
+      merchant: { id: 'merchant-1', country: 'NG' },
+    } as never);
+    vi.mocked(createClient).mockReturnValue(
+      createSettingsClientMock('Existing authored description') as never
+    );
+
+    render(await SettingsPage());
+
+    expect(screen.getByTestId('settings-form')).toHaveAttribute(
+      'data-description',
+      'Existing authored description'
+    );
   });
 });

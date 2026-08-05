@@ -42,17 +42,31 @@ export default async function SettingsPage() {
   // Fetch feature settings server-side
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-  const { data: featureSettings, error: featureError } = await supabase
-    .from('merchant_feature_settings')
-    .select('blog_enabled')
-    .eq('merchant_id', merchant.id)
-    .maybeSingle();
+  const [featureResult, profileResult] = await Promise.all([
+    supabase
+      .from('merchant_feature_settings')
+      .select('blog_enabled')
+      .eq('merchant_id', merchant.id)
+      .maybeSingle(),
+    supabase
+      .from('merchants')
+      .select('site_description')
+      .eq('id', merchant.id)
+      .maybeSingle(),
+  ]);
 
-  if (featureError) {
-    console.error('Failed to fetch feature settings:', featureError);
+  if (featureResult.error) {
+    console.error('Failed to fetch feature settings:', featureResult.error);
+  }
+  if (profileResult.error) {
+    console.error('Failed to fetch storefront profile:', profileResult.error);
   }
 
-  const blogEnabled = featureSettings?.blog_enabled ?? false;
+  const blogEnabled = featureResult.data?.blog_enabled ?? false;
+  const settingsMerchant = {
+    ...merchant,
+    site_description: profileResult.data?.site_description ?? '',
+  };
   const showNigerianKycSettings = isBaciPaystackSettlementCountry(
     merchant.country
   );
@@ -67,7 +81,7 @@ export default async function SettingsPage() {
 
       {/* Main Settings Form (Branding, Features, Favicon, Hero, Social) */}
       <SettingsForm
-        initialMerchant={merchant as unknown as CachedMerchant}
+        initialMerchant={settingsMerchant as unknown as CachedMerchant}
         initialBlogEnabled={blogEnabled}
       />
 

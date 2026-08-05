@@ -62,6 +62,30 @@ describe('SocialMediaCard', () => {
     );
   });
 
+  it('refreshes the merchant mutation baseline after an autosave succeeds', async () => {
+    vi.useFakeTimers();
+    mockUpdateSocial.mockResolvedValueOnce(undefined);
+    const onMerchantMutationSaved = vi.fn().mockResolvedValue(undefined);
+    render(
+      <SocialMediaCard
+        initialSocialMedia={{ twitter: '' }}
+        merchantId="merchant-1"
+        onMerchantMutationSaved={onMerchantMutationSaved}
+        onSocialMediaChange={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/twitter/i), {
+      target: { value: '@updated' },
+    });
+    fireEvent.blur(screen.getByLabelText(/twitter/i));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(onMerchantMutationSaved).toHaveBeenCalledWith('merchant-1');
+  });
+
   it('shows a destructive toast when the dedicated save fails', async () => {
     // Arrange
     vi.useFakeTimers();

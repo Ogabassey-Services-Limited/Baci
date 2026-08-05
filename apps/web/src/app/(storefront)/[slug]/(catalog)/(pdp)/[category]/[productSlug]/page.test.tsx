@@ -817,6 +817,7 @@ const baseMerchant = {
   logo_url: null,
   payout_currency: 'NGN',
   country: 'NG',
+  is_published: true,
 };
 
 type LegacyProductVariantFixture = {
@@ -1137,6 +1138,7 @@ describe('[category]/[productSlug] page metadata', () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-1',
       name: 'HP Laptop 14-ep0063nia',
+      status: 'active',
       slug: 'hp-laptop-14-ep0063nia',
       canonical_url: null,
       brand: 'HP',
@@ -1627,6 +1629,7 @@ describe('[category]/[productSlug] page metadata', () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'abcdef12-3456-4789-abcd-abcdef123456',
       name: 'HP Laptop 14-ep0063nia',
+      status: 'active',
       slug: 'hp-laptop-14-ep0063nia',
       brand: 'HP',
       category: 'Laptops',

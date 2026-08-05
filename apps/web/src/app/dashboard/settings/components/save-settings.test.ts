@@ -5,10 +5,23 @@ const mockUpdateSocial = vi.fn();
 vi.mock('@/hooks/merchant/update-social', () => ({
   updateSocial: (...args: unknown[]) => mockUpdateSocial(...args),
 }));
+const mockGetMerchantSettingsSnapshot = vi.fn();
+vi.mock('./get-merchant-settings-snapshot', () => ({
+  getMerchantSettingsSnapshot: (...args: unknown[]) =>
+    mockGetMerchantSettingsSnapshot(...args),
+}));
 
-describe('saveSettings', () => {
+describe('saveSettings non-profile channels', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetMerchantSettingsSnapshot.mockResolvedValue({
+      business_name: 'Test Store',
+      country: 'NG',
+      site_description: '',
+      support_email: '',
+      support_phone: '',
+      updated_at: '2026-08-04T06:00:00.000Z',
+    });
   });
 
   it('writes edited social settings before generic settings', async () => {
@@ -19,8 +32,15 @@ describe('saveSettings', () => {
     mockUpdateSocial.mockResolvedValue({ merchant: { id: 'merchant-1' } });
 
     await saveSettings({
-      data: { business_name: 'Test Store', country: 'NG' },
+      data: {
+        business_name: 'Test Store',
+        country: 'NG',
+        site_description: '',
+        support_email: '',
+        support_phone: '',
+      },
       heroSlides: [],
+      heroSlidesEdited: true,
       merchantId: '11111111-1111-4111-8111-111111111111',
       socialMedia: { twitter: '@test' },
       updateMerchant,
@@ -34,11 +54,7 @@ describe('saveSettings', () => {
       updateMerchant.mock.invocationCallOrder[0] ?? 0
     );
     expect(updateMerchant).toHaveBeenCalledWith(
-      expect.objectContaining({
-        business_name: 'Test Store',
-        country: 'NG',
-        hero_slides: [],
-      }),
+      { hero_slides: [] },
       { merchantId: '11111111-1111-4111-8111-111111111111', skipReload: true }
     );
     expect(reloadMerchant).not.toHaveBeenCalled();
@@ -52,8 +68,15 @@ describe('saveSettings', () => {
     mockUpdateSocial.mockRejectedValue(new Error('Sign in again'));
 
     await saveSettings({
-      data: { business_name: 'Test Store', country: 'NG' },
+      data: {
+        business_name: 'Test Store',
+        country: 'NG',
+        site_description: '',
+        support_email: '',
+        support_phone: '',
+      },
       heroSlides: [],
+      heroSlidesEdited: true,
       merchantId: '11111111-1111-4111-8111-111111111111',
       socialMedia: { twitter: '@test' },
       updateMerchant,
@@ -82,8 +105,15 @@ describe('saveSettings', () => {
     });
 
     await saveSettings({
-      data: { business_name: 'First Store', country: 'NG' },
+      data: {
+        business_name: 'First Store',
+        country: 'NG',
+        site_description: '',
+        support_email: '',
+        support_phone: '',
+      },
       heroSlides: [],
+      heroSlidesEdited: true,
       merchantId: '11111111-1111-4111-8111-111111111111',
       socialMedia: { twitter: '@first-store' },
       updateMerchant,
@@ -94,7 +124,7 @@ describe('saveSettings', () => {
     });
 
     expect(updateMerchant).toHaveBeenCalledWith(
-      expect.objectContaining({ business_name: 'First Store' }),
+      { hero_slides: [] },
       { merchantId: '11111111-1111-4111-8111-111111111111', skipReload: true }
     );
     expect(toast).not.toHaveBeenCalled();

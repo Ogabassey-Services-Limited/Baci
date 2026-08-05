@@ -20,6 +20,8 @@ import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
+import { buildCategorySeoDecision } from '@/lib/storefront-seo/build-category-seo-decision';
+import { buildFactualStorefrontDescription } from '@/lib/storefront-seo/build-factual-storefront-description';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import {
   getStorefrontOpenGraphImages,
@@ -190,7 +192,13 @@ export async function generateMetadata({
     suffix: merchant.business_name,
     fallback: categoryName,
   });
-  const fallbackDescription = `Explore ${categoryName} at ${merchant.business_name}. Compare trusted options, pricing, and key specs with nationwide delivery and flexible payment plans.`;
+  const fallbackDescription = buildFactualStorefrontDescription({
+    businessName: merchant.business_name,
+    siteDescription: null,
+    siteTagline: null,
+    categoryName,
+    country: merchant.country,
+  });
   const baseDescription =
     hubContent.intro.description.trim() || fallbackDescription;
   const pageAwareDescription =
@@ -207,6 +215,25 @@ export async function generateMetadata({
   });
   const firstProductImage = paginatedProducts[0]?.image || null;
   const socialImageCandidates = [firstProductImage, merchant.logo_url];
+  const categoryQueryFailed =
+    'categoryQueryFailed' in data && data.categoryQueryFailed === true;
+  const existingRobots = getIndexableRobotsMetadata(resolvedSearchParams);
+  const baseRobots =
+    existingRobots && typeof existingRobots === 'object' ? existingRobots : {};
+  const baseGoogleBot =
+    typeof baseRobots.googleBot === 'object' ? baseRobots.googleBot : {};
+  const categoryDecision = buildCategorySeoDecision({
+    isStorePublished: merchant.is_published === true,
+    isAvailable:
+      !categoryQueryFailed &&
+      (data.isCollection || data.isInactiveCategory === false),
+    querySucceeded: !data.productsQueryFailed && !categoryQueryFailed,
+    activeProductCount: data.productCount ?? productSlots.length,
+  });
+  const finalIndex =
+    baseRobots.index === true &&
+    !data.productsQueryFailed &&
+    categoryDecision.index;
 
   return {
     title: metadataTitle,
@@ -214,9 +241,12 @@ export async function generateMetadata({
     alternates: {
       canonical: paginatedCategoryUrl,
     },
-    robots: data.productsQueryFailed
-      ? { index: false, follow: true }
-      : getIndexableRobotsMetadata(resolvedSearchParams),
+    robots: {
+      ...baseRobots,
+      index: finalIndex,
+      follow: true,
+      googleBot: { ...baseGoogleBot, index: finalIndex, follow: true },
+    },
     openGraph: {
       title,
       description,

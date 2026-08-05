@@ -275,7 +275,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     });
   });
 
-  it('fails when canonical URLs or base prices drift between feed sources', () => {
+  it('fails for base-price drift while converging stale canonical URLs between feed sources', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',
       googleFeedData: googleFeedData({
@@ -296,16 +296,9 @@ describe('buildAgentCommerceTrustReadiness', () => {
       trustProfile: trustProfile(),
     });
 
-    expect(result.status).toBe('fail');
     expect(result.totals).toMatchObject({
       priceMismatches: 1,
-      urlMismatches: 1,
-    });
-    expect(
-      result.checks.find((check) => check.id === 'canonical-url-parity')
-    ).toMatchObject({
-      affectedProductIds: ['product-1'],
-      severity: 'fail',
+      urlMismatches: 0,
     });
     expect(
       result.checks.find((check) => check.id === 'price-parity')

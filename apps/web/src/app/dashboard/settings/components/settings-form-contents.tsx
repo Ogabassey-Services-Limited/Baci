@@ -29,6 +29,11 @@ import { buildSocialMediaDraft } from './settings-social-media-draft';
 import { type SettingsFormValues, settingsSchema } from './settings-utils';
 import { SocialMediaCard } from './social-media-card';
 import { StoreFeaturesCard } from './store-features-card';
+import { StorefrontProfileFields } from './storefront-profile-fields';
+import {
+  type StorefrontProfileBaseline,
+  useStorefrontProfileBaselineRefresh,
+} from './use-storefront-profile-baseline-refresh';
 
 export interface SettingsFormProps {
   initialMerchant: CachedMerchant;
@@ -45,6 +50,10 @@ export function SettingsFormContents({
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const saveGenerationRef = useRef(0);
+  const profileDraftRevisionRef = useRef(0);
+  const socialDraftRevisionRef = useRef(0);
+  const heroDraftRevisionRef = useRef(0);
+  const profileBaselineMerchantIdRef = useRef(initialMerchant.id);
   const [isUploading, setIsUploading] = useState(false);
   const [, startTransition] = useTransition();
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(
@@ -64,15 +73,35 @@ export function SettingsFormContents({
     defaultValues: {
       business_name: initialMerchant.business_name || '',
       country: initialMerchant.country || 'NG',
+      site_description: initialMerchant.site_description || '',
+      support_email: initialMerchant.support_email || '',
+      support_phone: initialMerchant.support_phone || '',
     },
   });
-
+  const profileBaselineRef = useRef<StorefrontProfileBaseline>({
+    business_name: initialMerchant.business_name || '',
+    country: initialMerchant.country || 'NG',
+    site_description: initialMerchant.site_description || '',
+    support_email: initialMerchant.support_email || '',
+    support_phone: initialMerchant.support_phone || '',
+    updated_at: initialMerchant.updated_at,
+  });
+  const refreshProfileBaseline = useStorefrontProfileBaselineRefresh({
+    activeMerchantIdRef: profileBaselineMerchantIdRef,
+    form,
+    profileBaselineRef,
+  });
   useEffect(() => {
     return () => {
       saveGenerationRef.current += 1;
     };
   }, []);
-
+  useEffect(() => {
+    const subscription = form.watch((_values, { name }) => {
+      if (name) profileDraftRevisionRef.current += 1;
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
   const hasUnsavedDraftEdits =
     isDirty ||
     form.formState.isDirty ||
@@ -91,12 +120,26 @@ export function SettingsFormContents({
     setHeroSlides(initialMerchant.hero_slides || []);
     setHeroSlidesEdited(false);
     setSocialMediaEdits(null);
+    profileDraftRevisionRef.current = 0;
+    socialDraftRevisionRef.current = 0;
+    heroDraftRevisionRef.current = 0;
+    profileBaselineMerchantIdRef.current = initialMerchant.id;
+    profileBaselineRef.current = {
+      business_name: initialMerchant.business_name || '',
+      country: initialMerchant.country || 'NG',
+      site_description: initialMerchant.site_description || '',
+      support_email: initialMerchant.support_email || '',
+      support_phone: initialMerchant.support_phone || '',
+      updated_at: initialMerchant.updated_at,
+    };
     form.reset({
       business_name: initialMerchant.business_name || '',
       country: initialMerchant.country || 'NG',
+      site_description: initialMerchant.site_description || '',
+      support_email: initialMerchant.support_email || '',
+      support_phone: initialMerchant.support_phone || '',
     });
   }
-
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -111,11 +154,11 @@ export function SettingsFormContents({
         setMerchantState,
         setIsUploading,
         startTransition,
+        onMerchantMutationSaved: refreshProfileBaseline,
       });
     };
     reader.readAsDataURL(file);
   };
-
   const saveColors = async (colors: BrandColors) => {
     startTransition(() => {
       setMerchantState((previous) =>
@@ -128,6 +171,7 @@ export function SettingsFormContents({
         { brand_colors: colors },
         { merchantId: initialMerchant.id, skipReload: true }
       );
+      await refreshProfileBaseline(initialMerchant.id);
       setIsDirty(false);
     } catch (error) {
       logger.error({ error: error as Error, message: 'Color update failed' });
@@ -138,12 +182,10 @@ export function SettingsFormContents({
       });
     }
   };
-
   const handleColorChange = (role: keyof BrandColors, newColor: string) => {
     if (!merchantState.brand_colors) return;
     void saveColors({ ...merchantState.brand_colors, [role]: newColor });
   };
-
   const handleShuffleColors = () => {
     if (!merchantState.brand_colors) return;
     const { primary, background, accent } = merchantState.brand_colors;
@@ -153,13 +195,17 @@ export function SettingsFormContents({
       accent: background,
     });
   };
-
   async function onSubmit(data: SettingsFormValues) {
     const saveGeneration = ++saveGenerationRef.current;
-    await saveSettings({
+    const profileDraftRevision = profileDraftRevisionRef.current;
+    const socialDraftRevision = socialDraftRevisionRef.current;
+    const heroDraftRevision = heroDraftRevisionRef.current;
+    const result = await saveSettings({
       data,
       heroSlides,
+      heroSlidesEdited,
       merchantId: initialMerchant.id,
+      profileBaseline: profileBaselineRef.current,
       socialMedia: socialMediaEdits,
       updateMerchant,
       reloadMerchant,
@@ -167,8 +213,25 @@ export function SettingsFormContents({
       toast,
       setIsSaving,
     });
+    if (result.snapshot && saveGeneration === saveGenerationRef.current) {
+      profileBaselineRef.current = result.snapshot;
+      if (
+        result.heroSaved &&
+        heroDraftRevision === heroDraftRevisionRef.current
+      ) {
+        setHeroSlidesEdited(false);
+      }
+      if (
+        result.socialSaved &&
+        socialDraftRevision === socialDraftRevisionRef.current
+      ) {
+        setSocialMediaEdits(null);
+      }
+      if (profileDraftRevision === profileDraftRevisionRef.current) {
+        form.reset(result.snapshot);
+      }
+    }
   }
-
   return (
     <Form {...form}>
       <form
@@ -189,6 +252,7 @@ export function SettingsFormContents({
           initialBlogEnabled={initialBlogEnabled}
           merchantId={merchantState.id}
         />
+        <StorefrontProfileFields form={form} />
         <Card className="glass">
           <CardHeader>
             <CardTitle>Favicon</CardTitle>
@@ -198,13 +262,17 @@ export function SettingsFormContents({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <FaviconUpload merchantId={initialMerchant.id} />
+            <FaviconUpload
+              merchantId={initialMerchant.id}
+              onMerchantMutationSaved={refreshProfileBaseline}
+            />
           </CardContent>
         </Card>
         <DashboardAdUnit variant="horizontal" />
         <HeroCarouselCard
           slides={heroSlides}
           onSlidesChange={(slides) => {
+            heroDraftRevisionRef.current += 1;
             setHeroSlides(slides);
             setHeroSlidesEdited(true);
           }}
@@ -212,7 +280,11 @@ export function SettingsFormContents({
         <SocialMediaCard
           initialSocialMedia={buildSocialMediaDraft(initialMerchant)}
           merchantId={initialMerchant.id}
-          onSocialMediaChange={setSocialMediaEdits}
+          onMerchantMutationSaved={refreshProfileBaseline}
+          onSocialMediaChange={(socialMedia) => {
+            socialDraftRevisionRef.current += 1;
+            setSocialMediaEdits(socialMedia);
+          }}
         />
         <div className="flex justify-end">
           <Button type="submit" disabled={isSaving}>

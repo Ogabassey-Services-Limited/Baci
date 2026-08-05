@@ -101,6 +101,7 @@ describe('blog category sitemap entries', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      is_published: true,
       feature_settings: { blog_enabled: true },
     });
     mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));

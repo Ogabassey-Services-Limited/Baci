@@ -86,7 +86,7 @@ describe('storefront agent URLs', () => {
       ).toBe('https://ogabassey.com/products/usb-c-dock-stand');
     });
 
-    it('uses canonical paths and an empty base URL', () => {
+    it('falls back to a derived path for stale canonical URLs and an empty base URL', () => {
       expect(
         buildAgentProductUrl({
           baseUrl: '',
@@ -97,7 +97,22 @@ describe('storefront agent URLs', () => {
             canonical_url: '/smart watches/watch%20pro',
           },
         })
-      ).toBe('/smart%20watches/watch%20pro');
+      ).toBe('/products/fallback');
+    });
+
+    it('retains a matching canonical path on the request origin', () => {
+      expect(
+        buildAgentProductUrl({
+          baseUrl: 'https://ogabassey.com',
+          product: {
+            id: 'product-canonical',
+            slug: 'linen-shirt',
+            name: 'Linen Shirt',
+            category_slug: 'fashion',
+            canonical_url: 'https://legacy.example/fashion/linen-shirt',
+          },
+        })
+      ).toBe('https://ogabassey.com/fashion/linen-shirt');
     });
 
     it('falls back when canonical_url is an empty string', () => {
@@ -143,7 +158,7 @@ describe('storefront agent URLs', () => {
       ).toBe('https://ogabassey.com/products/wireless-charger');
     });
 
-    it('returns predictable product URLs for base URLs without a protocol', () => {
+    it('returns relative product URLs for base URLs without a protocol', () => {
       expect(
         buildAgentProductUrl({
           baseUrl: 'ogabassey.com',
@@ -154,7 +169,7 @@ describe('storefront agent URLs', () => {
             category_slug: 'laptops',
           },
         })
-      ).toBe('ogabassey.com/laptops/hp-probook');
+      ).toBe('/laptops/hp-probook');
     });
 
     it('throws when the product input is missing', () => {

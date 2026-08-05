@@ -6,6 +6,7 @@ const migrationFiles = [
   '20260729195913_guard_merchant_identity_updates.sql',
   '20260729195914_update_merchant_identity_settings.sql',
   '20260729195915_guard_merchant_social_media.sql',
+  '20260804000800_extend_merchant_identity_settings_storefront_profile.sql',
 ];
 const migrationSql = migrationFiles
   .map((filename) =>
@@ -75,5 +76,16 @@ describe('merchant identity settings security migration', () => {
       'REVOKE ALL ON FUNCTION public.update_merchant_social_media'
     );
     expect(migrationSql).toContain('FROM PUBLIC, anon');
+  });
+
+  it('extends the guarded identity RPC with a bounded storefront description', () => {
+    expect(migrationSql).toContain("'site_description'");
+    expect(migrationSql).toContain('invalid_site_description');
+    expect(migrationSql).toContain(
+      'merchant_settings_concurrency_token_required'
+    );
+    expect(migrationSql).toContain('check_staff_permission');
+    expect(migrationSql).toContain('m.updated_at = p_expected_updated_at');
+    expect(migrationSql).toContain("'site_description', m.site_description");
   });
 });

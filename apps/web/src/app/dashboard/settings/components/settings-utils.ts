@@ -18,6 +18,31 @@ export const settingsSchema = z.object({
   // settings form can never round-trip 'Nigeria' or other free-text garbage
   // back into `merchants.country`.
   country: onboardingCountrySchema,
+  site_description: z
+    .string()
+    .trim()
+    .max(320, 'Store description must be 320 characters or fewer.')
+    .transform((value) => sanitizeText(value))
+    .default(''),
+  support_email: z
+    .string()
+    .trim()
+    .max(255, 'Support email must be 255 characters or fewer.')
+    .transform((value) => value.toLowerCase())
+    .refine(
+      (value) => value === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      'Enter a valid support email address.'
+    )
+    .default(''),
+  support_phone: z
+    .string()
+    .trim()
+    .max(32, 'Support phone must be 32 characters or fewer.')
+    .refine(
+      (value) => value === '' || /^[+0-9() .-]{7,32}$/.test(value),
+      'Enter a valid support phone number.'
+    )
+    .default(''),
 });
 
 export type SettingsFormValues = z.infer<typeof settingsSchema>;
