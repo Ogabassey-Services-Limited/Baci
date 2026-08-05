@@ -53,6 +53,10 @@ describe('remediation git workflow', () => {
       true
     );
     assert.equal(
+      environments.find(({ command }) => command === 'codex')?.timeout,
+      6 * 60 * 1000
+    );
+    assert.equal(
       environments.some(
         ({ command, env }) =>
           command === 'codex' && 'SENTRY_REMEDIATION_AUTH_TOKEN' in env

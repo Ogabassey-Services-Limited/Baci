@@ -15,7 +15,12 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
     environments,
     runner(command, args, options) {
       calls.push([command, ...args]);
-      environments.push({ args, command, env: options?.env || {} });
+      environments.push({
+        args,
+        command,
+        env: options?.env || {},
+        timeout: options?.timeout,
+      });
       const joined = [command, ...args].join(' ');
       if (joined.includes('status --porcelain')) {
         return {

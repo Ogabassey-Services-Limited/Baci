@@ -23,6 +23,7 @@ function runChecked(command, args, options) {
     cwd: options.cwd,
     env: options.env,
     shell: options.shell || false,
+    timeout: options.timeout,
   });
   if (result.error) {
     throw result.error;
@@ -42,6 +43,11 @@ function sanitizeRunId(value) {
     .replace(/^-+|-+$/g, '')
     .slice(0, 24);
   return runId || randomUUID().toLowerCase().slice(0, 24);
+}
+
+function readPositiveInt(value, fallback) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function branchNameFor(candidate, runId) {
@@ -193,11 +199,10 @@ export function runRemediationAutofix({
       repoDir,
       worktreeDir,
     });
-    const codexOutput = runChecked(
-      codexCommand.command,
-      codexCommand.args,
-      worktreeCommandOptions
-    );
+    const codexOutput = runChecked(codexCommand.command, codexCommand.args, {
+      ...worktreeCommandOptions,
+      timeout: readPositiveInt(env.BACI_CODEX_TIMEOUT_MS, 6 * 60 * 1000),
+    });
     const resultPath = writeRemediationResultArtifact({
       candidate,
       output: codexOutput,

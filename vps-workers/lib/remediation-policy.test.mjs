@@ -67,6 +67,10 @@ describe('remediation policy', () => {
     assert.doesNotMatch(prompt, /Create a draft pull request/);
     assert.match(prompt, /Do not modify protected files/);
     assert.match(prompt, /Do not merge the PR directly/);
+    assert.match(
+      prompt,
+      /Run only focused tests inside this remediation sandbox/
+    );
   });
 
   it('keeps prompt-like incident text inside the untrusted data block', () => {

@@ -77,6 +77,10 @@ Task:
 5. Leave the verified changes in the worktree for the outer remediator to commit,
    push, and open as a draft pull request.
 
+Execution boundary:
+- Run only focused tests inside this remediation sandbox. The outer worker owns
+  wider repository verification before it can commit, push, or open a PR.
+
 Safety boundaries:
 - Do not modify protected files: proxy.ts, payment routes, webhook routes, auth routes, existing migrations, GitHub workflows, or secrets.
 - Do not merge the PR directly.
