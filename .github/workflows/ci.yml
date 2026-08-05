@@ -263,9 +263,13 @@ jobs:
           bash .github/scripts/apply-pending-migrations.test.sh &&
           bash .github/scripts/historical-migration-repair-spec.test.sh &&
           bash .github/scripts/historical-migration-repair-backfill.test.sh &&
+          bash supabase/tests/run-storefront-order-private-schema-boundary-test.sh &&
           bash supabase/tests/run-gigl-tracking-retry-repair-test.sh &&
           bash supabase/tests/run-gigl-monitor-backfill-repair-test.sh &&
           node --test .github/scripts/split-sql-statements.test.mjs
+      - name: Run migration replay regression test
+        if: needs.changes.outputs.quiz_db == 'true'
+        run: pnpm --filter @baci/web exec vitest run src/lib/agentic/order-private-schema-usage-migration.test.ts
       - name: Verify Migration Versions
         run: bash .github/scripts/check-migration-versions.sh
       - name: Test Cache Invalidation Outbox SQL

@@ -262,6 +262,21 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260803120000_allow_safe_admin_order_item_append.sql',
     sha256: 'f2b640bac8c3f3d41158313bc910aec6de0058cf652c47f0595c635bd98ecee1',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260804120000_restore_storefront_order_private_schema_usage.sql',
+    sha256: '54feed9b89d28855d7d6f4bb83ea04d708f2d1e75c9cff814d6f49845d26e5bc',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260804130000_harden_storefront_order_private_schema_boundary.sql',
+    sha256: '7550dc0f84d9a15775bb2cd1d63679c3021cdcd44c2d0f837948d22d92f2e441',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260804140000_harden_authenticated_private_schema_delegates.sql',
+    sha256: '62201972e14cbafc34feb0584697b92d402eea9c15890a6ec4bbcfc3d5c7e0c5',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );
