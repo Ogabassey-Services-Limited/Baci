@@ -66,6 +66,8 @@ test('the Quality Gate reaches the tools and worker TypeScript project', async (
     'src/scripts/process-petrock-reconciliation.test.ts',
     'src/scripts/process-gigl-tracking.ts',
     'src/scripts/process-gigl-tracking.test.ts',
+    'src/scripts/verify-gigl-tracking-worker-capability.ts',
+    'src/scripts/verify-gigl-tracking-worker-capability.test.ts',
     'src/scripts/process-quiz-finalization.ts',
     'src/scripts/process-quiz-finalization.test.ts',
   ]);
