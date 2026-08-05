@@ -120,7 +120,7 @@ describe('legacy builder route auth and CSRF boundary', () => {
     vi.unstubAllEnvs();
   });
 
-  it('uses cookie authentication and valid double-submit CSRF before falling back to the second provider', async () => {
+  it('authenticates cookie callers with valid CSRF before retrying Cerebras', async () => {
     ai.generateText
       .mockRejectedValueOnce(new Error('primary unavailable'))
       .mockResolvedValueOnce(fallbackPlan());
