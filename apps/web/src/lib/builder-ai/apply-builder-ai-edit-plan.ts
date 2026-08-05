@@ -219,18 +219,29 @@ function applyOperation(
         throw new BuilderAiEditPlanError('Component target was not found');
       const component = source.content[source.index];
       assertMutable(component);
+      const destinationTarget = findBuilderAiComponent(
+        config,
+        operation.destination.position === 'after'
+          ? operation.destination.componentId
+          : ''
+      );
+      const destinationContent = destinationTarget?.content ?? source.content;
       let destination = destinationIndex(
         config,
-        source.content,
+        destinationContent,
         operation.destination
       );
-      if (source.index < destination) destination -= 1;
-      if (source.index === destination) {
+      if (source.content === destinationContent && source.index < destination)
+        destination -= 1;
+      if (
+        source.content === destinationContent &&
+        source.index === destination
+      ) {
         pushWarnings(warnings, ['No safe changes for move.']);
         return;
       }
       source.content.splice(source.index, 1);
-      source.content.splice(destination, 0, component);
+      destinationContent.splice(destination, 0, component);
       return;
     }
     case 'update_root': {

@@ -99,6 +99,21 @@ export function validateBuilderAiEditComplexity(
     ) {
       return failure('Document has too many zones');
     }
+    const zoneBlocks =
+      document.zones &&
+      typeof document.zones === 'object' &&
+      !Array.isArray(document.zones)
+        ? Object.values(document.zones).reduce(
+            (total, zone) => total + (Array.isArray(zone) ? zone.length : 0),
+            0
+          )
+        : 0;
+    const contentBlocks = Array.isArray(document.content)
+      ? document.content.length
+      : 0;
+    if (contentBlocks + zoneBlocks > MAX_BUILDER_BLOCKS) {
+      return failure('Document has too many blocks');
+    }
   }
   return inspect(value);
 }
