@@ -168,6 +168,7 @@ export function runRemediationAutofix({
   };
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
+  let cleanupCompletedWorktree = false;
   let worktreeCreated = false;
   try {
     runChecked('git', ['fetch', 'origin', 'main'], rootRemoteCommandOptions);
@@ -201,6 +202,7 @@ export function runRemediationAutofix({
       worktreeGitCommandOptions
     );
     if (!status.trim()) {
+      cleanupCompletedWorktree = true;
       return { branch, resultPath, type: 'no_changes', worktreeDir };
     }
 
@@ -275,6 +277,7 @@ export function runRemediationAutofix({
       }
     ).trim();
 
+    cleanupCompletedWorktree = true;
     return {
       branch,
       changedFiles,
@@ -284,7 +287,7 @@ export function runRemediationAutofix({
       worktreeDir,
     };
   } finally {
-    if (worktreeCreated) {
+    if (worktreeCreated && cleanupCompletedWorktree) {
       cleanupWorktree({ childEnv, repoDir, runner, worktreeDir });
     }
   }

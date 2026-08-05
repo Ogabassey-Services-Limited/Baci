@@ -334,7 +334,7 @@ describe('remediation git workflow', () => {
     );
     assert.equal(
       calls.some((call) => call.includes('remove')),
-      true
+      false
     );
   });
 
@@ -383,6 +383,36 @@ describe('remediation git workflow', () => {
     assert.match(result.reasons.join('\n'), /VERIFY_COMMAND/);
     assert.equal(
       calls.some((call) => call.includes('push')),
+      false
+    );
+    assert.equal(
+      calls.some((call) => call.includes('remove')),
+      false
+    );
+  });
+
+  it('preserves a changed worktree when verification fails', () => {
+    const { calls, runner: baseRunner } = makeRunner();
+    const runner = (command, args, options) =>
+      command === 'bash'
+        ? { status: 1, stdout: '', stderr: 'focused regression failed' }
+        : baseRunner(command, args, options);
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {
+            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo test',
+            BACI_REPO_DIR: '/repo',
+            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+          },
+          runner,
+        }),
+      /focused regression failed/
+    );
+    assert.equal(
+      calls.some((call) => call.includes('remove')),
       false
     );
   });
