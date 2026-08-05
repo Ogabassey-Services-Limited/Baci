@@ -20,6 +20,18 @@ function failure(message: string): ComplexityFailure {
   };
 }
 
+function isBuilderComponentArray(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        typeof (item as { type?: unknown }).type === 'string'
+    )
+  );
+}
+
 function inspect(
   value: unknown,
   depth = 0,
@@ -45,7 +57,8 @@ function inspect(
       const result = inspect(
         child,
         depth + 1,
-        !(depth === 0 && key === 'content') && !zoneCollection,
+        !(depth === 0 && key === 'content') &&
+          !(zoneCollection && isBuilderComponentArray(child)),
         depth === 0 && key === 'zones'
       );
       if (!result.success) return result;

@@ -37,6 +37,18 @@ describe('builder AI edit complexity validator', () => {
     ).toBe(false);
   });
 
+  it('accepts a zone collection with more than 100 builder components', () => {
+    expect(
+      validateBuilderAiEditComplexity({
+        content: [],
+        root: { title: 'Home' },
+        zones: {
+          main: Array.from({ length: 101 }, (_, index) => component(index)),
+        },
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects overlarge zones, strings, depth, and serialized documents', () => {
     expect(
       validateBuilderAiEditComplexity({
