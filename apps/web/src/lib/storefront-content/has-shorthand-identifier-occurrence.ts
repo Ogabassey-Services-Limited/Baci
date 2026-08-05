@@ -22,7 +22,11 @@ function matchesTokenSequence(
 export function hasShorthandIdentifierOccurrence(
   postTokens: string[],
   identifierTokens: string[],
-  qualifiesPrefix: (startIndex: number, endIndex: number) => boolean
+  qualifiesOccurrence: (
+    startIndex: number,
+    endIndex: number,
+    occurrenceTokens: string[]
+  ) => boolean
 ) {
   if (identifierTokens.length < 2) {
     return false;
@@ -66,7 +70,10 @@ export function hasShorthandIdentifierOccurrence(
       );
       return (
         prefixStart >= 0 &&
-        qualifiesPrefix(prefixStart, prefixStart + prefix.length)
+        qualifiesOccurrence(prefixStart, prefixStart + prefix.length, [
+          ...postTokens.slice(leftStart, boundaryIndex),
+          ...rightSegment,
+        ])
       );
     });
   });

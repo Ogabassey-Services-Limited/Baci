@@ -17,4 +17,12 @@ describe('normalizeContentCurrencyTokens', () => {
 
     expect(normalized).toBe('Steam usd 100 and Steam usd 10 Gift Card');
   });
+
+  it('canonicalizes US dollar prefixes before the generic dollar symbol', () => {
+    const normalized = normalizeContentCurrencyTokens(
+      'PSN US$50 and Steam US $100 Gift Cards'
+    );
+
+    expect(normalized).toBe('PSN usd 50 and Steam usd 100 Gift Cards');
+  });
 });

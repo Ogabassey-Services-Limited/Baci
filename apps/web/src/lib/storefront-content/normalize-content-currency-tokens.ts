@@ -7,6 +7,7 @@ const CURRENCY_TOKEN_BY_SYMBOL: Record<string, string> = {
 
 export function normalizeContentCurrencyTokens(value: string) {
   return value
+    .replace(/\bus\s*\$\s*(?=\d)/giu, ' usd ')
     .replace(
       /[£$€₦]/gu,
       (symbol) => ` ${CURRENCY_TOKEN_BY_SYMBOL[symbol] ?? ''} `

@@ -24,4 +24,9 @@ describe('isVariantOnlyComparisonSegment', () => {
 
     expect(result).toBe(true);
   });
+
+  it('accepts single-letter Xbox Series shorthand segments', () => {
+    expect(isVariantOnlyComparisonSegment(['s', 'comparison'])).toBe(true);
+    expect(isVariantOnlyComparisonSegment(['x', 'comparison'])).toBe(true);
+  });
 });

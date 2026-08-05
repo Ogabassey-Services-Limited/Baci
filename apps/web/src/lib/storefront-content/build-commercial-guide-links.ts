@@ -30,7 +30,7 @@ const KIND_PREFERENCE: Record<CommercialGuidePageKind, ContentClusterKind[]> = {
 
 const MODEL_FAMILY_CONTEXT_EXCLUSIONS = new Set(['and', 'or']);
 const GAME_CATEGORY_PATTERN =
-  /^(?:gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
+  /^(?:gaming(?:-accessories)?|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
 function toPublishedTimestamp(value: string | null) {
   if (!value) {
     return 0;

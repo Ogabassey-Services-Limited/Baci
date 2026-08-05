@@ -33,6 +33,15 @@ function matchesOrderedTokenSequence(tokens: string[], expected: string[]) {
   return expected.length === 0;
 }
 
+function matchesTokenMultiset(tokens: string[], expected: string[]) {
+  const sortedTokens = [...tokens].sort();
+  const sortedExpected = [...expected].sort();
+  return (
+    sortedTokens.length === sortedExpected.length &&
+    sortedTokens.every((token, index) => token === sortedExpected[index])
+  );
+}
+
 function getTokenGroup(token: string) {
   if (CONNECTIVITY_TOKENS.has(token)) {
     return 'connectivity';
@@ -90,7 +99,7 @@ export function matchesVariantDiscriminatorTokens(
     );
     if (
       occurrenceGroupTokens.length !== expected.length ||
-      !matchesOrderedTokenSequence(occurrenceGroupTokens, expected)
+      !matchesTokenMultiset(occurrenceGroupTokens, expected)
     ) {
       return false;
     }

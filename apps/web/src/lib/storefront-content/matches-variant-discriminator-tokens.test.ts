@@ -46,4 +46,14 @@ describe('matchesVariantDiscriminatorTokens', () => {
 
     expect(result).toBe(false);
   });
+
+  it('matches the same PDP connectivity group in a different word order', () => {
+    const result = matchesVariantDiscriminatorTokens(
+      ['ipad', '10', 'cellular', 'wifi'],
+      ['wifi', 'cellular'],
+      true
+    );
+
+    expect(result).toBe(true);
+  });
 });

@@ -28,6 +28,13 @@ function hasRepeatedTextModel(left: string, right: string) {
   return sharedTokens.size >= 2;
 }
 
+function hasXboxSeriesShorthand(left: string, right: string) {
+  return (
+    /\bxbox\s+series\s+[xs]\s*$/iu.test(left) &&
+    /^\s*(?:(?:xbox\s+)?series\s+)?[xs]\b/iu.test(right)
+  );
+}
+
 function normalizeComparisonSeparators(value: string) {
   const hasComparisonCue = COMPARISON_CUE_PATTERN.test(value);
   return value.replace(/\s*[&/]\s*/gu, (separator, offset: number) => {
@@ -37,8 +44,12 @@ function normalizeComparisonSeparators(value: string) {
       MODEL_TOKEN_PATTERN.test(left) && MODEL_TOKEN_PATTERN.test(right);
     const hasTextModelOnBothSides =
       hasComparisonCue && hasRepeatedTextModel(left, right);
+    const hasSingleLetterModelOnBothSides =
+      hasComparisonCue && hasXboxSeriesShorthand(left, right);
     const hasSeparatorWhitespace = /\s/u.test(separator);
-    return (hasModelOnBothSides || hasTextModelOnBothSides) &&
+    return (hasModelOnBothSides ||
+      hasTextModelOnBothSides ||
+      hasSingleLetterModelOnBothSides) &&
       (hasSeparatorWhitespace || hasComparisonCue)
       ? ' versus '
       : separator;

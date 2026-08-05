@@ -195,12 +195,12 @@ export function hasCleanIdentifierOccurrence(
   const postTokenGroups = getPostTokenGroups(post);
 
   if (
-    postTokenGroups.some((postTokens) =>
+    postTokenGroups.some((postTokens, groupIndex) =>
       hasShorthandIdentifierOccurrence(
         postTokens,
         identifierTokens,
-        (prefixStart, prefixEnd) =>
-          options.brand
+        (prefixStart, prefixEnd, occurrenceTokens) => {
+          const hasBrandQualification = options.brand
             ? isBrandQualifiedOccurrence(
                 postTokens,
                 prefixStart,
@@ -211,7 +211,18 @@ export function hasCleanIdentifierOccurrence(
                 options.requireBrandBeforeIdentifier ?? false,
                 options.allowBrandAliasOverlap ?? false
               )
-            : true
+            : true;
+          const hasDiscriminatorQualification = options.discriminatorTokens
+            ?.length
+            ? matchesVariantDiscriminatorTokens(
+                occurrenceTokens,
+                options.discriminatorTokens,
+                options.allowPartialDiscriminatorGroups ?? false,
+                groupIndex === 0
+              )
+            : true;
+          return hasBrandQualification && hasDiscriminatorQualification;
+        }
       )
     )
   ) {

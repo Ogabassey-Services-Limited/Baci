@@ -12,7 +12,13 @@ describe('hasShorthandIdentifierOccurrence', () => {
     );
 
     expect(result).toBe(true);
-    expect(qualifiesPrefix).toHaveBeenCalledWith(2, 3);
+    expect(qualifiesPrefix).toHaveBeenCalledWith(2, 3, [
+      'apple',
+      'iphone',
+      '15',
+      'pro',
+      'comparison',
+    ]);
   });
 
   it('rejects a suffix attached to another product phrase', () => {
