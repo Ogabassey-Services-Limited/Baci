@@ -159,6 +159,7 @@ Variable purposes:
 - `BACI_REMEDIATION_STATE_PATH`: Optional deduplication state path. The worker records each fingerprint and last-seen observation atomically so unchanged incidents do not wake Codex repeatedly.
 - `BACI_REMEDIATION_MIN_OCCURRENCES`: Minimum repeated fingerprint count before the worker creates remediation work. Default is `2`.
 - `BACI_REMEDIATION_AUTOFIX_ENABLED`: Set to `1` only after Codex CLI and GitHub CLI are logged in on the VPS. Default/dry-run mode writes prompts and sends reports only.
+- `BACI_CODEX_DOCKER_IMAGE`: Commit-tagged remediator image built and injected by `deploy.sh`. Do not set this manually in `.env`; the remediation cron entries own it.
 - `BACI_REPO_DIR`: Full Baci checkout used for autonomous fix PRs. The checkout must have `origin`, dependencies, `gh`, and Codex CLI access.
 - `CI`: Keep set to `true` for cron/systemd worker runs so package-manager checks fail or repair non-interactively instead of prompting in a headless shell.
 - `PUPPETEER_SKIP_DOWNLOAD`: Keep set to `1` for worker wrappers. The import/Jumia/AI wrappers do not need Puppeteer's managed browser, and skipping the browser download prevents dependency bootstrap from blocking cron jobs when a checkout is refreshed.

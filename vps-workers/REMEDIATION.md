@@ -24,9 +24,13 @@ node jobs/sentry-mobile-error-remediator.mjs
 
 Autofix mode is off by default. With `BACI_REMEDIATION_AUTOFIX_ENABLED=1`, the
 worker creates an isolated worktree from the full checkout at `BACI_REPO_DIR`,
-runs Codex in an ephemeral workspace-write sandbox with a strict environment
-allowlist, inspects changed files, runs `BACI_REMEDIATION_VERIFY_COMMAND`, then
-pushes a `codex/<source>-remediation-*` branch and opens a draft pull request.
+runs Codex in an ephemeral Docker container with all Linux capabilities dropped,
+`no-new-privileges`, a tmpfs home, a read-only auth-file mount, and only the
+temporary worktree writable. The deploy script builds the pinned
+`Dockerfile.codex-remediator` image and injects its immutable commit tag into
+both remediation cron entries. The worker then inspects changed files, runs
+`BACI_REMEDIATION_VERIFY_COMMAND` on the host without provider secrets, pushes a
+`codex/<source>-remediation-*` branch, and opens a draft pull request.
 
 The worker blocks protected changes to `proxy.ts`, payment/auth/webhook routes,
 payment libraries, migrations, GitHub workflows, and secret files. It never

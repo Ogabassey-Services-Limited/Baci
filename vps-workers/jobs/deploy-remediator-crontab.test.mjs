@@ -19,4 +19,19 @@ describe('remediation deploy crontab', () => {
       /sentry-mobile-error-remediator\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock/
     );
   });
+
+  it('builds and configures the capability-free Codex container backend', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /docker build -f \$REMOTE_DIR\/Dockerfile\.codex-remediator -t \$CODEX_REMEDIATOR_IMAGE/
+    );
+    assert.equal(
+      deployScript.match(
+        /export BACI_CODEX_DOCKER_IMAGE=\$CODEX_REMEDIATOR_IMAGE/g
+      )?.length,
+      2
+    );
+  });
 });
