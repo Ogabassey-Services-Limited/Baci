@@ -5,6 +5,8 @@ import {
   buildCodexRemediationPrompt,
   evaluateMergePolicy,
 } from './remediation-policy.mjs';
+import { buildRemediationPrBody } from './remediation-pr-body.mjs';
+import { writeRemediationResultArtifact } from './remediation-result-artifact.mjs';
 
 function defaultRunner(command, args, options) {
   return spawnSync(command, args, {
@@ -128,27 +130,6 @@ function cleanupWorktree({ childEnv, repoDir, runner, worktreeDir }) {
   });
 }
 
-function prBodyFor(candidate) {
-  const sample = candidate.sample || {};
-  const safe = (value, length = 160) =>
-    String(value || '(unknown)')
-      .replace(/[\r\n<>]/g, ' ')
-      .slice(0, length);
-  return [
-    'Automated draft PR from the Baci production error remediator.',
-    '',
-    `Fingerprint: ${safe(candidate.fingerprint, 80)}`,
-    `Occurrences: ${Number(candidate.occurrences) || 0}`,
-    `Route: ${safe(sample.route, 240)}`,
-    `Deployment: ${safe(sample.deploymentId)}`,
-    `Request: ${safe(sample.requestId)}`,
-    `Source: ${safe(sample.source || 'vercel', 80)}`,
-    `Release: ${safe(sample.release)}`,
-    '',
-    'The worker is policy-gated. Protected files require human handling.',
-  ].join('\n');
-}
-
 export function runRemediationAutofix({
   candidate,
   env = process.env,
@@ -186,7 +167,6 @@ export function runRemediationAutofix({
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
   let worktreeCreated = false;
-
   try {
     runChecked('git', ['fetch', 'origin', 'main'], rootRemoteCommandOptions);
     runChecked(
@@ -195,7 +175,7 @@ export function runRemediationAutofix({
       rootCommandOptions
     );
     worktreeCreated = true;
-    runChecked(
+    const codexOutput = runChecked(
       codexBin,
       [
         '--search',
@@ -210,14 +190,18 @@ export function runRemediationAutofix({
       ],
       worktreeCommandOptions
     );
-
+    const resultPath = writeRemediationResultArtifact({
+      candidate,
+      output: codexOutput,
+      outputDir: env.BACI_REMEDIATION_OUTPUT_DIR,
+    });
     const status = runChecked(
       'git',
       ['status', '--porcelain'],
       worktreeGitCommandOptions
     );
     if (!status.trim()) {
-      return { branch, type: 'no_changes', worktreeDir };
+      return { branch, resultPath, type: 'no_changes', worktreeDir };
     }
 
     const changedFiles = parseStatusFiles(status);
@@ -232,6 +216,7 @@ export function runRemediationAutofix({
         branch,
         changedFiles,
         reasons: policy.reasons,
+        resultPath,
         type: 'policy_blocked',
         worktreeDir,
       };
@@ -245,6 +230,7 @@ export function runRemediationAutofix({
         reasons: [
           'BACI_REMEDIATION_VERIFY_COMMAND is required for autofix mode',
         ],
+        resultPath,
         type: 'policy_blocked',
         worktreeDir,
       };
@@ -278,7 +264,7 @@ export function runRemediationAutofix({
         '--title',
         `Fix ${candidate.sample?.source || 'production'} error ${candidate.fingerprint}`,
         '--body',
-        prBodyFor(candidate),
+        buildRemediationPrBody(candidate),
         '--draft',
       ],
       {
@@ -289,7 +275,14 @@ export function runRemediationAutofix({
       }
     ).trim();
 
-    return { branch, changedFiles, prUrl, type: 'pr_opened', worktreeDir };
+    return {
+      branch,
+      changedFiles,
+      prUrl,
+      resultPath,
+      type: 'pr_opened',
+      worktreeDir,
+    };
   } finally {
     if (worktreeCreated) {
       cleanupWorktree({ childEnv, repoDir, runner, worktreeDir });
