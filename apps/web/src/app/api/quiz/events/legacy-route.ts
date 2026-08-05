@@ -201,7 +201,7 @@ export async function getLegacyQuizEvents(request: NextRequest) {
     const { data, error } = await auth.supabase
       .from('quiz_events')
       .select(
-        'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id, active)'
+        'id, title, status, starts_at, ends_at, settings, regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified, quiz_question_slots!inner(id, active)'
       )
       .eq('merchant_id', merchantId)
       .eq('quiz_question_slots.active', 'true')
@@ -236,7 +236,11 @@ export async function getLegacyQuizEvents(request: NextRequest) {
     try {
       for (const { event } of pageRows) {
         enforcePrizeProductionGuard(
-          { nlrc_permit_ref: event.nlrc_permit_ref },
+          {
+            regulatory_basis: event.regulatory_basis,
+            regulatory_evidence_ref: event.regulatory_evidence_ref,
+            regulatory_jurisdiction: event.regulatory_jurisdiction,
+          },
           event.compliance_verified === true
         );
       }

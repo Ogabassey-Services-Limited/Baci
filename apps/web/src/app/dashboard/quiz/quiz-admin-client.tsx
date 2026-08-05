@@ -8,6 +8,7 @@ import {
   activateQuizEvent,
   generateQuizDraft,
   type QuizAnswerKeyReview,
+  type QuizLaunchInput,
 } from './quiz-admin-actions';
 import { QuizAdminResult } from './quiz-admin-result';
 import {
@@ -60,7 +61,10 @@ export function QuizAdminClient({
       .finally(() => setIsGenerating(false));
   };
 
-  const activate = (answerKeyReview: QuizAnswerKeyReview) => {
+  const activate = (
+    answerKeyReview: QuizAnswerKeyReview,
+    regulatoryCompliance?: QuizLaunchInput['regulatoryCompliance']
+  ) => {
     if (!result || !configuration) return;
     const eventId = result.event.id;
     const launchPolicy = getQuizLaunchPolicy(configuration.mode);
@@ -103,6 +107,7 @@ export function QuizAdminClient({
     activateQuizEvent(eventId, answerKeyReview, {
       maxAttempts: launchPolicy.maxAttempts,
       mode: configuration.mode,
+      ...(regulatoryCompliance ? { regulatoryCompliance } : {}),
       rulesVersion: launchPolicy.rulesVersion,
       timePerQuestionSeconds: configuration.timePerQuestionSeconds,
       timeZone: launchPolicy.timeZone,

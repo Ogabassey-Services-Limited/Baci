@@ -2,6 +2,7 @@ import { apiPost } from '@/lib/api-client';
 import {
   type MerchantQuizActivationInput,
   type MerchantQuizActivationResponse,
+  type MerchantQuizActivationV2Input,
   type MerchantQuizGenerationResponse,
   merchantQuizActivationResponseSchema,
   merchantQuizGenerationResponseSchema,
@@ -65,6 +66,7 @@ export interface GenerateQuizDraftInput {
 export interface QuizLaunchInput {
   maxAttempts: number;
   mode: 'test' | 'live';
+  regulatoryCompliance?: MerchantQuizActivationV2Input['regulatoryCompliance'];
   rulesVersion: string;
   timePerQuestionSeconds: number;
   timeZone: string;

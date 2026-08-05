@@ -1,4 +1,5 @@
 import {
+  isQuizWindowSecondsAllowed,
   QUIZ_LIVE_MAX_ATTEMPTS,
   QUIZ_LIVE_VARIANTS_PER_QUESTION,
   QUIZ_MAX_LOGICAL_QUESTIONS,
@@ -28,6 +29,18 @@ const quizActivationTimingSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 
+export const quizRegulatoryBasisSchema = z.enum([
+  'free_skill_competition',
+  'state_permit',
+  'fccpc_registration',
+]);
+
+const quizRegulatoryComplianceSchema = z.strictObject({
+  basis: quizRegulatoryBasisSchema,
+  evidenceReference: z.string().trim().min(3).max(240),
+  jurisdiction: z.string().trim().min(2).max(100),
+});
+
 export const merchantQuizActivationV2RequestSchema = z
   .strictObject({
     answerKeyReview: z.object({
@@ -49,6 +62,7 @@ export const merchantQuizActivationV2RequestSchema = z
       .min(QUIZ_TEST_MIN_MAX_ATTEMPTS)
       .max(QUIZ_TEST_MAX_MAX_ATTEMPTS),
     mode: quizModeSchema,
+    regulatoryCompliance: quizRegulatoryComplianceSchema.optional(),
     rulesVersion: z.string().trim().min(1).max(100),
     timing: quizActivationTimingSchema,
     timePerQuestionSeconds: z.coerce
@@ -64,6 +78,38 @@ export const merchantQuizActivationV2RequestSchema = z
       .max(QUIZ_TEST_MAX_VARIANTS_PER_QUESTION),
   })
   .superRefine((value, context) => {
+    const questionCount = value.answerKeyReview.questions.length;
+    const windowSeconds =
+      value.timing.kind === 'immediate'
+        ? value.timing.liveWindowSeconds
+        : (Date.parse(value.timing.endsAt) -
+            Date.parse(value.timing.startsAt)) /
+          1000;
+    if (
+      !isQuizWindowSecondsAllowed(
+        value.mode,
+        questionCount,
+        value.timePerQuestionSeconds,
+        windowSeconds
+      )
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'The event window is outside the allowed timing bounds',
+        path: ['timing'],
+      });
+    if (value.mode === 'live' && !value.regulatoryCompliance)
+      context.addIssue({
+        code: 'custom',
+        message: 'Live quizzes require documented regulatory evidence',
+        path: ['regulatoryCompliance'],
+      });
+    if (value.mode === 'test' && value.regulatoryCompliance)
+      context.addIssue({
+        code: 'custom',
+        message: 'Test quizzes do not accept live regulatory evidence',
+        path: ['regulatoryCompliance'],
+      });
     if (value.mode === 'live' && value.maxAttempts !== QUIZ_LIVE_MAX_ATTEMPTS)
       context.addIssue({
         code: 'custom',

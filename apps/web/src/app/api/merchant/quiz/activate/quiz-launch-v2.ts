@@ -48,6 +48,34 @@ function resolveTiming(input: MerchantQuizActivationV2Input, now: Date) {
   };
 }
 
+function getLiveLaunchFailure(code?: string): QuizLaunchV2Result {
+  if (code === 'QZ047')
+    return {
+      code: 'QUIZ_LIVE_REGULATORY_EVIDENCE_REQUIRED',
+      message:
+        'Add valid jurisdiction and regulatory evidence before launching.',
+      ok: false,
+    };
+  if (['QZ042', 'QZ043', 'QZ044'].includes(code ?? ''))
+    return {
+      code: 'QUIZ_PRIZE_INVENTORY_UNAVAILABLE',
+      message:
+        'The selected prize is unavailable or has no reservable inventory.',
+      ok: false,
+    };
+  if (code === 'QZ003')
+    return {
+      code: 'QUIZ_QUESTION_POOL_INCOMPLETE',
+      message: 'The reviewed question pool is incomplete.',
+      ok: false,
+    };
+  return {
+    code: 'QUIZ_LAUNCH_FAILED',
+    message: 'The reviewed quiz could not be launched.',
+    ok: false,
+  };
+}
+
 export async function launchMerchantQuizDraftV2(args: {
   input: MerchantQuizActivationV2Input;
   merchantId: string;
@@ -56,22 +84,17 @@ export async function launchMerchantQuizDraftV2(args: {
 }): Promise<QuizLaunchV2Result> {
   const { input, merchantId, supabase } = args;
   const rules = getQuizRulesVersion(input.rulesVersion);
-  if (!rules || (input.mode === 'test' && !rules.availableInTest)) {
+  if (
+    !rules ||
+    (input.mode === 'test' && !rules.availableInTest) ||
+    (input.mode === 'live' && !rules.approvedForLive)
+  ) {
     return {
       code: 'QUIZ_RULES_NOT_AVAILABLE',
       message: 'Select an available quiz rules version before launching.',
       ok: false,
     };
   }
-  if (input.mode === 'live') {
-    return {
-      code: 'QUIZ_LIVE_PRIZE_LAUNCH_NOT_READY',
-      message:
-        'Live prize launch is locked until production approval, compliance evidence, and atomic prize reservation are all ready. Use Test mode to rehearse safely.',
-      ok: false,
-    };
-  }
-
   const now = args.now ?? new Date();
   if (
     input.timing.kind === 'scheduled' &&
@@ -86,6 +109,35 @@ export async function launchMerchantQuizDraftV2(args: {
 
   const timing = resolveTiming(input, now);
   const questionCount = input.answerKeyReview.questions.length;
+  if (input.mode === 'live') {
+    const regulatory = input.regulatoryCompliance;
+    if (!regulatory) return getLiveLaunchFailure('QZ047');
+
+    const { data, error } = await supabase.rpc('launch_quiz_event_v2', {
+      p_ends_at: timing.endsAt,
+      p_event_id: input.eventId,
+      p_question_count: questionCount,
+      p_regulatory_basis: regulatory.basis,
+      p_regulatory_evidence_ref: regulatory.evidenceReference,
+      p_regulatory_jurisdiction: regulatory.jurisdiction,
+      p_rules_version: input.rulesVersion,
+      p_starts_at: timing.startsAt,
+      p_time_per_question_seconds: input.timePerQuestionSeconds,
+      p_time_zone: input.timeZone,
+    });
+    if (isQuizDraftEvent(data)) return { event: data, ok: true };
+
+    if (error?.code === 'QZ046') {
+      const alreadyLaunched = await findLaunchedMerchantQuizV2({
+        eventId: input.eventId,
+        merchantId,
+        supabase,
+      });
+      if (alreadyLaunched) return { event: alreadyLaunched, ok: true };
+    }
+    return getLiveLaunchFailure(error?.code);
+  }
+
   const { data, error } = await supabase
     .from('quiz_events')
     .update({

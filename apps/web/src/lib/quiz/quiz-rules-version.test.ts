@@ -21,4 +21,14 @@ describe('quiz rules version registry', () => {
     expect(Object.isFrozen(QUIZ_RULES_VERSION_REGISTRY['test-v1'])).toBe(true);
     expect(QUIZ_RULES_VERSION_REGISTRY['test-v1'].approvedForLive).toBe(false);
   });
+
+  it('registers live-v1 as the approved free-skill rules version', () => {
+    expect(getQuizRulesVersion('live-v1')).toMatchObject({
+      approvedForLive: true,
+      availableInTest: false,
+      version: 'live-v1',
+    });
+    expect(isQuizRulesVersionApprovedForLive('live-v1')).toBe(true);
+    expect(Object.isFrozen(QUIZ_RULES_VERSION_REGISTRY['live-v1'])).toBe(true);
+  });
 });

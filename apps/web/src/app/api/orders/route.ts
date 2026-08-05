@@ -934,12 +934,24 @@ function getQuizVoucherAwardEvent(row: unknown) {
   if (!event || typeof event !== 'object') return null;
   const complianceVerified = (event as { compliance_verified?: unknown })
     .compliance_verified;
-  const nlrcPermitRef = (event as { nlrc_permit_ref?: unknown })
-    .nlrc_permit_ref;
+  const regulatoryBasis = (event as { regulatory_basis?: unknown })
+    .regulatory_basis;
+  const regulatoryEvidenceRef = (event as { regulatory_evidence_ref?: unknown })
+    .regulatory_evidence_ref;
+  const regulatoryJurisdiction = (
+    event as { regulatory_jurisdiction?: unknown }
+  ).regulatory_jurisdiction;
 
   return {
     complianceVerified: complianceVerified === true,
-    nlrcPermitRef: typeof nlrcPermitRef === 'string' ? nlrcPermitRef : null,
+    regulatoryBasis:
+      typeof regulatoryBasis === 'string' ? regulatoryBasis : null,
+    regulatoryEvidenceRef:
+      typeof regulatoryEvidenceRef === 'string' ? regulatoryEvidenceRef : null,
+    regulatoryJurisdiction:
+      typeof regulatoryJurisdiction === 'string'
+        ? regulatoryJurisdiction
+        : null,
   };
 }
 
@@ -1126,7 +1138,7 @@ export async function POST(request: NextRequest) {
         !getQuizProductionApprovedEnv()
       ) {
         try {
-          enforcePrizeProductionGuard({ nlrc_permit_ref: null }, false);
+          enforcePrizeProductionGuard({}, false);
         } catch (error) {
           if (error instanceof QuizProductionNotApprovedError) {
             return NextResponse.json(
@@ -1230,7 +1242,7 @@ export async function POST(request: NextRequest) {
         await supabase
           .from('quiz_awards')
           .select(
-            'id, status, award_type, customer_id, reserved_order_id, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
+            'id, status, award_type, customer_id, reserved_order_id, quiz_events!inner(regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified)'
           )
           .in('id', voucherAwardIds);
       if (voucherAwardError) {
@@ -1431,7 +1443,11 @@ export async function POST(request: NextRequest) {
       );
       try {
         enforcePrizeProductionGuard(
-          { nlrc_permit_ref: voucherEvent?.nlrcPermitRef ?? null },
+          {
+            regulatory_basis: voucherEvent?.regulatoryBasis,
+            regulatory_evidence_ref: voucherEvent?.regulatoryEvidenceRef,
+            regulatory_jurisdiction: voucherEvent?.regulatoryJurisdiction,
+          },
           getQuizPhaseEnv() === 'production' &&
             getQuizProductionApprovedEnv() &&
             voucherEvent?.complianceVerified === true

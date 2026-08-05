@@ -1,7 +1,11 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import type { QuizAnswerKeyReview } from './quiz-admin-actions';
+import { useState } from 'react';
+import type {
+  QuizAnswerKeyReview,
+  QuizLaunchInput,
+} from './quiz-admin-actions';
 import type { QuizDraftConfiguration } from './quiz-authoring-form';
 
 function timingSummary(configuration: QuizDraftConfiguration): string {
@@ -24,8 +28,33 @@ export function QuizLaunchDialog({
   configuration: QuizDraftConfiguration;
   isLaunching: boolean;
   onCancel: () => void;
-  onConfirm: (review: QuizAnswerKeyReview) => void;
+  onConfirm: (
+    review: QuizAnswerKeyReview,
+    regulatoryCompliance?: QuizLaunchInput['regulatoryCompliance']
+  ) => void;
 }) {
+  const [regulatoryBasis, setRegulatoryBasis] = useState<
+    NonNullable<QuizLaunchInput['regulatoryCompliance']>['basis']
+  >('free_skill_competition');
+  const [jurisdiction, setJurisdiction] = useState('NG-LA');
+  const [evidenceReference, setEvidenceReference] = useState('');
+  const liveEvidenceComplete = Boolean(
+    jurisdiction.trim().length >= 2 && evidenceReference.trim().length >= 3
+  );
+
+  const confirm = () => {
+    if (configuration.mode === 'test') {
+      onConfirm(answerKeyReview);
+      return;
+    }
+    if (!liveEvidenceComplete) return;
+    onConfirm(answerKeyReview, {
+      basis: regulatoryBasis,
+      evidenceReference: evidenceReference.trim(),
+      jurisdiction: jurisdiction.trim(),
+    });
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
@@ -61,11 +90,58 @@ export function QuizLaunchDialog({
           <dd className="capitalize">{configuration.mode}</dd>
         </dl>
         {configuration.mode === 'live' ? (
-          <p className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-            Live prizes require production approval, verified compliance
-            evidence, and an atomic inventory reservation. The server will fail
-            closed if any gate is missing.
-          </p>
+          <div className="mt-4 grid gap-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <p>
+              Record the legal basis for this prize competition. The server will
+              also verify production approval and reserve the prize atomically.
+            </p>
+            <label className="grid gap-2 font-medium">
+              Regulatory basis
+              <select
+                className="h-10 rounded-md border bg-background px-3"
+                value={regulatoryBasis}
+                onChange={(event) =>
+                  setRegulatoryBasis(
+                    event.target.value as NonNullable<
+                      QuizLaunchInput['regulatoryCompliance']
+                    >['basis']
+                  )
+                }
+              >
+                <option value="free_skill_competition">
+                  Free skill competition — no payment or chance
+                </option>
+                <option value="state_permit">State permit</option>
+                <option value="fccpc_registration">
+                  FCCPC sales-promotion registration
+                </option>
+              </select>
+            </label>
+            <label className="grid gap-2 font-medium">
+              Covered jurisdiction
+              <input
+                className="h-10 rounded-md border bg-background px-3"
+                maxLength={100}
+                onChange={(event) => setJurisdiction(event.target.value)}
+                placeholder="e.g. NG-LA"
+                value={jurisdiction}
+              />
+            </label>
+            <label className="grid gap-2 font-medium">
+              Evidence reference
+              <input
+                className="h-10 rounded-md border bg-background px-3"
+                maxLength={240}
+                onChange={(event) => setEvidenceReference(event.target.value)}
+                placeholder="Counsel memo, approved rules, permit, or filing reference"
+                value={evidenceReference}
+              />
+            </label>
+            <p className="text-xs text-muted-foreground">
+              For the free-skill basis, the rules must guarantee free entry,
+              deterministic ranking, and no random tie-breaker.
+            </p>
+          </div>
         ) : (
           <p className="mt-4 rounded-md border border-sky-500/30 bg-sky-500/10 p-3 text-sm">
             Test mode is a private rehearsal. No prize inventory is reserved or
@@ -91,8 +167,11 @@ export function QuizLaunchDialog({
           </button>
           <button
             className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-            disabled={isLaunching}
-            onClick={() => onConfirm(answerKeyReview)}
+            disabled={
+              isLaunching ||
+              (configuration.mode === 'live' && !liveEvidenceComplete)
+            }
+            onClick={confirm}
             type="button"
           >
             {isLaunching ? <Loader2 className="size-4 animate-spin" /> : null}

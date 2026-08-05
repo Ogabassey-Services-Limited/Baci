@@ -55,6 +55,10 @@ jest.mock('../lib/logger', () => ({
   }),
 }));
 
+import {
+  CUSTOMER_SELECT_COLUMNS,
+  LEGACY_CUSTOMER_SELECT_COLUMNS,
+} from './auth-customer-schema-compat';
 // Import after mocks
 import {
   getErrorMessage,
@@ -302,6 +306,34 @@ describe('hydrateCustomer', () => {
       phone: undefined,
       loyalty_points: mockCustomerRow.loyalty_points,
     });
+  });
+
+  it('retries without username_changed_at when production has the legacy customer schema', async () => {
+    const currentSchema = makeChain({
+      data: null,
+      error: {
+        code: '42703',
+        message: 'column customers.username_changed_at does not exist',
+      },
+    });
+    const legacySchema = makeChain({ data: mockCustomerRow, error: null });
+    mockFrom
+      .mockReturnValueOnce(currentSchema)
+      .mockReturnValueOnce(legacySchema);
+
+    const result = await hydrateCustomer({
+      merchantId: MERCHANT_ID,
+      user: mockUser,
+      useTimeout: false,
+    });
+
+    expect(currentSchema.select).toHaveBeenCalledWith(CUSTOMER_SELECT_COLUMNS);
+    expect(legacySchema.select).toHaveBeenCalledWith(
+      LEGACY_CUSTOMER_SELECT_COLUMNS
+    );
+    expect(result?.id).toBe(mockCustomerRow.id);
+    expect(result?.username_changed_at).toBeUndefined();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('calls RPC upsert when direct lookup returns no data', async () => {

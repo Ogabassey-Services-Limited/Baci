@@ -72,4 +72,32 @@ describe('QuizLaunchDialog', () => {
       within(screen.getByRole('dialog')).getByRole('alert')
     ).toHaveTextContent('Launch service unavailable');
   });
+
+  it('requires documented regulatory evidence for a live launch', async () => {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <QuizLaunchDialog
+        answerKeyReview={{ questions: [{ correctOptionId: 'a', position: 1 }] }}
+        configuration={{ ...configuration, mode: 'live' }}
+        isLaunching={false}
+        onCancel={vi.fn()}
+        onConfirm={onConfirm}
+      />
+    );
+
+    const launch = screen.getByRole('button', { name: /launch quiz/i });
+    expect(launch).toBeDisabled();
+    await user.type(
+      screen.getByLabelText('Evidence reference'),
+      'Free-entry rules and counsel note 2026-08'
+    );
+    await user.click(launch);
+
+    expect(onConfirm).toHaveBeenCalledWith(expect.any(Object), {
+      basis: 'free_skill_competition',
+      evidenceReference: 'Free-entry rules and counsel note 2026-08',
+      jurisdiction: 'NG-LA',
+    });
+  });
 });

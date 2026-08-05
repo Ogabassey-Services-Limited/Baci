@@ -216,23 +216,47 @@ describe('POST /api/merchant/quiz/activate', () => {
     );
   });
 
-  it('fails closed when a live prize launch is requested', async () => {
+  it('launches a reviewed live prize through the atomic reservation RPC', async () => {
+    mockRpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          id: EVENT_ID,
+          slug: 'daily-phone-quiz',
+          status: 'active',
+          title: 'Daily Phone Quiz',
+        },
+        error: null,
+      });
     const response = await POST(
       createRequest({
         eventId: EVENT_ID,
         maxAttempts: 1,
         mode: 'live',
+        regulatoryCompliance: {
+          basis: 'free_skill_competition',
+          evidenceReference: 'Free-entry rules and counsel note 2026-08',
+          jurisdiction: 'NG-LA',
+        },
         rulesVersion: QUIZ_LIVE_RULES_VERSION,
         timePerQuestionSeconds: 10,
         timeZone: 'Africa/Lagos',
-        timing: { kind: 'immediate', liveWindowSeconds: 300 },
+        timing: { kind: 'immediate', liveWindowSeconds: 60 },
         variantsPerQuestion: 3,
       })
     );
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      code: 'QUIZ_RULES_NOT_AVAILABLE',
+      event: { id: EVENT_ID, status: 'active' },
     });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'launch_quiz_event_v2',
+      expect.objectContaining({
+        p_event_id: EVENT_ID,
+        p_regulatory_basis: 'free_skill_competition',
+        p_regulatory_jurisdiction: 'NG-LA',
+      })
+    );
     expect(mockQuizEventUpdate).not.toHaveBeenCalled();
   });
 

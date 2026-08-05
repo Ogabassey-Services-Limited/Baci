@@ -36,7 +36,9 @@ export type ServerSupabaseClient = {
 type QuizAwardPrizeGuardEventRow = {
   compliance_verified?: boolean | null;
   merchant_id?: string | null;
-  nlrc_permit_ref?: string | null;
+  regulatory_basis?: string | null;
+  regulatory_evidence_ref?: string | null;
+  regulatory_jurisdiction?: string | null;
 };
 
 type QuizAwardPrizeGuardRow = {
@@ -96,7 +98,9 @@ export async function enforceEventPrizeGuard(
 ) {
   const { data, error } = await supabase
     .from('quiz_events')
-    .select('merchant_id, nlrc_permit_ref, compliance_verified')
+    .select(
+      'merchant_id, regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified'
+    )
     .eq('id', eventId)
     .maybeSingle();
 
@@ -121,10 +125,9 @@ export async function enforceEventPrizeGuard(
   // compliance evidence from the event row.
   enforcePrizeProductionGuard(
     {
-      nlrc_permit_ref:
-        typeof eventRow?.nlrc_permit_ref === 'string'
-          ? eventRow.nlrc_permit_ref
-          : null,
+      regulatory_basis: eventRow?.regulatory_basis,
+      regulatory_evidence_ref: eventRow?.regulatory_evidence_ref,
+      regulatory_jurisdiction: eventRow?.regulatory_jurisdiction,
     },
     eventRow?.compliance_verified === true
   );
@@ -249,7 +252,9 @@ export async function enforceCashAwardPrizeGuard(
 ) {
   const { data, error } = await supabase
     .from('quiz_awards')
-    .select('quiz_events(nlrc_permit_ref, compliance_verified)')
+    .select(
+      'quiz_events(regulatory_basis, regulatory_jurisdiction, regulatory_evidence_ref, compliance_verified)'
+    )
     .eq('id', awardId)
     .maybeSingle();
   if (error) {
@@ -287,10 +292,9 @@ export async function enforceCashAwardPrizeGuard(
   // Fail closed: nullable event fields cannot satisfy production guard checks.
   enforcePrizeProductionGuard(
     {
-      nlrc_permit_ref:
-        typeof eventRow?.nlrc_permit_ref === 'string'
-          ? eventRow.nlrc_permit_ref
-          : null,
+      regulatory_basis: eventRow?.regulatory_basis,
+      regulatory_evidence_ref: eventRow?.regulatory_evidence_ref,
+      regulatory_jurisdiction: eventRow?.regulatory_jurisdiction,
     },
     eventRow?.compliance_verified === true
   );

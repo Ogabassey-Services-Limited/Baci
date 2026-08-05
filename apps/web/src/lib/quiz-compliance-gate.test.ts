@@ -28,7 +28,14 @@ describe('quiz compliance gate', () => {
     );
 
     expect(() =>
-      enforcePrizeProductionGuard({ nlrc_permit_ref: 'NLRC-123' }, true)
+      enforcePrizeProductionGuard(
+        {
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
+        },
+        true
+      )
     ).toThrow('Quiz production is not approved for prize claims.');
   });
 
@@ -39,11 +46,18 @@ describe('quiz compliance gate', () => {
     );
 
     expect(() =>
-      enforcePrizeProductionGuard({ nlrc_permit_ref: 'NLRC-123' }, true)
+      enforcePrizeProductionGuard(
+        {
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
+        },
+        true
+      )
     ).toThrow('Quiz production is not approved for prize claims.');
   });
 
-  it('blocks production prize flow when permit evidence is missing', async () => {
+  it('blocks production prize flow when the compliance evidence reference is missing', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
     const { enforcePrizeProductionGuard } = await import(
@@ -51,7 +65,52 @@ describe('quiz compliance gate', () => {
     );
 
     expect(() =>
-      enforcePrizeProductionGuard({ nlrc_permit_ref: '   ' }, true)
+      enforcePrizeProductionGuard(
+        {
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: '   ',
+          regulatory_jurisdiction: 'NG-LA',
+        },
+        true
+      )
+    ).toThrow('Quiz production is not approved for prize claims.');
+  });
+
+  it('blocks production prize flow for an unsupported regulatory basis', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { enforcePrizeProductionGuard } = await import(
+      '@/lib/quiz-compliance-gate'
+    );
+
+    expect(() =>
+      enforcePrizeProductionGuard(
+        {
+          regulatory_basis: 'national_permit',
+          regulatory_evidence_ref: 'NOT-ACCEPTED',
+          regulatory_jurisdiction: 'NG-LA',
+        },
+        true
+      )
+    ).toThrow('Quiz production is not approved for prize claims.');
+  });
+
+  it('blocks production prize flow when the covered jurisdiction is missing', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { enforcePrizeProductionGuard } = await import(
+      '@/lib/quiz-compliance-gate'
+    );
+
+    expect(() =>
+      enforcePrizeProductionGuard(
+        {
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: ' ',
+        },
+        true
+      )
     ).toThrow('Quiz production is not approved for prize claims.');
   });
 
@@ -63,11 +122,22 @@ describe('quiz compliance gate', () => {
     );
 
     expect(() =>
-      enforcePrizeProductionGuard({ nlrc_permit_ref: 'NLRC-123' }, false)
+      enforcePrizeProductionGuard(
+        {
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
+        },
+        false
+      )
     ).toThrow('Quiz production is not approved for prize claims.');
   });
 
-  it('allows production prize flow when approval, permit, and compliance evidence are all present', async () => {
+  it.each([
+    'free_skill_competition',
+    'state_permit',
+    'fccpc_registration',
+  ] as const)('allows %s when approval and compliance evidence are all present', async (basis) => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
     const { enforcePrizeProductionGuard } = await import(
@@ -75,8 +145,27 @@ describe('quiz compliance gate', () => {
     );
 
     expect(() =>
-      enforcePrizeProductionGuard({ nlrc_permit_ref: 'NLRC-123' }, true)
+      enforcePrizeProductionGuard(
+        {
+          regulatory_basis: basis,
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
+        },
+        true
+      )
     ).not.toThrow();
+  });
+
+  it('does not allow a deprecated NLRC reference to satisfy the new guard alone', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { getQuizComplianceEvidence } = await import(
+      '@/lib/quiz-compliance-gate'
+    );
+
+    expect(
+      getQuizComplianceEvidence({ nlrc_permit_ref: 'LEGACY-STATE-123' })
+    ).toBeNull();
   });
 });
 

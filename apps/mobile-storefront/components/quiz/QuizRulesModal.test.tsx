@@ -19,6 +19,8 @@ describe('QuizRulesModal', () => {
     );
 
     const play = screen.getByRole('button', { name: 'Accept and play quiz' });
+    expect(screen.getByText(/entry is free/i)).toBeTruthy();
+    expect(screen.getByText(/no random draw/i)).toBeTruthy();
     expect(play.props.accessibilityState).toEqual({ disabled: true });
     fireEvent.press(play);
     expect(onConfirm).not.toHaveBeenCalled();

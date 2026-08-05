@@ -46,23 +46,76 @@ describe('launchMerchantQuizDraftV2', () => {
     );
   });
 
-  it('does not mutate a live prize draft when atomic launch is unavailable', async () => {
-    const from = vi.fn();
+  it('launches a live prize and reserves inventory through the atomic RPC', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        id: baseInput.eventId,
+        slug: 'quiz',
+        status: 'active',
+        title: 'Quiz',
+      },
+      error: null,
+    });
     const result = await launchMerchantQuizDraftV2({
       input: {
         ...baseInput,
         maxAttempts: 1,
         mode: 'live',
+        regulatoryCompliance: {
+          basis: 'free_skill_competition',
+          evidenceReference: 'COUNSEL-2026-08-05',
+          jurisdiction: 'NG-LA',
+        },
+        rulesVersion: 'live-v1',
+        timing: { kind: 'immediate', liveWindowSeconds: 60 },
         variantsPerQuestion: 3,
       },
       merchantId: 'merchant-1',
-      supabase: { from } as never,
+      supabase: { rpc } as never,
     });
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('launch_quiz_event_v2', {
+      p_ends_at: expect.any(String),
+      p_event_id: baseInput.eventId,
+      p_question_count: 1,
+      p_regulatory_basis: 'free_skill_competition',
+      p_regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+      p_regulatory_jurisdiction: 'NG-LA',
+      p_rules_version: 'live-v1',
+      p_starts_at: expect.any(String),
+      p_time_per_question_seconds: 10,
+      p_time_zone: 'Africa/Lagos',
+    });
+  });
+
+  it('fails closed when the live prize has no reservable inventory', async () => {
+    const result = await launchMerchantQuizDraftV2({
+      input: {
+        ...baseInput,
+        maxAttempts: 1,
+        mode: 'live',
+        regulatoryCompliance: {
+          basis: 'free_skill_competition',
+          evidenceReference: 'COUNSEL-2026-08-05',
+          jurisdiction: 'NG-LA',
+        },
+        rulesVersion: 'live-v1',
+        timing: { kind: 'immediate', liveWindowSeconds: 60 },
+        variantsPerQuestion: 3,
+      },
+      merchantId: 'merchant-1',
+      supabase: {
+        rpc: vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'QZ044', message: 'quiz_prize_stock_exhausted' },
+        }),
+      } as never,
+    });
+
     expect(result).toMatchObject({
-      code: 'QUIZ_LIVE_PRIZE_LAUNCH_NOT_READY',
+      code: 'QUIZ_PRIZE_INVENTORY_UNAVAILABLE',
       ok: false,
     });
-    expect(from).not.toHaveBeenCalled();
   });
 
   it('keeps a future launch scheduled with its exact universal end', async () => {

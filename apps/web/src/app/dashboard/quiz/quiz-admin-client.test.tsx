@@ -141,6 +141,10 @@ describe('QuizAdminClient', () => {
       })
     );
     await user.click(screen.getByRole('button', { name: /launch quiz/i }));
+    await user.type(
+      within(screen.getByRole('dialog')).getByLabelText('Evidence reference'),
+      'Free-entry rules and counsel note 2026-08'
+    );
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', {
         name: /launch quiz/i,
@@ -153,6 +157,11 @@ describe('QuizAdminClient', () => {
       expect.objectContaining({
         maxAttempts: 1,
         mode: 'live',
+        regulatoryCompliance: {
+          basis: 'free_skill_competition',
+          evidenceReference: 'Free-entry rules and counsel note 2026-08',
+          jurisdiction: 'NG-LA',
+        },
         rulesVersion: 'live-v1',
         timeZone: 'Africa/Lagos',
         variantsPerQuestion: 3,

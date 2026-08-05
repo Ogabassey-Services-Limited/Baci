@@ -8,55 +8,14 @@ import { splitFullName } from '../lib/auth-helpers';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
+import {
+  CUSTOMER_SELECT_COLUMNS,
+  isMissingUsernameChangedAtColumn,
+  LEGACY_CUSTOMER_SELECT_COLUMNS,
+} from './auth-customer-schema-compat';
 import type { Customer } from './auth-store';
-import { profileRpcErrorMessages } from './auth-store-error-messages';
 
 const log = createLogger('AuthHelpers');
-
-export function getUsernamePolicyError(error: {
-  details?: string;
-  message: string;
-}) {
-  if (error.message === 'username_change_active_attempt')
-    return 'Finish your active quiz before changing your username.';
-  if (error.message !== 'username_change_cooldown')
-    return profileRpcErrorMessages.username(error.message);
-  const timestamp = Date.parse(error.details ?? '');
-  return Number.isFinite(timestamp)
-    ? `You can change your username again on ${new Intl.DateTimeFormat(
-        undefined,
-        { dateStyle: 'medium' }
-      ).format(timestamp)}.`
-    : 'You can change your username once every 30 days.';
-}
-
-export function getUsernameCooldownNextEligibleAt(error: {
-  details?: string;
-  message: string;
-}) {
-  if (error.message !== 'username_change_cooldown') return null;
-  return Number.isFinite(Date.parse(error.details ?? ''))
-    ? (error.details ?? null)
-    : null;
-}
-
-export function parseUsernameWriteResult(data: unknown) {
-  if (!data || typeof data !== 'object') return null;
-  const value = data as Record<string, unknown>;
-  if (typeof value.username !== 'string') return null;
-  return {
-    username: value.username,
-    usernameChangedAt:
-      typeof value.usernameChangedAt === 'string'
-        ? value.usernameChangedAt
-        : null,
-    nextEligibleAt:
-      typeof value.nextEligibleAt === 'string' ? value.nextEligibleAt : null,
-  };
-}
-
-export const CUSTOMER_SELECT_COLUMNS =
-  'id, user_id, email, first_name, last_name, phone, loyalty_points, username, username_changed_at, date_of_birth';
 
 /** Timeout (ms) for each Supabase query during initialization.
  *  Android on poor cellular can stall indefinitely without a client-side limit. */
@@ -142,6 +101,65 @@ export function shouldInvalidateSessionOnGetUserError(error: unknown): boolean {
   );
 }
 
+type CustomerQueryError = {
+  code?: string;
+  message: string;
+};
+
+type CustomerQueryResult = {
+  data: unknown;
+  error: CustomerQueryError | null;
+};
+
+async function selectCustomer(
+  merchantId: string,
+  userId: string,
+  columns: string,
+  label: string,
+  useTimeout: boolean
+): Promise<CustomerQueryResult> {
+  return (await wrapQuery(
+    supabase
+      .from('customers')
+      .select(columns)
+      .eq('merchant_id', merchantId)
+      .eq('user_id', userId)
+      .maybeSingle(),
+    label,
+    useTimeout
+  )) as CustomerQueryResult;
+}
+
+async function selectCustomerWithSchemaFallback(
+  merchantId: string,
+  userId: string,
+  label: string,
+  useTimeout: boolean,
+  preferredColumns = CUSTOMER_SELECT_COLUMNS
+): Promise<CustomerQueryResult & { columns: string }> {
+  let result = await selectCustomer(
+    merchantId,
+    userId,
+    preferredColumns,
+    label,
+    useTimeout
+  );
+  if (
+    preferredColumns === CUSTOMER_SELECT_COLUMNS &&
+    isMissingUsernameChangedAtColumn(result.error)
+  ) {
+    result = await selectCustomer(
+      merchantId,
+      userId,
+      LEGACY_CUSTOMER_SELECT_COLUMNS,
+      `${label} (legacy schema)`,
+      useTimeout
+    );
+    return { ...result, columns: LEGACY_CUSTOMER_SELECT_COLUMNS };
+  }
+  return { ...result, columns: preferredColumns };
+}
+
 // ---------------------------------------------------------------------------
 // Customer hydration — shared between initialize() and SIGNED_IN listener
 // ---------------------------------------------------------------------------
@@ -177,25 +195,21 @@ export async function hydrateCustomer({
     initGen !== undefined && getInitGen && getInitGen() !== initGen;
 
   // 1. Fetch customer data by user_id (RLS-safe for linked accounts)
-  const { data: customerData, error: selectError } = await wrapQuery(
-    supabase
-      .from('customers')
-      .select(CUSTOMER_SELECT_COLUMNS)
-      .eq('merchant_id', merchantId)
-      .eq('user_id', user.id)
-      .maybeSingle(),
+  let customerQuery = await selectCustomerWithSchemaFallback(
+    merchantId,
+    user.id,
     'customer fetch',
     useTimeout
   );
 
   if (cancelled()) return null;
 
-  if (selectError) {
-    log.error('Customer fetch failed:', selectError.message);
+  if (customerQuery.error) {
+    log.error('Customer fetch failed:', customerQuery.error.message);
   }
 
   // 2. If no linked customer record found, use atomic SECURITY DEFINER RPC
-  let resolvedCustomer = customerData;
+  let resolvedCustomer = customerQuery.data;
   if (!resolvedCustomer && user.email) {
     const { error: rpcError } = await wrapQuery(
       supabase.rpc('upsert_customer_on_auth', {
@@ -216,44 +230,45 @@ export async function hydrateCustomer({
     }
 
     // Re-SELECT by user_id (now set by RPC, RLS passes)
-    const { data: newCustomer, error: reSelectError } = await wrapQuery(
-      supabase
-        .from('customers')
-        .select(CUSTOMER_SELECT_COLUMNS)
-        .eq('merchant_id', merchantId)
-        .eq('user_id', user.id)
-        .maybeSingle(),
+    customerQuery = await selectCustomerWithSchemaFallback(
+      merchantId,
+      user.id,
       'customer re-fetch',
-      useTimeout
+      useTimeout,
+      customerQuery.columns
     );
 
     if (cancelled()) return null;
 
-    if (reSelectError) {
-      log.error('Customer re-fetch failed:', reSelectError.message);
+    if (customerQuery.error) {
+      log.error('Customer re-fetch failed:', customerQuery.error.message);
     }
 
-    resolvedCustomer = newCustomer;
+    resolvedCustomer = customerQuery.data;
   }
 
   // 3. Backfill missing profile fields from OAuth provider
-  if (resolvedCustomer && user.user_metadata) {
+  let validatedCustomer = CustomerRowSchema.safeParse(resolvedCustomer);
+  if (!validatedCustomer.success) return null;
+
+  if (user.user_metadata) {
     const meta = user.user_metadata;
     const { firstName, lastName } = splitFullName(meta.full_name);
     const updates: Record<string, string> = {};
 
-    if (!resolvedCustomer.first_name && firstName)
+    if (!validatedCustomer.data.first_name && firstName)
       updates.first_name = firstName;
-    if (!resolvedCustomer.last_name && lastName) updates.last_name = lastName;
+    if (!validatedCustomer.data.last_name && lastName)
+      updates.last_name = lastName;
 
     if (Object.keys(updates).length > 0) {
       const { data: updated, error: updateError } = await wrapQuery(
         supabase
           .from('customers')
           .update(updates)
-          .eq('id', resolvedCustomer.id)
+          .eq('id', validatedCustomer.data.id)
           .eq('merchant_id', merchantId)
-          .select(CUSTOMER_SELECT_COLUMNS)
+          .select(customerQuery.columns)
           .single(),
         'customer profile backfill',
         useTimeout
@@ -264,26 +279,24 @@ export async function hydrateCustomer({
       if (updateError) {
         log.error('Customer backfill update failed:', updateError.message);
       } else if (updated) {
-        resolvedCustomer = updated;
+        const updatedCustomer = CustomerRowSchema.safeParse(updated);
+        if (updatedCustomer.success) validatedCustomer = updatedCustomer;
       }
     }
   }
 
-  // 4. Validate with Zod
-  const validation = CustomerRowSchema.safeParse(resolvedCustomer);
-  if (!validation.success) return null;
-
   const customerWithUsernamePolicy: Customer = {
-    id: validation.data.id,
-    user_id: validation.data.user_id,
-    email: validation.data.email,
-    first_name: validation.data.first_name ?? undefined,
-    last_name: validation.data.last_name ?? undefined,
-    phone: validation.data.phone ?? undefined,
-    loyalty_points: validation.data.loyalty_points ?? undefined,
-    username: validation.data.username ?? undefined,
-    username_changed_at: validation.data.username_changed_at ?? undefined,
-    date_of_birth: validation.data.date_of_birth ?? undefined,
+    id: validatedCustomer.data.id,
+    user_id: validatedCustomer.data.user_id,
+    email: validatedCustomer.data.email,
+    first_name: validatedCustomer.data.first_name ?? undefined,
+    last_name: validatedCustomer.data.last_name ?? undefined,
+    phone: validatedCustomer.data.phone ?? undefined,
+    loyalty_points: validatedCustomer.data.loyalty_points ?? undefined,
+    username: validatedCustomer.data.username ?? undefined,
+    username_changed_at:
+      validatedCustomer.data.username_changed_at ?? undefined,
+    date_of_birth: validatedCustomer.data.date_of_birth ?? undefined,
   };
   return customerWithUsernamePolicy;
 }

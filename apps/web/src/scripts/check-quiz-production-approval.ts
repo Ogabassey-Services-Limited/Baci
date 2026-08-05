@@ -2,7 +2,11 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { getQuizPhaseEnv, getQuizProductionApprovedEnv } from '@/env';
 import { logger } from '@/lib/logger';
-import { getQuizPhase, type QuizPhase } from '@/lib/quiz-compliance-gate';
+import {
+  getQuizComplianceEvidence,
+  getQuizPhase,
+  type QuizPhase,
+} from '@/lib/quiz-compliance-gate';
 import {
   createQuizRpcServerProof,
   type QuizRpcServerProof,
@@ -17,10 +21,11 @@ const QUIZ_RPC_SECRET_HEALTH_PROOF_ID =
 
 export type QuizProductionApprovalEvent = {
   compliance_verified: boolean | null;
-  compliance_flags?: unknown;
   id: string;
+  regulatory_basis: string | null;
+  regulatory_evidence_ref: string | null;
+  regulatory_jurisdiction: string | null;
   status: string | null;
-  nlrc_permit_ref: string | null;
   published_odds: unknown;
 };
 
@@ -99,8 +104,10 @@ function pushEventErrors(
 ) {
   const label = getEventLabel(event);
 
-  if (!(event.nlrc_permit_ref ?? '').trim()) {
-    errors.push(`Quiz event ${label} is missing nlrc_permit_ref`);
+  if (!getQuizComplianceEvidence(event)) {
+    errors.push(
+      `Quiz event ${label} is missing a supported regulatory_basis, regulatory_jurisdiction, or regulatory_evidence_ref`
+    );
   }
 
   if (!hasPublishedOdds(event.published_odds)) {
@@ -113,7 +120,9 @@ function pushEventErrors(
 
   if (
     containsUnresolvedComplianceMarker(event.published_odds) ||
-    containsUnresolvedComplianceMarker(event.compliance_flags)
+    containsUnresolvedComplianceMarker(event.regulatory_basis) ||
+    containsUnresolvedComplianceMarker(event.regulatory_evidence_ref) ||
+    containsUnresolvedComplianceMarker(event.regulatory_jurisdiction)
   ) {
     errors.push(`Quiz event ${label} contains unresolved compliance placeholders`);
   }
@@ -243,11 +252,18 @@ function toEvent(row: Record<string, unknown>): QuizProductionApprovalEvent {
       typeof row.compliance_verified === 'boolean'
         ? row.compliance_verified
         : null,
-    compliance_flags: row.compliance_flags,
     id: typeof row.id === 'string' ? row.id : '',
+    regulatory_basis:
+      typeof row.regulatory_basis === 'string' ? row.regulatory_basis : null,
+    regulatory_evidence_ref:
+      typeof row.regulatory_evidence_ref === 'string'
+        ? row.regulatory_evidence_ref
+        : null,
+    regulatory_jurisdiction:
+      typeof row.regulatory_jurisdiction === 'string'
+        ? row.regulatory_jurisdiction
+        : null,
     status: typeof row.status === 'string' ? row.status : null,
-    nlrc_permit_ref:
-      typeof row.nlrc_permit_ref === 'string' ? row.nlrc_permit_ref : null,
     published_odds: row.published_odds,
   };
 }
@@ -270,7 +286,7 @@ async function loadProductionRows() {
   const { createServiceClient } = await import('@/lib/supabase/service');
   const supabase = createServiceClient();
   const eventSelect =
-    'id,status,nlrc_permit_ref,published_odds,compliance_verified,compliance_flags';
+    'id,status,published_odds,compliance_verified,regulatory_basis,regulatory_jurisdiction,regulatory_evidence_ref';
   const eventsResult = await supabase
     .from('quiz_events')
     .select(eventSelect)

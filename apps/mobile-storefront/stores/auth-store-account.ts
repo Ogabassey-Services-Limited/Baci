@@ -8,15 +8,15 @@ import { getStoredPushToken } from '../lib/push-token-storage';
 import { queryClient } from '../lib/query-client';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
-import {
-  CUSTOMER_SELECT_COLUMNS,
-  getUsernameCooldownNextEligibleAt,
-  getUsernamePolicyError,
-  parseUsernameWriteResult,
-} from './auth-helpers';
+import { CUSTOMER_SELECT_COLUMNS } from './auth-customer-schema-compat';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
 import { profileRpcErrorMessages } from './auth-store-error-messages';
 import { clearLocalAndDeactivatePushToken } from './auth-store-push';
+import {
+  getUsernameCooldownNextEligibleAt,
+  getUsernamePolicyError,
+  parseUsernameWriteResult,
+} from './auth-username-policy';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
 import { useQuizStore } from './quiz-store';

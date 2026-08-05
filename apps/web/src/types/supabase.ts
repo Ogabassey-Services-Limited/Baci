@@ -11670,6 +11670,9 @@ export type Database = {
           nlrc_permit_ref: string | null;
           published_odds: Json;
           question_count: number;
+          regulatory_basis: string | null;
+          regulatory_evidence_ref: string | null;
+          regulatory_jurisdiction: string | null;
           results_published_at: string | null;
           rules_version: string | null;
           settings: Json;
@@ -11701,6 +11704,9 @@ export type Database = {
           nlrc_permit_ref?: string | null;
           published_odds?: Json;
           question_count?: number;
+          regulatory_basis?: string | null;
+          regulatory_evidence_ref?: string | null;
+          regulatory_jurisdiction?: string | null;
           results_published_at?: string | null;
           rules_version?: string | null;
           settings?: Json;
@@ -11732,6 +11738,9 @@ export type Database = {
           nlrc_permit_ref?: string | null;
           published_odds?: Json;
           question_count?: number;
+          regulatory_basis?: string | null;
+          regulatory_evidence_ref?: string | null;
+          regulatory_jurisdiction?: string | null;
           results_published_at?: string | null;
           rules_version?: string | null;
           settings?: Json;
@@ -18124,6 +18133,21 @@ export type Database = {
       };
       list_quiz_events_v2: {
         Args: { p_limit?: number; p_merchant_id: string; p_offset?: number };
+        Returns: Json;
+      };
+      launch_quiz_event_v2: {
+        Args: {
+          p_ends_at: string;
+          p_event_id: string;
+          p_question_count: number;
+          p_regulatory_basis: string;
+          p_regulatory_evidence_ref: string;
+          p_regulatory_jurisdiction: string;
+          p_rules_version: string;
+          p_starts_at: string;
+          p_time_per_question_seconds: number;
+          p_time_zone: string;
+        };
         Returns: Json;
       };
       list_variant_inventory_units: {

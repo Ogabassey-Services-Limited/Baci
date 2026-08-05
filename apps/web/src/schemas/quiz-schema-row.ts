@@ -18,6 +18,7 @@ const quizEventSettingsSchema = z
   .strip();
 
 export const quizEventRowSchema = z.object({
+  compliance_flags: z.unknown().optional(),
   compliance_verified: z.boolean().nullable().optional(),
   contract_version: z.union([z.literal(1), z.literal(2)]).optional(),
   ends_at: quizIsoDatetimeSchema.nullable(),
@@ -42,6 +43,9 @@ export const quizEventRowSchema = z.object({
     )
     .nullable()
     .optional(),
+  regulatory_basis: z.string().nullable().optional(),
+  regulatory_evidence_ref: z.string().nullable().optional(),
+  regulatory_jurisdiction: z.string().nullable().optional(),
   results_published_at: quizIsoDatetimeSchema.nullable().optional(),
   rules_version: z.string().trim().min(1).nullable().optional(),
   settings: quizEventSettingsSchema,

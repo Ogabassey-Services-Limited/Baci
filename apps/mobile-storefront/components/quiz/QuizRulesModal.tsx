@@ -71,6 +71,15 @@ export function QuizRulesModal({
               4. Fast, correct answers rank highest. One eligible attempt per
               player and device.
             </Text>
+            <Text style={styles.ruleText}>
+              5. Entry is free. No purchase, payment, loyalty points, or paid
+              membership is required.
+            </Text>
+            <Text style={styles.ruleText}>
+              6. Winners are ranked by score, shortest completion time, then
+              earliest valid submission. There is no random draw or random
+              tie-breaker.
+            </Text>
           </View>
 
           {requiresAcceptance ? (

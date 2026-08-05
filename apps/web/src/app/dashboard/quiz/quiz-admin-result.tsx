@@ -5,6 +5,7 @@ import type {
   MerchantQuizActivationInput,
   MerchantQuizGenerationResponse,
 } from '@/schemas/quiz';
+import type { QuizLaunchInput } from './quiz-admin-actions';
 import type { QuizDraftConfiguration } from './quiz-authoring-form';
 import { QuizLaunchDialog } from './quiz-launch-dialog';
 import { QuestionReview } from './quiz-question-review';
@@ -21,7 +22,10 @@ export function QuizAdminResult({
   activationError?: string | null;
   configuration: QuizDraftConfiguration;
   isActivating?: boolean;
-  onActivate?: (answerKeyReview: AnswerKeyReview) => void;
+  onActivate?: (
+    answerKeyReview: AnswerKeyReview,
+    regulatoryCompliance?: QuizLaunchInput['regulatoryCompliance']
+  ) => void;
   result: MerchantQuizGenerationResponse;
 }) {
   const [hasReviewed, setHasReviewed] = useState(false);
@@ -116,7 +120,9 @@ export function QuizAdminResult({
           configuration={configuration}
           isLaunching={isActivating}
           onCancel={() => setShowDialog(false)}
-          onConfirm={(review) => onActivate?.(review)}
+          onConfirm={(review, regulatoryCompliance) =>
+            onActivate?.(review, regulatoryCompliance)
+          }
         />
       ) : null}
     </section>
