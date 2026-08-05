@@ -599,6 +599,109 @@ describe('POST /api/payments/webhook', () => {
     expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
   });
 
+  it('does not settle a completed DVA transaction whose locked invoice balance changed', async () => {
+    const body = {
+      event: 'charge.success',
+      data: {
+        authorization: {
+          receiver_bank_account_number: '9812858131',
+        },
+        reference: 'PSK-STALE-EXACT-1',
+      },
+    };
+    const request = createMockRequest(body, {
+      'x-paystack-signature': createSignature(
+        JSON.stringify(body),
+        'test-paystack-secret'
+      ),
+    });
+    const { verifyTransaction } = await import('@/lib/paystack');
+    vi.mocked(verifyTransaction).mockResolvedValue({
+      success: true,
+      data: {
+        amount: 53_500_000,
+        channel: 'dedicated_nuban',
+        created_at: '2026-08-05T08:29:00Z',
+        currency: 'NGN',
+        customer: {
+          customer_code: 'CUS_stale_exact',
+          email: 'customer@example.com',
+          first_name: 'Customer',
+          id: 1,
+          last_name: null,
+          phone: null,
+        },
+        fees: 100_000,
+        fees_split: null,
+        id: 1,
+        metadata: null,
+        paid_at: '2026-08-05T08:30:00Z',
+        reference: 'PSK-STALE-EXACT-1',
+        status: 'success',
+      },
+    });
+    const transaction = {
+      amount: 535_000,
+      currency: 'NGN',
+      gateway_reference: 'PSK-STALE-EXACT-1',
+      id: 'txn-stale-exact-1',
+      merchant_id: 'merchant-1',
+      metadata: {
+        order_payment_allocation: 'merchant_invoice_partial',
+      },
+      order_id: 'order-1',
+      platform_fee: 2_050,
+      status: 'pending',
+    };
+    mockConfirmAgenticPaystackDvaPayment.mockResolvedValueOnce({
+      handled: false,
+      transaction,
+    });
+    vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+      if (table !== 'transactions') {
+        throw new Error(`Unexpected table after balance review: ${table}`);
+      }
+      return {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: transaction.id },
+          error: null,
+        }),
+      } as never;
+    });
+    vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+      const result = {
+        data:
+          name === 'complete_order_gateway_payment'
+            ? {
+                error_code: 'MERCHANT_INVOICE_PARTIAL_BALANCE_CHANGED',
+                transaction_status: 'completed',
+              }
+            : null,
+        error: null,
+      };
+      return Object.assign(Promise.resolve(result), {
+        single: () => Promise.resolve(result),
+      }) as never;
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      code: 'MERCHANT_INVOICE_PARTIAL_BALANCE_CHANGED',
+      error: 'Payment requires reconciliation review',
+    });
+    expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+      'record_merchant_settlement',
+      expect.anything()
+    );
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+  });
+
   describe('Signature Verification', () => {
     it('returns 401 when Korapay signature is invalid', async () => {
       const body = {

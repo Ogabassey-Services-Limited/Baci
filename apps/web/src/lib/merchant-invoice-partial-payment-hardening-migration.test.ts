@@ -14,6 +14,14 @@ const migration = [
   )
   .join('\n');
 
+const completedTransactionRepairMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260805190000_recheck_completed_merchant_invoice_exact_payments.sql'
+  ),
+  'utf8'
+);
+
 describe('merchant invoice partial payment hardening migration', () => {
   it('wraps both payment writers under the shared advisory lock', () => {
     expect(migration).toContain('complete_merchant_invoice_partial_payment_v1');
@@ -64,6 +72,21 @@ describe('merchant invoice partial payment hardening migration', () => {
     expect(migration).toContain("'merchant_invoice_partial_applied', true");
     expect(migration).toContain(
       "'wedge_sweep_resolution', 'merchant_invoice_exact_completed'"
+    );
+  });
+
+  it('rechecks the webhook-completed transaction but exempts its applied replay', () => {
+    expect(completedTransactionRepairMigration).toContain(
+      "v_txn_status IN ('pending', 'completed')"
+    );
+    expect(completedTransactionRepairMigration).toMatch(
+      /v_txn_metadata ->> 'merchant_invoice_partial_applied'\s+IS DISTINCT FROM 'true'/
+    );
+    expect(completedTransactionRepairMigration).toMatch(
+      /t\.status = 'completed'[\s\S]*t\.id <> p_transaction_id/
+    );
+    expect(completedTransactionRepairMigration).toContain(
+      "'error_code', 'MERCHANT_INVOICE_PARTIAL_BALANCE_CHANGED'"
     );
   });
 
