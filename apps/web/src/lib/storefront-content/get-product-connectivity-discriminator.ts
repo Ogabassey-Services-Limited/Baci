@@ -50,7 +50,9 @@ function getStorageCapacityGb(token: string) {
 
 function tokenizeVariantSource(source: string | undefined) {
   return normalizeVariantDiscriminatorTokens(
-    normalizeContentCurrencyTokens(source ?? '')
+    normalizeContentCurrencyTokens(
+      (source ?? '').replace(/(\d{1,2}(?:\.\d+)?)\s*["″”]/gu, '$1 inch')
+    )
       .toLowerCase()
       .split(/[^a-z0-9]+/u)
       .filter(Boolean)

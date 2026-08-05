@@ -14,7 +14,7 @@ type CompareProductMatchRequirement = {
 };
 
 const VARIANT_DISCRIMINATOR_PATTERN =
-  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch)|\d+hz|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
+  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch)|\d+(?:hz|mah)|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
 const RAM_DOMINANT_CATEGORIES = new Set([
   'desktops',
   'gaming-laptops',
@@ -22,7 +22,9 @@ const RAM_DOMINANT_CATEGORIES = new Set([
 ]);
 
 function tokenize(value: string) {
-  return normalizeContentCurrencyTokens(value)
+  return normalizeContentCurrencyTokens(
+    value.replace(/(\d{1,2}(?:\.\d+)?)\s*["″”]/gu, '$1 inch')
+  )
     .toLowerCase()
     .split(/[^a-z0-9]+/u)
     .filter(Boolean);

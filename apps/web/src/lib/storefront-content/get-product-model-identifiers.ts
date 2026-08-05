@@ -179,11 +179,10 @@ function isModelMetadataToken(token: string, categorySlug: string) {
   );
 }
 function stripGeneratedCollisionSuffix(tokens: string[]) {
-  const lastToken = tokens.at(-1) ?? '';
+  const [previousToken = '', lastToken = ''] = tokens.slice(-2);
   if (tokens.length < 2 || !/^\d$/u.test(lastToken)) {
     return tokens;
   }
-  const previousToken = tokens.at(-2) ?? '';
   if (['gen', 'generation'].includes(previousToken)) {
     return tokens;
   }
@@ -194,7 +193,11 @@ function stripGeneratedCollisionSuffix(tokens: string[]) {
     return tokens.slice(0, -1);
   }
   const precedingNumericIndex = tokens.findLastIndex(
-    (token, index) => index < tokens.length - 1 && /^\d+$/u.test(token)
+    (token, index) =>
+      index < tokens.length - 1 &&
+      /^\d+$/u.test(token) &&
+      !isConvertibleInConnector(tokens, index - 1) &&
+      !isConvertibleInConnector(tokens, index + 1)
   );
   return precedingNumericIndex >= 0 && precedingNumericIndex < tokens.length - 2
     ? tokens.slice(0, -1)

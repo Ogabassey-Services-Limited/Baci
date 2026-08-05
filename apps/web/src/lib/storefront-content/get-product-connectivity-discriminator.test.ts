@@ -199,4 +199,14 @@ describe('getProductConnectivityDiscriminators', () => {
 
     expect(discriminators).toEqual(['10000mah']);
   });
+
+  it('normalizes quote-only laptop display sizes as PDP variants', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Apple MacBook Pro M3 14”'],
+      ['legacy-macbook-42'],
+      'laptops'
+    );
+
+    expect(discriminators).toEqual(['14inch']);
+  });
 });
