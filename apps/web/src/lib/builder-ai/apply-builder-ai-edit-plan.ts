@@ -8,6 +8,7 @@ import {
   applyBuilderAiCarouselPatch,
   applyBuilderAiComponentPatch,
 } from './apply-builder-ai-component-patches';
+import { applyBuilderAiRootTitle } from './apply-builder-ai-root-title';
 import {
   createInsertableComponentProps,
   isAiEditableComponent,
@@ -233,19 +234,12 @@ function applyOperation(
       return;
     }
     case 'update_root': {
-      const props = config.root.props as Record<string, unknown> | undefined;
-      if (
-        config.root.title === operation.title &&
-        (!props || props.title === operation.title)
-      ) {
+      const updated = applyBuilderAiRootTitle(config.root, operation.title);
+      if (!updated.changed) {
         pushWarnings(warnings, ['No safe changes for page title.']);
         return;
       }
-      config.root = {
-        ...config.root,
-        props: props ? { ...props, title: operation.title } : config.root.props,
-        title: operation.title,
-      };
+      config.root = updated.root;
       return;
     }
     case 'update_theme': {
@@ -263,7 +257,6 @@ function applyOperation(
     }
   }
 }
-
 export function applyBuilderAiEditPlan(
   currentConfig: BuilderData,
   plan: BuilderAiProposedPlan,
@@ -286,7 +279,6 @@ export function applyBuilderAiEditPlan(
   }
   assertUniqueIds(candidateConfig);
   const warnings: string[] = [];
-
   for (const operation of parsedPlan.data.operations) {
     try {
       applyOperation(candidateConfig, operation, createId, warnings);
