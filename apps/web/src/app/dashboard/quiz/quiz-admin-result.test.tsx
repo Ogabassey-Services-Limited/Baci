@@ -131,9 +131,10 @@ describe('QuizAdminResult', () => {
         name: /launch quiz/i,
       })
     );
-    expect(onActivate).toHaveBeenCalledWith({
-      questions: [{ correctOptionId: 'a', position: 1 }],
-    });
+    expect(onActivate).toHaveBeenCalledWith(
+      { questions: [{ correctOptionId: 'a', position: 1 }] },
+      undefined
+    );
   });
 
   it('renders a live state without the open action once active', () => {
