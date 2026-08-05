@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -67,6 +67,31 @@ test('keeps compound ollama serve cron consumers while exempting only a reviewed
           .digest('hex'),
       },
     ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('discovers a file-valued crontab environment setting', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-crontab-env-file-'));
+  const cron = join(directory, 'cron');
+  const configuration = join(directory, 'application.conf');
+  const worker = join(directory, 'worker');
+  try {
+    await Promise.all([
+      writeFile(configuration, 'endpoint=http://127.0.0.1:11434\n'),
+      writeFile(worker, '#!/bin/sh\nexit 0\n'),
+      writeFile(cron, `CONFIG=${configuration}\n* * * * * ${worker}\n`),
+    ]);
+    await chmod(worker, 0o755);
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      '. "$1"; SCRIPT_DIR=$(dirname "$1"); load_cron_inventory_helper; cron_inventory_anacrontab() { printf /etc/anacrontab; }; cron_inventory_system_file() { printf /etc/crontab; }; cron_inventory_system_dir() { printf /etc/cron.d; }; cron_inventory_hourly_dir() { printf /etc/cron.hourly; }; cron_inventory_daily_dir() { printf /etc/cron.daily; }; cron_inventory_weekly_dir() { printf /etc/cron.weekly; }; cron_inventory_monthly_dir() { printf /etc/cron.monthly; }; cron_inventory_command_targets user "$2" "$2"',
+      'retire-ollama-crontab-env-file-test',
+      script.pathname,
+      cron,
+    ]);
+    assert.match(stdout, new RegExp(`^file\\t${configuration}$`, 'm'));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

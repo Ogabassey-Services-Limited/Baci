@@ -143,7 +143,7 @@ cron_inventory_command_targets() {
       for (i=field+1; i<=NF; i++) argument($i)
     }
     /^[[:space:]]*($|#)/ { next }
-    /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { next }
+    /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { name=$0; sub(/=.*/,"",name); sub(/^[[:space:]]*/,"",name); value=$0; sub(/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[[:space:]]*/,"",value); quote=substr(value,1,1); if((quote=="\""||quote=="\047")&&substr(value,length(value),1)==quote)value=substr(value,2,length(value)-2); if(name=="PATH"||name=="HOME")next; if(value~/^\//){if(!safe_absolute(value))bad=1;else print "file\t" value}else if(value~/[\/\\`$]/)bad=1; next }
     {
       if (periodic_delegation(7)) next
       if ($0 ~ /[;&|<>()`$\\%]/) { bad=1; next }

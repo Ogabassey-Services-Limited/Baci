@@ -260,7 +260,17 @@ scan_compose_build_images() {
       definition_record=$(consumer_file_fingerprint "$definition") || { rm -f "$refs"; return 2; }
       dockerfile_record=$(consumer_file_fingerprint "$dockerfile") || { rm -f "$refs"; return 2; }
       printf 'compose-build-image:%s|%s|%s\n' "$definition_record" "$dockerfile_record" "$configuration"
-    else status=$?; [ "$status" -eq 1 ] || { rm -f "$refs"; return "$status"; }; fi
+    else
+      status=$?; [ "$status" -eq 1 ] || { rm -f "$refs"; return "$status"; }
+      image_id=${configuration%% *}; first=$(temp_path); second=$(temp_path)
+      docker --host "unix://$CANONICAL_DOCKER_SOCKET" image save "$image_id" >"$first" 2>/dev/null && docker --host "unix://$CANONICAL_DOCKER_SOCKET" image save "$image_id" >"$second" 2>/dev/null && cmp -s "$first" "$second" && [ "$configuration" = "$(compose_image_configuration "$image")" ] || { rm -f "$refs" "$first" "$second"; return 2; }
+      if consumer_matches "$first"; then
+        definition_record=$(consumer_file_fingerprint "$definition") || { rm -f "$refs" "$first" "$second"; return 2; }
+        dockerfile_record=$(consumer_file_fingerprint "$dockerfile") || { rm -f "$refs" "$first" "$second"; return 2; }
+        printf 'compose-build-image-filesystem:%s|%s|%s|%s\n' "$definition_record" "$dockerfile_record" "$(sha "$first")" "$configuration"
+      else status=$?; [ "$status" -eq 1 ] || { rm -f "$refs" "$first" "$second"; return "$status"; }; fi
+      rm -f "$first" "$second"
+    fi
   done <"$refs"; rm -f "$refs"
 }
 
