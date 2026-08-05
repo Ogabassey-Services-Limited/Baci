@@ -17,6 +17,14 @@ const CONNECTIVITY_DISCRIMINATOR_TOKENS = new Set([
   'single',
   'wifi',
 ]);
+const SIM_MODE_DISCRIMINATOR_TOKENS = new Set([
+  'dual',
+  'esim',
+  'nano',
+  'physical',
+  'sim',
+  'single',
+]);
 const DIMENSION_DISCRIMINATOR_PATTERN = /^\d+(?:mm|inch)$/u;
 const COMMON_STORAGE_CAPACITIES_GB = new Set([
   16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
@@ -46,6 +54,9 @@ function tokenizeVariantSource(source: string | undefined) {
 }
 
 function getDiscriminatorGroup(token: string) {
+  if (SIM_MODE_DISCRIMINATOR_TOKENS.has(token)) {
+    return 'sim';
+  }
   if (CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token)) {
     return 'connectivity';
   }

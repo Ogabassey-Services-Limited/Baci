@@ -31,4 +31,18 @@ describe('getProductModelIdentifiersFromSources', () => {
 
     expect(identifiers).toEqual(['pavilion 15']);
   });
+
+  it('prefers a paired slug that adds a numeric model to a text family', () => {
+    const identifiers = getProductModelIdentifiersFromSources(
+      ['Dell XPS'],
+      ['dell-xps-13'],
+      (source) =>
+        source
+          .replaceAll('-', ' ')
+          .replace(/^dell\s+/iu, '')
+          .toLowerCase()
+    );
+
+    expect(identifiers).toEqual(['xps 13']);
+  });
 });

@@ -50,7 +50,7 @@ const DISPLAY_SIZE_CATEGORY_SLUGS = new Set(LAPTOP_CATEGORY_SLUGS).add(
   'tablets'
 );
 const GAME_CATEGORY_PATTERN =
-  /^(?:gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
+  /^(?:(?:portable-)?gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
 const LEADING_FILLER_TOKENS = new Set(['a', 'an', 'headset', 'the']);
 interface BrandAliasGroup {
   brandTokens: string[];

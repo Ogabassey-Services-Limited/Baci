@@ -195,7 +195,7 @@ export function hasCleanIdentifierOccurrence(
   const postTokenGroups = getPostTokenGroups(post);
 
   if (
-    postTokenGroups.some((postTokens, groupIndex) =>
+    postTokenGroups.some((postTokens) =>
       hasShorthandIdentifierOccurrence(
         postTokens,
         identifierTokens,
@@ -218,7 +218,7 @@ export function hasCleanIdentifierOccurrence(
                 occurrenceTokens,
                 options.discriminatorTokens,
                 options.allowPartialDiscriminatorGroups ?? false,
-                groupIndex === 0
+                false
               )
             : true;
           return hasBrandQualification && hasDiscriminatorQualification;
@@ -229,7 +229,7 @@ export function hasCleanIdentifierOccurrence(
     return true;
   }
 
-  return postTokenGroups.some((postTokens, groupIndex) =>
+  return postTokenGroups.some((postTokens) =>
     postTokens.some((_, startIndex) => {
       const matchesIdentifier = matchesTokenSequence(
         postTokens,
@@ -268,7 +268,7 @@ export function hasCleanIdentifierOccurrence(
           startIndex + identifierTokens.length,
           options.discriminatorTokens,
           options.allowPartialDiscriminatorGroups ?? false,
-          groupIndex === 0
+          false
         )
       ) {
         return false;

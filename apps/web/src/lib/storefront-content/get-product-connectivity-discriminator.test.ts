@@ -84,6 +84,15 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual(['256gb']);
   });
 
+  it('supplements name-side SIM mode with slug-side network generation', () => {
+    const discriminators = getProductConnectivityDiscriminators(
+      ['Samsung A15 Dual SIM'],
+      ['samsung-a15-5g-dual-sim']
+    );
+
+    expect(discriminators).toEqual(['dual', 'sim', '5g']);
+  });
+
   it('retains watch case dimensions as PDP discriminators', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Apple Watch Series 9 45mm'],

@@ -14,6 +14,7 @@ import { getCompareProductMatchRequirements } from './get-compare-product-match-
 import { getContextBrandKeys } from './get-context-brand-keys';
 import { getPostTokenGroups } from './get-post-token-groups';
 import { getProductConnectivityDiscriminators } from './get-product-connectivity-discriminator';
+import { getProductGuideMatchStrength } from './get-product-guide-match-strength';
 import { getProductGuideModelIdentifiers } from './get-product-guide-model-identifiers';
 import { hasDistinctCompareIdentifierOccurrences } from './has-distinct-compare-identifier-occurrences';
 import { inferContentClusterContext } from './infer-content-cluster-context';
@@ -184,28 +185,17 @@ export function buildCommercialGuideLinks(
       const shouldBindProductModelBrand =
         normalizedBrands.length > 0 &&
         !GAME_CATEGORY_PATTERN.test(input.context.categorySlug);
-      const hasProductModelMatch = productModelIdentifiers.some((identifier) =>
-        (shouldBindProductModelBrand ? normalizedBrands : [null]).some(
-          (brand) =>
-            matchesProductGuideIdentifier(
-              post,
-              inferred.tokens,
-              tokenizeModelIdentifier(identifier),
-              hasBrandMatch,
-              brand
-                ? {
-                    brand,
-                    knownBrands: inferred.brands,
-                    brandAliases,
-                    discriminatorTokens: productConnectivityDiscriminators,
-                    allowPartialDiscriminatorGroups: true,
-                    requireBrandBeforeIdentifier: true,
-                    allowBrandAliasOverlap: true,
-                  }
-                : undefined
-            )
-        )
-      );
+      const productGuideMatchStrength = getProductGuideMatchStrength({
+        post,
+        inferredTokens: inferred.tokens,
+        inferredBrands: inferred.brands,
+        identifiers: productModelIdentifiers,
+        normalizedBrands,
+        brandAliases,
+        bindBrand: shouldBindProductModelBrand,
+        hasBrandMatch,
+        discriminatorTokens: productConnectivityDiscriminators,
+      });
       const hasModelFamilyMatch =
         modelFamilyTokens.length > 0 &&
         hasBrandMatch &&
@@ -244,12 +234,10 @@ export function buildCommercialGuideLinks(
               }
             )
         );
-      const qualifiesForProductTokenMatch =
-        input.context.pageKind === 'compare'
-          ? hasRequiredCompareModelMatch
-          : hasProductModelMatch;
-      if (qualifiesForProductTokenMatch || hasModelFamilyMatch) {
+      if (hasRequiredCompareModelMatch || hasModelFamilyMatch) {
         score += CONTENT_CLUSTER_SCORE.productTokenMatch;
+      } else if (input.context.pageKind !== 'compare') {
+        score += productGuideMatchStrength;
       }
 
       const titleTokens = tokenizeSlug(post.title);

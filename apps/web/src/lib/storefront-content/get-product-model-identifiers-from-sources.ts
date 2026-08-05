@@ -22,7 +22,10 @@ function selectMostSpecificIdentifier(
       (token) => !selectedTokens.includes(token)
     );
     const addsModelSpecificity = extensionTokens.some(
-      (token) => !VARIANT_METADATA_TOKEN_PATTERN.test(token)
+      (token) =>
+        !VARIANT_METADATA_TOKEN_PATTERN.test(token) ||
+        (/^\d+$/u.test(token) &&
+          selectedTokens.some((selectedToken) => /[a-z]/u.test(selectedToken)))
     );
     return extendsSelected && addsModelSpecificity ? candidate : selected;
   }, undefined);
