@@ -1,6 +1,11 @@
 import type { User } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { enforcePrizeProductionGuard } from '@/lib/quiz-compliance-gate';
+import {
+  calculateQuizAgeYears,
+  parseQuizDateOfBirth,
+  QUIZ_MINIMUM_AGE_YEARS,
+} from './route-helpers-age';
 
 type QuizSupabaseQueryResult<TData = unknown> = {
   data: TData;
@@ -48,8 +53,6 @@ type QuizAwardPrizeGuardRow = {
     | null;
 };
 
-const QUIZ_MINIMUM_AGE_YEARS = 18;
-
 export class QuizAgeGateError extends Error {
   readonly code = 'quiz_age_restricted';
   readonly status = 403;
@@ -58,38 +61,6 @@ export class QuizAgeGateError extends Error {
 export class QuizUsernameRequiredError extends Error {
   readonly code = 'quiz_username_required';
   readonly status = 409;
-}
-
-function parseDateOfBirth(dateOfBirth: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOfBirth);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month - 1 ||
-    parsed.getUTCDate() !== day
-  ) {
-    return null;
-  }
-
-  return parsed;
-}
-
-function calculateAgeYears(dateOfBirth: Date, now: Date): number {
-  let age = now.getUTCFullYear() - dateOfBirth.getUTCFullYear();
-  const monthDelta = now.getUTCMonth() - dateOfBirth.getUTCMonth();
-  const dayDelta = now.getUTCDate() - dateOfBirth.getUTCDate();
-
-  if (monthDelta < 0 || (monthDelta === 0 && dayDelta < 0)) {
-    age -= 1;
-  }
-
-  return age;
 }
 
 export async function enforceEventPrizeGuard(
@@ -172,7 +143,7 @@ export async function enforceQuizAgeGate(
   const customer = data as { date_of_birth?: string | null } | null;
   const dateOfBirth =
     typeof customer?.date_of_birth === 'string' ? customer.date_of_birth : null;
-  const parsedDate = dateOfBirth ? parseDateOfBirth(dateOfBirth) : null;
+  const parsedDate = dateOfBirth ? parseQuizDateOfBirth(dateOfBirth) : null;
 
   if (!parsedDate) {
     logger.warn({
@@ -183,7 +154,7 @@ export async function enforceQuizAgeGate(
     throw new QuizAgeGateError('Quiz participation requires date of birth');
   }
 
-  if (calculateAgeYears(parsedDate, new Date()) < QUIZ_MINIMUM_AGE_YEARS) {
+  if (calculateQuizAgeYears(parsedDate, new Date()) < QUIZ_MINIMUM_AGE_YEARS) {
     logger.warn({
       merchantId,
       message: 'Quiz age gate blocked underage customer',

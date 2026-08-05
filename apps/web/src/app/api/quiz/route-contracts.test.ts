@@ -249,7 +249,12 @@ describe('quiz API route contracts', () => {
   it('finalize awards fails closed in Phase 1a before prize RPC calls', async () => {
     const { rpc } = mockAuthenticatedSupabase({
       selectResult: {
-        data: { compliance_verified: true, nlrc_permit_ref: 'NLRC-1' },
+        data: {
+          compliance_verified: true,
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
+        },
         error: null,
       },
     });
@@ -282,7 +287,12 @@ describe('quiz API route contracts', () => {
         error: null,
       },
       selectResult: {
-        data: { compliance_verified: true, nlrc_permit_ref: 'NLRC-1' },
+        data: {
+          compliance_verified: true,
+          regulatory_basis: 'free_skill_competition',
+          regulatory_evidence_ref: 'COUNSEL-2026-08-05',
+          regulatory_jurisdiction: 'NG-LA',
+        },
         error: null,
       },
     });
