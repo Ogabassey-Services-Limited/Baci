@@ -5,6 +5,7 @@ import { builderConfig } from '@/components/builder/config';
 import {
   aiEditableComponents,
   createInsertableComponentProps,
+  getBuilderAiCatalogProjection,
   getBuilderAiPropShape,
   isAiEditableComponent,
   isBuilderAiPropValue,
@@ -71,12 +72,6 @@ describe('builder AI component catalog', () => {
       'filled',
       'minimal',
     ]);
-    expect(optionValues('ProductGrid', 'sortBy')).toEqual([
-      'newest',
-      'price-low',
-      'price-high',
-      'name',
-    ]);
     expect(optionValues('Features', 'columns')).toEqual([2, 3, 4]);
     expect(numericLimits('ProductGrid', 'columns')).toMatchObject({
       max: 4,
@@ -102,9 +97,6 @@ describe('builder AI component catalog', () => {
     }
     for (const value of optionValues('Header', 'searchStyle')) {
       expect(isBuilderAiPropValue('Header', 'searchStyle', value)).toBe(true);
-    }
-    for (const value of optionValues('ProductGrid', 'sortBy')) {
-      expect(isBuilderAiPropValue('ProductGrid', 'sortBy', value)).toBe(true);
     }
     for (const value of optionValues('Features', 'columns')) {
       expect(isBuilderAiPropValue('Features', 'columns', value)).toBe(true);
@@ -148,5 +140,29 @@ describe('builder AI component catalog', () => {
     expect(getBuilderAiPropShape('Header', 'ctaButton')).toBe('link');
     expect(getBuilderAiPropShape('Features', 'features')).toBe('feature-list');
     expect(getBuilderAiPropShape('Text', 'content')).toBe('primitive');
+  });
+
+  it('projects constrained values and limits so the model can produce valid patches', () => {
+    const catalog = getBuilderAiCatalogProjection();
+    const header = catalog.find(
+      ({ componentType }) => componentType === 'Header'
+    );
+    const features = catalog.find(
+      ({ componentType }) => componentType === 'Features'
+    );
+
+    expect(header?.editableProps).toContainEqual(
+      expect.objectContaining({
+        allowedValues: [
+          'logo-left-nav-center',
+          'logo-left-nav-right',
+          'logo-center',
+        ],
+        name: 'layout',
+      })
+    );
+    expect(features?.editableProps).toContainEqual(
+      expect.objectContaining({ maximum: 4, minimum: 2, name: 'columns' })
+    );
   });
 });

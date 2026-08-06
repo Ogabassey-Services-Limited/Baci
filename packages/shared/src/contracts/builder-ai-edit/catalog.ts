@@ -13,7 +13,6 @@ const productGridFields = {
   componentType: z.literal('ProductGrid'),
   limit: z.number().int().min(1).max(24).optional(),
   showFilters: z.boolean().optional(),
-  sortBy: z.enum(['newest', 'price-low', 'price-high', 'name']).optional(),
   title: z.string().trim().min(1).max(MAX_AI_LABEL_LENGTH).optional(),
 };
 

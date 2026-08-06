@@ -22,4 +22,37 @@ describe('normalizeBuilderAiComponentIds', () => {
     ).toBe('text-2');
     expect(config.content[0]?.props.id).toBeUndefined();
   });
+
+  it('defaults props and ids for zoned legacy blocks before prompt projection', () => {
+    const normalized = normalizeBuilderAiComponentIds(
+      {
+        content: [],
+        root: { title: 'Home' },
+        zones: { aside: [{ type: 'Text' }] },
+      } as BuilderData,
+      () => 'zone-text'
+    );
+
+    expect(normalized.zones?.aside).toEqual([
+      { props: { id: 'zone-text' }, type: 'Text' },
+    ]);
+  });
+
+  it('replaces whitespace-padded and oversized legacy ids with bounded ids', () => {
+    const normalized = normalizeBuilderAiComponentIds(
+      {
+        content: [
+          { props: { id: ' padded ' }, type: 'Text' },
+          { props: { id: 'x'.repeat(121) }, type: 'Text' },
+        ],
+        root: { title: 'Home' },
+      },
+      (type) => `safe-${type}`
+    );
+
+    expect(normalized.content.map((component) => component.props.id)).toEqual([
+      'safe-Text',
+      'safe-Text',
+    ]);
+  });
 });

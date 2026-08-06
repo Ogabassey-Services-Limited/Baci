@@ -6,12 +6,13 @@ import {
 } from './limits';
 
 function isSafeStorefrontUrl(value: string): boolean {
+  if (value.includes('\\')) return false;
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0;
+    if (code <= 31 || code === 127) return false;
+  }
   if (value.startsWith('/')) {
-    if (value.startsWith('//') || value.includes('\\')) return false;
-    for (const character of value) {
-      const code = character.codePointAt(0) ?? 0;
-      if (code <= 31 || code === 127) return false;
-    }
+    if (value.startsWith('//')) return false;
     return true;
   }
   if (value.startsWith('#')) return value.length > 1;

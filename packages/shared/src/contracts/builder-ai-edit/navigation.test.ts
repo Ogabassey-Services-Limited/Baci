@@ -25,6 +25,8 @@ describe('builder AI edit navigation patches', () => {
       'file:///tmp/private',
       'mailto:merchant@example.test',
       'tel:+2348000000000',
+      'https://example.test/a\\b',
+      'https://exa\nmple.test/path',
     ]) {
       expect(safeStorefrontUrlSchema.safeParse(unsafeUrl).success).toBe(false);
     }

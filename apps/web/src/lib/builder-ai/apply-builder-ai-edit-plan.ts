@@ -29,13 +29,14 @@ import {
   hasDuplicateBuilderAiComponentIds,
 } from './get-builder-ai-content-collections';
 import { getBuilderAiDestinationIndex } from './get-builder-ai-destination-index';
+import { getBuilderAiInsertOffset } from './get-builder-ai-insert-offset';
 import { getBuilderAiRawPlanMediaWarning } from './get-builder-ai-raw-plan-media-warning';
 import { getBuilderComponentId } from './get-builder-component-id';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
 import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
+import { pushBuilderAiWarnings } from './push-builder-ai-warnings';
 import { sanitizeBuilderAiProps } from './sanitize-builder-ai-props';
 
-type BuilderComponent = BuilderAiComponent;
 export class BuilderAiEditPlanError extends Error {}
 export interface ApplyBuilderAiEditPlanResult {
   candidateConfig: BuilderData;
@@ -63,13 +64,7 @@ function getValidCandidate(
   }
   return validation.candidateConfig;
 }
-function pushWarnings(target: string[], warnings: string[]): void {
-  for (const warning of warnings) {
-    if (target.length >= 10) return;
-    target.push(warning.slice(0, 160));
-  }
-}
-function assertMutable(component: BuilderComponent): void {
+function assertMutable(component: BuilderAiComponent): void {
   if (
     !isAiEditableComponent(component.type) ||
     isProtectedAiComponent(component.type)
@@ -81,7 +76,8 @@ function applyOperation(
   config: BuilderData,
   operation: BuilderAiModelOperation,
   createId: (componentType: string) => string,
-  warnings: string[]
+  warnings: string[],
+  insertOffsets: WeakMap<BuilderAiComponent[], Map<string, number>>
 ): void {
   const { content } = config;
   switch (operation.kind) {
@@ -99,14 +95,14 @@ function applyOperation(
           'Component type does not match target'
         );
       }
-      pushWarnings(
+      pushBuilderAiWarnings(
         warnings,
         applyBuilderAiComponentPatch(component, operation.patch)
       );
       return;
     }
     case 'update_carousel_slide':
-      pushWarnings(
+      pushBuilderAiWarnings(
         warnings,
         applyBuilderAiCarouselPatch(
           (() => {
@@ -155,19 +151,21 @@ function applyOperation(
               operation.placement.componentId ?? ''
             )?.content ?? content)
           : content;
-      destinationContent.splice(
-        getBuilderAiDestinationIndex(
-          config,
-          destinationContent,
-          operation.placement,
-          (message) => new BuilderAiEditPlanError(message)
-        ),
-        0,
-        {
-          props: { ...props, id },
-          type: componentType,
-        }
+      const insertionIndex = getBuilderAiDestinationIndex(
+        config,
+        destinationContent,
+        operation.placement,
+        (message) => new BuilderAiEditPlanError(message)
       );
+      const offset = getBuilderAiInsertOffset(
+        insertOffsets,
+        destinationContent,
+        operation.placement
+      );
+      destinationContent.splice(insertionIndex + offset, 0, {
+        props: { ...props, id },
+        type: componentType,
+      });
       return;
     }
     case 'remove_component': {
@@ -215,7 +213,7 @@ function applyOperation(
         source.content === destinationContent &&
         source.index === destination
       ) {
-        pushWarnings(warnings, ['No safe changes for move.']);
+        pushBuilderAiWarnings(warnings, ['No safe changes for move.']);
         return;
       }
       source.content.splice(source.index, 1);
@@ -225,7 +223,7 @@ function applyOperation(
     case 'update_root': {
       const updated = applyBuilderAiRootTitle(config.root, operation.title);
       if (!updated.changed) {
-        pushWarnings(warnings, ['No safe changes for page title.']);
+        pushBuilderAiWarnings(warnings, ['No safe changes for page title.']);
         return;
       }
       config.root = updated.root;
@@ -234,7 +232,7 @@ function applyOperation(
     case 'update_theme': {
       const theme = applyBuilderAiTheme(config.theme, operation).theme;
       if (JSON.stringify(config.theme) === JSON.stringify(theme)) {
-        pushWarnings(warnings, ['No safe changes for theme.']);
+        pushBuilderAiWarnings(warnings, ['No safe changes for theme.']);
         return;
       }
       config.theme = theme;
@@ -268,9 +266,19 @@ export function applyBuilderAiEditPlan(
   }
   assertUniqueIds(candidateConfig);
   const warnings: string[] = [];
+  const insertOffsets = new WeakMap<
+    BuilderAiComponent[],
+    Map<string, number>
+  >();
   for (const operation of parsedPlan.data.operations) {
     try {
-      applyOperation(candidateConfig, operation, createId, warnings);
+      applyOperation(
+        candidateConfig,
+        operation,
+        createId,
+        warnings,
+        insertOffsets
+      );
     } catch (error) {
       if (error instanceof BuilderAiEditPlanError) throw error;
       throw new BuilderAiEditPlanError('Unable to apply builder AI edit plan');

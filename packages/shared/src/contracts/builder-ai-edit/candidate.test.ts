@@ -41,6 +41,16 @@ describe('builder AI edit candidate contract', () => {
     ).toBe(false);
   });
 
+  it('permits a warning-only candidate when no automatic operation is safe', () => {
+    expect(
+      builderAiEditContract.candidateSchema.safeParse({
+        ...builderAiEditTestFixture.candidate,
+        operations: [],
+        warnings: ['Media changes require Baci manual asset controls.'],
+      }).success
+    ).toBe(true);
+  });
+
   it('describes operations without exposing copy, media, or URLs', () => {
     expect(
       describeBuilderAiOperation({

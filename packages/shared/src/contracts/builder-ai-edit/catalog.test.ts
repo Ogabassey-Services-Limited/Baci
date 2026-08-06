@@ -9,10 +9,15 @@ describe('builder AI edit ProductGrid patch', () => {
         componentType: 'ProductGrid',
         limit: 24,
         showFilters: true,
-        sortBy: 'name',
         title: 'New arrivals',
       }).success
     ).toBe(true);
+    expect(
+      productGridPatchSchema.safeParse({
+        componentType: 'ProductGrid',
+        sortBy: 'name',
+      }).success
+    ).toBe(false);
     expect(
       productGridPatchSchema.safeParse({
         category: 'electronics',

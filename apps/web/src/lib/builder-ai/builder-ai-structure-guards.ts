@@ -135,13 +135,7 @@ export function getBuilderAiStructuralFailure(
   }
   for (const [id, region] of baseline.componentAnchorRegions) {
     const currentRegion = anchors.componentAnchorRegions.get(id);
-    const [baselineCollection] = region.split(':');
-    const [currentCollection] = currentRegion?.split(':') ?? [];
-    if (
-      currentRegion !== undefined &&
-      baselineCollection === currentCollection &&
-      currentRegion !== region
-    ) {
+    if (currentRegion !== undefined && currentRegion !== region) {
       return 'Component moved across a protected anchor';
     }
   }

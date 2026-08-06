@@ -134,4 +134,29 @@ describe('runBuilderAiProviderChain', () => {
 
     expect(generateText).toHaveBeenCalledTimes(2);
   });
+
+  it('skips cooling reliable providers when an opportunistic fallback is available', async () => {
+    const fallback = {
+      model: { id: 'openrouter' } as never,
+      name: 'openrouter:google/gemma-4-31b-it:free',
+      opportunistic: true,
+    };
+    vi.mocked(generateText).mockResolvedValue({ output: validPlan } as never);
+
+    await expect(
+      runBuilderAiProviderChain({
+        cooldown: { isCoolingDown: (name) => name !== fallback.name },
+        currentConfig: builderAiEditTestFixture.request.currentConfig,
+        deadlineAt: Date.now() + 5_000,
+        prompt: 'Update the hero',
+        providerChain: [...providers, fallback],
+        signal: new AbortController().signal,
+      })
+    ).resolves.toEqual(validPlan);
+
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(vi.mocked(generateText).mock.calls[0]?.[0].model).toBe(
+      fallback.model
+    );
+  });
 });

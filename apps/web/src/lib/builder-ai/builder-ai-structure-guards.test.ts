@@ -45,4 +45,30 @@ describe('getBuilderAiStructuralFailure', () => {
       )
     ).toBe('Builder document has too many blocks');
   });
+
+  it('rejects a component moved between collections with different anchor regions', () => {
+    const current = {
+      content: [{ props: { id: 'root-header' }, type: 'Header' }],
+      root: { title: 'Home' },
+      zones: {
+        aside: [
+          { props: { id: 'zone-text' }, type: 'Text' },
+          { props: { id: 'zone-header' }, type: 'Header' },
+        ],
+      },
+    } as BuilderData;
+    const baseline = getBuilderAiStructuralBaseline(current);
+    const candidate = {
+      ...current,
+      content: [
+        { props: { id: 'root-header' }, type: 'Header' },
+        { props: { id: 'zone-text' }, type: 'Text' },
+      ],
+      zones: { aside: [{ props: { id: 'zone-header' }, type: 'Header' }] },
+    } as BuilderData;
+
+    expect(getBuilderAiStructuralFailure(candidate, baseline)).toBe(
+      'Component moved across a protected anchor'
+    );
+  });
 });

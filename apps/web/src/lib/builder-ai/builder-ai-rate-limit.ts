@@ -1,6 +1,7 @@
 const WINDOW_MS = 60_000;
 const REQUESTS_PER_WINDOW = 10;
 const usage = new Map<string, { count: number; resetAt: number }>();
+let nextCleanupAt = 0;
 
 export interface BuilderAiRateLimitResult {
   allowed: boolean;
@@ -12,8 +13,11 @@ export function checkBuilderAiRateLimit(
   identifier: string,
   now: number = Date.now()
 ): BuilderAiRateLimitResult {
-  for (const [key, value] of usage) {
-    if (value.resetAt <= now) usage.delete(key);
+  if (now >= nextCleanupAt) {
+    for (const [key, value] of usage) {
+      if (value.resetAt <= now) usage.delete(key);
+    }
+    nextCleanupAt = now + WINDOW_MS;
   }
   const existing = usage.get(identifier);
   if (!existing || existing.resetAt <= now) {

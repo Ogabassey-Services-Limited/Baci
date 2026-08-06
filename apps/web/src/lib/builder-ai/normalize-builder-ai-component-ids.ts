@@ -6,23 +6,40 @@ function withId(
   createId: (componentType: string) => string
 ): BuilderData['content'][number] {
   const id = component.props.id;
-  if (typeof id === 'string' && id.length > 0) return component;
+  if (
+    typeof id === 'string' &&
+    id === id.trim() &&
+    id.length > 0 &&
+    id.length <= 120
+  ) {
+    return component;
+  }
   return {
     ...component,
     props: { ...component.props, id: createId(component.type) },
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function isComponent(value: unknown): value is BuilderData['content'][number] {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    typeof (value as { type?: unknown }).type === 'string' &&
-    typeof (value as { props?: unknown }).props === 'object' &&
-    (value as { props?: unknown }).props !== null &&
-    !Array.isArray((value as { props?: unknown }).props)
+    isRecord(value) && typeof value.type === 'string' && isRecord(value.props)
   );
+}
+
+function normalizeZoneComponent(
+  value: unknown,
+  createId: (componentType: string) => string
+): unknown {
+  if (!isRecord(value) || typeof value.type !== 'string') return value;
+  const component = {
+    ...value,
+    props: isRecord(value.props) ? value.props : {},
+  } as BuilderData['content'][number];
+  return withId(component, createId);
 }
 
 export function normalizeBuilderAiComponentIds(
@@ -37,7 +54,9 @@ export function normalizeBuilderAiComponentIds(
       name,
       Array.isArray(zone)
         ? zone.map((component) =>
-            isComponent(component) ? withId(component, createId) : component
+            isComponent(component)
+              ? withId(component, createId)
+              : normalizeZoneComponent(component, createId)
           )
         : zone,
     ])

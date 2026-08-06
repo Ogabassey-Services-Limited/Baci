@@ -5,6 +5,7 @@ import { applyBuilderAiEditPlan } from '@/lib/builder-ai/apply-builder-ai-edit-p
 import { builderAiPlanOutputBudget } from '@/lib/builder-ai/builder-ai-plan-output-budget';
 import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-builder-ai-provider-chain';
 import { validateBuilderAiSmokeEnvironmentSource } from './builder-ai-smoke-environment-source';
+import { clearBuilderAiSmokeProviderEnvironment } from './clear-builder-ai-smoke-provider-environment';
 
 export const BUILDER_AI_JSON_SMOKE_PROMPT =
   'Return only JSON with status "proposed", a summary string, and exactly one update_component operation for componentId "smoke-hero". Its patch must contain only componentType "Hero" and title "Smoke checked". Do not return markdown, extra keys, code, HTML, or explanations.';
@@ -88,6 +89,7 @@ export async function runProviderSmoke(
 async function loadProviders(sourcePath: string) {
   const source = await validateBuilderAiSmokeEnvironmentSource(sourcePath);
   if (!source) return null;
+  clearBuilderAiSmokeProviderEnvironment();
   const loaded = loadDotenv({ override: true, path: source.path, quiet: true });
   if (loaded.error) return null;
   return materializeBuilderAiProviderChain(undefined, undefined, 'smoke').providers;

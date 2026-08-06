@@ -22,6 +22,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderGeminiRequestSchema } from '@/schemas/builder-gemini-request';
+import { createBuilderAiProviderErrorResponse } from './create-builder-ai-provider-error-response';
 import { createBuilderAiRateLimitResponse } from './create-builder-ai-rate-limit-response';
 import { getBuilderAiCsrfRequest } from './get-builder-ai-csrf-request';
 
@@ -62,36 +63,6 @@ function dependencies(): BuilderAiEditHandlerDependencies {
     readBody: readBoundedJsonBody,
     runProviderChain: runBuilderAiProviderChain,
   };
-}
-function responseForProviderError(error: unknown, requestId: string): Response {
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? (error as { code?: unknown }).code
-      : undefined;
-  if (code === 'ai_builder_invalid_output') {
-    return NextResponse.json(
-      { code, error: 'AI editor returned an invalid draft', requestId },
-      { status: 502 }
-    );
-  }
-  if (code === 'ai_provider_rate_limited') {
-    return NextResponse.json(
-      {
-        code,
-        error: 'AI editor quota is temporarily exhausted',
-        requestId,
-      },
-      { status: 429 }
-    );
-  }
-  return NextResponse.json(
-    {
-      code: 'ai_provider_unavailable',
-      error: 'AI editor is temporarily unavailable',
-      requestId,
-    },
-    { status: 503 }
-  );
 }
 function isSemanticallyExecutable(
   plan: BuilderAiEditPlan,
@@ -167,6 +138,12 @@ export async function handleBuilderAiEditRequest(
     );
   }
   parsed.currentConfig = normalizeBuilderAiComponentIds(parsed.currentConfig);
+  if (!validateBuilderAiEditComplexity(parsed.currentConfig).success) {
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 }
+    );
+  }
   let merchant: MerchantContext | null;
   try {
     merchant = await seams.getMerchant(auth.supabase, auth.user.id, {
@@ -195,7 +172,7 @@ export async function handleBuilderAiEditRequest(
   if ('response' in promptResult) return promptResult.response;
   const materialized = seams.materializeProviders();
   if (materialized.providers.length === 0) {
-    return responseForProviderError(
+    return createBuilderAiProviderErrorResponse(
       { code: 'ai_provider_unavailable' },
       parsed.clientRequestId
     );
@@ -235,7 +212,7 @@ export async function handleBuilderAiEditRequest(
       },
       prompt: promptResult.prompt,
       providerChain: materialized.providers,
-      signal: AbortSignal.timeout(24_000),
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(24_000)]),
       validateSemantics: (candidate) =>
         isSemanticallyExecutable(candidate, parsed),
     });
@@ -245,7 +222,7 @@ export async function handleBuilderAiEditRequest(
       requestId: parsed.clientRequestId,
       userId: auth.user.id,
     });
-    return responseForProviderError(error, parsed.clientRequestId);
+    return createBuilderAiProviderErrorResponse(error, parsed.clientRequestId);
   }
   if (plan.status === 'refused') {
     logBuilderAiEvent('builder_ai_candidate_rejected', {

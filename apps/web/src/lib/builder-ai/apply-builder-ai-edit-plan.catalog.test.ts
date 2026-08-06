@@ -49,24 +49,6 @@ describe('applyBuilderAiEditPlan catalog parity', () => {
     expect(result.candidateConfig.content[0].props[property]).toBe(value);
   });
 
-  it.each([
-    'newest',
-    'price-low',
-    'price-high',
-    'name',
-  ])('applies the Puck ProductGrid sort value %s', (sortBy) => {
-    const result = applyBuilderAiEditPlan(
-      config,
-      plan({
-        componentId: 'grid',
-        kind: 'update_component',
-        patch: { componentType: 'ProductGrid', sortBy },
-      })
-    );
-
-    expect(result.candidateConfig.content[1].props.sortBy).toBe(sortBy);
-  });
-
   it('allows replacing the only ProductGrid with a default-only insert', () => {
     const result = applyBuilderAiEditPlan(
       config,

@@ -14,7 +14,6 @@ export const builderAiEditCandidateSchema = z
     contractVersion: z.literal(BUILDER_AI_EDIT_CONTRACT_VERSION),
     operations: z
       .array(builderAiModelOperationSchema)
-      .min(1)
       .max(MAX_AI_PLAN_OPERATIONS),
     summary: z.string().trim().min(1).max(240),
     warnings: z.array(z.string().max(160)).max(10),

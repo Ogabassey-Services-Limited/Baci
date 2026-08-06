@@ -129,12 +129,8 @@ export async function runBuilderAiProviderChain({
   const availableProviders = providerChain.filter(
     (provider) => !cooldown?.isCoolingDown(provider.name)
   );
-  const hasAvailableReliableProvider = availableProviders.some(
-    (provider) => !provider.opportunistic
-  );
-  const providersToAttempt = hasAvailableReliableProvider
-    ? availableProviders
-    : providerChain;
+  const providersToAttempt =
+    availableProviders.length > 0 ? availableProviders : providerChain;
   for (const [providerIndex, provider] of providersToAttempt.entries()) {
     const remainingMs = deadlineAt - now();
     if (remainingMs <= RESPONSE_MARGIN_MS) break;

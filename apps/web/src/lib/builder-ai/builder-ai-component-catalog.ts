@@ -81,10 +81,9 @@ export const aiEditableComponents = {
       columns: 3,
       limit: 6,
       showFilters: true,
-      sortBy: 'newest',
       title: 'Featured products',
     },
-    editableProps: ['columns', 'limit', 'showFilters', 'sortBy', 'title'],
+    editableProps: ['columns', 'limit', 'showFilters', 'title'],
     insertable: true,
   },
   Testimonial: {
@@ -167,7 +166,6 @@ const enumProps: Record<string, readonly string[]> = {
   'Header.searchStyle': ['outline', 'filled', 'minimal'],
   'Hero.align': ['center', 'left', 'right'],
   'Hero.padding': ['large', 'medium', 'small'],
-  'ProductGrid.sortBy': ['newest', 'price-low', 'price-high', 'name'],
   'Text.align': ['center', 'left', 'right'],
 };
 const numberRanges: Record<string, readonly [number, number, boolean?]> = {
@@ -259,10 +257,23 @@ export function getBuilderAiCatalogProjection() {
     const definition = definitionFor(componentType as AiEditableComponentType);
     return {
       componentType,
-      editableProps: definition.editableProps.map((property) => ({
-        name: property,
-        shape: getBuilderAiPropShape(componentType, property),
-      })),
+      editableProps: definition.editableProps.map((property) => {
+        const key = `${componentType}.${property}`;
+        const allowedValues = enumProps[key];
+        const range = numberRanges[key];
+        return {
+          name: property,
+          shape: getBuilderAiPropShape(componentType, property),
+          ...(allowedValues ? { allowedValues } : {}),
+          ...(range
+            ? {
+                maximum: range[1],
+                minimum: range[0],
+                wholeNumber: range[2] === true,
+              }
+            : {}),
+        };
+      }),
       insertable: definition.insertable === true,
       protected: definition.protected === true,
     };

@@ -41,6 +41,38 @@ function plan(operation: unknown): BuilderAiProposedPlan {
 }
 
 describe('applyBuilderAiEditPlan no-op behavior', () => {
+  it('keeps plan order for components inserted after the same target', () => {
+    const result = applyBuilderAiEditPlan(
+      {
+        content: [{ props: { id: 'hero' }, type: 'Hero' }],
+        root: { title: 'Home' },
+      },
+      {
+        operations: [
+          {
+            initialContent: { componentType: 'Text', title: 'First' },
+            kind: 'insert_component',
+            placement: { componentId: 'hero', position: 'after' },
+          },
+          {
+            initialContent: { componentType: 'Newsletter', title: 'Second' },
+            kind: 'insert_component',
+            placement: { componentId: 'hero', position: 'after' },
+          },
+        ],
+        status: 'proposed',
+        summary: 'Add adjacent sections',
+      } as BuilderAiProposedPlan,
+      (type) => `new-${type}`
+    );
+
+    expect(result.candidateConfig.content.map((item) => item.type)).toEqual([
+      'Hero',
+      'Text',
+      'Newsletter',
+    ]);
+  });
+
   it('updates an editable component stored in a zone', () => {
     const zonedConfig: BuilderData = {
       content: [],
