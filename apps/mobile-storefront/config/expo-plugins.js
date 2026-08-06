@@ -1,4 +1,8 @@
-function createExpoPlugins({ facebookSdkPlugin, tiktokBusinessPlugin }) {
+function createExpoPlugins({
+  facebookSdkPlugin,
+  sentryPlugin,
+  tiktokBusinessPlugin,
+}) {
   return [
     'expo-router',
     [
@@ -65,6 +69,7 @@ function createExpoPlugins({ facebookSdkPlugin, tiktokBusinessPlugin }) {
     './config/withAdaptiveAndroidManifest.js',
     './config/withAndroidSystemBars.js',
     './config/withAndroidGradleFixes.js',
+    ...(sentryPlugin ? [sentryPlugin] : []),
     [
       'posthog-react-native/expo',
       {

@@ -69,6 +69,7 @@ jobs:
         run: |
           rm -f "${{ runner.temp }}/storefront-release-keystore."*
           rm -f "apps/mobile-storefront/android/app/google-services.json"
+          rm -f "apps/mobile-storefront/android/sentry.properties"
 
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -172,9 +173,6 @@ jobs:
           CI: "1"
           NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
           ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
-          # Embedded Android release bundles can use Worklets bundle mode; OTA
-          # update jobs intentionally leave this unset until the loader is fixed.
-          BACI_MOBILE_STOREFRONT_WORKLETS_BUNDLE_MODE: "1"
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
@@ -182,6 +180,13 @@ jobs:
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_POSTHOG_API_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_API_KEY }}
           EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
+          EXPO_PUBLIC_SENTRY_ENVIRONMENT: production
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_FORCE_ENV_TOKEN: '1'
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
           STOREFRONT_FACEBOOK_APP_ID: ${{ secrets.STOREFRONT_FACEBOOK_APP_ID }}
           STOREFRONT_FACEBOOK_CLIENT_TOKEN: ${{ secrets.STOREFRONT_FACEBOOK_CLIENT_TOKEN }}
         run: pnpm exec expo prebuild --platform android --clean
@@ -215,26 +220,11 @@ jobs:
           chmod 600 "$KEYSTORE_PATH"
           echo "ANDROID_STOREFRONT_KEYSTORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
-      - name: Reset Worklets bundle artifacts
-        run: |
-          WORKLETS_DIR="$GITHUB_WORKSPACE/node_modules/react-native-worklets/.worklets"
-          rm -rf "$WORKLETS_DIR"
-          mkdir -p "$WORKLETS_DIR"
-
-          for CACHE_ROOT in "${RUNNER_TEMP:-}" "${TMPDIR:-/tmp}" /tmp; do
-            if [ -n "$CACHE_ROOT" ]; then
-              rm -rf "$CACHE_ROOT"/metro-* "$CACHE_ROOT"/haste-map-* 2>/dev/null || true
-            fi
-          done
-
       - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
           GRADLE_OPTS: ${{ env.ANDROID_GRADLE_OPTS }}
           NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
-          # Embedded Android release bundles can use Worklets bundle mode; OTA
-          # update jobs intentionally leave this unset until the loader is fixed.
-          BACI_MOBILE_STOREFRONT_WORKLETS_BUNDLE_MODE: "1"
           ANDROID_KEYSTORE_FILE: ${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_STOREFRONT_KEY_ALIAS }}
@@ -249,6 +239,13 @@ jobs:
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_CLI_PROJECT_ID: ${{ secrets.POSTHOG_CLI_PROJECT_ID }}
           POSTHOG_CLI_HOST: ${{ secrets.POSTHOG_CLI_HOST || 'https://eu.posthog.com' }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
+          EXPO_PUBLIC_SENTRY_ENVIRONMENT: production
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_FORCE_ENV_TOKEN: '1'
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
           STOREFRONT_FACEBOOK_APP_ID: ${{ secrets.STOREFRONT_FACEBOOK_APP_ID }}
           STOREFRONT_FACEBOOK_CLIENT_TOKEN: ${{ secrets.STOREFRONT_FACEBOOK_CLIENT_TOKEN }}
         run: |
@@ -359,6 +356,9 @@ jobs:
             echo "::warning::Storefront Android live-build gate reconciliation failed after Play upload; release remains published"
           fi
 
-      - name: Clean up keystore
+      - name: Clean up release credentials
         if: always()
-        run: rm -f "${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}"
+        run: |
+          rm -f "${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}"
+          rm -f "apps/mobile-storefront/android/app/google-services.json"
+          rm -f "apps/mobile-storefront/android/sentry.properties"

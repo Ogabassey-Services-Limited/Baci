@@ -1,0 +1,129 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { runRemediationAutofix } from './remediation-git-workflow.mjs';
+import { remediationGitWorkflowTestFixtures } from './remediation-git-workflow.test-helpers.mjs';
+
+const { candidate, makeRunner } = remediationGitWorkflowTestFixtures;
+
+describe('remediation git workflow policy and configuration', () => {
+  it('blocks PR creation when protected files changed', () => {
+    const { calls, runner } = makeRunner({
+      changedFiles: 'apps/web/src/proxy.ts\n',
+    });
+
+    const result = runRemediationAutofix({
+      candidate,
+      env: {
+        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+        BACI_REPO_DIR: '/repo',
+        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+      },
+      prompt: 'Fix this production error.',
+      runner,
+    });
+
+    assert.equal(result.type, 'policy_blocked');
+    assert.match(result.reasons.join('\n'), /protected path/);
+    assert.equal(
+      calls.some((call) => call.includes('push')),
+      false
+    );
+    assert.equal(
+      calls.some((call) => call.includes('remove')),
+      false
+    );
+  });
+
+  it('blocks protected rename sources before PR creation', () => {
+    const { calls, runner } = makeRunner({
+      statusOutput: 'R  apps/web/src/proxy.ts -> apps/web/src/proxy-safe.ts',
+    });
+
+    const result = runRemediationAutofix({
+      candidate,
+      env: {
+        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+        BACI_REPO_DIR: '/repo',
+        BACI_REMEDIATION_RUN_ID: 'rename-run',
+        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+      },
+      prompt: 'Fix this production error.',
+      runner,
+    });
+
+    assert.equal(result.type, 'policy_blocked');
+    assert.deepEqual(result.changedFiles, [
+      'apps/web/src/proxy.ts',
+      'apps/web/src/proxy-safe.ts',
+    ]);
+    assert.match(result.reasons.join('\n'), /protected path/);
+    assert.equal(
+      calls.some((call) => call.includes('push')),
+      false
+    );
+  });
+
+  it('leaves candidates retryable when verification is not configured', () => {
+    const { calls, runner } = makeRunner();
+
+    const result = runRemediationAutofix({
+      candidate,
+      env: {
+        BACI_REPO_DIR: '/repo',
+        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+      },
+      prompt: 'Fix this production error.',
+      runner,
+    });
+
+    assert.equal(result.type, 'configuration_blocked');
+    assert.match(result.reasons.join('\n'), /VERIFY_COMMAND/);
+    assert.equal(
+      calls.some((call) => call.includes('codex')),
+      false
+    );
+    assert.equal(
+      calls.some((call) => call.includes('worktree')),
+      false
+    );
+  });
+
+  it('preserves a changed worktree when verification fails', () => {
+    const { calls, runner: baseRunner } = makeRunner();
+    const runner = (command, args, options) =>
+      command === 'bash'
+        ? { status: 1, stdout: '', stderr: 'focused regression failed' }
+        : baseRunner(command, args, options);
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {
+            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo test',
+            BACI_REPO_DIR: '/repo',
+            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+          },
+          runner,
+        }),
+      /focused regression failed/
+    );
+    assert.equal(
+      calls.some((call) => call.includes('remove')),
+      false
+    );
+  });
+
+  it('requires an explicit repo checkout', () => {
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {},
+          prompt: 'Fix this production error.',
+          runner: makeRunner().runner,
+        }),
+      /BACI_REPO_DIR is required/
+    );
+  });
+});

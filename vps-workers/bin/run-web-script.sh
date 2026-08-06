@@ -136,17 +136,22 @@ export DOTENV_CONFIG_PATH="$ENV_FILE"
 # bootstrap from failing when pnpm validates a checkout with no browser cache.
 export PUPPETEER_SKIP_DOWNLOAD="${PUPPETEER_SKIP_DOWNLOAD:-1}"
 
-cd "$REPO_DIR" || {
-  echo "[$LABEL] Failed to change directory to: $REPO_DIR" >&2
+cd "$WEB_DIR" || {
+  echo "[$LABEL] Failed to change directory to: $WEB_DIR" >&2
   exit 1
 }
-if ! tsx_output=$(pnpm --filter @baci/web exec tsx --version 2>&1); then
+TSX_BIN="$WEB_DIR/node_modules/.bin/tsx"
+if [ ! -x "$TSX_BIN" ]; then
+  echo "[$LABEL] Missing executable tsx in $WEB_DIR. Run pnpm install --frozen-lockfile for the Baci checkout; do not use a production-only install until the worker entrypoints are compiled." >&2
+  exit 1
+fi
+if ! tsx_output=$("$TSX_BIN" --version 2>&1); then
   echo "[$LABEL] tsx check output: $tsx_output" >&2
-  echo "[$LABEL] Missing tsx in $REPO_DIR. Run pnpm install --frozen-lockfile for the Baci checkout; do not use a production-only install until the worker entrypoints are compiled." >&2
+  echo "[$LABEL] Missing tsx in $WEB_DIR. Run pnpm install --frozen-lockfile for the Baci checkout; do not use a production-only install until the worker entrypoints are compiled." >&2
   exit 1
 fi
 
 # The imported web graph can include Next `server-only` marker modules. The
 # standalone worker is still a server graph, so use React's server export
 # condition to make those sentinels resolve to their empty server entry.
-pnpm --filter @baci/web exec tsx --conditions react-server "$SCRIPT_FILE" "$@"
+"$TSX_BIN" --conditions react-server "$SCRIPT_FILE" "$@"

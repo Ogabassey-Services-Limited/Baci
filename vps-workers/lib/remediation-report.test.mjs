@@ -19,6 +19,7 @@ describe('remediation report', () => {
             route: '/api/products',
             message: 'TypeError: Cannot read properties of undefined',
             deploymentId: 'dpl_123',
+            issueId: '987654321',
           },
         },
       ],
@@ -26,8 +27,9 @@ describe('remediation report', () => {
       policy: { allowed: false, reasons: ['dry run'] },
     });
 
-    assert.match(report.subject, /Baci Vercel remediation/);
+    assert.match(report.subject, /Baci production-error-remediator/);
     assert.match(report.text, /abc123/);
+    assert.match(report.text, /sentryIssue=987654321/);
     assert.match(report.text, /prompt_written/);
     assert.match(report.html, /TypeError/);
   });
@@ -36,6 +38,21 @@ describe('remediation report', () => {
     const result = await sendRemediationReportEmail({
       report: { subject: 'Subject', text: 'Text', html: '<p>Text</p>' },
       env: {},
+      fetchFn: () => {
+        throw new Error('should not send');
+      },
+    });
+
+    assert.deepEqual(result, { skipped: true, reason: 'email not configured' });
+  });
+
+  it('treats a whitespace-only ZeptoMail token as unconfigured', async () => {
+    const result = await sendRemediationReportEmail({
+      report: { subject: 'Subject', text: 'Text', html: '<p>Text</p>' },
+      env: {
+        BACI_REMEDIATION_NOTIFY_EMAILS: 'owner@example.com',
+        ZEPTOMAIL_TOKEN: '   ',
+      },
       fetchFn: () => {
         throw new Error('should not send');
       },
@@ -65,5 +82,22 @@ describe('remediation report', () => {
     const body = JSON.parse(calls[0].init.body);
     assert.equal(body.to.length, 2);
     assert.equal(body.from.address, 'notifications@usebaci.com');
+  });
+
+  it('does not duplicate the scheme on a canonical ZeptoMail token', async () => {
+    let authorization = '';
+    await sendRemediationReportEmail({
+      report: { subject: 'Subject', text: 'Text', html: '<p>Text</p>' },
+      env: {
+        BACI_REMEDIATION_NOTIFY_EMAILS: 'owner@example.com',
+        ZEPTOMAIL_TOKEN: 'Zoho-enczapikey production-token',
+      },
+      fetchFn: (_url, init) => {
+        authorization = init.headers.Authorization;
+        return new Response('{}', { status: 200 });
+      },
+    });
+
+    assert.equal(authorization, 'Zoho-enczapikey production-token');
   });
 });
