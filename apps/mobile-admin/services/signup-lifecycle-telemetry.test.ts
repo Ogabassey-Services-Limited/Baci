@@ -79,7 +79,7 @@ describe('captureMobileSignupLifecycle', () => {
     expect(capturedPayload).not.toContain('hunter2');
   });
 
-  it('captures ordinary steps immediately with safe unavailable context', async () => {
+  it('captures ordinary steps immediately and omits an invalid attempt id', async () => {
     await expect(
       captureMobileSignupLifecycle({
         attemptId: 'owner@example.com',
@@ -90,15 +90,52 @@ describe('captureMobileSignupLifecycle', () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(mocks.capture).toHaveBeenCalledWith(
-      'admin_signup_lifecycle',
+    const capturedProperties = mocks.capture.mock.calls[0]?.[1];
+    expect(capturedProperties).toEqual(
       expect.objectContaining({
         error_code: 'unavailable',
         network_snapshot_available: false,
-        signup_attempt_id: 'unavailable',
       })
     );
+    expect(capturedProperties).not.toHaveProperty('signup_attempt_id');
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it('resolves when analytics capture throws', async () => {
+    mocks.capture.mockImplementation(() => {
+      throw new Error('capture failed');
+    });
+
+    await expect(
+      captureMobileSignupLifecycle({
+        attemptId: '123e4567-e89b-42d3-a456-426614174000',
+        eventCode: 'signup_started',
+        flow: 'merchant',
+        outcome: 'started',
+        stage: 'auth',
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  it('captures a connectivity failure when the network snapshot is unavailable', async () => {
+    mocks.fetch.mockRejectedValue(new Error('netinfo unavailable'));
+
+    await captureMobileSignupLifecycle({
+      attemptId: '123e4567-e89b-42d3-a456-426614174000',
+      eventCode: 'password_signup_connectivity_error',
+      failureClass: 'connectivity_dns',
+      flow: 'merchant',
+      outcome: 'failed',
+      stage: 'auth',
+    });
+
+    expect(mocks.capture).toHaveBeenCalledWith(
+      'admin_signup_lifecycle',
+      expect.objectContaining({
+        network_snapshot_available: false,
+        network_type: 'unknown',
+      })
+    );
   });
 
   it('does nothing when production analytics cannot initialize', async () => {

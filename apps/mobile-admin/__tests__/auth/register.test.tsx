@@ -77,7 +77,7 @@ describe('RegisterScreen', () => {
 
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith(
-        '/(auth)/verify?email=test%40example.com&attemptId=123e4567-e89b-42d3-a456-426614174000'
+        '/(auth)/verify?email=test%40example.com&attemptId=123e4567-e89b-42d3-a456-426614174000&flow=merchant'
       );
     });
   });

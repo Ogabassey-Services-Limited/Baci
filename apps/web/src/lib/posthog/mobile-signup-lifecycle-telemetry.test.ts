@@ -90,6 +90,35 @@ describe('recordMobileSignupLifecycle', () => {
     );
   });
 
+  it('omits an unsafe database code and clamps a negative duration', async () => {
+    const error = new Error('failed');
+
+    await recordMobileSignupLifecycle({
+      attemptId: null,
+      captureException: true,
+      durationMs: -25,
+      error,
+      eventCode: 'merchant_provisioning_failed',
+      failureClass: 'database',
+      httpStatus: 500,
+      outcome: 'failed',
+      platform: 'ios',
+      postgresCode: 'owner@example.com password=secret',
+      stage: 'rpc',
+    });
+
+    const lifecycleProperties = mocks.captureServerEvent.mock.calls[0]?.[1];
+    const exceptionContext = mocks.captureServerException.mock.calls[0]?.[1];
+    expect(lifecycleProperties).toEqual(
+      expect.objectContaining({ duration_ms: 0 })
+    );
+    expect(lifecycleProperties).not.toHaveProperty('postgres_code');
+    expect(mocks.captureServerException).toHaveBeenCalled();
+    expect(exceptionContext).toBeDefined();
+    expect(exceptionContext).not.toHaveProperty('postgres_code');
+    expect(JSON.stringify(exceptionContext ?? {})).not.toContain('secret');
+  });
+
   it('logs a stable telemetry gap without changing the caller outcome', async () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mocks.captureServerEvent.mockResolvedValue(false);

@@ -40,7 +40,8 @@ export interface UseAuthReturn {
   verifySignupOtp: (
     email: string,
     token: string,
-    attemptId?: string
+    attemptId?: string,
+    flow?: SignupFlow
   ) => Promise<VerifySignupOtpResult>;
   signOut: (onBeforeSignOut?: () => Promise<void>) => Promise<void>;
 }

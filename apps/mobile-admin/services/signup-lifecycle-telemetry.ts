@@ -121,9 +121,9 @@ export async function captureMobileSignupLifecycle({
         network_snapshot_available: networkSnapshot !== undefined,
         network_type: networkSnapshot?.type ?? 'unknown',
         retry_attempted: retryAttempted,
-        signup_attempt_id: parsedAttemptId.success
-          ? parsedAttemptId.data
-          : 'unavailable',
+        ...(parsedAttemptId.success
+          ? { signup_attempt_id: parsedAttemptId.data }
+          : {}),
         signup_flow: flow,
         signup_outcome: outcome,
         signup_stage: stage,

@@ -225,6 +225,40 @@ describe('useAuthStore verifySignupOtp', () => {
       expect.objectContaining({
         attemptId: '123e4567-e89b-42d3-a456-426614174000',
         eventCode: 'signup_verification_started',
+        flow: 'merchant',
+      })
+    );
+  });
+
+  it('forwards an explicit staff flow through signup verification telemetry', async () => {
+    const session = createSession('verified-staff-user');
+    mocks.verifyOtp.mockResolvedValue({
+      data: { session, user: session.user },
+      error: null,
+    });
+
+    const result = await useAuthStore
+      .getState()
+      .verifySignupOtp(
+        'staff@example.test',
+        '123456',
+        '123e4567-e89b-42d3-a456-426614174000',
+        'staff'
+      );
+
+    expect(result).toEqual({ error: null, sessionEstablished: true });
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        eventCode: 'signup_verification_started',
+        flow: 'staff',
+      })
+    );
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        eventCode: 'signup_verification_succeeded',
+        flow: 'staff',
       })
     );
   });

@@ -188,6 +188,38 @@ describe('runSignupOtpVerification', () => {
     );
   });
 
+  it('preserves the staff cohort when provider verification fails', async () => {
+    mocks.verifyOtp.mockResolvedValue({
+      data: { session: null, user: null },
+      error: new Error('Token has expired'),
+    });
+
+    await runSignupOtpVerification({
+      attemptId: '123e4567-e89b-42d3-a456-426614174000',
+      email: 'staff@example.com',
+      flow: 'staff',
+      getCurrentUserId: () => undefined,
+      onResetUserStores: vi.fn(),
+      setState: vi.fn(),
+      token: '000000',
+    });
+
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        eventCode: 'signup_verification_started',
+        flow: 'staff',
+      })
+    );
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        eventCode: 'signup_verification_failed',
+        flow: 'staff',
+      })
+    );
+  });
+
   it('classifies a local session-commit failure as unexpected', async () => {
     const session = createSession();
     mocks.verifyOtp.mockResolvedValue({

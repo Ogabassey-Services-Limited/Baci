@@ -114,6 +114,7 @@ vi.mock('expo-router', async () => {
     useLocalSearchParams: () => ({
       attemptId: '123e4567-e89b-42d3-a456-426614174000',
       email: 'merchant@example.com',
+      flow: 'merchant',
     }),
     useRouter: () => ({
       back: mocks.back,
@@ -208,7 +209,8 @@ describe('VerifyScreen OTP keyboard controls', () => {
       expect(mocks.verifySignupOtp).toHaveBeenCalledWith(
         'merchant@example.com',
         '123456',
-        '123e4567-e89b-42d3-a456-426614174000'
+        '123e4567-e89b-42d3-a456-426614174000',
+        'merchant'
       );
     });
   });

@@ -68,6 +68,19 @@ describe('api errors', () => {
       ).toBe(true);
     });
 
+    it('ignores connectivity text inherited through prototype properties', () => {
+      const inheritedCause = Object.create({
+        cause: new Error('getaddrinfo ENOTFOUND'),
+      });
+      const inheritedMessage = Object.create({
+        message: 'Network request failed',
+      });
+
+      expect(isConnectivityError(inheritedCause)).toBe(false);
+      expect(isDnsResolutionError(inheritedCause)).toBe(false);
+      expect(isConnectivityError(inheritedMessage)).toBe(false);
+    });
+
     it('does not treat server NetworkErrors as connectivity failures', () => {
       const serverError = new NetworkError(
         'Custom domains require Baci Starter or higher',

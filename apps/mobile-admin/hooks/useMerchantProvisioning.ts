@@ -74,8 +74,9 @@ export function useMerchantProvisioning() {
         stage: 'provisioning',
       });
 
+      let result: MerchantProvisioningResponse;
       try {
-        const result = await apiClient<MerchantProvisioningResponse>(
+        result = await apiClient<MerchantProvisioningResponse>(
           '/api/mobile/merchant-provisioning',
           {
             method: 'POST',
@@ -87,10 +88,6 @@ export function useMerchantProvisioning() {
           }
         );
 
-        await queryClient.invalidateQueries({
-          queryKey: ['merchant', user.id],
-          refetchType: 'active',
-        });
         void captureMobileSignupLifecycle({
           attemptId,
           durationMs: Date.now() - startedAt,
@@ -99,7 +96,6 @@ export function useMerchantProvisioning() {
           outcome: 'completed',
           stage: 'provisioning',
         });
-        return result;
       } catch (error) {
         void captureMobileSignupLifecycle({
           attemptId,
@@ -113,6 +109,12 @@ export function useMerchantProvisioning() {
         });
         throw error;
       }
+
+      await queryClient.invalidateQueries({
+        queryKey: ['merchant', user.id],
+        refetchType: 'active',
+      });
+      return result;
     },
   });
 }

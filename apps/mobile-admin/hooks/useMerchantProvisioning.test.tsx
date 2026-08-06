@@ -202,4 +202,25 @@ describe('useMerchantProvisioning', () => {
       })
     );
   });
+
+  it('does not report completed provisioning as failed when cache invalidation rejects', async () => {
+    mocks.invalidateQueries.mockRejectedValue(new Error('refetch failed'));
+    const { result } = renderHook(() => useMerchantProvisioning(), { wrapper });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(payload)).rejects.toThrow(
+        'refetch failed'
+      );
+    });
+
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventCode: 'merchant_signup_completed',
+        outcome: 'completed',
+      })
+    );
+    expect(mocks.captureMobileSignupLifecycle).not.toHaveBeenCalledWith(
+      expect.objectContaining({ eventCode: 'merchant_provisioning_failed' })
+    );
+  });
 });

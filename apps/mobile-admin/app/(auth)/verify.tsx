@@ -39,10 +39,12 @@ export default function VerifyScreen() {
   const styles = getVerifyStyles(colors);
   const router = useRouter();
   const { verifySignupOtp } = useAuth();
-  const { attemptId, email } = useLocalSearchParams<{
+  const { attemptId, email, flow } = useLocalSearchParams<{
     attemptId?: string;
     email: string;
+    flow?: string;
   }>();
+  const signupFlow = flow === 'staff' ? 'staff' : 'merchant';
   const [code, setCode] = useState(() => OTP_KEYS.map(() => ''));
   const [focusedOtpIndex, setFocusedOtpIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -88,7 +90,7 @@ export default function VerifyScreen() {
     }
 
     setIsLoading(true);
-    const result = await verifySignupOtp(email, token, attemptId);
+    const result = await verifySignupOtp(email, token, attemptId, signupFlow);
     setIsLoading(false);
     if (result.error || !result.sessionEstablished) {
       Alert.alert(

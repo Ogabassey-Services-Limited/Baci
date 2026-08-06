@@ -24,6 +24,7 @@ interface VerificationStateUpdate {
 interface RunSignupOtpVerificationOptions {
   attemptId?: string;
   email: string;
+  flow?: SignupFlow;
   getCurrentUserId: () => string | undefined;
   onResetUserStores: () => Promise<void>;
   setState: (state: VerificationStateUpdate) => void;
@@ -53,7 +54,8 @@ function verificationFailureClass(error: unknown): SignupFailureClass {
 
 function getSignupContext(
   user: User,
-  fallbackAttemptId: string | null
+  fallbackAttemptId: string | null,
+  fallbackFlow: SignupFlow
 ): {
   attemptId: string | null;
   flow: SignupFlow;
@@ -67,13 +69,14 @@ function getSignupContext(
     attemptId: parsedAttemptId.success
       ? parsedAttemptId.data
       : fallbackAttemptId,
-    flow: flow === 'staff' ? 'staff' : 'merchant',
+    flow: flow === 'staff' || flow === 'merchant' ? flow : fallbackFlow,
   };
 }
 
 export async function runSignupOtpVerification({
   attemptId,
   email,
+  flow = 'merchant',
   getCurrentUserId,
   onResetUserStores,
   setState,
@@ -83,7 +86,7 @@ export async function runSignupOtpVerification({
   const parsedAttemptId = signupAttemptIdSchema.safeParse(attemptId);
   const verificationContext = {
     attemptId: parsedAttemptId.success ? parsedAttemptId.data : null,
-    flow: 'merchant' as const,
+    flow,
   };
   void captureMobileSignupLifecycle({
     ...verificationContext,
@@ -137,7 +140,11 @@ export async function runSignupOtpVerification({
       user: data.user,
     });
 
-    const context = getSignupContext(data.user, verificationContext.attemptId);
+    const context = getSignupContext(
+      data.user,
+      verificationContext.attemptId,
+      verificationContext.flow
+    );
     void captureMobileSignupLifecycle({
       ...context,
       durationMs: Date.now() - startedAt,

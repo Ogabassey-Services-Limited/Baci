@@ -35,4 +35,23 @@ describe('createPasswordSignupLifecycle', () => {
       })
     );
   });
+
+  it('captures the default details path without a failure classification', () => {
+    const capture = createPasswordSignupLifecycle({
+      attemptId: '123e4567-e89b-42d3-a456-426614174000',
+      flow: 'staff',
+      startedAt: Date.now() - 25,
+    });
+
+    capture('password_signup_started', 'started');
+
+    expect(mocks.captureMobileSignupLifecycle).toHaveBeenCalledWith({
+      attemptId: '123e4567-e89b-42d3-a456-426614174000',
+      durationMs: expect.any(Number),
+      eventCode: 'password_signup_started',
+      flow: 'staff',
+      outcome: 'started',
+      stage: 'auth',
+    });
+  });
 });

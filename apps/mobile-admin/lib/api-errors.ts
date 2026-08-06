@@ -27,11 +27,6 @@ const CONNECTIVITY_ERROR_PATTERN =
 const DNS_RESOLUTION_ERROR_PATTERN =
   /server with the specified hostname could not be found|(?:could not|cannot|unable to) resolve host|dns (?:lookup|resolution).*(?:fail|error)|getaddrinfo|enotfound|eai_again|name or service not known/i;
 
-type ErrorLike = {
-  cause?: unknown;
-  message?: unknown;
-};
-
 function getErrorText(error: unknown, seen = new Set<object>()): string {
   if (typeof error === 'string') {
     return error;
@@ -42,10 +37,14 @@ function getErrorText(error: unknown, seen = new Set<object>()): string {
   }
 
   seen.add(error);
-  const errorLike = error as ErrorLike;
-  const message =
-    typeof errorLike.message === 'string' ? errorLike.message : '';
-  const cause = getErrorText(errorLike.cause, seen);
+  const messageValue = Object.hasOwn(error, 'message')
+    ? Reflect.get(error, 'message')
+    : undefined;
+  const causeValue = Object.hasOwn(error, 'cause')
+    ? Reflect.get(error, 'cause')
+    : undefined;
+  const message = typeof messageValue === 'string' ? messageValue : '';
+  const cause = getErrorText(causeValue, seen);
   return `${message} ${cause}`.trim();
 }
 

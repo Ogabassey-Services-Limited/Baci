@@ -18,8 +18,10 @@ Live dashboard: [Mobile Signup Health](https://eu.posthog.com/project/202711/das
 
 `signup_attempt_id` is a random UUID used only to correlate steps. It is not an
 authorization input. The server validates it and ignores missing or malformed
-values. `signup_flow` separates merchant signup from staff account creation so
-staff invitees do not look like abandoned merchant signups.
+values. Both event producers omit the property when the ID is missing or
+malformed; funnel queries that correlate steps should require the property to
+be present. `signup_flow` separates merchant signup from staff account creation
+so staff invitees do not look like abandoned merchant signups.
 
 The event contract never includes email, password, OTP, phone, names, business
 details, user or merchant IDs, request bodies, URLs, network identifiers, or raw

@@ -50,6 +50,29 @@ describe('recordMerchantSignupHealthTelemetry', () => {
     );
   });
 
+  it('removes malformed health metadata before capture', async () => {
+    await recordMerchantSignupHealthTelemetry({
+      durationMs: -1,
+      failedInvariants: ['auth_can_insert', 'password=secret'],
+      outcome: 'unavailable',
+      postgresCode: '42501;secret',
+      reason: 'health rpc failed',
+    });
+
+    expect(mocks.captureServerEvent).toHaveBeenCalledWith(
+      'admin_signup_health',
+      expect.objectContaining({
+        duration_ms: 0,
+        failed_invariant_count: 1,
+        failed_invariants: ['auth_can_insert'],
+        reason: 'unavailable',
+      })
+    );
+    const capturedProperties = mocks.captureServerEvent.mock.calls[0]?.[1];
+    expect(capturedProperties).not.toHaveProperty('postgres_code');
+    expect(JSON.stringify(capturedProperties)).not.toContain('secret');
+  });
+
   it('captures thrown health-check errors through sanitized exception tracking', async () => {
     const error = new Error('password=secret');
 

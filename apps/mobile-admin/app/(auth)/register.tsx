@@ -156,7 +156,7 @@ export default function RegisterScreen() {
           ? `&attemptId=${encodeURIComponent(result.signupAttemptId)}`
           : '';
         router.replace(
-          `/(auth)/verify?email=${encodeURIComponent(email)}${attemptIdQuery}`
+          `/(auth)/verify?email=${encodeURIComponent(email)}${attemptIdQuery}&flow=merchant`
         );
         return;
       }
