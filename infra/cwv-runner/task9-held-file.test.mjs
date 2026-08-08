@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import {
+  chmodSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+
+import { readHeldTask9File } from './task9-held-file.mjs';
+
+test('refuses a pathname swapped after reading its held descriptor', () => {
+  const root = mkdtempSync(join(tmpdir(), 'task9-held-file-'));
+  const path = join(root, 'source');
+  const moved = join(root, 'source.moved');
+  try {
+    chmodSync(root, 0o700);
+    writeFileSync(path, 'reviewed', { mode: 0o600 });
+    assert.throws(
+      () =>
+        readHeldTask9File(path, 0o600, {
+          afterRead() {
+            renameSync(path, moved);
+            writeFileSync(path, 'replacement', { mode: 0o600 });
+          },
+        }),
+      /unsafe Task 9 input/
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('returns bytes only when the descriptor and path identity remain exact', () => {
+  const root = mkdtempSync(join(tmpdir(), 'task9-held-file-pass-'));
+  const path = join(root, 'source');
+  try {
+    chmodSync(root, 0o700);
+    writeFileSync(path, 'reviewed', { mode: 0o600 });
+    assert.deepEqual(
+      readHeldTask9File(path, 0o600).bytes,
+      Buffer.from('reviewed')
+    );
+    assert.equal(lstatSync(path).isFile(), true);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('refuses symlinks and wrong modes before reading bytes', () => {
+  const root = mkdtempSync(join(tmpdir(), 'task9-held-file-mode-'));
+  const path = join(root, 'source');
+  const link = join(root, 'source-link');
+  try {
+    chmodSync(root, 0o700);
+    writeFileSync(path, 'reviewed', { mode: 0o600 });
+    symlinkSync(path, link);
+    assert.throws(() => readHeldTask9File(link, 0o600), /unsafe Task 9 input/);
+    chmodSync(path, 0o400);
+    assert.throws(() => readHeldTask9File(path, 0o600), /unsafe Task 9 input/);
+    assert.equal(readFileSync(path, 'utf8'), 'reviewed');
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
