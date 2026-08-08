@@ -25,6 +25,8 @@ const MERCHANT_SLUG =
   (Constants.expoConfig?.extra?.merchantSlug as string | undefined) ||
   'ogabassey';
 
+const REPAIR_CATALOG_REQUEST_TIMEOUT_MS = 5_000;
+
 /**
  * Thrown when the repairs catalogue is not available for this merchant (the
  * read APIs 404 when the `repairs_catalog_enabled` flag is off or the
@@ -35,6 +37,13 @@ export class RepairCatalogUnavailableError extends Error {
   constructor(message = 'Repairs catalogue not available') {
     super(message);
     this.name = 'RepairCatalogUnavailableError';
+  }
+}
+
+export class RepairCatalogTimeoutError extends Error {
+  constructor() {
+    super('Repair catalogue request timed out');
+    this.name = 'RepairCatalogTimeoutError';
   }
 }
 
@@ -53,10 +62,38 @@ async function readErrorMessage(response: Response): Promise<string> {
   }
 }
 
+async function fetchRepairCatalog(
+  input: RequestInfo | URL,
+  init: RequestInit = {}
+): Promise<Response> {
+  const timeoutController = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    timeoutController.abort();
+  }, REPAIR_CATALOG_REQUEST_TIMEOUT_MS);
+
+  const externalSignal = init.signal;
+  const abortFromCaller = () => timeoutController.abort();
+  externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
+
+  try {
+    return await fetch(input, { ...init, signal: timeoutController.signal });
+  } catch (error) {
+    if (timedOut) {
+      throw new RepairCatalogTimeoutError();
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    externalSignal?.removeEventListener('abort', abortFromCaller);
+  }
+}
+
 export async function fetchRepairDevices(query?: string, signal?: AbortSignal) {
   const trimmed = query?.trim();
   const search = trimmed ? `?q=${encodeURIComponent(trimmed)}` : '';
-  const response = await fetch(
+  const response = await fetchRepairCatalog(
     `${API_URL}/api/storefront/${MERCHANT_SLUG}/repairs/devices${search}`,
     { signal }
   );
@@ -79,7 +116,7 @@ export async function fetchRepairDeviceDetail(
   deviceSlug: string,
   signal?: AbortSignal
 ) {
-  const response = await fetch(
+  const response = await fetchRepairCatalog(
     `${API_URL}/api/storefront/${MERCHANT_SLUG}/repairs/devices/${encodeURIComponent(deviceSlug)}`,
     { signal }
   );

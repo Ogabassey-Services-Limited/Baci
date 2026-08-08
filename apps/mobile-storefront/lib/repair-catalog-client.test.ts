@@ -15,6 +15,7 @@ jest.mock('expo-constants', () => ({
 import {
   fetchRepairDeviceDetail,
   fetchRepairDevices,
+  RepairCatalogTimeoutError,
   RepairCatalogUnavailableError,
   submitRepairBooking,
 } from './repair-catalog-client';
@@ -85,6 +86,32 @@ describe('fetchRepairDevices', () => {
       .mockResolvedValueOnce(jsonResponse(200, { groups: 'not-an-array' }));
 
     await expect(fetchRepairDevices()).rejects.toThrow(/invalid/i);
+  });
+
+  it('fails with a typed timeout when the devices request stalls', async () => {
+    jest.useFakeTimers();
+    jest.mocked(fetch).mockImplementationOnce(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(new Error('aborted')),
+            { once: true }
+          );
+        })
+    );
+
+    try {
+      const request = fetchRepairDevices();
+      const assertion = expect(request).rejects.toBeInstanceOf(
+        RepairCatalogTimeoutError
+      );
+      await jest.advanceTimersByTimeAsync(5_000);
+
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

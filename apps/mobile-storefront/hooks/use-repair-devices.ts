@@ -2,6 +2,7 @@ import type { RepairDeviceBrandGroup } from '@baci/shared/repairs';
 import { useEffect, useRef, useState } from 'react';
 import {
   fetchRepairDevices,
+  RepairCatalogTimeoutError,
   RepairCatalogUnavailableError,
 } from '@/lib/repair-catalog-client';
 
@@ -31,6 +32,7 @@ export function useRepairDevices(): UseRepairDevicesResult {
   const [refetchToken, setRefetchToken] = useState(0);
   const requestIdRef = useRef(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refetchToken intentionally retriggers the catalogue request.
   useEffect(() => {
     const requestId = ++requestIdRef.current;
     const controller = new AbortController();
@@ -48,6 +50,10 @@ export function useRepairDevices(): UseRepairDevicesResult {
         if (err instanceof RepairCatalogUnavailableError) {
           setIsUnavailable(true);
           setGroups([]);
+          return;
+        }
+        if (err instanceof RepairCatalogTimeoutError) {
+          setError('Repair options took too long to load. Please try again.');
           return;
         }
         setError(err instanceof Error ? err.message : 'Failed to load devices');

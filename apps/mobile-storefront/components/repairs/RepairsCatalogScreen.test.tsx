@@ -240,6 +240,6 @@ describe('RepairsCatalogScreen', () => {
 
     // Firing the intercept returns to the catalogue.
     act(() => mockPreventRemoveState.callback?.());
-    expect(screen.getByText('What needs fixing?')).toBeTruthy();
+    expect(screen.getByText('Find your device')).toBeTruthy();
   });
 });
