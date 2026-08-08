@@ -13,6 +13,8 @@ const POSTHOG_DSYM_UPLOAD_SCRIPT = 'upload-symbols.sh';
 const PROJECT_ROOT_EXPORT = 'export PROJECT_ROOT="$PROJECT_DIR"/..';
 const POSTHOG_CLI_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PROJECT_ROOT/../../node_modules/.bin:$PATH"';
+const POSTHOG_HERMES_UPLOAD_COMMAND = 'posthog-cli hermes upload';
+const POSTHOG_SKIP_ON_CONFLICT_FLAG = '--skip-on-conflict';
 const LEGACY_APP_ONLY_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"';
 const POSTHOG_DSYM_UPLOAD_WARNING =
@@ -64,13 +66,37 @@ function patchPostHogCliPath(script, marker = POSTHOG_XCODE_SCRIPT) {
   return `${script.slice(0, insertAt)}\n${POSTHOG_CLI_PATH_EXPORT}${script.slice(insertAt)}`;
 }
 
+function patchPostHogHermesUploadConflictHandling(script) {
+  if (!script.includes(POSTHOG_HERMES_UPLOAD_COMMAND)) {
+    return script;
+  }
+
+  return script
+    .split('\n')
+    .map((line) => {
+      if (
+        !line.includes(POSTHOG_HERMES_UPLOAD_COMMAND) ||
+        line.includes(POSTHOG_SKIP_ON_CONFLICT_FLAG)
+      ) {
+        return line;
+      }
+
+      return `${line} ${POSTHOG_SKIP_ON_CONFLICT_FLAG}`;
+    })
+    .join('\n');
+}
+
 function patchShellPhaseCliPath(phase, marker) {
   const shellScript = parseShellScript(phase?.shellScript);
   if (!shellScript) {
     return;
   }
 
-  const patchedScript = patchPostHogCliPath(shellScript, marker);
+  const withCliPath = patchPostHogCliPath(shellScript, marker);
+  const patchedScript =
+    marker === POSTHOG_XCODE_SCRIPT
+      ? patchPostHogHermesUploadConflictHandling(withCliPath)
+      : withCliPath;
   if (patchedScript !== shellScript) {
     phase.shellScript = JSON.stringify(patchedScript);
   }

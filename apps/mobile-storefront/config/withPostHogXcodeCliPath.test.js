@@ -90,6 +90,29 @@ ${EXPECTED_PATH_EXPORT}
     expect(bundleScript).toContain('posthog-xcode.sh');
   });
 
+  it('skips duplicate PostHog Hermes symbol sets during iOS archives', () => {
+    const { bundleScript } = runPluginWithPhases({
+      bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..
+
+posthog-cli hermes upload "$DERIVED_FILE_DIR/main.jsbundle.map"
+`,
+    });
+
+    expect(bundleScript).toContain(
+      'posthog-cli hermes upload "$DERIVED_FILE_DIR/main.jsbundle.map" --skip-on-conflict'
+    );
+    expect(bundleScript.match(/--skip-on-conflict/g)).toHaveLength(1);
+  });
+
+  it('does not duplicate the PostHog Hermes conflict flag', () => {
+    const { bundleScript } = runPluginWithPhases({
+      bundleShellScript: `posthog-cli hermes upload --skip-on-conflict "$DERIVED_FILE_DIR/main.jsbundle.map"
+`,
+    });
+
+    expect(bundleScript.match(/--skip-on-conflict/g)).toHaveLength(1);
+  });
+
   it('upgrades the older app-only PATH patch without duplicating it', () => {
     const { bundleScript } = runPluginWithPhases({
       bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..
