@@ -18,6 +18,27 @@ describe('buildBuilderAiEditPrompt', () => {
     expect(prompt).toContain('"operations":[]');
     expect(prompt).toContain('unsupported executable code');
   });
+
+  it('publishes exact after placement and move destination envelopes', () => {
+    const prompt = buildBuilderAiEditPrompt({
+      currentConfig: { content: [], root: { title: 'Home' } },
+      prompt: 'Insert copy after the hero and move the CTA after it',
+    });
+    const guide = JSON.parse(
+      prompt.match(/<operation-guide>(.+)<\/operation-guide>/)?.[1] ?? ''
+    ) as { operationExamples: unknown[] };
+
+    expect(guide.operationExamples).toContainEqual({
+      initialContent: { componentType: 'Text', content: 'Supporting copy' },
+      kind: 'insert_component',
+      placement: { componentId: 'component-id', position: 'after' },
+    });
+    expect(guide.operationExamples).toContainEqual({
+      componentId: 'component-id',
+      destination: { componentId: 'component-id', position: 'after' },
+      kind: 'move_component',
+    });
+  });
   it('projects only safe component ids, types, and editable properties', () => {
     const prompt = buildBuilderAiEditPrompt({
       currentConfig: {

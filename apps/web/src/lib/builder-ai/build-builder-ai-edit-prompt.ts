@@ -33,10 +33,20 @@ const operationExamples = [
     kind: 'insert_component',
     placement: { position: 'first_content' },
   },
+  {
+    initialContent: { componentType: 'Text', content: 'Supporting copy' },
+    kind: 'insert_component',
+    placement: { componentId: 'component-id', position: 'after' },
+  },
   { componentId: 'component-id', kind: 'remove_component' },
   {
     componentId: 'component-id',
     destination: { position: 'first_content' },
+    kind: 'move_component',
+  },
+  {
+    componentId: 'component-id',
+    destination: { componentId: 'component-id', position: 'after' },
     kind: 'move_component',
   },
   { kind: 'update_theme', preset: 'modern' },
