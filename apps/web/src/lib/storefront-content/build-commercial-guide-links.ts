@@ -10,6 +10,7 @@ import type {
   ContentClusterKind,
   InformationalGuideLink,
 } from './content-cluster-types';
+import { getCompareGuideDiscriminatorOptions } from './get-compare-guide-discriminator-options';
 import { getCompareProductMatchRequirements } from './get-compare-product-match-requirements';
 import { getContextBrandKeys } from './get-context-brand-keys';
 import { getPostTokenGroups } from './get-post-token-groups';
@@ -218,6 +219,8 @@ export function buildCommercialGuideLinks(
           modelFamilyTokens,
           getContextBrandValues(input.context.brands ?? [], brandAliases)
         );
+      const compareGuideDiscriminatorOptions =
+        getCompareGuideDiscriminatorOptions(compareProductMatchRequirements);
       const hasRequiredCompareModelMatch =
         input.context.pageKind === 'compare' &&
         compareProductMatchRequirements.length > 0 &&
@@ -244,6 +247,7 @@ export function buildCommercialGuideLinks(
                   input.context.categorySlug
                 ),
                 allowBrandAliasOverlap: true,
+                ...compareGuideDiscriminatorOptions,
               }
             )
         );

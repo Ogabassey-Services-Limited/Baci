@@ -96,4 +96,15 @@ describe('matchesVariantDiscriminatorTokens', () => {
       )
     ).toBe(true);
   });
+
+  it('uses the shared region taxonomy for non-US region markers', () => {
+    expect(
+      matchesVariantDiscriminatorTokens(
+        ['travel', 'adapter'],
+        ['uae'],
+        true,
+        true
+      )
+    ).toBe(true);
+  });
 });

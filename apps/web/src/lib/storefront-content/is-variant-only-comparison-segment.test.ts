@@ -47,4 +47,8 @@ describe('isVariantOnlyComparisonSegment', () => {
 
     expect(result).toBe(true);
   });
+
+  it('accepts numeric laptop processor tiers in shorthand comparisons', () => {
+    expect(isVariantOnlyComparisonSegment(['12500h', 'comparison'])).toBe(true);
+  });
 });

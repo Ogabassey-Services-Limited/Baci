@@ -71,6 +71,12 @@ function getDiscriminatorGroup(token: string, isTerminal = false) {
   if (BATTERY_CAPACITY_DISCRIMINATOR_PATTERN.test(token)) {
     return 'battery-capacity';
   }
+  if (WATTAGE_DISCRIMINATOR_PATTERN.test(token)) {
+    return 'wattage';
+  }
+  if (VOLTAGE_DISCRIMINATOR_PATTERN.test(token)) {
+    return 'voltage';
+  }
   if (REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) {
     return 'refresh-rate';
   }

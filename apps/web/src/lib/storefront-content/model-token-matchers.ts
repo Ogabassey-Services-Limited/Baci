@@ -51,6 +51,9 @@ function stripTrailingLaptopProcessorTier(
       ((token === 'ultra' || token === 'rtx') &&
         /^\d+$/u.test(tokens[index + 1] ?? '')) ||
       (token === 'core' && /^i[3579]$/u.test(tokens[index + 1] ?? '')) ||
+      (token === 'ryzen' &&
+        /^\d{1,2}$/u.test(tokens[index + 1] ?? '') &&
+        NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index + 2] ?? '')) ||
       /^i[3579]$/u.test(token) ||
       isNumericLaptopProcessorSuffix(tokens, index)
   );
@@ -66,6 +69,8 @@ function stripTrailingLaptopProcessorTier(
       tokens[processorIndex - 2] === 'intel'
         ? processorIndex - 2
         : processorIndex - 1;
+  } else if (tokens[processorIndex] === 'ryzen') {
+    processorStartIndex = processorIndex;
   } else if (
     isNumericLaptopProcessorSuffix(tokens, processorIndex) &&
     /^\d{1,2}$/u.test(tokens[processorIndex - 1] ?? '')

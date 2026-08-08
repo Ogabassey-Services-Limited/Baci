@@ -219,6 +219,16 @@ describe('getProductConnectivityDiscriminators', () => {
     ).toEqual(['110v']);
   });
 
+  it('retains regions before wattage metadata', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Universal Travel Adapter US 20W'],
+        [],
+        'accessories'
+      )
+    ).toEqual(['us', '20w']);
+  });
+
   it('normalizes a terminal bare storage capacity as a PDP variant', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Samsung Galaxy S25 256'],
