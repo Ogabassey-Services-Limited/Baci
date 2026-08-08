@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { componentPatchSchema } from './content';
+import { componentPatchSchema } from './component-patch';
 import { MAX_AI_LABEL_LENGTH } from './limits';
 
 function requiresEditableField<T extends { componentType: string }>(

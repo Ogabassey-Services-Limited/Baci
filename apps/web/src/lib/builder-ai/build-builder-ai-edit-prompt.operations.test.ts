@@ -80,7 +80,11 @@ describe('buildBuilderAiEditPrompt operation guidance', () => {
       prompt.match(/<safe-components>(.+)<\/safe-components>/)?.[1] ?? ''
     ) as Record<string, unknown>[];
 
-    expect(components).toContainEqual({ id: 'image-anchor', type: 'Image' });
+    expect(components).toContainEqual({
+      collection: 'content',
+      id: 'image-anchor',
+      type: 'Image',
+    });
     expect(prompt).not.toContain('private.test');
   });
 
@@ -129,5 +133,20 @@ describe('buildBuilderAiEditPrompt operation guidance', () => {
     expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
       ['anchor-component-id', 'source-component-id']
     );
+  });
+
+  it('publishes a named collection for first-content zone placements', () => {
+    const guide = getOperationGuide(
+      buildBuilderAiEditPrompt({
+        currentConfig: { content: [], root: { title: 'Home' } },
+        prompt: 'Add text to the sidebar',
+      })
+    ) as { operationExamples: BuilderAiProposedPlan['operations'] };
+
+    expect(guide.operationExamples).toContainEqual({
+      initialContent: { componentType: 'Text', content: 'Supporting copy' },
+      kind: 'insert_component',
+      placement: { collection: 'content', position: 'first_content' },
+    });
   });
 });

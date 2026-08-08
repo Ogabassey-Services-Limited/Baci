@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { insertableComponentSchema, productGridPatchSchema } from './catalog';
-import { componentPatchSchema, heroCarouselSlidePatchFields } from './content';
+import { componentPatchSchema } from './component-patch';
 import { footerPatchSchema } from './footer-patch';
 import { headerPatchSchema } from './header-patch';
+import { heroCarouselSlidePatchFields } from './hero-carousel-slide-patch-fields';
 import {
   MAX_AI_PLAN_INSERTS,
   MAX_AI_PLAN_OPERATIONS,
@@ -10,6 +11,7 @@ import {
 } from './limits';
 
 const boundedComponentId = z.string().trim().min(1).max(120);
+const boundedCollection = z.string().trim().min(1).max(120);
 const boundedTitle = z.string().trim().min(1).max(120);
 const contentComponentPatchSchema = z.discriminatedUnion('componentType', [
   componentPatchSchema,
@@ -23,7 +25,10 @@ const allComponentPatches = z.discriminatedUnion('componentType', [
 ]);
 
 const componentPlacementSchema = z.discriminatedUnion('position', [
-  z.strictObject({ position: z.literal('first_content') }),
+  z.strictObject({
+    collection: boundedCollection.optional(),
+    position: z.literal('first_content'),
+  }),
   z.strictObject({
     componentId: boundedComponentId,
     position: z.literal('after'),

@@ -5,7 +5,7 @@ export function resetBuilderAiInsertOffset(
   content: BuilderAiComponent[],
   placement:
     | { componentId: string; position: 'after' }
-    | { position: 'first_content' }
+    | { collection?: string; position: 'first_content' }
 ): void {
   const key =
     placement.position === 'after'

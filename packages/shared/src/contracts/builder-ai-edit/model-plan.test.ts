@@ -95,6 +95,22 @@ function assertSupportedKeywords(value: unknown): void {
 }
 
 describe('builder AI edit closed model plan', () => {
+  it('accepts a bounded named collection for first-content placements', () => {
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        operations: [
+          {
+            initialContent: { componentType: 'Text', content: 'Sidebar copy' },
+            kind: 'insert_component',
+            placement: { collection: 'aside', position: 'first_content' },
+          },
+        ],
+        status: 'proposed',
+        summary: 'Add sidebar copy',
+      }).success
+    ).toBe(true);
+  });
+
   it('accepts a bounded proposed plan and a refusal with no operations', () => {
     expect(builderAiModelPlanSchema.safeParse(proposedPlan).success).toBe(true);
     expect(

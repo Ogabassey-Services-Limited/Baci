@@ -23,6 +23,7 @@ import {
 import { applyBuilderAiTheme } from './builder-ai-theme-presets';
 import { createBuilderComponentId } from './create-builder-component-id';
 import { findBuilderAiComponent } from './find-builder-ai-component';
+import { getBuilderAiContentCollectionEntries } from './get-builder-ai-content-collection-entries';
 import {
   type BuilderAiComponent,
   getBuilderAiContentCollections,
@@ -63,6 +64,18 @@ function getValidCandidate(
     throw new BuilderAiEditPlanError(validation.failure);
   }
   return validation.candidateConfig;
+}
+function getFirstContentDestination(
+  config: BuilderData,
+  collection: string | undefined
+): BuilderAiComponent[] {
+  const destination = getBuilderAiContentCollectionEntries(config).find(
+    (entry) => entry.collection === (collection ?? 'content')
+  )?.content;
+  if (!destination) {
+    throw new BuilderAiEditPlanError('Placement collection was not found');
+  }
+  return destination;
 }
 function applyOperation(
   config: BuilderData,
@@ -142,7 +155,7 @@ function applyOperation(
               config,
               operation.placement.componentId ?? ''
             )?.content ?? content)
-          : content;
+          : getFirstContentDestination(config, operation.placement.collection);
       const insertionIndex = getBuilderAiDestinationIndex(
         config,
         destinationContent,
@@ -191,7 +204,7 @@ function applyOperation(
       const destinationContent =
         destinationTarget?.content ??
         (operation.destination.position === 'first_content'
-          ? content
+          ? getFirstContentDestination(config, operation.destination.collection)
           : source.content);
       let destination = getBuilderAiDestinationIndex(
         config,

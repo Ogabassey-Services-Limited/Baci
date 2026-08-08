@@ -5,7 +5,7 @@ export function getBuilderAiInsertOffset(
   content: BuilderAiComponent[],
   placement:
     | { componentId: string; position: 'after' }
-    | { position: 'first_content' }
+    | { collection?: string; position: 'first_content' }
 ): number {
   const key =
     placement.position === 'after'

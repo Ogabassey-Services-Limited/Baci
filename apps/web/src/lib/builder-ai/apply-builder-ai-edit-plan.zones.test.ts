@@ -16,6 +16,35 @@ function plan(
 }
 
 describe('applyBuilderAiEditPlan zones', () => {
+  it('inserts at the beginning of the named zone instead of root content', () => {
+    const config: BuilderData = {
+      content: [block('Header', 'header-1'), block('Footer', 'footer-1')],
+      root: { title: 'Home' },
+      zones: { aside: [block('Text', 'zone-text')] },
+    };
+
+    const result = applyBuilderAiEditPlan(
+      config,
+      plan([
+        {
+          initialContent: { componentType: 'Text', content: 'Zone first' },
+          kind: 'insert_component',
+          placement: { collection: 'aside', position: 'first_content' },
+        },
+      ]),
+      () => 'zone-first'
+    );
+
+    expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
+      ['header-1', 'footer-1']
+    );
+    expect(
+      (result.candidateConfig.zones?.aside as BuilderData['content']).map(
+        (item) => item.props.id
+      )
+    ).toEqual(['zone-first', 'zone-text']);
+  });
+
   it('inserts beside a placement target projected from a zone', () => {
     const config: BuilderData = {
       content: [block('Header', 'header-1'), block('Footer', 'footer-1')],

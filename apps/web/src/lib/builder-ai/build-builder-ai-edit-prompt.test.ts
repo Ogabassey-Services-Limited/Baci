@@ -202,8 +202,16 @@ describe('buildBuilderAiEditPrompt', () => {
       prompt: 'Update the zone title',
     });
 
-    expect(prompt).toContain('zone-text');
-    expect(prompt).toContain('Zone title');
+    const components = JSON.parse(
+      prompt.match(/<safe-components>(.+)<\/safe-components>/)?.[1] ?? ''
+    ) as Record<string, unknown>[];
+
+    expect(components).toContainEqual({
+      collection: 'aside',
+      id: 'zone-text',
+      props: { title: 'Zone title' },
+      type: 'Text',
+    });
   });
 
   it('rejects component and serialized projection budgets before prompt construction', () => {

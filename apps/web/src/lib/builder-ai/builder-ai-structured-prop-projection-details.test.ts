@@ -7,6 +7,7 @@ describe('builderAiStructuredPropProjectionDetails', () => {
       builderAiStructuredPropProjectionDetails['Header.navigationLinks']
     ).toEqual({
       maximumItems: 8,
+      uniqueBy: 'label',
       members: [
         { name: 'label', required: true, valueType: 'string' },
         { name: 'url', required: true, valueType: 'safe-storefront-url' },
@@ -16,6 +17,7 @@ describe('builderAiStructuredPropProjectionDetails', () => {
       builderAiStructuredPropProjectionDetails['Footer.quickLinks']
     ).toEqual({
       maximumItems: 8,
+      uniqueBy: 'label',
       members: [
         { name: 'label', required: true, valueType: 'string' },
         { name: 'url', required: true, valueType: 'safe-storefront-url' },
@@ -34,6 +36,7 @@ describe('builderAiStructuredPropProjectionDetails', () => {
       builderAiStructuredPropProjectionDetails['Features.features']
     ).toMatchObject({
       maximumItems: 8,
+      uniqueBy: 'title',
       members: expect.arrayContaining([
         expect.objectContaining({ name: 'icon', required: false }),
       ]),

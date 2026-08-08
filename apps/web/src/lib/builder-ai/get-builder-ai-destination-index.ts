@@ -5,7 +5,11 @@ import type { BuilderAiComponent } from './get-builder-ai-content-collections';
 export function getBuilderAiDestinationIndex(
   config: BuilderData,
   content: BuilderAiComponent[],
-  placement: { componentId?: string; position: 'after' | 'first_content' },
+  placement: {
+    collection?: string;
+    componentId?: string;
+    position: 'after' | 'first_content';
+  },
   createError: (message: string) => Error
 ): number {
   const bounds = {

@@ -15,6 +15,7 @@ export const builderAiStructuredPropProjectionDetails: Record<string, object> =
         },
       ],
       minimumItems: 1,
+      uniqueBy: 'title',
     },
     'Footer.quickLinks': {
       maximumItems: 8,
@@ -22,6 +23,7 @@ export const builderAiStructuredPropProjectionDetails: Record<string, object> =
         { name: 'label', required: true, valueType: 'string' },
         { name: 'url', required: true, valueType: 'safe-storefront-url' },
       ],
+      uniqueBy: 'label',
     },
     'Header.ctaButton': {
       members: [
@@ -36,5 +38,6 @@ export const builderAiStructuredPropProjectionDetails: Record<string, object> =
         { name: 'label', required: true, valueType: 'string' },
         { name: 'url', required: true, valueType: 'safe-storefront-url' },
       ],
+      uniqueBy: 'label',
     },
   } as const;

@@ -30,4 +30,13 @@ describe('applyBuilderAiRootTitle', () => {
       root: { props: { title: 'New' }, title: 'New' },
     });
   });
+
+  it('treats the rendered Puck title as a no-op when legacy title is stale', () => {
+    const root = { props: { title: 'Rendered title' }, title: 'Stale title' };
+
+    expect(applyBuilderAiRootTitle(root, 'Rendered title')).toEqual({
+      changed: false,
+      root,
+    });
+  });
 });

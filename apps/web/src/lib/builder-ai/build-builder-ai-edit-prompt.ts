@@ -7,6 +7,7 @@ import {
   getBuilderAiCatalogProjection,
   isAiEditableComponent,
 } from './builder-ai-component-catalog';
+import { getBuilderAiContentCollectionEntries } from './get-builder-ai-content-collection-entries';
 import { getBuilderAiContentCollections } from './get-builder-ai-content-collections';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
 import { sanitizeBuilderAiProps } from './sanitize-builder-ai-props';
@@ -31,7 +32,7 @@ const operationExamples = [
   {
     initialContent: { componentType: 'Text', content: 'Supporting copy' },
     kind: 'insert_component',
-    placement: { position: 'first_content' },
+    placement: { collection: 'content', position: 'first_content' },
   },
   {
     initialContent: { componentType: 'Text', content: 'Supporting copy' },
@@ -41,7 +42,7 @@ const operationExamples = [
   { componentId: 'component-id', kind: 'remove_component' },
   {
     componentId: 'component-id',
-    destination: { position: 'first_content' },
+    destination: { collection: 'content', position: 'first_content' },
     kind: 'move_component',
   },
   {
@@ -149,33 +150,38 @@ function getCurrentStateProjection(currentConfig: BuilderData): {
 }
 
 function project(currentConfig: BuilderData): Array<{
+  collection: string;
   id: string;
   props?: Record<string, unknown>;
   type: string;
 }> {
   const projection: Array<{
+    collection: string;
     id: string;
     props?: Record<string, unknown>;
     type: string;
   }> = [];
-  for (const content of getBuilderAiContentCollections(currentConfig)) {
+  for (const { collection, content } of getBuilderAiContentCollectionEntries(
+    currentConfig
+  )) {
     for (const component of content) {
       const id = component.props.id;
       if (typeof id !== 'string' || id.length === 0) continue;
       if (!isAiEditableComponent(component.type)) {
-        projection.push({ id, type: component.type });
+        projection.push({ collection, id, type: component.type });
         continue;
       }
       const { props } = sanitizeBuilderAiProps(component.type, component.props);
       if (component.type === 'HeroCarousel') {
         projection.push({
+          collection,
           id,
           props: { slides: projectCarouselSlides(component.props) },
           type: component.type,
         });
         continue;
       }
-      projection.push({ id, props, type: component.type });
+      projection.push({ collection, id, props, type: component.type });
     }
   }
   return projection;

@@ -1,9 +1,3 @@
-import {
-  type BuilderAiEditCandidate,
-  type BuilderAiEditRequest,
-  builderAiEditContract,
-} from '@baci/shared/contracts';
-
 export interface BuilderConfig {
   content: Array<{
     type: string;
@@ -64,19 +58,4 @@ export function isCurrentBuilderAiRequest(
   requestSequence: number
 ) {
   return sequence.current === requestSequence;
-}
-
-export function buildBuilderAiEditRequest(
-  request: Omit<BuilderAiEditRequest, 'contractVersion'>
-): BuilderAiEditRequest {
-  return builderAiEditContract.requestSchema.parse({
-    ...request,
-    contractVersion: builderAiEditContract.version,
-  });
-}
-
-export function parseBuilderAiEditCandidate(
-  candidate: unknown
-): BuilderAiEditCandidate {
-  return builderAiEditContract.candidateSchema.parse(candidate);
 }
