@@ -38,6 +38,15 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual(['256gb', '5g', 'physical', 'sim']);
   });
 
+  it('retains active noise cancellation as a product variant', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Apple AirPods 4 with Active Noise Cancellation'],
+        []
+      )
+    ).toEqual(['anc']);
+  });
+
   it('retains 32GB storage while excluding the smaller RAM marker', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Samsung A05 4GB 32GB'],

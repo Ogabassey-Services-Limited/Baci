@@ -22,6 +22,7 @@ function tokenize(value: string) {
     .toLowerCase()
     .replace(/[’']s\b/gu, '')
     .replace(/\+/gu, ' plus ')
+    .replace(/(\d{1,2})\.(\d+)(inch|mm)\b/gu, '$1 $2 $3')
     .split(/[^a-z0-9]+/u)
     .map((token) => token.trim())
     .filter(

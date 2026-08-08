@@ -64,6 +64,27 @@ describe('normalizeVariantDiscriminatorTokens', () => {
     expect(tokens).toEqual(['s25', 'ultra', '1tb']);
   });
 
+  it('joins separated battery, wattage, voltage, and refresh-rate units', () => {
+    expect(
+      normalizeVariantDiscriminatorTokens([
+        '10000',
+        'mah',
+        '20',
+        'w',
+        '110',
+        'v',
+        '144',
+        'hz',
+      ])
+    ).toEqual(['10000mah', '20w', '110v', '144hz']);
+  });
+
+  it('canonicalizes active noise cancellation', () => {
+    expect(
+      normalizeVariantDiscriminatorTokens(['active', 'noise', 'cancellation'])
+    ).toEqual(['anc']);
+  });
+
   it('canonicalizes multi-token laptop hardware tiers', () => {
     expect(
       normalizeVariantDiscriminatorTokens(['core', 'ultra', '7', 'rtx', '4060'])

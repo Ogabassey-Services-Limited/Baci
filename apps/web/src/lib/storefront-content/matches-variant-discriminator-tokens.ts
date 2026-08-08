@@ -4,6 +4,7 @@ import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discrim
 const CONNECTIVITY_TOKENS = new Set([
   '4g',
   '5g',
+  'anc',
   'bluetooth',
   'cellular',
   'gps',

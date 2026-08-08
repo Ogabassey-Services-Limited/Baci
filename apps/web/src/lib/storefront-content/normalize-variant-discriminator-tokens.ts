@@ -1,6 +1,16 @@
 import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 
-const SPLIT_VARIANT_UNIT_TOKENS = new Set(['gb', 'tb', 'mb', 'mm', 'inch']);
+const SPLIT_VARIANT_UNIT_TOKENS = new Set([
+  'gb',
+  'tb',
+  'mb',
+  'mm',
+  'inch',
+  'mah',
+  'w',
+  'v',
+  'hz',
+]);
 
 function canonicalizeCapacityToken(token: string) {
   const match = token.match(/^(\d+)(gb|tb)$/u);
@@ -22,6 +32,15 @@ export function normalizeVariantDiscriminatorTokens(tokens: string[]) {
     const unitToken = tokens[index + 2] ?? '';
     if (token === 'core' && nextToken === 'ultra' && /^\d+$/u.test(unitToken)) {
       normalizedTokens.push(`coreultra${unitToken}`);
+      index += 2;
+      continue;
+    }
+    if (
+      token === 'active' &&
+      nextToken === 'noise' &&
+      unitToken === 'cancellation'
+    ) {
+      normalizedTokens.push('anc');
       index += 2;
       continue;
     }

@@ -277,6 +277,19 @@ describe('normalizeProductModelTokens', () => {
     ).toEqual(['iphone', '13']);
   });
 
+  it('strips active noise cancellation as a feature suffix', () => {
+    expect(
+      normalizeProductModelTokens([
+        'airpods',
+        '4',
+        'with',
+        'active',
+        'noise',
+        'cancellation',
+      ])
+    ).toEqual(['airpods', '4']);
+  });
+
   it('preserves title words that resemble metadata for game catalogs', () => {
     const tokens = normalizeProductModelTokens(
       ['farcry', 'new', 'dawn', 'us'],

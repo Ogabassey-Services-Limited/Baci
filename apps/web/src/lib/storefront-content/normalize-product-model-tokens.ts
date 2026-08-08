@@ -46,7 +46,13 @@ const DISPLAY_SUFFIX_MARKER_TOKENS = new Set([
   'touchscreen',
   'uhd',
 ]);
-const COLOR_MODIFIER_TOKENS = new Set(['sierra', 'space']);
+const COLOR_MODIFIER_TOKENS = new Set([
+  'black',
+  'natural',
+  'sierra',
+  'space',
+  'titanium',
+]);
 
 const { isConvertibleInConnector } = modelTokenMatchers;
 
@@ -167,11 +173,19 @@ function stripOptionalFeatureSuffix(tokens: string[]) {
       tokens[index + 1] === 'in' &&
       tokens[index + 2] === 'one'
   );
+  const ancIndex = tokens.findIndex(
+    (token, index) =>
+      token === 'with' &&
+      tokens[index + 1] === 'active' &&
+      tokens[index + 2] === 'noise' &&
+      tokens[index + 3] === 'cancellation'
+  );
   const suffixIndex = [
     touchBarIndex,
     allInOneIndex >= 0 && tokens.slice(allInOneIndex + 3).includes('printer')
       ? allInOneIndex
       : -1,
+    ancIndex,
   ].find((index) => index >= 0);
   return suffixIndex !== undefined ? tokens.slice(0, suffixIndex) : tokens;
 }

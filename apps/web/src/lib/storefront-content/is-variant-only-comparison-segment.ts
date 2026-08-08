@@ -3,7 +3,7 @@ import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { normalizeVariantDiscriminatorTokens } from './normalize-variant-discriminator-tokens';
 
 const VARIANT_TOKEN_PATTERN =
-  /^(?:\d+(?:g|gb|tb|mb|mm|inch)|\d+hz|4g|5g|active|bluetooth|cellular|classic|digital|disc|dual|edge|esim|fe|flip|fold|gps|lite|lte|max|mini|nano|neo|physical|plus|power|prime|pro|s|se|sim|single|ultra|wifi|x|xl)$/u;
+  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch|mah|w|v)|\d+hz|4g|5g|active|anc|bluetooth|cellular|classic|corei[3579]|coreultra\d+|digital|disc|dual|edge|esim|fe|flip|fold|gps|lite|lte|max|mini|nano|neo|physical|plus|power|prime|pro|rtx\d+|s|se|sim|single|ultra|wifi|x|xl)$/u;
 const CONTEXT_TOKENS = new Set([
   'buyer',
   'compare',
