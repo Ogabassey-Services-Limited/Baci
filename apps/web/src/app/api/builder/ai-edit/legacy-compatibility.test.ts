@@ -145,6 +145,35 @@ describe('legacy builder compatibility adapter', () => {
     });
   });
 
+  it('returns readable guidance when a nonempty legacy plan leaves the config unchanged', async () => {
+    const response = await handleBuilderAiEditRequest(
+      new Request('http://localhost/api/builder/gemini', { method: 'POST' }),
+      {
+        dependencies: dependencies({
+          runProviderChain: vi.fn().mockResolvedValue({
+            operations: [
+              {
+                componentId: 'hero-1',
+                kind: 'update_component',
+                patch: { componentType: 'Hero', title: 'Welcome' },
+              },
+            ],
+            status: 'proposed',
+            summary: 'Keep the existing hero title',
+          }),
+        }) as never,
+        mode: 'legacy',
+      }
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'builder_ai_no_safe_changes',
+      details: 'No safe changes for Hero.',
+      error: 'No safe changes were made',
+    });
+  });
+
   it('preserves readable refusal guidance for legacy callers', async () => {
     const response = await handleBuilderAiEditRequest(
       new Request('http://localhost/api/builder/gemini', { method: 'POST' }),

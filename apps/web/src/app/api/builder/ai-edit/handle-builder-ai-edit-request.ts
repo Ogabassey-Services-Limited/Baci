@@ -254,6 +254,10 @@ export async function handleBuilderAiEditRequest(
     summary: plan.summary,
     warnings: result.warnings,
   });
+  const hasConfigChanged =
+    JSON.stringify(
+      builderAiEditContract.builderDataSchema.parse(parsed.currentConfig)
+    ) !== JSON.stringify(candidate.candidateConfig);
   logBuilderAiEvent('builder_ai_candidate_created', {
     merchantId: merchant.merchantId,
     operationCount: candidate.operations.length,
@@ -267,12 +271,12 @@ export async function handleBuilderAiEditRequest(
       requestId: parsed.clientRequestId,
       userId: auth.user.id,
     });
-    if (candidate.operations.length === 0 && candidate.warnings.length > 0) {
+    if (!hasConfigChanged) {
       return NextResponse.json(
         {
-          code: 'builder_ai_manual_asset_required',
+          code: 'builder_ai_no_safe_changes',
           details: candidate.warnings.join(' '),
-          error: 'AI changes require manual action',
+          error: 'No safe changes were made',
           requestId: parsed.clientRequestId,
         },
         { status: 422 }
