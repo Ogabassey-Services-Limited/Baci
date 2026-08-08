@@ -9,7 +9,7 @@ function requiresEditableField<T extends { componentType: string }>(
 }
 
 const productGridFields = {
-  columns: z.number().int().min(1).max(4).optional(),
+  columns: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
   componentType: z.literal('ProductGrid'),
   limit: z.number().int().min(1).max(24).optional(),
   showFilters: z.boolean().optional(),

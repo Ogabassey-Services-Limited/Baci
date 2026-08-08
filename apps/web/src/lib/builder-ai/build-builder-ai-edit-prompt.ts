@@ -8,6 +8,7 @@ import {
   isAiEditableComponent,
 } from './builder-ai-component-catalog';
 import { getBuilderAiContentCollections } from './get-builder-ai-content-collections';
+import { isRenderedH1Hero } from './is-rendered-h1-hero';
 import { sanitizeBuilderAiProps } from './sanitize-builder-ai-props';
 
 interface PromptInput {
@@ -110,6 +111,23 @@ function project(
   return projection;
 }
 
+function getRequiredRemovalComponentIds(currentConfig: BuilderData): string[] {
+  const components = getBuilderAiContentCollections(currentConfig).flat();
+  const soleId = (
+    predicate: (component: BuilderData['content'][number]) => boolean
+  ): string[] => {
+    const matches = components.filter(predicate);
+    const id = matches[0]?.props.id;
+    return matches.length === 1 && typeof id === 'string' && id.length > 0
+      ? [id]
+      : [];
+  };
+  return [
+    ...soleId((component) => component.type === 'ProductGrid'),
+    ...soleId(isRenderedH1Hero),
+  ];
+}
+
 export function buildBuilderAiEditPrompt({
   currentConfig,
   prompt,
@@ -118,6 +136,10 @@ export function buildBuilderAiEditPrompt({
     allowedComponentTypes: Object.keys(aiEditableComponents),
     catalog: getBuilderAiCatalogProjection(),
     operationExamples,
+    removalConstraints: {
+      instruction: 'Do not remove these required component ids.',
+      protectedComponentIds: getRequiredRemovalComponentIds(currentConfig),
+    },
   });
   const projection = project(currentConfig);
   const componentProjection = serializeQuotedData(projection);

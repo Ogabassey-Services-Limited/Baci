@@ -45,4 +45,13 @@ describe('builder AI edit ProductGrid patch', () => {
     expect(defaultResult.success).toBe(true);
     expect(invalidResult.success).toBe(false);
   });
+
+  it('rejects the unsupported one-column product grid layout', () => {
+    expect(
+      productGridPatchSchema.safeParse({
+        columns: 1,
+        componentType: 'ProductGrid',
+      }).success
+    ).toBe(false);
+  });
 });

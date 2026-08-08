@@ -170,7 +170,7 @@ const enumProps: Record<string, readonly string[]> = {
 };
 const numberRanges: Record<string, readonly [number, number, boolean?]> = {
   'Features.columns': [2, 4, true],
-  'ProductGrid.columns': [1, 4, true],
+  'ProductGrid.columns': [2, 4, true],
   'ProductGrid.limit': [1, 24, true],
   'Testimonial.rating': [0, 5, true],
 };

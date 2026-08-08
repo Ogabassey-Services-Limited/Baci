@@ -9,11 +9,11 @@ import {
   applyBuilderAiComponentPatch,
 } from './apply-builder-ai-component-patches';
 import { applyBuilderAiRootTitle } from './apply-builder-ai-root-title';
+import { assertBuilderAiComponentMutable } from './assert-builder-ai-component-mutable';
 import {
   createInsertableComponentProps,
   isAiEditableComponent,
   isAiInsertableComponent,
-  isProtectedAiComponent,
 } from './builder-ai-component-catalog';
 import {
   getBuilderAiStructuralBaseline,
@@ -35,6 +35,7 @@ import { getBuilderComponentId } from './get-builder-component-id';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
 import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
 import { pushBuilderAiWarnings } from './push-builder-ai-warnings';
+import { resetBuilderAiInsertOffset } from './reset-builder-ai-insert-offset';
 import { sanitizeBuilderAiProps } from './sanitize-builder-ai-props';
 
 export class BuilderAiEditPlanError extends Error {}
@@ -63,14 +64,6 @@ function getValidCandidate(
     throw new BuilderAiEditPlanError(validation.failure);
   }
   return validation.candidateConfig;
-}
-function assertMutable(component: BuilderAiComponent): void {
-  if (
-    !isAiEditableComponent(component.type) ||
-    isProtectedAiComponent(component.type)
-  ) {
-    throw new BuilderAiEditPlanError('Component is protected or unsupported');
-  }
 }
 function applyOperation(
   config: BuilderData,
@@ -173,7 +166,7 @@ function applyOperation(
       if (!target)
         throw new BuilderAiEditPlanError('Component target was not found');
       const component = target.content[target.index];
-      assertMutable(component);
+      assertBuilderAiComponentMutable(component, BuilderAiEditPlanError);
       if (
         isRenderedH1Hero(component) &&
         getBuilderAiContentCollections(config).flat().filter(isRenderedH1Hero)
@@ -189,7 +182,7 @@ function applyOperation(
       if (!source)
         throw new BuilderAiEditPlanError('Component target was not found');
       const component = source.content[source.index];
-      assertMutable(component);
+      assertBuilderAiComponentMutable(component, BuilderAiEditPlanError);
       const destinationTarget = findBuilderAiComponent(
         config,
         operation.destination.position === 'after'
@@ -216,6 +209,11 @@ function applyOperation(
         pushBuilderAiWarnings(warnings, ['No safe changes for move.']);
         return;
       }
+      resetBuilderAiInsertOffset(
+        insertOffsets,
+        source.content,
+        operation.componentId
+      );
       source.content.splice(source.index, 1);
       destinationContent.splice(destination, 0, component);
       return;

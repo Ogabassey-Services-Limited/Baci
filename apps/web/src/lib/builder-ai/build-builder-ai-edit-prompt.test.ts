@@ -101,6 +101,30 @@ describe('buildBuilderAiEditPrompt', () => {
     );
   });
 
+  it('tells providers which sole required components cannot be removed', () => {
+    const prompt = buildBuilderAiEditPrompt({
+      currentConfig: {
+        content: [
+          {
+            props: { headingLevel: 'h1', id: 'hero-h1' },
+            type: 'Hero',
+          },
+          { props: { id: 'products-only' }, type: 'ProductGrid' },
+        ],
+        root: { title: 'Home' },
+      },
+      prompt: 'Remove the products and heading',
+    });
+    const guide = JSON.parse(
+      prompt.match(/<operation-guide>(.+)<\/operation-guide>/)?.[1] ?? ''
+    ) as { removalConstraints?: { protectedComponentIds?: string[] } };
+
+    expect(guide.removalConstraints?.protectedComponentIds).toEqual([
+      'products-only',
+      'hero-h1',
+    ]);
+  });
+
   it('projects safe existing carousel slides for targeted slide edits', () => {
     const prompt = buildBuilderAiEditPrompt({
       currentConfig: {
