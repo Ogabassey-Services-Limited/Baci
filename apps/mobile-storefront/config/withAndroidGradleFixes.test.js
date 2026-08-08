@@ -21,6 +21,7 @@ jest.mock('@expo/config-plugins', () => ({
 }));
 
 const withAndroidGradleFixes = require('./withAndroidGradleFixes');
+const ensurePostHogAndroidUploadsEnabled = require('./withAndroidGradleFixes.posthog');
 
 function writeProjectFile(projectRoot, relativePath, content) {
   const filePath = path.join(projectRoot, relativePath);
@@ -39,6 +40,22 @@ describe('withAndroidGradleFixes', () => {
     }
     mockPlatformProjectRoot = undefined;
     mockFinalizedModCalls.length = 0;
+  });
+
+  it('sets PostHog skip-on-conflict before the upload plugin is applied', () => {
+    const appBuildGradle =
+      ensurePostHogAndroidUploadsEnabled(`apply plugin: "com.android.application"
+
+apply from: new File(["node", "--print", "require('path').join(require('path').dirname(require.resolve('posthog-react-native')), '..', 'tooling', 'posthog.gradle')"].execute().text.trim())
+`);
+
+    expect(appBuildGradle).toContain('posthogReactNativeSkipOnConflict = true');
+    expect(
+      appBuildGradle.match(/posthogReactNativeSkipOnConflict = true/g)
+    ).toHaveLength(1);
+    expect(
+      appBuildGradle.indexOf('posthogReactNativeSkipOnConflict = true')
+    ).toBeLessThan(appBuildGradle.indexOf('posthog.gradle'));
   });
 
   it('applies Gradle fixes while retaining the Kotlin Android plugin', async () => {
