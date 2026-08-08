@@ -13,6 +13,7 @@ const styles = { ...repairsCatalogStyles, ...repairDeviceCatalogStyles };
 
 interface RepairDeviceCatalogProps {
   groups: RepairDeviceBrandGroup[];
+  brandGroups?: RepairDeviceBrandGroup[];
   query: string;
   onQueryChange: (query: string) => void;
   onSelectDevice: (device: RepairDeviceSummary) => void;
@@ -29,6 +30,7 @@ interface RepairDeviceCatalogProps {
  */
 export function RepairDeviceCatalog({
   groups,
+  brandGroups = [],
   query,
   onQueryChange,
   onSelectDevice,
@@ -39,6 +41,7 @@ export function RepairDeviceCatalog({
   const colors = Colors[colorScheme ?? 'light'];
   const heroForeground = colors.background;
   const hasResults = groups.some((group) => group.devices.length > 0);
+  const brandShortcutGroups = brandGroups.length > 0 ? brandGroups : groups;
 
   return (
     <ScrollView
@@ -153,7 +156,7 @@ export function RepairDeviceCatalog({
         />
       </View>
 
-      {groups.length > 0 ? (
+      {brandShortcutGroups.length > 0 ? (
         <View style={styles.brandRail}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
             Popular brands
@@ -163,7 +166,7 @@ export function RepairDeviceCatalog({
             horizontal
             showsHorizontalScrollIndicator={false}
           >
-            {groups.map((group) => (
+            {brandShortcutGroups.map((group) => (
               <Pressable
                 key={group.brand}
                 style={[styles.brandChip, { backgroundColor: colors.muted }]}

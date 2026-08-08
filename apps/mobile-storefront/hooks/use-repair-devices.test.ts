@@ -43,8 +43,22 @@ describe('useRepairDevices', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.groups).toEqual(sampleGroups);
+    expect(result.current.brandGroups).toEqual(sampleGroups);
     expect(result.current.isUnavailable).toBe(false);
     expect(result.current.error).toBeNull();
+  });
+
+  it('preserves the unfiltered brand groups while a search is active', async () => {
+    mocks.mockResolvedValueOnce(sampleGroups);
+    mocks.mockResolvedValueOnce([]);
+
+    const { result } = renderHook(() => useRepairDevices());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.setQuery('nokia'));
+    await waitFor(() => expect(result.current.groups).toEqual([]));
+
+    expect(result.current.brandGroups).toEqual(sampleGroups);
   });
 
   it('marks the catalogue unavailable on RepairCatalogUnavailableError', async () => {

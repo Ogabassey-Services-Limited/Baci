@@ -184,6 +184,16 @@ export function RepairsCatalogScreen() {
               ? "We couldn't find that device."
               : (detail.error ?? 'Something went wrong.')}
           </Text>
+          {!detail.isNotFound ? (
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={detail.refetch}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading device"
+            >
+              <Text style={styles.secondaryButtonText}>Try again</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             style={styles.secondaryButton}
             onPress={goBackOneStep}
@@ -239,6 +249,7 @@ export function RepairsCatalogScreen() {
       {screen}
       <RepairDeviceCatalog
         groups={devices.groups}
+        brandGroups={devices.brandGroups}
         query={devices.query}
         onQueryChange={devices.setQuery}
         onSelectDevice={handleSelectDevice}

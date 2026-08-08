@@ -127,6 +127,25 @@ describe('RepairDeviceCatalog', () => {
     expect(screen.getByText(/No devices found for "nokia"/)).toBeTruthy();
   });
 
+  it('keeps all brand shortcuts available when the current search is filtered', () => {
+    render(
+      <RepairDeviceCatalog
+        groups={[groups[0]]}
+        brandGroups={groups}
+        query="apple"
+        onQueryChange={onQueryChange}
+        onSelectDevice={onSelectDevice}
+        onDescribeInstead={onDescribeInstead}
+        onChatWhatsapp={onChatWhatsapp}
+      />
+    );
+
+    expect(screen.getByLabelText('Filter by Samsung')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Filter by Samsung'));
+
+    expect(onQueryChange).toHaveBeenCalledWith('Samsung');
+  });
+
   it('wires the not-listed CTAs to their callbacks', () => {
     render(
       <RepairDeviceCatalog

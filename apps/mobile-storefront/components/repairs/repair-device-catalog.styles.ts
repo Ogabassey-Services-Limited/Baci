@@ -170,31 +170,6 @@ export const repairDeviceCatalogStyles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 2,
   },
-  deviceMeta: {
-    fontSize: 12,
-  },
-  emptyText: {
-    fontSize: 14,
-    marginBottom: SPACING.md,
-    textAlign: 'center',
-  },
-  notListedCard: {
-    borderRadius: RADIUS.lg,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    gap: SPACING.sm,
-    marginTop: SPACING.sm,
-    padding: SPACING.md,
-  },
-  notListedTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  notListedDesc: {
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: SPACING.xs,
-  },
   careCard: {
     alignItems: 'center',
     borderRadius: RADIUS.xl,
@@ -221,20 +196,5 @@ export const repairDeviceCatalogStyles = StyleSheet.create({
   careText: {
     fontSize: 12,
     lineHeight: 17,
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    borderColor: BRAND.primary,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: SPACING.xs,
-    justifyContent: 'center',
-    paddingVertical: SPACING.sm,
-  },
-  secondaryButtonText: {
-    color: BRAND.primary,
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

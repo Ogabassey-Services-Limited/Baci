@@ -8,6 +8,7 @@ import {
 
 export interface UseRepairDevicesResult {
   groups: RepairDeviceBrandGroup[];
+  brandGroups: RepairDeviceBrandGroup[];
   isLoading: boolean;
   /** True when the catalogue is disabled/unavailable for this merchant (404) — render the WhatsApp fallback, not an error state. */
   isUnavailable: boolean;
@@ -25,6 +26,7 @@ export interface UseRepairDevicesResult {
  */
 export function useRepairDevices(): UseRepairDevicesResult {
   const [groups, setGroups] = useState<RepairDeviceBrandGroup[]>([]);
+  const [brandGroups, setBrandGroups] = useState<RepairDeviceBrandGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnavailable, setIsUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +45,9 @@ export function useRepairDevices(): UseRepairDevicesResult {
       .then((result) => {
         if (requestIdRef.current !== requestId) return;
         setGroups(result);
+        if (!query.trim()) {
+          setBrandGroups(result);
+        }
         setIsUnavailable(false);
       })
       .catch((err: unknown) => {
@@ -69,6 +74,7 @@ export function useRepairDevices(): UseRepairDevicesResult {
 
   return {
     groups,
+    brandGroups,
     isLoading,
     isUnavailable,
     error,
