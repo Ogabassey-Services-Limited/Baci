@@ -8,13 +8,20 @@ vi.mock('react-native', () => ({
   Pressable: ({
     accessibilityLabel,
     children,
+    disabled,
     onPress,
   }: {
     accessibilityLabel?: string;
     children?: ReactNode;
+    disabled?: boolean;
     onPress?: () => void;
   }) => (
-    <button aria-label={accessibilityLabel} onClick={onPress} type="button">
+    <button
+      aria-label={accessibilityLabel}
+      disabled={disabled}
+      onClick={onPress}
+      type="button"
+    >
       {children}
     </button>
   ),
@@ -86,5 +93,19 @@ describe('MerchantSetupProgress', () => {
     fireEvent.click(screen.getByRole('button', { name: 'About you' }));
 
     expect(onAboutYouPress).toHaveBeenCalledOnce();
+  });
+
+  it('does not return to about-you details from the first step', () => {
+    const onAboutYouPress = vi.fn();
+    render(
+      <MerchantSetupProgress step={1} onAboutYouPress={onAboutYouPress} />
+    );
+
+    const aboutYouButton = screen.getByRole('button', { name: 'About you' });
+    expect(aboutYouButton).toBeDisabled();
+
+    fireEvent.click(aboutYouButton);
+
+    expect(onAboutYouPress).not.toHaveBeenCalled();
   });
 });

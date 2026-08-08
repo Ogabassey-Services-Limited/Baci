@@ -84,9 +84,11 @@ vi.mock('@/hooks/useTheme', () => ({
 
 function renderStep({
   businessType = '',
+  onBack = vi.fn(),
   slugError,
 }: {
   businessType?: string;
+  onBack?: () => void;
   slugError?: string;
 } = {}) {
   render(
@@ -99,7 +101,7 @@ function renderStep({
         slug: '',
       }}
       isLoading={false}
-      onBack={vi.fn()}
+      onBack={onBack}
       onBusinessNameChange={vi.fn()}
       onBusinessTypeChange={vi.fn()}
       onLaunchStore={vi.fn()}
@@ -129,11 +131,12 @@ describe('RegisterBusinessStep business name normalization', () => {
   });
 
   it('offers a way back to the about-you step', () => {
-    renderStep();
+    const onBack = vi.fn();
+    renderStep({ onBack });
 
-    expect(
-      screen.getByRole('button', { name: 'Back to about you' })
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to about you' }));
+
+    expect(onBack).toHaveBeenCalledOnce();
   });
 
   it('capitalizes every word typed or pasted into Business Name', () => {
