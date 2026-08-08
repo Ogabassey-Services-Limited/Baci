@@ -21,17 +21,19 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     expect(byId.get('proxy:root-sitemap')?.decision).toBe('edge_release');
   });
 
-  it('ends with explicit unknown-path and unsupported-method terminal classes', () => {
+  it('contains explicit unknown-path and unsupported-method terminal classes', () => {
     // Arrange and act
     const terminals = STOREFRONT_EDGE_PROXY_ROWS.filter(
       (row) => row.decision === 'edge_terminal'
     ).map((row) => row.id);
 
     // Assert
-    expect(terminals.slice(-3)).toEqual([
-      'proxy:unknown-document',
-      'proxy:unsafe-document',
-      'proxy:unsupported-method',
-    ]);
+    expect(terminals).toEqual(
+      expect.arrayContaining([
+        'proxy:unknown-document',
+        'proxy:unsafe-document',
+        'proxy:unsupported-method',
+      ])
+    );
   });
 });

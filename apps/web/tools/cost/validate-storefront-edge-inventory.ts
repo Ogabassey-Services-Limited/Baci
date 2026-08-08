@@ -12,7 +12,31 @@ type ValidationOptions = Readonly<{
   repoRoot: string;
 }>;
 
-async function readInventory(path: string): Promise<StorefrontEdgeInventory> {
+type InventoryReadCandidate = Readonly<{
+  originMainSha: string;
+  pilotCandidateHostnames: readonly string[];
+}> &
+  Record<string, unknown>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isInventoryReadCandidate(
+  value: unknown
+): value is InventoryReadCandidate {
+  if (!isRecord(value)) return false;
+  const candidate = value;
+  return (
+    typeof candidate.originMainSha === 'string' &&
+    Array.isArray(candidate.pilotCandidateHostnames) &&
+    candidate.pilotCandidateHostnames.every(
+      (hostname: unknown) => typeof hostname === 'string'
+    )
+  );
+}
+
+async function readInventory(path: string): Promise<InventoryReadCandidate> {
   const handle = await open(
     resolve(path),
     constants.O_RDONLY | constants.O_NOFOLLOW
@@ -22,18 +46,9 @@ async function readInventory(path: string): Promise<StorefrontEdgeInventory> {
     if (!stat.isFile())
       throw new Error('inventory input must be a regular file');
     const value: unknown = JSON.parse(await handle.readFile('utf8'));
-    if (
-      value === null ||
-      typeof value !== 'object' ||
-      !Array.isArray(
-        (value as Record<string, unknown>).pilotCandidateHostnames
-      ) ||
-      !(
-        (value as Record<string, unknown>).pilotCandidateHostnames as unknown[]
-      ).every((hostname) => typeof hostname === 'string')
-    )
+    if (!isInventoryReadCandidate(value))
       throw new Error('inventory input has an invalid shape');
-    return value as StorefrontEdgeInventory;
+    return value;
   } finally {
     await handle.close();
   }

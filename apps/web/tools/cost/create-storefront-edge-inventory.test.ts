@@ -6,6 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
+import task1aInventory from '../../../../docs/superpowers/evidence/storefront-edge/task-1a-inventory.json';
 import { createStorefrontEdgeInventory } from './create-storefront-edge-inventory';
 import { createStorefrontEdgeInventoryFixture } from './storefront-edge-inventory.test-support';
 
@@ -136,10 +137,18 @@ describe('createStorefrontEdgeInventory', () => {
     const entrypoints = inventory.rows.filter(
       (row) => row.sourceKind === 'storefront_entrypoint'
     );
+    const expectedSourcePaths = task1aInventory.rows
+      .filter((row) => row.sourceKind === 'storefront_entrypoint')
+      .map((row) => row.sourcePath);
 
     // Assert
-    expect(entrypoints).toHaveLength(74);
-    expect(new Set(entrypoints.map((row) => row.sourcePath)).size).toBe(74);
+    expect(entrypoints.length).toBeGreaterThan(0);
+    expect(entrypoints.map((row) => row.sourcePath)).toEqual(
+      expectedSourcePaths
+    );
+    expect(new Set(entrypoints.map((row) => row.sourcePath)).size).toBe(
+      entrypoints.length
+    );
     expect(
       entrypoints.find(
         (row) => row.routePattern === '/{category}/{productSlug}'

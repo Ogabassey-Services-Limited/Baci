@@ -27,4 +27,14 @@ describe('canonicalizeStorefrontEdgeInventoryValue', () => {
     // Assert
     expect(result).toBe('{"z":2,"ä":1}');
   });
+
+  it('rejects values that JSON cannot serialize', () => {
+    // Arrange
+    const value = Symbol('not-json-serializable');
+
+    // Act and assert
+    expect(() => canonicalizeStorefrontEdgeInventoryValue(value)).toThrow(
+      'inventory value is not JSON serializable'
+    );
+  });
 });

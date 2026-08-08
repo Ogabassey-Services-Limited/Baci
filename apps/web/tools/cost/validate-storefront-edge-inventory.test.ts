@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -37,6 +37,39 @@ afterEach(async () => {
 });
 
 describe('validateStorefrontEdgeInventory', () => {
+  it('validates the checked-in Task 1A artifact against the live routing tree', async () => {
+    // Arrange
+    const repoRoot = join(toolDirectory, '../../../..');
+    const inputPath = join(
+      repoRoot,
+      'docs/superpowers/evidence/storefront-edge/task-1a-inventory.json'
+    );
+    const artifact: unknown = JSON.parse(await readFile(inputPath, 'utf8'));
+    if (
+      artifact === null ||
+      typeof artifact !== 'object' ||
+      !('originMainSha' in artifact) ||
+      typeof artifact.originMainSha !== 'string'
+    )
+      throw new Error('checked-in inventory source authority is missing');
+    const sourceSha = artifact.originMainSha;
+
+    // Act
+    const result = await validateStorefrontEdgeInventory({
+      repoRoot,
+      inputPath,
+      expectedOriginMainSha: sourceSha,
+    });
+
+    // Assert
+    expect(result).toEqual({
+      inventorySha256:
+        'ebf6924ea291595c1e25a1719f699f1b2ce5426d5f9f20bb302cc34d9bf91bfe',
+      rowCount: 130,
+      storefrontEntrypointCount: 74,
+    });
+  });
+
   it('accepts an exact artifact regenerated from the checked-out tree', async () => {
     // Arrange
     const { artifact, inputPath, repoRoot } = await arrangeInventory();
@@ -135,7 +168,9 @@ describe('validateStorefrontEdgeInventory', () => {
         inputPath,
         expectedOriginMainSha: FIXTURE_SOURCE_SHA,
       })
-    ).rejects.toThrow('inventory');
+    ).rejects.toThrow(
+      'inventory artifact does not match the canonical source tree'
+    );
   });
 
   it('rejects routing and proxy input drift after the artifact was generated', async () => {
@@ -153,7 +188,9 @@ describe('validateStorefrontEdgeInventory', () => {
         inputPath,
         expectedOriginMainSha: FIXTURE_SOURCE_SHA,
       })
-    ).rejects.toThrow('inventory');
+    ).rejects.toThrow(
+      'inventory artifact does not match the canonical source tree'
+    );
   });
 
   it('rejects a non-string pilot hostname before regeneration', async () => {
