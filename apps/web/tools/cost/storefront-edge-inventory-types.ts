@@ -61,6 +61,8 @@ type StorefrontEdgeInventoryRow = Readonly<{
       | 'legacy_blog_category_permalink'
       | 'legacy_blog_wordpress_probe'
       | 'legacy_blog_spam_prefix'
+      | 'blog_post_status_redirect'
+      | 'blog_post_status_missing'
       | 'legacy_klump_webhook_normalized'
       | 'mixed_case_path'
       | 'noncanonical_product_route_or_variant'

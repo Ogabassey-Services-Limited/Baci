@@ -87,9 +87,12 @@ export async function validateStorefrontEdgeInventory(
   return {
     inventorySha256: regenerated.inventorySha256,
     rowCount: regenerated.rows.length,
-    storefrontEntrypointCount: regenerated.rows.filter(
-      ({ sourceKind }) => sourceKind === 'storefront_entrypoint'
-    ).length,
+    storefrontEntrypointCount: new Set(
+      regenerated.rows
+        .filter(({ sourceKind }) => sourceKind === 'storefront_entrypoint')
+        .map(({ sourcePath }) => sourcePath)
+        .filter((sourcePath): sourcePath is string => Boolean(sourcePath))
+    ).size,
   };
 }
 

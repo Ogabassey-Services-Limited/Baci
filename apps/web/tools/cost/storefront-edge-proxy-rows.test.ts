@@ -126,6 +126,8 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       'proxy:blog-category-canonical': 'legacy_blog_category_permalink',
       'proxy:blog-wordpress-probe': 'legacy_blog_wordpress_probe',
       'proxy:blog-spam-prefix': 'legacy_blog_spam_prefix',
+      'proxy:blog-post-status-redirect': 'blog_post_status_redirect',
+      'proxy:blog-post-status-missing': 'blog_post_status_missing',
       'proxy:cache-safe-punctuation': 'cache_safe_imported_punctuation',
       'proxy:lowercase-document': 'mixed_case_path',
       'proxy:no-trailing-slash': 'trailing_slash_excluding_well_known',

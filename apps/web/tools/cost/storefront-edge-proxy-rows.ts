@@ -82,6 +82,32 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
+    'proxy:blog-post-status-redirect',
+    '/blog/{postSlug}',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'resolved_blog_post_status_redirect',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'blog_post_status_redirect',
+      },
+    }
+  ),
+  proxyClass(
+    'proxy:blog-post-status-missing',
+    '/blog/{postSlug}',
+    ['GET', 'HEAD'],
+    'edge_terminal',
+    'resolved_blog_post_status_missing',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'blog_post_status_missing',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:cache-safe-punctuation',
     '/{*importedPunctuationPath}',
     ['ANY'],

@@ -15,7 +15,7 @@ export function createStorefrontEdgePosthogRelayRows(
   return [relayPath, `${relayPath}/{*path?}`].map((routePattern, index) => ({
     decision: 'origin_dynamic',
     id: `machine:posthog-relay-${index === 0 ? 'root' : 'children'}`,
-    methods: ['GET', 'HEAD', 'POST'],
+    methods: ['ANY'],
     reason: 'configured_posthog_relay',
     routePattern,
     sourceKind: 'machine_family',

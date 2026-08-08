@@ -20,5 +20,6 @@ describe('STOREFRONT_EDGE_PROXY_HOST_ROWS', () => {
       (candidate) => candidate.id === 'proxy:custom-domain-platform-route'
     );
     expect(row?.pathCondition?.firstSegmentIn).toContain('admin');
+    expect(row?.pathCondition?.firstSegmentIn).not.toContain('auth');
   });
 });

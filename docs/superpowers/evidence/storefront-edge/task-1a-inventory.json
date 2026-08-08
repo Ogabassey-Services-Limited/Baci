@@ -5134,9 +5134,7 @@
       "decision": "origin_dynamic",
       "id": "machine:posthog-relay-children",
       "methods": [
-        "GET",
-        "HEAD",
-        "POST"
+        "ANY"
       ],
       "reason": "configured_posthog_relay",
       "routePattern": "/baci-relay/{*path?}",
@@ -5147,9 +5145,7 @@
       "decision": "origin_dynamic",
       "id": "machine:posthog-relay-root",
       "methods": [
-        "GET",
-        "HEAD",
-        "POST"
+        "ANY"
       ],
       "reason": "configured_posthog_relay",
       "routePattern": "/baci-relay",
@@ -5461,6 +5457,36 @@
       }
     },
     {
+      "decision": "edge_terminal",
+      "id": "proxy:blog-post-status-missing",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "resolved_blog_post_status_missing",
+      "routePattern": "/blog/{postSlug}",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "blog_post_status_missing"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:blog-post-status-redirect",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "resolved_blog_post_status_redirect",
+      "routePattern": "/blog/{postSlug}",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "blog_post_status_redirect"
+      }
+    },
+    {
       "decision": "edge_redirect",
       "id": "proxy:blog-query-canonical",
       "methods": [
@@ -5556,7 +5582,6 @@
       },
       "pathCondition": {
         "firstSegmentIn": [
-          "auth",
           "admin",
           "builder",
           "dashboard",
@@ -7286,5 +7311,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "e28ac13f7f0fe0cafa2ffcf0df57f56070bd10f567a968c2b63698b96256c3cf"
+  "inventorySha256": "9f09ae1fe986a1405361d021f78fd32d9669b0d9574b4fb89b01f6134ca4069b"
 }

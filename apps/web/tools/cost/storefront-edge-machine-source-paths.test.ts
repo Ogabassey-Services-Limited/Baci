@@ -9,9 +9,11 @@ describe('STOREFRONT_EDGE_MACHINE_SOURCE_PATHS', () => {
     const declaredPatterns = Object.keys(
       STOREFRONT_EDGE_MACHINE_SOURCE_PATHS
     ).sort();
-    const rowPatterns = STOREFRONT_EDGE_MACHINE_ROWS.map(
-      ({ routePattern }) => routePattern
-    ).sort();
+    const rowPatterns = [
+      ...new Set(
+        STOREFRONT_EDGE_MACHINE_ROWS.map(({ routePattern }) => routePattern)
+      ),
+    ].sort();
 
     // Act and assert
     expect(declaredPatterns).toEqual(rowPatterns);
