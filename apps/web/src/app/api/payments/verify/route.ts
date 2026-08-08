@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
+import { processMerchantInvoicePartialPayment } from '@/lib/payments/process-merchant-invoice-partial-payment';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -82,7 +83,7 @@ async function verifyPaymentReference(reference: string) {
   const { data: transaction, error: transactionError } = await supabase
     .from('transactions')
     .select(
-      'id, order_id, merchant_id, amount, currency, status, gateway, gateway_reference, gateway_response, platform_fee'
+      'id, order_id, merchant_id, amount, currency, status, gateway, gateway_reference, gateway_response, metadata, platform_fee'
     )
     .eq('gateway_reference', parsedReference.data)
     .maybeSingle();
@@ -247,6 +248,29 @@ async function verifyPaymentReference(reference: string) {
         { status: 400 }
       );
     }
+  }
+
+  const merchantInvoicePartialPayment =
+    await processMerchantInvoicePartialPayment({
+      gateway: transaction.gateway as 'korapay' | 'paystack',
+      gatewayResponse: verification.gatewayResponse,
+      reference: parsedReference.data,
+      supabase,
+      transaction: {
+        amount: transaction.amount,
+        currency: transaction.currency,
+        gateway_reference: transaction.gateway_reference,
+        id: transaction.id,
+        merchant_id: transaction.merchant_id,
+        metadata: transaction.metadata,
+        order_id: transaction.order_id,
+        platform_fee: transaction.platform_fee,
+      },
+    });
+  if (merchantInvoicePartialPayment.kind !== 'none') {
+    return NextResponse.json(merchantInvoicePartialPayment.body, {
+      status: merchantInvoicePartialPayment.status,
+    });
   }
 
   // Shared finalizer with the gateway webhook and the reconcile cron: the

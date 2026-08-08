@@ -107,6 +107,26 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(outcome.kind).toBe('completion_failed');
   });
 
+  it('stops an already-recorded strict partial before paid-order side effects', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        merchant_invoice_partial_recorded: true,
+        order_number: 'ORD-PARTIAL',
+        order_updated: false,
+      })
+    );
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(buildSupabase({}))
+    );
+
+    expect(outcome).toEqual({
+      kind: 'partial_recorded',
+      orderNumber: 'ORD-PARTIAL',
+    });
+    expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
+  });
+
   it('files a cancellation review and suppresses side effects for cancelled orders', async () => {
     mocks.completeOrderGatewayPayment.mockResolvedValue(
       completion({

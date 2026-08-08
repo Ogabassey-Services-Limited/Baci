@@ -47,7 +47,7 @@ describe('paystack DVA order alias helpers', () => {
     expect(getOrderStatus(orderAliasRow({ orders: null }))).toBeNull();
   });
 
-  it('treats unpaid and pending aliases inside the 90-minute window as active', () => {
+  it('treats unpaid, pending, and partially-paid aliases inside the 90-minute window as active', () => {
     expect(
       isActiveOrderDvaAlias(
         orderAliasRow(),
@@ -60,6 +60,12 @@ describe('paystack DVA order alias helpers', () => {
         new Date('2026-05-22T11:30:00.000Z')
       )
     ).toBe(true);
+    expect(
+      isActiveOrderDvaAlias(
+        orderAliasRow({ orders: { payment_status: 'partially_paid' } }),
+        new Date('2026-05-22T11:30:00.000Z')
+      )
+    ).toBe(true);
   });
 
   it('keeps the exact 90-minute boundary active', () => {
@@ -69,6 +75,21 @@ describe('paystack DVA order alias helpers', () => {
         new Date('2026-05-22T11:30:00.000Z')
       )
     ).toBe(true);
+  });
+
+  it('anchors a refreshed partially-paid alias window to assigned_at', () => {
+    const alias = orderAliasRow({
+      assigned_at: '2026-05-22T11:00:00.000Z',
+      expires_at: '2026-05-22T12:30:00.000Z',
+      orders: { payment_status: 'partially_paid' },
+    });
+
+    const isActive = isActiveOrderDvaAlias(
+      alias,
+      new Date('2026-05-22T12:00:00.000Z')
+    );
+
+    expect(isActive).toBe(true);
   });
 
   it('treats expired, malformed, and paid aliases as inactive', () => {
@@ -99,6 +120,20 @@ describe('paystack DVA order alias helpers', () => {
       isActiveOrderDvaAlias(
         orderAliasRow({
           orders: { payment_status: 'unpaid', shipping_status: 'cancelled' },
+        }),
+        new Date('2026-05-22T11:30:00.000Z')
+      )
+    ).toBe(false);
+  });
+
+  it('treats a canceled order alias as inactive even when unpaid and in-window', () => {
+    expect(
+      isActiveOrderDvaAlias(
+        orderAliasRow({
+          orders: {
+            payment_status: 'unpaid',
+            shipping_status: 'canceled',
+          },
         }),
         new Date('2026-05-22T11:30:00.000Z')
       )

@@ -48,6 +48,12 @@ vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
     mockRunPaidOrderSideEffects(...args),
 }));
 
+const mockProcessMerchantInvoicePartialPayment = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/payments/process-merchant-invoice-partial-payment', () => ({
+  processMerchantInvoicePartialPayment: (...args: unknown[]) =>
+    mockProcessMerchantInvoicePartialPayment(...args),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
@@ -119,6 +125,7 @@ function buildSupabase({
     string,
     unknown
   > | null,
+  metadata = {} as Record<string, unknown>,
   completion,
   inventoryConfirmationError = null,
 }: {
@@ -126,6 +133,7 @@ function buildSupabase({
   existingOrderStatus?: string;
   gateway?: string;
   gatewayResponse?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown>;
   completion: Record<string, unknown> | null;
   inventoryConfirmationError?: unknown;
 }) {
@@ -179,6 +187,7 @@ function buildSupabase({
             gateway_response: gatewayResponse,
             id: 'txn-1',
             merchant_id: 'merchant-1',
+            metadata,
             order_id: 'order-1',
             platform_fee: 0,
             status: transactionStatus,
@@ -241,6 +250,9 @@ describe('POST /api/payments/verify — finalizer outcomes', () => {
       data: { amount: 100_000, currency: 'NGN', status: 'success' },
       success: true,
     });
+    mockProcessMerchantInvoicePartialPayment.mockResolvedValue({
+      kind: 'none',
+    });
   });
 
   it('suppresses paid-order side effects and files reconciliation when the order is cancelled', async () => {
@@ -269,6 +281,76 @@ describe('POST /api/payments/verify — finalizer outcomes', () => {
         issue_type: 'payment_received_after_cancellation',
         order_id: 'order-1',
       })
+    );
+  });
+
+  it('returns success without paid-order side effects for an applied strict partial', async () => {
+    const supabase = buildSupabase({
+      completion: {
+        already_completed: true,
+        merchant_invoice_partial_recorded: true,
+        order_already_paid: false,
+        order_cancelled: false,
+        order_number: 'ORD-1',
+        order_updated: false,
+        payment_status: 'partially_paid',
+        previous_payment_status: 'partially_paid',
+        shipping_status: 'pending',
+        transaction_status: 'completed',
+      },
+      existingOrderStatus: 'partially_paid',
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      orderNumber: 'ORD-1',
+      status: 'success',
+      success: true,
+    });
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+    expect(mockReconciliationInsert).not.toHaveBeenCalled();
+  });
+
+  it('applies a verified pending merchant-invoice underpayment before standard finalization', async () => {
+    const supabase = buildSupabase({
+      completion: null,
+      metadata: { order_payment_allocation: 'merchant_invoice_partial' },
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+    mockProcessMerchantInvoicePartialPayment.mockResolvedValue({
+      body: {
+        amountPaid: 600,
+        balanceDue: 400,
+        message: 'Merchant invoice partial payment recorded',
+        orderNumber: 'ORD-1',
+        success: true,
+      },
+      kind: 'processed',
+      status: 200,
+    });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      balanceDue: 400,
+      success: true,
+    });
+    expect(mockProcessMerchantInvoicePartialPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gateway: 'paystack',
+        transaction: expect.objectContaining({
+          metadata: { order_payment_allocation: 'merchant_invoice_partial' },
+        }),
+      })
+    );
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'complete_order_gateway_payment',
+      expect.anything()
     );
   });
 

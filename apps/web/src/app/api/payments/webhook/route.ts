@@ -42,6 +42,8 @@ import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import { isMerchantInvoicePartialBalanceReview } from '@/lib/payments/is-merchant-invoice-partial-balance-review';
+import { processMerchantInvoicePartialPayment } from '@/lib/payments/process-merchant-invoice-partial-payment';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
 import { scheduleWalletTopUpCreditNotification } from '@/lib/payments/schedule-wallet-top-up-credit-notification';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
@@ -1304,6 +1306,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const merchantInvoicePartialPayment =
+      await processMerchantInvoicePartialPayment({
+        gateway,
+        gatewayResponse,
+        reference,
+        supabase,
+        transaction,
+      });
+    if (merchantInvoicePartialPayment.kind !== 'none') {
+      return NextResponse.json(merchantInvoicePartialPayment.body, {
+        status: merchantInvoicePartialPayment.status,
+      });
+    }
+
     // Atomically claim the transaction — prevents double-processing on concurrent retries
     const { data: updatedTxn, error: updateError } = await supabase
       .from('transactions')
@@ -1434,6 +1450,18 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(finalizeOutcome.payload, {
             status: finalizeOutcome.status,
           });
+        }
+        if (
+          finalizeOutcome.kind === 'completion_failed' &&
+          isMerchantInvoicePartialBalanceReview(finalizeOutcome.error)
+        ) {
+          return NextResponse.json(
+            {
+              code: 'MERCHANT_INVOICE_PARTIAL_BALANCE_CHANGED',
+              error: 'Payment requires reconciliation review',
+            },
+            { status: 409 }
+          );
         }
         if (
           finalizeOutcome.kind === 'completion_failed' ||
@@ -2676,6 +2704,15 @@ export async function POST(request: NextRequest) {
       });
 
       if (finalizeOutcome.kind === 'completion_failed') {
+        if (isMerchantInvoicePartialBalanceReview(finalizeOutcome.error)) {
+          return NextResponse.json(
+            {
+              code: 'MERCHANT_INVOICE_PARTIAL_BALANCE_CHANGED',
+              error: 'Payment requires reconciliation review',
+            },
+            { status: 409 }
+          );
+        }
         logger.error({
           message: 'Failed to update order',
           orderId: transaction.order_id,

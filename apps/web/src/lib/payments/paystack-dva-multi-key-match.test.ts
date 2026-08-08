@@ -81,6 +81,44 @@ describe('matchPaystackDvaCandidates — happy paths', () => {
       expect(result.candidate.order_id).toBe('fresh-order');
     }
   });
+
+  it('matches a unique underpayment only for a merchant-created invoice', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          merchant_created: true,
+          outstanding_amount_kobo: 83_500_000,
+        }),
+      ],
+      ctx({ verifiedAmountKobo: 30_000_000 })
+    );
+
+    expect(result.kind).toBe('single');
+    if (result.kind === 'single') {
+      expect(result.allocation).toBe('partial');
+      expect(result.candidate.order_id).toBe(
+        '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae'
+      );
+    }
+  });
+
+  it('uses the remaining balance for the final transfer after a partial payment', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          merchant_created: true,
+          outstanding_amount_kobo: 53_500_000,
+          payable_amount_kobo: 83_500_000,
+        }),
+      ],
+      ctx({ verifiedAmountKobo: 53_500_000 })
+    );
+
+    expect(result.kind).toBe('single');
+    if (result.kind === 'single') {
+      expect(result.allocation).toBe('exact');
+    }
+  });
 });
 
 describe('matchPaystackDvaCandidates — amount mismatch (kobo precision)', () => {
@@ -104,6 +142,34 @@ describe('matchPaystackDvaCandidates — amount mismatch (kobo precision)', () =
     const result = matchPaystackDvaCandidates([candidate()], ctx());
 
     expect(result.kind).toBe('single');
+  });
+
+  it('does not treat a storefront-created order underpayment as an invoice partial payment', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          merchant_created: false,
+          outstanding_amount_kobo: 83_500_000,
+        }),
+      ],
+      ctx({ verifiedAmountKobo: 30_000_000 })
+    );
+
+    expect(result.kind).toBe('none');
+  });
+
+  it('does not auto-allocate an overpayment to a merchant-created invoice', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          merchant_created: true,
+          outstanding_amount_kobo: 53_500_000,
+        }),
+      ],
+      ctx({ verifiedAmountKobo: 60_000_000 })
+    );
+
+    expect(result.kind).toBe('none');
   });
 });
 
@@ -147,6 +213,23 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
     if (result.kind === 'single') {
       expect(result.timing).toBe('late');
     }
+  });
+
+  it('does not auto-allocate a late underpayment to a stale merchant invoice', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          merchant_created: true,
+          outstanding_amount_kobo: 83_500_000,
+        }),
+      ],
+      ctx({
+        paidAt: new Date('2026-05-09T12:53:00Z'),
+        verifiedAmountKobo: 30_000_000,
+      })
+    );
+
+    expect(result.kind).toBe('none');
   });
 
   it('uses the unique late-match fallback when account_expires_at is beyond the grace window', () => {
@@ -197,6 +280,32 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
 });
 
 describe('matchPaystackDvaCandidates — ambiguity + zero candidates', () => {
+  it('prefers an exact late match over an in-window merchant invoice partial', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          account_created_at: new Date('2026-05-09T08:00:00Z'),
+          account_expires_at: new Date('2026-05-09T09:30:00Z'),
+          order_id: 'older-exact-order',
+          outstanding_amount_kobo: 30_000_000,
+        }),
+        candidate({
+          merchant_created: true,
+          order_id: 'fresh-partial-invoice',
+          outstanding_amount_kobo: 83_500_000,
+        }),
+      ],
+      ctx({ verifiedAmountKobo: 30_000_000 })
+    );
+
+    expect(result).toMatchObject({
+      allocation: 'exact',
+      candidate: { order_id: 'older-exact-order' },
+      kind: 'single',
+      timing: 'late',
+    });
+  });
+
   it('returns ambiguous when 2+ candidates all match', () => {
     const a = candidate({ order_id: 'order-a' });
     const b = candidate({ order_id: 'order-b' });
@@ -208,6 +317,29 @@ describe('matchPaystackDvaCandidates — ambiguity + zero candidates', () => {
         'order-a',
         'order-b',
       ]);
+    }
+  });
+
+  it('returns ambiguous instead of guessing between merchant invoice partials', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          merchant_created: true,
+          order_id: 'partial-a',
+          outstanding_amount_kobo: 83_500_000,
+        }),
+        candidate({
+          merchant_created: true,
+          order_id: 'partial-b',
+          outstanding_amount_kobo: 90_000_000,
+        }),
+      ],
+      ctx({ verifiedAmountKobo: 30_000_000 })
+    );
+
+    expect(result.kind).toBe('ambiguous');
+    if (result.kind === 'ambiguous') {
+      expect(result.allocation).toBe('partial');
     }
   });
 

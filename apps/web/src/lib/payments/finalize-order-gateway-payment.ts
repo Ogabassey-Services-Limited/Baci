@@ -2,7 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { completeOrderGatewayPayment } from '@/lib/payments/complete-order-gateway-payment';
 import { confirmPaidOrderInventoryOrRollback } from '@/lib/payments/confirm-paid-order-inventory';
-import { fileBlockedOrderPaymentReview } from '@/lib/payments/file-blocked-order-payment-review';
+import {
+  type BlockedOrderPaymentOutcome,
+  fileBlockedOrderPaymentReview,
+} from '@/lib/payments/file-blocked-order-payment-review';
 import { fileSettlementCaptureFailureReview } from '@/lib/payments/file-settlement-capture-failure-review';
 import { schedulePaidOrderNotifications } from '@/lib/payments/notify-paid-order';
 import { getOrderOutboxState } from '@/lib/payments/order-has-outbox-rows';
@@ -15,8 +18,7 @@ import { settleCapturedOrderPayment } from '@/lib/payments/settle-captured-order
 
 export type FinalizeOrderGatewayPaymentOutcome =
   | { kind: 'completion_failed'; error: unknown }
-  | { kind: 'order_cancelled'; orderNumber: string | null }
-  | { kind: 'order_skipped'; paymentStatus: string | null }
+  | BlockedOrderPaymentOutcome
   | { kind: 'order_fetch_failed'; error: unknown }
   | {
       kind: 'inventory_failed';
@@ -24,9 +26,6 @@ export type FinalizeOrderGatewayPaymentOutcome =
       status: number;
     }
   | { kind: 'inventory_cleanup_failed' }
-  // Payment must not reopen the order, but its ops review could not be
-  // filed: callers fail closed so it is retried, never retired silently.
-  | { kind: 'review_failed' }
   | { kind: 'completed'; healed: boolean; orderNumber: string | null };
 
 export interface FinalizeOrderGatewayPaymentTransaction {
