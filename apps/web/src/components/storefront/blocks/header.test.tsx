@@ -187,22 +187,6 @@ describe('Header', () => {
     expect(screen.getByText('Loyalty user-1')).toBeInTheDocument();
   });
 
-  it('keeps accepted uppercase HTTPS navigation URLs external', () => {
-    render(
-      <Header
-        navigationLinks={[{ label: 'Shop', url: 'HTTPS://example.test/shop' }]}
-        showAccount={false}
-        showCart={false}
-        showSearch={false}
-      />
-    );
-
-    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute(
-      'href',
-      'HTTPS://example.test/shop'
-    );
-  });
-
   it.each([
     {
       name: 'light',

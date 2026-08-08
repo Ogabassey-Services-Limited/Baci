@@ -38,6 +38,13 @@ describe('builder AI edit navigation patches', () => {
     ).toBe(true);
   });
 
+  it.each([
+    'https:example.test',
+    'https:/example.test',
+  ])('rejects ambiguous HTTPS URL spelling %s', (url) => {
+    expect(safeStorefrontUrlSchema.safeParse(url).success).toBe(false);
+  });
+
   it('rejects unbounded or unknown header patch properties', () => {
     expect(
       headerPatchSchema.safeParse({
