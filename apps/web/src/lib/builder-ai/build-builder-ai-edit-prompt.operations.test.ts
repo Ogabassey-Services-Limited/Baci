@@ -43,6 +43,7 @@ describe('buildBuilderAiEditPrompt operation guidance', () => {
           'background',
           'foreground',
         ],
+        minimumProperties: 1,
         valuePattern: '#RRGGBB',
       },
       kind: 'update_theme',
@@ -57,6 +58,25 @@ describe('buildBuilderAiEditPrompt operation guidance', () => {
         ],
       },
       requiresAtLeastOneOf: ['preset', 'colors'],
+    });
+  });
+
+  it('publishes bounded fields for carousel and root-only operations', () => {
+    const guide = getOperationGuide(
+      buildBuilderAiEditPrompt({
+        currentConfig: { content: [], root: { title: 'Home' } },
+        prompt: 'Update the slide and page title',
+      })
+    ) as { specialOperations: Record<string, unknown> };
+
+    expect(guide.specialOperations).toEqual({
+      updateCarouselSlide: {
+        ctaLink: { maximumLength: 512 },
+        ctaText: { maximumLength: 120 },
+        subtitle: { maximumLength: 2000 },
+        title: { maximumLength: 120 },
+      },
+      updateRoot: { title: { maximumLength: 120 } },
     });
   });
 

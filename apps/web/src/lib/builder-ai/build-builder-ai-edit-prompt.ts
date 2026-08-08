@@ -10,6 +10,7 @@ import {
 import { getBuilderAiAggregatePlanLimits } from './get-builder-ai-aggregate-plan-limits';
 import { getBuilderAiContentCollectionEntries } from './get-builder-ai-content-collection-entries';
 import { getBuilderAiContentCollections } from './get-builder-ai-content-collections';
+import { getBuilderAiSpecialOperationGuidance } from './get-builder-ai-special-operation-guidance';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
 import { sanitizeBuilderAiProps } from './sanitize-builder-ai-props';
 
@@ -256,6 +257,7 @@ export function buildBuilderAiEditPrompt({
     updateThemeOperation: {
       colors: {
         allowedKeys: editableThemeColorKeys,
+        minimumProperties: 1,
         valuePattern: '#RRGGBB',
       },
       kind: 'update_theme',
@@ -267,6 +269,7 @@ export function buildBuilderAiEditPrompt({
         'Do not remove protected ids or reduce any required component group below its minimum.',
       ...getRemovalConstraints(currentConfig),
     },
+    specialOperations: getBuilderAiSpecialOperationGuidance(),
   });
   const projection = project(currentConfig);
   const componentProjection = serializeQuotedData(projection);
