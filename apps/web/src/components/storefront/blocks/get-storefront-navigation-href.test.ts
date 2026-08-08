@@ -13,4 +13,11 @@ describe('getStorefrontNavigationHref', () => {
       '/demo-store/shop'
     );
   });
+
+  it('keeps anchors local and avoids prefixing an already-scoped route twice', () => {
+    expect(getStorefrontNavigationHref('#sale', '/demo-store')).toBe('#sale');
+    expect(getStorefrontNavigationHref('/demo-store/shop', '/demo-store')).toBe(
+      '/demo-store/shop'
+    );
+  });
 });

@@ -60,6 +60,22 @@ describe('buildBuilderAiEditPrompt operation guidance', () => {
     });
   });
 
+  it('publishes every aggregate model-plan limit for schema-less providers', () => {
+    const guide = getOperationGuide(
+      buildBuilderAiEditPrompt({
+        currentConfig: { content: [], root: { title: 'Home' } },
+        prompt: 'Add several sections',
+      })
+    ) as { aggregatePlanLimits: Record<string, number> };
+
+    expect(guide.aggregatePlanLimits).toEqual({
+      maxInserts: 5,
+      maxOperations: 20,
+      maxSerializedUtf8Bytes: 4096,
+      maxSummaryOrRefusalReasonChars: 240,
+    });
+  });
+
   it('keeps non-editable component ids as placement-only anchors', () => {
     const prompt = buildBuilderAiEditPrompt({
       currentConfig: {

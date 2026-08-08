@@ -7,6 +7,7 @@ import {
   getBuilderAiCatalogProjection,
   isAiEditableComponent,
 } from './builder-ai-component-catalog';
+import { getBuilderAiAggregatePlanLimits } from './get-builder-ai-aggregate-plan-limits';
 import { getBuilderAiContentCollectionEntries } from './get-builder-ai-content-collection-entries';
 import { getBuilderAiContentCollections } from './get-builder-ai-content-collections';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
@@ -245,6 +246,7 @@ export function buildBuilderAiEditPrompt({
 }: PromptInput): string {
   const operationGuidance = serializeQuotedData({
     allowedComponentTypes: Object.keys(aiEditableComponents),
+    aggregatePlanLimits: getBuilderAiAggregatePlanLimits(),
     catalog: getBuilderAiCatalogProjection(),
     currentState: getCurrentStateProjection(currentConfig),
     operationExamples,

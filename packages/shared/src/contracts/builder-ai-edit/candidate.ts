@@ -1,11 +1,11 @@
 import { z } from 'zod';
+import { builderDataSchema } from './builder-data';
 import {
   BUILDER_AI_EDIT_CONTRACT_VERSION,
   MAX_AI_PLAN_INSERTS,
   MAX_AI_PLAN_OPERATIONS,
 } from './limits';
-import { builderAiModelOperationSchema } from './model-plan';
-import { builderDataSchema } from './wire';
+import { builderAiModelOperationSchema } from './model-plan-operation';
 
 export const builderAiEditCandidateSchema = z
   .strictObject({
