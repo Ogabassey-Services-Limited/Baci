@@ -108,6 +108,20 @@ describe('getCompareProductMatchRequirements variant preservation', () => {
     ]);
   });
 
+  it('preserves small genuine storage variants in same-model comparisons', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productNames: ['Apple iPhone SE 16GB', 'Apple iPhone SE 32GB'],
+    });
+
+    expect(requirements).toEqual([
+      { identifier: 'se', brand: 'apple', discriminatorTokens: ['16gb'] },
+      { identifier: 'se', brand: 'apple', discriminatorTokens: ['32gb'] },
+    ]);
+  });
+
   it('keeps proven numeric laptop families in compare identifiers', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

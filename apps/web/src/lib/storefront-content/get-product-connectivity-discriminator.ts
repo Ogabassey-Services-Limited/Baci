@@ -35,11 +35,6 @@ const REFRESH_RATE_DISCRIMINATOR_PATTERN = /^\d+hz$/u;
 const COMMON_STORAGE_CAPACITIES_GB = new Set([
   16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
 ]);
-const RAM_DOMINANT_CATEGORIES = new Set([
-  'desktops',
-  'gaming-laptops',
-  'laptops',
-]);
 
 function getStorageCapacityGb(token: string) {
   const match = token.match(/^(\d+)(gb|tb)$/u);
@@ -91,14 +86,15 @@ function getDiscriminatorGroup(token: string, isTerminal = false) {
 
 function isLikelyRamToken(
   token: string,
-  categorySlug: SupportedClusterCategory | undefined,
-  nextToken = ''
+  nextToken = '',
+  hasLargerCapacity = false,
+  hasHardwareTier = false
 ) {
   const capacity = getStorageCapacityGb(token);
   return (
     capacity !== null &&
     capacity <= 32 &&
-    (nextToken === 'ram' || RAM_DOMINANT_CATEGORIES.has(categorySlug ?? ''))
+    (nextToken === 'ram' || hasLargerCapacity || hasHardwareTier)
   );
 }
 
@@ -111,16 +107,24 @@ export function getProductConnectivityDiscriminators(
   const tokens = productNames?.length
     ? productNames.flatMap((name, index) => {
         const nameTokens = tokenizeVariantSource(name);
+        const alignedSlugTokens = tokenizeVariantSource(productSlugs?.[index]);
+        const hardwareTokens = new Set(
+          getLaptopHardwareDiscriminatorTokens(nameTokens, categorySlug)
+        );
         const namedGroups = new Set(
           nameTokens
-            .filter(
-              (token, tokenIndex) =>
-                !isLikelyRamToken(
-                  token,
-                  categorySlug,
-                  nameTokens[tokenIndex + 1]
-                )
-            )
+            .filter((token, tokenIndex) => {
+              const capacity = getStorageCapacityGb(token) ?? 0;
+              return !isLikelyRamToken(
+                token,
+                nameTokens[tokenIndex + 1],
+                [...nameTokens, ...alignedSlugTokens].some(
+                  (otherToken) =>
+                    (getStorageCapacityGb(otherToken) ?? 0) > capacity
+                ),
+                hardwareTokens.size > 0
+              );
+            })
             .map((token, tokenIndex) =>
               getDiscriminatorGroup(token, tokenIndex === nameTokens.length - 1)
             )
@@ -137,23 +141,27 @@ export function getProductConnectivityDiscriminators(
         return [...nameTokens, ...supplementalSlugTokens];
       })
     : (productSlugs ?? []).flatMap(tokenizeVariantSource);
+  const laptopHardwareTokens = new Set(
+    getLaptopHardwareDiscriminatorTokens(tokens, categorySlug)
+  );
   const strongestStorageToken = tokens.reduce<string | null>(
     (strongest, token, tokenIndex) => {
       const tokenCapacity = getStorageCapacityGb(token);
       const strongestCapacity = getStorageCapacityGb(strongest ?? '') ?? 0;
       const isLikelyRam = isLikelyRamToken(
         token,
-        categorySlug,
-        tokens[tokenIndex + 1]
+        tokens[tokenIndex + 1],
+        tokens.some(
+          (otherToken) =>
+            (getStorageCapacityGb(otherToken) ?? 0) > (tokenCapacity ?? 0)
+        ),
+        laptopHardwareTokens.size > 0
       );
       return tokenCapacity && !isLikelyRam && tokenCapacity > strongestCapacity
         ? token
         : strongest;
     },
     null
-  );
-  const laptopHardwareTokens = new Set(
-    getLaptopHardwareDiscriminatorTokens(tokens, categorySlug)
   );
   return tokens.filter(
     (token, tokenIndex) =>

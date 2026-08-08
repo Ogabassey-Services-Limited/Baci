@@ -160,9 +160,8 @@ describe('normalizeProductModelTokens', () => {
     expect(cellularTokens).toEqual(['ipad', 'pro', '13']);
   });
 
-  it('preserves a model when connectivity metadata appears first', () => {
+  it('strips leading connectivity metadata while preserving the model', () => {
     expect(normalizeProductModelTokens(['lte', 'router', 'x5'])).toEqual([
-      'lte',
       'router',
       'x5',
     ]);

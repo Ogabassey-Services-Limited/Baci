@@ -12,6 +12,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['power 80', 'a06']);
   });
 
+  it('strips a leading Bluetooth descriptor while retaining the speaker model', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'accessories',
+      brands: ['JBL'],
+      productNames: ['JBL Bluetooth Speaker Flip 6'],
+    });
+
+    expect(identifiers).toEqual(['flip 6']);
+  });
+
   it('deduplicates identifiers across product variants', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

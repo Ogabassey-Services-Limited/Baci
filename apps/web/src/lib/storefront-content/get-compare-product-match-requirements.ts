@@ -128,7 +128,7 @@ function isSharedRamDiscriminator(
 ) {
   const capacity = Number(token.match(/^(\d+)gb$/u)?.[1] ?? 0);
   return (
-    capacity > 0 && capacity <= 32 && !RAM_DOMINANT_CATEGORIES.has(categorySlug)
+    capacity > 0 && capacity <= 12 && !RAM_DOMINANT_CATEGORIES.has(categorySlug)
   );
 }
 

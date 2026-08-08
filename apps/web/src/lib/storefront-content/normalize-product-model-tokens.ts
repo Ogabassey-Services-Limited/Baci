@@ -28,6 +28,11 @@ const CONNECTIVITY_MARKER_TOKENS = new Set([
   'physical',
   'single',
 ]);
+const LEADING_CONNECTIVITY_DESCRIPTOR_TOKENS = new Set([
+  'speaker',
+  'headphones',
+  'earbuds',
+]);
 const DISPLAY_SUFFIX_MARKER_TOKENS = new Set([
   '4k',
   '8k',
@@ -84,7 +89,17 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
     markerIndex -= 1;
   }
   if (markerIndex < 0) {
-    return tokens;
+    const leadingTokens = tokens.slice(suffixIndex + 1);
+    let firstModelIndex = 0;
+    while (
+      firstModelIndex < leadingTokens.length &&
+      LEADING_CONNECTIVITY_DESCRIPTOR_TOKENS.has(
+        leadingTokens[firstModelIndex] ?? ''
+      )
+    ) {
+      firstModelIndex += 1;
+    }
+    return leadingTokens.slice(firstModelIndex);
   }
   return tokens.slice(0, markerIndex + 1);
 }

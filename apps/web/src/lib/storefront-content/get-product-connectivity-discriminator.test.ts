@@ -66,6 +66,16 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual(['coreultra7']);
   });
 
+  it('retains genuine 32GB Chromebook storage without an explicit RAM marker', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Acer Chromebook 311 32GB'],
+        [],
+        'laptops'
+      )
+    ).toEqual(['32gb']);
+  });
+
   it('uses aligned slug storage when a laptop name only contains RAM', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Dell XPS 13 16GB'],
