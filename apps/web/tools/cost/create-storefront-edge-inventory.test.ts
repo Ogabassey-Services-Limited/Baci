@@ -11,7 +11,6 @@ import { createStorefrontEdgeInventory } from './create-storefront-edge-inventor
 import { createStorefrontEdgeInventoryFixture } from './storefront-edge-inventory.test-support';
 
 const temporaryRoots: string[] = [];
-const FIXTURE_SOURCE_SHA = 'a'.repeat(40);
 const execFileAsync = promisify(execFile);
 const toolDirectory = dirname(fileURLToPath(import.meta.url));
 const tsxCliPath = createRequire(import.meta.url).resolve('tsx/cli');
@@ -19,8 +18,8 @@ const tsxCliPath = createRequire(import.meta.url).resolve('tsx/cli');
 async function fixtureRoot() {
   const root = await mkdtemp(joinTemporaryRoot('storefront-edge-inventory-'));
   temporaryRoots.push(root);
-  await createStorefrontEdgeInventoryFixture(root);
-  return root;
+  const originMainSha = await createStorefrontEdgeInventoryFixture(root);
+  return { originMainSha, repoRoot: root };
 }
 
 function joinTemporaryRoot(name: string) {
@@ -36,23 +35,23 @@ afterEach(async () => {
 describe('createStorefrontEdgeInventory', () => {
   it('creates the same canonical inventory regardless of hostname input order', async () => {
     // Arrange
-    const repoRoot = await fixtureRoot();
+    const { originMainSha, repoRoot } = await fixtureRoot();
 
     // Act
     const first = await createStorefrontEdgeInventory({
       repoRoot,
-      originMainSha: FIXTURE_SOURCE_SHA.toUpperCase(),
+      originMainSha: originMainSha.toUpperCase(),
       pilotCandidateHostnames: [' Shop.Example.com. ', 'pilot.usebaci.com'],
     });
     const second = await createStorefrontEdgeInventory({
       repoRoot,
-      originMainSha: FIXTURE_SOURCE_SHA,
+      originMainSha,
       pilotCandidateHostnames: ['pilot.usebaci.com', 'shop.example.com'],
     });
 
     // Assert
     expect(first).toEqual(second);
-    expect(first.originMainSha).toBe(FIXTURE_SOURCE_SHA);
+    expect(first.originMainSha).toBe(originMainSha);
     expect(first.authority).toBe('directional_cost_screen_only');
     expect(first.pilotCandidateHostnames).toEqual([
       'pilot.usebaci.com',
@@ -67,12 +66,12 @@ describe('createStorefrontEdgeInventory', () => {
 
   it('classifies static, redirect, and dynamic storefront entrypoints in canonical order', async () => {
     // Arrange
-    const repoRoot = await fixtureRoot();
+    const { originMainSha, repoRoot } = await fixtureRoot();
 
     // Act
     const inventory = await createStorefrontEdgeInventory({
       repoRoot,
-      originMainSha: FIXTURE_SOURCE_SHA,
+      originMainSha,
       pilotCandidateHostnames: ['pilot.usebaci.com'],
     });
     const entrypoints = inventory.rows.filter(
@@ -80,7 +79,7 @@ describe('createStorefrontEdgeInventory', () => {
     );
 
     // Assert
-    expect(entrypoints).toHaveLength(6);
+    expect(entrypoints).toHaveLength(8);
     expect(entrypoints.map((row) => row.id)).toEqual(
       [...entrypoints.map((row) => row.id)].sort()
     );
@@ -131,8 +130,8 @@ describe('createStorefrontEdgeInventory', () => {
     // Act
     const inventory = await createStorefrontEdgeInventory({
       repoRoot,
-      originMainSha: FIXTURE_SOURCE_SHA,
-      pilotCandidateHostnames: ['standard-pilot.invalid'],
+      originMainSha: task1aInventory.originMainSha,
+      pilotCandidateHostnames: task1aInventory.pilotCandidateHostnames,
     });
     const entrypoints = inventory.rows.filter(
       (row) => row.sourceKind === 'storefront_entrypoint'
@@ -168,12 +167,12 @@ describe('createStorefrontEdgeInventory', () => {
 
   it('inventories explicit proxy aliases and required runtime families before closed defaults', async () => {
     // Arrange
-    const repoRoot = await fixtureRoot();
+    const { originMainSha, repoRoot } = await fixtureRoot();
 
     // Act
     const inventory = await createStorefrontEdgeInventory({
       repoRoot,
-      originMainSha: FIXTURE_SOURCE_SHA,
+      originMainSha,
       pilotCandidateHostnames: ['pilot.usebaci.com'],
     });
     const rowIds = new Set(inventory.rows.map((row) => row.id));
@@ -187,7 +186,7 @@ describe('createStorefrontEdgeInventory', () => {
       'api:repairs',
       'api:unlisted',
       'machine:openapi',
-      'machine:well-known',
+      'machine:well-known-acp',
       'proxy:blog-query-canonical',
       'proxy:cache-safe-punctuation',
       'proxy:legacy-analytics-conversion',
@@ -205,7 +204,7 @@ describe('createStorefrontEdgeInventory', () => {
 
   it('rejects invalid source authority and candidate hostnames', async () => {
     // Arrange
-    const repoRoot = await fixtureRoot();
+    const { originMainSha, repoRoot } = await fixtureRoot();
 
     // Act and assert
     await expect(
@@ -218,7 +217,7 @@ describe('createStorefrontEdgeInventory', () => {
     await expect(
       createStorefrontEdgeInventory({
         repoRoot,
-        originMainSha: FIXTURE_SOURCE_SHA,
+        originMainSha,
         pilotCandidateHostnames: ['https://pilot.usebaci.com/path'],
       })
     ).rejects.toThrow('pilot candidate hostname');
@@ -226,7 +225,7 @@ describe('createStorefrontEdgeInventory', () => {
 
   it('creates and validates an artifact through the installed tsx runtime', async () => {
     // Arrange
-    const repoRoot = await fixtureRoot();
+    const { originMainSha, repoRoot } = await fixtureRoot();
     const output = join(repoRoot, 'task-1a-inventory.json');
 
     // Act
@@ -236,7 +235,7 @@ describe('createStorefrontEdgeInventory', () => {
       '--repo-root',
       repoRoot,
       '--source-sha',
-      FIXTURE_SOURCE_SHA,
+      originMainSha,
       '--pilot-hostname',
       'pilot.usebaci.com',
       '--output',
@@ -248,9 +247,11 @@ describe('createStorefrontEdgeInventory', () => {
       '--repo-root',
       repoRoot,
       '--source-sha',
-      FIXTURE_SOURCE_SHA,
+      originMainSha,
       '--input',
       output,
+      '--pilot-hostname',
+      'pilot.usebaci.com',
     ]);
 
     // Assert
@@ -258,17 +259,21 @@ describe('createStorefrontEdgeInventory', () => {
       expect.objectContaining({ rowCount: expect.any(Number) })
     );
     expect(JSON.parse(validated.stdout)).toEqual(
-      expect.objectContaining({ storefrontEntrypointCount: 6 })
+      expect.objectContaining({ storefrontEntrypointCount: 8 })
     );
   });
 
   it.each([
-    ['unknown', ['--unexpected', 'value']],
-    ['duplicate', ['--source-sha', FIXTURE_SOURCE_SHA]],
-  ])('rejects %s generator options', async (_label, extraArguments) => {
+    'unknown',
+    'duplicate',
+  ])('rejects %s generator options', async (label) => {
     // Arrange
-    const repoRoot = await fixtureRoot();
+    const { originMainSha, repoRoot } = await fixtureRoot();
     const output = join(repoRoot, 'task-1a-inventory.json');
+    const extraArguments =
+      label === 'unknown'
+        ? ['--unexpected', 'value']
+        : ['--source-sha', originMainSha];
 
     // Act and assert
     await expect(
@@ -278,7 +283,7 @@ describe('createStorefrontEdgeInventory', () => {
         '--repo-root',
         repoRoot,
         '--source-sha',
-        FIXTURE_SOURCE_SHA,
+        originMainSha,
         '--pilot-hostname',
         'pilot.usebaci.com',
         '--output',

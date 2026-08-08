@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { STOREFRONT_AGENT_ROUTES } from '../../src/config/storefront-agent-routes';
+import { STOREFRONT_FEED_ROUTES } from '../../src/config/storefront-feed-routes';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
 
 describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
@@ -16,6 +18,37 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     expect(rows.find((row) => row.id === 'api:unlisted')).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
+  });
+
+  it('enumerates storefront agent, feed, and well-known routes before terminal defaults', () => {
+    // Arrange
+    const rows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows;
+    const patterns = new Map(rows.map((row) => [row.routePattern, row]));
+
+    // Act
+    const configuredRoutes = [
+      ...Object.values(STOREFRONT_AGENT_ROUTES),
+      ...Object.values(STOREFRONT_FEED_ROUTES),
+    ];
+
+    // Assert
+    for (const routePattern of configuredRoutes) {
+      if (routePattern === STOREFRONT_AGENT_ROUTES.agenticApiBase) continue;
+      expect(patterns.has(routePattern), `missing ${routePattern}`).toBe(true);
+    }
+    expect(patterns.get('/api/agentic/{*path}')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['GET', 'HEAD', 'POST', 'PUT'],
+      })
+    );
+    expect(
+      patterns.get('/api/internal/compare-hub-status/{identifier}')
+    ).toEqual(expect.objectContaining({ decision: 'origin_dynamic' }));
+    expect(patterns.get('/.well-known/{*unlisted}')).toEqual(
+      expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
+    );
+    expect(patterns.has('/.well-known/{*path}')).toBe(false);
   });
 
   it('defines a closed nonzero eligible denominator', () => {

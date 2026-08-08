@@ -8,6 +8,7 @@ import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types'
 
 type ValidationOptions = Readonly<{
   expectedOriginMainSha: string;
+  expectedPilotCandidateHostnames: readonly string[];
   inputPath: string;
   repoRoot: string;
 }>;
@@ -68,7 +69,7 @@ export async function validateStorefrontEdgeInventory(
   try {
     regenerated = await createStorefrontEdgeInventory({
       originMainSha: expectedOriginMainSha,
-      pilotCandidateHostnames: artifact.pilotCandidateHostnames,
+      pilotCandidateHostnames: options.expectedPilotCandidateHostnames,
       repoRoot: options.repoRoot,
     });
   } catch (error) {
@@ -91,23 +92,44 @@ export async function validateStorefrontEdgeInventory(
 }
 
 function parseArguments(args: readonly string[]) {
-  const allowedOptions = new Set(['--input', '--repo-root', '--source-sha']);
-  const values = new Map<string, string>();
+  const allowedOptions = new Set([
+    '--input',
+    '--pilot-hostname',
+    '--repo-root',
+    '--source-sha',
+  ]);
+  const values = new Map<string, string[]>();
   for (let index = 0; index < args.length; index += 2) {
     const option = args[index];
     const value = args[index + 1];
-    if (!option || !allowedOptions.has(option) || !value || values.has(option))
+    if (
+      !option ||
+      !allowedOptions.has(option) ||
+      !value ||
+      (option !== '--pilot-hostname' && values.has(option))
+    )
       throw new Error('inventory validation options are invalid');
-    values.set(option, value);
+    values.set(option, [...(values.get(option) ?? []), value]);
   }
-  const repoRoot = values.get('--repo-root');
-  const inputPath = values.get('--input');
-  const expectedOriginMainSha = values.get('--source-sha');
-  if (!repoRoot || !inputPath || !expectedOriginMainSha)
+  const repoRoot = values.get('--repo-root')?.[0];
+  const inputPath = values.get('--input')?.[0];
+  const expectedOriginMainSha = values.get('--source-sha')?.[0];
+  const expectedPilotCandidateHostnames = values.get('--pilot-hostname') ?? [];
+  if (
+    !repoRoot ||
+    !inputPath ||
+    !expectedOriginMainSha ||
+    expectedPilotCandidateHostnames.length === 0
+  )
     throw new Error(
-      'inventory validation requires --repo-root, --input, and --source-sha'
+      'inventory validation requires --repo-root, --input, --source-sha, and --pilot-hostname'
     );
-  return { expectedOriginMainSha, inputPath, repoRoot };
+  return {
+    expectedOriginMainSha,
+    expectedPilotCandidateHostnames,
+    inputPath,
+    repoRoot,
+  };
 }
 
 async function runCli(args: readonly string[]) {

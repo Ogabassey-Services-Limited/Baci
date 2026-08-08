@@ -14,6 +14,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
     | 'api_family'
     | 'machine_family'
     | 'proxy_path_class'
+    | 'server_action'
     | 'storefront_entrypoint';
   sourcePath?: string;
 }>;

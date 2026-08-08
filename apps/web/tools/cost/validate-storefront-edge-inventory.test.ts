@@ -11,7 +11,6 @@ import { createStorefrontEdgeInventoryFixture } from './storefront-edge-inventor
 import { validateStorefrontEdgeInventory } from './validate-storefront-edge-inventory';
 
 const temporaryRoots: string[] = [];
-const FIXTURE_SOURCE_SHA = 'a'.repeat(40);
 const execFileAsync = promisify(execFile);
 const toolDirectory = dirname(fileURLToPath(import.meta.url));
 const tsxCliPath = createRequire(import.meta.url).resolve('tsx/cli');
@@ -19,15 +18,15 @@ const tsxCliPath = createRequire(import.meta.url).resolve('tsx/cli');
 async function arrangeInventory() {
   const repoRoot = await mkdtemp(join(tmpdir(), 'storefront-edge-validation-'));
   temporaryRoots.push(repoRoot);
-  await createStorefrontEdgeInventoryFixture(repoRoot);
+  const originMainSha = await createStorefrontEdgeInventoryFixture(repoRoot);
   const artifact = await createStorefrontEdgeInventory({
     repoRoot,
-    originMainSha: FIXTURE_SOURCE_SHA,
+    originMainSha,
     pilotCandidateHostnames: ['pilot.usebaci.com'],
   });
   const inputPath = join(repoRoot, 'task-1a-inventory.json');
   await writeFile(inputPath, `${JSON.stringify(artifact, null, 2)}\n`);
-  return { artifact, inputPath, repoRoot };
+  return { artifact, inputPath, originMainSha, repoRoot };
 }
 
 afterEach(async () => {
@@ -59,33 +58,36 @@ describe('validateStorefrontEdgeInventory', () => {
       repoRoot,
       inputPath,
       expectedOriginMainSha: sourceSha,
+      expectedPilotCandidateHostnames: ['baci-edge-pilot.usebaci.com'],
     });
 
     // Assert
     expect(result).toEqual({
       inventorySha256:
-        'ebf6924ea291595c1e25a1719f699f1b2ce5426d5f9f20bb302cc34d9bf91bfe',
-      rowCount: 130,
-      storefrontEntrypointCount: 74,
+        '2f184a82a8b24c9dfc9143ba666a87d65087020af395642b5fe9f332fadc8b8c',
+      rowCount: 162,
+      storefrontEntrypointCount: 76,
     });
   });
 
   it('accepts an exact artifact regenerated from the checked-out tree', async () => {
     // Arrange
-    const { artifact, inputPath, repoRoot } = await arrangeInventory();
+    const { artifact, inputPath, originMainSha, repoRoot } =
+      await arrangeInventory();
 
     // Act
     const result = await validateStorefrontEdgeInventory({
       repoRoot,
       inputPath,
-      expectedOriginMainSha: FIXTURE_SOURCE_SHA,
+      expectedOriginMainSha: originMainSha,
+      expectedPilotCandidateHostnames: ['pilot.usebaci.com'],
     });
 
     // Assert
     expect(result).toEqual({
       inventorySha256: artifact.inventorySha256,
       rowCount: artifact.rows.length,
-      storefrontEntrypointCount: 6,
+      storefrontEntrypointCount: 8,
     });
   });
 
@@ -130,7 +132,8 @@ describe('validateStorefrontEdgeInventory', () => {
     ],
   ])('rejects a tampered %s', async (_label, message, tamper) => {
     // Arrange
-    const { artifact, inputPath, repoRoot } = await arrangeInventory();
+    const { artifact, inputPath, originMainSha, repoRoot } =
+      await arrangeInventory();
     const tampered = structuredClone(artifact) as unknown as Record<
       string,
       unknown
@@ -143,14 +146,15 @@ describe('validateStorefrontEdgeInventory', () => {
       validateStorefrontEdgeInventory({
         repoRoot,
         inputPath,
-        expectedOriginMainSha: FIXTURE_SOURCE_SHA,
+        expectedOriginMainSha: originMainSha,
+        expectedPilotCandidateHostnames: ['pilot.usebaci.com'],
       })
     ).rejects.toThrow(message);
   });
 
   it('rejects route-tree drift after the artifact was generated', async () => {
     // Arrange
-    const { inputPath, repoRoot } = await arrangeInventory();
+    const { inputPath, originMainSha, repoRoot } = await arrangeInventory();
     const newRoute = join(
       repoRoot,
       'apps/web/src/app/(storefront)/[slug]/(content)/new/page.tsx'
@@ -166,16 +170,15 @@ describe('validateStorefrontEdgeInventory', () => {
       validateStorefrontEdgeInventory({
         repoRoot,
         inputPath,
-        expectedOriginMainSha: FIXTURE_SOURCE_SHA,
+        expectedOriginMainSha: originMainSha,
+        expectedPilotCandidateHostnames: ['pilot.usebaci.com'],
       })
-    ).rejects.toThrow(
-      'inventory artifact does not match the canonical source tree'
-    );
+    ).rejects.toThrow('inventory regeneration failed');
   });
 
   it('rejects routing and proxy input drift after the artifact was generated', async () => {
     // Arrange
-    const { inputPath, repoRoot } = await arrangeInventory();
+    const { inputPath, originMainSha, repoRoot } = await arrangeInventory();
     await writeFile(
       join(repoRoot, 'apps/web/src/proxy.ts'),
       '// changed routing authority\n'
@@ -186,16 +189,16 @@ describe('validateStorefrontEdgeInventory', () => {
       validateStorefrontEdgeInventory({
         repoRoot,
         inputPath,
-        expectedOriginMainSha: FIXTURE_SOURCE_SHA,
+        expectedOriginMainSha: originMainSha,
+        expectedPilotCandidateHostnames: ['pilot.usebaci.com'],
       })
-    ).rejects.toThrow(
-      'inventory artifact does not match the canonical source tree'
-    );
+    ).rejects.toThrow('inventory regeneration failed');
   });
 
   it('rejects a non-string pilot hostname before regeneration', async () => {
     // Arrange
-    const { artifact, inputPath, repoRoot } = await arrangeInventory();
+    const { artifact, inputPath, originMainSha, repoRoot } =
+      await arrangeInventory();
     const malformed = {
       ...artifact,
       pilotCandidateHostnames: [123],
@@ -207,14 +210,32 @@ describe('validateStorefrontEdgeInventory', () => {
       validateStorefrontEdgeInventory({
         repoRoot,
         inputPath,
-        expectedOriginMainSha: FIXTURE_SOURCE_SHA,
+        expectedOriginMainSha: originMainSha,
+        expectedPilotCandidateHostnames: ['pilot.usebaci.com'],
       })
     ).rejects.toThrow('inventory input has an invalid shape');
   });
 
+  it('rejects a self-consistent artifact outside the reviewed pilot host set', async () => {
+    // Arrange
+    const { inputPath, originMainSha, repoRoot } = await arrangeInventory();
+
+    // Act and assert
+    await expect(
+      validateStorefrontEdgeInventory({
+        repoRoot,
+        inputPath,
+        expectedOriginMainSha: originMainSha,
+        expectedPilotCandidateHostnames: ['other.usebaci.com'],
+      })
+    ).rejects.toThrow(
+      'inventory artifact does not match the canonical source tree'
+    );
+  });
+
   it('rejects unknown validator options', async () => {
     // Arrange
-    const { inputPath, repoRoot } = await arrangeInventory();
+    const { inputPath, originMainSha, repoRoot } = await arrangeInventory();
 
     // Act and assert
     await expect(
@@ -224,9 +245,11 @@ describe('validateStorefrontEdgeInventory', () => {
         '--repo-root',
         repoRoot,
         '--source-sha',
-        FIXTURE_SOURCE_SHA,
+        originMainSha,
         '--input',
         inputPath,
+        '--pilot-hostname',
+        'pilot.usebaci.com',
         '--unexpected',
         'value',
       ])

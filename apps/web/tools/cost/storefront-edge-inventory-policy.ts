@@ -1,4 +1,5 @@
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
+import { STOREFRONT_EDGE_MACHINE_ROWS } from './storefront-edge-machine-rows';
 import { STOREFRONT_EDGE_PROXY_ROWS } from './storefront-edge-proxy-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
@@ -16,21 +17,13 @@ const dynamicFamily = (
   sourceKind: 'api_family',
 });
 
-const machineFamily = (
-  id: string,
-  routePattern: string,
-  methods: readonly string[],
-  decision: InventoryRow['decision'] = 'origin_dynamic'
-): InventoryRow => ({
-  decision,
-  id,
-  methods,
-  reason: 'explicit_storefront_machine_family',
-  routePattern,
-  sourceKind: 'machine_family',
-});
-
 const API_ROWS: readonly InventoryRow[] = [
+  dynamicFamily('api:agentic', '/api/agentic/{*path}', [
+    'GET',
+    'HEAD',
+    'POST',
+    'PUT',
+  ]),
   dynamicFamily('api:ai', '/api/ai/{*path}', ['POST']),
   dynamicFamily('api:attribution', '/api/attr', ['POST']),
   dynamicFamily('api:blog', '/api/blog/{*path}', ['GET', 'HEAD', 'POST']),
@@ -40,10 +33,11 @@ const API_ROWS: readonly InventoryRow[] = [
   dynamicFamily('api:data', '/api/data', ['GET', 'HEAD']),
   dynamicFamily('api:events', '/api/events', ['POST']),
   dynamicFamily('api:forms', '/api/forms/{*path}', ['POST']),
-  dynamicFamily('api:internal-storefront', '/api/internal/compare-hub-status', [
-    'GET',
-    'HEAD',
-  ]),
+  dynamicFamily(
+    'api:internal-storefront',
+    '/api/internal/compare-hub-status/{identifier}',
+    ['GET', 'HEAD']
+  ),
   dynamicFamily('api:insurance', '/api/insurance/{*path}', ['GET', 'HEAD']),
   dynamicFamily('api:llm', '/api/llm/{*path}', ['GET', 'HEAD']),
   dynamicFamily('api:merchant-storefront-context', '/api/merchant/{*path}', [
@@ -120,33 +114,17 @@ const API_ROWS: readonly InventoryRow[] = [
   },
 ];
 
-const MACHINE_ROWS: readonly InventoryRow[] = [
-  machineFamily('machine:next-image', '/_next/image', ['GET', 'HEAD']),
-  machineFamily('machine:next-static', '/_next/static/{*asset}', [
-    'GET',
-    'HEAD',
-  ]),
-  machineFamily(
-    'machine:next-unlisted',
-    '/_next/{*unlisted}',
-    ['ANY'],
-    'edge_terminal'
-  ),
-  machineFamily('machine:posthog-relay', '/baci-relay/{*path}', [
-    'GET',
-    'HEAD',
-    'POST',
-  ]),
-  machineFamily('machine:well-known', '/.well-known/{*path}', ['GET', 'HEAD']),
-  machineFamily('machine:llms', '/llms.txt', ['GET', 'HEAD']),
-  machineFamily('machine:llms-full', '/llms-full.txt', ['GET', 'HEAD']),
-  machineFamily('machine:openapi', '/openapi.json', ['GET', 'HEAD']),
-  machineFamily(
-    'machine:robots',
-    '/robots.txt',
-    ['GET', 'HEAD'],
-    'edge_release'
-  ),
+const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
+  {
+    decision: 'origin_dynamic',
+    id: 'server-action:blog-post-view-count',
+    methods: ['POST'],
+    reason: 'explicit_storefront_server_action',
+    routePattern: '/blog/{postSlug}',
+    sourceKind: 'server_action',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/actions.ts',
+  },
 ];
 
 /** Reviewed, provider-independent policy inputs for the Task 1A inventory. */
@@ -165,10 +143,23 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     scope: 'approved_pilot_hosts_and_complete_browser_automatic_traffic',
     zeroDenominatorVerdict: 'NOT_PROVEN',
   },
-  extraRows: [...API_ROWS, ...MACHINE_ROWS, ...STOREFRONT_EDGE_PROXY_ROWS],
+  extraRows: [
+    ...API_ROWS,
+    ...STOREFRONT_EDGE_MACHINE_ROWS,
+    ...SERVER_ACTION_ROWS,
+    ...STOREFRONT_EDGE_PROXY_ROWS,
+  ],
   routingInputPaths: [
     'next.config.ts',
+    'apps/web/src/app/layout.tsx',
+    'apps/web/src/app/root-dynamic-body.tsx',
     'apps/web/src/proxy.ts',
+    'apps/web/src/components/analytics/deferred-platform-insights.tsx',
+    'apps/web/src/components/analytics/posthog-client-bootstrap.tsx',
+    'apps/web/src/components/analytics/posthog-pageview-tracker.tsx',
+    'apps/web/src/components/analytics/web-vitals-reporter.tsx',
+    'apps/web/src/components/storefront/ad-attribution-capture.tsx',
+    'apps/web/src/components/storefront/deferred-page-view-tracker.tsx',
     'apps/web/src/config/storefront-agent-routes.ts',
     'apps/web/src/config/storefront-cache.ts',
     'apps/web/src/config/storefront-cdn-cache-control.ts',

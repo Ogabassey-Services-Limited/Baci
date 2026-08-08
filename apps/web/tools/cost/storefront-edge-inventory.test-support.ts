@@ -1,6 +1,10 @@
+import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
+
+const execFileAsync = promisify(execFile);
 
 const ROUTES = [
   '(home)/page.tsx',
@@ -9,6 +13,8 @@ const ROUTES = [
   '(catalog)/(listing)/search/page.tsx',
   '(commerce)/checkout/page.tsx',
   '(content)/about/page.tsx',
+  '(blog)/blog/sitemap.ts',
+  'opengraph-image.tsx',
 ] as const;
 
 export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
@@ -20,12 +26,60 @@ export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
       path,
       route.endsWith('route.ts')
         ? 'export async function GET() {}\nexport const HEAD = GET;\n'
-        : 'export default function Page() { return null; }\n'
+        : route.endsWith('sitemap.ts')
+          ? 'export default async function sitemap() { return []; }\n'
+          : route.endsWith('opengraph-image.tsx')
+            ? 'export default async function Image() { return null; }\n'
+            : 'export default function Page() { return null; }\n'
     );
   }
+  const blogPostRoot = join(routeRoot, '(blog)/blog/[postSlug]');
+  await mkdir(blogPostRoot, { recursive: true });
+  await writeFile(
+    join(blogPostRoot, 'layout.tsx'),
+    'export default function Layout({ children }) { return children; }\n'
+  );
+  await writeFile(
+    join(blogPostRoot, 'actions.ts'),
+    "'use server';\nexport async function incrementViewCount() {}\n"
+  );
+  await writeFile(
+    join(blogPostRoot, 'view-counter.tsx'),
+    "'use client';\nexport function ViewCounter() { return null; }\n"
+  );
   for (const input of STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths) {
     const path = join(repoRoot, input);
     await mkdir(join(path, '..'), { recursive: true });
     await writeFile(path, `// ${input}\n`);
   }
+  await execFileAsync('git', ['-C', repoRoot, 'init', '--quiet']);
+  await execFileAsync('git', [
+    '-C',
+    repoRoot,
+    '-c',
+    'user.name=Inventory Test',
+    '-c',
+    'user.email=inventory@example.invalid',
+    'add',
+    '.',
+  ]);
+  await execFileAsync('git', [
+    '-C',
+    repoRoot,
+    '-c',
+    'user.name=Inventory Test',
+    '-c',
+    'user.email=inventory@example.invalid',
+    'commit',
+    '--quiet',
+    '-m',
+    'fixture',
+  ]);
+  const { stdout } = await execFileAsync('git', [
+    '-C',
+    repoRoot,
+    'rev-parse',
+    'HEAD',
+  ]);
+  return stdout.trim();
 }
