@@ -125,15 +125,28 @@ describe('MerchantSetupForm step navigation', () => {
     };
   });
 
-  it('starts complete signup identities on business details without repeating owner details', () => {
+  it('starts complete signup identities on owner details so country is collected', () => {
     render(<MerchantSetupForm />);
 
+    expect(screen.getByLabelText('First Name')).toHaveValue('Ada');
+    expect(
+      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Business Name')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Continue to business info' })
+    );
+
     expect(screen.getByLabelText('Business Name')).toBeInTheDocument();
-    expect(screen.queryByLabelText('First Name')).not.toBeInTheDocument();
   });
 
   it('returns to about-you details from business setup', () => {
     render(<MerchantSetupForm />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Continue to business info' })
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to about you' }));
 
