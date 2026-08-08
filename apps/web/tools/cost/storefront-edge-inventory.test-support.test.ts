@@ -27,7 +27,7 @@ describe('createStorefrontEdgeInventoryFixture', () => {
     const hooksDirectory = join(directory, 'hooks');
     await writeFile(
       globalConfig,
-      `commit.gpgsign=true\ncore.hooksPath=${hooksDirectory}\n`
+      `[commit]\n\tgpgsign = true\n[core]\n\thooksPath = ${hooksDirectory}\n`
     );
     await mkdir(hooksDirectory, { recursive: true });
     await writeFile(join(hooksDirectory, 'pre-commit'), '#!/bin/sh\nexit 1\n');
