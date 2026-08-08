@@ -57,6 +57,21 @@ const baseThemeColorKeys = [
   'mutedForeground',
   'border',
 ] as const;
+const editableThemeColorKeys = [
+  'primary',
+  'secondary',
+  'accent',
+  'background',
+  'foreground',
+] as const;
+const themePresetNames = [
+  'modern',
+  'minimal',
+  'luxury',
+  'playful',
+  'bold',
+  'calm',
+] as const;
 
 export class BuilderAiPromptProjectionTooLargeError extends Error {
   constructor() {
@@ -99,7 +114,10 @@ function getCurrentStateProjection(currentConfig: BuilderData): {
   root: { title?: string };
   theme: { colors: Record<string, string> };
 } {
-  const title = currentConfig.root.title;
+  const rootProps = isRecord(currentConfig.root.props)
+    ? currentConfig.root.props
+    : {};
+  const title = currentConfig.root.title ?? rootProps.title;
   const themeColors = isRecord(currentConfig.theme?.colors)
     ? currentConfig.theme.colors
     : {};
@@ -120,19 +138,24 @@ function getCurrentStateProjection(currentConfig: BuilderData): {
   };
 }
 
-function project(
-  currentConfig: BuilderData
-): Array<{ id: string; props: Record<string, unknown>; type: string }> {
+function project(currentConfig: BuilderData): Array<{
+  id: string;
+  props?: Record<string, unknown>;
+  type: string;
+}> {
   const projection: Array<{
     id: string;
-    props: Record<string, unknown>;
+    props?: Record<string, unknown>;
     type: string;
   }> = [];
   for (const content of getBuilderAiContentCollections(currentConfig)) {
     for (const component of content) {
-      if (!isAiEditableComponent(component.type)) continue;
       const id = component.props.id;
       if (typeof id !== 'string' || id.length === 0) continue;
+      if (!isAiEditableComponent(component.type)) {
+        projection.push({ id, type: component.type });
+        continue;
+      }
       const { props } = sanitizeBuilderAiProps(component.type, component.props);
       if (component.type === 'HeroCarousel') {
         projection.push({
@@ -209,6 +232,15 @@ export function buildBuilderAiEditPrompt({
     catalog: getBuilderAiCatalogProjection(),
     currentState: getCurrentStateProjection(currentConfig),
     operationExamples,
+    updateThemeOperation: {
+      colors: {
+        allowedKeys: editableThemeColorKeys,
+        valuePattern: '#RRGGBB',
+      },
+      kind: 'update_theme',
+      preset: { allowedValues: themePresetNames },
+      requiresAtLeastOneOf: ['preset', 'colors'],
+    },
     removalConstraints: {
       instruction:
         'Do not remove protected ids or reduce any required component group below its minimum.',

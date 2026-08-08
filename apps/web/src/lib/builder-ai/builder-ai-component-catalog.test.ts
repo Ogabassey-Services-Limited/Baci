@@ -2,16 +2,31 @@ import { render, screen } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { builderConfig } from '@/components/builder/config';
+import * as catalog from './builder-ai-component-catalog';
+import { getBuilderAiCatalogProjection } from './builder-ai-component-catalog-projection';
 import {
   aiEditableComponents,
-  createInsertableComponentProps,
-  getBuilderAiCatalogProjection,
-  getBuilderAiPropShape,
   isAiEditableComponent,
+} from './builder-ai-component-definitions';
+import { createInsertableComponentProps } from './builder-ai-component-insertable-props';
+import {
+  getBuilderAiPropShape,
   isBuilderAiPropValue,
-} from './builder-ai-component-catalog';
+} from './builder-ai-component-prop-validation';
 
 describe('builder AI component catalog', () => {
+  it('keeps the catalog facade compatible with the focused utilities', () => {
+    expect(catalog.aiEditableComponents).toBe(aiEditableComponents);
+    expect(catalog.getBuilderAiCatalogProjection).toBe(
+      getBuilderAiCatalogProjection
+    );
+    expect(catalog.getBuilderAiPropShape).toBe(getBuilderAiPropShape);
+    expect(catalog.isBuilderAiPropValue).toBe(isBuilderAiPropValue);
+    expect(catalog.createInsertableComponentProps).toBe(
+      createInsertableComponentProps
+    );
+  });
+
   it('keeps every allowlisted component backed by the real Puck config', () => {
     for (const componentType of Object.keys(aiEditableComponents)) {
       expect(builderConfig.components).toHaveProperty(componentType);
