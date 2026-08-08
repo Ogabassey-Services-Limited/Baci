@@ -105,10 +105,10 @@ vi.mock('./PersonNameFields', () => ({
   ),
 }));
 vi.mock('./RegisterBusinessStep', () => ({
-  RegisterBusinessStep: ({ onBack }: { onBack: () => void }) => (
+  RegisterBusinessStep: ({ onBack }: { onBack?: () => void }) => (
     <>
-      <button aria-label="Back to owner details" onClick={onBack} type="button">
-        Edit owner details
+      <button aria-label="Back to about you" onClick={onBack} type="button">
+        Back to about you
       </button>
       <input aria-label="Business Name" />
     </>
@@ -125,22 +125,33 @@ describe('MerchantSetupForm step navigation', () => {
     };
   });
 
-  it('requires the owner and country step even when saved names are complete', () => {
+  it('starts complete signup identities on owner details so country is collected', () => {
     render(<MerchantSetupForm />);
 
-    expect(screen.queryByLabelText('Business Name')).not.toBeInTheDocument();
     expect(screen.getByLabelText('First Name')).toHaveValue('Ada');
-    fireEvent.change(screen.getByLabelText('First Name'), {
-      target: { value: 'Augusta' },
-    });
+    expect(
+      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Business Name')).not.toBeInTheDocument();
+
     fireEvent.click(
       screen.getByRole('button', { name: 'Continue to business info' })
     );
-    expect(screen.queryByText('Country / Region')).not.toBeInTheDocument();
+
+    expect(screen.getByLabelText('Business Name')).toBeInTheDocument();
+  });
+
+  it('returns to about-you details from business setup', () => {
+    render(<MerchantSetupForm />);
+
     fireEvent.click(
-      screen.getByRole('button', { name: 'Back to owner details' })
+      screen.getByRole('button', { name: 'Continue to business info' })
     );
-    expect(screen.getByLabelText('First Name')).toHaveValue('Augusta');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to about you' }));
+
+    expect(screen.getByLabelText('First Name')).toHaveValue('Ada');
+    expect(screen.queryByLabelText('Business Name')).not.toBeInTheDocument();
   });
 
   it('starts incomplete social identities on owner details', () => {

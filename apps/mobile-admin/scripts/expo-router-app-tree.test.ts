@@ -38,6 +38,7 @@ describe('Expo Router app tree', () => {
         (filePath) =>
           filePath.endsWith('.styles.ts') ||
           /(^|[\\/])_layout\.(test|spec)\.[jt]sx?$/.test(filePath) ||
+          /\.test-(support|harness)\.[jt]sx?$/.test(filePath) ||
           path.basename(filePath).startsWith('VariantConditionEditor.')
       );
 
