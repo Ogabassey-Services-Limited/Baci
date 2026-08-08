@@ -23,6 +23,10 @@ minimumReleaseAgeExclude:
   - mermaid@11.16.1
   - postcss@8.5.23
   - dompurify@3.4.11
+  # Security hotfixes released within the cooldown window; Dependabot alerts opened 2026-08-08.
+  - nanoid@3.3.17 || 5.1.16
+  - dompurify@3.4.13
+  - js-yaml@4.3.1
 # Refuse packages whose trust signals (provenance, signatures) weaken between
 # updates. trustLockfile keeps already-locked entries installable — the current
 # lockfile carries upstream trust downgrades (e.g. undici-types@6.21.0,
@@ -147,8 +151,8 @@ overrides:
   svgo: "3.3.4"
   linkify-it: "5.0.2"
   underscore: "^1.13.8"
-  # Pin to 3.4.12 to mitigate GHSA-c2j3-45gr-mqc4 in transitive DOMPurify consumers.
-  dompurify: "3.4.12"
+  # Pin to 3.4.13 to mitigate GHSA-55q2-fjhq-7xh7 and prior DOMPurify advisories.
+  dompurify: "3.4.13"
   # Pin to patched 7.x without forcing a cross-major Undici 8 upgrade.
   undici: "7.29.0"
   # Pin to the current patched 2.x release for GHSA-rpr9-rxv7-x643 / CVE-2026-44990: prevent xmp raw-text passthrough from rehydrating attacker-controlled markup after sanitization.
@@ -292,8 +296,12 @@ overrides:
   "form-data@<2.5.6": "2.5.6"
   "form-data@>=3 <3.0.5": "3.0.5"
   "form-data@>=4 <4.0.6": "4.0.6"
-  # Pin to 4.3.0 to mitigate GHSA-52cp-r559-cp3m.
-  js-yaml: "4.3.0"
+  # Pin to 4.3.1 to mitigate GHSA-5p4m-2wfm-xmqj and prior js-yaml advisories.
+  js-yaml: "4.3.1"
+  # Preserve Nano ID's CommonJS-compatible 3.x line for legacy consumers while
+  # moving every vulnerable line to its advisory-specific patched floor.
+  "nanoid@<3.3.17": "3.3.17"
+  "nanoid@>=4 <5.1.16": "5.1.16"
   # Pin OpenTelemetry packages to the current 2.8 line to satisfy the core advisory while keeping @vercel/otel on its documented >=2 peer range.
   "@opentelemetry/core": "2.8.0"
   "@opentelemetry/resources": "2.8.0"
@@ -328,3 +336,4 @@ patchedDependencies:
   # loudly on an orphaned patch if a re-resolution moves off 57.0.3 — re-key
   # the patch to the new version then (57.0.4 is byte-identical here).
   "expo-modules-jsi@57.0.3": "patches/expo-modules-jsi@57.0.3.patch"
+  image-size@1.2.1: patches/image-size@1.2.1.patch
