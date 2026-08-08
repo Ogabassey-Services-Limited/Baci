@@ -5426,6 +5426,21 @@
     },
     {
       "decision": "edge_redirect",
+      "id": "proxy:blog-category-canonical",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "legacy_blog_category_permalink_redirect",
+      "routePattern": "/blog/{legacyCategory}/{legacyPostSlug}",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "legacy_blog_category_permalink"
+      }
+    },
+    {
+      "decision": "edge_redirect",
       "id": "proxy:blog-query-canonical",
       "methods": [
         "GET",
@@ -5691,12 +5706,13 @@
         "DELETE",
         "GET",
         "HEAD",
+        "OPTIONS",
         "PATCH",
         "POST",
         "PUT"
       ],
       "reason": "alias_aware_api_rewrite_preserves_body",
-      "routePattern": "/{retiredSlug}/api/{*path}",
+      "routePattern": "/{retiredSlug}/api/{*path?}",
       "sourceKind": "proxy_path_class",
       "pathCondition": {
         "precedence": "before_path_decision",
@@ -7196,5 +7212,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "4717866a8fa6681e6361906f6cea0f2a1d606120ed920aaebaa513aa6d4e63ac"
+  "inventorySha256": "f8d6e726b380871467f8f1d885826807012f4df32cdc2194f11d4a1595b4ae8e"
 }

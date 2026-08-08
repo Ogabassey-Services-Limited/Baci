@@ -43,6 +43,19 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
+    'proxy:blog-category-canonical',
+    '/blog/{legacyCategory}/{legacyPostSlug}',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'legacy_blog_category_permalink_redirect',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_blog_category_permalink',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:cache-safe-punctuation',
     '/{*importedPunctuationPath}',
     ['ANY'],
@@ -170,8 +183,8 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   ),
   proxyClass(
     'proxy:retired-slug-api',
-    '/{retiredSlug}/api/{*path}',
-    ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
+    '/{retiredSlug}/api/{*path?}',
+    ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
     'origin_dynamic',
     'alias_aware_api_rewrite_preserves_body',
     {
