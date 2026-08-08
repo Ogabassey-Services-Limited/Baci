@@ -4,6 +4,7 @@ import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { filterProductModelSourceTokens } from './filter-product-model-source-tokens';
 import { getExcludedModelIdentifierTokens } from './get-model-identifier-excluded-tokens';
 import { getProductModelIdentifiersFromSources } from './get-product-model-identifiers-from-sources';
+import { getProtectedModelFamilyTokens } from './get-protected-model-family-tokens';
 import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
@@ -219,11 +220,10 @@ function getModelTokens(
 export function getProductModelIdentifiers(
   context: Omit<BuildCommercialGuideLinksContext, 'pageKind'>
 ) {
-  const protectedFamilyTokens = new Set([
-    ...tokenize(context.modelFamilySlug ?? ''),
-    ...(context.categorySlug === 'nintendo-switch-2' ? ['switch'] : []),
-    ...(context.categorySlug === 'vr-headsets' ? ['vr'] : []),
-  ]);
+  const protectedFamilyTokens = getProtectedModelFamilyTokens(
+    context,
+    tokenize
+  );
   const isGameCategory = GAME_CATEGORY_PATTERN.test(context.categorySlug);
   const gameHardwareMarkers = new Set([
     'adapter',

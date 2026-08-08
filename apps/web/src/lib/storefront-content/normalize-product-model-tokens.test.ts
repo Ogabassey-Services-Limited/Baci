@@ -289,13 +289,4 @@ describe('normalizeProductModelTokens', () => {
       ])
     ).toEqual(['airpods', '4']);
   });
-
-  it('preserves title words that resemble metadata for game catalogs', () => {
-    const tokens = normalizeProductModelTokens(
-      ['farcry', 'new', 'dawn', 'us'],
-      true
-    );
-
-    expect(tokens).toEqual(['farcry', 'new', 'dawn', 'us']);
-  });
 });

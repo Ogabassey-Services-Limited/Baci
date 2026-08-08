@@ -25,6 +25,8 @@ export const PRODUCT_VARIANT_COLOR_TOKENS = new Set([
   'starlight',
   'tan',
   'teal',
+  'titanium',
+  'obsidian',
   'violet',
   'white',
   'yellow',

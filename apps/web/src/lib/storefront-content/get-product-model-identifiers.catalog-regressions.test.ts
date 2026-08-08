@@ -19,6 +19,14 @@ describe('getProductModelIdentifiers catalog regressions', () => {
     });
     expect(identifiers).toEqual(['redmi 15']);
   });
+  it('preserves the Redmi Pad family token for tablet products', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Redmi'],
+      productSlugs: ['redmi-pad-pro', 'redmi-pad-se'],
+    });
+    expect(identifiers).toEqual(['redmi pad pro', 'redmi pad se']);
+  });
   it('ignores generated numeric collision suffixes', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

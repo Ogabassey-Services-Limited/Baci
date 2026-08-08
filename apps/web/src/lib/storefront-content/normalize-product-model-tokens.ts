@@ -1,6 +1,7 @@
 import { PRODUCT_VARIANT_COLOR_TOKENS } from '@/config/product-variant-color-tokens';
 import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { modelTokenMatchers } from './model-token-matchers';
+import { stripModelMetadataSuffixes } from './strip-model-metadata-suffixes';
 
 const MERCHANDISING_ONLY_TOKENS = new Set([
   'clearance',
@@ -189,42 +190,6 @@ function stripOptionalFeatureSuffix(tokens: string[]) {
   ].find((index) => index >= 0);
   return suffixIndex !== undefined ? tokens.slice(0, suffixIndex) : tokens;
 }
-function stripOptionalOrdinalGenerationConnectorSuffix(tokens: string[]) {
-  const ordinalPattern = /^(\d+)(?:st|nd|rd|th)$/u;
-  const generationIndex = tokens.findIndex(
-    (token, index) =>
-      ordinalPattern.test(token) &&
-      ['gen', 'generation'].includes(tokens[index + 1] ?? '') &&
-      tokens[index + 2] === 'type' &&
-      tokens[index + 3] === 'c' &&
-      index + 4 === tokens.length
-  );
-  if (generationIndex < 0) {
-    return tokens;
-  }
-
-  const generation = tokens[generationIndex]?.match(ordinalPattern)?.[1];
-  return generation
-    ? [...tokens.slice(0, generationIndex), generation]
-    : tokens;
-}
-
-function stripSplitCapacitySuffix(tokens: string[]) {
-  const normalizedTokens: string[] = [];
-  for (let index = 0; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? '';
-    if (
-      /^\d+$/u.test(token) &&
-      ['gb', 'tb', 'mb'].includes(tokens[index + 1] ?? '')
-    ) {
-      index += 1;
-      continue;
-    }
-    normalizedTokens.push(token);
-  }
-  return normalizedTokens;
-}
-
 function isInternalGameTitleToken(
   tokens: string[],
   index: number,
@@ -281,14 +246,12 @@ export function normalizeProductModelTokens(
       );
   const withoutConnectivity =
     stripOptionalConnectivitySuffix(withoutMerchandising);
-  const withoutOrdinalGenerationConnector =
-    stripOptionalOrdinalGenerationConnectorSuffix(withoutConnectivity);
   const withoutDisplaySuffix = stripDecimalDisplaySuffix(
-    withoutOrdinalGenerationConnector,
+    withoutConnectivity,
     stripTerminalDisplay
   );
   const withoutFeature = stripOptionalFeatureSuffix(withoutDisplaySuffix);
-  const withoutSplitCapacity = stripSplitCapacitySuffix(withoutFeature);
+  const withoutSplitCapacity = stripModelMetadataSuffixes(withoutFeature);
 
   return withoutSplitCapacity.filter(
     (token, index) =>
