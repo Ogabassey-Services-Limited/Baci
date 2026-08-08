@@ -69,3 +69,18 @@ test('refuses symlinks and wrong modes before reading bytes', () => {
     rmSync(root, { force: true, recursive: true });
   }
 });
+
+test('preserves the underlying descriptor error as the refusal cause', () => {
+  const root = mkdtempSync(join(tmpdir(), 'task9-held-file-cause-'));
+  try {
+    assert.throws(
+      () => readHeldTask9File(join(root, 'missing'), 0o600),
+      (error) =>
+        error instanceof TypeError &&
+        error.message === 'unsafe Task 9 input' &&
+        error.cause instanceof Error
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});

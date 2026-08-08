@@ -54,16 +54,17 @@ export function runTask9BootstrapBundleCli(argv, dependencies = {}) {
   return canonicalJson(generate(input));
 }
 
-if (
-  process.argv[1] &&
-  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
-) {
-  try {
+try {
+  if (
+    process.argv[1] &&
+    realpathSync(process.argv[1]) ===
+      realpathSync(fileURLToPath(import.meta.url))
+  ) {
     process.stdout.write(
       `${runTask9BootstrapBundleCli(process.argv.slice(2))}\n`
     );
-  } catch {
-    process.stderr.write('task9-bootstrap-bundle refused\n');
-    process.exitCode = 1;
   }
+} catch {
+  process.stderr.write('task9-bootstrap-bundle refused\n');
+  process.exitCode = 1;
 }

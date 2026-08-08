@@ -15,8 +15,8 @@ const same = (left, right) =>
   left.gid === right.gid &&
   left.mode === right.mode &&
   left.size === right.size;
-const fail = () => {
-  throw new TypeError('unsafe Task 9 input');
+const fail = (cause) => {
+  throw new TypeError('unsafe Task 9 input', cause ? { cause } : undefined);
 };
 
 export function readHeldTask9File(
@@ -51,8 +51,8 @@ export function readHeldTask9File(
     )
       fail();
     return { bytes: Buffer.from(bytes), path: absolute };
-  } catch {
-    fail();
+  } catch (error) {
+    fail(error);
   } finally {
     if (fd !== undefined) closeSync(fd);
   }

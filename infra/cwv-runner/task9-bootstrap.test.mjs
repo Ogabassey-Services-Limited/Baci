@@ -33,10 +33,11 @@ function putOctal(header, offset, width, value) {
   checksum(header);
   return Buffer.concat([header, bytes, Buffer.alloc((512 - (bytes.length % 512)) % 512)]);
 } function sourceTar(entries) { return Buffer.concat([...entries.map(({ path, bytes, mode }) => tarEntry(path, bytes, mode)), Buffer.alloc(1024)]); } function fixture({ extra = [], omit } = {}) {
+  const policyBytes = Buffer.from(canonicalJson({ authority: {}, supplyChain: { node: { ownerDarwinArm64Sha256: '4'.repeat(64) } } }));
   const sourceEntries = [...TASK9_SOURCE_FILES, 'infra/cwv-runner/policy.json']
     .filter((path) => path !== omit)
     .concat(Array.isArray(extra) ? extra : [extra])
-    .map((path) => ({ bytes: authenticClosure.get(path) ?? Buffer.from(path.endsWith('.sh') ? '#!/bin/sh\nexit 64\n' : path.endsWith('policy.json') ? '{"authority":{}}' : path.endsWith('task9-bootstrap-runtime.mjs') ? 'launcher source\n' : path.endsWith('task9-bootstrap.mjs') ? 'bootstrap source\n' : 'export {};\n'), mode: path.endsWith('.sh') ? '100755' : '100644', path }))
+    .map((path) => ({ bytes: authenticClosure.get(path) ?? (path.endsWith('policy.json') ? policyBytes : Buffer.from(path.endsWith('.sh') ? '#!/bin/sh\nexit 64\n' : path.endsWith('task9-bootstrap-runtime.mjs') ? 'launcher source\n' : path.endsWith('task9-bootstrap.mjs') ? 'bootstrap source\n' : 'export {};\n')), mode: path.endsWith('.sh') ? '100755' : '100644', path }))
     .sort((left, right) => left.path.localeCompare(right.path));
   const archive = sourceTar(sourceEntries);
   const node = Buffer.from('pinned node bytes');
@@ -89,7 +90,7 @@ function putOctal(header, offset, width, value) {
     },
     policy: {
       path: 'infra/cwv-runner/policy.json',
-      sha256: sha256(Buffer.from('{"authority":{}}')),
+      sha256: sha256(policyBytes),
     },
     runtime,
     transport: {
@@ -103,8 +104,8 @@ function putOctal(header, offset, width, value) {
     baseSha: 'b'.repeat(40),
     entries: [],
     mergeSha: 'c'.repeat(40),
-    policyCanonicalSha256: sha256(Buffer.from(canonicalJson({ authority: {} }))),
-    policyFileSha256: sha256(Buffer.from('{"authority":{}}')),
+    policyCanonicalSha256: sha256(canonicalJson({ authority: {}, supplyChain: { node: { ownerDarwinArm64Sha256: '4'.repeat(64) } } })),
+    policyFileSha256: sha256(policyBytes),
     prNumber: 9,
     reviewedHeadSha: 'a'.repeat(40),
     schemaVersion: 1,
@@ -127,7 +128,6 @@ function putOctal(header, offset, width, value) {
   envelope.payload = { entries: Object.keys(files).sort().map((name) => ({ mode: files[name].mode, path: `payload/${name}`, sha256: sha256(files[name].bytes), type: 'file' })) };
   return { archiveEntries, envelope, files, manifest };
 }
-
 function rechecksum(value) { checksum(value.subarray(0, 512)); }
 test('canonical JSON is deterministic and rejects unsupported values', () => {
   assert.equal(canonicalJson({ b: 2, a: 1 }), '{"a":1,"b":2}');
@@ -251,7 +251,7 @@ test('publishes its sealed authorization, not a caller-modified inspection tree'
   publishAuthorizedTree(authorized, (path, bytes) => writes.set(path, bytes));
   assert.equal(
     writes.get('infra/cwv-runner/policy.json').toString(),
-    '{"authority":{}}'
+    canonicalJson({ authority: {}, supplyChain: { node: { ownerDarwinArm64Sha256: '4'.repeat(64) } } })
   );
 });
 

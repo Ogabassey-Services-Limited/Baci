@@ -118,7 +118,7 @@ export function generateTask9BootstrapBundle(
     fail('invalid Task 9 bundle input');
   const transactionId = checkedTransactionId(input.transactionId);
   const bundleId = logicalId('task9-bundle', input.bundleId);
-  const outputRoot = resolve(input.outputRoot ?? join('/private/tmp', `baci-cwv-task9-bootstrap-${transactionId}`));
+  const outputRoot = resolve(input.outputRoot ?? join(outputParent, `baci-cwv-task9-bootstrap-${transactionId}`));
   if (
     dirname(outputRoot) !== resolve(outputParent) ||
     basename(outputRoot) !== `baci-cwv-task9-bootstrap-${transactionId}` ||

@@ -12,11 +12,12 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { freezeSourceManifest } from './source-manifest.mjs';
 
 const here = new URL('.', import.meta.url);
-const root = new URL('../../', here).pathname;
+const root = fileURLToPath(new URL('../../', here));
 const git = (cwd, args, input) =>
   execFileSync('/usr/bin/git', args, { cwd, input, encoding: 'utf8' }).trim();
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');

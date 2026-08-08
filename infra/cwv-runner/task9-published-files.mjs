@@ -43,10 +43,25 @@ export function readPublishedTask9Files(
     fail();
   const handles = [];
   try {
+    const directoryFd = openSync(
+      directory,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
+    );
+    handles.push({ fd: directoryFd });
+    const directoryIdentity = fstatSync(directoryFd);
+    const directoryPathIdentity = lstatSync(directory);
+    if (
+      !directoryIdentity.isDirectory() ||
+      directoryIdentity.uid !== owner ||
+      (directoryIdentity.mode & 0o777) !== 0o700 ||
+      !same(directoryIdentity, directoryPathIdentity)
+    )
+      fail();
     const files = Object.fromEntries(
       Object.entries(ENTRIES).map(([name, mode]) => {
         const path = join(directory, name);
         const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+        handles.push({ fd, path });
         const identity = fstatSync(fd);
         if (
           !identity.isFile() ||
@@ -66,7 +81,8 @@ export function readPublishedTask9Files(
           if (count < 1) fail();
           offset += count;
         }
-        handles.push({ bytes, fd, identity, path });
+        handles.at(-1).bytes = bytes;
+        handles.at(-1).identity = identity;
         return [
           name,
           { bytes: Buffer.from(bytes), mode, owner, symlink: false },
@@ -75,7 +91,17 @@ export function readPublishedTask9Files(
     );
     afterRead();
     const verify = () => {
+      const currentDirectory = fstatSync(directoryFd);
+      const pathDirectory = lstatSync(directory, { throwIfNoEntry: false });
+      if (
+        !pathDirectory ||
+        pathDirectory.isSymbolicLink() ||
+        !same(directoryIdentity, currentDirectory) ||
+        !same(directoryIdentity, pathDirectory)
+      )
+        fail();
       for (const handle of handles) {
+        if (!handle.path) continue;
         const current = fstatSync(handle.fd);
         const path = lstatSync(handle.path, { throwIfNoEntry: false });
         if (

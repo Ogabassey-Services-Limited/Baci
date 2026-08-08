@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  chmodSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -115,8 +116,10 @@ test('refuses unsafe created directories before calling publish', () => {
             },
             {
               makeDirectory(path) {
-                if (kind === 'mode') mkdirSync(path, { mode: 0o755 });
-                else {
+                if (kind === 'mode') {
+                  mkdirSync(path, { mode: 0o700 });
+                  chmodSync(path, 0o755);
+                } else {
                   const target = join(parent, 'target');
                   mkdirSync(target, { mode: 0o700 });
                   symlinkSync(target, path);
