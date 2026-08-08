@@ -45,6 +45,18 @@ const operationExamples = [
 
 export const MAX_PROMPT_PROJECTED_COMPONENTS = 100;
 export const MAX_PROMPT_PROJECTION_CHARS = 16_384;
+const MAX_PROMPT_ROOT_TITLE_CHARS = 200;
+const MAX_PROMPT_THEME_COLOR_CHARS = 100;
+const baseThemeColorKeys = [
+  'primary',
+  'secondary',
+  'accent',
+  'background',
+  'foreground',
+  'muted',
+  'mutedForeground',
+  'border',
+] as const;
 
 export class BuilderAiPromptProjectionTooLargeError extends Error {
   constructor() {
@@ -81,6 +93,31 @@ function projectCarouselSlides(props: Record<string, unknown>): unknown[] {
     const { props: safeSlide } = sanitizeBuilderAiProps('Hero', slide);
     return safeSlide;
   });
+}
+
+function getCurrentStateProjection(currentConfig: BuilderData): {
+  root: { title?: string };
+  theme: { colors: Record<string, string> };
+} {
+  const title = currentConfig.root.title;
+  const themeColors = isRecord(currentConfig.theme?.colors)
+    ? currentConfig.theme.colors
+    : {};
+  const colors = Object.fromEntries(
+    baseThemeColorKeys.flatMap((key) => {
+      const value = themeColors[key];
+      return typeof value === 'string'
+        ? [[key, clean(value).slice(0, MAX_PROMPT_THEME_COLOR_CHARS)]]
+        : [];
+    })
+  );
+  return {
+    root:
+      typeof title === 'string'
+        ? { title: clean(title).slice(0, MAX_PROMPT_ROOT_TITLE_CHARS) }
+        : {},
+    theme: { colors },
+  };
 }
 
 function project(
@@ -170,6 +207,7 @@ export function buildBuilderAiEditPrompt({
   const operationGuidance = serializeQuotedData({
     allowedComponentTypes: Object.keys(aiEditableComponents),
     catalog: getBuilderAiCatalogProjection(),
+    currentState: getCurrentStateProjection(currentConfig),
     operationExamples,
     removalConstraints: {
       instruction:
