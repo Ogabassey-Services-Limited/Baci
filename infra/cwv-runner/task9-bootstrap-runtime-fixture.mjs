@@ -99,11 +99,13 @@ function envelopeFor({ archive, node, rows, source }) {
     nodeVersion: process.version,
   };
   const provenance = {
+    archiveSha256: '4'.repeat(64),
     artifact: 'node',
     checksumSha256: '1'.repeat(64),
     keyringSha256: '2'.repeat(64),
     schemaVersion: 1,
     sha256: runtime.nodeSha256,
+    executableSha256: runtime.nodeSha256,
     signatureSha256: '3'.repeat(64),
     version: runtime.nodeVersion,
   };

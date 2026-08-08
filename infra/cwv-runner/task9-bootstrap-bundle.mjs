@@ -1,7 +1,9 @@
 // biome-ignore-all format: compact fail-closed generator stays below the 300-line limit
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { verifySourceManifest } from './source-manifest.mjs';
 import { authorizeTask9Bundle, BUNDLE_ENTRIES, canonicalJson, parseUstar, readBundleFiles } from './task9-bootstrap.mjs';
@@ -23,6 +25,7 @@ const MODES = Object.freeze({
   'source.tar.sha256': '100400',
   'task9-bootstrap.mjs': '100400',
 });
+const CHECKOUT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const fail = (message) => { throw new TypeError(message); };
 const exact = (value, keys) =>
@@ -42,6 +45,7 @@ function checkedIdentity(input, manifest, policy) {
     fail('invalid repository identity');
   if (
     !SHA.test(input.deploymentSha) ||
+    input.deploymentSha !== manifest.mergeSha ||
     !REF_PART.test(input.headRef) ||
     !Number.isSafeInteger(input.workflowId) ||
     input.workflowId < 1 ||
@@ -68,10 +72,12 @@ function checkedProvenance(bytes, nodeBytes, policy) {
   }
   if (
     canonicalJson(value) !== bytes.toString() ||
-    !exact(value, ['artifact', 'checksumSha256', 'keyringSha256', 'schemaVersion', 'sha256', 'signatureSha256', 'version']) ||
+    !exact(value, ['archiveSha256', 'artifact', 'checksumSha256', 'executableSha256', 'keyringSha256', 'schemaVersion', 'sha256', 'signatureSha256', 'version']) ||
     value.artifact !== 'node' ||
     value.schemaVersion !== 1 ||
     value.sha256 !== hash(nodeBytes) ||
+    value.executableSha256 !== hash(nodeBytes) ||
+    value.archiveSha256 !== policy.supplyChain?.node?.ownerDarwinArm64Sha256 ||
     value.version !== policy.supplyChain?.node?.version ||
     value.checksumSha256 !== policy.supplyChainProvenance?.node?.checksumsSha256 ||
     value.keyringSha256 !== policy.supplyChainProvenance?.node?.keyringSha256 ||
@@ -114,11 +120,12 @@ export function generateTask9BootstrapBundle(
   const bundleId = logicalId('task9-bundle', input.bundleId);
   const outputRoot = resolve(input.outputRoot ?? join('/private/tmp', `baci-cwv-task9-bootstrap-${transactionId}`));
   if (
-    dirname(outputRoot) !== '/private/tmp' ||
+    !['/private/tmp', resolve(tmpdir())].includes(dirname(outputRoot)) ||
     basename(outputRoot) !== `baci-cwv-task9-bootstrap-${transactionId}` ||
     lstatSync(outputRoot, { throwIfNoEntry: false })
   )
     fail('unsafe Task 9 output');
+  if (resolve(input.cwd) !== CHECKOUT_ROOT) fail('unsafe Task 9 checkout');
   const manifestInput = readHeldTask9File(input.sourceManifestPath, 0o600);
   const manifestDigestInput = readHeldTask9File(input.sourceManifestDigestPath, 0o600);
   const archiveInput = readHeldTask9File(input.sourceArchivePath, 0o600);
@@ -238,6 +245,7 @@ export function generateTask9BootstrapBundle(
   });
   const payloadDirectory = join(outputRoot, 'payload');
   return withTask9OutputDirectory(outputRoot, () => {
+    fsyncTask9Directory(dirname(outputRoot));
     mkdirSync(payloadDirectory, { mode: 0o700 });
     for (const name of BUNDLE_ENTRIES)
       writeExclusive(
@@ -251,9 +259,17 @@ export function generateTask9BootstrapBundle(
     writeExclusive(envelopePath, envelopeBytes, 0o400);
     writeExclusive(envelopeSha256Path, `${envelopeSha256}\n`, 0o400);
     fsyncTask9Directory(outputRoot);
+    fsyncTask9Directory(dirname(outputRoot));
+    const heldEnvelope = readHeldTask9File(envelopePath, 0o400);
+    const heldEnvelopeDigest = readHeldTask9File(envelopeSha256Path, 0o400);
+    if (
+      !heldEnvelope.bytes.equals(envelopeBytes) ||
+      heldEnvelopeDigest.bytes.toString() !== `${envelopeSha256}\n`
+    )
+      fail('published envelope changed');
     authorizeTask9Bundle({
       bundleId,
-      envelopeBytes: readFileSync(envelopePath),
+      envelopeBytes: heldEnvelope.bytes,
       envelopeSha256,
       files: readBundleFiles(payloadDirectory, process.getuid()),
       owner: process.getuid(),

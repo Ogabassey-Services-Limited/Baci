@@ -46,12 +46,12 @@ function frozenInputs() {
     })
   );
   const node = Buffer.from('authorized Darwin Node 24.18.0 fixture');
-  const provenance = {
+  const provenance = { archiveSha256: policy.supplyChain.node.ownerDarwinArm64Sha256,
     artifact: 'node',
     checksumSha256: policy.supplyChainProvenance.node.checksumsSha256,
     keyringSha256: policy.supplyChainProvenance.node.keyringSha256,
     schemaVersion: 1,
-    sha256: hash(node),
+    sha256: hash(node), executableSha256: hash(node),
     signatureSha256: policy.supplyChainProvenance.node.signatureSha256,
     version: policy.supplyChain.node.version,
   };
@@ -137,7 +137,7 @@ function clonedInputs() {
 test('generates the exact sealed bundle accepted by the real Task 9 authorizer', () => {
   const fixture = clonedInputs();
   const outputRoot = join(
-    '/private/tmp',
+    tmpdir(),
     'baci-cwv-task9-bootstrap-task9-transaction-deterministic'
   );
   rmSync(outputRoot, { force: true, recursive: true });
@@ -183,15 +183,18 @@ test('generates the exact sealed bundle accepted by the real Task 9 authorizer',
     rmSync(fixture.root, { force: true, recursive: true });
   }
 });
-
 test('refuses drifted digests and invalid source archive entry shapes', () => {
   const fixture = clonedInputs();
   const outputRoot = join(
-    '/private/tmp',
+    tmpdir(),
     'baci-cwv-task9-bootstrap-task9-transaction-deterministic'
   );
   rmSync(outputRoot, { force: true, recursive: true });
   try {
+    assert.throws(
+      () => generateTask9BootstrapBundle({ ...input(fixture, outputRoot), deploymentSha: 'f'.repeat(40) }),
+      /source identity/
+    );
     writeFileSync(fixture.paths.manifestDigest, `${'0'.repeat(64)}\n`);
     assert.throws(
       () => generateTask9BootstrapBundle(input(fixture, outputRoot)),
@@ -212,17 +215,16 @@ test('refuses drifted digests and invalid source archive entry shapes', () => {
     rmSync(fixture.root, { force: true, recursive: true });
   }
 });
-
 test('refuses Node provenance that is not the policy-signed identity', () => {
   const fixture = clonedInputs();
   const outputRoot = join(
-    '/private/tmp',
+    tmpdir(),
     'baci-cwv-task9-bootstrap-task9-transaction-deterministic'
   );
   rmSync(outputRoot, { force: true, recursive: true });
   try {
     const provenance = JSON.parse(readFileSync(fixture.nodeProvenance));
-    provenance.signatureSha256 = '0'.repeat(64);
+    provenance.archiveSha256 = '0'.repeat(64);
     chmodSync(fixture.nodeProvenance, 0o600);
     writeFileSync(fixture.nodeProvenance, canonicalJson(provenance));
     chmodSync(fixture.nodeProvenance, 0o400);
@@ -236,11 +238,10 @@ test('refuses Node provenance that is not the policy-signed identity', () => {
     rmSync(fixture.root, { force: true, recursive: true });
   }
 });
-
 test('refuses a coordinated pathname swap between held reads and source verification', () => {
   const fixture = clonedInputs();
   const transactionId = 'task9-coordinated-swap';
-  const outputRoot = join('/private/tmp', `baci-cwv-task9-bootstrap-${transactionId}`);
+  const outputRoot = join(tmpdir(), `baci-cwv-task9-bootstrap-${transactionId}`);
   rmSync(outputRoot, { force: true, recursive: true });
   try {
     const validManifest = readFileSync(fixture.paths.manifest);
@@ -275,11 +276,10 @@ test('refuses a coordinated pathname swap between held reads and source verifica
     rmSync(fixture.root, { force: true, recursive: true });
   }
 });
-
 test('does not delete external output when exclusive mkdir loses a race', () => {
   const fixture = clonedInputs();
   const transactionId = 'task9-output-race';
-  const outputRoot = join('/private/tmp', `baci-cwv-task9-bootstrap-${transactionId}`);
+  const outputRoot = join(tmpdir(), `baci-cwv-task9-bootstrap-${transactionId}`);
   const marker = join(outputRoot, 'external');
   rmSync(outputRoot, { force: true, recursive: true });
   try {

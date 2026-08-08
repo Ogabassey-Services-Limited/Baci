@@ -55,12 +55,12 @@ function putOctal(header, offset, width, value) {
     nodeSha256: sha256(node),
     nodeVersion: '24.18.0',
   };
-  const provenance = {
+  const provenance = { archiveSha256: '4'.repeat(64),
     schemaVersion: 1,
     artifact: 'node',
     checksumSha256: '1'.repeat(64),
     keyringSha256: '2'.repeat(64),
-    sha256: runtime.nodeSha256,
+    sha256: runtime.nodeSha256, executableSha256: runtime.nodeSha256,
     signatureSha256: '3'.repeat(64),
     version: runtime.nodeVersion,
   };
