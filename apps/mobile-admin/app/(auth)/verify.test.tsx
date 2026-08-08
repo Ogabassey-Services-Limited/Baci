@@ -16,6 +16,11 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   verifySignupOtp: vi.fn(),
   resend: vi.fn(),
+  searchParams: {
+    attemptId: '123e4567-e89b-42d3-a456-426614174000',
+    email: 'merchant@example.com',
+    flow: 'merchant',
+  },
 }));
 
 interface TextInputProps {
@@ -111,11 +116,7 @@ vi.mock('expo-router', async () => {
   return {
     Redirect: ({ href }: { href: string }) =>
       React.createElement('span', { 'data-href': href }, 'redirect'),
-    useLocalSearchParams: () => ({
-      attemptId: '123e4567-e89b-42d3-a456-426614174000',
-      email: 'merchant@example.com',
-      flow: 'merchant',
-    }),
+    useLocalSearchParams: () => mocks.searchParams,
     useRouter: () => ({
       back: mocks.back,
       replace: mocks.replace,
@@ -169,6 +170,7 @@ function enterVerificationCode() {
 describe('VerifyScreen OTP keyboard controls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.searchParams.flow = 'merchant';
     mocks.verifySignupOtp.mockResolvedValue({
       error: null,
       sessionEstablished: true,
@@ -211,6 +213,23 @@ describe('VerifyScreen OTP keyboard controls', () => {
         '123456',
         '123e4567-e89b-42d3-a456-426614174000',
         'merchant'
+      );
+    });
+  });
+
+  it('passes the staff flow from the route to signup verification', async () => {
+    mocks.searchParams.flow = 'staff';
+    render(<VerifyScreen />);
+
+    enterVerificationCode();
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
+
+    await waitFor(() => {
+      expect(mocks.verifySignupOtp).toHaveBeenCalledWith(
+        'merchant@example.com',
+        '123456',
+        '123e4567-e89b-42d3-a456-426614174000',
+        'staff'
       );
     });
   });

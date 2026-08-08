@@ -101,6 +101,36 @@ describe('captureMobileSignupLifecycle', () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
+  it('prefers a finite status and falls back to a finite statusCode', async () => {
+    await captureMobileSignupLifecycle({
+      attemptId: null,
+      error: { status: Number.NaN, statusCode: 503 },
+      eventCode: 'signup_verification_failed',
+      flow: 'merchant',
+      outcome: 'failed',
+      stage: 'verification',
+    });
+
+    expect(mocks.capture).toHaveBeenLastCalledWith(
+      'admin_signup_lifecycle',
+      expect.objectContaining({ error_status: 503 })
+    );
+
+    await captureMobileSignupLifecycle({
+      attemptId: null,
+      error: { status: 502, statusCode: 503 },
+      eventCode: 'signup_verification_failed',
+      flow: 'merchant',
+      outcome: 'failed',
+      stage: 'verification',
+    });
+
+    expect(mocks.capture).toHaveBeenLastCalledWith(
+      'admin_signup_lifecycle',
+      expect.objectContaining({ error_status: 502 })
+    );
+  });
+
   it('resolves when analytics capture throws', async () => {
     mocks.capture.mockImplementation(() => {
       throw new Error('capture failed');

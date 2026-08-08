@@ -51,9 +51,17 @@ function getSafeErrorCode(error: unknown): string {
 function getSafeErrorStatus(error: unknown): number | null {
   if (!error || typeof error !== 'object') return null;
 
-  const candidate = error as { status?: unknown; statusCode?: unknown };
-  const status = candidate.status ?? candidate.statusCode;
-  return typeof status === 'number' && Number.isFinite(status) ? status : null;
+  const status =
+    'status' in error &&
+    typeof error.status === 'number' &&
+    Number.isFinite(error.status)
+      ? error.status
+      : 'statusCode' in error &&
+          typeof error.statusCode === 'number' &&
+          Number.isFinite(error.statusCode)
+        ? error.statusCode
+        : null;
+  return status;
 }
 
 /** Captures a privacy-safe mobile signup step without changing auth behavior. */

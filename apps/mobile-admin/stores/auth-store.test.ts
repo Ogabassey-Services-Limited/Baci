@@ -250,6 +250,7 @@ describe('useAuthStore verifySignupOtp', () => {
     expect(mocks.captureMobileSignupLifecycle).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
+        attemptId: '123e4567-e89b-42d3-a456-426614174000',
         eventCode: 'signup_verification_started',
         flow: 'staff',
       })
@@ -257,6 +258,7 @@ describe('useAuthStore verifySignupOtp', () => {
     expect(mocks.captureMobileSignupLifecycle).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
+        attemptId: '123e4567-e89b-42d3-a456-426614174000',
         eventCode: 'signup_verification_succeeded',
         flow: 'staff',
       })

@@ -82,6 +82,21 @@ describe('RegisterScreen', () => {
     });
   });
 
+  it('routes confirmation-required signup without an attempt ID to email verification', async () => {
+    mocks.signUp.mockResolvedValue({
+      error: null,
+      needsEmailConfirmation: true,
+    });
+    render(<RegisterScreen />);
+    fillFormAndSubmit();
+
+    await waitFor(() => {
+      expect(mocks.replace).toHaveBeenCalledWith(
+        '/(auth)/verify?email=test%40example.com&flow=merchant'
+      );
+    });
+  });
+
   it('offers sign-in for an existing account without blaming the store URL', async () => {
     mocks.signUp.mockResolvedValue({ error: null, accountExists: true });
     render(<RegisterScreen />);

@@ -42,6 +42,17 @@ const mutationMocks = vi.hoisted(() => {
       variables?: unknown,
       context?: unknown
     ) => Promise<void> | void;
+    onError?: (
+      error: unknown,
+      variables?: unknown,
+      context?: unknown
+    ) => Promise<void> | void;
+    onSettled?: (
+      data: unknown,
+      error: unknown,
+      variables?: unknown,
+      context?: unknown
+    ) => Promise<void> | void;
   };
   const state: { options: MutationOptions | null } = { options: null };
   return {
@@ -52,10 +63,21 @@ const mutationMocks = vi.hoisted(() => {
         isPending: false,
         mutate: (variables?: unknown) => {
           void (async () => {
-            const context = await options.onMutate?.();
-            const data = await options.mutationFn(variables);
-            await options.onSuccess?.(data, variables, context);
-          })();
+            let context: unknown;
+            let data: unknown = null;
+            let error: unknown = null;
+
+            try {
+              context = await options.onMutate?.();
+              data = await options.mutationFn(variables);
+              await options.onSuccess?.(data, variables, context);
+            } catch (caught) {
+              error = caught;
+              await options.onError?.(caught, variables, context);
+            } finally {
+              await options.onSettled?.(data, error, variables, context);
+            }
+          })().catch(() => undefined);
         },
       };
     },
@@ -188,7 +210,9 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => queryClientMocks,
 }));
 
-const { default: AnalyticsConfigScreen } = await import('./analytics-config');
+const { default: AnalyticsConfigScreen } = await import(
+  '../../app/(admin)/analytics-config'
+);
 
 export const merchantAnalytics = {
   facebook_capi_token: '',
