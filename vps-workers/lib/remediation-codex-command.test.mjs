@@ -56,6 +56,8 @@ describe('remediation Codex command', () => {
       result.args.includes('--dangerously-bypass-approvals-and-sandbox'),
       true
     );
+    assert.equal(result.args.includes('--enable'), true);
+    assert.equal(result.args.includes('use_legacy_landlock'), true);
     assert.equal(result.args.includes('--ignore-user-config'), true);
     assert.equal(
       result.args.includes('type=bind,src=/worktree,dst=/worktree'),

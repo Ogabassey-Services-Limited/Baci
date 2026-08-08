@@ -54,6 +54,17 @@ export function buildCodexRemediationPrompt({ candidate }) {
       requestId: String(sample.requestId || '').slice(0, 120),
       release: String(sample.release || '').slice(0, 120),
       issueId: String(sample.issueId || '').slice(0, 120),
+      platform: String(sample.platform || '').slice(0, 40),
+      appState: String(sample.appState || '').slice(0, 40),
+      device: String(sample.device || '').slice(0, 120),
+      deviceClass: String(sample.deviceClass || '').slice(0, 40),
+      os: String(sample.os || '').slice(0, 120),
+      mechanism: String(sample.mechanism || '').slice(0, 120),
+      stackSummary: Array.isArray(sample.stackSummary)
+        ? sample.stackSummary
+            .slice(0, 32)
+            .map((frame) => String(frame || '').slice(0, 240))
+        : [],
       message: String(sample.message || '').slice(0, 1_000),
     },
     null,

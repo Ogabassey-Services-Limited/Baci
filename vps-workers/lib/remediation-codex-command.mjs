@@ -130,6 +130,8 @@ export function buildRemediationCodexCommand({
     'mkdir -p "$CODEX_HOME"; cp /codex-auth/auth.json "$CODEX_HOME/auth.json"; chmod 600 "$CODEX_HOME/auth.json"; exec /opt/codex/bin/codex "$@"',
     'codex',
     '--search',
+    '--enable',
+    'use_legacy_landlock',
     'exec',
     '--ephemeral',
     '--skip-git-repo-check',

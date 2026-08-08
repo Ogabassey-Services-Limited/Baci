@@ -47,6 +47,7 @@ function notificationIdFor(workerName, candidates) {
 
 export async function runRemediationWorker({
   autofixRunner = runRemediationAutofix,
+  candidateEnricher,
   candidateLoader,
   env = process.env,
   fetchFn = fetch,
@@ -105,10 +106,35 @@ export async function runRemediationWorker({
     10
   );
   const candidates = state.pending(loadedCandidates, {
-    limit: mode === 'autofix' ? maximumCandidates : Number.POSITIVE_INFINITY,
+    limit:
+      mode === 'autofix' || typeof candidateEnricher === 'function'
+        ? maximumCandidates
+        : Number.POSITIVE_INFINITY,
   });
 
-  for (const candidate of candidates) {
+  for (const pendingCandidate of candidates) {
+    let candidate = pendingCandidate;
+    if (typeof candidateEnricher === 'function') {
+      try {
+        candidate = await candidateEnricher({
+          candidate: pendingCandidate,
+          env,
+          fetchFn,
+        });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        actions.push({
+          detail,
+          fingerprint: pendingCandidate.fingerprint,
+          type: 'candidate_enrichment_failed',
+        });
+        if (!state.complete({ deferCandidates: [pendingCandidate] })) {
+          throw new Error('remediation state is busy');
+        }
+        logger.error(`[${workerName}] candidate enrichment failed:`, error);
+        continue;
+      }
+    }
     const prompt = buildCodexRemediationPrompt({ candidate });
     const path = writePrompt({ candidate, outputDir });
     actions.push({ path, type: 'prompt_written' });
