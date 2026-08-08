@@ -147,6 +147,24 @@ describe('processMerchantInvoicePartialPayment', () => {
     expect(db.supabase.rpc).toHaveBeenCalledTimes(1);
   });
 
+  it('hands an exact-completion replay back to standard paid-order completion', async () => {
+    const db = buildSupabaseMock({
+      data: {
+        outcome: 'standard_completion',
+        reason: 'exact_completion_replay',
+      },
+      error: null,
+    });
+
+    await expect(
+      processMerchantInvoicePartialPayment({
+        ...baseArgs,
+        supabase: db.supabase,
+      })
+    ).resolves.toEqual({ kind: 'none' });
+    expect(db.supabase.rpc).toHaveBeenCalledTimes(1);
+  });
+
   it('files review instead of handing a terminal order to paid-order completion', async () => {
     const db = buildSupabaseMock({
       data: {

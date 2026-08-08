@@ -34,6 +34,7 @@ describe('merchantInvoicePartialPaymentCompletionSchema', () => {
 
   it.each([
     'amount_now_completes_order',
+    'exact_completion_replay',
     'order_terminal',
   ])('parses a %s standard-completion handoff', (reason) => {
     expect(

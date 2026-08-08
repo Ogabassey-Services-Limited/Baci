@@ -13,7 +13,11 @@ const partialRecordedSchema = z.object({
 
 const standardCompletionSchema = z.object({
   outcome: z.literal('standard_completion'),
-  reason: z.enum(['amount_now_completes_order', 'order_terminal']),
+  reason: z.enum([
+    'amount_now_completes_order',
+    'exact_completion_replay',
+    'order_terminal',
+  ]),
 });
 
 const reviewRequiredSchema = z.object({
