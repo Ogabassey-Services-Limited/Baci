@@ -45,7 +45,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:cache-safe-punctuation',
     '/{*importedPunctuationPath}',
-    ['GET', 'HEAD'],
+    ['ANY'],
     'edge_redirect',
     'cache_safe_storefront_path_normalization',
     {
@@ -136,7 +136,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   ),
   proxyClass(
     'proxy:redundant-slug-prefix',
-    '/{currentSlug}/{*path}',
+    '/{currentSlug}/{*path?}',
     ['GET', 'HEAD'],
     'edge_redirect',
     'custom_domain_slug_prefix_canonicalization',
@@ -154,7 +154,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:current-slug-api',
     '/{currentSlug}/api/{*path}',
-    ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
+    ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
     'origin_dynamic',
     'current_slug_api_rewrite_preserves_body',
     {

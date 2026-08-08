@@ -5092,7 +5092,7 @@
         "ANY"
       ],
       "reason": "explicit_storefront_machine_family",
-      "routePattern": "/_next/{*unlisted}",
+      "routePattern": "/_next/{*unlisted?}",
       "sourceKind": "machine_family",
       "sourcePath": "apps/web/next.config.ts"
     },
@@ -5404,7 +5404,7 @@
         "ANY"
       ],
       "reason": "explicit_storefront_machine_family",
-      "routePattern": "/.well-known/{*unlisted}",
+      "routePattern": "/.well-known/{*unlisted?}",
       "sourceKind": "machine_family",
       "sourcePath": "apps/web/src/app/.well-known/[...rest]/route.ts"
     },
@@ -5443,8 +5443,7 @@
       "decision": "edge_redirect",
       "id": "proxy:cache-safe-punctuation",
       "methods": [
-        "GET",
-        "HEAD"
+        "ANY"
       ],
       "reason": "cache_safe_storefront_path_normalization",
       "routePattern": "/{*importedPunctuationPath}",
@@ -5461,6 +5460,7 @@
         "DELETE",
         "GET",
         "HEAD",
+        "OPTIONS",
         "PATCH",
         "POST",
         "PUT"
@@ -5599,6 +5599,27 @@
       }
     },
     {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-admin",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "platform_admin_route_preserved",
+      "routePattern": "/admin/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "admin"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
       "decision": "edge_redirect",
       "id": "proxy:platform-route-subdomain",
       "methods": [
@@ -5652,7 +5673,7 @@
         "HEAD"
       ],
       "reason": "custom_domain_slug_prefix_canonicalization",
-      "routePattern": "/{currentSlug}/{*path}",
+      "routePattern": "/{currentSlug}/{*path?}",
       "sourceKind": "proxy_path_class",
       "hostCondition": {
         "hostKind": "custom_domain",
@@ -5718,6 +5739,25 @@
       "pathCondition": {
         "precedence": "before_path_decision",
         "predicate": "retired_alias_storefront_path"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:root-domain-retired-slug",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/{retiredSlug}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "retired_storefront_slug_prefix"
       }
     },
     {
@@ -7156,5 +7196,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "f47b7c2da0ada3cf910822b9845dd3d853369b4ed734d5e6fe93a14a6703879d"
+  "inventorySha256": "4717866a8fa6681e6361906f6cea0f2a1d606120ed920aaebaa513aa6d4e63ac"
 }

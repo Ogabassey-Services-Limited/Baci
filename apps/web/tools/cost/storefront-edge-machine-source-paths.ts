@@ -34,12 +34,13 @@ export const STOREFRONT_EDGE_MACHINE_SOURCE_PATHS = {
   '/.well-known/openid-configuration':
     'apps/web/src/app/.well-known/openid-configuration/route.ts',
   '/.well-known/ucp': 'apps/web/src/app/.well-known/ucp/route.ts',
-  '/.well-known/{*unlisted}': 'apps/web/src/app/.well-known/[...rest]/route.ts',
+  '/.well-known/{*unlisted?}':
+    'apps/web/src/app/.well-known/[...rest]/route.ts',
   '/0751d5c882ab3d7c013ecbfe9e624d71.txt':
     'apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts',
   '/_next/image': 'apps/web/next.config.ts',
   '/_next/static/{*asset}': 'apps/web/next.config.ts',
-  '/_next/{*unlisted}': 'apps/web/next.config.ts',
+  '/_next/{*unlisted?}': 'apps/web/next.config.ts',
   '/ads.txt': 'apps/web/src/app/ads.txt/route.ts',
   '/agent-commerce.json': 'apps/web/src/app/agent-commerce.json/route.ts',
   '/agent-trust.json': 'apps/web/src/app/agent-trust.json/route.ts',

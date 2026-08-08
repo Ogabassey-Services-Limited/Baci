@@ -30,6 +30,10 @@ type StorefrontEdgeInventoryRow = Readonly<{
     | Readonly<{
         hostKind: 'retired_platform_subdomain_alias';
         precedence: 'before_path_decision';
+      }>
+    | Readonly<{
+        hostKind: 'platform_root_domain';
+        precedence: 'before_path_decision';
       }>;
   id: string;
   methods: readonly StorefrontEdgeMethod[];

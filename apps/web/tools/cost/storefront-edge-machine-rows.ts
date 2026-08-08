@@ -139,7 +139,7 @@ const WELL_KNOWN_ROWS: readonly InventoryRow[] = [
   ]),
   machineFamily(
     'machine:well-known-unlisted',
-    '/.well-known/{*unlisted}',
+    '/.well-known/{*unlisted?}',
     ['ANY'],
     'edge_terminal'
   ),
@@ -180,7 +180,7 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
   },
   machineFamily(
     'machine:next-unlisted',
-    '/_next/{*unlisted}',
+    '/_next/{*unlisted?}',
     ['ANY'],
     'edge_terminal'
   ),

@@ -79,8 +79,8 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     expect(byId.get('proxy:current-slug-api')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
-        methods: ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
         routePattern: '/{currentSlug}/api/{*path}',
+        methods: ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
         hostCondition: {
           hostKind: 'custom_domain',
           precedence: 'before_path_decision',

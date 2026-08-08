@@ -8,6 +8,24 @@ const proxyClass = createStorefrontEdgeProxyClass;
 /** Host-conditioned proxy classes that must precede storefront resolution. */
 export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
   proxyClass(
+    'proxy:platform-admin',
+    '/admin/{*path?}',
+    ['ANY'],
+    'origin_dynamic',
+    'platform_admin_route_preserved',
+    {
+      hostCondition: {
+        hostKind: 'platform_subdomain',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        firstSegmentIn: ['admin'],
+        precedence: 'before_path_decision',
+        predicate: 'first_segment_allowlist',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:platform-route-subdomain',
     '/{platformRoutePrefix}/{*path?}',
     ['ANY'],
@@ -96,6 +114,23 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
         hostKind: 'platform_subdomain',
         precedence: 'before_path_decision',
         requiresActiveCanonicalCustomDomain: true,
+      },
+    }
+  ),
+  proxyClass(
+    'proxy:root-domain-retired-slug',
+    '/{retiredSlug}/{*path?}',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'retired_storefront_alias_redirect',
+    {
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'retired_storefront_slug_prefix',
       },
     }
   ),
