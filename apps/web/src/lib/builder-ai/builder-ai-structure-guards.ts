@@ -9,6 +9,7 @@ import { getBuilderComponentId } from './get-builder-component-id';
 interface ProtectedAnchor {
   collection: number;
   id: string | undefined;
+  index: number;
   type: 'Footer' | 'Header';
 }
 
@@ -57,19 +58,39 @@ function getProtectedAnchorSnapshot(content: BuilderData['content'][]): {
   const componentAnchorRegions = new Map<string, string>();
   const protectedAnchors: ProtectedAnchor[] = [];
   for (const [collection, components] of content.entries()) {
-    let region = 0;
-    for (const component of components) {
+    const collectionAnchors = components.flatMap((component, index) => {
       if (component.type === 'Footer' || component.type === 'Header') {
-        protectedAnchors.push({
-          collection,
-          id: getBuilderComponentId(component),
-          type: component.type,
-        });
-        region += 1;
-        continue;
+        return [
+          {
+            collection,
+            id: getBuilderComponentId(component),
+            index,
+            type: component.type,
+          },
+        ];
       }
+      return [];
+    });
+    protectedAnchors.push(...collectionAnchors);
+    for (const [index, component] of components.entries()) {
+      if (component.type === 'Footer' || component.type === 'Header') continue;
       const id = getBuilderComponentId(component);
-      if (id) componentAnchorRegions.set(id, `${collection}:${region}`);
+      if (!id) continue;
+      let previous: ProtectedAnchor | undefined;
+      let next: ProtectedAnchor | undefined;
+      for (const anchor of collectionAnchors) {
+        if (anchor.index < index) previous = anchor;
+        if (anchor.index > index) {
+          next = anchor;
+          break;
+        }
+      }
+      const anchorIdentity = (anchor: ProtectedAnchor | undefined) =>
+        anchor ? `${anchor.type}:${anchor.id ?? anchor.index}` : 'none';
+      componentAnchorRegions.set(
+        id,
+        `${anchorIdentity(previous)}:${anchorIdentity(next)}`
+      );
     }
   }
 

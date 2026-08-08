@@ -32,6 +32,12 @@ describe('builder AI edit navigation patches', () => {
     }
   });
 
+  it('normalizes accepted HTTPS URLs before storing them', () => {
+    expect(safeStorefrontUrlSchema.parse('HTTPS://example.test/shop')).toBe(
+      'https://example.test/shop'
+    );
+  });
+
   it('rejects unbounded or unknown header patch properties', () => {
     expect(
       headerPatchSchema.safeParse({

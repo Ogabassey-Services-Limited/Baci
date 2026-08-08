@@ -73,6 +73,26 @@ describe('getBuilderAiStructuralFailure', () => {
     );
   });
 
+  it('allows a cross-zone move when neither collection has a protected anchor', () => {
+    const current = {
+      content: [text('root-text')],
+      root: { title: 'Home' },
+      zones: { aside: [text('zone-text')] },
+    } satisfies BuilderData;
+    const candidate = {
+      ...current,
+      content: [text('zone-text')],
+      zones: { aside: [text('root-text')] },
+    } satisfies BuilderData;
+
+    expect(
+      getBuilderAiStructuralFailure(
+        candidate,
+        getBuilderAiStructuralBaseline(current)
+      )
+    ).toBeUndefined();
+  });
+
   it('rejects a final candidate with an id duplicated between content and a zone', () => {
     const candidate = {
       content: [text('shared-id')],

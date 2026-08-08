@@ -8,6 +8,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-permissions';
 import { applyBuilderAiEditPlan } from '@/lib/builder-ai/apply-builder-ai-edit-plan';
 import { checkBuilderAiRateLimit } from '@/lib/builder-ai/builder-ai-rate-limit';
+import { hasDuplicateBuilderAiComponentIds } from '@/lib/builder-ai/get-builder-ai-content-collections';
 import { getBuilderAiRawPlanMediaWarning } from '@/lib/builder-ai/get-builder-ai-raw-plan-media-warning';
 import { logBuilderAiEvent } from '@/lib/builder-ai/log-builder-ai-event';
 import { materializeBuilderAiProviderChain } from '@/lib/builder-ai/materialize-builder-ai-provider-chain';
@@ -138,7 +139,10 @@ export async function handleBuilderAiEditRequest(
     );
   }
   parsed.currentConfig = normalizeBuilderAiComponentIds(parsed.currentConfig);
-  if (!validateBuilderAiEditComplexity(parsed.currentConfig).success) {
+  if (
+    hasDuplicateBuilderAiComponentIds(parsed.currentConfig) ||
+    !validateBuilderAiEditComplexity(parsed.currentConfig).success
+  ) {
     return NextResponse.json(
       { error: 'Invalid request body' },
       { status: 400 }
