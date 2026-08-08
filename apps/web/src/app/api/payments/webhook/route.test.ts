@@ -10,6 +10,7 @@ const mockConfirmPaystackWalletDvaTopUp = vi.hoisted(() => vi.fn());
 const mockCreditWalletTopUp = vi.hoisted(() => vi.fn());
 const mockNotifyWalletCredited = vi.hoisted(() => vi.fn());
 const mockHandlePaystackSavingsWebhookTransaction = vi.hoisted(() => vi.fn());
+const mockProcessMerchantInvoicePartialPayment = vi.hoisted(() => vi.fn());
 const mockProcessWalletFundedOrderPayment = vi.hoisted(() => vi.fn());
 const mockRunPaidOrderSideEffects = vi.hoisted(() => vi.fn());
 
@@ -37,6 +38,11 @@ vi.mock('@/lib/payments/confirm-paystack-wallet-dva-top-up', () => ({
 
 vi.mock('@/lib/payments/process-wallet-funded-order-payment', () => ({
   processWalletFundedOrderPayment: mockProcessWalletFundedOrderPayment,
+}));
+
+vi.mock('@/lib/payments/process-merchant-invoice-partial-payment', () => ({
+  processMerchantInvoicePartialPayment:
+    mockProcessMerchantInvoicePartialPayment,
 }));
 
 vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
@@ -471,6 +477,9 @@ describe('POST /api/payments/webhook', () => {
       handled: false,
     });
     mockConfirmPaystackWalletDvaTopUp.mockResolvedValue({ kind: 'none' });
+    mockProcessMerchantInvoicePartialPayment.mockResolvedValue({
+      kind: 'none',
+    });
     mockProcessWalletFundedOrderPayment.mockResolvedValue({ kind: 'none' });
     mockRunPaidOrderSideEffects.mockResolvedValue({
       concurrentTakeoverSteps: [],
@@ -494,6 +503,203 @@ describe('POST /api/payments/webhook', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('records a DVA invoice underpayment before the full paid-order finalizer', async () => {
+    const body = {
+      event: 'charge.success',
+      data: {
+        authorization: {
+          receiver_bank_account_number: '9812858131',
+        },
+        reference: 'PSK-PARTIAL-1',
+      },
+    };
+    const bodyString = JSON.stringify(body);
+    const request = createMockRequest(body, {
+      'x-paystack-signature': createSignature(
+        bodyString,
+        'test-paystack-secret'
+      ),
+    });
+
+    const { verifyTransaction } = await import('@/lib/paystack');
+    vi.mocked(verifyTransaction).mockResolvedValue({
+      success: true,
+      data: {
+        amount: 30_000_000,
+        channel: 'dedicated_nuban',
+        created_at: '2026-08-05T08:29:00Z',
+        currency: 'NGN',
+        customer: {
+          customer_code: 'CUS_partial',
+          email: 'customer@example.com',
+          first_name: 'Customer',
+          id: 1,
+          last_name: null,
+          phone: null,
+        },
+        fees: 100_000,
+        fees_split: null,
+        id: 1,
+        metadata: null,
+        paid_at: '2026-08-05T08:30:00Z',
+        reference: 'PSK-PARTIAL-1',
+        status: 'success',
+      },
+    });
+    mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+    const partialTransaction = {
+      amount: 300_000,
+      currency: 'NGN',
+      gateway_reference: 'PSK-PARTIAL-1',
+      id: 'txn-partial-1',
+      merchant_id: 'merchant-1',
+      metadata: {
+        order_payment_allocation: 'merchant_invoice_partial',
+      },
+      order_id: 'order-1',
+      platform_fee: 0,
+    };
+    mockConfirmAgenticPaystackDvaPayment.mockResolvedValueOnce({
+      handled: false,
+      transaction: partialTransaction,
+    });
+    mockProcessMerchantInvoicePartialPayment.mockResolvedValueOnce({
+      body: {
+        amountPaid: 300_000,
+        balanceDue: 535_000,
+        message: 'Merchant invoice partial payment recorded',
+        orderNumber: 'ORD-1',
+        success: true,
+      },
+      kind: 'processed',
+      status: 200,
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      amountPaid: 300_000,
+      balanceDue: 535_000,
+      success: true,
+    });
+    expect(mockProcessMerchantInvoicePartialPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gateway: 'paystack',
+        reference: 'PSK-PARTIAL-1',
+        transaction: partialTransaction,
+      })
+    );
+    expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+      'complete_order_gateway_payment',
+      expect.anything()
+    );
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
+  });
+
+  it('does not settle a completed DVA transaction whose locked invoice balance changed', async () => {
+    const body = {
+      event: 'charge.success',
+      data: {
+        authorization: {
+          receiver_bank_account_number: '9812858131',
+        },
+        reference: 'PSK-STALE-EXACT-1',
+      },
+    };
+    const request = createMockRequest(body, {
+      'x-paystack-signature': createSignature(
+        JSON.stringify(body),
+        'test-paystack-secret'
+      ),
+    });
+    const { verifyTransaction } = await import('@/lib/paystack');
+    vi.mocked(verifyTransaction).mockResolvedValue({
+      success: true,
+      data: {
+        amount: 53_500_000,
+        channel: 'dedicated_nuban',
+        created_at: '2026-08-05T08:29:00Z',
+        currency: 'NGN',
+        customer: {
+          customer_code: 'CUS_stale_exact',
+          email: 'customer@example.com',
+          first_name: 'Customer',
+          id: 1,
+          last_name: null,
+          phone: null,
+        },
+        fees: 100_000,
+        fees_split: null,
+        id: 1,
+        metadata: null,
+        paid_at: '2026-08-05T08:30:00Z',
+        reference: 'PSK-STALE-EXACT-1',
+        status: 'success',
+      },
+    });
+    const transaction = {
+      amount: 535_000,
+      currency: 'NGN',
+      gateway_reference: 'PSK-STALE-EXACT-1',
+      id: 'txn-stale-exact-1',
+      merchant_id: 'merchant-1',
+      metadata: {
+        order_payment_allocation: 'merchant_invoice_partial',
+      },
+      order_id: 'order-1',
+      platform_fee: 2_050,
+      status: 'pending',
+    };
+    mockConfirmAgenticPaystackDvaPayment.mockResolvedValueOnce({
+      handled: false,
+      transaction,
+    });
+    vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+      if (table !== 'transactions') {
+        throw new Error(`Unexpected table after balance review: ${table}`);
+      }
+      return {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: transaction.id },
+          error: null,
+        }),
+      } as never;
+    });
+    vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+      const result = {
+        data:
+          name === 'complete_order_gateway_payment'
+            ? {
+                error_code: 'MERCHANT_INVOICE_PARTIAL_BALANCE_CHANGED',
+                transaction_status: 'completed',
+              }
+            : null,
+        error: null,
+      };
+      return Object.assign(Promise.resolve(result), {
+        single: () => Promise.resolve(result),
+      }) as never;
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      code: 'MERCHANT_INVOICE_PARTIAL_BALANCE_CHANGED',
+      error: 'Payment requires reconciliation review',
+    });
+    expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+      'record_merchant_settlement',
+      expect.anything()
+    );
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
   });
 
   describe('Signature Verification', () => {
