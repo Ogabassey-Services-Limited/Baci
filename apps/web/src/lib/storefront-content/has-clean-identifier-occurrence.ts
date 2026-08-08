@@ -1,7 +1,7 @@
 import type { PublishedClusterPost } from './content-cluster-types';
 import { getPostTokenGroups } from './get-post-token-groups';
 import { hasShorthandIdentifierOccurrence } from './has-shorthand-identifier-occurrence';
-import { isVariantOnlyComparisonSegment } from './is-variant-only-comparison-segment';
+import { matchesIdentifierDiscriminatorSegment } from './matches-identifier-discriminator-segment';
 import { matchesVariantDiscriminatorTokens } from './matches-variant-discriminator-tokens';
 import { tokenizeContentText } from './tokenize-content-text';
 
@@ -25,13 +25,6 @@ const MODEL_VARIANT_MARKER_TOKENS = new Set([
   'xl',
 ]);
 const MODEL_GENERATION_SUFFIX_PATTERN = /^\d{1,2}(?:st|nd|rd|th)?$/u;
-const COMPARISON_BOUNDARY_TOKENS = new Set([
-  'against',
-  'and',
-  'or',
-  'versus',
-  'vs',
-]);
 const NUMERIC_MODEL_CONTEXT_TOKENS = new Set([
   'a',
   'fifa',
@@ -86,53 +79,6 @@ function hasNumericModelContext(
     tokens
       .slice(Math.max(0, startIndex - 2), startIndex)
       .some((token) => NUMERIC_MODEL_CONTEXT_TOKENS.has(token))
-  );
-}
-
-function matchesDiscriminatorForIdentifierOccurrence(
-  tokens: string[],
-  identifierStart: number,
-  identifierEnd: number,
-  discriminatorTokens: string[],
-  allowPartialGroups: boolean,
-  allowMissingGroups: boolean
-) {
-  const previousBoundary = tokens.findLastIndex(
-    (token, index) =>
-      index < identifierStart && COMPARISON_BOUNDARY_TOKENS.has(token)
-  );
-  const nextBoundary = tokens.findIndex(
-    (token, index) =>
-      index >= identifierEnd && COMPARISON_BOUNDARY_TOKENS.has(token)
-  );
-  const occurrenceTokens = tokens.slice(
-    previousBoundary + 1,
-    nextBoundary >= 0 ? nextBoundary : tokens.length
-  );
-  const matchesCurrentSegment = matchesVariantDiscriminatorTokens(
-    occurrenceTokens,
-    discriminatorTokens,
-    allowPartialGroups,
-    allowMissingGroups
-  );
-  if (matchesCurrentSegment || allowPartialGroups || nextBoundary < 0) {
-    return matchesCurrentSegment;
-  }
-
-  const followingBoundary = tokens.findIndex(
-    (token, index) =>
-      index > nextBoundary && COMPARISON_BOUNDARY_TOKENS.has(token)
-  );
-  const followingSegment = tokens.slice(
-    nextBoundary + 1,
-    followingBoundary >= 0 ? followingBoundary : tokens.length
-  );
-  if (!isVariantOnlyComparisonSegment(followingSegment)) {
-    return false;
-  }
-  return matchesVariantDiscriminatorTokens(
-    followingSegment,
-    discriminatorTokens
   );
 }
 
@@ -291,20 +237,23 @@ export function hasCleanIdentifierOccurrence(
         (/^\d{1,2}$/u.test(suffix) &&
           /^\d$/u.test(nextSuffix) &&
           ['in', 'inch'].includes(followingSuffix));
+      const splitCapacitySuffix =
+        /^\d{1,4}$/u.test(suffix) && ['gb', 'tb', 'mb'].includes(nextSuffix);
       if (
         !matchesIdentifier ||
         !hasModelContext ||
         MODEL_VARIANT_MARKER_TOKENS.has(suffix) ||
         (MODEL_GENERATION_SUFFIX_PATTERN.test(suffix) &&
           !listicleSuffix &&
-          !displaySizeSuffix)
+          !displaySizeSuffix &&
+          !splitCapacitySuffix)
       ) {
         return false;
       }
 
       if (
         options.discriminatorTokens?.length &&
-        !matchesDiscriminatorForIdentifierOccurrence(
+        !matchesIdentifierDiscriminatorSegment(
           postTokens,
           startIndex,
           startIndex + identifierTokens.length,

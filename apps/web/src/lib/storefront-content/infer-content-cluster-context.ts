@@ -27,7 +27,16 @@ function tokenize(values: Array<string | null | undefined>) {
 
 function hasPhrase(haystack: string, needle: string) {
   const normalizedNeedle = normalizeText(needle);
-  return normalizedNeedle.length > 0 && haystack.includes(normalizedNeedle);
+  if (normalizedNeedle.length === 0) {
+    return false;
+  }
+  const escapedNeedle = normalizedNeedle.replace(
+    /[.*+?^${}()|[\]\\]/gu,
+    '\\$&'
+  );
+  return new RegExp(`(?:^|[^a-z0-9])${escapedNeedle}(?:$|[^a-z0-9])`, 'u').test(
+    haystack
+  );
 }
 
 function inferCategorySlug(

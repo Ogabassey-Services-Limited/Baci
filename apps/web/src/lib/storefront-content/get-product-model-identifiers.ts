@@ -2,6 +2,7 @@ import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import { applyJoinedTitleCorrections } from './apply-joined-title-corrections';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
 import { filterProductModelSourceTokens } from './filter-product-model-source-tokens';
+import { getExcludedModelIdentifierTokens } from './get-model-identifier-excluded-tokens';
 import { getProductModelIdentifiersFromSources } from './get-product-model-identifiers-from-sources';
 import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
@@ -29,7 +30,6 @@ function tokenize(value: string) {
 }
 const MODEL_METADATA_TOKEN_PATTERN =
   /^(?:ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
-const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
   'buds',
@@ -53,86 +53,6 @@ const DISPLAY_SIZE_CATEGORY_SLUGS = new Set(LAPTOP_CATEGORY_SLUGS).add(
 const GAME_CATEGORY_PATTERN =
   /^(?:(?:portable-)?gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
 const LEADING_FILLER_TOKENS = new Set(['a', 'an', 'headset', 'the']);
-interface BrandAliasGroup {
-  brandTokens: string[];
-  aliases: string[][];
-}
-function getBrandAliasGroups(
-  context: Omit<BuildCommercialGuideLinksContext, 'pageKind'>
-): BrandAliasGroup[] {
-  const contextBrandTokens = new Set(
-    [
-      ...(context.brands ?? []),
-      ...(context.productSlugs ?? []),
-      ...(context.productNames ?? []),
-    ].flatMap(tokenize)
-  );
-  return Object.entries(
-    CONTENT_CLUSTER_SUPPORT[context.categorySlug].brandTokens
-  ).flatMap(([brandKey, aliases]) => {
-    if (brandKey === 'gaming') return [];
-    const brandTokens = tokenize(brandKey);
-    const aliasTokens = aliases.map(tokenize);
-    const matchesContext = [brandTokens, ...aliasTokens].some(
-      (tokens: string[]) =>
-        tokens.some((token) => contextBrandTokens.has(token))
-    );
-    return matchesContext ? [{ brandTokens, aliases: aliasTokens }] : [];
-  });
-}
-function getExcludedTokensForSlug(
-  slug: string,
-  baseExcludedTokens: ReadonlySet<string>,
-  brandAliasGroups: readonly BrandAliasGroup[],
-  protectedFamilyTokens: ReadonlySet<string>
-) {
-  const slugTokens = tokenize(slug);
-  const excludedTokens = new Set(baseExcludedTokens);
-  for (const group of brandAliasGroups) {
-    for (const token of group.brandTokens) {
-      if (
-        slugTokens.includes(token) &&
-        !protectedFamilyTokens.has(token) &&
-        !MODEL_FAMILY_ALIAS_TOKENS.has(token)
-      ) {
-        excludedTokens.add(token);
-      }
-    }
-    for (const aliasTokens of group.aliases) {
-      if (
-        aliasTokens.length === 0 ||
-        !aliasTokens.every((token) => slugTokens.includes(token))
-      ) {
-        continue;
-      }
-      if (aliasTokens.some((token) => protectedFamilyTokens.has(token))) {
-        continue;
-      }
-      const leavesModelToken = slugTokens.some((token, index) => {
-        if (excludedTokens.has(token) || aliasTokens.includes(token)) {
-          return false;
-        }
-        return (
-          !MODEL_METADATA_TOKEN_PATTERN.test(token) &&
-          !YEAR_TOKEN_PATTERN.test(token) &&
-          !isDimensionToken(slugTokens, index)
-        );
-      });
-      const isModelFamilyAlias = aliasTokens.some((token) =>
-        MODEL_FAMILY_ALIAS_TOKENS.has(token)
-      );
-      if (
-        !isModelFamilyAlias &&
-        (aliasTokens.length === 1 || leavesModelToken)
-      ) {
-        for (const token of aliasTokens) {
-          excludedTokens.add(token);
-        }
-      }
-    }
-  }
-  return excludedTokens;
-}
 function stripLeadingFillerTokens(tokens: string[]) {
   const firstModelToken = tokens.findIndex(
     (token) => !LEADING_FILLER_TOKENS.has(token)
@@ -331,7 +251,6 @@ export function getProductModelIdentifiers(
         !MODEL_FAMILY_ALIAS_TOKENS.has(token)
     )
   );
-  const brandAliasGroups = getBrandAliasGroups(context);
   return getProductModelIdentifiersFromSources(
     context.productNames,
     context.productSlugs,
@@ -339,11 +258,12 @@ export function getProductModelIdentifiers(
       selectProductModelIdentifier(
         getModelTokens(
           source,
-          getExcludedTokensForSlug(
+          getExcludedModelIdentifierTokens(
+            context,
             source,
             baseExcludedTokens,
-            brandAliasGroups,
-            protectedFamilyTokens
+            protectedFamilyTokens,
+            tokenize
           ),
           context.categorySlug,
           isGameProduct

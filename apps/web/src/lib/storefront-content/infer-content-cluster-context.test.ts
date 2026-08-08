@@ -109,6 +109,18 @@ describe('inferContentClusterContext', () => {
     });
   });
 
+  it('does not infer ASUS from ROG inside ordinary words', () => {
+    expect(
+      inferContentClusterContext({
+        title: 'Progression and roguelike strategy tips',
+        excerpt: 'A practical guide to improving your run.',
+        category: 'Gaming',
+        tags: ['progress'],
+        keywords: ['roguelike'],
+      }).brands
+    ).not.toContain('asus');
+  });
+
   it('deduplicates brand matches when the post spans multiple supported categories', () => {
     expect(
       inferContentClusterContext({

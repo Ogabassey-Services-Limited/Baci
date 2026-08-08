@@ -98,6 +98,22 @@ describe('hasCleanIdentifierOccurrence', () => {
     expect(hasCleanIdentifierOccurrence(post, ['15'])).toBe(true);
   });
 
+  it('keeps an exact model before a split storage suffix', () => {
+    const post = {
+      slug: 'iphone-15-64-gb-guide',
+      title: 'Apple iPhone 15 64 GB Buyer Guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: 6,
+    };
+
+    expect(hasCleanIdentifierOccurrence(post, ['15'])).toBe(true);
+  });
+
   it('rejects an occurrence followed by a variant marker', () => {
     const post = {
       slug: 'iphone-15-pro-only',

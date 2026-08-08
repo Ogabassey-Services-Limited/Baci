@@ -74,4 +74,15 @@ describe('matchesVariantDiscriminatorTokens', () => {
 
     expect(result).toBe(false);
   });
+
+  it('treats battery capacity as its own optional discriminator group', () => {
+    expect(
+      matchesVariantDiscriminatorTokens(
+        ['xiaomi', 'power', 'bank'],
+        ['10000mah'],
+        true,
+        true
+      )
+    ).toBe(true);
+  });
 });

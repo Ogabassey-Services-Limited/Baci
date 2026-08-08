@@ -20,6 +20,11 @@ const SIM_MODE_TOKENS = new Set([
 ]);
 const STORAGE_TOKEN_PATTERN = /^\d+(?:gb|tb|mb)$/u;
 const DIMENSION_TOKEN_PATTERN = /^\d+(?:mm|inch)$/u;
+const BATTERY_CAPACITY_TOKEN_PATTERN = /^\d+mah$/u;
+const WATTAGE_TOKEN_PATTERN = /^\d+w$/u;
+const VOLTAGE_TOKEN_PATTERN = /^\d+v$/u;
+const REFRESH_RATE_TOKEN_PATTERN = /^\d+hz$/u;
+const REGION_TOKENS = new Set(['eu', 'global', 'india', 'uk', 'us']);
 const HARDWARE_TIER_TOKEN_PATTERN =
   /^(?:coreultra\d+|rtx\d+|corei[3579]|i[3579]|\d{4,}[uhtpkgfy])$/u;
 
@@ -55,6 +60,21 @@ function getTokenGroup(token: string) {
   }
   if (DIMENSION_TOKEN_PATTERN.test(token)) {
     return 'dimension';
+  }
+  if (BATTERY_CAPACITY_TOKEN_PATTERN.test(token)) {
+    return 'battery-capacity';
+  }
+  if (WATTAGE_TOKEN_PATTERN.test(token)) {
+    return 'wattage';
+  }
+  if (VOLTAGE_TOKEN_PATTERN.test(token)) {
+    return 'voltage';
+  }
+  if (REFRESH_RATE_TOKEN_PATTERN.test(token)) {
+    return 'refresh-rate';
+  }
+  if (REGION_TOKENS.has(token)) {
+    return 'region';
   }
   if (HARDWARE_TIER_TOKEN_PATTERN.test(token)) {
     return 'hardware';
