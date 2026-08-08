@@ -60,6 +60,19 @@ describe('fetchRepairDevices', () => {
     );
   });
 
+  it('passes an already-aborted signal to an immediately cancelled request', async () => {
+    jest.mocked(fetch).mockResolvedValueOnce(jsonResponse(200, { groups: [] }));
+
+    await fetchRepairDevices(undefined, AbortSignal.abort());
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        signal: expect.objectContaining({ aborted: true }),
+      })
+    );
+  });
+
   it('throws RepairCatalogUnavailableError on a 404 (catalogue disabled)', async () => {
     jest
       .mocked(fetch)

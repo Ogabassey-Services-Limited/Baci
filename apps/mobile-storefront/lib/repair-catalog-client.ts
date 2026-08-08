@@ -76,7 +76,11 @@ async function fetchRepairCatalog<T>(
 
   const externalSignal = init.signal;
   const abortFromCaller = () => timeoutController.abort();
-  externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
+  if (externalSignal?.aborted) {
+    timeoutController.abort();
+  } else {
+    externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
+  }
 
   try {
     const response = await fetch(input, {

@@ -69,6 +69,10 @@ describe('RepairDeviceCatalog', () => {
     expect(screen.getByText('iPhone 13')).toBeTruthy();
     expect(screen.getAllByText('Samsung')).toHaveLength(2);
     expect(screen.getByText('Galaxy S22')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Filter by Apple'));
+
+    expect(onQueryChange).toHaveBeenCalledWith('Apple');
   });
 
   it('calls onQueryChange as the search input changes', () => {

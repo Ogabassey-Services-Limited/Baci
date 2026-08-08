@@ -164,14 +164,17 @@ export function RepairDeviceCatalog({
             showsHorizontalScrollIndicator={false}
           >
             {groups.map((group) => (
-              <View
+              <Pressable
                 key={group.brand}
                 style={[styles.brandChip, { backgroundColor: colors.muted }]}
+                onPress={() => onQueryChange(group.brand)}
+                accessibilityRole="button"
+                accessibilityLabel={`Filter by ${group.brand}`}
               >
                 <Text style={[styles.brandChipText, { color: colors.text }]}>
                   {group.brand}
                 </Text>
-              </View>
+              </Pressable>
             ))}
           </ScrollView>
         </View>
