@@ -125,6 +125,36 @@ describe('buildBuilderAiEditPrompt', () => {
     ]);
   });
 
+  it('tells providers to retain one of each required component group', () => {
+    const prompt = buildBuilderAiEditPrompt({
+      currentConfig: {
+        content: [
+          { props: { id: 'hero-h1-a' }, type: 'Hero' },
+          { props: { id: 'hero-h1-b' }, type: 'Hero' },
+          { props: { id: 'products-a' }, type: 'ProductGrid' },
+          { props: { id: 'products-b' }, type: 'ProductGrid' },
+        ],
+        root: { title: 'Home' },
+      },
+      prompt: 'Remove duplicate sections',
+    });
+    const guide = JSON.parse(
+      prompt.match(/<operation-guide>(.+)<\/operation-guide>/)?.[1] ?? ''
+    ) as {
+      removalConstraints?: {
+        requiredComponentGroups?: Array<{
+          componentType: string;
+          minimumRetained: number;
+        }>;
+      };
+    };
+
+    expect(guide.removalConstraints?.requiredComponentGroups).toEqual([
+      { componentType: 'ProductGrid', minimumRetained: 1 },
+      { componentType: 'renderedH1Hero', minimumRetained: 1 },
+    ]);
+  });
+
   it('projects safe existing carousel slides for targeted slide edits', () => {
     const prompt = buildBuilderAiEditPrompt({
       currentConfig: {

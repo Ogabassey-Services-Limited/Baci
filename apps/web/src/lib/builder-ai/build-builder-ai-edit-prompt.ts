@@ -111,21 +111,48 @@ function project(
   return projection;
 }
 
-function getRequiredRemovalComponentIds(currentConfig: BuilderData): string[] {
+function getRemovalConstraints(currentConfig: BuilderData): {
+  protectedComponentIds: string[];
+  requiredComponentGroups: Array<{
+    componentType: 'ProductGrid' | 'renderedH1Hero';
+    minimumRetained: 1;
+  }>;
+} {
   const components = getBuilderAiContentCollections(currentConfig).flat();
-  const soleId = (
+  const matching = (
     predicate: (component: BuilderData['content'][number]) => boolean
-  ): string[] => {
-    const matches = components.filter(predicate);
+  ) => components.filter(predicate);
+  const soleId = (matches: BuilderData['content']): string[] => {
     const id = matches[0]?.props.id;
     return matches.length === 1 && typeof id === 'string' && id.length > 0
       ? [id]
       : [];
   };
-  return [
-    ...soleId((component) => component.type === 'ProductGrid'),
-    ...soleId(isRenderedH1Hero),
-  ];
+  const productGrids = matching(
+    (component) => component.type === 'ProductGrid'
+  );
+  const h1Heroes = matching(isRenderedH1Hero);
+  return {
+    protectedComponentIds: [...soleId(productGrids), ...soleId(h1Heroes)],
+    requiredComponentGroups: [
+      ...(productGrids.length > 0
+        ? [
+            {
+              componentType: 'ProductGrid' as const,
+              minimumRetained: 1 as const,
+            },
+          ]
+        : []),
+      ...(h1Heroes.length > 0
+        ? [
+            {
+              componentType: 'renderedH1Hero' as const,
+              minimumRetained: 1 as const,
+            },
+          ]
+        : []),
+    ],
+  };
 }
 
 export function buildBuilderAiEditPrompt({
@@ -137,8 +164,9 @@ export function buildBuilderAiEditPrompt({
     catalog: getBuilderAiCatalogProjection(),
     operationExamples,
     removalConstraints: {
-      instruction: 'Do not remove these required component ids.',
-      protectedComponentIds: getRequiredRemovalComponentIds(currentConfig),
+      instruction:
+        'Do not remove protected ids or reduce any required component group below its minimum.',
+      ...getRemovalConstraints(currentConfig),
     },
   });
   const projection = project(currentConfig);

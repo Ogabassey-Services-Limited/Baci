@@ -21,4 +21,12 @@ describe('resetBuilderAiInsertOffset', () => {
       })
     ).toBe(0);
   });
+
+  it('does not require offset state for an anchor without prior inserts', () => {
+    const offsets = new WeakMap<BuilderAiComponent[], Map<string, number>>();
+
+    expect(() =>
+      resetBuilderAiInsertOffset(offsets, [], 'untracked-anchor')
+    ).not.toThrow();
+  });
 });

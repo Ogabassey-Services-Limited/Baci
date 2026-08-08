@@ -15,5 +15,11 @@ describe('assertBuilderAiComponentMutable', () => {
         Error
       )
     ).toThrow('Component is protected or unsupported');
+    expect(() =>
+      assertBuilderAiComponentMutable(
+        { props: { id: 'unsupported' }, type: 'Unsupported' },
+        Error
+      )
+    ).toThrow('Component is protected or unsupported');
   });
 });
