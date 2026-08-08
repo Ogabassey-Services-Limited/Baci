@@ -22,16 +22,16 @@ import {
 } from './builder-ai-structure-guards';
 import { applyBuilderAiTheme } from './builder-ai-theme-presets';
 import { createBuilderComponentId } from './create-builder-component-id';
+import { findBuilderAiComponent } from './find-builder-ai-component';
 import {
   type BuilderAiComponent,
-  findBuilderAiComponent,
   getBuilderAiContentCollections,
-  hasDuplicateBuilderAiComponentIds,
 } from './get-builder-ai-content-collections';
 import { getBuilderAiDestinationIndex } from './get-builder-ai-destination-index';
 import { getBuilderAiInsertOffset } from './get-builder-ai-insert-offset';
 import { getBuilderAiRawPlanMediaWarning } from './get-builder-ai-raw-plan-media-warning';
 import { getBuilderComponentId } from './get-builder-component-id';
+import { hasDuplicateBuilderAiComponentIds } from './has-duplicate-builder-ai-component-ids';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
 import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
 import { pushBuilderAiWarnings } from './push-builder-ai-warnings';

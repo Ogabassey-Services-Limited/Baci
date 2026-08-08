@@ -1,8 +1,6 @@
 import type { BuilderData } from '@baci/shared/contracts';
-import {
-  type BuilderAiComponent,
-  findBuilderAiComponent,
-} from './get-builder-ai-content-collections';
+import { findBuilderAiComponent } from './find-builder-ai-component';
+import type { BuilderAiComponent } from './get-builder-ai-content-collections';
 
 export function getBuilderAiDestinationIndex(
   config: BuilderData,

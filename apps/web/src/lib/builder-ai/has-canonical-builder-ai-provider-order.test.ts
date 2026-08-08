@@ -3,16 +3,47 @@ import { hasCanonicalBuilderAiProviderOrder } from './has-canonical-builder-ai-p
 
 describe('hasCanonicalBuilderAiProviderOrder', () => {
   it('accepts the reliable pair and optional opportunistic tail only', () => {
+    const reliablePair = [
+      { name: 'cerebras:gemma-4-31b' },
+      { name: 'groq:openai/gpt-oss-120b' },
+    ];
+
+    expect(hasCanonicalBuilderAiProviderOrder(reliablePair)).toBe(true);
     expect(
       hasCanonicalBuilderAiProviderOrder([
-        { name: 'cerebras:gemma-4-31b' },
-        { name: 'groq:openai/gpt-oss-120b' },
+        ...reliablePair,
+        {
+          name: 'openrouter:google/gemma-4-31b-it:free',
+          opportunistic: true,
+        },
       ])
     ).toBe(true);
     expect(
       hasCanonicalBuilderAiProviderOrder([
         { name: 'groq:openai/gpt-oss-120b' },
         { name: 'cerebras:gemma-4-31b' },
+      ])
+    ).toBe(false);
+    expect(
+      hasCanonicalBuilderAiProviderOrder([
+        ...reliablePair,
+        { name: 'openrouter:google/gemma-4-31b-it:free' },
+      ])
+    ).toBe(false);
+    expect(
+      hasCanonicalBuilderAiProviderOrder([
+        ...reliablePair,
+        { name: 'openrouter:other-model', opportunistic: true },
+      ])
+    ).toBe(false);
+    expect(
+      hasCanonicalBuilderAiProviderOrder([
+        ...reliablePair,
+        {
+          name: 'openrouter:google/gemma-4-31b-it:free',
+          opportunistic: true,
+        },
+        { name: 'extra:provider' },
       ])
     ).toBe(false);
   });

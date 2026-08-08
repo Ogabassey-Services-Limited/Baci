@@ -3,8 +3,8 @@ import {
   builderAiEditContract,
   validateBuilderAiEditComplexity,
 } from '@baci/shared/contracts';
-import { hasDuplicateBuilderAiComponentIds } from './get-builder-ai-content-collections';
 import { getBuilderComponentId } from './get-builder-component-id';
+import { hasDuplicateBuilderAiComponentIds } from './has-duplicate-builder-ai-component-ids';
 
 interface ProtectedAnchor {
   collection: number;
