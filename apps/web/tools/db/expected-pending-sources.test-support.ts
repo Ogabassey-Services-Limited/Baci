@@ -310,6 +310,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260806000200_serialize_merchant_invoice_exact_claims.sql',
     sha256: '7656e866131c288d176a79eddb5206cb860417cc63385a2949eb1bc208752b5a',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260808090000_exclude_reviewed_merchant_invoice_partial_captures.sql',
+    sha256: '2e7b6ea5f55a5c6df81f20abc015ddf4d77699be6d74f2720713dd728e3d7933',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

@@ -38,6 +38,14 @@ const serializedExactClaimMigration = readFileSync(
   'utf8'
 );
 
+const reviewedCaptureLedgerMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260808090000_exclude_reviewed_merchant_invoice_partial_captures.sql'
+  ),
+  'utf8'
+);
+
 describe('merchant invoice partial payment hardening migration', () => {
   it('wraps both payment writers under the shared advisory lock', () => {
     expect(migration).toContain('complete_merchant_invoice_partial_payment_v1');
@@ -202,5 +210,29 @@ describe('merchant invoice partial payment hardening migration', () => {
     expect(serializedExactClaimMigration).toContain(
       "'transaction_status', 'completed'"
     );
+  });
+
+  it('excludes reviewed partial captures from both partial-payment ledgers', () => {
+    expect(
+      reviewedCaptureLedgerMigration.match(
+        /t\.metadata ->> 'order_payment_allocation' IS DISTINCT FROM 'merchant_invoice_partial'\n\s+OR t\.metadata ->> 'merchant_invoice_partial_applied' = 'true'/g
+      )
+    ).toHaveLength(2);
+  });
+
+  it('lets an applied exact completion retry reach the normal payment finalizer', () => {
+    const exactReplayIndex = reviewedCaptureLedgerMigration.indexOf(
+      "= 'merchant_invoice_exact_completed'"
+    );
+    const strictPartialReplayIndex = reviewedCaptureLedgerMigration.indexOf(
+      "'outcome', 'partial_recorded'",
+      exactReplayIndex
+    );
+
+    expect(exactReplayIndex).toBeGreaterThan(-1);
+    expect(reviewedCaptureLedgerMigration).toContain(
+      "'reason', 'exact_completion_replay'"
+    );
+    expect(strictPartialReplayIndex).toBeGreaterThan(exactReplayIndex);
   });
 });
