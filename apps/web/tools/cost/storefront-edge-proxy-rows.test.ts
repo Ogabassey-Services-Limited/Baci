@@ -36,4 +36,27 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       ])
     );
   });
+
+  it('preserves Markdown mirrors and custom-domain auth confirmation', () => {
+    // Arrange
+    const byId = new Map(
+      STOREFRONT_EDGE_PROXY_ROWS.map((row) => [row.id, row])
+    );
+
+    // Act and assert
+    expect(byId.get('proxy:markdown-mirror')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['GET', 'HEAD'],
+        routePattern: '/{*storefrontMarkdownPath}.md',
+      })
+    );
+    expect(byId.get('proxy:auth-confirm')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['GET', 'HEAD'],
+        routePattern: '/auth/confirm',
+      })
+    );
+  });
 });

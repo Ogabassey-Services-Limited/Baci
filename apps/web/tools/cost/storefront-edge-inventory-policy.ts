@@ -1,8 +1,11 @@
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { STOREFRONT_EDGE_MACHINE_ROWS } from './storefront-edge-machine-rows';
 import { STOREFRONT_EDGE_PROXY_ROWS } from './storefront-edge-proxy-rows';
+import { STOREFRONT_EDGE_PUBLIC_ASSET_ROWS } from './storefront-edge-public-asset-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
+
+const STOREFRONT_ROUTE_SOURCE_PREFIX = 'apps/web/src/app/(storefront)/[slug]/';
 
 const API_TERMINAL_ROW: InventoryRow = {
   decision: 'edge_terminal',
@@ -28,6 +31,80 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = ['/blog', '/blog/{*path}'].map(
   })
 );
 
+const QUERY_DEPENDENT_ENTRYPOINTS = [
+  {
+    id: 'blog-root',
+    routePattern: '/blog',
+    sourcePath: 'apps/web/src/app/(storefront)/[slug]/(blog)/blog/page.tsx',
+  },
+  {
+    id: 'blog-author',
+    routePattern: '/blog/author/{authorSlug}',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(blog)/blog/author/[authorSlug]/page.tsx',
+  },
+  {
+    id: 'blog-category',
+    routePattern: '/blog/category/{categorySlug}',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(blog)/blog/category/[categorySlug]/page.tsx',
+  },
+  {
+    id: 'compare-root',
+    routePattern: '/compare',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/compare/page.tsx',
+  },
+  {
+    id: 'category-root',
+    routePattern: '/{category}',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/page.tsx',
+  },
+  {
+    id: 'category-compare',
+    routePattern: '/{category}/compare',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/compare/page.tsx',
+  },
+  {
+    id: 'products-root',
+    routePattern: '/products',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/products/page.tsx',
+  },
+  {
+    id: 'product-categoryless',
+    routePattern: '/products/{productSlug}',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/page.tsx',
+  },
+  {
+    id: 'product-category',
+    routePattern: '/{category}/{productSlug}',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx',
+  },
+] as const;
+
+const QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
+  QUERY_DEPENDENT_ENTRYPOINTS.map(({ id, routePattern, sourcePath }) => ({
+    decision: 'origin_dynamic',
+    id: `request-override:query-dependent-${id}`,
+    methods: ['GET', 'HEAD'],
+    reason: 'query_dependent_storefront_render',
+    requestCondition: {
+      anyQueryPresent: true,
+      matchedStorefrontEntrypointId: `storefront:${sourcePath.slice(
+        STOREFRONT_ROUTE_SOURCE_PREFIX.length
+      )}`,
+      precedence: 'after_entrypoint_resolution_before_decision',
+    },
+    routePattern,
+    sourceKind: 'request_override',
+    sourcePath,
+  }));
+
 const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
   {
     decision: 'origin_dynamic',
@@ -38,6 +115,15 @@ const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
     sourceKind: 'server_action',
     sourcePath:
       'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/actions.ts',
+  },
+  {
+    decision: 'origin_dynamic',
+    id: 'server-action:repair-booking',
+    methods: ['POST'],
+    reason: 'explicit_storefront_server_action',
+    routePattern: '/repair',
+    sourceKind: 'server_action',
+    sourcePath: 'apps/web/src/app/actions/repair.ts',
   },
 ];
 
@@ -60,13 +146,18 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
   extraRows: [
     API_TERMINAL_ROW,
     ...DRAFT_MODE_ROWS,
+    ...QUERY_DEPENDENT_ROWS,
     ...STOREFRONT_EDGE_MACHINE_ROWS,
+    ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
     ...SERVER_ACTION_ROWS,
     ...STOREFRONT_EDGE_PROXY_ROWS,
   ],
   routingInputPaths: [
     'next.config.ts',
     'apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts',
+    'apps/web/src/app/actions/repair.ts',
+    'apps/web/src/app/ads.txt/route.ts',
+    'apps/web/src/app/auth/confirm/route.ts',
     'apps/web/src/app/layout.tsx',
     'apps/web/src/app/root-dynamic-body.tsx',
     'apps/web/src/proxy.ts',
@@ -76,6 +167,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/components/analytics/web-vitals-reporter.tsx',
     'apps/web/src/components/storefront/ad-attribution-capture.tsx',
     'apps/web/src/components/storefront/deferred-page-view-tracker.tsx',
+    'apps/web/src/components/storefront/RepairBookingWizard.tsx',
     'apps/web/src/config/storefront-agent-routes.ts',
     'apps/web/src/config/storefront-cache.ts',
     'apps/web/src/config/storefront-cdn-cache-control.ts',
@@ -95,12 +187,13 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/lib/storefront-product-slug-membership.ts',
     'apps/web/src/lib/storefront-route-identifier.ts',
     'apps/web/src/lib/storefront-unsafe-pdp-segments.ts',
+    ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.map(({ sourcePath }) => sourcePath),
   ],
-  schemaVersion: 2,
+  schemaVersion: 3,
 } as const satisfies {
   completeBrowserPathClasses: readonly string[];
   eligibleDenominatorPolicy: StorefrontEdgeInventory['eligibleDenominatorPolicy'];
   extraRows: readonly InventoryRow[];
   routingInputPaths: readonly string[];
-  schemaVersion: 2;
+  schemaVersion: 3;
 };

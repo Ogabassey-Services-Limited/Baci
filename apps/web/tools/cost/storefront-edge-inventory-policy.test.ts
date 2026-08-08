@@ -1,7 +1,41 @@
 import { describe, expect, it } from 'vitest';
+import task1aInventory from '../../../../docs/superpowers/evidence/storefront-edge/task-1a-inventory.json';
 import { STOREFRONT_AGENT_ROUTES } from '../../src/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '../../src/config/storefront-feed-routes';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
+
+function matchesRoutePattern(routePattern: string, pathname: string) {
+  const patternSegments = routePattern.split('/').filter(Boolean);
+  const pathSegments = pathname.split('/').filter(Boolean);
+  return (
+    patternSegments.length === pathSegments.length &&
+    patternSegments.every(
+      (segment, index) =>
+        (segment.startsWith('{') && segment.endsWith('}')) ||
+        segment === pathSegments[index]
+    )
+  );
+}
+
+function resolveQueryDecision(pathname: string) {
+  const baseRow = task1aInventory.rows.find(
+    (row) => row.routePattern === pathname && !('requestCondition' in row)
+  );
+  if (!baseRow) throw new Error(`missing exact base row for ${pathname}`);
+  const override = task1aInventory.rows.find((row) => {
+    if (
+      !('requestCondition' in row) ||
+      row.requestCondition.anyQueryPresent !== true ||
+      !matchesRoutePattern(row.routePattern, pathname)
+    )
+      return false;
+    return (
+      !('matchedStorefrontEntrypointId' in row.requestCondition) ||
+      row.requestCondition.matchedStorefrontEntrypointId === baseRow.id
+    );
+  });
+  return override?.decision ?? baseRow.decision;
+}
 
 describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
   it('keeps row IDs unique and dynamic method families explicit', () => {
@@ -68,13 +102,98 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       draftRows.every(
         (row) =>
           row.requestCondition?.precedence === 'before_path_decision' &&
-          row.requestCondition.anyCookiePresent.join(',') ===
+          row.requestCondition.anyCookiePresent?.join(',') ===
             '__next_preview_data,__prerender_bypass'
       )
     ).toBe(true);
     expect(rows.find((row) => row.id === 'api:unlisted')).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
+  });
+
+  it('keeps storefront actions, query variants, ads, and auth on the origin', () => {
+    // Arrange
+    const rows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows;
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const queryRows = rows.filter((row) =>
+      row.id.startsWith('request-override:query-dependent')
+    );
+
+    // Act and assert
+    expect(byId.get('server-action:repair-booking')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['POST'],
+        routePattern: '/repair',
+        sourcePath: 'apps/web/src/app/actions/repair.ts',
+      })
+    );
+    expect(queryRows.map((row) => row.routePattern)).toEqual(
+      expect.arrayContaining([
+        '/blog',
+        '/blog/author/{authorSlug}',
+        '/blog/category/{categorySlug}',
+        '/compare',
+        '/{category}',
+        '/{category}/compare',
+        '/products',
+        '/products/{productSlug}',
+        '/{category}/{productSlug}',
+      ])
+    );
+    expect(queryRows).toHaveLength(9);
+    expect(
+      queryRows.every(
+        (row) =>
+          row.decision === 'origin_dynamic' &&
+          row.requestCondition?.anyQueryPresent === true &&
+          row.requestCondition.matchedStorefrontEntrypointId ===
+            `storefront:${row.sourcePath?.replace(
+              'apps/web/src/app/(storefront)/[slug]/',
+              ''
+            )}` &&
+          row.requestCondition.precedence ===
+            'after_entrypoint_resolution_before_decision'
+      )
+    ).toBe(true);
+    expect(byId.get('machine:ads')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['GET', 'HEAD'],
+        routePattern: '/ads.txt',
+        sourcePath: 'apps/web/src/app/ads.txt/route.ts',
+      })
+    );
+    expect(byId.get('proxy:auth-confirm')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['GET', 'HEAD'],
+        routePattern: '/auth/confirm',
+        sourcePath: 'apps/web/src/app/auth/confirm/route.ts',
+      })
+    );
+    expect(STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths).toEqual(
+      expect.arrayContaining([
+        'apps/web/src/app/actions/repair.ts',
+        'apps/web/src/components/storefront/RepairBookingWizard.tsx',
+        'apps/web/src/app/ads.txt/route.ts',
+        'apps/web/src/app/auth/confirm/route.ts',
+      ])
+    );
+  });
+
+  it.each([
+    ['/sitemap.xml', 'edge_release'],
+    ['/blog/sitemap.xml', 'edge_release'],
+    ['/terms', 'edge_release'],
+  ] as const)('keeps the special route %s on its base decision when a query is present', (pathname, expectedDecision) => {
+    // Arrange: the query is represented by selecting query-conditioned rows.
+
+    // Act
+    const decision = resolveQueryDecision(pathname);
+
+    // Assert
+    expect(decision).toBe(expectedDecision);
   });
 
   it('defines a closed nonzero eligible denominator', () => {

@@ -8,7 +8,8 @@ const machineFamily = (
   id: string,
   routePattern: string,
   methods: readonly string[],
-  decision: InventoryRow['decision'] = 'origin_dynamic'
+  decision: InventoryRow['decision'] = 'origin_dynamic',
+  sourcePath?: string
 ): InventoryRow => ({
   decision,
   id,
@@ -16,6 +17,7 @@ const machineFamily = (
   reason: 'explicit_storefront_machine_family',
   routePattern,
   sourceKind: 'machine_family',
+  ...(sourcePath ? { sourcePath } : {}),
 });
 
 const WELL_KNOWN_ROWS: readonly InventoryRow[] = [
@@ -158,6 +160,13 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
   ]),
   machineFamily('machine:llms', '/llms.txt', ['GET', 'HEAD']),
   machineFamily('machine:llms-full', '/llms-full.txt', ['GET', 'HEAD']),
+  machineFamily(
+    'machine:ads',
+    '/ads.txt',
+    ['GET', 'HEAD'],
+    'origin_dynamic',
+    'apps/web/src/app/ads.txt/route.ts'
+  ),
   machineFamily('machine:openapi', STOREFRONT_AGENT_ROUTES.openApi, [
     'GET',
     'HEAD',
@@ -166,7 +175,8 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
     'machine:indexnow-key',
     '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
     ['GET', 'HEAD'],
-    'edge_release'
+    'edge_release',
+    'apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts'
   ),
   machineFamily(
     'machine:robots',

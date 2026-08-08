@@ -58,7 +58,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
 
     // Assert
     expect(snapshot.apiSources).toHaveLength(2);
-    expect(snapshot.routeSources).toHaveLength(24);
+    expect(snapshot.routeSources).toHaveLength(32);
     expect(snapshot.routingInputSources).toHaveLength(
       STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths.length
     );

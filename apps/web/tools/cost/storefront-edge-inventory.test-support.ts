@@ -9,8 +9,16 @@ const execFileAsync = promisify(execFile);
 
 const ROUTES = [
   '(home)/page.tsx',
+  '(blog)/blog/author/[authorSlug]/page.tsx',
+  '(blog)/blog/category/[categorySlug]/page.tsx',
+  '(blog)/blog/page.tsx',
+  '(catalog)/(listing)/[category]/compare/page.tsx',
+  '(catalog)/(listing)/[category]/page.tsx',
+  '(catalog)/(listing)/compare/page.tsx',
   '(catalog)/(listing)/products/page.tsx',
   '(catalog)/(listing)/search/page.tsx',
+  '(catalog)/(pdp)/[category]/[productSlug]/page.tsx',
+  '(catalog)/(pdp)/products/[productSlug]/page.tsx',
   '(commerce)/checkout/page.tsx',
   '(content)/about/page.tsx',
   '(blog)/blog/sitemap.ts',

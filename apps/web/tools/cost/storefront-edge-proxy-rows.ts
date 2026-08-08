@@ -7,7 +7,8 @@ const proxyClass = (
   routePattern: string,
   methods: readonly string[],
   decision: InventoryRow['decision'],
-  reason: string
+  reason: string,
+  sourcePath?: string
 ): InventoryRow => ({
   decision,
   id,
@@ -15,10 +16,26 @@ const proxyClass = (
   reason,
   routePattern,
   sourceKind: 'proxy_path_class',
+  ...(sourcePath ? { sourcePath } : {}),
 });
 
 /** Closed directional classes mirrored from the current storefront proxy. */
 export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
+  proxyClass(
+    'proxy:auth-confirm',
+    '/auth/confirm',
+    ['GET', 'HEAD'],
+    'origin_dynamic',
+    'custom_domain_auth_confirmation',
+    'apps/web/src/app/auth/confirm/route.ts'
+  ),
+  proxyClass(
+    'proxy:markdown-mirror',
+    '/{*storefrontMarkdownPath}.md',
+    ['GET', 'HEAD'],
+    'origin_dynamic',
+    'storefront_markdown_api_rewrite'
+  ),
   proxyClass(
     'proxy:blog-query-canonical',
     '/blog/{*path}?{legacyThumbnailQuery}',

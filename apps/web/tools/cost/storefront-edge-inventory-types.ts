@@ -10,8 +10,12 @@ type StorefrontEdgeInventoryRow = Readonly<{
   methods: readonly string[];
   reason: string;
   requestCondition?: Readonly<{
-    anyCookiePresent: readonly string[];
-    precedence: 'before_path_decision';
+    anyCookiePresent?: readonly string[];
+    anyQueryPresent?: true;
+    matchedStorefrontEntrypointId?: string;
+    precedence:
+      | 'after_entrypoint_resolution_before_decision'
+      | 'before_path_decision';
   }>;
   routePattern: string;
   sourceKind:
@@ -19,6 +23,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
     | 'api_route'
     | 'machine_family'
     | 'proxy_path_class'
+    | 'public_asset'
     | 'request_override'
     | 'server_action'
     | 'storefront_entrypoint';
@@ -42,5 +47,5 @@ export type StorefrontEdgeInventory = Readonly<{
   routeTreeSha256: string;
   routingProxyInputSha256: string;
   rows: readonly StorefrontEdgeInventoryRow[];
-  schemaVersion: 2;
+  schemaVersion: 3;
 }>;
