@@ -17,6 +17,31 @@ afterEach(async () => {
 });
 
 describe('readStorefrontEdgeSourceAuthority', () => {
+  it('rejects an option-shaped revision before invoking Git', async () => {
+    // Arrange
+    let caught: unknown;
+
+    // Act
+    try {
+      await readStorefrontEdgeSourceAuthority({
+        apiRoot,
+        originMainSha: '--help',
+        repoRoot: '/path/that/does/not/exist',
+        routeRoot,
+        routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    // Assert
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).toMatchObject({
+      message: 'source tree does not match the approved commit',
+    });
+    expect(caught).not.toHaveProperty('cause');
+  });
+
   it('returns approved route and routing-input bytes from the same commit', async () => {
     // Arrange
     const repoRoot = await mkdtemp(join(tmpdir(), 'edge-authority-'));
@@ -33,7 +58,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
 
     // Assert
     expect(snapshot.apiSources).toHaveLength(2);
-    expect(snapshot.routeSources).toHaveLength(11);
+    expect(snapshot.routeSources).toHaveLength(24);
     expect(snapshot.routingInputSources).toHaveLength(
       STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths.length
     );

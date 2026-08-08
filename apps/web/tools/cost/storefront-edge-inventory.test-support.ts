@@ -3,18 +3,19 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
+import { STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS } from './storefront-edge-redirect-entrypoints';
 
 const execFileAsync = promisify(execFile);
 
 const ROUTES = [
   '(home)/page.tsx',
-  '(blog)/blog/[...catchAll]/route.ts',
   '(catalog)/(listing)/products/page.tsx',
   '(catalog)/(listing)/search/page.tsx',
   '(commerce)/checkout/page.tsx',
   '(content)/about/page.tsx',
   '(blog)/blog/sitemap.ts',
   'opengraph-image.tsx',
+  ...STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS,
 ] as const;
 
 export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {

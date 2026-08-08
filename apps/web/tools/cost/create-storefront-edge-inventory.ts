@@ -69,6 +69,17 @@ export async function createStorefrontEdgeInventory(
     routeSources
   );
   const apiRows = createStorefrontEdgeApiRows(API_ROOT, apiSources);
+  const verifiedSourcePaths = new Set(
+    [...apiSources, ...routeSources, ...routingInputSources].map(
+      ({ sourcePath }) => sourcePath
+    )
+  );
+  for (const row of STOREFRONT_EDGE_INVENTORY_POLICY.extraRows) {
+    if (row.sourcePath && !verifiedSourcePaths.has(row.sourcePath))
+      throw new Error(
+        `policy row source path is not part of the approved source set: ${row.id}`
+      );
+  }
   const routeTreeSha256 = sha256(
     canonicalizeStorefrontEdgeInventoryValue(
       routeSources.map(({ bytes, sourcePath }) => ({

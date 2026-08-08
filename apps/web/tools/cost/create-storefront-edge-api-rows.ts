@@ -1,17 +1,9 @@
 import { extractStorefrontRouteMethods } from './extract-storefront-route-methods';
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
+import { normalizeStorefrontEdgeRouteSegment } from './storefront-edge-route-segment';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 type SourceFile = Readonly<{ bytes: Buffer; sourcePath: string }>;
-
-function normalizeSegment(segment: string) {
-  const catchAll = segment.match(/^\[\.\.\.([^\]]+)]$/);
-  if (catchAll) return `{*${catchAll[1]}}`;
-  const optionalCatchAll = segment.match(/^\[\[\.\.\.([^\]]+)]]$/);
-  if (optionalCatchAll) return `{*${optionalCatchAll[1]}?}`;
-  const parameter = segment.match(/^\[([^\]]+)]$/);
-  return parameter ? `{${parameter[1]}}` : segment;
-}
 
 /** Creates an exact dynamic-origin row for every real Next API route handler. */
 export function createStorefrontEdgeApiRows(
@@ -34,7 +26,7 @@ export function createStorefrontEdgeApiRows(
       .split('/')
       .slice(0, -1)
       .filter((segment) => !(segment.startsWith('(') && segment.endsWith(')')))
-      .map(normalizeSegment);
+      .map(normalizeStorefrontEdgeRouteSegment);
     return {
       decision: 'origin_dynamic',
       id: `api-route:${relativeSourcePath}`,

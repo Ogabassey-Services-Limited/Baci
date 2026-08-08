@@ -1,3 +1,5 @@
+import ts from 'typescript';
+
 const HTTP_METHOD_ORDER = [
   'DELETE',
   'GET',
@@ -14,25 +16,62 @@ function isHttpMethod(value: string): value is HttpMethod {
   return HTTP_METHOD_ORDER.some((method) => method === value);
 }
 
+function isExported(node: ts.Node) {
+  return ts.canHaveModifiers(node)
+    ? (ts.getModifiers(node) ?? []).some(
+        ({ kind }) => kind === ts.SyntaxKind.ExportKeyword
+      )
+    : false;
+}
+
+function isDefaultExport(node: ts.Node) {
+  return ts.canHaveModifiers(node)
+    ? (ts.getModifiers(node) ?? []).some(
+        ({ kind }) => kind === ts.SyntaxKind.DefaultKeyword
+      )
+    : false;
+}
+
 /** Extracts the public HTTP exports of a Next route handler source file. */
 export function extractStorefrontRouteMethods(
   source: string,
   options: Readonly<{ includeAutomaticOptions?: boolean }> = {}
 ) {
   const exported = new Set<HttpMethod>();
-  for (const method of HTTP_METHOD_ORDER) {
-    const declaration = new RegExp(
-      `export\\s+(?:(?:async\\s+)?function|const)\\s+${method}\\b`
-    );
-    if (declaration.test(source)) exported.add(method);
-  }
-  for (const block of source.matchAll(/export\s*{([^}]+)}/g)) {
-    for (const rawSpecifier of (block[1] ?? '').split(',')) {
-      const specifier = rawSpecifier.trim();
-      const alias = specifier.match(/\bas\s+([A-Z]+)$/)?.[1];
-      const exportedName = alias ?? specifier.match(/^([A-Z]+)\b/)?.[1];
-      if (exportedName && isHttpMethod(exportedName))
-        exported.add(exportedName);
+  const sourceFile = ts.createSourceFile(
+    'route.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  );
+  for (const statement of sourceFile.statements) {
+    if (
+      ts.isFunctionDeclaration(statement) &&
+      isExported(statement) &&
+      !isDefaultExport(statement) &&
+      statement.name &&
+      isHttpMethod(statement.name.text)
+    ) {
+      exported.add(statement.name.text);
+    } else if (ts.isVariableStatement(statement) && isExported(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (
+          ts.isIdentifier(declaration.name) &&
+          isHttpMethod(declaration.name.text)
+        )
+          exported.add(declaration.name.text);
+      }
+    } else if (
+      ts.isExportDeclaration(statement) &&
+      !statement.isTypeOnly &&
+      statement.exportClause &&
+      ts.isNamedExports(statement.exportClause)
+    ) {
+      for (const element of statement.exportClause.elements) {
+        if (!element.isTypeOnly && isHttpMethod(element.name.text))
+          exported.add(element.name.text);
+      }
     }
   }
   if (exported.has('GET')) exported.add('HEAD');

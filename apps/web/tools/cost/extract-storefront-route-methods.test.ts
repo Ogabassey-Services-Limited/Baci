@@ -25,4 +25,21 @@ describe('extractStorefrontRouteMethods', () => {
       'POST',
     ]);
   });
+
+  it('ignores export-like text inside comments and string literals', () => {
+    // Arrange
+    const source = [
+      '// export async function GET() {}',
+      'const example = "export const POST = handler";',
+      '`export async function DELETE() {}`;',
+    ].join('\n');
+
+    // Act
+    const methods = extractStorefrontRouteMethods(source, {
+      includeAutomaticOptions: true,
+    });
+
+    // Assert
+    expect(methods).toEqual([]);
+  });
 });

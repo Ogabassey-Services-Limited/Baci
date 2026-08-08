@@ -1,5 +1,7 @@
 import { extractStorefrontRouteMethods } from './extract-storefront-route-methods';
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
+import { STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS } from './storefront-edge-redirect-entrypoints';
+import { normalizeStorefrontEdgeRouteSegment } from './storefront-edge-route-segment';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 type SourceFile = Readonly<{ bytes: Buffer; sourcePath: string }>;
@@ -20,22 +22,9 @@ const METADATA_ROUTE_SUFFIXES = new Map<string, string>([
   ['twitter-image.ts', 'twitter-image'],
   ['twitter-image.tsx', 'twitter-image'],
 ]);
-const REDIRECT_ENTRYPOINTS = new Set([
-  '(blog)/blog/[...catchAll]/route.ts',
-  '(catalog)/(pdp)/product/[productSlug]/page.tsx',
-  '(content)/pages/about/page.tsx',
-  '(content)/pages/blog/page.tsx',
-  '(content)/pages/contact/page.tsx',
-  '(content)/pages/faq/page.tsx',
-  '(content)/pages/privacy/page.tsx',
-  '(content)/pages/terms/page.tsx',
-  '(content)/privacy-policy/page.tsx',
-  '(content)/terms-and-conditions/page.tsx',
-  '(content)/terms-of-service/page.tsx',
-  'favicon.ico/route.ts',
-  'news-sitemap.xml/route.ts',
-  'storefront/[legacySlug]/swap/route.ts',
-]);
+const REDIRECT_ENTRYPOINTS = new Set<string>(
+  STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS
+);
 
 function entrypointFileName(relativeSourcePath: string) {
   return relativeSourcePath.split('/').at(-1) ?? '';
@@ -50,13 +39,6 @@ function isEntrypoint(relativeSourcePath: string) {
   );
 }
 
-function normalizeSegment(segment: string) {
-  const catchAll = segment.match(/^\[\.\.\.([^\]]+)]$/);
-  if (catchAll) return `{*${catchAll[1]}}`;
-  const parameter = segment.match(/^\[([^\]]+)]$/);
-  return parameter ? `{${parameter[1]}}` : segment;
-}
-
 function normalizeRoutePattern(relativeSourcePath: string) {
   const fileName = entrypointFileName(relativeSourcePath);
   const metadataSuffix = METADATA_ROUTE_SUFFIXES.get(fileName);
@@ -64,7 +46,7 @@ function normalizeRoutePattern(relativeSourcePath: string) {
     .split('/')
     .slice(0, -1)
     .filter((segment) => !(segment.startsWith('(') && segment.endsWith(')')))
-    .map(normalizeSegment);
+    .map(normalizeStorefrontEdgeRouteSegment);
   if (metadataSuffix) segments.push(metadataSuffix);
   return segments.length === 0 ? '/' : `/${segments.join('/')}`;
 }
@@ -109,23 +91,27 @@ export function createStorefrontEdgeEntrypointRows(
   routeSources: readonly SourceFile[]
 ): InventoryRow[] {
   const prefix = `${routeRoot.replace(/\/$/, '')}/`;
-  return routeSources
-    .filter(({ sourcePath }) =>
-      isEntrypoint(
-        sourcePath.startsWith(prefix) ? sourcePath.slice(prefix.length) : ''
-      )
-    )
-    .map(({ bytes, sourcePath }) => {
-      if (!sourcePath.startsWith(prefix))
-        throw new Error('storefront route source is outside the route root');
-      const relativeSourcePath = sourcePath.slice(prefix.length);
-      return {
-        ...classifyEntrypoint(relativeSourcePath),
-        id: `storefront:${relativeSourcePath}`,
-        methods: routeMethods(relativeSourcePath, bytes.toString('utf8')),
-        routePattern: normalizeRoutePattern(relativeSourcePath),
-        sourceKind: 'storefront_entrypoint',
-        sourcePath,
-      };
-    });
+  const entrypointSources = routeSources.filter(({ sourcePath }) => {
+    if (!sourcePath.startsWith(prefix))
+      throw new Error('storefront route source is outside the route root');
+    return isEntrypoint(sourcePath.slice(prefix.length));
+  });
+  const discoveredEntrypoints = new Set(
+    entrypointSources.map(({ sourcePath }) => sourcePath.slice(prefix.length))
+  );
+  for (const expected of STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS) {
+    if (!discoveredEntrypoints.has(expected))
+      throw new Error(`redirect entrypoint no longer exists: ${expected}`);
+  }
+  return entrypointSources.map(({ bytes, sourcePath }) => {
+    const relativeSourcePath = sourcePath.slice(prefix.length);
+    return {
+      ...classifyEntrypoint(relativeSourcePath),
+      id: `storefront:${relativeSourcePath}`,
+      methods: routeMethods(relativeSourcePath, bytes.toString('utf8')),
+      routePattern: normalizeRoutePattern(relativeSourcePath),
+      sourceKind: 'storefront_entrypoint',
+      sourcePath,
+    };
+  });
 }

@@ -21,6 +21,10 @@ describe('createStorefrontEdgeApiRows', () => {
         bytes: Buffer.from('export async function POST() {}\n'),
         sourcePath: `${apiRoot}/webhooks/[...provider]/route.ts`,
       },
+      {
+        bytes: Buffer.from('export async function GET() {}\n'),
+        sourcePath: `${apiRoot}/archive/[[...path]]/route.ts`,
+      },
     ];
 
     // Act
@@ -41,8 +45,12 @@ describe('createStorefrontEdgeApiRows', () => {
           methods: ['OPTIONS', 'POST'],
           routePattern: '/api/webhooks/{*provider}',
         }),
+        expect.objectContaining({
+          methods: ['GET', 'HEAD', 'OPTIONS'],
+          routePattern: '/api/archive/{*path?}',
+        }),
       ])
     );
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(4);
   });
 });

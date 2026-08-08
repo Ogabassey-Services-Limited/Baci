@@ -65,10 +65,12 @@ function parseGitTree(value: Buffer) {
   const entries = new Map<string, string>();
   for (const record of value.toString('utf8').split('\0').filter(Boolean)) {
     const tabIndex = record.indexOf('\t');
+    if (tabIndex < 0)
+      throw new Error('source tree does not match the approved commit');
     const header = record.slice(0, tabIndex);
     const sourcePath = record.slice(tabIndex + 1);
     const match = header.match(/^\d+ blob ([a-f0-9]{40})$/);
-    if (tabIndex < 0 || !match)
+    if (!match)
       throw new Error('source tree does not match the approved commit');
     entries.set(sourcePath, match[1]);
   }
@@ -105,6 +107,8 @@ export async function readStorefrontEdgeSourceAuthority(
 ) {
   const apiRoot = options.apiRoot.replace(/\/$/, '');
   const routeRoot = options.routeRoot.replace(/\/$/, '');
+  if (!/^[a-f0-9]{40}$/i.test(options.originMainSha))
+    throw new Error('source tree does not match the approved commit');
   try {
     const approvedTree = parseGitTree(
       await runGit(options.repoRoot, [

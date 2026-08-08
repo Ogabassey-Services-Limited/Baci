@@ -336,8 +336,12 @@ pnpm --filter @baci/web typecheck:tools-workers
 - Create: `apps/web/tools/cost/create-storefront-edge-api-rows.test.ts`
 - Create: `apps/web/tools/cost/extract-storefront-route-methods.ts`
 - Create: `apps/web/tools/cost/extract-storefront-route-methods.test.ts`
+- Create: `apps/web/tools/cost/storefront-edge-route-segment.ts`
+- Create: `apps/web/tools/cost/storefront-edge-route-segment.test.ts`
+- Create: `apps/web/tools/cost/storefront-edge-redirect-entrypoints.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory.test-support.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-review-regressions.test.ts`
+- Create: `apps/web/tools/cost/storefront-edge-policy-source-authority.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-types.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-policy.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-policy.test.ts`
