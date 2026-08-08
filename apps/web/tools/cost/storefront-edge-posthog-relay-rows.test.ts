@@ -12,12 +12,13 @@ describe('createStorefrontEdgePosthogRelayRows', () => {
     );
     expect(originRows.map(({ routePattern }) => routePattern)).toEqual([
       '/baci-observe',
-      '/baci-observe/{*path}',
+      '/baci-observe/{*path?}',
     ]);
     expect(originRows.every(({ methods }) => methods.includes('POST'))).toBe(
       true
     );
     expect(rows).toHaveLength(2);
+    expect(rows[1]?.routePattern).toBe('/baci-observe/{*path?}');
     expect(rows.every(({ decision }) => decision === 'origin_dynamic')).toBe(
       true
     );

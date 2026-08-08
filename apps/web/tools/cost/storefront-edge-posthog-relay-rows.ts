@@ -37,7 +37,7 @@ export function createStorefrontEdgePosthogRelayRows(
   configuredPath: string
 ): readonly InventoryRow[] {
   const relayPath = normalizeRelayPath(configuredPath);
-  return [relayPath, `${relayPath}/{*path}`].map((routePattern, index) => ({
+  return [relayPath, `${relayPath}/{*path?}`].map((routePattern, index) => ({
     decision: 'origin_dynamic',
     id: `machine:posthog-relay-${index === 0 ? 'root' : 'children'}`,
     methods: ['GET', 'HEAD', 'POST'],

@@ -59,7 +59,11 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
 
     // Assert
     expect(new Set(rowIds).size).toBe(rowIds.length);
-    expect(dynamicRows.every((row) => !row.methods.includes('ANY'))).toBe(true);
+    expect(
+      dynamicRows
+        .filter((row) => row.methods.includes('ANY'))
+        .map(({ id }) => id)
+    ).toEqual(['proxy:custom-domain-platform-route']);
     expect(rows.find((row) => row.id === 'api:unlisted')).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );

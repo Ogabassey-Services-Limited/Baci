@@ -51,6 +51,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
     predicate:
       | 'cache_safe_imported_punctuation'
       | 'current_storefront_slug_api'
+      | 'legacy_analytics_conversion'
       | 'first_segment_allowlist'
       | 'legacy_blog_thumbnail_query'
       | 'mixed_case_path'

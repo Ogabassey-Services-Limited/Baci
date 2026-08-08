@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "3e8da4ade554ac4c4b1cfea6866ac678796f5559",
+  "originMainSha": "fb36faf14ac18fc311bea22b2d4231abdf8ad8a7",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "0bf545fe4ab502a664729482a5fb047ab1de0e50d74f77116b3a25778f3f5121",
-  "routingProxyInputSha256": "6cc087ade3ea154d198bedf14e28531107b2381cdb14da92cbe0f5b6c4510b42",
+  "routingProxyInputSha256": "9893c58dc56fe414b0b7354e20a2718e6b220d3b483550049985b1b7735de4bd",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -5118,7 +5118,7 @@
         "POST"
       ],
       "reason": "configured_posthog_relay",
-      "routePattern": "/baci-relay/{*path}",
+      "routePattern": "/baci-relay/{*path?}",
       "sourceKind": "machine_family",
       "sourcePath": "apps/web/src/proxy.ts"
     },
@@ -5479,13 +5479,48 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "proxy:custom-domain-platform-route",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "custom_domain_platform_route_preserved",
+      "routePattern": "/{platformRoutePrefix}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "auth",
+          "builder",
+          "dashboard",
+          "forgot-password",
+          "login",
+          "onboarding",
+          "reset-password",
+          "signup",
+          "staff",
+          "update-password",
+          "verify"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "proxy:legacy-analytics-conversion",
       "methods": [
         "POST"
       ],
       "reason": "legacy_api_rewrite_preserves_mutation",
       "routePattern": "/analytics/conversion",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "legacy_analytics_conversion"
+      }
     },
     {
       "decision": "edge_terminal",
@@ -5549,8 +5584,7 @@
       "decision": "edge_redirect",
       "id": "proxy:no-trailing-slash",
       "methods": [
-        "GET",
-        "HEAD"
+        "ANY"
       ],
       "reason": "trailing_slash_canonicalization",
       "routePattern": "/{*document}/",
@@ -5616,6 +5650,10 @@
       "reason": "custom_domain_slug_prefix_canonicalization",
       "routePattern": "/{currentSlug}/{*path}",
       "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
       "pathCondition": {
         "precedence": "before_path_decision",
         "predicate": "redundant_storefront_slug_prefix"
@@ -6114,8 +6152,7 @@
       "id": "storefront:(blog)/blog/[...catchAll]/route.ts",
       "methods": [
         "GET",
-        "HEAD",
-        "OPTIONS"
+        "HEAD"
       ],
       "routePattern": "/blog/{*catchAll}",
       "sourceKind": "storefront_entrypoint",
@@ -6127,8 +6164,7 @@
       "id": "storefront:(blog)/blog/[postSlug]/opengraph-image/route.ts",
       "methods": [
         "GET",
-        "HEAD",
-        "OPTIONS"
+        "HEAD"
       ],
       "routePattern": "/blog/{postSlug}/opengraph-image",
       "sourceKind": "storefront_entrypoint",
@@ -6176,8 +6212,7 @@
       "id": "storefront:(blog)/blog/news-sitemap.xml/route.ts",
       "methods": [
         "GET",
-        "HEAD",
-        "OPTIONS"
+        "HEAD"
       ],
       "routePattern": "/blog/news-sitemap.xml",
       "sourceKind": "storefront_entrypoint",
@@ -6693,8 +6728,7 @@
       "id": "storefront:(customer)/account/callback/route.ts",
       "methods": [
         "GET",
-        "HEAD",
-        "OPTIONS"
+        "HEAD"
       ],
       "routePattern": "/account/callback",
       "sourceKind": "storefront_entrypoint",
@@ -6970,9 +7004,19 @@
       "id": "storefront:favicon.ico/route.ts",
       "methods": [
         "GET",
-        "HEAD",
+        "HEAD"
+      ],
+      "routePattern": "/favicon.ico",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/favicon.ico/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "id": "storefront:favicon.ico/route.ts:options",
+      "methods": [
         "OPTIONS"
       ],
+      "reason": "automatic_options_response",
       "routePattern": "/favicon.ico",
       "sourceKind": "storefront_entrypoint",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/favicon.ico/route.ts"
@@ -6983,9 +7027,19 @@
       "id": "storefront:news-sitemap.xml/route.ts",
       "methods": [
         "GET",
-        "HEAD",
+        "HEAD"
+      ],
+      "routePattern": "/news-sitemap.xml",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/news-sitemap.xml/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "id": "storefront:news-sitemap.xml/route.ts:options",
+      "methods": [
         "OPTIONS"
       ],
+      "reason": "automatic_options_response",
       "routePattern": "/news-sitemap.xml",
       "sourceKind": "storefront_entrypoint",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/news-sitemap.xml/route.ts"
@@ -7008,21 +7062,19 @@
       "id": "storefront:sitemap/[id]/route.ts",
       "methods": [
         "GET",
-        "HEAD",
-        "OPTIONS"
+        "HEAD"
       ],
       "routePattern": "/sitemap/{id}",
       "sourceKind": "storefront_entrypoint",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/sitemap/[id]/route.ts"
     },
     {
-      "decision": "edge_redirect",
-      "reason": "redirect_only_storefront_entrypoint",
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
       "id": "storefront:storefront/[legacySlug]/swap/route.ts",
       "methods": [
         "GET",
-        "HEAD",
-        "OPTIONS"
+        "HEAD"
       ],
       "routePattern": "/storefront/{legacySlug}/swap",
       "sourceKind": "storefront_entrypoint",
@@ -7030,5 +7082,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "d9dad1bab7bd109437a72df94b9a7d061991325bd2b122d051e1a6c4234d3f4b"
+  "inventorySha256": "9775cb23da690ce2563490a81e5c59c1c46632fe8bfc8d40179c2c9ffecd049c"
 }

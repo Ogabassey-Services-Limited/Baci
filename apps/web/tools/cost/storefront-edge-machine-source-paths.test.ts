@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
 import { STOREFRONT_EDGE_MACHINE_ROWS } from './storefront-edge-machine-rows';
 import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-source-paths';
 
@@ -25,5 +26,18 @@ describe('STOREFRONT_EDGE_MACHINE_SOURCE_PATHS', () => {
           sourcePath.startsWith('apps/web/')
       )
     ).toBe(true);
+  });
+
+  it('includes transitive implementations behind re-exported agent handlers', () => {
+    // Arrange
+    const routingInputs = STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths;
+
+    // Act and assert
+    expect(routingInputs).toEqual(
+      expect.arrayContaining([
+        'apps/web/src/app/agent/auth/route.ts',
+        'apps/web/src/app/agent/auth/[action]/route.ts',
+      ])
+    );
   });
 });

@@ -185,6 +185,8 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'next.config.ts',
     'apps/web/src/app/actions/repair.ts',
     'apps/web/src/app/auth/confirm/route.ts',
+    'apps/web/src/app/agent/auth/route.ts',
+    'apps/web/src/app/agent/auth/[action]/route.ts',
     'apps/web/src/app/layout.tsx',
     'apps/web/src/app/root-dynamic-body.tsx',
     'apps/web/src/proxy.ts',

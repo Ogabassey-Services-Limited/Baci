@@ -79,7 +79,13 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     '/analytics/conversion',
     ['POST'],
     'origin_dynamic',
-    'legacy_api_rewrite_preserves_mutation'
+    'legacy_api_rewrite_preserves_mutation',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_analytics_conversion',
+      },
+    }
   ),
   proxyClass(
     'proxy:legacy-klump-webhook',
@@ -118,7 +124,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:no-trailing-slash',
     '/{*document}/',
-    ['GET', 'HEAD'],
+    ['ANY'],
     'edge_redirect',
     'trailing_slash_canonicalization',
     {
@@ -148,6 +154,10 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     'edge_redirect',
     'custom_domain_slug_prefix_canonicalization',
     {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        precedence: 'before_path_decision',
+      },
       pathCondition: {
         precedence: 'before_path_decision',
         predicate: 'redundant_storefront_slug_prefix',
@@ -248,6 +258,36 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
       pathCondition: {
         precedence: 'before_path_decision',
         predicate: 'retired_alias_storefront_path',
+      },
+    }
+  ),
+  proxyClass(
+    'proxy:custom-domain-platform-route',
+    '/{platformRoutePrefix}/{*path?}',
+    ['ANY'],
+    'origin_dynamic',
+    'custom_domain_platform_route_preserved',
+    {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        firstSegmentIn: [
+          'auth',
+          'builder',
+          'dashboard',
+          'forgot-password',
+          'login',
+          'onboarding',
+          'reset-password',
+          'signup',
+          'staff',
+          'update-password',
+          'verify',
+        ],
+        precedence: 'before_path_decision',
+        predicate: 'first_segment_allowlist',
       },
     }
   ),

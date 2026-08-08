@@ -78,7 +78,7 @@ describe('createStorefrontEdgeInventory', () => {
     );
 
     // Assert
-    expect(entrypoints).toHaveLength(76);
+    expect(entrypoints).toHaveLength(78);
     expect(entrypoints.map((row) => row.id)).toEqual(
       [...entrypoints.map((row) => row.id)].sort()
     );
@@ -91,7 +91,7 @@ describe('createStorefrontEdgeInventory', () => {
         expect.objectContaining({
           routePattern: '/blog/{*catchAll}',
           decision: 'origin_dynamic',
-          methods: ['GET', 'HEAD', 'OPTIONS'],
+          methods: ['GET', 'HEAD'],
         }),
         expect.objectContaining({
           routePattern: '/products',
@@ -135,17 +135,18 @@ describe('createStorefrontEdgeInventory', () => {
     const entrypoints = inventory.rows.filter(
       (row) => row.sourceKind === 'storefront_entrypoint'
     );
-    const expectedSourcePaths = task1aInventory.rows
-      .filter((row) => row.sourceKind === 'storefront_entrypoint')
-      .map((row) => row.sourcePath);
+    const expectedSourcePaths = [
+      ...new Set(
+        task1aInventory.rows
+          .filter((row) => row.sourceKind === 'storefront_entrypoint')
+          .map((row) => row.sourcePath)
+      ),
+    ];
 
     // Assert
     expect(entrypoints.length).toBeGreaterThan(0);
-    expect(entrypoints.map((row) => row.sourcePath)).toEqual(
+    expect([...new Set(entrypoints.map((row) => row.sourcePath))]).toEqual(
       expectedSourcePaths
-    );
-    expect(new Set(entrypoints.map((row) => row.sourcePath)).size).toBe(
-      entrypoints.length
     );
     expect(
       entrypoints.find(
@@ -264,7 +265,7 @@ describe('createStorefrontEdgeInventory', () => {
       expect.objectContaining({ rowCount: expect.any(Number) })
     );
     expect(JSON.parse(validated.stdout)).toEqual(
-      expect.objectContaining({ storefrontEntrypointCount: 76 })
+      expect.objectContaining({ storefrontEntrypointCount: 78 })
     );
   });
 

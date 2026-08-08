@@ -41,7 +41,7 @@ describe('createStorefrontEdgeEntrypointRows', () => {
         expect.objectContaining({
           routePattern: '/blog/{*catchAll}',
           decision: 'origin_dynamic',
-          methods: ['GET', 'HEAD', 'OPTIONS'],
+          methods: ['GET', 'HEAD'],
         }),
         expect.objectContaining({ routePattern: '/blog/sitemap.xml' }),
         expect.objectContaining({ routePattern: '/opengraph-image' }),
@@ -51,8 +51,28 @@ describe('createStorefrontEdgeEntrypointRows', () => {
         }),
       ])
     );
-    expect(rows).toHaveLength(76);
-    expect(rows.every(({ methods }) => methods.includes('GET'))).toBe(true);
+    expect(rows).toHaveLength(78);
+    expect(
+      rows.find(
+        ({ id }) => id === 'storefront:news-sitemap.xml/route.ts:options'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        decision: 'edge_release',
+        methods: ['OPTIONS'],
+        reason: 'automatic_options_response',
+      })
+    );
+    expect(
+      rows.find(
+        ({ id }) => id === 'storefront:storefront/[legacySlug]/swap/route.ts'
+      )?.decision
+    ).toBe('origin_dynamic');
+    expect(
+      rows
+        .filter(({ methods }) => !methods.includes('OPTIONS'))
+        .every(({ methods }) => methods.includes('GET'))
+    ).toBe(true);
   });
 
   it('fails closed when a configured redirect entrypoint is missing', () => {

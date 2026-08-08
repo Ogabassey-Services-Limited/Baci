@@ -11,5 +11,4 @@ export const STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS = [
   '(content)/terms-of-service/page.tsx',
   'favicon.ico/route.ts',
   'news-sitemap.xml/route.ts',
-  'storefront/[legacySlug]/swap/route.ts',
 ] as const;

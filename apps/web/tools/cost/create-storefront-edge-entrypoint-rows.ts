@@ -55,9 +55,7 @@ function routeMethods(
   const fileName = entrypointFileName(relativeSourcePath);
   if (fileName === 'page.tsx' || METADATA_ROUTE_SUFFIXES.has(fileName))
     return ['GET', 'HEAD'];
-  const methods = extractStorefrontRouteMethods(source, {
-    includeAutomaticOptions: true,
-  });
+  const methods = extractStorefrontRouteMethods(source);
   if (methods.length === 0)
     throw new Error(
       `storefront route handler exports no HTTP method: ${relativeSourcePath}`
@@ -89,7 +87,7 @@ export function createStorefrontEdgeEntrypointRows(
         `classified storefront entrypoint no longer exists: ${expected}`
       );
   }
-  return entrypointSources.map(({ bytes, sourcePath }) => {
+  return entrypointSources.flatMap(({ bytes, sourcePath }) => {
     const relativeSourcePath = sourcePath.slice(prefix.length);
     const classification =
       STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(relativeSourcePath);
@@ -97,13 +95,34 @@ export function createStorefrontEdgeEntrypointRows(
       throw new Error(
         `storefront entrypoint has no reviewed classification: ${relativeSourcePath}`
       );
-    return {
+    const methods = routeMethods(relativeSourcePath, bytes.toString('utf8'));
+    const row: InventoryRow = {
       ...classification,
       id: `storefront:${relativeSourcePath}`,
-      methods: routeMethods(relativeSourcePath, bytes.toString('utf8')),
+      methods,
       routePattern: normalizeRoutePattern(relativeSourcePath),
       sourceKind: 'storefront_entrypoint',
       sourcePath,
     };
+    if (
+      classification.decision === 'edge_redirect' &&
+      relativeSourcePath.endsWith('route.ts') &&
+      methods.length > 0 &&
+      !methods.includes('OPTIONS')
+    ) {
+      return [
+        row,
+        {
+          decision: 'edge_release',
+          id: `${row.id}:options`,
+          methods: ['OPTIONS'],
+          reason: 'automatic_options_response',
+          routePattern: row.routePattern,
+          sourceKind: 'storefront_entrypoint',
+          sourcePath,
+        },
+      ];
+    }
+    return [row];
   });
 }

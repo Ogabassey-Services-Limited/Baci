@@ -68,6 +68,14 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         },
       })
     );
+    expect(byId.get('proxy:legacy-analytics-conversion')).toEqual(
+      expect.objectContaining({
+        pathCondition: {
+          precedence: 'before_path_decision',
+          predicate: 'legacy_analytics_conversion',
+        },
+      })
+    );
     expect(byId.get('proxy:current-slug-api')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
@@ -80,6 +88,14 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         pathCondition: {
           precedence: 'before_path_decision',
           predicate: 'current_storefront_slug_api',
+        },
+      })
+    );
+    expect(byId.get('proxy:redundant-slug-prefix')).toEqual(
+      expect.objectContaining({
+        hostCondition: {
+          hostKind: 'custom_domain',
+          precedence: 'before_path_decision',
         },
       })
     );
@@ -113,6 +129,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       'proxy:product-canonical': 'noncanonical_product_route_or_variant',
       'proxy:redundant-slug-prefix': 'redundant_storefront_slug_prefix',
       'proxy:current-slug-api': 'current_storefront_slug_api',
+      'proxy:legacy-analytics-conversion': 'legacy_analytics_conversion',
       'proxy:retired-slug-api': 'retired_storefront_slug_prefix',
       'proxy:retired-slug-document': 'retired_storefront_slug_prefix',
       'proxy:unsafe-document': 'unsafe_or_ambiguous_path',
@@ -187,5 +204,34 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         routePattern: '/{*storefrontPath?}',
       })
     );
+  });
+
+  it('keeps protected platform prefixes dynamic on registered custom domains', () => {
+    // Arrange
+    const row = STOREFRONT_EDGE_PROXY_ROWS.find(
+      ({ id }) => id === 'proxy:custom-domain-platform-route'
+    );
+
+    // Act and assert
+    expect(row).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['ANY'],
+        hostCondition: {
+          hostKind: 'custom_domain',
+          precedence: 'before_path_decision',
+        },
+      })
+    );
+  });
+
+  it('models trailing-slash redirects for every method the proxy preserves', () => {
+    // Arrange
+    const row = STOREFRONT_EDGE_PROXY_ROWS.find(
+      ({ id }) => id === 'proxy:no-trailing-slash'
+    );
+
+    // Act and assert
+    expect(row?.methods).toEqual(['ANY']);
   });
 });

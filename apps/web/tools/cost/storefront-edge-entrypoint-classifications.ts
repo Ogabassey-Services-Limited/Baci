@@ -64,6 +64,7 @@ const DYNAMIC_ENTRYPOINTS = [
   '(customer)/my-account/page.tsx',
   '(customer)/receipts/claim/[token]/page.tsx',
   '(customer)/receipts/page.tsx',
+  'storefront/[legacySlug]/swap/route.ts',
   '(utility)/imei-check/page.tsx',
   '(utility)/member-status/page.tsx',
   '(utility)/quiz/page.tsx',
