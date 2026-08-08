@@ -5,10 +5,11 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { verifySourceManifest } from './source-manifest.mjs';
-import { authorizeTask9Bundle, BUNDLE_ENTRIES, canonicalJson, parseUstar, readBundleFiles } from './task9-bootstrap.mjs';
+import { authorizeTask9Bundle, BUNDLE_ENTRIES, canonicalJson, parseUstar } from './task9-bootstrap.mjs';
 import { fsyncTask9Directory } from './task9-fsync-directory.mjs';
 import { readHeldTask9File } from './task9-held-file.mjs';
 import { withTask9OutputDirectory } from './task9-output-directory.mjs';
+import { readPublishedTask9Files } from './task9-published-files.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
 const SHA = /^[a-f0-9]{40}$/;
@@ -111,7 +112,7 @@ function checkedTransactionId(supplied) {
 
 export function generateTask9BootstrapBundle(
   input,
-  { beforeVerify = () => undefined, makeOutputDirectory = mkdirSync, outputParent = '/private/tmp' } = {}
+  { afterPayloadRead = () => undefined, beforeVerify = () => undefined, makeOutputDirectory = mkdirSync, outputParent = '/private/tmp' } = {}
 ) {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     fail('invalid Task 9 bundle input');
@@ -266,22 +267,28 @@ export function generateTask9BootstrapBundle(
       heldEnvelopeDigest.bytes.toString() !== `${envelopeSha256}\n`
     )
       fail('published envelope changed');
-    authorizeTask9Bundle({
-      bundleId,
-      envelopeBytes: heldEnvelope.bytes,
-      envelopeSha256,
-      files: readBundleFiles(payloadDirectory, process.getuid()),
-      owner: process.getuid(),
-      reviewedEnvelopeSha256: envelopeSha256,
-    });
-    return Object.freeze({
-      bundleId,
-      envelopePath,
-      envelopeSha256,
-      envelopeSha256Path,
-      outputRoot,
-      payloadDirectory,
-      transactionId,
-    });
+    const heldPayload = readPublishedTask9Files(payloadDirectory, process.getuid(), { afterRead: afterPayloadRead });
+    try {
+      authorizeTask9Bundle({
+        bundleId,
+        envelopeBytes: heldEnvelope.bytes,
+        envelopeSha256,
+        files: heldPayload.files,
+        owner: process.getuid(),
+        reviewedEnvelopeSha256: envelopeSha256,
+      });
+      heldPayload.verify();
+      return Object.freeze({
+        bundleId,
+        envelopePath,
+        envelopeSha256,
+        envelopeSha256Path,
+        outputRoot,
+        payloadDirectory,
+        transactionId,
+      });
+    } finally {
+      heldPayload.close();
+    }
   }, { makeDirectory: makeOutputDirectory });
 }
