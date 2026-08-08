@@ -3,14 +3,14 @@ minimumReleaseAgeExclude:
   # Security hotfixes released within the cooldown window; Dependabot alerts opened 2026-06-15.
   - ws@5.2.5 || 6.2.4 || 7.5.11 || 8.21.0
   - protobufjs@7.6.5
-  - brace-expansion@5.0.8
+  - brace-expansion@5.0.9
   - js-yaml@4.3.0
   - shell-quote@1.9.0
   - body-parser@1.20.6 || 2.3.0
   - sharp@0.35.3
-  - hono@4.12.27
+  - hono@4.12.34
   - '@hono/node-server@2.0.10'
-  - fast-uri@3.1.4
+  - fast-uri@3.1.5
   - linkify-it@5.0.2
   - dompurify@3.4.12
   - svgo@3.3.4
@@ -18,7 +18,10 @@ minimumReleaseAgeExclude:
   - js-yaml@4.2.0
   - '@babel/core@7.29.6'
   # Security hotfixes released within the cooldown window; Dependabot alerts opened 2026-06-18.
-  - undici@7.28.0
+  - undici@7.29.0
+  - ip-address@10.3.1
+  - mermaid@11.16.1
+  - postcss@8.5.23
   - dompurify@3.4.11
 # Refuse packages whose trust signals (provenance, signatures) weaken between
 # updates. trustLockfile keeps already-locked entries installable — the current
@@ -138,16 +141,16 @@ overrides:
   # reanimated 4.5.1; see #2960). Keep in lockstep with the reanimated pin below
   # when bumping Expo SDK.
   react-native-worklets: "0.10.1"
-  # Pin patched Hono releases for GHSA-xgm2-5f3f-mvvc, GHSA-w62v-xxxg-mg59, GHSA-hvrm-45r6-mjfj, GHSA-frvp-7c67-39w9, and GHSA-9mqv-5hh9-4cgg.
-  hono: "4.12.27"
+  # Pin to 4.12.34 to include the current security fixes while preserving Hono 4 compatibility.
+  hono: "4.12.34"
   "@hono/node-server": "2.0.10"
   svgo: "3.3.4"
   linkify-it: "5.0.2"
   underscore: "^1.13.8"
   # Pin to 3.4.12 to mitigate GHSA-c2j3-45gr-mqc4 in transitive DOMPurify consumers.
   dompurify: "3.4.12"
-  # Pin to patched 7.x to mitigate GHSA-vmh5-mc38-953g and GHSA-pr7r-676h-xcf6 without a cross-major Undici 8 upgrade.
-  undici: "7.28.0"
+  # Pin to patched 7.x without forcing a cross-major Undici 8 upgrade.
+  undici: "7.29.0"
   # Pin to the current patched 2.x release for GHSA-rpr9-rxv7-x643 / CVE-2026-44990: prevent xmp raw-text passthrough from rehydrating attacker-controlled markup after sanitization.
   sanitize-html: "2.17.5"
   # Pin to 7.6.5 to close GHSA-j3f2-48v5-ccww / CVE-2026-59877 and prior 7.x CVEs while preserving the protobufjs 7 major.
@@ -162,8 +165,8 @@ overrides:
   "glob@13": "13.0.6"
   minimatch: "10.2.3"
   # Pin older uuid consumers to 11.1.1 to mitigate GHSA-w5hq-g745-h8pq while staying on a CommonJS-compatible patched release.
-  # Pin to 5.0.7 to mitigate GHSA-3jxr-9vmj-r5cp / CVE-2026-13149 (exponential brace expansion DoS).
-  "minimatch>brace-expansion": "5.0.8"
+  # Pin the minimatch transitive to the current patched 5.x release.
+  "minimatch>brace-expansion": "5.0.9"
   # Pin vulnerable ws consumers to patched lines for GHSA-96hv-2xvq-fx4p / CVE-2026-48779 without forcing cross-major upgrades.
   "ws@>=5 <5.2.5": "5.2.5"
   "ws@>=6 <6.2.4": "6.2.4"
@@ -175,14 +178,14 @@ overrides:
   fast-xml-parser: "5.9.0"
   # Pin to 1.2.0 to mitigate two Dependabot alerts on the version that fast-xml-parser 5.x pulls in transitively: the high-severity attribute-quote bypass (alert #162, fixed 1.1.7) and the medium-severity comment-regex bypass (alert #161, fixed 1.1.6). 1.2.0 is the latest published. fast-xml-parser declares fast-xml-builder ^1.1.5 so this override stays inside its accepted semver range. Exact pin matches the convention for CVE-motivated overrides in this file.
   fast-xml-builder: "1.2.0"
-  # Pin to 3.1.4 to mitigate GHSA-4c8g-83qw-93j6 and GHSA-v2hh-gcrm-f6hx. ajv 8.x has no fast-uri peer constraint, so this exact patch pin is compatible.
-  fast-uri: "3.1.4"
+  # AJV 8.x has no fast-uri peer constraint, so this exact patched pin is compatible.
+  fast-uri: "3.1.5"
   # Pin to 4.1.0 so Vitest 4.x can import isAgent from a compatible std-env release.
   std-env: "4.1.0"
   # Pin to 3.1.0 so Vitest 4.x consumers resolve a compatible color utility during CLI startup.
   tinyrainbow: "3.1.0"
-  # Pin to the current patched 8.x release to mitigate GHSA-qx2v-qp2m-jg93 in CSS stringify output.
-  postcss: "8.5.18"
+  # Pin to the current patched 8.x release.
+  postcss: "8.5.23"
   # Preserve the existing legacy uuid guard for pre-7 consumers while keeping Expo xcode@3.0.1 on its CommonJS-compatible uuid@11.1.1 resolution (preventing ESM require crashes).
   "uuid@<7": "11.1.1"
   # Pin older uuid consumers to 11.1.1 to mitigate GHSA-w5hq-g745-h8pq while staying on a CommonJS-compatible patched release.
@@ -192,8 +195,8 @@ overrides:
   "uuid@>=12 <12.0.1": "12.0.1"
   # Pin uuid 13.x consumers to 13.0.1 to mitigate GHSA-w5hq-g745-h8pq.
   "uuid@>=13 <13.0.1": "13.0.1"
-  # Pin to 10.2.0 to mitigate GHSA-v2v4-37r5-5v8g via transitive Lighthouse/Puppeteer proxy tooling.
-  ip-address: "10.2.0"
+  # Pin transitive Lighthouse/Puppeteer proxy tooling to the current patched release.
+  ip-address: "10.3.1"
   # Pin to 16.2.11 to mitigate the Next.js Server Components advisories while staying on the current Next.js 16 patch.
   next: "16.2.11"
   flatted: "3.4.2"
@@ -269,8 +272,8 @@ overrides:
   happy-dom: ">=20.8.8"
   node-forge: "1.4.0"
   path-to-regexp: ">=8.4.0"
-  # Pin to ^11.15.0 to close GHSA-6m6c-36f7-fhxh (Gantt-chart infinite-loop DoS), GHSA-87f9-hvmw-gh4p (CSS injection via configuration), GHSA-ghcm-xqfw-q4vr (HTML injection in classDef state diagrams), and GHSA-xcj9-5m2h-648r (CSS injection in classDefs). All four advisories fixed in 11.15.0. mermaid arrives here transitively via streamdown 1.6.11 (markdown streaming for the AI chat rendering pipeline).
-  mermaid: "^11.15.0"
+  # Mermaid arrives transitively via streamdown; keep it on the current patched 11.x line.
+  mermaid: "^11.16.1"
   # Pin vulnerable gRPC consumers to their patched minor releases for CVE-2026-48068 and CVE-2026-48069 while respecting transitive semver bounds.
   "@grpc/grpc-js@>=1.9.0 <1.9.16": "1.9.16"
   "@grpc/grpc-js@>=1.10.0 <1.10.12": "1.10.12"
