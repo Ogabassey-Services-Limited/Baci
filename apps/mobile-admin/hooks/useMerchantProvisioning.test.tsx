@@ -167,6 +167,49 @@ describe('useMerchantProvisioning', () => {
     );
   });
 
+  it('reuses a generated fallback attempt ID when provisioning is retried', async () => {
+    mocks.user.user_metadata.signup_attempt_id = 'owner@example.com';
+    mocks.apiClient
+      .mockRejectedValueOnce(new Error('temporary failure'))
+      .mockResolvedValueOnce({
+        success: true,
+        merchant: { id: 'merchant-1', slug: 'analytical-engines' },
+        created: true,
+      });
+    const { result } = renderHook(() => useMerchantProvisioning(), { wrapper });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(payload)).rejects.toThrow(
+        'temporary failure'
+      );
+      await result.current.mutateAsync(payload);
+    });
+
+    expect(mocks.generateUUID).toHaveBeenCalledOnce();
+    expect(mocks.apiClient).toHaveBeenCalledTimes(2);
+    expect(
+      mocks.apiClient.mock.calls.map(
+        ([, options]) =>
+          (options as { headers: Record<string, string> }).headers[
+            'X-Baci-Signup-Attempt-Id'
+          ]
+      )
+    ).toEqual([
+      '123e4567-e89b-42d3-a456-426614174099',
+      '123e4567-e89b-42d3-a456-426614174099',
+    ]);
+    expect(
+      mocks.captureMobileSignupLifecycle.mock.calls.map(
+        ([input]) => (input as { attemptId: string }).attemptId
+      )
+    ).toEqual([
+      '123e4567-e89b-42d3-a456-426614174099',
+      '123e4567-e89b-42d3-a456-426614174099',
+      '123e4567-e89b-42d3-a456-426614174099',
+      '123e4567-e89b-42d3-a456-426614174099',
+    ]);
+  });
+
   it.each([
     'web',
     'windows',

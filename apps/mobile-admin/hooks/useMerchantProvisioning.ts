@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { getRuntimePlatform } from '@/config/runtime-platform';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient, NetworkError } from '@/lib/api-client';
@@ -45,6 +46,10 @@ function provisioningFailureClass(error: unknown): SignupFailureClass {
 export function useMerchantProvisioning() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const fallbackAttemptRef = useRef<{
+    attemptId: string;
+    userId: string;
+  } | null>(null);
 
   return useMutation({
     retry: false,
@@ -62,9 +67,19 @@ export function useMerchantProvisioning() {
       const parsedAttemptId = signupAttemptIdSchema.safeParse(
         user.user_metadata?.signup_attempt_id
       );
-      const attemptId = parsedAttemptId.success
-        ? parsedAttemptId.data
-        : generateUUID();
+      let attemptId: string;
+      if (parsedAttemptId.success) {
+        attemptId = parsedAttemptId.data;
+      } else if (fallbackAttemptRef.current?.userId === user.id) {
+        attemptId = fallbackAttemptRef.current.attemptId;
+      } else {
+        const fallbackAttempt = {
+          attemptId: generateUUID(),
+          userId: user.id,
+        };
+        fallbackAttemptRef.current = fallbackAttempt;
+        attemptId = fallbackAttempt.attemptId;
+      }
       const startedAt = Date.now();
       void captureMobileSignupLifecycle({
         attemptId,
