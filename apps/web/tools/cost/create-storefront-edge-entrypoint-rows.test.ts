@@ -65,9 +65,7 @@ describe('createStorefrontEdgeEntrypointRows', () => {
     );
     expect(
       rows.find(({ id }) => id === 'storefront:(blog)/blog/sitemap.ts:options')
-    ).toEqual(
-      expect.objectContaining({ methods: ['OPTIONS'] })
-    );
+    ).toEqual(expect.objectContaining({ methods: ['OPTIONS'] }));
     expect(
       rows.find(({ id }) => id === 'storefront:opengraph-image.tsx:options')
     ).toEqual(expect.objectContaining({ methods: ['OPTIONS'] }));
