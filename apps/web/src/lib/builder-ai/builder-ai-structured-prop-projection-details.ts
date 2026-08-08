@@ -16,6 +16,13 @@ export const builderAiStructuredPropProjectionDetails: Record<string, object> =
       ],
       minimumItems: 1,
     },
+    'Footer.quickLinks': {
+      maximumItems: 8,
+      members: [
+        { name: 'label', required: true, valueType: 'string' },
+        { name: 'url', required: true, valueType: 'safe-storefront-url' },
+      ],
+    },
     'Header.ctaButton': {
       members: [
         { name: 'show', required: true, valueType: 'boolean' },

@@ -13,6 +13,15 @@ describe('builderAiStructuredPropProjectionDetails', () => {
       ],
     });
     expect(
+      builderAiStructuredPropProjectionDetails['Footer.quickLinks']
+    ).toEqual({
+      maximumItems: 8,
+      members: [
+        { name: 'label', required: true, valueType: 'string' },
+        { name: 'url', required: true, valueType: 'safe-storefront-url' },
+      ],
+    });
+    expect(
       builderAiStructuredPropProjectionDetails['Header.ctaButton']
     ).toMatchObject({
       members: [
