@@ -4,7 +4,7 @@ import { createBuilderComponentId } from './create-builder-component-id';
 function withId(
   component: BuilderData['content'][number],
   createId: (componentType: string) => string,
-  onIdReplaced: (previousId: string, nextId: string) => void
+  onIdReplaced?: (previousId: string, nextId: string) => void
 ): BuilderData['content'][number] {
   const id = component.props.id;
   if (
@@ -16,7 +16,7 @@ function withId(
     return component;
   }
   const nextId = createId(component.type);
-  if (typeof id === 'string') onIdReplaced(id, nextId);
+  if (typeof id === 'string') onIdReplaced?.(id, nextId);
   return {
     ...component,
     props: { ...component.props, id: nextId },
@@ -35,15 +35,14 @@ function isComponent(value: unknown): value is BuilderData['content'][number] {
 
 function normalizeZoneComponent(
   value: unknown,
-  createId: (componentType: string) => string,
-  onIdReplaced: (previousId: string, nextId: string) => void
+  createId: (componentType: string) => string
 ): unknown {
   if (!isRecord(value) || typeof value.type !== 'string') return value;
   const component = {
     ...value,
     props: isRecord(value.props) ? value.props : {},
   } as BuilderData['content'][number];
-  return withId(component, createId, onIdReplaced);
+  return withId(component, createId);
 }
 
 function rekeyZoneName(
@@ -73,12 +72,8 @@ export function normalizeBuilderAiComponentIds(
         Array.isArray(zone)
           ? zone.map((component) =>
               isComponent(component)
-                ? withId(component, createId, rememberReplacement)
-                : normalizeZoneComponent(
-                    component,
-                    createId,
-                    rememberReplacement
-                  )
+                ? withId(component, createId)
+                : normalizeZoneComponent(component, createId)
             )
           : zone,
       ] as const

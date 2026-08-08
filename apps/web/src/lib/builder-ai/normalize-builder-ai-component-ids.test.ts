@@ -73,4 +73,23 @@ describe('normalizeBuilderAiComponentIds', () => {
       'safe-flex:children': [{ props: { id: 'child-text' }, type: 'Text' }],
     });
   });
+
+  it('keeps a zone bound to its root parent when a child shares its legacy id', () => {
+    let sequence = 0;
+    const normalized = normalizeBuilderAiComponentIds(
+      {
+        content: [{ props: { id: ' padded ' }, type: 'Flex' }],
+        root: { title: 'Home' },
+        zones: {
+          ' padded :children': [{ props: { id: ' padded ' }, type: 'Text' }],
+        },
+      },
+      (type) => `${type.toLowerCase()}-${++sequence}`
+    );
+
+    expect(normalized.content[0]?.props.id).toBe('flex-1');
+    expect(normalized.zones).toEqual({
+      'flex-1:children': [{ props: { id: 'text-2' }, type: 'Text' }],
+    });
+  });
 });
