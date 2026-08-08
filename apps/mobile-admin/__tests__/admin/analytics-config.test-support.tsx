@@ -36,7 +36,7 @@ const supabaseMocks = vi.hoisted(() => {
 const mutationMocks = vi.hoisted(() => {
   type MutationOptions = {
     mutationFn: (variables?: unknown) => Promise<unknown>;
-    onMutate?: () => unknown | Promise<unknown>;
+    onMutate?: (variables?: unknown) => unknown | Promise<unknown>;
     onSuccess?: (
       data?: unknown,
       variables?: unknown,
@@ -68,7 +68,7 @@ const mutationMocks = vi.hoisted(() => {
             let error: unknown = null;
 
             try {
-              context = await options.onMutate?.();
+              context = await options.onMutate?.(variables);
               data = await options.mutationFn(variables);
               await options.onSuccess?.(data, variables, context);
             } catch (caught) {

@@ -34,6 +34,16 @@ describe('RegisterScreen', () => {
     vi.restoreAllMocks();
   });
 
+  it('uses the current onboarding design for the about-you step', () => {
+    render(<RegisterScreen />);
+
+    expect(screen.getByText('Your store setup')).toBeTruthy();
+    expect(screen.getByText('About you')).toBeTruthy();
+    expect(screen.getByText('Your business')).toBeTruthy();
+    expect(screen.getByText("Let's get to know you")).toBeTruthy();
+    expect(screen.queryByText('Account Details')).toBeNull();
+  });
+
   it('creates the native account exactly once with sentence-cased metadata', async () => {
     render(<RegisterScreen />);
     expect(
@@ -55,6 +65,39 @@ describe('RegisterScreen', () => {
       fullName: 'Test User',
       signupFlow: 'merchant',
     });
+  });
+
+  it('trims identity fields while preserving password whitespace exactly', async () => {
+    render(<RegisterScreen />);
+    fireEvent.change(screen.getByPlaceholderText('John'), {
+      target: { value: ' mary ann ' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Doe'), {
+      target: { value: ' van buren ' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
+      target: { value: ' person@example.com ' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: ' Strong P@ss123! ' },
+    });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), {
+      target: { value: ' Strong P@ss123! ' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Proceed to next step' })
+    );
+
+    await waitFor(() =>
+      expect(mocks.signUp).toHaveBeenCalledWith({
+        email: 'person@example.com',
+        password: ' Strong P@ss123! ',
+        firstName: 'Mary ann',
+        lastName: 'Van buren',
+        fullName: 'Mary ann Van buren',
+        signupFlow: 'merchant',
+      })
+    );
   });
 
   it('routes a returned session to authenticated profile completion', async () => {

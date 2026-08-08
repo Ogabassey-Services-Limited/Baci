@@ -1,10 +1,23 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { MerchantSetupProgress } from './MerchantSetupProgress';
 
 vi.mock('react-native', () => ({
+  Pressable: ({
+    accessibilityLabel,
+    children,
+    onPress,
+  }: {
+    accessibilityLabel?: string;
+    children?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <button aria-label={accessibilityLabel} onClick={onPress} type="button">
+      {children}
+    </button>
+  ),
   StyleSheet: { create: (styles: Record<string, unknown>) => styles },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   View: ({
@@ -62,5 +75,16 @@ describe('MerchantSetupProgress', () => {
         name: 'Setup progress: step 2 of 2',
       })
     ).toHaveAttribute('aria-valuenow', '2');
+  });
+
+  it('returns to about-you details when its completed stage is pressed', () => {
+    const onAboutYouPress = vi.fn();
+    render(
+      <MerchantSetupProgress step={2} onAboutYouPress={onAboutYouPress} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'About you' }));
+
+    expect(onAboutYouPress).toHaveBeenCalledOnce();
   });
 });

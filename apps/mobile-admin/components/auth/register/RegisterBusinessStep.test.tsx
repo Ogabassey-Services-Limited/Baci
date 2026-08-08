@@ -128,6 +128,14 @@ describe('RegisterBusinessStep business name normalization', () => {
     ).toBeInTheDocument();
   });
 
+  it('offers a way back to the about-you step', () => {
+    renderStep();
+
+    expect(
+      screen.getByRole('button', { name: 'Back to about you' })
+    ).toBeInTheDocument();
+  });
+
   it('capitalizes every word typed or pasted into Business Name', () => {
     const onBusinessNameChange = vi.fn();
     render(

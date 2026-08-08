@@ -54,13 +54,13 @@ export function MerchantSetupHero({
         </Text>
         {isBusinessStep && onBack ? (
           <Pressable
-            accessibilityLabel="Back to owner details"
+            accessibilityLabel="Back to about you"
             accessibilityRole="button"
             onPress={onBack}
             style={styles.heroBack}
           >
             <Ionicons color={colors.primary} name="arrow-back" size={16} />
-            <Text style={styles.heroBackText}>Edit owner details</Text>
+            <Text style={styles.heroBackText}>Back to about you</Text>
           </Pressable>
         ) : null}
       </LinearGradient>

@@ -45,6 +45,11 @@ function ownerNamesFromMetadata(user: User): OwnerNames {
   return { firstName, lastName };
 }
 
+function getInitialSetupStep(user: User): 1 | 2 {
+  const { firstName, lastName } = ownerNamesFromMetadata(user);
+  return firstName && lastName ? 2 : 1;
+}
+
 function initialFormData(user: User): MerchantSetupFormData {
   const { firstName, lastName } = ownerNamesFromMetadata(user);
   const businessName = firstName ? `${firstName}'s Store` : '';
@@ -80,7 +85,9 @@ export function MerchantSetupForm() {
   );
   const [isSlugEdited, setIsSlugEdited] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
-  const [setupStep, setSetupStep] = useState<1 | 2>(1);
+  const [setupStep, setSetupStep] = useState<1 | 2>(() =>
+    user ? getInitialSetupStep(user) : 1
+  );
   const hydratedUserId = useRef<string | null>(user?.id ?? null);
 
   useEffect(() => {
@@ -95,13 +102,13 @@ export function MerchantSetupForm() {
     hydratedUserId.current = user.id;
     if (userChanged) {
       setFormData(defaults);
-      setSetupStep(1);
+      setSetupStep(getInitialSetupStep(user));
       setIsSlugEdited(false);
       setSlugError(null);
       return;
     }
     if (wasUnauthenticated) {
-      setSetupStep(1);
+      setSetupStep(getInitialSetupStep(user));
     }
     setFormData((previous) =>
       previous.firstName && previous.lastName
@@ -237,7 +244,10 @@ export function MerchantSetupForm() {
 
   return (
     <View style={styles.formSection}>
-      <MerchantSetupProgress step={setupStep} />
+      <MerchantSetupProgress
+        onAboutYouPress={() => setSetupStep(1)}
+        step={setupStep}
+      />
       {setupStep === 1 ? (
         <MerchantSetupOwnerStep
           country={formData.country}
