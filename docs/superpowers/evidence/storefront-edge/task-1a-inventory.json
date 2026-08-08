@@ -26,7 +26,7 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "0bf545fe4ab502a664729482a5fb047ab1de0e50d74f77116b3a25778f3f5121",
-  "routingProxyInputSha256": "9893c58dc56fe414b0b7354e20a2718e6b220d3b483550049985b1b7735de4bd",
+  "routingProxyInputSha256": "cf1b87e609a3de6ac99c21c4b822e5ea66b4a5d7d1cf77a87cd1cb89ceef59c7",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -4874,7 +4874,7 @@
         "ANY"
       ],
       "reason": "closed_api_inventory_default",
-      "routePattern": "/api/{*unlisted}",
+      "routePattern": "/api/{*unlisted?}",
       "sourceKind": "api_family"
     },
     {
@@ -5432,7 +5432,7 @@
         "HEAD"
       ],
       "reason": "canonical_blog_query_normalization",
-      "routePattern": "/blog/{*path}?{legacyThumbnailQuery}",
+      "routePattern": "/blog/{*path?}?{legacyThumbnailQuery}",
       "sourceKind": "proxy_path_class",
       "pathCondition": {
         "precedence": "before_path_decision",
@@ -5531,7 +5531,11 @@
       ],
       "reason": "retired_webhook_returns_410",
       "routePattern": "/wc-api/klp_wc_payment_webhook",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "legacy_klump_webhook_normalized"
+      }
     },
     {
       "decision": "edge_redirect",
@@ -5559,8 +5563,7 @@
       "decision": "edge_redirect",
       "id": "proxy:lowercase-document",
       "methods": [
-        "GET",
-        "HEAD"
+        "ANY"
       ],
       "reason": "lowercase_storefront_canonicalization",
       "routePattern": "/{*mixedCaseDocument}",
@@ -5592,7 +5595,7 @@
       "sourceKind": "proxy_path_class",
       "pathCondition": {
         "precedence": "before_path_decision",
-        "predicate": "trailing_slash"
+        "predicate": "trailing_slash_excluding_well_known"
       }
     },
     {
@@ -5611,7 +5614,6 @@
       "pathCondition": {
         "firstSegmentIn": [
           "auth",
-          "admin",
           "builder",
           "dashboard",
           "forgot-password",
@@ -5690,6 +5692,10 @@
       "reason": "retired_storefront_alias_redirect",
       "routePattern": "/{retiredSlug}/{*path}",
       "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
       "pathCondition": {
         "precedence": "before_path_decision",
         "predicate": "retired_storefront_slug_prefix"
@@ -6162,12 +6168,34 @@
     },
     {
       "decision": "edge_release",
+      "id": "storefront:(blog)/blog/[...catchAll]/route.ts:options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/blog/{*catchAll}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/route.ts"
+    },
+    {
+      "decision": "edge_release",
       "reason": "public_release_surface",
       "id": "storefront:(blog)/blog/[postSlug]/opengraph-image/route.ts",
       "methods": [
         "GET",
         "HEAD"
       ],
+      "routePattern": "/blog/{postSlug}/opengraph-image",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "id": "storefront:(blog)/blog/[postSlug]/opengraph-image/route.ts:options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
       "routePattern": "/blog/{postSlug}/opengraph-image",
       "sourceKind": "storefront_entrypoint",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image/route.ts"
@@ -6216,6 +6244,17 @@
         "GET",
         "HEAD"
       ],
+      "routePattern": "/blog/news-sitemap.xml",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/news-sitemap.xml/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "id": "storefront:(blog)/blog/news-sitemap.xml/route.ts:options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
       "routePattern": "/blog/news-sitemap.xml",
       "sourceKind": "storefront_entrypoint",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/news-sitemap.xml/route.ts"
@@ -6737,6 +6776,17 @@
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/callback/route.ts"
     },
     {
+      "decision": "edge_release",
+      "id": "storefront:(customer)/account/callback/route.ts:options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/account/callback",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/callback/route.ts"
+    },
+    {
       "decision": "origin_dynamic",
       "reason": "request_state_or_origin_action_required",
       "id": "storefront:(customer)/account/login/page.tsx",
@@ -7071,6 +7121,17 @@
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/sitemap/[id]/route.ts"
     },
     {
+      "decision": "edge_release",
+      "id": "storefront:sitemap/[id]/route.ts:options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/sitemap/{id}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/sitemap/[id]/route.ts"
+    },
+    {
       "decision": "origin_dynamic",
       "reason": "request_state_or_origin_action_required",
       "id": "storefront:storefront/[legacySlug]/swap/route.ts",
@@ -7081,8 +7142,19 @@
       "routePattern": "/storefront/{legacySlug}/swap",
       "sourceKind": "storefront_entrypoint",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/storefront/[legacySlug]/swap/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "id": "storefront:storefront/[legacySlug]/swap/route.ts:options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/storefront/{legacySlug}/swap",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/storefront/[legacySlug]/swap/route.ts"
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "f9ae2b2576e8f970a06de6cc8a9d20df0c49f8a2cac562c0741ee7e6455e6ca0"
+  "inventorySha256": "f47b7c2da0ada3cf910822b9845dd3d853369b4ed734d5e6fe93a14a6703879d"
 }
