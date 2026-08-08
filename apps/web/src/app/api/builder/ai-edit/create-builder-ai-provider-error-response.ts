@@ -16,7 +16,13 @@ export function createBuilderAiProviderErrorResponse(
   }
   if (code === 'ai_provider_rate_limited') {
     return NextResponse.json(
-      { code, error: 'AI editor quota is temporarily exhausted', requestId },
+      {
+        code,
+        details:
+          'AI editing is rate limited right now. Please try again later.',
+        error: 'AI editor quota is temporarily exhausted',
+        requestId,
+      },
       { status: 429 }
     );
   }

@@ -165,4 +165,50 @@ describe('builder AI component catalog', () => {
       expect.objectContaining({ maximum: 4, minimum: 2, name: 'columns' })
     );
   });
+
+  it('projects nested field members when current component values are empty', () => {
+    const catalog = getBuilderAiCatalogProjection();
+    const header = catalog.find(
+      ({ componentType }) => componentType === 'Header'
+    );
+    const features = catalog.find(
+      ({ componentType }) => componentType === 'Features'
+    );
+
+    expect(header?.editableProps).toContainEqual(
+      expect.objectContaining({
+        maximumItems: 8,
+        members: [
+          { name: 'label', required: true, valueType: 'string' },
+          { name: 'url', required: true, valueType: 'safe-storefront-url' },
+        ],
+        name: 'navigationLinks',
+      })
+    );
+    expect(header?.editableProps).toContainEqual(
+      expect.objectContaining({
+        members: [
+          { name: 'show', required: true, valueType: 'boolean' },
+          { name: 'text', required: true, valueType: 'string' },
+          { name: 'url', required: true, valueType: 'safe-storefront-url' },
+        ],
+        name: 'ctaButton',
+      })
+    );
+    expect(features?.editableProps).toContainEqual(
+      expect.objectContaining({
+        maximumItems: 8,
+        members: expect.arrayContaining([
+          expect.objectContaining({ name: 'description', required: true }),
+          expect.objectContaining({
+            allowedValues: expect.arrayContaining(['check', 'truck']),
+            name: 'icon',
+          }),
+          expect.objectContaining({ name: 'title', required: true }),
+        ]),
+        minimumItems: 1,
+        name: 'features',
+      })
+    );
+  });
 });

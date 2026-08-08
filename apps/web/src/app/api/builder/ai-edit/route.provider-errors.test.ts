@@ -66,6 +66,7 @@ describe('/api/builder/ai-edit provider failure boundary', () => {
     expect(response.status).toBe(429);
     await expect(response.json()).resolves.toEqual({
       code: 'ai_provider_rate_limited',
+      details: 'AI editing is rate limited right now. Please try again later.',
       error: 'AI editor quota is temporarily exhausted',
       requestId: builderAiEditTestFixture.request.clientRequestId,
     });

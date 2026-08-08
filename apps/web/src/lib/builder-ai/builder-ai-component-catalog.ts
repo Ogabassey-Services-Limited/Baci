@@ -1,4 +1,5 @@
 import { builderAiFeatureIconNames } from '@baci/shared/contracts';
+import { builderAiStructuredPropProjectionDetails } from './builder-ai-structured-prop-projection-details';
 
 export type ComponentDefinition = {
   editableProps: readonly string[];
@@ -264,6 +265,7 @@ export function getBuilderAiCatalogProjection() {
         return {
           name: property,
           shape: getBuilderAiPropShape(componentType, property),
+          ...(builderAiStructuredPropProjectionDetails[key] ?? {}),
           ...(allowedValues ? { allowedValues } : {}),
           ...(range
             ? {

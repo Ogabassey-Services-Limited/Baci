@@ -17,4 +17,15 @@ describe('createBuilderAiProviderErrorResponse', () => {
       expect.objectContaining({ code, requestId: 'request-id' })
     );
   });
+
+  it('keeps readable retry guidance in rate-limit details for legacy callers', async () => {
+    const response = createBuilderAiProviderErrorResponse(
+      { code: 'ai_provider_rate_limited' },
+      'request-id'
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      details: 'AI editing is rate limited right now. Please try again later.',
+    });
+  });
 });
