@@ -186,6 +186,12 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
   ),
   machineFamily('machine:llms', '/llms.txt', ['GET', 'HEAD']),
   machineFamily('machine:llms-full', '/llms-full.txt', ['GET', 'HEAD']),
+  machineFamily(
+    'machine:manifest',
+    '/manifest.webmanifest',
+    ['GET', 'HEAD'],
+    'edge_release'
+  ),
   machineFamily('machine:ads', '/ads.txt', ['GET', 'HEAD'], 'origin_dynamic'),
   machineFamily('machine:openapi', STOREFRONT_AGENT_ROUTES.openApi, [
     'GET',

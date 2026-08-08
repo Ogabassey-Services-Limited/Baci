@@ -45,6 +45,10 @@ describe('createStorefrontEdgeEntrypointRows', () => {
         }),
         expect.objectContaining({ routePattern: '/blog/sitemap.xml' }),
         expect.objectContaining({ routePattern: '/opengraph-image' }),
+        expect.objectContaining({
+          decision: 'origin_dynamic',
+          routePattern: '/product/{productSlug}',
+        }),
       ])
     );
     expect(rows).toHaveLength(76);

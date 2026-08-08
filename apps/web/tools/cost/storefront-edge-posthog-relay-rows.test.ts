@@ -17,21 +17,9 @@ describe('createStorefrontEdgePosthogRelayRows', () => {
     expect(originRows.every(({ methods }) => methods.includes('POST'))).toBe(
       true
     );
-    expect(rows.filter(({ decision }) => decision === 'edge_redirect')).toEqual(
-      [
-        expect.objectContaining({
-          hostCondition: expect.objectContaining({
-            hostKind: 'platform_subdomain',
-          }),
-          routePattern: '/baci-observe',
-        }),
-        expect.objectContaining({
-          hostCondition: expect.objectContaining({
-            hostKind: 'platform_subdomain',
-          }),
-          routePattern: '/baci-observe/{*path}',
-        }),
-      ]
+    expect(rows).toHaveLength(2);
+    expect(rows.every(({ decision }) => decision === 'origin_dynamic')).toBe(
+      true
     );
   });
 

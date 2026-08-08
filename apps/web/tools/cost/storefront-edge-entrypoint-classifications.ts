@@ -40,6 +40,7 @@ const RELEASE_ENTRYPOINTS = [
 const DYNAMIC_ENTRYPOINTS = [
   '(blog)/blog/[...catchAll]/route.ts',
   '(catalog)/(listing)/search/page.tsx',
+  '(catalog)/(pdp)/product/[productSlug]/page.tsx',
   '(commerce)/cart/page.tsx',
   '(commerce)/checkout/bnpl/page.tsx',
   '(commerce)/checkout/crypto/page.tsx',

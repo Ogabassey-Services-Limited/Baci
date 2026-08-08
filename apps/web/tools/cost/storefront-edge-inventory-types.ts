@@ -17,11 +17,16 @@ type StorefrontEdgeMethod =
 
 type StorefrontEdgeInventoryRow = Readonly<{
   decision: StorefrontEdgeDecision;
-  hostCondition?: Readonly<{
-    hostKind: 'platform_subdomain';
-    precedence: 'before_path_decision';
-    requiresActiveCanonicalCustomDomain?: true;
-  }>;
+  hostCondition?:
+    | Readonly<{
+        hostKind: 'platform_subdomain';
+        precedence: 'before_path_decision';
+        requiresActiveCanonicalCustomDomain?: true;
+      }>
+    | Readonly<{
+        hostKind: 'retired_platform_subdomain_alias';
+        precedence: 'before_path_decision';
+      }>;
   id: string;
   methods: readonly StorefrontEdgeMethod[];
   reason: string;
@@ -45,6 +50,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
       | 'legacy_blog_thumbnail_query'
       | 'mixed_case_path'
       | 'noncanonical_product_route_or_variant'
+      | 'retired_alias_storefront_path'
       | 'redundant_storefront_slug_prefix'
       | 'retired_storefront_slug_prefix'
       | 'trailing_slash'

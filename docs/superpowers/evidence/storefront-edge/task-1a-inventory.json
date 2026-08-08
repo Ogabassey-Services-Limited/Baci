@@ -26,7 +26,7 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "0bf545fe4ab502a664729482a5fb047ab1de0e50d74f77116b3a25778f3f5121",
-  "routingProxyInputSha256": "1f806e75ff79cbe22efa8b29a35740215958039b7542b2f7d75a3e1d641a02c2",
+  "routingProxyInputSha256": "a654d75b4e4898de5e8ba6baa39840edc45e662d2790af9d5d1cc52dd89e6430",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -5047,6 +5047,18 @@
       "sourcePath": "apps/web/src/app/llms-full.txt/route.ts"
     },
     {
+      "decision": "edge_release",
+      "id": "machine:manifest",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/manifest.webmanifest",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/manifest.ts"
+    },
+    {
       "decision": "edge_terminal",
       "id": "machine:next-image",
       "methods": [
@@ -5542,10 +5554,8 @@
           "dashboard",
           "forgot-password",
           "login",
-          "manifest.webmanifest",
           "onboarding",
           "reset-password",
-          "robots.txt",
           "signup",
           "staff",
           "update-password",
@@ -5554,40 +5564,6 @@
         "precedence": "before_path_decision",
         "predicate": "first_segment_allowlist"
       }
-    },
-    {
-      "decision": "edge_redirect",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      },
-      "id": "proxy:platform-subdomain-posthog-relay-children",
-      "methods": [
-        "GET",
-        "HEAD",
-        "POST"
-      ],
-      "reason": "platform_route_subdomain_redirect",
-      "routePattern": "/baci-relay/{*path}",
-      "sourceKind": "proxy_path_class",
-      "sourcePath": "apps/web/src/proxy.ts"
-    },
-    {
-      "decision": "edge_redirect",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      },
-      "id": "proxy:platform-subdomain-posthog-relay-root",
-      "methods": [
-        "GET",
-        "HEAD",
-        "POST"
-      ],
-      "reason": "platform_route_subdomain_redirect",
-      "routePattern": "/baci-relay",
-      "sourceKind": "proxy_path_class",
-      "sourcePath": "apps/web/src/proxy.ts"
     },
     {
       "decision": "edge_redirect",
@@ -5651,6 +5627,25 @@
       "pathCondition": {
         "precedence": "before_path_decision",
         "predicate": "retired_storefront_slug_prefix"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:retired-slug-host",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/{*storefrontPath?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "retired_platform_subdomain_alias",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "retired_alias_storefront_path"
       }
     },
     {
@@ -6295,8 +6290,8 @@
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx"
     },
     {
-      "decision": "edge_redirect",
-      "reason": "redirect_only_storefront_entrypoint",
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
       "id": "storefront:(catalog)/(pdp)/product/[productSlug]/page.tsx",
       "methods": [
         "GET",
@@ -6997,5 +6992,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "8931670f27734758061fd5d7973cda8c39f83dac6adcf5c6265426005e95068e"
+  "inventorySha256": "7c9d4aa0bd14e2bcd14bab146abb78f1474e57063d0ea61b83dfc10854092235"
 }

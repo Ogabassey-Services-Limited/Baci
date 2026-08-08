@@ -37,33 +37,13 @@ export function createStorefrontEdgePosthogRelayRows(
   configuredPath: string
 ): readonly InventoryRow[] {
   const relayPath = normalizeRelayPath(configuredPath);
-  return [relayPath, `${relayPath}/{*path}`].flatMap(
-    (routePattern, index): readonly InventoryRow[] => {
-      const suffix = index === 0 ? 'root' : 'children';
-      return [
-        {
-          decision: 'edge_redirect',
-          hostCondition: {
-            hostKind: 'platform_subdomain',
-            precedence: 'before_path_decision',
-          },
-          id: `proxy:platform-subdomain-posthog-relay-${suffix}`,
-          methods: ['GET', 'HEAD', 'POST'],
-          reason: 'platform_route_subdomain_redirect',
-          routePattern,
-          sourceKind: 'proxy_path_class',
-          sourcePath: 'apps/web/src/proxy.ts',
-        },
-        {
-          decision: 'origin_dynamic',
-          id: `machine:posthog-relay-${suffix}`,
-          methods: ['GET', 'HEAD', 'POST'],
-          reason: 'configured_posthog_relay',
-          routePattern,
-          sourceKind: 'machine_family',
-          sourcePath: 'apps/web/src/proxy.ts',
-        },
-      ];
-    }
-  );
+  return [relayPath, `${relayPath}/{*path}`].map((routePattern, index) => ({
+    decision: 'origin_dynamic',
+    id: `machine:posthog-relay-${index === 0 ? 'root' : 'children'}`,
+    methods: ['GET', 'HEAD', 'POST'],
+    reason: 'configured_posthog_relay',
+    routePattern,
+    sourceKind: 'machine_family',
+    sourcePath: 'apps/web/src/proxy.ts',
+  }));
 }

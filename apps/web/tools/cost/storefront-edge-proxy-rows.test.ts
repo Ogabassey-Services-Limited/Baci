@@ -133,10 +133,8 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
             'dashboard',
             'forgot-password',
             'login',
-            'manifest.webmanifest',
             'onboarding',
             'reset-password',
-            'robots.txt',
             'signup',
             'staff',
             'update-password',
@@ -145,6 +143,29 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
           precedence: 'before_path_decision',
           predicate: 'first_segment_allowlist',
         }),
+      })
+    );
+  });
+
+  it('redirects retired subdomain aliases before storefront path decisions', () => {
+    // Arrange
+    const row = STOREFRONT_EDGE_PROXY_ROWS.find(
+      ({ id }) => id === 'proxy:retired-slug-host'
+    );
+
+    // Act and assert
+    expect(row).toEqual(
+      expect.objectContaining({
+        decision: 'edge_redirect',
+        hostCondition: {
+          hostKind: 'retired_platform_subdomain_alias',
+          precedence: 'before_path_decision',
+        },
+        pathCondition: {
+          precedence: 'before_path_decision',
+          predicate: 'retired_alias_storefront_path',
+        },
+        routePattern: '/{*storefrontPath?}',
       })
     );
   });

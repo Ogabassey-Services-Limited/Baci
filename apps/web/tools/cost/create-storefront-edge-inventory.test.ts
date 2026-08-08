@@ -155,7 +155,7 @@ describe('createStorefrontEdgeInventory', () => {
     expect(
       entrypoints.find((row) => row.routePattern === '/product/{productSlug}')
         ?.decision
-    ).toBe('edge_redirect');
+    ).toBe('origin_dynamic');
     expect(
       entrypoints.find((row) => row.routePattern === '/quiz')?.decision
     ).toBe('origin_dynamic');

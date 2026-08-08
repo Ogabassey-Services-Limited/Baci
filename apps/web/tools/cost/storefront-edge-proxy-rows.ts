@@ -200,10 +200,8 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
           'dashboard',
           'forgot-password',
           'login',
-          'manifest.webmanifest',
           'onboarding',
           'reset-password',
-          'robots.txt',
           'signup',
           'staff',
           'update-password',
@@ -211,6 +209,23 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
         ],
         precedence: 'before_path_decision',
         predicate: 'first_segment_allowlist',
+      },
+    }
+  ),
+  proxyClass(
+    'proxy:retired-slug-host',
+    '/{*storefrontPath?}',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'retired_storefront_alias_redirect',
+    {
+      hostCondition: {
+        hostKind: 'retired_platform_subdomain_alias',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'retired_alias_storefront_path',
       },
     }
   ),

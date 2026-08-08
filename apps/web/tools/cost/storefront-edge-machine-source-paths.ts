@@ -56,6 +56,7 @@ export const STOREFRONT_EDGE_MACHINE_SOURCE_PATHS = {
   '/feeds/openai.jsonl': 'apps/web/src/app/feeds/openai.jsonl/route.ts',
   '/llms-full.txt': 'apps/web/src/app/llms-full.txt/route.ts',
   '/llms.txt': 'apps/web/src/app/llms.txt/route.ts',
+  '/manifest.webmanifest': 'apps/web/src/app/manifest.ts',
   '/openapi.json': 'apps/web/src/app/openapi.json/route.ts',
   '/robots.txt': 'apps/web/src/app/robots.ts',
 } as const satisfies Readonly<Record<string, string>>;

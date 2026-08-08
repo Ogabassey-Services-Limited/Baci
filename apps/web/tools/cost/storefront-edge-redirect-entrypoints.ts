@@ -1,6 +1,5 @@
 /** Storefront entrypoints whose only supported behavior is canonical redirect. */
 export const STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS = [
-  '(catalog)/(pdp)/product/[productSlug]/page.tsx',
   '(content)/pages/about/page.tsx',
   '(content)/pages/blog/page.tsx',
   '(content)/pages/contact/page.tsx',
