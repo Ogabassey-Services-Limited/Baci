@@ -65,7 +65,8 @@ describe('createStorefrontEdgeEntrypointRows', () => {
     );
     expect(
       rows.find(
-        ({ id }) => id === 'storefront:(customer)/account/callback/route.ts:options'
+        ({ id }) =>
+          id === 'storefront:(customer)/account/callback/route.ts:options'
       )
     ).toEqual(
       expect.objectContaining({
