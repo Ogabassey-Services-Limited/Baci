@@ -91,50 +91,6 @@ build_register_migration_query() {
      + "ARRAY[]::text[]);"'
 }
 
-historical_collision_repair_spec() {
-  case "$1:$2" in
-    20260615120000:customer_order_cancellation)
-      printf '%s\t%s\n' '20260616205500' 'return_registered_push_token_id'
-      ;;
-    20260713130000:add_storefront_paystack_subaccount_configured_rpc)
-      printf '%s\t%s\n' '20260713140000' 'quiz_finalize_rank_winners_reapply'
-      ;;
-    *) return 1 ;;
-  esac
-}
-
-historical_collision_version_is_known() {
-  case "$1" in
-    20260615120000 | 20260713130000) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-historical_collision_name_is_valid() {
-  case "$1:$2" in
-    20260615120000:customer_order_cancellation | \
-    20260615120000:register_push_token_rpc | \
-    20260713130000:add_storefront_paystack_subaccount_configured_rpc | \
-    20260713130000:quiz_finalize_rank_winners)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-historical_name_alias_is_valid() {
-  case "$1:$2:$3" in
-    20260604132853:fix_storefront_order_customer_returning_id_ambiguity:fix_create_storefront_order_customer_returning_id_ambiguity)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
 applied_versions_body="$(jq -n '{query: "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}')"
 applied_versions_response="$(api_query <<<"$applied_versions_body")"
 applied_migrations="$(jq -r '.[] | [.version, .name] | @tsv' <<<"$applied_versions_response")"

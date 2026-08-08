@@ -261,6 +261,7 @@ jobs:
       - name: Test Migration Applier Collision Handling
         run: >-
           bash .github/scripts/apply-pending-migrations.test.sh &&
+          bash .github/scripts/apply-pending-migrations-version-collision.test.sh &&
           bash .github/scripts/historical-migration-repair-spec.test.sh &&
           bash .github/scripts/historical-migration-repair-backfill.test.sh &&
           bash supabase/tests/run-storefront-order-private-schema-boundary-test.sh &&
