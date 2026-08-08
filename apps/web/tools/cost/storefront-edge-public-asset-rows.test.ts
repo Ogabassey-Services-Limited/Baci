@@ -23,7 +23,8 @@ describe('STOREFRONT_EDGE_PUBLIC_ASSET_ROWS', () => {
         '/placeholder.svg',
       ])
     );
-    expect(byPattern.size).toBe(10);
+    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(10);
+    expect(byPattern.size).toBe(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.length);
     expect(
       STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.every(
         (row) =>

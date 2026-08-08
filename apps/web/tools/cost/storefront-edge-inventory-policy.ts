@@ -110,22 +110,28 @@ const QUERY_DEPENDENT_ENTRYPOINTS = [
 ] as const;
 
 const QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
-  QUERY_DEPENDENT_ENTRYPOINTS.map(({ id, routePattern, sourcePath }) => ({
-    decision: 'origin_dynamic',
-    id: `request-override:query-dependent-${id}`,
-    methods: ['GET', 'HEAD'],
-    reason: 'query_dependent_storefront_render',
-    requestCondition: {
-      anyQueryPresent: true,
-      matchedStorefrontEntrypointId: `storefront:${sourcePath.slice(
-        STOREFRONT_ROUTE_SOURCE_PREFIX.length
-      )}`,
-      precedence: 'after_entrypoint_resolution_before_decision',
-    },
-    routePattern,
-    sourceKind: 'request_override',
-    sourcePath,
-  }));
+  QUERY_DEPENDENT_ENTRYPOINTS.map(({ id, routePattern, sourcePath }) => {
+    if (!sourcePath.startsWith(STOREFRONT_ROUTE_SOURCE_PREFIX))
+      throw new Error(
+        `query-dependent entrypoint is outside the storefront route root: ${sourcePath}`
+      );
+    return {
+      decision: 'origin_dynamic',
+      id: `request-override:query-dependent-${id}`,
+      methods: ['GET', 'HEAD'],
+      reason: 'query_dependent_storefront_render',
+      requestCondition: {
+        anyQueryPresent: true,
+        matchedStorefrontEntrypointId: `storefront:${sourcePath.slice(
+          STOREFRONT_ROUTE_SOURCE_PREFIX.length
+        )}`,
+        precedence: 'after_entrypoint_resolution_before_decision',
+      },
+      routePattern,
+      sourceKind: 'request_override',
+      sourcePath,
+    };
+  });
 
 const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
   {

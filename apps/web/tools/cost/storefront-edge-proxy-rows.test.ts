@@ -18,6 +18,12 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     expect(byId.get('proxy:legacy-terms-alias')?.decision).toBe(
       'edge_redirect'
     );
+    expect(byId.get('proxy:legacy-terms-alias')?.routePattern).toBe(
+      '/terms-and-conditions'
+    );
+    expect(byId.get('proxy:legacy-terms-of-service')?.routePattern).toBe(
+      '/terms-of-service'
+    );
     expect(byId.get('proxy:root-sitemap')?.decision).toBe('edge_release');
   });
 

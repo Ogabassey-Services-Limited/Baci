@@ -48,7 +48,10 @@ function normalizeRoutePattern(relativeSourcePath: string) {
   return segments.length === 0 ? '/' : `/${segments.join('/')}`;
 }
 
-function routeMethods(relativeSourcePath: string, source: string) {
+function routeMethods(
+  relativeSourcePath: string,
+  source: string
+): InventoryRow['methods'] {
   const fileName = entrypointFileName(relativeSourcePath);
   if (fileName === 'page.tsx' || METADATA_ROUTE_SUFFIXES.has(fileName))
     return ['GET', 'HEAD'];

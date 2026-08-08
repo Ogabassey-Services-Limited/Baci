@@ -7,6 +7,10 @@ import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-po
 function matchesRoutePattern(routePattern: string, pathname: string) {
   const patternSegments = routePattern.split('/').filter(Boolean);
   const pathSegments = pathname.split('/').filter(Boolean);
+  if (patternSegments.some((segment) => segment.startsWith('{*')))
+    throw new Error(
+      `catch-all route patterns are unsupported: ${routePattern}`
+    );
   return (
     patternSegments.length === pathSegments.length &&
     patternSegments.every(
@@ -38,6 +42,13 @@ function resolveQueryDecision(pathname: string) {
 }
 
 describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
+  it('rejects catch-all patterns in the query-decision test matcher', () => {
+    // Arrange, act, and assert
+    expect(() => matchesRoutePattern('/blog/{*path}', '/blog/example')).toThrow(
+      'catch-all route patterns are unsupported: /blog/{*path}'
+    );
+  });
+
   it('keeps row IDs unique and dynamic method families explicit', () => {
     // Arrange
     const rows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows;

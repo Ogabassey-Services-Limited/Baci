@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
@@ -26,7 +26,6 @@ describe('StorefrontEdgeInventory row conditions', () => {
     } as const satisfies InventoryRow;
 
     // Act and assert
-    expectTypeOf(row).toMatchTypeOf<InventoryRow>();
     expect(row.requestCondition.anyHeaderMatch[0]).toEqual({
       name: 'rsc',
       value: '1',
@@ -38,7 +37,10 @@ describe('StorefrontEdgeInventory row conditions', () => {
     const invalidRow: InventoryRow = {
       decision: 'origin_dynamic',
       id: 'invalid:conditions',
-      methods: ['GET'],
+      methods: [
+        // @ts-expect-error unsupported method tokens must not compile
+        'ANYY',
+      ],
       pathCondition: {
         precedence: 'before_path_decision',
         // @ts-expect-error unsupported path predicates must not compile

@@ -25,6 +25,10 @@ describe('createStorefrontEdgeApiRows', () => {
         bytes: Buffer.from('export async function GET() {}\n'),
         sourcePath: `${apiRoot}/archive/[[...path]]/route.ts`,
       },
+      {
+        bytes: Buffer.from('export async function GET() {}\n'),
+        sourcePath: `${apiRoot}/route.ts`,
+      },
     ];
 
     // Act
@@ -49,8 +53,27 @@ describe('createStorefrontEdgeApiRows', () => {
           methods: ['GET', 'HEAD', 'OPTIONS'],
           routePattern: '/api/archive/{*path?}',
         }),
+        expect.objectContaining({
+          methods: ['GET', 'HEAD', 'OPTIONS'],
+          routePattern: '/api',
+        }),
       ])
     );
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
+  });
+
+  it('rejects an API handler without an exported HTTP method', () => {
+    // Arrange
+    const apiSources = [
+      {
+        bytes: Buffer.from("export const runtime = 'nodejs';\n"),
+        sourcePath: `${apiRoot}/invalid/route.ts`,
+      },
+    ];
+
+    // Act and assert
+    expect(() => createStorefrontEdgeApiRows(apiRoot, apiSources)).toThrow(
+      `storefront API route exports no HTTP method: ${apiRoot}/invalid/route.ts`
+    );
   });
 });

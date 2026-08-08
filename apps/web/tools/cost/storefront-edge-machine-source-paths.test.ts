@@ -1,0 +1,29 @@
+import { describe, expect, it } from 'vitest';
+import { STOREFRONT_EDGE_MACHINE_ROWS } from './storefront-edge-machine-rows';
+import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-source-paths';
+
+describe('STOREFRONT_EDGE_MACHINE_SOURCE_PATHS', () => {
+  it('binds every machine row to one repository-relative source', () => {
+    // Arrange
+    const declaredPatterns = Object.keys(
+      STOREFRONT_EDGE_MACHINE_SOURCE_PATHS
+    ).sort();
+    const rowPatterns = STOREFRONT_EDGE_MACHINE_ROWS.map(
+      ({ routePattern }) => routePattern
+    ).sort();
+
+    // Act and assert
+    expect(declaredPatterns).toEqual(rowPatterns);
+    expect(declaredPatterns.every((pattern) => pattern.startsWith('/'))).toBe(
+      true
+    );
+    expect(
+      Object.values(STOREFRONT_EDGE_MACHINE_SOURCE_PATHS).every(
+        (sourcePath) =>
+          !sourcePath.startsWith('/') &&
+          !sourcePath.split('/').includes('..') &&
+          sourcePath.startsWith('apps/web/')
+      )
+    ).toBe(true);
+  });
+});

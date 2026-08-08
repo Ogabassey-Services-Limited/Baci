@@ -27,12 +27,14 @@ export function createStorefrontEdgeApiRows(
       .slice(0, -1)
       .filter((segment) => !(segment.startsWith('(') && segment.endsWith(')')))
       .map(normalizeStorefrontEdgeRouteSegment);
+    const routePattern =
+      routeSegments.length === 0 ? '/api' : `/api/${routeSegments.join('/')}`;
     return {
       decision: 'origin_dynamic',
       id: `api-route:${relativeSourcePath}`,
       methods,
       reason: 'exact_storefront_api_route',
-      routePattern: `/api/${routeSegments.join('/')}`,
+      routePattern,
       sourceKind: 'api_route',
       sourcePath,
     };

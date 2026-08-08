@@ -1,7 +1,5 @@
 /** Root handlers/configuration that authorize every static machine-family row. */
-export const STOREFRONT_EDGE_MACHINE_SOURCE_PATHS: Readonly<
-  Record<string, string>
-> = {
+export const STOREFRONT_EDGE_MACHINE_SOURCE_PATHS = {
   '/.well-known/acp.json': 'apps/web/src/app/.well-known/acp.json/route.ts',
   '/.well-known/agent-auth': 'apps/web/src/app/.well-known/agent-auth/route.ts',
   '/.well-known/agent-auth/claim':
@@ -60,4 +58,4 @@ export const STOREFRONT_EDGE_MACHINE_SOURCE_PATHS: Readonly<
   '/llms.txt': 'apps/web/src/app/llms.txt/route.ts',
   '/openapi.json': 'apps/web/src/app/openapi.json/route.ts',
   '/robots.txt': 'apps/web/src/app/robots.ts',
-};
+} as const satisfies Readonly<Record<string, string>>;

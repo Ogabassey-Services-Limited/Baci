@@ -35,11 +35,30 @@ describe('createStorefrontEdgePosthogRelayRows', () => {
     );
   });
 
-  it('falls back from a reserved relay path to the reviewed default', () => {
+  it('uses the reviewed default when the relay path is empty', () => {
     // Arrange and act
-    const rows = createStorefrontEdgePosthogRelayRows('/api');
+    const rows = createStorefrontEdgePosthogRelayRows('  ');
 
     // Assert
-    expect(rows[0]?.routePattern).toBe('/baci-relay');
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          decision: 'origin_dynamic',
+          routePattern: '/baci-relay',
+        }),
+      ])
+    );
+  });
+
+  it.each([
+    '/api',
+    '/api/relay',
+    '/Baci-Relay',
+    '/relay?x=1',
+  ])('rejects the noncanonical relay path %s', (configuredPath) => {
+    // Arrange, act, and assert
+    expect(() => createStorefrontEdgePosthogRelayRows(configuredPath)).toThrow(
+      'posthog relay path'
+    );
   });
 });

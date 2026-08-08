@@ -10,6 +10,16 @@ const execFileAsync = promisify(execFile);
 const ROUTES = [...STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys()];
 
 export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
+  const fixtureGitConfig = [
+    '-c',
+    'commit.gpgsign=false',
+    '-c',
+    'core.hooksPath=/dev/null',
+    '-c',
+    'user.name=Inventory Test',
+    '-c',
+    'user.email=inventory@example.invalid',
+  ];
   const routeRoot = join(repoRoot, 'apps/web/src/app/(storefront)/[slug]');
   for (const route of ROUTES) {
     const path = join(routeRoot, route);
@@ -61,24 +71,18 @@ export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
     await mkdir(join(path, '..'), { recursive: true });
     await writeFile(path, route.source);
   }
-  await execFileAsync('git', ['-C', repoRoot, 'init', '--quiet']);
   await execFileAsync('git', [
     '-C',
     repoRoot,
-    '-c',
-    'user.name=Inventory Test',
-    '-c',
-    'user.email=inventory@example.invalid',
-    'add',
-    '.',
+    ...fixtureGitConfig,
+    'init',
+    '--quiet',
   ]);
+  await execFileAsync('git', ['-C', repoRoot, ...fixtureGitConfig, 'add', '.']);
   await execFileAsync('git', [
     '-C',
     repoRoot,
-    '-c',
-    'user.name=Inventory Test',
-    '-c',
-    'user.email=inventory@example.invalid',
+    ...fixtureGitConfig,
     'commit',
     '--quiet',
     '-m',

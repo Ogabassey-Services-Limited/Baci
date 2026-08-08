@@ -4,8 +4,9 @@ import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types'
 import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-source-paths';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
+type InventoryMethod = InventoryRow['methods'][number];
 
-const METHOD_ORDER: readonly string[] = [
+const METHOD_ORDER: InventoryRow['methods'] = [
   'DELETE',
   'GET',
   'HEAD',
@@ -18,15 +19,17 @@ const METHOD_ORDER: readonly string[] = [
 const machineFamily = (
   id: string,
   routePattern: string,
-  methods: readonly string[],
+  methods: InventoryRow['methods'],
   decision: InventoryRow['decision'] = 'origin_dynamic'
 ): InventoryRow => {
-  const sourcePath = STOREFRONT_EDGE_MACHINE_SOURCE_PATHS[routePattern];
+  const sourcePath = Object.entries(STOREFRONT_EDGE_MACHINE_SOURCE_PATHS).find(
+    ([pattern]) => pattern === routePattern
+  )?.[1];
   if (!sourcePath)
     throw new Error(`machine route source is not declared: ${routePattern}`);
-  const effectiveMethods =
+  const effectiveMethods: InventoryRow['methods'] =
     sourcePath.endsWith('/route.ts') && !methods.includes('ANY')
-      ? [...new Set([...methods, 'OPTIONS'])].sort(
+      ? [...new Set<InventoryMethod>([...methods, 'OPTIONS'])].sort(
           (left, right) =>
             METHOD_ORDER.indexOf(left) - METHOD_ORDER.indexOf(right)
         )

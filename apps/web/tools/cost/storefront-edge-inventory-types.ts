@@ -4,6 +4,17 @@ type StorefrontEdgeDecision =
   | 'edge_terminal'
   | 'origin_dynamic';
 
+type StorefrontEdgeMethod =
+  | 'ANY'
+  | 'DELETE'
+  | 'GET'
+  | 'HEAD'
+  | 'OPTIONS'
+  | 'OTHER'
+  | 'PATCH'
+  | 'POST'
+  | 'PUT';
+
 type StorefrontEdgeInventoryRow = Readonly<{
   decision: StorefrontEdgeDecision;
   hostCondition?: Readonly<{
@@ -12,7 +23,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
     requiresActiveCanonicalCustomDomain?: true;
   }>;
   id: string;
-  methods: readonly string[];
+  methods: readonly StorefrontEdgeMethod[];
   reason: string;
   requestCondition?: Readonly<{
     anyCookiePresent?: readonly string[];
@@ -58,7 +69,7 @@ export type StorefrontEdgeInventory = Readonly<{
   completeBrowserPathClasses: readonly string[];
   eligibleDenominatorPolicy: Readonly<{
     decisions: readonly StorefrontEdgeDecision[];
-    methods: readonly string[];
+    methods: readonly StorefrontEdgeMethod[];
     scope: string;
     zeroDenominatorVerdict: 'NOT_PROVEN';
   }>;

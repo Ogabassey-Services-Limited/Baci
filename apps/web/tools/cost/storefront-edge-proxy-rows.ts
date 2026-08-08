@@ -5,7 +5,7 @@ type InventoryRow = StorefrontEdgeInventory['rows'][number];
 const proxyClass = (
   id: string,
   routePattern: string,
-  methods: readonly string[],
+  methods: InventoryRow['methods'],
   decision: InventoryRow['decision'],
   reason: string,
   options: Readonly<{
@@ -84,7 +84,14 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   ),
   proxyClass(
     'proxy:legacy-terms-alias',
-    '/{terms-and-conditions|terms-of-service}',
+    '/terms-and-conditions',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'canonical_terms_alias'
+  ),
+  proxyClass(
+    'proxy:legacy-terms-of-service',
+    '/terms-of-service',
     ['GET', 'HEAD'],
     'edge_redirect',
     'canonical_terms_alias'

@@ -15,17 +15,21 @@ const RESERVED_PREFIXES = [
   '/logout',
   '/track',
 ] as const;
+const RELAY_PATH_PATTERN = /^\/[a-z0-9]+(?:[-/][a-z0-9]+)*$/;
 
 function normalizeRelayPath(value: string) {
   const trimmed = value.trim();
   const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   const normalized = withLeadingSlash.replace(/\/+$/, '') || DEFAULT_RELAY_PATH;
-  const lowercase = normalized.toLowerCase();
-  return RESERVED_PREFIXES.some(
-    (prefix) => lowercase === prefix || lowercase.startsWith(`${prefix}/`)
+  if (!RELAY_PATH_PATTERN.test(normalized))
+    throw new Error(`posthog relay path is not canonical: ${value}`);
+  if (
+    RESERVED_PREFIXES.some(
+      (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`)
+    )
   )
-    ? DEFAULT_RELAY_PATH
-    : normalized;
+    throw new Error(`posthog relay path uses a reserved prefix: ${normalized}`);
+  return normalized;
 }
 
 /** Freezes the configured PostHog proxy root and children into the inventory. */
