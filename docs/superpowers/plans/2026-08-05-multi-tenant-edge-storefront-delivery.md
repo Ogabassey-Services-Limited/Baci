@@ -1,6 +1,6 @@
 # Baci Multi-Tenant Edge Storefront Delivery Implementation Plan
 
-> **Status:** Revision 14, upgraded on 2026-08-08 against `origin/main@fb36faf14ac18fc311bea22b2d4231abdf8ad8a7`. Execute each task as a separately reviewed PR unless a task explicitly says it is an operational evidence step. This plan does not authorize production mutations, Cloudflare provisioning, a `proxy.ts` change, or a new privileged database boundary by itself.
+> **Status:** Revision 11, upgraded on 2026-08-08 against `origin/main@20aa5c3652e87190c18ca023b31030f61aa8d580`. Execute each task as a separately reviewed PR unless a task explicitly says it is an operational evidence step. This plan does not authorize production mutations, Cloudflare provisioning, a `proxy.ts` change, or a new privileged database boundary by itself.
 
 **Goal:** Remove eligible anonymous storefront browsing from Vercel for Baci's builder-generated storefronts, then Ogabassey's custom-coded theme, by publishing immutable merchant releases to private R2 and serving them through one shared public Cloudflare Worker plus one shared private reader Worker. Preserve each merchant's AI-generated or manually edited design; keep checkout, accounts, payments, orders, inventory validation, quiz, repairs, and other stateful commerce operations authoritative and dynamic.
 
@@ -137,7 +137,7 @@ Always dynamic in the first release:
 
 Known static routes do not become origin-bound merely because they contain cookies or tracking parameters. Unknown routes, every unlisted path under `/api/`, and unsupported methods for an enrolled edge hostname terminate at the edge; they do not fall through to Vercel. Released links use ordinary document navigation rather than depending on Next.js RSC/prefetch requests. Host-disable and route-tombstone records stop edge releases, while the current application's own merchant/domain status remains authoritative for classified dynamic routes; provider callbacks and payment completion are never blocked merely because R2 is unavailable.
 
-The route matrix is a closed inventory, not a best-effort matcher. At this Revision 14 snapshot, `apps/web/src/app/(storefront)/[slug]/**` contains 74 `page.tsx`/`route.ts` entrypoints plus two Next metadata entrypoints. Task 1A freezes every current entrypoint, Server Action method, query-dependent render, browser-referenced public asset, alias, rewrite, proxy path class, and required machine/API family as `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; Task 1B turns that inventory into shared schemas and parity fixtures after the directional business screen passes. A source-tree contract test fails when a later storefront route or relevant rewrite is added, removed, or renamed without an explicit classification and parity fixture. CI maps storefront route files, relevant storefront-used API routes, `proxy.ts`, Next routing configuration, and the shared route inventory to both web and edge gates so an enrolled hostname can never silently receive a new edge 404 or origin escape after an application-only change.
+The route matrix is a closed inventory, not a best-effort matcher. At this Revision 11 snapshot, `apps/web/src/app/(storefront)/[slug]/**` contains 74 `page.tsx`/`route.ts` entrypoints plus two Next metadata entrypoints. Task 1A freezes every current entrypoint, Server Action method, query-dependent render, browser-referenced public asset, alias, rewrite, proxy path class, and required machine/API family as `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; Task 1B turns that inventory into shared schemas and parity fixtures after the directional business screen passes. A source-tree contract test fails when a later storefront route or relevant rewrite is added, removed, or renamed without an explicit classification and parity fixture. CI maps storefront route files, relevant storefront-used API routes, `proxy.ts`, Next routing configuration, and the shared route inventory to both web and edge gates so an enrolled hostname can never silently receive a new edge 404 or origin escape after an application-only change.
 
 ### Release component capability contract
 
@@ -332,7 +332,6 @@ pnpm --filter @baci/web typecheck:tools-workers
 - Create: `apps/web/tools/cost/create-storefront-edge-inventory.test.ts`
 - Create: `apps/web/tools/cost/create-storefront-edge-entrypoint-rows.ts`
 - Create: `apps/web/tools/cost/create-storefront-edge-entrypoint-rows.test.ts`
-- Create: `apps/web/tools/cost/storefront-edge-entrypoint-classifications.ts`
 - Create: `apps/web/tools/cost/create-storefront-edge-api-rows.ts`
 - Create: `apps/web/tools/cost/create-storefront-edge-api-rows.test.ts`
 - Create: `apps/web/tools/cost/extract-storefront-route-methods.ts`
@@ -344,15 +343,9 @@ pnpm --filter @baci/web typecheck:tools-workers
 - Create: `apps/web/tools/cost/storefront-edge-inventory-review-regressions.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-policy-source-authority.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-types.ts`
-- Create: `apps/web/tools/cost/storefront-edge-inventory-types.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-policy.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-policy.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-machine-rows.ts`
-- Create: `apps/web/tools/cost/storefront-edge-machine-rows.test.ts`
-- Create: `apps/web/tools/cost/storefront-edge-machine-source-paths.ts`
-- Create: `apps/web/tools/cost/storefront-edge-machine-source-paths.test.ts`
-- Create: `apps/web/tools/cost/storefront-edge-posthog-relay-rows.ts`
-- Create: `apps/web/tools/cost/storefront-edge-posthog-relay-rows.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-public-asset-rows.ts`
 - Create: `apps/web/tools/cost/storefront-edge-public-asset-rows.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-proxy-rows.ts`
@@ -405,10 +398,10 @@ pnpm --filter @baci/web typecheck:tools-workers
 
 **Task 1A — minimal pre-screen inventory:**
 
-- [x] Make `docs/superpowers/evidence/storefront-edge/task-1a-inventory.json` the only Task 0A inventory input. The 2026-08-08 schema-v5 artifact is bound to `origin/main@fb36faf14ac18fc311bea22b2d4231abdf8ad8a7`, externally reviewed synthetic candidate `baci-edge-pilot.usebaci.com`, the strict normalized PostHog relay path `/baci-relay`, and inventory SHA-256 `f47b7c2da0ada3cf910822b9845dd3d853369b4ed734d5e6fe93a14a6703879d`; it contains no credentials, customer traffic, timestamps, or mutable PR state.
-- [x] Inventory all 84 current storefront entrypoints (including separately classified automatic route-handler `OPTIONS`) through one exhaustive reviewed classification map, both storefront Server Action POST surfaces, RSC/prefetch origin overrides, draft-mode cookie overrides, the nine known query-dependent listing/PDP renders bound to their exact resolved storefront entrypoint identities, eleven exact browser-referenced public assets, `/ads.txt`, registered-custom-domain `/auth/confirm`, Markdown mirrors, the exact origin-dynamic PostHog relay root and empty-trailing-slash child, exact current- and retired-slug API rows, rewrites, predicate-bound Proxy host/path classes (including platform-route subdomain redirects and retired-subdomain alias redirects), and every exact current Next API handler path/method required to preserve same-host application behavior. The legacy product and blog catch-all routes are dynamic because either may redirect or return a bounded missing response; proxy-bypassed `/robots.txt` and `/manifest.webmanifest` remain merchant/source-bound machine rows rather than platform redirects; `/_next/image` is terminal under the current custom image loader; `/_next/static/**` reaches origin only after current-build-manifest membership. The frozen artifact contains 550 canonical rows, each classified `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; every machine row is bound to its backing handler/configuration, while every nonexistent path under `/api/`, every unlisted `/.well-known` or `/_next` path, and every unsupported method is terminal by policy.
+- [x] Make `docs/superpowers/evidence/storefront-edge/task-1a-inventory.json` the only Task 0A inventory input. The 2026-08-08 schema-v3 artifact is bound to `origin/main@20aa5c3652e87190c18ca023b31030f61aa8d580`, externally reviewed synthetic candidate `baci-edge-pilot.usebaci.com`, and inventory SHA-256 `74e055885e70df58cacddd76568002811abe8a240934c133aeb014cfb4a286fc`; it contains no credentials, customer traffic, timestamps, or mutable PR state.
+- [x] Inventory all 76 current storefront entrypoints (74 page/route handlers plus two Next metadata handlers), both storefront Server Action POST surfaces, draft-mode cookie overrides, the nine known query-dependent listing/PDP renders bound to their exact resolved storefront entrypoint identities, ten exact browser-referenced public assets, `/ads.txt`, `/auth/confirm`, Markdown mirrors, aliases, rewrites, Proxy path classes, and every exact current Next API handler path/method required to preserve same-host application behavior. The frozen artifact contains 533 canonical rows, each classified `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; configured agent/feed routes, IndexNow ownership, and supported `/.well-known` paths are explicit, while every nonexistent path under `/api/`, every unlisted `/.well-known` path, and every unsupported method is terminal by policy.
 - [x] Define the proposed eligible denominator and complete-browser path classes needed by Task 0A without building release schemas, component adapters, migrations, Workers, or provider resources.
-- [x] Make `validate-storefront-edge-inventory.ts` bind every hashed storefront/API route, machine handler, shell, public asset, and routing-input byte to the independently supplied `origin/main` Git commit, require the externally supplied pilot-host set and strict normalized PostHog relay path instead of trusting the artifact, regenerate the canonical payload, and reject a mismatched source tree, route/proxy digest, hostname digest, row order, denominator, or self-hash. The exact artifact regenerated successfully at 84 storefront entrypoints and 550 total rows.
+- [x] Make `validate-storefront-edge-inventory.ts` bind every hashed storefront/API route, shell, public asset, and routing-input byte to the independently supplied `origin/main` Git commit, require the externally supplied pilot-host set instead of trusting the artifact, regenerate the canonical payload, and reject a mismatched source tree, route/proxy digest, hostname digest, row order, denominator, or self-hash. The exact artifact regenerated successfully at 76 storefront entrypoints and 533 total rows.
 
 **Task 1B — executable contracts after Task 0A returns `PLAUSIBLE`:**
 
@@ -429,8 +422,8 @@ pnpm --filter @baci/web typecheck:tools-workers
 
 ```bash
 test -n "$BACI_STOREFRONT_PILOT_HOSTNAME"
-pnpm --filter @baci/web exec tsx tools/cost/create-storefront-edge-inventory.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse origin/main)" --pilot-hostname "$BACI_STOREFRONT_PILOT_HOSTNAME" --posthog-relay-path "${NEXT_PUBLIC_POSTHOG_PROXY_PATH:-/baci-relay}" --output "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
-pnpm --filter @baci/web exec tsx tools/cost/validate-storefront-edge-inventory.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse origin/main)" --pilot-hostname "$BACI_STOREFRONT_PILOT_HOSTNAME" --posthog-relay-path "${NEXT_PUBLIC_POSTHOG_PROXY_PATH:-/baci-relay}" --input "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
+pnpm --filter @baci/web exec tsx tools/cost/create-storefront-edge-inventory.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse origin/main)" --pilot-hostname "$BACI_STOREFRONT_PILOT_HOSTNAME" --output "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
+pnpm --filter @baci/web exec tsx tools/cost/validate-storefront-edge-inventory.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse origin/main)" --pilot-hostname "$BACI_STOREFRONT_PILOT_HOSTNAME" --input "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
 pnpm --filter @baci/shared test -- storefront-release
 pnpm --filter @baci/web test -- storefront-edge-inventory builder-component-capabilities storefront-edge-route-parity
 pnpm exec biome check packages/shared/src/storefront-release apps/web/src/lib/storefront-release
