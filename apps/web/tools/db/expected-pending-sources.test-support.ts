@@ -287,6 +287,16 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260805090001_reapply_merchant_invoice_partial_review_contract.sql',
+    sha256: '38018e799caa068a018087a472231736b1f1a43bd99e691905fb8ca4715c36ad',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260805090002_reapply_complete_merchant_invoice_partial_payment.sql',
+    sha256: '4924076d16f686d006096ace88813b21161908ab915b9dab7251ed1071894d1e',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260805173000_harden_merchant_invoice_partial_completion.sql',
     sha256: 'eb0e6e627ac989bb685a7ffbd45f4d6c7a5b8736b1949a94c62db657bfad978c',
   },
