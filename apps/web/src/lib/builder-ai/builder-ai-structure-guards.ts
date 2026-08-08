@@ -58,19 +58,21 @@ function getProtectedAnchorSnapshot(content: BuilderData['content'][]): {
   const componentAnchorRegions = new Map<string, string>();
   const protectedAnchors: ProtectedAnchor[] = [];
   for (const [collection, components] of content.entries()) {
-    const collectionAnchors = components.flatMap((component, index) => {
-      if (component.type === 'Footer' || component.type === 'Header') {
-        return [
-          {
-            collection,
-            id: getBuilderComponentId(component),
-            index,
-            type: component.type,
-          },
-        ];
+    const collectionAnchors: ProtectedAnchor[] = components.flatMap(
+      (component, index): ProtectedAnchor[] => {
+        if (component.type === 'Footer' || component.type === 'Header') {
+          return [
+            {
+              collection,
+              id: getBuilderComponentId(component),
+              index,
+              type: component.type,
+            },
+          ];
+        }
+        return [];
       }
-      return [];
-    });
+    );
     protectedAnchors.push(...collectionAnchors);
     for (const [index, component] of components.entries()) {
       if (component.type === 'Footer' || component.type === 'Header') continue;

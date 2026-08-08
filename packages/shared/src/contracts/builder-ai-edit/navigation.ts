@@ -37,9 +37,6 @@ export const safeStorefrontUrlSchema = z
   .refine(
     isSafeStorefrontUrl,
     'Expected an https, root-relative, or anchor URL'
-  )
-  .transform((value) =>
-    value.startsWith('/') || value.startsWith('#') ? value : new URL(value).href
   );
 
 export const safeNavigationLinkSchema = z.strictObject({

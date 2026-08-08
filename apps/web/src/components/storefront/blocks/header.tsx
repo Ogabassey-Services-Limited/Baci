@@ -93,7 +93,7 @@ export function Header({
   const [searchQuery, setSearchQuery] = useState('');
 
   const getHref = (path: string) =>
-    path.startsWith('http')
+    path.toLowerCase().startsWith('http')
       ? path
       : `${basePath || ''}${path === '/' ? '' : path}`;
 
