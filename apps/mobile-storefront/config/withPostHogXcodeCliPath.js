@@ -13,8 +13,7 @@ const POSTHOG_DSYM_UPLOAD_SCRIPT = 'upload-symbols.sh';
 const PROJECT_ROOT_EXPORT = 'export PROJECT_ROOT="$PROJECT_DIR"/..';
 const POSTHOG_CLI_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PROJECT_ROOT/../../node_modules/.bin:$PATH"';
-const POSTHOG_HERMES_UPLOAD_COMMAND = 'posthog-cli hermes upload';
-const POSTHOG_SKIP_ON_CONFLICT_FLAG = '--skip-on-conflict';
+const POSTHOG_SKIP_ON_CONFLICT_EXPORT = 'export POSTHOG_SKIP_ON_CONFLICT=1';
 const LEGACY_APP_ONLY_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"';
 const POSTHOG_DSYM_UPLOAD_WARNING =
@@ -67,22 +66,20 @@ function patchPostHogCliPath(script, marker = POSTHOG_XCODE_SCRIPT) {
 }
 
 function patchPostHogHermesUploadConflictHandling(script) {
-  if (!script.includes(POSTHOG_HERMES_UPLOAD_COMMAND)) {
+  if (
+    !script.includes(POSTHOG_XCODE_SCRIPT) ||
+    script.includes(POSTHOG_SKIP_ON_CONFLICT_EXPORT)
+  ) {
     return script;
   }
 
   return script
     .split('\n')
-    .map((line) => {
-      if (
-        !line.includes(POSTHOG_HERMES_UPLOAD_COMMAND) ||
-        line.includes(POSTHOG_SKIP_ON_CONFLICT_FLAG)
-      ) {
-        return line;
-      }
-
-      return `${line} ${POSTHOG_SKIP_ON_CONFLICT_FLAG}`;
-    })
+    .map((line) =>
+      line.includes(POSTHOG_XCODE_SCRIPT)
+        ? `${POSTHOG_SKIP_ON_CONFLICT_EXPORT}\n${line}`
+        : line
+    )
     .join('\n');
 }
 
