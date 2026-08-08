@@ -37,9 +37,17 @@ const key = args[2];
 const value = fs.readFileSync(0, 'utf8');
 fs.appendFileSync(process.env.FAKE_CALLS_FILE, JSON.stringify(args) + '\\n');
 fs.writeFileSync(path.join(process.env.FAKE_STDIN_DIRECTORY, key), value);
+if (process.env.FAKE_FAIL_UPDATE_KEY === key && args[1] === 'update') {
+  process.stdout.write(JSON.stringify({
+    status: 'error',
+    reason: process.env.FAKE_UPDATE_FAILURE_REASON || 'env_not_found',
+  }));
+  process.stderr.write(value);
+  process.exit(1);
+}
 process.stdout.write(value);
 process.stderr.write(value);
-if (process.env.FAKE_FAIL_KEY === key) process.exit(1);
+if (process.env.FAKE_FAIL_ADD_KEY === key && args[1] === 'add') process.exit(1);
 `,
     { mode: 0o755 },
   );
@@ -69,7 +77,7 @@ function readCalls(runtime) {
     .map((line) => JSON.parse(line));
 }
 
-test('syncs both production credentials with exact argv and stdin-only values', () => {
+test('updates existing production credentials with stdin-only sensitive values', () => {
   const runtime = makeRuntime();
 
   try {
@@ -80,12 +88,12 @@ test('syncs both production credentials with exact argv and stdin-only values', 
       readCalls(runtime),
       EXPECTED_KEYS.map((key) => [
         'env',
-        'add',
+        'update',
         key,
         'production',
         '--sensitive',
-        '--force',
         '--yes',
+        '--non-interactive',
       ]),
     );
     assert.equal(
@@ -117,26 +125,107 @@ test('rejects blank credentials before calling Vercel', () => {
   }
 });
 
-test('stops after the first Vercel mutation failure', () => {
+test('creates a production credential only when update reports it missing', () => {
   const runtime = makeRuntime();
 
   try {
-    const result = run(runtime, { FAKE_FAIL_KEY: 'CLOUDFLARE_API_TOKEN' });
+    const result = run(runtime, {
+      FAKE_FAIL_UPDATE_KEY: 'CLOUDFLARE_API_TOKEN',
+    });
 
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /Failed to synchronize CLOUDFLARE_API_TOKEN/);
+    assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(readCalls(runtime), [
+      [
+        'env',
+        'update',
+        'CLOUDFLARE_API_TOKEN',
+        'production',
+        '--sensitive',
+        '--yes',
+        '--non-interactive',
+      ],
       [
         'env',
         'add',
         'CLOUDFLARE_API_TOKEN',
         'production',
         '--sensitive',
-        '--force',
         '--yes',
+        '--non-interactive',
+      ],
+      [
+        'env',
+        'update',
+        'CLOUDFLARE_ZONE_ID',
+        'production',
+        '--sensitive',
+        '--yes',
+        '--non-interactive',
       ],
     ]);
-    assert.deepEqual(readdirSync(runtime.stdinDirectory), ['CLOUDFLARE_API_TOKEN']);
+  } finally {
+    rmSync(runtime.directory, { recursive: true, force: true });
+  }
+});
+
+test('stops without creating when update reports a generic failure', () => {
+  const runtime = makeRuntime();
+
+  try {
+    const result = run(runtime, {
+      FAKE_FAIL_UPDATE_KEY: 'CLOUDFLARE_API_TOKEN',
+      FAKE_UPDATE_FAILURE_REASON: 'not_authorized',
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Failed to update CLOUDFLARE_API_TOKEN/);
+    assert.deepEqual(readCalls(runtime), [
+      [
+        'env',
+        'update',
+        'CLOUDFLARE_API_TOKEN',
+        'production',
+        '--sensitive',
+        '--yes',
+        '--non-interactive',
+      ],
+    ]);
+  } finally {
+    rmSync(runtime.directory, { recursive: true, force: true });
+  }
+});
+
+test('stops when both update and create fail for a credential', () => {
+  const runtime = makeRuntime();
+
+  try {
+    const result = run(runtime, {
+      FAKE_FAIL_ADD_KEY: 'CLOUDFLARE_API_TOKEN',
+      FAKE_FAIL_UPDATE_KEY: 'CLOUDFLARE_API_TOKEN',
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Failed to synchronize CLOUDFLARE_API_TOKEN/);
+    assert.deepEqual(readCalls(runtime), [
+      [
+        'env',
+        'update',
+        'CLOUDFLARE_API_TOKEN',
+        'production',
+        '--sensitive',
+        '--yes',
+        '--non-interactive',
+      ],
+      [
+        'env',
+        'add',
+        'CLOUDFLARE_API_TOKEN',
+        'production',
+        '--sensitive',
+        '--yes',
+        '--non-interactive',
+      ],
+    ]);
   } finally {
     rmSync(runtime.directory, { recursive: true, force: true });
   }
