@@ -185,20 +185,3 @@ export function materializeBuilderAiProviders(
   }
   return providers;
 }
-
-export function hasCanonicalBuilderAiProviderOrder(
-  providers: Pick<BuilderAiProvider, 'name' | 'opportunistic'>[]
-): boolean {
-  const names = providers.map(({ name }) => name);
-  const reliable = [
-    `cerebras:${BUILDER_AI_CEREBRAS_MODEL}`,
-    `groq:${BUILDER_AI_GROQ_MODEL}`,
-  ];
-  if (!reliable.every((name, index) => names[index] === name)) return false;
-  return (
-    providers.length === 2 ||
-    (providers.length === 3 &&
-      providers[2]?.name === `openrouter:${BUILDER_AI_OPENROUTER_MODEL}` &&
-      providers[2]?.opportunistic === true)
-  );
-}

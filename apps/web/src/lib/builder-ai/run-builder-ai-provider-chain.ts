@@ -5,12 +5,10 @@ import {
 } from '@baci/shared/contracts';
 import { generateText, NoObjectGeneratedError, Output } from 'ai';
 import { builderAiPlanOutputBudget } from './builder-ai-plan-output-budget';
-import {
-  type BuilderAiProvider,
-  hasCanonicalBuilderAiProviderOrder,
-} from './builder-ai-provider-catalog';
+import type { BuilderAiProvider } from './builder-ai-provider-catalog';
 import { builderAiProviderCooldown } from './builder-ai-provider-cooldown';
 import { getBuilderAiRawPlanMediaWarning } from './get-builder-ai-raw-plan-media-warning';
+import { hasCanonicalBuilderAiProviderOrder } from './has-canonical-builder-ai-provider-order';
 import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
 
 const RESPONSE_MARGIN_MS = builderAiPlanOutputBudget.routeResponseMarginMs;

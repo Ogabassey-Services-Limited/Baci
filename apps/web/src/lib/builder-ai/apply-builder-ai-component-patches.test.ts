@@ -41,4 +41,27 @@ describe('applyBuilderAiCarouselPatch', () => {
 
     expect(component.props.slides).toEqual([{ title: 'After', image: 'keep' }]);
   });
+
+  it('rejects an edit that duplicates another slide title', () => {
+    const component: BuilderData['content'][number] = {
+      props: {
+        id: 'carousel-1',
+        slides: [{ title: 'Sale' }, { title: 'New arrivals' }],
+      },
+      type: 'HeroCarousel',
+    };
+
+    expect(() =>
+      applyBuilderAiCarouselPatch(
+        component,
+        {
+          componentId: 'carousel-1',
+          kind: 'update_carousel_slide',
+          slideIndex: 1,
+          title: 'Sale',
+        },
+        (message) => new Error(message)
+      )
+    ).toThrow('Carousel slide title must be unique');
+  });
 });

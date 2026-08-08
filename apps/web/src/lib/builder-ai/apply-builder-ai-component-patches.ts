@@ -50,6 +50,20 @@ export function applyBuilderAiCarouselPatch(
     )
   );
   const sanitized = sanitizeBuilderAiProps('Hero', patch);
+  const nextTitle = sanitized.props.title;
+  if (
+    typeof nextTitle === 'string' &&
+    component.props.slides.some(
+      (item, index) =>
+        index !== operation.slideIndex &&
+        item &&
+        typeof item === 'object' &&
+        !Array.isArray(item) &&
+        (item as Record<string, unknown>).title === nextTitle
+    )
+  ) {
+    throw createError('Carousel slide title must be unique');
+  }
   if (
     !Object.entries(sanitized.props).some(
       ([key, value]) => (slide as Record<string, unknown>)[key] !== value
