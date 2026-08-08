@@ -1,17 +1,9 @@
+import { extractStorefrontRouteMethods } from './extract-storefront-route-methods';
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 type SourceFile = Readonly<{ bytes: Buffer; sourcePath: string }>;
 
-const HTTP_METHOD_ORDER = [
-  'DELETE',
-  'GET',
-  'HEAD',
-  'OPTIONS',
-  'PATCH',
-  'POST',
-  'PUT',
-] as const;
 const METADATA_ROUTE_SUFFIXES = new Map<string, string>([
   ['apple-icon.ts', 'apple-icon'],
   ['apple-icon.tsx', 'apple-icon'],
@@ -81,15 +73,7 @@ function routeMethods(relativeSourcePath: string, source: string) {
   const fileName = entrypointFileName(relativeSourcePath);
   if (fileName === 'page.tsx' || METADATA_ROUTE_SUFFIXES.has(fileName))
     return ['GET', 'HEAD'];
-  const exported = new Set<string>();
-  for (const method of HTTP_METHOD_ORDER) {
-    const declaration = new RegExp(
-      `export\\s+(?:(?:async\\s+)?function|const)\\s+${method}\\b`
-    );
-    if (declaration.test(source)) exported.add(method);
-  }
-  if (exported.has('GET')) exported.add('HEAD');
-  const methods = HTTP_METHOD_ORDER.filter((method) => exported.has(method));
+  const methods = extractStorefrontRouteMethods(source);
   if (methods.length === 0)
     throw new Error(
       `storefront route handler exports no HTTP method: ${relativeSourcePath}`

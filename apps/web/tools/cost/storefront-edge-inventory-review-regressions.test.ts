@@ -116,4 +116,29 @@ describe('storefront edge inventory review regressions', () => {
       before.routingProxyInputSha256
     );
   });
+
+  it('enumerates real API handlers without an allowed-family wildcard escape', async () => {
+    // Arrange
+    const { originMainSha, repoRoot } = await arrangeFixture();
+
+    // Act
+    const inventory = await createInventory(repoRoot, originMainSha);
+
+    // Assert
+    expect(inventory.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          methods: ['OPTIONS', 'POST'],
+          routePattern: '/api/events',
+        }),
+        expect.objectContaining({
+          methods: ['GET', 'HEAD', 'OPTIONS', 'PATCH'],
+          routePattern: '/api/orders/{id}',
+        }),
+      ])
+    );
+    expect(
+      inventory.rows.some((row) => row.routePattern === '/api/orders/{*path}')
+    ).toBe(false);
+  });
 });

@@ -26,313 +26,4846 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "0bf545fe4ab502a664729482a5fb047ab1de0e50d74f77116b3a25778f3f5121",
-  "routingProxyInputSha256": "82bfc0a55486f0b1cd9dc03845123b6c5130cba327fea731d2609ee7d9286f04",
+  "routingProxyInputSha256": "20e495446cc8cefd33f05b824dd7281ef87b902b55f45a764aaf381cabec1fe3",
   "rows": [
     {
       "decision": "origin_dynamic",
-      "id": "api:agentic",
+      "id": "api-route:admin/analytics/route.ts",
       "methods": [
         "GET",
         "HEAD",
-        "POST",
-        "PUT"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/agentic/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:ai",
-      "methods": [
+        "OPTIONS",
         "POST"
       ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/ai/{*path}",
-      "sourceKind": "api_family"
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/analytics",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/analytics/route.ts"
     },
     {
       "decision": "origin_dynamic",
-      "id": "api:attribution",
+      "id": "api-route:admin/blog/posts/[id]/route.ts",
       "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/attr",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:blog",
-      "methods": [
+        "DELETE",
         "GET",
         "HEAD",
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/blog/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:cart",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/cart/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:chat",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/chat/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:csrf",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/csrf",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:data",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/data",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:events",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/events",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:forms",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/forms/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:insurance",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/insurance/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:internal-storefront",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/internal/compare-hub-status/{identifier}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:llm",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/llm/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:merchant-storefront-context",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/merchant/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:negotiations",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/negotiations/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:newsletter",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/newsletter/subscribe",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:notifications",
-      "methods": [
-        "GET",
-        "HEAD",
-        "PATCH",
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/notifications/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:ogabassey",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/ogabassey/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:orders",
-      "methods": [
-        "GET",
-        "HEAD",
-        "PATCH",
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/orders/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:payments",
-      "methods": [
-        "GET",
-        "HEAD",
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/payments/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:products",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/products/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:quiz",
-      "methods": [
-        "GET",
-        "HEAD",
-        "POST",
-        "PUT"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/quiz/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:repairs",
-      "methods": [
-        "GET",
-        "HEAD",
+        "OPTIONS",
         "PATCH"
       ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/repairs/{*path}",
-      "sourceKind": "api_family"
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/blog/posts/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/blog/posts/[id]/route.ts"
     },
     {
       "decision": "origin_dynamic",
-      "id": "api:reviews",
+      "id": "api-route:admin/blog/posts/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/blog/posts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/blog/posts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/blog/upload/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/blog/upload",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/blog/upload/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/db-health/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/db-health",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/db-health/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/event-pipeline/dead-letters/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/event-pipeline/dead-letters",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/event-pipeline/replay/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/event-pipeline/replay",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/event-pipeline/replay/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/generate-hero-images/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/generate-hero-images",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/generate-hero-images/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/generate-product-images/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/generate-product-images",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/generate-product-images/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/merchants/[merchantId]/users/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/merchants/{merchantId}/users",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/merchants/[merchantId]/users/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/merchants/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/merchants",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/merchants/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/migrate/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/migrate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/migrate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/notifications/[id]/route.ts",
       "methods": [
         "DELETE",
         "GET",
         "HEAD",
-        "POST"
+        "OPTIONS",
+        "PATCH"
       ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/reviews/{*path}",
-      "sourceKind": "api_family"
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/notifications/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/notifications/[id]/route.ts"
     },
     {
       "decision": "origin_dynamic",
-      "id": "api:search",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/search/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:shipping",
+      "id": "api-route:admin/notifications/route.ts",
       "methods": [
         "GET",
         "HEAD",
+        "OPTIONS",
         "POST"
       ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/shipping/{*path}",
-      "sourceKind": "api_family"
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/notifications",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/notifications/route.ts"
     },
     {
       "decision": "origin_dynamic",
-      "id": "api:storefront",
+      "id": "api-route:admin/push/test/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/push/test",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/push/test/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:admin/settings/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/admin/settings",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/admin/settings/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/carts/[id]/cancel/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/carts/{id}/cancel",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/carts/[id]/cancel/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/carts/[id]/checkout/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/carts/{id}/checkout",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/carts/[id]/checkout/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/carts/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/carts/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/carts/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/carts/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/carts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/carts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/catalog/lookup/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/catalog/lookup",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/catalog/lookup/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/catalog/product/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/catalog/product",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/catalog/product/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/catalog/search/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/catalog/search",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/catalog/search/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout-sessions/[id]/cancel/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout-sessions/{id}/cancel",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout-sessions/[id]/cancel/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout-sessions/[id]/complete/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout-sessions/{id}/complete",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout-sessions/[id]/complete/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout-sessions/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout-sessions/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout-sessions/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout-sessions/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout-sessions",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout-sessions/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout_sessions/[id]/cancel/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout_sessions/{id}/cancel",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout_sessions/[id]/cancel/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout_sessions/[id]/complete/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout_sessions/{id}/complete",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout_sessions/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout_sessions/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout_sessions/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout_sessions/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout_sessions",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout_sessions/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/orders/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/orders/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/orders/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ai-jobs/[id]/apply/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ai-jobs/{id}/apply",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ai-jobs/[id]/apply/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ai-jobs/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ai-jobs/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ai-jobs/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ai-jobs/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ai-jobs",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ai-jobs/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ai-jobs/worker/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ai-jobs/worker",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ai-jobs/worker/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ai/edit-blog/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ai/edit-blog",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ai/edit-blog/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ai/generate-faq/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ai/generate-faq",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ai/generate-faq/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ai/grade-device/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ai/grade-device",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ai/grade-device/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/ads/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/ads",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/ads/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/cache/route.ts",
       "methods": [
         "DELETE",
         "GET",
         "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/cache",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/cache/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/conversion/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/conversion",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/conversion/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/crawler-log/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/crawler-log",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/crawler-log/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/facebook-capi/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/facebook-capi",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/facebook-capi/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/ga4/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/ga4",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/ga4/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/insights/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/insights",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/insights/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/snapchat/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/snapchat",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/snapchat/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/tiktok/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/tiktok",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/tiktok/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:analytics/website-performance/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/analytics/website-performance",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/analytics/website-performance/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:attr/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/attr",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/attr/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:audit-events/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/audit-events",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/audit-events/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:blog/exit-preview/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/blog/exit-preview",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/blog/exit-preview/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:blog/feed/[merchantSlug]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/blog/feed/{merchantSlug}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/blog/feed/[merchantSlug]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:blog/posts/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/blog/posts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/blog/posts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:blog/preview/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/blog/preview",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/blog/preview/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:branches/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/branches/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/branches/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:branches/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/branches",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/branches/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:builder/gemini/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/builder/gemini",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/builder/gemini/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:builder/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/builder",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/builder/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cache/revalidate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cache/revalidate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cache/revalidate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cart/validate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cart/validate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cart/validate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:chat/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/chat",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/chat/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:chat/santa/product/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/chat/santa/product",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/chat/santa/product/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:chat/santa/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/chat/santa",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/chat/santa/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:copilotkit/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/copilotkit",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/copilotkit/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/agentic-commerce-health/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/agentic-commerce-health",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/agentic-commerce-health/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/alert-stuck-bnpl/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/alert-stuck-bnpl",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/alert-stuck-bnpl/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/android-live-build-sync/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/android-live-build-sync",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/android-live-build-sync/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/cleanup-import-uploads/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/cleanup-import-uploads",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/cleanup-import-uploads/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/cleanup-orders/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/cleanup-orders",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/cleanup-orders/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/cleanup-push-tokens/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/cleanup-push-tokens",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/cleanup-push-tokens/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/customer-savings/charge-due/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/customer-savings/charge-due",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/customer-savings/charge-due/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/drain-cache-invalidations/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/drain-cache-invalidations",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/drain-cache-invalidations/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/gigl-tracking-notifications/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/gigl-tracking-notifications",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/gigl-tracking/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/gigl-tracking",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/gigl-tracking/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/ios-live-build-sync/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/ios-live-build-sync",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/ios-live-build-sync/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/merchant-sales-summaries/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/merchant-sales-summaries",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/merchant-sales-summaries/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/merchant-signup-health/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/merchant-signup-health",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/merchant-signup-health/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/order-notifications/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/order-notifications",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/order-notifications/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/petrock-reconcile/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/petrock-reconcile",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/petrock-reconcile/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/process-import-jobs/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/process-import-jobs",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/process-import-jobs/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/process-settlements/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/process-settlements",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/process-settlements/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/publish-scheduled-posts/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/publish-scheduled-posts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/publish-scheduled-posts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/push-receipts/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/push-receipts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/push-receipts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/reconcile-gateway-paid-orders/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/reconcile-gateway-paid-orders",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/reconcile-gateway-paid-orders/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/reconcile-vtu-processing/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/reconcile-vtu-processing",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/reconcile-vtu-processing/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/storefront-update-nudge/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/storefront-update-nudge",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/storefront-update-nudge/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/sync-petrock-catalog/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/sync-petrock-catalog",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/sync-petrock-catalog/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/vtu-cashback-summaries/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/vtu-cashback-summaries",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/vtu-cashback-summaries/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/wallet-payouts/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/wallet-payouts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/wallet-payouts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:cron/web-vitals-health/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/cron/web-vitals-health",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/cron/web-vitals-health/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:csrf/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/csrf",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/csrf/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:customers/[id]/orders/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/customers/{id}/orders",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/customers/[id]/orders/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:customers/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/customers/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/customers/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:customers/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/customers",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/customers/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:customers/segments/[customerId]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/customers/segments/{customerId}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/customers/segments/[customerId]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:customers/segments/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/customers/segments",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/customers/segments/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:dashboard/preferences/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/dashboard/preferences",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/dashboard/preferences/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:dashboard/reviews/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/dashboard/reviews",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/dashboard/reviews/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:discount-codes/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/discount-codes/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/discount-codes/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:discount-codes/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/discount-codes",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/discount-codes/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:discount-codes/validate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/discount-codes/validate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/discount-codes/validate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/[domain]/dns/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains/{domain}/dns",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/[domain]/dns/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/[domain]/email-forwarding/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains/{domain}/email-forwarding",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/[domain]/email-forwarding/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/[domain]/id-protection/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains/{domain}/id-protection",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/[domain]/id-protection/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/[domain]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains/{domain}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/[domain]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/[domain]/verify/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains/{domain}/verify",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/[domain]/verify/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/check-availability/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains/check-availability",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/check-availability/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/initialize-payment/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains/initialize-payment",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/initialize-payment/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/purchase/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains/purchase",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/purchase/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:domains/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/domains",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/domains/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:edge-config/sync/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/edge-config/sync",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/edge-config/sync/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:events/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/events",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/events/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:feed/facebook-repairs/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/feed/facebook-repairs",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/feed/facebook-repairs/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:feed/facebook/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/feed/facebook",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/feed/facebook/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:feed/google-merchant/revalidate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/feed/google-merchant/revalidate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/feed/google-merchant/revalidate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:feed/google-merchant/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/feed/google-merchant",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/feed/google-merchant/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:feed/openai/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/feed/openai",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/feed/openai/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:feed/tiktok/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/feed/tiktok",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/feed/tiktok/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:forms/submit/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/forms/submit",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/forms/submit/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:generate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/generate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/generate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:google-places/reviews/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/google-places/reviews",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/google-places/reviews/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:import-jobs/[jobId]/commit/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/import-jobs/{jobId}/commit",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/import-jobs/[jobId]/commit/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:import-jobs/[jobId]/notify-customers/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/import-jobs/{jobId}/notify-customers",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/import-jobs/[jobId]/notify-customers/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:import-jobs/[jobId]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/import-jobs/{jobId}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/import-jobs/[jobId]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:import-jobs/[jobId]/rows/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/import-jobs/{jobId}/rows",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/import-jobs/[jobId]/rows/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:import-jobs/finalize/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/import-jobs/finalize",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/import-jobs/finalize/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:import-jobs/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/import-jobs",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/import-jobs/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:import-jobs/upload-init/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/import-jobs/upload-init",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/import-jobs/upload-init/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:insurance/claims/sync/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/insurance/claims/sync",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/insurance/claims/sync/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:insurance/policy/[orderId]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/insurance/policy/{orderId}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/insurance/policy/[orderId]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:insurance/quote/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/insurance/quote",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/insurance/quote/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:integrations/agent-commerce/readiness/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/integrations/agent-commerce/readiness",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/integrations/agent-commerce/readiness/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:integrations/google-merchant-center/auth/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/integrations/google-merchant-center/auth",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/integrations/google-merchant-center/auth/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:integrations/google-merchant-center/feed/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/integrations/google-merchant-center/feed",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/integrations/google-merchant-center/feed/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:integrations/google-merchant-center/readiness/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/integrations/google-merchant-center/readiness",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/integrations/google-merchant-center/readiness/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:integrations/google-merchant-center/webhook/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/integrations/google-merchant-center/webhook",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/integrations/google-merchant-center/webhook/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:integrations/zoho/blog-content/[postId]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/integrations/zoho/blog-content/{postId}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/integrations/zoho/blog-content/[postId]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:integrations/zoho/callback/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/integrations/zoho/callback",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/integrations/zoho/callback/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:internal/blog-listing-status/[identifier]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/internal/blog-listing-status/{identifier}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/internal/blog-listing-status/[identifier]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:internal/blog-post-status/[identifier]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/internal/blog-post-status/{identifier}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/internal/blog-post-status/[identifier]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:internal/compare-hub-status/[identifier]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/internal/compare-hub-status/{identifier}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/internal/compare-hub-status/[identifier]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:internal/notify-negotiation/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/internal/notify-negotiation",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/internal/notify-negotiation/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:internal/product-canonical/[identifier]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/internal/product-canonical/{identifier}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/internal/product-canonical/[identifier]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:internal/revalidate-blog/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/internal/revalidate-blog",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/internal/revalidate-blog/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:internal/revalidate-products/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/internal/revalidate-products",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/internal/revalidate-products/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:internal/slug-set/[identifier]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/internal/slug-set/{identifier}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/internal/slug-set/[identifier]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:inventory/alerts/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/inventory/alerts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/inventory/alerts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:inventory/forecast/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/inventory/forecast",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/inventory/forecast/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:inventory/push-alerts/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/inventory/push-alerts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/inventory/push-alerts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:inventory/reorder/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/inventory/reorder",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/inventory/reorder/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:llm/[...segments]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/llm/{*segments}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/llm/[...segments]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:loyalty/customers/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/loyalty/customers",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/loyalty/customers/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:loyalty/points/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/loyalty/points",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/loyalty/points/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:loyalty/rewards/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/loyalty/rewards/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/loyalty/rewards/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:loyalty/rewards/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/loyalty/rewards",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/loyalty/rewards/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:loyalty/settings/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/loyalty/settings",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/loyalty/settings/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/actions/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/actions",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/actions/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/brands/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/brands",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/brands/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/callback/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/callback",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/callback/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/categories/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/categories",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/categories/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/connect/exchange/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/connect/exchange",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/connect/exchange/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/connect/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/connect",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/connect/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/connect/ticket/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/connect/ticket",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/connect/ticket/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/consignment/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
         "PATCH",
         "POST"
       ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/storefront/{*path}",
-      "sourceKind": "api_family"
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/consignment",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/consignment/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/orders/[id]/items/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/orders/{id}/items",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/orders/[id]/items/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/orders/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/orders",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/orders/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/products/export/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/products/export",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/products/export/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/products/import/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/products/import",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/products/import/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/products/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/products",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/products/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/products/stock/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/products/stock",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/products/stock/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:marketplace/jumia/products/update/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/marketplace/jumia/products/update",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/marketplace/jumia/products/update/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:media/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/media",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/media/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/agentic/action-health/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/agentic/action-health",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/agentic/action-health/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/auth/account-deletion/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/auth/account-deletion",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/auth/account-deletion/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/blog/posts/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/blog/posts/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/blog/posts/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/blog/posts/[id]/zoho-review-campaign/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/blog/posts/{id}/zoho-review-campaign",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/blog/posts/[id]/zoho-review-campaign/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/blog/posts/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/blog/posts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/blog/posts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/blog/upload/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/blog/upload",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/blog/upload/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/cac-search/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/cac-search",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/cac-search/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/categories/[categoryId]/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/categories/{categoryId}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/categories/[categoryId]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/categories/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/categories",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/categories/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/email-domain/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/email-domain",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/email-domain/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/email-domain/verify/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/email-domain/verify",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/email-domain/verify/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/favicon/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/favicon",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/favicon/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/features/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/features",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/features/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/me/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/me",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/me/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/payout/resolve/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/payout/resolve",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/payout/resolve/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/publish/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/publish",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/publish/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/quiz/activate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/quiz/activate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/quiz/activate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/quiz/generate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/quiz/generate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/quiz/generate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/quiz/prize-products/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/quiz/prize-products",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/quiz/prize-products/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/readiness/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/readiness",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/readiness/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/regenerate-hero-images/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/regenerate-hero-images",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/regenerate-hero-images/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/rename-slug/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/rename-slug",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/rename-slug/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/settings/route.ts",
+      "methods": [
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/settings",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/settings/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/verify-bvn/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/verify-bvn",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/verify-bvn/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/verify-cac/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/verify-cac",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/verify-cac/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/verify-nin/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/verify-nin",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/verify-nin/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchant/verify-tax-id/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchant/verify-tax-id",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchant/verify-tax-id/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:merchants/by-slug/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/merchants/by-slug",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/merchants/by-slug/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:mobile-onboarding/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/mobile-onboarding",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/mobile-onboarding/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:mobile/appstore-webhook/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/mobile/appstore-webhook",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/mobile/appstore-webhook/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:mobile/merchant-provisioning/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/mobile/merchant-provisioning",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/mobile/merchant-provisioning/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:mobile/release-policy/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/mobile/release-policy",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/mobile/release-policy/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:negotiations/notify/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/negotiations/notify",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/negotiations/notify/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:negotiations/resolve/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/negotiations/resolve",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/negotiations/resolve/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:newsletter/subscribe/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/newsletter/subscribe",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/newsletter/subscribe/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:notifications/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/notifications/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/notifications/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:notifications/mark-all-read/route.ts",
+      "methods": [
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/notifications/mark-all-read",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/notifications/mark-all-read/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:notifications/preferences/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/notifications/preferences",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/notifications/preferences/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:notifications/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/notifications",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/notifications/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ogabassey/pdp-lcp-image/[productSlug]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ogabassey/pdp-lcp-image/{productSlug}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ogabassey/pdp-lcp-image/[productSlug]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/ogabassey/pdp-lcp-image/profile/{profile}/{productSlug}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/cancelled/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/cancelled",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/cancelled/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/confirm/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/confirm",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/confirm/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/delivered/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/delivered",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/delivered/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/edit/route.ts",
+      "methods": [
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/edit",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/edit/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/generate-dva/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/generate-dva",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/generate-dva/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/invoice/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/invoice",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/invoice/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/record-payment/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/record-payment",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/record-payment/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/reminder/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/reminder",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/reminder/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/ship-on-credit/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/ship-on-credit",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/ship-on-credit/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/[id]/shipped/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/{id}/shipped",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/[id]/shipped/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/credit-direct/client-completion/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/credit-direct/client-completion",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/credit-direct/client-completion/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/reuse/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/reuse",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/reuse/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/update-payment-ref/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/update-payment-ref",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/update-payment-ref/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/credit-direct/sign/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/credit-direct/sign",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/credit-direct/sign/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/credit-direct/webhook/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/credit-direct/webhook",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/credit-direct/webhook/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/initialize/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/initialize",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/initialize/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/juicyway/webhook/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/juicyway/webhook",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/juicyway/webhook/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/klump/record/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/klump/record",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/klump/record/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/klump/webhook/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/klump/webhook",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/klump/webhook/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/status/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/status",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/status/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/verify/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/verify",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/verify/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payments/webhook/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payments/webhook",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payments/webhook/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:payouts/request/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/payouts/request",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/payouts/request/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:paystack/banks/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/paystack/banks",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/paystack/banks/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:paystack/resolve/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/paystack/resolve",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/paystack/resolve/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:paystack/subaccount/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/paystack/subaccount",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/paystack/subaccount/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:paystack/verify-account/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/paystack/verify-account",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/paystack/verify-account/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:paystack/virtual-terminal/[code]/destination/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/paystack/virtual-terminal/{code}/destination",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/paystack/virtual-terminal/[code]/destination/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:paystack/virtual-terminal/[code]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/paystack/virtual-terminal/{code}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/paystack/virtual-terminal/[code]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:paystack/virtual-terminal/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/paystack/virtual-terminal",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/paystack/virtual-terminal/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:places/autocomplete/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/places/autocomplete",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/places/autocomplete/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:places/details/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/places/details",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/places/details/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:platform/analytics-config/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/platform/analytics-config",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/platform/analytics-config/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:platform/events/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/platform/events",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/platform/events/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:products/[id]/archive/route.ts",
+      "methods": [
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/products/{id}/archive",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/products/[id]/archive/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:products/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/products/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/products/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:products/bulk-import/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/products/bulk-import",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/products/bulk-import/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:products/bulk-publish/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/products/bulk-publish",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/products/bulk-publish/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:products/bulk-update/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/products/bulk-update",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/products/bulk-update/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:products/count/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/products/count",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/products/count/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:products/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/products",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/products/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:push-tokens/register/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/push-tokens/register",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/push-tokens/register/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/attempts/[attemptId]/answers/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/attempts/{attemptId}/answers",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/attempts/[attemptId]/answers/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/attempts/[attemptId]/finalize-awards/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/attempts/{attemptId}/finalize-awards",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/attempts/[attemptId]/finalize-awards/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/attempts/[attemptId]/result/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/attempts/{attemptId}/result",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/attempts/[attemptId]/result/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/attempts/active/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/attempts/active",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/attempts/active/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/attempts/start/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/attempts/start",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/attempts/start/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/awards/cash/claim/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/awards/cash/claim",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/awards/cash/claim/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/events/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/events",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/events/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/finalize/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/finalize",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/finalize/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/leaderboard/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/leaderboard",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/leaderboard/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/prizes/grand/claim/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/prizes/grand/claim",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/prizes/grand/claim/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/test-invites/claim/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/test-invites/claim",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/test-invites/claim/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/bookings/[id]/pickup/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/bookings/{id}/pickup",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/bookings/[id]/pickup/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/bookings/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/bookings/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/bookings/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/bookings/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/bookings",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/bookings/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/catalog/devices/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/catalog/devices/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/catalog/devices/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/catalog/devices/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/catalog/devices",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/catalog/devices/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/catalog/import/commit/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/catalog/import/commit",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/catalog/import/commit/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/catalog/import/parse/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/catalog/import/parse",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/catalog/import/parse/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/catalog/quotes/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/catalog/quotes/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/catalog/quotes/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/catalog/quotes/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/catalog/quotes",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/catalog/quotes/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/catalog/service-types/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/catalog/service-types/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/catalog/service-types/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/catalog/service-types/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/catalog/service-types",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/catalog/service-types/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:repairs/settings/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/repairs/settings",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/repairs/settings/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:reviews/[id]/helpful/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/reviews/{id}/helpful",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/reviews/[id]/helpful/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:reviews/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/reviews/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/reviews/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:reviews/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/reviews",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/reviews/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:robots/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/robots",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/robots/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:search/autocomplete/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/search/autocomplete",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/search/autocomplete/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:search/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/search",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/search/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/book/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/book",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/book/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/cancel/[shipmentId]/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/cancel/{shipmentId}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/cancel/[shipmentId]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/locations/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/locations",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/locations/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/providers/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/providers",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/providers/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/quotes/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/quotes",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/quotes/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/self-fulfill/route.ts",
+      "methods": [
+        "OPTIONS",
+        "PATCH",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/self-fulfill",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/self-fulfill/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/track/[trackingNumber]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/track/{trackingNumber}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/track/[trackingNumber]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/webhooks/[provider]/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/webhooks/{provider}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/webhooks/[provider]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:staff/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/staff/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/staff/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:staff/accept-invite/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/staff/accept-invite",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/staff/accept-invite/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:staff/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/staff",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/staff/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/[slug]/products/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/{slug}/products",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/[slug]/products/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/[slug]/repair/status/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/{slug}/repair/status",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/[slug]/repair/status/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/[slug]/repairs/book/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/{slug}/repairs/book",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/[slug]/repairs/book/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/[slug]/repairs/devices/[deviceSlug]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/{slug}/repairs/devices/{deviceSlug}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/[slug]/repairs/devices/[deviceSlug]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/[slug]/repairs/devices/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/{slug}/repairs/devices",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/[slug]/repairs/devices/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/account/orders/[id]/cancel/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/account/orders/{id}/cancel",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/account/orders/[id]/cancel/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/account/orders/[id]/invoice/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/account/orders/{id}/invoice",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/account/orders/[id]/invoice/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/account/orders/[id]/receipt/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/account/orders/{id}/receipt",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/account/orders/[id]/receipt/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/account/orders/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/account/orders/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/account/orders/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/auth/apple/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/auth/apple",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/auth/apple/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/auth/google/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/auth/google",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/auth/google/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/auth/logout/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/auth/logout",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/auth/logout/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/auth/send-code/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/auth/send-code",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/auth/send-code/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/auth/session/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/auth/session",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/auth/session/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/auth/verify-code/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/auth/verify-code",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/auth/verify-code/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/payment-methods/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/payment-methods",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/payment-methods/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/route.ts",
+      "methods": [
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/savings/auto-debit/authorize/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/savings/auto-debit/authorize",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/savings/auto-debit/authorize/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/savings/auto-debit/confirm/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/savings/auto-debit/confirm",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/savings/auto-debit/confirm/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/savings/contributions/manual/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/savings/contributions/manual",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/savings/contributions/manual/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/savings/goals/cancel-future-debits/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/savings/goals/cancel-future-debits",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/savings/goals/cancel-future-debits/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/savings/goals/pause/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/savings/goals/pause",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/savings/goals/pause/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/savings/goals/resume/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/savings/goals/resume",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/savings/goals/resume/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/savings/goals/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/savings/goals",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/savings/goals/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/savings/goals/swap-device/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/savings/goals/swap-device",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/savings/goals/swap-device/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/username/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/username",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/username/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/wallet/funding-account/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/wallet/funding-account",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/wallet/funding-account/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/wallet/order-funding-intents/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/wallet/order-funding-intents/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/wallet/order-funding-intents/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/wallet/order-funding-intents/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/wallet/order-funding-intents",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/wallet/order-funding-intents/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/wallet/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/wallet",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/wallet/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/wallet/top-up/confirm/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/wallet/top-up/confirm",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/wallet/top-up/confirm/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/wallet/top-up/initialize/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/wallet/top-up/initialize",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/wallet/top-up/initialize/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/wallet/top-up/usdt/[reference]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/wallet/top-up/usdt/{reference}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/wallet/top-up/usdt/[reference]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/customer/wallet/top-up/usdt/initialize/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/customer/wallet/top-up/usdt/initialize",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/customer/wallet/top-up/usdt/initialize/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/discount/validate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/discount/validate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/discount/validate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/features/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/features",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/features/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/imei-check/[lookupId]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/imei-check/{lookupId}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/imei-check/[lookupId]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/imei-check/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/imei-check",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/imei-check/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/imei-remediation/eligibility/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/imei-remediation/eligibility",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/imei-remediation/eligibility/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/imei-remediation/orders/[orderId]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/imei-remediation/orders/{orderId}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/imei-remediation/orders/[orderId]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/imei-remediation/orders/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/imei-remediation/orders",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/imei-remediation/orders/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/loyalty/enroll/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/loyalty/enroll",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/loyalty/enroll/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/loyalty/redeem/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/loyalty/redeem",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/loyalty/redeem/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/loyalty/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/loyalty",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/loyalty/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/negotiate/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/negotiate",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/negotiate/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/negotiation-evidence/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/negotiation-evidence",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/negotiation-evidence/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/orders/[id]/receipt-bank-details/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/orders/{id}/receipt-bank-details",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/orders/[id]/receipt-bank-details/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/orders/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/orders/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/orders/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/orders/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/orders",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/orders/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/orders/track-order/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/orders/track-order",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/orders/track-order/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/products/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/products",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/products/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/receipts/claims/[token]/app-download-click/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/receipts/claims/{token}/app-download-click",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/receipts/claims/[token]/app-download-click/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/receipts/claims/[token]/login-email/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/receipts/claims/{token}/login-email",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/receipts/claims/[token]/login-email/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/receipts/claims/[token]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/receipts/claims/{token}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/receipts/claims/[token]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:storefront/social-proof/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/storefront/social-proof",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/storefront/social-proof/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/billers/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/billers",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/billers/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/checkout/charge-saved-card/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/checkout/charge-saved-card",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/checkout/charge-saved-card/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/checkout/confirm/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/checkout/confirm",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/checkout/confirm/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/checkout/initialize/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/checkout/initialize",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/checkout/initialize/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/checkout/saved-cards/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/checkout/saved-cards",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/checkout/saved-cards/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/checkout/wallet-only/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/checkout/wallet-only",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/checkout/wallet-only/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/history/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/history",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/history/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/loyalty/redeem/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/loyalty/redeem",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/loyalty/redeem/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/loyalty/rewards/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/loyalty/rewards",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/loyalty/rewards/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/providers/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/providers",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/providers/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/purchase/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/purchase",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/purchase/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/test/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/test",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/test/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/transactions/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/transactions",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/transactions/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:vtu/verify/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/vtu/verify",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/vtu/verify/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:wallet/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/wallet",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/wallet/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:wallet/transactions/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/wallet/transactions",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/wallet/transactions/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:wallet/withdraw/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/wallet/withdraw",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/wallet/withdraw/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:webhooks/mycover/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/webhooks/mycover",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/webhooks/mycover/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:webhooks/petrock/imei/[token]/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/webhooks/petrock/imei/{token}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/webhooks/petrock/imei/[token]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:webhooks/petrock/remediation/[token]/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/webhooks/petrock/remediation/{token}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/webhooks/petrock/remediation/[token]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:wishlist/check/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/wishlist/check",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/wishlist/check/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:wishlist/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/wishlist",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/wishlist/route.ts"
     },
     {
       "decision": "edge_terminal",
@@ -342,53 +4875,6 @@
       ],
       "reason": "closed_api_inventory_default",
       "routePattern": "/api/{*unlisted}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:vtu",
-      "methods": [
-        "GET",
-        "HEAD",
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/vtu/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:wallet",
-      "methods": [
-        "GET",
-        "HEAD",
-        "PATCH"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/wallet/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:webhooks",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/webhooks/{*path}",
-      "sourceKind": "api_family"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "api:wishlist",
-      "methods": [
-        "DELETE",
-        "GET",
-        "HEAD",
-        "POST"
-      ],
-      "reason": "explicit_storefront_runtime_family",
-      "routePattern": "/api/wishlist/{*path}",
       "sourceKind": "api_family"
     },
     {
@@ -488,6 +4974,17 @@
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/feeds/openai.jsonl",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "edge_release",
+      "id": "machine:indexnow-key",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
       "sourceKind": "machine_family"
     },
     {
@@ -976,6 +5473,42 @@
       "reason": "closed_method_inventory_default",
       "routePattern": "/{*path}",
       "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:draft-mode-nested",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_draft_mode_cookie_requires_origin",
+      "requestCondition": {
+        "anyCookiePresent": [
+          "__next_preview_data",
+          "__prerender_bypass"
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/blog/{*path}",
+      "sourceKind": "request_override"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:draft-mode-root",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_draft_mode_cookie_requires_origin",
+      "requestCondition": {
+        "anyCookiePresent": [
+          "__next_preview_data",
+          "__prerender_bypass"
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/blog",
+      "sourceKind": "request_override"
     },
     {
       "decision": "origin_dynamic",
@@ -1901,6 +6434,6 @@
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/storefront/[legacySlug]/swap/route.ts"
     }
   ],
-  "schemaVersion": 1,
-  "inventorySha256": "2f184a82a8b24c9dfc9143ba666a87d65087020af395642b5fe9f332fadc8b8c"
+  "schemaVersion": 2,
+  "inventorySha256": "6eb4057ef0db6f2fde93f5b044b8033c1e206363eeb820eb26a98f57f9883dfe"
 }

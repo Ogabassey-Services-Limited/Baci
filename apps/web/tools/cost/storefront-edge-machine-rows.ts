@@ -163,6 +163,12 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
     'HEAD',
   ]),
   machineFamily(
+    'machine:indexnow-key',
+    '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
+    ['GET', 'HEAD'],
+    'edge_release'
+  ),
+  machineFamily(
     'machine:robots',
     '/robots.txt',
     ['GET', 'HEAD'],

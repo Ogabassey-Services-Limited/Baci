@@ -8,6 +8,7 @@ import { readStorefrontEdgeSourceAuthority } from './storefront-edge-source-auth
 
 const temporaryRoots: string[] = [];
 const routeRoot = 'apps/web/src/app/(storefront)/[slug]';
+const apiRoot = 'apps/web/src/app/api';
 
 afterEach(async () => {
   await Promise.all(
@@ -23,6 +24,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
     const originMainSha = await createStorefrontEdgeInventoryFixture(repoRoot);
     // Act
     const snapshot = await readStorefrontEdgeSourceAuthority({
+      apiRoot,
       originMainSha,
       repoRoot,
       routeRoot,
@@ -30,6 +32,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
     });
 
     // Assert
+    expect(snapshot.apiSources).toHaveLength(2);
     expect(snapshot.routeSources).toHaveLength(11);
     expect(snapshot.routingInputSources).toHaveLength(
       STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths.length
@@ -49,6 +52,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
     // Act and assert
     await expect(
       readStorefrontEdgeSourceAuthority({
+        apiRoot,
         originMainSha,
         repoRoot,
         routeRoot,

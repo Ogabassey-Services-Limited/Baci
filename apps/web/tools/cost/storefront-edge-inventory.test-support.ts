@@ -52,6 +52,23 @@ export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
     await mkdir(join(path, '..'), { recursive: true });
     await writeFile(path, `// ${input}\n`);
   }
+  const apiRoot = join(repoRoot, 'apps/web/src/app/api');
+  const apiRoutes = [
+    {
+      path: 'events/route.ts',
+      source: 'export async function POST() {}\n',
+    },
+    {
+      path: 'orders/[id]/route.ts',
+      source:
+        'export async function GET() {}\nexport async function PATCH() {}\n',
+    },
+  ];
+  for (const route of apiRoutes) {
+    const path = join(apiRoot, route.path);
+    await mkdir(join(path, '..'), { recursive: true });
+    await writeFile(path, route.source);
+  }
   await execFileAsync('git', ['-C', repoRoot, 'init', '--quiet']);
   await execFileAsync('git', [
     '-C',

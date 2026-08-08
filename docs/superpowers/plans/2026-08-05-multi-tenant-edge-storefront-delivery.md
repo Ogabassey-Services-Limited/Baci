@@ -332,6 +332,10 @@ pnpm --filter @baci/web typecheck:tools-workers
 - Create: `apps/web/tools/cost/create-storefront-edge-inventory.test.ts`
 - Create: `apps/web/tools/cost/create-storefront-edge-entrypoint-rows.ts`
 - Create: `apps/web/tools/cost/create-storefront-edge-entrypoint-rows.test.ts`
+- Create: `apps/web/tools/cost/create-storefront-edge-api-rows.ts`
+- Create: `apps/web/tools/cost/create-storefront-edge-api-rows.test.ts`
+- Create: `apps/web/tools/cost/extract-storefront-route-methods.ts`
+- Create: `apps/web/tools/cost/extract-storefront-route-methods.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory.test-support.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-review-regressions.test.ts`
 - Create: `apps/web/tools/cost/storefront-edge-inventory-types.ts`
@@ -388,10 +392,10 @@ pnpm --filter @baci/web typecheck:tools-workers
 
 **Task 1A — minimal pre-screen inventory:**
 
-- [x] Make `docs/superpowers/evidence/storefront-edge/task-1a-inventory.json` the only Task 0A inventory input. The 2026-08-08 artifact is bound to `origin/main@82c38ad53d0591638b54f9320f40579c76c82273`, externally reviewed synthetic candidate `baci-edge-pilot.usebaci.com`, and inventory SHA-256 `2f184a82a8b24c9dfc9143ba666a87d65087020af395642b5fe9f332fadc8b8c`; it contains no credentials, customer traffic, timestamps, or mutable PR state.
-- [x] Inventory all 76 current storefront entrypoints (74 page/route handlers plus two Next metadata handlers), the blog view-counter Server Action POST, aliases, rewrites, Proxy path classes, and only the API/callback/webhook/machine families required by those storefronts. The frozen artifact contains 162 canonical rows, each classified `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; configured agent/feed routes and supported `/.well-known` paths are explicit, while every unlisted path under `/api/`, every unlisted `/.well-known` path, and every unsupported method is terminal by policy.
+- [x] Make `docs/superpowers/evidence/storefront-edge/task-1a-inventory.json` the only Task 0A inventory input. The 2026-08-08 schema-v2 artifact is bound to `origin/main@82c38ad53d0591638b54f9320f40579c76c82273`, externally reviewed synthetic candidate `baci-edge-pilot.usebaci.com`, and inventory SHA-256 `6eb4057ef0db6f2fde93f5b044b8033c1e206363eeb820eb26a98f57f9883dfe`; it contains no credentials, customer traffic, timestamps, or mutable PR state.
+- [x] Inventory all 76 current storefront entrypoints (74 page/route handlers plus two Next metadata handlers), the blog view-counter Server Action POST, draft-mode cookie overrides, aliases, rewrites, Proxy path classes, and every exact current Next API handler path/method required to preserve same-host application behavior. The frozen artifact contains 510 canonical rows, each classified `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; configured agent/feed routes, IndexNow ownership, and supported `/.well-known` paths are explicit, while every nonexistent path under `/api/`, every unlisted `/.well-known` path, and every unsupported method is terminal by policy.
 - [x] Define the proposed eligible denominator and complete-browser path classes needed by Task 0A without building release schemas, component adapters, migrations, Workers, or provider resources.
-- [x] Make `validate-storefront-edge-inventory.ts` bind every hashed route/shell/routing input byte to the independently supplied `origin/main` Git commit, require the externally supplied pilot-host set instead of trusting the artifact, regenerate the canonical payload, and reject a mismatched source tree, route/proxy digest, hostname digest, row order, denominator, or self-hash. The exact artifact regenerated successfully at 76 storefront entrypoints and 162 total rows.
+- [x] Make `validate-storefront-edge-inventory.ts` bind every hashed storefront/API route, shell, and routing-input byte to the independently supplied `origin/main` Git commit, require the externally supplied pilot-host set instead of trusting the artifact, regenerate the canonical payload, and reject a mismatched source tree, route/proxy digest, hostname digest, row order, denominator, or self-hash. The exact artifact regenerated successfully at 76 storefront entrypoints and 510 total rows.
 
 **Task 1B — executable contracts after Task 0A returns `PLAUSIBLE`:**
 

@@ -10,6 +10,7 @@ type SourceFile = Readonly<{
 }>;
 
 type SourceAuthorityOptions = Readonly<{
+  apiRoot: string;
   originMainSha: string;
   repoRoot: string;
   routeRoot: string;
@@ -25,9 +26,14 @@ function isIncludedRouteSource(sourcePath: string) {
   );
 }
 
-async function listCurrentRouteSources(
+function isIncludedApiSource(sourcePath: string) {
+  return sourcePath.endsWith('/route.ts');
+}
+
+async function listCurrentSources(
   repoRoot: string,
-  directory: string
+  directory: string,
+  isIncluded: (sourcePath: string) => boolean
 ): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const paths: string[] = [];
@@ -36,10 +42,10 @@ async function listCurrentRouteSources(
     if (entry.isSymbolicLink())
       throw new Error('source tree does not match the approved commit');
     if (entry.isDirectory())
-      paths.push(...(await listCurrentRouteSources(repoRoot, path)));
+      paths.push(...(await listCurrentSources(repoRoot, path, isIncluded)));
     else if (entry.isFile()) {
       const sourcePath = relative(repoRoot, path).split(sep).join('/');
-      if (isIncludedRouteSource(sourcePath)) paths.push(sourcePath);
+      if (isIncluded(sourcePath)) paths.push(sourcePath);
     }
   }
   return paths.sort();
@@ -97,6 +103,7 @@ async function readApprovedFile(
 export async function readStorefrontEdgeSourceAuthority(
   options: SourceAuthorityOptions
 ) {
+  const apiRoot = options.apiRoot.replace(/\/$/, '');
   const routeRoot = options.routeRoot.replace(/\/$/, '');
   try {
     const approvedTree = parseGitTree(
@@ -107,6 +114,7 @@ export async function readStorefrontEdgeSourceAuthority(
         '--full-tree',
         options.originMainSha,
         '--',
+        apiRoot,
         routeRoot,
         ...options.routingInputPaths,
       ])
@@ -115,14 +123,37 @@ export async function readStorefrontEdgeSourceAuthority(
       .filter((sourcePath) => sourcePath.startsWith(`${routeRoot}/`))
       .filter(isIncludedRouteSource)
       .sort();
-    const currentRouteTree = await listCurrentRouteSources(
-      options.repoRoot,
-      resolve(options.repoRoot, routeRoot)
-    );
+    const approvedApiTree = [...approvedTree.keys()]
+      .filter((sourcePath) => sourcePath.startsWith(`${apiRoot}/`))
+      .filter(isIncludedApiSource)
+      .sort();
+    const [currentApiTree, currentRouteTree] = await Promise.all([
+      listCurrentSources(
+        options.repoRoot,
+        resolve(options.repoRoot, apiRoot),
+        isIncludedApiSource
+      ),
+      listCurrentSources(
+        options.repoRoot,
+        resolve(options.repoRoot, routeRoot),
+        isIncludedRouteSource
+      ),
+    ]);
+    if (JSON.stringify(approvedApiTree) !== JSON.stringify(currentApiTree))
+      throw new Error('source tree does not match the approved commit');
     if (JSON.stringify(approvedRouteTree) !== JSON.stringify(currentRouteTree))
       throw new Error('source tree does not match the approved commit');
 
-    const [routeSources, routingInputSources] = await Promise.all([
+    const [apiSources, routeSources, routingInputSources] = await Promise.all([
+      Promise.all(
+        currentApiTree.map((sourcePath) =>
+          readApprovedFile(
+            options.repoRoot,
+            sourcePath,
+            approvedTree.get(sourcePath)
+          )
+        )
+      ),
       Promise.all(
         currentRouteTree.map((sourcePath) =>
           readApprovedFile(
@@ -144,7 +175,7 @@ export async function readStorefrontEdgeSourceAuthority(
           )
       ),
     ]);
-    return { routeSources, routingInputSources };
+    return { apiSources, routeSources, routingInputSources };
   } catch (error) {
     if (
       error instanceof Error &&

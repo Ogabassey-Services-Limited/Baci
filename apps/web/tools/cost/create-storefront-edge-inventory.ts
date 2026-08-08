@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createStorefrontEdgeApiRows } from './create-storefront-edge-api-rows';
 import { createStorefrontEdgeEntrypointRows } from './create-storefront-edge-entrypoint-rows';
 import { canonicalizeStorefrontEdgeInventoryValue } from './storefront-edge-canonical-json';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
@@ -15,6 +16,7 @@ type CreateInventoryOptions = Readonly<{
 }>;
 
 const ROUTE_ROOT = 'apps/web/src/app/(storefront)/[slug]';
+const API_ROOT = 'apps/web/src/app/api';
 
 const sha256 = (value: string | Buffer) =>
   createHash('sha256').update(value).digest('hex');
@@ -54,8 +56,9 @@ export async function createStorefrontEdgeInventory(
   const pilotCandidateHostnames = normalizeHostnames(
     options.pilotCandidateHostnames
   );
-  const { routeSources, routingInputSources } =
+  const { apiSources, routeSources, routingInputSources } =
     await readStorefrontEdgeSourceAuthority({
+      apiRoot: API_ROOT,
       originMainSha,
       repoRoot,
       routeRoot: ROUTE_ROOT,
@@ -65,6 +68,7 @@ export async function createStorefrontEdgeInventory(
     ROUTE_ROOT,
     routeSources
   );
+  const apiRows = createStorefrontEdgeApiRows(API_ROOT, apiSources);
   const routeTreeSha256 = sha256(
     canonicalizeStorefrontEdgeInventoryValue(
       routeSources.map(({ bytes, sourcePath }) => ({
@@ -75,13 +79,21 @@ export async function createStorefrontEdgeInventory(
   );
   const routingProxyInputSha256 = sha256(
     canonicalizeStorefrontEdgeInventoryValue(
-      routingInputSources.map(({ bytes, sourcePath }) => ({
-        sha256: sha256(bytes),
-        sourcePath,
-      }))
+      routingInputSources
+        .map(({ bytes, sourcePath }) => ({
+          sha256: sha256(bytes),
+          sourcePath,
+        }))
+        .concat(
+          apiSources.map(({ bytes, sourcePath }) => ({
+            sha256: sha256(bytes),
+            sourcePath,
+          }))
+        )
     )
   );
   const rows = [
+    ...apiRows,
     ...entrypointRows,
     ...STOREFRONT_EDGE_INVENTORY_POLICY.extraRows,
   ].sort((left, right) =>

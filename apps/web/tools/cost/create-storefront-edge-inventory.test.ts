@@ -182,9 +182,10 @@ describe('createStorefrontEdgeInventory', () => {
       [...inventory.rows.map((row) => row.id)].sort()
     );
     for (const requiredId of [
-      'api:llm',
-      'api:repairs',
+      'api-route:events/route.ts',
+      'api-route:orders/[id]/route.ts',
       'api:unlisted',
+      'machine:indexnow-key',
       'machine:openapi',
       'machine:well-known-acp',
       'proxy:blog-query-canonical',
@@ -197,6 +198,7 @@ describe('createStorefrontEdgeInventory', () => {
       'proxy:retired-slug-document',
       'proxy:root-sitemap',
       'proxy:unsupported-method',
+      'request-override:draft-mode-nested',
     ]) {
       expect(rowIds, `missing ${requiredId}`).toContain(requiredId);
     }
