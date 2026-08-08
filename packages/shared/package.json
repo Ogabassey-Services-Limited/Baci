@@ -17,7 +17,8 @@
     "./receipt": "./src/receipt/index.ts",
     "./repairs": "./src/repairs/index.ts",
     "./storefront": "./src/storefront/index.ts",
-    "./gmc-feed": "./src/gmc-feed/index.ts"
+    "./gmc-feed": "./src/gmc-feed/index.ts",
+    "./test-fixtures/builder-ai-edit": "./src/test-fixtures/builder-ai-edit.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

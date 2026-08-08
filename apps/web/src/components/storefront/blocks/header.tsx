@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Cart } from '@/components/cart';
 import { Logo } from '@/components/logo';
+import { getStorefrontNavigationHref } from '@/components/storefront/blocks/get-storefront-navigation-href';
 import { HeaderNavigation } from '@/components/storefront/blocks/header-navigation';
 import { HeaderSearch } from '@/components/storefront/blocks/header-search';
 import { useMobileHeaderPanel } from '@/components/storefront/blocks/use-mobile-header-panel';
@@ -92,10 +93,7 @@ export function Header({
   const mobilePanel = useMobileHeaderPanel();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const getHref = (path: string) =>
-    path.startsWith('http')
-      ? path
-      : `${basePath || ''}${path === '/' ? '' : path}`;
+  const getHref = (path: string) => getStorefrontNavigationHref(path, basePath);
 
   // Customer auth state - we use a simple fetch approach since context may not be available
   const [customerSession, setCustomerSession] = useState<{

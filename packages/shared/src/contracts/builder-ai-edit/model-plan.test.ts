@@ -1,0 +1,310 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import {
+  builderAiEditContract,
+  builderAiModelPlanSchema,
+  MAX_AI_CANONICAL_SCHEMA_BYTES,
+  MAX_AI_CANONICAL_SCHEMA_DEPTH,
+  validateBuilderAiEditPlanLimits,
+} from './index';
+
+const heroPatch = {
+  componentType: 'Hero',
+  title: 'A better welcome',
+};
+
+const proposedPlan = {
+  operations: [
+    { componentId: 'hero-1', kind: 'update_component', patch: heroPatch },
+  ],
+  status: 'proposed',
+  summary: 'Update the hero copy',
+};
+
+function visitSchema(value: unknown, depth = 0): number {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return depth;
+
+  const record = value as Record<string, unknown>;
+  const schemaDepth = typeof record.type === 'string' ? depth + 1 : depth;
+  if (record.type === 'object') expect(record.additionalProperties).toBe(false);
+  expect(record).not.toHaveProperty('unknown');
+
+  const children = [
+    ...Object.values((record.properties ?? {}) as Record<string, unknown>),
+    record.items,
+    ...(Array.isArray(record.oneOf) ? record.oneOf : []),
+    ...(Array.isArray(record.anyOf) ? record.anyOf : []),
+    ...(Array.isArray(record.allOf) ? record.allOf : []),
+  ].filter((child) => child !== undefined);
+  return Math.max(
+    schemaDepth,
+    ...children.map((child) => visitSchema(child, schemaDepth))
+  );
+}
+
+function assertSupportedKeywords(value: unknown): void {
+  if (!value || typeof value !== 'object') return;
+
+  const record = value as Record<string, unknown>;
+  const supported = new Set([
+    '$schema',
+    '$ref',
+    'additionalProperties',
+    'allOf',
+    'anyOf',
+    'const',
+    'description',
+    'enum',
+    'items',
+    'maxItems',
+    'maximum',
+    'maxLength',
+    'minItems',
+    'minimum',
+    'minLength',
+    'oneOf',
+    'properties',
+    'pattern',
+    'required',
+    'type',
+  ]);
+  Object.keys(record).forEach((key) => {
+    expect(supported.has(key), `unsupported schema key: ${key}`).toBe(true);
+  });
+  if (typeof record.type === 'string') {
+    expect([
+      'object',
+      'array',
+      'string',
+      'number',
+      'integer',
+      'boolean',
+      'null',
+    ]).toContain(record.type);
+  }
+  Object.values((record.properties ?? {}) as Record<string, unknown>).forEach(
+    assertSupportedKeywords
+  );
+  if (record.items && !Array.isArray(record.items)) {
+    assertSupportedKeywords(record.items);
+  }
+  for (const branch of ['oneOf', 'anyOf', 'allOf']) {
+    const schemas = record[branch];
+    if (Array.isArray(schemas)) schemas.forEach(assertSupportedKeywords);
+  }
+}
+
+describe('builder AI edit closed model plan', () => {
+  it('accepts a bounded named collection for first-content placements', () => {
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        operations: [
+          {
+            initialContent: { componentType: 'Text', content: 'Sidebar copy' },
+            kind: 'insert_component',
+            placement: { collection: 'aside', position: 'first_content' },
+          },
+        ],
+        status: 'proposed',
+        summary: 'Add sidebar copy',
+      }).success
+    ).toBe(true);
+  });
+
+  it('accepts a bounded proposed plan and a refusal with no operations', () => {
+    expect(builderAiModelPlanSchema.safeParse(proposedPlan).success).toBe(true);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        operations: [],
+        reason: 'I cannot add executable code.',
+        status: 'refused',
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects empty or overlong proposals and refusals with operations', () => {
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [],
+      }).success
+    ).toBe(false);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        summary: 'x'.repeat(241),
+      }).success
+    ).toBe(false);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        operations: [proposedPlan.operations[0]],
+        reason: 'No.',
+        status: 'refused',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects unknown kinds, unknown patch keys, and empty editable patches', () => {
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [{ kind: 'rewrite_everything' }],
+      }).success
+    ).toBe(false);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            componentId: 'hero-1',
+            kind: 'update_component',
+            patch: { ...heroPatch, backgroundImage: 'https://example.test/x' },
+          },
+        ],
+      }).success
+    ).toBe(false);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            componentId: 'hero-1',
+            kind: 'update_component',
+            patch: { componentType: 'Hero' },
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects CodeEmbed inserts and field overages', () => {
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            initialContent: { code: '<script>', componentType: 'CodeEmbed' },
+            kind: 'insert_component',
+            placement: { position: 'first_content' },
+          },
+        ],
+      }).success
+    ).toBe(false);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            componentId: 'hero-1',
+            kind: 'update_component',
+            patch: { componentType: 'Hero', ctaLink: 'x'.repeat(513) },
+          },
+        ],
+      }).success
+    ).toBe(false);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            componentId: 'hero-1',
+            kind: 'update_component',
+            patch: { componentType: 'Hero', subtitle: 'x'.repeat(2001) },
+          },
+        ],
+      }).success
+    ).toBe(false);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            componentId: 'header-1',
+            kind: 'update_component',
+            patch: {
+              componentType: 'Header',
+              navigationLinks: Array.from({ length: 9 }, () => ({
+                label: 'Shop',
+                url: '/shop',
+              })),
+            },
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts only top-level bounded carousel slide edits', () => {
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            componentId: 'carousel-1',
+            ctaText: 'Shop now',
+            kind: 'update_carousel_slide',
+            slideIndex: 0,
+            title: 'New arrivals',
+          },
+        ],
+      }).success
+    ).toBe(true);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            componentId: 'carousel-1',
+            kind: 'update_carousel_slide',
+            patch: { title: 'New arrivals' },
+            slideIndex: 0,
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('limits a plan to 20 operations and five inserts', () => {
+    const operation = proposedPlan.operations[0];
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: Array.from({ length: 21 }, () => operation),
+      }).success
+    ).toBe(false);
+    const sixInserts = Array.from({ length: 6 }, () => ({
+      initialContent: { componentType: 'Text', content: 'A short note' },
+      kind: 'insert_component',
+      placement: { position: 'first_content' },
+    }));
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: sixInserts,
+      }).success
+    ).toBe(false);
+    expect(
+      validateBuilderAiEditPlanLimits({
+        ...proposedPlan,
+        operations: sixInserts,
+      }).success
+    ).toBe(false);
+  });
+
+  it('audits a closed local Draft 7 schema without exposing a provider schema', () => {
+    const auditSchema = z.toJSONSchema(builderAiModelPlanSchema, {
+      target: 'draft-07',
+      unrepresentable: 'throw',
+    });
+    const serialized = JSON.stringify(auditSchema);
+
+    expect(serialized.length).toBeLessThanOrEqual(
+      MAX_AI_CANONICAL_SCHEMA_BYTES
+    );
+    expect(visitSchema(auditSchema)).toBeLessThanOrEqual(
+      MAX_AI_CANONICAL_SCHEMA_DEPTH
+    );
+    assertSupportedKeywords(auditSchema);
+    expect(builderAiEditContract).not.toHaveProperty('providerSchema');
+  });
+});
