@@ -248,6 +248,9 @@ export function buildBuilderAiEditPrompt({
     catalog: getBuilderAiCatalogProjection(),
     currentState: getCurrentStateProjection(currentConfig),
     operationExamples,
+    placementCollections: getBuilderAiContentCollectionEntries(
+      currentConfig
+    ).map(({ collection }) => collection),
     updateThemeOperation: {
       colors: {
         allowedKeys: editableThemeColorKeys,

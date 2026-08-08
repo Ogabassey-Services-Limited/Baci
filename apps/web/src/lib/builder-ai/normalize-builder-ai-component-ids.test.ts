@@ -55,4 +55,22 @@ describe('normalizeBuilderAiComponentIds', () => {
       'safe-Text',
     ]);
   });
+
+  it('rekeys nested zones when a parent component id is replaced', () => {
+    const normalized = normalizeBuilderAiComponentIds(
+      {
+        content: [{ props: { id: ' padded ' }, type: 'Flex' }],
+        root: { title: 'Home' },
+        zones: {
+          ' padded :children': [{ props: { id: 'child-text' }, type: 'Text' }],
+        },
+      },
+      () => 'safe-flex'
+    );
+
+    expect(normalized.content[0]?.props.id).toBe('safe-flex');
+    expect(normalized.zones).toEqual({
+      'safe-flex:children': [{ props: { id: 'child-text' }, type: 'Text' }],
+    });
+  });
 });

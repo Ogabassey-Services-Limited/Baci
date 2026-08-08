@@ -10,6 +10,7 @@ import {
 } from './apply-builder-ai-component-patches';
 import { applyBuilderAiRootTitle } from './apply-builder-ai-root-title';
 import { assertBuilderAiComponentMutable } from './assert-builder-ai-component-mutable';
+import { assertBuilderAiUniqueIds } from './assert-builder-ai-unique-ids';
 import {
   createInsertableComponentProps,
   isAiEditableComponent,
@@ -18,21 +19,21 @@ import {
 import {
   getBuilderAiStructuralBaseline,
   getBuilderAiStructuralFailure,
-  validateBuilderAiCandidate,
 } from './builder-ai-structure-guards';
 import { applyBuilderAiTheme } from './builder-ai-theme-presets';
+import { cloneBuilderAiConfig } from './clone-builder-ai-config';
 import { createBuilderComponentId } from './create-builder-component-id';
 import { findBuilderAiComponent } from './find-builder-ai-component';
-import { getBuilderAiContentCollectionEntries } from './get-builder-ai-content-collection-entries';
 import {
   type BuilderAiComponent,
   getBuilderAiContentCollections,
 } from './get-builder-ai-content-collections';
 import { getBuilderAiDestinationIndex } from './get-builder-ai-destination-index';
+import { getBuilderAiFirstContentDestination } from './get-builder-ai-first-content-destination';
 import { getBuilderAiInsertOffset } from './get-builder-ai-insert-offset';
 import { getBuilderAiRawPlanMediaWarning } from './get-builder-ai-raw-plan-media-warning';
+import { getBuilderAiValidCandidate } from './get-builder-ai-valid-candidate';
 import { getBuilderComponentId } from './get-builder-component-id';
-import { hasDuplicateBuilderAiComponentIds } from './has-duplicate-builder-ai-component-ids';
 import { isRenderedH1Hero } from './is-rendered-h1-hero';
 import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
 import { pushBuilderAiWarnings } from './push-builder-ai-warnings';
@@ -43,40 +44,6 @@ export interface ApplyBuilderAiEditPlanResult {
   candidateConfig: BuilderData;
   warnings: string[];
 }
-function cloneConfig(config: BuilderData): BuilderData {
-  try {
-    return JSON.parse(JSON.stringify(config)) as BuilderData;
-  } catch {
-    throw new BuilderAiEditPlanError('Builder configuration cannot be cloned');
-  }
-}
-function assertUniqueIds(config: BuilderData): void {
-  if (hasDuplicateBuilderAiComponentIds(config)) {
-    throw new BuilderAiEditPlanError('Duplicate component id');
-  }
-}
-function getValidCandidate(
-  candidateConfig: BuilderData,
-  baseline: ReturnType<typeof getBuilderAiStructuralBaseline>
-): BuilderData {
-  const validation = validateBuilderAiCandidate(candidateConfig, baseline);
-  if ('failure' in validation) {
-    throw new BuilderAiEditPlanError(validation.failure);
-  }
-  return validation.candidateConfig;
-}
-function getFirstContentDestination(
-  config: BuilderData,
-  collection: string | undefined
-): BuilderAiComponent[] {
-  const destination = getBuilderAiContentCollectionEntries(config).find(
-    (entry) => entry.collection === (collection ?? 'content')
-  )?.content;
-  if (!destination) {
-    throw new BuilderAiEditPlanError('Placement collection was not found');
-  }
-  return destination;
-}
 function applyOperation(
   config: BuilderData,
   operation: BuilderAiModelOperation,
@@ -84,7 +51,6 @@ function applyOperation(
   warnings: string[],
   insertOffsets: WeakMap<BuilderAiComponent[], Map<string, number>>
 ): void {
-  const { content } = config;
   switch (operation.kind) {
     case 'update_component': {
       const target = findBuilderAiComponent(config, operation.componentId);
@@ -154,8 +120,12 @@ function applyOperation(
           ? (findBuilderAiComponent(
               config,
               operation.placement.componentId ?? ''
-            )?.content ?? content)
-          : getFirstContentDestination(config, operation.placement.collection);
+            )?.content ?? config.content)
+          : getBuilderAiFirstContentDestination(
+              config,
+              operation.placement.collection,
+              BuilderAiEditPlanError
+            );
       const insertionIndex = getBuilderAiDestinationIndex(
         config,
         destinationContent,
@@ -204,7 +174,11 @@ function applyOperation(
       const destinationContent =
         destinationTarget?.content ??
         (operation.destination.position === 'first_content'
-          ? getFirstContentDestination(config, operation.destination.collection)
+          ? getBuilderAiFirstContentDestination(
+              config,
+              operation.destination.collection,
+              BuilderAiEditPlanError
+            )
           : source.content);
       let destination = getBuilderAiDestinationIndex(
         config,
@@ -263,12 +237,19 @@ export function applyBuilderAiEditPlan(
   plan: BuilderAiProposedPlan,
   createId: (componentType: string) => string = createBuilderComponentId
 ): ApplyBuilderAiEditPlanResult {
-  const candidateConfig = cloneConfig(currentConfig);
+  const candidateConfig = cloneBuilderAiConfig(
+    currentConfig,
+    BuilderAiEditPlanError
+  );
   const baseline = getBuilderAiStructuralBaseline(candidateConfig);
   const rawMediaWarning = getBuilderAiRawPlanMediaWarning(plan);
   if (rawMediaWarning) {
     return {
-      candidateConfig: getValidCandidate(candidateConfig, baseline),
+      candidateConfig: getBuilderAiValidCandidate(
+        candidateConfig,
+        baseline,
+        BuilderAiEditPlanError
+      ),
       warnings: [rawMediaWarning],
     };
   }
@@ -278,7 +259,7 @@ export function applyBuilderAiEditPlan(
   if (!parsedPlan.success || parsedPlan.data.status !== 'proposed') {
     throw new BuilderAiEditPlanError('Invalid builder AI edit plan');
   }
-  assertUniqueIds(candidateConfig);
+  assertBuilderAiUniqueIds(candidateConfig, BuilderAiEditPlanError);
   const warnings: string[] = [];
   const insertOffsets = new WeakMap<
     BuilderAiComponent[],
@@ -297,7 +278,7 @@ export function applyBuilderAiEditPlan(
       if (error instanceof BuilderAiEditPlanError) throw error;
       throw new BuilderAiEditPlanError('Unable to apply builder AI edit plan');
     }
-    assertUniqueIds(candidateConfig);
+    assertBuilderAiUniqueIds(candidateConfig, BuilderAiEditPlanError);
     const structureFailure = getBuilderAiStructuralFailure(
       candidateConfig,
       baseline,
@@ -306,7 +287,11 @@ export function applyBuilderAiEditPlan(
     if (structureFailure) throw new BuilderAiEditPlanError(structureFailure);
   }
   return {
-    candidateConfig: getValidCandidate(candidateConfig, baseline),
+    candidateConfig: getBuilderAiValidCandidate(
+      candidateConfig,
+      baseline,
+      BuilderAiEditPlanError
+    ),
     warnings,
   };
 }

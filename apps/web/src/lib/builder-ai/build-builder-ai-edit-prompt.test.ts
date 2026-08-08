@@ -214,6 +214,25 @@ describe('buildBuilderAiEditPrompt', () => {
     });
   });
 
+  it('publishes an empty Puck zone as an allowable placement collection', () => {
+    const prompt = buildBuilderAiEditPrompt({
+      currentConfig: {
+        content: [],
+        root: { title: 'Home' },
+        zones: { 'Flex-1234:children': [] },
+      },
+      prompt: 'Add the first text block to the flex children',
+    });
+    const guide = JSON.parse(
+      prompt.match(/<operation-guide>(.+)<\/operation-guide>/)?.[1] ?? ''
+    ) as { placementCollections: string[] };
+
+    expect(guide.placementCollections).toEqual([
+      'content',
+      'Flex-1234:children',
+    ]);
+  });
+
   it('rejects component and serialized projection budgets before prompt construction', () => {
     const block = (id: string) => ({
       props: { id, title: 'Safe' },
