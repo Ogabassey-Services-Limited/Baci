@@ -21,9 +21,10 @@ describe('STOREFRONT_EDGE_PUBLIC_ASSET_ROWS', () => {
         '/manifest.json',
         '/placeholder.png',
         '/placeholder.svg',
+        '/template-previews/ogabassey-v2.png',
       ])
     );
-    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(10);
+    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(11);
     expect(byPattern.size).toBe(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.length);
     expect(
       STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.every(

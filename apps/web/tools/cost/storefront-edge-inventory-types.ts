@@ -24,6 +24,10 @@ type StorefrontEdgeInventoryRow = Readonly<{
         requiresActiveCanonicalCustomDomain?: true;
       }>
     | Readonly<{
+        hostKind: 'custom_domain';
+        precedence: 'before_path_decision';
+      }>
+    | Readonly<{
         hostKind: 'retired_platform_subdomain_alias';
         precedence: 'before_path_decision';
       }>;
@@ -46,6 +50,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
     precedence: 'before_path_decision';
     predicate:
       | 'cache_safe_imported_punctuation'
+      | 'current_storefront_slug_api'
       | 'first_segment_allowlist'
       | 'legacy_blog_thumbnail_query'
       | 'mixed_case_path'

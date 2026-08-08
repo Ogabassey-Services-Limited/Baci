@@ -33,7 +33,13 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     ['GET', 'HEAD'],
     'origin_dynamic',
     'custom_domain_auth_confirmation',
-    { sourcePath: 'apps/web/src/app/auth/confirm/route.ts' }
+    {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        precedence: 'before_path_decision',
+      },
+      sourcePath: 'apps/web/src/app/auth/confirm/route.ts',
+    }
   ),
   proxyClass(
     'proxy:markdown-mirror',
@@ -149,6 +155,23 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
+    'proxy:current-slug-api',
+    '/{currentSlug}/api/{*path}',
+    ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
+    'origin_dynamic',
+    'current_slug_api_rewrite_preserves_body',
+    {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'current_storefront_slug_api',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:retired-slug-api',
     '/{retiredSlug}/api/{*path}',
     ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
@@ -194,7 +217,6 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
       },
       pathCondition: {
         firstSegmentIn: [
-          '_next',
           'auth',
           'builder',
           'dashboard',
@@ -231,7 +253,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   ),
   proxyClass(
     'proxy:subdomain-custom-domain',
-    '/{*storefrontPath}',
+    '/{*storefrontPath?}',
     ['GET', 'HEAD'],
     'edge_redirect',
     'canonical_custom_domain_redirect',

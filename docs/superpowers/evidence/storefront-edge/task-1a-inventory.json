@@ -26,7 +26,7 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "0bf545fe4ab502a664729482a5fb047ab1de0e50d74f77116b3a25778f3f5121",
-  "routingProxyInputSha256": "a654d75b4e4898de5e8ba6baa39840edc45e662d2790af9d5d1cc52dd89e6430",
+  "routingProxyInputSha256": "6cc087ade3ea154d198bedf14e28531107b2381cdb14da92cbe0f5b6c4510b42",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -5418,6 +5418,10 @@
       "reason": "custom_domain_auth_confirmation",
       "routePattern": "/auth/confirm",
       "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
       "sourcePath": "apps/web/src/app/auth/confirm/route.ts"
     },
     {
@@ -5448,6 +5452,29 @@
       "pathCondition": {
         "precedence": "before_path_decision",
         "predicate": "cache_safe_imported_punctuation"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:current-slug-api",
+      "methods": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "PATCH",
+        "POST",
+        "PUT"
+      ],
+      "reason": "current_slug_api_rewrite_preserves_body",
+      "routePattern": "/{currentSlug}/api/{*path}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "current_storefront_slug_api"
       }
     },
     {
@@ -5548,7 +5575,6 @@
       },
       "pathCondition": {
         "firstSegmentIn": [
-          "_next",
           "auth",
           "builder",
           "dashboard",
@@ -5667,7 +5693,7 @@
         "HEAD"
       ],
       "reason": "canonical_custom_domain_redirect",
-      "routePattern": "/{*storefrontPath}",
+      "routePattern": "/{*storefrontPath?}",
       "sourceKind": "proxy_path_class",
       "hostCondition": {
         "hostKind": "platform_subdomain",
@@ -5830,6 +5856,18 @@
       "routePattern": "/placeholder.svg",
       "sourceKind": "public_asset",
       "sourcePath": "apps/web/public/placeholder.svg"
+    },
+    {
+      "decision": "edge_release",
+      "id": "public-asset:template-previews/ogabassey-v2.png",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "storefront_referenced_public_asset",
+      "routePattern": "/template-previews/ogabassey-v2.png",
+      "sourceKind": "public_asset",
+      "sourcePath": "apps/web/public/template-previews/ogabassey-v2.png"
     },
     {
       "decision": "origin_dynamic",
@@ -6992,5 +7030,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "7c9d4aa0bd14e2bcd14bab146abb78f1474e57063d0ea61b83dfc10854092235"
+  "inventorySha256": "d9dad1bab7bd109437a72df94b9a7d061991325bd2b122d051e1a6c4234d3f4b"
 }

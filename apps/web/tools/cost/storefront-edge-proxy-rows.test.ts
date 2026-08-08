@@ -62,6 +62,25 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         decision: 'origin_dynamic',
         methods: ['GET', 'HEAD'],
         routePattern: '/auth/confirm',
+        hostCondition: {
+          hostKind: 'custom_domain',
+          precedence: 'before_path_decision',
+        },
+      })
+    );
+    expect(byId.get('proxy:current-slug-api')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
+        routePattern: '/{currentSlug}/api/{*path}',
+        hostCondition: {
+          hostKind: 'custom_domain',
+          precedence: 'before_path_decision',
+        },
+        pathCondition: {
+          precedence: 'before_path_decision',
+          predicate: 'current_storefront_slug_api',
+        },
       })
     );
   });
@@ -93,6 +112,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       'proxy:no-trailing-slash': 'trailing_slash',
       'proxy:product-canonical': 'noncanonical_product_route_or_variant',
       'proxy:redundant-slug-prefix': 'redundant_storefront_slug_prefix',
+      'proxy:current-slug-api': 'current_storefront_slug_api',
       'proxy:retired-slug-api': 'retired_storefront_slug_prefix',
       'proxy:retired-slug-document': 'retired_storefront_slug_prefix',
       'proxy:unsafe-document': 'unsafe_or_ambiguous_path',
@@ -127,7 +147,6 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         },
         pathCondition: expect.objectContaining({
           firstSegmentIn: [
-            '_next',
             'auth',
             'builder',
             'dashboard',

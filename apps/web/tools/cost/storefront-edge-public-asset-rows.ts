@@ -13,6 +13,7 @@ const PUBLIC_ASSETS = [
   'manifest.json',
   'placeholder.png',
   'placeholder.svg',
+  'template-previews/ogabassey-v2.png',
 ] as const;
 
 /** Exact public files referenced by released storefront browser output. */
