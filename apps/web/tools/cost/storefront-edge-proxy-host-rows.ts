@@ -1,27 +1,5 @@
-import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
-
-type InventoryRow = StorefrontEdgeInventory['rows'][number];
-
-const proxyClass = (
-  id: string,
-  routePattern: string,
-  methods: InventoryRow['methods'],
-  decision: InventoryRow['decision'],
-  reason: string,
-  options: Readonly<{
-    hostCondition?: InventoryRow['hostCondition'];
-    pathCondition?: InventoryRow['pathCondition'];
-  }> = {}
-): InventoryRow => ({
-  decision,
-  id,
-  methods,
-  reason,
-  routePattern,
-  sourceKind: 'proxy_path_class',
-  ...(options.hostCondition ? { hostCondition: options.hostCondition } : {}),
-  ...(options.pathCondition ? { pathCondition: options.pathCondition } : {}),
-});
+import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
+const proxyClass = createStorefrontEdgeProxyClass;
 
 /** Host-conditioned proxy classes that must precede storefront resolution. */
 export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [

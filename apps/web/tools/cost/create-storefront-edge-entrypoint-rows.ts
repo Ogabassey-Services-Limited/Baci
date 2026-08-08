@@ -80,6 +80,13 @@ export function createStorefrontEdgeEntrypointRows(
   for (const expected of STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS) {
     if (!discoveredEntrypoints.has(expected))
       throw new Error(`redirect entrypoint no longer exists: ${expected}`);
+    if (
+      STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(expected)?.decision !==
+      'edge_redirect'
+    )
+      throw new Error(
+        `redirect entrypoint has no edge_redirect classification: ${expected}`
+      );
   }
   for (const expected of STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys()) {
     if (!discoveredEntrypoints.has(expected))

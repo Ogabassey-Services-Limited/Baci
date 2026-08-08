@@ -101,6 +101,37 @@ describe('createStorefrontEdgeEntrypointRows', () => {
     );
   });
 
+  it('fails closed when a configured redirect entrypoint is not classified as a redirect', () => {
+    // Arrange
+    const routeSources = [
+      ...STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys().map(
+        entrypointSource
+      ),
+    ];
+    const original = STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(
+      'news-sitemap.xml/route.ts'
+    );
+    if (!original) throw new Error('expected redirect classification fixture');
+    STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.set(
+      'news-sitemap.xml/route.ts',
+      { ...original, decision: 'edge_release' }
+    );
+
+    // Act and assert
+    try {
+      expect(() =>
+        createStorefrontEdgeEntrypointRows(routeRoot, routeSources)
+      ).toThrow(
+        'redirect entrypoint has no edge_redirect classification: news-sitemap.xml/route.ts'
+      );
+    } finally {
+      STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.set(
+        'news-sitemap.xml/route.ts',
+        original
+      );
+    }
+  });
+
   it('rejects a newly discovered entrypoint without an explicit classification', () => {
     // Arrange
     const routeSources = [
