@@ -268,5 +268,4 @@ describe('createStorefrontEdgeInventory', () => {
       expect.objectContaining({ storefrontEntrypointCount: 78 })
     );
   });
-
 });

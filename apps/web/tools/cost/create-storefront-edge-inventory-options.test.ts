@@ -20,7 +20,10 @@ afterEach(async () => {
 });
 
 describe('create-storefront-edge-inventory CLI options', () => {
-  it.each(['unknown', 'duplicate'])('rejects %s generator options', async (label) => {
+  it.each([
+    'unknown',
+    'duplicate',
+  ])('rejects %s generator options', async (label) => {
     const repoRoot = await mkdtemp(join(tmpdir(), 'storefront-edge-options-'));
     temporaryRoots.push(repoRoot);
     const originMainSha = await createStorefrontEdgeInventoryFixture(repoRoot);

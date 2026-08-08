@@ -1,5 +1,5 @@
-import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { normalizePostHogProxyPath } from '../../src/lib/posthog/config';
+import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
