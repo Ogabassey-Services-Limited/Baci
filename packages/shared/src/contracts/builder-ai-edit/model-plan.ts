@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { insertableComponentSchema, productGridPatchSchema } from './catalog';
 import { componentPatchSchema, heroCarouselSlidePatchFields } from './content';
+import { footerPatchSchema } from './footer-patch';
+import { headerPatchSchema } from './header-patch';
 import {
   MAX_AI_PLAN_INSERTS,
   MAX_AI_PLAN_OPERATIONS,
   MAX_AI_PLAN_SERIALIZED_UTF8_BYTES,
 } from './limits';
-import { footerPatchSchema, headerPatchSchema } from './navigation';
 
 const boundedComponentId = z.string().trim().min(1).max(120);
 const boundedTitle = z.string().trim().min(1).max(120);
