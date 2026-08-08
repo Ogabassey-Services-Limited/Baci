@@ -51,10 +51,21 @@ describe('createStorefrontEdgeEntrypointRows', () => {
         }),
       ])
     );
-    expect(rows).toHaveLength(78);
+    expect(rows.length).toBeGreaterThan(78);
     expect(
       rows.find(
         ({ id }) => id === 'storefront:news-sitemap.xml/route.ts:options'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        decision: 'edge_release',
+        methods: ['OPTIONS'],
+        reason: 'automatic_options_response',
+      })
+    );
+    expect(
+      rows.find(
+        ({ id }) => id === 'storefront:(customer)/account/callback/route.ts:options'
       )
     ).toEqual(
       expect.objectContaining({

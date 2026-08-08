@@ -39,7 +39,6 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
       pathCondition: {
         firstSegmentIn: [
           'auth',
-          'admin',
           'builder',
           'dashboard',
           'forgot-password',

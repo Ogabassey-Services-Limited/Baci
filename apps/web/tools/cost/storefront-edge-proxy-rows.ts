@@ -51,7 +51,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   ),
   proxyClass(
     'proxy:blog-query-canonical',
-    '/blog/{*path}?{legacyThumbnailQuery}',
+    '/blog/{*path?}?{legacyThumbnailQuery}',
     ['GET', 'HEAD'],
     'edge_redirect',
     'canonical_blog_query_normalization',
@@ -93,7 +93,13 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     '/wc-api/klp_wc_payment_webhook',
     ['ANY'],
     'edge_terminal',
-    'retired_webhook_returns_410'
+    'retired_webhook_returns_410',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_klump_webhook_normalized',
+      },
+    }
   ),
   proxyClass(
     'proxy:legacy-terms-alias',
@@ -112,7 +118,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:lowercase-document',
     '/{*mixedCaseDocument}',
-    ['GET', 'HEAD'],
+    ['ANY'],
     'edge_redirect',
     'lowercase_storefront_canonicalization',
     {
@@ -131,7 +137,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     {
       pathCondition: {
         precedence: 'before_path_decision',
-        predicate: 'trailing_slash',
+        predicate: 'trailing_slash_excluding_well_known',
       },
     }
   ),
@@ -202,6 +208,10 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     'edge_redirect',
     'retired_storefront_alias_redirect',
     {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        precedence: 'before_path_decision',
+      },
       pathCondition: {
         precedence: 'before_path_decision',
         predicate: 'retired_storefront_slug_prefix',

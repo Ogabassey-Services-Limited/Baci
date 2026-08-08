@@ -125,7 +125,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       'proxy:blog-query-canonical': 'legacy_blog_thumbnail_query',
       'proxy:cache-safe-punctuation': 'cache_safe_imported_punctuation',
       'proxy:lowercase-document': 'mixed_case_path',
-      'proxy:no-trailing-slash': 'trailing_slash',
+      'proxy:no-trailing-slash': 'trailing_slash_excluding_well_known',
       'proxy:product-canonical': 'noncanonical_product_route_or_variant',
       'proxy:redundant-slug-prefix': 'redundant_storefront_slug_prefix',
       'proxy:current-slug-api': 'current_storefront_slug_api',
@@ -165,7 +165,6 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         pathCondition: expect.objectContaining({
           firstSegmentIn: [
             'auth',
-            'admin',
             'builder',
             'dashboard',
             'forgot-password',

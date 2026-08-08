@@ -13,7 +13,7 @@ const API_TERMINAL_ROW: InventoryRow = {
   id: 'api:unlisted',
   methods: ['ANY'],
   reason: 'closed_api_inventory_default',
-  routePattern: '/api/{*unlisted}',
+  routePattern: '/api/{*unlisted?}',
   sourceKind: 'api_family',
 };
 
@@ -216,6 +216,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/lib/storefront-product-slug-membership.ts',
     'apps/web/src/lib/storefront-route-identifier.ts',
     'apps/web/src/lib/storefront-unsafe-pdp-segments.ts',
+    'apps/web/src/lib/posthog/config.ts',
     ...new Set(Object.values(STOREFRONT_EDGE_MACHINE_SOURCE_PATHS)),
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.map(({ sourcePath }) => sourcePath),
   ],

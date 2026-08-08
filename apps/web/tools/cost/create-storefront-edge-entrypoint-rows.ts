@@ -105,7 +105,6 @@ export function createStorefrontEdgeEntrypointRows(
       sourcePath,
     };
     if (
-      classification.decision === 'edge_redirect' &&
       relativeSourcePath.endsWith('route.ts') &&
       methods.length > 0 &&
       !methods.includes('OPTIONS')

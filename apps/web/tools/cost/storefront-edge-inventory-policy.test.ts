@@ -85,7 +85,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       if (routePattern === STOREFRONT_AGENT_ROUTES.agenticApiBase) continue;
       expect(patterns.has(routePattern), `missing ${routePattern}`).toBe(true);
     }
-    expect(patterns.get('/.well-known/{*unlisted}')).toEqual(
+    expect(patterns.get('/.well-known/{*unlisted?}')).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
     expect(patterns.has('/.well-known/{*path}')).toBe(false);
