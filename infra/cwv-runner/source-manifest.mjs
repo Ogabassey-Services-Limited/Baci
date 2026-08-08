@@ -26,7 +26,7 @@ const GIT_ENV_KEYS = new Set([
 ]);
 
 function trustedGitEnvironment() {
-  const env = { ...process.env, PATH: '/usr/bin:/bin', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
+  const env = { ...process.env, PATH: '/usr/bin:/bin', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_NO_REPLACE_OBJECTS: '1' };
   for (const key of Object.keys(env)) {
     if (GIT_ENV_KEYS.has(key) || /^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(key)) delete env[key];
   }
