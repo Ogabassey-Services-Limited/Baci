@@ -53,7 +53,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     expect(byId.get('proxy:markdown-mirror')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
-        methods: ['GET', 'HEAD'],
+        methods: ['GET', 'HEAD', 'OPTIONS'],
         routePattern: '/{*storefrontMarkdownPath}.md',
       })
     );
@@ -79,7 +79,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     expect(byId.get('proxy:current-slug-api')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
-        routePattern: '/{currentSlug}/api/{*path}',
+        routePattern: '/{currentSlug}/api/{*path?}',
         methods: ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
         hostCondition: {
           hostKind: 'custom_domain',
@@ -124,6 +124,8 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     const expectedPredicates = {
       'proxy:blog-query-canonical': 'legacy_blog_thumbnail_query',
       'proxy:blog-category-canonical': 'legacy_blog_category_permalink',
+      'proxy:blog-wordpress-probe': 'legacy_blog_wordpress_probe',
+      'proxy:blog-spam-prefix': 'legacy_blog_spam_prefix',
       'proxy:cache-safe-punctuation': 'cache_safe_imported_punctuation',
       'proxy:lowercase-document': 'mixed_case_path',
       'proxy:no-trailing-slash': 'trailing_slash_excluding_well_known',

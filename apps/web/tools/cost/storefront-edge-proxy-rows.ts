@@ -25,9 +25,35 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:markdown-mirror',
     '/{*storefrontMarkdownPath}.md',
-    ['GET', 'HEAD'],
+    ['GET', 'HEAD', 'OPTIONS'],
     'origin_dynamic',
     'storefront_markdown_api_rewrite'
+  ),
+  proxyClass(
+    'proxy:blog-wordpress-probe',
+    '/{*blogProbePath}',
+    ['ANY'],
+    'edge_terminal',
+    'legacy_blog_wordpress_probe_returns_410',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_blog_wordpress_probe',
+      },
+    }
+  ),
+  proxyClass(
+    'proxy:blog-spam-prefix',
+    '/blog/{*spamPath}',
+    ['ANY'],
+    'edge_terminal',
+    'legacy_blog_spam_prefix_returns_410',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_blog_spam_prefix',
+      },
+    }
   ),
   proxyClass(
     'proxy:blog-query-canonical',
@@ -166,7 +192,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   ),
   proxyClass(
     'proxy:current-slug-api',
-    '/{currentSlug}/api/{*path}',
+    '/{currentSlug}/api/{*path?}',
     ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
     'origin_dynamic',
     'current_slug_api_rewrite_preserves_body',

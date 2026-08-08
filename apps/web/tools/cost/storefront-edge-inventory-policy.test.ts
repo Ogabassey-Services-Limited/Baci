@@ -96,18 +96,36 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     const rows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows;
 
     // Act
-    const indexNow = rows.find((row) => row.id === 'machine:indexnow-key');
+    const indexNow = rows.filter((row) =>
+      row.id.startsWith('machine:indexnow-key-')
+    );
     const draftRows = rows.filter((row) =>
       row.id.startsWith('request-override:draft-mode')
     );
 
     // Assert
+    expect(indexNow).toHaveLength(2);
     expect(indexNow).toEqual(
-      expect.objectContaining({
-        decision: 'edge_release',
-        methods: ['GET', 'HEAD', 'OPTIONS'],
-        routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
-      })
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'machine:indexnow-key-root',
+          decision: 'edge_release',
+          methods: ['GET', 'HEAD', 'OPTIONS'],
+          routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
+          hostCondition: expect.objectContaining({
+            hostKind: 'platform_root_domain',
+          }),
+        }),
+        expect.objectContaining({
+          id: 'machine:indexnow-key-custom-domain',
+          decision: 'edge_release',
+          methods: ['GET', 'HEAD', 'OPTIONS'],
+          routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
+          hostCondition: expect.objectContaining({
+            hostKind: 'custom_domain',
+          }),
+        }),
+      ])
     );
     expect(draftRows).toHaveLength(2);
     expect(draftRows.every((row) => row.decision === 'origin_dynamic')).toBe(

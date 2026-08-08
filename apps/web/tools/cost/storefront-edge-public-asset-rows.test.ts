@@ -14,6 +14,8 @@ describe('STOREFRONT_EDGE_PUBLIC_ASSET_ROWS', () => {
         '/african-santa-head.svg',
         '/apple-touch-icon.png',
         '/baci-verified-favicon.svg',
+        '/baci-logo.svg',
+        '/baci-logo-dark.svg',
         '/badges/app-store-black.svg',
         '/badges/google-play.svg',
         '/favicon-16x16.png',
@@ -24,7 +26,7 @@ describe('STOREFRONT_EDGE_PUBLIC_ASSET_ROWS', () => {
         '/template-previews/ogabassey-v2.png',
       ])
     );
-    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(11);
+    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(13);
     expect(byPattern.size).toBe(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.length);
     expect(
       STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.every(

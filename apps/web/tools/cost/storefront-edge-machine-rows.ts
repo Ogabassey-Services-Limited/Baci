@@ -197,12 +197,30 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
     'GET',
     'HEAD',
   ]),
-  machineFamily(
-    'machine:indexnow-key',
-    '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
-    ['GET', 'HEAD'],
-    'edge_release'
-  ),
+  {
+    ...machineFamily(
+      'machine:indexnow-key-root',
+      '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
+      ['GET', 'HEAD'],
+      'edge_release'
+    ),
+    hostCondition: {
+      hostKind: 'platform_root_domain',
+      precedence: 'before_path_decision',
+    },
+  },
+  {
+    ...machineFamily(
+      'machine:indexnow-key-custom-domain',
+      '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
+      ['GET', 'HEAD'],
+      'edge_release'
+    ),
+    hostCondition: {
+      hostKind: 'custom_domain',
+      precedence: 'before_path_decision',
+    },
+  },
   machineFamily(
     'machine:robots',
     '/robots.txt',

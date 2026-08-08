@@ -26,7 +26,7 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "0bf545fe4ab502a664729482a5fb047ab1de0e50d74f77116b3a25778f3f5121",
-  "routingProxyInputSha256": "cf1b87e609a3de6ac99c21c4b822e5ea66b4a5d7d1cf77a87cd1cb89ceef59c7",
+  "routingProxyInputSha256": "02bbfc64f740aa7053511b15e5ada6ff65f469c2092854be3c2d4c38ab6bc667",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -5009,7 +5009,7 @@
     },
     {
       "decision": "edge_release",
-      "id": "machine:indexnow-key",
+      "id": "machine:indexnow-key-custom-domain",
       "methods": [
         "GET",
         "HEAD",
@@ -5018,7 +5018,28 @@
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
       "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts"
+      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_release",
+      "id": "machine:indexnow-key-root",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      }
     },
     {
       "decision": "origin_dynamic",
@@ -5455,6 +5476,34 @@
       }
     },
     {
+      "decision": "edge_terminal",
+      "id": "proxy:blog-spam-prefix",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "legacy_blog_spam_prefix_returns_410",
+      "routePattern": "/blog/{*spamPath}",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "legacy_blog_spam_prefix"
+      }
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "proxy:blog-wordpress-probe",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "legacy_blog_wordpress_probe_returns_410",
+      "routePattern": "/{*blogProbePath}",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "legacy_blog_wordpress_probe"
+      }
+    },
+    {
       "decision": "edge_redirect",
       "id": "proxy:cache-safe-punctuation",
       "methods": [
@@ -5481,7 +5530,7 @@
         "PUT"
       ],
       "reason": "current_slug_api_rewrite_preserves_body",
-      "routePattern": "/{currentSlug}/api/{*path}",
+      "routePattern": "/{currentSlug}/api/{*path?}",
       "sourceKind": "proxy_path_class",
       "hostCondition": {
         "hostKind": "custom_domain",
@@ -5593,7 +5642,8 @@
       "id": "proxy:markdown-mirror",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "storefront_markdown_api_rewrite",
       "routePattern": "/{*storefrontMarkdownPath}.md",
@@ -5862,6 +5912,30 @@
       "routePattern": "/apple-touch-icon.png",
       "sourceKind": "public_asset",
       "sourcePath": "apps/web/public/apple-touch-icon.png"
+    },
+    {
+      "decision": "edge_release",
+      "id": "public-asset:baci-logo-dark.svg",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "storefront_referenced_public_asset",
+      "routePattern": "/baci-logo-dark.svg",
+      "sourceKind": "public_asset",
+      "sourcePath": "apps/web/public/baci-logo-dark.svg"
+    },
+    {
+      "decision": "edge_release",
+      "id": "public-asset:baci-logo.svg",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "storefront_referenced_public_asset",
+      "routePattern": "/baci-logo.svg",
+      "sourceKind": "public_asset",
+      "sourcePath": "apps/web/public/baci-logo.svg"
     },
     {
       "decision": "edge_release",
@@ -7212,5 +7286,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "f8d6e726b380871467f8f1d885826807012f4df32cdc2194f11d4a1595b4ae8e"
+  "inventorySha256": "e28ac13f7f0fe0cafa2ffcf0df57f56070bd10f567a968c2b63698b96256c3cf"
 }
