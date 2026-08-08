@@ -1,5 +1,9 @@
-import { STOREFRONT_EDGE_PROXY_HOST_ROWS } from './storefront-edge-proxy-host-rows';
+import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
+import { STOREFRONT_EDGE_PROXY_HOST_ROWS } from './storefront-edge-proxy-host-rows';
+
+type InventoryRow = StorefrontEdgeInventory['rows'][number];
+
 const proxyClass = createStorefrontEdgeProxyClass;
 
 /** Closed directional classes mirrored from the current storefront proxy. */

@@ -1,4 +1,8 @@
+import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
+
+type InventoryRow = StorefrontEdgeInventory['rows'][number];
+
 const proxyClass = createStorefrontEdgeProxyClass;
 
 /** Host-conditioned proxy classes that must precede storefront resolution. */
