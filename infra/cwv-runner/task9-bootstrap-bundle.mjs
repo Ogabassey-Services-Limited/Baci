@@ -1,7 +1,6 @@
 // biome-ignore-all format: compact fail-closed generator stays below the 300-line limit
 import { createHash, randomBytes } from 'node:crypto';
 import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -112,7 +111,7 @@ function checkedTransactionId(supplied) {
 
 export function generateTask9BootstrapBundle(
   input,
-  { beforeVerify = () => undefined, makeOutputDirectory = mkdirSync } = {}
+  { beforeVerify = () => undefined, makeOutputDirectory = mkdirSync, outputParent = '/private/tmp' } = {}
 ) {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     fail('invalid Task 9 bundle input');
@@ -120,7 +119,7 @@ export function generateTask9BootstrapBundle(
   const bundleId = logicalId('task9-bundle', input.bundleId);
   const outputRoot = resolve(input.outputRoot ?? join('/private/tmp', `baci-cwv-task9-bootstrap-${transactionId}`));
   if (
-    !['/private/tmp', resolve(tmpdir())].includes(dirname(outputRoot)) ||
+    dirname(outputRoot) !== resolve(outputParent) ||
     basename(outputRoot) !== `baci-cwv-task9-bootstrap-${transactionId}` ||
     lstatSync(outputRoot, { throwIfNoEntry: false })
   )

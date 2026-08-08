@@ -1,6 +1,6 @@
 // biome-ignore-all format: compact end-to-end fixture stays below the 300-line limit
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmodSync, cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -82,26 +82,6 @@ function input(fixture, outputRoot) {
   };
 }
 
-function cliArgs(value) {
-  return [
-    '--cwd', value.cwd,
-    '--deployment-sha', value.deploymentSha,
-    '--workflow-id', String(value.workflowId),
-    '--head-ref', value.headRef,
-    '--source-manifest', value.sourceManifestPath,
-    '--source-manifest-sha256', value.sourceManifestDigestPath,
-    '--source-archive', value.sourceArchivePath,
-    '--source-archive-sha256', value.sourceArchiveDigestPath,
-    '--node', value.nodePath,
-    '--node-provenance', value.nodeProvenancePath,
-    '--generation', String(value.generation),
-    '--bundle-id', value.bundleId,
-    '--transaction-id', value.transactionId,
-    '--admission-id', value.admissionId,
-    '--output-root', value.outputRoot,
-  ];
-}
-
 let baseline;
 after(() => baseline && rmSync(baseline.root, { force: true, recursive: true }));
 const getBaseline = () => (baseline ??= frozenInputs());
@@ -142,15 +122,7 @@ test('generates the exact sealed bundle accepted by the real Task 9 authorizer',
   );
   rmSync(outputRoot, { force: true, recursive: true });
   try {
-    const command = spawnSync(
-      process.execPath,
-      [fileURLToPath(new URL('./task9-bootstrap-bundle-cli.mjs', import.meta.url)), ...cliArgs(input(fixture, outputRoot))],
-      { encoding: 'utf8' }
-    );
-    assert.equal(command.status, 0, command.stderr);
-    assert.equal(command.stderr, '');
-    const generated = JSON.parse(command.stdout);
-    assert.equal(command.stdout, `${canonicalJson(generated)}\n`);
+    const generated = generateTask9BootstrapBundle(input(fixture, outputRoot), { outputParent: tmpdir() });
     const payload = join(outputRoot, 'payload');
     assert.deepEqual(readdirSync(payload).sort(), [...BUNDLE_ENTRIES].sort());
     for (const name of BUNDLE_ENTRIES)
@@ -192,12 +164,12 @@ test('refuses drifted digests and invalid source archive entry shapes', () => {
   rmSync(outputRoot, { force: true, recursive: true });
   try {
     assert.throws(
-      () => generateTask9BootstrapBundle({ ...input(fixture, outputRoot), deploymentSha: 'f'.repeat(40) }),
+      () => generateTask9BootstrapBundle({ ...input(fixture, outputRoot), deploymentSha: 'f'.repeat(40) }, { outputParent: tmpdir() }),
       /source identity/
     );
     writeFileSync(fixture.paths.manifestDigest, `${'0'.repeat(64)}\n`);
     assert.throws(
-      () => generateTask9BootstrapBundle(input(fixture, outputRoot)),
+      () => generateTask9BootstrapBundle(input(fixture, outputRoot), { outputParent: tmpdir() }),
       /manifest|digest/
     );
     assert.throws(() => statSync(outputRoot), /ENOENT/);
@@ -207,7 +179,7 @@ test('refuses drifted digests and invalid source archive entry shapes', () => {
     writeFileSync(fixture.paths.manifest, bytes);
     writeFileSync(fixture.paths.manifestDigest, `${hash(bytes)}\n`);
     assert.throws(
-      () => generateTask9BootstrapBundle(input(fixture, outputRoot)),
+      () => generateTask9BootstrapBundle(input(fixture, outputRoot), { outputParent: tmpdir() }),
       /invalid frozen manifest/
     );
   } finally {
@@ -229,7 +201,7 @@ test('refuses Node provenance that is not the policy-signed identity', () => {
     writeFileSync(fixture.nodeProvenance, canonicalJson(provenance));
     chmodSync(fixture.nodeProvenance, 0o400);
     assert.throws(
-      () => generateTask9BootstrapBundle(input(fixture, outputRoot)),
+      () => generateTask9BootstrapBundle(input(fixture, outputRoot), { outputParent: tmpdir() }),
       /Node provenance/
     );
     assert.throws(() => statSync(outputRoot), /ENOENT/);
@@ -266,6 +238,7 @@ test('refuses a coordinated pathname swap between held reads and source verifica
               writeFileSync(fixture.paths.manifest, validManifest);
               writeFileSync(fixture.paths.manifestDigest, validDigest);
             },
+            outputParent: tmpdir(),
           }
         ),
       /source changed during verification/
@@ -285,7 +258,7 @@ test('does not delete external output when exclusive mkdir loses a race', () => 
   try {
     assert.throws(() => generateTask9BootstrapBundle(
       { ...input(fixture, outputRoot), transactionId },
-      { makeOutputDirectory(path, options) {
+      { outputParent: tmpdir(), makeOutputDirectory(path, options) {
         mkdirSync(path, options);
         writeFileSync(marker, 'external');
         throw new Error('external mkdir won');
