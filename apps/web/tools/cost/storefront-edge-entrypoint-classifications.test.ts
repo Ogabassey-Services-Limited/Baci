@@ -1,0 +1,17 @@
+import { describe, expect, it } from 'vitest';
+import { STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS } from './storefront-edge-entrypoint-classifications';
+
+describe('STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS', () => {
+  it('keeps redirect and dynamic wildcard outcomes explicit', () => {
+    expect(
+      STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(
+        'storefront/[legacySlug]/swap/route.ts'
+      )
+    ).toEqual(expect.objectContaining({ decision: 'origin_dynamic' }));
+    expect(
+      STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(
+        '(content)/pages/about/page.tsx'
+      )
+    ).toEqual(expect.objectContaining({ decision: 'edge_redirect' }));
+  });
+});
