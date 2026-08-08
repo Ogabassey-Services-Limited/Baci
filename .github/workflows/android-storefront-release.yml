@@ -121,6 +121,16 @@ jobs:
           store-dir: ${{ env.PNPM_STORE_DIR }}
           install-command: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
 
+      - name: Expose PostHog CLI to Gradle
+        shell: bash
+        run: |
+          POSTHOG_CLI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/posthog-cli"
+          if [ ! -x "$POSTHOG_CLI_BIN" ]; then
+            echo "::error::PostHog CLI is missing or not executable at $POSTHOG_CLI_BIN"
+            exit 1
+          fi
+          dirname "$POSTHOG_CLI_BIN" >> "$GITHUB_PATH"
+
       - name: Fix Hermes compiler path
         # RN 0.83+ ships hermesc in the hermes-compiler package, but
         # Gradle still resolves it via react-native/sdks/hermesc/.

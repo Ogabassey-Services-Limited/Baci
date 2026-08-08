@@ -173,6 +173,34 @@ describe('Expo compliance', () => {
     );
   });
 
+  it('exposes the workspace PostHog CLI before the Android release build', () => {
+    const workflowSource = readFileSync(
+      path.resolve(
+        ROOT,
+        '../../.github/workflows/android-storefront-release.yml'
+      ),
+      'utf-8'
+    );
+    const installStep = workflowSource.indexOf('name: Install dependencies');
+    const exposeStep = workflowSource.indexOf(
+      'name: Expose PostHog CLI to Gradle'
+    );
+    const buildStep = workflowSource.indexOf(
+      'name: Build Android App Bundle (storefront)'
+    );
+
+    expect(installStep).toBeGreaterThan(-1);
+    expect(exposeStep).toBeGreaterThan(installStep);
+    expect(buildStep).toBeGreaterThan(exposeStep);
+    expect(workflowSource).toContain(
+      '$GITHUB_WORKSPACE/node_modules/.bin/posthog-cli'
+    );
+    expect(workflowSource).toContain('[ ! -x "$POSTHOG_CLI_BIN" ]');
+    expect(workflowSource).toContain(
+      'dirname "$POSTHOG_CLI_BIN" >> "$GITHUB_PATH"'
+    );
+  });
+
   it('uses the supported Node 24 flag to disable type stripping in release workflows', () => {
     const workflowPaths = [
       '../../.github/workflows/android-storefront-release.yml',
