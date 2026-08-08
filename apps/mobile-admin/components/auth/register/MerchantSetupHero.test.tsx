@@ -60,9 +60,7 @@ describe('MerchantSetupHero', () => {
     expect(
       screen.getByText('Add your business details to launch your store.')
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Back to owner details' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Back to about you' }));
     expect(onBack).toHaveBeenCalledOnce();
   });
 });

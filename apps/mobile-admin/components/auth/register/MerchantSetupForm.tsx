@@ -237,7 +237,10 @@ export function MerchantSetupForm() {
 
   return (
     <View style={styles.formSection}>
-      <MerchantSetupProgress step={setupStep} />
+      <MerchantSetupProgress
+        onAboutYouPress={() => setSetupStep(1)}
+        step={setupStep}
+      />
       {setupStep === 1 ? (
         <MerchantSetupOwnerStep
           country={formData.country}

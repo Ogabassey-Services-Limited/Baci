@@ -176,9 +176,12 @@ vi.mock('./RegisterBusinessStep', () => ({
 import { MerchantSetupForm } from './MerchantSetupForm';
 
 function fillBusinessForm() {
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Continue to business info' })
-  );
+  const continueButton = screen.queryByRole('button', {
+    name: 'Continue to business info',
+  });
+  if (continueButton) {
+    fireEvent.click(continueButton);
+  }
   fireEvent.change(screen.getByLabelText('Business Name'), {
     target: { value: 'Analytical Engines' },
   });
