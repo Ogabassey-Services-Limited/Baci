@@ -178,7 +178,7 @@ export function getProductConnectivityDiscriminators(
       BATTERY_CAPACITY_DISCRIMINATOR_PATTERN.test(token) ||
       WATTAGE_DISCRIMINATOR_PATTERN.test(token) ||
       VOLTAGE_DISCRIMINATOR_PATTERN.test(token) ||
-      (categorySlug === 'monitors' &&
+      ((categorySlug === 'monitors' || categorySlug === 'gaming-laptops') &&
         REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||
       laptopHardwareTokens.has(token) ||

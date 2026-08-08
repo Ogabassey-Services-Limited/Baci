@@ -41,6 +41,15 @@ describe('modelTokenMatchers', () => {
     expect(result).toEqual(['pavilion', '15']);
   });
 
+  it('strips a numeric Intel Core processor suffix', () => {
+    const result = modelTokenMatchers.stripTrailingLaptopProcessorTier(
+      ['inspiron', '7440', 'intel', 'core', '7', '150u'],
+      'laptops'
+    );
+
+    expect(result).toEqual(['inspiron', '7440']);
+  });
+
   it('expands a simple compact game code for shared tokenization', () => {
     expect(modelTokenMatchers.expandMixedGameCodeToken('fifa23')).toEqual([
       'fifa',

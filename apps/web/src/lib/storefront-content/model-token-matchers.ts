@@ -33,7 +33,7 @@ function isDimensionToken(tokens: string[], index: number) {
 }
 
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
-const NUMERIC_PROCESSOR_SUFFIX_PATTERN = /^\d{4,}[uhtpkgfy]$/u;
+const NUMERIC_PROCESSOR_SUFFIX_PATTERN = /^\d{3,}[uhtpkgfy]$/u;
 
 function isNumericLaptopProcessorSuffix(tokens: string[], index: number) {
   return NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index] ?? '');
@@ -51,6 +51,9 @@ function stripTrailingLaptopProcessorTier(
       ((token === 'ultra' || token === 'rtx') &&
         /^\d+$/u.test(tokens[index + 1] ?? '')) ||
       (token === 'core' && /^i[3579]$/u.test(tokens[index + 1] ?? '')) ||
+      (token === 'core' &&
+        /^\d+$/u.test(tokens[index + 1] ?? '') &&
+        NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index + 2] ?? '')) ||
       (token === 'ryzen' &&
         /^\d{1,2}$/u.test(tokens[index + 1] ?? '') &&
         NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index + 2] ?? '')) ||
@@ -71,6 +74,14 @@ function stripTrailingLaptopProcessorTier(
         : processorIndex - 1;
   } else if (tokens[processorIndex] === 'ryzen') {
     processorStartIndex = processorIndex;
+  } else if (
+    tokens[processorIndex] === 'core' &&
+    /^\d+$/u.test(tokens[processorIndex + 1] ?? '')
+  ) {
+    processorStartIndex =
+      tokens[processorIndex - 1] === 'intel'
+        ? processorIndex - 1
+        : processorIndex;
   } else if (
     isNumericLaptopProcessorSuffix(tokens, processorIndex) &&
     /^\d{1,2}$/u.test(tokens[processorIndex - 1] ?? '')

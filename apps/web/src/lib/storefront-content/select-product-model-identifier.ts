@@ -75,14 +75,6 @@ function normalizeAppleWatchSeTokens(tokens: string[]) {
   return normalizedTokens;
 }
 
-function isAlphanumericModelCode(token: string) {
-  return (
-    /[a-z]/u.test(token) &&
-    /\d/u.test(token) &&
-    !/^\d+(?:st|nd|rd|th)$/u.test(token)
-  );
-}
-
 function isGenerationYearToken(tokens: string[], index: number) {
   const token = tokens[index] ?? '';
   if (!YEAR_TOKEN_PATTERN.test(token)) {
@@ -92,7 +84,20 @@ function isGenerationYearToken(tokens: string[], index: number) {
   const previousToken = tokens[index - 1] ?? '';
   const hasAlphanumericModelBefore = tokens
     .slice(0, index)
-    .some(isAlphanumericModelCode);
+    .some(
+      (candidate) =>
+        /[a-z]/u.test(candidate) &&
+        /\d/u.test(candidate) &&
+        !YEAR_TOKEN_PATTERN.test(candidate)
+    );
+  const hasHardwareTierBefore = tokens
+    .slice(0, index)
+    .some(
+      (candidate) =>
+        /^m\d+$/u.test(candidate) ||
+        /^\d{3,}[uhtpkgfy]$/u.test(candidate) ||
+        /^core(?:i|ultra)\d+$/u.test(candidate)
+    );
   return (
     (['gen', 'generation'].includes(previousToken) &&
       tokens
@@ -100,7 +105,10 @@ function isGenerationYearToken(tokens: string[], index: number) {
         .some(
           (suffixToken) => /[a-z]/u.test(suffixToken) && /\d/u.test(suffixToken)
         )) ||
-    (hasAlphanumericModelBefore && index === tokens.length - 1)
+    (hasAlphanumericModelBefore &&
+      !hasHardwareTierBefore &&
+      !['gen', 'generation'].includes(previousToken) &&
+      index === tokens.length - 1)
   );
 }
 
@@ -116,8 +124,9 @@ function getPreferredNumericModelIndex(
         /^\d+$/u.test(token) &&
         (preserveGameTitleTokens ||
           !YEAR_TOKEN_PATTERN.test(token) ||
-          !hasNonYearAlphanumericModel ||
-          isGenerationYearToken(tokens, index))
+          isGenerationYearToken(tokens, index) ||
+          (!['gen', 'generation'].includes(tokens[index - 1] ?? '') &&
+            !hasNonYearAlphanumericModel))
     )
     .map(({ index }) => index);
   const latestNumericIndex = numericIndices.at(-1) ?? -1;

@@ -7,6 +7,19 @@ describe('normalizeProductModelTokens', () => {
       normalizeProductModelTokens(['samsung', 'watch', '7', '40mm', 'bt'])
     ).toEqual(['samsung', 'watch', '7', '40mm']);
   });
+
+  it('removes portable descriptors before connectivity suffixes', () => {
+    expect(
+      normalizeProductModelTokens([
+        'jbl',
+        'flip',
+        '6',
+        'portable',
+        'bluetooth',
+        'speaker',
+      ])
+    ).toEqual(['jbl', 'flip', '6']);
+  });
   it('returns an empty list for empty input', () => {
     expect(normalizeProductModelTokens([])).toEqual([]);
   });
@@ -96,6 +109,21 @@ describe('normalizeProductModelTokens', () => {
     ]);
 
     expect(tokens).toEqual(['apple', 'iphone', '15']);
+  });
+
+  it('retains model tokens that follow a decimal display size', () => {
+    expect(
+      normalizeProductModelTokens([
+        'macbook',
+        'air',
+        '13',
+        '6',
+        'inch',
+        'm4',
+        '16gb',
+        '256gb',
+      ])
+    ).toEqual(['macbook', 'air', 'm4', '16gb', '256gb']);
   });
 
   it('removes a terminal quote-only decimal display size', () => {

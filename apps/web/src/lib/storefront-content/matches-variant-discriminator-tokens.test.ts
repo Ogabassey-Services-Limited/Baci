@@ -107,4 +107,15 @@ describe('matchesVariantDiscriminatorTokens', () => {
       )
     ).toBe(true);
   });
+
+  it('matches a GPU-specific guide when CPU and GPU tiers coexist', () => {
+    expect(
+      matchesVariantDiscriminatorTokens(
+        ['dell', 'g15', 'rtx4060'],
+        ['corei7', 'rtx4060'],
+        true,
+        true
+      )
+    ).toBe(true);
+  });
 });

@@ -28,6 +28,9 @@ const VOLTAGE_TOKEN_PATTERN = /^\d+v$/u;
 const REFRESH_RATE_TOKEN_PATTERN = /^\d+hz$/u;
 const HARDWARE_TIER_TOKEN_PATTERN =
   /^(?:coreultra\d+|rtx\d+|corei[3579]|i[3579]|\d{4,}[uhtpkgfy])$/u;
+const CPU_TIER_TOKEN_PATTERN =
+  /^(?:coreultra\d+|corei[3579]|i[3579]|\d{3,}[uhtpkgfy])$/u;
+const GPU_TIER_TOKEN_PATTERN = /^rtx\d+$/u;
 
 function matchesTokenMultiset(tokens: string[], expected: string[]) {
   const sortedTokens = [...tokens].sort();
@@ -43,7 +46,16 @@ function matchesExpectedGroup(
   occurrenceTokens: string[],
   expectedTokens: string[]
 ) {
-  if (['connectivity', 'sim', 'color', 'hardware'].includes(group)) {
+  if (
+    [
+      'connectivity',
+      'sim',
+      'color',
+      'hardware',
+      'cpu-hardware',
+      'gpu-hardware',
+    ].includes(group)
+  ) {
     return matchesTokenMultiset(occurrenceTokens, expectedTokens);
   }
   return expectedTokens.every((token) => occurrenceTokens.includes(token));
@@ -76,6 +88,12 @@ function getTokenGroup(token: string) {
   }
   if (isProductVariantRegionToken(token)) {
     return 'region';
+  }
+  if (CPU_TIER_TOKEN_PATTERN.test(token)) {
+    return 'cpu-hardware';
+  }
+  if (GPU_TIER_TOKEN_PATTERN.test(token)) {
+    return 'gpu-hardware';
   }
   if (HARDWARE_TIER_TOKEN_PATTERN.test(token)) {
     return 'hardware';

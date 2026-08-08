@@ -50,4 +50,8 @@ describe('selectProductModelIdentifier', () => {
       'apple usb c 20w'
     );
   });
+
+  it('drops a catalog year after an alphanumeric chip model', () => {
+    expect(selectProductModelIdentifier(['air', 'm4', '2025'])).toBe('air m4');
+  });
 });

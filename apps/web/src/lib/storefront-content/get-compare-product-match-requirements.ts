@@ -123,9 +123,12 @@ function getSourceDiscriminatorTokens(
           sourceTokens.some((otherToken) =>
             /(?:corei|coreultra|rtx)/u.test(otherToken)
           )));
+    const isExplicitRamVariant =
+      RAM_DOMINANT_CATEGORIES.has(categorySlug) &&
+      sourceTokens[index + 1] === 'ram';
     if (
       !identifierTokens.has(token) &&
-      !isLikelyRam &&
+      (!isLikelyRam || isExplicitRamVariant) &&
       (VARIANT_DISCRIMINATOR_PATTERN.test(token) ||
         laptopHardwareTokens.has(token) ||
         isProductVariantColorToken(token) ||

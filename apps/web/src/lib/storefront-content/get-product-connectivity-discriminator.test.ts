@@ -189,6 +189,16 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual(['144hz']);
   });
 
+  it('retains gaming-laptop refresh rates as PDP discriminators', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Lenovo Legion 5 144Hz'],
+        [],
+        'gaming-laptops'
+      )
+    ).toEqual(['144hz']);
+  });
+
   it('retains a terminal regional PDP variant', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Apple iPhone 15 US'],

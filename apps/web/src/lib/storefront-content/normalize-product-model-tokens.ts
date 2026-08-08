@@ -30,6 +30,7 @@ const CONNECTIVITY_MARKER_TOKENS = new Set([
   'single',
 ]);
 const LEADING_CONNECTIVITY_DESCRIPTOR_TOKENS = new Set([
+  'portable',
   'speaker',
   'headphones',
   'earbuds',
@@ -127,7 +128,14 @@ function stripOptionalConnectivitySuffix(tokens: string[]) {
     }
     return leadingTokens.slice(firstModelIndex);
   }
-  return tokens.slice(0, markerIndex + 1);
+  let modelEndIndex = markerIndex + 1;
+  while (
+    modelEndIndex > 0 &&
+    LEADING_CONNECTIVITY_DESCRIPTOR_TOKENS.has(tokens[modelEndIndex - 1] ?? '')
+  ) {
+    modelEndIndex -= 1;
+  }
+  return tokens.slice(0, modelEndIndex);
 }
 function stripDecimalDisplaySuffix(
   tokens: string[],
@@ -161,7 +169,23 @@ function stripDecimalDisplaySuffix(
     );
   });
 
-  return decimalIndex > 0 ? tokens.slice(0, decimalIndex) : tokens;
+  if (decimalIndex <= 0) {
+    return tokens;
+  }
+  let suffixEnd = decimalIndex + 2;
+  if (tokens[suffixEnd] === 'inch') {
+    suffixEnd += 1;
+  }
+  while (
+    suffixEnd < tokens.length &&
+    DISPLAY_SUFFIX_MARKER_TOKENS.has(tokens[suffixEnd] ?? '')
+  ) {
+    suffixEnd += 1;
+  }
+  if (tokens[suffixEnd] === 'non' && tokens[suffixEnd + 1] === 'touch') {
+    suffixEnd += 2;
+  }
+  return [...tokens.slice(0, decimalIndex), ...tokens.slice(suffixEnd)];
 }
 function stripOptionalFeatureSuffix(tokens: string[]) {
   const touchBarIndex = tokens.findIndex(

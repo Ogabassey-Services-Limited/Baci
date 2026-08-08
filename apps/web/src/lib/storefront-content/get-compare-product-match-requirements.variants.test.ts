@@ -227,4 +227,29 @@ describe('getCompareProductMatchRequirements variant preservation', () => {
       },
     ]);
   });
+
+  it('retains explicit laptop RAM variants in compare requirements', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'laptops',
+      brands: ['Lenovo'],
+      productNames: [
+        'Lenovo ThinkPad T14 8GB RAM 512GB',
+        'Lenovo ThinkPad T14 16GB RAM 512GB',
+      ],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: 'thinkpad t14',
+        brand: 'lenovo',
+        discriminatorTokens: ['8gb', '512gb'],
+      },
+      {
+        identifier: 'thinkpad t14',
+        brand: 'lenovo',
+        discriminatorTokens: ['16gb', '512gb'],
+      },
+    ]);
+  });
 });
