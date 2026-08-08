@@ -20,7 +20,7 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "20aa5c3652e87190c18ca023b31030f61aa8d580",
+  "originMainSha": "3e8da4ade554ac4c4b1cfea6866ac678796f5559",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
@@ -4882,7 +4882,8 @@
       "id": "machine:ads",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/ads.txt",
@@ -4894,7 +4895,8 @@
       "id": "machine:agent-auth-document",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/auth.md",
@@ -4906,7 +4908,8 @@
       "id": "machine:agent-commerce-manifest",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/agent-commerce.json",
@@ -4918,7 +4921,8 @@
       "id": "machine:agent-trust-document",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/agent-trust.json",
@@ -4930,7 +4934,8 @@
       "id": "machine:feed-agentProducts",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/feeds/agent-products.jsonl",
@@ -4942,7 +4947,8 @@
       "id": "machine:feed-agentRepairs",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/feeds/agent-repairs.jsonl",
@@ -4954,7 +4960,8 @@
       "id": "machine:feed-facebookCatalogXml",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/feeds/facebook.xml",
@@ -4966,7 +4973,8 @@
       "id": "machine:feed-facebookRepairsXml",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/feeds/facebook-repairs.xml",
@@ -4978,7 +4986,8 @@
       "id": "machine:feed-googleMerchantXml",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/feeds/google-merchant.xml",
@@ -4990,7 +4999,8 @@
       "id": "machine:feed-openaiProductFeed",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/feeds/openai.jsonl",
@@ -5002,7 +5012,8 @@
       "id": "machine:indexnow-key",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
@@ -5014,7 +5025,8 @@
       "id": "machine:llms",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/llms.txt",
@@ -5026,7 +5038,8 @@
       "id": "machine:llms-full",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/llms-full.txt",
@@ -5076,7 +5089,8 @@
       "id": "machine:openapi",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/openapi.json",
@@ -5126,7 +5140,8 @@
       "id": "machine:well-known-acp",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/acp.json",
@@ -5139,6 +5154,7 @@
       "methods": [
         "GET",
         "HEAD",
+        "OPTIONS",
         "POST"
       ],
       "reason": "explicit_storefront_machine_family",
@@ -5152,6 +5168,7 @@
       "methods": [
         "GET",
         "HEAD",
+        "OPTIONS",
         "POST"
       ],
       "reason": "explicit_storefront_machine_family",
@@ -5165,6 +5182,7 @@
       "methods": [
         "GET",
         "HEAD",
+        "OPTIONS",
         "POST"
       ],
       "reason": "explicit_storefront_machine_family",
@@ -5177,7 +5195,8 @@
       "id": "machine:well-known-agent-native-commerce",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/agent-native-commerce",
@@ -5189,7 +5208,8 @@
       "id": "machine:well-known-agent-skill-index",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/agent-skills/index.json",
@@ -5201,7 +5221,8 @@
       "id": "machine:well-known-agent-skill-markdown",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/agent-skills/baci-storefront/SKILL.md",
@@ -5213,7 +5234,8 @@
       "id": "machine:well-known-api-catalog",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/api-catalog",
@@ -5225,7 +5247,8 @@
       "id": "machine:well-known-apple-app-site-association",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/apple-app-site-association",
@@ -5237,7 +5260,8 @@
       "id": "machine:well-known-assetlinks",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/assetlinks.json",
@@ -5249,7 +5273,8 @@
       "id": "machine:well-known-http-signatures",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/http-message-signatures-directory",
@@ -5261,7 +5286,8 @@
       "id": "machine:well-known-llms",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/llms.txt",
@@ -5273,7 +5299,8 @@
       "id": "machine:well-known-llms-full",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/llms-full.txt",
@@ -5285,7 +5312,8 @@
       "id": "machine:well-known-mcp-card",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/mcp/server-card.json",
@@ -5297,7 +5325,8 @@
       "id": "machine:well-known-oauth-agent-auth-v1",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/oauth-authorization-server/agent-auth/v1",
@@ -5309,7 +5338,8 @@
       "id": "machine:well-known-oauth-authorization-server",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/oauth-authorization-server",
@@ -5321,7 +5351,8 @@
       "id": "machine:well-known-oauth-protected-resource",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/oauth-protected-resource",
@@ -5333,7 +5364,8 @@
       "id": "machine:well-known-openid-configuration",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/openid-configuration",
@@ -5345,7 +5377,8 @@
       "id": "machine:well-known-ucp",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/.well-known/ucp",
@@ -5384,7 +5417,11 @@
       ],
       "reason": "canonical_blog_query_normalization",
       "routePattern": "/blog/{*path}?{legacyThumbnailQuery}",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "legacy_blog_thumbnail_query"
+      }
     },
     {
       "decision": "edge_redirect",
@@ -5395,7 +5432,11 @@
       ],
       "reason": "cache_safe_storefront_path_normalization",
       "routePattern": "/{*importedPunctuationPath}",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "cache_safe_imported_punctuation"
+      }
     },
     {
       "decision": "origin_dynamic",
@@ -5437,7 +5478,11 @@
       ],
       "reason": "lowercase_storefront_canonicalization",
       "routePattern": "/{*mixedCaseDocument}",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "mixed_case_path"
+      }
     },
     {
       "decision": "origin_dynamic",
@@ -5459,7 +5504,79 @@
       ],
       "reason": "trailing_slash_canonicalization",
       "routePattern": "/{*document}/",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "trailing_slash"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:platform-route-subdomain",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "platform_route_subdomain_redirect",
+      "routePattern": "/{platformRoutePrefix}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "_next",
+          "auth",
+          "builder",
+          "dashboard",
+          "forgot-password",
+          "login",
+          "manifest.webmanifest",
+          "onboarding",
+          "reset-password",
+          "robots.txt",
+          "signup",
+          "staff",
+          "update-password",
+          "verify"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "id": "proxy:platform-subdomain-posthog-relay-children",
+      "methods": [
+        "GET",
+        "HEAD",
+        "POST"
+      ],
+      "reason": "platform_route_subdomain_redirect",
+      "routePattern": "/baci-relay/{*path}",
+      "sourceKind": "proxy_path_class",
+      "sourcePath": "apps/web/src/proxy.ts"
+    },
+    {
+      "decision": "edge_redirect",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "id": "proxy:platform-subdomain-posthog-relay-root",
+      "methods": [
+        "GET",
+        "HEAD",
+        "POST"
+      ],
+      "reason": "platform_route_subdomain_redirect",
+      "routePattern": "/baci-relay",
+      "sourceKind": "proxy_path_class",
+      "sourcePath": "apps/web/src/proxy.ts"
     },
     {
       "decision": "edge_redirect",
@@ -5470,7 +5587,11 @@
       ],
       "reason": "canonical_product_route_or_variant",
       "routePattern": "/{category}/{productSlug}?{noncanonicalVariant}",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "noncanonical_product_route_or_variant"
+      }
     },
     {
       "decision": "edge_redirect",
@@ -5481,7 +5602,11 @@
       ],
       "reason": "custom_domain_slug_prefix_canonicalization",
       "routePattern": "/{currentSlug}/{*path}",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "redundant_storefront_slug_prefix"
+      }
     },
     {
       "decision": "origin_dynamic",
@@ -5496,7 +5621,11 @@
       ],
       "reason": "alias_aware_api_rewrite_preserves_body",
       "routePattern": "/{retiredSlug}/api/{*path}",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "retired_storefront_slug_prefix"
+      }
     },
     {
       "decision": "edge_redirect",
@@ -5507,7 +5636,11 @@
       ],
       "reason": "retired_storefront_alias_redirect",
       "routePattern": "/{retiredSlug}/{*path}",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "retired_storefront_slug_prefix"
+      }
     },
     {
       "decision": "edge_release",
@@ -5556,7 +5689,11 @@
       ],
       "reason": "unsafe_or_ambiguous_storefront_path",
       "routePattern": "/{*unsafeDocument}",
-      "sourceKind": "proxy_path_class"
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "unsafe_or_ambiguous_path"
+      }
     },
     {
       "decision": "edge_terminal",
@@ -5876,6 +6013,34 @@
       "routePattern": "/products",
       "sourceKind": "request_override",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/products/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:router-data",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_router_data_requires_origin",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "rsc",
+            "value": "1"
+          },
+          {
+            "name": "next-router-prefetch"
+          },
+          {
+            "name": "next-router-state-tree"
+          }
+        ],
+        "matchedStorefrontEntrypointDecision": "edge_release",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{*storefrontPath?}",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/lib/storefront-document-navigation.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -6820,6 +6985,6 @@
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/storefront/[legacySlug]/swap/route.ts"
     }
   ],
-  "schemaVersion": 4,
-  "inventorySha256": "94078ee6ae06bed4c3cab84f55677afbdea154bcd452319a2a489c96348d978c"
+  "schemaVersion": 5,
+  "inventorySha256": "b7041d679a8b027431612ea4684c22e92f12c2e50dfa7b9f983766ba3d4117d2"
 }

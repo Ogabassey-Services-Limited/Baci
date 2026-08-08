@@ -90,7 +90,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     expect(indexNow).toEqual(
       expect.objectContaining({
         decision: 'edge_release',
-        methods: ['GET', 'HEAD'],
+        methods: ['GET', 'HEAD', 'OPTIONS'],
         routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
       })
     );
@@ -159,7 +159,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     expect(byId.get('machine:ads')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
-        methods: ['GET', 'HEAD'],
+        methods: ['GET', 'HEAD', 'OPTIONS'],
         routePattern: '/ads.txt',
         sourcePath: 'apps/web/src/app/ads.txt/route.ts',
       })
@@ -202,7 +202,34 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         },
       })
     );
+    expect(byId.get('machine:feed-googleMerchantXml')?.methods).toContain(
+      'OPTIONS'
+    );
     expect(machineRows.every((row) => row.sourcePath)).toBe(true);
+  });
+
+  it('keeps App Router data requests for released entrypoints on the origin', () => {
+    // Arrange
+    const row = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows.find(
+      ({ id }) => id === 'request-override:router-data'
+    );
+
+    // Act and assert
+    expect(row).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['GET', 'HEAD'],
+        requestCondition: {
+          anyHeaderMatch: [
+            { name: 'rsc', value: '1' },
+            { name: 'next-router-prefetch' },
+            { name: 'next-router-state-tree' },
+          ],
+          matchedStorefrontEntrypointDecision: 'edge_release',
+          precedence: 'after_entrypoint_resolution_before_decision',
+        },
+      })
+    );
   });
 
   it.each([

@@ -9,19 +9,35 @@ type StorefrontEdgeInventoryRow = Readonly<{
   hostCondition?: Readonly<{
     hostKind: 'platform_subdomain';
     precedence: 'before_path_decision';
-    requiresActiveCanonicalCustomDomain: true;
+    requiresActiveCanonicalCustomDomain?: true;
   }>;
   id: string;
   methods: readonly string[];
   reason: string;
   requestCondition?: Readonly<{
     anyCookiePresent?: readonly string[];
+    anyHeaderMatch?: readonly Readonly<{ name: string; value?: string }>[];
     anyQueryPresent?: true;
+    matchedStorefrontEntrypointDecision?: 'edge_release';
     matchedStorefrontEntrypointId?: string;
     pathMembership?: 'current_origin_next_build_manifest';
     precedence:
       | 'after_entrypoint_resolution_before_decision'
       | 'before_path_decision';
+  }>;
+  pathCondition?: Readonly<{
+    firstSegmentIn?: readonly string[];
+    precedence: 'before_path_decision';
+    predicate:
+      | 'cache_safe_imported_punctuation'
+      | 'first_segment_allowlist'
+      | 'legacy_blog_thumbnail_query'
+      | 'mixed_case_path'
+      | 'noncanonical_product_route_or_variant'
+      | 'redundant_storefront_slug_prefix'
+      | 'retired_storefront_slug_prefix'
+      | 'trailing_slash'
+      | 'unsafe_or_ambiguous_path';
   }>;
   routePattern: string;
   sourceKind:
@@ -53,5 +69,5 @@ export type StorefrontEdgeInventory = Readonly<{
   routeTreeSha256: string;
   routingProxyInputSha256: string;
   rows: readonly StorefrontEdgeInventoryRow[];
-  schemaVersion: 4;
+  schemaVersion: 5;
 }>;

@@ -78,7 +78,7 @@ describe('createStorefrontEdgeInventory', () => {
     );
 
     // Assert
-    expect(entrypoints).toHaveLength(29);
+    expect(entrypoints).toHaveLength(76);
     expect(entrypoints.map((row) => row.id)).toEqual(
       [...entrypoints.map((row) => row.id)].sort()
     );
@@ -264,7 +264,7 @@ describe('createStorefrontEdgeInventory', () => {
       expect.objectContaining({ rowCount: expect.any(Number) })
     );
     expect(JSON.parse(validated.stdout)).toEqual(
-      expect.objectContaining({ storefrontEntrypointCount: 29 })
+      expect.objectContaining({ storefrontEntrypointCount: 76 })
     );
   });
 

@@ -1,4 +1,5 @@
 import { extractStorefrontRouteMethods } from './extract-storefront-route-methods';
+import { STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS } from './storefront-edge-entrypoint-classifications';
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS } from './storefront-edge-redirect-entrypoints';
 import { normalizeStorefrontEdgeRouteSegment } from './storefront-edge-route-segment';
@@ -22,10 +23,6 @@ const METADATA_ROUTE_SUFFIXES = new Map<string, string>([
   ['twitter-image.ts', 'twitter-image'],
   ['twitter-image.tsx', 'twitter-image'],
 ]);
-const REDIRECT_ENTRYPOINTS = new Set<string>(
-  STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS
-);
-
 function entrypointFileName(relativeSourcePath: string) {
   return relativeSourcePath.split('/').at(-1) ?? '';
 }
@@ -65,33 +62,6 @@ function routeMethods(relativeSourcePath: string, source: string) {
   return methods;
 }
 
-function classifyEntrypoint(
-  relativeSourcePath: string
-): Pick<InventoryRow, 'decision' | 'reason'> {
-  if (relativeSourcePath === '(blog)/blog/[...catchAll]/route.ts')
-    return {
-      decision: 'origin_dynamic',
-      reason: 'dynamic_redirect_or_bounded_not_found',
-    };
-  if (REDIRECT_ENTRYPOINTS.has(relativeSourcePath))
-    return {
-      decision: 'edge_redirect',
-      reason: 'redirect_only_storefront_entrypoint',
-    };
-  if (
-    relativeSourcePath.startsWith('(commerce)/') ||
-    relativeSourcePath.startsWith('(customer)/') ||
-    relativeSourcePath.startsWith('(utility)/') ||
-    relativeSourcePath === '(catalog)/(listing)/search/page.tsx' ||
-    relativeSourcePath === '(content)/pages/rewards/page.tsx'
-  )
-    return {
-      decision: 'origin_dynamic',
-      reason: 'request_state_or_origin_action_required',
-    };
-  return { decision: 'edge_release', reason: 'public_release_surface' };
-}
-
 /** Builds closed route rows from source bytes already bound to origin/main. */
 export function createStorefrontEdgeEntrypointRows(
   routeRoot: string,
@@ -110,10 +80,22 @@ export function createStorefrontEdgeEntrypointRows(
     if (!discoveredEntrypoints.has(expected))
       throw new Error(`redirect entrypoint no longer exists: ${expected}`);
   }
+  for (const expected of STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys()) {
+    if (!discoveredEntrypoints.has(expected))
+      throw new Error(
+        `classified storefront entrypoint no longer exists: ${expected}`
+      );
+  }
   return entrypointSources.map(({ bytes, sourcePath }) => {
     const relativeSourcePath = sourcePath.slice(prefix.length);
+    const classification =
+      STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(relativeSourcePath);
+    if (!classification)
+      throw new Error(
+        `storefront entrypoint has no reviewed classification: ${relativeSourcePath}`
+      );
     return {
-      ...classifyEntrypoint(relativeSourcePath),
+      ...classification,
       id: `storefront:${relativeSourcePath}`,
       methods: routeMethods(relativeSourcePath, bytes.toString('utf8')),
       routePattern: normalizeRoutePattern(relativeSourcePath),

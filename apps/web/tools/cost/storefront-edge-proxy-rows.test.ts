@@ -77,4 +77,69 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       })
     );
   });
+
+  it('binds ambiguous canonicalization catch-alls to explicit path predicates', () => {
+    // Arrange
+    const expectedPredicates = {
+      'proxy:blog-query-canonical': 'legacy_blog_thumbnail_query',
+      'proxy:cache-safe-punctuation': 'cache_safe_imported_punctuation',
+      'proxy:lowercase-document': 'mixed_case_path',
+      'proxy:no-trailing-slash': 'trailing_slash',
+      'proxy:product-canonical': 'noncanonical_product_route_or_variant',
+      'proxy:redundant-slug-prefix': 'redundant_storefront_slug_prefix',
+      'proxy:retired-slug-api': 'retired_storefront_slug_prefix',
+      'proxy:retired-slug-document': 'retired_storefront_slug_prefix',
+      'proxy:unsafe-document': 'unsafe_or_ambiguous_path',
+    } as const;
+    const byId = new Map(
+      STOREFRONT_EDGE_PROXY_ROWS.map((row) => [row.id, row])
+    );
+
+    // Act and assert
+    for (const [id, predicate] of Object.entries(expectedPredicates)) {
+      expect(byId.get(id)?.pathCondition?.precedence, id).toBe(
+        'before_path_decision'
+      );
+      expect(byId.get(id)?.pathCondition?.predicate, id).toBe(predicate);
+    }
+  });
+
+  it('redirects the reviewed platform prefixes only on platform subdomains', () => {
+    // Arrange
+    const row = STOREFRONT_EDGE_PROXY_ROWS.find(
+      ({ id }) => id === 'proxy:platform-route-subdomain'
+    );
+
+    // Act and assert
+    expect(row).toEqual(
+      expect.objectContaining({
+        decision: 'edge_redirect',
+        methods: ['ANY'],
+        hostCondition: {
+          hostKind: 'platform_subdomain',
+          precedence: 'before_path_decision',
+        },
+        pathCondition: expect.objectContaining({
+          firstSegmentIn: [
+            '_next',
+            'auth',
+            'builder',
+            'dashboard',
+            'forgot-password',
+            'login',
+            'manifest.webmanifest',
+            'onboarding',
+            'reset-password',
+            'robots.txt',
+            'signup',
+            'staff',
+            'update-password',
+            'verify',
+          ],
+          precedence: 'before_path_decision',
+          predicate: 'first_segment_allowlist',
+        }),
+      })
+    );
+  });
 });

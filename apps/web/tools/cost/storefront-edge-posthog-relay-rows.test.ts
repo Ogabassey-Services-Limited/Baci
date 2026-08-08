@@ -7,11 +7,32 @@ describe('createStorefrontEdgePosthogRelayRows', () => {
     const rows = createStorefrontEdgePosthogRelayRows(' baci-observe/ ');
 
     // Assert
-    expect(rows.map(({ routePattern }) => routePattern)).toEqual([
+    const originRows = rows.filter(
+      ({ decision }) => decision === 'origin_dynamic'
+    );
+    expect(originRows.map(({ routePattern }) => routePattern)).toEqual([
       '/baci-observe',
       '/baci-observe/{*path}',
     ]);
-    expect(rows.every(({ methods }) => methods.includes('POST'))).toBe(true);
+    expect(originRows.every(({ methods }) => methods.includes('POST'))).toBe(
+      true
+    );
+    expect(rows.filter(({ decision }) => decision === 'edge_redirect')).toEqual(
+      [
+        expect.objectContaining({
+          hostCondition: expect.objectContaining({
+            hostKind: 'platform_subdomain',
+          }),
+          routePattern: '/baci-observe',
+        }),
+        expect.objectContaining({
+          hostCondition: expect.objectContaining({
+            hostKind: 'platform_subdomain',
+          }),
+          routePattern: '/baci-observe/{*path}',
+        }),
+      ]
+    );
   });
 
   it('falls back from a reserved relay path to the reviewed default', () => {

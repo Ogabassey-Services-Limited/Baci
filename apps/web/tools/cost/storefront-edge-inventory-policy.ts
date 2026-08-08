@@ -32,6 +32,27 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = ['/blog', '/blog/{*path}'].map(
   })
 );
 
+const ROUTER_DATA_ROWS: readonly InventoryRow[] = [
+  {
+    decision: 'origin_dynamic',
+    id: 'request-override:router-data',
+    methods: ['GET', 'HEAD'],
+    reason: 'next_router_data_requires_origin',
+    requestCondition: {
+      anyHeaderMatch: [
+        { name: 'rsc', value: '1' },
+        { name: 'next-router-prefetch' },
+        { name: 'next-router-state-tree' },
+      ],
+      matchedStorefrontEntrypointDecision: 'edge_release',
+      precedence: 'after_entrypoint_resolution_before_decision',
+    },
+    routePattern: '/{*storefrontPath?}',
+    sourceKind: 'request_override',
+    sourcePath: 'apps/web/src/lib/storefront-document-navigation.ts',
+  },
+];
+
 const QUERY_DEPENDENT_ENTRYPOINTS = [
   {
     id: 'blog-root',
@@ -147,6 +168,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
   extraRows: [
     API_TERMINAL_ROW,
     ...DRAFT_MODE_ROWS,
+    ...ROUTER_DATA_ROWS,
     ...QUERY_DEPENDENT_ROWS,
     ...STOREFRONT_EDGE_MACHINE_ROWS,
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
@@ -189,11 +211,11 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     ...new Set(Object.values(STOREFRONT_EDGE_MACHINE_SOURCE_PATHS)),
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.map(({ sourcePath }) => sourcePath),
   ],
-  schemaVersion: 4,
+  schemaVersion: 5,
 } as const satisfies {
   completeBrowserPathClasses: readonly string[];
   eligibleDenominatorPolicy: StorefrontEdgeInventory['eligibleDenominatorPolicy'];
   extraRows: readonly InventoryRow[];
   routingInputPaths: readonly string[];
-  schemaVersion: 4;
+  schemaVersion: 5;
 };

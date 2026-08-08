@@ -10,6 +10,7 @@ const proxyClass = (
   reason: string,
   options: Readonly<{
     hostCondition?: InventoryRow['hostCondition'];
+    pathCondition?: InventoryRow['pathCondition'];
     sourcePath?: string;
   }> = {}
 ): InventoryRow => ({
@@ -20,6 +21,7 @@ const proxyClass = (
   routePattern,
   sourceKind: 'proxy_path_class',
   ...(options.hostCondition ? { hostCondition: options.hostCondition } : {}),
+  ...(options.pathCondition ? { pathCondition: options.pathCondition } : {}),
   ...(options.sourcePath ? { sourcePath: options.sourcePath } : {}),
 });
 
@@ -45,14 +47,26 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     '/blog/{*path}?{legacyThumbnailQuery}',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'canonical_blog_query_normalization'
+    'canonical_blog_query_normalization',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_blog_thumbnail_query',
+      },
+    }
   ),
   proxyClass(
     'proxy:cache-safe-punctuation',
     '/{*importedPunctuationPath}',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'cache_safe_storefront_path_normalization'
+    'cache_safe_storefront_path_normalization',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'cache_safe_imported_punctuation',
+      },
+    }
   ),
   proxyClass(
     'proxy:legacy-analytics-conversion',
@@ -80,42 +94,78 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     '/{*mixedCaseDocument}',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'lowercase_storefront_canonicalization'
+    'lowercase_storefront_canonicalization',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'mixed_case_path',
+      },
+    }
   ),
   proxyClass(
     'proxy:no-trailing-slash',
     '/{*document}/',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'trailing_slash_canonicalization'
+    'trailing_slash_canonicalization',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'trailing_slash',
+      },
+    }
   ),
   proxyClass(
     'proxy:product-canonical',
     '/{category}/{productSlug}?{noncanonicalVariant}',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'canonical_product_route_or_variant'
+    'canonical_product_route_or_variant',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'noncanonical_product_route_or_variant',
+      },
+    }
   ),
   proxyClass(
     'proxy:redundant-slug-prefix',
     '/{currentSlug}/{*path}',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'custom_domain_slug_prefix_canonicalization'
+    'custom_domain_slug_prefix_canonicalization',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'redundant_storefront_slug_prefix',
+      },
+    }
   ),
   proxyClass(
     'proxy:retired-slug-api',
     '/{retiredSlug}/api/{*path}',
     ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
     'origin_dynamic',
-    'alias_aware_api_rewrite_preserves_body'
+    'alias_aware_api_rewrite_preserves_body',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'retired_storefront_slug_prefix',
+      },
+    }
   ),
   proxyClass(
     'proxy:retired-slug-document',
     '/{retiredSlug}/{*path}',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'retired_storefront_alias_redirect'
+    'retired_storefront_alias_redirect',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'retired_storefront_slug_prefix',
+      },
+    }
   ),
   proxyClass(
     'proxy:root-sitemap',
@@ -123,6 +173,39 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     ['GET', 'HEAD'],
     'edge_release',
     'storefront_root_sitemap_rewrite'
+  ),
+  proxyClass(
+    'proxy:platform-route-subdomain',
+    '/{platformRoutePrefix}/{*path?}',
+    ['ANY'],
+    'edge_redirect',
+    'platform_route_subdomain_redirect',
+    {
+      hostCondition: {
+        hostKind: 'platform_subdomain',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        firstSegmentIn: [
+          '_next',
+          'auth',
+          'builder',
+          'dashboard',
+          'forgot-password',
+          'login',
+          'manifest.webmanifest',
+          'onboarding',
+          'reset-password',
+          'robots.txt',
+          'signup',
+          'staff',
+          'update-password',
+          'verify',
+        ],
+        precedence: 'before_path_decision',
+        predicate: 'first_segment_allowlist',
+      },
+    }
   ),
   proxyClass(
     'proxy:subdomain-custom-domain',
@@ -150,7 +233,13 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     '/{*unsafeDocument}',
     ['GET', 'HEAD'],
     'edge_terminal',
-    'unsafe_or_ambiguous_storefront_path'
+    'unsafe_or_ambiguous_storefront_path',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'unsafe_or_ambiguous_path',
+      },
+    }
   ),
   proxyClass(
     'proxy:unsupported-method',

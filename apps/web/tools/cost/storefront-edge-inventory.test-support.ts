@@ -2,30 +2,12 @@ import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS } from './storefront-edge-entrypoint-classifications';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
-import { STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS } from './storefront-edge-redirect-entrypoints';
 
 const execFileAsync = promisify(execFile);
 
-const ROUTES = [
-  '(home)/page.tsx',
-  '(blog)/blog/author/[authorSlug]/page.tsx',
-  '(blog)/blog/category/[categorySlug]/page.tsx',
-  '(blog)/blog/page.tsx',
-  '(blog)/blog/[...catchAll]/route.ts',
-  '(catalog)/(listing)/[category]/compare/page.tsx',
-  '(catalog)/(listing)/[category]/page.tsx',
-  '(catalog)/(listing)/compare/page.tsx',
-  '(catalog)/(listing)/products/page.tsx',
-  '(catalog)/(listing)/search/page.tsx',
-  '(catalog)/(pdp)/[category]/[productSlug]/page.tsx',
-  '(catalog)/(pdp)/products/[productSlug]/page.tsx',
-  '(commerce)/checkout/page.tsx',
-  '(content)/about/page.tsx',
-  '(blog)/blog/sitemap.ts',
-  'opengraph-image.tsx',
-  ...STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS,
-] as const;
+const ROUTES = [...STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys()];
 
 export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
   const routeRoot = join(repoRoot, 'apps/web/src/app/(storefront)/[slug]');

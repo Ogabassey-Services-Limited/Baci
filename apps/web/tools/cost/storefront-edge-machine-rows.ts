@@ -5,6 +5,16 @@ import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
+const METHOD_ORDER: readonly string[] = [
+  'DELETE',
+  'GET',
+  'HEAD',
+  'OPTIONS',
+  'PATCH',
+  'POST',
+  'PUT',
+];
+
 const machineFamily = (
   id: string,
   routePattern: string,
@@ -14,10 +24,17 @@ const machineFamily = (
   const sourcePath = STOREFRONT_EDGE_MACHINE_SOURCE_PATHS[routePattern];
   if (!sourcePath)
     throw new Error(`machine route source is not declared: ${routePattern}`);
+  const effectiveMethods =
+    sourcePath.endsWith('/route.ts') && !methods.includes('ANY')
+      ? [...new Set([...methods, 'OPTIONS'])].sort(
+          (left, right) =>
+            METHOD_ORDER.indexOf(left) - METHOD_ORDER.indexOf(right)
+        )
+      : methods;
   return {
     decision,
     id,
-    methods,
+    methods: effectiveMethods,
     reason: 'explicit_storefront_machine_family',
     routePattern,
     sourceKind: 'machine_family',
