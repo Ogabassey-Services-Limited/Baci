@@ -42,4 +42,41 @@ describe('handleBuilderAiEditRequest duplicate ids', () => {
     expect(getMerchant).not.toHaveBeenCalled();
     expect(runProviderChain).not.toHaveBeenCalled();
   });
+
+  it('rejects ambiguous duplicate root legacy ids before normalization', async () => {
+    const getMerchant = vi.fn();
+    const runProviderChain = vi.fn();
+    const currentConfig = {
+      ...builderAiEditTestFixture.request.currentConfig,
+      content: [
+        { props: { id: ' padded ' }, type: 'Flex' },
+        { props: { id: ' padded ' }, type: 'Text' },
+      ],
+      zones: { ' padded :children': [] },
+    };
+    const response = await handleBuilderAiEditRequest(
+      new Request('http://localhost/api/builder/ai-edit', { method: 'POST' }),
+      {
+        dependencies: {
+          authenticate: async () => ({
+            supabase: {} as never,
+            user: { id: 'user-1' } as never,
+          }),
+          checkCsrf: async () => ({ valid: true }),
+          getMerchant,
+          materializeProviders: vi.fn(),
+          rateLimit: vi.fn(),
+          readBody: async () => ({
+            body: { ...builderAiEditTestFixture.request, currentConfig },
+            ok: true as const,
+          }),
+          runProviderChain,
+        } as never,
+      }
+    );
+
+    expect(response.status).toBe(400);
+    expect(getMerchant).not.toHaveBeenCalled();
+    expect(runProviderChain).not.toHaveBeenCalled();
+  });
 });

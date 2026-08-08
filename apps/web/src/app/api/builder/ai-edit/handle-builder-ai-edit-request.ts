@@ -131,6 +131,7 @@ export async function handleBuilderAiEditRequest(
   const parsed = parseRequest(body.body, mode);
   if (
     !parsed ||
+    hasDuplicateBuilderAiComponentIds(parsed.currentConfig) ||
     !validateBuilderAiEditComplexity(parsed.currentConfig).success
   ) {
     return NextResponse.json(

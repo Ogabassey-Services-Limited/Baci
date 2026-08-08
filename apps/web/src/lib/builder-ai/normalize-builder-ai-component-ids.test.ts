@@ -92,4 +92,23 @@ describe('normalizeBuilderAiComponentIds', () => {
       'flex-1:children': [{ props: { id: 'text-2' }, type: 'Text' }],
     });
   });
+
+  it('rekeys a nested zone owned by a parent inside another zone', () => {
+    const normalized = normalizeBuilderAiComponentIds(
+      {
+        content: [{ props: { id: 'root' }, type: 'Flex' }],
+        root: { title: 'Home' },
+        zones: {
+          ' padded :children': [{ props: { id: 'child' }, type: 'Text' }],
+          'root:children': [{ props: { id: ' padded ' }, type: 'Flex' }],
+        },
+      },
+      () => 'nested-flex'
+    );
+
+    expect(normalized.zones).toEqual({
+      'nested-flex:children': [{ props: { id: 'child' }, type: 'Text' }],
+      'root:children': [{ props: { id: 'nested-flex' }, type: 'Flex' }],
+    });
+  });
 });

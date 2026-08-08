@@ -35,14 +35,15 @@ function isComponent(value: unknown): value is BuilderData['content'][number] {
 
 function normalizeZoneComponent(
   value: unknown,
-  createId: (componentType: string) => string
+  createId: (componentType: string) => string,
+  onIdReplaced?: (previousId: string, nextId: string) => void
 ): unknown {
   if (!isRecord(value) || typeof value.type !== 'string') return value;
   const component = {
     ...value,
     props: isRecord(value.props) ? value.props : {},
   } as BuilderData['content'][number];
-  return withId(component, createId);
+  return withId(component, createId, onIdReplaced);
 }
 
 function rekeyZoneName(
@@ -55,13 +56,26 @@ function rekeyZoneName(
   return replacement ? `${replacement}${name.slice(separator)}` : name;
 }
 
+function getZoneParentIds(zones: BuilderData['zones']): Set<string> {
+  return new Set(
+    Object.keys(zones ?? {}).flatMap((name) => {
+      const separator = name.indexOf(':');
+      return separator < 1 ? [] : [name.slice(0, separator)];
+    })
+  );
+}
+
 export function normalizeBuilderAiComponentIds(
   config: BuilderData,
   createId: (componentType: string) => string = createBuilderComponentId
 ): BuilderData {
   const replacements = new Map<string, string>();
-  const rememberReplacement = (previousId: string, nextId: string) =>
-    replacements.set(previousId, nextId);
+  const zoneParentIds = getZoneParentIds(config.zones);
+  const rememberReplacement = (previousId: string, nextId: string) => {
+    if (zoneParentIds.has(previousId) && !replacements.has(previousId)) {
+      replacements.set(previousId, nextId);
+    }
+  };
   const content = config.content.map((component) =>
     withId(component, createId, rememberReplacement)
   );
@@ -72,8 +86,12 @@ export function normalizeBuilderAiComponentIds(
         Array.isArray(zone)
           ? zone.map((component) =>
               isComponent(component)
-                ? withId(component, createId)
-                : normalizeZoneComponent(component, createId)
+                ? withId(component, createId, rememberReplacement)
+                : normalizeZoneComponent(
+                    component,
+                    createId,
+                    rememberReplacement
+                  )
             )
           : zone,
       ] as const
