@@ -1,4 +1,11 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -18,7 +25,10 @@ describe('createStorefrontEdgeInventoryFixture', () => {
     temporaryDirectories.push(directory);
     const globalConfig = join(directory, 'gitconfig');
     const hooksDirectory = join(directory, 'hooks');
-    await writeFile(globalConfig, `commit.gpgsign=true\ncore.hooksPath=${hooksDirectory}\n`);
+    await writeFile(
+      globalConfig,
+      `commit.gpgsign=true\ncore.hooksPath=${hooksDirectory}\n`
+    );
     await mkdir(hooksDirectory, { recursive: true });
     await writeFile(join(hooksDirectory, 'pre-commit'), '#!/bin/sh\nexit 1\n');
     await chmod(join(hooksDirectory, 'pre-commit'), 0o700);
@@ -32,7 +42,8 @@ describe('createStorefrontEdgeInventoryFixture', () => {
         'refs/heads/'
       );
     } finally {
-      if (previousGlobalConfig === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+      if (previousGlobalConfig === undefined)
+        delete process.env.GIT_CONFIG_GLOBAL;
       else process.env.GIT_CONFIG_GLOBAL = previousGlobalConfig;
     }
   });
