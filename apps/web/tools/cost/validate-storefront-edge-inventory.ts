@@ -9,6 +9,7 @@ import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types'
 type ValidationOptions = Readonly<{
   expectedOriginMainSha: string;
   expectedPilotCandidateHostnames: readonly string[];
+  expectedPosthogRelayPath?: string;
   inputPath: string;
   repoRoot: string;
 }>;
@@ -70,6 +71,7 @@ export async function validateStorefrontEdgeInventory(
     regenerated = await createStorefrontEdgeInventory({
       originMainSha: expectedOriginMainSha,
       pilotCandidateHostnames: options.expectedPilotCandidateHostnames,
+      posthogRelayPath: options.expectedPosthogRelayPath ?? '/baci-relay',
       repoRoot: options.repoRoot,
     });
   } catch (error) {
@@ -95,6 +97,7 @@ function parseArguments(args: readonly string[]) {
   const allowedOptions = new Set([
     '--input',
     '--pilot-hostname',
+    '--posthog-relay-path',
     '--repo-root',
     '--source-sha',
   ]);
@@ -115,18 +118,21 @@ function parseArguments(args: readonly string[]) {
   const inputPath = values.get('--input')?.[0];
   const expectedOriginMainSha = values.get('--source-sha')?.[0];
   const expectedPilotCandidateHostnames = values.get('--pilot-hostname') ?? [];
+  const expectedPosthogRelayPath = values.get('--posthog-relay-path')?.[0];
   if (
     !repoRoot ||
     !inputPath ||
     !expectedOriginMainSha ||
+    !expectedPosthogRelayPath ||
     expectedPilotCandidateHostnames.length === 0
   )
     throw new Error(
-      'inventory validation requires --repo-root, --input, --source-sha, and --pilot-hostname'
+      'inventory validation requires --repo-root, --input, --source-sha, --pilot-hostname, and --posthog-relay-path'
     );
   return {
     expectedOriginMainSha,
     expectedPilotCandidateHostnames,
+    expectedPosthogRelayPath,
     inputPath,
     repoRoot,
   };

@@ -25,7 +25,6 @@ async function fixtureRoot() {
 function joinTemporaryRoot(name: string) {
   return resolve(tmpdir(), name);
 }
-
 afterEach(async () => {
   await Promise.all(
     temporaryRoots.splice(0).map((root) => rm(root, { recursive: true }))
@@ -91,8 +90,8 @@ describe('createStorefrontEdgeInventory', () => {
         }),
         expect.objectContaining({
           routePattern: '/blog/{*catchAll}',
-          decision: 'edge_redirect',
-          methods: ['GET', 'HEAD'],
+          decision: 'origin_dynamic',
+          methods: ['GET', 'HEAD', 'OPTIONS'],
         }),
         expect.objectContaining({
           routePattern: '/products',
@@ -240,6 +239,8 @@ describe('createStorefrontEdgeInventory', () => {
       originMainSha,
       '--pilot-hostname',
       'pilot.usebaci.com',
+      '--posthog-relay-path',
+      '/baci-relay',
       '--output',
       output,
     ]);
@@ -254,6 +255,8 @@ describe('createStorefrontEdgeInventory', () => {
       output,
       '--pilot-hostname',
       'pilot.usebaci.com',
+      '--posthog-relay-path',
+      '/baci-relay',
     ]);
 
     // Assert

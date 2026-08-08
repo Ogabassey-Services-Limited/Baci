@@ -1,5 +1,6 @@
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { STOREFRONT_EDGE_MACHINE_ROWS } from './storefront-edge-machine-rows';
+import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-source-paths';
 import { STOREFRONT_EDGE_PROXY_ROWS } from './storefront-edge-proxy-rows';
 import { STOREFRONT_EDGE_PUBLIC_ASSET_ROWS } from './storefront-edge-public-asset-rows';
 
@@ -154,9 +155,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
   ],
   routingInputPaths: [
     'next.config.ts',
-    'apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts',
     'apps/web/src/app/actions/repair.ts',
-    'apps/web/src/app/ads.txt/route.ts',
     'apps/web/src/app/auth/confirm/route.ts',
     'apps/web/src/app/layout.tsx',
     'apps/web/src/app/root-dynamic-body.tsx',
@@ -187,13 +186,14 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/lib/storefront-product-slug-membership.ts',
     'apps/web/src/lib/storefront-route-identifier.ts',
     'apps/web/src/lib/storefront-unsafe-pdp-segments.ts',
+    ...new Set(Object.values(STOREFRONT_EDGE_MACHINE_SOURCE_PATHS)),
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.map(({ sourcePath }) => sourcePath),
   ],
-  schemaVersion: 3,
+  schemaVersion: 4,
 } as const satisfies {
   completeBrowserPathClasses: readonly string[];
   eligibleDenominatorPolicy: StorefrontEdgeInventory['eligibleDenominatorPolicy'];
   extraRows: readonly InventoryRow[];
   routingInputPaths: readonly string[];
-  schemaVersion: 3;
+  schemaVersion: 4;
 };

@@ -59,4 +59,22 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       })
     );
   });
+
+  it('applies the canonical-domain redirect only to eligible platform subdomains', () => {
+    // Arrange
+    const row = STOREFRONT_EDGE_PROXY_ROWS.find(
+      ({ id }) => id === 'proxy:subdomain-custom-domain'
+    );
+
+    // Act and assert
+    expect(row).toEqual(
+      expect.objectContaining({
+        hostCondition: {
+          hostKind: 'platform_subdomain',
+          requiresActiveCanonicalCustomDomain: true,
+          precedence: 'before_path_decision',
+        },
+      })
+    );
+  });
 });

@@ -6,6 +6,11 @@ type StorefrontEdgeDecision =
 
 type StorefrontEdgeInventoryRow = Readonly<{
   decision: StorefrontEdgeDecision;
+  hostCondition?: Readonly<{
+    hostKind: 'platform_subdomain';
+    precedence: 'before_path_decision';
+    requiresActiveCanonicalCustomDomain: true;
+  }>;
   id: string;
   methods: readonly string[];
   reason: string;
@@ -13,6 +18,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
     anyCookiePresent?: readonly string[];
     anyQueryPresent?: true;
     matchedStorefrontEntrypointId?: string;
+    pathMembership?: 'current_origin_next_build_manifest';
     precedence:
       | 'after_entrypoint_resolution_before_decision'
       | 'before_path_decision';
@@ -47,5 +53,5 @@ export type StorefrontEdgeInventory = Readonly<{
   routeTreeSha256: string;
   routingProxyInputSha256: string;
   rows: readonly StorefrontEdgeInventoryRow[];
-  schemaVersion: 3;
+  schemaVersion: 4;
 }>;

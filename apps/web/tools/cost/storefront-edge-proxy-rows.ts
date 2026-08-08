@@ -8,7 +8,10 @@ const proxyClass = (
   methods: readonly string[],
   decision: InventoryRow['decision'],
   reason: string,
-  sourcePath?: string
+  options: Readonly<{
+    hostCondition?: InventoryRow['hostCondition'];
+    sourcePath?: string;
+  }> = {}
 ): InventoryRow => ({
   decision,
   id,
@@ -16,7 +19,8 @@ const proxyClass = (
   reason,
   routePattern,
   sourceKind: 'proxy_path_class',
-  ...(sourcePath ? { sourcePath } : {}),
+  ...(options.hostCondition ? { hostCondition: options.hostCondition } : {}),
+  ...(options.sourcePath ? { sourcePath: options.sourcePath } : {}),
 });
 
 /** Closed directional classes mirrored from the current storefront proxy. */
@@ -27,7 +31,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     ['GET', 'HEAD'],
     'origin_dynamic',
     'custom_domain_auth_confirmation',
-    'apps/web/src/app/auth/confirm/route.ts'
+    { sourcePath: 'apps/web/src/app/auth/confirm/route.ts' }
   ),
   proxyClass(
     'proxy:markdown-mirror',
@@ -125,7 +129,14 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     '/{*storefrontPath}',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'canonical_custom_domain_redirect'
+    'canonical_custom_domain_redirect',
+    {
+      hostCondition: {
+        hostKind: 'platform_subdomain',
+        precedence: 'before_path_decision',
+        requiresActiveCanonicalCustomDomain: true,
+      },
+    }
   ),
   proxyClass(
     'proxy:unknown-document',

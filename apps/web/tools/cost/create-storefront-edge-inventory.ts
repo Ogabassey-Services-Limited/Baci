@@ -7,11 +7,13 @@ import { createStorefrontEdgeEntrypointRows } from './create-storefront-edge-ent
 import { canonicalizeStorefrontEdgeInventoryValue } from './storefront-edge-canonical-json';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
+import { createStorefrontEdgePosthogRelayRows } from './storefront-edge-posthog-relay-rows';
 import { readStorefrontEdgeSourceAuthority } from './storefront-edge-source-authority';
 
 type CreateInventoryOptions = Readonly<{
   originMainSha: string;
   pilotCandidateHostnames: readonly string[];
+  posthogRelayPath?: string;
   repoRoot: string;
 }>;
 
@@ -56,6 +58,12 @@ export async function createStorefrontEdgeInventory(
   const pilotCandidateHostnames = normalizeHostnames(
     options.pilotCandidateHostnames
   );
+  const extraRows = [
+    ...STOREFRONT_EDGE_INVENTORY_POLICY.extraRows,
+    ...createStorefrontEdgePosthogRelayRows(
+      options.posthogRelayPath ?? '/baci-relay'
+    ),
+  ];
   const { apiSources, routeSources, routingInputSources } =
     await readStorefrontEdgeSourceAuthority({
       apiRoot: API_ROOT,
@@ -74,7 +82,7 @@ export async function createStorefrontEdgeInventory(
       ({ sourcePath }) => sourcePath
     )
   );
-  for (const row of STOREFRONT_EDGE_INVENTORY_POLICY.extraRows) {
+  for (const row of extraRows) {
     if (row.sourcePath && !verifiedSourcePaths.has(row.sourcePath))
       throw new Error(
         `policy row source path is not part of the approved source set: ${row.id}`
@@ -103,12 +111,8 @@ export async function createStorefrontEdgeInventory(
         )
     )
   );
-  const rows = [
-    ...apiRows,
-    ...entrypointRows,
-    ...STOREFRONT_EDGE_INVENTORY_POLICY.extraRows,
-  ].sort((left, right) =>
-    left.id < right.id ? -1 : left.id > right.id ? 1 : 0
+  const rows = [...apiRows, ...entrypointRows, ...extraRows].sort(
+    (left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
   );
   if (new Set(rows.map(({ id }) => id)).size !== rows.length)
     throw new Error('storefront edge inventory contains duplicate row IDs');
@@ -138,6 +142,7 @@ function parseArguments(args: readonly string[]) {
   const allowedOptions = new Set([
     '--output',
     '--pilot-hostname',
+    '--posthog-relay-path',
     '--repo-root',
     '--source-sha',
   ]);
@@ -157,18 +162,25 @@ function parseArguments(args: readonly string[]) {
   const repoRoot = values.get('--repo-root')?.[0];
   const originMainSha = values.get('--source-sha')?.[0];
   const output = values.get('--output')?.[0];
+  const posthogRelayPath = values.get('--posthog-relay-path')?.[0];
   const pilotCandidateHostnames = values.get('--pilot-hostname') ?? [];
   if (
     !repoRoot ||
     !originMainSha ||
     !output ||
+    !posthogRelayPath ||
     pilotCandidateHostnames.length === 0
   )
     throw new Error(
-      'inventory requires --repo-root, --source-sha, --output, and --pilot-hostname'
+      'inventory requires --repo-root, --source-sha, --output, --pilot-hostname, and --posthog-relay-path'
     );
   return {
-    options: { originMainSha, pilotCandidateHostnames, repoRoot },
+    options: {
+      originMainSha,
+      pilotCandidateHostnames,
+      posthogRelayPath,
+      repoRoot,
+    },
     output,
   };
 }

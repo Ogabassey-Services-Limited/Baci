@@ -55,7 +55,9 @@ function routeMethods(relativeSourcePath: string, source: string) {
   const fileName = entrypointFileName(relativeSourcePath);
   if (fileName === 'page.tsx' || METADATA_ROUTE_SUFFIXES.has(fileName))
     return ['GET', 'HEAD'];
-  const methods = extractStorefrontRouteMethods(source);
+  const methods = extractStorefrontRouteMethods(source, {
+    includeAutomaticOptions: true,
+  });
   if (methods.length === 0)
     throw new Error(
       `storefront route handler exports no HTTP method: ${relativeSourcePath}`
@@ -66,6 +68,11 @@ function routeMethods(relativeSourcePath: string, source: string) {
 function classifyEntrypoint(
   relativeSourcePath: string
 ): Pick<InventoryRow, 'decision' | 'reason'> {
+  if (relativeSourcePath === '(blog)/blog/[...catchAll]/route.ts')
+    return {
+      decision: 'origin_dynamic',
+      reason: 'dynamic_redirect_or_bounded_not_found',
+    };
   if (REDIRECT_ENTRYPOINTS.has(relativeSourcePath))
     return {
       decision: 'edge_redirect',

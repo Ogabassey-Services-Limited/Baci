@@ -12,6 +12,7 @@ const ROUTES = [
   '(blog)/blog/author/[authorSlug]/page.tsx',
   '(blog)/blog/category/[categorySlug]/page.tsx',
   '(blog)/blog/page.tsx',
+  '(blog)/blog/[...catchAll]/route.ts',
   '(catalog)/(listing)/[category]/compare/page.tsx',
   '(catalog)/(listing)/[category]/page.tsx',
   '(catalog)/(listing)/compare/page.tsx',

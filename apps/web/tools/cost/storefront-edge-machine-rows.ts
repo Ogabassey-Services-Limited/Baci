@@ -1,6 +1,7 @@
 import { STOREFRONT_AGENT_ROUTES } from '../../src/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '../../src/config/storefront-feed-routes';
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
+import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-source-paths';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
@@ -8,17 +9,21 @@ const machineFamily = (
   id: string,
   routePattern: string,
   methods: readonly string[],
-  decision: InventoryRow['decision'] = 'origin_dynamic',
-  sourcePath?: string
-): InventoryRow => ({
-  decision,
-  id,
-  methods,
-  reason: 'explicit_storefront_machine_family',
-  routePattern,
-  sourceKind: 'machine_family',
-  ...(sourcePath ? { sourcePath } : {}),
-});
+  decision: InventoryRow['decision'] = 'origin_dynamic'
+): InventoryRow => {
+  const sourcePath = STOREFRONT_EDGE_MACHINE_SOURCE_PATHS[routePattern];
+  if (!sourcePath)
+    throw new Error(`machine route source is not declared: ${routePattern}`);
+  return {
+    decision,
+    id,
+    methods,
+    reason: 'explicit_storefront_machine_family',
+    routePattern,
+    sourceKind: 'machine_family',
+    sourcePath,
+  };
+};
 
 const WELL_KNOWN_ROWS: readonly InventoryRow[] = [
   machineFamily('machine:well-known-acp', STOREFRONT_AGENT_ROUTES.acpProfile, [
@@ -142,31 +147,26 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
     'HEAD',
   ]),
   ...FEED_ROWS,
-  machineFamily('machine:next-image', '/_next/image', ['GET', 'HEAD']),
-  machineFamily('machine:next-static', '/_next/static/{*asset}', [
-    'GET',
-    'HEAD',
-  ]),
+  machineFamily('machine:next-image', '/_next/image', ['ANY'], 'edge_terminal'),
+  {
+    ...machineFamily('machine:next-static', '/_next/static/{*asset}', [
+      'GET',
+      'HEAD',
+    ]),
+    requestCondition: {
+      pathMembership: 'current_origin_next_build_manifest',
+      precedence: 'before_path_decision',
+    },
+  },
   machineFamily(
     'machine:next-unlisted',
     '/_next/{*unlisted}',
     ['ANY'],
     'edge_terminal'
   ),
-  machineFamily('machine:posthog-relay', '/baci-relay/{*path}', [
-    'GET',
-    'HEAD',
-    'POST',
-  ]),
   machineFamily('machine:llms', '/llms.txt', ['GET', 'HEAD']),
   machineFamily('machine:llms-full', '/llms-full.txt', ['GET', 'HEAD']),
-  machineFamily(
-    'machine:ads',
-    '/ads.txt',
-    ['GET', 'HEAD'],
-    'origin_dynamic',
-    'apps/web/src/app/ads.txt/route.ts'
-  ),
+  machineFamily('machine:ads', '/ads.txt', ['GET', 'HEAD'], 'origin_dynamic'),
   machineFamily('machine:openapi', STOREFRONT_AGENT_ROUTES.openApi, [
     'GET',
     'HEAD',
@@ -175,8 +175,7 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
     'machine:indexnow-key',
     '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
     ['GET', 'HEAD'],
-    'edge_release',
-    'apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts'
+    'edge_release'
   ),
   machineFamily(
     'machine:robots',

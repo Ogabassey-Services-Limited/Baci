@@ -60,7 +60,8 @@ describe('createStorefrontEdgeEntrypointRows', () => {
         }),
         expect.objectContaining({
           routePattern: '/blog/{*catchAll}',
-          decision: 'edge_redirect',
+          decision: 'origin_dynamic',
+          methods: ['GET', 'HEAD', 'OPTIONS'],
         }),
         expect.objectContaining({ routePattern: '/blog/sitemap.xml' }),
         expect.objectContaining({ routePattern: '/opengraph-image' }),

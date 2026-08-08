@@ -182,6 +182,29 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     );
   });
 
+  it('bounds Next support routes and binds machine rows to reviewed sources', () => {
+    // Arrange
+    const machineRows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows.filter(
+      (row) => row.sourceKind === 'machine_family'
+    );
+    const byId = new Map(machineRows.map((row) => [row.id, row]));
+
+    // Act and assert
+    expect(byId.get('machine:next-image')).toEqual(
+      expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
+    );
+    expect(byId.get('machine:next-static')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        requestCondition: {
+          pathMembership: 'current_origin_next_build_manifest',
+          precedence: 'before_path_decision',
+        },
+      })
+    );
+    expect(machineRows.every((row) => row.sourcePath)).toBe(true);
+  });
+
   it.each([
     ['/sitemap.xml', 'edge_release'],
     ['/blog/sitemap.xml', 'edge_release'],
