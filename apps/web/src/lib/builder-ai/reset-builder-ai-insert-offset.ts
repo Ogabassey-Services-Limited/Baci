@@ -3,7 +3,13 @@ import type { BuilderAiComponent } from './get-builder-ai-content-collections';
 export function resetBuilderAiInsertOffset(
   offsets: WeakMap<BuilderAiComponent[], Map<string, number>>,
   content: BuilderAiComponent[],
-  componentId: string
+  placement:
+    | { componentId: string; position: 'after' }
+    | { position: 'first_content' }
 ): void {
-  offsets.get(content)?.delete(`after:${componentId}`);
+  const key =
+    placement.position === 'after'
+      ? `after:${placement.componentId}`
+      : 'first_content';
+  offsets.get(content)?.delete(key);
 }

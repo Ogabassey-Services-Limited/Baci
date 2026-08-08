@@ -12,7 +12,10 @@ describe('resetBuilderAiInsertOffset', () => {
       componentId: 'anchor',
       position: 'after',
     });
-    resetBuilderAiInsertOffset(offsets, content, 'anchor');
+    resetBuilderAiInsertOffset(offsets, content, {
+      componentId: 'anchor',
+      position: 'after',
+    });
 
     expect(
       getBuilderAiInsertOffset(offsets, content, {
@@ -22,11 +25,23 @@ describe('resetBuilderAiInsertOffset', () => {
     ).toBe(0);
   });
 
-  it('does not require offset state for an anchor without prior inserts', () => {
+  it('clears a first-content placement offset', () => {
+    const offsets = new WeakMap<BuilderAiComponent[], Map<string, number>>();
+    const content: BuilderAiComponent[] = [];
+
+    getBuilderAiInsertOffset(offsets, content, { position: 'first_content' });
+    resetBuilderAiInsertOffset(offsets, content, { position: 'first_content' });
+
+    expect(
+      getBuilderAiInsertOffset(offsets, content, { position: 'first_content' })
+    ).toBe(0);
+  });
+
+  it('does not require offset state for an untracked placement', () => {
     const offsets = new WeakMap<BuilderAiComponent[], Map<string, number>>();
 
     expect(() =>
-      resetBuilderAiInsertOffset(offsets, [], 'untracked-anchor')
+      resetBuilderAiInsertOffset(offsets, [], { position: 'first_content' })
     ).not.toThrow();
   });
 });

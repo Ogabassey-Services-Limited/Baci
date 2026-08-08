@@ -37,7 +37,6 @@ import { normalizeBuilderAiModelPlan } from './normalize-builder-ai-model-plan';
 import { pushBuilderAiWarnings } from './push-builder-ai-warnings';
 import { resetBuilderAiInsertOffset } from './reset-builder-ai-insert-offset';
 import { sanitizeBuilderAiProps } from './sanitize-builder-ai-props';
-
 export class BuilderAiEditPlanError extends Error {}
 export interface ApplyBuilderAiEditPlanResult {
   candidateConfig: BuilderData;
@@ -209,10 +208,14 @@ function applyOperation(
         pushBuilderAiWarnings(warnings, ['No safe changes for move.']);
         return;
       }
+      resetBuilderAiInsertOffset(insertOffsets, source.content, {
+        componentId: operation.componentId,
+        position: 'after',
+      });
       resetBuilderAiInsertOffset(
         insertOffsets,
-        source.content,
-        operation.componentId
+        destinationContent,
+        operation.destination
       );
       source.content.splice(source.index, 1);
       destinationContent.splice(destination, 0, component);

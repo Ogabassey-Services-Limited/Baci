@@ -50,4 +50,48 @@ describe('applyBuilderAiEditPlan insert offsets', () => {
       ['new-Text', 'before', 'anchor', 'new-Newsletter', 'following']
     );
   });
+
+  it('places a later first-content insertion before a component moved there', () => {
+    // Arrange
+    const currentConfig: BuilderData = {
+      content: [
+        { props: { id: 'existing-c' }, type: 'Text' },
+        { props: { id: 'following' }, type: 'Text' },
+      ],
+      root: { title: 'Home' },
+    };
+    const plan = {
+      operations: [
+        {
+          initialContent: { componentType: 'Text', title: 'X' },
+          kind: 'insert_component',
+          placement: { position: 'first_content' },
+        },
+        {
+          componentId: 'existing-c',
+          destination: { position: 'first_content' },
+          kind: 'move_component',
+        },
+        {
+          initialContent: { componentType: 'Newsletter', title: 'Y' },
+          kind: 'insert_component',
+          placement: { position: 'first_content' },
+        },
+      ],
+      status: 'proposed',
+      summary: 'Insert around a component moved to first content',
+    } as BuilderAiProposedPlan;
+
+    // Act
+    const result = applyBuilderAiEditPlan(
+      currentConfig,
+      plan,
+      (type) => `new-${type}`
+    );
+
+    // Assert
+    expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
+      ['new-Newsletter', 'existing-c', 'new-Text', 'following']
+    );
+  });
 });
