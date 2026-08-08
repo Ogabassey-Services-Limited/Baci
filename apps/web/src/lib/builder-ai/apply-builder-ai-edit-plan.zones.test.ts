@@ -54,7 +54,7 @@ describe('applyBuilderAiEditPlan zones', () => {
     ).toThrow('A storefront requires one ProductGrid');
   });
 
-  it('moves a component into the zone that contains the destination target', () => {
+  it('rejects moving a root component into a zone across protected anchors', () => {
     const config: BuilderData = {
       content: [
         block('Header', 'header-1'),
@@ -65,48 +65,38 @@ describe('applyBuilderAiEditPlan zones', () => {
       zones: { aside: [block('Text', 'zone-text')] },
     };
 
-    const result = applyBuilderAiEditPlan(
-      config,
-      plan([
-        {
-          componentId: 'root-text',
-          destination: { componentId: 'zone-text', position: 'after' },
-          kind: 'move_component',
-        },
-      ])
-    );
-
-    expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
-      ['header-1', 'footer-1']
-    );
-    expect(
-      (result.candidateConfig.zones?.aside as BuilderData['content']).map(
-        (item) => item.props.id
+    expect(() =>
+      applyBuilderAiEditPlan(
+        config,
+        plan([
+          {
+            componentId: 'root-text',
+            destination: { componentId: 'zone-text', position: 'after' },
+            kind: 'move_component',
+          },
+        ])
       )
-    ).toEqual(['zone-text', 'root-text']);
+    ).toThrow('Component moved across a protected anchor');
   });
 
-  it('moves zoned content to root first_content', () => {
+  it('rejects moving zoned content to root first_content across protected anchors', () => {
     const config: BuilderData = {
       content: [block('Header', 'header-1'), block('Footer', 'footer-1')],
       root: { title: 'Home' },
       zones: { aside: [block('Text', 'zone-text')] },
     };
 
-    const result = applyBuilderAiEditPlan(
-      config,
-      plan([
-        {
-          componentId: 'zone-text',
-          destination: { position: 'first_content' },
-          kind: 'move_component',
-        },
-      ])
-    );
-
-    expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
-      ['header-1', 'zone-text', 'footer-1']
-    );
-    expect(result.candidateConfig.zones?.aside).toEqual([]);
+    expect(() =>
+      applyBuilderAiEditPlan(
+        config,
+        plan([
+          {
+            componentId: 'zone-text',
+            destination: { position: 'first_content' },
+            kind: 'move_component',
+          },
+        ])
+      )
+    ).toThrow('Component moved across a protected anchor');
   });
 });

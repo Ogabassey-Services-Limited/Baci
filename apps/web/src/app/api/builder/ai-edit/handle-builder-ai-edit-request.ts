@@ -262,6 +262,17 @@ export async function handleBuilderAiEditRequest(
       requestId: parsed.clientRequestId,
       userId: auth.user.id,
     });
+    if (candidate.operations.length === 0 && candidate.warnings.length > 0) {
+      return NextResponse.json(
+        {
+          code: 'builder_ai_manual_asset_required',
+          details: candidate.warnings.join(' '),
+          error: 'AI changes require manual action',
+          requestId: parsed.clientRequestId,
+        },
+        { status: 422 }
+      );
+    }
     return NextResponse.json(
       { config: candidate.candidateConfig },
       { headers: { 'X-RateLimit-Remaining': String(rate.remaining) } }

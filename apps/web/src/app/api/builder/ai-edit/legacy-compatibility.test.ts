@@ -114,4 +114,34 @@ describe('legacy builder compatibility adapter', () => {
       expect.objectContaining({ code: 'ai_provider_unavailable' })
     );
   });
+
+  it('returns readable guidance instead of a successful config for warning-only media edits', async () => {
+    const response = await handleBuilderAiEditRequest(
+      new Request('http://localhost/api/builder/gemini', { method: 'POST' }),
+      {
+        dependencies: dependencies({
+          runProviderChain: vi.fn().mockResolvedValue({
+            operations: [
+              {
+                componentId: 'hero-1',
+                kind: 'update_component',
+                patch: {
+                  componentType: 'Hero',
+                  image: 'https://example.test/hero.jpg',
+                },
+              },
+            ],
+            status: 'proposed',
+            summary: 'Change the hero image',
+          }),
+        }) as never,
+        mode: 'legacy',
+      }
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      details: 'Media changes require Baci manual asset controls.',
+    });
+  });
 });

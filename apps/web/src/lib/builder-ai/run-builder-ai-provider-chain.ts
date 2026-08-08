@@ -52,6 +52,70 @@ function isInvalidOutputFailure(error: unknown): boolean {
   return NoObjectGeneratedError.isInstance(error);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasNonEmptyString(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function hasPlacementEnvelope(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    value.position === 'first_content' ||
+    (value.position === 'after' && hasNonEmptyString(value.componentId))
+  );
+}
+
+function hasOperationEnvelope(operation: unknown): boolean {
+  if (!isRecord(operation)) return false;
+  switch (operation.kind) {
+    case 'insert_component':
+      return (
+        isRecord(operation.initialContent) &&
+        hasNonEmptyString(operation.initialContent.componentType) &&
+        hasPlacementEnvelope(operation.placement)
+      );
+    case 'move_component':
+      return (
+        hasNonEmptyString(operation.componentId) &&
+        hasPlacementEnvelope(operation.destination)
+      );
+    case 'remove_component':
+      return hasNonEmptyString(operation.componentId);
+    case 'update_carousel_slide':
+      return (
+        hasNonEmptyString(operation.componentId) &&
+        Number.isInteger(operation.slideIndex)
+      );
+    case 'update_component':
+      return (
+        hasNonEmptyString(operation.componentId) &&
+        isRecord(operation.patch) &&
+        hasNonEmptyString(operation.patch.componentType)
+      );
+    case 'update_root':
+      return hasNonEmptyString(operation.title);
+    case 'update_theme':
+      return hasNonEmptyString(operation.preset) || isRecord(operation.colors);
+    default:
+      return false;
+  }
+}
+
+function hasProposedPlanEnvelope(output: unknown): boolean {
+  if (!isRecord(output)) return false;
+  return (
+    output.status === 'proposed' &&
+    typeof output.summary === 'string' &&
+    output.summary.trim().length > 0 &&
+    output.summary.trim().length <= 240 &&
+    Array.isArray(output.operations) &&
+    output.operations.every(hasOperationEnvelope)
+  );
+}
+
 function logSafeFailure(
   logger: RunBuilderAiProviderChainOptions['logger'],
   provider: BuilderAiProvider,
@@ -145,7 +209,10 @@ export async function runBuilderAiProviderChain({
       if (signal.aborted || signalForAttempt.aborted) break;
       try {
         const output = await requestPlan(provider, prompt, signalForAttempt);
-        if (getBuilderAiRawPlanMediaWarning(output)) {
+        if (
+          getBuilderAiRawPlanMediaWarning(output) &&
+          hasProposedPlanEnvelope(output)
+        ) {
           return output as BuilderAiEditPlan;
         }
         const parsed = builderAiEditContract.modelPlanSchema.safeParse(

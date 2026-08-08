@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getBuilderAiStructuralBaseline,
   getBuilderAiStructuralFailure,
+  validateBuilderAiCandidate,
 } from './builder-ai-structure-guards';
 
 const text = (id: string) => ({ props: { id }, type: 'Text' });
@@ -70,5 +71,20 @@ describe('getBuilderAiStructuralFailure', () => {
     expect(getBuilderAiStructuralFailure(candidate, baseline)).toBe(
       'Component moved across a protected anchor'
     );
+  });
+
+  it('rejects a final candidate with an id duplicated between content and a zone', () => {
+    const candidate = {
+      content: [text('shared-id')],
+      root: { title: 'Home' },
+      zones: { aside: [text('shared-id')] },
+    } satisfies BuilderData;
+
+    expect(
+      validateBuilderAiCandidate(
+        candidate,
+        getBuilderAiStructuralBaseline(candidate)
+      )
+    ).toEqual({ failure: 'Duplicate component id' });
   });
 });

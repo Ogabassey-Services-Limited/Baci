@@ -231,7 +231,7 @@ describe('runBuilderAiProviderChain resilience', () => {
     );
   });
 
-  it('retries the reliable chain when only an opportunistic provider is available', async () => {
+  it('uses the available opportunistic provider when reliable providers are cooling down', async () => {
     const providerChain = [
       ...providers,
       {
@@ -261,11 +261,11 @@ describe('runBuilderAiProviderChain resilience', () => {
     ).resolves.toEqual(validPlan);
 
     expect(vi.mocked(generateText).mock.calls[0]?.[0]?.model).toBe(
-      providers[0]?.model
+      providerChain[2]?.model
     );
   });
 
-  it('passes raw media plans to the deterministic manual-asset warning path', async () => {
+  it('requires a proposed envelope before passing raw media to the warning path', async () => {
     const rawPlan = {
       operations: [
         {
@@ -277,7 +277,17 @@ describe('runBuilderAiProviderChain resilience', () => {
       status: 'proposed',
       summary: 'Change the image',
     };
-    vi.mocked(generateText).mockResolvedValueOnce({ output: rawPlan } as never);
+    vi.mocked(generateText)
+      .mockResolvedValueOnce({
+        output: {
+          operations: [{ source: 'asset' }],
+          status: 'proposed',
+          summary: 'Change the hero image',
+        },
+      } as never)
+      .mockResolvedValueOnce({ output: rawPlan } as never);
+
     await expect(run()).resolves.toEqual(rawPlan);
+    expect(generateText).toHaveBeenCalledTimes(2);
   });
 });

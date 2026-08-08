@@ -3,8 +3,8 @@ import {
   builderAiEditContract,
   validateBuilderAiEditComplexity,
 } from '@baci/shared/contracts';
+import { hasDuplicateBuilderAiComponentIds } from './get-builder-ai-content-collections';
 import { getBuilderComponentId } from './get-builder-component-id';
-import { getDuplicateBuilderAiComponentId } from './get-duplicate-builder-ai-component-id';
 
 interface ProtectedAnchor {
   collection: number;
@@ -155,7 +155,7 @@ export function validateBuilderAiCandidate(
   candidateConfig: BuilderData,
   baseline: BuilderAiStructuralBaseline
 ): { candidateConfig: BuilderData } | { failure: string } {
-  if (getDuplicateBuilderAiComponentId(candidateConfig.content)) {
+  if (hasDuplicateBuilderAiComponentIds(candidateConfig)) {
     return { failure: 'Duplicate component id' };
   }
   const structureFailure = getBuilderAiStructuralFailure(
