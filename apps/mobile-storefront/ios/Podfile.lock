@@ -2758,6 +2758,29 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNSentry (8.21.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNSVG (15.15.5):
     - hermes-engine
     - RCTRequired
@@ -3042,6 +3065,7 @@ DEPENDENCIES:
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
+  - "RNSentry (from `../../../node_modules/@sentry/react-native`)"
   - RNSVG (from `../../../node_modules/react-native-svg`)
   - RNWorklets (from `../../../node_modules/react-native-worklets`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
@@ -3367,6 +3391,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../../../node_modules/react-native-screens"
+  RNSentry:
+    :path: "../../../node_modules/@sentry/react-native"
   RNSVG:
     :path: "../../../node_modules/react-native-svg"
   RNWorklets:
@@ -3438,7 +3464,7 @@ SPEC CHECKSUMS:
   FirebaseCore: f4428e22415ea3b3eca652c2098413dabf2a23a9
   FirebaseCoreInternal: e7bbaeb00ab73011298f35ed223aa7371e212948
   GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
-  hermes-engine: 201412725f6fd445337d8424251c83ceec088465
+  hermes-engine: cb04bce59575e32a6b763e735d269c5ef9d5d05a
   libavif: 5f8e715bea24debec477006f21ef9e95432e254d
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -3538,6 +3564,7 @@ SPEC CHECKSUMS:
   RNGestureHandler: 4d6b58e58a2422c53f2c56cbd54e92a974509e59
   RNReanimated: a7a6dd6bf33fd3e8e94cf65a1cb27ecf667d2d99
   RNScreens: d3490d0fe7b77d694f59fa8caeced736f9345298
+  RNSentry: d926e4b2f211073cda3e3634e854851aefc3349e
   RNSVG: 394cfd0518613b144c65ffe69045f827b78a7a7c
   RNWorklets: 63cb8f15b2886288da888ac65cc21934c9ebc80a
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf

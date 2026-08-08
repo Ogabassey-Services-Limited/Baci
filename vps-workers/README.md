@@ -103,14 +103,19 @@ IMPORT_JOB_TRIGGER_HOST=127.0.0.1
 IMPORT_JOB_TRIGGER_PORT=3918
 VERCEL_ERROR_LOG_PATH=/home/bassey/baci-workers/logs/vercel-drain.jsonl
 BACI_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/vercel-error-remediator
+BACI_SENTRY_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/sentry-mobile-error-remediator
 BACI_REMEDIATION_MIN_OCCURRENCES=2
 BACI_REMEDIATION_AUTOFIX_ENABLED=0
 BACI_REPO_DIR=/opt/baci/app
 CI=true
 PUPPETEER_SKIP_DOWNLOAD=1
 BACI_REMEDIATION_WORKTREE_ROOT=/opt/baci/remediation-worktrees
-BACI_REMEDIATION_VERIFY_COMMAND="pnpm turbo lint && pnpm turbo typecheck"
+BACI_REMEDIATION_VERIFY_COMMAND="pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test"
 BACI_REMEDIATION_NOTIFY_EMAILS=owner@example.com
+SENTRY_REMEDIATION_AUTH_TOKEN=...
+SENTRY_ORG=...
+SENTRY_PROJECT=...
+SENTRY_URL=https://sentry.io/
 VERCEL_LOG_DRAIN_SECRET=...
 VERCEL_LOG_DRAIN_RECEIVER_PORT=8787
 IMPORT_JOB_RETENTION_DAYS=30
@@ -150,14 +155,21 @@ Variable purposes:
 - `IMPORT_JOB_TRIGGER_PORT`: Local import trigger listener port. Default is `3918`.
 - `VERCEL_ERROR_LOG_PATH`: JSONL file written by the Vercel log-drain receiver or log export process. Each line must be one Vercel log event JSON object.
 - `BACI_REMEDIATION_OUTPUT_DIR`: Directory where the remediator writes Codex prompts and reports.
+- `BACI_SENTRY_REMEDIATION_OUTPUT_DIR`: Separate prompt/state directory for native mobile Sentry issues.
+- `BACI_REMEDIATION_STATE_PATH`: Optional deduplication state path. The worker records each fingerprint and last-seen observation atomically so unchanged incidents do not wake Codex repeatedly.
 - `BACI_REMEDIATION_MIN_OCCURRENCES`: Minimum repeated fingerprint count before the worker creates remediation work. Default is `2`.
+- `BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN`: Maximum candidates investigated during one worker tick. Defaults to `1` and is capped at `10` so a noisy backlog cannot monopolize the worker.
 - `BACI_REMEDIATION_AUTOFIX_ENABLED`: Set to `1` only after Codex CLI and GitHub CLI are logged in on the VPS. Default/dry-run mode writes prompts and sends reports only.
+- `BACI_CODEX_DOCKER_IMAGE`: Commit-tagged remediator image built and injected by `deploy.sh`. Do not set this manually in `.env`; the remediation cron entries own it.
+- `BACI_CODEX_CONTAINER_BIN`: Native static Codex binary resolved and injected by `deploy.sh`; the JavaScript launcher is intentionally rejected by the container backend.
 - `BACI_REPO_DIR`: Full Baci checkout used for autonomous fix PRs. The checkout must have `origin`, dependencies, `gh`, and Codex CLI access.
 - `CI`: Keep set to `true` for cron/systemd worker runs so package-manager checks fail or repair non-interactively instead of prompting in a headless shell.
 - `PUPPETEER_SKIP_DOWNLOAD`: Keep set to `1` for worker wrappers. The import/Jumia/AI wrappers do not need Puppeteer's managed browser, and skipping the browser download prevents dependency bootstrap from blocking cron jobs when a checkout is refreshed.
 - `BACI_REMEDIATION_WORKTREE_ROOT`: Directory where isolated remediation worktrees are created. Defaults beside `BACI_REPO_DIR`.
-- `BACI_REMEDIATION_VERIFY_COMMAND`: Shell command run before commit/push in autofix mode.
+- `BACI_REMEDIATION_VERIFY_COMMAND`: Shell command run before commit/push in the same dependency-mounted remediator image used by Codex.
 - `BACI_REMEDIATION_NOTIFY_EMAILS`: Comma-separated report recipients. Requires `ZEPTOMAIL_TOKEN`; `ZEPTOMAIL_FROM_DOMAIN` defaults to `usebaci.com`.
+- `SENTRY_REMEDIATION_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_URL`: Server-only Sentry issue API configuration used by the mobile remediator. Use a dedicated token with `event:read`; release/source-map upload credentials are not sufficient. These values are deliberately removed from the Codex and test subprocess environments.
+- `BACI_SENTRY_REMEDIATION_MAX_PAGES`: Maximum Sentry issue pages inspected before failing closed. Each page requests Sentry's maximum 100 issues; default is `10` and the hard cap is `50`.
 - `VERCEL_LOG_DRAIN_SECRET`: Shared secret used to verify Vercel Drain HMAC signatures before appending log events.
 - `VERCEL_LOG_DRAIN_RECEIVER_PORT`: Local receiver port proxied by nginx. Default is `8787`.
 - `IMPORT_JOB_RETENTION_DAYS`: Days to keep terminal import job previews and migration CSVs before cleanup. Default is `30`.
@@ -259,39 +271,7 @@ upload is finalized, using the matching `IMPORT_JOB_TRIGGER_URL` and
 The hourly cron entry remains as a fallback sweep for missed signals, not the
 primary scheduler.
 
-## Vercel Error Remediator
+## Production Error Remediators
 
-`jobs/vercel-log-drain-receiver.mjs` receives signed Vercel Drain HTTP POSTs,
-verifies `x-vercel-signature` with `VERCEL_LOG_DRAIN_SECRET`, normalizes JSON or
-NDJSON payloads, and appends valid log events to `VERCEL_ERROR_LOG_PATH`.
-`deploy.sh` installs it as the `baci-vercel-log-drain-receiver.service` user
-service. Expose only an HTTPS reverse proxy path to this local listener.
-
-`jobs/vercel-error-remediator.mjs` is a guarded remediation worker for Vercel
-runtime/build error logs.
-
-It does three things in dry-run mode:
-
-- reads newline-delimited Vercel log-drain events from `VERCEL_ERROR_LOG_PATH`
-- fingerprints repeated 5xx/error events and writes Codex remediation prompts
-- emails an operator report when `BACI_REMEDIATION_NOTIFY_EMAILS` and `ZEPTOMAIL_TOKEN` are configured
-
-Run manually:
-
-```bash
-cd /home/bassey/baci-workers
-node jobs/vercel-error-remediator.mjs
-```
-
-Autofix mode is intentionally off by default. When
-`BACI_REMEDIATION_AUTOFIX_ENABLED=1`, the worker uses the full checkout at
-`BACI_REPO_DIR` to create an isolated git worktree, run Codex, inspect changed files,
-require and run `BACI_REMEDIATION_VERIFY_COMMAND`, push a
-`codex/vercel-remediation-*` branch, and open a GitHub PR. It blocks PR creation
-if Codex touches protected surfaces:
-`proxy.ts`, payment/auth/webhook routes, payment libraries, migrations, GitHub
-workflows, or secret files.
-
-`BACI_REMEDIATION_REQUEST_AUTO_MERGE=1` can request GitHub auto-merge after PR
-creation, but branch protection must remain authoritative. Do not give the
-worker a GitHub token that can bypass required checks or reviews.
+See [REMEDIATION.md](./REMEDIATION.md) for Vercel drain ingestion, Sentry mobile
+issue polling, deduplication, Codex isolation, draft-PR policy, and operations.

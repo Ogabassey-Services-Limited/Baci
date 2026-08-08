@@ -50,10 +50,20 @@ describe('Expo compliance', () => {
     const originalFacebookClientToken =
       process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
     const originalPosthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
+    const originalSentry = {
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+    };
 
     process.env.STOREFRONT_FACEBOOK_APP_ID = '123456789';
     process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN = 'client-token';
     process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'ph_test';
+    process.env.EXPO_PUBLIC_SENTRY_DSN = 'https://public@example.invalid/1';
+    process.env.SENTRY_AUTH_TOKEN = 'test-auth-token';
+    process.env.SENTRY_ORG = 'test-org';
+    process.env.SENTRY_PROJECT = 'test-project';
 
     try {
       let config: ExpoConfig | undefined;
@@ -94,6 +104,19 @@ describe('Expo compliance', () => {
         delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
       } else {
         process.env.EXPO_PUBLIC_POSTHOG_API_KEY = originalPosthogApiKey;
+      }
+
+      for (const [name, value] of Object.entries({
+        EXPO_PUBLIC_SENTRY_DSN: originalSentry.dsn,
+        SENTRY_AUTH_TOKEN: originalSentry.authToken,
+        SENTRY_ORG: originalSentry.org,
+        SENTRY_PROJECT: originalSentry.project,
+      })) {
+        if (value === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = value;
+        }
       }
     }
   });
@@ -170,6 +193,7 @@ describe('Expo compliance', () => {
   it('sets the supported iOS deployment target to 16.4', () => {
     const plugins = createExpoPlugins({
       facebookSdkPlugin: null,
+      sentryPlugin: null,
       tiktokBusinessPlugin: null,
     });
 
@@ -190,6 +214,7 @@ describe('Expo compliance', () => {
   it('configures the Expo splash plugin without a static splash image', () => {
     const plugins = createExpoPlugins({
       facebookSdkPlugin: null,
+      sentryPlugin: null,
       tiktokBusinessPlugin: null,
     });
 

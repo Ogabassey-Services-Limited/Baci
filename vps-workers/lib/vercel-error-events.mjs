@@ -30,6 +30,24 @@ function firstNumber(...values) {
   return null;
 }
 
+function firstTimestamp(...values) {
+  for (const value of values) {
+    const parsed =
+      typeof value === 'number' && Number.isFinite(value)
+        ? value
+        : typeof value === 'string' && value.trim()
+          ? Date.parse(value.trim())
+          : Number.NaN;
+    if (Number.isFinite(parsed)) {
+      const date = new Date(parsed);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+  }
+  return '';
+}
+
 export function normalizeVercelLogEvent(raw) {
   const entry = raw && typeof raw === 'object' ? raw : {};
   const error =
@@ -65,14 +83,15 @@ export function normalizeVercelLogEvent(raw) {
       entry.status,
       entry.response?.statusCode
     ),
-    timestamp:
-      firstString(entry.timestamp, entry.time, entry.createdAt) ||
-      new Date().toISOString(),
+    timestamp: firstTimestamp(entry.timestamp, entry.time, entry.createdAt),
   };
 }
 
 export function isErrorEvent(event) {
   if (!event) {
+    return false;
+  }
+  if (String(event.source || '').toLowerCase() === 'firewall') {
     return false;
   }
   if (ERROR_LEVELS.has(String(event.level || '').toLowerCase())) {
@@ -128,8 +147,8 @@ export function groupErrorEvents(rawEvents) {
       deploymentIds: new Set(),
       events: [],
       fingerprint,
-      firstSeen: event.timestamp,
-      lastSeen: event.timestamp,
+      firstSeen: '',
+      lastSeen: '',
       requestIds: new Set(),
       sample: event,
     };
@@ -140,11 +159,13 @@ export function groupErrorEvents(rawEvents) {
     if (event.requestId) {
       group.requestIds.add(event.requestId);
     }
-    if (event.timestamp < group.firstSeen) {
-      group.firstSeen = event.timestamp;
-    }
-    if (event.timestamp > group.lastSeen) {
-      group.lastSeen = event.timestamp;
+    if (event.timestamp) {
+      if (!group.firstSeen || event.timestamp < group.firstSeen) {
+        group.firstSeen = event.timestamp;
+      }
+      if (!group.lastSeen || event.timestamp > group.lastSeen) {
+        group.lastSeen = event.timestamp;
+      }
     }
     groups.set(fingerprint, group);
   }

@@ -11,6 +11,7 @@ source "$WORKER_ROOT/lib/prepare-worker-release.sh"
 VPS="bassey@82.29.190.219"
 REMOTE_DIR="/home/bassey/baci-workers"
 APP_SHA=$(git rev-parse HEAD)
+CODEX_REMEDIATOR_IMAGE="baci-codex-remediator:$APP_SHA"
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Refusing worker deployment from a dirty tracked checkout." >&2
@@ -22,6 +23,18 @@ if [ -n "$(git ls-files --others --exclude-standard)" ]; then
 fi
 
 prepare_worker_release
+
+CODEX_CONTAINER_BIN=$(ssh "$VPS" "find /home/bassey/.local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor -path '*/bin/codex' -type f -print -quit")
+
+if [ -z "$CODEX_CONTAINER_BIN" ]; then
+  echo "Unable to resolve the native Codex binary on $VPS." >&2
+  exit 1
+fi
+
+echo "==> Building isolated Codex remediator image"
+ssh "$VPS" "docker build -f $STAGING_DIR/Dockerfile.codex-remediator -t $CODEX_REMEDIATOR_IMAGE $STAGING_DIR"
+
+promote_worker_release
 
 echo "==> Installing Vercel drain receiver user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-vercel-log-drain-receiver.service"
@@ -99,7 +112,8 @@ $CRON_BLOCK_START
 * *    * * * flock -n $REMOTE_DIR/locks/petrock-reconcile.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=petrock-reconciliation && cd $REMOTE_DIR && timeout --signal=TERM --kill-after=30s 5m $REMOTE_DIR/bin/process-petrock-reconciliation.sh' >> $REMOTE_DIR/logs/petrock-reconcile.log 2>&1
 */5 * * * * flock -n $REMOTE_DIR/locks/order-notifications.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/order-notifications?batchSize=5' >> $REMOTE_DIR/logs/order-notifications.log 2>&1
 */2 * * * * flock -n $REMOTE_DIR/locks/cache-invalidations.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/drain-cache-invalidations' >> $REMOTE_DIR/logs/cache-invalidations.log 2>&1
-*/15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1
+*/15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock flock -n $REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1
+*/5 *  * * * flock -n $REMOTE_DIR/locks/sentry-mobile-error-remediator.lock flock -n $REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/sentry-mobile-error-remediator.mjs' >> $REMOTE_DIR/logs/sentry-mobile-error-remediator.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/ollama-workload.lock flock -n $REMOTE_DIR/locks/agentic-commerce-health.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/agentic-commerce-health' >> $REMOTE_DIR/logs/agentic-commerce-health.log 2>&1
 0 */6  * * * flock -n $REMOTE_DIR/locks/inventory-push-alerts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/inventory/push-alerts' >> $REMOTE_DIR/logs/inventory-push-alerts.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/sync-jumia-orders.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/sync-jumia-orders.sh' >> $REMOTE_DIR/logs/sync-jumia-orders.log 2>&1
@@ -235,7 +249,11 @@ echo "         BACI_WEB_BASE_URL=..."
 echo "         CRON_SECRET=..."
 echo "         VERCEL_ERROR_LOG_PATH=$REMOTE_DIR/logs/vercel-drain.jsonl"
 echo "         BACI_REMEDIATION_OUTPUT_DIR=$REMOTE_DIR/logs/vercel-error-remediator"
+echo "         BACI_SENTRY_REMEDIATION_OUTPUT_DIR=$REMOTE_DIR/logs/sentry-mobile-error-remediator"
 echo "         BACI_REMEDIATION_AUTOFIX_ENABLED=0"
+echo "         SENTRY_REMEDIATION_AUTH_TOKEN=... # dedicated token with event:read"
+echo "         SENTRY_ORG=..."
+echo "         SENTRY_PROJECT=..."
 echo "         VERCEL_LOG_DRAIN_SECRET=..."
 echo "         VERCEL_LOG_DRAIN_RECEIVER_PORT=8787"
 echo "         OLLAMA_STOREFRONT_BASE_URL=http://localhost:11434"

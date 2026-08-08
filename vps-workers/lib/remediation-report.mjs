@@ -13,13 +13,21 @@ function parseRecipients(value) {
     .filter(Boolean);
 }
 
+function buildZeptoMailAuthorization(token) {
+  const trimmedToken = String(token || '').trim();
+  return trimmedToken.startsWith('Zoho-enczapikey ')
+    ? trimmedToken
+    : `Zoho-enczapikey ${trimmedToken}`;
+}
+
 export function buildRemediationReport({
   actions = [],
   candidates = [],
   mode = 'dry-run',
   policy = { allowed: false, reasons: [] },
+  source = 'production-error-remediator',
 } = {}) {
-  const subject = `Baci Vercel remediation ${mode}: ${candidates.length} candidate(s)`;
+  const subject = `Baci ${source} ${mode}: ${candidates.length} candidate(s)`;
   const candidateLines = candidates.map((candidate) => {
     const sample = candidate.sample || {};
     return [
@@ -27,6 +35,7 @@ export function buildRemediationReport({
       `occurrences=${candidate.occurrences}`,
       `route=${sample.route || '(unknown)'}`,
       `deployment=${sample.deploymentId || '(unknown)'}`,
+      `sentryIssue=${sample.issueId || '(unknown)'}`,
       `message=${sample.message || '(empty)'}`,
     ].join(' | ');
   });
@@ -34,8 +43,8 @@ export function buildRemediationReport({
     `${action.type}: ${action.path || action.detail || ''}`.trim()
   );
   const policyLines = policy.allowed
-    ? ['auto-merge policy: allowed']
-    : ['auto-merge policy: blocked', ...policy.reasons];
+    ? ['automated PR policy: allowed']
+    : ['automated PR policy: blocked', ...policy.reasons];
 
   const text = [
     `Mode: ${mode}`,
@@ -51,7 +60,7 @@ export function buildRemediationReport({
   ].join('\n');
 
   const html = `
-    <h1>Baci Vercel remediation</h1>
+    <h1>Baci ${escapeHtml(source)}</h1>
     <p><strong>Mode:</strong> ${escapeHtml(mode)}</p>
     <h2>Candidates</h2>
     <ul>${(candidateLines.length ? candidateLines : ['none'])
@@ -74,9 +83,9 @@ export async function sendRemediationReportEmail({
   report,
 }) {
   const recipients = parseRecipients(env.BACI_REMEDIATION_NOTIFY_EMAILS);
-  const token = env.ZEPTOMAIL_TOKEN;
+  const token = String(env.ZEPTOMAIL_TOKEN || '').trim();
   const fromDomain = env.ZEPTOMAIL_FROM_DOMAIN || 'usebaci.com';
-  if (recipients.length === 0 || !token) {
+  if (recipients.length === 0 || token.length === 0) {
     return { skipped: true, reason: 'email not configured' };
   }
 
@@ -94,7 +103,7 @@ export async function sendRemediationReportEmail({
       })),
     }),
     headers: {
-      Authorization: `Zoho-enczapikey ${token}`,
+      Authorization: buildZeptoMailAuthorization(token),
       'Content-Type': 'application/json',
     },
     method: 'POST',

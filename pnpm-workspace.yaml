@@ -77,6 +77,7 @@ allowBuilds:
   "@firebase/util": true
   "@posthog/cli": true
   "@scarf/scarf": true
+  '@sentry/cli': true
   core-js: true
   esbuild: true
   lefthook: true
