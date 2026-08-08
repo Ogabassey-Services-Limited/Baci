@@ -15,7 +15,7 @@ type CompareProductMatchRequirement = {
 };
 
 const VARIANT_DISCRIMINATOR_PATTERN =
-  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch|w)|\d+(?:hz|mah)|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
+  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch|w|v)|\d+(?:hz|mah)|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
 const RAM_DOMINANT_CATEGORIES = new Set([
   'desktops',
   'gaming-laptops',
@@ -104,7 +104,17 @@ function getSourceDiscriminatorTokens(
       storageCapacity > 0 &&
       storageCapacity <= 32 &&
       (sourceTokens[index + 1] === 'ram' ||
-        RAM_DOMINANT_CATEGORIES.has(categorySlug));
+        sourceTokens.some((otherToken) => {
+          const match = otherToken.match(/^(\d+)(gb|tb)$/u);
+          const otherCapacity = match
+            ? Number(match[1]) * (match[2] === 'tb' ? 1024 : 1)
+            : 0;
+          return otherCapacity > storageCapacity;
+        }) ||
+        (RAM_DOMINANT_CATEGORIES.has(categorySlug) &&
+          sourceTokens.some((otherToken) =>
+            /(?:corei|coreultra|rtx)/u.test(otherToken)
+          )));
     if (
       !identifierTokens.has(token) &&
       !isLikelyRam &&

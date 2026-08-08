@@ -122,6 +122,53 @@ describe('getCompareProductMatchRequirements variant preservation', () => {
     ]);
   });
 
+  it('preserves sole low-capacity Chromebook storage in comparisons', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'laptops',
+      brands: ['Acer'],
+      productNames: ['Acer Chromebook 311 32GB', 'Acer Chromebook 311 64GB'],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: 'chromebook 311',
+        brand: 'acer',
+        discriminatorTokens: ['32gb'],
+      },
+      {
+        identifier: 'chromebook 311',
+        brand: 'acer',
+        discriminatorTokens: ['64gb'],
+      },
+    ]);
+  });
+
+  it('retains voltage discriminators for accessory comparisons', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'accessories',
+      brands: ['Universal'],
+      productNames: [
+        'Universal Travel Adapter 110V',
+        'Universal Travel Adapter 220V',
+      ],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: 'travel adapter',
+        brand: 'universal',
+        discriminatorTokens: ['110v'],
+      },
+      {
+        identifier: 'travel adapter',
+        brand: 'universal',
+        discriminatorTokens: ['220v'],
+      },
+    ]);
+  });
+
   it('keeps proven numeric laptop families in compare identifiers', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

@@ -28,7 +28,7 @@ function tokenize(value: string) {
     );
 }
 const MODEL_METADATA_TOKEN_PATTERN =
-  /^(?:ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg)|\d{4,}[a-z]{2,})$/u;
+  /^(?:ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',

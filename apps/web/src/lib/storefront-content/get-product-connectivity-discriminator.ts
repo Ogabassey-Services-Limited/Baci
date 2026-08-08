@@ -31,6 +31,7 @@ const SIM_MODE_DISCRIMINATOR_TOKENS = new Set([
 const DIMENSION_DISCRIMINATOR_PATTERN = /^\d+(?:\.\d+)?(?:mm|inch)$/u;
 const BATTERY_CAPACITY_DISCRIMINATOR_PATTERN = /^\d+mah$/u;
 const WATTAGE_DISCRIMINATOR_PATTERN = /^\d+w$/u;
+const VOLTAGE_DISCRIMINATOR_PATTERN = /^\d+v$/u;
 const REFRESH_RATE_DISCRIMINATOR_PATTERN = /^\d+hz$/u;
 const COMMON_STORAGE_CAPACITIES_GB = new Set([
   16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
@@ -169,12 +170,21 @@ export function getProductConnectivityDiscriminators(
       DIMENSION_DISCRIMINATOR_PATTERN.test(token) ||
       BATTERY_CAPACITY_DISCRIMINATOR_PATTERN.test(token) ||
       WATTAGE_DISCRIMINATOR_PATTERN.test(token) ||
+      VOLTAGE_DISCRIMINATOR_PATTERN.test(token) ||
       (categorySlug === 'monitors' &&
         REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||
       laptopHardwareTokens.has(token) ||
-      (tokenIndex === tokens.length - 1 &&
-        isProductVariantRegionToken(token)) ||
+      (isProductVariantRegionToken(token) &&
+        tokens
+          .slice(tokenIndex + 1)
+          .every(
+            (suffixToken, suffixIndex) =>
+              getDiscriminatorGroup(
+                suffixToken,
+                tokenIndex + suffixIndex + 1 === tokens.length - 1
+              ) !== null || suffixToken === 'version'
+          )) ||
       token === strongestStorageToken
   );
 }

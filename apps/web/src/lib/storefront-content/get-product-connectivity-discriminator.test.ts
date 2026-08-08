@@ -190,6 +190,26 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual(['us']);
   });
 
+  it('retains a regional PDP variant before storage metadata', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Apple iPhone 15 US 128GB'],
+        [],
+        'smartphones'
+      )
+    ).toEqual(['us', '128gb']);
+  });
+
+  it('retains voltage ratings as accessory variants', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Universal Travel Adapter 110V'],
+        [],
+        'accessories'
+      )
+    ).toEqual(['110v']);
+  });
+
   it('normalizes a terminal bare storage capacity as a PDP variant', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Samsung Galaxy S25 256'],

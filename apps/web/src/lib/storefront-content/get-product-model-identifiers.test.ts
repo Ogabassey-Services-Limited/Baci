@@ -22,6 +22,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['flip 6']);
   });
 
+  it('strips monitor response-time metadata from the model identifier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'monitors',
+      brands: ['LG'],
+      productNames: ['LG UltraGear 27GP850-B 1ms'],
+    });
+
+    expect(identifiers).toEqual(['ultragear 27gp850']);
+  });
+
   it('deduplicates identifiers across product variants', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

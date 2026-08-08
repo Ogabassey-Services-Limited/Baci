@@ -162,4 +162,42 @@ describe('buildCommercialGuideLinks game titles', () => {
 
     expect(links[0]?.href).toBe('https://ogabassey.com/blog/fifa23-ps5-guide');
   });
+
+  it('binds the platform on broad gaming pages', () => {
+    const links = buildCommercialGuideLinks({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        {
+          slug: 'fifa23-xbox-guide',
+          title: 'FIFA23 Buyer Guide for Xbox',
+          excerpt: 'Xbox edition buying advice.',
+          category: 'Gaming',
+          tags: ['gaming', 'xbox'],
+          keywords: null,
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'fifa23-ps5-guide',
+          title: 'FIFA23 Buyer Guide for PS5',
+          excerpt: 'PS5 edition buying advice.',
+          category: 'Gaming',
+          tags: ['gaming', 'ps5'],
+          keywords: null,
+          featured_image_url: null,
+          published_at: '2026-04-01T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+      ],
+      context: {
+        pageKind: 'product',
+        categorySlug: 'gaming',
+        brands: ['PS5'],
+        productNames: ['PS5 FIFA23'],
+      },
+    });
+
+    expect(links[0]?.href).toBe('https://ogabassey.com/blog/fifa23-ps5-guide');
+  });
 });

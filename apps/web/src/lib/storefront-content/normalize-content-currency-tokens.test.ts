@@ -33,4 +33,10 @@ describe('normalizeContentCurrencyTokens', () => {
 
     expect(normalized).toBe('PSN USD 50 and Xbox GBP 50 Gift Cards');
   });
+
+  it('canonicalizes formatted and zero-decimal gift-card amounts', () => {
+    expect(
+      normalizeContentCurrencyTokens('₦5,000 Gift Card and $50.00 Voucher')
+    ).toBe('ngn 5000 Gift Card and usd 50 Voucher');
+  });
 });

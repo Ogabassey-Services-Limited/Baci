@@ -184,7 +184,18 @@ export function buildCommercialGuideLinks(
 
       const shouldBindProductModelBrand =
         normalizedBrands.length > 0 &&
-        !GAME_CATEGORY_PATTERN.test(input.context.categorySlug);
+        (!GAME_CATEGORY_PATTERN.test(input.context.categorySlug) ||
+          (input.context.categorySlug === 'gaming' &&
+            normalizedBrands.some((brand) =>
+              [
+                'ps4',
+                'ps5',
+                'playstation',
+                'xbox',
+                'switch',
+                'nintendo',
+              ].includes(brand)
+            )));
       const productGuideMatchStrength = getProductGuideMatchStrength({
         post,
         inferredTokens: inferred.tokens,

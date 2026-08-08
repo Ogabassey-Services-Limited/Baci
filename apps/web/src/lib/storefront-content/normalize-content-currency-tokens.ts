@@ -7,12 +7,23 @@ const CURRENCY_TOKEN_BY_SYMBOL: Record<string, string> = {
 
 export function normalizeContentCurrencyTokens(value: string) {
   return value
-    .replace(/\bus\s*\$\s*(?=\d)/giu, ' usd ')
-    .replace(/\b(usd|gbp|eur|ngn)\s*(\d+(?:\.\d+)?)\b/giu, '$1 $2')
+    .replace(/\bus\s*\$\s*(\d+(?:,\d{3})*(?:\.\d+)?)/giu, ' usd $1')
     .replace(
-      /[£$€₦]/gu,
-      (symbol) => ` ${CURRENCY_TOKEN_BY_SYMBOL[symbol] ?? ''} `
+      /([£$€₦])\s*(\d+(?:,\d{3})*(?:\.\d+)?)/gu,
+      (_, symbol: string, amount: string) =>
+        ` ${CURRENCY_TOKEN_BY_SYMBOL[symbol] ?? ''} ${amount} `
     )
-    .replace(/\bus(\d+(?:\.\d+)?)\b/giu, ' usd $1')
-    .replace(/\s+/gu, ' ');
+    .replace(/\bus(\d+(?:,\d{3})*(?:\.\d+)?)\b/giu, ' usd $1')
+    .replace(
+      /\b(usd|gbp|eur|ngn)\s*(\d+(?:,\d{3})*(?:\.\d+)?)/giu,
+      (_, currency: string, amount: string) => {
+        const normalizedAmount = amount
+          .replace(/,/gu, '')
+          .replace(/\.0+$/u, '');
+        return `${currency} ${normalizedAmount}`;
+      }
+    )
+    .replace(/\s+/gu, ' ')
+    .replace(/\s+([,.;!?])/gu, '$1')
+    .trim();
 }
