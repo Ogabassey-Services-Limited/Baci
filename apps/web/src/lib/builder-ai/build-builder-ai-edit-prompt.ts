@@ -114,6 +114,7 @@ function project(
 function getRemovalConstraints(currentConfig: BuilderData): {
   protectedComponentIds: string[];
   requiredComponentGroups: Array<{
+    componentIds: string[];
     componentType: 'ProductGrid' | 'renderedH1Hero';
     minimumRetained: 1;
   }>;
@@ -122,6 +123,11 @@ function getRemovalConstraints(currentConfig: BuilderData): {
   const matching = (
     predicate: (component: BuilderData['content'][number]) => boolean
   ) => components.filter(predicate);
+  const componentIds = (matches: BuilderData['content']): string[] =>
+    matches.flatMap((component) => {
+      const id = component.props.id;
+      return typeof id === 'string' && id.length > 0 ? [id] : [];
+    });
   const soleId = (matches: BuilderData['content']): string[] => {
     const id = matches[0]?.props.id;
     return matches.length === 1 && typeof id === 'string' && id.length > 0
@@ -138,6 +144,7 @@ function getRemovalConstraints(currentConfig: BuilderData): {
       ...(productGrids.length > 0
         ? [
             {
+              componentIds: componentIds(productGrids),
               componentType: 'ProductGrid' as const,
               minimumRetained: 1 as const,
             },
@@ -146,6 +153,7 @@ function getRemovalConstraints(currentConfig: BuilderData): {
       ...(h1Heroes.length > 0
         ? [
             {
+              componentIds: componentIds(h1Heroes),
               componentType: 'renderedH1Hero' as const,
               minimumRetained: 1 as const,
             },
