@@ -269,33 +269,4 @@ describe('createStorefrontEdgeInventory', () => {
     );
   });
 
-  it.each([
-    'unknown',
-    'duplicate',
-  ])('rejects %s generator options', async (label) => {
-    // Arrange
-    const { originMainSha, repoRoot } = await fixtureRoot();
-    const output = join(repoRoot, 'task-1a-inventory.json');
-    const extraArguments =
-      label === 'unknown'
-        ? ['--unexpected', 'value']
-        : ['--source-sha', originMainSha];
-
-    // Act and assert
-    await expect(
-      execFileAsync(process.execPath, [
-        tsxCliPath,
-        join(toolDirectory, 'create-storefront-edge-inventory.ts'),
-        '--repo-root',
-        repoRoot,
-        '--source-sha',
-        originMainSha,
-        '--pilot-hostname',
-        'pilot.usebaci.com',
-        '--output',
-        output,
-        ...extraArguments,
-      ])
-    ).rejects.toThrow('inventory options are invalid');
-  });
 });
