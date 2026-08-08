@@ -17,6 +17,15 @@ describe('getLaptopHardwareDiscriminatorTokens', () => {
     ).toEqual(['rtx4060']);
   });
 
+  it('returns every hardware tier from a combined laptop configuration', () => {
+    expect(
+      getLaptopHardwareDiscriminatorTokens(
+        ['asus', 'rog', 'g16', 'corei7', 'rtx4060'],
+        'gaming-laptops'
+      )
+    ).toEqual(['corei7', 'rtx4060']);
+  });
+
   it('ignores hardware-looking tokens outside laptop categories', () => {
     expect(
       getLaptopHardwareDiscriminatorTokens(['rtx4060'], 'accessories')

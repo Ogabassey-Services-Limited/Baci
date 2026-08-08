@@ -99,8 +99,16 @@ describe('getCompareProductMatchRequirements', () => {
     });
 
     expect(requirements).toEqual([
-      { identifier: 'a15', brand: 'samsung', discriminatorTokens: ['5g'] },
-      { identifier: 'a15', brand: 'samsung', discriminatorTokens: ['lte'] },
+      {
+        identifier: 'a15',
+        brand: 'samsung',
+        discriminatorTokens: ['5g', '128gb'],
+      },
+      {
+        identifier: 'a15',
+        brand: 'samsung',
+        discriminatorTokens: ['lte', '128gb'],
+      },
     ]);
   });
 
@@ -120,12 +128,12 @@ describe('getCompareProductMatchRequirements', () => {
       {
         identifier: 'air',
         brand: 'apple',
-        discriminatorTokens: ['wifi'],
+        discriminatorTokens: ['128gb', 'wifi'],
       },
       {
         identifier: 'air',
         brand: 'apple',
-        discriminatorTokens: ['cellular'],
+        discriminatorTokens: ['128gb', 'cellular'],
       },
     ]);
   });

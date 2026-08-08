@@ -30,6 +30,7 @@ const SIM_MODE_DISCRIMINATOR_TOKENS = new Set([
 ]);
 const DIMENSION_DISCRIMINATOR_PATTERN = /^\d+(?:\.\d+)?(?:mm|inch)$/u;
 const BATTERY_CAPACITY_DISCRIMINATOR_PATTERN = /^\d+mah$/u;
+const WATTAGE_DISCRIMINATOR_PATTERN = /^\d+w$/u;
 const REFRESH_RATE_DISCRIMINATOR_PATTERN = /^\d+hz$/u;
 const COMMON_STORAGE_CAPACITIES_GB = new Set([
   16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
@@ -159,6 +160,7 @@ export function getProductConnectivityDiscriminators(
       CONNECTIVITY_DISCRIMINATOR_TOKENS.has(token) ||
       DIMENSION_DISCRIMINATOR_PATTERN.test(token) ||
       BATTERY_CAPACITY_DISCRIMINATOR_PATTERN.test(token) ||
+      WATTAGE_DISCRIMINATOR_PATTERN.test(token) ||
       (categorySlug === 'monitors' &&
         REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||

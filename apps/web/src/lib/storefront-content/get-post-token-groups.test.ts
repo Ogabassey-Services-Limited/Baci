@@ -151,4 +151,28 @@ describe('getPostTokenGroups', () => {
 
     expect(titleTokens).toContain('versus');
   });
+
+  it('keeps an internal connectivity ampersand with its product segment', () => {
+    const [titleTokens] = getPostTokenGroups({
+      title: 'iPad 10 Wi-Fi & Cellular vs iPad 10 Wi-Fi',
+      excerpt: null,
+      category: 'Tablets',
+      tags: null,
+      keywords: null,
+    });
+
+    expect(titleTokens).toEqual([
+      'ipad',
+      '10',
+      'wi',
+      'fi',
+      'versus',
+      'cellular',
+      'vs',
+      'ipad',
+      '10',
+      'wi',
+      'fi',
+    ]);
+  });
 });

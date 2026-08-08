@@ -200,6 +200,26 @@ describe('getProductConnectivityDiscriminators', () => {
     expect(discriminators).toEqual(['10000mah']);
   });
 
+  it('retains charger wattage as a PDP variant', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Apple 20W USB-C Power Adapter'],
+        [],
+        'accessories'
+      )
+    ).toEqual(['20w']);
+  });
+
+  it('retains every laptop hardware tier from a combined configuration', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['ASUS ROG G16 Core i7 RTX 4060'],
+        [],
+        'gaming-laptops'
+      )
+    ).toEqual(['corei7', 'rtx4060']);
+  });
+
   it('normalizes quote-only laptop display sizes as PDP variants', () => {
     const discriminators = getProductConnectivityDiscriminators(
       ['Apple MacBook Pro M3 14”'],

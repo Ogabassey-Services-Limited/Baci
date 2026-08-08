@@ -15,7 +15,7 @@ type CompareProductMatchRequirement = {
 };
 
 const VARIANT_DISCRIMINATOR_PATTERN =
-  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch)|\d+(?:hz|mah)|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
+  /^(?:\d+(?:\.\d+)?(?:g|gb|tb|mb|mm|inch|w)|\d+(?:hz|mah)|(?:e)?sim|bluetooth|wifi|cellular|gps|lte|dual|single|physical|nano|active|classic|edge|fe|flip|fold|lite|max|mini|neo|plus|power|prime|pro|se|ultra|xl)$/u;
 const RAM_DOMINANT_CATEGORIES = new Set([
   'desktops',
   'gaming-laptops',
@@ -122,6 +122,16 @@ function getSourceDiscriminatorTokens(
   return discriminatorTokens;
 }
 
+function isSharedRamDiscriminator(
+  token: string,
+  categorySlug: BuildCommercialGuideLinksContext['categorySlug']
+) {
+  const capacity = Number(token.match(/^(\d+)gb$/u)?.[1] ?? 0);
+  return (
+    capacity > 0 && capacity <= 32 && !RAM_DOMINANT_CATEGORIES.has(categorySlug)
+  );
+}
+
 function getMostSpecificProductIdentifier(
   context: BuildCommercialGuideLinksContext
 ) {
@@ -218,10 +228,8 @@ export function getCompareProductMatchRequirements(
       hasSubsetVariants
         ? candidate.discriminatorTokens
         : group.length > 1
-          ? candidate.discriminatorTokens.filter((token) =>
-              group
-                .filter((other) => other !== candidate)
-                .every((other) => !other.discriminatorTokens.includes(token))
+          ? candidate.discriminatorTokens.filter(
+              (token) => !isSharedRamDiscriminator(token, context.categorySlug)
             )
           : [];
     if (discriminatorTokens.length > 0) {

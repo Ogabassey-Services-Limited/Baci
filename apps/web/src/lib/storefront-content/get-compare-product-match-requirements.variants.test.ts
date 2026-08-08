@@ -83,6 +83,31 @@ describe('getCompareProductMatchRequirements variant preservation', () => {
     ]);
   });
 
+  it('retains shared storage with distinct colors for same-model siblings', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productNames: [
+        'Apple iPhone 15 256GB Black',
+        'Apple iPhone 15 256GB Blue',
+      ],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: '15',
+        brand: 'apple',
+        discriminatorTokens: ['256gb', 'black'],
+      },
+      {
+        identifier: '15',
+        brand: 'apple',
+        discriminatorTokens: ['256gb', 'blue'],
+      },
+    ]);
+  });
+
   it('keeps proven numeric laptop families in compare identifiers', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

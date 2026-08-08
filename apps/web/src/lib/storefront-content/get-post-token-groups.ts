@@ -41,15 +41,18 @@ function normalizeComparisonSeparators(value: string) {
   return value.replace(/\s*[&/|]\s*/gu, (separator, offset: number) => {
     const left = value.slice(0, offset);
     const right = value.slice(offset + separator.length);
+    const leftSegment = left.split(COMPARISON_CUE_PATTERN).at(-1) ?? left;
+    const rightSegment = right.split(COMPARISON_CUE_PATTERN)[0] ?? right;
     const hasModelOnBothSides =
-      MODEL_TOKEN_PATTERN.test(left) && MODEL_TOKEN_PATTERN.test(right);
+      MODEL_TOKEN_PATTERN.test(leftSegment) &&
+      MODEL_TOKEN_PATTERN.test(rightSegment);
     const hasTextModelOnBothSides =
-      hasComparisonCue && hasRepeatedTextModel(left, right);
+      hasComparisonCue && hasRepeatedTextModel(leftSegment, rightSegment);
     const hasSingleLetterModelOnBothSides =
-      hasComparisonCue && hasXboxSeriesShorthand(left, right);
+      hasComparisonCue && hasXboxSeriesShorthand(leftSegment, rightSegment);
     const hasVariantOnlyRightSide =
       hasComparisonCue &&
-      isVariantOnlyComparisonSegment(tokenizeContentText(right));
+      isVariantOnlyComparisonSegment(tokenizeContentText(rightSegment));
     const hasSeparatorWhitespace = /\s/u.test(separator);
     return (hasModelOnBothSides ||
       hasTextModelOnBothSides ||

@@ -15,8 +15,7 @@ export function getLaptopHardwareDiscriminatorTokens(
   if (!categorySlug || !LAPTOP_CATEGORIES.has(categorySlug)) {
     return [];
   }
-  const hardwareTier = tokens.find((token) =>
-    HARDWARE_TIER_PATTERN.test(token)
+  return Array.from(
+    new Set(tokens.filter((token) => HARDWARE_TIER_PATTERN.test(token)))
   );
-  return hardwareTier ? [hardwareTier] : [];
 }
