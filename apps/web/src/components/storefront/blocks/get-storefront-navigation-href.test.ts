@@ -20,4 +20,13 @@ describe('getStorefrontNavigationHref', () => {
       '/demo-store/shop'
     );
   });
+
+  it('keeps already-scoped query and fragment routes intact', () => {
+    expect(getStorefrontNavigationHref('/demo-store#sale', '/demo-store')).toBe(
+      '/demo-store#sale'
+    );
+    expect(
+      getStorefrontNavigationHref('/demo-store?campaign=x', '/demo-store')
+    ).toBe('/demo-store?campaign=x');
+  });
 });

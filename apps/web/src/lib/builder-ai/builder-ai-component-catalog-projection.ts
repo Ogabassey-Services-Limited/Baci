@@ -9,6 +9,7 @@ import {
 } from './builder-ai-component-prop-validation';
 import { builderAiStructuredPropProjectionDetails } from './builder-ai-structured-prop-projection-details';
 import { getAiComponentDefinition } from './get-ai-component-definition';
+import { getBuilderAiPropMaximumLength } from './get-builder-ai-prop-maximum-length';
 
 export function getBuilderAiCatalogProjection() {
   return Object.keys(aiEditableComponents).map((componentType) => {
@@ -20,12 +21,17 @@ export function getBuilderAiCatalogProjection() {
       editableProps: definition.editableProps.map((property) => {
         const key = `${componentType}.${property}`;
         const allowedValues = builderAiEnumProps[key];
+        const maximumLength = getBuilderAiPropMaximumLength(
+          componentType,
+          property
+        );
         const range = builderAiNumberRanges[key];
         return {
           name: property,
           shape: getBuilderAiPropShape(componentType, property),
           ...(builderAiStructuredPropProjectionDetails[key] ?? {}),
           ...(allowedValues ? { allowedValues } : {}),
+          ...(maximumLength ? { maximumLength } : {}),
           ...(range
             ? {
                 maximum: range[1],

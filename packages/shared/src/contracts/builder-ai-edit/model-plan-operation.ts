@@ -93,7 +93,8 @@ const updateThemeSchema = z
       .optional(),
   })
   .refine(
-    (value) => value.colors !== undefined || value.preset !== undefined,
+    (value) =>
+      value.preset !== undefined || Object.keys(value.colors ?? {}).length > 0,
     'Expected a visual preset or base colors'
   );
 const updateRootSchema = z.strictObject({

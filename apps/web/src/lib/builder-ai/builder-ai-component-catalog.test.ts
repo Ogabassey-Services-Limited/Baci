@@ -192,8 +192,18 @@ describe('builder AI component catalog', () => {
       expect.objectContaining({
         maximumItems: 8,
         members: [
-          { name: 'label', required: true, valueType: 'string' },
-          { name: 'url', required: true, valueType: 'safe-storefront-url' },
+          {
+            maximumLength: 120,
+            name: 'label',
+            required: true,
+            valueType: 'string',
+          },
+          {
+            maximumLength: 512,
+            name: 'url',
+            required: true,
+            valueType: 'safe-storefront-url',
+          },
         ],
         name: 'navigationLinks',
       })
@@ -202,8 +212,18 @@ describe('builder AI component catalog', () => {
       expect.objectContaining({
         members: [
           { name: 'show', required: true, valueType: 'boolean' },
-          { name: 'text', required: true, valueType: 'string' },
-          { name: 'url', required: true, valueType: 'safe-storefront-url' },
+          {
+            maximumLength: 120,
+            name: 'text',
+            required: true,
+            valueType: 'string',
+          },
+          {
+            maximumLength: 512,
+            name: 'url',
+            required: true,
+            valueType: 'safe-storefront-url',
+          },
         ],
         name: 'ctaButton',
       })

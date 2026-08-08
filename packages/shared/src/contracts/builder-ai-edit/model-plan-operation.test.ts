@@ -13,4 +13,13 @@ describe('builderAiModelOperationSchema', () => {
       builderAiModelOperationSchema.safeParse({ kind: 'unknown' }).success
     ).toBe(false);
   });
+
+  it('rejects an empty theme color patch without a preset', () => {
+    expect(
+      builderAiModelOperationSchema.safeParse({
+        colors: {},
+        kind: 'update_theme',
+      }).success
+    ).toBe(false);
+  });
 });

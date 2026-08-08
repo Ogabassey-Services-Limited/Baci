@@ -9,8 +9,18 @@ describe('builderAiStructuredPropProjectionDetails', () => {
       maximumItems: 8,
       uniqueBy: 'label',
       members: [
-        { name: 'label', required: true, valueType: 'string' },
-        { name: 'url', required: true, valueType: 'safe-storefront-url' },
+        {
+          maximumLength: 120,
+          name: 'label',
+          required: true,
+          valueType: 'string',
+        },
+        {
+          maximumLength: 512,
+          name: 'url',
+          required: true,
+          valueType: 'safe-storefront-url',
+        },
       ],
     });
     expect(
@@ -19,8 +29,18 @@ describe('builderAiStructuredPropProjectionDetails', () => {
       maximumItems: 8,
       uniqueBy: 'label',
       members: [
-        { name: 'label', required: true, valueType: 'string' },
-        { name: 'url', required: true, valueType: 'safe-storefront-url' },
+        {
+          maximumLength: 120,
+          name: 'label',
+          required: true,
+          valueType: 'string',
+        },
+        {
+          maximumLength: 512,
+          name: 'url',
+          required: true,
+          valueType: 'safe-storefront-url',
+        },
       ],
     });
     expect(
@@ -28,8 +48,18 @@ describe('builderAiStructuredPropProjectionDetails', () => {
     ).toMatchObject({
       members: [
         { name: 'show', required: true, valueType: 'boolean' },
-        { name: 'text', required: true, valueType: 'string' },
-        { name: 'url', required: true, valueType: 'safe-storefront-url' },
+        {
+          maximumLength: 120,
+          name: 'text',
+          required: true,
+          valueType: 'string',
+        },
+        {
+          maximumLength: 512,
+          name: 'url',
+          required: true,
+          valueType: 'safe-storefront-url',
+        },
       ],
     });
     expect(
