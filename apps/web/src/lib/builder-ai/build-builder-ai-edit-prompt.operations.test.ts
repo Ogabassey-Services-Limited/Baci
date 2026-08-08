@@ -1,4 +1,6 @@
+import type { BuilderAiProposedPlan } from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
+import { applyBuilderAiEditPlan } from './apply-builder-ai-edit-plan';
 import { buildBuilderAiEditPrompt } from './build-builder-ai-edit-prompt';
 
 function getOperationGuide(prompt: string): Record<string, unknown> {
@@ -80,5 +82,52 @@ describe('buildBuilderAiEditPrompt operation guidance', () => {
 
     expect(components).toContainEqual({ id: 'image-anchor', type: 'Image' });
     expect(prompt).not.toContain('private.test');
+  });
+
+  it('publishes a move-after example that can reorder two components', () => {
+    const guide = getOperationGuide(
+      buildBuilderAiEditPrompt({
+        currentConfig: { content: [], root: { title: 'Home' } },
+        prompt: 'Move the text after the hero',
+      })
+    ) as { operationExamples: BuilderAiProposedPlan['operations'] };
+    const moveAfter = guide.operationExamples.find(
+      (operation) =>
+        operation.kind === 'move_component' &&
+        operation.destination.position === 'after'
+    );
+    const insertAfter = guide.operationExamples.find(
+      (operation) =>
+        operation.kind === 'insert_component' &&
+        operation.placement.position === 'after'
+    );
+
+    if (!moveAfter) throw new Error('Expected an after move example');
+    if (!insertAfter) throw new Error('Expected an after insert example');
+    expect(insertAfter).toEqual({
+      initialContent: { componentType: 'Text', content: 'Supporting copy' },
+      kind: 'insert_component',
+      placement: { componentId: 'component-id', position: 'after' },
+    });
+    expect(moveAfter).toEqual({
+      componentId: 'source-component-id',
+      destination: { componentId: 'anchor-component-id', position: 'after' },
+      kind: 'move_component',
+    });
+
+    const result = applyBuilderAiEditPlan(
+      {
+        content: [
+          { props: { id: 'source-component-id' }, type: 'Text' },
+          { props: { id: 'anchor-component-id' }, type: 'Text' },
+        ],
+        root: { title: 'Home' },
+      },
+      { operations: [moveAfter], status: 'proposed', summary: 'Move text' }
+    );
+
+    expect(result.candidateConfig.content.map((item) => item.props.id)).toEqual(
+      ['anchor-component-id', 'source-component-id']
+    );
   });
 });

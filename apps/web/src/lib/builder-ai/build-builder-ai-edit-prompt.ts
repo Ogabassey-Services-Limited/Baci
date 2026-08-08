@@ -45,8 +45,8 @@ const operationExamples = [
     kind: 'move_component',
   },
   {
-    componentId: 'component-id',
-    destination: { componentId: 'component-id', position: 'after' },
+    componentId: 'source-component-id',
+    destination: { componentId: 'anchor-component-id', position: 'after' },
     kind: 'move_component',
   },
   { kind: 'update_theme', preset: 'modern' },
