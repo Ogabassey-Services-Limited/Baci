@@ -251,7 +251,7 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
     });
   });
 
-  it('fails the cron response when the public manifest has capability drift', async () => {
+  it('reports public manifest capability drift without failing the scheduled cron response', async () => {
     vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
       issue_count: 1,
       issues: [
@@ -266,7 +266,7 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {
@@ -290,7 +290,7 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
     });
   });
 
-  it('fails the cron response when the public manifest is unavailable', async () => {
+  it('reports an unavailable public manifest without failing the scheduled cron response', async () => {
     vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
       issue_count: 1,
       issues: [
@@ -305,7 +305,7 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {

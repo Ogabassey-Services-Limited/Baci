@@ -476,7 +476,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     );
   });
 
-  it('fails the cron response when Universal Cart readiness fails', async () => {
+  it('reports Universal Cart readiness failures without failing the scheduled cron response', async () => {
     vi.mocked(checkAgentCommerceUniversalCartReadiness).mockResolvedValue({
       checks: [
         {
@@ -492,7 +492,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {
@@ -632,7 +632,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     });
   });
 
-  it('fails the cron response when crawler visits are failing', async () => {
+  it('reports failing crawler visits without failing the scheduled cron response', async () => {
     vi.mocked(createAdminClient).mockReturnValue(
       createSupabaseMock({
         crawlerRows: [
@@ -653,7 +653,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {
@@ -676,7 +676,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     });
   });
 
-  it('fails the cron response when crawler visibility logs cannot be loaded', async () => {
+  it('reports unavailable crawler visibility logs without failing the scheduled cron response', async () => {
     vi.mocked(createAdminClient).mockReturnValue(
       createSupabaseMock({
         crawlerError: new Error('query failed'),
@@ -685,7 +685,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {
@@ -708,7 +708,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     });
   });
 
-  it('fails the cron response when feed generation needs attention', async () => {
+  it('reports feed generation attention without failing the scheduled cron response', async () => {
     vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
       google_product_count: null,
       issue_count: 1,
@@ -730,7 +730,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {
@@ -797,7 +797,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     });
   });
 
-  it('fails the cron response when public trust readiness has failed checks', async () => {
+  it('reports failed public trust checks without failing the scheduled cron response', async () => {
     vi.mocked(checkAgentCommerceTrustHealth).mockResolvedValue({
       issue_count: 1,
       issues: [
@@ -815,7 +815,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {
@@ -875,7 +875,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     });
   });
 
-  it('fails the cron response when public product parity has drifted', async () => {
+  it('reports public product parity drift without failing the scheduled cron response', async () => {
     vi.mocked(checkAgentCommercePublicProductParity).mockResolvedValue({
       issue_count: 1,
       issues: [
@@ -901,7 +901,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {
@@ -946,7 +946,7 @@ describe('GET /api/cron/agentic-commerce-health', () => {
 
     const response = await GET(createCronRequest());
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       merchants: [
         {

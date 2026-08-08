@@ -17,13 +17,13 @@ describe('agenticCommerceHealthCronQuerySchema', () => {
     }
   });
 
-  it('defaults to failing on attention and no explicit slugs', () => {
+  it('defaults to reporting attention without failing and no explicit slugs', () => {
     const result = agenticCommerceHealthCronQuerySchema.safeParse({});
 
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data).toEqual({
-        fail_on_attention: true,
+        fail_on_attention: false,
         merchant_slug: [],
       });
     }
