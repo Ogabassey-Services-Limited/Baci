@@ -233,6 +233,7 @@ export async function handleBuilderAiEditRequest(
     return NextResponse.json(
       {
         code: 'builder_ai_request_not_supported',
+        details: 'This request is not supported',
         error: 'This request is not supported',
         requestId: parsed.clientRequestId,
       },

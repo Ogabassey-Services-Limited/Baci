@@ -144,4 +144,25 @@ describe('legacy builder compatibility adapter', () => {
       details: 'Media changes require Baci manual asset controls.',
     });
   });
+
+  it('preserves readable refusal guidance for legacy callers', async () => {
+    const response = await handleBuilderAiEditRequest(
+      new Request('http://localhost/api/builder/gemini', { method: 'POST' }),
+      {
+        dependencies: dependencies({
+          runProviderChain: vi.fn().mockResolvedValue({
+            operations: [],
+            status: 'refused',
+            summary: 'This request is not supported',
+          }),
+        }) as never,
+        mode: 'legacy',
+      }
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      details: 'This request is not supported',
+    });
+  });
 });
