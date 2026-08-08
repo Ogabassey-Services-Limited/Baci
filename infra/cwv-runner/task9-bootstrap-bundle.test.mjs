@@ -122,7 +122,23 @@ test('generates the exact sealed bundle accepted by the real Task 9 authorizer',
   );
   rmSync(outputRoot, { force: true, recursive: true });
   try {
-    const generated = generateTask9BootstrapBundle(input(fixture, outputRoot), { outputParent: tmpdir() });
+    const previousGitDir = Reflect.get(process.env, 'GIT_DIR');
+    const previousGitWorkTree = Reflect.get(process.env, 'GIT_WORK_TREE');
+    const previousPath = process.env.PATH;
+    Reflect.set(process.env, 'GIT_DIR', join(fixture.root, 'attacker.git'));
+    Reflect.set(process.env, 'GIT_WORK_TREE', fixture.root);
+    process.env.PATH = fixture.root;
+    let generated;
+    try {
+      generated = generateTask9BootstrapBundle(input(fixture, outputRoot), { outputParent: tmpdir() });
+    } finally {
+      if (previousGitDir === undefined) Reflect.deleteProperty(process.env, 'GIT_DIR');
+      else Reflect.set(process.env, 'GIT_DIR', previousGitDir);
+      if (previousGitWorkTree === undefined) Reflect.deleteProperty(process.env, 'GIT_WORK_TREE');
+      else Reflect.set(process.env, 'GIT_WORK_TREE', previousGitWorkTree);
+      if (previousPath === undefined) delete process.env.PATH;
+      else process.env.PATH = previousPath;
+    }
     const payload = join(outputRoot, 'payload');
     assert.deepEqual(readdirSync(payload).sort(), [...BUNDLE_ENTRIES].sort());
     for (const name of BUNDLE_ENTRIES)

@@ -1,6 +1,6 @@
 // biome-ignore-all format: compact fail-closed generator stays below the 300-line limit
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
+import { closeSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -90,11 +90,11 @@ function writeExclusive(path, bytes, mode) {
   const fd = openSync(path, 'wx', mode);
   try {
     writeFileSync(fd, bytes);
+    fchmodSync(fd, mode);
     fsyncSync(fd);
   } finally {
     closeSync(fd);
   }
-  chmodSync(path, mode);
 }
 
 function logicalId(prefix, supplied) {

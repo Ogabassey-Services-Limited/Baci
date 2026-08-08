@@ -18,6 +18,22 @@ export { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
 
 const PREFIX = 'infra/cwv-runner/';
 const LIMITS = { archive: 16_777_216, members: 1024, member: 1_048_576 };
+const TRUSTED_GIT = '/usr/bin/git';
+const GIT_ENV_KEYS = new Set([
+  'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_COMMON_DIR', 'GIT_NAMESPACE',
+  'GIT_CONFIG', 'GIT_CONFIG_SYSTEM', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM',
+]);
+
+function trustedGitEnvironment() {
+  const env = { ...process.env, PATH: '/usr/bin:/bin', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
+  for (const key of Object.keys(env)) {
+    if (GIT_ENV_KEYS.has(key) || /^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(key)) delete env[key];
+  }
+  env.GIT_CONFIG_NOSYSTEM = '1';
+  env.GIT_CONFIG_GLOBAL = '/dev/null';
+  return env;
+}
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const fail = (message) => {
@@ -26,7 +42,12 @@ const fail = (message) => {
 const pathCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
 
 function git(cwd, args, encoding = 'utf8') {
-  return execFileSync('git', args, { cwd, encoding, maxBuffer: LIMITS.archive * 8 });
+  return execFileSync(TRUSTED_GIT, args, {
+    cwd,
+    encoding,
+    env: trustedGitEnvironment(),
+    maxBuffer: LIMITS.archive * 8,
+  });
 }
 
 function checkedSha(value, field) {
