@@ -67,6 +67,7 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
         precedence: 'before_path_decision',
       },
       pathCondition: {
+        firstSegmentNotIn: ['api'],
         precedence: 'before_path_decision',
         predicate: 'retired_alias_storefront_path',
       },
@@ -113,6 +114,11 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
         hostKind: 'platform_subdomain',
         precedence: 'before_path_decision',
         requiresActiveCanonicalCustomDomain: true,
+      },
+      pathCondition: {
+        firstSegmentNotIn: ['api'],
+        precedence: 'before_path_decision',
+        predicate: 'canonical_custom_domain_redirect_non_api',
       },
     }
   ),

@@ -205,6 +205,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/lib/domain-cache-simple.ts',
     'apps/web/src/lib/slug-alias-cache.ts',
     'apps/web/src/lib/storefront-blog-listing-status.ts',
+    'apps/web/src/lib/storefront-blog-listing-verdict.ts',
     'apps/web/src/lib/storefront-blog-post-status.ts',
     'apps/web/src/lib/storefront-compare-hub-status.ts',
     'apps/web/src/lib/storefront-document-home-path-rules.ts',

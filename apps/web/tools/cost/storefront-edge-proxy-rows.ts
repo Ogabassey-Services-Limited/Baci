@@ -1,6 +1,7 @@
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
+import { STOREFRONT_EDGE_PROXY_BLOG_STATUS_ROWS } from './storefront-edge-proxy-blog-status-rows';
 import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
-import { STOREFRONT_EDGE_PROXY_HOST_ROWS } from './storefront-edge-proxy-host-rows';
+import { STOREFRONT_EDGE_PROXY_TAIL_ROWS } from './storefront-edge-proxy-tail-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
@@ -81,32 +82,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
       },
     }
   ),
-  proxyClass(
-    'proxy:blog-post-status-redirect',
-    '/blog/{postSlug}',
-    ['GET', 'HEAD'],
-    'edge_redirect',
-    'resolved_blog_post_status_redirect',
-    {
-      pathCondition: {
-        precedence: 'before_path_decision',
-        predicate: 'blog_post_status_redirect',
-      },
-    }
-  ),
-  proxyClass(
-    'proxy:blog-post-status-missing',
-    '/blog/{postSlug}',
-    ['GET', 'HEAD'],
-    'edge_terminal',
-    'resolved_blog_post_status_missing',
-    {
-      pathCondition: {
-        precedence: 'before_path_decision',
-        predicate: 'blog_post_status_missing',
-      },
-    }
-  ),
+  ...STOREFRONT_EDGE_PROXY_BLOG_STATUS_ROWS,
   proxyClass(
     'proxy:cache-safe-punctuation',
     '/{*importedPunctuationPath}',
@@ -200,6 +176,32 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
+    'proxy:product-hard-missing',
+    '/{category}/{productSlug}',
+    ['GET', 'HEAD'],
+    'edge_terminal',
+    'missing_product_hard_404',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'missing_product_hard_404',
+      },
+    }
+  ),
+  proxyClass(
+    'proxy:compare-hub-hard-missing',
+    '/{category}/compare',
+    ['GET', 'HEAD'],
+    'edge_terminal',
+    'empty_compare_hub_hard_404',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'empty_compare_hub_hard_404',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:redundant-slug-prefix',
     '/{currentSlug}/{*path?}',
     ['GET', 'HEAD'],
@@ -219,7 +221,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:current-slug-api',
     '/{currentSlug}/api/{*path?}',
-    ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
+    ['DELETE', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
     'origin_dynamic',
     'current_slug_api_rewrite_preserves_body',
     {
@@ -263,39 +265,5 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
       },
     }
   ),
-  proxyClass(
-    'proxy:root-sitemap',
-    '/sitemap.xml',
-    ['GET', 'HEAD'],
-    'edge_release',
-    'storefront_root_sitemap_rewrite'
-  ),
-  ...STOREFRONT_EDGE_PROXY_HOST_ROWS,
-  proxyClass(
-    'proxy:unknown-document',
-    '/{*unlistedDocument}',
-    ['GET', 'HEAD'],
-    'edge_terminal',
-    'closed_storefront_document_inventory_default'
-  ),
-  proxyClass(
-    'proxy:unsafe-document',
-    '/{*unsafeDocument}',
-    ['GET', 'HEAD'],
-    'edge_terminal',
-    'unsafe_or_ambiguous_storefront_path',
-    {
-      pathCondition: {
-        precedence: 'before_path_decision',
-        predicate: 'unsafe_or_ambiguous_path',
-      },
-    }
-  ),
-  proxyClass(
-    'proxy:unsupported-method',
-    '/{*path}',
-    ['OTHER'],
-    'edge_terminal',
-    'closed_method_inventory_default'
-  ),
+  ...STOREFRONT_EDGE_PROXY_TAIL_ROWS,
 ];

@@ -80,7 +80,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       expect.objectContaining({
         decision: 'origin_dynamic',
         routePattern: '/{currentSlug}/api/{*path?}',
-        methods: ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
+        methods: ['DELETE', 'OPTIONS', 'PATCH', 'POST', 'PUT'],
         hostCondition: {
           hostKind: 'custom_domain',
           precedence: 'before_path_decision',
@@ -128,6 +128,8 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       'proxy:blog-spam-prefix': 'legacy_blog_spam_prefix',
       'proxy:blog-post-status-redirect': 'blog_post_status_redirect',
       'proxy:blog-post-status-missing': 'blog_post_status_missing',
+      'proxy:blog-listing-status-redirect': 'blog_listing_status_redirect',
+      'proxy:blog-listing-status-missing': 'blog_listing_status_missing',
       'proxy:cache-safe-punctuation': 'cache_safe_imported_punctuation',
       'proxy:lowercase-document': 'mixed_case_path',
       'proxy:no-trailing-slash': 'trailing_slash_excluding_well_known',
@@ -138,6 +140,8 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       'proxy:retired-slug-api': 'retired_storefront_slug_prefix',
       'proxy:retired-slug-document': 'retired_storefront_slug_prefix',
       'proxy:unsafe-document': 'unsafe_or_ambiguous_path',
+      'proxy:product-hard-missing': 'missing_product_hard_404',
+      'proxy:compare-hub-hard-missing': 'empty_compare_hub_hard_404',
     } as const;
     const byId = new Map(
       STOREFRONT_EDGE_PROXY_ROWS.map((row) => [row.id, row])

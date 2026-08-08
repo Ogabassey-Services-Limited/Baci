@@ -112,7 +112,8 @@ export function createStorefrontEdgeEntrypointRows(
       sourcePath,
     };
     if (
-      relativeSourcePath.endsWith('route.ts') &&
+      (relativeSourcePath.endsWith('route.ts') ||
+        METADATA_ROUTE_SUFFIXES.has(entrypointFileName(relativeSourcePath))) &&
       methods.length > 0 &&
       !methods.includes('OPTIONS')
     ) {

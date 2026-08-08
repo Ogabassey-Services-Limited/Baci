@@ -51,6 +51,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
   }>;
   pathCondition?: Readonly<{
     firstSegmentIn?: readonly string[];
+    firstSegmentNotIn?: readonly string[];
     precedence: 'before_path_decision';
     predicate:
       | 'cache_safe_imported_punctuation'
@@ -63,6 +64,11 @@ type StorefrontEdgeInventoryRow = Readonly<{
       | 'legacy_blog_spam_prefix'
       | 'blog_post_status_redirect'
       | 'blog_post_status_missing'
+      | 'blog_listing_status_redirect'
+      | 'blog_listing_status_missing'
+      | 'missing_product_hard_404'
+      | 'empty_compare_hub_hard_404'
+      | 'canonical_custom_domain_redirect_non_api'
       | 'legacy_klump_webhook_normalized'
       | 'mixed_case_path'
       | 'noncanonical_product_route_or_variant'

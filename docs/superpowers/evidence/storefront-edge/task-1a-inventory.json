@@ -26,7 +26,7 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "0bf545fe4ab502a664729482a5fb047ab1de0e50d74f77116b3a25778f3f5121",
-  "routingProxyInputSha256": "02bbfc64f740aa7053511b15e5ada6ff65f469c2092854be3c2d4c38ab6bc667",
+  "routingProxyInputSha256": "45969d8b8b8cf5f653c948b9793cbc7e14d120b3826df27381f4af3686853eed",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -5458,6 +5458,36 @@
     },
     {
       "decision": "edge_terminal",
+      "id": "proxy:blog-listing-status-missing",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "resolved_blog_listing_status_missing",
+      "routePattern": "/blog/{*listingPath?}",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "blog_listing_status_missing"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:blog-listing-status-redirect",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "resolved_blog_listing_status_redirect",
+      "routePattern": "/blog/{*listingPath?}",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "blog_listing_status_redirect"
+      }
+    },
+    {
+      "decision": "edge_terminal",
       "id": "proxy:blog-post-status-missing",
       "methods": [
         "GET",
@@ -5544,12 +5574,25 @@
       }
     },
     {
+      "decision": "edge_terminal",
+      "id": "proxy:compare-hub-hard-missing",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "empty_compare_hub_hard_404",
+      "routePattern": "/{category}/compare",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "empty_compare_hub_hard_404"
+      }
+    },
+    {
       "decision": "origin_dynamic",
       "id": "proxy:current-slug-api",
       "methods": [
         "DELETE",
-        "GET",
-        "HEAD",
         "OPTIONS",
         "PATCH",
         "POST",
@@ -5756,6 +5799,21 @@
       }
     },
     {
+      "decision": "edge_terminal",
+      "id": "proxy:product-hard-missing",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "missing_product_hard_404",
+      "routePattern": "/{category}/{productSlug}",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "missing_product_hard_404"
+      }
+    },
+    {
       "decision": "edge_redirect",
       "id": "proxy:redundant-slug-prefix",
       "methods": [
@@ -5828,6 +5886,9 @@
         "precedence": "before_path_decision"
       },
       "pathCondition": {
+        "firstSegmentNotIn": [
+          "api"
+        ],
         "precedence": "before_path_decision",
         "predicate": "retired_alias_storefront_path"
       }
@@ -5876,6 +5937,13 @@
         "hostKind": "platform_subdomain",
         "precedence": "before_path_decision",
         "requiresActiveCanonicalCustomDomain": true
+      },
+      "pathCondition": {
+        "firstSegmentNotIn": [
+          "api"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "canonical_custom_domain_redirect_non_api"
       }
     },
     {
@@ -6434,6 +6502,17 @@
         "GET",
         "HEAD"
       ],
+      "routePattern": "/blog/sitemap.xml",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/sitemap.ts"
+    },
+    {
+      "decision": "edge_release",
+      "id": "storefront:(blog)/blog/sitemap.ts:options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
       "routePattern": "/blog/sitemap.xml",
       "sourceKind": "storefront_entrypoint",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/sitemap.ts"
@@ -7265,6 +7344,17 @@
     },
     {
       "decision": "edge_release",
+      "id": "storefront:opengraph-image.tsx:options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/opengraph-image",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/opengraph-image.tsx"
+    },
+    {
+      "decision": "edge_release",
       "reason": "public_release_surface",
       "id": "storefront:sitemap/[id]/route.ts",
       "methods": [
@@ -7311,5 +7401,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "9f09ae1fe986a1405361d021f78fd32d9669b0d9574b4fb89b01f6134ca4069b"
+  "inventorySha256": "5514bed81afb3e276e6f2e7688edd694b8b3808973ede0d769b3b27ae1869c2c"
 }
