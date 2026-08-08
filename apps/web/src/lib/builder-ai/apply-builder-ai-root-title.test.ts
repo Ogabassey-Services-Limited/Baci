@@ -12,4 +12,22 @@ describe('applyBuilderAiRootTitle', () => {
       root: { props: { title: 'New' }, title: 'New' },
     });
   });
+
+  it('does not report a change when a Puck-only title already matches', () => {
+    const root = { props: { title: 'Curated homepage' } };
+
+    expect(applyBuilderAiRootTitle(root, 'Curated homepage')).toEqual({
+      changed: false,
+      root,
+    });
+  });
+
+  it('repairs a stale Puck title when the top-level title already matches', () => {
+    expect(
+      applyBuilderAiRootTitle({ props: { title: 'Old' }, title: 'New' }, 'New')
+    ).toEqual({
+      changed: true,
+      root: { props: { title: 'New' }, title: 'New' },
+    });
+  });
 });

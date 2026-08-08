@@ -106,31 +106,3 @@ export const aiEditableComponents = {
 } as const satisfies Record<string, ComponentDefinition>;
 
 export type AiEditableComponentType = keyof typeof aiEditableComponents;
-
-export function getAiComponentDefinition(
-  componentType: AiEditableComponentType
-): ComponentDefinition {
-  return aiEditableComponents[componentType];
-}
-
-export function isAiEditableComponent(
-  componentType: string
-): componentType is AiEditableComponentType {
-  return Object.hasOwn(aiEditableComponents, componentType);
-}
-
-export function isAiInsertableComponent(
-  componentType: string
-): componentType is AiEditableComponentType {
-  return (
-    isAiEditableComponent(componentType) &&
-    getAiComponentDefinition(componentType).insertable === true
-  );
-}
-
-export function isProtectedAiComponent(componentType: string): boolean {
-  return (
-    isAiEditableComponent(componentType) &&
-    getAiComponentDefinition(componentType).protected === true
-  );
-}

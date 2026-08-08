@@ -5,7 +5,11 @@ export function applyBuilderAiRootTitle(
   title: string
 ): { changed: boolean; root: BuilderData['root'] } {
   const props = root.props as Record<string, unknown> | undefined;
-  if (root.title === title && (!props || props.title === title)) {
+  if (
+    root.title === undefined
+      ? props?.title === title
+      : root.title === title && (!props || props.title === title)
+  ) {
     return { changed: false, root };
   }
   return {

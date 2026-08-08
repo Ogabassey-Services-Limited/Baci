@@ -1,7 +1,5 @@
-import {
-  getAiComponentDefinition,
-  isAiInsertableComponent,
-} from './builder-ai-component-definitions';
+import { getAiComponentDefinition } from './get-ai-component-definition';
+import { isAiInsertableComponent } from './is-ai-insertable-component';
 
 export function createInsertableComponentProps(
   componentType: string,

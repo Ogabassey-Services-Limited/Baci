@@ -4,15 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { builderConfig } from '@/components/builder/config';
 import * as catalog from './builder-ai-component-catalog';
 import { getBuilderAiCatalogProjection } from './builder-ai-component-catalog-projection';
-import {
-  aiEditableComponents,
-  isAiEditableComponent,
-} from './builder-ai-component-definitions';
+import { aiEditableComponents } from './builder-ai-component-definitions';
 import { createInsertableComponentProps } from './builder-ai-component-insertable-props';
 import {
   getBuilderAiPropShape,
   isBuilderAiPropValue,
 } from './builder-ai-component-prop-validation';
+import { isAiEditableComponent } from './is-ai-editable-component';
 
 describe('builder AI component catalog', () => {
   it('keeps the catalog facade compatible with the focused utilities', () => {

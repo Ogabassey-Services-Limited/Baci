@@ -1,7 +1,6 @@
 import {
   type AiEditableComponentType,
   aiEditableComponents,
-  getAiComponentDefinition,
 } from './builder-ai-component-definitions';
 import {
   builderAiEnumProps,
@@ -9,6 +8,7 @@ import {
   getBuilderAiPropShape,
 } from './builder-ai-component-prop-validation';
 import { builderAiStructuredPropProjectionDetails } from './builder-ai-structured-prop-projection-details';
+import { getAiComponentDefinition } from './get-ai-component-definition';
 
 export function getBuilderAiCatalogProjection() {
   return Object.keys(aiEditableComponents).map((componentType) => {
