@@ -52,6 +52,16 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['dualsense wireless controller']);
   });
 
+  it('retains the tablet family for a generic iPad tier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'tablets',
+      brands: ['Apple'],
+      productNames: ['Apple iPad Pro'],
+    });
+
+    expect(identifiers).toEqual(['ipad pro']);
+  });
+
   it('deduplicates identifiers across product variants', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

@@ -85,4 +85,15 @@ describe('matchesVariantDiscriminatorTokens', () => {
       )
     ).toBe(true);
   });
+
+  it('treats decimal display sizes as dimension discriminators', () => {
+    expect(
+      matchesVariantDiscriminatorTokens(
+        ['ipad', 'pro'],
+        ['12.9inch'],
+        true,
+        true
+      )
+    ).toBe(true);
+  });
 });

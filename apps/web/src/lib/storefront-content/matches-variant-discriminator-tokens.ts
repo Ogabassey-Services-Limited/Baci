@@ -19,7 +19,7 @@ const SIM_MODE_TOKENS = new Set([
   'single',
 ]);
 const STORAGE_TOKEN_PATTERN = /^\d+(?:gb|tb|mb)$/u;
-const DIMENSION_TOKEN_PATTERN = /^\d+(?:mm|inch)$/u;
+const DIMENSION_TOKEN_PATTERN = /^\d+(?:\.\d+)?(?:mm|inch)$/u;
 const BATTERY_CAPACITY_TOKEN_PATTERN = /^\d+mah$/u;
 const WATTAGE_TOKEN_PATTERN = /^\d+w$/u;
 const VOLTAGE_TOKEN_PATTERN = /^\d+v$/u;

@@ -53,6 +53,18 @@ const DISPLAY_SIZE_CATEGORY_SLUGS = new Set(LAPTOP_CATEGORY_SLUGS).add(
 const GAME_CATEGORY_PATTERN =
   /^(?:(?:portable-)?gaming|playstation-[45]|nintendo-switch(?:-2)?|xbox)$/u;
 const LEADING_FILLER_TOKENS = new Set(['a', 'an', 'headset', 'the']);
+const GENERIC_MODEL_TIER_TOKENS = new Set([
+  'active',
+  'classic',
+  'edge',
+  'lite',
+  'max',
+  'mini',
+  'plus',
+  'pro',
+  'prime',
+  'ultra',
+]);
 function stripLeadingFillerTokens(tokens: string[]) {
   const firstModelToken = tokens.findIndex(
     (token) => !LEADING_FILLER_TOKENS.has(token)
@@ -155,6 +167,7 @@ function getModelTokens(
   preserveGameTitleTokens: boolean
 ) {
   const canonicalSlug = applyJoinedTitleCorrections(slug);
+  const sourceTokens = tokenize(canonicalSlug);
   const rawTokens = normalizeProductModelTokens(
     filterProductModelSourceTokens(
       tokenize(
@@ -189,6 +202,14 @@ function getModelTokens(
         (tokens[index - 1] === 'all' && tokens[index + 1] === 'one')) &&
       !isDimensionToken(tokens, index)
   );
+  if (
+    categorySlug === 'tablets' &&
+    modelTokens.length === 1 &&
+    GENERIC_MODEL_TIER_TOKENS.has(modelTokens[0] ?? '') &&
+    sourceTokens.includes('ipad')
+  ) {
+    modelTokens.unshift('ipad');
+  }
   return stripTrailingLaptopProcessorTier(
     stripLeadingFillerTokens(modelTokens),
     categorySlug
