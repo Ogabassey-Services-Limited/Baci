@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { builderAiFeatureIconNames } from './feature-icons';
+import { hasUniqueBuilderAiFeatureTitles } from './has-unique-builder-ai-feature-titles';
 import { MAX_AI_COPY_LENGTH, MAX_AI_LABEL_LENGTH } from './limits';
 import { safeStorefrontUrlSchema } from './safe-storefront-url';
 
@@ -53,6 +54,15 @@ export const featuresPatchSchema = z
   .refine(
     requiresEditableField,
     'Expected at least one editable features field'
+  )
+  .refine(
+    (value) =>
+      value.features === undefined ||
+      hasUniqueBuilderAiFeatureTitles(value.features),
+    {
+      message: 'Expected unique Feature titles',
+      path: ['features'],
+    }
   );
 
 export const testimonialPatchSchema = z

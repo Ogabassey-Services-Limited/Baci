@@ -87,4 +87,16 @@ describe('builder AI edit content patches', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects duplicate Feature titles before they become React keys', () => {
+    expect(
+      componentPatchSchema.safeParse({
+        componentType: 'Features',
+        features: [
+          { description: 'Fast shipping.', title: 'Delivery' },
+          { description: 'Delivered anywhere.', title: 'Delivery' },
+        ],
+      }).success
+    ).toBe(false);
+  });
 });
