@@ -1,0 +1,1140 @@
+{
+  "authority": "directional_cost_screen_only",
+  "completeBrowserPathClasses": [
+    "automatic_origin_forbidden",
+    "automatic_subresource",
+    "client_island",
+    "cold_document",
+    "explicit_user_action",
+    "warm_document"
+  ],
+  "eligibleDenominatorPolicy": {
+    "decisions": ["edge_redirect", "edge_release"],
+    "methods": ["GET", "HEAD"],
+    "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
+    "zeroDenominatorVerdict": "NOT_PROVEN"
+  },
+  "originMainSha": "82c38ad53d0591638b54f9320f40579c76c82273",
+  "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
+  "pilotCandidateHostnames": ["baci-edge-pilot.usebaci.com"],
+  "routeTreeSha256": "9deb509d9cddda361eee6cdc342107df780b734944e9d3f127f4203d9f7d4563",
+  "routingProxyInputSha256": "cbb0f5c25925001dc4bb4b642c7d80a6090757fafc546b025c664141c3aa140c",
+  "rows": [
+    {
+      "decision": "origin_dynamic",
+      "id": "api:ai",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/ai/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:attribution",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/attr",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:blog",
+      "methods": ["GET", "HEAD", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/blog/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:cart",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/cart/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:chat",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/chat/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:csrf",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/csrf",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:data",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/data",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:events",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/events",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:forms",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/forms/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:insurance",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/insurance/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:internal-storefront",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/internal/compare-hub-status",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:llm",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/llm/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:merchant-storefront-context",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/merchant/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:negotiations",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/negotiations/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:newsletter",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/newsletter/subscribe",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:notifications",
+      "methods": ["GET", "HEAD", "PATCH", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/notifications/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:ogabassey",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/ogabassey/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:orders",
+      "methods": ["GET", "HEAD", "PATCH", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/orders/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:payments",
+      "methods": ["GET", "HEAD", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/payments/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:products",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/products/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:quiz",
+      "methods": ["GET", "HEAD", "POST", "PUT"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/quiz/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:repairs",
+      "methods": ["GET", "HEAD", "PATCH"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/repairs/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:reviews",
+      "methods": ["DELETE", "GET", "HEAD", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/reviews/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:search",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/search/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:shipping",
+      "methods": ["GET", "HEAD", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/shipping/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:storefront",
+      "methods": ["DELETE", "GET", "HEAD", "PATCH", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/storefront/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "api:unlisted",
+      "methods": ["ANY"],
+      "reason": "closed_api_inventory_default",
+      "routePattern": "/api/{*unlisted}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:vtu",
+      "methods": ["GET", "HEAD", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/vtu/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:wallet",
+      "methods": ["GET", "HEAD", "PATCH"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/wallet/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:webhooks",
+      "methods": ["POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/webhooks/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api:wishlist",
+      "methods": ["DELETE", "GET", "HEAD", "POST"],
+      "reason": "explicit_storefront_runtime_family",
+      "routePattern": "/api/wishlist/{*path}",
+      "sourceKind": "api_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:llms",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/llms.txt",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:llms-full",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/llms-full.txt",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:next-image",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/_next/image",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:next-static",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/_next/static/{*asset}",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "machine:next-unlisted",
+      "methods": ["ANY"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/_next/{*unlisted}",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:openapi",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/openapi.json",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:posthog-relay",
+      "methods": ["GET", "HEAD", "POST"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/baci-relay/{*path}",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "edge_release",
+      "id": "machine:robots",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/robots.txt",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:well-known",
+      "methods": ["GET", "HEAD"],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/.well-known/{*path}",
+      "sourceKind": "machine_family"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:blog-query-canonical",
+      "methods": ["GET", "HEAD"],
+      "reason": "canonical_blog_query_normalization",
+      "routePattern": "/blog/{*path}?{legacyThumbnailQuery}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:cache-safe-punctuation",
+      "methods": ["GET", "HEAD"],
+      "reason": "cache_safe_storefront_path_normalization",
+      "routePattern": "/{*importedPunctuationPath}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:legacy-analytics-conversion",
+      "methods": ["POST"],
+      "reason": "legacy_api_rewrite_preserves_mutation",
+      "routePattern": "/analytics/conversion",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "proxy:legacy-klump-webhook",
+      "methods": ["ANY"],
+      "reason": "retired_webhook_returns_410",
+      "routePattern": "/wc-api/klp_wc_payment_webhook",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:legacy-terms-alias",
+      "methods": ["GET", "HEAD"],
+      "reason": "canonical_terms_alias",
+      "routePattern": "/{terms-and-conditions|terms-of-service}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:lowercase-document",
+      "methods": ["GET", "HEAD"],
+      "reason": "lowercase_storefront_canonicalization",
+      "routePattern": "/{*mixedCaseDocument}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:no-trailing-slash",
+      "methods": ["GET", "HEAD"],
+      "reason": "trailing_slash_canonicalization",
+      "routePattern": "/{*document}/",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:product-canonical",
+      "methods": ["GET", "HEAD"],
+      "reason": "canonical_product_route_or_variant",
+      "routePattern": "/{category}/{productSlug}?{noncanonicalVariant}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:redundant-slug-prefix",
+      "methods": ["GET", "HEAD"],
+      "reason": "custom_domain_slug_prefix_canonicalization",
+      "routePattern": "/{currentSlug}/{*path}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:retired-slug-api",
+      "methods": ["DELETE", "GET", "HEAD", "PATCH", "POST", "PUT"],
+      "reason": "alias_aware_api_rewrite_preserves_body",
+      "routePattern": "/{retiredSlug}/api/{*path}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:retired-slug-document",
+      "methods": ["GET", "HEAD"],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/{retiredSlug}/{*path}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_release",
+      "id": "proxy:root-sitemap",
+      "methods": ["GET", "HEAD"],
+      "reason": "storefront_root_sitemap_rewrite",
+      "routePattern": "/sitemap.xml",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:subdomain-custom-domain",
+      "methods": ["GET", "HEAD"],
+      "reason": "canonical_custom_domain_redirect",
+      "routePattern": "/{*storefrontPath}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "proxy:unknown-document",
+      "methods": ["GET", "HEAD"],
+      "reason": "closed_storefront_document_inventory_default",
+      "routePattern": "/{*unlistedDocument}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "proxy:unsafe-document",
+      "methods": ["GET", "HEAD"],
+      "reason": "unsafe_or_ambiguous_storefront_path",
+      "routePattern": "/{*unsafeDocument}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "proxy:unsupported-method",
+      "methods": ["OTHER"],
+      "reason": "closed_method_inventory_default",
+      "routePattern": "/{*path}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(blog)/blog/[...catchAll]/route.ts",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/blog/{*catchAll}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(blog)/blog/[postSlug]/opengraph-image/route.ts",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/blog/{postSlug}/opengraph-image",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(blog)/blog/[postSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/blog/{postSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(blog)/blog/author/[authorSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/blog/author/{authorSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/author/[authorSlug]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(blog)/blog/category/[categorySlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/blog/category/{categorySlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/category/[categorySlug]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(blog)/blog/news-sitemap.xml/route.ts",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/blog/news-sitemap.xml",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/news-sitemap.xml/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(blog)/blog/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/blog",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(listing)/[category]/best-under/[priceBandSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/{category}/best-under/{priceBandSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/best-under/[priceBandSlug]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(listing)/[category]/brands/[brandSlug]/families/[familySlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/{category}/brands/{brandSlug}/families/{familySlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/brands/[brandSlug]/families/[familySlug]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(listing)/[category]/brands/[brandSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/{category}/brands/{brandSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/brands/[brandSlug]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(listing)/[category]/compare/[comparisonSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/{category}/compare/{comparisonSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/compare/[comparisonSlug]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(listing)/[category]/compare/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/{category}/compare",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/compare/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(listing)/[category]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/{category}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(listing)/compare/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/compare",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/compare/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(listing)/products/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/products",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/products/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(catalog)/(listing)/search/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/search",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/search/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(pdp)/[category]/[productSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/{category}/{productSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(catalog)/(pdp)/product/[productSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/product/{productSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/product/[productSlug]/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(catalog)/(pdp)/products/[productSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/products/{productSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/cart/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/cart",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/cart/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/checkout/bnpl/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/checkout/bnpl",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/checkout/bnpl/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/checkout/crypto/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/checkout/crypto",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/checkout/crypto/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/checkout/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/checkout",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/checkout/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/checkout/success/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/checkout/success",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/checkout/success/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/order-success/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/order-success",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/order-success/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/track-order/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/track-order",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/track-order/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/wallet/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/wallet",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/wallet/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(commerce)/wishlist/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/wishlist",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/wishlist/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(content)/about/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/about",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/about/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(content)/contact/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/contact",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/contact/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(content)/faq/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/faq",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/faq/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/pages/about/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/pages/about",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/pages/about/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/pages/blog/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/pages/blog",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/pages/blog/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/pages/contact/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/pages/contact",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/pages/contact/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/pages/faq/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/pages/faq",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/pages/faq/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/pages/privacy/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/pages/privacy",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/pages/privacy/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(content)/pages/rewards/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/pages/rewards",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/pages/rewards/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/pages/terms/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/pages/terms",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/pages/terms/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/privacy-policy/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/privacy-policy",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/privacy-policy/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(content)/privacy/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/privacy",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/privacy/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(content)/returns/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/returns",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/returns/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(content)/shipping/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/shipping",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/shipping/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/terms-and-conditions/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/terms-and-conditions",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/terms-and-conditions/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:(content)/terms-of-service/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/terms-of-service",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/terms-of-service/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(content)/terms/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/terms",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/terms/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(content)/warranty/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/warranty",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(content)/warranty/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/account/addresses/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/account/addresses",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/addresses/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/account/callback/route.ts",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/account/callback",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/callback/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/account/login/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/account/login",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/login/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/account/orders/[orderId]/insurance/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/account/orders/{orderId}/insurance",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/account/orders/[orderId]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/account/orders/{orderId}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/account/orders/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/account/orders",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/account/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/account",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/account/settings/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/account/settings",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/settings/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/delete-account/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/delete-account",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/delete-account/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/my-account/[...path]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/my-account/{*path}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/my-account/[...path]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/my-account/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/my-account",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/my-account/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/receipts/claim/[token]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/receipts/claim/{token}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/receipts/claim/[token]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(customer)/receipts/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/receipts",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/receipts/page.tsx"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:(home)/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(home)/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/imei-check/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/imei-check",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/imei-check/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/member-status/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/member-status",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/member-status/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/quiz/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/quiz",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/quiz/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/repair/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/repair",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/repair/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/repair/status/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/repair/status",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/repair/status/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/repairs/[deviceSlug]/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/repairs/{deviceSlug}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/repairs/[deviceSlug]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/repairs/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/repairs",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/repairs/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/reviews/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/reviews",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/reviews/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/swap/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/swap",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/swap/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "reason": "request_state_or_origin_action_required",
+      "id": "storefront:(utility)/unlock-orders/page.tsx",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/unlock-orders",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(utility)/unlock-orders/page.tsx"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:favicon.ico/route.ts",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/favicon.ico",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/favicon.ico/route.ts"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:news-sitemap.xml/route.ts",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/news-sitemap.xml",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/news-sitemap.xml/route.ts"
+    },
+    {
+      "decision": "edge_release",
+      "reason": "public_release_surface",
+      "id": "storefront:sitemap/[id]/route.ts",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/sitemap/{id}",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/sitemap/[id]/route.ts"
+    },
+    {
+      "decision": "edge_redirect",
+      "reason": "redirect_only_storefront_entrypoint",
+      "id": "storefront:storefront/[legacySlug]/swap/route.ts",
+      "methods": ["GET", "HEAD"],
+      "routePattern": "/storefront/{legacySlug}/swap",
+      "sourceKind": "storefront_entrypoint",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/storefront/[legacySlug]/swap/route.ts"
+    }
+  ],
+  "schemaVersion": 1,
+  "inventorySha256": "ebf6924ea291595c1e25a1719f699f1b2ce5426d5f9f20bb302cc34d9bf91bfe"
+}

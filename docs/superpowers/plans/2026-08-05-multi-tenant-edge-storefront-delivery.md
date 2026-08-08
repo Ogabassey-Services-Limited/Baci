@@ -1,17 +1,17 @@
 # Baci Multi-Tenant Edge Storefront Delivery Implementation Plan
 
-> **Status:** Revision 8, upgraded on 2026-08-05 against `origin/main@5638ba191d159456d01a6146f9366d9867dcbaa5`. Execute each task as a separately reviewed PR unless a task explicitly says it is an operational evidence step. This plan does not authorize production mutations, Cloudflare provisioning, a `proxy.ts` change, or a new privileged database boundary by itself.
+> **Status:** Revision 9, upgraded on 2026-08-08 against `origin/main@82c38ad53d0591638b54f9320f40579c76c82273`. Execute each task as a separately reviewed PR unless a task explicitly says it is an operational evidence step. This plan does not authorize production mutations, Cloudflare provisioning, a `proxy.ts` change, or a new privileged database boundary by itself.
 
-**Goal:** Remove eligible anonymous storefront browsing from Vercel for Baci's standard storefronts, then Ogabassey's custom theme, by publishing immutable merchant releases to private R2 and serving them through one shared public Cloudflare Worker plus one shared private reader Worker. Keep checkout, accounts, payments, orders, inventory validation, quiz, repairs, and other stateful commerce operations authoritative and dynamic.
+**Goal:** Remove eligible anonymous storefront browsing from Vercel for Baci's builder-generated storefronts, then Ogabassey's custom-coded theme, by publishing immutable merchant releases to private R2 and serving them through one shared public Cloudflare Worker plus one shared private reader Worker. Preserve each merchant's AI-generated or manually edited design; keep checkout, accounts, payments, orders, inventory validation, quiz, repairs, and other stateful commerce operations authoritative and dynamic.
 
 **Business outcome:** Reduce the actual net hosting bill, not merely improve a cache-hit metric. Before infrastructure work, prove that eligible storefront browsing is a material Vercel billed cost through provider-authenticated, SKU-reconciled attribution rather than a caller-supplied dollar estimate. After rollout, prove at least 99.9% origin avoidance for eligible requests and a measured reduction in Vercel billed usage that exceeds the higher of Cloudflare's incremental cash impact and fully allocated cost. A seven-day normalized-usage result may gate rollout, but the plan does not claim an actual invoice reduction until complete finalized post-rollout Vercel and Cloudflare billing periods reconcile with the controlled usage counterfactual.
 
-**Relationship to the older plan:** [`2026-07-27-ultra-low-cost-storefront-delivery.md`](./2026-07-27-ultra-low-cost-storefront-delivery.md) remains the historical Ogabassey evidence and security design. This plan replaces its **single-merchant-first rollout decision** with a generic release plane and a standard-theme-first pilot. Reuse its implemented evidence contracts and fail-closed operational lessons; do not carry forward its assumption that other merchants remain permanently on Vercel.
+**Relationship to the older plan:** [`2026-07-27-ultra-low-cost-storefront-delivery.md`](./2026-07-27-ultra-low-cost-storefront-delivery.md) remains the historical Ogabassey evidence and security design. This plan replaces its **single-merchant-first rollout decision** with a generic release plane and a builder-contract-first pilot. Reuse its implemented evidence contracts and fail-closed operational lessons; do not carry forward its assumption that other merchants remain permanently on Vercel.
 
 ## Decision Summary
 
 1. Build one multi-tenant release plane for Baci: one public serving Worker, one private reader Worker, one release bucket, one tiny separately authorized terminal-control bucket, and no server or code deployment per merchant.
-2. Pilot the deterministic standard Baci/Puck theme first because its behavior is controlled and reusable. Use a synthetic fixture before enrolling one consenting, low-risk standard-theme merchant.
+2. Pilot the deterministic Baci builder/Puck publication contract first because its component vocabulary and persisted output are controlled and reusable. This is not one visual theme: AI and merchants may compose distinct layouts, content, brand tokens, and supported component props. Use a synthetic fixture before enrolling one consenting, low-risk builder-contract merchant.
 3. Add Ogabassey second through a dedicated renderer adapter because it is a custom theme. Ogabassey is the high-traffic savings canary, not the architecture template.
 4. Store only public, published, bounded storefront data in immutable release objects. Drafts, customer data, credentials, private inventory controls, and provider responses never enter R2.
 5. Serve known anonymous `GET`/`HEAD` browsing routes at the edge. Forward only explicitly classified dynamic routes to the unchanged application with method, body, query, cookies, `Origin`, and CSRF semantics preserved.
@@ -27,10 +27,10 @@
 
 | Change | Effect on this plan | Required response |
 | --- | --- | --- |
-| Open PR #3279, provider-neutral builder editing | Architecturally compatible. At the 2026-08-05 exact-head snapshot it is `OPEN` and `BEHIND`; that mutable PR state is not a release-plane dependency. | Publisher reads the persisted, validated `page_configs.published_config`; it never accepts an AI/provider response as a release input. A draft AI edit causes no release until the merchant publishes it. Re-read its final merged component catalog before Task 1B. |
-| Open PR #3280, guarded Vercel attestation bootstrap | Architecturally compatible and not a release-plane dependency. At this revision it is `DIRTY` and stacked on #3279's branch rather than `main`; it remains disabled by default, production-only, and temporary. | Exclude the bootstrap route and all attestation secrets from static output. Complete its documented cleanup independently; do not treat it as permanent storefront runtime. Recheck live PR state rather than relying on this snapshot. |
+| Open PR #3279, provider-neutral builder editing | Architecturally compatible. At the 2026-08-08 exact-head snapshot (`2fb0d0760c65119f0db6036ab06c4ee9f8213b62`) it is `OPEN` and GitHub reports `BLOCKED`; that mutable PR state is not a release-plane dependency. | Publisher reads the persisted, validated `page_configs.published_config`; it never accepts an AI/provider response as a release input. A draft AI edit causes no release until the merchant publishes it. Re-read its final merged component catalog before Task 1B. |
+| Open PR #3280, guarded Vercel attestation bootstrap | Architecturally compatible and not a release-plane dependency. At the 2026-08-08 exact-head snapshot (`63f91afeab0680cbf621e0b3ca8b4a67778848bd`) it remains stacked on #3279's branch rather than `main`; it is disabled by default, production-only, and temporary. | Exclude the bootstrap route and all attestation secrets from static output. Complete its documented cleanup independently; do not treat it as permanent storefront runtime. Recheck live PR state rather than relying on this snapshot. |
 | Merged PR #3283, stale-production-promotion guard | Provides a current-main deployment-authority foundation, but its path predicate protects the existing web/Vercel target rather than the not-yet-created edge targets. | Task 5 extracts/reuses the fail-closed GitHub ref/compare authority without weakening the web guard, adds an edge-specific affected-path predicate, and rechecks it before every reader/public upload and every traffic-weight or route promotion attempt. |
-| Merged PR #3266, deterministic curated defaults | Direct foundation for the standard-theme pilot. | Reuse `storefront-defaults` as the canonical fallback when a standard merchant has no custom published homepage. |
+| Merged PR #3266, deterministic curated defaults | Direct fallback foundation for the builder-contract pilot. | Reuse `storefront-defaults` only when a builder merchant has no custom published homepage; never replace a valid AI-generated or merchant-edited `published_config`. |
 | Merged PR #3269, SEO/canonical parity | Adds mandatory release acceptance behavior. | Release output must match canonical, robots, sitemap, metadata, structured-data, and public-image eligibility contracts. |
 | Merged PR #3260, unsafe storefront path rejection | Defines security and canonicalization behavior that the Worker must not contradict. | Create one shared, testable edge route contract and prove parity with current path behavior. Do not modify `apps/web/src/proxy.ts` without fresh explicit approval. |
 | Merged PR #3282, production live quiz | Confirms that quiz is live, authenticated, and time-sensitive. | Keep `/quiz` and every `/api/quiz/**` request on the dynamic control plane. |
@@ -38,7 +38,7 @@
 | Merged PR #3250, Ogabassey origin contract | Provides reusable evidence and origin-budget primitives. | Generalize the manifest inventory to a cohort/merchant scope while preserving exact traffic partitions and fail-closed `NOT_PROVEN`. |
 | GIGL/VPS cron cost work, including PR #3275 | Orthogonal and compatible. | Treat it as background-runtime savings; do not couple it to storefront release serving or expand its database authority. |
 
-**Conclusion:** #3279 and #3280 do not block, invalidate, or materially overlap the edge-delivery architecture. Recent mainline work does affect the implementation contract: #3266 is the standard-theme source; #3269, #3260, #3282, and #3274 define hard parity and dynamic-boundary requirements; and #3283 makes target-aware current-main authority mandatory for every edge upload and promotion.
+**Conclusion:** #3279 and #3280 do not block, invalidate, or materially overlap the edge-delivery architecture. Recent mainline work does affect the implementation contract: the current builder schema, component catalog, AI draft pipeline, and `published_config` are the primary release source; #3266 supplies only the no-custom-config fallback; #3269, #3260, #3282, and #3274 define hard parity and dynamic-boundary requirements; and #3283 makes target-aware current-main authority mandatory for every edge upload and promotion.
 
 ## Target Architecture
 
@@ -137,9 +137,11 @@ Always dynamic in the first release:
 
 Known static routes do not become origin-bound merely because they contain cookies or tracking parameters. Unknown routes, every unlisted path under `/api/`, and unsupported methods for an enrolled edge hostname terminate at the edge; they do not fall through to Vercel. Released links use ordinary document navigation rather than depending on Next.js RSC/prefetch requests. Host-disable and route-tombstone records stop edge releases, while the current application's own merchant/domain status remains authoritative for classified dynamic routes; provider callbacks and payment completion are never blocked merely because R2 is unavailable.
 
-The route matrix is a closed inventory, not a best-effort matcher. At this Revision 8 snapshot, `apps/web/src/app/(storefront)/[slug]/**` contains 74 `page.tsx`/`route.ts` entrypoints. Task 1A freezes every current entrypoint, alias, rewrite, proxy path class, and required machine/API family as `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; Task 1B turns that inventory into shared schemas and parity fixtures after the directional business screen passes. A source-tree contract test fails when a later storefront route or relevant rewrite is added, removed, or renamed without an explicit classification and parity fixture. CI maps storefront route files, relevant storefront-used API routes, `proxy.ts`, Next routing configuration, and the shared route inventory to both web and edge gates so an enrolled hostname can never silently receive a new edge 404 or origin escape after an application-only change.
+The route matrix is a closed inventory, not a best-effort matcher. At this Revision 9 snapshot, `apps/web/src/app/(storefront)/[slug]/**` contains 74 `page.tsx`/`route.ts` entrypoints. Task 1A freezes every current entrypoint, alias, rewrite, proxy path class, and required machine/API family as `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; Task 1B turns that inventory into shared schemas and parity fixtures after the directional business screen passes. A source-tree contract test fails when a later storefront route or relevant rewrite is added, removed, or renamed without an explicit classification and parity fixture. CI maps storefront route files, relevant storefront-used API routes, `proxy.ts`, Next routing configuration, and the shared route inventory to both web and edge gates so an enrolled hostname can never silently receive a new edge 404 or origin escape after an application-only change.
 
 ### Release component capability contract
+
+The release plane extends the existing authoring path; it does not introduce a replacement storefront designer. In current code, AI produces a candidate Puck config, Baci validates and normalizes it into the builder component vocabulary, the merchant can continue editing the draft, and an explicit publish copies the accepted draft into `page_configs.published_config`. The edge publisher consumes only that persisted published config plus bounded public commerce projections. It never renders a raw model response, never publishes a draft, and never collapses different merchant configurations into a common visual template.
 
 The builder catalog is broader than the first edge-safe catalog. Every component type receives one versioned capability row containing:
 
@@ -151,7 +153,7 @@ The builder catalog is broader than the first edge-safe catalog. Every component
 - CSP additions, third-party iframe/media policy, accessibility checks, and fallback behavior; and
 - migration compatibility with the previous two capability versions.
 
-Unknown component types, props, or capability versions fail closed. A merchant with an unsupported published component stays in explicit `origin` mode; the merchant's existing publication remains valid and no edge pointer is activated. The release failure is visible to operators and the merchant, but it never replaces a healthy origin storefront with an edge error. `CodeEmbed` is either rendered as escaped literal text or remains unsupported; stored text is never executed as HTML or JavaScript.
+Unknown component types, props, or capability versions fail closed. A merchant with an unsupported published component stays in explicit `origin` mode; the merchant's existing AI-designed publication remains valid and no edge pointer is activated. The release failure is visible to operators and the merchant, but it never replaces a healthy origin storefront with an edge error. `CodeEmbed` is either rendered as escaped literal text or remains unsupported; stored text is never executed as HTML or JavaScript.
 
 The release manifest binds `componentContractVersion`. Any builder-catalog PR, including the final merge of #3279, must update the Task 1B capability matrix or prove that its change cannot reach published storefront output.
 
@@ -198,7 +200,7 @@ The primary publisher credentials cannot be the break-glass credentials. Termina
 
 ### Business gate
 
-Before implementing the full release contract, the owner records a provisional absolute monthly savings floor in both USD and NGN; no default is implied, and Task 0A does not run without it. Then run a read-only directional screen from existing #3250 evidence and current Vercel billing. Freeze only the concrete Task 1A hostname/route eligibility artifact and calculate an optimistic upper bound for removable Vercel cost versus a pessimistic Cloudflare bound. This screen may return only `PLAUSIBLE` or `STOP`; it can never authorize provisioning, replace the formal baseline, or claim savings. If even the optimistic case misses the provisional floor, stop before Task 0B or Task 1B.
+The owner approved a deliberately minimal provisional Task 0A floor on 2026-08-08: **USD 1/month and NGN 1/month net savings**, with both tests required. This is only a positive-value stop screen; it is not the later material-savings threshold and cannot justify rollout by itself. Run a read-only directional screen from existing #3250 evidence and current Vercel billing. Freeze only the concrete Task 1A hostname/route eligibility artifact and calculate an optimistic upper bound for removable Vercel cost versus a pessimistic Cloudflare bound. This screen may return only `PLAUSIBLE` or `STOP`; it can never authorize provisioning, replace the formal baseline, or claim savings. If even the optimistic case misses either provisional floor, stop before Task 0B or Task 1B.
 
 After `PLAUSIBLE`, and before Task 2 starts, seal two different evidence classes rather than pretending future infrastructure already has provider counters:
 
@@ -222,7 +224,7 @@ Freeze and hash the hostname inventory and eligibility policy before the baselin
 
 ### Technical gate
 
-Expansion beyond one standard merchant requires:
+Expansion beyond one builder-contract merchant requires:
 
 - at least 99.9% origin avoidance for eligible requests over a complete seven-day census;
 - zero automatic Vercel/Supabase/dynamic-origin requests in each sanitized in-app Browser CDP acceptance ledger;
@@ -291,7 +293,7 @@ Run each task's focused checks first. Every code or migration PR then runs `pnpm
 
 **Task 0A — directional stop gate, using existing read-only evidence:**
 
-- [ ] Record the owner's provisional absolute monthly savings floor in both USD and NGN before calculation. If either value is absent, do not run or report a directional result.
+- [x] Record the owner's provisional absolute monthly savings floor in both USD and NGN before calculation: USD 1/month and NGN 1/month, owner-approved on 2026-08-08. Both must be exceeded; this minimal positive screen does not replace Task 0B's material-savings approval.
 - [ ] Consume the exact frozen Task 1A artifact path/hash, current provider-authenticated Vercel billed rows, and already merged #3250 evidence without adding provider mutations or production credentials.
 - [ ] Calculate an optimistic upper bound for Vercel savings and a pessimistic Cloudflare bound at current traffic plus 2x headroom. Until the target account's subscription, `Standard` entitlement, and unused shared allowances are independently read back, include the full Workers Paid minimum, allocate no included Workers/R2 usage to the candidate, price the reader call as an additional Worker request, and include aggregate CPU across both Workers. Record every unsupported attribution as uncertainty favorable to neither a final `PASS` nor provisioning.
 - [ ] Return `STOP` when even the optimistic net saving cannot meet the provisional absolute USD/NGN floor. Return only `PLAUSIBLE` otherwise; this result authorizes Task 0B/1B engineering, not infrastructure or rollout.
@@ -373,17 +375,17 @@ pnpm --filter @baci/web typecheck:tools-workers
 - Create: `packages/shared/src/storefront-release/classify-storefront-edge-request.test.ts`
 - Create: `packages/shared/src/storefront-release/storefront-edge-route-inventory.ts`
 - Create: `packages/shared/src/storefront-release/storefront-edge-route-inventory.test.ts`
-- Create: `apps/web/src/lib/storefront-release/standard-component-capabilities.ts`
-- Create: `apps/web/src/lib/storefront-release/standard-component-capabilities.test.ts`
+- Create: `apps/web/src/lib/storefront-release/builder-component-capabilities.ts`
+- Create: `apps/web/src/lib/storefront-release/builder-component-capabilities.test.ts`
 - Create: `apps/web/src/lib/storefront-release/storefront-edge-route-parity.test.ts`
 - Create: `apps/web/src/lib/storefront-release/storefront-edge-route-inventory-parity.test.ts`
 
 **Task 1A — minimal pre-screen inventory:**
 
-- [ ] Make `docs/superpowers/evidence/storefront-edge/task-1a-inventory.json` the only Task 0A inventory input. Generate it deterministically with `create-storefront-edge-inventory.ts`; include `schemaVersion`, exact `originMainSha`, route-tree digest, routing/proxy-input digest, normalized pilot-candidate hostname digest, canonical ordered rows, eligible-denominator policy, complete-browser path classes, and `inventorySha256`. Do not include credentials, customer traffic, timestamps inside the hashed payload, or mutable PR state.
-- [ ] Inventory all 74 current storefront entrypoints, aliases, rewrites, Proxy path classes, and only the API/callback/webhook/machine families required by those storefronts. Mark every row `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; every unlisted path under `/api/` and every unsupported method is terminal.
-- [ ] Define the proposed eligible denominator and complete-browser path classes needed by Task 0A. Do not build release schemas, component adapters, migrations, Workers, or provider resources in this subtask.
-- [ ] Make `validate-storefront-edge-inventory.ts` regenerate the canonical payload from the checked-out tree and reject a mismatched `origin/main` SHA, route/proxy digest, hostname digest, row order, denominator, or self-hash. Task 0A prints and seals the exact artifact path and hash before calculation. A `PLAUSIBLE` result is invalid if validation fails or the artifact/hash changes before Task 0B.
+- [x] Make `docs/superpowers/evidence/storefront-edge/task-1a-inventory.json` the only Task 0A inventory input. The 2026-08-08 artifact is bound to `origin/main@82c38ad53d0591638b54f9320f40579c76c82273`, synthetic candidate `baci-edge-pilot.usebaci.com`, and inventory SHA-256 `ebf6924ea291595c1e25a1719f699f1b2ce5426d5f9f20bb302cc34d9bf91bfe`; it contains no credentials, customer traffic, timestamps, or mutable PR state.
+- [x] Inventory all 74 current storefront entrypoints, aliases, rewrites, Proxy path classes, and only the API/callback/webhook/machine families required by those storefronts. The frozen artifact contains 130 canonical rows, each classified `edge_release`, `edge_redirect`, `origin_dynamic`, or `edge_terminal`; every unlisted path under `/api/` and every unsupported method is terminal by policy.
+- [x] Define the proposed eligible denominator and complete-browser path classes needed by Task 0A without building release schemas, component adapters, migrations, Workers, or provider resources.
+- [x] Make `validate-storefront-edge-inventory.ts` regenerate the canonical payload from the checked-out tree and reject a mismatched `origin/main` SHA, route/proxy digest, hostname digest, row order, denominator, or self-hash. The exact artifact regenerated successfully at 74 storefront entrypoints and 130 total rows.
 
 **Task 1B — executable contracts after Task 0A returns `PLAUSIBLE`:**
 
@@ -407,32 +409,32 @@ test -n "$BACI_STOREFRONT_PILOT_HOSTNAME"
 pnpm --filter @baci/web exec tsx tools/cost/create-storefront-edge-inventory.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse origin/main)" --pilot-hostname "$BACI_STOREFRONT_PILOT_HOSTNAME" --output "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
 pnpm --filter @baci/web exec tsx tools/cost/validate-storefront-edge-inventory.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse origin/main)" --input "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
 pnpm --filter @baci/shared test -- storefront-release
-pnpm --filter @baci/web test -- storefront-edge-inventory standard-component-capabilities storefront-edge-route-parity
+pnpm --filter @baci/web test -- storefront-edge-inventory builder-component-capabilities storefront-edge-route-parity
 pnpm exec biome check packages/shared/src/storefront-release apps/web/src/lib/storefront-release
 pnpm --filter @baci/shared typecheck
 pnpm --filter @baci/web lint
 pnpm --filter @baci/web typecheck
 ```
 
-### Task 2: Build the Pure Deterministic Standard-Theme Release Renderer
+### Task 2: Build the Pure Deterministic Published-Builder Release Renderer
 
 **Files:**
 
 - Create: `apps/web/src/lib/storefront-release/validate-storefront-public-projection.ts`
 - Create: `apps/web/src/lib/storefront-release/validate-storefront-public-projection.test.ts`
-- Create: `apps/web/src/lib/storefront-release/build-standard-storefront-release.ts`
-- Create: `apps/web/src/lib/storefront-release/build-standard-storefront-release.test.ts`
-- Create: `apps/web/src/components/storefront-release/render-standard-puck-release.tsx`
-- Create: `apps/web/src/components/storefront-release/render-standard-puck-release.test.tsx`
+- Create: `apps/web/src/lib/storefront-release/build-published-builder-release.ts`
+- Create: `apps/web/src/lib/storefront-release/build-published-builder-release.test.ts`
+- Create: `apps/web/src/components/storefront-release/render-published-puck-release.tsx`
+- Create: `apps/web/src/components/storefront-release/render-published-puck-release.test.tsx`
 - Create: focused route, SEO, asset, and dependency-index modules with colocated tests under `apps/web/src/lib/storefront-release/`
 - Modify only as adapters: `apps/web/src/lib/storefront-defaults/*`
 - Reuse acceptance behavior from: `apps/web/src/app/(storefront)/[slug]/**`
 
 - [ ] Accept one already-materialized, transactionally coherent `StorefrontPublicProjection` value. Validate it at the boundary, then render as a pure projection-plus-renderer-version function with no database client, RPC, network, environment-secret, or filesystem mutation dependency.
 - [ ] Use bounded projection fixtures in Task 2 tests. In production, Task 4 passes the generation-fenced projection returned by Task 3's single claim RPC; renderer code never knows how the value was loaded and never re-queries component tables.
-- [ ] Validate `published_config` against the closed builder component catalog and exact capability-contract version. Reject unknown components, arbitrary executable HTML/JS, private or mutable URLs, unbounded props, and any destination absent from the capability row.
+- [ ] Validate the exact persisted `page_configs.published_config` against the closed builder component catalog and capability-contract version. Accept AI-generated and manually edited layouts identically after publication; never accept a raw provider result or `draft_config`. Reject unknown components, arbitrary executable HTML/JS, private or mutable URLs, unbounded props, and any destination absent from the capability row.
 - [ ] Return `ineligible_configuration` without activating a pointer when an existing merchant uses an unsupported component. Do not fail or roll back the merchant's ordinary origin publication.
-- [ ] Use #3266 curated defaults only when no merchant-published standard configuration exists.
+- [ ] Use #3266 curated defaults only when no merchant-published builder configuration exists. A valid merchant publication always wins, regardless of whether AI or manual editing produced it.
 - [ ] Render deterministic HTML, CSS, minimal executable assets, metadata, JSON-LD, canonical links, public catalog pages, content, sitemaps, robots, and a real 404 without request-time Supabase or Vercel dependencies.
 - [ ] Render through a bounded library/CLI call; never run a full `next build`, create a Vercel deployment, or compile a separate application per merchant or publication generation.
 - [ ] Emit a deterministic route-dependency index and per-route input/content hashes without accepting a prior manifest. Task 4 may use those hashes to reuse verified immutable objects when renderer compatibility is known; reuse changes work performed, never output bytes.
@@ -637,9 +639,9 @@ actionlint .github/workflows/deploy-storefront-edge.yml .github/workflows/storef
 pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test
 ```
 
-### Task 6: Prove a Synthetic Standard Store Without Production Routing
+### Task 6: Prove Synthetic Builder-Contract Stores Without Production Routing
 
-- [ ] Generate bounded fixture merchants using the curated standard theme, products, categories, policies, blog, SEO, and every component capability mode. Include an unsupported-component fixture that stays on origin without publication regression.
+- [ ] Generate bounded fixture merchants with materially different AI-shaped and manually edited published Puck configurations, plus the curated-default fallback, products, categories, policies, blog, SEO, and every component capability mode. Include an unsupported-component fixture that stays on origin without publication regression.
 - [ ] Publish it to non-production release/control buckets and a synthetic hostname only after a signed epoch genesis and control-prefix bucket-lock readback exist, then test with the real Worker runtime, not a Node-only mock.
 - [ ] Prove neither bucket has a public endpoint, both Workers have `"workers_dev": false` and `"preview_urls": false`, the reader exposes only the named RPC entrypoint plus the exact inert default `404` handler, has no route/custom domain/versioned or aliased preview ingress, and matches the protected source/version/bundle digest. Direct known-object URLs are unreachable; every RPC result is a schema-valid by-value DTO or bounded stream with no callable capability; signed release/terminal envelope verification succeeds; and tampered control/pointer/manifest/object/key/signature cases fail closed.
 - [ ] Compare origin and release outputs for route inventory, status, canonical/robots/sitemap/JSON-LD, security headers, accessibility, responsive screenshots, links, image behavior, and 404s.
@@ -659,11 +661,11 @@ pnpm --filter @baci/web test -- storefront-release storefront-browser-waterfall 
 pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test
 ```
 
-### Task 7: Canary One Real Standard-Theme Merchant
+### Task 7: Canary One Real Builder-Contract Merchant
 
 **Operational approval gate:** Require merchant consent including the temporary `disabled_for_edge_pilot` passive-analytics gap, exact hostname inventory, canonical unsealed terminal epoch/genesis plus bucket-lock/audit readback under the declared Cloudflare governance trust boundary, Workers `Standard` usage-model and explicit runtime-limit readback, attested reader/public source-version digests, production token/topology readback, owner approval, green exact-head CI/review, a fresh edge current-main guard immediately before each promotion attempt, dynamic-route outage-continuity proof, and tested rollback before routing traffic.
 
-- [ ] Enroll one low-risk standard-theme Baci subdomain through an exact hostname route; do not use `*.usebaci.com` for the pilot.
+- [ ] Enroll one low-risk Baci subdomain whose live storefront is produced by the supported builder/Puck publication contract, through an exact hostname route; do not use `*.usebaci.com` for the pilot. Preserve and compare that merchant's actual AI/manual design rather than substituting the curated fallback.
 - [ ] Publish and owner-review the exact candidate release before traffic.
 - [ ] Configure version affinity before percentage rollout. On an unpinned successful edge-document response, the Worker creates a cryptographically random, non-identifying `baci_edge_affinity` value and sets a bounded `Secure; HttpOnly; SameSite=Lax; Path=/` cookie; a reviewed Cloudflare request-header rule overwrites/removes any client-supplied version-key header and derives `Cloudflare-Workers-Version-Key` only from that cookie on later requests. Append each new cookie only after retrieving/building the cacheable response: never store `Set-Cookie` in an immutable cache object or reuse one visitor's affinity value. Strip the affinity pair and edge-only version-selection headers before every origin request while preserving all pre-existing cookies/application headers. Propagate the same version key on service-binding subrequests whenever the reader is under gradual deployment. Do not use customer, account, order, email, phone, or other business identifiers. Test the unpinned first request, distinct cookies for two fresh clients, cached-response isolation, no cookie on dynamic/asset/error responses, origin stripping, original-cookie/header preservation, subresources, reader pairing, repeat navigation, cookie refusal, rotation, and expiry.
 - [ ] Keep adjacent Worker versions backward-compatible with the active pointer/manifest/component schemas so first-request or cookieless version skew remains harmless. A schema-breaking version cannot share a gradual deployment.
@@ -672,9 +674,9 @@ pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test
 - [ ] At each weight, issue fresh evidence-run nonces, run the sanitized in-app Browser CDP acceptance census against both assigned versions, reject stale/mismatched ledgers, and reconcile exact run/version/release bindings with provider counters.
 - [ ] Run a complete seven-day 100% window and seal the technical/business gate evidence. Replace Task 0B modeled public/reader/R2/log operation counts with independent actual provider counters; refresh the account-wide subscription, request/CPU/R2 allowance consumption and every other-workload row; recompute both incremental and fully allocated Cloudflare cost; reconcile the exact enrolled host/method/path/rule inventory; and calculate the traffic-normalized Vercel metered-unit reduction under the frozen billing-allocation contract. Use the higher actual Cloudflare view and freeze expansion if actual cost materially exceeds the pessimistic model. This seven-day result may authorize the next cohort but is not called an actual invoice reduction.
 
-### Task 8: Expand the Standard Multi-Tenant Plane
+### Task 8: Expand the Builder-Contract Multi-Tenant Plane
 
-- [ ] Enroll a small standard-theme cohort by exact hostname, then expand only after each seven-day gate.
+- [ ] Enroll a small builder-contract cohort with varied AI/manual designs by exact hostname, then expand only after each seven-day gate.
 - [ ] Add automated hostname enrollment, ownership validation, provider readback requiring both custom-hostname status and SSL status `active` plus the intended DNS target, canonical terminal-signed epoch-genesis creation, bucket-lock/audit readback, release-pointer creation, write-once takedown/deletion markers, predecessor sealing selecting exactly one successor, and explicitly approved successor-epoch recovery without merging the ordinary, terminal, reader-deployment, lock-administration, or account-governance authority paths.
 - [ ] Introduce Cloudflare for SaaS for merchant custom hostnames and TLS after Baci subdomain proof. Before any wildcard route, prove whether the target account is entitled to Custom Hostname metadata. If it is, attach and provider-read-back the complete Task 1B flat signed profile in `request.cf.hostMetadata`, within the provider's 4 KB limit; bind its canonical digest and custom-hostname ID to the protected enrollment receipt, wait at least 60 seconds (2x the documented 30-second propagation window), and require a pre-promotion exact-host probe to attest that the running Worker observed that same digest without returning the profile. Renew each profile through the protected workflow at least 24 hours before its maximum seven-day expiry, re-running readback and runtime attestation; failed renewal freezes promotion and invokes the approved exact-host origin rollback before expiry. If metadata is unavailable, remain on exact hostname routes until a separate reviewed, costed, non-R2 admission-map design is approved; do not silently substitute caller-controlled `Host`, release pointers, an opaque unresolved ID, or an unreviewed KV/database/R2 lookup.
 - [ ] Seal a versioned dynamic-origin topology for every admitted custom hostname: normalized host, active enrollment generation and validity window, exact Cloudflare-DNS origin hostname, outbound Host and SNI mode, tenant identity carrier, shared route-policy hash, method/body/query/cookie/`Origin`/CSRF preservation, and loop-prevention rule. The Worker canonically verifies the metadata signature and all closed enums locally before using the profile; signer authority is isolated from the exact-zone/custom-hostname metadata-write and traffic-promotion credentials, the expected generation/digest registry is independently protected, and key rotation/revocation is drilled. Treat the metadata writer as an explicit high-trust origin-routing root because it can replay a still-valid prior signed profile; provider audit/readback plus decision-log digest reconciliation must alert and detach the affected exact host on any unapproved mismatch. A matching Worker route bypasses per-host `custom_origin_server`, so provider probes must prove the exact behavior against real disposable custom hostnames before rollout. Test GET/HEAD plus bounded POST/callback flows, both supported Cloudflare-to-Cloudflare/DNS modes, origin TLS validation, stale/expired/replayed metadata inside and outside the validity window, signer revocation, reader/R2 outage, and an intentionally unknown/inactive host. Any locally invalid metadata terminates without origin access; the application remains authoritative after a valid admitted handoff.
@@ -739,13 +741,13 @@ Never combine a privileged migration, provider control-plane mutation, Worker co
 
 - [ ] Two complete finalized pre-rollout Vercel billing periods plus the closed traffic/runtime baseline reconcile every invoice/SKU/included-usage/credit row to the frozen cohort under one provider-authenticated allocation contract and prove this work is worth doing; caller-supplied attributed dollars are insufficient.
 - [ ] Cloudflare Billing Read/subscription, billable-usage, Workers/R2 analytics, account/script-setting authorities, and the same-byte controlled in-app Browser invoice-PDF capture/import reconcile the current account-wide base charge and every shared included allowance. The redacted receipt binds the provider origin, account, invoice/cycle, exact PDF hash, and minimal totals while the private PDF and Browser cookies never enter the repository/CI. The gate computes incremental cash impact and fully allocated cost, uses the higher result, charges the full Workers Paid minimum unless its unavoidable pre-existing payment is proven, and returns `NOT_PROVEN` for a missing/mismatched invoice or double-counted allowance evidence.
-- [ ] A standard merchant and Ogabassey both serve eligible anonymous browsing from the same shared serving/reader Worker pair and release plane.
+- [ ] A builder-contract merchant and Ogabassey both serve eligible anonymous browsing from the same shared serving/reader Worker pair and release plane.
 - [ ] Seven complete days show at least 99.9% eligible origin avoidance with zero unknown/rejected origin attempts.
 - [ ] Fresh single-use, run-bound sanitized in-app Browser CDP ledger pairs show zero automatic Vercel, Supabase, same-origin dynamic API, Next asset/image, or unapproved analytics requests for every eligible pilot flow and match the exact independently read public/reader versions, topology, release, manifest, and policy.
 - [ ] The enrolled cohort passes the owner-approved normalized Vercel browse-runtime reduction and both relative and absolute monthly net-savings gates in USD and NGN, with Task 0B modeled Cloudflare operations replaced by actual provider counters and both Cloudflare cost views recomputed before expansion.
 - [ ] Dynamic checkout, payment, order, inventory, account, quiz, repair, and other stateful flows retain current authority and security.
 - [ ] SEO, accessibility, responsive UI, performance, path safety, and custom-domain behavior pass parity gates.
-- [ ] Every published standard-theme component has a versioned capability decision; unsupported configurations remain safely on origin.
+- [ ] Every published builder component has a versioned capability decision; varied AI/manual configurations retain visual parity, and unsupported configurations remain safely on origin.
 - [ ] Every current storefront route/rewrite has one explicit edge decision, source-tree drift fails CI, and storefront routing changes trigger both web and edge gates.
 - [ ] PR #3283's web deployment freshness behavior remains green, and the target-aware edge guard rechecks current `main` immediately before each private-reader/public-Worker upload and every promotion/retry. Stale edge-affecting commits, incomplete comparisons, and GitHub authority failures cannot deploy; the CI/deploy filter contract proves no edge-affecting path escapes the guard.
 - [ ] Publication uses one transactionally coherent projection, is durable, idempotent, generation-fenced, signed, observable, and meets each approved freshness-class SLO.
