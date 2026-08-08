@@ -165,6 +165,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         pathCondition: expect.objectContaining({
           firstSegmentIn: [
             'auth',
+            'admin',
             'builder',
             'dashboard',
             'forgot-password',

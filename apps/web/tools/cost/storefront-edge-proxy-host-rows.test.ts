@@ -14,4 +14,16 @@ describe('STOREFRONT_EDGE_PROXY_HOST_ROWS', () => {
       )?.decision
     ).toBe('origin_dynamic');
   });
+
+  it('preserves protected admin routes on platform and custom domains', () => {
+    for (const id of [
+      'proxy:platform-route-subdomain',
+      'proxy:custom-domain-platform-route',
+    ]) {
+      const row = STOREFRONT_EDGE_PROXY_HOST_ROWS.find(
+        (candidate) => candidate.id === id
+      );
+      expect(row?.pathCondition?.firstSegmentIn).toContain('admin');
+    }
+  });
 });
