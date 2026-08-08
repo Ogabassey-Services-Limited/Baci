@@ -32,6 +32,26 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['ultragear 27gp850']);
   });
 
+  it('strips separated battery-capacity units from the model identifier', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'accessories',
+      brands: ['Xiaomi'],
+      productNames: ['Xiaomi 10000 mAh Power Bank'],
+    });
+
+    expect(identifiers).toEqual(['power bank']);
+  });
+
+  it('strips hardware color suffixes from game-category accessories', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'playstation-5',
+      brands: ['Sony'],
+      productNames: ['Sony DualSense Wireless Controller White'],
+    });
+
+    expect(identifiers).toEqual(['dualsense wireless controller']);
+  });
+
   it('deduplicates identifiers across product variants', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'smartphones',

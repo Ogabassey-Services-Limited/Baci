@@ -35,6 +35,14 @@ function tokenizeVariantSource(value: string) {
   return normalizeVariantDiscriminatorTokens(tokenize(value));
 }
 
+function isCompareVariantMetadataToken(token: string) {
+  return (
+    token === 'version' ||
+    VARIANT_DISCRIMINATOR_PATTERN.test(token) ||
+    isProductVariantColorToken(token)
+  );
+}
+
 function getBrandCandidates(context: BuildCommercialGuideLinksContext) {
   const configured = Object.entries(
     CONTENT_CLUSTER_SUPPORT[context.categorySlug].brandTokens
@@ -121,8 +129,10 @@ function getSourceDiscriminatorTokens(
       (VARIANT_DISCRIMINATOR_PATTERN.test(token) ||
         laptopHardwareTokens.has(token) ||
         isProductVariantColorToken(token) ||
-        (index === sourceTokens.length - 1 &&
-          isProductVariantRegionToken(token))) &&
+        (isProductVariantRegionToken(token) &&
+          sourceTokens
+            .slice(index + 1)
+            .every(isCompareVariantMetadataToken))) &&
       !seen.has(token)
     ) {
       seen.add(token);

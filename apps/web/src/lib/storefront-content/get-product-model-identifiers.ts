@@ -178,6 +178,31 @@ function isModelMetadataToken(token: string, categorySlug: string) {
     categorySlug !== 'printers' && MODEL_METADATA_TOKEN_PATTERN.test(token)
   );
 }
+const SEPARATED_MODEL_METADATA_UNITS = new Set([
+  'gb',
+  'tb',
+  'mb',
+  'g',
+  'inch',
+  'hz',
+  'mah',
+  'mp',
+  'w',
+  'v',
+  'mm',
+  'cm',
+  'kg',
+  'ms',
+]);
+function isSeparatedModelMetadataToken(tokens: string[], index: number) {
+  const token = tokens[index] ?? '';
+  const nextToken = tokens[index + 1] ?? '';
+  const previousToken = tokens[index - 1] ?? '';
+  return (
+    (/^\d+$/u.test(token) && SEPARATED_MODEL_METADATA_UNITS.has(nextToken)) ||
+    (SEPARATED_MODEL_METADATA_UNITS.has(token) && /^\d+$/u.test(previousToken))
+  );
+}
 function stripGeneratedCollisionSuffix(tokens: string[]) {
   const [previousToken = '', lastToken = ''] = tokens.slice(-2);
   if (tokens.length < 2 || !/^\d$/u.test(lastToken)) {
@@ -206,7 +231,8 @@ function stripGeneratedCollisionSuffix(tokens: string[]) {
 function getModelTokens(
   slug: string,
   excludedTokens: ReadonlySet<string>,
-  categorySlug: string
+  categorySlug: string,
+  preserveGameTitleTokens: boolean
 ) {
   const canonicalSlug = applyJoinedTitleCorrections(slug);
   const rawTokens = normalizeProductModelTokens(
@@ -218,7 +244,7 @@ function getModelTokens(
       ),
       excludedTokens
     ),
-    GAME_CATEGORY_PATTERN.test(categorySlug),
+    preserveGameTitleTokens,
     DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)
   );
   const platformGeneration = categorySlug.match(/^playstation-(\d+)$/u)?.[1];
@@ -234,6 +260,7 @@ function getModelTokens(
   const modelTokens = tokens.filter(
     (token, index) =>
       !isModelMetadataToken(token, categorySlug) &&
+      !isSeparatedModelMetadataToken(tokens, index) &&
       !isBareCapacityMetadataToken(tokens, index) &&
       token !== 'inch' &&
       (token !== 'in' ||
@@ -256,6 +283,32 @@ export function getProductModelIdentifiers(
     ...(context.categorySlug === 'vr-headsets' ? ['vr'] : []),
   ]);
   const isGameCategory = GAME_CATEGORY_PATTERN.test(context.categorySlug);
+  const gameHardwareMarkers = new Set([
+    'adapter',
+    'cable',
+    'charger',
+    'controller',
+    'dock',
+    'headset',
+    'keyboard',
+    'remote',
+    'speaker',
+    'stand',
+  ]);
+  const isGameProduct =
+    isGameCategory &&
+    (!new Set([
+      'gaming',
+      'portable-gaming',
+      'playstation-4',
+      'playstation-5',
+      'nintendo-switch',
+      'nintendo-switch-2',
+      'xbox',
+    ]).has(context.categorySlug) ||
+      !(context.productNames ?? context.productSlugs ?? [])
+        .flatMap(tokenize)
+        .some((token) => gameHardwareMarkers.has(token)));
   const baseExcludedTokens = new Set(
     [
       ...(context.brands ?? []).flatMap(tokenize),
@@ -292,9 +345,10 @@ export function getProductModelIdentifiers(
             brandAliasGroups,
             protectedFamilyTokens
           ),
-          context.categorySlug
+          context.categorySlug,
+          isGameProduct
         ),
-        isGameCategory
+        isGameProduct
       )
   );
 }

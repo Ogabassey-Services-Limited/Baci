@@ -169,6 +169,28 @@ describe('getCompareProductMatchRequirements variant preservation', () => {
     ]);
   });
 
+  it('retains regions followed by variant metadata', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      brands: ['Apple'],
+      productNames: ['Apple iPhone 15 US 128GB', 'Apple iPhone 15 UK 128GB'],
+    });
+
+    expect(requirements).toEqual([
+      {
+        identifier: '15',
+        brand: 'apple',
+        discriminatorTokens: ['us', '128gb'],
+      },
+      {
+        identifier: '15',
+        brand: 'apple',
+        discriminatorTokens: ['uk', '128gb'],
+      },
+    ]);
+  });
+
   it('keeps proven numeric laptop families in compare identifiers', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

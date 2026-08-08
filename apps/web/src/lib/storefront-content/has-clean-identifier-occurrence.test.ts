@@ -18,6 +18,38 @@ describe('hasCleanIdentifierOccurrence', () => {
     expect(hasCleanIdentifierOccurrence(post, [])).toBe(false);
   });
 
+  it('rejects a numeric identifier used as a list count without model context', () => {
+    const post = {
+      slug: 'apple-phones-reasons',
+      title: 'Apple Phones: 15 Reasons to Upgrade',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    expect(hasCleanIdentifierOccurrence(post, ['15'])).toBe(false);
+  });
+
+  it('accepts a numeric identifier adjacent to a model family', () => {
+    const post = {
+      slug: 'iphone-15-guide',
+      title: 'Apple iPhone 15 Buyer Guide',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    expect(hasCleanIdentifierOccurrence(post, ['15'])).toBe(true);
+  });
+
   it('matches a clean model mention while excluding variant suffixes', () => {
     const post = {
       slug: 'iphone-15-variants',

@@ -268,6 +268,15 @@ describe('normalizeProductModelTokens', () => {
     expect(tokens).toEqual(['iphone', '13']);
   });
 
+  it('strips recognized multiword color finishes as one suffix', () => {
+    expect(
+      normalizeProductModelTokens(['macbook', 'pro', 'space', 'black'])
+    ).toEqual(['macbook', 'pro']);
+    expect(
+      normalizeProductModelTokens(['iphone', '13', 'sierra', 'blue'])
+    ).toEqual(['iphone', '13']);
+  });
+
   it('preserves title words that resemble metadata for game catalogs', () => {
     const tokens = normalizeProductModelTokens(
       ['farcry', 'new', 'dawn', 'us'],

@@ -32,6 +32,26 @@ const COMPARISON_BOUNDARY_TOKENS = new Set([
   'versus',
   'vs',
 ]);
+const NUMERIC_MODEL_CONTEXT_TOKENS = new Set([
+  'a',
+  'fifa',
+  'galaxy',
+  'hot',
+  'ipad',
+  'iphone',
+  'madden',
+  'note',
+  'pixel',
+  'phone',
+  'playstation',
+  'ps4',
+  'ps5',
+  'series',
+  'spark',
+  'switch',
+  'watch',
+  'xbox',
+]);
 
 interface IdentifierOccurrenceOptions {
   brand?: string | null;
@@ -51,6 +71,21 @@ function matchesTokenSequence(
 ) {
   return expectedTokens.every(
     (token, offset) => tokens[startIndex + offset] === token
+  );
+}
+
+function hasNumericModelContext(
+  tokens: string[],
+  startIndex: number,
+  brand?: string | null
+) {
+  const previousToken = tokens[startIndex - 1] ?? '';
+  const brandTokens = (brand ?? '').toLowerCase().split(/[^a-z0-9]+/u);
+  return (
+    brandTokens.includes(previousToken) ||
+    tokens
+      .slice(Math.max(0, startIndex - 2), startIndex)
+      .some((token) => NUMERIC_MODEL_CONTEXT_TOKENS.has(token))
   );
 }
 
@@ -242,6 +277,11 @@ export function hasCleanIdentifierOccurrence(
         postTokens[startIndex + identifierTokens.length + 1] ?? '';
       const followingSuffix =
         postTokens[startIndex + identifierTokens.length + 2] ?? '';
+      const hasModelContext = identifierTokens.every((token) =>
+        /^\d+$/u.test(token)
+      )
+        ? hasNumericModelContext(postTokens, startIndex, options.brand)
+        : true;
       const listicleSuffix = new RegExp(
         `${identifierTokens.join('\\s+')}\\s*[:—–-]\\s*\\d+`,
         'iu'
@@ -253,6 +293,7 @@ export function hasCleanIdentifierOccurrence(
           ['in', 'inch'].includes(followingSuffix));
       if (
         !matchesIdentifier ||
+        !hasModelContext ||
         MODEL_VARIANT_MARKER_TOKENS.has(suffix) ||
         (MODEL_GENERATION_SUFFIX_PATTERN.test(suffix) &&
           !listicleSuffix &&

@@ -46,6 +46,7 @@ const DISPLAY_SUFFIX_MARKER_TOKENS = new Set([
   'touchscreen',
   'uhd',
 ]);
+const COLOR_MODIFIER_TOKENS = new Set(['sierra', 'space']);
 
 const { isConvertibleInConnector } = modelTokenMatchers;
 
@@ -55,6 +56,24 @@ function stripFirstMatchingSuffix(
 ) {
   const suffixIndex = tokens.findIndex(predicate);
   return suffixIndex >= 0 ? tokens.slice(0, suffixIndex) : tokens;
+}
+function stripColorSuffix(tokens: string[]) {
+  const colorIndex = tokens.findIndex(
+    (token, index) =>
+      PRODUCT_VARIANT_COLOR_TOKENS.has(token) &&
+      isTerminalColorSuffix(tokens, index)
+  );
+  if (colorIndex < 0) {
+    return tokens;
+  }
+  let suffixStart = colorIndex;
+  while (
+    suffixStart > 0 &&
+    COLOR_MODIFIER_TOKENS.has(tokens[suffixStart - 1] ?? '')
+  ) {
+    suffixStart -= 1;
+  }
+  return tokens.slice(0, suffixStart);
 }
 function isTerminalColorSuffix(tokens: string[], index: number) {
   return tokens
@@ -218,20 +237,34 @@ export function normalizeProductModelTokens(
     LEADING_CONDITION_TOKENS.has(tokens[0] ?? '') && !preservesLeadingGameTitle
       ? tokens.slice(1)
       : tokens;
-  const withoutMerchandising = stripFirstMatchingSuffix(
-    withoutLeadingCondition,
-    (token, index) =>
-      index > 0 &&
-      MERCHANDISING_SUFFIX_TOKENS.has(token) &&
-      !isInternalGameTitleToken(
+  const withoutMerchandising = preserveGameTitleTokens
+    ? stripFirstMatchingSuffix(
         withoutLeadingCondition,
-        index,
-        preserveGameTitleTokens
-      ) &&
-      (!PRODUCT_VARIANT_COLOR_TOKENS.has(token) ||
-        (!preserveGameTitleTokens &&
-          isTerminalColorSuffix(withoutLeadingCondition, index)))
-  );
+        (token, index) =>
+          index > 0 &&
+          MERCHANDISING_SUFFIX_TOKENS.has(token) &&
+          !isInternalGameTitleToken(
+            withoutLeadingCondition,
+            index,
+            preserveGameTitleTokens
+          ) &&
+          (!PRODUCT_VARIANT_COLOR_TOKENS.has(token) ||
+            (!preserveGameTitleTokens &&
+              isTerminalColorSuffix(withoutLeadingCondition, index)))
+      )
+    : stripColorSuffix(
+        stripFirstMatchingSuffix(
+          withoutLeadingCondition,
+          (token, index) =>
+            index > 0 &&
+            MERCHANDISING_ONLY_TOKENS.has(token) &&
+            !isInternalGameTitleToken(
+              withoutLeadingCondition,
+              index,
+              preserveGameTitleTokens
+            )
+        )
+      );
   const withoutConnectivity =
     stripOptionalConnectivitySuffix(withoutMerchandising);
   const withoutOrdinalGenerationConnector =
