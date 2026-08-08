@@ -315,6 +315,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260808090000_exclude_reviewed_merchant_invoice_partial_captures.sql',
     sha256: '2e7b6ea5f55a5c6df81f20abc015ddf4d77699be6d74f2720713dd728e3d7933',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260808093000_preserve_merchant_invoice_partial_capture_retirement.sql',
+    sha256: 'c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

@@ -46,6 +46,14 @@ const reviewedCaptureLedgerMigration = readFileSync(
   'utf8'
 );
 
+const captureRetirementMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260808093000_preserve_merchant_invoice_partial_capture_retirement.sql'
+  ),
+  'utf8'
+);
+
 describe('merchant invoice partial payment hardening migration', () => {
   it('wraps both payment writers under the shared advisory lock', () => {
     expect(migration).toContain('complete_merchant_invoice_partial_payment_v1');
@@ -234,5 +242,18 @@ describe('merchant invoice partial payment hardening migration', () => {
       "'reason', 'exact_completion_replay'"
     );
     expect(strictPartialReplayIndex).toBeGreaterThan(exactReplayIndex);
+  });
+
+  it('preserves reviewed-capture retirement around the filtered ledger', () => {
+    expect(captureRetirementMigration).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.complete_merchant_invoice_partial_payment_v2\([\s\S]*SELECT public\.complete_merchant_invoice_partial_payment_v1\(/
+    );
+    expect(captureRetirementMigration).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.complete_merchant_invoice_partial_payment\([\s\S]*SELECT public\.complete_merchant_invoice_partial_payment_v2\(/
+    );
+    expect(captureRetirementMigration).toContain(
+      "'merchant_invoice_partial_conflict_reviewed'"
+    );
+    expect(captureRetirementMigration).toContain("status = 'cancelled'");
   });
 });
