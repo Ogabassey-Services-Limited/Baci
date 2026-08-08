@@ -10,7 +10,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { MerchantSetupProgress } from '@/components/auth/register/MerchantSetupProgress';
 import { getMerchantSetupStyles } from '@/components/auth/register/merchant-setup.styles';
 import { RegisterAccountStep } from '@/components/auth/register/RegisterAccountStep';
 import { getStyles } from '@/components/auth/register/register.styles';
@@ -212,7 +211,6 @@ export default function RegisterScreen() {
         }
         style={styles.safeArea}
       >
-        <MerchantSetupProgress step={1} />
         <RegisterAccountStep
           confirmError={confirmError}
           formData={formData}

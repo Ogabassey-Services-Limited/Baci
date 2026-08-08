@@ -2,11 +2,20 @@ import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  after: vi.fn((callback: () => Promise<void>) => {
+    void callback();
+  }),
   createPublicClient: vi.fn(),
   loggerError: vi.fn(),
   recordHealthTelemetry: vi.fn(),
   rpc: vi.fn(),
 }));
+
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+  return { ...actual, after: mocks.after };
+});
 
 vi.mock('@/lib/logger', () => ({
   logger: { error: mocks.loggerError },
@@ -261,6 +270,24 @@ describe('GET /api/cron/merchant-signup-health', () => {
         error: expect.any(Error),
         outcome: 'unavailable',
         reason: 'health_rpc_threw',
+      })
+    );
+  });
+
+  it('returns the health failure without waiting for degraded telemetry', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'permission denied' },
+    });
+    mocks.recordHealthTelemetry.mockReturnValue(new Promise(() => undefined));
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(500);
+    expect(mocks.recordHealthTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: 'unavailable',
+        reason: 'health_rpc_failed',
       })
     );
   });

@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 import { recordMerchantSignupHealthTelemetry } from '@/lib/posthog/merchant-signup-health-telemetry';
@@ -47,6 +47,21 @@ interface MerchantSignupPolicyHealth {
 }
 
 const DEPLOYMENT_FAULT_LOG_TAG = 'mobile-onboarding deployment_fault';
+
+function scheduleMerchantSignupHealthTelemetry(
+  input: Parameters<typeof recordMerchantSignupHealthTelemetry>[0]
+) {
+  after(async () => {
+    try {
+      await recordMerchantSignupHealthTelemetry(input);
+    } catch (error) {
+      logger.warn({
+        message: 'merchant_signup_health_telemetry_failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
+  });
+}
 
 function isMerchantSignupPolicyHealth(
   value: unknown
@@ -134,7 +149,7 @@ export async function GET(request: NextRequest) {
       reason: 'health_rpc_threw',
       errorName: error instanceof Error ? error.name : 'UnknownError',
     });
-    await recordMerchantSignupHealthTelemetry({
+    scheduleMerchantSignupHealthTelemetry({
       durationMs: Date.now() - startedAt,
       error,
       outcome: 'unavailable',
@@ -155,7 +170,7 @@ export async function GET(request: NextRequest) {
       reason,
       pgCode: error?.code,
     });
-    await recordMerchantSignupHealthTelemetry({
+    scheduleMerchantSignupHealthTelemetry({
       durationMs: Date.now() - startedAt,
       ...(error ? { error } : {}),
       outcome: 'unavailable',
@@ -176,7 +191,7 @@ export async function GET(request: NextRequest) {
       reason: 'policy_drift_detected',
       failedInvariants: failed,
     });
-    await recordMerchantSignupHealthTelemetry({
+    scheduleMerchantSignupHealthTelemetry({
       durationMs: Date.now() - startedAt,
       failedInvariants: failed,
       outcome: 'degraded',
@@ -188,7 +203,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  await recordMerchantSignupHealthTelemetry({
+  scheduleMerchantSignupHealthTelemetry({
     durationMs: Date.now() - startedAt,
     failedInvariants: [],
     outcome: 'healthy',

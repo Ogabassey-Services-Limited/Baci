@@ -34,14 +34,14 @@ describe('RegisterScreen', () => {
     vi.restoreAllMocks();
   });
 
-  it('uses the current onboarding design for the about-you step', () => {
+  it('does not repeat the merchant setup progress before account creation', () => {
     render(<RegisterScreen />);
 
-    expect(screen.getByText('Your store setup')).toBeTruthy();
-    expect(screen.getByText('About you')).toBeTruthy();
-    expect(screen.getByText('Your business')).toBeTruthy();
     expect(screen.getByText("Let's get to know you")).toBeTruthy();
-    expect(screen.queryByText('Account Details')).toBeNull();
+    expect(screen.getByText('Your details')).toBeTruthy();
+    expect(screen.queryByText('Your store setup')).toBeNull();
+    expect(screen.queryByText('About you')).toBeNull();
+    expect(screen.queryByText('Your business')).toBeNull();
   });
 
   it('creates the native account exactly once with sentence-cased metadata', async () => {
