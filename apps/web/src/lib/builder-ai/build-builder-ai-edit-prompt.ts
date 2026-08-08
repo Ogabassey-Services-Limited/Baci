@@ -117,7 +117,7 @@ function getCurrentStateProjection(currentConfig: BuilderData): {
   const rootProps = isRecord(currentConfig.root.props)
     ? currentConfig.root.props
     : {};
-  const title = currentConfig.root.title ?? rootProps.title;
+  const title = rootProps.title ?? currentConfig.root.title;
   const themeColors = isRecord(currentConfig.theme?.colors)
     ? currentConfig.theme.colors
     : {};

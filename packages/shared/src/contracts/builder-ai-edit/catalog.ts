@@ -16,6 +16,17 @@ const productGridFields = {
   title: z.string().trim().min(1).max(MAX_AI_LABEL_LENGTH).optional(),
 };
 
+const defaultOnlyInsertSchema = z.strictObject({
+  componentType: z.enum([
+    'Features',
+    'Hero',
+    'Newsletter',
+    'ProductGrid',
+    'Testimonial',
+    'Text',
+  ]),
+});
+
 export const productGridPatchSchema = z
   .strictObject(productGridFields)
   .refine(
@@ -23,7 +34,8 @@ export const productGridPatchSchema = z
     'Expected at least one editable product grid field'
   );
 
-export const insertableComponentSchema = z.discriminatedUnion('componentType', [
+export const insertableComponentSchema = z.union([
   componentPatchSchema,
   z.strictObject(productGridFields),
+  defaultOnlyInsertSchema,
 ]);

@@ -146,6 +146,21 @@ describe('buildBuilderAiEditPrompt', () => {
     expect(prompt).not.toContain('theme-secret');
   });
 
+  it('prefers the rendered Puck root props title when both title shapes exist', () => {
+    const prompt = buildBuilderAiEditPrompt({
+      currentConfig: {
+        content: [],
+        root: { props: { title: 'Rendered title' }, title: 'Stale title' },
+      },
+      prompt: 'Append Sale to the current page title',
+    });
+    const guide = JSON.parse(
+      prompt.match(/<operation-guide>(.+)<\/operation-guide>/)?.[1] ?? ''
+    ) as { currentState: { root: { title: string } } };
+
+    expect(guide.currentState.root.title).toBe('Rendered title');
+  });
+
   it('projects safe existing carousel slides for targeted slide edits', () => {
     const prompt = buildBuilderAiEditPrompt({
       currentConfig: {

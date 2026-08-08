@@ -54,4 +54,27 @@ describe('builder AI edit ProductGrid patch', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts default-only inserts for every default-backed component', () => {
+    const componentTypes = [
+      'Features',
+      'Hero',
+      'Newsletter',
+      'ProductGrid',
+      'Testimonial',
+      'Text',
+    ] as const;
+
+    for (const componentType of componentTypes) {
+      expect(
+        insertableComponentSchema.safeParse({ componentType }).success
+      ).toBe(true);
+    }
+  });
+
+  it('keeps editable patch schemas strict when no fields are supplied', () => {
+    expect(
+      productGridPatchSchema.safeParse({ componentType: 'ProductGrid' }).success
+    ).toBe(false);
+  });
 });
