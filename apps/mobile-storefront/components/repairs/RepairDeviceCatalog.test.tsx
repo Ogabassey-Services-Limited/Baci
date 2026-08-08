@@ -65,9 +65,9 @@ describe('RepairDeviceCatalog', () => {
       />
     );
 
-    expect(screen.getByText('Apple')).toBeTruthy();
+    expect(screen.getAllByText('Apple')).toHaveLength(2);
     expect(screen.getByText('iPhone 13')).toBeTruthy();
-    expect(screen.getByText('Samsung')).toBeTruthy();
+    expect(screen.getAllByText('Samsung')).toHaveLength(2);
     expect(screen.getByText('Galaxy S22')).toBeTruthy();
   });
 

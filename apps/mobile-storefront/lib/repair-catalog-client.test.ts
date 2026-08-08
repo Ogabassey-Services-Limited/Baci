@@ -113,6 +113,36 @@ describe('fetchRepairDevices', () => {
       jest.useRealTimers();
     }
   });
+
+  it('fails with a typed timeout when the devices response body stalls', async () => {
+    jest.useFakeTimers();
+    jest.mocked(fetch).mockImplementationOnce((_input, init) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          new Promise<never>((_resolve, reject) => {
+            init?.signal?.addEventListener(
+              'abort',
+              () => reject(new Error('aborted')),
+              { once: true }
+            );
+          }),
+      } as unknown as Response)
+    );
+
+    try {
+      const request = fetchRepairDevices();
+      const assertion = expect(request).rejects.toBeInstanceOf(
+        RepairCatalogTimeoutError
+      );
+      await jest.advanceTimersByTimeAsync(5_000);
+
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('fetchRepairDeviceDetail', () => {

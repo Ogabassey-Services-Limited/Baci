@@ -4,9 +4,12 @@ import type {
 } from '@baci/shared/repairs';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { repairsCatalogStyles as styles } from '@/components/repairs/repairs-catalog.styles';
+import { repairDeviceCatalogStyles } from '@/components/repairs/repair-device-catalog.styles';
+import { repairsCatalogStyles } from '@/components/repairs/repairs-catalog.styles';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+
+const styles = { ...repairsCatalogStyles, ...repairDeviceCatalogStyles };
 
 interface RepairDeviceCatalogProps {
   groups: RepairDeviceBrandGroup[];
@@ -34,6 +37,7 @@ export function RepairDeviceCatalog({
 }: RepairDeviceCatalogProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const heroForeground = colors.background;
   const hasResults = groups.some((group) => group.devices.length > 0);
 
   return (
@@ -48,16 +52,16 @@ export function RepairDeviceCatalog({
         accessibilityLabel="Premium device repair service"
       >
         <View style={styles.heroBadge}>
-          <Ionicons name="sparkles" size={13} color={colors.primary} />
-          <Text style={[styles.heroBadgeText, { color: colors.primary }]}>
+          <Ionicons name="sparkles" size={13} color={colors.background} />
+          <Text style={[styles.heroBadgeText, { color: heroForeground }]}>
             PREMIUM SERVICE
           </Text>
         </View>
-        <Text style={[styles.heroTitle, { color: colors.background }]}>
+        <Text style={[styles.heroTitle, { color: heroForeground }]}>
           Don't Ditch It.{'\n'}
-          <Text style={{ color: colors.primary }}>Fix It.</Text>
+          <Text style={{ color: heroForeground }}>Fix It.</Text>
         </Text>
-        <Text style={[styles.heroDescription, { color: colors.background }]}>
+        <Text style={[styles.heroDescription, { color: heroForeground }]}>
           Certified technicians, genuine parts, and clear quotes for your
           device.
         </Text>
@@ -84,15 +88,11 @@ export function RepairDeviceCatalog({
               onPress={onChatWhatsapp}
               style={styles.heroSecondaryButton}
             >
-              <Ionicons
-                name="logo-whatsapp"
-                size={16}
-                color={colors.background}
-              />
+              <Ionicons name="logo-whatsapp" size={16} color={heroForeground} />
               <Text
                 style={[
                   styles.heroSecondaryButtonText,
-                  { color: colors.background },
+                  { color: heroForeground },
                 ]}
               >
                 Chat

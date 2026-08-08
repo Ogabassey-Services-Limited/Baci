@@ -62,10 +62,11 @@ async function readErrorMessage(response: Response): Promise<string> {
   }
 }
 
-async function fetchRepairCatalog(
+async function fetchRepairCatalog<T>(
   input: RequestInfo | URL,
-  init: RequestInit = {}
-): Promise<Response> {
+  init: RequestInit,
+  parse: (response: Response) => Promise<T>
+): Promise<T> {
   const timeoutController = new AbortController();
   let timedOut = false;
   const timeoutId = setTimeout(() => {
@@ -78,7 +79,11 @@ async function fetchRepairCatalog(
   externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
 
   try {
-    return await fetch(input, { ...init, signal: timeoutController.signal });
+    const response = await fetch(input, {
+      ...init,
+      signal: timeoutController.signal,
+    });
+    return await parse(response);
   } catch (error) {
     if (timedOut) {
       throw new RepairCatalogTimeoutError();
@@ -95,21 +100,25 @@ export async function fetchRepairDevices(query?: string, signal?: AbortSignal) {
   const search = trimmed ? `?q=${encodeURIComponent(trimmed)}` : '';
   const response = await fetchRepairCatalog(
     `${API_URL}/api/storefront/${MERCHANT_SLUG}/repairs/devices${search}`,
-    { signal }
+    { signal },
+    async (response) => {
+      if (response.status === 404) {
+        throw new RepairCatalogUnavailableError();
+      }
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+      }
+
+      const parsed = RepairDevicesResponseSchema.safeParse(
+        await response.json()
+      );
+      if (!parsed.success) {
+        throw new Error('Invalid repair devices response from server');
+      }
+      return parsed.data.groups;
+    }
   );
-
-  if (response.status === 404) {
-    throw new RepairCatalogUnavailableError();
-  }
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
-  }
-
-  const parsed = RepairDevicesResponseSchema.safeParse(await response.json());
-  if (!parsed.success) {
-    throw new Error('Invalid repair devices response from server');
-  }
-  return parsed.data.groups;
+  return response;
 }
 
 export async function fetchRepairDeviceDetail(
@@ -118,21 +127,23 @@ export async function fetchRepairDeviceDetail(
 ) {
   const response = await fetchRepairCatalog(
     `${API_URL}/api/storefront/${MERCHANT_SLUG}/repairs/devices/${encodeURIComponent(deviceSlug)}`,
-    { signal }
+    { signal },
+    async (response) => {
+      if (response.status === 404) {
+        throw new RepairCatalogUnavailableError('Device not found');
+      }
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+      }
+
+      const parsed = RepairDeviceDetailSchema.safeParse(await response.json());
+      if (!parsed.success) {
+        throw new Error('Invalid repair device detail response from server');
+      }
+      return parsed.data;
+    }
   );
-
-  if (response.status === 404) {
-    throw new RepairCatalogUnavailableError('Device not found');
-  }
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
-  }
-
-  const parsed = RepairDeviceDetailSchema.safeParse(await response.json());
-  if (!parsed.success) {
-    throw new Error('Invalid repair device detail response from server');
-  }
-  return parsed.data;
+  return response;
 }
 
 export async function submitRepairBooking(
