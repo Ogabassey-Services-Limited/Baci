@@ -10,6 +10,10 @@ const CODEX_JOB_COUNT = 3;
 describe('remediation deploy crontab', () => {
   it('leaves global-lock acquisition to direct Vercel and Sentry entrypoints', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const transitionScript = readFileSync(
+      join(workerRoot, 'lib/install-remediation-cron-transition.sh'),
+      'utf8'
+    );
 
     assert.match(deployScript, /vercel-error-remediator\.lock bash -lc/);
     assert.match(deployScript, /sentry-mobile-error-remediator\.lock bash -lc/);
@@ -18,8 +22,11 @@ describe('remediation deploy crontab', () => {
       /install -d -m 700 \$REMOTE_DIR\/locks && touch \$REMOTE_DIR\/locks\/error-remediator-global\.lock && chmod 600 \$REMOTE_DIR\/locks\/error-remediator-global\.lock/
     );
     assert.doesNotMatch(deployScript, /BACI_REMEDIATION_GLOBAL_FLOCK_HELD/);
+    assert.match(transitionScript, /exec flock -F /);
+    assert.match(transitionScript, /-n -E 75 .*error-remediator-global/);
+    assert.match(transitionScript, /-w 600 -E 75 .*error-remediator-global/);
     const transition = deployScript.indexOf(
-      'Installing transitional remediation locks before promotion'
+      'install_remediation_cron_transition'
     );
     const promotion = deployScript.indexOf('promote_worker_release');
     const finalCron = deployScript.indexOf(
