@@ -182,13 +182,17 @@ function normalizeEffectiveTargeting(
 ): EffectiveTargeting {
   const target_type = body.target_type ?? existing.target_type ?? undefined;
   const target_merchant_ids =
-    body.target_merchant_ids !== undefined
-      ? body.target_merchant_ids
-      : existing.target_merchant_ids;
+    body.target_type === 'specific'
+      ? (body.target_merchant_ids ?? null)
+      : body.target_merchant_ids !== undefined
+        ? body.target_merchant_ids
+        : existing.target_merchant_ids;
   const target_segment =
-    body.target_segment !== undefined
-      ? body.target_segment
-      : existing.target_segment;
+    body.target_type === 'segment'
+      ? (body.target_segment ?? null)
+      : body.target_segment !== undefined
+        ? body.target_segment
+        : existing.target_segment;
 
   if (target_type === 'all') {
     return {

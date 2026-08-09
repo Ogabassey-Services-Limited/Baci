@@ -277,10 +277,23 @@ a812eecb51e63a390599169e922739244587c6eeb6a5bab6bd0e2ee3b8934ce2 20260813144355_
 7ef50c43690f895f5778d48c9715b450a866a1fd72af23f2e34b702d33e09ca1 20260814230000_repair_quiz_materialized_final_rankings_v2.sql
 6992ec9ddf3e5432869385a2e0c4ca2aa7058319841d071330135d1cb25680f1 20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql`;
 
-const PENDING_SOURCES = [
-  PENDING_SOURCES_BASE,
-  ADMIN_PLATFORM_PENDING_SOURCES,
-].join('\n');
+// Pending source batches are maintained independently. Sort their frozen rows
+// at the assembly boundary so a later-added batch with an earlier migration
+// version cannot violate post-replay's strict execution ordering.
+const PENDING_SOURCES = [PENDING_SOURCES_BASE, ADMIN_PLATFORM_PENDING_SOURCES]
+  .flatMap((sourceBlock) => sourceBlock.split('\n'))
+  .sort((left, right) => {
+    const leftFilename = left.split(' ')[1] ?? '';
+    const rightFilename = right.split(' ')[1] ?? '';
+    if (leftFilename < rightFilename) {
+      return -1;
+    }
+    if (leftFilename > rightFilename) {
+      return 1;
+    }
+    return 0;
+  })
+  .join('\n');
 
 const PRODUCTION_MAPPINGS = `20260623190041\t20260623190000_enable_realtime_negotiation_requests.sql\tbc2165173828d7a5c667e5a7415fb37b9ba7762aad2e12268b70eab6dcc94526\tcanonical
 20260624211416\t20260624200000_merchant_email_domains.sql\t120e16cb8768fdec2e36ce041dc5049e299594d271e1f900a4abd0ac3c775ad6\tcanonical

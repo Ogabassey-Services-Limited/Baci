@@ -215,4 +215,28 @@ describe('updateAdminNotification', () => {
       },
     ]);
   });
+
+  it('requires a segment when explicitly retargeting to a segment audience', async () => {
+    const supabase = createSupabase({
+      existing: {
+        delivery_state: 'pending',
+        expires_at: null,
+        id: notificationId,
+        scheduled_for: null,
+        sent_at: null,
+        target_merchant_ids: null,
+        target_segment: 'active',
+        target_type: 'segment',
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await updateAdminNotification(
+      request({ target_type: 'segment' }),
+      notificationId
+    );
+
+    expect(response.status).toBe(400);
+    expect(supabase.query.update).not.toHaveBeenCalled();
+  });
 });

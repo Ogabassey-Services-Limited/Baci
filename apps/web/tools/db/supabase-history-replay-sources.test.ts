@@ -112,6 +112,20 @@ describe('supabase-history-replay sources', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
+  it('orders pending sources by migration filename across independently maintained batches', () => {
+    const pendingRows = rows(PENDING_SOURCES);
+    const pendingFilenames = pendingRows.map((row) => row.split(' ')[1] ?? '');
+
+    expect(pendingFilenames).toEqual([...pendingFilenames].sort());
+    expect(
+      pendingFilenames.indexOf('20260805150000_platform_admin_rbac.sql')
+    ).toBeLessThan(
+      pendingFilenames.indexOf(
+        '20260805173000_harden_merchant_invoice_partial_completion.sql'
+      )
+    );
+  });
+
   it('registers the bounded identity-verification capability as a pending source', () => {
     expect(rows(PENDING_SOURCES)).toContain(
       '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d 20260729100000_add_merchant_identity_verified_rpc.sql'
