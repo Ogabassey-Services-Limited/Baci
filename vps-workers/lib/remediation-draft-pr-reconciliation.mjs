@@ -135,7 +135,12 @@ export function createRemediationDraftPrReconciler({
         options
       ).trim();
     } catch (error) {
-      const recovered = existingDraftPrUrl();
+      let recovered;
+      try {
+        recovered = existingDraftPrUrl();
+      } catch {
+        throw error;
+      }
       if (recovered) return recovered;
       throw error;
     }

@@ -62,4 +62,32 @@ describe('committed remediation branch resume', () => {
     assert.equal(result, null);
     assert.equal(calls.length, 1);
   });
+
+  it('fails closed when the ahead-count output is invalid', () => {
+    const calls = [];
+    const runner = (command, args, options) => {
+      calls.push({ args, command, options });
+      return { status: 0, stdout: 'unknown\n' };
+    };
+
+    assert.throws(
+      () =>
+        resumeCommittedRemediationBranch({
+          prReconciler: { branch: 'codex/fix-abc123' },
+          rootCommandOptions: { cwd: '/repo', env: {}, runner },
+          worktreeGitCommandOptions: {
+            cwd: '/worktrees/abc123',
+            env: {},
+            runner,
+          },
+          worktreeRemoteCommandOptions: {
+            cwd: '/worktrees/abc123',
+            env: {},
+            runner,
+          },
+        }),
+      /invalid output/
+    );
+    assert.equal(calls.length, 1);
+  });
 });

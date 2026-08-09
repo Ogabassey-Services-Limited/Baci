@@ -60,3 +60,17 @@ it('rejects invalid URLs and redacts GitHub lookup failures', () => {
       error.message.includes('[REDACTED]')
   );
 });
+
+it('accepts a direct merged state and rejects non-JSON GitHub output', () => {
+  const responses = [
+    JSON.stringify({ mergedAt: null, state: 'MERGED' }),
+    'not-json',
+  ];
+  const resolveDraftPrStatus = createRemediationDraftPrStatusResolver({
+    runner: () => responses.shift(),
+  });
+  const draftPr = { url: 'https://github.com/baci/baci/pull/12' };
+
+  assert.equal(resolveDraftPrStatus(draftPr), 'merged');
+  assert.throws(() => resolveDraftPrStatus(draftPr), /Unexpected token/);
+});
