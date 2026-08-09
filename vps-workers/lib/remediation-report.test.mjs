@@ -143,6 +143,32 @@ describe('remediation report', () => {
     assert.equal(authorization, 'Zoho-enczapikey production-token');
   });
 
+  it('aborts a ZeptoMail request that exceeds the configured timeout', async () => {
+    let receivedSignal;
+    await assert.rejects(
+      sendRemediationReportEmail({
+        env: {
+          BACI_REMEDIATION_NOTIFY_EMAILS: 'owner@example.com',
+          ZEPTOMAIL_TOKEN: 'token',
+        },
+        fetchFn: (_url, init) => {
+          receivedSignal = init.signal;
+          return new Promise((_resolve, reject) => {
+            receivedSignal.addEventListener(
+              'abort',
+              () => reject(new Error('request aborted')),
+              { once: true }
+            );
+          });
+        },
+        report: { subject: 'Subject', text: 'Text', html: '<p>Text</p>' },
+        timeoutMs: 1,
+      }),
+      /timed out/
+    );
+    assert.equal(receivedSignal.aborted, true);
+  });
+
   it('uses only an HTTP status when ZeptoMail rejects a report', async () => {
     const stripeLikeToken = ['sk', 'live', 'abcdefghijklmnopqrstuvwxyz'].join(
       '_'

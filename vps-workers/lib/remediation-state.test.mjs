@@ -194,6 +194,32 @@ describe('remediation state', () => {
     assert.deepEqual(createRemediationState({ path }).notifications(), []);
   });
 
+  it('returns only due notification retries and persists their next attempt time', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
+    const path = join(directory, 'handled.json');
+    const nowMs = Date.parse('2026-08-09T10:00:00.000Z');
+    const report = { html: '<p>incident</p>', subject: 'Incident', text: 'x' };
+    const state = createRemediationState({ now: () => nowMs, path });
+
+    assert.equal(state.complete({ notification: { id: 'due', report } }), true);
+    assert.equal(
+      state.complete({ notification: { id: 'deferred', report } }),
+      true
+    );
+    assert.equal(
+      state.scheduleNotificationRetry('deferred', '2026-08-09T10:01:00.000Z'),
+      true
+    );
+
+    assert.deepEqual(state.notifications({ limit: 10, nowMs }), [
+      { id: 'due', report },
+    ]);
+    const deferred = JSON.parse(readFileSync(path, 'utf8')).notifications
+      .deferred;
+    assert.equal(deferred.attempts, 1);
+    assert.equal(deferred.nextAttemptAt, '2026-08-09T10:01:00.000Z');
+  });
+
   it('expires and caps notifications after inserting a new report', () => {
     const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
     const path = join(directory, 'handled.json');

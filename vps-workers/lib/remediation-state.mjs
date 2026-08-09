@@ -15,6 +15,7 @@ import {
   remediationObservationFor as observationFor,
   remediationStateKeyFor,
 } from './remediation-state-key.mjs';
+import { normalizeRemediationNotifications } from './remediation-state-notifications.mjs';
 
 const MAX_ENTRIES = 2_000;
 const NOTIFICATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
@@ -48,25 +49,6 @@ function normalizeObservedEntries(value, timeField) {
     )
   );
 }
-function normalizeNotifications(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-  return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => {
-      const report = entry?.report;
-      return (
-        entry &&
-        typeof entry === 'object' &&
-        isIsoDate(entry.recordedAt) &&
-        report &&
-        typeof report.html === 'string' &&
-        typeof report.subject === 'string' &&
-        typeof report.text === 'string'
-      );
-    })
-  );
-}
 function readState(path) {
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8'));
@@ -75,7 +57,7 @@ function readState(path) {
     }
     return {
       handled: normalizeObservedEntries(parsed.handled, 'recordedAt'),
-      notifications: normalizeNotifications(parsed.notifications),
+      notifications: normalizeRemediationNotifications(parsed.notifications),
       reservations: normalizeObservedEntries(parsed.reservations, 'expiresAt'),
     };
   } catch {
@@ -244,10 +226,43 @@ export function createRemediationState({
         )
       );
     },
-    notifications() {
-      return Object.entries(readState(path).notifications).map(
-        ([id, entry]) => ({ id, report: entry.report })
-      );
+    notifications({ limit = Number.POSITIVE_INFINITY, nowMs = now() } = {}) {
+      const maximum =
+        Number.isSafeInteger(limit) && limit > 0
+          ? limit
+          : Number.POSITIVE_INFINITY;
+      return Object.entries(readState(path).notifications)
+        .filter(
+          ([, entry]) =>
+            !entry.nextAttemptAt || Date.parse(entry.nextAttemptAt) <= nowMs
+        )
+        .sort(
+          ([, left], [, right]) =>
+            Date.parse(left.nextAttemptAt || left.recordedAt) -
+              Date.parse(right.nextAttemptAt || right.recordedAt) ||
+            left.recordedAt.localeCompare(right.recordedAt)
+        )
+        .slice(0, maximum)
+        .map(([id, entry]) => ({
+          ...(entry.attempts ? { attempts: entry.attempts } : {}),
+          id,
+          report: entry.report,
+        }));
+    },
+    scheduleNotificationRetry(id, nextAttemptAt) {
+      if (!isIsoDate(nextAttemptAt)) return false;
+      const nowMs = now();
+      return withStateLock(path, nowMs, false, (state) => {
+        const notification = state.notifications[id];
+        if (!notification) return true;
+        notification.attempts = Math.min(
+          (notification.attempts || 0) + 1,
+          Number.MAX_SAFE_INTEGER
+        );
+        notification.nextAttemptAt = nextAttemptAt;
+        persistState(path, state);
+        return true;
+      });
     },
     acknowledgeNotification(id) {
       const nowMs = now();
