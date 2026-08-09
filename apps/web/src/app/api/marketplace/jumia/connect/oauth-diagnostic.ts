@@ -21,6 +21,22 @@ type InitiationContext =
       variant: JumiaAuthUrlVariant | undefined;
     };
 
+function getPreAuthResponse(
+  searchParams: URLSearchParams
+): NextResponse | null {
+  if (
+    jumiaOAuthDiagnostic.isRequested(searchParams) &&
+    searchParams.get('platform') === 'mobile'
+  ) {
+    return NextResponse.json(
+      { error: 'Jumia OAuth diagnostic is not available on mobile' },
+      { status: 400 }
+    );
+  }
+
+  return null;
+}
+
 async function getContext({
   apiUserId,
   searchParams,
@@ -33,13 +49,11 @@ async function getContext({
   const rawVariant = searchParams.get('variant');
   const variant = isJumiaAuthUrlVariant(rawVariant) ? rawVariant : undefined;
 
-  if (diagnosticRequested && platform === 'mobile') {
+  const preAuthResponse = getPreAuthResponse(searchParams);
+  if (preAuthResponse) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: 'Jumia OAuth diagnostic is not available on mobile' },
-        { status: 400 }
-      ),
+      response: preAuthResponse,
     };
   }
 
@@ -134,4 +148,8 @@ function applyResponse({
   });
 }
 
-export const jumiaOAuthInitiationDiagnostic = { applyResponse, getContext };
+export const jumiaOAuthInitiationDiagnostic = {
+  applyResponse,
+  getContext,
+  getPreAuthResponse,
+};

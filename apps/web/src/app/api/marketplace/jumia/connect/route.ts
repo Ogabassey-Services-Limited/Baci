@@ -226,6 +226,12 @@ export async function GET(request: NextRequest) {
       .get('Authorization')
       ?.startsWith('Bearer ');
 
+    const diagnosticPreAuthResponse =
+      jumiaOAuthInitiationDiagnostic.getPreAuthResponse(searchParams);
+    if (diagnosticPreAuthResponse) {
+      return diagnosticPreAuthResponse;
+    }
+
     // --- Mobile ticket flow (runs before cookie auth) ---
     const ticket = searchParams.get('ticket');
     if (

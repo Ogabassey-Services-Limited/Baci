@@ -7,6 +7,7 @@ const mockGetMerchantFeatureAccess = vi.fn();
 const mockGetPlatformAdminAuth = vi.fn();
 const mockGetJumiaAuthUrl = vi.fn();
 const mockLoggerInfo = vi.fn();
+const mockCreateAdminClient = vi.fn();
 
 vi.mock('@/env', () => ({
   getConfiguredAppUrl: vi.fn(() => 'https://usebaci.com'),
@@ -55,7 +56,9 @@ vi.mock('@/lib/platform-admin-auth', () => ({
     mockGetPlatformAdminAuth(...args),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+}));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
 vi.mock('@/lib/csrf', () => ({ checkCsrfProtection: vi.fn() }));
 vi.mock('next/headers', () => ({ cookies: vi.fn() }));
@@ -181,6 +184,19 @@ describe('Jumia OAuth connect diagnostic', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mobile diagnostic before consuming a pending ticket', async () => {
+    const response = await GET(
+      makeRequest(
+        'connectionType=oauth&diagnostic=token-shape&variant=F&platform=mobile&ticket=11111111-1111-4111-8111-111111111111'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
+    expect(mockAuthenticateApiRequest).not.toHaveBeenCalled();
     expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
   });
 
