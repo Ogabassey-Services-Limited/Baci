@@ -108,4 +108,27 @@ describe('remediation case candidate normalizer', () => {
     assert.equal(first[0].occurrences, 5);
     assert.equal(first[0].sample.message, 'higher');
   });
+
+  it('prefers the newest canonical observation over a stale paginated snapshot', () => {
+    const normalizer = createRemediationCaseCandidateNormalizer();
+    const stale = {
+      fingerprint: 'paginated',
+      lastSeen: '2026-08-09T10:01:00.000Z',
+      occurrences: 8,
+      sample: { message: 'stale', source: 'sentry' },
+      source: 'sentry',
+    };
+    const newer = {
+      ...stale,
+      lastSeen: '2026-08-09T10:02:00.000Z',
+      occurrences: 3,
+      sample: { message: 'newer', source: 'sentry' },
+    };
+
+    const result = normalizer.normalizeAll([stale, newer]);
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].lastSeen, '2026-08-09T10:02:00.000Z');
+    assert.equal(result[0].sample.message, 'newer');
+  });
 });

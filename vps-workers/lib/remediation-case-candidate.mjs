@@ -160,24 +160,25 @@ export function createRemediationCaseCandidateNormalizer() {
   }
 
   function normalizeAll(candidates) {
-    const byObservation = new Map();
+    const byCase = new Map();
     for (const rawCandidate of candidates) {
       const candidate = normalize(rawCandidate);
       if (!candidate) continue;
-      const key = `${candidate.caseKey}\n${candidate.observationMarker}`;
-      const existing = byObservation.get(key);
+      const existing = byCase.get(candidate.caseKey);
       if (
         !existing ||
-        candidate.occurrences > existing.occurrences ||
-        (candidate.occurrences === existing.occurrences &&
-          (candidate.firstSeen < existing.firstSeen ||
-            (candidate.firstSeen === existing.firstSeen &&
-              JSON.stringify(candidate) < JSON.stringify(existing))))
+        candidate.lastSeen > existing.lastSeen ||
+        (candidate.lastSeen === existing.lastSeen &&
+          (candidate.occurrences > existing.occurrences ||
+            (candidate.occurrences === existing.occurrences &&
+              (candidate.firstSeen < existing.firstSeen ||
+                (candidate.firstSeen === existing.firstSeen &&
+                  JSON.stringify(candidate) < JSON.stringify(existing))))))
       ) {
-        byObservation.set(key, candidate);
+        byCase.set(candidate.caseKey, candidate);
       }
     }
-    return [...byObservation.values()];
+    return [...byCase.values()];
   }
 
   return { normalize, normalizeAll, sanitize };

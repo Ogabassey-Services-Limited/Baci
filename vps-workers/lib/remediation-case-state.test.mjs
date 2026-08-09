@@ -93,6 +93,34 @@ describe('remediation case state', () => {
     assert.equal(stored.totalObservations, 5);
   });
 
+  it('collapses stale and newer paginated snapshots before selection', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-case-paginated-'));
+    const state = createRemediationCaseState({
+      now: () => Date.parse('2026-08-01T10:06:00.000Z'),
+      path: join(directory, 'cases.json'),
+    });
+    const stale = candidate({
+      lastSeen: '2026-08-01T10:03:00.000Z',
+      occurrences: 8,
+      sample: { ...candidate().sample, message: 'Stale page' },
+    });
+    const newer = candidate({
+      lastSeen: '2026-08-01T10:05:00.000Z',
+      occurrences: 3,
+      sample: { ...candidate().sample, message: 'Newest page' },
+    });
+
+    const reconciled = state.reconcile([stale, newer]);
+    const stored = state.snapshot().cases['sentry:sentry_issue:issue-42'];
+
+    assert.equal(reconciled.length, 1);
+    assert.equal(reconciled[0].lastSeen, newer.lastSeen);
+    assert.equal(reconciled[0].occurrences, newer.occurrences);
+    assert.equal(stored.recurrenceCount, 0);
+    assert.equal(stored.sample, undefined);
+    assert.equal(stored.samples.at(-1).message, 'Newest page');
+  });
+
   it('fails closed for corrupt or schema-invalid persisted case state', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-case-corrupt-'));
     const path = join(directory, 'cases.json');
