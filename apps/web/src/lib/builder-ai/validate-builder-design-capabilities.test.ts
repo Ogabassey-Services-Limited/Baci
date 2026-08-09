@@ -57,7 +57,7 @@ describe('validateBuilderDesignCapabilities', () => {
 
     expect(COMPONENT_SCHEMA).not.toHaveProperty('CodeEmbed');
     expect(refused?.refused).toBe(true);
-    expect(BUILDER_GEMINI_SYSTEM_PROMPT).toContain('CodeEmbed: unsafe-code');
+    expect(BUILDER_GEMINI_SYSTEM_PROMPT).toContain('CodeEmbed (unsafe-code)');
     expect(BUILDER_GEMINI_SYSTEM_PROMPT).toContain('Features: insert and edit');
   });
 });

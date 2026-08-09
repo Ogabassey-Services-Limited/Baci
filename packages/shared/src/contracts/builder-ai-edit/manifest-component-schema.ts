@@ -77,7 +77,7 @@ function compileProp(descriptor: BuilderDesignProp): z.ZodType {
       'Expected unique array members'
     );
   }
-  return z.string().trim().min(1);
+  throw new Error(`Unsupported manifest descriptor type: ${descriptor.type}`);
 }
 
 function compileComponentSchema(

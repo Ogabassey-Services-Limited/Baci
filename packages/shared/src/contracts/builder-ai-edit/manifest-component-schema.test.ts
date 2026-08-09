@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { builderDesignCapabilities } from '../builder-design-capabilities';
 import { getManifestComponentSchema } from './manifest-component-schema';
 
 describe('manifest component schema', () => {
@@ -27,5 +28,23 @@ describe('manifest component schema', () => {
     expect(schema.safeParse({ componentType: 'CodeEmbed' }).success).toBe(
       false
     );
+  });
+
+  it('fails closed when a manifest descriptor has no compiled validator', () => {
+    const button = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === 'Button'
+    );
+    const descriptor = button?.props.text;
+    if (!descriptor) throw new Error('Expected Button text descriptor');
+    const originalType = descriptor.type;
+
+    try {
+      descriptor.type = 'unreviewed-descriptor';
+      expect(() => getManifestComponentSchema('edit')).toThrow(
+        'Unsupported manifest descriptor type: unreviewed-descriptor'
+      );
+    } finally {
+      descriptor.type = originalType;
+    }
   });
 });

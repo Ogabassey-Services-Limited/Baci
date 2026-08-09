@@ -73,6 +73,10 @@ describe('buildBuilderAiEditPrompt operation guidance', () => {
       updateCarouselSlide: {
         ctaLink: { maximumLength: 512 },
         ctaText: { maximumLength: 120 },
+        mediaMutation: {
+          message: 'Requires an asset pipeline review.',
+          refusalCode: 'media-review',
+        },
         subtitle: { maximumLength: 2000 },
         title: { maximumLength: 120 },
       },

@@ -45,7 +45,7 @@ describe('getBuilderAiCatalogProjection', () => {
 
     expect(button).toMatchObject({
       defaults: { link: '/', text: 'Click Me' },
-      placement: { allowedCollections: ['content', 'root'], kind: 'content' },
+      placement: { allowedCollections: ['content', 'zones'], kind: 'content' },
     });
     expect(faq?.editableProps).toContainEqual(
       expect.objectContaining({

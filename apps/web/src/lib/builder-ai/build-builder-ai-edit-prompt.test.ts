@@ -1,3 +1,4 @@
+import { builderDesignCapabilities } from '@baci/shared/contracts';
 import { builderAiEditTestFixture } from '@baci/shared/test-fixtures/builder-ai-edit';
 import { describe, expect, it } from 'vitest';
 import {
@@ -17,6 +18,50 @@ describe('buildBuilderAiEditPrompt', () => {
     expect(prompt).toContain('"status":"refused"');
     expect(prompt).toContain('"operations":[]');
     expect(prompt).toContain('unsupported executable code');
+  });
+
+  it('derives provider refusal boundaries and theme tokens from the manifest', () => {
+    const refused = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === 'CodeEmbed'
+    );
+    if (!refused?.refusal) throw new Error('Expected CodeEmbed refusal');
+    const originalMessage = refused.refusal.message;
+    const originalTokens = [...builderDesignCapabilities.themeTokenKeys];
+
+    try {
+      refused.refusal.message = 'Manifest-controlled code boundary.';
+      builderDesignCapabilities.themeTokenKeys.push('surface');
+      const prompt = buildBuilderAiEditPrompt({
+        currentConfig: { content: [], root: { title: 'Home' } },
+        prompt: 'Add custom code and change the theme',
+      });
+      const guide = JSON.parse(
+        prompt.match(/<operation-guide>(.+)<\/operation-guide>/)?.[1] ?? ''
+      ) as {
+        capabilityPolicy: {
+          refused: Array<{ componentType: string; message: string }>;
+          themeTokenKeys: string[];
+        };
+        updateThemeOperation: { colors: { allowedKeys: string[] } };
+      };
+
+      expect(guide.capabilityPolicy.refused).toContainEqual({
+        code: 'unsafe-code',
+        componentType: 'CodeEmbed',
+        message: 'Manifest-controlled code boundary.',
+      });
+      expect(guide.capabilityPolicy.themeTokenKeys).toContain('surface');
+      expect(guide.updateThemeOperation.colors.allowedKeys).toContain(
+        'surface'
+      );
+    } finally {
+      refused.refusal.message = originalMessage;
+      builderDesignCapabilities.themeTokenKeys.splice(
+        0,
+        builderDesignCapabilities.themeTokenKeys.length,
+        ...originalTokens
+      );
+    }
   });
 
   it('projects only safe component ids, types, and editable properties', () => {
@@ -282,15 +327,13 @@ describe('buildBuilderAiEditPrompt', () => {
     expect(() =>
       buildBuilderAiEditPrompt({
         currentConfig: {
-          content: [
-            {
-              props: {
-                id: 'too-large',
-                title: 'x'.repeat(MAX_PROMPT_PROJECTION_CHARS + 1),
-              },
-              type: 'Text',
+          content: Array.from({ length: 99 }, (_, index) => ({
+            props: {
+              content: 'x'.repeat(2000),
+              id: `too-large-${index}`,
             },
-          ],
+            type: 'Text',
+          })),
           root: { title: 'Home' },
         },
         prompt: 'Safe',

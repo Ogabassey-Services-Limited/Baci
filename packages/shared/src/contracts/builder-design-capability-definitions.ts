@@ -55,30 +55,24 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     ...allow('Hero', 'Prominent collection callout.', heroProps),
     initialProps: { headingLevel: 'h2' },
   },
-  allow(
-    'HeroCarousel',
-    'Rotating hero slides.',
-    {
-      slides: {
-        item: {
-          properties: {
-            ctaLink: { ...safeLink, required: true },
-            ctaText: { ...label(), required: true },
-            image: { maximumLength: 512, required: true, type: 'safe-media' },
-            subtitle: { ...copy(), required: true },
-            title: { ...label(), required: true },
-          },
-          uniqueBy: 'title',
-        },
-        maximumItems: 5,
-        minimumItems: 1,
-        type: 'array',
+  {
+    ...allow(
+      'HeroCarousel',
+      'Rotating hero slides.',
+      {},
+      false,
+      true,
+      fixedPlacement
+    ),
+    specialOperations: {
+      updateCarouselSlide: {
+        ctaLink: safeLink,
+        ctaText: label(),
+        subtitle: copy(),
+        title: label(),
       },
     },
-    false,
-    true,
-    fixedPlacement
-  ),
+  },
   allow('Text', 'Supporting storefront copy.', safeTextProps),
   deny(
     'Image',

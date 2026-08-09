@@ -144,9 +144,25 @@ function isPropValue(
   return descriptor !== undefined && isValueForProp(descriptor, value);
 }
 
+function getSpecialProps(componentType: string, operation: string) {
+  return getCapability(componentType)?.specialOperations?.[operation];
+}
+
+function isSpecialPropValue(
+  componentType: string,
+  operation: string,
+  property: string,
+  value: unknown
+): boolean {
+  const descriptor = getSpecialProps(componentType, operation)?.[property];
+  return descriptor !== undefined && isValueForProp(descriptor, value);
+}
+
 export const builderDesignCapabilityAdapter = {
   getCapability,
   getDefaults,
+  getSpecialProps,
   isPropValue,
+  isSpecialPropValue,
   isSafeUrl,
 };

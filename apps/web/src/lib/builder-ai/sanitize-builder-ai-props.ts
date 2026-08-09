@@ -8,7 +8,8 @@ export interface SanitizedBuilderAiProps {
 
 export function sanitizeBuilderAiProps(
   componentType: string,
-  patch: Record<string, unknown>
+  patch: Record<string, unknown>,
+  specialOperation?: string
 ): SanitizedBuilderAiProps {
   const capability =
     builderDesignCapabilityAdapter.getCapability(componentType);
@@ -18,6 +19,12 @@ export function sanitizeBuilderAiProps(
       warnings: [`Ignored unsupported ${componentType} component.`],
     };
   }
+  const allowedProps = specialOperation
+    ? builderDesignCapabilityAdapter.getSpecialProps(
+        componentType,
+        specialOperation
+      )
+    : capability.props;
   const props: Record<string, unknown> = {};
   const unsupported = new Set<string>();
   let mediaAttempted = false;
@@ -25,7 +32,7 @@ export function sanitizeBuilderAiProps(
 
   for (const [property, value] of Object.entries(patch)) {
     if (property === 'componentType') continue;
-    const descriptor = capability.props[property];
+    const descriptor = allowedProps?.[property];
     if (descriptor?.type === 'safe-media' || isBuilderAiMediaField(property)) {
       mediaAttempted = true;
       continue;
@@ -41,13 +48,19 @@ export function sanitizeBuilderAiProps(
       unsafeUrl = true;
       continue;
     }
-    if (
-      !builderDesignCapabilityAdapter.isPropValue(
-        componentType,
-        property,
-        value
-      )
-    ) {
+    const isAllowed = specialOperation
+      ? builderDesignCapabilityAdapter.isSpecialPropValue(
+          componentType,
+          specialOperation,
+          property,
+          value
+        )
+      : builderDesignCapabilityAdapter.isPropValue(
+          componentType,
+          property,
+          value
+        );
+    if (!isAllowed) {
       unsupported.add(property);
       continue;
     }

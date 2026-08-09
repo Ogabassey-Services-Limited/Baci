@@ -33,6 +33,7 @@ export type BuilderDesignCapability = {
   refusal?: { code: string; message: string };
   renderable: boolean;
   responsiveProps: string[];
+  specialOperations?: Record<string, BuilderDesignProps>;
 };
 
 export const label = (defaultValue?: string): BuilderDesignProp => ({
@@ -54,7 +55,7 @@ export const fixedPlacement: BuilderDesignPlacement = {
   kind: 'fixed',
 };
 export const contentPlacement: BuilderDesignPlacement = {
-  allowedCollections: ['content', 'root'],
+  allowedCollections: ['content', 'zones'],
   kind: 'content',
 };
 export const allow = (

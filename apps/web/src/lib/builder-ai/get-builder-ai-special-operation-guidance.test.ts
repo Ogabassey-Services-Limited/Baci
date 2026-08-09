@@ -7,6 +7,10 @@ describe('getBuilderAiSpecialOperationGuidance', () => {
       updateCarouselSlide: {
         ctaLink: { maximumLength: 512 },
         ctaText: { maximumLength: 120 },
+        mediaMutation: {
+          refusalCode: 'media-review',
+          message: 'Requires an asset pipeline review.',
+        },
         subtitle: { maximumLength: 2000 },
         title: { maximumLength: 120 },
       },

@@ -1,13 +1,33 @@
 import { z } from 'zod';
-import { MAX_AI_COPY_LENGTH, MAX_AI_LABEL_LENGTH } from './limits';
+import { builderDesignCapabilityAdapter } from '../builder-design-capability-adapter';
 import { safeStorefrontUrlSchema } from './safe-storefront-url';
 
-const boundedCopy = z.string().trim().min(1).max(MAX_AI_COPY_LENGTH);
-const boundedLabel = z.string().trim().min(1).max(MAX_AI_LABEL_LENGTH);
+function compileField(descriptor: { maximumLength?: number; type: string }) {
+  if (descriptor.type === 'safe-link')
+    return safeStorefrontUrlSchema.optional();
+  if (descriptor.type === 'string') {
+    return z
+      .string()
+      .trim()
+      .min(1)
+      .max(descriptor.maximumLength ?? Number.MAX_SAFE_INTEGER)
+      .optional();
+  }
+  throw new Error(
+    `Unsupported HeroCarousel descriptor type: ${descriptor.type}`
+  );
+}
 
-export const heroCarouselSlidePatchFields = {
-  ctaLink: safeStorefrontUrlSchema.optional(),
-  ctaText: boundedLabel.optional(),
-  subtitle: boundedCopy.optional(),
-  title: boundedLabel.optional(),
-};
+const props =
+  builderDesignCapabilityAdapter.getCapability('HeroCarousel')
+    ?.specialOperations?.updateCarouselSlide;
+if (!props)
+  throw new Error('Missing HeroCarousel updateCarouselSlide contract');
+
+export const heroCarouselSlidePatchFields: Record<string, z.ZodType> =
+  Object.fromEntries(
+    Object.entries(props).map(([property, descriptor]) => [
+      property,
+      compileField(descriptor),
+    ])
+  );

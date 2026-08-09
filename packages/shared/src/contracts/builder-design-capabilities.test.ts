@@ -95,7 +95,7 @@ describe('builder design capabilities', () => {
           type: 'array',
         },
       },
-      placement: { allowedCollections: ['content', 'root'], kind: 'content' },
+      placement: { allowedCollections: ['content', 'zones'], kind: 'content' },
     });
   });
 

@@ -262,6 +262,19 @@ describe('builder AI edit closed model plan', () => {
         ],
       }).success
     ).toBe(false);
+    expect(
+      builderAiModelPlanSchema.safeParse({
+        ...proposedPlan,
+        operations: [
+          {
+            componentId: 'carousel-1',
+            image: 'unreviewed-asset',
+            kind: 'update_carousel_slide',
+            slideIndex: 0,
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it('limits a plan to 20 operations and five inserts', () => {

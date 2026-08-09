@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { applyBuilderAiEditPlan } from './apply-builder-ai-edit-plan';
 import { buildBuilderAiEditPrompt } from './build-builder-ai-edit-prompt';
 import { getBuilderAiCatalogProjection } from './builder-ai-component-catalog-projection';
+import { getBuilderAiSpecialOperationGuidance } from './get-builder-ai-special-operation-guidance';
 
 function getAllowedComponentTypes(prompt: string): string[] {
   const guide = prompt.match(/<operation-guide>(.*)<\/operation-guide>/);
@@ -52,6 +53,22 @@ describe('builder design capability live contract', () => {
         });
       }
     }
+  });
+
+  it('advertises HeroCarousel only through its bounded text-slide operation', () => {
+    const carousel = getBuilderAiCatalogProjection().find(
+      ({ componentType }) => componentType === 'HeroCarousel'
+    );
+
+    expect(carousel?.editableProps).toEqual([]);
+    expect(getBuilderAiSpecialOperationGuidance()).toMatchObject({
+      updateCarouselSlide: {
+        ctaLink: { maximumLength: 512 },
+        ctaText: { maximumLength: 120 },
+        subtitle: { maximumLength: 2000 },
+        title: { maximumLength: 120 },
+      },
+    });
   });
 
   it('advertises only components that the live model-plan executor accepts', () => {

@@ -50,16 +50,22 @@ function isInsert(value: unknown): boolean {
 
 function isInsertPlacement(
   componentType: string,
-  collection: string | undefined
+  collection: string | undefined,
+  availableCollections: readonly string[]
 ): boolean {
   const capability =
     builderDesignCapabilityAdapter.getCapability(componentType);
   if (!capability?.aiInsertable || capability.placement.kind !== 'content') {
     return false;
   }
+  const destination = collection ?? 'content';
+  if (destination === 'content') {
+    return capability.placement.allowedCollections.includes('content');
+  }
   return (
-    collection === undefined ||
-    capability.placement.allowedCollections.includes('content')
+    destination !== 'root' &&
+    capability.placement.allowedCollections.includes('zones') &&
+    availableCollections.includes(destination)
   );
 }
 

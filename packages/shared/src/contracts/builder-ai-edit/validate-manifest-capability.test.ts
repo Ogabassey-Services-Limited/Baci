@@ -29,12 +29,32 @@ describe('manifest builder AI capability validation', () => {
     ).toBe(false);
   });
 
-  it('allows content-zone inserts such as aside but denies fixed placements', () => {
-    expect(manifestBuilderAiCapability.isInsertPlacement('Text', 'aside')).toBe(
-      true
-    );
+  it('allows only real content zones and rejects root or unknown destinations', () => {
+    const collections = ['content', 'aside'];
+
     expect(
-      manifestBuilderAiCapability.isInsertPlacement('Header', 'aside')
+      manifestBuilderAiCapability.isInsertPlacement(
+        'Text',
+        'aside',
+        collections
+      )
+    ).toBe(true);
+    expect(
+      manifestBuilderAiCapability.isInsertPlacement('Text', 'root', collections)
+    ).toBe(false);
+    expect(
+      manifestBuilderAiCapability.isInsertPlacement(
+        'Text',
+        'unknown-zone',
+        collections
+      )
+    ).toBe(false);
+    expect(
+      manifestBuilderAiCapability.isInsertPlacement(
+        'Header',
+        'aside',
+        collections
+      )
     ).toBe(false);
   });
 });

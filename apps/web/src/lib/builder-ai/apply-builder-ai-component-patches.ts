@@ -49,7 +49,11 @@ export function applyBuilderAiCarouselPatch(
         : [[key, operation[key as keyof typeof operation]]]
     )
   );
-  const sanitized = sanitizeBuilderAiProps('Hero', patch);
+  const sanitized = sanitizeBuilderAiProps(
+    'HeroCarousel',
+    patch,
+    'updateCarouselSlide'
+  );
   const nextTitle = sanitized.props.title;
   if (
     typeof nextTitle === 'string' &&

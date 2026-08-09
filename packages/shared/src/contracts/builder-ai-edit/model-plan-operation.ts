@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { insertableComponentSchema } from './catalog';
 import { componentPatchSchema } from './component-patch';
 import { heroCarouselSlidePatchFields } from './hero-carousel-slide-patch-fields';
-import { manifestBuilderAiCapability } from './validate-manifest-capability';
 
 const boundedComponentId = z.string().trim().min(1).max(120);
 const boundedCollection = z.string().trim().min(1).max(120);
@@ -31,33 +30,16 @@ const updateCarouselSlideSchema = z
   })
   .refine(
     (value) =>
-      value.ctaLink !== undefined ||
-      value.ctaText !== undefined ||
-      value.subtitle !== undefined ||
-      value.title !== undefined,
+      Object.keys(value).some(
+        (key) => !['componentId', 'kind', 'slideIndex'].includes(key)
+      ),
     'Expected at least one editable carousel slide field'
   );
-const insertComponentSchema = z
-  .strictObject({
-    initialContent: insertableComponentSchema,
-    kind: z.literal('insert_component'),
-    placement: componentPlacementSchema,
-  })
-  .refine(
-    ({ initialContent }) =>
-      manifestBuilderAiCapability.isInsert(initialContent),
-    'Expected manifest-authorized insert'
-  )
-  .refine(
-    ({ initialContent, placement }) =>
-      manifestBuilderAiCapability.isInsertPlacement(
-        initialContent.componentType,
-        placement.position === 'first_content'
-          ? placement.collection
-          : undefined
-      ),
-    'Placement is not allowed by the manifest'
-  );
+const insertComponentSchema = z.strictObject({
+  initialContent: insertableComponentSchema,
+  kind: z.literal('insert_component'),
+  placement: componentPlacementSchema,
+});
 const removeComponentSchema = z.strictObject({
   componentId: boundedComponentId,
   kind: z.literal('remove_component'),
@@ -118,6 +100,16 @@ export const builderAiModelOperationSchema = z.discriminatedUnion('kind', [
   updateRootSchema,
 ]);
 
-export type BuilderAiModelOperation = z.infer<
-  typeof builderAiModelOperationSchema
->;
+type BuilderAiCarouselSlideOperation = {
+  componentId: string;
+  ctaLink?: string;
+  ctaText?: string;
+  kind: 'update_carousel_slide';
+  slideIndex: number;
+  subtitle?: string;
+  title?: string;
+};
+
+export type BuilderAiModelOperation =
+  | z.infer<typeof builderAiModelOperationSchema>
+  | BuilderAiCarouselSlideOperation;
