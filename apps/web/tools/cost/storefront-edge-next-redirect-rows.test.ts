@@ -12,8 +12,8 @@ describe('STOREFRONT_EDGE_NEXT_REDIRECT_ROWS', () => {
           methods.join(',') === 'GET,HEAD'
       )
     ).toBe(true);
-    expect(
-      STOREFRONT_EDGE_NEXT_REDIRECT_ROWS.map(({ id }) => id)
-    ).toEqual(expect.arrayContaining(['next:user-legacy', 'next:blog-wwdc']));
+    expect(STOREFRONT_EDGE_NEXT_REDIRECT_ROWS.map(({ id }) => id)).toEqual(
+      expect.arrayContaining(['next:user-legacy', 'next:blog-wwdc'])
+    );
   });
 });

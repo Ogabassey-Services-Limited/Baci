@@ -7,7 +7,10 @@ const REDIRECTS = [
   ['next:user-legacy', '/user/{*path?}'],
   ['next:home-legacy', '/home/{*path?}'],
   ['next:blog-iphone-xr', '/blog/iphone-xr-in-2025-is-this-still-a-good-deal'],
-  ['next:blog-samsung-s21', '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024'],
+  [
+    'next:blog-samsung-s21',
+    '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
+  ],
   [
     'next:blog-wwdc',
     '/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/{*path?}',
@@ -37,9 +40,15 @@ const REDIRECTS = [
   ['next:samsung', '/samsung/{*path?}'],
   ['next:phones', '/phones/{*path?}'],
   ['next:oppo', '/oppo/{*path?}'],
-  ['next:product-category-accessories', '/product-category/accessories/{*path?}'],
+  [
+    'next:product-category-accessories',
+    '/product-category/accessories/{*path?}',
+  ],
   ['next:product-category-headphones', '/product-category/headphones/{*path?}'],
-  ['next:product-category-smartwatches', '/product-category/smartwatches/{*path?}'],
+  [
+    'next:product-category-smartwatches',
+    '/product-category/smartwatches/{*path?}',
+  ],
   ['next:product-category', '/product-category/{*path?}'],
   ['next:category-product', '/category/product/{id}'],
   ['next:slug-pages-terms', '/{slug}/pages/terms'],

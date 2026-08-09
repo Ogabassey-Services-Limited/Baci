@@ -1,8 +1,8 @@
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
+import { STOREFRONT_EDGE_NEXT_REDIRECT_ROWS } from './storefront-edge-next-redirect-rows';
 import { STOREFRONT_EDGE_PROXY_BLOG_STATUS_ROWS } from './storefront-edge-proxy-blog-status-rows';
 import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
 import { STOREFRONT_EDGE_PROXY_TAIL_ROWS } from './storefront-edge-proxy-tail-rows';
-import { STOREFRONT_EDGE_NEXT_REDIRECT_ROWS } from './storefront-edge-next-redirect-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
