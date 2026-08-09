@@ -5,13 +5,13 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { verifySourceManifest } from './source-manifest.mjs';
-import { authorizeTask9Bundle, BUNDLE_ENTRIES, canonicalJson, parseUstar } from './task9-bootstrap.mjs';
+import { authorizeTask9Bundle, BUNDLE_ENTRIES, canonicalJson, parseUstar, TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
+import { checkedTask9Identity } from './task9-bootstrap-identity.mjs';
 import { fsyncTask9Directory } from './task9-fsync-directory.mjs';
 import { readHeldTask9File } from './task9-held-file.mjs';
+import { verifyTask9NodeArchive } from './task9-node-archive.mjs';
 import { withTask9OutputDirectory } from './task9-output-directory.mjs';
 import { readPublishedTask9Files } from './task9-published-files.mjs';
-import { checkedTask9Identity } from './task9-bootstrap-identity.mjs';
-import { TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
 const ID = /^[a-z0-9][a-z0-9._-]{0,127}$/;
@@ -26,7 +26,7 @@ const exact = (value, keys) =>
   !Array.isArray(value) &&
   canonicalJson(Object.keys(value).sort()) === canonicalJson([...keys].sort());
 
-function checkedProvenance(bytes, nodeBytes, policy) {
+function checkedProvenance(bytes, nodeBytes, nodeArchiveBytes, policy, verifyNodeArchive) {
   let value;
   try {
     value = JSON.parse(bytes);
@@ -47,6 +47,12 @@ function checkedProvenance(bytes, nodeBytes, policy) {
     value.signatureSha256 !== policy.supplyChainProvenance?.node?.signatureSha256
   )
     fail('invalid Node provenance');
+  verifyNodeArchive({
+    archiveBytes: nodeArchiveBytes,
+    nodeBytes,
+    archiveSha256: value.archiveSha256,
+    version: value.version,
+  });
   return value;
 }
 
@@ -75,7 +81,7 @@ function checkedTransactionId(supplied) {
 
 export function generateTask9BootstrapBundle(
   input,
-  { afterPayloadRead = () => undefined, beforeVerify = () => undefined, makeOutputDirectory = mkdirSync, outputParent = '/private/tmp' } = {}
+  { afterPayloadRead = () => undefined, beforeVerify = () => undefined, makeOutputDirectory = mkdirSync, outputParent = '/private/tmp', verifyNodeArchive = verifyTask9NodeArchive } = {}
 ) {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     fail('invalid Task 9 bundle input');
@@ -97,6 +103,7 @@ export function generateTask9BootstrapBundle(
   const archiveInput = readHeldTask9File(input.sourceArchivePath, 0o600);
   const archiveDigestInput = readHeldTask9File(input.sourceArchiveDigestPath, 0o600);
   const node = readHeldTask9File(input.nodePath, 0o500);
+  const nodeArchive = readHeldTask9File(input.nodeArchivePath, 0o400);
   const nodeProvenance = readHeldTask9File(input.nodeProvenancePath, 0o400);
   if (
     !DIGEST.test(manifestDigestInput.bytes.toString().trim()) ||
@@ -132,7 +139,13 @@ export function generateTask9BootstrapBundle(
     fail('invalid Task 9 policy');
   }
   const identity = checkedTask9Identity(input, manifest, policy);
-  const provenance = checkedProvenance(nodeProvenance.bytes, node.bytes, policy);
+  const provenance = checkedProvenance(
+    nodeProvenance.bytes,
+    node.bytes,
+    nodeArchive.bytes,
+    policy,
+    verifyNodeArchive
+  );
   beforeVerify();
   const verifiedManifest = verifySourceManifest({
     baseSha: manifest.baseSha,

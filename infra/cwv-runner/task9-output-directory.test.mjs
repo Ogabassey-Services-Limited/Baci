@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import {
-  chmodSync,
+  closeSync,
+  constants,
+  fstatSync,
+  fsyncSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -105,33 +109,55 @@ test('refuses unsafe created directories before calling publish', () => {
   const parent = mkdtempSync(join(tmpdir(), 'task9-output-unsafe-'));
   let published = false;
   try {
-    for (const kind of ['mode', 'symlink']) {
-      const output = join(parent, kind);
-      assert.throws(
-        () =>
-          withTask9OutputDirectory(
-            output,
-            () => {
-              published = true;
+    const output = join(parent, 'symlink');
+    assert.throws(
+      () =>
+        withTask9OutputDirectory(
+          output,
+          () => {
+            published = true;
+          },
+          {
+            makeDirectory(path) {
+              const target = join(parent, 'target');
+              mkdirSync(target, { mode: 0o700 });
+              symlinkSync(target, path);
             },
-            {
-              makeDirectory(path) {
-                if (kind === 'mode') {
-                  mkdirSync(path, { mode: 0o700 });
-                  chmodSync(path, 0o755);
-                } else {
-                  const target = join(parent, 'target');
-                  mkdirSync(target, { mode: 0o700 });
-                  symlinkSync(target, path);
-                }
-              },
-            }
-          ),
-        /unsafe Task 9 output directory/
-      );
-    }
+          }
+        ),
+      /ELOOP|ENOTDIR|unsafe Task 9 output directory/
+    );
     assert.equal(published, false);
   } finally {
+    rmSync(parent, { force: true, recursive: true });
+  }
+});
+
+test('applies the exact output mode despite a restrictive umask', () => {
+  const parent = mkdtempSync(join(tmpdir(), 'task9-output-umask-'));
+  const output = join(parent, 'output');
+  const previousUmask = process.umask(0o177);
+  try {
+    withTask9OutputDirectory(output, () => {
+      writeFileSync(join(output, 'bootstrap-review-envelope.json'), '{}');
+      writeFileSync(
+        join(output, 'bootstrap-review-envelope.sha256'),
+        'digest\n'
+      );
+      mkdirSync(join(output, 'payload'));
+    });
+    const fd = openSync(
+      output,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
+    );
+    try {
+      assert.equal(fstatSync(fd).mode & 0o777, 0o700);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  } finally {
+    process.umask(previousUmask);
     rmSync(parent, { force: true, recursive: true });
   }
 });

@@ -27,6 +27,8 @@ const flags = [
   '/input/source.sha256',
   '--node',
   '/input/node',
+  '--node-archive',
+  '/input/node.tar.xz',
   '--node-provenance',
   '/input/node-provenance.json',
   '--generation',

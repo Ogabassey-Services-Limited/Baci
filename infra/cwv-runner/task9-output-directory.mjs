@@ -1,4 +1,13 @@
-import { lstatSync, mkdirSync, readdirSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  fchmodSync,
+  fsyncSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+} from 'node:fs';
 
 const OUTPUT_ENTRIES = Object.freeze([
   'bootstrap-review-envelope.json',
@@ -23,6 +32,16 @@ export function withTask9OutputDirectory(
   { makeDirectory = mkdirSync } = {}
 ) {
   makeDirectory(outputRoot, { mode: 0o700 });
+  const directoryFd = openSync(
+    outputRoot,
+    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
+  );
+  try {
+    fchmodSync(directoryFd, 0o700);
+    fsyncSync(directoryFd);
+  } finally {
+    closeSync(directoryFd);
+  }
   const created = lstatSync(outputRoot);
   if (
     created.isSymbolicLink() ||

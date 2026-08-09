@@ -13,6 +13,7 @@ const FIELDS = Object.freeze(
     '--generation': 'generation',
     '--head-ref': 'headRef',
     '--node': 'nodePath',
+    '--node-archive': 'nodeArchivePath',
     '--node-provenance': 'nodeProvenancePath',
     '--output-root': 'outputRoot',
     '--source-archive': 'sourceArchivePath',

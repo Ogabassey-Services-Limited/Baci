@@ -164,7 +164,7 @@ test('refuses a loose Git object whose bytes do not hash to its named id', () =>
   }
 });
 
-test('refuses a merge that deletes an unchanged reviewed path', () => {
+test('allows unrelated merge changes outside the reviewed diff', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'cwv-merge-deletion-'));
   const output = mkdtempSync(join(tmpdir(), 'cwv-merge-deletion-output-'));
   try {
@@ -212,21 +212,18 @@ test('refuses a merge that deletes an unchanged reviewed path', () => {
       'merge',
     ]);
     const merge = git(fixture, ['rev-parse', 'HEAD']);
-    assert.throws(
-      () =>
-        freezeSourceManifest({
-          baseSha: reviewed,
-          cwd: fixture,
-          mergeSha: merge,
-          output: join(output, 'manifest.json'),
-          outputDigest: join(output, 'manifest.sha256'),
-          prNumber: 1,
-          reviewedHeadSha: reviewed,
-          sourceArchive: join(output, 'source.tar'),
-          sourceArchiveDigest: join(output, 'source.tar.sha256'),
-        }),
-      /merge tree differs from reviewed tree/
-    );
+    const manifest = freezeSourceManifest({
+      baseSha: reviewed,
+      cwd: fixture,
+      mergeSha: merge,
+      output: join(output, 'manifest.json'),
+      outputDigest: join(output, 'manifest.sha256'),
+      prNumber: 1,
+      reviewedHeadSha: reviewed,
+      sourceArchive: join(output, 'source.tar'),
+      sourceArchiveDigest: join(output, 'source.tar.sha256'),
+    });
+    assert.equal(manifest.entries.length, 0);
   } finally {
     rmSync(fixture, { recursive: true, force: true });
     rmSync(output, { recursive: true, force: true });

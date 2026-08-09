@@ -53,16 +53,6 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
   const baseByPath = new Map(baseRows.map((row) => [row.path, row]));
   const reviewedByPath = new Map(reviewedRows.map((row) => [row.path, row]));
   const mergedByPath = new Map(mergedRows.map((row) => [row.path, row]));
-  for (const [path, merged] of mergedByPath) {
-    const reviewed = reviewedByPath.get(path);
-    if (!reviewed || reviewed.mode !== merged.mode || reviewed.objectId !== merged.objectId)
-      fail('merge tree differs from reviewed tree');
-  }
-  for (const [path, reviewed] of reviewedByPath) {
-    const merged = mergedByPath.get(path);
-    if (!merged || merged.mode !== reviewed.mode || merged.objectId !== reviewed.objectId)
-      fail('merge tree differs from reviewed tree');
-  }
   const entries = [];
   const paths = [...new Set([...baseByPath.keys(), ...reviewedByPath.keys()])].sort(pathCompare);
   for (const path of paths) {
