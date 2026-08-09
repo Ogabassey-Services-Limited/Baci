@@ -33,9 +33,9 @@ function isDimensionToken(tokens: string[], index: number) {
 }
 
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
-const NUMERIC_PROCESSOR_SUFFIX_PATTERN = /^\d{3,}[uhtpkgfy]$/u;
+const NUMERIC_PROCESSOR_SUFFIX_PATTERN = /^\d{3,}(?:[uhtpkgfy]|h[rsx])$/u;
 const TRAILING_HARDWARE_METADATA_PATTERN =
-  /^(?:ram|vram|\d+(?:gb|tb|mb|hz|w))$/u;
+  /^(?:geforce|nvidia|ram|vram|\d+(?:gb|tb|mb|hz|w))$/u;
 
 function isNumericLaptopProcessorSuffix(tokens: string[], index: number) {
   return NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index] ?? '');

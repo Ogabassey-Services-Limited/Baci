@@ -17,14 +17,18 @@ const CONTEXT_TOKENS = new Set([
 /** Identifies a compare segment that contains variant metadata but no product phrase. */
 export function isVariantOnlyComparisonSegment(tokens: string[]) {
   const normalized = normalizeVariantDiscriminatorTokens(tokens);
-  const isVariantToken = (token: string) =>
+  const isVariantToken = (token: string, index: number) =>
     VARIANT_TOKEN_PATTERN.test(token) ||
     isProductVariantColorToken(token) ||
-    (token !== 'in' && isProductVariantRegionToken(token));
+    isProductVariantRegionToken(token, {
+      isTerminal: index === normalized.length - 1,
+      nextToken: normalized[index + 1],
+    });
   return (
     normalized.some(isVariantToken) &&
     normalized.every(
-      (token) => isVariantToken(token) || CONTEXT_TOKENS.has(token)
+      (token, index) =>
+        isVariantToken(token, index) || CONTEXT_TOKENS.has(token)
     )
   );
 }

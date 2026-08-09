@@ -57,7 +57,6 @@ const COLOR_MODIFIER_TOKENS = new Set([
   'space',
   'titanium',
 ]);
-
 const { isConvertibleInConnector } = modelTokenMatchers;
 
 function stripFirstMatchingSuffix(
@@ -289,7 +288,10 @@ export function normalizeProductModelTokens(
   return withoutSplitCapacity.filter(
     (token, index) =>
       preserveGameTitleTokens ||
-      !isProductVariantRegionToken(token) ||
+      !isProductVariantRegionToken(token, {
+        isTerminal: index === withoutSplitCapacity.length - 1,
+        nextToken: withoutSplitCapacity[index + 1],
+      }) ||
       isConvertibleInConnector(withoutSplitCapacity, index) ||
       (token === 'in' &&
         withoutSplitCapacity[index - 1] === 'all' &&

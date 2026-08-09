@@ -185,7 +185,8 @@ export function getProductConnectivityDiscriminators(
       laptopHardwareTokens.has(token) ||
       (['laptops', 'gaming-laptops'].includes(categorySlug ?? '') &&
         getStorageCapacityGb(token) !== null &&
-        tokens[tokenIndex + 1] === 'ram') ||
+        (tokens[tokenIndex + 1] === 'ram' ||
+          /^ddr\d+$/u.test(tokens[tokenIndex + 1] ?? ''))) ||
       (isProductVariantRegionToken(token, {
         isTerminal:
           tokenIndex === tokens.length - 1 ||

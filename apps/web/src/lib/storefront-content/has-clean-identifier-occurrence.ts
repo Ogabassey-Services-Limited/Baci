@@ -46,6 +46,7 @@ const NUMERIC_MODEL_CONTEXT_TOKENS = new Set([
   'watch',
   'xbox',
 ]);
+const NUMERIC_LISTICLE_CUE_TOKENS = new Set(['best', 'top']);
 
 interface IdentifierOccurrenceOptions {
   brand?: string | null;
@@ -74,6 +75,9 @@ function hasNumericModelContext(
   brand?: string | null
 ) {
   const previousToken = tokens[startIndex - 1] ?? '';
+  if (NUMERIC_LISTICLE_CUE_TOKENS.has(previousToken)) {
+    return false;
+  }
   const brandTokens = (brand ?? '').toLowerCase().split(/[^a-z0-9]+/u);
   const previousComparisonBoundary = tokens.findLastIndex(
     (token, index) =>
