@@ -96,6 +96,7 @@ describe('remediation job global lock configuration', () => {
         BACI_TEST_FLOCK_ARGS_PATH: flockArgsPath,
         PATH: `${fakeBinDirectory}:${process.env.PATH || '/usr/bin:/bin'}`,
       };
+      delete env.BACI_REMEDIATION_GLOBAL_LOCK_PATH;
 
       const directLockPath = readFlockLockPath({
         args: [jobPath],
@@ -109,7 +110,7 @@ describe('remediation job global lock configuration', () => {
           `${quoteShellArgument(process.execPath)} ${quoteShellArgument(jobPath)}`,
         ],
         command: 'sh',
-        env: { ...env, BACI_REMEDIATION_GLOBAL_LOCK_PATH: customLockPath },
+        env,
         flockArgsPath,
       });
 

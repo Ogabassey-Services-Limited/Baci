@@ -77,9 +77,17 @@ describe('remediation global lock ownership', () => {
       ],
       { stdio: ['ignore', 'pipe', 'inherit'] }
     );
+    t.after(() => holder.kill('SIGKILL'));
     const [output] = await once(holder.stdout, 'data');
     const childPid = Number(output.toString().trim());
     assert.ok(Number.isSafeInteger(childPid));
+    t.after(() => {
+      try {
+        process.kill(childPid, 'SIGKILL');
+      } catch {
+        // The child may already have exited.
+      }
+    });
     const contender = spawnSync(process.execPath, [jobPath], {
       encoding: 'utf8',
       env: { ...process.env, BACI_REMEDIATION_GLOBAL_LOCK_PATH: lockPath },
@@ -95,7 +103,6 @@ describe('remediation global lock ownership', () => {
     await once(holder, 'exit');
     const recovered = spawnSync('flock', ['-n', '-E', '75', lockPath, 'true']);
     assert.equal(recovered.status, 0);
-    process.kill(childPid, 'SIGKILL');
   });
 
   it('fails closed when the locked inode is replaced before verification', {

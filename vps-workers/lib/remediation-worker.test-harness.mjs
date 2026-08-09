@@ -1,14 +1,15 @@
 import { createRemediationWorker } from './remediation-worker-factory.mjs';
 
 const testRemediationLock = {};
+const isTestRemediationLock = (lock) => lock === testRemediationLock;
 
 const runTestWorker = createRemediationWorker({
-  lockCapabilityValidator: () => true,
+  lockCapabilityValidator: isTestRemediationLock,
   usesGlobalCaseStateLock: false,
 });
 
 const runTestWorkerWithGlobalCaseStateLock = createRemediationWorker({
-  lockCapabilityValidator: () => true,
+  lockCapabilityValidator: isTestRemediationLock,
 });
 
 const withTestRemediationLock =
