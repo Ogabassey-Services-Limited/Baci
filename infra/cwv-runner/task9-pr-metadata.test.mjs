@@ -31,7 +31,10 @@ test('reads canonical preserved PR metadata bound by its bare digest', () => {
     const digest = join(root, 'metadata.sha256');
     writeFileSync(path, bytes, { mode: 0o600 });
     writeFileSync(digest, `${hash(bytes)}\n`, { mode: 0o600 });
-    assert.deepEqual(readTask9PrMetadata(path, digest), value);
+    assert.deepEqual(
+      readTask9PrMetadata(path, digest, { reviewedSha256: hash(bytes) }),
+      value
+    );
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
@@ -53,7 +56,7 @@ test('rejects a noncanonical, mismatched, or no-op preserved PR record', () => {
     writeFileSync(path, bytes, { mode: 0o600 });
     writeFileSync(digest, `${'0'.repeat(64)}\n`, { mode: 0o600 });
     assert.throws(
-      () => readTask9PrMetadata(path, digest),
+      () => readTask9PrMetadata(path, digest, { reviewedSha256: hash(bytes) }),
       /preserved PR metadata/
     );
     writeFileSync(digest, `${hash(bytes)}\n`);
@@ -61,6 +64,40 @@ test('rejects a noncanonical, mismatched, or no-op preserved PR record', () => {
     writeFileSync(digest, `${hash(readFileSync(path))}\n`);
     assert.throws(
       () => readTask9PrMetadata(path, digest),
+      /preserved PR metadata/
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('rejects a forged matching metadata and digest pair against the review literal', () => {
+  const root = mkdtempSync(join(tmpdir(), 'task9-pr-metadata-anchor-'));
+  try {
+    chmodSync(root, 0o700);
+    const original = Buffer.from(
+      canonicalJson({
+        baseSha: 'a'.repeat(40),
+        headRef: 'codex/task9',
+        number: 3302,
+        reviewedHeadSha: 'b'.repeat(40),
+      })
+    );
+    const forged = Buffer.from(
+      canonicalJson({
+        baseSha: 'a'.repeat(40),
+        headRef: 'attacker/ref',
+        number: 3302,
+        reviewedHeadSha: 'b'.repeat(40),
+      })
+    );
+    const path = join(root, 'metadata.json');
+    const digest = join(root, 'metadata.sha256');
+    writeFileSync(path, forged, { mode: 0o600 });
+    writeFileSync(digest, `${hash(forged)}\n`, { mode: 0o600 });
+    assert.throws(
+      () =>
+        readTask9PrMetadata(path, digest, { reviewedSha256: hash(original) }),
       /preserved PR metadata/
     );
   } finally {

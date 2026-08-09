@@ -7,6 +7,7 @@ import {
   renameSync,
   rmSync,
   symlinkSync,
+  truncateSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -65,6 +66,22 @@ test('refuses symlinks and wrong modes before reading bytes', () => {
     chmodSync(path, 0o400);
     assert.throws(() => readHeldTask9File(path, 0o600), /unsafe Task 9 input/);
     assert.equal(readFileSync(path, 'utf8'), 'reviewed');
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('refuses an oversized input before allocating its contents', () => {
+  const root = mkdtempSync(join(tmpdir(), 'task9-held-file-size-'));
+  const path = join(root, 'source');
+  try {
+    chmodSync(root, 0o700);
+    writeFileSync(path, '', { mode: 0o600 });
+    truncateSync(path, 17);
+    assert.throws(
+      () => readHeldTask9File(path, 0o600, { maxBytes: 16 }),
+      /unsafe Task 9 input/
+    );
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

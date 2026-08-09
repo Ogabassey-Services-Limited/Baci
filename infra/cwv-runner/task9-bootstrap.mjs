@@ -21,7 +21,7 @@ const native = (mode) => Number.parseInt(mode.slice(3), 8);
 const publications = new WeakMap();
 
 export function canonicalJson(value) { if (value === null || ['string','boolean'].includes(typeof value) || typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value); if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`; if (!object(value)) fail('unsupported JSON value'); return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`; }
-export function validSourcePath(path) { return typeof path === 'string' && /^infra\/cwv-runner\/(?:[A-Za-z0-9._@-]+\/)*[A-Za-z0-9._@-]+$/.test(path) && !path.includes('..'); }
+export function validSourcePath(path) { return typeof path === 'string' && /^infra\/cwv-runner\/(?:[A-Za-z0-9._@+-]+\/)*[A-Za-z0-9._@+-]+$/.test(path) && !path.includes('..'); }
 function zero(bytes) { return bytes.every((byte) => byte === 0); }
 function field(header, start, size) { const bytes = header.subarray(start, start + size), end = bytes.indexOf(0), used = end < 0 ? bytes : bytes.subarray(0,end); if (end >= 0 && !zero(bytes.subarray(end)) || used.some((byte) => byte < 0x20 || byte > 0x7e)) fail('invalid tar'); return used.toString('ascii'); }
 function octal(header, start, size) { const value = field(header,start,size); if (!/^[0-7]+$/.test(value)) fail('invalid tar'); const result = Number.parseInt(value,8); if (!Number.isSafeInteger(result)) fail('invalid tar'); return result; }

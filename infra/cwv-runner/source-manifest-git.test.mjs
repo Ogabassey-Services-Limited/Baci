@@ -1,12 +1,13 @@
 // biome-ignore-all lint/suspicious/noUndeclaredEnvVars: the hostile Git environment regression intentionally mutates GIT_DIR.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
 import { git } from './source-manifest-git.mjs';
+import { withHeldTask9Checkout } from './task9-held-checkout.mjs';
 
 function repository() {
   const root = mkdtempSync(join(tmpdir(), 'source-manifest-git-'));
@@ -34,6 +35,18 @@ test('runs the fixed Git executable with the requested arguments', () => {
       git(root, ['rev-parse', '--show-toplevel']).trim(),
       /source-manifest-git-/
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('keeps Git traversal bound to the held checkout on every platform', () => {
+  const root = repository();
+  try {
+    const result = withHeldTask9Checkout(root, realpathSync(root), (checkout) =>
+      git(checkout, ['rev-parse', '--show-toplevel'])
+    );
+    assert.match(result.trim(), /source-manifest-git-/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

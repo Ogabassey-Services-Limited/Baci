@@ -23,7 +23,7 @@ const fail = (cause) => {
 export function readHeldTask9File(
   path,
   expectedMode,
-  { afterRead = () => undefined, hold = false } = {}
+  { afterRead = () => undefined, hold = false, maxBytes } = {}
 ) {
   const absolute = resolve(path);
   let fd;
@@ -42,7 +42,11 @@ export function readHeldTask9File(
       before.uid !== process.getuid() ||
       (before.mode & 0o777) !== expectedMode ||
       !Number.isSafeInteger(before.size) ||
-      before.size < 0
+      before.size < 0 ||
+      (maxBytes !== undefined &&
+        (!Number.isSafeInteger(maxBytes) ||
+          maxBytes < 0 ||
+          before.size > maxBytes))
     )
       fail();
     const bytes = readFileSync(fd);

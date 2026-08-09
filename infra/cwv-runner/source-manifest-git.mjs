@@ -1,6 +1,8 @@
 import { execFileSync } from 'node:child_process';
 
 const TRUSTED_GIT = '/usr/bin/git';
+const HELD_GIT =
+  'import os,sys\nos.fchdir(3)\nos.execv("/usr/bin/git", ["git", *sys.argv[2:]])';
 function trustedGitEnvironment() {
   const env = {
     PATH: '/usr/bin:/bin',
@@ -33,14 +35,9 @@ export function git(cwd, args, input, encoding = 'utf8') {
     };
     let executable = TRUSTED_GIT;
     let commandArgs = args;
-    if (process.platform === 'linux' && Number.isSafeInteger(guarded.fd)) {
-      executable = '/bin/sh';
-      commandArgs = [
-        '-c',
-        'cd /proc/self/fd/3 && exec /usr/bin/git "$@"',
-        'git',
-        ...args,
-      ];
+    if (Number.isSafeInteger(guarded.fd)) {
+      executable = '/usr/bin/python3';
+      commandArgs = ['-I', '-S', '-E', '-c', HELD_GIT, 'git', ...args];
       options.cwd = '/';
       options.stdio = ['pipe', 'pipe', 'pipe', guarded.fd];
     }

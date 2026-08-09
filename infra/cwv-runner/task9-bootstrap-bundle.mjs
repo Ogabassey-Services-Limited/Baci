@@ -19,6 +19,10 @@ import { readPublishedTask9Files } from './task9-published-files.mjs';
 const DIGEST = /^[a-f0-9]{64}$/;
 const ID = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const TRANSACTION_ID = /^[a-z0-9][a-z0-9-]{0,62}$/;
+const MAX_SMALL_INPUT_BYTES = 1_048_576;
+const MAX_SOURCE_ARCHIVE_BYTES = 16_777_216;
+const MAX_NODE_BYTES = 268_435_456;
+const MAX_NODE_ARCHIVE_BYTES = 512 * 1024 * 1024;
 const MODES = TASK9_PAYLOAD_FILES;
 const CHECKOUT_ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -77,14 +81,17 @@ export function generateTask9BootstrapBundle(
   catch { fail('unsafe Task 9 checkout'); }
   if (checkout !== CHECKOUT_ROOT) fail('unsafe Task 9 checkout');
   return withHeldTask9Checkout(checkout, CHECKOUT_ROOT, (checkoutHandle) => {
-  const manifestInput = readHeldTask9File(input.sourceManifestPath, 0o600);
-  const manifestDigestInput = readHeldTask9File(input.sourceManifestDigestPath, 0o600);
-  const archiveInput = readHeldTask9File(input.sourceArchivePath, 0o600);
-  const archiveDigestInput = readHeldTask9File(input.sourceArchiveDigestPath, 0o600);
-  const node = readHeldTask9File(input.nodePath, 0o500);
-  const nodeArchive = readHeldTask9File(input.nodeArchivePath, 0o400);
-  const nodeProvenance = readHeldTask9File(input.nodeProvenancePath, 0o400);
-  const prMetadata = readTask9PrMetadata(input.prMetadataPath, input.prMetadataDigestPath);
+  const manifestInput = readHeldTask9File(input.sourceManifestPath, 0o600, { maxBytes: MAX_SMALL_INPUT_BYTES });
+  const manifestDigestInput = readHeldTask9File(input.sourceManifestDigestPath, 0o600, { maxBytes: 256 });
+  const archiveInput = readHeldTask9File(input.sourceArchivePath, 0o600, { maxBytes: MAX_SOURCE_ARCHIVE_BYTES });
+  const archiveDigestInput = readHeldTask9File(input.sourceArchiveDigestPath, 0o600, { maxBytes: 256 });
+  const node = readHeldTask9File(input.nodePath, 0o500, { maxBytes: MAX_NODE_BYTES });
+  const nodeArchive = readHeldTask9File(input.nodeArchivePath, 0o400, { maxBytes: MAX_NODE_ARCHIVE_BYTES });
+  const nodeProvenance = readHeldTask9File(input.nodeProvenancePath, 0o400, { maxBytes: MAX_SMALL_INPUT_BYTES });
+  const prMetadata = readTask9PrMetadata(input.prMetadataPath, input.prMetadataDigestPath, {
+    maxBytes: MAX_SMALL_INPUT_BYTES,
+    reviewedSha256: input.reviewedPrMetadataSha256,
+  });
   if (
     !DIGEST.test(manifestDigestInput.bytes.toString().trim()) ||
     manifestDigestInput.bytes.toString() !==
@@ -225,8 +232,8 @@ export function generateTask9BootstrapBundle(
     writeExclusive(envelopeSha256Path, `${envelopeSha256}\n`, 0o400);
     fsyncTask9Directory(outputRoot);
     fsyncTask9Directory(dirname(outputRoot));
-    heldEnvelope = readHeldTask9File(envelopePath, 0o400, { hold: true });
-    heldEnvelopeDigest = readHeldTask9File(envelopeSha256Path, 0o400, { hold: true });
+    heldEnvelope = readHeldTask9File(envelopePath, 0o400, { hold: true, maxBytes: MAX_SMALL_INPUT_BYTES });
+    heldEnvelopeDigest = readHeldTask9File(envelopeSha256Path, 0o400, { hold: true, maxBytes: 256 });
     if (
       !heldEnvelope.bytes.equals(envelopeBytes) ||
       heldEnvelopeDigest.bytes.toString() !== `${envelopeSha256}\n`

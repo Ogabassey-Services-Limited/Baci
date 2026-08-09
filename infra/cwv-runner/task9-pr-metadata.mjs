@@ -8,13 +8,22 @@ const fail = () => {
   throw new TypeError('invalid preserved PR metadata');
 };
 
-export function readTask9PrMetadata(path, digestPath) {
-  const input = readHeldTask9File(path, 0o600);
-  const digest = readHeldTask9File(digestPath, 0o600);
+// The owner-published review literal is separate from the caller-controlled
+// metadata/digest files; matching those files alone never authenticates a PR.
+
+export function readTask9PrMetadata(
+  path,
+  digestPath,
+  { maxBytes = 1_048_576, reviewedSha256 } = {}
+) {
+  const input = readHeldTask9File(path, 0o600, { maxBytes });
+  const digest = readHeldTask9File(digestPath, 0o600, { maxBytes: 256 });
   try {
+    const actualSha256 = createHash('sha256').update(input.bytes).digest('hex');
     if (
-      digest.bytes.toString() !==
-      `${createHash('sha256').update(input.bytes).digest('hex')}\n`
+      !/^[a-f0-9]{64}$/.test(reviewedSha256 ?? '') ||
+      reviewedSha256 !== actualSha256 ||
+      digest.bytes.toString() !== `${actualSha256}\n`
     )
       fail();
     let value;
