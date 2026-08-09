@@ -17,7 +17,14 @@ export function normalizeRemediationNotifications(value) {
         typeof report.subject === 'string' &&
         typeof report.text === 'string'
       ) {
-        const notification = { recordedAt: entry.recordedAt, report };
+        const notification = {
+          recordedAt: entry.recordedAt,
+          report: {
+            html: report.html,
+            subject: report.subject,
+            text: report.text,
+          },
+        };
         if (Number.isSafeInteger(entry.attempts) && entry.attempts >= 0) {
           notification.attempts = entry.attempts;
         }

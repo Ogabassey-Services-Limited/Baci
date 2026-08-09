@@ -4,6 +4,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -32,14 +33,23 @@ export function createRemediationFallbackStore(path) {
       throw error;
     }
     const cutoff = Date.parse(recordedAt) - RETENTION_MS;
+    if (!Number.isFinite(cutoff)) return;
     for (const file of files) {
+      const markerPath = `${markerDirectory}/${file}`;
+      if (file.endsWith('.tmp')) {
+        try {
+          if (statSync(markerPath).mtimeMs < cutoff) unlinkSync(markerPath);
+        } catch {
+          // A concurrent writer may have finished or replaced its temporary file.
+        }
+        continue;
+      }
       if (!file.endsWith('.json')) continue;
       try {
-        const marker = JSON.parse(
-          readFileSync(`${markerDirectory}/${file}`, 'utf8')
-        );
-        if (Date.parse(marker?.recordedAt) < cutoff) {
-          unlinkSync(`${markerDirectory}/${file}`);
+        const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+        const markedAt = Date.parse(marker?.recordedAt);
+        if (!Number.isFinite(markedAt) || markedAt < cutoff) {
+          unlinkSync(markerPath);
         }
       } catch {
         // Preserve unreadable markers for explicit candidate reconciliation.

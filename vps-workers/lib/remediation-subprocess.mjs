@@ -1,6 +1,7 @@
 import {
   formatBoundedSubprocessOutput,
   redactCodexError,
+  redactCodexOutput,
 } from './remediation-codex-output.mjs';
 
 export function runRemediationChecked(command, args, options) {
@@ -13,8 +14,9 @@ export function runRemediationChecked(command, args, options) {
   const result = options.runner(command, args, commandOptions);
   if (result.error) throw redactCodexError(result.error);
   if (result.status !== 0) {
+    const describedArgs = redactCodexOutput(args.join(' ')).slice(0, 200);
     throw new Error(
-      `${command} ${args.join(' ')} failed: ${formatBoundedSubprocessOutput(result)}`
+      `${command} ${describedArgs} failed: ${formatBoundedSubprocessOutput(result)}`
     );
   }
   return result.stdout || '';
