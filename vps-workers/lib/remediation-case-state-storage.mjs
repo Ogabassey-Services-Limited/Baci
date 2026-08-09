@@ -58,6 +58,14 @@ const sameLockOwner = (expected, current) =>
     ? current?.token === expected.token
     : !completeOwner(current);
 
+const removeOwnerPath = (ownerPath, unlink) => {
+  try {
+    unlink(ownerPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+};
+
 function reclaimStaleLock({ lockPath, owner, ownerPath, unlink }) {
   const claimPath = `${lockPath}.reclaim-${
     completeOwner(owner) ? owner.token : 'ownerless'
@@ -104,6 +112,7 @@ export function createRemediationCaseStateStorage({
   path,
   processIsAlive: isAlive = processIsAlive,
   processStartedAt: startedAt = processStartedAt,
+  stat = statSync,
   unlink = unlinkSync,
 }) {
   const localProcessStartedAt = startedAt(process.pid);
@@ -170,45 +179,43 @@ export function createRemediationCaseStateStorage({
         linkSync(ownerPath, lockPath);
       } catch (error) {
         if (error?.code !== 'EEXIST') {
-          try {
-            unlink(ownerPath);
-          } catch (cleanupError) {
-            if (cleanupError?.code !== 'ENOENT') throw cleanupError;
-          }
+          removeOwnerPath(ownerPath, unlink);
           throw error;
         }
-        const owner = readLockOwner(lockPath);
-        const modifiedAt = statSync(lockPath, {
-          throwIfNoEntry: false,
-        })?.mtimeMs;
-        let stale = false;
-        if (
-          completeOwner(owner) &&
-          nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS
-        ) {
-          if (!isAlive(owner.pid)) {
-            stale = true;
-          } else if (typeof owner.processStartedAt === 'string') {
-            const currentProcessStartedAt = startedAt(owner.pid);
-            stale =
-              typeof currentProcessStartedAt === 'string' &&
-              currentProcessStartedAt !== owner.processStartedAt;
-          }
-        } else if (!completeOwner(owner)) {
-          stale =
-            Number.isFinite(modifiedAt) && nowMs - modifiedAt > STALE_LOCK_MS;
-        }
-        if (
-          attempt === 0 &&
-          stale &&
-          reclaimStaleLock({ lockPath, owner, ownerPath, unlink })
-        ) {
-          continue;
-        }
+        let reclaimed = false;
         try {
-          unlink(ownerPath);
-        } catch (cleanupError) {
-          if (cleanupError?.code !== 'ENOENT') throw cleanupError;
+          const owner = readLockOwner(lockPath);
+          const modifiedAt = stat(lockPath, {
+            throwIfNoEntry: false,
+          })?.mtimeMs;
+          let stale = false;
+          if (
+            completeOwner(owner) &&
+            nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS
+          ) {
+            if (!isAlive(owner.pid)) {
+              stale = true;
+            } else if (typeof owner.processStartedAt === 'string') {
+              const currentProcessStartedAt = startedAt(owner.pid);
+              stale =
+                typeof currentProcessStartedAt === 'string' &&
+                currentProcessStartedAt !== owner.processStartedAt;
+            }
+          } else if (!completeOwner(owner)) {
+            stale =
+              Number.isFinite(modifiedAt) && nowMs - modifiedAt > STALE_LOCK_MS;
+          }
+          reclaimed =
+            attempt === 0 &&
+            stale &&
+            reclaimStaleLock({ lockPath, owner, ownerPath, unlink });
+        } catch {
+          reclaimed = false;
+        } finally {
+          removeOwnerPath(ownerPath, unlink);
+        }
+        if (reclaimed) {
+          continue;
         }
         return fallback;
       }
@@ -242,9 +249,9 @@ export function createRemediationCaseStateStorage({
         }
       }
       try {
-        unlink(ownerPath);
+        removeOwnerPath(ownerPath, unlink);
       } catch (error) {
-        if (error?.code !== 'ENOENT' && !releaseError) releaseError = error;
+        if (!releaseError) releaseError = error;
       }
       if (actionError) throw actionError;
       if (releaseError) throw releaseError;
