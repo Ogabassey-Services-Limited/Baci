@@ -90,6 +90,19 @@ describe('preview render policy', () => {
       {
         props: {
           ...animation,
+          align: 'center',
+          ctaLink: '/products',
+          ctaText: 'Shop now',
+          id: 'hero-1',
+          padding: 'large',
+          subtitle: 'Discover our collection.',
+          title: 'Featured collection',
+        },
+        type: 'Hero',
+      },
+      {
+        props: {
+          ...animation,
           align: 'left',
           content: 'Supporting copy',
           id: 'text-1',
@@ -194,6 +207,23 @@ describe('preview render policy', () => {
         },
       ]);
     }
+  });
+
+  it('rejects partial carousel slides before they can call scoped routing with undefined', () => {
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        content: [
+          {
+            props: {
+              id: 'carousel-1',
+              slides: [{ title: 'Sale' }],
+            },
+            type: 'HeroCarousel',
+          },
+        ],
+        root: { props: { title: 'Home' } },
+      }).success
+    ).toBe(false);
   });
 
   it('rejects hostile carousel media, links, and unknown slide fields', () => {

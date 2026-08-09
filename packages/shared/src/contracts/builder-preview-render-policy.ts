@@ -90,7 +90,9 @@ function isPreviewCarouselSlide(value: unknown): boolean {
       'updateCarouselSlide'
     ) ?? {};
   return (
-    Object.keys(value).some((key) => Object.keys(specialProps).includes(key)) &&
+    Object.keys(specialProps).every((key) =>
+      Object.keys(value).includes(key)
+    ) &&
     Object.entries(value).every(([property, propValue]) => {
       if (propValue === undefined) return false;
       if (property === 'image') return isSafeAssetPath(propValue);
