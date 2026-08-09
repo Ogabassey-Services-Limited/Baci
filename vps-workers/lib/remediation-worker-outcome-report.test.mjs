@@ -18,6 +18,7 @@ const environment = (directory, autofix = false) => ({
   BACI_REMEDIATION_AUTOFIX_ENABLED: autofix ? '1' : '0',
   BACI_REMEDIATION_OUTPUT_DIR: directory,
 });
+const now = () => Date.parse('2026-08-09T10:05:00.000Z');
 
 describe('remediation worker outcome reporting', () => {
   it('reports the prompt_written lifecycle recorded by a dry run', async () => {
@@ -26,6 +27,7 @@ describe('remediation worker outcome reporting', () => {
       candidateLoader: async () => [candidate()],
       env: environment(directory),
       logger: { error: () => undefined, log: () => undefined },
+      now,
       workerName: 'outcome-report',
     });
 
@@ -42,6 +44,7 @@ describe('remediation worker outcome reporting', () => {
       candidateLoader: async () => [candidate()],
       env: environment(directory, true),
       logger: { error: () => undefined, log: () => undefined },
+      now,
       workerName: 'outcome-report',
     });
 
@@ -61,6 +64,7 @@ describe('remediation worker outcome reporting', () => {
       candidateLoader: async () => [candidate()],
       env: environment(directory, true),
       logger: { error: () => undefined, log: () => undefined },
+      now,
       workerName: 'outcome-report',
     });
 

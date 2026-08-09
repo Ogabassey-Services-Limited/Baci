@@ -247,8 +247,12 @@ describe('remediation worker', () => {
       workerName: 'test-remediator',
     });
 
-    assert.doesNotMatch(result.actions[1].detail, new RegExp(token));
-    assert.match(result.actions[1].detail, /\[REDACTED\]/);
+    const failure = result.actions.find(
+      (action) => action.type === 'autofix_failed'
+    );
+    assert.ok(failure);
+    assert.doesNotMatch(failure.detail, new RegExp(token));
+    assert.match(failure.detail, /\[REDACTED\]/);
     assert.doesNotMatch(result.report.text, new RegExp(token));
     assert.doesNotMatch(loggedMessages[0], new RegExp(token));
   });
