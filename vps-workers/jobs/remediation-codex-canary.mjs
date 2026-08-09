@@ -109,7 +109,6 @@ export function failureType(error) {
 }
 
 async function main() {
-  config({ path: new URL('../.env', import.meta.url) });
   try {
     console.log(JSON.stringify(runRemediationCodexCanary()));
   } catch (error) {
@@ -134,6 +133,7 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
+  config({ path: new URL('../.env', import.meta.url) });
   const exitCode = await runRemediationJobWithGlobalLock({
     main,
     scriptPath: process.argv[1],

@@ -38,7 +38,6 @@ export function runSentryMobileErrorRemediator({
 }
 
 async function main(remediationLock) {
-  config({ path: new URL('../.env', import.meta.url) });
   try {
     const result = await runSentryMobileErrorRemediator({ remediationLock });
     console.log(
@@ -63,6 +62,7 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
+  config({ path: new URL('../.env', import.meta.url) });
   const exitCode = await runRemediationJobWithGlobalLock({
     main,
     scriptPath: process.argv[1],
