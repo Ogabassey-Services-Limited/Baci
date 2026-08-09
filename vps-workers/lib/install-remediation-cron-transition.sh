@@ -34,6 +34,65 @@ flock -x 8
 exec 9>"$canary_lock"
 flock -x 9
 
+python3 - "$remote_dir" "$node_bin" "${BACI_REMEDIATION_LEGACY_DRAIN_TIMEOUT_SECONDS:-60}" <<'PY'
+import os
+import shlex
+import subprocess
+import sys
+import time
+
+remote_dir, node_bin, timeout_value = sys.argv[1:]
+try:
+    timeout_seconds = min(max(int(timeout_value), 1), 60)
+except ValueError:
+    timeout_seconds = 60
+
+targets = {
+    f'{remote_dir}/jobs/vercel-error-remediator.mjs',
+    f'{remote_dir}/jobs/sentry-mobile-error-remediator.mjs',
+    f'{remote_dir}/jobs/remediation-codex-canary.mjs',
+}
+relative_targets = {target.removeprefix(f'{remote_dir}/') for target in targets}
+node_path = os.path.realpath(node_bin)
+
+def active_legacy_direct_processes():
+    listing = subprocess.run(
+        ['ps', '-eo', 'pid=,args='], check=True, stdout=subprocess.PIPE, text=True
+    )
+    active = []
+    for line in listing.stdout.splitlines():
+        pid_text, _, command = line.strip().partition(' ')
+        try:
+            pid = int(pid_text)
+            arguments = shlex.split(command)
+        except ValueError:
+            continue
+        if pid == os.getpid() or not arguments:
+            continue
+        if os.path.realpath(arguments[0]) != node_path:
+            continue
+        scripts = set(arguments[1:])
+        if scripts & targets:
+            active.append(pid)
+            continue
+        if not scripts & relative_targets:
+            continue
+        try:
+            if os.path.realpath(os.readlink(f'/proc/{pid}/cwd')) == remote_dir:
+                active.append(pid)
+        except OSError:
+            continue
+    return active
+
+deadline = time.monotonic() + timeout_seconds
+while active_legacy_direct_processes():
+    if time.monotonic() >= deadline:
+        raise SystemExit(
+            'legacy direct remediation processes did not drain before crontab rewrite'
+        )
+    time.sleep(1)
+PY
+
 python3 - "$remote_dir" "$node_bin" "$codex_image" "$codex_container_bin" > "$tmp_file" <<'PY'
 import subprocess
 import sys
