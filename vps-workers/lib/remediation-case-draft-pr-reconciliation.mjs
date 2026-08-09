@@ -1,5 +1,28 @@
 const MAX_DRAFT_PR_RECONCILIATIONS = 10;
 
+export function createStoredDraftPrReconciler({
+  maxOutcomes,
+  normalizeCandidate,
+  now,
+  storage,
+}) {
+  return function reconcileDraftPrs({
+    candidates,
+    limit,
+    resolveDraftPrStatus,
+  }) {
+    return reconcileStoredDraftPrs({
+      candidates,
+      limit,
+      maxOutcomes,
+      normalizeCandidate,
+      now,
+      resolveDraftPrStatus,
+      storage,
+    });
+  };
+}
+
 export function reconcileStoredDraftPrs({
   candidates,
   maxOutcomes,
@@ -40,8 +63,7 @@ export function reconcileStoredDraftPrs({
   const drafts = [
     ...availableDrafts.slice(cursorIndex + 1),
     ...availableDrafts.slice(0, cursorIndex + 1),
-  ]
-    .slice(0, maximum)
+  ].slice(0, maximum);
   const reconciled = drafts.map((draft) => {
     try {
       const status = resolveDraftPrStatus(draft);

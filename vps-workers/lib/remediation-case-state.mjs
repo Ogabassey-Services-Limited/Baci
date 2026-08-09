@@ -4,7 +4,7 @@ import {
   candidateWithLifecycle,
   contextForCandidate,
 } from './remediation-case-context.mjs';
-import { reconcileStoredDraftPrs } from './remediation-case-draft-pr-reconciliation.mjs';
+import { createStoredDraftPrReconciler } from './remediation-case-draft-pr-reconciliation.mjs';
 import { createRemediationCaseStateStorage } from './remediation-case-state-storage.mjs';
 import { createRemediationCaseStateValidator } from './remediation-case-state-validation.mjs';
 
@@ -76,6 +76,12 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
     createEmptyState: emptyState,
     isValidState,
     path,
+  });
+  const reconcileDraftPrs = createStoredDraftPrReconciler({
+    maxOutcomes: MAX_OUTCOMES,
+    normalizeCandidate: candidateNormalizer.normalize,
+    now,
+    storage,
   });
   return {
     reconcile(candidates) {
@@ -169,17 +175,7 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
         ];
       });
     },
-    reconcileDraftPrs({ candidates, resolveDraftPrStatus, limit }) {
-      return reconcileStoredDraftPrs({
-        candidates,
-        limit,
-        maxOutcomes: MAX_OUTCOMES,
-        normalizeCandidate: candidateNormalizer.normalize,
-        now,
-        resolveDraftPrStatus,
-        storage,
-      });
-    },
+    reconcileDraftPrs,
     migrateLegacyHandled(candidates) {
       const nowMs = now();
       return storage.withLock(nowMs, false, (state) => {
