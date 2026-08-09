@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { withPostHogConfig } from '@posthog/nextjs-config';
 import type { NextConfig } from 'next';
+import { builderPreviewRouteHeaders } from './src/config/builder-preview-route-headers';
 import { OGABASSEY_DOCUMENT_LINK_HEADER_VALUE } from './src/config/early-hints-link-header';
 import { applyNextDeploymentIdEnv } from './src/config/next-deployment-id';
 import { STATIC_GENERATION_LIMITS } from './src/config/static-generation';
@@ -673,6 +674,7 @@ const nextConfig: NextConfig = {
   // Security headers
   headers() {
     return [
+      ...builderPreviewRouteHeaders,
       {
         source: HTML_DOCUMENT_ROUTE_SOURCE,
         headers: [

@@ -173,11 +173,15 @@ describe('BuilderPreviewCanvas', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('declares a private no-store and noindex preview route', () => {
+  it('keeps the cache-components-compatible page metadata-only and noindex', () => {
     const source = readFileSync(resolve(__dirname, 'page.tsx'), 'utf8');
 
-    expect(source).toContain("fetchCache = 'force-no-store'");
-    expect(source).toContain("dynamic = 'force-dynamic'");
+    expect(source).not.toMatch(
+      /export const (dynamic|fetchCache|revalidate)\b/
+    );
+    expect(source).not.toMatch(
+      /fetch\(|useMerchant|published_config|page_configs/
+    );
     expect(source).toContain('follow: false');
     expect(source).toContain('index: false');
   });
