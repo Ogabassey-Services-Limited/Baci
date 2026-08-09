@@ -86,6 +86,7 @@ describe('remediation case state storage', () => {
       createEmptyState: () => ({ version: 1 }),
       isValidState: (state) => state?.version === 1,
       path,
+      processIsAlive: () => false,
       unlink(target) {
         if (target === lockPath && staleUnlink) {
           staleUnlink = false;

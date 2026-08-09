@@ -53,6 +53,8 @@ export function createRemediationCaseStateStorage({
   processStartedAt: startedAt = processStartedAt,
   unlink = unlinkSync,
 }) {
+  const localProcessStartedAt = startedAt(process.pid);
+
   function read() {
     let content;
     try {
@@ -106,7 +108,7 @@ export function createRemediationCaseStateStorage({
         JSON.stringify({
           createdAt: new Date(nowMs).toISOString(),
           pid: process.pid,
-          processStartedAt: startedAt(process.pid),
+          processStartedAt: localProcessStartedAt,
           token,
         }),
         { flag: 'wx', mode: 0o600 }

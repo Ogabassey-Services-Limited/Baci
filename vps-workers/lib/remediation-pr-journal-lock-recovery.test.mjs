@@ -27,7 +27,11 @@ it('reclaims a stale PR journal lock after a worker crash', () => {
       token,
     })
   );
-  const journal = createRemediationPrJournal({ now: () => nowMs, path });
+  const journal = createRemediationPrJournal({
+    now: () => nowMs,
+    path,
+    processIsAlive: () => false,
+  });
 
   journal.record({
     candidate: {
@@ -57,7 +61,11 @@ it('does not reclaim an old lock held by a live owner', () => {
   });
   writeFileSync(`${lockPath}.owner-${token}`, owner);
   writeFileSync(lockPath, owner);
-  const journal = createRemediationPrJournal({ now: () => nowMs, path });
+  const journal = createRemediationPrJournal({
+    now: () => nowMs,
+    path,
+    processIsAlive: () => true,
+  });
 
   assert.throws(
     () =>
