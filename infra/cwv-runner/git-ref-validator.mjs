@@ -1,4 +1,16 @@
-const GIT_REF_PART = /^[^\x00-\x20~^:?*\\[\x7f/]+$/u;
+function validRefPart(part) {
+  if (Buffer.from(part).toString() !== part) return false;
+  for (const character of part) {
+    const codePoint = character.codePointAt(0);
+    if (
+      codePoint <= 0x20 ||
+      codePoint === 0x7f ||
+      '~^:?*[\\'.includes(character)
+    )
+      return false;
+  }
+  return true;
+}
 
 export function validGitRef(value) {
   if (
@@ -22,6 +34,6 @@ export function validGitRef(value) {
         !part.endsWith('.lock') &&
         !part.startsWith('-') &&
         !part.includes('@{') &&
-        Buffer.from(part).toString() === part && GIT_REF_PART.test(part)
+        validRefPart(part)
     );
 }

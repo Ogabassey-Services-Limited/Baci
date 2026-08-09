@@ -115,7 +115,10 @@ const field = (value, start, length) => {
   const end = bytes.indexOf(0);
   const used = end < 0 ? bytes : bytes.subarray(0, end);
   const text = used.toString('utf8');
-  if ((end >= 0 && !zeros(bytes.subarray(end))) || !Buffer.from(text).equals(used))
+  if (
+    (end >= 0 && !zeros(bytes.subarray(end))) ||
+    !Buffer.from(text).equals(used)
+  )
     fail('invalid tar utf8 field');
   return text;
 };

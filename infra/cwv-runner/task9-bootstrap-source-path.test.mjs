@@ -17,7 +17,13 @@ test('sealed parser accepts producer-valid UTF-8 source archive paths', () => {
   const bytes = Buffer.from('export {};\n');
   const archive = createSourceArchive([{ bytes, mode: '100644', path }]);
   assert.equal(
-    parseUstar(archive, [{ mode: '100644', path, sha256: createHash('sha256').update(bytes).digest('hex') }])[0].path,
+    parseUstar(archive, [
+      {
+        mode: '100644',
+        path,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      },
+    ])[0].path,
     path
   );
 });
