@@ -47,15 +47,15 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
     const object = verifiedObjects.get(`${cwd}\0${sha}`);
     if (object?.type !== 'commit') fail('source SHA must name a commit');
   }
-  const baseRows = authenticatedTreeRows(cwd, baseSha);
-  const reviewedRows = authenticatedTreeRows(cwd, reviewedHeadSha);
-  const mergedRows = authenticatedTreeRows(cwd, mergeSha);
-  const verifiedBlobs = verifyGitObjects(cwd, [...reviewedRows, ...mergedRows].map(({ objectId }) => objectId));
+  const baseRows = authenticatedTreeRows(cwd, baseSha, { verifyBlobs: false });
+  const reviewedRows = authenticatedTreeRows(cwd, reviewedHeadSha, { verifyBlobs: false });
+  const mergedRows = authenticatedTreeRows(cwd, mergeSha, { verifyBlobs: false });
   const baseByPath = new Map(baseRows.map((row) => [row.path, row]));
   const reviewedByPath = new Map(reviewedRows.map((row) => [row.path, row]));
   const mergedByPath = new Map(mergedRows.map((row) => [row.path, row]));
   const entries = [];
   const paths = [...new Set([...baseByPath.keys(), ...reviewedByPath.keys()])].sort(pathCompare);
+  const changed = [];
   for (const path of paths) {
     const base = baseByPath.get(path);
     const reviewed = reviewedByPath.get(path);
@@ -68,6 +68,13 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
     }
     const merged = mergedByPath.get(path);
     if (!reviewed || !merged || merged.path !== path) fail('ambiguous changed path');
+    changed.push({ merged, path, reviewed, status });
+  }
+  const verifiedBlobs = verifyGitObjects(
+    cwd,
+    changed.flatMap(({ merged, reviewed }) => [reviewed.objectId, merged.objectId])
+  );
+  for (const { merged, path, reviewed, status } of changed) {
     const entry = blobEntry(cwd, reviewed, verifiedBlobs);
     const mergedBytes = verifiedBlobs.get(`${cwd}\0${merged.objectId}`)?.bytes;
     if (!mergedBytes) fail('invalid Git blob');
@@ -78,7 +85,7 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
 }
 
 function sourceEntries(cwd, mergeSha) {
-  const rows = authenticatedTreeRows(cwd, mergeSha).filter(({ path }) => path.startsWith(PREFIX));
+  const rows = authenticatedTreeRows(cwd, mergeSha, { verifyBlobs: false }).filter(({ path }) => path.startsWith(PREFIX));
   const verified = verifyGitObjects(cwd, rows.map(({ objectId }) => objectId));
   const entries = rows.map((row) => blobEntry(cwd, row, verified));
   if (!entries.length || entries.some((entry) => !entry.path.startsWith(PREFIX))) fail('invalid source archive projection');
@@ -108,8 +115,8 @@ function atomicWrite(path, value) {
 }
 
 function policyForTree(cwd, reviewedHeadSha, mergeSha = reviewedHeadSha) {
-  const reviewed = authenticatedTreeRows(cwd, reviewedHeadSha).filter(({ path }) => path === `${PREFIX}policy.json`);
-  const merged = authenticatedTreeRows(cwd, mergeSha).filter(({ path }) => path === `${PREFIX}policy.json`);
+  const reviewed = authenticatedTreeRows(cwd, reviewedHeadSha, { verifyBlobs: false }).filter(({ path }) => path === `${PREFIX}policy.json`);
+  const merged = authenticatedTreeRows(cwd, mergeSha, { verifyBlobs: false }).filter(({ path }) => path === `${PREFIX}policy.json`);
   if (reviewed.length !== 1 || merged.length !== 1 || reviewed[0].path !== `${PREFIX}policy.json` || merged[0].path !== `${PREFIX}policy.json`) fail('ambiguous policy source');
   const verified = verifyGitObjects(cwd, [reviewed[0].objectId, merged[0].objectId]);
   const bytes = verified.get(`${cwd}\0${reviewed[0].objectId}`).bytes;

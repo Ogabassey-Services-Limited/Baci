@@ -6,7 +6,7 @@ const fail = (message) => {
   throw new TypeError(message);
 };
 
-export function verifyGitObjects(cwd, objectIds) {
+export function verifyGitObjects(cwd, objectIds, { includeBytes = true } = {}) {
   const ids = [...new Set(objectIds)];
   if (
     ids.some(
@@ -15,7 +15,12 @@ export function verifyGitObjects(cwd, objectIds) {
   )
     fail('malformed Git object response');
   const verified = new Map();
-  const output = git(cwd, ['cat-file', '--batch'], `${ids.join('\n')}\n`, null);
+  const output = git(
+    cwd,
+    ['cat-file', includeBytes ? '--batch' : '--batch-check'],
+    `${ids.join('\n')}\n`,
+    null
+  );
   let offset = 0;
   for (const objectId of ids) {
     const headerEnd = output.indexOf(0x0a, offset);
@@ -25,6 +30,18 @@ export function verifyGitObjects(cwd, objectIds) {
       .toString('utf8')
       .split(' ');
     const size = Number(sizeText);
+    if (
+      reported !== objectId ||
+      !/^(blob|commit|tree|tag)$/.test(type) ||
+      !Number.isSafeInteger(size) ||
+      size < 0
+    )
+      fail('malformed Git object response');
+    if (!includeBytes) {
+      verified.set(`${cwd}\0${objectId}`, { type, size });
+      offset = headerEnd + 1;
+      continue;
+    }
     const start = headerEnd + 1;
     if (
       reported !== objectId ||

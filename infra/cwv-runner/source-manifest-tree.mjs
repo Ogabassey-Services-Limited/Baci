@@ -25,7 +25,8 @@ function treeId(commit) {
 
 function listedTree(cwd, sha) {
   const output = git(cwd, ['ls-tree', '-r', '-t', '-z', sha], null, null);
-  const ids = [sha];
+  const blobIds = [];
+  const treeIds = [];
   const leaves = [];
   const trees = [];
   for (const record of output.toString('binary').split('\0').filter(Boolean)) {
@@ -41,17 +42,18 @@ function listedTree(cwd, sha) {
     const path = nameBytes.toString('utf8');
     if (!Buffer.from(path).equals(nameBytes)) fail('non-UTF-8 Git tree name');
     checkedPath(path);
-    ids.push(objectId);
     if (type === 'blob') {
       if (mode !== '100644' && mode !== '100755' && mode !== '120000')
         fail('unsupported Git tree mode');
+      blobIds.push(objectId);
       leaves.push({ mode, objectId, path });
     } else {
       if (mode !== '040000') fail('unsupported Git tree mode');
+      treeIds.push(objectId);
       trees.push({ mode: '40000', objectId, path });
     }
   }
-  return { ids, leaves, trees };
+  return { blobIds, leaves, treeIds, trees };
 }
 
 function walk(cwd, objects, objectId, prefix, leaves, trees) {
@@ -72,14 +74,15 @@ function walk(cwd, objects, objectId, prefix, leaves, trees) {
     const childId = object.bytes
       .subarray(nul + 1, nul + 1 + width)
       .toString('hex');
-    const child = objects.get(`${cwd}\0${childId}`);
-    if (!child) fail('malformed Git tree leaf');
     if (mode === '40000') {
+      const child = objects.get(`${cwd}\0${childId}`);
+      if (!child) fail('malformed Git tree leaf');
       if (child.type !== 'tree') fail('malformed Git tree object');
       trees.push({ mode, objectId: childId, path });
       walk(cwd, objects, childId, path, leaves, trees);
     } else if (mode === '100644' || mode === '100755' || mode === '120000') {
-      if (child.type !== 'blob') fail('malformed Git tree leaf');
+      const child = objects.get(`${cwd}\0${childId}`);
+      if (child?.type !== 'blob') fail('malformed Git tree leaf');
       leaves.push({ mode, objectId: childId, path });
     } else fail('unsupported Git tree mode');
     offset = nul + 1 + width;
@@ -107,12 +110,16 @@ function compareRows(listed, authenticated, label) {
     fail(`${label} differs from authenticated tree`);
 }
 
-export function authenticatedTreeRows(cwd, sha) {
+export function authenticatedTreeRows(cwd, sha, { verifyBlobs = true } = {}) {
   const commit = verifyGitObjects(cwd, [sha]).get(`${cwd}\0${sha}`);
   if (commit?.type !== 'commit') fail('source SHA must name a commit');
   const root = treeId(commit.bytes);
   const listed = listedTree(cwd, sha);
-  const objects = verifyGitObjects(cwd, [root, ...listed.ids]);
+  const treeObjects = verifyGitObjects(cwd, [root, ...listed.treeIds]);
+  const blobObjects = verifyGitObjects(cwd, listed.blobIds, {
+    includeBytes: verifyBlobs,
+  });
+  const objects = new Map([...treeObjects, ...blobObjects]);
   const leaves = [];
   const trees = [];
   walk(cwd, objects, root, '', leaves, trees);

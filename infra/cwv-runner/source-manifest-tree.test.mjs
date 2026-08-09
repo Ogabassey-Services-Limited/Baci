@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { deflateSync } from 'node:zlib';
 
 import { authenticatedTreeRows } from './source-manifest-tree.mjs';
 
@@ -34,6 +41,59 @@ test('walks authenticated nested tree bytes', () => {
         path,
       })),
       [{ mode: '100644', path: 'nested/file.txt' }]
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('can authenticate tree rows without hashing unchanged blob bytes', () => {
+  const root = mkdtempSync(join(tmpdir(), 'source-manifest-tree-blob-check-'));
+  try {
+    execFileSync('/usr/bin/git', ['init', '-q', root]);
+    writeFileSync(join(root, 'file.txt'), 'tree\n');
+    execFileSync('/usr/bin/git', ['-C', root, 'add', '.']);
+    execFileSync('/usr/bin/git', [
+      '-C',
+      root,
+      '-c',
+      'user.name=test',
+      '-c',
+      'user.email=test@invalid',
+      'commit',
+      '-qm',
+      'tree',
+    ]);
+    const sha = execFileSync(
+      '/usr/bin/git',
+      ['-C', root, 'rev-parse', 'HEAD'],
+      {
+        encoding: 'utf8',
+      }
+    ).trim();
+    const blob = execFileSync(
+      '/usr/bin/git',
+      ['-C', root, 'rev-parse', 'HEAD:file.txt'],
+      { encoding: 'utf8' }
+    ).trim();
+    const objectPath = join(
+      root,
+      '.git',
+      'objects',
+      blob.slice(0, 2),
+      blob.slice(2)
+    );
+    chmodSync(objectPath, 0o600);
+    writeFileSync(objectPath, deflateSync(Buffer.from('blob 5\0fake\n')));
+    assert.deepEqual(
+      authenticatedTreeRows(root, sha, { verifyBlobs: false }).map(
+        ({ path }) => path
+      ),
+      ['file.txt']
+    );
+    assert.throws(
+      () => authenticatedTreeRows(root, sha),
+      /Git object hash mismatch/
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
