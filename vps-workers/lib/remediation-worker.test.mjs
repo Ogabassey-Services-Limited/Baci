@@ -67,6 +67,26 @@ describe('remediation worker', () => {
     );
   });
 
+  it('does not let a caller override autofix lock authorization', async () => {
+    let loaded = false;
+
+    await assert.rejects(
+      runWorker({
+        candidateLoader: () => {
+          loaded = true;
+          return [];
+        },
+        env: { BACI_REMEDIATION_AUTOFIX_ENABLED: '1', NODE_ENV: 'test' },
+        lockCapabilityValidator: () => true,
+        remediationLock: {},
+        workerName: 'test-remediator',
+      }),
+      /global remediation flock/
+    );
+
+    assert.equal(loaded, false);
+  });
+
   it('caps configurable candidate work per cron tick', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-worker-cap-'));
     const attempted = [];

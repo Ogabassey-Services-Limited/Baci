@@ -26,20 +26,6 @@ describe('remediation case state storage', () => {
     );
   });
 
-  it('accepts a lock only through an explicit test-harness validator', () => {
-    const remediationLock = {};
-
-    const storage = createRemediationCaseStateStorage({
-      createEmptyState: () => ({ version: 1 }),
-      isValidState: (state) => state?.version === 1,
-      lockCapabilityValidator: (value) => value === remediationLock,
-      path: '/tmp/baci-test-remediation-lock.json',
-      remediationLock,
-    });
-
-    assert.deepEqual(storage.read(), { version: 1 });
-  });
-
   it('atomically persists a validated lifecycle snapshot', () => {
     const path = join(
       mkdtempSync(join(tmpdir(), 'baci-case-storage-')),

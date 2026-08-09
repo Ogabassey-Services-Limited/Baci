@@ -3,8 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { withTestRemediationLock } from '../lib/remediation-worker.test-harness.mjs';
-import { runVercelErrorRemediator } from './vercel-error-remediator.mjs';
+import { runVercelErrorRemediator } from './vercel-error-remediator.test-harness.mjs';
 
 const silentLogger = {
   error: () => undefined,
@@ -63,7 +62,6 @@ describe('vercel error remediator resilience', () => {
             throw new Error('worker interrupted');
           },
         },
-        ...withTestRemediationLock(),
       }),
       /worker interrupted/
     );
@@ -80,7 +78,6 @@ describe('vercel error remediator resilience', () => {
         VERCEL_ERROR_LOG_PATH: logPath,
       },
       logger: silentLogger,
-      ...withTestRemediationLock(),
     });
 
     assert.equal(retry.candidates.length, 0);

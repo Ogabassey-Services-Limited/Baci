@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { buildCodexRemediationPrompt } from './remediation-policy.mjs';
-import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
+import {
+  runRemediationWorker,
+  runRemediationWorkerWithGlobalCaseStateLock,
+} from './remediation-worker.test-harness.mjs';
 
 function candidate(overrides = {}) {
   return {
@@ -37,7 +40,7 @@ describe('remediation worker final recovery contracts', () => {
       };
     };
 
-    await runRemediationWorker({
+    await runRemediationWorkerWithGlobalCaseStateLock({
       autofixRunner: runner,
       candidateLoader: async () => [candidate()],
       env,
@@ -48,7 +51,7 @@ describe('remediation worker final recovery contracts', () => {
       lastSeen: '2026-08-09T10:02:00.000Z',
       occurrences: 3,
     });
-    const result = await runRemediationWorker({
+    const result = await runRemediationWorkerWithGlobalCaseStateLock({
       autofixRunner: runner,
       candidateLoader: async () => [newer],
       env,

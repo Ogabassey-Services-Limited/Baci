@@ -10,7 +10,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { assertCodexExecutionUsable } from './remediation-codex-output.mjs';
-import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
+import {
+  runRemediationWorker,
+  runRemediationWorkerWithGlobalCaseStateLock,
+} from './remediation-worker.test-harness.mjs';
 
 function createTestDirectory(t, prefix) {
   const directory = mkdtempSync(join(tmpdir(), prefix));
@@ -177,7 +180,7 @@ describe('remediation worker lifecycle', () => {
       },
     ];
 
-    await runRemediationWorker({
+    await runRemediationWorkerWithGlobalCaseStateLock({
       autofixRunner: runner,
       candidateLoader,
       env,
@@ -185,7 +188,7 @@ describe('remediation worker lifecycle', () => {
       workerName: 'test-remediator',
     });
     assert.equal(existsSync(lifecycleLock), false);
-    await runRemediationWorker({
+    await runRemediationWorkerWithGlobalCaseStateLock({
       autofixRunner: runner,
       candidateLoader,
       env,

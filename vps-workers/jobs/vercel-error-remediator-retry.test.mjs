@@ -3,8 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { withTestRemediationLock } from '../lib/remediation-worker.test-harness.mjs';
-import { runVercelErrorRemediator } from './vercel-error-remediator.mjs';
+import { runVercelErrorRemediator } from './vercel-error-remediator.test-harness.mjs';
 
 const silentLogger = {
   error: () => undefined,
@@ -46,19 +45,16 @@ describe('vercel error remediator retries', () => {
       env,
       logger: silentLogger,
       fetchFn: () => new Response('down', { status: 503 }),
-      ...withTestRemediationLock(),
     });
     const delivered = await runVercelErrorRemediator({
       autofixRunner,
       env,
       logger: silentLogger,
       fetchFn: () => new Response('', { status: 200 }),
-      ...withTestRemediationLock(),
     });
     const deduplicated = await runVercelErrorRemediator({
       env,
       logger: silentLogger,
-      ...withTestRemediationLock(),
     });
 
     assert.equal(failed.candidates.length, 1);
@@ -93,7 +89,6 @@ describe('vercel error remediator retries', () => {
       env,
       logger: silentLogger,
       now,
-      ...withTestRemediationLock(),
     });
     nowMs += 49;
     const retried = await runVercelErrorRemediator({
@@ -101,7 +96,6 @@ describe('vercel error remediator retries', () => {
       env,
       logger: silentLogger,
       now,
-      ...withTestRemediationLock(),
     });
     nowMs += 2;
     const eligibleAgain = await runVercelErrorRemediator({
@@ -109,7 +103,6 @@ describe('vercel error remediator retries', () => {
       env,
       logger: silentLogger,
       now,
-      ...withTestRemediationLock(),
     });
 
     assert.equal(blocked.candidates.length, 1);
