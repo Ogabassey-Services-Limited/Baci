@@ -18,6 +18,7 @@ const ENTRIES = Object.freeze({
   node: '100500',
   'node-provenance.json': '100400',
 });
+const MAX_ENTRY_BYTES = 16_777_216;
 const same = (left, right) =>
   left.dev === right.dev &&
   left.ino === right.ino &&
@@ -66,7 +67,10 @@ export function readPublishedTask9Files(
         if (
           !identity.isFile() ||
           identity.uid !== owner ||
-          identity.mode.toString(8) !== mode
+          identity.mode.toString(8) !== mode ||
+          !Number.isSafeInteger(identity.size) ||
+          identity.size < 0 ||
+          identity.size > MAX_ENTRY_BYTES
         )
           fail();
         const bytes = Buffer.alloc(identity.size);
@@ -115,6 +119,7 @@ export function readPublishedTask9Files(
           !same(handle.identity, path)
         )
           fail();
+        if (handle.identity.size > MAX_ENTRY_BYTES) fail();
         const bytes = Buffer.alloc(handle.identity.size);
         for (let offset = 0; offset < bytes.length; ) {
           const count = readSync(

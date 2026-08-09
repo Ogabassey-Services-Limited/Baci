@@ -281,6 +281,13 @@ export function generateTask9BootstrapBundle(
         reviewedEnvelopeSha256: envelopeSha256,
       });
       heldPayload.verify();
+      const finalEnvelope = readHeldTask9File(envelopePath, 0o400);
+      const finalEnvelopeDigest = readHeldTask9File(envelopeSha256Path, 0o400);
+      if (
+        !finalEnvelope.bytes.equals(heldEnvelope.bytes) ||
+        !finalEnvelopeDigest.bytes.equals(heldEnvelopeDigest.bytes)
+      )
+        fail('published envelope changed');
       return Object.freeze({
         bundleId,
         envelopePath,

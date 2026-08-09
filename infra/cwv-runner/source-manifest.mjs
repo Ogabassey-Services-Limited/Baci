@@ -38,7 +38,7 @@ const fail = (message) => {
 };
 const pathCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
 
-function git(cwd, args, encoding = 'utf8', input) {
+function git(cwd, args, input, encoding = 'utf8') {
   return execFileSync(TRUSTED_GIT, args, {
     cwd,
     encoding,
@@ -48,11 +48,11 @@ function git(cwd, args, encoding = 'utf8', input) {
   });
 }
 
-const verifiedObjects = new Set();
+const verifiedObjects = new Map();
 function verifyObjects(cwd, objectIds) {
   const ids = [...new Set(objectIds)].filter((id) => !verifiedObjects.has(`${cwd}\0${id}`));
   if (!ids.length) return;
-  const output = git(cwd, ['cat-file', '--batch'], null, `${ids.join('\n')}\n`);
+  const output = git(cwd, ['cat-file', '--batch'], `${ids.join('\n')}\n`, null);
   let offset = 0;
   for (const objectId of ids) {
     const headerEnd = output.indexOf(0x0a, offset);
@@ -65,7 +65,7 @@ function verifyObjects(cwd, objectIds) {
     const algorithm = objectId.length === 64 ? 'sha256' : 'sha1';
     const actual = createHash(algorithm).update(Buffer.concat([Buffer.from(`${type} ${size}\0`), bytes])).digest('hex');
     if (actual !== objectId) fail('Git object hash mismatch');
-    verifiedObjects.add(`${cwd}\0${objectId}`);
+    verifiedObjects.set(`${cwd}\0${objectId}`, { type, bytes: Buffer.from(bytes) });
     offset = start + size + 1;
   }
 }
@@ -89,15 +89,19 @@ function checkedMode(mode) {
 
 function objectBytes(cwd, objectId) {
   if (!/^[0-9a-f]{40,64}$/.test(objectId)) fail('invalid Git object id');
-  return git(cwd, ['cat-file', 'blob', objectId], null);
+  const key = `${cwd}\0${objectId}`;
+  if (!verifiedObjects.has(key)) verifyObjects(cwd, [objectId]);
+  const object = verifiedObjects.get(key);
+  if (!object || object.type !== 'blob') fail('invalid Git blob');
+  return Buffer.from(object.bytes);
 }
 
 function treeRows(cwd, sha, prefix = '') {
   checkedSha(sha, 'tree SHA');
-  const output = git(cwd, ['ls-tree', '-r', '-z', sha, '--', prefix], null);
+  const output = git(cwd, ['ls-tree', '-r', '-z', sha, '--', prefix], null, null);
   const rows = [];
   for (const item of output.toString('utf8').split('\0').filter(Boolean)) {
-    const match = /^(\d{6}) (\S+) ([0-9a-f]{40})\t(.+)$/.exec(item);
+    const match = /^(\d{6}) (\S+) ([0-9a-f]{40,64})\t(.+)$/.exec(item);
     if (!match) fail('malformed Git tree row');
     const [, mode, type, objectId, path] = match;
     checkedPath(path);
@@ -105,7 +109,13 @@ function treeRows(cwd, sha, prefix = '') {
     rows.push({ path, mode: checkedMode(mode), objectId });
   }
   const tree = git(cwd, ['rev-parse', `${sha}^{tree}`]).trim();
-  verifyObjects(cwd, [sha, tree, ...rows.map(({ objectId }) => objectId)]);
+  const directories = git(cwd, ['ls-tree', '-d', '-r', '-z', sha, '--', prefix], null, null)
+    .toString('utf8').split('\0').filter(Boolean).map((item) => {
+      const match = /^(\d{6}) tree ([0-9a-f]{40,64})\t(.+)$/.exec(item);
+      if (!match) fail('malformed Git tree row');
+      return match[2];
+    });
+  verifyObjects(cwd, [sha, tree, ...directories, ...rows.map(({ objectId }) => objectId)]);
   return rows.sort((left, right) => pathCompare(left.path, right.path));
 }
 
@@ -120,7 +130,7 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
   checkedSha(reviewedHeadSha, 'reviewed head SHA');
   checkedSha(mergeSha, 'merge SHA');
   verifyObjects(cwd, [baseSha, reviewedHeadSha, mergeSha]);
-  const output = git(cwd, ['diff', '--name-status', '-z', '--no-renames', baseSha, reviewedHeadSha], null);
+  const output = git(cwd, ['diff', '--name-status', '-z', '--no-renames', baseSha, reviewedHeadSha], null, null);
   const entries = [];
   for (let index = 0, fields = output.toString('utf8').split('\0'); index < fields.length - 1; index += 2) {
     const [status, path] = [fields[index], fields[index + 1]];
