@@ -14,9 +14,16 @@ import { describe, it } from 'node:test';
 import { runRemediationWorker } from './remediation-worker.mjs';
 
 function run(command, args, options = {}) {
+  const { env, ...spawnOptions } = options;
   const result = spawnSync(command, args, {
     encoding: 'utf8',
-    ...options,
+    ...spawnOptions,
+    env: {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
+      ...env,
+    },
   });
   assert.equal(
     result.status,
@@ -129,6 +136,8 @@ describe('remediation lifecycle end to end', () => {
       GIT_AUTHOR_NAME: 'Baci Remediator',
       GIT_COMMITTER_EMAIL: 'remediator@example.test',
       GIT_COMMITTER_NAME: 'Baci Remediator',
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
       PATH: `${sentinelDir}:${process.env.PATH}`,
       ZEPTOMAIL_TOKEN: '',
     };

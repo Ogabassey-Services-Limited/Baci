@@ -64,6 +64,28 @@ describe('remediation case state validation', () => {
       {
         ...valid,
         cases: {
+          [caseKey]: record,
+          another: { ...record, key: 'another' },
+        },
+      },
+      {
+        ...valid,
+        cases: {
+          [`${caseKey}k`]: { ...record, key: `${caseKey}k` },
+        },
+      },
+      {
+        ...valid,
+        cases: {
+          [caseKey]: {
+            ...record,
+            outcomes: [...record.outcomes, { ...record.outcomes[0] }],
+          },
+        },
+      },
+      {
+        ...valid,
+        cases: {
           [caseKey]: {
             ...record,
             samples: [{ source: 'sentry' }, { source: 'sentry' }],
@@ -93,6 +115,29 @@ describe('remediation case state validation', () => {
           [caseKey]: {
             ...record,
             samples: [{ source: 'sentry', unknown: 'value' }],
+          },
+        },
+      },
+      {
+        ...valid,
+        cases: {
+          [caseKey]: {
+            ...record,
+            samples: [{ ...record.samples[0], message: 'm'.repeat(1_001) }],
+          },
+        },
+      },
+      {
+        ...valid,
+        cases: {
+          [caseKey]: {
+            ...record,
+            samples: [
+              {
+                ...record.samples[0],
+                stackSummary: Array.from({ length: 33 }, () => 's'),
+              },
+            ],
           },
         },
       },
