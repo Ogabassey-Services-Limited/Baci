@@ -44,4 +44,21 @@ describe('builder design capability adapter', () => {
       )
     ).toBe(false);
   });
+
+  it('rejects explicit undefined nested members while allowing omitted optional members', () => {
+    expect(
+      builderDesignCapabilityAdapter.isPropValue('Features', 'features', [
+        { description: 'Fast delivery', title: 'Shipping' },
+      ])
+    ).toBe(true);
+    expect(
+      builderDesignCapabilityAdapter.isPropValue('Features', 'features', [
+        {
+          description: 'Fast delivery',
+          icon: undefined,
+          title: 'Shipping',
+        },
+      ])
+    ).toBe(false);
+  });
 });

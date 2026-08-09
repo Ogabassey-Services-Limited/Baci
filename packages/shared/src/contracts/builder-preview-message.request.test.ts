@@ -202,6 +202,26 @@ describe('builder preview bridge render candidates', () => {
         root,
       }).success
     ).toBe(false);
+    expect(
+      message({
+        content: [
+          {
+            props: {
+              features: [
+                {
+                  description: 'Fast delivery',
+                  icon: undefined,
+                  title: 'Shipping',
+                },
+              ],
+              id: 'features-1',
+            },
+            type: 'Features',
+          },
+        ],
+        root,
+      }).success
+    ).toBe(false);
   });
 
   it('rejects CSS injection and accepts constrained curated asset and gradient values', () => {

@@ -133,10 +133,9 @@ function isObjectForItem(
     return false;
   }
   return Object.entries(item.properties).every(([key, descriptor]) => {
+    if (!Object.keys(value).includes(key)) return descriptor.required !== true;
     const member = value[key];
-    return member === undefined
-      ? descriptor.required !== true
-      : isValueForProp(descriptor, member);
+    return member !== undefined && isValueForProp(descriptor, member);
   });
 }
 
