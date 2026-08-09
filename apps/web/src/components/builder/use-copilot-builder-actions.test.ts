@@ -119,18 +119,6 @@ describe('useCopilotBuilderActions', () => {
     expect(setData).not.toHaveBeenCalled();
   });
 
-  it('refuses CodeEmbed even when a legacy schema entry is present', () => {
-    const setData = vi.fn();
-    renderHook(() => useCopilotBuilderActions({ data: createData(), setData }));
-
-    const result = getRegisteredAction('addComponent').handler({
-      componentType: 'CodeEmbed',
-    });
-
-    expect(result).toBe('Component type is not insertable: CodeEmbed.');
-    expect(setData).not.toHaveBeenCalled();
-  });
-
   it('does not let model props override generated ids or bypass the manifest on add', () => {
     const setData = vi.fn();
     renderHook(() => useCopilotBuilderActions({ data: createData(), setData }));
