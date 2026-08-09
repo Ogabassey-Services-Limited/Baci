@@ -14,6 +14,17 @@ describe('getProductSchemaSpecKeyForLabel', () => {
     );
   });
 
+  it('maps legacy card-slot label variants to the card-slot field', () => {
+    for (const label of [
+      'Card-Slot',
+      'Card Slot Type',
+      'Memory Card Slot',
+      'SD Card Slot',
+    ]) {
+      expect(getProductSchemaSpecKeyForLabel(label)).toBe('card_slot_type');
+    }
+  });
+
   it('leaves product-specific labels available to the legacy label path', () => {
     expect(getProductSchemaSpecKeyForLabel('Sensor')).toBeUndefined();
     expect(getProductSchemaSpecKeyForLabel('Focal Length')).toBeUndefined();

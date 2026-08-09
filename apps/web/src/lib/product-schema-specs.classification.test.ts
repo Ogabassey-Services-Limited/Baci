@@ -34,6 +34,15 @@ describe('shouldIncludeProductSchemaSpec category classification', () => {
     ).toBe(true);
   });
 
+  it('uses a slug-only google-pixel category for mobile schema fields', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'google-pixel', categories: null },
+        { key: 'has_5g', value: true }
+      )
+    ).toBe(true);
+  });
+
   it('filters unsupported general values while retaining valid values', () => {
     const product = { category: 'Gaming', categories: null };
 

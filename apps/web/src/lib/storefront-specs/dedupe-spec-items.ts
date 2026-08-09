@@ -4,6 +4,7 @@ import type { ProductSpecItem } from './spec-data';
 
 interface DedupeSpecItemsOptions {
   omitUnsupportedValues?: boolean;
+  section?: string;
 }
 
 function getCanonicalSpecLabel(label: string) {
@@ -15,6 +16,16 @@ function getCanonicalSpecLabel(label: string) {
       .replace(/[^a-z0-9]+/g, ' ')
       .replace(/\s+/g, ' ')
   );
+}
+
+function getSpecItemIdentity(label: string, section?: string) {
+  const normalizedSection = (section || 'General')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  return `${normalizedSection}:${getCanonicalSpecLabel(label)}`;
 }
 
 function isUnknownSpecValue(value: string) {
@@ -35,12 +46,12 @@ export function dedupeSpecItems(
       return false;
     }
 
-    const label = getCanonicalSpecLabel(item.label);
-    if (labels.has(label)) {
+    const identity = getSpecItemIdentity(item.label, options.section);
+    if (labels.has(identity)) {
       return false;
     }
 
-    labels.add(label);
+    labels.add(identity);
     return true;
   });
 }

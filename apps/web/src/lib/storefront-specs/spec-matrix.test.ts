@@ -85,4 +85,26 @@ describe('buildProductComparisonMatrix', () => {
       ])
     );
   });
+
+  it('uses mobile rows for slug-only google-pixel comparison categories', () => {
+    const matrix = buildProductComparisonMatrix({
+      products: [
+        {
+          id: 'pixel',
+          name: 'Google Pixel 10',
+          category: 'google_pixel',
+          product_key_specs: { has_5g: true, ram_gb: 12 },
+        },
+      ],
+    });
+
+    expect(matrix.groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'Network',
+          rows: [{ label: '5G Support', values: ['Yes'], isDifferent: false }],
+        }),
+      ])
+    );
+  });
 });

@@ -33,4 +33,10 @@ describe('buildProductContextSpecFacts', () => {
       'platform: PlayStation 5',
     ]);
   });
+
+  it('uses mobile facts for a slug-only google-pixel context category', () => {
+    expect(
+      buildProductContextSpecFacts({ has_5g: true, ram_gb: 12 }, 'google-pixel')
+    ).toEqual(['5G Support: Yes', 'RAM: 12GB']);
+  });
 });

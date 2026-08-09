@@ -6,7 +6,11 @@ export type ProductSpecFamily = 'mobile' | 'computer' | 'camera' | 'general';
 export function getProductSpecFamily(
   categoryName: string | null | undefined
 ): ProductSpecFamily {
-  const normalized = categoryName?.trim().toLowerCase() || '';
+  const normalized = (categoryName ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ');
   const isAccessory = isAccessoryLikeCategory(normalized);
 
   // Camera families intentionally take precedence over the generic accessory

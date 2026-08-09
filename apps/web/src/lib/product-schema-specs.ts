@@ -153,6 +153,20 @@ export function shouldIncludeProductSchemaSpec(
   candidate: ProductSchemaSpecCandidate
 ) {
   const categoryNames = getProductCategoryNames(product);
+  const inferredSpecKey = candidate.label
+    ? getProductSchemaSpecKeyForLabel(candidate.label)
+    : undefined;
+  const canonicalSpecKey = candidate.key || inferredSpecKey;
+
+  // Capability data is authoritative over legacy labels. This must precede
+  // the mobile fast path because old PDP rows do not always retain their key.
+  if (
+    product.product_key_specs?.has_card_slot === false &&
+    canonicalSpecKey === 'card_slot_type'
+  ) {
+    return false;
+  }
+
   const productFamily = getProductSpecFamily(categoryNames[0]);
   const isMobileCategory =
     productFamily === 'mobile' ||
@@ -166,14 +180,7 @@ export function shouldIncludeProductSchemaSpec(
     return false;
   }
 
-  if (
-    candidate.key === 'card_slot_type' &&
-    product.product_key_specs?.has_card_slot === false
-  ) {
-    return false;
-  }
-
-  if (candidate.key === 'card_slot_type') {
+  if (canonicalSpecKey === 'card_slot_type') {
     return true;
   }
 
@@ -183,12 +190,8 @@ export function shouldIncludeProductSchemaSpec(
     : undefined;
   const isOperatingSystemLabel =
     normalizedLabel === 'operating system' || normalizedLabel === 'os';
-  const inferredSpecKey = candidate.label
-    ? getProductSchemaSpecKeyForLabel(candidate.label)
-    : undefined;
-
   if (productFamily === 'computer') {
-    const computerSpecKey = candidate.key || inferredSpecKey;
+    const computerSpecKey = canonicalSpecKey;
     if (
       computerSpecKey &&
       isComputerExcludedSpecKey(computerSpecKey) &&

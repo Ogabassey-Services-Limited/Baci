@@ -2,6 +2,7 @@ import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
 import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-precedence';
 import { buildDescriptionKeySpecs } from './build-description-key-specs';
 import { dedupeSpecItems } from './dedupe-spec-items';
+import { mergeSpecSections } from './merge-spec-sections';
 import { normalizeSpecItems } from './normalize-spec-items';
 import { normalizeSpecSections } from './normalize-spec-sections';
 import { buildDetailedSpecsFromKeySpecs } from './spec-key-specs';
@@ -79,56 +80,34 @@ function getFirstSupportedFallbackValue(...values: unknown[]) {
   return item?.value;
 }
 
-function mergeSpecSections(...sections: ProductSpecSection[][]) {
-  const merged: ProductSpecSection[] = [];
-  const visibleItems: ProductSpecItem[] = [];
-
-  for (const sectionGroup of sections) {
-    for (const section of sectionGroup) {
-      let existingSection = merged.find(
-        (entry) => entry.category === section.category
-      );
-
-      if (!existingSection) {
-        existingSection = {
-          category: section.category,
-          items: [],
-        };
-        merged.push(existingSection);
-      }
-
-      for (const item of dedupeSpecItems(section.items)) {
-        if (
-          dedupeSpecItems([...visibleItems, item]).length > visibleItems.length
-        ) {
-          visibleItems.push(item);
-          existingSection.items.push(item);
-        }
-      }
-    }
-  }
-
-  return merged.filter((section) => section.items.length > 0);
-}
-
-function filterNonDeviceSpecItems(
+function filterPdpSpecItems(
   items: ProductSpecItem[],
-  categoryName: string
+  categoryName: string,
+  productKeySpecs: ComparableProductKeySpecs | null | undefined
 ) {
   return items.filter((item) =>
     shouldIncludeProductSchemaSpec(
-      { category: categoryName, categories: null },
+      {
+        category: categoryName,
+        categories: null,
+        product_key_specs: productKeySpecs ?? undefined,
+      },
       { label: item.label, value: item.value }
     )
   );
 }
 
-function filterNonDeviceLegacySpecifications(
+function filterPdpLegacySpecifications(
   sections: ProductSpecSection[],
-  categoryName: string
+  categoryName: string,
+  productKeySpecs: ComparableProductKeySpecs | null | undefined
 ) {
   return sections.flatMap((section) => {
-    const items = filterNonDeviceSpecItems(section.items, categoryName);
+    const items = filterPdpSpecItems(
+      section.items,
+      categoryName,
+      productKeySpecs
+    );
 
     return items.length > 0 ? [{ ...section, items }] : [];
   });
@@ -174,9 +153,10 @@ function buildGeneralFallbackSpecs(
     { omitUnsupportedValues: true }
   );
 
-  return filterNonDeviceLegacySpecifications(
+  return filterPdpLegacySpecifications(
     [{ category: 'General', items }],
-    categoryName
+    categoryName,
+    source.product_key_specs
   );
 }
 
@@ -226,27 +206,21 @@ export function buildProductSpecData(source: SpecDataSource) {
         )
       : [];
 
-  const detailedSpecifications =
-    specFamily === 'camera' || specFamily === 'general'
-      ? filterNonDeviceLegacySpecifications(
-          normalizedDetailedSpecs,
-          sourceCategoryName
-        )
-      : normalizedDetailedSpecs;
-  const legacySpecifications =
-    specFamily === 'camera' || specFamily === 'general'
-      ? filterNonDeviceLegacySpecifications(
-          normalizedLegacySpecifications,
-          sourceCategoryName
-        )
-      : normalizedLegacySpecifications;
-  const descriptionSpecifications =
-    specFamily === 'camera' || specFamily === 'general'
-      ? filterNonDeviceLegacySpecifications(
-          descriptionKeySpecs,
-          sourceCategoryName
-        )
-      : descriptionKeySpecs;
+  const detailedSpecifications = filterPdpLegacySpecifications(
+    normalizedDetailedSpecs,
+    sourceCategoryName,
+    source.product_key_specs
+  );
+  const legacySpecifications = filterPdpLegacySpecifications(
+    normalizedLegacySpecifications,
+    sourceCategoryName,
+    source.product_key_specs
+  );
+  const descriptionSpecifications = filterPdpLegacySpecifications(
+    descriptionKeySpecs,
+    sourceCategoryName,
+    source.product_key_specs
+  );
 
   const storedSpecifications = mergeSpecSections(
     detailedSpecifications,
@@ -265,10 +239,11 @@ export function buildProductSpecData(source: SpecDataSource) {
     ? mergeSpecSections(descriptionSpecifications, structuredSpecs)
     : mergeSpecSections(structuredSpecs, descriptionSpecifications);
   const normalizedSummarySpecs = normalizeSpecItems(source.specs);
-  const summarySpecifications =
-    specFamily === 'camera' || specFamily === 'general'
-      ? filterNonDeviceSpecItems(normalizedSummarySpecs, sourceCategoryName)
-      : normalizedSummarySpecs;
+  const summarySpecifications = filterPdpSpecItems(
+    normalizedSummarySpecs,
+    sourceCategoryName,
+    source.product_key_specs
+  );
 
   const specs = dedupeSpecItems([
     ...summarySpecifications,

@@ -192,4 +192,55 @@ describe('buildProductSpecData', () => {
       },
     ]);
   });
+
+  it('retains same-label facts from distinct sections while stored facts win within each section', () => {
+    const result = buildProductSpecData({
+      category: 'Smartphones',
+      detailedSpecs: [
+        {
+          category: 'Display',
+          items: [{ label: 'Protection', value: 'Gorilla Glass Victus 2' }],
+        },
+        {
+          category: 'Body',
+          items: [{ label: 'Protection', value: 'IP68' }],
+        },
+      ],
+      product_key_specs: {
+        display_protection: 'Ceramic Shield',
+        ip_rating: 'IP69',
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Display',
+        items: [{ label: 'Protection', value: 'Gorilla Glass Victus 2' }],
+      },
+      {
+        category: 'Body',
+        items: [{ label: 'Protection', value: 'IP68' }],
+      },
+    ]);
+  });
+
+  it('uses the mobile taxonomy for a slug-only google-pixel PDP category', () => {
+    const result = buildProductSpecData({
+      categories: { slug: 'google-pixel' },
+      product_key_specs: { has_5g: true, ram_gb: 12 },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        {
+          category: 'Network',
+          items: [{ label: '5G Support', value: 'Yes' }],
+        },
+        {
+          category: 'Memory',
+          items: [{ label: 'RAM', value: '12GB' }],
+        },
+      ])
+    );
+  });
 });

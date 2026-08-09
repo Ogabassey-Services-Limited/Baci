@@ -33,4 +33,11 @@ describe('spec family classifier', () => {
     expect(getProductSpecFamily('Laptops')).toBe('computer');
     expect(getProductSpecFamily(undefined)).toBe('general');
   });
+
+  it('normalizes google-pixel slugs without promoting genuine accessories', () => {
+    expect(getProductSpecFamily('google-pixel')).toBe('mobile');
+    expect(getProductSpecFamily('google_pixel')).toBe('mobile');
+    expect(getProductSpecFamily('google-pixel-cases')).toBe('general');
+    expect(getProductSpecFamily('google_pixel_accessories')).toBe('general');
+  });
 });
