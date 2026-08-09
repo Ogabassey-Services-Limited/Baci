@@ -38,4 +38,42 @@ describe('retained remediation worktree lookup', () => {
 
     assert.equal(result, '');
   });
+
+  it('ignores a branch whose name shares the requested prefix', () => {
+    const runner = () => ({
+      status: 0,
+      stdout:
+        'worktree /worktrees/other\nHEAD deadbeef\nbranch refs/heads/codex/fix-abc1234\n',
+      stderr: '',
+    });
+
+    assert.equal(
+      findRetainedRemediationWorktree({
+        branch: 'codex/fix-abc123',
+        childEnv: {},
+        repoDir: '/repo',
+        runner,
+      }),
+      ''
+    );
+  });
+
+  it('fails closed when git cannot list worktrees', () => {
+    const runner = () => ({
+      status: 128,
+      stdout: '',
+      stderr: 'not a git repository',
+    });
+
+    assert.throws(
+      () =>
+        findRetainedRemediationWorktree({
+          branch: 'codex/fix-abc123',
+          childEnv: {},
+          repoDir: '/repo',
+          runner,
+        }),
+      /git worktree list --porcelain failed/
+    );
+  });
 });

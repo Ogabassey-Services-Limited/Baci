@@ -187,11 +187,16 @@ describe('remediation worker', () => {
     });
 
     assert.equal(attempted, false);
-    assert.deepEqual(result.actions[0], {
-      detail: 'latest event unavailable',
-      fingerprint: 'anr',
-      type: 'candidate_enrichment_failed',
-    });
+    assert.deepEqual(
+      result.actions.find(
+        (action) => action.type === 'candidate_enrichment_failed'
+      ),
+      {
+        detail: 'latest event unavailable',
+        fingerprint: 'anr',
+        type: 'candidate_enrichment_failed',
+      }
+    );
   });
 
   it('uses the pending candidate when evidence enrichment returns no object', async () => {

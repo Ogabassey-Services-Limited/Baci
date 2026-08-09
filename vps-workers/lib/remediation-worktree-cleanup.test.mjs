@@ -8,6 +8,13 @@ describe('remediation worktree cleanup', () => {
     const childEnv = { PATH: '/safe/bin' };
     const runner = (command, args, options) => {
       calls.push({ args, command, options });
+      if (args.join(' ') === 'worktree list --porcelain') {
+        return {
+          status: 0,
+          stdout: 'worktree /worktrees/completed\n',
+          stderr: '',
+        };
+      }
       return { status: 0, stdout: '', stderr: '' };
     };
 
@@ -20,7 +27,17 @@ describe('remediation worktree cleanup', () => {
 
     assert.deepEqual(calls, [
       {
+        args: ['worktree', 'list', '--porcelain'],
+        command: 'git',
+        options: { cwd: '/repo', env: childEnv, shell: false },
+      },
+      {
         args: ['worktree', 'remove', '--force', '/worktrees/completed'],
+        command: 'git',
+        options: { cwd: '/repo', env: childEnv, shell: false },
+      },
+      {
+        args: ['worktree', 'prune'],
         command: 'git',
         options: { cwd: '/repo', env: childEnv, shell: false },
       },
@@ -38,6 +55,44 @@ describe('remediation worktree cleanup', () => {
     });
 
     assert.deepEqual(calls, []);
+  });
+
+  it('does not remove an explicit worktree after its first cleanup unregisters it', () => {
+    const calls = [];
+    let registered = true;
+    const runner = (command, args, options) => {
+      calls.push({ args, command, options });
+      if (args.join(' ') === 'worktree list --porcelain') {
+        return {
+          status: 0,
+          stdout: registered ? 'worktree /worktrees/completed\n' : '',
+          stderr: '',
+        };
+      }
+      if (args.join(' ') === 'worktree remove --force /worktrees/completed') {
+        if (!registered) {
+          return { status: 1, stdout: '', stderr: 'worktree is missing' };
+        }
+        registered = false;
+      }
+      return { status: 0, stdout: '', stderr: '' };
+    };
+    const options = {
+      childEnv: {},
+      repoDir: '/repo',
+      runner,
+      worktreeDir: '/worktrees/completed',
+    };
+
+    assert.equal(cleanupRemediationWorktree(options), '/worktrees/completed');
+    assert.equal(cleanupRemediationWorktree(options), '');
+    assert.equal(
+      calls.filter(
+        ({ args }) =>
+          args.join(' ') === 'worktree remove --force /worktrees/completed'
+      ).length,
+      1
+    );
   });
 
   it('discovers and cleans the registered deterministic branch worktree', () => {
@@ -64,9 +119,10 @@ describe('remediation worktree cleanup', () => {
 
     assert.equal(result, '/worktrees/lost-pr-create');
     assert.equal(
-      calls.at(-1).args.join(' '),
+      calls.at(-2).args.join(' '),
       'worktree remove --force /worktrees/lost-pr-create'
     );
+    assert.equal(calls.at(-1).args.join(' '), 'worktree prune');
   });
 
   it('surfaces a cleanup failure instead of claiming the worktree was removed', () => {
