@@ -84,26 +84,58 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     'AI cannot select media until the asset pipeline is reviewed.'
   ),
   allow('Button', 'Call to action.', {
-    align: { enum: ['left', 'center', 'right'], type: 'enum' },
-    link: safeLink,
-    size: { enum: ['sm', 'default', 'lg'], type: 'enum' },
-    text: label(),
-    variant: { enum: ['primary', 'background', 'accent'], type: 'enum' },
+    align: {
+      default: 'center',
+      enum: ['left', 'center', 'right'],
+      type: 'enum',
+    },
+    link: { ...safeLink, default: '#' },
+    size: { default: 'default', enum: ['sm', 'default', 'lg'], type: 'enum' },
+    text: label('Click Me'),
+    variant: {
+      default: 'primary',
+      enum: ['primary', 'background', 'accent'],
+      type: 'enum',
+    },
   }),
   allow('ProductGrid', 'Catalog product collection.', {
-    columns: { maximum: 4, minimum: 2, type: 'number' },
-    limit: { maximum: 24, minimum: 1, type: 'number' },
-    showFilters: { type: 'boolean' },
+    columns: {
+      default: 3,
+      maximum: 4,
+      minimum: 2,
+      type: 'number',
+      wholeNumber: true,
+    },
+    limit: {
+      default: 6,
+      maximum: 24,
+      minimum: 1,
+      type: 'number',
+      wholeNumber: true,
+    },
+    showFilters: { default: true, type: 'boolean' },
     title: label('Featured products'),
   }),
   allow('Testimonial', 'Customer social proof.', {
     author: label('Name'),
     quote: copy('Add a customer quote.'),
-    rating: { maximum: 5, minimum: 0, type: 'number' },
+    rating: {
+      default: 0,
+      maximum: 5,
+      minimum: 0,
+      type: 'number',
+      wholeNumber: true,
+    },
     role: label('Role'),
   }),
   allow('Features', 'Feature benefit list.', {
-    columns: { maximum: 4, minimum: 2, type: 'number' },
+    columns: {
+      default: 3,
+      maximum: 4,
+      minimum: 2,
+      type: 'number',
+      wholeNumber: true,
+    },
     features: featureList,
     subtitle: copy(),
     title: label('Why choose us'),
@@ -115,7 +147,11 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     title: label('Newsletter signup'),
   }),
   allow('Spacer', 'Vertical rhythm.', {
-    height: { enum: ['small', 'medium', 'large', 'xlarge'], type: 'enum' },
+    height: {
+      default: 'medium',
+      enum: ['small', 'medium', 'large', 'xlarge'],
+      type: 'enum',
+    },
   }),
   allow(
     'Footer',
@@ -184,6 +220,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
   ),
   allow('FAQ', 'Frequently asked questions.', {
     items: {
+      default: [{ answer: 'Answer this question.', question: 'A question' }],
       item: {
         properties: {
           answer: { ...copy(), required: true },
@@ -195,9 +232,13 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
       minimumItems: 1,
       type: 'array',
     },
-    style: { enum: ['accordion', 'grid', 'list'], type: 'enum' },
+    style: {
+      default: 'accordion',
+      enum: ['accordion', 'grid', 'list'],
+      type: 'enum',
+    },
     subtitle: copy(),
-    title: label(),
+    title: label('Frequently Asked Questions'),
   }),
   deny(
     'AboutSection',
@@ -214,6 +255,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
   allow('LegalSection', 'Store policy copy.', {
     lastUpdated: label(),
     sections: {
+      default: [{ content: 'Policy details.', heading: 'Introduction' }],
       item: {
         properties: {
           content: { ...copy(), required: true },
@@ -225,7 +267,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
       minimumItems: 1,
       type: 'array',
     },
-    title: label(),
+    title: label('Privacy Policy'),
   }),
   deny(
     'CountdownTimer',

@@ -33,4 +33,10 @@ describe('getBuilderDesignCapabilityHash', () => {
     expect(getBuilderDesignCapabilityHash(changedToken)).not.toBe(base);
     expect(getBuilderDesignCapabilityHash(changedRefusal)).not.toBe(base);
   });
+
+  it('distinguishes refusal text that differs only by an astral Unicode character', () => {
+    expect(getBuilderDesignCapabilityHash({ refusal: 'Blocked 😀' })).not.toBe(
+      getBuilderDesignCapabilityHash({ refusal: 'Blocked 😁' })
+    );
+  });
 });

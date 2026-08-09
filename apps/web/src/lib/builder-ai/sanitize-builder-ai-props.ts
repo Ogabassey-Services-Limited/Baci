@@ -77,6 +77,28 @@ function hasSafeShape(shape: string, value: unknown): boolean {
       )
     );
   }
+  if (shape === 'faq-list') {
+    return (
+      Array.isArray(value) &&
+      value.every(
+        (item) =>
+          isRecord(item) &&
+          typeof item.question === 'string' &&
+          typeof item.answer === 'string'
+      )
+    );
+  }
+  if (shape === 'legal-section-list') {
+    return (
+      Array.isArray(value) &&
+      value.every(
+        (item) =>
+          isRecord(item) &&
+          typeof item.heading === 'string' &&
+          typeof item.content === 'string'
+      )
+    );
+  }
   return (
     typeof value === 'string' ||
     typeof value === 'boolean' ||

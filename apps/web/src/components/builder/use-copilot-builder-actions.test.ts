@@ -11,6 +11,7 @@ vi.mock('@copilotkit/react-core', () => ({
 
 vi.mock('./component-schema', () => ({
   COMPONENT_SCHEMA: {
+    CodeEmbed: { type: 'CodeEmbed' },
     Hero: { type: 'Hero' },
     ProductGrid: { type: 'ProductGrid' },
   },
@@ -118,6 +119,18 @@ describe('useCopilotBuilderActions', () => {
     expect(setData).not.toHaveBeenCalled();
   });
 
+  it('refuses CodeEmbed even when a legacy schema entry is present', () => {
+    const setData = vi.fn();
+    renderHook(() => useCopilotBuilderActions({ data: createData(), setData }));
+
+    const result = getRegisteredAction('addComponent').handler({
+      componentType: 'CodeEmbed',
+    });
+
+    expect(result).toBe('Component type is not insertable: CodeEmbed.');
+    expect(setData).not.toHaveBeenCalled();
+  });
+
   it('updates a component with parsed JSON props', () => {
     const setData = vi.fn();
     renderHook(() =>
@@ -158,6 +171,24 @@ describe('useCopilotBuilderActions', () => {
     expect(updateComponent.handler({ index: 0, updates: 'not-json' })).toBe(
       'Failed to parse updates JSON.'
     );
+    expect(setData).not.toHaveBeenCalled();
+  });
+
+  it('refuses updates to a refused component', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([{ props: { id: 'code-1' }, type: 'CodeEmbed' }]),
+        setData,
+      })
+    );
+
+    expect(
+      getRegisteredAction('updateComponent').handler({
+        index: 0,
+        updates: '{"code":"<script>"}',
+      })
+    ).toBe('Component type is not editable: CodeEmbed.');
     expect(setData).not.toHaveBeenCalled();
   });
 

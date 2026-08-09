@@ -1,5 +1,6 @@
 'use client';
 
+import { builderDesignCapabilities } from '@baci/shared/contracts';
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
 import type { Data } from '@puckeditor/core';
 import { COMPONENT_SCHEMA } from './component-schema';
@@ -7,6 +8,12 @@ import { COMPONENT_SCHEMA } from './component-schema';
 interface UseCopilotBuilderActionsProps {
   data: Data;
   setData: (data: Data) => void;
+}
+
+function findCapability(componentType: string) {
+  return builderDesignCapabilities.components.find(
+    (capability) => capability.componentType === componentType
+  );
 }
 
 /**
@@ -64,8 +71,10 @@ export function useCopilotBuilderActions({
       },
     ],
     handler: ({ componentType, position = -1, props }) => {
-      if (!Object.keys(COMPONENT_SCHEMA).includes(componentType)) {
-        return `Invalid component type: ${componentType}.`;
+      const capability = findCapability(componentType);
+      if (!capability) return `Invalid component type: ${componentType}.`;
+      if (!capability.aiInsertable) {
+        return `Component type is not insertable: ${componentType}.`;
       }
 
       let parsedProps = {};
@@ -122,6 +131,9 @@ export function useCopilotBuilderActions({
 
       if (index < 0 || index >= newContent.length) {
         return `Invalid index: ${index}. Component not found.`;
+      }
+      if (!findCapability(newContent[index].type)?.aiEditable) {
+        return `Component type is not editable: ${newContent[index].type}.`;
       }
 
       let parsedUpdates = {};

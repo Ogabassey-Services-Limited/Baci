@@ -1,3 +1,5 @@
+import { builderDesignCapabilities } from '@baci/shared/contracts';
+
 export type ComponentDefinition = {
   defaults?: Record<string, unknown>;
   editableProps: readonly string[];
@@ -5,7 +7,7 @@ export type ComponentDefinition = {
   protected?: boolean;
 };
 
-export const aiEditableComponents = {
+const legacyAiEditableComponents = {
   Features: {
     defaults: {
       columns: 3,
@@ -103,6 +105,37 @@ export const aiEditableComponents = {
     editableProps: ['align', 'content', 'title'],
     insertable: true,
   },
+} as const satisfies Record<string, ComponentDefinition>;
+
+const manifestAiEditableComponents = Object.fromEntries(
+  builderDesignCapabilities.components
+    .filter(
+      ({ aiEditable, componentType }) =>
+        aiEditable && !Object.hasOwn(legacyAiEditableComponents, componentType)
+    )
+    .map((capability) => {
+      const defaults = Object.fromEntries(
+        Object.entries(capability.props).flatMap(([property, descriptor]) =>
+          descriptor.default === undefined
+            ? []
+            : [[property, descriptor.default]]
+        )
+      );
+      return [
+        capability.componentType,
+        {
+          ...(Object.keys(defaults).length > 0 ? { defaults } : {}),
+          editableProps: Object.keys(capability.props),
+          insertable: capability.aiInsertable,
+          protected: capability.protected,
+        },
+      ];
+    })
+) as Record<string, ComponentDefinition>;
+
+export const aiEditableComponents = {
+  ...legacyAiEditableComponents,
+  ...manifestAiEditableComponents,
 } as const satisfies Record<string, ComponentDefinition>;
 
 export type AiEditableComponentType = keyof typeof aiEditableComponents;

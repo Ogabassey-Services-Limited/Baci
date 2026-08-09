@@ -16,7 +16,7 @@ export function getBuilderDesignCapabilityHash(value: unknown): string {
   let second = 0x01000193;
 
   for (const character of canonical) {
-    const code = character.charCodeAt(0);
+    const code = character.codePointAt(0) ?? 0;
     first = Math.imul(first ^ code, 0x01000193) >>> 0;
     second = Math.imul(second ^ code, 0x9e3779b1) >>> 0;
   }

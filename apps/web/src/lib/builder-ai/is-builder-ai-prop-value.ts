@@ -2,6 +2,10 @@ import { builderAiFeatureIconNames } from '@baci/shared/contracts';
 import { getBuilderAiPropShape } from './get-builder-ai-prop-shape';
 
 export const builderAiEnumProps: Record<string, readonly string[]> = {
+  'Button.align': ['left', 'center', 'right'],
+  'Button.size': ['sm', 'default', 'lg'],
+  'Button.variant': ['primary', 'background', 'accent'],
+  'FAQ.style': ['accordion', 'grid', 'list'],
   'Header.layout': [
     'logo-left-nav-center',
     'logo-left-nav-right',
@@ -13,6 +17,7 @@ export const builderAiEnumProps: Record<string, readonly string[]> = {
   'Hero.align': ['center', 'left', 'right'],
   'Hero.padding': ['large', 'medium', 'small'],
   'Text.align': ['center', 'left', 'right'],
+  'Spacer.height': ['small', 'medium', 'large', 'xlarge'],
 };
 
 export const builderAiNumberRanges: Record<
@@ -38,6 +43,11 @@ const booleanProps = new Set([
   'ProductGrid.showFilters',
 ]);
 const stringProps = new Set([
+  'Button.text',
+  'FAQ.subtitle',
+  'FAQ.title',
+  'LegalSection.lastUpdated',
+  'LegalSection.title',
   'Features.subtitle',
   'Features.title',
   'Footer.copyrightText',

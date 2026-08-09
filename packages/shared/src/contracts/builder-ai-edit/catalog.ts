@@ -24,6 +24,10 @@ const defaultOnlyInsertSchema = z.strictObject({
     'ProductGrid',
     'Testimonial',
     'Text',
+    'Button',
+    'Spacer',
+    'FAQ',
+    'LegalSection',
   ]),
 });
 

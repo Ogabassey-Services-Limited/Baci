@@ -34,20 +34,29 @@ describe('validateBuilderDesignCapabilities', () => {
     ).toThrow('Hero.title');
   });
 
+  it('rejects policy and structured descriptor drift', () => {
+    const drifted = structuredClone(builderDesignCapabilities);
+    const header = drifted.components.find(
+      ({ componentType }) => componentType === 'Header'
+    );
+    if (!header) throw new Error('Expected Header fixture');
+    header.aiInsertable = true;
+    header.props.navigationLinks.maximumItems = 99;
+    header.props.layout.enum = ['logo-center'];
+    header.placement.allowedCollections = ['content'];
+
+    expect(() =>
+      validateBuilderDesignCapabilities({ capabilities: drifted })
+    ).toThrow('Header');
+  });
+
   it('keeps legacy prompt and schema views within shared capability boundaries', () => {
     const refused = builderDesignCapabilities.components.find(
       ({ componentType }) => componentType === 'CodeEmbed'
     );
 
-    expect(Object.keys(COMPONENT_SCHEMA)).toEqual(
-      builderDesignCapabilities.components.map(
-        ({ componentType }) => componentType
-      )
-    );
-    expect(COMPONENT_SCHEMA.CodeEmbed).toMatchObject({
-      props: {},
-      refusal: refused?.refusal,
-    });
+    expect(COMPONENT_SCHEMA).not.toHaveProperty('CodeEmbed');
+    expect(refused?.refused).toBe(true);
     expect(BUILDER_GEMINI_SYSTEM_PROMPT).toContain('CodeEmbed: unsafe-code');
     expect(BUILDER_GEMINI_SYSTEM_PROMPT).toContain('Features: insert and edit');
   });

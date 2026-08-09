@@ -65,6 +65,20 @@ export function validateBuilderDesignCapabilities(
     }
   }
 
+  for (const capability of capabilities.components) {
+    const sharedCapability = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === capability.componentType
+    );
+    if (
+      !sharedCapability ||
+      JSON.stringify(capability) !== JSON.stringify(sharedCapability)
+    ) {
+      throw new Error(
+        `${capability.componentType} capability differs from the shared design contract.`
+      );
+    }
+  }
+
   return {
     classifiedComponentCount: capabilities.components.length,
     renderableComponentCount: capabilities.components.filter(

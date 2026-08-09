@@ -9,6 +9,7 @@ export type BuilderDesignProp = {
   minimumItems?: number;
   required?: boolean;
   type: string;
+  wholeNumber?: boolean;
 };
 export type BuilderDesignProps = Record<string, BuilderDesignProp>;
 export type BuilderDesignPlacement = {
@@ -126,8 +127,8 @@ export const headerProps: BuilderDesignProps = {
   sticky: { type: 'boolean' },
 };
 export const heroProps: BuilderDesignProps = {
-  align: { enum: ['center', 'left', 'right'], type: 'enum' },
-  ctaLink: safeLink,
+  align: { default: 'center', enum: ['center', 'left', 'right'], type: 'enum' },
+  ctaLink: { ...safeLink, default: '/products' },
   ctaText: label('Shop now'),
   overlay: { default: false, type: 'boolean' },
   padding: {
@@ -139,6 +140,7 @@ export const heroProps: BuilderDesignProps = {
   title: label('Featured collection'),
 };
 export const featureList: BuilderDesignProp = {
+  default: [{ description: 'Describe this benefit.', title: 'A benefit' }],
   item: {
     properties: {
       description: { ...copy(), required: true },
@@ -152,7 +154,7 @@ export const featureList: BuilderDesignProp = {
   type: 'array',
 };
 export const safeTextProps: BuilderDesignProps = {
-  align: { enum: ['center', 'left', 'right'], type: 'enum' },
+  align: { default: 'left', enum: ['center', 'left', 'right'], type: 'enum' },
   content: copy('Add supporting storefront copy here.'),
   title: label('About us'),
 };

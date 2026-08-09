@@ -3,6 +3,8 @@ import { isAiEditableComponent } from './is-ai-editable-component';
 
 export type BuilderAiPropShape =
   | 'feature-list'
+  | 'faq-list'
+  | 'legal-section-list'
   | 'link'
   | 'link-list'
   | 'primitive'
@@ -12,10 +14,13 @@ const structuredPropShapes: Record<
   string,
   Record<string, BuilderAiPropShape>
 > = {
+  Button: { link: 'url' },
+  FAQ: { items: 'faq-list' },
   Features: { features: 'feature-list' },
   Footer: { quickLinks: 'link-list' },
   Header: { ctaButton: 'link', navigationLinks: 'link-list' },
   Hero: { ctaLink: 'url' },
+  LegalSection: { sections: 'legal-section-list' },
 };
 
 export function getBuilderAiPropShape(
