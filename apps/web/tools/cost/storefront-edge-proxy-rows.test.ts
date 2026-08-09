@@ -129,6 +129,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     // Arrange
     const expectedPredicates = {
       'proxy:blog-query-canonical': 'legacy_blog_thumbnail_query',
+      'proxy:slug-blog-query-canonical': 'legacy_blog_thumbnail_query',
       'proxy:blog-category-canonical': 'legacy_blog_category_permalink',
       'proxy:blog-wordpress-probe': 'legacy_blog_wordpress_probe',
       'proxy:blog-spam-prefix': 'legacy_blog_spam_prefix',

@@ -152,6 +152,24 @@ const FEED_ROWS = Object.entries(STOREFRONT_FEED_ROUTES).map(
 
 /** Closed machine-readable storefront surface used by the Task 1A inventory. */
 export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
+  {
+    decision: 'edge_redirect',
+    id: 'proxy:retired-slug-machine-path',
+    methods: ['GET', 'HEAD'],
+    reason: 'retired_storefront_alias_redirect',
+    routePattern: '/{*machinePath?}',
+    sourceKind: 'proxy_path_class',
+    sourcePath: 'apps/web/src/proxy.ts',
+    hostCondition: {
+      hostKind: 'retired_platform_subdomain_alias',
+      precedence: 'before_path_decision',
+    },
+    pathCondition: {
+      firstSegmentNotIn: ['api'],
+      precedence: 'before_path_decision',
+      predicate: 'retired_alias_storefront_path',
+    },
+  },
   machineFamily(
     'machine:agent-auth-document',
     STOREFRONT_AGENT_ROUTES.authDoc,

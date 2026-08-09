@@ -10,7 +10,7 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:legacy-blog-host',
     '/{*path?}',
-    ['GET', 'HEAD'],
+    ['ANY'],
     'edge_redirect',
     'legacy_blog_hostname_redirect',
     {
@@ -133,7 +133,7 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:root-domain-current-slug',
     '/{currentSlug}/{*path?}',
-    ['GET', 'HEAD'],
+    ['ANY'],
     'edge_redirect',
     'current_storefront_custom_domain_redirect',
     {

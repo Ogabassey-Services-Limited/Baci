@@ -88,6 +88,19 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
+    'proxy:slug-blog-query-canonical',
+    '/{storefrontIdentifier}/blog/{*path?}?{legacyThumbnailQuery}',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'canonical_blog_query_normalization',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_blog_thumbnail_query',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:blog-category-canonical',
     '/blog/{legacyCategory}/{legacyPostSlug}',
     ['GET', 'HEAD'],
