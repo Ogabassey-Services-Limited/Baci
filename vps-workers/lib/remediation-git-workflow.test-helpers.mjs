@@ -22,6 +22,9 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
         timeout: options?.timeout,
       });
       const joined = [command, ...args].join(' ');
+      if (joined.includes('rev-list --count origin/main..HEAD')) {
+        return { status: 0, stdout: '0\n', stderr: '' };
+      }
       if (joined.includes('status --porcelain')) {
         return {
           status: 0,

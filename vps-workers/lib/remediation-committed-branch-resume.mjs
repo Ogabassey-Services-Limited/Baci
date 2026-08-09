@@ -1,0 +1,39 @@
+import { runRemediationChecked as runChecked } from './remediation-subprocess.mjs';
+import { cleanupRemediationWorktree } from './remediation-worktree-cleanup.mjs';
+
+export function resumeCommittedRemediationBranch({
+  prReconciler,
+  rootCommandOptions,
+  worktreeGitCommandOptions,
+  worktreeRemoteCommandOptions,
+}) {
+  const commitsAhead = runChecked(
+    'git',
+    ['rev-list', '--count', 'origin/main..HEAD'],
+    worktreeGitCommandOptions
+  ).trim();
+  if (!/^\d+$/.test(commitsAhead)) {
+    throw new Error(
+      'git rev-list --count origin/main..HEAD returned invalid output'
+    );
+  }
+  if (Number(commitsAhead) === 0) return null;
+
+  const { branch } = prReconciler;
+  runChecked(
+    'git',
+    ['-c', 'core.hooksPath=/dev/null', 'push', '-u', 'origin', branch],
+    worktreeRemoteCommandOptions
+  );
+  const prUrl = prReconciler.createOrReuseDraftPr();
+  const worktreeDir = worktreeGitCommandOptions.cwd;
+  cleanupRemediationWorktree({ ...rootCommandOptions, worktreeDir });
+
+  return {
+    branch,
+    changedFiles: [],
+    prUrl,
+    type: 'pr_opened',
+    worktreeDir,
+  };
+}

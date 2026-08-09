@@ -7,10 +7,10 @@ import {
 } from './remediation-codex-command.mjs';
 import {
   assertCodexExecutionUsable,
-  formatBoundedSubprocessOutput,
   redactCodexError,
   redactCodexOutput,
 } from './remediation-codex-output.mjs';
+import { resumeCommittedRemediationBranch } from './remediation-committed-branch-resume.mjs';
 import { createRemediationDraftPrReconciler } from './remediation-draft-pr-reconciliation.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
 import {
@@ -20,6 +20,7 @@ import {
 import { writeRemediationResultArtifact } from './remediation-result-artifact.mjs';
 import { findRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import { parseRemediationStatusFiles } from './remediation-status-files.mjs';
+import { runRemediationChecked as runChecked } from './remediation-subprocess.mjs';
 import { cleanupRemediationWorktree } from './remediation-worktree-cleanup.mjs';
 
 function defaultRunner(command, args, options) {
@@ -28,22 +29,6 @@ function defaultRunner(command, args, options) {
     maxBuffer: 10 * 1024 * 1024,
     ...options,
   });
-}
-
-function runChecked(command, args, options) {
-  const result = options.runner(command, args, {
-    cwd: options.cwd,
-    env: options.env,
-    shell: options.shell || false,
-    timeout: options.timeout,
-  });
-  if (result.error) throw redactCodexError(result.error);
-  if (result.status !== 0) {
-    throw new Error(
-      `${command} ${args.join(' ')} failed: ${formatBoundedSubprocessOutput(result)}`
-    );
-  }
-  return result.stdout || '';
 }
 
 function runCodexChecked(command, args, options) {
@@ -181,6 +166,15 @@ export function runRemediationAutofix({
       env: gitEnv,
       runner,
     };
+    const committedBranchResult =
+      retainedWorktreeDir &&
+      resumeCommittedRemediationBranch({
+        prReconciler,
+        rootCommandOptions,
+        worktreeGitCommandOptions,
+        worktreeRemoteCommandOptions,
+      });
+    if (committedBranchResult) return committedBranchResult;
     const codexCommand = buildRemediationCodexCommand({
       codexBin,
       env: commandEnv,
