@@ -24,6 +24,7 @@ vi.mock('@/lib/builder-ai/vercel-builder-ai-bootstrap', () => ({
   createBuilderAiVercelBootstrapClient: seams.client,
 }));
 
+import * as route from './route';
 import { BUILDER_AI_ATTESTATION_MAX_WORK_MS, maxDuration, POST } from './route';
 
 const runId = '11111111-1111-4111-8111-111111111111';
@@ -86,6 +87,11 @@ describe('POST /api/internal/builder-ai-attestation-smoke', () => {
     expect(maxDuration * 1000).toBeGreaterThan(
       BUILDER_AI_ATTESTATION_MAX_WORK_MS
     );
+  });
+
+  it('relies on the cache-components-compatible default runtime and dynamic behavior', () => {
+    expect(route).not.toHaveProperty('dynamic');
+    expect(route).not.toHaveProperty('runtime');
   });
 
   it('returns a correlated control-plane failure when the Vercel client is unavailable', async () => {
