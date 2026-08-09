@@ -4,10 +4,11 @@ import {
   builderPreviewMessageSchema,
   builderPreviewResponseSchema,
 } from './builder-preview-message';
+import { builderPreviewMessageSchema as publicBuilderPreviewMessageSchema } from './index';
 
 const validMessage = {
   candidateConfig: {
-    content: [{ props: { title: 'Welcome' }, type: 'Text' }],
+    content: [{ props: { id: 'text-1', title: 'Welcome' }, type: 'Text' }],
     root: { title: 'Home' },
   },
   capabilityHash: builderDesignCapabilities.capabilityHash,
@@ -24,6 +25,10 @@ const validMessage = {
 };
 
 describe('builder preview bridge contract', () => {
+  it('exports the render contract through the public contracts barrel', () => {
+    expect(publicBuilderPreviewMessageSchema).toBe(builderPreviewMessageSchema);
+  });
+
   it('accepts a versioned render message with canonical capabilities and a Puck candidate', () => {
     const result = builderPreviewMessageSchema.safeParse(validMessage);
 
@@ -97,6 +102,73 @@ describe('builder preview bridge contract', () => {
         candidateConfig: {
           content: [{ props: {}, type: 'UnregisteredComponent' }],
           root: {},
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts only reviewed manifest props for root Puck components', () => {
+    expect(
+      builderPreviewMessageSchema.safeParse({
+        ...validMessage,
+        candidateConfig: {
+          content: [
+            {
+              props: { id: 'button-1', link: '/collections/new', text: 'Shop' },
+              type: 'Button',
+            },
+          ],
+          root: {},
+        },
+      }).success
+    ).toBe(true);
+    expect(
+      builderPreviewMessageSchema.safeParse({
+        ...validMessage,
+        candidateConfig: {
+          content: [
+            {
+              props: { id: 'button-1', link: 'javascript:alert(1)' },
+              type: 'Button',
+            },
+          ],
+          root: {},
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      builderPreviewMessageSchema.safeParse({
+        ...validMessage,
+        candidateConfig: {
+          content: [
+            { props: { id: 'button-1', unreviewed: true }, type: 'Button' },
+          ],
+          root: {},
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects refused components and malformed identities in Puck zones', () => {
+    expect(
+      builderPreviewMessageSchema.safeParse({
+        ...validMessage,
+        candidateConfig: {
+          content: [{ props: { id: 'code-1' }, type: 'CodeEmbed' }],
+          root: {},
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      builderPreviewMessageSchema.safeParse({
+        ...validMessage,
+        candidateConfig: {
+          content: [{ props: { id: 'text-1' }, type: 'Text' }],
+          root: {},
+          zones: {
+            Aside: [{ props: { id: 'text-1' }, type: 'Text' }],
+            secondary: [{ props: { id: 'code-1' }, type: 'CodeEmbed' }],
+          },
         },
       }).success
     ).toBe(false);
