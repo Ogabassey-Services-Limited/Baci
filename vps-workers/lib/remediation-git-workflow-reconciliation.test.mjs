@@ -112,9 +112,8 @@ describe('remediation git workflow reconciliation', () => {
       assert.equal(retried.branch, retainedWorktree.branch);
       assert.equal(codexAttempts, 2);
       assert.equal(
-        calls.filter((call) =>
-          call.join(' ').startsWith('git worktree add')
-        ).length,
+        calls.filter((call) => call.join(' ').startsWith('git worktree add'))
+          .length,
         1
       );
       assert.equal(

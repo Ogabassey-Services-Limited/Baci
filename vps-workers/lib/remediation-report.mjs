@@ -9,7 +9,10 @@ function safe(value, length = 160) {
 function safeHttpsUrl(value) {
   try {
     const url = new URL(String(value || '').trim());
-    return url.protocol === 'https:' && url.hostname && !url.username && !url.password
+    return url.protocol === 'https:' &&
+      url.hostname &&
+      !url.username &&
+      !url.password
       ? `${url.origin}${url.pathname}`.slice(0, 500)
       : '';
   } catch {

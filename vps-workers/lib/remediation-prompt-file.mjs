@@ -5,7 +5,10 @@ import { buildCodexRemediationPrompt } from './remediation-policy.mjs';
 
 export function writeRemediationPrompt({ candidate, outputDir }) {
   mkdirSync(outputDir, { recursive: true });
-  const path = join(outputDir, `${remediationArtifactKeyFor(candidate)}.prompt.md`);
+  const path = join(
+    outputDir,
+    `${remediationArtifactKeyFor(candidate)}.prompt.md`
+  );
   writeFileSync(path, buildCodexRemediationPrompt({ candidate }));
   return path;
 }

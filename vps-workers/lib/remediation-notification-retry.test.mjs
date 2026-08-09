@@ -33,18 +33,30 @@ describe('remediation notification retry', () => {
   it('retains a notification when retry delivery fails', async () => {
     const acknowledgements = [];
     const result = await retryRemediationNotifications({
-      env: { BACI_REMEDIATION_NOTIFY_EMAILS: 'ops@example.com', ZEPTOMAIL_TOKEN: 'token' },
-      fetchFn: async () => { throw new Error('network unavailable'); },
+      env: {
+        BACI_REMEDIATION_NOTIFY_EMAILS: 'ops@example.com',
+        ZEPTOMAIL_TOKEN: 'token',
+      },
+      fetchFn: () => {
+        throw new Error('network unavailable');
+      },
       logger: { error: () => undefined },
       state: {
         acknowledgeNotification: (id) => acknowledgements.push(id),
-        notifications: () => [{ id: 'notice-2', report: { html: '<p>x</p>', subject: 'x', text: 'x' } }],
+        notifications: () => [
+          {
+            id: 'notice-2',
+            report: { html: '<p>x</p>', subject: 'x', text: 'x' },
+          },
+        ],
       },
       workerName: 'test-remediator',
     });
 
     assert.deepEqual(acknowledgements, []);
-    assert.deepEqual(result.actions, [{ detail: 'network unavailable', type: 'email_retry_failed' }]);
+    assert.deepEqual(result.actions, [
+      { detail: 'network unavailable', type: 'email_retry_failed' },
+    ]);
   });
 
   it('retains a notification when delivery is skipped', async () => {
@@ -55,12 +67,19 @@ describe('remediation notification retry', () => {
       logger: { error: () => undefined },
       state: {
         acknowledgeNotification: (id) => acknowledgements.push(id),
-        notifications: () => [{ id: 'notice-3', report: { html: '<p>x</p>', subject: 'x', text: 'x' } }],
+        notifications: () => [
+          {
+            id: 'notice-3',
+            report: { html: '<p>x</p>', subject: 'x', text: 'x' },
+          },
+        ],
       },
       workerName: 'test-remediator',
     });
 
     assert.deepEqual(acknowledgements, []);
-    assert.deepEqual(result.actions, [{ detail: 'notice-3', type: 'email_skipped' }]);
+    assert.deepEqual(result.actions, [
+      { detail: 'notice-3', type: 'email_skipped' },
+    ]);
   });
 });

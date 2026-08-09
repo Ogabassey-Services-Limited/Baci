@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
   linkSync,
   mkdirSync,
@@ -107,10 +107,12 @@ function processIsAlive(pid) {
 
 function processStartedAt(pid) {
   try {
-    return execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
-      encoding: 'utf8',
-      timeout: 1_000,
-    }).trim() || null;
+    return (
+      execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+        encoding: 'utf8',
+        timeout: 1_000,
+      }).trim() || null
+    );
   } catch {
     return null;
   }
@@ -165,7 +167,8 @@ function acquireLock(path, nowMs, isAlive, startedAt) {
     } catch (error) {
       releaseOwnerPath(ownerPath);
       if (error?.code !== 'EEXIST') throw error;
-      const stale = attempt === 0 ? staleOwner(path, nowMs, isAlive, startedAt) : null;
+      const stale =
+        attempt === 0 ? staleOwner(path, nowMs, isAlive, startedAt) : null;
       if (stale) {
         unlinkSync(lockPath);
         releaseOwnerPath(`${lockPath}.owner-${stale.token}`);
@@ -230,20 +233,30 @@ export function createRemediationPrJournal({
         observation: safe(rawEntry.observation, 120),
         prUrl: safe(rawEntry.prUrl),
       };
-      withLock(path, now(), () =>
-        persist(path, [
-          ...read(path).filter((item) => item.caseKey !== entry.caseKey),
-          entry,
-        ]), isAlive, startedAt
+      withLock(
+        path,
+        now(),
+        () =>
+          persist(path, [
+            ...read(path).filter((item) => item.caseKey !== entry.caseKey),
+            entry,
+          ]),
+        isAlive,
+        startedAt
       );
       return entry;
     },
     clear(caseKey) {
-      withLock(path, now(), () =>
-        persist(
-          path,
-          read(path).filter((entry) => entry.caseKey !== caseKey)
-        ), isAlive, startedAt
+      withLock(
+        path,
+        now(),
+        () =>
+          persist(
+            path,
+            read(path).filter((entry) => entry.caseKey !== caseKey)
+          ),
+        isAlive,
+        startedAt
       );
     },
   };

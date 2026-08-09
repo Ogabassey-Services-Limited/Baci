@@ -25,7 +25,10 @@ const boundedSentryIdentity = (value, length) => {
 const safeHttpsUrl = (value) => {
   try {
     const url = new URL(String(value || '').trim());
-    return url.protocol === 'https:' && url.hostname && !url.username && !url.password
+    return url.protocol === 'https:' &&
+      url.hostname &&
+      !url.username &&
+      !url.password
       ? `${url.origin}${url.pathname}`.slice(0, 500)
       : '';
   } catch {
@@ -50,28 +53,33 @@ function boundedCaseContext(value) {
           index,
           item,
           observedAt:
-            typeof item?.lastSeen === 'string' ? Date.parse(item.lastSeen) : Number.NaN,
+            typeof item?.lastSeen === 'string'
+              ? Date.parse(item.lastSeen)
+              : Number.NaN,
         }))
         .filter(({ observedAt }) => Number.isFinite(observedAt))
-        .sort((left, right) => right.observedAt - left.observedAt || left.index - right.index)
+        .sort(
+          (left, right) =>
+            right.observedAt - left.observedAt || left.index - right.index
+        )
         .slice(0, MAX_LIFECYCLE_CONTEXT)
         .map(({ item }) => item)
     : [];
   return {
     cases: cases.map((item) => ({
-          fingerprint: boundedEvidence(item?.fingerprint, 80),
-          lastSeen: boundedEvidence(item?.lastSeen, 80),
-          outcomes: Array.isArray(item?.outcomes)
-            ? item.outcomes.slice(-MAX_LIFECYCLE_CONTEXT).map((outcome) => ({
-                at: boundedEvidence(outcome?.at, 80),
-                prUrl: safeHttpsUrl(outcome?.prUrl),
-                type: boundedEvidence(outcome?.type, 80),
-              }))
-            : [],
-          recurrenceCount: Number(item?.recurrenceCount) || 0,
-          status: boundedEvidence(item?.status, 40),
-          totalObservations: Number(item?.totalObservations) || 0,
-        })),
+      fingerprint: boundedEvidence(item?.fingerprint, 80),
+      lastSeen: boundedEvidence(item?.lastSeen, 80),
+      outcomes: Array.isArray(item?.outcomes)
+        ? item.outcomes.slice(-MAX_LIFECYCLE_CONTEXT).map((outcome) => ({
+            at: boundedEvidence(outcome?.at, 80),
+            prUrl: safeHttpsUrl(outcome?.prUrl),
+            type: boundedEvidence(outcome?.type, 80),
+          }))
+        : [],
+      recurrenceCount: Number(item?.recurrenceCount) || 0,
+      status: boundedEvidence(item?.status, 40),
+      totalObservations: Number(item?.totalObservations) || 0,
+    })),
     category: boundedEvidence(context.category, 80),
   };
 }
@@ -85,10 +93,9 @@ function boundedCurrentLifecycle(candidate) {
     outcomes: Array.isArray(candidate?.history)
       ? candidate.history.slice(-MAX_LIFECYCLE_CONTEXT).map((outcome) => ({
           at: boundedEvidence(outcome?.at, 80),
-          detail:
-            Object.hasOwn(SAFE_OUTCOME_DETAILS, outcome?.type)
-              ? SAFE_OUTCOME_DETAILS[outcome.type]
-              : 'outcome detail withheld',
+          detail: Object.hasOwn(SAFE_OUTCOME_DETAILS, outcome?.type)
+            ? SAFE_OUTCOME_DETAILS[outcome.type]
+            : 'outcome detail withheld',
           type: boundedEvidence(outcome?.type, 80),
         }))
       : [],

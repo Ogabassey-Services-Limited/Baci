@@ -35,11 +35,11 @@ export function createRemediationDraftPrStatusResolver({
     }
     let output;
     try {
-      output = runner(
-        ghBin,
-        ['pr', 'view', url, '--json', 'state,mergedAt'],
-        { encoding: 'utf8', shell: false, timeout }
-      );
+      output = runner(ghBin, ['pr', 'view', url, '--json', 'state,mergedAt'], {
+        encoding: 'utf8',
+        shell: false,
+        timeout,
+      });
     } catch (error) {
       throw redactCodexError(error);
     }

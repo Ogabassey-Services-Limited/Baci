@@ -96,8 +96,15 @@ it('reclaims a stale journal lock after its PID has been reused', () => {
   });
 
   journal.record({
-    candidate: { caseKey: 'sentry:sentry_issue:pid-reuse', fingerprint: 'pid-reuse', observationMarker: '2026-08-09T10:00:00.000Z' },
-    result: { branch: 'codex/fix-pid-reuse', prUrl: 'https://github.com/baci/baci/pull/90' },
+    candidate: {
+      caseKey: 'sentry:sentry_issue:pid-reuse',
+      fingerprint: 'pid-reuse',
+      observationMarker: '2026-08-09T10:00:00.000Z',
+    },
+    result: {
+      branch: 'codex/fix-pid-reuse',
+      prUrl: 'https://github.com/baci/baci/pull/90',
+    },
   });
 
   assert.equal(journal.entries().length, 1);

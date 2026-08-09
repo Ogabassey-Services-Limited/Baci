@@ -13,12 +13,12 @@ import {
 } from './remediation-codex-output.mjs';
 import { createRemediationDraftPrReconciler } from './remediation-draft-pr-reconciliation.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
-import { hasRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import {
   buildCodexRemediationPrompt,
   evaluateMergePolicy,
 } from './remediation-policy.mjs';
 import { writeRemediationResultArtifact } from './remediation-result-artifact.mjs';
+import { hasRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import { parseRemediationStatusFiles } from './remediation-status-files.mjs';
 
 function defaultRunner(command, args, options) {

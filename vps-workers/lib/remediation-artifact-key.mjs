@@ -11,6 +11,9 @@ export function remediationArtifactKeyFor(candidate) {
     `${candidate?.source || 'unknown'}:${candidate?.category || 'unknown'}:${candidate?.fingerprint || 'unknown'}`;
   const artifactKey = safeArtifactKey(caseKey);
   if (artifactKey.length <= MAX_ARTIFACT_KEY_LENGTH) return artifactKey;
-  const suffix = createHash('sha256').update(artifactKey).digest('hex').slice(0, 16);
+  const suffix = createHash('sha256')
+    .update(artifactKey)
+    .digest('hex')
+    .slice(0, 16);
   return `${artifactKey.slice(0, MAX_ARTIFACT_KEY_LENGTH - suffix.length - 1)}-${suffix}`;
 }

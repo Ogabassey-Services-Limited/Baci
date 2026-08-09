@@ -25,9 +25,7 @@ export function reconcileStoredDraftPrs({
     MAX_DRAFT_PR_RECONCILIATIONS
   );
   const drafts = Object.values(storage.read().cases)
-    .filter(
-      (item) => requestedCaseKeys.has(item.key) && Boolean(item.draftPr)
-    )
+    .filter((item) => requestedCaseKeys.has(item.key) && Boolean(item.draftPr))
     .sort((left, right) => right.lastSeen.localeCompare(left.lastSeen))
     .slice(0, maximum)
     .map((item) => ({
@@ -47,36 +45,40 @@ export function reconcileStoredDraftPrs({
     }
   });
   const nowMs = now();
-  return storage.withLock(nowMs, { failed: drafts.length, transitioned: 0 }, (state) => {
-    let failed = 0;
-    let transitioned = 0;
-    for (const draft of reconciled) {
-      const item = state.cases[draft.caseKey];
-      if (
-        !item?.draftPr ||
-        item.draftPr.url !== draft.url ||
-        item.draftPr.openedAt !== draft.openedAt
-      ) {
-        continue;
+  return storage.withLock(
+    nowMs,
+    { failed: drafts.length, transitioned: 0 },
+    (state) => {
+      let failed = 0;
+      let transitioned = 0;
+      for (const draft of reconciled) {
+        const item = state.cases[draft.caseKey];
+        if (
+          !item?.draftPr ||
+          item.draftPr.url !== draft.url ||
+          item.draftPr.openedAt !== draft.openedAt
+        ) {
+          continue;
+        }
+        if (draft.status === 'error') {
+          failed += 1;
+          continue;
+        }
+        if (draft.status === 'open') continue;
+        item.draftPr = null;
+        item.status = 'open';
+        item.outcomes = [
+          ...item.outcomes,
+          {
+            at: new Date(nowMs).toISOString(),
+            detail: `GitHub reported linked draft pull request ${draft.status}`,
+            type: `draft_pr_${draft.status}`,
+          },
+        ].slice(-maxOutcomes);
+        transitioned += 1;
       }
-      if (draft.status === 'error') {
-        failed += 1;
-        continue;
-      }
-      if (draft.status === 'open') continue;
-      item.draftPr = null;
-      item.status = 'open';
-      item.outcomes = [
-        ...item.outcomes,
-        {
-          at: new Date(nowMs).toISOString(),
-          detail: `GitHub reported linked draft pull request ${draft.status}`,
-          type: `draft_pr_${draft.status}`,
-        },
-      ].slice(-maxOutcomes);
-      transitioned += 1;
+      if (transitioned > 0) storage.persist(state);
+      return { failed, transitioned };
     }
-    if (transitioned > 0) storage.persist(state);
-    return { failed, transitioned };
-  });
+  );
 }

@@ -67,8 +67,5 @@ it('distinguishes occurrence growth observed at the same timestamp', () => {
     remediationObservationFor(firstObservation),
     '2026-08-09T10:00:00.000Z:2'
   );
-  assert.equal(
-    matchingHandledEntry(handled, recurrence),
-    null
-  );
+  assert.equal(matchingHandledEntry(handled, recurrence), null);
 });

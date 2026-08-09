@@ -35,7 +35,9 @@ export function createRemediationFallbackStore(path) {
     for (const file of files) {
       if (!file.endsWith('.json')) continue;
       try {
-        const marker = JSON.parse(readFileSync(`${markerDirectory}/${file}`, 'utf8'));
+        const marker = JSON.parse(
+          readFileSync(`${markerDirectory}/${file}`, 'utf8')
+        );
         if (Date.parse(marker?.recordedAt) < cutoff) {
           unlinkSync(`${markerDirectory}/${file}`);
         }

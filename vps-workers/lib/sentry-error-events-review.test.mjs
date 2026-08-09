@@ -41,7 +41,10 @@ describe('Sentry event enrichment review regressions', () => {
         fetchFn: async () => new Response('provider secret', { status: 429 }),
       }),
       (error) => {
-        assert.match(error.message, /Sentry latest-event request failed with HTTP 429/);
+        assert.match(
+          error.message,
+          /Sentry latest-event request failed with HTTP 429/
+        );
         assert.doesNotMatch(error.message, /provider secret/);
         return true;
       }
