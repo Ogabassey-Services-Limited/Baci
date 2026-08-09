@@ -20,12 +20,12 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "4095df459149ecbae3a0f3992c0f9b50503767f3",
+  "originMainSha": "7f9caa4ac5b6601ae13ebb25b2e8aa385df6afaa",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
-  "routeTreeSha256": "0bf545fe4ab502a664729482a5fb047ab1de0e50d74f77116b3a25778f3f5121",
+  "routeTreeSha256": "615cc5374de1e62c6b3fe871b152c33f8fb7c29147e96d87040cf4af96b2dda0",
   "routingProxyInputSha256": "f754025e48cd20a28df9d2fe396ec8691091ab5f1e1e0f66a98fcd4e1b067169",
   "rows": [
     {
@@ -218,6 +218,20 @@
       "routePattern": "/api/orders/{id}",
       "sourceKind": "api_route",
       "sourcePath": "apps/web/src/app/api/orders/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/route.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -1080,6 +1094,16 @@
       "routePattern": "/api/wishlist",
       "sourceKind": "api_route",
       "sourcePath": "apps/web/src/app/api/wishlist/route.ts"
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "api:unlisted",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "closed_api_inventory_default",
+      "routePattern": "/api/{*unlisted?}",
+      "sourceKind": "api_family"
     },
     {
       "decision": "origin_dynamic",
@@ -2126,16 +2150,6 @@
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/storefront/[legacySlug]/swap/route.ts"
     },
     {
-      "decision": "edge_terminal",
-      "id": "api:unlisted",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "closed_api_inventory_default",
-      "routePattern": "/api/{*unlisted?}",
-      "sourceKind": "api_family"
-    },
-    {
       "decision": "origin_dynamic",
       "id": "request-override:draft-mode-root",
       "methods": [
@@ -2537,27 +2551,7 @@
       ],
       "reason": "query_dependent_storefront_render",
       "requestCondition": {
-        "anyQueryKeyPresent": [
-          "brand",
-          "brands",
-          "color",
-          "colors",
-          "condition",
-          "category",
-          "displaySize",
-          "displayType",
-          "maxPrice",
-          "minPrice",
-          "page",
-          "q",
-          "query",
-          "ram",
-          "search",
-          "simType",
-          "storage",
-          "variantId",
-          "variant_id"
-        ],
+        "anyQueryPresent": true,
         "matchedStorefrontEntrypointId": "storefront:(catalog)/(pdp)/products/[productSlug]/page.tsx",
         "precedence": "after_entrypoint_resolution_before_decision"
       },
@@ -2574,27 +2568,7 @@
       ],
       "reason": "query_dependent_storefront_render",
       "requestCondition": {
-        "anyQueryKeyPresent": [
-          "brand",
-          "brands",
-          "color",
-          "colors",
-          "condition",
-          "category",
-          "displaySize",
-          "displayType",
-          "maxPrice",
-          "minPrice",
-          "page",
-          "q",
-          "query",
-          "ram",
-          "search",
-          "simType",
-          "storage",
-          "variantId",
-          "variant_id"
-        ],
+        "anyQueryPresent": true,
         "matchedStorefrontEntrypointId": "storefront:(catalog)/(pdp)/[category]/[productSlug]/page.tsx",
         "precedence": "after_entrypoint_resolution_before_decision"
       },
@@ -3430,8 +3404,7 @@
       "id": "proxy:root-domain-retired-slug-markdown",
       "methods": [
         "GET",
-        "HEAD",
-        "OPTIONS"
+        "HEAD"
       ],
       "reason": "retired_storefront_alias_redirect",
       "routePattern": "/{retiredSlug}/{*storefrontMarkdownPath}.md",
@@ -4310,36 +4283,38 @@
       "sourcePath": "apps/web/src/app/sitemap.ts"
     },
     {
-      "decision": "edge_release",
+      "decision": "origin_dynamic",
       "id": "proxy:root-sitemap",
       "methods": [
         "GET",
         "HEAD",
         "OPTIONS"
       ],
-      "reason": "storefront_root_sitemap_rewrite",
+      "reason": "storefront_root_sitemap_requires_origin",
       "routePattern": "/sitemap.xml",
       "sourceKind": "proxy_path_class",
       "hostCondition": {
         "hostKind": "custom_domain",
         "precedence": "before_path_decision"
-      }
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
     },
     {
-      "decision": "edge_release",
+      "decision": "origin_dynamic",
       "id": "proxy:subdomain-sitemap",
       "methods": [
         "GET",
         "HEAD",
         "OPTIONS"
       ],
-      "reason": "storefront_root_sitemap_rewrite",
+      "reason": "storefront_root_sitemap_requires_origin",
       "routePattern": "/sitemap.xml",
       "sourceKind": "proxy_path_class",
       "hostCondition": {
         "hostKind": "platform_subdomain",
         "precedence": "before_path_decision"
-      }
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -4573,5 +4548,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "39790a942d7426b9dda0a481086e9171231aeb20fc638b853b66bfeba190ce6c"
+  "inventorySha256": "0a68fbb7232d3d2aef660a2f9da96b4470c6e25a2b81dec0676198996f5bf4cb"
 }
