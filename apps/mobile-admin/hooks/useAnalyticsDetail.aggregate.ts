@@ -22,14 +22,20 @@ interface AggregateAnalyticsDetailArgs {
 function resolveOrderItemCostPrice(item: OrderItemWithJoins) {
   const variant = getJoinedRecord(item.product_variants);
   const product = getJoinedRecord(item.products);
-  const orderItemCostPrice =
-    item.cost_price == null ? null : Number(item.cost_price);
-  const variantCostPrice =
-    variant?.cost_price == null ? null : Number(variant.cost_price);
-  const productCostPrice =
-    product?.cost_price == null ? null : Number(product.cost_price);
+  const toFiniteCost = (value: number | string | null | undefined) => {
+    if (value == null || (typeof value === 'string' && value.trim() === '')) {
+      return null;
+    }
 
-  return orderItemCostPrice ?? variantCostPrice ?? productCostPrice ?? 0;
+    const cost = Number(value);
+    return Number.isFinite(cost) ? cost : null;
+  };
+
+  return (
+    toFiniteCost(item.cost_price) ??
+    toFiniteCost(variant?.cost_price) ??
+    toFiniteCost(product?.cost_price)
+  );
 }
 
 export function aggregateAnalyticsDetail({
@@ -80,8 +86,9 @@ export function aggregateAnalyticsDetail({
 
       if (bucketIndex >= 0 && bucketIndex < data.length) {
         const revenue = (item.price || 0) * (item.quantity || 1);
-        const cost = resolveOrderItemCostPrice(item) * (item.quantity || 1);
-        const profit = revenue - cost;
+        const costPrice = resolveOrderItemCostPrice(item);
+        const profit =
+          costPrice == null ? 0 : revenue - costPrice * (item.quantity || 1);
 
         if (metric === 'profits') {
           data[bucketIndex].value += profit;

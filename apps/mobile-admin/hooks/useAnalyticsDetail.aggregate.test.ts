@@ -169,6 +169,41 @@ describe('aggregateAnalyticsDetail', () => {
     expect(profits.total).toBe(126);
   });
 
+  it('does not aggregate selling price as profit when cost price is missing', () => {
+    const orderItems = [
+      itemWithCostFallbacks('2026-01-10T00:00:00.000Z', 50, 2, {
+        orderItemCostPrice: null,
+        productCostPrice: null,
+        variantCostPrice: null,
+      }),
+    ];
+
+    const profits = aggregate('profits', [], orderItems);
+
+    expect(profits.data[0]).toMatchObject({
+      value: 0,
+      secondaryValue: 100,
+    });
+    expect(profits.total).toBe(0);
+  });
+
+  it('keeps missing-cost selling price out of revenue profit context', () => {
+    const orderItems = [
+      itemWithCostFallbacks('2026-01-10T00:00:00.000Z', 50, 2, {
+        orderItemCostPrice: null,
+        productCostPrice: null,
+        variantCostPrice: null,
+      }),
+    ];
+
+    const revenue = aggregate('revenue', [], orderItems);
+
+    expect(revenue.data[0]).toMatchObject({
+      value: 0,
+      secondaryValue: 0,
+    });
+  });
+
   it('selects best and worst periods from finite bucket values only', () => {
     const result = aggregate('revenue', [
       order('order-1', '2026-01-10T00:00:00.000Z', Number.POSITIVE_INFINITY),

@@ -1,9 +1,9 @@
 import type { MerchantAnalyticsChartPoint } from '@baci/shared';
+import { resolveOrderItemAnalyticsLineProfit } from '@/lib/merchant-analytics-profit';
 import {
   type AnalyticsOrderItemRow,
   type AnalyticsOrderRow,
   asNumber,
-  resolveOrderItemAnalyticsLineCost,
 } from '@/lib/merchant-analytics-utils';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -110,9 +110,9 @@ export function buildChartData(
     }
 
     const quantity = asNumber(item.quantity ?? 1);
-    const revenue = asNumber(item.price) * quantity;
-    const lineCost = resolveOrderItemAnalyticsLineCost(item, quantity);
-    bucket.profit = asNumber(bucket.profit) + revenue - lineCost;
+    bucket.profit =
+      asNumber(bucket.profit) +
+      resolveOrderItemAnalyticsLineProfit(item, quantity);
   }
 
   return Array.from(buckets.values());
