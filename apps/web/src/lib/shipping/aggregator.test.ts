@@ -8,6 +8,7 @@ import {
   type ShippingProvider,
   ShippingProviderRegistry,
 } from './providers/base';
+import { quoteProviderFailure } from './quote-provider-failure';
 import type { QuoteRequest, ShippingQuote } from './types';
 
 const quoteRequest: QuoteRequest = {
@@ -136,6 +137,33 @@ describe('QuoteAggregator', () => {
     );
     expect(warnSpy).not.toHaveBeenCalledWith(
       '[QuoteAggregator] All providers failed, using fallback quote'
+    );
+  });
+
+  it('counts an explicitly marked empty provider result as a failure', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const registry = new ShippingProviderRegistry();
+    registry.register(
+      createProvider({
+        getQuotes: vi.fn(() =>
+          Promise.resolve(
+            quoteProviderFailure.mark([], new Error('upstream unavailable'))
+          )
+        ),
+      })
+    );
+    const aggregator = new QuoteAggregator(registry);
+
+    const response = await aggregator.getQuotes(quoteRequest);
+
+    expect(response.quotes.all).toEqual([]);
+    expect(response.warnings).toEqual(['GIG Logistics: upstream unavailable']);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[QuoteAggregator] All providers failed; no quotes available',
+      { failedProviderCount: 1, providerCount: 1 }
     );
   });
 });
