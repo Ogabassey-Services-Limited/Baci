@@ -15,8 +15,10 @@ import {
   getJumiaRedirectUri,
   sanitizeJumiaErrorDetails,
 } from '@/lib/jumia/helpers';
+import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
+import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 
 /** RFC 6749 standard error codes plus common Jumia-specific ones. */
 const KNOWN_OAUTH_ERRORS = new Set([
@@ -35,6 +37,7 @@ function clearOAuthCookies(response: NextResponse): NextResponse {
   response.cookies.delete('jumia_ticket_id');
   // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
   response.cookies.delete('jumia_oauth_variant');
+  response.cookies.delete(jumiaOAuthDiagnostic.cookieName);
   return response;
 }
 
@@ -43,23 +46,30 @@ function createPlatformRedirect(
   query?: Record<string, string | undefined>
 ): NextResponse {
   const platform = request.cookies.get('jumia_oauth_platform')?.value;
+  let response: NextResponse;
   if (platform === 'mobile') {
     // SAFE: scheme + path are hard-coded constants in `@baci/shared`. Query
     // values are URL-encoded by `URLSearchParams` — see helper for details.
-    return NextResponse.redirect(createJumiaMobileReturnUrl(query));
-  }
-
-  const redirectUrl = new URL('/dashboard/channels', request.url);
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      if (value === undefined) {
-        continue;
+    response = NextResponse.redirect(createJumiaMobileReturnUrl(query));
+  } else {
+    const redirectUrl = new URL('/dashboard/channels', request.url);
+    if (query) {
+      for (const [key, value] of Object.entries(query)) {
+        if (value === undefined) {
+          continue;
+        }
+        redirectUrl.searchParams.set(key, value);
       }
-      redirectUrl.searchParams.set(key, value);
     }
+    response = NextResponse.redirect(redirectUrl);
   }
 
-  return NextResponse.redirect(redirectUrl);
+  if (request.cookies.has(jumiaOAuthDiagnostic.cookieName)) {
+    response.headers.set('Cache-Control', 'private, no-store');
+    return clearOAuthCookies(response);
+  }
+
+  return response;
 }
 
 // react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- OAuth providers call callbacks with GET; state cookie, authenticated merchant, and merchant-cookie checks gate persistence.
@@ -70,6 +80,9 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const rawError = searchParams.get('error');
     const cookieMerchantId = request.cookies.get('jumia_merchant_id')?.value;
+    const diagnosticId = request.cookies.get(
+      jumiaOAuthDiagnostic.cookieName
+    )?.value;
 
     const storedState = request.cookies.get('jumia_oauth_state')?.value;
     if (!storedState || storedState !== state) {
@@ -142,6 +155,25 @@ export async function GET(request: NextRequest) {
       return createPlatformRedirect(request, { error: 'session_expired' });
     }
 
+    if (diagnosticId) {
+      const platformAdminAuth = await getPlatformAdminAuth();
+      if (
+        platformAdminAuth.status !== 'authenticated' ||
+        platformAdminAuth.user.id !== auth.user.id
+      ) {
+        logger.warn({
+          message: '[Jumia OAuth Diagnostic] Authorization rejected',
+          diagnostic_id: diagnosticId,
+          reason: 'platform_admin_required',
+        });
+        return clearOAuthCookies(
+          createPlatformRedirect(request, {
+            error: 'diagnostic_forbidden',
+          })
+        );
+      }
+    }
+
     if (rawError) {
       const safeError = KNOWN_OAUTH_ERRORS.has(rawError)
         ? rawError
@@ -198,7 +230,24 @@ export async function GET(request: NextRequest) {
     // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
     const variant = request.cookies.get('jumia_oauth_variant')?.value;
 
+    if (diagnosticId) {
+      const callbackUrl = new URL(request.url);
+      const redirectUrl = new URL(jumiaRedirectUri);
+      logger.info({
+        message: '[Jumia OAuth Diagnostic] Callback accepted',
+        authorization_code_length: code.length,
+        callback_host: callbackUrl.hostname,
+        callback_path: callbackUrl.pathname,
+        diagnostic_id: diagnosticId,
+        oauth_state_match: true,
+        redirect_host: redirectUrl.hostname,
+        redirect_path: redirectUrl.pathname,
+        variant: variant ?? 'default',
+      });
+    }
+
     let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
+    const tokenExchangeStartedAt = Date.now();
     try {
       tokens = await exchangeJumiaCode({
         code,
@@ -214,6 +263,9 @@ export async function GET(request: NextRequest) {
         message: 'Jumia Callback Token exchange failed',
         merchantId,
         redirectUri: jumiaRedirectUri,
+        diagnostic_id: diagnosticId ?? null,
+        token_exchange_duration_ms: Date.now() - tokenExchangeStartedAt,
+        variant: variant ?? 'default',
         error:
           tokenError instanceof Error
             ? {
@@ -229,6 +281,28 @@ export async function GET(request: NextRequest) {
       return createPlatformRedirect(request, {
         error: 'token_exchange_failed',
       });
+    }
+
+    if (diagnosticId) {
+      const evidence = jumiaOAuthDiagnostic.buildEvidence(tokens);
+      logger.info({
+        message: '[Jumia OAuth Diagnostic] Token exchange completed',
+        diagnostic_id: diagnosticId,
+        token_exchange_duration_ms: Date.now() - tokenExchangeStartedAt,
+        variant: variant ?? 'default',
+        ...evidence,
+      });
+
+      const response = createPlatformRedirect(
+        request,
+        jumiaOAuthDiagnostic.buildRedirectQuery({
+          diagnosticId,
+          tokens,
+          variant,
+        })
+      );
+      response.headers.set('Cache-Control', 'private, no-store');
+      return clearOAuthCookies(response);
     }
 
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);

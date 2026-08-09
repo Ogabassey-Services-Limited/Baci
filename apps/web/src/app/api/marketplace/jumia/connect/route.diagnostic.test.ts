@@ -1,0 +1,156 @@
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockAuthenticateApiRequest = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
+const mockGetMerchantFeatureAccess = vi.fn();
+const mockGetPlatformAdminAuth = vi.fn();
+const mockGetJumiaAuthUrl = vi.fn();
+const mockLoggerInfo = vi.fn();
+
+vi.mock('@/env', () => ({
+  getConfiguredAppUrl: vi.fn(() => 'https://usebaci.com'),
+  getJumiaClientId: vi.fn(() => 'web-client-id'),
+}));
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: (...args: unknown[]) =>
+    mockAuthenticateApiRequest(...args),
+  hasPermission: vi.fn(() => true),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
+  toUserAccess: vi.fn(() => ({
+    isOwner: true,
+    isStaff: false,
+    merchantId: 'merchant-1',
+    permissions: {},
+    role: 'owner',
+  })),
+}));
+
+vi.mock('@/lib/jumia/helpers', () => ({
+  getJumiaAuthUrl: (...args: unknown[]) => mockGetJumiaAuthUrl(...args),
+  getJumiaRedirectUri: vi.fn(
+    () => 'https://usebaci.com/api/marketplace/jumia/callback'
+  ),
+  isJumiaAuthUrlVariant: (value: string | null | undefined) =>
+    ['A', 'B', 'C', 'D', 'E', 'F'].includes(value ?? ''),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: { info: (...args: unknown[]) => mockLoggerInfo(...args) },
+}));
+
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  getMerchantFeatureAccess: (...args: unknown[]) =>
+    mockGetMerchantFeatureAccess(...args),
+  merchantFeatureUpgradeResponse: vi.fn(),
+}));
+
+vi.mock('@/lib/platform-admin-auth', () => ({
+  getPlatformAdminAuth: (...args: unknown[]) =>
+    mockGetPlatformAdminAuth(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
+vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
+vi.mock('@/lib/csrf', () => ({ checkCsrfProtection: vi.fn() }));
+vi.mock('next/headers', () => ({ cookies: vi.fn() }));
+
+import { GET } from './route';
+
+function makeRequest() {
+  return new NextRequest(
+    'https://usebaci.com/api/marketplace/jumia/connect?connectionType=oauth&diagnostic=token-shape&variant=F'
+  );
+}
+
+describe('Jumia OAuth connect diagnostic', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: {},
+      user: { id: 'user-1' },
+    });
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-1',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: {},
+        role: null,
+      },
+    });
+    mockGetMerchantFeatureAccess.mockResolvedValue({
+      allowed: true,
+      error: null,
+    });
+    mockGetPlatformAdminAuth.mockResolvedValue({
+      status: 'authenticated',
+      user: { email: 'admin@example.com', id: 'user-1' },
+    });
+    mockGetJumiaAuthUrl.mockImplementation(
+      ({ state }: { state: string }) =>
+        `https://vendor-api.jumia.com/login?scope=openid&prompt=login&state=${state}`
+    );
+  });
+
+  it('starts a platform-admin diagnostic and binds a correlation cookie', async () => {
+    const response = await GET(makeRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.cookies.get('jumia_oauth_diagnostic')?.value).toMatch(
+      /^[0-9a-f-]{36}$/
+    );
+    expect(mockGetJumiaAuthUrl).toHaveBeenCalledWith(
+      expect.objectContaining({ variant: 'F' })
+    );
+    expect(mockLoggerInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diagnostic_id: expect.any(String),
+        message: '[Jumia OAuth Diagnostic] Authorization started',
+        oauth_max_age: null,
+        oauth_prompt: 'login',
+        oauth_scope: 'openid',
+        variant: 'F',
+      })
+    );
+  });
+
+  it('rejects a diagnostic requested by a non-platform-admin user', async () => {
+    mockGetPlatformAdminAuth.mockResolvedValueOnce({ status: 'forbidden' });
+
+    const response = await GET(makeRequest());
+
+    expect(response.status).toBe(403);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+    expect(response.cookies.get('jumia_oauth_diagnostic')).toBeUndefined();
+  });
+
+  it('rejects a platform-admin identity that differs from the API user', async () => {
+    mockGetPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'authenticated',
+      user: { email: 'other-admin@example.com', id: 'user-2' },
+    });
+
+    const response = await GET(makeRequest());
+
+    expect(response.status).toBe(403);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+    expect(response.cookies.get('jumia_oauth_diagnostic')).toBeUndefined();
+  });
+
+  it('does not include the raw OAuth state in authorization evidence logs', async () => {
+    await GET(makeRequest());
+
+    const [{ state }] = mockGetJumiaAuthUrl.mock.calls[0] as [
+      { state: string },
+    ];
+    expect(state).toMatch(/^[0-9a-f]{32}$/);
+    expect(JSON.stringify(mockLoggerInfo.mock.calls)).not.toContain(state);
+  });
+});

@@ -20,10 +20,13 @@ import {
   getJumiaRedirectUri,
   isJumiaAuthUrlVariant,
 } from '@/lib/jumia/helpers';
+import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
+import { logger } from '@/lib/logger';
 import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
 } from '@/lib/merchant-feature-gates';
+import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
@@ -373,6 +376,21 @@ export async function GET(request: NextRequest) {
         return merchantFeatureUpgradeResponse('marketplace_sync');
       }
 
+      const diagnosticRequested =
+        jumiaOAuthDiagnostic.isRequested(searchParams);
+      if (diagnosticRequested) {
+        const platformAdminAuth = await getPlatformAdminAuth();
+        if (
+          platformAdminAuth.status !== 'authenticated' ||
+          platformAdminAuth.user.id !== auth.user.id
+        ) {
+          return NextResponse.json(
+            { error: 'Jumia OAuth diagnostic is restricted' },
+            { status: 403 }
+          );
+        }
+      }
+
       const jumiaClientId = getJumiaClientId();
       const appUrl = getConfiguredAppUrl();
       if (!jumiaClientId || !appUrl) {
@@ -427,6 +445,22 @@ export async function GET(request: NextRequest) {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
           maxAge: 60 * 10,
+        });
+      }
+
+      if (diagnosticRequested) {
+        const diagnosticId = crypto.randomUUID();
+        response.cookies.set(jumiaOAuthDiagnostic.cookieName, diagnosticId, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 10,
+        });
+        logger.info({
+          message: '[Jumia OAuth Diagnostic] Authorization started',
+          diagnostic_id: diagnosticId,
+          variant: variant ?? 'default',
+          ...jumiaOAuthDiagnostic.getAuthorizationEvidence(redirectUrl),
         });
       }
 
