@@ -101,6 +101,21 @@ test('verifies an unchanged payload and closes its held descriptors', () => {
   }
 });
 
+test('rejects an entry added after the initial payload listing', () => {
+  const value = payloadFixture();
+  try {
+    const held = readPublishedTask9Files(value.payload, process.getuid(), {
+      afterRead() {
+        writeFileSync(join(value.payload, 'extra'), 'attacker');
+      },
+    });
+    assert.throws(() => held.verify(), /published Task 9 payload changed/);
+    held.close();
+  } finally {
+    rmSync(value.root, { recursive: true, force: true });
+  }
+});
+
 test('rejects a payload directory replacement with a symlink', () => {
   const value = payloadFixture();
   const moved = `${value.payload}.moved`;

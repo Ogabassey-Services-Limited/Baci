@@ -93,9 +93,13 @@ export function readPublishedTask9Files(
     const verify = () => {
       const currentDirectory = fstatSync(directoryFd);
       const pathDirectory = lstatSync(directory, { throwIfNoEntry: false });
+      const currentEntries = readdirSync(directory).sort();
+      const names = Object.keys(ENTRIES).sort();
       if (
         !pathDirectory ||
         pathDirectory.isSymbolicLink() ||
+        currentEntries.length !== names.length ||
+        currentEntries.some((name, index) => name !== names[index]) ||
         !same(directoryIdentity, currentDirectory) ||
         !same(directoryIdentity, pathDirectory)
       )
