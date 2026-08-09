@@ -18,6 +18,7 @@ const SAFE_VERCEL_ROUTE_SEGMENTS = new Set([
   'orders',
   'products',
 ]);
+const MAX_VERCEL_ROUTE_LENGTH = 240;
 const safeVercelId = (value, prefix) => {
   const id = String(value || '').trim();
   return new RegExp(`^${prefix}_[A-Za-z0-9_-]{1,80}$`).test(id) ? id : '';
@@ -29,13 +30,14 @@ function canonicalVercelRoute(value) {
   const route = String(value || '').split(/[?#]/, 1)[0];
   if (!route.startsWith('/')) return '';
   const segments = route.split('/').filter(Boolean);
-  return `/${segments
+  const canonicalRoute = `/${segments
     .map((segment) =>
       SAFE_VERCEL_ROUTE_SEGMENTS.has(segment.toLowerCase())
         ? segment.toLowerCase()
         : ':param'
     )
     .join('/')}`;
+  return canonicalRoute.length <= MAX_VERCEL_ROUTE_LENGTH ? canonicalRoute : '';
 }
 
 export function createRemediationCaseCandidateNormalizer() {

@@ -73,6 +73,31 @@ describe('remediation case state', () => {
     assert.equal(stored.recurrenceCount, 1);
   });
 
+  it('round-trips a Vercel case with many route segments without persisting an oversized route', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-case-route-bound-'));
+    const path = join(directory, 'cases.json');
+    const rawRoute = `/${Array.from(
+      { length: 80 },
+      (_, index) => `customer-route-segment-${index}`
+    ).join('/')}`;
+    const state = createRemediationCaseState({ path });
+
+    state.reconcile([
+      candidate({
+        category: 'vercel_timeout',
+        fingerprint: 'many-route-segments',
+        sample: { route: rawRoute, source: 'vercel' },
+        source: 'vercel',
+      }),
+    ]);
+
+    const persisted = createRemediationCaseState({ path }).snapshot();
+    const stored = persisted.cases['vercel:vercel_timeout:many-route-segments'];
+
+    assert.equal(stored.samples.at(-1).route, undefined);
+    assert.doesNotMatch(readFileSync(path, 'utf8'), /customer-route-segment/);
+  });
+
   it('deduplicates an exact canonical observation before it can consume another selection', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-case-duplicate-'));
     const state = createRemediationCaseState({
