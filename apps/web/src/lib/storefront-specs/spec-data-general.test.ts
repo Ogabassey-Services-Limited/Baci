@@ -147,4 +147,79 @@ describe('buildProductSpecData general families', () => {
       expect.arrayContaining([{ label: '5G Support', value: 'No' }])
     );
   });
+
+  it('rejects unsupported fallback values while retaining verified general facts', () => {
+    const placeholders = buildProductSpecData({
+      displaySize: ' ',
+      ram: '0GB',
+      storage: ['0mAh', 'No', 'unknown'],
+      variant_attributes: [{ param: 'SIM Type', options: ['No'] }],
+    });
+    const verified = buildProductSpecData({
+      category: 'Gaming',
+      displaySize: '6.7 inches',
+      ram: '8GB',
+      variant_attributes: [
+        { param: 'Storage', options: ['0mAh', '256GB'] },
+        { param: 'SIM Type', options: ['Nano-SIM'] },
+      ],
+    });
+
+    expect(placeholders.detailedSpecs).toEqual([
+      {
+        category: 'General',
+        items: [
+          { label: 'Brand', value: 'Generic' },
+          { label: 'Condition', value: 'New' },
+          { label: 'Category', value: 'General' },
+        ],
+      },
+    ]);
+    expect(verified.detailedSpecs).toEqual([
+      {
+        category: 'General',
+        items: [
+          { label: 'Brand', value: 'Generic' },
+          { label: 'Condition', value: 'New' },
+          { label: 'Category', value: 'Gaming' },
+          { label: 'Display', value: '6.7 inches' },
+          { label: 'RAM', value: '8GB' },
+          { label: 'Storage', value: '256GB' },
+        ],
+      },
+    ]);
+  });
+
+  it('keeps stored rows ahead of description and key-spec fallback rows', () => {
+    const result = buildProductSpecData({
+      category: 'Gaming',
+      description:
+        '<h2>Key Specs</h2><table><tr><th>ram</th><td>16GB</td></tr></table>',
+      specifications: [
+        {
+          category: 'Memory',
+          items: [
+            { label: 'RAM', value: '8GB' },
+            { label: 'ram', value: '12GB' },
+            { label: 'Internal Storage', value: '256GB' },
+          ],
+        },
+      ],
+      product_key_specs: { ram_gb: 32, storage_gb: 512 },
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Memory',
+        items: [
+          { label: 'RAM', value: '8GB' },
+          { label: 'Internal Storage', value: '256GB' },
+        ],
+      },
+    ]);
+    expect(result.specs).toEqual([
+      { label: 'RAM', value: '8GB' },
+      { label: 'Storage', value: '256GB' },
+    ]);
+  });
 });

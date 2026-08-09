@@ -1,3 +1,4 @@
+import { dedupeSpecItems } from './dedupe-spec-items';
 import type { ProductSpecItem } from './spec-data';
 import { normalizeSpecValueText } from './spec-value-normalization';
 
@@ -10,14 +11,17 @@ export function normalizeSpecItems(value: unknown): ProductSpecItem[] {
     return [];
   }
 
-  return value.flatMap((item) => {
-    if (!isRecord(item)) {
-      return [];
-    }
+  return dedupeSpecItems(
+    value.flatMap((item) => {
+      if (!isRecord(item)) {
+        return [];
+      }
 
-    const label = normalizeSpecValueText(item.label);
-    const itemValue = normalizeSpecValueText(item.value);
+      const label = normalizeSpecValueText(item.label);
+      const itemValue = normalizeSpecValueText(item.value);
 
-    return label && itemValue ? [{ label, value: itemValue }] : [];
-  });
+      return label && itemValue ? [{ label, value: itemValue }] : [];
+    }),
+    { omitUnsupportedValues: true }
+  );
 }

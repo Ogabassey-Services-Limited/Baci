@@ -15,4 +15,18 @@ describe('normalizeSpecItems', () => {
       { label: 'Numeric', value: '30' },
     ]);
   });
+
+  it('keeps the first value for duplicate canonical labels', () => {
+    expect(
+      normalizeSpecItems([
+        { label: ' RAM ', value: '8GB' },
+        { label: 'ram', value: '12GB' },
+        { label: 'Internal Storage', value: '256GB' },
+        { label: 'storage', value: '512GB' },
+      ])
+    ).toEqual([
+      { label: 'RAM', value: '8GB' },
+      { label: 'Internal Storage', value: '256GB' },
+    ]);
+  });
 });

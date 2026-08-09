@@ -1,6 +1,7 @@
 import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
 import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-precedence';
 import { buildDescriptionKeySpecs } from './build-description-key-specs';
+import { dedupeSpecItems } from './dedupe-spec-items';
 import { normalizeSpecItems } from './normalize-spec-items';
 import { normalizeSpecSections } from './normalize-spec-sections';
 import { buildDetailedSpecsFromKeySpecs } from './spec-key-specs';
@@ -9,6 +10,7 @@ import {
   getProductSpecFamily,
   SUMMARY_SPEC_PRIORITIES,
 } from './spec-taxonomy';
+import { normalizeSpecValueText } from './spec-value-normalization';
 import type { VariantAttributeSource } from './variant-attributes';
 import { normalizeVariantAttributes } from './variant-attributes';
 
@@ -56,39 +58,50 @@ function resolveSourceCategory(source: SpecDataSource) {
   return { hasCategory: Boolean(name), name: name || 'General' };
 }
 
-function getFirstVariantValue(
+function getVariantValue(
   variantAttributes: SpecDataSource['variant_attributes'],
   key: string
 ) {
-  const rawValue = normalizeVariantAttributes(variantAttributes)[key];
-  if (Array.isArray(rawValue)) {
-    return rawValue[0];
-  }
+  return normalizeVariantAttributes(variantAttributes)[key];
+}
 
-  return rawValue || undefined;
+function getFirstSupportedFallbackValue(...values: unknown[]) {
+  const [item] = dedupeSpecItems(
+    values
+      .flatMap((value) => (Array.isArray(value) ? value : [value]))
+      .map((value) => ({
+        label: 'Fallback value',
+        value: normalizeSpecValueText(value),
+      })),
+    { omitUnsupportedValues: true }
+  );
+
+  return item?.value;
 }
 
 function mergeSpecSections(...sections: ProductSpecSection[][]) {
   const merged: ProductSpecSection[] = [];
+  const visibleItems: ProductSpecItem[] = [];
 
   for (const sectionGroup of sections) {
     for (const section of sectionGroup) {
-      const existingSection = merged.find(
+      let existingSection = merged.find(
         (entry) => entry.category === section.category
       );
 
       if (!existingSection) {
-        merged.push({
+        existingSection = {
           category: section.category,
-          items: [...section.items],
-        });
-        continue;
+          items: [],
+        };
+        merged.push(existingSection);
       }
 
-      for (const item of section.items) {
+      for (const item of dedupeSpecItems(section.items)) {
         if (
-          !existingSection.items.some((entry) => entry.label === item.label)
+          dedupeSpecItems([...visibleItems, item]).length > visibleItems.length
         ) {
+          visibleItems.push(item);
           existingSection.items.push(item);
         }
       }
@@ -125,40 +138,46 @@ function buildGeneralFallbackSpecs(
   source: SpecDataSource,
   categoryName: string
 ): ProductSpecSection[] {
-  const storageValue = Array.isArray(source.storage)
-    ? source.storage[0]
-    : source.storage ||
-      getFirstVariantValue(source.variant_attributes, 'storage');
-  const ramValue =
-    source.ram || getFirstVariantValue(source.variant_attributes, 'ram');
-  const simValue = getFirstVariantValue(source.variant_attributes, 'sim_type');
-  const displayValue = source.displaySize;
-  const items: ProductSpecItem[] = [
-    { label: 'Brand', value: source.brand || 'Generic' },
-    { label: 'Condition', value: source.condition || 'New' },
-    {
-      label: 'Category',
-      value: categoryName,
-    },
-  ];
+  const storageValue = getFirstSupportedFallbackValue(
+    source.storage,
+    getVariantValue(source.variant_attributes, 'storage')
+  );
+  const ramValue = getFirstSupportedFallbackValue(
+    source.ram,
+    getVariantValue(source.variant_attributes, 'ram')
+  );
+  const simValue = getFirstSupportedFallbackValue(
+    getVariantValue(source.variant_attributes, 'sim_type')
+  );
+  const displayValue = getFirstSupportedFallbackValue(source.displaySize);
+  const items = dedupeSpecItems(
+    [
+      {
+        label: 'Brand',
+        value:
+          getFirstSupportedFallbackValue(source.brand, 'Generic') || 'Generic',
+      },
+      {
+        label: 'Condition',
+        value: getFirstSupportedFallbackValue(source.condition, 'New') || 'New',
+      },
+      {
+        label: 'Category',
+        value:
+          getFirstSupportedFallbackValue(categoryName, 'General') || 'General',
+      },
+      ...(displayValue ? [{ label: 'Display', value: displayValue }] : []),
+      ...(ramValue ? [{ label: 'RAM', value: ramValue }] : []),
+      ...(storageValue ? [{ label: 'Storage', value: storageValue }] : []),
+      ...(simValue ? [{ label: 'SIM', value: simValue }] : []),
+    ],
+    { omitUnsupportedValues: true }
+  );
 
-  if (displayValue) {
-    items.push({ label: 'Display', value: displayValue });
-  }
-
-  if (ramValue) {
-    items.push({ label: 'RAM', value: ramValue });
-  }
-
-  if (storageValue) {
-    items.push({ label: 'Storage', value: storageValue });
-  }
-
-  if (simValue) {
-    items.push({ label: 'SIM', value: simValue });
-  }
-
-  return [{ category: 'General', items }];
+  return filterNonDeviceLegacySpecifications(
+    [{ category: 'General', items }],
+    categoryName
+  );
 }
 
 function buildSummarySpecsFromSections(
@@ -229,31 +248,32 @@ export function buildProductSpecData(source: SpecDataSource) {
         )
       : descriptionKeySpecs;
 
-  const structuredSpecs =
-    detailedSpecifications.length > 0
-      ? detailedSpecifications
-      : specFamily === 'camera' && legacySpecifications.length > 0
-        ? mergeSpecSections(legacySpecifications, keySpecSections)
-        : keySpecSections.length > 0
-          ? keySpecSections
-          : legacySpecifications.length > 0
-            ? legacySpecifications
-            : buildGeneralFallbackSpecs(source, sourceCategoryName);
-
-  const detailedSpecs = mergeSpecSections(
-    descriptionSpecifications,
-    structuredSpecs
+  const storedSpecifications = mergeSpecSections(
+    detailedSpecifications,
+    legacySpecifications
   );
+  const usesGeneralFallback =
+    storedSpecifications.length === 0 && keySpecSections.length === 0;
+  const structuredSpecs =
+    storedSpecifications.length > 0
+      ? mergeSpecSections(storedSpecifications, keySpecSections)
+      : keySpecSections.length > 0
+        ? keySpecSections
+        : buildGeneralFallbackSpecs(source, sourceCategoryName);
+
+  const detailedSpecs = usesGeneralFallback
+    ? mergeSpecSections(descriptionSpecifications, structuredSpecs)
+    : mergeSpecSections(structuredSpecs, descriptionSpecifications);
   const normalizedSummarySpecs = normalizeSpecItems(source.specs);
   const summarySpecifications =
     specFamily === 'camera' || specFamily === 'general'
       ? filterNonDeviceSpecItems(normalizedSummarySpecs, sourceCategoryName)
       : normalizedSummarySpecs;
 
-  const specs =
-    summarySpecifications.length > 0
-      ? summarySpecifications
-      : buildSummarySpecsFromSections(detailedSpecs);
+  const specs = dedupeSpecItems([
+    ...summarySpecifications,
+    ...buildSummarySpecsFromSections(detailedSpecs),
+  ]);
 
   return {
     detailedSpecs,
