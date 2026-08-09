@@ -45,7 +45,7 @@ export async function runJumiaOAuthCallbackDiagnostic({
   const configuredRedirectUrl = new URL(redirectUri);
   logger.info({
     message: '[Jumia OAuth Diagnostic] Callback accepted',
-    authorization_code_length: code.length,
+    callback_code_length: code.length,
     callback_host: callbackUrl.hostname,
     callback_path: callbackUrl.pathname,
     diagnostic_id: diagnosticId,
@@ -70,7 +70,7 @@ export async function runJumiaOAuthCallbackDiagnostic({
     logger.error({
       message: 'Jumia OAuth diagnostic token exchange failed',
       diagnostic_id: diagnosticId,
-      token_exchange_duration_ms: Date.now() - tokenExchangeStartedAt,
+      exchange_duration_ms: Date.now() - tokenExchangeStartedAt,
       variant: variant ?? 'default',
       error:
         tokenError instanceof Error
@@ -90,10 +90,16 @@ export async function runJumiaOAuthCallbackDiagnostic({
   const evidence = jumiaOAuthDiagnostic.buildEvidence(tokens);
   logger.info({
     message: '[Jumia OAuth Diagnostic] Token exchange completed',
+    access_grant_present: evidence.has_access_token,
     diagnostic_id: diagnosticId,
-    token_exchange_duration_ms: Date.now() - tokenExchangeStartedAt,
+    exchange_duration_ms: Date.now() - tokenExchangeStartedAt,
+    expires_in: evidence.expires_in,
+    grant_type: evidence.token_type,
+    persistence_skipped: evidence.persistence_skipped,
+    refresh_expires_in: evidence.refresh_expires_in,
+    refresh_expiry_present: evidence.has_refresh_expires_in,
+    refresh_grant_present: evidence.has_refresh_token,
     variant: variant ?? 'default',
-    ...evidence,
   });
 
   const response = createRedirect(

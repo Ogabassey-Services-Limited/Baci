@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { z } from 'zod';
 import {
   getConfiguredAppUrl,
   getJumiaClientId,
@@ -18,6 +17,7 @@ import {
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
+import { jumiaOAuthDiagnosticIdSchema } from '@/schemas/jumia/oauth-diagnostic';
 import { runJumiaOAuthCallbackDiagnostic } from './oauth-diagnostic';
 import { jumiaOAuthCallbackRedirect } from './oauth-redirect';
 
@@ -30,8 +30,6 @@ const KNOWN_OAUTH_ERRORS = new Set([
   'temporarily_unavailable',
   'invalid_scope',
 ]);
-const diagnosticIdSchema = z.uuid();
-
 // react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- OAuth providers call callbacks with GET; state cookie, authenticated merchant, and merchant-cookie checks gate persistence.
 export async function GET(request: NextRequest) {
   try {
@@ -99,7 +97,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const diagnosticIdResult = diagnosticIdSchema.safeParse(diagnosticId);
+    const diagnosticIdResult =
+      jumiaOAuthDiagnosticIdSchema.safeParse(diagnosticId);
     const validatedDiagnosticId = diagnosticIdResult.success
       ? diagnosticIdResult.data
       : undefined;

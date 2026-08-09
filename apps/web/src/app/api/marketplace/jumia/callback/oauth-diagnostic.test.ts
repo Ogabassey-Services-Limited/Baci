@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExchangeJumiaCode = vi.fn();
 const mockGetPlatformAdminAuth = vi.fn();
-const mockLoggerError = vi.fn();
-const mockLoggerInfo = vi.fn();
-const mockLoggerWarn = vi.fn();
 
 vi.mock('@/lib/jumia/helpers', async () => {
   const actual = await vi.importActual<typeof import('@/lib/jumia/helpers')>(
@@ -16,14 +13,6 @@ vi.mock('@/lib/jumia/helpers', async () => {
     exchangeJumiaCode: (...args: unknown[]) => mockExchangeJumiaCode(...args),
   };
 });
-
-vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: (...args: unknown[]) => mockLoggerError(...args),
-    info: (...args: unknown[]) => mockLoggerInfo(...args),
-    warn: (...args: unknown[]) => mockLoggerWarn(...args),
-  },
-}));
 
 vi.mock('@/lib/platform-admin-auth', () => ({
   getPlatformAdminAuth: (...args: unknown[]) =>
@@ -58,6 +47,9 @@ const baseInput = {
 describe('Jumia OAuth callback diagnostic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockGetPlatformAdminAuth.mockResolvedValue({
       status: 'authenticated',
       user: { id: 'user-1' },
@@ -70,6 +62,10 @@ describe('Jumia OAuth callback diagnostic', () => {
     });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns safe token-shape evidence without exposing credentials', async () => {
     const response = await runJumiaOAuthCallbackDiagnostic(baseInput);
     const location = response.headers.get('location') ?? '';
@@ -78,8 +74,14 @@ describe('Jumia OAuth callback diagnostic', () => {
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const serialized = JSON.stringify({
       location,
-      logs: mockLoggerInfo.mock.calls,
+      logs: vi.mocked(console.info).mock.calls,
     });
+    expect(serialized).toContain('"callback_code_length":36');
+    expect(serialized).toContain('"access_grant_present":true');
+    expect(serialized).toContain('"refresh_grant_present":true');
+    expect(serialized).toContain('"grant_type":"bearer"');
+    expect(serialized).toContain('"exchange_duration_ms":');
+    expect(serialized).not.toContain('[REDACTED]');
     expect(serialized).not.toContain('access-token-must-never-escape');
     expect(serialized).not.toContain('refresh-token-must-never-escape');
     expect(serialized).not.toContain('authorization-code-must-never-escape');
@@ -117,7 +119,7 @@ describe('Jumia OAuth callback diagnostic', () => {
   it('does not report OAuth state matching as hard-coded evidence', async () => {
     await runJumiaOAuthCallbackDiagnostic(baseInput);
 
-    expect(JSON.stringify(mockLoggerInfo.mock.calls)).not.toContain(
+    expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toContain(
       'oauth_state_match'
     );
   });
@@ -139,7 +141,7 @@ describe('Jumia OAuth callback diagnostic', () => {
     expect(response.headers.get('location')).toContain(
       'error=token_exchange_failed'
     );
-    const serializedLogs = JSON.stringify(mockLoggerError.mock.calls);
+    const serializedLogs = JSON.stringify(vi.mocked(console.error).mock.calls);
     expect(serializedLogs).not.toContain('client-secret-must-never-escape');
     expect(serializedLogs).not.toContain(
       'authorization-code-must-never-escape'
