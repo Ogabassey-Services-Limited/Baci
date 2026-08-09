@@ -7,7 +7,13 @@ const candidate = {
   },
 };
 
-function makeRunner({ changedFiles, statusOutput } = {}) {
+function makeRunner({
+  changedFiles,
+  cleanupResult,
+  remediationResult,
+  statusOutput,
+  verificationResult,
+} = {}) {
   const calls = [];
   const environments = [];
   return {
@@ -48,8 +54,29 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
           stderr: '',
         };
       }
-      if (command === 'codex' || command === 'docker') {
-        return { status: 0, stdout: '{"type":"turn.completed"}\n', stderr: '' };
+      if (command === 'codex') {
+        return (
+          remediationResult ?? {
+            status: 0,
+            stdout: '{"type":"turn.completed"}\n',
+            stderr: '',
+          }
+        );
+      }
+      if (command === 'bash') {
+        return verificationResult ?? { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'docker') {
+        if (args[0] === 'rm') {
+          return cleanupResult ?? { status: 0, stdout: '', stderr: '' };
+        }
+        return args.includes('--dangerously-bypass-approvals-and-sandbox')
+          ? (remediationResult ?? {
+              status: 0,
+              stdout: '{"type":"turn.completed"}\n',
+              stderr: '',
+            })
+          : (verificationResult ?? { status: 0, stdout: '', stderr: '' });
       }
       return { status: 0, stdout: '', stderr: '' };
     },

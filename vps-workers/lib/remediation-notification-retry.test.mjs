@@ -64,7 +64,9 @@ describe('remediation notification retry', () => {
     const acknowledgements = [];
     const result = await retryRemediationNotifications({
       env: {},
-      fetchFn: fetch,
+      fetchFn: () => {
+        throw new Error('must not send');
+      },
       logger: { error: () => undefined },
       state: {
         acknowledgeNotification: (id) => acknowledgements.push(id),

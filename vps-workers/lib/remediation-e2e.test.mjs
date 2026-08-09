@@ -103,6 +103,14 @@ describe('remediation lifecycle end to end', () => {
     const { remoteDir, repoDir } = createFixtureRepository(directory);
     const { codex, gh, ghLog } = createFakeTools(directory);
     const { codexHit, ghHit, sentinelDir } = createPathSentinels(directory);
+    const sentinelPath = `${sentinelDir}:${process.env.PATH || '/usr/bin:/bin'}`;
+    const sentinelWorks = spawnSync('codex', [], {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: sentinelPath },
+    });
+    assert.equal(sentinelWorks.status, 97);
+    assert.equal(existsSync(codexHit), true);
+    rmSync(codexHit);
     const outputDir = join(directory, 'output');
     let nowMs = Date.parse('2026-08-01T10:04:00.000Z');
     let observation = '2026-08-01T10:03:00.000Z';
@@ -138,7 +146,7 @@ describe('remediation lifecycle end to end', () => {
       GIT_COMMITTER_NAME: 'Baci Remediator',
       GIT_CONFIG_GLOBAL: '/dev/null',
       GIT_CONFIG_SYSTEM: '/dev/null',
-      PATH: `${sentinelDir}:${process.env.PATH}`,
+      PATH: sentinelPath,
       ZEPTOMAIL_TOKEN: '',
     };
     let fetchCalls = 0;

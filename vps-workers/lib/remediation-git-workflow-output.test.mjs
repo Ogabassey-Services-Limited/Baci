@@ -174,16 +174,13 @@ describe('remediation git workflow output', () => {
 
   it('redacts a bearer token that crosses the bounded stderr tail', () => {
     const { runner: baseRunner } = makeRunner();
-    const token = 'z'.repeat(80);
+    const token = 'z'.repeat(2_500);
     const context = 'quota exceeded\n';
-    const prefix = 'x'.repeat(
-      2_000 - context.length - 'Authorization: Bearer '.length - 8
-    );
     const runner = (command, args, options) =>
       command === 'codex'
         ? {
             status: 1,
-            stderr: `${prefix}${context}Authorization: Bearer ${token}`,
+            stderr: `Authorization: Bearer ${token}\n${context}`,
             stdout: '',
           }
         : baseRunner(command, args, options);
@@ -201,7 +198,7 @@ describe('remediation git workflow output', () => {
         }),
       (error) => {
         assert.match(error.message, /quota exceeded/);
-        assert.doesNotMatch(error.message, new RegExp(token.slice(8)));
+        assert.equal(error.message.includes(token.slice(-100)), false);
         return true;
       }
     );

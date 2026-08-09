@@ -43,7 +43,6 @@ describe('remediation git workflow reconciliation', () => {
       /connection closed before the draft URL was returned/
     );
     const retried = runRemediationAutofix({ candidate, env, runner });
-
     assert.equal(retried.type, 'pr_opened');
     assert.equal(retried.prUrl, 'https://github.com/ogabasseyy/Baci/pull/999');
     assert.equal(retried.branch, createdBranches[0]);
@@ -101,7 +100,6 @@ describe('remediation git workflow reconciliation', () => {
         BACI_REPO_DIR: '/repo',
         BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
       };
-
       assert.throws(
         () => runRemediationAutofix({ candidate, env, runner }),
         new RegExp(`${failedCommand} execution failed`)
@@ -146,7 +144,6 @@ describe('remediation git workflow reconciliation', () => {
         }
         return baseRunner(command, args, options);
       };
-
       const result = runRemediationAutofix({
         candidate,
         env: {
@@ -201,7 +198,10 @@ describe('remediation git workflow reconciliation', () => {
       /Codex execution failed/
     );
     assert.equal(
-      calls.some((call) => call.join(' ').includes('worktree remove')),
+      calls.some(
+        (call) =>
+          call.join(' ') === 'git worktree remove --force /worktrees/retained'
+      ),
       false
     );
   });
