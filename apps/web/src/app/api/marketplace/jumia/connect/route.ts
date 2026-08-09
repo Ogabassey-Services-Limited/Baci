@@ -15,21 +15,15 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import {
-  getJumiaAuthUrl,
-  getJumiaRedirectUri,
-  isJumiaAuthUrlVariant,
-} from '@/lib/jumia/helpers';
-import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
-import { logger } from '@/lib/logger';
+import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
 } from '@/lib/merchant-feature-gates';
-import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
+import { jumiaOAuthInitiationDiagnostic } from './oauth-diagnostic';
 
 const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
   z.object({
@@ -376,20 +370,16 @@ export async function GET(request: NextRequest) {
         return merchantFeatureUpgradeResponse('marketplace_sync');
       }
 
-      const diagnosticRequested =
-        jumiaOAuthDiagnostic.isRequested(searchParams);
-      if (diagnosticRequested) {
-        const platformAdminAuth = await getPlatformAdminAuth();
-        if (
-          platformAdminAuth.status !== 'authenticated' ||
-          platformAdminAuth.user.id !== auth.user.id
-        ) {
-          return NextResponse.json(
-            { error: 'Jumia OAuth diagnostic is restricted' },
-            { status: 403 }
-          );
+      const initiationContext = await jumiaOAuthInitiationDiagnostic.getContext(
+        {
+          apiUserId: auth.user.id,
+          searchParams,
         }
+      );
+      if (!initiationContext.ok) {
+        return initiationContext.response;
       }
+      const { diagnosticRequested, platform, variant } = initiationContext;
 
       const jumiaClientId = getJumiaClientId();
       const appUrl = getConfiguredAppUrl();
@@ -400,14 +390,6 @@ export async function GET(request: NextRequest) {
         );
       }
       const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
-
-      const platform = searchParams.get('platform'); // 'mobile' or undefined
-
-      // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
-      const rawVariant = searchParams.get('variant');
-      const variant = isJumiaAuthUrlVariant(rawVariant)
-        ? rawVariant
-        : undefined;
 
       // Generate state for CSRF protection
       const state = crypto.randomBytes(16).toString('hex');
@@ -422,56 +404,15 @@ export async function GET(request: NextRequest) {
       // return redirect to Jumia
       const response = NextResponse.redirect(redirectUrl);
 
-      // Set cookies for security and context
-      response.cookies.set('jumia_oauth_state', state, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
+      jumiaOAuthInitiationDiagnostic.applyResponse({
+        diagnosticRequested,
+        merchantId,
+        platform,
+        redirectUrl,
+        response,
+        state,
+        variant,
       });
-
-      response.cookies.set('jumia_merchant_id', merchantId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
-      });
-
-      // VARIANT-TEST: REMOVE — bind the variant to this OAuth roundtrip so the
-      // callback can log + report the resulting token-response shape.
-      if (variant) {
-        response.cookies.set('jumia_oauth_variant', variant, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 10,
-        });
-      }
-
-      if (diagnosticRequested) {
-        const diagnosticId = crypto.randomUUID();
-        response.cookies.set(jumiaOAuthDiagnostic.cookieName, diagnosticId, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 10,
-        });
-        logger.info({
-          message: '[Jumia OAuth Diagnostic] Authorization started',
-          diagnostic_id: diagnosticId,
-          variant: variant ?? 'default',
-          ...jumiaOAuthDiagnostic.getAuthorizationEvidence(redirectUrl),
-        });
-      }
-
-      if (platform) {
-        response.cookies.set('jumia_oauth_platform', platform, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 10, // 10 minutes
-        });
-      }
 
       return response;
     }

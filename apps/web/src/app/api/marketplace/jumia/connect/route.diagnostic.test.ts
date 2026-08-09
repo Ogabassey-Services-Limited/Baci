@@ -62,9 +62,13 @@ vi.mock('next/headers', () => ({ cookies: vi.fn() }));
 
 import { GET } from './route';
 
-function makeRequest() {
+function makeRequest(
+  query = 'connectionType=oauth&diagnostic=token-shape&variant=F',
+  cookie?: string
+) {
   return new NextRequest(
-    'https://usebaci.com/api/marketplace/jumia/connect?connectionType=oauth&diagnostic=token-shape&variant=F'
+    `https://usebaci.com/api/marketplace/jumia/connect?${query}`,
+    cookie ? { headers: { cookie } } : undefined
   );
 }
 
@@ -152,5 +156,38 @@ describe('Jumia OAuth connect diagnostic', () => {
     ];
     expect(state).toMatch(/^[0-9a-f]{32}$/);
     expect(JSON.stringify(mockLoggerInfo.mock.calls)).not.toContain(state);
+  });
+
+  it('clears an abandoned diagnostic cookie before ordinary OAuth', async () => {
+    const response = await GET(
+      makeRequest(
+        'connectionType=oauth',
+        'jumia_oauth_diagnostic=stale-diagnostic-id'
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('set-cookie')).toContain(
+      'jumia_oauth_diagnostic=;'
+    );
+    expect(mockGetPlatformAdminAuth).not.toHaveBeenCalled();
+  });
+
+  it('rejects mobile mode for a token-shape diagnostic', async () => {
+    const response = await GET(
+      makeRequest(
+        'connectionType=oauth&diagnostic=token-shape&variant=F&platform=mobile'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects documented-baseline variant F outside diagnostic mode', async () => {
+    const response = await GET(makeRequest('connectionType=oauth&variant=F'));
+
+    expect(response.status).toBe(400);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
   });
 });

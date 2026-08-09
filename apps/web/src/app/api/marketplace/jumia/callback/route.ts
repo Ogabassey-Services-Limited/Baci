@@ -1,5 +1,4 @@
-import { createJumiaMobileReturnUrl } from '@baci/shared';
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import {
   getConfiguredAppUrl,
   getJumiaClientId,
@@ -18,7 +17,8 @@ import {
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
-import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
+import { runJumiaOAuthCallbackDiagnostic } from './oauth-diagnostic';
+import { jumiaOAuthCallbackRedirect } from './oauth-redirect';
 
 /** RFC 6749 standard error codes plus common Jumia-specific ones. */
 const KNOWN_OAUTH_ERRORS = new Set([
@@ -29,48 +29,6 @@ const KNOWN_OAUTH_ERRORS = new Set([
   'temporarily_unavailable',
   'invalid_scope',
 ]);
-
-function clearOAuthCookies(response: NextResponse): NextResponse {
-  response.cookies.delete('jumia_oauth_state');
-  response.cookies.delete('jumia_merchant_id');
-  response.cookies.delete('jumia_oauth_platform');
-  response.cookies.delete('jumia_ticket_id');
-  // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
-  response.cookies.delete('jumia_oauth_variant');
-  response.cookies.delete(jumiaOAuthDiagnostic.cookieName);
-  return response;
-}
-
-function createPlatformRedirect(
-  request: NextRequest,
-  query?: Record<string, string | undefined>
-): NextResponse {
-  const platform = request.cookies.get('jumia_oauth_platform')?.value;
-  let response: NextResponse;
-  if (platform === 'mobile') {
-    // SAFE: scheme + path are hard-coded constants in `@baci/shared`. Query
-    // values are URL-encoded by `URLSearchParams` — see helper for details.
-    response = NextResponse.redirect(createJumiaMobileReturnUrl(query));
-  } else {
-    const redirectUrl = new URL('/dashboard/channels', request.url);
-    if (query) {
-      for (const [key, value] of Object.entries(query)) {
-        if (value === undefined) {
-          continue;
-        }
-        redirectUrl.searchParams.set(key, value);
-      }
-    }
-    response = NextResponse.redirect(redirectUrl);
-  }
-
-  if (request.cookies.has(jumiaOAuthDiagnostic.cookieName)) {
-    response.headers.set('Cache-Control', 'private, no-store');
-    return clearOAuthCookies(response);
-  }
-
-  return response;
-}
 
 // react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- OAuth providers call callbacks with GET; state cookie, authenticated merchant, and merchant-cookie checks gate persistence.
 export async function GET(request: NextRequest) {
@@ -91,8 +49,8 @@ export async function GET(request: NextRequest) {
         state: `${state?.slice(0, 8)}...`,
         storedState: `${storedState?.slice(0, 8)}...`,
       });
-      return clearOAuthCookies(
-        createPlatformRedirect(request, { error: 'invalid_state' })
+      return jumiaOAuthCallbackRedirect.clear(
+        jumiaOAuthCallbackRedirect.create(request, { error: 'invalid_state' })
       );
     }
 
@@ -102,33 +60,30 @@ export async function GET(request: NextRequest) {
         const safeError = KNOWN_OAUTH_ERRORS.has(rawError)
           ? rawError
           : 'oauth_error';
-        return clearOAuthCookies(
-          createPlatformRedirect(request, { error: safeError })
+        return jumiaOAuthCallbackRedirect.clear(
+          jumiaOAuthCallbackRedirect.create(request, { error: safeError })
         );
       }
       if (!code || code.length > 2048) {
-        return clearOAuthCookies(
-          createPlatformRedirect(request, { error: 'no_code' })
+        return jumiaOAuthCallbackRedirect.clear(
+          jumiaOAuthCallbackRedirect.create(request, { error: 'no_code' })
         );
       }
 
       const ticketId = request.cookies.get('jumia_ticket_id')?.value;
       if (!ticketId || ticketId.length > 200) {
-        return clearOAuthCookies(
-          createPlatformRedirect(request, { error: 'ticket_invalid' })
+        return jumiaOAuthCallbackRedirect.clear(
+          jumiaOAuthCallbackRedirect.create(request, {
+            error: 'ticket_invalid',
+          })
         );
       }
 
-      // SAFE: `createJumiaMobileReturnUrl` builds the URL from hard-coded
-      // constants — scheme `baciadmin:` and path `/sales-channels` — declared
-      // in `@baci/shared/contracts/jumia-oauth`. `code` and `ticketId` are
-      // attached as query parameters and URL-encoded via `URLSearchParams`,
-      // so user input cannot influence the URL authority. The shared helper
-      // additionally enforces a runtime scheme allow-list as defence-in-depth.
-      const response = NextResponse.redirect(
-        createJumiaMobileReturnUrl({ code, ticketId })
-      );
-      return clearOAuthCookies(response);
+      const response = jumiaOAuthCallbackRedirect.create(request, {
+        code,
+        ticketId,
+      });
+      return jumiaOAuthCallbackRedirect.clear(response);
     }
 
     const auth = await authenticateApiRequest(request);
@@ -137,13 +92,17 @@ export async function GET(request: NextRequest) {
         message: 'Jumia Callback Unauthorized',
         error: auth.error,
       });
-      return createPlatformRedirect(request, { error: 'session_expired' });
+      return jumiaOAuthCallbackRedirect.create(request, {
+        error: 'session_expired',
+      });
     }
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       logger.error({ message: 'Jumia Callback Merchant not found' });
-      return createPlatformRedirect(request, { error: 'merchant_not_found' });
+      return jumiaOAuthCallbackRedirect.create(request, {
+        error: 'merchant_not_found',
+      });
     }
 
     if (cookieMerchantId && cookieMerchantId !== merchantId) {
@@ -152,26 +111,9 @@ export async function GET(request: NextRequest) {
         cookieMerchantId,
         merchantId,
       });
-      return createPlatformRedirect(request, { error: 'session_expired' });
-    }
-
-    if (diagnosticId) {
-      const platformAdminAuth = await getPlatformAdminAuth();
-      if (
-        platformAdminAuth.status !== 'authenticated' ||
-        platformAdminAuth.user.id !== auth.user.id
-      ) {
-        logger.warn({
-          message: '[Jumia OAuth Diagnostic] Authorization rejected',
-          diagnostic_id: diagnosticId,
-          reason: 'platform_admin_required',
-        });
-        return clearOAuthCookies(
-          createPlatformRedirect(request, {
-            error: 'diagnostic_forbidden',
-          })
-        );
-      }
+      return jumiaOAuthCallbackRedirect.create(request, {
+        error: 'session_expired',
+      });
     }
 
     if (rawError) {
@@ -183,11 +125,11 @@ export async function GET(request: NextRequest) {
         error: safeError,
         merchantId,
       });
-      return createPlatformRedirect(request, { error: safeError });
+      return jumiaOAuthCallbackRedirect.create(request, { error: safeError });
     }
 
     if (!code || code.length > 2048) {
-      return createPlatformRedirect(request, { error: 'no_code' });
+      return jumiaOAuthCallbackRedirect.create(request, { error: 'no_code' });
     }
 
     const featureAccess = await getMerchantFeatureAccess(
@@ -201,12 +143,14 @@ export async function GET(request: NextRequest) {
         merchantId,
         error: featureAccess.error,
       });
-      return createPlatformRedirect(request, {
+      return jumiaOAuthCallbackRedirect.create(request, {
         error: 'plan_verification_failed',
       });
     }
     if (!featureAccess.allowed) {
-      return createPlatformRedirect(request, { error: 'requires_upgrade' });
+      return jumiaOAuthCallbackRedirect.create(request, {
+        error: 'requires_upgrade',
+      });
     }
 
     const jumiaClientId = getJumiaClientId();
@@ -221,7 +165,7 @@ export async function GET(request: NextRequest) {
         hasClientSecret: Boolean(jumiaClientSecret),
         hasAppUrl: Boolean(appUrl),
       });
-      return createPlatformRedirect(request, {
+      return jumiaOAuthCallbackRedirect.create(request, {
         error: 'oauth_not_configured',
       });
     }
@@ -231,23 +175,21 @@ export async function GET(request: NextRequest) {
     const variant = request.cookies.get('jumia_oauth_variant')?.value;
 
     if (diagnosticId) {
-      const callbackUrl = new URL(request.url);
-      const redirectUrl = new URL(jumiaRedirectUri);
-      logger.info({
-        message: '[Jumia OAuth Diagnostic] Callback accepted',
-        authorization_code_length: code.length,
-        callback_host: callbackUrl.hostname,
-        callback_path: callbackUrl.pathname,
-        diagnostic_id: diagnosticId,
-        oauth_state_match: true,
-        redirect_host: redirectUrl.hostname,
-        redirect_path: redirectUrl.pathname,
-        variant: variant ?? 'default',
+      return runJumiaOAuthCallbackDiagnostic({
+        apiUserId: auth.user.id,
+        clientId: jumiaClientId,
+        clientSecret: jumiaClientSecret,
+        code,
+        createRedirect: (query) =>
+          jumiaOAuthCallbackRedirect.create(request, query),
+        diagnosticId,
+        redirectUri: jumiaRedirectUri,
+        requestUrl: request.url,
+        variant,
       });
     }
 
     let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
-    const tokenExchangeStartedAt = Date.now();
     try {
       tokens = await exchangeJumiaCode({
         code,
@@ -263,9 +205,6 @@ export async function GET(request: NextRequest) {
         message: 'Jumia Callback Token exchange failed',
         merchantId,
         redirectUri: jumiaRedirectUri,
-        diagnostic_id: diagnosticId ?? null,
-        token_exchange_duration_ms: Date.now() - tokenExchangeStartedAt,
-        variant: variant ?? 'default',
         error:
           tokenError instanceof Error
             ? {
@@ -278,31 +217,9 @@ export async function GET(request: NextRequest) {
               }
             : String(tokenError).slice(0, 200),
       });
-      return createPlatformRedirect(request, {
+      return jumiaOAuthCallbackRedirect.create(request, {
         error: 'token_exchange_failed',
       });
-    }
-
-    if (diagnosticId) {
-      const evidence = jumiaOAuthDiagnostic.buildEvidence(tokens);
-      logger.info({
-        message: '[Jumia OAuth Diagnostic] Token exchange completed',
-        diagnostic_id: diagnosticId,
-        token_exchange_duration_ms: Date.now() - tokenExchangeStartedAt,
-        variant: variant ?? 'default',
-        ...evidence,
-      });
-
-      const response = createPlatformRedirect(
-        request,
-        jumiaOAuthDiagnostic.buildRedirectQuery({
-          diagnosticId,
-          tokens,
-          variant,
-        })
-      );
-      response.headers.set('Cache-Control', 'private, no-store');
-      return clearOAuthCookies(response);
     }
 
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
@@ -364,7 +281,9 @@ export async function GET(request: NextRequest) {
         merchantId,
         error: existingIntegrationsError,
       });
-      return createPlatformRedirect(request, { error: 'database_error' });
+      return jumiaOAuthCallbackRedirect.create(request, {
+        error: 'database_error',
+      });
     }
     const existingActiveShopIds = new Set(
       (existingIntegrations ?? [])
@@ -428,7 +347,9 @@ export async function GET(request: NextRequest) {
         shopIds: integrationRows.map((row) => row.shop_id),
         error: insertError,
       });
-      return createPlatformRedirect(request, { error: 'database_error' });
+      return jumiaOAuthCallbackRedirect.create(request, {
+        error: 'database_error',
+      });
     }
 
     const newShopIds = integrationRows
@@ -455,8 +376,8 @@ export async function GET(request: NextRequest) {
     if (variantResult) {
       redirectQuery.variant_result = variantResult;
     }
-    const response = createPlatformRedirect(request, redirectQuery);
-    return clearOAuthCookies(response);
+    const response = jumiaOAuthCallbackRedirect.create(request, redirectQuery);
+    return jumiaOAuthCallbackRedirect.clear(response);
   } catch (error) {
     if (
       error instanceof Error &&
@@ -476,6 +397,8 @@ export async function GET(request: NextRequest) {
               summary: String(error).slice(0, 200),
             },
     });
-    return createPlatformRedirect(request, { error: 'connection_failed' });
+    return jumiaOAuthCallbackRedirect.create(request, {
+      error: 'connection_failed',
+    });
   }
 }
