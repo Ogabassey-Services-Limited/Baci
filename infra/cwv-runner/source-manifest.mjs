@@ -44,7 +44,7 @@ function git(cwd, args, input, encoding = 'utf8') {
     encoding,
     input,
     env: trustedGitEnvironment(),
-    maxBuffer: LIMITS.archive * 8,
+    maxBuffer: 512 * 1024 * 1024,
   });
 }
 
@@ -119,6 +119,23 @@ function treeRows(cwd, sha, prefix = '') {
   return rows.sort((left, right) => pathCompare(left.path, right.path));
 }
 
+function verifyTreeClosure(cwd, sha) {
+  checkedSha(sha, 'tree SHA');
+  const output = git(cwd, ['ls-tree', '-r', '-t', '-z', sha], null, null);
+  const ids = [sha];
+  for (const item of output.toString('utf8').split('\0').filter(Boolean)) {
+    const match = /^(\d{6}) (blob|tree) ([0-9a-f]{40,64})\t(.+)$/.exec(item);
+    if (!match) fail('malformed Git tree closure');
+    checkedPath(match[4]);
+    ids.push(match[3]);
+  }
+  const tree = git(cwd, ['rev-parse', `${sha}^{tree}`]).trim();
+  ids.push(tree);
+  verifyObjects(cwd, ids);
+  const object = verifiedObjects.get(`${cwd}\0${sha}`);
+  if (!object || object.type !== 'commit') fail('source SHA must name a commit');
+}
+
 function blobEntry(cwd, row) {
   const bytes = objectBytes(cwd, row.objectId);
   if (bytes.length > LIMITS.member) fail('source member exceeds size limit');
@@ -130,6 +147,11 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
   checkedSha(reviewedHeadSha, 'reviewed head SHA');
   checkedSha(mergeSha, 'merge SHA');
   verifyObjects(cwd, [baseSha, reviewedHeadSha, mergeSha]);
+  for (const sha of [baseSha, reviewedHeadSha, mergeSha]) {
+    const object = verifiedObjects.get(`${cwd}\0${sha}`);
+    if (!object || object.type !== 'commit') fail('source SHA must name a commit');
+    verifyTreeClosure(cwd, sha);
+  }
   const output = git(cwd, ['diff', '--name-status', '-z', '--no-renames', baseSha, reviewedHeadSha], null, null);
   const entries = [];
   for (let index = 0, fields = output.toString('utf8').split('\0'); index < fields.length - 1; index += 2) {

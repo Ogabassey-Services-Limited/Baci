@@ -10,12 +10,11 @@ import { fsyncTask9Directory } from './task9-fsync-directory.mjs';
 import { readHeldTask9File } from './task9-held-file.mjs';
 import { withTask9OutputDirectory } from './task9-output-directory.mjs';
 import { readPublishedTask9Files } from './task9-published-files.mjs';
+import { checkedTask9Identity } from './task9-bootstrap-identity.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
-const SHA = /^[a-f0-9]{40}$/;
 const ID = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const TRANSACTION_ID = /^[a-z0-9][a-z0-9-]{0,62}$/;
-const REF_PART = /^[A-Za-z0-9._/-]+$/;
 const MODES = Object.freeze({
   'manifest.json': '100400',
   'manifest.sha256': '100400',
@@ -33,35 +32,6 @@ const exact = (value, keys) =>
   typeof value === 'object' &&
   !Array.isArray(value) &&
   canonicalJson(Object.keys(value).sort()) === canonicalJson([...keys].sort());
-
-function checkedIdentity(input, manifest, policy) {
-  const repository = policy.repository;
-  if (
-    !exact(repository, ['id', 'name']) ||
-    !Number.isSafeInteger(repository.id) ||
-    repository.id < 1 ||
-    !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository.name)
-  )
-    fail('invalid repository identity');
-  if (
-    !SHA.test(input.deploymentSha) ||
-    input.deploymentSha !== manifest.mergeSha ||
-    !REF_PART.test(input.headRef) ||
-    !Number.isSafeInteger(input.workflowId) ||
-    input.workflowId < 1 ||
-    !DIGEST.test(input.admissionId)
-  )
-    fail('invalid source identity');
-  return {
-    base: { ref: 'refs/heads/main', sha: manifest.baseSha },
-    exactRun: { admissionId: input.admissionId, workflow: { id: input.workflowId, path: '.github/workflows/cwv-runner-attestation.yml', ref: 'refs/heads/main' } },
-    mergeSha: manifest.mergeSha,
-    pullRequest: { headRef: input.headRef, number: manifest.prNumber },
-    ref: `refs/pull/${manifest.prNumber}/merge`,
-    repository,
-    reviewedSha: manifest.reviewedHeadSha,
-  };
-}
 
 function checkedProvenance(bytes, nodeBytes, policy) {
   let value;
@@ -168,7 +138,7 @@ export function generateTask9BootstrapBundle(
   } catch {
     fail('invalid Task 9 policy');
   }
-  const identity = checkedIdentity(input, manifest, policy);
+  const identity = checkedTask9Identity(input, manifest, policy);
   const provenance = checkedProvenance(nodeProvenance.bytes, node.bytes, policy);
   beforeVerify();
   const verifiedManifest = verifySourceManifest({
