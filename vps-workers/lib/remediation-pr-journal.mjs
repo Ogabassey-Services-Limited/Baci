@@ -185,26 +185,31 @@ export function createRemediationPrJournal({ now = () => Date.now(), path }) {
   return {
     entries: () => read(path),
     record({ candidate, result }) {
-      const entry = {
+      const rawEntry = {
         at: new Date(now()).toISOString(),
-        branch: safe(result?.branch),
-        caseKey: safe(candidate?.caseKey, 300),
-        fingerprint: safe(candidate?.fingerprint, 120),
-        observation: safe(
-          candidate?.observationMarker || candidate?.lastSeen,
-          120
-        ),
-        prUrl: safe(result?.prUrl || result?.pullRequestUrl),
+        branch: result?.branch,
+        caseKey: candidate?.caseKey,
+        fingerprint: candidate?.fingerprint,
+        observation: candidate?.observationMarker || candidate?.lastSeen,
+        prUrl: result?.prUrl || result?.pullRequestUrl,
         type: 'pr_opened',
       };
       if (
-        !validEntry(entry) ||
-        !entry.caseKey ||
-        !entry.fingerprint ||
-        !entry.observation
+        !validEntry(rawEntry) ||
+        !rawEntry.caseKey ||
+        !rawEntry.fingerprint ||
+        !rawEntry.observation
       ) {
         throw new Error('Invalid remediation PR journal entry');
       }
+      const entry = {
+        ...rawEntry,
+        branch: safe(rawEntry.branch),
+        caseKey: safe(rawEntry.caseKey, 300),
+        fingerprint: safe(rawEntry.fingerprint, 120),
+        observation: safe(rawEntry.observation, 120),
+        prUrl: safe(rawEntry.prUrl),
+      };
       withLock(path, now(), () =>
         persist(path, [
           ...read(path).filter((item) => item.caseKey !== entry.caseKey),

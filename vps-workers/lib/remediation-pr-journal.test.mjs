@@ -121,6 +121,83 @@ describe('remediation PR journal', () => {
     assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), [mismatch]);
   });
 
+  it('rejects malformed PR journal fields instead of silently rewriting them', () => {
+    const path = join(
+      mkdtempSync(join(tmpdir(), 'baci-pr-journal-raw-validation-')),
+      'journal.json'
+    );
+    const journal = createRemediationPrJournal({ path });
+
+    assert.throws(
+      () =>
+        journal.record({
+          candidate: {
+            caseKey: 'sentry:sentry_issue:journal-raw',
+            fingerprint: 'journal-raw',
+            observationMarker: '2026-08-09T10:00:00.000Z',
+          },
+          result: {
+            branch: 'codex/fix journal-raw',
+            prUrl: 'https://github.com/baci/baci/pull/78',
+          },
+        }),
+      /Invalid remediation PR journal entry/
+    );
+  });
+
+  it('clears one recovery entry without removing the others', () => {
+    const path = join(
+      mkdtempSync(join(tmpdir(), 'baci-pr-journal-clear-')),
+      'journal.json'
+    );
+    const journal = createRemediationPrJournal({ path });
+    for (const fingerprint of ['journal-clear-1', 'journal-clear-2']) {
+      journal.record({
+        candidate: {
+          caseKey: `sentry:sentry_issue:${fingerprint}`,
+          fingerprint,
+          observationMarker: '2026-08-09T10:00:00.000Z',
+        },
+        result: {
+          branch: `codex/fix-${fingerprint}`,
+          prUrl: 'https://github.com/baci/baci/pull/79',
+        },
+      });
+    }
+
+    journal.clear('sentry:sentry_issue:journal-clear-1');
+
+    assert.deepEqual(
+      journal.entries().map((entry) => entry.fingerprint),
+      ['journal-clear-2']
+    );
+  });
+
+  it('reads only the latest one hundred recovery entries', () => {
+    const path = join(
+      mkdtempSync(join(tmpdir(), 'baci-pr-journal-cap-')),
+      'journal.json'
+    );
+    const entries = Array.from({ length: 150 }, (_, index) => {
+      const fingerprint = `journal-${index}`;
+      return {
+        at: '2026-08-09T10:01:00.000Z',
+        branch: `codex/fix-${fingerprint}`,
+        caseKey: `sentry:sentry_issue:${fingerprint}`,
+        fingerprint,
+        observation: '2026-08-09T10:00:00.000Z',
+        prUrl: 'https://github.com/baci/baci/pull/80',
+        type: 'pr_opened',
+      };
+    });
+    writeFileSync(path, JSON.stringify(entries));
+
+    const journal = createRemediationPrJournal({ path });
+
+    assert.equal(journal.entries().length, 100);
+    assert.equal(journal.entries()[0].fingerprint, 'journal-50');
+  });
+
   it('does not overwrite or clear journal recovery while another worker holds the update lock', () => {
     const path = join(
       mkdtempSync(join(tmpdir(), 'baci-pr-journal-lock-')),

@@ -43,3 +43,35 @@ it('reclaims a stale PR journal lock after a worker crash', () => {
 
   assert.equal(journal.entries().length, 1);
 });
+
+it('does not reclaim an old lock held by a live owner', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'baci-pr-journal-live-'));
+  const path = join(directory, 'journal.json');
+  const lockPath = `${path}.lock`;
+  const nowMs = Date.parse('2026-08-09T10:05:00.000Z');
+  const token = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const owner = JSON.stringify({
+    createdAt: '2026-08-09T10:00:00.000Z',
+    pid: process.pid,
+    token,
+  });
+  writeFileSync(`${lockPath}.owner-${token}`, owner);
+  writeFileSync(lockPath, owner);
+  const journal = createRemediationPrJournal({ now: () => nowMs, path });
+
+  assert.throws(
+    () =>
+      journal.record({
+        candidate: {
+          caseKey: 'sentry:sentry_issue:live-lock',
+          fingerprint: 'live-lock',
+          observationMarker: '2026-08-09T10:00:00.000Z',
+        },
+        result: {
+          branch: 'codex/fix-live-lock',
+          prUrl: 'https://github.com/baci/baci/pull/89',
+        },
+      }),
+    /remediation PR journal is busy/
+  );
+});
