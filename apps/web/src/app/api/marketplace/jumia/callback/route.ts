@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { z } from 'zod';
 import {
   getConfiguredAppUrl,
   getJumiaClientId,
@@ -29,8 +30,7 @@ const KNOWN_OAUTH_ERRORS = new Set([
   'temporarily_unavailable',
   'invalid_scope',
 ]);
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const diagnosticIdSchema = z.uuid();
 
 // react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- OAuth providers call callbacks with GET; state cookie, authenticated merchant, and merchant-cookie checks gate persistence.
 export async function GET(request: NextRequest) {
@@ -98,6 +98,11 @@ export async function GET(request: NextRequest) {
         error: 'session_expired',
       });
     }
+
+    const diagnosticIdResult = diagnosticIdSchema.safeParse(diagnosticId);
+    const validatedDiagnosticId = diagnosticIdResult.success
+      ? diagnosticIdResult.data
+      : undefined;
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
@@ -176,7 +181,7 @@ export async function GET(request: NextRequest) {
     // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
     const variant = request.cookies.get('jumia_oauth_variant')?.value;
 
-    if (diagnosticId && UUID_PATTERN.test(diagnosticId)) {
+    if (validatedDiagnosticId) {
       return runJumiaOAuthCallbackDiagnostic({
         apiUserId: auth.user.id,
         clientId: jumiaClientId,
@@ -184,7 +189,7 @@ export async function GET(request: NextRequest) {
         code,
         createRedirect: (query) =>
           jumiaOAuthCallbackRedirect.create(request, query),
-        diagnosticId,
+        diagnosticId: validatedDiagnosticId,
         redirectUri: jumiaRedirectUri,
         requestUrl: request.url,
         variant,
