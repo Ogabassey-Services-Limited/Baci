@@ -8,10 +8,14 @@ const workerRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CODEX_JOB_COUNT = 3;
 
 describe('remediation deploy crontab', () => {
-  it('leaves global-lock acquisition to direct Vercel and Sentry entrypoints', () => {
+  it('installs the remediation lock handoff before full promotion', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
     const transitionScript = readFileSync(
       join(workerRoot, 'lib/install-remediation-cron-transition.sh'),
+      'utf8'
+    );
+    const transitionHelper = readFileSync(
+      join(workerRoot, 'lib/remediation-cron-transition.py'),
       'utf8'
     );
 
@@ -22,9 +26,12 @@ describe('remediation deploy crontab', () => {
       /install -d -m 700 \$REMOTE_DIR\/locks && touch \$REMOTE_DIR\/locks\/error-remediator-global\.lock && chmod 600 \$REMOTE_DIR\/locks\/error-remediator-global\.lock/
     );
     assert.doesNotMatch(deployScript, /BACI_REMEDIATION_GLOBAL_FLOCK_HELD/);
-    assert.match(transitionScript, /exec flock -F /);
-    assert.match(transitionScript, /-n -E 75 .*error-remediator-global/);
-    assert.match(transitionScript, /-w 600 -E 75 .*error-remediator-global/);
+    assert.match(transitionScript, /flock -x \/tmp\/baci-workers-deploy\.lock/);
+    assert.match(transitionScript, /flock -x 6/);
+    assert.match(transitionHelper, /exec flock -F /);
+    assert.match(transitionHelper, /'vercel-error-remediator'.*'-n'/);
+    assert.match(transitionHelper, /'sentry-mobile-error-remediator'.*'-n'/);
+    assert.match(transitionHelper, /'remediation-codex-canary'.*'-w 600'/);
     const transition = deployScript.indexOf(
       'install_remediation_cron_transition'
     );
