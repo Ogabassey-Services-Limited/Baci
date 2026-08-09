@@ -108,29 +108,28 @@ bash -c "$1"
       scenario === 'unrelated-process' ||
       scenario === 'watchdog-argument'
     ) {
-      const job = join(
-        jobsDirectory,
-        scenario === 'unrelated-process'
-          ? 'unrelated-worker.mjs'
-          : 'vercel-error-remediator.mjs'
-      );
+      const job =
+        scenario === 'operator-prewrite'
+          ? join(directory, 'operator-prewrite-process.mjs')
+          : join(
+              jobsDirectory,
+              scenario === 'unrelated-process'
+                ? 'unrelated-worker.mjs'
+                : 'vercel-error-remediator.mjs'
+            );
       const exitTimer =
         scenario === 'direct-timeout'
           ? 'setTimeout(() => {}, 5000);'
           : scenario === 'flag-direct-exit'
             ? 'setTimeout(() => rmSync(process.env.PROC_ENTRY, { force: true, recursive: true }), 5000);'
             : 'setTimeout(() => rmSync(process.env.PROC_ENTRY, { force: true, recursive: true }), 1500);';
-      const operatorChange =
-        scenario === 'operator-prewrite'
-          ? "const replaceCron = () => existsSync(process.env.INITIAL_CRONTAB_READ) ? writeFileSync(process.env.OPERATOR_CRONTAB, '* * * * * /usr/local/bin/operator-prewrite\\n') : setTimeout(replaceCron, 10); replaceCron();"
-          : '';
       const ready =
         scenario === 'slow-startup'
           ? 'setTimeout(() => writeFileSync(process.env.DIRECT_READY, String(process.pid)), 2500);'
           : 'writeFileSync(process.env.DIRECT_READY, String(process.pid));';
       writeJob(
         job,
-        `import { existsSync, rmSync, writeFileSync } from 'node:fs'; ${ready} ${operatorChange} ${exitTimer}`
+        `import { rmSync, writeFileSync } from 'node:fs'; ${ready} ${exitTimer}`
       );
       const command =
         scenario === 'alternate-node-exit'

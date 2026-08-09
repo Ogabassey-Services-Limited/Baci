@@ -45,7 +45,6 @@ export function crontabStub() {
   return `#!/usr/bin/env bash
 set -euo pipefail
 if [ "$1" = "-l" ]; then
-  if [ "$TEST_SCENARIO" = "operator-prewrite" ]; then touch "$INITIAL_CRONTAB_READ"; fi
   if grep -q BARRIER_MARKER "$REMOTE_DIR/jobs/vercel-error-remediator.mjs" && { [ "$TEST_SCENARIO" = "launch-race" ] || [ "$TEST_SCENARIO" = "rollback" ]; }; then
     set +e
     node "$REMOTE_DIR/jobs/vercel-error-remediator.mjs"
@@ -69,10 +68,14 @@ if [ "$1" = "-l" ]; then
       echo "permission denied" >&2
       exit 2
       ;;
+    operator-prewrite)
+      echo "0 1 * * * /usr/local/bin/unrelated-worker"
+      echo "* * * * * /usr/local/bin/operator-prewrite" > "$CRONTAB_MARKER"
+      ;;
     preserve-unrelated)
       echo "# watchdog mentions jobs/vercel-error-remediator.mjs"
       echo "* * * * * node jobs/watchdog.mjs jobs/vercel-error-remediator.mjs"
-      echo "*/15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
+      echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
       ;;
     legacy-two-flock)
       echo "# keep this watchdog note about remediation"

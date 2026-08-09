@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import { removeLegacyRemediationLockArtifacts } from './remediation-case-state-legacy-lock-cleanup.mjs';
+import { createLegacyRemediationLockCleaner } from './remediation-case-state-legacy-lock-cleanup.mjs';
 import { reclaimStaleLock } from './remediation-case-state-lock-reclaim.mjs';
 import { hasRemediationGlobalLockCapability } from './remediation-global-lock.mjs';
 
@@ -115,8 +115,11 @@ export function createRemediationCaseStateStorage({
     throw new Error('global remediation lock capability is required');
   }
   const externallyLocked = remediationLock !== undefined;
+  const lockPath = `${path}.lock`;
+  const cleanLegacyLock = externallyLocked
+    ? createLegacyRemediationLockCleaner(lockPath, unlink)
+    : null;
   const localProcessStartedAt = startedAt(process.pid);
-  let legacyArtifactsRemoved = false;
 
   function read() {
     let content;
@@ -161,13 +164,9 @@ export function createRemediationCaseStateStorage({
   }
 
   function withLock(nowMs, fallback, action) {
-    const lockPath = `${path}.lock`;
     mkdirSync(dirname(path), { recursive: true });
     if (externallyLocked) {
-      if (!legacyArtifactsRemoved) {
-        removeLegacyRemediationLockArtifacts(lockPath, unlink);
-        legacyArtifactsRemoved = true;
-      }
+      cleanLegacyLock();
       return action(read());
     }
     for (let attempt = 0; attempt < 2; attempt += 1) {

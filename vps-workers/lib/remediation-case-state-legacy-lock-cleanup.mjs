@@ -7,8 +7,10 @@ const lockTokenPattern =
 const removePath = (path, unlink) => {
   try {
     unlink(path);
+    return true;
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
+    return false;
   }
 };
 
@@ -22,18 +24,27 @@ const isLegacyArtifact = (entry, prefix) => {
   );
 };
 
-export function removeLegacyRemediationLockArtifacts(lockPath, unlink) {
-  removePath(lockPath, unlink);
+export function createLegacyRemediationLockCleaner(
+  lockPath,
+  unlink,
+  readDirectory = readdirSync
+) {
   const prefix = `${basename(lockPath)}.`;
-  let entries;
-  try {
-    entries = readdirSync(dirname(lockPath));
-  } catch (error) {
-    if (error?.code === 'ENOENT') return;
-    throw error;
-  }
-  for (const entry of entries) {
-    if (isLegacyArtifact(entry, prefix))
-      removePath(join(dirname(lockPath), entry), unlink);
-  }
+  let scanned = false;
+  return () => {
+    const primaryRemoved = removePath(lockPath, unlink);
+    if (scanned && !primaryRemoved) return;
+    let entries;
+    try {
+      entries = readDirectory(dirname(lockPath));
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      entries = [];
+    }
+    for (const entry of entries) {
+      if (isLegacyArtifact(entry, prefix))
+        removePath(join(dirname(lockPath), entry), unlink);
+    }
+    scanned = true;
+  };
 }

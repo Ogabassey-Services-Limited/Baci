@@ -27,7 +27,7 @@ describe('remediation case state storage', () => {
     );
   });
 
-  it('removes legacy lock artifacts only once with an external global lock', (t) => {
+  it('removes a primary legacy lock that reappears under an external global lock', (t) => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-case-storage-legacy-'));
     t.after(() => rmSync(directory, { force: true, recursive: true }));
     const path = join(directory, 'state.json');
@@ -46,9 +46,11 @@ describe('remediation case state storage', () => {
     });
 
     storage.withLock(Date.now(), null, (state) => state);
+    writeFileSync(lockPath, 'legacy lock');
     storage.withLock(Date.now(), null, (state) => state);
 
-    assert.equal(lockCleanupAttempts, 1);
+    assert.equal(existsSync(lockPath), false);
+    assert.equal(lockCleanupAttempts, 2);
   });
 
   it('atomically persists a validated lifecycle snapshot', () => {
