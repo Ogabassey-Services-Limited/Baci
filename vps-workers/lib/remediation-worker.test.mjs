@@ -20,6 +20,17 @@ describe('remediation worker', () => {
     );
   });
 
+  it('rejects an unwrapped production remediation worker invocation', async () => {
+    await assert.rejects(
+      runRemediationWorker({
+        candidateLoader: async () => [],
+        env: { NODE_ENV: 'production' },
+        workerName: 'test-remediator',
+      }),
+      /global remediation flock/
+    );
+  });
+
   it('caps configurable candidate work per cron tick', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-worker-cap-'));
     const attempted = [];

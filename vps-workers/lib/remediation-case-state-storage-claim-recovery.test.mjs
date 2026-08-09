@@ -201,4 +201,40 @@ describe('remediation case state storage claim recovery', () => {
     assert.equal(actions, 0);
     assert.equal(readFileSync(fixture.claimPath, 'utf8'), replacement);
   });
+
+  it('does not reclaim a claim replaced after its second validation snapshot', () => {
+    const fixture = createClaimResidue({
+      claimContent: '{not json',
+      claimMtimeMs: staleAtMs,
+    });
+    let claimStatReads = 0;
+    let replacementDestroyed = false;
+    const storage = createRemediationCaseStateStorage({
+      createEmptyState: () => ({ version: 1 }),
+      externallyLocked: true,
+      isValidState: (state) => state?.version === 1,
+      path: fixture.path,
+      processIsAlive: () => false,
+      processStartedAt: () => null,
+      stat(target, options) {
+        if (target === fixture.claimPath) claimStatReads += 1;
+        return statSync(target, options);
+      },
+      unlink(target) {
+        if (target === fixture.claimPath && claimStatReads === 2) {
+          writeFileSync(target, '{replacement');
+          replacementDestroyed = true;
+        }
+        unlinkSync(target);
+      },
+    });
+
+    assert.equal(
+      storage.withLock(nowMs, 'busy', () => 'entered'),
+      'entered'
+    );
+    assert.equal(claimStatReads, 0);
+    assert.equal(replacementDestroyed, false);
+    assert.deepEqual(readFileNames(fixture.directory), []);
+  });
 });

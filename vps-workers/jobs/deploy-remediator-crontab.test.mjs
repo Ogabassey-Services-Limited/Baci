@@ -19,6 +19,10 @@ describe('remediation deploy crontab', () => {
       deployScript,
       /sentry-mobile-error-remediator\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock/
     );
+    assert.match(
+      deployScript,
+      /error-remediator-global\.lock bash -lc 'export BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1 /
+    );
   });
 
   it('runs the opt-in Codex canary once daily behind the same global lock', () => {
@@ -30,7 +34,7 @@ describe('remediation deploy crontab', () => {
     assert.ok(canaryCronLine);
     assert.match(
       canaryCronLine,
-      /22 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/remediation-codex-canary\.lock flock -w 600 \$REMOTE_DIR\/locks\/error-remediator-global\.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=/
+      /22 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/remediation-codex-canary\.lock flock -w 600 \$REMOTE_DIR\/locks\/error-remediator-global\.lock bash -lc 'export BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1 BACI_CODEX_DOCKER_IMAGE=/
     );
     assert.doesNotMatch(canaryCronLine, /BACI_REMEDIATION_CANARY_ENABLED=/);
     assert.match(canaryCronLine, /jobs\/remediation-codex-canary\.mjs/);
@@ -48,9 +52,8 @@ describe('remediation deploy crontab', () => {
       /docker build -f \$STAGING_DIR\/Dockerfile\.codex-remediator -t \$CODEX_REMEDIATOR_IMAGE \$STAGING_DIR/
     );
     assert.equal(
-      deployScript.match(
-        /export BACI_CODEX_DOCKER_IMAGE=\$CODEX_REMEDIATOR_IMAGE/g
-      )?.length,
+      deployScript.match(/BACI_CODEX_DOCKER_IMAGE=\$CODEX_REMEDIATOR_IMAGE/g)
+        ?.length,
       CODEX_JOB_COUNT,
       'expected every remediation Codex job to receive the pinned image'
     );

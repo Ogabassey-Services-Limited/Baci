@@ -5,6 +5,7 @@
 
 import { pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
+import { ensureRemediationGlobalLock } from '../lib/remediation-global-lock.mjs';
 import { runRemediationWorker } from '../lib/remediation-worker.mjs';
 import {
   groupErrorEvents,
@@ -73,5 +74,7 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  await main();
+  if (!ensureRemediationGlobalLock({ scriptPath: process.argv[1] })) {
+    await main();
+  }
 }

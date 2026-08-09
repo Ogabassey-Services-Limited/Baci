@@ -67,10 +67,15 @@ function capCases(state) {
   state.cases = capRemediationCases(state.cases, MAX_CASES);
 }
 
-export function createRemediationCaseState({ now = () => Date.now(), path }) {
+export function createRemediationCaseState({
+  externallyLocked = false,
+  now = () => Date.now(),
+  path,
+}) {
   const candidateNormalizer = createRemediationCaseCandidateNormalizer();
   const storage = createRemediationCaseStateStorage({
     createEmptyState: emptyState,
+    externallyLocked,
     isValidState,
     path,
   });

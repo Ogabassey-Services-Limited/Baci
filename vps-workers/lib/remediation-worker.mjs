@@ -31,6 +31,12 @@ export async function runRemediationWorker({
     throw new Error('candidateLoader is required');
   }
   if (!workerName) throw new Error('workerName is required');
+  if (
+    env.NODE_ENV === 'production' &&
+    env.BACI_REMEDIATION_GLOBAL_FLOCK_HELD !== '1'
+  ) {
+    throw new Error('global remediation flock must be held in production');
+  }
   const outputDir = env.BACI_REMEDIATION_OUTPUT_DIR || `logs/${workerName}`;
   const mode =
     env.BACI_REMEDIATION_AUTOFIX_ENABLED === '1' ? 'autofix' : 'dry-run';
@@ -67,6 +73,7 @@ export async function runRemediationWorker({
     ),
   });
   const caseState = createRemediationCaseState({
+    externallyLocked: env.BACI_REMEDIATION_GLOBAL_FLOCK_HELD === '1',
     now,
     path: remediationCaseStatePath,
   });

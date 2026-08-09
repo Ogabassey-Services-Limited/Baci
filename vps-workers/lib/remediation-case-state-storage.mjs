@@ -3,13 +3,14 @@ import { randomUUID } from 'node:crypto';
 import {
   linkSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { reclaimStaleLock } from './remediation-case-state-lock-reclaim.mjs';
 
 const STALE_LOCK_MS = 2 * 60 * 1_000;
@@ -67,6 +68,26 @@ const removeOwnerPath = (ownerPath, unlink) => {
   }
 };
 
+const removeLegacyLockArtifacts = (lockPath, unlink) => {
+  removeOwnerPath(lockPath, unlink);
+  const prefix = `${basename(lockPath)}.`;
+  let entries;
+  try {
+    entries = readdirSync(dirname(lockPath));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  for (const entry of entries) {
+    if (
+      entry.startsWith(`${prefix}owner-`) ||
+      entry.startsWith(`${prefix}reclaim-`)
+    ) {
+      removeOwnerPath(join(dirname(lockPath), entry), unlink);
+    }
+  }
+};
+
 const isStaleLock = ({
   lockPath,
   stat,
@@ -101,6 +122,7 @@ export function createRemediationCaseStateStorage({
   path,
   processIsAlive: isAlive = processIsAlive,
   processStartedAt: startedAt = processStartedAt,
+  externallyLocked = false,
   stat = statSync,
   unlink = unlinkSync,
 }) {
@@ -151,6 +173,10 @@ export function createRemediationCaseStateStorage({
   function withLock(nowMs, fallback, action) {
     const lockPath = `${path}.lock`;
     mkdirSync(dirname(path), { recursive: true });
+    if (externallyLocked) {
+      removeLegacyLockArtifacts(lockPath, unlink);
+      return action(read());
+    }
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const token = randomUUID();
       const ownerPath = `${lockPath}.owner-${token}`;
