@@ -29,7 +29,13 @@ describe('remediation lifecycle recovery', () => {
       },
     });
 
-    assert.deepEqual(recovered, [candidate]);
+    assert.deepEqual(recovered, [
+      {
+        ...candidate,
+        autofixEligible: false,
+        lifecycleEvent: 'pr_recovered',
+      },
+    ]);
     assert.deepEqual(calls, ['lifecycle', 'legacy', 'clear']);
   });
 
@@ -98,6 +104,7 @@ describe('remediation lifecycle recovery', () => {
         migrateLegacyHandled: () => true,
         reconcile: () => [],
         recordOutcome: () => calls.push('lifecycle'),
+        snapshot: () => ({ cases: {} }),
       },
       journal: {
         clear: () => calls.push('clear'),

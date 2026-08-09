@@ -136,7 +136,7 @@ describe('remediation worker final recovery contracts', () => {
     }
   });
 
-  it('migrates an unknown legacy handled fingerprint into report-only lifecycle state', async () => {
+  it('migrates only the exact legacy observation and remediates a newer recurrence', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-legacy-handled-'));
     const legacyPath = join(directory, 'handled-state.autofix.json');
     writeFileSync(
@@ -181,12 +181,12 @@ describe('remediation worker final recovery contracts', () => {
       workerName: 'final-fix',
     });
 
-    assert.equal(attempts, 0);
+    assert.equal(attempts, 1);
     assert.equal(
       newer.actions.some(
         (action) => action.type === 'legacy_handled_recurrence'
       ),
-      true
+      false
     );
   });
 

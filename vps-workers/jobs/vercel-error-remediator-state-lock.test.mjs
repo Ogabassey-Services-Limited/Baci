@@ -66,7 +66,9 @@ describe('vercel remediator state lock', () => {
       logger: silentLogger,
       now: () => nowMs,
     });
-    assert.equal(retry.candidates.length, 0);
+    assert.equal(retry.candidates.length, 1);
+    assert.equal(retry.candidates[0].lifecycleEvent, 'pr_recovered');
+    assert.equal(retry.candidates[0].autofixEligible, false);
     assert.equal(autofixCalls, 1);
     const autofixStatePath = configuredStatePath.replace(
       /\.json$/,

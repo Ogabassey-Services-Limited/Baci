@@ -1,4 +1,5 @@
 import { createRemediationCaseCandidateNormalizer } from './remediation-case-candidate.mjs';
+import { capRemediationCases } from './remediation-case-cap.mjs';
 import {
   candidateWithLifecycle,
   contextForCandidate,
@@ -59,13 +60,7 @@ function observationAdvanced(item, candidate) {
 }
 
 function capCases(state) {
-  state.cases = Object.fromEntries(
-    Object.entries(state.cases)
-      .sort(([, left], [, right]) =>
-        String(right.lastSeen || '').localeCompare(String(left.lastSeen || ''))
-      )
-      .slice(0, MAX_CASES)
-  );
+  state.cases = capRemediationCases(state.cases, MAX_CASES);
 }
 
 export function createRemediationCaseState({ now = () => Date.now(), path }) {
@@ -111,7 +106,7 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
             item.recurrenceCount += 1;
             if (item.draftPr) {
               item.status = 'pr_open';
-            } else if (!['legacy_handled', 'pr_open'].includes(item.status)) {
+            } else if (item.status !== 'pr_open') {
               item.status = 'open';
             }
           }

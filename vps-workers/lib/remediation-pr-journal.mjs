@@ -1,7 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import {
-  closeSync,
+  linkSync,
   mkdirSync,
-  openSync,
   readFileSync,
   renameSync,
   unlinkSync,
@@ -11,6 +11,7 @@ import { dirname } from 'node:path';
 
 const MAX_ENTRIES = 100;
 const MAX_LENGTH = 500;
+const STALE_LOCK_MS = 2 * 60 * 1_000;
 const ENTRY_KEYS = [
   'at',
   'branch',
@@ -94,25 +95,89 @@ function persist(path, entries) {
   renameSync(temporaryPath, path);
 }
 
-function withLock(path, action) {
+function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code !== 'ESRCH';
+  }
+}
+
+function staleOwner(path, nowMs) {
+  try {
+    const owner = JSON.parse(readFileSync(`${path}.lock`, 'utf8'));
+    return owner &&
+      Number.isSafeInteger(owner.pid) &&
+      typeof owner.token === 'string' &&
+      /^[a-f0-9-]{36}$/.test(owner.token) &&
+      isIsoTimestamp(owner.createdAt) &&
+      nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS &&
+      !processIsAlive(owner.pid)
+      ? owner
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function releaseOwnerPath(ownerPath) {
+  try {
+    unlinkSync(ownerPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
+function acquireLock(path, nowMs) {
   const lockPath = `${path}.lock`;
   mkdirSync(dirname(path), { recursive: true });
-  let descriptor;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const token = randomUUID();
+    const ownerPath = `${lockPath}.owner-${token}`;
+    writeFileSync(
+      ownerPath,
+      `${JSON.stringify({
+        createdAt: new Date(nowMs).toISOString(),
+        pid: process.pid,
+        token,
+      })}\n`,
+      { flag: 'wx', mode: 0o600 }
+    );
+    try {
+      linkSync(ownerPath, lockPath);
+      return { lockPath, ownerPath, token };
+    } catch (error) {
+      releaseOwnerPath(ownerPath);
+      if (error?.code !== 'EEXIST') throw error;
+      const stale = attempt === 0 ? staleOwner(path, nowMs) : null;
+      if (stale) {
+        unlinkSync(lockPath);
+        releaseOwnerPath(`${lockPath}.owner-${stale.token}`);
+        continue;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+function releaseLock(path, lock) {
+  const owner = JSON.parse(readFileSync(lock.lockPath, 'utf8'));
+  if (owner.token !== lock.token) {
+    throw new Error(`remediation PR journal lock ownership changed at ${path}`);
+  }
+  unlinkSync(lock.lockPath);
+  releaseOwnerPath(lock.ownerPath);
+}
+
+function withLock(path, nowMs, action) {
+  const lock = acquireLock(path, nowMs);
+  if (!lock) throw new Error(`remediation PR journal is busy at ${path}`);
   try {
-    descriptor = openSync(lockPath, 'wx', 0o600);
     return action();
-  } catch (error) {
-    if (error?.code === 'EEXIST') {
-      throw new Error(`remediation PR journal is busy at ${path}`, {
-        cause: error,
-      });
-    }
-    throw error;
   } finally {
-    if (descriptor !== undefined) {
-      closeSync(descriptor);
-      unlinkSync(lockPath);
-    }
+    releaseLock(path, lock);
   }
 }
 
@@ -140,7 +205,7 @@ export function createRemediationPrJournal({ now = () => Date.now(), path }) {
       ) {
         throw new Error('Invalid remediation PR journal entry');
       }
-      withLock(path, () =>
+      withLock(path, now(), () =>
         persist(path, [
           ...read(path).filter((item) => item.caseKey !== entry.caseKey),
           entry,
@@ -149,7 +214,7 @@ export function createRemediationPrJournal({ now = () => Date.now(), path }) {
       return entry;
     },
     clear(caseKey) {
-      withLock(path, () =>
+      withLock(path, now(), () =>
         persist(
           path,
           read(path).filter((entry) => entry.caseKey !== caseKey)

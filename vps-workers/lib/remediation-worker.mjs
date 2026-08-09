@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import { createRemediationCaseState } from './remediation-case-state.mjs';
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
@@ -10,32 +9,24 @@ import {
   evaluateMergePolicy,
 } from './remediation-policy.mjs';
 import { createRemediationPrJournal } from './remediation-pr-journal.mjs';
+import { writeRemediationPrompt } from './remediation-prompt-file.mjs';
 import {
   buildRemediationReport,
   sendRemediationReportEmail,
 } from './remediation-report.mjs';
 import { createRemediationState } from './remediation-state.mjs';
-function readPositiveInt(value, fallback) {
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
-function statePathForMode(path, mode) {
-  return path.endsWith('.json')
-    ? `${path.slice(0, -'.json'.length)}.${mode}.json`
-    : `${path}.${mode}`;
-}
-function writePrompt({ candidate, outputDir }) {
-  mkdirSync(outputDir, { recursive: true });
-  const path = join(outputDir, `${candidate.fingerprint}.prompt.md`);
-  writeFileSync(path, buildCodexRemediationPrompt({ candidate }));
-  return path;
-}
+import { recordRemediationOutcome } from './remediation-worker-candidate-state.mjs';
+import {
+  readPositiveInt,
+  statePathForMode,
+} from './remediation-worker-config.mjs';
+
 function notificationIdFor(workerName, candidates) {
   return createHash('sha256')
     .update(
       JSON.stringify({
         candidates: candidates.map((candidate) => [
-          candidate.fingerprint,
+          candidate.caseKey || candidate.fingerprint,
           candidate.lastSeen || candidate.occurrences,
         ]),
         workerName,
@@ -127,13 +118,10 @@ export async function runRemediationWorker({
   const autofixCandidates = reconciledCandidates.filter(
     (candidate) => candidate.autofixEligible
   );
-  state.pending(loadedCandidates, { limit: 0 });
-  let candidates = state.pending(
-    caseState.orderCandidates(autofixCandidates),
-    {
-      limit: maximumCandidates,
-    }
-  );
+  state.pending(reconciledCandidates, { limit: 0 });
+  let candidates = state.pending(caseState.orderCandidates(autofixCandidates), {
+    limit: maximumCandidates,
+  });
   if (candidates.length > 0) {
     const selections = caseState.recordSelections(candidates);
     if (!selections) throw new Error('remediation case state is busy');
@@ -158,14 +146,16 @@ export async function runRemediationWorker({
           fingerprint: pendingCandidate.fingerprint,
           type: 'candidate_enrichment_failed',
         });
-        if (
-          !caseState.recordOutcome(pendingCandidate, {
+        candidates = recordRemediationOutcome({
+          candidate: pendingCandidate,
+          candidates,
+          caseState,
+          outcome: {
             detail,
             type: 'candidate_enrichment_failed',
-          })
-        ) {
-          throw new Error('remediation case state is busy');
-        }
+          },
+          pendingCandidate,
+        });
         if (!state.complete({ deferCandidates: [pendingCandidate] })) {
           throw new Error('remediation state is busy');
         }
@@ -174,13 +164,17 @@ export async function runRemediationWorker({
       }
     }
     const prompt = buildCodexRemediationPrompt({ candidate });
-    const path = writePrompt({ candidate, outputDir });
+    const path = writeRemediationPrompt({ candidate, outputDir });
     actions.push({ path, type: 'prompt_written' });
     logger.log(`[${workerName}] wrote ${path}`);
     if (mode !== 'autofix') {
-      if (!caseState.recordOutcome(candidate, { type: 'prompt_written' })) {
-        throw new Error('remediation case state is busy');
-      }
+      candidates = recordRemediationOutcome({
+        candidate,
+        candidates,
+        caseState,
+        outcome: { type: 'prompt_written' },
+        pendingCandidate,
+      });
       if (!state.complete({ handledCandidates: [candidate] })) {
         throw new Error('remediation state is busy');
       }
@@ -195,14 +189,16 @@ export async function runRemediationWorker({
         fingerprint: candidate.fingerprint,
         type: 'autofix_failed',
       });
-      if (
-        !caseState.recordOutcome(candidate, {
+      candidates = recordRemediationOutcome({
+        candidate,
+        candidates,
+        caseState,
+        outcome: {
           detail: error instanceof Error ? error.message : String(error),
           type: 'autofix_failed',
-        })
-      ) {
-        throw new Error('remediation case state is busy');
-      }
+        },
+        pendingCandidate,
+      });
       if (!state.complete({ deferCandidates: [candidate] })) {
         throw new Error('remediation state is busy');
       }
@@ -214,13 +210,13 @@ export async function runRemediationWorker({
       prJournal.record({ candidate, result });
       state.recordHandledFallback([candidate]);
     }
-    const reportedCandidate = caseState.recordOutcome(candidate, result);
-    if (!reportedCandidate) {
-      throw new Error('remediation case state is busy');
-    }
-    candidates = candidates.map((selected) =>
-      selected === pendingCandidate ? reportedCandidate : selected
-    );
+    candidates = recordRemediationOutcome({
+      candidate,
+      candidates,
+      caseState,
+      outcome: result,
+      pendingCandidate,
+    });
     const handled = ['no_changes', 'policy_blocked', 'pr_opened'].includes(
       result.type
     );

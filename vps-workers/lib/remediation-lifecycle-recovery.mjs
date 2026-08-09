@@ -11,7 +11,9 @@ export function reconcileRemediationLifecycle({
   let replayedJournal = false;
   const replayedRecurrences = [];
   for (const entry of journal.entries()) {
-    const candidate = recovered.find((item) => item.caseKey === entry.caseKey);
+    const candidate =
+      recovered.find((item) => item.caseKey === entry.caseKey) ||
+      candidateFromLedger(caseState, entry);
     if (!candidate) continue;
     const recorded = caseState.recordOutcome(candidate, entry);
     if (!recorded) {
@@ -23,13 +25,14 @@ export function reconcileRemediationLifecycle({
     }
     journal.clear(entry.caseKey);
     replayedJournal = true;
-    if (lifecycleCandidate.recurrenceCount > 0) {
-      replayedRecurrences.push({
-        ...lifecycleCandidate,
-        autofixEligible: false,
-        lifecycleEvent: 'active_draft_recurrence',
-      });
-    }
+    replayedRecurrences.push({
+      ...lifecycleCandidate,
+      autofixEligible: false,
+      lifecycleEvent:
+        lifecycleCandidate.recurrenceCount > 0
+          ? 'active_draft_recurrence'
+          : 'pr_recovered',
+    });
   }
   if (!replayedJournal) return recovered;
   return [
@@ -39,4 +42,20 @@ export function reconcileRemediationLifecycle({
       )
     ).values(),
   ];
+}
+
+function candidateFromLedger(caseState, entry) {
+  const item = caseState.snapshot().cases[entry.caseKey];
+  if (!item || item.fingerprint !== entry.fingerprint) return null;
+  return {
+    caseKey: entry.caseKey,
+    category: item.category,
+    fingerprint: item.fingerprint,
+    firstSeen: item.firstSeen || '',
+    lastSeen: item.lastSeen || '',
+    observationMarker: entry.observation,
+    occurrences: Number(item.observedOccurrences || 0),
+    sample: item.samples.at(-1) || {},
+    source: item.source,
+  };
 }
