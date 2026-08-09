@@ -13,22 +13,35 @@ describe('PostHog remediation candidates', () => {
     const candidates = await fetchPostHogRemediationCandidates({
       env: { ...environment, BACI_POSTHOG_REMEDIATION_MAX_PAGES: '2' },
       fetchFn: (url, options) => {
-        assert.match(
+        assert.equal(
           String(url),
-          /\/api\/projects\/202711\/error_tracking\/issues\/\?limit=100&offset=0/
+          'https://eu.posthog.com/api/projects/202711/error_tracking/query/issues/'
         );
+        assert.equal(options.method, 'POST');
         assert.equal(
           options.headers.Authorization,
           'Bearer phx_read_only_personal_key'
         );
+        assert.equal(options.headers['Content-Type'], 'application/json');
+        assert.deepEqual(JSON.parse(options.body), {
+          filterTestAccounts: true,
+          limit: 100,
+          offset: 0,
+          orderBy: 'occurrences',
+          orderDirection: 'DESC',
+          status: 'active',
+          volumeResolution: 0,
+        });
         return new Response(
           JSON.stringify({
-            count: 1,
+            hasMore: false,
+            limit: 100,
+            offset: 0,
             results: [
               {
                 id: 'issue-987',
                 status: 'active',
-                events_count: 4,
+                aggregations: { occurrences: 4 },
                 first_seen: '2026-08-04T15:45:25Z',
                 last_seen: '2026-08-04T15:46:50Z',
                 name: 'Crash for alice@example.com token=secret-value',
@@ -45,6 +58,8 @@ describe('PostHog remediation candidates', () => {
     assert.equal(candidates[0].sample.category, 'Error tracking issue');
     assert.equal(candidates[0].sample.message, 'PostHog error tracking issue');
     assert.equal(candidates[0].sample.route, '(redacted PostHog location)');
+    assert.equal(candidates[0].firstSeen, '2026-08-04T15:45:25Z');
+    assert.equal(candidates[0].lastSeen, '2026-08-04T15:46:50Z');
     assert.equal(
       JSON.stringify(candidates).includes('alice@example.com'),
       false
@@ -53,31 +68,54 @@ describe('PostHog remediation candidates', () => {
     assert.equal(JSON.stringify(candidates).includes('2348012345678'), false);
   });
 
-  it('examines a later bounded offset page before applying the repeat threshold', async () => {
+  it('follows the official nextOffset cursor before applying the repeat threshold', async () => {
     const requestedUrls = [];
     const candidates = await fetchPostHogRemediationCandidates({
       env: { ...environment, BACI_POSTHOG_REMEDIATION_MAX_PAGES: '2' },
-      fetchFn: (url) => {
+      fetchFn: (url, options) => {
         requestedUrls.push(String(url));
+        const request = JSON.parse(options.body);
         if (requestedUrls.length === 1) {
+          assert.equal(request.offset, 0);
           return new Response(
             JSON.stringify({
-              count: 2,
-              results: [{ id: 'one-off', status: 'active', events_count: 1 }],
+              hasMore: true,
+              limit: 100,
+              nextOffset: 23,
+              offset: 0,
+              results: [
+                {
+                  id: 'one-off',
+                  status: 'active',
+                  aggregations: { occurrences: 1 },
+                },
+              ],
             })
           );
         }
+        assert.equal(request.offset, 23);
         return new Response(
           JSON.stringify({
-            count: 2,
-            results: [{ id: 'repeated', status: 'active', events_count: 8 }],
+            hasMore: false,
+            limit: 100,
+            offset: 23,
+            results: [
+              {
+                id: 'repeated',
+                status: 'active',
+                aggregations: { occurrences: 8 },
+              },
+            ],
           })
         );
       },
     });
 
     assert.equal(requestedUrls.length, 2);
-    assert.match(requestedUrls[1], /offset=1/);
+    assert.equal(
+      requestedUrls[1],
+      'https://eu.posthog.com/api/projects/202711/error_tracking/query/issues/'
+    );
     assert.equal(candidates.length, 1);
     assert.equal(candidates[0].occurrences, 8);
   });
@@ -89,8 +127,17 @@ describe('PostHog remediation candidates', () => {
         fetchFn: async () =>
           new Response(
             JSON.stringify({
-              count: 2,
-              results: [{ id: 'first', status: 'active', events_count: 2 }],
+              hasMore: true,
+              limit: 100,
+              nextOffset: 1,
+              offset: 0,
+              results: [
+                {
+                  id: 'first',
+                  status: 'active',
+                  aggregations: { occurrences: 2 },
+                },
+              ],
             })
           ),
       }),
@@ -123,12 +170,14 @@ describe('PostHog remediation candidates', () => {
       fetchFn: async () =>
         new Response(
           JSON.stringify({
-            count: 1,
+            hasMore: false,
+            limit: 100,
+            offset: 0,
             results: [
               {
                 id: 'alice@example.com',
                 status: 'active',
-                events_count: 4,
+                aggregations: { occurrences: 4 },
               },
             ],
           })

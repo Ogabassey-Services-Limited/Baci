@@ -18,10 +18,14 @@ export function runPostHogErrorRemediator({
       env.BACI_POSTHOG_REMEDIATION_STATE_PATH ||
       `${outputDir}/handled-state.json`,
   };
+  const candidateLoader =
+    env.BACI_POSTHOG_REMEDIATION_ENABLED === '1'
+      ? fetchPostHogRemediationCandidates
+      : async () => [];
 
   return runRemediationWorker({
     autofixRunner,
-    candidateLoader: fetchPostHogRemediationCandidates,
+    candidateLoader,
     env: remediatorEnvironment,
     fetchFn,
     logger,

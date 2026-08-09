@@ -19,13 +19,20 @@ describe('PostHog error remediator', () => {
       POSTHOG_REMEDIATION_HOST: 'https://eu.posthog.com',
       POSTHOG_REMEDIATION_PERSONAL_API_KEY: 'phx_read_only_personal_key',
       POSTHOG_REMEDIATION_PROJECT_ID: '202711',
+      BACI_POSTHOG_REMEDIATION_ENABLED: '1',
     };
     const fetchFn = async () =>
       new Response(
         JSON.stringify({
-          count: 1,
+          hasMore: false,
+          limit: 100,
+          offset: 0,
           results: [
-            { id: 'posthog-issue-1', status: 'active', events_count: 2 },
+            {
+              id: 'posthog-issue-1',
+              status: 'active',
+              aggregations: { occurrences: 2 },
+            },
           ],
         })
       );
@@ -60,6 +67,7 @@ describe('PostHog error remediator', () => {
           POSTHOG_REMEDIATION_HOST: 'https://eu.posthog.com',
           POSTHOG_REMEDIATION_PERSONAL_API_KEY: 'phc_public_ingestion_key',
           POSTHOG_REMEDIATION_PROJECT_ID: '202711',
+          BACI_POSTHOG_REMEDIATION_ENABLED: '1',
         },
         fetchFn: () => {
           throw new Error('fetch must not run with an ingestion key');
@@ -68,5 +76,21 @@ describe('PostHog error remediator', () => {
       }),
       /personal API key.*not a project ingestion key/i
     );
+  });
+
+  it('stays dormant without the explicit PostHog remediation feature gate', async () => {
+    const result = await runPostHogErrorRemediator({
+      env: {
+        BACI_POSTHOG_REMEDIATION_OUTPUT_DIR: mkdtempSync(
+          join(tmpdir(), 'posthog-remediator-')
+        ),
+      },
+      fetchFn: () => {
+        throw new Error('fetch must not run while PostHog remediation is disabled');
+      },
+      logger: silentLogger,
+    });
+
+    assert.deepEqual(result.candidates, []);
   });
 });

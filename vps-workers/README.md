@@ -105,6 +105,7 @@ VERCEL_ERROR_LOG_PATH=/home/bassey/baci-workers/logs/vercel-drain.jsonl
 BACI_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/vercel-error-remediator
 BACI_SENTRY_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/sentry-mobile-error-remediator
 BACI_POSTHOG_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/posthog-error-remediator
+BACI_POSTHOG_REMEDIATION_ENABLED=0
 BACI_REMEDIATION_MIN_OCCURRENCES=2
 BACI_REMEDIATION_AUTOFIX_ENABLED=0
 BACI_REPO_DIR=/opt/baci/app
@@ -162,6 +163,7 @@ Variable purposes:
 - `BACI_REMEDIATION_OUTPUT_DIR`: Directory where the remediator writes Codex prompts and reports.
 - `BACI_SENTRY_REMEDIATION_OUTPUT_DIR`: Separate prompt/state directory for native mobile Sentry issues.
 - `BACI_POSTHOG_REMEDIATION_OUTPUT_DIR`: Separate prompt/state directory for PostHog Error Tracking issues.
+- `BACI_POSTHOG_REMEDIATION_ENABLED`: Explicit opt-in for the PostHog remediator. It defaults to `0`; set it to `1` only after the dedicated PostHog credentials are installed.
 - `BACI_REMEDIATION_STATE_PATH`: Optional deduplication state path. The worker records each fingerprint and last-seen observation atomically so unchanged incidents do not wake Codex repeatedly.
 - `BACI_REMEDIATION_MIN_OCCURRENCES`: Minimum repeated fingerprint count before the worker creates remediation work. Default is `2`.
 - `BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN`: Maximum candidates investigated during one worker tick. Defaults to `1` and is capped at `10` so a noisy backlog cannot monopolize the worker.

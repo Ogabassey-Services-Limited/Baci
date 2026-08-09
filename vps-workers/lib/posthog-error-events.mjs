@@ -65,10 +65,7 @@ function selectCandidates(issues, env, projectId) {
   const minimum = positiveInteger(env.BACI_REMEDIATION_MIN_OCCURRENCES, 2);
   return issues.flatMap((issue) => {
     const issueId = safeIssueId(issue?.id);
-    const occurrences = positiveInteger(
-      issue?.events_count ?? issue?.occurrences ?? issue?.count,
-      0
-    );
+    const occurrences = positiveInteger(issue?.aggregations?.occurrences, 0);
     if (!issueId || !activeIssue(issue) || occurrences < minimum) {
       return [];
     }
@@ -105,17 +102,26 @@ export async function fetchPostHogRemediationCandidates({
   );
   const issues = [];
   let offset = 0;
-  let expectedCount = null;
-
   for (let page = 0; page < maximumPages; page += 1) {
     const endpoint = new URL(
-      `/api/projects/${encodeURIComponent(projectId)}/error_tracking/issues/`,
+      `/api/projects/${encodeURIComponent(projectId)}/error_tracking/query/issues/`,
       baseUrl
     );
-    endpoint.searchParams.set('limit', String(PAGE_SIZE));
-    endpoint.searchParams.set('offset', String(offset));
     const response = await fetchFn(endpoint, {
-      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        filterTestAccounts: true,
+        limit: PAGE_SIZE,
+        offset,
+        orderBy: 'occurrences',
+        orderDirection: 'DESC',
+        status: 'active',
+        volumeResolution: 0,
+      }),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
       signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) {
@@ -138,19 +144,22 @@ export async function fetchPostHogRemediationCandidates({
         'PostHog error-tracking issues response was not paginated'
       );
     }
-    const count = Number(payload.count);
-    if (Number.isSafeInteger(count) && count >= 0) {
-      expectedCount = count;
+    if (typeof payload.hasMore !== 'boolean') {
+      throw new Error('PostHog error-tracking issues response omitted hasMore');
     }
     issues.push(...payload.results);
-    offset += payload.results.length;
 
-    if (
-      payload.results.length === 0 ||
-      (expectedCount !== null && offset >= expectedCount)
-    ) {
+    if (!payload.hasMore) {
       return selectCandidates(issues, env, projectId);
     }
+
+    const nextOffset = Number(payload.nextOffset);
+    if (!Number.isSafeInteger(nextOffset) || nextOffset <= offset) {
+      throw new Error(
+        'PostHog error-tracking issues response returned an unsafe nextOffset'
+      );
+    }
+    offset = nextOffset;
   }
 
   throw new Error(
