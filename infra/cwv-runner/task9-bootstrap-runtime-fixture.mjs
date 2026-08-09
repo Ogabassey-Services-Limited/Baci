@@ -158,7 +158,7 @@ export function createExactBootstrapBundle(
   root,
   {
     policyBytes = Buffer.from(
-      `{"authority":{},"supplyChain":{"node":{"ownerDarwinArm64Sha256":"${'4'.repeat(64)}"}}}`
+      `{"authority":{},"supplyChain":{"node":{"ownerDarwinArm64Sha256":"${'4'.repeat(64)}"}},"supplyChainProvenance":{"node":{"checksumsSha256":"${'1'.repeat(64)}","keyringSha256":"${'2'.repeat(64)}","signatureSha256":"${'3'.repeat(64)}"}}}`
     ),
   } = {}
 ) {
