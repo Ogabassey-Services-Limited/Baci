@@ -99,7 +99,7 @@ describe('getProductModelIdentifiers game titles', () => {
       productSlugs: [],
     });
 
-    expect(identifiers).toEqual(['switch 2']);
+    expect(identifiers).toEqual(['switch 2 console']);
   });
 
   it('preserves VR in PlayStation VR hardware identifiers', () => {
@@ -118,7 +118,7 @@ describe('getProductModelIdentifiers game titles', () => {
       productSlugs: ['ps4-console-slim'],
     });
 
-    expect(identifiers).toEqual(['slim']);
+    expect(identifiers).toEqual(['console slim']);
   });
 
   it('strips console descriptors from Nintendo Switch hardware identifiers', () => {
@@ -127,6 +127,16 @@ describe('getProductModelIdentifiers game titles', () => {
       productSlugs: ['nintendo-switch-console-lite'],
     });
 
-    expect(identifiers).toEqual(['lite']);
+    expect(identifiers).toEqual(['console lite']);
+  });
+
+  it('retains the console class for fixed-platform console products', () => {
+    const identifiers = getProductModelIdentifiers({
+      categorySlug: 'playstation-5',
+      productNames: ['Sony PlayStation 5 Pro Console'],
+      productSlugs: [],
+    });
+
+    expect(identifiers).toEqual(['pro console']);
   });
 });

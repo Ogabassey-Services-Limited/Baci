@@ -86,7 +86,7 @@ function getDiscriminatorGroup(token: string, isTerminal = false) {
   if (isProductVariantColorToken(token)) {
     return 'color';
   }
-  if (isTerminal && isProductVariantRegionToken(token)) {
+  if (isTerminal && isProductVariantRegionToken(token, { isTerminal })) {
     return 'region';
   }
   return null;
@@ -182,7 +182,19 @@ export function getProductConnectivityDiscriminators(
         REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||
       laptopHardwareTokens.has(token) ||
-      (isProductVariantRegionToken(token) &&
+      (isProductVariantRegionToken(token, {
+        isTerminal:
+          tokenIndex === tokens.length - 1 ||
+          tokens
+            .slice(tokenIndex + 1)
+            .every(
+              (suffixToken, suffixIndex) =>
+                getDiscriminatorGroup(
+                  suffixToken,
+                  tokenIndex + suffixIndex + 1 === tokens.length - 1
+                ) !== null || suffixToken === 'version'
+            ),
+      }) &&
         tokens
           .slice(tokenIndex + 1)
           .every(

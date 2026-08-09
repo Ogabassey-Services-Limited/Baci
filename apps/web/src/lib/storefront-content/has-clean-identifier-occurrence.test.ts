@@ -82,6 +82,28 @@ describe('hasCleanIdentifierOccurrence', () => {
     expect(hasCleanIdentifierOccurrence(post, ['latitude', '5410'])).toBe(true);
   });
 
+  it('matches identifiers separated by internal variant metadata', () => {
+    const post = {
+      slug: 'macbook-air-m4-guide',
+      title: 'Apple MacBook Air 13-inch M4 Buyer Guide',
+      excerpt: null,
+      category: 'Laptops',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    expect(
+      hasCleanIdentifierOccurrence(post, ['air', 'm4'], {
+        brand: 'apple',
+        discriminatorTokens: ['13inch'],
+        requireBrandBeforeIdentifier: true,
+      })
+    ).toBe(true);
+  });
+
   it('keeps an exact model before a split decimal display-size suffix', () => {
     const post = {
       slug: 'iphone-15-6-1-inch-guide',

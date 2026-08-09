@@ -132,7 +132,11 @@ function getSourceDiscriminatorTokens(
       (VARIANT_DISCRIMINATOR_PATTERN.test(token) ||
         laptopHardwareTokens.has(token) ||
         isProductVariantColorToken(token) ||
-        (isProductVariantRegionToken(token) &&
+        (isProductVariantRegionToken(token, {
+          isTerminal:
+            index === sourceTokens.length - 1 ||
+            sourceTokens.slice(index + 1).every(isCompareVariantMetadataToken),
+        }) &&
           sourceTokens
             .slice(index + 1)
             .every(isCompareVariantMetadataToken))) &&

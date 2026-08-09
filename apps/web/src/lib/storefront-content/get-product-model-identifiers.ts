@@ -225,6 +225,13 @@ export function getProductModelIdentifiers(
     tokenize
   );
   const isGameCategory = GAME_CATEGORY_PATTERN.test(context.categorySlug);
+  const hasConsoleProductDescriptor = (
+    context.productNames ??
+    context.productSlugs ??
+    []
+  )
+    .flatMap(tokenize)
+    .includes('console');
   const gameHardwareMarkers = new Set([
     'adapter',
     'cable',
@@ -264,7 +271,7 @@ export function getProductModelIdentifiers(
           ])
       ),
       'pc',
-      ...(isGameCategory ? ['console'] : []),
+      ...(isGameCategory && !hasConsoleProductDescriptor ? ['console'] : []),
     ].filter(
       (token) =>
         Boolean(token) &&

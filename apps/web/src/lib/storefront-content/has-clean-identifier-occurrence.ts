@@ -67,6 +67,41 @@ function matchesTokenSequence(
   );
 }
 
+function isInlineVariantMetadataToken(tokens: string[], index: number) {
+  const token = tokens[index] ?? '';
+  const nextToken = tokens[index + 1] ?? '';
+  const previousToken = tokens[index - 1] ?? '';
+  return (
+    /^\d+(?:gb|tb|mb|w|v|hz|mah|mm|inch|in)$/u.test(token) ||
+    (/^\d+$/u.test(token) &&
+      /^(?:gb|tb|mb|w|v|hz|mah|mm|inch|in)$/u.test(nextToken)) ||
+    (/^(?:gb|tb|mb|w|v|hz|mah|mm|inch|in)$/u.test(token) &&
+      /^\d+$/u.test(previousToken))
+  );
+}
+
+function findIdentifierEnd(
+  tokens: string[],
+  expectedTokens: string[],
+  startIndex: number
+) {
+  let cursor = startIndex;
+  for (const expectedToken of expectedTokens) {
+    while (
+      cursor < tokens.length &&
+      tokens[cursor] !== expectedToken &&
+      isInlineVariantMetadataToken(tokens, cursor)
+    ) {
+      cursor += 1;
+    }
+    if (tokens[cursor] !== expectedToken) {
+      return null;
+    }
+    cursor += 1;
+  }
+  return cursor;
+}
+
 function hasNumericModelContext(
   tokens: string[],
   startIndex: number,
@@ -213,16 +248,16 @@ export function hasCleanIdentifierOccurrence(
 
   return postTokenGroups.some((postTokens) =>
     postTokens.some((_, startIndex) => {
-      const matchesIdentifier = matchesTokenSequence(
+      const identifierEnd = findIdentifierEnd(
         postTokens,
         identifierTokens,
         startIndex
       );
-      const suffix = postTokens[startIndex + identifierTokens.length] ?? '';
-      const nextSuffix =
-        postTokens[startIndex + identifierTokens.length + 1] ?? '';
+      const matchesIdentifier = identifierEnd !== null;
+      const suffix = postTokens[identifierEnd ?? startIndex] ?? '';
+      const nextSuffix = postTokens[(identifierEnd ?? startIndex) + 1] ?? '';
       const followingSuffix =
-        postTokens[startIndex + identifierTokens.length + 2] ?? '';
+        postTokens[(identifierEnd ?? startIndex) + 2] ?? '';
       const hasModelContext = identifierTokens.every((token) =>
         /^\d+$/u.test(token)
       )
@@ -256,7 +291,7 @@ export function hasCleanIdentifierOccurrence(
         !matchesIdentifierDiscriminatorSegment(
           postTokens,
           startIndex,
-          startIndex + identifierTokens.length,
+          identifierEnd ?? startIndex,
           options.discriminatorTokens,
           options.allowPartialDiscriminatorGroups ?? false,
           options.allowMissingDiscriminatorGroups ?? false
@@ -269,7 +304,7 @@ export function hasCleanIdentifierOccurrence(
         ? isBrandQualifiedOccurrence(
             postTokens,
             startIndex,
-            startIndex + identifierTokens.length,
+            identifierEnd ?? startIndex,
             options.brand,
             options.knownBrands ?? [],
             options.brandAliases ?? {},

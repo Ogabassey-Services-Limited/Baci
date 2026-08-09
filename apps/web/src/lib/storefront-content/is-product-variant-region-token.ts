@@ -14,7 +14,17 @@ const PRODUCT_VARIANT_REGION_TOKENS = new Set([
   'us',
 ]);
 
+interface RegionTokenContext {
+  isTerminal?: boolean;
+}
+
 /** Recognizes stable single-token catalog region variants. */
-export function isProductVariantRegionToken(token: string) {
-  return PRODUCT_VARIANT_REGION_TOKENS.has(token);
+export function isProductVariantRegionToken(
+  token: string,
+  context: RegionTokenContext = {}
+) {
+  return (
+    PRODUCT_VARIANT_REGION_TOKENS.has(token) &&
+    (token !== 'in' || context.isTerminal === true)
+  );
 }
