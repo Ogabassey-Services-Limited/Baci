@@ -45,6 +45,59 @@ const completeOwner = (owner) =>
   typeof owner.token === 'string' &&
   LOCK_TOKEN_PATTERN.test(owner.token);
 
+const readLockOwner = (lockPath) => {
+  try {
+    return JSON.parse(readFileSync(lockPath, 'utf8'));
+  } catch {
+    return null;
+  }
+};
+
+const sameLockOwner = (expected, current) =>
+  completeOwner(expected)
+    ? current?.token === expected.token
+    : !completeOwner(current);
+
+function reclaimStaleLock({ lockPath, owner, ownerPath, unlink }) {
+  const claimPath = `${lockPath}.reclaim-${
+    completeOwner(owner) ? owner.token : 'ownerless'
+  }`;
+  try {
+    linkSync(ownerPath, claimPath);
+  } catch (error) {
+    if (error?.code === 'EEXIST') return false;
+    throw error;
+  }
+  let reclaimed = false;
+  let reclaimError;
+  try {
+    if (sameLockOwner(owner, readLockOwner(lockPath))) {
+      try {
+        unlink(lockPath);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+      if (completeOwner(owner)) {
+        try {
+          unlink(`${lockPath}.owner-${owner.token}`);
+        } catch (error) {
+          if (error?.code !== 'ENOENT') throw error;
+        }
+      }
+      reclaimed = true;
+    }
+  } catch (error) {
+    reclaimError = error;
+  }
+  try {
+    unlink(claimPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') reclaimError ||= error;
+  }
+  if (reclaimError) throw reclaimError;
+  return reclaimed;
+}
+
 export function createRemediationCaseStateStorage({
   createEmptyState,
   isValidState,
@@ -116,18 +169,15 @@ export function createRemediationCaseStateStorage({
       try {
         linkSync(ownerPath, lockPath);
       } catch (error) {
-        try {
-          unlink(ownerPath);
-        } catch (cleanupError) {
-          if (cleanupError?.code !== 'ENOENT') throw cleanupError;
+        if (error?.code !== 'EEXIST') {
+          try {
+            unlink(ownerPath);
+          } catch (cleanupError) {
+            if (cleanupError?.code !== 'ENOENT') throw cleanupError;
+          }
+          throw error;
         }
-        if (error?.code !== 'EEXIST') throw error;
-        let owner;
-        try {
-          owner = JSON.parse(readFileSync(lockPath, 'utf8'));
-        } catch {
-          owner = null;
-        }
+        const owner = readLockOwner(lockPath);
         const modifiedAt = statSync(lockPath, {
           throwIfNoEntry: false,
         })?.mtimeMs;
@@ -148,20 +198,17 @@ export function createRemediationCaseStateStorage({
           stale =
             Number.isFinite(modifiedAt) && nowMs - modifiedAt > STALE_LOCK_MS;
         }
-        if (attempt === 0 && stale) {
-          try {
-            unlink(lockPath);
-          } catch (cleanupError) {
-            if (cleanupError?.code !== 'ENOENT') throw cleanupError;
-          }
-          if (completeOwner(owner)) {
-            try {
-              unlink(`${lockPath}.owner-${owner.token}`);
-            } catch (cleanupError) {
-              if (cleanupError?.code !== 'ENOENT') throw cleanupError;
-            }
-          }
+        if (
+          attempt === 0 &&
+          stale &&
+          reclaimStaleLock({ lockPath, owner, ownerPath, unlink })
+        ) {
           continue;
+        }
+        try {
+          unlink(ownerPath);
+        } catch (cleanupError) {
+          if (cleanupError?.code !== 'ENOENT') throw cleanupError;
         }
         return fallback;
       }
