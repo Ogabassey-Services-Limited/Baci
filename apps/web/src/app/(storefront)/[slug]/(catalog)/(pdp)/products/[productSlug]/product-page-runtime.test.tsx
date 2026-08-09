@@ -105,6 +105,10 @@ vi.mock('@/lib/paystack', () => ({ isPaystackConfigured: () => true }));
 
 import { ProductPageRuntime } from './product-page-runtime';
 
+type ProductPageRuntimeProduct = Parameters<
+  typeof ProductPageRuntime
+>[0]['product'];
+
 const merchant = {
   id: 'merchant-1',
   slug: 'ogabassey',
@@ -190,7 +194,9 @@ describe('ProductPageRuntime critical shell', () => {
     const tree = (await ProductPageRuntime({
       merchant,
       product: {
-        ...product,
+        // The shared fixture is deliberately cast for the runtime's full
+        // product contract; recover that contract before extending it.
+        ...(product as ProductPageRuntimeProduct),
         category: 'Smartphones',
         category_slug: 'smartphones',
         categories: { slug: 'action-cameras' },
