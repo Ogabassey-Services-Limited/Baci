@@ -132,7 +132,16 @@ test('rejects non-UTF-8 Git tree names before path projection', () => {
       .trim();
     const commit = execFileSync(
       '/usr/bin/git',
-      ['-C', root, 'commit-tree', tree],
+      [
+        '-c',
+        'user.name=test',
+        '-c',
+        'user.email=test@invalid',
+        '-C',
+        root,
+        'commit-tree',
+        tree,
+      ],
       {
         input:
           'author test <test@invalid> 0 +0000\ncommitter test <test@invalid> 0 +0000\n\ninvalid\n',
