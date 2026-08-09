@@ -24,6 +24,14 @@ describe('parseBuilderPreviewEvent', () => {
     ).toMatchObject({ revision: 2, merchant: { slug: 'acme-store' } });
   });
 
+  it('decodes React Native WebView string JSON before strict validation', () => {
+    expect(
+      parseBuilderPreviewEvent(
+        new MessageEvent('message', { data: JSON.stringify(validMessage) })
+      )
+    ).toMatchObject({ revision: 2, merchant: { slug: 'acme-store' } });
+  });
+
   it('rejects malformed, unknown, and unsupported event data', () => {
     expect(
       parseBuilderPreviewEvent(

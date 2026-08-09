@@ -25,7 +25,7 @@ describe('next.config builder preview headers', () => {
       expect.arrayContaining([
         {
           headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
-          source: '/builder-preview',
+          source: '/template-preview/builder-preview',
         },
       ])
     );

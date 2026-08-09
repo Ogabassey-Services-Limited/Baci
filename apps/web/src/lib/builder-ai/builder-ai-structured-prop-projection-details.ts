@@ -22,7 +22,7 @@ function projectMember(
     ...(descriptor.maximumLength
       ? { maximumLength: descriptor.maximumLength }
       : {}),
-    ...(descriptor.required ? { required: true } : {}),
+    required: descriptor.required === true,
     valueType:
       descriptor.type === 'safe-link' ? 'safe-storefront-url' : descriptor.type,
   };

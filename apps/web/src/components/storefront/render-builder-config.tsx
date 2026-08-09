@@ -15,6 +15,7 @@ import { MerchantContext } from '@/hooks/merchant/merchant-context';
 import type { MerchantContextType, MerchantData } from '@/hooks/merchant/types';
 import { getCuratedThemeTokenProjection } from '@/lib/storefront-defaults/curated-theme-token-projection';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
+import { PreviewNavigationGuard } from './preview-navigation-guard';
 import { PreviewProductGrid } from './preview-product-grid';
 
 type PreviewMerchantContext = {
@@ -224,7 +225,9 @@ export function RenderBuilderConfig({
         data-testid="builder-preview-surface"
         style={getCuratedThemeTokenProjection(theme) as CSSProperties}
       >
-        <Render config={previewBuilderConfig} data={previewData} />
+        <PreviewNavigationGuard>
+          <Render config={previewBuilderConfig} data={previewData} />
+        </PreviewNavigationGuard>
         {onRendered ? <RenderCommit onRendered={onRendered} /> : null}
       </div>
     </PreviewContext>

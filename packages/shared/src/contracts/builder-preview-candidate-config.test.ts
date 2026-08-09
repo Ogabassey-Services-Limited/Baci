@@ -142,4 +142,36 @@ describe('builder preview candidate configuration', () => {
       }).success
     ).toBe(true);
   });
+
+  it('normalizes the minimal client fallback root title into Puck root props', () => {
+    const result = builderPreviewCandidateConfigSchema.safeParse({
+      content: [],
+      root: { title: 'Mobile storefront' },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.root).toEqual({
+        props: { title: 'Mobile storefront' },
+      });
+  });
+
+  it('normalizes the supported update_root output without accepting hybrid roots', () => {
+    const result = builderPreviewCandidateConfigSchema.safeParse({
+      content: [],
+      root: { title: 'Updated storefront' },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.root).toEqual({
+        props: { title: 'Updated storefront' },
+      });
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        content: [],
+        root: { props: { title: 'Home' }, title: 'Hybrid root' },
+      }).success
+    ).toBe(false);
+  });
 });

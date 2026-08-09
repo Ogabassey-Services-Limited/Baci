@@ -67,7 +67,7 @@ export function BuilderPreviewCanvas() {
       version: 1,
     });
 
-    const receivePreview = (event: MessageEvent<unknown>) => {
+    const receivePreview = (event: Event) => {
       const message = parseBuilderPreviewEvent(event);
       if (!message) {
         postPreviewResponse({
@@ -92,7 +92,11 @@ export function BuilderPreviewCanvas() {
     };
 
     window.addEventListener('message', receivePreview);
-    return () => window.removeEventListener('message', receivePreview);
+    document.addEventListener('message', receivePreview);
+    return () => {
+      window.removeEventListener('message', receivePreview);
+      document.removeEventListener('message', receivePreview);
+    };
   }, []);
 
   if (!preview) return null;

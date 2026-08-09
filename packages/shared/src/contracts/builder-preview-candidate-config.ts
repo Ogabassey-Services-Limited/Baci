@@ -176,6 +176,18 @@ function hasRoot(value: unknown): boolean {
   );
 }
 
+function normalizePreviewRoot(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value.root)) return value;
+  const root = value.root;
+  if (
+    !hasOnlyKeys(root, ['title']) ||
+    typeof root.title !== 'string' ||
+    root.title.length > 120
+  )
+    return value;
+  return { ...value, root: { props: { title: root.title } } };
+}
+
 function hasValidPuckCollections(value: unknown): boolean {
   if (
     !isRecord(value) ||
@@ -236,7 +248,10 @@ function isPreviewCandidate(value: unknown): value is BuilderData {
   );
 }
 
-export const builderPreviewCandidateConfigSchema = z.custom<BuilderData>(
-  isPreviewCandidate,
-  'Expected a bounded render-safe Puck configuration'
+export const builderPreviewCandidateConfigSchema = z.preprocess(
+  normalizePreviewRoot,
+  z.custom<BuilderData>(
+    isPreviewCandidate,
+    'Expected a bounded render-safe Puck configuration'
+  )
 );

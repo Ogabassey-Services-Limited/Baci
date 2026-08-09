@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { builderDesignCapabilities } from '@baci/shared/contracts';
 import { act, render, screen, waitFor } from '@testing-library/react';
@@ -58,8 +58,8 @@ function installBridge() {
   return postMessage;
 }
 
-function send(data: unknown) {
-  act(() => window.dispatchEvent(new MessageEvent('message', { data })));
+function send(data: unknown, target: Window | Document = window) {
+  act(() => target.dispatchEvent(new MessageEvent('message', { data })));
 }
 
 describe('BuilderPreviewCanvas', () => {
@@ -101,6 +101,21 @@ describe('BuilderPreviewCanvas', () => {
       expect(postMessage).toHaveBeenCalledWith(
         expect.stringContaining('"revision":3')
       )
+    );
+  });
+
+  it('accepts Android document and iOS window string transports before revision gating', async () => {
+    installBridge();
+    render(<BuilderPreviewCanvas />);
+
+    send(JSON.stringify(validMessage(6, 'android-document')), document);
+    expect(await screen.findByText('android-document')).toBeInTheDocument();
+    send(JSON.stringify(validMessage(7, 'ios-window')));
+
+    expect(await screen.findByText('ios-window')).toBeInTheDocument();
+    send(JSON.stringify(validMessage(6, 'stale-document')), document);
+    expect(screen.getByTestId('builder-preview-render')).toHaveTextContent(
+      'ios-window'
     );
   });
 
@@ -184,5 +199,12 @@ describe('BuilderPreviewCanvas', () => {
     );
     expect(source).toContain('follow: false');
     expect(source).toContain('index: false');
+  });
+
+  it('lives beneath the reserved template preview path, never the legacy direct path', () => {
+    expect(existsSync(resolve(__dirname, 'page.tsx'))).toBe(true);
+    expect(
+      existsSync(resolve(__dirname, '../../builder-preview/page.tsx'))
+    ).toBe(false);
   });
 });

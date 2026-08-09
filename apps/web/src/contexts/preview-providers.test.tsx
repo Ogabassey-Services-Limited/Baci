@@ -30,7 +30,7 @@ describe('PreviewProviders', () => {
   });
 
   it('mounts builder preview without persistent providers, storage, or fetches', () => {
-    mocks.pathname = '/builder-preview';
+    mocks.pathname = '/template-preview/builder-preview';
     const localStorageSpy = vi.spyOn(Storage.prototype, 'getItem');
     const sessionStorageSpy = vi.spyOn(Storage.prototype, 'getItem');
     const fetchSpy = vi.spyOn(window, 'fetch');

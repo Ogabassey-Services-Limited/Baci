@@ -6,8 +6,13 @@ describe('builder preview route headers', () => {
     expect(builderPreviewRouteHeaders).toEqual([
       {
         headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
-        source: '/builder-preview',
+        source: '/template-preview/builder-preview',
       },
     ]);
+    expect(
+      builderPreviewRouteHeaders.some(
+        (rule) => rule.source === '/builder-preview'
+      )
+    ).toBe(false);
   });
 });

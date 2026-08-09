@@ -2,10 +2,12 @@ import { builderDesignCapabilities } from '@baci/shared/contracts';
 import { act, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BuilderPreviewCanvas } from '@/app/(preview)/builder-preview/builder-preview-canvas';
+import { BuilderPreviewCanvas } from '@/app/(preview)/template-preview/builder-preview/builder-preview-canvas';
 import { PreviewProviders } from './preview-providers';
 
-const mocks = vi.hoisted(() => ({ pathname: '/builder-preview' }));
+const mocks = vi.hoisted(() => ({
+  pathname: '/template-preview/builder-preview',
+}));
 
 vi.mock('next/navigation', () => ({ usePathname: () => mocks.pathname }));
 vi.mock('@/components/storefront/render-builder-config', () => ({

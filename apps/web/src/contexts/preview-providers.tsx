@@ -11,7 +11,7 @@ import { CartProvider } from '@/hooks/use-cart';
  */
 export function PreviewProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (pathname === '/builder-preview') return children;
+  if (pathname === '/template-preview/builder-preview') return children;
   return (
     <ThemeProvider
       attribute="class"

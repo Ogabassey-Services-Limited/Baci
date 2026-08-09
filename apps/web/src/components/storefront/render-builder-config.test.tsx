@@ -4,7 +4,7 @@ import {
   builderDesignCapabilities,
   builderPreviewMessageSchema,
 } from '@baci/shared/contracts';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { RenderBuilderConfig } from './render-builder-config';
 
@@ -38,6 +38,16 @@ vi.mock('@puckeditor/core', () => ({
       >;
     };
   }) => {
+    const navigationBlocks = data.content.filter((block) =>
+      ['Hero', 'Button', 'Header', 'Footer'].includes(block.type)
+    );
+    if (navigationBlocks.length === 4) {
+      return navigationBlocks.map((block) => (
+        <a href={`/merchant/${block.type}`} key={block.type}>
+          {block.type}
+        </a>
+      ));
+    }
     const flex = data.content.find((block) => block.type === 'Flex');
     const productGrid = data.content.find(
       (block) => block.type === 'ProductGrid'
@@ -105,6 +115,9 @@ describe('RenderBuilderConfig', () => {
     expect(screen.getByTestId('builder-preview-surface')).toHaveStyle({
       '--theme-primary': '#14532d',
     });
+    expect(
+      screen.getByTestId('builder-preview-navigation-guard')
+    ).toHaveAttribute('inert');
   });
 
   it('does not create a database, merchant-hook, or public-storefront loader dependency', () => {
@@ -133,6 +146,25 @@ describe('RenderBuilderConfig', () => {
       'data-header-preview',
       'true'
     );
+  });
+
+  it('intercepts every accepted link-bearing Puck block in the preview adapter', () => {
+    render(
+      <RenderBuilderConfig
+        config={{
+          content: ['Hero', 'Button', 'Header', 'Footer'].map((type) => ({
+            props: { id: `${type}-1` },
+            type,
+          })),
+          root: { props: { title: 'Home' } },
+        }}
+        merchantContext={merchantContext}
+      />
+    );
+
+    for (const name of ['Hero', 'Button', 'Header', 'Footer']) {
+      expect(fireEvent.click(screen.getByRole('link', { name }))).toBe(false);
+    }
   });
 
   it('preserves a Flex zone and marks a nested Header preview-only', () => {

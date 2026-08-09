@@ -6,6 +6,6 @@ type HeaderRule = {
 export const builderPreviewRouteHeaders: HeaderRule[] = [
   {
     headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
-    source: '/builder-preview',
+    source: '/template-preview/builder-preview',
   },
 ];
