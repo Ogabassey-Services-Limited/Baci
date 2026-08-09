@@ -38,4 +38,33 @@ describe('remediation worktree cleanup', () => {
 
     assert.deepEqual(calls, []);
   });
+
+  it('discovers and cleans the registered deterministic branch worktree', () => {
+    const calls = [];
+    const runner = (command, args, options) => {
+      calls.push({ args, command, options });
+      if (args.join(' ') === 'worktree list --porcelain') {
+        return {
+          status: 0,
+          stdout:
+            'worktree /worktrees/lost-pr-create\nHEAD deadbeef\nbranch refs/heads/codex/fix-abc123\n',
+          stderr: '',
+        };
+      }
+      return { status: 0, stdout: '', stderr: '' };
+    };
+
+    const result = cleanupRemediationWorktree({
+      branch: 'codex/fix-abc123',
+      childEnv: {},
+      repoDir: '/repo',
+      runner,
+    });
+
+    assert.equal(result, '/worktrees/lost-pr-create');
+    assert.equal(
+      calls.at(-1).args.join(' '),
+      'worktree remove --force /worktrees/lost-pr-create'
+    );
+  });
 });

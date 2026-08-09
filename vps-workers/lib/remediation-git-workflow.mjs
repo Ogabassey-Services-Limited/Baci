@@ -53,9 +53,7 @@ function runCodexChecked(command, args, options) {
     shell: false,
     timeout: options.timeout,
   });
-  if (result.error) {
-    throw redactCodexError(result.error);
-  }
+  if (result.error) throw redactCodexError(result.error);
   assertCodexExecutionUsable(result);
   return {
     output: [
@@ -128,10 +126,16 @@ export function runRemediationAutofix({
   const { branch } = prReconciler;
   let cleanupCompletedWorktree = false;
   let cleanupWorktreeOnCompletion = false;
+  const cleanupTerminalWorktree = () => {
+    worktreeDir =
+      cleanupRemediationWorktree({ branch, childEnv, repoDir, runner }) ||
+      worktreeDir;
+  };
   try {
     runChecked('git', ['fetch', 'origin', 'main'], rootRemoteCommandOptions);
     const existingPrUrl = prReconciler.existingDraftPrUrl();
     if (existingPrUrl) {
+      cleanupTerminalWorktree();
       return {
         branch,
         changedFiles: [],
@@ -141,6 +145,7 @@ export function runRemediationAutofix({
       };
     }
     if (prReconciler.remoteBranchExists()) {
+      cleanupTerminalWorktree();
       return {
         branch,
         changedFiles: [],

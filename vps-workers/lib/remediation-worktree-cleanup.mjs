@@ -1,14 +1,28 @@
+import { findRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
+
 export function cleanupRemediationWorktree({
+  branch,
   childEnv,
   repoDir,
   runner,
   worktreeDir,
 }) {
-  if (!worktreeDir) return;
+  const resolvedWorktreeDir =
+    worktreeDir ||
+    (branch
+      ? findRetainedRemediationWorktree({
+          branch,
+          childEnv,
+          repoDir,
+          runner,
+        })
+      : '');
+  if (!resolvedWorktreeDir) return '';
 
-  runner('git', ['worktree', 'remove', '--force', worktreeDir], {
+  runner('git', ['worktree', 'remove', '--force', resolvedWorktreeDir], {
     cwd: repoDir,
     env: childEnv,
     shell: false,
   });
+  return resolvedWorktreeDir;
 }
