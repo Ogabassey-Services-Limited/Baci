@@ -250,6 +250,19 @@ describe('aggregateAnalyticsDetail', () => {
     expect(aggregate('profits', [], orderItems).total).toBe(0);
   });
 
+  it('preserves a recorded zero quantity instead of counting one unit', () => {
+    const orderItems = [
+      itemWithCostFallbacks('2026-01-10T00:00:00.000Z', 50, 0, {
+        orderItemCostPrice: 10,
+      }),
+    ];
+
+    const profits = aggregate('profits', [], orderItems);
+
+    expect(profits.data[0]).toMatchObject({ value: 0, secondaryValue: 0 });
+    expect(profits.total).toBe(0);
+  });
+
   it('selects best and worst periods from finite bucket values only', () => {
     const result = aggregate('revenue', [
       order('order-1', '2026-01-10T00:00:00.000Z', Number.POSITIVE_INFINITY),

@@ -125,7 +125,7 @@ export function aggregateAnalyticsDetail({
       const bucketIndex = getBucketIndex(date, granularity, timezone);
 
       if (bucketIndex >= 0 && bucketIndex < data.length) {
-        const quantity = item.quantity || 1;
+        const quantity = item.quantity ?? 1;
         const revenue = (item.price || 0) * quantity;
         const profit = resolveOrderItemProfit(item, quantity);
 
