@@ -130,6 +130,7 @@ describe('OgabasseyPdpSemanticSections', () => {
       'laptops',
       'prod-1',
       'lenovo-legion',
+      'Lenovo Legion',
       'Lenovo',
       true
     );
@@ -218,5 +219,37 @@ describe('OgabasseyPdpSemanticSections', () => {
     );
 
     warnSpy.mockRestore();
+  });
+
+  it('passes the display name to the guide prefilter when a legacy slug differs', async () => {
+    const legacyProduct = {
+      ...product,
+      slug: 'legacy-item-42',
+      name: 'Lenovo Legion 5 Pro',
+    } as Product;
+
+    await OgabasseyPdpSemanticSections({
+      categoryName: 'Laptops',
+      categorySlug: 'laptops',
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'OgaBassey',
+        feature_settings: { blog_enabled: true },
+      },
+      product: legacyProduct,
+      productComparePathPrefix: '/ogabassey',
+      storeSlug: 'ogabassey',
+      storeUrl: 'https://ogabassey.com',
+    });
+
+    expect(mockGetCachedProductSeoLinkData).toHaveBeenCalledWith(
+      'merchant-1',
+      'laptops',
+      'prod-1',
+      'legacy-item-42',
+      'Lenovo Legion 5 Pro',
+      'Lenovo',
+      true
+    );
   });
 });
