@@ -38,6 +38,29 @@ function readFlockLockPath({ command, args, env, flockArgsPath }) {
     .find((argument) => argument.endsWith('.lock'));
 }
 
+function writeDotenvFixture(nodeModulesDirectory) {
+  const dotenvDirectory = join(nodeModulesDirectory, 'dotenv');
+  mkdirSync(dotenvDirectory, { recursive: true });
+  writeFileSync(
+    join(dotenvDirectory, 'package.json'),
+    '{"type":"module","exports":"./index.mjs"}\n'
+  );
+  writeFileSync(
+    join(dotenvDirectory, 'index.mjs'),
+    `import { readFileSync } from 'node:fs';
+export function config({ path }) {
+  for (const line of readFileSync(path, 'utf8').split(/\\r?\\n/)) {
+    const separator = line.indexOf('=');
+    if (separator > 0 && !(line.slice(0, separator) in process.env)) {
+      process.env[line.slice(0, separator)] = line.slice(separator + 1);
+    }
+  }
+  return { parsed: {} };
+}
+`
+  );
+}
+
 describe('remediation job global lock configuration', () => {
   for (const jobName of jobNames) {
     it(`uses the dotenv lock path before flock for direct and shell ${jobName} invocation`, (t) => {
@@ -45,6 +68,7 @@ describe('remediation job global lock configuration', () => {
       t.after(() => rmSync(directory, { force: true, recursive: true }));
       const fixtureRoot = join(directory, 'workers');
       const jobsDirectory = join(fixtureRoot, 'jobs');
+      const nodeModulesDirectory = join(fixtureRoot, 'node_modules');
       const fakeBinDirectory = join(directory, 'bin');
       const customLockPath = join(directory, 'configured-global.lock');
       const flockArgsPath = join(directory, 'flock-args');
@@ -55,11 +79,7 @@ describe('remediation job global lock configuration', () => {
         join(jobsDirectory, jobName)
       );
       symlinkSync(join(workerRoot, 'lib'), join(fixtureRoot, 'lib'), 'dir');
-      symlinkSync(
-        join(workerRoot, '..', 'node_modules'),
-        join(fixtureRoot, 'node_modules'),
-        'dir'
-      );
+      writeDotenvFixture(nodeModulesDirectory);
       writeFileSync(
         join(fixtureRoot, '.env'),
         `BACI_REMEDIATION_GLOBAL_LOCK_PATH=${customLockPath}\n`
