@@ -28,7 +28,10 @@ const machineFamily = (
   if (!sourcePath)
     throw new Error(`machine route source is not declared: ${routePattern}`);
   const effectiveMethods: InventoryRow['methods'] =
-    sourcePath.endsWith('/route.ts') && !methods.includes('ANY')
+    (sourcePath.endsWith('/route.ts') ||
+      routePattern === '/manifest.webmanifest' ||
+      routePattern === '/robots.txt') &&
+    !methods.includes('ANY')
       ? [...new Set<InventoryMethod>([...methods, 'OPTIONS'])].sort(
           (left, right) =>
             METHOD_ORDER.indexOf(left) - METHOD_ORDER.indexOf(right)
@@ -252,6 +255,12 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
       precedence: 'before_path_decision',
     },
   },
+  machineFamily(
+    'machine:robots-platform-root-rewrite',
+    '/robots.txt',
+    ['GET', 'HEAD', 'OPTIONS'],
+    'origin_dynamic'
+  ),
   machineFamily(
     'machine:robots',
     '/robots.txt',

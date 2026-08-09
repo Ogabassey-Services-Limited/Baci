@@ -1,6 +1,7 @@
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { STOREFRONT_EDGE_NEXT_REDIRECT_ROWS } from './storefront-edge-next-redirect-rows';
 import { STOREFRONT_EDGE_PROXY_BLOG_STATUS_ROWS } from './storefront-edge-proxy-blog-status-rows';
+import { STOREFRONT_EDGE_PROXY_BLOG_QUERY_ROWS } from './storefront-edge-proxy-blog-query-rows';
 import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
 import { STOREFRONT_EDGE_PROXY_TAIL_ROWS } from './storefront-edge-proxy-tail-rows';
 
@@ -74,32 +75,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
       },
     }
   ),
-  proxyClass(
-    'proxy:blog-query-canonical',
-    '/blog/{*path?}?{legacyThumbnailQuery}',
-    ['GET', 'HEAD'],
-    'edge_redirect',
-    'canonical_blog_query_normalization',
-    {
-      pathCondition: {
-        precedence: 'before_path_decision',
-        predicate: 'legacy_blog_thumbnail_query',
-      },
-    }
-  ),
-  proxyClass(
-    'proxy:slug-blog-query-canonical',
-    '/{storefrontIdentifier}/blog/{*path?}?{legacyThumbnailQuery}',
-    ['GET', 'HEAD'],
-    'edge_redirect',
-    'canonical_blog_query_normalization',
-    {
-      pathCondition: {
-        precedence: 'before_path_decision',
-        predicate: 'legacy_blog_thumbnail_query',
-      },
-    }
-  ),
+  ...STOREFRONT_EDGE_PROXY_BLOG_QUERY_ROWS,
   proxyClass(
     'proxy:blog-category-canonical',
     '/blog/{legacyCategory}/{legacyPostSlug}',

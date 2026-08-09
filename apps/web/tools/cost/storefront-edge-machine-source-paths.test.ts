@@ -11,7 +11,9 @@ describe('STOREFRONT_EDGE_MACHINE_SOURCE_PATHS', () => {
     ).sort();
     const rowPatterns = [
       ...new Set(
-        STOREFRONT_EDGE_MACHINE_ROWS.map(({ routePattern }) => routePattern)
+        STOREFRONT_EDGE_MACHINE_ROWS.filter(
+          ({ sourceKind }) => sourceKind === 'machine_family'
+        ).map(({ routePattern }) => routePattern)
       ),
     ].sort();
 
