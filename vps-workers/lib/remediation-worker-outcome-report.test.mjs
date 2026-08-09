@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -20,9 +20,15 @@ const environment = (directory, autofix = false) => ({
 });
 const now = () => Date.parse('2026-08-09T10:05:00.000Z');
 
+function createTestDirectory(t, prefix) {
+  const directory = mkdtempSync(join(tmpdir(), prefix));
+  t.after(() => rmSync(directory, { force: true, recursive: true }));
+  return directory;
+}
+
 describe('remediation worker outcome reporting', () => {
-  it('reports the prompt_written lifecycle recorded by a dry run', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'baci-report-dry-run-'));
+  it('reports the prompt_written lifecycle recorded by a dry run', async (t) => {
+    const directory = createTestDirectory(t, 'baci-report-dry-run-');
     const result = await runRemediationWorker({
       candidateLoader: async () => [candidate()],
       env: environment(directory),
@@ -35,8 +41,8 @@ describe('remediation worker outcome reporting', () => {
     assert.match(result.report.text, /priorOutcomes=prompt_written/);
   });
 
-  it('reports the lifecycle recorded after enrichment fails', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'baci-report-enrich-'));
+  it('reports the lifecycle recorded after enrichment fails', async (t) => {
+    const directory = createTestDirectory(t, 'baci-report-enrich-');
     const result = await runRemediationWorker({
       candidateEnricher: () => {
         throw new Error('enrichment unavailable');
@@ -55,8 +61,8 @@ describe('remediation worker outcome reporting', () => {
     );
   });
 
-  it('reports the lifecycle recorded after autofix fails', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'baci-report-autofix-'));
+  it('reports the lifecycle recorded after autofix fails', async (t) => {
+    const directory = createTestDirectory(t, 'baci-report-autofix-');
     const result = await runRemediationWorker({
       autofixRunner: () => {
         throw new Error('Codex unavailable');

@@ -161,6 +161,7 @@ export async function sendRemediationReportEmail({
     clearTimeout(timeout);
   }
 
+  await response.body?.cancel().catch(() => undefined);
   if (!response.ok) {
     throw new Error(`ZeptoMail report failed with HTTP ${response.status}`);
   }

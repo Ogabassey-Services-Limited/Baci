@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { redactCodexError } from './remediation-codex-output.mjs';
 import { evaluateMergePolicy } from './remediation-policy.mjs';
 import {
   buildRemediationReport,
@@ -37,13 +38,15 @@ export async function finalizeRemediationWorkerReport({
     hasHighSeverityReview: false,
     hasUnresolvedThreads: false,
   });
-  let report = buildRemediationReport({
-    actions,
-    candidates,
-    mode,
-    policy,
-    source: workerName,
-  });
+  const buildReport = () =>
+    buildRemediationReport({
+      actions,
+      candidates,
+      mode,
+      policy,
+      source: workerName,
+    });
+  let report = buildReport();
   if (candidates.length === 0) {
     return { actions, candidates, email, mode, policy, report };
   }
@@ -54,36 +57,26 @@ export async function finalizeRemediationWorkerReport({
   }
   try {
     email = await sendRemediationReportEmail({ env, fetchFn, report });
-    if (email.skipped) {
-      actions.push({ detail: notificationId, type: 'email_skipped' });
-      report = buildRemediationReport({
-        actions,
-        candidates,
-        mode,
-        policy,
-        source: workerName,
-      });
-      if (!state.complete({ notification: { id: notificationId, report } })) {
-        throw new Error('remediation state is busy');
-      }
-    } else {
-      state.acknowledgeNotification(notificationId);
-    }
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    logger.error(`[${workerName}] report email failed:`, error);
+    const safeError = redactCodexError(error);
+    const detail = safeError.message;
+    logger.error(`[${workerName}] report email failed:`, safeError);
     actions.push({ detail, type: 'email_failed' });
-    report = buildRemediationReport({
-      actions,
-      candidates,
-      mode,
-      policy,
-      source: workerName,
-    });
+    report = buildReport();
     if (!state.complete({ notification: { id: notificationId, report } })) {
       throw new Error('remediation state is busy');
     }
     email = { error: detail, skipped: true };
+    return { actions, candidates, email, mode, policy, report };
+  }
+  if (email.skipped) {
+    actions.push({ detail: notificationId, type: 'email_skipped' });
+    report = buildReport();
+    if (!state.complete({ notification: { id: notificationId, report } })) {
+      throw new Error('remediation state is busy');
+    }
+  } else if (!state.acknowledgeNotification(notificationId)) {
+    throw new Error('remediation notification acknowledgement failed');
   }
   return { actions, candidates, email, mode, policy, report };
 }

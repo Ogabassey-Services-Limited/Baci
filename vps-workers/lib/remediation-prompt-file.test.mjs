@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { it } from 'node:test';
 import { writeRemediationPrompt } from './remediation-prompt-file.mjs';
 
-it('writes prompts under their canonical case identities', () => {
+it('writes prompts under their canonical case identities with private permissions', (t) => {
   const outputDir = mkdtempSync(join(tmpdir(), 'baci-prompt-file-'));
+  t.after(() => rmSync(outputDir, { force: true, recursive: true }));
+  chmodSync(outputDir, 0o755);
   const runtimePath = writeRemediationPrompt({
     candidate: {
       category: 'vercel_runtime_exception',
@@ -37,4 +39,7 @@ it('writes prompts under their canonical case identities', () => {
   assert.notEqual(runtimePath, timeoutPath);
   assert.equal(existsSync(runtimePath), true);
   assert.equal(existsSync(timeoutPath), true);
+  assert.equal(statSync(outputDir).mode & 0o777, 0o700);
+  assert.equal(statSync(runtimePath).mode & 0o777, 0o600);
+  assert.equal(statSync(timeoutPath).mode & 0o777, 0o600);
 });

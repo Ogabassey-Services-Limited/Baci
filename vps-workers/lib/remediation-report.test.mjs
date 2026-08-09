@@ -192,4 +192,26 @@ describe('remediation report', () => {
       }
     );
   });
+
+  it('cancels a rejected ZeptoMail response body before reporting its status', async () => {
+    let cancellations = 0;
+
+    await assert.rejects(
+      sendRemediationReportEmail({
+        report: { subject: 'Subject', text: 'Text', html: '<p>Text</p>' },
+        env: {
+          BACI_REMEDIATION_NOTIFY_EMAILS: 'owner@example.com',
+          ZEPTOMAIL_TOKEN: 'token',
+        },
+        fetchFn: () => ({
+          body: { cancel: async () => (cancellations += 1) },
+          ok: false,
+          status: 503,
+        }),
+      }),
+      /ZeptoMail report failed with HTTP 503/
+    );
+
+    assert.equal(cancellations, 1);
+  });
 });

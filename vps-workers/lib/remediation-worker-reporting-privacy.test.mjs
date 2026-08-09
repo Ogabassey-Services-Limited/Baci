@@ -1,14 +1,20 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { assertCodexExecutionUsable } from './remediation-codex-output.mjs';
 import { runRemediationWorker } from './remediation-worker.mjs';
 
+function createTestDirectory(t, prefix) {
+  const directory = mkdtempSync(join(tmpdir(), prefix));
+  t.after(() => rmSync(directory, { force: true, recursive: true }));
+  return directory;
+}
+
 describe('remediation worker reporting privacy', () => {
-  it('keeps redacted Codex failures out of logs and email report actions', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-redaction-'));
+  it('keeps redacted Codex failures out of logs and email report actions', async (t) => {
+    const directory = createTestDirectory(t, 'baci-worker-redaction-');
     const loggedMessages = [];
     const token = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -47,8 +53,8 @@ describe('remediation worker reporting privacy', () => {
     assert.doesNotMatch(loggedMessages[0], new RegExp(token));
   });
 
-  it('persists an email-failure action in the notification retry report', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-email-failure-'));
+  it('persists an email-failure action in the notification retry report', async (t) => {
+    const directory = createTestDirectory(t, 'baci-worker-email-failure-');
     const result = await runRemediationWorker({
       candidateLoader: async () => [
         {
@@ -75,8 +81,8 @@ describe('remediation worker reporting privacy', () => {
     assert.match(notification.report.text, /email_failed/);
   });
 
-  it('keeps ZeptoMail failure bodies out of worker and job-visible output', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-email-privacy-'));
+  it('keeps ZeptoMail failure bodies out of worker and job-visible output', async (t) => {
+    const directory = createTestDirectory(t, 'baci-worker-email-privacy-');
     const stripeLikeToken = ['sk', 'live', 'abcdefghijklmnopqrstuvwxyz'].join(
       '_'
     );
