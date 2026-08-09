@@ -58,7 +58,6 @@ export async function runRemediationWorker({
       'remediation state, lifecycle, and journal paths must differ'
     );
   }
-  const loadedCandidates = await candidateLoader({ env, fetchFn });
   const state = createRemediationState({
     now,
     path: remediationStatePath,
@@ -84,6 +83,7 @@ export async function runRemediationWorker({
   });
   const actions = retriedNotifications.actions;
   const email = retriedNotifications.email;
+  const loadedCandidates = await candidateLoader({ env, fetchFn });
   const maximumCandidates = Math.min(
     readPositiveInt(env.BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN, 1),
     10
