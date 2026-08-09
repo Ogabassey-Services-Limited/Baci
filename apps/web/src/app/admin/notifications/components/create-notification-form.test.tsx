@@ -74,4 +74,14 @@ describe('CreateNotificationForm', () => {
 
     expect(screen.getByRole('button', { name: /scheduling/i })).toBeDisabled();
   });
+
+  it('clears an optional action URL as undefined', () => {
+    const { props } = renderForm({ action_url: 'https://baci.example/orders' });
+
+    fireEvent.change(screen.getByLabelText(/action url/i), {
+      target: { value: '' },
+    });
+
+    expect(props.onUpdate).toHaveBeenCalledWith({ action_url: undefined });
+  });
 });

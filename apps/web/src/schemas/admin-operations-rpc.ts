@@ -69,6 +69,7 @@ export const adminOperationsRpcSchema = z.object({
         merchantName: requiredText,
         provider: requiredText,
         providerErrorCode: nullableAdminSafeErrorCodeSchema,
+        status: z.enum(['failed', 'stale']),
       })
     ),
     orderOutbox: z.array(

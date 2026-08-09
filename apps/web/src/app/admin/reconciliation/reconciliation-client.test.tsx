@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AdminReconciliationData } from '@/schemas/admin-reconciliation-rpc';
 import { ReconciliationClient } from './reconciliation-client';
 
 Object.defineProperty(HTMLElement.prototype, 'hasPointerCapture', {
@@ -49,6 +50,33 @@ const responseData = {
   periodStart: '2026-07-06T10:00:00.000Z',
   reviewScope: 'all_unresolved',
   supportedCurrencies: ['NGN', 'USD'],
+} satisfies AdminReconciliationData;
+
+const pagedResponseData = {
+  ...responseData,
+  items: [
+    {
+      amount: 2500,
+      currency: 'NGN',
+      id: 'current-row',
+      issueType: null,
+      lane: 'payout_request',
+      merchantId: null,
+      merchantName: 'Current merchant',
+      occurredAt: '2026-08-05T10:00:00.000Z',
+      provider: 'paystack',
+      status: 'pending',
+    },
+  ],
+  nextCursor: {
+    createdAt: '2026-08-04T10:00:00.000Z',
+    id: 'current-cursor',
+  },
+} satisfies AdminReconciliationData;
+
+type ReconciliationFetchResponse = {
+  json: () => Promise<AdminReconciliationData>;
+  ok: boolean;
 };
 
 describe('ReconciliationClient', () => {
@@ -120,5 +148,72 @@ describe('ReconciliationClient', () => {
       );
     });
     expect(screen.queryByText('Paid order GMV')).not.toBeInTheDocument();
+  });
+
+  it('does not append a stale page after the filters change', async () => {
+    const user = userEvent.setup();
+    let resolveStalePage: (response: ReconciliationFetchResponse) => void;
+    const stalePage = new Promise<ReconciliationFetchResponse>((resolve) => {
+      resolveStalePage = resolve;
+    });
+    const filteredResponse = {
+      ...responseData,
+      currency: 'USD',
+      items: [
+        {
+          ...pagedResponseData.items[0],
+          currency: 'USD',
+          id: 'filtered-row',
+          merchantName: 'Filtered merchant',
+        },
+      ],
+      nextCursor: {
+        createdAt: '2026-08-03T10:00:00.000Z',
+        id: 'filtered-cursor',
+      },
+    } satisfies AdminReconciliationData;
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          json: async () => pagedResponseData,
+          ok: true,
+        })
+        .mockReturnValueOnce(stalePage)
+        .mockResolvedValueOnce({
+          json: async () => filteredResponse,
+          ok: true,
+        })
+    );
+    render(<ReconciliationClient />);
+
+    expect(await screen.findByText('Current merchant')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await user.click(screen.getByRole('combobox', { name: 'Currency' }));
+    await user.click(screen.getByRole('option', { name: 'USD' }));
+    expect(await screen.findByText('Filtered merchant')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load more' })).toBeEnabled();
+
+    await act(async () => {
+      resolveStalePage({
+        json: async () =>
+          ({
+            ...pagedResponseData,
+            items: [
+              {
+                ...pagedResponseData.items[0],
+                id: 'stale-row',
+                merchantName: 'Stale merchant',
+              },
+            ],
+            nextCursor: null,
+          }) satisfies AdminReconciliationData,
+        ok: true,
+      });
+    });
+
+    expect(screen.queryByText('Stale merchant')).not.toBeInTheDocument();
   });
 });

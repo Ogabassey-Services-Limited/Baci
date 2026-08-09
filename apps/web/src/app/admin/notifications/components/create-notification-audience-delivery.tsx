@@ -65,9 +65,17 @@ export function CreateNotificationAudienceDelivery({
             <Label htmlFor="target-type">Target</Label>
             <Select
               value={formData.target_type}
-              onValueChange={(value: TargetType) =>
-                onUpdate({ target_type: value })
-              }
+              onValueChange={(value: TargetType) => {
+                onUpdate(
+                  value === 'all'
+                    ? {
+                        target_merchant_ids: undefined,
+                        target_segment: undefined,
+                        target_type: value,
+                      }
+                    : { target_type: value }
+                );
+              }}
             >
               <SelectTrigger id="target-type" aria-label="Target">
                 <SelectValue />

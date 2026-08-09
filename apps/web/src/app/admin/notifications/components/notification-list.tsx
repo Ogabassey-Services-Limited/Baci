@@ -160,15 +160,28 @@ export function NotificationList({
               </Button>
             </div>
           ) : notifications.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Bell className="size-12 mx-auto mb-4 opacity-50" />
-              <p>No notifications found</p>
-              <Button asChild variant="link" className="mt-2">
-                <Link href="/admin/notifications/create">
-                  Create your first notification
-                </Link>
-              </Button>
-            </div>
+            <>
+              <div className="text-center py-8 text-muted-foreground">
+                <Bell className="size-12 mx-auto mb-4 opacity-50" />
+                <p>No notifications found</p>
+                <Button asChild variant="link" className="mt-2">
+                  <Link href="/admin/notifications/create">
+                    Create your first notification
+                  </Link>
+                </Button>
+              </div>
+              {page > 0 && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPageChange(page - 1)}
+                  >
+                    Previous
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <>
               <NotificationListTable

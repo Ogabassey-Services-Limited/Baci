@@ -134,4 +134,19 @@ describe('NotificationList', () => {
     expect(props.onPageChange).toHaveBeenCalledWith(1);
     expect(props.onDeleteConfirm).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps Previous available when cancellation leaves an empty later page', async () => {
+    const user = userEvent.setup();
+    const { props } = renderList({
+      notifications: [],
+      page: 1,
+      totalCount: 20,
+    });
+
+    const previous = screen.getByRole('button', { name: 'Previous' });
+    expect(previous).toBeEnabled();
+    await user.click(previous);
+
+    expect(props.onPageChange).toHaveBeenCalledWith(0);
+  });
 });

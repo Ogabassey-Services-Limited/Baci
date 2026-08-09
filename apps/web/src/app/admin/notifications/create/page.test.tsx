@@ -186,4 +186,31 @@ describe('CreateNotificationPage', () => {
 
     expect(mockApiPost).not.toHaveBeenCalled();
   });
+
+  it('submits after an optional action URL is cleared', async () => {
+    render(<CreateNotificationPage />);
+
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: 'Maintenance window' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'Baci will run maintenance tonight.' },
+    });
+    fireEvent.change(screen.getByLabelText(/action url/i), {
+      target: { value: 'https://baci.example/maintenance' },
+    });
+    fireEvent.change(screen.getByLabelText(/action url/i), {
+      target: { value: '' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /queue for delivery/i })
+    );
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/api/admin/notifications',
+        expect.not.objectContaining({ action_url: '' })
+      );
+    });
+  });
 });

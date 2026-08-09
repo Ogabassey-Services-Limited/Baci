@@ -155,7 +155,7 @@ export function CreateNotificationForm(props: CreateNotificationFormProps) {
                   type="url"
                   value={formData.action_url || ''}
                   onChange={(event) =>
-                    onUpdate({ action_url: event.target.value })
+                    onUpdate({ action_url: event.target.value || undefined })
                   }
                 />
               </div>

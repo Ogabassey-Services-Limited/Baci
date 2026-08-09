@@ -31,7 +31,12 @@ describe('operation tables', () => {
     expect(
       screen.getByText('No unresolved reconciliation items.')
     ).toBeInTheDocument();
-    expect(screen.getByText('No failed email attempts.')).toBeInTheDocument();
+    expect(
+      screen.getByText('No failed or stale email attempts.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Failed or stale email attempts')
+    ).toBeInTheDocument();
     expect(
       screen.getByText('No shipment failures require attention.')
     ).toBeInTheDocument();
@@ -67,5 +72,45 @@ describe('operation tables', () => {
 
     expect(screen.getByText(/UNK 1\.2K/)).toBeInTheDocument();
     expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
+  });
+
+  it('shows the state for failed and stale email incidents', () => {
+    render(
+      <NotificationOperations
+        data={{
+          email: [
+            {
+              attemptCount: 1,
+              createdAt: '2026-08-05T15:02:00.000Z',
+              emailType: 'order_confirmation',
+              id: 'email-failed',
+              merchantId: 'merchant-1',
+              merchantName: 'Merchant',
+              provider: 'zeptomail',
+              providerErrorCode: null,
+              status: 'failed',
+            },
+            {
+              attemptCount: 0,
+              createdAt: '2026-08-05T15:03:00.000Z',
+              emailType: 'password_reset',
+              id: 'email-stale',
+              merchantId: 'merchant-1',
+              merchantName: 'Merchant',
+              provider: 'zeptomail',
+              providerErrorCode: null,
+              status: 'stale',
+            },
+          ],
+          orderOutbox: [],
+          push: [],
+          trackingOutbox: [],
+        }}
+      />
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'State' })).toBeVisible();
+    expect(screen.getByText('failed')).toBeVisible();
+    expect(screen.getByText('stale')).toBeVisible();
   });
 });

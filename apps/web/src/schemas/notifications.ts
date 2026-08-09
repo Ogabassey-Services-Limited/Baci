@@ -173,7 +173,9 @@ export const updateNotificationSchema = z
       .optional(),
     action_url: notificationActionUrlSchema.optional().nullable(),
     action_label: z.string().trim().max(100).optional().nullable(),
-    scheduled_for: z.iso.datetime().optional().nullable(),
+    // A null PATCH would leave a pending notification without a scheduler
+    // cursor. Editing the time is supported; cancelling is a separate action.
+    scheduled_for: z.iso.datetime().optional(),
     expires_at: z.iso.datetime().optional().nullable(),
   })
   .refine((data) => Object.keys(data).length > 0, {

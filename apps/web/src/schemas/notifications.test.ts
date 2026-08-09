@@ -94,6 +94,12 @@ describe('notification schemas', () => {
     }
   });
 
+  it('rejects clearing a scheduled delivery time through PATCH', () => {
+    expect(
+      updateNotificationSchema.safeParse({ scheduled_for: null }).success
+    ).toBe(false);
+  });
+
   it('rejects a no-op admin notification update', () => {
     expect(updateNotificationSchema.safeParse({}).success).toBe(false);
   });

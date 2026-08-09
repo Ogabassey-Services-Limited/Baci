@@ -1,3 +1,5 @@
+import { ADMIN_PLATFORM_REPAIR_PENDING_SOURCES } from './expected-admin-platform-repair-pending-sources.test-support';
+
 export const ADMIN_PLATFORM_PENDING_SOURCES = [
   {
     repositoryPath:
@@ -288,4 +290,5 @@ export const ADMIN_PLATFORM_PENDING_SOURCES = [
       'supabase/migrations/20260805151660_retire_legacy_admin_merchant_health_rpc.sql',
     sha256: 'e0bd04ca14ec98db9f6e3657192c8e8f62d3dcd47212d1f2f2ea06a0713b849d',
   },
+  ...ADMIN_PLATFORM_REPAIR_PENDING_SOURCES,
 ] as const;

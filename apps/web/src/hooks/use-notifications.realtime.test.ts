@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import './use-notifications.test-support';
 import { useNotifications } from './use-notifications';
@@ -9,6 +9,27 @@ import {
 } from './use-notifications.test-support';
 
 beforeEach(resetNotificationHookMocks);
+
+function findUpdateHandler(calls: readonly unknown[][]): (() => void) | null {
+  for (const call of calls) {
+    const [, filter, handler] = call;
+    if (
+      call[0] === 'postgres_changes' &&
+      filter !== null &&
+      typeof filter === 'object' &&
+      'event' in filter &&
+      filter.event === 'UPDATE' &&
+      isVoidHandler(handler)
+    ) {
+      return handler;
+    }
+  }
+  return null;
+}
+
+function isVoidHandler(value: unknown): value is () => void {
+  return typeof value === 'function';
+}
 
 describe('useNotifications Realtime subscription', () => {
   it('subscribes to only the current merchant for INSERT and UPDATE changes', async () => {
@@ -83,5 +104,31 @@ describe('useNotifications Realtime subscription', () => {
       'Connection failed'
     );
     warn.mockRestore();
+  });
+
+  it('refetches after the finalized recipient UPDATE that follows a hidden INSERT', async () => {
+    renderHook(() => useNotifications());
+
+    await waitFor(() =>
+      expect(notificationMocks.channel.on).toHaveBeenCalledWith(
+        'postgres_changes',
+        expect.objectContaining({ event: 'UPDATE' }),
+        expect.any(Function)
+      )
+    );
+    const updateHandler = findUpdateHandler(
+      notificationMocks.channel.on.mock.calls
+    );
+    expect(updateHandler).not.toBeNull();
+    if (!updateHandler) throw new Error('Expected an UPDATE subscription');
+
+    vi.mocked(global.fetch).mockClear();
+    notificationMocks.rpc.mockClear();
+    act(() => updateHandler());
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    expect(notificationMocks.rpc).toHaveBeenCalledWith('get_active_banners', {
+      p_merchant_id: 'merchant-123',
+    });
   });
 });

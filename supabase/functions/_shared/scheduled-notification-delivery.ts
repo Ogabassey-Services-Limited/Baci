@@ -1,4 +1,5 @@
 import type { ScheduledNotification } from './scheduled-notification.ts';
+import { requiresPushOutcomeReview } from './scheduled-notification-push-outcome-review.ts';
 import { scheduledNotificationWorker } from './scheduled-notification-worker.ts';
 
 const {
@@ -14,18 +15,8 @@ const TOKEN_BATCH_SIZE = 100;
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 type RpcResult = { data: unknown; error: { message: string } | null };
-interface Query
-  extends PromiseLike<{
-    data: unknown[] | null;
-    error: { message: string } | null;
-  }> {
-  select(columns: string): Query;
-  in(column: string, values: string[]): Query;
-  eq(column: string, value: string | boolean): Query;
-}
 interface WorkerClient {
   rpc(name: string, args?: Record<string, unknown>): Promise<RpcResult>;
-  from(table: string): Query;
 }
 type Outcome = 'sent' | 'retry' | 'expired';
 
@@ -96,17 +87,20 @@ async function sendPushTokens(
   if (!notification.channels.includes('push')) return;
   const accessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
   for (const merchants of chunks(merchantIds, TOKEN_BATCH_SIZE)) {
-    const { data, error } = await client
-      .from('push_tokens')
-      .select('token')
-      .in('merchant_id', merchants)
-      .eq('is_active', true)
-      .eq('app_type', 'admin');
-    if (error) throw new Error('Push tokens unavailable');
+    const data = await rpcOk(
+      client,
+      'get_claimed_notification_push_tokens_v1',
+      {
+        p_claim_token: notification.delivery_claim_token,
+        p_merchant_ids: merchants,
+        p_notification_id: notification.id,
+      }
+    );
+    if (!Array.isArray(data)) throw new Error('Push tokens unavailable');
     const tokens = [
       ...new Set(
-        (data ?? []).flatMap((row) => {
-          const token = asRecord(row)?.token;
+        data.flatMap((row) => {
+          const token = asRecord(row)?.push_token;
           return typeof token === 'string' && isExpoPushToken(token)
             ? [token]
             : [];
@@ -258,11 +252,7 @@ export async function processScheduledNotificationClaims(
           p_notification_id: notification.id,
         }
       );
-      if (
-        (asRecord(summary)?.unknown ?? 0) > 0 ||
-        (asRecord(summary)?.dispatching ?? 0) > 0 ||
-        (asRecord(summary)?.rejected ?? 0) > 0
-      )
+      if (requiresPushOutcomeReview(summary))
         throw new Error('Push outcome requires review');
       await finalize(client, notification, 'sent');
       results.push({ id: notification.id, recipients, status: 'sent' });

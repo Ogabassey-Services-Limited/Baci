@@ -132,4 +132,87 @@ describe('updateAdminNotification', () => {
     expect(response.status).toBe(400);
     expect(supabase.query.update).not.toHaveBeenCalled();
   });
+
+  it('rejects a null schedule before it can strand a pending notification', async () => {
+    const supabase = createSupabase({
+      existing: {
+        delivery_state: 'pending',
+        expires_at: null,
+        id: notificationId,
+        scheduled_for: '2030-01-02T10:00:00.000Z',
+        sent_at: null,
+        target_segment: null,
+        target_type: 'all',
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await updateAdminNotification(
+      request({ scheduled_for: null }),
+      notificationId
+    );
+
+    expect(response.status).toBe(400);
+    expect(supabase.query.update).not.toHaveBeenCalled();
+  });
+
+  it('clears specific targeting fields when retargeting every merchant', async () => {
+    const supabase = createSupabase({
+      existing: {
+        delivery_state: 'pending',
+        expires_at: null,
+        id: notificationId,
+        scheduled_for: null,
+        sent_at: null,
+        target_merchant_ids: ['123e4567-e89b-12d3-a456-426614174111'],
+        target_segment: null,
+        target_type: 'specific',
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await updateAdminNotification(
+      request({ target_type: 'all' }),
+      notificationId
+    );
+
+    expect(response.status).toBe(200);
+    expect(supabase.updates).toEqual([
+      {
+        target_merchant_ids: null,
+        target_segment: null,
+        target_type: 'all',
+      },
+    ]);
+  });
+
+  it('clears segment targeting fields when retargeting every merchant', async () => {
+    const supabase = createSupabase({
+      existing: {
+        delivery_state: 'pending',
+        expires_at: null,
+        id: notificationId,
+        scheduled_for: null,
+        sent_at: null,
+        target_merchant_ids: null,
+        target_segment: 'active',
+        target_type: 'segment',
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await updateAdminNotification(
+      request({ target_type: 'all' }),
+      notificationId
+    );
+
+    expect(response.status).toBe(200);
+    expect(supabase.updates).toEqual([
+      {
+        target_merchant_ids: null,
+        target_segment: null,
+        target_type: 'all',
+      },
+    ]);
+  });
 });

@@ -32,6 +32,14 @@ describe('getAdminNavigationItems', () => {
     expect(labels).toEqual(['Overview', 'Merchants', 'Analytics']);
   });
 
+  it('does not expose the analytics-backed overview to content admins', () => {
+    const labels = getAdminNavigationItems(
+      platformAdminRolePermissions.content
+    ).map((item) => item.label);
+
+    expect(labels).not.toContain('Overview');
+  });
+
   it('shows finance the read-only reconciliation and audit surfaces', () => {
     const labels = getAdminNavigationItems(
       platformAdminRolePermissions.finance

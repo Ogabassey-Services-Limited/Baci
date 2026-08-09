@@ -20,7 +20,7 @@ const adminNavigationItems = [
     href: '/admin' as Route,
     icon: LayoutDashboard,
     label: 'Overview',
-    permission: 'platform.read',
+    permission: 'analytics.read',
   },
   {
     href: '/admin/merchants' as Route,

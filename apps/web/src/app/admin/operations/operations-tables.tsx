@@ -124,13 +124,18 @@ export function NotificationOperations({
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <OperationsIncidentTable
-        title="Failed email attempts"
-        empty="No failed email attempts."
+        title="Failed or stale email attempts"
+        empty="No failed or stale email attempts."
         rows={data.email}
         columns={[
           { key: 'merchantName', label: 'Merchant' },
           { key: 'emailType', label: 'Type', render: formatOperationTitle },
           { key: 'providerErrorCode', label: 'Safe error code' },
+          {
+            key: 'status',
+            label: 'State',
+            render: renderOperationStateBadge,
+          },
           { key: 'createdAt', label: 'Created', render: formatOperationDate },
         ]}
       />

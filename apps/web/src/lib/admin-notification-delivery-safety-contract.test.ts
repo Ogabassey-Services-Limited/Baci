@@ -65,7 +65,6 @@ describe('scheduled notification delivery safety contract', () => {
     expect(followUp).toContain("'accepted', 'rejected'");
     expect(worker).toContain('record_notification_push_ticket_results_v1');
     expect(worker).toContain('results.statuses');
-    expect(worker).toContain('(asRecord(summary)?.rejected ?? 0) > 0');
   });
 
   it('records retry and execution failures instead of reporting them as success', () => {

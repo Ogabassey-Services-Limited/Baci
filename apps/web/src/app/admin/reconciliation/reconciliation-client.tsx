@@ -1,7 +1,7 @@
 'use client';
 
 import { Download, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -67,16 +67,20 @@ export function ReconciliationClient() {
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const latestLoadId = useRef(0);
 
   async function load(nextQuery: AdminReconciliationQuery, append = false) {
+    const loadId = ++latestLoadId.current;
     if (append) setLoadingMore(true);
     else {
       setData(null);
       setLoading(true);
+      setLoadingMore(false);
     }
 
     try {
       const response = await requestReconciliation(nextQuery);
+      if (latestLoadId.current !== loadId) return;
       setData((current) =>
         append && current
           ? { ...response, items: [...current.items, ...response.items] }
@@ -84,42 +88,43 @@ export function ReconciliationClient() {
       );
       setError(null);
     } catch {
+      if (latestLoadId.current !== loadId) return;
       if (!append) setData(null);
       setError('Reconciliation data could not load.');
     } finally {
-      if (append) setLoadingMore(false);
-      else setLoading(false);
+      if (latestLoadId.current === loadId) {
+        if (append) setLoadingMore(false);
+        else setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    let isCurrent = true;
+    const loadId = ++latestLoadId.current;
     setData(null);
     setLoading(true);
+    setLoadingMore(false);
     void requestReconciliation(query)
       .then((response) => {
-        if (!isCurrent) return;
+        if (latestLoadId.current !== loadId) return;
         setData(response);
         setError(null);
       })
       .catch(() => {
-        if (!isCurrent) return;
+        if (latestLoadId.current !== loadId) return;
         setData(null);
         setError('Reconciliation data could not load.');
       })
       .finally(() => {
-        if (isCurrent) setLoading(false);
+        if (latestLoadId.current === loadId) setLoading(false);
       });
-
-    return () => {
-      isCurrent = false;
-    };
   }, [query]);
 
   function updateFilter(
     field: 'currency' | 'period' | 'lane' | 'status',
     value: Currency | Period | Lane | Status
   ) {
+    latestLoadId.current += 1;
     setQuery((current) => ({ ...current, [field]: value }));
   }
 

@@ -31,6 +31,22 @@ function renderAudience(overrides: Partial<CreateNotificationInput> = {}) {
 }
 
 describe('CreateNotificationAudienceDelivery', () => {
+  it('clears stale targeting details when switching to all merchants', () => {
+    const { props } = renderAudience({
+      target_merchant_ids: ['merchant-1'],
+      target_segment: 'at_risk',
+    });
+
+    fireEvent.click(screen.getByLabelText(/target/i));
+    fireEvent.click(screen.getByRole('option', { name: /all merchants/i }));
+
+    expect(props.onUpdate).toHaveBeenCalledTimes(1);
+    const updates = props.onUpdate.mock.calls[0]?.[0];
+    expect(updates).toHaveProperty('target_merchant_ids', undefined);
+    expect(updates).toHaveProperty('target_segment', undefined);
+    expect(updates).toHaveProperty('target_type', 'all');
+  });
+
   it('normalizes comma-separated merchant IDs before updating a specific audience', () => {
     const { props } = renderAudience();
 
