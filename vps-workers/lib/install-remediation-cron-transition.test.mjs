@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -44,6 +45,7 @@ function runTransition(scenario) {
   mkdirSync(binDirectory);
   mkdirSync(remoteDirectory);
   mkdirSync(jobsDirectory);
+  symlinkSync(process.execPath, join(binDirectory, 'node'));
   writeExecutable(
     join(binDirectory, 'ssh'),
     `#!/usr/bin/env bash
@@ -85,7 +87,7 @@ if [ "$TEST_SCENARIO" = "interleaving" ] && [ "$(wc -l < "$LOCK_MARKER")" -ne 3 
   echo "legacy locks were not all held before the crontab rewrite" >&2
   exit 88
 fi
-if [ "$TEST_SCENARIO" = "direct-exit" ] && kill -0 "$DIRECT_PROCESS_PID" 2>/dev/null; then
+if { [ "$TEST_SCENARIO" = "direct-exit" ] || [ "$TEST_SCENARIO" = "path-direct-exit" ]; } && kill -0 "$DIRECT_PROCESS_PID" 2>/dev/null; then
   echo "legacy direct process was still active at crontab rewrite" >&2
   exit 89
 fi
@@ -99,6 +101,7 @@ cp "$1" "$CRONTAB_MARKER"
     if (
       scenario === 'direct-exit' ||
       scenario === 'direct-timeout' ||
+      scenario === 'path-direct-exit' ||
       scenario === 'unrelated-process'
     ) {
       const job = join(
@@ -113,8 +116,17 @@ cp "$1" "$CRONTAB_MARKER"
       );
       directProcess = spawn(
         'bash',
-        ['-c', '"$1" "$2" & wait', '--', process.execPath, job],
+        [
+          '-c',
+          '"$1" "$2" & wait',
+          '--',
+          scenario === 'path-direct-exit' ? 'node' : process.execPath,
+          scenario === 'path-direct-exit'
+            ? 'jobs/vercel-error-remediator.mjs'
+            : job,
+        ],
         {
+          cwd: scenario === 'path-direct-exit' ? remoteDirectory : undefined,
           env: { ...process.env, DIRECT_READY: directReady },
           stdio: 'ignore',
         }
@@ -144,7 +156,9 @@ cp "$1" "$CRONTAB_MARKER"
           PATH: `${binDirectory}:${process.env.PATH ?? ''}`,
           REMOTE_DIR: remoteDirectory,
           BACI_REMEDIATION_LEGACY_DRAIN_TIMEOUT_SECONDS:
-            scenario === 'direct-exit' ? '5' : '1',
+            scenario === 'direct-exit' || scenario === 'path-direct-exit'
+              ? '5'
+              : '1',
           TEST_SCENARIO: scenario,
           VPS: 'test-vps',
         },
@@ -198,6 +212,13 @@ describe('remediation cron transition', () => {
 
   it('waits for an active legacy direct job before rewriting the crontab', () => {
     const outcome = runTransition('direct-exit');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.match(outcome.crontab, /vercel-error-remediator/);
+  });
+
+  it('waits for the documented PATH-based direct job command', () => {
+    const outcome = runTransition('path-direct-exit');
 
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
     assert.match(outcome.crontab, /vercel-error-remediator/);

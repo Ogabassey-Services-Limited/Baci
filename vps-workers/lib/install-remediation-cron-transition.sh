@@ -37,11 +37,13 @@ flock -x 9
 python3 - "$remote_dir" "$node_bin" "${BACI_REMEDIATION_LEGACY_DRAIN_TIMEOUT_SECONDS:-60}" <<'PY'
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import time
 
 remote_dir, node_bin, timeout_value = sys.argv[1:]
+remote_dir = os.path.realpath(remote_dir)
 try:
     timeout_seconds = min(max(int(timeout_value), 1), 60)
 except ValueError:
@@ -54,6 +56,39 @@ targets = {
 }
 relative_targets = {target.removeprefix(f'{remote_dir}/') for target in targets}
 node_path = os.path.realpath(node_bin)
+
+def executable_for(pid, argv0):
+    try:
+        return os.path.realpath(os.readlink(f'/proc/{pid}/exe'))
+    except OSError:
+        if os.path.isabs(argv0):
+            return os.path.realpath(argv0)
+    try:
+        with open(f'/proc/{pid}/environ', 'rb') as environment:
+            entries = environment.read().split(b'\0')
+        process_path = next(
+            entry[5:].decode(errors='ignore')
+            for entry in entries
+            if entry.startswith(b'PATH=')
+        )
+    except (OSError, StopIteration):
+        process_path = os.environ.get('PATH', '')
+    return os.path.realpath(shutil.which(argv0, path=process_path) or '')
+
+def cwd_for(pid):
+    try:
+        return os.path.realpath(os.readlink(f'/proc/{pid}/cwd'))
+    except OSError:
+        listing = subprocess.run(
+            ['lsof', '-Fn', '-a', '-p', str(pid), '-d', 'cwd'],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        return os.path.realpath(
+            next((line[1:] for line in listing.stdout.splitlines() if line.startswith('n')), '')
+        )
 
 def active_legacy_direct_processes():
     listing = subprocess.run(
@@ -69,19 +104,19 @@ def active_legacy_direct_processes():
             continue
         if pid == os.getpid() or not arguments:
             continue
-        if os.path.realpath(arguments[0]) != node_path:
+        if executable_for(pid, arguments[0]) != node_path:
             continue
-        scripts = set(arguments[1:])
+        scripts = {
+            os.path.realpath(argument) if os.path.isabs(argument) else argument
+            for argument in arguments[1:]
+        }
         if scripts & targets:
             active.append(pid)
             continue
         if not scripts & relative_targets:
             continue
-        try:
-            if os.path.realpath(os.readlink(f'/proc/{pid}/cwd')) == remote_dir:
-                active.append(pid)
-        except OSError:
-            continue
+        if cwd_for(pid) == remote_dir:
+            active.append(pid)
     return active
 
 deadline = time.monotonic() + timeout_seconds
