@@ -22,4 +22,21 @@ describe('STOREFRONT_EDGE_PROXY_HOST_ROWS', () => {
     expect(row?.pathCondition?.firstSegmentIn).toContain('admin');
     expect(row?.pathCondition?.firstSegmentIn).not.toContain('auth');
   });
+
+  it('models root-domain current-slug redirects with active custom domains', () => {
+    const row = STOREFRONT_EDGE_PROXY_HOST_ROWS.find(
+      (candidate) => candidate.id === 'proxy:root-domain-current-slug'
+    );
+    expect(row).toEqual(
+      expect.objectContaining({
+        decision: 'edge_redirect',
+        routePattern: '/{currentSlug}/{*path?}',
+        hostCondition: {
+          hostKind: 'platform_root_domain',
+          precedence: 'before_path_decision',
+          requiresActiveCanonicalCustomDomain: true,
+        },
+      })
+    );
+  });
 });

@@ -34,6 +34,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
     | Readonly<{
         hostKind: 'platform_root_domain';
         precedence: 'before_path_decision';
+        requiresActiveCanonicalCustomDomain?: true;
       }>;
   id: string;
   methods: readonly StorefrontEdgeMethod[];
@@ -69,6 +70,8 @@ type StorefrontEdgeInventoryRow = Readonly<{
       | 'missing_product_hard_404'
       | 'empty_compare_hub_hard_404'
       | 'canonical_custom_domain_redirect_non_api'
+      | 'current_storefront_custom_domain_redirect'
+      | 'api_prefix_passthrough'
       | 'legacy_klump_webhook_normalized'
       | 'mixed_case_path'
       | 'noncanonical_product_route_or_variant'

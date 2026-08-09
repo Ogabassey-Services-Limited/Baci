@@ -99,6 +99,12 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         },
       })
     );
+    expect(byId.get('proxy:retired-slug-document')?.routePattern).toBe(
+      '/{retiredSlug}/{*path?}'
+    );
+    expect(byId.get('proxy:unsupported-method')?.routePattern).toBe(
+      '/{*path?}'
+    );
   });
 
   it('applies the canonical-domain redirect only to eligible platform subdomains', () => {
@@ -142,6 +148,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
       'proxy:unsafe-document': 'unsafe_or_ambiguous_path',
       'proxy:product-hard-missing': 'missing_product_hard_404',
       'proxy:compare-hub-hard-missing': 'empty_compare_hub_hard_404',
+      'proxy:api-prefix-passthrough': 'api_prefix_passthrough',
     } as const;
     const byId = new Map(
       STOREFRONT_EDGE_PROXY_ROWS.map((row) => [row.id, row])

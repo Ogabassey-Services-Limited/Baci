@@ -2,6 +2,7 @@ import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types'
 import { STOREFRONT_EDGE_PROXY_BLOG_STATUS_ROWS } from './storefront-edge-proxy-blog-status-rows';
 import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
 import { STOREFRONT_EDGE_PROXY_TAIL_ROWS } from './storefront-edge-proxy-tail-rows';
+import { STOREFRONT_EDGE_NEXT_REDIRECT_ROWS } from './storefront-edge-next-redirect-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
@@ -29,6 +30,23 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     ['GET', 'HEAD', 'OPTIONS'],
     'origin_dynamic',
     'storefront_markdown_api_rewrite'
+  ),
+  proxyClass(
+    'proxy:api-prefix-passthrough',
+    '/{*apiPrefixPath?}',
+    ['ANY'],
+    'origin_dynamic',
+    'proxy_api_prefix_passthrough',
+    {
+      hostCondition: {
+        hostKind: 'platform_subdomain',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'api_prefix_passthrough',
+      },
+    }
   ),
   proxyClass(
     'proxy:blog-wordpress-probe',
@@ -250,7 +268,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   ),
   proxyClass(
     'proxy:retired-slug-document',
-    '/{retiredSlug}/{*path}',
+    '/{retiredSlug}/{*path?}',
     ['GET', 'HEAD'],
     'edge_redirect',
     'retired_storefront_alias_redirect',
@@ -265,5 +283,6 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
       },
     }
   ),
+  ...STOREFRONT_EDGE_NEXT_REDIRECT_ROWS,
   ...STOREFRONT_EDGE_PROXY_TAIL_ROWS,
 ];

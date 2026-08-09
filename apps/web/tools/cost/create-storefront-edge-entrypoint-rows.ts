@@ -31,6 +31,7 @@ function isEntrypoint(relativeSourcePath: string) {
   const fileName = entrypointFileName(relativeSourcePath);
   return (
     fileName === 'page.tsx' ||
+    fileName === 'page.ts' ||
     fileName === 'route.ts' ||
     METADATA_ROUTE_SUFFIXES.has(fileName)
   );
@@ -53,7 +54,11 @@ function routeMethods(
   source: string
 ): InventoryRow['methods'] {
   const fileName = entrypointFileName(relativeSourcePath);
-  if (fileName === 'page.tsx' || METADATA_ROUTE_SUFFIXES.has(fileName))
+  if (
+    fileName === 'page.tsx' ||
+    fileName === 'page.ts' ||
+    METADATA_ROUTE_SUFFIXES.has(fileName)
+  )
     return ['GET', 'HEAD'];
   const methods = extractStorefrontRouteMethods(source);
   if (methods.length === 0)
@@ -96,8 +101,11 @@ export function createStorefrontEdgeEntrypointRows(
   }
   return entrypointSources.flatMap(({ bytes, sourcePath }) => {
     const relativeSourcePath = sourcePath.slice(prefix.length);
+    const classificationPath = relativeSourcePath.endsWith('page.ts')
+      ? `${relativeSourcePath.slice(0, -'page.ts'.length)}page.tsx`
+      : relativeSourcePath;
     const classification =
-      STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(relativeSourcePath);
+      STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(classificationPath);
     if (!classification)
       throw new Error(
         `storefront entrypoint has no reviewed classification: ${relativeSourcePath}`

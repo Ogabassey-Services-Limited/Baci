@@ -22,6 +22,7 @@ describe('createStorefrontEdgeEntrypointRows', () => {
       ...STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys().map(
         entrypointSource
       ),
+      entrypointSource('(home)/page.ts'),
       {
         bytes: Buffer.from('export default function Layout() {}'),
         sourcePath: `${routeRoot}/layout.tsx`,
@@ -48,6 +49,11 @@ describe('createStorefrontEdgeEntrypointRows', () => {
         expect.objectContaining({
           decision: 'origin_dynamic',
           routePattern: '/product/{productSlug}',
+        }),
+        expect.objectContaining({
+          id: 'storefront:(home)/page.ts',
+          routePattern: '/',
+          decision: 'edge_release',
         }),
       ])
     );

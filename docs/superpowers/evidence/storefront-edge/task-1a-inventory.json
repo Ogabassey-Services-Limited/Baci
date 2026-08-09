@@ -5426,6 +5426,321 @@
       "sourcePath": "apps/web/src/app/.well-known/[...rest]/route.ts"
     },
     {
+      "decision": "edge_redirect",
+      "id": "next:blog-iphone-xr",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/iphone-xr-in-2025-is-this-still-a-good-deal",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:blog-off-topic-malami",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/abubakar-malami-remanded-former-nigerian-agf-faces-multi-billion-naira-property-charges",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:blog-off-topic-reserves",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/cbn-forecast-nigerias-external-reserves-projected-to-hit-5104-billion-by-2026",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:blog-samsung-s21",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:blog-wwdc",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:blog-wwdc-date",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:blog-wwdc-double-encoded",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:blog-wwdc-prefix",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:category-product",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/category/product/{id}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:home-legacy",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/home/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:iphone-nfid",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/phones/iphone-x-3gb-64gb-nfid",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:macbook",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/macbook/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:oppo",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/oppo/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:phones",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/phones/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:product-category",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/product-category/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:product-category-accessories",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/product-category/accessories/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:product-category-headphones",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/product-category/headphones/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:product-category-smartwatches",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/product-category/smartwatches/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:samsung",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/samsung/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-about",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/about",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-contact",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/contact",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-faq",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/faq",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-privacy",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/privacy",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-terms",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/terms",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-privacy-policy",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/privacy-policy",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-terms-of-service",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/terms-of-service",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:user-legacy",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/user/{*path?}",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:api-prefix-passthrough",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "proxy_api_prefix_passthrough",
+      "routePattern": "/{*apiPrefixPath?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "api_prefix_passthrough"
+      }
+    },
+    {
       "decision": "origin_dynamic",
       "id": "proxy:auth-confirm",
       "methods": [
@@ -5861,7 +6176,7 @@
         "HEAD"
       ],
       "reason": "retired_storefront_alias_redirect",
-      "routePattern": "/{retiredSlug}/{*path}",
+      "routePattern": "/{retiredSlug}/{*path?}",
       "sourceKind": "proxy_path_class",
       "hostCondition": {
         "hostKind": "custom_domain",
@@ -5892,6 +6207,26 @@
         ],
         "precedence": "before_path_decision",
         "predicate": "retired_alias_storefront_path"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:root-domain-current-slug",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "current_storefront_custom_domain_redirect",
+      "routePattern": "/{currentSlug}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision",
+        "requiresActiveCanonicalCustomDomain": true
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "current_storefront_custom_domain_redirect"
       }
     },
     {
@@ -5981,7 +6316,7 @@
         "OTHER"
       ],
       "reason": "closed_method_inventory_default",
-      "routePattern": "/{*path}",
+      "routePattern": "/{*path?}",
       "sourceKind": "proxy_path_class"
     },
     {
@@ -7403,5 +7738,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "b174734db769e0c81591e330b6d563b68adf16530d781185bdf8abd103c6483b"
+  "inventorySha256": "9cdaf135292fb3c74ca36b8320ce9b5df91d6f77903bc39a0a32884c74401bfc"
 }

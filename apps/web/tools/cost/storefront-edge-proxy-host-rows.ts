@@ -123,6 +123,24 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
+    'proxy:root-domain-current-slug',
+    '/{currentSlug}/{*path?}',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'current_storefront_custom_domain_redirect',
+    {
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+        requiresActiveCanonicalCustomDomain: true,
+      },
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'current_storefront_custom_domain_redirect',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:root-domain-retired-slug',
     '/{retiredSlug}/{*path?}',
     ['GET', 'HEAD'],

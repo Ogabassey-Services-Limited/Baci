@@ -36,7 +36,7 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
   ),
   createStorefrontEdgeProxyClass(
     'proxy:unsupported-method',
-    '/{*path}',
+    '/{*path?}',
     ['OTHER'],
     'edge_terminal',
     'closed_method_inventory_default'
