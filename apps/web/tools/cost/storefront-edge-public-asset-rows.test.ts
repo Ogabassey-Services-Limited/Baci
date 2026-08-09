@@ -18,6 +18,10 @@ describe('STOREFRONT_EDGE_PUBLIC_ASSET_ROWS', () => {
         '/baci-logo-dark.svg',
         '/badges/app-store-black.svg',
         '/badges/google-play.svg',
+        '/android-chrome-192x192.png',
+        '/android-chrome-512x512.png',
+        '/android-chrome-192x192-maskable.png',
+        '/android-chrome-512x512-maskable.png',
         '/favicon-16x16.png',
         '/favicon-32x32.png',
         '/manifest.json',
@@ -26,7 +30,7 @@ describe('STOREFRONT_EDGE_PUBLIC_ASSET_ROWS', () => {
         '/template-previews/ogabassey-v2.png',
       ])
     );
-    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(13);
+    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(17);
     expect(byPattern.size).toBe(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.length);
     expect(
       STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.every(

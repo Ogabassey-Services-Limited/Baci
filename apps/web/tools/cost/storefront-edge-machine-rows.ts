@@ -184,6 +184,19 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
     ['ANY'],
     'edge_terminal'
   ),
+  {
+    decision: 'edge_redirect',
+    id: 'proxy:retired-slug-llms',
+    methods: ['GET', 'HEAD'],
+    reason: 'retired_storefront_alias_redirect',
+    routePattern: '/llms.txt',
+    sourceKind: 'proxy_path_class',
+    sourcePath: 'apps/web/src/proxy.ts',
+    hostCondition: {
+      hostKind: 'retired_platform_subdomain_alias',
+      precedence: 'before_path_decision',
+    },
+  },
   machineFamily('machine:llms', '/llms.txt', ['GET', 'HEAD']),
   machineFamily('machine:llms-full', '/llms-full.txt', ['GET', 'HEAD']),
   machineFamily(

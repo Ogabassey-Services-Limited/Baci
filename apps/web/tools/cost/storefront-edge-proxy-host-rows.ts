@@ -8,6 +8,20 @@ const proxyClass = createStorefrontEdgeProxyClass;
 /** Host-conditioned proxy classes that must precede storefront resolution. */
 export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
   proxyClass(
+    'proxy:legacy-blog-host',
+    '/{*path?}',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'legacy_blog_hostname_redirect',
+    {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        hostnameIn: ['blog.ogabassey.com'],
+        precedence: 'before_path_decision',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:platform-admin',
     '/admin/{*path?}',
     ['ANY'],
