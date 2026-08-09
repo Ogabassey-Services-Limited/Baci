@@ -13,6 +13,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  crontabStub,
+  flockStub,
   waitFor,
   writeExecutable,
   writeJob,
@@ -31,6 +33,10 @@ const transactionSource = join(
   dirname(fileURLToPath(import.meta.url)),
   'remediation-cron-transition.py'
 );
+const crontabSource = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'remediation_cron_transition_crontab.py'
+);
 
 export function runTransition(scenario) {
   const directory = mkdtempSync(join(tmpdir(), 'baci-cron-transition-'));
@@ -38,7 +44,10 @@ export function runTransition(scenario) {
   const crontabMarker = join(directory, 'installed-crontab');
   const lockMarker = join(directory, 'legacy-locks');
   const barrierMarker = join(directory, 'barrier-active');
-  const remoteDirectory = join(directory, 'remote');
+  const remoteDirectory = join(
+    directory,
+    scenario === 'quoted-values' ? 'remote%dir' : 'remote'
+  );
   const stageDirectory = join(directory, 'stage');
   const procRoot = join(directory, 'proc');
   const jobsDirectory = join(remoteDirectory, 'jobs');
@@ -47,7 +56,15 @@ export function runTransition(scenario) {
   mkdirSync(jobsDirectory, { recursive: true });
   mkdirSync(join(remoteDirectory, 'lib'), { recursive: true });
   mkdirSync(procRoot);
-  writeStage(stageDirectory, globalLockSource, transactionSource);
+  writeStage(
+    stageDirectory,
+    globalLockSource,
+    transactionSource,
+    crontabSource
+  );
+  if (scenario === 'partial-stage') {
+    rmSync(join(stageDirectory, 'jobs', 'sentry-mobile-error-remediator.mjs'));
+  }
   for (const name of [
     'vercel-error-remediator',
     'sentry-mobile-error-remediator',
@@ -67,84 +84,14 @@ shift
 bash -c "$1"
 `
   );
-  writeExecutable(
-    join(binDirectory, 'flock'),
-    `#!/usr/bin/env bash
-set -euo pipefail
-if [ "$1" = "-x" ] && [ "$2" = "/tmp/baci-workers-deploy.lock" ]; then
-  shift 2
-  exec "$@"
-fi
-if [ "$1" = "-x" ]; then
-  printf '%s\\n' "$2" >> "$LOCK_MARKER"
-  if [ "$2" = "6" ]; then touch "$BARRIER_MARKER"; fi
-fi
-`
-  );
-  writeExecutable(
-    join(binDirectory, 'crontab'),
-    `#!/usr/bin/env bash
-set -euo pipefail
-if [ "$1" = "-l" ]; then
-  if grep -q BARRIER_MARKER "$REMOTE_DIR/jobs/vercel-error-remediator.mjs" && { [ "$TEST_SCENARIO" = "launch-race" ] || [ "$TEST_SCENARIO" = "rollback" ]; }; then
-    set +e
-    node "$REMOTE_DIR/jobs/vercel-error-remediator.mjs"
-    status="$?"
-    set -e
-    if [ "$status" -ne 75 ]; then
-      echo "new direct launch escaped the transition barrier" >&2
-      exit 92
-    fi
-  fi
-  if [ -f "$CRONTAB_MARKER" ]; then
-    cat "$CRONTAB_MARKER"
-    exit 0
-  fi
-  case "$TEST_SCENARIO" in
-    no-crontab)
-      echo "no crontab for test-user" >&2
-      exit 1
-      ;;
-    read-error)
-      echo "permission denied" >&2
-      exit 2
-      ;;
-    preserve-unrelated)
-      echo "# watchdog mentions jobs/vercel-error-remediator.mjs"
-      echo "* * * * * node jobs/watchdog.mjs jobs/vercel-error-remediator.mjs"
-      echo "*/15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
-      ;;
-    legacy-two-flock)
-      echo "# keep this watchdog note about remediation"
-      echo "* * * * * node jobs/watchdog.mjs jobs/vercel-error-remediator.mjs"
-      echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock flock -n -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1 BACI_CODEX_DOCKER_IMAGE=baci/codex:live && cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
-      echo "*/5 *  * * * flock -n $CANONICAL_REMOTE_DIR/locks/sentry-mobile-error-remediator.lock flock -n -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/sentry-mobile-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/sentry-mobile-error-remediator.log 2>&1"
-      echo "22 4   * * * flock -n $CANONICAL_REMOTE_DIR/locks/remediation-codex-canary.lock flock -w 600 -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1 && cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/remediation-codex-canary.mjs' >> $CANONICAL_REMOTE_DIR/logs/remediation-codex-canary.log 2>&1"
-      ;;
-    *)
-      echo "0 1 * * * /usr/local/bin/unrelated-worker"
-      ;;
-  esac
-  exit 0
-fi
-if [ "$TEST_SCENARIO" = "interleaving" ] && [ "$(wc -l < "$LOCK_MARKER")" -lt 4 ]; then
-  echo "transaction locks were not all held before the crontab rewrite" >&2
-  exit 88
-fi
-if [ "$TEST_SCENARIO" = "rollback" ]; then
-  exit 91
-fi
-if { [ "$TEST_SCENARIO" = "direct-exit" ] || [ "$TEST_SCENARIO" = "alternate-node-exit" ] || [ "$TEST_SCENARIO" = "flag-direct-exit" ]; } && [ -d "$PROC_ENTRY" ]; then
-  echo "legacy direct process was still active at crontab rewrite" >&2
-  exit 89
-fi
-if [ "$TEST_SCENARIO" = "operator-change" ]; then
-  echo "* * * * * /usr/local/bin/operator-change" > "$CRONTAB_MARKER"
-else
-  cp "$1" "$CRONTAB_MARKER"
-fi
-`
-  );
+  writeExecutable(join(binDirectory, 'flock'), flockStub());
+  writeExecutable(join(binDirectory, 'crontab'), crontabStub());
+
+  if (scenario === 'vanished-proc') {
+    const vanished = join(procRoot, '5151');
+    mkdirSync(vanished);
+    writeFileSync(join(vanished, 'cmdline'), 'sleep\0');
+  }
 
   let directProcess;
   let directProcessPid;
@@ -155,6 +102,8 @@ fi
       scenario === 'direct-timeout' ||
       scenario === 'alternate-node-exit' ||
       scenario === 'flag-direct-exit' ||
+      scenario === 'operator-prewrite' ||
+      scenario === 'slow-startup' ||
       scenario === 'unsafe-option-target' ||
       scenario === 'unrelated-process' ||
       scenario === 'watchdog-argument'
@@ -171,9 +120,17 @@ fi
           : scenario === 'flag-direct-exit'
             ? 'setTimeout(() => rmSync(process.env.PROC_ENTRY, { force: true, recursive: true }), 5000);'
             : 'setTimeout(() => rmSync(process.env.PROC_ENTRY, { force: true, recursive: true }), 1500);';
+      const operatorChange =
+        scenario === 'operator-prewrite'
+          ? "const replaceCron = () => existsSync(process.env.INITIAL_CRONTAB_READ) ? writeFileSync(process.env.OPERATOR_CRONTAB, '* * * * * /usr/local/bin/operator-prewrite\\n') : setTimeout(replaceCron, 10); replaceCron();"
+          : '';
+      const ready =
+        scenario === 'slow-startup'
+          ? 'setTimeout(() => writeFileSync(process.env.DIRECT_READY, String(process.pid)), 2500);'
+          : 'writeFileSync(process.env.DIRECT_READY, String(process.pid));';
       writeJob(
         job,
-        `import { rmSync, writeFileSync } from 'node:fs'; writeFileSync(process.env.DIRECT_READY, String(process.pid)); ${exitTimer}`
+        `import { existsSync, rmSync, writeFileSync } from 'node:fs'; ${ready} ${operatorChange} ${exitTimer}`
       );
       const command =
         scenario === 'alternate-node-exit'
@@ -220,6 +177,8 @@ fi
           env: {
             ...process.env,
             DIRECT_READY: directReady,
+            INITIAL_CRONTAB_READ: join(directory, 'initial-crontab-read'),
+            OPERATOR_CRONTAB: crontabMarker,
             PROC_ENTRY: processDirectory,
           },
           stdio: 'ignore',
@@ -242,8 +201,15 @@ fi
         env: {
           ...process.env,
           BARRIER_MARKER: barrierMarker,
-          CODEX_CONTAINER_BIN: '/usr/local/bin/codex',
-          CODEX_REMEDIATOR_IMAGE: 'baci/codex:test',
+          CODEX_CONTAINER_BIN:
+            scenario === 'quoted-values'
+              ? '/usr/local/bin/codex%bin'
+              : '/usr/local/bin/codex',
+          CODEX_REMEDIATOR_IMAGE:
+            scenario === 'quoted-values'
+              ? 'baci/codex%test'
+              : 'baci/codex:test',
+          INITIAL_CRONTAB_READ: join(directory, 'initial-crontab-read'),
           CANONICAL_REMOTE_DIR: realpathSync(remoteDirectory),
           CRONTAB_MARKER: crontabMarker,
           DIRECT_PROCESS_PID: directProcessPid ?? '',
@@ -251,8 +217,11 @@ fi
           NODE_BIN:
             scenario === 'alternate-node-exit'
               ? '/opt/alternate-node/bin/node'
-              : process.execPath,
+              : scenario === 'quoted-values'
+                ? '/opt/node%bin/node'
+                : process.execPath,
           PATH: `${binDirectory}:${process.env.PATH ?? ''}`,
+          OPERATOR_CRONTAB: crontabMarker,
           PROC_ENTRY: procEntry,
           REMOTE_DIR: remoteDirectory,
           STAGING_DIR: stageDirectory,
@@ -264,6 +233,8 @@ fi
                 ? '7'
                 : '5'
               : '1',
+          BACI_REMEDIATION_LEGACY_LOCK_WAIT_SECONDS:
+            scenario === 'lock-timeout' ? '1' : '900',
           BACI_REMEDIATION_PROC_ROOT:
             scenario === 'proc-unavailable'
               ? join(directory, 'missing-proc')

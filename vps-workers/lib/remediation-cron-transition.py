@@ -10,15 +10,14 @@ import tempfile
 import time
 from pathlib import Path
 
+from remediation_cron_transition_crontab import transition_crontab
+
 TARGETS = (
     ('vercel-error-remediator', '*/15 * * * *', '-n'),
     ('sentry-mobile-error-remediator', '*/5 *  * * *', '-n'),
     ('remediation-codex-canary', '22 4   * * *', '-w 600'),
 )
-BARRIER_FILES = (
-    'lib/remediation-global-lock.mjs',
-    *(f'jobs/{name}.mjs' for name, _, _ in TARGETS),
-)
+BARRIER_FILES = ('lib/remediation-global-lock.mjs', *(f'jobs/{name}.mjs' for name, _, _ in TARGETS))
 BLOCK_START = '# >>> baci-remediation-transition >>>'
 BLOCK_END = '# <<< baci-remediation-transition <<<'
 SAFE_NODE_FLAGS = frozenset({'--no-warnings', '--enable-source-maps', '--trace-warnings'})
@@ -86,8 +85,7 @@ def capture_entrypoints(remote_dir, backup_dir):
     return captured
 
 
-def install_barrier(remote_dir, staging_dir):
-    installed = {}
+def install_barrier(remote_dir, staging_dir, installed):
     for relative in BARRIER_FILES:
         source = staging_dir / relative
         if not source.is_file():
@@ -95,7 +93,6 @@ def install_barrier(remote_dir, staging_dir):
         destination = remote_dir / relative
         atomic_copy(source, destination)
         installed[relative] = source.read_bytes()
-    return installed
 
 
 def restore_entrypoints(remote_dir, backup_dir, captured, installed):
@@ -137,8 +134,17 @@ def legacy_processes(remote_dir, proc_root):
         except OSError:
             continue
         arguments = [part.decode(errors='surrogateescape') for part in argv if part]
+        candidate = any(
+            argument in relative_targets
+            or (os.path.isabs(argument) and str(Path(argument).resolve()) in targets)
+            for argument in arguments[1:]
+        )
+        if not candidate:
+            continue
         try:
             executable = os.path.basename(os.readlink(process / 'exe'))
+        except FileNotFoundError:
+            continue
         except OSError as error:
             raise TransitionError(
                 f'unable to inspect executable for possible legacy remediation process {process.name}: {error}'
@@ -147,15 +153,7 @@ def legacy_processes(remote_dir, proc_root):
             continue
         entry = node_entry_script(arguments)
         if entry is None:
-            if any(
-                argument in relative_targets
-                or (os.path.isabs(argument) and str(Path(argument).resolve()) in targets)
-                for argument in arguments[1:]
-            ):
-                raise TransitionError(
-                    f'cannot safely identify possible legacy remediation process {process.name}'
-                )
-            continue
+            raise TransitionError(f'cannot safely identify possible legacy remediation process {process.name}')
         if os.path.isabs(entry):
             target = str(Path(entry).resolve())
         elif entry.startswith('jobs/'):
@@ -167,9 +165,8 @@ def legacy_processes(remote_dir, proc_root):
                 ) from error
         else:
             continue
-        if target not in targets:
-            continue
-        active.append(process.name)
+        if target in targets:
+            active.append(process.name)
     return active
 
 
@@ -179,55 +176,6 @@ def wait_for_legacy_processes(remote_dir, proc_root, timeout_seconds):
         if time.monotonic() >= deadline:
             raise TransitionError('legacy direct remediation processes did not drain before crontab rewrite')
         time.sleep(1)
-
-
-def is_legacy_owned(line, remote_dir, node_bin):
-    for name, schedule, wait in TARGETS:
-        prefix = f"{schedule} flock -n {remote_dir}/locks/{name}.lock bash -lc '"
-        suffix = f"{node_bin} {remote_dir}/jobs/{name}.mjs' >> {remote_dir}/logs/{name}.log 2>&1"
-        if line.startswith(prefix) and line.endswith(suffix) and f'cd {remote_dir} && ' in line:
-            return True
-        prefix = f"{schedule} flock -n {remote_dir}/locks/{name}.lock flock {wait}"
-        if (
-            line.startswith(f'{prefix} {remote_dir}/locks/error-remediator-global.lock bash -lc \'')
-            or line.startswith(f'{prefix} -E 75 {remote_dir}/locks/error-remediator-global.lock bash -lc \'')
-        ) and line.endswith(suffix) and f'cd {remote_dir} && ' in line:
-            return True
-    return False
-
-
-def transition_crontab(original, remote_dir, node_bin, codex_image, codex_container_bin):
-    lines = original.splitlines()
-    retained = []
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        if line == BLOCK_START:
-            try:
-                index = lines.index(BLOCK_END, index + 1) + 1
-            except ValueError as error:
-                raise TransitionError('unterminated owned remediation cron block') from error
-            continue
-        if line == BLOCK_END:
-            raise TransitionError('unexpected remediation cron block terminator')
-        if not is_legacy_owned(line, remote_dir, node_bin):
-            retained.append(line)
-        index += 1
-    while retained and not retained[-1].strip():
-        retained.pop()
-    prefix = (
-        f'export BACI_CODEX_DOCKER_IMAGE={codex_image} '
-        f'BACI_CODEX_CONTAINER_BIN={codex_container_bin} && cd {remote_dir} && exec flock -F '
-    )
-    block = [BLOCK_START]
-    for name, schedule, wait in TARGETS:
-        block.append(
-            f"{schedule} flock -n {remote_dir}/locks/{name}.lock bash -lc '"
-            f"{prefix}{wait} -E 75 {remote_dir}/locks/error-remediator-global.lock "
-            f"{node_bin} {remote_dir}/jobs/{name}.mjs' >> {remote_dir}/logs/{name}.log 2>&1"
-        )
-    block.append(BLOCK_END)
-    return '\n'.join([*retained, *( [''] if retained else []), *block]) + '\n'
 
 
 def rollback_crontab(original_exists, original, candidate):
@@ -251,19 +199,21 @@ def main(arguments):
     except ValueError:
         timeout_seconds = 60
     backup_dir = Path(tempfile.mkdtemp(prefix='baci-remediation-entrypoints.'))
-    original_exists = False
-    original = ''
-    candidate = ''
+    original_exists, original, candidate = False, '', ''
     candidate_installed = False
-    installed = {}
-    captured = {}
+    installed, captured = {}, {}
     committed = False
     try:
         original_exists, original = read_crontab()
         captured = capture_entrypoints(remote_dir, backup_dir)
-        installed = install_barrier(remote_dir, staging_dir)
+        install_barrier(remote_dir, staging_dir, installed)
         wait_for_legacy_processes(remote_dir, Path(proc_root), timeout_seconds)
-        candidate = transition_crontab(original, str(remote_dir), node_bin, codex_image, codex_bin)
+        candidate = transition_crontab(
+            original, str(remote_dir), node_bin, codex_image, codex_bin, TARGETS, BLOCK_START, BLOCK_END
+        )
+        current_exists, current = read_crontab()
+        if current_exists != original_exists or current != original:
+            raise TransitionError('crontab changed before replacement; refusing to overwrite operator changes')
         write_crontab(True, candidate)
         candidate_installed = True
         current_exists, current = read_crontab()
@@ -291,6 +241,6 @@ def main(arguments):
 if __name__ == '__main__':
     try:
         main(sys.argv[1:])
-    except (OSError, TransitionError, subprocess.CalledProcessError) as error:
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
         print(f'remediation cron transition failed: {error}', file=sys.stderr)
         sys.exit(1)

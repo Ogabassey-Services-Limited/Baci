@@ -18,6 +18,10 @@ describe('remediation deploy crontab', () => {
       join(workerRoot, 'lib/remediation-cron-transition.py'),
       'utf8'
     );
+    const crontabHelper = readFileSync(
+      join(workerRoot, 'lib/remediation_cron_transition_crontab.py'),
+      'utf8'
+    );
 
     assert.match(deployScript, /vercel-error-remediator\.lock bash -lc/);
     assert.match(deployScript, /sentry-mobile-error-remediator\.lock bash -lc/);
@@ -27,8 +31,12 @@ describe('remediation deploy crontab', () => {
     );
     assert.doesNotMatch(deployScript, /BACI_REMEDIATION_GLOBAL_FLOCK_HELD/);
     assert.match(transitionScript, /flock -x \/tmp\/baci-workers-deploy\.lock/);
-    assert.match(transitionScript, /flock -x 6/);
-    assert.match(transitionHelper, /exec flock -F /);
+    assert.match(
+      transitionScript,
+      /flock -w "\$lock_wait_seconds" -x "\$descriptor"/
+    );
+    assert.match(transitionScript, /hold_lock 6/);
+    assert.match(crontabHelper, /exec flock -F /);
     assert.match(transitionHelper, /'vercel-error-remediator'.*'-n'/);
     assert.match(transitionHelper, /'sentry-mobile-error-remediator'.*'-n'/);
     assert.match(transitionHelper, /'remediation-codex-canary'.*'-w 600'/);

@@ -11,6 +11,14 @@ describe('remediation cron transition', () => {
     assert.match(outcome.crontab, /error-remediator-global\.lock/);
   });
 
+  it('times out with a diagnostic when a legacy lock remains held', () => {
+    const outcome = runTransition('lock-timeout');
+
+    assert.notEqual(outcome.result.status, 0);
+    assert.match(outcome.result.stderr, /timed out waiting for .*vercel/i);
+    assert.equal(outcome.crontab, '');
+  });
+
   it('blocks a direct launch after installing barrier-aware entrypoints', () => {
     const outcome = runTransition('launch-race');
 
@@ -33,6 +41,12 @@ describe('remediation cron transition', () => {
 
   it('drains a pre-barrier Node job with a documented no-warnings flag', () => {
     const outcome = runTransition('flag-direct-exit');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+  });
+
+  it('waits for a slow freshly spawned legacy Node process to signal readiness', () => {
+    const outcome = runTransition('slow-startup');
 
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
   });
@@ -65,6 +79,10 @@ describe('remediation cron transition', () => {
 
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
     assert.match(outcome.crontab, /watchdog mentions/);
+    assert.doesNotMatch(
+      outcome.crontab,
+      /flock -n .*vercel-error-remediator\.lock bash -lc 'cd /
+    );
     assert.match(
       outcome.crontab,
       /jobs\/watchdog\.mjs jobs\/vercel-error-remediator\.mjs/
@@ -94,11 +112,27 @@ describe('remediation cron transition', () => {
     assert.equal(outcome.remoteEntry, 'process.exitCode = 0;\n');
   });
 
+  it('rolls back barrier files when a later staged entrypoint is missing', () => {
+    const outcome = runTransition('partial-stage');
+
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.crontab, '');
+    assert.equal(outcome.remoteEntry, 'process.exitCode = 0;\n');
+  });
+
   it('does not overwrite a concurrent operator crontab change during rollback', () => {
     const outcome = runTransition('operator-change');
 
     assert.notEqual(outcome.result.status, 0);
     assert.match(outcome.crontab, /operator-change/);
+    assert.equal(outcome.remoteEntry, 'process.exitCode = 0;\n');
+  });
+
+  it('does not replace an operator crontab change made during the legacy drain', () => {
+    const outcome = runTransition('operator-prewrite');
+
+    assert.notEqual(outcome.result.status, 0);
+    assert.match(outcome.crontab, /operator-prewrite/);
     assert.equal(outcome.remoteEntry, 'process.exitCode = 0;\n');
   });
 
@@ -123,5 +157,20 @@ describe('remediation cron transition', () => {
     assert.notEqual(outcome.result.status, 0);
     assert.match(outcome.result.stderr, /unable to inspect \/proc/i);
     assert.equal(outcome.crontab, '');
+  });
+
+  it('ignores a vanished non-remediation proc entry during the legacy drain', () => {
+    const outcome = runTransition('vanished-proc');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+  });
+
+  it('escapes percent-bearing cron command values', () => {
+    const outcome = runTransition('quoted-values');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.match(outcome.crontab, /remote\\%dir/);
+    assert.match(outcome.crontab, /node\\%bin/);
+    assert.match(outcome.crontab, /codex\\%test/);
   });
 });
