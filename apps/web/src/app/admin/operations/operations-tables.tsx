@@ -1,16 +1,15 @@
 import { AlertTriangle, CheckCircle2, Clock3, ShieldAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatAdminThresholdCurrencyForCode } from '@/lib/admin-currency';
 import type { AdminOperations } from '@/schemas/admin-operations-rpc';
 import { OperationsIncidentTable } from './operations-incident-table';
 import type { EventPipelineData } from './operations-types';
+import { settlementExceptionFormatters } from './settlement-exception-formatters';
 
 function formatOperationDate(value: unknown) {
   if (typeof value !== 'string') return '—';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString();
 }
-
 function formatOperationTitle(value: unknown) {
   const text = typeof value === 'string' && value.trim() ? value : '—';
   return text.replaceAll('_', ' ');
@@ -25,14 +24,6 @@ function renderOperationStateBadge(value: unknown) {
     >
       {state}
     </Badge>
-  );
-}
-
-function formatOperationMoney(value: unknown, row: Record<string, unknown>) {
-  if (typeof value !== 'number') return '—';
-  return formatAdminThresholdCurrencyForCode(
-    value,
-    typeof row.currency === 'string' ? row.currency : 'UNK'
   );
 }
 export function FinancialOperations({
@@ -81,9 +72,13 @@ export function FinancialOperations({
               {
                 key: 'netAmount',
                 label: 'Net amount',
-                render: formatOperationMoney,
+                render: settlementExceptionFormatters.settlementMoney,
               },
-              { key: 'currency', label: 'Currency' },
+              {
+                key: 'currency',
+                label: 'Currency',
+                render: settlementExceptionFormatters.currency,
+              },
               {
                 key: 'status',
                 label: 'State',
@@ -97,7 +92,11 @@ export function FinancialOperations({
             rows={data.payouts}
             columns={[
               { key: 'merchantName', label: 'Merchant' },
-              { key: 'amount', label: 'Amount', render: formatOperationMoney },
+              {
+                key: 'amount',
+                label: 'Amount',
+                render: settlementExceptionFormatters.genericMoney,
+              },
               { key: 'currency', label: 'Currency' },
               {
                 key: 'payoutMode',

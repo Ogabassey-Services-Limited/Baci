@@ -74,6 +74,35 @@ describe('operation tables', () => {
     expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
   });
 
+  it('shows currencyless settlement values as unavailable', () => {
+    render(
+      <FinancialOperations
+        canReadFinancials
+        data={{
+          paymentSideEffects: [],
+          payouts: [],
+          reconciliationReview: [],
+          settlements: [
+            {
+              createdAt: null,
+              currency: null,
+              expectedSettlementDate: '2026-08-05',
+              gateway: 'korapay',
+              id: 'settlement-without-currency',
+              merchantId: 'merchant-1',
+              merchantName: 'Currencyless merchant',
+              netAmount: null,
+              status: 'failed',
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getAllByText('Unavailable')).toHaveLength(2);
+    expect(screen.queryByText(/UNK/)).not.toBeInTheDocument();
+  });
+
   it('shows the state for failed and stale email incidents', () => {
     render(
       <NotificationOperations

@@ -19,13 +19,25 @@ export async function createAdminNotification(
     }
 
     const data = parsed.data;
-    const supabase = await createClient();
     const requestedScheduledFor = data.scheduled_for
       ? new Date(data.scheduled_for)
       : null;
     const now = new Date();
     const isImmediate = !requestedScheduledFor || requestedScheduledFor <= now;
-    const scheduledFor = isImmediate ? now.toISOString() : data.scheduled_for;
+    const scheduledFor = isImmediate
+      ? now.toISOString()
+      : (data.scheduled_for ?? now.toISOString());
+    if (
+      data.expires_at &&
+      new Date(data.expires_at).getTime() <= new Date(scheduledFor).getTime()
+    ) {
+      return NextResponse.json(
+        { error: 'Expiration must be after the effective send time' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = await createClient();
 
     if (data.target_type === 'specific' && data.target_merchant_ids?.length) {
       const targetsClient = supabase as unknown as {

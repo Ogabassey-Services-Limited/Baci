@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -44,6 +44,7 @@ function createSupabase(insertError: unknown = null) {
 
 describe('createAdminNotification', () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.useRealTimers());
 
   it('rejects invalid JSON before creating a notification', async () => {
     mocks.createClient.mockResolvedValue(createSupabase());
@@ -99,6 +100,55 @@ describe('createAdminNotification', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(supabase.inserted).toEqual([]);
+  });
+
+  it('rejects a past schedule with an already-past expiry before inserting', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-09T12:00:00.000Z'));
+    const supabase = createSupabase();
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await createAdminNotification(
+      request({
+        channels: ['in_app'],
+        expires_at: '2026-08-09T11:59:59.000Z',
+        message: 'Maintenance notice',
+        scheduled_for: '2026-08-09T11:59:58.000Z',
+        target_type: 'all',
+        title: 'Maintenance',
+      }),
+      'user-1'
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Expiration must be after the effective send time',
+    });
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(supabase.inserted).toEqual([]);
+  });
+
+  it('rejects a stale form when expiry equals the normalized immediate send time', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-09T12:00:00.000Z'));
+    const supabase = createSupabase();
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await createAdminNotification(
+      request({
+        channels: ['in_app'],
+        expires_at: '2026-08-09T12:00:00.000Z',
+        message: 'Maintenance notice',
+        scheduled_for: '2026-08-09T11:59:59.999Z',
+        target_type: 'all',
+        title: 'Maintenance',
+      }),
+      'user-1'
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.createClient).not.toHaveBeenCalled();
     expect(supabase.inserted).toEqual([]);
   });
 

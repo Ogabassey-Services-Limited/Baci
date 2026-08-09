@@ -61,6 +61,23 @@ describe('adminOperationsRpcSchema', () => {
     expect(adminOperationsApiSchema.safeParse(payload()).success).toBe(false);
   });
 
+  it('accepts currencyless settlement exceptions with null amount and currency', () => {
+    const result = payload();
+    result.financial.settlements.push({
+      createdAt: null,
+      currency: null,
+      expectedSettlementDate: '2026-08-05',
+      gateway: 'korapay',
+      id: 'settlement-without-currency',
+      merchantId: 'merchant-1',
+      merchantName: 'Merchant',
+      netAmount: null,
+      status: 'failed',
+    });
+
+    expect(adminOperationsRpcSchema.safeParse(result).success).toBe(true);
+  });
+
   it('rejects a raw error field instead of treating it as an operational item', () => {
     const result: unknown = {
       ...payload(),

@@ -34,4 +34,14 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260809170137_repair_admin_push_health_and_audience_snapshot_index.sql',
     sha256: 'c8cc6c2442428696877fb73c026fa056881bbfdb70c276f001d15fea1aaf26ac',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260809173000_repair_admin_operations_currency_and_health_indexes.sql',
+    sha256: 'c285511dd5f049fca880e84a9fec6b74159038333092fad425823137ea48eb86',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260809173100_index_platform_admin_membership_actors.sql',
+    sha256: '3f27e3467a21b5958009c13b79b1e5ef78890b5ec43c57183c0ff731bc077ce7',
+  },
 ] as const;

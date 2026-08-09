@@ -49,7 +49,7 @@ const financialSchema = z.object({
       id: requiredText,
       merchantId: requiredText,
       merchantName: requiredText,
-      netAmount: money,
+      netAmount: money.nullable(),
       status: requiredText,
     })
   ),

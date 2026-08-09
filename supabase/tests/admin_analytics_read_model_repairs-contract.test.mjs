@@ -87,6 +87,52 @@ test('system health bounds terminal push failures and indexes audience-member ca
   );
 });
 
+test('operations withholds currencyless settlement money, indexes membership actors, and includes returned shipments in health', async () => {
+  const sql = await migration(
+    '20260809173000_repair_admin_operations_currency_and_health_indexes.sql'
+  );
+  const indexSql = await migration(
+    '20260809173100_index_platform_admin_membership_actors.sql'
+  );
+
+  assert.match(
+    sql,
+    /ALTER FUNCTION public\.get_admin_operations_v2\(text, integer, integer\)\n {2}RENAME TO get_admin_operations_v2_error_code_projection/
+  );
+  assert.match(
+    sql,
+    /jsonb_set\(item\.value, '\{netAmount\}', 'null'::jsonb, true\)/
+  );
+  assert.match(
+    sql,
+    /jsonb_set\(\n {12}jsonb_set\(item\.value, '\{netAmount\}', 'null'::jsonb, true\),\n {12}'\{currency\}', 'null'::jsonb, true/
+  );
+  assert.match(indexSql, /^-- disable-transaction/);
+  assert.match(indexSql, /AND NOT index_state\.indisvalid/g);
+  assert.match(
+    indexSql,
+    /DROP INDEX IF EXISTS public\.platform_admin_memberships_granted_by_idx/
+  );
+  assert.match(
+    indexSql,
+    /DROP INDEX IF EXISTS public\.platform_admin_memberships_revoked_by_idx/
+  );
+  assert.match(
+    indexSql,
+    /CREATE INDEX CONCURRENTLY IF NOT EXISTS platform_admin_memberships_granted_by_idx\n {2}ON public\.platform_admin_memberships \(granted_by\)/
+  );
+  assert.match(
+    indexSql,
+    /CREATE INDEX CONCURRENTLY IF NOT EXISTS platform_admin_memberships_revoked_by_idx\n {2}ON public\.platform_admin_memberships \(revoked_by\)/
+  );
+  assert.match(
+    sql,
+    /ALTER FUNCTION public\.get_admin_system_health_v1\(\)\n {2}RENAME TO get_admin_system_health_v1_push_freshness/
+  );
+  assert.match(sql, /'delivery_attempt_failed',\n {6}'returned'/);
+  assert.match(sql, /shipment\.updated_at >= v_now - interval '24 hours'/);
+});
+
 test('operations repair includes stale pending emails in its incident projection', async () => {
   const sql = await migration(
     '20260809154917_repair_admin_operations_stale_email_attempts.sql'
@@ -122,9 +168,26 @@ test('isolated replay exercises the production operations v2 projection', async 
     sql,
     /public\.get_admin_operations_v2\('notifications', 25, 0\)/
   );
-  assert.match(sql, /\{notifications,email,0,status\}' <> 'stale'/);
+  assert.match(
+    sql,
+    /\{notifications,email,0,status\}'\) IS DISTINCT FROM 'stale'/
+  );
   assert.match(
     sql,
     /fresh pending email incorrectly appears in operations incidents/
   );
+  assert.match(
+    sql,
+    /\\ir \.\.\/migrations\/20260809173000_repair_admin_operations_currency_and_health_indexes\.sql/
+  );
+  assert.match(
+    sql,
+    /\\ir \.\.\/migrations\/20260809173100_index_platform_admin_membership_actors\.sql/
+  );
+  assert.match(sql, /public\.get_admin_operations_v2\('financial', 25, 0\)/);
+  assert.match(
+    sql,
+    /operations settlement projection still exposes currencyless money or lost incident metadata/
+  );
+  assert.match(sql, /recent returned shipment is absent from system health/);
 });
