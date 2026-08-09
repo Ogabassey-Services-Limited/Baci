@@ -6,6 +6,16 @@ import type { Data } from '@puckeditor/core';
 import { sanitizeBuilderAiProps } from '@/lib/builder-ai/sanitize-builder-ai-props';
 import { COMPONENT_SCHEMA } from './component-schema';
 
+const aiInsertableComponentTypes = builderDesignCapabilities.components
+  .filter(({ aiInsertable }) => aiInsertable)
+  .map(({ componentType }) => componentType);
+const aiInsertableComponentTypeSet = new Set(aiInsertableComponentTypes);
+const aiInsertableComponentSchema = Object.fromEntries(
+  Object.entries(COMPONENT_SCHEMA).filter(([componentType]) =>
+    aiInsertableComponentTypeSet.has(componentType)
+  )
+);
+
 interface UseCopilotBuilderActionsProps {
   data: Data;
   setData: (data: Data) => void;
@@ -63,7 +73,7 @@ export function useCopilotBuilderActions({
     description:
       'The current storefront page configuration. You can modify this using actions.',
     value: JSON.stringify({
-      availableComponents: COMPONENT_SCHEMA,
+      availableComponents: aiInsertableComponentSchema,
       currentComponents: data.content?.map((c, index) => ({
         index,
         type: c.type,
@@ -82,7 +92,7 @@ export function useCopilotBuilderActions({
   // Action: Add a component with specific props
   useCopilotAction({
     name: 'addComponent',
-    description: `Add a new component to the page. Available types: ${Object.keys(COMPONENT_SCHEMA).join(', ')}.`,
+    description: `Add a new component to the page. Available types: ${aiInsertableComponentTypes.join(', ')}.`,
     parameters: [
       {
         name: 'componentType',

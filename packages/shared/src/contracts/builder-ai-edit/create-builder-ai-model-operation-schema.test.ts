@@ -33,4 +33,30 @@ describe('createBuilderAiModelOperationSchema', () => {
       }).success
     ).toBe(true);
   });
+
+  it('uses custom insertability and property bounds for component operations', () => {
+    const manifest = structuredClone(builderDesignCapabilities);
+    const button = manifest.components.find(
+      ({ componentType }) => componentType === 'Button'
+    );
+    if (!button) throw new Error('Expected Button capability');
+    button.aiInsertable = false;
+    button.props.variant.enum = ['accent'];
+    const schema = createBuilderAiModelOperationSchema(manifest);
+
+    expect(
+      schema.safeParse({
+        initialContent: { componentType: 'Button' },
+        kind: 'insert_component',
+        placement: { position: 'first_content' },
+      }).success
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        componentId: 'button-1',
+        kind: 'update_component',
+        patch: { componentType: 'Button', variant: 'primary' },
+      }).success
+    ).toBe(false);
+  });
 });

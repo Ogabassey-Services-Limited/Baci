@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import type { BuilderDesignCapabilityManifest } from '../builder-design-capabilities';
 import { builderDesignCapabilities } from '../builder-design-capabilities';
-import { insertableComponentSchema } from './catalog';
-import { componentPatchSchema } from './component-patch';
 import { getHeroCarouselSlidePatchFields } from './hero-carousel-slide-patch-fields';
+import { getManifestComponentSchema } from './manifest-component-schema';
 
 const boundedComponentId = z.string().trim().min(1).max(120);
 const boundedCollection = z.string().trim().min(1).max(120);
@@ -18,16 +17,6 @@ const componentPlacementSchema = z.discriminatedUnion('position', [
     position: z.literal('after'),
   }),
 ]);
-const updateComponentSchema = z.strictObject({
-  componentId: boundedComponentId,
-  kind: z.literal('update_component'),
-  patch: componentPatchSchema,
-});
-const insertComponentSchema = z.strictObject({
-  initialContent: insertableComponentSchema,
-  kind: z.literal('insert_component'),
-  placement: componentPlacementSchema,
-});
 const removeComponentSchema = z.strictObject({
   componentId: boundedComponentId,
   kind: z.literal('remove_component'),
@@ -59,6 +48,16 @@ function getThemeColorSchema(manifest: BuilderDesignCapabilityManifest) {
 export function createBuilderAiModelOperationSchema(
   manifest: BuilderDesignCapabilityManifest = builderDesignCapabilities
 ) {
+  const updateComponentSchema = z.strictObject({
+    componentId: boundedComponentId,
+    kind: z.literal('update_component'),
+    patch: getManifestComponentSchema('edit', manifest),
+  });
+  const insertComponentSchema = z.strictObject({
+    initialContent: getManifestComponentSchema('insert', manifest),
+    kind: z.literal('insert_component'),
+    placement: componentPlacementSchema,
+  });
   const updateCarouselSlideSchema = z
     .strictObject({
       componentId: boundedComponentId,

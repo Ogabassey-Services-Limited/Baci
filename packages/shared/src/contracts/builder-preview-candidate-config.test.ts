@@ -174,4 +174,32 @@ describe('builder preview candidate configuration', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts a bounded partial theme while rejecting hostile or unknown supplied keys', () => {
+    const candidate = {
+      content: [],
+      root: { props: { title: 'Home' } },
+    };
+
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        ...candidate,
+        theme: { colors: { primary: '#14532d' } },
+      }).success
+    ).toBe(true);
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        ...candidate,
+        theme: { colors: { primary: '#14532d', unreviewed: '#ffffff' } },
+      }).success
+    ).toBe(false);
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        ...candidate,
+        theme: {
+          colors: { primary: 'red; background: url(https://bad.test)' },
+        },
+      }).success
+    ).toBe(false);
+  });
 });

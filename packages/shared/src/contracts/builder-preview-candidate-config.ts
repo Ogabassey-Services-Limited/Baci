@@ -144,6 +144,13 @@ function hasOnlyKeys(
   );
 }
 
+function hasOnlyKnownKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[]
+): boolean {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
 function isSafeThemeText(value: unknown): boolean {
   return (
     typeof value === 'string' &&
@@ -159,10 +166,12 @@ function matchesThemeShape(value: unknown, shape: ThemeShape): boolean {
   if (shape === text) return isSafeThemeText(value);
   if (shape === number)
     return typeof value === 'number' && Number.isFinite(value);
-  if (!isRecord(value) || !hasOnlyKeys(value, Object.keys(shape))) return false;
-  return Object.entries(shape).every(([key, child]) =>
-    matchesThemeShape(value[key], child)
-  );
+  if (!isRecord(value) || !hasOnlyKnownKeys(value, Object.keys(shape)))
+    return false;
+  return Object.entries(value).every(([key, child]) => {
+    const expected = shape[key];
+    return expected !== undefined && matchesThemeShape(child, expected);
+  });
 }
 
 function hasRoot(value: unknown): boolean {
