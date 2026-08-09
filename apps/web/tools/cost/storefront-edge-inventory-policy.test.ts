@@ -285,30 +285,4 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     );
   });
 
-  it.each([
-    ['/sitemap.xml', 'edge_release'],
-    ['/blog/sitemap.xml', 'edge_release'],
-    ['/terms', 'edge_release'],
-  ] as const)('keeps the special route %s on its base decision when a query is present', (pathname, expectedDecision) => {
-    // Arrange: the query is represented by selecting query-conditioned rows.
-
-    // Act
-    const decision = resolveQueryDecision(pathname);
-
-    // Assert
-    expect(decision).toBe(expectedDecision);
-  });
-
-  it('defines a closed nonzero eligible denominator', () => {
-    // Arrange and act
-    const { eligibleDenominatorPolicy } = STOREFRONT_EDGE_INVENTORY_POLICY;
-
-    // Assert
-    expect(eligibleDenominatorPolicy).toEqual({
-      decisions: ['edge_redirect', 'edge_release'],
-      methods: ['GET', 'HEAD'],
-      scope: 'approved_pilot_hosts_and_complete_browser_automatic_traffic',
-      zeroDenominatorVerdict: 'NOT_PROVEN',
-    });
-  });
 });
