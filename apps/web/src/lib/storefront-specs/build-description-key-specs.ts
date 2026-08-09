@@ -4,7 +4,7 @@ import { normalizeSpecValueText } from './spec-value-normalization';
 export function buildDescriptionKeySpecs(
   description?: string | null
 ): ProductSpecSection[] {
-  if (!description?.includes('<table')) {
+  if (!description || !/<table/i.test(description)) {
     return [];
   }
 

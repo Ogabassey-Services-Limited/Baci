@@ -15,6 +15,19 @@ describe('buildDescriptionKeySpecs', () => {
     ]);
   });
 
+  it('extracts a key-spec table when the table tag is uppercase', () => {
+    expect(
+      buildDescriptionKeySpecs(
+        '<h2>Key Specs</h2><TABLE><TR><TH>Display</TH><TD>6.8 inches</TD></TR></TABLE>'
+      )
+    ).toEqual([
+      {
+        category: 'Key Specs',
+        items: [{ label: 'Display', value: '6.8 inches' }],
+      },
+    ]);
+  });
+
   it('ignores descriptions without a complete table', () => {
     expect(buildDescriptionKeySpecs('<p>No key table</p>')).toEqual([]);
     expect(
