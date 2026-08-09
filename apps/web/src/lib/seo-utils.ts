@@ -42,9 +42,10 @@ import type {
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaMarkup, sanitizeSchemaUrl } from './sanitize-json-ld';
 import { normalizeSocialUrl } from './social';
+import { resolveStorefrontProductCategoryName } from './storefront-product-category-precedence';
 import { stripVolatileProductPriceSentences } from './storefront-product-description';
 import { getValidatedProductUrl as getSerializedValidatedProductUrl } from './storefront-product-url-serialization';
-import { getProductSpecFamily } from './storefront-specs/spec-family-classifier';
+import { hasSupportedCardSlotType } from './storefront-specs/spec-category-families';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileReturnFee,
@@ -755,9 +756,8 @@ export function generateProductSchema(
     schema.mpn = product.mpn;
   }
 
-  // Category for Google Product Category.
-  // Use joined categories.name from category_id, fallback to legacy TEXT field
-  const categoryName = product.categories?.name || product.category;
+  // Relation-backed category metadata outranks the deprecated text column.
+  const categoryName = resolveStorefrontProductCategoryName(product);
   if (categoryName) {
     schema.category = categoryName;
   }
@@ -780,8 +780,6 @@ export function generateProductSchema(
   const keySpecs = product.product_key_specs;
 
   if (keySpecs && !Array.isArray(keySpecs)) {
-    const isCameraFamily = getProductSpecFamily(categoryName) === 'camera';
-
     interface SpecMapping {
       key: string;
       name: string;
@@ -834,10 +832,7 @@ export function generateProductSchema(
       {
         key: 'card_slot_type',
         name: 'Card Slot',
-        check: () =>
-          typeof keySpecs.card_slot_type === 'string' &&
-          keySpecs.card_slot_type.trim().length > 0 &&
-          (isCameraFamily || keySpecs.has_card_slot === true),
+        check: () => hasSupportedCardSlotType(keySpecs),
       },
 
       // Camera

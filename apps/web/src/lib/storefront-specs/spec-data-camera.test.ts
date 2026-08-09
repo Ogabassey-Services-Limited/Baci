@@ -128,6 +128,29 @@ describe('buildProductSpecData camera families', () => {
     );
   });
 
+  it('uses a slug-only camera join before stale legacy phone text', () => {
+    const result = buildProductSpecData({
+      category: 'Smartphones',
+      categories: { slug: 'action-cameras' },
+      product_key_specs: {
+        main_camera_mp: 40,
+        has_5g: true,
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'Imaging',
+          items: [{ label: 'Effective Resolution', value: '40MP' }],
+        }),
+      ])
+    );
+    expect(result.detailedSpecs.map((section) => section.category)).not.toEqual(
+      expect.arrayContaining(['Network'])
+    );
+  });
+
   it('includes camera internal storage in the summary when no card slot is present', () => {
     const result = buildProductSpecData({
       category: 'Instant Cameras',
@@ -173,5 +196,23 @@ describe('buildProductSpecData camera families', () => {
         ],
       },
     ]);
+  });
+
+  it('suppresses a camera card-slot type when the capability is explicitly false', () => {
+    const result = buildProductSpecData({
+      category: 'Cameras',
+      product_key_specs: {
+        card_slot_type: 'CFexpress Type B',
+        has_card_slot: false,
+      },
+    });
+
+    expect(
+      result.detailedSpecs.flatMap((section) => section.items)
+    ).not.toEqual(
+      expect.arrayContaining([
+        { label: 'Card Slot', value: 'CFexpress Type B' },
+      ])
+    );
   });
 });

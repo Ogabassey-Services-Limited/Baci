@@ -75,8 +75,8 @@ describe('shouldIncludeProductSchemaSpec', () => {
     ).toBe(true);
   });
 
-  it('preserves negative mapping behavior for phone, tablet, and laptop categories', () => {
-    for (const category of ['Smartphones', 'Tablets', 'Laptops']) {
+  it('preserves negative mapping behavior for phone and tablet categories', () => {
+    for (const category of ['Smartphones', 'Tablets']) {
       expect(
         shouldIncludeProductSchemaSpec(
           { category, categories: null },

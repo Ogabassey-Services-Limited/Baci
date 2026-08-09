@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveStorefrontProductCategory } from './storefront-product-category-precedence';
+import {
+  resolveStorefrontProductCategory,
+  resolveStorefrontProductCategoryName,
+} from './storefront-product-category-precedence';
 
 describe('resolveStorefrontProductCategory', () => {
   it('prefers a direct category join over legacy text and a junction category', () => {
@@ -33,5 +36,21 @@ describe('resolveStorefrontProductCategory', () => {
         ],
       })
     ).toEqual({ slug: 'junction-category' });
+  });
+
+  it('prefers a joined category name, then its slug, before stale legacy text', () => {
+    expect(
+      resolveStorefrontProductCategoryName({
+        categories: { name: 'Action Cameras', slug: 'action-cameras' },
+        category: 'Smartphones',
+      })
+    ).toBe('Action Cameras');
+
+    expect(
+      resolveStorefrontProductCategoryName({
+        categories: { slug: 'action-cameras' },
+        category: 'Smartphones',
+      })
+    ).toBe('action-cameras');
   });
 });

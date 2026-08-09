@@ -199,6 +199,54 @@ describe('ProductComparisonTable', () => {
     expect(screen.getByText('$1,500.00')).toBeInTheDocument();
   });
 
+  it('uses a slug-only camera join instead of stale phone text for comparison specs', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        products: [
+          {
+            id: 'action-camera',
+            name: 'Action Camera',
+            slug: 'action-camera',
+            price: 500,
+            image: 'https://example.com/camera.jpg',
+            category: 'Smartphones',
+            categories: {
+              id: 'camera-category',
+              name: '',
+              slug: 'action-cameras',
+            },
+            condition: 'new',
+            product_key_specs: { main_camera_mp: 40, has_5g: true },
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <ProductComparisonTable
+        mainProduct={createMainProduct()}
+        storeSlug="ogabassey"
+      />
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /compare similar smartphones/i })[0]
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: /search products/i }), {
+      target: { value: 'action camera' },
+    });
+
+    expect(await screen.findByText('Action Camera')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Action Camera').closest('button')!);
+
+    expect(await screen.findByText('Effective Resolution')).toBeInTheDocument();
+    expect(screen.getAllByText('40MP')).not.toHaveLength(0);
+    expect(screen.queryByText('5G Support')).not.toBeInTheDocument();
+  });
+
   it('shows loading feedback and a user-visible error when search fails', async () => {
     let rejectSearch!: (reason?: unknown) => void;
     const fetchMock = vi.fn(

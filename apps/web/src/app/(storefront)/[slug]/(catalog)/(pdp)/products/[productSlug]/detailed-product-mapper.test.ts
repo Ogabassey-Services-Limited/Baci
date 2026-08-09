@@ -203,6 +203,32 @@ describe('mapDetailedCachedProductToProduct', () => {
     expect(product).not.toHaveProperty('internal_only_flag');
   });
 
+  it('uses a slug-only joined camera category before stale legacy phone text', () => {
+    const product = mapDetailedCachedProductToProduct(
+      {
+        id: 'slug-only-camera',
+        merchant_id: 'merchant-1',
+        name: 'Action Camera',
+        status: 'active',
+        slug: 'action-camera',
+        price: 100,
+        images: [],
+        category: 'Smartphones',
+        categories: { id: 'camera-category', slug: 'action-cameras' },
+        product_variants: [],
+        specifications: null,
+        product_key_specs: null,
+      },
+      'merchant-1'
+    );
+
+    expect(product).toMatchObject({
+      category: 'action-cameras',
+      category_slug: 'action-cameras',
+      categories: { id: 'camera-category', slug: 'action-cameras' },
+    });
+  });
+
   it('maps has_condition_offers and offers from detailed product', () => {
     const product = mapDetailedCachedProductToProduct(
       {

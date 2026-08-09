@@ -345,7 +345,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     );
   });
 
-  it('includes a verified camera card slot even when the legacy boolean is stale', () => {
+  it('does not emit a camera card slot when the capability is explicitly false', () => {
     const schema = generateProductSchema(
       makeProduct({
         category: 'Cameras',
@@ -359,7 +359,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
       'NG'
     );
 
-    expect(schema.additionalProperty).toEqual(
+    expect(schema.additionalProperty).not.toEqual(
       expect.arrayContaining([
         {
           '@type': 'PropertyValue',
@@ -390,6 +390,31 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
           '@type': 'PropertyValue',
           name: 'Card Slot',
           value: 'microSDXC',
+        },
+      ])
+    );
+  });
+
+  it('emits a card-slot type when the capability is explicitly true', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        category: 'Cameras',
+        product_key_specs: {
+          card_slot_type: 'CFexpress Type B',
+          has_card_slot: true,
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Card Slot',
+          value: 'CFexpress Type B',
         },
       ])
     );
@@ -466,8 +491,8 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(videoProperties).toHaveLength(1);
   });
 
-  it('retains the existing negative phone/tablet/laptop spec behavior', () => {
-    for (const category of ['Smartphones', 'Tablets', 'Laptops']) {
+  it('retains the existing negative phone and tablet spec behavior', () => {
+    for (const category of ['Smartphones', 'Tablets']) {
       const schema = generateProductSchema(
         makeProduct({
           category,
@@ -484,6 +509,118 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
         ])
       );
     }
+  });
+
+  it('uses a slug-only camera join before stale text in Product and ProductGroup schemas', () => {
+    const product = makeProduct({
+      category: 'Smartphones',
+      categories: { slug: 'action-cameras' },
+      product_key_specs: { main_camera_mp: 40, has_5g: true },
+      variants: [
+        {
+          id: 'camera-variant',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: { color: 'Black' },
+          stock_quantity: 1,
+        },
+      ],
+    });
+
+    const productSchema = generateProductSchema(
+      { ...product, variants: [] },
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+    const groupSchema = generateProductSchema(
+      product,
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    for (const schema of [productSchema, groupSchema]) {
+      expect(schema.category).toBe('action-cameras');
+      expect(schema.additionalProperty).toEqual(
+        expect.arrayContaining([
+          {
+            '@type': 'PropertyValue',
+            name: 'Main Camera',
+            value: 'Single 40MP',
+          },
+        ])
+      );
+      expect(schema.additionalProperty).not.toEqual(
+        expect.arrayContaining([
+          { '@type': 'PropertyValue', name: '5G Support', value: 'Yes' },
+        ])
+      );
+    }
+    expect(groupSchema['@type']).toBe('ProductGroup');
+  });
+
+  it('excludes phone-only fields from laptop Product and ProductGroup schemas', () => {
+    const product = makeProduct({
+      category: 'Laptops',
+      product_key_specs: {
+        chipset: 'Intel Core Ultra 7',
+        ram_gb: 32,
+        has_5g: true,
+        has_nfc: true,
+        sim_type: 'Nano-SIM',
+        android_version: '16',
+        main_camera_mp: 50,
+        front_camera_mp: 12,
+      },
+      variants: [
+        {
+          id: 'laptop-variant',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: { ram: '32GB' },
+          stock_quantity: 1,
+        },
+      ],
+    });
+
+    const productSchema = generateProductSchema(
+      { ...product, variants: [] },
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+    const groupSchema = generateProductSchema(
+      product,
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    for (const schema of [productSchema, groupSchema]) {
+      const properties = schema.additionalProperty as Record<string, unknown>[];
+      expect(properties).toEqual(
+        expect.arrayContaining([
+          {
+            '@type': 'PropertyValue',
+            name: 'Chipset',
+            value: 'Intel Core Ultra 7',
+          },
+          { '@type': 'PropertyValue', name: 'RAM', value: '32GB' },
+        ])
+      );
+      expect(properties.map((property) => property.name)).not.toEqual(
+        expect.arrayContaining([
+          '5G Support',
+          'NFC',
+          'SIM Type',
+          'Operating System',
+          'Main Camera',
+          'Selfie Camera',
+        ])
+      );
+    }
+    expect(groupSchema['@type']).toBe('ProductGroup');
   });
 
   it('outputs @type ProductGroup when variants exist', () => {

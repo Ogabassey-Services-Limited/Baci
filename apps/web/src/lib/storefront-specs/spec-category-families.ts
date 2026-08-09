@@ -108,7 +108,7 @@ const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
         key: 'card_slot_type',
         label: 'Card Slot',
         condition: (specs: ComparableProductKeySpecs) =>
-          !isUnsupportedSpecValue(specs.card_slot_type),
+          hasSupportedCardSlotType(specs),
       },
       {
         key: 'storage_gb',
@@ -167,6 +167,17 @@ const COMPUTER_EXCLUDED_KEYS = new Set([
   'front_camera_features',
   'front_camera_video',
 ]);
+
+export function hasSupportedCardSlotType(specs: ComparableProductKeySpecs) {
+  return (
+    specs.has_card_slot !== false &&
+    !isUnsupportedSpecValue(specs.card_slot_type)
+  );
+}
+
+export function isComputerExcludedSpecKey(key: string) {
+  return COMPUTER_EXCLUDED_KEYS.has(key);
+}
 
 const COMPUTER_KEY_SPEC_CATEGORIES = KEY_SPEC_CATEGORIES.map((category) => ({
   ...category,

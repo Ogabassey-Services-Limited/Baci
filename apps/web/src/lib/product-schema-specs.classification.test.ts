@@ -19,7 +19,7 @@ describe('shouldIncludeProductSchemaSpec category classification', () => {
 
   it('uses a joined category slug for camera-safe schema fields', () => {
     const product = {
-      category: undefined,
+      category: 'Smartphones',
       categories: { slug: 'action-cameras' },
     };
 

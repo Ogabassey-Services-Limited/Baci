@@ -26,6 +26,7 @@ import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { loadCategoryScopedSemanticInventorySafely } from '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely';
+import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-precedence';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { FAQItem } from '@/types/faq';
@@ -47,9 +48,12 @@ export async function ProductPageRuntime({
   product,
   slug,
 }: ProductPageRuntimeProps) {
+  const categoryName =
+    resolveStorefrontProductCategoryName(product) || 'All Products';
   const categorySlug =
+    product.categories?.slug ||
     product.category_slug ||
-    (product.category ? generateSlug(product.category) : 'products');
+    generateSlug(categoryName);
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const currency = resolveMerchantCurrencyConfig(merchant).code;
@@ -76,8 +80,6 @@ export async function ProductPageRuntime({
     }
   );
 
-  const categoryName =
-    product.categories?.name || product.category || 'All Products';
   const categoryUrl = `${baseUrl}/${categorySlug}`;
   const breadcrumbItems = [
     { name: merchant.business_name || 'Home', url: baseUrl },

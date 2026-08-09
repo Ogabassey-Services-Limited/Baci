@@ -16,6 +16,7 @@ const {
   getPublicSupabaseClient,
   loadCategoryScopedSemanticInventorySafely,
   loadPublishedClusterPostsSafely,
+  generateBreadcrumbSchema,
   JsonLd,
   ProductDetailClient,
   ProductSemanticSections,
@@ -33,6 +34,7 @@ const {
     getPublicSupabaseClient: vi.fn(neverSettles),
     loadCategoryScopedSemanticInventorySafely: vi.fn(neverSettles),
     loadPublishedClusterPostsSafely: vi.fn(neverSettles),
+    generateBreadcrumbSchema: vi.fn(() => ({ '@type': 'BreadcrumbList' })),
     JsonLd: vi.fn(() => null),
     ProductDetailClient: vi.fn(() => null),
     ProductSemanticSections: vi.fn(() => null),
@@ -75,7 +77,7 @@ vi.mock(
 // not schema content (covered by their own suites).
 vi.mock('@/lib/seo-utils', () => ({
   buildStorefrontAcceptedPaymentMethods: () => [],
-  generateBreadcrumbSchema: () => ({ '@type': 'BreadcrumbList' }),
+  generateBreadcrumbSchema,
   generateFAQSchema: () => ({ '@type': 'FAQPage' }),
   generateProductSchema: () => ({
     '@type': 'Product',
@@ -182,5 +184,37 @@ describe('ProductPageRuntime critical shell', () => {
     const deferredChild = (suspense?.props as { children?: ReactElement })
       .children;
     expect(typeof deferredChild?.type).toBe('function');
+  });
+
+  it('uses a slug-only camera join before stale phone text for PDP and crawl context', async () => {
+    const tree = (await ProductPageRuntime({
+      merchant,
+      product: {
+        ...product,
+        category: 'Smartphones',
+        category_slug: 'smartphones',
+        categories: { slug: 'action-cameras' },
+      },
+      slug: 'ogabassey',
+    })) as ReactElement;
+
+    expect(generateBreadcrumbSchema).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'action-cameras',
+          url: 'https://ogabassey.com/action-cameras',
+        }),
+      ])
+    );
+
+    const suspense = directChildren(tree).find(
+      (child) => child.type === Suspense
+    );
+    const deferredChild = (suspense?.props as { children?: ReactElement })
+      .children;
+    expect(deferredChild?.props).toMatchObject({
+      categoryName: 'action-cameras',
+      categorySlug: 'action-cameras',
+    });
   });
 });

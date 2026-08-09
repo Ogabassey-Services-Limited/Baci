@@ -1,4 +1,5 @@
 import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
+import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-precedence';
 import { buildDescriptionKeySpecs } from './build-description-key-specs';
 import { normalizeSpecItems } from './normalize-spec-items';
 import { normalizeSpecSections } from './normalize-spec-sections';
@@ -47,16 +48,12 @@ function resolveSourceCategory(source: SpecDataSource) {
         (category) => category.name?.trim() || category.slug?.trim()
       )
     : source.categories;
-  const rawCategoryName = [
-    relation?.name,
-    source.category,
-    relation?.slug,
-  ].find((value) => value?.trim());
+  const name = resolveStorefrontProductCategoryName({
+    categories: relation,
+    category: source.category,
+  });
 
-  return {
-    hasCategory: Boolean(rawCategoryName),
-    name: rawCategoryName?.trim() || 'General',
-  };
+  return { hasCategory: Boolean(name), name: name || 'General' };
 }
 
 function getFirstVariantValue(

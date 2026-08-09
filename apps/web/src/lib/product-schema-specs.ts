@@ -1,11 +1,21 @@
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import type { Product } from './products';
+import { resolveStorefrontProductCategoryName } from './storefront-product-category-precedence';
 import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
 import { isAccessoryLikeCategory } from './storefront-specs/spec-accessory-classifier';
-import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
-import { isCameraLikeCategory } from './storefront-specs/spec-taxonomy';
+import {
+  getKeySpecCategoriesForFamily,
+  isComputerExcludedSpecKey,
+} from './storefront-specs/spec-category-families';
+import {
+  getProductSpecFamily,
+  isCameraLikeCategory,
+} from './storefront-specs/spec-taxonomy';
 
-type ProductCategorySource = Pick<Product, 'category' | 'categories'>;
+type ProductCategorySource = Pick<
+  Product,
+  'category' | 'categories' | 'product_key_specs'
+>;
 
 interface ProductSchemaSpecCandidate {
   key?: string;
@@ -105,10 +115,7 @@ function normalizeCategoryName(value: string) {
 }
 
 function getProductCategoryNames(product: ProductCategorySource) {
-  const preferredCategory =
-    product.categories?.name?.trim() ||
-    product.categories?.slug?.trim() ||
-    product.category;
+  const preferredCategory = resolveStorefrontProductCategoryName(product);
   return preferredCategory?.trim()
     ? [normalizeCategoryName(preferredCategory)]
     : [];
@@ -146,17 +153,23 @@ export function shouldIncludeProductSchemaSpec(
   candidate: ProductSchemaSpecCandidate
 ) {
   const categoryNames = getProductCategoryNames(product);
-  const hasNonPhoneCategory = categoryNames.some(
-    (categoryName) =>
-      isCameraLikeCategory(categoryName) ||
-      !isPhoneTabletLaptopCategory(categoryName)
-  );
-  const isMobileCategory = categoryNames.length > 0 && !hasNonPhoneCategory;
+  const productFamily = getProductSpecFamily(categoryNames[0]);
+  const isMobileCategory =
+    productFamily === 'mobile' ||
+    (productFamily === 'general' &&
+      categoryNames.some(isPhoneTabletLaptopCategory));
   if (isMobileCategory) {
     return true;
   }
 
   if (isUnsupportedSpecValue(candidate.value)) {
+    return false;
+  }
+
+  if (
+    candidate.key === 'card_slot_type' &&
+    product.product_key_specs?.has_card_slot === false
+  ) {
     return false;
   }
 
@@ -170,9 +183,32 @@ export function shouldIncludeProductSchemaSpec(
     : undefined;
   const isOperatingSystemLabel =
     normalizedLabel === 'operating system' || normalizedLabel === 'os';
+  const inferredSpecKey = candidate.label
+    ? getProductSchemaSpecKeyForLabel(candidate.label)
+    : undefined;
+
+  if (productFamily === 'computer') {
+    const computerSpecKey = candidate.key || inferredSpecKey;
+    if (
+      computerSpecKey &&
+      isComputerExcludedSpecKey(computerSpecKey) &&
+      !(computerSpecKey === 'android_version' && isOperatingSystemLabel)
+    ) {
+      return false;
+    }
+
+    if (
+      isOperatingSystemLabel &&
+      typeof candidate.value === 'string' &&
+      candidate.value.trim().toLowerCase().startsWith('android')
+    ) {
+      return false;
+    }
+  }
+
   const inferredCameraSpecKey =
     hasCameraCategory && candidate.label && !isOperatingSystemLabel
-      ? getProductSchemaSpecKeyForLabel(candidate.label)
+      ? inferredSpecKey
       : undefined;
   const cameraSpecKey = candidate.key || inferredCameraSpecKey;
   if (

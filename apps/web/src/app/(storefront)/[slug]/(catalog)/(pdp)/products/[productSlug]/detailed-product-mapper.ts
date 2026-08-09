@@ -2,6 +2,7 @@ import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { generateSlug } from '@/lib/seo-utils';
+import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-precedence';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
   getMappedCanonicalUrl,
@@ -95,14 +96,14 @@ export interface DetailedCachedProduct {
   categories?:
     | {
         id: string;
-        name: string;
-        slug: string;
+        name?: string | null;
+        slug?: string | null;
         parent_id?: string | null;
       }
     | Array<{
         id: string;
-        name: string;
-        slug: string;
+        name?: string | null;
+        slug?: string | null;
         parent_id?: string | null;
       }>
     | null;
@@ -144,7 +145,10 @@ export function mapDetailedCachedProductToProduct(
       productId: detailedProduct.id,
     }
   );
-  const categoryName = primaryCategory?.name || detailedProduct.category;
+  const categoryName = resolveStorefrontProductCategoryName({
+    categories: primaryCategory,
+    category: detailedProduct.category,
+  });
   const categorySlug =
     primaryCategory?.slug ||
     (detailedProduct.category
@@ -195,8 +199,8 @@ export function mapDetailedCachedProductToProduct(
     categories: primaryCategory
       ? {
           id: primaryCategory.id,
-          name: primaryCategory.name,
-          slug: primaryCategory.slug,
+          name: primaryCategory.name ?? undefined,
+          slug: primaryCategory.slug ?? undefined,
           parent_id: primaryCategory.parent_id ?? undefined,
         }
       : null,
