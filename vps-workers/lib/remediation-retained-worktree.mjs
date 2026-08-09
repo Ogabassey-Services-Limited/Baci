@@ -22,12 +22,10 @@ export function findRetainedRemediationWorktree({
   }
 
   const expectedBranch = `branch refs/heads/${branch}`;
-  const retained = (result.stdout || '')
-    .split(/\r?\n\r?\n/)
-    .find((record) => {
-      const lines = record.split(/\r?\n/);
-      return lines.includes(expectedBranch);
-    });
+  const retained = (result.stdout || '').split(/\r?\n\r?\n/).find((record) => {
+    const lines = record.split(/\r?\n/);
+    return lines.includes(expectedBranch);
+  });
   if (!retained) return '';
 
   const worktreeLine = retained

@@ -129,10 +129,7 @@ describe('remediation git workflow reconciliation', () => {
     let retainedWorktree;
     const codexWorkingDirectories = [];
     const runner = (command, args, options) => {
-      if (
-        command === 'git' &&
-        args.join(' ') === 'worktree list --porcelain'
-      ) {
+      if (command === 'git' && args.join(' ') === 'worktree list --porcelain') {
         const retained = retainedWorktree
           ? `\nworktree ${retainedWorktree.directory}\nHEAD deadbeef\nbranch refs/heads/${retainedWorktree.branch}\n`
           : '';
