@@ -159,6 +159,47 @@ describe('remediation case state draft lifecycle', () => {
     assert.equal(stored.draftPr.url, 'https://github.com/baci/baci/pull/12');
   });
 
+  it('rotates a closed older draft behind newer open drafts across reconciliation runs', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-case-draft-rotation-'));
+    const state = createRemediationCaseState({
+      now: () => Date.parse('2026-08-01T10:20:00.000Z'),
+      path: join(directory, 'cases.json'),
+    });
+    const candidates = Array.from({ length: 11 }, (_, index) =>
+      candidate({
+        fingerprint: `issue-${index}`,
+        lastSeen: `2026-08-01T10:${String(index).padStart(2, '0')}:00.000Z`,
+        occurrences: 2,
+        sample: { issueId: String(index), source: 'sentry' },
+      })
+    );
+    state.reconcile(candidates);
+    for (const [index, current] of candidates.entries()) {
+      state.recordOutcome(current, {
+        prUrl: `https://github.com/baci/baci/pull/${100 + index}`,
+        type: 'pr_opened',
+      });
+    }
+
+    const statusFor = (draftPr) =>
+      draftPr.caseKey.endsWith(':issue-0') ? 'closed' : 'open';
+    state.reconcileDraftPrs({
+      candidates,
+      limit: 10,
+      resolveDraftPrStatus: statusFor,
+    });
+    state.reconcileDraftPrs({
+      candidates,
+      limit: 10,
+      resolveDraftPrStatus: statusFor,
+    });
+
+    assert.equal(
+      state.snapshot().cases['sentry:sentry_issue:issue-0'].draftPr,
+      null
+    );
+  });
+
   it('does not keep selecting a stale cumulative candidate after seven quiet days', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-case-stale-loader-'));
     const state = createRemediationCaseState({

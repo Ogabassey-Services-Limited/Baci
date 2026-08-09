@@ -24,15 +24,24 @@ export function reconcileStoredDraftPrs({
       : MAX_DRAFT_PR_RECONCILIATIONS,
     MAX_DRAFT_PR_RECONCILIATIONS
   );
-  const drafts = Object.values(storage.read().cases)
+  const stateSnapshot = storage.read();
+  const availableDrafts = Object.values(stateSnapshot.cases)
     .filter((item) => requestedCaseKeys.has(item.key) && Boolean(item.draftPr))
     .sort((left, right) => right.lastSeen.localeCompare(left.lastSeen))
-    .slice(0, maximum)
     .map((item) => ({
       caseKey: item.key,
       openedAt: item.draftPr.openedAt,
       url: item.draftPr.url,
     }));
+  const cursor = stateSnapshot.fairness.draftPrCursor || '';
+  const cursorIndex = availableDrafts.findIndex(
+    (draft) => draft.caseKey === cursor
+  );
+  const drafts = [
+    ...availableDrafts.slice(cursorIndex + 1),
+    ...availableDrafts.slice(0, cursorIndex + 1),
+  ]
+    .slice(0, maximum)
   const reconciled = drafts.map((draft) => {
     try {
       const status = resolveDraftPrStatus(draft);
@@ -77,7 +86,11 @@ export function reconcileStoredDraftPrs({
         ].slice(-maxOutcomes);
         transitioned += 1;
       }
-      if (transitioned > 0) storage.persist(state);
+      const lastChecked = reconciled.at(-1);
+      const cursorAdvanced =
+        lastChecked && state.fairness.draftPrCursor !== lastChecked.caseKey;
+      if (cursorAdvanced) state.fairness.draftPrCursor = lastChecked.caseKey;
+      if (transitioned > 0 || cursorAdvanced) storage.persist(state);
       return { failed, transitioned };
     }
   );

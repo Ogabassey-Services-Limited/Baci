@@ -67,7 +67,7 @@ export function createRemediationCaseStateValidator({
   const outcomeFields = new Set(['at', 'detail', 'prUrl', 'type']);
   const draftPrFields = new Set(['branch', 'openedAt', 'url']);
   const stateFields = new Set(['cases', 'fairness', 'version']);
-  const fairnessFields = new Set(['lastCategory']);
+  const fairnessFields = new Set(['draftPrCursor', 'lastCategory']);
 
   function validSample(sample) {
     if (!isPlainObject(sample) || !hasOnlyKeys(sample, sampleFields)) {
@@ -147,7 +147,9 @@ export function createRemediationCaseStateValidator({
       ) &&
       isPlainObject(state.fairness) &&
       hasOnlyKeys(state.fairness, fairnessFields) &&
-      isBoundedString(state.fairness.lastCategory, 80)
+      isBoundedString(state.fairness.lastCategory, 80) &&
+      (state.fairness.draftPrCursor === undefined ||
+        isBoundedString(state.fairness.draftPrCursor, 300))
     );
   };
 }

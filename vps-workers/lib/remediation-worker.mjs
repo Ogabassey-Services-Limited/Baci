@@ -88,10 +88,17 @@ export async function runRemediationWorker({
     readPositiveInt(env.BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN, 1),
     10
   );
+  const maximumDraftPrReconciliations = Math.min(
+    readPositiveInt(
+      env.BACI_REMEDIATION_MAX_DRAFT_PR_RECONCILIATIONS_PER_RUN,
+      10
+    ),
+    10
+  );
   if (mode === 'autofix') {
     const reconciliation = caseState.reconcileDraftPrs({
       candidates: loadedCandidates,
-      limit: maximumCandidates,
+      limit: maximumDraftPrReconciliations,
       resolveDraftPrStatus:
         draftPrStatusResolver || createRemediationDraftPrStatusResolver(),
     });
