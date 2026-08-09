@@ -2,7 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
 import { buildRemediationCodexCommand } from '../lib/remediation-codex-command.mjs';
-import { assertCodexExecutionUsable } from '../lib/remediation-codex-output.mjs';
+import {
+  assertCodexExecutionUsable,
+  redactCodexError,
+} from '../lib/remediation-codex-output.mjs';
+import { buildRemediationEnvironments } from '../lib/remediation-environments.mjs';
 import {
   buildRemediationReport,
   sendRemediationReportEmail,
@@ -45,6 +49,7 @@ export function runRemediationCodexCanary({
   }
 
   const commandEnv = { ...process.env, ...env };
+  const { child: childEnv } = buildRemediationEnvironments(commandEnv);
   const command = buildRemediationCodexCommand({
     codexBin: env.CODEX_BIN || 'codex',
     env: commandEnv,
@@ -57,12 +62,12 @@ export function runRemediationCodexCanary({
   try {
     const result = runner(command.command, command.args, {
       cwd: repoDir,
-      env: commandEnv,
+      env: childEnv,
       shell: false,
       timeout: readPositiveInt(env.BACI_CODEX_CANARY_TIMEOUT_MS, 60_000),
     });
     if (result.error) {
-      throw result.error;
+      throw redactCodexError(result.error);
     }
     assertCodexExecutionUsable(result);
     return { type: 'canary_completed' };
@@ -70,14 +75,14 @@ export function runRemediationCodexCanary({
     if (command.cleanup) {
       runner(command.cleanup.command, command.cleanup.args, {
         cwd: repoDir,
-        env: commandEnv,
+        env: childEnv,
         shell: false,
       });
     }
   }
 }
 
-function failureType(error) {
+export function failureType(error) {
   const message = String(error || '');
   if (
     /\b(?:quota_or_usage_limit|quota|usage limits?|rate limit)\b/i.test(message)
@@ -85,7 +90,7 @@ function failureType(error) {
     return 'canary_quota_failed';
   }
   if (
-    /\b(?:authentication_failure|not authenticated|unauthorized|login required)\b/i.test(
+    /\b(?:authentication(?:[_\s-]?failure)?|not authenticated|unauthorized|login required)\b/i.test(
       message
     )
   ) {

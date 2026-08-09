@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { runRemediationCodexCanary } from './remediation-codex-canary.mjs';
+import {
+  failureType,
+  runRemediationCodexCanary,
+} from './remediation-codex-canary.mjs';
 
 describe('remediation Codex canary', () => {
   it('exits as a sanitized skip unless explicitly enabled', () => {
@@ -90,6 +93,55 @@ describe('remediation Codex canary', () => {
     assert.deepEqual(calls[1].args, ['rm', '-f', 'baci-remediation-repo']);
   });
 
+  it('does not pass worker secrets to the canary Docker process', () => {
+    const calls = [];
+
+    runRemediationCodexCanary({
+      env: {
+        BACI_REMEDIATION_CANARY_ENABLED: '1',
+        BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+        BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
+        BACI_REPO_DIR: '/repo',
+        CODEX_HOME: '/home/worker/.codex',
+        HOME: '/home/worker',
+        SUPABASE_SERVICE_ROLE_KEY: 'must-not-reach-docker',
+      },
+      runner(command, args, options) {
+        calls.push({ args, command, options });
+        return { status: 0, stderr: '', stdout: '{"type":"turn.completed"}\n' };
+      },
+    });
+
+    assert.equal(calls[0].options.env.SUPABASE_SERVICE_ROLE_KEY, undefined);
+    assert.equal(calls[0].options.env.CODEX_HOME, '/home/worker/.codex');
+  });
+
+  it('redacts a runner error before returning it to the caller', () => {
+    const token = 'super-secret-token-value';
+
+    assert.throws(
+      () =>
+        runRemediationCodexCanary({
+          env: {
+            BACI_REMEDIATION_CANARY_ENABLED: '1',
+            BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+            BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
+            BACI_REPO_DIR: '/repo',
+            CODEX_HOME: '/home/worker/.codex',
+            HOME: '/home/worker',
+          },
+          runner() {
+            return { error: new Error(`Authorization: Bearer ${token}`) };
+          },
+        }),
+      (error) => {
+        assert.doesNotMatch(error.message, new RegExp(token));
+        assert.match(error.message, /Authorization: \[REDACTED\]/);
+        return true;
+      }
+    );
+  });
+
   it('uses the default timeout for a non-integer canary timeout', () => {
     const calls = [];
 
@@ -135,5 +187,19 @@ describe('remediation Codex canary', () => {
     assert.equal(result.status, 1);
     assert.match(result.stdout, /canary_toolchain_failed/);
     assert.doesNotMatch(result.stdout, /canary_auth_failed/);
+  });
+
+  it('classifies a quota-limit canary failure', () => {
+    assert.equal(
+      failureType(new Error('Codex execution failed: quota limit reached')),
+      'canary_quota_failed'
+    );
+  });
+
+  it('classifies an authentication canary failure', () => {
+    assert.equal(
+      failureType(new Error('Codex execution reported authentication failure')),
+      'canary_auth_failed'
+    );
   });
 });
