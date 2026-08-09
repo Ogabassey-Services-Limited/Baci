@@ -51,7 +51,10 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     true,
     fixedPlacement
   ),
-  allow('Hero', 'Prominent collection callout.', heroProps),
+  {
+    ...allow('Hero', 'Prominent collection callout.', heroProps),
+    initialProps: { headingLevel: 'h2' },
+  },
   allow(
     'HeroCarousel',
     'Rotating hero slides.',
@@ -89,7 +92,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
       enum: ['left', 'center', 'right'],
       type: 'enum',
     },
-    link: { ...safeLink, default: '#' },
+    link: { ...safeLink, default: '/' },
     size: { default: 'default', enum: ['sm', 'default', 'lg'], type: 'enum' },
     text: label('Click Me'),
     variant: {

@@ -1,22 +1,12 @@
 import { z } from 'zod';
-import { insertableComponentSchema, productGridPatchSchema } from './catalog';
+import { insertableComponentSchema } from './catalog';
 import { componentPatchSchema } from './component-patch';
-import { footerPatchSchema } from './footer-patch';
-import { headerPatchSchema } from './header-patch';
 import { heroCarouselSlidePatchFields } from './hero-carousel-slide-patch-fields';
+import { manifestBuilderAiCapability } from './validate-manifest-capability';
 
 const boundedComponentId = z.string().trim().min(1).max(120);
 const boundedCollection = z.string().trim().min(1).max(120);
 const boundedTitle = z.string().trim().min(1).max(120);
-const contentComponentPatchSchema = z.discriminatedUnion('componentType', [
-  componentPatchSchema,
-  productGridPatchSchema,
-]);
-const allComponentPatches = z.discriminatedUnion('componentType', [
-  headerPatchSchema,
-  contentComponentPatchSchema,
-  footerPatchSchema,
-]);
 const componentPlacementSchema = z.discriminatedUnion('position', [
   z.strictObject({
     collection: boundedCollection.optional(),
@@ -30,7 +20,7 @@ const componentPlacementSchema = z.discriminatedUnion('position', [
 const updateComponentSchema = z.strictObject({
   componentId: boundedComponentId,
   kind: z.literal('update_component'),
-  patch: allComponentPatches,
+  patch: componentPatchSchema,
 });
 const updateCarouselSlideSchema = z
   .strictObject({
@@ -47,11 +37,27 @@ const updateCarouselSlideSchema = z
       value.title !== undefined,
     'Expected at least one editable carousel slide field'
   );
-const insertComponentSchema = z.strictObject({
-  initialContent: insertableComponentSchema,
-  kind: z.literal('insert_component'),
-  placement: componentPlacementSchema,
-});
+const insertComponentSchema = z
+  .strictObject({
+    initialContent: insertableComponentSchema,
+    kind: z.literal('insert_component'),
+    placement: componentPlacementSchema,
+  })
+  .refine(
+    ({ initialContent }) =>
+      manifestBuilderAiCapability.isInsert(initialContent),
+    'Expected manifest-authorized insert'
+  )
+  .refine(
+    ({ initialContent, placement }) =>
+      manifestBuilderAiCapability.isInsertPlacement(
+        initialContent.componentType,
+        placement.position === 'first_content'
+          ? placement.collection
+          : undefined
+      ),
+    'Placement is not allowed by the manifest'
+  );
 const removeComponentSchema = z.strictObject({
   componentId: boundedComponentId,
   kind: z.literal('remove_component'),

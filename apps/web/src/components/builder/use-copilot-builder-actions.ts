@@ -3,6 +3,7 @@
 import { builderDesignCapabilities } from '@baci/shared/contracts';
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
 import type { Data } from '@puckeditor/core';
+import { sanitizeBuilderAiProps } from '@/lib/builder-ai/sanitize-builder-ai-props';
 import { COMPONENT_SCHEMA } from './component-schema';
 
 interface UseCopilotBuilderActionsProps {
@@ -14,6 +15,39 @@ function findCapability(componentType: string) {
   return builderDesignCapabilities.components.find(
     (capability) => capability.componentType === componentType
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseProps(value: string | undefined): Record<string, unknown> | null {
+  if (!value) return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function createUniqueComponentId(
+  componentType: string,
+  content: Data['content']
+) {
+  const base = `${componentType}-${Date.now()}`;
+  const ids = new Set(
+    content.flatMap((component) =>
+      typeof component.props.id === 'string' ? [component.props.id] : []
+    )
+  );
+  let id = base;
+  let suffix = 1;
+  while (ids.has(id)) {
+    id = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  return id;
 }
 
 /**
@@ -77,24 +111,19 @@ export function useCopilotBuilderActions({
         return `Component type is not insertable: ${componentType}.`;
       }
 
-      let parsedProps = {};
-      try {
-        if (props) {
-          parsedProps = JSON.parse(props);
-        }
-      } catch (e) {
-        console.warn('Failed to parse props JSON', e);
-      }
+      const parsedProps = parseProps(props);
+      if (!parsedProps) return 'Failed to parse props JSON.';
+      const sanitized = sanitizeBuilderAiProps(componentType, parsedProps);
+      const newContent = [...(data.content || [])];
 
       const newComponent = {
         type: componentType,
         props: {
-          id: `${componentType}-${Date.now()}`,
-          ...parsedProps,
+          id: createUniqueComponentId(componentType, newContent),
+          ...sanitized.props,
         },
       };
 
-      const newContent = [...(data.content || [])];
       if (position === -1 || position >= newContent.length) {
         newContent.push(newComponent);
       } else {
@@ -136,18 +165,18 @@ export function useCopilotBuilderActions({
         return `Component type is not editable: ${newContent[index].type}.`;
       }
 
-      let parsedUpdates = {};
-      try {
-        parsedUpdates = JSON.parse(updates);
-      } catch (_e) {
-        return 'Failed to parse updates JSON.';
-      }
+      const parsedUpdates = parseProps(updates);
+      if (!parsedUpdates) return 'Failed to parse updates JSON.';
+      const sanitized = sanitizeBuilderAiProps(
+        newContent[index].type,
+        parsedUpdates
+      );
 
       newContent[index] = {
         ...newContent[index],
         props: {
           ...newContent[index].props,
-          ...parsedUpdates,
+          ...sanitized.props,
         },
       };
 
@@ -171,6 +200,11 @@ export function useCopilotBuilderActions({
     handler: ({ index }) => {
       const newContent = [...(data.content || [])];
       if (index >= 0 && index < newContent.length) {
+        const target = newContent[index];
+        const capability = findCapability(target.type);
+        if (!capability?.aiEditable || capability.protected) {
+          return `Component type is not removable: ${target.type}.`;
+        }
         const removed = newContent.splice(index, 1)[0];
         setData({ ...data, content: newContent });
         return `Removed ${removed.type} at index ${index}.`;

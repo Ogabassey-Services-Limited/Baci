@@ -1,7 +1,7 @@
 export type BuilderDesignProp = {
   default?: unknown;
   enum?: string[];
-  item?: unknown;
+  item?: BuilderDesignItem;
   maximum?: number;
   maximumItems?: number;
   maximumLength?: number;
@@ -12,6 +12,10 @@ export type BuilderDesignProp = {
   wholeNumber?: boolean;
 };
 export type BuilderDesignProps = Record<string, BuilderDesignProp>;
+export type BuilderDesignItem = {
+  properties: BuilderDesignProps;
+  uniqueBy?: string;
+};
 export type BuilderDesignPlacement = {
   allowedCollections: string[];
   kind: 'content' | 'fixed';
@@ -21,6 +25,7 @@ export type BuilderDesignCapability = {
   aiInsertable: boolean;
   componentType: string;
   description: string;
+  initialProps?: Record<string, unknown>;
   placement: BuilderDesignPlacement;
   protected: boolean;
   props: BuilderDesignProps;

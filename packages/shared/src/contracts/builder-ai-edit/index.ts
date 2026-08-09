@@ -29,3 +29,4 @@ export * from './model-plan-proposed';
 export * from './model-plan-refused';
 export * from './operation-description';
 export * from './spacer-patch';
+export * from './validate-manifest-capability';

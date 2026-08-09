@@ -131,6 +131,48 @@ describe('useCopilotBuilderActions', () => {
     expect(setData).not.toHaveBeenCalled();
   });
 
+  it('does not let model props override generated ids or bypass the manifest on add', () => {
+    const setData = vi.fn();
+    renderHook(() => useCopilotBuilderActions({ data: createData(), setData }));
+
+    const result = getRegisteredAction('addComponent').handler({
+      componentType: 'Hero',
+      props:
+        '{"ctaLink":"javascript:alert(1)","id":"model-id","title":"Safe title","unknown":"ignored"}',
+    });
+
+    expect(result).toBe('Added Hero at position bottom.');
+    expect(setData).toHaveBeenCalledWith({
+      content: [
+        {
+          props: { id: 'Hero-1234', title: 'Safe title' },
+          type: 'Hero',
+        },
+      ],
+      root: { props: {} },
+    });
+  });
+
+  it('does not create a duplicate id when an existing component has the generated id', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([{ props: { id: 'Hero-1234' }, type: 'Hero' }]),
+        setData,
+      })
+    );
+
+    getRegisteredAction('addComponent').handler({ componentType: 'Hero' });
+
+    expect(setData).toHaveBeenCalledWith({
+      content: [
+        { props: { id: 'Hero-1234' }, type: 'Hero' },
+        { props: { id: 'Hero-1234-1' }, type: 'Hero' },
+      ],
+      root: { props: {} },
+    });
+  });
+
   it('updates a component with parsed JSON props', () => {
     const setData = vi.fn();
     renderHook(() =>
@@ -192,6 +234,35 @@ describe('useCopilotBuilderActions', () => {
     expect(setData).not.toHaveBeenCalled();
   });
 
+  it('keeps existing ids and ignores unsafe or unsupported model updates', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([
+          { props: { id: 'hero-1', title: 'Old title' }, type: 'Hero' },
+        ]),
+        setData,
+      })
+    );
+
+    const result = getRegisteredAction('updateComponent').handler({
+      index: 0,
+      updates:
+        '{"ctaLink":"javascript:alert(1)","id":"model-id","title":"New title","unknown":"ignored"}',
+    });
+
+    expect(result).toBe('Updated component at index 0.');
+    expect(setData).toHaveBeenCalledWith({
+      content: [
+        {
+          props: { id: 'hero-1', title: 'New title' },
+          type: 'Hero',
+        },
+      ],
+      root: { props: {} },
+    });
+  });
+
   it('removes a component at the requested index', () => {
     const setData = vi.fn();
     renderHook(() =>
@@ -211,6 +282,21 @@ describe('useCopilotBuilderActions', () => {
       content: [{ props: { id: 'grid-1' }, type: 'ProductGrid' }],
       root: { props: {} },
     });
+  });
+
+  it('refuses removal of a refused protected component', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([{ props: { id: 'code-1' }, type: 'CodeEmbed' }]),
+        setData,
+      })
+    );
+
+    expect(getRegisteredAction('removeComponent').handler({ index: 0 })).toBe(
+      'Component type is not removable: CodeEmbed.'
+    );
+    expect(setData).not.toHaveBeenCalled();
   });
 
   it('does not remove a component for an invalid index', () => {
