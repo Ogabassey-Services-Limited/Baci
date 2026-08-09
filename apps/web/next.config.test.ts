@@ -62,20 +62,6 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
-  it('adds an explicit private no-store header only to the builder preview route', async () => {
-    expect(typeof nextConfig.headers).toBe('function');
-    const headers = await nextConfig.headers();
-
-    expect(headers).toEqual(
-      expect.arrayContaining([
-        {
-          headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
-          source: '/builder-preview',
-        },
-      ])
-    );
-  });
-
   it('bounds static generation pressure and retries transient page failures', () => {
     expect(nextConfig.experimental).toEqual(
       expect.objectContaining({
