@@ -17,6 +17,7 @@ export function validGitRef(value) {
     typeof value !== 'string' ||
     !value ||
     value === '@' ||
+    value.startsWith('-') ||
     value.startsWith('/') ||
     value.endsWith('/') ||
     value.includes('..')
@@ -32,7 +33,6 @@ export function validGitRef(value) {
         !part.startsWith('.') &&
         !part.endsWith('.') &&
         !part.endsWith('.lock') &&
-        !part.startsWith('-') &&
         !part.includes('@{') &&
         validRefPart(part)
     );
