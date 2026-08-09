@@ -17,7 +17,7 @@ describe('agenticCommerceHealthCronQuerySchema', () => {
     }
   });
 
-  it('defaults to reporting attention without failing and no explicit slugs', () => {
+  it('parses an empty object with the expected defaults', () => {
     const result = agenticCommerceHealthCronQuerySchema.safeParse({});
 
     expect(result.success).toBe(true);
