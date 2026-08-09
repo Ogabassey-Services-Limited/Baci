@@ -71,7 +71,11 @@ describe('remediation case state storage', () => {
       'state.json'
     );
     const lockPath = `${path}.lock`;
-    writeFileSync(lockPath, 'stale');
+    writeFileSync(lockPath, JSON.stringify({
+      createdAt: '2026-08-09T10:00:00.000Z',
+      pid: 2_147_483_647,
+      token: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    }));
     const staleAt = Date.now() - 3 * 60 * 1_000;
     utimesSync(lockPath, staleAt / 1_000, staleAt / 1_000);
     let staleUnlink = true;
@@ -114,6 +118,29 @@ describe('remediation case state storage', () => {
     assert.throws(
       () => storage.withLock(Date.now(), null, () => { throw failure; }),
       (error) => error === failure
+    );
+  });
+
+  it('reclaims a stale case-state lock after its PID has been reused', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'baci-case-storage-pid-reuse-')), 'state.json');
+    const token = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    writeFileSync(`${path}.lock`, JSON.stringify({
+      createdAt: '2026-08-09T10:00:00.000Z',
+      pid: 42,
+      processStartedAt: 'original-process',
+      token,
+    }));
+    const storage = createRemediationCaseStateStorage({
+      createEmptyState: () => ({ version: 1 }),
+      isValidState: (state) => state?.version === 1,
+      path,
+      processIsAlive: () => true,
+      processStartedAt: () => 'reused-process',
+    });
+
+    assert.deepEqual(
+      storage.withLock(Date.parse('2026-08-09T10:05:00.000Z'), null, (state) => state),
+      { version: 1 }
     );
   });
 });

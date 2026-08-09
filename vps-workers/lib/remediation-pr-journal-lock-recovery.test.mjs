@@ -75,3 +75,30 @@ it('does not reclaim an old lock held by a live owner', () => {
     /remediation PR journal is busy/
   );
 });
+
+it('reclaims a stale journal lock after its PID has been reused', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'baci-pr-journal-pid-reuse-'));
+  const path = join(directory, 'journal.json');
+  const token = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const owner = JSON.stringify({
+    createdAt: '2026-08-09T10:00:00.000Z',
+    pid: 42,
+    processStartedAt: 'original-process',
+    token,
+  });
+  writeFileSync(`${path}.lock.owner-${token}`, owner);
+  writeFileSync(`${path}.lock`, owner);
+  const journal = createRemediationPrJournal({
+    now: () => Date.parse('2026-08-09T10:05:00.000Z'),
+    path,
+    processIsAlive: () => true,
+    processStartedAt: () => 'reused-process',
+  });
+
+  journal.record({
+    candidate: { caseKey: 'sentry:sentry_issue:pid-reuse', fingerprint: 'pid-reuse', observationMarker: '2026-08-09T10:00:00.000Z' },
+    result: { branch: 'codex/fix-pid-reuse', prUrl: 'https://github.com/baci/baci/pull/90' },
+  });
+
+  assert.equal(journal.entries().length, 1);
+});

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import {
   linkSync,
   mkdirSync,
@@ -104,7 +105,18 @@ function processIsAlive(pid) {
   }
 }
 
-function staleOwner(path, nowMs) {
+function processStartedAt(pid) {
+  try {
+    return execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf8',
+      timeout: 1_000,
+    }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function staleOwner(path, nowMs, isAlive, startedAt) {
   try {
     const owner = JSON.parse(readFileSync(`${path}.lock`, 'utf8'));
     return owner &&
@@ -113,7 +125,9 @@ function staleOwner(path, nowMs) {
       /^[a-f0-9-]{36}$/.test(owner.token) &&
       isIsoTimestamp(owner.createdAt) &&
       nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS &&
-      !processIsAlive(owner.pid)
+      (!isAlive(owner.pid) ||
+        (typeof owner.processStartedAt === 'string' &&
+          startedAt(owner.pid) !== owner.processStartedAt))
       ? owner
       : null;
   } catch {
@@ -129,7 +143,7 @@ function releaseOwnerPath(ownerPath) {
   }
 }
 
-function acquireLock(path, nowMs) {
+function acquireLock(path, nowMs, isAlive, startedAt) {
   const lockPath = `${path}.lock`;
   mkdirSync(dirname(path), { recursive: true });
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -140,6 +154,7 @@ function acquireLock(path, nowMs) {
       `${JSON.stringify({
         createdAt: new Date(nowMs).toISOString(),
         pid: process.pid,
+        processStartedAt: startedAt(process.pid),
         token,
       })}\n`,
       { flag: 'wx', mode: 0o600 }
@@ -150,7 +165,7 @@ function acquireLock(path, nowMs) {
     } catch (error) {
       releaseOwnerPath(ownerPath);
       if (error?.code !== 'EEXIST') throw error;
-      const stale = attempt === 0 ? staleOwner(path, nowMs) : null;
+      const stale = attempt === 0 ? staleOwner(path, nowMs, isAlive, startedAt) : null;
       if (stale) {
         unlinkSync(lockPath);
         releaseOwnerPath(`${lockPath}.owner-${stale.token}`);
@@ -171,8 +186,8 @@ function releaseLock(path, lock) {
   releaseOwnerPath(lock.ownerPath);
 }
 
-function withLock(path, nowMs, action) {
-  const lock = acquireLock(path, nowMs);
+function withLock(path, nowMs, action, isAlive, startedAt) {
+  const lock = acquireLock(path, nowMs, isAlive, startedAt);
   if (!lock) throw new Error(`remediation PR journal is busy at ${path}`);
   try {
     return action();
@@ -181,7 +196,12 @@ function withLock(path, nowMs, action) {
   }
 }
 
-export function createRemediationPrJournal({ now = () => Date.now(), path }) {
+export function createRemediationPrJournal({
+  now = () => Date.now(),
+  path,
+  processIsAlive: isAlive = processIsAlive,
+  processStartedAt: startedAt = processStartedAt,
+}) {
   return {
     entries: () => read(path),
     record({ candidate, result }) {
@@ -214,7 +234,7 @@ export function createRemediationPrJournal({ now = () => Date.now(), path }) {
         persist(path, [
           ...read(path).filter((item) => item.caseKey !== entry.caseKey),
           entry,
-        ])
+        ]), isAlive, startedAt
       );
       return entry;
     },
@@ -223,7 +243,7 @@ export function createRemediationPrJournal({ now = () => Date.now(), path }) {
         persist(
           path,
           read(path).filter((entry) => entry.caseKey !== caseKey)
-        )
+        ), isAlive, startedAt
       );
     },
   };
