@@ -33,7 +33,7 @@ function putOctal(header, offset, width, value) {
   checksum(header);
   return Buffer.concat([header, bytes, Buffer.alloc((512 - (bytes.length % 512)) % 512)]);
 } function sourceTar(entries) { return Buffer.concat([...entries.map(({ path, bytes, mode }) => tarEntry(path, bytes, mode)), Buffer.alloc(1024)]); } function fixture({ extra = [], omit } = {}) {
-  const policyBytes = Buffer.from(canonicalJson({ authority: {}, supplyChain: { node: { ownerDarwinArm64Sha256: '4'.repeat(64) } } }));
+  const policy = { authority: {}, supplyChain: { node: { ownerDarwinArm64Sha256: '4'.repeat(64) } }, supplyChainProvenance: { node: { checksumsSha256: '1'.repeat(64), keyringSha256: '2'.repeat(64), signatureSha256: '3'.repeat(64) } } }; const policyBytes = Buffer.from(canonicalJson(policy));
   const sourceEntries = [...TASK9_SOURCE_FILES, 'infra/cwv-runner/policy.json']
     .filter((path) => path !== omit)
     .concat(Array.isArray(extra) ? extra : [extra])
@@ -104,7 +104,7 @@ function putOctal(header, offset, width, value) {
     baseSha: 'b'.repeat(40),
     entries: [],
     mergeSha: 'c'.repeat(40),
-    policyCanonicalSha256: sha256(canonicalJson({ authority: {}, supplyChain: { node: { ownerDarwinArm64Sha256: '4'.repeat(64) } } })),
+    policyCanonicalSha256: sha256(canonicalJson(policy)),
     policyFileSha256: sha256(policyBytes),
     prNumber: 9,
     reviewedHeadSha: 'a'.repeat(40),
@@ -126,7 +126,7 @@ function putOctal(header, offset, width, value) {
   };
   envelope.source.manifestSha256 = sha256(manifestBytes);
   envelope.payload = { entries: Object.keys(files).sort().map((name) => ({ mode: files[name].mode, path: `payload/${name}`, sha256: sha256(files[name].bytes), type: 'file' })) };
-  return { archiveEntries, envelope, files, manifest };
+  return { archiveEntries, envelope, files, manifest, policy };
 }
 function rechecksum(value) { checksum(value.subarray(0, 512)); }
 test('canonical JSON is deterministic and rejects unsupported values', () => {
@@ -251,7 +251,7 @@ test('publishes its sealed authorization, not a caller-modified inspection tree'
   publishAuthorizedTree(authorized, (path, bytes) => writes.set(path, bytes));
   assert.equal(
     writes.get('infra/cwv-runner/policy.json').toString(),
-    canonicalJson({ authority: {}, supplyChain: { node: { ownerDarwinArm64Sha256: '4'.repeat(64) } } })
+    canonicalJson(value.policy)
   );
 });
 

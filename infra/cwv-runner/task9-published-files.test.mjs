@@ -12,27 +12,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
 import { readPublishedTask9Files } from './task9-published-files.mjs';
-
-const names = [
-  'manifest.json',
-  'manifest.sha256',
-  'source.tar',
-  'source.tar.sha256',
-  'task9-bootstrap.mjs',
-  'node',
-  'node-provenance.json',
-];
 
 function payloadFixture() {
   const root = mkdtempSync(join(tmpdir(), 'task9-published-files-fixture-'));
   const payload = join(root, 'payload');
   mkdirSync(payload, { mode: 0o700 });
-  for (const name of names) {
+  for (const [name, mode] of Object.entries(TASK9_PAYLOAD_FILES)) {
     writeFileSync(join(payload, name), name, {
-      mode: name === 'node' ? 0o500 : 0o400,
+      mode: Number.parseInt(mode.slice(3), 8),
     });
-    chmodSync(join(payload, name), name === 'node' ? 0o500 : 0o400);
+    chmodSync(join(payload, name), Number.parseInt(mode.slice(3), 8));
   }
   return { payload, root };
 }
@@ -44,11 +35,11 @@ test('revalidates every held payload child before final authorization', () => {
   try {
     writeFileSync(join(root, '.placeholder'), '');
     mkdirSync(payload, { mode: 0o700 });
-    for (const name of names) {
+    for (const [name, mode] of Object.entries(TASK9_PAYLOAD_FILES)) {
       writeFileSync(join(payload, name), name, {
-        mode: name === 'node' ? 0o500 : 0o400,
+        mode: Number.parseInt(mode.slice(3), 8),
       });
-      chmodSync(join(payload, name), name === 'node' ? 0o500 : 0o400);
+      chmodSync(join(payload, name), Number.parseInt(mode.slice(3), 8));
     }
     const held = readPublishedTask9Files(payload, owner, {
       afterRead() {

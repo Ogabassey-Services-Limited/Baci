@@ -223,7 +223,7 @@ export function generateTask9BootstrapBundle(
       writeExclusive(
         join(payloadDirectory, name),
         payload[name],
-        name === 'node' ? 0o500 : 0o400
+        Number.parseInt(MODES[name].slice(3), 8)
       );
     fsyncTask9Directory(payloadDirectory);
     const envelopePath = join(outputRoot, 'bootstrap-review-envelope.json');

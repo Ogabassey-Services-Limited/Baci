@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 
 const TAR = '/usr/bin/tar';
 const LIST_MAX_BYTES = 4 * 1024 * 1024;
+const TOOL_TIMEOUT_MS = 120_000;
 const TOOL_ENV = { PATH: '/usr/bin:/bin', LC_ALL: 'C', LANG: 'C' };
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const fail = (cause) => {
@@ -16,6 +17,7 @@ function listedNames(archiveBytes) {
       input: archiveBytes,
       encoding: 'utf8',
       maxBuffer: LIST_MAX_BYTES,
+      timeout: TOOL_TIMEOUT_MS,
     })
       .split('\n')
       .filter(Boolean);
@@ -60,6 +62,7 @@ export function verifyTask9NodeArchive({
       env: TOOL_ENV,
       input: archiveBytes,
       maxBuffer: Math.max(nodeBytes.length + 1, 1024 * 1024),
+      timeout: TOOL_TIMEOUT_MS,
     });
   } catch (error) {
     fail(error);

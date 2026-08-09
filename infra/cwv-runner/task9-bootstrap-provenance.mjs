@@ -42,13 +42,14 @@ export function checkedTask9Provenance(
     value.schemaVersion !== 1 ||
     value.sha256 !== hash(nodeBytes) ||
     value.executableSha256 !== hash(nodeBytes) ||
-    value.archiveSha256 !== policy.supplyChain?.node?.ownerDarwinArm64Sha256 ||
-    value.version !== policy.supplyChain?.node?.version ||
+    value.archiveSha256 !== policy?.supplyChain?.node?.ownerDarwinArm64Sha256 ||
+    value.version !== policy?.supplyChain?.node?.version ||
     value.checksumSha256 !==
-      policy.supplyChainProvenance?.node?.checksumsSha256 ||
-    value.keyringSha256 !== policy.supplyChainProvenance?.node?.keyringSha256 ||
+      policy?.supplyChainProvenance?.node?.checksumsSha256 ||
+    value.keyringSha256 !==
+      policy?.supplyChainProvenance?.node?.keyringSha256 ||
     value.signatureSha256 !==
-      policy.supplyChainProvenance?.node?.signatureSha256
+      policy?.supplyChainProvenance?.node?.signatureSha256
   )
     fail();
   verifyNodeArchive({

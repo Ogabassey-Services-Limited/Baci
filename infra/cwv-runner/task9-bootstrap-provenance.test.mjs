@@ -51,6 +51,12 @@ test('rejects executable or policy provenance drift', () => {
   for (const changed of [
     { ...provenance, executableSha256: 'e'.repeat(64) },
     { ...provenance, archiveSha256: 'f'.repeat(64) },
+    { ...provenance, checksumSha256: 'e'.repeat(64) },
+    { ...provenance, keyringSha256: 'e'.repeat(64) },
+    { ...provenance, signatureSha256: 'e'.repeat(64) },
+    { ...provenance, artifact: 'bun' },
+    { ...provenance, schemaVersion: 2 },
+    { ...provenance, extra: true },
   ])
     assert.throws(
       () =>
@@ -63,4 +69,44 @@ test('rejects executable or policy provenance drift', () => {
         ),
       /invalid Node provenance/
     );
+  assert.throws(
+    () =>
+      checkedTask9Provenance(
+        Buffer.from('{"artifact":"node"'),
+        node,
+        Buffer.from('archive'),
+        policy,
+        () => undefined
+      ),
+    /invalid Node provenance/
+  );
+  assert.throws(
+    () =>
+      checkedTask9Provenance(
+        Buffer.from(canonicalJson(provenance)),
+        node,
+        Buffer.from('archive'),
+        null,
+        () => undefined
+      ),
+    /invalid Node provenance/
+  );
+  const reordered = Buffer.from(
+    '{"version":"24.18.0","signatureSha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","sha256":"' +
+      hash(node) +
+      '","schemaVersion":1,"keyringSha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","executableSha256":"' +
+      hash(node) +
+      '","checksumSha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","artifact":"node","archiveSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+  );
+  assert.throws(
+    () =>
+      checkedTask9Provenance(
+        reordered,
+        node,
+        Buffer.from('archive'),
+        policy,
+        () => undefined
+      ),
+    /invalid Node provenance/
+  );
 });

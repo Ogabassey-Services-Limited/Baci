@@ -82,6 +82,27 @@ test('rejects non-commit and malformed-commit objects while authenticating symli
       () => authenticatedTreeRows(root, malformed),
       /malformed Git commit object/
     );
+    const oddTreeSha = execFileSync(
+      '/usr/bin/git',
+      [
+        '-C',
+        root,
+        'hash-object',
+        '--literally',
+        '-t',
+        'commit',
+        '-w',
+        '--stdin',
+      ],
+      {
+        input: `tree ${'a'.repeat(41)}\nauthor test <test@invalid> 0 +0000\ncommitter test <test@invalid> 0 +0000\n\nodd\n`,
+        encoding: 'utf8',
+      }
+    ).trim();
+    assert.throws(
+      () => authenticatedTreeRows(root, oddTreeSha),
+      /malformed Git commit object/
+    );
     execFileSync('/usr/bin/git', [
       '-C',
       root,

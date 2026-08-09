@@ -104,3 +104,36 @@ test('rejects a forged matching metadata and digest pair against the review lite
     rmSync(root, { force: true, recursive: true });
   }
 });
+
+test('rejects Git-invalid preserved head refs', () => {
+  const root = mkdtempSync(join(tmpdir(), 'task9-pr-metadata-ref-'));
+  try {
+    chmodSync(root, 0o700);
+    for (const headRef of [
+      'release//candidate',
+      'release/.hidden',
+      'release.lock',
+      'release/',
+      'release..',
+    ]) {
+      const value = {
+        baseSha: 'a'.repeat(40),
+        headRef,
+        number: 3302,
+        reviewedHeadSha: 'b'.repeat(40),
+      };
+      const bytes = Buffer.from(canonicalJson(value));
+      const path = join(root, 'metadata.json');
+      const digest = join(root, 'metadata.sha256');
+      writeFileSync(path, bytes, { mode: 0o600 });
+      writeFileSync(digest, `${hash(bytes)}\n`, { mode: 0o600 });
+      assert.throws(
+        () =>
+          readTask9PrMetadata(path, digest, { reviewedSha256: hash(bytes) }),
+        /preserved PR metadata/
+      );
+    }
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});

@@ -16,7 +16,9 @@ function checkedPath(path) {
 }
 
 function treeId(commit) {
-  const match = /^tree ([0-9a-f]{40,64})\n/.exec(commit.toString('utf8'));
+  const match = /^tree ((?:[0-9a-f]{40}|[0-9a-f]{64}))\n/.exec(
+    commit.toString('utf8')
+  );
   if (!match) fail('malformed Git commit object');
   return match[1];
 }
@@ -30,7 +32,7 @@ function listedTree(cwd, sha) {
     const bytes = Buffer.from(record, 'binary');
     const tab = bytes.indexOf(0x09);
     if (tab < 0) fail('malformed Git tree row');
-    const match = /^(\d{6}) (blob|tree) ([0-9a-f]{40,64})$/.exec(
+    const match = /^(\d{6}) (blob|tree) ((?:[0-9a-f]{40}|[0-9a-f]{64}))$/.exec(
       bytes.subarray(0, tab).toString('ascii')
     );
     if (!match) fail('malformed Git tree row');

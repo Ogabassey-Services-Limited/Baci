@@ -99,7 +99,7 @@ test('direct invocation rejects missing, duplicate, and unknown flags', () => {
     [...flags.slice(0, -2), '--cwd', '/other'],
     [...flags, '--json', '{}'],
     [...flags.slice(0, -2), 'constructor', '/private/tmp/unsafe'],
-    [...flags.slice(0, 2), '--deployment-sha', ''],
+    flags.map((value, index) => (index === 3 ? '' : value)),
   ]) {
     const result = spawnSync(process.execPath, [cli, ...argv], {
       encoding: 'utf8',

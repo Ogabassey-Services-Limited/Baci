@@ -18,7 +18,15 @@ function frozenInputs() {
   const root = mkdtempSync(join(tmpdir(), 'task9-generator-input-'));
   chmodSync(root, 0o700);
   const reviewedSha = git('rev-parse', 'HEAD');
-  const baseSha = git('rev-parse', 'HEAD^');
+  let baseSha;
+  try {
+    baseSha = git('rev-parse', 'HEAD^');
+  } catch (error) {
+    rmSync(root, { force: true, recursive: true });
+    throw new Error('task9 fixture requires a non-shallow checkout', {
+      cause: error,
+    });
+  }
   const paths = {
     manifest: join(root, 'frozen-manifest.json'),
     manifestDigest: join(root, 'frozen-manifest.sha256'),

@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { canonicalJson } from './canonical-json.mjs';
+import { validGitRef } from './git-ref-validator.mjs';
 import { readHeldTask9File } from './task9-held-file.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
-const REF = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 const fail = () => {
   throw new TypeError('invalid preserved PR metadata');
 };
@@ -46,9 +46,7 @@ export function readTask9PrMetadata(
       !Number.isSafeInteger(value.number) ||
       value.number < 1 ||
       typeof value.headRef !== 'string' ||
-      !REF.test(value.headRef) ||
-      value.headRef.includes('..') ||
-      value.headRef.includes('@{')
+      !validGitRef(value.headRef)
     )
       fail();
     return value;

@@ -4,7 +4,6 @@ import {
   fstatSync,
   lstatSync,
   openSync,
-  readFileSync,
   readSync,
 } from 'node:fs';
 import { resolve } from 'node:path';
@@ -19,6 +18,16 @@ const same = (left, right) =>
 const fail = (cause) => {
   throw new TypeError('unsafe Task 9 input', cause ? { cause } : undefined);
 };
+
+function readExact(fd, size) {
+  const bytes = Buffer.alloc(size);
+  for (let offset = 0; offset < bytes.length; ) {
+    const count = readSync(fd, bytes, offset, bytes.length - offset, offset);
+    if (count < 1) fail();
+    offset += count;
+  }
+  return bytes;
+}
 
 export function readHeldTask9File(
   path,
@@ -49,22 +58,11 @@ export function readHeldTask9File(
           before.size > maxBytes))
     )
       fail();
-    const bytes = readFileSync(fd);
+    const bytes = readExact(fd, before.size);
     afterRead();
     const verify = () => {
       if (closed) fail();
-      const currentBytes = Buffer.alloc(before.size);
-      for (let offset = 0; offset < currentBytes.length; ) {
-        const count = readSync(
-          fd,
-          currentBytes,
-          offset,
-          currentBytes.length - offset,
-          offset
-        );
-        if (count < 1) fail();
-        offset += count;
-      }
+      const currentBytes = readExact(fd, before.size);
       const after = fstatSync(fd);
       const current = lstatSync(absolute, { throwIfNoEntry: false });
       if (

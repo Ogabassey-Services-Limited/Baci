@@ -1,36 +1,11 @@
 import { canonicalJson } from './canonical-json.mjs';
+import { validGitRef } from './git-ref-validator.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
 const SHA = /^[a-f0-9]{40}$/;
 const fail = (message) => {
   throw new TypeError(message);
 };
-function validRef(value) {
-  if (
-    typeof value !== 'string' ||
-    !value ||
-    value === '@' ||
-    value.startsWith('/') ||
-    value.endsWith('/') ||
-    value.includes('..')
-  )
-    return false;
-  return value
-    .split('/')
-    .every(
-      (part) =>
-        part &&
-        part !== '.' &&
-        part !== '..' &&
-        !part.startsWith('.') &&
-        !part.endsWith('.') &&
-        !part.endsWith('.lock') &&
-        !part.startsWith('-') &&
-        !part.includes('@{') &&
-        /^[A-Za-z0-9._-]+$/.test(part)
-    );
-}
-
 export function checkedTask9Identity(input, manifest, policy, prMetadata) {
   const repository = policy.repository;
   if (
@@ -49,7 +24,7 @@ export function checkedTask9Identity(input, manifest, policy, prMetadata) {
     !SHA.test(manifest.mergeSha) ||
     input.deploymentSha !== manifest.mergeSha ||
     manifest.baseSha === manifest.reviewedHeadSha ||
-    !validRef(input.headRef) ||
+    !validGitRef(input.headRef) ||
     !Number.isSafeInteger(input.workflowId) ||
     input.workflowId < 1 ||
     !DIGEST.test(input.admissionId) ||
