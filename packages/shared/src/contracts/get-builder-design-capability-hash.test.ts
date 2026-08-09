@@ -3,6 +3,15 @@ import { builderDesignCapabilities } from './builder-design-capabilities';
 import { getBuilderDesignCapabilityHash } from './get-builder-design-capability-hash';
 
 describe('getBuilderDesignCapabilityHash', () => {
+  it('returns the canonical lowercase SHA-256 digest without a prefix', () => {
+    const hash = getBuilderDesignCapabilityHash({ b: 2, a: 1 });
+
+    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(hash).toBe(
+      '43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777'
+    );
+  });
+
   it('is stable for semantically identical capability data across calls', () => {
     const reordered = {
       components: builderDesignCapabilities.components,
@@ -38,5 +47,14 @@ describe('getBuilderDesignCapabilityHash', () => {
     expect(getBuilderDesignCapabilityHash({ refusal: 'Blocked 😀' })).not.toBe(
       getBuilderDesignCapabilityHash({ refusal: 'Blocked 😁' })
     );
+  });
+
+  it('preserves recursive canonical key order while excluding capabilityHash', () => {
+    expect(
+      getBuilderDesignCapabilityHash({
+        nested: { beta: 2, alpha: 1 },
+        capabilityHash: 'stale',
+      })
+    ).toBe(getBuilderDesignCapabilityHash({ nested: { alpha: 1, beta: 2 } }));
   });
 });
