@@ -159,5 +159,26 @@ export function createRemediationCaseCandidateNormalizer() {
     };
   }
 
-  return { normalize, sanitize };
+  function normalizeAll(candidates) {
+    const byObservation = new Map();
+    for (const rawCandidate of candidates) {
+      const candidate = normalize(rawCandidate);
+      if (!candidate) continue;
+      const key = `${candidate.caseKey}\n${candidate.observationMarker}`;
+      const existing = byObservation.get(key);
+      if (
+        !existing ||
+        candidate.occurrences > existing.occurrences ||
+        (candidate.occurrences === existing.occurrences &&
+          (candidate.firstSeen < existing.firstSeen ||
+            (candidate.firstSeen === existing.firstSeen &&
+              JSON.stringify(candidate) < JSON.stringify(existing))))
+      ) {
+        byObservation.set(key, candidate);
+      }
+    }
+    return [...byObservation.values()];
+  }
+
+  return { normalize, normalizeAll, sanitize };
 }

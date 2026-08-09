@@ -73,6 +73,26 @@ describe('remediation case state', () => {
     assert.equal(stored.recurrenceCount, 1);
   });
 
+  it('deduplicates an exact canonical observation before it can consume another selection', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-case-duplicate-'));
+    const state = createRemediationCaseState({
+      now: () => Date.parse('2026-08-01T10:04:00.000Z'),
+      path: join(directory, 'cases.json'),
+    });
+    const duplicate = candidate({
+      occurrences: 5,
+      sample: { ...candidate().sample, message: 'More complete evidence' },
+    });
+
+    const reconciled = state.reconcile([candidate(), duplicate]);
+    const stored = state.snapshot().cases['sentry:sentry_issue:issue-42'];
+
+    assert.equal(reconciled.length, 1);
+    assert.equal(reconciled[0].occurrences, 5);
+    assert.equal(stored.recurrenceCount, 0);
+    assert.equal(stored.totalObservations, 5);
+  });
+
   it('fails closed for corrupt or schema-invalid persisted case state', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-case-corrupt-'));
     const path = join(directory, 'cases.json');

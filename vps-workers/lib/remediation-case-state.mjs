@@ -88,9 +88,7 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
       const nowMs = now();
       return storage.withLock(nowMs, [], (state) => {
         quietStaleCases(state, nowMs);
-        const normalized = candidates
-          .map(candidateNormalizer.normalize)
-          .filter(Boolean);
+        const normalized = candidateNormalizer.normalizeAll(candidates);
         const observedCandidates = [];
         for (const candidate of normalized) {
           const existing = state.cases[candidate.caseKey];

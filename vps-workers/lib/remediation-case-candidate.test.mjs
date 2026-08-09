@@ -82,4 +82,30 @@ describe('remediation case candidate normalizer', () => {
     assert.equal(normalized.category, 'unknown_error');
     assert.equal(normalized.caseKey, 'unknown:unknown_error:unknown-source');
   });
+
+  it('keeps the same highest-occurrence representative for duplicate observations', () => {
+    const normalizer = createRemediationCaseCandidateNormalizer();
+    const lower = {
+      fingerprint: 'duplicate',
+      firstSeen: '2026-08-09T10:00:00.000Z',
+      lastSeen: '2026-08-09T10:01:00.000Z',
+      occurrences: 2,
+      sample: { message: 'lower', source: 'sentry' },
+      source: 'sentry',
+    };
+    const higher = {
+      ...lower,
+      firstSeen: '2026-08-09T09:59:00.000Z',
+      occurrences: 5,
+      sample: { message: 'higher', source: 'sentry' },
+    };
+
+    const first = normalizer.normalizeAll([lower, higher]);
+    const second = normalizer.normalizeAll([higher, lower]);
+
+    assert.deepEqual(first, second);
+    assert.equal(first.length, 1);
+    assert.equal(first[0].occurrences, 5);
+    assert.equal(first[0].sample.message, 'higher');
+  });
 });
