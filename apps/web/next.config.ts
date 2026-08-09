@@ -345,9 +345,6 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '2mb',
     },
 
-    // Enable View Transitions API (React 19.2 feature)
-    viewTransition: true,
-
     // Bundle optimization - tree-shake large libraries
     optimizePackageImports: [
       'lucide-react',
