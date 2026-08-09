@@ -16,10 +16,12 @@ describe('remediation report', () => {
           firstSeen: '2026-05-19T10:00:00.000Z',
           lastSeen: '2026-05-19T10:05:00.000Z',
           sample: {
+            category: 'Error tracking issue',
             route: '/api/products',
             message: 'TypeError: Cannot read properties of undefined',
             deploymentId: 'dpl_123',
             issueId: '987654321',
+            source: 'posthog',
           },
         },
       ],
@@ -30,6 +32,8 @@ describe('remediation report', () => {
     assert.match(report.subject, /Baci production-error-remediator/);
     assert.match(report.text, /abc123/);
     assert.match(report.text, /sentryIssue=987654321/);
+    assert.match(report.text, /source=posthog/);
+    assert.match(report.text, /category=Error tracking issue/);
     assert.match(report.text, /prompt_written/);
     assert.match(report.html, /TypeError/);
   });

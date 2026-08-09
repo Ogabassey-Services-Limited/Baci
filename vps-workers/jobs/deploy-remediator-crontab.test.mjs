@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const workerRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('remediation deploy crontab', () => {
-  it('serializes Vercel and Sentry remediation behind one global Codex lock', () => {
+  it('serializes Vercel, Sentry, and PostHog remediation behind one global Codex lock', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 
     assert.match(
@@ -17,6 +17,10 @@ describe('remediation deploy crontab', () => {
     assert.match(
       deployScript,
       /sentry-mobile-error-remediator\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock/
+    );
+    assert.match(
+      deployScript,
+      /posthog-error-remediator\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock/
     );
   });
 
@@ -31,7 +35,7 @@ describe('remediation deploy crontab', () => {
       deployScript.match(
         /export BACI_CODEX_DOCKER_IMAGE=\$CODEX_REMEDIATOR_IMAGE/g
       )?.length,
-      2
+      3
     );
     assert.match(deployScript, /CODEX_CONTAINER_BIN=.*find/);
     assert.ok(
@@ -41,7 +45,7 @@ describe('remediation deploy crontab', () => {
     assert.equal(
       deployScript.match(/BACI_CODEX_CONTAINER_BIN=\$CODEX_CONTAINER_BIN/g)
         ?.length,
-      2
+      3
     );
   });
 });

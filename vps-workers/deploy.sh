@@ -114,6 +114,7 @@ $CRON_BLOCK_START
 */2 * * * * flock -n $REMOTE_DIR/locks/cache-invalidations.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/drain-cache-invalidations' >> $REMOTE_DIR/logs/cache-invalidations.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock flock -n $REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/sentry-mobile-error-remediator.lock flock -n $REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/sentry-mobile-error-remediator.mjs' >> $REMOTE_DIR/logs/sentry-mobile-error-remediator.log 2>&1
+7-59/15 * * * * flock -n $REMOTE_DIR/locks/posthog-error-remediator.lock flock -n $REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/posthog-error-remediator.mjs' >> $REMOTE_DIR/logs/posthog-error-remediator.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/ollama-workload.lock flock -n $REMOTE_DIR/locks/agentic-commerce-health.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/agentic-commerce-health' >> $REMOTE_DIR/logs/agentic-commerce-health.log 2>&1
 0 */6  * * * flock -n $REMOTE_DIR/locks/inventory-push-alerts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/inventory/push-alerts' >> $REMOTE_DIR/logs/inventory-push-alerts.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/sync-jumia-orders.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/sync-jumia-orders.sh' >> $REMOTE_DIR/logs/sync-jumia-orders.log 2>&1
@@ -250,10 +251,15 @@ echo "         CRON_SECRET=..."
 echo "         VERCEL_ERROR_LOG_PATH=$REMOTE_DIR/logs/vercel-drain.jsonl"
 echo "         BACI_REMEDIATION_OUTPUT_DIR=$REMOTE_DIR/logs/vercel-error-remediator"
 echo "         BACI_SENTRY_REMEDIATION_OUTPUT_DIR=$REMOTE_DIR/logs/sentry-mobile-error-remediator"
+echo "         BACI_POSTHOG_REMEDIATION_OUTPUT_DIR=$REMOTE_DIR/logs/posthog-error-remediator"
+echo "         BACI_POSTHOG_REMEDIATION_ENABLED=0 # set 1 only after PostHog read credentials are installed"
 echo "         BACI_REMEDIATION_AUTOFIX_ENABLED=0"
 echo "         SENTRY_REMEDIATION_AUTH_TOKEN=... # dedicated token with event:read"
 echo "         SENTRY_ORG=..."
 echo "         SENTRY_PROJECT=..."
+echo "         POSTHOG_REMEDIATION_HOST=https://eu.posthog.com"
+echo "         POSTHOG_REMEDIATION_PROJECT_ID=..."
+echo "         POSTHOG_REMEDIATION_PERSONAL_API_KEY=... # dedicated personal key with error_tracking:read"
 echo "         VERCEL_LOG_DRAIN_SECRET=..."
 echo "         VERCEL_LOG_DRAIN_RECEIVER_PORT=8787"
 echo "         OLLAMA_STOREFRONT_BASE_URL=http://localhost:11434"

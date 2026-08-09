@@ -104,6 +104,8 @@ IMPORT_JOB_TRIGGER_PORT=3918
 VERCEL_ERROR_LOG_PATH=/home/bassey/baci-workers/logs/vercel-drain.jsonl
 BACI_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/vercel-error-remediator
 BACI_SENTRY_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/sentry-mobile-error-remediator
+BACI_POSTHOG_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/posthog-error-remediator
+BACI_POSTHOG_REMEDIATION_ENABLED=0
 BACI_REMEDIATION_MIN_OCCURRENCES=2
 BACI_REMEDIATION_AUTOFIX_ENABLED=0
 BACI_REPO_DIR=/opt/baci/app
@@ -116,6 +118,10 @@ SENTRY_REMEDIATION_AUTH_TOKEN=...
 SENTRY_ORG=...
 SENTRY_PROJECT=...
 SENTRY_URL=https://sentry.io/
+POSTHOG_REMEDIATION_HOST=https://eu.posthog.com
+POSTHOG_REMEDIATION_PROJECT_ID=...
+POSTHOG_REMEDIATION_PERSONAL_API_KEY=...
+BACI_POSTHOG_REMEDIATION_MAX_PAGES=1
 VERCEL_LOG_DRAIN_SECRET=...
 VERCEL_LOG_DRAIN_RECEIVER_PORT=8787
 IMPORT_JOB_RETENTION_DAYS=30
@@ -156,6 +162,8 @@ Variable purposes:
 - `VERCEL_ERROR_LOG_PATH`: JSONL file written by the Vercel log-drain receiver or log export process. Each line must be one Vercel log event JSON object.
 - `BACI_REMEDIATION_OUTPUT_DIR`: Directory where the remediator writes Codex prompts and reports.
 - `BACI_SENTRY_REMEDIATION_OUTPUT_DIR`: Separate prompt/state directory for native mobile Sentry issues.
+- `BACI_POSTHOG_REMEDIATION_OUTPUT_DIR`: Separate prompt/state directory for PostHog Error Tracking issues.
+- `BACI_POSTHOG_REMEDIATION_ENABLED`: Explicit opt-in for the PostHog remediator. It defaults to `0`; set it to `1` only after the dedicated PostHog credentials are installed.
 - `BACI_REMEDIATION_STATE_PATH`: Optional deduplication state path. The worker records each fingerprint and last-seen observation atomically so unchanged incidents do not wake Codex repeatedly.
 - `BACI_REMEDIATION_MIN_OCCURRENCES`: Minimum repeated fingerprint count before the worker creates remediation work. Default is `2`.
 - `BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN`: Maximum candidates investigated during one worker tick. Defaults to `1` and is capped at `10` so a noisy backlog cannot monopolize the worker.
@@ -170,6 +178,8 @@ Variable purposes:
 - `BACI_REMEDIATION_NOTIFY_EMAILS`: Comma-separated report recipients. Requires `ZEPTOMAIL_TOKEN`; `ZEPTOMAIL_FROM_DOMAIN` defaults to `usebaci.com`.
 - `SENTRY_REMEDIATION_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_URL`: Server-only Sentry issue API configuration used by the mobile remediator. Use a dedicated token with `event:read`; release/source-map upload credentials are not sufficient. These values are deliberately removed from the Codex and test subprocess environments.
 - `BACI_SENTRY_REMEDIATION_MAX_PAGES`: Maximum Sentry issue pages inspected before failing closed. Each page requests Sentry's maximum 100 issues; default is `10` and the hard cap is `50`.
+- `POSTHOG_REMEDIATION_HOST`, `POSTHOG_REMEDIATION_PROJECT_ID`, `POSTHOG_REMEDIATION_PERSONAL_API_KEY`: Server-only PostHog Error Tracking API configuration. Create a separate personal API key limited to `error_tracking:read`; do not reuse a `phc_` project ingestion key, a source-map upload key, or a general automation credential. The worker rejects ingestion-key-shaped values before any network request and never passes this key to Codex or test subprocesses.
+- `BACI_POSTHOG_REMEDIATION_MAX_PAGES`: Maximum offset pages inspected before failing closed. The worker requests at most 100 issue summaries per page, defaults to `1`, and has a hard cap of `10` pages.
 - `VERCEL_LOG_DRAIN_SECRET`: Shared secret used to verify Vercel Drain HMAC signatures before appending log events.
 - `VERCEL_LOG_DRAIN_RECEIVER_PORT`: Local receiver port proxied by nginx. Default is `8787`.
 - `IMPORT_JOB_RETENTION_DAYS`: Days to keep terminal import job previews and migration CSVs before cleanup. Default is `30`.
