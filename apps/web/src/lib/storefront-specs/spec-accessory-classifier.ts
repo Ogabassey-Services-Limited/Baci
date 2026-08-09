@@ -15,6 +15,10 @@ const ACCESSORY_CATEGORY_MARKERS = [
   'bag',
   'dock',
   'hub',
+  'band',
+  'strap',
+  'protector',
+  'grip',
 ];
 
 export function isAccessoryLikeCategory(categoryName: string) {

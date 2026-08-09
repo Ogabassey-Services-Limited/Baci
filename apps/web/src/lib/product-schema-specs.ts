@@ -1,6 +1,7 @@
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import type { Product } from './products';
 import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
+import { isAccessoryLikeCategory } from './storefront-specs/spec-accessory-classifier';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
 import { isCameraLikeCategory } from './storefront-specs/spec-taxonomy';
 
@@ -26,25 +27,6 @@ const CAMERA_KEY_SPEC_KEYS = new Set(
     category.fields.map((field) => field.key)
   )
 );
-
-const ACCESSORY_CATEGORY_MARKERS = [
-  'accessor',
-  'accessories',
-  'accessory',
-  'case',
-  'cases',
-  'keyboard',
-  'charger',
-  'cover',
-  'stand',
-  'cable',
-  'adapter',
-  'mouse',
-  'sleeve',
-  'bag',
-  'dock',
-  'hub',
-];
 
 const PHONE_TABLET_LAPTOP_CATEGORY_WORDS = new Set([
   'cell',
@@ -119,18 +101,14 @@ const AUDIO_CAPABILITY_LABELS = new Set([
 ]);
 
 function normalizeCategoryName(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function isAccessoryLikeCategory(categoryName: string) {
-  return ACCESSORY_CATEGORY_MARKERS.some((marker) =>
-    new RegExp(`(^|[^a-z])${marker}(s)?([^a-z]|$)`).test(categoryName)
-  );
+  return value.trim().toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ');
 }
 
 function getProductCategoryNames(product: ProductCategorySource) {
   const preferredCategory =
-    product.categories?.name?.trim() || product.category;
+    product.categories?.name?.trim() ||
+    product.categories?.slug?.trim() ||
+    product.category;
   return preferredCategory?.trim()
     ? [normalizeCategoryName(preferredCategory)]
     : [];
@@ -168,21 +146,22 @@ export function shouldIncludeProductSchemaSpec(
   candidate: ProductSchemaSpecCandidate
 ) {
   const categoryNames = getProductCategoryNames(product);
-  if (categoryNames.length === 0) {
-    return true;
-  }
-
   const hasNonPhoneCategory = categoryNames.some(
     (categoryName) =>
       isCameraLikeCategory(categoryName) ||
       !isPhoneTabletLaptopCategory(categoryName)
   );
-  if (!hasNonPhoneCategory) {
+  const isMobileCategory = categoryNames.length > 0 && !hasNonPhoneCategory;
+  if (isMobileCategory) {
     return true;
   }
 
+  if (isUnsupportedSpecValue(candidate.value)) {
+    return false;
+  }
+
   if (candidate.key === 'card_slot_type') {
-    return !isUnsupportedSpecValue(candidate.value);
+    return true;
   }
 
   const hasCameraCategory = categoryNames.some(isCameraLikeCategory);
@@ -199,9 +178,8 @@ export function shouldIncludeProductSchemaSpec(
   if (
     hasCameraCategory &&
     cameraSpecKey &&
-    ((!CAMERA_KEY_SPEC_KEYS.has(cameraSpecKey) &&
-      !AUDIO_CAPABILITY_SPEC_KEYS.has(cameraSpecKey)) ||
-      isUnsupportedSpecValue(candidate.value))
+    !CAMERA_KEY_SPEC_KEYS.has(cameraSpecKey) &&
+    !AUDIO_CAPABILITY_SPEC_KEYS.has(cameraSpecKey)
   ) {
     return false;
   }
@@ -217,7 +195,7 @@ export function shouldIncludeProductSchemaSpec(
 
   if (candidate.key && PHONE_ONLY_SPEC_KEYS.has(candidate.key)) {
     if (AUDIO_CAPABILITY_SPEC_KEYS.has(candidate.key)) {
-      return !isUnsupportedSpecValue(candidate.value);
+      return true;
     }
     return false;
   }
@@ -231,15 +209,15 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   if (normalizedLabel === 'card slot' || normalizedLabel === 'ois') {
-    return !isUnsupportedSpecValue(candidate.value);
+    return true;
   }
 
   if (normalizedLabel === 'operating system' || normalizedLabel === 'os') {
-    return !isUnsupportedSpecValue(candidate.value);
+    return true;
   }
 
   if (AUDIO_CAPABILITY_LABELS.has(normalizedLabel)) {
-    return !isUnsupportedSpecValue(candidate.value);
+    return true;
   }
 
   return false;

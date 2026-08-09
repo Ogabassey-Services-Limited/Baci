@@ -8,6 +8,17 @@ describe('isAccessoryLikeCategory', () => {
     expect(isAccessoryLikeCategory('Camera Accessories')).toBe(true);
   });
 
+  it('recognizes bands, straps, protectors, and grips as accessories', () => {
+    for (const category of [
+      'Smartwatch Bands',
+      'Watch Straps',
+      'Screen Protectors',
+      'Camera Grip',
+    ]) {
+      expect(isAccessoryLikeCategory(category)).toBe(true);
+    }
+  });
+
   it('does not classify ordinary devices as accessories', () => {
     expect(isAccessoryLikeCategory('Smartphones')).toBe(false);
     expect(isAccessoryLikeCategory('Cameras')).toBe(false);

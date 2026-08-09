@@ -20,6 +20,11 @@ describe('spec family classifier', () => {
   it('does not classify ordinary device accessories as cameras', () => {
     expect(getProductSpecFamily('Phone Accessories')).toBe('general');
     expect(getProductSpecFamily('Laptop Keyboard')).toBe('general');
+    expect(getProductSpecFamily('Smartwatch Bands')).toBe('general');
+    expect(getProductSpecFamily('Watch Straps')).toBe('general');
+    expect(getProductSpecFamily('Screen Protectors')).toBe('general');
+    expect(getProductSpecFamily('Gaming Grip')).toBe('general');
+    expect(getProductSpecFamily('Camera Grip')).toBe('camera');
   });
 
   it('covers mobile, computer, and undefined category fallbacks', () => {
