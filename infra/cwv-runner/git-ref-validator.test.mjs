@@ -5,6 +5,7 @@ import { validGitRef } from './git-ref-validator.mjs';
 
 test('accepts safe Git refs and rejects Git-invalid components', () => {
   assert.equal(validGitRef('release/2026.08'), true);
+  assert.equal(validGitRef('feature/foo+bar'), true);
   for (const value of [
     'release//candidate',
     'release/.hidden',

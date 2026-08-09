@@ -20,6 +20,6 @@ export function validGitRef(value) {
         !part.endsWith('.lock') &&
         !part.startsWith('-') &&
         !part.includes('@{') &&
-        /^[A-Za-z0-9._-]+$/.test(part)
+        /^[A-Za-z0-9._+-]+$/.test(part)
     );
 }
