@@ -38,13 +38,36 @@ const fail = (message) => {
 };
 const pathCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
 
-function git(cwd, args, encoding = 'utf8') {
+function git(cwd, args, encoding = 'utf8', input) {
   return execFileSync(TRUSTED_GIT, args, {
     cwd,
     encoding,
+    input,
     env: trustedGitEnvironment(),
     maxBuffer: LIMITS.archive * 8,
   });
+}
+
+const verifiedObjects = new Set();
+function verifyObjects(cwd, objectIds) {
+  const ids = [...new Set(objectIds)].filter((id) => !verifiedObjects.has(`${cwd}\0${id}`));
+  if (!ids.length) return;
+  const output = git(cwd, ['cat-file', '--batch'], null, `${ids.join('\n')}\n`);
+  let offset = 0;
+  for (const objectId of ids) {
+    const headerEnd = output.indexOf(0x0a, offset);
+    if (headerEnd < 0) fail('malformed Git object response');
+    const [reported, type, sizeText] = output.subarray(offset, headerEnd).toString('utf8').split(' ');
+    const size = Number(sizeText);
+    const start = headerEnd + 1;
+    if (reported !== objectId || !/^(blob|commit|tree|tag)$/.test(type) || !Number.isSafeInteger(size) || size < 0 || output.length < start + size + 1) fail('malformed Git object response');
+    const bytes = output.subarray(start, start + size);
+    const algorithm = objectId.length === 64 ? 'sha256' : 'sha1';
+    const actual = createHash(algorithm).update(Buffer.concat([Buffer.from(`${type} ${size}\0`), bytes])).digest('hex');
+    if (actual !== objectId) fail('Git object hash mismatch');
+    verifiedObjects.add(`${cwd}\0${objectId}`);
+    offset = start + size + 1;
+  }
 }
 
 function checkedSha(value, field) {
@@ -81,6 +104,8 @@ function treeRows(cwd, sha, prefix = '') {
     if (type !== 'blob') fail('non-blob source-tree leaf');
     rows.push({ path, mode: checkedMode(mode), objectId });
   }
+  const tree = git(cwd, ['rev-parse', `${sha}^{tree}`]).trim();
+  verifyObjects(cwd, [sha, tree, ...rows.map(({ objectId }) => objectId)]);
   return rows.sort((left, right) => pathCompare(left.path, right.path));
 }
 
@@ -94,6 +119,7 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
   checkedSha(baseSha, 'base SHA');
   checkedSha(reviewedHeadSha, 'reviewed head SHA');
   checkedSha(mergeSha, 'merge SHA');
+  verifyObjects(cwd, [baseSha, reviewedHeadSha, mergeSha]);
   const output = git(cwd, ['diff', '--name-status', '-z', '--no-renames', baseSha, reviewedHeadSha], null);
   const entries = [];
   for (let index = 0, fields = output.toString('utf8').split('\0'); index < fields.length - 1; index += 2) {

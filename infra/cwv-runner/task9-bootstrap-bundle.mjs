@@ -1,6 +1,6 @@
 // biome-ignore-all format: compact fail-closed generator stays below the 300-line limit
 import { createHash, randomBytes } from 'node:crypto';
-import { closeSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
+import { closeSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,7 +25,7 @@ const MODES = Object.freeze({
   'source.tar.sha256': '100400',
   'task9-bootstrap.mjs': '100400',
 });
-const CHECKOUT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const CHECKOUT_ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const fail = (message) => { throw new TypeError(message); };
 const exact = (value, keys) =>
@@ -125,7 +125,10 @@ export function generateTask9BootstrapBundle(
     lstatSync(outputRoot, { throwIfNoEntry: false })
   )
     fail('unsafe Task 9 output');
-  if (resolve(input.cwd) !== CHECKOUT_ROOT) fail('unsafe Task 9 checkout');
+  let checkout;
+  try { checkout = realpathSync(input.cwd); }
+  catch { fail('unsafe Task 9 checkout'); }
+  if (checkout !== CHECKOUT_ROOT) fail('unsafe Task 9 checkout');
   const manifestInput = readHeldTask9File(input.sourceManifestPath, 0o600);
   const manifestDigestInput = readHeldTask9File(input.sourceManifestDigestPath, 0o600);
   const archiveInput = readHeldTask9File(input.sourceArchivePath, 0o600);
@@ -170,7 +173,7 @@ export function generateTask9BootstrapBundle(
   beforeVerify();
   const verifiedManifest = verifySourceManifest({
     baseSha: manifest.baseSha,
-    cwd: input.cwd,
+    cwd: checkout,
     input: manifestInput.path,
     inputDigest: manifestDigestInput.path,
     mergeSha: manifest.mergeSha,

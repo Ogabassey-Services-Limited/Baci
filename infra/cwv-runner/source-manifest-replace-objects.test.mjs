@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { deflateSync } from 'node:zlib';
 
 import { freezeSourceManifest } from './source-manifest.mjs';
 
@@ -89,6 +90,30 @@ test('ignores Git replacement refs while freezing the literal reviewed commit', 
       ({ path }) => path === 'infra/cwv-runner/a.mjs'
     );
     assert.equal(entry.blobSha256, sha256(Buffer.from('real\n')));
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+    rmSync(output, { recursive: true, force: true });
+  }
+});
+
+test('refuses a loose Git object whose bytes do not hash to its named id', () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'cwv-object-integrity-'));
+  const output = mkdtempSync(join(tmpdir(), 'cwv-object-output-'));
+  try {
+    mkdirSync(join(fixture, 'infra/cwv-runner'), { recursive: true });
+    for (const name of ['policy.json', 'canonical-json.mjs', 'policy.schema.mjs', 'source-archive.mjs', 'source-manifest.mjs']) writeFileSync(join(fixture, 'infra/cwv-runner', name), readFileSync(join(root, 'infra/cwv-runner', name)));
+    writeFileSync(join(fixture, 'infra/cwv-runner', 'vps-ssh.sh'), '#!/bin/sh\nexit 64\n');
+    chmodSync(join(fixture, 'infra/cwv-runner', 'vps-ssh.sh'), 0o755);
+    writeFileSync(join(fixture, 'infra/cwv-runner', 'a.mjs'), 'real\n');
+    git(fixture, ['init', '-q']);
+    git(fixture, ['add', '.']);
+    git(fixture, ['-c', 'user.name=test', '-c', 'user.email=test@invalid', 'commit', '-qm', 'base']);
+    const reviewed = git(fixture, ['rev-parse', 'HEAD']);
+    const object = git(fixture, ['rev-parse', 'HEAD:infra/cwv-runner/a.mjs']);
+    const objectPath = join(fixture, '.git', 'objects', object.slice(0, 2), object.slice(2));
+    chmodSync(objectPath, 0o600);
+    writeFileSync(objectPath, deflateSync(Buffer.from('blob 10\0forged\n')));
+    assert.throws(() => freezeSourceManifest({ baseSha: reviewed, cwd: fixture, mergeSha: reviewed, output: join(output, 'manifest.json'), outputDigest: join(output, 'manifest.sha256'), prNumber: 1, reviewedHeadSha: reviewed, sourceArchive: join(output, 'source.tar'), sourceArchiveDigest: join(output, 'source.tar.sha256') }), /Git object hash mismatch|malformed Git object response/);
   } finally {
     rmSync(fixture, { recursive: true, force: true });
     rmSync(output, { recursive: true, force: true });
