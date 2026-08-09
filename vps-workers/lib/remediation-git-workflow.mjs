@@ -127,7 +127,7 @@ export function runRemediationAutofix({
   });
   const { branch } = prReconciler;
   let cleanupCompletedWorktree = false;
-  let worktreeCreated = false;
+  let cleanupWorktreeOnCompletion = false;
   try {
     runChecked('git', ['fetch', 'origin', 'main'], rootRemoteCommandOptions);
     const existingPrUrl = prReconciler.existingDraftPrUrl();
@@ -163,8 +163,8 @@ export function runRemediationAutofix({
         ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
         rootCommandOptions
       );
-      worktreeCreated = true;
     }
+    cleanupWorktreeOnCompletion = true;
     const worktreeCommandOptions = { cwd: worktreeDir, env: childEnv, runner };
     const worktreeGitCommandOptions = {
       cwd: worktreeDir,
@@ -225,6 +225,7 @@ export function runRemediationAutofix({
       hasUnresolvedThreads: false,
     });
     if (!policy.allowed) {
+      if (retainedWorktreeDir) cleanupCompletedWorktree = true;
       return {
         branch,
         changedFiles,
@@ -286,7 +287,7 @@ export function runRemediationAutofix({
       worktreeDir,
     };
   } finally {
-    if (worktreeCreated && cleanupCompletedWorktree) {
+    if (cleanupWorktreeOnCompletion && cleanupCompletedWorktree) {
       cleanupRemediationWorktree({ childEnv, repoDir, runner, worktreeDir });
     }
   }

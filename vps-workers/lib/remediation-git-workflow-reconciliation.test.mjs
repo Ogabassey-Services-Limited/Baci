@@ -118,9 +118,92 @@ describe('remediation git workflow reconciliation', () => {
       );
       assert.equal(
         calls.some((call) => call.join(' ').includes('worktree remove')),
-        false
+        true
       );
     }
+  });
+
+  it('cleans a retained worktree after no-change or policy-blocked retries', () => {
+    for (const [statusOutput, type] of [
+      ['', 'no_changes'],
+      [' M apps/web/src/proxy.ts', 'policy_blocked'],
+    ]) {
+      const { calls, runner: baseRunner } = makeRunner({ statusOutput });
+      let branch = '';
+      const runner = (command, args, options) => {
+        if (command === 'git' && args.includes('ls-remote')) {
+          branch = args.at(-1);
+        }
+        if (
+          command === 'git' &&
+          args.join(' ') === 'worktree list --porcelain'
+        ) {
+          return {
+            status: 0,
+            stdout: `worktree /worktrees/retained\nHEAD deadbeef\nbranch refs/heads/${branch}\n`,
+            stderr: '',
+          };
+        }
+        return baseRunner(command, args, options);
+      };
+
+      const result = runRemediationAutofix({
+        candidate,
+        env: {
+          BACI_REMEDIATION_RUN_ID: 'terminal-retry',
+          BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+          BACI_REPO_DIR: '/repo',
+          BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+        },
+        runner,
+      });
+
+      assert.equal(result.type, type);
+      assert.equal(
+        calls.some(
+          (call) =>
+            call.join(' ') === 'git worktree remove --force /worktrees/retained'
+        ),
+        true
+      );
+    }
+  });
+
+  it('preserves a retained worktree when Codex fails again', () => {
+    const { calls, runner: baseRunner } = makeRunner();
+    let branch = '';
+    const runner = (command, args, options) => {
+      if (command === 'git' && args.includes('ls-remote')) branch = args.at(-1);
+      if (command === 'git' && args.join(' ') === 'worktree list --porcelain') {
+        return {
+          status: 0,
+          stdout: `worktree /worktrees/retained\nHEAD deadbeef\nbranch refs/heads/${branch}\n`,
+          stderr: '',
+        };
+      }
+      if (command === 'codex') {
+        return { status: 1, stdout: '', stderr: 'Codex execution failed' };
+      }
+      return baseRunner(command, args, options);
+    };
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {
+            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+            BACI_REPO_DIR: '/repo',
+            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+          },
+          runner,
+        }),
+      /Codex execution failed/
+    );
+    assert.equal(
+      calls.some((call) => call.join(' ').includes('worktree remove')),
+      false
+    );
   });
 
   it('reuses the registered branch worktree when an unset run ID changes the retry directory', () => {
