@@ -11,7 +11,12 @@ export const STOREFRONT_EDGE_PROXY_BLOG_QUERY_ROWS: readonly InventoryRow[] = [
     ['GET', 'HEAD'],
     'edge_redirect',
     'canonical_blog_query_normalization',
-    { pathCondition: { precedence: 'before_path_decision', predicate: 'legacy_blog_thumbnail_query' } }
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_blog_thumbnail_query',
+      },
+    }
   ),
   createStorefrontEdgeProxyClass(
     'proxy:slug-blog-query-canonical',
@@ -19,6 +24,11 @@ export const STOREFRONT_EDGE_PROXY_BLOG_QUERY_ROWS: readonly InventoryRow[] = [
     ['GET', 'HEAD'],
     'edge_redirect',
     'canonical_blog_query_normalization',
-    { pathCondition: { precedence: 'before_path_decision', predicate: 'legacy_blog_thumbnail_query' } }
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'legacy_blog_thumbnail_query',
+      },
+    }
   ),
 ];
