@@ -21,8 +21,16 @@ describe('STOREFRONT_EDGE_MACHINE_ROWS', () => {
       'HEAD',
       'OPTIONS',
     ]);
-    expect(byId.get('machine:robots')?.methods).toEqual(['GET', 'HEAD']);
-    expect(byId.get('machine:manifest')?.methods).toEqual(['GET', 'HEAD']);
+    expect(byId.get('machine:robots')?.methods).toEqual([
+      'GET',
+      'HEAD',
+      'OPTIONS',
+    ]);
+    expect(byId.get('machine:manifest')?.methods).toEqual([
+      'GET',
+      'HEAD',
+      'OPTIONS',
+    ]);
     expect(byId.get('machine:next-image')?.methods).toEqual(['ANY']);
   });
 
