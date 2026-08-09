@@ -4,6 +4,9 @@ import { isStorefrontRequiredApiSourcePath } from './storefront-edge-api-source-
 describe('isStorefrontRequiredApiSourcePath', () => {
   it('admits reviewed customer storefront APIs and excludes control-plane handlers', () => {
     expect(
+      isStorefrontRequiredApiSourcePath('apps/web/src/app/api/orders/route.ts')
+    ).toBe(true);
+    expect(
       isStorefrontRequiredApiSourcePath(
         'apps/web/src/app/api/storefront/orders/[id]/route.ts'
       )

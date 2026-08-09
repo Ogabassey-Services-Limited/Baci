@@ -16,4 +16,22 @@ describe('STOREFRONT_EDGE_PROXY_TAIL_ROWS', () => {
     );
     expect(ids).toContain('proxy:platform-root-slug-sitemap');
   });
+
+  it('keeps request-aware root sitemaps on the origin', () => {
+    // Arrange
+    const byId = new Map(
+      STOREFRONT_EDGE_PROXY_TAIL_ROWS.map((row) => [row.id, row])
+    );
+
+    // Act and assert
+    for (const id of ['proxy:root-sitemap', 'proxy:subdomain-sitemap']) {
+      expect(byId.get(id)).toEqual(
+        expect.objectContaining({
+          decision: 'origin_dynamic',
+          methods: ['GET', 'HEAD', 'OPTIONS'],
+          sourcePath: 'apps/web/src/app/sitemap.ts',
+        })
+      );
+    }
+  });
 });

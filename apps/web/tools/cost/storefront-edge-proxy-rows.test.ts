@@ -28,7 +28,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     expect(
       byId.get('proxy:legacy-terms-of-service-custom-domain')?.routePattern
     ).toBe('/terms-of-service');
-    expect(byId.get('proxy:root-sitemap')?.decision).toBe('edge_release');
+    expect(byId.get('proxy:root-sitemap')?.decision).toBe('origin_dynamic');
   });
 
   it('contains explicit unknown-path and unsupported-method terminal classes', () => {
@@ -64,7 +64,11 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     expect(byId.get('proxy:root-domain-retired-slug-markdown')).toEqual(
       expect.objectContaining({
         decision: 'edge_redirect',
-        hostCondition: { hostKind: 'platform_root_domain' },
+        methods: ['GET', 'HEAD'],
+        hostCondition: expect.objectContaining({
+          hostKind: 'platform_root_domain',
+          precedence: 'before_path_decision',
+        }),
       })
     );
     expect(byId.get('proxy:auth-confirm')).toEqual(

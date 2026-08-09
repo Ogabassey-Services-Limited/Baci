@@ -46,7 +46,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       'proxy:api-prefix-passthrough',
       'proxy:custom-domain-platform-route',
     ]);
-    expect(rows.find((row) => row.id === 'api:unlisted')).toEqual(
+    expect(STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
   });
@@ -121,7 +121,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
             '__next_preview_data,__prerender_bypass'
       )
     ).toBe(true);
-    expect(rows.find((row) => row.id === 'api:unlisted')).toEqual(
+    expect(STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
   });
@@ -174,25 +174,44 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         }),
       })
     );
+    const productQueryRows = queryRows.filter(({ id }) =>
+      id.includes('product-category')
+    );
+    const listingQueryRows = queryRows.filter(
+      ({ id }) =>
+        !id.includes('product-category') &&
+        id !== 'request-override:query-dependent-compare-root' &&
+        id !== 'request-override:query-dependent-category-compare'
+    );
+    expect(productQueryRows).toHaveLength(2);
     expect(
-      queryRows
-        .filter(
-          (row) =>
-            row.id !== 'request-override:query-dependent-compare-root' &&
-            row.id !== 'request-override:query-dependent-category-compare'
-        )
-        .every(
-          (row) =>
-            row.decision === 'origin_dynamic' &&
-            row.requestCondition?.anyQueryKeyPresent?.includes('page') &&
-            row.requestCondition.matchedStorefrontEntrypointId ===
-              `storefront:${row.sourcePath?.replace(
-                'apps/web/src/app/(storefront)/[slug]/',
-                ''
-              )}` &&
-            row.requestCondition.precedence ===
-              'after_entrypoint_resolution_before_decision'
-        )
+      productQueryRows.every(
+        (row) =>
+          row.decision === 'origin_dynamic' &&
+          row.requestCondition?.anyQueryPresent === true &&
+          row.requestCondition.anyQueryKeyPresent === undefined &&
+          row.requestCondition.matchedStorefrontEntrypointId ===
+            `storefront:${row.sourcePath?.replace(
+              'apps/web/src/app/(storefront)/[slug]/',
+              ''
+            )}` &&
+          row.requestCondition.precedence ===
+            'after_entrypoint_resolution_before_decision'
+      )
+    ).toBe(true);
+    expect(
+      listingQueryRows.every(
+        (row) =>
+          row.decision === 'origin_dynamic' &&
+          row.requestCondition?.anyQueryKeyPresent?.includes('page') &&
+          row.requestCondition.matchedStorefrontEntrypointId ===
+            `storefront:${row.sourcePath?.replace(
+              'apps/web/src/app/(storefront)/[slug]/',
+              ''
+            )}` &&
+          row.requestCondition.precedence ===
+            'after_entrypoint_resolution_before_decision'
+      )
     ).toBe(true);
     expect(byId.get('request-override:query-dependent-compare-root')).toEqual(
       expect.objectContaining({

@@ -16,6 +16,10 @@ export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
     '-c',
     'core.hooksPath=/dev/null',
     '-c',
+    'gc.auto=0',
+    '-c',
+    'maintenance.auto=0',
+    '-c',
     'user.name=Inventory Test',
     '-c',
     'user.email=inventory@example.invalid',
@@ -64,6 +68,10 @@ export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
       path: 'orders/[id]/route.ts',
       source:
         'export async function GET() {}\nexport async function PATCH() {}\n',
+    },
+    {
+      path: 'orders/route.ts',
+      source: 'export async function POST() {}\n',
     },
   ];
   for (const route of apiRoutes) {

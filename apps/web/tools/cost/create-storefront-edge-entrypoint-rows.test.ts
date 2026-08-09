@@ -64,7 +64,7 @@ describe('createStorefrontEdgeEntrypointRows', () => {
       )
     ).toEqual(
       expect.objectContaining({
-        decision: 'edge_release',
+        decision: 'origin_dynamic',
         methods: ['OPTIONS'],
         reason: 'automatic_options_response',
       })

@@ -3,6 +3,7 @@ import { STOREFRONT_EDGE_NEXT_REDIRECT_ROWS } from './storefront-edge-next-redir
 import { STOREFRONT_EDGE_PROXY_BLOG_QUERY_ROWS } from './storefront-edge-proxy-blog-query-rows';
 import { STOREFRONT_EDGE_PROXY_BLOG_STATUS_ROWS } from './storefront-edge-proxy-blog-status-rows';
 import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
+import { STOREFRONT_EDGE_PROXY_REWRITE_ROWS } from './storefront-edge-proxy-rewrite-rows';
 import { STOREFRONT_EDGE_PROXY_TAIL_ROWS } from './storefront-edge-proxy-tail-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
@@ -11,61 +12,7 @@ const proxyClass = createStorefrontEdgeProxyClass;
 
 /** Closed directional classes mirrored from the current storefront proxy. */
 export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
-  proxyClass(
-    'proxy:auth-confirm',
-    '/auth/confirm',
-    ['GET', 'HEAD', 'OPTIONS'],
-    'origin_dynamic',
-    'custom_domain_auth_confirmation',
-    {
-      hostCondition: {
-        hostKind: 'custom_domain',
-        precedence: 'before_path_decision',
-      },
-      sourcePath: 'apps/web/src/app/auth/confirm/route.ts',
-    }
-  ),
-  proxyClass(
-    'proxy:root-domain-retired-slug-markdown',
-    '/{retiredSlug}/{*storefrontMarkdownPath}.md',
-    ['GET', 'HEAD', 'OPTIONS'],
-    'edge_redirect',
-    'retired_storefront_alias_redirect',
-    {
-      hostCondition: {
-        hostKind: 'platform_root_domain',
-        precedence: 'before_path_decision',
-      },
-      pathCondition: {
-        precedence: 'before_path_decision',
-        predicate: 'retired_storefront_slug_prefix',
-      },
-    }
-  ),
-  proxyClass(
-    'proxy:markdown-mirror',
-    '/{*storefrontMarkdownPath}.md',
-    ['GET', 'HEAD', 'OPTIONS'],
-    'origin_dynamic',
-    'storefront_markdown_api_rewrite'
-  ),
-  proxyClass(
-    'proxy:api-prefix-passthrough',
-    '/{*apiPrefixPath?}',
-    ['ANY'],
-    'origin_dynamic',
-    'proxy_api_prefix_passthrough',
-    {
-      hostCondition: {
-        hostKind: 'platform_subdomain',
-        precedence: 'before_path_decision',
-      },
-      pathCondition: {
-        precedence: 'before_path_decision',
-        predicate: 'api_prefix_passthrough',
-      },
-    }
-  ),
+  ...STOREFRONT_EDGE_PROXY_REWRITE_ROWS,
   proxyClass(
     'proxy:blog-wordpress-probe',
     '/{*blogProbePath}',

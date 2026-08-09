@@ -3,10 +3,9 @@ import { STOREFRONT_EDGE_MACHINE_ROWS } from './storefront-edge-machine-rows';
 import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-source-paths';
 import { STOREFRONT_EDGE_PROXY_ROWS } from './storefront-edge-proxy-rows';
 import { STOREFRONT_EDGE_PUBLIC_ASSET_ROWS } from './storefront-edge-public-asset-rows';
+import { STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS } from './storefront-edge-query-dependent-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
-
-const STOREFRONT_ROUTE_SOURCE_PREFIX = 'apps/web/src/app/(storefront)/[slug]/';
 
 const API_TERMINAL_ROW: InventoryRow = {
   decision: 'edge_terminal',
@@ -97,114 +96,6 @@ const MARKDOWN_NEGOTIATION_ROWS: readonly InventoryRow[] = [
   sourcePath: 'next.config.ts',
 }));
 
-const QUERY_DEPENDENT_ENTRYPOINTS = [
-  {
-    id: 'blog-root',
-    routePattern: '/blog',
-    sourcePath: 'apps/web/src/app/(storefront)/[slug]/(blog)/blog/page.tsx',
-  },
-  {
-    id: 'blog-author',
-    routePattern: '/blog/author/{authorSlug}',
-    sourcePath:
-      'apps/web/src/app/(storefront)/[slug]/(blog)/blog/author/[authorSlug]/page.tsx',
-  },
-  {
-    id: 'blog-category',
-    routePattern: '/blog/category/{categorySlug}',
-    sourcePath:
-      'apps/web/src/app/(storefront)/[slug]/(blog)/blog/category/[categorySlug]/page.tsx',
-  },
-  {
-    id: 'compare-root',
-    routePattern: '/compare',
-    sourcePath:
-      'apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/compare/page.tsx',
-  },
-  {
-    id: 'category-root',
-    routePattern: '/{category}',
-    sourcePath:
-      'apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/page.tsx',
-  },
-  {
-    id: 'category-compare',
-    routePattern: '/{category}/compare',
-    sourcePath:
-      'apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/compare/page.tsx',
-  },
-  {
-    id: 'products-root',
-    routePattern: '/products',
-    sourcePath:
-      'apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/products/page.tsx',
-  },
-  {
-    id: 'product-categoryless',
-    routePattern: '/products/{productSlug}',
-    sourcePath:
-      'apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/page.tsx',
-  },
-  {
-    id: 'product-category',
-    routePattern: '/{category}/{productSlug}',
-    sourcePath:
-      'apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx',
-  },
-] as const;
-
-const QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
-  QUERY_DEPENDENT_ENTRYPOINTS.map(({ id, routePattern, sourcePath }) => {
-    if (!sourcePath.startsWith(STOREFRONT_ROUTE_SOURCE_PREFIX))
-      throw new Error(
-        `query-dependent entrypoint is outside the storefront route root: ${sourcePath}`
-      );
-    const isCompareHub = id === 'compare-root' || id === 'category-compare';
-    return {
-      decision: 'origin_dynamic',
-      id: `request-override:query-dependent-${id}`,
-      methods: ['GET', 'HEAD'],
-      reason: 'query_dependent_storefront_render',
-      requestCondition: {
-        ...(isCompareHub
-          ? {
-              anyQueryPresent: true as const,
-              anyQueryPresentExcept: ['__baci_metadata_cache_bucket'],
-            }
-          : {
-              anyQueryKeyPresent: [
-                'brand',
-                'brands',
-                'color',
-                'colors',
-                'condition',
-                'category',
-                'displaySize',
-                'displayType',
-                'maxPrice',
-                'minPrice',
-                'page',
-                'q',
-                'query',
-                'ram',
-                'search',
-                'simType',
-                'storage',
-                'variantId',
-                'variant_id',
-              ],
-            }),
-        matchedStorefrontEntrypointId: `storefront:${sourcePath.slice(
-          STOREFRONT_ROUTE_SOURCE_PREFIX.length
-        )}`,
-        precedence: 'after_entrypoint_resolution_before_decision',
-      },
-      routePattern,
-      sourceKind: 'request_override',
-      sourcePath,
-    };
-  });
-
 const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
   {
     decision: 'origin_dynamic',
@@ -243,13 +134,13 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     scope: 'approved_pilot_hosts_and_complete_browser_automatic_traffic',
     zeroDenominatorVerdict: 'NOT_PROVEN',
   },
+  apiTerminalRow: API_TERMINAL_ROW,
   extraRows: [
-    API_TERMINAL_ROW,
     ...DRAFT_MODE_ROWS,
     ...ROUTER_DATA_ROWS,
     ...AUTH_SESSION_ROWS,
     ...MARKDOWN_NEGOTIATION_ROWS,
-    ...QUERY_DEPENDENT_ROWS,
+    ...STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS,
     ...STOREFRONT_EDGE_MACHINE_ROWS,
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
     ...SERVER_ACTION_ROWS,
@@ -304,6 +195,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
   ],
   schemaVersion: 5,
 } as const satisfies {
+  apiTerminalRow: InventoryRow;
   completeBrowserPathClasses: readonly string[];
   eligibleDenominatorPolicy: StorefrontEdgeInventory['eligibleDenominatorPolicy'];
   extraRows: readonly InventoryRow[];

@@ -15,7 +15,12 @@ const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   for (const directory of temporaryDirectories.splice(0)) {
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, {
+      force: true,
+      maxRetries: 5,
+      recursive: true,
+      retryDelay: 100,
+    });
   }
 });
 

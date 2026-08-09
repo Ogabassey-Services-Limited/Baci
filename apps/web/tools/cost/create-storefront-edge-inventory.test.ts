@@ -27,7 +27,14 @@ function joinTemporaryRoot(name: string) {
 }
 afterEach(async () => {
   await Promise.all(
-    temporaryRoots.splice(0).map((root) => rm(root, { recursive: true }))
+    temporaryRoots.splice(0).map((root) =>
+      rm(root, {
+        force: true,
+        maxRetries: 5,
+        recursive: true,
+        retryDelay: 100,
+      })
+    )
   );
 });
 
@@ -192,8 +199,23 @@ describe('createStorefrontEdgeInventory', () => {
     ).toBeLessThan(
       inventory.rows.findIndex(({ id }) => id === 'proxy:unsupported-method')
     );
+    const apiRowIndexes = inventory.rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => row.sourceKind === 'api_route')
+      .map(({ index }) => index);
+    expect(inventory.rows.findIndex(({ id }) => id === 'api:unlisted')).toBe(
+      Math.max(...apiRowIndexes) + 1
+    );
+    expect(
+      inventory.rows.findIndex(({ id }) => id === 'api:unlisted')
+    ).toBeLessThan(
+      inventory.rows.findIndex(
+        ({ sourceKind }) => sourceKind === 'storefront_entrypoint'
+      )
+    );
     for (const requiredId of [
       'api-route:events/route.ts',
+      'api-route:orders/route.ts',
       'api-route:orders/[id]/route.ts',
       'api:unlisted',
       'next:user-legacy',
