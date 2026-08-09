@@ -86,7 +86,42 @@ describe('remediation notification retry', () => {
     ]);
   });
 
-  it('bounds an outage retry batch and defers each failed notification', async () => {
+  it('reschedules instead of reporting success when acknowledgement fails', async () => {
+    const scheduled = [];
+    const result = await retryRemediationNotifications({
+      env: {
+        BACI_REMEDIATION_NOTIFY_EMAILS: 'ops@example.com',
+        ZEPTOMAIL_TOKEN: 'token',
+      },
+      fetchFn: async () => new Response('{}', { status: 200 }),
+      logger: { error: () => undefined },
+      now: () => Date.parse('2026-08-09T10:00:00.000Z'),
+      state: {
+        acknowledgeNotification: () => false,
+        notifications: () => [
+          {
+            id: 'notice-ack-failed',
+            report: { html: '<p>x</p>', subject: 'x', text: 'x' },
+          },
+        ],
+        scheduleNotificationRetry: (id, nextAttemptAt) =>
+          scheduled.push({ id, nextAttemptAt }),
+      },
+      workerName: 'test-remediator',
+    });
+
+    assert.deepEqual(scheduled, [
+      { id: 'notice-ack-failed', nextAttemptAt: '2026-08-09T10:01:00.000Z' },
+    ]);
+    assert.deepEqual(result.actions, [
+      {
+        detail: 'remediation notification acknowledgement failed',
+        type: 'email_retry_failed',
+      },
+    ]);
+  });
+
+  it('bounds an outage retry batch and schedules each below-cap failure', async () => {
     const calls = [];
     const scheduled = [];
     const secret = ['sk', 'live', 'abcdefghijklmnopqrstuvwxyz'].join('_');
@@ -131,5 +166,43 @@ describe('remediation notification retry', () => {
       result.actions.some((action) => action.detail.includes(secret)),
       false
     );
+  });
+
+  it('acknowledges an exhausted notification without rescheduling it', async () => {
+    const acknowledgements = [];
+    const errors = [];
+    const result = await retryRemediationNotifications({
+      env: {
+        BACI_REMEDIATION_NOTIFY_EMAILS: 'ops@example.com',
+        ZEPTOMAIL_TOKEN: 'token',
+      },
+      fetchFn: () => {
+        throw new Error('network unavailable');
+      },
+      logger: { error: (...args) => errors.push(args) },
+      state: {
+        acknowledgeNotification: (id) => {
+          acknowledgements.push(id);
+          return true;
+        },
+        notifications: () => [
+          {
+            attempts: 5,
+            id: 'notice-exhausted',
+            report: { html: '<p>x</p>', subject: 'x', text: 'x' },
+          },
+        ],
+        scheduleNotificationRetry: () => {
+          throw new Error('must not reschedule an exhausted notification');
+        },
+      },
+      workerName: 'test-remediator',
+    });
+
+    assert.deepEqual(acknowledgements, ['notice-exhausted']);
+    assert.deepEqual(result.actions, [
+      { detail: 'notice-exhausted', type: 'email_retry_exhausted' },
+    ]);
+    assert.match(errors[0][0], /notification retry exhausted/);
   });
 });

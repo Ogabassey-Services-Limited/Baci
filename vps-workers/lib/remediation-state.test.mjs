@@ -231,6 +231,12 @@ describe('remediation state', () => {
       .deferred;
     assert.equal(deferred.attempts, 1);
     assert.equal(deferred.nextAttemptAt, '2026-08-09T10:01:00.000Z');
+    assert.deepEqual(
+      state
+        .notifications({ nowMs: Date.parse('2026-08-09T10:01:00.000Z') })
+        .map((entry) => entry.id),
+      ['due', 'deferred']
+    );
   });
 
   it('expires and caps notifications after inserting a new report', () => {

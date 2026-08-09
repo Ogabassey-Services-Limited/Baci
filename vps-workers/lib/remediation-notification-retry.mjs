@@ -7,6 +7,7 @@ const DEFAULT_RETRY_DELAY_MS = 60 * 1_000;
 const DEFAULT_TIMEOUT_MS = 10 * 1_000;
 const MAX_RETRY_BATCH_SIZE = 20;
 const MAX_RETRY_DELAY_MS = 60 * 60 * 1_000;
+const MAX_RETRY_ATTEMPTS = 5;
 const MAX_TIMEOUT_MS = 30 * 1_000;
 
 function configuredPositiveInt(env, name, fallback, maximum) {
@@ -57,19 +58,40 @@ export async function retryRemediationNotifications({
       if (email.skipped)
         actions.push({ detail: notification.id, type: 'email_skipped' });
       else {
-        state.acknowledgeNotification(notification.id);
+        if (!state.acknowledgeNotification(notification.id)) {
+          throw new Error('remediation notification acknowledgement failed');
+        }
         actions.push({ detail: notification.id, type: 'email_retried' });
       }
     } catch (error) {
       const safeError = redactCodexError(error);
       const detail = safeError.message;
-      state.scheduleNotificationRetry(
-        notification.id,
-        new Date(nowMs + retryDelayMs(notification.attempts)).toISOString()
-      );
-      logger.error(`[${workerName}] report email retry failed:`, safeError);
-      actions.push({ detail, type: 'email_retry_failed' });
-      email = { error: detail, skipped: true };
+      if (notification.attempts >= MAX_RETRY_ATTEMPTS) {
+        if (state.acknowledgeNotification(notification.id)) {
+          logger.error(`[${workerName}] notification retry exhausted`);
+          actions.push({
+            detail: notification.id,
+            type: 'email_retry_exhausted',
+          });
+        } else {
+          logger.error(
+            `[${workerName}] exhausted notification acknowledgement failed`
+          );
+          actions.push({
+            detail: 'remediation notification acknowledgement failed',
+            type: 'email_retry_exhausted_acknowledgement_failed',
+          });
+        }
+        email = { reason: 'notification retry exhausted', skipped: true };
+      } else {
+        state.scheduleNotificationRetry(
+          notification.id,
+          new Date(nowMs + retryDelayMs(notification.attempts)).toISOString()
+        );
+        logger.error(`[${workerName}] report email retry failed:`, safeError);
+        actions.push({ detail, type: 'email_retry_failed' });
+        email = { error: detail, skipped: true };
+      }
     }
   }
   return { actions, email };
