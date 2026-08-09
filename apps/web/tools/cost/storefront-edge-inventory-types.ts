@@ -20,11 +20,13 @@ type StorefrontEdgeInventoryRow = Readonly<{
   hostCondition?:
     | Readonly<{
         hostKind: 'platform_subdomain';
+        hostnameIn?: readonly string[];
         precedence: 'before_path_decision';
         requiresActiveCanonicalCustomDomain?: true;
       }>
     | Readonly<{
         hostKind: 'custom_domain';
+        hostnameIn?: readonly string[];
         precedence: 'before_path_decision';
       }>
     | Readonly<{
@@ -33,6 +35,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
       }>
     | Readonly<{
         hostKind: 'platform_root_domain';
+        hostnameIn?: readonly string[];
         precedence: 'before_path_decision';
         requiresActiveCanonicalCustomDomain?: true;
       }>;
@@ -43,6 +46,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
     anyCookiePresent?: readonly string[];
     anyHeaderMatch?: readonly Readonly<{ name: string; value?: string }>[];
     anyQueryPresent?: true;
+    anyQueryKeyPresent?: readonly string[];
     matchedStorefrontEntrypointDecision?: 'edge_release';
     matchedStorefrontEntrypointId?: string;
     pathMembership?: 'current_origin_next_build_manifest';

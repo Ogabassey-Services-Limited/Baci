@@ -60,6 +60,21 @@ const REDIRECTS = [
   ['next:slug-privacy-policy', '/{slug}/privacy-policy'],
 ] as const;
 
+const OGABASSEY_HOSTS = ['ogabassey.com', 'www.ogabassey.com'] as const;
+const OGABASSEY_REDIRECT_IDS = new Set([
+  'next:macbook',
+  'next:samsung',
+  'next:phones',
+  'next:oppo',
+  'next:product-category-accessories',
+  'next:product-category-headphones',
+  'next:product-category-smartwatches',
+  'next:product-category',
+  'next:category-product',
+  'next:blog-off-topic-malami',
+  'next:blog-off-topic-reserves',
+]);
+
 /** Reviewed redirect surfaces declared by apps/web/next.config.ts. */
 export const STOREFRONT_EDGE_NEXT_REDIRECT_ROWS: readonly InventoryRow[] =
   REDIRECTS.map(([id, routePattern]) =>
@@ -68,6 +83,15 @@ export const STOREFRONT_EDGE_NEXT_REDIRECT_ROWS: readonly InventoryRow[] =
       routePattern,
       ['GET', 'HEAD'],
       'edge_redirect',
-      'next_config_redirect'
+      'next_config_redirect',
+      OGABASSEY_REDIRECT_IDS.has(id)
+        ? {
+            hostCondition: {
+              hostKind: 'custom_domain',
+              hostnameIn: OGABASSEY_HOSTS,
+              precedence: 'before_path_decision',
+            },
+          }
+        : {}
     )
   );

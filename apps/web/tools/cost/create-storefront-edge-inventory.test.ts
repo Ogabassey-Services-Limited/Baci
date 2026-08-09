@@ -178,8 +178,8 @@ describe('createStorefrontEdgeInventory', () => {
     const rowIds = new Set(inventory.rows.map((row) => row.id));
 
     // Assert
-    expect(inventory.rows.map((row) => row.id)).toEqual(
-      [...inventory.rows.map((row) => row.id)].sort()
+    expect(new Set(inventory.rows.map((row) => row.id)).size).toBe(
+      inventory.rows.length
     );
     for (const requiredId of [
       'api-route:events/route.ts',

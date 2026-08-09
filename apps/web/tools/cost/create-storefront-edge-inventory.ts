@@ -111,9 +111,9 @@ export async function createStorefrontEdgeInventory(
         )
     )
   );
-  const rows = [...apiRows, ...entrypointRows, ...extraRows].sort(
-    (left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
-  );
+  // Preserve reviewed source order: proxy rows are precedence-sensitive, so
+  // canonicalization must not reorder them by identifier.
+  const rows = [...apiRows, ...entrypointRows, ...extraRows];
   if (new Set(rows.map(({ id }) => id)).size !== rows.length)
     throw new Error('storefront edge inventory contains duplicate row IDs');
   const payload = {
