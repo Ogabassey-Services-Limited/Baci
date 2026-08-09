@@ -288,4 +288,24 @@ describe('getProductConnectivityDiscriminators', () => {
       )
     ).toEqual(['corei7', 'rtx4060']);
   });
+
+  it('retains explicit laptop RAM alongside storage', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Lenovo ThinkPad T14 8GB RAM 512GB'],
+        [],
+        'laptops'
+      )
+    ).toEqual(['8gb', '512gb']);
+  });
+
+  it('retains compact decimal dimensions as one PDP discriminator', () => {
+    expect(
+      getProductConnectivityDiscriminators(
+        ['Apple iPad Pro 12.9inch'],
+        [],
+        'tablets'
+      )
+    ).toEqual(['12.9inch']);
+  });
 });

@@ -5,6 +5,7 @@ import { filterProductModelSourceTokens } from './filter-product-model-source-to
 import { getExcludedModelIdentifierTokens } from './get-model-identifier-excluded-tokens';
 import { getProductModelIdentifiersFromSources } from './get-product-model-identifiers-from-sources';
 import { getProtectedModelFamilyTokens } from './get-protected-model-family-tokens';
+import { hasConsoleProductDescriptor } from './has-console-product-descriptor';
 import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
@@ -102,7 +103,6 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
   ) {
     return tokens;
   }
-
   const displayPrefixLength = isDecimalDisplayPrefix ? 2 : 1;
   const hasExplicitDisplayMarker = tokens[displayPrefixLength] === 'inch';
   return tokens.slice(displayPrefixLength + (hasExplicitDisplayMarker ? 1 : 0));
@@ -225,13 +225,10 @@ export function getProductModelIdentifiers(
     tokenize
   );
   const isGameCategory = GAME_CATEGORY_PATTERN.test(context.categorySlug);
-  const hasConsoleProductDescriptor = (
-    context.productNames ??
-    context.productSlugs ??
-    []
-  )
-    .flatMap(tokenize)
-    .includes('console');
+  const hasConsoleProduct = hasConsoleProductDescriptor(
+    context.productNames ?? context.productSlugs ?? [],
+    tokenize
+  );
   const gameHardwareMarkers = new Set([
     'adapter',
     'cable',
@@ -271,7 +268,7 @@ export function getProductModelIdentifiers(
           ])
       ),
       'pc',
-      ...(isGameCategory && !hasConsoleProductDescriptor ? ['console'] : []),
+      ...(isGameCategory && !hasConsoleProduct ? ['console'] : []),
     ].filter(
       (token) =>
         Boolean(token) &&

@@ -23,6 +23,7 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'xps',
   'inspiron',
 ]);
+const NUMERIC_MODEL_FAMILY_ALIAS_TOKENS = new Set(['fire', 'omen', 'optiplex']);
 
 export function getExcludedModelIdentifierTokens(
   context: Omit<BuildCommercialGuideLinksContext, 'pageKind'>,
@@ -81,11 +82,26 @@ export function getExcludedModelIdentifierTokens(
           !isDimensionToken(slugTokens, index)
         );
       });
+      const remainingModelTokens = slugTokens.filter(
+        (token, index) =>
+          !excludedTokens.has(token) &&
+          !aliasTokens.includes(token) &&
+          !MODEL_METADATA_TOKEN_PATTERN.test(token) &&
+          !YEAR_TOKEN_PATTERN.test(token) &&
+          !isDimensionToken(slugTokens, index)
+      );
+      const leavesOnlyNumericModel =
+        remainingModelTokens.length > 0 &&
+        remainingModelTokens.every((token) => /^\d+$/u.test(token)) &&
+        aliasTokens.some((token) =>
+          NUMERIC_MODEL_FAMILY_ALIAS_TOKENS.has(token)
+        );
       const isModelFamilyAlias = aliasTokens.some((token) =>
         MODEL_FAMILY_ALIAS_TOKENS.has(token)
       );
       if (
         !isModelFamilyAlias &&
+        !leavesOnlyNumericModel &&
         (aliasTokens.length === 1 || leavesModelToken)
       ) {
         for (const token of aliasTokens) {

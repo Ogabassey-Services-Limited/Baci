@@ -64,12 +64,9 @@ function getComparisonSegments(tokens: string[], identifiers: string[]) {
   );
 }
 
-function countComparisonSegmentsForIdentifier(
-  segments: string[][],
-  identifier: string
-) {
+function getComparisonSegmentMatches(segments: string[][], identifier: string) {
   const identifierTokens = tokenizeIdentifier(identifier);
-  let count = 0;
+  const matches: boolean[] = [];
   let previousSegmentCounted = false;
   for (const [index, segment] of segments.entries()) {
     const hasIdentifier = countIdentifierOccurrences(segment, identifier) > 0;
@@ -89,14 +86,35 @@ function countComparisonSegmentsForIdentifier(
       !hasIdentifier &&
       isVariantOnlyComparisonSegment(segment) &&
       (previousSegmentCounted || hasSplitIdentifier);
-    if (hasIdentifier || isVariantOnlyContinuation) {
-      count += 1;
+    const matched = hasIdentifier || isVariantOnlyContinuation;
+    matches.push(matched);
+    if (matched) {
       previousSegmentCounted = true;
     } else {
       previousSegmentCounted = false;
     }
   }
-  return count;
+  return matches;
+}
+
+function hasDistinctRequirementAssignments(
+  segmentMatches: boolean[][],
+  requirementIndex = 0,
+  usedSegments = new Set<number>()
+): boolean {
+  if (requirementIndex >= segmentMatches.length) {
+    return true;
+  }
+  return segmentMatches[requirementIndex].some(
+    (matched, segmentIndex) =>
+      matched &&
+      !usedSegments.has(segmentIndex) &&
+      hasDistinctRequirementAssignments(
+        segmentMatches,
+        requirementIndex + 1,
+        new Set([...usedSegments, segmentIndex])
+      )
+  );
 }
 
 /** Ensures same-model compare variants are represented by separate occurrences. */
@@ -111,10 +129,13 @@ export function hasDistinctCompareIdentifierOccurrences(
 
   return getPostTokenGroups(post).some((tokens) => {
     const comparisonSegments = getComparisonSegments(tokens, identifiers);
-    return Array.from(requiredCounts).every(
-      ([identifier, count]) =>
-        countComparisonSegmentsForIdentifier(comparisonSegments, identifier) >=
-        count
+    const requiredIdentifiers = Array.from(requiredCounts).flatMap(
+      ([identifier, count]) => Array.from({ length: count }, () => identifier)
+    );
+    return hasDistinctRequirementAssignments(
+      requiredIdentifiers.map((identifier) =>
+        getComparisonSegmentMatches(comparisonSegments, identifier)
+      )
     );
   });
 }

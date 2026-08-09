@@ -31,4 +31,13 @@ describe('getLaptopHardwareDiscriminatorTokens', () => {
       getLaptopHardwareDiscriminatorTokens(['rtx4060'], 'accessories')
     ).toEqual([]);
   });
+
+  it('recognizes three-digit Intel processor suffixes', () => {
+    expect(
+      getLaptopHardwareDiscriminatorTokens(
+        ['dell', 'inspiron', '7440', 'core7', '150u'],
+        'laptops'
+      )
+    ).toEqual(['150u']);
+  });
 });

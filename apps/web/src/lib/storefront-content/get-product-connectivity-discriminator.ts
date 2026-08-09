@@ -35,7 +35,7 @@ const WATTAGE_DISCRIMINATOR_PATTERN = /^\d+w$/u;
 const VOLTAGE_DISCRIMINATOR_PATTERN = /^\d+v$/u;
 const REFRESH_RATE_DISCRIMINATOR_PATTERN = /^\d+hz$/u;
 const COMMON_STORAGE_CAPACITIES_GB = new Set([
-  16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+  8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
 ]);
 
 function getStorageCapacityGb(token: string) {
@@ -52,6 +52,7 @@ function tokenizeVariantSource(source: string | undefined) {
     normalizeContentCurrencyTokens(
       (source ?? '').replace(/(\d{1,2}(?:\.\d+)?)\s*["″”]/gu, '$1 inch')
     )
+      .replace(/(\d{1,2})\.(\d+)(inch|mm)\b/gu, '$1 $2 $3')
       .toLowerCase()
       .split(/[^a-z0-9]+/u)
       .filter(Boolean)
@@ -182,6 +183,9 @@ export function getProductConnectivityDiscriminators(
         REFRESH_RATE_DISCRIMINATOR_PATTERN.test(token)) ||
       isProductVariantColorToken(token) ||
       laptopHardwareTokens.has(token) ||
+      (['laptops', 'gaming-laptops'].includes(categorySlug ?? '') &&
+        getStorageCapacityGb(token) !== null &&
+        tokens[tokenIndex + 1] === 'ram') ||
       (isProductVariantRegionToken(token, {
         isTerminal:
           tokenIndex === tokens.length - 1 ||

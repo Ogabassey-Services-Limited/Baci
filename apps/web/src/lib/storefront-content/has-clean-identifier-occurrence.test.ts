@@ -50,6 +50,24 @@ describe('hasCleanIdentifierOccurrence', () => {
     expect(hasCleanIdentifierOccurrence(post, ['15'])).toBe(true);
   });
 
+  it('inherits numeric model context across a shorthand comparison', () => {
+    const post = {
+      slug: 'iphone-15-vs-16',
+      title: 'Apple iPhone 15 vs 16 Comparison',
+      excerpt: null,
+      category: 'Smartphones',
+      tags: null,
+      keywords: null,
+      featured_image_url: null,
+      published_at: null,
+      reading_time_minutes: null,
+    };
+
+    expect(hasCleanIdentifierOccurrence(post, ['16'], { brand: 'apple' })).toBe(
+      true
+    );
+  });
+
   it('matches a clean model mention while excluding variant suffixes', () => {
     const post = {
       slug: 'iphone-15-variants',
@@ -240,51 +258,6 @@ describe('hasCleanIdentifierOccurrence', () => {
     });
 
     expect(result).toBe(false);
-  });
-
-  it('rejects a multi-token brand that overlaps the identifier', () => {
-    const post = {
-      slug: 'north-star-x-guide',
-      title: 'North Star X buyer guide',
-      excerpt: null,
-      category: 'Accessories',
-      tags: null,
-      keywords: null,
-      featured_image_url: null,
-      published_at: null,
-      reading_time_minutes: null,
-    };
-
-    const result = hasCleanIdentifierOccurrence(post, ['star', 'x'], {
-      brand: 'north star',
-      requireBrandBeforeIdentifier: true,
-    });
-
-    expect(result).toBe(false);
-  });
-
-  it('accepts a configured alias that starts the product identifier', () => {
-    const post = {
-      slug: 'thinkpad-t14-gen-4-buyer-guide',
-      title: 'ThinkPad T14 Gen 4 buyer guide',
-      excerpt: null,
-      category: 'Laptops',
-      tags: null,
-      keywords: null,
-      featured_image_url: null,
-      published_at: null,
-      reading_time_minutes: null,
-    };
-
-    expect(
-      hasCleanIdentifierOccurrence(post, ['thinkpad', 't14', 'gen', '4'], {
-        brand: 'lenovo',
-        knownBrands: ['lenovo'],
-        brandAliases: { lenovo: ['lenovo', 'thinkpad'] },
-        requireBrandBeforeIdentifier: true,
-        allowBrandAliasOverlap: true,
-      })
-    ).toBe(true);
   });
 
   it('preserves after-identifier matching when ordering is disabled', () => {

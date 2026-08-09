@@ -173,4 +173,39 @@ describe('hasDistinctCompareIdentifierOccurrences', () => {
 
     expect(result).toBe(true);
   });
+
+  it('does not reuse one longer identifier for a prefix requirement', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'xps-13-vs-xps-13-9340',
+        title: 'Dell XPS 13 vs Dell XPS 13 9340 Comparison',
+        excerpt: null,
+        category: 'Laptops',
+        tags: null,
+        keywords: null,
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['xps 13', 'xps 13 9340']
+    );
+
+    expect(result).toBe(true);
+    expect(
+      hasDistinctCompareIdentifierOccurrences(
+        {
+          slug: 'xps-13-9340',
+          title: 'Dell XPS 13 9340 Buyer Guide',
+          excerpt: null,
+          category: 'Laptops',
+          tags: null,
+          keywords: null,
+          featured_image_url: null,
+          published_at: null,
+          reading_time_minutes: null,
+        },
+        ['xps 13', 'xps 13 9340']
+      )
+    ).toBe(false);
+  });
 });

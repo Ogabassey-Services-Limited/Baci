@@ -5,7 +5,7 @@ const LAPTOP_CATEGORIES = new Set<SupportedClusterCategory>([
   'laptops',
 ]);
 const HARDWARE_TIER_PATTERN =
-  /^(?:coreultra\d+|rtx\d+|corei[3579]|i[3579]|\d{4,}[uhtpkgfy])$/u;
+  /^(?:coreultra\d+|rtx\d+|corei[3579]|i[3579]|\d{3,}[uhtpkgfy])$/u;
 
 /** Returns a stripped laptop CPU or GPU tier for variant-aware guide matching. */
 export function getLaptopHardwareDiscriminatorTokens(

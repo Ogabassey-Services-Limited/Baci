@@ -1,4 +1,5 @@
 import type { PublishedClusterPost } from './content-cluster-types';
+import { findCleanIdentifierEnd } from './find-clean-identifier-end';
 import { getPostTokenGroups } from './get-post-token-groups';
 import { hasShorthandIdentifierOccurrence } from './has-shorthand-identifier-occurrence';
 import { matchesIdentifierDiscriminatorSegment } from './matches-identifier-discriminator-segment';
@@ -67,41 +68,6 @@ function matchesTokenSequence(
   );
 }
 
-function isInlineVariantMetadataToken(tokens: string[], index: number) {
-  const token = tokens[index] ?? '';
-  const nextToken = tokens[index + 1] ?? '';
-  const previousToken = tokens[index - 1] ?? '';
-  return (
-    /^\d+(?:gb|tb|mb|w|v|hz|mah|mm|inch|in)$/u.test(token) ||
-    (/^\d+$/u.test(token) &&
-      /^(?:gb|tb|mb|w|v|hz|mah|mm|inch|in)$/u.test(nextToken)) ||
-    (/^(?:gb|tb|mb|w|v|hz|mah|mm|inch|in)$/u.test(token) &&
-      /^\d+$/u.test(previousToken))
-  );
-}
-
-function findIdentifierEnd(
-  tokens: string[],
-  expectedTokens: string[],
-  startIndex: number
-) {
-  let cursor = startIndex;
-  for (const expectedToken of expectedTokens) {
-    while (
-      cursor < tokens.length &&
-      tokens[cursor] !== expectedToken &&
-      isInlineVariantMetadataToken(tokens, cursor)
-    ) {
-      cursor += 1;
-    }
-    if (tokens[cursor] !== expectedToken) {
-      return null;
-    }
-    cursor += 1;
-  }
-  return cursor;
-}
-
 function hasNumericModelContext(
   tokens: string[],
   startIndex: number,
@@ -109,11 +75,23 @@ function hasNumericModelContext(
 ) {
   const previousToken = tokens[startIndex - 1] ?? '';
   const brandTokens = (brand ?? '').toLowerCase().split(/[^a-z0-9]+/u);
+  const previousComparisonBoundary = tokens.findLastIndex(
+    (token, index) =>
+      index < startIndex &&
+      ['against', 'and', 'or', 'versus', 'vs'].includes(token)
+  );
+  const precedingComparisonSegment = tokens.slice(
+    0,
+    previousComparisonBoundary >= 0 ? previousComparisonBoundary : startIndex
+  );
   return (
     brandTokens.includes(previousToken) ||
     tokens
       .slice(Math.max(0, startIndex - 2), startIndex)
-      .some((token) => NUMERIC_MODEL_CONTEXT_TOKENS.has(token))
+      .some((token) => NUMERIC_MODEL_CONTEXT_TOKENS.has(token)) ||
+    precedingComparisonSegment.some((token) =>
+      NUMERIC_MODEL_CONTEXT_TOKENS.has(token)
+    )
   );
 }
 
@@ -248,7 +226,7 @@ export function hasCleanIdentifierOccurrence(
 
   return postTokenGroups.some((postTokens) =>
     postTokens.some((_, startIndex) => {
-      const identifierEnd = findIdentifierEnd(
+      const identifierEnd = findCleanIdentifierEnd(
         postTokens,
         identifierTokens,
         startIndex

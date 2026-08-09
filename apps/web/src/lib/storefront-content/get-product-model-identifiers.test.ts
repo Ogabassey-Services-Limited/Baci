@@ -215,6 +215,23 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['legion pro 9']);
   });
 
+  it('preserves numeric-only configured model families', () => {
+    expect(
+      getProductModelIdentifiers({
+        categorySlug: 'laptops',
+        brands: ['HP'],
+        productSlugs: ['hp-omen-16'],
+      })
+    ).toEqual(['omen 16']);
+    expect(
+      getProductModelIdentifiers({
+        categorySlug: 'laptops',
+        brands: ['Dell'],
+        productSlugs: ['dell-optiplex-7090'],
+      })
+    ).toEqual(['optiplex 7090']);
+  });
+
   it('retains Dell family aliases that distinguish same-number models', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
