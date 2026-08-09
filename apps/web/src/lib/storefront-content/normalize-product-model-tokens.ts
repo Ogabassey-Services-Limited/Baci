@@ -2,6 +2,7 @@ import { PRODUCT_VARIANT_COLOR_TOKENS } from '@/config/product-variant-color-tok
 import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { modelTokenMatchers } from './model-token-matchers';
 import { stripModelMetadataSuffixes } from './strip-model-metadata-suffixes';
+import { stripUsedDeviceConditionMetadata } from './strip-used-device-condition-metadata';
 
 const MERCHANDISING_ONLY_TOKENS = new Set([
   'clearance',
@@ -275,7 +276,11 @@ export function normalizeProductModelTokens(
     stripTerminalDisplay
   );
   const withoutFeature = stripOptionalFeatureSuffix(withoutDisplaySuffix);
-  const withoutSplitCapacity = stripModelMetadataSuffixes(withoutFeature);
+  const withoutConditionMetadata =
+    stripUsedDeviceConditionMetadata(withoutFeature);
+  const withoutSplitCapacity = stripModelMetadataSuffixes(
+    withoutConditionMetadata
+  );
 
   return withoutSplitCapacity.filter(
     (token, index) =>

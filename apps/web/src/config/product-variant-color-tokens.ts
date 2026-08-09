@@ -1,5 +1,6 @@
 export const PRODUCT_VARIANT_COLOR_TOKENS = new Set([
   'beige',
+  'bay',
   'black',
   'blue',
   'bronze',
@@ -18,6 +19,7 @@ export const PRODUCT_VARIANT_COLOR_TOKENS = new Set([
   'orange',
   'pink',
   'platinum',
+  'porcelain',
   'purple',
   'red',
   'rose',

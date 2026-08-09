@@ -17,4 +17,15 @@ describe('normalizeProductModelTokens catalog finishes', () => {
       normalizeProductModelTokens(['pixel', '9', 'pro', 'obsidian'])
     ).toEqual(['pixel', '9', 'pro']);
   });
+
+  it('strips Pixel Porcelain and Bay finishes from model identity', () => {
+    expect(
+      normalizeProductModelTokens(['pixel', '8', 'pro', 'porcelain'])
+    ).toEqual(['pixel', '8', 'pro']);
+    expect(normalizeProductModelTokens(['pixel', '8', 'pro', 'bay'])).toEqual([
+      'pixel',
+      '8',
+      'pro',
+    ]);
+  });
 });
