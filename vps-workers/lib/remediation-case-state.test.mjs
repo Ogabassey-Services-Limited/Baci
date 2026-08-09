@@ -58,6 +58,36 @@ describe('remediation case state', () => {
     );
   });
 
+  it('records a recurrence when the occurrence count advances at the same timestamp', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-case-state-tie-'));
+    const state = createRemediationCaseState({
+      now: () => Date.parse('2026-08-01T10:04:00.000Z'),
+      path: join(directory, 'cases.json'),
+    });
+
+    state.reconcile([candidate()]);
+    const recurrence = state.reconcile([candidate({ occurrences: 5 })]);
+    const stored = state.snapshot().cases['sentry:sentry_issue:issue-42'];
+
+    assert.equal(recurrence.length, 1);
+    assert.equal(stored.totalObservations, 5);
+    assert.equal(stored.recurrenceCount, 1);
+  });
+
+  it('does not retain a draft lifecycle when a PR result has no URL', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-case-state-pr-url-'));
+    const state = createRemediationCaseState({
+      now: () => Date.parse('2026-08-01T10:04:00.000Z'),
+      path: join(directory, 'cases.json'),
+    });
+
+    state.reconcile([candidate()]);
+    const recorded = state.recordOutcome(candidate(), { type: 'pr_opened' });
+
+    assert.equal(recorded.status, 'open');
+    assert.equal(recorded.draftPr, null);
+  });
+
   it('quiets a stale active draft case without resolving it on a newer observation', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-case-quiet-'));
     const path = join(directory, 'cases.json');

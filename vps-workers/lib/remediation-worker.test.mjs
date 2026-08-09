@@ -193,6 +193,30 @@ describe('remediation worker', () => {
     });
   });
 
+  it('uses the pending candidate when evidence enrichment returns no object', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-enrichment-'));
+    const attempted = [];
+
+    await runRemediationWorker({
+      autofixRunner: ({ candidate }) => {
+        attempted.push(candidate.fingerprint);
+        return { type: 'no_changes' };
+      },
+      candidateEnricher: () => undefined,
+      candidateLoader: async () => [
+        { fingerprint: 'fallback', occurrences: 3, sample: { source: 'sentry' } },
+      ],
+      env: {
+        BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: directory,
+      },
+      logger: { error: () => undefined, log: () => undefined },
+      workerName: 'test-remediator',
+    });
+
+    assert.deepEqual(attempted, ['fallback']);
+  });
+
   it('keeps redacted Codex failures out of logs and email report actions', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-worker-redaction-'));
     const loggedMessages = [];

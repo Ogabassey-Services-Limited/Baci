@@ -57,6 +57,7 @@ function normalizeExecution(execution) {
   }
   return {
     status: execution?.status ?? 0,
+    signal: execution?.signal || '',
     stderr: execution?.stderr || '',
     stdout: execution?.stdout || '',
   };
@@ -93,8 +94,8 @@ function classifyFailure(output) {
 
 export function formatBoundedSubprocessOutput({ stderr, stdout }) {
   return [
-    stdout ? `stdout (tail): ${redactCodexOutput(tail(stdout))}` : '',
-    stderr ? `stderr (tail): ${redactCodexOutput(tail(stderr))}` : '',
+    stdout ? `stdout (tail): ${tail(redactCodexOutput(stdout))}` : '',
+    stderr ? `stderr (tail): ${tail(redactCodexOutput(stderr))}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -116,6 +117,7 @@ export function redactCodexError(error) {
 export function assertCodexExecutionUsable(execution) {
   const normalized = normalizeExecution(execution);
   const status = normalized.status;
+  const signal = normalized.signal;
   const stderr = normalized.stderr;
   const stdout = normalized.stdout;
   const text = `${stdout}\n${stderr}`;
@@ -127,9 +129,9 @@ export function assertCodexExecutionUsable(execution) {
   }
 
   const classification = classifyFailure(text);
-  if (status !== 0) {
+  if (status !== 0 || signal) {
     throw new Error(
-      `Codex execution failed (${classification || 'process_failure'}): ${formatBoundedSubprocessOutput({ stderr, stdout })}`
+      `Codex execution failed (${classification || 'process_failure'}${signal ? `; signal=${signal}` : ''}): ${formatBoundedSubprocessOutput({ stderr, stdout })}`
     );
   }
 

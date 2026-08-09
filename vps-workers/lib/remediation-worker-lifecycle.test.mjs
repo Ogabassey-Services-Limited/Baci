@@ -64,7 +64,7 @@ describe('remediation worker lifecycle', () => {
         category: 'sentry_issue',
         fingerprint: 'issue-44',
         lastSeen: observedAt,
-        occurrences: attempts + 2,
+        occurrences: 2,
         sample: { issueId: '44', source: 'sentry' },
         source: 'sentry',
       },

@@ -50,7 +50,13 @@ function quietStaleCases(state, nowMs) {
 function observationAdvanced(item, candidate) {
   if (!item) return true;
   if (candidate.lastSeen && item.lastSeen) {
-    return Date.parse(candidate.lastSeen) > Date.parse(item.lastSeen);
+    const candidateSeen = Date.parse(candidate.lastSeen);
+    const itemSeen = Date.parse(item.lastSeen);
+    return (
+      candidateSeen > itemSeen ||
+      (candidateSeen === itemSeen &&
+        candidate.occurrences > Number(item.observedOccurrences || 0))
+    );
   }
   if (candidate.lastSeen && !item.lastSeen) return true;
   return (
@@ -259,7 +265,7 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
         );
         if (prUrl) result.prUrl = prUrl;
         item.outcomes = [...item.outcomes, result].slice(-MAX_OUTCOMES);
-        if (result.type === 'pr_opened') {
+        if (result.type === 'pr_opened' && prUrl) {
           item.draftPr = {
             branch: candidateNormalizer.sanitize(outcome?.branch, 160),
             openedAt: result.at,

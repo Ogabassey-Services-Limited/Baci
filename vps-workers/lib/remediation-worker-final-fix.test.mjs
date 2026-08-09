@@ -114,6 +114,11 @@ describe('remediation worker final recovery contracts', () => {
         join(directory, 'case.json'),
         join(directory, 'shared-state.json'),
       ],
+      [
+        join(directory, 'journal.json'),
+        join(directory, 'shared-case-state.json'),
+        join(directory, 'shared-case-state.json'),
+      ],
     ]) {
       let loaded = false;
       await assert.rejects(
@@ -153,10 +158,10 @@ describe('remediation worker final recovery contracts', () => {
         version: 2,
       })
     );
-    let attempts = 0;
+    const attempts = [];
     await runRemediationWorker({
       autofixRunner: () => {
-        attempts += 1;
+        attempts.push('first');
         return { type: 'no_changes' };
       },
       candidateLoader: async () => [candidate()],
@@ -168,7 +173,7 @@ describe('remediation worker final recovery contracts', () => {
     });
     const newer = await runRemediationWorker({
       autofixRunner: () => {
-        attempts += 1;
+        attempts.push('second');
         return { type: 'no_changes' };
       },
       candidateLoader: async () => [
@@ -181,7 +186,7 @@ describe('remediation worker final recovery contracts', () => {
       workerName: 'final-fix',
     });
 
-    assert.equal(attempts, 1);
+    assert.deepEqual(attempts, ['second']);
     assert.equal(
       newer.actions.some(
         (action) => action.type === 'legacy_handled_recurrence'
@@ -212,6 +217,6 @@ describe('remediation worker final recovery contracts', () => {
     assert.match(prompt, /"currentLifecycle"/);
     assert.match(prompt, /"autofix_failed"/);
     assert.match(prompt, /"recurrenceCount": 2/);
-    assert.doesNotMatch(prompt, /Alice Okafor|example\.com/);
+    assert.doesNotMatch(prompt, /Alice Okafor|12 Example Road/);
   });
 });

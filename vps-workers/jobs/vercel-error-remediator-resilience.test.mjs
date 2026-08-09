@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -82,6 +82,11 @@ describe('vercel error remediator resilience', () => {
 
     assert.equal(retry.candidates.length, 0);
     assert.equal(calls, 0);
+    const state = JSON.parse(
+      readFileSync(join(outputDir, 'handled-state.autofix.json'), 'utf8')
+    );
+    assert.equal(Object.keys(state.handled).length, 1);
+    assert.equal(Object.keys(state.reservations).length, 1);
   });
 
   it('reports email failures without failing the worker', async () => {
@@ -136,5 +141,7 @@ describe('vercel error remediator resilience', () => {
     });
     assert.doesNotMatch(serializedJobStdout, new RegExp(providerEmail));
     assert.doesNotMatch(serializedJobStdout, new RegExp(providerToken));
+    assert.doesNotMatch(result.report.text, new RegExp(providerEmail));
+    assert.doesNotMatch(result.report.text, new RegExp(providerToken));
   });
 });

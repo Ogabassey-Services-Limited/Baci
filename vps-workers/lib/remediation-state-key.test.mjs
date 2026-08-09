@@ -12,6 +12,14 @@ it('prefers canonical case identity and requires an exact legacy observation', (
     lastSeen: '2026-08-09T10:00:00.000Z',
   };
   assert.equal(remediationStateKeyFor(candidate), candidate.caseKey);
+  const entry = {
+    observation: candidate.lastSeen,
+    recordedAt: '2026-08-09T10:01:00.000Z',
+  };
+  assert.deepEqual(
+    matchingHandledEntry({ [candidate.caseKey]: entry }, candidate),
+    entry
+  );
   assert.equal(
     matchingHandledEntry(
       {

@@ -41,7 +41,9 @@ describe('vercel remediator privacy', () => {
       },
       logger: { error: () => undefined, log: () => undefined },
     });
-    const prompt = readFileSync(result.actions[0].path, 'utf8');
+    const promptAction = result.actions.find((action) => action.path);
+    assert.ok(promptAction);
+    const prompt = readFileSync(promptAction.path, 'utf8');
     const state = readFileSync(
       join(directory, 'case-state.dry-run.json'),
       'utf8'

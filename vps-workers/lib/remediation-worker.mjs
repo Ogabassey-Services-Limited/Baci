@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { join, resolve as resolvePath } from 'node:path';
 import { createRemediationCaseState } from './remediation-case-state.mjs';
+import { redactCodexError } from './remediation-codex-output.mjs';
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
 import { reconcileRemediationLifecycle } from './remediation-lifecycle-recovery.mjs';
 import { retryRemediationNotifications } from './remediation-notification-retry.mjs';
@@ -134,13 +135,18 @@ export async function runRemediationWorker({
     let candidate = pendingCandidate;
     if (typeof candidateEnricher === 'function') {
       try {
-        candidate = await candidateEnricher({
+        const enrichedCandidate = await candidateEnricher({
           candidate: pendingCandidate,
           env,
           fetchFn,
         });
+        candidate =
+          enrichedCandidate && typeof enrichedCandidate === 'object'
+            ? enrichedCandidate
+            : pendingCandidate;
       } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
+        const safeError = redactCodexError(error);
+        const detail = safeError.message;
         actions.push({
           detail,
           fingerprint: pendingCandidate.fingerprint,
@@ -159,7 +165,7 @@ export async function runRemediationWorker({
         if (!state.complete({ deferCandidates: [pendingCandidate] })) {
           throw new Error('remediation state is busy');
         }
-        logger.error(`[${workerName}] candidate enrichment failed:`, error);
+        logger.error(`[${workerName}] candidate enrichment failed:`, safeError);
         continue;
       }
     }

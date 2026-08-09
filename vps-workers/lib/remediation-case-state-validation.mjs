@@ -105,6 +105,7 @@ export function createRemediationCaseStateValidator({
         isIsoDate(draftPr.openedAt) &&
         (draftPr.branch === undefined ||
           isBoundedString(draftPr.branch, 160)) &&
+        draftPr.url.length > 0 &&
         isBoundedString(draftPr.url, 500))
     );
   }

@@ -26,10 +26,9 @@ describe('remediation deploy crontab', () => {
 
     assert.match(
       deployScript,
-      /20 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/remediation-codex-canary\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock/
+      /22 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/remediation-codex-canary\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock bash -lc 'export BACI_REMEDIATION_CANARY_ENABLED=1/
     );
     assert.match(deployScript, /jobs\/remediation-codex-canary\.mjs/);
-    assert.match(deployScript, /BACI_REMEDIATION_CANARY_ENABLED=1/);
     assert.match(
       deployScript,
       />> \$REMOTE_DIR\/logs\/remediation-codex-canary\.log 2>&1/

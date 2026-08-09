@@ -40,6 +40,7 @@ describe('remediation case context', () => {
 
     assert.equal(result.history[0].type, 'autofix_failed');
     assert.equal(result.caseContext.cases[0].fingerprint, 'prior');
+    assert.equal(result.autofixEligible, true);
   });
 
   it('handles missing optional context fields and rejects a missing current case', () => {

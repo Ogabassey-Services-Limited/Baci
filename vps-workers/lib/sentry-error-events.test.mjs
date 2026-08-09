@@ -25,8 +25,9 @@ describe('Sentry remediation candidates', () => {
       fetchFn: (url, options) => {
         assert.match(
           String(url),
-          /\/organizations\/ogabassey\/issues\/139588932\/events\/latest\/$/
+          /\/issues\/139588932\/events\/latest\/$/
         );
+        assert.doesNotMatch(String(url), /\/organizations\//);
         assert.equal(options.headers.Authorization, 'Bearer token');
         return new Response(
           JSON.stringify({
@@ -243,6 +244,26 @@ describe('Sentry remediation candidates', () => {
         fetchFn: async () => new Response('secret body', { status: 503 }),
       }),
       /HTTP 503/
+    );
+  });
+
+  it('does not expose a malformed latest-event response body', async () => {
+    await assert.rejects(
+      enrichSentryRemediationCandidate({
+        candidate: {
+          fingerprint: 'malformed-event',
+          occurrences: 3,
+          sample: { issueId: 'malformed-event', source: 'sentry' },
+        },
+        env: environment,
+        fetchFn: async () =>
+          new Response('customer alice@example.com provider secret'),
+      }),
+      (error) => {
+        assert.match(error.message, /Sentry latest-event response was invalid JSON/);
+        assert.doesNotMatch(error.message, /alice@example\.com|provider secret/);
+        return true;
+      }
     );
   });
 

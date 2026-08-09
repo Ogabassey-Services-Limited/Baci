@@ -65,6 +65,35 @@ describe('Codex remediation output', () => {
     );
   });
 
+  it('redacts a bearer credential that crosses the output tail boundary', () => {
+    const token = `baci_live_${'a'.repeat(2_500)}`;
+    assert.throws(
+      () =>
+        assertCodexExecutionUsable({
+          status: 1,
+          stderr: `Authorization: Bearer ${token}`,
+          stdout: '',
+        }),
+      (error) => {
+        assert.equal(error.message.includes(token.slice(-100)), false);
+        return true;
+      }
+    );
+  });
+
+  it('rejects an execution terminated by a signal as a process failure', () => {
+    assert.throws(
+      () =>
+        assertCodexExecutionUsable({
+          signal: 'SIGKILL',
+          status: null,
+          stderr: '',
+          stdout: '',
+        }),
+      /process_failure.*SIGKILL/
+    );
+  });
+
   it('redacts Basic authorization and cookie headers without hiding the usage limit', () => {
     assert.throws(
       () =>
