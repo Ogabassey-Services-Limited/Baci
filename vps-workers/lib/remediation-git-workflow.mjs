@@ -18,9 +18,8 @@ import {
   evaluateMergePolicy,
 } from './remediation-policy.mjs';
 import { writeRemediationResultArtifact } from './remediation-result-artifact.mjs';
-import { hasRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
+import { findRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import { parseRemediationStatusFiles } from './remediation-status-files.mjs';
-
 function defaultRunner(command, args, options) {
   return spawnSync(command, args, {
     encoding: 'utf8',
@@ -123,20 +122,9 @@ export function runRemediationAutofix({
   const worktreeRoot =
     env.BACI_REMEDIATION_WORKTREE_ROOT ||
     join(dirname(repoDir), 'baci-remediation-worktrees');
-  const worktreeDir = join(worktreeRoot, `${candidate.fingerprint}-${runId}`);
+  let worktreeDir = join(worktreeRoot, `${candidate.fingerprint}-${runId}`);
   const rootCommandOptions = { cwd: repoDir, env: childEnv, runner };
   const rootRemoteCommandOptions = { cwd: repoDir, env: gitEnv, runner };
-  const worktreeCommandOptions = { cwd: worktreeDir, env: childEnv, runner };
-  const worktreeGitCommandOptions = {
-    cwd: worktreeDir,
-    env: gitIdentityEnv,
-    runner,
-  };
-  const worktreeRemoteCommandOptions = {
-    cwd: worktreeDir,
-    env: gitEnv,
-    runner,
-  };
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
   const prReconciler = createRemediationDraftPrReconciler({
@@ -168,14 +156,15 @@ export function runRemediationAutofix({
         worktreeDir,
       };
     }
-    const retainedWorktree = hasRetainedRemediationWorktree({
+    const retainedWorktreeDir = findRetainedRemediationWorktree({
       branch,
       childEnv,
       repoDir,
       runner,
-      worktreeDir,
     });
-    if (!retainedWorktree) {
+    if (retainedWorktreeDir) {
+      worktreeDir = retainedWorktreeDir;
+    } else {
       runChecked(
         'git',
         ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
@@ -183,6 +172,17 @@ export function runRemediationAutofix({
       );
       worktreeCreated = true;
     }
+    const worktreeCommandOptions = { cwd: worktreeDir, env: childEnv, runner };
+    const worktreeGitCommandOptions = {
+      cwd: worktreeDir,
+      env: gitIdentityEnv,
+      runner,
+    };
+    const worktreeRemoteCommandOptions = {
+      cwd: worktreeDir,
+      env: gitEnv,
+      runner,
+    };
     const codexCommand = buildRemediationCodexCommand({
       codexBin,
       env: commandEnv,

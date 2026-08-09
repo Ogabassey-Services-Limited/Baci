@@ -123,6 +123,67 @@ describe('remediation git workflow reconciliation', () => {
     }
   });
 
+  it('reuses the registered branch worktree when an unset run ID changes the retry directory', () => {
+    const { calls, runner: baseRunner } = makeRunner();
+    let codexAttempts = 0;
+    let retainedWorktree;
+    const codexWorkingDirectories = [];
+    const runner = (command, args, options) => {
+      if (
+        command === 'git' &&
+        args.join(' ') === 'worktree list --porcelain'
+      ) {
+        const retained = retainedWorktree
+          ? `\nworktree ${retainedWorktree.directory}\nHEAD deadbeef\nbranch refs/heads/${retainedWorktree.branch}\n`
+          : '';
+        return {
+          status: 0,
+          stdout: `worktree /repo\nHEAD deadbeef\nbranch refs/heads/main\n${retained}`,
+          stderr: '',
+        };
+      }
+      if (command === 'git' && args[0] === 'worktree' && args[1] === 'add') {
+        if (retainedWorktree) {
+          return {
+            status: 128,
+            stdout: '',
+            stderr: 'fatal: a branch named retained already exists',
+          };
+        }
+        retainedWorktree = {
+          branch: args[args.indexOf('-b') + 1],
+          directory: args[2],
+        };
+      }
+      if (command === 'codex') {
+        codexWorkingDirectories.push(options.cwd);
+        if (codexAttempts++ === 0) {
+          return { status: 1, stdout: '', stderr: 'Codex execution failed' };
+        }
+      }
+      return baseRunner(command, args, options);
+    };
+    const env = {
+      BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+      BACI_REPO_DIR: '/repo',
+      BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+    };
+
+    assert.throws(
+      () => runRemediationAutofix({ candidate, env, runner }),
+      /Codex execution failed/
+    );
+    const retried = runRemediationAutofix({ candidate, env, runner });
+
+    assert.equal(retried.type, 'pr_opened');
+    assert.equal(codexWorkingDirectories[1], retainedWorktree.directory);
+    assert.equal(
+      calls.filter((call) => call.join(' ').startsWith('git worktree add'))
+        .length,
+      1
+    );
+  });
+
   it('uses a new deterministic branch when a case observation advances', () => {
     const { calls, runner } = makeRunner();
     const observed = {
