@@ -64,14 +64,9 @@ export function createRemediationCaseStateStorage({
     const lockPath = `${path}.lock`;
     mkdirSync(dirname(path), { recursive: true });
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      let descriptor;
       try {
-        const descriptor = openSync(lockPath, 'wx', 0o600);
-        try {
-          return action(read());
-        } finally {
-          closeSync(descriptor);
-          unlinkSync(lockPath);
-        }
+        descriptor = openSync(lockPath, 'wx', 0o600);
       } catch (error) {
         if (error?.code !== 'EEXIST') throw error;
         const modifiedAt = statSync(lockPath, {
@@ -86,6 +81,12 @@ export function createRemediationCaseStateStorage({
           continue;
         }
         return fallback;
+      }
+      try {
+        return action(read());
+      } finally {
+        closeSync(descriptor);
+        unlink(lockPath);
       }
     }
     return fallback;

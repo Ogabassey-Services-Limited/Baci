@@ -32,4 +32,15 @@ it('prefers canonical case identity and requires an exact legacy observation', (
     ),
     null
   );
+
+  assert.equal(
+    matchingHandledEntry(
+      Object.create({
+        [candidate.caseKey]: entry,
+        shared: entry,
+      }),
+      candidate
+    ),
+    null
+  );
 });

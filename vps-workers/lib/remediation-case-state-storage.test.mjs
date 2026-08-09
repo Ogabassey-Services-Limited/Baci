@@ -98,4 +98,22 @@ describe('remediation case state storage', () => {
       }
     );
   });
+
+  it('preserves an action error even when it has an EEXIST code', () => {
+    const path = join(
+      mkdtempSync(join(tmpdir(), 'baci-case-storage-action-error-')),
+      'state.json'
+    );
+    const storage = createRemediationCaseStateStorage({
+      createEmptyState: () => ({ version: 1 }),
+      isValidState: (state) => state?.version === 1,
+      path,
+    });
+    const failure = Object.assign(new Error('action failed'), { code: 'EEXIST' });
+
+    assert.throws(
+      () => storage.withLock(Date.now(), null, () => { throw failure; }),
+      (error) => error === failure
+    );
+  });
 });

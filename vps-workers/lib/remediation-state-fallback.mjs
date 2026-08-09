@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   unlinkSync,
@@ -12,12 +13,36 @@ import {
   remediationStateKeyFor,
 } from './remediation-state-key.mjs';
 
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+
 export function createRemediationFallbackStore(path) {
+  const markerDirectory = `${path}.handled-fallback`;
   const markerPath = (candidate) => {
     const key = createHash('sha256')
       .update(remediationStateKeyFor(candidate))
       .digest('hex');
-    return `${path}.handled-fallback/${key}.json`;
+    return `${markerDirectory}/${key}.json`;
+  };
+  const prune = (recordedAt) => {
+    let files;
+    try {
+      files = readdirSync(markerDirectory);
+    } catch (error) {
+      if (error?.code === 'ENOENT') return;
+      throw error;
+    }
+    const cutoff = Date.parse(recordedAt) - RETENTION_MS;
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      try {
+        const marker = JSON.parse(readFileSync(`${markerDirectory}/${file}`, 'utf8'));
+        if (Date.parse(marker?.recordedAt) < cutoff) {
+          unlinkSync(`${markerDirectory}/${file}`);
+        }
+      } catch {
+        // Preserve unreadable markers for explicit candidate reconciliation.
+      }
+    }
   };
   return {
     clear(candidate) {
@@ -42,16 +67,17 @@ export function createRemediationFallbackStore(path) {
       renameSync(temporaryPath, target);
     },
     reconcile(state, candidates, recordedAt) {
+      prune(recordedAt);
       const reconciled = [];
       for (const candidate of candidates) {
-        let observation;
+        let content;
         try {
-          observation = JSON.parse(
-            readFileSync(markerPath(candidate), 'utf8')
-          )?.observation;
-        } catch {
-          observation = null;
+          content = readFileSync(markerPath(candidate), 'utf8');
+        } catch (error) {
+          if (error?.code === 'ENOENT') continue;
+          throw error;
         }
+        const observation = JSON.parse(content)?.observation;
         if (typeof observation !== 'string') continue;
         const key = remediationStateKeyFor(candidate);
         state.handled[key] = { observation, recordedAt };
