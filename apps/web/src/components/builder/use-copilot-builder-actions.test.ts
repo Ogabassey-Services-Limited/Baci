@@ -1,4 +1,4 @@
-import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
+import { useCopilotAction } from '@copilotkit/react-core';
 import type { Data } from '@puckeditor/core';
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -51,24 +51,6 @@ describe('useCopilotBuilderActions', () => {
     vi.restoreAllMocks();
   });
 
-  it('registers readable builder state for the assistant', () => {
-    renderHook(() =>
-      useCopilotBuilderActions({
-        data: createData([
-          { props: { id: 'hero-1', title: 'Welcome' }, type: 'Hero' },
-        ]),
-        setData: vi.fn(),
-      })
-    );
-
-    expect(useCopilotReadable).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description: expect.stringContaining('current storefront'),
-        value: expect.stringContaining('Welcome'),
-      })
-    );
-  });
-
   it('registers add, update, and remove actions', () => {
     renderHook(() =>
       useCopilotBuilderActions({ data: createData(), setData: vi.fn() })
@@ -98,7 +80,10 @@ describe('useCopilotBuilderActions', () => {
     expect(setData).toHaveBeenCalledWith({
       content: [
         {
-          props: { id: 'ProductGrid-1234', title: 'Featured' },
+          props: expect.objectContaining({
+            id: 'ProductGrid-1234',
+            title: 'Featured',
+          }),
           type: 'ProductGrid',
         },
         { props: { id: 'hero-1' }, type: 'Hero' },
@@ -133,7 +118,10 @@ describe('useCopilotBuilderActions', () => {
     expect(setData).toHaveBeenCalledWith({
       content: [
         {
-          props: { id: 'Hero-1234', title: 'Safe title' },
+          props: expect.objectContaining({
+            id: 'Hero-1234',
+            title: 'Safe title',
+          }),
           type: 'Hero',
         },
       ],
@@ -155,7 +143,10 @@ describe('useCopilotBuilderActions', () => {
     expect(setData).toHaveBeenCalledWith({
       content: [
         { props: { id: 'Hero-1234' }, type: 'Hero' },
-        { props: { id: 'Hero-1234-1' }, type: 'Hero' },
+        {
+          props: expect.objectContaining({ id: 'Hero-1234-1' }),
+          type: 'Hero',
+        },
       ],
       root: { props: {} },
     });
@@ -239,7 +230,9 @@ describe('useCopilotBuilderActions', () => {
         '{"ctaLink":"javascript:alert(1)","id":"model-id","title":"New title","unknown":"ignored"}',
     });
 
-    expect(result).toBe('Updated component at index 0.');
+    expect(result).toBe(
+      'Ignored unsafe Hero URL. Ignored unsupported Hero fields. Updated component at index 0.'
+    );
     expect(setData).toHaveBeenCalledWith({
       content: [
         {

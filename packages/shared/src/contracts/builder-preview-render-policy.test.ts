@@ -76,7 +76,7 @@ describe('preview render policy', () => {
         { props: { id: 'code-1' }, type: 'CodeEmbed' },
         new Set()
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('accepts saved animation defaults for every render-safe animated block', () => {
@@ -226,7 +226,7 @@ describe('preview render policy', () => {
     ).toBe(false);
   });
 
-  it('rejects hostile carousel media, links, and unknown slide fields', () => {
+  it('projects HTTPS carousel assets while rejecting hostile links and unknown fields', () => {
     const candidate = (slide: Record<string, unknown>) =>
       builderPreviewCandidateConfigSchema.safeParse({
         content: [
@@ -247,7 +247,7 @@ describe('preview render policy', () => {
 
     expect(
       candidate({ ...safeSlide, image: 'https://outside.test/image.webp' })
-    ).toBe(false);
+    ).toBe(true);
     expect(candidate({ ...safeSlide, image: 'javascript:alert(1)' })).toBe(
       false
     );

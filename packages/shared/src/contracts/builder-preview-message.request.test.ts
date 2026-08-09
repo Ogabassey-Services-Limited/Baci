@@ -64,13 +64,7 @@ describe('builder preview bridge render candidates', () => {
     ).toBe(false);
   });
 
-  it('rejects refused components and unknown props in zones', () => {
-    expect(
-      message({
-        content: [{ props: { id: 'code-1' }, type: 'CodeEmbed' }],
-        root,
-      }).success
-    ).toBe(false);
+  it('rejects unknown props in zones', () => {
     expect(
       message({
         content: [{ props: { id: 'Flex-1234' }, type: 'Flex' }],
@@ -239,12 +233,6 @@ describe('builder preview bridge render candidates', () => {
     expect(hero('/assets/hero.webp', 'linear-gradient(#123, #abcdef)')).toBe(
       true
     );
-    expect(
-      hero(
-        'https://outside.example/hero.webp',
-        'linear-gradient(#123, #abcdef)'
-      )
-    ).toBe(false);
     expect(hero('/assets/hero.webp)', 'linear-gradient(#123, #abcdef)')).toBe(
       false
     );

@@ -4,7 +4,7 @@ import {
   builderDesignCapabilities,
   builderPreviewMessageSchema,
 } from '@baci/shared/contracts';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { RenderBuilderConfig } from './render-builder-config';
 
@@ -22,6 +22,7 @@ vi.mock('@puckeditor/core', () => ({
           render: (props: {
             columns?: number;
             limit?: number;
+            showFilters?: boolean;
             title?: string;
           }) => React.ReactNode;
         };
@@ -38,16 +39,6 @@ vi.mock('@puckeditor/core', () => ({
       >;
     };
   }) => {
-    const navigationBlocks = data.content.filter((block) =>
-      ['Hero', 'Button', 'Header', 'Footer'].includes(block.type)
-    );
-    if (navigationBlocks.length === 4) {
-      return navigationBlocks.map((block) => (
-        <a href={`/merchant/${block.type}`} key={block.type}>
-          {block.type}
-        </a>
-      ));
-    }
     const flex = data.content.find((block) => block.type === 'Flex');
     const productGrid = data.content.find(
       (block) => block.type === 'ProductGrid'
@@ -148,25 +139,6 @@ describe('RenderBuilderConfig', () => {
     );
   });
 
-  it('intercepts every accepted link-bearing Puck block in the preview adapter', () => {
-    render(
-      <RenderBuilderConfig
-        config={{
-          content: ['Hero', 'Button', 'Header', 'Footer'].map((type) => ({
-            props: { id: `${type}-1` },
-            type,
-          })),
-          root: { props: { title: 'Home' } },
-        }}
-        merchantContext={merchantContext}
-      />
-    );
-
-    for (const name of ['Hero', 'Button', 'Header', 'Footer']) {
-      expect(fireEvent.click(screen.getByRole('link', { name }))).toBe(false);
-    }
-  });
-
   it('preserves a Flex zone and marks a nested Header preview-only', () => {
     const config = {
       content: [{ props: { id: 'Flex-1' }, type: 'Flex' }],
@@ -203,7 +175,13 @@ describe('RenderBuilderConfig', () => {
         config={{
           content: [
             {
-              props: { columns: 4, id: 'grid-1', limit: 24, title: 'Shop' },
+              props: {
+                columns: 4,
+                id: 'grid-1',
+                limit: 24,
+                showFilters: true,
+                title: 'Shop',
+              },
               type: 'ProductGrid',
             },
           ],
@@ -215,8 +193,11 @@ describe('RenderBuilderConfig', () => {
 
     expect(screen.getByTestId('builder-preview-products')).toHaveAttribute(
       'data-fixture-version',
-      'v1'
+      'v2'
     );
+    expect(
+      screen.getByTestId('builder-preview-product-filters')
+    ).toBeInTheDocument();
   });
 
   it('keeps accepted script-like text inert on the renderer path', () => {

@@ -3,14 +3,32 @@ import { describe, expect, it, vi } from 'vitest';
 import { PreviewProductGrid } from './preview-product-grid';
 
 describe('PreviewProductGrid', () => {
-  it('renders a versioned, bounded local-asset fixture without network access', () => {
+  it('visibly applies candidate limit and showFilters controls without network access', () => {
     const fetchSpy = vi.spyOn(window, 'fetch');
-    render(<PreviewProductGrid columns={3} limit={24} title="Featured" />);
+    const { rerender } = render(
+      <PreviewProductGrid
+        columns={3}
+        limit={2}
+        showFilters={false}
+        title="Featured"
+      />
+    );
 
     const fixture = screen.getByTestId('builder-preview-products');
-    const cards = screen.getAllByRole('article');
-    expect(fixture).toHaveAttribute('data-fixture-version', 'v1');
-    expect(cards).toHaveLength(3);
+    expect(fixture).toHaveAttribute('data-fixture-version', 'v2');
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(
+      screen.queryByTestId('builder-preview-product-filters')
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <PreviewProductGrid columns={3} limit={24} showFilters title="Featured" />
+    );
+
+    expect(screen.getAllByRole('article')).toHaveLength(24);
+    expect(
+      screen.getByTestId('builder-preview-product-filters')
+    ).toBeInTheDocument();
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();

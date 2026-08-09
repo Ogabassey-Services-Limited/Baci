@@ -3,6 +3,8 @@
 import { builderDesignCapabilities } from '@baci/shared/contracts';
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
 import type { Data } from '@puckeditor/core';
+import { areBuilderAiPropValuesEqual } from '@/lib/builder-ai/are-builder-ai-prop-values-equal';
+import { createInsertableComponentProps } from '@/lib/builder-ai/builder-ai-component-catalog';
 import { sanitizeBuilderAiProps } from '@/lib/builder-ai/sanitize-builder-ai-props';
 import { COMPONENT_SCHEMA } from './component-schema';
 
@@ -129,8 +131,8 @@ export function useCopilotBuilderActions({
       const newComponent = {
         type: componentType,
         props: {
+          ...createInsertableComponentProps(componentType, sanitized.props),
           id: createUniqueComponentId(componentType, newContent),
-          ...sanitized.props,
         },
       };
 
@@ -181,6 +183,23 @@ export function useCopilotBuilderActions({
         newContent[index].type,
         parsedUpdates
       );
+      if (Object.keys(sanitized.props).length === 0) {
+        return [
+          ...sanitized.warnings,
+          `No safe changes for ${newContent[index].type}.`,
+        ].join(' ');
+      }
+      if (
+        !Object.entries(sanitized.props).some(
+          ([key, value]) =>
+            !areBuilderAiPropValuesEqual(newContent[index].props[key], value)
+        )
+      ) {
+        return [
+          ...sanitized.warnings,
+          `No safe changes for ${newContent[index].type}.`,
+        ].join(' ');
+      }
 
       newContent[index] = {
         ...newContent[index],
@@ -191,7 +210,10 @@ export function useCopilotBuilderActions({
       };
 
       setData({ ...data, content: newContent });
-      return `Updated component at index ${index}.`;
+      return [
+        ...sanitized.warnings,
+        `Updated component at index ${index}.`,
+      ].join(' ');
     },
   });
 

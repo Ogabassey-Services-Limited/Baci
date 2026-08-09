@@ -210,6 +210,13 @@ function normalizePreviewRoot(value: unknown): unknown {
   if (!isRecord(value) || !isRecord(value.root)) return value;
   const root = value.root;
   if (
+    hasOnlyKeys(root, []) ||
+    (hasOnlyKeys(root, ['props']) &&
+      isRecord(root.props) &&
+      hasOnlyKeys(root.props, []))
+  )
+    return { ...value, root: { props: { title: 'Home' } } };
+  if (
     !hasOnlyKeys(root, ['title']) ||
     typeof root.title !== 'string' ||
     root.title.length > 120

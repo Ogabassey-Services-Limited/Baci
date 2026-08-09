@@ -156,6 +156,19 @@ describe('builder preview candidate configuration', () => {
       });
   });
 
+  it('normalizes empty persisted Puck roots to a safe default title', () => {
+    for (const root of [{}, { props: {} }]) {
+      const result = builderPreviewCandidateConfigSchema.safeParse({
+        content: [],
+        root,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success)
+        expect(result.data.root).toEqual({ props: { title: 'Home' } });
+    }
+  });
+
   it('normalizes the supported update_root output without accepting hybrid roots', () => {
     const result = builderPreviewCandidateConfigSchema.safeParse({
       content: [],

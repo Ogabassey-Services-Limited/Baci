@@ -15,6 +15,7 @@ import { MerchantContext } from '@/hooks/merchant/merchant-context';
 import type { MerchantContextType, MerchantData } from '@/hooks/merchant/types';
 import { getCuratedThemeTokenProjection } from '@/lib/storefront-defaults/curated-theme-token-projection';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
+import { previewInertLinkBlocks } from './preview-inert-link-blocks';
 import { PreviewNavigationGuard } from './preview-navigation-guard';
 import { PreviewProductGrid } from './preview-product-grid';
 
@@ -139,19 +140,27 @@ const previewBuilderConfig = {
   ...builderConfig,
   components: {
     ...builderConfig.components,
+    ...previewInertLinkBlocks,
     Flex: { render: PreviewFlex },
     ProductGrid: {
       ...builderConfig.components.ProductGrid,
       render: ({
         columns,
         limit,
+        showFilters,
         title,
       }: {
         columns?: number;
         limit?: number;
+        showFilters?: boolean;
         title?: string;
       }) => (
-        <PreviewProductGrid columns={columns} limit={limit} title={title} />
+        <PreviewProductGrid
+          columns={columns}
+          limit={limit}
+          showFilters={showFilters}
+          title={title}
+        />
       ),
     },
   },
