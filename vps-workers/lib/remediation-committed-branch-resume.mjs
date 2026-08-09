@@ -27,7 +27,12 @@ export function resumeCommittedRemediationBranch({
   );
   const prUrl = prReconciler.createOrReuseDraftPr();
   const worktreeDir = worktreeGitCommandOptions.cwd;
-  cleanupRemediationWorktree({ ...rootCommandOptions, worktreeDir });
+  cleanupRemediationWorktree({
+    childEnv: rootCommandOptions.env,
+    repoDir: rootCommandOptions.cwd,
+    runner: rootCommandOptions.runner,
+    worktreeDir,
+  });
 
   return {
     branch,

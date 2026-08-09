@@ -8,6 +8,7 @@ describe('remediation worktree cleanup', () => {
     const childEnv = { PATH: '/safe/bin' };
     const runner = (command, args, options) => {
       calls.push({ args, command, options });
+      return { status: 0, stdout: '', stderr: '' };
     };
 
     cleanupRemediationWorktree({
@@ -65,6 +66,23 @@ describe('remediation worktree cleanup', () => {
     assert.equal(
       calls.at(-1).args.join(' '),
       'worktree remove --force /worktrees/lost-pr-create'
+    );
+  });
+
+  it('surfaces a cleanup failure instead of claiming the worktree was removed', () => {
+    assert.throws(
+      () =>
+        cleanupRemediationWorktree({
+          childEnv: {},
+          repoDir: '/repo',
+          runner: () => ({
+            status: 1,
+            stdout: '',
+            stderr: 'worktree is locked',
+          }),
+          worktreeDir: '/worktrees/locked',
+        }),
+      /worktree is locked/
     );
   });
 });

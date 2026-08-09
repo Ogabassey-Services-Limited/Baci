@@ -16,7 +16,11 @@ describe('committed remediation branch resume', () => {
         createOrReuseDraftPr: () =>
           'https://github.com/ogabasseyy/Baci/pull/999',
       },
-      rootCommandOptions: { cwd: '/repo', env: {}, runner },
+      rootCommandOptions: {
+        cwd: '/repo',
+        env: { PATH: '/safe/bin' },
+        runner,
+      },
       worktreeGitCommandOptions: { cwd: '/worktrees/abc123', env: {}, runner },
       worktreeRemoteCommandOptions: {
         cwd: '/worktrees/abc123',
@@ -30,6 +34,11 @@ describe('committed remediation branch resume', () => {
       calls.at(-1).args.join(' '),
       'worktree remove --force /worktrees/abc123'
     );
+    assert.deepEqual(calls.at(-1).options, {
+      cwd: '/repo',
+      env: { PATH: '/safe/bin' },
+      shell: false,
+    });
   });
 
   it('leaves a branch at origin/main untouched', () => {

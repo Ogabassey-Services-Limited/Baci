@@ -4,12 +4,13 @@ import {
 } from './remediation-codex-output.mjs';
 
 export function runRemediationChecked(command, args, options) {
-  const result = options.runner(command, args, {
+  const commandOptions = {
     cwd: options.cwd,
     env: options.env,
     shell: options.shell || false,
-    timeout: options.timeout,
-  });
+  };
+  if (options.timeout !== undefined) commandOptions.timeout = options.timeout;
+  const result = options.runner(command, args, commandOptions);
   if (result.error) throw redactCodexError(result.error);
   if (result.status !== 0) {
     throw new Error(

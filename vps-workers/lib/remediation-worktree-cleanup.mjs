@@ -1,4 +1,5 @@
 import { findRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
+import { runRemediationChecked } from './remediation-subprocess.mjs';
 
 export function cleanupRemediationWorktree({
   branch,
@@ -19,10 +20,10 @@ export function cleanupRemediationWorktree({
       : '');
   if (!resolvedWorktreeDir) return '';
 
-  runner('git', ['worktree', 'remove', '--force', resolvedWorktreeDir], {
-    cwd: repoDir,
-    env: childEnv,
-    shell: false,
-  });
+  runRemediationChecked(
+    'git',
+    ['worktree', 'remove', '--force', resolvedWorktreeDir],
+    { cwd: repoDir, env: childEnv, runner }
+  );
   return resolvedWorktreeDir;
 }
