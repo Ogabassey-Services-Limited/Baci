@@ -1,3 +1,5 @@
+const GIT_REF_PART = /^[^\x00-\x20~^:?*\\[\x7f/]+$/u;
+
 export function validGitRef(value) {
   if (
     typeof value !== 'string' ||
@@ -20,6 +22,6 @@ export function validGitRef(value) {
         !part.endsWith('.lock') &&
         !part.startsWith('-') &&
         !part.includes('@{') &&
-        /^[A-Za-z0-9._+-]+$/.test(part)
+        Buffer.from(part).toString() === part && GIT_REF_PART.test(part)
     );
 }
