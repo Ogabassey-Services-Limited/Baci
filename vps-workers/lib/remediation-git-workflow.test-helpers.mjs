@@ -35,6 +35,9 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
           stderr: '',
         };
       }
+      if (joined.includes('pr list')) {
+        return { status: 0, stdout: '[]\n', stderr: '' };
+      }
       if (joined.includes('pr create')) {
         return {
           status: 0,

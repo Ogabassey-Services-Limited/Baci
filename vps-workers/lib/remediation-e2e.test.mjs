@@ -64,7 +64,7 @@ function createFakeTools(directory) {
   );
   writeExecutable(
     gh,
-    `#!/usr/bin/env node\nimport { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(process.argv.slice(2)) + '\\n');\nconsole.log('https://example.test/baci/pull/77');\n`
+    `#!/usr/bin/env node\nimport { appendFileSync } from 'node:fs';\nconst args = process.argv.slice(2);\nappendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + '\\n');\nconsole.log(args[0] === 'pr' && args[1] === 'list' ? '[]' : 'https://example.test/baci/pull/77');\n`
   );
   return { codex, gh, ghLog };
 }
@@ -159,7 +159,10 @@ describe('remediation lifecycle end to end', () => {
     const casePath = join(outputDir, 'case-state.autofix.json');
     const lifecycle = JSON.parse(readFileSync(casePath, 'utf8'));
     const stored = lifecycle.cases['sentry:sentry_issue:fixture-77'];
-    const [ghArgs] = readFakeGhCalls(ghLog);
+    const ghArgs = readFakeGhCalls(ghLog).find(
+      (args) => args[0] === 'pr' && args[1] === 'create'
+    );
+    assert.ok(ghArgs);
     const body = ghArgs[ghArgs.indexOf('--body') + 1];
     assert.equal(
       first.actions.some((action) => action.type === 'pr_opened'),
@@ -167,7 +170,11 @@ describe('remediation lifecycle end to end', () => {
     );
     assert.equal(stored.status, 'pr_open');
     assert.equal(stored.draftPr.url, 'https://example.test/baci/pull/77');
-    const branch = 'codex/sentry-remediation-fixture-77-fixture-e2e';
+    const branch = ghArgs[ghArgs.indexOf('--head') + 1];
+    assert.match(
+      branch,
+      /^codex\/sentry-remediation-sentry-issue-fixture-77-[a-f0-9]{12}$/
+    );
     const remoteCommit = run('git', [
       '--git-dir',
       remoteDir,
@@ -258,7 +265,12 @@ describe('remediation lifecycle end to end', () => {
     assert.equal(recurring.recurrenceCount, 2);
     assert.equal(recurring.draftPr.url, 'https://example.test/baci/pull/77');
     assert.equal(recurring.outcomes.at(-1).type, 'pr_opened');
-    assert.equal(readFakeGhCalls(ghLog).length, 1);
+    assert.equal(
+      readFakeGhCalls(ghLog).filter(
+        (args) => args[0] === 'pr' && args[1] === 'create'
+      ).length,
+      1
+    );
     assert.equal(fetchCalls, 0);
     assert.equal(existsSync(codexHit), false);
     assert.equal(existsSync(ghHit), false);

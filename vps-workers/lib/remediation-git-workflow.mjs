@@ -11,12 +11,12 @@ import {
   redactCodexError,
   redactCodexOutput,
 } from './remediation-codex-output.mjs';
+import { createRemediationDraftPrReconciler } from './remediation-draft-pr-reconciliation.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
 import {
   buildCodexRemediationPrompt,
   evaluateMergePolicy,
 } from './remediation-policy.mjs';
-import { buildRemediationPrBody } from './remediation-pr-body.mjs';
 import { writeRemediationResultArtifact } from './remediation-result-artifact.mjs';
 import { parseRemediationStatusFiles } from './remediation-status-files.mjs';
 
@@ -86,11 +86,6 @@ function readPositiveInt(value, fallback) {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function branchNameFor(candidate, runId) {
-  const source = sanitizeRunId(candidate.sample?.source || 'vercel');
-  return `codex/${source}-remediation-${candidate.fingerprint}-${runId}`;
-}
-
 function cleanupWorktree({ childEnv, repoDir, runner, worktreeDir }) {
   if (!worktreeDir) {
     return;
@@ -122,7 +117,6 @@ export function runRemediationAutofix({
   }
 
   const runId = sanitizeRunId(env.BACI_REMEDIATION_RUN_ID);
-  const branch = branchNameFor(candidate, runId);
   const commandEnv = { ...process.env, ...env };
   const {
     child: childEnv,
@@ -148,10 +142,35 @@ export function runRemediationAutofix({
   };
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
+  const prReconciler = createRemediationDraftPrReconciler({
+    candidate,
+    ghBin,
+    options: rootRemoteCommandOptions,
+  });
+  const { branch } = prReconciler;
   let cleanupCompletedWorktree = false;
   let worktreeCreated = false;
   try {
     runChecked('git', ['fetch', 'origin', 'main'], rootRemoteCommandOptions);
+    const existingPrUrl = prReconciler.existingDraftPrUrl();
+    if (existingPrUrl) {
+      return {
+        branch,
+        changedFiles: [],
+        prUrl: existingPrUrl,
+        type: 'pr_opened',
+        worktreeDir,
+      };
+    }
+    if (prReconciler.remoteBranchExists()) {
+      return {
+        branch,
+        changedFiles: [],
+        prUrl: prReconciler.createOrReuseDraftPr(),
+        type: 'pr_opened',
+        worktreeDir,
+      };
+    }
     runChecked(
       'git',
       ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
@@ -256,28 +275,7 @@ export function runRemediationAutofix({
       ['-c', 'core.hooksPath=/dev/null', 'push', '-u', 'origin', branch],
       worktreeRemoteCommandOptions
     );
-    const prUrl = runChecked(
-      ghBin,
-      [
-        'pr',
-        'create',
-        '--base',
-        'main',
-        '--head',
-        branch,
-        '--title',
-        `Fix ${candidate.sample?.source || 'production'} error ${candidate.fingerprint}`,
-        '--body',
-        buildRemediationPrBody(candidate),
-        '--draft',
-      ],
-      {
-        ...worktreeCommandOptions,
-        env: {
-          ...gitEnv,
-        },
-      }
-    ).trim();
+    const prUrl = prReconciler.createOrReuseDraftPr();
 
     cleanupCompletedWorktree = true;
     return {
