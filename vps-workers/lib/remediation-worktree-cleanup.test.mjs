@@ -1,4 +1,13 @@
 import assert from 'node:assert/strict';
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { cleanupRemediationWorktree } from './remediation-worktree-cleanup.mjs';
 
@@ -92,6 +101,47 @@ describe('remediation worktree cleanup', () => {
           args.join(' ') === 'worktree remove --force /worktrees/completed'
       ).length,
       1
+    );
+  });
+
+  it('removes an explicit worktree when Git registers its canonical path', (t) => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-worktree-path-'));
+    const physicalRoot = join(directory, 'physical');
+    const logicalRoot = join(directory, 'logical');
+    const registeredWorktree = join(physicalRoot, 'completed');
+    const requestedWorktree = join(logicalRoot, 'completed');
+    mkdirSync(registeredWorktree, { recursive: true });
+    symlinkSync(physicalRoot, logicalRoot, 'dir');
+    t.after(() => rmSync(directory, { force: true, recursive: true }));
+    const calls = [];
+    const runner = (command, args, options) => {
+      calls.push({ args, command, options });
+      if (args.join(' ') === 'worktree list --porcelain') {
+        return {
+          status: 0,
+          stdout: `worktree ${realpathSync(registeredWorktree)}\n`,
+          stderr: '',
+        };
+      }
+      return { status: 0, stdout: '', stderr: '' };
+    };
+
+    assert.equal(
+      cleanupRemediationWorktree({
+        childEnv: {},
+        repoDir: '/repo',
+        runner,
+        worktreeDir: requestedWorktree,
+      }),
+      realpathSync(registeredWorktree)
+    );
+    assert.equal(
+      calls.some(
+        ({ args }) =>
+          args.join(' ') ===
+          `worktree remove --force ${realpathSync(registeredWorktree)}`
+      ),
+      true
     );
   });
 

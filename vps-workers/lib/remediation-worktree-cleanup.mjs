@@ -1,5 +1,14 @@
+import { realpathSync } from 'node:fs';
 import { findRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import { runRemediationChecked } from './remediation-subprocess.mjs';
+
+const canonicalWorktreePath = (path) => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+};
 
 function registeredExplicitWorktree({
   childEnv,
@@ -12,11 +21,20 @@ function registeredExplicitWorktree({
     ['worktree', 'list', '--porcelain'],
     { cwd: repoDir, env: childEnv, runner }
   );
-  return records
-    .split(/\r?\n\r?\n/)
-    .some((record) => record.split(/\r?\n/).includes(`worktree ${worktreeDir}`))
-    ? worktreeDir
-    : '';
+  const canonicalRequestedWorktree = canonicalWorktreePath(worktreeDir);
+  for (const record of records.split(/\r?\n\r?\n/)) {
+    const worktreeLine = record
+      .split(/\r?\n/)
+      .find((line) => line.startsWith('worktree '));
+    if (!worktreeLine) continue;
+    const registeredWorktree = worktreeLine.slice('worktree '.length);
+    if (
+      canonicalWorktreePath(registeredWorktree) === canonicalRequestedWorktree
+    ) {
+      return registeredWorktree;
+    }
+  }
+  return '';
 }
 
 export function cleanupRemediationWorktree({
