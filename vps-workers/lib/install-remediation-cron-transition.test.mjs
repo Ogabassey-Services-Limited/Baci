@@ -19,11 +19,12 @@ describe('remediation cron transition', () => {
     assert.equal(outcome.crontab, '');
   });
 
-  it('blocks a direct launch after installing barrier-aware entrypoints', () => {
+  it('blocks a new direct entrypoint while preserving its legacy worker contract', () => {
     const outcome = runTransition('launch-race');
 
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
     assert.match(outcome.remoteEntry, /BARRIER_MARKER/);
+    assert.equal(outcome.remoteFactory, '');
   });
 
   it('waits for a pre-barrier documented direct job before rewriting the crontab', () => {

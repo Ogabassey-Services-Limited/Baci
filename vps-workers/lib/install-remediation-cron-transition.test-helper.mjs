@@ -76,6 +76,10 @@ export function runTransition(scenario) {
     join(remoteDirectory, 'lib', 'remediation-global-lock.mjs'),
     'export {};\n'
   );
+  writeFileSync(
+    join(remoteDirectory, 'lib', 'remediation-worker.mjs'),
+    "export const runRemediationWorker = () => 'legacy';\n"
+  );
   writeExecutable(
     join(binDirectory, 'ssh'),
     `#!/usr/bin/env bash
@@ -254,6 +258,14 @@ bash -c "$1"
         join(jobsDirectory, 'vercel-error-remediator.mjs'),
         'utf8'
       ),
+      remoteFactory: existsSync(
+        join(remoteDirectory, 'lib', 'remediation-worker-factory.mjs')
+      )
+        ? readFileSync(
+            join(remoteDirectory, 'lib', 'remediation-worker-factory.mjs'),
+            'utf8'
+          )
+        : '',
       result,
     };
   } finally {

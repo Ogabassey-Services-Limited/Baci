@@ -131,6 +131,14 @@ export function writeStage(
     join(lib, 'remediation_cron_transition_crontab.py'),
     readFileSync(crontabSource)
   );
+  writeFileSync(
+    join(lib, 'remediation-worker.mjs'),
+    "import './remediation-worker-factory.mjs';\nexport const runRemediationWorker = () => 'new';\n"
+  );
+  writeFileSync(
+    join(lib, 'remediation-worker-factory.mjs'),
+    'export const factoryLoaded = true;\n'
+  );
   for (const name of [
     'vercel-error-remediator',
     'sentry-mobile-error-remediator',
@@ -138,7 +146,7 @@ export function writeStage(
   ]) {
     writeJob(
       join(jobs, `${name}.mjs`),
-      "import { existsSync } from 'node:fs';\nprocess.exitCode = existsSync(process.env.BARRIER_MARKER) ? 75 : 0;\n"
+      "import { existsSync } from 'node:fs';\nimport { runRemediationWorker } from '../lib/remediation-worker.mjs';\nif (typeof runRemediationWorker !== 'function') throw new Error('worker contract missing');\nprocess.exitCode = existsSync(process.env.BARRIER_MARKER) ? 75 : 0;\n"
     );
   }
 }
