@@ -1,6 +1,40 @@
-import { linkSync } from 'node:fs';
+import { linkSync, readFileSync } from 'node:fs';
 
-function acquireReclaimClaim({
+const claimSnapshot = (claimPath, stat) => {
+  const metadata = stat(claimPath, { throwIfNoEntry: false });
+  if (!metadata) return null;
+  let content;
+  try {
+    content = readFileSync(claimPath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+  let owner;
+  try {
+    owner = JSON.parse(content);
+  } catch {
+    owner = null;
+  }
+  return {
+    content,
+    dev: metadata.dev,
+    ino: metadata.ino,
+    mtimeMs: metadata.mtimeMs,
+    owner,
+    size: metadata.size,
+  };
+};
+
+const sameClaimSnapshot = (expected, current) =>
+  current &&
+  expected.content === current.content &&
+  expected.dev === current.dev &&
+  expected.ino === current.ino &&
+  expected.mtimeMs === current.mtimeMs &&
+  expected.size === current.size;
+
+function acquireRecoverableClaim({
   claimPath,
   lockPath,
   ownerPath,
@@ -10,8 +44,6 @@ function acquireReclaimClaim({
   stat,
   unlink,
   completeOwner,
-  readLockOwner,
-  sameLockOwner,
   removeOwnerPath,
   isStaleLock,
 }) {
@@ -22,18 +54,19 @@ function acquireReclaimClaim({
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
     }
-    const claimOwner = readLockOwner(claimPath);
+    const snapshot = claimSnapshot(claimPath, stat);
     if (
-      !completeOwner(claimOwner) ||
+      !snapshot ||
       !isStaleLock({
         lockPath: claimPath,
-        owner: claimOwner,
+        modifiedAt: snapshot.mtimeMs,
+        owner: snapshot.owner,
         nowMs,
         isAlive,
         startedAt,
         stat,
       }) ||
-      !sameLockOwner(claimOwner, readLockOwner(claimPath))
+      !sameClaimSnapshot(snapshot, claimSnapshot(claimPath, stat))
     ) {
       return false;
     }
@@ -42,7 +75,9 @@ function acquireReclaimClaim({
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
     }
-    removeOwnerPath(`${lockPath}.owner-${claimOwner.token}`, unlink);
+    if (completeOwner(snapshot.owner)) {
+      removeOwnerPath(`${lockPath}.owner-${snapshot.owner.token}`, unlink);
+    }
   }
   return false;
 }
@@ -66,7 +101,7 @@ export function reclaimStaleLock({
     completeOwner(owner) ? owner.token : 'ownerless'
   }`;
   if (
-    !acquireReclaimClaim({
+    !acquireRecoverableClaim({
       claimPath,
       lockPath,
       ownerPath,
@@ -76,8 +111,6 @@ export function reclaimStaleLock({
       stat,
       unlink,
       completeOwner,
-      readLockOwner,
-      sameLockOwner,
       removeOwnerPath,
       isStaleLock,
     })

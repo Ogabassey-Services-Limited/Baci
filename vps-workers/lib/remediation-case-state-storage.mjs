@@ -67,8 +67,15 @@ const removeOwnerPath = (ownerPath, unlink) => {
   }
 };
 
-const isStaleLock = ({ lockPath, owner, nowMs, isAlive, startedAt, stat }) => {
-  const modifiedAt = stat(lockPath, { throwIfNoEntry: false })?.mtimeMs;
+const isStaleLock = ({
+  lockPath,
+  stat,
+  modifiedAt = stat(lockPath, { throwIfNoEntry: false })?.mtimeMs,
+  owner,
+  nowMs,
+  isAlive,
+  startedAt,
+}) => {
   if (
     completeOwner(owner) &&
     nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS
